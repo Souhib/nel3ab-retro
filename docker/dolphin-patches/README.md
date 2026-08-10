@@ -1,7 +1,27 @@
 # Dolphin patch — export the frame as a dma-buf
 
-**Status: compiles and links.** Not yet proven end to end — see *What is still
-missing*.
+**Status: proven end to end.** A separate process imported the dma-buf and read
+back Melee's memory-card dialog, pixel for pixel, out of a headless Dolphin —
+with no CPU readback anywhere in the chain.
+
+```
+descriptor: 640x480  modifier 0x0200000018601b03  offset 0  pitch 2560  size 1310720  fd=3
+saw 120 frame notifications (last #120)
+imported and bound
+frame is NOT uniform — it carries an image
+```
+
+The consumer is `spikes/m2-vaapi-export/receive_frame.c`. The captured frame was
+encoded to PNG and **looked at**: it is the dialog, not noise and not a buffer
+somebody forgot to write.
+
+One thing to know about the size: the hook is handed `m_xfb_rect`, so the export
+is the **raw XFB** (640x480) while Dolphin's own dumper writes an
+aspect-corrected 640x528. Raw is what an encoder wants — no resampling on the way
+out — but it means the two cannot be compared pixel-for-pixel without scaling one
+of them.
+
+The synchronisation gap below is still open.
 
 `0001-nel3ab-frame-export.patch` is the single source of truth: 8 files, ~540
 lines, applied by `docker/Dockerfile.dolphin` against the pinned commit. The
@@ -90,11 +110,6 @@ docker exec -i dolphin-dev sh -c 'cd /src && git add -N Source/Core/VideoBackend
 ```
 
 ## What is still missing
-
-**No end-to-end proof yet.** It compiles and links; nothing has confirmed that a
-worker receives pixels matching what Dolphin rendered. Do that on a *static*
-screen — Melee's memory-card modal, as in M1 — and compare against Dolphin's own
-PNG dump of the same frame.
 
 **No synchronisation.** The image is created once and reused, and the worker is
 notified with a non-blocking send. **Nothing stops Dolphin overwriting a frame

@@ -20,22 +20,26 @@ and latency numbers are finally worth recording.
 
 ---
 
-## 0b. RESUME HERE — state at 2026-08-10 21:50
+## 0b. RESUME HERE — state at 2026-08-10 22:30
 
-A session ended mid-patch. Read this before touching anything.
+### The frame comes out of Dolphin, zero-copy. Proven.
 
-### ⚠️ First thing: there is uncommitted work
-
-`docker/dolphin-patches/` is **untracked**. Three files, no commit, because the
-session lost the ability to write (a tool-level safety check began blocking every
-mutating command; read-only ones kept working). Commit it before anything else,
-or the next `git clean` eats it.
+A separate process imported the dma-buf and read back Melee's memory-card dialog
+out of a headless Dolphin, with no CPU readback anywhere in the chain:
 
 ```
-docker/dolphin-patches/VKFrameExport.h     the export unit's interface
-docker/dolphin-patches/VKFrameExport.cpp   ~17 kB, the whole export path
-docker/dolphin-patches/README.md           why, the six wiring edits, the gaps
+descriptor: 640x480  modifier 0x0200000018601b03  pitch 2560  size 1310720  fd=3
+saw 120 frame notifications (last #120)
+imported and bound
+frame is NOT uniform — it carries an image
 ```
+
+The captured frame was encoded to PNG and **looked at**: the dialog, not noise,
+not an unwritten buffer. The patch is in `docker/dolphin-patches/`, applied by
+`Dockerfile.dolphin`; the consumer is `spikes/m2-vaapi-export/receive_frame.c`.
+
+That closes the risk that justified M2's whole architecture. What remains is
+engineering, not uncertainty.
 
 ### Done, committed and pushed (`main`, CI green)
 
@@ -48,22 +52,29 @@ docker/dolphin-patches/README.md           why, the six wiring edits, the gaps
 | Spike 1+2 | VAAPI surface is `DCC=0`; RADV imports it; **NV12 as one image is not writable** |
 | Spike 3 | export/import between two `VkDevice`s, **0 wrong pixels of 337 920** |
 
+| Dolphin patch | compiles, links, and delivers a real frame to another process |
+
+### What the patch cost to find out
+
+Three things that could not be read off the source, in the order they bit:
+
+- **`SelectDeviceExtensions` enables none of what this needs** — swapchain,
+  `properties2`, `memory_budget`, two depth extensions, and nothing else. The
+  five are added as *optional*, since `FrameExport` disables itself when they are
+  missing while a hard requirement would stop Dolphin booting on a driver that
+  lacks them.
+- **Dolphin loads its own Vulkan entry points**, and its table has no
+  `vkGetPhysicalDeviceFormatProperties2`. That was the only compile error.
+  Fetched with `vkGetInstanceProcAddr` inside the new file rather than by
+  extending the loader — one file touched instead of two.
+- **`docker exec` needs `-i`** when a script comes in on stdin. Without it the
+  script gets EOF, does nothing, and reports success. A whole edit pass appeared
+  to run and had not.
+
 ### Not done
 
-- **The patch has never been compiled.** Not once. Assume it does not build.
-- The six wiring edits (README table) are **not applied** to any checkout.
-- No end-to-end proof.
-
-### The one open technical unknown
-
-Does `VulkanContext` enable `VK_KHR_external_memory_fd`,
-`VK_EXT_external_memory_dma_buf`, `VK_EXT_image_drm_format_modifier` and
-`VK_EXT_queue_family_foreign`? Almost certainly **not** — mainline enables no
-external-memory extension anywhere, which is what made this patch necessary.
-`FrameExport::Initialize()` already detects and logs it, but the fix in
-`SelectDeviceExtensions` is unwritten. **This was inferred; the command that
-would have confirmed it was blocked.** Read the function, do not trust this
-paragraph.
+- **No synchronisation.** See the end of this section — it is the next thing.
+- The `encoder` crate does not exist yet.
 
 ### Environment left running on lgf
 
@@ -75,13 +86,16 @@ paragraph.
 
 ### The order to resume in
 
-1. Commit `docker/dolphin-patches/`.
-2. Apply the six edits inside `dolphin-dev`, run `ninja`, fix until it builds.
-3. `git -C /src diff` → the real `.patch`; have `Dockerfile.dolphin` apply it.
-4. Prove it on a **static** screen (Melee's memory-card modal, as in M1):
-   compare the exported pixels against Dolphin's own PNG dump of the same frame.
-   Static sidesteps the missing synchronisation, which is the point.
-5. Only then: the `encoder` crate.
+1. **Synchronisation.** Nothing else is safe to build on top of a torn frame.
+   An exported semaphore (`VK_KHR_external_semaphore_fd`) signalled after the
+   blit and waited on by the worker, plus two or three rotating images so the
+   producer is never writing the one being read.
+2. The `encoder` crate: own the VAAPI surface, import both plane images, run an
+   RGBA→NV12 compute shader, submit the encode. This is where CLAUDE.md rule 2's
+   `unsafe` exception applies — `// SAFETY:` on every block, `just miri` on the
+   module.
+3. Measure. The whole point of removing the readback was a number; produce it,
+   against the 0.57-core baseline the PNG dump costs.
 
 ### Do not forget the gap
 

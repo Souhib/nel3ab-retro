@@ -154,17 +154,45 @@ non-interactive scripts with exit 255.
 ~/roms/gc/melee.rvz         # PAL — 50 Hz, do not use for timing work
 ```
 
-### ⚠️ Do not disturb — this is a live server
+### The GPU is ours — Wolf was removed on 2026-08-10
+
+Wolf, MoonlightWeb and the old Selkies/webtop stack were stopped and deleted at
+the owner's request, to commit the machine to this project. **`/dev/dri` and
+`/dev/uinput` now have no other user**, so an encode or latency measurement here
+is finally meaningful — which it never was before.
+
+Everything is in `~/wolf-teardown-backup-20260810-210542.tar.gz` (305 MB),
+including the Melee memory card (`01-GALE-SuperSmashBros*.gci`) and the
+known-good `GCPadNew.ini` from the Wolf era. Traefik lost its `guests`
+entrypoint (`:8444`) and its MoonlightWeb route; ufw went from 24 rules to 10.
+
+⚠️ **Do not restore that memory card into a test's user directory.** The
+integration test's whole observable is Melee blocking on "Create Game Data?",
+which only happens when there is *no* card.
+
+### ⚠️ Still live — do not disturb
 | Service | Holds |
 |---|---|
-| **Wolf** (cloud gaming) | ports 47984/47989/48010, `/dev/uinput`, `/dev/dri` |
-| **MoonlightWeb** | ports 48443/48080 |
-| **Traefik** | 80/443 (public), 8443 (tailnet admin), 8444 (guests) |
+| **Traefik** | 80/443 (public), 8443 (tailnet admin) |
 | Jellyfin, Sonarr, Radarr, Bazarr, qBittorrent | NFS `/mnt/nas` |
 | Beszel, Uptime Kuma | monitoring |
 
-- **The GPU is shared with Wolf.** For any latency or encode measurement, make
-  sure no Wolf session is live, or the numbers are meaningless.
+### Baseline, GPU exclusive (2026-08-10)
+
+Melee NTSC, headless, Vulkan, sitting on the memory-card modal. `100 %` is one
+core of the 6c/12t Ryzen 5 3600.
+
+| | CPU | Speed |
+|---|---|---|
+| Emulation alone | **19.5 %** | — |
+| + PNG frame dump | **76.8 %** | **59.9 fps** (= 59.94 Hz, full speed) |
+
+Two things follow. The 60 fps measured earlier *while Wolf was streaming* was not
+luck. And **the frame dump costs ~3x the emulation itself** — that is the
+GPU→CPU readback M2 exists to delete.
+
+⚠️ This is a **static menu**, not a four-player match. Treat it as a floor, not
+as a gameplay baseline.
 - **`ufw` is active.** A container reaching a host service needs an explicit rule
   (`ufw allow from 172.16.0.0/12 to any port <p> proto tcp`). This silently
   *drops* — the symptom is a hang and a gateway timeout, never a refusal.

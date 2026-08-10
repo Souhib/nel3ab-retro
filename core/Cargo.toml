@@ -6,6 +6,9 @@ members = ["crates/*"]
 edition = "2024"
 rust-version = "1.97"
 license = "AGPL-3.0-only"
+# Workspace-internal crates: never published, so `cargo publish` cannot be run by
+# accident and cargo-deny can tell ours apart from third-party code.
+publish = false
 repository = "https://github.com/Souhib/nel3ab-retro"
 
 [workspace.dependencies]

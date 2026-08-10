@@ -6,6 +6,11 @@ yanked = "deny"
 
 [licenses]
 version = 2
+# This list governs THIRD-PARTY code only. Our own crates are AGPL-3.0-only and
+# never leave the workspace, so they are excluded rather than allow-listed —
+# allow-listing AGPL here would also silently admit an AGPL dependency, which is
+# a different decision and not one we have made.
+private = { ignore = true }
 # AGPL project: permissive deps only, plus copyleft we deliberately accept.
 allow = ["MIT", "Apache-2.0", "Apache-2.0 WITH LLVM-exception", "BSD-2-Clause",
          "BSD-3-Clause", "ISC", "Unicode-3.0", "Zlib", "MPL-2.0"]
@@ -14,6 +19,10 @@ confidence-threshold = 0.93
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"   # a `*` version makes the lockfile the only real pin
+# A `path` dependency inside this workspace is not the risk that rule targets:
+# it resolves to a directory we control, in the same commit, not to whatever the
+# registry serves today. Registry wildcards stay denied.
+allow-wildcard-paths = true
 
 [sources]
 unknown-registry = "deny"

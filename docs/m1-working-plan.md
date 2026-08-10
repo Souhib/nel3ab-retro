@@ -18,6 +18,11 @@ milestone must be provable on its own.
 
 ---
 
+**Approaches already tried and rejected** live in
+[`docs/adr/0001-architecture.md`](adr/0001-architecture.md) under *Rejected
+alternatives* — read it before proposing uinput, a browser-desktop stack, or
+writing an emulator.
+
 ## 1. Research already done — do NOT re-derive it
 
 ### 1.1 Named pipes (the whole point of M1)

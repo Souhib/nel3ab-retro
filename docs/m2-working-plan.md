@@ -20,6 +20,80 @@ and latency numbers are finally worth recording.
 
 ---
 
+## 0b. RESUME HERE — state at 2026-08-10 21:50
+
+A session ended mid-patch. Read this before touching anything.
+
+### ⚠️ First thing: there is uncommitted work
+
+`docker/dolphin-patches/` is **untracked**. Three files, no commit, because the
+session lost the ability to write (a tool-level safety check began blocking every
+mutating command; read-only ones kept working). Commit it before anything else,
+or the next `git clean` eats it.
+
+```
+docker/dolphin-patches/VKFrameExport.h     the export unit's interface
+docker/dolphin-patches/VKFrameExport.cpp   ~17 kB, the whole export path
+docker/dolphin-patches/README.md           why, the six wiring edits, the gaps
+```
+
+### Done, committed and pushed (`main`, CI green)
+
+| | |
+|---|---|
+| M1 | complete — input reaches headless Dolphin, the game reacts |
+| Wolf teardown | GPU exclusive; backup in `~/wolf-teardown-backup-20260810-210542.tar.gz` |
+| Baseline | emulation 19.5 % of a core, +PNG dump 76.8 % at 59.9 fps |
+| Option B | killed by experiment — nogui has no Wayland platform |
+| Spike 1+2 | VAAPI surface is `DCC=0`; RADV imports it; **NV12 as one image is not writable** |
+| Spike 3 | export/import between two `VkDevice`s, **0 wrong pixels of 337 920** |
+
+### Not done
+
+- **The patch has never been compiled.** Not once. Assume it does not build.
+- The six wiring edits (README table) are **not applied** to any checkout.
+- No end-to-end proof.
+
+### The one open technical unknown
+
+Does `VulkanContext` enable `VK_KHR_external_memory_fd`,
+`VK_EXT_external_memory_dma_buf`, `VK_EXT_image_drm_format_modifier` and
+`VK_EXT_queue_family_foreign`? Almost certainly **not** — mainline enables no
+external-memory extension anywhere, which is what made this patch necessary.
+`FrameExport::Initialize()` already detects and logs it, but the fix in
+`SelectDeviceExtensions` is unwritten. **This was inferred; the command that
+would have confirmed it was blocked.** Read the function, do not trust this
+paragraph.
+
+### Environment left running on lgf
+
+- container `dolphin-dev` (from `nel3ab/dolphin-build:216ffb45`) holding `/src`
+  and `/build`, so `ninja` is incremental — **seconds per iteration instead of a
+  25-minute image rebuild.** `docker rm -f dolphin-dev` if it is in the way.
+- `souhib` was added to `render` and `video`; `sg render -c '…'` covers a shell
+  where the new groups are not yet active.
+
+### The order to resume in
+
+1. Commit `docker/dolphin-patches/`.
+2. Apply the six edits inside `dolphin-dev`, run `ninja`, fix until it builds.
+3. `git -C /src diff` → the real `.patch`; have `Dockerfile.dolphin` apply it.
+4. Prove it on a **static** screen (Melee's memory-card modal, as in M1):
+   compare the exported pixels against Dolphin's own PNG dump of the same frame.
+   Static sidesteps the missing synchronisation, which is the point.
+5. Only then: the `encoder` crate.
+
+### Do not forget the gap
+
+The export image is created once and reused, and the worker is notified with a
+non-blocking send. **Nothing stops Dolphin overwriting a frame the worker is
+still reading.** Deferred on purpose so step 4 can be done at all; unshippable
+until an exported semaphore (or sync_file) per frame and two or three rotating
+images replace it. A torn frame in a live match is exactly the class of bug this
+project exists to delete.
+
+---
+
 ## 1. Research already done — do NOT re-derive it
 
 ### 1.1 Headless really does render, and there is a clean hook

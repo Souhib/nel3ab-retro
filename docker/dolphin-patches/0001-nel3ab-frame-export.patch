@@ -13,10 +13,10 @@ index 5f5583f..8574505 100644
    VKShader.cpp
 diff --git a/Source/Core/VideoBackends/Vulkan/VKFrameExport.cpp b/Source/Core/VideoBackends/Vulkan/VKFrameExport.cpp
 new file mode 100644
-index 0000000..ee6cda8
+index 0000000..6e4308d
 --- /dev/null
 +++ b/Source/Core/VideoBackends/Vulkan/VKFrameExport.cpp
-@@ -0,0 +1,475 @@
+@@ -0,0 +1,489 @@
 +// Copyright 2026 nel3ab-retro
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +
@@ -40,6 +40,7 @@ index 0000000..ee6cda8
 +#include "Common/Logging/Log.h"
 +#include "Common/MathUtil.h"
 +#include "VideoBackends/Vulkan/CommandBufferManager.h"
++#include "VideoBackends/Vulkan/VKGfx.h"
 +#include "VideoBackends/Vulkan/VKTexture.h"
 +#include "VideoBackends/Vulkan/VulkanContext.h"
 +#include "VideoCommon/AbstractTexture.h"
@@ -416,6 +417,19 @@ index 0000000..ee6cda8
 +  s_state.ever_written = true;
 +
 +  source->TransitionToLayout(command_buffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
++
++  // Submit it. Nothing else will.
++  //
++  // Recording the blit is not the same as running it, and in headless there is no
++  // presentation to end the frame — Dolphin only submits when something forces it
++  // to. Without this the export silently depended on Dolphin's own frame dumper
++  // being enabled, because its readback is what flushed the queue. That is the
++  // very readback this patch exists to remove, so the dependency made the whole
++  // thing circular: it appeared to work, and only while it was pointless.
++  //
++  // Measured 2026-08-10: without this line the consumer reads an all-zero image;
++  // with it, the game's picture.
++  static_cast<VKGfx*>(g_gfx.get())->ExecuteCommandBuffer(false, false);
 +
 +  FrameReady ready = {};
 +  ready.magic = FRAME_MAGIC;

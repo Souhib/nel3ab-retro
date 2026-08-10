@@ -22,7 +22,7 @@ and latency numbers are finally worth recording.
 
 ## 0b. RESUME HERE — state at 2026-08-10 22:30
 
-### The frame comes out of Dolphin, zero-copy. Proven.
+### The frame comes out of Dolphin, zero-copy. Proven — on the second try.
 
 A separate process imported the dma-buf and read back Melee's memory-card dialog
 out of a headless Dolphin, with no CPU readback anywhere in the chain:
@@ -53,6 +53,22 @@ engineering, not uncertainty.
 | Spike 3 | export/import between two `VkDevice`s, **0 wrong pixels of 337 920** |
 
 | Dolphin patch | compiles, links, and delivers a real frame to another process |
+
+### The proof that nearly wasn't
+
+The first run of that test had Dolphin's frame dumper enabled, and passed.
+Repeated with it off, the consumer read an all-zero image every time.
+
+The export was relying on the dumper's GPU→CPU readback to flush the Vulkan
+queue — the readback this whole milestone exists to delete. It worked, and only
+while it was pointless. Recording a blit is not running it, and in headless there
+is no presentation to end the frame, so nothing submits the command buffer unless
+someone makes it. `OnFrame` now does.
+
+Worth keeping, because everything looked fine: every Vulkan call succeeded, the
+image was created, the memory exported, the fd delivered, 600 frames announced,
+no error logged anywhere — and no pixel ever moved. "It compiles" and "it
+delivers" are not related claims, and neither is "it passed once".
 
 ### What the patch cost to find out
 

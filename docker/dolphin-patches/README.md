@@ -1,8 +1,16 @@
 # Dolphin patch — export the frame as a dma-buf
 
-**Status: proven end to end.** A separate process imported the dma-buf and read
-back Melee's memory-card dialog, pixel for pixel, out of a headless Dolphin —
-with no CPU readback anywhere in the chain.
+**Status: proven end to end, with Dolphin's own frame dumper OFF** — which is the
+only version of that claim worth anything, and it took a second try to earn.
+
+The first "proof" was run with frame dumping enabled and passed. Repeated without
+it, the consumer read an all-zero image. The export had been silently relying on
+the dumper's readback to flush the Vulkan queue — the very readback this patch
+exists to delete. It worked, and only while it was pointless. `OnFrame` now
+submits the command buffer itself; see *Submit it, nothing else will*.
+
+A separate process imported the dma-buf and read back Melee's memory-card dialog
+out of a headless Dolphin, with no CPU readback anywhere in the chain.
 
 ```
 descriptor: 640x480  modifier 0x0200000018601b03  offset 0  pitch 2560  size 1310720  fd=3
@@ -68,6 +76,23 @@ game session is worse.
 | `VideoBackends/Vulkan/VKGfx.cpp` | `Initialize()` from the constructor, `Shutdown()` from a no-longer-defaulted destructor |
 | `VideoBackends/Vulkan/CMakeLists.txt` | builds the new files |
 | `VideoBackends/Vulkan/VulkanContext.cpp` | **enables the five device extensions** — mainline enables none of them |
+
+### Submit it, nothing else will
+
+Recording a blit is not running it. In headless there is no presentation to end
+the frame, so Dolphin submits its command buffer only when something forces it
+to — and with frame dumping on, that something was the dumper's readback. Turn
+the dumper off and the queue never flushes, so the consumer reads a buffer that
+was never written.
+
+`OnFrame` therefore calls `VKGfx::ExecuteCommandBuffer(false, false)` after the
+blit: submit, do not wait. Measured 2026-08-10 — without that line the consumer
+gets an all-zero image, with it the game's picture.
+
+This is the clearest argument in the whole milestone for insisting on an
+end-to-end proof. Every Vulkan call succeeded. The image was created, the memory
+exported, the fd delivered, 600 frames announced. Nothing anywhere reported an
+error, and no pixel ever moved.
 
 ### Three things the first build taught
 

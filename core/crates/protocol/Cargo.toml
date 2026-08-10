@@ -1,0 +1,18 @@
+[package]
+name = "nel3ab-protocol"
+description = "Wire types shared by the worker, the API and the browser client."
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+thiserror.workspace = true
+
+[dev-dependencies]
+proptest = "1"
+rstest = "0.25"
+
+[lints]
+workspace = true

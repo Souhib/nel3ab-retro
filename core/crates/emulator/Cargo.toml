@@ -1,0 +1,16 @@
+[package]
+name = "nel3ab-emulator"
+description = "Dolphin process lifecycle and named-pipe input injection."
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+thiserror.workspace = true
+tracing.workspace = true
+nel3ab-protocol = { path = "../protocol" }
+
+[lints]
+workspace = true

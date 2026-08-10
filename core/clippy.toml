@@ -1,0 +1,23 @@
+# Thresholds are deliberate, not defaults left in place.
+
+# The input hot path is called ~120x/second per player; a function that grows past
+# this is doing more than one thing and becomes hard to reason about for latency.
+cognitive-complexity-threshold = 15
+
+# Anything larger is passed by reference. 128 bytes is two cache lines — beyond
+# that a by-value move is a memcpy on a path we measure.
+trivial-copy-size-limit = 128
+
+# Panicking in a worker kills a live game session. Keep the list of allowed
+# panicking macros empty so `todo!()`/`unimplemented!()` can't reach main.
+allow-panic-in-tests = true
+
+# Domain vocabulary for `clippy::doc_markdown`. These are PRODUCT and PROTOCOL
+# names appearing in prose, not code identifiers — backticking them would be
+# typographically wrong. `..` keeps clippy's own default list, so the lint still
+# catches genuine un-backticked identifiers such as `InputFrame`.
+doc-valid-idents = [
+    "GameCube", "DualSense", "DataChannel", "WebRTC", "VAAPI", "NV12",
+    "RDNA2", "RDNA4", "OpenAPI", "TypeScript", "FastAPI",
+    ".."
+]

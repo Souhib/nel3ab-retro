@@ -1,0 +1,45 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.97"
+license = "AGPL-3.0-only"
+repository = "https://github.com/Souhib/nel3ab-retro"
+
+[workspace.dependencies]
+thiserror = "2"
+tracing = "0.1"
+
+[workspace.lints.rust]
+# Deny-by-default: the crate must compile clean. An `allow` below is a decision,
+# never an oversight.
+unsafe_code = "forbid"
+missing_docs = "warn"
+unused_must_use = "deny"
+
+[workspace.lints.clippy]
+# Curated families, explicitly — NOT `clippy::all` at max level, which shifts
+# between releases and turns an upgrade into an unrelated red build.
+pedantic = { level = "warn", priority = -1 }
+nursery  = { level = "warn", priority = -1 }
+
+# `unwrap`/`expect` are how a worker turns a recoverable error into a dead session.
+# Denied in library code; the test profile re-allows them (see each crate's cfg).
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+
+# Correctness families worth the noise on a latency-critical service.
+float_cmp = "deny"
+integer_division = "deny"
+lossy_float_literal = "deny"
+
+# ── Justified allows (one line of reasoning each — no bare allows) ──
+# The crates are small and cohesive; a module-name repeat (protocol::input::Input)
+# reads BETTER than an artificially disambiguated name.
+module_name_repetitions = "allow"
+# We return `Result` from nearly everything; documenting a `# Errors` section on
+# every private helper is ceremony that reviewers stop reading.
+missing_errors_doc = "allow"

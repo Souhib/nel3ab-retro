@@ -1,0 +1,34 @@
+# Builds `dolphin-emu-nogui`, which no distro package ships and which the
+# GoW AppImage does not contain (verified 2026-08-10).
+#
+# Split from the worker image on purpose: this stage is slow (~20-40 min) and
+# changes only when the pinned Dolphin revision does, so it caches independently.
+FROM ubuntu:24.04 AS dolphin-build
+
+ARG DOLPHIN_REF=master
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      git ca-certificates build-essential cmake ninja-build pkg-config \
+      libevdev-dev libudev-dev libusb-1.0-0-dev libhidapi-dev \
+      libavcodec-dev libavformat-dev libavutil-dev libswscale-dev \
+      libbz2-dev liblzo2-dev libzstd-dev libpng-dev libcurl4-openssl-dev \
+      libmbedtls-dev libminiupnpc-dev libpugixml-dev libsfml-dev \
+      libasound2-dev libpulse-dev libbluetooth-dev libsystemd-dev \
+      libx11-dev libxi-dev libxrandr-dev libgl1-mesa-dev libvulkan-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN git clone --depth 1 --branch "${DOLPHIN_REF}" --recurse-submodules \
+      https://github.com/dolphin-emu/dolphin.git /src
+
+# ENABLE_QT=OFF drops the GUI toolchain; ENABLE_NOGUI=ON is what produces the
+# binary we actually drive. Both are explicit so a default change upstream
+# cannot silently give us a build without it.
+RUN cmake -S /src -B /build -G Ninja \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DENABLE_QT=OFF \
+      -DENABLE_NOGUI=ON \
+      -DENABLE_TESTS=OFF \
+      -DUSE_DISCORD_PRESENCE=OFF \
+ && cmake --build /build \
+ && test -x /build/Binaries/dolphin-emu-nogui   # fail loudly if the flag stopped working

@@ -1,0 +1,19 @@
+[package]
+name = "nel3ab-worker"
+description = "Session worker: one emulator instance, N players, one video stream."
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+nel3ab-protocol = { path = "../protocol" }
+nel3ab-emulator = { path = "../emulator" }
+nel3ab-encoder = { path = "../encoder" }
+nel3ab-transport = { path = "../transport" }
+tracing.workspace = true
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+[lints]
+workspace = true

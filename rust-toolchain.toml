@@ -1,0 +1,5 @@
+# Pinned so CI, the Docker build and every dev machine compile with the SAME
+# compiler. An unpinned toolchain makes "works on my machine" a lint difference.
+[toolchain]
+channel = "1.97.1"
+components = ["clippy", "rustfmt"]

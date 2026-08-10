@@ -39,6 +39,14 @@ RUN git init /src \
  && git checkout --detach FETCH_HEAD \
  && git submodule update --init --recursive --depth 1
 
+# Mainline has no way to get a rendered frame out of Dolphin's address space —
+# no external-memory extension anywhere, at any revision we pin — so M2 needs a
+# patch. `git apply` without `--3way`: on a pinned commit the patch either
+# applies exactly or the pin moved, and a fuzzy application is a silent
+# mis-integration in a 500k-line codebase.
+COPY docker/dolphin-patches/0001-nel3ab-frame-export.patch /tmp/nel3ab.patch
+RUN cd /src && git apply --verbose /tmp/nel3ab.patch
+
 # The pipe input backend is what this whole milestone rests on, and it is
 # compiled in by a CMake side effect (`if(UNIX) add_definitions(-DUSE_PIPES=1)`),
 # not by an option we pass. Assert it in the pinned source: if upstream ever

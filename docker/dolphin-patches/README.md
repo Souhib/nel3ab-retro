@@ -134,13 +134,50 @@ docker exec -i dolphin-dev sh -c 'cd /src && git add -N Source/Core/VideoBackend
   > docker/dolphin-patches/0001-nel3ab-frame-export.patch
 ```
 
+## Synchronisation — done, and how it is proven
+
+There were two independent races, and they needed different answers.
+
+**The worker was told "ready" at submit time, not completion.** It could read
+pixels the GPU had not written. Answered by `ExecuteCommandBuffer(false, true)`:
+submit *and wait* before notifying.
+
+**One image was reused every frame**, so Dolphin could overwrite a frame the
+worker was reading. Answered by a ring of three images with **explicit release**:
+a slot is reused only after the worker gives it back, and a frame with no free
+slot is **dropped**. Dropping is the same call the input path makes on a full
+pipe — the next frame is 16 ms away, and a torn frame is worse than a missing one.
+
+### The test that nearly lied again
+
+The first version of the ring test held a slot for 500 ms and compared its pixels
+before and after. It passed. Then the ring check was deliberately removed — and
+**it still passed**, because Melee sits on a static screen: Dolphin overwrote the
+held slot with an identical picture.
+
+The assertion now targets the protocol instead of the pixels, and needs no help
+from the game: *a lent slot must never be announced again until it is released*.
+
+```
+with the bug:     0 frames on other slots, 25 on the held one   FAIL
+without the bug: 25 frames on other slots,  0 on the held one   PASS
+```
+
+Symmetric, and it discriminates. That is the second time in this milestone a test
+read correctly, passed, and proved nothing — both caught only by reintroducing
+the bug rather than reasoning about it.
+
 ## What is still missing
 
-**No synchronisation.** The image is created once and reused, and the worker is
-notified with a non-blocking send. **Nothing stops Dolphin overwriting a frame
-the worker is still reading.** Deferred so the static-screen proof can be made at
-all; the answer is an exported semaphore or sync_file per frame plus two or three
-rotating images.
+**The cost of the GPU wait is not measured.** Dolphin's container shows 14.5 % of
+a core with export on, against a 19.5 % baseline with it off — but that number is
+*not* evidence the wait is cheap. A thread blocked on the GPU consumes no CPU, so
+a sync point can lower CPU usage while lowering the frame rate with it. **The
+frame rate has not been measured**, and until it has, nothing here says what
+`ExecuteCommandBuffer(false, true)` costs.
 
-Do not ship without that second one. A torn frame in a live match is exactly the
-class of bug this project exists to delete.
+If it does cost frames, the replacement is known: an exported semaphore
+(`VK_KHR_external_semaphore_fd`) signalled by the submit carrying the blit, so
+the worker waits on the GPU instead of Dolphin's CPU thread doing it. Dolphin's
+submit path has no way to carry one today, which is why the honest, expensive
+option was taken first.

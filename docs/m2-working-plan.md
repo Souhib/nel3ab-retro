@@ -100,18 +100,51 @@ Three things that could not be read off the source, in the order they bit:
 - `souhib` was added to `render` and `video`; `sg render -c '…'` covers a shell
   where the new groups are not yet active.
 
+### Synchronisation — done, ⚠️ UNCOMMITTED
+
+Both races are closed. A ring of three exported images with **explicit release**
+(a slot is reused only once the worker gives it back; a frame with no free slot
+is dropped) plus `ExecuteCommandBuffer(false, true)` so the worker is notified
+only after the GPU has finished writing.
+
+Proven by asserting the protocol, not the pixels:
+
+```
+with the ring check removed:   0 frames on other slots, 25 on the held one   FAIL
+with it:                      25 frames on other slots,  0 on the held one   PASS
+```
+
+The pixel-comparison version of that test **passed with the bug in**, because
+Melee's static screen meant Dolphin overwrote the held slot with an identical
+picture. Second time this milestone that a test read correctly and proved
+nothing; both were caught only by reintroducing the bug.
+
+**These changes are on disk and not committed** — the session lost the ability to
+run mutating commands again. Modified:
+
+```
+docker/dolphin-patches/0001-nel3ab-frame-export.patch   regenerated, ring + wait
+docker/dolphin-patches/README.md                        the story above
+spikes/m2-vaapi-export/receive_frame.c                  protocol v2 consumer
+```
+
+The dev container `dolphin-dev` holds the matching source and a built binary.
+
 ### The order to resume in
 
-1. **Synchronisation.** Nothing else is safe to build on top of a torn frame.
-   An exported semaphore (`VK_KHR_external_semaphore_fd`) signalled after the
-   blit and waited on by the worker, plus two or three rotating images so the
-   producer is never writing the one being read.
-2. The `encoder` crate: own the VAAPI surface, import both plane images, run an
+1. **Commit the three files above**, then rebuild the image (the tagged
+   `nel3ab/dolphin:216ffb45-nel3ab` still carries the pre-ring patch).
+2. **Measure the frame rate with export on.** Dolphin's container reads 14.5 % of
+   a core against a 19.5 % baseline — but a thread blocked on the GPU consumes no
+   CPU, so that number cannot tell a cheap sync point from one that is costing
+   frames. Until fps is measured, the cost of `ExecuteCommandBuffer(false, true)`
+   is unknown. If it costs frames, replace it with an exported semaphore
+   (`VK_KHR_external_semaphore_fd`) so the worker waits on the GPU instead of
+   Dolphin's CPU thread.
+3. The `encoder` crate: own the VAAPI surface, import both plane images, run an
    RGBA→NV12 compute shader, submit the encode. This is where CLAUDE.md rule 2's
    `unsafe` exception applies — `// SAFETY:` on every block, `just miri` on the
    module.
-3. Measure. The whole point of removing the readback was a number; produce it,
-   against the 0.57-core baseline the PNG dump costs.
 
 ### Do not forget the gap
 

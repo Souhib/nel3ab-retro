@@ -13,19 +13,17 @@ index 5f5583f..8574505 100644
    VKShader.cpp
 diff --git a/Source/Core/VideoBackends/Vulkan/VKFrameExport.cpp b/Source/Core/VideoBackends/Vulkan/VKFrameExport.cpp
 new file mode 100644
-index 0000000..6e4308d
+index 0000000..20ffe32
 --- /dev/null
 +++ b/Source/Core/VideoBackends/Vulkan/VKFrameExport.cpp
-@@ -0,0 +1,489 @@
+@@ -0,0 +1,572 @@
 +// Copyright 2026 nel3ab-retro
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +
 +#include "VideoBackends/Vulkan/VKFrameExport.h"
 +
-+// <cerrno> for the EAGAIN check on the per-frame send, and CommonTypes for the
-+// u32/u64 spellings Dolphin uses everywhere. Both are named explicitly rather
-+// than relied on transitively: this file has not been compiled yet, and a
-+// missing include is the cheapest kind of failure to pre-empt.
++// <cerrno> for the EAGAIN checks on the non-blocking socket, and CommonTypes for
++// the u32/u64 spellings Dolphin uses everywhere.
 +#include <cerrno>
 +#include <cstdlib>
 +#include <cstring>
@@ -55,67 +53,94 @@ index 0000000..6e4308d
 +// puts red in the lowest byte, which is DRM's ABGR8888.
 +constexpr u32 DRM_FORMAT_ABGR8888 = 0x34324241;
 +
-+constexpr u32 HEADER_MAGIC = 0x3341424e;  // 'N3AB'
-+constexpr u32 FRAME_MAGIC = 0x454d5246;   // 'FRME'
-+constexpr u32 PROTOCOL_VERSION = 1;
++constexpr u32 HEADER_MAGIC = 0x3341424e;   // 'N3AB'
++constexpr u32 FRAME_MAGIC = 0x454d5246;    // 'FRME'
++constexpr u32 RELEASE_MAGIC = 0x4c455246;  // 'FREL'
++constexpr u32 PROTOCOL_VERSION = 2;
 +
-+// Sent once, with the dma-buf fd attached, when the image is created — and
-+// again if the frame size ever changes, since that reallocates it.
++// Three images, not one.
++//
++// With a single image Dolphin overwrites the frame the worker is reading. Three
++// is the smallest ring that lets the producer keep working while one slot is
++// being consumed and another is in flight. A fourth would buy latency, not
++// safety: a worker more than two frames behind should be dropping anyway.
++constexpr u32 RING_SIZE = 3;
++
++// One per slot, each sent with its own dma-buf fd. The worker knows the set is
++// complete once it has seen `slot_count` of them.
 +#pragma pack(push, 1)
 +struct Header
 +{
-+  u32 magic;
-+  u32 version;
-+  u32 width;
-+  u32 height;
-+  u32 drm_format;
-+  u32 reserved;
-+  u64 modifier;
-+  u64 offset;
-+  u64 pitch;
-+  u64 size;
++  u32 magic, version, slot, slot_count;
++  u32 width, height, drm_format, reserved;
++  u64 modifier, offset, pitch, size;
 +};
 +
++// Sent only once the GPU has actually finished writing the slot.
 +struct FrameReady
 +{
-+  u32 magic;
-+  u32 reserved;
++  u32 magic, slot;
 +  u64 frame_number;
 +};
++
++// Worker -> Dolphin. Until this arrives the slot is not reused, which is what
++// makes the ring a guarantee instead of a hope.
++struct Release
++{
++  u32 magic, slot;
++};
 +#pragma pack(pop)
++
++struct Slot
++{
++  VkImage image = VK_NULL_HANDLE;
++  VkDeviceMemory memory = VK_NULL_HANDLE;
++  int dmabuf = -1;
++  // Handed to the worker and not yet given back.
++  bool lent = false;
++  // A slot the GPU has written before must be acquired back from the consumer
++  // rather than started from UNDEFINED.
++  bool ever_written = false;
++};
 +
 +struct State
 +{
 +  int socket = -1;
-+  VkImage image = VK_NULL_HANDLE;
-+  VkDeviceMemory memory = VK_NULL_HANDLE;
-+  int dmabuf = -1;
++  Slot ring[RING_SIZE];
 +  u32 width = 0;
 +  u32 height = 0;
 +  u64 frame = 0;
-+  // The image is created once and reused; every frame after the first has to
-+  // acquire it back from the consumer rather than start from UNDEFINED.
-+  bool ever_written = false;
++  u64 dropped = 0;
 +};
 +
 +State s_state;
 +
-+void ReleaseImage()
++void ReleaseImages()
 +{
 +  const VkDevice device = g_vulkan_context ? g_vulkan_context->GetDevice() : VK_NULL_HANDLE;
-+  if (device != VK_NULL_HANDLE)
++  for (Slot& slot : s_state.ring)
 +  {
-+    if (s_state.image != VK_NULL_HANDLE)
-+      vkDestroyImage(device, s_state.image, nullptr);
-+    if (s_state.memory != VK_NULL_HANDLE)
-+      vkFreeMemory(device, s_state.memory, nullptr);
++    if (device != VK_NULL_HANDLE)
++    {
++      if (slot.image != VK_NULL_HANDLE)
++        vkDestroyImage(device, slot.image, nullptr);
++      if (slot.memory != VK_NULL_HANDLE)
++        vkFreeMemory(device, slot.memory, nullptr);
++    }
++    if (slot.dmabuf >= 0)
++      close(slot.dmabuf);
++    slot = Slot{};
 +  }
-+  if (s_state.dmabuf >= 0)
-+    close(s_state.dmabuf);
-+  s_state.image = VK_NULL_HANDLE;
-+  s_state.memory = VK_NULL_HANDLE;
-+  s_state.dmabuf = -1;
-+  s_state.ever_written = false;
++}
++
++void Disable(const char* why)
++{
++  ERROR_LOG_FMT(VIDEO, "nel3ab: frame export disabled: {}", why);
++  g_frame_export_hook = nullptr;
++  ReleaseImages();
++  if (s_state.socket >= 0)
++    close(s_state.socket);
++  s_state.socket = -1;
 +}
 +
 +// Modifiers this GPU can hold an RGBA8 image in that we can blit INTO and the
@@ -128,8 +153,7 @@ index 0000000..6e4308d
 +{
 +  // Dolphin loads its own Vulkan entry points and its table has no
 +  // vkGetPhysicalDeviceFormatProperties2, so it is fetched here rather than by
-+  // extending the loader — one file touched instead of two, which is the whole
-+  // argument for patching over the alternatives.
++  // extending the loader — one file touched instead of two.
 +  auto get_format_properties2 = reinterpret_cast<PFN_vkGetPhysicalDeviceFormatProperties2>(
 +      vkGetInstanceProcAddr(g_vulkan_context->GetVulkanInstance(),
 +                            "vkGetPhysicalDeviceFormatProperties2"));
@@ -164,7 +188,7 @@ index 0000000..6e4308d
 +  return usable;
 +}
 +
-+bool SendHeaderWithFd(const Header& header)
++bool SendHeaderWithFd(const Header& header, int fd)
 +{
 +  iovec iov = {};
 +  iov.iov_base = const_cast<Header*>(&header);
@@ -181,27 +205,16 @@ index 0000000..6e4308d
 +  cmsg->cmsg_level = SOL_SOCKET;
 +  cmsg->cmsg_type = SCM_RIGHTS;
 +  cmsg->cmsg_len = CMSG_LEN(sizeof(int));
-+  std::memcpy(CMSG_DATA(cmsg), &s_state.dmabuf, sizeof(int));
++  std::memcpy(CMSG_DATA(cmsg), &fd, sizeof(int));
 +
 +  // Blocking on purpose, and only here: this happens once per resolution, and a
-+  // consumer that cannot take the descriptor has nothing to do anyway.
-+  return sendmsg(s_state.socket, &msg, 0) == static_cast<ssize_t>(sizeof(header));
++  // consumer that cannot take the descriptors has nothing to do anyway.
++  return sendmsg(s_state.socket, &msg, MSG_NOSIGNAL) == static_cast<ssize_t>(sizeof(header));
 +}
 +
-+// Allocates the exportable image and hands its descriptor to the consumer.
-+// Returns false and disables export on any failure — a worker that never gets a
-+// frame is a broken stream, but a dead emulator is a dead game session.
-+bool CreateImage(u32 width, u32 height)
++bool CreateSlot(Slot& slot, u32 index, u32 width, u32 height,
++                const std::vector<u64>& modifiers)
 +{
-+  ReleaseImage();
-+
-+  const std::vector<u64> modifiers = UsableModifiers();
-+  if (modifiers.empty())
-+  {
-+    ERROR_LOG_FMT(VIDEO, "nel3ab: no DRM format modifier can hold an exportable RGBA8 image");
-+    return false;
-+  }
-+
 +  const VkDevice device = g_vulkan_context->GetDevice();
 +
 +  VkImageDrmFormatModifierListCreateInfoEXT modifier_list = {};
@@ -228,14 +241,11 @@ index 0000000..6e4308d
 +  image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 +  image_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 +
-+  if (vkCreateImage(device, &image_info, nullptr, &s_state.image) != VK_SUCCESS)
-+  {
-+    ERROR_LOG_FMT(VIDEO, "nel3ab: vkCreateImage for the export image failed");
++  if (vkCreateImage(device, &image_info, nullptr, &slot.image) != VK_SUCCESS)
 +    return false;
-+  }
 +
 +  VkMemoryRequirements requirements = {};
-+  vkGetImageMemoryRequirements(device, s_state.image, &requirements);
++  vkGetImageMemoryRequirements(device, slot.image, &requirements);
 +
 +  VkPhysicalDeviceMemoryProperties memory_properties = {};
 +  vkGetPhysicalDeviceMemoryProperties(g_vulkan_context->GetPhysicalDevice(), &memory_properties);
@@ -251,16 +261,12 @@ index 0000000..6e4308d
 +    }
 +  }
 +  if (memory_type == UINT32_MAX)
-+  {
-+    ERROR_LOG_FMT(VIDEO, "nel3ab: no device-local memory type for the export image");
-+    ReleaseImage();
 +    return false;
-+  }
 +
 +  // Allocated by hand rather than through VMA. Dolphin routes every other
 +  // texture through the allocator, which has nowhere to attach
-+  // VkExportMemoryAllocateInfo — and a single hand-allocated image touches
-+  // nothing else, which is what keeps this patch small.
++  // VkExportMemoryAllocateInfo — and a few hand-allocated images touch nothing
++  // else, which is what keeps this patch small.
 +  VkExportMemoryAllocateInfo export_info = {};
 +  export_info.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO;
 +  export_info.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT;
@@ -268,7 +274,7 @@ index 0000000..6e4308d
 +  VkMemoryDedicatedAllocateInfo dedicated = {};
 +  dedicated.sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO;
 +  dedicated.pNext = &export_info;
-+  dedicated.image = s_state.image;
++  dedicated.image = slot.image;
 +
 +  VkMemoryAllocateInfo allocate_info = {};
 +  allocate_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -276,11 +282,9 @@ index 0000000..6e4308d
 +  allocate_info.allocationSize = requirements.size;
 +  allocate_info.memoryTypeIndex = memory_type;
 +
-+  if (vkAllocateMemory(device, &allocate_info, nullptr, &s_state.memory) != VK_SUCCESS ||
-+      vkBindImageMemory(device, s_state.image, s_state.memory, 0) != VK_SUCCESS)
++  if (vkAllocateMemory(device, &allocate_info, nullptr, &slot.memory) != VK_SUCCESS ||
++      vkBindImageMemory(device, slot.image, slot.memory, 0) != VK_SUCCESS)
 +  {
-+    ERROR_LOG_FMT(VIDEO, "nel3ab: could not allocate or bind exportable memory");
-+    ReleaseImage();
 +    return false;
 +  }
 +
@@ -290,32 +294,26 @@ index 0000000..6e4308d
 +      vkGetDeviceProcAddr(device, "vkGetImageDrmFormatModifierPropertiesEXT"));
 +  auto get_fd =
 +      reinterpret_cast<PFN_vkGetMemoryFdKHR>(vkGetDeviceProcAddr(device, "vkGetMemoryFdKHR"));
-+  if (!get_modifier || !get_fd || get_modifier(device, s_state.image, &chosen) != VK_SUCCESS)
-+  {
-+    ERROR_LOG_FMT(VIDEO, "nel3ab: the dma-buf export entry points are missing");
-+    ReleaseImage();
++  if (!get_modifier || !get_fd || get_modifier(device, slot.image, &chosen) != VK_SUCCESS)
 +    return false;
-+  }
 +
 +  VkImageSubresource subresource = {};
 +  subresource.aspectMask = VK_IMAGE_ASPECT_MEMORY_PLANE_0_BIT_EXT;
 +  VkSubresourceLayout layout = {};
-+  vkGetImageSubresourceLayout(device, s_state.image, &subresource, &layout);
++  vkGetImageSubresourceLayout(device, slot.image, &subresource, &layout);
 +
 +  VkMemoryGetFdInfoKHR fd_info = {};
 +  fd_info.sType = VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR;
-+  fd_info.memory = s_state.memory;
++  fd_info.memory = slot.memory;
 +  fd_info.handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT;
-+  if (get_fd(device, &fd_info, &s_state.dmabuf) != VK_SUCCESS)
-+  {
-+    ERROR_LOG_FMT(VIDEO, "nel3ab: vkGetMemoryFdKHR failed");
-+    ReleaseImage();
++  if (get_fd(device, &fd_info, &slot.dmabuf) != VK_SUCCESS)
 +    return false;
-+  }
 +
 +  Header header = {};
 +  header.magic = HEADER_MAGIC;
 +  header.version = PROTOCOL_VERSION;
++  header.slot = index;
++  header.slot_count = RING_SIZE;
 +  header.width = width;
 +  header.height = height;
 +  header.drm_format = DRM_FORMAT_ABGR8888;
@@ -323,24 +321,77 @@ index 0000000..6e4308d
 +  header.offset = layout.offset;
 +  header.pitch = layout.rowPitch;
 +  header.size = requirements.size;
-+  if (!SendHeaderWithFd(header))
++  return SendHeaderWithFd(header, slot.dmabuf);
++}
++
++// Allocates the whole ring and hands every descriptor to the consumer.
++bool CreateRing(u32 width, u32 height)
++{
++  ReleaseImages();
++
++  const std::vector<u64> modifiers = UsableModifiers();
++  if (modifiers.empty())
 +  {
-+    ERROR_LOG_FMT(VIDEO, "nel3ab: could not send the frame descriptor to the worker");
-+    ReleaseImage();
++    ERROR_LOG_FMT(VIDEO, "nel3ab: no DRM format modifier can hold an exportable RGBA8 image");
 +    return false;
++  }
++
++  for (u32 i = 0; i < RING_SIZE; i++)
++  {
++    if (!CreateSlot(s_state.ring[i], i, width, height, modifiers))
++    {
++      ERROR_LOG_FMT(VIDEO, "nel3ab: could not create export slot {}", i);
++      ReleaseImages();
++      return false;
++    }
 +  }
 +
 +  s_state.width = width;
 +  s_state.height = height;
-+  INFO_LOG_FMT(VIDEO,
-+               "nel3ab: exporting {}x{} frames, modifier {:#018x}, pitch {}, {} bytes", width,
-+               height, chosen.drmFormatModifier, layout.rowPitch, requirements.size);
++  INFO_LOG_FMT(VIDEO, "nel3ab: exporting {}x{} frames across {} slots", width, height, RING_SIZE);
 +  return true;
 +}
 +
-+void Barrier(VkCommandBuffer command_buffer, VkImageLayout old_layout, VkImageLayout new_layout,
-+             VkAccessFlags src_access, VkAccessFlags dst_access, u32 src_queue, u32 dst_queue,
-+             VkPipelineStageFlags src_stage, VkPipelineStageFlags dst_stage)
++// Takes back every slot the worker has finished with. Non-blocking: a worker
++// that has not answered yet simply leaves fewer slots free, which the caller
++// handles by dropping.
++void CollectReleases()
++{
++  Release release;
++  while (true)
++  {
++    const ssize_t got = recv(s_state.socket, &release, sizeof(release), MSG_DONTWAIT);
++    if (got == static_cast<ssize_t>(sizeof(release)))
++    {
++      if (release.magic == RELEASE_MAGIC && release.slot < RING_SIZE)
++        s_state.ring[release.slot].lent = false;
++      continue;
++    }
++    if (got == 0)
++    {
++      Disable("the worker closed the connection");
++      return;
++    }
++    // EWOULDBLOCK is the same value as EAGAIN on Linux; testing both is a
++    // warning, not extra safety.
++    if (got < 0 && errno == EAGAIN)
++      return;
++    if (got < 0)
++    {
++      Disable("reading releases from the worker failed");
++      return;
++    }
++    // A short read cannot be resynchronised on a stream socket; treat it as
++    // fatal to the export rather than misparse every later message.
++    Disable("the worker sent a truncated release");
++    return;
++  }
++}
++
++void Barrier(VkCommandBuffer command_buffer, VkImage image, VkImageLayout old_layout,
++             VkImageLayout new_layout, VkAccessFlags src_access, VkAccessFlags dst_access,
++             u32 src_queue, u32 dst_queue, VkPipelineStageFlags src_stage,
++             VkPipelineStageFlags dst_stage)
 +{
 +  VkImageMemoryBarrier barrier = {};
 +  barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -350,7 +401,7 @@ index 0000000..6e4308d
 +  barrier.newLayout = new_layout;
 +  barrier.srcQueueFamilyIndex = src_queue;
 +  barrier.dstQueueFamilyIndex = dst_queue;
-+  barrier.image = s_state.image;
++  barrier.image = image;
 +  barrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
 +  vkCmdPipelineBarrier(command_buffer, src_stage, dst_stage, 0, 0, nullptr, 0, nullptr, 1,
 +                       &barrier);
@@ -366,36 +417,63 @@ index 0000000..6e4308d
 +  if (width == 0 || height == 0)
 +    return;
 +
-+  if (s_state.image == VK_NULL_HANDLE || width != s_state.width || height != s_state.height)
++  if (s_state.ring[0].image == VK_NULL_HANDLE || width != s_state.width ||
++      height != s_state.height)
 +  {
-+    if (!CreateImage(width, height))
++    if (!CreateRing(width, height))
 +    {
-+      // Stop trying. Retrying every frame would flood the log and change
-+      // nothing.
-+      close(s_state.socket);
-+      s_state.socket = -1;
++      Disable("the export ring could not be created");
 +      return;
 +    }
 +  }
 +
++  CollectReleases();
++  if (s_state.socket < 0)
++    return;
++
++  u32 index = RING_SIZE;
++  for (u32 i = 0; i < RING_SIZE; i++)
++  {
++    if (!s_state.ring[i].lent)
++    {
++      index = i;
++      break;
++    }
++  }
++  if (index == RING_SIZE)
++  {
++    // Every slot is still with the worker. Drop rather than overwrite — the same
++    // call the input path makes on a full pipe: the next frame is 16 ms away,
++    // and a torn frame is worse than a missing one.
++    if (++s_state.dropped % 300 == 1)
++    {
++      WARN_LOG_FMT(VIDEO, "nel3ab: worker is behind, {} frames dropped so far",
++                   s_state.dropped);
++    }
++    return;
++  }
++
++  Slot& slot = s_state.ring[index];
 +  const VKTexture* source = static_cast<const VKTexture*>(texture);
 +  const VkCommandBuffer command_buffer = g_command_buffer_mgr->GetCurrentCommandBuffer();
 +  const u32 queue = g_vulkan_context->GetGraphicsQueueFamilyIndex();
 +
 +  source->TransitionToLayout(command_buffer, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 +
-+  if (s_state.ever_written)
++  if (slot.ever_written)
 +  {
 +    // Acquire back from the consumer. Without the ownership transfer the
 +    // contents are formally undefined on either side of the handover.
-+    Barrier(command_buffer, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 0,
-+            VK_ACCESS_TRANSFER_WRITE_BIT, VK_QUEUE_FAMILY_FOREIGN_EXT, queue,
-+            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
++    Barrier(command_buffer, slot.image, VK_IMAGE_LAYOUT_GENERAL,
++            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 0, VK_ACCESS_TRANSFER_WRITE_BIT,
++            VK_QUEUE_FAMILY_FOREIGN_EXT, queue, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
++            VK_PIPELINE_STAGE_TRANSFER_BIT);
 +  }
 +  else
 +  {
-+    Barrier(command_buffer, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 0,
-+            VK_ACCESS_TRANSFER_WRITE_BIT, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
++    Barrier(command_buffer, slot.image, VK_IMAGE_LAYOUT_UNDEFINED,
++            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 0, VK_ACCESS_TRANSFER_WRITE_BIT,
++            VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
 +            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
 +  }
 +
@@ -408,42 +486,46 @@ index 0000000..6e4308d
 +  blit.dstOffsets[0] = {0, 0, 0};
 +  blit.dstOffsets[1] = {static_cast<s32>(width), static_cast<s32>(height), 1};
 +  vkCmdBlitImage(command_buffer, source->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-+                 s_state.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit,
-+                 VK_FILTER_NEAREST);
++                 slot.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_NEAREST);
 +
-+  Barrier(command_buffer, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL,
-+          VK_ACCESS_TRANSFER_WRITE_BIT, 0, queue, VK_QUEUE_FAMILY_FOREIGN_EXT,
-+          VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
-+  s_state.ever_written = true;
++  Barrier(command_buffer, slot.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
++          VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_TRANSFER_WRITE_BIT, 0, queue,
++          VK_QUEUE_FAMILY_FOREIGN_EXT, VK_PIPELINE_STAGE_TRANSFER_BIT,
++          VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
++  slot.ever_written = true;
 +
 +  source->TransitionToLayout(command_buffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 +
-+  // Submit it. Nothing else will.
++  // Submit AND WAIT. Two separate reasons, both learned the hard way:
 +  //
-+  // Recording the blit is not the same as running it, and in headless there is no
-+  // presentation to end the frame — Dolphin only submits when something forces it
-+  // to. Without this the export silently depended on Dolphin's own frame dumper
-+  // being enabled, because its readback is what flushed the queue. That is the
-+  // very readback this patch exists to remove, so the dependency made the whole
-+  // thing circular: it appeared to work, and only while it was pointless.
++  // Submit, because recording a blit is not running it. In headless there is no
++  // presentation to end the frame, so nothing flushes the queue unless we do —
++  // and before this line the export silently depended on Dolphin's own frame
++  // dumper, whose readback is the very thing this patch exists to delete.
 +  //
-+  // Measured 2026-08-10: without this line the consumer reads an all-zero image;
-+  // with it, the game's picture.
-+  static_cast<VKGfx*>(g_gfx.get())->ExecuteCommandBuffer(false, false);
++  // Wait, because the worker must not be told a frame is ready while the GPU is
++  // still writing it. This is a CPU/GPU sync point per frame and it is the
++  // expensive, honest option: the cheap one is an exported semaphore, which
++  // Dolphin's submit path has no way to carry today. Measure before replacing it.
++  static_cast<VKGfx*>(g_gfx.get())->ExecuteCommandBuffer(false, true);
 +
 +  FrameReady ready = {};
 +  ready.magic = FRAME_MAGIC;
++  ready.slot = index;
 +  ready.frame_number = ++s_state.frame;
-+  // Non-blocking, and a short write is deliberately ignored: a consumer that has
-+  // fallen behind must never stall emulation, and the pixels are in the shared
-+  // buffer regardless of whether it hears about this particular frame.
 +  const ssize_t sent = send(s_state.socket, &ready, sizeof(ready), MSG_DONTWAIT | MSG_NOSIGNAL);
-+  if (sent < 0 && errno != EAGAIN && errno != EWOULDBLOCK)
++  if (sent == static_cast<ssize_t>(sizeof(ready)))
 +  {
-+    WARN_LOG_FMT(VIDEO, "nel3ab: the worker went away; frame export stops");
-+    close(s_state.socket);
-+    s_state.socket = -1;
++    slot.lent = true;
++    return;
 +  }
++  if (sent < 0 && errno == EAGAIN)
++  {
++    // The worker is not reading its notifications. The slot stays free, so the
++    // next frame simply reuses it; nothing tears, and nothing blocks.
++    return;
++  }
++  Disable("the worker went away");
 +}
 +}  // namespace
 +
@@ -454,10 +536,8 @@ index 0000000..6e4308d
 +    return;
 +
 +  // Checked HERE, at startup, and not at the first frame. These entry points are
-+  // null unless VulkanContext enabled the matching device extensions, and that
-+  // is by far the most likely reason for this patch to sit there doing nothing.
-+  // Discovering it at frame one means discovering it inside a running game, in a
-+  // log nobody is reading.
++  // null unless VulkanContext enabled the matching device extensions, and that is
++  // by far the most likely reason for this patch to sit there doing nothing.
 +  if (g_vulkan_context == nullptr)
 +    return;
 +  const VkDevice device = g_vulkan_context->GetDevice();
@@ -493,14 +573,17 @@ index 0000000..6e4308d
 +
 +  s_state.socket = socket_fd;
 +  s_state.frame = 0;
++  s_state.dropped = 0;
 +  g_frame_export_hook = &OnFrame;
 +  INFO_LOG_FMT(VIDEO, "nel3ab: frame export connected to {}", path);
 +}
 +
 +void Shutdown()
 +{
++  if (s_state.dropped != 0)
++    WARN_LOG_FMT(VIDEO, "nel3ab: {} frames were dropped for lack of a free slot", s_state.dropped);
 +  g_frame_export_hook = nullptr;
-+  ReleaseImage();
++  ReleaseImages();
 +  if (s_state.socket >= 0)
 +    close(s_state.socket);
 +  s_state.socket = -1;

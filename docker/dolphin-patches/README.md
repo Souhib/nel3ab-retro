@@ -167,17 +167,38 @@ Symmetric, and it discriminates. That is the second time in this milestone a tes
 read correctly, passed, and proved nothing — both caught only by reintroducing
 the bug rather than reasoning about it.
 
-## What is still missing
+## What the GPU wait costs — measured, 2026-08-10
 
-**The cost of the GPU wait is not measured.** Dolphin's container shows 14.5 % of
-a core with export on, against a 19.5 % baseline with it off — but that number is
-*not* evidence the wait is cheap. A thread blocked on the GPU consumes no CPU, so
-a sync point can lower CPU usage while lowering the frame rate with it. **The
-frame rate has not been measured**, and until it has, nothing here says what
-`ExecuteCommandBuffer(false, true)` costs.
+At the real target it costs nothing: **59.91 fps against NTSC's 59.94**. Not a
+dropped frame.
 
-If it does cost frames, the replacement is known: an exported semaphore
+But a game capped at 59.94 cannot show headroom, so the emulation was unthrottled
+(`Dolphin.Core.EmulationSpeed = 0`) and the *only* thing varied was the
+`wait_for_completion` flag:
+
+| | unthrottled | headroom over 59.94 |
+|---|---|---|
+| `ExecuteCommandBuffer(false, **true**)` | **2130 fps** | ×35 |
+| `ExecuteCommandBuffer(false, **false**)` | 2665 fps | ×44 |
+
+So the sync point costs **~20 % of headroom** — real, and irrelevant at this
+scene. Keep the wait.
+
+Two caveats that belong with the number. Earlier CPU figures (14.5 % with export
+against a 19.5 % baseline) are **not** a measurement of this and should not be
+quoted: a thread blocked on the GPU consumes no CPU, so the sync point makes CPU
+usage *fall* while doing more work. And this is Melee's static memory-card
+modal — a trivial scene. A four-player match is far heavier, and 20 % of a much
+smaller headroom is a different conversation. **Re-measure on real gameplay
+before concluding for the product.**
+
+If that day comes, the replacement is known: an exported semaphore
 (`VK_KHR_external_semaphore_fd`) signalled by the submit carrying the blit, so
-the worker waits on the GPU instead of Dolphin's CPU thread doing it. Dolphin's
-submit path has no way to carry one today, which is why the honest, expensive
-option was taken first.
+the worker waits on the GPU rather than Dolphin's CPU thread. Dolphin's submit
+path cannot carry one today, which is why the simple, expensive option was taken
+first — and why it turned out not to be expensive.
+
+The first measurement attempt is worth remembering too: 1800 frames were timed
+against a ~13 s boot, so the subtraction was between two nearly-equal numbers and
+the result was noise. The delta was widened to 29 400 frames before the figures
+above were trusted.

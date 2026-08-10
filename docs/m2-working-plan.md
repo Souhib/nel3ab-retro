@@ -107,14 +107,56 @@ the compositor receives the client buffer as a dma-buf for free.
   currently has no `libwayland-dev` — Dolphin's nogui Wayland platform would have
   to be built in and verified.
 
-### How to decide
+### ✅ Experiment run 2026-08-10: B as written is impossible
 
-Same method that worked in M1: **the cheapest experiment that can invalidate the
-plan, first.** For A that is a spike proving a Vulkan image allocated by Dolphin
-can be exported and imported into VAAPI on RDNA2. For B it is checking that
-`dolphin-emu-nogui` even has a working Wayland platform in our build.
+Two minutes, and it changed the answer. `dolphin-emu-nogui` has **no Wayland
+platform at all**:
 
-Do not start the `encoder` crate until one of them is answered.
+```console
+$ dolphin-emu-nogui --platform wayland --exec /nonexistent
+error: option --platform: invalid choice: 'wayland'
+       (choose from 'headless', 'fbdev', 'x11')
+$ ldd /usr/bin/dolphin-emu-nogui | grep -c wayland
+0
+```
+
+Not a build-flag oversight on our side: `MainNoGUI.cpp` only ever registers
+`headless`, `fbdev` and `x11`. Wayland support in Dolphin lives in the **Qt**
+front-end, which uses Qt's own platform abstraction — and our image is built
+`ENABLE_QT=OFF`.
+
+So B's whole selling point, "no Dolphin patch", does not survive contact. What is
+actually left:
+
+| | Patch Dolphin? | Runtime cost | New risk |
+|---|---|---|---|
+| **A** — export a dma-buf from the Vulkan backend | yes, small | none; stays `-p headless` | a fork to rebase |
+| **B′** — Qt build inside a Smithay compositor | no | Qt toolchain, a real window, a compositor process | focus gate, below |
+| **B″** — add a Wayland platform to nogui | yes, **larger than A** | a compositor process | focus gate, below |
+| **B‴** — nogui `-p x11` under Xwayland + compositor | no | Xwayland *and* a compositor | focus gate, plus X11 back in the loop |
+
+**The focus gate is real, and it is the one M1 listed as risk #2.**
+`MainSettings.cpp:532` — `MAIN_INPUT_BACKGROUND_INPUT{{System::Main, "Input",
+"BackgroundInput"}, false}`. Default **false**: with a window that never gains
+focus, input is ignored. M1 proved pipes work *headless*, where no focus path
+exists at all; every B variant puts a window back and re-opens that question.
+The mitigation is known and cheap — `-C Dolphin.Input.BackgroundInput=True` —
+but it is now a thing to verify rather than a thing we have proven.
+
+### Recommendation: A
+
+B″ patches Dolphin *more* than A does, for a worse runtime. B′ and B‴ avoid the
+patch only by adding a compositor, a window and the focus gate — and B′ also
+drags in Qt. Meanwhile A's supposed drawback, "maintaining a fork", is nearly
+free here: `docker/Dockerfile.dolphin` already pins a commit and compiles from
+source in a cached layer, so a patch is one `COPY` and one `git apply`.
+
+**Next experiment, and the one that can still invalidate A:** prove that a Vulkan
+image allocated by Dolphin can be exported as a dma-buf and imported by VAAPI on
+RDNA2 — respecting D5's ordering (allocate the VAAPI surface *first*). If Mesa
+refuses the modifiers, A is the one that dies and B′ becomes the answer.
+
+Do not start the `encoder` crate until that is answered.
 
 ---
 

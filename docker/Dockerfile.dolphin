@@ -5,9 +5,20 @@
 # changes only when the pinned Dolphin revision does, so it caches independently.
 FROM ubuntu:24.04 AS dolphin-build
 
-ARG DOLPHIN_REF=master
+# A COMMIT, not a branch. `master` would make the image non-reproducible: two
+# builds a week apart would ship different emulators under the same tag, and a
+# behaviour change would be indistinguishable from one of ours.
+# 216ffb4581af2075bf7a9f975219c375767cae15 == dolphin master @ 2026-08-10.
+ARG DOLPHIN_REF=216ffb4581af2075bf7a9f975219c375767cae15
+
+# lgf is a LIVE server: Wolf may be streaming a game on the same 6c/12t CPU while
+# this builds. 9 of 12 threads keeps the build fast without starving a session.
+ARG BUILD_JOBS=9
+
 ENV DEBIAN_FRONTEND=noninteractive
 
+# Kept as ONE list, reused verbatim by the runtime stage below — see the comment
+# there for why the runtime is not slimmed by hand.
 RUN apt-get update && apt-get install -y --no-install-recommends \
       git ca-certificates build-essential cmake ninja-build pkg-config \
       libevdev-dev libudev-dev libusb-1.0-0-dev libhidapi-dev \
@@ -18,17 +29,75 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       libx11-dev libxi-dev libxrandr-dev libgl1-mesa-dev libvulkan-dev \
     && rm -rf /var/lib/apt/lists/*
 
-RUN git clone --depth 1 --branch "${DOLPHIN_REF}" --recurse-submodules \
-      https://github.com/dolphin-emu/dolphin.git /src
+# `git clone --branch` only accepts a ref NAME, never a commit, so pinning to a
+# SHA requires init+fetch. GitHub serves arbitrary reachable SHAs, so this still
+# costs one shallow fetch rather than the full 23-year history.
+RUN git init /src \
+ && cd /src \
+ && git remote add origin https://github.com/dolphin-emu/dolphin.git \
+ && git fetch --depth 1 origin "${DOLPHIN_REF}" \
+ && git checkout --detach FETCH_HEAD \
+ && git submodule update --init --recursive --depth 1
+
+# The pipe input backend is what this whole milestone rests on, and it is
+# compiled in by a CMake side effect (`if(UNIX) add_definitions(-DUSE_PIPES=1)`),
+# not by an option we pass. Assert it in the pinned source: if upstream ever
+# gates it differently, the build must fail HERE rather than at runtime with a
+# controller that silently does nothing.
+RUN grep -rq 'USE_PIPES' /src/CMakeLists.txt \
+ || (echo "FATAL: USE_PIPES is no longer set by Dolphin's CMakeLists" && exit 1)
 
 # ENABLE_QT=OFF drops the GUI toolchain; ENABLE_NOGUI=ON is what produces the
 # binary we actually drive. Both are explicit so a default change upstream
 # cannot silently give us a build without it.
 RUN cmake -S /src -B /build -G Ninja \
       -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_INSTALL_PREFIX=/usr \
       -DENABLE_QT=OFF \
       -DENABLE_NOGUI=ON \
       -DENABLE_TESTS=OFF \
+      -DENABLE_ANALYTICS=OFF \
       -DUSE_DISCORD_PRESENCE=OFF \
- && cmake --build /build \
+ && cmake --build /build -- -j "${BUILD_JOBS}" \
  && test -x /build/Binaries/dolphin-emu-nogui   # fail loudly if the flag stopped working
+
+# `install` matters as much as the binary: it lays down the Sys/ tree (IPL fonts,
+# shaders, GameSettings). A bare binary boots and then misrenders text, which is
+# a confusing failure to debug later.
+RUN DESTDIR=/stage cmake --install /build \
+ && test -x /stage/usr/bin/dolphin-emu-nogui \
+ && test -f /stage/usr/share/dolphin-emu/Sys/GC/font_western.bin
+
+
+FROM ubuntu:24.04 AS dolphin
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# The runtime installs the SAME -dev list as the build stage rather than a
+# hand-picked set of runtime `libfoo1` packages. Reason, measured: Ubuntu 24.04's
+# t64 ABI transition renamed a third of them (libasound2 -> libasound2t64, ...),
+# so a hand-written list is a guess that fails at the END of a 30-minute build.
+# The -dev names are already proven correct by the stage above, and cost ~700 MB
+# we do not care about on a 1.7 TB host. Slimming belongs to M3, where the image
+# is actually shipped somewhere.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      ca-certificates \
+      libevdev-dev libudev-dev libusb-1.0-0-dev libhidapi-dev \
+      libavcodec-dev libavformat-dev libavutil-dev libswscale-dev \
+      libbz2-dev liblzo2-dev libzstd-dev libpng-dev libcurl4-openssl-dev \
+      libmbedtls-dev libminiupnpc-dev libpugixml-dev libsfml-dev \
+      libasound2-dev libpulse-dev libbluetooth-dev libsystemd-dev \
+      libx11-dev libxi-dev libxrandr-dev libgl1-mesa-dev libvulkan-dev \
+      mesa-vulkan-drivers vulkan-tools \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=dolphin-build /stage/usr /usr
+
+# A missing shared object otherwise surfaces as a bare exit code the first time
+# someone runs a game, hours after the build that caused it.
+RUN ldd /usr/bin/dolphin-emu-nogui | grep -q 'not found' \
+ && (echo "FATAL: unresolved shared libraries" && ldd /usr/bin/dolphin-emu-nogui && exit 1) \
+ || true
+RUN dolphin-emu-nogui --help >/dev/null 2>&1 || dolphin-emu-nogui --version
+
+ENTRYPOINT ["/usr/bin/dolphin-emu-nogui"]

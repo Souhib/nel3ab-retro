@@ -5,12 +5,29 @@ version = "0.1.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
+publish = false
 repository.workspace = true
 
 [dependencies]
 thiserror.workspace = true
 tracing.workspace = true
 nel3ab-protocol = { path = "../protocol" }
+
+# `mkfifo`, `O_NONBLOCK` and `SIGTERM` have no safe equivalent in std, and this
+# workspace forbids `unsafe`. `nix` is the safe wrapper; the features are pinned
+# to the two we use so the dependency stays small and an unrelated CVE in, say,
+# its socket code is not our problem.
+nix = { version = "0.30", default-features = false, features = ["fs", "signal"] }
+
+[dev-dependencies]
+rstest = "0.25"
+tempfile = "3"
+
+[features]
+# The integration test drives a REAL Dolphin against a REAL ROM on a machine
+# with a GPU. It is off by default so `cargo test` stays honest on a laptop and
+# in CI, where passing it would mean nothing.
+dolphin-integration = []
 
 [lints]
 workspace = true

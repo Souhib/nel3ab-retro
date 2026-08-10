@@ -151,12 +151,57 @@ drags in Qt. Meanwhile A's supposed drawback, "maintaining a fork", is nearly
 free here: `docker/Dockerfile.dolphin` already pins a commit and compiles from
 source in a cached layer, so a patch is one `COPY` and one `git apply`.
 
-**Next experiment, and the one that can still invalidate A:** prove that a Vulkan
-image allocated by Dolphin can be exported as a dma-buf and imported by VAAPI on
-RDNA2 — respecting D5's ordering (allocate the VAAPI surface *first*). If Mesa
-refuses the modifiers, A is the one that dies and B′ becomes the answer.
+### ✅ Spike run 2026-08-10: A holds, and D5 is confirmed on this hardware
 
-Do not start the `encoder` crate until that is answered.
+`spikes/m2-vaapi-export/` — allocate the VAAPI encode surface first, export it,
+import it into Vulkan. Reproducible with two `gcc` lines; see its README.
+
+Measured on the RX 6650 XT (navi23), Mesa 25.2.8, RADV, kernel 6.8:
+
+```
+VAAPI gave us : 1 object, modifier 0x0200000018601b03, 2 layers
+                AMD tiled, TILE_VERSION=3, TILE=27, DCC=0
+                layer 0  R8    offset 0        pitch 2048   (luma)
+                layer 1  GR88  offset 2621440  pitch 2048   (chroma)
+
+RADV advertises that modifier for:
+  R8_UNORM                  storage=yes  colour_attachment=yes
+  R8G8_UNORM                storage=yes  colour_attachment=yes
+  G8_B8R8_2PLANE_420_UNORM  storage=NO   colour_attachment=NO
+
+Import:  luma   IMPORTED and BOUND  1920x1080 offset 0       pitch 2048
+         chroma IMPORTED and BOUND  960x540   offset 2621440 pitch 2048
+```
+
+**`DCC=0`.** The video engine's constraint that ADR D5 is built around is real
+and visible: radeonsi allocates the encode surface *without* delta colour
+compression. Allocating in Vulkan first would have let RADV pick a DCC modifier
+that VAAPI then refuses — which is precisely the failure D5 predicts, and why
+the ordering is not negotiable.
+
+**The trap: do NOT import the surface as one NV12 image.**
+`G8_B8R8_2PLANE_420_UNORM` carries this modifier but advertises
+`storage=NO, colour_attachment=NO` — it can only be sampled or used as a
+transfer destination. A shader **cannot write into it**. The two planes must be
+imported as two separate single-plane images, `R8_UNORM` and `R8G8_UNORM`, which
+both allow storage *and* colour attachment. The export already describes the
+surface that way (two layers, `R8` + `GR88`, one buffer object), so the natural
+reading of the descriptor is also the only one that works — but the obvious
+shortcut fails, and it fails at image-creation time with a `VkResult`, not at
+first pixel.
+
+The encoder hint (`VA_SURFACE_ATTRIB_USAGE_HINT_ENCODER`) made **no difference**
+to the modifier on this driver — same layout with and without. Keep passing it
+anyway: it is free, it states intent, and a future Mesa is under no obligation to
+keep ignoring it.
+
+**Decision: option A.** The remaining M2 work is a Dolphin patch that exports the
+frame-dump texture as a dma-buf, plus the Rust side that owns the VAAPI surface,
+imports it, runs an RGBA→NV12 compute shader over the two plane images, and
+submits the encode.
+
+Do not start the `encoder` crate before the Dolphin patch has a shape, but the
+architecture question is now closed.
 
 ---
 

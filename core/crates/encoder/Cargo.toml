@@ -21,5 +21,11 @@ nix = { version = "0.30", default-features = false, features = ["socket", "uio",
 [dev-dependencies]
 tempfile = "3"
 
+[features]
+# Compiling the libva FFI needs libva-dev, and its tests need a GPU. Off by
+# default so `cargo test` stays honest on a machine that has neither — a test
+# that cannot run must not report a pass.
+vaapi = []
+
 [lints]
 workspace = true

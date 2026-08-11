@@ -15,8 +15,12 @@ fmt-check:
     cd core && cargo fmt --all --check
 
 # `-D warnings` makes every lint blocking: a warning IS a failure.
+#
+# `--all-features` so the gated code is linted too — the libva FFI and the
+# hardware integration tests. Clippy analyses without linking, so this needs
+# neither libva nor a GPU, and code nobody lints is code nobody checks.
 lint:
-    cd core && cargo clippy --workspace --all-targets -- -D warnings
+    cd core && cargo clippy --workspace --all-targets --all-features -- -D warnings
 
 test:
     cd core && cargo test --workspace --all-targets

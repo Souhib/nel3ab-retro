@@ -18,7 +18,14 @@ tracing = "0.1"
 [workspace.lints.rust]
 # Deny-by-default: the crate must compile clean. An `allow` below is a decision,
 # never an oversight.
-unsafe_code = "forbid"
+#
+# `deny`, not `forbid`, and the difference is the whole of CLAUDE.md rule 2.
+# `forbid` cannot be lifted anywhere, not even by the single exception the rule
+# names — the libva FFI, which by definition cannot be written without `unsafe`.
+# So the ban lives at each crate root instead: protocol, emulator, transport and
+# worker all carry `#![forbid(unsafe_code)]` themselves, and only
+# `nel3ab-encoder` steps down to `deny` and lifts it on `va` alone.
+unsafe_code = "deny"
 missing_docs = "warn"
 unused_must_use = "deny"
 

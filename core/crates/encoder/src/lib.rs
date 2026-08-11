@@ -8,11 +8,20 @@
 //!
 //! Milestone: M2.
 
-#![forbid(unsafe_code)]
+// NOT `forbid`, and this is the one crate in the workspace where that is true.
+// CLAUDE.md rule 2 names exactly one exception — the FFI module — so the lint is
+// `deny` here and lifted on `va` alone, where every block carries a `SAFETY:`
+// comment and the struct layouts are asserted against the C headers at compile
+// time. Everything else in this crate, including the dma-buf socket, stays safe.
+#![deny(unsafe_code)]
 
 pub mod error;
 pub mod frame_source;
 pub mod protocol;
+
+#[cfg(feature = "vaapi")]
+#[allow(unsafe_code, reason = "the libva FFI is rule 2's single exception")]
+pub mod va;
 
 pub use error::EncoderError;
 pub use frame_source::{DmaBuf, FrameListener, FrameSource, LentFrame};

@@ -19,10 +19,24 @@ a defect. When a number is involved, record the measurement and the date.
 
 ### 2. `unsafe` is forbidden, except behind a proof
 
-`#![forbid(unsafe_code)]` is set workspace-wide. The FFI module (M2, libva) will
-be the single exception: each block needs a `// SAFETY:` comment establishing the
-invariant, and a test pinning it when the safety is not obvious. Run `just miri`
-on it.
+The ban is mechanical, and lives at each crate root: `protocol`, `emulator`,
+`transport` and `worker` all carry `#![forbid(unsafe_code)]`. The workspace lint
+is `deny` rather than `forbid` for one reason only — `forbid` cannot be lifted at
+all, not even for the exception below.
+
+**The single exception is the libva FFI** (`encoder::va`). It carries
+`#![deny(unsafe_code)]` at the crate root and lifts it on that module alone. Each
+block needs a `// SAFETY:` comment establishing the invariant, and a test pinning
+it when the safety is not obvious.
+
+Where the invariant is a **memory layout**, assert it at compile time rather than
+in a test: `encoder::va::sys` pins every size and offset against measurements
+taken from the real headers (`spikes/m2-vaapi-export/va_layout.c`), so a
+mis-declared struct fails the build instead of returning plausible garbage.
+
+Note what `just miri` can actually do: Miri cannot execute foreign functions, so
+it will never validate a libva call. Run it on the pointer and slice arithmetic
+*around* the calls, where a mistake would be ours.
 
 ### 3. Make invalid states unrepresentable
 

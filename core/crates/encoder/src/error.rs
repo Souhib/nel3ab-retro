@@ -105,6 +105,37 @@ pub enum EncoderError {
         slot: u32,
     },
 
+    /// The DRM render node could not be opened.
+    #[error("opening the render node {path} failed")]
+    RenderNode {
+        /// The node.
+        path: PathBuf,
+        /// Underlying OS error.
+        #[source]
+        source: std::io::Error,
+    },
+
+    /// libva refused a call.
+    #[error("{what} failed: {message} ({status})")]
+    Va {
+        /// Which libva call.
+        what: &'static str,
+        /// The raw status code.
+        status: i32,
+        /// The driver's own description.
+        message: String,
+    },
+
+    /// The driver exported a surface in a shape this crate does not handle.
+    ///
+    /// Not a driver bug and not ours: a shape nobody has measured, which must be
+    /// looked at rather than guessed around.
+    #[error("the exported surface has an unexpected shape: {what}")]
+    UnexpectedExport {
+        /// What was unexpected.
+        what: &'static str,
+    },
+
     /// Slots in the same ring disagreed about their layout.
     ///
     /// Every slot is allocated together, from one modifier list, at one size —

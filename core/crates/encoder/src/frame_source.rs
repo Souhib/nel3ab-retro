@@ -44,6 +44,15 @@ const ACCEPT_POLL_INTERVAL: Duration = Duration::from_millis(25);
 pub struct DmaBuf(RawFd);
 
 impl DmaBuf {
+    /// Takes ownership of a descriptor another API has handed over.
+    ///
+    /// The caller must not close it afterwards — libva transfers ownership on
+    /// export, and this type is what closes it exactly once.
+    #[must_use]
+    pub(crate) const fn from_owned_raw(fd: RawFd) -> Self {
+        Self(fd)
+    }
+
     /// The descriptor, for handing to Vulkan.
     ///
     /// Borrowed on purpose: the importer duplicates it, and an owner that gave

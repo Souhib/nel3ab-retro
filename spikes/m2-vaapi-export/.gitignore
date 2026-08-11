@@ -4,4 +4,5 @@ vk_export
 receive_frame
 vk_writes_vaapi_reads
 vk_shader_writes_nv12
+va_layout
 *.spv

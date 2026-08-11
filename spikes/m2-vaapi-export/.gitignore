@@ -2,3 +2,4 @@ spike
 vk_import
 vk_export
 receive_frame
+vk_writes_vaapi_reads

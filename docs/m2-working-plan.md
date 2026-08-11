@@ -135,10 +135,22 @@ real gameplay** before concluding for the product.
 ⚠️ The image tagged `nel3ab/dolphin:216ffb45-nel3ab` still carries the
 **pre-ring** patch. Rebuild it before relying on it.
 
+### D5 is confirmed on the bytes, not just the handles
+
+`spikes/m2-vaapi-export/vk_writes_vaapi_reads.c`: Vulkan writes a gradient into
+both planes of a VAAPI encode surface, and the driver reads back **0 wrong of
+307 200 luma and 0 of 153 600 chroma**. The two APIs agree on what the bytes
+mean, which is the last thing that could have invalidated the architecture.
+
+⚠️ **Never verify an exported surface with `vaDeriveImage`.** On radeonsi it
+succeeds and describes a *linear* layout for a tiled surface — chroma pitch 768
+at offset 368640 against the export's 1024 at 393216. The first run of that spike
+used it and reported 99.6 % of the image wrong. `vaCreateImage` + `vaGetImage`
+asks the driver to detile, which is its authoritative view.
+
 ### The order to resume in
 
-1. Rebuild the Dolphin image so the tag matches the committed patch.
-2. The `encoder` crate: own the VAAPI surface, import both plane images, run an
+1. The `encoder` crate: own the VAAPI surface, import both plane images, run an
    RGBA→NV12 compute shader, submit the encode. This is where CLAUDE.md rule 2's
    `unsafe` exception applies — `// SAFETY:` on every block, `just miri` on the
    module.

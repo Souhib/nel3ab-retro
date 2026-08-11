@@ -21,10 +21,12 @@ shell where the new group is not active yet).
 gcc spike.c     -o spike     $(pkg-config --cflags libdrm) -lva -lva-drm
 gcc vk_import.c -o vk_import $(pkg-config --cflags libdrm) -lva -lva-drm -lvulkan
 gcc vk_export.c -o vk_export $(pkg-config --cflags libdrm) -lvulkan
+gcc vk_writes_vaapi_reads.c -o vk_writes_vaapi_reads $(pkg-config --cflags libdrm) -lva -lva-drm -lvulkan
 
 sg render -c ./spike        # what layout does VAAPI choose?          (destination)
 sg render -c ./vk_import    # will RADV take it, writable?            (destination)
 sg render -c ./vk_export    # can we export a frame the same way?     (source)
+sg render -c ./vk_writes_vaapi_reads   # do the two APIs agree on the bytes?
 ```
 
 Needs `libva-dev libdrm-dev libvulkan-dev` and a free `/dev/dri/renderD128`.
@@ -66,9 +68,39 @@ back. Two `VkDevice`s from one card, standing in for two processes.
 `vulkaninfo` cannot answer any of this — this build prints no per-format modifier
 list at all, which is why the query is made directly in `vk_import.c`.
 
+### The one that mattered most (`vk_writes_vaapi_reads.c`)
+
+Everything before it proved the plumbing: surfaces allocate, planes import, fds
+survive. None of it proved the two APIs **agree on what the bytes mean**. They
+share a buffer object and a modifier, and if either interprets the tiling
+differently, every call still returns success and the picture is scrambled. That
+is ADR D5's premise, and it was the last thing that could have invalidated M2.
+
+Vulkan writes a gradient into both planes; VAAPI is then asked what it sees.
+
+```
+luma   : 0 wrong of 307200
+chroma : 0 wrong of 153600
+```
+
+The pattern is a gradient on purpose, and Y/U/V each get a different function of
+(x, y). A flat fill would read back identical under *any* tiling, and a shared
+one would hide a plane swap — the same trap that already produced two tests in
+this milestone which passed while proving nothing.
+
+**Do not verify an exported surface with `vaDeriveImage`.** The first run of this
+spike did, and 99.6 % of the image "disagreed". On radeonsi `vaDeriveImage`
+succeeds and then describes a *linear* layout — chroma pitch 768 at offset
+368640 — for a surface `vaExportSurfaceHandle` describes as tiled with chroma
+pitch 1024 at offset 393216. VAAPI contradicts itself, and the wrong description
+wins. `vaCreateImage` + `vaGetImage` asks the driver to detile instead, which is
+its authoritative view and the only thing worth comparing against.
+
 ## What they deliberately do NOT do
 
-No shader, no encode, no output to compare. They stop at "the surface is
-writable from Vulkan", which is the part that could have killed the design. Put
-the RGBA→NV12 conversion and the encode in the `encoder` crate, with tests —
+No shader, and no H.264. They stop where the architectural risk stops: the
+surface is writable from Vulkan and the video engine reads back exactly those
+bytes. Writing the encoder is several hundred lines of well-trodden libva
+boilerplate with nothing to discover in it. Put the RGBA→NV12 conversion and the
+encode in the `encoder` crate, with tests —
 not here.

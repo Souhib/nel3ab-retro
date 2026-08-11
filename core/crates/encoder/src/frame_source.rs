@@ -48,6 +48,10 @@ impl DmaBuf {
     ///
     /// The caller must not close it afterwards — libva transfers ownership on
     /// export, and this type is what closes it exactly once.
+    ///
+    /// Gated because libva is the only caller: without the feature this would be
+    /// dead code, and dead code is a warning, and a warning is a failure.
+    #[cfg(feature = "vaapi")]
     #[must_use]
     pub(crate) const fn from_owned_raw(fd: RawFd) -> Self {
         Self(fd)

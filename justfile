@@ -1,5 +1,12 @@
 # One entry point for humans and for CI. CI runs these exact recipes, so a green
 # local run and a green pipeline cannot diverge.
+#
+# That promise was broken once: CI set `RUSTFLAGS: -D warnings` in the workflow
+# while the justfile passed it only to clippy, so `just check` went green locally
+# on code that failed the pipeline on a dead-code warning. Setting it here is what
+# makes the promise true — the strictness belongs to the recipe, not to one
+# caller of it.
+export RUSTFLAGS := "-D warnings"
 
 default: check
 

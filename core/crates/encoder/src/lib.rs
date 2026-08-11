@@ -17,6 +17,7 @@
 
 pub mod error;
 pub mod frame_source;
+pub mod h264;
 pub mod protocol;
 
 #[cfg(feature = "vaapi")]
@@ -25,4 +26,5 @@ pub mod va;
 
 pub use error::EncoderError;
 pub use frame_source::{DmaBuf, FrameListener, FrameSource, LentFrame};
+pub use h264::{ColourDescription, PpsParams, SpsParams, build_pps, build_sps};
 pub use protocol::FrameDescriptor;

@@ -597,6 +597,62 @@ consécutives partaient en **un seul bloc de 118 images**.
 > propre entrée. Corriger depuis la mesure (ce flux n'a aucun délimiteur, et
 > exactement autant de tranches que d'images), pas depuis le raisonnement.
 
+### 5ter. On joue dans un navigateur
+
+Le worker relie enfin les quatre morceaux : image de l'émulateur → conversion →
+encodage → WebSocket, et la manette qui redescend dans les tuyaux de Dolphin.
+
+**Deux WebSockets séparées**, une pour la vidéo et une pour la manette. Ce n'est
+pas du rangement : une WebSocket est du TCP, donc sur une seule connexion une
+image de 10 ko en cours de retransmission passe **devant** chaque trame de
+manette de 13 octets qui la suit. Deux connexions ne partagent pas de file.
+
+> Ça ne rend pas l'entrée *non fiable*, ce qu'elle voudrait vraiment — une entrée
+> retransmise est déjà périmée. Il faudrait des datagrammes WebTransport. C'est
+> la moitié du remède qui ne coûte rien.
+
+Et les images sont **abandonnées, jamais mises en file**. Empiler de la vidéo
+pour un client à la traîne transforme un problème de débit en problème de
+latence *et le cache* : le joueur verrait un flux fluide d'images de plus en plus
+vieilles.
+
+### La preuve, et le témoin qui manquait
+
+Premier essai : deux passages, l'un en tapant des touches, l'autre non. Les deux
+montraient le jeu **passé** son dialogue d'ouverture. Ça ressemblait à une
+preuve. Ça n'en était pas : le second passage héritait de l'état que le premier
+avait changé — même émulateur.
+
+Refait avec un Dolphin neuf par bras, même durée :
+
+| | images | à l'écran |
+|---|---|---|
+| aucune touche | 1141 | le dialogue, immobile |
+| avec touches | 1119 | dialogue écarté, l'intro joue |
+
+M1 avait mesuré que ce dialogue ne bouge jamais seul — 7037 images identiques —
+donc un écran qui l'a dépassé **est** la preuve, à condition de partir du même
+endroit.
+
+> **Leçon** : un témoin qui partage un état avec le bras testé n'est pas un
+> témoin. C'est la même erreur que les trois tests verts de M2, dans un décor
+> différent.
+
+### Un navigateur sans humain
+
+lgf n'a pas d'écran. Pour juger la moitié navigateur, j'y fais tourner un
+**navigateur sans interface** (Puppeteer) contre `localhost` — ce qui règle au
+passage le « contexte sécurisé » que WebCodecs exige et que `http://` sur une IP
+de réseau local n'offre pas.
+
+Il rapporte ce que la page dit d'elle-même, échantillonne le canvas, et laisse
+une **capture d'écran à regarder**. C'est le contrôle qui manquait à chaque
+affirmation creuse de ce projet.
+
+Ce qu'il ne mesure pas : `localhost` n'est pas un réseau. Les 0,6 ms
+d'arrivée-à-l'écran sont sans transit par construction — un plancher pour la
+moitié navigateur, et rien du tout sur le Wi-Fi.
+
 ---
 
 ## 6. Les pièges qui ont coûté du temps, et ce qu'ils ont appris

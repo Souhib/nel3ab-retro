@@ -142,6 +142,34 @@ pub enum EncoderError {
         message: &'static str,
     },
 
+    /// Vulkan refused a call.
+    #[error("{what} failed with VkResult {code}")]
+    Vulkan {
+        /// Which Vulkan call.
+        what: &'static str,
+        /// The raw `VkResult`.
+        code: i32,
+    },
+
+    /// No physical device answers for the render node we encode on.
+    ///
+    /// Distinct from "Vulkan failed": the API worked and the answer was no. A
+    /// dma-buf imported on a device other than the one that allocated it is not
+    /// something Vulkan promises anything about, so this refuses rather than
+    /// falling back to whichever device came first.
+    #[error("no usable Vulkan device: {what}")]
+    NoMatchingDevice {
+        /// Why none matched.
+        what: &'static str,
+    },
+
+    /// The right device is present but cannot import a dma-buf.
+    #[error("the device is missing {name}, which the dma-buf import requires")]
+    MissingExtension {
+        /// The extension that is absent.
+        name: &'static str,
+    },
+
     /// A frame size the encoder cannot express yet.
     ///
     /// Cropping is not written, so a picture that is not a whole number of

@@ -16,6 +16,12 @@ nel3ab-protocol = { path = "../protocol" }
 # Receiving a dma-buf means SCM_RIGHTS, which std does not expose. `nix` wraps
 # recvmsg safely, so the fd arrives without this crate needing `unsafe` for it —
 # the unsafe exception M2 earns is for libva, not for a socket.
+# Vulkan. ADR D8: bound directly rather than through a shim — Vulkan's ABI is
+# stable by specification, so the hazard that justified the libavcodec shim does
+# not exist here. `ash` is pre-generated (no bindgen) and loads libvulkan at run
+# time, so it costs nothing on a machine that never touches the GPU.
+ash = { version = "0.38", optional = true }
+
 nix = { version = "0.30", default-features = false, features = ["socket", "uio", "fs"] }
 
 [build-dependencies]
@@ -32,7 +38,7 @@ tempfile = "3"
 # Compiling the libva FFI needs libva-dev, and its tests need a GPU. Off by
 # default so `cargo test` stays honest on a machine that has neither — a test
 # that cannot run must not report a pass.
-vaapi = []
+vaapi = ["dep:ash"]
 
 # Needs the shim, so it must not be built when `vaapi` is off — otherwise a
 # machine without ffmpeg headers fails `cargo test` on an example it cannot use.

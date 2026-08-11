@@ -109,6 +109,41 @@ declares `max_num_reorder_frames=1` and `max_dec_frame_buffering=2`, where a
 latency-critical stream wants zero, and rewriting an SPS in flight is exactly
 what that module is for.
 
+### D8 — Vulkan is bound with `ash`, not through a shim
+
+Decided 2026-08-11, the turn after D7 chose the opposite for libavcodec — so the
+difference is the whole point.
+
+D7 put a C shim in front of libavcodec because `AVCodecContext` has hundreds of
+fields whose layout moves between ffmpeg major versions; measured offsets would
+go silently wrong on a distro upgrade. **That reason does not transfer to
+Vulkan.** Vulkan is a versioned C API designed to be bound: structures are
+extended through `pNext` chains rather than by growing, and the ABI is stable by
+specification. The hazard the shim exists to contain is absent here.
+
+Against that, `ash` is the maintained standard, its bindings are pre-generated
+(no bindgen, no libclang), and it loads `libvulkan` at runtime.
+
+The deciding argument is not the binding, though — it is **where the bugs were**.
+Both races M2 has already fixed were about *when* a frame is safe to touch, not
+about calling Vulkan correctly. That logic is orchestration: which slot, whose
+turn, when to submit. Rule 5 says orchestration belongs where it can be tested
+without a process or a GPU, and Rust is where the slot lifetimes can be enforced
+by the type system rather than by a comment. A shim would move exactly the risky
+part into the one language that cannot check it.
+
+What this costs: rule 2's `unsafe` exception now covers two modules instead of
+one, and every Vulkan call is `unsafe` in `ash`. The rule is amended rather than
+bent — see `CLAUDE.md`. In exchange, `just miri` gains something real to check:
+Miri cannot execute a Vulkan call any more than a libva one, but the descriptor
+and slot arithmetic around them is now Rust.
+
+Reused rather than rediscovered: `spikes/m2-vaapi-export/vk_shader_writes_nv12.c`
+(500 lines) and `rgba_to_nv12.comp` are the proven sequences to port. The spike
+picks the first discrete GPU, which is fine for one card and wrong as a
+component — the Rust version matches the **render node it encodes on**, via
+`VK_EXT_physical_device_drm`.
+
 ## Consequences
 
 - AV1 encoding is unavailable (needs RDNA3+). Target H.264/HEVC.

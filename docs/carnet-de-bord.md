@@ -420,6 +420,39 @@ Nuance honnête, écrite à côté du tableau : ces surfaces n'ont rien écrit d
 donc elles se compressent à rien. C'est un **plancher**, pas le régime réel. À
 re-mesurer quand le shader écrira de vraies images.
 
+### 5.13 Vulkan : la décision inverse, et pourquoi ce n'est pas une contradiction
+
+Il reste un maillon : importer l'image de Dolphin dans Vulkan, lancer le shader,
+écrire dans la surface de l'encodeur. Il faut donc appeler Vulkan depuis Rust — et
+la question se repose : un shim C, comme pour ffmpeg, ou une liaison directe ?
+
+**Réponse opposée à celle de D7, et c'est justement l'intérêt.**
+
+Le shim existe pour une raison précise : les structures de ffmpeg changent de
+disposition entre versions majeures, donc mesurer leurs positions serait faux
+après une mise à jour système. **Cette raison ne se transporte pas à Vulkan.**
+Vulkan est une API conçue pour être liée : elle s'étend par des chaînes de
+pointeurs (`pNext`) au lieu de faire grossir ses structures, et son ABI est
+stable par spécification. Le danger que le shim contient n'existe pas ici.
+
+`ash` est la liaison Rust standard, pré-générée (donc pas de bindgen), et charge
+`libvulkan` à l'exécution.
+
+Mais l'argument décisif n'est pas la liaison — c'est **où étaient les bugs**. Les
+deux courses déjà corrigées portaient sur le *moment* où une image est sûre à
+toucher, pas sur la façon d'appeler Vulkan. Cette logique-là est de
+l'orchestration : quelle case, à qui le tour, quand soumettre. Un shim
+déplacerait précisément la partie risquée dans le seul langage qui ne peut pas la
+vérifier.
+
+Ce que ça coûte : l'exception `unsafe` du projet couvre maintenant trois modules
+au lieu d'un. La règle est **amendée**, pas contournée — et ajouter un quatrième
+module exigera désormais sa propre décision écrite.
+
+> **Leçon** : deux situations qui se ressemblent ne méritent pas forcément la même
+> réponse. Ce qui compte, c'est de savoir **quelle raison** a produit la première
+> réponse, et de vérifier si elle s'applique encore.
+
 ---
 
 ## 6. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
@@ -433,6 +466,7 @@ re-mesurer quand le shader écrira de vraies images.
 | Deux tests verts avec le bug remis | Ils lisaient la bonne chose au mauvais endroit | Vérifier en réintroduisant le bug, jamais en raisonnant |
 | Poussé avec `just check` rouge | Vu l'échec, poussé quand même | Corrigé dans un commit dont le message le dit |
 | Divergence local / CI | La CI ajoutait `-D warnings`, pas le `justfile` | `just check` doit être *exactement* ce que la CI fait |
+| Le shim C casse la CI | La machine de CI n'a pas de GPU, ce qui allait très bien tant que l'analyse de code ne *compilait* rien. Le shim, lui, compile du vrai C et exige de vrais en-têtes | Une dépendance de compilation n'a pas les mêmes besoins qu'une dépendance d'exécution. Vert en local ne dit rien tant que la CI n'a pas la même matière |
 | Binaires compilés commités | Des exécutables dans le dépôt | Supprimés et ignorés |
 | `pkill -f <motif>` | Le motif correspondait à sa propre ligne de commande, tuant le shell | — |
 | Symboles de debug | Le dépôt propose Mesa 24.0.5, la machine a la 25.2.8 | Abandonné plutôt que d'insister ; source apt retirée après |
@@ -450,6 +484,7 @@ re-mesurer quand le shader écrira de vraies images.
 | **D5** | Topologie « Sunshine » : allouer côté encodeur **d'abord** | Évite le refus DCC et supprime une passe de conversion |
 | **D6** | Client TypeScript généré | Pas de types recopiés à la main entre serveur et navigateur |
 | **D7** | libavcodec encode | Application de D1 : un encodeur H.264 conforme n'est pas à écrire |
+| **D8** | Vulkan lié directement avec `ash`, sans shim | La raison du shim (l'ABI instable de ffmpeg) n'existe pas pour Vulkan, et la logique risquée doit rester en Rust |
 
 ---
 
@@ -488,6 +523,9 @@ sa raison**, pour qu'on ne la re-débatte pas six mois plus tard.
 
 **Anneau / ring buffer** — un petit ensemble de cases réutilisées en boucle. Ici,
 trois images : pendant que le worker en lit une, Dolphin écrit dans une autre.
+
+**ash** — la bibliothèque de liaison Rust ↔ Vulkan. Pré-générée, donc sans outil
+de génération à la compilation.
 
 **BT.601 / BT.709** — deux normes de conversion couleur. BT.601 pour la vidéo
 standard, BT.709 pour la HD. Les confondre donne une image aux teintes décalées.

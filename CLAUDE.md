@@ -28,19 +28,37 @@ The ban is mechanical, and lives at each crate root: `protocol`, `emulator`,
 is `deny` rather than `forbid` for one reason only — `forbid` cannot be lifted at
 all, not even for the exception below.
 
-**The single exception is the libva FFI** (`encoder::va`). It carries
-`#![deny(unsafe_code)]` at the crate root and lifts it on that module alone. Each
-block needs a `// SAFETY:` comment establishing the invariant, and a test pinning
-it when the safety is not obvious.
+**The exception is the GPU FFI, and only it.** Three modules of the `encoder`
+crate carry it, which is `#![deny(unsafe_code)]` at the crate root and `#[allow]`
+on those modules alone — never crate-wide:
+
+| Module | Why it is unavoidable |
+|---|---|
+| `encoder::va` | libva: allocating and exporting the encode surface |
+| `encoder::av` | the libavcodec shim (ADR D7) |
+| `encoder::vulkan` | `ash`: importing the dma-buf and dispatching the shader (ADR D8) |
+
+Adding a fourth is a decision, not a convenience: it needs an ADR entry saying
+what was weighed. D8 is the worked example — it argues Vulkan *from* why D7
+decided the opposite for ffmpeg.
+
+Each block needs a `// SAFETY:` comment establishing the invariant, and a test
+pinning it when the safety is not obvious.
 
 Where the invariant is a **memory layout**, assert it at compile time rather than
 in a test: `encoder::va::sys` pins every size and offset against measurements
 taken from the real headers (`spikes/m2-vaapi-export/va_layout.c`), so a
 mis-declared struct fails the build instead of returning plausible garbage.
 
+Where the layout is one **we** define across a language boundary, ask the other
+side rather than assuming: `encoder::av`'s shim exports `n3_layout()`, and a test
+compares *every field* — not just the size, since two compensating padding errors
+would leave the size right and every value wrong. That test needs no GPU, because
+a mismatch is a defect of the binding rather than of the machine.
+
 Note what `just miri` can actually do: Miri cannot execute foreign functions, so
-it will never validate a libva call. Run it on the pointer and slice arithmetic
-*around* the calls, where a mistake would be ours.
+it will never validate a libva or Vulkan call. Run it on the pointer and slice
+arithmetic *around* the calls, where a mistake would be ours.
 
 ### 3. Make invalid states unrepresentable
 

@@ -254,6 +254,78 @@ pub fn build_pps(params: &PpsParams) -> Vec<u8> {
     to_nal_unit(3, 8, &w.finish())
 }
 
+/// Everything an I or IDR slice header needs.
+///
+/// **I and IDR only.** A P slice adds reference-list handling and
+/// `dec_ref_pic_marking`, and writing those wrong desynchronises the slice data
+/// that follows — so they are absent rather than half-written. An all-intra
+/// stream is wasteful of bitrate and is the right first step regardless: it has
+/// no reference state to get wrong.
+#[derive(Debug, Clone, Copy)]
+pub struct SliceHeaderParams {
+    /// First macroblock of this slice.
+    pub first_mb_in_slice: u32,
+    /// True for an IDR, which changes the NAL type and adds two flags.
+    pub idr: bool,
+    /// `idr_pic_id`, ignored unless `idr`.
+    pub idr_pic_id: u32,
+    /// `pic_parameter_set_id`.
+    pub pic_parameter_set_id: u32,
+    /// `frame_num`, written in `log2_max_frame_num_minus4 + 4` bits.
+    pub frame_num: u32,
+    /// Must match the SPS, or the field is read at the wrong width and
+    /// everything after it shifts.
+    pub log2_max_frame_num_minus4: u32,
+    /// `pic_order_cnt_lsb`.
+    pub pic_order_cnt_lsb: u32,
+    /// Must match the SPS, for the same reason.
+    pub log2_max_pic_order_cnt_lsb_minus4: u32,
+    /// `slice_qp_delta`, relative to the PPS's `pic_init_qp`.
+    pub slice_qp_delta: i32,
+    /// True when the PPS selected CABAC, which pads the header to a byte
+    /// boundary with one bits.
+    pub entropy_coding_mode: bool,
+}
+
+/// Writes an I or IDR slice header as a NAL unit.
+///
+/// The result is deliberately **not** terminated with `rbsp_trailing_bits`: the
+/// encoder continues this same bitstream with the slice data, so the header ends
+/// mid-byte unless CABAC alignment fills it. The returned bit length is what the
+/// driver must be told; the final byte's spare bits are padding it will overwrite.
+#[must_use]
+pub fn build_slice_header(params: &SliceHeaderParams) -> (Vec<u8>, usize) {
+    let mut w = BitWriter::new();
+    w.put_ue(params.first_mb_in_slice);
+    // 7 is "I, and every slice in this picture is I", which lets a decoder skip
+    // reference handling entirely.
+    w.put_ue(7);
+    w.put_ue(params.pic_parameter_set_id);
+    w.put_bits(params.frame_num, params.log2_max_frame_num_minus4 + 4);
+    if params.idr {
+        w.put_ue(params.idr_pic_id);
+    }
+    w.put_bits(
+        params.pic_order_cnt_lsb,
+        params.log2_max_pic_order_cnt_lsb_minus4 + 4,
+    );
+    if params.idr {
+        w.put_flag(false); // no_output_of_prior_pics_flag
+        w.put_flag(false); // long_term_reference_flag
+    }
+    w.put_se(params.slice_qp_delta);
+    if params.entropy_coding_mode {
+        // cabac_alignment_one_bit: ones, not zeros, to the byte boundary.
+        while !w.bit_length().is_multiple_of(8) {
+            w.put_flag(true);
+        }
+    }
+
+    let payload_bits = w.bit_length();
+    let nal = to_nal_unit(3, if params.idr { 5 } else { 1 }, &w.finish());
+    (nal, payload_bits + 8)
+}
+
 #[cfg(test)]
 #[allow(
     clippy::unwrap_used,
@@ -438,6 +510,79 @@ mod tests {
         let mut without = params;
         without.colour = None;
         assert_ne!(build_sps(&without), FFMPEG_SPS_BT709);
+    }
+
+    #[test]
+    fn the_idr_slice_header_is_byte_identical_to_ffmpegs() {
+        // ffmpeg's first slice, read out of the elementary stream. Its 8-bit
+        // frame_num and pic_order_cnt_lsb come from the SPS above, and getting
+        // either width wrong shifts every field after it — which is why they are
+        // parameters here rather than constants.
+        let params = SliceHeaderParams {
+            first_mb_in_slice: 0,
+            idr: true,
+            idr_pic_id: 0,
+            pic_parameter_set_id: 0,
+            frame_num: 0,
+            log2_max_frame_num_minus4: 4,
+            pic_order_cnt_lsb: 0,
+            log2_max_pic_order_cnt_lsb_minus4: 4,
+            slice_qp_delta: -6,
+            entropy_coding_mode: true,
+        };
+        let (nal, bits) = build_slice_header(&params);
+        assert_eq!(nal, vec![0x65, 0x88, 0x80, 0x40, 0x01, 0xbf]);
+        assert_eq!(
+            bits, 48,
+            "the driver is told the length, not the byte count"
+        );
+    }
+
+    #[test]
+    fn the_field_widths_come_from_the_sps_and_matter() {
+        // Negative twin: a header that ignored the SPS widths would produce the
+        // same bytes for different widths, and a decoder would read every later
+        // field from the wrong place.
+        let base = SliceHeaderParams {
+            first_mb_in_slice: 0,
+            idr: true,
+            idr_pic_id: 0,
+            pic_parameter_set_id: 0,
+            frame_num: 0,
+            log2_max_frame_num_minus4: 4,
+            pic_order_cnt_lsb: 0,
+            log2_max_pic_order_cnt_lsb_minus4: 4,
+            slice_qp_delta: -6,
+            entropy_coding_mode: true,
+        };
+        let mut narrower = base;
+        narrower.log2_max_frame_num_minus4 = 0;
+        assert_ne!(build_slice_header(&narrower).1, build_slice_header(&base).1);
+
+        let mut poc = base;
+        poc.log2_max_pic_order_cnt_lsb_minus4 = 0;
+        assert_ne!(build_slice_header(&poc).1, build_slice_header(&base).1);
+    }
+
+    #[test]
+    fn cavlc_leaves_the_header_unaligned() {
+        // The alignment ones exist only for CABAC. Adding them under CAVLC would
+        // insert bits the decoder reads as slice data.
+        let params = SliceHeaderParams {
+            first_mb_in_slice: 0,
+            idr: true,
+            idr_pic_id: 0,
+            pic_parameter_set_id: 0,
+            frame_num: 0,
+            log2_max_frame_num_minus4: 4,
+            pic_order_cnt_lsb: 0,
+            log2_max_pic_order_cnt_lsb_minus4: 4,
+            slice_qp_delta: -6,
+            entropy_coding_mode: false,
+        };
+        let (_, bits) = build_slice_header(&params);
+        assert_eq!(bits, 43, "43 bits of syntax, no padding");
+        assert_ne!(bits % 8, 0);
     }
 
     #[test]

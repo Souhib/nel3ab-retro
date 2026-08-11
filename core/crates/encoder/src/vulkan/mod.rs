@@ -20,14 +20,17 @@
 //! [`Context::open`] matches the **device number of the render node itself**,
 //! through `VK_EXT_physical_device_drm`, and fails rather than guessing.
 
+pub mod image;
 pub mod sys;
 
 use core::ffi::CStr;
+use std::os::fd::BorrowedFd;
 use std::path::Path;
 
 use ash::vk;
 
 use crate::error::EncoderError;
+use crate::frame_source::DmaBuf;
 
 /// Device extensions the import path cannot work without.
 ///
@@ -70,6 +73,13 @@ pub struct Context {
     instance: ash::Instance,
     physical: vk::PhysicalDevice,
     device: ash::Device,
+    /// The `VK_KHR_external_memory_fd` entry points, loaded once. Vulkan
+    /// resolves extension functions per device, so caching beats fetching them
+    /// on every import.
+    external_memory_fd: ash::khr::external_memory_fd::Device,
+    /// `VK_EXT_image_drm_format_modifier`, used to ask an image what tiling it
+    /// actually ended up with — see [`image::ImportedPlane::modifier`].
+    drm_format_modifier: ash::ext::image_drm_format_modifier::Device,
     queue: vk::Queue,
     queue_family: u32,
     name: String,
@@ -132,15 +142,23 @@ impl Context {
         };
 
         match Self::open_device(&instance, physical) {
-            Ok((device, queue, queue_family)) => Ok(Self {
-                _entry: entry,
-                instance,
-                physical,
-                device,
-                queue,
-                queue_family,
-                name,
-            }),
+            Ok((device, queue, queue_family)) => {
+                let external_memory_fd =
+                    ash::khr::external_memory_fd::Device::new(&instance, &device);
+                let drm_format_modifier =
+                    ash::ext::image_drm_format_modifier::Device::new(&instance, &device);
+                Ok(Self {
+                    _entry: entry,
+                    instance,
+                    physical,
+                    device,
+                    external_memory_fd,
+                    drm_format_modifier,
+                    queue,
+                    queue_family,
+                    name,
+                })
+            }
             Err(error) => {
                 // SAFETY: as above — no device was created on this path.
                 unsafe { instance.destroy_instance(None) };
@@ -311,26 +329,43 @@ impl Context {
     /// The memory type index for a dma-buf import, given the bits the driver
     /// says are legal for it.
     ///
+    /// Device-local is **preferred, not required**, and the difference matters.
+    /// The whole architecture exists so the frame never leaves VRAM, so a
+    /// non-local type is worth a warning — but the driver decides which types
+    /// accept an imported dma-buf, and refusing an import it called legal would
+    /// be us overruling the only party that knows. The C spike asks for no flags
+    /// at all; this asks for the good one and takes what it is given.
+    ///
     /// # Errors
-    /// [`EncoderError::NoMatchingDevice`] if no memory type is both legal for
-    /// the import and device-local.
+    /// [`EncoderError::NoMatchingDevice`] if no memory type at all accepts it.
     pub fn memory_type_for_import(&self, allowed: u32) -> Result<u32, EncoderError> {
         // SAFETY: instance and handle are live.
         let memory = unsafe {
             self.instance
                 .get_physical_device_memory_properties(self.physical)
         };
-        (0..memory.memory_type_count)
-            .find(|index| {
-                let legal = allowed & (1 << index) != 0;
-                let local = memory.memory_types[*index as usize]
-                    .property_flags
-                    .contains(vk::MemoryPropertyFlags::DEVICE_LOCAL);
-                legal && local
-            })
-            .ok_or(EncoderError::NoMatchingDevice {
-                what: "no device-local memory type accepts this dma-buf",
-            })
+        let legal = |index: &u32| allowed & (1_u32 << index) != 0;
+        let local = |index: &u32| {
+            memory.memory_types[*index as usize]
+                .property_flags
+                .contains(vk::MemoryPropertyFlags::DEVICE_LOCAL)
+        };
+
+        if let Some(index) = (0..memory.memory_type_count).find(|i| legal(i) && local(i)) {
+            return Ok(index);
+        }
+        let index =
+            (0..memory.memory_type_count)
+                .find(legal)
+                .ok_or(EncoderError::NoMatchingDevice {
+                    what: "no memory type accepts this dma-buf",
+                })?;
+        tracing::warn!(
+            index,
+            "the dma-buf imported into non-device-local memory; the frame is not \
+             staying in VRAM and the latency numbers will not hold"
+        );
+        Ok(index)
     }
 
     /// Borrowed for building images and pipelines on top.
@@ -344,6 +379,30 @@ impl Context {
     pub const fn queue(&self) -> vk::Queue {
         self.queue
     }
+
+    /// The `VK_KHR_external_memory_fd` entry points.
+    #[must_use]
+    pub const fn external_memory_fd(&self) -> &ash::khr::external_memory_fd::Device {
+        &self.external_memory_fd
+    }
+
+    /// The `VK_EXT_image_drm_format_modifier` entry points.
+    #[must_use]
+    pub const fn drm_format_modifier(&self) -> &ash::ext::image_drm_format_modifier::Device {
+        &self.drm_format_modifier
+    }
+}
+
+/// Borrows a dma-buf's descriptor.
+///
+/// `DmaBuf` keeps a raw descriptor because `frame_source` is a safe module and
+/// cannot build an `OwnedFd` without `unsafe`. Turning it into a `BorrowedFd`
+/// therefore happens here, where rule 2's exception applies.
+const fn borrow(buffer: &DmaBuf) -> BorrowedFd<'_> {
+    // SAFETY: `DmaBuf` owns the descriptor and closes it only on Drop, so it is
+    // open for as long as the borrow it is tied to. The lifetime on the return
+    // type is what makes that a compiler-checked claim rather than a comment.
+    unsafe { BorrowedFd::borrow_raw(buffer.as_raw_fd()) }
 }
 
 impl Drop for Context {

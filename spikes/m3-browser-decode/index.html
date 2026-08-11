@@ -1,0 +1,161 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>M3 experiment 1 — does a browser decode OUR bytes?</title>
+<style>
+  :root { color-scheme: dark; font-family: ui-monospace, monospace; }
+  body { margin: 0; padding: 2rem; background: #111; color: #ddd; max-width: 60rem; }
+  h1 { font-size: 1.1rem; font-weight: 600; }
+  canvas { background: #000; border: 1px solid #333; max-width: 100%; }
+  #log { white-space: pre-wrap; line-height: 1.5; }
+  .ok { color: #6ee7a8; }
+  .bad { color: #ff8080; }
+  .note { color: #888; }
+</style>
+
+<h1>M3 experiment 1 — does a browser decode the bytes <code>encoder::av</code> produces?</h1>
+
+<p class="note">
+  Not "does WebCodecs decode H.264" — that is documented. This feeds the exact
+  stream the end-to-end test recorded out of a running Dolphin: ffmpeg's SPS/PPS,
+  no B-frames, <code>async_depth=1</code>, an IDR every 60 frames. If it refuses
+  the configuration or draws nothing, Option B of the M3 plan is dead.
+</p>
+
+<canvas id="screen" width="640" height="480"></canvas>
+<div id="log">starting…</div>
+
+<script type="module">
+  const log = document.getElementById("log");
+  const canvas = document.getElementById("screen");
+  const context = canvas.getContext("2d");
+  const lines = [];
+  const say = (text, cls = "") => {
+    lines.push(cls ? `<span class="${cls}">${text}</span>` : text);
+    log.innerHTML = lines.join("\n");
+  };
+
+  if (!("VideoDecoder" in window)) {
+    say("VideoDecoder is not available in this browser — WebCodecs is absent.", "bad");
+    throw new Error("no WebCodecs");
+  }
+
+  const bytes = new Uint8Array(await (await fetch("stream.h264")).arrayBuffer());
+  say(`fetched ${bytes.length} bytes of Annex B`);
+
+  // Split on start codes. Both lengths occur: ffmpeg writes 4-byte codes before
+  // parameter sets and 3-byte ones inside an access unit.
+  const starts = [];
+  for (let i = 0; i + 3 < bytes.length; i++) {
+    if (bytes[i] === 0 && bytes[i + 1] === 0 && bytes[i + 2] === 1) {
+      starts.push({ at: i, payload: i + 3 });
+      i += 2;
+    }
+  }
+  const nals = starts.map(({ at, payload }, index) => {
+    const end = index + 1 < starts.length ? starts[index + 1].at : bytes.length;
+    return { kind: bytes[payload] & 0x1f, from: at, payload, end };
+  });
+  const kinds = {};
+  for (const nal of nals) kinds[nal.kind] = (kinds[nal.kind] ?? 0) + 1;
+  say(`found ${nals.length} NAL units by type: ${JSON.stringify(kinds)}`);
+  say("  7=SPS 8=PPS 5=IDR slice 1=non-IDR slice 6=SEI 9=AUD", "note");
+
+  const sps = nals.find((nal) => nal.kind === 7);
+  if (!sps) {
+    say("no SPS in the stream — nothing can be configured from it.", "bad");
+    throw new Error("no SPS");
+  }
+  // The codec string is profile_idc / constraint flags / level_idc, straight out
+  // of the SPS. Read rather than hardcoded: a hardcoded string that happens to
+  // match would prove nothing about the bytes actually being sent.
+  const hex = (value) => value.toString(16).padStart(2, "0");
+  const codec =
+    `avc1.${hex(bytes[sps.payload + 1])}${hex(bytes[sps.payload + 2])}${hex(bytes[sps.payload + 3])}`;
+  say(`SPS says the codec is ${codec}`);
+
+  const config = { codec, optimizeForLatency: true };
+  const support = await VideoDecoder.isConfigSupported(config);
+  say(
+    `isConfigSupported: ${support.supported ? "yes" : "no"}`,
+    support.supported ? "ok" : "bad",
+  );
+  if (!support.supported) throw new Error("configuration refused");
+
+  // Group NALs into access units. A new one starts at an AUD, or at a parameter
+  // set that follows a slice — which is how ffmpeg lays out an IDR period.
+  const units = [];
+  let current = null;
+  let sawSlice = false;
+  for (const nal of nals) {
+    const isSlice = nal.kind === 1 || nal.kind === 5;
+    const startsUnit = nal.kind === 9 || (!isSlice && sawSlice) || current === null;
+    if (startsUnit && (current === null || sawSlice)) {
+      if (current) units.push(current);
+      current = { from: nal.from, end: nal.end, key: false };
+      sawSlice = false;
+    }
+    current.end = nal.end;
+    if (nal.kind === 5) current.key = true;
+    if (isSlice) sawSlice = true;
+  }
+  if (current) units.push(current);
+  say(`grouped into ${units.length} access units, ${units.filter((u) => u.key).length} of them key`);
+
+  let decoded = 0;
+  let firstPaint = 0;
+  const started = performance.now();
+  const latencies = [];
+  const submittedAt = [];
+
+  const decoder = new VideoDecoder({
+    output: (frame) => {
+      const now = performance.now();
+      if (decoded === 0) firstPaint = now - started;
+      latencies.push(now - submittedAt[decoded]);
+      decoded += 1;
+      // Draw every frame: the point of this experiment is to LOOK at it, which
+      // is the check every hollow claim in M2 turned out to be missing.
+      context.drawImage(frame, 0, 0, canvas.width, canvas.height);
+      frame.close();
+    },
+    error: (error) => say(`decoder error: ${error}`, "bad"),
+  });
+  decoder.configure(config);
+
+  // 60 fps of presentation timestamps, in microseconds, matching what the
+  // encoder was told the frame rate is.
+  units.forEach((unit, index) => {
+    submittedAt.push(performance.now());
+    decoder.decode(
+      new EncodedVideoChunk({
+        type: unit.key ? "key" : "delta",
+        timestamp: Math.round((index * 1_000_000) / 60),
+        data: bytes.subarray(unit.from, unit.end),
+      }),
+    );
+  });
+  await decoder.flush();
+
+  const sorted = [...latencies].sort((a, b) => a - b);
+  const at = (q) => sorted[Math.floor((sorted.length - 1) * q)];
+  say("");
+  say(
+    decoded === units.length
+      ? `VERDICT: decoded ${decoded} of ${units.length} access units.`
+      : `VERDICT: decoded only ${decoded} of ${units.length} access units.`,
+    decoded === units.length ? "ok" : "bad",
+  );
+  say(`first frame after ${firstPaint.toFixed(1)} ms`);
+  say(
+    `decode latency, submit to output: p50 ${at(0.5).toFixed(2)} ms, ` +
+      `p95 ${at(0.95).toFixed(2)} ms, max ${sorted[sorted.length - 1].toFixed(2)} ms`,
+  );
+  say("");
+  say(
+    "This is a whole file submitted at once, so the latency above is a decoder " +
+      "throughput figure, NOT glass-to-glass. That number needs a live stream " +
+      "and is experiment 2.",
+    "note",
+  );
+  say("Now look at the canvas. If it shows Melee's memory-card dialog, the chain reads end to end.");
+</script>

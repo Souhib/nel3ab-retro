@@ -644,7 +644,9 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "gpu-tests")]
     const WIDTH: u32 = 640;
+    #[cfg(feature = "gpu-tests")]
     const HEIGHT: u32 = 480;
 
     /// BT.709 luma weights, written out here independently of the shader.
@@ -659,12 +661,14 @@ mod tests {
                   orders of magnitude more precision than the +/-1 this compares at, so \
                   the fused form would buy accuracy nothing here can spend"
     )]
+    #[cfg(feature = "gpu-tests")]
     fn reference_luma(r: f64, g: f64, b: f64) -> f64 {
         16.0 + 219.0 * (0.2126 * r + 0.7152 * g + 0.0722 * b)
     }
 
     /// A pattern with structure in both axes and all three channels, so a
     /// swapped axis, a swapped channel or a stale region all change the answer.
+    #[cfg(feature = "gpu-tests")]
     fn pattern() -> Vec<u8> {
         let mut pixels = Vec::with_capacity((WIDTH * HEIGHT * 4) as usize);
         #[allow(
@@ -705,6 +709,7 @@ mod tests {
     /// against what the surface actually is. Re-checked: with modifier 0, that
     /// test is the single one in the crate that fails.
     #[test]
+    #[cfg(feature = "gpu-tests")]
     fn the_shader_writes_correct_bt709_luma_into_the_encoders_surface() {
         use crate::av::Encoder;
         use crate::va::DEFAULT_RENDER_NODE;
@@ -778,6 +783,7 @@ mod tests {
     /// it does not cover is the tiling of the emulator's own slots and the ring
     /// protocol; both need the emulator itself.
     #[test]
+    #[cfg(feature = "gpu-tests")]
     fn a_frame_arriving_as_a_dma_buf_converts_correctly() {
         use crate::av::Encoder;
         use crate::va::DEFAULT_RENDER_NODE;
@@ -849,6 +855,7 @@ mod tests {
     /// refused rather than reinterpreted. Swapping red and blue is exactly what
     /// mapping DRM's naming onto Vulkan's by eye produces.
     #[test]
+    #[cfg(feature = "gpu-tests")]
     fn a_frame_that_is_not_abgr8888_is_refused() {
         use crate::va::DEFAULT_RENDER_NODE;
         use crate::vulkan::image::ImportedFrame;
@@ -871,6 +878,7 @@ mod tests {
     /// minus Dolphin — which only supplies the RGBA image the pattern stood in
     /// for.
     #[test]
+    #[cfg(feature = "gpu-tests")]
     fn a_converted_frame_encodes_to_more_bytes_than_an_empty_one() {
         use crate::av::Encoder;
         use crate::va::DEFAULT_RENDER_NODE;
@@ -912,7 +920,7 @@ mod tests {
 /// through host memory, which is the entire point of the architecture. This
 /// exists because a conversion can only be *proven* against pixels somebody
 /// chose, and it is the one place allowed to be slow.
-#[cfg(test)]
+#[cfg(all(test, feature = "gpu-tests"))]
 #[allow(
     clippy::unwrap_used,
     clippy::expect_used,

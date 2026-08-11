@@ -385,6 +385,7 @@ mod tests {
     /// Needs the GPU. The numbers are the ones the C spike measured; if the Rust
     /// path disagrees, the binding is wrong rather than the driver.
     #[test]
+    #[cfg(feature = "gpu-tests")]
     fn a_pooled_surface_is_still_ours_to_write() {
         let Ok(mut encoder) = Encoder::open(DEFAULT_RENDER_NODE, 640, 480, 26, 60, 3) else {
             panic!("no encoder on {DEFAULT_RENDER_NODE}: run this where the GPU is");
@@ -412,6 +413,7 @@ mod tests {
     /// Every slot in the pool must export, not just the first — a pool that
     /// handed out one real surface and three aliases would pass the test above.
     #[test]
+    #[cfg(feature = "gpu-tests")]
     fn every_slot_exports_a_distinct_buffer_with_the_same_layout() {
         let Ok(mut encoder) = Encoder::open(DEFAULT_RENDER_NODE, 640, 480, 26, 60, 3) else {
             panic!("no encoder on {DEFAULT_RENDER_NODE}: run this where the GPU is");
@@ -453,6 +455,7 @@ mod tests {
     /// H.264. The surface is left as the pool allocated it, so this asserts the
     /// *stream shape* rather than the picture — pixels are the wiring test's job.
     #[test]
+    #[cfg(feature = "gpu-tests")]
     fn an_encoded_frame_comes_back_as_an_h264_idr_access_unit() {
         let Ok(mut encoder) = Encoder::open(DEFAULT_RENDER_NODE, 640, 480, 26, 60, 3) else {
             panic!("no encoder on {DEFAULT_RENDER_NODE}: run this where the GPU is");
@@ -485,6 +488,7 @@ mod tests {
     }
 
     /// The NAL unit types in an Annex B stream, in order.
+    #[cfg(feature = "gpu-tests")]
     fn nal_kinds(stream: &[u8]) -> Vec<u8> {
         let mut kinds = Vec::new();
         for window in stream.windows(4) {

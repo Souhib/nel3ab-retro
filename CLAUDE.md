@@ -91,10 +91,30 @@ A panic kills a live game session. `unwrap`, `expect` and `panic!` are denied
 outside tests. Errors are typed with `thiserror`; `anyhow` is allowed only in the
 binary, at the boundary.
 
-### 7. A task is not done until CI is green
+### 7. A task is not done until CI is green — and CI cannot see the GPU
 
-`just check` locally, then watch the run. A failing early step means the later
-gates were **skipped, not passed**.
+Run **`just`** (which is `check` + `gpu-test`) locally, then watch the run. A
+failing early step means the later gates were **skipped, not passed**.
+
+Two halves, and neither covers the other:
+
+- **`just check`** is exactly what CI runs, so a red one here is a red pipeline
+  later. Never put it in the same command as `git push`: the push has to be a
+  decision taken *after* reading the result. That rule exists because the output
+  was ignored three times, the third after an earlier spurious red had taught
+  the eye to skip it.
+- **`just gpu-test`** is everything CI structurally cannot prove. The runner has
+  no GPU, so the dma-buf import, the compute pass and the encode are invisible
+  to it — a green pipeline says nothing about the half of this project that
+  matters most.
+
+Hence the split between the `vaapi` feature (compiles the FFI, needs only
+headers) and `gpu-tests` (needs a real device). They were one flag until the
+worker depended on `vaapi` for real: Cargo unifies features across a workspace,
+so `cargo test --workspace` started running GPU tests on a runner that has none.
+
+The way to close the gap properly is a self-hosted runner on lgf. Worth doing
+when more than one person commits.
 
 ### 8. The logbook is part of the work, not a write-up afterwards
 
@@ -130,7 +150,10 @@ Two things it must keep doing:
 
 | | |
 |---|---|
+| **`just`** | **the gate before a commit: `check` + `gpu-test`** |
 | `just check` | fmt + clippy + tests — exactly what CI runs |
+| `just gpu-test` | the tests only this machine can run (no GPU on CI) |
+| `just end-to-end` | the whole chain against a real Dolphin and ROM |
 | `just fix` | auto-format, auto-fix lints |
 | `just audit` | advisories + licences (blocking) |
 | `just miri` | undefined-behaviour check on FFI |

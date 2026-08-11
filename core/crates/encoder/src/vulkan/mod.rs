@@ -415,7 +415,7 @@ impl Context {
     ///
     /// Test scaffolding only: the real path reuses one buffer per frame rather
     /// than allocating a pool per operation.
-    #[cfg(test)]
+    #[cfg(all(test, feature = "gpu-tests"))]
     pub(crate) fn one_shot(&self, record: impl FnOnce(vk::CommandBuffer)) {
         #[allow(
             clippy::expect_used,
@@ -500,9 +500,11 @@ impl Drop for Context {
 )]
 mod tests {
     use super::*;
+    #[cfg(feature = "gpu-tests")]
     use crate::va::DEFAULT_RENDER_NODE;
 
     #[test]
+    #[cfg(feature = "gpu-tests")]
     fn the_device_we_open_is_the_one_that_owns_the_render_node() {
         let Ok(context) = Context::open(DEFAULT_RENDER_NODE) else {
             panic!("no Vulkan device for {DEFAULT_RENDER_NODE}: run this where the GPU is");
@@ -522,6 +524,7 @@ mod tests {
     /// silently answered with whatever device happened to be first — which is
     /// exactly what the C spike would have done.
     #[test]
+    #[cfg(feature = "gpu-tests")]
     fn a_path_that_is_not_this_render_node_is_refused() {
         // /dev/null is a character device with a real device number, so this
         // exercises the *matching*, not the stat. A missing path would only
@@ -543,6 +546,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "gpu-tests")]
     fn a_dma_buf_import_gets_device_local_memory() {
         let Ok(context) = Context::open(DEFAULT_RENDER_NODE) else {
             panic!("no Vulkan device for {DEFAULT_RENDER_NODE}: run this where the GPU is");
@@ -716,11 +720,11 @@ mod validation {
     }
 
     /// Takes everything the layer said on this thread since the last call.
-    #[cfg(test)]
+    #[cfg(all(test, feature = "gpu-tests"))]
     pub fn drain() -> Vec<String> {
         MESSAGES.with_borrow_mut(core::mem::take)
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "gpu-tests"))]
 pub(crate) use validation::drain as validation_messages;

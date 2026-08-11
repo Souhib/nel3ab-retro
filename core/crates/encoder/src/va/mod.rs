@@ -377,19 +377,28 @@ pub struct ExportedSurface {
     pub planes: Vec<PlaneLayout>,
 }
 
-#[cfg(test)]
+// Every test here needs a real display, so the module only exists with the
+// feature that says one is present.
+// `cfg(all(test, ...))` rather than a plain `cfg(test)`: every test here needs
+// a real device. The cost is that clippy stops recognising this as test code —
+// it looks for a literal `#[cfg(test)]` — so `clippy::panic` has to be allowed
+// explicitly rather than inherited.
+#[cfg(all(test, feature = "gpu-tests"))]
 #[allow(
     clippy::unwrap_used,
     clippy::expect_used,
+    clippy::panic,
     reason = "a panic IS the failure signal in a test"
 )]
 mod tests {
+
     use super::*;
 
     /// Needs the GPU, so it is behind the same feature that compiles the FFI.
     /// The numbers are the ones the C spikes measured on the RX 6650 XT; if the
     /// Rust path disagrees with them, the FFI is wrong rather than the driver.
     #[test]
+    #[cfg(feature = "gpu-tests")]
     fn an_encode_surface_exports_the_layout_the_spikes_measured() {
         let Ok(display) = Display::open(DEFAULT_RENDER_NODE) else {
             // A machine without the render node cannot answer this, and

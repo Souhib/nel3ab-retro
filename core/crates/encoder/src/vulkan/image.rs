@@ -408,13 +408,21 @@ impl<'a> Nv12Target<'a> {
     }
 }
 
-#[cfg(test)]
+// Every test here imports a real surface, so the module only exists with the
+// feature that says a GPU is present.
+// `cfg(all(test, ...))` rather than a plain `cfg(test)`: every test here needs
+// a real device. The cost is that clippy stops recognising this as test code —
+// it looks for a literal `#[cfg(test)]` — so `clippy::panic` has to be allowed
+// explicitly rather than inherited.
+#[cfg(all(test, feature = "gpu-tests"))]
 #[allow(
     clippy::unwrap_used,
     clippy::expect_used,
+    clippy::panic,
     reason = "a panic IS the failure signal in a test"
 )]
 mod tests {
+
     use super::*;
     use crate::av::Encoder;
     use crate::va::DEFAULT_RENDER_NODE;

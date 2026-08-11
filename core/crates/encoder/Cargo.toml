@@ -37,15 +37,21 @@ nel3ab-emulator = { path = "../emulator" }
 nel3ab-protocol = { path = "../protocol" }
 
 [features]
-# Compiling the libva FFI needs libva-dev, and its tests need a GPU. Off by
-# default so `cargo test` stays honest on a machine that has neither — a test
-# that cannot run must not report a pass.
+# Compiling the GPU FFI. Needs the -dev headers and a shader compiler; does NOT
+# need a GPU, because clippy and rustc only have to link, not run.
 vaapi = ["dep:ash"]
+
+# Running the tests that need a real GPU. Split from `vaapi` after the two were
+# conflated: the worker depends on `vaapi` for real, Cargo unifies features
+# across the workspace, and `cargo test --workspace` therefore started running
+# GPU tests on a CI runner with no GPU. A test that cannot run must not report a
+# pass — and must not be forced to run where it cannot.
+gpu-tests = ["vaapi"]
 
 # The end-to-end test drives a REAL Dolphin against a REAL ROM on a machine with
 # a GPU. Off by default for the same reason `vaapi` is: a test that cannot run
 # must not report a pass.
-dolphin-integration = []
+dolphin-integration = ["gpu-tests"]
 
 # Needs the shim, so it must not be built when `vaapi` is off — otherwise a
 # machine without ffmpeg headers fails `cargo test` on an example it cannot use.

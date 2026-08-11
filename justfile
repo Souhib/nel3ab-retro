@@ -8,7 +8,23 @@
 # caller of it.
 export RUSTFLAGS := "-D warnings"
 
-default: check
+default: local
+
+# THE GATE BEFORE A COMMIT, on a machine that has the GPU.
+#
+# `check` is what CI can prove; `gpu-test` is what only this machine can. CI runs
+# on a GitHub runner with no GPU, so everything M2 built — the dma-buf import,
+# the compute pass, the encode — is invisible to it. A green pipeline therefore
+# says nothing about the half of this project that matters most, and running
+# those tests has to be somebody's habit rather than a hope.
+#
+# It is the DEFAULT recipe for that reason: `just` with no argument runs the
+# whole gate, so forgetting takes an extra word rather than fewer.
+#
+# The way to make CI cover this is a self-hosted runner on lgf. Worth doing when
+# more than one person commits; until then a rule that costs one command is
+# cheaper than a runner to maintain.
+local: check gpu-test
 
 # Everything a commit must satisfy. Mirrors `poe check`.
 check: fmt-check lint test
@@ -36,6 +52,20 @@ lint:
 
 test:
     cd core && cargo test --workspace --all-targets
+
+# The tests that need the GPU on this machine. NOT part of `check`, because CI
+# has no GPU and a test that cannot run must not report a pass.
+#
+# `vaapi` compiles the GPU FFI and needs only headers; `gpu-tests` runs what
+# needs a real device. They were one flag until the worker started depending on
+# `vaapi` for real: Cargo unifies features across a workspace, so `cargo test
+# --workspace` began running GPU tests on the CI runner.
+gpu-test:
+    cd core && sg render -c 'cargo test -p nel3ab-encoder --features gpu-tests'
+
+# The whole chain against a real Dolphin and a real ROM. Minutes, not seconds.
+end-to-end:
+    cd core && sg render -c 'cargo test -p nel3ab-encoder --features gpu-tests,dolphin-integration --test dolphin_frames_become_h264 -- --nocapture'
 
 # Advisories + licences. Blocking, unlike an informational audit.
 audit:

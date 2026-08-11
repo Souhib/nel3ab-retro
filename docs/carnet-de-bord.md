@@ -502,6 +502,46 @@ Elle est donc passée en optionnelle (`NEL3AB_VULKAN_VALIDATION=1`), et les
 barrières d'échange de propriété restent **relues, pas prouvées**. C'est plus
 faible que tout le reste de ce crate, et c'est écrit noir sur blanc dans le code.
 
+### 5.16 M2 est fini, et regardé
+
+La chaîne complète tourne contre un vrai Dolphin et une vraie ROM :
+
+```
+anneau : 3 cases, 640x480, modifier 0x0200000018601b03, pitch 2560
+900 frames en 15,0 s (60,2 fps), l'émulateur en a produit 900 sur le même temps
+CPU du worker : 0,260 s = 0,017 cœur (0,289 ms par image)
+ffprobe : 640,480,yuv420p
+```
+
+**Zéro image perdue** sur 900, et le tuilage est bien celui d'AMD — ce qu'aucun
+dma-buf fabriqué à la main ne pouvait couvrir.
+
+Le chiffre que M2 existait pour produire : **0,017 cœur contre 0,57** pour
+l'ancienne recopie vers le CPU. Facteur 33. Nuance à garder : les 0,57
+mesuraient le coût de la sortie d'images *dans Dolphin*, les 0,017 mesurent le
+coût dans notre worker — deux processus différents. La comparaison porte sur « ce
+que coûte au CPU le fait de faire sortir les images », pas sur un même compteur.
+
+Et surtout : la frame décodée a été **regardée**. La boîte de dialogue de Melee,
+aux bonnes couleurs. C'est la fin de la promesse faite au début du jalon.
+
+### 5.17 Trois assertions fausses avant la bonne
+
+Ce test a échoué deux fois pour de mauvaises raisons, et c'est instructif :
+
+1. **« le plus petit paquet doit être gros »** → 35 octets, échec. Correct :
+   Melee est sur un écran **statique**, et une image inter qui ne change pas
+   *doit* peser presque rien. J'avais mesuré la compressibilité de l'écran.
+2. **« la première image doit être grosse »** → 322 octets, échec. Correct aussi :
+   les premières images de Dolphin sont **noires**, la console démarre encore.
+3. **« la plus grosse des 120 doit être grosse »** → 9536 octets. Celle-là dit
+   quelque chose : une vraie image a bien traversé la chaîne.
+
+> **Leçon** : une assertion sur une taille compressée mesure le *contenu*, pas le
+> code. Le tuilage, lui, n'est attrapé que par une comparaison de ce que Vulkan
+> dit de l'image contre ce que le producteur a annoncé — une image mal rangée
+> compresse **plus mal**, donc plus gros, et passerait tous les seuils.
+
 ---
 
 ## 6. Les pièges qui ont coûté du temps, et ce qu'ils ont appris

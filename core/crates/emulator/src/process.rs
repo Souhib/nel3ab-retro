@@ -186,6 +186,16 @@ pub struct DolphinConfig {
     pub video_backend: VideoBackend,
     /// Extra `-C` overrides, applied above the generated files.
     pub overrides: Vec<ConfigOverride>,
+    /// Where the patched build should offer its rendered frames, if anywhere.
+    ///
+    /// `None` leaves the export entirely inert — the patch checks for the
+    /// variable and does nothing without it, which is why an unpatched Dolphin
+    /// and a patched one behave identically here.
+    ///
+    /// The path must be reachable by the emulator process. When it runs in a
+    /// container, that means inside a directory both sides see at the same path
+    /// — `user_dir` is already one.
+    pub frame_socket: Option<PathBuf>,
     /// How long to wait for Dolphin to open the input pipes.
     pub startup_timeout: Duration,
     /// How long `SIGTERM` gets before `SIGKILL`.
@@ -203,6 +213,7 @@ impl DolphinConfig {
             slots,
             video_backend: VideoBackend::default(),
             overrides: Vec::new(),
+            frame_socket: None,
             // Dolphin reads a multi-gigabyte image, builds its shader cache and
             // brings up Vulkan before the input backend exists. Thirty seconds
             // is slack, not a measurement — the attach loop returns as soon as
@@ -259,6 +270,12 @@ impl Session {
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit())
             .stdin(Stdio::null());
+        if let Some(socket) = &config.frame_socket {
+            // Set on the child rather than on us: `std::env::set_var` is unsafe
+            // in edition 2024 and forbidden here, and a process-wide mutation
+            // would leak into every other test in the binary anyway.
+            command.env("NEL3AB_FRAME_SOCKET", socket);
+        }
         for over in &config.overrides {
             command.arg("--config").arg(over.to_argument());
         }

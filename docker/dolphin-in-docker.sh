@@ -35,11 +35,22 @@ done
 [ -n "$user_dir" ] || { echo "dolphin-in-docker: no --user in arguments" >&2; exit 64; }
 [ -n "$game" ] || { echo "dolphin-in-docker: no --exec in arguments" >&2; exit 64; }
 
+# The frame socket, when the caller asked for one. `-e NAME` without a value
+# passes the variable through from this shell, which inherited it from the
+# `emulator` crate — so nothing here has to know the path, and the test never
+# has to call the unsafe `set_var`. The socket itself lives under `--user`,
+# which is already mounted at the same path on both sides.
+frame_socket_env=()
+if [ -n "${NEL3AB_FRAME_SOCKET:-}" ]; then
+  frame_socket_env=(-e NEL3AB_FRAME_SOCKET)
+fi
+
 # --shm-size is NOT optional: Docker defaults /dev/shm to 64 MiB and Dolphin's
 # emulated-memory arena is larger, so it dies of SIGBUS (exit 135) with no log
 # line at all. Verified on lgf, 2026-08-10.
 exec docker run --rm \
   --shm-size=2g \
+  "${frame_socket_env[@]}" \
   --device /dev/dri \
   --user "$(id -u):$(id -g)" \
   --group-add "$(getent group render | cut -d: -f3)" \

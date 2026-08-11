@@ -241,9 +241,12 @@ latency-critical stream wants zero.
    in. What is left is running it against the emulator itself, which also covers
    the two things the synthetic dma-buf cannot: the slots' own AMD tiling, and
    the ring protocol.
-1. **Rebuild the Dolphin image** — the tag `216ffb45-nel3ab` still carries the
-   pre-ring patch — and run the chain end to end at 60 fps, against the
-   **0.57-core** baseline the PNG readback used to cost.
+1. ~~**Rebuild the Dolphin image** and run the chain end to end~~ — done
+   2026-08-11. Both tags rebuilt from the ring patch; `dev` retagged, which is
+   what the old warning was about. Measured over 900 frames: **60.2 fps, zero
+   dropped, 0.017 of a core** in the worker against the **0.57** the PNG
+   readback cost. The decoded frame was looked at — Melee's dialog, right
+   colours.
 1. **Re-try the validation layer** whenever it is updated. Until it works, the
    foreign-queue barriers are reviewed rather than proven, which is the weakest
    claim in the crate.

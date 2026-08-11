@@ -272,6 +272,7 @@ version = "0.1.0"
 dependencies = [
  "ash",
  "cc",
+ "nel3ab-emulator",
  "nel3ab-protocol",
  "nix",
  "pkg-config",

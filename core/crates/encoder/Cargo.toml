@@ -33,12 +33,19 @@ pkg-config = "0.3"
 
 [dev-dependencies]
 tempfile = "3"
+nel3ab-emulator = { path = "../emulator" }
+nel3ab-protocol = { path = "../protocol" }
 
 [features]
 # Compiling the libva FFI needs libva-dev, and its tests need a GPU. Off by
 # default so `cargo test` stays honest on a machine that has neither — a test
 # that cannot run must not report a pass.
 vaapi = ["dep:ash"]
+
+# The end-to-end test drives a REAL Dolphin against a REAL ROM on a machine with
+# a GPU. Off by default for the same reason `vaapi` is: a test that cannot run
+# must not report a pass.
+dolphin-integration = []
 
 # Needs the shim, so it must not be built when `vaapi` is off — otherwise a
 # machine without ffmpeg headers fails `cargo test` on an example it cannot use.

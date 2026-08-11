@@ -90,7 +90,7 @@ impl BitWriter {
 
     /// How many bits have been written.
     #[must_use]
-    pub fn bit_length(&self) -> usize {
+    pub const fn bit_length(&self) -> usize {
         self.bytes.len() * 8 + self.used as usize
     }
 
@@ -145,6 +145,11 @@ pub fn to_nal_unit(nal_ref_idc: u8, nal_unit_type: u8, rbsp: &[u8]) -> Vec<u8> {
     clippy::unwrap_used,
     clippy::expect_used,
     reason = "a panic IS the failure signal in a test"
+)]
+#[allow(
+    clippy::integer_division,
+    reason = "splitting a bit index into byte and offset is exact by construction, \
+              and the lint exists for arithmetic where a remainder would be lost"
 )]
 mod tests {
     use super::*;

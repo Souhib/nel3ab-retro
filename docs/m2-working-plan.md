@@ -52,6 +52,7 @@ engineering, not uncertainty.
 | Spike 1+2 | VAAPI surface is `DCC=0`; RADV imports it; **NV12 as one image is not writable** |
 | Spike 3 | export/import between two `VkDevice`s, **0 wrong pixels of 337 920** |
 | Spike 5 | Vulkan writes, the video engine reads back **0 wrong bytes** — D5 confirmed |
+| Spike 6 | a compute shader writes BT.709 NV12 in place, **0 samples outside ±1** |
 | Dolphin patch | ring of 3, explicit release, delivers real frames at full speed |
 | `encoder` crate | frame transport, 18 tests, release-on-drop in the type |
 
@@ -90,8 +91,8 @@ Three things that could not be read off the source, in the order they bit:
 
 ### Not done
 
-- The RGBA→NV12 compute shader.
-- The H.264 encode itself, and the libva FFI it needs.
+- The H.264 encode itself, and the libva FFI it needs. **Nothing architectural is
+  left in M2** — this is several hundred lines of well-trodden libva boilerplate.
 
 ### Environment left running on lgf
 
@@ -149,12 +150,25 @@ at offset 368640 against the export's 1024 at 393216. The first run of that spik
 used it and reported 99.6 % of the image wrong. `vaCreateImage` + `vaGetImage`
 asks the driver to detile, which is its authoritative view.
 
+### The conversion works, from a shader, in place
+
+`vk_shader_writes_nv12.c` + `rgba_to_nv12.comp`: a compute shader writes BT.709
+limited-range NV12 straight into the imported planes. **0 samples outside ±1**,
+worst disagreement 1 — rounding between the shader's float and a double
+reference written out longhand rather than shared.
+
+Both plausible colour mistakes are caught by it: BT.601 coefficients leave
+274 169 of 307 200 luma samples wrong, full range instead of limited leaves
+269 990. Neither would look *broken*, only slightly off, which is why they get a
+test instead of a careful read.
+
 ### The order to resume in
 
-1. The `encoder` crate: own the VAAPI surface, import both plane images, run an
-   RGBA→NV12 compute shader, submit the encode. This is where CLAUDE.md rule 2's
-   `unsafe` exception applies — `// SAFETY:` on every block, `just miri` on the
-   module.
+1. The `encoder` crate: own the VAAPI surface, import the planes, dispatch the
+   shader, submit the encode. Every piece except the encode is now proven in C;
+   port those sequences rather than rediscovering them. This is where CLAUDE.md
+   rule 2's `unsafe` exception applies — `// SAFETY:` on every block, `just miri`
+   on the module.
 
 ### What is left, and what is not
 

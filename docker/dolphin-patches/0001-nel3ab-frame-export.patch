@@ -13,10 +13,10 @@ index 5f5583f..8574505 100644
    VKShader.cpp
 diff --git a/Source/Core/VideoBackends/Vulkan/VKFrameExport.cpp b/Source/Core/VideoBackends/Vulkan/VKFrameExport.cpp
 new file mode 100644
-index 0000000..20ffe32
+index 0000000..9b10194
 --- /dev/null
 +++ b/Source/Core/VideoBackends/Vulkan/VKFrameExport.cpp
-@@ -0,0 +1,572 @@
+@@ -0,0 +1,575 @@
 +// Copyright 2026 nel3ab-retro
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +
@@ -53,7 +53,10 @@ index 0000000..20ffe32
 +// puts red in the lowest byte, which is DRM's ABGR8888.
 +constexpr u32 DRM_FORMAT_ABGR8888 = 0x34324241;
 +
-+constexpr u32 HEADER_MAGIC = 0x3341424e;   // 'N3AB'
++// Reads NBA3 little-endian, not 'N3AB' as the digits suggest. Left alone: a
++// magic is arbitrary, both ends use this number, and changing it would break
++// every build already out there to make a comment true.
++constexpr u32 HEADER_MAGIC = 0x3341424e;
 +constexpr u32 FRAME_MAGIC = 0x454d5246;    // 'FRME'
 +constexpr u32 RELEASE_MAGIC = 0x4c455246;  // 'FREL'
 +constexpr u32 PROTOCOL_VERSION = 2;

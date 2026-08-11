@@ -9,3 +9,11 @@
 //! Milestone: M2.
 
 #![forbid(unsafe_code)]
+
+pub mod error;
+pub mod frame_source;
+pub mod protocol;
+
+pub use error::EncoderError;
+pub use frame_source::{DmaBuf, FrameListener, FrameSource, LentFrame};
+pub use protocol::FrameDescriptor;

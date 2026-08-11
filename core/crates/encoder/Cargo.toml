@@ -13,5 +13,13 @@ thiserror.workspace = true
 tracing.workspace = true
 nel3ab-protocol = { path = "../protocol" }
 
+# Receiving a dma-buf means SCM_RIGHTS, which std does not expose. `nix` wraps
+# recvmsg safely, so the fd arrives without this crate needing `unsafe` for it —
+# the unsafe exception M2 earns is for libva, not for a socket.
+nix = { version = "0.30", default-features = false, features = ["socket", "uio", "fs"] }
+
+[dev-dependencies]
+tempfile = "3"
+
 [lints]
 workspace = true

@@ -453,6 +453,25 @@ module exigera désormais sa propre décision écrite.
 > réponse. Ce qui compte, c'est de savoir **quelle raison** a produit la première
 > réponse, et de vérifier si elle s'applique encore.
 
+### 5.14 La chaîne tourne, prouvée sur les octets
+
+Tout est en Rust maintenant, sauf Dolphin à l'entrée :
+
+1. libavcodec alloue la surface NV12 (D5 : l'encodeur alloue en premier)
+2. Vulkan l'importe en **deux images inscriptibles**
+3. le shader écrit du BT.709 dedans, sans copie
+4. l'encodeur la lit et sort du H.264
+
+Le test qui compte ne regarde ni un code de retour ni une propriété : il écrit un
+motif connu, puis **relit les octets** de la luminance et les compare à une
+référence transcrite depuis la norme — écrite séparément, car une référence qui
+partagerait les constantes du shader ne prouverait que « le code est égal à
+lui-même ».
+
+**Pire écart : 1** sur 307 200 échantillons. Et les deux erreurs classiques sont
+bien attrapées : BT.601 au lieu de BT.709 donne 28, plage complète au lieu de
+limitée donne 20.
+
 ---
 
 ## 6. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
@@ -464,6 +483,7 @@ module exigera désormais sa propre décision écrite.
 | `vaDeriveImage` | 99,6 % de l'image annoncée fausse, à tort | Quand le pilote est l'autorité, demander au pilote |
 | `docker exec` sans `-i` | Le script reçoit EOF, ne fait rien, **et rapporte un succès** | Vérifier l'effet, pas le code de retour |
 | Deux tests verts avec le bug remis | Ils lisaient la bonne chose au mauvais endroit | Vérifier en réintroduisant le bug, jamais en raisonnant |
+| Une relecture ne prouve pas ce qu'on croit | Relire les pixels écrits pour vérifier le rangement mémoire : **ça passe même avec un rangement faux**, parce que l'écriture et la lecture traversent la même déclaration. Un mensonge cohérent avec lui-même est invisible à un aller-retour à travers lui | Vérifier une déclaration contre **l'autre partie**, pas contre soi-même. Ici : comparer ce qu'on a déclaré à ce que la surface est vraiment |
 | **Troisième** test vert avec le bug remis | Déclarer un rangement *linéaire* pour une image tuilée : le pilote accepte, crée l'image, renvoie succès. Seuls les pixels auraient protesté, bien plus tard | Corrigé en **demandant à Vulkan** quel rangement l'image porte vraiment, au lieu de se fier à ce qu'on avait déclaré. Encore une fois : quand le pilote est l'autorité, l'interroger |
 | Poussé avec `just check` rouge | Vu l'échec, poussé quand même | Corrigé dans un commit dont le message le dit |
 | Divergence local / CI | La CI ajoutait `-D warnings`, pas le `justfile` | `just check` doit être *exactement* ce que la CI fait |

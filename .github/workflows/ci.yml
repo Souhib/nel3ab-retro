@@ -45,11 +45,11 @@ jobs:
       # only analyses. Installing them here is what keeps `--all-features` honest:
       # the alternative, letting the shim silently not compile, would advertise a
       # lint pass over code nobody built.
-      - name: GPU headers the gated features need
+      - name: GPU headers and the shader compiler the gated features need
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            libavcodec-dev libavutil-dev libva-dev
+            libavcodec-dev libavutil-dev libva-dev glslang-tools
 
       # The SAME recipes a developer runs locally — the pipeline cannot drift
       # from the pre-commit experience.

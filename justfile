@@ -26,10 +26,11 @@ fmt-check:
 # `--all-features` so the gated code is linted too — the GPU FFI and the hardware
 # integration tests. Code nobody lints is code nobody checks.
 #
-# This needs the **headers** (`libavcodec-dev libavutil-dev libva-dev`) but not a
-# GPU: clippy analyses without linking, yet the libavcodec shim's build script
-# compiles real C and cannot be talked out of wanting real headers. CI installs
-# them for exactly this recipe. It went red once for want of that line.
+# This needs build-time tools (`libavcodec-dev libavutil-dev libva-dev
+# glslang-tools`) but not a GPU: clippy analyses without linking, yet the build
+# script compiles real C and a real shader, and cannot be talked out of wanting
+# real headers and a real compiler. CI installs them for exactly this recipe.
+# It went red once for want of that line.
 lint:
     cd core && cargo clippy --workspace --all-targets --all-features -- -D warnings
 

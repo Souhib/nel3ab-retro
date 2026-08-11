@@ -231,10 +231,14 @@ latency-critical stream wants zero.
 1. ~~**Bind libavcodec from the `encoder` crate**~~ — done 2026-08-11, see below.
 1. ~~**Measure what libavcodec's queueing costs**~~ — done, and it costs zero
    frames. See *The encode is bound, and the concession is paid for*.
-1. **Wire the whole chain**: Dolphin frame in, H.264 out — import the exported
-   frame into Vulkan, dispatch the RGBA→NV12 shader into a pool surface from
-   `Encoder::export`, encode it, and **look at the decoded result**. Every piece
-   is proven separately; this is the first time they run as one.
+1. ~~**Wire the chain**~~ — done 2026-08-11, minus Dolphin. `encoder::vulkan`
+   imports a pool surface as two writable planes, the compute pass writes BT.709
+   NV12 into it, and the encoder codes it. Proven on the bytes: **worst luma
+   error 1** against a reference transcribed from the standard, and a frame
+   carrying a gradient codes far larger than an untouched surface.
+1. **Put Dolphin at the front of it.** The only piece left is importing the
+   emulator's exported frame as the RGBA source instead of a test pattern — the
+   `frame_source` transport already delivers the descriptors.
 1. **Re-measure the encode latency on real frames.** The table in D7 was taken on
    unwritten surfaces, which compress to nothing — it is a floor, not the
    steady-state.

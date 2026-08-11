@@ -1,0 +1,63 @@
+#version 450
+
+// RGBA -> NV12, BT.709 limited range.
+//
+// One invocation per CHROMA sample, so each handles a 2x2 block: four luma
+// writes and one interleaved chroma write. That is the shape NV12 wants, and it
+// means the 2x2 average for chroma is free — the four samples are already in
+// registers.
+//
+// BT.709 and limited range because that is what an H.264 stream is expected to
+// carry. Getting either wrong produces a picture that looks *almost* right —
+// slightly washed out, or with the greens off — which is far harder to notice
+// than a broken one.
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+// Sampled, not storage: Dolphin's exported frame is created with SAMPLED usage,
+// and the spike matches what the encoder will actually be handed.
+layout(set = 0, binding = 0) uniform sampler2D source;
+layout(set = 0, binding = 1, r8) uniform writeonly image2D luma;
+layout(set = 0, binding = 2, rg8) uniform writeonly image2D chroma;
+
+layout(push_constant) uniform Push
+{
+    ivec2 chroma_size;  // source size / 2
+}
+push;
+
+const vec3 K = vec3(0.2126, 0.7152, 0.0722);  // BT.709 luma weights
+
+float luma_of(vec3 rgb)
+{
+    // 16..235 rather than 0..255: limited range.
+    return (16.0 + 219.0 * dot(rgb, K)) / 255.0;
+}
+
+void main()
+{
+    const ivec2 c = ivec2(gl_GlobalInvocationID.xy);
+    if (c.x >= push.chroma_size.x || c.y >= push.chroma_size.y)
+        return;
+
+    const ivec2 p = c * 2;
+    const vec3 s00 = texelFetch(source, p + ivec2(0, 0), 0).rgb;
+    const vec3 s10 = texelFetch(source, p + ivec2(1, 0), 0).rgb;
+    const vec3 s01 = texelFetch(source, p + ivec2(0, 1), 0).rgb;
+    const vec3 s11 = texelFetch(source, p + ivec2(1, 1), 0).rgb;
+
+    imageStore(luma, p + ivec2(0, 0), vec4(luma_of(s00)));
+    imageStore(luma, p + ivec2(1, 0), vec4(luma_of(s10)));
+    imageStore(luma, p + ivec2(0, 1), vec4(luma_of(s01)));
+    imageStore(luma, p + ivec2(1, 1), vec4(luma_of(s11)));
+
+    // Average the block in LINEAR RGB before converting, which is what the
+    // 4:2:0 subsampling actually means. Averaging the chroma values afterwards
+    // gives a different, slightly wrong answer.
+    const vec3 avg = (s00 + s10 + s01 + s11) * 0.25;
+    const float y = dot(avg, K);
+    const float cb = (128.0 + 224.0 * ((avg.b - y) / 1.8556)) / 255.0;
+    const float cr = (128.0 + 224.0 * ((avg.r - y) / 1.5748)) / 255.0;
+
+    imageStore(chroma, c, vec4(cb, cr, 0.0, 0.0));
+}

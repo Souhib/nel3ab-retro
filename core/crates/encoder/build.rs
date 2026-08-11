@@ -8,8 +8,13 @@
 fn main() {
     println!("cargo:rerun-if-changed=csrc/nel3ab_encode.c");
     println!("cargo:rerun-if-changed=csrc/nel3ab_encode.h");
+    println!("cargo:rerun-if-changed=shaders/rgba_to_nv12.comp");
 
     if std::env::var_os("CARGO_FEATURE_VAAPI").is_none() {
+        return;
+    }
+
+    if !compile_shader() {
         return;
     }
 
@@ -46,4 +51,38 @@ fn main() {
         build.include(path);
     }
     build.compile("nel3ab_encode");
+}
+
+/// Compiles the RGBA→NV12 compute shader to SPIR-V.
+///
+/// Done here rather than committing the SPIR-V, so the binary cannot drift from
+/// the source it claims to be. The cost is a build-time dependency on
+/// `glslangValidator`; CI installs it alongside the GPU headers.
+fn compile_shader() -> bool {
+    let out = std::path::PathBuf::from(std::env::var_os("OUT_DIR").unwrap_or_default())
+        .join("rgba_to_nv12.spv");
+
+    let result = std::process::Command::new("glslangValidator")
+        .args(["-V", "--target-env", "vulkan1.1", "-o"])
+        .arg(&out)
+        .arg("shaders/rgba_to_nv12.comp")
+        .output();
+
+    match result {
+        Ok(output) if output.status.success() => true,
+        Ok(output) => {
+            // glslang writes its diagnostics to stdout, not stderr, so a bare
+            // exit code would hide the line number that matters.
+            let detail = String::from_utf8_lossy(&output.stdout).replace('\n', " ");
+            println!("cargo::error=the RGBA to NV12 shader did not compile: {detail}");
+            false
+        }
+        Err(error) => {
+            println!(
+                "cargo::error=the `vaapi` feature needs glslangValidator to compile the \
+                 shader. On Debian/Ubuntu: apt install glslang-tools. The error was: {error}"
+            );
+            false
+        }
+    }
 }

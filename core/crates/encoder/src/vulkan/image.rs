@@ -101,7 +101,12 @@ impl<'a> ImportedPlane<'a> {
             .tiling(vk::ImageTiling::DRM_FORMAT_MODIFIER_EXT)
             // STORAGE, because the shader writes into it directly. Not SAMPLED:
             // nothing ever reads this image through Vulkan.
-            .usage(vk::ImageUsageFlags::STORAGE)
+            //
+            // TRANSFER_SRC is there so a test can read the planes back and check
+            // the *pixels* — the only thing that can catch a wrong tiling on the
+            // bytes rather than on a reported property. Verified that adding it
+            // leaves the modifier unchanged, so it costs the real path nothing.
+            .usage(vk::ImageUsageFlags::STORAGE | vk::ImageUsageFlags::TRANSFER_SRC)
             .sharing_mode(vk::SharingMode::EXCLUSIVE)
             .initial_layout(vk::ImageLayout::UNDEFINED)
             .push_next(&mut external)

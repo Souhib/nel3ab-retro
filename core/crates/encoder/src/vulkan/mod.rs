@@ -20,6 +20,7 @@
 //! [`Context::open`] matches the **device number of the render node itself**,
 //! through `VK_EXT_physical_device_drm`, and fails rather than guessing.
 
+pub mod convert;
 pub mod image;
 pub mod sys;
 
@@ -384,6 +385,62 @@ impl Context {
     #[must_use]
     pub const fn external_memory_fd(&self) -> &ash::khr::external_memory_fd::Device {
         &self.external_memory_fd
+    }
+
+    /// The device's memory properties.
+    pub fn physical_memory_properties(&self) -> vk::PhysicalDeviceMemoryProperties {
+        // SAFETY: instance and handle are live.
+        unsafe {
+            self.instance
+                .get_physical_device_memory_properties(self.physical)
+        }
+    }
+
+    /// Records a command buffer, submits it, and waits.
+    ///
+    /// Test scaffolding only: the real path reuses one buffer per frame rather
+    /// than allocating a pool per operation.
+    #[cfg(test)]
+    pub(crate) fn one_shot(&self, record: impl FnOnce(vk::CommandBuffer)) {
+        #[allow(
+            clippy::expect_used,
+            reason = "scaffolding; a panic IS the failure signal in a test"
+        )]
+        {
+            let pool_create =
+                vk::CommandPoolCreateInfo::default().queue_family_index(self.queue_family);
+            // SAFETY: live local; the family index came from this device.
+            let pool = unsafe { self.device.create_command_pool(&pool_create, None) }
+                .expect("a command pool");
+            let allocate = vk::CommandBufferAllocateInfo::default()
+                .command_pool(pool)
+                .level(vk::CommandBufferLevel::PRIMARY)
+                .command_buffer_count(1);
+            // SAFETY: the pool was just created on this device.
+            let buffers =
+                unsafe { self.device.allocate_command_buffers(&allocate) }.expect("a buffer");
+            let command = buffers[0];
+
+            // SAFETY: the buffer is fresh, `record` only issues commands into it,
+            // and the submission is waited on before anything is destroyed.
+            unsafe {
+                self.device
+                    .begin_command_buffer(
+                        command,
+                        &vk::CommandBufferBeginInfo::default()
+                            .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT),
+                    )
+                    .expect("begin");
+                record(command);
+                self.device.end_command_buffer(command).expect("end");
+                let submit = [vk::SubmitInfo::default().command_buffers(&buffers)];
+                self.device
+                    .queue_submit(self.queue, &submit, vk::Fence::null())
+                    .expect("submit");
+                self.device.queue_wait_idle(self.queue).expect("wait");
+                self.device.destroy_command_pool(pool, None);
+            }
+        }
     }
 
     /// The `VK_EXT_image_drm_format_modifier` entry points.

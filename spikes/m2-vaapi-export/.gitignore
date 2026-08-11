@@ -9,4 +9,5 @@ va_encode_caps
 va_encode_layout
 va_encode_one_frame
 va_encode_one_frame_dbg
+va_encode_dbg
 *.spv

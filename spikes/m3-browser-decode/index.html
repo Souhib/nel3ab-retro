@@ -3,7 +3,7 @@
 <title>M3 experiment 1 — does a browser decode OUR bytes?</title>
 <style>
   :root { color-scheme: dark; font-family: ui-monospace, monospace; }
-  body { margin: 0; padding: 2rem; background: #111; color: #ddd; max-width: 60rem; }
+  body { margin: 0; padding: 2rem; background: #111; color: #ddd; max-width: 62rem; }
   h1 { font-size: 1.1rem; font-weight: 600; }
   canvas { background: #000; border: 1px solid #333; max-width: 100%; }
   #log { white-space: pre-wrap; line-height: 1.5; }
@@ -17,8 +17,7 @@
 <p class="note">
   Not "does WebCodecs decode H.264" — that is documented. This feeds the exact
   stream the end-to-end test recorded out of a running Dolphin: ffmpeg's SPS/PPS,
-  no B-frames, <code>async_depth=1</code>, an IDR every 60 frames. If it refuses
-  the configuration or draws nothing, Option B of the M3 plan is dead.
+  no B-frames, <code>async_depth=1</code>, an IDR every 60 frames.
 </p>
 
 <canvas id="screen" width="640" height="480"></canvas>
@@ -26,8 +25,8 @@
 
 <script type="module">
   const log = document.getElementById("log");
-  const canvas = document.getElementById("screen");
-  const context = canvas.getContext("2d");
+  const context = document.getElementById("screen").getContext("2d");
+  const canvas = context.canvas;
   const lines = [];
   const say = (text, cls = "") => {
     lines.push(cls ? `<span class="${cls}">${text}</span>` : text);
@@ -35,15 +34,15 @@
   };
 
   if (!("VideoDecoder" in window)) {
-    say("VideoDecoder is not available in this browser — WebCodecs is absent.", "bad");
+    say("VideoDecoder is absent — this is not a secure context, or WebCodecs is unavailable.", "bad");
+    say("Try http://localhost via `ssh -L 8099:localhost:8099 lgf`.", "note");
     throw new Error("no WebCodecs");
   }
 
   const bytes = new Uint8Array(await (await fetch("stream.h264")).arrayBuffer());
   say(`fetched ${bytes.length} bytes of Annex B`);
 
-  // Split on start codes. Both lengths occur: ffmpeg writes 4-byte codes before
-  // parameter sets and 3-byte ones inside an access unit.
+  // ── split on start codes ────────────────────────────────────────────────
   const starts = [];
   for (let i = 0; i + 3 < bytes.length; i++) {
     if (bytes[i] === 0 && bytes[i + 1] === 0 && bytes[i + 2] === 1) {
@@ -51,111 +50,199 @@
       i += 2;
     }
   }
-  const nals = starts.map(({ at, payload }, index) => {
-    const end = index + 1 < starts.length ? starts[index + 1].at : bytes.length;
-    return { kind: bytes[payload] & 0x1f, from: at, payload, end };
-  });
+  const nals = starts.map(({ at, payload }, index) => ({
+    kind: bytes[payload] & 0x1f,
+    from: at, // including the start code
+    payload, // first byte of the NAL itself
+    end: index + 1 < starts.length ? starts[index + 1].at : bytes.length,
+  }));
   const kinds = {};
   for (const nal of nals) kinds[nal.kind] = (kinds[nal.kind] ?? 0) + 1;
-  say(`found ${nals.length} NAL units by type: ${JSON.stringify(kinds)}`);
-  say("  7=SPS 8=PPS 5=IDR slice 1=non-IDR slice 6=SEI 9=AUD", "note");
+  say(`${nals.length} NAL units by type: ${JSON.stringify(kinds)}`);
+  say("  7=SPS 8=PPS 6=SEI 5=IDR slice 1=non-IDR slice 9=access-unit delimiter", "note");
+
+  // ── group into access units ─────────────────────────────────────────────
+  //
+  // This is where the first version of this page was wrong, and the decoder was
+  // right to refuse what it produced. It only started a new unit when a
+  // non-slice NAL followed a slice, so the 118 consecutive P-slices were merged
+  // into ONE chunk of 118 frames.
+  //
+  // Measured on this stream rather than assumed: there are no access-unit
+  // delimiters, and there are exactly as many slices as frames — one slice per
+  // picture. So each slice CLOSES a unit, carrying whatever parameter sets
+  // preceded it. (A multi-slice encoder would need `first_mb_in_slice` instead;
+  // ours is not one, and a comment is cheaper than machinery for a case that
+  // does not occur.)
+  const units = [];
+  let head = null;
+  for (const nal of nals) {
+    if (head === null) head = [];
+    head.push(nal);
+    if (nal.kind === 1 || nal.kind === 5) {
+      units.push({ nals: head, key: nal.kind === 5 });
+      head = null;
+    }
+  }
+  const keys = units.filter((unit) => unit.key).length;
+  say(`grouped into ${units.length} access units, ${keys} of them key`);
 
   const sps = nals.find((nal) => nal.kind === 7);
-  if (!sps) {
-    say("no SPS in the stream — nothing can be configured from it.", "bad");
-    throw new Error("no SPS");
+  const pps = nals.find((nal) => nal.kind === 8);
+  if (!sps || !pps) {
+    say("no SPS or no PPS — nothing can be configured from this stream.", "bad");
+    throw new Error("no parameter sets");
   }
-  // The codec string is profile_idc / constraint flags / level_idc, straight out
-  // of the SPS. Read rather than hardcoded: a hardcoded string that happens to
-  // match would prove nothing about the bytes actually being sent.
+  // Read out of the SPS rather than hardcoded: a hardcoded string that happened
+  // to match would prove nothing about the bytes actually being sent.
   const hex = (value) => value.toString(16).padStart(2, "0");
-  const codec =
-    `avc1.${hex(bytes[sps.payload + 1])}${hex(bytes[sps.payload + 2])}${hex(bytes[sps.payload + 3])}`;
+  const codec = `avc1.${hex(bytes[sps.payload + 1])}${hex(bytes[sps.payload + 2])}${hex(bytes[sps.payload + 3])}`;
   say(`SPS says the codec is ${codec}`);
 
-  const config = { codec, optimizeForLatency: true };
-  const support = await VideoDecoder.isConfigSupported(config);
-  say(
-    `isConfigSupported: ${support.supported ? "yes" : "no"}`,
-    support.supported ? "ok" : "bad",
-  );
-  if (!support.supported) throw new Error("configuration refused");
+  // ── the two packagings a browser might accept ───────────────────────────
+  //
+  // Annex B is what the encoder emits and what costs us nothing. avcC is the
+  // length-prefixed form with the parameter sets moved into a `description`.
+  // Trying both is what turns "no" into something actionable: repackaging is a
+  // few lines and no latency, so "needs avcC" is a very different answer from
+  // "unusable".
+  const nalBytes = (nal) => bytes.subarray(nal.payload, nal.end);
 
-  // Group NALs into access units. A new one starts at an AUD, or at a parameter
-  // set that follows a slice — which is how ffmpeg lays out an IDR period.
-  const units = [];
-  let current = null;
-  let sawSlice = false;
-  for (const nal of nals) {
-    const isSlice = nal.kind === 1 || nal.kind === 5;
-    const startsUnit = nal.kind === 9 || (!isSlice && sawSlice) || current === null;
-    if (startsUnit && (current === null || sawSlice)) {
-      if (current) units.push(current);
-      current = { from: nal.from, end: nal.end, key: false };
-      sawSlice = false;
+  const annexB = (unit) => bytes.subarray(unit.nals[0].from, unit.nals[unit.nals.length - 1].end);
+
+  const avccChunk = (unit) => {
+    // Parameter sets live in the description, so only slices and SEI go here.
+    const carried = unit.nals.filter((nal) => nal.kind !== 7 && nal.kind !== 8);
+    const size = carried.reduce((total, nal) => total + 4 + (nal.end - nal.payload), 0);
+    const out = new Uint8Array(size);
+    let at = 0;
+    for (const nal of carried) {
+      const body = nalBytes(nal);
+      new DataView(out.buffer).setUint32(at, body.length);
+      out.set(body, at + 4);
+      at += 4 + body.length;
     }
-    current.end = nal.end;
-    if (nal.kind === 5) current.key = true;
-    if (isSlice) sawSlice = true;
-  }
-  if (current) units.push(current);
-  say(`grouped into ${units.length} access units, ${units.filter((u) => u.key).length} of them key`);
+    return out;
+  };
 
-  let decoded = 0;
-  let firstPaint = 0;
-  const started = performance.now();
-  const latencies = [];
-  const submittedAt = [];
+  const avccDescription = () => {
+    const s = nalBytes(sps);
+    const p = nalBytes(pps);
+    const out = new Uint8Array(11 + s.length + p.length);
+    // configurationVersion, then the three bytes the codec string came from.
+    out.set([1, s[1], s[2], s[3], 0xff, 0xe1], 0);
+    out[6] = s.length >> 8;
+    out[7] = s.length & 0xff;
+    out.set(s, 8);
+    out[8 + s.length] = 1;
+    out[9 + s.length] = p.length >> 8;
+    out[10 + s.length] = p.length & 0xff;
+    out.set(p, 11 + s.length);
+    return out;
+  };
 
-  const decoder = new VideoDecoder({
-    output: (frame) => {
-      const now = performance.now();
-      if (decoded === 0) firstPaint = now - started;
-      latencies.push(now - submittedAt[decoded]);
-      decoded += 1;
-      // Draw every frame: the point of this experiment is to LOOK at it, which
-      // is the check every hollow claim in M2 turned out to be missing.
-      context.drawImage(frame, 0, 0, canvas.width, canvas.height);
-      frame.close();
-    },
-    error: (error) => say(`decoder error: ${error}`, "bad"),
-  });
-  decoder.configure(config);
+  async function attempt(label, config, chunkOf) {
+    const support = await VideoDecoder.isConfigSupported(config);
+    if (!support.supported) {
+      say(`${label}: isConfigSupported says no`, "bad");
+      return null;
+    }
 
-  // 60 fps of presentation timestamps, in microseconds, matching what the
-  // encoder was told the frame rate is.
-  units.forEach((unit, index) => {
-    submittedAt.push(performance.now());
-    decoder.decode(
-      new EncodedVideoChunk({
-        type: unit.key ? "key" : "delta",
-        timestamp: Math.round((index * 1_000_000) / 60),
-        data: bytes.subarray(unit.from, unit.end),
-      }),
+    let decoded = 0;
+    let failure = null;
+    const submitted = [];
+    const latencies = [];
+    const started = performance.now();
+    let firstPaint = 0;
+
+    const decoder = new VideoDecoder({
+      output: (frame) => {
+        const now = performance.now();
+        if (decoded === 0) firstPaint = now - started;
+        latencies.push(now - submitted[decoded]);
+        decoded += 1;
+        // Draw every frame. The point of this experiment is to LOOK at it,
+        // which is the check every hollow claim in M2 turned out to be missing.
+        context.drawImage(frame, 0, 0, canvas.width, canvas.height);
+        frame.close();
+      },
+      error: (error) => {
+        failure ??= String(error);
+      },
+    });
+    decoder.configure(config);
+
+    for (const [index, unit] of units.entries()) {
+      if (failure) break;
+      submitted.push(performance.now());
+      try {
+        decoder.decode(
+          new EncodedVideoChunk({
+            type: unit.key ? "key" : "delta",
+            timestamp: Math.round((index * 1_000_000) / 60),
+            data: chunkOf(unit),
+          }),
+        );
+      } catch (error) {
+        failure ??= String(error);
+        break;
+      }
+    }
+    try {
+      await decoder.flush();
+    } catch (error) {
+      failure ??= String(error);
+    }
+    decoder.close();
+
+    if (failure) {
+      say(`${label}: ${failure} — after ${decoded} of ${units.length} frames`, "bad");
+      return null;
+    }
+    const sorted = [...latencies].sort((a, b) => a - b);
+    const at = (q) => sorted[Math.floor((sorted.length - 1) * q)];
+    say(`${label}: decoded ${decoded} of ${units.length} access units`, "ok");
+    say(
+      `  first frame after ${firstPaint.toFixed(1)} ms; submit to output ` +
+        `p50 ${at(0.5).toFixed(2)} ms, p95 ${at(0.95).toFixed(2)} ms, ` +
+        `max ${sorted[sorted.length - 1].toFixed(2)} ms`,
     );
-  });
-  await decoder.flush();
+    return decoded;
+  }
 
-  const sorted = [...latencies].sort((a, b) => a - b);
-  const at = (q) => sorted[Math.floor((sorted.length - 1) * q)];
+  say("");
+  const annexBWorked = await attempt(
+    "Annex B, as the encoder emits it",
+    { codec, optimizeForLatency: true },
+    annexB,
+  );
+  const avccWorked =
+    annexBWorked === null
+      ? await attempt(
+          "avcC, repackaged",
+          { codec, optimizeForLatency: true, description: avccDescription() },
+          avccChunk,
+        )
+      : null;
+
+  say("");
+  if (annexBWorked === units.length) {
+    say("VERDICT: the browser decodes our bytes as they are. Option B is alive.", "ok");
+  } else if (avccWorked === units.length) {
+    say(
+      "VERDICT: Annex B was refused, avcC works. Option B is alive but the " +
+        "transport must repackage — a length prefix and the parameter sets sent " +
+        "once, which costs no latency.",
+      "ok",
+    );
+  } else {
+    say("VERDICT: neither packaging decoded the whole stream. See the errors above.", "bad");
+  }
   say("");
   say(
-    decoded === units.length
-      ? `VERDICT: decoded ${decoded} of ${units.length} access units.`
-      : `VERDICT: decoded only ${decoded} of ${units.length} access units.`,
-    decoded === units.length ? "ok" : "bad",
-  );
-  say(`first frame after ${firstPaint.toFixed(1)} ms`);
-  say(
-    `decode latency, submit to output: p50 ${at(0.5).toFixed(2)} ms, ` +
-      `p95 ${at(0.95).toFixed(2)} ms, max ${sorted[sorted.length - 1].toFixed(2)} ms`,
-  );
-  say("");
-  say(
-    "This is a whole file submitted at once, so the latency above is a decoder " +
-      "throughput figure, NOT glass-to-glass. That number needs a live stream " +
-      "and is experiment 2.",
+    "The latency above is decoder THROUGHPUT — the whole file is submitted at " +
+      "once. Glass-to-glass needs a live stream and is experiment 2.",
     "note",
   );
-  say("Now look at the canvas. If it shows Melee's memory-card dialog, the chain reads end to end.");
+  say("Now look at the canvas: Melee's memory-card dialog, or the claim is hollow.");
 </script>

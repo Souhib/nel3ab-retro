@@ -60,6 +60,8 @@ pub type VaBufferId = u32;
 
 /// `VAProfileH264ConstrainedBaseline`.
 pub const VA_PROFILE_H264_CONSTRAINED_BASELINE: i32 = 13;
+/// `VAProfileH264High`.
+pub const VA_PROFILE_H264_HIGH: i32 = 7;
 /// `VAEntrypointEncSlice`.
 pub const VA_ENTRYPOINT_ENC_SLICE: i32 = 6;
 /// `VAConfigAttribRTFormat`.
@@ -90,6 +92,13 @@ pub const VA_ENC_SLICE_PARAMETER_BUFFER_TYPE: u32 = 24;
 pub const VA_ENC_PACKED_HEADER_PARAMETER_BUFFER_TYPE: u32 = 25;
 /// `VAEncPackedHeaderDataBufferType`.
 pub const VA_ENC_PACKED_HEADER_DATA_BUFFER_TYPE: u32 = 26;
+/// `VAEncMiscParameterBufferType`.
+pub const VA_ENC_MISC_PARAMETER_BUFFER_TYPE: u32 = 27;
+/// `VAEncMiscParameterTypeFrameRate`.
+pub const VA_ENC_MISC_TYPE_FRAME_RATE: u32 = 0;
+/// `VAEncMiscParameterTypeRateControl`.
+pub const VA_ENC_MISC_TYPE_RATE_CONTROL: u32 = 1;
+
 /// `VA_PROGRESSIVE`.
 pub const VA_PROGRESSIVE: i32 = 0x1;
 /// `VA_INVALID_ID`.

@@ -67,6 +67,19 @@ const SLICE_REF_PIC_LIST0: usize = 36;
 const SLICE_REF_PIC_LIST1: usize = 1188;
 const SLICE_QP_DELTA: usize = 3119;
 
+// `VAEncMiscParameterBuffer` is a 4-byte type tag followed by the payload, so a
+// misc buffer is 4 + sizeof(payload). Both payload layouts measured.
+const MISC_DATA: usize = 4;
+const MISC_RATE_CONTROL_SIZE: usize = MISC_DATA + 60;
+const RC_BITS_PER_SECOND: usize = MISC_DATA;
+const RC_TARGET_PERCENTAGE: usize = MISC_DATA + 4;
+const RC_WINDOW_SIZE: usize = MISC_DATA + 8;
+const RC_INITIAL_QP: usize = MISC_DATA + 12;
+const RC_MIN_QP: usize = MISC_DATA + 16;
+const RC_MAX_QP: usize = MISC_DATA + 32;
+const MISC_FRAME_RATE_SIZE: usize = MISC_DATA + 24;
+const FR_FRAMERATE: usize = MISC_DATA;
+
 // ── measured bitfield masks ──────────────────────────────────────────────────
 const SEQ_CHROMA_FORMAT_IDC: (u32, u32) = (0x0000_0003, 0);
 const SEQ_FRAME_MBS_ONLY: (u32, u32) = (0x0000_0004, 2);
@@ -171,11 +184,7 @@ impl<'a> Encoder<'a> {
     /// [`EncoderError::UnsupportedSize`] for a size that is not a whole number
     /// of macroblocks — cropping is not written yet, and a partial macroblock
     /// would encode the padding as picture.
-    pub fn new(
-        display: &'a Display,
-        surface: &Surface<'_>,
-        settings: EncodeSettings,
-    ) -> Result<Self, EncoderError> {
+    pub fn new(display: &'a Display, settings: EncodeSettings) -> Result<Self, EncoderError> {
         if !settings.width.is_multiple_of(16) || !settings.height.is_multiple_of(16) {
             return Err(EncoderError::UnsupportedSize {
                 width: settings.width,
@@ -209,7 +218,7 @@ impl<'a> Encoder<'a> {
             unsafe {
                 sys::vaCreateConfig(
                     display.handle(),
-                    sys::VA_PROFILE_H264_CONSTRAINED_BASELINE,
+                    sys::VA_PROFILE_H264_HIGH,
                     sys::VA_ENTRYPOINT_ENC_SLICE,
                     attributes.as_mut_ptr(),
                     u32::try_from(attributes.len()).unwrap_or(0),
@@ -219,7 +228,13 @@ impl<'a> Encoder<'a> {
             "vaCreateConfig",
         )?;
 
-        let mut render_targets = [surface.id()];
+        // No render targets, which looks wrong and is what ffmpeg does.
+        //
+        // Mesa treats this list as the encoder's DPB pool and manages it itself
+        // from the reference lists in each picture. Handing it the surface being
+        // encoded made radeonsi segfault inside vaEndPicture — found by diffing
+        // an LIBVA_TRACE of this against one of ffmpeg, which is the only
+        // difference that mattered out of a dozen.
         let mut context: sys::VaContextId = 0;
         // SAFETY: `config` was just created on this display, and the render
         // target array is live and of the stated length. The surface outlives
@@ -232,8 +247,8 @@ impl<'a> Encoder<'a> {
                     i32::try_from(settings.width).unwrap_or(0),
                     i32::try_from(settings.height).unwrap_or(0),
                     sys::VA_PROGRESSIVE,
-                    render_targets.as_mut_ptr(),
-                    1,
+                    core::ptr::null_mut(),
+                    0,
                     &raw mut context,
                 )
             },
@@ -243,7 +258,7 @@ impl<'a> Encoder<'a> {
         let width_in_mbs = settings.width.div_euclid(16);
         let height_in_mbs = settings.height.div_euclid(16);
         let sps = build_sps(&SpsParams {
-            profile_idc: 66,
+            profile_idc: 100,
             constraint_flags: 0,
             level_idc: 41,
             seq_parameter_set_id: 0,
@@ -266,7 +281,9 @@ impl<'a> Encoder<'a> {
             entropy_coding_mode: false,
             pic_init_qp_minus26: i32::from(settings.qp) - 26,
             deblocking_filter_control_present: false,
-            transform_8x8_mode: None,
+            // High carries the extension; omitting it under this profile leaves
+            // the PPS describing a stream the config did not ask for.
+            transform_8x8_mode: Some(false),
         });
 
         Ok(Self {
@@ -332,6 +349,8 @@ impl<'a> Encoder<'a> {
                 1,
                 seq.as_ptr().cast(),
             )?,
+            self.rate_control_buffer()?,
+            self.frame_rate_buffer()?,
             self.packed_header(sys::VA_ENC_PACKED_HEADER_SEQUENCE_TYPE, &sequence_header)?,
             self.packed_data(&sequence_header)?,
             Buffer::new(
@@ -451,6 +470,47 @@ impl<'a> Encoder<'a> {
         }
         slice.put_i8(SLICE_QP_DELTA, 0);
         slice
+    }
+
+    /// The rate-control misc buffer.
+    ///
+    /// ffmpeg sends this and the frame rate below on every access unit, and the
+    /// driver reads them even under constant-QP — leaving them out is the last
+    /// structural difference between this call sequence and the one that works.
+    fn rate_control_buffer(&self) -> Result<Buffer<'a>, EncoderError> {
+        let mut raw = Raw::<MISC_RATE_CONTROL_SIZE>::zeroed();
+        raw.put_u32(0, sys::VA_ENC_MISC_TYPE_RATE_CONTROL);
+        // Zero bits per second means "constant QP decides the size", which is
+        // what VA_RC_CQP asked for.
+        raw.put_u32(RC_BITS_PER_SECOND, 0);
+        raw.put_u32(RC_TARGET_PERCENTAGE, 100);
+        raw.put_u32(RC_WINDOW_SIZE, 1000);
+        raw.put_u32(RC_INITIAL_QP, u32::from(self.settings.qp));
+        raw.put_u32(RC_MIN_QP, u32::from(self.settings.qp));
+        raw.put_u32(RC_MAX_QP, u32::from(self.settings.qp));
+        Buffer::new(
+            self.display,
+            self.context,
+            sys::VA_ENC_MISC_PARAMETER_BUFFER_TYPE,
+            u32::try_from(MISC_RATE_CONTROL_SIZE).unwrap_or(0),
+            1,
+            raw.as_ptr().cast(),
+        )
+    }
+
+    /// The frame-rate misc buffer.
+    fn frame_rate_buffer(&self) -> Result<Buffer<'a>, EncoderError> {
+        let mut raw = Raw::<MISC_FRAME_RATE_SIZE>::zeroed();
+        raw.put_u32(0, sys::VA_ENC_MISC_TYPE_FRAME_RATE);
+        raw.put_u32(FR_FRAMERATE, self.settings.frame_rate);
+        Buffer::new(
+            self.display,
+            self.context,
+            sys::VA_ENC_MISC_PARAMETER_BUFFER_TYPE,
+            u32::try_from(MISC_FRAME_RATE_SIZE).unwrap_or(0),
+            1,
+            raw.as_ptr().cast(),
+        )
     }
 
     /// Frame size in macroblocks, exact by construction.
@@ -614,6 +674,8 @@ const _: () = {
     assert!(PIC_FIELDS + 4 <= PIC_SIZE);
     assert!(SLICE_REF_PIC_LIST1 + 32 * PICTURE_SIZE <= SLICE_SIZE);
     assert!(SLICE_QP_DELTA < SLICE_SIZE);
+    assert!(MISC_RATE_CONTROL_SIZE == 64);
+    assert!(MISC_FRAME_RATE_SIZE == 28);
 };
 
 #[cfg(test)]
@@ -627,18 +689,26 @@ mod tests {
     use super::*;
     use crate::va::DEFAULT_RENDER_NODE;
 
-    /// ⚠️ IGNORED because it SEGFAULTS inside radeonsi at `vaEndPicture`, exactly
-    /// as the C spike does. Kept, marked, and not silently passing.
+    /// ⚠️ IGNORED: still SEGFAULTS inside radeonsi at `vaEndPicture`.
     ///
-    /// What the trace establishes: libva receives every parameter correctly —
-    /// the byte-array buffers land field for field, bitfields included — and
-    /// every call up to `vaEndPicture` returns `VA_STATUS_SUCCESS`. So the FFI and
-    /// the layouts are right; something the driver needs is still missing.
+    /// Kept and marked rather than deleted or left to fail. What is established:
+    /// libva receives every parameter correctly — the byte-array buffers land
+    /// field for field, bitfields included — and every call up to `vaEndPicture`
+    /// returns `VA_STATUS_SUCCESS`.
     ///
-    /// The one structural difference left against ffmpeg's traced call sequence
-    /// is that ffmpeg sends a `VAEncMiscParameterBufferType` (rate control) and
-    /// this does not. Measure its layout with `va_encode_layout.c` before adding
-    /// it — guessing offsets is what this session has twice resolved not to do.
+    /// Ruled out by diffing an `LIBVA_TRACE` of this against one of ffmpeg, and
+    /// then matching it in turn:
+    ///
+    /// - the misc rate-control and frame-rate buffers, now sent (layouts
+    ///   measured, not guessed)
+    /// - `num_render_targets`, now 0 as ffmpeg passes
+    /// - the profile, now High as ffmpeg uses, with SPS and PPS to match
+    /// - GOP and reference-count parameters
+    ///
+    /// None of them was it. The traces now agree on every field either prints,
+    /// so the next step is not another guess: build Mesa with debug symbols, or
+    /// install `libgl1-mesa-dri-dbgsym`, and get a backtrace that names the
+    /// dereference instead of an address inside `radeonsi_drv_video.so`.
     #[ignore = "segfaults in radeonsi at vaEndPicture; see the doc comment"]
     #[test]
     fn a_frame_encodes_into_a_bitstream_with_the_headers_we_wrote() {
@@ -652,7 +722,7 @@ mod tests {
             qp: 26,
             frame_rate: 60,
         };
-        let mut encoder = Encoder::new(&display, &surface, settings).unwrap();
+        let mut encoder = Encoder::new(&display, settings).unwrap();
         let bitstream = encoder.encode_idr(&surface).unwrap();
 
         assert!(!bitstream.is_empty(), "the encoder produced nothing");

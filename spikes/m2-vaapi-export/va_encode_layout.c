@@ -128,7 +128,27 @@ int main(void)
   SHOW_OFFSET(VACodedBufferSegment, buf);
   SHOW_OFFSET(VACodedBufferSegment, next);
 
+  printf("\n=== VAEncMiscParameterRateControl ===\n");
+  SHOW_OFFSET(VAEncMiscParameterRateControl, bits_per_second);
+  SHOW_OFFSET(VAEncMiscParameterRateControl, target_percentage);
+  SHOW_OFFSET(VAEncMiscParameterRateControl, window_size);
+  SHOW_OFFSET(VAEncMiscParameterRateControl, initial_qp);
+  SHOW_OFFSET(VAEncMiscParameterRateControl, min_qp);
+  SHOW_OFFSET(VAEncMiscParameterRateControl, basic_unit_size);
+  SHOW_OFFSET(VAEncMiscParameterRateControl, rc_flags);
+  SHOW_OFFSET(VAEncMiscParameterRateControl, quality_factor);
+  SHOW_OFFSET(VAEncMiscParameterRateControl, max_qp);
+  printf("  VAEncMiscParameterBuffer.data offset  = %zu\n",
+         offsetof(VAEncMiscParameterBuffer, data));
+
+  printf("\n=== VAEncMiscParameterFrameRate ===\n");
+  SHOW_SIZE(VAEncMiscParameterFrameRate);
+  SHOW_OFFSET(VAEncMiscParameterFrameRate, framerate);
+
   printf("\n=== constants ===\n");
+  printf("VAEncMiscParameterTypeFrameRate     = %d\n", VAEncMiscParameterTypeFrameRate);
+  printf("VAEncMiscParameterTypeRateControl   = %d\n", VAEncMiscParameterTypeRateControl);
+  printf("VAEncMiscParameterBufferType        = %d\n", VAEncMiscParameterBufferType);
   printf("VAProfileH264ConstrainedBaseline    = %d\n", VAProfileH264ConstrainedBaseline);
   printf("VAProfileH264Main                   = %d\n", VAProfileH264Main);
   printf("VAEntrypointEncSlice                = %d\n", VAEntrypointEncSlice);

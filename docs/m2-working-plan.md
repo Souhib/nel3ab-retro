@@ -195,9 +195,37 @@ parameter buffers cost more than `LIBVA_TRACE` would have, and it is the same
 lesson as `vulkaninfo` being unable to answer the modifier question. When a
 driver is the authority, ask the driver.
 
+### The encode is wired and still segfaults — what is ruled out
+
+The Rust encoder builds config, context, all three parameter buffers and the
+packed headers. libva accepts every call and reads back every field correctly,
+bitfields included. radeonsi then segfaults inside `vaEndPicture`.
+
+Ruled out, by diffing an `LIBVA_TRACE` of our program against one of ffmpeg and
+then matching it in turn:
+
+- the misc rate-control and frame-rate buffers — now sent, layouts **measured**
+- `num_render_targets` — ffmpeg passes **0**, we passed 1; now 0
+- the profile — ffmpeg uses **High**, we used ConstrainedBaseline; now High, with
+  SPS and PPS changed to match
+- GOP length and reference counts
+
+None of them was it, and the two traces now agree on every field either prints.
+So the next step is not another guess: get a backtrace that names the
+dereference. `libgl1-mesa-dri-dbgsym`, or a Mesa build with symbols, turns an
+address inside `radeonsi_drv_video.so` into a line of `picture_h264_enc.c`.
+
+A lead worth carrying: Mesa's picture handler walks a DPB and does
+`handle_table_get(...)` followed by `assert(surf)`. In a release build the assert
+is compiled out and a null `surf` is dereferenced — which is the shape of this
+crash.
+
 ### The order to resume in
 
-1. **A bitstream writer**, in the `encoder` crate and unit-testable without a
+1. ~~**A bitstream writer**~~ — done; SPS, PPS and the IDR slice header are
+   byte-identical to ffmpeg's. See `crates/encoder/src/h264/`.
+1. **A Mesa backtrace with symbols.** Everything cheaper has been tried.
+1. ~~old step 2~~ **A bitstream writer**, in the `encoder` crate and unit-testable without a
    GPU: exp-Golomb, emulation prevention, SPS/PPS/slice-header. Pin it against
    bytes ffmpeg produces for the same parameters rather than against itself.
 2. Then the encode: config with packed headers, the parameter buffers this spike

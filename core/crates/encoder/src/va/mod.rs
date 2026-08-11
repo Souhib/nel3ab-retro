@@ -24,6 +24,7 @@
 //! choose a DCC modifier that VAAPI then refuses. So this module offers no way
 //! to import an externally-allocated surface: the only constructor allocates.
 
+pub mod enc;
 pub mod sys;
 
 use core::ffi::{CStr, c_int};
@@ -37,7 +38,7 @@ use crate::frame_source::DmaBuf;
 pub const DEFAULT_RENDER_NODE: &str = "/dev/dri/renderD128";
 
 /// Turns a libva status into an error carrying the driver's own words.
-fn check(status: sys::VaStatus, what: &'static str) -> Result<(), EncoderError> {
+pub(crate) fn check(status: sys::VaStatus, what: &'static str) -> Result<(), EncoderError> {
     if status == sys::VA_STATUS_SUCCESS {
         return Ok(());
     }
@@ -119,6 +120,11 @@ impl Display {
             _node: node_fd,
             vendor,
         })
+    }
+
+    /// The raw display, for the encode module.
+    pub(crate) const fn handle(&self) -> sys::VaDisplay {
+        self.handle
     }
 
     /// The driver's own identification string.
@@ -222,6 +228,11 @@ pub struct Surface<'a> {
 }
 
 impl Surface<'_> {
+    /// The raw id, for the encode module.
+    pub(crate) const fn id(&self) -> sys::VaSurfaceId {
+        self.id
+    }
+
     /// Width in pixels.
     #[must_use]
     pub const fn width(&self) -> u32 {

@@ -126,6 +126,18 @@ pub enum EncoderError {
         message: String,
     },
 
+    /// A frame size the encoder cannot express yet.
+    ///
+    /// Cropping is not written, so a picture that is not a whole number of
+    /// macroblocks would encode its padding as picture.
+    #[error("{width}x{height} is not a whole number of 16-pixel macroblocks")]
+    UnsupportedSize {
+        /// Requested width.
+        width: u32,
+        /// Requested height.
+        height: u32,
+    },
+
     /// The driver exported a surface in a shape this crate does not handle.
     ///
     /// Not a driver bug and not ours: a shape nobody has measured, which must be

@@ -50,6 +50,86 @@ pub const VA_EXPORT_SURFACE_SEPARATE_LAYERS: u32 = 0x0000_0004;
 /// `VAGenericValueTypeInteger`.
 pub const VA_GENERIC_VALUE_TYPE_INTEGER: i32 = 1;
 
+// ── encode, all measured by spikes/m2-vaapi-export/va_encode_layout.c ──
+/// A configuration handle.
+pub type VaConfigId = u32;
+/// A context handle.
+pub type VaContextId = u32;
+/// A buffer handle.
+pub type VaBufferId = u32;
+
+/// `VAProfileH264ConstrainedBaseline`.
+pub const VA_PROFILE_H264_CONSTRAINED_BASELINE: i32 = 13;
+/// `VAEntrypointEncSlice`.
+pub const VA_ENTRYPOINT_ENC_SLICE: i32 = 6;
+/// `VAConfigAttribRTFormat`.
+pub const VA_CONFIG_ATTRIB_RT_FORMAT: i32 = 0;
+/// `VAConfigAttribRateControl`.
+pub const VA_CONFIG_ATTRIB_RATE_CONTROL: i32 = 5;
+/// `VAConfigAttribEncPackedHeaders`.
+pub const VA_CONFIG_ATTRIB_ENC_PACKED_HEADERS: i32 = 10;
+/// `VA_RC_CQP`.
+pub const VA_RC_CQP: u32 = 0x10;
+/// `VA_ENC_PACKED_HEADER_SEQUENCE`.
+pub const VA_ENC_PACKED_HEADER_SEQUENCE: u32 = 0x1;
+/// `VA_ENC_PACKED_HEADER_SLICE`.
+pub const VA_ENC_PACKED_HEADER_SLICE: u32 = 0x4;
+/// `VAEncPackedHeaderSequence`.
+pub const VA_ENC_PACKED_HEADER_SEQUENCE_TYPE: u32 = 1;
+/// `VAEncPackedHeaderSlice`.
+pub const VA_ENC_PACKED_HEADER_SLICE_TYPE: u32 = 3;
+/// `VAEncCodedBufferType`.
+pub const VA_ENC_CODED_BUFFER_TYPE: u32 = 21;
+/// `VAEncSequenceParameterBufferType`.
+pub const VA_ENC_SEQUENCE_PARAMETER_BUFFER_TYPE: u32 = 22;
+/// `VAEncPictureParameterBufferType`.
+pub const VA_ENC_PICTURE_PARAMETER_BUFFER_TYPE: u32 = 23;
+/// `VAEncSliceParameterBufferType`.
+pub const VA_ENC_SLICE_PARAMETER_BUFFER_TYPE: u32 = 24;
+/// `VAEncPackedHeaderParameterBufferType`.
+pub const VA_ENC_PACKED_HEADER_PARAMETER_BUFFER_TYPE: u32 = 25;
+/// `VAEncPackedHeaderDataBufferType`.
+pub const VA_ENC_PACKED_HEADER_DATA_BUFFER_TYPE: u32 = 26;
+/// `VA_PROGRESSIVE`.
+pub const VA_PROGRESSIVE: i32 = 0x1;
+/// `VA_INVALID_ID`.
+pub const VA_INVALID_ID: u32 = 0xffff_ffff;
+/// `VA_PICTURE_H264_INVALID`.
+pub const VA_PICTURE_H264_INVALID: u32 = 0x1;
+
+/// `VAConfigAttrib`.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct VaConfigAttrib {
+    /// Which attribute.
+    pub attrib_type: i32,
+    /// Its value.
+    pub value: u32,
+}
+
+/// `VACodedBufferSegment`, the encoder's output.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct VaCodedBufferSegment {
+    /// Bytes in this segment.
+    pub size: u32,
+    /// Bit offset of the first valid bit.
+    pub bit_offset: u32,
+    /// Segment status flags.
+    pub status: u32,
+    /// Reserved.
+    pub reserved: u32,
+    /// The bytes.
+    pub buf: *mut core::ffi::c_void,
+    /// Next segment, or null.
+    pub next: *mut core::ffi::c_void,
+    /// libva's `va_reserved[VA_PADDING_LOW]`. Absent, the struct is 32 bytes
+    /// instead of 48 and every field after `next` in an array would be read from
+    /// the wrong place — caught by the size assertion below, which is the point
+    /// of having it.
+    pub va_reserved: [u32; 4],
+}
+
 /// `VAGenericValue`'s union payload.
 ///
 /// Only the integer arm is ever set by this crate; the others exist so the
@@ -163,6 +243,12 @@ const _: () = {
     assert!(offset_of!(VaDrmPrimeObject, size) == 4);
     assert!(offset_of!(VaDrmPrimeObject, drm_format_modifier) == 8);
 
+    assert!(size_of::<VaCodedBufferSegment>() == 48);
+    assert!(offset_of!(VaCodedBufferSegment, bit_offset) == 4);
+    assert!(offset_of!(VaCodedBufferSegment, status) == 8);
+    assert!(offset_of!(VaCodedBufferSegment, buf) == 16);
+    assert!(offset_of!(VaCodedBufferSegment, next) == 24);
+
     assert!(size_of::<VaDrmPrimeLayer>() == 56);
     assert!(offset_of!(VaDrmPrimeLayer, object_index) == 8);
     assert!(offset_of!(VaDrmPrimeLayer, offset) == 24);
@@ -195,6 +281,65 @@ unsafe extern "C" {
     pub fn vaDestroySurfaces(dpy: VaDisplay, surfaces: *mut VaSurfaceId, num: c_int) -> VaStatus;
     /// Waits for any pending work on a surface.
     pub fn vaSyncSurface(dpy: VaDisplay, render_target: VaSurfaceId) -> VaStatus;
+    /// Creates an encode configuration.
+    pub fn vaCreateConfig(
+        dpy: VaDisplay,
+        profile: i32,
+        entrypoint: i32,
+        attrib_list: *mut VaConfigAttrib,
+        num_attribs: u32,
+        config_id: *mut VaConfigId,
+    ) -> VaStatus;
+    /// Destroys it.
+    pub fn vaDestroyConfig(dpy: VaDisplay, config_id: VaConfigId) -> VaStatus;
+    /// Creates an encode context.
+    pub fn vaCreateContext(
+        dpy: VaDisplay,
+        config_id: VaConfigId,
+        picture_width: c_int,
+        picture_height: c_int,
+        flag: c_int,
+        render_targets: *mut VaSurfaceId,
+        num_render_targets: c_int,
+        context: *mut VaContextId,
+    ) -> VaStatus;
+    /// Destroys it.
+    pub fn vaDestroyContext(dpy: VaDisplay, context: VaContextId) -> VaStatus;
+    /// Allocates a buffer, optionally copying initial data into it.
+    pub fn vaCreateBuffer(
+        dpy: VaDisplay,
+        context: VaContextId,
+        buffer_type: u32,
+        size: u32,
+        num_elements: u32,
+        data: *mut core::ffi::c_void,
+        buf_id: *mut VaBufferId,
+    ) -> VaStatus;
+    /// Frees it.
+    pub fn vaDestroyBuffer(dpy: VaDisplay, buffer_id: VaBufferId) -> VaStatus;
+    /// Maps a buffer for CPU access.
+    pub fn vaMapBuffer(
+        dpy: VaDisplay,
+        buf_id: VaBufferId,
+        pbuf: *mut *mut core::ffi::c_void,
+    ) -> VaStatus;
+    /// Unmaps it.
+    pub fn vaUnmapBuffer(dpy: VaDisplay, buf_id: VaBufferId) -> VaStatus;
+    /// Begins a picture.
+    pub fn vaBeginPicture(
+        dpy: VaDisplay,
+        context: VaContextId,
+        render_target: VaSurfaceId,
+    ) -> VaStatus;
+    /// Submits parameter buffers.
+    pub fn vaRenderPicture(
+        dpy: VaDisplay,
+        context: VaContextId,
+        buffers: *mut VaBufferId,
+        num_buffers: c_int,
+    ) -> VaStatus;
+    /// Ends a picture, which is what actually encodes.
+    pub fn vaEndPicture(dpy: VaDisplay, context: VaContextId) -> VaStatus;
     /// Exports a surface as dma-buf descriptors.
     pub fn vaExportSurfaceHandle(
         dpy: VaDisplay,

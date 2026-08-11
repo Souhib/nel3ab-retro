@@ -86,6 +86,33 @@ fn rom() -> PathBuf {
     )
 }
 
+/// p50/p95/p99/max of a sample set, as a line.
+///
+/// Percentiles rather than a mean: a mean hides the tail, and the tail is what a
+/// player feels. Sorted in place because the caller has no further use for the
+/// order it collected them in.
+fn percentiles(samples: &mut [f64]) -> String {
+    if samples.is_empty() {
+        return "no samples".to_owned();
+    }
+    samples.sort_by(f64::total_cmp);
+    #[allow(
+        clippy::cast_precision_loss,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "an index into a few thousand samples; nothing here is near a limit"
+    )]
+    let at = |quantile: f64| samples[((samples.len() - 1) as f64 * quantile) as usize];
+    format!(
+        "n={} p50={:.2}ms p95={:.2}ms p99={:.2}ms max={:.2}ms",
+        samples.len(),
+        at(0.50),
+        at(0.95),
+        at(0.99),
+        samples[samples.len() - 1]
+    )
+}
+
 #[test]
 #[allow(
     clippy::too_many_lines,
@@ -197,6 +224,11 @@ fn dolphins_frames_arrive_on_the_gpu_and_leave_as_h264() {
     let started = Instant::now();
 
     let cpu_before = cpu_seconds();
+    // Per-stage timings. ADR D7's latency table was taken on unwritten surfaces,
+    // which compress to nothing — it is a floor, and it said so. These are the
+    // same numbers on frames that carry a picture.
+    let mut convert_ms = Vec::with_capacity(wanted);
+    let mut encode_ms = Vec::with_capacity(wanted);
 
     for taken in 0..wanted {
         let frame = frames
@@ -210,6 +242,7 @@ fn dolphins_frames_arrive_on_the_gpu_and_leave_as_h264() {
 
         let plane = sources[slot].plane();
         let target = &targets[taken % targets.len()];
+        let convert_started = Instant::now();
         converter
             .convert(
                 Source {
@@ -224,21 +257,22 @@ fn dolphins_frames_arrive_on_the_gpu_and_leave_as_h264() {
                 target,
             )
             .expect("the conversion runs");
+        convert_ms.push(convert_started.elapsed().as_secs_f64() * 1000.0);
 
         // Dropping the lent frame here releases the slot back to Dolphin. The
         // conversion has already been waited on, so the release cannot let the
         // emulator overwrite pixels the shader has not read.
         drop(frame);
 
-        #[allow(
-            clippy::cast_possible_truncation,
-            reason = "targets.len() is 3; the cast is exact"
-        )]
+        let encode_slot =
+            u32::try_from(taken % targets.len()).expect("the pool holds at most 8 slots");
+        let encode_started = Instant::now();
         let packet = encoder
-            .encode((taken % targets.len()) as u32)
+            .encode(encode_slot)
             .expect("the encode succeeds")
             .expect("async_depth=1 returns a packet per frame");
         let coded = packet.len();
+        encode_ms.push(encode_started.elapsed().as_secs_f64() * 1000.0);
         std::io::Write::write_all(&mut stream, packet).expect("the stream is written");
         coded_total += coded;
         if taken == 0 {
@@ -252,6 +286,8 @@ fn dolphins_frames_arrive_on_the_gpu_and_leave_as_h264() {
     let elapsed = started.elapsed();
     let produced = last_number - first_number + 1;
     let cpu = cpu_seconds() - cpu_before;
+    println!("convert: {}", percentiles(&mut convert_ms));
+    println!("encode:  {}", percentiles(&mut encode_ms));
     #[allow(
         clippy::cast_precision_loss,
         reason = "a frame count in the thousands is exact in f64 by a wide margin"

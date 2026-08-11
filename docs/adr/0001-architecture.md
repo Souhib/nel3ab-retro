@@ -100,8 +100,24 @@ frames of latency — only its own encode time. At 60 fps a frame is 16.7 ms, an
 1080p costs 2.65 ms of it. **The concession D7 made is paid for.**
 
 What the table does *not* say: these surfaces are unwritten, so they compress to
-nothing and the encode is at its floor. The steady-state number has to be
-re-measured once the shader is writing real frames into them.
+nothing and the encode is at its floor. It was re-measured.
+
+**On real frames, 2026-08-11** — 900 frames out of a running Dolphin, 640×480,
+the shader writing Melee into the surface the encoder reads:
+
+| stage | p50 | p95 | p99 | max |
+|---|---|---|---|---|
+| RGBA→NV12 compute pass | 0.13 ms | 0.17 ms | 0.18 ms | 0.64 ms |
+| H.264 encode | 1.14 ms | 1.25 ms | 1.46 ms | 4.19 ms |
+
+The floor for this size was 1.00 ms, so a frame carrying a picture costs **14 %
+more than an empty one** — the concession D7 made is not merely paid for, it is
+cheap. Total GPU-side cost is about 1.3 ms of a 16.7 ms frame at 60 Hz.
+
+The one number to watch is the encode's `max`: 4.19 ms against a 1.14 ms median.
+It is a single frame in 900 and well inside the budget, but it is the shape a
+stall would first appear as, so it is worth re-reading at 1080p and under a
+four-player load rather than assumed away.
 
 Kept from the hand-written work: `encoder::h264`, the bitstream writer. It is
 tested against ffmpeg's own bytes and has a concrete future use — ffmpeg's SPS

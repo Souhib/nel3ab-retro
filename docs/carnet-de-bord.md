@@ -516,6 +516,17 @@ ffprobe : 640,480,yuv420p
 **Zéro image perdue** sur 900, et le tuilage est bien celui d'AMD — ce qu'aucun
 dma-buf fabriqué à la main ne pouvait couvrir.
 
+Et la latence, mesurée cette fois sur de **vraies** images (le tableau de D7
+avait été pris sur des surfaces vides, donc un plancher) :
+
+| étape | p50 | p99 | max |
+|---|---|---|---|
+| conversion RGBA→NV12 | 0,13 ms | 0,18 ms | 0,64 ms |
+| encodage H.264 | 1,14 ms | 1,46 ms | 4,19 ms |
+
+Une image qui porte vraiment quelque chose coûte **14 % de plus** qu'une image
+vide. Sur les 16,7 ms dont on dispose à 60 Hz, le GPU en prend 1,3.
+
 Le chiffre que M2 existait pour produire : **0,017 cœur contre 0,57** pour
 l'ancienne recopie vers le CPU. Facteur 33. Nuance à garder : les 0,57
 mesuraient le coût de la sortie d'images *dans Dolphin*, les 0,017 mesurent le

@@ -51,8 +51,9 @@ engineering, not uncertainty.
 | Option B | killed by experiment — nogui has no Wayland platform |
 | Spike 1+2 | VAAPI surface is `DCC=0`; RADV imports it; **NV12 as one image is not writable** |
 | Spike 3 | export/import between two `VkDevice`s, **0 wrong pixels of 337 920** |
-
-| Dolphin patch | compiles, links, and delivers a real frame to another process |
+| Spike 5 | Vulkan writes, the video engine reads back **0 wrong bytes** — D5 confirmed |
+| Dolphin patch | ring of 3, explicit release, delivers real frames at full speed |
+| `encoder` crate | frame transport, 18 tests, release-on-drop in the type |
 
 ### The proof that nearly wasn't
 
@@ -89,8 +90,8 @@ Three things that could not be read off the source, in the order they bit:
 
 ### Not done
 
-- **No synchronisation.** See the end of this section — it is the next thing.
-- The `encoder` crate does not exist yet.
+- The RGBA→NV12 compute shader.
+- The H.264 encode itself, and the libva FFI it needs.
 
 ### Environment left running on lgf
 
@@ -155,14 +156,12 @@ asks the driver to detile, which is its authoritative view.
    `unsafe` exception applies — `// SAFETY:` on every block, `just miri` on the
    module.
 
-### Do not forget the gap
+### What is left, and what is not
 
-The export image is created once and reused, and the worker is notified with a
-non-blocking send. **Nothing stops Dolphin overwriting a frame the worker is
-still reading.** Deferred on purpose so step 4 can be done at all; unshippable
-until an exported semaphore (or sync_file) per frame and two or three rotating
-images replace it. A torn frame in a live match is exactly the class of bug this
-project exists to delete.
+The synchronisation gap this section used to warn about is **closed** — see
+*Synchronisation, done and measured* above. What remains in M2 is the encode
+itself, and none of it is uncertain any more: the RGBA→NV12 compute shader and
+several hundred lines of libva boilerplate.
 
 ---
 

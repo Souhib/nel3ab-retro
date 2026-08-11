@@ -5,7 +5,7 @@
 //! This file used to say "media over WebRTC" as though it were settled. It was
 //! written before anyone investigated, and `docs/m3-working-plan.md` is where
 //! the choice is actually being made — WebRTC, or our own bytes decoded by
-//! WebCodecs over a plain transport. Experiment 1 has since shown a browser
+//! `WebCodecs` over a plain transport. Experiment 1 has since shown a browser
 //! takes the bytes `encoder::av` emits **unchanged**, which is exactly the sort
 //! of thing that turns a default into a decision.
 //!

@@ -33,8 +33,8 @@ pub fn device_number(node: &Path) -> Result<DeviceNumber, EncoderError> {
     })?;
     let rdev = metadata.rdev();
     Ok(DeviceNumber {
-        major: u64::from(nix::sys::stat::major(rdev)),
-        minor: u64::from(nix::sys::stat::minor(rdev)),
+        major: nix::sys::stat::major(rdev),
+        minor: nix::sys::stat::minor(rdev),
     })
 }
 
@@ -63,7 +63,10 @@ mod tests {
         let null = device_number(Path::new("/dev/null")).unwrap();
         let zero = device_number(Path::new("/dev/zero")).unwrap();
         assert_eq!(null.major, zero.major, "both are mem devices");
-        assert_ne!(null, zero, "they differ in the minor and must not compare equal");
+        assert_ne!(
+            null, zero,
+            "they differ in the minor and must not compare equal"
+        );
     }
 
     #[test]

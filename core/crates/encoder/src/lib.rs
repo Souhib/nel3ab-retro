@@ -29,7 +29,10 @@ pub mod va;
 pub mod av;
 
 #[cfg(feature = "vaapi")]
-#[allow(unsafe_code, reason = "the Vulkan FFI is rule 2's FFI exception (ADR D8)")]
+#[allow(
+    unsafe_code,
+    reason = "the Vulkan FFI is rule 2's FFI exception (ADR D8)"
+)]
 pub mod vulkan;
 
 pub use error::EncoderError;

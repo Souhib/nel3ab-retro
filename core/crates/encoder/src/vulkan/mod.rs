@@ -111,11 +111,12 @@ impl Context {
         let create = vk::InstanceCreateInfo::default().application_info(&application);
         // SAFETY: `create` and everything it borrows are live for the call, and
         // ash's builders guarantee the length fields match their slices.
-        let instance = unsafe { entry.create_instance(&create, None) }
-            .map_err(|code| EncoderError::Vulkan {
+        let instance = unsafe { entry.create_instance(&create, None) }.map_err(|code| {
+            EncoderError::Vulkan {
                 what: "vkCreateInstance",
                 code: code.as_raw(),
-            })?;
+            }
+        })?;
 
         // From here on the instance must be destroyed on every failure path, so
         // the search is factored out and its result matched.
@@ -174,13 +175,10 @@ impl Context {
                 // which is why `has_render` is checked below rather than the
                 // numbers alone, since zeroes would otherwise match device 0:0.
                 unsafe { instance.get_physical_device_properties2(physical, &mut properties) };
-                properties
-                    .properties
-                    .device_name_as_c_str()
-                    .map_or_else(
-                        |_| "<unnamed>".to_owned(),
-                        |name| name.to_string_lossy().into_owned(),
-                    )
+                properties.properties.device_name_as_c_str().map_or_else(
+                    |_| "<unnamed>".to_owned(),
+                    |name| name.to_string_lossy().into_owned(),
+                )
             };
 
             if drm.has_render == vk::FALSE {
@@ -250,11 +248,10 @@ impl Context {
             .ok_or(EncoderError::NoMatchingDevice {
                 what: "the device has no compute queue family",
             })?;
-        let queue_family = u32::try_from(queue_family).map_err(|_| {
-            EncoderError::NoMatchingDevice {
+        let queue_family =
+            u32::try_from(queue_family).map_err(|_| EncoderError::NoMatchingDevice {
                 what: "the compute queue family index does not fit in u32",
-            }
-        })?;
+            })?;
 
         let priorities = [1.0_f32];
         let queues = [vk::DeviceQueueCreateInfo::default()
@@ -271,12 +268,13 @@ impl Context {
         // SAFETY: every pointer in `names` addresses a `&'static CStr`, so all
         // outlive the call; `queues` and `priorities` are live locals of the
         // lengths ash's builders recorded.
-        let device = unsafe { instance.create_device(physical, &create, None) }.map_err(|code| {
-            EncoderError::Vulkan {
-                what: "vkCreateDevice",
-                code: code.as_raw(),
-            }
-        })?;
+        let device =
+            unsafe { instance.create_device(physical, &create, None) }.map_err(|code| {
+                EncoderError::Vulkan {
+                    what: "vkCreateDevice",
+                    code: code.as_raw(),
+                }
+            })?;
 
         // SAFETY: the device was just created with exactly this family, and
         // index 0 exists because one priority was requested.
@@ -406,7 +404,10 @@ mod tests {
     #[test]
     fn a_render_node_that_does_not_exist_is_named_in_the_error() {
         let error = Context::open("/dev/dri/renderD999").unwrap_err();
-        assert!(matches!(error, EncoderError::RenderNode { .. }), "{error:?}");
+        assert!(
+            matches!(error, EncoderError::RenderNode { .. }),
+            "{error:?}"
+        );
     }
 
     #[test]

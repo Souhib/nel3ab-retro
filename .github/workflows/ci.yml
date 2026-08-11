@@ -40,6 +40,17 @@ jobs:
 
       - uses: extractions/setup-just@v3
 
+      # `just lint` runs with --all-features, which builds the libavcodec shim's
+      # build script — and a build script needs real headers, unlike clippy which
+      # only analyses. Installing them here is what keeps `--all-features` honest:
+      # the alternative, letting the shim silently not compile, would advertise a
+      # lint pass over code nobody built.
+      - name: GPU headers the gated features need
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libavcodec-dev libavutil-dev libva-dev
+
       # The SAME recipes a developer runs locally — the pipeline cannot drift
       # from the pre-commit experience.
       - run: just fmt-check

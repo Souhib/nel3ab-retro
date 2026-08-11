@@ -111,6 +111,9 @@ unsafe extern "C" {
     /// Encodes one slot; returns the byte count, or a negative code.
     pub fn n3_encoder_encode(encoder: *mut N3Encoder, slot: u32, data: *mut *const u8) -> c_long;
 
+    /// Makes the next encoded frame an IDR.
+    pub fn n3_encoder_force_key(encoder: *mut N3Encoder);
+
     /// Frees the encoder and its pool.
     pub fn n3_encoder_close(encoder: *mut N3Encoder);
 

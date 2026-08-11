@@ -111,6 +111,13 @@ int n3_encoder_export(n3_encoder *encoder, uint32_t slot, n3_surface *out);
 /// accepted the frame but has not produced a packet yet.
 long n3_encoder_encode(n3_encoder *encoder, uint32_t slot, const uint8_t **data);
 
+/// Makes the next encoded frame an IDR.
+///
+/// A viewer joining mid-stream can decode nothing until a key frame arrives, and
+/// with a one-second GOP that is up to a second of blank screen. Asking for one
+/// on demand costs a larger packet once instead.
+void n3_encoder_force_key(n3_encoder *encoder);
+
 /// Frees everything.
 void n3_encoder_close(n3_encoder *encoder);
 

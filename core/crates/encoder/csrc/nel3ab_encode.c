@@ -23,6 +23,7 @@ struct n3_encoder {
   uint32_t slot_count;
   AVPacket *packet;
   int64_t pts;
+  int force_key;
 };
 
 static VADisplay display_of(const n3_encoder *encoder) {
@@ -172,6 +173,11 @@ long n3_encoder_encode(n3_encoder *encoder, uint32_t slot, const uint8_t **data)
 
   av_packet_unref(encoder->packet);
   encoder->slots[slot]->pts = encoder->pts++;
+  /* Cleared whether or not the encoder honours it: a request left set would turn
+     every later frame into an IDR and multiply the bitrate. */
+  encoder->slots[slot]->pict_type =
+      encoder->force_key ? AV_PICTURE_TYPE_I : AV_PICTURE_TYPE_NONE;
+  encoder->force_key = 0;
   if (avcodec_send_frame(encoder->codec, encoder->slots[slot]) < 0) return N3_ERR_ENCODE;
 
   const int got = avcodec_receive_packet(encoder->codec, encoder->packet);
@@ -185,6 +191,10 @@ long n3_encoder_encode(n3_encoder *encoder, uint32_t slot, const uint8_t **data)
 
   *data = encoder->packet->data;
   return encoder->packet->size;
+}
+
+void n3_encoder_force_key(n3_encoder *encoder) {
+  if (encoder) encoder->force_key = 1;
 }
 
 size_t n3_layout(int what) {

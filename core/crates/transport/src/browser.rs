@@ -88,6 +88,7 @@ pub struct BrowserServer {
     address: SocketAddr,
     dropped: Arc<std::sync::atomic::AtomicU64>,
     watching: Arc<std::sync::atomic::AtomicUsize>,
+    joined: Arc<std::sync::atomic::AtomicBool>,
     _accept: JoinHandle<()>,
 }
 
@@ -111,6 +112,7 @@ impl BrowserServer {
         let (received, incoming) = sync_channel::<InputFrame>(INCOMING_DEPTH);
         let dropped = Arc::new(std::sync::atomic::AtomicU64::new(0));
         let watching = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let joined = Arc::new(std::sync::atomic::AtomicBool::new(false));
         // Shared, not moved: a client that reconnects gets a new thread, and the
         // queue has to survive the old one. Only one holds the lock at a time.
         let to_send = Arc::new(Mutex::new(to_send));
@@ -119,7 +121,8 @@ impl BrowserServer {
             .name("browser-accept".to_owned())
             .spawn({
                 let watching = Arc::clone(&watching);
-                move || accept_loop(&listener, page, &to_send, &received, &watching)
+                let joined = Arc::clone(&joined);
+                move || accept_loop(&listener, page, &to_send, &received, &watching, &joined)
             })
             .map_err(|source| TransportError::Accept { source })?;
 
@@ -130,6 +133,7 @@ impl BrowserServer {
             address: bound,
             dropped,
             watching,
+            joined,
             _accept: accept,
         })
     }
@@ -167,6 +171,16 @@ impl BrowserServer {
         }
     }
 
+    /// Whether somebody joined since this was last asked.
+    ///
+    /// Reading it clears it, so the caller gets the event exactly once — a
+    /// viewer who joined is owed one key frame, not one per frame thereafter.
+    #[must_use]
+    pub fn take_joined(&self) -> bool {
+        self.joined
+            .swap(false, std::sync::atomic::Ordering::Relaxed)
+    }
+
     /// Whether a browser is currently taking the video stream.
     #[must_use]
     pub fn is_watched(&self) -> bool {
@@ -197,6 +211,7 @@ fn accept_loop(
     to_send: &Arc<Mutex<Receiver<Packet>>>,
     received: &SyncSender<InputFrame>,
     watching: &Arc<std::sync::atomic::AtomicUsize>,
+    joined: &Arc<std::sync::atomic::AtomicBool>,
 ) {
     let mut sockets: Vec<JoinHandle<()>> = Vec::new();
     for stream in listener.incoming() {
@@ -205,8 +220,9 @@ fn accept_loop(
             Some(Route::Video) => {
                 let queue = Arc::clone(to_send);
                 let watching = Arc::clone(watching);
+                let joined = Arc::clone(joined);
                 sockets.push(std::thread::spawn(move || {
-                    video_thread(stream, &queue, &watching);
+                    video_thread(stream, &queue, &watching, &joined);
                 }));
             }
             Some(Route::Input) => {
@@ -278,6 +294,7 @@ fn video_thread(
     stream: TcpStream,
     queue: &Arc<Mutex<Receiver<Packet>>>,
     watching: &Arc<std::sync::atomic::AtomicUsize>,
+    joined: &Arc<std::sync::atomic::AtomicBool>,
 ) {
     // Nagle would hold a small frame back waiting for company. Every frame here
     // is latency-critical and self-contained, so there is nothing to gain by
@@ -296,6 +313,7 @@ fn video_thread(
     // on every exit below — so `send` never believes in a watcher that is only
     // half connected.
     watching.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    joined.store(true, std::sync::atomic::Ordering::Relaxed);
     // Whatever accumulated while nobody was here is stale by definition.
     while queue.try_recv().is_ok() {}
     loop {
@@ -444,6 +462,7 @@ mod tests {
             address: "127.0.0.1:0".parse().unwrap(),
             dropped: Arc::clone(&dropped),
             watching,
+            joined: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             _accept: std::thread::spawn(|| {}),
         };
 
@@ -483,6 +502,7 @@ mod tests {
             address: "127.0.0.1:0".parse().unwrap(),
             dropped: Arc::new(std::sync::atomic::AtomicU64::new(0)),
             watching: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+            joined: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             _accept: std::thread::spawn(|| {}),
         };
 

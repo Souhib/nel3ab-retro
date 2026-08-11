@@ -653,6 +653,58 @@ Ce qu'il ne mesure pas : `localhost` n'est pas un réseau. Les 0,6 ms
 d'arrivée-à-l'écran sont sans transit par construction — un plancher pour la
 moitié navigateur, et rien du tout sur le Wi-Fi.
 
+### 5quater. Le saccadement — et où il n'était pas
+
+Premier retour de jeu réel depuis un Mac, via Tailscale : « ça marche, mais c'est
+un peu saccadé ». Plutôt que de deviner, j'ai instrumenté la boucle pour dire
+**où passe le temps de l'image la plus lente** de chaque fenêtre de 10 s.
+
+Le résultat a envoyé chercher ailleurs :
+
+```
++600 images | pire frame 24,3 ms = attente 23,3 + shader 0,14 + encode 0,85
+```
+
+Le pipeline tient exactement 60 images/seconde, le shader coûte 0,14 ms et
+l'encodage 0,85 ms. **Notre boucle est oisive 15 ms sur 16,7.** Le serveur ne
+jetait aucune image non plus. Ce n'était pas là.
+
+Ce que les journaux ont trouvé à la place : **807 avertissements « file d'entrée
+pleine »**. Le navigateur envoie l'état de la manette à chaque rafraîchissement —
+120 fois par seconde sur un écran qui va à cette vitesse — pour un émulateur qui
+le lit 60 fois. On transmettait tout. Maintenant seul **le plus récent par
+joueur** part : une manette est un *niveau*, pas un *front*.
+
+> Ce que ça abandonne, dit plutôt que caché : un appui qui commence et finit
+> entre deux lectures disparaît. Il n'était pas non plus observable sur la
+> console d'origine, pour la même raison.
+
+### Deux vrais défauts, trouvés par la mesure
+
+**La page peignait à l'arrivée.** Elle dessinait dans le callback du décodeur,
+donc l'image apparaissait quand le *décodage* finissait, pas quand l'écran se
+rafraîchit. Sur un réseau réel les arrivées sont irrégulières, et peindre à
+l'arrivée transforme cette irrégularité en tremblement visible. Elle garde
+maintenant la dernière image et la peint sur le rafraîchissement.
+
+**Rejoindre coûtait jusqu'à une seconde de noir.** Un décodeur ne peut rien faire
+avant une image-clé, et il y en a une par seconde. L'encodeur en produit
+désormais une **à la demande** quand quelqu'un ouvre la page. Mesuré : le plus
+grand écart entre deux images passe de **557 ms à 19 ms**.
+
+### Ce qui reste, et son prix
+
+En boucle locale, 8 % des rafraîchissements n'ont rien de neuf à montrer. Ce
+n'est pas le réseau : c'est **60 images par seconde envoyées vers un écran à
+60 Hz sans relation de phase** — certains rafraîchissements reçoivent deux
+images et en jettent une, d'autres n'en reçoivent aucune et répètent.
+
+Le remède est un petit tampon de lissage : retenir une image et présenter à
+cadence régulière. Il coûte exactement ce qu'il retient — 16,7 ms de latence en
+plus. C'est le service que WebRTC rend gratuitement, et la contrepartie que le
+plan de M3 avait annoncée. À trancher sur une mesure prise depuis un vrai
+client, pas ici.
+
 ---
 
 ## 6. Les pièges qui ont coûté du temps, et ce qu'ils ont appris

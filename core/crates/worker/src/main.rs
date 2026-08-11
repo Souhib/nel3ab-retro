@@ -163,17 +163,44 @@ fn run(settings: &Settings) -> Result<()> {
     let started = Instant::now();
     let mut produced = 0_u64;
     let mut reported = Instant::now();
+    let mut inputs_seen = 0_u64;
+    let mut inputs_applied = 0_u64;
+    // Where the time goes, per window. A stutter has to be attributable before
+    // it can be fixed, and "the pipeline slowed down" names nothing.
+    let mut worst = Worst::default();
 
     loop {
         // Input first. A pad frame that arrived while the last picture was
         // encoding should reach the emulator before it renders the next one —
         // half a frame of latency, free, for putting this line above the wait.
+        //
+        // Only the NEWEST state per player is forwarded. A pad is a level, not
+        // an edge, and the browser sends one per animation frame — 120 a second
+        // on a display that refreshes that fast, against an emulator that polls
+        // sixty times. Forwarding all of them means writing states Dolphin will
+        // never read, and it was doing exactly that: the input queue overflowed
+        // 807 times in one session.
+        //
+        // What this gives up, stated rather than glossed: a press that begins
+        // and ends between two polls disappears. It was never observable on real
+        // hardware either, for the same reason.
+        let mut newest: [Option<nel3ab_protocol::InputFrame>; 4] = [None; 4];
+        let mut arrived = 0_usize;
         for frame in server.drain_input() {
-            if let Err(error) = session.send(&frame) {
+            arrived += 1;
+            if let Some(place) = newest.get_mut(frame.slot.index()) {
+                *place = Some(frame);
+            }
+        }
+        for frame in newest.iter().flatten() {
+            if let Err(error) = session.send(frame) {
                 tracing::warn!(%error, "an input frame could not be delivered");
             }
         }
+        inputs_seen += arrived as u64;
+        inputs_applied += newest.iter().flatten().count() as u64;
 
+        let iteration = Instant::now();
         let frame = match frames.next_frame() {
             Ok(frame) => frame,
             Err(error) => {
@@ -194,6 +221,8 @@ fn run(settings: &Settings) -> Result<()> {
         let Some(target) = targets.get(index) else {
             bail!("the encode pool shrank underneath us");
         };
+        let waited = iteration.elapsed();
+        let shading = Instant::now();
         let plane = source.plane();
         converter.convert(
             Source {
@@ -205,9 +234,16 @@ fn run(settings: &Settings) -> Result<()> {
             },
             target,
         )?;
+        let shader_took = shading.elapsed();
         // Released only now: the conversion has been waited on, so the emulator
         // cannot overwrite pixels the shader has not read.
         drop(frame);
+        // Somebody just opened the page. Without this they see nothing until the
+        // next scheduled IDR — up to a second with a one-second GOP.
+        if server.take_joined() {
+            encoder.force_key_frame();
+        }
+        let encoding = Instant::now();
 
         let captured = started.elapsed();
         let slot_index = u32::try_from(index).unwrap_or(0);
@@ -221,15 +257,67 @@ fn run(settings: &Settings) -> Result<()> {
             });
         }
         produced += 1;
+        worst.observe(waited, shader_took, encoding.elapsed());
 
         if reported.elapsed() >= Duration::from_secs(10) {
-            tracing::info!(produced, dropped = server.dropped(), "streaming");
+            tracing::info!(
+                produced,
+                dropped = server.dropped(),
+                inputs_seen,
+                inputs_applied,
+                slowest_ms = worst.total_ms(),
+                slowest_waiting_ms = worst.waited_ms(),
+                slowest_converting_ms = worst.converted_ms(),
+                slowest_encoding_ms = worst.encoded_ms(),
+                "streaming"
+            );
             reported = Instant::now();
+            worst = Worst::default();
         }
     }
 
     session.shutdown()?;
     Ok(())
+}
+
+/// The slowest iteration of a reporting window, and where its time went.
+///
+/// The whole iteration rather than a per-stage maximum: three stages each
+/// peaking in different frames would report three alarming numbers and describe
+/// no single slow frame. What a player feels is one frame taking too long.
+#[derive(Default)]
+struct Worst {
+    total: Duration,
+    waited: Duration,
+    converted: Duration,
+    encoded: Duration,
+}
+
+impl Worst {
+    fn observe(&mut self, waited: Duration, converted: Duration, encoded: Duration) {
+        let total = waited + converted + encoded;
+        if total > self.total {
+            *self = Self {
+                total,
+                waited,
+                converted,
+                encoded,
+            };
+        }
+    }
+
+    fn total_ms(&self) -> f64 {
+        self.total.as_secs_f64() * 1000.0
+    }
+    fn waited_ms(&self) -> f64 {
+        self.waited.as_secs_f64() * 1000.0
+    }
+    fn converted_ms(&self) -> f64 {
+        self.converted.as_secs_f64() * 1000.0
+    }
+    fn encoded_ms(&self) -> f64 {
+        self.encoded.as_secs_f64() * 1000.0
+    }
 }
 
 /// Structured JSON logs, level driven by `RUST_LOG`.

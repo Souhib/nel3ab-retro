@@ -212,6 +212,17 @@ impl Encoder {
         })
     }
 
+    /// Makes the next encoded frame an IDR.
+    ///
+    /// A viewer joining mid-stream can decode nothing until a key frame
+    /// arrives; with a one-second GOP that is up to a second of blank screen,
+    /// which is what this costs one larger packet to avoid.
+    pub fn force_key_frame(&mut self) {
+        // SAFETY: `handle` is a live encoder from `open`. The call only sets a
+        // flag the next `encode` reads and clears.
+        unsafe { sys::n3_encoder_force_key(self.handle.as_ptr()) };
+    }
+
     /// Encodes whatever the shader last wrote into `slot`.
     ///
     /// Returns the coded bytes, or [`None`] if libavcodec took the frame without

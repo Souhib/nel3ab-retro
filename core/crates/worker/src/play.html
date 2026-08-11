@@ -51,11 +51,23 @@
   // measurement rather than a clock-skew artefact.
   let decoder = null;
   let shown = 0;
-  let late = 0;
+  let painted = 0;
+  let repeated = 0;
   const pipeline = [];
-  const captured = [];
   let firstCapture = null;
   let firstArrival = null;
+  let lastArrival = null;
+  const gaps = [];
+
+  // The newest decoded frame, waiting for the display to want it.
+  //
+  // Drawing straight from the decoder's callback — which is what this page did
+  // first — ties the picture to when DECODING finished rather than to when the
+  // screen refreshes. Over a real network the arrivals are uneven, and painting
+  // on arrival turns that unevenness into visible judder. Holding the newest
+  // frame and painting it on `requestAnimationFrame` puts every picture on a
+  // refresh boundary instead.
+  let pending = null;
 
   const percentile = (values, q) => {
     if (!values.length) return 0;
@@ -95,17 +107,16 @@
         output: (frame) => {
           const now = performance.now();
           const submitted = pipeline.shift();
-          const sentAt = captured.shift();
           if (submitted !== undefined) {
             const total = now - submitted.at + submitted.transit;
             recent.push(total);
             if (recent.length > 240) recent.shift();
           }
-          if (sentAt !== undefined && now - sentAt > 100) late += 1;
-          canvas.width = frame.displayWidth;
-          canvas.height = frame.displayHeight;
-          context.drawImage(frame, 0, 0);
-          frame.close();
+          // A frame the display never asked for is closed rather than queued:
+          // holding more than one is a jitter buffer, and building one is a
+          // decision to take from a measurement rather than by accident.
+          pending?.close();
+          pending = frame;
           shown += 1;
         },
         error: (error) => show(`decoder error: ${error}`, "bad"),
@@ -113,8 +124,13 @@
       decoder.configure({ codec, optimizeForLatency: true });
     }
 
+    if (lastArrival !== null) {
+      gaps.push(arrived - lastArrival);
+      if (gaps.length > 600) gaps.shift();
+    }
+    lastArrival = arrived;
+
     pipeline.push({ at: arrived, transit });
-    captured.push(arrived);
     decoder.decode(
       new EncodedVideoChunk({
         type: isKey ? "key" : "delta",
@@ -125,6 +141,26 @@
   };
 
   const recent = [];
+
+  // Paint on the display's own schedule. `painted` counts refreshes that had a
+  // new picture; `repeated` counts those that had to show the previous one
+  // again, which is exactly what stutter is made of.
+  let lastPainted = null;
+  function paint() {
+    requestAnimationFrame(paint);
+    if (pending === null) {
+      if (lastPainted !== null) repeated += 1;
+      return;
+    }
+    canvas.width = pending.displayWidth;
+    canvas.height = pending.displayHeight;
+    context.drawImage(pending, 0, 0);
+    pending.close();
+    pending = null;
+    lastPainted = performance.now();
+    painted += 1;
+  }
+  requestAnimationFrame(paint);
 
   /// Walks the start codes looking for a NAL of `kind`, returning where its
   /// first byte is. Written out rather than assuming a fixed offset: the
@@ -207,19 +243,33 @@
       show("waiting for a key frame from the emulator…");
       return;
     }
+    const stalled = repeated / Math.max(1, painted + repeated);
     show(
-      `frames shown  ${shown}\n` +
-        `pad frames    ${sent}\n` +
-        `decoder queue ${decoder.decodeQueueSize}\n` +
+      `frames decoded ${shown}\n` +
+        `frames painted ${painted}\n` +
+        `refreshes with nothing new  ${repeated} (${(stalled * 100).toFixed(1)} %)\n` +
+        `pad frames     ${sent}\n` +
+        `decoder queue  ${decoder.decodeQueueSize}\n` +
         `\n` +
-        `arrival-to-glass, relative to the first frame:\n` +
+        `gap between arrivals (16.7 ms is even):\n` +
+        `  p50 ${percentile(gaps, 0.5).toFixed(1)} ms\n` +
+        `  p95 ${percentile(gaps, 0.95).toFixed(1)} ms\n` +
+        `  max ${percentile(gaps, 1).toFixed(1)} ms\n` +
+        `\n` +
+        `transit DRIFT since the first frame (not a latency):\n` +
         `  p50 ${percentile(recent, 0.5).toFixed(1)} ms\n` +
         `  p95 ${percentile(recent, 0.95).toFixed(1)} ms\n` +
         `  max ${percentile(recent, 1).toFixed(1)} ms\n` +
         `\n` +
-        `This is transit + decode + paint. It does NOT include\n` +
-        `emulation or encoding — those are measured server-side,\n` +
-        `at 1.3 ms of GPU time per frame.`,
+        `The gap figures are what stutter is made of: a p95 far\n` +
+        `above 16.7 ms means frames arrive in bursts, and no\n` +
+        `amount of decoding speed can smooth that out.\n` +
+        `\n` +
+        `The drift figures can go NEGATIVE, and that is not a bug:\n` +
+        `the two clocks are anchored on the first frame and only\n` +
+        `their DIFFERENCE is reported, so a first frame that was\n` +
+        `unusually slow makes every later one look early. It says\n` +
+        `how transit CHANGED, never how long it takes.`,
     );
   }, 500);
 </script>

@@ -91,8 +91,9 @@ Three things that could not be read off the source, in the order they bit:
 
 ### Not done
 
-- The H.264 encode itself, and the libva FFI it needs. **Nothing architectural is
-  left in M2** — this is several hundred lines of well-trodden libva boilerplate.
+- The H.264 encode. **Nothing architectural is left in M2**, but the boilerplate
+  is bigger than hoped: the driver synthesises no headers, so a bitstream writer
+  comes first. See below.
 
 ### Environment left running on lgf
 
@@ -162,13 +163,51 @@ Both plausible colour mistakes are caught by it: BT.601 coefficients leave
 269 990. Neither would look *broken*, only slightly off, which is why they get a
 test instead of a careful read.
 
+### The encoder needs a bitstream writer — settled by observation
+
+`va_encode_caps` reports that radeonsi **accepts** packed SPS/PPS, which is not
+the same as requiring them. The question was settled by tracing the reference
+implementation instead of guessing:
+
+```
+LIBVA_TRACE=... ffmpeg -vaapi_device /dev/dri/renderD128 -c:v h264_vaapi ...
+```
+
+ffmpeg requests `VAConfigAttribEncPackedHeaders = 0x0d`
+(`SEQUENCE | SLICE | MISC`) and then supplies, per access unit:
+
+| packed header | size | contents |
+|---|---|---|
+| type 1, Sequence | 312 bits | **SPS and PPS together** |
+| type 4, RawData | 1488 bits | SEI |
+| type 3, Slice | 72 bits | **the slice header, every frame** |
+
+So the driver synthesises nothing, and the crate needs exp-Golomb coding,
+emulation-prevention bytes, and the SPS/PPS/slice-header syntax.
+
+`spikes/m2-vaapi-export/va_encode_one_frame.c` supplies none of those and
+**segfaults inside radeonsi at `vaEndPicture`**. It is committed anyway, clearly
+marked: it carries most of the parameter set the real encoder needs, and
+deleting it would make the next attempt rediscover all of it.
+
+The lesson worth keeping is the method, not the fact: three rounds of guessing at
+parameter buffers cost more than `LIBVA_TRACE` would have, and it is the same
+lesson as `vulkaninfo` being unable to answer the modifier question. When a
+driver is the authority, ask the driver.
+
 ### The order to resume in
 
-1. The `encoder` crate: own the VAAPI surface, import the planes, dispatch the
-   shader, submit the encode. Every piece except the encode is now proven in C;
-   port those sequences rather than rediscovering them. This is where CLAUDE.md
-   rule 2's `unsafe` exception applies — `// SAFETY:` on every block, `just miri`
-   on the module.
+1. **A bitstream writer**, in the `encoder` crate and unit-testable without a
+   GPU: exp-Golomb, emulation prevention, SPS/PPS/slice-header. Pin it against
+   bytes ffmpeg produces for the same parameters rather than against itself.
+2. Then the encode: config with packed headers, the parameter buffers this spike
+   already has, and the packed headers from step 1.
+3. Then the whole chain — Dolphin frame in, H.264 out — and measure it against
+   the 0.57-core baseline the readback used to cost.
+
+Every piece except the encode is already proven in C; port those sequences
+rather than rediscovering them. This is where CLAUDE.md rule 2's `unsafe`
+exception applies — `// SAFETY:` on every block.
 
 ### What is left, and what is not
 

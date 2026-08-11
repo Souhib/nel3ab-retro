@@ -5,4 +5,7 @@ receive_frame
 vk_writes_vaapi_reads
 vk_shader_writes_nv12
 va_layout
+va_encode_caps
+va_encode_one_frame
+va_encode_one_frame_dbg
 *.spv

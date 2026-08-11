@@ -90,8 +90,35 @@ A page that opens a WebSocket, receives the recorded stream from the end-to-end
 test, feeds it to `VideoDecoder`, and draws the frames. If it refuses the
 configuration or produces nothing, Option B is dead and we stop reading about it.
 
-**Status: not run.** Needs a browser; there is none on lgf, so this one has to be
-opened by hand.
+**Ran 2026-08-11. It passes, and without repackaging.**
+
+```
+125 NAL units: {1:118, 5:2, 6:1, 7:2, 8:2}
+grouped into 120 access units, 2 of them key
+SPS says the codec is avc1.640c1f
+Annex B, as the encoder emits it: decoded 120 of 120 access units
+first frame after 40.0 ms
+```
+
+Melee's memory-card dialog on the canvas, looked at. So the browser takes the
+bytes `encoder::av` already produces — no length prefixing, no `description`, no
+reshaping. The avcC fallback the page carries was never needed.
+
+**Two numbers from that run must not be quoted as latency.** The page prints
+`p50 178 ms, max 303 ms` submit-to-output, and that is *throughput*: the whole
+file is handed over in a tight loop, so every frame's figure includes queueing
+behind all the frames submitted before it. It says the decoder chewed 120 frames
+in about a third of a second. It says nothing about how long one frame takes.
+The 40 ms to first frame is real, and is a one-off: decoder configuration and
+hardware init.
+
+It also took a wrong turn worth keeping. The first version of the page grouped
+access units by starting a new one only when a non-slice NAL followed a slice,
+so 118 consecutive P-slices went over as **one chunk of 118 frames**, and the
+decoder answered `EncodingError: The given encoding is not supported`. It was
+right about its own input. Fixed from a measurement — this stream has no
+access-unit delimiters and exactly as many slices as frames — not from
+reasoning.
 
 ### Experiment 2 — what does each option actually cost in latency?
 

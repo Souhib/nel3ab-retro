@@ -555,6 +555,50 @@ Ce test a échoué deux fois pour de mauvaises raisons, et c'est instructif :
 
 ---
 
+## 5bis. M3 commence — et sa première question est déjà tranchée
+
+M3 doit faire arriver le flux dans un navigateur et remonter les manettes. Une
+seule décision commande tout le reste :
+
+> **WebRTC, ou nos octets sur un transport simple décodés par WebCodecs ?**
+
+> **WebRTC** est la réponse standard pour la vidéo à faible latence. Il donne
+> gratuitement la récupération de pertes, le contrôle de congestion et la
+> traversée de NAT — contre une négociation lourde (SDP, ICE, DTLS, SRTP) et un
+> **tampon de gigue dont le navigateur décide la profondeur**, pas nous.
+>
+> **WebCodecs** est l'interface qui donne au JavaScript l'accès direct au
+> décodeur matériel du navigateur — le même que WebRTC aurait utilisé, sans le
+> protocole autour.
+
+L'argument habituel pour WebRTC — pertes réseau et NAT — ne décrit pas notre
+situation : auto-hébergé, LAN ou Tailscale, entre gens que l'hôte connaît. Mais
+« notre réseau est bon » reste une hypothèse, et ce projet ne croit pas les
+hypothèses sur parole. Donc : mesure.
+
+**Expérience 1, faite le 2026-08-11 : le navigateur décode nos octets tels
+quels.** 120 unités d'accès sur 120, en Annex B brut — aucun ré-emballage. La
+boîte de dialogue de Melee s'affiche. L'option B est vivante.
+
+Deux précautions notées avec le résultat : le « p50 178 ms » qu'affiche la page
+n'est **pas** une latence, c'est un débit (tout le fichier est soumis d'un coup,
+chaque image attend derrière les précédentes) ; et l'expérience utilise un
+fichier enregistré, donc rien n'est interactif — la manette est l'autre moitié
+de M3.
+
+### Le décodeur avait raison
+
+Premier essai : `EncodingError: The given encoding is not supported`. Ni le
+navigateur ni le flux — **ma page**. Elle ne coupait une nouvelle image que
+lorsqu'un NAL « non-tranche » suivait une tranche, donc les 118 images inter
+consécutives partaient en **un seul bloc de 118 images**.
+
+> **Leçon** : un composant qui répond « non supporté » a en général raison sur sa
+> propre entrée. Corriger depuis la mesure (ce flux n'a aucun délimiteur, et
+> exactement autant de tranches que d'images), pas depuis le raisonnement.
+
+---
+
 ## 6. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
 
 | Le piège | Ce qui s'est passé | La leçon |

@@ -24,7 +24,6 @@
 //! choose a DCC modifier that VAAPI then refuses. So this module offers no way
 //! to import an externally-allocated surface: the only constructor allocates.
 
-pub mod enc;
 pub mod sys;
 
 use core::ffi::{CStr, c_int};
@@ -120,11 +119,6 @@ impl Display {
             _node: node_fd,
             vendor,
         })
-    }
-
-    /// The raw display, for the encode module.
-    pub(crate) const fn handle(&self) -> sys::VaDisplay {
-        self.handle
     }
 
     /// The driver's own identification string.
@@ -228,11 +222,6 @@ pub struct Surface<'a> {
 }
 
 impl Surface<'_> {
-    /// The raw id, for the encode module.
-    pub(crate) const fn id(&self) -> sys::VaSurfaceId {
-        self.id
-    }
-
     /// Width in pixels.
     #[must_use]
     pub const fn width(&self) -> u32 {

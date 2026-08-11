@@ -133,6 +133,21 @@ interleaved chroma write. The 4:2:0 average is then free, and it is taken in
 **linear RGB before conversion**, which is what the subsampling actually means —
 averaging the chroma values afterwards gives a slightly different answer.
 
+### The one that ended the milestone's hardest week (`av_encode_our_surface.c`)
+
+Asks whether the hand-rolled libva encoder is needed at all, and answers no. Two
+things had to hold, and both do:
+
+- a surface from **libavcodec's own pool** exports as a dma-buf with `DCC=0`, two
+  layers, and the same modifier as one we allocate ourselves — so ADR D5's
+  pipeline is untouched and the compute shader still writes it;
+- the encode produces 16903 bytes that `ffprobe` decodes back to the exact
+  gradient written in.
+
+It fills the surface from the CPU rather than from the shader on purpose: the
+shader path is proven on its own in part 6, and mixing them would have made a
+failure ambiguous.
+
 ## What they deliberately do NOT do
 
 No H.264. They stop where the architectural risk stops: the

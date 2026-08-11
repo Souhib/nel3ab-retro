@@ -53,6 +53,46 @@ the typed client and TanStack Query hooks. Chosen over Kubb: more actively
 maintained, first-class Query plugin. The committed snapshot is gated by a
 deterministic contract check so the client cannot silently drift.
 
+### D7 — libavcodec encodes; we do not write an H.264 encoder
+
+Decided 2026-08-11, after writing most of one.
+
+The hand-rolled libva path reached: config, context, all three parameter buffers,
+packed SPS/PPS/slice headers byte-identical to ffmpeg's. Then radeonsi segfaults
+inside `vaEndPicture`. Four differences against ffmpeg's traced call sequence were
+found and matched — misc parameter buffers, `num_render_targets`, the profile,
+GOP and reference counts — and none was it. The two `LIBVA_TRACE` logs now agree
+on every field either prints.
+
+But the crash is not really the reason. The reason is what was still missing even
+if it had worked: our encoder is all-intra with no rate control, which is
+unusable for a game stream. Finishing it means reference management, a DPB and
+rate control — hundreds more lines at the same risk profile as the ones already
+written, where a mistake looks almost right and returns success.
+
+**This is D1 again.** We do not write an emulator; a conformant H.264 encoder is
+an object of the same kind.
+
+Measured before deciding
+(`spikes/m2-vaapi-export/av_encode_our_surface.c`): a surface from libavcodec's
+own pool exports as a dma-buf with **`DCC=0`, two layers, and the same modifier**
+`0x0200000018601b03` we get allocating one ourselves. So **D5 is untouched** —
+the compute shader still writes NV12 straight into the surface the encoder reads.
+The encode produced 16903 bytes that ffprobe decodes back to the exact gradient
+written in.
+
+What this costs: a dependency on libavcodec (LGPL-2.1, compatible with AGPL), and
+control over submission timing. The second is the only real one, and it is
+measurable rather than unknown — `async_depth=1`, `max_b_frames=0` and a GOP with
+no reordering give one frame in, one frame out. Measure the latency before
+trusting it.
+
+Kept from the hand-written work: `encoder::h264`, the bitstream writer. It is
+tested against ffmpeg's own bytes and has a concrete future use — ffmpeg's SPS
+declares `max_num_reorder_frames=1` and `max_dec_frame_buffering=2`, where a
+latency-critical stream wants zero, and rewriting an SPS in flight is exactly
+what that module is for.
+
 ## Consequences
 
 - AV1 encoding is unavailable (needs RDNA3+). Target H.264/HEVC.
@@ -155,6 +195,22 @@ GameCube game is split-screen by design.
 No libva bindings, no usable WebRTC stack, still pre-1.0, and `@cImport` — its main
 advantage here — was deprecated. Performance does not separate the two: ~95 % of CPU
 time is inside Dolphin and the encoder.
+
+### Writing the H.264 encoder against libva directly
+
+Superseded by D7 after being most of the way built, and recorded because the
+reasoning that led there was sound and will recur: direct libva gives exact
+control over submission, which is the thing a latency-critical stream cares about.
+
+What was observed: radeonsi segfaults inside `vaEndPicture` on a call sequence
+whose every traced parameter matches ffmpeg's. More decisively, the working
+version of it would still have needed reference management, a DPB and rate
+control — the encoder as written is all-intra with none, which no game stream can
+use.
+
+*Revisit*: if measurement shows libavcodec's queueing costs frames that
+`async_depth=1` cannot remove. The bitstream writer that survives (`encoder::h264`)
+is the part that would be needed again first.
 
 ### Kubb for the generated client
 

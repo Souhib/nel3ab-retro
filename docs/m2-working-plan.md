@@ -195,37 +195,48 @@ parameter buffers cost more than `LIBVA_TRACE` would have, and it is the same
 lesson as `vulkaninfo` being unable to answer the modifier question. When a
 driver is the authority, ask the driver.
 
-### The encode is wired and still segfaults — what is ruled out
+### The encoder is libavcodec's, and D7 says why
 
-The Rust encoder builds config, context, all three parameter buffers and the
-packed headers. libva accepts every call and reads back every field correctly,
-bitfields included. radeonsi then segfaults inside `vaEndPicture`.
+The hand-rolled libva encoder was abandoned after being most of the way built.
+It segfaults inside radeonsi at `vaEndPicture` on a call sequence whose every
+traced parameter matches ffmpeg's — four differences were found by diffing
+`LIBVA_TRACE` logs, all matched, none of them it.
 
-Ruled out, by diffing an `LIBVA_TRACE` of our program against one of ffmpeg and
-then matching it in turn:
+But the crash is not the reason. Even working, it was all-intra with no rate
+control, and finishing it meant reference management, a DPB and rate control:
+hundreds more lines at the same risk profile as the ones already written. That is
+ADR **D1** again — we do not write an emulator, and an H.264 encoder is the same
+kind of object. Recorded as **D7**.
 
-- the misc rate-control and frame-rate buffers — now sent, layouts **measured**
-- `num_render_targets` — ffmpeg passes **0**, we passed 1; now 0
-- the profile — ffmpeg uses **High**, we used ConstrainedBaseline; now High, with
-  SPS and PPS changed to match
-- GOP length and reference counts
+Measured before deciding (`spikes/m2-vaapi-export/av_encode_our_surface.c`):
 
-None of them was it, and the two traces now agree on every field either prints.
-So the next step is not another guess: get a backtrace that names the
-dereference. `libgl1-mesa-dri-dbgsym`, or a Mesa build with symbols, turns an
-address inside `radeonsi_drv_video.so` into a line of `picture_h264_enc.c`.
+```
+surface from libavcodec's pool: 0x00000004
+exported: modifier 0x0200000018601b03, 2 layers, DCC=0
+coded 16903 bytes in 1 packet(s)
+ffprobe: frame,640,480,I  →  decodes back to the gradient written in
+```
 
-A lead worth carrying: Mesa's picture handler walks a DPB and does
-`handle_table_get(...)` followed by `assert(surf)`. In a release build the assert
-is compiled out and a null `surf` is dereferenced — which is the shape of this
-crash.
+**D5 is untouched**: the pool's surface exports with the same DCC-free modifier
+we get allocating one ourselves, so the compute shader still writes NV12 straight
+into what the encoder reads.
+
+`encoder::va::enc` is deleted; `encoder::h264` is kept. The bitstream writer is
+tested against ffmpeg's own bytes and has a concrete use ahead — ffmpeg's SPS
+declares `max_num_reorder_frames=1` and `max_dec_frame_buffering=2` where a
+latency-critical stream wants zero.
 
 ### The order to resume in
 
-1. ~~**A bitstream writer**~~ — done; SPS, PPS and the IDR slice header are
-   byte-identical to ffmpeg's. See `crates/encoder/src/h264/`.
-1. **A Mesa backtrace with symbols.** Everything cheaper has been tried.
-1. ~~old step 2~~ **A bitstream writer**, in the `encoder` crate and unit-testable without a
+1. **Bind libavcodec from the `encoder` crate**: a VAAPI hw device on the render
+   node, a frames pool, and `h264_vaapi` with `async_depth=1` and
+   `max_b_frames=0`. The C spike is the sequence to port.
+1. **Wire the whole chain**: Dolphin frame in, H.264 out — import the exported
+   frame, dispatch the shader into a pool surface, encode, and look at the
+   result.
+1. **Measure the latency libavcodec's queueing costs**, which is the one thing
+   D7 gave up and the one thing it promised to check.
+1. ~~A bitstream writer~~, in the `encoder` crate and unit-testable without a
    GPU: exp-Golomb, emulation prevention, SPS/PPS/slice-header. Pin it against
    bytes ffmpeg produces for the same parameters rather than against itself.
 2. Then the encode: config with packed headers, the parameter buffers this spike

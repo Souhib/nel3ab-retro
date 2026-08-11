@@ -126,6 +126,22 @@ pub enum EncoderError {
         message: String,
     },
 
+    /// The libavcodec shim refused a call.
+    ///
+    /// The code is the shim's own, not ffmpeg's: libavcodec reports dozens of
+    /// distinct `AVERROR`s for the same practical situation, and collapsing them
+    /// at the C boundary keeps the meaning of each variant something a reader
+    /// can act on.
+    #[error("{what} failed: {message} ({code})")]
+    Av {
+        /// Which shim call.
+        what: &'static str,
+        /// The shim's status code.
+        code: i32,
+        /// What that code stands for.
+        message: &'static str,
+    },
+
     /// A frame size the encoder cannot express yet.
     ///
     /// Cropping is not written, so a picture that is not a whole number of

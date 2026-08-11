@@ -228,25 +228,60 @@ latency-critical stream wants zero.
 
 ### The order to resume in
 
-1. **Bind libavcodec from the `encoder` crate**: a VAAPI hw device on the render
-   node, a frames pool, and `h264_vaapi` with `async_depth=1` and
-   `max_b_frames=0`. The C spike is the sequence to port.
+1. ~~**Bind libavcodec from the `encoder` crate**~~ — done 2026-08-11, see below.
+1. ~~**Measure what libavcodec's queueing costs**~~ — done, and it costs zero
+   frames. See *The encode is bound, and the concession is paid for*.
 1. **Wire the whole chain**: Dolphin frame in, H.264 out — import the exported
-   frame, dispatch the shader into a pool surface, encode, and look at the
-   result.
-1. **Measure the latency libavcodec's queueing costs**, which is the one thing
-   D7 gave up and the one thing it promised to check.
-1. ~~A bitstream writer~~, in the `encoder` crate and unit-testable without a
-   GPU: exp-Golomb, emulation prevention, SPS/PPS/slice-header. Pin it against
-   bytes ffmpeg produces for the same parameters rather than against itself.
-2. Then the encode: config with packed headers, the parameter buffers this spike
-   already has, and the packed headers from step 1.
-3. Then the whole chain — Dolphin frame in, H.264 out — and measure it against
-   the 0.57-core baseline the readback used to cost.
+   frame into Vulkan, dispatch the RGBA→NV12 shader into a pool surface from
+   `Encoder::export`, encode it, and **look at the decoded result**. Every piece
+   is proven separately; this is the first time they run as one.
+1. **Re-measure the encode latency on real frames.** The table in D7 was taken on
+   unwritten surfaces, which compress to nothing — it is a floor, not the
+   steady-state.
+1. Then the whole chain against the **0.57-core baseline** the PNG readback used
+   to cost, which is the number M2 exists to beat.
+1. ~~A bitstream writer~~ — done; `encoder::h264`, pinned against ffmpeg's bytes.
+   Its remaining use is rewriting the SPS in flight (see D7).
 
-Every piece except the encode is already proven in C; port those sequences
-rather than rediscovering them. This is where CLAUDE.md rule 2's `unsafe`
-exception applies — `// SAFETY:` on every block.
+Every piece except the wiring is now proven in Rust, on this GPU. This is where
+CLAUDE.md rule 2's `unsafe` exception applies — `// SAFETY:` on every block.
+
+### The encode is bound, and the concession is paid for
+
+`encoder::av` drives libavcodec's `h264_vaapi`. It talks to a **C shim**
+(`crates/encoder/csrc/`) rather than to libavcodec directly, and that choice is
+the interesting part:
+
+> `AVCodecContext` has hundreds of fields whose layout moves between ffmpeg major
+> versions, and Ubuntu will upgrade `libavcodec60` underneath us. Measured
+> offsets — the technique that worked for libva, whose ABI is stable — would then
+> be **silently wrong**, which is the exact failure mode this milestone has spent
+> its length avoiding. So the ABI question is answered in C, by the compiler,
+> against the real headers. Rust binds to a header we own. The cost is a `cc`
+> build dependency, far lighter than bindgen's libclang.
+
+What is left to get wrong is whether Rust's `#[repr(C)]` padded our two structs
+the way the C compiler did — so the shim exports `n3_layout()`, which reports its
+own `sizeof`/`offsetof`, and a test compares every field. **It needs no GPU**: a
+padding mismatch is a defect of the binding, not of the machine. Verified
+red-first by reordering the Rust mirror (`left: 24, right: 12`), and its negative
+twin catches an `n3_layout` that answers zero to everything.
+
+Measured 2026-08-11, 240 frames after 60 warm-up:
+
+| | p50 | p95 | p99 | frames held back |
+|---|---|---|---|---|
+| 640×480 | 1.00 ms | 1.13 ms | 1.45 ms | **0** |
+| 1920×1088 | 2.65 ms | 3.05 ms | 4.98 ms | **0** |
+
+**Zero held back** is the number that matters. `async_depth=1` returns a packet
+for every frame submitted, so libavcodec's queue adds no *frames* of latency —
+only its own encode time, 2.65 ms of a 16.7 ms budget at 1080p60. That was the
+one thing D7 gave up, and it is paid for.
+
+The pool's surfaces still export `DCC=0`, two layers, modifier
+`0x0200000018601b03`, on **every** slot — checked by inode, because a pool that
+handed out one real surface and two aliases would pass a first-slot-only test.
 
 ### What is left, and what is not
 

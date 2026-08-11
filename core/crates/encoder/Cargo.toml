@@ -18,6 +18,13 @@ nel3ab-protocol = { path = "../protocol" }
 # the unsafe exception M2 earns is for libva, not for a socket.
 nix = { version = "0.30", default-features = false, features = ["socket", "uio", "fs"] }
 
+[build-dependencies]
+# Compiling the libavcodec shim. `cc` and `pkg-config` are both small, no proc
+# macros, and no libclang — which is the whole reason the ffmpeg binding is a C
+# shim rather than bindgen.
+cc = "1"
+pkg-config = "0.3"
+
 [dev-dependencies]
 tempfile = "3"
 
@@ -26,6 +33,12 @@ tempfile = "3"
 # default so `cargo test` stays honest on a machine that has neither — a test
 # that cannot run must not report a pass.
 vaapi = []
+
+# Needs the shim, so it must not be built when `vaapi` is off — otherwise a
+# machine without ffmpeg headers fails `cargo test` on an example it cannot use.
+[[example]]
+name = "encode_latency"
+required-features = ["vaapi"]
 
 [lints]
 workspace = true

@@ -84,8 +84,24 @@ written in.
 What this costs: a dependency on libavcodec (LGPL-2.1, compatible with AGPL), and
 control over submission timing. The second is the only real one, and it is
 measurable rather than unknown — `async_depth=1`, `max_b_frames=0` and a GOP with
-no reordering give one frame in, one frame out. Measure the latency before
-trusting it.
+no reordering give one frame in, one frame out.
+
+**Measured 2026-08-11**, RX 6650 XT, Mesa 25.2.8, 240 frames after a 60-frame
+warm-up (`cargo run --release --example encode_latency`):
+
+| | p50 | p95 | p99 | held back |
+|---|---|---|---|---|
+| 640×480 | 1.00 ms | 1.13 ms | 1.45 ms | **0** |
+| 1920×1088 | 2.65 ms | 3.05 ms | 4.98 ms | **0** |
+
+Zero frames held back is the number that settles the trade: `async_depth=1`
+really does return a packet per submitted frame, so libavcodec's queue adds no
+frames of latency — only its own encode time. At 60 fps a frame is 16.7 ms, and
+1080p costs 2.65 ms of it. **The concession D7 made is paid for.**
+
+What the table does *not* say: these surfaces are unwritten, so they compress to
+nothing and the encode is at its floor. The steady-state number has to be
+re-measured once the shader is writing real frames into them.
 
 Kept from the hand-written work: `encoder::h264`, the bitstream writer. It is
 tested against ffmpeg's own bytes and has a concrete future use — ffmpeg's SPS

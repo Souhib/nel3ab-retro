@@ -24,6 +24,13 @@ pub mod protocol;
 #[allow(unsafe_code, reason = "the libva FFI is rule 2's single exception")]
 pub mod va;
 
+#[cfg(feature = "vaapi")]
+#[allow(
+    unsafe_code,
+    reason = "the libavcodec shim is rule 2's single exception"
+)]
+pub mod av;
+
 pub use error::EncoderError;
 pub use frame_source::{DmaBuf, FrameListener, FrameSource, LentFrame};
 pub use h264::{ColourDescription, PpsParams, SpsParams, build_pps, build_sps};

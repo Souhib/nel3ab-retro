@@ -9,9 +9,14 @@ publish = false
 repository.workspace = true
 
 [dependencies]
+nel3ab-protocol = { path = "../protocol" }
 thiserror.workspace = true
 tracing.workspace = true
-nel3ab-protocol = { path = "../protocol" }
+
+# A blocking WebSocket, deliberately. The worker is synchronous, and adopting an
+# async runtime is an architectural decision that should be taken for its own
+# reasons rather than smuggled in by a transport. Four players is four threads.
+tungstenite = "0.30"
 
 [lints]
 workspace = true

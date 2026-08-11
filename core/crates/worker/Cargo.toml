@@ -11,10 +11,15 @@ repository.workspace = true
 [dependencies]
 nel3ab-protocol = { path = "../protocol" }
 nel3ab-emulator = { path = "../emulator" }
-nel3ab-encoder = { path = "../encoder" }
+nel3ab-encoder = { path = "../encoder", features = ["vaapi"] }
 nel3ab-transport = { path = "../transport" }
 tracing.workspace = true
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# `anyhow` at the boundary only, which is what rule 6 allows: the binary turns
+# every crate's typed error into one exit code and one log line, and no library
+# depends on it.
+anyhow = "1"
 
 [lints]
 workspace = true

@@ -1,0 +1,225 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>nel3ab — play</title>
+<style>
+  :root { color-scheme: dark; font-family: ui-monospace, monospace; }
+  body { margin: 0; padding: 1.5rem; background: #0d0d0f; color: #ddd; }
+  #wrap { display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: flex-start; }
+  canvas { background: #000; border: 1px solid #333; image-rendering: pixelated; width: 800px; max-width: 100%; }
+  #stats { min-width: 22rem; white-space: pre-wrap; line-height: 1.6; font-size: 0.85rem; }
+  .bad { color: #ff8080; }
+  .note { color: #888; }
+  kbd { background: #222; border: 1px solid #444; border-radius: 3px; padding: 0 0.3em; }
+</style>
+
+<div id="wrap">
+  <canvas id="screen" width="640" height="480"></canvas>
+  <div>
+    <div id="stats">connecting…</div>
+    <p class="note">
+      <kbd>←↑↓→</kbd> stick · <kbd>X</kbd> A · <kbd>C</kbd> B · <kbd>S</kbd> X ·
+      <kbd>D</kbd> Y · <kbd>A</kbd> Z · <kbd>Q</kbd> L · <kbd>E</kbd> R ·
+      <kbd>Enter</kbd> Start<br />
+      A gamepad, if one is plugged in, takes over on its first button press.
+    </p>
+  </div>
+</div>
+
+<script type="module">
+  const stats = document.getElementById("stats");
+  const context = document.getElementById("screen").getContext("2d");
+  const canvas = context.canvas;
+  const show = (text, cls = "") =>
+    (stats.innerHTML = cls ? `<span class="${cls}">${text}</span>` : text);
+
+  if (!("VideoDecoder" in window)) {
+    show(
+      "VideoDecoder is absent — this page is not in a secure context.\n" +
+        "Reach it over https, or tunnel it to localhost.",
+      "bad",
+    );
+    throw new Error("no WebCodecs");
+  }
+
+  const host = location.host;
+
+  // ── video ───────────────────────────────────────────────────────────────
+  //
+  // The server prefixes each access unit with the capture instant on its own
+  // monotonic clock. We never interpret that number — only subtract two of them
+  // — so the two clocks never have to agree, which is what makes this an honest
+  // measurement rather than a clock-skew artefact.
+  let decoder = null;
+  let shown = 0;
+  let late = 0;
+  const pipeline = [];
+  const captured = [];
+  let firstCapture = null;
+  let firstArrival = null;
+
+  const percentile = (values, q) => {
+    if (!values.length) return 0;
+    const sorted = [...values].sort((a, b) => a - b);
+    return sorted[Math.floor((sorted.length - 1) * q)];
+  };
+
+  const video = new WebSocket(`ws://${host}/video`);
+  video.binaryType = "arraybuffer";
+
+  video.onclose = () => show("the video connection closed", "bad");
+  video.onerror = () => show("the video connection failed", "bad");
+
+  video.onmessage = (event) => {
+    const message = new Uint8Array(event.data);
+    const capturedMicros = Number(new DataView(message.buffer).getBigUint64(0, true));
+    const unit = message.subarray(8);
+    const arrived = performance.now();
+
+    // The two clocks are anchored on the first frame and never compared again.
+    // Everything after is a difference of differences, so an offset between them
+    // cancels out and only the CHANGE in transit time is reported.
+    if (firstCapture === null) {
+      firstCapture = capturedMicros / 1000;
+      firstArrival = arrived;
+    }
+    const transit = arrived - firstArrival - (capturedMicros / 1000 - firstCapture);
+
+    const isKey = hasIdr(unit);
+    if (decoder === null) {
+      if (!isKey) return; // a decoder cannot start mid-GOP
+      const sps = findNal(unit, 7);
+      if (!sps) return;
+      const hex = (v) => v.toString(16).padStart(2, "0");
+      const codec = `avc1.${hex(unit[sps + 1])}${hex(unit[sps + 2])}${hex(unit[sps + 3])}`;
+      decoder = new VideoDecoder({
+        output: (frame) => {
+          const now = performance.now();
+          const submitted = pipeline.shift();
+          const sentAt = captured.shift();
+          if (submitted !== undefined) {
+            const total = now - submitted.at + submitted.transit;
+            recent.push(total);
+            if (recent.length > 240) recent.shift();
+          }
+          if (sentAt !== undefined && now - sentAt > 100) late += 1;
+          canvas.width = frame.displayWidth;
+          canvas.height = frame.displayHeight;
+          context.drawImage(frame, 0, 0);
+          frame.close();
+          shown += 1;
+        },
+        error: (error) => show(`decoder error: ${error}`, "bad"),
+      });
+      decoder.configure({ codec, optimizeForLatency: true });
+    }
+
+    pipeline.push({ at: arrived, transit });
+    captured.push(arrived);
+    decoder.decode(
+      new EncodedVideoChunk({
+        type: isKey ? "key" : "delta",
+        timestamp: shown * 16_667,
+        data: unit,
+      }),
+    );
+  };
+
+  const recent = [];
+
+  /// Walks the start codes looking for a NAL of `kind`, returning where its
+  /// first byte is. Written out rather than assuming a fixed offset: the
+  /// parameter sets only precede the picture on IDR access units.
+  function findNal(bytes, kind) {
+    for (let i = 0; i + 3 < bytes.length; i++) {
+      if (bytes[i] === 0 && bytes[i + 1] === 0 && bytes[i + 2] === 1) {
+        if ((bytes[i + 3] & 0x1f) === kind) return i + 3;
+        i += 2;
+      }
+    }
+    return null;
+  }
+  const hasIdr = (bytes) => findNal(bytes, 5) !== null;
+
+  // ── input ───────────────────────────────────────────────────────────────
+  const input = new WebSocket(`ws://${host}/input`);
+  input.binaryType = "arraybuffer";
+
+  const BUTTON = {
+    A: 1 << 0, B: 1 << 1, X: 1 << 2, Y: 1 << 3, Z: 1 << 4,
+    L: 1 << 5, R: 1 << 6, START: 1 << 7,
+    D_UP: 1 << 8, D_DOWN: 1 << 9, D_LEFT: 1 << 10, D_RIGHT: 1 << 11,
+  };
+  const KEYS = {
+    KeyX: "A", KeyC: "B", KeyS: "X", KeyD: "Y", KeyA: "Z",
+    KeyQ: "L", KeyE: "R", Enter: "START",
+  };
+  const held = new Set();
+  addEventListener("keydown", (event) => {
+    if (event.code in KEYS || event.code.startsWith("Arrow")) event.preventDefault();
+    held.add(event.code);
+  });
+  addEventListener("keyup", (event) => held.delete(event.code));
+  addEventListener("blur", () => held.clear());
+
+  // The state is sent every animation frame rather than on key events. A pad is
+  // a LEVEL, not an edge: a dropped "keyup" would otherwise leave the character
+  // running into a wall forever, and resending is 13 bytes.
+  let sent = 0;
+  function pumpInput() {
+    requestAnimationFrame(pumpInput);
+    if (input.readyState !== WebSocket.OPEN) return;
+
+    let buttons = 0;
+    for (const [code, name] of Object.entries(KEYS)) {
+      if (held.has(code)) buttons |= BUTTON[name];
+    }
+    let x = (held.has("ArrowRight") ? 1 : 0) - (held.has("ArrowLeft") ? 1 : 0);
+    let y = (held.has("ArrowUp") ? 1 : 0) - (held.has("ArrowDown") ? 1 : 0);
+
+    const pad = navigator.getGamepads?.().find((p) => p);
+    if (pad) {
+      const dead = (v) => (Math.abs(v) < 0.15 ? 0 : v);
+      x = dead(pad.axes[0] ?? 0) || x;
+      y = -dead(pad.axes[1] ?? 0) || y;
+      const map = ["A", "B", "X", "Y", "L", "R", "Z", null, null, "START"];
+      map.forEach((name, index) => {
+        if (name && pad.buttons[index]?.pressed) buttons |= BUTTON[name];
+      });
+    }
+
+    const frame = new Uint8Array(13);
+    const view = new DataView(frame.buffer);
+    view.setUint16(0, buttons, true);
+    frame[2] = 1; // player slot 1
+    view.setInt16(3, Math.round(x * 32767), true);
+    view.setInt16(5, Math.round(y * 32767), true);
+    view.setInt16(7, 0, true);
+    view.setInt16(9, 0, true);
+    frame[11] = held.has("KeyQ") ? 255 : 0;
+    frame[12] = held.has("KeyE") ? 255 : 0;
+    input.send(frame);
+    sent += 1;
+  }
+  requestAnimationFrame(pumpInput);
+
+  setInterval(() => {
+    if (decoder === null) {
+      show("waiting for a key frame from the emulator…");
+      return;
+    }
+    show(
+      `frames shown  ${shown}\n` +
+        `pad frames    ${sent}\n` +
+        `decoder queue ${decoder.decodeQueueSize}\n` +
+        `\n` +
+        `arrival-to-glass, relative to the first frame:\n` +
+        `  p50 ${percentile(recent, 0.5).toFixed(1)} ms\n` +
+        `  p95 ${percentile(recent, 0.95).toFixed(1)} ms\n` +
+        `  max ${percentile(recent, 1).toFixed(1)} ms\n` +
+        `\n` +
+        `This is transit + decode + paint. It does NOT include\n` +
+        `emulation or encoding — those are measured server-side,\n` +
+        `at 1.3 ms of GPU time per frame.`,
+    );
+  }, 500);
+</script>

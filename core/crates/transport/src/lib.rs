@@ -18,3 +18,7 @@
 //! Milestone: M3.
 
 #![forbid(unsafe_code)]
+
+pub mod browser;
+
+pub use browser::{BrowserServer, Packet, TransportError};

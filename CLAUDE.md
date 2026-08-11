@@ -9,6 +9,10 @@ browser players, server-side GPU emulation and encoding. Read
 [`docs/adr/0001-architecture.md`](docs/adr/0001-architecture.md) first — it holds
 the decisions and their reasons.
 
+[`docs/carnet-de-bord.md`](docs/carnet-de-bord.md) is the same story told for a
+human: how the project was built, what fought back, and what every acronym means.
+Start there if you want the reasoning rather than the ruling.
+
 ## The rules that matter
 
 ### 1. No rule without its reason — and the reason is measured
@@ -73,6 +77,36 @@ binary, at the boundary.
 
 `just check` locally, then watch the run. A failing early step means the later
 gates were **skipped, not passed**.
+
+### 8. The logbook is part of the work, not a write-up afterwards
+
+[`docs/carnet-de-bord.md`](docs/carnet-de-bord.md) is written **for a human who
+is not in the terminal**. It explains, in French, how the project was built:
+what was tried, what fought back, which options were weighed, what was chosen and
+why — defining every acronym and piece of jargon on the way.
+
+Update it in the **same change** that earns the entry. It is not a summary
+generated at the end; a decision explained a week later has already lost the
+reasoning that made it. Add an entry whenever any of these happens:
+
+- a decision is taken, changed or reversed — mirror the ADR entry, but say it in
+  plain words and explain the terms it uses;
+- **an option is killed by an experiment** — record what the experiment was and
+  how long it took. These are the entries that save the most time later;
+- a trap costs real time — the symptom, the cause, and the general lesson, so the
+  lesson outlives the trap;
+- a number is measured that changes what we do — with its date and its caveats;
+- a test is found to pass while broken — those entries are the most valuable in
+  the document, and this project has produced several.
+
+Two things it must keep doing:
+
+- **Explain the vocabulary.** Any acronym introduced in the narrative gets a line
+  in the glossary at the end. A reader who does not know what DCC, dma-buf or ABI
+  means must still be able to follow.
+- **Stay honest about what is not proven.** Where a measurement is a floor, a
+  best case, or taken on unrealistic input, say so next to the number rather than
+  letting the table imply more than it showed.
 
 ## Commands
 

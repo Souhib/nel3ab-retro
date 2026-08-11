@@ -72,6 +72,8 @@ pub struct Context {
     // Held so the loader outlives every call made through it.
     _entry: ash::Entry,
     instance: ash::Instance,
+    /// Live only when the validation layer was found; see [`validation`].
+    messenger: Option<(ash::ext::debug_utils::Instance, vk::DebugUtilsMessengerEXT)>,
     physical: vk::PhysicalDevice,
     device: ash::Device,
     /// The `VK_KHR_external_memory_fd` entry points, loaded once. Vulkan
@@ -119,15 +121,21 @@ impl Context {
         // 1.1 rather than 1.0, so `properties2` is core and needs no instance
         // extension. Every driver this project targets is well past it.
         let application = vk::ApplicationInfo::default().api_version(vk::API_VERSION_1_1);
-        let create = vk::InstanceCreateInfo::default().application_info(&application);
+        let (layers, extensions) = validation::wanted(&entry);
+        let create = vk::InstanceCreateInfo::default()
+            .application_info(&application)
+            .enabled_layer_names(&layers)
+            .enabled_extension_names(&extensions);
         // SAFETY: `create` and everything it borrows are live for the call, and
-        // ash's builders guarantee the length fields match their slices.
+        // ash's builders guarantee the length fields match their slices; every
+        // name pointer addresses a `&'static CStr`.
         let instance = unsafe { entry.create_instance(&create, None) }.map_err(|code| {
             EncoderError::Vulkan {
                 what: "vkCreateInstance",
                 code: code.as_raw(),
             }
         })?;
+        let messenger = validation::attach(&entry, &instance);
 
         // From here on the instance must be destroyed on every failure path, so
         // the search is factored out and its result matched.
@@ -137,7 +145,10 @@ impl Context {
             Err(error) => {
                 // SAFETY: the instance was just created, no device or child
                 // object exists yet, and it is not used again.
-                unsafe { instance.destroy_instance(None) };
+                unsafe {
+                    validation::detach(messenger);
+                    instance.destroy_instance(None);
+                }
                 return Err(error);
             }
         };
@@ -151,6 +162,7 @@ impl Context {
                 Ok(Self {
                     _entry: entry,
                     instance,
+                    messenger,
                     physical,
                     device,
                     external_memory_fd,
@@ -162,7 +174,10 @@ impl Context {
             }
             Err(error) => {
                 // SAFETY: as above — no device was created on this path.
-                unsafe { instance.destroy_instance(None) };
+                unsafe {
+                    validation::detach(messenger);
+                    instance.destroy_instance(None);
+                }
                 Err(error)
             }
         }
@@ -471,6 +486,7 @@ impl Drop for Context {
         unsafe {
             let _ = self.device.device_wait_idle();
             self.device.destroy_device(None);
+            validation::detach(self.messenger.take());
             self.instance.destroy_instance(None);
         }
     }
@@ -539,3 +555,172 @@ mod tests {
         assert!(context.memory_type_for_import(0).is_err());
     }
 }
+
+/// The Vulkan validation layer — opt-in, and here is why it is not the default.
+///
+/// # What it was for
+///
+/// A queue-family ownership transfer that is skipped is legal-looking code that
+/// works on this driver: Vulkan says the contents *may* become undefined, not
+/// that they will. Measured — deleting the acquire barrier for the emulator's
+/// frame leaves every pixel test green on RADV. Only the layer can hold that
+/// part honest.
+///
+/// # Why it is off by default (measured 2026-08-11)
+///
+/// It does not survive this machine. With `vulkan-validationlayers` 1.3.275 and
+/// Mesa 25.2.8, **binding an image to imported dma-buf memory segfaults inside
+/// `libvulkan_radeon.so`**, called through the layer — backtrace frames 0 and 1
+/// are RADV, 2 through 5 are the layer, and the caller is `vkBindImageMemory`.
+/// The identical sequence runs clean with the layer absent, so the fault is not
+/// in this crate's chain. The layer is two years older than the driver.
+///
+/// So it is enabled by `NEL3AB_VULKAN_VALIDATION=1` rather than always, and
+/// that is worth re-trying whenever the layer is updated: the day it works, the
+/// ownership barriers stop being reviewed-only.
+///
+/// **What this leaves unproven, stated rather than glossed:** nothing tests the
+/// foreign-queue acquire and release. They are written from the Dolphin patch's
+/// own barriers and read against the specification. That is weaker than every
+/// other claim in this crate, and it is the first thing to fix when a working
+/// layer is available.
+mod validation {
+    use core::ffi::{CStr, c_void};
+
+    use ash::vk;
+
+    // Messages this thread's Vulkan calls provoked.
+    //
+    // Thread-local rather than global because the test harness runs each test on
+    // its own thread, and the layer calls back synchronously on the thread that
+    // made the offending call — so this attributes a message to the test that
+    // caused it, with no locking and no cross-test interference.
+    #[cfg(test)]
+    thread_local! {
+        static MESSAGES: core::cell::RefCell<Vec<String>> =
+            const { core::cell::RefCell::new(Vec::new()) };
+    }
+
+    const LAYER: &CStr = c"VK_LAYER_KHRONOS_validation";
+
+    /// Whether the caller asked for validation.
+    ///
+    /// An environment variable rather than a feature, so switching it on needs
+    /// no rebuild of anything but this process — which matters when the reason
+    /// to switch it on is "the layer was updated, does it work yet".
+    fn requested() -> bool {
+        std::env::var_os("NEL3AB_VULKAN_VALIDATION").is_some_and(|value| value == "1")
+    }
+
+    /// The layers and instance extensions to ask for, if they exist.
+    ///
+    /// Absent outside tests, and absent in tests when the layer is not
+    /// installed — in which case the ownership checks below simply do not run,
+    /// which is stated rather than silently assumed.
+    pub fn wanted(
+        entry: &ash::Entry,
+    ) -> (Vec<*const core::ffi::c_char>, Vec<*const core::ffi::c_char>) {
+        if !requested() || !available(entry) {
+            return (Vec::new(), Vec::new());
+        }
+        (
+            vec![LAYER.as_ptr()],
+            vec![ash::ext::debug_utils::NAME.as_ptr()],
+        )
+    }
+
+    fn available(entry: &ash::Entry) -> bool {
+        // SAFETY: ash allocates and owns the vector; the entry is live.
+        let Ok(layers) = (unsafe { entry.enumerate_instance_layer_properties() }) else {
+            return false;
+        };
+        layers
+            .iter()
+            .any(|layer| layer.layer_name_as_c_str().is_ok_and(|name| name == LAYER))
+    }
+
+    /// Installs the callback, if the layer was enabled.
+    pub fn attach(
+        entry: &ash::Entry,
+        instance: &ash::Instance,
+    ) -> Option<(ash::ext::debug_utils::Instance, vk::DebugUtilsMessengerEXT)> {
+        if !requested() || !available(entry) {
+            return None;
+        }
+        let loader = ash::ext::debug_utils::Instance::new(entry, instance);
+        let create = vk::DebugUtilsMessengerCreateInfoEXT::default()
+            .message_severity(
+                vk::DebugUtilsMessageSeverityFlagsEXT::ERROR
+                    | vk::DebugUtilsMessageSeverityFlagsEXT::WARNING,
+            )
+            .message_type(
+                vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION
+                    | vk::DebugUtilsMessageTypeFlagsEXT::GENERAL,
+            )
+            .pfn_user_callback(Some(callback));
+        // SAFETY: `create` is a live local and `callback` is a plain `extern
+        // "system"` function with the signature Vulkan specifies.
+        let messenger = unsafe { loader.create_debug_utils_messenger(&create, None) }.ok()?;
+        Some((loader, messenger))
+    }
+
+    /// Destroys the callback before its instance.
+    ///
+    /// # Safety
+    /// The messenger must not have been destroyed, and its instance must still
+    /// be alive.
+    pub unsafe fn detach(
+        messenger: Option<(ash::ext::debug_utils::Instance, vk::DebugUtilsMessengerEXT)>,
+    ) {
+        if let Some((loader, messenger)) = messenger {
+            // SAFETY: the caller promises the messenger is live and its instance
+            // has not been destroyed yet.
+            unsafe { loader.destroy_debug_utils_messenger(messenger, None) };
+        }
+    }
+
+    unsafe extern "system" fn callback(
+        severity: vk::DebugUtilsMessageSeverityFlagsEXT,
+        _kind: vk::DebugUtilsMessageTypeFlagsEXT,
+        data: *const vk::DebugUtilsMessengerCallbackDataEXT<'_>,
+        _user: *mut c_void,
+    ) -> vk::Bool32 {
+        // SAFETY: Vulkan guarantees `data` points at a live callback-data
+        // structure for the duration of this call, with a NUL-terminated
+        // `p_message`. It may be null only if the layer misbehaves, which is
+        // checked rather than assumed.
+        let message = unsafe {
+            data.as_ref()
+                .filter(|data| !data.p_message.is_null())
+                .map_or_else(
+                    || "<no message>".to_owned(),
+                    |data| {
+                        CStr::from_ptr(data.p_message)
+                            .to_string_lossy()
+                            .into_owned()
+                    },
+                )
+        };
+
+        if severity.contains(vk::DebugUtilsMessageSeverityFlagsEXT::ERROR) {
+            tracing::error!(%message, "Vulkan validation");
+        } else {
+            tracing::warn!(%message, "Vulkan validation");
+        }
+        #[cfg(test)]
+        MESSAGES.with_borrow_mut(|messages| messages.push(message));
+
+        // FALSE: never abort the offending call. The point is to collect the
+        // complaint and let the test decide, not to change what the driver does.
+        vk::FALSE
+    }
+
+    /// Takes everything the layer said on this thread since the last call.
+    #[cfg(test)]
+    pub fn drain() -> Vec<String> {
+        MESSAGES.with_borrow_mut(core::mem::take)
+    }
+}
+
+#[cfg(test)]
+pub(crate) use validation::drain as validation_messages;

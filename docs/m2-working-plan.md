@@ -236,9 +236,17 @@ latency-critical stream wants zero.
    NV12 into it, and the encoder codes it. Proven on the bytes: **worst luma
    error 1** against a reference transcribed from the standard, and a frame
    carrying a gradient codes far larger than an untouched surface.
-1. **Put Dolphin at the front of it.** The only piece left is importing the
-   emulator's exported frame as the RGBA source instead of a test pattern — the
-   `frame_source` transport already delivers the descriptors.
+1. ~~**Put Dolphin at the front of it.**~~ — the import exists and is proven
+   through a real dma-buf, handed over in the state the patch leaves its slots
+   in. What is left is running it against the emulator itself, which also covers
+   the two things the synthetic dma-buf cannot: the slots' own AMD tiling, and
+   the ring protocol.
+1. **Rebuild the Dolphin image** — the tag `216ffb45-nel3ab` still carries the
+   pre-ring patch — and run the chain end to end at 60 fps, against the
+   **0.57-core** baseline the PNG readback used to cost.
+1. **Re-try the validation layer** whenever it is updated. Until it works, the
+   foreign-queue barriers are reviewed rather than proven, which is the weakest
+   claim in the crate.
 1. **Re-measure the encode latency on real frames.** The table in D7 was taken on
    unwritten surfaces, which compress to nothing — it is a floor, not the
    steady-state.

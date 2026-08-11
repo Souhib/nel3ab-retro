@@ -472,6 +472,36 @@ lui-même ».
 bien attrapées : BT.601 au lieu de BT.709 donne 28, plage complète au lieu de
 limitée donne 20.
 
+### 5.15 Dolphin à l'entrée, et ce qui reste non prouvé
+
+L'image de l'émulateur s'importe maintenant comme source du shader. Le test ne
+simule pas Dolphin : il fabrique un **vrai dma-buf** côté Vulkan, décrit par un
+vrai descripteur, et le remet dans l'état exact où le patch laisse ses cases —
+`GENERAL`, relâchée vers la « famille étrangère ».
+
+> **Famille de files étrangère** : Vulkan veut savoir quand une mémoire passe à
+> un composant qu'il ne connaît pas (ici le moteur vidéo, ou l'autre processus).
+> On la « relâche » puis on la « réacquiert », faute de quoi les deux côtés ne
+> s'accordent plus sur qui possède quoi.
+
+Erreur attrapée par ce test : mapper `ABGR8888` (nommage DRM) sur
+`B8G8R8A8` (nommage Vulkan). Les deux décrivent les mêmes octets **par les bouts
+opposés**, et les confondre inverse le rouge et le bleu — écart de 31.
+
+**Ce qui n'est pas prouvé, et il faut le dire.** Supprimer la barrière
+d'acquisition laisse tous les tests verts sur ce pilote. C'est normal : la spec
+dit que le contenu *peut* devenir indéfini, pas qu'il le *sera*. Seule la couche
+de validation de Vulkan peut trancher.
+
+Je l'ai installée. **Elle fait planter le pilote** : lier une image à une mémoire
+dma-buf importée segfaute dans `libvulkan_radeon.so`, appelé à travers la couche.
+La même séquence tourne proprement sans elle — la faute n'est donc pas dans notre
+chaîne, et la couche installée a deux ans de retard sur Mesa.
+
+Elle est donc passée en optionnelle (`NEL3AB_VULKAN_VALIDATION=1`), et les
+barrières d'échange de propriété restent **relues, pas prouvées**. C'est plus
+faible que tout le reste de ce crate, et c'est écrit noir sur blanc dans le code.
+
 ---
 
 ## 6. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
@@ -483,6 +513,7 @@ limitée donne 20.
 | `vaDeriveImage` | 99,6 % de l'image annoncée fausse, à tort | Quand le pilote est l'autorité, demander au pilote |
 | `docker exec` sans `-i` | Le script reçoit EOF, ne fait rien, **et rapporte un succès** | Vérifier l'effet, pas le code de retour |
 | Deux tests verts avec le bug remis | Ils lisaient la bonne chose au mauvais endroit | Vérifier en réintroduisant le bug, jamais en raisonnant |
+| Une édition qui ne s'applique pas | Un remplacement de texte ne trouve pas sa cible (le formateur était passé avant), ne dit rien, et le test suivant échoue pour une **autre** raison — qui masque le no-op | Le même piège que `docker exec` sans `-i`, sous une autre forme : vérifier l'effet, pas l'absence d'erreur |
 | Une relecture ne prouve pas ce qu'on croit | Relire les pixels écrits pour vérifier le rangement mémoire : **ça passe même avec un rangement faux**, parce que l'écriture et la lecture traversent la même déclaration. Un mensonge cohérent avec lui-même est invisible à un aller-retour à travers lui | Vérifier une déclaration contre **l'autre partie**, pas contre soi-même. Ici : comparer ce qu'on a déclaré à ce que la surface est vraiment |
 | **Troisième** test vert avec le bug remis | Déclarer un rangement *linéaire* pour une image tuilée : le pilote accepte, crée l'image, renvoie succès. Seuls les pixels auraient protesté, bien plus tard | Corrigé en **demandant à Vulkan** quel rangement l'image porte vraiment, au lieu de se fier à ce qu'on avait déclaré. Encore une fois : quand le pilote est l'autorité, l'interroger |
 | Poussé avec `just check` rouge | Vu l'échec, poussé quand même | Corrigé dans un commit dont le message le dit |

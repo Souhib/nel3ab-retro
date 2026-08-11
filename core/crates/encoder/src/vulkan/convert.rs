@@ -251,7 +251,7 @@ impl<'a> Converter<'a> {
                 .map_err(|code| fail("vkBeginCommandBuffer", code))?;
         }
 
-        self.record(target);
+        self.record(source, target);
 
         // SAFETY: recording is complete and the buffer is in the recording state.
         unsafe {
@@ -316,9 +316,35 @@ impl<'a> Converter<'a> {
     }
 
     /// Records the barriers and the dispatch.
-    fn record(&self, target: &Nv12Target<'_>) {
+    fn record(&self, source: Source, target: &Nv12Target<'_>) {
         let device = self.context.device();
         let buffer = self.command_buffer;
+
+        if source.ownership == Ownership::Foreign {
+            // GENERAL is the layout the producer leaves it in — see the Dolphin
+            // patch's final barrier. Naming UNDEFINED here instead would be
+            // legal Vulkan and would discard the picture.
+            let acquire = [vk::ImageMemoryBarrier::default()
+                .dst_access_mask(vk::AccessFlags::SHADER_READ)
+                .old_layout(vk::ImageLayout::GENERAL)
+                .new_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)
+                .src_queue_family_index(vk::QUEUE_FAMILY_FOREIGN_EXT)
+                .dst_queue_family_index(self.context.queue_family())
+                .image(source.image)
+                .subresource_range(whole_image())];
+            // SAFETY: the buffer is recording and the image is live.
+            unsafe {
+                device.cmd_pipeline_barrier(
+                    buffer,
+                    vk::PipelineStageFlags::TOP_OF_PIPE,
+                    vk::PipelineStageFlags::COMPUTE_SHADER,
+                    vk::DependencyFlags::empty(),
+                    &[],
+                    &[],
+                    &acquire,
+                );
+            }
+        }
 
         // The two planes were imported with layout UNDEFINED, so they must be
         // moved to GENERAL before a shader can store into them. UNDEFINED as the
@@ -389,6 +415,28 @@ impl<'a> Converter<'a> {
                 &[],
                 &release,
             );
+
+            if source.ownership == Ownership::Foreign {
+                // Back to GENERAL and back to foreign, which is the state the
+                // producer's own acquire expects to find next frame.
+                let give_back = [vk::ImageMemoryBarrier::default()
+                    .src_access_mask(vk::AccessFlags::SHADER_READ)
+                    .old_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)
+                    .new_layout(vk::ImageLayout::GENERAL)
+                    .src_queue_family_index(self.context.queue_family())
+                    .dst_queue_family_index(vk::QUEUE_FAMILY_FOREIGN_EXT)
+                    .image(source.image)
+                    .subresource_range(whole_image())];
+                device.cmd_pipeline_barrier(
+                    buffer,
+                    vk::PipelineStageFlags::COMPUTE_SHADER,
+                    vk::PipelineStageFlags::BOTTOM_OF_PIPE,
+                    vk::DependencyFlags::empty(),
+                    &[],
+                    &[],
+                    &give_back,
+                );
+            }
         }
     }
 }
@@ -413,15 +461,41 @@ impl Drop for Converter<'_> {
     }
 }
 
-/// The RGBA frame to read, already in `SHADER_READ_ONLY_OPTIMAL`.
+/// The RGBA frame to read.
 #[derive(Debug, Clone, Copy)]
 pub struct Source {
+    /// The image, needed for the ownership barriers.
+    pub image: vk::Image,
     /// The sampled view the shader reads.
     pub view: vk::ImageView,
     /// Width in pixels.
     pub width: u32,
     /// Height in pixels.
     pub height: u32,
+    /// Who owns the image when it arrives.
+    pub ownership: Ownership,
+}
+
+/// Where a source image comes from, which decides the barriers it needs.
+///
+/// An enum rather than a bool, and stated by the caller rather than guessed:
+/// getting this wrong is a synchronisation bug, and those do not announce
+/// themselves. Vulkan is entitled to hand back undefined contents for a
+/// mismatched ownership transfer, which on a real driver usually means "works
+/// until it does not".
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Ownership {
+    /// Written by another device — the emulator — and released to the foreign
+    /// queue family in `GENERAL`.
+    ///
+    /// It is acquired before the dispatch and given back after, because the
+    /// producer's next frame acquires it from foreign in `GENERAL` again. Not
+    /// giving it back would leave the two sides disagreeing about who owns the
+    /// memory, which the validation layers notice and the driver may not.
+    Foreign,
+
+    /// Already ours, and already in `SHADER_READ_ONLY_OPTIMAL`.
+    Local,
 }
 
 /// Objects built one at a time, so a failure part-way destroys exactly what
@@ -693,6 +767,106 @@ mod tests {
         );
     }
 
+    /// The chain as it will actually run, minus who renders the picture.
+    ///
+    /// A **real dma-buf** carrying the pattern, described by a real
+    /// [`FrameDescriptor`] and handed over in `GENERAL` released to the foreign
+    /// queue family — the state the Dolphin patch leaves its slots in — is
+    /// imported, converted, and checked on the bytes.
+    ///
+    /// This is the last thing that can be proven without running Dolphin. What
+    /// it does not cover is the tiling of the emulator's own slots and the ring
+    /// protocol; both need the emulator itself.
+    #[test]
+    fn a_frame_arriving_as_a_dma_buf_converts_correctly() {
+        use crate::av::Encoder;
+        use crate::va::DEFAULT_RENDER_NODE;
+        use crate::vulkan::image::ImportedFrame;
+
+        let Ok(mut encoder) = Encoder::open(DEFAULT_RENDER_NODE, WIDTH, HEIGHT, 26, 60, 3) else {
+            panic!("no encoder on {DEFAULT_RENDER_NODE}: run this where the GPU is");
+        };
+        let Ok(context) = Context::open(DEFAULT_RENDER_NODE) else {
+            panic!("no Vulkan device on {DEFAULT_RENDER_NODE}: run this where the GPU is");
+        };
+
+        let pixels = pattern();
+        let produced = scaffold::ExportedRgba::new(&context, WIDTH, HEIGHT, &pixels);
+        let frame =
+            ImportedFrame::import(&context, &produced.descriptor, &produced.buffer).unwrap();
+
+        let surface = encoder.export(0).unwrap();
+        let target = Nv12Target::import(&context, &surface).unwrap();
+        let source = Source {
+            image: frame.plane().image(),
+            view: frame.plane().view(),
+            width: WIDTH,
+            height: HEIGHT,
+            // The producer released it; we must acquire it and give it back.
+            ownership: Ownership::Foreign,
+        };
+        Converter::new(&context)
+            .unwrap()
+            .convert(source, &target)
+            .unwrap();
+
+        let luma = scaffold::read_plane(&context, target.luma.image(), WIDTH, HEIGHT, 1);
+        let mut worst = 0_i32;
+        for y in 0..HEIGHT {
+            for x in 0..WIDTH {
+                let i = ((y * WIDTH + x) * 4) as usize;
+                let expected = reference_luma(
+                    f64::from(pixels[i]) / 255.0,
+                    f64::from(pixels[i + 1]) / 255.0,
+                    f64::from(pixels[i + 2]) / 255.0,
+                );
+                let got = f64::from(luma[(y * WIDTH + x) as usize]);
+                #[allow(
+                    clippy::cast_possible_truncation,
+                    reason = "a difference between two 8-bit samples fits in i32"
+                )]
+                let delta = (got - expected).abs().round() as i32;
+                worst = worst.max(delta);
+            }
+        }
+        assert!(
+            worst <= 1,
+            "worst luma error {worst} through a real dma-buf"
+        );
+
+        // When the validation layer is switched on, its silence is part of the
+        // claim. It is off by default because it segfaults RADV on this exact
+        // path — see `vulkan::validation` — so on a normal run this asserts
+        // nothing. Said out loud rather than left looking like a check.
+        let complaints = crate::vulkan::validation_messages();
+        assert!(
+            complaints.is_empty(),
+            "the validation layer objected: {complaints:#?}"
+        );
+    }
+
+    /// The negative twin: a frame in a format nobody has measured must be
+    /// refused rather than reinterpreted. Swapping red and blue is exactly what
+    /// mapping DRM's naming onto Vulkan's by eye produces.
+    #[test]
+    fn a_frame_that_is_not_abgr8888_is_refused() {
+        use crate::va::DEFAULT_RENDER_NODE;
+        use crate::vulkan::image::ImportedFrame;
+
+        let Ok(context) = Context::open(DEFAULT_RENDER_NODE) else {
+            panic!("no Vulkan device on {DEFAULT_RENDER_NODE}: run this where the GPU is");
+        };
+        let produced = scaffold::ExportedRgba::new(&context, 64, 64, &vec![0_u8; 64 * 64 * 4]);
+        let mut descriptor = produced.descriptor;
+        descriptor.drm_format = u32::from_le_bytes(*b"XR24");
+
+        let error = ImportedFrame::import(&context, &descriptor, &produced.buffer).unwrap_err();
+        assert!(
+            matches!(error, EncoderError::UnexpectedExport { .. }),
+            "{error:?}"
+        );
+    }
+
     /// And the frame that came out of the shader encodes. The end of the chain,
     /// minus Dolphin — which only supplies the RGBA image the pattern stood in
     /// for.
@@ -746,6 +920,8 @@ mod tests {
 )]
 mod scaffold {
     use super::*;
+    use crate::frame_source::DmaBuf;
+    use crate::protocol::FrameDescriptor;
 
     /// Finds memory the CPU can write.
     fn host_memory_type(context: &Context, allowed: u32) -> u32 {
@@ -971,9 +1147,13 @@ mod scaffold {
 
         pub const fn source(&self) -> Source {
             Source {
+                image: self.image,
                 view: self.view,
                 width: self.width,
                 height: self.height,
+                // Created and filled on this device by the scaffolding above,
+                // and left in SHADER_READ_ONLY_OPTIMAL by `fill`.
+                ownership: Ownership::Local,
             }
         }
     }
@@ -984,6 +1164,207 @@ mod scaffold {
             // SAFETY: every helper submits and waits, so nothing is in flight.
             unsafe {
                 device.destroy_image_view(self.view, None);
+                device.destroy_image(self.image, None);
+                device.free_memory(self.memory, None);
+            }
+        }
+    }
+
+    /// An RGBA image exported as a dma-buf, standing in for the emulator.
+    ///
+    /// Not a simulation of Dolphin's rendering — a real dma-buf, exported from
+    /// Vulkan, described by a real [`FrameDescriptor`], and handed over in
+    /// `GENERAL` released to the foreign queue family, which is the state the
+    /// Dolphin patch's final barrier leaves its slots in.
+    ///
+    /// What it does not cover: the tiling. It asks for LINEAR because that is
+    /// the one modifier guaranteed exportable everywhere, whereas the emulator's
+    /// slots are AMD-tiled. Tiled import is covered by [`Nv12Target`]'s test,
+    /// which imports a surface the encoder allocated. Only a run against real
+    /// Dolphin covers both at once.
+    pub struct ExportedRgba<'a> {
+        context: &'a Context,
+        image: vk::Image,
+        memory: vk::DeviceMemory,
+        pub descriptor: FrameDescriptor,
+        pub buffer: DmaBuf,
+    }
+
+    impl<'a> ExportedRgba<'a> {
+        pub fn new(context: &'a Context, width: u32, height: u32, pixels: &[u8]) -> Self {
+            let device = context.device();
+            let modifiers = [0_u64]; // DRM_FORMAT_MOD_LINEAR
+            let mut list = vk::ImageDrmFormatModifierListCreateInfoEXT::default()
+                .drm_format_modifiers(&modifiers);
+            let mut external = vk::ExternalMemoryImageCreateInfo::default()
+                .handle_types(vk::ExternalMemoryHandleTypeFlags::DMA_BUF_EXT);
+            let create = vk::ImageCreateInfo::default()
+                .image_type(vk::ImageType::TYPE_2D)
+                .format(vk::Format::R8G8B8A8_UNORM)
+                .extent(vk::Extent3D {
+                    width,
+                    height,
+                    depth: 1,
+                })
+                .mip_levels(1)
+                .array_layers(1)
+                .samples(vk::SampleCountFlags::TYPE_1)
+                .tiling(vk::ImageTiling::DRM_FORMAT_MODIFIER_EXT)
+                // Exactly what the Dolphin patch asks for on its slots.
+                .usage(vk::ImageUsageFlags::TRANSFER_DST | vk::ImageUsageFlags::SAMPLED)
+                .sharing_mode(vk::SharingMode::EXCLUSIVE)
+                .initial_layout(vk::ImageLayout::UNDEFINED)
+                .push_next(&mut external)
+                .push_next(&mut list);
+            // SAFETY: `create` and its chain are live locals.
+            let image = unsafe { device.create_image(&create, None) }.unwrap();
+
+            // SAFETY: just created on this device.
+            let requirements = unsafe { device.get_image_memory_requirements(image) };
+            let mut export = vk::ExportMemoryAllocateInfo::default()
+                .handle_types(vk::ExternalMemoryHandleTypeFlags::DMA_BUF_EXT);
+            let mut dedicated = vk::MemoryDedicatedAllocateInfo::default().image(image);
+            let allocate = vk::MemoryAllocateInfo::default()
+                .allocation_size(requirements.size)
+                .memory_type_index(
+                    context
+                        .memory_type_for_import(requirements.memory_type_bits)
+                        .unwrap(),
+                )
+                .push_next(&mut dedicated)
+                .push_next(&mut export);
+            // SAFETY: live locals naming a legal memory type.
+            let memory = unsafe { device.allocate_memory(&allocate, None) }.unwrap();
+            // SAFETY: neither has been bound before.
+            unsafe { device.bind_image_memory(image, memory, 0) }.unwrap();
+
+            Self::fill_and_release(context, image, width, height, pixels);
+
+            let get = vk::MemoryGetFdInfoKHR::default()
+                .memory(memory)
+                .handle_type(vk::ExternalMemoryHandleTypeFlags::DMA_BUF_EXT);
+            // SAFETY: the memory was allocated with DMA_BUF in its export types.
+            let fd = unsafe { context.external_memory_fd().get_memory_fd(&get) }.unwrap();
+
+            // MEMORY_PLANE_0 rather than COLOR: a modifier image is described by
+            // its *memory* planes, and asking for COLOR is an error the
+            // validation layers catch and the driver may not.
+            let subresource = vk::ImageSubresource::default()
+                .aspect_mask(vk::ImageAspectFlags::MEMORY_PLANE_0_EXT);
+            // SAFETY: the image is live and was created with modifier tiling.
+            let layout = unsafe { device.get_image_subresource_layout(image, subresource) };
+
+            let mut properties = vk::ImageDrmFormatModifierPropertiesEXT::default();
+            // SAFETY: as above.
+            unsafe {
+                context
+                    .drm_format_modifier()
+                    .get_image_drm_format_modifier_properties(image, &mut properties)
+            }
+            .unwrap();
+
+            Self {
+                context,
+                image,
+                memory,
+                descriptor: FrameDescriptor {
+                    width,
+                    height,
+                    drm_format: u32::from_le_bytes(*b"AB24"),
+                    modifier: properties.drm_format_modifier,
+                    offset: layout.offset,
+                    pitch: layout.row_pitch,
+                    size: requirements.size,
+                },
+                buffer: DmaBuf::from_owned_raw(fd),
+            }
+        }
+
+        /// Uploads the pattern and leaves the image exactly as the emulator
+        /// leaves its slots: `GENERAL`, released to the foreign queue family.
+        fn fill_and_release(
+            context: &Context,
+            image: vk::Image,
+            width: u32,
+            height: u32,
+            pixels: &[u8],
+        ) {
+            let device = context.device();
+            let staging = Staging::new(
+                context,
+                u64::from(width) * u64::from(height) * 4,
+                vk::BufferUsageFlags::TRANSFER_SRC,
+            );
+            staging.with_bytes(|bytes| bytes.copy_from_slice(pixels));
+
+            context.one_shot(|command| {
+                let to_dst = vk::ImageMemoryBarrier::default()
+                    .dst_access_mask(vk::AccessFlags::TRANSFER_WRITE)
+                    .old_layout(vk::ImageLayout::UNDEFINED)
+                    .new_layout(vk::ImageLayout::TRANSFER_DST_OPTIMAL)
+                    .src_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
+                    .dst_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
+                    .image(image)
+                    .subresource_range(whole_image());
+                let region = vk::BufferImageCopy::default()
+                    .image_subresource(vk::ImageSubresourceLayers {
+                        aspect_mask: vk::ImageAspectFlags::COLOR,
+                        mip_level: 0,
+                        base_array_layer: 0,
+                        layer_count: 1,
+                    })
+                    .image_extent(vk::Extent3D {
+                        width,
+                        height,
+                        depth: 1,
+                    });
+                let release = vk::ImageMemoryBarrier::default()
+                    .src_access_mask(vk::AccessFlags::TRANSFER_WRITE)
+                    .old_layout(vk::ImageLayout::TRANSFER_DST_OPTIMAL)
+                    .new_layout(vk::ImageLayout::GENERAL)
+                    .src_queue_family_index(context.queue_family())
+                    .dst_queue_family_index(vk::QUEUE_FAMILY_FOREIGN_EXT)
+                    .image(image)
+                    .subresource_range(whole_image());
+                // SAFETY: the buffer is recording; image and buffer are live.
+                unsafe {
+                    device.cmd_pipeline_barrier(
+                        command,
+                        vk::PipelineStageFlags::TOP_OF_PIPE,
+                        vk::PipelineStageFlags::TRANSFER,
+                        vk::DependencyFlags::empty(),
+                        &[],
+                        &[],
+                        &[to_dst],
+                    );
+                    device.cmd_copy_buffer_to_image(
+                        command,
+                        staging.buffer,
+                        image,
+                        vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+                        &[region],
+                    );
+                    device.cmd_pipeline_barrier(
+                        command,
+                        vk::PipelineStageFlags::TRANSFER,
+                        vk::PipelineStageFlags::BOTTOM_OF_PIPE,
+                        vk::DependencyFlags::empty(),
+                        &[],
+                        &[],
+                        &[release],
+                    );
+                }
+            });
+        }
+    }
+
+    impl Drop for ExportedRgba<'_> {
+        fn drop(&mut self) {
+            let device = self.context.device();
+            // SAFETY: every helper submits and waits, so nothing is in flight.
+            // The dma-buf holds its own reference, so closing it separately in
+            // `DmaBuf`'s Drop is independent of this.
+            unsafe {
                 device.destroy_image(self.image, None);
                 device.free_memory(self.memory, None);
             }

@@ -13,6 +13,7 @@ use ash::vk;
 use super::{Context, borrow};
 use crate::error::EncoderError;
 use crate::frame_source::DmaBuf;
+use crate::protocol::FrameDescriptor;
 use crate::va::{ExportedSurface, PlaneLayout};
 
 /// The DRM fourccs the two NV12 planes arrive as, and the Vulkan formats they
@@ -73,7 +74,34 @@ impl<'a> ImportedPlane<'a> {
             .ok_or(EncoderError::UnexpectedExport {
                 what: "a plane whose fourcc is neither R8 nor GR88",
             })?;
+        // STORAGE, because the shader writes into it directly. Not SAMPLED:
+        // nothing ever reads these planes through Vulkan.
+        //
+        // TRANSFER_SRC is there so a test can read the planes back and check the
+        // *pixels*. Verified that adding it leaves the modifier unchanged, so it
+        // costs the real path nothing.
+        let usage = vk::ImageUsageFlags::STORAGE | vk::ImageUsageFlags::TRANSFER_SRC;
+        Self::import_as(
+            context, buffer, modifier, plane, width, height, format, usage,
+        )
+    }
 
+    /// The import itself, once the caller has settled format and usage.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "each argument is a distinct fact about the image, and bundling \
+                  them into a struct would only move the same list one line up"
+    )]
+    fn import_as(
+        context: &'a Context,
+        buffer: &DmaBuf,
+        modifier: u64,
+        plane: PlaneLayout,
+        width: u32,
+        height: u32,
+        format: vk::Format,
+        usage: vk::ImageUsageFlags,
+    ) -> Result<Self, EncoderError> {
         let layout = vk::SubresourceLayout {
             offset: u64::from(plane.offset),
             row_pitch: u64::from(plane.pitch),
@@ -99,14 +127,7 @@ impl<'a> ImportedPlane<'a> {
             // The tiling is the surface's, stated explicitly. Anything else here
             // would let Vulkan assume a layout the encoder does not use.
             .tiling(vk::ImageTiling::DRM_FORMAT_MODIFIER_EXT)
-            // STORAGE, because the shader writes into it directly. Not SAMPLED:
-            // nothing ever reads this image through Vulkan.
-            //
-            // TRANSFER_SRC is there so a test can read the planes back and check
-            // the *pixels* — the only thing that can catch a wrong tiling on the
-            // bytes rather than on a reported property. Verified that adding it
-            // leaves the modifier unchanged, so it costs the real path nothing.
-            .usage(vk::ImageUsageFlags::STORAGE | vk::ImageUsageFlags::TRANSFER_SRC)
+            .usage(usage)
             .sharing_mode(vk::SharingMode::EXCLUSIVE)
             .initial_layout(vk::ImageLayout::UNDEFINED)
             .push_next(&mut external)
@@ -476,5 +497,76 @@ mod tests {
             matches!(error, EncoderError::UnexpectedExport { .. }),
             "{error:?}"
         );
+    }
+}
+
+/// The emulator's rendered frame, imported as an image the shader can sample.
+///
+/// The mirror image of [`Nv12Target`]: same dma-buf machinery, opposite
+/// direction. Dolphin creates its slots with `TRANSFER_DST | SAMPLED` and hands
+/// them over in `GENERAL`, released to the foreign queue family — so the usage
+/// asked for here is `SAMPLED` and nothing more. Asking for `STORAGE` on an
+/// image the producer never created with it would be refused, and asking for
+/// more than we need is how a modifier stops being compatible.
+#[derive(Debug)]
+pub struct ImportedFrame<'a> {
+    plane: ImportedPlane<'a>,
+}
+
+impl<'a> ImportedFrame<'a> {
+    /// Imports one slot of the emulator's ring.
+    ///
+    /// # Errors
+    /// [`EncoderError::UnexpectedExport`] for a fourcc this crate has not
+    /// measured, or [`EncoderError::Vulkan`].
+    pub fn import(
+        context: &'a Context,
+        descriptor: &FrameDescriptor,
+        buffer: &DmaBuf,
+    ) -> Result<Self, EncoderError> {
+        // `ABGR8888` in DRM's naming is `R8G8B8A8_UNORM` in Vulkan's: DRM names
+        // a fourcc by its bytes in memory read little-endian, Vulkan names a
+        // format by its components in memory order. They describe the same
+        // bytes from opposite ends, and confusing them swaps red and blue —
+        // which produces a picture that is obviously wrong only if somebody
+        // looks at it.
+        const ABGR8888: u32 = u32::from_le_bytes(*b"AB24");
+        if descriptor.drm_format != ABGR8888 {
+            return Err(EncoderError::UnexpectedExport {
+                what: "the emulator's frame is not ABGR8888",
+            });
+        }
+
+        let offset =
+            u32::try_from(descriptor.offset).map_err(|_| EncoderError::UnexpectedExport {
+                what: "a plane offset that does not fit in 32 bits",
+            })?;
+        let pitch =
+            u32::try_from(descriptor.pitch).map_err(|_| EncoderError::UnexpectedExport {
+                what: "a row pitch that does not fit in 32 bits",
+            })?;
+
+        let plane = ImportedPlane::import_as(
+            context,
+            buffer,
+            descriptor.modifier,
+            PlaneLayout {
+                drm_format: descriptor.drm_format,
+                object_index: 0,
+                offset,
+                pitch,
+            },
+            descriptor.width,
+            descriptor.height,
+            vk::Format::R8G8B8A8_UNORM,
+            vk::ImageUsageFlags::SAMPLED,
+        )?;
+        Ok(Self { plane })
+    }
+
+    /// The underlying plane, for barriers and views.
+    #[must_use]
+    pub const fn plane(&self) -> &ImportedPlane<'a> {
+        &self.plane
     }
 }

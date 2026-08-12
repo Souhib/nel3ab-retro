@@ -243,6 +243,10 @@
     // that the test caught and reasoning had not.
     lastHeard = performance.now();
     const message = new Uint8Array(event.data);
+    // A keep-alive: the server is there, the emulator has nothing new. It
+    // exists so that a game blanking the screen for two seconds does not look
+    // like a dead link and cost a reconnection.
+    if (message.length === 0) return;
     const capturedMicros = Number(new DataView(message.buffer).getBigUint64(0, true));
     const unit = message.subarray(8);
     const arrived = performance.now();

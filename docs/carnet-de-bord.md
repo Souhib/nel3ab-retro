@@ -1259,9 +1259,30 @@ mesurait déjà — l'attente d'une image — nommait la cause depuis le début.
 le symptôme est au bout de la chaîne, **la première question est ce que dit le
 début de la chaîne**, pas ce que fait la fin.
 
-Reste un trou connu, non corrigé : quand le jeu **efface l'écran**
-(`m_xfb_entry` remis à zéro), le crochet ne part pas non plus. Le worker le
-nommera dans le journal (`the emulator went quiet`) si ça arrive.
+### Et pour que ça ne puisse plus recommencer : la cadence est la nôtre
+
+Le réglage retire *cette* cause-là, il ne retire pas la classe. Quand un jeu
+**efface l'écran** — un chargement, une transition — Dolphin ne présente rien du
+tout, et le crochet ne part pas davantage. Deux secondes ainsi et la page
+recommencerait à couper la connexion.
+
+La correction de fond tient en une phrase : **la cadence du flux est celle du
+serveur, pas celle de l'émulateur.** Une demi-seconde sans rien à envoyer et le
+serveur dit quand même quelque chose — un message **vide**, que la page compte
+comme un signe de vie et dont elle ne décode rien.
+
+Vide plutôt qu'un en-tête sans image derrière : un lecteur doit le traiter à part
+dans les deux cas, et une longueur nulle ne peut pas être confondue avec une
+image.
+
+Deux tests, dans les deux sens, comme toujours :
+
+- **le positif** — aucun image envoyée, le spectateur doit recevoir un signe de
+  vie. Sans le correctif : il attend, puis échoue.
+- **le jumeau négatif** — un flux sans trou ne doit porter **aucun** signe de
+  vie. Sans lui, en envoyer un à chaque passage aurait fait passer le premier
+  test et doublé silencieusement le débit de messages. Vérifié en le cassant
+  exprès : `message 0 was a keep-alive, in a stream that never paused`.
 
 ### Deux erreurs de raisonnement à garder
 

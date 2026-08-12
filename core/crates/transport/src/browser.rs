@@ -56,6 +56,18 @@ type Pads = Arc<Mutex<[Option<InputFrame>; PORTS]>>;
 /// to be noticed would do. What matters is that it is finite.
 const WRITE_TIMEOUT: Duration = Duration::from_secs(2);
 
+/// How long a viewer may hear nothing before the server says something anyway.
+///
+/// The emulator does go quiet legitimately: a game that blanks the screen
+/// presents nothing, and Dolphin's export hook does not fire. From the socket
+/// that is indistinguishable from a dead link — and the page, rightly, gives up
+/// on two seconds of silence and reconnects. So the CADENCE OF THE STREAM IS
+/// OURS, not the emulator's: half a second of nothing and we say so, with an
+/// EMPTY message — a sign of life the page counts and decodes nothing from.
+/// Empty rather than a header with no unit behind it: a reader has to special
+/// case it either way, and a length of zero cannot be mistaken for a frame.
+const KEEP_ALIVE: Duration = Duration::from_millis(500);
+
 /// Everything the browser link can fail at.
 #[derive(Debug, Error)]
 #[non_exhaustive]
@@ -438,18 +450,17 @@ fn video_thread(stream: TcpStream, viewers: &Viewers, joined: &Arc<std::sync::at
     tracing::info!("a browser is watching");
 
     loop {
-        match frames.recv_timeout(Duration::from_millis(500)) {
-            Ok(message) => {
-                if let Err(error) = socket.send(tungstenite::Message::binary((*message).clone())) {
-                    // Including a write timeout: a viewer this far behind is
-                    // better dropped than carried, and the page reconnects.
-                    tracing::info!(%error, "the viewer's connection gave up");
-                    break;
-                }
-            }
-            // Nothing to send is normal — the emulator may be between frames.
-            Err(RecvTimeoutError::Timeout) => {}
+        let outgoing = match frames.recv_timeout(KEEP_ALIVE) {
+            Ok(message) => (*message).clone(),
+            // Nothing for half a second: say "still here" and nothing else.
+            Err(RecvTimeoutError::Timeout) => Vec::new(),
             Err(RecvTimeoutError::Disconnected) => break,
+        };
+        if let Err(error) = socket.send(tungstenite::Message::binary(outgoing)) {
+            // Including a write timeout: a viewer this far behind is better
+            // dropped than carried, and the page reconnects.
+            tracing::info!(%error, "the viewer's connection gave up");
+            break;
         }
     }
     // The receiver dies with this thread, so the next `send` sees the channel
@@ -647,6 +658,74 @@ mod tests {
             server.dropped() >= 18,
             "the stalled viewer should be losing frames, and only it"
         );
+    }
+
+    /// Connects a real WebSocket to a real server, because keep-alives are a
+    /// property of the connection thread and not of `send`.
+    fn watch(address: SocketAddr) -> tungstenite::WebSocket<std::net::TcpStream> {
+        use tungstenite::client::IntoClientRequest as _;
+
+        let stream = TcpStream::connect(address).unwrap();
+        stream
+            .set_read_timeout(Some(Duration::from_secs(3)))
+            .unwrap();
+        let (socket, _) = tungstenite::client(
+            format!("ws://{address}/video")
+                .as_str()
+                .into_client_request()
+                .unwrap(),
+            stream,
+        )
+        .unwrap();
+        socket
+    }
+
+    /// The emulator goes quiet legitimately — a game blanking the screen
+    /// presents nothing — and the page gives up after two seconds of silence.
+    /// The stream's cadence has to be the server's, not the emulator's.
+    #[test]
+    fn a_viewer_hears_from_the_server_even_when_the_emulator_says_nothing() {
+        let server = BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page").unwrap();
+        let mut socket = watch(server.address());
+
+        // Not one frame is sent for the whole of this test.
+        let heard = socket.read().unwrap();
+        assert_eq!(
+            heard.len(),
+            0,
+            "silence should be broken by a keep-alive, and a keep-alive is empty"
+        );
+    }
+
+    /// The negative twin: a keep-alive fills a GAP, so a stream with no gaps
+    /// must carry none. Without this, sending one on every pass would satisfy
+    /// the test above and quietly double the message rate.
+    #[test]
+    fn a_stream_that_never_pauses_carries_no_keep_alives() {
+        let server =
+            Arc::new(BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page").unwrap());
+        let mut socket = watch(server.address());
+
+        // A frame every 50 ms — ten times inside the keep-alive window — for
+        // longer than the reader below needs.
+        let feeding = std::thread::spawn({
+            let server = Arc::clone(&server);
+            move || {
+                for _ in 0..40 {
+                    let _ = server.send(&frame());
+                    std::thread::sleep(Duration::from_millis(50));
+                }
+            }
+        });
+
+        for index in 0..20 {
+            let message = socket.read().unwrap();
+            assert!(
+                !message.is_empty(),
+                "message {index} was a keep-alive, in a stream that never paused"
+            );
+        }
+        feeding.join().unwrap();
     }
 
     /// A viewer whose thread has ended is forgotten, so the list does not grow

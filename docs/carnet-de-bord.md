@@ -941,6 +941,32 @@ se passent bien. C'est une hypothèse à tester, pas une démonstration. Mais c'
 la seule qui se règle par un réglage plutôt que par un correctif amont, et le
 noyau expose de quoi la tester sans redémarrer.
 
+### Le redimensionnement à chaud : tenté, refusé, et la raison est nette
+
+Le noyau 6.8 expose `/sys/bus/pci/devices/…/resource0_resize`, donc la fenêtre se
+redimensionne en théorie sans redémarrer. Tenté, avec le pilote détaché :
+
+```
+8 Go   → No space left on device
+4 Go   → No space left on device
+2 Go   → No space left on device
+1 Go   → No space left on device
+512 Mo → No space left on device
+```
+
+Même **doubler** est refusé. La raison se lit dans `/proc/iomem` : la BAR est à
+l'adresse `0xd0000000`, soit **3,5 Go — sous la barre des 4 Go** — et il n'existe
+aucune fenêtre PCI au-dessus. Le firmware a tout placé dans l'espace d'adressage
+32 bits et n'a rien réservé au-delà, donc le noyau n'a **nulle part** où mettre
+une fenêtre plus grande.
+
+C'est la signature de **« Above 4G Decoding » désactivé**. Le réglage BIOS n'est
+pas une préférence : c'est ce qui crée l'espace d'adressage sans lequel le
+redimensionnement est impossible, à chaud comme au démarrage.
+
+La carte a survécu aux six cycles détacher/rattacher : 59 tests GPU au vert
+après coup.
+
 ### Deux erreurs de raisonnement à garder
 
 **Deux correctifs écrits, deux échecs, gardés écrits.** J'ai d'abord trouvé un

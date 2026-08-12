@@ -239,10 +239,18 @@ card can open the whole 8 GB; the firmware has not been told to.
 
 Said plainly: a full window explains the spill, **not the crash** — it is just as
 full during the four minutes that go fine. It is a hypothesis to test, not a
-demonstration. It is also the only lead that a setting can change rather than an
-upstream patch, and `/sys/bus/pci/devices/…/resource0_resize` exists on this
-kernel, so it can be tested without a reboot — at the cost of unbinding the GPU,
-which is the owner's call to make.
+demonstration. It is also the only lead that a setting can change rather than an upstream patch.
+
+**The hot resize was tried and the kernel refuses every size**, 8 GB down to
+512 MB, all `ENOSPC`. `/proc/iomem` says why: the BAR sits at `0xd0000000`, which
+is 3.5 GB — *below* the 4 GB line — and there is no PCI window above it. The
+firmware placed all MMIO in the 32-bit space and reserved nothing beyond, so the
+kernel has nowhere to put a larger window, at runtime or at boot.
+
+That is **"Above 4G Decoding" disabled**, and the BIOS setting is not a
+preference: it is what creates the address space without which no resize can
+happen. Enable it together with "Re-Size BAR Support", then re-measure — heap 2
+should read about 8 GB instead of 256 MB.
 
 What is left otherwise is upstream work: the pool churn happens in
 `CommandBufferManager::WaitForCommandBufferCompletion`, which destroys and

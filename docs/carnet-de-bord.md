@@ -906,6 +906,41 @@ dépasse la mémoire disponible avant que le nettoyage n'arrive. Melee, avec son
 écran d'attente qui boucle, atteint ce pic en quatre minutes et demie ; Mario
 Kart survit plus longtemps parce que ses menus n'allouent presque rien.
 
+### La contrainte matérielle sous tout ça : le Resizable BAR
+
+Une question restait sans réponse : **pourquoi une allocation échoue-t-elle à
+3 Go alors que le noyau annonce 32 Go de GTT ?** En demandant à Vulkan ses tas
+de mémoire plutôt qu'au noyau :
+
+```
+heap 0 :  7936 Mo  DEVICE_LOCAL        (la VRAM)
+heap 1 : 32094 Mo  hôte                (la mémoire système)
+heap 2 :   256 Mo  DEVICE_LOCAL        (la fenêtre visible par le CPU)
+```
+
+> **BAR** (*Base Address Register*) : la fenêtre par laquelle le processeur voit
+> la mémoire de la carte graphique. Historiquement 256 Mo, quelle que soit la
+> taille de la carte. Le **Resizable BAR** permet de l'ouvrir sur toute la VRAM.
+
+Le heap 2 est la seule mémoire à la fois **rapide pour le GPU** et **écrivable
+par le CPU** — exactement ce qu'un pool de descripteurs demande. Et il est
+**saturé en permanence** : mesuré à 253/256 Mo dès la trentième seconde, 255/256
+ensuite, jamais moins. Les pools débordent donc en mémoire système, s'y
+accumulent, et finissent par faire échouer une allocation.
+
+`lspci` confirme la marge disponible :
+
+```
+BAR 0: current size: 256MB, supported: 256MB 512MB 1GB 2GB 4GB 8GB
+```
+
+La carte sait faire 8 Go ; elle tourne à 256 Mo parce que le firmware ne l'a pas
+activé. **À dire honnêtement** : que la fenêtre soit pleine explique le
+débordement, pas le crash — elle est déjà pleine pendant les quatre minutes qui
+se passent bien. C'est une hypothèse à tester, pas une démonstration. Mais c'est
+la seule qui se règle par un réglage plutôt que par un correctif amont, et le
+noyau expose de quoi la tester sans redémarrer.
+
 ### Deux erreurs de raisonnement à garder
 
 **Deux correctifs écrits, deux échecs, gardés écrits.** J'ai d'abord trouvé un

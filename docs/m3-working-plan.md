@@ -220,7 +220,31 @@ not an absolute leak.
 resetting pools instead of recreating them made it six times worse. Divergence
 from upstream is only worth paying for against a measurement.
 
-What is left is upstream work: the pool churn happens in
+### The constraint underneath: Resizable BAR is off
+
+Asking Vulkan for its heaps rather than the kernel answers the question the
+kernel could not — why an allocation fails at 3 GB when GTT offers 32:
+
+    heap 0:  7936 MB  DEVICE_LOCAL   (VRAM)
+    heap 1: 32094 MB  host           (system memory)
+    heap 2:   256 MB  DEVICE_LOCAL   (the CPU-visible window)
+
+Heap 2 is the only memory that is both fast for the GPU and writable by the CPU,
+which is exactly what a descriptor pool wants — and it is **saturated
+throughout**: 253/256 MB by the thirtieth second, 255/256 after, never less. The
+pools spill into system memory and pile up there.
+
+`lspci` shows the headroom: `BAR 0: current size: 256MB, supported: … 8GB`. The
+card can open the whole 8 GB; the firmware has not been told to.
+
+Said plainly: a full window explains the spill, **not the crash** — it is just as
+full during the four minutes that go fine. It is a hypothesis to test, not a
+demonstration. It is also the only lead that a setting can change rather than an
+upstream patch, and `/sys/bus/pci/devices/…/resource0_resize` exists on this
+kernel, so it can be tested without a reboot — at the cost of unbinding the GPU,
+which is the owner's call to make.
+
+What is left otherwise is upstream work: the pool churn happens in
 `CommandBufferManager::WaitForCommandBufferCompletion`, which destroys and
 rebuilds a frame's pools whenever that frame needed more than one — roughly four
 times a second — and the memory is not returned until much later. Worth reporting

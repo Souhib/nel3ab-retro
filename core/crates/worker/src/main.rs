@@ -121,6 +121,21 @@ fn players_from_environment() -> Result<PlayerSlot> {
     PlayerSlot::new(count).map_err(|error| anyhow::anyhow!("NEL3AB_PLAYERS: {error}"))
 }
 
+/// What a byte count over a period is worth on a link, in megabits per second.
+fn megabits(bytes: u64, over: Duration) -> f64 {
+    let seconds = over.as_secs_f64();
+    if seconds <= 0.0 {
+        return 0.0;
+    }
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "a session would have to send an exabyte before an f64 loses a \
+                  whole byte here, and the value is a rate for a human to read"
+    )]
+    let bits = (bytes * 8) as f64;
+    bits / seconds / 1_000_000.0
+}
+
 fn env_path(name: &str) -> Option<PathBuf> {
     std::env::var_os(name).map(PathBuf::from)
 }
@@ -145,6 +160,36 @@ fn run(settings: &Settings) -> Result<()> {
     tracing::info!(address = %server.address(), "open this in a browser");
 
     let listener = FrameListener::bind(&socket)?;
+
+    // A string because the override is one; parsed first so a typo stops the
+    // worker instead of being handed to Dolphin, which would ignore it in
+    // silence and leave us wondering why the picture never changed size.
+    let internal_resolution = match std::env::var("NEL3AB_INTERNAL_RES") {
+        Ok(text) => {
+            let scale: u8 = text
+                .trim()
+                .parse()
+                .with_context(|| format!("NEL3AB_INTERNAL_RES is not a number: {text}"))?;
+            if !(1..=8).contains(&scale) {
+                bail!("NEL3AB_INTERNAL_RES must be 1..=8, got {scale}");
+            }
+            scale.to_string()
+        }
+        // Two, not one, and measured on this machine over a minute each with a
+        // browser watching:
+        //
+        //   ×1  640×480    encode 0.98 ms median, 1.98 max ·  2.0 Mbit/s · 59.9 fps
+        //   ×2  1280×960   encode 1.96 ms median, 3.41 max ·  5.5 Mbit/s · 59.9 fps
+        //   ×3  1920×1440  encode 6.62 ms median, 7.04 max · 10.3 Mbit/s · 54.3 fps
+        //
+        // Four times the pixels for one millisecond and three megabits, with the
+        // frame rate untouched — nothing about ×1 was worth keeping. At ×3 the
+        // server still holds (7 ms of a 16.7 ms budget, nothing dropped) but the
+        // browser on THIS machine did not: its end-to-end latency p95 went from
+        // 28 ms to 5.7 SECONDS. A client that cannot decode in time is a stall
+        // however healthy the server is, so ×3 is available and not the default.
+        Err(_) => "2".to_owned(),
+    };
 
     // Every port the room serves gets a pipe and a `SIDevice`, and no other
     // does. The transport hands each browser one of these and only these.
@@ -191,6 +236,11 @@ fn run(settings: &Settings) -> Result<()> {
         // Presenting duplicates costs a re-encode of an identical frame, which
         // is a handful of bytes on a P-frame. A silent stream costs the session.
         ("Hacks", "SkipDuplicateXFBs", "False"),
+        // How many times native the emulator renders. The frame ring, the
+        // shader, the encoder and the page all take their size from what the
+        // emulator announces, so this is the one number that changes the
+        // resolution of the whole chain.
+        ("Settings", "InternalResolution", &internal_resolution),
     ] {
         match nel3ab_emulator::ConfigOverride::new("Graphics", section, key, value) {
             Ok(over) => config.overrides.push(over),
@@ -281,6 +331,8 @@ fn run(settings: &Settings) -> Result<()> {
 
     let started = Instant::now();
     let mut produced = 0_u64;
+    let mut coded_bytes = 0_u64;
+    let mut reported_bytes = 0_u64;
     let mut reported = Instant::now();
     // When a pad state was last handed to the emulator, so the wait until the
     // next picture can be measured. This is the plumbing's share of input
@@ -365,6 +417,10 @@ fn run(settings: &Settings) -> Result<()> {
         let captured = started.elapsed();
         let slot_index = u32::try_from(index).unwrap_or(0);
         if let Some(coded) = encoder.encode(slot_index)? {
+            // What the stream actually costs a network. Latency says whether the
+            // machine keeps up; this says whether the link can carry it, and
+            // they are different questions with different answers.
+            coded_bytes += coded.len() as u64;
             // The return value says whether a watcher was behind. Counted by
             // the server itself and reported below, so it is deliberately
             // discarded here rather than branched on.
@@ -386,11 +442,13 @@ fn run(settings: &Settings) -> Result<()> {
                 slowest_waiting_ms = worst.waited_ms(),
                 slowest_converting_ms = worst.converted_ms(),
                 slowest_encoding_ms = worst.encoded_ms(),
+                megabits_per_second = megabits(coded_bytes - reported_bytes, reported.elapsed()),
                 input_to_frame_p50_ms = percentile(&mut input_to_frame, 0.50),
                 input_to_frame_p95_ms = percentile(&mut input_to_frame, 0.95),
                 "streaming"
             );
             reported = Instant::now();
+            reported_bytes = coded_bytes;
             worst = Worst::default();
             input_to_frame.clear();
         }

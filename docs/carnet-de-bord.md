@@ -1331,6 +1331,39 @@ Le test coûte six secondes de vrai temps, parce que ce qu'on observe **est** un
 délai et qu'il n'y a pas moyen d'observer un délai sans l'attendre. Cassé
 exprès : *« the quiet player's port was given away »*.
 
+### Quatre fois plus de pixels pour une milliseconde
+
+Le flux sortait en **640×480** — la résolution native de la GameCube — étiré sur
+un écran 27 pouces. Dolphin sait rendre plus grand ; restait à savoir ce que la
+chaîne en pense. Trois sessions d'une minute, un navigateur en train de regarder,
+même jeu :
+
+| rendu | taille | encodage médian | pire | débit | images reçues |
+|---|---|---|---|---|---|
+| ×1 | 640×480 | 0,98 ms | 1,98 ms | 2,0 Mbit/s | 59,9 /s |
+| **×2** | **1280×960** | **1,96 ms** | **3,41 ms** | **5,5 Mbit/s** | **59,9 /s** |
+| ×3 | 1920×1440 | 6,62 ms | 7,04 ms | 10,3 Mbit/s | 54,3 /s |
+
+Quatre fois plus de pixels pour **une milliseconde et trois mégabits**, sans
+toucher au rythme. Rien dans ×1 ne méritait d'être gardé : c'est le nouveau
+défaut.
+
+Deux choses honnêtes à côté de ces chiffres :
+
+- **La conversion ne bouge pas** (0,22 ms à toutes les résolutions). Ça paraît
+  trop beau, et il faut le dire : ce que la mesure englobe, c'est l'envoi du
+  travail au GPU, pas forcément sa fin. Le chiffre à croire est celui de
+  l'encodage, qui lui attend le résultat.
+- **×3 tient côté serveur** — 7 ms sur un budget de 16,7 ms, rien de jeté — et
+  **n'a pas tenu côté navigateur** sur cette machine : la latence de bout en bout
+  p95 est passée de 28 ms à **5,7 secondes**. Un client qui ne décode pas à temps
+  est un gel, quelle que soit la santé du serveur. ×3 reste disponible
+  (`NEL3AB_INTERNAL_RES=3`) et n'est pas le défaut.
+
+Le worker dit maintenant ce que le flux coûte à un lien (`megabits_per_second`),
+parce que « la machine suit-elle ? » et « le réseau peut-il porter ça ? » sont
+deux questions différentes avec deux réponses différentes.
+
 ### Deux erreurs de raisonnement à garder
 
 **Deux correctifs écrits, deux échecs, gardés écrits.** J'ai d'abord trouvé un

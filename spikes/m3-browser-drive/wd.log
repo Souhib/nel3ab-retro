@@ -1,0 +1,35 @@
+opening https://lgf.tail3bd01c.ts.net:8443/
+WebCodecs present: true
+--- what the page reports ---
+silence recoveries   1
+buffer               0 frames (+0 ms), 2 starves, 3 skipped
+connection           up
+sent by the server   60.0 /s (nominal)
+arrived              23.3 /s
+painted              23.2 /s
+display refresh      60.1 /s
+pad frames           2368
+decoder queue        0
+
+gap between arrivals (16.7 ms is even):
+  p50 16.7 ms
+  p95 17.4 ms
+  max 20.7 ms
+
+transit DRIFT since the first frame (not a latency):
+  p50 -2.0 ms
+  p95 0.4 ms
+  max 1.3 ms
+
+The gap figures are what stutter is made of: a p95 far
+above 16.7 ms means frames arrive in bursts, and no
+amount of decoding speed can smooth that out.
+
+The drift figures can go NEGATIVE, and that is not a bug:
+the two clocks are anchored on the first frame and only
+their DIFFERENCE is reported, so a first frame that was
+unusually slow makes every later one look early. It says
+how transit CHANGED, never how long it takes.
+--- canvas ---
+640x480, 1587 distinct sampled colours
+screenshot: watchdog.png

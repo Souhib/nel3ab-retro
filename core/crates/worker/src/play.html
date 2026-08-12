@@ -62,6 +62,9 @@
   let firstCapture = null;
   let firstArrival = null;
   let lastArrival = null;
+  /// When a frame last arrived, on our own clock — used by the watchdog, and
+  /// kept separate from `lastArrival` so resetting one never disarms the other.
+  let lastHeard = null;
   const gaps = [];
 
   // Decoded frames waiting for a refresh to show them, oldest first.
@@ -107,12 +110,26 @@
   let video = null;
   let reconnects = 0;
   let connected = false;
+  let stalls = 0;
+
+  // How long without a frame before the connection is presumed dead.
+  //
+  // A reconnection that waits for `onclose` is not enough, and the reason is
+  // measured: the server dropped a viewer on a broken pipe, its thread exited —
+  // and the TLS proxy in front kept the browser's socket open, so the page was
+  // never told. It sat on its last painted frame for good. A live socket that
+  // has gone quiet looks exactly like a working one, so silence has to be the
+  // signal.
+  //
+  // Two seconds is 120 frames: far beyond any hiccup, far below patience.
+  const SILENCE_LIMIT = 2000;
 
   function connectVideo() {
     video = new WebSocket(socketUrl("/video"));
     video.binaryType = "arraybuffer";
     video.onopen = () => {
       connected = true;
+      lastHeard = performance.now();
     };
     video.onclose = () => {
       connected = false;
@@ -134,6 +151,12 @@
   }
 
   const onVideoMessage = (event) => {
+    // Liveness is BYTES arriving, not frames decoding. Putting this after the
+    // "wait for a key frame" gate — which is where it was first — made the
+    // socket look silent for the second or so before the first IDR, so the
+    // watchdog closed it, and the reconnection did the same again: a livelock
+    // that the test caught and reasoning had not.
+    lastHeard = performance.now();
     const message = new Uint8Array(event.data);
     const capturedMicros = Number(new DataView(message.buffer).getBigUint64(0, true));
     const unit = message.subarray(8);
@@ -344,6 +367,18 @@
   }
   requestAnimationFrame(pumpInput);
 
+  // The watchdog. Runs on its own timer rather than inside the stats display,
+  // so a change to what is shown can never quietly disarm it.
+  setInterval(() => {
+    if (!connected || lastHeard === null) return;
+    if (performance.now() - lastHeard < SILENCE_LIMIT) return;
+    stalls += 1;
+    lastHeard = null;
+    // Closing is what starts the reconnection: the same path a clean close
+    // takes, so there is only one way back rather than two.
+    video?.close();
+  }, 500);
+
   setInterval(() => {
     if (decoder === null) {
       show("waiting for a key frame from the emulator…");
@@ -358,7 +393,8 @@
     const elapsed = (performance.now() - firstArrival) / 1000;
     const rate = (count) => (elapsed > 0 ? count / elapsed : 0).toFixed(1);
     show(
-      `buffer               ${target} frame${target === 1 ? "" : "s"} ` +
+      `silence recoveries   ${stalls}\n` +
+        `buffer               ${target} frame${target === 1 ? "" : "s"} ` +
         `(+${(target * 16.7).toFixed(0)} ms), ${starved} starves, ${skipped} skipped\n` +
         `connection           ${connected ? "up" : "reconnecting…"}` +
         `${reconnects > 0 ? ` (${reconnects} drop${reconnects > 1 ? "s" : ""})` : ""}\n` +

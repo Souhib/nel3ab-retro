@@ -1073,6 +1073,47 @@ intervention.
 > qu'il l'est. `/proc/iomem` l'était. Et quand un composant écrit dans ses
 > journaux le nom du contournement, ça vaut la peine de le lire.
 
+### Le gel qui restait : une socket vivante qui se tait
+
+Après le correctif de la fenêtre, plus de plantage — mais un **gel** au bout d'un
+moment, sans redémarrage. Le journal, pris pendant que ça gelait :
+
+```
+21:06:16  a browser is watching
+21:06:45  the viewer's connection gave up : Broken pipe
+21:06:45  the browser stopped watching
+```
+
+Le serveur, lui, allait très bien : 600 images par 10 s, zéro jetée. Et deux
+sockets TCP restaient **établies**, celles du proxy TLS.
+
+Le mécanisme est là : le côté serveur s'est fermé sur une écriture cassée, le
+proxy a gardé la socket ouverte côté navigateur, et **la page n'a jamais appris
+la fermeture**. Sa reconnexion automatique attend un événement `onclose` qui
+n'arrive pas. Elle reste sur sa dernière image, pour toujours.
+
+> **Une socket vivante qui se tait ressemble exactement à une socket qui
+> marche.** Se reconnecter sur la fermeture ne suffit donc pas : il faut
+> surveiller le **silence**.
+
+Deux secondes sans le moindre octet — cent vingt images, très au-delà de tout
+hoquet — et la page ferme elle-même pour repartir par le même chemin qu'une
+fermeture propre. Une seule voie de retour plutôt que deux.
+
+Vérifié en figeant le worker cinq secondes avec `SIGSTOP`, ce qui laisse les
+sockets vivantes et coupe les images : `silence recoveries 1`, connexion
+rétablie, image revenue.
+
+### Et le test a trouvé ce que le raisonnement n'avait pas
+
+Première version : je mettais à jour le témoin de vie **après** le bloc qui
+ignore les images tant qu'aucune image-clé n'est arrivée. Pendant cette seconde
+d'attente, la socket paraissait muette — le chien de garde la fermait, la
+reconnexion attendait à nouveau une image-clé, et ainsi de suite. Un **blocage
+en boucle** que j'avais écrit en croyant faire l'inverse.
+
+Le signe de vie, c'est **des octets qui arrivent**, pas des images qui décodent.
+
 ### Deux erreurs de raisonnement à garder
 
 **Deux correctifs écrits, deux échecs, gardés écrits.** J'ai d'abord trouvé un

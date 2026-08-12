@@ -282,6 +282,36 @@ rebuilds a frame's pools whenever that frame needed more than one — roughly fo
 times a second — and the memory is not returned until much later. Worth reporting
 with this evidence rather than patching blind.
 
+---
+
+## 3ter. The pad, measured at last
+
+The plan called this the half that decides whether it feels right, and it had no
+number until now. The worker reports how long the plumbing makes an input wait
+before it can reach a picture:
+
+    inputs applied 1041 | input to frame  p50 15.55 ms  p95 15.74 ms
+
+That is a full frame period, and its **consistency** is the finding. The worker
+drains input at the top of its loop, which is locked to the frame notification —
+so the write lands at the same phase every time, and that phase is apparently
+just *after* Dolphin polls its pipe. We pay a whole frame where the average
+should be half of one.
+
+The fix is to stop writing on the frame's schedule and write when the input
+**arrives**, so the freshest state is already there whenever Dolphin looks.
+Expected gain: about 8 ms, half a frame, on every button press. It needs the
+`emulator` crate to expose a writer a second thread can hold — a real change
+rather than a line, and worth it, because a frame of input lag is the first
+thing a Melee player feels.
+
+Note what the number is not: the *plumbing's* share only. The game's own logic
+adds frames on top, and those are the game's to spend.
+
+---
+
+## 4. What is NOT in M3
+
 - The room UI, slot negotiation, authentication — M4.
 - More than one player. The protocol supports four; proving four at once is a
   load question and belongs after the transport is chosen.
@@ -293,10 +323,9 @@ with this evidence rather than patching blind.
 
 ## 5. The order to work in
 
-1. **Run experiment 1.** A page, a socket, and the recorded stream from
-   `/tmp/nel3ab-dolphin-chain.h264`. Nothing else gets designed until it answers.
-2. **Record the decision as an ADR entry** — D9 — with what was measured, the
-   same way D5, D7 and D8 were.
+1. ~~**Run experiment 1.**~~ Done: the browser takes our bytes unchanged.
+2. ~~**Record the decision as an ADR entry** — D9~~. Done, resting on two of the
+   three criteria written in advance and the honest absence of the third.
 3. Then, and only then, the transport crate: `crates/transport` exists and is
    empty.
 4. The pad path, measured on its own. A latency number for video says nothing

@@ -1035,6 +1035,36 @@ plantages je comptais les lignes de `dmesg` — un **tampon circulaire**. Le com
 est passé de 69 à 68, ma boucle d'attente n'a jamais déclenché, et j'ai failli
 conclure d'une mesure cassée. Repère temporel depuis.
 
+### 5sexies. La manette, enfin chiffrée — et le chiffre accuse
+
+Le plan de M3 appelait la manette « la moitié qui décide si ça répond », et elle
+n'avait aucun chiffre. Le worker mesure maintenant combien de temps la plomberie
+fait attendre une entrée avant qu'elle puisse apparaître à l'image :
+
+```
+entrées appliquées 1041 | entrée→image  p50 15,55 ms   p95 15,74 ms
+```
+
+Une trame pleine. Et c'est sa **régularité** qui est le diagnostic : le worker
+vide sa file d'entrées en haut de sa boucle, laquelle est verrouillée sur la
+notification d'image. L'écriture tombe donc toujours à la même phase — et cette
+phase est visiblement juste *après* le moment où Dolphin lit son tuyau. On paie
+une trame entière là où la moyenne devrait être d'une demi-trame.
+
+> **Leçon** : une mesure trop régulière est une information. Un délai qui varie
+> raconte du hasard ; un délai constant raconte une **phase**, donc un ordre
+> d'opérations qu'on peut changer.
+
+Le remède : ne plus écrire au rythme des images, mais **quand l'entrée arrive**,
+pour que l'état le plus frais soit déjà là quand Dolphin regarde. Gain attendu
+~8 ms — une demi-trame — à chaque appui. Ça demande que le crate `emulator`
+expose un écrivain qu'un second fil puisse tenir : un vrai changement, pas une
+ligne, et il le vaut.
+
+Et une précision qui compte : ce nombre est la part de **la plomberie** seule.
+La logique du jeu ajoute ses propres trames par-dessus, et celles-là lui
+appartiennent.
+
 ---
 
 ## 6. Les pièges qui ont coûté du temps, et ce qu'ils ont appris

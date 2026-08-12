@@ -160,6 +160,45 @@ picks the first discrete GPU, which is fine for one card and wrong as a
 component — the Rust version matches the **render node it encodes on**, via
 `VK_EXT_physical_device_drm`.
 
+### D9 — `WebCodecs` over a plain socket, not WebRTC
+
+Decided 2026-08-12, after building it and running it.
+
+The M3 plan wrote down, before measuring, what would make the answer WebRTC.
+Against each:
+
+- *"WebCodecs refuses our stream, or needs it reshaped"* — it takes the bytes
+  `encoder::av` emits **unchanged**. No length prefixing, no `description`, no
+  repackaging. 120 of 120 access units on the first run.
+- *"the loss behaviour on a real Wi-Fi client is visibly worse and no cheap fix
+  exists"* — the jitter is real (p95 36 ms of inter-arrival on a Mac over
+  Tailscale, against 17 ms on the loopback) and the cheap fix worked: a queue
+  presented one frame per refresh, with an adaptive depth. It cost 16.7 ms and
+  took the gap between frames arrived and frames painted from 5-6/s to 0.6/s.
+- *"the glass-to-glass difference is under a couple of milliseconds"* —
+  **not measured.** WebRTC was never built, so there is no comparison. Said
+  plainly rather than quietly dropped.
+
+So the decision rests on two of three criteria and the honest absence of the
+third. What it buys is visible in the code: the transport is a socket and a loop,
+the page is one file, and *we* decide when a frame is submitted — the property
+D7 fought to keep on the encode side, kept on the display side too.
+
+What it costs, and what would justify revisiting: everything WebRTC gives free.
+Loss recovery is ours (today: none — a lost frame is a broken picture until the
+next IDR, and the encoder forces one when a viewer joins). Congestion control is
+ours (today: none — frames are dropped for a client that falls behind, which is
+backpressure, not control). Both are fine on a tailnet among people the host
+knows, and neither is fine on the open internet. **If this ever leaves the
+tailnet, D9 is the first decision to re-open.**
+
+Input rides a second WebSocket rather than sharing the video's. That is a
+latency decision: one TCP connection would put a 10 KB IDR being retransmitted
+in front of every 13-byte pad frame behind it. It does not make input
+*unreliable*, which is what it actually wants — a retransmitted input is already
+stale. That needs WebTransport datagrams, and it is the one part of D9 already
+known to be provisional.
+
 ## Consequences
 
 - AV1 encoding is unavailable (needs RDNA3+). Target H.264/HEVC.

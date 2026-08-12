@@ -63,6 +63,15 @@ test:
 gpu-test:
     cd core && sg render -c 'cargo test -p nel3ab-encoder --features gpu-tests'
 
+# Does the page survive its decoder dying? Needs the worker RUNNING and streaming
+# (`systemctl start nel3ab-worker`), because the failure only exists against a
+# live stream: a decoder that is fed nothing cannot be caught refusing anything.
+#
+# Not part of `local`: it drives a real Chrome against a real session, so it is
+# the recipe to run when the page changes rather than on every commit.
+browser-recovery:
+    cd spikes/m3-browser-drive && node wedge.mjs http://localhost:8100/ 6
+
 # The whole chain against a real Dolphin and a real ROM. Minutes, not seconds.
 end-to-end:
     cd core && sg render -c 'cargo test -p nel3ab-encoder --features gpu-tests,dolphin-integration --test dolphin_frames_become_h264 -- --nocapture'

@@ -1114,6 +1114,61 @@ en boucle** que j'avais écrit en croyant faire l'inverse.
 
 Le signe de vie, c'est **des octets qui arrivent**, pas des images qui décodent.
 
+### Le gel d'après : le décodeur meurt, la socket va très bien
+
+Le chien de garde a réglé son cas — et il restait un gel. Cette fois j'ai pu
+regarder pendant qu'il durait, et **tout allait bien** :
+
+| Ce que je voyais | Ce que ça prouvait |
+|---|---|
+| 600 images par 10 s, `jetées = 0` | le serveur encode et écrit |
+| les deux sockets `ESTABLISHED`, aucun « tuyau cassé » | les octets partent bien |
+| `inputs_received` +117 par seconde | **la page tourne encore** : c'est elle qui envoie les manettes, sur le rythme de l'écran |
+| aucune reconnexion au journal | le chien de garde ne voyait rien d'anormal |
+
+Par élimination il ne restait qu'un endroit : **le décodeur du navigateur**. Les
+octets arrivaient, et rien n'en sortait.
+
+Et c'est précisément ce que mon chien de garde ne pouvait pas voir. Sa règle est
+« des octets arrivent, donc tout va bien » — la correction du blocage en boucle,
+qui était juste. Elle est aveugle à un décodeur mort derrière une socket vivante.
+
+> Deux pannes, deux signes de vie. **La socket parle-t-elle encore ?** et **le
+> décodeur répond-il encore ?** Aucun des deux ne répond pour l'autre.
+
+Le mécanisme exact : un `VideoDecoder` qui échoue **reste là**. Mon code se
+contentait d'afficher l'erreur, l'objet restait en place, et chaque image
+suivante déclenchait `Cannot call 'decode' on a closed codec` — pour toujours.
+
+Trois corrections :
+
+1. **une erreur de décodeur détruit le décodeur** au lieu de l'afficher ; le
+   prochain point de reprise en reconstruit un, à une seconde au plus ;
+2. **un second chien de garde** : des octets frais mais rien qui sorte depuis
+   deux secondes, on reconstruit — sans toucher à la socket, qui n'est pas la
+   pièce cassée ;
+3. **l'horodatage des images envoyées au décodeur** venait d'un compteur de ce
+   qui en **sortait**. Quand la sortie ralentit, les images qui **entrent**
+   reçoivent toutes le même horodatage — nourrir un décodeur qui bégaie avec des
+   horodatages identiques est la meilleure façon d'aggraver son bégaiement. Il
+   utilise maintenant l'instant de capture envoyé par le serveur.
+
+### Le test qui casse le décodeur exprès
+
+Deux façons de mourir, et il fallait les deux :
+
+- **la bruyante** — `close()`, et chaque décodage lève une exception. C'est
+  exactement l'état observé.
+- **la silencieuse** — le décodeur avale les images et n'en rend aucune. Aucun
+  gestionnaire d'erreur ne peut la voir ; seul le chien de garde le peut.
+
+Un test qui n'aurait cassé que la bruyante aurait laissé le chien de garde
+**non prouvé** : la correction n° 1 suffit à le faire passer au vert.
+
+Vérifié dans les deux sens, comme toujours ici. Avec le chien de garde désarmé,
+la mort silencieuse donne **+1 image peinte en six secondes** — le gel. Armé :
+**+71**, une seconde pleine de jeu. C'est `just browser-recovery`.
+
 ### Deux erreurs de raisonnement à garder
 
 **Deux correctifs écrits, deux échecs, gardés écrits.** J'ai d'abord trouvé un

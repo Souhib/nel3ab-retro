@@ -111,6 +111,12 @@
   let reconnects = 0;
   let connected = false;
   let stalls = 0;
+  let restarts = 0;
+  /// When the decoder last produced a picture, and when it was last torn down.
+  /// Both `null` until they have happened, which is what arms the watchdogs
+  /// below only once they can tell a failure from a start-up.
+  let lastOutput = null;
+  let decoderGoneSince = null;
 
   // How long without a frame before the connection is presumed dead.
   //
@@ -123,6 +129,37 @@
   //
   // Two seconds is 120 frames: far beyond any hiccup, far below patience.
   const SILENCE_LIMIT = 2000;
+
+  // How long a rebuilt decoder waits for a key frame before we stop believing
+  // the stream will bring one. The server's GOP is one second, so three is
+  // already generous; this only fires if the stream is not what we think.
+  const KEY_FRAME_PATIENCE = 3000;
+
+  /// Throws away the decoder and everything that came out of it.
+  ///
+  /// A decoder that has failed stays present and refuses every later chunk, so
+  /// the picture stops while the socket stays perfectly healthy — the freeze
+  /// that `SILENCE_LIMIT` cannot see, because bytes are still arriving. The
+  /// answer is to rebuild rather than reconnect: the socket is not the broken
+  /// part, and the next key frame is at most a GOP away.
+  function restartDecoder() {
+    restarts += 1;
+    if (decoder !== null) {
+      try {
+        decoder.close();
+      } catch {
+        // Already closed by its own error handler; nothing to do.
+      }
+    }
+    decoder = null;
+    decoderGoneSince = performance.now();
+    lastOutput = null;
+    // What the dead decoder produced is still a valid picture, but it is the
+    // past. Keeping it would paint a second of stale game over the recovery.
+    while (queue.length) queue.shift().close();
+    pipeline.length = 0;
+    priming = true;
+  }
 
   function connectVideo() {
     video = new WebSocket(socketUrl("/video"));
@@ -143,6 +180,8 @@
         }
         decoder = null;
       }
+      decoderGoneSince = null;
+      lastOutput = null;
       reconnects += 1;
       setTimeout(connectVideo, 500);
     };
@@ -181,6 +220,7 @@
       decoder = new VideoDecoder({
         output: (frame) => {
           const now = performance.now();
+          lastOutput = now;
           const submitted = pipeline.shift();
           if (submitted !== undefined) {
             const total = now - submitted.at + submitted.transit;
@@ -198,7 +238,10 @@
           }
           shown += 1;
         },
-        error: (error) => show(`decoder error: ${error}`, "bad"),
+        error: (error) => {
+          show(`decoder error: ${error}`, "bad");
+          restartDecoder();
+        },
       });
       decoder.configure({ codec, optimizeForLatency: true });
     }
@@ -210,13 +253,25 @@
     lastArrival = arrived;
 
     pipeline.push({ at: arrived, transit });
-    decoder.decode(
-      new EncodedVideoChunk({
-        type: isKey ? "key" : "delta",
-        timestamp: shown * 16_667,
-        data: unit,
-      }),
-    );
+    try {
+      decoder.decode(
+        new EncodedVideoChunk({
+          type: isKey ? "key" : "delta",
+          // The server's capture instant, not a count of what came OUT. That is
+          // what it was, and it made the timestamps of the frames going IN stop
+          // advancing exactly when output stalled — feeding a stalling decoder
+          // duplicate timestamps, which is the one input guaranteed to make the
+          // stall worse.
+          timestamp: capturedMicros,
+          data: unit,
+        }),
+      );
+    } catch (error) {
+      // A decoder that refuses one chunk refuses every later one for the same
+      // reason, so this is a decoder to replace rather than a frame to skip.
+      show(`decoder refused a frame: ${error}`, "bad");
+      restartDecoder();
+    }
   };
 
   connectVideo();
@@ -284,6 +339,22 @@
   }
 
   requestAnimationFrame(paint);
+
+  // The only door in from outside. A module's scope is unreachable from the
+  // page's global, and the recovery above cannot be pinned by a test that
+  // cannot first BREAK the decoder — `close()` leaves it in exactly the state a
+  // corrupt access unit does: present, unusable, and throwing on every decode.
+  globalThis.nel3abTest = {
+    // Two ways for a decoder to die, and the page has to survive both.
+    // `close()` makes every later `decode()` throw — what a decoder error
+    // leaves behind. Swallowing the chunks instead is the quieter one: it
+    // accepts everything and produces nothing, which no error handler can see.
+    wedgeDecoder: () => decoder?.close(),
+    stallDecoder: () => {
+      if (decoder !== null) decoder.decode = () => {};
+    },
+    counters: () => ({ painted, shown, stalls, restarts }),
+  };
 
   /// Walks the start codes looking for a NAL of `kind`, returning where its
   /// first byte is. Written out rather than assuming a fixed offset: the
@@ -379,6 +450,35 @@
     video?.close();
   }, 500);
 
+  // The second watchdog, for the other half of the failure. The first one asks
+  // whether the socket still speaks; this one asks whether the decoder still
+  // answers. Seen in the wild: sockets up, the server writing sixty frames a
+  // second with nothing dropped, the page still sending pad frames — and the
+  // picture stopped. Bytes arriving is precisely what blinded the first
+  // watchdog, so the two conditions have to be read together.
+  setInterval(() => {
+    if (!connected) return;
+    const now = performance.now();
+    // Only meaningful while bytes are arriving: if they are not, this is the
+    // other watchdog's failure and reconnecting is the right answer.
+    if (lastHeard === null || now - lastHeard >= SILENCE_LIMIT) return;
+
+    if (lastOutput !== null && now - lastOutput > SILENCE_LIMIT) {
+      restartDecoder();
+      return;
+    }
+    // A rebuilt decoder that never gets its key frame would wait for ever, and
+    // nothing above would notice: rejoining makes the server send one.
+    if (
+      decoder === null &&
+      decoderGoneSince !== null &&
+      now - decoderGoneSince > KEY_FRAME_PATIENCE
+    ) {
+      decoderGoneSince = null;
+      video?.close();
+    }
+  }, 500);
+
   setInterval(() => {
     if (decoder === null) {
       show("waiting for a key frame from the emulator…");
@@ -394,6 +494,7 @@
     const rate = (count) => (elapsed > 0 ? count / elapsed : 0).toFixed(1);
     show(
       `silence recoveries   ${stalls}\n` +
+        `decoder restarts     ${restarts}\n` +
         `buffer               ${target} frame${target === 1 ? "" : "s"} ` +
         `(+${(target * 16.7).toFixed(0)} ms), ${starved} starves, ${skipped} skipped\n` +
         `connection           ${connected ? "up" : "reconnecting…"}` +

@@ -20,6 +20,7 @@
   <canvas id="screen" width="640" height="480"></canvas>
   <div>
     <div id="stats">connecting…</div>
+    <p id="seat" class="note">en attente d'une manette…</p>
     <p><button id="copy" type="button">copier les chiffres</button>
       <span id="hint"></span></p>
     <p class="note">
@@ -37,6 +38,7 @@
   const canvas = context.canvas;
   const hint = document.getElementById("hint");
   const copyButton = document.getElementById("copy");
+  const seat = document.getElementById("seat");
   /// Replacing the panel's content destroys any selection inside it, and the
   /// panel refreshes twice a second: highlighting a number to copy it was
   /// impossible, the selection vanished before the second click. So the display
@@ -421,11 +423,29 @@
   const hasIdr = (bytes) => findNal(bytes, 5) !== null;
 
   // ── input ───────────────────────────────────────────────────────────────
+  //
+  // Which port this browser drives is the SERVER'S to decide — it knows who else
+  // is in the room and the page does not — and it says so in one byte as soon as
+  // the socket opens. Zero means the room is full. Until that byte arrives the
+  // page has nothing legitimate to send, so it sends nothing.
   let input = null;
+  let port = null;
   function connectInput() {
     input = new WebSocket(socketUrl("/input"));
     input.binaryType = "arraybuffer";
-    input.onclose = () => setTimeout(connectInput, 500);
+    input.onmessage = (event) => {
+      const told = new Uint8Array(event.data);
+      if (told.length !== 1) return;
+      port = told[0] === 0 ? null : told[0];
+      seat.textContent =
+        port === null
+          ? "la partie est complète — aucune manette libre"
+          : `tu es le joueur ${port}`;
+    };
+    input.onclose = () => {
+      port = null;
+      setTimeout(connectInput, 500);
+    };
     input.onerror = () => input?.close();
   }
   connectInput();
@@ -453,7 +473,10 @@
   let sent = 0;
   function pumpInput() {
     requestAnimationFrame(pumpInput);
-    if (input === null || input.readyState !== WebSocket.OPEN) return;
+    // A frame with no port is not a frame the server would accept — its slot
+    // byte must be 1..=4 — and sending one would be rejected as rubbish, which
+    // closes the connection. So: no port, nothing to say.
+    if (input === null || input.readyState !== WebSocket.OPEN || port === null) return;
 
     let buttons = 0;
     for (const [code, name] of Object.entries(KEYS)) {
@@ -476,7 +499,7 @@
     const frame = new Uint8Array(13);
     const view = new DataView(frame.buffer);
     view.setUint16(0, buttons, true);
-    frame[2] = 1; // player slot 1
+    frame[2] = port;
     view.setInt16(3, Math.round(x * 32767), true);
     view.setInt16(5, Math.round(y * 32767), true);
     view.setInt16(7, 0, true);

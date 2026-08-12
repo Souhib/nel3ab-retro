@@ -27,7 +27,7 @@ use std::sync::{Arc, Condvar, Mutex};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
-use nel3ab_protocol::InputFrame;
+use nel3ab_protocol::{InputFrame, PlayerSlot};
 use thiserror::Error;
 
 /// How many frames may wait for the socket before one is dropped.
@@ -46,6 +46,13 @@ type Framed = Arc<Vec<u8>>;
 
 /// The registry of connected viewers, each with its own bounded queue.
 type Viewers = Arc<Mutex<Vec<SyncSender<Framed>>>>;
+
+/// Which ports currently have a browser holding them.
+///
+/// Separate from [`Pads`], which holds the last STATE of each port: a port can
+/// be held with nothing pressed, and a port nobody holds must not keep applying
+/// the state its last holder left behind.
+type Seats = Arc<Mutex<[bool; PORTS]>>;
 
 /// The latest pad state per port.
 type Pads = Arc<Mutex<[Option<InputFrame>; PORTS]>>;
@@ -67,6 +74,12 @@ const WRITE_TIMEOUT: Duration = Duration::from_secs(2);
 /// Empty rather than a header with no unit behind it: a reader has to special
 /// case it either way, and a length of zero cannot be mistaken for a frame.
 const KEEP_ALIVE: Duration = Duration::from_millis(500);
+
+/// How long a connection has to say what it is before it is dropped.
+///
+/// It applies to the peek in [`classify`] only, and each route clears it: a
+/// player who presses nothing is not a player who has left.
+const CLASSIFY_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Everything the browser link can fail at.
 #[derive(Debug, Error)]
@@ -154,9 +167,18 @@ impl BrowserServer {
     /// `/video` and `/input`. Nothing here authenticates anybody — that is M4,
     /// and pretending otherwise would be worse than saying so.
     ///
+    /// `players` is how many ports this room serves, `1..=4`. It is a
+    /// [`PlayerSlot`] because that is precisely the set of legal values, and the
+    /// number cannot be raised at run time: Dolphin reads which ports have a
+    /// controller when it boots, so the room's size is a property of the session.
+    ///
     /// # Errors
     /// [`TransportError::Bind`] or [`TransportError::Accept`].
-    pub fn start(address: SocketAddr, page: &'static str) -> Result<Self, TransportError> {
+    pub fn start(
+        address: SocketAddr,
+        page: &'static str,
+        players: PlayerSlot,
+    ) -> Result<Self, TransportError> {
         let listener = TcpListener::bind(address)
             .map_err(|source| TransportError::Bind { address, source })?;
         let bound = listener
@@ -169,6 +191,7 @@ impl BrowserServer {
         let arrived = Arc::new(Condvar::new());
         let dropped = Arc::new(std::sync::atomic::AtomicU64::new(0));
         let joined = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let seats: Seats = Arc::new(Mutex::new([false; PORTS]));
 
         let accept = std::thread::Builder::new()
             .name("browser-accept".to_owned())
@@ -178,6 +201,7 @@ impl BrowserServer {
                 let received = Arc::clone(&received);
                 let viewers = Arc::clone(&viewers);
                 let arrived = Arc::clone(&arrived);
+                let seats = Arc::clone(&seats);
                 move || {
                     accept_loop(
                         &listener,
@@ -188,6 +212,8 @@ impl BrowserServer {
                             arrived,
                             received,
                             joined,
+                            seats,
+                            players,
                         },
                     );
                 }
@@ -338,6 +364,8 @@ struct Shared {
     arrived: Arc<Condvar>,
     received: Arc<std::sync::atomic::AtomicU64>,
     joined: Arc<std::sync::atomic::AtomicBool>,
+    seats: Seats,
+    players: PlayerSlot,
 }
 
 /// Serves pages and hands WebSocket connections to their own threads.
@@ -357,8 +385,10 @@ fn accept_loop(listener: &TcpListener, page: &'static str, shared: &Shared) {
                 let slots = Arc::clone(&shared.inputs);
                 let counter = Arc::clone(&shared.received);
                 let arrived = Arc::clone(&shared.arrived);
+                let seats = Arc::clone(&shared.seats);
+                let players = shared.players;
                 sockets.push(std::thread::spawn(move || {
-                    input_thread(stream, &slots, &counter, &arrived);
+                    input_thread(stream, &slots, &counter, &arrived, &seats, players);
                 }));
             }
             Some(Route::Page) => serve_page(stream, page),
@@ -383,10 +413,10 @@ fn classify(stream: &TcpStream) -> Option<Route> {
     let mut head = [0_u8; 1024];
     // A short peek is enough: the request line and the Upgrade header are both
     // in the first kilobyte of anything a browser sends.
-    if stream
-        .set_read_timeout(Some(Duration::from_secs(5)))
-        .is_err()
-    {
+    //
+    // NAMED, because it does not stay here: the deadline is set on the SOCKET,
+    // so every route inherits it and has to say what it wants instead.
+    if stream.set_read_timeout(Some(CLASSIFY_TIMEOUT)).is_err() {
         return None;
     }
     let read = stream.peek(&mut head).ok()?;
@@ -480,12 +510,39 @@ fn input_thread(
     slots: &Pads,
     received: &Arc<std::sync::atomic::AtomicU64>,
     arrived: &Arc<Condvar>,
+    seats: &Seats,
+    players: PlayerSlot,
 ) {
     let _ = stream.set_nodelay(true);
+    // Cleared, and this is not a formality. The deadline `classify` set to bound
+    // the peek stayed on the socket, so a read of the NEXT pad frame inherited
+    // it — and a player who pressed nothing for five seconds was dropped as if
+    // they had left. Their seat went back to the room, and they came back as a
+    // different player. Silence on a controller is the normal state of a
+    // controller; a socket that has closed is what ending a session looks like.
+    let _ = stream.set_read_timeout(None);
     let Ok(mut socket) = tungstenite::accept(stream) else {
         return;
     };
-    tracing::info!("a browser is holding a controller");
+
+    // Which port this browser holds is the SERVER'S to decide, and it is the
+    // first thing said on the socket: one byte, the port number, or zero for a
+    // room with no seat left. A page cannot pick its own port — see the
+    // re-stamping below — so this is the only way it can learn which it got.
+    let Some(seat) = take_seat(seats, players) else {
+        tracing::info!("a browser asked for a controller in a full room");
+        let _ = socket.send(tungstenite::Message::binary(vec![0]));
+        let _ = socket.close(None);
+        return;
+    };
+    if socket
+        .send(tungstenite::Message::binary(vec![seat.get()]))
+        .is_err()
+    {
+        release_seat(seats, seat);
+        return;
+    }
+    tracing::info!(port = seat.get(), "a browser is holding a controller");
 
     while let Ok(message) = socket.read() {
         let payload = match message {
@@ -497,6 +554,14 @@ fn input_thread(
         };
         match InputFrame::decode(&payload) {
             Ok(frame) => {
+                // Stamped with the seat this connection was given, whatever the
+                // frame claims. A page that says "I am player 1" must not be
+                // able to move player 1's character, and the check that would
+                // reject it is a check that can be forgotten: overwriting cannot.
+                let frame = InputFrame {
+                    slot: seat,
+                    ..frame
+                };
                 received.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 if let Ok(mut slots) = slots.lock() {
                     // Replaces rather than queues. Overwriting a state the
@@ -516,8 +581,41 @@ fn input_thread(
             }
         }
     }
-    tracing::info!("the controller disconnected");
+    tracing::info!(port = seat.get(), "the controller disconnected");
+    // The seat goes back before the state does: a port nobody holds keeps
+    // applying whatever its last holder left pressed, and a stuck direction is
+    // exactly the bug a player would blame the network for.
+    release_seat(seats, seat);
+    if let Ok(mut slots) = slots.lock()
+        && let Some(place) = slots.get_mut(seat.index())
+    {
+        *place = Some(InputFrame::neutral(seat));
+    }
+    arrived.notify_one();
     let _ = socket.close(None);
+}
+
+/// Claims the lowest free port, or `None` when the room is full.
+fn take_seat(seats: &Seats, players: PlayerSlot) -> Option<PlayerSlot> {
+    let mut seats = seats.lock().ok()?;
+    for raw in 1..=players.get() {
+        let slot = PlayerSlot::new(raw).ok()?;
+        if let Some(taken) = seats.get_mut(slot.index())
+            && !*taken
+        {
+            *taken = true;
+            return Some(slot);
+        }
+    }
+    None
+}
+
+fn release_seat(seats: &Seats, seat: PlayerSlot) {
+    if let Ok(mut seats) = seats.lock()
+        && let Some(taken) = seats.get_mut(seat.index())
+    {
+        *taken = false;
+    }
 }
 
 #[cfg(test)]
@@ -660,6 +758,11 @@ mod tests {
         );
     }
 
+    /// A full room, for tests that are not about the room being full.
+    fn four() -> PlayerSlot {
+        PlayerSlot::new(4).unwrap()
+    }
+
     /// Connects a real WebSocket to a real server, because keep-alives are a
     /// property of the connection thread and not of `send`.
     fn watch(address: SocketAddr) -> tungstenite::WebSocket<std::net::TcpStream> {
@@ -680,12 +783,153 @@ mod tests {
         socket
     }
 
+    /// Takes a controller and returns the socket with the port it was given.
+    fn hold(address: SocketAddr) -> (tungstenite::WebSocket<std::net::TcpStream>, u8) {
+        use tungstenite::client::IntoClientRequest as _;
+        let stream = TcpStream::connect(address).unwrap();
+        stream
+            .set_read_timeout(Some(Duration::from_secs(3)))
+            .unwrap();
+        let (mut socket, _) = tungstenite::client(
+            format!("ws://{address}/input")
+                .as_str()
+                .into_client_request()
+                .unwrap(),
+            stream,
+        )
+        .unwrap();
+        let told = socket.read().unwrap().into_data();
+        assert_eq!(told.len(), 1, "the seat is announced as one byte");
+        (socket, told[0])
+    }
+
+    /// Four browsers, four ports, in the order they arrived.
+    #[test]
+    fn each_browser_is_given_its_own_port() {
+        let server = BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", four()).unwrap();
+        let held: Vec<_> = (0..4).map(|_| hold(server.address())).collect();
+        let ports: Vec<u8> = held.iter().map(|(_, port)| *port).collect();
+        assert_eq!(
+            ports,
+            vec![1, 2, 3, 4],
+            "each browser got a port of its own"
+        );
+    }
+
+    /// The negative twin of the assignment: a port that is given back must be
+    /// given out again. Without releasing, a player reconnecting once per
+    /// session would exhaust a four-player room in four reloads.
+    #[test]
+    fn a_port_is_free_again_once_its_browser_leaves() {
+        let server = BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", four()).unwrap();
+        let (first, port) = hold(server.address());
+        assert_eq!(port, 1);
+        drop(first);
+
+        // The thread notices the close on its own read, which is not instant.
+        let mut regained = 0;
+        for _ in 0..40 {
+            std::thread::sleep(Duration::from_millis(50));
+            let (socket, port) = hold(server.address());
+            regained = port;
+            drop(socket);
+            if regained == 1 {
+                break;
+            }
+        }
+        assert_eq!(regained, 1, "the freed port was handed out again");
+    }
+
+    /// A room of one says so rather than silently handing out a second pad: two
+    /// browsers on one port would fight over the same character.
+    #[test]
+    fn a_full_room_turns_the_next_browser_away() {
+        let one = PlayerSlot::new(1).unwrap();
+        let server = BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", one).unwrap();
+        let (_held, port) = hold(server.address());
+        assert_eq!(port, 1);
+
+        let (_turned_away, port) = hold(server.address());
+        assert_eq!(port, 0, "zero is how a full room says no");
+    }
+
+    /// A page cannot play somebody else's character. The frame carries a port
+    /// because the protocol is symmetric, but the SERVER decides which one it
+    /// was: a check that rejects a wrong port is a check that can be forgotten,
+    /// and overwriting cannot.
+    #[test]
+    fn a_browser_cannot_move_another_players_pad() {
+        let server = BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", four()).unwrap();
+        let (_first, first_port) = hold(server.address());
+        let (mut second, second_port) = hold(server.address());
+        assert_eq!((first_port, second_port), (1, 2));
+
+        // The second browser claims to be the first, and presses something.
+        let mut lie = InputFrame::neutral(PlayerSlot::new(1).unwrap());
+        lie.main.x = i16::MAX;
+        second
+            .send(tungstenite::Message::binary(lie.encode().to_vec()))
+            .unwrap();
+
+        let mut landed = Vec::new();
+        for _ in 0..40 {
+            landed = server.drain_input();
+            if !landed.is_empty() {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(25));
+        }
+        assert_eq!(landed.len(), 1, "one pad state landed");
+        assert_eq!(
+            landed[0].slot.get(),
+            2,
+            "the lie was applied to the liar's own port"
+        );
+    }
+
+    /// Silence on a controller is not a controller that has left. This test
+    /// costs six seconds of wall clock because a timeout is the thing being
+    /// observed, and there is no way to observe one without waiting for it.
+    #[test]
+    fn a_player_who_presses_nothing_keeps_their_port() {
+        let server = BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", four()).unwrap();
+        let (mut quiet, port) = hold(server.address());
+        assert_eq!(port, 1);
+
+        std::thread::sleep(CLASSIFY_TIMEOUT + Duration::from_secs(1));
+
+        // Still theirs: a newcomer gets the NEXT port, not this one.
+        let (_newcomer, next) = hold(server.address());
+        assert_eq!(next, 2, "the quiet player's port was given away");
+
+        // And the connection still works, rather than merely being remembered.
+        let mut pressed = InputFrame::neutral(PlayerSlot::new(1).unwrap());
+        pressed.l = 255;
+        quiet
+            .send(tungstenite::Message::binary(pressed.encode().to_vec()))
+            .unwrap();
+        let mut landed = Vec::new();
+        for _ in 0..40 {
+            landed = server.drain_input();
+            if landed.iter().any(|frame| frame.l == 255) {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(25));
+        }
+        assert!(
+            landed
+                .iter()
+                .any(|frame| frame.l == 255 && frame.slot.get() == 1),
+            "the quiet player's next press should still arrive"
+        );
+    }
+
     /// The emulator goes quiet legitimately — a game blanking the screen
     /// presents nothing — and the page gives up after two seconds of silence.
     /// The stream's cadence has to be the server's, not the emulator's.
     #[test]
     fn a_viewer_hears_from_the_server_even_when_the_emulator_says_nothing() {
-        let server = BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page").unwrap();
+        let server = BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", four()).unwrap();
         let mut socket = watch(server.address());
 
         // Not one frame is sent for the whole of this test.
@@ -703,7 +947,7 @@ mod tests {
     #[test]
     fn a_stream_that_never_pauses_carries_no_keep_alives() {
         let server =
-            Arc::new(BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page").unwrap());
+            Arc::new(BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", four()).unwrap());
         let mut socket = watch(server.address());
 
         // A frame every 50 ms — ten times inside the keep-alive window — for

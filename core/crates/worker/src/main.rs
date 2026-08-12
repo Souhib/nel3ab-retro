@@ -68,6 +68,15 @@ struct Settings {
     session_dir: PathBuf,
     bind: SocketAddr,
     render_node: PathBuf,
+    /// How many ports this room serves.
+    ///
+    /// Fixed for the session because Dolphin reads which ports hold a controller
+    /// when it boots. It is not four by default, and that is deliberate: an
+    /// unserved port holding a phantom pad changes what the GAME does — a
+    /// four-player title can open four split-screen viewports for one player.
+    /// A room for friends says so; a room for one should look like one console
+    /// with one controller in it.
+    players: PlayerSlot,
 }
 
 impl Settings {
@@ -90,8 +99,26 @@ impl Settings {
                 .context("NEL3AB_BIND is not a socket address")?,
             render_node: env_path("NEL3AB_RENDER_NODE")
                 .unwrap_or_else(|| PathBuf::from(DEFAULT_RENDER_NODE)),
+            players: players_from_environment()?,
         })
     }
+}
+
+/// Reads `NEL3AB_PLAYERS`, refusing anything a room cannot be.
+///
+/// A bad value stops the worker rather than being rounded into range: a room
+/// silently serving one port when four were asked for is a bug discovered by
+/// three people who cannot play.
+fn players_from_environment() -> Result<PlayerSlot> {
+    let Some(raw) = std::env::var_os("NEL3AB_PLAYERS") else {
+        return PlayerSlot::new(1).map_err(|error| anyhow::anyhow!("{error}"));
+    };
+    let text = raw.to_string_lossy();
+    let count: u8 = text
+        .trim()
+        .parse()
+        .with_context(|| format!("NEL3AB_PLAYERS is not a number: {text}"))?;
+    PlayerSlot::new(count).map_err(|error| anyhow::anyhow!("NEL3AB_PLAYERS: {error}"))
 }
 
 fn env_path(name: &str) -> Option<PathBuf> {
@@ -114,17 +141,24 @@ fn run(settings: &Settings) -> Result<()> {
     // on a path nothing is listening on, which reads as a mystery.
     let _ = std::fs::remove_file(&socket);
 
-    let server = Arc::new(BrowserServer::start(settings.bind, PAGE)?);
+    let server = Arc::new(BrowserServer::start(settings.bind, PAGE, settings.players)?);
     tracing::info!(address = %server.address(), "open this in a browser");
 
     let listener = FrameListener::bind(&socket)?;
 
-    let slot = PlayerSlot::new(1).map_err(|error| anyhow::anyhow!("{error}"))?;
+    // Every port the room serves gets a pipe and a `SIDevice`, and no other
+    // does. The transport hands each browser one of these and only these.
+    let mut ports = SlotSet::EMPTY;
+    for raw in 1..=settings.players.get() {
+        let slot = PlayerSlot::new(raw).map_err(|error| anyhow::anyhow!("{error}"))?;
+        ports = ports.with(slot);
+    }
+    tracing::info!(players = settings.players.get(), "the room's size");
     let mut config = DolphinConfig::new(
         settings.dolphin.clone(),
         settings.rom.clone(),
         settings.session_dir.clone(),
-        SlotSet::EMPTY.with(slot),
+        ports,
     );
     config.video_backend = VideoBackend::Vulkan;
     // Dolphin compiles a specialised shader the first time it meets a new

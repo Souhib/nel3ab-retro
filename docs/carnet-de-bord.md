@@ -1284,6 +1284,53 @@ Deux tests, dans les deux sens, comme toujours :
   test et doublé silencieusement le débit de messages. Vérifié en le cassant
   exprès : `message 0 was a keep-alive, in a stream that never paused`.
 
+### Quatre joueurs : c'est le serveur qui distribue les places
+
+Le chemin d'entrée du worker savait déjà écrire dans n'importe quel port, et le
+protocole a toujours eu quatre places. Il manquait la seule chose qui compte
+quand il y a plus d'une personne : **qui joue quel personnage**.
+
+C'est au serveur de le décider — lui seul sait qui d'autre est dans la salle — et
+il le dit en un octet dès que la socket s'ouvre : le numéro du port, ou zéro si
+la salle est pleine. La page n'envoie rien tant qu'elle ne le sait pas.
+
+Et le port du joueur est **réécrit à l'arrivée** : la manette d'un navigateur est
+tamponnée avec la place qui lui a été donnée, quoi que la trame prétende. Un
+contrôle qui refuse une place volée est un contrôle qu'on peut oublier
+d'écrire ; écraser la valeur, non.
+
+La taille de la salle est fixée au démarrage — Dolphin lit à son lancement quels
+ports ont une manette. Elle vaut **un** par défaut, et c'est un choix : un port
+non servi avec une manette fantôme **change ce que le jeu fait** (un titre à
+quatre peut ouvrir quatre écrans partagés pour un seul joueur). `NEL3AB_PLAYERS=4`
+dans le service, et la salle est pour les copains.
+
+### Le journal a dénoncé un bogue que je ne cherchais pas
+
+En vérifiant quatre navigateurs dans une salle, les manettes se déconnectaient
+**toutes les 5,2 secondes**. Régulier au dixième près — donc pas un hasard, un
+délai.
+
+`classify()` pose une échéance de cinq secondes sur la socket pour borner la
+lecture de l'en-tête HTTP. Cette échéance **reste sur la socket**. Le fil vidéo
+l'efface ; le fil des manettes ne l'effaçait pas. Donc la lecture de la trame
+suivante en héritait, et **un joueur qui n'appuyait sur rien pendant cinq
+secondes était traité comme un joueur parti**.
+
+Avant les places, ça se voyait à peine : la page se reconnectait. Depuis, la
+conséquence est visible — le siège retournait à la salle et le joueur revenait
+avec un autre personnage.
+
+> Un réglage posé sur une socket **survit à la fonction qui l'a posé**. Chaque
+> route doit dire ce qu'elle veut, plutôt qu'hériter de ce qu'une autre voulait.
+
+Le silence sur une manette est l'état normal d'une manette. Ce qui termine une
+session, c'est une socket qui se ferme.
+
+Le test coûte six secondes de vrai temps, parce que ce qu'on observe **est** un
+délai et qu'il n'y a pas moyen d'observer un délai sans l'attendre. Cassé
+exprès : *« the quiet player's port was given away »*.
+
 ### Deux erreurs de raisonnement à garder
 
 **Deux correctifs écrits, deux échecs, gardés écrits.** J'ai d'abord trouvé un

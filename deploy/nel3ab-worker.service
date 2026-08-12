@@ -38,6 +38,12 @@ RestartSec=2
 # The session directory holds the frame socket and Dolphin's config. Under /tmp
 # so a stale one never outlives a reboot.
 Environment=NEL3AB_SESSION_DIR=/tmp/nel3ab-session
+# How many ports the room serves, 1..=4. Fixed for the session: Dolphin reads
+# which ports hold a controller when it boots. Left at one on purpose — an
+# unserved port holding a phantom pad changes what the GAME does, and a room for
+# one should look like one console with one controller in it. Set it to 4 (and
+# restart) for a room with friends in it.
+Environment=NEL3AB_PLAYERS=1
 
 [Install]
 WantedBy=multi-user.target

@@ -119,6 +119,26 @@ fn run(settings: &Settings) -> Result<()> {
         SlotSet::EMPTY.with(slot),
     );
     config.video_backend = VideoBackend::Vulkan;
+    // Dolphin compiles a specialised shader the first time it meets a new
+    // material, and stops the world while it does. Measured on this machine:
+    // the pipeline waited 1.4 s, 1.7 s, 2.5 s and 2.7 s for a frame in separate
+    // ten-second windows, with nothing dropped anywhere else — the emulator
+    // itself was the stall, and it matches the 2.2 s gap a browser reported.
+    //
+    // Asynchronous ubershaders draw with a general-purpose shader while the
+    // specialised one compiles in the background. It costs some fidelity for the
+    // frames in between and a little GPU; it buys a stream that does not freeze
+    // for two seconds, which is not a trade worth thinking about for a game.
+    for (section, key, value) in [
+        ("Settings", "ShaderCompilationMode", "2"),
+        // And do not stall at boot waiting for the whole cache either.
+        ("Settings", "WaitForShadersBeforeStarting", "False"),
+    ] {
+        match nel3ab_emulator::ConfigOverride::new("Graphics", section, key, value) {
+            Ok(over) => config.overrides.push(over),
+            Err(error) => tracing::warn!(%error, key, "a graphics override was refused"),
+        }
+    }
     config.frame_socket = Some(socket);
     config.startup_timeout = Duration::from_mins(2);
 

@@ -1,0 +1,43 @@
+# One session worker, run as a service rather than from a terminal.
+#
+# It was run from a shell first, and kept dying after about four minutes: the
+# shell that started it went away, and Dolphin's container — a child of that
+# process tree — went with it. A worker that outlives nothing is not a worker,
+# so this is the right shape rather than a convenience.
+#
+# `Restart=always` matters for a second reason: the worker exits cleanly when
+# the emulator stops producing frames, which is what happens if Dolphin crashes
+# or is killed. Restarting is the correct answer to that, and it is one line.
+#
+# A SYSTEM unit rather than a user one, for one concrete reason: user units
+# cannot be given supplementary groups, and this needs `render` to reach the GPU
+# and `docker` to start the emulator. `User=souhib` picks up both.
+#
+#   sudo cp deploy/nel3ab-worker.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl start nel3ab-worker      # `enable` too, to survive a reboot
+#   journalctl -u nel3ab-worker -f
+#
+# Deliberately NOT enabled at boot by the instructions above: a machine that
+# starts an emulator on its own is a decision for whoever owns it.
+
+[Unit]
+Description=nel3ab session worker (one emulator, one video stream)
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+User=souhib
+WorkingDirectory=/home/souhib/nel3ab-retro/core
+ExecStart=/home/souhib/nel3ab-retro/core/target/release/nel3ab-worker
+Environment=HOME=/home/souhib
+Environment=RUST_LOG=info
+Restart=always
+RestartSec=2
+
+# The session directory holds the frame socket and Dolphin's config. Under /tmp
+# so a stale one never outlives a reboot.
+Environment=NEL3AB_SESSION_DIR=/tmp/nel3ab-session
+
+[Install]
+WantedBy=multi-user.target

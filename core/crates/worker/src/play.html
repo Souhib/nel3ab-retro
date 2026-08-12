@@ -243,13 +243,21 @@
       show("waiting for a key frame from the emulator…");
       return;
     }
-    const stalled = repeated / Math.max(1, painted + repeated);
+    // Rates, not a percentage of refreshes. "72.5 % of refreshes had nothing
+    // new" sounds alarming and means almost nothing: on a 120 Hz display a
+    // perfect 60 fps stream leaves HALF the refreshes with nothing new by
+    // construction, and this reported 72.5 % where the honest statement was
+    // "33 painted of 60 sent". A number that cannot be read without knowing the
+    // refresh rate is a number that will be misread.
+    const elapsed = (performance.now() - firstArrival) / 1000;
+    const rate = (count) => (elapsed > 0 ? count / elapsed : 0).toFixed(1);
     show(
-      `frames decoded ${shown}\n` +
-        `frames painted ${painted}\n` +
-        `refreshes with nothing new  ${repeated} (${(stalled * 100).toFixed(1)} %)\n` +
-        `pad frames     ${sent}\n` +
-        `decoder queue  ${decoder.decodeQueueSize}\n` +
+      `sent by the server   60.0 /s (nominal)\n` +
+        `arrived              ${rate(shown)} /s\n` +
+        `painted              ${rate(painted)} /s\n` +
+        `display refresh      ${rate(painted + repeated)} /s\n` +
+        `pad frames           ${sent}\n` +
+        `decoder queue        ${decoder.decodeQueueSize}\n` +
         `\n` +
         `gap between arrivals (16.7 ms is even):\n` +
         `  p50 ${percentile(gaps, 0.5).toFixed(1)} ms\n` +

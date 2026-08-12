@@ -692,6 +692,46 @@ avant une image-clé, et il y en a une par seconde. L'encodeur en produit
 désormais une **à la demande** quand quelqu'un ouvre la page. Mesuré : le plus
 grand écart entre deux images passe de **557 ms à 19 ms**.
 
+### Et finalement : c'est l'émulateur qui s'arrête
+
+Les chiffres d'une vraie partie ont tranché, et pas dans la direction attendue.
+Côté serveur, sur les fenêtres où un client jouait :
+
+```
++600 images | +0 jetées | pire attente    17 ms
++423 images | +0 jetées | pire attente  2671 ms
++455 images | +0 jetées | pire attente  2478 ms
++600 images | +0 jetées | pire attente    17 ms
+```
+
+**Zéro image jetée**, partout. Le réseau ne perd rien, notre file non plus. Les
+fenêtres dégradées sont toutes des *attentes* : Dolphin cesse de produire pendant
+jusqu'à **2,7 secondes**. Le navigateur rapportait un écart maximal de 2207 ms —
+c'est le même événement, vu de l'autre bout.
+
+La cause probable est la **compilation de shaders** : Dolphin fabrique un
+programme spécialisé la première fois qu'il rencontre un matériau, et arrête tout
+pendant ce temps. Les *ubershaders asynchrones* dessinent avec un programme
+générique en attendant. Activés — les décrochages se concentrent désormais au
+démarrage au lieu de revenir, mais **ce n'est pas encore concluant** et c'est dit
+comme tel.
+
+> **Leçon** : « c'est saccadé » a trois suspects — le réseau, le pipeline,
+> l'affichage. Instrumenter *où passe le temps de l'image la plus lente* les a
+> éliminés tous les trois en une mesure, et a désigné le seul qu'on n'avait pas
+> écrit soi-même.
+
+### Une métrique qui se lit mal est une métrique fausse
+
+La page annonçait « 72,5 % des rafraîchissements n'ont rien de neuf ». Alarmant,
+et presque vide de sens : sur un écran à **120 Hz**, un flux parfait à 60 images
+par seconde laisse **la moitié** des rafraîchissements sans rien, par
+construction. La phrase honnête était « 33 images peintes sur 60 envoyées ».
+
+Elle affiche maintenant des **débits** — envoyé, arrivé, peint, rafraîchi — parce
+qu'un nombre qu'on ne peut pas lire sans connaître la fréquence de l'écran est un
+nombre qui sera mal lu.
+
 ### Ce qui reste, et son prix
 
 En boucle locale, 8 % des rafraîchissements n'ont rien de neuf à montrer. Ce

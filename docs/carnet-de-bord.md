@@ -752,6 +752,56 @@ l'image est revenue seule.
 > *ressemble* à un gel sera diagnostiquée comme une lenteur — c'est le journal
 > qui a dit le vrai mot.
 
+### Les images perdues n'étaient pas du retard, c'étaient des images
+
+Ton écran est à 60 Hz et le flux à 60 images/s. Sans relation de phase entre les
+deux, il arrive régulièrement que **deux images tombent dans le même
+rafraîchissement et aucune dans le suivant**. La page ne gardait que la plus
+récente : la première du couple était donc **jetée sans jamais être vue**, et
+l'intervalle vide **répétait** l'image précédente.
+
+Cinq à six images de jeu sur soixante, perdues chaque seconde. Ce n'est pas du
+retard, ce sont des instants du jeu que personne ne verra — et manette en main,
+c'est exactement ce que « un chouïa saccadé » veut dire.
+
+Remplacé par une **file** présentée une image par rafraîchissement. Une image de
+marge suffit à absorber un retard d'un rafraîchissement, parce qu'il y en a une
+derrière pour couvrir le trou. La gigue devient de la **latence** au lieu de
+devenir des images manquantes — et la latence, elle, est visible et chiffrée sur
+la page.
+
+> La profondeur s'adapte : zéro sur une boucle locale (où un tampon fixe serait
+> 16,7 ms de perte sèche), une à deux sur du Wi-Fi. Mesuré après : l'écart entre
+> images arrivées et images peintes passe de **5-6/s à 0,6/s**.
+
+### Deux fois la mauvaise règle : « un seul spectateur »
+
+Le fil vidéo servait **un seul** client, derrière un verrou. Première règle :
+refuser le nouveau venu. Conséquence : recharger la page te verrouillait dehors,
+précisément au moment où l'on recharge.
+
+Deuxième règle : le plus récent gagne. Conséquence bien pire, et mesurée — deux
+pages avec reconnexion automatique se chassent l'une l'autre en boucle,
+**vingt coupures en vingt-quatre secondes**.
+
+La règle était fausse à la racine. Une salle a **jusqu'à quatre joueurs**, et
+chacun a besoin de l'image : la forme correcte est une **diffusion**, pas un
+verrou. Chaque spectateur a sa propre file ; celui qui décroche perd ses images
+et celles de personne d'autre.
+
+> **Leçon** : quand une règle échoue deux fois de suites différentes, ce n'est
+> pas la règle qu'il faut ajuster — c'est qu'elle répond à la mauvaise question.
+
+### Une file là où il fallait un état
+
+La manette arrivait dans une file de 64. Elle débordait : **1073 avertissements
+en cinq minutes**, du bruit qui aurait masqué une vraie panne.
+
+Or une manette est un *niveau*. Seul le plus récent état d'un port peut être
+appliqué, donc tout ce qui attend derrière est du travail déjà périmé.
+Remplacé par **une case par port** : écrire remplace. Ça ne peut pas déborder,
+ça ne peut pas vieillir, et il n'y a aucune politique à choisir sur quoi jeter.
+
 ### Une métrique qui se lit mal est une métrique fausse
 
 La page annonçait « 72,5 % des rafraîchissements n'ont rien de neuf ». Alarmant,

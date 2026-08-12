@@ -183,7 +183,6 @@ fn run(settings: &Settings) -> Result<()> {
     let started = Instant::now();
     let mut produced = 0_u64;
     let mut reported = Instant::now();
-    let mut inputs_seen = 0_u64;
     let mut inputs_applied = 0_u64;
     // Where the time goes, per window. A stutter has to be attributable before
     // it can be fixed, and "the pipeline slowed down" names nothing.
@@ -194,31 +193,16 @@ fn run(settings: &Settings) -> Result<()> {
         // encoding should reach the emulator before it renders the next one —
         // half a frame of latency, free, for putting this line above the wait.
         //
-        // Only the NEWEST state per player is forwarded. A pad is a level, not
-        // an edge, and the browser sends one per animation frame — 120 a second
-        // on a display that refreshes that fast, against an emulator that polls
-        // sixty times. Forwarding all of them means writing states Dolphin will
-        // never read, and it was doing exactly that: the input queue overflowed
-        // 807 times in one session.
-        //
-        // What this gives up, stated rather than glossed: a press that begins
-        // and ends between two polls disappears. It was never observable on real
-        // hardware either, for the same reason.
-        let mut newest: [Option<nel3ab_protocol::InputFrame>; 4] = [None; 4];
-        let mut arrived = 0_usize;
+        // The transport hands back at most one state per port, because a pad is
+        // a level and only the newest can ever be applied. The coalescing used
+        // to live here over a 64-deep queue; it belongs where the states are
+        // written, which is also where a queue could overflow and did.
         for frame in server.drain_input() {
-            arrived += 1;
-            if let Some(place) = newest.get_mut(frame.slot.index()) {
-                *place = Some(frame);
-            }
-        }
-        for frame in newest.iter().flatten() {
-            if let Err(error) = session.send(frame) {
+            inputs_applied += 1;
+            if let Err(error) = session.send(&frame) {
                 tracing::warn!(%error, "an input frame could not be delivered");
             }
         }
-        inputs_seen += arrived as u64;
-        inputs_applied += newest.iter().flatten().count() as u64;
 
         let iteration = Instant::now();
         let frame = match frames.next_frame() {
@@ -271,7 +255,7 @@ fn run(settings: &Settings) -> Result<()> {
             // The return value says whether a watcher was behind. Counted by
             // the server itself and reported below, so it is deliberately
             // discarded here rather than branched on.
-            let _delivered = server.send(Packet {
+            let _delivered = server.send(&Packet {
                 captured_micros: u64::try_from(captured.as_micros()).unwrap_or(u64::MAX),
                 annex_b: coded.to_vec(),
             });
@@ -283,7 +267,7 @@ fn run(settings: &Settings) -> Result<()> {
             tracing::info!(
                 produced,
                 dropped = server.dropped(),
-                inputs_seen,
+                inputs_received = server.inputs_received(),
                 inputs_applied,
                 slowest_ms = worst.total_ms(),
                 slowest_waiting_ms = worst.waited_ms(),

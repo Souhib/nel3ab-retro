@@ -64,15 +64,34 @@
   let lastArrival = null;
   const gaps = [];
 
-  // The newest decoded frame, waiting for the display to want it.
+  // Decoded frames waiting for a refresh to show them, oldest first.
   //
-  // Drawing straight from the decoder's callback — which is what this page did
-  // first — ties the picture to when DECODING finished rather than to when the
-  // screen refreshes. Over a real network the arrivals are uneven, and painting
-  // on arrival turns that unevenness into visible judder. Holding the newest
-  // frame and painting it on `requestAnimationFrame` puts every picture on a
-  // refresh boundary instead.
-  let pending = null;
+  // This was a single slot at first — keep the newest, drop the rest — and that
+  // is wrong in a way worth spelling out, because it looks harmless.
+  //
+  // A 60 fps source and a 60 Hz display that are not phase-locked put two frames
+  // in one refresh interval and none in the next. With one slot the first of the
+  // pair is DISCARDED and the empty interval REPEATS the previous picture: one
+  // wobble in arrival costs a game frame nobody ever sees, plus a visible stall.
+  // Measured over Wi-Fi: five or six of sixty frames a second lost that way,
+  // which is exactly what "a bit stuttery" feels like at the controller.
+  //
+  // A queue turns that jitter into LATENCY instead. One frame of slack means a
+  // frame arriving up to 16.7 ms late still gets its own refresh, because there
+  // was a spare behind it. The slack is not free, and the page says what it
+  // costs rather than hiding it.
+  const queue = [];
+  let target = 1;
+  const MAX_TARGET = 3;
+  // Waiting for the queue to rebuild after starving. Presenting during this is
+  // what would make the buffer pointless: it would spend the slack the instant
+  // it arrived, and starve again on the next late frame.
+  let priming = true;
+  let starved = 0;
+  let starvedRecent = 0;
+  let skipped = 0;
+  let ticks = 0;
+  let calmWindows = 0;
 
   const percentile = (values, q) => {
     if (!values.length) return 0;
@@ -145,11 +164,15 @@
             recent.push(total);
             if (recent.length > 240) recent.shift();
           }
-          // A frame the display never asked for is closed rather than queued:
-          // holding more than one is a jitter buffer, and building one is a
-          // decision to take from a measurement rather than by accident.
-          pending?.close();
-          pending = frame;
+          queue.push(frame);
+          // Never carry more slack than asked for: beyond that it is pure
+          // latency. This is also what keeps a backgrounded tab — where the
+          // display never asks for anything — from accumulating seconds of
+          // stale pictures.
+          while (queue.length > target + 1) {
+            queue.shift().close();
+            skipped += 1;
+          }
           shown += 1;
         },
         error: (error) => show(`decoder error: ${error}`, "bad"),
@@ -180,21 +203,63 @@
   // Paint on the display's own schedule. `painted` counts refreshes that had a
   // new picture; `repeated` counts those that had to show the previous one
   // again, which is exactly what stutter is made of.
-  let lastPainted = null;
   function paint() {
     requestAnimationFrame(paint);
-    if (pending === null) {
-      if (lastPainted !== null) repeated += 1;
+    ticks += 1;
+    adjustBuffer();
+
+    if (priming) {
+      // `> target`, not `>= target`: presenting has to LEAVE `target` behind it,
+      // or the slack exists for exactly one refresh and buys nothing.
+      if (queue.length > target) priming = false;
+      else {
+        repeated += 1;
+        return;
+      }
+    }
+    if (queue.length === 0) {
+      starved += 1;
+      starvedRecent += 1;
+      repeated += 1;
+      priming = true;
       return;
     }
-    canvas.width = pending.displayWidth;
-    canvas.height = pending.displayHeight;
-    context.drawImage(pending, 0, 0);
-    pending.close();
-    pending = null;
-    lastPainted = performance.now();
+
+    const frame = queue.shift();
+    canvas.width = frame.displayWidth;
+    canvas.height = frame.displayHeight;
+    context.drawImage(frame, 0, 0);
+    frame.close();
     painted += 1;
   }
+
+  /// Grows the buffer when the path is jittery, shrinks it when it is calm.
+  ///
+  /// Adaptive rather than fixed because the right depth is a property of the
+  /// network, not of the program: on a loopback zero is correct and a fixed
+  /// buffer would be 16.7 ms of pure loss, while over Wi-Fi one or two is what
+  /// stops the judder. Slow in both directions — growing costs a visible pause
+  /// to refill, shrinking costs a dropped frame, so neither should happen over
+  /// a blip.
+  function adjustBuffer() {
+    const WINDOW = 120; // two seconds at 60 Hz
+    if (ticks % WINDOW !== 0) return;
+
+    if (starvedRecent > 1 && target < MAX_TARGET) {
+      target += 1;
+      calmWindows = 0;
+    } else if (starvedRecent === 0) {
+      calmWindows += 1;
+      if (calmWindows >= 3 && target > 0) {
+        target -= 1;
+        calmWindows = 0;
+      }
+    } else {
+      calmWindows = 0;
+    }
+    starvedRecent = 0;
+  }
+
   requestAnimationFrame(paint);
 
   /// Walks the start codes looking for a NAL of `kind`, returning where its
@@ -293,7 +358,9 @@
     const elapsed = (performance.now() - firstArrival) / 1000;
     const rate = (count) => (elapsed > 0 ? count / elapsed : 0).toFixed(1);
     show(
-      `connection           ${connected ? "up" : "reconnecting…"}` +
+      `buffer               ${target} frame${target === 1 ? "" : "s"} ` +
+        `(+${(target * 16.7).toFixed(0)} ms), ${starved} starves, ${skipped} skipped\n` +
+        `connection           ${connected ? "up" : "reconnecting…"}` +
         `${reconnects > 0 ? ` (${reconnects} drop${reconnects > 1 ? "s" : ""})` : ""}\n` +
         `sent by the server   60.0 /s (nominal)\n` +
         `arrived              ${rate(shown)} /s\n` +

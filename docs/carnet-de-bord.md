@@ -1190,6 +1190,79 @@ longueur absurde qui a trahi la panne.
 > Une page qui est morte au chargement ressemble à une page qui attend encore.
 > Le seul témoin fiable est ce qu'elle **dit**, pas ce qu'on lui envoie.
 
+### La vraie cause : Dolphin se taisait quand l'image ne changeait pas
+
+Les deux chiens de garde étaient justes, et le gel revenait. Cette fois j'ai
+regardé **en amont**, du côté du serveur, et le journal avait déjà la réponse
+sous les yeux : `slowest_waiting_ms`, le temps que le worker passe à attendre une
+image de l'émulateur.
+
+| | avant |
+|---|---|
+| médiane | 16,5 ms — une image, normal |
+| p90 | **396 ms** |
+| pire | **1 385 ms** |
+| fenêtres de 10 s contenant un trou > 300 ms | **18 sur 108** |
+
+Et surtout : les trous tombaient **au même numéro d'image à chaque lancement**
+(6 489 puis 6 495 ; 9 377 puis 9 383 ; 15 358 puis 15 364). Ni le réseau, ni la
+charge, ni la chaleur : quelque chose de **déterministe**, lié à l'endroit où le
+jeu se trouve.
+
+J'ai échantillonné les 28 fils de Dolphin toutes les 20 ms pendant trois minutes,
+et aligné sur l'instant exact des trous — le worker les nomme maintenant dans le
+journal, précisément pour ça. Résultat : **personne n'attendait**. Pas d'attente
+GPU, pas de lecture disque, rien. Le fil CPU-GPU travaillait ou dormait dans son
+limiteur de vitesse. Dolphin allait très bien : il ne **présentait** simplement
+pas d'image.
+
+Le code de Dolphin le dit en une ligne (`VideoCommon/Present.cpp`) :
+
+```cpp
+if (!is_duplicate || !g_ActiveConfig.bSkipPresentingDuplicateXFBs)
+{
+  Present(&present_info);
+  ProcessFrameDumping(ticks);   // ← notre export vit ici
+}
+```
+
+`SkipDuplicateXFBs` vaut **vrai par défaut**. Quand le jeu réaffiche exactement
+la même image — un menu, un chargement, une pause — Dolphin saute la
+présentation, et notre crochet d'export avec elle. **Le flux se taisait parce que
+l'image ne changeait pas.**
+
+> Pour une console, sauter une image identique est une économie. Pour un flux
+> c'est une catastrophe : le spectateur ne peut pas distinguer une image fixe
+> d'un lien mort.
+
+Et le pire : au-delà de deux secondes de silence, **mon propre chien de garde
+coupait la connexion et se reconnectait** — les « deux ou trois images en
+boucle ». Le correctif client était juste et il transformait un silence légitime
+en rupture. Un mesuré à 2,1 s ; le seuil est à 2 s.
+
+Un réglage suffit : `Graphics.Hacks.SkipDuplicateXFBs = False`.
+
+| | avant | après |
+|---|---|---|
+| médiane | 16,5 ms | 16,3 ms |
+| p90 | 396 ms | **19,7 ms** |
+| pire | 1 385 ms | **46,7 ms** |
+| trous > 300 ms | 18 / 108 fenêtres | **0 / 72** |
+
+Douze minutes, jusqu'à l'image 79 204 — bien au-delà de tous les points où ils
+tombaient. Ça coûte de réencoder une image identique, c'est-à-dire quelques
+octets sur une image P.
+
+**La leçon, et elle est plus grande que ce bogue :** j'ai passé des heures dans
+le navigateur parce que c'est là que le symptôme se voyait. Ce que le serveur
+mesurait déjà — l'attente d'une image — nommait la cause depuis le début. Quand
+le symptôme est au bout de la chaîne, **la première question est ce que dit le
+début de la chaîne**, pas ce que fait la fin.
+
+Reste un trou connu, non corrigé : quand le jeu **efface l'écran**
+(`m_xfb_entry` remis à zéro), le crochet ne part pas non plus. Le worker le
+nommera dans le journal (`the emulator went quiet`) si ça arrive.
+
 ### Deux erreurs de raisonnement à garder
 
 **Deux correctifs écrits, deux échecs, gardés écrits.** J'ai d'abord trouvé un

@@ -43,6 +43,13 @@ const PAGE: &str = include_str!("play.html");
 /// that wants a real network to react to before it is written.
 const QP: u32 = 26;
 
+/// A wait past which the emulator is not merely late but stopped.
+///
+/// Fifteen frames. A busy frame overruns its 16.7 ms budget often enough that a
+/// tighter threshold would name every hiccup; a quarter of a second is a hole
+/// nobody can miss on screen.
+const STALL: Duration = Duration::from_millis(250);
+
 fn main() -> Result<()> {
     init_tracing();
     tracing::info!(
@@ -134,6 +141,22 @@ fn run(settings: &Settings) -> Result<()> {
         ("Settings", "ShaderCompilationMode", "2"),
         // And do not stall at boot waiting for the whole cache either.
         ("Settings", "WaitForShadersBeforeStarting", "False"),
+        // The one that made the stream go quiet. Dolphin skips PRESENTING a
+        // frame whose XFB is unchanged, and our export hook lives inside that
+        // `if` (VideoCommon/Present.cpp: `if (!is_duplicate ||
+        // !bSkipPresentingDuplicateXFBs) { Present(); ProcessFrameDumping(); }`).
+        // So a game showing a still picture — a menu, a load, a pause — sends us
+        // NOTHING, and measured on this machine that reached 2.1 s.
+        //
+        // For a console that is a saving. For a stream it is a catastrophe: the
+        // viewer cannot tell a still picture from a dead link, its buffer
+        // starves, and past two seconds the page tears the connection down and
+        // reconnects — the "it freezes and loops on two or three images" that
+        // sent me looking at the browser for hours.
+        //
+        // Presenting duplicates costs a re-encode of an identical frame, which
+        // is a handful of bytes on a P-frame. A silent stream costs the session.
+        ("Hacks", "SkipDuplicateXFBs", "False"),
     ] {
         match nel3ab_emulator::ConfigOverride::new("Graphics", section, key, value) {
             Ok(over) => config.overrides.push(over),
@@ -271,6 +294,17 @@ fn run(settings: &Settings) -> Result<()> {
             input_to_frame.push(at.elapsed().as_secs_f64() * 1000.0);
         }
         let waited = iteration.elapsed();
+        // A ten-second summary says a stall HAPPENED; it cannot say WHEN, and
+        // "when" is the only thing that lets a profile of the emulator be
+        // aligned with it. Named at the instant, so a sampler running alongside
+        // has something to line up against.
+        if waited >= STALL {
+            tracing::warn!(
+                waited_ms = waited.as_secs_f64() * 1000.0,
+                produced,
+                "the emulator went quiet"
+            );
+        }
         let shading = Instant::now();
         let plane = source.plane();
         converter.convert(

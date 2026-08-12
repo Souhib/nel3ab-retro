@@ -10,12 +10,18 @@
   .bad { color: #ff8080; }
   .note { color: #888; }
   kbd { background: #222; border: 1px solid #444; border-radius: 3px; padding: 0 0.3em; }
+  button { font: inherit; color: #ddd; background: #222; border: 1px solid #444;
+           border-radius: 3px; padding: 0.3em 0.8em; cursor: pointer; }
+  button:hover { background: #2c2c2c; }
+  #hint { color: #888; font-size: 0.85rem; }
 </style>
 
 <div id="wrap">
   <canvas id="screen" width="640" height="480"></canvas>
   <div>
     <div id="stats">connecting…</div>
+    <p><button id="copy" type="button">copier les chiffres</button>
+      <span id="hint"></span></p>
     <p class="note">
       <kbd>←↑↓→</kbd> stick · <kbd>X</kbd> A · <kbd>C</kbd> B · <kbd>S</kbd> X ·
       <kbd>D</kbd> Y · <kbd>A</kbd> Z · <kbd>Q</kbd> L · <kbd>E</kbd> R ·
@@ -29,8 +35,48 @@
   const stats = document.getElementById("stats");
   const context = document.getElementById("screen").getContext("2d");
   const canvas = context.canvas;
-  const show = (text, cls = "") =>
-    (stats.innerHTML = cls ? `<span class="${cls}">${text}</span>` : text);
+  const hint = document.getElementById("hint");
+  const copyButton = document.getElementById("copy");
+  /// Replacing the panel's content destroys any selection inside it, and the
+  /// panel refreshes twice a second: highlighting a number to copy it was
+  /// impossible, the selection vanished before the second click. So the display
+  /// HOLDS while a selection is live in it. A counter that pauses for as long as
+  /// somebody is reading it is worth more than one nobody can quote.
+  const selectionInside = () => {
+    const selection = getSelection();
+    return (
+      selection !== null &&
+      !selection.isCollapsed &&
+      stats.contains(selection.anchorNode) &&
+      stats.contains(selection.focusNode)
+    );
+  };
+
+  let latest = "connecting…";
+  const show = (text, cls = "") => {
+    latest = text;
+    if (selectionInside()) {
+      hint.textContent = "figé pendant la sélection";
+      return;
+    }
+    hint.textContent = "";
+    stats.innerHTML = cls ? `<span class="${cls}">${text}</span>` : text;
+  };
+
+  // The button copies what the panel says, so nothing has to be selected at all
+  // — the reason the numbers exist is to be sent to somebody.
+  copyButton.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(latest);
+      hint.textContent = "copié";
+    } catch {
+      // No clipboard permission: select it instead, which is at least as good
+      // as what the page offered before.
+      getSelection()?.selectAllChildren(stats);
+      hint.textContent = "sélectionné — ⌘C";
+    }
+    setTimeout(() => (hint.textContent = ""), 2000);
+  });
 
   if (!("VideoDecoder" in window)) {
     show(

@@ -1169,6 +1169,27 @@ Vérifié dans les deux sens, comme toujours ici. Avec le chien de garde désarm
 la mort silencieuse donne **+1 image peinte en six secondes** — le gel. Armé :
 **+71**, une seconde pleine de jeu. C'est `just browser-recovery`.
 
+### Des chiffres qu'on ne peut pas copier ne servent à personne
+
+Le panneau de statistiques se réécrit deux fois par seconde. Or **réécrire le
+nœud efface la sélection** : surligner un nombre pour me l'envoyer était
+impossible, la sélection disparaissait avant le second clic.
+
+Deux réponses. L'affichage **se fige tant qu'une sélection est vivante dedans**
+— un compteur en pause pendant qu'on le lit vaut mieux qu'un compteur que
+personne ne peut citer — et un bouton copie tout d'un clic, puisque la raison
+d'être de ces chiffres est d'être envoyés.
+
+Et le test a attrapé bien plus que ce qu'il visait : mon `const hint` s'appelait
+d'abord `held`, nom déjà pris par l'ensemble des touches enfoncées. Un module
+qui déclare deux fois le même nom **ne s'exécute pas du tout**. Côté serveur
+c'était invisible — les images partaient très bien vers une page morte ; le
+panneau affichait encore « connecting… », onze caractères, et c'est cette
+longueur absurde qui a trahi la panne.
+
+> Une page qui est morte au chargement ressemble à une page qui attend encore.
+> Le seul témoin fiable est ce qu'elle **dit**, pas ce qu'on lui envoie.
+
 ### Deux erreurs de raisonnement à garder
 
 **Deux correctifs écrits, deux échecs, gardés écrits.** J'ai d'abord trouvé un

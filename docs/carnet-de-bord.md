@@ -873,15 +873,50 @@ transfert, pas d'une texture.
 > pool de descripteurs ; l'échec n'est pas vérifié, et le pointeur nul fait
 > tomber le pilote.
 
+### Ce que les objets sont, et ce qu'ils ne sont pas
+
+En instrumentant Dolphin (l'arbre source est dans `dolphin-dev`, la
+reconstruction prend quinze secondes) pour journaliser **chaque** allocation de
+tampon avec sa taille : **zéro** allocation de 3 276 800 octets. Les tampons de
+flux sont créés une fois au démarrage ; les tampons de transfert font 1 351 680
+octets, soit 640×528×4 — la taille de l'image.
+
+Donc ces objets ne viennent pas des tampons de Dolphin. Or ce sont des tampons
+**accessibles au CPU**, et l'allocation qui échoue est un *pool de
+descripteurs* — un pool est exactement ça. Confirmé par une expérience qui a
+échoué dans la bonne direction : en modifiant Dolphin pour ne **plus jamais
+détruire** ses pools, le nombre d'objets de 3,1 Mo est passé de 183 à 1163 en
+soixante secondes. Ce sont bien les pools.
+
+### Les deux jeux, et ce que ça écarte
+
+Mario Kart Double Dash fuit aussi — ce n'est donc pas propre à Melee, c'est le
+moteur Vulkan. Mais son profil est plus parlant :
+
+```
+t+30s   GTT=448 Mo   pools=22     (menus)
+t+120s  GTT=483 Mo   pools=94
+t+180s  GTT=3112 Mo  pools=929    (en piste)
+t+300s  GTT=629 Mo   pools=85     (libérés !)
+```
+
+**Les pools finissent par être libérés.** Ce n'est donc pas une fuite au sens
+strict : c'est une croissance pilotée par la complexité de la scène, dont le pic
+dépasse la mémoire disponible avant que le nettoyage n'arrive. Melee, avec son
+écran d'attente qui boucle, atteint ce pic en quatre minutes et demie ; Mario
+Kart survit plus longtemps parce que ses menus n'allouent presque rien.
+
 ### Deux erreurs de raisonnement à garder
 
-**Le message d'erreur nomme la victime, pas le coupable.** J'ai lu
-« vkCreateDescriptorPool a échoué », trouvé un vrai bug de croissance sans borne
-dans ce code (`m_descriptor_set_count` s'incrémente à chaque débordement et ne
-décroît jamais), écrit le correctif, reconstruit… et **la fuite a continué à
-l'identique**. Le pool était la première allocation à échouer, pas la cause. Le
-correctif n'est donc pas livré : il ne répare rien de ce qu'on observe, et une
-divergence d'avec l'amont se paie.
+**Deux correctifs écrits, deux échecs, gardés écrits.** J'ai d'abord trouvé un
+vrai bug de croissance sans borne (`m_descriptor_set_count` s'incrémente à chaque
+débordement, ne décroît jamais) : corrigé, reconstruit, **fuite inchangée**.
+Puis j'ai essayé de réinitialiser les pools au lieu de les recréer : **six fois
+pire**. Aucun des deux n'est livré. Une divergence d'avec l'amont se paie, et
+elle ne se paie que contre une mesure.
+
+Le premier essai venait d'une erreur de lecture : **le message d'erreur nomme la
+victime, pas le coupable.** Le pool était la première allocation à échouer.
 
 **Un compteur qui peut décroître n'est pas un repère.** Pour détecter les
 plantages je comptais les lignes de `dmesg` — un **tampon circulaire**. Le compte

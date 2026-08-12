@@ -204,11 +204,27 @@ Ruled out, each by experiment: our frame-export patch (a control with it inert
 crashes identically), the threading mode, asynchronous ubershaders, a Mesa
 version mismatch, and EFB access.
 
-**The next step is instrumentation, not more reasoning.** `dolphin-dev` holds the
-source tree and builds incrementally in seconds; logging the caller of
-`StagingBuffer::Create` for that exact size names the allocation. After that the
-question is whether it is game-specific — which needs a second ROM on the server,
-and is the reason to have one.
+The objects are **Dolphin's Vulkan descriptor pools**. Established rather than
+guessed: instrumenting every buffer allocation in Dolphin shows *no* allocation
+of that size, so they are not Dolphin's buffers; and a build that stops
+destroying descriptor pools multiplies exactly those objects six-fold.
+
+**Both games do it**, so it is the backend and not one title. Mario Kart's
+profile is the more legible one — 22 pools in menus, 929 on track a minute
+later, and back to 85 later still. So the pools *are* eventually released: this
+is growth driven by scene complexity whose peak outruns the memory available,
+not an absolute leak.
+
+**Two fixes were written and neither shipped.** Bounding `m_descriptor_set_count`
+(a genuine unbounded-growth bug in its own right) changed nothing measurable;
+resetting pools instead of recreating them made it six times worse. Divergence
+from upstream is only worth paying for against a measurement.
+
+What is left is upstream work: the pool churn happens in
+`CommandBufferManager::WaitForCommandBufferCompletion`, which destroys and
+rebuilds a frame's pools whenever that frame needed more than one — roughly four
+times a second — and the memory is not returned until much later. Worth reporting
+with this evidence rather than patching blind.
 
 - The room UI, slot negotiation, authentication — M4.
 - More than one player. The protocol supports four; proving four at once is a

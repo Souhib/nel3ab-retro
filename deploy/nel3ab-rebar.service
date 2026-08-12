@@ -1,0 +1,47 @@
+# Opens the whole VRAM to the CPU at boot, which the firmware will not do.
+#
+# # What this fixes, measured
+#
+# The card exposes only 256 MB of its 8 GB to the CPU, because the firmware
+# declares no PCI address space above 4 GB. Descriptor pools want memory that is
+# both device-local and host-writable, so they spilled into system memory and
+# accumulated there: GTT climbing a linear 12.5 MB/s to about 3 GB, then an
+# allocation failure that took the driver down every four and a half minutes.
+#
+# With the window open, on the same workload:
+#
+#   GTT              3 GB and climbing   ->  205 MB, flat
+#   allocation fails many per session    ->  zero
+#   worst frame wait up to 2700 ms       ->  16.8 ms
+#   crashes          one per 4.5 min     ->  none
+#
+# # Why it needs `pci=nocrs`
+#
+# The resize is refused with ENOSPC unless the kernel has address space above
+# 4 GB to put the window in, and the firmware's ACPI description offers none —
+# enabling "Above 4G Decoding" and "Re-Size BAR Support" in this board's setup
+# did not change that, verified. `pci=nocrs` makes the kernel ignore that
+# description and derive the windows from the hardware, which it suggests itself
+# at boot: "if necessary, use pci=nocrs and report a bug". The kernel then offers
+# `[mem 0x00000000-0x7ffffffffff]` and the 8 GB window lands at 0x1200000000.
+#
+# # Why unbind and rebind
+#
+# A BAR cannot be resized while a driver holds the device. Doing it here, before
+# anything else claims the GPU, keeps the window to a few seconds at boot.
+
+[Unit]
+Description=Open the full VRAM aperture (Resizable BAR) before anything uses the GPU
+DefaultDependencies=no
+After=systemd-udev-settle.service
+Before=docker.service nel3ab-worker.service basic.target
+ConditionKernelCommandLine=pci=nocrs
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/nel3ab-rebar
+StandardOutput=journal
+
+[Install]
+WantedBy=sysinit.target

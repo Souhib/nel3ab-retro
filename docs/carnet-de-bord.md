@@ -1018,6 +1018,61 @@ un match à quatre, couleurs justes, HUD complet, aucun artefact visible.
 > suivante n'est pas « comment l'empêcher » mais « pourquoi est-elle fatale ».
 > Perdre une image vaut mieux que perdre la partie.
 
+### Le vrai correctif : ouvrir la fenêtre, sans passer par le firmware
+
+Le BIOS avait bien « Above 4G Decoding » et « Resizable BAR » activés — vérifié —
+et **ça n'a rien changé** : la BAR restait à 256 Mo et `/proc/iomem` ne montrait
+toujours aucune fenêtre PCI au-dessus de 4 Go. Le firmware annonce une chose et
+en applique une autre.
+
+Mais le noyau écrit lui-même la solution à chaque démarrage :
+
+```
+PCI: Using host bridge windows from ACPI; if necessary, use "pci=nocrs" and report a bug
+```
+
+`pci=nocrs` lui fait **ignorer la description du firmware** et reconstruire les
+fenêtres depuis le matériel. Au démarrage suivant :
+
+```
+root bus resource [mem 0x00000000-0x7ffffffffff]      ← 8 To d'espace
+```
+
+Et le redimensionnement, refusé cinq fois en `ENOSPC`, passe du premier coup :
+
+```
+8192 Mo : ACCEPTÉ
+Region 0: Memory at 1200000000 (64-bit, prefetchable) [size=8G]
+```
+
+L'adresse `0x1200000000` est au-dessus de 4 Go — exactement l'espace que le
+firmware refusait de céder.
+
+### Ce que ça change, mesuré sur la même charge
+
+| | avant | après |
+|---|---|---|
+| VRAM visible par le CPU | 256 Mo / 8176 | **8176 Mo / 8176** |
+| GTT (mémoire système) | +12,5 Mo/s jusqu'à 3 Go | **205 Mo, plat** |
+| échecs d'allocation | plusieurs par session | **zéro** |
+| pire attente d'image | jusqu'à 2700 ms | **16,8 ms** |
+| plantages | un toutes les 4 min 30 | **aucun** |
+
+Les pools de descripteurs vivent désormais dans la VRAM, là où ils doivent être,
+au lieu de déborder en mémoire système et de s'y accumuler. **Les décrochages de
+plusieurs secondes ont disparu avec eux** — ils étaient le symptôme du même
+débordement.
+
+Le tout est rendu permanent par deux pièces dans `deploy/` : les paramètres
+noyau, et un service qui redimensionne la fenêtre **avant que quoi que ce soit ne
+touche au GPU** — à ce moment du démarrage amdgpu n'est pas encore chargé, donc
+il n'y a rien à détacher. Vérifié après un redémarrage complet, sans
+intervention.
+
+> **Leçon** : un réglage de firmware qui *dit* être actif n'est pas une preuve
+> qu'il l'est. `/proc/iomem` l'était. Et quand un composant écrit dans ses
+> journaux le nom du contournement, ça vaut la peine de le lire.
+
 ### Deux erreurs de raisonnement à garder
 
 **Deux correctifs écrits, deux échecs, gardés écrits.** J'ai d'abord trouvé un

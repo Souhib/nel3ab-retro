@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# Resizes the GPU's BAR 0 to the whole of its VRAM. See nel3ab-rebar.service.
+set -uo pipefail
+
+dev=$(lspci -D -d ::0300 | head -1 | cut -d' ' -f1)
+[ -n "$dev" ] || { echo "no VGA device found"; exit 0; }
+
+sysfs=/sys/bus/pci/devices/$dev
+[ -w "$sysfs/resource0_resize" ] || { echo "$dev has no resizable BAR"; exit 0; }
+
+# The largest size the card admits to supporting; the mask has one bit per
+# size, bit n meaning 2^n MB.
+mask=$(cat "$sysfs/resource0_resize")
+best=0
+for n in 9 10 11 12 13; do
+  (( (0x$mask >> n) & 1 )) && best=$n
+done
+[ "$best" -gt 0 ] || { echo "$dev advertises no larger size"; exit 0; }
+
+# Idempotent: a second run, or a boot where the firmware already did the right
+# thing, must be a no-op rather than another unbind cycle.
+#
+# The size comes from sysfs rather than from parsing `lspci`, which prints "8G"
+# here and "256M" there — a unit that changes with the value is a parser waiting
+# to be wrong. Line 1 of `resource` is BAR 0 as start, end, flags.
+read -r bar_start bar_end _ < <(sed -n 1p "$sysfs/resource")
+current=$(( (bar_end - bar_start + 1) / 1048576 ))
+if [ "$current" -ge "$(( 2 ** best ))" ]; then
+  echo "$dev BAR 0 already covers ${current}M, the largest it supports"
+  exit 0
+fi
+
+# Largest first: the mask says what the card supports, and more is strictly
+# better — every megabyte outside the window is memory the CPU cannot reach
+# without a bounce buffer.
+for n in $(seq "$best" -1 9); do
+  (( (0x$mask >> n) & 1 )) || continue
+  # Detaching only matters when a driver is already attached. Run early enough
+  # — which this unit is — and amdgpu has not been loaded yet, so there is
+  # nothing to detach and nothing to put back. Both are therefore quiet.
+  rebind=no
+  if [ -e /sys/bus/pci/drivers/amdgpu/"$dev" ]; then
+    echo "$dev" > /sys/bus/pci/drivers/amdgpu/unbind 2>/dev/null && rebind=yes
+    sleep 1
+  fi
+  resized=no
+  echo "$n" > "$sysfs/resource0_resize" 2>/dev/null && resized=yes
+  [ "$rebind" = yes ] && echo "$dev" > /sys/bus/pci/drivers/amdgpu/bind 2>/dev/null
+  if [ "$resized" = yes ]; then
+    echo "$dev BAR 0 resized to $((2**n))M"
+    exit 0
+  fi
+  echo "$dev refused $((2**n))M"
+  sleep 1
+done
+
+echo "$dev could not be resized; the aperture stays at ${current}M"

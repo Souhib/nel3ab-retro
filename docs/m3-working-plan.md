@@ -239,18 +239,32 @@ card can open the whole 8 GB; the firmware has not been told to.
 
 Said plainly: a full window explains the spill, **not the crash** — it is just as
 full during the four minutes that go fine. It is a hypothesis to test, not a
-demonstration. It is also the only lead that a setting can change rather than an upstream patch.
+demonstration. **Fixed, and not through the firmware.** The BIOS did have "Above 4G Decoding"
+and "Re-Size BAR Support" enabled — checked — and it changed nothing: the BAR
+stayed at 256 MB and `/proc/iomem` still showed no window above 4 GB. A setting
+that says it is on is not evidence that it is.
 
-**The hot resize was tried and the kernel refuses every size**, 8 GB down to
-512 MB, all `ENOSPC`. `/proc/iomem` says why: the BAR sits at `0xd0000000`, which
-is 3.5 GB — *below* the 4 GB line — and there is no PCI window above it. The
-firmware placed all MMIO in the 32-bit space and reserved nothing beyond, so the
-kernel has nowhere to put a larger window, at runtime or at boot.
+The kernel writes the answer at every boot: *"Using host bridge windows from
+ACPI; if necessary, use pci=nocrs and report a bug"*. With `pci=nocrs` it ignores
+the firmware's description and derives the windows from the hardware, offering
+`[mem 0x00000000-0x7ffffffffff]` — and the resize, refused five times with
+ENOSPC, is accepted at the first try. The 8 GB window lands at `0x1200000000`,
+above the 4 GB line the firmware would not cross.
 
-That is **"Above 4G Decoding" disabled**, and the BIOS setting is not a
-preference: it is what creates the address space without which no resize can
-happen. Enable it together with "Re-Size BAR Support", then re-measure — heap 2
-should read about 8 GB instead of 256 MB.
+Measured on the same workload:
+
+| | before | after |
+|---|---|---|
+| CPU-visible VRAM | 256 MB of 8176 | **8176 MB of 8176** |
+| GTT | +12.5 MB/s to 3 GB | **205 MB, flat** |
+| allocation failures | several a session | **zero** |
+| worst frame wait | up to 2700 ms | **16.8 ms** |
+| crashes | one per 4.5 min | **none** |
+
+The multi-second stalls went with it — they were the same spill, seen from the
+frame loop. Made permanent by two files in `deploy/`: the kernel parameters, and
+a unit that resizes the window before anything touches the GPU, verified across a
+full reboot with no hands.
 
 ### Shipped: the failure is survivable now
 

@@ -826,6 +826,68 @@ plus. C'est le service que WebRTC rend gratuitement, et la contrepartie que le
 plan de M3 avait annoncée. À trancher sur une mesure prise depuis un vrai
 client, pas ici.
 
+### 5quinquies. Le crash : ce n'était pas nous
+
+« Dolphin freeze et relance le jeu » n'était pas du saccadement : c'était un
+**plantage**, toutes les trois à quatre minutes. Le service ayant
+`Restart=always`, systemd relançait tout et le jeu repartait de zéro.
+
+Ce qu'on a établi, dans l'ordre :
+
+**1. Le noyau nomme le coupable.** Chaque plantage laisse la même trace :
+`segfault at 40 ... in libvulkan_radeon.so`, toujours au **même décalage**
+(0xBA23E) dans la bibliothèque. `at 40` = déréférencement d'un pointeur nul.
+C'est le pilote Vulkan qui tombe, sur le fil qui soumet le travail au GPU.
+
+**2. Ce n'est pas notre code.** Un Dolphin témoin, même image, avec l'export
+d'images **entièrement inerte** (la variable d'environnement absente), plante
+exactement pareil — worker arrêté, aucune ambiguïté d'attribution.
+
+**3. Ni le mode de threads.** Passé en double cœur, le crash se déplace du fil
+« CPU-GPU » au fil « Video » et reste identique. Renommé, pas corrigé.
+
+**4. Ni les ubershaders** (le premier crash précède leur activation), **ni une
+divergence de version Mesa** (25.2.8 des deux côtés, vérifié), **ni les lectures
+de l'EFB** (désactivées : pente inchangée).
+
+**5. Dolphin dit lui-même ce qui échoue :**
+
+```
+CreateDescriptorPool:187  vkCreateDescriptorPool failed: VK_ERROR_OUT_OF_DEVICE_MEMORY
+```
+
+**6. Et le noyau dit ce qui fuit.** La VRAM reste plate à 310 Mo, mais le
+**GTT** — la mémoire système mappée pour le GPU — monte **linéairement de
+12,5 Mo/s** jusqu'à ~3 Go, puis tout s'écroule. En listant les objets alloués :
+
+```
+3 276 800 octets, GTT CPU_ACCESS_REQUIRED : 349 -> 692 objets en 90 s
+```
+
+Environ **quatre tampons de 3,1 Mo par seconde, jamais libérés**. Rien d'autre ne
+prolifère. Ce sont des tampons *accessibles au CPU* — la signature d'un tampon de
+transfert, pas d'une texture.
+
+> **La conclusion** : une fuite mémoire GPU dans le moteur Vulkan de Dolphin
+> épuise la mémoire en quatre minutes ; l'allocation qui échoue en premier est un
+> pool de descripteurs ; l'échec n'est pas vérifié, et le pointeur nul fait
+> tomber le pilote.
+
+### Deux erreurs de raisonnement à garder
+
+**Le message d'erreur nomme la victime, pas le coupable.** J'ai lu
+« vkCreateDescriptorPool a échoué », trouvé un vrai bug de croissance sans borne
+dans ce code (`m_descriptor_set_count` s'incrémente à chaque débordement et ne
+décroît jamais), écrit le correctif, reconstruit… et **la fuite a continué à
+l'identique**. Le pool était la première allocation à échouer, pas la cause. Le
+correctif n'est donc pas livré : il ne répare rien de ce qu'on observe, et une
+divergence d'avec l'amont se paie.
+
+**Un compteur qui peut décroître n'est pas un repère.** Pour détecter les
+plantages je comptais les lignes de `dmesg` — un **tampon circulaire**. Le compte
+est passé de 69 à 68, ma boucle d'attente n'a jamais déclenché, et j'ai failli
+conclure d'une mesure cassée. Repère temporel depuis.
+
 ---
 
 ## 6. Les pièges qui ont coûté du temps, et ce qu'ils ont appris

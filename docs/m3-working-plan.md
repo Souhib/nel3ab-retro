@@ -186,7 +186,29 @@ a burst into the smallest legal set of commands.
 
 ---
 
-## 4. What is NOT in M3
+## 3bis. The open defect: Dolphin leaks GPU memory and takes the driver down
+
+Not ours, and established rather than assumed — the investigation is written out
+in the logbook. The short form:
+
+- Dolphin's Vulkan backend leaks **3 276 800-byte host-visible buffers at about
+  four a second** (~12.5 MB/s of GTT), never freeing them.
+- At roughly 3 GB, some allocation fails. The one that happens to fail first is
+  `vkCreateDescriptorPool`, returning `VK_ERROR_OUT_OF_DEVICE_MEMORY`.
+- The failure is unchecked, and the null pool segfaults inside RADV at a fixed
+  offset. Every crash is byte-identical.
+- Elapsed to crash: 128-413 s, clustered at ~268 s. The worker exits cleanly, and
+  `Restart=always` reboots the emulator, so a player sees the game restart.
+
+Ruled out, each by experiment: our frame-export patch (a control with it inert
+crashes identically), the threading mode, asynchronous ubershaders, a Mesa
+version mismatch, and EFB access.
+
+**The next step is instrumentation, not more reasoning.** `dolphin-dev` holds the
+source tree and builds incrementally in seconds; logging the caller of
+`StagingBuffer::Create` for that exact size names the allocation. After that the
+question is whether it is game-specific — which needs a second ROM on the server,
+and is the reason to have one.
 
 - The room UI, slot negotiation, authentication — M4.
 - More than one player. The protocol supports four; proving four at once is a

@@ -964,6 +964,24 @@ C'est la signature de **« Above 4G Decoding » désactivé**. Le réglage BIOS 
 pas une préférence : c'est ce qui crée l'espace d'adressage sans lequel le
 redimensionnement est impossible, à chaud comme au démarrage.
 
+Vérifié une dernière fois du côté des fenêtres que le firmware déclare :
+
+```
+000a0000-000dffff : PCI Bus   (hérité)
+d0000000-fec2ffff : PCI Bus   (3,5 Go → 4,26 Go)
+fee00000-ffffffff : PCI Bus
+```
+
+**Aucune fenêtre au-dessus de 4 Go.** Cela écarte aussi le paramètre noyau
+`pci=realloc`, qui réattribue dans l'espace existant : il n'y a rien à
+réattribuer. Le seul contournement logiciel restant serait `pci=nocrs`, qui fait
+ignorer au noyau la description du firmware et reconstruire les fenêtres
+lui-même — un coup de poker sur une machine sans écran, et à réserver.
+
+Et la machine est une **ASUS ROG STRIX B550-A**, carte grand public : **pas
+d'IPMI**, donc pas d'accès BIOS à distance. Un serveur destiné à tourner sans
+écran gagnerait un boîtier KVM sur IP ; c'est un outil, pas un luxe.
+
 La carte a survécu aux six cycles détacher/rattacher : 59 tests GPU au vert
 après coup.
 

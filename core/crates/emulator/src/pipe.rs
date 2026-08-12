@@ -30,6 +30,8 @@ use std::os::unix::fs::OpenOptionsExt as _;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
+use std::sync::{Arc, Mutex};
+
 use nel3ab_protocol::{InputFrame, PlayerSlot};
 use nix::errno::Errno;
 use nix::fcntl::OFlag;
@@ -195,6 +197,59 @@ impl PendingPipes {
 #[derive(Debug)]
 pub struct Pipes {
     pads: Vec<PadPipe>,
+}
+
+/// A handle on the input pipes that a second thread can hold.
+///
+/// # Why this exists
+///
+/// The worker used to write pad state once per emulated frame, from the loop
+/// that waits for pictures. Measured, that cost a **full frame period** —
+/// p50 15.55 ms, p95 15.74 ms — and the consistency was the tell: a write locked
+/// to the frame notification lands at the same phase every time, and that phase
+/// is just after Dolphin polls its pipe. A delay that varies is chance; a delay
+/// that is constant is an ordering.
+///
+/// Writing when the input *arrives* instead makes the wait uniform rather than
+/// worst-case: about half a frame on average instead of a whole one.
+///
+/// Cloneable and `Send`: several holders share one lock, and the lock is held
+/// only for the length of a 13-byte write.
+#[derive(Debug, Clone)]
+pub struct PadWriter {
+    pipes: Arc<Mutex<Pipes>>,
+}
+
+impl PadWriter {
+    /// Routes a client frame to the pipe for its slot.
+    ///
+    /// # Errors
+    /// [`EmulatorError::UnknownSlot`], a write failure, or
+    /// [`EmulatorError::PipesPoisoned`] if a holder panicked mid-write.
+    pub fn send(&self, frame: &InputFrame) -> Result<Delivery, EmulatorError> {
+        self.pipes
+            .lock()
+            .map_err(|_| EmulatorError::PipesPoisoned)?
+            .send(frame)
+    }
+
+    /// Forces a full state transmission on the next send for every player.
+    ///
+    /// # Errors
+    /// [`EmulatorError::PipesPoisoned`].
+    pub fn resync(&self) -> Result<(), EmulatorError> {
+        self.pipes
+            .lock()
+            .map_err(|_| EmulatorError::PipesPoisoned)?
+            .resync();
+        Ok(())
+    }
+}
+
+impl From<Arc<Mutex<Pipes>>> for PadWriter {
+    fn from(pipes: Arc<Mutex<Pipes>>) -> Self {
+        Self { pipes }
+    }
 }
 
 impl Pipes {

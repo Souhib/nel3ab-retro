@@ -29,6 +29,7 @@
 
 use std::path::PathBuf;
 use std::process::{Child, Command, ExitStatus, Stdio};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use nel3ab_protocol::InputFrame;
@@ -37,7 +38,7 @@ use nix::unistd::Pid;
 
 use crate::config::{self, CONFIG_DIR};
 use crate::error::EmulatorError;
-use crate::pipe::{Delivery, PendingPipes, Pipes};
+use crate::pipe::{Delivery, PadWriter, PendingPipes, Pipes};
 use crate::slots::SlotSet;
 
 /// How often shutdown checks whether Dolphin has exited.
@@ -229,7 +230,9 @@ impl DolphinConfig {
 #[derive(Debug)]
 pub struct Session {
     child: Child,
-    pipes: Pipes,
+    /// Shared so a second thread can write pad state the instant it arrives
+    /// rather than once per frame — see [`PadWriter`].
+    pipes: Arc<Mutex<Pipes>>,
     user_dir: PathBuf,
     shutdown_grace: Duration,
     /// Set once the process has been reaped, so `Drop` knows there is nothing
@@ -308,7 +311,7 @@ impl Session {
 
         Ok(Self {
             child,
-            pipes,
+            pipes: Arc::new(Mutex::new(pipes)),
             user_dir: config.user_dir.clone(),
             shutdown_grace: config.shutdown_grace,
             exit_status: None,
@@ -320,12 +323,33 @@ impl Session {
     /// # Errors
     /// See [`Pipes::send`].
     pub fn send(&mut self, frame: &InputFrame) -> Result<Delivery, EmulatorError> {
-        self.pipes.send(frame)
+        self.pipes
+            .lock()
+            .map_err(|_| EmulatorError::PipesPoisoned)?
+            .send(frame)
+    }
+
+    /// A handle another thread can use to write pad state.
+    ///
+    /// The point is latency: writing on the frame loop's schedule costs a whole
+    /// frame period, measured, because the write lands at the same phase every
+    /// time and that phase is just after the emulator polls. Writing on arrival
+    /// makes the wait uniform instead of worst-case.
+    #[must_use]
+    pub fn pad_writer(&self) -> PadWriter {
+        PadWriter::from(Arc::clone(&self.pipes))
     }
 
     /// Forces a full state transmission on the next send for every player.
-    pub fn resync(&mut self) {
-        self.pipes.resync();
+    ///
+    /// # Errors
+    /// [`EmulatorError::PipesPoisoned`].
+    pub fn resync(&mut self) -> Result<(), EmulatorError> {
+        self.pipes
+            .lock()
+            .map_err(|_| EmulatorError::PipesPoisoned)?
+            .resync();
+        Ok(())
     }
 
     /// The process id, for logs and for anyone correlating with `ps`.

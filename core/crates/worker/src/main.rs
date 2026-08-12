@@ -19,6 +19,7 @@
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use anyhow::{Context as _, Result, bail};
@@ -106,7 +107,7 @@ fn run(settings: &Settings) -> Result<()> {
     // on a path nothing is listening on, which reads as a mystery.
     let _ = std::fs::remove_file(&socket);
 
-    let server = BrowserServer::start(settings.bind, PAGE)?;
+    let server = Arc::new(BrowserServer::start(settings.bind, PAGE)?);
     tracing::info!(address = %server.address(), "open this in a browser");
 
     let listener = FrameListener::bind(&socket)?;
@@ -142,7 +143,7 @@ fn run(settings: &Settings) -> Result<()> {
     config.frame_socket = Some(socket);
     config.startup_timeout = Duration::from_mins(2);
 
-    let mut session = Session::start(&config)?;
+    let session = Session::start(&config)?;
     let mut frames = listener.accept(Duration::from_mins(2))?;
     let descriptor = *frames.descriptor();
     tracing::info!(
@@ -180,15 +181,54 @@ fn run(settings: &Settings) -> Result<()> {
     }
     let converter = Converter::new(&context)?;
 
+    // Input runs on its own thread, writing the moment a frame lands rather than
+    // once per picture. Measured before: a full frame period of avoidable lag,
+    // p50 15.55 ms, because a write locked to the frame notification always
+    // landed just after the emulator polled its pipe.
+    let pad = session.pad_writer();
+    let applied = Arc::new(std::sync::atomic::AtomicU64::new(0));
+    let last_input = Arc::new(Mutex::new(None::<Instant>));
+    let input_thread = {
+        let applied = Arc::clone(&applied);
+        let last_input = Arc::clone(&last_input);
+        let server = Arc::clone(&server);
+        std::thread::Builder::new()
+            .name("pad".to_owned())
+            .spawn(move || {
+                loop {
+                    // A deadline rather than a wait forever, so this notices the
+                    // session ending instead of outliving it.
+                    let frames = server.wait_input(Duration::from_millis(250));
+                    if frames.is_empty() {
+                        if Arc::strong_count(&server) == 1 {
+                            break;
+                        }
+                        continue;
+                    }
+                    for frame in &frames {
+                        if let Err(error) = pad.send(frame) {
+                            tracing::warn!(%error, "an input frame could not be delivered");
+                        }
+                    }
+                    applied.fetch_add(
+                        u64::try_from(frames.len()).unwrap_or(0),
+                        std::sync::atomic::Ordering::Relaxed,
+                    );
+                    if let Ok(mut at) = last_input.lock() {
+                        *at = Some(Instant::now());
+                    }
+                }
+            })
+            .context("starting the pad thread")?
+    };
+
     let started = Instant::now();
     let mut produced = 0_u64;
     let mut reported = Instant::now();
-    let mut inputs_applied = 0_u64;
     // When a pad state was last handed to the emulator, so the wait until the
     // next picture can be measured. This is the plumbing's share of input
     // latency and nothing more: the game's own logic adds frames on top, and
     // that part is the game's to spend.
-    let mut last_input: Option<Instant> = None;
     let mut input_to_frame: Vec<f64> = Vec::new();
     // Where the time goes, per window. A stutter has to be attributable before
     // it can be fixed, and "the pipeline slowed down" names nothing.
@@ -203,18 +243,6 @@ fn run(settings: &Settings) -> Result<()> {
         // a level and only the newest can ever be applied. The coalescing used
         // to live here over a 64-deep queue; it belongs where the states are
         // written, which is also where a queue could overflow and did.
-        let mut applied_now = false;
-        for frame in server.drain_input() {
-            inputs_applied += 1;
-            applied_now = true;
-            if let Err(error) = session.send(&frame) {
-                tracing::warn!(%error, "an input frame could not be delivered");
-            }
-        }
-        if applied_now {
-            last_input = Some(Instant::now());
-        }
-
         let iteration = Instant::now();
         let frame = match frames.next_frame() {
             Ok(frame) => frame,
@@ -237,7 +265,9 @@ fn run(settings: &Settings) -> Result<()> {
             bail!("the encode pool shrank underneath us");
         };
         // The first frame after an input: how long the plumbing made it wait.
-        if let Some(at) = last_input.take() {
+        if let Ok(mut slot) = last_input.lock()
+            && let Some(at) = slot.take()
+        {
             input_to_frame.push(at.elapsed().as_secs_f64() * 1000.0);
         }
         let waited = iteration.elapsed();
@@ -283,7 +313,7 @@ fn run(settings: &Settings) -> Result<()> {
                 produced,
                 dropped = server.dropped(),
                 inputs_received = server.inputs_received(),
-                inputs_applied,
+                inputs_applied = applied.load(std::sync::atomic::Ordering::Relaxed),
                 slowest_ms = worst.total_ms(),
                 slowest_waiting_ms = worst.waited_ms(),
                 slowest_converting_ms = worst.converted_ms(),
@@ -298,6 +328,9 @@ fn run(settings: &Settings) -> Result<()> {
         }
     }
 
+    // Dropping our handle lets the pad thread see it is alone and stand down.
+    drop(server);
+    let _ = input_thread.join();
     session.shutdown()?;
     Ok(())
 }

@@ -1056,10 +1056,29 @@ une trame entière là où la moyenne devrait être d'une demi-trame.
 > d'opérations qu'on peut changer.
 
 Le remède : ne plus écrire au rythme des images, mais **quand l'entrée arrive**,
-pour que l'état le plus frais soit déjà là quand Dolphin regarde. Gain attendu
-~8 ms — une demi-trame — à chaque appui. Ça demande que le crate `emulator`
-expose un écrivain qu'un second fil puisse tenir : un vrai changement, pas une
-ligne, et il le vaut.
+pour que l'état le plus frais soit déjà là quand Dolphin regarde.
+
+**Fait, et mesuré :**
+
+| | avant | après |
+|---|---|---|
+| entrée→image p50 | 15,55 ms | **5,18 ms** |
+| entrée→image p95 | 15,74 ms | 15,58 ms |
+
+La médiane a fondu ; le p95 n'a pas bougé, et c'est **normal** — le pire cas
+reste « l'entrée arrive juste après la frontière de trame ». C'est exactement le
+passage d'un délai *constant* à un délai *uniforme* : on ne peut pas faire mieux
+sans que Dolphin lise son tuyau plus souvent, ce qui ne dépend pas de nous.
+
+Trois pièces pour ça : `Pipes` passe derrière un partage et l'émulateur expose un
+`PadWriter` qu'un second fil peut tenir ; le transport gagne une **attente
+bloquante** (variable de condition) au lieu d'un sondage — elle ne coûte rien
+quand personne n'appuie, ce qui est la plupart du temps ; et le worker fait
+tourner l'entrée sur son propre fil.
+
+> Un verrou empoisonné y devient une **erreur typée**, pas une panique : règle 6,
+> et c'est précisément le moment qui compte — le fil d'un joueur qui tombe ne
+> doit pas emporter la partie.
 
 Et une précision qui compte : ce nombre est la part de **la plomberie** seule.
 La logique du jeu ajoute ses propres trames par-dessus, et celles-là lui

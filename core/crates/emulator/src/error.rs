@@ -20,6 +20,14 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum EmulatorError {
+    /// A holder of the input pipes panicked while writing.
+    ///
+    /// Recorded as an error rather than a panic of our own: rule 6 says the
+    /// worker must not die, and a poisoned lock is exactly the moment that
+    /// matters — one player's thread failing must not take the session with it.
+    #[error("the input pipes are poisoned; a writer panicked")]
+    PipesPoisoned,
+
     /// The directory Dolphin scans for pipes could not be created.
     #[error("creating the pipe directory {path} failed")]
     PipeDirectory {

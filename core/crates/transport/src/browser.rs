@@ -23,7 +23,7 @@
 use std::io::{Read as _, Write as _};
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::sync::mpsc::{RecvTimeoutError, SyncSender, TrySendError, sync_channel};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Condvar, Mutex};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
@@ -107,6 +107,15 @@ pub struct BrowserServer {
     /// of them needs the picture, so the shape is a fan-out, not a lock. A
     /// viewer that falls behind loses its own frames and nobody else's.
     viewers: Viewers,
+    /// Woken whenever a pad frame lands, so a writer can act on arrival instead
+    /// of on a schedule.
+    ///
+    /// Measured before this existed: applying input once per emulated frame cost
+    /// a **full frame period**, because the write landed at the same phase every
+    /// time and that phase was just after the emulator polled. Waiting on a
+    /// condition variable rather than polling costs nothing when nobody presses
+    /// anything, which is most of the time.
+    arrived: Arc<Condvar>,
     /// The latest pad state per port, and nothing older.
     ///
     /// This was a 64-deep channel, and that was the wrong shape twice over. A
@@ -145,6 +154,7 @@ impl BrowserServer {
         let viewers: Viewers = Arc::new(Mutex::new(Vec::new()));
         let incoming: Pads = Arc::new(Mutex::new([None; PORTS]));
         let received = Arc::new(std::sync::atomic::AtomicU64::new(0));
+        let arrived = Arc::new(Condvar::new());
         let dropped = Arc::new(std::sync::atomic::AtomicU64::new(0));
         let joined = Arc::new(std::sync::atomic::AtomicBool::new(false));
 
@@ -155,6 +165,7 @@ impl BrowserServer {
                 let inputs = Arc::clone(&incoming);
                 let received = Arc::clone(&received);
                 let viewers = Arc::clone(&viewers);
+                let arrived = Arc::clone(&arrived);
                 move || {
                     accept_loop(
                         &listener,
@@ -162,6 +173,7 @@ impl BrowserServer {
                         &Shared {
                             viewers,
                             inputs,
+                            arrived,
                             received,
                             joined,
                         },
@@ -173,6 +185,7 @@ impl BrowserServer {
         tracing::info!(%bound, "browser server listening");
         Ok(Self {
             viewers,
+            arrived,
             incoming,
             received,
             address: bound,
@@ -270,6 +283,29 @@ impl BrowserServer {
         slots.iter_mut().filter_map(Option::take).collect()
     }
 
+    /// Blocks until a pad frame arrives, then takes the newest state per port.
+    ///
+    /// Returns empty on timeout, which is the normal case: a player holding
+    /// still sends nothing new. The timeout exists so a caller can notice its
+    /// own shutdown rather than sleeping forever.
+    ///
+    /// # Errors
+    /// Never — a poisoned lock returns empty rather than propagating, because a
+    /// dropped pad frame is recoverable and a dead input thread is not.
+    #[must_use]
+    pub fn wait_input(&self, timeout: Duration) -> Vec<InputFrame> {
+        let Ok(slots) = self.incoming.lock() else {
+            return Vec::new();
+        };
+        let Ok((mut slots, _)) = self
+            .arrived
+            .wait_timeout_while(slots, timeout, |slots| slots.iter().all(Option::is_none))
+        else {
+            return Vec::new();
+        };
+        slots.iter_mut().filter_map(Option::take).collect()
+    }
+
     /// How many pad frames have arrived in total.
     #[must_use]
     pub fn inputs_received(&self) -> u64 {
@@ -287,6 +323,7 @@ impl BrowserServer {
 struct Shared {
     viewers: Viewers,
     inputs: Pads,
+    arrived: Arc<Condvar>,
     received: Arc<std::sync::atomic::AtomicU64>,
     joined: Arc<std::sync::atomic::AtomicBool>,
 }
@@ -307,8 +344,9 @@ fn accept_loop(listener: &TcpListener, page: &'static str, shared: &Shared) {
             Some(Route::Input) => {
                 let slots = Arc::clone(&shared.inputs);
                 let counter = Arc::clone(&shared.received);
+                let arrived = Arc::clone(&shared.arrived);
                 sockets.push(std::thread::spawn(move || {
-                    input_thread(stream, &slots, &counter);
+                    input_thread(stream, &slots, &counter, &arrived);
                 }));
             }
             Some(Route::Page) => serve_page(stream, page),
@@ -426,7 +464,12 @@ fn video_thread(stream: TcpStream, viewers: &Viewers, joined: &Arc<std::sync::at
 /// stream there is no framing to resynchronise against — the same reasoning the
 /// frame socket uses — and a client sending rubbish is a client with a bug worth
 /// noticing.
-fn input_thread(stream: TcpStream, slots: &Pads, received: &Arc<std::sync::atomic::AtomicU64>) {
+fn input_thread(
+    stream: TcpStream,
+    slots: &Pads,
+    received: &Arc<std::sync::atomic::AtomicU64>,
+    arrived: &Arc<Condvar>,
+) {
     let _ = stream.set_nodelay(true);
     let Ok(mut socket) = tungstenite::accept(stream) else {
         return;
@@ -452,6 +495,9 @@ fn input_thread(stream: TcpStream, slots: &Pads, received: &Arc<std::sync::atomi
                         *place = Some(frame);
                     }
                 }
+                // Woken after the lock is released, so the waiter does not wake
+                // straight into a lock it cannot take.
+                arrived.notify_one();
             }
             Err(error) => {
                 tracing::warn!(%error, "a client sent something that is not an InputFrame");
@@ -537,6 +583,7 @@ mod tests {
     fn detached(viewers: Vec<SyncSender<Framed>>) -> BrowserServer {
         BrowserServer {
             viewers: Arc::new(Mutex::new(viewers)),
+            arrived: Arc::new(Condvar::new()),
             incoming: Arc::new(Mutex::new([None; PORTS])),
             received: Arc::new(std::sync::atomic::AtomicU64::new(0)),
             address: "127.0.0.1:0".parse().unwrap(),
@@ -649,6 +696,51 @@ mod tests {
         // Taking clears: a client that goes quiet reports nothing rather than
         // the same state forever.
         assert!(server.drain_input().is_empty());
+    }
+
+    /// The wait returns as soon as a frame lands, not on a schedule — which is
+    /// the whole point: writing on the frame loop's schedule cost a full frame
+    /// period, measured.
+    #[test]
+    fn waiting_for_input_returns_the_moment_one_arrives() {
+        use nel3ab_protocol::{Buttons, PlayerSlot};
+
+        let server = detached(Vec::new());
+        let slots = Arc::clone(&server.incoming);
+        let arrived = Arc::clone(&server.arrived);
+        let one = PlayerSlot::new(1).unwrap();
+
+        let writer = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(50));
+            slots.lock().unwrap()[one.index()] = Some(InputFrame {
+                buttons: Buttons::A,
+                ..InputFrame::neutral(one)
+            });
+            arrived.notify_one();
+        });
+
+        let started = std::time::Instant::now();
+        let taken = server.wait_input(Duration::from_secs(5));
+        let waited = started.elapsed();
+        writer.join().unwrap();
+
+        assert_eq!(taken.len(), 1, "the frame should have been taken");
+        assert_eq!(taken[0].buttons, Buttons::A);
+        assert!(
+            waited < Duration::from_millis(500),
+            "woken by the arrival, not by the timeout — waited {waited:?}"
+        );
+    }
+
+    /// The negative twin: nothing arriving means an empty return at the
+    /// deadline, not a hang.
+    #[test]
+    fn waiting_for_input_gives_up_at_the_deadline() {
+        let server = detached(Vec::new());
+        let started = std::time::Instant::now();
+        let taken = server.wait_input(Duration::from_millis(120));
+        assert!(taken.is_empty());
+        assert!(started.elapsed() >= Duration::from_millis(100));
     }
 
     /// The negative twin, and the bug that produced it: with nobody watching,

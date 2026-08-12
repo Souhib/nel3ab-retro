@@ -47,6 +47,24 @@ RUN git init /src \
 COPY docker/dolphin-patches/0001-nel3ab-frame-export.patch /tmp/nel3ab.patch
 RUN cd /src && git apply --verbose /tmp/nel3ab.patch
 
+# Second patch, a different concern: SURVIVING a failed descriptor pool.
+#
+# Measured on lgf — Dolphin's Vulkan backend grows descriptor pools until an
+# allocation fails, at about 3 GB of GTT and four minutes in. `AllocateDescriptorSet`
+# then returns a null handle which the caller writes straight into a
+# `VkWriteDescriptorSet`, and `vkUpdateDescriptorSets` dereferences it: a segfault
+# inside the driver, every three to four minutes, taking the session with it.
+#
+# This does not fix the growth — three attempts at that failed and are recorded
+# in the logbook. It makes the failure survivable: the allocation is checked, the
+# refusal propagates to `Bind()`, which already returns bool, and the draw is
+# skipped. Measured after: memory plateaus at 3.2 GB and the emulator was still
+# running at eight minutes instead of dying at four.
+#
+# Losing a frame beats losing the session.
+COPY docker/dolphin-patches/0002-nel3ab-survive-descriptor-exhaustion.patch /tmp/nel3ab-2.patch
+RUN cd /src && git apply --verbose /tmp/nel3ab-2.patch
+
 # The pipe input backend is what this whole milestone rests on, and it is
 # compiled in by a CMake side effect (`if(UNIX) add_definitions(-DUSE_PIPES=1)`),
 # not by an option we pass. Assert it in the pinned source: if upstream ever

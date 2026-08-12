@@ -252,6 +252,30 @@ preference: it is what creates the address space without which no resize can
 happen. Enable it together with "Re-Size BAR Support", then re-measure — heap 2
 should read about 8 GB instead of 256 MB.
 
+### Shipped: the failure is survivable now
+
+Three attempts to stop the growth failed. The fourth idea was different — not to
+prevent the failure but to stop it being fatal. Following the chain to its end in
+Dolphin's code: the pool creation fails, `AllocateDescriptorSet` returns a null
+handle, the caller writes that handle straight into a `VkWriteDescriptorSet`
+without checking, and `vkUpdateDescriptorSets` dereferences it. That is the
+segfault at 0x40, exactly.
+
+`0002-nel3ab-survive-descriptor-exhaustion.patch` checks all six allocations and
+propagates the refusal to `Bind()`, which already returns bool. The draw is
+skipped.
+
+Measured: memory plateaus at 3.2 GB instead of taking the driver down, and the
+emulator was still running at eight minutes rather than dying at four. After
+rebuilding the image: **zero restarts in seven minutes**, against one every four
+and a half. The picture was looked at — a four-player match, right colours, no
+visible artefacts.
+
+It does not fix the leak. The emulator now runs permanently against a 3.2 GB
+ceiling and draws *are* being skipped once it is reached; none have been seen,
+which is not the same as none happening. Resizable BAR remains the answer to the
+cause.
+
 What is left otherwise is upstream work: the pool churn happens in
 `CommandBufferManager::WaitForCommandBufferCompletion`, which destroys and
 rebuilds a frame's pools whenever that frame needed more than one — roughly four

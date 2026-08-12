@@ -985,6 +985,39 @@ d'IPMI**, donc pas d'accès BIOS à distance. Un serveur destiné à tourner san
 La carte a survécu aux six cycles détacher/rattacher : 59 tests GPU au vert
 après coup.
 
+### Le correctif : ne pas réparer la fuite, survivre à sa fin
+
+Trois tentatives pour arrêter la croissance ont échoué. La quatrième idée était
+différente : **ne pas empêcher la panne d'arriver, l'empêcher d'être mortelle.**
+
+En suivant la chaîne jusqu'au bout dans le code de Dolphin :
+
+1. `vkCreateDescriptorPool` échoue — plus de mémoire ;
+2. `AllocateDescriptorSet` renvoie donc `VK_NULL_HANDLE` ;
+3. l'appelant écrit ce handle nul **directement** dans un `VkWriteDescriptorSet`,
+   sans le vérifier ;
+4. `vkUpdateDescriptorSets` déréférence ce nul → **segfault à l'offset 0x40**.
+
+C'est exactement notre trace noyau. Le correctif tient en une idée : vérifier
+chacune des six allocations, et faire remonter le refus jusqu'à `Bind()` — qui
+renvoie déjà un booléen que l'appelant sait traiter. Le dessin est sauté.
+
+**Mesuré :** la mémoire plafonne à 3,2 Go au lieu de faire tomber le pilote, et
+l'émulateur tournait encore à **huit minutes** au lieu de mourir à quatre. Puis,
+image reconstruite et worker relancé : **zéro redémarrage en sept minutes**, là
+où c'en était un toutes les quatre minutes trente. Et l'image a été regardée —
+un match à quatre, couleurs justes, HUD complet, aucun artefact visible.
+
+> **Ce que ça ne fait pas** : la fuite est toujours là, et l'émulateur tourne
+> désormais en permanence à 3,2 Go de mémoire GPU saturée. Des dessins *sont*
+> sautés une fois ce plafond atteint ; on n'en voit pas les effets, ce qui ne
+> veut pas dire qu'il n'y en a jamais. Le réglage BIOS reste la vraie réponse à
+> la cause, celui-ci répond au symptôme mortel.
+
+> **Leçon** : quand trois tentatives d'empêcher une panne échouent, la question
+> suivante n'est pas « comment l'empêcher » mais « pourquoi est-elle fatale ».
+> Perdre une image vaut mieux que perdre la partie.
+
 ### Deux erreurs de raisonnement à garder
 
 **Deux correctifs écrits, deux échecs, gardés écrits.** J'ai d'abord trouvé un

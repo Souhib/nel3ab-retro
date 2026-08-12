@@ -141,6 +141,27 @@ Written down now, before the measurement, so it cannot be rationalised later:
 
 ---
 
+### Reaching it: WebCodecs needs a secure context
+
+A trap that costs an evening if it is not written down. `VideoDecoder` does not
+exist outside a secure context, and `http://` on a LAN or tailnet IP is **not**
+one — only `localhost` and `https://` are. The page says so when it happens
+rather than failing as a mystery.
+
+Two ways in, both working:
+
+- `ssh -L 8100:localhost:8100 lgf`, then `http://localhost:8100/`;
+- `tailscale serve --bg --https=8443 http://127.0.0.1:8100`, then
+  `https://lgf.<tailnet>.ts.net:8443/`. Needs Serve enabled once in the admin
+  console.
+
+The second one has its own trap behind it: a page served over TLS cannot open a
+`ws://` socket at all — the browser blocks it as mixed content. The page derives
+`wss`/`ws` from its own protocol so the same file works through both.
+
+Measured through the HTTPS front: **arrived 60.0/s, painted 57.3/s, gap p50
+16.7 ms p95 19.3 ms**. The proxy costs nothing worth naming.
+
 ## 3. The other half nobody should forget
 
 Video is the loud half. **The pad is the half that decides whether it feels

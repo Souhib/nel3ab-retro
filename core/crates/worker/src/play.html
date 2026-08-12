@@ -41,7 +41,12 @@
     throw new Error("no WebCodecs");
   }
 
-  const host = location.host;
+  // `wss` when the page came over TLS, `ws` otherwise. A page served over https
+  // cannot open a `ws://` socket at all — the browser blocks it as mixed content
+  // — and the same page has to work behind a Tailscale HTTPS front and on a
+  // plain localhost tunnel, so the scheme is derived rather than written down.
+  const socketUrl = (path) =>
+    `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}${path}`;
 
   // ── video ───────────────────────────────────────────────────────────────
   //
@@ -75,7 +80,7 @@
     return sorted[Math.floor((sorted.length - 1) * q)];
   };
 
-  const video = new WebSocket(`ws://${host}/video`);
+  const video = new WebSocket(socketUrl("/video"));
   video.binaryType = "arraybuffer";
 
   video.onclose = () => show("the video connection closed", "bad");
@@ -177,7 +182,7 @@
   const hasIdr = (bytes) => findNal(bytes, 5) !== null;
 
   // ── input ───────────────────────────────────────────────────────────────
-  const input = new WebSocket(`ws://${host}/input`);
+  const input = new WebSocket(socketUrl("/input"));
   input.binaryType = "arraybuffer";
 
   const BUTTON = {

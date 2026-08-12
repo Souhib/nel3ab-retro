@@ -44,6 +44,12 @@ const OUTGOING_DEPTH: usize = 2;
 /// flight is normal rather than a symptom.
 const INCOMING_DEPTH: usize = 64;
 
+/// How long a single frame write may take before the viewer is given up on.
+///
+/// Not a tuning knob: any value long enough to survive a hiccup and short enough
+/// to be noticed would do. What matters is that it is finite.
+const WRITE_TIMEOUT: Duration = Duration::from_secs(2);
+
 /// Everything the browser link can fail at.
 #[derive(Debug, Error)]
 #[non_exhaustive]
@@ -301,14 +307,27 @@ fn video_thread(
     // waiting and 40 ms to lose.
     let _ = stream.set_nodelay(true);
     let _ = stream.set_read_timeout(None);
+    // A write that can block forever is how a stalled client wedges the server.
+    // Observed: a browser's connection went quiet, this thread blocked inside
+    // `send`, and because it holds the queue lock for its whole life, the
+    // reader who reloaded the page could never be served either — the stream
+    // froze for good rather than recovering. Two seconds is far longer than any
+    // healthy write and far shorter than a session.
+    let _ = stream.set_write_timeout(Some(WRITE_TIMEOUT));
     let Ok(mut socket) = tungstenite::accept(stream) else {
         return;
     };
     tracing::info!("a browser is watching");
 
-    // One watcher at a time. A second would have to be fed a copy of every
-    // frame, and there is no product question yet that needs it.
-    let Ok(queue) = queue.lock() else { return };
+    // One watcher at a time, and `try_lock` rather than `lock`: a thread that
+    // waited here would be waiting on another connection's socket, which is
+    // exactly the coupling that turned one stalled client into a dead server.
+    // Refusing is honest and lets the caller retry.
+    let Ok(queue) = queue.try_lock() else {
+        tracing::warn!("a second viewer asked for the stream; only one is served");
+        let _ = socket.close(None);
+        return;
+    };
     // Counted only once the socket is up and the queue is ours, and decremented
     // on every exit below — so `send` never believes in a watcher that is only
     // half connected.
@@ -322,7 +341,10 @@ fn video_thread(
                 let mut message = Vec::with_capacity(8 + packet.annex_b.len());
                 message.extend_from_slice(&packet.captured_micros.to_le_bytes());
                 message.extend_from_slice(&packet.annex_b);
-                if socket.send(tungstenite::Message::binary(message)).is_err() {
+                if let Err(error) = socket.send(tungstenite::Message::binary(message)) {
+                    // Including a write timeout: a viewer this far behind is
+                    // better dropped than carried, and the page reconnects.
+                    tracing::info!(%error, "the viewer's connection gave up");
                     break;
                 }
             }

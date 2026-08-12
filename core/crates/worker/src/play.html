@@ -80,13 +80,41 @@
     return sorted[Math.floor((sorted.length - 1) * q)];
   };
 
-  const video = new WebSocket(socketUrl("/video"));
-  video.binaryType = "arraybuffer";
+  // Reconnecting, because a socket that closes once is a stream that is dead
+  // for good otherwise. Observed exactly that: the connection dropped, the page
+  // kept showing the last painted frame, and it looked like a freeze rather than
+  // a disconnection. The server forces a key frame when somebody joins, so a
+  // reconnection is a picture immediately rather than a wait for the next IDR.
+  let video = null;
+  let reconnects = 0;
+  let connected = false;
 
-  video.onclose = () => show("the video connection closed", "bad");
-  video.onerror = () => show("the video connection failed", "bad");
+  function connectVideo() {
+    video = new WebSocket(socketUrl("/video"));
+    video.binaryType = "arraybuffer";
+    video.onopen = () => {
+      connected = true;
+    };
+    video.onclose = () => {
+      connected = false;
+      // The decoder is bound to a stream that has ended; the next one starts
+      // from its own key frame with its own configuration.
+      if (decoder !== null) {
+        try {
+          decoder.close();
+        } catch {
+          // Already closed by its own error handler; nothing to do.
+        }
+        decoder = null;
+      }
+      reconnects += 1;
+      setTimeout(connectVideo, 500);
+    };
+    video.onerror = () => video?.close();
+    video.onmessage = onVideoMessage;
+  }
 
-  video.onmessage = (event) => {
+  const onVideoMessage = (event) => {
     const message = new Uint8Array(event.data);
     const capturedMicros = Number(new DataView(message.buffer).getBigUint64(0, true));
     const unit = message.subarray(8);
@@ -145,6 +173,8 @@
     );
   };
 
+  connectVideo();
+
   const recent = [];
 
   // Paint on the display's own schedule. `painted` counts refreshes that had a
@@ -182,8 +212,14 @@
   const hasIdr = (bytes) => findNal(bytes, 5) !== null;
 
   // ── input ───────────────────────────────────────────────────────────────
-  const input = new WebSocket(socketUrl("/input"));
-  input.binaryType = "arraybuffer";
+  let input = null;
+  function connectInput() {
+    input = new WebSocket(socketUrl("/input"));
+    input.binaryType = "arraybuffer";
+    input.onclose = () => setTimeout(connectInput, 500);
+    input.onerror = () => input?.close();
+  }
+  connectInput();
 
   const BUTTON = {
     A: 1 << 0, B: 1 << 1, X: 1 << 2, Y: 1 << 3, Z: 1 << 4,
@@ -208,7 +244,7 @@
   let sent = 0;
   function pumpInput() {
     requestAnimationFrame(pumpInput);
-    if (input.readyState !== WebSocket.OPEN) return;
+    if (input === null || input.readyState !== WebSocket.OPEN) return;
 
     let buttons = 0;
     for (const [code, name] of Object.entries(KEYS)) {
@@ -257,7 +293,9 @@
     const elapsed = (performance.now() - firstArrival) / 1000;
     const rate = (count) => (elapsed > 0 ? count / elapsed : 0).toFixed(1);
     show(
-      `sent by the server   60.0 /s (nominal)\n` +
+      `connection           ${connected ? "up" : "reconnecting…"}` +
+        `${reconnects > 0 ? ` (${reconnects} drop${reconnects > 1 ? "s" : ""})` : ""}\n` +
+        `sent by the server   60.0 /s (nominal)\n` +
         `arrived              ${rate(shown)} /s\n` +
         `painted              ${rate(painted)} /s\n` +
         `display refresh      ${rate(painted + repeated)} /s\n` +

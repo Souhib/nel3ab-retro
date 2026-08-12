@@ -721,6 +721,37 @@ comme tel.
 > éliminés tous les trois en une mesure, et a désigné le seul qu'on n'avait pas
 > écrit soi-même.
 
+### Le gel définitif : un client bloqué figeait le serveur
+
+Le vrai défaut n'était pas le saccadement mais un **gel dont on ne revenait
+pas**. Le journal l'a nommé : « the browser stopped watching ». La connexion
+vidéo s'était fermée, et la page n'avait **aucune reconnexion** — elle restait
+sur sa dernière image, ce qui ressemble à un gel bien plus qu'à une déconnexion.
+
+Derrière, pire : le fil qui écrit la vidéo écrivait **sans délai d'expiration**,
+et il détient le verrou de la file pendant toute sa vie. Un client dont la
+connexion se coince bloque donc ce fil pour toujours — et le suivant, celui qui
+recharge la page, attend un verrou qui ne sera jamais rendu. Un client malade
+tuait le serveur pour tout le monde.
+
+Trois corrections, chacune pour sa propre raison :
+
+- une **échéance d'écriture** de 2 s. La valeur importe peu ; ce qui compte,
+  c'est qu'elle soit finie ;
+- `try_lock` au lieu de `lock` : un fil qui attendrait ici attendrait sur la
+  *socket d'un autre*, exactement le couplage qui transformait un client bloqué
+  en serveur mort ;
+- la **reconnexion automatique** côté page, et comme le serveur envoie une
+  image-clé à qui arrive, reprendre c'est une image tout de suite.
+
+Vérifié en coupant le worker en pleine session : `connection up (2 drops)`, et
+l'image est revenue seule.
+
+> **Leçon** : un composant qui attend sans échéance sur quelque chose qu'il ne
+> contrôle pas finit par bloquer ce qui n'a rien demandé. Et une panne qui
+> *ressemble* à un gel sera diagnostiquée comme une lenteur — c'est le journal
+> qui a dit le vrai mot.
+
 ### Une métrique qui se lit mal est une métrique fausse
 
 La page annonçait « 72,5 % des rafraîchissements n'ont rien de neuf ». Alarmant,

@@ -81,6 +81,23 @@ const KEEP_ALIVE: Duration = Duration::from_millis(500);
 /// player who presses nothing is not a player who has left.
 const CLASSIFY_TIMEOUT: Duration = Duration::from_secs(5);
 
+/// How often a silent controller is asked whether it is still there, and how
+/// long it may fail to answer before its port goes back to the room.
+///
+/// This exists because both simple answers are wrong. A read deadline treats a
+/// player who presses nothing as a player who has left — that was the bug that
+/// dropped controllers every five seconds. No deadline at all treats a socket
+/// the TLS proxy is holding open for a browser that is GONE as a player still
+/// sitting there, and its port is never given back: the room fills with ghosts
+/// and everybody who arrives is turned away.
+///
+/// A ping separates the two, because it asks the one question that matters.
+/// The browser's WebSocket stack answers it without waking the page, so a player
+/// who is merely quiet — or whose tab is in the background — keeps their port,
+/// and a socket with nobody behind it does not.
+const PING_EVERY: Duration = Duration::from_secs(5);
+const GONE_AFTER: Duration = Duration::from_secs(15);
+
 /// Everything the browser link can fail at.
 #[derive(Debug, Error)]
 #[non_exhaustive]
@@ -520,7 +537,10 @@ fn input_thread(
     // they had left. Their seat went back to the room, and they came back as a
     // different player. Silence on a controller is the normal state of a
     // controller; a socket that has closed is what ending a session looks like.
-    let _ = stream.set_read_timeout(None);
+    // Not `None`, and not the deadline `classify` left behind either: the read
+    // returns regularly so this thread can ASK, rather than concluding anything
+    // from silence. See `PING_EVERY`.
+    let _ = stream.set_read_timeout(Some(PING_EVERY));
     let Ok(mut socket) = tungstenite::accept(stream) else {
         return;
     };
@@ -544,12 +564,41 @@ fn input_thread(
     }
     tracing::info!(port = seat.get(), "a browser is holding a controller");
 
-    while let Ok(message) = socket.read() {
+    let mut heard_from = std::time::Instant::now();
+    loop {
+        let message = match socket.read() {
+            Ok(message) => {
+                // ANY frame is proof of life, pad state or pong alike.
+                heard_from = std::time::Instant::now();
+                message
+            }
+            Err(tungstenite::Error::Io(error))
+                if matches!(
+                    error.kind(),
+                    std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut
+                ) =>
+            {
+                if heard_from.elapsed() >= GONE_AFTER {
+                    tracing::info!(port = seat.get(), "a controller stopped answering");
+                    break;
+                }
+                // Answered by the browser's own stack, so a page that is idle or
+                // in the background is not disturbed by it.
+                if socket
+                    .send(tungstenite::Message::Ping(Vec::new().into()))
+                    .is_err()
+                {
+                    break;
+                }
+                continue;
+            }
+            Err(_) => break,
+        };
         let payload = match message {
             tungstenite::Message::Binary(bytes) => bytes,
             tungstenite::Message::Close(_) => break,
-            // Ping/Pong are answered by tungstenite itself; text is not
-            // something this endpoint speaks.
+            // Pong is the answer to our own ping and has already counted as
+            // proof of life above; text is not something this endpoint speaks.
             _ => continue,
         };
         match InputFrame::decode(&payload) {
@@ -922,6 +971,61 @@ mod tests {
                 .any(|frame| frame.l == 255 && frame.slot.get() == 1),
             "the quiet player's next press should still arrive"
         );
+    }
+
+    /// The other half of the seat question, and the one that locked a player out
+    /// of his own room for an evening: a socket the proxy is holding open for a
+    /// browser that has GONE must give its port back.
+    ///
+    /// Simulated the only way it happens in the wild — the handshake completes,
+    /// then nothing ever answers again. The kernel keeps acknowledging, so every
+    /// write still succeeds; only the absence of a reply distinguishes this from
+    /// a player who is thinking. It costs `GONE_AFTER` of wall clock for the same
+    /// reason the quiet-player test costs six seconds.
+    #[test]
+    fn a_socket_with_nobody_behind_it_gives_its_port_back() {
+        use tungstenite::client::IntoClientRequest as _;
+        let one = PlayerSlot::new(1).unwrap();
+        let server = BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", one).unwrap();
+        let address = server.address();
+
+        // A client that finishes the handshake and then never reads again: it
+        // cannot answer a ping, because answering is `read`'s job.
+        let stream = TcpStream::connect(address).unwrap();
+        stream
+            .set_read_timeout(Some(Duration::from_secs(3)))
+            .unwrap();
+        let (mut ghost, _) = tungstenite::client(
+            format!("ws://{address}/input")
+                .as_str()
+                .into_client_request()
+                .unwrap(),
+            stream,
+        )
+        .unwrap();
+        assert_eq!(
+            ghost.read().unwrap().into_data()[0],
+            1,
+            "the ghost took the only port"
+        );
+
+        // While it is still answering nothing, the room really is full.
+        let (_turned_away, refused) = hold(address);
+        assert_eq!(refused, 0, "the port is held while the ghost is fresh");
+
+        let deadline = std::time::Instant::now() + GONE_AFTER + Duration::from_secs(5);
+        let mut given_back = 0;
+        while std::time::Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(500));
+            let (socket, port) = hold(address);
+            given_back = port;
+            drop(socket);
+            if given_back == 1 {
+                break;
+            }
+        }
+        assert_eq!(given_back, 1, "the ghost's port was never given back");
+        drop(ghost);
     }
 
     /// The emulator goes quiet legitimately — a game blanking the screen

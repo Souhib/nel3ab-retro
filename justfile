@@ -80,6 +80,14 @@ browser-recovery:
 browser-background:
     cd spikes/m3-browser-drive && node backgrounded.mjs http://localhost:8100/ 30
 
+# Does a controller survive its player switching away, and only that? Needs the
+# worker RUNNING. Backgrounds a real tab for longer than the ping deadline, then
+# closes one. The unit tests pin the server's side of this; only a real browser
+# can answer whether Chrome pongs while a tab is throttled, and the whole design
+# rests on it doing so.
+browser-seats:
+    cd spikes/m3-browser-drive && node seat-kept.mjs http://localhost:8100/ 25
+
 # The whole chain against a real Dolphin and a real ROM. Minutes, not seconds.
 end-to-end:
     cd core && sg render -c 'cargo test -p nel3ab-encoder --features gpu-tests,dolphin-integration --test dolphin_frames_become_h264 -- --nocapture'

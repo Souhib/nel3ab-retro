@@ -111,7 +111,13 @@ impl Settings {
 /// three people who cannot play.
 fn players_from_environment() -> Result<PlayerSlot> {
     let Some(raw) = std::env::var_os("NEL3AB_PLAYERS") else {
-        return PlayerSlot::new(1).map_err(|error| anyhow::anyhow!("{error}"));
+        // Four, which is what "a room" means here. It was one for a while, on
+        // the theory that an unserved port holding a phantom pad changes what
+        // the game does — and the cost of that caution was a player locked out
+        // of his own room by the single seat, twice over: once by his second
+        // machine, once by a ghost the proxy was holding open. A phantom pad is
+        // a game that behaves oddly; a full room is a game nobody can play.
+        return PlayerSlot::new(4).map_err(|error| anyhow::anyhow!("{error}"));
     };
     let text = raw.to_string_lossy();
     let count: u8 = text

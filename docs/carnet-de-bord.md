@@ -1423,6 +1423,60 @@ Vérifié enfin sur le Mac lui-même, page corrigée, onglet caché : `shown 0`,
 mesuré chez lui, et il faut le dire : le rendu **visible** en 1280×960 à 60
 images par seconde. Une fenêtre visible, ça ne se pilote pas à distance.
 
+### Le gel qui n'en était pas un : une salle pleine de fantômes
+
+Les chiffres envoyés depuis son Mac étaient **sains** : 59,9 images reçues, 53,1
+peintes, file du décodeur à zéro, aucune reprise. Un flux qui peint cinquante-
+trois images par seconde ne peut pas paraître figé — sauf si les images sont
+identiques. Sauf que le débit disait le contraire : **20,5 Mbit/s**, et une image
+immobile s'encode en presque rien.
+
+Une seule ligne de ses chiffres disait la vérité : **`pad frames 0`**. Sa page
+n'envoyait aucune manette. Elle n'en avait pas.
+
+Le journal du serveur, lui, hurlait : *« a browser asked for a controller in a
+full room »*, deux fois par seconde. Ce qu'il regardait n'était pas un gel :
+c'était **la démo de Melee**, qu'il ne pouvait pas interrompre faute de manette.
+
+Deux fautes à moi, et les deux le verrouillaient dehors :
+
+1. **La salle avait une place.** Je l'avais fixée à un par prudence — un port
+   servi sans joueur peut changer ce que le jeu fait. Prudence mal placée : une
+   manette fantôme, c'est un jeu qui se comporte bizarrement ; une salle pleine,
+   c'est un jeu auquel personne ne joue. Quatre par défaut, maintenant.
+2. **Une socket morte gardait sa place pour toujours.** Deux heures plus tôt
+   j'avais retiré l'échéance de lecture qui éjectait un joueur silencieux — et
+   j'avais créé l'inverse : le proxy TLS garde ouverte la socket d'un navigateur
+   **parti**, plus rien ne la ferme, la place n'est jamais rendue.
+
+### Silencieux n'est pas parti — et il faut poser la question
+
+Les deux réponses simples sont fausses. Une échéance de lecture prend un joueur
+qui n'appuie sur rien pour un joueur parti. Pas d'échéance du tout prend une
+socket vide pour un joueur assis.
+
+**Un ping tranche, parce qu'il pose la seule question qui compte.** Toutes les
+cinq secondes sans nouvelles, le serveur demande ; quinze secondes sans réponse
+et la place retourne à la salle.
+
+Ce qui rend ça juste, c'est que **la pile réseau du navigateur répond au ping
+sans réveiller la page**. Un onglet en arrière-plan reste donc assis — exactement
+ce qu'il faut quand on meurt tôt dans une partie et qu'on va voir ailleurs — et
+un onglet fermé rend sa place immédiatement, parce que sa socket se ferme.
+
+Cette hypothèse-là ne se raisonne pas, elle se mesure, et tout le dessin en
+dépend : `just browser-seats` met un vrai onglet au fond vingt-cinq secondes,
+puis en ferme un.
+
+```
+en arrière-plan 25 s → "tu es le joueur 2", 0 manette déclarée partie
+onglet fermé         → le port 2 rendu aussitôt
+```
+
+Les trois cas sont tenus par des tests : le joueur silencieux garde sa place, le
+fantôme rend la sienne au bout de quinze secondes, l'onglet fermé la rend tout de
+suite.
+
 ### Deux erreurs de raisonnement à garder
 
 **Deux correctifs écrits, deux échecs, gardés écrits.** J'ai d'abord trouvé un

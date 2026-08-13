@@ -1,0 +1,130 @@
+{
+  "label": "nowait-1",
+  "environment": {
+    "when": "2026-08-13T22:51:27.138Z",
+    "git": {
+      "sha": "af6f919",
+      "dirty": false,
+      "branch": "main"
+    },
+    "machine": {
+      "cpu": "AMD Ryzen 5 3600 6-Core Processor",
+      "cores": "12",
+      "kernel": "6.8.0-137-generic",
+      "gpu": "Advanced Micro Devices, Inc. [AMD/ATI] Navi 23 [Radeon RX 6650 XT / 6700S / 6800S] (rev c1)"
+    },
+    "build": {
+      "worker": "cargo build --release -p nel3ab-worker",
+      "dolphin": "sha256:e0dedd4fa140",
+      "binary_bytes": 2930816
+    },
+    "settings": "HOME=/home/souhib RUST_LOG=info NEL3AB_SESSION_DIR=/tmp/nel3ab-session NEL3AB_PLAYERS=1 NEL3AB_INTERNAL_RES=2 NEL3AB_DOLPHIN_IMAGE=nel3ab/dolphin:nowait",
+    "workload": {
+      "warmup_s": 45,
+      "measure_s": 90,
+      "url": "http://localhost:8100/",
+      "viewers": 1
+    }
+  },
+  "server": {
+    "windows": 9,
+    "frames": 4798,
+    "fps": 59.9173295702886,
+    "span_seconds": 80.077,
+    "dropped": 0,
+    "waiting_p50_ms": {
+      "min": 14.578341,
+      "median": 14.666546,
+      "max": 14.748139,
+      "n": 9
+    },
+    "waiting_p95_ms": {
+      "min": 14.825013,
+      "median": 15.086805,
+      "max": 16.614664,
+      "n": 9
+    },
+    "converting_p50_ms": {
+      "min": 0.155121,
+      "median": 0.163868,
+      "max": 0.169348,
+      "n": 9
+    },
+    "encoding_p50_ms": {
+      "min": 1.748864,
+      "median": 1.836148,
+      "max": 1.924483,
+      "n": 9
+    },
+    "encoding_p95_ms": {
+      "min": 1.894697,
+      "median": 2.046913,
+      "max": 2.1279049999999997,
+      "n": 9
+    },
+    "encoding_p99_ms": {
+      "min": 3.214896,
+      "median": 3.319412,
+      "max": 3.451269,
+      "n": 9
+    },
+    "megabits_per_second": {
+      "min": 4.760949294975093,
+      "median": 16.575156565474757,
+      "max": 32.393187320520525,
+      "n": 9
+    },
+    "input_to_frame_p50_ms": {
+      "min": 1.325919,
+      "median": 5.061984000000001,
+      "max": 7.477879,
+      "n": 9
+    },
+    "input_to_frame_p95_ms": {
+      "min": 7.215407,
+      "median": 11.747996,
+      "max": 13.530663,
+      "n": 9
+    }
+  },
+  "input": {
+    "pad_frames_sent": 16650,
+    "seat": "tu es le joueur 1"
+  },
+  "client": {
+    "offset": -10678.802000005962,
+    "queue": 4,
+    "slackMs": 3,
+    "priming": false,
+    "fastest": -10682.338000005955,
+    "wait50": 56.099999994039536,
+    "wait95": 57.70000000298023,
+    "refresh": 16.700000002980232,
+    "holds": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "painted": 5390,
+    "decoded": 5393,
+    "stalls": 0,
+    "restarts": 0,
+    "stats": "silence recoveries   0\ndecoder restarts     0\nnot decoded          0 (nobody painting, or behind)\nlatence ajoutée      3 ms (marge), 8 starves, 0 skipped\nlissage des rafales  p50 56.0 ms, p95 57.7 ms\nconnection           up\nsent by the server   60.0 /s (nominal)\narrived              59.9 /s\npainted              59.9 /s\ndisplay refresh      60.0 /s (60 Hz)\npicture held         1 refreshes (p05 1, p95 1)\npad frames           25259\ndecoder queue        0\n\ngap between arrivals (16.7 ms is even):\n  p50 16.7 ms\n  p95 18.3 ms\n  max 26.8 ms\n\ntransit DRIFT since the first frame (not a latency):\n  p50 15.5 ms\n  p95 18.1 ms\n  max 20.2 ms\n\nThe gap figures are what stutter is made of: a p95 far\nabove 16.7 ms means frames arrive in bursts, and no\namount of decoding speed can smooth that out.\n\nThe drift figures can go NEGATIVE, and that is not a bug:\nthe two clocks are anchored on the first frame and only\ntheir DIFFERENCE is reported, so a first frame that was\nunusually slow makes every later one look early. It says\nhow transit CHANGED, never how long it takes."
+  },
+  "cost": {
+    "worker_cpu_percent": 4.4,
+    "dolphin_cpu_percent": 51.9,
+    "vram_mib": 252.51171875,
+    "gtt_mib": 203.3984375
+  },
+  "measured_seconds": 90.192
+}

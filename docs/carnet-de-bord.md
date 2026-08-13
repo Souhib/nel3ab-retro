@@ -1825,6 +1825,48 @@ ligne s'appelle donc **lissage des rafales**, et la latence ajoutée est la marg
 seule. Un compteur mal nommé aurait fait chercher un défaut là où il n'y en a
 pas.
 
+### Mesurer d'abord : l'attente du GPU ne coûtait rien
+
+Notre crochet bloque le fil d'émulation de Dolphin à chaque image, le temps que
+le GPU finisse d'écrire. Le commentaire du patch le dit depuis le début : « c'est
+un point de synchronisation par image, mesurez avant de le remplacer ». Le
+remplacer voulait dire exporter un verrou vers le worker, un chantier de plusieurs
+jours.
+
+Premier contrôle, le moins cher : le même jeu, sans notre crochet.
+
+```
+avec export  : dolphin 46,0 %CPU · GPU médian 4 %
+sans export  : dolphin 19,5 %CPU · GPU médian 0 %
+```
+
+Vingt-six points d'écart. J'ai failli m'arrêter là et lancer le chantier.
+
+Le contrôle était faux, et sa propre mesure le disait : **GPU médian 0 %**. Un
+émulateur qui rend vraiment un jeu ne laisse pas le GPU à zéro. Le Dolphin isolé
+était arrêté sur un écran, pas en train de jouer, et je comparais un jeu en cours
+à une image fixe.
+
+L'expérience juste ne change qu'une chose : la même image, le même worker, la
+même scène, mais sans l'attente.
+
+```
+avec attente : dolphin 49,6 à 53,6 %CPU · 59,91 img/s · 0 jetée
+sans attente : dolphin 51,9   %CPU · 59,92 img/s · 0 jetée
+```
+
+Rien. Ce qui est évident après coup : **attendre un verrou ne consomme pas de
+CPU**, ça bloque un fil. Et le fil bloqué garde quand même ses 60 images par
+seconde, donc l'attente ne coûte pas non plus du rythme. Elle ne coûte que de la
+marge, dont il reste beaucoup.
+
+Le chantier n'a pas lieu d'être. Une mesure de vingt minutes a évité plusieurs
+jours de travail pour un gain nul.
+
+> Un contrôle qui donne un écart énorme mérite plus de méfiance qu'un contrôle
+> qui n'en donne aucun. Le premier réflexe doit être : *qu'est-ce qui, dans mon
+> montage, pourrait fabriquer cet écart tout seul ?*
+
 ### Deux erreurs de raisonnement à garder
 
 **Deux correctifs écrits, deux échecs, gardés écrits.** J'ai d'abord trouvé un

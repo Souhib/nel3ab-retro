@@ -160,6 +160,11 @@ Two things it must keep doing:
 
 ## Conventions
 
+- **Prose**: plain words, active voice, one idea per sentence. No em dashes, no
+  decorative emoji in headings, no metaphor where a concrete word exists
+  ("ratchet", "harness", "surface" as nouns). This applies to comments, the
+  logbook and commit messages. It does not license writing less: rule 1 still
+  wants the reason, stated plainly.
 - **Commits**: Conventional Commits with an emoji, subject states the intent
   (`fix(input): 🎮 reject unknown button bits instead of masking them`).
   **Never** add AI attribution or `Co-Authored-By`.

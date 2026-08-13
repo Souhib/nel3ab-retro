@@ -165,6 +165,18 @@
   /// below only once they can tell a failure from a start-up.
   let lastOutput = null;
   let decoderGoneSince = null;
+  /// When the display last asked for a picture, and how many access units were
+  /// dropped rather than fed to a decoder nobody was draining.
+  let lastPaintTick = null;
+  let undecoded = 0;
+  /// When an access unit was last handed to the decoder. Kept apart from
+  /// `lastOutput` so the watchdog below can compare the two: what makes a
+  /// decoder broken is being FED and producing nothing, and a decoder we have
+  /// deliberately stopped feeding is not broken at all.
+  let lastFed = null;
+  /// Set whenever we deliberately skip an access unit: what follows a hole is
+  /// undecodable, so nothing is fed again until the next key frame.
+  let awaitingKey = false;
 
   // How long without a frame before the connection is presumed dead.
   //
@@ -182,6 +194,28 @@
   // the stream will bring one. The server's GOP is one second, so three is
   // already generous; this only fires if the stream is not what we think.
   const KEY_FRAME_PATIENCE = 3000;
+
+  // How long without a refresh before the page concludes nothing is being
+  // painted. Fifteen frames — far past any hitch, far below noticing.
+  //
+  // MEASURED, on a real tab that had been switched away from: no refresh at all,
+  // four frames painted in three minutes, and meanwhile 60 access units a second
+  // still going into a decoder that drained 24. Its backlog reached 1564 chunks
+  // and the stream was 23 SECONDS behind, climbing. Coming back to the tab could
+  // never recover: the decoder was being fed faster than it could ever drain.
+  //
+  // The rule that fixes it is not about tabs. The decoder exists to feed the
+  // screen; when the screen stops asking, feeding the decoder is not merely
+  // wasted work, it is the thing that makes coming back impossible. Watching the
+  // refresh itself rather than `document.hidden` also covers an occluded window,
+  // a throttled loop, and whatever else stops a refresh for reasons of its own.
+  const PAINTING_STOPPED = 250;
+
+  // How far the decoder may fall behind before it stops being given work. Under
+  // any healthy condition this sits at zero or one; ten is already a tenth of a
+  // second of pictures nobody has seen. A decoder that is behind and still being
+  // fed turns "late" into "never".
+  const MAX_BACKLOG = 10;
 
   /// Throws away the decoder and everything that came out of it.
   ///
@@ -262,7 +296,28 @@
     }
     const transit = arrived - firstArrival - (capturedMicros / 1000 - firstCapture);
 
+    // Nobody is painting, or the decoder cannot keep up. Either way the work
+    // would never reach a screen, and doing it anyway is what makes the backlog
+    // unbounded. What follows a dropped access unit cannot be decoded either, so
+    // the next key frame is where this picks up.
+    if (
+      lastPaintTick === null ||
+      performance.now() - lastPaintTick > PAINTING_STOPPED ||
+      (decoder !== null && decoder.decodeQueueSize > MAX_BACKLOG)
+    ) {
+      awaitingKey = true;
+      undecoded += 1;
+      return;
+    }
+
     const isKey = hasIdr(unit);
+    if (awaitingKey) {
+      if (!isKey) {
+        undecoded += 1;
+        return;
+      }
+      awaitingKey = false;
+    }
     if (decoder === null) {
       if (!isKey) return; // a decoder cannot start mid-GOP
       const sps = findNal(unit, 7);
@@ -305,6 +360,7 @@
     lastArrival = arrived;
 
     pipeline.push({ at: arrived, transit });
+    lastFed = performance.now();
     try {
       decoder.decode(
         new EncodedVideoChunk({
@@ -336,6 +392,7 @@
   function paint() {
     requestAnimationFrame(paint);
     ticks += 1;
+    lastPaintTick = performance.now();
     adjustBuffer();
 
     if (priming) {
@@ -405,7 +462,8 @@
     stallDecoder: () => {
       if (decoder !== null) decoder.decode = () => {};
     },
-    counters: () => ({ painted, shown, stalls, restarts }),
+    counters: () => ({ painted, shown, stalls, restarts, undecoded }),
+    backlog: () => decoder?.decodeQueueSize ?? 0,
   };
 
   /// Walks the start codes looking for a NAL of `kind`, returning where its
@@ -535,8 +593,17 @@
     // Only meaningful while bytes are arriving: if they are not, this is the
     // other watchdog's failure and reconnecting is the right answer.
     if (lastHeard === null || now - lastHeard >= SILENCE_LIMIT) return;
+    // And only while somebody is painting. A page whose display has stopped
+    // asking is deliberately not feeding its decoder, so a silent decoder is
+    // the intended state and not a fault. Without this the watchdogs fired in a
+    // loop behind a switched-away tab, tearing the connection down every few
+    // seconds — a page that could not recover BECAUSE of the code meant to
+    // recover it.
+    if (lastPaintTick === null || now - lastPaintTick > PAINTING_STOPPED) return;
 
-    if (lastOutput !== null && now - lastOutput > SILENCE_LIMIT) {
+    // Fed, and producing nothing: the gap is measured between the two, not
+    // against the clock, so pausing the feed can never look like a failure.
+    if (lastOutput !== null && lastFed !== null && lastFed - lastOutput > SILENCE_LIMIT) {
       restartDecoder();
       return;
     }
@@ -568,6 +635,7 @@
     show(
       `silence recoveries   ${stalls}\n` +
         `decoder restarts     ${restarts}\n` +
+        `not decoded          ${undecoded} (nobody painting, or behind)\n` +
         `buffer               ${target} frame${target === 1 ? "" : "s"} ` +
         `(+${(target * 16.7).toFixed(0)} ms), ${starved} starves, ${skipped} skipped\n` +
         `connection           ${connected ? "up" : "reconnecting…"}` +

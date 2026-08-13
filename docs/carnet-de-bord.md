@@ -1364,6 +1364,65 @@ Le worker dit maintenant ce que le flux coûte à un lien (`megabits_per_second`
 parce que « la machine suit-elle ? » et « le réseau peut-il porter ça ? » sont
 deux questions différentes avec deux réponses différentes.
 
+### Le vrai gel, enfin : la page nourrissait un décodeur que personne ne vidait
+
+Tous mes essais passaient par `localhost:8100`. Le sien passe par le proxy TLS de
+Tailscale, sur un Mac. J'ai fini par ouvrir **sa** page depuis son propre Chrome,
+et le gel était là du premier coup :
+
+```
+requestAnimationFrame : 0 tick en 2 secondes
+images peintes        : 4        (en trois minutes)
+file du décodeur      : 1564 morceaux
+retard du flux        : 23 secondes, et qui montait
+```
+
+Quatre images peintes. « Les mêmes 2 ou 3 images en boucle », au chiffre près.
+
+Un onglet qui n'est pas celui de devant **ne reçoit aucun rafraîchissement** :
+`requestAnimationFrame` est suspendu. Mais la socket, elle, continue de livrer
+soixante images par seconde, et la page continuait de les donner au décodeur. Le
+décodeur, lui, n'avançait plus au même rythme. La file montait sans limite, le
+retard aussi — et **revenir sur l'onglet ne pouvait rien rattraper**, puisqu'on
+le nourrissait plus vite qu'il ne pourra jamais avaler.
+
+> Le décodeur existe pour alimenter l'écran. Quand l'écran cesse de demander,
+> continuer à le nourrir n'est pas du travail gaspillé : c'est ce qui rend le
+> retour impossible.
+
+Le signal n'est pas `document.hidden` mais **le battement du rafraîchissement
+lui-même** : rien peint depuis 250 ms, on ne décode plus. Ça couvre aussi une
+fenêtre masquée par une autre, une boucle bridée, et tout ce qui arrête un
+rafraîchissement pour des raisons qui lui appartiennent. Ce qui suit un trou
+étant indécodable, on reprend au prochain point de reprise — une seconde au plus.
+
+Et le pire est que **mes deux chiens de garde du décodeur aggravaient tout** :
+ils voyaient des octets arriver et rien en sortir, concluaient à un décodeur mort
+et coupaient la connexion, toutes les trois secondes, derrière un onglet caché.
+Du code écrit pour rattraper une panne, qui empêchait le rattrapage. Ils se
+taisent maintenant quand personne ne peint — et la comparaison qui décide est
+entre **ce qu'on a donné** et **ce qui est sorti**, jamais contre l'horloge : on
+ne peut donc plus confondre « arrêté exprès » avec « en panne ».
+
+### Le test ne pouvait pas échouer sur cette machine
+
+Premier essai : je vérifiais que la file du décodeur restait petite. Vert avec le
+correctif… et **vert sans lui**. Le décodeur de cette machine est assez rapide
+pour absorber, même caché, du travail dont personne ne voulait : aucune file, donc
+rien à observer.
+
+L'invariant à vérifier n'était pas le symptôme mais la règle : **ce que personne
+ne peint n'est pas décodé.** Là, les deux sens sont nets — sans le correctif,
+**1861 images décodées pour personne** en trente secondes ; avec, **15**.
+
+`just browser-background` ouvre un second onglet pour pousser le premier au fond,
+comme le ferait quelqu'un.
+
+Vérifié enfin sur le Mac lui-même, page corrigée, onglet caché : `shown 0`,
+`file 0`, aucune reconnexion, aucun redémarrage de décodeur. Ce qui reste non
+mesuré chez lui, et il faut le dire : le rendu **visible** en 1280×960 à 60
+images par seconde. Une fenêtre visible, ça ne se pilote pas à distance.
+
 ### Deux erreurs de raisonnement à garder
 
 **Deux correctifs écrits, deux échecs, gardés écrits.** J'ai d'abord trouvé un

@@ -72,6 +72,14 @@ gpu-test:
 browser-recovery:
     cd spikes/m3-browser-drive && node wedge.mjs http://localhost:8100/ 6
 
+# Does the page survive being switched away from? Needs the worker RUNNING.
+# Opens a second tab to push the first one into the background, which is how a
+# person does it, and asserts that nothing is decoded for a screen that is not
+# asking. Watching the decoder's backlog instead would pass on a machine whose
+# decoder is fast enough to keep up with work nobody wanted — this one is.
+browser-background:
+    cd spikes/m3-browser-drive && node backgrounded.mjs http://localhost:8100/ 30
+
 # The whole chain against a real Dolphin and a real ROM. Minutes, not seconds.
 end-to-end:
     cd core && sg render -c 'cargo test -p nel3ab-encoder --features gpu-tests,dolphin-integration --test dolphin_frames_become_h264 -- --nocapture'

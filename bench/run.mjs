@@ -61,6 +61,18 @@ const browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox"] 
 const page = await browser.newPage();
 page.on("pageerror", (e) => console.log(`  [pageerror] ${e.message}`));
 await page.goto(URL, { waitUntil: "domcontentloaded", timeout: 30000 });
+
+// The bench must OWN the controller, or the input figures belong to whoever else
+// has a page open. Three runs were reported before anybody noticed the bench had
+// sent zero pad frames and the input latency being compared was some other
+// browser's — a load generator has to be verified, not assumed.
+await wait(3000);
+if (await page.evaluate(() => !document.getElementById("claim").hidden)) {
+  await page.click("#claim");
+  await wait(2000);
+}
+const seat = await page.evaluate(() => document.getElementById("seat").textContent);
+console.log(`  manette : ${seat}`);
 await wait(WARMUP_S * 1000);
 
 // ── the measured window ────────────────────────────────────────────────────
@@ -78,10 +90,16 @@ const cpuTicks = (name) => {
 
 const from = new Date();
 const cpuBefore = { worker: cpuTicks("nel3ab-worker"), dolphin: cpuTicks("dolphin-emu-nog") };
+const padsSent = () =>
+  page.evaluate(
+    () => Number((document.getElementById("stats").innerText.match(/pad frames\s+(\d+)/) ?? [])[1] ?? 0),
+  );
 const before = await page.evaluate(() => globalThis.nel3abTest.counters());
+const padsBefore = await padsSent();
 await wait(MEASURE_S * 1000);
 const after = await page.evaluate(() => globalThis.nel3abTest.counters());
 const cpuAfter = { worker: cpuTicks("nel3ab-worker"), dolphin: cpuTicks("dolphin-emu-nog") };
+const padFrames = (await padsSent()) - padsBefore;
 const elapsed = (new Date() - from) / 1000;
 const busy = (a, b) => (a === null || b === null ? null : Number((100 * (b - a) / elapsed).toFixed(1)));
 const cpuBusy = {
@@ -147,6 +165,12 @@ const result = {
     input_to_frame_p50_ms: across("input_to_frame_p50_ms"),
     input_to_frame_p95_ms: across("input_to_frame_p95_ms"),
   },
+  input: {
+    // Whether THIS bench drove the pad. Without it the input numbers are
+    // somebody else's, and the honest report is that they were not measured.
+    pad_frames_sent: padFrames,
+    seat,
+  },
   client,
   cost: {
     // CPU over the MEASURED window. `ps -o %cpu` averages over the process's
@@ -172,7 +196,11 @@ console.log(`
   encodage p50    ${ms(result.server.encoding_p50_ms)} ms
   encodage p95    ${ms(result.server.encoding_p95_ms)} ms
   débit           ${ms(result.server.megabits_per_second)} Mbit/s
-  manette→image   p50 ${ms(result.server.input_to_frame_p50_ms)} ms · p95 ${ms(result.server.input_to_frame_p95_ms)} ms
+  manette→image   ${
+    padFrames > 0
+      ? `p50 ${ms(result.server.input_to_frame_p50_ms)} ms · p95 ${ms(result.server.input_to_frame_p95_ms)} ms · ${padFrames} trames (${(padFrames / elapsed).toFixed(0)} /s)`
+      : "NON MESURÉ — la page du banc n'avait pas de manette"
+  }
   client          ${client.painted} peintes / ${client.decoded} décodées · marge ${client.slackMs} ms · ${client.stalls} reprises
   coût            worker ${result.cost.worker_cpu_percent} %CPU · dolphin ${result.cost.dolphin_cpu_percent} %CPU · vram ${result.cost.vram_mib.toFixed(0)} Mio
   brut            ${file}`);

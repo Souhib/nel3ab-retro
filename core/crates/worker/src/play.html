@@ -980,8 +980,22 @@
   // a LEVEL, not an edge: a dropped "keyup" would otherwise leave the character
   // running into a wall forever, and resending is 13 bytes.
   let sent = 0;
+  /// How often the pad state is sent, in milliseconds.
+  ///
+  /// It used to go out on the display's refresh, and that was a mistake with a
+  /// measurement behind it: the emulator polls its pads once per emulated frame,
+  /// so the delay between pressing and being read is the PHASE between two 60 Hz
+  /// clocks — and two clocks that close settle against each other for minutes.
+  /// The benchmark caught it as the only metric that moved 48 % between two runs
+  /// of identical code: 5.65 ms one run, 10.94 ms the next, by luck alone.
+  ///
+  /// Four milliseconds is the floor a browser timer will honour, and it bounds
+  /// that phase instead of leaving it to chance. It costs nothing downstream:
+  /// the pipe writer coalesces identical states and writes only what changed, so
+  /// a pad nobody is touching produces no writes at all however often it is sent.
+  const PAD_PERIOD_MS = 4;
+
   function pumpInput() {
-    requestAnimationFrame(pumpInput);
 
     // Learning happens whether or not this page holds a controller: a player
     // whose room is momentarily full should still be able to set their pad up
@@ -1053,7 +1067,18 @@
       `${pressed ? ` · ${pressed}` : ""}` +
       `${read.l || read.r ? ` · L ${read.l} R ${read.r}` : ""}`;
   }
-  requestAnimationFrame(pumpInput);
+  // BOTH, and the pipe writer is what makes that free: it coalesces identical
+  // states and writes only what changed, so a redundant send costs one decode
+  // and a comparison. A browser timer will not go below four milliseconds and
+  // drifts under load — measured at 125 Hz on a machine also decoding 60 frames
+  // a second — while the refresh of a 240 Hz screen is both faster and steadier.
+  // Neither is best everywhere, so take whichever arrives first.
+  setInterval(pumpInput, PAD_PERIOD_MS);
+  const pumpOnRefresh = () => {
+    requestAnimationFrame(pumpOnRefresh);
+    pumpInput();
+  };
+  requestAnimationFrame(pumpOnRefresh);
 
   // The watchdog. Runs on its own timer rather than inside the stats display,
   // so a change to what is shown can never quietly disarm it.

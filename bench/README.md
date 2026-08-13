@@ -41,6 +41,18 @@ et `manette→image` **ne peut pas servir de comparaison** en l'état — c'est 
 calage de phase entre deux horloges à 60 Hz, stable pendant des minutes et
 différent d'un passage à l'autre.
 
+## Le piège qui a invalidé les trois premiers passages
+
+`manette→image` semblait bouger de 48 % entre deux passages du même code, et j'en
+ai tiré une conclusion. Fausse : la page du banc **n'avait aucune manette** — la
+place était tenue par un autre navigateur — et le chiffre comparé était donc
+celui d'un tiers non contrôlé. Zéro trame envoyée, trois passages durant.
+
+> Un générateur de charge se **vérifie**, il ne se suppose pas.
+
+Le harnais prend maintenant la manette au démarrage, compte les trames qu'il
+envoie, et **refuse d'afficher un chiffre d'entrée** s'il n'en a envoyé aucune.
+
 ## Comparer deux versions
 
 Alterner les passages plutôt que de faire toute la référence puis tout le

@@ -142,6 +142,16 @@
   // was a spare behind it. The slack is not free, and the page says what it
   // costs rather than hiding it.
   const queue = [];
+  /// How far ahead of its due time a picture is held, in MILLISECONDS.
+  ///
+  /// This is the latency the schedule adds, and it used to be a whole frame,
+  /// set once and never given back: the player felt it at the controller and was
+  /// right to. It now starts small, grows only when the picture actually starves,
+  /// and is shaved back a millisecond at a time whenever it does not — so the
+  /// buffer costs what the network of the moment demands and no more.
+  let slackMs = 6;
+  const MIN_SLACK = 3;
+  const MAX_SLACK = 60;
   let target = 1;
   const MAX_TARGET = 3;
   /// The emulator's nominal frame, used only to size the initial slack. The
@@ -174,6 +184,17 @@
   /// This is the number the pacing exists to steady: on a 240 Hz screen a 60 fps
   /// source should read 4, 4, 4, 4 — never 3, 5, 4, 3.
   let holds = [];
+  let waits = [];
+  /// How long each picture took to reach us, on mixed clocks: the difference
+  /// between the emulator's capture instant and our decode instant. The constant
+  /// between the two clocks is in there and never comes out — which is fine,
+  /// because only the SMALLEST of these is used, and it is the fastest the
+  /// pipeline has been seen to go. The schedule is then that, plus the slack.
+  ///
+  /// Anchoring on the FIRST picture instead cost 51 ms of pure latency: the
+  /// first picture is the key frame, the largest and the slowest of the stream,
+  /// and every picture after it inherited its bad luck for ever.
+  let lags = [];
   let shownAt = null;
   let starved = 0;
   let starvedRecent = 0;
@@ -387,7 +408,11 @@
           // the access unit it came out of. That number is what paces the
           // presentation below; without it a frame can only be shown "as soon as
           // it exists", which is not a cadence at all.
-          queue.push({ frame, capturedMs: submitted?.capturedMs ?? null });
+          queue.push({ frame, capturedMs: submitted?.capturedMs ?? null, decodedAt: now });
+          if (submitted?.capturedMs !== undefined && submitted?.capturedMs !== null) {
+            lags.push(now - submitted.capturedMs);
+            if (lags.length > 240) lags.shift();
+          }
           // A SAFETY VALVE, not the cadence. It used to be `target + 1`, which
           // fought the schedule below and won: the queue kept exactly one
           // picture, the oldest was dropped to make room for each new one, and
@@ -460,9 +485,9 @@
     adjustBuffer();
 
     if (priming) {
-      // `> target`, not `>= target`: presenting has to LEAVE `target` behind it,
-      // or the slack exists for exactly one refresh and buys nothing.
-      if (queue.length > target) priming = false;
+      // One picture is enough to start: the slack now lives in the SCHEDULE, in
+      // milliseconds, rather than in a count of frames waiting in a queue.
+      if (queue.length > 0) priming = false;
       else {
         repeated += 1;
         return;
@@ -499,7 +524,7 @@
       // it away — 491 pictures dropped in fourteen seconds, and a stream at 27
       // per second out of 60. The buffer's whole purpose is to be the slack the
       // schedule is written around.
-      offset ??= now - queue[0].capturedMs + (target + 1) * SOURCE_FRAME;
+      offset ??= fastestLag() + slackMs;
       if (now < queue[0].capturedMs + offset - slack) {
         repeated += 1;
         return;
@@ -517,6 +542,10 @@
       if (holds.length > 240) holds.shift();
     }
     shownAt = ticks;
+    // What the schedule cost this picture: decoded at one instant, shown at
+    // another. A number to read rather than a feeling to argue about.
+    waits.push(now - next.decodedAt);
+    if (waits.length > 240) waits.shift();
   }
 
   /// Grows the buffer when the path is jittery, shrinks it when it is calm.
@@ -527,19 +556,36 @@
   /// stops the judder. Slow in both directions — growing costs a visible pause
   /// to refill, shrinking costs a dropped frame, so neither should happen over
   /// a blip.
+  /// The best the pipeline has managed lately — the floor the schedule is set
+  /// against.
+  const fastestLag = () => (lags.length === 0 ? 0 : Math.min(...lags));
+
   function adjustBuffer() {
     const WINDOW = 120; // two seconds at 60 Hz
     if (ticks % WINDOW !== 0) return;
 
-    if (starvedRecent > 1 && target < MAX_TARGET) {
-      target += 1;
+    // Steer the schedule towards "as fast as this pipeline has been, plus the
+    // slack", a couple of milliseconds at a time. Anchoring once and living with
+    // it is what let a slow first frame cost fifty milliseconds for the rest of
+    // the session; a step small enough to be invisible — a fifth of a refresh —
+    // gets that back within half a minute and follows the network afterwards.
+    if (offset !== null && lags.length > 30) {
+      const want = fastestLag() + slackMs;
+      offset += Math.max(-5, Math.min(5, want - offset));
+    }
+
+    if (starvedRecent > 1 && slackMs < MAX_SLACK) {
+      // Starving twice in two seconds is the network saying the margin is too
+      // thin. Growing costs latency, so it is done in one step and then earned
+      // back slowly rather than the other way round.
+      slackMs = Math.min(MAX_SLACK, slackMs + 8);
+      // Immediately, not over the next windows: a starve is happening NOW.
+      if (offset !== null) offset += 8;
       calmWindows = 0;
     } else if (starvedRecent === 0) {
       calmWindows += 1;
-      if (calmWindows >= 3 && target > 0) {
-        target -= 1;
-        calmWindows = 0;
-      }
+      // The slack itself comes down too; the steering above then follows it.
+      if (slackMs > MIN_SLACK) slackMs -= Math.min(2, slackMs - MIN_SLACK);
     } else {
       calmWindows = 0;
     }
@@ -571,7 +617,8 @@
     lessonAt: () => (lesson === null ? null : { step: lesson.step, waiting: lesson.waiting }),
     learnedProfile: () => padProfile,
     pacing: () => ({
-      offset, queue: queue.length, target, priming,
+      offset, queue: queue.length, slackMs, priming, fastest: fastestLag(),
+      wait50: percentile(waits, 0.5), wait95: percentile(waits, 0.95),
       refresh: refreshPeriod(), holds: holds.slice(-12),
     }),
     backlog: () => decoder?.decodeQueueSize ?? 0,
@@ -1075,8 +1122,10 @@
       `silence recoveries   ${stalls}\n` +
         `decoder restarts     ${restarts}\n` +
         `not decoded          ${undecoded} (nobody painting, or behind)\n` +
-        `buffer               ${target} frame${target === 1 ? "" : "s"} ` +
-        `(+${(target * 16.7).toFixed(0)} ms), ${starved} starves, ${skipped} skipped\n` +
+        `latence ajoutée      ${slackMs.toFixed(0)} ms (marge), ` +
+        `${starved} starves, ${skipped} skipped\n` +
+        `lissage des rafales  p50 ${percentile(waits, 0.5).toFixed(1)} ms, ` +
+        `p95 ${percentile(waits, 0.95).toFixed(1)} ms\n` +
         `connection           ${connected ? "up" : "reconnecting…"}` +
         `${reconnects > 0 ? ` (${reconnects} drop${reconnects > 1 ? "s" : ""})` : ""}\n` +
         `sent by the server   60.0 /s (nominal)\n` +

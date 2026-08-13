@@ -1788,6 +1788,43 @@ relâchement, puis le bouton suivant. C'est un test de **séquence**, parce que 
 défaut est une séquence — aucun instantané ne l'aurait montré. Cassé exprès :
 cinq étapes sautées sur cinq.
 
+### La marge d'affichage se paie à la manette
+
+« Je sens un peu de latence que je n'avais pas avant » — et il avait raison, le
+coupable était l'horaire d'affichage de la veille. Je l'avais écrit dans le
+commit (« coût honnête : +16,7 ms »), mais le vrai défaut n'était pas la marge :
+c'était qu'elle **ne redescendait jamais**.
+
+Pire : l'ancrage était pris sur la **toute première image**, c'est-à-dire
+l'image-clé — la plus grosse et la plus lente du flux. Tout le reste de la
+session héritait de sa malchance. Mesuré : **50,9 ms** de retenue.
+
+La marge est maintenant **asservie** :
+
+- l'horaire vise « le plus rapide que ce tuyau ait fait, plus la marge », le
+  minimum étant relevé en continu sur les quatre dernières secondes ;
+- il s'en approche de **5 ms toutes les deux secondes** — un cinquième de
+  rafraîchissement, invisible — donc une mauvaise première image est effacée en
+  une demi-minute au lieu de durer toute la partie ;
+- la marge **grandit de 8 ms d'un coup** quand l'image manque deux fois en deux
+  secondes, et se rogne de 2 ms par fenêtre calme. On paie ce que le réseau du
+  moment exige, et rien de plus.
+
+| | avant | après (90 s) |
+|---|---|---|
+| retenue p50 | **50,9 ms** | **4,1 ms** |
+| marge | 16,7 ms figés | 3 ms, ajustée |
+| cadence | 1 1 1 | 1 1 1 |
+| images peintes | 59,8 /s | 59,9 /s |
+
+Une précision que le chiffre brut ne dit pas : par le proxy Tailscale, la
+« retenue » remonte à 38 ms — et **ce n'est pas de la latence ajoutée**. Les
+images arrivent par rafales ; celles qui arrivent en avance attendent leur tour,
+mais l'âge de l'image à l'écran reste « le plus rapide observé + la marge ». La
+ligne s'appelle donc **lissage des rafales**, et la latence ajoutée est la marge
+seule. Un compteur mal nommé aurait fait chercher un défaut là où il n'y en a
+pas.
+
 ### Deux erreurs de raisonnement à garder
 
 **Deux correctifs écrits, deux échecs, gardés écrits.** J'ai d'abord trouvé un

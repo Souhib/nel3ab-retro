@@ -22,6 +22,7 @@
     <div id="stats">connecting…</div>
     <p id="seat" class="note">en attente d'une manette…</p>
     <p><button id="claim" type="button" hidden>prendre la manette</button></p>
+    <p id="pad" class="note"></p>
     <p><button id="copy" type="button">copier les chiffres</button>
       <span id="hint"></span></p>
     <p class="note">
@@ -41,6 +42,7 @@
   const copyButton = document.getElementById("copy");
   const seat = document.getElementById("seat");
   const claimButton = document.getElementById("claim");
+  const padLine = document.getElementById("pad");
   /// Replacing the panel's content destroys any selection inside it, and the
   /// panel refreshes twice a second: highlighting a number to copy it was
   /// impossible, the selection vanished before the second click. So the display
@@ -554,6 +556,7 @@
       if (decoder !== null) decoder.decode = () => {};
     },
     counters: () => ({ painted, shown, stalls, restarts, undecoded, attempts }),
+    readPad,
     pacing: () => ({
       offset, queue: queue.length, target, priming,
       refresh: refreshPeriod(), holds: holds.slice(-12),
@@ -662,6 +665,61 @@
     KeyX: "A", KeyC: "B", KeyS: "X", KeyD: "Y", KeyA: "Z",
     KeyQ: "L", KeyE: "R", Enter: "START",
   };
+  /// A GameCube pad read out of a browser gamepad.
+  ///
+  /// The indices are the W3C "standard gamepad", which is what a browser reports
+  /// for anything Xbox- or PlayStation-shaped. What was here before wired four
+  /// of them and stopped: no D-pad, no C-stick, no analogue triggers, and `Z` on
+  /// the LEFT trigger — so half the controller did nothing and the shoulder
+  /// buttons were not where a GameCube player's hands expect them.
+  ///
+  ///   0 A · 1 B · 2 X · 3 Y        the four face buttons, in the same places
+  ///   4 LB → L clicked             a bumper is a full press, not a squeeze
+  ///   5 RB → Z                     where a thumb finds Z on a real pad
+  ///   6 LT · 7 RT → L, R analogue  the GameCube's triggers are analogue too,
+  ///                                and CLICK at the bottom of their travel
+  ///   9 Start · 12..15 D-pad
+  ///   axes 0,1 main stick · 2,3 C-stick
+  ///
+  /// A pad that is not "standard" — a real GameCube adapter, most likely — is
+  /// read the same way and SAID SO on the page, because guessing quietly is how
+  /// a mis-mapped button becomes a mystery.
+  const PAD_BUTTONS = [
+    [0, "A"], [1, "B"], [2, "X"], [3, "Y"],
+    [4, "L"], [5, "Z"], [9, "START"],
+    [12, "D_UP"], [13, "D_DOWN"], [14, "D_LEFT"], [15, "D_RIGHT"],
+  ];
+  /// Below this a stick is centred. The browser applies the dead zone and
+  /// Dolphin applies none (ADR D3): two would compound into a numb stick.
+  const DEAD_ZONE = 0.15;
+  /// A GameCube trigger clicks at the end of its travel, and games read that
+  /// click as a button rather than as a big number.
+  const TRIGGER_CLICK = 0.9;
+
+  const analogue = (button) =>
+    button === undefined ? 0 : button.value > 0 ? button.value : button.pressed ? 1 : 0;
+
+  function readPad(pad) {
+    const dead = (v) => (Math.abs(v) < DEAD_ZONE ? 0 : v);
+    let buttons = 0;
+    for (const [index, name] of PAD_BUTTONS) {
+      if (pad.buttons[index]?.pressed) buttons |= BUTTON[name];
+    }
+    const l = analogue(pad.buttons[6]);
+    const r = analogue(pad.buttons[7]);
+    if (l > TRIGGER_CLICK) buttons |= BUTTON.L;
+    if (r > TRIGGER_CLICK) buttons |= BUTTON.R;
+    return {
+      buttons,
+      x: dead(pad.axes[0] ?? 0),
+      y: -dead(pad.axes[1] ?? 0),
+      cx: dead(pad.axes[2] ?? 0),
+      cy: -dead(pad.axes[3] ?? 0),
+      l: Math.round(Math.min(1, l) * 255),
+      r: Math.round(Math.min(1, r) * 255),
+    };
+  }
+
   const held = new Set();
   addEventListener("keydown", (event) => {
     if (event.code in KEYS || event.code.startsWith("Arrow")) event.preventDefault();
@@ -687,16 +745,24 @@
     }
     let x = (held.has("ArrowRight") ? 1 : 0) - (held.has("ArrowLeft") ? 1 : 0);
     let y = (held.has("ArrowUp") ? 1 : 0) - (held.has("ArrowDown") ? 1 : 0);
+    let cx = 0;
+    let cy = 0;
+    let l = held.has("KeyQ") ? 255 : 0;
+    let r = held.has("KeyE") ? 255 : 0;
 
     const pad = navigator.getGamepads?.().find((p) => p);
     if (pad) {
-      const dead = (v) => (Math.abs(v) < 0.15 ? 0 : v);
-      x = dead(pad.axes[0] ?? 0) || x;
-      y = -dead(pad.axes[1] ?? 0) || y;
-      const map = ["A", "B", "X", "Y", "L", "R", "Z", null, null, "START"];
-      map.forEach((name, index) => {
-        if (name && pad.buttons[index]?.pressed) buttons |= BUTTON[name];
-      });
+      const read = readPad(pad);
+      // The pad wins where it says something and the keyboard keeps the rest,
+      // so a stick at rest does not cancel a key being held.
+      buttons |= read.buttons;
+      x = read.x || x;
+      y = read.y || y;
+      cx = read.cx;
+      cy = read.cy;
+      l = Math.max(l, read.l);
+      r = Math.max(r, read.r);
+      describePad(pad, read);
     }
 
     const frame = new Uint8Array(13);
@@ -705,12 +771,25 @@
     frame[2] = port;
     view.setInt16(3, Math.round(x * 32767), true);
     view.setInt16(5, Math.round(y * 32767), true);
-    view.setInt16(7, 0, true);
-    view.setInt16(9, 0, true);
-    frame[11] = held.has("KeyQ") ? 255 : 0;
-    frame[12] = held.has("KeyE") ? 255 : 0;
+    view.setInt16(7, Math.round(cx * 32767), true);
+    view.setInt16(9, Math.round(cy * 32767), true);
+    frame[11] = l;
+    frame[12] = r;
     input.send(frame);
     sent += 1;
+  }
+
+  /// Says what pad is attached and what it is doing, because "the buttons are
+  /// wrong" is unanswerable without knowing which button the pad reported.
+  function describePad(pad, read) {
+    const pressed = Object.entries(BUTTON)
+      .filter(([, bit]) => read.buttons & bit)
+      .map(([name]) => name)
+      .join(" ");
+    padLine.textContent =
+      `manette : ${pad.id} — ${pad.mapping === "standard" ? "disposition standard" : "disposition inconnue"}` +
+      `${pressed ? ` · ${pressed}` : ""}` +
+      `${read.l || read.r ? ` · L ${read.l} R ${read.r}` : ""}`;
   }
   requestAnimationFrame(pumpInput);
 

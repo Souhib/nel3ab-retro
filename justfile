@@ -94,6 +94,12 @@ browser-seats:
 browser-claim:
     cd spikes/m3-browser-drive && node claim.mjs http://localhost:8100/
 
+# Is every button of a GameCube pad wired, and to the right bit? Needs the worker
+# RUNNING. Feeds a synthetic standard gamepad, because a mapping is wrong in a
+# way that only shows on the button nobody thought to press.
+browser-pad:
+    cd spikes/m3-browser-drive && node padmap.mjs http://localhost:8100/
+
 # The whole chain against a real Dolphin and a real ROM. Minutes, not seconds.
 end-to-end:
     cd core && sg render -c 'cargo test -p nel3ab-encoder --features gpu-tests,dolphin-integration --test dolphin_frames_become_h264 -- --nocapture'

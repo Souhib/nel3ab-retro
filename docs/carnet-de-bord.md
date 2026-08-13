@@ -1707,6 +1707,37 @@ affichait **0** en toute confiance.
 
 > Une valeur fausse qui a l'air plausible coûte plus cher qu'une erreur.
 
+### La manette n'était câblée qu'à moitié
+
+Sept boutons sur seize, et pas les bons. Ce qui manquait : **la croix
+directionnelle** (aucune), **le stick C** (les deux octets partaient à zéro), les
+**gâchettes analogiques** (seul le clavier les remplissait) — et `Z` était sur la
+gâchette gauche, là où aucune main de joueur GameCube ne va le chercher.
+
+La disposition « standard » du W3C est ce que le navigateur rapporte pour toute
+manette de forme Xbox ou PlayStation :
+
+```
+0 A · 1 B · 2 X · 3 Y     les quatre boutons de face, aux mêmes places
+4 LB → L cliqué           un bumper est une pression franche, pas un dosage
+5 RB → Z                  là où le pouce trouve Z sur une vraie manette
+6 LT · 7 RT → L, R        analogiques, et qui CLIQUENT en fin de course
+9 Start · 12..15 croix
+axes 0,1 stick principal · 2,3 stick C
+```
+
+Le test nourrit une manette **synthétique**, bouton par bouton, et compare aux
+bits que le protocole définit — parce qu'un câblage est faux précisément sur le
+bouton auquel personne n'a pensé. Cassé exprès en remettant l'ancien : cinq
+défauts nommés d'un coup, dont les quatre directions.
+
+Et parce que « les boutons sont mal mis » est insoluble sans savoir **ce que la
+manette a rapporté**, la page affiche maintenant son identifiant, sa disposition,
+et ce qu'elle voit appuyé en direct. Une vraie manette GameCube sur adaptateur
+se présente en disposition *inconnue* : ses indices ne sont pas ceux-là, et il
+faudra un profil à part — que ce relevé permettra d'écrire en une fois au lieu de
+le deviner.
+
 ### Deux erreurs de raisonnement à garder
 
 **Deux correctifs écrits, deux échecs, gardés écrits.** J'ai d'abord trouvé un

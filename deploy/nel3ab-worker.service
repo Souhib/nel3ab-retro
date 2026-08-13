@@ -43,7 +43,7 @@ Environment=NEL3AB_SESSION_DIR=/tmp/nel3ab-session
 # unserved port holding a phantom pad changes what the GAME does, and a room for
 # one should look like one console with one controller in it. Set it to 4 (and
 # restart) for a room with friends in it.
-Environment=NEL3AB_PLAYERS=4
+Environment=NEL3AB_PLAYERS=1
 # How many times native the emulator renders: 1 is 640×480, 2 is 1280×960, 3 is
 # 1920×1440. Two by default — measured at four times the pixels for one extra
 # millisecond of encode and three megabits, with the frame rate untouched. Three

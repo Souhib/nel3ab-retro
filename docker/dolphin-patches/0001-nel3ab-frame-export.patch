@@ -16,7 +16,7 @@ new file mode 100644
 index 0000000..9b10194
 --- /dev/null
 +++ b/Source/Core/VideoBackends/Vulkan/VKFrameExport.cpp
-@@ -0,0 +1,575 @@
+@@ -0,0 +1,601 @@
 +// Copyright 2026 nel3ab-retro
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +
@@ -38,6 +38,7 @@ index 0000000..9b10194
 +#include "Common/Logging/Log.h"
 +#include "Common/MathUtil.h"
 +#include "VideoBackends/Vulkan/CommandBufferManager.h"
++#include "VideoBackends/Vulkan/StateTracker.h"
 +#include "VideoBackends/Vulkan/VKGfx.h"
 +#include "VideoBackends/Vulkan/VKTexture.h"
 +#include "VideoBackends/Vulkan/VulkanContext.h"
@@ -499,7 +500,8 @@ index 0000000..9b10194
 +
 +  source->TransitionToLayout(command_buffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 +
-+  // Submit AND WAIT. Two separate reasons, both learned the hard way:
++  // Submit AND WAIT, and ADVANCE THE FRAME. Three decisions, each with a
++  // measurement behind it.
 +  //
 +  // Submit, because recording a blit is not running it. In headless there is no
 +  // presentation to end the frame, so nothing flushes the queue unless we do —
@@ -510,7 +512,31 @@ index 0000000..9b10194
 +  // still writing it. This is a CPU/GPU sync point per frame and it is the
 +  // expensive, honest option: the cheap one is an exported semaphore, which
 +  // Dolphin's submit path has no way to carry today. Measure before replacing it.
-+  static_cast<VKGfx*>(g_gfx.get())->ExecuteCommandBuffer(false, true);
++  //
++  // Advance, and THIS one cost a night. `VKGfx::ExecuteCommandBuffer` submits
++  // without advancing the frame, and Dolphin resets its descriptor pools only
++  // inside `if (advance_to_next_frame)`. Our extra submission also invalidates
++  // the cached state, so every descriptor is reallocated for the next draws —
++  // twice the consumption, and never a reset. Dolphin answers an exhausted pool
++  // by allocating another AND by raising `m_descriptor_set_count` for good:
++  //
++  //     m_descriptor_set_count += DESCRIPTOR_SETS_PER_POOL;   // never lowered
++  //
++  // A ratchet. Every overflow permanently enlarges every later pool. MEASURED
++  // on this machine with the old line: 975 pool objects of 3.1 MB created in
++  // five minutes, 609 MB/min, VRAM full in a quarter of an hour — after which
++  // the emulated game cannot allocate anything, stops progressing, and loops one
++  // second of picture for ever while every counter downstream reads perfect.
++  // Dolphin on its own is flat at 3281 MB for as long as you watch it.
++  //
++  // Advancing makes our submission a real frame boundary, so the pools are reset
++  // rather than multiplied. The two lines around it are what `ExecuteCommandBuffer`
++  // does for itself and are not optional: a render pass must be closed before
++  // the buffer is submitted, and the cached state describes a command buffer
++  // that no longer exists.
++  StateTracker::GetInstance()->EndRenderPass();
++  g_command_buffer_mgr->SubmitCommandBuffer(false, true, true);
++  StateTracker::GetInstance()->InvalidateCachedState();
 +
 +  FrameReady ready = {};
 +  ready.magic = FRAME_MAGIC;

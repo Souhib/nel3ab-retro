@@ -1477,6 +1477,145 @@ Les trois cas sont tenus par des tests : le joueur silencieux garde sa place, le
 fantôme rend la sienne au bout de quinze secondes, l'onglet fermé la rend tout de
 suite.
 
+### La vraie cause de tout : c'était nous depuis le début
+
+Il faut lire cette section en sachant la fin : **le plantage de Dolphin que nous
+avons passé des heures à instrumenter, le « bogue de pool de descripteurs » que
+je m'apprêtais à remonter en amont, et le gel des images en boucle, sont un seul
+et même défaut — et il est dans notre patch.**
+
+#### Le symptôme qui a résisté à quatre correctifs
+
+Les chiffres du joueur étaient parfaits : 59,9 images reçues par seconde, 53,1
+peintes, file du décodeur à zéro, aucune reprise. Et l'écran montrait les mêmes
+images en boucle. J'ai corrigé quatre choses réelles dans le navigateur —
+socket morte, décodeur mort, onglet caché, places de manette — et le symptôme
+n'a pas bougé d'un pouce, parce qu'**aucune n'était la cause**.
+
+#### L'instrument qui mentait
+
+Premier essai de mesure : compter les images visuellement distinctes en lisant
+le canevas soixante fois par seconde. Réponse : « 4 images distinctes par
+seconde ». Fausse. Lire cinq mégaoctets de pixels soixante fois par seconde
+**étouffait la page qu'on mesurait**.
+
+> Un instrument qui consomme la ressource qu'il mesure ne mesure plus rien.
+
+#### La mesure qui a tranché
+
+Lire les **octets bruts sur le fil**, sans aucun décodeur, sans canevas :
+
+```
+400 unités d'accès lues
+  distinctes : 60
+  identiques à  60 unités d'écart : 100,0 %
+  identiques à 120 unités d'écart : 100,0 %
+  identiques à   1, 2, 3, 30      :   0,0 %
+```
+
+Le serveur envoyait **une boucle parfaite d'une seconde**. Le navigateur était
+innocent, et il l'avait toujours été. Confirmation immédiate : 749 trames de
+manette, boutons compris — aucune réaction. Le jeu émulé était figé.
+
+#### La mémoire
+
+| | VRAM | GTT | objets GPU |
+|---|---|---|---|
+| session figée | **8175 Mo** (carte pleine) | 5882 Mo | **86 808** |
+| session neuve | 248 Mo | 203 Mo | quelques centaines |
+
+Notre worker, dans la même mesure : 29 objets, 43 Mo. Tout était chez Dolphin.
+
+#### L'expérience qui accuse
+
+Dolphin **seul**, sans notre crochet, même jeu, même résolution : la VRAM monte
+à 3281 Mo en cinq minutes puis reste **parfaitement plate** pendant sept minutes.
+
+Dolphin **avec notre crochet** : +446 Mo en six minutes, par marches de 64 Mo, et
+ça continue. Classe par classe : **975 objets de 3,125 Mo en cinq minutes, soit
+609 Mo par minute.** Les 8 Go de la carte sont pleins en un quart d'heure.
+
+#### Le mécanisme, dans leur code et dans le nôtre
+
+Notre crochet appelait, à chaque image :
+
+```cpp
+static_cast<VKGfx*>(g_gfx.get())->ExecuteCommandBuffer(false, true);
+```
+
+Or `ExecuteCommandBuffer` fait deux choses qu'il faut lire ensemble :
+
+```cpp
+g_command_buffer_mgr->SubmitCommandBuffer(submit_off_thread, wait_for_completion);
+StateTracker::GetInstance()->InvalidateCachedState();
+```
+
+- il soumet **sans** le troisième paramètre, `advance_to_next_frame` ;
+- et il invalide l'état, donc tous les descripteurs seront **réalloués**.
+
+Et côté Dolphin, la remise à zéro des pools n'a lieu que dans
+`if (advance_to_next_frame)`. Notre soumission consommait donc un second jeu
+complet de descripteurs par image **sans jamais déclencher la remise à zéro**.
+Quand un pool déborde :
+
+```cpp
+VkDescriptorPool descriptor_pool = CreateDescriptorPool(DESCRIPTOR_SETS_PER_POOL);
+m_descriptor_set_count += DESCRIPTOR_SETS_PER_POOL;   // ne redescend jamais
+```
+
+**Un cliquet.** Chaque débordement agrandit définitivement tous les pools
+suivants. Dolphin seul déborde rarement : mémoire plate. Nous le faisions
+déborder soixante fois par seconde.
+
+Le correctif tient en trois lignes : faire de notre soumission une **vraie fin de
+trame**, pour que les pools soient remis à zéro au lieu d'être multipliés.
+
+#### Après le correctif
+
+Même mesure, même jeu, même durée :
+
+| | avant | après |
+|---|---|---|
+| croissance en 5 min | **+3240 Mo** | **+195 Mo** |
+| pools de 3,1 Mo créés | 975 | **0** |
+| flux : unités distinctes sur 300 | **60** | **300** |
+| flux : identiques à 60 d'écart | **100 %** | **0 %** |
+
+La classe qui fuyait a disparu, et la boucle avec elle. Ce qui reste — quelques
+blocs de 64 Mo, ~34 Mo/min — est le remplissage normal du cache de textures :
+c'est exactement ce que fait Dolphin seul, qui se stabilise à 3281 Mo. **Ce
+plateau-là, je ne l'ai pas encore observé sur la version corrigée** ; à dix-sept
+minutes la session était à 765 Mo et montait encore. À surveiller, et à dire
+plutôt qu'à supposer.
+
+#### Ce que ça remet en cause, et c'est le plus important
+
+Toute la chaîne d'incidents de ce projet redevient une seule histoire :
+
+| ce qu'on croyait | ce que c'était |
+|---|---|
+| « Dolphin épuise ses pools de descripteurs, c'est un bogue amont » | **notre soumission** faisait déborder les pools |
+| le plantage, réglé par le patch 0002 « survivre à l'épuisement » | on a transformé un plantage en **gel silencieux** |
+| le gel réglé par le Resizable BAR (GTT plate à 205 Mo) | on avait seulement **agrandi le réservoir** ; le cliquet continuait de tourner |
+| « ça saccade, c'est le réseau / le décodeur / l'onglet » | la mémoire GPU se remplissait, le jeu s'arrêtait de progresser |
+
+Trois « correctifs » successifs ont traité des symptômes d'un défaut que nous
+avions introduit, et le dernier — le BAR — a rendu la panne **plus lente et donc
+plus difficile à voir** : au lieu de planter en dix minutes, la session mourait
+en une heure.
+
+> **Quand on ajoute du code dans le moteur de quelqu'un d'autre, la première
+> hypothèse pour toute anomalie de ce moteur doit être la nôtre.** J'ai fait
+> l'inverse pendant des jours : j'ai instrumenté, mesuré et accusé Dolphin avec
+> des preuves qui étaient toutes vraies et dont la cause était notre ligne.
+
+Et la leçon de mesure, qui vaut pour la suite : **tous nos compteurs étaient au
+vert pendant que le produit était inutilisable**. Images produites, images
+jetées, latence, débit : tous justes, tous inutiles, parce qu'aucun ne répondait
+à la seule question qui compte — *est-ce que l'image change ?* Le débit le
+disait pourtant, à qui savait le lire : 20,5 Mbit/s **figés à la deuxième
+décimale**, ce qui n'arrive jamais dans une vraie partie.
+
 ### Deux erreurs de raisonnement à garder
 
 **Deux correctifs écrits, deux échecs, gardés écrits.** J'ai d'abord trouvé un

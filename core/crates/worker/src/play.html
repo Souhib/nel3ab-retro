@@ -21,6 +21,7 @@
   <div>
     <div id="stats">connecting…</div>
     <p id="seat" class="note">en attente d'une manette…</p>
+    <p><button id="claim" type="button" hidden>prendre la manette</button></p>
     <p><button id="copy" type="button">copier les chiffres</button>
       <span id="hint"></span></p>
     <p class="note">
@@ -39,6 +40,7 @@
   const hint = document.getElementById("hint");
   const copyButton = document.getElementById("copy");
   const seat = document.getElementById("seat");
+  const claimButton = document.getElementById("claim");
   /// Replacing the panel's content destroys any selection inside it, and the
   /// panel refreshes twice a second: highlighting a number to copy it was
   /// impossible, the selection vanished before the second click. So the display
@@ -462,7 +464,7 @@
     stallDecoder: () => {
       if (decoder !== null) decoder.decode = () => {};
     },
-    counters: () => ({ painted, shown, stalls, restarts, undecoded }),
+    counters: () => ({ painted, shown, stalls, restarts, undecoded, attempts }),
     backlog: () => decoder?.decodeQueueSize ?? 0,
   };
 
@@ -486,26 +488,59 @@
   // is in the room and the page does not — and it says so in one byte as soon as
   // the socket opens. Zero means the room is full. Until that byte arrives the
   // page has nothing legitimate to send, so it sends nothing.
+  //
+  // A page that is merely OPEN holds its port: it sends the neutral pad state on
+  // every refresh whether anybody is playing or not. A tab left open on another
+  // machine therefore kept the only controller of a one-player room while its
+  // owner pressed keys into this page, which had none — so there is a button,
+  // and only a person pressing it can displace another page. Doing it
+  // automatically would have two open pages trading the pad for ever, which is
+  // exactly how the same idea failed on the video socket.
   let input = null;
   let port = null;
-  function connectInput() {
-    input = new WebSocket(socketUrl("/input"));
+  let refused = false;
+  let attempts = 0;
+  function connectInput(insist = false) {
+    refused = false;
+    attempts += 1;
+    input = new WebSocket(socketUrl(insist ? "/input?take=1" : "/input"));
     input.binaryType = "arraybuffer";
     input.onmessage = (event) => {
       const told = new Uint8Array(event.data);
       if (told.length !== 1) return;
       port = told[0] === 0 ? null : told[0];
+      refused = port === null;
+      claimButton.hidden = !refused;
       seat.textContent =
         port === null
-          ? "la partie est complète — aucune manette libre"
+          ? "aucune manette : une autre page tient celle-ci"
           : `tu es le joueur ${port}`;
+      seat.className = port === null ? "bad" : "note";
     };
     input.onclose = () => {
       port = null;
-      setTimeout(connectInput, 500);
+      // Half a second after a drop, three seconds after a refusal. Asking
+      // POLITELY costs nothing and takes nothing from anybody, so a page whose
+      // room was full picks the controller up by itself the moment it is free —
+      // which is what happens when the other page is closed. Only the button
+      // ever displaces a page that is still there.
+      setTimeout(() => connectInput(), refused ? 3000 : 500);
     };
     input.onerror = () => input?.close();
   }
+  claimButton.addEventListener("click", () => {
+    claimButton.hidden = true;
+    seat.textContent = "on prend la manette…";
+    if (input !== null && input.readyState === WebSocket.OPEN) {
+      // Insisting on a socket that already holds nothing: close it first so the
+      // server sees one claim, not two.
+      refused = false;
+      input.onclose = () => connectInput(true);
+      input.close();
+    } else {
+      connectInput(true);
+    }
+  });
   connectInput();
 
   const BUTTON = {

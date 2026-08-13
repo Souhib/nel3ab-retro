@@ -1616,6 +1616,47 @@ jetées, latence, débit : tous justes, tous inutiles, parce qu'aucun ne répond
 disait pourtant, à qui savait le lire : 20,5 Mbit/s **figés à la deuxième
 décimale**, ce qui n'arrive jamais dans une vraie partie.
 
+### Une page ouverte n'est pas un joueur
+
+L'image ne gelait plus, et plus rien ne répondait aux touches. Le tuyau était
+bon : j'ai écrit `PRESS START` directement dedans et le jeu est passé de la démo
+au menu « REGULAR CLASSIC ». Dolphin lisait, le jeu répondait.
+
+Sa page, elle, affichait « la partie est complète ». Une **autre** page — un
+onglet resté ouvert sur une seconde machine — tenait l'unique manette, et
+envoyait **94 trames par seconde** sans que personne n'y touche : une page ouverte
+émet l'état neutre à chaque rafraîchissement, qu'on joue ou non.
+
+> « Quelqu'un tient ce port » ne dit rien sur « quelqu'un joue ». Dans une salle à
+> une place, la première page ouverte confisquait la manette pour toujours.
+
+Trois règles, et il fallait les trois :
+
+- **le bouton** — seule une personne peut déloger une autre page. Le faire
+  automatiquement ferait s'échanger la manette entre deux pages ouvertes sans
+  fin ; c'est exactement comme ça que la règle « le dernier arrivé gagne » avait
+  échoué sur la vidéo ;
+- **la page délogée est prévenue** — un octet zéro, et elle cesse de croire
+  qu'elle pilote ;
+- **et elle redemande poliment**, toutes les trois secondes. Demander sans
+  insister ne prend rien à personne : une page dont la salle était pleine
+  récupère la manette d'elle-même dès qu'on ferme l'autre.
+
+La place est désormais un **numéro de réclamation**, pas un drapeau : le tenant
+compare le sien à celui inscrit dans la case et se retire quand ils diffèrent.
+Un drapeau booléen n'aurait pas su distinguer « je tiens encore » de « on m'a
+remplacé », et la page remplacée aurait rendu la place de sa remplaçante en
+partant.
+
+Deux pièges attrapés par les tests au passage :
+
+- ma sortie de boucle sur éviction **oubliait de prévenir** la page délogée
+  quand elle était inactive : elle partait par la porte du délai d'attente. Le
+  test l'a vu comme une connexion fermée sans explication ;
+- le premier message qu'un client Rust lit n'est pas l'éviction mais **le
+  ping** — un navigateur, lui, ne montre jamais les trames de contrôle à la
+  page. Le test comptait le mauvais message.
+
 ### Deux erreurs de raisonnement à garder
 
 **Deux correctifs écrits, deux échecs, gardés écrits.** J'ai d'abord trouvé un

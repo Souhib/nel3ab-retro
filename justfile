@@ -88,6 +88,12 @@ browser-background:
 browser-seats:
     cd spikes/m3-browser-drive && node seat-kept.mjs http://localhost:8100/ 25
 
+# Can a person take the controller back from a page that is merely open? Needs
+# the worker RUNNING and NOBODY else holding a port — the test says so rather
+# than passing vacuously.
+browser-claim:
+    cd spikes/m3-browser-drive && node claim.mjs http://localhost:8100/
+
 # The whole chain against a real Dolphin and a real ROM. Minutes, not seconds.
 end-to-end:
     cd core && sg render -c 'cargo test -p nel3ab-encoder --features gpu-tests,dolphin-integration --test dolphin_frames_become_h264 -- --nocapture'

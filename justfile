@@ -100,6 +100,12 @@ browser-claim:
 browser-pad:
     cd spikes/m3-browser-drive && node padmap.mjs http://localhost:8100/
 
+# Does one press answer exactly one question of the pad lesson? Needs the worker
+# RUNNING. Feeds a synthetic pad frame by frame, because what this gets wrong is
+# a SEQUENCE — a press that also answers the question after it.
+browser-lesson:
+    cd spikes/m3-browser-drive && node lesson.mjs http://localhost:8100/
+
 # The whole chain against a real Dolphin and a real ROM. Minutes, not seconds.
 end-to-end:
     cd core && sg render -c 'cargo test -p nel3ab-encoder --features gpu-tests,dolphin-integration --test dolphin_frames_become_h264 -- --nocapture'

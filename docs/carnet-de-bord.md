@@ -1766,6 +1766,28 @@ même sans manette attribuée — quelqu'un dont la salle est pleine doit pouvoi
 régler son matériel plutôt que d'attendre. Les pressions qui répondent aux
 questions ne partent jamais vers le jeu.
 
+### Le relâchement répondait à la question suivante
+
+Premier essai de l'apprentissage, trouvé par le joueur en trois secondes : un
+appui sur A faisait passer le compteur de **1 à 3**.
+
+La cause tient en une ligne : je reprenais l'échantillon de repos **après chaque
+réponse**, et je le prenais pendant que le bouton était encore enfoncé. Comme la
+détection compare une distance **en valeur absolue** au repos, lâcher le bouton
+s'éloignait exactement autant que l'avoir appuyé — et répondait donc à la
+question d'après.
+
+> Un repos mesuré pendant qu'on appuie n'est pas un repos.
+
+L'échantillon neutre est maintenant pris **une seule fois**, au début, et la
+question suivante n'est posée qu'une fois la manette revenue à ce neutre — la
+page affiche « relâche… » entre deux questions.
+
+Le test nourrit une manette synthétique **image par image** : appui, maintien,
+relâchement, puis le bouton suivant. C'est un test de **séquence**, parce que le
+défaut est une séquence — aucun instantané ne l'aurait montré. Cassé exprès :
+cinq étapes sautées sur cinq.
+
 ### Deux erreurs de raisonnement à garder
 
 **Deux correctifs écrits, deux échecs, gardés écrits.** J'ai d'abord trouvé un

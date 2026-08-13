@@ -563,6 +563,13 @@
     },
     counters: () => ({ painted, shown, stalls, restarts, undecoded, attempts }),
     readPad,
+    // The lesson, drivable with a synthetic pad: what it gets wrong is a
+    // SEQUENCE — a press answering two questions — and a sequence needs frames
+    // fed to it one at a time.
+    beginLesson: startLesson,
+    feedPad: learnFrom,
+    lessonAt: () => (lesson === null ? null : { step: lesson.step, waiting: lesson.waiting }),
+    learnedProfile: () => padProfile,
     pacing: () => ({
       offset, queue: queue.length, target, priming,
       refresh: refreshPeriod(), holds: holds.slice(-12),
@@ -810,26 +817,45 @@
   });
 
   function startLesson(pad) {
-    lesson = { step: 0, rest: snapshot(pad), profile: { id: pad.id, buttons: {}, triggers: {}, sticks: {} } };
+    lesson = {
+      step: 0,
+      // Taken ONCE, with nothing held. Re-reading it after each answer was the
+      // bug: the sample was taken while the button was still down, so RELEASING
+      // it moved just as far as pressing it and answered the next question.
+      // Measured by the player: one press of A took the counter from 1 to 3.
+      neutral: snapshot(pad),
+      waiting: false,
+      profile: { id: pad.id, buttons: {}, triggers: {}, sticks: {} },
+    };
     skipButton.hidden = false;
     tellLesson();
   }
   function tellLesson() {
     if (lesson === null) return;
     const [, what] = LESSON[lesson.step];
-    lessonLine.textContent = `appuie sur ${what} (${lesson.step + 1}/${LESSON.length})`;
+    lessonLine.textContent = lesson.waiting
+      ? "relâche…"
+      : `appuie sur ${what} (${lesson.step + 1}/${LESSON.length})`;
     lessonLine.className = "note";
   }
-  function nextStep(pad) {
+  /// Whether everything the pad reports has come back to where it started.
+  function atRest(now) {
+    return (
+      now.buttons.every((v, i) => Math.abs(v - (lesson.neutral.buttons[i] ?? 0)) <= MOVED) &&
+      now.axes.every((v, i) => Math.abs(v - (lesson.neutral.axes[i] ?? 0)) <= MOVED)
+    );
+  }
+  function nextStep() {
     lesson.step += 1;
     if (lesson.step < LESSON.length) {
-      lesson.rest = snapshot(pad);
+      // The next question is not asked until the hand has let go.
+      lesson.waiting = true;
       tellLesson();
       return;
     }
     padProfile = lesson.profile;
     try {
-      localStorage.setItem(profileKey(pad), JSON.stringify(padProfile));
+      localStorage.setItem(`nel3ab.pad.${padProfile.id}`, JSON.stringify(padProfile));
     } catch {
       // Private browsing, most likely. The profile still works for this session.
     }
@@ -844,16 +870,23 @@
   function learnFrom(pad) {
     if (lesson === null) return;
     const now = snapshot(pad);
+    if (lesson.waiting) {
+      if (atRest(now)) {
+        lesson.waiting = false;
+        tellLesson();
+      }
+      return;
+    }
     const [name] = LESSON[lesson.step];
     let best = null;
     now.buttons.forEach((value, index) => {
-      const moved = Math.abs(value - (lesson.rest.buttons[index] ?? 0));
+      const moved = Math.abs(value - (lesson.neutral.buttons[index] ?? 0));
       if (moved > MOVED && (best === null || moved > best.moved)) {
         best = { moved, control: { button: index }, value };
       }
     });
     now.axes.forEach((value, index) => {
-      const rest = lesson.rest.axes[index] ?? 0;
+      const rest = lesson.neutral.axes[index] ?? 0;
       const moved = Math.abs(value - rest);
       if (moved > MOVED && (best === null || moved > best.moved)) {
         best = { moved, control: { axis: index, rest, full: value }, value, rest };
@@ -872,7 +905,7 @@
     } else {
       lesson.profile.buttons[name] = best.control;
     }
-    nextStep(pad);
+    nextStep();
   }
 
   learnButton.addEventListener("click", () => {
@@ -885,8 +918,7 @@
     startLesson(pad);
   });
   skipButton.addEventListener("click", () => {
-    const pad = navigator.getGamepads?.().find((p) => p);
-    if (pad !== undefined && lesson !== null) nextStep(pad);
+    if (lesson !== null) nextStep();
   });
 
   const held = new Set();

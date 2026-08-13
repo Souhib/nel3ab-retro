@@ -1,0 +1,15 @@
+[package]
+name = "nel3ab-telemetry"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+repository.workspace = true
+description = "What the pipeline measures about itself: distributions, not maxima."
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+rstest = "0.26"

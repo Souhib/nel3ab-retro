@@ -31,6 +31,7 @@ use nel3ab_encoder::vulkan::Context;
 use nel3ab_encoder::vulkan::convert::{Converter, Ownership, Source};
 use nel3ab_encoder::vulkan::image::{ImportedFrame, Nv12Target};
 use nel3ab_protocol::PlayerSlot;
+use nel3ab_telemetry::Timings;
 use nel3ab_transport::{BrowserServer, Packet};
 use tracing_subscriber::EnvFilter;
 
@@ -347,7 +348,11 @@ fn run(settings: &Settings) -> Result<()> {
     let mut input_to_frame: Vec<f64> = Vec::new();
     // Where the time goes, per window. A stutter has to be attributable before
     // it can be fixed, and "the pipeline slowed down" names nothing.
-    let mut worst = Worst::default();
+    // One window per stage, drained on every report. A ten-second window holds
+    // 600 frames; the cap is two thousand, which only a runaway loop could reach.
+    let mut wait_times = Timings::new(2048);
+    let mut convert_times = Timings::new(2048);
+    let mut encode_times = Timings::new(2048);
 
     loop {
         // Input first. A pad frame that arrived while the last picture was
@@ -436,18 +441,38 @@ fn run(settings: &Settings) -> Result<()> {
             });
         }
         produced += 1;
-        worst.observe(waited, shader_took, encoding.elapsed());
+        wait_times.observe(waited);
+        convert_times.observe(shader_took);
+        encode_times.observe(encoding.elapsed());
 
         if reported.elapsed() >= Duration::from_secs(10) {
+            // Distributions, with the count they were drawn from. This used to
+            // be four maxima, and a maximum cannot answer "did that change
+            // help": it moves with the length of the run and describes exactly
+            // one frame. `max` is still here, as a diagnostic and not as the
+            // number to compare.
+            let (wait, convert, encode) = (
+                wait_times.summary(),
+                convert_times.summary(),
+                encode_times.summary(),
+            );
             tracing::info!(
                 produced,
                 dropped = server.dropped(),
                 inputs_received = server.inputs_received(),
                 inputs_applied = applied.load(std::sync::atomic::Ordering::Relaxed),
-                slowest_ms = worst.total_ms(),
-                slowest_waiting_ms = worst.waited_ms(),
-                slowest_converting_ms = worst.converted_ms(),
-                slowest_encoding_ms = worst.encoded_ms(),
+                frames = wait.samples,
+                waiting_p50_ms = wait.p50,
+                waiting_p95_ms = wait.p95,
+                waiting_p99_ms = wait.p99,
+                waiting_max_ms = wait.max,
+                converting_p50_ms = convert.p50,
+                converting_p95_ms = convert.p95,
+                converting_max_ms = convert.max,
+                encoding_p50_ms = encode.p50,
+                encoding_p95_ms = encode.p95,
+                encoding_p99_ms = encode.p99,
+                encoding_max_ms = encode.max,
                 megabits_per_second = megabits(coded_bytes - reported_bytes, reported.elapsed()),
                 input_to_frame_p50_ms = percentile(&mut input_to_frame, 0.50),
                 input_to_frame_p95_ms = percentile(&mut input_to_frame, 0.95),
@@ -455,7 +480,9 @@ fn run(settings: &Settings) -> Result<()> {
             );
             reported = Instant::now();
             reported_bytes = coded_bytes;
-            worst = Worst::default();
+            wait_times.clear();
+            convert_times.clear();
+            encode_times.clear();
             input_to_frame.clear();
         }
     }
@@ -485,46 +512,6 @@ fn percentile(samples: &mut [f64], quantile: f64) -> f64 {
     )]
     let index = ((samples.len() - 1) as f64 * quantile) as usize;
     samples[index]
-}
-
-/// The slowest iteration of a reporting window, and where its time went.
-///
-/// The whole iteration rather than a per-stage maximum: three stages each
-/// peaking in different frames would report three alarming numbers and describe
-/// no single slow frame. What a player feels is one frame taking too long.
-#[derive(Default)]
-struct Worst {
-    total: Duration,
-    waited: Duration,
-    converted: Duration,
-    encoded: Duration,
-}
-
-impl Worst {
-    fn observe(&mut self, waited: Duration, converted: Duration, encoded: Duration) {
-        let total = waited + converted + encoded;
-        if total > self.total {
-            *self = Self {
-                total,
-                waited,
-                converted,
-                encoded,
-            };
-        }
-    }
-
-    fn total_ms(&self) -> f64 {
-        self.total.as_secs_f64() * 1000.0
-    }
-    fn waited_ms(&self) -> f64 {
-        self.waited.as_secs_f64() * 1000.0
-    }
-    fn converted_ms(&self) -> f64 {
-        self.converted.as_secs_f64() * 1000.0
-    }
-    fn encoded_ms(&self) -> f64 {
-        self.encoded.as_secs_f64() * 1000.0
-    }
 }
 
 /// Structured JSON logs, level driven by `RUST_LOG`.

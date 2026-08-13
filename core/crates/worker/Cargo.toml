@@ -12,6 +12,7 @@ repository.workspace = true
 nel3ab-protocol = { path = "../protocol" }
 nel3ab-emulator = { path = "../emulator" }
 nel3ab-encoder = { path = "../encoder", features = ["vaapi"] }
+nel3ab-telemetry = { path = "../telemetry" }
 nel3ab-transport = { path = "../transport" }
 tracing.workspace = true
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }

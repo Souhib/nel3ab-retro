@@ -106,6 +106,16 @@ browser-pad:
 browser-lesson:
     cd spikes/m3-browser-drive && node lesson.mjs http://localhost:8100/
 
+# One benchmark run of the shipped chain: release worker under systemd, the real
+# Dolphin container, the real GPU, a real headless Chrome watching. RESTARTS THE
+# SESSION, so it must not be run while somebody is playing.
+#
+# Takes about three minutes: 45 s of warm-up so shader compilation and the
+# display schedule have settled, then 90 s measured. Writes the raw result to
+# bench/results/ and prints the distributions.
+bench label="baseline":
+    node bench/run.mjs {{label}}
+
 # The whole chain against a real Dolphin and a real ROM. Minutes, not seconds.
 end-to-end:
     cd core && sg render -c 'cargo test -p nel3ab-encoder --features gpu-tests,dolphin-integration --test dolphin_frames_become_h264 -- --nocapture'

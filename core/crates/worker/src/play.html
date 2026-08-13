@@ -23,6 +23,9 @@
     <p id="seat" class="note">en attente d'une manette…</p>
     <p><button id="claim" type="button" hidden>prendre la manette</button></p>
     <p id="pad" class="note"></p>
+    <p><button id="learn" type="button">configurer la manette</button>
+      <button id="skip" type="button" hidden>passer ce bouton</button></p>
+    <p id="lesson" class="note"></p>
     <p><button id="copy" type="button">copier les chiffres</button>
       <span id="hint"></span></p>
     <p class="note">
@@ -43,6 +46,9 @@
   const seat = document.getElementById("seat");
   const claimButton = document.getElementById("claim");
   const padLine = document.getElementById("pad");
+  const learnButton = document.getElementById("learn");
+  const skipButton = document.getElementById("skip");
+  const lessonLine = document.getElementById("lesson");
   /// Replacing the panel's content destroys any selection inside it, and the
   /// panel refreshes twice a second: highlighting a number to copy it was
   /// impossible, the selection vanished before the second click. So the display
@@ -699,26 +705,189 @@
   const analogue = (button) =>
     button === undefined ? 0 : button.value > 0 ? button.value : button.pressed ? 1 : 0;
 
-  function readPad(pad) {
+  /// How far a control must move from rest to count as "that one".
+  const MOVED = 0.5;
+
+  /// One control of a profile, read out of a pad.
+  ///
+  /// A control can be a button OR an axis, and which one is not ours to decide:
+  /// an official GameCube adapter reports its triggers as axes and its face
+  /// buttons at indices nothing else uses. Both shapes are read the same way
+  /// here — how far it has travelled from where it rests, between 0 and 1 —
+  /// so nothing above this line has to know which it was.
+  const travel = (pad, control) => {
+    if (control === undefined || control === null) return 0;
+    if (control.button !== undefined) return analogue(pad.buttons[control.button]);
+    const value = pad.axes[control.axis] ?? control.rest;
+    const span = control.full - control.rest;
+    return span === 0 ? 0 : Math.max(0, Math.min(1, (value - control.rest) / span));
+  };
+
+  function readPad(pad, profile = padProfile) {
     const dead = (v) => (Math.abs(v) < DEAD_ZONE ? 0 : v);
     let buttons = 0;
-    for (const [index, name] of PAD_BUTTONS) {
-      if (pad.buttons[index]?.pressed) buttons |= BUTTON[name];
+    let l = 0;
+    let r = 0;
+    let x = 0;
+    let y = 0;
+    let cx = 0;
+    let cy = 0;
+
+    if (profile) {
+      for (const [name, control] of Object.entries(profile.buttons)) {
+        if (travel(pad, control) > MOVED) buttons |= BUTTON[name];
+      }
+      l = travel(pad, profile.triggers.L);
+      r = travel(pad, profile.triggers.R);
+      const stick = (control) =>
+        control ? dead((pad.axes[control.axis] ?? 0) * control.sign) : 0;
+      x = stick(profile.sticks.x);
+      y = stick(profile.sticks.y);
+      cx = stick(profile.sticks.cx);
+      cy = stick(profile.sticks.cy);
+    } else {
+      for (const [index, name] of PAD_BUTTONS) {
+        if (pad.buttons[index]?.pressed) buttons |= BUTTON[name];
+      }
+      l = analogue(pad.buttons[6]);
+      r = analogue(pad.buttons[7]);
+      x = dead(pad.axes[0] ?? 0);
+      y = -dead(pad.axes[1] ?? 0);
+      cx = dead(pad.axes[2] ?? 0);
+      cy = -dead(pad.axes[3] ?? 0);
     }
-    const l = analogue(pad.buttons[6]);
-    const r = analogue(pad.buttons[7]);
+
     if (l > TRIGGER_CLICK) buttons |= BUTTON.L;
     if (r > TRIGGER_CLICK) buttons |= BUTTON.R;
     return {
       buttons,
-      x: dead(pad.axes[0] ?? 0),
-      y: -dead(pad.axes[1] ?? 0),
-      cx: dead(pad.axes[2] ?? 0),
-      cy: -dead(pad.axes[3] ?? 0),
+      x,
+      y,
+      cx,
+      cy,
       l: Math.round(Math.min(1, l) * 255),
       r: Math.round(Math.min(1, r) * 255),
     };
   }
+
+  // ── learning a pad ──────────────────────────────────────────────────────
+  //
+  // A real GameCube controller on an adapter announces an UNKNOWN layout, and
+  // that is not a thing to guess at: its indices are its own, its triggers are
+  // axes, and the next adapter's will differ again. So the page asks. Each step
+  // watches everything the pad reports and takes whatever MOVED — which works
+  // the same whether the answer turns out to be a button or an axis, and needs
+  // no table of adapters that would be wrong for the one nobody tested.
+  const LESSON = [
+    ["A", "le bouton A"], ["B", "le bouton B"], ["X", "le bouton X"],
+    ["Y", "le bouton Y"], ["Z", "le bouton Z"], ["START", "Start"],
+    ["D_UP", "la croix ↑"], ["D_DOWN", "la croix ↓"],
+    ["D_LEFT", "la croix ←"], ["D_RIGHT", "la croix →"],
+    ["L", "la gâchette L, à fond"], ["R", "la gâchette R, à fond"],
+    ["x", "le stick principal à DROITE"], ["y", "le stick principal en HAUT"],
+    ["cx", "le stick C à DROITE"], ["cy", "le stick C en HAUT"],
+  ];
+  let padProfile = null;
+  let lesson = null;
+
+  function profileKey(pad) {
+    return `nel3ab.pad.${pad.id}`;
+  }
+  function loadProfile(pad) {
+    try {
+      const saved = localStorage.getItem(profileKey(pad));
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /// What the pad looks like right now, as one flat list, so a step can compare
+  /// "before" with "now" without caring what kind of control moved.
+  const snapshot = (pad) => ({
+    buttons: pad.buttons.map((b) => (b.value > 0 ? b.value : b.pressed ? 1 : 0)),
+    axes: [...pad.axes],
+  });
+
+  function startLesson(pad) {
+    lesson = { step: 0, rest: snapshot(pad), profile: { id: pad.id, buttons: {}, triggers: {}, sticks: {} } };
+    skipButton.hidden = false;
+    tellLesson();
+  }
+  function tellLesson() {
+    if (lesson === null) return;
+    const [, what] = LESSON[lesson.step];
+    lessonLine.textContent = `appuie sur ${what} (${lesson.step + 1}/${LESSON.length})`;
+    lessonLine.className = "note";
+  }
+  function nextStep(pad) {
+    lesson.step += 1;
+    if (lesson.step < LESSON.length) {
+      lesson.rest = snapshot(pad);
+      tellLesson();
+      return;
+    }
+    padProfile = lesson.profile;
+    try {
+      localStorage.setItem(profileKey(pad), JSON.stringify(padProfile));
+    } catch {
+      // Private browsing, most likely. The profile still works for this session.
+    }
+    lesson = null;
+    skipButton.hidden = true;
+    lessonLine.textContent = "manette apprise — elle sera retenue pour la prochaine fois";
+  }
+
+  /// Takes whatever moved furthest from rest, and records it as the control for
+  /// this step. Furthest rather than first: a GameCube trigger moves its axis
+  /// AND clicks a button, and the axis is the one worth keeping.
+  function learnFrom(pad) {
+    if (lesson === null) return;
+    const now = snapshot(pad);
+    const [name] = LESSON[lesson.step];
+    let best = null;
+    now.buttons.forEach((value, index) => {
+      const moved = Math.abs(value - (lesson.rest.buttons[index] ?? 0));
+      if (moved > MOVED && (best === null || moved > best.moved)) {
+        best = { moved, control: { button: index }, value };
+      }
+    });
+    now.axes.forEach((value, index) => {
+      const rest = lesson.rest.axes[index] ?? 0;
+      const moved = Math.abs(value - rest);
+      if (moved > MOVED && (best === null || moved > best.moved)) {
+        best = { moved, control: { axis: index, rest, full: value }, value, rest };
+      }
+    });
+    if (best === null) return;
+
+    if (name === "L" || name === "R") {
+      lesson.profile.triggers[name] = best.control;
+    } else if (["x", "y", "cx", "cy"].includes(name)) {
+      // A stick is signed, and the sign is whichever way the player just pushed:
+      // asking for RIGHT and UP means the recorded direction IS positive.
+      lesson.profile.sticks[name] = best.control.axis === undefined
+        ? null
+        : { axis: best.control.axis, sign: best.value >= best.rest ? 1 : -1 };
+    } else {
+      lesson.profile.buttons[name] = best.control;
+    }
+    nextStep(pad);
+  }
+
+  learnButton.addEventListener("click", () => {
+    const pad = navigator.getGamepads?.().find((p) => p);
+    if (!pad) {
+      lessonLine.textContent = "aucune manette détectée — appuie sur un bouton d'abord";
+      lessonLine.className = "bad";
+      return;
+    }
+    startLesson(pad);
+  });
+  skipButton.addEventListener("click", () => {
+    const pad = navigator.getGamepads?.().find((p) => p);
+    if (pad !== undefined && lesson !== null) nextStep(pad);
+  });
 
   const held = new Set();
   addEventListener("keydown", (event) => {
@@ -734,6 +903,17 @@
   let sent = 0;
   function pumpInput() {
     requestAnimationFrame(pumpInput);
+
+    // Learning happens whether or not this page holds a controller: a player
+    // whose room is momentarily full should still be able to set their pad up
+    // rather than being told to come back later. It also means the presses that
+    // answer the questions never reach the game.
+    const attached = navigator.getGamepads?.().find((p) => p);
+    if (attached && lesson !== null) {
+      learnFrom(attached);
+      return;
+    }
+
     // A frame with no port is not a frame the server would accept — its slot
     // byte must be 1..=4 — and sending one would be rejected as rubbish, which
     // closes the connection. So: no port, nothing to say.
@@ -752,6 +932,7 @@
 
     const pad = navigator.getGamepads?.().find((p) => p);
     if (pad) {
+      if (padProfile === null) padProfile = loadProfile(pad);
       const read = readPad(pad);
       // The pad wins where it says something and the keyboard keeps the rest,
       // so a stick at rest does not cancel a key being held.
@@ -787,7 +968,9 @@
       .map(([name]) => name)
       .join(" ");
     padLine.textContent =
-      `manette : ${pad.id} — ${pad.mapping === "standard" ? "disposition standard" : "disposition inconnue"}` +
+      `manette : ${pad.id} — ${
+        padProfile ? "profil appris" : pad.mapping === "standard" ? "disposition standard" : "disposition inconnue"
+      }` +
       `${pressed ? ` · ${pressed}` : ""}` +
       `${read.l || read.r ? ` · L ${read.l} R ${read.r}` : ""}`;
   }

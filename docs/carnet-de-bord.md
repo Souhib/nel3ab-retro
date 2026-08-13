@@ -1738,6 +1738,34 @@ se présente en disposition *inconnue* : ses indices ne sont pas ceux-là, et il
 faudra un profil à part — que ce relevé permettra d'écrire en une fois au lieu de
 le deviner.
 
+### Une vraie manette GameCube : la page l'apprend au lieu de la deviner
+
+Sur adaptateur officiel, une manette GameCube annonce une **disposition
+inconnue** : ses boutons sont à des index qui n'appartiennent qu'à elle, et ses
+gâchettes ne sont pas des boutons mais des **axes**. Le prochain adaptateur aura
+d'autres index encore.
+
+Deux réponses possibles : une table d'adaptateurs — fausse pour celui que
+personne n'a testé — ou **demander**. La page demande : elle réclame chaque
+bouton l'un après l'autre et retient **ce qui a bougé**, sans savoir ni avoir à
+savoir s'il s'agit d'un bouton ou d'un axe.
+
+Trois détails font que ça marche pour de vrai :
+
+- **le plus grand mouvement gagne.** Une gâchette GameCube bouge son axe *et*
+  clique un bouton ; c'est l'axe qu'il faut garder, sinon on perd le dosage ;
+- **la position de repos est enregistrée.** Un axe de gâchette repose à −1 et va
+  à +1 : sans le repos, la mi-course se lit 0 au lieu de 128. Le test le casse
+  exprès et l'attrape ;
+- **on demande « à droite » et « en haut »**, donc le sens que le joueur vient de
+  pousser EST le sens positif. Un axe inversé se règle sans qu'on ait à savoir
+  qu'il l'était.
+
+Le profil est retenu par machine et par manette, et l'apprentissage fonctionne
+même sans manette attribuée — quelqu'un dont la salle est pleine doit pouvoir
+régler son matériel plutôt que d'attendre. Les pressions qui répondent aux
+questions ne partent jamais vers le jeu.
+
 ### Deux erreurs de raisonnement à garder
 
 **Deux correctifs écrits, deux échecs, gardés écrits.** J'ai d'abord trouvé un

@@ -1657,6 +1657,56 @@ Deux pièges attrapés par les tests au passage :
   ping** — un navigateur, lui, ne montre jamais les trames de contrôle à la
   page. Le test comptait le mauvais message.
 
+### Cadence : l'image doit durer ce que l'émulateur lui a donné
+
+Plus aucune saccade, et pourtant « pas fluide à 100 % » sur un écran **240 Hz**.
+La cause n'est pas un manque d'images : c'est que la page peignait **dès qu'une
+image était disponible**. Chaque image restait donc affichée trois, quatre ou
+cinq rafraîchissements selon le hasard de son arrivée. Sur 240 Hz, une source à
+60 images par seconde devrait en durer **exactement quatre**, toujours.
+
+Chaque image porte l'instant où l'émulateur l'a produite. Elle est désormais due
+à **son propre horodatage**, plus un décalage fixe posé une fois — et la page dit
+combien de rafraîchissements chaque image a duré, avec ses p05 et p95, pour que
+la régularité soit lisible plutôt que ressentie.
+
+Trois versions fausses avant la bonne, et chacune enseigne quelque chose :
+
+1. **Faire avancer une échéance de l'écart entre les images MONTRÉES.** Or cet
+   écart ment dès qu'une image est jetée : une seule perte doublait l'intervalle,
+   ce qui verrouillait la cadence à la moitié, ce qui faisait grossir la file, ce
+   qui en jetait davantage. *Un horodatage ne se déduit pas de ses voisins.*
+2. **Ancrer sans marge** — « la première est due à l'instant où on la montre ».
+   Toute image arrivant une milliseconde en retard était alors déjà en retard :
+   491 jetées en quatorze secondes, 27 images peintes par seconde sur 60. *Le
+   tampon existe précisément pour être la marge autour de laquelle l'horaire est
+   écrit.*
+3. **Laisser la file à `target + 1`.** Elle jetait la plus ancienne pour faire de
+   la place, donc la tête était toujours une image dont l'heure n'était pas
+   venue : **zéro image peinte**, 897 jetées, et tous les autres compteurs au
+   vert. *La file est une soupape de sécurité ; c'est l'horaire qui règle la
+   cadence.*
+
+Vérifié à 60 Hz : `1 1 1` rafraîchissement, zéro famine, zéro jetée. À 76 Hz —
+le maximum que ce Chrome sans écran accepte — l'alternance `1 1 2` est celle
+qu'impose l'arithmétique, pas un défaut. **Le 240 Hz ne se simule pas ici** : le
+verdict viendra de la ligne `picture held` sur l'écran du joueur, qui doit lire 4
+avec p05 et p95 à 4.
+
+Coût honnête : le décalage inclut une image de marge, soit **+16,7 ms** de
+latence par rapport à « montrer dès que possible ».
+
+### Le nom qui a mordu trois fois
+
+`held` est l'ensemble des touches enfoncées. J'ai appelé une deuxième variable
+`held` — un module qui déclare deux fois le même nom **ne s'exécute pas du tout**,
+et la page ressemble alors à une page qui attend. Renommée, sauf que la renommée
+n'a corrigé que la première moitié du fichier : la ligne de statistiques appelait
+encore `percentile(held, …)`, un `Set` n'a pas de `.length`, et la mesure
+affichait **0** en toute confiance.
+
+> Une valeur fausse qui a l'air plausible coûte plus cher qu'une erreur.
+
 ### Deux erreurs de raisonnement à garder
 
 **Deux correctifs écrits, deux échecs, gardés écrits.** J'ai d'abord trouvé un

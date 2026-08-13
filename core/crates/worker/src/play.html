@@ -136,15 +136,53 @@
   const queue = [];
   let target = 1;
   const MAX_TARGET = 3;
+  /// The emulator's nominal frame, used only to size the initial slack. The
+  /// SCHEDULE never uses it: every picture is due at its own capture instant, so
+  /// a source that is not exactly 60 Hz needs nothing said about it here.
+  const SOURCE_FRAME = 16.667;
+  /// Eight pictures — 130 ms — is far more than the schedule ever holds and far
+  /// less than a stall worth carrying.
+  const MAX_QUEUE = 8;
   // Waiting for the queue to rebuild after starving. Presenting during this is
   // what would make the buffer pointless: it would spend the slack the instant
   // it arrived, and starve again on the next late frame.
   let priming = true;
+  /// What to add to a frame's capture instant to get the instant it is due on
+  /// our clock. Null until a cadence exists.
+  ///
+  /// Presenting "as soon as a frame is there" is not a cadence: on a display
+  /// whose refresh is not a multiple of the source — and even on one that is,
+  /// since the two are not phase-locked — each picture then lasts three, four or
+  /// five refreshes at random. That unevenness is what a player sees as "not
+  /// quite smooth" on a 240 Hz screen even when no frame is missing and nothing
+  /// is late. The fix is to hold each picture for the interval the EMULATOR
+  /// gave it, which its capture instants state exactly, rather than for however
+  /// long the next one happens to take to arrive.
+  let offset = null;
+  /// How many refreshes each picture lasted, and when the last one appeared.
+  /// Named `holds` and not `held`, which is the set of keys being pressed: a
+  /// module that declares a name twice does not run AT ALL, and the page then
+  /// looks like a page that is merely waiting. That is the second time.
+  /// This is the number the pacing exists to steady: on a 240 Hz screen a 60 fps
+  /// source should read 4, 4, 4, 4 — never 3, 5, 4, 3.
+  let holds = [];
+  let shownAt = null;
   let starved = 0;
   let starvedRecent = 0;
   let skipped = 0;
   let ticks = 0;
   let calmWindows = 0;
+
+  /// The display's own interval, measured from the refreshes we are given
+  /// rather than assumed: 60, 120 and 240 Hz screens are all in use here, and a
+  /// page that assumes one of them is wrong on the other two.
+  let refreshSamples = [];
+  let lastRefresh = null;
+  const refreshPeriod = () => {
+    if (refreshSamples.length < 8) return 16.667;
+    const sorted = [...refreshSamples].sort((a, b) => a - b);
+    return sorted[sorted.length >> 1];
+  };
 
   const percentile = (values, q) => {
     if (!values.length) return 0;
@@ -240,7 +278,8 @@
     lastOutput = null;
     // What the dead decoder produced is still a valid picture, but it is the
     // past. Keeping it would paint a second of stale game over the recovery.
-    while (queue.length) queue.shift().close();
+    while (queue.length) queue.shift().frame.close();
+    offset = null;
     pipeline.length = 0;
     priming = true;
   }
@@ -336,13 +375,22 @@
             recent.push(total);
             if (recent.length > 240) recent.shift();
           }
-          queue.push(frame);
-          // Never carry more slack than asked for: beyond that it is pure
-          // latency. This is also what keeps a backgrounded tab — where the
-          // display never asks for anything — from accumulating seconds of
-          // stale pictures.
-          while (queue.length > target + 1) {
-            queue.shift().close();
+          // The frame carries the instant the EMULATOR produced it, taken from
+          // the access unit it came out of. That number is what paces the
+          // presentation below; without it a frame can only be shown "as soon as
+          // it exists", which is not a cadence at all.
+          queue.push({ frame, capturedMs: submitted?.capturedMs ?? null });
+          // A SAFETY VALVE, not the cadence. It used to be `target + 1`, which
+          // fought the schedule below and won: the queue kept exactly one
+          // picture, the oldest was dropped to make room for each new one, and
+          // the head was therefore always a picture whose time had not come. The
+          // page presented NOTHING — 897 dropped in fourteen seconds, zero
+          // painted — while every other counter looked healthy.
+          //
+          // The schedule is what keeps the queue short; this only stops it
+          // growing without bound if the schedule ever stops running.
+          while (queue.length > MAX_QUEUE) {
+            queue.shift().frame.close();
             skipped += 1;
           }
           shown += 1;
@@ -361,7 +409,7 @@
     }
     lastArrival = arrived;
 
-    pipeline.push({ at: arrived, transit });
+    pipeline.push({ at: arrived, transit, capturedMs: capturedMicros / 1000 });
     lastFed = performance.now();
     try {
       decoder.decode(
@@ -394,7 +442,13 @@
   function paint() {
     requestAnimationFrame(paint);
     ticks += 1;
-    lastPaintTick = performance.now();
+    const tickAt = performance.now();
+    if (lastRefresh !== null) {
+      refreshSamples.push(tickAt - lastRefresh);
+      if (refreshSamples.length > 120) refreshSamples.shift();
+    }
+    lastRefresh = tickAt;
+    lastPaintTick = tickAt;
     adjustBuffer();
 
     if (priming) {
@@ -411,15 +465,50 @@
       starvedRecent += 1;
       repeated += 1;
       priming = true;
+      // The clock a starve interrupted has stopped meaning anything: the next
+      // picture to arrive sets a new one.
+      offset = null;
       return;
     }
 
-    const frame = queue.shift();
-    canvas.width = frame.displayWidth;
-    canvas.height = frame.displayHeight;
-    context.drawImage(frame, 0, 0);
-    frame.close();
+    const now = performance.now();
+    // Half a refresh of tolerance, measured from the refreshes themselves: a
+    // picture due in less time than it takes to reach the next refresh is due
+    // NOW, and waiting for it would show the previous one twice.
+    const slack = refreshPeriod() / 2;
+    // Each picture is due at ITS OWN capture instant plus a fixed offset. The
+    // first version advanced a running deadline by the gap between the pictures
+    // it had just SHOWN, and that gap is a lie whenever one is dropped: one drop
+    // doubled the interval, which locked the cadence at half rate, which made
+    // the queue grow, which dropped more. A frame's own timestamp cannot be
+    // dragged along by what happened to its neighbours.
+    if (queue[0].capturedMs === null) {
+      offset = null;
+    } else {
+      // Anchored WITH the buffer in it. Anchoring on "due the instant the first
+      // one was shown" gave the pipeline zero slack: every frame that then
+      // arrived a millisecond late was already overdue, and the catch-up threw
+      // it away — 491 pictures dropped in fourteen seconds, and a stream at 27
+      // per second out of 60. The buffer's whole purpose is to be the slack the
+      // schedule is written around.
+      offset ??= now - queue[0].capturedMs + (target + 1) * SOURCE_FRAME;
+      if (now < queue[0].capturedMs + offset - slack) {
+        repeated += 1;
+        return;
+      }
+    }
+
+    const next = queue.shift();
+    canvas.width = next.frame.displayWidth;
+    canvas.height = next.frame.displayHeight;
+    context.drawImage(next.frame, 0, 0);
+    next.frame.close();
     painted += 1;
+    if (shownAt !== null) {
+      holds.push(ticks - shownAt);
+      if (holds.length > 240) holds.shift();
+    }
+    shownAt = ticks;
   }
 
   /// Grows the buffer when the path is jittery, shrinks it when it is calm.
@@ -465,6 +554,10 @@
       if (decoder !== null) decoder.decode = () => {};
     },
     counters: () => ({ painted, shown, stalls, restarts, undecoded, attempts }),
+    pacing: () => ({
+      offset, queue: queue.length, target, priming,
+      refresh: refreshPeriod(), holds: holds.slice(-12),
+    }),
     backlog: () => decoder?.decodeQueueSize ?? 0,
   };
 
@@ -500,12 +593,34 @@
   let port = null;
   let refused = false;
   let attempts = 0;
+  // ONE socket at a time, and the page must be able to tell which. A refused
+  // page has a retry already scheduled; pressing the button started a second,
+  // insisting connection alongside it — the insisting one took the port and the
+  // polite one was refused half a second later, overwriting the display with
+  // "no controller" while the page in fact HELD it. That is the flapping seen
+  // when switching machines: the button worked every time, and the page then
+  // talked itself out of it.
+  let generation = 0;
+  let retry = null;
   function connectInput(insist = false) {
+    generation += 1;
+    const mine = generation;
+    if (retry !== null) {
+      clearTimeout(retry);
+      retry = null;
+    }
+    if (input !== null) {
+      // Its handlers are already dead to us — `mine` no longer matches — but a
+      // socket left open would go on holding a port nobody is reading.
+      input.onclose = null;
+      input.close();
+    }
     refused = false;
     attempts += 1;
     input = new WebSocket(socketUrl(insist ? "/input?take=1" : "/input"));
     input.binaryType = "arraybuffer";
     input.onmessage = (event) => {
+      if (mine !== generation) return;
       const told = new Uint8Array(event.data);
       if (told.length !== 1) return;
       port = told[0] === 0 ? null : told[0];
@@ -518,28 +633,23 @@
       seat.className = port === null ? "bad" : "note";
     };
     input.onclose = () => {
+      if (mine !== generation) return;
       port = null;
       // Half a second after a drop, three seconds after a refusal. Asking
       // POLITELY costs nothing and takes nothing from anybody, so a page whose
       // room was full picks the controller up by itself the moment it is free —
       // which is what happens when the other page is closed. Only the button
       // ever displaces a page that is still there.
-      setTimeout(() => connectInput(), refused ? 3000 : 500);
+      retry = setTimeout(() => connectInput(), refused ? 3000 : 500);
     };
-    input.onerror = () => input?.close();
+    input.onerror = () => {
+      if (mine === generation) input?.close();
+    };
   }
   claimButton.addEventListener("click", () => {
     claimButton.hidden = true;
     seat.textContent = "on prend la manette…";
-    if (input !== null && input.readyState === WebSocket.OPEN) {
-      // Insisting on a socket that already holds nothing: close it first so the
-      // server sees one claim, not two.
-      refused = false;
-      input.onclose = () => connectInput(true);
-      input.close();
-    } else {
-      connectInput(true);
-    }
+    connectInput(true);
   });
   connectInput();
 
@@ -678,7 +788,10 @@
         `sent by the server   60.0 /s (nominal)\n` +
         `arrived              ${rate(shown)} /s\n` +
         `painted              ${rate(painted)} /s\n` +
-        `display refresh      ${rate(painted + repeated)} /s\n` +
+        `display refresh      ${rate(painted + repeated)} /s ` +
+        `(${(1000 / refreshPeriod()).toFixed(0)} Hz)\n` +
+        `picture held         ${percentile(holds, 0.5).toFixed(0)} refreshes ` +
+        `(p05 ${percentile(holds, 0.05).toFixed(0)}, p95 ${percentile(holds, 0.95).toFixed(0)})\n` +
         `pad frames           ${sent}\n` +
         `decoder queue        ${decoder.decodeQueueSize}\n` +
         `\n` +

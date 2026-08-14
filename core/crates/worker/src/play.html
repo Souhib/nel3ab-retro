@@ -1485,7 +1485,8 @@
             : `${soundGap().toFixed(0)} ms` +
               ` (trajet ${(fastestSoundLag() - fastestLag()).toFixed(0)}` +
               ` · avance ${(soundLead * 1000).toFixed(0)}` +
-              ` · sortie ${((audio?.outputLatency ?? 0) * 1000).toFixed(0)})` +
+              ` · sortie ${((audio?.outputLatency ?? 0) * 1000).toFixed(0)}` +
+              ` dont ${((audio?.baseLatency ?? 0) * 1000).toFixed(0)} du navigateur)` +
               `${lipsync > 0 ? ` · image retardée de ${lipsync.toFixed(0)}` : ""}`
         }\n` +
         `not decoded          ${undecoded} (nobody painting, or behind)\n` +

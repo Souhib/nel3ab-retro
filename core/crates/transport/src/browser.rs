@@ -25,7 +25,7 @@ use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::sync::mpsc::{RecvTimeoutError, SyncSender, TrySendError, sync_channel};
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread::JoinHandle;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use nel3ab_protocol::{InputFrame, PlayerSlot};
 use thiserror::Error;
@@ -232,6 +232,11 @@ impl BrowserServer {
         let dropped = Arc::new(std::sync::atomic::AtomicU64::new(0));
         let joined = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let wants_key = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let granted_key = Arc::new(Mutex::new(
+            Instant::now()
+                .checked_sub(KEY_FRAME_EVERY)
+                .unwrap_or_else(Instant::now),
+        ));
         let seats: Seats = Arc::new(Mutex::new([None; PORTS]));
 
         let accept = std::thread::Builder::new()
@@ -239,6 +244,7 @@ impl BrowserServer {
             .spawn({
                 let joined = Arc::clone(&joined);
                 let wants_key = Arc::clone(&wants_key);
+                let granted_key = Arc::clone(&granted_key);
                 let inputs = Arc::clone(&incoming);
                 let received = Arc::clone(&received);
                 let viewers = Arc::clone(&viewers);
@@ -257,6 +263,7 @@ impl BrowserServer {
                             received,
                             joined,
                             wants_key,
+                            granted_key,
                             seats,
                             players,
                         },
@@ -452,6 +459,7 @@ impl BrowserServer {
 }
 
 /// What the connection threads share with the server.
+#[derive(Clone)]
 struct Shared {
     viewers: Viewers,
     listeners: Viewers,
@@ -460,8 +468,61 @@ struct Shared {
     received: Arc<std::sync::atomic::AtomicU64>,
     joined: Arc<std::sync::atomic::AtomicBool>,
     wants_key: Arc<std::sync::atomic::AtomicBool>,
+    /// When a key frame was last granted to anybody. See [`ask_for_key_frame`].
+    granted_key: Arc<Mutex<Instant>>,
     seats: Seats,
     players: PlayerSlot,
+}
+
+/// How often a viewer's request for a key frame is honoured.
+///
+/// One byte, from anybody who can open the video socket, makes the encoder
+/// produce a key frame — which is five or six times the size of an ordinary one
+/// and goes to EVERY viewer. Unlimited, that is an amplifier: measured on this
+/// machine, a single client sending that byte every two milliseconds inflated
+/// the average picture from 40.3 to 56.3 KiB for everybody, on a busy scene
+/// where the ratio is at its smallest.
+///
+/// Half a second is far more often than any legitimate need — a page asks when
+/// its decoder died or when it came back from being hidden — and bounds the
+/// amplification at two key frames a second whatever anybody sends.
+const KEY_FRAME_EVERY: Duration = Duration::from_millis(500);
+
+/// How many connections may be in flight at once.
+const MAX_CONNECTIONS: usize = 64;
+
+/// What a browser is allowed to send us, and how much room we keep for it.
+///
+/// Everything a page sends is tiny: thirteen bytes of pad state, one byte to ask
+/// for a key frame. Tungstenite's defaults are sized for the general case — 64
+/// MiB per message, 16 MiB per frame, and a 128 KiB read buffer allocated for
+/// every connection whether it is used or not. Nobody here needs any of that,
+/// and an unauthenticated stranger who can open a socket should not be able to
+/// make us hold megabytes for them.
+///
+/// The write side keeps its default buffer, because a picture legitimately
+/// reaches a hundred kilobytes, but gains a ceiling: a viewer whose socket has
+/// stopped draining must not be able to grow that buffer without bound.
+fn socket_limits() -> tungstenite::protocol::WebSocketConfig {
+    tungstenite::protocol::WebSocketConfig::default()
+        .read_buffer_size(4 * 1024)
+        .max_message_size(Some(4 * 1024))
+        .max_frame_size(Some(4 * 1024))
+        .max_write_buffer_size(4 * 1024 * 1024)
+}
+
+/// Honours a request for a key frame, at most one per [`KEY_FRAME_EVERY`].
+fn ask_for_key_frame(shared: &Shared) {
+    let Ok(mut granted) = shared.granted_key.lock() else {
+        return;
+    };
+    if granted.elapsed() < KEY_FRAME_EVERY {
+        return;
+    }
+    *granted = Instant::now();
+    shared
+        .wants_key
+        .store(true, std::sync::atomic::Ordering::Relaxed);
 }
 
 /// Serves pages and hands WebSocket connections to their own threads.
@@ -469,37 +530,53 @@ fn accept_loop(listener: &TcpListener, page: &'static str, shared: &Shared) {
     let mut sockets: Vec<JoinHandle<()>> = Vec::new();
     for stream in listener.incoming() {
         let Ok(stream) = stream else { continue };
-        match classify(&stream) {
-            Some(Route::Video) => {
-                let viewers = Arc::clone(&shared.viewers);
-                let joined = Arc::clone(&shared.joined);
-                let wants_key = Arc::clone(&shared.wants_key);
-                sockets.push(std::thread::spawn(move || {
-                    video_thread(stream, &viewers, &joined, &wants_key);
-                }));
-            }
-            Some(Route::Sound) => {
-                let listeners = Arc::clone(&shared.listeners);
-                sockets.push(std::thread::spawn(move || {
-                    sound_thread(stream, &listeners);
-                }));
-            }
-            Some(Route::Input { insist }) => {
-                let slots = Arc::clone(&shared.inputs);
-                let counter = Arc::clone(&shared.received);
-                let arrived = Arc::clone(&shared.arrived);
-                let seats = Arc::clone(&shared.seats);
-                let players = shared.players;
-                sockets.push(std::thread::spawn(move || {
-                    input_thread(stream, &slots, &counter, &arrived, &seats, players, insist);
-                }));
-            }
-            Some(Route::Page) => serve_page(stream, page),
-            None => {}
-        }
-        // Reaped rather than joined: a client can stay for a whole session, and
-        // waiting on one would stop the loop accepting the next.
+        // Handed to a thread BEFORE it is classified, because classifying reads
+        // from the socket and reading can wait. It used to happen here, on this
+        // thread, and a connection that opened and said nothing held the whole
+        // room for five seconds. Measured: three silent sockets delayed a page
+        // by 15.7 s, and no traffic was needed beyond opening them. Browsers do
+        // this by accident with speculative connections.
+        // Reaped first, so the count below is of connections still alive rather
+        // than of threads that finished long ago. Reaped rather than joined: a
+        // client can stay for a whole session, and waiting on one would stop the
+        // loop accepting the next.
         sockets.retain(|handle| !handle.is_finished());
+        if sockets.len() >= MAX_CONNECTIONS {
+            // Moving classification off this thread means a thread per
+            // connection, and a thread per connection is something a stranger
+            // can ask for by opening sockets. Four players hold twelve; sixty-four
+            // leaves room for every reconnection storm this has ever produced and
+            // still bounds what anybody can make us allocate.
+            tracing::warn!(
+                open = sockets.len(),
+                "too many connections at once, refusing this one"
+            );
+            drop(stream);
+            continue;
+        }
+        let shared = shared.clone();
+        sockets.push(std::thread::spawn(move || {
+            serve_connection(stream, page, &shared);
+        }));
+    }
+}
+
+/// Works out what one connection wants, then serves it. Runs on its own thread.
+fn serve_connection(stream: TcpStream, page: &'static str, shared: &Shared) {
+    match classify(&stream) {
+        Some(Route::Video) => video_thread(stream, &shared.viewers, &shared.joined, shared),
+        Some(Route::Sound) => sound_thread(stream, &shared.listeners),
+        Some(Route::Input { insist }) => input_thread(
+            stream,
+            &shared.inputs,
+            &shared.received,
+            &shared.arrived,
+            &shared.seats,
+            shared.players,
+            insist,
+        ),
+        Some(Route::Page) => serve_page(stream, page),
+        None => {}
     }
 }
 
@@ -573,7 +650,7 @@ fn video_thread(
     stream: TcpStream,
     viewers: &Viewers,
     joined: &Arc<std::sync::atomic::AtomicBool>,
-    wants_key: &Arc<std::sync::atomic::AtomicBool>,
+    shared: &Shared,
 ) {
     // Nagle would hold a small frame back waiting for company. Every frame here
     // is latency-critical and self-contained, so there is nothing to gain by
@@ -592,7 +669,7 @@ fn video_thread(
     // Two seconds is far longer than any healthy write and far shorter than a
     // session; what matters is that it is finite.
     let _ = stream.set_write_timeout(Some(WRITE_TIMEOUT));
-    let Ok(mut socket) = tungstenite::accept(stream) else {
+    let Ok(mut socket) = tungstenite::accept_with_config(stream, Some(socket_limits())) else {
         return;
     };
 
@@ -624,7 +701,7 @@ fn video_thread(
         match socket.read() {
             Ok(tungstenite::Message::Close(_)) => break,
             Ok(tungstenite::Message::Binary(bytes)) if bytes.as_ref() == [KEY_FRAME_PLEASE] => {
-                wants_key.store(true, std::sync::atomic::Ordering::Relaxed);
+                ask_for_key_frame(shared);
             }
             Ok(_) => {}
             Err(tungstenite::Error::Io(error))
@@ -651,7 +728,7 @@ fn sound_thread(stream: TcpStream, listeners: &Viewers) {
     let _ = stream.set_nodelay(true);
     let _ = stream.set_read_timeout(Some(Duration::from_millis(1)));
     let _ = stream.set_write_timeout(Some(WRITE_TIMEOUT));
-    let Ok(mut socket) = tungstenite::accept(stream) else {
+    let Ok(mut socket) = tungstenite::accept_with_config(stream, Some(socket_limits())) else {
         return;
     };
 
@@ -712,7 +789,7 @@ fn input_thread(
     // returns regularly so this thread can ASK, rather than concluding anything
     // from silence. See `PING_EVERY`.
     let _ = stream.set_read_timeout(Some(PING_EVERY));
-    let Ok(mut socket) = tungstenite::accept(stream) else {
+    let Ok(mut socket) = tungstenite::accept_with_config(stream, Some(socket_limits())) else {
         return;
     };
 
@@ -1145,6 +1222,77 @@ mod tests {
 
         let (_polite, refused) = hold(server.address());
         assert_eq!(refused, 0, "a newcomer takes nothing by simply arriving");
+    }
+
+    /// A connection that says nothing must not hold up the next one.
+    ///
+    /// Classifying a connection means reading from it, and reading can wait. It
+    /// used to happen on the accept thread: three sockets that connected and
+    /// stayed silent delayed a page by 15.7 seconds, five per socket, and
+    /// opening sockets is free. Browsers do it by accident with speculative
+    /// connections; anybody who can reach the port can do it on purpose.
+    #[test]
+    fn a_silent_connection_does_not_hold_up_the_next_one() {
+        let server = BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", four()).unwrap();
+        let address = server.address();
+
+        let _silent: Vec<TcpStream> = (0..3)
+            .filter_map(|_| TcpStream::connect(address).ok())
+            .collect();
+
+        let started = std::time::Instant::now();
+        let mut page = TcpStream::connect(address).unwrap();
+        page.set_read_timeout(Some(Duration::from_secs(10)))
+            .unwrap();
+        page.write_all(b"GET / HTTP/1.1\r\nHost: x\r\n\r\n")
+            .unwrap();
+        let mut head = [0_u8; 16];
+        page.read_exact(&mut head).unwrap();
+        let waited = started.elapsed();
+
+        assert!(head.starts_with(b"HTTP/1.1 200"), "not a page: {head:?}");
+        assert!(
+            waited < CLASSIFY_TIMEOUT,
+            "the page waited {waited:?} behind three silent sockets"
+        );
+    }
+
+    /// One byte asks for a key frame, which is five or six times the size of an
+    /// ordinary picture and goes to every viewer. Unlimited, that is an
+    /// amplifier for anybody who can open the socket.
+    #[test]
+    fn key_frames_are_granted_no_faster_than_the_limit() {
+        let shared = Shared {
+            viewers: Arc::new(Mutex::new(Vec::new())),
+            listeners: Arc::new(Mutex::new(Vec::new())),
+            inputs: Arc::new(Mutex::new([None; PORTS])),
+            arrived: Arc::new(Condvar::new()),
+            received: Arc::new(std::sync::atomic::AtomicU64::new(0)),
+            joined: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            wants_key: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            granted_key: Arc::new(Mutex::new(
+                Instant::now().checked_sub(KEY_FRAME_EVERY).unwrap(),
+            )),
+            seats: Arc::new(Mutex::new([None; PORTS])),
+            players: four(),
+        };
+
+        for _ in 0..1000 {
+            ask_for_key_frame(&shared);
+        }
+        assert!(
+            shared
+                .wants_key
+                .swap(false, std::sync::atomic::Ordering::Relaxed),
+            "the first request should be granted"
+        );
+        for _ in 0..1000 {
+            ask_for_key_frame(&shared);
+        }
+        assert!(
+            !shared.wants_key.load(std::sync::atomic::Ordering::Relaxed),
+            "two thousand requests bought two key frames instead of one"
+        );
     }
 
     /// Four browsers, four ports, in the order they arrived.

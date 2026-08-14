@@ -8,6 +8,19 @@ await new Promise((r) => setTimeout(r, 3000));
 await page.click("#sound");
 await new Promise((r) => setTimeout(r, 12000));
 
+// Assert the precondition rather than let it produce a confusing failure: the
+// box computes its delay from the measured sound/picture gap, so with no sound
+// yet measured it correctly does nothing, and the assertion below would blame
+// the box for it. Seen once, right after a restart.
+const measured = await page.evaluate(
+  () => document.getElementById("stats").innerText.includes("écart son/image      —") === false,
+);
+if (!measured) {
+  console.log("FAIL — aucun écart mesuré encore, la case n'avait rien à appliquer");
+  await browser.close();
+  process.exit(1);
+}
+
 const held = () => page.evaluate(() => globalThis.nel3abTest.pacing().offset);
 const before = await held();
 await page.click("#lipsync");

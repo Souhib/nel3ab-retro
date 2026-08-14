@@ -118,6 +118,11 @@ browser-rates:
 browser-lipsync:
     cd spikes/m3-browser-drive && node lipsync.mjs http://localhost:8100/
 
+# Do the numbers stay beside the picture, without scrolling, at the widths people
+# actually use? Needs the worker RUNNING.
+browser-layout:
+    cd spikes/m3-browser-drive && node layout.mjs
+
 # Does one press answer exactly one question of the pad lesson? Needs the worker
 # RUNNING. Feeds a synthetic pad frame by frame, because what this gets wrong is
 # a SEQUENCE — a press that also answers the question after it.

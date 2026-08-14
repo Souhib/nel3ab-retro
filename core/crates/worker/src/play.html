@@ -4,9 +4,17 @@
 <style>
   :root { color-scheme: dark; font-family: ui-monospace, monospace; }
   body { margin: 0; padding: 1.5rem; background: #0d0d0f; color: #ddd; }
+  /* The picture SHRINKS before the panel wraps underneath it. It used to be a
+     fixed 800 px beside a 22 rem column, so any window narrower than the two of
+     them together pushed the numbers below the fold and made reading them a
+     scroll. A picture a hundred pixels narrower costs nothing; hidden numbers
+     cost the person who is trying to tell you what they see. */
   #wrap { display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: flex-start; }
-  canvas { background: #000; border: 1px solid #333; image-rendering: pixelated; width: 800px; max-width: 100%; }
-  #stats { min-width: 22rem; white-space: pre-wrap; line-height: 1.6; font-size: 0.85rem; }
+  #screen { flex: 1 1 24rem; min-width: 16rem; max-width: 800px; }
+  #side { flex: 1 1 24rem; min-width: 20rem; max-width: 34rem;
+          max-height: calc(100vh - 3rem); overflow-y: auto; }
+  canvas { background: #000; border: 1px solid #333; image-rendering: pixelated; width: 100%; display: block; }
+  #stats { white-space: pre-wrap; line-height: 1.6; font-size: 0.85rem; }
   .bad { color: #ff8080; }
   .note { color: #888; }
   kbd { background: #222; border: 1px solid #444; border-radius: 3px; padding: 0 0.3em; }
@@ -18,7 +26,7 @@
 
 <div id="wrap">
   <canvas id="screen" width="640" height="480"></canvas>
-  <div>
+  <div id="side">
     <div id="stats">connecting…</div>
     <p id="seat" class="note">en attente d'une manette…</p>
     <p><button id="claim" type="button" hidden>prendre la manette</button></p>
@@ -43,6 +51,21 @@
     <p id="lesson" class="note"></p>
     <p><button id="copy" type="button">copier les chiffres</button>
       <span id="hint"></span></p>
+    <details class="note">
+      <summary>comment lire ces chiffres</summary>
+      <p>
+        L'écart entre arrivées est ce dont la saccade est faite : un p95 très
+        au-dessus de 16,7 ms veut dire que les images arrivent par paquets, et
+        aucune vitesse de décodage ne rattrape ça.
+      </p>
+      <p>
+        La dérive de trajet peut être NÉGATIVE, et ce n'est pas un défaut : les
+        deux horloges sont calées sur la première image et seule leur DIFFÉRENCE
+        est rapportée, donc une première image anormalement lente fait paraître
+        toutes les suivantes en avance. Elle dit comment le trajet a CHANGÉ,
+        jamais combien il dure.
+      </p>
+    </details>
     <p class="note">
       <kbd>←↑↓→</kbd> stick · <kbd>X</kbd> A · <kbd>C</kbd> B · <kbd>S</kbd> X ·
       <kbd>D</kbd> Y · <kbd>A</kbd> Z · <kbd>Q</kbd> L · <kbd>E</kbd> R ·
@@ -1519,17 +1542,7 @@
         `transit DRIFT since the first frame (not a latency):\n` +
         `  p50 ${percentile(recent, 0.5).toFixed(1)} ms\n` +
         `  p95 ${percentile(recent, 0.95).toFixed(1)} ms\n` +
-        `  max ${percentile(recent, 1).toFixed(1)} ms\n` +
-        `\n` +
-        `The gap figures are what stutter is made of: a p95 far\n` +
-        `above 16.7 ms means frames arrive in bursts, and no\n` +
-        `amount of decoding speed can smooth that out.\n` +
-        `\n` +
-        `The drift figures can go NEGATIVE, and that is not a bug:\n` +
-        `the two clocks are anchored on the first frame and only\n` +
-        `their DIFFERENCE is reported, so a first frame that was\n` +
-        `unusually slow makes every later one look early. It says\n` +
-        `how transit CHANGED, never how long it takes.`,
+        `  max ${percentile(recent, 1).toFixed(1)} ms`,
     );
   }, 500);
 </script>

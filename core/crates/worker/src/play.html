@@ -22,14 +22,23 @@
            border-radius: 3px; padding: 0.3em 0.8em; cursor: pointer; }
   button:hover { background: #2c2c2c; }
   #hint { color: #888; font-size: 0.85rem; }
+  /* The console's front panel: four sockets, and yours is lit.
+     Buttons rather than pictures, because clicking one plugs you in there —
+     which is the whole reason to draw them rather than print a number. */
+  .ports { display: flex; gap: 0.35rem; margin: 0.6rem 0 0.2rem; }
+  .port { background: none; border: 0; padding: 0; cursor: pointer; line-height: 0; }
+  .port[disabled] { cursor: default; }
+  .port:focus-visible { outline: 2px solid #6cf; outline-offset: 2px; border-radius: 6px; }
+  .port svg { width: 4.4rem; height: auto; display: block; }
+  .port .label { font: 600 11px ui-monospace, monospace; }
 </style>
 
 <div id="wrap">
   <canvas id="screen" width="640" height="480"></canvas>
   <div id="side">
     <div id="stats">connecting…</div>
+    <div id="ports" class="ports"></div>
     <p id="seat" class="note">en attente d'une manette…</p>
-    <p><button id="claim" type="button" hidden>prendre la manette</button></p>
     <p id="pad" class="note"></p>
     <p>
       <button id="sound" type="button">activer le son</button>
@@ -82,7 +91,7 @@
   const hint = document.getElementById("hint");
   const copyButton = document.getElementById("copy");
   const seat = document.getElementById("seat");
-  const claimButton = document.getElementById("claim");
+  const portStrip = document.getElementById("ports");
   const padLine = document.getElementById("pad");
   const soundButton = document.getElementById("sound");
   const volumeSlider = document.getElementById("volume");
@@ -748,6 +757,9 @@
     stallDecoder: () => {
       if (decoder !== null) decoder.decode = () => {};
     },
+    // The panel's renderer, so its states can be looked at without waiting for
+    // a room to arrange itself into each one.
+    socketSvg,
     counters: () => ({
       painted,
       shown,
@@ -1013,6 +1025,76 @@
   let port = null;
   let refused = false;
   let attempts = 0;
+  /// The room as the server last described it: how many sockets this console
+  /// has, which one is ours, and which of the others are occupied.
+  let room = { players: 0, mine: 0, busy: [false, false, false, false] };
+
+  /// The four player colours a GameCube game uses, in order. Nothing in the
+  /// hardware is coloured — the sockets are all the same black plastic — but
+  /// every game that ever asked "which one are you" answered in these, so they
+  /// are what a player recognises.
+  const PLAYER_COLOURS = ["#d9534f", "#4a86d9", "#d9b64a", "#4aab5c"];
+
+  /// One socket, drawn as the console's is: an opening twice as wide as it is
+  /// tall, flat along the bottom, domed across the top, with the pin block
+  /// inside and the port number underneath.
+  ///
+  /// Three states, and they have to be told apart at a glance from across a
+  /// room: EMPTY shows its pins in a black hole, TAKEN is filled by a grey plug
+  /// that hides them, and YOURS is the same plug in that player's colour with
+  /// the whole bezel lit to match.
+  function socketSvg(port, state) {
+    const colour = PLAYER_COLOURS[port - 1];
+    const lit = state === "mine";
+    const plugged = lit || state === "busy";
+    return `
+      <svg viewBox="0 0 72 84" aria-hidden="true">
+        <rect x="2" y="2" width="68" height="60" rx="10"
+              fill="${lit ? "#33333f" : "#2a2a33"}"
+              stroke="${lit ? colour : "#43434f"}" stroke-width="${lit ? 3 : 1.5}" />
+        <path d="M 12 48 L 12 34 A 24 24 0 0 1 60 34 L 60 48 Z"
+              fill="#07070b" stroke="#4a4a58" stroke-width="1.5" />
+        ${plugged
+          ? `<path d="M 16 48 L 16 35 A 20 20 0 0 1 56 35 L 56 48 Z"
+                   fill="${lit ? colour : "#8e8e9c"}" />
+             <rect x="24" y="40" width="24" height="3" rx="1.5"
+                   fill="#07070b" opacity="0.45" />`
+          : `<circle cx="27" cy="36" r="2.6" fill="#8a8a98" />
+             <circle cx="36" cy="36" r="2.6" fill="#8a8a98" />
+             <circle cx="45" cy="36" r="2.6" fill="#8a8a98" />`}
+        <text class="label" x="36" y="78" text-anchor="middle"
+              fill="${lit ? colour : "#8a8a98"}">${lit ? "TOI" : port}</text>
+      </svg>`;
+  }
+
+  /// Redraws the panel. Called only when the room changes, which the server
+  /// tells us: a page that redrew on a timer would fight the browser for the
+  /// same sixty frames a second the picture needs.
+  function drawPorts() {
+    const wanted = Math.max(room.players, 1);
+    portStrip.innerHTML = "";
+    for (let slot = 1; slot <= wanted; slot++) {
+      const state = room.mine === slot ? "mine" : room.busy[slot - 1] ? "busy" : "free";
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "port";
+      button.id = `port${slot}`;
+      button.innerHTML = socketSvg(slot, state);
+      button.title =
+        state === "mine"
+          ? `tu es branché sur le port ${slot}`
+          : state === "busy"
+            ? `port ${slot} occupé — clique pour le prendre`
+            : `port ${slot} libre — clique pour t'y brancher`;
+      button.setAttribute("aria-label", button.title);
+      button.disabled = state === "mine";
+      button.addEventListener("click", () => {
+        seat.textContent = `on se branche sur le port ${slot}…`;
+        connectInput(slot);
+      });
+      portStrip.append(button);
+    }
+  }
   // ONE socket at a time, and the page must be able to tell which. A refused
   // page has a retry already scheduled; pressing the button started a second,
   // insisting connection alongside it — the insisting one took the port and the
@@ -1022,7 +1104,7 @@
   // talked itself out of it.
   let generation = 0;
   let retry = null;
-  function connectInput(insist = false) {
+  function connectInput(take = null) {
     generation += 1;
     const mine = generation;
     if (retry !== null) {
@@ -1037,20 +1119,25 @@
     }
     refused = false;
     attempts += 1;
-    input = new WebSocket(socketUrl(insist ? "/input?take=1" : "/input"));
+    input = new WebSocket(socketUrl(take === null ? "/input" : `/input?take=${take}`));
     input.binaryType = "arraybuffer";
     input.onmessage = (event) => {
       if (mine !== generation) return;
       const told = new Uint8Array(event.data);
-      if (told.length !== 1) return;
-      port = told[0] === 0 ? null : told[0];
+      if (told.length !== 2 + 4) return;
+      room = {
+        players: told[0],
+        mine: told[1],
+        busy: [told[2] === 1, told[3] === 1, told[4] === 1, told[5] === 1],
+      };
+      port = room.mine === 0 ? null : room.mine;
       refused = port === null;
-      claimButton.hidden = !refused;
       seat.textContent =
         port === null
-          ? "aucune manette : une autre page tient celle-ci"
+          ? "aucune manette : les ports occupés sont pris par d'autres pages"
           : `tu es le joueur ${port}`;
       seat.className = port === null ? "bad" : "note";
+      drawPorts();
     };
     input.onclose = () => {
       if (mine !== generation) return;
@@ -1066,11 +1153,7 @@
       if (mine === generation) input?.close();
     };
   }
-  claimButton.addEventListener("click", () => {
-    claimButton.hidden = true;
-    seat.textContent = "on prend la manette…";
-    connectInput(true);
-  });
+  drawPorts();
   connectInput();
 
   const BUTTON = {

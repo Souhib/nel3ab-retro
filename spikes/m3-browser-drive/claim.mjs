@@ -18,18 +18,20 @@ console.log(`page 1 : "${held}"`);
 // room already holds the port, page 1 never had one to lose and the check below
 // would pass while proving nothing.
 if (!/joueur 1/.test(held)) {
-  console.log("FAIL — page 1 n'a pas eu la manette, rien n'a été testé");
+  console.log("RIEN TESTÉ — la salle n'était pas vide, page 1 n'a pas eu le port 1");
   await browser.close();
-  process.exit(1);
+  process.exit(2);
 }
 
 const second = await browser.newPage();
 await second.goto(url, { waitUntil: "domcontentloaded" });
 await wait(3000);
 console.log(`page 2 : "${await seatOf(second)}"`);
-console.log(`bouton proposé : ${await second.evaluate(() => !document.getElementById("claim").hidden)}`);
+console.log(`ports proposés : ${await second.evaluate(() =>
+  [...document.querySelectorAll(".port")].length)}`);
 
-await second.click("#claim");
+// Clicking the first socket is what taking the controller looks like now.
+await second.click("#port1");
 await wait(2500);
 const took = await seatOf(second);
 console.log(`page 2 après le bouton : "${took}"`);

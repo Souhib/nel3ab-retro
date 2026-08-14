@@ -566,25 +566,24 @@ fn serve_connection(stream: TcpStream, page: &'static str, shared: &Shared) {
     match classify(&stream) {
         Some(Route::Video) => video_thread(stream, &shared.viewers, &shared.joined, shared),
         Some(Route::Sound) => sound_thread(stream, &shared.listeners),
-        Some(Route::Input { insist }) => input_thread(
-            stream,
-            &shared.inputs,
-            &shared.received,
-            &shared.arrived,
-            &shared.seats,
-            shared.players,
-            insist,
-        ),
+        Some(Route::Input { take }) => input_thread(stream, shared, take),
         Some(Route::Page) => serve_page(stream, page),
         None => {}
     }
+}
+
+/// The port named by `take=N` in a request line, if any is.
+fn take_from(request: &str) -> Option<PlayerSlot> {
+    let rest = request.split("take=").nth(1)?;
+    let digits: String = rest.chars().take_while(char::is_ascii_digit).collect();
+    PlayerSlot::new(digits.parse().ok()?).ok()
 }
 
 /// What a connection turned out to be.
 enum Route {
     Video,
     Sound,
-    Input { insist: bool },
+    Input { take: Option<PlayerSlot> },
     Page,
 }
 
@@ -612,11 +611,12 @@ fn classify(stream: &TcpStream) -> Option<Route> {
         return Some(Route::Sound);
     }
     if text.starts_with("get /input") {
-        // `/input?take=1`. A person pressing "take the controller" is the only
-        // thing allowed to displace another page, so the wish travels with the
-        // request rather than being guessed at from the state of the room.
+        // `/input?take=3` asks for THAT port, occupied or not. Only a person can
+        // send it — the page has four sockets drawn on it and this is what
+        // clicking one does — so the wish travels with the request rather than
+        // being guessed at from the state of the room.
         return Some(Route::Input {
-            insist: text.contains("take=1"),
+            take: take_from(&text),
         });
     }
     None
@@ -763,21 +763,57 @@ fn sound_thread(stream: TcpStream, listeners: &Viewers) {
     let _ = socket.close(None);
 }
 
+/// Takes a port for this connection and tells the page about the room.
+///
+/// Which port a browser holds is the SERVER'S to decide, and the room is the
+/// first thing said on the socket: a page cannot stamp its own port on a pad
+/// frame — see the re-stamping in the loop — so this is how it learns.
+///
+/// Returns the port, the claim that proves it is still ours, and the message
+/// that was sent, so the loop can tell later when the room has changed.
+fn claim_a_port(
+    socket: &mut tungstenite::WebSocket<TcpStream>,
+    shared: &Shared,
+    take: Option<PlayerSlot>,
+) -> Option<(PlayerSlot, u64, Vec<u8>)> {
+    let (seats, players) = (&shared.seats, shared.players);
+    let Some((seat, claim)) = take_seat(seats, players, take) else {
+        tracing::info!("a browser asked for a controller in a full room");
+        let _ = socket.send(tungstenite::Message::binary(room_message(
+            players, None, seats,
+        )));
+        return None;
+    };
+    let told = room_message(players, Some(seat), seats);
+    if socket
+        .send(tungstenite::Message::binary(told.clone()))
+        .is_err()
+    {
+        release_seat(seats, seat, claim);
+        return None;
+    }
+    tracing::info!(
+        port = seat.get(),
+        asked = take.map_or(0, PlayerSlot::get),
+        "a browser is holding a controller"
+    );
+    Some((seat, claim, told))
+}
+
 /// Receives pad frames until the client goes away.
 ///
 /// A malformed frame closes the connection rather than being skipped. On a
 /// stream there is no framing to resynchronise against — the same reasoning the
 /// frame socket uses — and a client sending rubbish is a client with a bug worth
 /// noticing.
-fn input_thread(
-    stream: TcpStream,
-    slots: &Pads,
-    received: &Arc<std::sync::atomic::AtomicU64>,
-    arrived: &Arc<Condvar>,
-    seats: &Seats,
-    players: PlayerSlot,
-    insist: bool,
-) {
+fn input_thread(stream: TcpStream, shared: &Shared, take: Option<PlayerSlot>) {
+    let (slots, received, arrived, seats, players) = (
+        &shared.inputs,
+        &shared.received,
+        &shared.arrived,
+        &shared.seats,
+        shared.players,
+    );
     let _ = stream.set_nodelay(true);
     // Cleared, and this is not a formality. The deadline `classify` set to bound
     // the peek stayed on the socket, so a read of the NEXT pad frame inherited
@@ -793,28 +829,10 @@ fn input_thread(
         return;
     };
 
-    // Which port this browser holds is the SERVER'S to decide, and it is the
-    // first thing said on the socket: one byte, the port number, or zero for a
-    // room with no seat left. A page cannot pick its own port — see the
-    // re-stamping below — so this is the only way it can learn which it got.
-    let Some((seat, claim)) = take_seat(seats, players, insist) else {
-        tracing::info!("a browser asked for a controller in a full room");
-        let _ = socket.send(tungstenite::Message::binary(vec![0]));
+    let Some((seat, claim, mut told)) = claim_a_port(&mut socket, shared, take) else {
         let _ = socket.close(None);
         return;
     };
-    if socket
-        .send(tungstenite::Message::binary(vec![seat.get()]))
-        .is_err()
-    {
-        release_seat(seats, seat, claim);
-        return;
-    }
-    tracing::info!(
-        port = seat.get(),
-        insist,
-        "a browser is holding a controller"
-    );
 
     let mut heard_from = std::time::Instant::now();
     loop {
@@ -822,12 +840,30 @@ fn input_thread(
         // second — learns it was replaced within a frame.
         if !still_ours(seats, seat, claim) {
             tracing::info!(port = seat.get(), "another browser took this controller");
-            // Zero is what the page reads as "you have no controller", the same
-            // byte a full room sends. It stops asking rather than reconnecting:
-            // two pages that both insisted would otherwise trade the pad for ever.
-            let _ = socket.send(tungstenite::Message::binary(vec![0]));
+            // A room where nothing is yours: the page reads that as having no
+            // controller and stops asking rather than reconnecting, because two
+            // pages that both insisted would trade the pad for ever.
+            let _ = socket.send(tungstenite::Message::binary(room_message(
+                players, None, seats,
+            )));
             break;
         }
+        // The room can change under a page: somebody plugs in, somebody leaves.
+        // Noticed here rather than pushed from elsewhere, because this thread
+        // already wakes on every pad frame — sixty times a second for a page
+        // that is playing — and on its ping when it is not. No channel, no
+        // broadcast, and a page that is drawing four sockets sees them fill.
+        let current = room_message(players, Some(seat), seats);
+        if current != told {
+            if socket
+                .send(tungstenite::Message::binary(current.clone()))
+                .is_err()
+            {
+                break;
+            }
+            told = current;
+        }
+
         let message = match socket.read() {
             Ok(message) => {
                 // ANY frame is proof of life, pad state or pong alike.
@@ -917,27 +953,51 @@ fn input_thread(
 /// courtesy the server can decide for itself — two pages would trade the pad
 /// back and forth for ever — so it happens only when a person asks for it by
 /// pressing the button, and the page they took it from is told and stops asking.
-fn take_seat(seats: &Seats, players: PlayerSlot, insist: bool) -> Option<(PlayerSlot, u64)> {
+fn take_seat(
+    seats: &Seats,
+    players: PlayerSlot,
+    take: Option<PlayerSlot>,
+) -> Option<(PlayerSlot, u64)> {
     let claim = next_claim();
     // The lock lives in this block and no longer: every caller of this function
     // goes on to write to a socket, and holding the room's lock across a write
     // is how one slow client stops everybody else from joining.
     let taken = {
         let mut seats = seats.lock().ok()?;
-        let free = (1..=players.get())
-            .filter_map(|raw| PlayerSlot::new(raw).ok())
-            .find(|slot| seats.get(slot.index()).copied().flatten().is_none());
-        let chosen = match free {
-            Some(slot) => slot,
-            // Nobody free. Only an insisting page takes the first port from
-            // whoever is on it; a polite one is turned away.
-            None if insist => PlayerSlot::new(1).ok()?,
-            None => return None,
+        let chosen = match take {
+            // A named port, occupied or not: somebody clicked that socket.
+            Some(wanted) if wanted.get() <= players.get() => wanted,
+            // A port this room does not serve is not a port. Fall through to
+            // the polite path rather than inventing one.
+            Some(_) | None => (1..=players.get())
+                .filter_map(|raw| PlayerSlot::new(raw).ok())
+                .find(|slot| seats.get(slot.index()).copied().flatten().is_none())?,
         };
         *seats.get_mut(chosen.index())? = Some(claim);
         chosen
     };
     Some((taken, claim))
+}
+
+/// Which ports are held, as the page is told them.
+fn occupancy(seats: &Seats) -> [bool; PORTS] {
+    seats.lock().map_or([false; PORTS], |seats| {
+        std::array::from_fn(|index| seats.get(index).copied().flatten().is_some())
+    })
+}
+
+/// What the page needs to draw the console's front panel.
+///
+/// One message rather than two: how many ports this room has, which one is
+/// yours, and which of the others are busy. A page that only knew its own port
+/// could not tell an empty socket from somebody else's, and the whole point of
+/// drawing the sockets is that you can see the room.
+fn room_message(players: PlayerSlot, mine: Option<PlayerSlot>, seats: &Seats) -> Vec<u8> {
+    let mut message = Vec::with_capacity(2 + PORTS);
+    message.push(players.get());
+    message.push(mine.map_or(0, PlayerSlot::get));
+    message.extend(occupancy(seats).into_iter().map(u8::from));
+    message
 }
 
 /// Gives the port back, but only if it is still ours: a holder that was replaced
@@ -1147,19 +1207,26 @@ mod tests {
         )
         .unwrap();
         let told = socket.read().unwrap().into_data();
-        assert_eq!(told.len(), 1, "the seat is announced as one byte");
-        (socket, told[0])
+        assert_eq!(
+            told.len(),
+            2 + PORTS,
+            "the room is announced in one message"
+        );
+        (socket, told[1])
     }
 
-    /// Takes a controller, insisting on the first port.
-    fn insist(address: SocketAddr) -> (tungstenite::WebSocket<std::net::TcpStream>, u8) {
+    /// Takes a controller, naming the port it wants.
+    fn insist_on(
+        address: SocketAddr,
+        port: u8,
+    ) -> (tungstenite::WebSocket<std::net::TcpStream>, u8) {
         use tungstenite::client::IntoClientRequest as _;
         let stream = TcpStream::connect(address).unwrap();
         stream
             .set_read_timeout(Some(Duration::from_secs(3)))
             .unwrap();
         let (mut socket, _) = tungstenite::client(
-            format!("ws://{address}/input?take=1")
+            format!("ws://{address}/input?take={port}")
                 .as_str()
                 .into_client_request()
                 .unwrap(),
@@ -1167,7 +1234,7 @@ mod tests {
         )
         .unwrap();
         let told = socket.read().unwrap().into_data();
-        (socket, told[0])
+        (socket, told[1])
     }
 
     /// A page that is merely OPEN holds a port: it sends the neutral pad state
@@ -1182,7 +1249,7 @@ mod tests {
         let (mut forgotten, port) = hold(server.address());
         assert_eq!(port, 1);
 
-        let (_taken, took) = insist(server.address());
+        let (_taken, took) = insist_on(server.address(), 1);
         assert_eq!(took, 1, "the insisting page got the port");
 
         // And the page it was taken from is TOLD, rather than left believing it
@@ -1204,9 +1271,73 @@ mod tests {
             }
         };
         assert_eq!(
-            told[0], 0,
+            told[1], 0,
             "the replaced page was told it has no controller"
         );
+    }
+
+    /// A person clicking the third socket gets the third port, not the next free
+    /// one. The whole point of drawing four sockets is that they can be chosen:
+    /// two players who want to be P1 and P3 cannot get there by arriving in the
+    /// right order.
+    #[test]
+    fn a_named_port_is_the_port_you_get() {
+        let server = BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", four()).unwrap();
+        let (_third, took) = insist_on(server.address(), 3);
+        assert_eq!(took, 3, "asked for the third socket");
+
+        let (_first, next) = hold(server.address());
+        assert_eq!(next, 1, "the free ports were not disturbed");
+    }
+
+    /// A port this room does not serve is not a port. Asking for it must not
+    /// invent one: a one-player room has one socket whatever a request says.
+    #[test]
+    fn a_port_the_room_does_not_serve_is_refused() {
+        let one = PlayerSlot::new(1).unwrap();
+        let server = BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", one).unwrap();
+        let (_held, port) = insist_on(server.address(), 4);
+        assert_eq!(port, 1, "a room of one gave out its only port");
+    }
+
+    /// Every page is told when the room changes, or the sockets it draws are a
+    /// picture of the moment it connected and nothing after.
+    #[test]
+    fn a_page_is_told_when_somebody_else_plugs_in() {
+        let server = BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", four()).unwrap();
+        let (mut first, mine) = hold(server.address());
+        assert_eq!(mine, 1);
+
+        let (_second, other) = hold(server.address());
+        assert_eq!(other, 2);
+
+        first
+            .get_ref()
+            .set_read_timeout(Some(PING_EVERY + Duration::from_secs(2)))
+            .unwrap();
+        // Bounded, because the failure this guards against is an update that
+        // never comes. An unbounded read loop would swallow pings for ever
+        // instead of failing, and a test that hangs says nothing at all — which
+        // is exactly what it did when the update was disabled on purpose.
+        let deadline = std::time::Instant::now() + PING_EVERY + Duration::from_secs(3);
+        let mut update = None;
+        while std::time::Instant::now() < deadline && update.is_none() {
+            match first.read() {
+                Ok(tungstenite::Message::Binary(bytes))
+                    if bytes.len() == 2 + PORTS && bytes[3] == 1 =>
+                {
+                    update = Some(bytes);
+                }
+                Ok(_) => {}
+                Err(_) => break,
+            }
+        }
+        let update = update.expect("the page was never told that port 2 filled");
+        assert_eq!(update[0], 4, "four ports in this room");
+        assert_eq!(update[1], 1, "still mine");
+        assert_eq!(update[2], 1, "port 1 is held");
+        assert_eq!(update[3], 1, "port 2 filled while we watched");
+        assert_eq!(update[4], 0, "port 3 is free");
     }
 
     /// The negative twin: without asking, a newcomer is still refused. Taking a

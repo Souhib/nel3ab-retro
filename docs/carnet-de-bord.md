@@ -2164,6 +2164,61 @@ Quiconque atteint le tailnet peut regarder, écouter et prendre la manette. C'es
 le M4, et c'est de loin le plus gros risque du système. `ufw` refuse les entrées
 par défaut, vérifié, donc l'exposition est le tailnet et non le réseau local.
 
+### Quatre joueurs, et la façade de la console
+
+La salle passe à quatre places. Le câblage existait et était testé depuis
+plusieurs jours ; ce qui manquait était de **voir** la salle.
+
+Une page ne savait que son propre port. Elle ne pouvait donc pas distinguer une
+prise libre d'une prise occupée par quelqu'un d'autre, et « prendre la manette »
+ne pouvait viser que le port 1. Deux ajouts au protocole, six octets en tout :
+
+```
+octet 0   combien de ports cette salle sert
+octet 1   lequel est le tien, 0 si aucun
+2 à 5     occupé ou libre, un octet par port
+```
+
+Le message part à la connexion **et chaque fois que la salle change**. Remarqué
+plutôt que diffusé : le fil d'entrée se réveille déjà à chaque trame de manette,
+soixante fois par seconde pour qui joue, et sur son ping sinon. Aucun canal,
+aucune diffusion, et une page qui dessine quatre prises les voit se remplir.
+
+Et `/input?take=3` demande **ce port-là**, occupé ou non. Deux joueurs qui
+veulent être P1 et P3 ne peuvent pas y arriver en arrivant dans le bon ordre.
+
+#### Le dessin
+
+Quatre prises de manette GameCube : une ouverture deux fois plus large que haute,
+plate en bas, bombée en haut, avec le bloc de broches dedans et le numéro
+dessous. Trois états qui se distinguent d'un coup d'œil : **vide** montre ses
+broches dans un trou noir, **occupée** est bouchée par une fiche grise qui les
+cache, **la tienne** est la même fiche dans la couleur du joueur avec tout le
+bandeau allumé.
+
+Rien n'est coloré sur la vraie console — les quatre prises sont du même plastique
+noir — mais tous les jeux qui ont posé la question « lequel es-tu » ont répondu
+en rouge, bleu, jaune, vert. C'est ce qu'un joueur reconnaît, donc c'est ce qui
+est dessiné.
+
+Cliquer une prise s'y branche. Ce sont des `<button>`, pas des images : ce qui se
+clique doit s'atteindre au clavier aussi.
+
+#### Ce que les essais ont refusé de tester
+
+Deux essais de bout en bout ne peuvent pas jouer leur scénario quand quelqu'un
+occupe déjà la salle — ils vérifient que N navigateurs obtiennent N ports **dans
+l'ordre d'arrivée**, ce qui demande une salle vide. Ils annoncent maintenant
+« RIEN TESTÉ » au lieu d'échouer.
+
+> Un test qui échoue pour une raison qui n'est pas un défaut apprend à celui qui
+> le lit à ignorer ses échecs.
+
+Un troisième s'est mis à pendre indéfiniment : il lisait la socket en attendant
+une mise à jour, et quand j'ai désactivé la mise à jour exprès pour vérifier
+qu'il pouvait échouer, il a avalé des pings pour l'éternité. Un test qui pend ne
+dit rien du tout. Il a maintenant une échéance.
+
 ### Deux erreurs de raisonnement à garder
 
 **Deux correctifs écrits, deux échecs, gardés écrits.** J'ai d'abord trouvé un

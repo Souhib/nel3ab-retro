@@ -67,10 +67,11 @@ await page.goto(URL, { waitUntil: "domcontentloaded", timeout: 30000 });
 // sent zero pad frames and the input latency being compared was some other
 // browser's — a load generator has to be verified, not assumed.
 await wait(3000);
-if (await page.evaluate(() => !document.getElementById("claim").hidden)) {
-  await page.click("#claim");
-  await wait(2000);
-}
+// The first socket, taken outright. The run has already restarted the session,
+// so nobody legitimate is on it, and a bench that shares the pad with whoever
+// happens to be connected is measuring somebody else's input.
+await page.click("#port1");
+await wait(2000);
 const seat = await page.evaluate(() => document.getElementById("seat").textContent);
 console.log(`  manette : ${seat}`);
 await wait(WARMUP_S * 1000);

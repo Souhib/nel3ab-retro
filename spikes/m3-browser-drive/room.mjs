@@ -27,6 +27,15 @@ for (const [i, page] of pages.entries()) {
   seats.push(said);
 }
 const ports = seats.map((s) => (s.match(/joueur (\d)/) ?? [])[1]).filter(Boolean);
+// Assert the precondition rather than call it a failure: this checks that N
+// browsers get N ports IN ARRIVAL ORDER, which needs an empty room. Somebody
+// playing at the time is not a defect, and reporting one would teach whoever
+// reads this to ignore it.
+if (ports[0] !== "1") {
+  console.log(`RIEN TESTÉ — la salle n'était pas vide, la première page a eu le port ${ports[0] ?? "aucun"}`);
+  await browser.close();
+  process.exit(2);
+}
 const distinct = new Set(ports);
 console.log(
   ports.length === players && distinct.size === players

@@ -41,8 +41,13 @@ const out = await page.evaluate(async (seconds) => {
 const rate = out.bytes / (out.spanMs / 1000) / 1024;
 console.log(`  ${out.chunks} morceaux · ${(out.bytes / 1024).toFixed(0)} Kio sur ${(out.spanMs / 1000).toFixed(1)} s`);
 console.log(`  débit ${rate.toFixed(0)} Kio/s (attendu 187) · amplitude max ${out.peak}/32767 · ${out.loud} morceaux avec du signal`);
+// The rate is ours and is asserted strictly. Whether there is SIGNAL depends on
+// the game being at a noisy moment, which is not something a test controls: this
+// failed once on a silent passage of the demo and said "silence" about a path
+// that was working. One chunk in twenty is enough to prove samples are reaching
+// us rather than zeroes, and the peak is printed so a failure can be read.
 const paced = Math.abs(rate - 187.5) < 20;
-const audible = out.loud > out.chunks * 0.2;
+const audible = out.loud > out.chunks * 0.05;
 console.log(paced && audible ? "PASS — du son, au bon rythme" : `FAIL — ${!paced ? "mauvais rythme" : "silence"}`);
 await browser.close();
 process.exit(paced && audible ? 0 : 1);

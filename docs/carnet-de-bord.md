@@ -2125,6 +2125,45 @@ donc personne ne remarque rien.
 Chez nous l'image est présentée dès qu'elle peut l'être, avec 3 ms de marge. Le
 décalage qu'on entend n'est pas du son en retard : **c'est de l'image en avance**.
 
+### Audit complet : trois façons d'abîmer la salle sans authentification
+
+Revue de tout ce qui a été écrit, avec les skills sécurité, qualité de test,
+banc d'essai et structures de données, et avec context7 pour ce que les
+bibliothèques font vraiment par défaut. Essais locaux, brefs, non destructifs.
+
+**Une connexion muette bloquait tout le monde.** Classer une connexion veut dire
+la lire, et lire peut attendre. Ça se passait sur le fil qui accepte : une
+socket ouverte sans un octet tenait la salle cinq secondes, et **trois d'entre
+elles ont retardé une page de 15,7 secondes**, mesuré. Ouvrir des sockets ne
+coûte rien, et les navigateurs le font déjà par accident avec leurs connexions
+spéculatives. Chaque connexion part maintenant sur son fil avant d'être classée.
+
+Ce qui déplace le problème plutôt que de l'ouvrir : un fil par connexion est
+aussi quelque chose qu'un inconnu peut réclamer. Plafond à soixante-quatre en
+vol ; quatre joueurs en tiennent douze.
+
+**Un octet valait une image-clé, sans limite.** Une image-clé pèse cinq à six
+fois une image ordinaire et part vers tous les spectateurs. Un client envoyant
+cet octet toutes les deux millisecondes a fait passer l'image moyenne de 40,3 à
+56,3 Kio **pour tout le monde** — et c'était sur une scène chargée, où le rapport
+est au plus bas. Une demande est honorée au plus toutes les 500 ms.
+
+**Les défauts de tungstenite, jamais touchés.** 64 Mio par message, 16 Mio par
+trame, un tampon de lecture de 128 Kio alloué pour chaque connexion, et aucun
+plafond sur le tampon d'écriture. Le plus gros message qu'une page nous envoie
+fait treize octets. Les sockets sont configurées : 4 Kio en entrée, 4 Mio de
+tampon d'écriture au maximum.
+
+Ce que la revue **n'a pas** trouvé, et qui vaut d'être dit : aucune panique
+possible hors tests (le lint du dépôt le garantit et la vérification le
+confirme), aucune structure à croissance non bornée, aucune alerte de
+dépendance.
+
+Et ce qui reste, accepté plutôt que corrigé : **rien n'authentifie personne**.
+Quiconque atteint le tailnet peut regarder, écouter et prendre la manette. C'est
+le M4, et c'est de loin le plus gros risque du système. `ufw` refuse les entrées
+par défaut, vérifié, donc l'exposition est le tailnet et non le réseau local.
+
 ### Deux erreurs de raisonnement à garder
 
 **Deux correctifs écrits, deux échecs, gardés écrits.** J'ai d'abord trouvé un

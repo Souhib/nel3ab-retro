@@ -437,7 +437,7 @@ fn run(settings: &Settings) -> Result<()> {
             // discarded here rather than branched on.
             let _delivered = server.send(&Packet {
                 captured_micros: u64::try_from(captured.as_micros()).unwrap_or(u64::MAX),
-                annex_b: coded.to_vec(),
+                annex_b: coded,
             });
         }
         produced += 1;

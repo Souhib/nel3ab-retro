@@ -42,7 +42,7 @@ const PORTS: usize = 4;
 
 /// One framed WebSocket payload, shared by every viewer rather than copied per
 /// viewer: four players should not cost four copies of the same picture.
-type Framed = Arc<Vec<u8>>;
+type Framed = tungstenite::Bytes;
 
 /// The registry of connected viewers, each with its own bounded queue.
 type Viewers = Arc<Mutex<Vec<SyncSender<Framed>>>>;
@@ -131,11 +131,16 @@ pub enum TransportError {
 /// own clock and report glass-to-glass. It is the server's monotonic clock in
 /// microseconds; the page never interprets it, only echoes it back.
 #[derive(Debug, Clone)]
-pub struct Packet {
+pub struct Packet<'a> {
     /// Server-side capture instant, microseconds.
     pub captured_micros: u64,
     /// The Annex B access unit, exactly as the encoder produced it.
-    pub annex_b: Vec<u8>,
+    ///
+    /// Borrowed, because [`send`](BrowserServer::send) copies it into the
+    /// outgoing frame before it returns, and the encoder's buffer stays valid
+    /// until the next encode. Owning it here copied the access unit twice per
+    /// frame: once to build the packet, once to frame it.
+    pub annex_b: &'a [u8],
 }
 
 /// A running server: one page, one video channel, one input channel.
@@ -278,16 +283,22 @@ impl BrowserServer {
         if viewers.is_empty() {
             return false;
         }
-        // Framed once and shared: four viewers should not cost four copies of
-        // the same picture.
+        // Framed once and shared, and now that is true. The comment said so
+        // while the thread serving each viewer called `(*message).clone()` on an
+        // `Arc<Vec<u8>>`, which copies the whole picture: four viewers did cost
+        // four copies, the exact thing the line claimed to avoid.
+        //
+        // `Bytes` is what the socket takes anyway — `Message::Binary(Bytes)` —
+        // and cloning one is a refcount. The picture is copied once, here, out
+        // of the encoder's buffer into the frame that goes on the wire.
         let mut message = Vec::with_capacity(8 + packet.annex_b.len());
         message.extend_from_slice(&packet.captured_micros.to_le_bytes());
-        message.extend_from_slice(&packet.annex_b);
-        let message = Arc::new(message);
+        message.extend_from_slice(packet.annex_b);
+        let message = Framed::from(message);
 
         let mut delivered = false;
         let dropped = &self.dropped;
-        viewers.retain(|viewer| match viewer.try_send(Arc::clone(&message)) {
+        viewers.retain(|viewer| match viewer.try_send(message.clone()) {
             Ok(()) => {
                 delivered = true;
                 true
@@ -507,9 +518,9 @@ fn video_thread(stream: TcpStream, viewers: &Viewers, joined: &Arc<std::sync::at
 
     loop {
         let outgoing = match frames.recv_timeout(KEEP_ALIVE) {
-            Ok(message) => (*message).clone(),
+            Ok(message) => message,
             // Nothing for half a second: say "still here" and nothing else.
-            Err(RecvTimeoutError::Timeout) => Vec::new(),
+            Err(RecvTimeoutError::Timeout) => Framed::new(),
             Err(RecvTimeoutError::Disconnected) => break,
         };
         if let Err(error) = socket.send(tungstenite::Message::binary(outgoing)) {
@@ -809,10 +820,10 @@ mod tests {
         }
     }
 
-    fn frame() -> Packet {
+    fn frame() -> Packet<'static> {
         Packet {
             captured_micros: 0,
-            annex_b: vec![0, 0, 0, 1, 0x65],
+            annex_b: &[0, 0, 0, 1, 0x65],
         }
     }
 
@@ -1205,6 +1216,29 @@ mod tests {
             );
         }
         feeding.join().unwrap();
+    }
+
+    /// Every viewer is handed the SAME buffer, not a copy of it.
+    ///
+    /// Byte equality cannot catch the mistake this pins: a version that framed
+    /// the picture once per viewer would send identical bytes and pass. Pointer
+    /// identity is what says "framed once", which is what the fan-out claimed to
+    /// do and did not, for as long as the sending thread cloned the `Vec`.
+    #[test]
+    fn every_viewer_is_handed_the_same_buffer() {
+        let (first, first_held) = sync_channel::<Framed>(OUTGOING_DEPTH);
+        let (second, second_held) = sync_channel::<Framed>(OUTGOING_DEPTH);
+        let server = detached(vec![first, second]);
+        assert!(server.send(&frame()));
+
+        let one = first_held.try_recv().unwrap();
+        let two = second_held.try_recv().unwrap();
+        assert_eq!(one, two, "the two viewers were sent different bytes");
+        assert_eq!(
+            one.as_ptr(),
+            two.as_ptr(),
+            "the picture was framed twice: the fan-out is copying per viewer"
+        );
     }
 
     /// A viewer whose thread has ended is forgotten, so the list does not grow

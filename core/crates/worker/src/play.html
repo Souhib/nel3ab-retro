@@ -116,7 +116,23 @@
   let shown = 0;
   let painted = 0;
   let repeated = 0;
-  const pipeline = [];
+  /// What each access unit cost to arrive, keyed by the instant the emulator
+  /// captured it.
+  ///
+  /// This was an array, pushed at decode and shifted at output, which pairs an
+  /// output with an input BY POSITION. One output the decoder never produces,
+  /// or one it produces twice, and every later pairing is off by one for the
+  /// rest of the session. The schedule reads its capture instant from that
+  /// pairing, so the whole presentation clock would quietly run on another
+  /// frame's timestamp.
+  ///
+  /// A decoded frame already carries its key: `timestamp` is the capture instant
+  /// we put on the chunk. Looking it up cannot drift, and a missing entry costs
+  /// one latency sample instead of corrupting everything after it.
+  const submitted = new Map();
+  /// Five seconds of entries. Anything older belongs to a frame the decoder is
+  /// never going to produce.
+  const MAX_SUBMITTED = 300;
   let firstCapture = null;
   let firstArrival = null;
   let lastArrival = null;
@@ -309,7 +325,7 @@
     // past. Keeping it would paint a second of stale game over the recovery.
     while (queue.length) queue.shift().frame.close();
     offset = null;
-    pipeline.length = 0;
+    submitted.clear();
     priming = true;
   }
 
@@ -398,21 +414,22 @@
         output: (frame) => {
           const now = performance.now();
           lastOutput = now;
-          const submitted = pipeline.shift();
-          if (submitted !== undefined) {
-            const total = now - submitted.at + submitted.transit;
-            recent.push(total);
+          const sent = submitted.get(frame.timestamp);
+          if (sent !== undefined) {
+            submitted.delete(frame.timestamp);
+            recent.push(now - sent.at + sent.transit);
             if (recent.length > 240) recent.shift();
           }
+          // Straight off the frame rather than out of a queue: this is the
+          // number the schedule below is built on.
+          const capturedMs = frame.timestamp / 1000;
           // The frame carries the instant the EMULATOR produced it, taken from
           // the access unit it came out of. That number is what paces the
           // presentation below; without it a frame can only be shown "as soon as
           // it exists", which is not a cadence at all.
-          queue.push({ frame, capturedMs: submitted?.capturedMs ?? null, decodedAt: now });
-          if (submitted?.capturedMs !== undefined && submitted?.capturedMs !== null) {
-            lags.push(now - submitted.capturedMs);
-            if (lags.length > 240) lags.shift();
-          }
+          queue.push({ frame, capturedMs, decodedAt: now });
+          lags.push(now - capturedMs);
+          if (lags.length > 240) lags.shift();
           // A SAFETY VALVE, not the cadence. It used to be `target + 1`, which
           // fought the schedule below and won: the queue kept exactly one
           // picture, the oldest was dropped to make room for each new one, and
@@ -442,7 +459,12 @@
     }
     lastArrival = arrived;
 
-    pipeline.push({ at: arrived, transit, capturedMs: capturedMicros / 1000 });
+    submitted.set(capturedMicros, { at: arrived, transit });
+    // Bounded, because a decoder that stops producing must not turn this into a
+    // slow leak. The oldest goes first: `Map` keeps insertion order.
+    if (submitted.size > MAX_SUBMITTED) {
+      submitted.delete(submitted.keys().next().value);
+    }
     lastFed = performance.now();
     try {
       decoder.decode(

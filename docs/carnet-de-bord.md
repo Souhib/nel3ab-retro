@@ -1867,6 +1867,47 @@ jours de travail pour un gain nul.
 > qui n'en donne aucun. Le premier réflexe doit être : *qu'est-ce qui, dans mon
 > montage, pourrait fabriquer cet écart tout seul ?*
 
+### Deux structures relues, dont une qui mentait
+
+La skill `choose-data-structures` demande de partir des opérations réelles, pas
+des habitudes. Deux trouvailles, et la plus grave n'est pas celle qui coûte du
+temps machine.
+
+**La page appariait les images décodées par position.** Un tableau, `push` au
+décodage, `shift` à la sortie. Le jour où le décodeur ne rend pas une image, ou
+en rend une de plus, tout l'appariement est décalé d'un cran **pour le reste de
+la session** : la latence mesurée porte sur la mauvaise image, et surtout
+l'horodatage qui pilote l'horaire d'affichage aussi. Or l'image décodée **porte
+déjà sa clé** : `timestamp` est l'instant de capture qu'on a mis sur le morceau.
+Un `Map` indexé par cette clé ne peut pas se décaler, et une entrée manquante
+coûte une mesure de latence au lieu de corrompre tout ce qui suit. Le tableau
+disparaît, et avec lui sa croissance sans borne.
+
+**La diffusion copiait ce que son commentaire disait partager.** La ligne
+promettait « une seule mise en trame, partagée : quatre spectateurs ne doivent
+pas coûter quatre copies » — et le fil qui sert chaque spectateur appelait
+`(*message).clone()` sur un `Arc<Vec<u8>>`, ce qui copie toute l'image. Quatre
+spectateurs coûtaient bien quatre copies. Le type `Bytes` est de toute façon ce
+que la socket attend, et le cloner n'est qu'un compteur de références. L'image
+est copiée une fois, à la mise en trame.
+
+Au passage, `Packet` possédait son unité d'accès, donc le worker la copiait pour
+construire le paquet puis la mise en trame la recopiait. Elle est empruntée
+maintenant : le tampon de l'encodeur reste valide jusqu'à l'encodage suivant, et
+`send` a fini de copier avant de rendre la main.
+
+**Ce que ça vaut, honnêtement :** trois copies par image deviennent une. À 50 Ko
+et 60 images par seconde, c'est 6 Mo/s de mémoire en moins pour un spectateur.
+Sur une machine qui copie à une dizaine de gigaoctets par seconde, **c'est sous
+le plancher de bruit du banc** — mesuré à 4,5 % contre 4,3 % de CPU worker, soit
+rien de discernable. Ce n'est donc pas une optimisation, et je ne la présente pas
+comme telle : c'est un commentaire qui redevient vrai, et une diffusion dont le
+coût par spectateur ne dépend plus de la taille de l'image.
+
+Le test qui la fige compare des **pointeurs**, pas des octets : une version qui
+mettrait en trame une fois par spectateur enverrait exactement les mêmes octets
+et passerait.
+
 ### Deux erreurs de raisonnement à garder
 
 **Deux correctifs écrits, deux échecs, gardés écrits.** J'ai d'abord trouvé un

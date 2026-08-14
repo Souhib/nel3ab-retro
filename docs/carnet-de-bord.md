@@ -2047,6 +2047,30 @@ d'horloge** : 12,00 pour 12,00. Ça survit à la taille des morceaux, et ça
 attraperait en plus une fréquence d'échantillonnage fausse, ce que le compte de
 morceaux ne voyait pas.
 
+### Ce qui reste du décalage n'est pas à nous
+
+Chez le joueur : **66 ms — trajet −2, avance 20, sortie 48**. La décomposition
+répond à elle seule à la question « peut-on faire mieux » : les trois quarts sont
+la latence de sortie de son matériel audio, que la page apprend par
+`outputLatency` et sur laquelle elle n'a aucune prise.
+
+Deux réglages restaient de notre côté. Le plancher de l'avance descend de 20 à
+**10 ms**, et il ne remonte que si le son casse pour de bon. Et le contexte audio
+demande désormais **le plus petit tampon que la plateforme accepte**, avec un
+nombre plutôt que le mot « interactif ».
+
+Un choix a été écarté au passage, et il mérite d'être noté parce qu'il paraissait
+gratuit : prendre la fréquence du périphérique plutôt que d'imposer 48 kHz a fait
+tomber le total à 45 ms ici. Sauf que ça déplace le rééchantillonnage **dans
+chaque morceau** — cent frontières de rééchantillonneur par seconde — et je ne
+peux pas juger d'ici si ça grésille. La fréquence du périphérique est donc prise
+**quand elle est déjà la nôtre**, c'est-à-dire quand elle ne coûte rien, et
+l'ancien comportement est gardé sinon.
+
+> Une mesure qui s'améliore n'est pas une preuve que rien ne s'est dégradé
+> ailleurs. Ici l'ailleurs était inaudible depuis cette machine, donc non
+> vérifiable, donc non pris.
+
 ### Deux erreurs de raisonnement à garder
 
 **Deux correctifs écrits, deux échecs, gardés écrits.** J'ai d'abord trouvé un

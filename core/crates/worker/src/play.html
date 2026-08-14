@@ -791,7 +791,7 @@
   /// measured apart.
   let soundLead = 0.02;
   let soundGapsSeen = 0;
-  const SOUND_LEAD_MIN = 0.02;
+  const SOUND_LEAD_MIN = 0.01;
   const SOUND_LEAD_MAX = 0.12;
   /// Past this the schedule has drifted so far behind that catching up chunk by
   /// chunk would take longer than starting again.
@@ -829,7 +829,28 @@
 
   function startSound() {
     if (audio === null) {
-      audio = new AudioContext({ sampleRate: SOUND_RATE, latencyHint: "interactive" });
+      // No forced sample rate, and a number rather than "interactive".
+      //
+      // Forcing 48 kHz on a device that runs at another rate puts a resampler
+      // across the whole context output. Asking for the device's own rate and
+      // letting each buffer be resampled instead is the same work in a cheaper
+      // place — and on a device that IS 48 kHz, which most are, it is no work at
+      // all. The number is a request for the smallest buffer the platform will
+      // give; "interactive" is the same request with less precision.
+      //
+      // What this cannot touch is the output path itself. Measured: 32 ms on
+      // this machine, 48 ms on the player's — the audio device's own buffers,
+      // and no page has a say in them.
+      audio = new AudioContext({ latencyHint: 0.01 });
+      // The device's own rate is taken when it costs nothing. When it differs
+      // from ours, something has to resample: doing it per buffer would mean a
+      // hundred resampler boundaries a second, which I cannot judge by ear from
+      // here, so the older behaviour is kept — one resampler across the whole
+      // output, which the browser handles continuously.
+      if (audio.sampleRate !== SOUND_RATE) {
+        audio.close();
+        audio = new AudioContext({ sampleRate: SOUND_RATE, latencyHint: 0.01 });
+      }
       gain = audio.createGain();
       gain.gain.value = volume / 100;
       gain.connect(audio.destination);
@@ -856,6 +877,9 @@
     if (message.length <= 8) return; // a keep-alive, carrying no sound
     const pcm = new Int16Array(event.data, 8);
     const frames = pcm.length / SOUND_CHANNELS;
+    // Built at the rate the samples were recorded at, whatever the context runs
+    // at: a source node resamples on playback, which is one stage rather than
+    // one across everything the context ever plays.
     const buffer = audio.createBuffer(SOUND_CHANNELS, frames, SOUND_RATE);
     for (let channel = 0; channel < SOUND_CHANNELS; channel++) {
       const target = buffer.getChannelData(channel);
@@ -1432,7 +1456,8 @@
         `decoder restarts     ${restarts}\n` +
         `key frames asked     ${keyFramesAsked}\n` +
         `son                  ${audio === null ? "coupé" : audio.state}, ` +
-        `${soundChunks} morceaux, ${soundGaps} coupures\n` +
+        `${soundChunks} morceaux, ${soundGaps} coupures` +
+        `${audio === null ? "" : `, sortie à ${(audio.sampleRate / 1000).toFixed(1)} kHz`}\n` +
         `écart son/image      ${
           fastestSoundLag() === null
             ? "—"

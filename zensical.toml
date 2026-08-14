@@ -1,0 +1,72 @@
+# The documentation site, built by Zensical and served on the tailnet.
+#
+# Why a site at all: `docs/carnet-de-bord.md` is 2800 lines written for a human
+# who is not in a terminal. GitHub renders it as one endless page with no table
+# of contents, which is the wrong shape for a document whose whole point is that
+# somebody can find the part they care about. The site gives it a navigation
+# pane, a search box and anchors.
+#
+# It is built from the SAME files the repository already keeps. There is no
+# second copy of anything: `docs_dir` points at `docs/`, so a document can never
+# be up to date on the site and stale in the repository.
+#
+# Build: `just docs`. Publish: `just docs-serve`. Both are one command because
+# the alternative is a sequence somebody eventually gets wrong.
+
+[project]
+site_name = "Nel3ab Retro"
+site_description = "Salles de jeu rétro auto-hébergées : le carnet de bord, les décisions, les plans de travail."
+site_url = "https://lgf.tail3bd01c.ts.net:8444/"
+docs_dir = "docs"
+site_dir = "site"
+
+repo_url = "https://github.com/nuggocto/nel3ab-retro"
+repo_name = "nel3ab-retro"
+
+# Explicit, because the default alphabetical order would put the ADR first and
+# the story last. A reader who lands here should meet the story first: the ADR
+# says what was decided, the carnet says why, and only one of the two makes
+# sense on its own.
+nav = [
+  { "Accueil" = "index.md" },
+  { "Carnet de bord" = "carnet-de-bord.md" },
+  { "Décisions (ADR)" = "adr/0001-architecture.md" },
+  { "Plans de travail" = [
+    { "M1 — les touches" = "m1-working-plan.md" },
+    { "M2 — les images" = "m2-working-plan.md" },
+    { "M3 — le navigateur" = "m3-working-plan.md" },
+  ] },
+]
+
+[project.theme]
+# French, because the document that matters most is in French. The English
+# working plans keep their own language; this only sets the interface.
+language = "fr"
+features = [
+  # The carnet has 60 subsections in one chapter. Without a table of contents
+  # that follows the scroll, finding one of them means scrolling and hoping.
+  "navigation.instant",
+  "navigation.top",
+  "navigation.tracking",
+  "toc.follow",
+  "search.highlight",
+  "content.code.copy",
+]
+
+# Follow the reader's system setting rather than picking for them, with a toggle
+# for when the system is wrong about what somebody wants at that moment.
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+primary = "indigo"
+accent = "indigo"
+toggle.icon = "lucide/moon"
+toggle.name = "Passer en mode sombre"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+primary = "indigo"
+accent = "indigo"
+toggle.icon = "lucide/sun"
+toggle.name = "Passer en mode clair"

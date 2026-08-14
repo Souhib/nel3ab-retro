@@ -340,12 +340,29 @@ adds frames on top, and those are the game's to spend.
 1. ~~**Run experiment 1.**~~ Done: the browser takes our bytes unchanged.
 2. ~~**Record the decision as an ADR entry** — D9~~. Done, resting on two of the
    three criteria written in advance and the honest absence of the third.
-3. Then, and only then, the transport crate: `crates/transport` exists and is
-   empty.
-4. The pad path, measured on its own. A latency number for video says nothing
-   about input if they travel differently.
-5. End to end, in a browser, with a controller, and **played** — the equivalent
-   of looking at the decoded frame in M2. A number is not a verdict about feel.
+3. ~~Then, and only then, the transport crate.~~ Done: `crates/transport` serves
+   `/video`, `/sound`, `/input` and the page, with 25 tests.
+4. ~~The pad path, measured on its own.~~ Done: 15.55 ms median at first, which
+   was suspiciously regular — a constant delay names a phase, not chance. The
+   worker now writes when input arrives rather than on the frame boundary, and
+   the median fell to 5.18 ms. The p95 stayed at 15.58 and should: the worst
+   case is still an input landing just after a frame boundary.
+5. ~~End to end, in a browser, with a controller, and **played**.~~ Done, and it
+   was the playing that found what the numbers did not: the freeze, the pad
+   mapping, the audio offset, and a stolen port silently moving a player to
+   another character.
+
+**M3 is closed.** Beyond what was planned, it also delivers sound (D10), four
+seats with a controller-port UI, and a pad that teaches itself from a real
+GameCube adapter. What it does not deliver is anything that stops a stranger on
+the tailnet from taking a seat — that is M4's first job, not a nice-to-have.
+
+The numbers as they stand, at 1280×960: 59.91 to 59.93 fps with zero frames
+dropped, 1.96 ms median encode (3.41 ms worst), 5.18 ms input-to-frame, 47 ms of
+audio offset of which the player's own 48 ms of system output is not ours to fix,
+5.5 Mbit/s on a quiet scene and 16 to 17 on a busy one, Dolphin at half a core
+and the GPU at 4 %. The ceiling on parallel rooms is the core Dolphin eats, not
+the card — though nobody has yet run two rooms at once to check.
 
 ---
 

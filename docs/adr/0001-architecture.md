@@ -29,6 +29,16 @@ Every critical-path building block already exists in Rust (`wl-screenrec` is the
 only published dma-buf→VAAPI zero-copy implementation, plus `webrtcsink`,
 Smithay, `inputtino`).
 
+**The line is the frame, not the protocol.** "WebSocket" appears on both sides of
+it and that has caused the question to be asked twice, so state it once: a socket
+carrying pad state or encoded frames is on the hot path and stays in the worker;
+a socket carrying lobby events (who joined, which rooms exist, chat) fires a few
+times a minute and belongs with the control plane, whatever that is written in.
+The second kind never touches the first — it hands out a signed token and the
+browser opens its own connection to the worker with it. Go is not considered: it
+would add a third language to buy a control plane that is not measurably faster
+than FastAPI at the rate this one runs.
+
 ### D3 — Controllers are normalised in the BROWSER
 
 Each client converts its own pad (DualSense, Xbox, GameCube adapter, keyboard)
@@ -198,6 +208,50 @@ in front of every 13-byte pad frame behind it. It does not make input
 *unreliable*, which is what it actually wants — a retransmitted input is already
 stale. That needs WebTransport datagrams, and it is the one part of D9 already
 known to be provisional.
+
+### D10 — Sound travels as raw PCM, with no codec
+
+Decided 2026-08-14, after measuring what it costs.
+
+The sound leaves Dolphin through ALSA's `file` plugin into a pipe and reaches the
+page as signed 16-bit samples, 48 kHz, two channels: 1.5 Mbit/s against sixteen
+for the picture. Opus would carry the same sound in a tenth of that.
+
+It is not taken because of what a codec adds on both ends. The worker would gain
+a dependency and an encode stage on the audio thread; the page would gain a
+second decoder, and this milestone has already spent days on the ways the FIRST
+decoder can die — wedged, stalled, starved behind a hidden tab, each needing a
+watchdog and a recovery path. One tenth of a stream that is a tenth of the video
+is not worth a second copy of that machinery.
+
+What would justify revisiting it: somebody playing over a link where 1.5 Mbit/s
+is a material share of what is available. On a tailnet with the picture at 16 to
+24 Mbit/s, it is noise.
+
+### D11 — Key frames are asked for, not scheduled
+
+Decided 2026-08-14, measured before and after.
+
+The encoder used to emit a key frame every second. A key frame is five to six
+times the size of an ordinary picture — measured here: 8.2 KiB median against
+53.7 KiB — so once a second every viewer had to absorb a burst, which on a
+20 Mbit/s link takes 22 ms to transmit inside a 16.7 ms budget.
+
+Nothing needed them. The stream rides TCP, so nothing is lost on the way; a
+viewer that joins is given one; and a page whose decoder died, or that came back
+from being hidden, asks for one with a single byte on the video socket. The
+scheduled interval is now ten seconds and exists only as a backstop.
+
+Measured, four interleaved runs: the frame-size tail (p99) fell from 77.8 and
+78.0 KiB to 61.4 and 57.5, with no overlap between the arms. The average bitrate
+did not move measurably — the scene varies more between runs than the effect —
+and that part is reported as inconclusive.
+
+What it costs: a request that is lost delays recovery to the next scheduled key
+frame, up to ten seconds. The page re-asks every 500 ms until one arrives, and
+the server grants at most two a second however many are asked for, because one
+byte from anybody on the network would otherwise inflate the bitrate for
+everybody.
 
 ## Consequences
 

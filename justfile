@@ -157,5 +157,43 @@ audit:
 miri:
     cd core && cargo +nightly miri test -p nel3ab-protocol
 
+# The API reference, generated from the Rust source.
 doc:
     cd core && cargo doc --workspace --no-deps --document-private-items
+
+# The prose site: the carnet, the ADR and the working plans, built by Zensical
+# from the same files the repository already keeps.
+#
+# `--strict` is the point of this recipe, not a flourish. It fails the build on a
+# link or an anchor that resolves to nothing, which is the one kind of rot a
+# 2800-line document acquires silently: a section gets renamed, every link to it
+# dies, and nothing says so until a reader clicks. It caught two on its first
+# run.
+#
+# Needs the tool once: `uv tool install zensical`.
+docs:
+    zensical build --strict
+
+# Rebuild, then publish on the tailnet. Two commands are one because publishing a
+# site nobody rebuilt is the failure this recipe exists to prevent.
+#
+# Served straight from `site/` rather than copied to /srv: one directory, so the
+# site cannot be current in the repository and stale where it is served. The cost
+# is a sub-second window during a rebuild where a reader could fetch a half-built
+# page — acceptable for a documentation site on a private network, and it would
+# not be for anything a stranger reaches.
+#
+# TAILNET ONLY, deliberately. `tailscale serve` shares inside the tailnet;
+# `tailscale funnel` would put it on the public internet. This document names
+# internal hostnames and says plainly that the game server has no authentication,
+# so it stays where the reader has already been invited.
+#
+# The port is 8444 because 8443 is the game. Both are proxied by the same
+# tailscaled, so neither needs its own certificate.
+docs-deploy: docs
+    sudo tailscale serve --bg --https=8444 {{justfile_directory()}}/site
+    @echo "https://lgf.tail3bd01c.ts.net:8444/"
+
+# Rebuild on every change, with a local preview. For writing, not for publishing.
+docs-watch:
+    zensical serve

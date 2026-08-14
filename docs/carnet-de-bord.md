@@ -7,7 +7,7 @@ termes au passage. Les autres documents sont des documents de travail :
 | Document | Pour quoi |
 |---|---|
 | `adr/0001-architecture.md` | les décisions, en une ligne chacune, avec leur raison |
-| `m1-working-plan.md`, `m2-working-plan.md` | l'état d'avancement, les mesures brutes |
+| `m1-`, `m2-`, `m3-working-plan.md` | l'état d'avancement, les mesures brutes |
 | **ce document** | l'histoire, le raisonnement, le vocabulaire |
 
 ---
@@ -26,10 +26,15 @@ carte graphique AMD Radeon RX 6650 XT.
    Navigateur                      Serveur (lgf)
    ┌──────────┐                    ┌───────────────────────────────┐
    │ manette  │ ──── touches ────► │  Dolphin (émulateur GameCube) │
-   │          │                    │            ↓ image            │
+   │          │                    │       ↓ image      ↓ son      │
    │  vidéo   │ ◄─── H.264 ─────── │  GPU : conversion + encodage  │
+   │  son     │ ◄─── PCM ───────── │                               │
    └──────────┘                    └───────────────────────────────┘
 ```
+
+Au moment où ces lignes sont écrites, ça marche : image, son, quatre manettes,
+sur le réseau privé. Ce qui manque est écrit en clair au chapitre 9, et le plus
+gros trou est qu'**il n'y a aucune authentification**.
 
 La difficulté n'est pas de faire marcher ça. C'est de le faire marcher **vite**.
 Chaque milliseconde entre l'appui sur un bouton et le pixel affiché se sent
@@ -555,7 +560,15 @@ Ce test a échoué deux fois pour de mauvaises raisons, et c'est instructif :
 
 ---
 
-## 5bis. M3 commence — et sa première question est déjà tranchée
+## 6. Milestone 3 — le navigateur, le son, et la salle
+
+M2 s'arrête quand l'image sort du serveur. M3 commence quand elle arrive
+**chez quelqu'un** : un navigateur qui décode, une manette qui répond, une
+salle où l'on est plusieurs, et du son. C'est le milestone le plus long du
+projet, et de loin celui qui a produit le plus d'erreurs instructives — parce
+que c'est le premier où un humain regarde le résultat et dit « ça saccade ».
+
+### 6.1 M3 commence — et sa première question est déjà tranchée
 
 M3 doit faire arriver le flux dans un navigateur et remonter les manettes. Une
 seule décision commande tout le reste :
@@ -586,7 +599,7 @@ chaque image attend derrière les précédentes) ; et l'expérience utilise un
 fichier enregistré, donc rien n'est interactif — la manette est l'autre moitié
 de M3.
 
-### Le décodeur avait raison
+### 6.2 Le décodeur avait raison
 
 Premier essai : `EncodingError: The given encoding is not supported`. Ni le
 navigateur ni le flux — **ma page**. Elle ne coupait une nouvelle image que
@@ -597,7 +610,7 @@ consécutives partaient en **un seul bloc de 118 images**.
 > propre entrée. Corriger depuis la mesure (ce flux n'a aucun délimiteur, et
 > exactement autant de tranches que d'images), pas depuis le raisonnement.
 
-### 5ter. On joue dans un navigateur
+### 6.3 On joue dans un navigateur
 
 Le worker relie enfin les quatre morceaux : image de l'émulateur → conversion →
 encodage → WebSocket, et la manette qui redescend dans les tuyaux de Dolphin.
@@ -616,7 +629,7 @@ pour un client à la traîne transforme un problème de débit en problème de
 latence *et le cache* : le joueur verrait un flux fluide d'images de plus en plus
 vieilles.
 
-### La preuve, et le témoin qui manquait
+### 6.4 La preuve, et le témoin qui manquait
 
 Premier essai : deux passages, l'un en tapant des touches, l'autre non. Les deux
 montraient le jeu **passé** son dialogue d'ouverture. Ça ressemblait à une
@@ -638,7 +651,7 @@ endroit.
 > témoin. C'est la même erreur que les trois tests verts de M2, dans un décor
 > différent.
 
-### Un navigateur sans humain
+### 6.5 Un navigateur sans humain
 
 lgf n'a pas d'écran. Pour juger la moitié navigateur, j'y fais tourner un
 **navigateur sans interface** (Puppeteer) contre `localhost` — ce qui règle au
@@ -653,7 +666,58 @@ Ce qu'il ne mesure pas : `localhost` n'est pas un réseau. Les 0,6 ms
 d'arrivée-à-l'écran sont sans transit par construction — un plancher pour la
 moitié navigateur, et rien du tout sur le Wi-Fi.
 
-### 5quater. Le saccadement — et où il n'était pas
+### 6.6 La manette, enfin chiffrée — et le chiffre accuse
+
+Le plan de M3 appelait la manette « la moitié qui décide si ça répond », et elle
+n'avait aucun chiffre. Le worker mesure maintenant combien de temps la plomberie
+fait attendre une entrée avant qu'elle puisse apparaître à l'image :
+
+```
+entrées appliquées 1041 | entrée→image  p50 15,55 ms   p95 15,74 ms
+```
+
+Une trame pleine. Et c'est sa **régularité** qui est le diagnostic : le worker
+vide sa file d'entrées en haut de sa boucle, laquelle est verrouillée sur la
+notification d'image. L'écriture tombe donc toujours à la même phase — et cette
+phase est visiblement juste *après* le moment où Dolphin lit son tuyau. On paie
+une trame entière là où la moyenne devrait être d'une demi-trame.
+
+> **Leçon** : une mesure trop régulière est une information. Un délai qui varie
+> raconte du hasard ; un délai constant raconte une **phase**, donc un ordre
+> d'opérations qu'on peut changer.
+
+Le remède : ne plus écrire au rythme des images, mais **quand l'entrée arrive**,
+pour que l'état le plus frais soit déjà là quand Dolphin regarde.
+
+**Fait, et mesuré :**
+
+| | avant | après |
+|---|---|---|
+| entrée→image p50 | 15,55 ms | **5,18 ms** |
+| entrée→image p95 | 15,74 ms | 15,58 ms |
+
+La médiane a fondu ; le p95 n'a pas bougé, et c'est **normal** — le pire cas
+reste « l'entrée arrive juste après la frontière de trame ». C'est exactement le
+passage d'un délai *constant* à un délai *uniforme* : on ne peut pas faire mieux
+sans que Dolphin lise son tuyau plus souvent, ce qui ne dépend pas de nous.
+
+Trois pièces pour ça : `Pipes` passe derrière un partage et l'émulateur expose un
+`PadWriter` qu'un second fil peut tenir ; le transport gagne une **attente
+bloquante** (variable de condition) au lieu d'un sondage — elle ne coûte rien
+quand personne n'appuie, ce qui est la plupart du temps ; et le worker fait
+tourner l'entrée sur son propre fil.
+
+> Un verrou empoisonné y devient une **erreur typée**, pas une panique : règle 6,
+> et c'est précisément le moment qui compte — le fil d'un joueur qui tombe ne
+> doit pas emporter la partie.
+
+Et une précision qui compte : ce nombre est la part de **la plomberie** seule.
+La logique du jeu ajoute ses propres trames par-dessus, et celles-là lui
+appartiennent.
+
+---
+
+### 6.7 Le saccadement — et où il n'était pas
 
 Premier retour de jeu réel depuis un Mac, via Tailscale : « ça marche, mais c'est
 un peu saccadé ». Plutôt que de deviner, j'ai instrumenté la boucle pour dire
@@ -679,7 +743,7 @@ joueur** part : une manette est un *niveau*, pas un *front*.
 > entre deux lectures disparaît. Il n'était pas non plus observable sur la
 > console d'origine, pour la même raison.
 
-### Deux vrais défauts, trouvés par la mesure
+### 6.8 Deux vrais défauts, trouvés par la mesure
 
 **La page peignait à l'arrivée.** Elle dessinait dans le callback du décodeur,
 donc l'image apparaissait quand le *décodage* finissait, pas quand l'écran se
@@ -692,7 +756,7 @@ avant une image-clé, et il y en a une par seconde. L'encodeur en produit
 désormais une **à la demande** quand quelqu'un ouvre la page. Mesuré : le plus
 grand écart entre deux images passe de **557 ms à 19 ms**.
 
-### Et finalement : c'est l'émulateur qui s'arrête
+### 6.9 Et finalement : c'est l'émulateur qui s'arrête
 
 Les chiffres d'une vraie partie ont tranché, et pas dans la direction attendue.
 Côté serveur, sur les fenêtres où un client jouait :
@@ -721,7 +785,7 @@ comme tel.
 > éliminés tous les trois en une mesure, et a désigné le seul qu'on n'avait pas
 > écrit soi-même.
 
-### Le gel définitif : un client bloqué figeait le serveur
+### 6.10 Le gel définitif : un client bloqué figeait le serveur
 
 Le vrai défaut n'était pas le saccadement mais un **gel dont on ne revenait
 pas**. Le journal l'a nommé : « the browser stopped watching ». La connexion
@@ -752,7 +816,7 @@ l'image est revenue seule.
 > *ressemble* à un gel sera diagnostiquée comme une lenteur — c'est le journal
 > qui a dit le vrai mot.
 
-### Les images perdues n'étaient pas du retard, c'étaient des images
+### 6.11 Les images perdues n'étaient pas du retard, c'étaient des images
 
 Ton écran est à 60 Hz et le flux à 60 images/s. Sans relation de phase entre les
 deux, il arrive régulièrement que **deux images tombent dans le même
@@ -774,7 +838,7 @@ la page.
 > 16,7 ms de perte sèche), une à deux sur du Wi-Fi. Mesuré après : l'écart entre
 > images arrivées et images peintes passe de **5-6/s à 0,6/s**.
 
-### Deux fois la mauvaise règle : « un seul spectateur »
+### 6.12 Deux fois la mauvaise règle : « un seul spectateur »
 
 Le fil vidéo servait **un seul** client, derrière un verrou. Première règle :
 refuser le nouveau venu. Conséquence : recharger la page te verrouillait dehors,
@@ -792,7 +856,7 @@ et celles de personne d'autre.
 > **Leçon** : quand une règle échoue deux fois de suites différentes, ce n'est
 > pas la règle qu'il faut ajuster — c'est qu'elle répond à la mauvaise question.
 
-### Une file là où il fallait un état
+### 6.13 Une file là où il fallait un état
 
 La manette arrivait dans une file de 64. Elle débordait : **1073 avertissements
 en cinq minutes**, du bruit qui aurait masqué une vraie panne.
@@ -802,7 +866,7 @@ appliqué, donc tout ce qui attend derrière est du travail déjà périmé.
 Remplacé par **une case par port** : écrire remplace. Ça ne peut pas déborder,
 ça ne peut pas vieillir, et il n'y a aucune politique à choisir sur quoi jeter.
 
-### Une métrique qui se lit mal est une métrique fausse
+### 6.14 Une métrique qui se lit mal est une métrique fausse
 
 La page annonçait « 72,5 % des rafraîchissements n'ont rien de neuf ». Alarmant,
 et presque vide de sens : sur un écran à **120 Hz**, un flux parfait à 60 images
@@ -813,7 +877,7 @@ Elle affiche maintenant des **débits** — envoyé, arrivé, peint, rafraîchi 
 qu'un nombre qu'on ne peut pas lire sans connaître la fréquence de l'écran est un
 nombre qui sera mal lu.
 
-### Ce qui reste, et son prix
+### 6.15 Ce qui reste, et son prix
 
 En boucle locale, 8 % des rafraîchissements n'ont rien de neuf à montrer. Ce
 n'est pas le réseau : c'est **60 images par seconde envoyées vers un écran à
@@ -826,7 +890,7 @@ plus. C'est le service que WebRTC rend gratuitement, et la contrepartie que le
 plan de M3 avait annoncée. À trancher sur une mesure prise depuis un vrai
 client, pas ici.
 
-### 5quinquies. Le crash : ce n'était pas nous
+### 6.16 Le crash : ce n'était pas nous
 
 « Dolphin freeze et relance le jeu » n'était pas du saccadement : c'était un
 **plantage**, toutes les trois à quatre minutes. Le service ayant
@@ -873,7 +937,7 @@ transfert, pas d'une texture.
 > pool de descripteurs ; l'échec n'est pas vérifié, et le pointeur nul fait
 > tomber le pilote.
 
-### Ce que les objets sont, et ce qu'ils ne sont pas
+### 6.17 Ce que les objets sont, et ce qu'ils ne sont pas
 
 En instrumentant Dolphin (l'arbre source est dans `dolphin-dev`, la
 reconstruction prend quinze secondes) pour journaliser **chaque** allocation de
@@ -888,7 +952,7 @@ descripteurs* — un pool est exactement ça. Confirmé par une expérience qui 
 détruire** ses pools, le nombre d'objets de 3,1 Mo est passé de 183 à 1163 en
 soixante secondes. Ce sont bien les pools.
 
-### Les deux jeux, et ce que ça écarte
+### 6.18 Les deux jeux, et ce que ça écarte
 
 Mario Kart Double Dash fuit aussi — ce n'est donc pas propre à Melee, c'est le
 moteur Vulkan. Mais son profil est plus parlant :
@@ -906,7 +970,7 @@ dépasse la mémoire disponible avant que le nettoyage n'arrive. Melee, avec son
 écran d'attente qui boucle, atteint ce pic en quatre minutes et demie ; Mario
 Kart survit plus longtemps parce que ses menus n'allouent presque rien.
 
-### La contrainte matérielle sous tout ça : le Resizable BAR
+### 6.19 La contrainte matérielle sous tout ça : le Resizable BAR
 
 Une question restait sans réponse : **pourquoi une allocation échoue-t-elle à
 3 Go alors que le noyau annonce 32 Go de GTT ?** En demandant à Vulkan ses tas
@@ -941,7 +1005,7 @@ se passent bien. C'est une hypothèse à tester, pas une démonstration. Mais c'
 la seule qui se règle par un réglage plutôt que par un correctif amont, et le
 noyau expose de quoi la tester sans redémarrer.
 
-### Le redimensionnement à chaud : tenté, refusé, et la raison est nette
+### 6.20 Le redimensionnement à chaud : tenté, refusé, et la raison est nette
 
 Le noyau 6.8 expose `/sys/bus/pci/devices/…/resource0_resize`, donc la fenêtre se
 redimensionne en théorie sans redémarrer. Tenté, avec le pilote détaché :
@@ -985,7 +1049,7 @@ d'IPMI**, donc pas d'accès BIOS à distance. Un serveur destiné à tourner san
 La carte a survécu aux six cycles détacher/rattacher : 59 tests GPU au vert
 après coup.
 
-### Le correctif : ne pas réparer la fuite, survivre à sa fin
+### 6.21 Le correctif : ne pas réparer la fuite, survivre à sa fin
 
 Trois tentatives pour arrêter la croissance ont échoué. La quatrième idée était
 différente : **ne pas empêcher la panne d'arriver, l'empêcher d'être mortelle.**
@@ -1018,7 +1082,24 @@ un match à quatre, couleurs justes, HUD complet, aucun artefact visible.
 > suivante n'est pas « comment l'empêcher » mais « pourquoi est-elle fatale ».
 > Perdre une image vaut mieux que perdre la partie.
 
-### Le vrai correctif : ouvrir la fenêtre, sans passer par le firmware
+### 6.22 Deux erreurs de raisonnement à garder
+
+**Deux correctifs écrits, deux échecs, gardés écrits.** J'ai d'abord trouvé un
+vrai bug de croissance sans borne (`m_descriptor_set_count` s'incrémente à chaque
+débordement, ne décroît jamais) : corrigé, reconstruit, **fuite inchangée**.
+Puis j'ai essayé de réinitialiser les pools au lieu de les recréer : **six fois
+pire**. Aucun des deux n'est livré. Une divergence d'avec l'amont se paie, et
+elle ne se paie que contre une mesure.
+
+Le premier essai venait d'une erreur de lecture : **le message d'erreur nomme la
+victime, pas le coupable.** Le pool était la première allocation à échouer.
+
+**Un compteur qui peut décroître n'est pas un repère.** Pour détecter les
+plantages je comptais les lignes de `dmesg` — un **tampon circulaire**. Le compte
+est passé de 69 à 68, ma boucle d'attente n'a jamais déclenché, et j'ai failli
+conclure d'une mesure cassée. Repère temporel depuis.
+
+### 6.23 Le vrai correctif : ouvrir la fenêtre, sans passer par le firmware
 
 Le BIOS avait bien « Above 4G Decoding » et « Resizable BAR » activés — vérifié —
 et **ça n'a rien changé** : la BAR restait à 256 Mo et `/proc/iomem` ne montrait
@@ -1048,7 +1129,7 @@ Region 0: Memory at 1200000000 (64-bit, prefetchable) [size=8G]
 L'adresse `0x1200000000` est au-dessus de 4 Go — exactement l'espace que le
 firmware refusait de céder.
 
-### Ce que ça change, mesuré sur la même charge
+### 6.24 Ce que ça change, mesuré sur la même charge
 
 | | avant | après |
 |---|---|---|
@@ -1073,7 +1154,7 @@ intervention.
 > qu'il l'est. `/proc/iomem` l'était. Et quand un composant écrit dans ses
 > journaux le nom du contournement, ça vaut la peine de le lire.
 
-### Le gel qui restait : une socket vivante qui se tait
+### 6.25 Le gel qui restait : une socket vivante qui se tait
 
 Après le correctif de la fenêtre, plus de plantage — mais un **gel** au bout d'un
 moment, sans redémarrage. Le journal, pris pendant que ça gelait :
@@ -1104,7 +1185,7 @@ Vérifié en figeant le worker cinq secondes avec `SIGSTOP`, ce qui laisse les
 sockets vivantes et coupe les images : `silence recoveries 1`, connexion
 rétablie, image revenue.
 
-### Et le test a trouvé ce que le raisonnement n'avait pas
+### 6.26 Et le test a trouvé ce que le raisonnement n'avait pas
 
 Première version : je mettais à jour le témoin de vie **après** le bloc qui
 ignore les images tant qu'aucune image-clé n'est arrivée. Pendant cette seconde
@@ -1114,7 +1195,7 @@ en boucle** que j'avais écrit en croyant faire l'inverse.
 
 Le signe de vie, c'est **des octets qui arrivent**, pas des images qui décodent.
 
-### Le gel d'après : le décodeur meurt, la socket va très bien
+### 6.27 Le gel d'après : le décodeur meurt, la socket va très bien
 
 Le chien de garde a réglé son cas — et il restait un gel. Cette fois j'ai pu
 regarder pendant qu'il durait, et **tout allait bien** :
@@ -1153,7 +1234,7 @@ Trois corrections :
    horodatages identiques est la meilleure façon d'aggraver son bégaiement. Il
    utilise maintenant l'instant de capture envoyé par le serveur.
 
-### Le test qui casse le décodeur exprès
+### 6.28 Le test qui casse le décodeur exprès
 
 Deux façons de mourir, et il fallait les deux :
 
@@ -1169,7 +1250,7 @@ Vérifié dans les deux sens, comme toujours ici. Avec le chien de garde désarm
 la mort silencieuse donne **+1 image peinte en six secondes** — le gel. Armé :
 **+71**, une seconde pleine de jeu. C'est `just browser-recovery`.
 
-### Des chiffres qu'on ne peut pas copier ne servent à personne
+### 6.29 Des chiffres qu'on ne peut pas copier ne servent à personne
 
 Le panneau de statistiques se réécrit deux fois par seconde. Or **réécrire le
 nœud efface la sélection** : surligner un nombre pour me l'envoyer était
@@ -1190,7 +1271,7 @@ longueur absurde qui a trahi la panne.
 > Une page qui est morte au chargement ressemble à une page qui attend encore.
 > Le seul témoin fiable est ce qu'elle **dit**, pas ce qu'on lui envoie.
 
-### La vraie cause : Dolphin se taisait quand l'image ne changeait pas
+### 6.30 La vraie cause : Dolphin se taisait quand l'image ne changeait pas
 
 Les deux chiens de garde étaient justes, et le gel revenait. Cette fois j'ai
 regardé **en amont**, du côté du serveur, et le journal avait déjà la réponse
@@ -1259,7 +1340,7 @@ mesurait déjà — l'attente d'une image — nommait la cause depuis le début.
 le symptôme est au bout de la chaîne, **la première question est ce que dit le
 début de la chaîne**, pas ce que fait la fin.
 
-### Et pour que ça ne puisse plus recommencer : la cadence est la nôtre
+### 6.31 Et pour que ça ne puisse plus recommencer : la cadence est la nôtre
 
 Le réglage retire *cette* cause-là, il ne retire pas la classe. Quand un jeu
 **efface l'écran** — un chargement, une transition — Dolphin ne présente rien du
@@ -1284,7 +1365,7 @@ Deux tests, dans les deux sens, comme toujours :
   test et doublé silencieusement le débit de messages. Vérifié en le cassant
   exprès : `message 0 was a keep-alive, in a stream that never paused`.
 
-### Quatre joueurs : c'est le serveur qui distribue les places
+### 6.32 Quatre joueurs : c'est le serveur qui distribue les places
 
 Le chemin d'entrée du worker savait déjà écrire dans n'importe quel port, et le
 protocole a toujours eu quatre places. Il manquait la seule chose qui compte
@@ -1305,7 +1386,7 @@ non servi avec une manette fantôme **change ce que le jeu fait** (un titre à
 quatre peut ouvrir quatre écrans partagés pour un seul joueur). `NEL3AB_PLAYERS=4`
 dans le service, et la salle est pour les copains.
 
-### Le journal a dénoncé un bogue que je ne cherchais pas
+### 6.33 Le journal a dénoncé un bogue que je ne cherchais pas
 
 En vérifiant quatre navigateurs dans une salle, les manettes se déconnectaient
 **toutes les 5,2 secondes**. Régulier au dixième près — donc pas un hasard, un
@@ -1331,7 +1412,7 @@ Le test coûte six secondes de vrai temps, parce que ce qu'on observe **est** un
 délai et qu'il n'y a pas moyen d'observer un délai sans l'attendre. Cassé
 exprès : *« the quiet player's port was given away »*.
 
-### Quatre fois plus de pixels pour une milliseconde
+### 6.34 Quatre fois plus de pixels pour une milliseconde
 
 Le flux sortait en **640×480** — la résolution native de la GameCube — étiré sur
 un écran 27 pouces. Dolphin sait rendre plus grand ; restait à savoir ce que la
@@ -1365,7 +1446,7 @@ Le worker dit maintenant ce que le flux coûte à un lien (`megabits_per_second`
 parce que « la machine suit-elle ? » et « le réseau peut-il porter ça ? » sont
 deux questions différentes avec deux réponses différentes.
 
-### Le vrai gel, enfin : la page nourrissait un décodeur que personne ne vidait
+### 6.35 Le vrai gel, enfin : la page nourrissait un décodeur que personne ne vidait
 
 Tous mes essais passaient par `localhost:8100`. Le sien passe par le proxy TLS de
 Tailscale, sur un Mac. J'ai fini par ouvrir **sa** page depuis son propre Chrome,
@@ -1405,7 +1486,7 @@ taisent maintenant quand personne ne peint — et la comparaison qui décide est
 entre **ce qu'on a donné** et **ce qui est sorti**, jamais contre l'horloge : on
 ne peut donc plus confondre « arrêté exprès » avec « en panne ».
 
-### Le test ne pouvait pas échouer sur cette machine
+### 6.36 Le test ne pouvait pas échouer sur cette machine
 
 Premier essai : je vérifiais que la file du décodeur restait petite. Vert avec le
 correctif… et **vert sans lui**. Le décodeur de cette machine est assez rapide
@@ -1424,7 +1505,7 @@ Vérifié enfin sur le Mac lui-même, page corrigée, onglet caché : `shown 0`,
 mesuré chez lui, et il faut le dire : le rendu **visible** en 1280×960 à 60
 images par seconde. Une fenêtre visible, ça ne se pilote pas à distance.
 
-### Le gel qui n'en était pas un : une salle pleine de fantômes
+### 6.37 Le gel qui n'en était pas un : une salle pleine de fantômes
 
 Les chiffres envoyés depuis son Mac étaient **sains** : 59,9 images reçues, 53,1
 peintes, file du décodeur à zéro, aucune reprise. Un flux qui peint cinquante-
@@ -1450,7 +1531,7 @@ Deux fautes à moi, et les deux le verrouillaient dehors :
    j'avais créé l'inverse : le proxy TLS garde ouverte la socket d'un navigateur
    **parti**, plus rien ne la ferme, la place n'est jamais rendue.
 
-### Silencieux n'est pas parti — et il faut poser la question
+### 6.38 Silencieux n'est pas parti — et il faut poser la question
 
 Les deux réponses simples sont fausses. Une échéance de lecture prend un joueur
 qui n'appuie sur rien pour un joueur parti. Pas d'échéance du tout prend une
@@ -1478,7 +1559,7 @@ Les trois cas sont tenus par des tests : le joueur silencieux garde sa place, le
 fantôme rend la sienne au bout de quinze secondes, l'onglet fermé la rend tout de
 suite.
 
-### La vraie cause de tout : c'était nous depuis le début
+### 6.39 La vraie cause de tout : c'était nous depuis le début
 
 Il faut lire cette section en sachant la fin : **le plantage de Dolphin que nous
 avons passé des heures à instrumenter, le « bogue de pool de descripteurs » que
@@ -1617,7 +1698,7 @@ jetées, latence, débit : tous justes, tous inutiles, parce qu'aucun ne répond
 disait pourtant, à qui savait le lire : 20,5 Mbit/s **figés à la deuxième
 décimale**, ce qui n'arrive jamais dans une vraie partie.
 
-### Une page ouverte n'est pas un joueur
+### 6.40 Une page ouverte n'est pas un joueur
 
 L'image ne gelait plus, et plus rien ne répondait aux touches. Le tuyau était
 bon : j'ai écrit `PRESS START` directement dedans et le jeu est passé de la démo
@@ -1658,7 +1739,7 @@ Deux pièges attrapés par les tests au passage :
   ping** — un navigateur, lui, ne montre jamais les trames de contrôle à la
   page. Le test comptait le mauvais message.
 
-### Cadence : l'image doit durer ce que l'émulateur lui a donné
+### 6.41 Cadence : l'image doit durer ce que l'émulateur lui a donné
 
 Plus aucune saccade, et pourtant « pas fluide à 100 % » sur un écran **240 Hz**.
 La cause n'est pas un manque d'images : c'est que la page peignait **dès qu'une
@@ -1697,7 +1778,7 @@ avec p05 et p95 à 4.
 Coût honnête : le décalage inclut une image de marge, soit **+16,7 ms** de
 latence par rapport à « montrer dès que possible ».
 
-### Le nom qui a mordu trois fois
+### 6.42 Le nom qui a mordu trois fois
 
 `held` est l'ensemble des touches enfoncées. J'ai appelé une deuxième variable
 `held` — un module qui déclare deux fois le même nom **ne s'exécute pas du tout**,
@@ -1708,7 +1789,7 @@ affichait **0** en toute confiance.
 
 > Une valeur fausse qui a l'air plausible coûte plus cher qu'une erreur.
 
-### La manette n'était câblée qu'à moitié
+### 6.43 La manette n'était câblée qu'à moitié
 
 Sept boutons sur seize, et pas les bons. Ce qui manquait : **la croix
 directionnelle** (aucune), **le stick C** (les deux octets partaient à zéro), les
@@ -1739,7 +1820,7 @@ se présente en disposition *inconnue* : ses indices ne sont pas ceux-là, et il
 faudra un profil à part — que ce relevé permettra d'écrire en une fois au lieu de
 le deviner.
 
-### Une vraie manette GameCube : la page l'apprend au lieu de la deviner
+### 6.44 Une vraie manette GameCube : la page l'apprend au lieu de la deviner
 
 Sur adaptateur officiel, une manette GameCube annonce une **disposition
 inconnue** : ses boutons sont à des index qui n'appartiennent qu'à elle, et ses
@@ -1767,7 +1848,7 @@ même sans manette attribuée — quelqu'un dont la salle est pleine doit pouvoi
 régler son matériel plutôt que d'attendre. Les pressions qui répondent aux
 questions ne partent jamais vers le jeu.
 
-### Le relâchement répondait à la question suivante
+### 6.45 Le relâchement répondait à la question suivante
 
 Premier essai de l'apprentissage, trouvé par le joueur en trois secondes : un
 appui sur A faisait passer le compteur de **1 à 3**.
@@ -1789,7 +1870,7 @@ relâchement, puis le bouton suivant. C'est un test de **séquence**, parce que 
 défaut est une séquence — aucun instantané ne l'aurait montré. Cassé exprès :
 cinq étapes sautées sur cinq.
 
-### La marge d'affichage se paie à la manette
+### 6.46 La marge d'affichage se paie à la manette
 
 « Je sens un peu de latence que je n'avais pas avant » — et il avait raison, le
 coupable était l'horaire d'affichage de la veille. Je l'avais écrit dans le
@@ -1826,7 +1907,7 @@ ligne s'appelle donc **lissage des rafales**, et la latence ajoutée est la marg
 seule. Un compteur mal nommé aurait fait chercher un défaut là où il n'y en a
 pas.
 
-### Mesurer d'abord : l'attente du GPU ne coûtait rien
+### 6.47 Mesurer d'abord : l'attente du GPU ne coûtait rien
 
 Notre crochet bloque le fil d'émulation de Dolphin à chaque image, le temps que
 le GPU finisse d'écrire. Le commentaire du patch le dit depuis le début : « c'est
@@ -1868,7 +1949,7 @@ jours de travail pour un gain nul.
 > qui n'en donne aucun. Le premier réflexe doit être : *qu'est-ce qui, dans mon
 > montage, pourrait fabriquer cet écart tout seul ?*
 
-### Deux structures relues, dont une qui mentait
+### 6.48 Deux structures relues, dont une qui mentait
 
 La skill `choose-data-structures` demande de partir des opérations réelles, pas
 des habitudes. Deux trouvailles, et la plus grave n'est pas celle qui coûte du
@@ -1909,7 +1990,7 @@ Le test qui la fige compare des **pointeurs**, pas des octets : une version qui
 mettrait en trame une fois par spectateur enverrait exactement les mêmes octets
 et passerait.
 
-### Une image-clé par seconde pour personne, et deux bogues au passage
+### 6.49 Une image-clé par seconde pour personne, et deux bogues au passage
 
 Le flux portait une image-clé toutes les secondes. Mesuré : l'image médiane pèse
 8,2 Kio et la plus grosse 53,7 Kio, donc une fois par seconde une image six fois
@@ -1956,7 +2037,7 @@ secondes ». Et la reprise est devenue plus rapide, pas plus lente : une page qu
 demande obtient son image dans la trame suivante, là où elle attendait jusqu'à
 une seconde.
 
-### Le son, par un tuyau
+### 6.50 Le son, par un tuyau
 
 Il n'y avait pas de son du tout : la configuration disait « aucune sortie audio »,
 parce qu'il n'y a ni carte son ni serveur de son dans le conteneur.
@@ -2004,7 +2085,7 @@ Vérifié : 998 morceaux en 20 s, **188 Kio/s pour 187,5 attendus**, amplitude
 jusqu'à 19 766 sur 32 767, et la page joue 600 morceaux en douze secondes sans
 une coupure. `just browser-sound`.
 
-### Le son en retard sur l'image : 68 ms, puis 47
+### 6.51 Le son en retard sur l'image : 68 ms, puis 47
 
 Le joueur l'a entendu avant que je le mesure, et l'a estimé « peut-être 0,5 ms ».
 À 0,5 ms personne n'entend rien — mais les deux flux portent **le même
@@ -2033,7 +2114,7 @@ Il reste un choix, et c'en est un vrai : caler l'image sur le son voudrait dire
 l'image reste en avance ; une case à cocher propose l'autre échange à qui
 regarde plutôt qu'il ne joue.
 
-### Un test qui comptait des morceaux
+### 6.52 Un test qui comptait des morceaux
 
 `playback` vérifiait que la page joue « 50 morceaux par seconde ». Le jour où les
 morceaux sont passés à 10 ms, il est tombé — alors que le comportement qu'il
@@ -2047,7 +2128,7 @@ d'horloge** : 12,00 pour 12,00. Ça survit à la taille des morceaux, et ça
 attraperait en plus une fréquence d'échantillonnage fausse, ce que le compte de
 morceaux ne voyait pas.
 
-### Ce qui reste du décalage n'est pas à nous
+### 6.53 Ce qui reste du décalage n'est pas à nous
 
 Chez le joueur : **66 ms — trajet −2, avance 20, sortie 48**. La décomposition
 répond à elle seule à la question « peut-on faire mieux » : les trois quarts sont
@@ -2081,7 +2162,7 @@ C'est la bonne forme pour ce genre de question. Plutôt que de choisir à la pla
 du joueur sur la foi d'un chiffre mesuré ailleurs, on lui donne les deux et le
 chiffre.
 
-### Une commande qui obéit en vingt secondes est une commande morte
+### 6.54 Une commande qui obéit en vingt secondes est une commande morte
 
 « Caler l'image sur le son ne change rien », et il avait raison de le croire :
 l'alignement passait par le pilote qui déplace l'horaire d'affichage de **5 ms
@@ -2108,7 +2189,7 @@ choisir sa fréquence ne change rien sur une carte qui tourne déjà à 48 kHz, 
 qui est le cas de la plupart et ce que la ligne « son » indique. L'étiquette le
 dit désormais, au lieu de promettre ce qu'elle ne peut pas tenir.
 
-### Ce que le décalage restant est vraiment
+### 6.55 Ce que le décalage restant est vraiment
 
 Chez le joueur : **48 ms de sortie dont 10 du navigateur**, parfois 56, jamais
 autre chose, et **identique en HDMI et au casque filaire**. Deux valeurs
@@ -2125,7 +2206,7 @@ donc personne ne remarque rien.
 Chez nous l'image est présentée dès qu'elle peut l'être, avec 3 ms de marge. Le
 décalage qu'on entend n'est pas du son en retard : **c'est de l'image en avance**.
 
-### Audit complet : trois façons d'abîmer la salle sans authentification
+### 6.56 Audit complet : trois façons d'abîmer la salle sans authentification
 
 Revue de tout ce qui a été écrit, avec les skills sécurité, qualité de test,
 banc d'essai et structures de données, et avec context7 pour ce que les
@@ -2164,7 +2245,24 @@ Quiconque atteint le tailnet peut regarder, écouter et prendre la manette. C'es
 le M4, et c'est de loin le plus gros risque du système. `ufw` refuse les entrées
 par défaut, vérifié, donc l'exposition est le tailnet et non le réseau local.
 
-### Quatre joueurs, et la façade de la console
+### 6.57 Les chiffres sous l'image obligeaient à défiler
+
+Le panneau de mesures s'écrivait sous la vidéo. Sur un écran d'ordinateur
+portable, il fallait donc défiler pour lire la latence — c'est-à-dire quitter des
+yeux le jeu pour lire les chiffres qui décrivent le jeu. Signalé par le joueur,
+pas par un test.
+
+Il est passé à droite, en colonne. Le point qui vaut d'être noté est ailleurs :
+**« sans défilement » ne veut rien dire sans une largeur.** Le test énumère donc
+quatre tailles de fenêtre réelles, dont celle du portable qui a soulevé le
+problème, et vérifie pour chacune que le panneau est bien à droite de l'image et
+que son bas tient dans la fenêtre.
+
+> Une exigence d'affichage qui ne nomme pas ses dimensions n'est pas vérifiable.
+
+---
+
+### 6.58 Quatre joueurs, et la façade de la console
 
 La salle passe à quatre places. Le câblage existait et était testé depuis
 plusieurs jours ; ce qui manquait était de **voir** la salle.
@@ -2219,7 +2317,7 @@ une mise à jour, et quand j'ai désactivé la mise à jour exprès pour vérifi
 qu'il pouvait échouer, il a avalé des pings pour l'éternité. Un test qui pend ne
 dit rien du tout. Il a maintenant une échéance.
 
-### Prendre une prise à quelqu'un, et ce que ça lui fait
+### 6.59 Prendre une prise à quelqu'un, et ce que ça lui fait
 
 Le vol de prise est voulu — sinon un fantôme garde un port pour toujours. Ce qui
 arrivait **à l'autre joueur** ne l'était pas.
@@ -2246,75 +2344,83 @@ Le test qui fige tout ça n'exige pas une salle vide, seulement **un port libre*
 il prend le port qu'on lui donne, quel qu'il soit, et vole celui-là. La première
 version demandait le port 1 et refusait de tourner pendant qu'on jouait à côté.
 
-### Deux erreurs de raisonnement à garder
+### 6.60 Quelle langue pour la suite, et la question mal posée
 
-**Deux correctifs écrits, deux échecs, gardés écrits.** J'ai d'abord trouvé un
-vrai bug de croissance sans borne (`m_descriptor_set_count` s'incrémente à chaque
-débordement, ne décroît jamais) : corrigé, reconstruit, **fuite inchangée**.
-Puis j'ai essayé de réinitialiser les pools au lieu de les recréer : **six fois
-pire**. Aucun des deux n'est livré. Une divergence d'avec l'amont se paie, et
-elle ne se paie que contre une mesure.
+Fin de M3, la question arrive : le serveur qui gérera les comptes et les salles,
+en Python avec FastAPI, ou en Go, ou tout en Rust ? Avec la vraie raison derrière,
+qui est honnête : « je suis plus à l'aise en Python, mais si c'est plus rapide
+ailleurs, autant le faire ailleurs. »
 
-Le premier essai venait d'une erreur de lecture : **le message d'erreur nomme la
-victime, pas le coupable.** Le pool était la première allocation à échouer.
+**La question mélange deux choses qui portent le même nom.** Il y a deux sortes
+de WebSocket dans ce système, et elles n'ont rien en commun sauf le mot.
 
-**Un compteur qui peut décroître n'est pas un repère.** Pour détecter les
-plantages je comptais les lignes de `dmesg` — un **tampon circulaire**. Le compte
-est passé de 69 à 68, ma boucle d'attente n'a jamais déclenché, et j'ai failli
-conclure d'une mesure cassée. Repère temporel depuis.
+| | ce qu'elle transporte | son rythme | ce qui se passe si elle rate |
+|---|---|---|---|
+| celle du worker | des images encodées, l'état de la manette | 60 fois par seconde, chaque milliseconde compte | l'image saute, le jeu répond en retard |
+| celle du salon | qui vient d'arriver, quelles salles existent | quelques fois par minute | on voit la liste une seconde plus tard |
 
-### 5sexies. La manette, enfin chiffrée — et le chiffre accuse
+La première est déjà en Rust et n'en bougera pas : c'est là que vivent le GPU,
+l'encodeur et les 3,3 ms entre une touche et l'image. La seconde attend un
+humain qui clique. **Une salle à quatre joueurs génère peut-être vingt messages
+de salon par partie.** Un langage dix fois plus rapide sur vingt messages, c'est
+dix fois plus rapide sur rien.
 
-Le plan de M3 appelait la manette « la moitié qui décide si ça répond », et elle
-n'avait aucun chiffre. Le worker mesure maintenant combien de temps la plomberie
-fait attendre une entrée avant qu'elle puisse apparaître à l'image :
+Donc : FastAPI, et sans culpabilité. Le raisonnement en une phrase — le langage
+du chemin critique se choisit sur la latence, celui du reste se choisit sur la
+vitesse à laquelle on écrit du code juste. C'est déjà ce que dit D2 ; la question
+a simplement montré que D2 ne le disait pas assez clairement, alors il a été
+précisé.
 
-```
-entrées appliquées 1041 | entrée→image  p50 15,55 ms   p95 15,74 ms
-```
+**Go est écarté, et pour une raison qui n'est pas la performance.** Il ferait un
+troisième langage à installer, à tester et à déployer, en échange d'un gain qui
+ne se mesurerait pas à ce débit. Deux langages avec une frontière nette valent
+mieux que trois avec une frontière floue.
 
-Une trame pleine. Et c'est sa **régularité** qui est le diagnostic : le worker
-vide sa file d'entrées en haut de sa boucle, laquelle est verrouillée sur la
-notification d'image. L'écriture tombe donc toujours à la même phase — et cette
-phase est visiblement juste *après* le moment où Dolphin lit son tuyau. On paie
-une trame entière là où la moyenne devrait être d'une demi-trame.
-
-> **Leçon** : une mesure trop régulière est une information. Un délai qui varie
-> raconte du hasard ; un délai constant raconte une **phase**, donc un ordre
-> d'opérations qu'on peut changer.
-
-Le remède : ne plus écrire au rythme des images, mais **quand l'entrée arrive**,
-pour que l'état le plus frais soit déjà là quand Dolphin regarde.
-
-**Fait, et mesuré :**
-
-| | avant | après |
-|---|---|---|
-| entrée→image p50 | 15,55 ms | **5,18 ms** |
-| entrée→image p95 | 15,74 ms | 15,58 ms |
-
-La médiane a fondu ; le p95 n'a pas bougé, et c'est **normal** — le pire cas
-reste « l'entrée arrive juste après la frontière de trame ». C'est exactement le
-passage d'un délai *constant* à un délai *uniforme* : on ne peut pas faire mieux
-sans que Dolphin lise son tuyau plus souvent, ce qui ne dépend pas de nous.
-
-Trois pièces pour ça : `Pipes` passe derrière un partage et l'émulateur expose un
-`PadWriter` qu'un second fil peut tenir ; le transport gagne une **attente
-bloquante** (variable de condition) au lieu d'un sondage — elle ne coûte rien
-quand personne n'appuie, ce qui est la plupart du temps ; et le worker fait
-tourner l'entrée sur son propre fil.
-
-> Un verrou empoisonné y devient une **erreur typée**, pas une panique : règle 6,
-> et c'est précisément le moment qui compte — le fil d'un joueur qui tombe ne
-> doit pas emporter la partie.
-
-Et une précision qui compte : ce nombre est la part de **la plomberie** seule.
-La logique du jeu ajoute ses propres trames par-dessus, et celles-là lui
-appartiennent.
+**Ce qui les relie :** le serveur Python ne parle jamais au worker pendant une
+partie. Il signe un jeton, le navigateur le présente au worker, le worker le
+vérifie. Aucune image, aucun appui de bouton ne traverse Python. C'est aussi ce
+qui bouche le trou d'authentification, ce qui fait de M4 deux choses en une.
 
 ---
 
-## 6. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
+### 6.61 Le carnet devient un site, et le mode strict trouve deux liens morts
+
+Ce document fait 2800 lignes. Sur GitHub, c'est une page sans fin, sans table des
+matières et sans recherche — la mauvaise forme pour un texte dont tout l'intérêt
+est qu'on puisse retrouver le passage qu'on cherche.
+
+Il est maintenant construit par **Zensical**, le générateur de site de l'équipe
+de Material for MkDocs, et servi sur le réseau privé. Trois choix méritent d'être
+écrits :
+
+**Une seule copie.** Le site est bâti depuis `docs/`, les fichiers que le dépôt
+tient déjà. Il n'existe nulle part une seconde version d'un document qui pourrait
+être à jour d'un côté et périmée de l'autre. `site/` est ignoré par git pour la
+même raison.
+
+**Servi depuis le tailnet, pas depuis internet.** `tailscale serve` partage à
+l'intérieur du réseau privé ; `tailscale funnel` aurait publié sur internet. Ce
+document nomme des machines internes et dit en clair que le serveur de jeu n'a
+aucune authentification. Il reste donc là où le lecteur a déjà été invité. Le
+port est 8444 parce que 8443 est le jeu.
+
+**Le mode strict est la raison d'être de la recette**, pas un ornement. Il fait
+échouer la construction sur un lien ou une ancre qui ne mène nulle part. Il en a
+trouvé deux à son premier passage, dans une page écrite le même après-midi : les
+accents disparaissent des ancres générées, donc `#9-où-on-en-est` n'existe pas,
+c'est `#9-ou-on-en-est`. Personne ne l'aurait vu avant qu'un lecteur ne clique.
+
+> Renommer une section est une chose normale à faire. Ce qui ne l'est pas, c'est
+> que tous les liens vers elle meurent en silence.
+
+C'est pourquoi `just docs` est maintenant une étape de CI. Elle ne demande ni GPU
+ni Rust et prend quelques secondes : la prose est vérifiée comme le code, et la
+règle qui dit que le carnet fait partie du travail cesse d'être une promesse pour
+devenir une porte.
+
+---
+
+## 7. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
 
 | Le piège | Ce qui s'est passé | La leçon |
 |---|---|---|
@@ -2335,9 +2441,26 @@ appartiennent.
 | `pkill -f <motif>` | Le motif correspondait à sa propre ligne de commande, tuant le shell | — |
 | Symboles de debug | Le dépôt propose Mesa 24.0.5, la machine a la 25.2.8 | Abandonné plutôt que d'insister ; source apt retirée après |
 
+Et ceux de M3, qui sont d'une autre nature : ce ne sont plus des pièges du
+matériel, ce sont des **instruments qui mentent** et des **tests qui ne peuvent
+pas échouer**.
+
+| Le piège | Ce qui s'est passé | La leçon |
+|---|---|---|
+| L'instrument étouffait ce qu'il mesurait | Pour compter les images distinctes, la page lisait cinq mégaoctets de pixels soixante fois par seconde. Réponse : « quatre images par seconde ». Fausse : la mesure privait la page du temps de peindre | Un instrument qui consomme la ressource qu'il mesure ne mesure plus rien |
+| Un facteur exactement rond | Le son arrivait « deux fois trop vite ». Je lisais 1920 trames toutes les 20 ms, or 1920 trames à 48 kHz font **40 ms** | Quand la mesure et la théorie diffèrent d'un facteur rond, le suspect est l'instrument, pas le système |
+| Le générateur de charge ne générait rien | Trois passages de banc comparaient une latence d'entrée… d'un autre navigateur. Le banc avait envoyé **zéro** trame de manette | Un générateur de charge se vérifie, il ne se suppose pas |
+| Un contrôle qui donne un écart énorme | Dolphin « sans notre crochet » consommait 26 points de CPU en moins. Le contrôle était faux, et sa propre mesure le disait : **GPU à 0 %**, donc le jeu ne rendait rien | Un écart énorme mérite plus de méfiance qu'un écart nul : qu'est-ce qui, dans le montage, pourrait le fabriquer tout seul ? |
+| Un test qui ne pouvait pas échouer | Il surveillait la file du décodeur ; cette machine est trop rapide pour en accumuler une. Vert avec le correctif, vert sans | Vérifier l'invariant (« ce que personne ne peint n'est pas décodé »), pas le symptôme |
+| Un test qui comptait des morceaux | « 50 morceaux par seconde » est tombé le jour où les morceaux ont fait 10 ms, sans qu'aucun comportement ne change | Compter des secondes de son contre des secondes d'horloge : ça survit à l'implémentation et attrape en plus une fréquence fausse |
+| Un test qui pendait | En désactivant exprès la fonctionnalité gardée, le test a avalé des pings pour l'éternité au lieu d'échouer | Toute attente a une échéance. Un test qui pend ne dit rien |
+| Un test qui échoue sans défaut | Deux essais exigeaient une salle vide et échouaient pendant qu'on jouait à côté | Ils annoncent « RIEN TESTÉ ». Un test qui échoue sans défaut apprend à ignorer ses échecs |
+| Le même nom deux fois | `held` était déjà l'ensemble des touches enfoncées. Un module qui déclare deux fois le même nom **ne s'exécute pas du tout** — et la page ressemble alors à une page qui attend | La renommée n'a corrigé que la moitié du fichier : la ligne de statistiques appelait encore l'ancien nom, un `Set` n'a pas de `.length`, et la mesure affichait 0 en toute confiance |
+| Le vrai coupable, c'était nous | Le « bogue de pool de descripteurs de Dolphin » que j'ai instrumenté pendant des jours venait de **notre** soumission par image. Deux correctifs précédents traitaient les symptômes, et le Resizable BAR n'avait fait que ralentir la panne | Quand on ajoute du code dans le moteur de quelqu'un d'autre, la première hypothèse pour toute anomalie de ce moteur doit être la nôtre |
+
 ---
 
-## 7. Les décisions, en résumé
+## 8. Les décisions, en résumé
 
 | | Décision | En clair |
 |---|---|---|
@@ -2349,34 +2472,87 @@ appartiennent.
 | **D6** | Client TypeScript généré | Pas de types recopiés à la main entre serveur et navigateur |
 | **D7** | libavcodec encode | Application de D1 : un encodeur H.264 conforme n'est pas à écrire |
 | **D8** | Vulkan lié directement avec `ash`, sans shim | La raison du shim (l'ABI instable de ffmpeg) n'existe pas pour Vulkan, et la logique risquée doit rester en Rust |
+| **D9** | Nos octets sur une socket simple, décodés par WebCodecs, plutôt que WebRTC | WebRTC donne gratuitement la reprise sur perte et le contrôle de congestion, contre une négociation lourde et la perte du contrôle de l'instant d'envoi. Sur un réseau privé entre gens qui se connaissent, le marché est mauvais. **Le jour où ça sort du tailnet, c'est la première décision à rouvrir** |
+| **D10** | Le son voyage en PCM brut, sans codec | 1,5 Mbit/s contre seize pour l'image. Un codec ajouterait un décodeur de plus dans la page — et ce milestone a passé des jours sur les façons dont le **premier** peut mourir |
+| **D11** | Les images-clés se demandent, elles ne se programment pas | Une image-clé pèse six fois une image ordinaire ; une par seconde pour personne, c'est une bosse par seconde sur le réseau. Le serveur en accorde au plus deux par seconde, quoi qu'on lui demande |
 
 ---
 
-## 8. Où on en est
+## 9. Où on en est
 
-**Fait et prouvé sur la machine :**
+**On y joue.** Depuis un navigateur, sur le réseau privé, avec le son, une
+manette configurée et jusqu'à quatre joueurs. Ce qui suit est mesuré sur la
+machine, pas estimé.
 
-- l'entrée : les touches arrivent dans un Dolphin headless, le jeu réagit
-- la sortie : l'image sort de Dolphin **sans aucune copie CPU**, et a été regardée
-- les deux courses sont fermées, et le coût de l'attente est mesuré
-- D5 vérifié octet par octet : Vulkan écrit, l'encodeur relit **0 octet faux**
-- le shader RGBA→NV12 : **0 échantillon hors de ±1**
-- l'encodeur libavcodec est piloté depuis Rust, et sa latence est mesurée
+### La chaîne, de bout en bout
 
-**Ce qui reste dans M2 :** câbler la chaîne complète — image Dolphin → import
-Vulkan → shader → encodeur → H.264 — et **regarder le résultat décodé**. Chaque
-morceau est prouvé séparément ; c'est la première fois qu'ils tourneraient
-ensemble.
+```
+Dolphin ──image──► Vulkan (conversion) ──► encodeur matériel ──► navigateur
+   ▲                                                                  │
+   └────────────────────── manette ◄──────────────────────────────────┘
+   └──son──► tuyau ALSA ──► worker ──────────────────────────────────►┘
+```
 
-Puis mesurer la chaîne réelle contre le **0,57 cœur** que coûtait l'ancienne
-recopie. C'est le chiffre que M2 existe pour battre.
+| | mesuré | dans quelles conditions |
+|---|---|---|
+| images | 59,91 à 59,93 /s, **zéro jetée** | 90 s, un spectateur |
+| conversion couleur | 0,13 ms p50, 0,18 au p95 | mesuré en M2, en 640×480 |
+| encodage | 1,96 ms médian, 3,41 ms au pire | en 1280×960, jeu en mouvement |
+| entrée → image | 5,18 ms p50, 15,58 au p95 | le p95 est une trame : c'est la frontière de trame, pas notre code |
+| son | 188 Kio/s pour 187,5 attendus | 998 morceaux en 20 s |
+| décalage son/image | 47 ms | dont 48 (parfois 56) de sortie système chez le joueur, hors de notre portée |
+| débit | 5,5 Mbit/s sur une scène calme, 16 à 17 sur une scène chargée | 1280×960 |
+| coût d'une salle | Dolphin 49,6 à 53,6 % d'un cœur, worker ~4,4 %, GPU médian 4 % | douze cœurs, une seule salle |
 
-**Après M2** : M3, le réseau (faire arriver le flux dans le navigateur), puis M4,
-l'interface.
+Deux réserves sur ce tableau. La conversion couleur n'a pas été remesurée depuis
+le passage en 1280×960, donc la ligne est un plancher et pas la valeur du jour.
+Et l'entrée→image se mesure sur la machine, pas chez le joueur : il faut y
+ajouter le réseau et la sortie de son écran.
+
+La ligne la plus intéressante pour la suite est la dernière : **le GPU est à
+4 %**. Ce n'est donc pas lui qui limitera le nombre de salles, c'est le cœur que
+Dolphin consomme. Douze cœurs divisés par un demi-cœur par salle laissent de la
+place pour plusieurs parties simultanées — mais c'est une division, pas une
+mesure : personne n'a encore lancé deux salles à la fois, et la mémoire de la
+carte, elle, ne se divise pas aussi bien.
+
+### Ce qui existe et qui n'existait pas au début de M3
+
+- une page qui décode, ordonnance et peint sur l'horloge de la source ;
+- quatre prises de manette dessinées, cliquables, qui montrent qui est où ;
+- du son, avec un réglage de volume et le choix du compromis image/son ;
+- une manette qui s'apprend toute seule, y compris une vraie GameCube sur
+  adaptateur ;
+- un banc d'essai reproductible, avec son plancher de bruit mesuré ;
+- sept essais de navigateur et vingt-cinq tests de transport.
+
+### Ce qui n'est pas fait, et qu'il faut dire
+
+**Rien n'authentifie personne.** Quiconque atteint le réseau privé peut regarder,
+écouter et prendre une manette. C'est M4, et c'est de loin le plus gros risque du
+système. Le pare-feu refuse les entrées par défaut, donc l'exposition s'arrête au
+tailnet — mais un lien envoyé à un ami suffit à le franchir.
+
+**Il n'y a pas de salon.** Une salle, c'est un worker lancé à la main par
+systemd. Créer une partie, inviter quelqu'un, savoir ce qui tourne : rien de tout
+ça n'existe.
+
+**Une seule partie à la fois.** Le code ne l'interdit pas — chaque worker a son
+port et son dossier — mais rien n'orchestre plusieurs salles.
+
+**La mémoire GPU n'a pas été observée sur une longue partie** depuis le correctif
+du cliquet. Elle montait encore doucement à dix-sept minutes, ce qui ressemble au
+remplissage normal du cache de textures, et Dolphin seul se stabilise. À
+surveiller plutôt qu'à supposer.
+
+### La suite
+
+M4 : les comptes, les salles, les invitations — et le jeton signé qui les relie
+au worker, qui est aussi ce qui ferme le trou d'authentification.
 
 ---
 
-## 9. Glossaire complet
+## 10. Glossaire complet
 
 **ABI** — *Application Binary Interface*. La disposition exacte des données en
 mémoire. Un désaccord d'ABI ne produit pas d'erreur, seulement des valeurs
@@ -2385,17 +2561,53 @@ absurdes.
 **ADR** — *Architecture Decision Record*. Un document qui fige une décision **et
 sa raison**, pour qu'on ne la re-débatte pas six mois plus tard.
 
+**ALSA** — *Advanced Linux Sound Architecture*. La couche son du noyau Linux.
+On lui a demandé d'écrire dans un fichier plutôt que dans une carte : le
+greffon `file`, avec un esclave `null`, c'est-à-dire aucun matériel derrière.
+Conséquence : rien ne cadence le flux, donc c'est au lecteur de le faire.
+
 **Anneau / ring buffer** — un petit ensemble de cases réutilisées en boucle. Ici,
 trois images : pendant que le worker en lit une, Dolphin écrit dans une autre.
+
+**Annex B** — la façon de découper un flux H.264 en semant un marqueur `00 00
+00 01` avant chaque morceau. C'est ce que le décodeur du navigateur attend
+quand on lui donne des octets bruts.
+
+**ASCII** — le jeu de caractères le plus simple : lettres non accentuées,
+chiffres, ponctuation, un octet chacun. Utilisé ici pour les dessins de schémas
+et les en-têtes de protocole.
 
 **ash** — la bibliothèque de liaison Rust ↔ Vulkan. Pré-générée, donc sans outil
 de génération à la compilation.
 
-**BT.601 / BT.709** — deux normes de conversion couleur. BT.601 pour la vidéo
-standard, BT.709 pour la HD. Les confondre donne une image aux teintes décalées.
+**Banc d'essai (*benchmark*)** — un programme qui rejoue toujours la même
+charge pour comparer deux versions. Le nôtre chauffe 45 secondes, mesure 90
+secondes, et garde ses mesures brutes. Il refuse d'afficher la latence de
+manette s'il n'a pas lui-même pris une manette, parce qu'il a déjà mesuré trois
+fois celle d'un autre navigateur.
+
+**baseLatency / outputLatency** — deux mesures que le navigateur donne sur sa
+sortie audio. `baseLatency` est ce qu'il s'accorde pour préparer le son,
+quelques millisecondes. `outputLatency` ajoute ce que le système et la carte
+prennent après lui. C'est le second qui explique nos 48 ms, et il n'est pas de
+notre ressort.
+
+**BIOS** — le programme du fabricant qui démarre la machine avant le système.
+C'est lui qui décide de ce que le processeur voit de la carte graphique. Voir
+Resizable BAR.
 
 **Bitstream** — le flux d'octets qui constitue la vidéo compressée. Ses champs ne
 sont pas alignés sur les octets, d'où un « écrivain de bits » dédié.
+
+**BT.601 / BT.709** — deux normes de conversion couleur. BT.601 pour la vidéo
+standard, BT.709 pour la HD. Les confondre donne une image aux teintes décalées.
+
+**canvas** — la zone de dessin d'une page web. C'est là que les images décodées
+sont peintes.
+
+**Chemin critique** — la suite d'étapes qu'un appui de bouton traverse avant de
+devenir une image à l'écran. Ce qui n'est pas dessus n'a pas besoin d'être
+rapide, et c'est ce qui décide dans quel langage on écrit quoi.
 
 **CI** — *Continuous Integration*. Le service qui recompile et reteste
 automatiquement à chaque envoi de code. Une tâche n'est pas finie tant qu'elle
@@ -2404,9 +2616,30 @@ n'est pas verte.
 **Clippy** — l'analyseur de code de Rust. Configuré ici en mode strict : tout
 avertissement est une erreur.
 
+**Cliquet** — un mécanisme qui ne tourne que dans un sens. Ici, Dolphin
+agrandit son pool de descripteurs quand il en manque et ne le réduit jamais :
+une fuite plutôt qu'un pic.
+
+**Codec** — *codeur-décodeur*. Le couple d'algorithmes qui compresse d'un côté
+et décompresse de l'autre. H.264 pour l'image ; aucun pour le son (D10).
+
+**Conteneur / Docker** — un processus isolé du reste de la machine, avec ses
+propres fichiers et son propre réseau, mais qui utilise le même noyau. Dolphin
+tourne dedans, ce qui fige sa version et ses bibliothèques. À ne pas confondre
+avec une machine virtuelle : il n'y a pas de second système.
+
 **DCC** — *Delta Colour Compression*. Compression interne AMD, invisible pour le
 rendu 3D, **illisible par l'encodeur vidéo** avant RDNA4. Toute la décision D5
 existe à cause d'elle.
+
+**Descripteur (de fichier)** — le numéro qu'un programme reçoit en échange d'un
+fichier ouvert, d'une socket ou d'un tuyau. Il y en a un nombre fini par
+processus, et Dolphin plante en silence quand il n'en reste plus.
+
+**Descripteur (GPU) / pool de descripteurs** — côté Vulkan, un descripteur dit
+à une commande à quoi elle a le droit de toucher : telle image, tel tampon. Le
+pool est la réserve où on les prend. Aucun rapport avec le précédent, malgré le
+nom.
 
 **dma-buf** — mécanisme du noyau Linux pour partager de la mémoire GPU entre
 processus sans copie.
@@ -2417,8 +2650,23 @@ référence servant à compresser les suivantes.
 **Exp-Golomb** — un codage de nombres à longueur variable utilisé par H.264 : les
 petites valeurs prennent peu de bits.
 
+**FastAPI** — un cadre logiciel Python pour écrire des serveurs web. Prévu pour
+M4, hors du chemin critique.
+
 **FFI** — *Foreign Function Interface*. Appeler du C depuis Rust. Seul endroit où
 `unsafe` est toléré dans ce projet, et sous justification écrite.
+
+**ffmpeg** — la boîte à outils libre de manipulation vidéo. On n'utilise pas le
+programme, mais sa bibliothèque `libavcodec`, qui parle à l'encodeur de la
+carte.
+
+**Gigue (*jitter*)** — l'irrégularité des instants d'arrivée. Le débit moyen
+peut être parfait avec une gigue qui rend l'image saccadée : ce n'est pas la
+quantité qui compte, c'est la régularité.
+
+**GTT** — *Graphics Translation Table*. La mémoire système que le GPU peut lire
+directement. Quand la VRAM est pleine, les allocations tombent ici : un
+compteur GTT qui monte est le signe que la VRAM déborde.
 
 **H.264** — le format de compression vidéo utilisé. Universellement décodé par les
 navigateurs, et accéléré par le matériel.
@@ -2429,15 +2677,42 @@ navigateurs, et accéléré par le matériel.
 **IDR** — *Instantaneous Decoder Refresh*. Une image complète, décodable seule.
 Un flux commence toujours par là.
 
+**Image-clé** — une image complète, décodable sans les précédentes. Sans elle,
+un client qui arrive n'a rien à afficher. C'est l'IDR de la norme, nommé en
+français.
+
 **Intra / tout-intra** — une image compressée sans référence aux autres. Simple,
 mais très coûteux en débit si toutes le sont.
 
+**JavaScript** — le langage qui s'exécute dans le navigateur. Toute la page —
+décodage, ordonnancement, manette, son — est écrite dedans.
+
+**Jeton signé** — une chaîne que le serveur des comptes fabrique et signe, que
+le navigateur présente au worker, et que le worker vérifie sans avoir à
+rappeler qui que ce soit. C'est ce qui reliera les deux moitiés du système en
+M4.
+
+**kHz** — kilohertz, milliers de fois par seconde. Le son est échantillonné à
+48 kHz : 48 000 mesures par seconde et par oreille.
+
+**Kio / Mio / Mbit/s** — kibioctet (1024 octets), mébioctet, mégabit par
+seconde. Les octets pour ce qui est stocké, les bits pour ce qui circule. Un
+débit de 16 Mbit/s fait 2 Mio/s.
+
 **libva** — la bibliothèque C qui implémente VAAPI.
+
+**Milestone** — une étape du projet, avec un objectif vérifiable. M1 : sortir
+une image de Dolphin. M2 : l'encoder sur le GPU. M3 : la jouer dans un
+navigateur, avec le son et à plusieurs.
 
 **Miri** — un interpréteur Rust qui détecte les comportements indéfinis. Il **ne
 peut pas** exécuter de fonction C, donc il ne validera jamais un appel libva — il
 sert sur l'arithmétique de pointeurs *autour* des appels, là où une erreur serait
 la nôtre.
+
+**Mixeur** — la partie du système qui additionne les sons de plusieurs
+programmes avant de les envoyer à une seule carte. Le nôtre est court-circuité
+: Dolphin écrit dans un tuyau, personne ne mélange.
 
 **Modifier** — nombre de 64 bits décrivant l'agencement mémoire exact d'une image
 (tuilage, compression). Deux composants doivent s'accorder dessus pour partager
@@ -2449,21 +2724,77 @@ qu'un test échoue. Un test qui survit à toutes les mutations ne teste rien.
 **NAL unit** — l'unité de découpage d'un flux H.264. Chaque en-tête et chaque
 tranche d'image en est une.
 
+**NAT** — *Network Address Translation*. Le mécanisme par lequel une box
+partage une seule adresse publique entre toutes les machines de la maison. Il
+empêche deux machines de s'appeler directement, et c'est la moitié de ce que
+WebRTC sert à contourner. Sur un tailnet, le problème ne se pose pas.
+
 **NV12** — format d'image : luminance pleine résolution, couleur au quart. Ce que
 mangent les encodeurs.
+
+**p50 / p95 / p99** — les centiles. p50 est la médiane : la moitié des mesures
+sont en dessous. p95, 95 % en dessous. p99, 99 %. On les préfère à la moyenne
+parce qu'une moyenne noie les rares mesures très mauvaises, et ce sont
+justement celles qu'on ressent.
+
+**Pare-feu (ufw)** — le filtre qui décide quelles connexions entrantes la
+machine accepte. `ufw` est l'outil qui le configure sur Ubuntu. Le nôtre refuse
+tout en entrée par défaut.
+
+**PCIe** — le bus qui relie la carte graphique au processeur. Toute donnée qui
+passe de l'un à l'autre le traverse, et c'est bien pour cela qu'on évite de l'y
+faire passer.
+
+**PCM** — *Pulse Code Modulation*. Du son non compressé : une suite de mesures
+d'amplitude. Le nôtre est en `s16le`, des entiers signés de 16 bits avec
+l'octet de poids faible en premier, deux voies entrelacées, 48 000 fois par
+seconde.
 
 **Pipe nommé** — un fichier spécial servant de canal entre deux processus.
 
 **Plan (*plane*)** — une des composantes séparées d'une image. NV12 en a deux :
 luminance, et couleur entrelacée.
 
+**Plancher de bruit** — l'écart qu'on mesure entre deux exécutions strictement
+identiques. Tout gain plus petit que lui est du bruit, pas un progrès. Le
+déclarer avant de mesurer évite de fêter des victoires imaginaires.
+
+**Port** — deux sens dans ce carnet. Un *port de manette* est une des quatre
+prises de la GameCube, donc un joueur. Un *port réseau* est le numéro sur
+lequel un serveur écoute, 8100 pour un worker.
+
+**Proxy** — un serveur qui reçoit une connexion et la retransmet à un autre. Le
+nôtre, fourni par Tailscale, ajoute le chiffrement TLS devant un worker qui
+n'en fait pas.
+
 **RDNA2 / RDNA4** — générations d'architecture GPU AMD. La nôtre est RDNA2 ; la
 limitation DCC de l'encodeur disparaît en RDNA4.
+
+**Rééchantillonnage** — convertir un son d'une fréquence vers une autre, par
+exemple 48 000 mesures par seconde vers 44 100. Coûteux et jamais exact, d'où
+l'option qui laisse la carte choisir sa fréquence pour l'éviter.
 
 **Render node** — le fichier `/dev/dri/renderD128` par lequel on parle au GPU pour
 du calcul, sans droits d'affichage.
 
+**requestAnimationFrame** — la fonction par laquelle le navigateur annonce
+qu'il va peindre et demande quoi afficher. Elle suit le rafraîchissement de
+l'écran, donc elle ne s'accorde pas d'elle-même avec les soixante images par
+seconde de la source.
+
+**Resizable BAR** — un réglage du BIOS qui laisse le processeur voir toute la
+VRAM au lieu d'une fenêtre de 256 Mio. Il a repoussé notre plantage sans le
+corriger, ce qui dit l'essentiel sur ce qu'il faut penser d'un réglage qui «
+améliore » un bogue.
+
 **RGBA** — format d'image classique : rouge, vert, bleu, transparence, par pixel.
+
+**ROM** — le fichier contenant un jeu. On teste avec deux titres, dont les
+charges GPU sont volontairement différentes.
+
+**Salon (*lobby*)** — la partie qui n'existe pas encore : créer une salle,
+inviter, voir ce qui tourne. Aujourd'hui une salle est un worker lancé à la
+main.
 
 **Segfault** — plantage dû à un accès mémoire invalide.
 
@@ -2476,12 +2807,42 @@ Rust et libavcodec.
 **SIGBUS** — signal d'erreur d'accès mémoire. Dans notre cas, symptôme d'une
 mémoire partagée trop petite.
 
+**Socket** — le bout de connexion réseau vu par un programme. On y lit et on y
+écrit comme dans un fichier.
+
 **SPS / PPS** — *Sequence / Picture Parameter Set*. Les en-têtes H.264 qui
 décrivent la taille, le format et les options du flux. Un décodeur en a besoin
 avant la première image.
 
+**Stick** — le manche analogique d'une manette. Il rend deux nombres continus,
+là où un bouton en rend un binaire. D'où la zone morte, qui ignore les petites
+valeurs pour qu'une manette usée ne parte pas toute seule.
+
+**systemd** — le programme qui lance et surveille les services au démarrage de
+Linux. C'est lui qui tient le worker en vie.
+
+**Tailscale / tailnet** — un réseau privé chiffré entre machines, monté par-
+dessus internet. Le *tailnet* est l'ensemble des machines qui en font partie.
+Rien n'y entre sans y avoir été invité, ce qui est aujourd'hui la seule chose
+qui protège le projet.
+
+**TCP** — le protocole qui garantit que les octets arrivent tous, et dans
+l'ordre. Pratique, mais il retient les octets suivants tant qu'un manquant
+n'est pas retransmis : pour de la vidéo en direct, l'attente coûte souvent plus
+cher que la perte.
+
+**TLS** — le chiffrement du web, le `s` de `https`. Sans lui, le navigateur
+refuse l'accès à la manette. Ce seul refus a suffi à nous obliger à le mettre
+en place.
+
+**Trame (audio)** — un instant de son, une mesure par voie. En stéréo 16 bits,
+une trame fait 4 octets ; à 48 kHz, 480 trames font 10 ms.
+
 **Tuilage (*tiling*)** — rangement d'une image par blocs plutôt que par lignes,
 pour la performance GPU. Invisible tant qu'on ne lit pas la mémoire directement.
+
+**Tuyau** — voir *Pipe nommé*. Le mot français est utilisé partout dans ce
+carnet.
 
 **unsafe** — en Rust, le mot-clé qui lève les garanties du compilateur. Interdit
 dans ce projet, sauf pour la FFI et avec justification écrite.
@@ -2489,9 +2850,33 @@ dans ce projet, sauf pour la FFI et avec justification écrite.
 **VAAPI** — *Video Acceleration API*. L'interface Linux vers l'encodeur/décodeur
 matériel.
 
+**VRAM** — la mémoire de la carte graphique.
+
 **Vulkan** — interface bas niveau vers le GPU, pour le rendu et le calcul.
 
-**VRAM** — la mémoire de la carte graphique.
+**WebCodecs** — l'interface qui donne au JavaScript un accès direct au décodeur
+matériel du navigateur, sans passer par une balise `<video>`. C'est elle qui
+nous laisse décider quand chaque image est peinte.
+
+**WebRTC** — l'ensemble de protocoles conçu pour la visioconférence : reprise
+sur perte, contrôle de congestion, traversée de pare-feu. Puissant et lourd.
+Écarté en D9, à rouvrir le jour où le projet sort du tailnet.
+
+**WebSocket** — une connexion permanente à deux sens entre une page et un
+serveur, ouverte par une requête HTTP puis maintenue. Nos trois canaux — image,
+son, manette — en sont.
+
+**WebTransport** — le successeur possible de WebSocket, bâti sur QUIC, capable
+d'envoyer des messages sans en garantir l'ordre. Intéressant pour de la vidéo ;
+pas encore essayé ici.
+
+**Worker** — dans ce projet, le programme qui tient une salle : il parle à
+Dolphin, encode, sert la page et gère les manettes. Un worker, une partie.
+
+**XFB** — *External Frame Buffer*. Le tampon d'où la GameCube envoyait l'image
+vers la télévision. Dolphin le reproduit, et c'est là qu'on prend la nôtre. Son
+option « ignorer les XFB identiques » a été notre premier suspect pendant le
+gel.
 
 **Zero-copy** — l'objectif : la donnée n'est jamais recopiée.
 

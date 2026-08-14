@@ -4,8 +4,14 @@ Self-hosted **retro cloud-gaming rooms**. A host opens a room, picks a console a
 a game; up to four players join **from their browser**, each with their own
 controller. Emulation runs server-side on the GPU.
 
-> Status: **M0 — skeleton.** No session logic yet. See
-> [`docs/adr/0001-architecture.md`](docs/adr/0001-architecture.md).
+> Status: **M3 done.** Video, sound and four controllers, played in a browser
+> over a private network. **Nothing authenticates anybody yet** — that is M4's
+> first job, and it is the reason this is not exposed to the internet.
+>
+> The decisions live in [`docs/adr/0001-architecture.md`](docs/adr/0001-architecture.md).
+> The story, in French and for a human, is
+> [`docs/carnet-de-bord.md`](docs/carnet-de-bord.md) — also served as a site with
+> search and navigation, `just docs-deploy`.
 
 ## Why it exists
 
@@ -20,7 +26,7 @@ client; this one gives you **one game, four players, one video stream**.
 | `core/crates/protocol` | Wire types shared by every component | Rust |
 | `core/crates/emulator` | Dolphin lifecycle + named-pipe input (M1) | Rust |
 | `core/crates/encoder`  | dma-buf → VAAPI, zero-copy (M2) | Rust |
-| `core/crates/transport`| WebRTC media + input channel (M3) | Rust |
+| `core/crates/transport`| WebCodecs over a plain socket, video + sound + input (M3, ADR D9) | Rust |
 | `core/crates/worker`   | The binary — orchestration only | Rust |
 | `api/`                 | Rooms, accounts, library (M4) | Python / FastAPI |
 | `front/`               | Web client (M4) | TypeScript |
@@ -28,10 +34,12 @@ client; this one gives you **one game, four players, one video stream**.
 ## Development
 
 ```bash
-just check   # fmt + clippy + tests — what CI runs
+just         # the gate before a commit: check + gpu-test
+just check   # fmt + clippy + tests — exactly what CI runs
+just gpu-test# the tests only a machine with a GPU can run
 just fix     # auto-format and auto-fix
-just test
 just audit   # advisories + licences (blocking)
+just docs    # build the documentation site (strict: dead links fail it)
 ```
 
 Requires the toolchain pinned in `rust-toolchain.toml`; `rustup` installs it
@@ -43,10 +51,11 @@ automatically.
 |---|---|---|
 | **M1** | Drive Dolphin headless through named pipes | video, network |
 | **M2** | Capture → VAAPI → a valid MP4 on disk | network |
-| **M3** | WebRTC to a browser, gamepad round-trip | — |
+| **M3** | Stream to a browser, gamepad round-trip | — |
 | **M4** | Rooms, accounts, library | — |
 
-M1 + M2 are the real test of the idea: ~3 weeks to know whether it stands up.
+M1, M2 and M3 are done and measured. What M3 delivered beyond its goal: sound,
+four seats, and a pad that learns an unknown controller instead of guessing.
 
 ## Legal
 

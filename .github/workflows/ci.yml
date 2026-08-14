@@ -65,3 +65,30 @@ jobs:
         with:
           manifest-path: core/Cargo.toml
           command: check
+
+  # The prose, checked the same way the code is. `just docs` runs Zensical in
+  # strict mode, which fails on a link or an anchor pointing at nothing.
+  #
+  # This is here because the logbook is 2800 lines and renaming a section is a
+  # normal thing to do: without this job, every link to the old name dies quietly
+  # and the first person to find out is a reader. Strict mode found two on its
+  # first run, both in a page written the same afternoon.
+  #
+  # No GPU, no Rust, no cache needed — it is seconds, and it guards the document
+  # the project rules call part of the work.
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: extractions/setup-just@v3
+      - uses: astral-sh/setup-uv@v6
+      # The PATH line is not decoration: `uv tool install` drops the executable
+      # in ~/.local/bin, and whether that is already on the runner's PATH is the
+      # runner image's business, not ours. Stating it costs one line and removes
+      # a way for this job to fail for a reason that has nothing to do with the
+      # documentation.
+      - name: Install Zensical
+        run: |
+          uv tool install zensical
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - run: just docs

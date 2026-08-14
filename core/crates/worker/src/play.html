@@ -1028,6 +1028,16 @@
   /// The room as the server last described it: how many sockets this console
   /// has, which one is ours, and which of the others are occupied.
   let room = { players: 0, mine: 0, busy: [false, false, false, false] };
+  /// Somebody took our port. Kept apart from `refused`, which means we never had
+  /// one: a page that is refused should keep asking politely, and a page that
+  /// was DISPLACED must not. It used to do exactly that — three seconds later it
+  /// picked up the next free socket and the player carried on driving a
+  /// different character with nothing on screen to say so.
+  let evicted = false;
+  /// A socket whose second click would take it from somebody. Taking a port in
+  /// the middle of somebody's game is worth one deliberate confirmation.
+  let arming = null;
+  let armingTimer = null;
 
   /// The four player colours a GameCube game uses, in order. Nothing in the
   /// hardware is coloured — the sockets are all the same black plastic — but
@@ -1044,8 +1054,9 @@
   /// that hides them, and YOURS is the same plug in that player's colour with
   /// the whole bezel lit to match.
   function socketSvg(port, state) {
-    const colour = PLAYER_COLOURS[port - 1];
-    const lit = state === "mine";
+    const armed = state === "arming";
+    const colour = armed ? "#e0913a" : PLAYER_COLOURS[port - 1];
+    const lit = state === "mine" || armed;
     const plugged = lit || state === "busy";
     return `
       <svg viewBox="0 0 72 84" aria-hidden="true">
@@ -1063,7 +1074,9 @@
              <circle cx="36" cy="36" r="2.6" fill="#8a8a98" />
              <circle cx="45" cy="36" r="2.6" fill="#8a8a98" />`}
         <text class="label" x="36" y="78" text-anchor="middle"
-              fill="${lit ? colour : "#8a8a98"}">${lit ? "TOI" : port}</text>
+              fill="${lit ? colour : "#8a8a98"}">${
+                armed ? "PRENDRE ?" : state === "mine" ? "TOI" : port
+              }</text>
       </svg>`;
   }
 
@@ -1074,7 +1087,14 @@
     const wanted = Math.max(room.players, 1);
     portStrip.innerHTML = "";
     for (let slot = 1; slot <= wanted; slot++) {
-      const state = room.mine === slot ? "mine" : room.busy[slot - 1] ? "busy" : "free";
+      const state =
+        room.mine === slot
+          ? "mine"
+          : arming === slot
+            ? "arming"
+            : room.busy[slot - 1]
+              ? "busy"
+              : "free";
       const button = document.createElement("button");
       button.type = "button";
       button.className = "port";
@@ -1083,12 +1103,28 @@
       button.title =
         state === "mine"
           ? `tu es branché sur le port ${slot}`
-          : state === "busy"
-            ? `port ${slot} occupé — clique pour le prendre`
-            : `port ${slot} libre — clique pour t'y brancher`;
+          : state === "arming"
+            ? `reclique pour prendre le port ${slot} à celui qui l'occupe`
+            : state === "busy"
+              ? `port ${slot} occupé — clique pour le réclamer`
+              : `port ${slot} libre — clique pour t'y brancher`;
       button.setAttribute("aria-label", button.title);
       button.disabled = state === "mine";
       button.addEventListener("click", () => {
+        if (room.busy[slot - 1] && arming !== slot) {
+          // Occupied, and one click is not enough. Somebody is playing on that
+          // socket and taking it from them should be something a person meant.
+          arming = slot;
+          clearTimeout(armingTimer);
+          armingTimer = setTimeout(() => {
+            arming = null;
+            drawPorts();
+          }, 4000);
+          drawPorts();
+          return;
+        }
+        arming = null;
+        clearTimeout(armingTimer);
         seat.textContent = `on se branche sur le port ${slot}…`;
         connectInput(slot);
       });
@@ -1118,6 +1154,7 @@
       input.close();
     }
     refused = false;
+    evicted = false;
     attempts += 1;
     input = new WebSocket(socketUrl(take === null ? "/input" : `/input?take=${take}`));
     input.binaryType = "arraybuffer";
@@ -1130,10 +1167,15 @@
         mine: told[1],
         busy: [told[2] === 1, told[3] === 1, told[4] === 1, told[5] === 1],
       };
+      const had = port;
       port = room.mine === 0 ? null : room.mine;
-      refused = port === null;
-      seat.textContent =
-        port === null
+      // Displaced, rather than never seated: the difference decides whether this
+      // page may go and take another socket by itself. It may not.
+      if (had !== null && port === null) evicted = true;
+      refused = port === null && !evicted;
+      seat.textContent = evicted
+        ? `un autre joueur a pris ton port ${had} — clique une prise pour te rebrancher`
+        : port === null
           ? "aucune manette : les ports occupés sont pris par d'autres pages"
           : `tu es le joueur ${port}`;
       seat.className = port === null ? "bad" : "note";
@@ -1142,11 +1184,16 @@
     input.onclose = () => {
       if (mine !== generation) return;
       port = null;
+      // A page that was DISPLACED stops here. Retrying would take the next free
+      // socket, which is how a player found themselves driving somebody else's
+      // character: they had asked for nothing, and the page went and plugged
+      // itself in somewhere else on their behalf.
+      if (evicted) return;
       // Half a second after a drop, three seconds after a refusal. Asking
       // POLITELY costs nothing and takes nothing from anybody, so a page whose
       // room was full picks the controller up by itself the moment it is free —
-      // which is what happens when the other page is closed. Only the button
-      // ever displaces a page that is still there.
+      // which is what happens when the other page is closed. Only a click ever
+      // displaces a page that is still there.
       retry = setTimeout(() => connectInput(), refused ? 3000 : 500);
     };
     input.onerror = () => {

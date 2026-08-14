@@ -2219,6 +2219,33 @@ une mise à jour, et quand j'ai désactivé la mise à jour exprès pour vérifi
 qu'il pouvait échouer, il a avalé des pings pour l'éternité. Un test qui pend ne
 dit rien du tout. Il a maintenant une échéance.
 
+### Prendre une prise à quelqu'un, et ce que ça lui fait
+
+Le vol de prise est voulu — sinon un fantôme garde un port pour toujours. Ce qui
+arrivait **à l'autre joueur** ne l'était pas.
+
+Sa page se voyait retirer le port, puis, trois secondes plus tard, reprenait
+poliment le premier port libre. Il se retrouvait à piloter un autre personnage
+sans que rien ne le lui dise. Le joueur l'a vu avant moi.
+
+La cause : une page refusée et une page **délogée** suivaient le même chemin.
+Elles ne se ressemblent pourtant pas. Une page refusée n'a jamais rien eu et a
+raison de redemander poliment ; une page délogée avait un port, on le lui a pris,
+et se rebrancher ailleurs de sa propre initiative est la dernière chose qu'elle
+doive faire.
+
+> Deux situations qui se ressemblent dans le code ne se ressemblent pas pour la
+> personne devant l'écran. C'est elle qui décide s'il s'agit du même cas.
+
+La page délogée s'arrête donc, le dit en rouge, et attend un clic. Et prendre une
+prise occupée demande **deux clics** : le premier arme la prise, qui affiche
+« PRENDRE ? » en orange pendant quatre secondes. Interrompre la partie de
+quelqu'un mérite d'être délibéré.
+
+Le test qui fige tout ça n'exige pas une salle vide, seulement **un port libre** :
+il prend le port qu'on lui donne, quel qu'il soit, et vole celui-là. La première
+version demandait le port 1 et refusait de tourner pendant qu'on jouait à côté.
+
 ### Deux erreurs de raisonnement à garder
 
 **Deux correctifs écrits, deux échecs, gardés écrits.** J'ai d'abord trouvé un

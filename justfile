@@ -123,6 +123,12 @@ browser-lipsync:
 browser-layout:
     cd spikes/m3-browser-drive && node layout.mjs
 
+# Taking a socket somebody is playing on: two clicks to do it, and the player it
+# was taken from is told and left unplugged rather than quietly moved. Needs the
+# worker RUNNING and ONE free port — not an empty room.
+browser-steal:
+    cd spikes/m3-browser-drive && node steal.mjs http://localhost:8100/
+
 # Does one press answer exactly one question of the pad lesson? Needs the worker
 # RUNNING. Feeds a synthetic pad frame by frame, because what this gets wrong is
 # a SEQUENCE — a press that also answers the question after it.

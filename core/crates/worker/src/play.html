@@ -32,6 +32,11 @@
       <label><input id="lipsync" type="checkbox" /> caler l'image sur le son</label>
       — sinon l'image reste en avance, ce qui garde la manette plus vive
     </p>
+    <p class="note">
+      <label><input id="deviceRate" type="checkbox" /> laisser la carte son choisir sa fréquence</label>
+      — souvent quelques millisecondes de moins, mais chaque morceau est alors
+      rééchantillonné à part : si tu entends un grésillement, décoche
+    </p>
     <p><button id="learn" type="button">configurer la manette</button>
       <button id="skip" type="button" hidden>passer ce bouton</button></p>
     <p id="lesson" class="note"></p>
@@ -59,6 +64,7 @@
   const volumeSlider = document.getElementById("volume");
   const soundState = document.getElementById("soundState");
   const lipsyncBox = document.getElementById("lipsync");
+  const deviceRateBox = document.getElementById("deviceRate");
   const learnButton = document.getElementById("learn");
   const skipButton = document.getElementById("skip");
   const lessonLine = document.getElementById("lesson");
@@ -815,6 +821,7 @@
   const fastestSoundLag = () =>
     soundLags.length === 0 ? null : Math.min(...soundLags);
   let volume = Number(localStorage.getItem("nel3ab.volume") ?? 70);
+  let deviceRate = localStorage.getItem("nel3ab.deviceRate") === "1";
 
   function describeSound() {
     if (audio === null) {
@@ -827,33 +834,38 @@
         : "en attente d'un clic";
   }
 
+  /// Builds the context, in whichever of the two shapes is asked for.
+  ///
+  /// Forcing 48 kHz puts one resampler across everything the context plays, and
+  /// the browser runs it continuously. Taking the device's own rate removes that
+  /// stage — measured at a few milliseconds less — but then every buffer is
+  /// resampled on its own, which is a hundred resampler boundaries a second.
+  /// Whether that is audible is not something this machine can answer, so the
+  /// page offers both and the person listening decides.
+  ///
+  /// Neither touches the output path itself: 32 ms on this machine, 48 on the
+  /// player's, which is the audio device's own buffers and no page's business.
+  function buildAudio() {
+    const previous = audio;
+    audio = deviceRate
+      ? new AudioContext({ latencyHint: 0.01 })
+      : new AudioContext({ sampleRate: SOUND_RATE, latencyHint: 0.01 });
+    gain = audio.createGain();
+    gain.gain.value = volume / 100;
+    gain.connect(audio.destination);
+    // The schedule belonged to the context that just died, and the counts
+    // belonged to the arrangement being compared.
+    playAt = 0;
+    soundGaps = 0;
+    soundGapsSeen = 0;
+    soundLead = SOUND_LEAD_MIN;
+    soundLags = [];
+    previous?.close();
+  }
+
   function startSound() {
     if (audio === null) {
-      // No forced sample rate, and a number rather than "interactive".
-      //
-      // Forcing 48 kHz on a device that runs at another rate puts a resampler
-      // across the whole context output. Asking for the device's own rate and
-      // letting each buffer be resampled instead is the same work in a cheaper
-      // place — and on a device that IS 48 kHz, which most are, it is no work at
-      // all. The number is a request for the smallest buffer the platform will
-      // give; "interactive" is the same request with less precision.
-      //
-      // What this cannot touch is the output path itself. Measured: 32 ms on
-      // this machine, 48 ms on the player's — the audio device's own buffers,
-      // and no page has a say in them.
-      audio = new AudioContext({ latencyHint: 0.01 });
-      // The device's own rate is taken when it costs nothing. When it differs
-      // from ours, something has to resample: doing it per buffer would mean a
-      // hundred resampler boundaries a second, which I cannot judge by ear from
-      // here, so the older behaviour is kept — one resampler across the whole
-      // output, which the browser handles continuously.
-      if (audio.sampleRate !== SOUND_RATE) {
-        audio.close();
-        audio = new AudioContext({ sampleRate: SOUND_RATE, latencyHint: 0.01 });
-      }
-      gain = audio.createGain();
-      gain.gain.value = volume / 100;
-      gain.connect(audio.destination);
+      buildAudio();
       connectSound();
     }
     // A browser will not play anything until a person has asked for it, and the
@@ -915,6 +927,15 @@
 
   soundButton.addEventListener("click", startSound);
   volumeSlider.value = String(volume);
+  deviceRateBox.checked = deviceRate;
+  deviceRateBox.addEventListener("change", () => {
+    deviceRate = deviceRateBox.checked;
+    localStorage.setItem("nel3ab.deviceRate", deviceRate ? "1" : "0");
+    if (audio === null) return;
+    buildAudio();
+    audio.resume().then(describeSound, describeSound);
+  });
+
   lipsyncBox.addEventListener("change", () => {
     if (!lipsyncBox.checked) {
       lipsync = 0;

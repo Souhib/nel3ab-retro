@@ -108,6 +108,11 @@ browser-sound:
     cd spikes/m3-browser-drive && node sound.mjs http://localhost:8100/ 20
     cd spikes/m3-browser-drive && node playback.mjs http://localhost:8100/ 12
 
+# The two ways of building the audio context, one after the other on the same
+# stream. Prints what each costs; whether either buzzes is a question for ears.
+browser-rates:
+    cd spikes/m3-browser-drive && node rates.mjs http://localhost:8100/
+
 # Does one press answer exactly one question of the pad lesson? Needs the worker
 # RUNNING. Feeds a synthetic pad frame by frame, because what this gets wrong is
 # a SEQUENCE — a press that also answers the question after it.

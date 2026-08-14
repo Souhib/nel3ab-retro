@@ -2071,6 +2071,16 @@ l'ancien comportement est gardé sinon.
 > ailleurs. Ici l'ailleurs était inaudible depuis cette machine, donc non
 > vérifiable, donc non pris.
 
+Sauf qu'un choix qu'une machine ne peut pas trancher, une **oreille** le peut. La
+page propose donc les deux, avec une case à cocher, le changement se faisant à
+chaud et sans coupure : 48,0 kHz imposés d'un côté, la fréquence de la carte son
+de l'autre, et la ligne d'écart qui se met à jour sous les yeux. Le réglage est
+retenu d'une visite à l'autre.
+
+C'est la bonne forme pour ce genre de question. Plutôt que de choisir à la place
+du joueur sur la foi d'un chiffre mesuré ailleurs, on lui donne les deux et le
+chiffre.
+
 ### Deux erreurs de raisonnement à garder
 
 **Deux correctifs écrits, deux échecs, gardés écrits.** J'ai d'abord trouvé un

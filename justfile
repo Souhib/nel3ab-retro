@@ -113,6 +113,11 @@ browser-sound:
 browser-rates:
     cd spikes/m3-browser-drive && node rates.mjs http://localhost:8100/
 
+# Does the lip-sync box move the picture when it is clicked, rather than twenty
+# seconds later? Needs the worker RUNNING.
+browser-lipsync:
+    cd spikes/m3-browser-drive && node lipsync.mjs http://localhost:8100/
+
 # Does one press answer exactly one question of the pad lesson? Needs the worker
 # RUNNING. Feeds a synthetic pad frame by frame, because what this gets wrong is
 # a SEQUENCE — a press that also answers the question after it.

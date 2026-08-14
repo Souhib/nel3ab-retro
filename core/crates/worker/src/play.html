@@ -34,8 +34,9 @@
     </p>
     <p class="note">
       <label><input id="deviceRate" type="checkbox" /> laisser la carte son choisir sa fréquence</label>
-      — souvent quelques millisecondes de moins, mais chaque morceau est alors
-      rééchantillonné à part : si tu entends un grésillement, décoche
+      — sans effet si elle tourne déjà à 48 kHz, ce que la ligne « son » indique.
+      Sinon ça retire un étage de rééchantillonnage et en met un par morceau : si
+      tu entends un grésillement, décoche
     </p>
     <p><button id="learn" type="button">configurer la manette</button>
       <button id="skip" type="button" hidden>passer ce bouton</button></p>
@@ -937,12 +938,16 @@
   });
 
   lipsyncBox.addEventListener("change", () => {
-    if (!lipsyncBox.checked) {
-      lipsync = 0;
-      return;
-    }
-    const gap = fastestSoundLag() === null ? 0 : soundGap();
-    lipsync = Math.max(0, gap);
+    const before = lipsync;
+    lipsync =
+      lipsyncBox.checked && fastestSoundLag() !== null ? Math.max(0, soundGap()) : 0;
+    // Applied AT ONCE, not steered into place. The steering moves five
+    // milliseconds per two seconds, which is right for following a network and
+    // wrong for answering a click: fifty milliseconds of alignment took twenty
+    // seconds to arrive, so the person who asked for it saw nothing happen and
+    // concluded the box did nothing. A single jump of the picture is what was
+    // asked for.
+    if (offset !== null) offset += lipsync - before;
   });
 
   /// How far the sound is behind the picture, in milliseconds: its longer path,

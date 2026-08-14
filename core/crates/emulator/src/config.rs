@@ -29,6 +29,46 @@ pub const PIPES_DIR: &str = "Pipes";
 /// Name of the config directory inside the Dolphin user folder.
 pub const CONFIG_DIR: &str = "Config";
 
+/// The named pipe Dolphin's sound output is written to.
+///
+/// It sits in the user directory because that is what the container mounts, and
+/// because `HOME` inside the container IS the user directory — which is what
+/// makes the ALSA configuration below reachable without touching the image.
+pub const AUDIO_PIPE: &str = "audio.fifo";
+
+/// `.asoundrc`, which turns "the default sound device" into "a pipe we read".
+///
+/// There is no sound card in the container and no sound server either, so the
+/// usual backends have nothing to open. ALSA's `file` plugin writes the samples
+/// straight through to a path, which is all we need.
+///
+/// The `null` slave provides no clock. Nothing paces this stream but the reader:
+/// when the pipe is full Dolphin's audio thread blocks, exactly as it would on a
+/// sound card whose buffer is full. So the reader must consume 48000 frames a
+/// second and no faster — measured on the first attempt at 45 TIMES real time,
+/// which is what an unpaced ALSA device does when the mixer keeps padding.
+#[must_use]
+pub fn asoundrc(pipe: &std::path::Path) -> String {
+    format!(
+        "pcm.!default {{\n    \
+         type file\n    \
+         slave.pcm \"null\"\n    \
+         file \"{}\"\n    \
+         format raw\n\
+         }}\n",
+        pipe.display()
+    )
+}
+
+/// What the sound is, once it leaves Dolphin: signed 16-bit, little endian,
+/// two channels, 48 kHz. Read out of the header ALSA itself writes when asked
+/// for a WAV rather than assumed.
+pub const AUDIO_RATE: u32 = 48_000;
+/// Channels in the stream Dolphin writes.
+pub const AUDIO_CHANNELS: u32 = 2;
+/// Bytes per sample frame: two channels of `i16`.
+pub const AUDIO_FRAME_BYTES: usize = 4;
+
 /// `SIDEVICE_GC_CONTROLLER` in Dolphin's `SIDevices` enum.
 ///
 /// The enum is positional and unnamed in the ini, so the number IS the
@@ -38,12 +78,16 @@ const SIDEVICE_GC_CONTROLLER: u8 = 6;
 /// `SIDEVICE_NONE` — an empty controller port.
 const SIDEVICE_NONE: u8 = 0;
 
-/// Dolphin's null audio backend.
+/// The backend Dolphin plays through.
 ///
-/// A server has no sound card and nobody is listening; letting Dolphin pick its
-/// default would have it open ALSA or cubeb, fail, and retry on a box where
-/// that is pure noise.
-const NULL_AUDIO_BACKEND: &str = "No Audio Output";
+/// ALSA, on a machine with no sound card, because [`asoundrc`] has already
+/// redefined what "the default device" means: a pipe. There is no sound server
+/// in the container and none is wanted — the file plugin writes the samples and
+/// the worker reads them.
+///
+/// It used to be "No Audio Output", when nobody was listening. Nobody was
+/// listening because there was nothing to listen to.
+const AUDIO_BACKEND: &str = "ALSA";
 
 /// The FIFO file name for a player, e.g. `p1`.
 ///
@@ -157,7 +201,7 @@ pub fn dolphin_ini(slots: SlotSet) -> String {
 
     let _ = writeln!(w);
     let _ = writeln!(w, "[DSP]");
-    let _ = writeln!(w, "Backend = {NULL_AUDIO_BACKEND}");
+    let _ = writeln!(w, "Backend = {AUDIO_BACKEND}");
 
     let _ = writeln!(w);
     let _ = writeln!(w, "[Analytics]");
@@ -286,12 +330,33 @@ Options/Always Connected = True
     fn the_headless_hazards_are_all_disabled() {
         let ini = dolphin_ini(SlotSet::ALL);
         for key in [
-            "Backend = No Audio Output",
             "Enabled = False",
             "PermissionAsked = True",
             "ConfirmStop = False",
         ] {
             assert!(ini.contains(key), "missing {key} in:\n{ini}");
         }
+    }
+
+    /// Sound is played through ALSA on a machine that has no sound card, and
+    /// that is safe for exactly one reason: the configuration beside it has
+    /// already redefined the default device as a pipe. The two belong together,
+    /// so they are asserted together — asking for ALSA without the redirection
+    /// is a headless Dolphin hunting for hardware that is not there.
+    #[test]
+    fn the_sound_goes_to_a_pipe_rather_than_a_sound_card() {
+        let ini = dolphin_ini(SlotSet::ALL);
+        assert!(ini.contains("Backend = ALSA"), "not ALSA in:\n{ini}");
+
+        let rc = asoundrc(std::path::Path::new("/somewhere/audio.fifo"));
+        assert!(
+            rc.contains("pcm.!default"),
+            "the default device is untouched"
+        );
+        assert!(rc.contains("type file"), "not the file plugin");
+        assert!(
+            rc.contains("/somewhere/audio.fifo"),
+            "the pipe is not named in:\n{rc}"
+        );
     }
 }

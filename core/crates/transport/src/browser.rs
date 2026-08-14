@@ -154,6 +154,10 @@ pub struct Packet<'a> {
 /// A running server: one page, one video channel, one input channel.
 #[derive(Debug)]
 pub struct BrowserServer {
+    /// One queue per listener, the sound's answer to `viewers`. Separate lists
+    /// because the two streams are independent: a page may watch without
+    /// hearing, and losing one must not disturb the other.
+    listeners: Viewers,
     /// One queue per connected viewer.
     ///
     /// This was a single queue behind a mutex, served by one thread — one
@@ -221,6 +225,7 @@ impl BrowserServer {
             .map_err(|source| TransportError::Accept { source })?;
 
         let viewers: Viewers = Arc::new(Mutex::new(Vec::new()));
+        let listeners: Viewers = Arc::new(Mutex::new(Vec::new()));
         let incoming: Pads = Arc::new(Mutex::new([None; PORTS]));
         let received = Arc::new(std::sync::atomic::AtomicU64::new(0));
         let arrived = Arc::new(Condvar::new());
@@ -237,6 +242,7 @@ impl BrowserServer {
                 let inputs = Arc::clone(&incoming);
                 let received = Arc::clone(&received);
                 let viewers = Arc::clone(&viewers);
+                let listeners = Arc::clone(&listeners);
                 let arrived = Arc::clone(&arrived);
                 let seats = Arc::clone(&seats);
                 move || {
@@ -245,6 +251,7 @@ impl BrowserServer {
                         page,
                         &Shared {
                             viewers,
+                            listeners,
                             inputs,
                             arrived,
                             received,
@@ -261,6 +268,7 @@ impl BrowserServer {
         tracing::info!(%bound, "browser server listening");
         Ok(Self {
             viewers,
+            listeners,
             arrived,
             incoming,
             received,
@@ -324,6 +332,37 @@ impl BrowserServer {
             }
             // Its thread has gone. Forgetting it here is what keeps the list
             // from growing across a session's reconnections.
+            Err(TrySendError::Disconnected(_)) => false,
+        });
+        delivered
+    }
+
+    /// Offers one chunk of sound to everybody listening.
+    ///
+    /// Framed like a picture, the capture instant then the payload, so the page
+    /// reads both streams the same way. Sound is dropped rather than queued for
+    /// the same reason a picture is: a listener that has fallen behind wants the
+    /// present, not a recording of the past.
+    #[must_use]
+    pub fn send_sound(&self, captured_micros: u64, pcm: &[u8]) -> bool {
+        let Ok(mut listeners) = self.listeners.lock() else {
+            return false;
+        };
+        if listeners.is_empty() {
+            return false;
+        }
+        let mut message = Vec::with_capacity(8 + pcm.len());
+        message.extend_from_slice(&captured_micros.to_le_bytes());
+        message.extend_from_slice(pcm);
+        let message = Framed::from(message);
+
+        let mut delivered = false;
+        listeners.retain(|listener| match listener.try_send(message.clone()) {
+            Ok(()) => {
+                delivered = true;
+                true
+            }
+            Err(TrySendError::Full(_)) => true,
             Err(TrySendError::Disconnected(_)) => false,
         });
         delivered
@@ -415,6 +454,7 @@ impl BrowserServer {
 /// What the connection threads share with the server.
 struct Shared {
     viewers: Viewers,
+    listeners: Viewers,
     inputs: Pads,
     arrived: Arc<Condvar>,
     received: Arc<std::sync::atomic::AtomicU64>,
@@ -436,6 +476,12 @@ fn accept_loop(listener: &TcpListener, page: &'static str, shared: &Shared) {
                 let wants_key = Arc::clone(&shared.wants_key);
                 sockets.push(std::thread::spawn(move || {
                     video_thread(stream, &viewers, &joined, &wants_key);
+                }));
+            }
+            Some(Route::Sound) => {
+                let listeners = Arc::clone(&shared.listeners);
+                sockets.push(std::thread::spawn(move || {
+                    sound_thread(stream, &listeners);
                 }));
             }
             Some(Route::Input { insist }) => {
@@ -460,6 +506,7 @@ fn accept_loop(listener: &TcpListener, page: &'static str, shared: &Shared) {
 /// What a connection turned out to be.
 enum Route {
     Video,
+    Sound,
     Input { insist: bool },
     Page,
 }
@@ -483,6 +530,9 @@ fn classify(stream: &TcpStream) -> Option<Route> {
     }
     if text.starts_with("get /video") {
         return Some(Route::Video);
+    }
+    if text.starts_with("get /sound") {
+        return Some(Route::Sound);
     }
     if text.starts_with("get /input") {
         // `/input?take=1`. A person pressing "take the controller" is the only
@@ -588,6 +638,51 @@ fn video_thread(
     // The receiver dies with this thread, so the next `send` sees the channel
     // disconnected and forgets this viewer. Nothing to unregister by hand.
     tracing::info!("the browser stopped watching");
+    let _ = socket.close(None);
+}
+
+/// Sends sound to one listener until it goes away.
+///
+/// The same shape as the picture's thread and deliberately not the same
+/// function: a listener has no key frame to ask for and no joining to announce,
+/// and threading two unused arguments through the video path would make it
+/// harder to read for nothing.
+fn sound_thread(stream: TcpStream, listeners: &Viewers) {
+    let _ = stream.set_nodelay(true);
+    let _ = stream.set_read_timeout(Some(Duration::from_millis(1)));
+    let _ = stream.set_write_timeout(Some(WRITE_TIMEOUT));
+    let Ok(mut socket) = tungstenite::accept(stream) else {
+        return;
+    };
+
+    let (sender, chunks) = sync_channel::<Framed>(OUTGOING_DEPTH);
+    match listeners.lock() {
+        Ok(mut listeners) => listeners.push(sender),
+        Err(_) => return,
+    }
+    tracing::info!("a browser is listening");
+
+    loop {
+        let outgoing = match chunks.recv_timeout(KEEP_ALIVE) {
+            Ok(chunk) => chunk,
+            Err(RecvTimeoutError::Timeout) => Framed::new(),
+            Err(RecvTimeoutError::Disconnected) => break,
+        };
+        if socket.send(tungstenite::Message::binary(outgoing)).is_err() {
+            break;
+        }
+        match socket.read() {
+            Ok(tungstenite::Message::Close(_)) => break,
+            Ok(_) => {}
+            Err(tungstenite::Error::Io(error))
+                if matches!(
+                    error.kind(),
+                    std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut
+                ) => {}
+            Err(_) => break,
+        }
+    }
+    tracing::info!("the browser stopped listening");
     let _ = socket.close(None);
 }
 
@@ -853,6 +948,7 @@ mod tests {
             let got = match route {
                 Some(Route::Page) => "page",
                 Some(Route::Video) => "video",
+                Some(Route::Sound) => "sound",
                 Some(Route::Input { .. }) => "input",
                 None => "none",
             };
@@ -865,6 +961,7 @@ mod tests {
     fn detached(viewers: Vec<SyncSender<Framed>>) -> BrowserServer {
         BrowserServer {
             viewers: Arc::new(Mutex::new(viewers)),
+            listeners: Arc::new(Mutex::new(Vec::new())),
             arrived: Arc::new(Condvar::new()),
             incoming: Arc::new(Mutex::new([None; PORTS])),
             received: Arc::new(std::sync::atomic::AtomicU64::new(0)),

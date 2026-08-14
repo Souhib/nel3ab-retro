@@ -23,6 +23,11 @@
     <p id="seat" class="note">en attente d'une manette…</p>
     <p><button id="claim" type="button" hidden>prendre la manette</button></p>
     <p id="pad" class="note"></p>
+    <p>
+      <button id="sound" type="button">activer le son</button>
+      <input id="volume" type="range" min="0" max="100" value="70" />
+      <span id="soundState" class="note"></span>
+    </p>
     <p><button id="learn" type="button">configurer la manette</button>
       <button id="skip" type="button" hidden>passer ce bouton</button></p>
     <p id="lesson" class="note"></p>
@@ -46,6 +51,9 @@
   const seat = document.getElementById("seat");
   const claimButton = document.getElementById("claim");
   const padLine = document.getElementById("pad");
+  const soundButton = document.getElementById("sound");
+  const volumeSlider = document.getElementById("volume");
+  const soundState = document.getElementById("soundState");
   const learnButton = document.getElementById("learn");
   const skipButton = document.getElementById("skip");
   const lessonLine = document.getElementById("lesson");
@@ -732,6 +740,115 @@
   }
   const hasIdr = (bytes) => findNal(bytes, 5) !== null;
 
+  // ── sound ───────────────────────────────────────────────────────────────
+  //
+  // Raw PCM, signed 16-bit, 48 kHz, two channels: what Dolphin hands ALSA and
+  // what an AudioContext takes without a decoder in between. It costs 1.5 Mbit/s
+  // against sixteen for the picture, which is worth revisiting the day somebody
+  // plays over a thin link, and is not worth a codec today.
+  //
+  // Chunks are SCHEDULED rather than pushed: each one is played at a time this
+  // page picks, one chunk after the last, so the sound has a cadence of its own
+  // instead of following the jitter of its arrival. The same reasoning as the
+  // picture's schedule, with a cheaper clock — the audio hardware's.
+  const SOUND_RATE = 48000;
+  const SOUND_CHANNELS = 2;
+  /// How far ahead of the hardware clock a chunk is scheduled. Two chunks: the
+  /// smallest number that survives a late arrival without a gap.
+  const SOUND_LEAD = 0.04;
+  /// Past this the schedule has drifted so far behind that catching up chunk by
+  /// chunk would take longer than starting again.
+  const SOUND_RESYNC = 0.25;
+
+  let audio = null;
+  let gain = null;
+  let sound = null;
+  let playAt = 0;
+  let soundChunks = 0;
+  let soundGaps = 0;
+  let volume = Number(localStorage.getItem("nel3ab.volume") ?? 70);
+
+  function describeSound() {
+    if (audio === null) {
+      soundState.textContent = "coupé";
+      return;
+    }
+    soundState.textContent =
+      audio.state === "running"
+        ? `${Math.round(volume)} %${soundGaps > 0 ? ` · ${soundGaps} coupures` : ""}`
+        : "en attente d'un clic";
+  }
+
+  function startSound() {
+    if (audio === null) {
+      audio = new AudioContext({ sampleRate: SOUND_RATE, latencyHint: "interactive" });
+      gain = audio.createGain();
+      gain.gain.value = volume / 100;
+      gain.connect(audio.destination);
+      connectSound();
+    }
+    // A browser will not play anything until a person has asked for it, and the
+    // context starts suspended when it was created without a gesture.
+    audio.resume().then(describeSound, describeSound);
+    soundButton.textContent = "son activé";
+    describeSound();
+  }
+
+  function connectSound() {
+    sound = new WebSocket(socketUrl("/sound"));
+    sound.binaryType = "arraybuffer";
+    sound.onmessage = onSoundMessage;
+    sound.onclose = () => setTimeout(connectSound, 500);
+    sound.onerror = () => sound?.close();
+  }
+
+  function onSoundMessage(event) {
+    if (audio === null || audio.state !== "running") return;
+    const message = new Uint8Array(event.data);
+    if (message.length <= 8) return; // a keep-alive, carrying no sound
+    const pcm = new Int16Array(event.data, 8);
+    const frames = pcm.length / SOUND_CHANNELS;
+    const buffer = audio.createBuffer(SOUND_CHANNELS, frames, SOUND_RATE);
+    for (let channel = 0; channel < SOUND_CHANNELS; channel++) {
+      const target = buffer.getChannelData(channel);
+      for (let frame = 0; frame < frames; frame++) {
+        target[frame] = pcm[frame * SOUND_CHANNELS + channel] / 32768;
+      }
+    }
+
+    const now = audio.currentTime;
+    if (playAt < now + 0.005 || playAt > now + SOUND_RESYNC) {
+      // Either we fell behind the hardware clock or we ran so far ahead that the
+      // sound would arrive late enough to be wrong. Both are fixed the same way.
+      if (playAt !== 0) soundGaps += 1;
+      playAt = now + SOUND_LEAD;
+    }
+    const source = audio.createBufferSource();
+    source.buffer = buffer;
+    source.connect(gain);
+    source.start(playAt);
+    playAt += frames / SOUND_RATE;
+    soundChunks += 1;
+  }
+
+  soundButton.addEventListener("click", startSound);
+  volumeSlider.value = String(volume);
+  volumeSlider.addEventListener("input", () => {
+    volume = Number(volumeSlider.value);
+    localStorage.setItem("nel3ab.volume", String(volume));
+    if (gain !== null) {
+      // A ramp rather than a jump: changing a gain instantly puts a step in the
+      // waveform, which is heard as a click.
+      gain.gain.setTargetAtTime(volume / 100, audio.currentTime, 0.01);
+    }
+    describeSound();
+  });
+  // Any first gesture will do — a player who presses a key wants to play, and
+  // making them find a button first is a worse page.
+  addEventListener("keydown", startSound, { once: true });
+  addEventListener("pointerdown", startSound, { once: true });
+  describeSound();
+
   // ── input ───────────────────────────────────────────────────────────────
   //
   // Which port this browser drives is the SERVER'S to decide — it knows who else
@@ -1241,6 +1358,8 @@
       `silence recoveries   ${stalls}\n` +
         `decoder restarts     ${restarts}\n` +
         `key frames asked     ${keyFramesAsked}\n` +
+        `son                  ${audio === null ? "coupé" : audio.state}, ` +
+        `${soundChunks} morceaux, ${soundGaps} coupures\n` +
         `not decoded          ${undecoded} (nobody painting, or behind)\n` +
         `latence ajoutée      ${slackMs.toFixed(0)} ms (marge), ` +
         `${starved} starves, ${skipped} skipped\n` +

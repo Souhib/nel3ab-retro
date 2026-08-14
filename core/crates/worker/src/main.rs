@@ -23,7 +23,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use anyhow::{Context as _, Result, bail};
-use nel3ab_emulator::{DolphinConfig, Session, SlotSet, VideoBackend};
+use nel3ab_emulator::{CHUNK_BYTES, DolphinConfig, Session, SlotSet, SoundTap, VideoBackend};
 use nel3ab_encoder::av::Encoder;
 use nel3ab_encoder::frame_source::FrameListener;
 use nel3ab_encoder::va::DEFAULT_RENDER_NODE;
@@ -257,6 +257,12 @@ fn run(settings: &Settings) -> Result<()> {
     config.frame_socket = Some(socket);
     config.startup_timeout = Duration::from_mins(2);
 
+    // The pipe has to exist, and be open for reading, before Dolphin looks for
+    // it: ALSA's file plugin would otherwise create a plain file and the sound
+    // would go quietly to disk.
+    let sound = SoundTap::open(&settings.session_dir)?;
+    tracing::info!(pipe = %sound.path().display(), "sound will come out here");
+
     let session = Session::start(&config)?;
     let mut frames = listener.accept(Duration::from_mins(2))?;
     let descriptor = *frames.descriptor();
@@ -336,7 +342,36 @@ fn run(settings: &Settings) -> Result<()> {
             .context("starting the pad thread")?
     };
 
+    // One clock for both streams, so a chunk of sound and a picture taken at the
+    // same moment carry the same number.
     let started = Instant::now();
+
+    // Sound rides its own thread because it has its own pace: the tap takes
+    // 48000 frames a second, and a picture that takes 20 ms to encode must not
+    // hold a chunk of sound back by 20 ms.
+    let sound_thread = {
+        let server = Arc::clone(&server);
+        std::thread::Builder::new()
+            .name("sound".to_owned())
+            .spawn(move || {
+                let mut sound = sound;
+                let mut chunk = [0_u8; CHUNK_BYTES];
+                loop {
+                    sound.next_chunk(&mut chunk);
+                    if Arc::strong_count(&server) == 1 {
+                        break;
+                    }
+                    let captured = started.elapsed();
+                    let _delivered = server.send_sound(
+                        u64::try_from(captured.as_micros()).unwrap_or(u64::MAX),
+                        &chunk,
+                    );
+                }
+                tracing::info!(starved = sound.starved(), "the sound thread stood down");
+            })
+            .context("starting the sound thread")?
+    };
+
     let mut produced = 0_u64;
     let mut coded_bytes = 0_u64;
     let mut reported_bytes = 0_u64;
@@ -505,9 +540,10 @@ fn run(settings: &Settings) -> Result<()> {
         }
     }
 
-    // Dropping our handle lets the pad thread see it is alone and stand down.
+    // Dropping our handle lets the pad and sound threads see they are alone.
     drop(server);
     let _ = input_thread.join();
+    let _ = sound_thread.join();
     session.shutdown()?;
     Ok(())
 }

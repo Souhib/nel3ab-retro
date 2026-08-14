@@ -60,10 +60,12 @@ pub mod error;
 pub mod pipe;
 pub mod process;
 pub mod slots;
+mod sound;
 pub mod wire;
 
 pub use error::EmulatorError;
 pub use pipe::{Delivery, PendingPipes, Pipes};
 pub use process::{ConfigOverride, DolphinConfig, Session, VideoBackend};
 pub use slots::SlotSet;
+pub use sound::{CHUNK, CHUNK_BYTES, CHUNK_FRAMES, SoundTap};
 pub use wire::PadState;

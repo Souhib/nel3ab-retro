@@ -1956,6 +1956,54 @@ secondes ». Et la reprise est devenue plus rapide, pas plus lente : une page qu
 demande obtient son image dans la trame suivante, là où elle attendait jusqu'à
 une seconde.
 
+### Le son, par un tuyau
+
+Il n'y avait pas de son du tout : la configuration disait « aucune sortie audio »,
+parce qu'il n'y a ni carte son ni serveur de son dans le conteneur.
+
+Le détour évident serait d'ajouter un serveur de son, ou de patcher Dolphin comme
+on l'a fait pour l'image. Ni l'un ni l'autre : **ALSA sait écrire dans un
+fichier**. Son greffon `file` prend les échantillons et les pose où on lui dit, et
+`HOME` dans le conteneur est déjà le dossier monté — donc un `.asoundrc` posé là
+est lu sans toucher à l'image ni au script de lancement.
+
+**Le lecteur est l'horloge, et c'est le point qui compte.** L'esclave `null` ne
+cadence rien : le fil audio de Dolphin tire du mixeur aussi vite que le
+périphérique accepte, et un périphérique sans horloge accepte tout. Première
+mesure : **8,7 Mo/s, quarante-cinq fois le temps réel**, en grande partie du
+remplissage que le mixeur invente pour ses propres trous. Ce qui rend le flux
+temps réel, c'est notre lecteur qui prend 48 000 trames par seconde et pas une de
+plus. Le tuyau se remplit, le fil audio de Dolphin attend, exactement comme
+devant une carte son.
+
+Et j'ai perdu une demi-heure sur un débit annoncé au double, en accusant ALSA :
+je lisais 1920 trames toutes les 20 ms, or 1920 trames à 48 kHz font **40 ms**.
+Mon lecteur allait deux fois trop vite. Le test qui fige cette arithmétique est
+le premier du module.
+
+> Quand la mesure et la théorie divergent d'un facteur exactement rond, le
+> suspect numéro un est l'instrument.
+
+Le reste suit l'image : une route `/sound`, une liste d'auditeurs distincte de
+celle des spectateurs, la même mise en trame — l'instant de capture, puis les
+octets — et le même rejet plutôt que file d'attente pour qui prend du retard.
+
+Le son voyage en **PCM brut**, 48 kHz, deux canaux, 16 bits : 1,5 Mbit/s contre
+seize pour l'image. Un codec ferait mieux, et ce serait la première chose à
+mesurer le jour où quelqu'un joue sur un lien mince. Ça n'en vaut pas la peine
+aujourd'hui, et un décodeur de plus dans la page est un décodeur de plus qui peut
+mourir.
+
+La page **programme** les morceaux au lieu de les jouer à l'arrivée : chacun est
+placé à la suite du précédent sur l'horloge du matériel audio. Même raisonnement
+que pour l'image, avec une horloge moins chère. Un réglage de volume, retenu
+d'une visite à l'autre, applique sa pente en dix millisecondes — un changement de
+gain instantané s'entend comme un clic.
+
+Vérifié : 998 morceaux en 20 s, **188 Kio/s pour 187,5 attendus**, amplitude
+jusqu'à 19 766 sur 32 767, et la page joue 600 morceaux en douze secondes sans
+une coupure. `just browser-sound`.
+
 ### Deux erreurs de raisonnement à garder
 
 **Deux correctifs écrits, deux échecs, gardés écrits.** J'ai d'abord trouvé un

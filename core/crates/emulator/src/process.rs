@@ -491,6 +491,17 @@ fn write_config_files(config: &DolphinConfig) -> Result<(), EmulatorError> {
         source,
     })?;
 
+    // `.asoundrc` goes at the top of the user directory, not in `Config`:
+    // that directory IS `HOME` inside the container, and ALSA reads its
+    // configuration from `$HOME/.asoundrc` with no help from anybody.
+    let pipe = config.user_dir.join(config::AUDIO_PIPE);
+    std::fs::write(config.user_dir.join(".asoundrc"), config::asoundrc(&pipe)).map_err(
+        |source| EmulatorError::WriteConfig {
+            path: config.user_dir.join(".asoundrc"),
+            source,
+        },
+    )?;
+
     for (name, contents) in [
         ("GCPadNew.ini", config::gcpad_ini(config.slots)),
         ("Dolphin.ini", config::dolphin_ini(config.slots)),

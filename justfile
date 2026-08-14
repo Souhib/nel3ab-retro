@@ -100,6 +100,14 @@ browser-claim:
 browser-pad:
     cd spikes/m3-browser-drive && node padmap.mjs http://localhost:8100/
 
+# Does sound come out, at the rate it was recorded at, and does the page play it?
+# Needs the worker RUNNING. The first check reads the stream the way the page
+# does and looks at the samples; the second drives the page's own playback with
+# autoplay forced on, which is the only thing it fakes.
+browser-sound:
+    cd spikes/m3-browser-drive && node sound.mjs http://localhost:8100/ 20
+    cd spikes/m3-browser-drive && node playback.mjs http://localhost:8100/ 12
+
 # Does one press answer exactly one question of the pad lesson? Needs the worker
 # RUNNING. Feeds a synthetic pad frame by frame, because what this gets wrong is
 # a SEQUENCE — a press that also answers the question after it.

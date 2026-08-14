@@ -275,6 +275,59 @@
   // Two seconds is 120 frames: far beyond any hiccup, far below patience.
   const SILENCE_LIMIT = 2000;
 
+  /// How long a socket has to finish closing before the page stops waiting for
+  /// it.
+  ///
+  /// `close()` starts a handshake: the browser sends a Close frame and waits for
+  /// the other end to answer before `onclose` fires. If nobody answers, a server
+  /// that never reads or a proxy that swallows it, the page waits for ever and
+  /// every recovery that ends in "close and reconnect" is dead. Measured exactly
+  /// that: the escalation fired, the socket never closed, and the page sat with a
+  /// live connection and no pictures.
+  const CLOSING_LIMIT = 1000;
+
+  const say = (message) => console.warn(`[nel3ab] ${message}`);
+
+  /// Asks the server for a key frame.
+  ///
+  /// Every gap the page puts in what it feeds its decoder has to end at a key
+  /// frame, and the alternative to asking is waiting for the next scheduled one.
+  /// That is why the stream used to carry one every second whether anybody
+  /// needed it or not: one picture six times the size of its neighbours, sixty
+  /// times a minute, for nobody. Asking costs one byte.
+  const KEY_FRAME_PLEASE = 1;
+  let keyFramesAsked = 0;
+  let lastAsk = 0;
+  function askForKeyFrame() {
+    if (video === null || video.readyState !== WebSocket.OPEN) return;
+    // Once every half second at most. A key frame takes one frame to arrive and
+    // asking again in the meantime just costs bytes.
+    if (performance.now() - lastAsk < 500) return;
+    lastAsk = performance.now();
+    try {
+      video.send(new Uint8Array([KEY_FRAME_PLEASE]));
+      keyFramesAsked += 1;
+    } catch {
+      // The socket died between the check and the send; the reconnection will
+      // ask again on its own.
+    }
+  }
+
+  /// Closes a socket, and does not trust it to close.
+  function giveUp(socket, why) {
+    if (socket === null || socket === undefined) return;
+    socket.close();
+    setTimeout(() => {
+      if (video !== socket) return; // it closed and was replaced, as it should
+      say(`${why}: the socket would not close, abandoning it`);
+      socket.onclose = null;
+      socket.onmessage = null;
+      socket.onerror = null;
+      connected = false;
+      connectVideo();
+    }, CLOSING_LIMIT);
+  }
+
   // How long a rebuilt decoder waits for a key frame before we stop believing
   // the stream will bring one. The server's GOP is one second, so three is
   // already generous; this only fires if the stream is not what we think.
@@ -325,6 +378,7 @@
     // past. Keeping it would paint a second of stale game over the recovery.
     while (queue.length) queue.shift().frame.close();
     offset = null;
+    askForKeyFrame();
     submitted.clear();
     priming = true;
   }
@@ -399,6 +453,12 @@
     const isKey = hasIdr(unit);
     if (awaitingKey) {
       if (!isKey) {
+        // Asked HERE, not when the gap opened. A key frame requested at the
+        // start of a hidden minute arrives while the page is still throwing
+        // everything away, and the page then waits for the next scheduled one —
+        // which is the whole problem, since there may not be one for ten
+        // seconds. This line runs only once painting has resumed.
+        askForKeyFrame();
         undecoded += 1;
         return;
       }
@@ -637,6 +697,18 @@
     beginLesson: startLesson,
     feedPad: learnFrom,
     lessonAt: () => (lesson === null ? null : { step: lesson.step, waiting: lesson.waiting }),
+    // What the decoder watchdog sees. Reading these is how the escalation was
+    // found not to fire: every branch of it looked right.
+    watchdog: () => ({
+      connected,
+      decoder: decoder === null ? null : decoder.state,
+      awaitingKey,
+      sinceHeard: lastHeard === null ? null : performance.now() - lastHeard,
+      sincePaint: lastPaintTick === null ? null : performance.now() - lastPaintTick,
+      sinceGone: decoderGoneSince === null ? null : performance.now() - decoderGoneSince,
+      lastOutput,
+      lastFed,
+    }),
     learnedProfile: () => padProfile,
     pacing: () => ({
       offset, queue: queue.length, slackMs, priming, fastest: fastestLag(),
@@ -1111,7 +1183,7 @@
     lastHeard = null;
     // Closing is what starts the reconnection: the same path a clean close
     // takes, so there is only one way back rather than two.
-    video?.close();
+    giveUp(video, "silence");
   }, 500);
 
   // The second watchdog, for the other half of the failure. The first one asks
@@ -1148,7 +1220,7 @@
       now - decoderGoneSince > KEY_FRAME_PATIENCE
     ) {
       decoderGoneSince = null;
-      video?.close();
+      giveUp(video, "no key frame");
     }
   }, 500);
 
@@ -1168,6 +1240,7 @@
     show(
       `silence recoveries   ${stalls}\n` +
         `decoder restarts     ${restarts}\n` +
+        `key frames asked     ${keyFramesAsked}\n` +
         `not decoded          ${undecoded} (nobody painting, or behind)\n` +
         `latence ajoutée      ${slackMs.toFixed(0)} ms (marge), ` +
         `${starved} starves, ${skipped} skipped\n` +

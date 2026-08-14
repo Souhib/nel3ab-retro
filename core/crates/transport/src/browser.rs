@@ -85,6 +85,14 @@ const KEEP_ALIVE: Duration = Duration::from_millis(500);
 /// player who presses nothing is not a player who has left.
 const CLASSIFY_TIMEOUT: Duration = Duration::from_secs(5);
 
+/// The one byte a viewer may send on its video socket: "I need a key frame".
+///
+/// A page needs one whenever it has a gap in what it fed its decoder — it was
+/// switched away from, its decoder died, it just arrived. Without a way to ask,
+/// the only answer is to wait for the next scheduled one, which is why the
+/// stream used to carry a key frame every single second for nobody.
+pub const KEY_FRAME_PLEASE: u8 = 1;
+
 /// How often a silent controller is asked whether it is still there, and how
 /// long it may fail to answer before its port goes back to the room.
 ///
@@ -183,6 +191,7 @@ pub struct BrowserServer {
     address: SocketAddr,
     dropped: Arc<std::sync::atomic::AtomicU64>,
     joined: Arc<std::sync::atomic::AtomicBool>,
+    wants_key: Arc<std::sync::atomic::AtomicBool>,
     _accept: JoinHandle<()>,
 }
 
@@ -217,12 +226,14 @@ impl BrowserServer {
         let arrived = Arc::new(Condvar::new());
         let dropped = Arc::new(std::sync::atomic::AtomicU64::new(0));
         let joined = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let wants_key = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let seats: Seats = Arc::new(Mutex::new([None; PORTS]));
 
         let accept = std::thread::Builder::new()
             .name("browser-accept".to_owned())
             .spawn({
                 let joined = Arc::clone(&joined);
+                let wants_key = Arc::clone(&wants_key);
                 let inputs = Arc::clone(&incoming);
                 let received = Arc::clone(&received);
                 let viewers = Arc::clone(&viewers);
@@ -238,6 +249,7 @@ impl BrowserServer {
                             arrived,
                             received,
                             joined,
+                            wants_key,
                             seats,
                             players,
                         },
@@ -255,6 +267,7 @@ impl BrowserServer {
             address: bound,
             dropped,
             joined,
+            wants_key,
             _accept: accept,
         })
     }
@@ -320,6 +333,16 @@ impl BrowserServer {
     #[must_use]
     pub fn watchers(&self) -> usize {
         self.viewers.lock().map_or(0, |viewers| viewers.len())
+    }
+
+    /// Whether a viewer asked for a key frame since this was last asked.
+    ///
+    /// Reading it clears it: one key frame answers everybody who asked while it
+    /// was being made.
+    #[must_use]
+    pub fn take_key_frame_request(&self) -> bool {
+        self.wants_key
+            .swap(false, std::sync::atomic::Ordering::Relaxed)
     }
 
     /// Whether somebody joined since this was last asked.
@@ -396,6 +419,7 @@ struct Shared {
     arrived: Arc<Condvar>,
     received: Arc<std::sync::atomic::AtomicU64>,
     joined: Arc<std::sync::atomic::AtomicBool>,
+    wants_key: Arc<std::sync::atomic::AtomicBool>,
     seats: Seats,
     players: PlayerSlot,
 }
@@ -409,8 +433,9 @@ fn accept_loop(listener: &TcpListener, page: &'static str, shared: &Shared) {
             Some(Route::Video) => {
                 let viewers = Arc::clone(&shared.viewers);
                 let joined = Arc::clone(&shared.joined);
+                let wants_key = Arc::clone(&shared.wants_key);
                 sockets.push(std::thread::spawn(move || {
-                    video_thread(stream, &viewers, &joined);
+                    video_thread(stream, &viewers, &joined, &wants_key);
                 }));
             }
             Some(Route::Input { insist }) => {
@@ -494,12 +519,25 @@ fn serve_page(mut stream: TcpStream, page: &'static str) {
 /// Blocking writes on a blocking socket, with a deadline. The queue in front of
 /// this thread is what absorbs a slow client, and it absorbs it by dropping —
 /// this viewer's frames only.
-fn video_thread(stream: TcpStream, viewers: &Viewers, joined: &Arc<std::sync::atomic::AtomicBool>) {
+fn video_thread(
+    stream: TcpStream,
+    viewers: &Viewers,
+    joined: &Arc<std::sync::atomic::AtomicBool>,
+    wants_key: &Arc<std::sync::atomic::AtomicBool>,
+) {
     // Nagle would hold a small frame back waiting for company. Every frame here
     // is latency-critical and self-contained, so there is nothing to gain by
     // waiting and 40 ms to lose.
     let _ = stream.set_nodelay(true);
-    let _ = stream.set_read_timeout(None);
+    // Short, because this thread READS as well as writes, and it must not block
+    // to do it. A viewer's only message is its goodbye: a page that closes its
+    // socket sends a Close frame and waits for the reply, and tungstenite only
+    // replies to what we read. This thread read nothing at all, so a page that
+    // closed politely waited for a handshake that would never finish — its
+    // `onclose` never fired, its reconnection never started, and it sat there
+    // for good. Invisible for months because nothing depended on it: the page
+    // always got a new key frame within a second and never had to reconnect.
+    let _ = stream.set_read_timeout(Some(Duration::from_millis(1)));
     // A write that can block forever is how a stalled client wedges a thread.
     // Two seconds is far longer than any healthy write and far shorter than a
     // session; what matters is that it is finite.
@@ -528,6 +566,23 @@ fn video_thread(stream: TcpStream, viewers: &Viewers, joined: &Arc<std::sync::at
             // dropped than carried, and the page reconnects.
             tracing::info!(%error, "the viewer's connection gave up");
             break;
+        }
+
+        // Then listen, briefly. Anything a viewer sends is either a goodbye or a
+        // control frame tungstenite answers on our behalf; either way it has to
+        // be read for the socket to behave like a socket.
+        match socket.read() {
+            Ok(tungstenite::Message::Close(_)) => break,
+            Ok(tungstenite::Message::Binary(bytes)) if bytes.as_ref() == [KEY_FRAME_PLEASE] => {
+                wants_key.store(true, std::sync::atomic::Ordering::Relaxed);
+            }
+            Ok(_) => {}
+            Err(tungstenite::Error::Io(error))
+                if matches!(
+                    error.kind(),
+                    std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut
+                ) => {}
+            Err(_) => break,
         }
     }
     // The receiver dies with this thread, so the next `send` sees the channel
@@ -816,6 +871,7 @@ mod tests {
             address: "127.0.0.1:0".parse().unwrap(),
             dropped: Arc::new(std::sync::atomic::AtomicU64::new(0)),
             joined: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            wants_key: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             _accept: std::thread::spawn(|| {}),
         }
     }

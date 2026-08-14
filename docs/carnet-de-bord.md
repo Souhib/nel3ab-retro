@@ -1350,10 +1350,11 @@ défaut.
 
 Deux choses honnêtes à côté de ces chiffres :
 
-- **La conversion ne bouge pas** (0,22 ms à toutes les résolutions). Ça paraît
-  trop beau, et il faut le dire : ce que la mesure englobe, c'est l'envoi du
-  travail au GPU, pas forcément sa fin. Le chiffre à croire est celui de
-  l'encodage, qui lui attend le résultat.
+- **La conversion ne bouge pas** (0,22 ms à toutes les résolutions). J'avais
+  écrit ici que la mesure n'englobait peut-être que l'envoi du travail au GPU et
+  pas sa fin. **C'était faux**, et il a suffi de relire `convert` pour le voir :
+  elle appelle `wait_for_fences` juste après la soumission. Le chiffre attend
+  bien le GPU. Une réserve inventée coûte autant qu'un chiffre inventé.
 - **×3 tient côté serveur** — 7 ms sur un budget de 16,7 ms, rien de jeté — et
   **n'a pas tenu côté navigateur** sur cette machine : la latence de bout en bout
   p95 est passée de 28 ms à **5,7 secondes**. Un client qui ne décode pas à temps
@@ -1907,6 +1908,53 @@ coût par spectateur ne dépend plus de la taille de l'image.
 Le test qui la fige compare des **pointeurs**, pas des octets : une version qui
 mettrait en trame une fois par spectateur enverrait exactement les mêmes octets
 et passerait.
+
+### Une image-clé par seconde pour personne, et deux bogues au passage
+
+Le flux portait une image-clé toutes les secondes. Mesuré : l'image médiane pèse
+8,2 Kio et la plus grosse 53,7 Kio, donc une fois par seconde une image six fois
+plus lourde que ses voisines doit passer dans la même fenêtre de 16,7 ms. Sur un
+lien à 20 Mbit/s, cette image seule prend 22 ms à transmettre.
+
+Personne n'en avait besoin. Rien ne se perd en route, le flux passe sur TCP ; un
+spectateur qui arrive en reçoit une, forcée pour lui.
+
+Le premier essai, dix secondes entre deux images-clés, a cassé deux tests. Les
+deux échecs valaient mieux que le changement.
+
+**Le fil vidéo ne lisait jamais sa socket.** Il n'écrivait. Quand une page ferme
+sa socket, elle envoie une trame de fermeture et attend la réponse ; personne ne
+lisait, donc personne ne répondait, donc `onclose` n'arrivait jamais. **Tous les
+chemins de secours qui finissent par « fermer et se reconnecter » étaient morts**,
+depuis toujours — invisible parce que rien n'en dépendait tant qu'une image-clé
+arrivait chaque seconde. Le fil lit maintenant, brièvement, entre deux envois.
+
+Et la page ne doit pas faire confiance à `close()` pour aboutir : après une
+seconde sans fermeture, elle abandonne la socket et en ouvre une autre.
+
+**Une page qui a besoin d'une image-clé doit pouvoir la demander.** Un octet sur
+la socket vidéo, que le fil lit maintenant de toute façon. Premier essai raté et
+instructif : je demandais l'image au **début** du trou, elle arrivait pendant que
+l'onglet était encore caché, et elle partait à la poubelle avec le reste. Il faut
+demander quand la peinture **reprend**.
+
+Résultat, quatre passages alternés :
+
+| | référence (1 s) | candidat (10 s) |
+|---|---|---|
+| image p99 | 77,8 et 78,0 Kio | **61,4 et 57,5** |
+| image max | 114,4 et 107,9 | **101,4 et 90,6** |
+| débit médian | 16,84 et 16,40 Mbit/s | 17,40 et 16,50 |
+| images/s | 59,93 et 59,92 | 59,93 et 59,93 |
+
+La queue baisse de 24 % et les deux bras ne se recouvrent pas. **Le débit moyen,
+lui, ne bouge pas de façon mesurable** : la scène varie plus entre deux passages
+que l'effet cherché. Inconclusif, et dit comme tel.
+
+Le gain n'est donc pas « moins de données » mais « plus de bosse toutes les
+secondes ». Et la reprise est devenue plus rapide, pas plus lente : une page qui
+demande obtient son image dans la trame suivante, là où elle attendait jusqu'à
+une seconde.
 
 ### Deux erreurs de raisonnement à garder
 

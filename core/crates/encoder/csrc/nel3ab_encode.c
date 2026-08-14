@@ -109,7 +109,18 @@ n3_encoder *n3_encoder_open(const char *render_node, uint32_t width, uint32_t he
      fair. No B-frames means no reordering, so a frame never waits for a later
      one, and async_depth 1 means the encoder holds none back. */
   encoder->codec->max_b_frames = 0;
-  encoder->codec->gop_size = (int)fps;
+  /* Ten seconds between key frames, not one.
+     MEASURED at a one-second GOP: the median access unit is 8.2 KiB and the
+     largest is 53.7 KiB, so once a second one picture is six times the size of
+     its neighbours and still has to cross the network inside the same 16.7 ms.
+     On a 20 Mbit/s link that single frame takes 22 ms to transmit, which is a
+     hiccup the viewer has to absorb every second, and 6 % of the bitrate.
+     Nothing needs those key frames. Nothing is lost on the way — the stream
+     rides a WebSocket over TCP — and a viewer who joins gets one forced for it.
+     A page whose decoder dies asks for a new stream after three seconds of
+     silence and is given a key frame at once. Ten seconds is the backstop for
+     the case none of that happens, not the mechanism anybody relies on. */
+  encoder->codec->gop_size = (int)fps * 10;
   av_opt_set_int(encoder->codec->priv_data, "async_depth", 1, 0);
   av_opt_set(encoder->codec->priv_data, "rc_mode", "CQP", 0);
   av_opt_set_int(encoder->codec->priv_data, "qp", (int64_t)qp, 0);

@@ -351,6 +351,9 @@ fn run(settings: &Settings) -> Result<()> {
     // One window per stage, drained on every report. A ten-second window holds
     // 600 frames; the cap is two thousand, which only a runaway loop could reach.
     let mut wait_times = Timings::new(2048);
+    // Bytes per access unit. The tail of THIS is the key frame: one a second at
+    // a one-second GOP, and what a network has to absorb in one burst.
+    let mut frame_bytes = Timings::new(2048);
     let mut convert_times = Timings::new(2048);
     let mut encode_times = Timings::new(2048);
 
@@ -420,7 +423,10 @@ fn run(settings: &Settings) -> Result<()> {
         drop(frame);
         // Somebody just opened the page. Without this they see nothing until the
         // next scheduled IDR — up to a second with a one-second GOP.
-        if server.take_joined() {
+        // Somebody just opened the page, or a page that already had one asked
+        // for a new starting point: a decoder that died, a tab that came back.
+        // Both want the same thing and one key frame answers both.
+        if server.take_joined() || server.take_key_frame_request() {
             encoder.force_key_frame();
         }
         let encoding = Instant::now();
@@ -432,6 +438,12 @@ fn run(settings: &Settings) -> Result<()> {
             // machine keeps up; this says whether the link can carry it, and
             // they are different questions with different answers.
             coded_bytes += coded.len() as u64;
+            #[expect(
+                clippy::cast_precision_loss,
+                reason = "an access unit is tens of kilobytes; f64 is exact for \
+                          every value this can hold"
+            )]
+            frame_bytes.record(coded.len() as f64);
             // The return value says whether a watcher was behind. Counted by
             // the server itself and reported below, so it is deliberately
             // discarded here rather than branched on.
@@ -456,6 +468,7 @@ fn run(settings: &Settings) -> Result<()> {
                 convert_times.summary(),
                 encode_times.summary(),
             );
+            let bytes = frame_bytes.summary();
             tracing::info!(
                 produced,
                 dropped = server.dropped(),
@@ -473,6 +486,10 @@ fn run(settings: &Settings) -> Result<()> {
                 encoding_p95_ms = encode.p95,
                 encoding_p99_ms = encode.p99,
                 encoding_max_ms = encode.max,
+                frame_bytes_p50 = bytes.p50,
+                frame_bytes_p95 = bytes.p95,
+                frame_bytes_p99 = bytes.p99,
+                frame_bytes_max = bytes.max,
                 megabits_per_second = megabits(coded_bytes - reported_bytes, reported.elapsed()),
                 input_to_frame_p50_ms = percentile(&mut input_to_frame, 0.50),
                 input_to_frame_p95_ms = percentile(&mut input_to_frame, 0.95),
@@ -481,6 +498,7 @@ fn run(settings: &Settings) -> Result<()> {
             reported = Instant::now();
             reported_bytes = coded_bytes;
             wait_times.clear();
+            frame_bytes.clear();
             convert_times.clear();
             encode_times.clear();
             input_to_frame.clear();

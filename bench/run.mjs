@@ -162,6 +162,9 @@ const result = {
     encoding_p95_ms: across("encoding_p95_ms"),
     encoding_p99_ms: across("encoding_p99_ms"),
     megabits_per_second: across("megabits_per_second"),
+    frame_bytes_p50: across("frame_bytes_p50"),
+    frame_bytes_p99: across("frame_bytes_p99"),
+    frame_bytes_max: across("frame_bytes_max"),
     input_to_frame_p50_ms: across("input_to_frame_p50_ms"),
     input_to_frame_p95_ms: across("input_to_frame_p95_ms"),
   },
@@ -196,6 +199,7 @@ console.log(`
   encodage p50    ${ms(result.server.encoding_p50_ms)} ms
   encodage p95    ${ms(result.server.encoding_p95_ms)} ms
   débit           ${ms(result.server.megabits_per_second)} Mbit/s
+  taille d'image  p50 ${(result.server.frame_bytes_p50.median / 1024).toFixed(1)} Kio · p99 ${(result.server.frame_bytes_p99.median / 1024).toFixed(1)} · max ${(result.server.frame_bytes_max.median / 1024).toFixed(1)} (pire fenêtre ${(result.server.frame_bytes_max.max / 1024).toFixed(1)})
   manette→image   ${
     padFrames > 0
       ? `p50 ${ms(result.server.input_to_frame_p50_ms)} ms · p95 ${ms(result.server.input_to_frame_p95_ms)} ms · ${padFrames} trames (${(padFrames / elapsed).toFixed(0)} /s)`

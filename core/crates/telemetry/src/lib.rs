@@ -37,13 +37,20 @@ impl Timings {
         }
     }
 
-    /// Records one observation, in milliseconds.
+    /// Records one duration, in milliseconds.
     pub fn observe(&mut self, value: Duration) {
+        self.record(value.as_secs_f64() * 1000.0);
+    }
+
+    /// Records one plain number, for the windows that are not durations: bytes
+    /// per frame reads exactly like milliseconds per frame once the unit is
+    /// stated by the caller.
+    pub fn record(&mut self, value: f64) {
         if self.samples.len() >= self.cap {
             self.dropped += 1;
             return;
         }
-        self.samples.push(value.as_secs_f64() * 1000.0);
+        self.samples.push(value);
     }
 
     /// How many observations this window holds.

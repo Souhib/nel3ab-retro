@@ -2081,6 +2081,50 @@ C'est la bonne forme pour ce genre de question. Plutôt que de choisir à la pla
 du joueur sur la foi d'un chiffre mesuré ailleurs, on lui donne les deux et le
 chiffre.
 
+### Une commande qui obéit en vingt secondes est une commande morte
+
+« Caler l'image sur le son ne change rien », et il avait raison de le croire :
+l'alignement passait par le pilote qui déplace l'horaire d'affichage de **5 ms
+toutes les deux secondes**. Pour cinquante millisecondes, il lui fallait vingt
+secondes. On coche, rien ne bouge, on décoche.
+
+Cette lenteur est juste pour ce à quoi elle sert — suivre un réseau sans que
+personne ne voie l'image bouger. Elle est fausse pour répondre à un clic.
+
+> Une commande doit obéir à la vitesse de la personne, pas à celle du phénomène
+> qu'elle règle.
+
+Le décalage s'applique d'un coup maintenant : l'image se fige une fois, de la
+durée exacte demandée. `just browser-lipsync` vérifie les deux sens en une
+seconde et demie.
+
+Le test a échoué à sa première version, sur une tolérance de 5 ms entre l'aller
+et le retour. Les deux ne peuvent pas être égaux : le pilote continue de corriger
+pendant la mesure. Exiger l'égalité, c'était exiger que le reste de la page
+s'arrête.
+
+L'autre case n'est pas cassée, elle est **sans objet** : laisser la carte son
+choisir sa fréquence ne change rien sur une carte qui tourne déjà à 48 kHz, ce
+qui est le cas de la plupart et ce que la ligne « son » indique. L'étiquette le
+dit désormais, au lieu de promettre ce qu'elle ne peut pas tenir.
+
+### Ce que le décalage restant est vraiment
+
+Chez le joueur : **48 ms de sortie dont 10 du navigateur**, parfois 56, jamais
+autre chose, et **identique en HDMI et au casque filaire**. Deux valeurs
+discrètes indépendantes du périphérique : ce n'est donc pas la carte son, c'est
+le mélangeur du système et le tampon que Chrome négocie avec lui.
+
+Ce qui répond à la question posée : un Dolphin lancé directement sur cette
+machine paierait la part système, pas celle du navigateur, et pourrait demander
+un tampon plus court. Mais la comparaison trompe dans l'autre sens — **sur un
+Dolphin local, l'image est en retard aussi**, d'une à trois trames de
+synchronisation verticale. Les deux chemins sont longs, donc ils se ressemblent,
+donc personne ne remarque rien.
+
+Chez nous l'image est présentée dès qu'elle peut l'être, avec 3 ms de marge. Le
+décalage qu'on entend n'est pas du son en retard : **c'est de l'image en avance**.
+
 ### Deux erreurs de raisonnement à garder
 
 **Deux correctifs écrits, deux échecs, gardés écrits.** J'ai d'abord trouvé un

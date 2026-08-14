@@ -2004,6 +2004,49 @@ Vérifié : 998 morceaux en 20 s, **188 Kio/s pour 187,5 attendus**, amplitude
 jusqu'à 19 766 sur 32 767, et la page joue 600 morceaux en douze secondes sans
 une coupure. `just browser-sound`.
 
+### Le son en retard sur l'image : 68 ms, puis 47
+
+Le joueur l'a entendu avant que je le mesure, et l'a estimé « peut-être 0,5 ms ».
+À 0,5 ms personne n'entend rien — mais les deux flux portent **le même
+horodatage serveur**, donc l'écart se calcule au lieu de se deviner.
+
+Première mesure : **68 ms, le son en retard**. Décomposé, ce qui est tout
+l'intérêt d'avoir un seul horodatage :
+
+| | |
+|---|---|
+| trajet, son contre image | **−3 ms** — le son arrive même un peu plus tôt |
+| avance de programmation | **40 ms** — la mienne, choisie au doigt mouillé |
+| sortie audio du matériel | **32 ms** — hors de portée |
+
+Deux termes sur trois étaient à moi. L'avance passe de 40 à 20 ms et ne
+grandit plus que si le son casse vraiment, un morceau à la fois, puis redescend
+d'une milliseconde par fenêtre calme — la même mécanique que la marge de l'image.
+Et les morceaux passent de 20 à 10 ms : un morceau n'est envoyé qu'une fois
+plein, donc sa longueur est un plancher sous le retard.
+
+**47 ms** désormais, dont 32 de matériel. Le reste ne se rattrape pas en jouant
+plus tôt, puisqu'il faudrait avoir le son plus tôt.
+
+Il reste un choix, et c'en est un vrai : caler l'image sur le son voudrait dire
+**retarder l'image** de ces 47 ms, ce qui se sent à la manette. Par défaut
+l'image reste en avance ; une case à cocher propose l'autre échange à qui
+regarde plutôt qu'il ne joue.
+
+### Un test qui comptait des morceaux
+
+`playback` vérifiait que la page joue « 50 morceaux par seconde ». Le jour où les
+morceaux sont passés à 10 ms, il est tombé — alors que le comportement qu'il
+prétendait vérifier n'avait pas bougé d'un cheveu.
+
+> Un test qui compte les unités d'une implémentation casse quand
+> l'implémentation change, et se tait quand le comportement change.
+
+Il compte maintenant des **secondes de son jouées contre des secondes
+d'horloge** : 12,00 pour 12,00. Ça survit à la taille des morceaux, et ça
+attraperait en plus une fréquence d'échantillonnage fausse, ce que le compte de
+morceaux ne voyait pas.
+
 ### Deux erreurs de raisonnement à garder
 
 **Deux correctifs écrits, deux échecs, gardés écrits.** J'ai d'abord trouvé un

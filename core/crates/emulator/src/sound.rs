@@ -22,12 +22,16 @@ use crate::error::EmulatorError;
 
 /// How much sound is carried at a time.
 ///
-/// Twenty milliseconds: short enough that it adds no latency worth naming, long
-/// enough that a WebSocket message per chunk is fifty messages a second rather
-/// than a thousand.
-pub const CHUNK: Duration = Duration::from_millis(20);
+/// Ten milliseconds. A chunk is only sent once it is full, so its first sample
+/// waits the whole chunk before leaving: the length of a chunk is a floor under
+/// how late the sound can be. It was twenty, and the sound measured 68 ms behind
+/// the picture; halving it takes ten of those directly.
+///
+/// Not shorter, because each chunk is a message: ten milliseconds is a hundred
+/// messages a second, and five would be two hundred for another five.
+pub const CHUNK: Duration = Duration::from_millis(10);
 
-/// Frames in one chunk: a fiftieth of a second.
+/// Frames in one chunk: a hundredth of a second.
 ///
 /// Written as the division so that changing the rate cannot leave this behind.
 /// The test below states the result in milliseconds, which is the unit the
@@ -37,7 +41,7 @@ pub const CHUNK: Duration = Duration::from_millis(20);
     reason = "48000/50 is exact, and a rate that is not a multiple of 50 would \
               fail the twenty-millisecond test rather than round quietly"
 )]
-pub const CHUNK_FRAMES: usize = (AUDIO_RATE / 50) as usize;
+pub const CHUNK_FRAMES: usize = (AUDIO_RATE / 100) as usize;
 
 /// Bytes in one chunk.
 pub const CHUNK_BYTES: usize = CHUNK_FRAMES * AUDIO_FRAME_BYTES;
@@ -156,13 +160,13 @@ impl SoundTap {
 mod tests {
     use super::*;
 
-    /// The chunk is twenty milliseconds of sound, and the arithmetic that says
+    /// The chunk is exactly the length it claims, and the arithmetic that says
     /// so is worth pinning: the first reader written against this pipe took
     /// 1920 frames every 20 ms, which is 40 ms of sound read twice as often as
     /// it exists. It reported the stream as running at double speed and sent me
     /// looking for a fault in ALSA.
     #[test]
-    fn a_chunk_is_exactly_twenty_milliseconds() {
+    fn a_chunk_lasts_exactly_as_long_as_it_says() {
         #[expect(
             clippy::cast_precision_loss,
             reason = "960 frames: exact in an f64 by a factor of five thousand billion"
@@ -172,7 +176,7 @@ mod tests {
             (seconds - CHUNK.as_secs_f64()).abs() < 1e-9,
             "{CHUNK_FRAMES} frames at {AUDIO_RATE} Hz is {seconds} s, not {CHUNK:?}"
         );
-        assert_eq!(CHUNK_BYTES, 3840, "two channels of i16, 960 frames");
+        assert_eq!(CHUNK_BYTES, 1920, "two channels of i16, 480 frames");
     }
 
     /// Nothing on the pipe is silence, not a short chunk: a page that receives

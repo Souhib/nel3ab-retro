@@ -28,6 +28,10 @@
       <input id="volume" type="range" min="0" max="100" value="70" />
       <span id="soundState" class="note"></span>
     </p>
+    <p class="note">
+      <label><input id="lipsync" type="checkbox" /> caler l'image sur le son</label>
+      — sinon l'image reste en avance, ce qui garde la manette plus vive
+    </p>
     <p><button id="learn" type="button">configurer la manette</button>
       <button id="skip" type="button" hidden>passer ce bouton</button></p>
     <p id="lesson" class="note"></p>
@@ -54,6 +58,7 @@
   const soundButton = document.getElementById("sound");
   const volumeSlider = document.getElementById("volume");
   const soundState = document.getElementById("soundState");
+  const lipsyncBox = document.getElementById("lipsync");
   const learnButton = document.getElementById("learn");
   const skipButton = document.getElementById("skip");
   const lessonLine = document.getElementById("lesson");
@@ -189,6 +194,14 @@
   // what would make the buffer pointless: it would spend the slack the instant
   // it arrived, and starve again on the next late frame.
   let priming = true;
+  /// How long the picture is held back to meet the sound, in milliseconds.
+  ///
+  /// Zero by default, and that is a decision rather than an oversight: the sound
+  /// is late by its own output path, and lining the picture up with it means
+  /// delaying the picture — which is felt at the controller. A player who is
+  /// watching rather than playing can ask for the other trade.
+  let lipsync = 0;
+
   /// What to add to a frame's capture instant to get the instant it is due on
   /// our clock. Null until a cadence exists.
   ///
@@ -654,13 +667,21 @@
     const WINDOW = 120; // two seconds at 60 Hz
     if (ticks % WINDOW !== 0) return;
 
+    // The sound's lead comes back down when nothing has broken, one millisecond
+    // at a time. Growing it is what a break costs; keeping it is what the sound
+    // costs against the picture, for ever.
+    if (soundGaps === soundGapsSeen && soundLead > SOUND_LEAD_MIN) {
+      soundLead = Math.max(SOUND_LEAD_MIN, soundLead - 0.001);
+    }
+    soundGapsSeen = soundGaps;
+
     // Steer the schedule towards "as fast as this pipeline has been, plus the
     // slack", a couple of milliseconds at a time. Anchoring once and living with
     // it is what let a slow first frame cost fifty milliseconds for the rest of
     // the session; a step small enough to be invisible — a fifth of a refresh —
     // gets that back within half a minute and follows the network afterwards.
     if (offset !== null && lags.length > 30) {
-      const want = fastestLag() + slackMs;
+      const want = fastestLag() + slackMs + lipsync;
       offset += Math.max(-5, Math.min(5, want - offset));
     }
 
@@ -697,7 +718,16 @@
     stallDecoder: () => {
       if (decoder !== null) decoder.decode = () => {};
     },
-    counters: () => ({ painted, shown, stalls, restarts, undecoded, attempts }),
+    counters: () => ({
+      painted,
+      shown,
+      stalls,
+      restarts,
+      undecoded,
+      attempts,
+      soundPlayed,
+      soundGaps,
+    }),
     readPad,
     // The lesson, drivable with a synthetic pad: what it gets wrong is a
     // SEQUENCE — a press answering two questions — and a sequence needs frames
@@ -753,9 +783,16 @@
   // picture's schedule, with a cheaper clock — the audio hardware's.
   const SOUND_RATE = 48000;
   const SOUND_CHANNELS = 2;
-  /// How far ahead of the hardware clock a chunk is scheduled. Two chunks: the
-  /// smallest number that survives a late arrival without a gap.
-  const SOUND_LEAD = 0.04;
+  /// How far ahead of the hardware clock a chunk is scheduled.
+  ///
+  /// Every millisecond of this is a millisecond the sound is behind the picture,
+  /// so it starts small and is only bought back when the sound actually breaks.
+  /// It was a flat 40 ms, which was most of the 68 ms the two streams were
+  /// measured apart.
+  let soundLead = 0.02;
+  let soundGapsSeen = 0;
+  const SOUND_LEAD_MIN = 0.02;
+  const SOUND_LEAD_MAX = 0.12;
   /// Past this the schedule has drifted so far behind that catching up chunk by
   /// chunk would take longer than starting again.
   const SOUND_RESYNC = 0.25;
@@ -766,6 +803,17 @@
   let playAt = 0;
   let soundChunks = 0;
   let soundGaps = 0;
+  /// Seconds of sound handed to the hardware. Counted in SECONDS rather than in
+  /// chunks because the length of a chunk is an implementation detail: a test
+  /// that counted chunks broke the day they were halved, while what it meant to
+  /// check — that a second of sound plays in a second — never changed.
+  let soundPlayed = 0;
+  /// How long each chunk took to reach us, on the mixed clocks the picture uses
+  /// too. Comparing the SMALLEST of these with the picture's smallest is what
+  /// says how far apart the two streams are, in the only units that matter.
+  let soundLags = [];
+  const fastestSoundLag = () =>
+    soundLags.length === 0 ? null : Math.min(...soundLags);
   let volume = Number(localStorage.getItem("nel3ab.volume") ?? 70);
 
   function describeSound() {
@@ -816,23 +864,48 @@
       }
     }
 
+    const capturedMs = Number(new DataView(event.data).getBigUint64(0, true)) / 1000;
+    soundLags.push(performance.now() - capturedMs);
+    if (soundLags.length > 240) soundLags.shift();
+
     const now = audio.currentTime;
-    if (playAt < now + 0.005 || playAt > now + SOUND_RESYNC) {
+    if (playAt < now + 0.002 || playAt > now + SOUND_RESYNC) {
       // Either we fell behind the hardware clock or we ran so far ahead that the
       // sound would arrive late enough to be wrong. Both are fixed the same way.
-      if (playAt !== 0) soundGaps += 1;
-      playAt = now + SOUND_LEAD;
+      if (playAt !== 0) {
+        soundGaps += 1;
+        // A break means the lead was too thin for this link. Buy back one chunk
+        // of it, once, rather than living with a stutter.
+        soundLead = Math.min(SOUND_LEAD_MAX, soundLead + 0.01);
+      }
+      playAt = now + soundLead;
     }
     const source = audio.createBufferSource();
     source.buffer = buffer;
     source.connect(gain);
     source.start(playAt);
     playAt += frames / SOUND_RATE;
+    soundPlayed += frames / SOUND_RATE;
     soundChunks += 1;
   }
 
   soundButton.addEventListener("click", startSound);
   volumeSlider.value = String(volume);
+  lipsyncBox.addEventListener("change", () => {
+    if (!lipsyncBox.checked) {
+      lipsync = 0;
+      return;
+    }
+    const gap = fastestSoundLag() === null ? 0 : soundGap();
+    lipsync = Math.max(0, gap);
+  });
+
+  /// How far the sound is behind the picture, in milliseconds: its longer path,
+  /// plus the lead this page schedules with, plus what the audio hardware adds
+  /// after we hand it the samples.
+  const soundGap = () =>
+    fastestSoundLag() - fastestLag() + (audio?.outputLatency ?? 0) * 1000 + soundLead * 1000;
+
   volumeSlider.addEventListener("input", () => {
     volume = Number(volumeSlider.value);
     localStorage.setItem("nel3ab.volume", String(volume));
@@ -1360,6 +1433,15 @@
         `key frames asked     ${keyFramesAsked}\n` +
         `son                  ${audio === null ? "coupé" : audio.state}, ` +
         `${soundChunks} morceaux, ${soundGaps} coupures\n` +
+        `écart son/image      ${
+          fastestSoundLag() === null
+            ? "—"
+            : `${soundGap().toFixed(0)} ms` +
+              ` (trajet ${(fastestSoundLag() - fastestLag()).toFixed(0)}` +
+              ` · avance ${(soundLead * 1000).toFixed(0)}` +
+              ` · sortie ${((audio?.outputLatency ?? 0) * 1000).toFixed(0)})` +
+              `${lipsync > 0 ? ` · image retardée de ${lipsync.toFixed(0)}` : ""}`
+        }\n` +
         `not decoded          ${undecoded} (nobody painting, or behind)\n` +
         `latence ajoutée      ${slackMs.toFixed(0)} ms (marge), ` +
         `${starved} starves, ${skipped} skipped\n` +

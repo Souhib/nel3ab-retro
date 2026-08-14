@@ -18,26 +18,24 @@ await new Promise((r) => setTimeout(r, 3000));
 await page.click("#sound");
 await new Promise((r) => setTimeout(r, 1500));
 
-const read = () =>
-  page.evaluate(() => {
-    const line = document.getElementById("stats").innerText.match(/son\s+(\w+), (\d+) morceaux, (\d+) coupures/);
-    return line ? { state: line[1], chunks: Number(line[2]), gaps: Number(line[3]) } : null;
-  });
+const read = () => page.evaluate(() => globalThis.nel3abTest.counters());
 const before = await read();
+const startedAt = Date.now();
 await new Promise((r) => setTimeout(r, seconds * 1000));
 const after = await read();
+const elapsed = (Date.now() - startedAt) / 1000;
 
-if (before === null || after === null) {
-  console.log("FAIL — la page ne dit rien de son son");
-  await browser.close();
-  process.exit(1);
-}
-const played = after.chunks - before.chunks;
-const expected = seconds * 50;
-const gaps = after.gaps - before.gaps;
-console.log(`  contexte ${after.state} · ${played} morceaux joués en ${seconds}s (attendu ~${expected}) · ${gaps} coupures`);
-const paced = played > expected * 0.9 && played < expected * 1.1;
+// Seconds of sound against seconds of clock. Counting CHUNKS is what the first
+// version did, and it broke the day the chunk was halved while the behaviour it
+// meant to check was untouched.
+const played = after.soundPlayed - before.soundPlayed;
+const gaps = after.soundGaps - before.soundGaps;
+const state = await page.evaluate(() => document.getElementById("stats").innerText.match(/son\s+(\w+)/)?.[1]);
+console.log(
+  `  contexte ${state} · ${played.toFixed(2)} s de son joués en ${elapsed.toFixed(2)} s · ${gaps} coupures`,
+);
+const paced = Math.abs(played - elapsed) < elapsed * 0.05;
 const smooth = gaps <= 1;
-console.log(paced && smooth ? "PASS — la page joue au rythme du son" : `FAIL — ${!paced ? "mauvais rythme" : `${gaps} coupures`}`);
+console.log(paced && smooth ? "PASS — le son joue à la vitesse du temps" : `FAIL — ${!paced ? "mauvaise vitesse" : `${gaps} coupures`}`);
 await browser.close();
 process.exit(paced && smooth ? 0 : 1);

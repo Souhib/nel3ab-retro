@@ -2418,6 +2418,15 @@ ni Rust et prend quelques secondes : la prose est vérifiée comme le code, et l
 règle qui dit que le carnet fait partie du travail cesse d'être une promesse pour
 devenir une porte.
 
+**Au passage, une échéance qui n'attendait pas.** La pipeline avertissait que
+trois actions tournent encore sur Node 20. GitHub le retire de ses machines le
+**16 septembre 2026**, sans échappatoire : ces trois-là auraient cessé de
+fonctionner, dont le scan de secrets. Les trois sont montées de version, et
+chacune ne change que son moteur. Une seule chose mérite d'être retenue :
+`setup-uv` ne publie plus de tag majeur flottant depuis sa v8, donc il est
+épinglé à une version exacte là où les autres suivent leur majeure. Écrire
+`@v10` en croyant faire propre pointerait vers rien du tout.
+
 ---
 
 ## 7. Les pièges qui ont coûté du temps, et ce qu'ils ont appris

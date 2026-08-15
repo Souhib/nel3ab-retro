@@ -25,8 +25,13 @@ jobs:
           fetch-depth: 0   # full history so the secret scan sees the whole range
 
       # Blocking and unconditional: a leaked key is never "informational".
+      #
+      # v3 rather than v2 for the Node 24 runtime, and this one has a date on it:
+      # GitHub removes Node 20 from its runners on 2026-09-16, after which v2
+      # stops working with no opt-out. v3 changes the runtime and nothing else,
+      # so it is a version bump rather than a migration.
       - name: Secret scan
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -38,7 +43,7 @@ jobs:
         with:
           workspaces: core
 
-      - uses: extractions/setup-just@v3
+      - uses: extractions/setup-just@v4
 
       # `just lint` runs with --all-features, which builds the libavcodec shim's
       # build script — and a build script needs real headers, unlike clippy which
@@ -80,13 +85,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: extractions/setup-just@v3
+      - uses: extractions/setup-just@v4
       # Caching off on purpose. The action caches Python dependencies keyed on a
       # lock file, and this repository has none: it warned that the cache "will
       # never get invalidated", which is the honest description of a cache that
       # would serve a stale Zensical forever. One tool from PyPI installs in
       # seconds; there is nothing here worth caching wrongly.
-      - uses: astral-sh/setup-uv@v6
+      #
+      # Pinned to an exact version, unlike every other action here, because
+      # setup-uv stopped publishing floating major tags at v8: there is no `v10`
+      # to follow. Reverting this to `@v10` would silently resolve to nothing.
+      - uses: astral-sh/setup-uv@v10.0.1
         with:
           enable-cache: false
       # The PATH line is not decoration: `uv tool install` drops the executable

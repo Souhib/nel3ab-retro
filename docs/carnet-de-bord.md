@@ -2828,6 +2828,12 @@ Le panneau affiche donc désormais **ce qui a été demandé à côté de ce qui
 accordé** — « sortie 48 dont 10 du navigateur, demandé 0 ». Un instrument qui
 lève une ambiguïté vaut mieux qu'un aller-retour de plus.
 
+**Réponse du joueur : « demandé 0 ».** La page est donc bien la nouvelle, et
+Windows rend dix millisecondes quand on lui en demande zéro. C'est son plancher.
+Sur la même page, Linux en rend 2,7 — ce qui ferme la question plutôt que de la
+laisser ouverte : la part navigateur n'est pas récupérable sur cette machine, et
+il n'y a pas de réglage à chercher.
+
 #### Le sondage automatique, essayé et retiré en un quart d'heure
 
 L'idée semblait juste : plutôt que de supposer depuis Linux ce que Windows sait

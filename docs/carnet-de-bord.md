@@ -2806,6 +2806,63 @@ correction ne coûte rien là où elle ne sert pas.
 
 ---
 
+### 6.68 Ce que la machine du joueur dit, et le sondage qui s'est mordu la queue
+
+La ligne renvoyée depuis le PC Windows tranche presque tout :
+
+```
+écart son/image  98 ms (trajet 40 · avance 10 · sortie 48 dont 10 du navigateur)
+```
+
+- **avance 10** : au plancher. Le cliquet corrigé juste avant n'était donc pas
+  son problème, et il valait mieux le savoir que de le supposer.
+- **trajet 40** : notre tuyau, cohérent avec les 32 à 35 mesurés en local.
+- **sortie 48, dont 10 pour le navigateur** : Windows.
+
+C'est ce « dont 10 » qui gênait. Sur Linux, avec la même page, la part du
+navigateur est de **2,7 ms**. Dix pile, c'est exactement ce que rendait l'ancien
+réglage `latencyHint: 0.01`. Deux explications, indiscernables depuis ici : ou
+Windows plafonne à dix millisecondes, ou la page chargée est encore l'ancienne.
+
+Le panneau affiche donc désormais **ce qui a été demandé à côté de ce qui a été
+accordé** — « sortie 48 dont 10 du navigateur, demandé 0 ». Un instrument qui
+lève une ambiguïté vaut mieux qu'un aller-retour de plus.
+
+#### Le sondage automatique, essayé et retiré en un quart d'heure
+
+L'idée semblait juste : plutôt que de supposer depuis Linux ce que Windows sait
+faire, que la page **mesure elle-même**. Quatre contextes audio jetables, un par
+valeur candidate, chacun démarré le temps de rendre quelque chose — la latence
+n'est lisible qu'à ce moment — et on garde le meilleur.
+
+Résultat mesuré tout de suite :
+
+| | écart | avance | coupures |
+|---|---|---|---|
+| sans sondage | 50 ms | 10 ms | 1 sur 5989 |
+| avec sondage | **167 ms** | **120 ms** (plafond) | **288 sur 7877** |
+
+Créer et détruire quatre contextes juste avant d'en ouvrir un vrai perturbe la
+sortie audio pour la suite de la session. **Le sondage abîmait exactement ce
+qu'il venait mesurer** — le même piège que l'échantillonneur de M3 qui affamait
+la page dont il comptait les images, et il aura fallu le refaire pour le
+reconnaître.
+
+> Un instrument qui touche à ce qu'il mesure doit être suspecté avant d'être cru,
+> même quand c'est nous qui l'écrivons et que l'idée nous plaît.
+
+#### Où s'arrête ce qui est à nous
+
+Sur les 98 ms du joueur : **40 sont à nous** et tiennent au tuyau, 10 sont au
+plancher, 48 appartiennent à la pile audio de Windows — qui alterne d'ailleurs
+entre 48 et 56, ce qui fait osciller le total entre 98 et 107 et n'a jamais
+dépendu de nous.
+
+Le seul levier restant est donc `snd-aloop`, pour les 40. Tout le reste est
+mesuré et au plancher.
+
+---
+
 ## 7. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
 
 | Le piège | Ce qui s'est passé | La leçon |

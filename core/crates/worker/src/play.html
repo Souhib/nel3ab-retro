@@ -784,6 +784,7 @@
     audio: () => ({
       soundLead,
       outputLatency: audio?.outputLatency ?? null,
+      hintAsked,
       baseLatency: audio?.baseLatency ?? null,
       sampleRate: audio?.sampleRate ?? null,
       chunkMs: soundChunks === 0 ? null : (1000 * soundPlayed) / soundChunks,
@@ -861,6 +862,9 @@
   /// It was a flat 40 ms, which was most of the 68 ms the two streams were
   /// measured apart.
   let soundLead = 0.02;
+  /// What was requested of the audio context, to be shown beside what it gave.
+  let hintAsked = null;
+
   let soundGapsSeen = 0;
   const SOUND_LEAD_MIN = 0.01;
   const SOUND_LEAD_MAX = 0.12;
@@ -910,7 +914,7 @@
   ///
   /// Neither touches the output path itself: 32 ms on this machine, 48 on the
   /// player's, which is the audio device's own buffers and no page's business.
-  function buildAudio() {
+  function buildAudio(hint = 0) {
     const previous = audio;
     // `0`, not `0.01`, and the difference is 23 ms.
     //
@@ -925,9 +929,14 @@
     // at zero, one in 8989 at 0.01. The same rate, for a quarter of the
     // latency. Chrome clamps to what the hardware can do, so a machine that
     // cannot go this low simply gets what it can.
+    // Kept so the panel can show what was ASKED FOR next to what was granted.
+    // Without it, "10 ms of browser latency" has two explanations that look
+    // identical — the platform's floor, or a stale page still asking for 0.01 —
+    // and no way to tell them apart from the other end of a chat.
+    hintAsked = hint;
     audio = deviceRate
-      ? new AudioContext({ latencyHint: 0 })
-      : new AudioContext({ sampleRate: SOUND_RATE, latencyHint: 0 });
+      ? new AudioContext({ latencyHint: hintAsked })
+      : new AudioContext({ sampleRate: SOUND_RATE, latencyHint: hintAsked });
     gain = audio.createGain();
     gain.gain.value = volume / 100;
     gain.connect(audio.destination);
@@ -941,7 +950,7 @@
     previous?.close();
   }
 
-  function startSound() {
+  async function startSound() {
     if (audio === null) {
       buildAudio();
       connectSound();
@@ -1686,7 +1695,8 @@
               ` (trajet ${(fastestSoundLag() - fastestLag()).toFixed(0)}` +
               ` · avance ${(soundLead * 1000).toFixed(0)}` +
               ` · sortie ${((audio?.outputLatency ?? 0) * 1000).toFixed(0)}` +
-              ` dont ${((audio?.baseLatency ?? 0) * 1000).toFixed(0)} du navigateur)` +
+              ` dont ${((audio?.baseLatency ?? 0) * 1000).toFixed(0)} du navigateur` +
+              `, demandé ${hintAsked === null ? "—" : hintAsked * 1000})` +
               `${lipsync > 0 ? ` · image retardée de ${lipsync.toFixed(0)}` : ""}`
         }\n` +
         `not decoded          ${undecoded} (nobody painting, or behind)\n` +

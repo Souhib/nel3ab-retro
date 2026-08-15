@@ -113,9 +113,11 @@ browser-sound:
 # millisecond per clean second, so a short look reports where it STARTED rather
 # than where it lives.
 #
-# It prints what it cannot see, on purpose. The server's pipe sits upstream of
-# the timestamp everything here is measured against, and hid 341 ms behind a
-# figure that looked healthy.
+# The server's pipe is counted in these numbers, and was not always: the worker
+# dates each chunk back by the pipe's depth. Without that the sound declared
+# itself fresher than it was, and the offset the page reported was 7 ms where the
+# truth was 54 — which is why the "line the picture up with the sound" control
+# looked inert. It was compensating by the wrong number, not failing to work.
 audio-budget seconds="60":
     cd spikes/m3-browser-drive && node audio-budget.mjs http://localhost:8100/ {{seconds}}
 

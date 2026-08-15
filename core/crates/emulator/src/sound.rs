@@ -164,6 +164,37 @@ impl SoundTap {
         &self.path
     }
 
+    /// How long ago the sound in a chunk was actually produced.
+    ///
+    /// The pipe sits full — sampled 60 times on the running machine, the writer
+    /// was blocked in `pipe_write` on 57 — so a chunk read now holds sound the
+    /// emulator handed over one pipe-depth ago. That delay is real, it is
+    /// upstream of every clock this project owns, and **a chunk stamped with the
+    /// instant we read it claims to be fresher than it is.**
+    ///
+    /// Which was not merely untidy. The page offers to delay the picture to meet
+    /// the sound, and it computes how much from that stamp: it was compensating
+    /// by seven milliseconds where the true figure was fifty. The control looked
+    /// broken because it was being told the wrong number, not because it did not
+    /// work.
+    ///
+    /// So the tap says how far back its sound comes from, and the stamp is
+    /// corrected by it. This makes nothing faster. It makes the figure true, and
+    /// a true figure is what the compensation needs to be worth ticking.
+    #[must_use]
+    pub const fn standing_delay(&self) -> Duration {
+        // Bytes per second, then the depth in microseconds. The pipe capacity is
+        // what we asked for; the kernel may have rounded it up, but never down.
+        #[expect(
+            clippy::integer_division,
+            reason = "microseconds from a byte count: the remainder is under a \
+                      microsecond of audio and no decision turns on it"
+        )]
+        Duration::from_micros(
+            PIPE_BYTES as u64 * 1_000_000 / (AUDIO_RATE as u64 * AUDIO_FRAME_BYTES as u64),
+        )
+    }
+
     /// How many chunks had to be invented because the emulator had produced
     /// nothing. Silence is the right thing to send — a gap in the stream would
     /// leave the page's clock guessing — but a rising count means the emulator

@@ -47,6 +47,7 @@ console.log(`    avance de la page: ${ms(a.soundLead)}   (coupures : ${a.gaps})`
 console.log(`    sortie navigateur: ${ms(a.outputLatency)}  dont ${ms(a.baseLatency)} à la page`);
 console.log(`    fréquence        : ${a.sampleRate} Hz`);
 console.log(
-  "\n  Rappel de ce que ces chiffres NE voient pas : le tuyau côté serveur est\n" +
-  "  en amont de l'horodatage, donc il n'apparaît nulle part ici.",
+  "\n  Le tuyau du serveur EST compté : le worker date ses morceaux de sa\n" +
+  "  profondeur, sans quoi le son se déclarait plus frais qu'il n'est et la\n" +
+  "  case « caler l'image sur le son » compensait 7 ms au lieu de 54.",
 );

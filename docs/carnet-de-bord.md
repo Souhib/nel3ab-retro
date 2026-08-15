@@ -2728,6 +2728,51 @@ descendre vers 3).
 
 ---
 
+### 6.66 La case n'était pas cassée, on lui donnait un faux chiffre
+
+Le décalage s'entendait encore. Avant d'aller chercher des millisecondes
+ailleurs, une question : **la page sait-elle seulement de combien elle est en
+retard ?**
+
+Non. Le tuyau est plein 57 fois sur 60 échantillons, donc il ajoute ses 42 ms à
+tout ce qui en sort — et le morceau est horodaté quand nous le **lisons**. Le
+son se déclarait donc plus frais qu'il n'était, de tout le contenu du tuyau.
+
+Ce n'était pas qu'une inexactitude de tableau de bord. La page propose de
+retarder l'image pour la caler sur le son, et elle calcule ce retard **à partir
+de cet horodatage** : elle compensait sept millisecondes là où il en fallait
+cinquante-quatre. La case avait l'air inerte parce qu'on lui donnait le mauvais
+nombre, pas parce qu'elle ne marchait pas.
+
+Le worker date maintenant chaque morceau de la profondeur du tuyau. Ça ne rend
+rien plus rapide ; ça rend le chiffre vrai, et un chiffre vrai est ce dont la
+compensation avait besoin pour valoir la peine d'être cochée.
+
+| | avant | après |
+|---|---|---|
+| écart annoncé par la page | 7 ms | **54 ms** (le vrai) |
+| retard appliqué par la case | 7 ms | **52,9 ms** |
+
+> Un instrument qui se trompe ne se contente pas d'informer mal. Tout ce qui
+> décide à partir de lui se trompe aussi, en silence, et on accuse le mauvais
+> composant.
+
+Le joueur a donc un vrai choix, ce qu'il n'avait pas : case décochée, la manette
+est aussi vive que possible et le son suit l'image de cinquante millisecondes ;
+case cochée, les deux sont alignés et la manette paie ces cinquante
+millisecondes. Aucun des deux n'est meilleur dans l'absolu, et c'est exactement
+pour ça que c'est une case et pas une constante.
+
+#### Le morceau de 5 ms, essayé et refusé
+
+Diviser le morceau par deux devait retirer cinq millisecondes. Mesuré sur 90 s :
+l'écart est **monté** de 7 à 14 ms, pour deux fois plus de messages — 200 par
+seconde au lieu de 100. Une amélioration théorique que la mesure contredit n'est
+pas une amélioration, et le doublement du trafic se paie, lui, à coup sûr.
+Annulé.
+
+---
+
 ## 7. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
 
 | Le piège | Ce qui s'est passé | La leçon |
@@ -2808,7 +2853,7 @@ Dolphin ──image──► Vulkan (conversion) ──► encodeur matériel �
 | encodage | 1,96 ms médian, 3,41 ms au pire | en 1280×960, jeu en mouvement |
 | entrée → image | 5,18 ms p50, 15,58 au p95 | le p95 est une trame : c'est la frontière de trame, pas notre code |
 | son | 188 Kio/s pour 187,5 attendus | 998 morceaux en 20 s |
-| décalage son/image | **7 ms** affichés par la page, ~70 ms de latence audio totale | 390 ms au départ : le tuyau en cachait 341 (6.64) et le navigateur en rendait 24 de trop (6.65) |
+| décalage son/image | **54 ms**, et la page peut le supprimer en retardant l'image | 390 ms au départ : le tuyau en cachait 341 (6.64), le navigateur en rendait 24 de trop (6.65), et le chiffre lui-même était faux (6.66) |
 | débit | 5,5 Mbit/s sur une scène calme, 16 à 17 sur une scène chargée | 1280×960 |
 | coût d'une salle | Dolphin 49,6 à 53,6 % d'un cœur, worker ~4,4 %, GPU médian 4 % | douze cœurs, une seule salle |
 

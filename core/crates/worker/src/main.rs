@@ -399,13 +399,18 @@ fn run(settings: &Settings) -> Result<()> {
             .name("sound".to_owned())
             .spawn(move || {
                 let mut sound = sound;
+                let standing = sound.standing_delay();
                 let mut chunk = [0_u8; CHUNK_BYTES];
                 loop {
                     sound.next_chunk(&mut chunk);
                     if stopping.load(std::sync::atomic::Ordering::Relaxed) {
                         break;
                     }
-                    let captured = started.elapsed();
+                    // Dated back by what the pipe was holding, so the stamp
+                    // names when this sound was PRODUCED rather than when we got
+                    // round to reading it. Saturating, because the first chunks
+                    // of a session are younger than the pipe is deep.
+                    let captured = started.elapsed().saturating_sub(standing);
                     sound_starved.store(sound.starved(), std::sync::atomic::Ordering::Relaxed);
                     let _delivered = server.send_sound(
                         u64::try_from(captured.as_micros()).unwrap_or(u64::MAX),

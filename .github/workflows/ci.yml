@@ -81,7 +81,14 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: extractions/setup-just@v3
+      # Caching off on purpose. The action caches Python dependencies keyed on a
+      # lock file, and this repository has none: it warned that the cache "will
+      # never get invalidated", which is the honest description of a cache that
+      # would serve a stale Zensical forever. One tool from PyPI installs in
+      # seconds; there is nothing here worth caching wrongly.
       - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: false
       # The PATH line is not decoration: `uv tool install` drops the executable
       # in ~/.local/bin, and whether that is already on the runner's PATH is the
       # runner image's business, not ours. Stating it costs one line and removes

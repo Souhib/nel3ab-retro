@@ -20,7 +20,7 @@ site_url = "https://lgf.tail3bd01c.ts.net:8444/"
 docs_dir = "docs"
 site_dir = "site"
 
-repo_url = "https://github.com/nuggocto/nel3ab-retro"
+repo_url = "https://github.com/Souhib/nel3ab-retro"
 repo_name = "nel3ab-retro"
 
 # Explicit, because the default alphabetical order would put the ADR first and

@@ -2869,6 +2869,58 @@ mesuré et au plancher.
 
 ---
 
+### 6.69 snd-aloop, chiffré avant d'être entrepris
+
+Restait un seul levier sur les 40 ms qui nous appartiennent : remplacer le tuyau
+par un vrai périphérique ALSA virtuel, `snd-aloop`, qui a une horloge. Plutôt que
+d'y passer une demi-journée pour voir, l'expérience a été faite **à côté de la
+salle qui tourne**, en une heure, sans rien migrer.
+
+La méthode tient en une idée : le chiffre qui décide est le tampon que Dolphin
+**obtient**, parce qu'il écrit jusqu'à le remplir puis attend — donc le tampon
+est la latence, exactement comme le tuyau. Or on n'a pas besoin de Dolphin pour
+le connaître : il suffit de rejouer sa négociation. `AlsaSoundStream.cpp` fait
+huit appels dans un ordre précis avec deux constantes ; les mêmes huit appels,
+pilotés depuis Python par `ctypes` sur la `libasound` de la machine, donnent la
+réponse sans compiler quoi que ce soit ni lancer un second émulateur.
+
+| montage | tampon accordé à Dolphin | |
+|---|---|---|
+| le tuyau, aujourd'hui | 2048 trames | **42,7 ms** |
+| bouclage tel quel | 8192 trames | **170,7 ms** |
+| bouclage + `dmix` contraint | 1024 trames | **21,3 ms** |
+
+**Le résultat par défaut est quatre fois pire que ce qu'on a.** Et la raison est
+instructive : un vrai périphérique accorde à Dolphin exactement ce qu'il demande,
+et il demande 8192 trames. Le tuyau, lui, ne négocie rien — il **force** un
+tampon plus petit en étant petit. Ce qui passait pour un bricolage se révèle être
+la seule chose qui contraignait l'émulateur.
+
+> Un montage propre n'est pas automatiquement meilleur qu'un bricolage. Celui-ci
+> imposait une limite que le montage propre laisse choisir à l'autre bout.
+
+Contraint par `dmix`, en revanche, le bouclage descend à 21,3 ms, soit **21 ms de
+moins qu'aujourd'hui**. La contrainte passe par `dmix` et pas autrement :
+`period_size` n'est pas un champ accepté dans la définition d'esclave d'un
+greffon `plug`, ce qui explique enfin proprement l'échec du même essai sur le
+greffon `file` quelques heures plus tôt — ce n'était pas le greffon, c'était le
+champ.
+
+#### Ce que la migration coûterait, maintenant qu'on sait ce qu'elle rapporte
+
+Vingt et une millisecondes sur les 98 du joueur, contre : un module noyau chargé
+au démarrage, `/dev/snd` exposé dans le conteneur, le worker et le conteneur
+ajoutés au groupe `audio` — l'expérience a dû tourner en root pour cette raison —
+une couche `dmix` dans la configuration, et notre lecteur réécrit sur `alsa-lib`,
+donc une dépendance de plus et des modes de panne de plus. Sans compter que rien
+de tout ça n'est encore prouvé de bout en bout : la négociation dit ce que le
+tampon vaut, pas si le son sort proprement à travers une horloge en jiffies.
+
+La machine a été remise dans l'état où elle était, module retiré, salle jamais
+interrompue. La décision appartient à qui la maintiendra.
+
+---
+
 ## 7. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
 
 | Le piège | Ce qui s'est passé | La leçon |

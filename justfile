@@ -108,6 +108,17 @@ browser-sound:
     cd spikes/m3-browser-drive && node sound.mjs http://localhost:8100/ 20
     cd spikes/m3-browser-drive && node playback.mjs http://localhost:8100/ 12
 
+# Where the audio latency goes, poste by poste, on the client's side of the wire.
+# Needs the worker RUNNING. Give it 60 s or more: the page's lead decays one
+# millisecond per clean second, so a short look reports where it STARTED rather
+# than where it lives.
+#
+# It prints what it cannot see, on purpose. The server's pipe sits upstream of
+# the timestamp everything here is measured against, and hid 341 ms behind a
+# figure that looked healthy.
+audio-budget seconds="60":
+    cd spikes/m3-browser-drive && node audio-budget.mjs http://localhost:8100/ {{seconds}}
+
 # The two ways of building the audio context, one after the other on the same
 # stream. Prints what each costs; whether either buzzes is a question for ears.
 browser-rates:

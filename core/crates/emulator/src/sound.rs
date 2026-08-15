@@ -65,9 +65,33 @@ pub const CHUNK_BYTES: usize = CHUNK_FRAMES * AUDIO_FRAME_BYTES;
 /// available removes the back pressure that makes the stream real time, and the
 /// sound skips. Shrinking the buffer keeps the mechanism and moves the number.
 ///
-/// 8 KiB is 42 ms — two pages, four times the ten-millisecond chunk this reader
-/// takes per tick, so a reader that misses two ticks still finds sound waiting.
-/// The `starved` counter is what says whether it is too tight.
+/// **The capacity IS the latency**, and that is not a figure of speech here.
+/// Sampled 120 times on the running machine, the writer was blocked in
+/// `pipe_write` on 113 of them: the pipe sits full 94 % of the time, so every
+/// byte of capacity is a byte of standing delay. Reading more often does not
+/// change it — the writer refills to full the instant room appears.
+///
+/// So it is as small as it can be made without breaking, and where that is was
+/// found by breaking it. **One page, 4 KiB (21 ms), starves:** 2891 chunks of
+/// invented silence in two minutes, and the sound went discontinuous again —
+/// the jump at a chunk boundary was five times the jump inside one, on 159
+/// boundaries out of 399.
+///
+/// What that measures is not our reader, which takes its ten milliseconds on
+/// time. It is something on Dolphin's side of the pipe, and the honest position
+/// is that the mechanism is not pinned down. Its ALSA backend asks for at most
+/// 8192 frames in up to 32 periods (`AlsaSoundStream.h` @ 216ffb45), which would
+/// be 256-frame writes — small enough to fit four times over in one page. So the
+/// obvious explanation is wrong, and what is left is a guess about its audio
+/// thread stalling on a tight pipe long enough for its mixer to fall behind.
+///
+/// Constraining the periods from our side was tried, by giving the `file`
+/// plugin's slave an explicit `period_size` and `buffer_size`: ALSA refused the
+/// whole device and the room went silent, 4005 invented chunks and not one
+/// audible. Reverted.
+///
+/// Two pages is therefore an empirical floor, not a derived one, and it is
+/// labelled as such rather than dressed up.
 const PIPE_BYTES: i32 = 8 * 1024;
 
 /// The read end of Dolphin's sound.

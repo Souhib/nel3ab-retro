@@ -2665,6 +2665,69 @@ prochain gain, plus petit d'un ordre de grandeur.
 
 ---
 
+### 6.65 On demandait nous-mêmes dix millisecondes de tampon au navigateur
+
+Le tuyau réglé, il restait « un léger décalage ». Cette fois le budget a été
+établi poste par poste avant de toucher à quoi que ce soit, avec un banc qui
+interroge la page elle-même — parce que la sortie audio du navigateur, seul le
+navigateur peut la dire.
+
+| poste | ms | à qui |
+|---|---|---|
+| tuyau côté serveur | 42 | à nous, à son plancher |
+| morceau attendu avant envoi | 10 | à nous |
+| avance de la page | 10 | à nous |
+| sortie du navigateur | 32 | pas à nous… |
+
+Sauf que si. La page construisait son contexte audio avec
+`new AudioContext({ latencyHint: 0.01 })`. Un `latencyHint` numérique est une
+demande **en secondes**, et Chrome l'écoute de très près : on demandait dix
+millisecondes, il rendait exactement dix millisecondes de `baseLatency` — et
+trente-deux de sortie totale.
+
+En demandant **zéro**, c'est-à-dire « aussi bas que tu peux » :
+
+| | écart son/image | sortie navigateur | coupures / 90 s |
+|---|---|---|---|
+| `latencyHint: 0.01` | 30 ms | 32,0 (dont 10 à la page) | 1 sur 8989 |
+| `latencyHint: 0` | **7 ms** | **8,0 (dont 2,7)** | 1 sur 8987 |
+
+**Vingt-trois millisecondes, pour un caractère.** Et la crainte qui justifiait le
+0,01 — un tampon plus court grésillerait — ne survit pas à la mesure : le même
+taux de coupures, une sur presque neuf mille morceaux, dans les deux cas. Chrome
+ramène de toute façon la demande à ce que la machine sait faire, donc un poste
+qui ne peut pas descendre reçoit simplement ce qu'il peut.
+
+> Un réglage prudent se vérifie comme le reste. Celui-ci coûtait plus cher que ce
+> qu'il achetait, et il aurait suffi de comparer une fois pour le voir.
+
+#### Deux pistes ouvertes puis refermées, dans le même passage
+
+**Contraindre les périodes d'ALSA depuis notre configuration.** L'idée était
+bonne : si Dolphin écrivait par plus petits morceaux, le tuyau pourrait
+rétrécir. Donner au greffon `file` un esclave avec `period_size` et
+`buffer_size` explicites a fait refuser le périphérique entier — 4005 morceaux
+inventés, pas un seul audible. Annulé en quatre minutes.
+
+**Descendre le tuyau à une page (21 ms).** 2891 morceaux affamés en deux minutes
+et le son de nouveau discontinu. Huit kilo-octets est donc un plancher
+**empirique**, et le carnet le dit ainsi : le source de Dolphin annonce des
+écritures de 256 trames, qui tiendraient quatre fois dans une page, donc
+l'explication évidente est fausse et la vraie n'est pas établie.
+
+#### Où en est le budget
+
+De 341 + 10 + 10 + 32 ≈ 390 ms au départ à **42 + 10 + 10 + 8 ≈ 70 ms**. L'écart
+son/image que la page affiche est passé de 31 à 7 ms sur la machine de test.
+
+Ce qui reste, par ordre de taille : le tuyau (42 ms, plancher empirique, et la
+seule voie plus bas serait un vrai périphérique ALSA virtuel via `snd-aloop`),
+le morceau (10 ms, divisible par deux au prix du double de messages), et l'avance
+de la page (10 ms, qui demanderait un `AudioWorklet` à tampon circulaire pour
+descendre vers 3).
+
+---
+
 ## 7. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
 
 | Le piège | Ce qui s'est passé | La leçon |
@@ -2745,7 +2808,7 @@ Dolphin ──image──► Vulkan (conversion) ──► encodeur matériel �
 | encodage | 1,96 ms médian, 3,41 ms au pire | en 1280×960, jeu en mouvement |
 | entrée → image | 5,18 ms p50, 15,58 au p95 | le p95 est une trame : c'est la frontière de trame, pas notre code |
 | son | 188 Kio/s pour 187,5 attendus | 998 morceaux en 20 s |
-| décalage son/image | 47 ms **mesuré**, plus ce que le tuyau retenait | le tuyau ajoutait jusqu'à 341 ms qu'aucune mesure ne voyait, ramenés à 42 (voir 6.64) |
+| décalage son/image | **7 ms** affichés par la page, ~70 ms de latence audio totale | 390 ms au départ : le tuyau en cachait 341 (6.64) et le navigateur en rendait 24 de trop (6.65) |
 | débit | 5,5 Mbit/s sur une scène calme, 16 à 17 sur une scène chargée | 1280×960 |
 | coût d'une salle | Dolphin 49,6 à 53,6 % d'un cœur, worker ~4,4 %, GPU médian 4 % | douze cœurs, une seule salle |
 

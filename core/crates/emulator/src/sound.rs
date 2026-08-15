@@ -46,6 +46,30 @@ pub const CHUNK_FRAMES: usize = (AUDIO_RATE / 100) as usize;
 /// Bytes in one chunk.
 pub const CHUNK_BYTES: usize = CHUNK_FRAMES * AUDIO_FRAME_BYTES;
 
+/// How much sound the pipe is allowed to hold, and therefore how far behind the
+/// emulator this reader runs.
+///
+/// **This is the latency nothing could see.** A Linux pipe holds 64 KiB by
+/// default, which at 48 kHz stereo is 341 ms of audio. Dolphin fills it in the
+/// first moments — the `null` slave accepts everything instantly, so nothing
+/// paces the writer — and then blocks in `pipe_write` for the rest of the
+/// session. Confirmed on the running machine: its writer thread sat in
+/// `pipe_write` on every sample taken. Since the pipe stays full, every sample
+/// read out of it is as old as the pipe is deep.
+///
+/// No metric could show it, and that is the lesson worth keeping: a chunk is
+/// stamped when WE read it, so the whole delay happens upstream of our own
+/// clock. The measurement said 47 ms while the real figure was ten times that.
+///
+/// Draining the backlog is NOT the fix, and it was tried: taking everything
+/// available removes the back pressure that makes the stream real time, and the
+/// sound skips. Shrinking the buffer keeps the mechanism and moves the number.
+///
+/// 8 KiB is 42 ms — two pages, four times the ten-millisecond chunk this reader
+/// takes per tick, so a reader that misses two ticks still finds sound waiting.
+/// The `starved` counter is what says whether it is too tight.
+const PIPE_BYTES: i32 = 8 * 1024;
+
 /// The read end of Dolphin's sound.
 #[derive(Debug)]
 pub struct SoundTap {
@@ -93,6 +117,14 @@ impl SoundTap {
                 path: path.clone(),
                 source,
             })?;
+        // Shrunk before anybody writes to it, which is the only moment it can
+        // be: the kernel refuses to shrink a pipe below what it already holds.
+        // Best-effort — a kernel that says no leaves the reader to do the whole
+        // job, which it does.
+        if let Err(errno) = nix::fcntl::fcntl(&file, nix::fcntl::FcntlArg::F_SETPIPE_SZ(PIPE_BYTES))
+        {
+            tracing::warn!(%errno, "the sound pipe kept its default size");
+        }
         Ok(Self {
             file,
             path,
@@ -132,6 +164,15 @@ impl SoundTap {
             std::thread::sleep(self.due - now);
         }
 
+        // Exactly enough for one chunk, and NOT more. This looks like a reader
+        // that could be draining and is not, and it was changed to drain once.
+        // It must not be again: taking everything available removes the back
+        // pressure that makes the stream real time in the first place, because
+        // the `null` slave never applies any. Measured with the drain in place —
+        // the emulator wrote 80 seconds of audio for every 10 seconds of wall
+        // clock, and what came out skipped: the jump at a chunk boundary was
+        // nine times the jump inside one, on 47% of boundaries. Audible as
+        // clicking. The pipe filling and Dolphin waiting IS the clock.
         let mut scratch = [0_u8; CHUNK_BYTES];
         while self.pending.len() < CHUNK_BYTES {
             match self.file.read(&mut scratch) {
@@ -159,6 +200,7 @@ impl SoundTap {
 )]
 mod tests {
     use super::*;
+    use crate::config::AUDIO_FRAME_BYTES_U32;
 
     /// The chunk is exactly the length it claims, and the arithmetic that says
     /// so is worth pinning: the first reader written against this pipe took
@@ -177,6 +219,60 @@ mod tests {
             "{CHUNK_FRAMES} frames at {AUDIO_RATE} Hz is {seconds} s, not {CHUNK:?}"
         );
         assert_eq!(CHUNK_BYTES, 1920, "two channels of i16, 480 frames");
+    }
+
+    /// The pipe holds a bounded amount, and therefore so does the latency.
+    ///
+    /// It is the whole fix: nothing else here changed, because the reader taking
+    /// exactly one chunk per tick is what makes the stream real time. Red-first:
+    /// drop the `F_SETPIPE_SZ` call and this reports 65536 — 341 ms of standing
+    /// delay that no other measurement in this project can see.
+    #[test]
+    fn the_pipe_cannot_hold_more_sound_than_we_are_willing_to_be_late_by() {
+        let dir = tempfile::tempdir().unwrap();
+        let tap = SoundTap::open(dir.path()).unwrap();
+
+        let held = nix::fcntl::fcntl(&tap.file, nix::fcntl::FcntlArg::F_GETPIPE_SZ).unwrap();
+
+        assert_eq!(held, PIPE_BYTES, "the pipe kept a different size");
+        // Stated in milliseconds, because that is the unit the mistake was made
+        // in: 64 KiB reads as "a buffer", 341 ms reads as a third of a second of
+        // sound arriving late.
+        let milliseconds =
+            f64::from(held) / (f64::from(AUDIO_RATE) * f64::from(AUDIO_FRAME_BYTES_U32) / 1000.0);
+        assert!(
+            milliseconds <= 50.0,
+            "the pipe can hold {milliseconds:.0} ms of sound, which is latency \
+             nobody can measure from the other end"
+        );
+        // And still more than the reader takes in one go, or it would starve on
+        // its own cadence rather than on the emulator's.
+        assert!(
+            milliseconds >= 2.0 * CHUNK.as_secs_f64() * 1000.0,
+            "too tight for two ticks"
+        );
+    }
+
+    /// Sound that arrives on time is passed through untouched.
+    ///
+    /// The negative twin of the bound above: a pipe small enough would "fix" the
+    /// latency by losing the audio, and this is what says it does not.
+    #[test]
+    fn sound_that_arrives_on_time_is_kept_whole() {
+        use std::io::Write as _;
+        let dir = tempfile::tempdir().unwrap();
+        let mut tap = SoundTap::open(dir.path()).unwrap();
+        let mut writer = std::fs::OpenOptions::new()
+            .write(true)
+            .open(dir.path().join(AUDIO_PIPE))
+            .unwrap();
+        writer.write_all(&[7_u8; CHUNK_BYTES]).unwrap();
+
+        let mut chunk = [0_u8; CHUNK_BYTES];
+        tap.next_chunk(&mut chunk);
+
+        assert!(chunk.iter().all(|byte| *byte == 7), "the chunk was altered");
+        assert_eq!(tap.starved(), 0);
     }
 
     /// Nothing on the pipe is silence, not a short chunk: a page that receives

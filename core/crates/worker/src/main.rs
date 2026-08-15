@@ -386,9 +386,15 @@ fn run(settings: &Settings) -> Result<()> {
     // Sound rides its own thread because it has its own pace: the tap takes
     // 48000 frames a second, and a picture that takes 20 ms to encode must not
     // hold a chunk of sound back by 20 ms.
+    // Chunks the tap had to invent because nothing was in the pipe. Reported
+    // alongside everything else because it is what says the pipe is now too
+    // small: it was shrunk from 64 KiB to 8 to cut 341 ms of standing delay, and
+    // this is the counter that would show the cut going too far.
+    let sound_starved = Arc::new(std::sync::atomic::AtomicU64::new(0));
     let sound_thread = {
         let server = Arc::clone(&server);
         let stopping = Arc::clone(&stopping);
+        let sound_starved = Arc::clone(&sound_starved);
         std::thread::Builder::new()
             .name("sound".to_owned())
             .spawn(move || {
@@ -400,6 +406,7 @@ fn run(settings: &Settings) -> Result<()> {
                         break;
                     }
                     let captured = started.elapsed();
+                    sound_starved.store(sound.starved(), std::sync::atomic::Ordering::Relaxed);
                     let _delivered = server.send_sound(
                         u64::try_from(captured.as_micros()).unwrap_or(u64::MAX),
                         &chunk,
@@ -547,6 +554,7 @@ fn run(settings: &Settings) -> Result<()> {
                 dropped = server.dropped(),
                 inputs_received = server.inputs_received(),
                 inputs_applied = applied.load(std::sync::atomic::Ordering::Relaxed),
+                sound_starved = sound_starved.load(std::sync::atomic::Ordering::Relaxed),
                 frames = wait.samples,
                 waiting_p50_ms = wait.p50,
                 waiting_p95_ms = wait.p95,

@@ -2587,6 +2587,84 @@ test qui ne peut pas échouer, et elle a failli être écrite ici.
 
 ---
 
+### 6.64 Le son avait 341 ms de retard que rien ne mesurait
+
+La question posée était simple : peut-on faire mieux sur l'audio ? La réponse
+tenait dans un endroit où personne n'avait regardé, parce qu'aucun instrument ne
+pointait dessus.
+
+#### Le raisonnement qui a mené là
+
+La configuration ALSA envoie le son de Dolphin dans un tuyau, avec un esclave
+`null` : rien ne cadence l'écriture. Ce qui rend le flux temps réel, c'est que le
+lecteur prend dix millisecondes toutes les dix millisecondes, le tuyau se remplit,
+et Dolphin **attend**. C'était écrit et c'était juste.
+
+Ce qui n'avait pas été tiré, c'est la conséquence. Un tuyau Linux fait 64 Kio par
+défaut. À 48 kHz en stéréo 16 bits, ça fait **341 ms de son**. Le tuyau est plein
+en permanence, donc chaque échantillon qu'on lit a l'âge du tuyau.
+
+Vérifié sur la machine en marche, sans rien toucher : le fil écrivain de Dolphin
+était dans `pipe_write` à chaque échantillon pris.
+
+```
+tid 1023143 : pipe_write   <-- bloqué, donc le tuyau est plein
+capacité par défaut : 65536 octets = 341 ms de son
+```
+
+> **Et aucune de nos mesures ne pouvait le voir.** Un morceau est horodaté quand
+> *nous* le lisons. Tout le retard se passe en amont de notre propre horloge,
+> donc l'instrument mesurait fidèlement la moitié du chemin en ignorant l'autre.
+> Le chapitre 9 annonçait 47 ms en toute bonne foi.
+
+C'est le piège le plus utile de cette série : **un instrument placé après le
+défaut ne mesure pas zéro, il mesure autre chose, et il a l'air en bonne santé.**
+
+#### La correction évidente, et pourquoi elle était fausse
+
+Premier réflexe : vider le tuyau à chaque tour et ne garder qu'un coussin. Écrit,
+testé, mis en service — et démenti par la mesure en quatre minutes.
+
+Le compteur de son jeté est monté à **80 secondes d'audio par 10 secondes
+d'horloge**, ce qui dit que Dolphin produit huit fois trop vite dès qu'on cesse
+de le freiner. Et le son est devenu discontinu :
+
+| | saut à l'intérieur d'un morceau | saut à la jointure | jointures cassées |
+|---|---|---|---|
+| avec le vidage | 362 | **3232** | 141 / 299 |
+| sans | 288 | 292 | 0 / 299 |
+
+Autrement dit : le blocage n'était pas un effet de bord du montage, **c'était
+l'horloge**. Le retirer rend la main à un émulateur qui n'a aucune raison de
+tenir le rythme, et on ne joue plus qu'un huitième de ce qu'il produit.
+
+> Avant de supprimer un blocage, demander ce qu'il retenait. Ici il retenait le
+> temps.
+
+#### Ce qui marche : garder le mécanisme, réduire le récipient
+
+Le tuyau passe de 64 Kio à **8 Kio**, soit 42 ms. Une ligne, `F_SETPIPE_SZ`, à
+l'ouverture — avant que quiconque écrive, seul moment où le noyau accepte de
+rétrécir un tuyau. Le lecteur ne change pas, donc la contre-pression reste, donc
+la cadence reste.
+
+Mesuré après : son continu (292 contre 288, zéro jointure cassée), **zéro
+famine**, et le tuyau ne peut plus retenir plus de 42 ms quoi qu'il arrive.
+
+Pourquoi 8 Kio et pas 4, qui donnerait 21 ms : le tuyau est aussi ce qui absorbe
+un hoquet de l'émulateur, et 42 ms couvre quatre tours de lecteur là où 21 n'en
+couvre que deux. Le compteur de famine est ce qui autoriserait à descendre, et il
+faudrait une observation plus longue que quarante secondes pour le dire.
+
+**Ce qui reste honnête à dire** : je ne peux pas mesurer d'ici ce que l'oreille
+entend. Ce que je peux affirmer est que le tuyau était plein à 341 ms et qu'il
+est désormais borné à 42, sans rien perdre du signal. Le reste du chemin — dix
+millisecondes de remplissage de morceau, dix d'avance côté page, et les 48 de
+sortie système chez le joueur — est inchangé, et c'est là que se trouverait le
+prochain gain, plus petit d'un ordre de grandeur.
+
+---
+
 ## 7. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
 
 | Le piège | Ce qui s'est passé | La leçon |
@@ -2667,7 +2745,7 @@ Dolphin ──image──► Vulkan (conversion) ──► encodeur matériel �
 | encodage | 1,96 ms médian, 3,41 ms au pire | en 1280×960, jeu en mouvement |
 | entrée → image | 5,18 ms p50, 15,58 au p95 | le p95 est une trame : c'est la frontière de trame, pas notre code |
 | son | 188 Kio/s pour 187,5 attendus | 998 morceaux en 20 s |
-| décalage son/image | 47 ms | dont 48 (parfois 56) de sortie système chez le joueur, hors de notre portée |
+| décalage son/image | 47 ms **mesuré**, plus ce que le tuyau retenait | le tuyau ajoutait jusqu'à 341 ms qu'aucune mesure ne voyait, ramenés à 42 (voir 6.64) |
 | débit | 5,5 Mbit/s sur une scène calme, 16 à 17 sur une scène chargée | 1280×960 |
 | coût d'une salle | Dolphin 49,6 à 53,6 % d'un cœur, worker ~4,4 %, GPU médian 4 % | douze cœurs, une seule salle |
 

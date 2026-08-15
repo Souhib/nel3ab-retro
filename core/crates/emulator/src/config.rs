@@ -68,6 +68,9 @@ pub const AUDIO_RATE: u32 = 48_000;
 pub const AUDIO_CHANNELS: u32 = 2;
 /// Bytes per sample frame: two channels of `i16`.
 pub const AUDIO_FRAME_BYTES: usize = 4;
+/// The same figure where a `u32` is what converts without a lint: `f64::from`
+/// is exact for a `u32` and merely plausible for a `usize`.
+pub const AUDIO_FRAME_BYTES_U32: u32 = 4;
 
 /// `SIDEVICE_GC_CONTROLLER` in Dolphin's `SIDevices` enum.
 ///

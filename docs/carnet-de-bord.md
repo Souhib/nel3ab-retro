@@ -2773,6 +2773,39 @@ Annulé.
 
 ---
 
+### 6.67 Une avance qui ne redescendait qu'à moitié
+
+Le chiffre affiché sur le PC Windows est monté à 99 ms après le correctif
+précédent. Il fallait d'abord séparer deux choses : **le son a-t-il empiré, ou le
+chiffre a-t-il cessé de mentir ?** L'horodatage daté de la profondeur du tuyau
+ajoute exactement 42,7 ms à l'affichage sans retarder quoi que ce soit, donc 99
+aujourd'hui décrit la même réalité que 56 la veille.
+
+Mais en cherchant ce qui pouvait, lui, avoir vraiment augmenté, un défaut de
+régulation est apparu.
+
+L'avance de la page monte de **10 ms à chaque coupure** et ne redescendait que
+d'**1 ms toutes les deux secondes**. Une seule coupure coûte donc vingt secondes
+de récupération. Sur un lien qui hoquette plus souvent que ça — un Wi-Fi, un
+réseau chargé — l'avance **monte jusqu'à son plafond de 120 ms et y reste**,
+ajoutant tout ça à la distance entre le son et l'image pour le reste de la
+partie.
+
+> Une commande qui ne monte que sur un mauvais lien ne suit pas le lien : elle se
+> souvient de son pire moment.
+
+Elle redescend maintenant d'un dixième de l'excès par fenêtre. Depuis le plafond,
+ça converge en une minute au lieu de quatre, et ça ralentit en approchant du
+plancher, donc une avance déjà correcte ne bouge presque pas. Le millimètre de
+plancher est gardé comme pas minimal, sinon la décroissance s'arrêterait juste
+au-dessus.
+
+Mesuré sur 90 s d'un lien propre, où le défaut ne se voit pas : avance au
+plancher de 10 ms, **une coupure sur 8989 morceaux**, exactement comme avant. La
+correction ne coûte rien là où elle ne sert pas.
+
+---
+
 ## 7. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
 
 | Le piège | Ce qui s'est passé | La leçon |

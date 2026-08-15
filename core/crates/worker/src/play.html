@@ -706,11 +706,25 @@
     const WINDOW = 120; // two seconds at 60 Hz
     if (ticks % WINDOW !== 0) return;
 
-    // The sound's lead comes back down when nothing has broken, one millisecond
-    // at a time. Growing it is what a break costs; keeping it is what the sound
-    // costs against the picture, for ever.
+    // The sound's lead comes back down when nothing has broken. A SHARE of the
+    // excess, not a fixed millisecond, and the difference matters on a link that
+    // hiccups.
+    //
+    // It was one millisecond per window, which is one per two seconds, against
+    // ten bought by every gap. So a single blip cost twenty seconds of recovery,
+    // and anything that broke more often than that RATCHETED: the lead climbed
+    // to its 120 ms ceiling and stayed there, adding all of it to the distance
+    // between the sound and the picture for the rest of the session. A control
+    // that only goes up on a bad link is not tracking the link, it is
+    // remembering the worst moment of it.
+    //
+    // A tenth of the excess converges from the ceiling in about a minute instead
+    // of four, and slows down as it approaches the floor, so a lead that is
+    // already about right barely moves. The millisecond is kept as a minimum
+    // step so it cannot creep to a halt just above the floor.
     if (soundGaps === soundGapsSeen && soundLead > SOUND_LEAD_MIN) {
-      soundLead = Math.max(SOUND_LEAD_MIN, soundLead - 0.001);
+      const excess = soundLead - SOUND_LEAD_MIN;
+      soundLead = Math.max(SOUND_LEAD_MIN, soundLead - Math.max(0.001, excess * 0.1));
     }
     soundGapsSeen = soundGaps;
 

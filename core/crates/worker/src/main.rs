@@ -306,12 +306,23 @@ fn run(settings: &Settings) -> Result<()> {
     // p50 15.55 ms, because a write locked to the frame notification always
     // landed just after the emulator polled its pipe.
     let pad = session.pad_writer();
+    // Why a flag rather than "am I the last one holding the server": the loops
+    // below used to break on `Arc::strong_count(&server) == 1`, which was CORRECT
+    // when the pad thread was the only extra holder and became unsatisfiable the
+    // day the sound thread added a second. Two holders each waiting for the count
+    // to reach one wait for each other, so neither leaves, `join` never returns,
+    // and `session.shutdown()` below is never reached — the worker hangs with
+    // Dolphin still running, and systemd sees a live process and never restarts
+    // it. A count that means "how many of us are there" cannot express "we are
+    // done"; this can, and adding a third thread cannot break it.
+    let stopping = Arc::new(std::sync::atomic::AtomicBool::new(false));
     let applied = Arc::new(std::sync::atomic::AtomicU64::new(0));
     let last_input = Arc::new(Mutex::new(None::<Instant>));
     let input_thread = {
         let applied = Arc::clone(&applied);
         let last_input = Arc::clone(&last_input);
         let server = Arc::clone(&server);
+        let stopping = Arc::clone(&stopping);
         std::thread::Builder::new()
             .name("pad".to_owned())
             .spawn(move || {
@@ -319,10 +330,10 @@ fn run(settings: &Settings) -> Result<()> {
                     // A deadline rather than a wait forever, so this notices the
                     // session ending instead of outliving it.
                     let frames = server.wait_input(Duration::from_millis(250));
+                    if stopping.load(std::sync::atomic::Ordering::Relaxed) {
+                        break;
+                    }
                     if frames.is_empty() {
-                        if Arc::strong_count(&server) == 1 {
-                            break;
-                        }
                         continue;
                     }
                     for frame in &frames {
@@ -351,6 +362,7 @@ fn run(settings: &Settings) -> Result<()> {
     // hold a chunk of sound back by 20 ms.
     let sound_thread = {
         let server = Arc::clone(&server);
+        let stopping = Arc::clone(&stopping);
         std::thread::Builder::new()
             .name("sound".to_owned())
             .spawn(move || {
@@ -358,7 +370,7 @@ fn run(settings: &Settings) -> Result<()> {
                 let mut chunk = [0_u8; CHUNK_BYTES];
                 loop {
                     sound.next_chunk(&mut chunk);
-                    if Arc::strong_count(&server) == 1 {
+                    if stopping.load(std::sync::atomic::Ordering::Relaxed) {
                         break;
                     }
                     let captured = started.elapsed();
@@ -540,7 +552,9 @@ fn run(settings: &Settings) -> Result<()> {
         }
     }
 
-    // Dropping our handle lets the pad and sound threads see they are alone.
+    // Said once, to everybody. Both threads check it within their own wait —
+    // 250 ms for the pad, 10 ms for the sound — so this returns promptly.
+    stopping.store(true, std::sync::atomic::Ordering::Relaxed);
     drop(server);
     let _ = input_thread.join();
     let _ = sound_thread.join();
@@ -579,4 +593,61 @@ fn init_tracing() {
             EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
         )
         .init();
+}
+
+#[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "a panic IS the failure signal in a test"
+)]
+mod tests {
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::time::Duration;
+
+    /// Two background threads must BOTH stop when the session ends.
+    ///
+    /// Red-first: replace the flag below with `Arc::strong_count(&held) != 1` —
+    /// the shape this file carried until the sound thread appeared — and this
+    /// fails. Two holders each waiting for the count to reach one wait for each
+    /// other, so neither ever leaves. The `held` clone is here to make that
+    /// substitution possible; the fix does not need it.
+    ///
+    /// It reports through a channel with a DEADLINE rather than joining, because
+    /// a `join` on a thread that never exits does not fail, it hangs, and a test
+    /// that hangs says nothing.
+    #[test]
+    fn both_background_threads_stop_when_the_session_does() {
+        let server = Arc::new(());
+        let stopping = Arc::new(AtomicBool::new(false));
+        let (done, stopped) = std::sync::mpsc::channel::<&'static str>();
+
+        for name in ["pad", "sound"] {
+            let held = Arc::clone(&server);
+            let stopping = Arc::clone(&stopping);
+            let done = done.clone();
+            std::thread::spawn(move || {
+                while !stopping.load(Ordering::Relaxed) {
+                    std::thread::sleep(Duration::from_millis(5));
+                }
+                drop(held);
+                let _ = done.send(name);
+            });
+        }
+        drop(done);
+
+        stopping.store(true, Ordering::Relaxed);
+        drop(server);
+        let mut left: Vec<&str> = Vec::new();
+        for _ in 0..2 {
+            left.push(
+                stopped
+                    .recv_timeout(Duration::from_secs(2))
+                    .expect("a background thread never stopped"),
+            );
+        }
+        left.sort_unstable();
+        assert_eq!(left, ["pad", "sound"]);
+    }
 }

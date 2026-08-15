@@ -20,7 +20,7 @@ nel3ab-protocol = { path = "../protocol" }
 nix = { version = "0.30", default-features = false, features = ["fs", "signal"] }
 
 [dev-dependencies]
-rstest = "0.25"
+rstest.workspace = true
 tempfile = "3"
 
 [features]

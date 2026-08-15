@@ -14,6 +14,11 @@ repository = "https://github.com/Souhib/nel3ab-retro"
 [workspace.dependencies]
 thiserror = "2"
 tracing = "0.1"
+# Here rather than per crate because it was pinned twice, at 0.25 and 0.26, and
+# the tree carried both: two copies of a test framework compiled for no reason,
+# and `cargo deny`'s multiple-versions warning trained on a difference nobody
+# chose.
+rstest = "0.26"
 
 [workspace.lints.rust]
 # Deny-by-default: the crate must compile clean. An `allow` below is a decision,

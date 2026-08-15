@@ -2429,6 +2429,107 @@ chacune ne change que son moteur. Une seule chose mérite d'être retenue :
 
 ---
 
+### 6.62 Audit du cœur avant M4 : trois choses qui ne marchaient pas
+
+Avant d'ouvrir le chantier des comptes et des salles, une relecture complète des
+12 900 lignes de Rust, des dépendances et de l'outillage. Trois défauts réels, et
+aucun n'était visible depuis les tests.
+
+#### Le worker ne pouvait pas s'arrêter
+
+Les deux threads de fond, la manette et le son, sortaient de leur boucle sur
+`Arc::strong_count(&server) == 1`, c'est-à-dire « je suis le dernier à tenir le
+serveur ». La fin de partie lâche la référence principale, le compte tombe à…
+**deux**, parce que les deux threads en tiennent chacun une. Chacun attend donc
+que l'autre parte, et aucun ne part. Le `join` qui suit ne revient jamais, et
+`session.shutdown()` n'est jamais atteint : le processus reste en vie avec
+Dolphin derrière lui, et systemd, qui voit un processus vivant, ne redémarre
+rien. **La salle meurt sans que rien ne la relève.**
+
+Le plus instructif est la datation. L'idiome était **juste le jour où il a été
+écrit** : le thread manette était alors le seul détenteur supplémentaire, le
+compte tombait bien à un. C'est l'ajout du son, deux semaines plus tard, qui l'a
+rendu insatisfiable — sans toucher à cette ligne, sans qu'aucun test change de
+couleur.
+
+> Une condition qui compte « combien sommes-nous » ne peut pas exprimer « nous
+> avons fini ». Elle donne la bonne réponse tant qu'il n'y en a qu'un, et se tait
+> le jour où il y en a deux.
+
+Vérifié par exécution avant d'être affirmé : un programme de vingt lignes
+reproduisant la forme se fait tuer par le `timeout`, code 124. Le correctif est
+un drapeau partagé, et le test qui le fige **rend compte par un canal avec une
+échéance plutôt que par un `join`** — parce qu'un `join` sur un thread qui ne
+sort jamais n'échoue pas, il pend, et un test qui pend ne dit rien. Avec
+l'ancienne condition remise, il échoue en deux secondes.
+
+#### `just miri` ne pouvait rien trouver, et ne tournait pas
+
+La recette visait `nel3ab-protocol`. Ce crate porte `#![forbid(unsafe_code)]` :
+il n'y a, par construction, aucun comportement indéfini à nous y trouver. Les 94
+blocs `unsafe` du projet vivent tous dans `nel3ab-encoder`.
+
+Et elle était **rouge** de toute façon : proptest appelle `getcwd` pour ranger
+ses graines d'échec, ce que l'isolation de Miri refuse. Le nightly n'était même
+pas installé sur la machine, ce qui date assez bien la dernière exécution.
+
+Pointée sur le bon crate, avec l'isolation coupée et les tests à socket Unix
+écartés — Miri n'implémente que AF_INET et AF_INET6 — elle exécute 25 tests en
+trois secondes : l'écrivain de flux H.264 et les analyseurs de protocole,
+c'est-à-dire exactement l'arithmétique de pointeurs et de tranches où une erreur
+serait la nôtre. Tous verts.
+
+> Une vérification qui ne peut rien trouver et qui ne tourne pas est pire que
+> pas de vérification : elle occupe la place de celle qui aurait servi.
+
+#### N'importe quel site web peut regarder la partie
+
+Le plus sérieux, et il n'est pas encore corrigé. Le serveur n'examine pas
+l'en-tête **Origin** de la poignée de main WebSocket. Or une WebSocket n'est pas
+soumise à la politique de même origine : une page ouverte dans un autre onglet
+peut ouvrir une connexion vers notre salle et **lire ce qu'elle renvoie**.
+
+Démontré sur la machine, en une poignée de main brute annonçant une origine
+étrangère :
+
+```
+réponse du serveur : HTTP/1.1 101 Switching Protocols
+octets de vidéo reçus depuis cette origine : 32768
+```
+
+Ce qui compte ici est que **ça contourne exactement la protection sur laquelle le
+projet s'appuie**. Le tailnet empêche un inconnu de se connecter lui-même ; il
+n'empêche pas la page d'un inconnu d'utiliser le navigateur du joueur, qui, lui,
+est sur le tailnet. Un site visité pendant une partie peut voir l'écran et, avec
+`/input?take=N`, prendre une manette.
+
+Le pare-feu ajoute une seconde porte que la documentation ne mentionnait pas :
+la règle `ALLOW IN from 192.168.1.0/24` ouvre **tout le réseau local**, et le
+worker écoute sur `0.0.0.0`. Le téléphone d'un invité sur le Wi-Fi atteint la
+salle sans rien traverser.
+
+#### Ce que le proxy donne déjà, et que personne n'utilisait
+
+En mesurant ce que Tailscale transmet réellement au worker, une surprise utile :
+
+```
+Host: lgf.tail3bd01c.ts.net:8445
+Origin: https://lgf.tail3bd01c.ts.net:8445
+Tailscale-User-Login: souhib.t@hotmail.fr
+Tailscale-User-Name: Souhib Trabelsi
+```
+
+Le proxy **authentifie déjà le pair et nous dit qui il est**. L'identité que M4
+doit construire est en partie posée là, gratuitement — à une condition stricte :
+un en-tête n'est digne de confiance que si l'on est sûr qu'il vient du proxy. Le
+worker écoutant sur `0.0.0.0`, n'importe qui sur le réseau peut aujourd'hui le
+contacter directement et écrire cet en-tête lui-même. **Écouter sur `127.0.0.1`
+est donc ce qui transforme cette ligne en preuve**, et ferme du même coup la
+porte du réseau local. Le coût est nul : sans TLS, le navigateur refuse déjà
+l'accès à la manette, donc personne ne joue par le port direct.
+
+---
+
 ## 7. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
 
 | Le piège | Ce qui s'est passé | La leçon |

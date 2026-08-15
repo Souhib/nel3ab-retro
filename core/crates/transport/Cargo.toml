@@ -1,6 +1,6 @@
 [package]
 name = "nel3ab-transport"
-description = "WebRTC media and input transport."
+description = "H.264, sound and pad state over plain WebSockets (ADR D9)."
 version = "0.1.0"
 edition.workspace = true
 rust-version.workspace = true

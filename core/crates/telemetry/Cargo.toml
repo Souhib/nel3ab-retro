@@ -12,4 +12,4 @@ description = "What the pipeline measures about itself: distributions, not maxim
 workspace = true
 
 [dev-dependencies]
-rstest = "0.26"
+rstest.workspace = true

@@ -153,9 +153,28 @@ end-to-end:
 audit:
     cd core && cargo deny check
 
-# Undefined behaviour in the FFI module (M2 onward).
+# Undefined behaviour in the pointer and slice arithmetic around the FFI.
+#
+# It pointed at `nel3ab-protocol` and was therefore theatre twice over: that
+# crate carries `#![forbid(unsafe_code)]`, so there is no undefined behaviour of
+# ours for Miri to find in it, and the recipe was RED anyway — proptest calls
+# `getcwd`, which Miri's isolation refuses. A check that cannot fail and does
+# not run is worse than no check.
+#
+# `nel3ab-encoder` is where all 94 `unsafe` blocks live. The two flags are not
+# decoration:
+#
+#   -Zmiri-disable-isolation   proptest reads the filesystem to persist failing
+#                              seeds; isolation blocks that and aborts the run.
+#   --skip frame_source        Miri implements AF_INET and AF_INET6 only, so the
+#                              tests that bind a Unix socket cannot run under it.
+#
+# What is left is exactly what CLAUDE.md rule 2 asks for: the H.264 bitstream
+# writer and the wire parsers, where a mistake would be ours rather than the
+# GPU's. Miri cannot execute libva or Vulkan and never will.
 miri:
-    cd core && cargo +nightly miri test -p nel3ab-protocol
+    cd core && MIRIFLAGS=-Zmiri-disable-isolation cargo +nightly miri test \
+        -p nel3ab-encoder --lib -- --skip frame_source
 
 # The API reference, generated from the Rust source.
 doc:

@@ -202,9 +202,15 @@ pub struct BrowserServer {
 impl BrowserServer {
     /// Binds and starts serving.
     ///
-    /// `page` is served for any plain HTTP `GET`; the two WebSocket paths are
-    /// `/video` and `/input`. Nothing here authenticates anybody — that is M4,
-    /// and pretending otherwise would be worse than saying so.
+    /// `page` is served for any plain HTTP `GET`; the WebSocket paths are
+    /// `/video`, `/sound` and `/input`.
+    ///
+    /// Nothing here authenticates a PERSON — that is M4, and pretending
+    /// otherwise would be worse than saying so. What it does check is that a
+    /// handshake comes from a page this server served (see [`same_origin`]), and
+    /// the worker binds loopback so the only way in is the Tailscale proxy,
+    /// which has already authenticated the device. Neither is an account; both
+    /// are what stops a stranger's web page from driving the room.
     ///
     /// `players` is how many ports this room serves, `1..=4`. It is a
     /// [`PlayerSlot`] because that is precisely the set of legal values, and the
@@ -587,6 +593,52 @@ enum Route {
     Page,
 }
 
+/// Whether a handshake came from a page this server itself served.
+///
+/// A `WebSocket` is NOT subject to the same-origin policy: any page in any tab
+/// can open one to any host the browser can reach, and read what comes back.
+/// Measured on this machine before the check existed — a raw handshake declaring
+/// `Origin: https://un-site-quelconque.example` was answered `101 Switching
+/// Protocols` and handed 32 KiB of live video.
+///
+/// That matters more here than the missing authentication it resembles, because
+/// it defeats the one thing that WAS protecting the room. The tailnet stops a
+/// stranger connecting; it does not stop a stranger's PAGE using the browser of
+/// somebody who is already on it.
+///
+/// The rule compares `Origin` against `Host` rather than an allow-list, so it
+/// configures itself: the page is served by this same server, so its origin is
+/// whatever host it was fetched from. Through the Tailscale proxy that is
+/// `lgf.tail3bd01c.ts.net:8443` on both headers; locally it is `localhost:8100`
+/// on both. An allow-list would be one more place to update when the address
+/// changes, and the failure mode of forgetting is a room nobody can join.
+///
+/// **An absent `Origin` is allowed, and that is deliberate.** A browser always
+/// sends one; a native client — the benchmark harness, a test script — sends
+/// none. Rejecting those would close the harness without closing anything a
+/// browser can do. What actually bounds the non-browser case is the listening
+/// address: bound to loopback, the only things that can reach it are local
+/// processes and the proxy.
+fn same_origin(head: &str) -> bool {
+    let field = |name: &str| {
+        head.lines()
+            .find_map(|line| line.strip_prefix(name))
+            .map(|value| value.trim().to_owned())
+    };
+    let Some(origin) = field("origin:") else {
+        return true;
+    };
+    // `null` is what a sandboxed iframe sends. It is not this server.
+    let Some(host) = field("host:") else {
+        return false;
+    };
+    // Scheme off, and nothing else: `Origin` carries no path by definition, so
+    // what is left is exactly the authority to compare.
+    origin
+        .split_once("://")
+        .is_some_and(|(_, authority)| authority == host)
+}
+
 /// Reads the request head **without consuming it**, so tungstenite can do the
 /// handshake itself afterwards.
 fn classify(stream: &TcpStream) -> Option<Route> {
@@ -603,6 +655,14 @@ fn classify(stream: &TcpStream) -> Option<Route> {
     let text = String::from_utf8_lossy(&head[..read]).to_lowercase();
     if !text.contains("upgrade: websocket") {
         return Some(Route::Page);
+    }
+    // Checked once, here, rather than in each of the three socket routes: a
+    // check that has to be repeated is a check somebody adds a fourth route
+    // without. The page itself is not covered because reading it cross-origin
+    // gains nothing — it is the same bytes anybody can fetch.
+    if !same_origin(&text) {
+        tracing::warn!("a websocket handshake came from another origin, refusing it");
+        return None;
     }
     if text.starts_with("get /video") {
         return Some(Route::Video);
@@ -1090,6 +1150,87 @@ mod tests {
                 None => "none",
             };
             assert_eq!(got, expected, "for {}", String::from_utf8_lossy(request));
+            client.join().unwrap();
+        }
+    }
+
+    /// The positive case, and its negative twins.
+    ///
+    /// Red-first: delete the `same_origin` call in `classify` and the foreign
+    /// and sandboxed cases below both pass, which is what the server did before
+    /// this existed.
+    #[test]
+    fn a_handshake_is_taken_only_from_a_page_this_server_served() {
+        // Through the Tailscale proxy: both headers carry the proxy's authority.
+        assert!(same_origin(
+            "host: lgf.tail3bd01c.ts.net:8443\r\norigin: https://lgf.tail3bd01c.ts.net:8443"
+        ));
+        // Locally, over plain http.
+        assert!(same_origin(
+            "host: localhost:8100\r\norigin: http://localhost:8100"
+        ));
+        // No origin at all: a native client, not a page. Allowed on purpose —
+        // see the note on `same_origin`.
+        assert!(same_origin("host: localhost:8100"));
+
+        // The attack this exists for.
+        assert!(!same_origin(
+            "host: lgf.tail3bd01c.ts.net:8443\r\norigin: https://un-site-quelconque.example"
+        ));
+        // A sandboxed iframe. It is not this server, so it is not us.
+        assert!(!same_origin("host: localhost:8100\r\norigin: null"));
+        // The same name on another port is another origin, and the browser
+        // agrees: a page on :9000 must not drive the room on :8100.
+        assert!(!same_origin(
+            "host: localhost:8100\r\norigin: http://localhost:9000"
+        ));
+        // A host that merely ENDS with ours. Matching by suffix would take this.
+        assert!(!same_origin(
+            "host: lgf.tail3bd01c.ts.net:8443\r\norigin: https://evil-lgf.tail3bd01c.ts.net:8443"
+        ));
+    }
+
+    /// And that the check is WIRED IN, not merely present.
+    ///
+    /// The test above proves `same_origin` decides correctly; it would go on
+    /// passing if nobody called it. This one drives `classify` itself, so
+    /// deleting the call from the routing turns it red.
+    #[test]
+    fn a_foreign_origin_gets_no_route_at_all() {
+        for (request, routed) in [
+            (
+                &b"GET /video HTTP/1.1\r\nHost: localhost:8100\r\nUpgrade: websocket\r\n\r\n"[..],
+                true,
+            ),
+            (
+                &b"GET /video HTTP/1.1\r\nHost: localhost:8100\r\nOrigin: http://localhost:8100\r\nUpgrade: websocket\r\n\r\n"[..],
+                true,
+            ),
+            (
+                &b"GET /video HTTP/1.1\r\nHost: localhost:8100\r\nOrigin: https://un-site-quelconque.example\r\nUpgrade: websocket\r\n\r\n"[..],
+                false,
+            ),
+            (
+                &b"GET /input?take=1 HTTP/1.1\r\nHost: localhost:8100\r\nOrigin: https://un-site-quelconque.example\r\nUpgrade: websocket\r\n\r\n"[..],
+                false,
+            ),
+        ] {
+            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let address = listener.local_addr().unwrap();
+            let owned = request.to_vec();
+            let client = std::thread::spawn(move || {
+                let mut stream = TcpStream::connect(address).unwrap();
+                stream.write_all(&owned).unwrap();
+                stream.flush().unwrap();
+                std::thread::sleep(Duration::from_millis(200));
+            });
+            let (stream, _) = listener.accept().unwrap();
+            assert_eq!(
+                classify(&stream).is_some(),
+                routed,
+                "for {}",
+                String::from_utf8_lossy(request)
+            );
             client.join().unwrap();
         }
     }

@@ -2530,6 +2530,63 @@ l'accès à la manette, donc personne ne joue par le port direct.
 
 ---
 
+### 6.63 Ce que le proxy coûte vraiment, et la porte refermée
+
+L'audit laissait une question ouverte : fallait-il retirer Tailscale, soupçonné
+d'ajouter de la latence, ou au contraire tout faire passer par lui ? La règle du
+projet dit de mesurer, et la mesure a une jolie propriété ici : **les deux
+sockets reçoivent la même image, depuis le même appel, avec le même
+horodatage**. Comparer l'instant d'arrivée de l'image N sur les deux chemins est
+donc un appariement, pas une comparaison de deux distributions : toute la
+variance image à image disparaît, et ce qui reste est le chemin.
+
+Plancher de bruit d'abord, deux connexions directes l'une contre l'autre :
+**0,014 ms** de médiane, 0,055 au p99. Tout ce qui dépasse est un vrai signal.
+
+| direct contre proxy | p50 | p95 | p99 |
+|---|---|---|---|
+| dans un sens | +0,098 ms | +0,183 ms | +0,227 ms |
+| inversé | −0,082 ms | −0,037 ms | −0,011 ms |
+
+Même grandeur, signe opposé : **le proxy coûte un dixième de milliseconde par
+image**, soit 0,6 % d'une période de trame. Inversé pour écarter un biais
+d'ordre, et il n'y en a pas.
+
+L'autre moitié du chemin est le tunnel jusqu'au poste du joueur. `tailscale
+ping` répond sans ambiguïté : les deux machines de jeu joignent le serveur **en
+direct par le réseau local**, pas par un relais. Le PC en Ethernet répond sous la
+milliseconde, cinq fois de suite. Le Mac répond en 7 ms — à comparer aux **5 à
+64 ms, moyenne 14,7**, que met un simple ping ICMP vers la même machine : c'est
+le Wi-Fi qui domine d'un ordre de grandeur, pas le chiffrement.
+
+> Retirer Tailscale n'aurait rien fait gagner et aurait coûté le TLS. Or sans
+> TLS le navigateur refuse l'API Gamepad : il n'y aurait plus de manette du tout.
+
+Donc tout passe par le proxy, et le worker n'écoute plus que sur `127.0.0.1`.
+Ce qui ferme d'un coup les trois portes que l'audit avait trouvées, et en ouvre
+une pour M4 :
+
+- le site tiers ne peut plus rien : la poignée de main compare `Origin` à `Host`,
+  et une origine étrangère n'obtient plus de route du tout. Vérifié en rejouant
+  l'attaque à l'identique — connexion fermée sans réponse en local, 502 par le
+  proxy — et vérifié aussi sur `/input`, donc la manette ne se vole pas non plus ;
+- le réseau local n'atteint plus le port direct ;
+- et `Tailscale-User-Login` devient une **preuve** au lieu d'un en-tête que
+  n'importe qui pouvait écrire, puisque seul le proxy peut désormais parler au
+  worker.
+
+La règle se configure toute seule plutôt que par une liste d'origines
+autorisées : la page est servie par ce même serveur, donc son origine est
+l'adresse d'où elle a été chargée. Une liste serait un endroit de plus à mettre à
+jour, et l'oubli donnerait une salle où personne ne peut entrer.
+
+Deux tests plutôt qu'un, et le second est le plus important : le premier prouve
+que la fonction décide juste, **le second qu'elle est branchée**. Le premier
+passerait très bien si plus personne ne l'appelait — c'est exactement la forme du
+test qui ne peut pas échouer, et elle a failli être écrite ici.
+
+---
+
 ## 7. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
 
 | Le piège | Ce qui s'est passé | La leçon |

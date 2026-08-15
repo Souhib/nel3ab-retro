@@ -94,8 +94,34 @@ impl Settings {
                 .unwrap_or_else(|| repo.join("docker/dolphin-in-docker.sh")),
             session_dir: env_path("NEL3AB_SESSION_DIR")
                 .unwrap_or_else(|| PathBuf::from("/tmp/nel3ab-session")),
+            // Loopback, not every interface, and this is a security decision
+            // rather than a default left in place.
+            //
+            // On `0.0.0.0` the room was reachable three ways: through the
+            // Tailscale proxy, directly from any tailnet peer, and directly from
+            // the whole home network — the firewall carries `ALLOW IN from
+            // 192.168.1.0/24`, so a guest's phone on the Wi-Fi could watch and
+            // take a controller. Bound here, the proxy is the only way in.
+            //
+            // It costs nothing anybody was using: the direct port is plain HTTP,
+            // and without TLS the browser refuses the Gamepad API, so nobody
+            // could play through it. Local tests and the benchmark reach
+            // `localhost` and are unaffected.
+            //
+            // What it BUYS is worth more than what it closes. Tailscale's proxy
+            // hands the worker `Tailscale-User-Login`, the authenticated identity
+            // of the peer — measured, not assumed. That header is only evidence
+            // if nothing else can write it, which is exactly what binding here
+            // guarantees. M4's accounts start from a name we already have.
+            //
+            // Measured before choosing this: the proxy costs 0.10 ms per frame
+            // at the median (0.23 at p99, noise floor 0.014, paired comparison
+            // of the same frame on both paths), and both play machines reach the
+            // tailnet directly over the LAN rather than through a relay —
+            // sub-millisecond on Ethernet, and on Wi-Fi inside the link's own
+            // 5-to-64 ms variance. The proxy is not what anybody is feeling.
             bind: std::env::var("NEL3AB_BIND")
-                .unwrap_or_else(|_| "0.0.0.0:8100".to_owned())
+                .unwrap_or_else(|_| "127.0.0.1:8100".to_owned())
                 .parse()
                 .context("NEL3AB_BIND is not a socket address")?,
             render_node: env_path("NEL3AB_RENDER_NODE")

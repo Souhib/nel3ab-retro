@@ -2,6 +2,8 @@
 
 from pydantic import BaseModel, Field
 
+from nel3ab_control.api.schemas.player import Person
+
 
 class Game(BaseModel):
     """One game the room can run."""
@@ -28,6 +30,14 @@ class Room(BaseModel):
     game: Game | None = Field(default=None, description="What is loaded right now.")
     library: list[Game]
     seats: list[Seat]
+    people: list[Person] = Field(
+        default_factory=list,
+        description=(
+            "Tout le monde dans la salle, spectateurs compris. Les places ne "
+            "disent que ceux qui jouent, et une salle où quelqu'un regarde sans "
+            "manette avait l'air vide."
+        ),
+    )
     media_url: str = Field(
         description=(
             "Where the browser opens its own video, sound and pad sockets. Empty "

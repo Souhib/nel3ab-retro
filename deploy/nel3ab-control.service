@@ -30,6 +30,11 @@ Environment=HOME=/home/souhib
 Restart=always
 RestartSec=2
 
+# L'identité vient du proxy, qui écrit `Tailscale-User-Login` sur chaque requête
+# ET sur chaque montée en grade de WebSocket. Ça n'est une PREUVE que parce que
+# ce service n'écoute que sur la boucle locale: un service joignable autrement
+# accepterait l'en-tête de n'importe qui. Ne pas changer `--host` sans lire ça.
+#
 # Where the worker is, and what to call the room.
 Environment=NEL3AB_WORKER_URL=http://127.0.0.1:8100
 Environment=NEL3AB_ROOM_NAME=lgf

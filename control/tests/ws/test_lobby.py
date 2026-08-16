@@ -9,6 +9,7 @@ unit test and fails the moment it is served.
 import asyncio
 import socket
 from collections.abc import AsyncIterator
+from pathlib import Path
 
 import httpx
 import pytest
@@ -29,13 +30,13 @@ def _free_port() -> int:
 
 
 @pytest.fixture
-async def served() -> AsyncIterator[tuple[str, RoomController]]:
+async def served(tmp_path: Path) -> AsyncIterator[tuple[str, RoomController]]:
     """A control plane on a real port, with a fake worker behind it."""
 
     def worker(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json=LIBRARY)
 
-    settings = Settings(worker_url="http://worker.test")
+    settings = Settings(worker_url="http://worker.test", state_file=tmp_path / "people.json")
     app = create_app(settings)
     port = _free_port()
     server = uvicorn.Server(
@@ -77,4 +78,45 @@ async def test_a_page_that_takes_a_pad_is_broadcast_to_everybody(
     await player.disconnect()
     await asyncio.sleep(0.3)
     assert rooms.seats()[1].player is None, "leaving must give the pad back"
+    await watcher.disconnect()
+
+
+async def test_the_lobby_knows_who_it_is_from_the_proxy(
+    served: tuple[str, RoomController],
+) -> None:
+    """L'identité arrive sur la MONTÉE EN GRADE de la WebSocket.
+
+    C'est ce qui évite un jeton à faire circuler entre une route et une socket,
+    et c'est le seul endroit où ça se vérifie: le gestionnaire lit la portée ASGI
+    de la poignée de main, pas celle d'une requête HTTP ordinaire.
+    """
+    url, _rooms = served
+    heard: list[dict] = []
+
+    watcher = socketio.AsyncClient()
+    watcher.on("room", heard.append)
+    await watcher.connect(url, socketio_path="/socket.io")
+
+    known = socketio.AsyncClient()
+    await known.connect(
+        url,
+        socketio_path="/socket.io",
+        # Le prénom envoyé par le client dit « Imposteur »; l'en-tête du proxy dit
+        # Souhib. C'est l'en-tête qui doit gagner.
+        auth={"name": "Imposteur"},
+        headers={
+            "Tailscale-User-Login": "souhib.t@hotmail.fr",
+            "Tailscale-User-Name": "Souhib Trabelsi",
+        },
+    )
+    await asyncio.sleep(0.3)
+
+    people = heard[-1]["people"]
+    names = {person["name"] for person in people}
+    assert "Souhib" in names
+    assert "Imposteur" not in names
+    logins = {person["login"] for person in people}
+    assert "souhib.t@hotmail.fr" in logins
+
+    await known.disconnect()
     await watcher.disconnect()

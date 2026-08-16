@@ -6,13 +6,75 @@
     "version": "0.1.0"
   },
   "paths": {
+    "/api/me": {
+      "get": {
+        "tags": [
+          "me"
+        ],
+        "summary": "Read Me",
+        "description": "L'identité que le proxy garantit, et le pseudo qui va avec.\n\nRend `login: null` quand aucun proxy n'est devant, ce qui est le cas en\ndéveloppement. Ce n'est pas une erreur: la page retombe alors sur un prénom\ngardé dans le navigateur, comme avant.",
+        "operationId": "read_me",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Me"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "me"
+        ],
+        "summary": "Rename Me",
+        "description": "Change son propre pseudo, et rien d'autre.\n\nLe pseudo est écrit sous l'adresse que le PROXY donne, jamais sous une\nadresse envoyée par le client: c'est la différence entre choisir son nom et\nchoisir celui de quelqu'un d'autre.",
+        "operationId": "rename_me",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Identity"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Me"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/room": {
       "get": {
         "tags": [
           "room"
         ],
         "summary": "Read Room",
-        "description": "What is loaded, what else could be, and who claims which pad.",
+        "description": "What is loaded, what else could be, who claims which pad, and who is here.",
         "operationId": "read_room",
         "responses": {
           "200": {
@@ -127,6 +189,76 @@
         "title": "Identity",
         "description": "A person, as this service knows them.\n\nThere is no account and no password: rooms are private and shared with people\nalready on the network. The name exists so a seat can say \"Souhib\" rather than\n\"player 2\" (ADR D12)."
       },
+      "Me": {
+        "properties": {
+          "login": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Login",
+            "description": "L'adresse que Tailscale garantit, ou rien."
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Le pseudo, choisi et modifiable."
+          },
+          "display": {
+            "type": "string",
+            "title": "Display",
+            "description": "Le nom que le fournisseur d'identité affiche, pour information.",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "Me",
+        "description": "Qui le service croit avoir en face.\n\n`login` vient du proxy et n'est pas modifiable; `name` est choisi et l'est.\nUn `login` nul veut dire « aucun proxy devant », donc aucune identité: la\npage retombe alors sur un prénom gardé dans le navigateur."
+      },
+      "Person": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "login": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Login"
+          },
+          "seat": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seat",
+            "description": "La manette qu'il tient, s'il en tient une."
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "Person",
+        "description": "Quelqu'un dans la salle, qu'il tienne une manette ou non."
+      },
       "Room": {
         "properties": {
           "name": {
@@ -157,6 +289,14 @@
             },
             "type": "array",
             "title": "Seats"
+          },
+          "people": {
+            "items": {
+              "$ref": "#/components/schemas/Person"
+            },
+            "type": "array",
+            "title": "People",
+            "description": "Tout le monde dans la salle, spectateurs compris. Les places ne disent que ceux qui jouent, et une salle où quelqu'un regarde sans manette avait l'air vide."
           },
           "media_url": {
             "type": "string",

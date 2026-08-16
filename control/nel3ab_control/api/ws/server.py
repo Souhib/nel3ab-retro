@@ -11,6 +11,7 @@ serve a room that fits in a dictionary.
 
 import socketio
 
+from nel3ab_control.api.controllers.people import PeopleController
 from nel3ab_control.api.controllers.rooms import RoomController
 
 sio = socketio.AsyncServer(
@@ -30,6 +31,6 @@ socketio_app = socketio.ASGIApp(sio, socketio_path="/socket.io")
 ROOM = "room"
 
 
-async def broadcast(rooms: RoomController) -> None:
-    """Tells everybody what the room looks like now."""
-    await sio.emit("room", (await rooms.describe()).model_dump(), room=ROOM)
+async def broadcast(rooms: RoomController, people: PeopleController) -> None:
+    """Dit à tout le monde à quoi la salle ressemble maintenant."""
+    await sio.emit("room", (await rooms.describe(people)).model_dump(), room=ROOM)

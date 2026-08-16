@@ -20,24 +20,40 @@ import { Seats } from "./components/Seats";
 import { Toggle, Volume } from "./components/Settings";
 import { forgetName, rememberedName } from "./lib/name";
 import { THEMES, applyTheme, rememberTheme, storedTheme } from "./lib/theme";
+import { useMe, useRename } from "./lib/me";
 import { useLobby, useRoom } from "./lib/room";
 import { useSession, useSnapshot } from "./lib/useSession";
 
-/** Trois écrans, dans l'ordre: le nom, la salle, la partie. */
+/**
+ * Trois écrans, dans l'ordre: qui joue, la salle, la partie.
+ *
+ * Le premier disparaît quand le proxy dit déjà qui on est, ce qui est le cas
+ * normal: demander son nom à quelqu'un dont on connaît l'adresse vérifiée est un
+ * formulaire pour rien. Il reste pour le développement local et pour une salle
+ * servie sans plan de contrôle, où il n'y a personne à reconnaître.
+ */
 export default function App() {
-  const [name, setName] = useState(rememberedName);
+  const { data: me, isPending } = useMe();
+  const [local, setLocal] = useState(rememberedName);
   const [entered, setEntered] = useState(false);
 
-  if (!name) return <Entrance onName={setName} />;
+  // Rien tant que l'identité n'a pas répondu: afficher le formulaire une demi
+  // seconde avant de le retirer se lit comme un défaut.
+  if (isPending) return null;
+
+  const identified = me?.login ?? null;
+  const name = identified ? me!.name : local;
+  if (!name) return <Entrance onName={setLocal} />;
   return (
     <Named
       name={name}
+      login={identified}
       entered={entered}
       onEnter={() => setEntered(true)}
       onForget={() => {
         forgetName();
         setEntered(false);
-        setName("");
+        setLocal("");
       }}
     />
   );
@@ -48,22 +64,35 @@ export default function App() {
  * salle se mette à jour tout seul quand quelqu'un s'assoit. */
 function Named({
   name,
+  login,
   entered,
   onEnter,
   onForget,
 }: {
   name: string;
+  login: string | null;
   entered: boolean;
   onEnter: () => void;
   onForget: () => void;
 }) {
   const { data: room, isError } = useRoom();
-  const announceSeat = useLobby(name);
+  const lobby = useLobby(login ?? name, name);
+  const rename = useRename(lobby.renamed);
 
   if (!entered) {
-    return <Lobby room={room} name={name} failed={isError} onEnter={onEnter} onForget={onForget} />;
+    return (
+      <Lobby
+        room={room}
+        name={name}
+        login={login}
+        failed={isError}
+        onEnter={onEnter}
+        onForget={onForget}
+        onRename={(chosen) => rename.mutate(chosen)}
+      />
+    );
   }
-  return <Room name={name} room={room} announceSeat={announceSeat} />;
+  return <Room name={name} room={room} announceSeat={lobby.seat} />;
 }
 
 function Room({

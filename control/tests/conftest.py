@@ -1,6 +1,7 @@
 """What every test needs: an app whose worker is a fake, and a client for it."""
 
 from collections.abc import AsyncIterator
+from pathlib import Path
 
 import httpx
 import pytest
@@ -18,8 +19,22 @@ LIBRARY = {
 
 
 @pytest.fixture
-def settings() -> Settings:
-    return Settings(room_name="Salon d'essai", worker_url="http://worker.test")
+def settings(tmp_path: Path) -> Settings:
+    # Les pseudos vont dans un dossier jetable: un test qui écrit dans le vrai
+    # fichier renommerait quelqu'un pour de bon.
+    return Settings(
+        room_name="Salon d'essai",
+        worker_url="http://worker.test",
+        state_file=tmp_path / "people.json",
+    )
+
+
+#: L'en-tête que le proxy Tailscale écrit, et que le client ne peut pas forger.
+SOUHIB = {
+    "Tailscale-User-Login": "souhib.t@hotmail.fr",
+    "Tailscale-User-Name": "Souhib Trabelsi",
+}
+VINCENT = {"Tailscale-User-Login": "vincent@example.com", "Tailscale-User-Name": "Vincent Lemaire"}
 
 
 @pytest.fixture

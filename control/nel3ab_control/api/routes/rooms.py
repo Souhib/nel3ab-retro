@@ -4,15 +4,15 @@ from fastapi import APIRouter, status
 
 from nel3ab_control.api.schemas.player import Identity
 from nel3ab_control.api.schemas.room import Room
-from nel3ab_control.dependencies import RoomsDep
+from nel3ab_control.dependencies import PeopleDep, RoomsDep
 
 router = APIRouter(prefix="/api", tags=["room"])
 
 
 @router.get("/room", response_model=Room)
-async def read_room(rooms: RoomsDep) -> Room:
-    """What is loaded, what else could be, and who claims which pad."""
-    return await rooms.describe()
+async def read_room(rooms: RoomsDep, people: PeopleDep) -> Room:
+    """What is loaded, what else could be, who claims which pad, and who is here."""
+    return await rooms.describe(people)
 
 
 @router.post("/room/seats/{port}", status_code=status.HTTP_204_NO_CONTENT)

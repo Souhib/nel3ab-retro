@@ -115,6 +115,14 @@ gpu-test:
 browser-recovery:
     cd spikes/m3-browser-drive && node wedge.mjs http://localhost:8100/ 6
 
+# L'identité, de bout en bout, à travers le VRAI proxy.
+#
+# Contre l'adresse tailscale et pas localhost: c'est le proxy qui écrit
+# l'identité, donc mesurer ailleurs mesurerait son absence. Ça veut dire que
+# cet essai ne tourne QUE sur la machine qui sert la salle.
+browser-identity:
+    cd spikes/m3-browser-drive && node identity.mjs
+
 # L'antisèche dit-elle vrai, et la réassignation tient-elle ?
 #
 # La manette est SIMULÉE, en remplaçant `navigator.getGamepads`: ce qui est

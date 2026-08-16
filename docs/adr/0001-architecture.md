@@ -308,6 +308,40 @@ hash of the page this build produced. Comparing two builds byte for byte does
 not work: the minifier assigns short identifiers differently between runs of
 identical sources, measured here at three lines of a 350 kB file.
 
+### D14 — Identity comes from the Tailscale proxy, not from a login form
+
+There is no signup, no password, no session cookie, and no plan to add one for a
+tailnet-only room. `tailscale serve` terminates the WireGuard connection, knows
+which authenticated peer is on the other end, and writes it into the request it
+forwards:
+
+```
+Tailscale-User-Login: souhib.t@hotmail.fr
+Tailscale-User-Name: Souhib Trabelsi
+```
+
+Three properties were MEASURED on 2026-08-16 rather than assumed, because the
+whole design rests on them:
+
+- the proxy **overwrites** what the client sends. A request carrying
+  `Tailscale-User-Login: attaquant@example.com` reached the backend with the real
+  address, exactly once;
+- the header is present on a **WebSocket upgrade** too, so the lobby recognises
+  somebody without a token travelling between an HTTP route and a socket;
+- both services bind `127.0.0.1`, so the proxy is the only path. This is what
+  turns the first point into a guarantee, and it is why that binding was chosen
+  (see the comment in `worker/src/main.rs`).
+
+Rejected: a shared room password (one more secret to leak, and it identifies
+nobody), and real accounts (Argon2, sessions, recovery, for five people who are
+already authenticated one layer down).
+
+The **address** is the identity and is not editable. The **pseudonym** is chosen
+by the person, editable at will, and stored server-side under that address, so it
+follows them across browsers and machines. A room with no proxy in front still
+works and simply does not know who anybody is; it falls back to a name kept in
+the browser.
+
 ## Consequences
 
 - AV1 encoding is unavailable (needs RDNA3+). Target H.264/HEVC.

@@ -1,5 +1,7 @@
 """What the control plane needs to know, and where it comes from."""
 
+from pathlib import Path
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -24,5 +26,13 @@ class Settings(BaseSettings):
         description=(
             "What a BROWSER should use to reach the worker. Empty means the same "
             "origin as the page, which is the case behind the Tailscale proxy."
+        ),
+    )
+    state_file: Path = Field(
+        default=Path.home() / ".local/state/nel3ab/people.json",
+        description=(
+            "Où les pseudos sont gardés. Hors du dépôt et hors de /tmp: un pseudo "
+            "doit survivre à un redémarrage du service ET de la machine, "
+            "contrairement aux places, qui meurent avec le processus."
         ),
     )

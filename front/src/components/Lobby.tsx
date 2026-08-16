@@ -9,25 +9,31 @@
  * Rien ne démarre tant qu'on n'est pas entré. Une image décodée derrière un
  * écran que personne ne regarde coûte à la machine sur laquelle un autre joue.
  */
+import { useState } from "react";
 import type { Room } from "../client";
+import { NAME_MAX } from "../lib/name";
 import { cn } from "../lib/cn";
 
 export function Lobby({
   room,
   name,
+  login,
   failed,
   onEnter,
   onForget,
+  onRename,
 }: {
   room: Room | undefined;
   name: string;
+  login: string | null;
   failed: boolean;
   onEnter: () => void;
   onForget: () => void;
+  onRename: (name: string) => void;
 }) {
   const seats = room?.seats ?? [];
-  const inside = seats.filter((seat) => seat.player).length;
-  const free = seats.length - inside;
+  const people = room?.people ?? [];
+  const free = seats.filter((seat) => !seat.player).length;
 
   return (
     <div className="flex h-full items-center justify-center p-6">
@@ -36,16 +42,7 @@ export function Lobby({
           <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-indigo">
             nel3ab
           </span>
-          <p className="text-[12px] text-muted">
-            bonjour {name}.{" "}
-            <button
-              type="button"
-              onClick={onForget}
-              className="text-faint underline hover:text-indigo"
-            >
-              ce n'est pas toi ?
-            </button>
-          </p>
+          <NameTag name={name} login={login} onRename={onRename} onForget={onForget} />
         </header>
 
         <section id="room" className="flex flex-col gap-3 border border-rule bg-panel p-4">
@@ -67,8 +64,25 @@ export function Lobby({
 
           <div className="flex flex-col gap-1.5 border-t border-rule pt-3">
             <span className="text-[10px] uppercase tracking-[0.2em] text-faint">
-              {inside === 0 ? "personne pour l'instant" : `${inside} à table`}
+              {people.length === 0 ? "personne pour l'instant" : `${people.length} dans la salle`}
             </span>
+            {people.length > 0 ? (
+              <ul id="people" className="flex flex-wrap gap-1.5 pb-1">
+                {people.map((person) => (
+                  <li
+                    key={person.login ?? person.name}
+                    title={person.login ?? "sans identité"}
+                    className={cn(
+                      "border px-2 py-0.5 text-[11px]",
+                      person.seat ? "border-indigo/50 text-indigo" : "border-rule text-muted",
+                    )}
+                  >
+                    {person.name}
+                    {person.seat ? ` · P${person.seat}` : ""}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
             <div className="grid grid-cols-4 gap-1.5">
               {seats.map((seat) => (
                 <div key={seat.port} className="flex flex-col gap-1 border border-rule px-2 py-1.5">
@@ -100,5 +114,90 @@ export function Lobby({
         </p>
       </div>
     </div>
+  );
+}
+
+/**
+ * Le nom qu'on porte, et le seul morceau qu'on a le droit de changer.
+ *
+ * Quand le proxy dit qui on est, l'adresse est affichée et n'est pas
+ * modifiable: c'est ce qui rend le pseudo sûr, puisqu'il est rangé sous elle.
+ * Sans identité, on retombe sur « ce n'est pas toi ? », qui oublie le prénom
+ * gardé dans le navigateur.
+ */
+function NameTag({
+  name,
+  login,
+  onRename,
+  onForget,
+}: {
+  name: string;
+  login: string | null;
+  onRename: (name: string) => void;
+  onForget: () => void;
+}) {
+  const [typing, setTyping] = useState<string | null>(null);
+
+  if (typing !== null) {
+    return (
+      <form
+        className="flex items-center gap-1.5"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const chosen = typing.trim().slice(0, NAME_MAX);
+          if (chosen) onRename(chosen);
+          setTyping(null);
+        }}
+      >
+        <input
+          id="newName"
+          autoFocus
+          maxLength={NAME_MAX}
+          value={typing}
+          onChange={(event) => setTyping(event.target.value)}
+          className="min-w-0 flex-1 border border-rule bg-panel px-2 py-1 text-[12px] outline-none focus:border-indigo"
+        />
+        <button type="submit" className="border border-indigo px-2 py-1 text-[11px] text-indigo">
+          garder
+        </button>
+        <button
+          type="button"
+          onClick={() => setTyping(null)}
+          className="px-1 text-[11px] text-faint hover:text-text"
+        >
+          annuler
+        </button>
+      </form>
+    );
+  }
+
+  return (
+    <p className="text-[12px] text-muted">
+      bonjour <span className="text-text">{name}</span>.{" "}
+      <button
+        type="button"
+        id="rename"
+        onClick={() => setTyping(name)}
+        className="text-faint underline hover:text-indigo"
+      >
+        changer de pseudo
+      </button>
+      {login ? (
+        <span className="ml-1 text-faint" title="l'adresse que Tailscale garantit">
+          · {login}
+        </span>
+      ) : (
+        <>
+          {" · "}
+          <button
+            type="button"
+            onClick={onForget}
+            className="text-faint underline hover:text-indigo"
+          >
+            ce n'est pas toi ?
+          </button>
+        </>
+      )}
+    </p>
   );
 }

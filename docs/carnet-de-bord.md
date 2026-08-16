@@ -3705,6 +3705,69 @@ paie ici.
 Il n'y a donc **ni inscription ni connexion à écrire**. Il y a un en-tête à lire.
 Ce qui se débloque avec: un propriétaire de salle qui n'est pas qu'une convention
 d'affichage, et des préférences rattachées à quelqu'un plutôt qu'à un navigateur.
+### 7.21 L'identité, sans inscription ni mot de passe
+
+Le chapitre précédent finissait sur une mesure: le proxy Tailscale écrit déjà
+l'identité authentifiée du pair. Elle est maintenant lue.
+
+#### Trois propriétés, mesurées avant d'écrire une ligne
+
+Tout le montage repose dessus, donc aucune n'a été supposée.
+
+**Le proxy écrase ce que le client envoie.** Une requête portant
+`Tailscale-User-Login: attaquant@example.com` est arrivée au service avec
+`souhib.t@hotmail.fr`, une seule fois. Ce n'est donc pas une déclaration du
+navigateur, c'est une constatation du réseau.
+
+**L'en-tête est là sur la montée en grade d'une WebSocket aussi.** Vérifié avec
+un serveur qui accepte la poignée de main et imprime ce qu'il a reçu. C'est ce
+qui évite un jeton à faire circuler entre une route HTTP et une socket, donc une
+pièce de moins à se faire voler.
+
+**Les deux services n'écoutent que sur la boucle locale.** C'est ce qui
+transforme le premier point en garantie: un service joignable autrement
+accepterait l'en-tête de n'importe qui. Cette liaison avait été choisie en M3
+pour cette raison exacte, avec le commentaire qui l'explique dans `main.rs`; elle
+se paie ici.
+
+#### Ce qui appartient à qui
+
+L'**adresse** vient du proxy et n'est pas modifiable. Le **pseudo** appartient à
+la personne: elle le choisit, elle en change quand elle veut, et il est rangé
+côté serveur sous cette adresse. C'est tout l'intérêt d'avoir une identité: le
+pseudo suit quelqu'un d'un navigateur à l'autre, ce qu'un `localStorage` ne fera
+jamais.
+
+Deux durées de vie, donc deux rangements, et c'est délibéré. Une **place** meurt
+avec le processus, parce que personne n'est encore assis dans une salle qui vient
+de redémarrer: elle reste en mémoire. Un **pseudo** doit survivre à un
+redémarrage du service et de la machine: il est écrit dans un fichier, écrit
+puis renommé pour qu'un JSON à moitié écrit n'existe jamais.
+
+#### La limite qui existait à deux endroits
+
+Le contrôleur coupait un pseudo trop long à vingt-quatre caractères, et le schéma
+Pydantic en refusait un de vingt-cinq. Deux limites à garder d'accord, et le test
+l'a dit tout de suite: il attendait un nom coupé et a reçu un 422.
+
+La longueur est restée dans le **schéma**, qui est le contrat et qui est publié
+dans le document OpenAPI que la page lit. Le contrôleur ne garde que ce que le
+schéma ne peut pas voir: un nom fait d'espaces n'est pas un nom.
+
+#### Deux défauts que les essais ont trouvés
+
+**La présence recalculait les noms.** La liste des présents rendait
+`souhib.t` au lieu de `Souhib`, et une chaîne vide pour quelqu'un sans identité.
+Elle recalculait le pseudo à partir de l'adresse seule, en perdant le nom que le
+fournisseur d'identité affiche, et n'avait rien à recalculer pour un anonyme. Le
+nom résolu à la connexion est maintenant gardé avec la présence.
+
+**Un essai qui cherchait en minuscules.** « la salle liste ses présents » a
+échoué sur une page qui affichait exactement `1 DANS LA SALLE`: l'étiquette est
+en majuscules par le style, et `innerText` rend le texte **transformé**, pas la
+source. L'assertion avait tort, pas la page. C'est la troisième fois de ce carnet
+qu'un essai accuse à tort, et la troisième fois que la sortie de l'essai contient
+déjà la réponse.
 ---
 
 ## 8. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
@@ -3760,6 +3823,8 @@ pas échouer**.
 | Une source plus lente prise pour une panne | Un jeu PAL tourne à 50 Hz: sur 60 tics d'affichage par seconde, une dizaine ne trouvent rien de neuf. La page comptait une famine à chaque fois et ajoutait 35 ms de marge pour compenser | Comparer le temps depuis la dernière ARRIVÉE à la période de la source, pas la longueur de la file. Une file vide ne dit rien d'autre que « l'écran est plus rapide que le jeu » |
 | Une région supposée d'après un nom de fichier | Les saccades de Melee ont été attribuées à une version PAL. Melee est `GALE01`, NTSC-U, et aucun jeu PAL n'avait jamais démarré sur ce worker | L'en-tête du disque le dit en une commande. Un nom de fichier est ce que quelqu'un a tapé |
 | Enlever toutes les parenthèses | Nettoyer `(Europe) (En,Fr,De,Es,It) (Rev 2)` d'un nom de jeu, par une règle qui retire tout ce qui est entre parenthèses. Un des jeux de la bibliothèque s'appelle `Mario Kart Double Dash (Retro Track Grand Prix)`: la parenthèse est le nom du hack | Une règle de nettoyage se fait sur des formes CONNUES, pas sur une syntaxe. Et le jumeau négatif du test est le titre dont la parenthèse compte |
+| `innerText` rend le texte transformé | Un essai cherchait « dans la salle » dans une page qui affichait `1 DANS LA SALLE`: l'étiquette est mise en majuscules par le style, et `innerText` rend le rendu, pas la source | Comparer sans tenir compte de la casse, ou lire l'attribut plutôt que le texte. Et se rappeler que la sortie de l'essai contenait déjà la réponse |
+| Une limite écrite deux fois | Le contrôleur coupait un pseudo à 24 caractères, le schéma en refusait 25. Deux limites à garder d'accord pour la même règle | La longueur est le contrat, donc elle vit dans le schéma, qui la publie dans l'OpenAPI. Le contrôleur ne garde que ce que le schéma ne peut pas voir |
 
 ---
 
@@ -3847,16 +3912,22 @@ carte, elle, ne se divise pas aussi bien.
   page avec la marque qui dit qu'elle a bien été reconstruite, et la fraîcheur du
   document OpenAPI et du client engendré ;
 - une CI qui fait vraiment ce qu'elle annonce, c'est-à-dire `just check` ;
+- une identité vérifiée sans inscription ni mot de passe, et un pseudo qui
+  appartient à la personne plutôt qu'à son navigateur ;
+- la liste de qui est dans la salle, spectateurs compris ;
 - un thème clair, un thème sombre, et le choix de suivre le système ;
 - une antisèche qui nomme les boutons dans le vocabulaire de la manette qu'on
   tient, et qui se modifie ligne par ligne, au clavier comme à la manette.
 
 ### Ce qui n'est pas fait, et qu'il faut dire
 
-**Rien n'authentifie personne.** Quiconque atteint le réseau privé peut regarder,
-écouter et prendre une manette. C'est M4, et c'est de loin le plus gros risque du
-système. Le pare-feu refuse les entrées par défaut, donc l'exposition s'arrête au
-tailnet — mais un lien envoyé à un ami suffit à le franchir.
+**Le service SAIT qui est là, mais ne s'en sert pas encore pour refuser quoi que
+ce soit.** Depuis 7.21, chaque personne arrive avec une adresse que le proxy
+garantit. Ce qui manque est l'étage au-dessus: personne ne vérifie encore cette
+identité avant de laisser prendre une manette ou changer de jeu, et le worker,
+lui, ne la connaît pas du tout. Quiconque atteint le tailnet peut donc encore
+regarder, écouter, jouer et changer le jeu de tout le monde. La différence avec
+avant est qu'on sait maintenant QUI, et qu'il y a de quoi construire la règle.
 
 **Il y a un salon, mais pas de salons.** Le plan de contrôle décrit **la**
 salle : celle que ce worker fait tourner. Créer une partie, en avoir deux, inviter

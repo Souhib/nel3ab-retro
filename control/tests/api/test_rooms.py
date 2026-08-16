@@ -95,3 +95,17 @@ async def test_a_seat_conflict_names_the_pad() -> None:
         rooms.claim(2, "Yassine")
 
     assert "2" in raised.value.detail
+
+
+async def test_the_room_lists_everybody_not_only_the_pads(client: httpx.AsyncClient) -> None:
+    """Une salle où quelqu'un regarde sans manette avait l'air vide.
+
+    Les places ne disent que ceux qui jouent. La liste des présents dit aussi les
+    spectateurs, ce qui est la moitié d'une soirée à quatre manettes.
+    """
+    room = (await client.get("/api/room")).json()
+
+    # Personne n'est connecté au salon dans ce test: la liste est vide et les
+    # places existent quand même. C'est la distinction qui compte.
+    assert room["people"] == []
+    assert len(room["seats"]) == 4

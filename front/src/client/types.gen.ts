@@ -51,6 +51,58 @@ export type Identity = {
 };
 
 /**
+ * Me
+ *
+ * Qui le service croit avoir en face.
+ *
+ * `login` vient du proxy et n'est pas modifiable; `name` est choisi et l'est.
+ * Un `login` nul veut dire « aucun proxy devant », donc aucune identité: la
+ * page retombe alors sur un prénom gardé dans le navigateur.
+ */
+export type Me = {
+    /**
+     * Login
+     *
+     * L'adresse que Tailscale garantit, ou rien.
+     */
+    login?: string | null;
+    /**
+     * Name
+     *
+     * Le pseudo, choisi et modifiable.
+     */
+    name: string;
+    /**
+     * Display
+     *
+     * Le nom que le fournisseur d'identité affiche, pour information.
+     */
+    display?: string;
+};
+
+/**
+ * Person
+ *
+ * Quelqu'un dans la salle, qu'il tienne une manette ou non.
+ */
+export type Person = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Login
+     */
+    login?: string | null;
+    /**
+     * Seat
+     *
+     * La manette qu'il tient, s'il en tient une.
+     */
+    seat?: number | null;
+};
+
+/**
  * Room
  *
  * The room, as a page needs to render it.
@@ -72,6 +124,12 @@ export type Room = {
      * Seats
      */
     seats: Array<Seat>;
+    /**
+     * People
+     *
+     * Tout le monde dans la salle, spectateurs compris. Les places ne disent que ceux qui jouent, et une salle où quelqu'un regarde sans manette avait l'air vide.
+     */
+    people?: Array<Person>;
     /**
      * Media Url
      *
@@ -125,6 +183,47 @@ export type ValidationError = {
         [key: string]: unknown;
     };
 };
+
+export type ReadMeData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/me';
+};
+
+export type ReadMeResponses = {
+    /**
+     * Successful Response
+     */
+    200: Me;
+};
+
+export type ReadMeResponse = ReadMeResponses[keyof ReadMeResponses];
+
+export type RenameMeData = {
+    body: Identity;
+    path?: never;
+    query?: never;
+    url: '/api/me';
+};
+
+export type RenameMeErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RenameMeError = RenameMeErrors[keyof RenameMeErrors];
+
+export type RenameMeResponses = {
+    /**
+     * Successful Response
+     */
+    200: Me;
+};
+
+export type RenameMeResponse = RenameMeResponses[keyof RenameMeResponses];
 
 export type ReadRoomData = {
     body?: never;

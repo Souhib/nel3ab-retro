@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { ClaimSeatData, ClaimSeatErrors, ClaimSeatResponses, ReadRoomData, ReadRoomResponses } from './types.gen';
+import type { ClaimSeatData, ClaimSeatErrors, ClaimSeatResponses, ReadMeData, ReadMeResponses, ReadRoomData, ReadRoomResponses, RenameMeData, RenameMeErrors, RenameMeResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -19,9 +19,38 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
 };
 
 /**
+ * Read Me
+ *
+ * L'identité que le proxy garantit, et le pseudo qui va avec.
+ *
+ * Rend `login: null` quand aucun proxy n'est devant, ce qui est le cas en
+ * développement. Ce n'est pas une erreur: la page retombe alors sur un prénom
+ * gardé dans le navigateur, comme avant.
+ */
+export const readMe = <ThrowOnError extends boolean = false>(options?: Options<ReadMeData, ThrowOnError>): RequestResult<ReadMeResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ReadMeResponses, unknown, ThrowOnError>({ url: '/api/me', ...options });
+
+/**
+ * Rename Me
+ *
+ * Change son propre pseudo, et rien d'autre.
+ *
+ * Le pseudo est écrit sous l'adresse que le PROXY donne, jamais sous une
+ * adresse envoyée par le client: c'est la différence entre choisir son nom et
+ * choisir celui de quelqu'un d'autre.
+ */
+export const renameMe = <ThrowOnError extends boolean = false>(options: Options<RenameMeData, ThrowOnError>): RequestResult<RenameMeResponses, RenameMeErrors, ThrowOnError> => (options.client ?? client).put<RenameMeResponses, RenameMeErrors, ThrowOnError>({
+    url: '/api/me',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
  * Read Room
  *
- * What is loaded, what else could be, and who claims which pad.
+ * What is loaded, what else could be, who claims which pad, and who is here.
  */
 export const readRoom = <ThrowOnError extends boolean = false>(options?: Options<ReadRoomData, ThrowOnError>): RequestResult<ReadRoomResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ReadRoomResponses, unknown, ThrowOnError>({ url: '/api/room', ...options });
 

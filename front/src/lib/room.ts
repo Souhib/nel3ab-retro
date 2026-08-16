@@ -69,14 +69,24 @@ export function useRoom() {
   });
 }
 
-/** Opens the lobby and keeps the cache fed. Returns a way to say which pad we hold. */
-export function useLobby(name: string): (port: number | null) => void {
+/** Ce qu'on peut dire au salon une fois connecté. */
+export type Lobby = {
+  seat: (port: number | null) => void;
+  renamed: (name: string) => void;
+};
+
+/** Opens the lobby and keeps the cache fed. Returns what we can tell it. */
+export function useLobby(key: string, name: string): Lobby {
   const client = useQueryClient();
   const socket = useRef<Socket | null>(null);
   const [, setOpen] = useState(false);
 
+  // La socket se rouvre quand l'IDENTITÉ change, pas quand le pseudo change.
+  // Quand le proxy dit qui on est, le serveur ignore le prénom envoyé ici, et
+  // rouvrir à chaque changement de pseudo ferait sortir puis rentrer quelqu'un
+  // de la salle pour rien.
   useEffect(() => {
-    if (!name) return;
+    if (!key) return;
     // Same origin, and the path the service mounts. The name travels in `auth`
     // rather than a query string: it is not secret, but a URL is written to
     // every log between here and there, and a name is still a person.
@@ -99,7 +109,11 @@ export function useLobby(name: string): (port: number | null) => void {
       lobby.removeAllListeners();
       lobby.close();
     };
-  }, [name, client]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, client]);
 
-  return (port: number | null) => socket.current?.emit("seat", { port });
+  return {
+    seat: (port: number | null) => socket.current?.emit("seat", { port }),
+    renamed: (chosen: string) => socket.current?.emit("rename", { name: chosen }),
+  };
 }

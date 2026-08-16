@@ -6,7 +6,7 @@
  * inside itself, so reading a number never moves the image and never asks
  * anybody to scroll away from the game they are playing.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Room as RoomState } from "./client";
 import { Bindings, PadSummary } from "./components/Bindings";
 import { cn } from "./lib/cn";
@@ -14,16 +14,18 @@ import { Entrance } from "./components/Entrance";
 import { Lobby } from "./components/Lobby";
 import { Instruments } from "./components/Instruments";
 import { Booting, type Step } from "./components/Booting";
-import { Menu } from "./components/Menu";
+import { Asked as AskedBanner, Asking } from "./components/Swap";
+import { Xmb, type XmbCategory } from "./components/Xmb";
+import { DotIcon, GameIcon, MeasureIcon, RoomIcon, SettingsIcon } from "./components/XmbIcons";
 import { Panel } from "./components/Readout";
 import { Screen } from "./components/Screen";
 import { Seats } from "./components/Seats";
 import { Toggle, Volume } from "./components/Settings";
 import { forgetName, rememberedName } from "./lib/name";
-import { THEMES, applyTheme, rememberTheme, storedTheme } from "./lib/theme";
+import { THEMES, applyTheme, rememberTheme, storedTheme, themeLabel } from "./lib/theme";
 import { useBare } from "./lib/fullscreen";
 import { useMe, useRename } from "./lib/me";
-import { useLobby, useRoom } from "./lib/room";
+import { useLobby, useRoom, type Asked } from "./lib/room";
 import { useSession, useSnapshot } from "./lib/useSession";
 
 /**
@@ -78,7 +80,25 @@ function Named({
   onForget: () => void;
 }) {
   const { data: room, isError } = useRoom();
-  const lobby = useLobby(login ?? name, name);
+  /** Une demande reçue, à laquelle il faut répondre. */
+  const [asked, setAsked] = useState<Asked | null>(null);
+  /** Où en est une demande qu'on a envoyée. */
+  const [asking, setAsking] = useState<{ port: number; said: string | null } | null>(null);
+  const yieldSeat = useRef<(() => void) | null>(null);
+
+  const lobby = useLobby(
+    login ?? name,
+    name,
+    (heard) => setAsked(heard),
+    (answer) => {
+      setAsking({ port: answer.port, said: answer.ok ? null : `${answer.from} a dit non` });
+      // Accepté: la place vient d'être libérée, on s'y branche. `take` plutôt
+      // qu'attendre la reconnexion polie, parce qu'une autre page libre la
+      // prendrait entre-temps et que la demande était pour NOUS.
+      if (answer.ok) takeSeat.current?.(answer.port);
+    },
+  );
+  const takeSeat = useRef<((port: number) => void) | null>(null);
   const rename = useRename(lobby.renamed);
 
   if (!entered) {
@@ -94,7 +114,31 @@ function Named({
       />
     );
   }
-  return <Room name={name} login={login} room={room} announceSeat={lobby.seat} />;
+  return (
+    <Room
+      name={name}
+      login={login}
+      room={room}
+      announceSeat={lobby.seat}
+      asked={asked}
+      asking={asking}
+      onAsk={(port) => {
+        setAsking({ port, said: null });
+        lobby.ask(port);
+      }}
+      onAnswer={(ok) => {
+        if (asked === null) return;
+        lobby.answer(asked.port, ok);
+        if (ok) yieldSeat.current?.();
+        setAsked(null);
+      }}
+      onForgetAsk={() => setAsking(null)}
+      bind={(take, give) => {
+        takeSeat.current = take;
+        yieldSeat.current = give;
+      }}
+    />
+  );
 }
 
 function Room({
@@ -102,11 +146,25 @@ function Room({
   login,
   room,
   announceSeat,
+  asked,
+  asking,
+  onAsk,
+  onAnswer,
+  onForgetAsk,
+  bind,
 }: {
   name: string;
   login: string | null;
   room: RoomState | undefined;
   announceSeat: (port: number | null) => void;
+  asked: Asked | null;
+  asking: { port: number; said: string | null } | null;
+  onAsk: (port: number) => void;
+  onAnswer: (ok: boolean) => void;
+  onForgetAsk: () => void;
+  /** Rend à l'étage du dessus de quoi prendre et céder une place: la socket du
+   * salon vit là-haut, la manette vit ici, et la négociation traverse les deux. */
+  bind: (take: (port: number) => void, give: () => void) => void;
 }) {
   const { bare, setBare, fullscreen, toggleFullscreen } = useBare();
   const [volume, setVolume] = useState(0.7);
@@ -121,6 +179,9 @@ function Room({
    * une socket: le worker répond avant que Dolphin ait dessiné quoi que ce soit,
    * et cacher l'écran de chargement là montrerait du noir. */
   const [booting, setBooting] = useState<{ game: string; painted: number } | null>(null);
+  /** Le jeu qui attend une confirmation. Changer de jeu arrête la partie de tout
+   * le monde, donc la première entrée arme et la seconde lance. */
+  const [armedGame, setArmedGame] = useState<number | null>(null);
 
   const { ref, session } = useSession(volume, deviceRate, announceSeat);
   const shot = useSnapshot(session);
@@ -160,6 +221,7 @@ function Room({
   /* Les mêmes réglages dans la colonne et dans le menu. Deux copies auraient
      fini par diverger, et c'est le genre d'écart qu'on ne voit qu'en montrant
      l'écran à quelqu'un. */
+
   const settings = (
     <>
       {/* A browser refuses to make noise until somebody clicks something,
@@ -238,11 +300,192 @@ function Room({
   // personne ne peut rien.
   const boss = room?.owner ?? null;
   const mine = boss === null || (login !== null && boss.login === login);
+  const whyNotChoose =
+    port === null
+      ? "prends une manette pour changer de jeu"
+      : mine
+        ? null
+        : `${boss?.name ?? "quelqu'un"} décide du jeu dans cette salle`;
+
+  // De quoi prendre et céder une place, rendu à l'étage du dessus où vit la
+  // socket du salon.
+  useEffect(() => {
+    bind(
+      (chosen) => session?.input.take(chosen),
+      () => session?.input.yieldSeat(),
+    );
+  }, [bind, session]);
   // Occupancy from the worker, names from the control plane. Neither knows the
   // other's half, and neither is asked for it.
   const names = new Map(
     (room?.seats ?? []).flatMap((seat) => (seat.player ? [[seat.port, seat.player] as const] : [])),
   );
+
+  /* Les rayons du menu.
+   *
+   * Construits ici plutôt que dans le composant: ce que le menu MONTRE dépend de
+   * qui est là, de qui décide et de ce que la salle joue, et le XMB n'a pas à
+   * connaître ces règles. Il sait afficher une croix, c'est tout.
+   */
+  const rays: XmbCategory[] = [
+    {
+      id: "jeux",
+      label: "jeux",
+      icon: <GameIcon className="h-full w-full" />,
+      items: (room?.library ?? []).map((game) => ({
+        id: `game${game.index}`,
+        label: game.name,
+        value: game.index === room?.game?.index ? "en cours" : undefined,
+        hint:
+          game.index === room?.game?.index
+            ? "c'est ce qui tourne"
+            : mine
+              ? "entrée deux fois: changer de jeu arrête la partie de tout le monde"
+              : (whyNotChoose ?? undefined),
+        icon: <DotIcon className="h-full w-full" />,
+        disabled: !mine || game.index === room?.game?.index,
+        onEnter: () => {
+          if (armedGame !== game.index) return setArmedGame(game.index);
+          setArmedGame(null);
+          if (session?.input.chooseGame(game.index)) {
+            setBooting({ game: game.name, painted: shot?.video.painted ?? 0 });
+            setMenu(false);
+          }
+        },
+      })),
+    },
+    {
+      id: "salle",
+      label: "salle",
+      icon: <RoomIcon className="h-full w-full" />,
+      items: Array.from({ length: shot?.input.players ?? 4 }, (_, slot) => slot + 1).map((seat) => {
+        const held = shot?.input.busy[seat - 1] ?? false;
+        const isMine = seat === port;
+        const who = people.find((person) => person.seat === seat);
+        return {
+          id: `port${seat}`,
+          label: `manette ${seat}`,
+          value: isMine ? "toi" : held ? (who?.name ?? names.get(seat) ?? "occupée") : "libre",
+          hint: isMine
+            ? "c'est la tienne"
+            : who
+              ? "entrée: lui demander de te la passer"
+              : held
+                ? "personne ne répond dessus: entrée pour la reprendre"
+                : "entrée pour t'y brancher",
+          icon: <DotIcon className="h-full w-full" />,
+          disabled: isMine,
+          onEnter: () => {
+            if (who) {
+              onAsk(seat);
+              setMenu(false);
+              return;
+            }
+            session?.input.take(seat);
+          },
+        };
+      }),
+    },
+    {
+      id: "reglages",
+      label: "réglages",
+      icon: <SettingsIcon className="h-full w-full" />,
+      items: [
+        {
+          id: "sound",
+          label: "son",
+          value: shot?.sound.state === "running" ? "activé" : "éteint",
+          hint: "un navigateur ne fait pas de bruit avant qu'on le lui demande",
+          icon: <DotIcon className="h-full w-full" />,
+          onEnter: () => void session?.sound.start(),
+        },
+        {
+          id: "volume",
+          label: "volume",
+          value: `${Math.round(volume * 100)}`,
+          hint: "gauche et droite",
+          icon: <DotIcon className="h-full w-full" />,
+          onAdjust: (by) => setVolume((was) => Math.min(1, Math.max(0, was + by * 0.05))),
+        },
+        {
+          id: "theme",
+          label: "ambiance",
+          value: themeLabel(theme),
+          hint: "gauche et droite",
+          icon: <DotIcon className="h-full w-full" />,
+          onAdjust: (by) => {
+            const at = THEMES.findIndex((choice) => choice.id === theme);
+            const next = (at + by + THEMES.length) % THEMES.length;
+            setTheme(THEMES[next].id);
+          },
+        },
+        {
+          id: "bindings",
+          label: "touches",
+          hint: "l'antisèche, et de quoi les changer",
+          icon: <DotIcon className="h-full w-full" />,
+          onEnter: () => {
+            setMenu(false);
+            setBindings(true);
+          },
+        },
+        {
+          id: "lipsync",
+          label: "caler l'image sur le son",
+          value: lipsync ? "oui" : "non",
+          hint: "retarde l'image du retard mesuré du son",
+          icon: <DotIcon className="h-full w-full" />,
+          onEnter: () => setLipsync(!lipsync),
+        },
+        {
+          id: "bare",
+          label: "replier la colonne",
+          value: bare ? "repliée" : "visible",
+          hint: "rend toute la largeur à l'image (F)",
+          icon: <DotIcon className="h-full w-full" />,
+          onEnter: () => setBare(!bare),
+        },
+        {
+          id: "fullscreen",
+          label: "plein écran",
+          value: fullscreen ? "oui" : "non",
+          icon: <DotIcon className="h-full w-full" />,
+          onEnter: toggleFullscreen,
+        },
+      ],
+    },
+    {
+      id: "mesures",
+      label: "mesures",
+      icon: <MeasureIcon className="h-full w-full" />,
+      items: [
+        {
+          id: "images",
+          label: "images",
+          value: `${shot?.video.painted ?? 0} peintes`,
+          hint: `${(shot?.video.refreshHz ?? 0).toFixed(0)} Hz à l'écran, marge ${(shot?.video.slackMs ?? 0).toFixed(0)} ms`,
+          icon: <DotIcon className="h-full w-full" />,
+        },
+        {
+          id: "son",
+          label: "son",
+          value: shot?.sound.state ?? "absent",
+          hint:
+            shot?.soundGapMs == null
+              ? "aucun écart mesuré"
+              : `${shot.soundGapMs.toFixed(0)} ms derrière l'image`,
+          icon: <DotIcon className="h-full w-full" />,
+        },
+        {
+          id: "manette",
+          label: "manette",
+          value: port === null ? "aucune" : `port ${port}`,
+          hint: `${shot?.input.sent ?? 0} trames envoyées`,
+          icon: <DotIcon className="h-full w-full" />,
+        },
+      ],
+    },
+  ];
 
   return (
     <div className="flex h-full">
@@ -269,6 +512,12 @@ function Room({
             </button>
           </div>
         ) : null}
+        {asked ? (
+          <AskedBanner from={asked.from} port={asked.port} onAnswer={onAnswer} />
+        ) : asking ? (
+          <Asking port={asking.port} said={asking.said} onClose={onForgetAsk} />
+        ) : null}
+
         {learning ? (
           <div className="flex items-center justify-between gap-4 border-t border-indigo/40 bg-indigo/10 px-4 py-2 text-[12px]">
             <span>
@@ -312,6 +561,7 @@ function Room({
               mine={port}
               displaced={shot?.input.displaced ?? false}
               onTake={(chosen) => session?.input.take(chosen)}
+              onAsk={onAsk}
             />
           </Panel>
 
@@ -351,32 +601,10 @@ function Room({
       ) : null}
 
       {menu && shot ? (
-        <Menu
-          room={room?.name ?? "salon"}
-          games={room?.library ?? []}
-          running={room?.game?.index ?? null}
-          canChoose={port !== null && mine}
-          why={
-            port === null
-              ? "prends une manette pour changer de jeu"
-              : `${boss?.name ?? "quelqu'un"} décide du jeu dans cette salle`
-          }
-          people={people}
-          players={shot.input.players}
-          busy={shot.input.busy}
-          names={names}
-          mine={port}
-          stealable={(seat) => !people.some((person) => person.seat === seat)}
-          onChoose={(index) => {
-            const chosen = room?.library.find((game) => game.index === index);
-            if (session?.input.chooseGame(index)) {
-              setBooting({ game: chosen?.name ?? "le jeu", painted: shot.video.painted });
-              setMenu(false);
-            }
-          }}
-          onTake={(chosen) => session?.input.take(chosen)}
+        <Xmb
+          categories={rays}
           onClose={() => setMenu(false)}
-          settings={settings}
+          footer={`${room?.name ?? "salon"} · ${people.length} présent${people.length > 1 ? "s" : ""}`}
         />
       ) : null}
 

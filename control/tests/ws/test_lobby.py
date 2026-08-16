@@ -163,3 +163,89 @@ async def test_the_first_identified_arrival_owns_the_room(
     assert heard[-1]["owner"] is None
 
     await watcher.disconnect()
+
+
+async def test_a_pad_is_asked_for_and_given(served: tuple[str, RoomController]) -> None:
+    """Une demande, une réponse, et la place qui change de main.
+
+    Le demandeur n'envoie qu'un numéro de port: il n'apprend jamais comment
+    adresser la page d'en face, et c'est le serveur qui sait qui tient quoi.
+    """
+    url, rooms = served
+    asked: list[dict] = []
+    answered: list[dict] = []
+
+    holder = socketio.AsyncClient()
+    holder.on("asked", asked.append)
+    await holder.connect(url, auth={"name": "Souhib"}, socketio_path="/socket.io")
+    await holder.emit("seat", {"port": 2})
+    await asyncio.sleep(0.2)
+
+    asker = socketio.AsyncClient()
+    asker.on("answered", answered.append)
+    await asker.connect(url, auth={"name": "Vincent"}, socketio_path="/socket.io")
+    await asker.emit("ask", {"port": 2})
+    await asyncio.sleep(0.3)
+
+    assert asked == [{"from": "Vincent", "port": 2}]
+    assert rooms.seats()[1].player == "Souhib"
+
+    await holder.emit("answer", {"port": 2, "ok": True})
+    await asyncio.sleep(0.3)
+
+    assert answered == [{"ok": True, "port": 2, "from": "Souhib"}]
+    # La place est libérée ICI aussi: sans ça la salle l'afficherait encore au
+    # nom de l'ancien pendant que l'autre s'y branche.
+    assert rooms.seats()[1].player is None
+
+    await holder.disconnect()
+    await asker.disconnect()
+
+
+async def test_a_refusal_says_no_and_changes_nothing(served: tuple[str, RoomController]) -> None:
+    """Le jumeau négatif: refuser doit être une réponse, pas un silence."""
+    url, rooms = served
+    answered: list[dict] = []
+
+    holder = socketio.AsyncClient()
+    await holder.connect(url, auth={"name": "Souhib"}, socketio_path="/socket.io")
+    await holder.emit("seat", {"port": 3})
+    await asyncio.sleep(0.2)
+
+    asker = socketio.AsyncClient()
+    asker.on("answered", answered.append)
+    await asker.connect(url, auth={"name": "Vincent"}, socketio_path="/socket.io")
+    await asker.emit("ask", {"port": 3})
+    await asyncio.sleep(0.2)
+    await holder.emit("answer", {"port": 3, "ok": False})
+    await asyncio.sleep(0.3)
+
+    assert answered == [{"ok": False, "port": 3, "from": "Souhib"}]
+    assert rooms.seats()[2].player == "Souhib"
+
+    await holder.disconnect()
+    await asker.disconnect()
+
+
+async def test_an_answer_nobody_asked_for_is_ignored(served: tuple[str, RoomController]) -> None:
+    """Sans demande en attente, une réponse ne libère rien.
+
+    Sinon n'importe quelle page pourrait libérer la manette de n'importe qui en
+    répondant à une question que personne n'a posée.
+    """
+    url, rooms = served
+
+    holder = socketio.AsyncClient()
+    await holder.connect(url, auth={"name": "Souhib"}, socketio_path="/socket.io")
+    await holder.emit("seat", {"port": 1})
+    await asyncio.sleep(0.2)
+
+    intruder = socketio.AsyncClient()
+    await intruder.connect(url, auth={"name": "Quelqu'un"}, socketio_path="/socket.io")
+    await intruder.emit("answer", {"port": 1, "ok": True})
+    await asyncio.sleep(0.3)
+
+    assert rooms.seats()[0].player == "Souhib"
+
+    await holder.disconnect()
+    await intruder.disconnect()

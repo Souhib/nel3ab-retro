@@ -3934,6 +3934,81 @@ quelqu'un puisse s'asseoir.
 Ce qui manque est la demande d'échange: pouvoir dire « tu me la passes ? » et
 laisser l'autre accepter. C'est deux pages à mettre d'accord à travers le salon,
 et ce n'est pas fait.
+### 7.24 Un XMB, et une manette qui se demande
+
+#### La forme du menu de la PS3, et ce qu'on en reprend
+
+Ce qui fait un XMB tient en une idée: une **croix**. Une rangée horizontale de
+rayons, et sous le rayon choisi une colonne verticale d'entrées. Le point où les
+deux se croisent ne bouge jamais; c'est le contenu qui glisse dessous. Gauche et
+droite changent de rayon, haut et bas changent d'entrée, et à chaque fois c'est
+le monde qui se déplace et pas le curseur.
+
+C'est ça qui se reproduit, et c'est fait. Les icônes, non: celles de Sony ne sont
+pas à nous, et les recopier de mémoire donnerait des approximations qui auraient
+l'air de vouloir tromper. Ce sont des formes géométriques, dans le même esprit.
+
+**La règle du projet est enfreinte ici, exprès.** Pas de dégradé, pas d'effet:
+c'est écrit partout ailleurs, parce que ça tire l'oeil hors de l'image du jeu.
+Sur cet écran il n'y a pas d'image, on a quitté la partie pour venir lire une
+liste. La raison de la règle ne s'applique pas, donc la règle non plus. Le
+dégradé et l'onde viennent quand même de la couleur du thème, pour que les sept
+ambiances restent vraies: l'onde est verte en phosphore et crème en famicom.
+
+Un détail qui a demandé une correction après coup: l'onde passait à travers le
+titre de l'entrée choisie. Sur la console elle traverse tout, mais la console n'a
+pas à faire lire des noms de fichiers de quarante caractères. Elle est descendue.
+
+#### « Tu me la passes ? »
+
+Prendre la manette de quelqu'un est le seul geste de cette page qui se voit sur
+l'écran d'un autre. Il ne se fait plus d'un clic: on demande, et l'autre répond.
+
+Trois gestes différents, et ils ne se ressemblent pas. Une prise **libre**: on
+s'y branche tout de suite. Une prise tenue par **quelqu'un qui est là**: on lui
+demande. Une prise tenue par un **fantôme** — la salle ne connaît personne
+dessus: on la reprend en deux clics, parce qu'il n'y a personne à qui demander et
+qu'il faut bien pouvoir s'asseoir.
+
+Le demandeur n'envoie qu'un **numéro de port**. Le serveur sait qui tient quoi;
+lui faire envoyer l'identifiant de socket de l'autre apprendrait à une page
+comment en adresser une autre, et il n'y a aucune raison qu'elle sache ça.
+
+La moitié qui n'était pas évidente est le **silence**. En acceptant, le porteur
+libère sa place — et sa reconnexion polie, celle qui existe pour récupérer une
+manette dès qu'il en reste une, la reprenait une demi-seconde plus tard. Celui à
+qui on venait de dire oui la trouvait occupée. Il faut donc que la page qui cède
+se taise volontairement quelques secondes.
+
+#### Deux défauts, dont un que j'avais annoncé corrigé
+
+**Une édition qui n'avait rien édité.** Le commit précédent affirmait que la
+règle « on ne vole pas la manette de quelqu'un de présent » était appliquée dans
+la colonne. Elle ne l'était que dans le menu, qui a ensuite été supprimé: le
+remplacement de texte dans `Seats.tsx` n'avait trouvé aucune cible et n'avait
+rien dit. C'est le même piège que ce carnet enregistre depuis M2, à la ligne
+« une édition qui ne s'applique pas », et il a fallu qu'un pilote clique sur une
+prise occupée pour le voir. Les éditions de ce genre portent maintenant une
+assertion, et le message de commit était faux.
+
+**Une variable lue avant d'exister.** Les rayons du menu sont construits à partir
+de qui décide et de qui tient quoi, et je les avais écrits au-dessus de ces
+calculs. Un tableau littéral s'évalue tout de suite: `Cannot access 'A' before
+initialization`, et la salle ne s'ouvrait plus du tout. Attrapé en trente
+secondes parce que le pilote a échoué sur `#screen` absent, ce qui est
+exactement ce qu'un pilote doit faire.
+
+#### Et un piège d'instrument, encore
+
+Le pilote de l'échange expirait sur `waitForSelector` et sur `page.click`. La
+page n'était pas bloquée: ces deux appels installent un observateur ou font
+défiler l'élément dans la vue, c'est-à-dire plusieurs allers-retours au
+navigateur, et **deux pages qui décodent chacune soixante images par seconde**
+sur cette machine suffisent à les faire expirer. Cliquer depuis la page
+(`element.click()`) est un seul aller-retour et mesure la même chose.
+
+C'est la troisième fois que l'outil de mesure est le problème, et la troisième
+fois que le symptôme accusait le sujet.
 ---
 
 ## 8. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
@@ -3994,6 +4069,8 @@ pas échouer**.
 | Une diffusion qui interroge un service à chaque événement | Le salon appelait le worker pour décrire la salle à chaque connexion, départ et changement de pseudo. Invisible jusqu'au jour où changer de jeu redémarre le worker et où toutes les pages se reconnectent pendant ce redémarrage | Garder la dernière réponse et s'en servir quand la source ne répond pas, avec le jumeau négatif: n'avoir JAMAIS eu de réponse reste une erreur |
 | Une place rangée par nom | Les manettes étaient retenues sous le nom de qui les tenait. Deux appareils d'une même personne portent le même nom: fermer un onglet libérait la manette de l'autre machine, et la salle affichait une place pour deux | Une ressource appartient à une SESSION, pas à une personne. Le nom sert à l'afficher, jamais à identifier |
 | Une règle qui ne vit que dans l'interface | « Seul le propriétaire change le jeu » était appliqué par la page, et le worker obéissait à qui tenait une manette. Une console de développeur suffisait | Une règle se met là où l'ordre arrive. Et l'essai doit être au même endroit: un pilote de navigateur ne peut pas attraper ce qu'une page n'envoie jamais |
+| Une édition qui n'a rien édité, et un commit qui l'affirmait | Un remplacement de texte n'a trouvé aucune cible dans `Seats.tsx`, n'a rien dit, et le message de commit annonçait la règle comme appliquée. Elle ne l'était que dans un composant supprimé depuis | Toute édition scriptée porte une assertion. Et ce qu'un message de commit affirme se vérifie dans le produit, pas dans l'intention |
+| Un pilote qui expire sans que la page soit bloquée | `waitForSelector` et `page.click` font plusieurs allers-retours au navigateur; deux pages qui décodent 60 images par seconde suffisent à les faire expirer | Cliquer depuis la page en un seul appel. Troisième fois que l'instrument est le problème et que le symptôme accuse le sujet |
 
 ---
 

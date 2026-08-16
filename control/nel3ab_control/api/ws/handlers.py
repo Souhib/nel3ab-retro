@@ -8,6 +8,16 @@ from nel3ab_control.api.ws.server import ROOM, broadcast, sio
 from nel3ab_control.identity import from_headers
 
 
+def _port(data: dict[str, Any]) -> int | None:
+    """Le port d'un message, ou rien. Ce qui arrive d'une page n'est pas un
+    nombre parce qu'on l'espère."""
+    try:
+        port = int(data.get("port", 0))
+    except (TypeError, ValueError):
+        return None
+    return port if 1 <= port <= 4 else None
+
+
 def _state(environ: dict[str, Any]) -> tuple[RoomController, PeopleController]:
     """Les contrôleurs, tirés de la portée ASGI que l'application y a mise.
 
@@ -55,6 +65,50 @@ async def seat(sid: str, data: dict[str, Any]) -> None:
         rooms.release(sid)
     else:
         rooms.claim(int(port), sid, session["name"])
+    await broadcast(rooms, people)
+
+
+@sio.event
+async def ask(sid: str, data: dict[str, Any]) -> None:
+    """Quelqu'un demande la manette d'un autre.
+
+    Une demande et pas une prise: le porteur est en train de jouer, et la lui
+    arracher est le geste que cette salle ne doit pas rendre facile. Le serveur
+    sait qui tient quoi, donc la page n'envoie qu'un numéro de port; elle n'a
+    jamais à savoir comment adresser une autre page.
+    """
+    rooms, _people = _state(sio.get_environ(sid))
+    port = _port(data)
+    if port is None:
+        return
+    holder = rooms.holder_of(port)
+    if holder is None or holder == sid:
+        return
+    session = await sio.get_session(sid)
+    rooms.asked(port, sid)
+    await sio.emit("asked", {"from": session["name"], "port": port}, to=holder)
+
+
+@sio.event
+async def answer(sid: str, data: dict[str, Any]) -> None:
+    """Le porteur accepte ou refuse.
+
+    En acceptant, il libère la place ICI aussi: sans ça, la salle continuerait
+    de l'afficher à son nom pendant que l'autre s'y branche, et les deux pages
+    se contrediraient le temps d'un aller-retour.
+    """
+    rooms, people = _state(sio.get_environ(sid))
+    port = _port(data)
+    if port is None:
+        return
+    asker = rooms.take_ask(port)
+    if asker is None:
+        return
+    session = await sio.get_session(sid)
+    agreed = bool(data.get("ok"))
+    if agreed:
+        rooms.free(port)
+    await sio.emit("answered", {"ok": agreed, "port": port, "from": session["name"]}, to=asker)
     await broadcast(rooms, people)
 
 

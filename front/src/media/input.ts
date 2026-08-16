@@ -108,6 +108,13 @@ export class InputStream {
   private refused = false;
   private everHeld = false;
   private displaced = false;
+  /** Jusqu'à quand cette page s'abstient de reprendre une place.
+   *
+   * Céder sa manette et se reconnecter poliment une demi-seconde plus tard la
+   * reprendrait avant que l'autre ait eu le temps de s'y brancher: la place
+   * redevient libre, et la reconnexion polie est faite pour prendre ce qui est
+   * libre. Il faut donc un silence volontaire. */
+  private silentUntil = 0;
   private players = 4;
   private busy: boolean[] = [false, false, false, false];
   private sent = 0;
@@ -240,6 +247,22 @@ export class InputStream {
     this.capture = { control, source, machine: new Capture(snapshot(pad)) };
   }
 
+  /** Cède sa place, et se tait le temps que l'autre s'y branche.
+   *
+   * Le silence est la moitié qui compte: sans lui, la reconnexion polie
+   * reprendrait la place à peine libérée, et celui à qui on vient de dire oui
+   * la trouverait occupée.
+   */
+  yieldSeat(silenceMs = 6000): void {
+    this.silentUntil = Date.now() + silenceMs;
+    this.port = null;
+    this.onSeat(null);
+    this.generation += 1;
+    this.socket?.close();
+    this.socket = null;
+    this.retry = window.setTimeout(() => this.connect(), silenceMs);
+  }
+
   cancelCapture(): void {
     this.capture = null;
   }
@@ -350,6 +373,8 @@ export class InputStream {
       // back has to be a click, because only a person knows which character they
       // meant to be.
       if (this.displaced) return;
+      // Une place qu'on vient de céder ne se reprend pas par réflexe.
+      if (Date.now() < this.silentUntil) return;
       // Half a second after a drop, three after a refusal. Asking POLITELY takes
       // nothing from anybody, so a page whose room was full picks the controller
       // up by itself the moment it is free.

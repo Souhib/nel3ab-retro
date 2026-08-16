@@ -46,6 +46,13 @@ class RoomController:
         #: La dernière place annoncée au worker, pour ne pas le rappeler pour
         #: rien. Publique parce que c'est le salon qui la tient à jour.
         self.told_owner = 0
+        #: Port -> la session qui demande à en prendre la manette.
+        #:
+        #: Gardé ici plutôt que passé par les pages: sans ça, celui qui demande
+        #: devrait envoyer l'identifiant de socket de celui à qui il demande, et
+        #: une page apprendrait comment adresser une autre page. Le serveur sait
+        #: déjà qui tient quoi; il n'a pas besoin qu'on le lui dise.
+        self._asks: dict[int, str] = {}
 
     @property
     def settings(self) -> Settings:
@@ -135,6 +142,22 @@ class RoomController:
         """
         if session in self._named:
             self._named[session] = now
+
+    def holder_of(self, port: int) -> str | None:
+        """La session qui tient cette place."""
+        return self._claims.get(port)
+
+    def asked(self, port: int, asker: str) -> None:
+        """Retient qui demande cette place, en attendant la réponse."""
+        self._asks[port] = asker
+
+    def take_ask(self, port: int) -> str | None:
+        """Rend qui demandait, et oublie la demande."""
+        return self._asks.pop(port, None)
+
+    def free(self, port: int) -> None:
+        """Libère une place, parce que celui qui la tenait la cède."""
+        self._claims.pop(port, None)
 
     def seat_of(self, session: str) -> int | None:
         """La place que cette session tient, s'il y en a une."""

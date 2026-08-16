@@ -122,6 +122,13 @@ browser-recovery:
 browser-owner:
     cd spikes/m3-browser-drive && node owner.mjs
 
+# Demander la manette de quelqu'un, et la lui voir céder ou refuser.
+#
+# Deux pages à travers le VRAI proxy: la négociation traverse le salon, qui ne
+# sait qui tient quoi que parce que le proxy dit qui est qui.
+browser-swap:
+    cd spikes/m3-browser-drive && node swap.mjs
+
 # L'identité, de bout en bout, à travers le VRAI proxy.
 #
 # Contre l'adresse tailscale et pas localhost: c'est le proxy qui écrit

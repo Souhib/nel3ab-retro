@@ -73,12 +73,28 @@ export function useRoom() {
 export type Lobby = {
   seat: (port: number | null) => void;
   renamed: (name: string) => void;
+  /** Demander la manette de quelqu'un. Le serveur sait qui la tient. */
+  ask: (port: number) => void;
+  /** Répondre à une demande reçue. */
+  answer: (port: number, ok: boolean) => void;
 };
 
+/** Une demande reçue: qui, et pour quelle place. */
+export type Asked = { from: string; port: number };
+/** La réponse à une demande envoyée. */
+export type Answered = { ok: boolean; port: number; from: string };
+
 /** Opens the lobby and keeps the cache fed. Returns what we can tell it. */
-export function useLobby(key: string, name: string): Lobby {
+export function useLobby(
+  key: string,
+  name: string,
+  onAsked: (asked: Asked) => void,
+  onAnswered: (answered: Answered) => void,
+): Lobby {
   const client = useQueryClient();
   const socket = useRef<Socket | null>(null);
+  const heard = useRef({ asked: onAsked, answered: onAnswered });
+  heard.current = { asked: onAsked, answered: onAnswered };
   const [, setOpen] = useState(false);
 
   // La socket se rouvre quand l'IDENTITÉ change, pas quand le pseudo change.
@@ -100,6 +116,10 @@ export function useLobby(key: string, name: string): Lobby {
       reconnectionDelayMax: 10_000,
     });
     lobby.on("room", (room: Room) => client.setQueryData(ROOM_KEY, room));
+    // Par des références qui ne changent pas: ces deux-là viennent de la page et
+    // seraient reconstruites à chaque rendu, ce qui rouvrirait la socket.
+    lobby.on("asked", (asked: Asked) => heard.current.asked(asked));
+    lobby.on("answered", (answered: Answered) => heard.current.answered(answered));
     // A reconnection may have missed a change while it was down, so ask.
     lobby.io.on("reconnect", () => void client.invalidateQueries({ queryKey: ROOM_KEY }));
     socket.current = lobby;
@@ -115,5 +135,7 @@ export function useLobby(key: string, name: string): Lobby {
   return {
     seat: (port: number | null) => socket.current?.emit("seat", { port }),
     renamed: (chosen: string) => socket.current?.emit("rename", { name: chosen }),
+    ask: (port: number) => socket.current?.emit("ask", { port }),
+    answer: (port: number, ok: boolean) => socket.current?.emit("answer", { port, ok }),
   };
 }

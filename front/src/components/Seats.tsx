@@ -26,6 +26,7 @@ export function Seats({
   mine,
   displaced,
   onTake,
+  onAsk,
 }: {
   players: number;
   busy: boolean[];
@@ -33,6 +34,8 @@ export function Seats({
   mine: number | null;
   displaced: boolean;
   onTake: (port: number) => void;
+  /** Demander sa manette à quelqu'un qui est là, au lieu de la lui prendre. */
+  onAsk: (port: number) => void;
 }) {
   const ports = Array.from({ length: players }, (_, slot) => slot + 1);
   const [armed, setArmed] = useState<number | null>(null);
@@ -43,13 +46,19 @@ export function Seats({
     return () => window.clearTimeout(timer);
   }, [armed]);
 
-  /* Un clic sur une prise libre ne prend rien à personne, donc il agit tout de
-     suite. Un clic sur une prise tenue arrête la partie de quelqu'un d'autre,
-     donc il arme et n'agit qu'au second. La différence n'est pas une question de
-     symétrie: l'un des deux gestes se voit sur l'écran d'un autre. */
+  /* Trois gestes, et ils ne se ressemblent pas.
+     Une prise LIBRE ne coûte rien à personne: on s'y branche tout de suite.
+     Une prise tenue par QUELQU'UN QUI EST LÀ ne s'arrache plus: on lui demande,
+     et il répond. C'est le seul geste de cette page qui se voit sur l'écran d'un
+     autre, et il ne doit pas se faire d'un clic.
+     Une prise tenue par un FANTÔME — la salle ne connaît personne dessus — se
+     reprend en deux clics, parce qu'il n'y a personne à qui demander et qu'il
+     faut bien pouvoir s'asseoir. */
   const click = (port: number) => {
     if (port === mine) return;
     if (!busy[port - 1]) return onTake(port);
+    const who = names.get(port);
+    if (who !== undefined) return onAsk(port);
     if (armed !== port) return setArmed(port);
     setArmed(null);
     onTake(port);
@@ -78,9 +87,11 @@ export function Seats({
               title={
                 isMine
                   ? "c'est la tienne"
-                  : held
-                    ? "prendre cette manette arrête la partie de celui qui la tient"
-                    : "prendre cette manette"
+                  : names.has(port)
+                    ? `demander sa manette à ${names.get(port)}`
+                    : held
+                      ? "personne ne répond sur cette prise: reclique pour la reprendre"
+                      : "prendre cette manette"
               }
               className={cn(
                 "cursor-pointer border-0 bg-transparent p-0 leading-none",
@@ -116,8 +127,8 @@ export function Seats({
       ) : mine === null ? (
         <p className="text-[11px] text-faint">
           {armed === null
-            ? "clique une prise pour t'asseoir"
-            : "reclique pour la prendre à celui qui la tient"}
+            ? "clique une prise libre, ou demande la sienne à quelqu'un"
+            : "personne ne répond dessus: reclique pour la reprendre"}
         </p>
       ) : null}
     </div>

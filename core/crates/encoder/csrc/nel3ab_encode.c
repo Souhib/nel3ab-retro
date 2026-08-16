@@ -121,6 +121,41 @@ n3_encoder *n3_encoder_open(const char *render_node, uint32_t width, uint32_t he
      silence and is given a key frame at once. Ten seconds is the backstop for
      the case none of that happens, not the mechanism anybody relies on. */
   encoder->codec->gop_size = (int)fps * 10;
+  /* L'image-clé encodée PLUS GROSSIÈREMENT que ses voisines, de huit crans.
+     C'est le seul plafond de débit de cet encodeur, et il est volontairement
+     posé là et nulle part ailleurs.
+
+     MESURÉ le 2026-08-16 sur deux clips du vrai flux (un écran de titre fixe,
+     une course de Mario Kart), ré-encodés sur cette même carte:
+
+       réglage    ordinaires p50 / p95 / p99    clé moyenne    pointe   SSIM
+       actuel        23666 / 32053 / 38414          71048       91739   .99131
+       clé + 8       23777 / 32428 / 41736          35977       48424   .99025
+
+     Les images ordinaires ne bougent pas — un demi-pour-cent à la médiane, un
+     et demi au p95 — et le débit moyen passe de 11,53 à 11,48 Mbit/s. Ce qui
+     tombe est la pointe: de 91,7 ko à 48,4 ko, soit 47 % de moins, et 50 % sur
+     l'écran fixe où la clé faisait 93 ko contre 1,2 ko pour une image ordinaire.
+     La qualité perd 0,11 % de SSIM.
+
+     POURQUOI HUIT et pas plus. Une clé plus grossière laisse plus de travail aux
+     images qui la suivent, donc leur taille monte. À +8 la clé cesse d'être la
+     plus grosse image du flux et la pointe est au plus bas; au-delà elle
+     remonte, portée par les images de rattrapage: 48 424 à +8, 54 182 à +10,
+     59 070 à +12.
+
+     POURQUOI PAS un vrai contrôle de débit. Mesurés aussi, et écartés parce
+     qu'ils changent ce que reçoit quelqu'un dont la liaison va bien:
+       - QVBR (q26, cible 12M, plafond 20M) divise le débit par deux, donc la
+         qualité avec, ET rend une pointe PIRE qu'aujourd'hui: 120 805 octets.
+         Le pilote radeonsi ne fait pas ce que le mode annonce;
+       - CBR à 12 Mbit/s plafonne bien la pointe à 45 466, mais redistribue les
+         bits sur toutes les images: p95 de 32 053 à 29 114, p99 de 38 414 à
+         34 056. C'est exactement ce qu'on s'est interdit de toucher.
+
+     Ce réglage-ci ne touche QUE l'image-clé, une toutes les dix secondes. */
+  encoder->codec->i_quant_factor = 1.0f;
+  encoder->codec->i_quant_offset = 8.0f;
   av_opt_set_int(encoder->codec->priv_data, "async_depth", 1, 0);
   av_opt_set(encoder->codec->priv_data, "rc_mode", "CQP", 0);
   av_opt_set_int(encoder->codec->priv_data, "qp", (int64_t)qp, 0);

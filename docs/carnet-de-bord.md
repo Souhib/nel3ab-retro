@@ -4487,6 +4487,104 @@ Le seul cousin du rollback qui existe en vidéo est la reprojection d'image côt
 client, et elle ne marche que pour un mouvement de caméra en 3D avec la carte de
 profondeur. Nous recevons une image finie: il n'y a rien à reprojeter.
 
+### 7.30 La pointe de débit, c'était l'image-clé
+
+Demande: plafonner les pointes de débit, et mesurer. Contrainte: ne rien changer
+pour quelqu'un dont la connexion va bien.
+
+#### Mesurer d'abord, sur du vrai contenu
+
+Un encodeur ne se règle pas sur une mire. `capture.mjs` enregistre le flux tel
+qu'il sort du worker, et `stir.mjs` fait bouger le jeu pour qu'il y ait quelque
+chose à enregistrer. Deux clips: l'écran de titre de Mario Kart, et une course.
+
+| clip | p50 | p95 | p99 | **max** | débit |
+|---|---|---|---|---|---|
+| écran de titre | 662 | 1 132 | 1 237 | **97 297** | 0,39 Mbit/s |
+| course | 26 928 | 36 190 | 44 554 | **94 420** | 12,90 Mbit/s |
+
+Le premier chiffre est celui qui change tout: sur l'écran fixe, la médiane fait
+662 octets et la pointe 97 297. **Soixante-dix-huit fois le p99.** Et la pointe
+vaut 95 ko dans les deux régimes, que le jeu bouge ou non.
+
+C'est donc l'**image-clé**, et rien d'autre. Une image-clé se code entière, sans
+référence, donc sa taille dépend du détail de la scène et pas de son mouvement.
+Sur un lien à 10 Mbit/s, ces 95 ko mettent 78 ms à passer, soit près de cinq
+temps d'image. La file de sortie du spectateur en fait deux (voir 7.29): elle
+déborde, le flux casse. Cette pointe arrive même quand rien ne bouge.
+
+#### Ce qui a été essayé, et ce que ça a donné
+
+Ré-encodage des deux clips sur la même carte, un réglage à la fois:
+
+| réglage | ordinaires p50 / p95 / p99 | clé moyenne | pointe | SSIM |
+|---|---|---|---|---|
+| actuel, CQP 26 | 23 666 / 32 053 / 38 414 | 71 048 | 91 739 | 0,99131 |
+| clé + 4 | 23 755 / 32 187 / 38 405 | 51 168 | 65 334 | 0,99053 |
+| **clé + 8** | **23 777 / 32 428 / 41 736** | **35 977** | **48 424** | **0,99025** |
+| clé + 10 | 23 762 / 32 536 / 42 989 | 29 797 | 54 182 | — |
+| clé + 12 | 23 779 / 32 490 / 44 332 | 25 336 | 59 070 | 0,99010 |
+
+**Pourquoi huit, et pas plus.** Une clé plus grossière laisse plus de travail aux
+images qui la suivent, donc celles-là grossissent. À +8 la clé cesse d'être la
+plus grosse image du flux et la pointe est au plus bas; au-delà elle **remonte**,
+portée par les images de rattrapage. Le réglage n'est pas choisi au jugé: c'est
+le point où les deux courbes se croisent.
+
+Le bilan à +8: la pointe passe de 91,7 ko à 48,4 ko, soit 47 % de moins et 50 %
+sur l'écran fixe. Les images ordinaires ne bougent pas — un demi-pour-cent à la
+médiane, un et demi au p95. Le débit moyen descend de 11,53 à 11,48 Mbit/s. La
+qualité perd 0,11 % de SSIM, ce qui est très en dessous de ce qu'un oeil sépare.
+
+Répliqué sur un second clip de course, contenu différent: images ordinaires
++0,35 % à la médiane, clé moyenne −48 %, débit −0,5 %. La conclusion tient.
+
+#### Les vrais contrôles de débit, mesurés et écartés
+
+C'était la solution attendue, et elle perd:
+
+- **QVBR** (qualité 26, cible 12 Mbit/s, plafond 20) divise le débit par deux,
+  donc la qualité avec, ET rend une pointe **pire** qu'aujourd'hui: 120 805
+  octets contre 91 739. Le pilote radeonsi de cette carte ne fait pas ce que le
+  mode annonce;
+- **CBR à 12 Mbit/s** plafonne bien la pointe, à 45 466. Mais il redistribue les
+  bits sur toutes les images: p95 de 32 053 à 29 114, p99 de 38 414 à 34 056.
+  C'est précisément ce qu'on s'était interdit de toucher;
+- **VBR 12/16 Mbit/s**: même objection, mêmes chiffres à peu près.
+
+Le réglage retenu ne touche qu'une image toutes les dix secondes. C'est la seule
+forme de plafond qui respecte la contrainte posée.
+
+#### Vérifié en direct
+
+Le worker rebâti, le même enregistrement refait sur la salle réelle:
+
+| | avant | après |
+|---|---|---|
+| écran fixe, pointe | 97 297 | **50 158** |
+| course, pointe | 94 420 | **57 570** |
+
+Les médianes des deux courses live ne se comparent pas, et il faut le dire: deux
+courses tirées au hasard ne montrent pas la même chose à l'écran, donc l'écart de
+14 % entre leurs médianes est de la scène et pas du réglage. C'est l'expérience
+hors ligne, à contenu identique, qui répond à cette question-là; la mesure en
+direct ne confirme que la pointe, qui est ce qu'on visait.
+
+#### Ce qui garde le réglage honnête
+
+`capture.mjs` accepte `NEL3AB_PEAK_UNDER`: en dessous il passe, au-dessus il
+échoue. Si un jour ffmpeg change d'avis sur `i_quant_offset` ou qu'un pilote
+l'ignore, la pointe redouble en silence et cette ligne est ce qui s'en aperçoit.
+Elle n'est pas dans `just check`, parce qu'elle a besoin d'une salle qui tourne
+et d'un GPU: c'est une mesure de la même famille que `just gpu-test`.
+
+#### Ce que ça ne règle pas
+
+En course, le flux demande 12,9 Mbit/s de moyenne. Une connexion moyenne y est à
+sa limite quelles que soient les pointes, et aucun réglage d'image-clé n'y peut
+rien. Baisser cette moyenne veut dire baisser la qualité pour tout le monde, ou
+encoder deux fois. Les deux restent ouvertes.
+
 #### Un test qui échouait une fois sur vingt-cinq
 
 `just check` est passé au rouge sur un test des jaquettes, puis au vert en le
@@ -4580,6 +4678,7 @@ pas échouer**.
 | L'horaire recalé sur l'image la plus chanceuse | Le calage prenait le transit le plus rapide de la fenêtre, et repartait de là à chaque famine. Sur un lien irrégulier, chaque trou reposait l'horaire au plus optimiste et provoquait le suivant | Se caler sur le meilleur cas, c'est jeter tout ce qui n'est pas le meilleur cas |
 | La cadence de la source lue sur les arrivées | Une source à 60 Hz livrée toutes les 26 ms était prise pour une source à 39 Hz, donc ses trous passaient pour normaux | Deux causes différentes ont besoin de deux mesures différentes. Les instants de capture décrivent le jeu, les arrivées décrivent le réseau |
 | Une image jetée au milieu d'un groupe | La file pleine jetait l'image, les suivantes référençaient celle qui manquait, et le navigateur décodait du bruit: 306 non décodables contre 192 décodées | Dans un flux où les morceaux dépendent les uns des autres, se taire jusqu'au prochain point d'entrée vaut mieux que continuer à parler |
+| Un plafond de débit qui plafonne tout | QVBR et CBR bornaient bien la pointe, mais en redistribuant les bits sur toutes les images — et QVBR rendait même la pointe pire. Le réglage retenu ne touche qu'une image toutes les dix secondes | Quand une contrainte dit « sans toucher au reste », le levier se cherche là où la pointe naît, pas là où le débit se règle |
 | Un échec transitoire mis en cache | Ne pas réussir à LANCER l'outil d'extraction écrivait le même témoin que « ce disque n'a pas de jaquette ». Un Docker qui redémarre condamnait un jeu pour toujours | Un cache d'échec ne doit retenir que des réponses. « Je n'ai pas pu demander » n'en est pas une |
 | L'étranglement réseau de Chrome | Il ne touche pas les WebSockets: 2 Mbit/s de plafond, et la page peignait toujours 50 images par seconde. Tout ce que ce projet envoie est une WebSocket | Un instrument se vérifie sur un cas où il DOIT bouger, avant de croire ce qu'il dit quand il ne bouge pas |
 | Une confirmation invisible | La première pression armait le changement de jeu sans rien afficher, donc elle ressemblait à un clic manqué et appelait la seconde | Une confirmation qui ne se voit pas est une confirmation qui pousse au geste qu'elle voulait empêcher |

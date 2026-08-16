@@ -59,3 +59,25 @@ Alterner les passages plutôt que de faire toute la référence puis tout le
 candidat : la machine dérive (thermique, cache, jeu qui avance). `base-1`,
 `cand-1`, `base-2`, `cand-2`, et on compare les médianes en annonçant le seuil
 **avant** de regarder.
+
+## Le banc ne pilote pas le jeu
+
+Un passage mesure la chaîne pendant que l'émulateur affiche **ce qu'il affiche**.
+Le banc prend la manette, mais il ne joue pas: il envoie l'état neutre. Si la
+salle est restée sur un écran-titre fixe, l'encodeur a une tâche facile et le
+débit s'effondre.
+
+Mesuré le 16 août 2026: un passage sur l'écran-titre de Mario Kart donne
+**0,40 Mbit/s** et **0,7 Kio par image**, contre 16 à 19 Mbit/s et environ 22 Kio
+sur les passages d'août. L'encodage y paraît 13 % moins cher, ce qui est
+au-dessus du plancher de bruit de 1,6 % et ne veut pourtant rien dire du code.
+
+Donc: **comparer deux passages dont le débit diffère d'un ordre de grandeur, ce
+n'est pas comparer du code, c'est comparer des écrans.** Le banc le dit lui-même
+quand il tombe sous 3 Mbit/s. Les chiffres du client (images peintes, marge,
+reprises) et ceux de l'entrée restent comparables, eux, parce qu'ils ne dépendent
+pas de ce qu'il y a à l'écran.
+
+C'est aussi pourquoi les comparaisons A/B de ce dossier sont **entrelacées**
+(base, cand, base, cand): deux passages voisins dans le temps ont plus de chances
+d'avoir vu la même chose.

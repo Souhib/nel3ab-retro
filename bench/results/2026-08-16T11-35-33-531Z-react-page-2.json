@@ -1,0 +1,134 @@
+{
+  "label": "react-page-2",
+  "environment": {
+    "when": "2026-08-16T11:35:33.531Z",
+    "git": {
+      "sha": "9c9ce4a",
+      "dirty": true,
+      "branch": "main"
+    },
+    "machine": {
+      "cpu": "AMD Ryzen 5 3600 6-Core Processor",
+      "cores": "12",
+      "kernel": "6.8.0-137-generic",
+      "gpu": "Advanced Micro Devices, Inc. [AMD/ATI] Navi 23 [Radeon RX 6650 XT / 6700S / 6800S] (rev c1)"
+    },
+    "build": {
+      "worker": "cargo build --release -p nel3ab-worker",
+      "dolphin": "sha256:e0dedd4fa140",
+      "binary_bytes": 3328120
+    },
+    "settings": "HOME=/home/souhib RUST_LOG=info \"NEL3AB_ROM=/home/souhib/roms/gc/Super Smash Bros Melee.rvz\" NEL3AB_SESSION_DIR=/tmp/nel3ab-session NEL3AB_PLAYERS=4 NEL3AB_INTERNAL_RES=2",
+    "workload": {
+      "warmup_s": 45,
+      "measure_s": 90,
+      "url": "http://localhost:8100/",
+      "viewers": 1
+    }
+  },
+  "server": {
+    "windows": 9,
+    "frames": 4800,
+    "fps": 59.939311447159746,
+    "span_seconds": 80.081,
+    "dropped": 0,
+    "waiting_p50_ms": {
+      "min": 14.849263,
+      "median": 14.874709,
+      "max": 14.931871,
+      "n": 9
+    },
+    "waiting_p95_ms": {
+      "min": 15.033408999999999,
+      "median": 15.082393,
+      "max": 15.126596000000001,
+      "n": 9
+    },
+    "converting_p50_ms": {
+      "min": 0.142136,
+      "median": 0.16507,
+      "max": 0.175519,
+      "n": 9
+    },
+    "encoding_p50_ms": {
+      "min": 1.579872,
+      "median": 1.629224,
+      "max": 1.643841,
+      "n": 9
+    },
+    "encoding_p95_ms": {
+      "min": 1.742998,
+      "median": 1.826103,
+      "max": 1.8503779999999999,
+      "n": 9
+    },
+    "encoding_p99_ms": {
+      "min": 2.898352,
+      "median": 2.950952,
+      "max": 2.9829000000000003,
+      "n": 9
+    },
+    "megabits_per_second": {
+      "min": 0.3714529862906042,
+      "median": 0.40133781562863496,
+      "max": 0.4013472885603986,
+      "n": 9
+    },
+    "frame_bytes_p50": {
+      "min": 539,
+      "median": 715,
+      "max": 715,
+      "n": 9
+    },
+    "frame_bytes_p99": {
+      "min": 1243,
+      "median": 1273,
+      "max": 1273,
+      "n": 9
+    },
+    "frame_bytes_max": {
+      "min": 97205,
+      "median": 97205,
+      "max": 97304,
+      "n": 9
+    },
+    "input_to_frame_p50_ms": {
+      "min": 2.6944909999999997,
+      "median": 5.283915,
+      "max": 8.150578000000001,
+      "n": 9
+    },
+    "input_to_frame_p95_ms": {
+      "min": 8.224247,
+      "median": 13.575489,
+      "max": 14.051157,
+      "n": 9
+    }
+  },
+  "input": {
+    "pad_frames_sent": 16373,
+    "seat": 1
+  },
+  "client": {
+    "queue": 0,
+    "slackMs": 3,
+    "fastest": -11137.537999988068,
+    "refresh": 16.69999998807907,
+    "offset": -11134.537999988068,
+    "holds": [
+      1
+    ],
+    "painted": 5396,
+    "decoded": 5395,
+    "stalls": 0,
+    "restarts": 0,
+    "stats": "IMAGE\nARRIVÉES\n8271\nPEINTES\n8271\nDURÉE D'AFFICHAGE\n1\nrafraîch. (p05 1, p95 1)\nÉCRAN\n60\nHz\nLATENCE AJOUTÉE\n3\nms de marge\nÉCARTS D'ARRIVÉE\n16.7 / 18.4\nms p50/p95\nREPRISES\nSOCKET MUETTE\n0\nDÉCODEUR RELANCÉ\n0\nNON DÉCODÉ\n0\nIMAGES-CLÉS DEMANDÉES\n0\nFAMINES\n8\nSON\nÉTAT\ncoupé\nJOUÉ\n0.0\ns\nCOUPURES\n0\nSORTIE\n0.0\nkHz\nRETARD SUR L'IMAGE\n—\nMANETTE\nPLACE\n1\nTRAMES ENVOYÉES\n25166\nMATÉRIEL\nclavier"
+  },
+  "cost": {
+    "worker_cpu_percent": 3.6,
+    "dolphin_cpu_percent": 23.1,
+    "vram_mib": 119.375,
+    "gtt_mib": 202.99609375
+  },
+  "measured_seconds": 90.18
+}

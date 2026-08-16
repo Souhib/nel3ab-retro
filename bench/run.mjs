@@ -11,6 +11,7 @@
 import { execFileSync, execSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import puppeteer from "puppeteer";
+import { enterRoom, seedName } from "../spikes/m3-browser-drive/open.mjs";
 
 const label = process.argv[2] ?? "baseline";
 const WARMUP_S = Number(process.env.BENCH_WARMUP ?? 45);
@@ -60,20 +61,38 @@ console.log(`  flux vivant après ${((ready - startedAt) / 1000).toFixed(0)} s �
 const browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox"] });
 const page = await browser.newPage();
 page.on("pageerror", (e) => console.log(`  [pageerror] ${e.message}`));
+// Le prénom d'abord, puis l'écran de salle: la page ne démarre rien avant. Un
+// banc qui l'oublie mesure un formulaire et rapporte zéro image, ce qui
+// ressemble à une panne et n'en est pas une.
+await seedName(page, "banc");
 await page.goto(URL, { waitUntil: "domcontentloaded", timeout: 30000 });
+await enterRoom(page);
 
 // The bench must OWN the controller, or the input figures belong to whoever else
 // has a page open. Three runs were reported before anybody noticed the bench had
 // sent zero pad frames and the input latency being compared was some other
 // browser's — a load generator has to be verified, not assumed.
 await wait(3000);
-// The first socket, taken outright. The run has already restarted the session,
-// so nobody legitimate is on it, and a bench that shares the pad with whoever
-// happens to be connected is measuring somebody else's input.
-await page.click("#port1");
-await wait(2000);
-const seat = await page.evaluate(() => document.getElementById("seat").textContent);
-console.log(`  manette : ${seat}`);
+// Le port 1, quitte à le prendre. Le passage a déjà redémarré la session, donc
+// personne de légitime n'est dessus, et un banc qui partage la manette avec
+// celui qui passe mesure l'entrée de quelqu'un d'autre.
+//
+// Entrer dans une salle vide donne déjà une place, souvent le port 1: dans ce
+// cas il n'y a rien à cliquer, et la prise est de toute façon désactivée. Sinon
+// il faut deux clics, parce que prendre la place de quelqu'un se confirme.
+if ((await page.evaluate(() => globalThis.nel3abTest.seat())) !== 1) {
+  await page.click("#port1");
+  await wait(800);
+  await page.click("#port1");
+  await wait(2000);
+}
+const seat = await page.evaluate(() => globalThis.nel3abTest.seat());
+console.log(`  manette : port ${seat ?? "aucun"}`);
+if (seat === null) {
+  console.log("  ABANDON — le banc n'a pas de manette, ses chiffres d'entrée seraient ceux d'un autre");
+  await browser.close();
+  process.exit(1);
+}
 await wait(WARMUP_S * 1000);
 
 // ── the measured window ────────────────────────────────────────────────────
@@ -91,10 +110,7 @@ const cpuTicks = (name) => {
 
 const from = new Date();
 const cpuBefore = { worker: cpuTicks("nel3ab-worker"), dolphin: cpuTicks("dolphin-emu-nog") };
-const padsSent = () =>
-  page.evaluate(
-    () => Number((document.getElementById("stats").innerText.match(/pad frames\s+(\d+)/) ?? [])[1] ?? 0),
-  );
+const padsSent = () => page.evaluate(() => globalThis.nel3abTest.counters().attempts);
 const before = await page.evaluate(() => globalThis.nel3abTest.counters());
 const padsBefore = await padsSent();
 await wait(MEASURE_S * 1000);
@@ -209,3 +225,20 @@ console.log(`
   client          ${client.painted} peintes / ${client.decoded} décodées · marge ${client.slackMs} ms · ${client.stalls} reprises
   coût            worker ${result.cost.worker_cpu_percent} %CPU · dolphin ${result.cost.dolphin_cpu_percent} %CPU · vram ${result.cost.vram_mib.toFixed(0)} Mio
   brut            ${file}`);
+
+// Ce que le passage a filmé, dit à voix haute.
+//
+// Deux passages dont le débit diffère d'un ordre de grandeur ne comparent pas du
+// code, ils comparent des écrans. C'est arrivé: un salon laissé sur un
+// écran-titre fixe a rendu 0,4 Mbit/s là où les passages précédents en donnaient
+// 16 à 19, et l'encodage y paraissait 13 % moins cher pour cette seule raison.
+//
+// Le banc ne pilote pas le jeu et ne peut donc pas garantir une scène. Il peut
+// dire laquelle il a vue, ce qui suffit à empêcher la comparaison silencieuse.
+const mbit = result.server.megabits_per_second.median;
+if (mbit < 3) {
+  console.log(`
+  ATTENTION — scène quasi fixe (${mbit.toFixed(2)} Mbit/s, ${(result.server.frame_bytes_p50.median / 1024).toFixed(1)} Kio par image).
+  Les chiffres SERVEUR de ce passage (encodage, débit, taille) ne se comparent
+  pas à un passage où le jeu bougeait. Ceux du CLIENT et de l'entrée, si.`);
+}

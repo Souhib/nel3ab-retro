@@ -136,6 +136,11 @@ browser-lipsync:
 browser-layout:
     cd spikes/m3-browser-drive && node layout.mjs
 
+# Does the library show the names a person reads, and none of the file clutter?
+# Needs the worker RUNNING.
+browser-library:
+    cd spikes/m3-browser-drive && node library.mjs
+
 # Taking a socket somebody is playing on: two clicks to do it, and the player it
 # was taken from is told and left unplugged rather than quietly moved. Needs the
 # worker RUNNING and ONE free port — not an empty room.

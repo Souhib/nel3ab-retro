@@ -94,7 +94,7 @@ impl Settings {
         let repo = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../..");
         Ok(Self {
             rom: env_path("NEL3AB_ROM")
-                .unwrap_or_else(|| PathBuf::from(&home).join("roms/gc/melee-ntsc.rvz")),
+                .unwrap_or_else(|| PathBuf::from(&home).join("roms/gc/Super Smash Bros Melee.rvz")),
             rom_dir: env_path("NEL3AB_ROM_DIR")
                 .unwrap_or_else(|| PathBuf::from(&home).join("roms/gc")),
             dolphin: env_path("NEL3AB_DOLPHIN")

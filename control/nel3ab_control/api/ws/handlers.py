@@ -52,9 +52,9 @@ async def seat(sid: str, data: dict[str, Any]) -> None:
     rooms, people = _state(sio.get_environ(sid))
     port = data.get("port")
     if port is None:
-        rooms.release(session["name"])
+        rooms.release(sid)
     else:
-        rooms.claim(int(port), session["name"])
+        rooms.claim(int(port), sid, session["name"])
     await broadcast(rooms, people)
 
 
@@ -74,7 +74,7 @@ async def rename(sid: str, data: dict[str, Any]) -> None:
     if now != was:
         # La place suit son occupant: elle est retenue sous un nom, et un nom qui
         # change sans que la place suive laisse une manette au nom d'un fantôme.
-        rooms.rename(was, now)
+        rooms.rename(sid, now)
         people.renamed(sid, now)
         await sio.save_session(sid, {**session, "name": now})
     await broadcast(rooms, people)
@@ -82,9 +82,9 @@ async def rename(sid: str, data: dict[str, Any]) -> None:
 
 @sio.event
 async def disconnect(sid: str) -> None:
-    """Une page part. Ses manettes retournent à la salle."""
-    session = await sio.get_session(sid)
+    """Une page part. SES manettes retournent à la salle, pas celles du même nom
+    sur une autre machine."""
     rooms, people = _state(sio.get_environ(sid))
     people.left(sid)
-    rooms.release(session["name"])
+    rooms.release(sid)
     await broadcast(rooms, people)

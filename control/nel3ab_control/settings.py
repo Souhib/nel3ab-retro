@@ -36,3 +36,11 @@ class Settings(BaseSettings):
             "contrairement aux places, qui meurent avec le processus."
         ),
     )
+    worker_control: str = Field(
+        default="127.0.0.1:8101",
+        description=(
+            "Où dire au worker qui décide du jeu. Un autre port que celui des "
+            "pages, et que le proxy ne relaie pas: c'est ce qui empêche un "
+            "navigateur de se déclarer propriétaire."
+        ),
+    )

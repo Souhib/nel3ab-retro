@@ -3834,6 +3834,106 @@ là l'erreur reste une erreur.
 trente secondes. La salle n'était pas vide: quelqu'un jouait dans un autre onglet.
 L'essai demande maintenant une salle vide et s'abstient sinon, comme les cinq
 autres qui ont appris la même leçon avant lui.
+### 7.23 Le propriétaire pour de vrai, et un menu qui prend tout l'écran
+
+Le chapitre précédent laissait une phrase gênante: la page n'offrait le
+changement de jeu qu'au propriétaire, mais le worker ne connaissait pas
+l'identité et obéissait à qui tenait une manette. Une console de développeur
+suffisait. C'est fermé.
+
+#### Un deuxième port, et pourquoi il en fallait un
+
+Le proxy envoie `/` au worker: **tout chemin que le worker sert est joignable
+depuis un navigateur**. Une route `/owner` sur le serveur de pages aurait laissé
+n'importe qui se déclarer propriétaire, ce qui est exactement la règle qu'on
+essayait de poser.
+
+Le worker écoute donc sur un second port, que le proxy ne relaie pas du tout.
+Seul un processus de la machine peut l'atteindre, et c'est une propriété de la
+liaison plutôt que d'un fichier de configuration ailleurs: retirer une ligne du
+proxy ne peut pas l'ouvrir par accident.
+
+Le protocole tient en une ligne, `owner <place>\n`, où `0` veut dire personne.
+Un seul message existe; une bibliothèque de plus pour l'écrire serait une
+dépendance à tenir à jour pour deux mots.
+
+La règle est vérifiée dans `obey`, à côté de l'ordre, et pas dans la page.
+L'essai est rouge d'abord, et il fallait qu'il le soit ici plus qu'ailleurs: le
+pilote de navigateur ne pouvait pas l'attraper, puisqu'une page qui n'offre pas
+le bouton n'envoie pas l'octet. C'est précisément la console de développeur qu'on
+ferme, donc c'est un test de transport qui devait le dire.
+
+Aucun propriétaire déclaré veut dire aucune règle: la salle retombe sur ce
+qu'elle faisait avant, où tenir une manette suffit. C'est le cas d'une salle sans
+plan de contrôle, et refuser tout là ferait une salle bloquée par un service qui
+n'est peut-être pas installé.
+
+#### Une place appartient à une SESSION, pas à un nom
+
+« J'avais quitté la salle et je voyais encore Souhib. » La présence dédoublonne
+par identité, donc un autre appareil de la même personne suffisait à la garder
+dans la liste. Correct, et illisible.
+
+Mais en regardant, un vrai défaut est apparu dans le modèle: les places étaient
+rangées **par nom**. Deux conséquences que personne n'avait vues. Fermer un
+onglet libérait la manette que la même personne tenait sur son autre machine. Et
+deux appareils d'une même personne se confondaient en une seule ligne, donc la
+salle affichait une place pour deux.
+
+Les places sont maintenant rangées par session. La route HTTP qui permettait de
+réserver une place est partie avec: elle ne pouvait pas dire QUELLE session
+réservait, elle doublonnait le chemin de la socket, et la page ne s'en servait
+pas.
+
+#### Les prises redeviennent des prises
+
+J'avais remplacé les quatre prises dessinées par la silhouette d'une manette. Ce
+n'était pas ce qui était demandé et c'était moins bon: ce qu'on reconnaît sur
+l'avant d'une console, ce sont les quatre **ouvertures**, chacune avec la couleur
+de son joueur. Le dessin d'origine est revenu, avec ses trois états: libre montre
+ses broches dans un trou noir, occupée est bouchée par une fiche grise, tienne
+est la même fiche dans la couleur du joueur avec le contour allumé.
+
+Les quatre couleurs ne suivent pas le thème, et c'est délibéré. Rien dans le
+matériel n'est coloré, les prises sont toutes du même plastique noir; mais tous
+les jeux qui ont demandé « lequel es-tu ? » ont répondu en rouge, bleu, jaune,
+vert. Les faire changer avec l'ambiance reviendrait à repeindre le joueur 1.
+
+#### Un menu, et pas un panneau de plus à droite
+
+La colonne de droite est un appareil de mesure: faite pour être lue pendant qu'on
+joue, en petit et sans bouger. Choisir un jeu n'est pas ça. On lâche la partie, on
+regarde une liste, on décide. C'est un moment à part et il prend tout l'écran.
+
+Échap l'ouvre, Échap le referme, haut/bas/entrée le parcourent, parce que
+quelqu'un qui tient une manette n'a pas forcément une souris à portée. Trois
+rayons: les jeux, la salle, les réglages. Les réglages sont le **même** bloc que
+dans la colonne, pas une copie: deux copies auraient fini par diverger, et c'est
+le genre d'écart qu'on ne voit qu'en montrant l'écran à quelqu'un.
+
+#### Un chargement qui dit où il en est
+
+Changer de jeu arrête l'émulateur, redémarre le worker et fait se reconnecter
+toutes les pages. Une dizaine de secondes pendant lesquelles il ne se passait
+rien sauf une petite ligne dans la colonne.
+
+L'écran de chargement montre ce que la page SAIT: le nom du jeu demandé et
+l'étape où elle en est, en trois temps. Pas de barre qui avance toute seule:
+aucun des deux services ne dit où il en est, et une barre inventée est un
+mensonge poli. Il se retire une trentaine d'images après la reprise, pas à la
+première: la toute première est parfois une image-clé du jeu précédent restée
+dans le décodeur, et disparaître dessus ferait clignoter l'ancien jeu.
+
+#### Ce qu'on ne peut plus faire, et ce qui reste à faire
+
+Une manette tenue par quelqu'un **présent dans la salle** ne se prend plus d'un
+clic: le bouton est éteint et dit pourquoi. Une place tenue par un fantôme, elle,
+se reprend toujours en deux clics, parce que c'est le cas où il faut bien que
+quelqu'un puisse s'asseoir.
+
+Ce qui manque est la demande d'échange: pouvoir dire « tu me la passes ? » et
+laisser l'autre accepter. C'est deux pages à mettre d'accord à travers le salon,
+et ce n'est pas fait.
 ---
 
 ## 8. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
@@ -3892,6 +3992,8 @@ pas échouer**.
 | `innerText` rend le texte transformé | Un essai cherchait « dans la salle » dans une page qui affichait `1 DANS LA SALLE`: l'étiquette est mise en majuscules par le style, et `innerText` rend le rendu, pas la source | Comparer sans tenir compte de la casse, ou lire l'attribut plutôt que le texte. Et se rappeler que la sortie de l'essai contenait déjà la réponse |
 | Une limite écrite deux fois | Le contrôleur coupait un pseudo à 24 caractères, le schéma en refusait 25. Deux limites à garder d'accord pour la même règle | La longueur est le contrat, donc elle vit dans le schéma, qui la publie dans l'OpenAPI. Le contrôleur ne garde que ce que le schéma ne peut pas voir |
 | Une diffusion qui interroge un service à chaque événement | Le salon appelait le worker pour décrire la salle à chaque connexion, départ et changement de pseudo. Invisible jusqu'au jour où changer de jeu redémarre le worker et où toutes les pages se reconnectent pendant ce redémarrage | Garder la dernière réponse et s'en servir quand la source ne répond pas, avec le jumeau négatif: n'avoir JAMAIS eu de réponse reste une erreur |
+| Une place rangée par nom | Les manettes étaient retenues sous le nom de qui les tenait. Deux appareils d'une même personne portent le même nom: fermer un onglet libérait la manette de l'autre machine, et la salle affichait une place pour deux | Une ressource appartient à une SESSION, pas à une personne. Le nom sert à l'afficher, jamais à identifier |
+| Une règle qui ne vit que dans l'interface | « Seul le propriétaire change le jeu » était appliqué par la page, et le worker obéissait à qui tenait une manette. Une console de développeur suffisait | Une règle se met là où l'ordre arrive. Et l'essai doit être au même endroit: un pilote de navigateur ne peut pas attraper ce qu'une page n'envoie jamais |
 
 ---
 

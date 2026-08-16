@@ -244,33 +244,3 @@ export type ReadRoomResponses = {
 };
 
 export type ReadRoomResponse = ReadRoomResponses[keyof ReadRoomResponses];
-
-export type ClaimSeatData = {
-    body: Identity;
-    path: {
-        /**
-         * Port
-         */
-        port: number;
-    };
-    query?: never;
-    url: '/api/room/seats/{port}';
-};
-
-export type ClaimSeatErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type ClaimSeatError = ClaimSeatErrors[keyof ClaimSeatErrors];
-
-export type ClaimSeatResponses = {
-    /**
-     * Successful Response
-     */
-    204: void;
-};
-
-export type ClaimSeatResponse = ClaimSeatResponses[keyof ClaimSeatResponses];

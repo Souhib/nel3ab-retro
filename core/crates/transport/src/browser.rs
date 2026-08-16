@@ -229,6 +229,7 @@ impl BrowserServer {
         page: &'static str,
         catalogue: Arc<str>,
         players: PlayerSlot,
+        owner: &crate::control::OwnerSeat,
     ) -> Result<Self, TransportError> {
         let listener = TcpListener::bind(address)
             .map_err(|source| TransportError::Bind { address, source })?;
@@ -265,6 +266,7 @@ impl BrowserServer {
                 let arrived = Arc::clone(&arrived);
                 let seats = Arc::clone(&seats);
                 let wants_rom = Arc::clone(&wants_rom);
+                let owner = Arc::clone(owner);
                 move || {
                     accept_loop(
                         &listener,
@@ -282,6 +284,7 @@ impl BrowserServer {
                             players,
                             wants_rom,
                             catalogue,
+                            owner,
                         },
                     );
                 }
@@ -505,6 +508,9 @@ struct Shared {
     /// it lives is the emulator's business, and the transport's job is to hand
     /// bytes to a browser without an opinion about them.
     catalogue: Arc<str>,
+    /// La place qui a le droit de changer de jeu, dite par le plan de contrôle
+    /// sur un port que le proxy ne relaie pas. Voir [`crate::control`].
+    owner: crate::control::OwnerSeat,
 }
 
 /// How often a viewer's request for a key frame is honoured.
@@ -1065,6 +1071,31 @@ fn input_thread(stream: TcpStream, shared: &Shared, take: Option<PlayerSlot>) {
 fn obey(payload: &[u8], shared: &Shared, seat: PlayerSlot) -> bool {
     match Command::decode(payload) {
         Ok(Command::SwitchRom { index }) => {
+            // Le propriétaire décide, et c'est vérifié ICI plutôt que dans la
+            // page: une règle qui ne vit que dans une interface est une règle
+            // qu'une console de développeur contourne en une ligne.
+            //
+            // Aucun propriétaire déclaré veut dire aucune règle, et la salle
+            // retombe sur ce qu'elle faisait avant: tenir une manette suffit.
+            // C'est le cas quand le plan de contrôle n'est pas là, et refuser
+            // tout ferait une salle où plus personne ne peut rien.
+            let decides = shared
+                .owner
+                .lock()
+                .ok()
+                .and_then(|held| *held)
+                .is_none_or(|boss| boss == seat);
+            if !decides {
+                tracing::info!(
+                    port = seat.get(),
+                    index,
+                    "a player who does not own the room asked for another game"
+                );
+                // On garde la connexion: refuser l'ordre n'est pas refuser le
+                // joueur, et le déconnecter lui ferait perdre sa manette pour
+                // avoir cliqué au mauvais endroit.
+                return true;
+            }
             tracing::info!(port = seat.get(), index, "a player asked for another game");
             if let Ok(mut wanted) = shared.wants_rom.lock() {
                 *wanted = Some(index);
@@ -1418,6 +1449,13 @@ mod tests {
         PlayerSlot::new(4).unwrap()
     }
 
+    /// Aucun propriétaire déclaré: la salle applique alors sa règle d'avant, où
+    /// tenir une manette suffit à changer de jeu. C'est ce que ces essais
+    /// vérifiaient déjà, et ce que fait une salle sans plan de contrôle.
+    fn nobody() -> crate::control::OwnerSeat {
+        Arc::new(Mutex::new(None))
+    }
+
     /// Connects a real WebSocket to a real server, because keep-alives are a
     /// property of the connection thread and not of `send`.
     fn watch(address: SocketAddr) -> tungstenite::WebSocket<std::net::TcpStream> {
@@ -1492,8 +1530,14 @@ mod tests {
     #[test]
     fn a_player_can_take_the_controller_from_a_forgotten_page() {
         let one = PlayerSlot::new(1).unwrap();
-        let server =
-            BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", "[]".into(), one).unwrap();
+        let server = BrowserServer::start(
+            "127.0.0.1:0".parse().unwrap(),
+            "page",
+            "[]".into(),
+            one,
+            &nobody(),
+        )
+        .unwrap();
         let (mut forgotten, port) = hold(server.address());
         assert_eq!(port, 1);
 
@@ -1530,9 +1574,14 @@ mod tests {
     /// right order.
     #[test]
     fn a_named_port_is_the_port_you_get() {
-        let server =
-            BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", "[]".into(), four())
-                .unwrap();
+        let server = BrowserServer::start(
+            "127.0.0.1:0".parse().unwrap(),
+            "page",
+            "[]".into(),
+            four(),
+            &nobody(),
+        )
+        .unwrap();
         let (_third, took) = insist_on(server.address(), 3);
         assert_eq!(took, 3, "asked for the third socket");
 
@@ -1545,8 +1594,14 @@ mod tests {
     #[test]
     fn a_port_the_room_does_not_serve_is_refused() {
         let one = PlayerSlot::new(1).unwrap();
-        let server =
-            BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", "[]".into(), one).unwrap();
+        let server = BrowserServer::start(
+            "127.0.0.1:0".parse().unwrap(),
+            "page",
+            "[]".into(),
+            one,
+            &nobody(),
+        )
+        .unwrap();
         let (_held, port) = insist_on(server.address(), 4);
         assert_eq!(port, 1, "a room of one gave out its only port");
     }
@@ -1555,9 +1610,14 @@ mod tests {
     /// picture of the moment it connected and nothing after.
     #[test]
     fn a_page_is_told_when_somebody_else_plugs_in() {
-        let server =
-            BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", "[]".into(), four())
-                .unwrap();
+        let server = BrowserServer::start(
+            "127.0.0.1:0".parse().unwrap(),
+            "page",
+            "[]".into(),
+            four(),
+            &nobody(),
+        )
+        .unwrap();
         let (mut first, mine) = hold(server.address());
         assert_eq!(mine, 1);
 
@@ -1600,8 +1660,14 @@ mod tests {
     #[test]
     fn a_newcomer_that_does_not_insist_is_still_refused() {
         let one = PlayerSlot::new(1).unwrap();
-        let server =
-            BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", "[]".into(), one).unwrap();
+        let server = BrowserServer::start(
+            "127.0.0.1:0".parse().unwrap(),
+            "page",
+            "[]".into(),
+            one,
+            &nobody(),
+        )
+        .unwrap();
         let (_holder, port) = hold(server.address());
         assert_eq!(port, 1);
 
@@ -1618,9 +1684,14 @@ mod tests {
     /// connections; anybody who can reach the port can do it on purpose.
     #[test]
     fn a_silent_connection_does_not_hold_up_the_next_one() {
-        let server =
-            BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", "[]".into(), four())
-                .unwrap();
+        let server = BrowserServer::start(
+            "127.0.0.1:0".parse().unwrap(),
+            "page",
+            "[]".into(),
+            four(),
+            &nobody(),
+        )
+        .unwrap();
         let address = server.address();
 
         let _silent: Vec<TcpStream> = (0..3)
@@ -1647,6 +1718,64 @@ mod tests {
     /// One byte asks for a key frame, which is five or six times the size of an
     /// ordinary picture and goes to every viewer. Unlimited, that is an
     /// amplifier for anybody who can open the socket.
+    /// Le propriétaire décide, et la règle vit dans le WORKER.
+    ///
+    /// Rouge d'abord: sans le contrôle dans `obey`, la première assertion passe
+    /// et la salle change de jeu sur l'ordre de n'importe qui. Le pilote de
+    /// navigateur ne pouvait pas l'attraper, parce qu'une page qui n'offre pas
+    /// le bouton n'envoie pas l'octet — c'est précisément la console de
+    /// développeur qu'on essaie de fermer.
+    #[test]
+    fn only_the_owner_may_change_the_game() {
+        let owner: crate::control::OwnerSeat = Arc::new(Mutex::new(None));
+        let server = BrowserServer::start(
+            "127.0.0.1:0".parse().unwrap(),
+            "page",
+            "[]".into(),
+            four(),
+            &owner,
+        )
+        .unwrap();
+        let address = server.address();
+
+        let (mut first, one) = hold(address);
+        let (mut second, two) = hold(address);
+        assert_eq!((one, two), (1, 2), "the room hands out ports in order");
+
+        // La place 1 décide.
+        *owner.lock().unwrap() = Some(PlayerSlot::new(1).unwrap());
+
+        // Le joueur 2 demande: rien ne doit bouger, et il garde sa manette.
+        second
+            .send(tungstenite::Message::binary(
+                Command::SwitchRom { index: 3 }.encode().to_vec(),
+            ))
+            .unwrap();
+        std::thread::sleep(Duration::from_millis(200));
+        assert_eq!(
+            server.take_rom_request(),
+            None,
+            "a player who does not own the room must not change the game"
+        );
+        second
+            .send(tungstenite::Message::binary(
+                InputFrame::neutral(PlayerSlot::new(2).unwrap())
+                    .encode()
+                    .to_vec(),
+            ))
+            .expect("refusing an order must not hang up on the player");
+
+        // Le jumeau positif: le propriétaire, lui, est obéi. Sans lui, un
+        // `obey` qui refuserait TOUT passerait l'assertion du dessus.
+        first
+            .send(tungstenite::Message::binary(
+                Command::SwitchRom { index: 3 }.encode().to_vec(),
+            ))
+            .unwrap();
+        std::thread::sleep(Duration::from_millis(200));
+        assert_eq!(server.take_rom_request(), Some(3));
+    }
+
     #[test]
     fn key_frames_are_granted_no_faster_than_the_limit() {
         let shared = Shared {
@@ -1664,6 +1793,7 @@ mod tests {
             players: four(),
             wants_rom: Arc::new(Mutex::new(None)),
             catalogue: "[]".into(),
+            owner: nobody(),
         };
 
         for _ in 0..1000 {
@@ -1687,9 +1817,14 @@ mod tests {
     /// Four browsers, four ports, in the order they arrived.
     #[test]
     fn each_browser_is_given_its_own_port() {
-        let server =
-            BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", "[]".into(), four())
-                .unwrap();
+        let server = BrowserServer::start(
+            "127.0.0.1:0".parse().unwrap(),
+            "page",
+            "[]".into(),
+            four(),
+            &nobody(),
+        )
+        .unwrap();
         let held: Vec<_> = (0..4).map(|_| hold(server.address())).collect();
         let ports: Vec<u8> = held.iter().map(|(_, port)| *port).collect();
         assert_eq!(
@@ -1704,9 +1839,14 @@ mod tests {
     /// session would exhaust a four-player room in four reloads.
     #[test]
     fn a_port_is_free_again_once_its_browser_leaves() {
-        let server =
-            BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", "[]".into(), four())
-                .unwrap();
+        let server = BrowserServer::start(
+            "127.0.0.1:0".parse().unwrap(),
+            "page",
+            "[]".into(),
+            four(),
+            &nobody(),
+        )
+        .unwrap();
         let (first, port) = hold(server.address());
         assert_eq!(port, 1);
         drop(first);
@@ -1730,8 +1870,14 @@ mod tests {
     #[test]
     fn a_full_room_turns_the_next_browser_away() {
         let one = PlayerSlot::new(1).unwrap();
-        let server =
-            BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", "[]".into(), one).unwrap();
+        let server = BrowserServer::start(
+            "127.0.0.1:0".parse().unwrap(),
+            "page",
+            "[]".into(),
+            one,
+            &nobody(),
+        )
+        .unwrap();
         let (_held, port) = hold(server.address());
         assert_eq!(port, 1);
 
@@ -1745,9 +1891,14 @@ mod tests {
     /// and overwriting cannot.
     #[test]
     fn a_browser_cannot_move_another_players_pad() {
-        let server =
-            BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", "[]".into(), four())
-                .unwrap();
+        let server = BrowserServer::start(
+            "127.0.0.1:0".parse().unwrap(),
+            "page",
+            "[]".into(),
+            four(),
+            &nobody(),
+        )
+        .unwrap();
         let (_first, first_port) = hold(server.address());
         let (mut second, second_port) = hold(server.address());
         assert_eq!((first_port, second_port), (1, 2));
@@ -1780,9 +1931,14 @@ mod tests {
     /// observed, and there is no way to observe one without waiting for it.
     #[test]
     fn a_player_who_presses_nothing_keeps_their_port() {
-        let server =
-            BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", "[]".into(), four())
-                .unwrap();
+        let server = BrowserServer::start(
+            "127.0.0.1:0".parse().unwrap(),
+            "page",
+            "[]".into(),
+            four(),
+            &nobody(),
+        )
+        .unwrap();
         let (mut quiet, port) = hold(server.address());
         assert_eq!(port, 1);
 
@@ -1827,8 +1983,14 @@ mod tests {
     fn a_socket_with_nobody_behind_it_gives_its_port_back() {
         use tungstenite::client::IntoClientRequest as _;
         let one = PlayerSlot::new(1).unwrap();
-        let server =
-            BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", "[]".into(), one).unwrap();
+        let server = BrowserServer::start(
+            "127.0.0.1:0".parse().unwrap(),
+            "page",
+            "[]".into(),
+            one,
+            &nobody(),
+        )
+        .unwrap();
         let address = server.address();
 
         // A client that finishes the handshake and then never reads again: it
@@ -1875,9 +2037,14 @@ mod tests {
     /// The stream's cadence has to be the server's, not the emulator's.
     #[test]
     fn a_viewer_hears_from_the_server_even_when_the_emulator_says_nothing() {
-        let server =
-            BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", "[]".into(), four())
-                .unwrap();
+        let server = BrowserServer::start(
+            "127.0.0.1:0".parse().unwrap(),
+            "page",
+            "[]".into(),
+            four(),
+            &nobody(),
+        )
+        .unwrap();
         let mut socket = watch(server.address());
 
         // Not one frame is sent for the whole of this test.
@@ -1895,8 +2062,14 @@ mod tests {
     #[test]
     fn a_stream_that_never_pauses_carries_no_keep_alives() {
         let server = Arc::new(
-            BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", "[]".into(), four())
-                .unwrap(),
+            BrowserServer::start(
+                "127.0.0.1:0".parse().unwrap(),
+                "page",
+                "[]".into(),
+                four(),
+                &nobody(),
+            )
+            .unwrap(),
         );
         let mut socket = watch(server.address());
 

@@ -89,52 +89,6 @@
           }
         }
       }
-    },
-    "/api/room/seats/{port}": {
-      "post": {
-        "tags": [
-          "room"
-        ],
-        "summary": "Claim Seat",
-        "description": "Records that a player claims a pad.\n\nThe worker decides who really holds it; this is the name to show beside it.\n\nThe name travels in the BODY, not in a query string. It is not a secret, but\na URL is written to every log between a browser and here, and a name is still\na person. The lobby socket already passes it that way, and an endpoint that\ndisagreed with the socket beside it would be a rule nobody could state.",
-        "operationId": "claim_seat",
-        "parameters": [
-          {
-            "name": "port",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Port"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/Identity"
-              }
-            }
-          }
-        },
-        "responses": {
-          "204": {
-            "description": "Successful Response"
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
     }
   },
   "components": {

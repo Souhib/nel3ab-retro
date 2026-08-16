@@ -14,7 +14,7 @@
  */
 import { useEffect, useState } from "react";
 import { cn } from "../lib/cn";
-import { Pad } from "./Pad";
+import { Socket } from "./Socket";
 
 /** Combien de temps l'armement se souvient de lui-même. */
 const ARMED_FOR_MS = 5000;
@@ -83,30 +83,17 @@ export function Seats({
                     : "prendre cette manette"
               }
               className={cn(
-                "flex flex-col gap-1 border px-2 py-1.5 text-left transition-colors",
-                isMine && "border-indigo bg-indigo/10",
-                isArmed && "border-alert bg-alert/10",
-                !isMine && !isArmed && "border-rule bg-panel hover:border-rule-bright",
+                "cursor-pointer border-0 bg-transparent p-0 leading-none",
+                isMine && "cursor-default",
               )}
             >
-              <span className="flex items-center justify-between gap-1">
-                <span className="font-mono text-[10px] text-faint">P{port}</span>
-                <Pad
-                  className={cn(
-                    "h-4 w-6 shrink-0",
-                    isArmed
-                      ? "text-alert"
-                      : isMine
-                        ? "text-indigo"
-                        : held
-                          ? "text-muted"
-                          : "text-rule-bright",
-                  )}
-                />
-              </span>
+              <Socket
+                port={port}
+                state={isMine ? "mine" : isArmed ? "arming" : held ? "busy" : "free"}
+              />
               <span
                 className={cn(
-                  "truncate text-[12px]",
+                  "block truncate text-center text-[11px]",
                   isArmed
                     ? "text-alert"
                     : isMine
@@ -116,13 +103,7 @@ export function Seats({
                         : "text-faint",
                 )}
               >
-                {isArmed
-                  ? "PRENDRE ?"
-                  : isMine
-                    ? (name ?? "toi")
-                    : held
-                      ? (name ?? "occupée")
-                      : "libre"}
+                {isMine ? (name ?? "toi") : held ? (name ?? "occupée") : "libre"}
               </span>
             </button>
           );

@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { ClaimSeatData, ClaimSeatErrors, ClaimSeatResponses, ReadMeData, ReadMeResponses, ReadRoomData, ReadRoomResponses, RenameMeData, RenameMeErrors, RenameMeResponses } from './types.gen';
+import type { ReadMeData, ReadMeResponses, ReadRoomData, ReadRoomResponses, RenameMeData, RenameMeErrors, RenameMeResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -53,24 +53,3 @@ export const renameMe = <ThrowOnError extends boolean = false>(options: Options<
  * What is loaded, what else could be, who claims which pad, and who is here.
  */
 export const readRoom = <ThrowOnError extends boolean = false>(options?: Options<ReadRoomData, ThrowOnError>): RequestResult<ReadRoomResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ReadRoomResponses, unknown, ThrowOnError>({ url: '/api/room', ...options });
-
-/**
- * Claim Seat
- *
- * Records that a player claims a pad.
- *
- * The worker decides who really holds it; this is the name to show beside it.
- *
- * The name travels in the BODY, not in a query string. It is not a secret, but
- * a URL is written to every log between a browser and here, and a name is still
- * a person. The lobby socket already passes it that way, and an endpoint that
- * disagreed with the socket beside it would be a rule nobody could state.
- */
-export const claimSeat = <ThrowOnError extends boolean = false>(options: Options<ClaimSeatData, ThrowOnError>): RequestResult<ClaimSeatResponses, ClaimSeatErrors, ThrowOnError> => (options.client ?? client).post<ClaimSeatResponses, ClaimSeatErrors, ThrowOnError>({
-    url: '/api/room/seats/{port}',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});

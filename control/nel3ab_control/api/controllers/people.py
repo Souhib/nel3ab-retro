@@ -84,6 +84,18 @@ class PeopleController:
                 return login, name
         return None
 
+    def sessions(self) -> dict[str, list[str]]:
+        """Les sockets de chaque personne, par identité.
+
+        Une personne peut en avoir plusieurs: deux onglets, ou deux machines.
+        C'est ce qui permet de dire « cette personne tient la manette 2 » sans
+        confondre ses appareils entre eux.
+        """
+        found: dict[str, list[str]] = {}
+        for sid, (login, name) in self._present.items():
+            found.setdefault(login or name, []).append(sid)
+        return found
+
     def present(self) -> list[tuple[str | None, str]]:
         """Qui est là, une fois par personne et non une fois par onglet.
 
@@ -93,7 +105,7 @@ class PeopleController:
         """
         seen: dict[str, tuple[str | None, str]] = {}
         for sid, (login, name) in self._present.items():
-            seen.setdefault(login or f"anonyme:{sid}", (login, name))
+            seen.setdefault(login or name or f"anonyme:{sid}", (login, name))
         return list(seen.values())
 
 

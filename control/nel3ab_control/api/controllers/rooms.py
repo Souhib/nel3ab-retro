@@ -30,11 +30,27 @@ class RoomController:
     def __init__(self, settings: Settings, client: httpx.AsyncClient) -> None:
         self._settings = settings
         self._client = client
+        #: Port -> la SESSION qui l'a annoncé, pas le nom de qui la tient.
+        #:
+        #: Par session, parce qu'un nom n'est pas unique: la même personne peut
+        #: ouvrir la salle sur deux appareils. Avec des places rangées par nom,
+        #: fermer un onglet libérait la place de l'autre appareil, et deux
+        #: appareils d'une même personne se confondaient en une seule ligne.
         self._claims: dict[int, str] = {}
         self._players = PADS_MAX
         #: La dernière bibliothèque obtenue, gardée pour survivre à un worker qui
         #: redémarre. Voir `library`.
         self._known: tuple[list[Game], Game | None] | None = None
+        #: Session -> le nom sous lequel elle s'est assise, pour l'afficher.
+        self._named: dict[str, str] = {}
+        #: La dernière place annoncée au worker, pour ne pas le rappeler pour
+        #: rien. Publique parce que c'est le salon qui la tient à jour.
+        self.told_owner = 0
+
+    @property
+    def settings(self) -> Settings:
+        """Les réglages, pour qui doit joindre le worker."""
+        return self._settings
 
     async def library(self) -> tuple[list[Game], Game | None]:
         """Every game the worker found, and the one it is running.
@@ -83,47 +99,77 @@ class RoomController:
         second, and hiding one that does is a player who cannot sit down.
         """
         return [
-            Seat(port=port, player=self._claims.get(port)) for port in range(1, self._players + 1)
+            Seat(port=port, player=self._named.get(self._claims.get(port) or ""))
+            for port in range(1, self._players + 1)
         ]
 
-    def claim(self, port: int, player: str) -> None:
-        """Records that somebody says they hold a pad.
+    def claim(self, port: int, session: str, name: str) -> None:
+        """Records that a SESSION says it holds a pad.
 
-        Refuses a pad somebody else claims. Re-claiming your own is not an error:
-        a page that reconnects says the same thing again, and treating that as a
-        conflict would lock a player out of the seat they are sitting in.
+        Refuses a pad another session claims. Re-claiming one's own is not an
+        error: a page that reconnects says the same thing again, and treating
+        that as a conflict would lock a player out of the seat they are sitting
+        in.
         """
         held = self._claims.get(port)
-        if held is not None and held != player:
+        if held is not None and held != session:
             raise SeatTaken(port)
-        self._claims[port] = player
+        self._claims[port] = session
+        self._named[session] = name
 
-    def release(self, player: str) -> None:
-        """Forgets every pad this player claimed."""
-        self._claims = {port: who for port, who in self._claims.items() if who != player}
+    def release(self, session: str) -> None:
+        """Forgets every pad THIS session claimed.
 
-    def rename(self, was: str, now: str) -> None:
+        Cette session-là et pas toutes celles du même nom: fermer un onglet ne
+        doit pas libérer la manette que la même personne tient sur son autre
+        machine.
+        """
+        self._claims = {port: who for port, who in self._claims.items() if who != session}
+        self._named.pop(session, None)
+
+    def rename(self, session: str, now: str) -> None:
         """Une place suit son occupant quand il change de pseudo.
 
         Sans ça, changer de pseudo laisserait une manette retenue au nom de
-        quelqu'un qui n'existe plus, et personne ne pourrait la reprendre sans la
-        prendre à un fantôme.
+        quelqu'un qui n'existe plus.
         """
-        self._claims = {port: now if who == was else who for port, who in self._claims.items()}
+        if session in self._named:
+            self._named[session] = now
+
+    def seat_of(self, session: str) -> int | None:
+        """La place que cette session tient, s'il y en a une."""
+        for port, who in self._claims.items():
+            if who == session:
+                return port
+        return None
 
     async def describe(self, people: PeopleController | None = None) -> Room:
         """Toute la salle, telle qu'une page a besoin de la dessiner."""
         library, running = await self.library()
         seats = self.seats()
-        held = {seat.player: seat.port for seat in seats if seat.player}
         present = people.present() if people else []
         boss = people.owner() if people else None
+        # La place d'une personne se trouve par ses SESSIONS: le nom ne suffit
+        # pas, deux appareils d'une même personne portent le même.
+        held = {
+            login_or_name: port
+            for login_or_name, sessions in (people.sessions() if people else {}).items()
+            for session in sessions
+            if (port := self.seat_of(session)) is not None
+        }
         return Room(
             name=self._settings.room_name,
             game=running,
             library=library,
             seats=seats,
-            owner=Person(name=boss[1], login=boss[0], seat=held.get(boss[1])) if boss else None,
-            people=[Person(name=name, login=login, seat=held.get(name)) for login, name in present],
+            owner=(
+                Person(name=boss[1], login=boss[0], seat=held.get(boss[0] or boss[1]))
+                if boss
+                else None
+            ),
+            people=[
+                Person(name=name, login=login, seat=held.get(login or name))
+                for login, name in present
+            ],
             media_url=self._settings.worker_public_url,
         )

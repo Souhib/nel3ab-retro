@@ -30,43 +30,53 @@ async def test_every_pad_is_listed_even_when_nobody_holds_it(client: httpx.Async
     assert all(seat["player"] is None for seat in room["seats"])
 
 
-async def test_a_claimed_pad_carries_the_name(client: httpx.AsyncClient) -> None:
-    await client.post("/api/room/seats/2", json={"name": "Souhib"})
+async def test_a_claimed_pad_carries_the_name(
+    client: httpx.AsyncClient, rooms: RoomController
+) -> None:
+    rooms.claim(2, "sid-souhib", "Souhib")
 
     room = (await client.get("/api/room")).json()
     assert room["seats"][1] == {"port": 2, "player": "Souhib"}
 
 
-async def test_a_pad_somebody_else_claims_is_refused(client: httpx.AsyncClient) -> None:
-    await client.post("/api/room/seats/1", json={"name": "Souhib"})
+async def test_a_pad_another_session_claims_is_refused(
+    client: httpx.AsyncClient, rooms: RoomController
+) -> None:
+    rooms.claim(1, "sid-souhib", "Souhib")
 
-    response = await client.post("/api/room/seats/1", json={"name": "Yassine"})
+    with pytest.raises(SeatTaken):
+        rooms.claim(1, "sid-yassine", "Yassine")
 
-    assert response.status_code == 409
     room = (await client.get("/api/room")).json()
-    assert room["seats"][0]["player"] == "Souhib", "the refusal must not have moved anything"
+    assert room["seats"][0]["player"] == "Souhib", "le refus ne doit rien avoir déplacé"
 
 
-async def test_claiming_your_own_pad_again_is_not_a_conflict(client: httpx.AsyncClient) -> None:
-    """A page that reconnects says the same thing again, and being told no would
-    lock a player out of the seat they are sitting in."""
-    await client.post("/api/room/seats/3", json={"name": "Souhib"})
+async def test_claiming_your_own_pad_again_is_not_a_conflict(rooms: RoomController) -> None:
+    """Une page qui se reconnecte redit la même chose, et lui répondre non
+    l'enfermerait dehors de la place où elle est assise."""
+    rooms.claim(3, "sid-souhib", "Souhib")
 
-    response = await client.post("/api/room/seats/3", json={"name": "Souhib"})
+    rooms.claim(3, "sid-souhib", "Souhib")
 
-    assert response.status_code == 204
+    assert rooms.seat_of("sid-souhib") == 3
 
 
-async def test_leaving_gives_back_every_pad_that_player_held() -> None:
+async def test_leaving_gives_back_only_that_session_s_pads() -> None:
+    """Le coeur du modèle: une place appartient à une SESSION, pas à un nom.
+
+    La même personne peut ouvrir la salle sur deux appareils. Avec des places
+    rangées par nom, fermer un onglet libérait la manette de l'autre machine, et
+    la salle affichait quelqu'un comme parti alors qu'il jouait encore.
+    """
     settings = Settings(worker_url="http://worker.test")
     rooms = RoomController(settings, httpx.AsyncClient())
-    rooms.claim(1, "Souhib")
-    rooms.claim(2, "Souhib")
-    rooms.claim(3, "Yassine")
+    rooms.claim(1, "portable", "Souhib")
+    rooms.claim(2, "bureau", "Souhib")
+    rooms.claim(3, "sid-yassine", "Yassine")
 
-    rooms.release("Souhib")
+    rooms.release("portable")
 
-    assert [seat.player for seat in rooms.seats()] == [None, None, "Yassine", None]
+    assert [seat.player for seat in rooms.seats()] == [None, "Souhib", "Yassine", None]
 
 
 async def test_a_worker_that_does_not_answer_says_so() -> None:
@@ -90,10 +100,10 @@ async def test_a_seat_conflict_names_the_pad() -> None:
     """The error a page shows has to say WHICH pad, or the player cannot act on it."""
     settings = Settings()
     rooms = RoomController(settings, httpx.AsyncClient())
-    rooms.claim(2, "Souhib")
+    rooms.claim(2, "sid-souhib", "Souhib")
 
     with pytest.raises(SeatTaken) as raised:
-        rooms.claim(2, "Yassine")
+        rooms.claim(2, "sid-yassine", "Yassine")
 
     assert "2" in raised.value.detail
 

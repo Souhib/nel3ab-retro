@@ -13,6 +13,7 @@ import socketio
 
 from nel3ab_control.api.controllers.people import PeopleController
 from nel3ab_control.api.controllers.rooms import RoomController
+from nel3ab_control.worker import tell_owner
 
 sio = socketio.AsyncServer(
     async_mode="asgi",
@@ -32,5 +33,16 @@ ROOM = "room"
 
 
 async def broadcast(rooms: RoomController, people: PeopleController) -> None:
-    """Dit à tout le monde à quoi la salle ressemble maintenant."""
-    await sio.emit("room", (await rooms.describe(people)).model_dump(), room=ROOM)
+    """Dit à tout le monde à quoi la salle ressemble maintenant.
+
+    Et au worker aussi, mais seulement quand la place du propriétaire CHANGE: le
+    worker n'a pas besoin de savoir que quelqu'un a changé de pseudo, et lui
+    ouvrir une socket à chaque événement du salon serait le défaut qu'on vient de
+    corriger dans l'autre sens.
+    """
+    room = await rooms.describe(people)
+    seat = room.owner.seat if room.owner and room.owner.seat else 0
+    if seat != rooms.told_owner:
+        rooms.told_owner = seat
+        await tell_owner(rooms.settings.worker_control, seat)
+    await sio.emit("room", room.model_dump(), room=ROOM)

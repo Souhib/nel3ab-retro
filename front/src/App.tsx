@@ -13,7 +13,8 @@ import { cn } from "./lib/cn";
 import { Entrance } from "./components/Entrance";
 import { Lobby } from "./components/Lobby";
 import { Instruments } from "./components/Instruments";
-import { Library } from "./components/Library";
+import { Booting, type Step } from "./components/Booting";
+import { Menu } from "./components/Menu";
 import { Panel } from "./components/Readout";
 import { Screen } from "./components/Screen";
 import { Seats } from "./components/Seats";
@@ -112,7 +113,14 @@ function Room({
   const [deviceRate, setDeviceRate] = useState(false);
   const [lipsync, setLipsync] = useState(false);
   const [bindings, setBindings] = useState(false);
+  const [menu, setMenu] = useState(false);
   const [theme, setTheme] = useState(storedTheme);
+  /** Le jeu demandé et l'image peinte au moment où on l'a demandé.
+   *
+   * Deux choses parce que la fin du chargement se reconnaît à une IMAGE, pas à
+   * une socket: le worker répond avant que Dolphin ait dessiné quoi que ce soit,
+   * et cacher l'écran de chargement là montrerait du noir. */
+  const [booting, setBooting] = useState<{ game: string; painted: number } | null>(null);
 
   const { ref, session } = useSession(volume, deviceRate, announceSeat);
   const shot = useSnapshot(session);
@@ -120,6 +128,26 @@ function Room({
   useEffect(() => session?.sound.setVolume(volume), [session, volume]);
   useEffect(() => session?.sound.setDeviceRate(deviceRate), [session, deviceRate]);
   useEffect(() => session?.setLipsync(lipsync), [session, lipsync]);
+  // Échap ouvre le menu, comme sur une console. Les écrans qui se ferment avec
+  // Échap (menu, touches) le gèrent eux-mêmes, donc on ne l'ouvre que quand
+  // rien n'est ouvert.
+  useEffect(() => {
+    const press = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target && ["INPUT", "TEXTAREA"].includes(target.tagName)) return;
+      if (event.key === "Escape" && !menu && !bindings) setMenu(true);
+    };
+    addEventListener("keydown", press);
+    return () => removeEventListener("keydown", press);
+  }, [menu, bindings]);
+
+  useEffect(() => {
+    if (booting === null || shot === null) return;
+    // Une trentaine d'images après la reprise: la toute première est parfois une
+    // image-clé du jeu précédent restée dans le décodeur, et disparaître dessus
+    // ferait clignoter l'ancien jeu une demi-seconde.
+    if (shot.video.painted > booting.painted + 30) setBooting(null);
+  }, [booting, shot]);
   useEffect(() => {
     applyTheme(theme);
     rememberTheme(theme);
@@ -127,6 +155,83 @@ function Room({
 
   const port = shot?.input.port ?? null;
   const learning = shot?.input.learning ?? null;
+  const people = room?.people ?? [];
+
+  /* Les mêmes réglages dans la colonne et dans le menu. Deux copies auraient
+     fini par diverger, et c'est le genre d'écart qu'on ne voit qu'en montrant
+     l'écran à quelqu'un. */
+  const settings = (
+    <>
+      {/* A browser refuses to make noise until somebody clicks something,
+              and it is right to: a room that starts shouting when a tab opens is
+              a room nobody opens twice. */}
+      {shot?.sound.state === "running" ? null : (
+        <button
+          type="button"
+          id="sound"
+          onClick={() => void session?.sound.start()}
+          className="mb-1 w-full border border-indigo/60 px-2 py-1.5 text-[12px] text-indigo hover:bg-indigo/10"
+        >
+          activer le son
+        </button>
+      )}
+      <Volume value={volume} onChange={setVolume} />
+      <Toggle
+        id="lipsync"
+        label="caler l'image sur le son"
+        hint="retarde l'image du retard mesuré du son, au lieu de la montrer en avance"
+        on={lipsync}
+        onChange={setLipsync}
+      />
+      <Toggle
+        id="deviceRate"
+        label="laisser la carte son choisir sa fréquence"
+        hint="évite un rééchantillonnage, mais la carte peut imposer un tampon plus long"
+        on={deviceRate}
+        onChange={setDeviceRate}
+      />
+      <div className="mt-1 flex gap-1">
+        <button
+          type="button"
+          id="bare"
+          onClick={() => setBare(true)}
+          className="flex-1 border border-rule px-2 py-1.5 text-[12px] text-muted transition-colors hover:border-indigo hover:text-indigo"
+        >
+          replier (F)
+        </button>
+        <button
+          type="button"
+          onClick={toggleFullscreen}
+          className="flex-1 border border-rule px-2 py-1.5 text-[12px] text-muted transition-colors hover:border-indigo hover:text-indigo"
+        >
+          {fullscreen ? "fenêtre" : "plein écran"}
+        </button>
+      </div>
+
+      <div className="mt-1 flex flex-col gap-1">
+        <span className="text-[11px] uppercase tracking-[0.14em] text-faint">thème</span>
+        <div className="grid grid-cols-2 gap-1">
+          {THEMES.map((choice) => (
+            <button
+              key={choice.id}
+              type="button"
+              id={`theme-${choice.id}`}
+              title={choice.note}
+              onClick={() => setTheme(choice.id)}
+              className={cn(
+                "border px-2 py-1 text-left text-[11px] transition-colors",
+                theme === choice.id
+                  ? "border-indigo text-indigo"
+                  : "border-rule text-muted hover:border-rule-bright",
+              )}
+            >
+              {choice.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </>
+  );
   // Le propriétaire décide du jeu. Quand la salle n'en a pas — aucun proxy
   // devant, donc personne d'identifié — elle retombe sur sa règle d'avant, où
   // tenir une manette suffit: refuser tout laisserait une salle où plus
@@ -210,92 +315,16 @@ function Room({
             />
           </Panel>
 
-          <Panel title="jeux">
-            <Library
-              games={room?.library ?? []}
-              running={room?.game?.index ?? null}
-              canChoose={port !== null && mine}
-              why={
-                port === null
-                  ? "prends une manette pour changer de jeu"
-                  : mine
-                    ? null
-                    : `${boss?.name ?? "quelqu'un"} décide du jeu dans cette salle`
-              }
-              onChoose={(index) => session?.input.chooseGame(index) ?? false}
-            />
-          </Panel>
+          <button
+            type="button"
+            id="openMenu"
+            onClick={() => setMenu(true)}
+            className="border border-indigo/60 px-3 py-2 text-[13px] text-indigo transition-colors hover:bg-indigo/10"
+          >
+            menu (Échap)
+          </button>
 
-          <Panel title="réglages">
-            {/* A browser refuses to make noise until somebody clicks something,
-              and it is right to: a room that starts shouting when a tab opens is
-              a room nobody opens twice. */}
-            {shot?.sound.state === "running" ? null : (
-              <button
-                type="button"
-                id="sound"
-                onClick={() => void session?.sound.start()}
-                className="mb-1 w-full border border-indigo/60 px-2 py-1.5 text-[12px] text-indigo hover:bg-indigo/10"
-              >
-                activer le son
-              </button>
-            )}
-            <Volume value={volume} onChange={setVolume} />
-            <Toggle
-              id="lipsync"
-              label="caler l'image sur le son"
-              hint="retarde l'image du retard mesuré du son, au lieu de la montrer en avance"
-              on={lipsync}
-              onChange={setLipsync}
-            />
-            <Toggle
-              id="deviceRate"
-              label="laisser la carte son choisir sa fréquence"
-              hint="évite un rééchantillonnage, mais la carte peut imposer un tampon plus long"
-              on={deviceRate}
-              onChange={setDeviceRate}
-            />
-            <div className="mt-1 flex gap-1">
-              <button
-                type="button"
-                id="bare"
-                onClick={() => setBare(true)}
-                className="flex-1 border border-rule px-2 py-1.5 text-[12px] text-muted transition-colors hover:border-indigo hover:text-indigo"
-              >
-                replier (F)
-              </button>
-              <button
-                type="button"
-                onClick={toggleFullscreen}
-                className="flex-1 border border-rule px-2 py-1.5 text-[12px] text-muted transition-colors hover:border-indigo hover:text-indigo"
-              >
-                {fullscreen ? "fenêtre" : "plein écran"}
-              </button>
-            </div>
-
-            <div className="mt-1 flex flex-col gap-1">
-              <span className="text-[11px] uppercase tracking-[0.14em] text-faint">thème</span>
-              <div className="grid grid-cols-2 gap-1">
-                {THEMES.map((choice) => (
-                  <button
-                    key={choice.id}
-                    type="button"
-                    id={`theme-${choice.id}`}
-                    title={choice.note}
-                    onClick={() => setTheme(choice.id)}
-                    className={cn(
-                      "border px-2 py-1 text-left text-[11px] transition-colors",
-                      theme === choice.id
-                        ? "border-indigo text-indigo"
-                        : "border-rule text-muted hover:border-rule-bright",
-                    )}
-                  >
-                    {choice.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </Panel>
+          <Panel title="réglages">{settings}</Panel>
 
           <Panel title="manette">
             {shot ? <PadSummary state={shot.input} onOpen={() => setBindings(true)} /> : null}
@@ -307,6 +336,49 @@ function Room({
           <div id="stats">{shot ? <Instruments shot={shot} /> : null}</div>
         </aside>
       )}
+
+      {booting ? (
+        <Booting
+          game={booting.game}
+          step={
+            ((shot?.video.connected ?? false)
+              ? shot && shot.video.painted > booting.painted
+                ? "painting"
+                : "waiting"
+              : "asked") as Step
+          }
+        />
+      ) : null}
+
+      {menu && shot ? (
+        <Menu
+          room={room?.name ?? "salon"}
+          games={room?.library ?? []}
+          running={room?.game?.index ?? null}
+          canChoose={port !== null && mine}
+          why={
+            port === null
+              ? "prends une manette pour changer de jeu"
+              : `${boss?.name ?? "quelqu'un"} décide du jeu dans cette salle`
+          }
+          people={people}
+          players={shot.input.players}
+          busy={shot.input.busy}
+          names={names}
+          mine={port}
+          stealable={(seat) => !people.some((person) => person.seat === seat)}
+          onChoose={(index) => {
+            const chosen = room?.library.find((game) => game.index === index);
+            if (session?.input.chooseGame(index)) {
+              setBooting({ game: chosen?.name ?? "le jeu", painted: shot.video.painted });
+              setMenu(false);
+            }
+          }}
+          onTake={(chosen) => session?.input.take(chosen)}
+          onClose={() => setMenu(false)}
+          settings={settings}
+        />
+      ) : null}
 
       {bindings && shot ? (
         <Bindings

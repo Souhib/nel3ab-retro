@@ -6,6 +6,7 @@ from pathlib import Path
 import httpx
 import pytest
 from asgi_lifespan import LifespanManager
+from fastapi import FastAPI
 
 from nel3ab_control.api.controllers.rooms import RoomController
 from nel3ab_control.app import create_app
@@ -55,14 +56,30 @@ def worker() -> httpx.MockTransport:
 
 
 @pytest.fixture
-async def client(
-    settings: Settings, worker: httpx.MockTransport
-) -> AsyncIterator[httpx.AsyncClient]:
-    app = create_app(settings)
-    async with LifespanManager(app):
-        app.state.client = httpx.AsyncClient(transport=worker)
-        app.state.rooms = RoomController(settings, app.state.client)
-        async with httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=app), base_url="http://control.test"
-        ) as http:
-            yield http
+async def app(settings: Settings, worker: httpx.MockTransport) -> AsyncIterator[FastAPI]:
+    """L'application, avec un faux worker derrière."""
+    built = create_app(settings)
+    async with LifespanManager(built):
+        built.state.client = httpx.AsyncClient(transport=worker)
+        built.state.rooms = RoomController(settings, built.state.client)
+        yield built
+
+
+@pytest.fixture
+async def client(app: FastAPI) -> AsyncIterator[httpx.AsyncClient]:
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://control.test"
+    ) as http:
+        yield http
+
+
+@pytest.fixture
+def rooms(app: FastAPI) -> RoomController:
+    """Le contrôleur derrière ce client.
+
+    Par le contrôleur et non par une route: réserver une place passe par la
+    socket du salon, qui sait QUELLE session parle. Une route HTTP ne le sait
+    pas, et celle qui existait a été retirée pour cette raison.
+    """
+    controller: RoomController = app.state.rooms
+    return controller

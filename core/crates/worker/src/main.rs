@@ -35,7 +35,7 @@ use nel3ab_encoder::vulkan::convert::{Converter, Ownership, Source};
 use nel3ab_encoder::vulkan::image::{ImportedFrame, Nv12Target};
 use nel3ab_protocol::PlayerSlot;
 use nel3ab_telemetry::Timings;
-use nel3ab_transport::{BrowserServer, Packet};
+use nel3ab_transport::{BrowserServer, OwnerSeat, Packet};
 use tracing_subscriber::EnvFilter;
 
 /// The page served at `/`. Compiled in rather than read at run time: a worker
@@ -79,6 +79,13 @@ struct Settings {
     session_dir: PathBuf,
     bind: SocketAddr,
     render_node: PathBuf,
+    /// Où le plan de contrôle dit qui décide du jeu.
+    ///
+    /// Un autre port que celui des pages, et ce n'est pas un détail: le proxy
+    /// envoie `/` au serveur de pages, donc tout chemin qu'il sert est joignable
+    /// depuis un navigateur. Celui-ci n'est relayé par rien, donc seul un
+    /// processus de la machine peut l'atteindre.
+    control_bind: SocketAddr,
     /// How many ports this room serves.
     ///
     /// Fixed for the session because Dolphin reads which ports hold a controller
@@ -138,6 +145,10 @@ impl Settings {
                 .context("NEL3AB_BIND is not a socket address")?,
             render_node: env_path("NEL3AB_RENDER_NODE")
                 .unwrap_or_else(|| PathBuf::from(DEFAULT_RENDER_NODE)),
+            control_bind: std::env::var("NEL3AB_CONTROL_BIND")
+                .unwrap_or_else(|_| "127.0.0.1:8101".to_owned())
+                .parse()
+                .context("NEL3AB_CONTROL_BIND is not a socket address")?,
             players: players_from_environment()?,
         })
     }
@@ -255,11 +266,19 @@ fn run(settings: &Settings) -> Result<()> {
         booting = %rom.display(),
         "the room's library"
     );
+    // Qui décide du jeu. Vide au démarrage, donc la salle applique sa règle
+    // d'avant — tenir une manette suffit — jusqu'à ce que le plan de contrôle
+    // dise autre chose. Une salle qui refuserait tout en attendant serait une
+    // salle bloquée par un service qui n'est peut-être même pas installé.
+    let owner: OwnerSeat = Arc::new(Mutex::new(None));
+    nel3ab_transport::control::serve(settings.control_bind, Arc::clone(&owner))?;
+
     let server = Arc::new(BrowserServer::start(
         settings.bind,
         PAGE,
         catalogue_json(&library, current, settings.players.get()).into(),
         settings.players,
+        &owner,
     )?);
     tracing::info!(address = %server.address(), "open this in a browser");
 

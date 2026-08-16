@@ -5,6 +5,7 @@
 // switches tab loses their controller, which is the bug this replaced.
 import { execSync } from "node:child_process";
 import puppeteer from "puppeteer";
+import { enterRoom, seatOf, seedName } from "./open.mjs";
 
 const url = process.argv[2] ?? "http://localhost:8100/";
 const away = Number(process.argv[3] ?? 25) * 1000;
@@ -12,21 +13,27 @@ const since = new Date().toISOString();
 
 const browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox"] });
 const page = await browser.newPage();
+await seedName(page);
 await page.goto(url, { waitUntil: "domcontentloaded", timeout: 20000 });
+await enterRoom(page);
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-const seatOf = (p) => p.evaluate(() => document.getElementById("seat").textContent);
 
 await wait(3000);
 const mine = await seatOf(page);
 console.log(`took: "${mine}"`);
-const port = (mine.match(/joueur (\d)/) ?? [])[1];
+const port = mine;
 if (!port) {
-  console.log("FAIL — no controller was free, so nothing was tested");
+  // Abstention, pas échec: cet essai demande une manette libre, et quelqu'un qui
+  // joue à côté n'est pas un défaut. Rapporter un échec ici apprend à ignorer
+  // les échecs de ce fichier.
+  console.log("RIEN TESTÉ — aucune manette libre, la salle n'était pas vide");
   await browser.close();
-  process.exit(1);
+  process.exit(2);
 }
 
 const other = await browser.newPage();
+
+await seedName(other);
 await other.goto("about:blank");
 await other.bringToFront();
 console.log(`hidden: ${await page.evaluate(() => document.hidden)} — staying away ${away / 1000}s`);
@@ -58,11 +65,13 @@ let regained = null;
 const deadline = Date.now() + 5000;
 while (Date.now() < deadline) {
   const next = await browser.newPage();
+  await seedName(next);
   await next.goto(url, { waitUntil: "domcontentloaded" });
+  await enterRoom(next);
   await wait(1200);
   const seat = await seatOf(next);
   await next.close();
-  if (seat.includes(`joueur ${port}`)) {
+  if (seat === port) {
     regained = seat;
     break;
   }

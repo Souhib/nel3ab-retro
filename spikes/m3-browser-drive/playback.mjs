@@ -4,6 +4,7 @@
 // behaviour and makes the page untestable without a flag. The flag is the only
 // thing this test fakes; everything below it is the page's own code.
 import puppeteer from "puppeteer";
+import { enterRoom, seedName } from "./open.mjs";
 const url = process.argv[2] ?? "http://localhost:8100/";
 const seconds = Number(process.argv[3] ?? 12);
 
@@ -12,8 +13,10 @@ const browser = await puppeteer.launch({
   args: ["--no-sandbox", "--autoplay-policy=no-user-gesture-required"],
 });
 const page = await browser.newPage();
+await seedName(page);
 page.on("pageerror", (e) => console.log(`[pageerror] ${e.message}`));
 await page.goto(url, { waitUntil: "domcontentloaded" });
+await enterRoom(page);
 await new Promise((r) => setTimeout(r, 3000));
 await page.click("#sound");
 await new Promise((r) => setTimeout(r, 1500));
@@ -30,7 +33,7 @@ const elapsed = (Date.now() - startedAt) / 1000;
 // meant to check was untouched.
 const played = after.soundPlayed - before.soundPlayed;
 const gaps = after.soundGaps - before.soundGaps;
-const state = await page.evaluate(() => document.getElementById("stats").innerText.match(/son\s+(\w+)/)?.[1]);
+const state = await page.evaluate(() => globalThis.nel3abTest.audio().state);
 console.log(
   `  contexte ${state} · ${played.toFixed(2)} s de son joués en ${elapsed.toFixed(2)} s · ${gaps} coupures`,
 );

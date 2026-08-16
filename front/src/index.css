@@ -1,0 +1,54 @@
+@import "tailwindcss";
+
+/*
+ * An instrument, not a shop window.
+ *
+ * The picture IS the product: everything around it is a thin frame that reads
+ * like measuring equipment, because that is what this room is. No gradients, no
+ * glass, no glow — those pull the eye off a 1280x960 emulator picture, which is
+ * the one thing on screen that anybody came for.
+ *
+ * One accent, and it is earned: the indigo of the console this room emulates.
+ */
+@theme {
+  --color-ink: #08080a;
+  --color-panel: #0e0e11;
+  --color-rule: #1e1e25;
+  --color-rule-bright: #2c2c36;
+  --color-text: #e8e8ee;
+  --color-muted: #8b8b98;
+  --color-faint: #5c5c68;
+  --color-indigo: #7c6ce0;
+  --color-indigo-dim: #4a4090;
+  --color-alert: #ff7a7a;
+  --color-good: #6ee7a8;
+
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-ink);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  /* Numbers that do not jiggle as they change: a readout that dances is a
+     readout nobody trusts. */
+  font-variant-numeric: tabular-nums;
+}
+
+/* The one place a scrollbar appears, and it stays out of the way. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-rule-bright) transparent;
+}

@@ -1,12 +1,15 @@
 // A refused page must keep asking — politely, and not too often. Counted in the
 // page itself: the server's log cannot tell my attempts from anybody else's.
 import puppeteer from "puppeteer";
+import { enterRoom, seedName } from "./open.mjs";
 const browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox"] });
 const page = await browser.newPage();
+await seedName(page);
 await page.goto("http://localhost:8100/", { waitUntil: "domcontentloaded" });
+await enterRoom(page);
 await new Promise((r) => setTimeout(r, 2000));
 const start = await page.evaluate(() => globalThis.nel3abTest.counters().attempts);
-const seat = await page.evaluate(() => document.getElementById("seat").textContent);
+const seat = await page.evaluate(() => globalThis.nel3abTest.seat());
 await new Promise((r) => setTimeout(r, 12000));
 const asks = (await page.evaluate(() => globalThis.nel3abTest.counters().attempts)) - start;
 await browser.close();

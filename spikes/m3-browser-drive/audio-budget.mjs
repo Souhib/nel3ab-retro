@@ -7,6 +7,7 @@
 // Needs the worker RUNNING. Autoplay is forced, which is the only thing this
 // fakes: a person clicks the button instead.
 import puppeteer from "puppeteer";
+import { enterRoom, seedName } from "./open.mjs";
 
 const url = process.argv[2] ?? "http://localhost:8100/";
 const seconds = Number(process.argv[3] ?? 30);
@@ -16,8 +17,10 @@ const browser = await puppeteer.launch({
   args: ["--no-sandbox", "--autoplay-policy=no-user-gesture-required"],
 });
 const page = await browser.newPage();
+await seedName(page);
 page.on("pageerror", (error) => console.log(`[pageerror] ${error.message}`));
 await page.goto(url, { waitUntil: "domcontentloaded" });
+await enterRoom(page);
 await new Promise((r) => setTimeout(r, 2500));
 await page.click("#sound");
 
@@ -27,12 +30,12 @@ await page.click("#sound");
 await new Promise((r) => setTimeout(r, seconds * 1000));
 
 const out = await page.evaluate(() => {
-  const text = document.getElementById("stats").innerText;
-  const line = (name) => (text.match(new RegExp(`${name}\\s+(.+)`)) ?? [])[1] ?? "—";
+  const audio = globalThis.nel3abTest?.audio?.() ?? {};
+  const gap = globalThis.nel3abTest?.soundGap?.() ?? null;
   return {
-    gap: line("écart son/image"),
-    sound: line("son"),
-    audio: globalThis.nel3abTest?.audio?.() ?? {},
+    gap: gap === null ? "—" : `${gap.toFixed(0)} ms`,
+    sound: `${audio.state ?? "—"} · ${audio.gaps ?? 0} coupures`,
+    audio,
   };
 });
 await browser.close();

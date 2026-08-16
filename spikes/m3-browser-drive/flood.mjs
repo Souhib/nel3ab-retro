@@ -1,7 +1,10 @@
 import puppeteer from "puppeteer";
+import { enterRoom, seedName } from "./open.mjs";
 const browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox"] });
 const page = await browser.newPage();
+await seedName(page);
 await page.goto("http://localhost:8100/", { waitUntil: "domcontentloaded" });
+await enterRoom(page);
 const measure = async (label) => {
   const out = await page.evaluate(async () => {
     const ws = new WebSocket(location.origin.replace(/^http/, "ws") + "/video");

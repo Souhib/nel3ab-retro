@@ -1,9 +1,12 @@
 // Does the checkbox move the picture, and how fast?
 import puppeteer from "puppeteer";
+import { enterRoom, seedName } from "./open.mjs";
 const browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox", "--autoplay-policy=no-user-gesture-required"] });
 const page = await browser.newPage();
+await seedName(page);
 page.on("pageerror", (e) => console.log(`[pageerror] ${e.message}`));
 await page.goto(process.argv[2] ?? "http://localhost:8100/", { waitUntil: "domcontentloaded" });
+await enterRoom(page);
 await new Promise((r) => setTimeout(r, 3000));
 await page.click("#sound");
 await new Promise((r) => setTimeout(r, 12000));
@@ -12,9 +15,7 @@ await new Promise((r) => setTimeout(r, 12000));
 // box computes its delay from the measured sound/picture gap, so with no sound
 // yet measured it correctly does nothing, and the assertion below would blame
 // the box for it. Seen once, right after a restart.
-const measured = await page.evaluate(
-  () => document.getElementById("stats").innerText.includes("écart son/image      —") === false,
-);
+const measured = await page.evaluate(() => globalThis.nel3abTest.soundGap() !== null);
 if (!measured) {
   console.log("FAIL — aucun écart mesuré encore, la case n'avait rien à appliquer");
   await browser.close();
@@ -26,7 +27,7 @@ const before = await held();
 await page.click("#lipsync");
 await new Promise((r) => setTimeout(r, 1500));
 const after = await held();
-const line = await page.evaluate(() => document.getElementById("stats").innerText.match(/écart son\/image\s+(.+)/)?.[1]);
+const line = await page.evaluate(() => `écart son/image ${globalThis.nel3abTest.soundGap()?.toFixed(0) ?? "—"} ms`);
 await page.click("#lipsync");
 await new Promise((r) => setTimeout(r, 1500));
 const back = await held();

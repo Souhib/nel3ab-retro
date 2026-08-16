@@ -1,6 +1,7 @@
 // Opens several browsers on one room and asks each which port it was given.
 // The seat protocol is only interesting when there is somebody else in the room.
 import puppeteer from "puppeteer";
+import { enterRoom, seedName } from "./open.mjs";
 
 const url = process.argv[2] ?? "http://localhost:8100/";
 const players = Number(process.argv[3] ?? 2);
@@ -9,8 +10,10 @@ const browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox"] 
 const pages = [];
 for (let i = 0; i < players; i++) {
   const page = await browser.newPage();
+  await seedName(page);
   page.on("pageerror", (e) => console.log(`[page ${i}] ${e.message}`));
   await page.goto(url, { waitUntil: "domcontentloaded" });
+  await enterRoom(page);
   pages.push(page);
   // One at a time, so the order they are given ports is the order they arrived.
   await new Promise((r) => setTimeout(r, 1200));
@@ -19,14 +22,12 @@ await new Promise((r) => setTimeout(r, 3000));
 
 const seats = [];
 for (const [i, page] of pages.entries()) {
-  const said = await page.evaluate(() => document.getElementById("seat").textContent);
-  const sent = await page.evaluate(() =>
-    (document.getElementById("stats").innerText.match(/pad frames\s+(\d+)/) ?? [])[1],
-  );
-  console.log(`browser ${i}: "${said}" — ${sent} pad frames sent`);
+  const said = await page.evaluate(() => globalThis.nel3abTest.seat());
+  const sent = await page.evaluate(() => globalThis.nel3abTest.counters().attempts);
+  console.log(`browser ${i}: port ${said ?? "aucun"} — ${sent} pad frames sent`);
   seats.push(said);
 }
-const ports = seats.map((s) => (s.match(/joueur (\d)/) ?? [])[1]).filter(Boolean);
+const ports = seats.filter((port) => port !== null).map(String);
 // Assert the precondition rather than call it a failure: this checks that N
 // browsers get N ports IN ARRIVAL ORDER, which needs an empty room. Somebody
 // playing at the time is not a defect, and reporting one would teach whoever

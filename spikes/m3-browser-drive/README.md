@@ -40,3 +40,27 @@ started from the same place.
 from here is a floor for the browser half, and says nothing about Wi-Fi.
 
 `node_modules/` is not committed; nothing in the worker depends on this.
+
+## Deux pilotes qui sont partis dans les tests unitaires
+
+`padmap.mjs` et `lesson.mjs` conduisaient un vrai Chrome contre un vrai worker
+pour vérifier deux choses **pures**: la correspondance entre un bouton de manette
+et un bit du protocole, et la machine à états qui apprend une manette inconnue.
+
+Depuis que la boucle média est en modules TypeScript, ces deux-là sont
+`front/src/media/pad.test.ts` et `front/src/media/lesson.test.ts`. Ils font les
+mêmes assertions, tournent en quelques millisecondes au lieu de vingt secondes,
+ne demandent ni GPU ni session, et surtout ne demandent plus à la page d'ouvrir
+une porte de test dont eux seuls se servaient.
+
+Ce n'est pas une règle générale contre les pilotes de navigateur: ce qui reste
+ici vérifie des choses qu'aucun test unitaire ne peut voir, comme un décodeur qui
+meurt, un onglet qu'on met en arrière-plan, ou deux pages qui se disputent une
+manette.
+
+## Franchir l'écran de salle
+
+La page demande un prénom, puis montre la salle avant d'y entrer. Chaque pilote
+passe donc par `open.mjs`: `seedName` écrit le prénom là où la page le range,
+`enterRoom` clique le bouton. Le clic plutôt qu'un drapeau caché: un chemin
+d'essai qui contourne l'écran ne prouve rien de l'écran.

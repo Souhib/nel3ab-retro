@@ -1,0 +1,4 @@
+# Le client engendré. Son style appartient au générateur : le reformater ici
+# rendrait impossible de vérifier qu'il vient bien du document OpenAPI, puisque
+# régénérer donnerait toujours un écart.
+src/client

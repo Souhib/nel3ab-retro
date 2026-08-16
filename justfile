@@ -31,8 +31,46 @@ local: check gpu-test
 control:
     cd control && uv run poe check
 
+# The page's own gate: types, lints, unit tests. Same shape as the other two.
+front:
+    cd front && npm run typecheck && npm run lint && npm run format:check && npm test
+
+# Is the TypeScript client still the one this API describes?
+#
+# Two links, and both are regenerated from their source rather than trusted:
+# FastAPI writes `control/openapi.json` from its own routes, and Hey API writes
+# `front/src/client` from that document (ADR D6). A field renamed in Python and
+# not regenerated here would reach the browser as `undefined`, in the one place
+# nothing checks types at run time.
+#
+# Diffing works for these, unlike for the page: a JSON dump and a code generator
+# both give the same bytes for the same input. The page cannot be checked this
+# way because its minifier does not (see `front-check`).
+contract-check:
+    cd control && uv run poe openapi
+    cd front && npx openapi-ts
+    git diff --exit-code --stat control/openapi.json front/src/client
+
+# Builds the page into the worker's source tree, where `include_str!` reads it,
+# and stamps it with a hash of what it was built from.
+front-build:
+    cd front && npm run build && node stamp.mjs
+
+# Is the committed page the one these sources produce?
+#
+# The page is a build artefact that is committed, so `cargo build` never needs
+# node. That trade has one failure mode: a change to `front/src` that nobody
+# rebuilt, shipping a binary with yesterday's page in it.
+#
+# Compares the stamp rather than the HTML. Rebuilding and diffing the file was
+# the first attempt and it fails on unchanged sources: the minifier renames a
+# handful of locals differently between two runs of the same input. A check that
+# is red for no reason is a check people learn to skip.
+front-check:
+    cd front && node stamp.mjs --check
+
 # Everything a commit must satisfy. Mirrors `poe check`.
-check: fmt-check lint test control
+check: fmt-check lint test control front front-check contract-check
 
 # Auto-fix pass for development. Mirrors `poe fix`.
 fix:
@@ -77,6 +115,14 @@ gpu-test:
 browser-recovery:
     cd spikes/m3-browser-drive && node wedge.mjs http://localhost:8100/ 6
 
+# Ce que la page rend, sur une minute, sans rien redémarrer.
+#
+# Le banc redémarre la session, donc il ne peut pas tourner pendant que
+# quelqu'un joue. Celui-ci n'est qu'un spectateur de plus: il mesure le côté
+# navigateur, qui est la moitié qu'un changement de page peut dégrader.
+browser-watch seconds="60":
+    cd spikes/m3-browser-drive && node watch.mjs http://localhost:8100/ {{seconds}}
+
 # Does the page survive being switched away from? Needs the worker RUNNING.
 # Opens a second tab to push the first one into the background, which is how a
 # person does it, and asserts that nothing is decoded for a screen that is not
@@ -98,12 +144,6 @@ browser-seats:
 # than passing vacuously.
 browser-claim:
     cd spikes/m3-browser-drive && node claim.mjs http://localhost:8100/
-
-# Is every button of a GameCube pad wired, and to the right bit? Needs the worker
-# RUNNING. Feeds a synthetic standard gamepad, because a mapping is wrong in a
-# way that only shows on the button nobody thought to press.
-browser-pad:
-    cd spikes/m3-browser-drive && node padmap.mjs http://localhost:8100/
 
 # Does sound come out, at the rate it was recorded at, and does the page play it?
 # Needs the worker RUNNING. The first check reads the stream the way the page
@@ -151,12 +191,6 @@ browser-library:
 # worker RUNNING and ONE free port — not an empty room.
 browser-steal:
     cd spikes/m3-browser-drive && node steal.mjs http://localhost:8100/
-
-# Does one press answer exactly one question of the pad lesson? Needs the worker
-# RUNNING. Feeds a synthetic pad frame by frame, because what this gets wrong is
-# a SEQUENCE — a press that also answers the question after it.
-browser-lesson:
-    cd spikes/m3-browser-drive && node lesson.mjs http://localhost:8100/
 
 # Changing the game from the page. RESTARTS THE SESSION, which is the feature,
 # so it must not be run while somebody is playing something they care about.

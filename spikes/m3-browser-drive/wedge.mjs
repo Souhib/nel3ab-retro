@@ -9,6 +9,7 @@
 // `VideoDecoder.close()` leaves the object present and throwing on every
 // `decode()`, which is exactly what a decoder error leaves behind.
 import puppeteer from "puppeteer";
+import { enterRoom, seedName } from "./open.mjs";
 
 const url = process.argv[2] ?? "http://localhost:8100/";
 const RECOVER_WITHIN = Number(process.argv[3] ?? 6) * 1000;
@@ -18,10 +19,13 @@ const browser = await puppeteer.launch({
   args: ["--no-sandbox"],
 });
 const page = await browser.newPage();
+await seedName(page);
 await page.setViewport({ width: 1280, height: 700 });
 page.on("pageerror", (e) => console.log(`[pageerror] ${e.message}`));
 
 await page.goto(url, { waitUntil: "domcontentloaded", timeout: 20000 });
+
+await enterRoom(page);
 
 const counters = () => page.evaluate(() => globalThis.nel3abTest.counters());
 const waitFor = async (predicate, within, what) => {

@@ -2,6 +2,7 @@
 // a secure context and WebCodecs exists. Reports what the page says about
 // itself and leaves a screenshot to look at.
 import puppeteer from "puppeteer";
+import { enterRoom, seedName } from "./open.mjs";
 
 const url = process.argv[2] ?? "http://localhost:8100/";
 const seconds = Number(process.argv[3] ?? 12);
@@ -11,6 +12,7 @@ const browser = await puppeteer.launch({
   args: ["--no-sandbox", "--enable-features=SharedArrayBuffer"],
 });
 const page = await browser.newPage();
+await seedName(page);
 await page.setViewport({ width: 1280, height: 700 });
 
 page.on("console", (m) => console.log(`[console.${m.type()}] ${m.text()}`));
@@ -21,6 +23,7 @@ page.on("requestfailed", (r) =>
 
 console.log(`opening ${url}`);
 await page.goto(url, { waitUntil: "domcontentloaded", timeout: 20000 });
+await enterRoom(page);
 console.log("WebCodecs present:", await page.evaluate(() => "VideoDecoder" in window));
 
 // Press some keys, so the input path is exercised rather than only the video.

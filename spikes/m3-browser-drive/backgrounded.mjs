@@ -9,14 +9,17 @@
 // A second page is what makes the first one hidden, which is exactly how a
 // person does it.
 import puppeteer from "puppeteer";
+import { enterRoom, seedName } from "./open.mjs";
 
 const url = process.argv[2] ?? "http://localhost:8100/";
 const away = Number(process.argv[3] ?? 30) * 1000;
 
 const browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox"] });
 const page = await browser.newPage();
+await seedName(page);
 page.on("pageerror", (e) => console.log(`[pageerror] ${e.message}`));
 await page.goto(url, { waitUntil: "domcontentloaded", timeout: 20000 });
+await enterRoom(page);
 
 const state = () =>
   page.evaluate(() => ({
@@ -42,6 +45,7 @@ console.log(`playing: ${playing.painted} painted, backlog ${playing.backlog}`);
 
 // Somebody opens another tab. Ours is now the back one.
 const other = await browser.newPage();
+await seedName(other);
 await other.goto("about:blank");
 await other.bringToFront();
 await wait(1000);

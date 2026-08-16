@@ -41,7 +41,12 @@ use tracing_subscriber::EnvFilter;
 /// The page served at `/`. Compiled in rather than read at run time: a worker
 /// that could not find its own UI at start-up is a worker that fails in a way
 /// nobody sees until a player opens a tab.
-const PAGE: &str = include_str!("play.html");
+///
+/// Built by `just front` from `front/`, which writes this file directly and
+/// inlines the script and the styles into it. The file is committed so a build
+/// of the worker never needs node, and `just front-check` fails when it no
+/// longer matches the sources beside it.
+const PAGE: &str = include_str!("page/index.html");
 
 /// Constant quantiser. Fixed for now — rate control is a later decision, and one
 /// that wants a real network to react to before it is written.

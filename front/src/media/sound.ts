@@ -1,0 +1,201 @@
+/**
+ * The sound: raw PCM in, the audio hardware's own clock out.
+ *
+ * Chunks are SCHEDULED rather than played on arrival, each one after the last on
+ * the hardware clock — the same reasoning as the picture's schedule, with a
+ * cheaper clock.
+ */
+import { Window } from "./clock";
+
+const RATE = 48000;
+const CHANNELS = 2;
+
+/** Every millisecond of this is a millisecond the sound is behind the picture,
+ * so it starts small and is only bought back when the sound actually breaks. It
+ * was a flat 40 ms, most of the 68 ms the two streams were first measured
+ * apart. */
+const LEAD_MIN = 0.01;
+const LEAD_MAX = 0.12;
+
+/** Past this the schedule has drifted so far behind that catching up chunk by
+ * chunk would take longer than starting again. */
+const RESYNC = 0.25;
+
+export type SoundStats = {
+  state: string;
+  chunks: number;
+  gaps: number;
+  playedSeconds: number;
+  leadMs: number;
+  sampleRate: number;
+  outputMs: number;
+  browserMs: number;
+  fastestLag: number | null;
+};
+
+export class SoundStream {
+  private socket: WebSocket | null = null;
+  private context: AudioContext | null = null;
+  private gain: GainNode | null = null;
+  private playAt = 0;
+  private lead = LEAD_MIN;
+  private gapsSeen = 0;
+  private chunks = 0;
+  private gaps = 0;
+  private played = 0;
+  private readonly lags = new Window(240);
+  private volume: number;
+  private deviceRate: boolean;
+  private readonly url: (path: string) => string;
+  private trimmer: number | null = null;
+
+  constructor(url: (path: string) => string, volume: number, deviceRate: boolean) {
+    this.url = url;
+    this.volume = volume;
+    this.deviceRate = deviceRate;
+  }
+
+  /** Builds the context, in whichever of the two shapes is asked for.
+   *
+   * Forcing 48 kHz puts one resampler across everything the context plays, and
+   * the browser runs it continuously. Taking the device's own rate removes that
+   * stage but resamples every buffer on its own — a hundred resampler boundaries
+   * a second, which no machine here can judge by ear. So the page offers both.
+   *
+   * Neither touches the output path: 32 ms on the build machine, 48 on the
+   * player's, which is the audio device's own buffers and no page's business. */
+  private build(): void {
+    const previous = this.context;
+    this.context = this.deviceRate
+      ? new AudioContext({ latencyHint: 0.01 })
+      : new AudioContext({ sampleRate: RATE, latencyHint: 0.01 });
+    this.gain = this.context.createGain();
+    this.gain.gain.value = this.volume;
+    this.gain.connect(this.context.destination);
+    this.playAt = 0;
+    this.gaps = 0;
+    this.gapsSeen = 0;
+    this.lead = LEAD_MIN;
+    this.lags.clear();
+    void previous?.close();
+  }
+
+  /** A browser plays nothing before somebody has asked it to. */
+  async start(): Promise<void> {
+    if (this.context === null) {
+      this.build();
+      this.connect();
+      this.trimmer = window.setInterval(() => this.trim(), 2000);
+    }
+    await this.context?.resume();
+  }
+
+  stop(): void {
+    if (this.trimmer !== null) window.clearInterval(this.trimmer);
+    this.socket?.close();
+    this.socket = null;
+    void this.context?.close();
+    this.context = null;
+  }
+
+  setVolume(volume: number): void {
+    this.volume = volume;
+    // A ramp rather than a jump: changing a gain instantly puts a step in the
+    // waveform, which is heard as a click.
+    if (this.gain !== null && this.context !== null) {
+      this.gain.gain.setTargetAtTime(volume, this.context.currentTime, 0.01);
+    }
+  }
+
+  setDeviceRate(deviceRate: boolean): void {
+    this.deviceRate = deviceRate;
+    if (this.context === null) return;
+    this.build();
+    void this.context.resume();
+  }
+
+  /** How far the sound is behind the picture: its longer path, plus the lead
+   * this page schedules with, plus what the hardware adds after we hand it the
+   * samples. */
+  gapAgainst(pictureLag: number | null): number | null {
+    const ours = this.lags.fastest();
+    if (ours === null || pictureLag === null) return null;
+    return ours - pictureLag + (this.context?.outputLatency ?? 0) * 1000 + this.lead * 1000;
+  }
+
+  stats(): SoundStats {
+    return {
+      state: this.context?.state ?? "coupé",
+      chunks: this.chunks,
+      gaps: this.gaps,
+      playedSeconds: this.played,
+      leadMs: this.lead * 1000,
+      sampleRate: this.context?.sampleRate ?? 0,
+      outputMs: (this.context?.outputLatency ?? 0) * 1000,
+      browserMs: (this.context?.baseLatency ?? 0) * 1000,
+      fastestLag: this.lags.fastest(),
+    };
+  }
+
+  private connect(): void {
+    const socket = new WebSocket(this.url("/sound"));
+    socket.binaryType = "arraybuffer";
+    this.socket = socket;
+    socket.onmessage = (event) => this.onChunk(event);
+    socket.onclose = () => {
+      if (this.socket === socket) window.setTimeout(() => this.connect(), 500);
+    };
+    socket.onerror = () => socket.close();
+  }
+
+  private onChunk(event: MessageEvent<ArrayBuffer>): void {
+    const context = this.context;
+    if (context === null || context.state !== "running" || this.gain === null) return;
+    const message = new Uint8Array(event.data);
+    if (message.length <= 8) return; // a keep-alive, carrying no sound
+
+    const capturedMs = Number(new DataView(event.data).getBigUint64(0, true)) / 1000;
+    this.lags.push(performance.now() - capturedMs);
+
+    const pcm = new Int16Array(event.data, 8);
+    const frames = pcm.length / CHANNELS;
+    const buffer = context.createBuffer(CHANNELS, frames, RATE);
+    for (let channel = 0; channel < CHANNELS; channel++) {
+      const target = buffer.getChannelData(channel);
+      for (let frame = 0; frame < frames; frame++) {
+        target[frame] = pcm[frame * CHANNELS + channel] / 32768;
+      }
+    }
+
+    const now = context.currentTime;
+    if (this.playAt < now + 0.002 || this.playAt > now + RESYNC) {
+      // Either we fell behind the hardware clock or ran so far ahead the sound
+      // would arrive late enough to be wrong. Both are fixed the same way.
+      if (this.playAt !== 0) {
+        this.gaps += 1;
+        this.lead = Math.min(LEAD_MAX, this.lead + 0.01);
+      }
+      this.playAt = now + this.lead;
+    }
+    const source = context.createBufferSource();
+    source.buffer = buffer;
+    source.connect(this.gain);
+    source.start(this.playAt);
+    this.playAt += frames / RATE;
+    // Counted in SECONDS rather than chunks: the length of a chunk is an
+    // implementation detail, and a test that counted them broke the day they
+    // were halved while the behaviour it checked never changed.
+    this.played += frames / RATE;
+    this.chunks += 1;
+  }
+
+  /** The lead comes back down when nothing has broken. Growing it is what a
+   * break costs; keeping it is what the sound costs against the picture, for
+   * ever. */
+  private trim(): void {
+    if (this.gaps === this.gapsSeen && this.lead > LEAD_MIN) {
+      this.lead = Math.max(LEAD_MIN, this.lead - 0.001);
+    }
+    this.gapsSeen = this.gaps;
+  }
+}

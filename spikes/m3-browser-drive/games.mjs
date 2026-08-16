@@ -8,6 +8,7 @@
 // else's game. A test that only checked "the game changed" would pass just as
 // well on a page that switched on the first click.
 import puppeteer from "puppeteer";
+import { enterRoom, seedName } from "./open.mjs";
 
 const url = process.argv[2] ?? "http://localhost:8100/";
 const roms = async () => (await fetch(new URL("/roms", url))).json();
@@ -21,8 +22,10 @@ const target = before.roms.findIndex((_, index) => index !== before.current);
 
 const browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox"] });
 const page = await browser.newPage();
+await seedName(page);
 page.on("pageerror", (error) => console.log(`[pageerror] ${error.message}`));
 await page.goto(url, { waitUntil: "domcontentloaded" });
+await enterRoom(page);
 await new Promise((r) => setTimeout(r, 3000));
 
 const held = await page.evaluate(() => globalThis.nel3abTest.room?.() ?? null);
@@ -35,10 +38,10 @@ if (held === null || held.mine === 0) {
 // Premier clic : il doit ARMER et rien de plus.
 await page.click(`#game${target}`);
 await new Promise((r) => setTimeout(r, 1500));
-const armed = await page.evaluate((i) => document.getElementById(`game${i}`).className, target);
+const armed = await page.evaluate((i) => document.getElementById(`game${i}`).dataset.armed === "true", target);
 const afterOneClick = await roms();
-console.log(`  après un clic : classe "${armed}", jeu courant ${afterOneClick.current}`);
-if (!armed.includes("arming") || afterOneClick.current !== before.current) {
+console.log(`  après un clic : ${armed ? "armé" : "PAS armé"}, jeu courant ${afterOneClick.current}`);
+if (!armed || afterOneClick.current !== before.current) {
   console.log("FAIL — un seul clic a suffi, ou n'a pas armé");
   await browser.close();
   process.exit(1);

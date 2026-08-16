@@ -5,7 +5,7 @@
  * Every rule here was paid for. The comments say what by, because the code alone
  * cannot: each one looks removable until you know which failure it answers.
  */
-import { Window, isStarved, steer } from "./clock";
+import { SLACK_CEILING, Window, isStarved, nextSlack, steer } from "./clock";
 import { codecOf, hasIdr } from "./annexb";
 
 /** How long without a byte before the connection is presumed dead.
@@ -67,6 +67,12 @@ export type VideoStats = {
   heldRefreshes: { p05: number; p50: number; p95: number };
   waitMs: { p50: number; p95: number };
   gapMs: { p50: number; p95: number; max: number };
+  /** De combien la liaison est irrégulière, en millisecondes. Zéro sur une bonne
+   * liaison, et c'est ce que la page ajoute à son tampon. */
+  jitterMs: number;
+  /** À quelle cadence la SOURCE produit, lue sur les instants de capture. Un jeu
+   * PAL donne 50; une liaison lente ne la fait pas baisser. */
+  sourceHz: number;
   refreshHz: number;
   backlog: number;
   fastestLag: number | null;
@@ -75,6 +81,10 @@ export type VideoStats = {
   offset: number | null;
 };
 
+/** À partir de quel écart l'horaire d'affichage est REPOSÉ plutôt que corrigé,
+ * en millisecondes. Voir la raison dans `adjust`. */
+const SNAP = 120;
+
 export class VideoStream {
   private socket: WebSocket | null = null;
   private decoder: VideoDecoder | null = null;
@@ -82,6 +92,16 @@ export class VideoStream {
   private readonly submitted = new Map<number, { at: number; transit: number }>();
   private readonly lags = new Window(240);
   private readonly gaps = new Window(600);
+  /** L'écart entre deux INSTANTS DE CAPTURE, qui mesure la source.
+   *
+   * Séparé des écarts d'arrivée juste au-dessus, et c'est tout le sujet. Les
+   * deux se ressemblent sur une bonne liaison et n'ont rien à voir sur une
+   * mauvaise: une source à 60 Hz dont les images arrivent toutes les 26 ms n'est
+   * pas une source à 39 Hz. Mesurer la cadence sur les arrivées revenait à
+   * croire la seconde, donc à trouver normal un trou qui n'a rien de normal, et
+   * à ne pas grandir la marge de quelqu'un qui en avait besoin. */
+  private readonly sourceGaps = new Window(600);
+  private lastCaptured: number | null = null;
   private readonly holds = new Window(240);
   private readonly waits = new Window(240);
   private readonly refreshes = new Window(120);
@@ -195,6 +215,8 @@ export class VideoStream {
       },
       waitMs: { p50: this.waits.at(0.5), p95: this.waits.at(0.95) },
       gapMs: { p50: this.gaps.at(0.5), p95: this.gaps.at(0.95), max: this.gaps.at(1) },
+      jitterMs: this.jitterMs(),
+      sourceHz: 1000 / this.sourcePeriodMs(),
       refreshHz: 1000 / this.refreshPeriod(),
       backlog: this.decoder?.decodeQueueSize ?? 0,
       fastestLag: this.lags.fastest(),
@@ -213,7 +235,39 @@ export class VideoStream {
    * l'ancienne hypothèse et reste la bonne au démarrage.
    */
   private sourcePeriodMs(): number {
-    return this.gaps.length < 30 ? this.refreshPeriod() : this.gaps.at(0.5);
+    return this.sourceGaps.length < 30 ? this.refreshPeriod() : this.sourceGaps.at(0.5);
+  }
+
+  /** La gigue de la liaison: de combien la plus lente des images ordinaires est
+   * plus lente que la plus rapide.
+   *
+   * C'est exactement ce qu'un tampon doit absorber, et c'est ce qui vaut zéro
+   * sur une bonne liaison. D'où la propriété qui compte: tout ce qui suit
+   * s'appuie dessus, donc rien ne change pour qui n'a pas de gigue. */
+  private jitterMs(): number {
+    if (this.lags.length < 30) return 0;
+    return Math.max(0, this.lags.at(0.95) - (this.lags.fastest() ?? 0));
+  }
+
+  /** Où poser l'horaire: assez tard pour que la quasi-totalité des images soient
+   * là quand leur tour vient.
+   *
+   * Sur le p95 des transits et non sur le plus rapide. Le plus rapide est
+   * l'image la plus chanceuse de la fenêtre: caler dessus revient à parier que
+   * la liaison est toujours à son meilleur, et à jeter tout ce qui ne l'est pas.
+   * C'est ce que faisait la page, et c'est pour ça qu'une liaison irrégulière
+   * perdait une image sur cinq. */
+  private wantedOffset(): number {
+    // Le total est BORNÉ, et c'est la moitié qui manquait.
+    //
+    // Mesuré le 2026-08-16 avec `slowlink.mjs`: sur un lien trop étroit, les
+    // images ne sont pas irrégulières, elles s'entassent. Le p95 des transits
+    // suit alors la file d'attente et non la gigue — 1,6 s mesurée — et un
+    // tampon qui suivrait ce nombre ajouterait une seconde et demie de retard
+    // sans rattraper une seule image. Attendre répare l'irrégulier, jamais
+    // l'étroit.
+    const bought = Math.min(this.jitterMs() + this.slackMs, SLACK_CEILING);
+    return (this.lags.fastest() ?? 0) + bought + this.lipsync;
   }
 
   private refreshPeriod(): number {
@@ -322,6 +376,15 @@ export class VideoStream {
 
     if (this.lastArrival !== null) this.gaps.push(arrived - this.lastArrival);
     this.lastArrival = arrived;
+    // Bornée, parce qu'un flux qui redémarre fait sauter l'instant de capture en
+    // avant ou en arrière, et qu'une seule valeur absurde dans la fenêtre
+    // déplacerait la médiane.
+    const capturedMs = capturedMicros / 1000;
+    if (this.lastCaptured !== null) {
+      const step = capturedMs - this.lastCaptured;
+      if (step > 0 && step < 500) this.sourceGaps.push(step);
+    }
+    this.lastCaptured = capturedMs;
 
     this.submitted.set(capturedMicros, { at: arrived, transit });
     if (this.submitted.size > 300) {
@@ -418,7 +481,13 @@ export class VideoStream {
       this.starvedRecent += 1;
       this.repeated += 1;
       this.priming = true;
-      this.offset = null;
+      // L'horaire est GARDÉ. Il était remis à zéro ici, donc recalculé au
+      // prochain dessin sur l'image la plus rapide de la fenêtre: sur une
+      // liaison irrégulière, chaque famine reposait l'horaire au plus optimiste,
+      // l'image suivante était en retard, et ça recommençait. La capture du
+      // 2026-08-16 en compte 513 en 214 secondes. Une file vide ne dit rien sur
+      // le lien entre l'heure du serveur et l'heure d'ici, qui est tout ce que
+      // ce nombre veut dire.
       return;
     }
 
@@ -429,7 +498,7 @@ export class VideoStream {
     // was shown" gave the pipeline zero slack: every frame that then arrived a
     // millisecond late was already overdue and thrown away — 491 dropped in
     // fourteen seconds, 27 painted per second out of 60.
-    this.offset ??= (this.lags.fastest() ?? 0) + this.slackMs + this.lipsync;
+    this.offset ??= this.wantedOffset();
     if (now < head.capturedMs + this.offset - slack) {
       this.repeated += 1;
       return;
@@ -457,20 +526,35 @@ export class VideoStream {
     // milliseconds at a time: a fifth of a refresh, invisible, and an unlucky
     // first frame is erased in half a minute instead of lasting the session.
     if (this.offset !== null && this.lags.length > 30) {
-      const want = (this.lags.fastest() ?? 0) + this.slackMs + this.lipsync;
-      this.offset = steer(this.offset, want, 5);
+      const want = this.wantedOffset();
+      // Un petit écart se rattrape doucement, un gros se rattrape d'un coup.
+      //
+      // Mesuré le 2026-08-16 avec `slowlink.mjs`: en gardant l'horaire d'une
+      // famine à l'autre, un horaire posé sur les toutes premières images — les
+      // plus lentes, puisque la page se télécharge encore — restait faux pour
+      // toujours. Cinq millisecondes toutes les deux secondes mettent sept
+      // minutes à rattraper une seconde. Le pilote affichait alors 2398 images
+      // arrivées et ZÉRO peinte: elles étaient toutes en avance sur un horaire
+      // absurde, et jetées quand la file débordait.
+      //
+      // Le seuil est plus grand que toute dérive légitime d'une fenêtre et plus
+      // petit que ces erreurs-là. Un saut visible une fois vaut mieux qu'une
+      // image cassée pendant des minutes.
+      this.offset = Math.abs(this.offset - want) > SNAP ? want : steer(this.offset, want, 5);
     }
 
-    if (this.starvedRecent > 1 && this.slackMs < 60) {
-      this.slackMs = Math.min(60, this.slackMs + 8);
-      if (this.offset !== null) this.offset += 8;
+    const grown = nextSlack(this.slackMs, this.starvedRecent);
+    if (grown > this.slackMs) {
+      // Appliquée d'un coup à l'horaire: la faire gagner cinq millisecondes
+      // toutes les deux secondes laisserait la page affamée pendant la montée.
+      if (this.offset !== null) this.offset += grown - this.slackMs;
       this.calmWindows = 0;
     } else if (this.starvedRecent === 0) {
       this.calmWindows += 1;
-      if (this.slackMs > 3) this.slackMs -= Math.min(2, this.slackMs - 3);
     } else {
       this.calmWindows = 0;
     }
+    this.slackMs = grown;
     this.starvedRecent = 0;
   }
 

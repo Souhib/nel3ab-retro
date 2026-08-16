@@ -349,8 +349,18 @@ fn art_of(rom: &Rom, tool: &Path, cache: &Path) -> Result<Art, BannerError> {
                     blob
                 }
                 Err(error) => {
-                    // The marker, so the next start does not pay for this again.
-                    let _ = std::fs::write(&refused, []);
+                    // Le témoin, pour que le prochain démarrage ne repaie pas
+                    // ça. Mais SEULEMENT quand la réponse est définitive.
+                    //
+                    // `ToolFailed` veut dire que l'outil n'a pas pu démarrer:
+                    // Docker qui redémarre, un chemin momentanément occupé. Le
+                    // marquer condamnerait ce jeu à n'avoir plus jamais de
+                    // jaquette, jusqu'à ce que quelqu'un vide le cache à la
+                    // main. Les autres erreurs sont des réponses: l'outil a
+                    // tourné et a dit non, ou le disque n'a pas de bannière.
+                    if !matches!(error, BannerError::ToolFailed { .. }) {
+                        let _ = std::fs::write(&refused, []);
+                    }
                     return Err(error);
                 }
             }
@@ -603,6 +613,36 @@ mod tests {
         script
     }
 
+    /// Deux programmes qui existent déjà, pour les cas où écrire un script
+    /// n'apporte rien: l'un sort en disant oui sans rien écrire, l'autre en
+    /// disant non. Les utiliser évite la course décrite sur [`patiently`].
+    const AGREES: &str = "/bin/true";
+    const REFUSES: &str = "/bin/false";
+
+    /// Relance tant que le système refuse de LANCER le script, pour une raison
+    /// qui n'est pas celle qu'on teste.
+    ///
+    /// Écrire un fichier exécutable puis l'exécuter depuis un programme à
+    /// plusieurs fils est une course connue sous Linux: un autre fil qui se
+    /// duplique pendant l'écriture hérite du descripteur ouvert en écriture, et
+    /// l'exécution échoue alors avec `ETXTBSY`. Mesuré avant de conclure: un
+    /// échec sur 25 exécutions en parallèle, zéro sur 15 en série.
+    ///
+    /// Elle n'existe pas en production, où l'outil est un fichier commité que
+    /// personne n'écrit à l'exécution. D'où le contournement ici et non dans le
+    /// code. Ce que la course a révélé DANS le code, en revanche, a bien été
+    /// corrigé: un échec à démarrer l'outil ne laisse plus de témoin.
+    fn patiently(rom: &Rom, tool: &Path, cache: &Path) -> Vec<Option<Art>> {
+        for _ in 0..100 {
+            let found = gather(std::slice::from_ref(rom), tool, cache);
+            if found.first().is_some_and(Option::is_some) {
+                return found;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        gather(std::slice::from_ref(rom), tool, cache)
+    }
+
     fn a_rom(dir: &Path) -> Rom {
         let path = dir.join("game.rvz");
         std::fs::write(&path, b"not really a disc").unwrap();
@@ -624,7 +664,7 @@ mod tests {
         let tool = fake_tool(dir.path(), Some(&raw), 0);
         let rom = a_rom(dir.path());
 
-        let first = gather(std::slice::from_ref(&rom), &tool, &cache);
+        let first = patiently(&rom, &tool, &cache);
         assert_eq!(first[0].as_ref().unwrap().maker, "Nintendo");
 
         // The tool is taken away. A second read that still works can only have
@@ -639,10 +679,13 @@ mod tests {
         // The negative twin: a game with no banner must be `None` rather than an
         // error that stops the library, and it must not stop the games after it.
         let dir = tempfile::tempdir().unwrap();
-        let tool = fake_tool(dir.path(), None, 1);
         let rom = a_rom(dir.path());
 
-        let found = gather(&[rom.clone(), rom], &tool, &dir.path().join("cache"));
+        let found = gather(
+            &[rom.clone(), rom],
+            Path::new(REFUSES),
+            &dir.path().join("cache"),
+        );
 
         assert_eq!(found.len(), 2);
         assert!(found.iter().all(Option::is_none));
@@ -653,11 +696,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let cache = dir.path().join("cache");
         let rom = a_rom(dir.path());
-        let _ = gather(
-            std::slice::from_ref(&rom),
-            &fake_tool(dir.path(), None, 1),
-            &cache,
-        );
+        let _ = gather(std::slice::from_ref(&rom), Path::new(REFUSES), &cache);
 
         // The tool now WOULD work. A second pass that still finds nothing proves
         // the marker was written and read, which is what keeps a disc with no
@@ -671,11 +710,16 @@ mod tests {
     #[test]
     fn a_tool_that_says_yes_and_writes_nothing_is_still_a_failure() {
         let dir = tempfile::tempdir().unwrap();
-        let tool = fake_tool(dir.path(), None, 0);
+        let refused = extract(
+            Path::new(AGREES),
+            Path::new("game.rvz"),
+            &dir.path().join("out"),
+        );
 
-        let refused = extract(&tool, Path::new("game.rvz"), &dir.path().join("out"));
-
-        assert!(matches!(refused, Err(BannerError::NothingWritten { .. })));
+        assert!(
+            matches!(refused, Err(BannerError::NothingWritten { .. })),
+            "{refused:?}"
+        );
     }
 
     #[test]

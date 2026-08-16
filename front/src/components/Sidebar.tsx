@@ -33,6 +33,10 @@ export function Sidebar({
   volume,
   onVolume,
   onSound,
+  seated: iAmSeated,
+  onWatch,
+  onPlay,
+  onLeave,
 }: {
   mode: Mode;
   onMode: (mode: Mode) => void;
@@ -45,6 +49,14 @@ export function Sidebar({
   volume: number;
   onVolume: (volume: number) => void;
   onSound: () => void;
+  /** Vrai quand cette page tient une manette en ce moment. */
+  seated: boolean;
+  /** Rendre sa place et continuer à regarder. */
+  onWatch: () => void;
+  /** Reprendre la première place libre. */
+  onPlay: () => void;
+  /** Sortir de la salle. */
+  onLeave: () => void;
 }) {
   const seated = people.filter((person) => person.seat !== null);
   const watching = people.filter((person) => person.seat === null);
@@ -114,6 +126,28 @@ export function Sidebar({
               </p>
             </section>
           ) : null}
+
+          {/* Rendre sa place, ou sortir. Ici plutôt que seulement dans le
+              menu: quelqu'un qui veut céder sa manette le veut tout de suite, et
+              le menu couvre l'écran. */}
+          <section className="flex gap-1 border-t border-rule pt-2">
+            <button
+              type="button"
+              id={iAmSeated ? "watchOnly" : "takePad"}
+              onClick={iAmSeated ? onWatch : onPlay}
+              className="flex-1 border border-rule px-2 py-1 text-[11px] text-muted transition-colors hover:border-indigo hover:text-indigo"
+            >
+              {iAmSeated ? "rendre la manette" : "prendre une manette"}
+            </button>
+            <button
+              type="button"
+              id="leaveRoom"
+              onClick={onLeave}
+              className="border border-rule px-2 py-1 text-[11px] text-faint transition-colors hover:border-indigo hover:text-indigo"
+            >
+              quitter
+            </button>
+          </section>
 
           <section className="flex flex-col gap-1 border-t border-rule pt-2">
             <span className="text-[10px] uppercase tracking-[0.2em] text-indigo/70">son</span>

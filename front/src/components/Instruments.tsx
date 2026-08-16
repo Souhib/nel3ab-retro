@@ -28,6 +28,13 @@ export function Instruments({ shot }: { shot: Snapshot }) {
         />
         <Readout label="écran" value={video.refreshHz.toFixed(0)} unit="Hz" tone="faint" />
         <Readout
+          label="source"
+          value={video.sourceHz.toFixed(0)}
+          unit="Hz"
+          tone="faint"
+          hint="Lu sur les instants de capture, donc c'est la cadence du JEU. Un jeu PAL donne 50, et une liaison lente ne la fait pas baisser."
+        />
+        <Readout
           label="latence ajoutée"
           value={video.slackMs.toFixed(0)}
           unit="ms de marge"
@@ -39,6 +46,13 @@ export function Instruments({ shot }: { shot: Snapshot }) {
           unit="ms p50/p95"
           tone={video.gapMs.p95 > 33 ? "alert" : "normal"}
           hint="16,7 ms est régulier. Un p95 bien au-dessus veut dire que les images arrivent par paquets."
+        />
+        <Readout
+          label="gigue de la liaison"
+          value={video.jitterMs.toFixed(0)}
+          unit="ms absorbés"
+          tone={video.jitterMs > 25 ? "alert" : "normal"}
+          hint="De combien la plus lente des images ordinaires est plus lente que la plus rapide. La page l'ajoute à son tampon, donc une bonne liaison n'ajoute rien."
         />
       </Panel>
 

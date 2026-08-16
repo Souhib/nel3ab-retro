@@ -40,10 +40,14 @@ export class Session {
     onSeat: (port: number | null) => void,
     volume: number,
     deviceRate: boolean,
+    /** Vrai quand la personne est entrée pour regarder. Passé ici plutôt
+     * qu'appliqué après coup: une session construite en joueur prendrait une
+     * manette le temps d'un aller-retour avant de la rendre. */
+    watching = false,
   ) {
     this.video = new VideoStream(canvas, socketUrl);
     this.sound = new SoundStream(socketUrl, volume, deviceRate);
-    this.input = new InputStream(socketUrl, onSeat, () => this.refresh());
+    this.input = new InputStream(socketUrl, onSeat, () => this.refresh(), watching);
     this.snapshot = this.read();
   }
 
@@ -128,7 +132,23 @@ export function exposeNothingYet(): void {
   });
   anyWindow.nel3abTest = {
     counters: nothing,
-    pacing: () => ({ queue: 0, slackMs: 0, fastest: null, refresh: 0, holds: [], offset: 0 }),
+    pacing: () => ({
+      queue: 0,
+      slackMs: 0,
+      fastest: null,
+      refresh: 0,
+      holds: [],
+      offset: 0,
+      arrived: 0,
+      painted: 0,
+      starved: 0,
+      undecoded: 0,
+      jitter: 0,
+      sourceHz: 0,
+      gapP50: 0,
+      gapP95: 0,
+      heldP95: 0,
+    }),
     audio: () => ({
       soundLead: 0,
       outputLatency: 0,
@@ -143,7 +163,7 @@ export function exposeNothingYet(): void {
     stallDecoder: () => false,
     seat: () => null,
     soundGap: () => null,
-    room: () => ({ mine: 0 }),
+    room: () => ({ mine: 0, watching: false }),
   };
 }
 
@@ -179,6 +199,15 @@ export function exposeForTests(session: Session): void {
         refresh: 1000 / shot.video.refreshHz,
         offset: shot.video.offset ?? 0,
         holds: [shot.video.heldRefreshes.p50],
+        arrived: shot.video.shown,
+        painted: shot.video.painted,
+        starved: shot.video.starved,
+        undecoded: shot.video.undecoded,
+        jitter: shot.video.jitterMs,
+        sourceHz: shot.video.sourceHz,
+        gapP50: shot.video.gapMs.p50,
+        gapP95: shot.video.gapMs.p95,
+        heldP95: shot.video.heldRefreshes.p95,
       };
     },
     /** The sound budget, poste par poste, in the units the bench prints.
@@ -205,6 +234,9 @@ export function exposeForTests(session: Session): void {
     soundGap: () => session.getSnapshot().soundGapMs,
     /** The room as this page understands it, so a test can say "this page never
      * got a pad" instead of failing for something that is not a defect. */
-    room: () => ({ mine: session.getSnapshot().input.port ?? 0 }),
+    room: () => ({
+      mine: session.getSnapshot().input.port ?? 0,
+      watching: session.getSnapshot().input.watching,
+    }),
   };
 }

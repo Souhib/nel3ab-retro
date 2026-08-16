@@ -4323,6 +4323,194 @@ Dans la foulée, `games.mjs` a appris à se taire quand il ne peut rien prouver.
 propriétaire faisait son travail — et un rouge dû à une salle occupée apprend à
 l'oeil à ignorer un fichier. Il dit maintenant qui possède la salle et sort sans
 prétendre avoir testé.
+
+### 7.29 Regarder sans jouer, et ce qu'on peut faire pour une connexion moyenne
+
+Deux demandes le même jour: pouvoir rendre sa manette ou entrer directement en
+spectateur, et améliorer le sort de quelqu'un dont la connexion est moyenne
+**sans toucher à celle des autres**.
+
+#### La manette qu'on rend
+
+La page se reconnecte toute seule: une socket de manette qui se ferme est
+rouverte une demi-seconde plus tard, et la place reprise. C'est voulu, ça répare
+un réseau qui hoquette. Mais ça veut dire que « rendre sa manette » ne peut pas
+être « fermer la socket »: ça durerait une demi-seconde.
+
+Il y a donc un drapeau, et trois portes:
+
+- **regarder** depuis l'écran d'accueil, ce qui ne prend jamais de place. Une
+  porte séparée et non un réglage à changer après: une session construite en
+  joueur prendrait une manette le temps d'un aller-retour, et l'aurait affiché à
+  toute la salle;
+- **rendre la manette** en cours de partie, l'image et le son continuent;
+- **quitter la salle**, qui ramène à l'accueil.
+
+Le pilote `spectator.mjs` attend 2,5 s avant de vérifier, soit plus longtemps que
+la reconnexion polie. Vérifié en cassant les deux pièces porteuses: sans le
+drapeau au démarrage, la page entrée par « regarder » prend une place; avec une
+reprise programmée dans `watchOnly`, la place revient. Deux rouges, deux fois la
+bonne raison.
+
+Au passage, une leçon de méthode. La première pièce que j'ai cassée pour vérifier
+était le garde dans le gestionnaire de fermeture, et le pilote est resté vert:
+`watchOnly` change de génération avant de fermer, donc ce gestionnaire-là est
+déjà périmé quand il s'exécute. Un test qui reste vert quand on casse quelque
+chose ne dit pas que le test est mauvais: il dit qu'on a cassé la mauvaise pièce.
+
+#### La capture qui explique tout
+
+Un ami a envoyé la copie de son écran de détails, prise en jouant. Trois lignes
+suffisent à lire la panne:
+
+| Ce qu'il voyait | Valeur |
+|---|---|
+| Écarts d'arrivée | 25,8 / 67,2 ms p50/p95 |
+| Latence ajoutée | 60 ms |
+| Famines | 513 en 214 s |
+| Arrivées contre peintes | 11313 contre 9063 |
+
+Sa marge était **collée au plafond**, qui valait 60, et son p95 d'écarts valait
+67. Un plafond en dessous de la gigue qu'il doit absorber ne peut rien absorber.
+Et une image sur cinq arrivait, se décodait, puis était jetée sans être affichée:
+du travail fait puis perdu, ce qui n'est plus la faute du réseau.
+
+#### Trois défauts, tous du côté de la page
+
+**Le plafond.** 60 ms avait été choisi quand toutes les liaisons d'essai étaient
+bonnes. Il monte à 180, ce qui fait onze images. Un plafond reste, parce
+qu'attendre répare une liaison IRRÉGULIÈRE et jamais une liaison ÉTROITE: si le
+débit ne passe pas, la marge grandirait sans fin et n'achèterait que du retard.
+
+**Le calage sur l'image la plus chanceuse.** L'horaire d'affichage était posé sur
+`lags.fastest()`, le transit le plus rapide de la fenêtre. C'est parier que la
+liaison est toujours à son meilleur, et jeter tout ce qui ne l'est pas. Il tient
+maintenant compte de la **gigue**, l'écart entre le p95 des transits et le
+minimum. La propriété qui compte est que ce nombre vaut zéro sur une bonne
+liaison: rien ne change pour qui n'a pas de gigue, ce qui était la condition
+posée.
+
+**L'horaire jeté à chaque famine.** À chaque trou, la page remettait son horaire
+à zéro, donc le recalculait au prochain dessin sur l'image la plus rapide. 513
+fois. Chaque remise à zéro reposait l'horaire au plus optimiste, l'image suivante
+était en retard, et ça recommençait. Une file vide ne dit pourtant rien sur le
+lien entre l'heure du serveur et l'heure d'ici, qui est tout ce que ce nombre
+signifie.
+
+Et un quatrième, qui est le plus joli: la cadence de la source était mesurée sur
+les **arrivées**. Une source à 60 Hz dont les images arrivent toutes les 26 ms
+n'est pas une source à 39 Hz, mais la page le croyait, et trouvait donc normal un
+trou qui ne l'était pas. Elle la lit maintenant sur les **instants de capture**,
+qui décrivent le jeu et pas le réseau. Les deux se ressemblent sur une bonne
+liaison et n'ont rien à voir sur une mauvaise, et les confondre était le bug.
+
+#### Un lien lent, pour de vrai
+
+Impossible de vérifier ça en raisonnant. L'étranglement réseau des outils de
+Chrome ne sert à rien ici: **il ne touche pas les WebSockets**, vérifié en
+plafonnant à 2 Mbit/s une page qui a continué à peindre 50 images par seconde. Or
+tout ce que ce projet envoie est une WebSocket.
+
+D'où `throttle.mjs`: un relais TCP qui recopie vers le worker à travers un seau à
+jetons dont le débit oscille. En TCP brut et pas en HTTP, donc la montée en
+WebSocket le traverse sans qu'il ait à la comprendre. Le débit oscille plutôt que
+de retarder chaque morceau au hasard, parce qu'un flux TCP est une suite
+d'octets et que retarder inégalement deux morceaux les remettrait dans le
+désordre, ce qui n'arrive sur aucun vrai lien.
+
+**Il a attrapé deux défauts que je venais d'introduire**, et c'est la meilleure
+chose qu'on puisse dire d'un instrument:
+
+1. en gardant l'horaire d'une famine à l'autre, un horaire posé sur les toutes
+   premières images restait faux pour toujours: cinq millisecondes toutes les
+   deux secondes mettent sept minutes à rattraper une seconde. Le pilote
+   affichait 2398 images arrivées et **zéro peinte**. Un écart trop grand repose
+   donc l'horaire d'un coup au lieu de le corriger doucement;
+2. sur un lien saturé, les images ne sont pas irrégulières, elles s'entassent. Le
+   p95 des transits suit alors la file d'attente et non la gigue — 1,6 s mesurée
+   — et mon tampon l'aurait suivie. Le total est maintenant borné par le même
+   plafond.
+
+#### Ce que le serveur jetait au milieu d'une phrase
+
+La mesure a ensuite désigné un coupable que je n'attendais pas là: **306 images
+non décodables contre 192 décodées**. Deux tiers du travail perdu.
+
+La file de sortie de chaque spectateur fait deux images, et une file pleine jette
+l'image. C'est le bon choix — mettre en file d'attente convertit un problème de
+débit en problème de latence et le cache. Mais une image jetée **au milieu d'un
+groupe** casse tout ce qui suit: les suivantes référencent celle qui manque, et
+le navigateur décode du bruit jusqu'à ce qu'il abandonne et redemande une clé.
+
+Le worker sait qu'il vient de jeter, lui. Il se tait donc maintenant vis-à-vis de
+ce spectateur-là jusqu'à la prochaine image-clé, qu'il demande dans la foulée. Un
+gel court et une reprise propre remplacent une bouillie de blocs. Un spectateur
+dont la file ne déborde jamais ne voit rien de tout ceci, ce qui est encore la
+condition posée.
+
+#### Ce qui n'est pas réparé, et pourquoi il faut le dire
+
+Sur un lien **trop étroit**, rien de ce qui précède ne suffit. Mesuré: à
+0,32 Mbit/s pour un flux qui en demande 0,37, la casse est continue et la page
+passe son temps à attendre une clé. Là, le seul levier est un **débit plus
+faible**, et c'est justement celui qui toucherait tout le monde: l'encodeur est
+en quantiseur constant, sans plafond, et une même image sert tous les
+spectateurs.
+
+Les deux suites possibles, honnêtement:
+
+- **plafonner les pointes.** Le flux mesuré sur lgf va de 5 à 24 Mbit/s selon la
+  scène, avec des images jusqu'à 100 ko, soit 49 Mbit/s l'instant d'une image. Ce
+  sont ces rafales qu'un lien moyen n'absorbe pas. Un plafond de débit placé
+  au-dessus de la moyenne raboterait les pointes sans changer la qualité
+  ordinaire. À mesurer avant d'y toucher;
+- **encoder deux fois**, une version basse pour qui en a besoin. C'est la seule
+  façon de vraiment ne rien changer pour les autres, et c'est un vrai chantier.
+
+#### Et le rollback netcode, puisque la question est venue
+
+Il ne s'applique pas, et ce n'est pas une question d'effort. Le rollback repose
+sur une chose que nous n'avons pas: **chaque joueur fait tourner sa propre copie
+du jeu**. Quand l'autre lague, ta machine continue en devinant son entrée, et
+rembobine de quelques images quand la vraie arrive. Ça demande la simulation chez
+tout le monde, un jeu déterministe, et une sauvegarde d'état restaurable soixante
+fois par seconde.
+
+Ici il y a **une seule** simulation, sur lgf, et le navigateur ne reçoit que de la
+vidéo. Il n'a ni le jeu, ni Dolphin, ni un octet d'état: il n'y a rien à
+rembobiner et rien avec quoi prédire. En mettre voudrait dire changer de projet
+— tout le monde installe le jeu, on synchronise les entrées au lieu des pixels,
+ce que fait Slippi pour Melee — alors que tout l'intérêt de celui-ci est qu'une
+seule machine émule et que les autres ouvrent un onglet.
+
+Le seul cousin du rollback qui existe en vidéo est la reprojection d'image côté
+client, et elle ne marche que pour un mouvement de caméra en 3D avec la carte de
+profondeur. Nous recevons une image finie: il n'y a rien à reprojeter.
+
+#### Un test qui échouait une fois sur vingt-cinq
+
+`just check` est passé au rouge sur un test des jaquettes, puis au vert en le
+rejouant. Un test intermittent est un défaut à part entière, parce qu'il apprend
+à l'oeil à rejouer au lieu de lire. Mesuré plutôt que supposé: **un échec sur 25
+exécutions en parallèle, zéro sur 15 en série**. Puis l'erreur elle-même, en
+l'affichant au lieu de la deviner: `ETXTBSY`, « Text file busy ».
+
+C'est une course connue sous Linux. Écrire un fichier exécutable puis le lancer
+depuis un programme à plusieurs fils échoue parfois: un autre fil qui se duplique
+pendant l'écriture hérite du descripteur ouvert en écriture, et l'exécution
+refuse tant qu'il est ouvert. Les tests écrivaient chacun un faux `dolphin-tool`.
+
+Deux d'entre eux n'avaient aucun besoin d'un script: « sort en disant oui sans
+rien écrire » est `/bin/true`, et « sort en disant non » est `/bin/false`. Ceux-là
+ne peuvent plus courir du tout. Le dernier a besoin d'un outil qui réussit, donc
+d'un script, et il réessaie.
+
+Mais le plus important est ce que la course a révélé dans le code lui-même. Un
+échec à DÉMARRER l'outil écrivait le témoin « ce disque n'a pas de jaquette ». Un
+Docker qui redémarre au mauvais moment condamnait donc un jeu à n'avoir plus
+jamais d'image, jusqu'à ce que quelqu'un vide le cache à la main. Le témoin n'est
+plus écrit que pour une vraie réponse: l'outil a tourné et a dit non, ou le
+disque n'a effectivement pas de bannière.
 ---
 
 ## 8. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
@@ -4388,6 +4576,12 @@ pas échouer**.
 | Une touche comptée deux fois | Le menu écoutait `keydown` et la boucle d'entrée lisait aussi le clavier pour le conduire à la manette: une flèche avançait de deux crans. Et ça n'arrivait QUE sans manette branchée, donc l'essai à manette simulée passait à côté | Une entrée, un propriétaire. Et l'assertion utile n'est pas « ça bouge » mais « ça bouge d'exactement un cran »: une addition ne se voit qu'en comptant |
 | Une jaquette fabriquée alors que la vraie était là | On dessinait une couleur et deux lettres par jeu, faute d'image. Chaque disque en contient une, avec le nom du studio et une phrase, depuis toujours | Avant d'inventer une donnée, chercher si l'objet la porte déjà. Un fichier de jeu est un système de fichiers, pas une boîte noire |
 | Deux encodages sous un seul type | RGB5A3 choisit par le bit de poids fort entre cinq bits sans alpha et quatre bits avec. Ne lire qu'une branche donne une image complète et fausse | Quand un format a un aiguillage, tester les DEUX sorties. Un décodeur à demi juste ne produit pas de vide, il produit du plausible |
+| Un plafond sous la gigue qu'il devait absorber | La marge d'affichage s'arrêtait à 60 ms; le p95 des écarts d'arrivée d'un ami en faisait 67. Sa page est restée collée au plafond en comptant 513 famines | Un seuil se règle sur la grandeur qu'il borne, pas sur ce qui suffisait aux machines d'essai |
+| L'horaire recalé sur l'image la plus chanceuse | Le calage prenait le transit le plus rapide de la fenêtre, et repartait de là à chaque famine. Sur un lien irrégulier, chaque trou reposait l'horaire au plus optimiste et provoquait le suivant | Se caler sur le meilleur cas, c'est jeter tout ce qui n'est pas le meilleur cas |
+| La cadence de la source lue sur les arrivées | Une source à 60 Hz livrée toutes les 26 ms était prise pour une source à 39 Hz, donc ses trous passaient pour normaux | Deux causes différentes ont besoin de deux mesures différentes. Les instants de capture décrivent le jeu, les arrivées décrivent le réseau |
+| Une image jetée au milieu d'un groupe | La file pleine jetait l'image, les suivantes référençaient celle qui manquait, et le navigateur décodait du bruit: 306 non décodables contre 192 décodées | Dans un flux où les morceaux dépendent les uns des autres, se taire jusqu'au prochain point d'entrée vaut mieux que continuer à parler |
+| Un échec transitoire mis en cache | Ne pas réussir à LANCER l'outil d'extraction écrivait le même témoin que « ce disque n'a pas de jaquette ». Un Docker qui redémarre condamnait un jeu pour toujours | Un cache d'échec ne doit retenir que des réponses. « Je n'ai pas pu demander » n'en est pas une |
+| L'étranglement réseau de Chrome | Il ne touche pas les WebSockets: 2 Mbit/s de plafond, et la page peignait toujours 50 images par seconde. Tout ce que ce projet envoie est une WebSocket | Un instrument se vérifie sur un cas où il DOIT bouger, avant de croire ce qu'il dit quand il ne bouge pas |
 | Une confirmation invisible | La première pression armait le changement de jeu sans rien afficher, donc elle ressemblait à un clic manqué et appelait la seconde | Une confirmation qui ne se voit pas est une confirmation qui pousse au geste qu'elle voulait empêcher |
 | Un mur de tuiles identiques | Les jeux s'affichaient en carrés gris tous pareils: rien ne plantait, mais il fallait relire huit titres pour retrouver le sien | Une liste d'objets a besoin d'un signe **par objet**. À défaut d'image, on en fabrique un — et le test qui compte n'est pas « la couleur est stable » mais « deux titres presque identiques tombent loin l'un de l'autre » |
 | Un réglage accroché à un axe | « Régler une valeur » était gauche/droite, mais gauche/droite ne veut pas dire la même chose dans une colonne et dans une rangée: le réglage du menu changeait de page | Accrocher un réglage au geste qui existe partout, « choisir ». Et ne pas écrire dans l'indice le nom d'un axe qui dépend de l'écran |

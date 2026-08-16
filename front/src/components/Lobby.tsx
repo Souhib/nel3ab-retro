@@ -20,6 +20,7 @@ export function Lobby({
   login,
   failed,
   onEnter,
+  onWatch,
   onForget,
   onRename,
 }: {
@@ -28,6 +29,10 @@ export function Lobby({
   login: string | null;
   failed: boolean;
   onEnter: () => void;
+  /** Entrer sans prendre de manette. Une porte séparée plutôt qu'un réglage à
+   * changer après: quelqu'un qui vient regarder ne doit pas occuper une place le
+   * temps de la rendre. */
+  onWatch: () => void;
   onForget: () => void;
   onRename: (name: string) => void;
 }) {
@@ -98,14 +103,25 @@ export function Lobby({
           </div>
         </section>
 
-        <button
-          type="button"
-          id="enter"
-          onClick={onEnter}
-          className="border border-indigo bg-indigo/10 px-3 py-2.5 text-[13px] text-indigo transition-colors hover:bg-indigo/20"
-        >
-          {free === 0 && seats.length > 0 ? "entrer et regarder" : "entrer"}
-        </button>
+        <div className="grid grid-cols-[2fr_1fr] gap-2">
+          <button
+            type="button"
+            id="enter"
+            onClick={onEnter}
+            disabled={free === 0 && seats.length > 0}
+            className="border border-indigo bg-indigo/10 px-3 py-2.5 text-[13px] text-indigo transition-colors hover:bg-indigo/20 disabled:opacity-40"
+          >
+            {free === 0 && seats.length > 0 ? "salle pleine" : "entrer et jouer"}
+          </button>
+          <button
+            type="button"
+            id="watch"
+            onClick={onWatch}
+            className="border border-rule px-3 py-2.5 text-[13px] text-muted transition-colors hover:border-indigo hover:text-indigo"
+          >
+            regarder
+          </button>
+        </div>
 
         <p className="text-[11px] leading-relaxed text-faint">
           {failed

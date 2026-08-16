@@ -46,6 +46,18 @@ export async function enterRoom(page, timeout = 15000) {
   await page.waitForSelector("#screen", { timeout });
 }
 
+/** L'autre porte: entrer pour regarder, sans prendre de manette.
+ *
+ * Une porte distincte et pas un réglage à changer une fois dedans, parce que
+ * c'est ce que la page fait: une session construite en joueur prendrait une
+ * place le temps d'un aller-retour avant de la rendre.
+ */
+export async function watchRoom(page, timeout = 15000) {
+  await page.waitForSelector("#watch", { timeout });
+  await page.click("#watch");
+  await page.waitForSelector("#screen", { timeout });
+}
+
 /** La place que cette page tient, ou `null`. Un nombre, pas une phrase.
  *
  * Plusieurs pilotes cherchaient « joueur 2 » dans le texte affiché. Reformuler

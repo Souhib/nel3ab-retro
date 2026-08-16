@@ -17,7 +17,7 @@ import { Asked as AskedBanner, Asking } from "./components/Swap";
 import { Blades } from "./components/Blades";
 import { Channels } from "./components/Channels";
 import { Home } from "./components/Home";
-import { Xmb, type XmbCategory } from "./components/Xmb";
+import { Xmb, type XmbCategory, type XmbItem } from "./components/Xmb";
 import type { MenuAction } from "./media/menupad";
 import { DotIcon, GameIcon, MeasureIcon, RoomIcon, SettingsIcon } from "./components/XmbIcons";
 import { Panel } from "./components/Readout";
@@ -53,7 +53,12 @@ import { useSession, useSnapshot } from "./lib/useSession";
 export default function App() {
   const { data: me, isPending } = useMe();
   const [local, setLocal] = useState(rememberedName);
-  const [entered, setEntered] = useState(false);
+  /** Comment on est entré: pour jouer, pour regarder, ou pas encore.
+   *
+   * Trois états et non un booléen, parce que « regarder » se décide AVANT que la
+   * session existe. Construite en joueur puis corrigée après, elle prendrait une
+   * manette le temps d'un aller-retour et l'aurait affiché à toute la salle. */
+  const [entered, setEntered] = useState<null | "play" | "watch">(null);
 
   // Rien tant que l'identité n'a pas répondu: afficher le formulaire une demi
   // seconde avant de le retirer se lit comme un défaut.
@@ -67,10 +72,12 @@ export default function App() {
       name={name}
       login={identified}
       entered={entered}
-      onEnter={() => setEntered(true)}
+      onEnter={() => setEntered("play")}
+      onWatch={() => setEntered("watch")}
+      onLeave={() => setEntered(null)}
       onForget={() => {
         forgetName();
-        setEntered(false);
+        setEntered(null);
         setLocal("");
       }}
     />
@@ -85,12 +92,16 @@ function Named({
   login,
   entered,
   onEnter,
+  onWatch,
+  onLeave,
   onForget,
 }: {
   name: string;
   login: string | null;
-  entered: boolean;
+  entered: null | "play" | "watch";
   onEnter: () => void;
+  onWatch: () => void;
+  onLeave: () => void;
   onForget: () => void;
 }) {
   const { data: room, isError } = useRoom();
@@ -115,7 +126,7 @@ function Named({
   const takeSeat = useRef<((port: number) => void) | null>(null);
   const rename = useRename(lobby.renamed);
 
-  if (!entered) {
+  if (entered === null) {
     return (
       <Lobby
         room={room}
@@ -123,6 +134,7 @@ function Named({
         login={login}
         failed={isError}
         onEnter={onEnter}
+        onWatch={onWatch}
         onForget={onForget}
         onRename={(chosen) => rename.mutate(chosen)}
       />
@@ -133,6 +145,8 @@ function Named({
       name={name}
       login={login}
       room={room}
+      watching={entered === "watch"}
+      onLeave={onLeave}
       announceSeat={lobby.seat}
       asked={asked}
       asking={asking}
@@ -171,6 +185,8 @@ function Room({
   name,
   login,
   room,
+  watching,
+  onLeave,
   announceSeat,
   asked,
   asking,
@@ -183,6 +199,11 @@ function Room({
   name: string;
   login: string | null;
   room: RoomState | undefined;
+  /** Vrai quand on est entré pour regarder. Lu une fois, à la construction de la
+   * session; changer d'avis ensuite passe par la session. */
+  watching: boolean;
+  /** Sortir de la salle et revenir à l'écran d'accueil. */
+  onLeave: () => void;
   announceSeat: (port: number | null) => void;
   asked: Asked | null;
   asking: { port: number; said: string | null } | null;
@@ -219,7 +240,7 @@ function Room({
    * le monde, donc la première entrée arme et la seconde lance. */
   const [armedGame, setArmedGame] = useState<number | null>(null);
 
-  const { ref, session } = useSession(volume, deviceRate, announceSeat);
+  const { ref, session } = useSession(volume, deviceRate, announceSeat, watching);
   const shot = useSnapshot(session);
 
   useEffect(() => session?.sound.setVolume(volume), [session, volume]);
@@ -284,6 +305,10 @@ function Room({
    * qui est là, de qui décide et de ce que la salle joue, et le XMB n'a pas à
    * connaître ces règles. Il sait afficher une croix, c'est tout.
    */
+  /** Regarde-t-on, en ce moment ? Lu sur la session et non sur `watching`, qui
+   * ne dit que par quelle porte on est entré. */
+  const watchingNow = shot?.input.watching ?? false;
+
   const rays: XmbCategory[] = [
     {
       id: "jeux",
@@ -329,33 +354,57 @@ function Room({
       id: "salle",
       label: "salle",
       icon: <RoomIcon className="h-full w-full" />,
-      items: Array.from({ length: shot?.input.players ?? 4 }, (_, slot) => slot + 1).map((seat) => {
-        const held = shot?.input.busy[seat - 1] ?? false;
-        const isMine = seat === port;
-        const who = people.find((person) => person.seat === seat);
-        return {
-          id: `port${seat}`,
-          label: `manette ${seat}`,
-          value: isMine ? "toi" : held ? (who?.name ?? names.get(seat) ?? "occupée") : "libre",
-          hint: isMine
-            ? "c'est la tienne"
-            : who
-              ? "entrée: lui demander de te la passer"
-              : held
-                ? "personne ne répond dessus: entrée pour la reprendre"
-                : "entrée pour t'y brancher",
-          icon: <DotIcon className="h-full w-full" />,
-          disabled: isMine,
-          onEnter: () => {
-            if (who) {
-              onAsk(seat);
+      items: Array.from({ length: shot?.input.players ?? 4 }, (_, slot) => slot + 1)
+        .map<XmbItem>((seat) => {
+          const held = shot?.input.busy[seat - 1] ?? false;
+          const isMine = seat === port;
+          const who = people.find((person) => person.seat === seat);
+          return {
+            id: `port${seat}`,
+            label: `manette ${seat}`,
+            value: isMine ? "toi" : held ? (who?.name ?? names.get(seat) ?? "occupée") : "libre",
+            hint: isMine
+              ? "c'est la tienne"
+              : who
+                ? "entrée: lui demander de te la passer"
+                : held
+                  ? "personne ne répond dessus: entrée pour la reprendre"
+                  : "entrée pour t'y brancher",
+            icon: <DotIcon className="h-full w-full" />,
+            disabled: isMine,
+            onEnter: () => {
+              if (who) {
+                onAsk(seat);
+                setMenu(false);
+                return;
+              }
+              session?.input.take(seat);
+            },
+          };
+        })
+        .concat([
+          {
+            id: "watch",
+            label: watchingNow ? "reprendre une manette" : "regarder sans manette",
+            value: watchingNow ? "spectateur" : undefined,
+            hint: watchingNow
+              ? "la première place libre"
+              : "rend ta place à la salle, l'image et le son continuent",
+            icon: <RoomIcon className="h-full w-full" />,
+            onEnter: () => {
+              if (watchingNow) session?.input.play();
+              else session?.input.watchOnly();
               setMenu(false);
-              return;
-            }
-            session?.input.take(seat);
+            },
           },
-        };
-      }),
+          {
+            id: "leave",
+            label: "quitter la salle",
+            hint: "retour à l'accueil, la partie continue sans toi",
+            icon: <RoomIcon className="h-full w-full" />,
+            onEnter: onLeave,
+          },
+        ]),
     },
     {
       id: "reglages",
@@ -581,6 +630,10 @@ function Room({
             volume={volume}
             onVolume={setVolume}
             onSound={() => void session?.sound.start()}
+            seated={port !== null}
+            onWatch={() => session?.input.watchOnly()}
+            onPlay={() => session?.input.play()}
+            onLeave={onLeave}
           />
         </aside>
       )}

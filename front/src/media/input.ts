@@ -35,6 +35,8 @@ const PAD_PERIOD_MS = 4;
 
 export type InputState = {
   port: number | null;
+  /** Vrai quand cette page regarde sans manette, par choix. */
+  watching: boolean;
   refused: boolean;
   sent: number;
   padId: string | null;
@@ -116,6 +118,13 @@ export class InputStream {
    * redevient libre, et la reconnexion polie est faite pour prendre ce qui est
    * libre. Il faut donc un silence volontaire. */
   private silentUntil = 0;
+  /** Vrai quand cette page a choisi de REGARDER, sans manette.
+   *
+   * Un drapeau plutôt qu'un simple « pas de socket », parce que la reconnexion
+   * polie existe: une page qui ferme sa socket la rouvre une demi-seconde plus
+   * tard et reprend une place. Sans ce drapeau, « passer spectateur » durerait
+   * une demi-seconde. */
+  private watching: boolean;
   /** Quand un menu est ouvert, la manette le conduit LUI et pas le jeu.
    *
    * C'est ce que fait une console: on appuie sur un bouton, le jeu continue de
@@ -155,14 +164,19 @@ export class InputStream {
     url: (path: string) => string,
     onSeat: (port: number | null) => void,
     onSettled: () => void = () => {},
+    watching = false,
   ) {
     this.url = url;
     this.onSeat = onSeat;
     this.onSettled = onSettled;
+    this.watching = watching;
   }
 
   start(): void {
-    this.connect();
+    // Une page qui entre pour regarder ne prend jamais de place, même une
+    // fraction de seconde. Se brancher puis se débrancher volerait une manette
+    // à quelqu'un le temps d'un aller-retour, et l'aurait affiché.
+    if (!this.watching) this.connect();
     addEventListener("keydown", this.onKeyDown);
     addEventListener("keyup", this.onKeyUp);
     addEventListener("blur", this.onBlur);
@@ -184,6 +198,7 @@ export class InputStream {
   state(): InputState {
     return {
       port: this.port,
+      watching: this.watching,
       refused: this.refused,
       sent: this.sent,
       padId: this.padId,
@@ -214,9 +229,45 @@ export class InputStream {
    * trade the pad between them for ever.
    */
   take(port: number): void {
-    // Reprendre une place est une décision, donc elle efface l'avis.
+    // Reprendre une place est une décision, donc elle efface l'avis. Et le mode
+    // spectateur avec, sinon la place prise serait rendue à la première coupure.
     this.displaced = false;
+    this.watching = false;
+    this.silentUntil = 0;
     this.connect(port);
+  }
+
+  /** Rend la manette et n'en redemande plus: regarder, sans jouer.
+   *
+   * Différent de [`yieldSeat`], qui rend la place pour la durée d'un échange et
+   * revient tout seul. Ici personne ne revient tant que la personne n'a pas
+   * redemandé, parce que c'est elle qui a décidé de regarder.
+   */
+  watchOnly(): void {
+    if (this.watching) return;
+    this.watching = true;
+    this.port = null;
+    this.generation += 1;
+    if (this.retry !== null) {
+      window.clearTimeout(this.retry);
+      this.retry = null;
+    }
+    this.socket?.close();
+    this.socket = null;
+    this.onSeat(null);
+  }
+
+  /** Redemande une manette: la première libre.
+   *
+   * Poliment, donc sans déloger personne. Prendre une place occupée reste un
+   * geste distinct, [`take`], parce que seule la personne sait quelle place elle
+   * visait.
+   */
+  play(): void {
+    this.watching = false;
+    this.displaced = false;
+    this.silentUntil = 0;
+    this.connect();
   }
 
   /** Boots the game at that position in the worker's library.
@@ -387,6 +438,12 @@ export class InputStream {
       // back has to be a click, because only a person knows which character they
       // meant to be.
       if (this.displaced) return;
+      // Et une page qui regarde ne redemande rien du tout. Deuxième verrou sur
+      // la même porte: `watchOnly` ferme la socket en changeant de génération,
+      // donc ce gestionnaire est déjà obsolète quand il s'exécute. Celui-ci
+      // couvre le jour où une socket se ferme d'elle-même pendant qu'on regarde.
+      if (this.watching) return;
+
       // Une place qu'on vient de céder ne se reprend pas par réflexe.
       if (Date.now() < this.silentUntil) return;
       // Half a second after a drop, three after a refusal. Asking POLITELY takes

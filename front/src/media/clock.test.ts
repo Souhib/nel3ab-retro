@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { isStarved, percentile, steer, Window } from "./clock";
+import {
+  SLACK_CEILING,
+  SLACK_FLOOR,
+  Window,
+  isStarved,
+  nextSlack,
+  percentile,
+  steer,
+} from "./clock";
 
 /**
  * La distinction qui a coûté 35 ms de latence sur les jeux PAL: une source plus
@@ -65,5 +73,35 @@ describe("les outils de l'horaire", () => {
     expect(steer(100, 0, 5)).toBe(95);
     // Plus près que le pas: on arrive, on ne dépasse pas.
     expect(steer(0, 2, 5)).toBe(2);
+  });
+});
+
+describe("la marge", () => {
+  it("monte quand la page a eu faim, et par pas de huit", () => {
+    expect(nextSlack(6, 5)).toBe(14);
+  });
+
+  it("redescend quand la fenêtre a été calme, et plus lentement qu'elle ne monte", () => {
+    // Le jumeau de la ligne du dessus, et la raison pour laquelle elle existe:
+    // une marge qui ne redescendrait jamais ferait payer une mauvaise minute à
+    // toute la partie.
+    expect(nextSlack(40, 0)).toBe(38);
+  });
+
+  it("ne bouge pas sur une seule famine", () => {
+    // Une famine isolée s'explique par n'importe quoi. Deux dans la même
+    // fenêtre décrivent la liaison.
+    expect(nextSlack(20, 1)).toBe(20);
+  });
+
+  it("s'arrête au plafond plutôt que de grandir sans fin", () => {
+    // Attendre répare une liaison irrégulière, pas une liaison trop étroite.
+    expect(nextSlack(SLACK_CEILING - 2, 9)).toBe(SLACK_CEILING);
+    expect(nextSlack(SLACK_CEILING, 9)).toBe(SLACK_CEILING);
+  });
+
+  it("ne descend pas sous le plancher", () => {
+    expect(nextSlack(SLACK_FLOOR, 0)).toBe(SLACK_FLOOR);
+    expect(nextSlack(SLACK_FLOOR + 1, 0)).toBe(SLACK_FLOOR);
   });
 });

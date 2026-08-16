@@ -44,8 +44,28 @@ const PORTS: usize = 4;
 /// viewer: four players should not cost four copies of the same picture.
 type Framed = tungstenite::Bytes;
 
+/// One connected viewer: its queue, and whether its stream is currently broken.
+#[derive(Debug)]
+struct Viewer {
+    pipe: SyncSender<Framed>,
+    /// Vrai depuis qu'une image lui a été refusée, jusqu'à la prochaine
+    /// image-clé.
+    ///
+    /// Une image jetée au milieu d'un groupe casse TOUT ce qui suit: le décodeur
+    /// du navigateur reçoit des images qui référencent une image qu'il n'a
+    /// jamais eue. Continuer à lui en envoyer lui fait décoder du bruit et
+    /// afficher une bouillie de blocs, jusqu'à ce qu'il abandonne et redemande
+    /// une clé. Mesuré le 2026-08-16 sur un lien étroit: 306 images non
+    /// décodables contre 192 décodées, soit deux tiers du travail perdu.
+    ///
+    /// Se taire jusqu'à la clé transforme ça en un gel court suivi d'une reprise
+    /// propre. Un spectateur dont la file ne déborde jamais ne voit rien de tout
+    /// ceci.
+    resyncing: bool,
+}
+
 /// The registry of connected viewers, each with its own bounded queue.
-type Viewers = Arc<Mutex<Vec<SyncSender<Framed>>>>;
+type Viewers = Arc<Mutex<Vec<Viewer>>>;
 
 /// Who currently holds each port, as a claim number rather than a flag.
 ///
@@ -346,23 +366,49 @@ impl BrowserServer {
         message.extend_from_slice(packet.annex_b);
         let message = Framed::from(message);
 
+        let key = carries_key_frame(packet.annex_b);
         let mut delivered = false;
+        let mut broke = false;
         let dropped = &self.dropped;
-        viewers.retain(|viewer| match viewer.try_send(message.clone()) {
-            Ok(()) => {
-                delivered = true;
-                true
+        viewers.retain_mut(|viewer| {
+            // Un spectateur dont le flux est cassé n'a rien à faire d'une image
+            // qui référence ce qu'il n'a pas. On attend la clé.
+            if viewer.resyncing {
+                if !key {
+                    return true;
+                }
+                viewer.resyncing = false;
             }
-            // This viewer is behind. Its own frames are lost; the others are
-            // untouched, which is the whole point of a queue each.
-            Err(TrySendError::Full(_)) => {
-                dropped.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                true
+            match viewer.pipe.try_send(message.clone()) {
+                Ok(()) => {
+                    delivered = true;
+                    true
+                }
+                // This viewer is behind. Its own frames are lost; the others are
+                // untouched, which is the whole point of a queue each.
+                Err(TrySendError::Full(_)) => {
+                    dropped.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    // Sauf si c'était la clé: la jeter et l'attendre en même
+                    // temps ne mènerait nulle part.
+                    if !key {
+                        viewer.resyncing = true;
+                        broke = true;
+                    }
+                    true
+                }
+                // Its thread has gone. Forgetting it here is what keeps the list
+                // from growing across a session's reconnections.
+                Err(TrySendError::Disconnected(_)) => false,
             }
-            // Its thread has gone. Forgetting it here is what keeps the list
-            // from growing across a session's reconnections.
-            Err(TrySendError::Disconnected(_)) => false,
         });
+        // Demandée ICI plutôt que par le navigateur, qui ne découvre la casse
+        // qu'en échouant à décoder: le worker, lui, sait qu'il vient de jeter.
+        // La demande est déjà limitée en fréquence, donc un spectateur en
+        // difficulté ne peut pas faire grossir le flux de tout le monde.
+        if broke {
+            self.wants_key
+                .store(true, std::sync::atomic::Ordering::Relaxed);
+        }
         delivered
     }
 
@@ -386,7 +432,7 @@ impl BrowserServer {
         let message = Framed::from(message);
 
         let mut delivered = false;
-        listeners.retain(|listener| match listener.try_send(message.clone()) {
+        listeners.retain(|listener| match listener.pipe.try_send(message.clone()) {
             Ok(()) => {
                 delivered = true;
                 true
@@ -792,6 +838,35 @@ fn serve_missing(mut stream: TcpStream) {
     let _ = stream.flush();
 }
 
+/// Cette unité d'accès contient-elle une image-clé ?
+///
+/// On cherche un NAL de type 5 (`IDR`) parmi ceux que sépare un code de départ.
+/// Le type est dans les cinq bits de poids faible du premier octet du NAL.
+///
+/// Écrit ici plutôt que déduit de « on vient de demander une clé »: le worker
+/// demande, l'encodeur décide, et les deux ne sont pas au même moment.
+fn carries_key_frame(annex_b: &[u8]) -> bool {
+    let mut zeros = 0_usize;
+    let mut at_start = false;
+    for byte in annex_b {
+        if at_start {
+            at_start = false;
+            if byte & 0x1F == 5 {
+                return true;
+            }
+        }
+        match byte {
+            0 => zeros += 1,
+            1 if zeros >= 2 => {
+                at_start = true;
+                zeros = 0;
+            }
+            _ => zeros = 0,
+        }
+    }
+    false
+}
+
 fn serve_body(mut stream: TcpStream, body: &str, content_type: &str) {
     let response = format!(
         "HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\n\
@@ -845,7 +920,10 @@ fn video_thread(
 
     let (sender, frames) = sync_channel::<Framed>(OUTGOING_DEPTH);
     match viewers.lock() {
-        Ok(mut viewers) => viewers.push(sender),
+        Ok(mut viewers) => viewers.push(Viewer {
+            pipe: sender,
+            resyncing: false,
+        }),
         Err(_) => return,
     }
     joined.store(true, std::sync::atomic::Ordering::Relaxed);
@@ -904,7 +982,10 @@ fn sound_thread(stream: TcpStream, listeners: &Viewers) {
 
     let (sender, chunks) = sync_channel::<Framed>(OUTGOING_DEPTH);
     match listeners.lock() {
-        Ok(mut listeners) => listeners.push(sender),
+        Ok(mut listeners) => listeners.push(Viewer {
+            pipe: sender,
+            resyncing: false,
+        }),
         Err(_) => return,
     }
     tracing::info!("a browser is listening");
@@ -1500,7 +1581,15 @@ mod tests {
     /// Builds a server with no accept loop, for tests that only exercise policy.
     fn detached(viewers: Vec<SyncSender<Framed>>) -> BrowserServer {
         BrowserServer {
-            viewers: Arc::new(Mutex::new(viewers)),
+            viewers: Arc::new(Mutex::new(
+                viewers
+                    .into_iter()
+                    .map(|pipe| Viewer {
+                        pipe,
+                        resyncing: false,
+                    })
+                    .collect(),
+            )),
             listeners: Arc::new(Mutex::new(Vec::new())),
             arrived: Arc::new(Condvar::new()),
             incoming: Arc::new(Mutex::new([None; PORTS])),
@@ -1519,6 +1608,84 @@ mod tests {
             captured_micros: 0,
             annex_b: &[0, 0, 0, 1, 0x65],
         }
+    }
+
+    /// Une image qui n'est PAS une clé: NAL de type 1.
+    fn delta() -> Packet<'static> {
+        Packet {
+            captured_micros: 0,
+            annex_b: &[0, 0, 0, 1, 0x41],
+        }
+    }
+
+    #[test]
+    fn a_key_frame_is_recognised_by_its_nal_type_and_nothing_else() {
+        // Type 5 après un code de départ: c'est une clé.
+        assert!(carries_key_frame(&[0, 0, 0, 1, 0x65]));
+        assert!(carries_key_frame(&[0, 0, 1, 0x25]));
+        // Une clé annoncée après un SPS et un PPS, ce qui est la forme réelle.
+        assert!(carries_key_frame(&[
+            0, 0, 0, 1, 0x67, 0, 0, 0, 1, 0x68, 0, 0, 0, 1, 0x65
+        ]));
+
+        // Les jumeaux négatifs. Sans eux, une fonction qui rendrait toujours vrai
+        // passerait tout ce qui est au-dessus, et le spectateur en resynchro
+        // reprendrait sur une image qui ne le répare pas.
+        assert!(!carries_key_frame(&[0, 0, 0, 1, 0x41]));
+        assert!(!carries_key_frame(&[]));
+        // Un 5 qui n'est PAS après un code de départ: c'est de la donnée.
+        assert!(!carries_key_frame(&[0, 0, 0, 1, 0x41, 0x05, 0x05]));
+        // Deux zéros et un un ne font un code de départ qu'ensemble.
+        assert!(!carries_key_frame(&[0, 1, 0x65]));
+    }
+
+    /// Ce qu'un spectateur en difficulté reçoit entre deux clés: rien.
+    ///
+    /// Jeter une image au milieu d'un groupe casse tout ce qui suit, parce que
+    /// les suivantes référencent celle qui manque. Le navigateur décodait alors
+    /// du bruit: 306 images non décodables contre 192 décodées, mesuré le
+    /// 2026-08-16 sur un lien étroit avec `slowlink.mjs`.
+    #[test]
+    fn a_viewer_whose_stream_broke_is_left_alone_until_the_next_key_frame() {
+        let (sender, held) = sync_channel::<Framed>(OUTGOING_DEPTH);
+        let server = detached(vec![sender]);
+
+        // On remplit sa file, puis une image de plus: celle-là est perdue, et
+        // c'est elle qui casse la chaîne.
+        for _ in 0..OUTGOING_DEPTH {
+            assert!(server.send(&delta()));
+        }
+        assert!(!server.send(&delta()), "la file est pleine");
+        assert_eq!(server.dropped(), 1);
+
+        // La file se vide. Une image ordinaire ne doit toujours PAS partir: elle
+        // référence celle qui manque.
+        while held.try_recv().is_ok() {}
+        assert!(!server.send(&delta()), "rien tant que la chaîne est cassée");
+        assert!(held.try_recv().is_err(), "et rien n'est arrivé non plus");
+        assert_eq!(server.dropped(), 1, "se taire n'est pas jeter");
+
+        // La clé le répare, et la suite repart.
+        assert!(server.send(&frame()), "la clé passe");
+        assert!(held.try_recv().is_ok());
+        assert!(
+            server.send(&delta()),
+            "et les ordinaires repartent après elle"
+        );
+    }
+
+    /// Le jumeau: un spectateur qui suit ne perd rien et ne voit jamais ce
+    /// mécanisme. C'est la propriété qui compte pour tous les autres.
+    #[test]
+    fn a_viewer_that_keeps_up_receives_every_frame() {
+        let (sender, held) = sync_channel::<Framed>(OUTGOING_DEPTH);
+        let server = detached(vec![sender]);
+
+        for _ in 0..20 {
+            assert!(server.send(&delta()));
+            assert!(held.recv().is_ok());
+        }
+        assert_eq!(server.dropped(), 0);
     }
 
     /// A watcher that falls behind loses frames rather than delaying the

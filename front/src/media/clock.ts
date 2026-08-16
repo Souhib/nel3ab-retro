@@ -54,6 +54,39 @@ export function steer(current: number, want: number, step: number): number {
 }
 
 /**
+ * La marge la plus grande que la page s'autorise, en millisecondes.
+ *
+ * C'était 60, choisi quand toutes les liaisons d'essai étaient bonnes. Une
+ * capture envoyée le 2026-08-16 par quelqu'un sur une connexion moyenne montre
+ * pourquoi c'est trop peu: sa marge était collée à 60, ses écarts d'arrivée
+ * montaient à 67 ms au p95, et la page a compté 513 famines en 214 secondes. Un
+ * plafond doit être au-dessus de la gigue qu'il est censé absorber.
+ *
+ * Pourquoi un plafond quand même. Attendre répare une liaison IRRÉGULIÈRE, pas
+ * une liaison trop ÉTROITE: si le débit ne passe pas, la marge grandirait sans
+ * fin et n'achèterait que du retard. 180 ms font onze images; au-delà la manette
+ * ne se pilote plus, donc mieux vaut une image qui saute qu'un jeu injouable.
+ */
+export const SLACK_CEILING = 180;
+
+/** La marge la plus petite. Zéro voudrait dire « aucune tolérance », et une
+ * image arrivée une milliseconde en retard serait déjà périmée. */
+export const SLACK_FLOOR = 3;
+
+/**
+ * La marge suivante, d'après les famines de la fenêtre qui vient de s'écouler.
+ *
+ * Elle monte vite et redescend lentement, et c'est voulu: une famine se voit,
+ * une marge de trop ne se voit pas. Elle redescend quand même, sinon une seule
+ * mauvaise minute coûterait du retard à la manette pour toute la partie.
+ */
+export function nextSlack(current: number, starved: number): number {
+  if (starved > 1) return Math.min(SLACK_CEILING, current + 8);
+  if (starved === 0) return Math.max(SLACK_FLOOR, current - 2);
+  return current;
+}
+
+/**
  * Combien de retard, par rapport à la cadence de la source, compte pour un vrai
  * trou.
  *

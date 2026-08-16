@@ -14,6 +14,9 @@ export function useSession(
   volume: number,
   deviceRate: boolean,
   onSeat: (port: number | null) => void,
+  /** Vrai quand la personne a choisi de regarder. Lu une seule fois, à la
+   * construction: changer d'avis ensuite passe par la session elle-même. */
+  watching: boolean,
 ): { ref: React.RefObject<HTMLCanvasElement | null>; session: Session | null } {
   const ref = useRef<HTMLCanvasElement>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -27,7 +30,7 @@ export function useSession(
   useEffect(() => {
     const canvas = ref.current;
     if (!canvas) return;
-    const made = new Session(canvas, (port) => seat.current(port), volume, deviceRate);
+    const made = new Session(canvas, (port) => seat.current(port), volume, deviceRate, watching);
     made.start();
     exposeForTests(made);
     setSession(made);

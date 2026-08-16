@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 
 import httpx
 from fastapi import FastAPI
+from fastapi.routing import APIRoute
 
 from nel3ab_control.api.controllers.rooms import RoomController
 from nel3ab_control.api.routes import rooms as rooms_routes
@@ -22,6 +23,18 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         yield
 
 
+def operation_id(route: APIRoute) -> str:
+    """Names an operation after its function, not after its URL.
+
+    Without this, FastAPI derives `readRoomApiRoomGet` from the path and method,
+    and the generated TypeScript client carries that name into every call site.
+    Moving a route then renames a function in the front end for no reason. The
+    cost is that two endpoint functions may not share a name, which the OpenAPI
+    document would reject anyway.
+    """
+    return route.name
+
+
 def create_app(settings: Settings | None = None) -> FastAPI:
     """Builds the app.
 
@@ -32,6 +45,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         title="nel3ab control",
         summary="Who is here, which game, which pad.",
         lifespan=lifespan,
+        generate_unique_id_function=operation_id,
     )
     app.state.settings = settings or Settings()
     app.include_router(rooms_routes.router)

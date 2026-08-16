@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, status
 
+from nel3ab_control.api.schemas.player import Identity
 from nel3ab_control.api.schemas.room import Room
 from nel3ab_control.dependencies import RoomsDep
 
@@ -15,9 +16,14 @@ async def read_room(rooms: RoomsDep) -> Room:
 
 
 @router.post("/room/seats/{port}", status_code=status.HTTP_204_NO_CONTENT)
-async def claim_seat(port: int, player: str, rooms: RoomsDep) -> None:
+async def claim_seat(port: int, claim: Identity, rooms: RoomsDep) -> None:
     """Records that a player claims a pad.
 
     The worker decides who really holds it; this is the name to show beside it.
+
+    The name travels in the BODY, not in a query string. It is not a secret, but
+    a URL is written to every log between a browser and here, and a name is still
+    a person. The lobby socket already passes it that way, and an endpoint that
+    disagreed with the socket beside it would be a rule nobody could state.
     """
-    rooms.claim(port, player)
+    rooms.claim(port, claim.name)

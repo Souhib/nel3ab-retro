@@ -13,6 +13,9 @@ from nel3ab_control.api.schemas.error import SeatTaken, WorkerUnreachable
 from nel3ab_control.api.schemas.room import Game, Room, Seat
 from nel3ab_control.settings import Settings
 
+#: What a GameCube has, and therefore the most a room can ever serve.
+PADS_MAX = 4
+
 
 class RoomController:
     """The single room, in memory.
@@ -26,6 +29,7 @@ class RoomController:
         self._settings = settings
         self._client = client
         self._claims: dict[int, str] = {}
+        self._players = PADS_MAX
 
     async def library(self) -> tuple[list[Game], Game | None]:
         """Every game the worker found, and the one it is running."""
@@ -39,13 +43,26 @@ class RoomController:
         games = [Game(index=index, name=name) for index, name in enumerate(payload.get("roms", []))]
         current = payload.get("current")
         running = games[current] if isinstance(current, int) and current < len(games) else None
+        # How many pads the room has, from the only thing that knows: the worker
+        # is what tells Dolphin which ports hold a controller when it boots. It
+        # was configured here as well, which made two settings that had to agree
+        # and nothing that made them.
+        players = payload.get("players")
+        self._players = (
+            players if isinstance(players, int) and 1 <= players <= PADS_MAX else PADS_MAX
+        )
         return games, running
 
     def seats(self) -> list[Seat]:
-        """Every pad, with the name of whoever claims it."""
+        """Every pad, with the name of whoever claims it.
+
+        Uses the count the worker last reported. Before the first `library()`
+        call there is nothing to have reported, so it describes a full room of
+        four: showing a pad that turns out not to exist is a wrong label for a
+        second, and hiding one that does is a player who cannot sit down.
+        """
         return [
-            Seat(port=port, player=self._claims.get(port))
-            for port in range(1, self._settings.players + 1)
+            Seat(port=port, player=self._claims.get(port)) for port in range(1, self._players + 1)
         ]
 
     def claim(self, port: int, player: str) -> None:

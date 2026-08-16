@@ -67,9 +67,15 @@ pub fn scan(dir: &Path) -> Vec<Rom> {
 /// which is therefore written out and tested rather than assumed: a game called
 /// `Zelda "Ocarina"` would otherwise produce a document the page cannot parse,
 /// and the room would show an empty library with nothing to explain it.
+///
+/// `players` is here for one reason: it is the worker that decides how many pads
+/// a room has, because it is the worker that tells Dolphin which ports hold one
+/// at boot. It used to be configured a second time on the control plane, which
+/// meant two settings that had to agree and nothing making them. Anything that
+/// needs the number now asks the thing that knows it.
 #[must_use]
-pub fn catalogue_json(roms: &[Rom], current: Option<usize>) -> String {
-    let mut out = String::from("{\"current\":");
+pub fn catalogue_json(roms: &[Rom], current: Option<usize>, players: u8) -> String {
+    let mut out = format!("{{\"players\":{players},\"current\":");
     match current {
         Some(index) => out.push_str(&index.to_string()),
         // `null`, not `-1`: a page checking `=== null` cannot be caught out by
@@ -184,15 +190,18 @@ mod tests {
         ];
 
         assert_eq!(
-            catalogue_json(&roms, Some(1)),
-            r#"{"current":1,"roms":["Melee","Mario Kart"]}"#
+            catalogue_json(&roms, Some(1), 4),
+            r#"{"players":4,"current":1,"roms":["Melee","Mario Kart"]}"#
         );
         // Nothing running is `null` rather than a number standing in for it.
         assert_eq!(
-            catalogue_json(&roms, None),
-            r#"{"current":null,"roms":["Melee","Mario Kart"]}"#
+            catalogue_json(&roms, None, 4),
+            r#"{"players":4,"current":null,"roms":["Melee","Mario Kart"]}"#
         );
-        assert_eq!(catalogue_json(&[], None), r#"{"current":null,"roms":[]}"#);
+        assert_eq!(
+            catalogue_json(&[], None, 1),
+            r#"{"players":1,"current":null,"roms":[]}"#
+        );
     }
 
     /// A name with a quote in it must not end the string early. Without this,
@@ -205,11 +214,11 @@ mod tests {
             name: "Zelda \"Ocarina\" \\ tab\there".to_owned(),
         }];
 
-        let json = catalogue_json(&roms, Some(0));
+        let json = catalogue_json(&roms, Some(0), 2);
 
         assert_eq!(
             json,
-            r#"{"current":0,"roms":["Zelda \"Ocarina\" \\ tab\u0009here"]}"#
+            r#"{"players":2,"current":0,"roms":["Zelda \"Ocarina\" \\ tab\u0009here"]}"#
         );
     }
 

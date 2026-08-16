@@ -35,7 +35,7 @@ async def served() -> AsyncIterator[tuple[str, RoomController]]:
     def worker(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json=LIBRARY)
 
-    settings = Settings(worker_url="http://worker.test", players=4)
+    settings = Settings(worker_url="http://worker.test")
     app = create_app(settings)
     port = _free_port()
     server = uvicorn.Server(

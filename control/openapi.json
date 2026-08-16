@@ -1,0 +1,247 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "nel3ab control",
+    "summary": "Who is here, which game, which pad.",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/room": {
+      "get": {
+        "tags": [
+          "room"
+        ],
+        "summary": "Read Room",
+        "description": "What is loaded, what else could be, and who claims which pad.",
+        "operationId": "read_room",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Room"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/room/seats/{port}": {
+      "post": {
+        "tags": [
+          "room"
+        ],
+        "summary": "Claim Seat",
+        "description": "Records that a player claims a pad.\n\nThe worker decides who really holds it; this is the name to show beside it.\n\nThe name travels in the BODY, not in a query string. It is not a secret, but\na URL is written to every log between a browser and here, and a name is still\na person. The lobby socket already passes it that way, and an endpoint that\ndisagreed with the socket beside it would be a rule nobody could state.",
+        "operationId": "claim_seat",
+        "parameters": [
+          {
+            "name": "port",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Port"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Identity"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Game": {
+        "properties": {
+          "index": {
+            "type": "integer",
+            "title": "Index",
+            "description": "Its position in the worker's library, which is how it is asked for."
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "What to call it on screen."
+          }
+        },
+        "type": "object",
+        "required": [
+          "index",
+          "name"
+        ],
+        "title": "Game",
+        "description": "One game the room can run."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "Identity": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 24,
+            "minLength": 1,
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "Identity",
+        "description": "A person, as this service knows them.\n\nThere is no account and no password: rooms are private and shared with people\nalready on the network. The name exists so a seat can say \"Souhib\" rather than\n\"player 2\" (ADR D12)."
+      },
+      "Room": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "game": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Game"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What is loaded right now."
+          },
+          "library": {
+            "items": {
+              "$ref": "#/components/schemas/Game"
+            },
+            "type": "array",
+            "title": "Library"
+          },
+          "seats": {
+            "items": {
+              "$ref": "#/components/schemas/Seat"
+            },
+            "type": "array",
+            "title": "Seats"
+          },
+          "media_url": {
+            "type": "string",
+            "title": "Media Url",
+            "description": "Where the browser opens its own video, sound and pad sockets. Empty means the page's own origin."
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "library",
+          "seats",
+          "media_url"
+        ],
+        "title": "Room",
+        "description": "The room, as a page needs to render it."
+      },
+      "Seat": {
+        "properties": {
+          "port": {
+            "type": "integer",
+            "maximum": 4.0,
+            "minimum": 1.0,
+            "title": "Port"
+          },
+          "player": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Player",
+            "description": "The name of whoever claims it, if anybody."
+          }
+        },
+        "type": "object",
+        "required": [
+          "port"
+        ],
+        "title": "Seat",
+        "description": "One of the room's pads, and who claims it."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

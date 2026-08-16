@@ -26,4 +26,3 @@ class Settings(BaseSettings):
             "origin as the page, which is the case behind the Tailscale proxy."
         ),
     )
-    players: int = Field(default=4, ge=1, le=4, description="Pads this room serves.")

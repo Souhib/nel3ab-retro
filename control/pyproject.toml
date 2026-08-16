@@ -61,4 +61,5 @@ fix = ["format", "lint-fix"]
 
 test = "pytest -n auto"
 test-fast = "pytest -x"
+openapi = "python scripts/dump_openapi.py"
 serve = "uvicorn nel3ab_control.app:app --host 127.0.0.1 --port 8200 --reload"

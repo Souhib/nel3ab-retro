@@ -30,16 +30,16 @@ async def test_every_pad_is_listed_even_when_nobody_holds_it(client: httpx.Async
 
 
 async def test_a_claimed_pad_carries_the_name(client: httpx.AsyncClient) -> None:
-    await client.post("/api/room/seats/2", params={"player": "Souhib"})
+    await client.post("/api/room/seats/2", json={"name": "Souhib"})
 
     room = (await client.get("/api/room")).json()
     assert room["seats"][1] == {"port": 2, "player": "Souhib"}
 
 
 async def test_a_pad_somebody_else_claims_is_refused(client: httpx.AsyncClient) -> None:
-    await client.post("/api/room/seats/1", params={"player": "Souhib"})
+    await client.post("/api/room/seats/1", json={"name": "Souhib"})
 
-    response = await client.post("/api/room/seats/1", params={"player": "Yassine"})
+    response = await client.post("/api/room/seats/1", json={"name": "Yassine"})
 
     assert response.status_code == 409
     room = (await client.get("/api/room")).json()
@@ -49,15 +49,15 @@ async def test_a_pad_somebody_else_claims_is_refused(client: httpx.AsyncClient) 
 async def test_claiming_your_own_pad_again_is_not_a_conflict(client: httpx.AsyncClient) -> None:
     """A page that reconnects says the same thing again, and being told no would
     lock a player out of the seat they are sitting in."""
-    await client.post("/api/room/seats/3", params={"player": "Souhib"})
+    await client.post("/api/room/seats/3", json={"name": "Souhib"})
 
-    response = await client.post("/api/room/seats/3", params={"player": "Souhib"})
+    response = await client.post("/api/room/seats/3", json={"name": "Souhib"})
 
     assert response.status_code == 204
 
 
 async def test_leaving_gives_back_every_pad_that_player_held() -> None:
-    settings = Settings(worker_url="http://worker.test", players=4)
+    settings = Settings(worker_url="http://worker.test")
     rooms = RoomController(settings, httpx.AsyncClient())
     rooms.claim(1, "Souhib")
     rooms.claim(2, "Souhib")
@@ -87,7 +87,7 @@ async def test_a_worker_that_does_not_answer_says_so() -> None:
 
 async def test_a_seat_conflict_names_the_pad() -> None:
     """The error a page shows has to say WHICH pad, or the player cannot act on it."""
-    settings = Settings(players=4)
+    settings = Settings()
     rooms = RoomController(settings, httpx.AsyncClient())
     rooms.claim(2, "Souhib")
 

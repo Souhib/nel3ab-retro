@@ -10,12 +10,16 @@ from nel3ab_control.api.controllers.rooms import RoomController
 from nel3ab_control.app import create_app
 from nel3ab_control.settings import Settings
 
-LIBRARY = {"current": 1, "roms": ["Mario Kart Double Dash", "Super Smash Bros Melee"]}
+LIBRARY = {
+    "players": 4,
+    "current": 1,
+    "roms": ["Mario Kart Double Dash", "Super Smash Bros Melee"],
+}
 
 
 @pytest.fixture
 def settings() -> Settings:
-    return Settings(room_name="Salon d'essai", worker_url="http://worker.test", players=4)
+    return Settings(room_name="Salon d'essai", worker_url="http://worker.test")
 
 
 @pytest.fixture

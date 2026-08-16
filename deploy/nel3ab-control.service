@@ -1,0 +1,42 @@
+# The control plane: who is here, which game, which pad. Never a frame (ADR D12).
+#
+#   sudo cp deploy/nel3ab-control.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl start nel3ab-control     # `enable` too, to survive a reboot
+#   journalctl -u nel3ab-control -f
+#
+# It must be reachable at the SAME origin as the worker, because the worker
+# refuses a WebSocket whose `Origin` is not its own `Host`, and because the page
+# talks to both. One hostname, two backends, split on the path:
+#
+#   tailscale serve --bg --https 8443 --set-path /api      http://127.0.0.1:8200/api
+#   tailscale serve --bg --https 8443 --set-path /socket.io http://127.0.0.1:8200/socket.io
+#   tailscale serve --bg --https 8443 /                     http://127.0.0.1:8100
+#
+# Restarting this does not interrupt a game: the page keeps its picture, its
+# sound and its pad, and loses only the names beside the seats until it comes
+# back. That is the whole point of keeping it out of the media path.
+
+[Unit]
+Description=nel3ab control plane (rooms, names, seats)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=souhib
+WorkingDirectory=/home/souhib/nel3ab-retro/control
+ExecStart=/home/souhib/.local/bin/uv run uvicorn nel3ab_control.app:app --host 127.0.0.1 --port 8200
+Environment=HOME=/home/souhib
+Restart=always
+RestartSec=2
+
+# Where the worker is, and what to call the room.
+Environment=NEL3AB_WORKER_URL=http://127.0.0.1:8100
+Environment=NEL3AB_ROOM_NAME=lgf
+# Nothing about pads here on purpose: the worker reports how many the room has,
+# in `/roms`, because it is what tells Dolphin which ports hold a controller.
+# This file used to carry a second copy of that number, which had to agree with
+# the worker and had nothing making it.
+
+[Install]
+WantedBy=multi-user.target

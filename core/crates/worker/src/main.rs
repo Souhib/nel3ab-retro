@@ -249,7 +249,7 @@ fn run(settings: &Settings) -> Result<()> {
     let server = Arc::new(BrowserServer::start(
         settings.bind,
         PAGE,
-        catalogue_json(&library, current).into(),
+        catalogue_json(&library, current, settings.players.get()).into(),
         settings.players,
     )?);
     tracing::info!(address = %server.address(), "open this in a browser");

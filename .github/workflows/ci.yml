@@ -56,11 +56,25 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             libavcodec-dev libavutil-dev libva-dev glslang-tools
 
-      # The SAME recipes a developer runs locally — the pipeline cannot drift
-      # from the pre-commit experience.
-      - run: just fmt-check
-      - run: just lint
-      - run: just test
+      # The control plane and the page need their own toolchains. Without these,
+      # `just check` cannot run them and the pipeline goes back to covering the
+      # Rust third of the repository while claiming to cover it all.
+      - uses: astral-sh/setup-uv@v10.0.1
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: front/package-lock.json
+      - run: npm ci
+        working-directory: front
+
+      # ONE recipe, deliberately. This used to list `fmt-check`, `lint` and
+      # `test` one by one, and it drifted the moment `check` grew a step: the
+      # Python service and the whole page were added to the local gate and CI
+      # went on testing neither, under a comment claiming it ran the same thing.
+      # Calling `check` itself is what makes that promise structural rather than
+      # a habit. A recipe added to the gate cannot be forgotten here.
+      - run: just check
 
   supply-chain:
     runs-on: ubuntu-latest

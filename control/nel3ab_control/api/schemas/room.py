@@ -30,6 +30,14 @@ class Room(BaseModel):
     game: Game | None = Field(default=None, description="What is loaded right now.")
     library: list[Game]
     seats: list[Seat]
+    owner: Person | None = Field(
+        default=None,
+        description=(
+            "Qui décide du jeu: le premier arrivé encore présent. Nul quand "
+            "personne n'a d'identité, et la salle retombe alors sur sa règle "
+            "d'avant, où tenir une manette suffit."
+        ),
+    )
     people: list[Person] = Field(
         default_factory=list,
         description=(

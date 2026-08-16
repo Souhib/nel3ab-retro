@@ -10,8 +10,12 @@
  * doit être posée avant le premier rendu, sinon la page clignote au chargement.
  */
 export const THEMES = [
-  { id: "instrument-clair", label: "instrument clair", note: "l'appareil de mesure, de jour" },
-  { id: "instrument-sombre", label: "instrument sombre", note: "le même, la nuit" },
+  {
+    id: "instrument-sombre",
+    label: "instrument sombre",
+    note: "l'appareil de mesure, et le défaut",
+  },
+  { id: "instrument-clair", label: "instrument clair", note: "le même, de jour" },
   { id: "phosphore", label: "phosphore", note: "terminal à tube, vert P1" },
   { id: "ambre", label: "ambre", note: "le même tube, monochrome chaud" },
   { id: "indigo", label: "indigo", note: "le plastique de la console" },
@@ -21,7 +25,7 @@ export const THEMES = [
 
 export type Theme = (typeof THEMES)[number]["id"];
 
-const DEFAULT: Theme = "instrument-clair";
+const DEFAULT: Theme = "instrument-sombre";
 const REMEMBERED = "nel3ab:theme";
 
 const known = (value: string | null): value is Theme => THEMES.some((theme) => theme.id === value);

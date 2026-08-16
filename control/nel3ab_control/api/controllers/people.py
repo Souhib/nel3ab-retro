@@ -67,6 +67,23 @@ class PeopleController:
     def left(self, sid: str) -> None:
         self._present.pop(sid, None)
 
+    def owner(self) -> tuple[str | None, str] | None:
+        """Qui décide, c'est-à-dire qui est arrivé en premier et est encore là.
+
+        Le premier arrivé plutôt qu'un titre attribué: personne ne veut cliquer
+        sur « prendre la salle » avant de jouer, et une salle vide qui se remplit
+        a toujours un premier. Quand il part, ça passe au suivant tout seul,
+        parce que ce dictionnaire garde son ordre d'insertion.
+
+        Il faut une IDENTITÉ pour décider. Sans proxy devant, tout le monde est
+        anonyme et personne n'est propriétaire: la salle retombe alors sur sa
+        règle d'avant, où tenir une manette suffit.
+        """
+        for login, name in self._present.values():
+            if login is not None:
+                return login, name
+        return None
+
     def present(self) -> list[tuple[str | None, str]]:
         """Qui est là, une fois par personne et non une fois par onglet.
 

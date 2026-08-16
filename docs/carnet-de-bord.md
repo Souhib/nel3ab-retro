@@ -3768,6 +3768,72 @@ en majuscules par le style, et `innerText` rend le texte **transformé**, pas la
 source. L'assertion avait tort, pas la page. C'est la troisième fois de ce carnet
 qu'un essai accuse à tort, et la troisième fois que la sortie de l'essai contient
 déjà la réponse.
+### 7.22 Le propriétaire, le repli, et un salon qui tombait avec le worker
+
+Quatre choses posées sur l'identité du chapitre précédent, et un défaut trouvé en
+les posant.
+
+**L'ambiance sombre devient le défaut**, sur `:root` nu autant que sur son
+attribut: c'est cette règle-là qui peint la page avant que le script ait tourné,
+et un défaut clair y faisait clignoter du blanc le temps du premier rendu.
+
+**Le propriétaire est le premier arrivé encore présent.** Pas un titre à
+réclamer: personne ne veut cliquer sur « prendre la salle » avant de jouer, et
+une salle qui se remplit a toujours un premier. Quand il part, ça passe au
+suivant tout seul. Il faut une identité pour décider: sans proxy devant, tout le
+monde est anonyme, personne n'est propriétaire, et la salle retombe sur sa règle
+d'avant où tenir une manette suffit. Refuser tout là serait une salle où plus
+personne ne peut rien.
+
+**Ce que ça enferme, et ce que ça n'enferme pas.** La page n'offre le changement
+de jeu qu'au propriétaire, et le service dit qui c'est. Mais la commande voyage
+toujours sur la socket de manette du worker, et le worker, lui, ne connaît pas
+l'identité: il vérifie seulement qu'on tient une manette. Quelqu'un avec une
+console de développeur peut donc encore envoyer l'octet. Le fermer pour de bon
+demande que le worker apprenne quelle place appartient au propriétaire, par un
+canal que le proxy ne relaie pas. Ce n'est pas fait, et c'est écrit ici plutôt
+que sous-entendu.
+
+**Le repli** cache la colonne et rend toute la largeur à l'image, avec `F` pour
+aller et venir. C'est le geste utile à quatre autour d'un écran; le plein écran
+du navigateur est à côté et fait la moitié restante. Le repli est gardé, le plein
+écran non: on ne met personne en plein écran au chargement sans qu'il l'ait
+demandé.
+
+**Le choix de la manette** n'apparaît que s'il y a un choix. Par POSITION et non
+par identifiant, parce que deux manettes identiques rendent le même identifiant
+et que c'est exactement le cas où il faut pouvoir choisir. Le profil, lui, reste
+rangé par identifiant: c'est le matériel qu'on a configuré, pas la prise USB dans
+laquelle il était.
+
+**Les quatre prises sont dessinées.** Une silhouette de manette GameCube se
+reconnaît avant d'être lue, et la rangée de quatre ressemble alors à la façade de
+la console. Tracée avec `currentColor` et rien d'autre, donc les sept ambiances
+la portent sans qu'aucune ait à la connaître.
+
+#### Le défaut: le salon appelait le worker à chaque événement
+
+Le journal du service s'est mis à cracher des traces. La diffusion du salon passe
+par `describe()`, qui interroge le worker pour connaître la bibliothèque — donc
+une requête HTTP au worker à **chaque** connexion, chaque départ, chaque
+changement de pseudo.
+
+Ça ne se voyait pas jusqu'ici. Mais **changer de jeu redémarre le worker**, et
+toutes les pages se reconnectent pendant ce redémarrage: chaque connexion
+échouait, la salle ne disait plus qui était là, et le journal se remplissait pour
+un service qui revenait cinq secondes plus tard.
+
+Le contrôleur garde maintenant la dernière bibliothèque obtenue et s'en sert
+quand le worker ne répond pas. Avec son jumeau négatif: une salle qui n'a
+**jamais** su quels jeux elle a n'est pas une salle qui a perdu le contact, donc
+là l'erreur reste une erreur.
+
+#### Et un essai qui accusait à tort, encore
+
+« quand tout le monde part, la salle n'a plus de propriétaire » a échoué pendant
+trente secondes. La salle n'était pas vide: quelqu'un jouait dans un autre onglet.
+L'essai demande maintenant une salle vide et s'abstient sinon, comme les cinq
+autres qui ont appris la même leçon avant lui.
 ---
 
 ## 8. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
@@ -3825,6 +3891,7 @@ pas échouer**.
 | Enlever toutes les parenthèses | Nettoyer `(Europe) (En,Fr,De,Es,It) (Rev 2)` d'un nom de jeu, par une règle qui retire tout ce qui est entre parenthèses. Un des jeux de la bibliothèque s'appelle `Mario Kart Double Dash (Retro Track Grand Prix)`: la parenthèse est le nom du hack | Une règle de nettoyage se fait sur des formes CONNUES, pas sur une syntaxe. Et le jumeau négatif du test est le titre dont la parenthèse compte |
 | `innerText` rend le texte transformé | Un essai cherchait « dans la salle » dans une page qui affichait `1 DANS LA SALLE`: l'étiquette est mise en majuscules par le style, et `innerText` rend le rendu, pas la source | Comparer sans tenir compte de la casse, ou lire l'attribut plutôt que le texte. Et se rappeler que la sortie de l'essai contenait déjà la réponse |
 | Une limite écrite deux fois | Le contrôleur coupait un pseudo à 24 caractères, le schéma en refusait 25. Deux limites à garder d'accord pour la même règle | La longueur est le contrat, donc elle vit dans le schéma, qui la publie dans l'OpenAPI. Le contrôleur ne garde que ce que le schéma ne peut pas voir |
+| Une diffusion qui interroge un service à chaque événement | Le salon appelait le worker pour décrire la salle à chaque connexion, départ et changement de pseudo. Invisible jusqu'au jour où changer de jeu redémarre le worker et où toutes les pages se reconnectent pendant ce redémarrage | Garder la dernière réponse et s'en servir quand la source ne répond pas, avec le jumeau négatif: n'avoir JAMAIS eu de réponse reste une erreur |
 
 ---
 

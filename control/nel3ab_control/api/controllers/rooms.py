@@ -32,13 +32,31 @@ class RoomController:
         self._client = client
         self._claims: dict[int, str] = {}
         self._players = PADS_MAX
+        #: La dernière bibliothèque obtenue, gardée pour survivre à un worker qui
+        #: redémarre. Voir `library`.
+        self._known: tuple[list[Game], Game | None] | None = None
 
     async def library(self) -> tuple[list[Game], Game | None]:
-        """Every game the worker found, and the one it is running."""
+        """Every game the worker found, and the one it is running.
+
+        Garde la dernière réponse et s'en sert quand le worker ne répond pas.
+
+        Ce n'est pas de la prudence générale, c'est un cas précis et fréquent:
+        **changer de jeu redémarre le worker**, et chaque page se reconnecte au
+        salon pendant ce redémarrage. Sans ce repli, chaque connexion, chaque
+        départ et chaque changement de pseudo faisait échouer la diffusion, la
+        salle ne disait plus qui était là, et le journal se remplissait de traces.
+
+        Le premier appel n'a rien à garder: là, un worker injoignable reste une
+        erreur, parce qu'une salle qui n'a jamais su quels jeux elle a n'est pas
+        une salle qui a perdu le contact.
+        """
         try:
             response = await self._client.get(f"{self._settings.worker_url}/roms", timeout=2.0)
             response.raise_for_status()
         except httpx.HTTPError as error:
+            if self._known is not None:
+                return self._known
             raise WorkerUnreachable(self._settings.worker_url) from error
 
         payload = response.json()
@@ -53,6 +71,7 @@ class RoomController:
         self._players = (
             players if isinstance(players, int) and 1 <= players <= PADS_MAX else PADS_MAX
         )
+        self._known = (games, running)
         return games, running
 
     def seats(self) -> list[Seat]:
@@ -98,11 +117,13 @@ class RoomController:
         seats = self.seats()
         held = {seat.player: seat.port for seat in seats if seat.player}
         present = people.present() if people else []
+        boss = people.owner() if people else None
         return Room(
             name=self._settings.room_name,
             game=running,
             library=library,
             seats=seats,
+            owner=Person(name=boss[1], login=boss[0], seat=held.get(boss[1])) if boss else None,
             people=[Person(name=name, login=login, seat=held.get(name)) for login, name in present],
             media_url=self._settings.worker_public_url,
         )

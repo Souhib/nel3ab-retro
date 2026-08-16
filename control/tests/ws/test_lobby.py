@@ -120,3 +120,46 @@ async def test_the_lobby_knows_who_it_is_from_the_proxy(
 
     await known.disconnect()
     await watcher.disconnect()
+
+
+async def test_the_first_identified_arrival_owns_the_room(
+    served: tuple[str, RoomController],
+) -> None:
+    """Le premier arrivé décide, et quand il part ça passe au suivant.
+
+    Pas de titre à réclamer: personne ne veut cliquer sur « prendre la salle »
+    avant de jouer, et une salle qui se remplit a toujours un premier.
+    """
+    url, _rooms = served
+    heard: list[dict] = []
+
+    watcher = socketio.AsyncClient()
+    watcher.on("room", heard.append)
+    await watcher.connect(url, socketio_path="/socket.io")
+
+    first = socketio.AsyncClient()
+    await first.connect(
+        url,
+        socketio_path="/socket.io",
+        headers={"Tailscale-User-Login": "souhib.t@hotmail.fr", "Tailscale-User-Name": "Souhib"},
+    )
+    second = socketio.AsyncClient()
+    await second.connect(
+        url,
+        socketio_path="/socket.io",
+        headers={"Tailscale-User-Login": "vincent@example.com", "Tailscale-User-Name": "Vincent"},
+    )
+    await asyncio.sleep(0.3)
+    assert heard[-1]["owner"]["login"] == "souhib.t@hotmail.fr"
+
+    # Le propriétaire s'en va: la salle ne reste pas sans personne pour décider.
+    await first.disconnect()
+    await asyncio.sleep(0.3)
+    assert heard[-1]["owner"]["login"] == "vincent@example.com"
+
+    await second.disconnect()
+    await asyncio.sleep(0.3)
+    # Le spectateur anonyme reste, et n'hérite de rien: il faut une identité.
+    assert heard[-1]["owner"] is None
+
+    await watcher.disconnect()

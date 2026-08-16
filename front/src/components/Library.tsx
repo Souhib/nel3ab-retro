@@ -16,11 +16,15 @@ export function Library({
   games,
   running,
   canChoose,
+  why,
   onChoose,
 }: {
   games: Game[];
   running: number | null;
   canChoose: boolean;
+  /** Pourquoi on ne peut pas choisir, quand on ne peut pas. Dit par l'appelant
+   * plutôt que deviné ici: la règle appartient à la salle, pas à la liste. */
+  why: string | null;
   onChoose: (index: number) => boolean;
 }) {
   const [armed, setArmed] = useState<number | null>(null);
@@ -83,7 +87,7 @@ export function Library({
         {booting
           ? "le jeu démarre, la page se reconnecte toute seule"
           : !canChoose
-            ? "prends une manette pour changer de jeu"
+            ? (why ?? "changer de jeu n'est pas possible ici")
             : armed === null
               ? "changer de jeu arrête la partie en cours"
               : "reclique pour confirmer"}

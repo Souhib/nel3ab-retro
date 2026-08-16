@@ -6,6 +6,7 @@ import pytest
 from nel3ab_control.api.controllers.rooms import RoomController
 from nel3ab_control.api.schemas.error import SeatTaken, WorkerUnreachable
 from nel3ab_control.settings import Settings
+from tests.conftest import LIBRARY
 
 
 async def test_the_room_reports_the_game_the_worker_is_running(client: httpx.AsyncClient) -> None:
@@ -109,3 +110,56 @@ async def test_the_room_lists_everybody_not_only_the_pads(client: httpx.AsyncCli
     # places existent quand même. C'est la distinction qui compte.
     assert room["people"] == []
     assert len(room["seats"]) == 4
+
+
+async def test_a_room_without_identities_has_no_owner(client: httpx.AsyncClient) -> None:
+    """Sans proxy devant, tout le monde est anonyme et personne ne décide.
+
+    C'est le développement local et les pilotes de navigateur. La salle retombe
+    alors sur sa règle d'avant, où tenir une manette suffit à changer de jeu:
+    refuser tout serait une salle où personne ne peut plus rien.
+    """
+    room = (await client.get("/api/room")).json()
+
+    assert room["owner"] is None
+
+
+async def test_a_worker_that_goes_away_does_not_take_the_lobby_with_it(
+    settings: Settings, worker: httpx.MockTransport
+) -> None:
+    """Changer de jeu REDÉMARRE le worker, et toutes les pages se reconnectent
+    pendant ce redémarrage.
+
+    Sans ce repli, chaque connexion et chaque départ faisait échouer la diffusion
+    du salon: la salle ne disait plus qui était là, et le journal se remplissait
+    de traces pour un worker qui revenait cinq secondes plus tard.
+    """
+    alive = {"ok": True}
+
+    def flaky(request: httpx.Request) -> httpx.Response:
+        if not alive["ok"]:
+            raise httpx.ConnectError("le worker redémarre")
+        return httpx.Response(200, json=LIBRARY)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(flaky)) as http:
+        rooms = RoomController(settings, http)
+        first = await rooms.describe()
+        assert first.game is not None
+
+        alive["ok"] = False
+        during = await rooms.describe()
+        assert [game.name for game in during.library] == [game.name for game in first.library]
+
+
+async def test_a_worker_that_was_never_there_is_an_error(
+    settings: Settings,
+) -> None:
+    """Le jumeau négatif: une salle qui n'a JAMAIS su quels jeux elle a n'est pas
+    une salle qui a perdu le contact, et se taire là cacherait une panne."""
+
+    def dead(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("aucun worker")
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(dead)) as http:
+        with pytest.raises(WorkerUnreachable):
+            await RoomController(settings, http).describe()

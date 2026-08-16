@@ -125,6 +125,10 @@ export type Room = {
      */
     seats: Array<Seat>;
     /**
+     * Qui décide du jeu: le premier arrivé encore présent. Nul quand personne n'a d'identité, et la salle retombe alors sur sa règle d'avant, où tenir une manette suffit.
+     */
+    owner?: Person | null;
+    /**
      * People
      *
      * Tout le monde dans la salle, spectateurs compris. Les places ne disent que ceux qui jouent, et une salle où quelqu'un regarde sans manette avait l'air vide.

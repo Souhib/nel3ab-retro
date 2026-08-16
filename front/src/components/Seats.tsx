@@ -14,6 +14,7 @@
  */
 import { useEffect, useState } from "react";
 import { cn } from "../lib/cn";
+import { Pad } from "./Pad";
 
 /** Combien de temps l'armement se souvient de lui-même. */
 const ARMED_FOR_MS = 5000;
@@ -88,7 +89,21 @@ export function Seats({
                 !isMine && !isArmed && "border-rule bg-panel hover:border-rule-bright",
               )}
             >
-              <span className="font-mono text-[10px] text-faint">P{port}</span>
+              <span className="flex items-center justify-between gap-1">
+                <span className="font-mono text-[10px] text-faint">P{port}</span>
+                <Pad
+                  className={cn(
+                    "h-4 w-6 shrink-0",
+                    isArmed
+                      ? "text-alert"
+                      : isMine
+                        ? "text-indigo"
+                        : held
+                          ? "text-muted"
+                          : "text-rule-bright",
+                  )}
+                />
+              </span>
               <span
                 className={cn(
                   "truncate text-[12px]",

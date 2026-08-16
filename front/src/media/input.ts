@@ -58,6 +58,10 @@ export type InputState = {
   profile: PadProfile | null;
   /** Ce que fait chaque touche du clavier. */
   keys: KeyProfile;
+  /** Les manettes branchées, dans l'ordre où le navigateur les donne. */
+  pads: { index: number; id: string }[];
+  /** Celle qui joue et qu'on configure. Nulle quand il n'y en a aucune. */
+  using: number | null;
 };
 
 /** What the worker says about the room, in one message on the pad socket.
@@ -115,6 +119,13 @@ export class InputStream {
     null;
   private padId: string | null = null;
   private padLayout: "standard" | "unknown" | null = null;
+  private pads: { index: number; id: string }[] = [];
+  /** La manette choisie, par sa position chez le navigateur.
+   *
+   * Nulle veut dire « la première branchée », ce qui est le bon défaut: la
+   * plupart des gens n'en ont qu'une, et leur demander de choisir serait un
+   * écran de plus avant de jouer. */
+  private chosen: number | null = null;
   private lastReading: PadReading | null = null;
   private readonly url: (path: string) => string;
   private readonly onSeat: (port: number | null) => void;
@@ -165,6 +176,8 @@ export class InputStream {
       pressed: this.pressedNames(),
       players: this.players,
       busy: this.busy,
+      pads: this.pads,
+      using: this.current()?.index ?? null,
       displaced: this.displaced,
       capturing:
         this.capture === null
@@ -219,7 +232,7 @@ export class InputStream {
       this.capture = { control, source, machine: null };
       return;
     }
-    const pad = navigator.getGamepads?.().find((candidate) => candidate);
+    const pad = this.current();
     if (!pad) return;
     // Le repos est pris MAINTENANT, au clic de souris, donc les mains ne sont
     // pas encore sur la manette. C'est ce qui permet de se passer de l'attente
@@ -235,7 +248,7 @@ export class InputStream {
    * est standard, une leçon à refaire sinon. */
   resetPad(): void {
     this.capture = null;
-    const pad = navigator.getGamepads?.().find((candidate) => candidate);
+    const pad = this.current();
     if (!pad) return;
     if (pad.mapping === "standard") {
       this.forgetProfile(pad.id);
@@ -253,8 +266,36 @@ export class InputStream {
     keepKeys(this.keys);
   }
 
+  /** Joue et configure CETTE manette-là.
+   *
+   * Par position et non par identifiant: deux manettes identiques rendent le
+   * même identifiant, et c'est exactement le cas où il faut pouvoir choisir.
+   * Le profil, lui, reste rangé par identifiant, parce que c'est le matériel
+   * qu'on a configuré et pas la prise USB dans laquelle il était.
+   */
+  useP(index: number | null): void {
+    this.chosen = index;
+    this.capture = null;
+    // Le profil appartient à la manette: en changer veut dire relire celui de la
+    // nouvelle, sinon la seconde hérite des touches de la première.
+    this.profile = null;
+  }
+
+  /** La manette qui joue: celle qu'on a choisie si elle est encore là, sinon la
+   * première branchée. Débrancher la sienne ne doit pas laisser la page sans
+   * manette alors qu'il en reste une. */
+  private current(): Gamepad | null {
+    const found = navigator.getGamepads?.() ?? [];
+    const connected = [...found].filter((pad): pad is Gamepad => pad !== null);
+    if (this.chosen !== null) {
+      const wanted = connected.find((pad) => pad.index === this.chosen);
+      if (wanted) return wanted;
+    }
+    return connected[0] ?? null;
+  }
+
   beginLesson(): void {
-    const pad = navigator.getGamepads?.().find((candidate) => candidate);
+    const pad = this.current();
     if (!pad) return;
     this.lesson = new Lesson(pad.id, snapshot(pad));
   }
@@ -348,7 +389,11 @@ export class InputStream {
   };
 
   private pump = (): void => {
-    const pad = navigator.getGamepads?.().find((candidate) => candidate);
+    const found = navigator.getGamepads?.() ?? [];
+    this.pads = [...found]
+      .filter((candidate): candidate is Gamepad => candidate !== null)
+      .map((candidate) => ({ index: candidate.index, id: candidate.id }));
+    const pad = this.current();
     if (pad) {
       this.padId = pad.id;
       this.padLayout = pad.mapping === "standard" ? "standard" : "unknown";

@@ -30,8 +30,7 @@
  * lignes, et aucune ne peut toucher la boucle d'affichage.
  */
 
-/* Instrument clair. L'appareil de mesure, et le défaut. */
-:root,
+/* Instrument clair. L'appareil de mesure, de jour. */
 :root[data-theme="instrument-clair"] {
   --ink: #ffffff;
   --panel: #f6f6f8;
@@ -48,7 +47,12 @@
   color-scheme: light;
 }
 
-/* Instrument sombre. Le même appareil, la nuit. */
+/* Instrument sombre, et le défaut.
+ *
+ * Sur `:root` nu autant que sur son attribut: c'est cette règle-là qui peint la
+ * page avant que le script ait tourné, et un défaut clair y ferait clignoter du
+ * blanc une image le temps du premier rendu. */
+:root,
 :root[data-theme="instrument-sombre"] {
   --ink: #08080a;
   --panel: #0e0e11;

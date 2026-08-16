@@ -20,6 +20,7 @@ import { Seats } from "./components/Seats";
 import { Toggle, Volume } from "./components/Settings";
 import { forgetName, rememberedName } from "./lib/name";
 import { THEMES, applyTheme, rememberTheme, storedTheme } from "./lib/theme";
+import { useBare } from "./lib/fullscreen";
 import { useMe, useRename } from "./lib/me";
 import { useLobby, useRoom } from "./lib/room";
 import { useSession, useSnapshot } from "./lib/useSession";
@@ -92,18 +93,21 @@ function Named({
       />
     );
   }
-  return <Room name={name} room={room} announceSeat={lobby.seat} />;
+  return <Room name={name} login={login} room={room} announceSeat={lobby.seat} />;
 }
 
 function Room({
   name,
+  login,
   room,
   announceSeat,
 }: {
   name: string;
+  login: string | null;
   room: RoomState | undefined;
   announceSeat: (port: number | null) => void;
 }) {
+  const { bare, setBare, fullscreen, toggleFullscreen } = useBare();
   const [volume, setVolume] = useState(0.7);
   const [deviceRate, setDeviceRate] = useState(false);
   const [lipsync, setLipsync] = useState(false);
@@ -123,6 +127,12 @@ function Room({
 
   const port = shot?.input.port ?? null;
   const learning = shot?.input.learning ?? null;
+  // Le propriétaire décide du jeu. Quand la salle n'en a pas — aucun proxy
+  // devant, donc personne d'identifié — elle retombe sur sa règle d'avant, où
+  // tenir une manette suffit: refuser tout laisserait une salle où plus
+  // personne ne peut rien.
+  const boss = room?.owner ?? null;
+  const mine = boss === null || (login !== null && boss.login === login);
   // Occupancy from the worker, names from the control plane. Neither knows the
   // other's half, and neither is asked for it.
   const names = new Map(
@@ -131,8 +141,29 @@ function Room({
 
   return (
     <div className="flex h-full">
-      <main className="flex min-w-0 flex-1 flex-col">
+      <main className="relative flex min-w-0 flex-1 flex-col">
         <Screen canvasRef={ref} connected={shot?.video.connected ?? false} />
+        {bare ? (
+          /* Replié, il reste de quoi revenir. Discret et dans un coin: une barre
+             permanente par-dessus l'image rendrait le repli inutile. */
+          <div className="absolute top-2 right-2 flex gap-1 opacity-30 transition-opacity hover:opacity-100">
+            <button
+              type="button"
+              id="unbare"
+              onClick={() => setBare(false)}
+              className="border border-rule bg-panel px-2 py-1 text-[11px] text-muted"
+            >
+              montrer (F)
+            </button>
+            <button
+              type="button"
+              onClick={toggleFullscreen}
+              className="border border-rule bg-panel px-2 py-1 text-[11px] text-muted"
+            >
+              {fullscreen ? "fenêtre" : "plein écran"}
+            </button>
+          </div>
+        ) : null}
         {learning ? (
           <div className="flex items-center justify-between gap-4 border-t border-indigo/40 bg-indigo/10 px-4 py-2 text-[12px]">
             <span>
@@ -151,104 +182,131 @@ function Room({
         ) : null}
       </main>
 
-      <aside
-        id="side"
-        className="flex w-[19rem] shrink-0 flex-col gap-3 overflow-y-auto border-l border-rule bg-panel px-3 py-3"
-      >
-        <header className="flex flex-col gap-0.5">
-          <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-indigo">
-            nel3ab
-          </span>
-          <h1 className="truncate text-[15px] font-medium">{room?.name ?? "salon"}</h1>
-          <p className="truncate text-[12px] text-muted">{room?.game?.name ?? "aucun jeu"}</p>
-          <p id="seat" className="text-[11px] text-faint">
-            {name}
-            {port === null ? " · sans manette" : ` · manette ${port}`}
-          </p>
-        </header>
+      {bare ? null : (
+        <aside
+          id="side"
+          className="flex w-[19rem] shrink-0 flex-col gap-3 overflow-y-auto border-l border-rule bg-panel px-3 py-3"
+        >
+          <header className="flex flex-col gap-0.5">
+            <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-indigo">
+              nel3ab
+            </span>
+            <h1 className="truncate text-[15px] font-medium">{room?.name ?? "salon"}</h1>
+            <p className="truncate text-[12px] text-muted">{room?.game?.name ?? "aucun jeu"}</p>
+            <p id="seat" className="text-[11px] text-faint">
+              {name}
+              {port === null ? " · sans manette" : ` · manette ${port}`}
+            </p>
+          </header>
 
-        <Panel title="manettes">
-          <Seats
-            players={shot?.input.players ?? 4}
-            busy={shot?.input.busy ?? []}
-            names={names}
-            mine={port}
-            displaced={shot?.input.displaced ?? false}
-            onTake={(chosen) => session?.input.take(chosen)}
-          />
-        </Panel>
+          <Panel title="manettes">
+            <Seats
+              players={shot?.input.players ?? 4}
+              busy={shot?.input.busy ?? []}
+              names={names}
+              mine={port}
+              displaced={shot?.input.displaced ?? false}
+              onTake={(chosen) => session?.input.take(chosen)}
+            />
+          </Panel>
 
-        <Panel title="jeux">
-          <Library
-            games={room?.library ?? []}
-            running={room?.game?.index ?? null}
-            canChoose={port !== null}
-            onChoose={(index) => session?.input.chooseGame(index) ?? false}
-          />
-        </Panel>
+          <Panel title="jeux">
+            <Library
+              games={room?.library ?? []}
+              running={room?.game?.index ?? null}
+              canChoose={port !== null && mine}
+              why={
+                port === null
+                  ? "prends une manette pour changer de jeu"
+                  : mine
+                    ? null
+                    : `${boss?.name ?? "quelqu'un"} décide du jeu dans cette salle`
+              }
+              onChoose={(index) => session?.input.chooseGame(index) ?? false}
+            />
+          </Panel>
 
-        <Panel title="réglages">
-          {/* A browser refuses to make noise until somebody clicks something,
+          <Panel title="réglages">
+            {/* A browser refuses to make noise until somebody clicks something,
               and it is right to: a room that starts shouting when a tab opens is
               a room nobody opens twice. */}
-          {shot?.sound.state === "running" ? null : (
-            <button
-              type="button"
-              id="sound"
-              onClick={() => void session?.sound.start()}
-              className="mb-1 w-full border border-indigo/60 px-2 py-1.5 text-[12px] text-indigo hover:bg-indigo/10"
-            >
-              activer le son
-            </button>
-          )}
-          <Volume value={volume} onChange={setVolume} />
-          <Toggle
-            id="lipsync"
-            label="caler l'image sur le son"
-            hint="retarde l'image du retard mesuré du son, au lieu de la montrer en avance"
-            on={lipsync}
-            onChange={setLipsync}
-          />
-          <Toggle
-            id="deviceRate"
-            label="laisser la carte son choisir sa fréquence"
-            hint="évite un rééchantillonnage, mais la carte peut imposer un tampon plus long"
-            on={deviceRate}
-            onChange={setDeviceRate}
-          />
-          <div className="mt-1 flex flex-col gap-1">
-            <span className="text-[11px] uppercase tracking-[0.14em] text-faint">thème</span>
-            <div className="grid grid-cols-2 gap-1">
-              {THEMES.map((choice) => (
-                <button
-                  key={choice.id}
-                  type="button"
-                  id={`theme-${choice.id}`}
-                  title={choice.note}
-                  onClick={() => setTheme(choice.id)}
-                  className={cn(
-                    "border px-2 py-1 text-left text-[11px] transition-colors",
-                    theme === choice.id
-                      ? "border-indigo text-indigo"
-                      : "border-rule text-muted hover:border-rule-bright",
-                  )}
-                >
-                  {choice.label}
-                </button>
-              ))}
+            {shot?.sound.state === "running" ? null : (
+              <button
+                type="button"
+                id="sound"
+                onClick={() => void session?.sound.start()}
+                className="mb-1 w-full border border-indigo/60 px-2 py-1.5 text-[12px] text-indigo hover:bg-indigo/10"
+              >
+                activer le son
+              </button>
+            )}
+            <Volume value={volume} onChange={setVolume} />
+            <Toggle
+              id="lipsync"
+              label="caler l'image sur le son"
+              hint="retarde l'image du retard mesuré du son, au lieu de la montrer en avance"
+              on={lipsync}
+              onChange={setLipsync}
+            />
+            <Toggle
+              id="deviceRate"
+              label="laisser la carte son choisir sa fréquence"
+              hint="évite un rééchantillonnage, mais la carte peut imposer un tampon plus long"
+              on={deviceRate}
+              onChange={setDeviceRate}
+            />
+            <div className="mt-1 flex gap-1">
+              <button
+                type="button"
+                id="bare"
+                onClick={() => setBare(true)}
+                className="flex-1 border border-rule px-2 py-1.5 text-[12px] text-muted transition-colors hover:border-indigo hover:text-indigo"
+              >
+                replier (F)
+              </button>
+              <button
+                type="button"
+                onClick={toggleFullscreen}
+                className="flex-1 border border-rule px-2 py-1.5 text-[12px] text-muted transition-colors hover:border-indigo hover:text-indigo"
+              >
+                {fullscreen ? "fenêtre" : "plein écran"}
+              </button>
             </div>
-          </div>
-        </Panel>
 
-        <Panel title="manette">
-          {shot ? <PadSummary state={shot.input} onOpen={() => setBindings(true)} /> : null}
-        </Panel>
+            <div className="mt-1 flex flex-col gap-1">
+              <span className="text-[11px] uppercase tracking-[0.14em] text-faint">thème</span>
+              <div className="grid grid-cols-2 gap-1">
+                {THEMES.map((choice) => (
+                  <button
+                    key={choice.id}
+                    type="button"
+                    id={`theme-${choice.id}`}
+                    title={choice.note}
+                    onClick={() => setTheme(choice.id)}
+                    className={cn(
+                      "border px-2 py-1 text-left text-[11px] transition-colors",
+                      theme === choice.id
+                        ? "border-indigo text-indigo"
+                        : "border-rule text-muted hover:border-rule-bright",
+                    )}
+                  >
+                    {choice.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </Panel>
 
-        {/* Always rendered, never behind a fold. The numbers are how four
+          <Panel title="manette">
+            {shot ? <PadSummary state={shot.input} onOpen={() => setBindings(true)} /> : null}
+          </Panel>
+
+          {/* Always rendered, never behind a fold. The numbers are how four
             separate freezes were explained; a panel somebody has to remember to
             open is a panel that is shut when it matters. */}
-        <div id="stats">{shot ? <Instruments shot={shot} /> : null}</div>
-      </aside>
+          <div id="stats">{shot ? <Instruments shot={shot} /> : null}</div>
+        </aside>
+      )}
 
       {bindings && shot ? (
         <Bindings
@@ -256,6 +314,10 @@ function Room({
           // Chaque action est suivie d'un `refresh`: ce sont des changements
           // locaux et immédiats, et attendre le prochain instantané ferait
           // clignoter l'écran une demi-seconde plus tard.
+          onUse={(index) => {
+            session?.input.useP(index);
+            session?.refresh();
+          }}
           onCapture={(control, source) => {
             session?.input.beginCapture(control, source);
             session?.refresh();

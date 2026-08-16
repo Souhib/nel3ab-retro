@@ -115,6 +115,13 @@ gpu-test:
 browser-recovery:
     cd spikes/m3-browser-drive && node wedge.mjs http://localhost:8100/ 6
 
+# Le propriétaire de la salle: le premier arrivé, et la passation quand il part.
+#
+# Demande une salle VIDE, et s'abstient sinon: quelqu'un qui joue à côté n'est
+# pas un défaut.
+browser-owner:
+    cd spikes/m3-browser-drive && node owner.mjs
+
 # L'identité, de bout en bout, à travers le VRAI proxy.
 #
 # Contre l'adresse tailscale et pas localhost: c'est le proxy qui écrit

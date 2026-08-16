@@ -290,6 +290,17 @@
             "type": "array",
             "title": "Seats"
           },
+          "owner": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Person"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Qui décide du jeu: le premier arrivé encore présent. Nul quand personne n'a d'identité, et la salle retombe alors sur sa règle d'avant, où tenir une manette suffit."
+          },
           "people": {
             "items": {
               "$ref": "#/components/schemas/Person"

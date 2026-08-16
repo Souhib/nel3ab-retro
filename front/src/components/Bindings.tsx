@@ -14,6 +14,7 @@
 import { useEffect, useState } from "react";
 import { cn } from "../lib/cn";
 import { describePad, identityOf, keyLabel, keyboardLayout, keysFor } from "../media/describe";
+import { identify } from "../media/families";
 import { CONTROLS, type ControlKey } from "../media/pad";
 import type { InputState } from "../media/input";
 
@@ -45,6 +46,7 @@ export function PadSummary({ state, onOpen }: { state: InputState; onOpen: () =>
 export function Bindings({
   state,
   onCapture,
+  onUse,
   onCancel,
   onLearn,
   onResetPad,
@@ -53,6 +55,7 @@ export function Bindings({
 }: {
   state: InputState;
   onCapture: (control: ControlKey, source: "pad" | "key") => void;
+  onUse: (index: number | null) => void;
   onCancel: () => void;
   onLearn: () => void;
   onResetPad: () => void;
@@ -99,14 +102,41 @@ export function Bindings({
         className="flex max-h-[86vh] w-full max-w-2xl flex-col border border-rule bg-panel"
       >
         <header className="flex items-start justify-between gap-4 border-b border-rule px-4 py-3">
-          <div className="flex flex-col gap-0.5">
+          <div className="flex min-w-0 flex-col gap-1">
             <h2 className="text-[14px] font-medium">Touches</h2>
-            <p className="text-[11px] text-muted">
-              {identity ? identity.name : "aucune manette détectée"}
-              {identity && !identity.standard
-                ? " · disposition inconnue, il lui faut un apprentissage"
-                : ""}
-            </p>
+            {state.pads.length > 1 ? (
+              /* Le choix n'apparaît que s'il y a un choix. Une seule manette
+                 branchée n'a pas besoin d'un sélecteur pour la désigner. */
+              <div className="flex flex-wrap items-center gap-1">
+                <span className="text-[10px] uppercase tracking-[0.16em] text-faint">
+                  configurer
+                </span>
+                {state.pads.map((pad) => (
+                  <button
+                    key={pad.index}
+                    type="button"
+                    id={`use-${pad.index}`}
+                    onClick={() => onUse(pad.index)}
+                    title={pad.id}
+                    className={cn(
+                      "max-w-[14rem] truncate border px-2 py-0.5 text-[11px]",
+                      state.using === pad.index
+                        ? "border-indigo text-indigo"
+                        : "border-rule text-muted hover:border-rule-bright",
+                    )}
+                  >
+                    {nameOf(pad.id)}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[11px] text-muted">
+                {identity ? identity.name : "aucune manette détectée"}
+                {identity && !identity.standard
+                  ? " · disposition inconnue, il lui faut un apprentissage"
+                  : ""}
+              </p>
+            )}
           </div>
           <button
             type="button"
@@ -250,3 +280,6 @@ function Cell({
     </button>
   );
 }
+
+/** Le nom court d'une manette, pour un bouton qui doit tenir sur une ligne. */
+const nameOf = (id: string): string => identify(id, "standard").name;

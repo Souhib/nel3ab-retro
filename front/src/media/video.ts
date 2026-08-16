@@ -5,7 +5,7 @@
  * Every rule here was paid for. The comments say what by, because the code alone
  * cannot: each one looks removable until you know which failure it answers.
  */
-import { Window, steer } from "./clock";
+import { Window, isStarved, steer } from "./clock";
 import { codecOf, hasIdr } from "./annexb";
 
 /** How long without a byte before the connection is presumed dead.
@@ -204,6 +204,18 @@ export class VideoStream {
 
   /** The display's own interval, measured rather than assumed: 60, 120 and 240 Hz
    * screens are all in use here and a page that assumes one is wrong on two. */
+  /** La cadence de la source, mesurée sur ses arrivées.
+   *
+   * Mesurée et non déduite de la région du disque: le worker ne dit pas à quelle
+   * fréquence le jeu tourne, et un jeu peut en changer en cours de route. Les
+   * écarts d'arrivée le disent déjà, et ils le disent pour n'importe quelle
+   * source. Avant la trentième arrivée, on prend la période de l'écran, qui est
+   * l'ancienne hypothèse et reste la bonne au démarrage.
+   */
+  private sourcePeriodMs(): number {
+    return this.gaps.length < 30 ? this.refreshPeriod() : this.gaps.at(0.5);
+  }
+
   private refreshPeriod(): number {
     return this.refreshes.length < 8 ? SOURCE_FRAME : this.refreshes.at(0.5);
   }
@@ -390,6 +402,18 @@ export class VideoStream {
       }
     }
     if (this.queue.length === 0) {
+      // Rien à montrer, et deux raisons très différentes de n'avoir rien.
+      //
+      // Un jeu PAL tourne à 50 Hz: sur un écran à 60 Hz, une dizaine de tics par
+      // seconde tombent forcément entre deux images, et ce n'est pas une panne.
+      // Compter une famine là faisait grossir la marge de 8 ms par fenêtre, vers
+      // le plafond de 60. Mesuré sur Mario Party 4: 38 ms de marge contre 3 sur
+      // un jeu 60 Hz, et ça montait encore.
+      const since = this.lastArrival === null ? Infinity : tickAt - this.lastArrival;
+      if (!isStarved(since, this.sourcePeriodMs())) {
+        this.repeated += 1;
+        return;
+      }
       this.starved += 1;
       this.starvedRecent += 1;
       this.repeated += 1;

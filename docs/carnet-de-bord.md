@@ -3538,6 +3538,115 @@ rien vu. Mais ça faisait échouer la comparaison entre deux façons de lire la 
 manette, c'est-à-dire précisément le test qui rend la personnalisation sûre. La
 distinction est retirée à la source plutôt que contournée dans le test: un test
 qui s'accommode d'une bizarrerie décrit le langage et pas le sujet.
+### 7.19 Six jeux PAL, et 35 ms de latence qu'ils ont révélées
+
+Six titres ajoutés à la bibliothèque, dont cinq en PAL. Un jeu PAL tourne à
+50 Hz. La question posée était: est-ce que ça casse quelque chose ?
+
+Oui, mais pas là où on le croyait.
+
+#### Ce que les en-têtes disent
+
+Lus avec `dolphin-tool header`, pas devinés d'après les noms de fichiers:
+
+| jeu | identifiant | région |
+|---|---|---|
+| Mario Party 4, 5, 6, 7 | `GMPP01`, `GP5P01`, `GP6P01`, `GP7P01` | PAL |
+| Mario Power Tennis | `GOMP01` | PAL |
+| Super Mario Strikers | `G4QE01` | NTSC-U |
+| Mario Kart Double Dash | `GM4E08` | NTSC-U |
+| Super Smash Bros Melee | `GALE01` | **NTSC-U** |
+
+La dernière ligne compte: une hypothèse circulait selon laquelle les saccades
+déjà vues sur Melee venaient de sa région. La Melee de cette bibliothèque est la
+NTSC, c'est celle qu'on avait gardée en supprimant l'autre. Et le journal du
+worker sur deux jours ne connaît que Mario Kart et Melee: **aucun jeu PAL n'avait
+jamais démarré ici**, donc aucune saccade observée ne pouvait venir de l'un.
+
+#### Trois choses que l'encodeur ne fait pas
+
+Le worker ouvre son encodeur avec `fps = 60`. Ce nombre ne fait que trois choses
+dans le shim C: `time_base = 1/60`, `framerate = 60/1`, `gop_size = 600`. Aucune
+image n'est dupliquée, aucune n'est jetée, et l'encodeur traite ce qui arrive. La
+page, de son côté, **ignore la cadence annoncée dans le flux**: elle ordonnance
+sur `captured_micros`, notre propre horodatage.
+
+Une source à 50 Hz traverse donc la chaîne sans que ce 60 change quoi que ce
+soit. Mesuré: 504 images par tranche de dix secondes au lieu de 600, zéro jetée,
+attente d'une image passée de 14,7 à 18,0 ms — ce qui est exactement la période
+de 20 ms moins le travail.
+
+#### Et le correctif d'une ligne qui n'aurait rien fait
+
+La proposition était `PAL60 = True` sous `[Core]` dans le `Dolphin.ini`. Lu dans
+la source à notre commit épinglé:
+
+```
+SYSCONFSettings.cpp: const Info<bool> SYSCONF_PAL60{{System::SYSCONF, "IPL", "E60"}, true};
+WiiPane.cpp:         m_pal60_mode_checkbox = ...          <- page des réglages Wii
+Boot.cpp:            ... (system.IsWii() && Config::Get(Config::SYSCONF_PAL60))
+BootManager.cpp:     if (system.IsWii() && ...
+```
+
+C'est un réglage **SYSCONF**, affiché dans les options Wii, et ses deux usages
+sont gardés derrière `IsWii()`. Écrit dans `[Core]`, il n'est pas lu; et il ne
+serait pas consulté pour un jeu GameCube même s'il l'était.
+
+Côté GameCube, la cadence vient des registres que **le jeu** écrit
+(`m_display_control_register.FMT`, `VideoInterface.cpp`). Dolphin n'expose aucune
+bascule 50→60 pour ces disques: `FallbackRegion` ne sert qu'aux disques sans
+région déclarée, et il n'existe rien qui touche la fréquence de trame. Les seuls
+leviers sont l'option 60 Hz du jeu lui-même quand il en a une, ou un dump NTSC.
+
+La leçon est celle qui revient: **un correctif proposé pour la mauvaise couche
+ressemble à un correctif**. Il aurait été ajouté, rien ne se serait passé, et un
+essai « le jeu a refusé le mode 60 Hz » aurait fourni une explication toute
+faite.
+
+#### Le vrai défaut, que seuls ces jeux pouvaient montrer
+
+En lisant la boucle d'affichage avec 50 Hz en tête, une ligne saute aux yeux:
+
+```js
+if (this.queue.length === 0) {
+  this.starved += 1;
+  this.priming = true;
+  this.offset = null;      // l'horaire d'affichage est jeté
+  return;
+}
+```
+
+Soixante tics d'affichage par seconde pour cinquante images: une dizaine de fois
+par seconde, il n'y a rien de neuf à montrer. Ce n'est pas une panne, c'est de
+l'arithmétique. La page comptait pourtant une famine à chaque fois, jetait son
+horaire, et faisait grossir sa marge de 8 ms par fenêtre vers son plafond de 60.
+
+Mesuré sur Mario Party 4, `just browser-watch`:
+
+| | avant | après |
+|---|---|---|
+| marge d'affichage | **38 ms** (et ça montait) | **3 ms** |
+| images arrivées / peintes | 3000 / 3000 | 2999 / 2999 |
+| reprises du décodeur | 0 | 0 |
+
+Trente-cinq millisecondes de latence, ajoutées pour compenser un problème qui
+n'existait pas. Sur un jeu 60 Hz, la marge reste à 3 ms comme avant, et les
+essais de reprise passent sur les deux cadences.
+
+Le correctif compare le temps écoulé depuis la **dernière arrivée** à la période
+propre de la source, mesurée sur ses écarts d'arrivée plutôt que déduite de la
+région du disque. En dessous d'une période et demie, l'écart s'explique par la
+cadence de la source; au-dessus, quelque chose s'est arrêté. La longueur de la
+file, elle, ne disait rien d'autre que « l'écran est plus rapide que le jeu ».
+
+#### Ce qui reste, et qu'aucun code ne réglera
+
+Cinquante images par seconde ne se répartissent pas également sur un écran à
+60 Hz: une image sur cinq est tenue deux rafraîchissements. Ça se voit dans un
+panoramique et c'est arithmétique. Sur un écran à 240 Hz le motif est 5,5,5,5,4,
+beaucoup moins visible. Un jeu PAL restera donc légèrement moins fluide qu'un
+NTSC sur un écran 60 Hz, et la seule vraie réponse est un dump NTSC ou l'option
+60 Hz du jeu.
 ---
 
 ## 8. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
@@ -3589,6 +3698,9 @@ pas échouer**.
 | `code` nomme une position, pas une lettre | `KeyboardEvent.code` décrit l'emplacement physique d'après un clavier américain: sur un azerty, la touche marquée A rend `KeyQ`. Afficher « Q » ressemble à un configurateur cassé | Demander au navigateur ce qui est IMPRIMÉ (`getLayoutMap`) pour l'affichage, et garder la position pour jouer. Les deux besoins sont différents et n'ont pas la même réponse |
 | Un bouton qui répond une demi-seconde après | React lit un instantané deux fois par seconde: la bonne cadence pour lire des mesures, la mauvaise pour répondre à un clic | Reconstruire l'instantané après une action de la personne, plutôt que garder une copie locale dans le composant, qui aurait été une deuxième source de vérité |
 | Zéro qui n'était pas zéro | `0 * -1` rend `-0`, que `Object.is` distingue de `0`. Le jeu n'a jamais rien vu, mais le test qui compare deux façons de lire la même manette échouait | Retirer la bizarrerie à la source plutôt que l'accommoder dans le test: un test qui s'en accommode décrit le langage et pas le sujet |
+| Un correctif pour la mauvaise couche | `PAL60 = True` sous `[Core]` devait faire tourner les jeux PAL à 60 Hz. Dans ce Dolphin, `SYSCONF_PAL60` est un réglage **SYSCONF**, affiché dans les options Wii, et ses deux usages sont gardés derrière `IsWii()` | Un correctif proposé pour la mauvaise couche ressemble à un correctif: il aurait été ajouté, rien ne se serait passé, et un essai raté aurait fourni l'explication. Lire la source de la version épinglée coûte cinq minutes |
+| Une source plus lente prise pour une panne | Un jeu PAL tourne à 50 Hz: sur 60 tics d'affichage par seconde, une dizaine ne trouvent rien de neuf. La page comptait une famine à chaque fois et ajoutait 35 ms de marge pour compenser | Comparer le temps depuis la dernière ARRIVÉE à la période de la source, pas la longueur de la file. Une file vide ne dit rien d'autre que « l'écran est plus rapide que le jeu » |
+| Une région supposée d'après un nom de fichier | Les saccades de Melee ont été attribuées à une version PAL. Melee est `GALE01`, NTSC-U, et aucun jeu PAL n'avait jamais démarré sur ce worker | L'en-tête du disque le dit en une commande. Un nom de fichier est ce que quelqu'un a tapé |
 
 ---
 

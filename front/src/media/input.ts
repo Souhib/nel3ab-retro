@@ -4,8 +4,21 @@
  * The port is the SERVER'S to decide — it alone knows who else is in the room —
  * and it says so in one byte as soon as the socket opens. Zero means no seat.
  */
-import { Lesson, snapshot } from "./lesson";
-import { BUTTON, KEYS, encodePad, readPad, type PadProfile, type PadReading } from "./pad";
+import { Capture, Lesson, snapshot } from "./lesson";
+import {
+  BUTTON,
+  DEFAULT_KEYS,
+  encodePad,
+  readKeys,
+  readPad,
+  standardProfile,
+  type Action,
+  type Control,
+  type ControlKey,
+  type KeyProfile,
+  type PadProfile,
+  type PadReading,
+} from "./pad";
 
 /** How often the pad state is sent.
  *
@@ -38,6 +51,13 @@ export type InputState = {
   players: number;
   /** Which of them are held, this one included. */
   busy: boolean[];
+  /** La commande qu'on est en train de réassigner, et où on l'attend. */
+  capturing: { control: ControlKey; source: "pad" | "key" } | null;
+  /** Le profil de la manette, s'il y en a un. Nul veut dire « pas de manette »
+   * ou « la disposition standard, pas encore personnalisée ». */
+  profile: PadProfile | null;
+  /** Ce que fait chaque touche du clavier. */
+  keys: KeyProfile;
 };
 
 /** What the worker says about the room, in one message on the pad socket.
@@ -89,16 +109,29 @@ export class InputStream {
   private sent = 0;
   private held = new Set<string>();
   private profile: PadProfile | null = null;
+  private keys: KeyProfile = loadKeys();
   private lesson: Lesson | null = null;
+  private capture: { control: ControlKey; source: "pad" | "key"; machine: Capture | null } | null =
+    null;
   private padId: string | null = null;
   private padLayout: "standard" | "unknown" | null = null;
   private lastReading: PadReading | null = null;
   private readonly url: (path: string) => string;
   private readonly onSeat: (port: number | null) => void;
+  private readonly onSettled: () => void;
 
-  constructor(url: (path: string) => string, onSeat: (port: number | null) => void) {
+  /** `onSettled` prévient quand quelque chose que l'écran montre a changé sans
+   * qu'une action de la personne l'ait provoqué: une capture qui se termine, une
+   * leçon qui finit. Sans lui, l'écran met jusqu'à une demi-seconde à cesser de
+   * dire « appuie sur une touche » alors que la touche est déjà enregistrée. */
+  constructor(
+    url: (path: string) => string,
+    onSeat: (port: number | null) => void,
+    onSettled: () => void = () => {},
+  ) {
     this.url = url;
     this.onSeat = onSeat;
+    this.onSettled = onSettled;
   }
 
   start(): void {
@@ -133,6 +166,12 @@ export class InputStream {
       players: this.players,
       busy: this.busy,
       displaced: this.displaced,
+      capturing:
+        this.capture === null
+          ? null
+          : { control: this.capture.control, source: this.capture.source },
+      profile: this.profile,
+      keys: this.keys,
     };
   }
 
@@ -166,6 +205,52 @@ export class InputStream {
     if (!Number.isInteger(index) || index < 0 || index > 255) return false;
     this.socket.send(new Uint8Array([1, index]));
     return true;
+  }
+
+  /**
+   * Commence à réassigner une commande. La prochaine chose qui bouge la prend.
+   *
+   * Pendant ce temps la manette n'atteint plus le jeu: on continue d'envoyer un
+   * état neutre. Sans ça, réassigner « A » consisterait à appuyer sur A dans la
+   * partie de tout le monde.
+   */
+  beginCapture(control: ControlKey, source: "pad" | "key"): void {
+    if (source === "key") {
+      this.capture = { control, source, machine: null };
+      return;
+    }
+    const pad = navigator.getGamepads?.().find((candidate) => candidate);
+    if (!pad) return;
+    // Le repos est pris MAINTENANT, au clic de souris, donc les mains ne sont
+    // pas encore sur la manette. C'est ce qui permet de se passer de l'attente
+    // de relâchement que la leçon complète doit faire entre deux questions.
+    this.capture = { control, source, machine: new Capture(snapshot(pad)) };
+  }
+
+  cancelCapture(): void {
+    this.capture = null;
+  }
+
+  /** Remet la manette à la disposition d'origine: celle du constructeur si elle
+   * est standard, une leçon à refaire sinon. */
+  resetPad(): void {
+    this.capture = null;
+    const pad = navigator.getGamepads?.().find((candidate) => candidate);
+    if (!pad) return;
+    if (pad.mapping === "standard") {
+      this.forgetProfile(pad.id);
+      this.profile = null;
+    } else {
+      this.forgetProfile(pad.id);
+      this.profile = null;
+      this.lesson = new Lesson(pad.id, snapshot(pad));
+    }
+  }
+
+  resetKeys(): void {
+    this.capture = null;
+    this.keys = { ...DEFAULT_KEYS };
+    keepKeys(this.keys);
   }
 
   beginLesson(): void {
@@ -235,7 +320,17 @@ export class InputStream {
   }
 
   private onKeyDown = (event: KeyboardEvent): void => {
-    if (event.code in KEYS || event.code.startsWith("Arrow")) event.preventDefault();
+    // En cours de réassignation: cette touche EST la réponse, elle ne descend
+    // pas au jeu et elle ne s'ajoute pas aux touches tenues.
+    if (this.capture?.source === "key") {
+      event.preventDefault();
+      // Échap annule, sinon aucune touche ne pourrait sortir d'une capture.
+      if (event.code !== "Escape") this.bindKey(event.code, this.capture.control);
+      this.capture = null;
+      this.onSettled();
+      return;
+    }
+    if (event.code in this.keys || event.code.startsWith("Arrow")) event.preventDefault();
     this.held.add(event.code);
   };
 
@@ -261,10 +356,30 @@ export class InputStream {
       // presses that answer the questions never reach the game.
       if (this.lesson !== null && !this.lesson.done) {
         this.lesson.feed(snapshot(pad));
-        if (this.lesson.done) this.keepProfile(pad.id, this.lesson.learned());
+        if (this.lesson.done) {
+          this.keepProfile(pad.id, this.lesson.learned());
+          this.onSettled();
+        }
         return;
       }
       if (this.profile === null) this.profile = this.loadProfile(pad.id);
+      // Une réassignation de manette en cours: on regarde ce qui bouge, et rien
+      // ne part au jeu tant qu'on n'a pas fini.
+      if (this.capture?.machine) {
+        const moved = this.capture.machine.feed(snapshot(pad));
+        if (moved) {
+          this.bindPad(pad, this.capture.control, moved.control, moved.value);
+          this.capture = null;
+          this.onSettled();
+        }
+      }
+    }
+    // Rien ne descend au jeu pendant une capture: réassigner « A » ne doit pas
+    // appuyer sur A dans la partie de tout le monde. On envoie quand même un
+    // état neutre, sinon le dernier appui resterait tenu dans l émulateur.
+    if (this.capture !== null) {
+      this.sendNeutral();
+      return;
     }
 
     if (this.socket === null || this.socket.readyState !== WebSocket.OPEN || this.port === null) {
@@ -273,19 +388,7 @@ export class InputStream {
 
     // The keyboard first, then the pad on top of it: a stick at rest must not
     // cancel a key being held.
-    let buttons = 0;
-    for (const [code, name] of Object.entries(KEYS)) {
-      if (this.held.has(code)) buttons |= BUTTON[name];
-    }
-    let reading: PadReading = {
-      buttons,
-      x: (this.held.has("ArrowRight") ? 1 : 0) - (this.held.has("ArrowLeft") ? 1 : 0),
-      y: (this.held.has("ArrowUp") ? 1 : 0) - (this.held.has("ArrowDown") ? 1 : 0),
-      cx: 0,
-      cy: 0,
-      l: this.held.has("KeyQ") ? 255 : 0,
-      r: this.held.has("KeyE") ? 255 : 0,
-    };
+    let reading: PadReading = readKeys(this.held, this.keys);
     if (pad) {
       const fromPad = readPad(pad, this.profile);
       reading = {
@@ -309,6 +412,61 @@ export class InputStream {
     return Object.entries(BUTTON)
       .filter(([, bit]) => (buttons & bit) !== 0)
       .map(([name]) => name);
+  }
+
+  /** Écrit une commande dans le profil de la manette.
+   *
+   * Si la manette est standard et n'a pas encore de profil, on matérialise la
+   * table du constructeur d'abord: sans ça il n'y aurait rien à modifier, et le
+   * premier changement effacerait les quinze autres commandes.
+   */
+  private bindPad(pad: Gamepad, key: ControlKey, control: Control, value: number): void {
+    const profile = this.profile ?? standardProfile(pad.id);
+    if (key === "L" || key === "R") {
+      profile.triggers[key] = control;
+    } else if (key === "x" || key === "y" || key === "cx" || key === "cy") {
+      // Un stick est signé, et le signe est le sens qu'on vient de pousser:
+      // demander la DROITE ou le HAUT veut dire que ce sens-là est positif.
+      if ("axis" in control) {
+        profile.sticks[key] = { axis: control.axis, sign: value >= control.rest ? 1 : -1 };
+      }
+    } else {
+      profile.buttons[key] = control;
+    }
+    this.keepProfile(pad.id, profile);
+  }
+
+  /** Écrit une touche dans le profil du clavier.
+   *
+   * Une touche ne fait qu'une chose: si elle servait déjà ailleurs, elle quitte
+   * son ancien poste. Deux commandes sur la même touche donneraient une manette
+   * où appuyer sur X fait A et saute, sans rien pour l'expliquer.
+   */
+  private bindKey(code: string, key: ControlKey): void {
+    const action = actionFor(key);
+    const keys: KeyProfile = {};
+    for (const [existing, what] of Object.entries(this.keys)) {
+      if (existing !== code && !sameAction(what, action)) keys[existing] = what;
+    }
+    keys[code] = action;
+    this.keys = keys;
+    keepKeys(keys);
+  }
+
+  private forgetProfile(id: string): void {
+    try {
+      localStorage.removeItem(`nel3ab.pad.${id}`);
+    } catch {
+      // Navigation privée: le profil disparaît de toute façon avec l'onglet.
+    }
+  }
+
+  /** Un état où rien n'est appuyé, pour que l'émulateur ne garde pas le dernier. */
+  private sendNeutral(): void {
+    if (this.socket?.readyState !== WebSocket.OPEN || this.port === null) return;
+    const neutral: PadReading = { buttons: 0, x: 0, y: 0, cx: 0, cy: 0, l: 0, r: 0 };
+    this.lastReading = neutral;
+    this.socket.send(encodePad(this.port, neutral));
   }
 
   private keepProfile(id: string, profile: PadProfile): void {
@@ -335,5 +493,45 @@ export class InputStream {
 
   encode(port: number, reading: PadReading): Uint8Array {
     return encodePad(port, reading);
+  }
+}
+
+/** Ce qu'une commande de GameCube veut dire pour une touche de clavier. */
+function actionFor(key: ControlKey): Action {
+  if (key === "L" || key === "R") return { kind: "trigger", side: key };
+  if (key === "x" || key === "y" || key === "cx" || key === "cy") {
+    // Le tableau demande « stick → » et « stick ↑ », donc le sens positif. Les
+    // sens négatifs se réassignent en cliquant la ligne opposée, qui existe.
+    return { kind: "stick", stick: key, sign: 1 };
+  }
+  return { kind: "button", name: key };
+}
+
+function sameAction(left: Action, right: Action): boolean {
+  if (left.kind !== right.kind) return false;
+  if (left.kind === "button") return left.name === (right as typeof left).name;
+  if (left.kind === "trigger") return left.side === (right as typeof left).side;
+  const other = right as typeof left;
+  return left.stick === other.stick && left.sign === other.sign;
+}
+
+const KEYS_STORED = "nel3ab.keys";
+
+function loadKeys(): KeyProfile {
+  try {
+    const found = localStorage.getItem(KEYS_STORED);
+    return found ? (JSON.parse(found) as KeyProfile) : { ...DEFAULT_KEYS };
+  } catch {
+    // Un profil illisible est un profil qu'on remplace, pas une page qui refuse
+    // de démarrer.
+    return { ...DEFAULT_KEYS };
+  }
+}
+
+function keepKeys(keys: KeyProfile): void {
+  try {
+    localStorage.setItem(KEYS_STORED, JSON.stringify(keys));
+  } catch {
+    /* navigation privée */
   }
 }

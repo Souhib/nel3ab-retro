@@ -9,7 +9,7 @@
  * d'exposer une porte de test dont plus personne n'a besoin.
  */
 import { describe, expect, it } from "vitest";
-import { BUTTON, readPad, type PadProfile } from "./pad";
+import { BUTTON, DEFAULT_KEYS, readKeys, readPad, standardProfile, type PadProfile } from "./pad";
 
 /** Une manette synthétique. Ce qui est vérifié est la CORRESPONDANCE, et une
  * correspondance se trompe sur le bouton auquel personne n'a pensé. */
@@ -72,13 +72,12 @@ describe("une manette de disposition standard", () => {
     expect(read.cy).toBeCloseTo(-0.75, 2);
   });
 
-  // `toBeCloseTo` et non `toEqual`: un axe inversé rend -0, que `Object.is`
-  // distingue de 0 alors que rien en aval ne le fait. L'octet envoyé est le
-  // même, et une assertion qui échouerait là-dessus décrirait JavaScript plutôt
-  // que la manette.
   it("un stick au repos ne bouge pas", () => {
     const read = readPad(pad(Array(17).fill(0), [0.1, 0.1, 0.1, 0.1]), null);
-    for (const value of [read.x, read.y, read.cx, read.cy]) expect(value).toBeCloseTo(0, 10);
+    // `toEqual` distingue -0 de 0, et un axe inversé rendait -0. Le module le
+    // ramène maintenant à 0 (voir `plainZero`), ce que cette ligne vérifie au
+    // passage: sans ça la comparaison des deux façons de lire échouait.
+    expect([read.x, read.y, read.cx, read.cy]).toEqual([0, 0, 0, 0]);
   });
 });
 
@@ -145,5 +144,82 @@ describe("un profil appris", () => {
   it("une gâchette au repos lit zéro, pas la moitié", () => {
     const idle = read(none, rest);
     expect([idle.l, idle.r, idle.buttons]).toEqual([0, 0, 0]);
+  });
+});
+
+/**
+ * Rendre la disposition standard modifiable ne doit RIEN changer tant que
+ * personne ne la modifie.
+ *
+ * C'est l'invariant qui rend le bouton « personnaliser » sans danger: le jour où
+ * il matérialise la table, la manette doit se comporter exactement pareil. Sans
+ * ce test, une case oubliée dans la matérialisation ne se verrait qu'à la
+ * manette, sur le bouton auquel personne ne pense.
+ */
+describe("matérialiser la disposition standard", () => {
+  const cases: [string, number[], number[]][] = [
+    ["rien", Array(17).fill(0), [0, 0, 0, 0]],
+    ["chaque bouton", Array.from({ length: 17 }, (_, i) => (i % 2 === 0 ? 1 : 0)), [0, 0, 0, 0]],
+    ["l'autre moitié", Array.from({ length: 17 }, (_, i) => (i % 2 === 1 ? 1 : 0)), [0, 0, 0, 0]],
+    [
+      "les gâchettes à mi-course",
+      Array.from({ length: 17 }, (_, i) => (i === 6 || i === 7 ? 0.5 : 0)),
+      [0, 0, 0, 0],
+    ],
+    ["les sticks", Array(17).fill(0), [0.5, -0.5, -0.25, 0.75]],
+    ["les sticks au repos", Array(17).fill(0), [0.1, -0.1, 0.05, -0.05]],
+  ];
+
+  it.each(cases)("donne la même lecture: %s", (_what, buttons, axes) => {
+    const gamepad = pad(buttons, axes);
+    expect(readPad(gamepad, standardProfile("test"))).toEqual(readPad(gamepad, null));
+  });
+});
+
+describe("le clavier", () => {
+  const held = (...codes: string[]) => new Set(codes);
+
+  it("envoie ce que la disposition par défaut promet", () => {
+    expect(readKeys(held("KeyX"), DEFAULT_KEYS).buttons).toBe(BUTTON.A);
+    expect(readKeys(held("Enter"), DEFAULT_KEYS).buttons).toBe(BUTTON.START);
+    expect(readKeys(held("ArrowUp"), DEFAULT_KEYS).y).toBe(1);
+    expect(readKeys(held("ArrowLeft"), DEFAULT_KEYS).x).toBe(-1);
+  });
+
+  it("met une gâchette à fond, et le clic qui va avec", () => {
+    const read = readKeys(held("KeyQ"), DEFAULT_KEYS);
+    expect(read.l).toBe(255);
+    // Une gâchette de GameCube clique en fin de course, et les jeux lisent ce
+    // clic comme un bouton. Une touche n'ayant pas de demi-course, elle clique.
+    expect(read.buttons & BUTTON.L).not.toBe(0);
+    expect(read.r).toBe(0);
+  });
+
+  it("annule deux directions opposées, comme un stick qu'on ne pousse pas", () => {
+    expect(readKeys(held("ArrowLeft", "ArrowRight"), DEFAULT_KEYS).x).toBe(0);
+  });
+
+  it("additionne plusieurs touches tenues ensemble", () => {
+    const read = readKeys(held("KeyX", "KeyC", "ArrowUp"), DEFAULT_KEYS);
+    expect(read.buttons).toBe(BUTTON.A | BUTTON.B);
+    expect(read.y).toBe(1);
+  });
+
+  // Le jumeau négatif: sans lui, une lecture qui allumerait tout passerait les
+  // quatre assertions du dessus.
+  it("n'envoie rien quand rien n'est tenu", () => {
+    expect(readKeys(held(), DEFAULT_KEYS)).toEqual({
+      buttons: 0,
+      x: 0,
+      y: 0,
+      cx: 0,
+      cy: 0,
+      l: 0,
+      r: 0,
+    });
+  });
+
+  it("ignore une touche qui n'est dans aucun profil", () => {
+    expect(readKeys(held("KeyM"), DEFAULT_KEYS).buttons).toBe(0);
   });
 });

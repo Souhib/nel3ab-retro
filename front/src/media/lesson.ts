@@ -6,30 +6,16 @@
  * by frame with a real gamepad. Feeding snapshots to a function instead makes
  * that a unit test, and the same defect could not survive it.
  */
-import { BUTTON, MOVED, type ButtonName, type Control, type PadProfile } from "./pad";
+import { BUTTON, CONTROLS, MOVED, type ButtonName, type Control, type PadProfile } from "./pad";
 
 /** What the pad reports right now, flattened so a step can compare "before"
  * with "now" without caring what kind of control moved. */
 export type Snapshot = { buttons: number[]; axes: number[] };
 
-export const STEPS = [
-  { key: "A", ask: "le bouton A" },
-  { key: "B", ask: "le bouton B" },
-  { key: "X", ask: "le bouton X" },
-  { key: "Y", ask: "le bouton Y" },
-  { key: "Z", ask: "le bouton Z" },
-  { key: "START", ask: "Start" },
-  { key: "D_UP", ask: "la croix ↑" },
-  { key: "D_DOWN", ask: "la croix ↓" },
-  { key: "D_LEFT", ask: "la croix ←" },
-  { key: "D_RIGHT", ask: "la croix →" },
-  { key: "L", ask: "la gâchette L, à fond" },
-  { key: "R", ask: "la gâchette R, à fond" },
-  { key: "x", ask: "le stick principal à DROITE" },
-  { key: "y", ask: "le stick principal en HAUT" },
-  { key: "cx", ask: "le stick C à DROITE" },
-  { key: "cy", ask: "le stick C en HAUT" },
-] as const;
+/** Les mêmes commandes que partout ailleurs, dans le même ordre, avec la phrase
+ * qui les demande. Dérivé plutôt que recopié: une liste des seize commandes
+ * suffit, et deux finissent par diverger. */
+export const STEPS = CONTROLS.map(({ key, ask }) => ({ key, ask }));
 
 export type StepKey = (typeof STEPS)[number]["key"];
 
@@ -40,6 +26,56 @@ export function snapshot(pad: Gamepad): Snapshot {
     ),
     axes: [...pad.axes],
   };
+}
+
+/**
+ * Ce qui a le plus bougé depuis le repos, ou rien.
+ *
+ * Le plus loin plutôt que le premier: une gâchette de GameCube déplace son axe
+ * ET clique un bouton, et c'est l'axe qu'il faut garder.
+ *
+ * Fonction de module plutôt que méthode, parce que réassigner UNE commande a
+ * besoin d'exactement ça sans le reste de la leçon.
+ */
+export function furthest(
+  neutral: Snapshot,
+  now: Snapshot,
+): { control: Control; value: number; moved: number } | null {
+  let best: { control: Control; value: number; moved: number } | null = null;
+  now.buttons.forEach((value, index) => {
+    const moved = Math.abs(value - (neutral.buttons[index] ?? 0));
+    if (moved > MOVED && (best === null || moved > best.moved)) {
+      best = { control: { button: index }, value, moved };
+    }
+  });
+  now.axes.forEach((value, index) => {
+    const rest = neutral.axes[index] ?? 0;
+    const moved = Math.abs(value - rest);
+    if (moved > MOVED && (best === null || moved > best.moved)) {
+      best = { control: { axis: index, rest, full: value }, value, moved };
+    }
+  });
+  return best;
+}
+
+/**
+ * Réassigner UNE commande: on prend le repos au moment du clic, et on rend la
+ * première chose qui bouge.
+ *
+ * Pas d'attente de relâchement ici, contrairement à la leçon: on vient de
+ * cliquer avec la souris, donc les mains ne sont pas sur la manette.
+ */
+export class Capture {
+  private readonly neutral: Snapshot;
+
+  constructor(neutral: Snapshot) {
+    this.neutral = neutral;
+  }
+
+  feed(now: Snapshot): { control: Control; value: number } | null {
+    const best = furthest(this.neutral, now);
+    return best === null ? null : { control: best.control, value: best.value };
+  }
 }
 
 export class Lesson {
@@ -84,7 +120,7 @@ export class Lesson {
       return false;
     }
 
-    const best = this.furthest(now);
+    const best = furthest(this.neutral, now);
     if (best === null) return false;
 
     const { key } = STEPS[this.step];
@@ -114,27 +150,6 @@ export class Lesson {
       ) &&
       now.axes.every((value, index) => Math.abs(value - (this.neutral.axes[index] ?? 0)) <= MOVED)
     );
-  }
-
-  /** Whatever moved furthest from rest. Furthest rather than first: a GameCube
-   * trigger moves its axis AND clicks a button, and the axis is the one worth
-   * keeping. */
-  private furthest(now: Snapshot): { control: Control; value: number; moved: number } | null {
-    let best: { control: Control; value: number; moved: number } | null = null;
-    now.buttons.forEach((value, index) => {
-      const moved = Math.abs(value - (this.neutral.buttons[index] ?? 0));
-      if (moved > MOVED && (best === null || moved > best.moved)) {
-        best = { control: { button: index }, value, moved };
-      }
-    });
-    now.axes.forEach((value, index) => {
-      const rest = this.neutral.axes[index] ?? 0;
-      const moved = Math.abs(value - rest);
-      if (moved > MOVED && (best === null || moved > best.moved)) {
-        best = { control: { axis: index, rest, full: value }, value, moved };
-      }
-    });
-    return best;
   }
 }
 

@@ -43,7 +43,7 @@ export class Session {
   ) {
     this.video = new VideoStream(canvas, socketUrl);
     this.sound = new SoundStream(socketUrl, volume, deviceRate);
-    this.input = new InputStream(socketUrl, onSeat);
+    this.input = new InputStream(socketUrl, onSeat, () => this.refresh());
     this.snapshot = this.read();
   }
 
@@ -61,6 +61,19 @@ export class Session {
     this.video.stop();
     this.sound.stop();
     this.input.stop();
+  }
+
+  /**
+   * Reconstruit l'instantané tout de suite, sans attendre le prochain tour.
+   *
+   * Deux fois par seconde est la bonne cadence pour LIRE des mesures, et la
+   * mauvaise pour répondre à un clic: on cliquait « réassigner » et l'écran
+   * mettait jusqu'à une demi-seconde à le montrer, ce qui se lit comme un bouton
+   * cassé. Appelé après une action de la personne, jamais dans une boucle.
+   */
+  refresh(): void {
+    this.snapshot = this.read();
+    for (const listener of this.listeners) listener();
   }
 
   subscribe = (listener: () => void): (() => void) => {
@@ -92,13 +105,6 @@ export class Session {
   }
 }
 
-/** The only door in from outside.
- *
- * A module's scope is unreachable from the page's global, and the recoveries
- * this page performs cannot be pinned by a test that cannot first BREAK them.
- * Kept identical to what the browser tests already drive, because those tests
- * are the memory of four failures nobody wants to meet again.
- */
 /** The same door, before there is anything behind it.
  *
  * The page used to be one script, so its test API existed the moment the file
@@ -141,6 +147,13 @@ export function exposeNothingYet(): void {
   };
 }
 
+/** The only door in from outside.
+ *
+ * A module's scope is unreachable from the page's global, and the recoveries
+ * this page performs cannot be pinned by a test that cannot first BREAK them.
+ * Kept identical to what the browser tests already drive, because those tests
+ * are the memory of four failures nobody wants to meet again.
+ */
 export function exposeForTests(session: Session): void {
   const anyWindow = globalThis as unknown as Record<string, unknown>;
   anyWindow.nel3abTest = {

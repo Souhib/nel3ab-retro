@@ -8,6 +8,7 @@
  */
 import { useEffect, useState } from "react";
 import type { Room as RoomState } from "./client";
+import { Bindings, PadSummary } from "./components/Bindings";
 import { Entrance } from "./components/Entrance";
 import { Lobby } from "./components/Lobby";
 import { Instruments } from "./components/Instruments";
@@ -17,6 +18,7 @@ import { Screen } from "./components/Screen";
 import { Seats } from "./components/Seats";
 import { Toggle, Volume } from "./components/Settings";
 import { forgetName, rememberedName } from "./lib/name";
+import { applyTheme, nextTheme, rememberTheme, storedTheme, themeLabel } from "./lib/theme";
 import { useLobby, useRoom } from "./lib/room";
 import { useSession, useSnapshot } from "./lib/useSession";
 
@@ -75,6 +77,8 @@ function Room({
   const [volume, setVolume] = useState(0.7);
   const [deviceRate, setDeviceRate] = useState(false);
   const [lipsync, setLipsync] = useState(false);
+  const [bindings, setBindings] = useState(false);
+  const [theme, setTheme] = useState(storedTheme);
 
   const { ref, session } = useSession(volume, deviceRate, announceSeat);
   const shot = useSnapshot(session);
@@ -82,6 +86,10 @@ function Room({
   useEffect(() => session?.sound.setVolume(volume), [session, volume]);
   useEffect(() => session?.sound.setDeviceRate(deviceRate), [session, deviceRate]);
   useEffect(() => session?.setLipsync(lipsync), [session, lipsync]);
+  useEffect(() => {
+    applyTheme(theme);
+    rememberTheme(theme);
+  }, [theme]);
 
   const port = shot?.input.port ?? null;
   const learning = shot?.input.learning ?? null;
@@ -178,16 +186,19 @@ function Room({
             on={deviceRate}
             onChange={setDeviceRate}
           />
-          {shot?.input.padLayout === "unknown" ? (
-            <button
-              type="button"
-              id="learnPad"
-              onClick={() => session?.input.beginLesson()}
-              className="mt-1 w-full border border-rule px-2 py-1.5 text-[12px] text-muted hover:border-indigo hover:text-indigo"
-            >
-              apprendre cette manette
-            </button>
-          ) : null}
+          <button
+            type="button"
+            id="theme"
+            onClick={() => setTheme(nextTheme(theme))}
+            className="mt-1 flex w-full items-baseline justify-between border border-rule px-2 py-1.5 text-[12px] text-muted transition-colors hover:border-indigo hover:text-indigo"
+          >
+            <span>thème</span>
+            <span className="font-mono text-[11px]">{themeLabel(theme)}</span>
+          </button>
+        </Panel>
+
+        <Panel title="manette">
+          {shot ? <PadSummary state={shot.input} onOpen={() => setBindings(true)} /> : null}
         </Panel>
 
         {/* Always rendered, never behind a fold. The numbers are how four
@@ -195,6 +206,39 @@ function Room({
             open is a panel that is shut when it matters. */}
         <div id="stats">{shot ? <Instruments shot={shot} /> : null}</div>
       </aside>
+
+      {bindings && shot ? (
+        <Bindings
+          state={shot.input}
+          // Chaque action est suivie d'un `refresh`: ce sont des changements
+          // locaux et immédiats, et attendre le prochain instantané ferait
+          // clignoter l'écran une demi-seconde plus tard.
+          onCapture={(control, source) => {
+            session?.input.beginCapture(control, source);
+            session?.refresh();
+          }}
+          onCancel={() => {
+            session?.input.cancelCapture();
+            session?.refresh();
+          }}
+          onLearn={() => {
+            session?.input.beginLesson();
+            setBindings(false);
+          }}
+          onResetPad={() => {
+            session?.input.resetPad();
+            session?.refresh();
+          }}
+          onResetKeys={() => {
+            session?.input.resetKeys();
+            session?.refresh();
+          }}
+          onClose={() => {
+            session?.input.cancelCapture();
+            setBindings(false);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

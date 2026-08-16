@@ -3,6 +3,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import { client } from "./client/client.gen";
+import { applyTheme, storedTheme } from "./lib/theme";
 import { exposeNothingYet } from "./media/session";
 import "./index.css";
 
@@ -14,6 +15,10 @@ client.setConfig({ baseUrl: "" });
 /* Before React mounts, so a browser driver that looks early is told zero rather
  * than finding nothing at all. */
 exposeNothingYet();
+
+/* Le thème AVANT le premier rendu, sinon la page clignote dans l'autre couleur
+ * le temps que React se monte. */
+applyTheme(storedTheme());
 
 const query = new QueryClient({
   defaultOptions: {

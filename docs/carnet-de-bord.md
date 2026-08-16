@@ -3414,6 +3414,130 @@ Ce que ça ouvre est aussi ce que le chapitre 10 annonce: donner 8443 à quelqu'
 c'est lui donner la salle entière. Regarder, écouter, prendre une manette, et
 **changer le jeu**, ce qui arrête la partie de tout le monde. Il n'y a rien
 d'autre entre lui et ça qu'une ligne de politique d'accès.
+### 7.16 Un thème clair, et pourquoi l'écran reste noir
+
+La page était sombre parce que l'image est le produit et qu'un cadre sombre ne
+lui dispute pas l'oeil. Un thème clair a été demandé, et il ne change pas ce
+raisonnement: il le déplace.
+
+Ce qui devient blanc est le **cadre**: la colonne d'instruments, les panneaux,
+les bordures. Ce qui reste noir est la **zone d'écran**, y compris les bandes qui
+entourent une image 4:3 dans une fenêtre large. Des bandes blanches autour d'une
+image de jeu tirent l'oeil vers les bords; des bandes noires disparaissent, comme
+sur n'importe quel lecteur vidéo. Le résultat est un panneau d'instrument clair
+autour d'un écran noir, ce qui est aussi à quoi ressemble un vrai appareil.
+
+Trois états et non deux: clair, sombre, et « comme le système ». Le troisième
+existe parce qu'un site qui impose son thème se regarde à 2 h du matin en
+plissant les yeux, et qu'un site qui suit le système sans laisser en sortir ne se
+montre pas à quelqu'un dont la machine est réglée autrement. Le défaut est clair,
+puisque c'est ce qui a été demandé.
+
+Techniquement, la partie qui vaut d'être notée est `@theme inline`. Tailwind 4
+fige normalement la valeur d'un jeton au moment de la construction: une classe
+`bg-panel` porte alors la couleur du thème compilé, et changer un attribut sur
+`<html>` ne fait rien. `inline` lui fait écrire `var(--panel)` à la place, et les
+deux thèmes ne sont plus que deux jeux de variables CSS ordinaires.
+
+Le thème est posé sur `<html>` **avant** que React se monte, dans `main.tsx`.
+Sinon la page s'affiche dans l'autre couleur le temps du premier rendu, ce qui se
+voit et ressemble à un défaut.
+
+### 7.17 L'antisèche et le configurateur
+
+Deux demandes qui n'en font qu'une: voir ce que fait chaque touche, et pouvoir la
+changer, sur n'importe quelle manette. Un seul écran répond aux deux, parce que
+lire « A ↔ ✕ » en se disant « non, moi je veux ▢ » et devoir aller chercher le
+réglage ailleurs fait perdre du temps deux fois. Ici la ligne qu'on lit est le
+bouton sur lequel on clique.
+
+#### Nommer un bouton demande de séparer ce qu'on sait de ce qu'on suppose
+
+Le navigateur ne donne qu'une chaîne de caractères et une position dans un
+tableau. « Le bouton 2 » ne veut rien dire pour quelqu'un qui tient une
+DualSense: chez lui c'est le carré. Mais deviner « carré » demande de croire un
+identifiant USB, qui est du texte libre écrit par un fabricant.
+
+Alors les deux sont affichés, et dans cet ordre: **« ▢ (gauche) »**. La position
+est garantie par la norme W3C, qui fixe que l'index 2 est le bouton de GAUCHE du
+losange de droite, quelle que soit la marque. La lettre, elle, vient de
+l'identifiant `Vendor: 054c Product: 0ce6`, et peut être fausse sur une copie. Si
+la supposition rate, la position reste vraie et la personne trouve quand même son
+bouton.
+
+Sur une disposition **inconnue**, en revanche, il n'y a rien à supposer: les
+index appartiennent au matériel. La page dit « bouton 7 » et rien d'autre.
+Inventer « ✕ » là serait exactement le mensonge que ce découpage évite.
+
+#### Personnaliser une manette qui n'avait pas de profil
+
+Une manette Xbox ou PlayStation n'avait aucun profil: `readPad` appliquait une
+table figée, et il n'y avait littéralement rien à modifier. Le premier clic sur
+« réassigner » matérialise donc cette table en profil, et le reste se modifie
+comme celui d'une manette apprise.
+
+L'invariant qui rend l'opération sans danger est vérifié par un test: **lire la
+même manette avec le profil matérialisé et sans profil doit donner exactement le
+même résultat**, sur les boutons, les gâchettes à mi-course, les sticks et la
+zone morte. Sans lui, une case oubliée dans la matérialisation ne se verrait
+qu'à la manette, sur le bouton auquel personne ne pense.
+
+Ce que ça coûte est dit à côté du code: à partir du moment où quelqu'un
+personnalise, sa copie ne suit plus les corrections de la table. C'est le prix
+d'une préférence enregistrée, et il vaut mieux que l'inverse, où une mise à jour
+du navigateur déplacerait les boutons de quelqu'un sans prévenir.
+
+#### Ce qu'on appuie pour configurer ne doit pas arriver au jeu
+
+Réassigner « A » consiste à appuyer sur A. Si la manette continue d'atteindre
+l'émulateur pendant ce temps, configurer sa manette revient à jouer au hasard
+dans la partie de tout le monde.
+
+Pendant une capture, la page envoie donc un état **neutre**, et continue de
+l'envoyer plutôt que de se taire: se taire laisserait le dernier appui tenu dans
+l'émulateur. L'essai de navigateur le vérifie en comptant les trames envoyées
+pendant la capture.
+
+### 7.18 Quatre détails qui auraient chacun coûté une soirée
+
+**Une commande, deux boutons.** Sur une manette standard, le L de la GameCube
+répond à la tranche L1 *et* à la gâchette L2: la première donne le clic, la
+seconde la course analogique. C'est voulu depuis M3. La première version de
+l'antisèche n'en montrait qu'une, ce qui aurait envoyé la moitié des gens appuyer
+sur la mauvaise. Ce sont deux tests qui l'ont dit, en refusant d'être d'accord
+entre eux.
+
+**`KeyboardEvent.code` nomme des positions, pas des lettres.** Le code décrit
+l'emplacement physique, nommé d'après un clavier américain: sur un azerty, la
+touche marquée « A » rend `KeyQ`. Afficher « Q » à quelqu'un qui vient d'appuyer
+sur A ressemble exactement à un configurateur qui s'est trompé. La page demande
+donc au navigateur ce qui est **imprimé** sur la touche
+(`navigator.keyboard.getLayoutMap()`), et retombe sur la position là où l'API
+n'existe pas. Utiliser `code` reste le bon choix pour JOUER: la même touche
+physique marche sur les deux claviers.
+
+**Un bouton qui met une demi-seconde à répondre a l'air cassé.** React lit un
+instantané deux fois par seconde, ce qui est la bonne cadence pour lire des
+mesures et la mauvaise pour répondre à un clic: on cliquait « réassigner » et
+l'écran ne le montrait qu'après. Corrigé en reconstruisant l'instantané tout de
+suite après une action de la personne, sans toucher à la cadence de lecture. Une
+copie locale dans le composant aurait donné le même effet et une deuxième source
+de vérité.
+
+La moitié du correctif manquait, et c'est l'essai de navigateur qui l'a dit, en
+échouant une fois sur deux. Le clic est une action de la personne, donc facile à
+suivre. Mais la **fin** d'une capture arrive dans la boucle d'entrée, pas dans
+React: la touche était enregistrée et l'écran continuait à dire « appuie sur une
+touche » jusqu'au tour suivant. La boucle prévient maintenant qu'elle a fini,
+au lieu que l'écran l'apprenne par une horloge. Un essai qui échoue une fois sur
+deux est un essai qui a raison une fois sur deux.
+
+**Zéro n'était pas zéro.** Multiplier `0` par `-1` rend `-0` en JavaScript, que
+`Object.is` distingue de `0`. L'octet envoyé est le même, donc le jeu n'a jamais
+rien vu. Mais ça faisait échouer la comparaison entre deux façons de lire la même
+manette, c'est-à-dire précisément le test qui rend la personnalisation sûre. La
+distinction est retirée à la source plutôt que contournée dans le test: un test
+qui s'accommode d'une bizarrerie décrit le langage et pas le sujet.
 ---
 
 ## 8. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
@@ -3461,6 +3585,10 @@ pas échouer**.
 | Un portage qui défait un correctif | La page délogée se rebranchait toute seule sur la prise libre suivante: exactement le défaut trouvé par le joueur en M3, réintroduit en transcrivant la reconnexion polie sans distinguer « jamais eu de place » de « on me l'a prise » | Un portage est une réécriture. Les essais d'une page ne survivent pas parce qu'ils existent, mais parce qu'on les relance |
 | Un SYN jeté ressemble à une panne | Un invité voyait la salle charger sans fin. Ni refus, ni erreur de certificat: le filtre de paquets du tailnet lui ouvrait 8444 et des ports en 48xxx, mais pas le 8443 de la salle | Le symptôme nomme la couche: un refus est un port fermé, un silence est un paquet jeté. Et le filtre effectif se lit sur la machine (`tailscale debug netmap`) plutôt que dans une politique qu'on interprète |
 | Deux passages de banc qui comparaient des écrans | Le premier passage sur la nouvelle page donnait 0,40 Mbit/s là où les précédents en donnaient 16 à 19, et un encodage 13 % moins cher, au-dessus du plancher de bruit. La salle était restée sur un écran-titre **fixe** | Le banc prend la manette mais ne joue pas: il ne pilote pas la scène. Il annonce maintenant lui-même quand il est passé sous 3 Mbit/s, parce que comparer deux passages dont le débit diffère d'un ordre de grandeur compare des écrans et pas du code |
+| Une commande, deux boutons | Sur une manette standard, le L de la GameCube répond à la tranche ET à la gâchette: le clic d'un côté, la course de l'autre. L'antisèche n'en montrait qu'une | Deux tests qui refusent d'être d'accord valent mieux qu'un seul qui se tait. Ce que le code fait vraiment se lit dans le code, pas dans le souvenir qu'on en a |
+| `code` nomme une position, pas une lettre | `KeyboardEvent.code` décrit l'emplacement physique d'après un clavier américain: sur un azerty, la touche marquée A rend `KeyQ`. Afficher « Q » ressemble à un configurateur cassé | Demander au navigateur ce qui est IMPRIMÉ (`getLayoutMap`) pour l'affichage, et garder la position pour jouer. Les deux besoins sont différents et n'ont pas la même réponse |
+| Un bouton qui répond une demi-seconde après | React lit un instantané deux fois par seconde: la bonne cadence pour lire des mesures, la mauvaise pour répondre à un clic | Reconstruire l'instantané après une action de la personne, plutôt que garder une copie locale dans le composant, qui aurait été une deuxième source de vérité |
+| Zéro qui n'était pas zéro | `0 * -1` rend `-0`, que `Object.is` distingue de `0`. Le jeu n'a jamais rien vu, mais le test qui compare deux façons de lire la même manette échouait | Retirer la bizarrerie à la source plutôt que l'accommoder dans le test: un test qui s'en accommode décrit le langage et pas le sujet |
 
 ---
 
@@ -3547,7 +3675,10 @@ carte, elle, ne se divise pas aussi bien.
 - deux portes de plus dans `just check` : les types, les lints et les tests de la
   page avec la marque qui dit qu'elle a bien été reconstruite, et la fraîcheur du
   document OpenAPI et du client engendré ;
-- une CI qui fait vraiment ce qu'elle annonce, c'est-à-dire `just check`.
+- une CI qui fait vraiment ce qu'elle annonce, c'est-à-dire `just check` ;
+- un thème clair, un thème sombre, et le choix de suivre le système ;
+- une antisèche qui nomme les boutons dans le vocabulaire de la manette qu'on
+  tient, et qui se modifie ligne par ligne, au clavier comme à la manette.
 
 ### Ce qui n'est pas fait, et qu'il faut dire
 

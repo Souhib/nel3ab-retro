@@ -1,34 +1,67 @@
 @import "tailwindcss";
 
 /*
- * An instrument, not a shop window.
+ * Un instrument, pas une vitrine.
  *
- * The picture IS the product: everything around it is a thin frame that reads
- * like measuring equipment, because that is what this room is. No gradients, no
- * glass, no glow — those pull the eye off a 1280x960 emulator picture, which is
- * the one thing on screen that anybody came for.
+ * L'image EST le produit: tout ce qui l'entoure est un cadre mince qui doit
+ * ressembler à un appareil de mesure, parce que c'est ce que cette salle est.
+ * Pas de dégradé, pas de verre, pas de halo: ces effets tirent l'oeil hors d'une
+ * image d'émulateur en 1280x960, qui est la seule chose à l'écran pour laquelle
+ * quelqu'un est venu.
  *
- * One accent, and it is earned: the indigo of the console this room emulates.
+ * Un seul accent, et il est mérité: l'indigo de la console qu'on émule.
+ *
+ * Deux thèmes, et les mêmes règles dans les deux. Les jetons sont des variables
+ * CSS ordinaires posées sur `:root`, et `@theme inline` les fait suivre par les
+ * classes Tailwind au lieu de figer une valeur à la construction. Sans `inline`,
+ * une classe garderait la couleur du thème compilé et changer d'attribut ne
+ * ferait rien.
  */
-@theme {
-  --color-ink: #08080a;
-  --color-panel: #0e0e11;
-  --color-rule: #1e1e25;
-  --color-rule-bright: #2c2c36;
-  --color-text: #e8e8ee;
-  --color-muted: #8b8b98;
-  --color-faint: #5c5c68;
-  --color-indigo: #7c6ce0;
-  --color-indigo-dim: #4a4090;
-  --color-alert: #ff7a7a;
-  --color-good: #6ee7a8;
+
+/* Clair, par défaut. */
+:root {
+  --ink: #ffffff;
+  --panel: #f6f6f8;
+  --rule: #e2e2e8;
+  --rule-bright: #c8c8d2;
+  --text: #16161c;
+  --muted: #56565f;
+  --faint: #86868f;
+  --indigo: #5540c9;
+  --indigo-dim: #b3a9ec;
+  --alert: #c22f3d;
+  --good: #0a7a45;
+}
+
+:root[data-theme="dark"] {
+  --ink: #08080a;
+  --panel: #0e0e11;
+  --rule: #1e1e25;
+  --rule-bright: #2c2c36;
+  --text: #e8e8ee;
+  --muted: #8b8b98;
+  --faint: #5c5c68;
+  --indigo: #7c6ce0;
+  --indigo-dim: #4a4090;
+  --alert: #ff7a7a;
+  --good: #6ee7a8;
+}
+
+@theme inline {
+  --color-ink: var(--ink);
+  --color-panel: var(--panel);
+  --color-rule: var(--rule);
+  --color-rule-bright: var(--rule-bright);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-indigo: var(--indigo);
+  --color-indigo-dim: var(--indigo-dim);
+  --color-alert: var(--alert);
+  --color-good: var(--good);
 
   --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-}
-
-:root {
-  color-scheme: dark;
 }
 
 html,
@@ -39,16 +72,26 @@ body,
 
 body {
   margin: 0;
-  background: var(--color-ink);
-  color: var(--color-text);
+  background: var(--ink);
+  color: var(--text);
   font-family: var(--font-sans);
-  /* Numbers that do not jiggle as they change: a readout that dances is a
-     readout nobody trusts. */
+  /* Des nombres qui ne gigotent pas en changeant: un afficheur qui danse est un
+     afficheur que personne ne lit. */
   font-variant-numeric: tabular-nums;
 }
 
-/* The one place a scrollbar appears, and it stays out of the way. */
+/* Le seul endroit où une barre de défilement apparaît, et elle reste discrète. */
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--color-rule-bright) transparent;
+  scrollbar-color: var(--rule-bright) transparent;
+}
+
+/* Les formulaires natifs suivent le thème, sinon un `<input type="range">` reste
+   sombre sur fond clair et un champ de texte garde le fond du navigateur. */
+:root {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
 }

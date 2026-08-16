@@ -115,6 +115,15 @@ gpu-test:
 browser-recovery:
     cd spikes/m3-browser-drive && node wedge.mjs http://localhost:8100/ 6
 
+# L'antisèche dit-elle vrai, et la réassignation tient-elle ?
+#
+# La manette est SIMULÉE, en remplaçant `navigator.getGamepads`: ce qui est
+# vérifié est la traduction et la réassignation, pas le pilote USB. Brancher une
+# vraie DualSense sur le serveur pour tester l'affichage d'un nom serait un
+# montage que personne ne peut rejouer.
+browser-bindings:
+    cd spikes/m3-browser-drive && node bindings.mjs http://localhost:8100/
+
 # Ce que la page rend, sur une minute, sans rien redémarrer.
 #
 # Le banc redémarre la session, donc il ne peut pas tourner pendant que

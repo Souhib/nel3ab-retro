@@ -292,6 +292,22 @@ Hey API rather than the Kubb used in the owner's other front ends: the practice
 being copied is "the client is generated from the contract, never hand-written",
 and which generator does it was already weighed here.
 
+### D13 — The page is a build artefact, committed, and stamped
+
+The worker serves its page from `include_str!`, so the page must exist as a file
+in the source tree. Vite builds it there as a single self-contained HTML file.
+
+The alternative was a build script invoking npm from `cargo build`. Rejected: it
+makes every Rust build depend on node and a populated `node_modules`, including
+on a CI runner that only wants to run clippy, and it makes a cargo build fail
+for reasons that have nothing to do with Rust.
+
+The cost of committing an artefact is that it can go stale. That is covered by a
+stamp (`front/stamp.mjs`, checked in `just check`) over the build INPUTS plus the
+hash of the page this build produced. Comparing two builds byte for byte does
+not work: the minifier assigns short identifiers differently between runs of
+identical sources, measured here at three lines of a 350 kB file.
+
 ## Consequences
 
 - AV1 encoding is unavailable (needs RDNA3+). Target H.264/HEVC.

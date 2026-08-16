@@ -33,7 +33,7 @@ carte graphique AMD Radeon RX 6650 XT.
 ```
 
 Au moment où ces lignes sont écrites, ça marche : image, son, quatre manettes,
-sur le réseau privé. Ce qui manque est écrit en clair au chapitre 9, et le plus
+sur le réseau privé. Ce qui manque est écrit en clair au chapitre 10, et le plus
 gros trou est qu'**il n'y a aucune authentification**.
 
 La difficulté n'est pas de faire marcher ça. C'est de le faire marcher **vite**.
@@ -2615,7 +2615,7 @@ capacité par défaut : 65536 octets = 341 ms de son
 > **Et aucune de nos mesures ne pouvait le voir.** Un morceau est horodaté quand
 > *nous* le lisons. Tout le retard se passe en amont de notre propre horloge,
 > donc l'instrument mesurait fidèlement la moitié du chemin en ignorant l'autre.
-> Le chapitre 9 annonçait 47 ms en toute bonne foi.
+> Le chapitre « Où on en est » annonçait 47 ms en toute bonne foi.
 
 C'est le piège le plus utile de cette série : **un instrument placé après le
 défaut ne mesure pas zéro, il mesure autre chose, et il a l'air en bonne santé.**
@@ -2995,7 +2995,428 @@ refusant un `match` sur les routes qui ne connaissait pas encore `/roms`.
 
 ---
 
-## 7. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
+## 7. Milestone 4 — le salon, et la page qui le montre
+
+Jusqu'ici, une salle était un worker lancé par systemd et une page HTML de
+2 400 lignes compilée dans son binaire. Ça marche, et ça a permis de mesurer
+tout ce qui précède. Mais il n'y avait ni nom, ni salon, ni rien qui sache dire
+qui est assis où.
+
+Ce chapitre raconte l'ajout de deux morceaux : un **plan de contrôle** en
+FastAPI, et une page réécrite en React. Et surtout la règle qui les sépare, qui
+est la seule décision d'architecture réelle de ce milestone.
+
+### 7.1 La règle : le plan de contrôle ne touche jamais une image
+
+Un « plan de contrôle » (*control plane*), c'est le service qui sait **qui est
+là, quel jeu tourne, qui tient quelle manette**. Par opposition au **plan de
+données** (*data plane*), qui transporte l'image, le son et les manettes.
+
+Ici les deux sont deux processus distincts, et la frontière est nette :
+
+| | qui répond | ce qu'il sait |
+|---|---|---|
+| image, son, manettes | le worker, en Rust | quelle place est **vraiment** tenue |
+| bibliothèque, changement de jeu | le worker | quels jeux existent sur ce disque |
+| nom du salon, noms des joueurs | le plan de contrôle, en Python | comment s'appelle celui qui tient la place 2 |
+
+Le worker reste l'autorité sur l'occupation des places, parce que c'est lui qui
+applique les boutons : il ne peut pas se tromper sur qui il écoute. Le plan de
+contrôle ne connaît que les **noms**, c'est-à-dire exactement ce qu'aucune
+socket binaire ne transporte.
+
+La conséquence se vérifie et elle est le but : **arrêter le plan de contrôle
+n'interrompt pas une partie**. La page garde son image, son son et sa manette,
+et perd seulement les noms à côté des places. C'est écrit dans le code de la
+page comme un repli explicite : si `/api/room` ne répond pas, elle interroge le
+worker seul et affiche « occupée » au lieu d'un prénom.
+
+### 7.2 Pas d'authentification, et le dire
+
+Le projet est pour jouer entre gens qui se connaissent, sur un réseau privé. Il
+n'y a donc **ni compte, ni mot de passe** : la page demande un prénom, le garde
+dans le navigateur, et c'est tout. Ce prénom existe pour qu'une place puisse dire
+« Souhib » plutôt que « joueur 2 ».
+
+Ce n'est pas de la sécurité et ce n'est pas présenté comme telle. Le trou du
+chapitre 10 reste entier : quiconque atteint le tailnet peut regarder, écouter et
+prendre une manette. Un prénom qu'on choisit soi-même n'y change rien, et un
+formulaire de connexion qui n'authentifie rien serait pire que pas de formulaire,
+puisqu'il *aurait l'air* de protéger.
+
+### 7.3 Ce qui a été repris de LaTabdhir et de Majlisna
+
+Deux services du même auteur, déjà en production, ont servi de patron plutôt que
+d'inventer des conventions pour un troisième :
+
+- **le découpage** `routes / controllers / schemas` : une route ne contient
+  aucune logique, elle appelle un contrôleur ; un schéma Pydantic décrit ce qui
+  passe sur le fil. C'est la transposition exacte de la règle « pas de logique
+  dans les routes » que le côté Rust écrit « pas de comportement dans le
+  binaire » ;
+- **une fabrique d'application** (`create_app`) plutôt qu'un objet global : un
+  test peut en construire une avec ses propres réglages et son propre worker, et
+  rien ne se connecte au moment de l'import ;
+- **`uv` et `poe`** pour les tâches, avec `ruff`, `ty` et `pytest` derrière un
+  seul `poe check`, exactement comme `just check` de ce côté-ci ;
+- **socket.io** pour le salon, repris de Majlisna. Reconnexion, salles et
+  diffusion sont tout le travail à cet endroit et ne valent pas d'être réécrits.
+  Une différence assumée : Majlisna branche un gestionnaire Redis pour partager
+  l'état entre plusieurs processus. Il y a **un** processus ici, et faire tourner
+  un Redis pour un salon qui tient dans un dictionnaire serait ajouter une pièce
+  à maintenir sans rien servir.
+
+Le client TypeScript, lui, applique D6 sans changement : FastAPI écrit le
+document OpenAPI depuis son propre code (`poe openapi`), et Hey API le traduit en
+types. Renommer un champ côté Python fait donc échouer `tsc` côté navigateur, au
+lieu d'arriver en `undefined` dans une page où plus rien ne vérifie.
+
+Détail qui vaut sa ligne : par défaut, FastAPI nomme ses opérations d'après
+l'URL, ce qui donnait `readRoomApiRoomGet` dans le client généré. Une fonction
+nommée d'après un chemin change de nom quand le chemin bouge. Une ligne
+(`generate_unique_id_function`) les nomme d'après la fonction Python, et
+`readRoom` traverse la frontière intact.
+
+### 7.4 React, sans mettre React sur le chemin de l'image
+
+La demande était une page React, TypeScript et Tailwind, avec une réserve
+explicite : *« si tu penses que ça va rajouter de la latence, on reste comme
+ça »*. La réserve est juste. Une image arrive soixante fois par seconde, et un
+rendu React entre son arrivée et l'écran, soixante fois par seconde, coûterait
+exactement ce que quatre chapitres précédents ont passé à gagner.
+
+Donc la boucle média **n'est pas dans React**. Elle est sortie de la page en
+modules TypeScript ordinaires — `video.ts`, `sound.ts`, `input.ts`, `clock.ts` —
+qui possèdent le canevas, décodent, ordonnancent et peignent sur
+`requestAnimationFrame`, sans jamais provoquer un rendu. React ne touche cette
+boucle qu'à deux moments : il lui donne le canevas au montage, il le reprend au
+démontage.
+
+Les chiffres, eux, remontent par une autre route : la session reconstruit un
+**instantané** deux fois par seconde, et React s'y abonne avec
+`useSyncExternalStore`. Deux fois par seconde, c'est la vitesse à laquelle un
+humain lit un nombre, pas celle à laquelle il change.
+
+Mesuré, sur une minute, pendant que le worker tournait normalement :
+
+| | page React |
+|---|---|
+| images arrivées | 3 597 en 60,0 s, soit 59,9/s |
+| images peintes | 3 597, soit **toutes** |
+| tenue médiane à l'écran | 1 rafraîchissement (écran 60 Hz) |
+| marge d'affichage | 3,0 ms |
+| file d'attente du décodeur | 0 |
+| reprises du décodeur, sockets muettes | 0 |
+
+Ce que ce tableau prouve et ce qu'il ne prouve pas : il montre que **rien n'est
+perdu ni retardé côté navigateur**. Il ne dit rien du serveur. La recette
+`just browser-watch` existe pour ça : c'est un spectateur de plus, il ne touche à
+rien, donc il peut tourner pendant que quelqu'un joue.
+
+Le banc complet, lui, redémarre la session, et il a fini par tourner le 16 août
+sur une salle libre. Chaque chiffre est comparé à **l'étendue des quatorze
+passages** d'avant la page React, plutôt qu'à un seul, parce qu'un seul passage
+ne dit pas ce qui varie tout seul :
+
+| | avant React (14 passages) | avec React |
+|---|---|---|
+| attente d'une image p50 | 14,62 à 14,69 ms | **14,69** |
+| conversion couleur p50 | 0,16 à 0,18 ms | **0,17** |
+| encodage p50 | 1,79 à 1,86 ms | **1,78** |
+| encodage p95 | 1,96 à 2,09 ms | **1,97** |
+| entrée → image p50 | 3,06 à 10,94 ms | **3,08** |
+| entrée → image p95 | 11,31 à 16,03 ms | **11,69** |
+| images peintes | 5387 à 5392 | **5390** |
+| images décodées | 5391 à 5394 | **5393** |
+| marge d'affichage | 3 ms | **3** |
+| reprises du décodeur | 0 | **0** |
+| worker %CPU | 3,8 à 5,0 | **3,7** |
+
+Tout tombe dans l'étendue d'avant. Les deux valeurs qui passent d'un cheveu sous
+le minimum historique, l'encodage p50 (0,6 %) et le CPU du worker (2,6 %), sont
+loin sous leurs planchers de bruit respectifs, 1,6 % et 7,9 %. **Donc : aucun
+changement mesurable, ni côté navigateur ni côté serveur.** Ce n'est pas une
+amélioration et il ne faut pas la lire comme telle.
+
+### 7.5 Une page compilée dans le binaire, et la marque qui dit d'où elle vient
+
+Le worker sert sa page avec `include_str!`, c'est-à-dire qu'elle est **dans**
+l'exécutable. C'était vrai du HTML écrit à la main, et ça reste vrai du HTML
+produit par Vite : un greffon (`vite-plugin-singlefile`) replie le script et les
+styles dans un seul fichier, écrit directement dans l'arborescence du worker.
+
+Le marché : `cargo build` n'a jamais besoin de node, au prix d'un artefact
+committé. Et un artefact committé a exactement un mode de panne — quelqu'un
+change `front/src`, ne reconstruit pas, et livre un binaire avec la page
+d'hier.
+
+La première tentative de garde-fou était la plus évidente : reconstruire et
+comparer le fichier. **Elle échoue sur des sources inchangées.** Le minificateur
+ne choisit pas les mêmes noms courts d'une exécution à l'autre — mesuré ici,
+trois lignes sur un fichier de 350 Ko, à chaque fois une variable locale
+renommée. Un contrôle rouge sans raison est un contrôle qu'on apprend à ignorer,
+et ce carnet a déjà une entrée sur ce qu'il en coûte.
+
+La marque (`front/stamp.mjs`) hache donc les **entrées** — chaque source, le
+verrou de dépendances, la configuration de construction — et y ajoute le haché
+de la page telle que cette construction-là l'a produite. Les deux comparaisons
+sont déterministes : une source modifiée sans reconstruction est rouge, un
+artefact remis en arrière tout seul est rouge, et deux constructions des mêmes
+sources sont vertes.
+
+### 7.6 Le bogue que le portage a introduit, et le test qui manquait
+
+En transcrivant la boucle d'entrée, j'ai lu le message de place du worker comme
+**un octet**. Il en fait six : `[nombre de manettes, la mienne, occupée×4]`.
+
+Rien n'a échoué. La page se chargeait, l'image arrivait, le son marchait — et
+aucune manette n'apparaissait jamais. Le code refusait poliment un message dont
+la longueur ne collait pas, exactement comme il devait, et se taisait. Il a fallu
+un vrai navigateur contre un vrai worker pour le voir, et une trace des sockets
+pour comprendre.
+
+La leçon est la même que celle de plusieurs entrées du chapitre suivant : **la
+forme d'un message est précisément ce qu'un test unitaire peut fixer**. La
+lecture est donc devenue une fonction pure, `readRoomMessage`, avec ses jumeaux
+négatifs : un message trop court est refusé, un message trop long aussi, une
+salle de zéro ou de cinq manettes aussi, et une place au-delà de ce que la salle
+annonce aussi. Remettre la lecture d'un seul octet fait échouer le premier.
+
+### 7.7 Ce que l'interface montre, et pourquoi elle ressemble à ça
+
+Une consigne, tenue littéralement : *« l'image doit rester le produit »*.
+
+L'image prend donc toute la hauteur de la fenêtre, et **la page ne défile
+jamais**. Tout le reste tient dans une colonne fixe à droite qui défile en
+elle-même, ce qui répond à la remarque qui l'a déclenchée : les chiffres
+s'écrivaient sous l'image, et il fallait quitter le jeu des yeux pour les lire.
+L'essai `just browser-layout` le vérifie à quatre largeurs, dont un portable de
+1 280 points.
+
+Le reste du parti pris tient en trois choses. Pas de dégradé, pas de verre, pas
+de halo : ces effets attirent l'œil, et il y a déjà une image de jeu à l'écran
+pour ça. Les nombres sont en chasse fixe et alignés à droite, avec
+`font-variant-numeric: tabular-nums`, pour qu'un chiffre qui change ne déplace
+pas ceux d'à côté — un instrument qui gigote est un instrument qu'on cesse de
+lire. Et une seule couleur d'accent, l'indigo de la console qu'on émule.
+
+Les mesures sont affichées en permanence, pas repliées derrière un bouton. Elles
+sont ce qui a expliqué quatre blocages différents ; un panneau qu'il faut penser
+à ouvrir est un panneau fermé le jour où il sert.
+
+### 7.8 Ce que les essais de navigateur ont dû apprendre
+
+Vingt et un scripts pilotent un vrai Chrome contre une vraie salle. Deux choses
+ont changé pour eux, et les deux les rendent plus solides :
+
+- **ils ne lisent plus le texte de la page.** Plusieurs cherchaient
+  « écart son/image » dans les statistiques affichées. Un essai qui dépend d'une
+  formulation casse quand on reformule, sans qu'aucun comportement n'ait bougé.
+  Ils passent maintenant par l'interface de test de la page, qui rend des nombres
+  ;
+- **ils disent leur nom avant d'ouvrir.** La page demande un prénom, donc chaque
+  pilote l'écrit là où la page le range, avant que le script de la page ne
+  s'exécute. Un module partagé (`open.mjs`) le fait pour tous les vingt et un :
+  quinze copies de « taper le nom, valider » seraient quinze endroits à corriger
+  le jour où le formulaire change.
+
+Une troisième correction est du même genre. L'ancienne page était un seul script,
+donc son interface de test existait dès que le fichier était analysé. La nouvelle
+est un module, et cette interface apparaît quand React se monte, quelques
+millisecondes plus tard. Un pilote qui regardait dans cet intervalle plantait sur
+`undefined` et annonçait un échec qui n'était qu'une course. La page installe
+maintenant une interface qui répond zéro avant que la session n'existe : le
+pilote attend, ce que chacun d'eux sait déjà faire.
+
+### 7.9 Une porte de plus, et deux fichiers qui traînaient
+
+`just check` fait maintenant tourner, en plus du Rust et du Python, les types,
+les lints et les tests de la page, puis vérifie sa marque. Quatre gardes
+au lieu de deux, dans une seule commande, qui reste exactement ce que la CI
+exécute.
+
+Et un ménage qui n'a rien de glorieux mais qui appartient au journal : des
+fichiers `.pyc` et un fichier de couverture avaient été committés avec le plan de
+contrôle. Ils sont retirés du suivi et ignorés. La règle qui les a laissés entrer
+était l'absence de règle.
+
+### 7.10 Un écran de salle, et pourquoi il n'y en a qu'une
+
+Le premier jet allait du prénom au jeu sans rien entre les deux, ce qui posait la
+bonne question: où est la salle ?
+
+La réponse honnête est qu'il y en a **une**, parce qu'il y a un émulateur, sur un
+GPU, sur une machine. En faire une liste d'un élément serait une page pour un
+clic. Ce que l'écran apporte n'est donc pas le choix, c'est de voir la salle
+avant d'y entrer: quel jeu tourne, qui est déjà là, s'il reste une manette. On
+peut ainsi arriver dans une salle pleine en le sachant, au lieu de le découvrir
+en cliquant.
+
+Il apporte une seconde chose, moins visible: **rien ne démarre avant le clic**.
+Ni décodeur, ni socket vidéo, ni manette. Une image décodée derrière un écran que
+personne ne regarde coûte à la machine sur laquelle un autre est en train de
+jouer.
+
+Plusieurs salles, en revanche, ne sont pas un écran mais une infrastructure: un
+worker par salle, un plan de contrôle qui démarre des processus (une décision de
+sécurité, même sur un réseau privé), un routage par préfixe puisque tout doit
+rester sur une seule origine, et une mesure qui n'existe pas encore. On sait
+qu'une salle coûte un demi-cœur et 4 % de GPU; personne n'a jamais lancé deux
+salles à la fois, et la mémoire de la carte ne se divise pas aussi proprement que
+les cœurs.
+
+### 7.11 Le pilote qui a rattrapé ce que le portage avait cassé
+
+En rejouant les essais de navigateur contre la nouvelle page, `steal.mjs` a
+échoué, et sa sortie disait exactement ce qui n'allait pas:
+
+```
+après deux clics : page 2 tient 2, page 1 prévenue: true
+page 1 six secondes plus tard : "3"
+FAIL — la page délogée s'est rebranchée toute seule
+```
+
+C'est mot pour mot le défaut que ce fichier existe pour attraper, et que le
+joueur avait trouvé lui-même en M3: sa page s'était fait prendre sa manette,
+avait ramassé la prise libre suivante trois secondes plus tard, et il avait
+continué à conduire **un autre personnage** sans que rien à l'écran ne le dise.
+
+Mon portage l'avait réintroduit sans y penser: la reconnexion polie, celle qui
+permet à une page arrivée dans une salle pleine de récupérer une manette dès
+qu'il en reste une, ne distinguait pas les deux situations. Une page qui n'a
+jamais eu de place peut redemander éternellement, ça n'enlève rien à personne.
+Une page **délogée** doit s'arrêter, parce que seule une personne sait quel
+personnage elle voulait être.
+
+Deux autres choses avaient disparu dans le portage et sont revenues avec:
+
+- **le choix du port.** La nouvelle page n'avait qu'un bouton « prendre la
+  manette », qui demandait toujours le port 1. Dans une salle pleine, cela veut
+  dire que c'est toujours le même joueur qu'on éjecte, quel que soit celui qu'on
+  visait. Les prises sont redevenues les boutons, chacune la sienne;
+- **les deux clics.** Prendre la place de quelqu'un arme d'abord et n'agit qu'au
+  second clic, comme changer de jeu. Rejoindre une place libre, en revanche, agit
+  du premier coup: ça n'enlève rien à personne. La différence n'est pas une
+  question de symétrie, c'est que l'un des deux gestes se voit sur l'écran d'un
+  autre.
+
+La leçon est celle qu'on aimerait ne pas réapprendre: **un portage est une
+réécriture**. Les tests d'une page ne survivent pas parce qu'ils existent, ils
+survivent parce qu'on les relance.
+
+### 7.12 Deux pilotes qui sont devenus des tests unitaires
+
+`padmap.mjs` conduisait un Chrome sans écran contre un worker et un GPU pour
+vérifier qu'un index de bouton donne le bon bit du protocole. `lesson.mjs` en
+faisait autant pour la machine à états qui apprend une manette inconnue.
+
+Les deux vérifient des **fonctions pures**. Depuis que la boucle média est en
+modules, ils sont `pad.test.ts` et `lesson.test.ts`: les mêmes assertions, en
+quelques millisecondes au lieu de vingt secondes, sans GPU ni session. Ils ont en
+prime supprimé trois portes de test que la page n'ouvrait que pour eux.
+
+Ce n'est pas une règle contre les pilotes de navigateur. Ce qui reste vérifie ce
+qu'aucun test unitaire ne voit: un décodeur qui meurt, un onglet passé en
+arrière-plan, deux pages qui se disputent une manette.
+
+Un détail attrapé au passage, et qui est du JavaScript plutôt que de la manette:
+un axe inversé rend `-0`, que `Object.is` distingue de `0`. L'octet envoyé est le
+même. L'assertion a donc été écrite en `toBeCloseTo`, parce qu'un test qui
+échouerait là-dessus décrirait le langage et pas le sujet.
+
+### 7.13 La CI testait un tiers du dépôt, sous un commentaire disant le contraire
+
+Le fichier de CI lançait `just fmt-check`, `just lint`, `just test`, un par un,
+sous ce commentaire: « les MÊMES recettes qu'en local, la pipeline ne peut pas
+diverger ». Cette phrase était fausse depuis le jour où `just check` a grossi. Le
+plan de contrôle en Python et la totalité de la page n'étaient couverts par rien.
+
+Le correctif est structurel plutôt qu'attentif: la CI appelle **`just check`**,
+une seule étape. Une recette ajoutée à la porte ne peut plus être oubliée là-bas,
+parce qu'il n'y a plus de liste où l'oublier. Le prix est un affichage moins fin
+en cas d'échec, ce qui se lit très bien dans le journal du run.
+
+Deux découvertes de la même famille, le même jour:
+
+- **une configuration de lint que personne ne lisait.** J'avais écrit
+  `front/oxlint.json` avec les catégories `correctness` et `suspicious` en
+  erreur. oxlint ne lit que `.oxlintrc.json`. Ces règles n'ont jamais tourné.
+  Trouvé en lisant `oxlint --help`, qui annonce son défaut, pas en relisant le
+  code. Une configuration qu'on croit active et qui ne l'est pas est pire que pas
+  de configuration: elle fait croire qu'un filet existe. En les activant pour de
+  vrai, une règle obsolète a sauté (`react-in-jsx-scope`, que la transformation
+  JSX moderne rend caduque) et la raison est écrite à côté;
+- **un formateur en `npx oxfmt@latest`** dans une vérification bloquante. Une
+  version flottante dans une porte, c'est une pipeline qui devient rouge le jour
+  où l'outil change d'avis, sans qu'on ait rien touché. Épinglé en dépendance.
+
+Et une porte en plus: `just contract-check` régénère le document OpenAPI depuis
+FastAPI, puis le client TypeScript depuis ce document, et échoue si l'un des deux
+a dérivé. Vérifiée en rouge d'abord, en ajoutant un champ à un schéma. Elle peut
+comparer octet par octet, contrairement à la page: un vidage JSON et un
+générateur de code rendent les mêmes octets pour la même entrée, un minificateur
+non.
+
+### 7.14 Le prénom hors des URL, et le nombre de manettes ramené à une source
+
+Deux incohérences dans ce qui venait d'être livré, trouvées en relisant plutôt
+qu'en cassant.
+
+`POST /api/room/seats/{port}?player=Souhib` faisait voyager le prénom **dans
+l'URL**, donc dans tous les journaux entre un navigateur et ici. Le salon
+socket.io, lui, le passe dans son champ `auth` précisément pour éviter ça, et le
+commentaire qui l'explique est dans le fichier d'à côté. Passé en corps de
+requête: ce n'est pas un secret, mais un prénom reste une personne.
+
+Le nombre de manettes existait en trois exemplaires: le service du worker, le
+service du plan de contrôle, et la page. Un seul sait: **le worker**, puisque
+c'est lui qui dit à Dolphin quels ports tiennent une manette au démarrage. Il le
+publie maintenant dans `/roms`, le plan de contrôle le lit, et son fichier de
+service ne porte plus de second réglage qui devait être d'accord avec le premier
+sans que rien ne l'y oblige.
+
+### 7.15 Un ami qui ne pouvait pas entrer, et où la réponse était écrite
+
+Un ami invité sur le tailnet, avec la machine `lgf` partagée, ouvrait l'adresse
+de la salle et voyait charger indéfiniment. Pas une erreur, pas un refus: une
+page qui tourne.
+
+La tentation était de suspecter le partage, le certificat, ou une limite de
+`tailscale serve` envers les utilisateurs externes. La documentation dit
+l'inverse pour ce dernier point: un utilisateur avec qui on a partagé une machine
+atteint bien un service servi par `serve`.
+
+La réponse était dans le **filtre de paquets** que `tailscaled` applique
+lui-même, lisible sur la machine sans passer par la console d'administration:
+
+```
+tailscale debug netmap   →   PacketFilter
+```
+
+Trois règles. Les appareils du propriétaire: tous les ports. Les appareils des
+deux utilisateurs invités: **8444, et une poignée de ports en 47xxx et 48xxx**.
+Le port de la salle, **8443, n'y est pas**. Un SYN qui n'est pas autorisé est
+jeté sans réponse, et un SYN jeté sans réponse est exactement une page qui charge
+pour toujours.
+
+Les invités avaient donc accès au site de documentation (8444) et à des ports de
+Sunshine, mais pas à la salle. Les ports 48100 et 48200 de la règle ressemblent
+d'ailleurs beaucoup à une frappe pour 8100 et 8200, c'est-à-dire à l'intention
+d'ouvrir la salle, écrite à côté.
+
+Deux leçons. La première: **un symptôme « ça charge » nomme la couche**. Un refus
+serait un port fermé, une erreur de certificat serait TLS, une erreur DNS serait
+le nom. Le silence, c'est un paquet jeté. La seconde: le filtre effectif est
+lisible sur la machine, ce qui vaut mieux que relire la politique d'accès en
+espérant l'interpréter comme le fait le programme.
+
+Ce que ça ouvre est aussi ce que le chapitre 10 annonce: donner 8443 à quelqu'un,
+c'est lui donner la salle entière. Regarder, écouter, prendre une manette, et
+**changer le jeu**, ce qui arrête la partie de tout le monde. Il n'y a rien
+d'autre entre lui et ça qu'une ligne de politique d'accès.
+---
+
+## 8. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
 
 | Le piège | Ce qui s'est passé | La leçon |
 |---|---|---|
@@ -3032,10 +3453,18 @@ pas échouer**.
 | Un test qui échoue sans défaut | Deux essais exigeaient une salle vide et échouaient pendant qu'on jouait à côté | Ils annoncent « RIEN TESTÉ ». Un test qui échoue sans défaut apprend à ignorer ses échecs |
 | Le même nom deux fois | `held` était déjà l'ensemble des touches enfoncées. Un module qui déclare deux fois le même nom **ne s'exécute pas du tout** — et la page ressemble alors à une page qui attend | La renommée n'a corrigé que la moitié du fichier : la ligne de statistiques appelait encore l'ancien nom, un `Set` n'a pas de `.length`, et la mesure affichait 0 en toute confiance |
 | Le vrai coupable, c'était nous | Le « bogue de pool de descripteurs de Dolphin » que j'ai instrumenté pendant des jours venait de **notre** soumission par image. Deux correctifs précédents traitaient les symptômes, et le Resizable BAR n'avait fait que ralentir la panne | Quand on ajoute du code dans le moteur de quelqu'un d'autre, la première hypothèse pour toute anomalie de ce moteur doit être la nôtre |
+| Un message lu à la mauvaise longueur | En portant la boucle d'entrée, j'ai lu le message de place comme **un** octet ; il en fait six. Rien n'a échoué : la page se chargeait, l'image arrivait, et aucune manette n'apparaissait jamais. Le code refusait poliment, exactement comme il devait, et se taisait | La forme d'un message est ce qu'un test unitaire fixe le mieux. Devenue une fonction pure avec ses jumeaux négatifs : trop court, trop long, salle impossible, place au-delà de la salle |
+| Reconstruire pour comparer | Le garde-fou contre une page périmée reconstruisait le HTML et comparait. **Rouge sur des sources inchangées** : le minificateur renomme trois locales d'une exécution à l'autre | Marquer les entrées, pas la sortie d'une seconde construction. Un contrôle rouge sans raison est un contrôle qu'on apprend à ignorer, et ce tableau en a déjà la preuve deux lignes plus haut |
+| Un pilote plus rapide que la page | L'ancienne page était un script, son interface de test existait dès l'analyse. La nouvelle est un module : elle apparaît quelques millisecondes plus tard, et un pilote qui regardait dans l'intervalle plantait | La page répond zéro avant d'exister. Un pilote qui reçoit un chiffre attend ; un pilote qui reçoit `undefined` invente un échec |
+| La CI disait qu'elle faisait comme en local | Elle lançait trois recettes Rust une par une, sous un commentaire promettant « les mêmes qu'en local ». `just check` avait grossi de deux étapes depuis: le service Python et toute la page n'étaient couverts par rien | Appeler la porte elle-même, pas la liste de ce qu'elle contient. Une promesse tenue par attention se rompt le jour où on ajoute une ligne |
+| Une configuration de lint jamais lue | `oxlint.json` portait les catégories en erreur; oxlint ne lit que `.oxlintrc.json`. Ces règles n'ont jamais tourné | Une configuration qu'on croit active fait croire qu'un filet existe. Vérifier où l'outil regarde, pas où on a écrit |
+| Un portage qui défait un correctif | La page délogée se rebranchait toute seule sur la prise libre suivante: exactement le défaut trouvé par le joueur en M3, réintroduit en transcrivant la reconnexion polie sans distinguer « jamais eu de place » de « on me l'a prise » | Un portage est une réécriture. Les essais d'une page ne survivent pas parce qu'ils existent, mais parce qu'on les relance |
+| Un SYN jeté ressemble à une panne | Un invité voyait la salle charger sans fin. Ni refus, ni erreur de certificat: le filtre de paquets du tailnet lui ouvrait 8444 et des ports en 48xxx, mais pas le 8443 de la salle | Le symptôme nomme la couche: un refus est un port fermé, un silence est un paquet jeté. Et le filtre effectif se lit sur la machine (`tailscale debug netmap`) plutôt que dans une politique qu'on interprète |
+| Deux passages de banc qui comparaient des écrans | Le premier passage sur la nouvelle page donnait 0,40 Mbit/s là où les précédents en donnaient 16 à 19, et un encodage 13 % moins cher, au-dessus du plancher de bruit. La salle était restée sur un écran-titre **fixe** | Le banc prend la manette mais ne joue pas: il ne pilote pas la scène. Il annonce maintenant lui-même quand il est passé sous 3 Mbit/s, parce que comparer deux passages dont le débit diffère d'un ordre de grandeur compare des écrans et pas du code |
 
 ---
 
-## 8. Les décisions, en résumé
+## 9. Les décisions, en résumé
 
 | | Décision | En clair |
 |---|---|---|
@@ -3050,10 +3479,12 @@ pas échouer**.
 | **D9** | Nos octets sur une socket simple, décodés par WebCodecs, plutôt que WebRTC | WebRTC donne gratuitement la reprise sur perte et le contrôle de congestion, contre une négociation lourde et la perte du contrôle de l'instant d'envoi. Sur un réseau privé entre gens qui se connaissent, le marché est mauvais. **Le jour où ça sort du tailnet, c'est la première décision à rouvrir** |
 | **D10** | Le son voyage en PCM brut, sans codec | 1,5 Mbit/s contre seize pour l'image. Un codec ajouterait un décodeur de plus dans la page — et ce milestone a passé des jours sur les façons dont le **premier** peut mourir |
 | **D11** | Les images-clés se demandent, elles ne se programment pas | Une image-clé pèse six fois une image ordinaire ; une par seconde pour personne, c'est une bosse par seconde sur le réseau. Le serveur en accorde au plus deux par seconde, quoi qu'on lui demande |
+| **D12** | Le plan de contrôle ne touche jamais une image | Le worker sait qui tient une manette, le service Python sait comment il s'appelle. Arrêter le second n'interrompt pas une partie |
+| **D13** | La page est un artefact committé, et marqué | `cargo build` n'a jamais besoin de node ; une marque sur les sources ET sur la page produite attrape celle qu'on a oublié de reconstruire |
 
 ---
 
-## 9. Où on en est
+## 10. Où on en est
 
 **On y joue.** Depuis un navigateur, sur le réseau privé, avec le son, une
 manette configurée et jusqu'à quatre joueurs. Ce qui suit est mesuré sur la
@@ -3101,6 +3532,23 @@ carte, elle, ne se divise pas aussi bien.
 - un banc d'essai reproductible, avec son plancher de bruit mesuré ;
 - sept essais de navigateur et vingt-cinq tests de transport.
 
+### Ce que M4 a ajouté
+
+- un plan de contrôle en FastAPI, qui sait le nom du salon et celui des joueurs,
+  et qu'on peut arrêter sans interrompre une partie ;
+- un salon en socket.io : qui arrive, qui part, qui prend quelle place ;
+- une page React, TypeScript et Tailwind, dont la boucle média reste hors de
+  React et peint toujours toutes les images qui arrivent ;
+- un client TypeScript engendré depuis le document OpenAPI de FastAPI ;
+- un prénom, gardé dans le navigateur, et **rien d'autre en fait
+  d'identification** ;
+- un écran de salle avant d'entrer : le jeu en cours, qui est déjà là, ce qui
+  reste de libre, et rien qui démarre avant le clic ;
+- deux portes de plus dans `just check` : les types, les lints et les tests de la
+  page avec la marque qui dit qu'elle a bien été reconstruite, et la fraîcheur du
+  document OpenAPI et du client engendré ;
+- une CI qui fait vraiment ce qu'elle annonce, c'est-à-dire `just check`.
+
 ### Ce qui n'est pas fait, et qu'il faut dire
 
 **Rien n'authentifie personne.** Quiconque atteint le réseau privé peut regarder,
@@ -3108,9 +3556,11 @@ carte, elle, ne se divise pas aussi bien.
 système. Le pare-feu refuse les entrées par défaut, donc l'exposition s'arrête au
 tailnet — mais un lien envoyé à un ami suffit à le franchir.
 
-**Il n'y a pas de salon.** Une salle, c'est un worker lancé à la main par
-systemd. Créer une partie, inviter quelqu'un, savoir ce qui tourne : rien de tout
-ça n'existe.
+**Il y a un salon, mais pas de salons.** Le plan de contrôle décrit **la**
+salle : celle que ce worker fait tourner. Créer une partie, en avoir deux, inviter
+quelqu'un : rien de tout ça n'existe encore. Le contrôleur garde son état en
+mémoire, ce qui est le bon choix tant qu'il y a une machine, un GPU et un
+émulateur, et ce qui change le jour où il y en a deux.
 
 **Une seule partie à la fois.** Le code ne l'interdit pas — chaque worker a son
 port et son dossier — mais rien n'orchestre plusieurs salles.
@@ -3122,12 +3572,17 @@ surveiller plutôt qu'à supposer.
 
 ### La suite
 
-M4 : les comptes, les salles, les invitations — et le jeton signé qui les relie
-au worker, qui est aussi ce qui ferme le trou d'authentification.
+Les comptes et le jeton signé qui les relie au worker, c'est-à-dire ce qui ferme
+le trou d'authentification. Puis plusieurs salles, ce qui demandera de sortir
+l'état du salon de la mémoire d'un processus.
+
+Les deux dettes de mesure sont payées : le banc a tourné sur la nouvelle page et
+ne trouve aucun écart (7.4), et les dix-neuf essais de navigateur sont passés,
+dont trois qui ont d'abord trouvé de vraies régressions (7.11).
 
 ---
 
-## 10. Glossaire complet
+## 11. Glossaire complet
 
 **ABI** — *Application Binary Interface*. La disposition exacte des données en
 mémoire. Un désaccord d'ABI ne produit pas d'erreur, seulement des valeurs
@@ -3225,6 +3680,12 @@ référence servant à compresser les suivantes.
 **Exp-Golomb** — un codage de nombres à longueur variable utilisé par H.264 : les
 petites valeurs prennent peu de bits.
 
+**Filtre de paquets (tailnet)** — la liste, calculée par Tailscale à partir de
+la politique d'accès, de qui a le droit de parler à cette machine et sur quel
+port. Elle est appliquée par `tailscaled` sur la machine elle-même, et se lit
+avec `tailscale debug netmap`. Un paquet non autorisé est **jeté sans réponse**,
+ce qui se voit comme une page qui charge sans fin plutôt que comme un refus.
+
 **FastAPI** — un cadre logiciel Python pour écrire des serveurs web. Prévu pour
 M4, hors du chemin critique.
 
@@ -3280,6 +3741,11 @@ débit de 16 Mbit/s fait 2 Mio/s.
 une image de Dolphin. M2 : l'encoder sur le GPU. M3 : la jouer dans un
 navigateur, avec le son et à plusieurs.
 
+**Minificateur** — l'outil qui réduit un programme JavaScript en renommant les
+variables et en supprimant les espaces. Ses noms courts ne sont pas garantis
+identiques d'une exécution à l'autre, ce qui interdit de comparer deux
+constructions octet par octet (7.5).
+
 **Miri** — un interpréteur Rust qui détecte les comportements indéfinis. Il **ne
 peut pas** exécuter de fonction C, donc il ne validera jamais un appel libva — il
 sert sur l'arithmétique de pointeurs *autour* des appels, là où une erreur serait
@@ -3327,6 +3793,13 @@ seconde.
 
 **Pipe nommé** — un fichier spécial servant de canal entre deux processus.
 
+**Plan de contrôle / plan de données** — deux moitiés d'un système en réseau. Le
+*plan de données* transporte la marchandise : ici l'image, le son et les
+manettes, dans le worker en Rust. Le *plan de contrôle* décide et décrit : qui
+est là, quel jeu tourne, comment s'appellent les joueurs. Les séparer permet
+d'arrêter le second sans interrompre le premier, ce qui est vérifié ici plutôt
+qu'espéré (D12).
+
 **Plan (*plane*)** — une des composantes séparées d'une image. NV12 en a deux :
 luminance, et couleur entrelacée.
 
@@ -3337,6 +3810,11 @@ déclarer avant de mesurer évite de fêter des victoires imaginaires.
 **Port** — deux sens dans ce carnet. Un *port de manette* est une des quatre
 prises de la GameCube, donc un joueur. Un *port réseau* est le numéro sur
 lequel un serveur écoute, 8100 pour un worker.
+
+**Pydantic** — la bibliothèque Python qui décrit une donnée par une classe et
+la valide à l'entrée. FastAPI s'en sert pour refuser une requête mal formée
+avant qu'aucun code à nous ne la voie, et pour écrire le document OpenAPI à
+partir de ces mêmes classes.
 
 **Proxy** — un serveur qui reçoit une connexion et la retransmet à un autre. Le
 nôtre, fourni par Tailscale, ajoute le chiffrement TLS devant un worker qui
@@ -3367,9 +3845,10 @@ améliore » un bogue.
 **ROM** — le fichier contenant un jeu. On teste avec deux titres, dont les
 charges GPU sont volontairement différentes.
 
-**Salon (*lobby*)** — la partie qui n'existe pas encore : créer une salle,
-inviter, voir ce qui tourne. Aujourd'hui une salle est un worker lancé à la
-main.
+**Salon (*lobby*)** — la partie qui dit qui est là et qui tient quelle manette,
+et qui prévient tout le monde quand ça change. Elle existe depuis M4, pour **la**
+salle : créer une partie, en avoir deux, inviter quelqu'un, non. Une salle reste
+un worker lancé par systemd.
 
 **Segfault** — plantage dû à un accès mémoire invalide.
 
@@ -3382,8 +3861,17 @@ Rust et libavcodec.
 **SIGBUS** — signal d'erreur d'accès mémoire. Dans notre cas, symptôme d'une
 mémoire partagée trop petite.
 
+**Single-file (page en un fichier)** — une construction qui replie le script et
+les styles à l'intérieur du HTML, au lieu de les servir à côté. Le worker n'a
+donc qu'un fichier à porter dans son binaire, et le navigateur qu'une requête à
+faire.
+
 **Socket** — le bout de connexion réseau vu par un programme. On y lit et on y
 écrit comme dans un fichier.
+
+**socket.io** — une bibliothèque au-dessus des WebSockets qui ajoute ce qu'on
+réécrit sinon à chaque fois : reconnexion automatique, salles, diffusion à tout
+le monde d'un coup. Utilisée ici pour le salon, jamais pour l'image.
 
 **SPS / PPS** — *Sequence / Picture Parameter Set*. Les en-têtes H.264 qui
 décrivent la taille, le format et les options du flux. Un décodeur en a besoin

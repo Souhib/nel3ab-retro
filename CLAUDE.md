@@ -116,7 +116,24 @@ so `cargo test --workspace` started running GPU tests on a runner that has none.
 The way to close the gap properly is a self-hosted runner on lgf. Worth doing
 when more than one person commits.
 
-### 8. The logbook is part of the work, not a write-up afterwards
+### 8. The page is a committed artefact, and it can go stale
+
+`crates/worker/src/page/index.html` is built from `front/` and compiled into the
+binary. Change anything under `front/src` and you must run `just front-build`
+and commit the result, or the worker ships yesterday's page.
+
+`just check` catches it through a stamp over the build inputs plus the hash of
+the page that build produced (`front/stamp.mjs`, ADR D13). Do not replace that
+with a rebuild-and-diff: the minifier renames locals differently between runs of
+identical sources, so it goes red for no reason, and a check that is red for no
+reason is a check people learn to skip.
+
+The other half of the rule: **React must never end up on the frame path.** The
+media loop lives in `front/src/media/` as plain modules that own the canvas and
+paint on `requestAnimationFrame`. React reads a snapshot twice a second. A
+component that wants to read the picture is a component to rewrite as a module.
+
+### 9. The logbook is part of the work, not a write-up afterwards
 
 [`docs/carnet-de-bord.md`](docs/carnet-de-bord.md) is written **for a human who
 is not in the terminal**. It explains, in French, how the project was built:
@@ -151,8 +168,10 @@ Two things it must keep doing:
 | | |
 |---|---|
 | **`just`** | **the gate before a commit: `check` + `gpu-test`** |
-| `just check` | fmt + clippy + tests — exactly what CI runs |
+| `just check` | Rust + Python + page: fmt, lints, tests, page stamp — exactly what CI runs |
 | `just gpu-test` | the tests only this machine can run (no GPU on CI) |
+| `just front-build` | rebuilds the page into the worker's source tree, and stamps it |
+| `just browser-watch` | what the page renders over a minute, without restarting anything |
 | `just end-to-end` | the whole chain against a real Dolphin and ROM |
 | `just fix` | auto-format, auto-fix lints |
 | `just audit` | advisories + licences (blocking) |

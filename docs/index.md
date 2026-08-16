@@ -19,10 +19,10 @@ Trois chapitres se lisent seuls si le reste est trop long :
 
 - **[Ce qu'on construit](carnet-de-bord.md#1-ce-quon-construit)** — le projet en
   une page et un schéma.
-- **[Les pièges qui ont coûté du temps](carnet-de-bord.md#7-les-pieges-qui-ont-coute-du-temps-et-ce-quils-ont-appris)**
+- **[Les pièges qui ont coûté du temps](carnet-de-bord.md#8-les-pieges-qui-ont-coute-du-temps-et-ce-quils-ont-appris)**
   — les erreurs, ce qu'elles ont appris, et notamment la série de tests qui
   passaient tout en étant cassés.
-- **[Où on en est](carnet-de-bord.md#9-ou-on-en-est)** — les mesures du jour, avec
+- **[Où on en est](carnet-de-bord.md#10-ou-on-en-est)** — les mesures du jour, avec
   leurs conditions, et ce qui n'est pas fait.
 
 ## Les autres documents

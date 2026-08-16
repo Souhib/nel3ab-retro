@@ -135,6 +135,12 @@ export type Room = {
      */
     people?: Array<Person>;
     /**
+     * Ask Lasts
+     *
+     * Combien de secondes une demande de manette attend une réponse. Publié pour que le compte à rebours de la page soit le vrai, et non un nombre recopié qui finirait par ne plus correspondre.
+     */
+    ask_lasts?: number;
+    /**
      * Media Url
      *
      * Where the browser opens its own video, sound and pad sockets. Empty means the page's own origin.

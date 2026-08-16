@@ -20,7 +20,19 @@
  * la règle non plus. Le dégradé et l'onde viennent quand même de la couleur du
  * thème, pour que les sept ambiances restent vraies.
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
+import type { MenuAction } from "../media/menupad";
+import { useShell } from "./shell";
+
+/** Les touches qui conduisent un menu, et rien d'autre. */
+const KEYS: Record<string, MenuAction> = {
+  ArrowLeft: "left",
+  ArrowRight: "right",
+  ArrowUp: "up",
+  ArrowDown: "down",
+  Enter: "confirm",
+  Escape: "back",
+};
 import { cn } from "../lib/cn";
 
 /** Une entrée dans la colonne d'un rayon. */
@@ -59,67 +71,49 @@ export function Xmb({
   categories,
   onClose,
   footer,
+  onPad,
+  paused,
 }: {
   categories: XmbCategory[];
   onClose: () => void;
   footer?: React.ReactNode;
+  /** Donne au menu de quoi recevoir la manette, et la lui rend en partant. */
+  onPad?: (handler: ((action: MenuAction) => void) | null) => void;
+  /** Vrai quand un écran est ouvert PAR-DESSUS le menu, comme celui des touches.
+   * Le menu reste affiché derrière, mais il ne doit plus rien recevoir: sinon
+   * réassigner une flèche ferait aussi défiler la liste dessous. */
+  paused?: boolean;
 }) {
-  const [ray, setRay] = useState(0);
-  /** Une position retenue par rayon: revenir sur « jeux » doit retrouver le jeu
-   * qu'on regardait, comme sur la console. */
-  const [rows, setRows] = useState<number[]>(() => categories.map(() => 0));
-  const moved = useRef(0);
+  const shell = useShell(categories, 1, onClose, paused);
+  const { items, ray, row } = shell;
+  const list = useRef<HTMLDivElement>(null);
 
-  const category = categories[Math.min(ray, categories.length - 1)];
-  const items = category?.items ?? [];
-  const row = Math.min(rows[ray] ?? 0, Math.max(0, items.length - 1));
-
-  const go = (by: number) => {
-    const next = Math.min(categories.length - 1, Math.max(0, ray + by));
-    setRay(next);
-  };
-  const down = (by: number) => {
-    if (items.length === 0) return;
-    setRows((was) => {
-      const next = [...was];
-      next[ray] = Math.min(items.length - 1, Math.max(0, (was[ray] ?? 0) + by));
-      return next;
-    });
-  };
-  const enter = () => {
-    const item = items[row];
-    if (item && !item.disabled) item.onEnter?.();
-  };
-  const adjust = (by: 1 | -1) => {
-    const item = items[row];
-    if (item?.onAdjust && !item.disabled) {
-      item.onAdjust(by);
-      return true;
-    }
-    return false;
-  };
+  /* La manette conduit la même croix que le clavier, par le même chemin. Le
+     gestionnaire est reposé à chaque rendu parce qu'il ferme sur l'état courant;
+     c'est une affectation, pas un abonnement, donc ça ne coûte rien. */
+  useEffect(() => {
+    onPad?.(shell.act);
+    return () => onPad?.(null);
+  });
 
   useEffect(() => {
     const press = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
       if (target && ["INPUT", "TEXTAREA"].includes(target.tagName)) return;
-      const keys = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Enter", "Escape"];
-      if (!keys.includes(event.key)) return;
+      const action = KEYS[event.key];
+      if (action === undefined) return;
       event.preventDefault();
-      moved.current = Date.now();
-      if (event.key === "Escape") return onClose();
-      if (event.key === "Enter") return enter();
-      if (event.key === "ArrowUp") return down(-1);
-      if (event.key === "ArrowDown") return down(1);
-      // Sur une entrée qui porte une valeur, gauche et droite la règlent plutôt
-      // que de changer de rayon: c'est ce que fait un curseur de volume sur la
-      // console, et chercher le rayon suivant depuis un réglage est rare.
-      if (adjust(event.key === "ArrowRight" ? 1 : -1)) return;
-      go(event.key === "ArrowRight" ? 1 : -1);
+      shell.act(action);
     };
     addEventListener("keydown", press);
     return () => removeEventListener("keydown", press);
   });
+
+  useEffect(() => {
+    list.current?.querySelector<HTMLElement>('[data-cursor="true"]')?.scrollIntoView({
+      block: "nearest",
+    });
+  }, [row, ray]);
 
   return (
     <div id="menu" className="fixed inset-0 z-50 overflow-hidden bg-ink">
@@ -137,7 +131,7 @@ export function Xmb({
             type="button"
             id={`ray-${choice.id}`}
             data-selected={index === ray}
-            onClick={() => setRay(index)}
+            onClick={() => shell.goTo(index)}
             className={cn(
               "pointer-events-auto absolute flex w-[120px] flex-col items-center gap-1 border-0 bg-transparent transition-all duration-200",
               index === ray ? "text-text opacity-100" : "text-muted opacity-45",
@@ -176,14 +170,7 @@ export function Xmb({
               id={`item-${item.id}`}
               data-selected={here}
               disabled={item.disabled}
-              onClick={() => {
-                setRows((was) => {
-                  const next = [...was];
-                  next[ray] = index;
-                  return next;
-                });
-                if (here) enter();
-              }}
+              onClick={() => shell.choose(index)}
               className={cn(
                 "absolute flex w-full items-center gap-4 border-0 bg-transparent px-2 text-left transition-all duration-200",
                 here ? "opacity-100" : "opacity-40",
@@ -229,7 +216,7 @@ export function Xmb({
         <span className="flex gap-4">
           <span>← → rayon</span>
           <span>↑ ↓ entrée</span>
-          <span>Entrée choisit</span>
+          <span>A choisit</span>
           <button type="button" id="closeMenu" onClick={onClose} className="hover:text-indigo">
             Échap reprend la partie
           </button>

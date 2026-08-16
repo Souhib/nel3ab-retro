@@ -263,6 +263,12 @@
             "title": "People",
             "description": "Tout le monde dans la salle, spectateurs compris. Les places ne disent que ceux qui jouent, et une salle où quelqu'un regarde sans manette avait l'air vide."
           },
+          "ask_lasts": {
+            "type": "number",
+            "title": "Ask Lasts",
+            "description": "Combien de secondes une demande de manette attend une réponse. Publié pour que le compte à rebours de la page soit le vrai, et non un nombre recopié qui finirait par ne plus correspondre.",
+            "default": 10.0
+          },
           "media_url": {
             "type": "string",
             "title": "Media Url",

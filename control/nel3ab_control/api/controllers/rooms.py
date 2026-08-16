@@ -7,6 +7,8 @@ The two can disagree for a second after a reconnection, and the page believes th
 worker.
 """
 
+from time import monotonic
+
 import httpx
 
 from nel3ab_control.api.controllers.people import PeopleController
@@ -17,6 +19,13 @@ from nel3ab_control.settings import Settings
 
 #: What a GameCube has, and therefore the most a room can ever serve.
 PADS_MAX = 4
+
+#: Combien de temps une demande de manette attend une réponse, en secondes.
+#:
+#: Dix. Assez pour lever les yeux de la partie et décider, trop court pour qu'on
+#: ait oublié la question. La page compte à rebours, et ce nombre-ci est ce qui
+#: rend ce compte vrai plutôt que décoratif.
+ASK_LASTS = 10.0
 
 
 class RoomController:
@@ -46,13 +55,13 @@ class RoomController:
         #: La dernière place annoncée au worker, pour ne pas le rappeler pour
         #: rien. Publique parce que c'est le salon qui la tient à jour.
         self.told_owner = 0
-        #: Port -> la session qui demande à en prendre la manette.
+        #: Port -> (session qui demande, instant de la demande).
         #:
         #: Gardé ici plutôt que passé par les pages: sans ça, celui qui demande
         #: devrait envoyer l'identifiant de socket de celui à qui il demande, et
         #: une page apprendrait comment adresser une autre page. Le serveur sait
         #: déjà qui tient quoi; il n'a pas besoin qu'on le lui dise.
-        self._asks: dict[int, str] = {}
+        self._asks: dict[int, tuple[str, float]] = {}
 
     @property
     def settings(self) -> Settings:
@@ -147,13 +156,27 @@ class RoomController:
         """La session qui tient cette place."""
         return self._claims.get(port)
 
-    def asked(self, port: int, asker: str) -> None:
+    def asked(self, port: int, asker: str, now: float | None = None) -> None:
         """Retient qui demande cette place, en attendant la réponse."""
-        self._asks[port] = asker
+        self._asks[port] = (asker, monotonic() if now is None else now)
 
-    def take_ask(self, port: int) -> str | None:
-        """Rend qui demandait, et oublie la demande."""
-        return self._asks.pop(port, None)
+    def take_ask(self, port: int, now: float | None = None) -> str | None:
+        """Rend qui demandait, et oublie la demande. Rien si elle a expiré.
+
+        Une demande sans réponse s'éteint au bout de `ASK_LASTS`. Sans ça, un
+        « oui » tapé cinq minutes plus tard téléporterait une manette au milieu
+        d'une partie, et celui qui avait demandé aurait oublié depuis longtemps
+        qu'il avait demandé.
+
+        Le temps est **monotone** et pas l'heure: régler l'horloge de la machine
+        ne doit pas faire expirer ou ressusciter une demande.
+        """
+        found = self._asks.pop(port, None)
+        if found is None:
+            return None
+        asker, when = found
+        elapsed = (monotonic() if now is None else now) - when
+        return None if elapsed > ASK_LASTS else asker
 
     def free(self, port: int) -> None:
         """Libère une place, parce que celui qui la tenait la cède."""
@@ -194,5 +217,6 @@ class RoomController:
                 Person(name=name, login=login, seat=held.get(login or name))
                 for login, name in present
             ],
+            ask_lasts=ASK_LASTS,
             media_url=self._settings.worker_public_url,
         )

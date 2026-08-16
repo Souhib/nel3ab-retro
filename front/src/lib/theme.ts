@@ -54,3 +54,61 @@ export function rememberTheme(theme: Theme): void {
 
 export const themeLabel = (theme: Theme): string =>
   THEMES.find((found) => found.id === theme)?.label ?? theme;
+
+/** Ce que la colonne montre: la salle, ou les mesures. */
+export type Mode = "normal" | "details";
+
+const MODE = "nel3ab:mode";
+
+export function storedMode(): Mode {
+  try {
+    return localStorage.getItem(MODE) === "details" ? "details" : "normal";
+  } catch {
+    return "normal";
+  }
+}
+
+export function rememberMode(mode: Mode): void {
+  try {
+    localStorage.setItem(MODE, mode);
+  } catch {
+    /* navigation privée */
+  }
+}
+
+/**
+ * La forme du menu: trois consoles, trois façons de se conduire.
+ *
+ * Ce n'est pas un thème: un thème change des couleurs, ceci change la
+ * disposition et la façon de naviguer. Les deux se choisissent séparément, donc
+ * un XMB en Game Boy est possible et c'est très bien.
+ */
+export const SHELLS = [
+  { id: "croix", label: "croix", note: "une rangée, une colonne, un croisement fixe" },
+  { id: "grille", label: "grille", note: "une page de tuiles, une barre en bas" },
+  { id: "rangée", label: "rangée", note: "une file de grandes tuiles, une par une" },
+] as const;
+
+export type Shell = (typeof SHELLS)[number]["id"];
+
+const SHELL = "nel3ab:shell";
+
+export function storedShell(): Shell {
+  try {
+    const found = localStorage.getItem(SHELL);
+    return SHELLS.some((choice) => choice.id === found) ? (found as Shell) : "croix";
+  } catch {
+    return "croix";
+  }
+}
+
+export function rememberShell(shell: Shell): void {
+  try {
+    localStorage.setItem(SHELL, shell);
+  } catch {
+    /* navigation privée */
+  }
+}
+
+export const shellLabel = (shell: Shell): string =>
+  SHELLS.find((found) => found.id === shell)?.label ?? shell;

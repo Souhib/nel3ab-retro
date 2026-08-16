@@ -5,6 +5,7 @@
  * and it says so in one byte as soon as the socket opens. Zero means no seat.
  */
 import { Capture, Lesson, snapshot } from "./lesson";
+import { MenuPad, type MenuAction } from "./menupad";
 import {
   BUTTON,
   DEFAULT_KEYS,
@@ -115,6 +116,14 @@ export class InputStream {
    * redevient libre, et la reconnexion polie est faite pour prendre ce qui est
    * libre. Il faut donc un silence volontaire. */
   private silentUntil = 0;
+  /** Quand un menu est ouvert, la manette le conduit LUI et pas le jeu.
+   *
+   * C'est ce que fait une console: on appuie sur un bouton, le jeu continue de
+   * tourner, et le pouce parle au menu. Tant que ce gestionnaire est posé, la
+   * page envoie un état neutre au jeu, sinon celui qui navigue ferait sauter son
+   * personnage à chaque fois qu'il descend d'une ligne. */
+  private menu: ((action: MenuAction) => void) | null = null;
+  private readonly menuPad = new MenuPad();
   private players = 4;
   private busy: boolean[] = [false, false, false, false];
   private sent = 0;
@@ -261,6 +270,11 @@ export class InputStream {
     this.socket?.close();
     this.socket = null;
     this.retry = window.setTimeout(() => this.connect(), silenceMs);
+  }
+
+  /** Donne, ou reprend, la manette au menu. */
+  setMenu(handler: ((action: MenuAction) => void) | null): void {
+    this.menu = handler;
   }
 
   cancelCapture(): void {
@@ -452,6 +466,16 @@ export class InputStream {
       return;
     }
 
+    // Un menu ouvert prend la main. Le clavier ET la manette, parce que les deux
+    // conduisent la même croix.
+    if (this.menu !== null) {
+      const reading = pad ? readPad(pad, this.profile) : readKeys(this.held, this.keys);
+      const action = this.menuPad.feed(reading, performance.now());
+      if (action !== null) this.menu(action);
+      this.sendNeutral();
+      return;
+    }
+
     if (this.socket === null || this.socket.readyState !== WebSocket.OPEN || this.port === null) {
       return;
     }
@@ -531,12 +555,18 @@ export class InputStream {
     }
   }
 
-  /** Un état où rien n'est appuyé, pour que l'émulateur ne garde pas le dernier. */
+  /** Un état où rien n'est appuyé, pour que l'émulateur ne garde pas le dernier.
+   *
+   * Compté comme les autres: `sent` veut dire « trames posées sur le fil », et
+   * une trame neutre en est une. La distinguer donnerait un compteur qui tombe à
+   * zéro dès qu'un menu est ouvert, et un banc d'essai qui vérifie « cette page
+   * pilote-t-elle vraiment » y verrait une page muette. */
   private sendNeutral(): void {
     if (this.socket?.readyState !== WebSocket.OPEN || this.port === null) return;
     const neutral: PadReading = { buttons: 0, x: 0, y: 0, cx: 0, cy: 0, l: 0, r: 0 };
     this.lastReading = neutral;
     this.socket.send(encodePad(this.port, neutral));
+    this.sent += 1;
   }
 
   private keepProfile(id: string, profile: PadProfile): void {

@@ -6,9 +6,14 @@
  * quelqu'un reconnaît en regardant l'avant d'une GameCube.
  *
  * Trois états, à distinguer d'un coup d'oeil depuis l'autre bout d'une pièce:
- * LIBRE montre ses broches dans un trou noir, OCCUPÉE est bouchée par une fiche
- * grise qui les cache, et TIENNE est la même fiche dans la couleur du joueur,
- * avec le contour allumé de la même.
+ * LIBRE montre ses broches dans un trou noir, et TOUTE prise occupée est bouchée
+ * par une fiche **de la couleur de son joueur**. Le port 2 est bleu qu'il soit à
+ * moi ou à quelqu'un d'autre, parce que c'est la couleur du port et pas celle du
+ * propriétaire: sur un écran de Melee, le joueur 2 est bleu pour tout le monde.
+ *
+ * Ce qui distingue la mienne est le mot dessous, « TOI », et rien de plus. Le
+ * contour allumé qu'il y avait avant disait la même chose une deuxième fois, en
+ * grisant les autres, ce qui les rendait toutes identiques.
  *
  * Les quatre couleurs sont FIXES et ne suivent pas le thème. Rien dans le
  * matériel n'est coloré, les prises sont toutes du même plastique noir; mais
@@ -23,8 +28,10 @@ export type SocketState = "free" | "busy" | "mine" | "arming";
 export function Socket({ port, state }: { port: number; state: SocketState }) {
   const armed = state === "arming";
   const colour = armed ? ARMING_COLOUR : (PLAYER_COLOURS[port - 1] ?? PLAYER_COLOURS[0]);
-  const lit = state === "mine" || armed;
-  const plugged = lit || state === "busy";
+  const plugged = state !== "free";
+  /** Seul l'armement change le boîtier: c'est le seul état qui annonce que le
+   * prochain clic va faire quelque chose à quelqu'un. */
+  const warn = armed;
 
   return (
     <svg viewBox="0 0 72 84" className="block w-full" aria-hidden="true">
@@ -34,9 +41,9 @@ export function Socket({ port, state }: { port: number; state: SocketState }) {
         width="68"
         height="60"
         rx="10"
-        fill={lit ? "#33333f" : "#2a2a33"}
-        stroke={lit ? colour : "#43434f"}
-        strokeWidth={lit ? 3 : 1.5}
+        fill={warn ? "#33333f" : "#2a2a33"}
+        stroke={warn ? colour : "#43434f"}
+        strokeWidth={warn ? 3 : 1.5}
       />
       <path
         d="M 12 48 L 12 34 A 24 24 0 0 1 60 34 L 60 48 Z"
@@ -46,7 +53,7 @@ export function Socket({ port, state }: { port: number; state: SocketState }) {
       />
       {plugged ? (
         <>
-          <path d="M 16 48 L 16 35 A 20 20 0 0 1 56 35 L 56 48 Z" fill={lit ? colour : "#8e8e9c"} />
+          <path d="M 16 48 L 16 35 A 20 20 0 0 1 56 35 L 56 48 Z" fill={colour} />
           <rect x="24" y="40" width="24" height="3" rx="1.5" fill="#07070b" opacity="0.45" />
         </>
       ) : (
@@ -60,7 +67,7 @@ export function Socket({ port, state }: { port: number; state: SocketState }) {
         x="36"
         y="78"
         textAnchor="middle"
-        fill={lit ? colour : "#8a8a98"}
+        fill={plugged ? colour : "#8a8a98"}
         style={{ font: "600 11px ui-monospace, monospace" }}
       >
         {armed ? "PRENDRE ?" : state === "mine" ? "TOI" : port}

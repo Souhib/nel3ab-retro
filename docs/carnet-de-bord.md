@@ -4009,6 +4009,85 @@ sur cette machine suffisent à les faire expirer. Cliquer depuis la page
 
 C'est la troisième fois que l'outil de mesure est le problème, et la troisième
 fois que le symptôme accusait le sujet.
+### 7.25 Trois consoles, une manette qui conduit, et dix secondes pour répondre
+
+#### Le menu devient un choix, pas une forme imposée
+
+Trois façons de se conduire, à choisir dans le menu lui-même. La **croix** du
+XMB, une rangée et une colonne qui se croisent en un point fixe. La **grille**,
+une page de tuiles carrées et une barre de rayons en bas. La **rangée**, une file
+de grandes tuiles dont celle qu'on pointe grandit et sort du rang.
+
+Ce sont trois dessins, mais **une seule mécanique**: un rayon, une entrée dedans,
+six ordres possibles. Écrite une fois (`shell.ts`), sinon la croix et la grille
+auraient fini par ne plus être d'accord sur ce que « bas » veut dire. Ce qui
+reste propre à chaque forme est la géométrie, et ça tient dans un nombre: combien
+d'entrées par ligne. Dans une colonne, bas avance d'une entrée; dans une grille,
+d'une ligne entière.
+
+La forme du menu est un réglage **séparé du thème**: l'un change des couleurs,
+l'autre change la façon de se déplacer. Un XMB en Game Boy est donc possible, et
+c'est très bien.
+
+#### La manette conduit le menu
+
+C'est ce que fait une console: on appuie sur un bouton, le jeu continue de
+tourner, et le pouce parle au menu. Tant qu'un menu est ouvert, la page envoie un
+état **neutre** au jeu, sinon celui qui navigue ferait sauter son personnage à
+chaque ligne descendue.
+
+La partie qui demandait de la réflexion est la cadence. La boucle lit la manette
+toutes les quatre millisecondes: sans mémoire, une seule poussée traverserait la
+liste entière. La cadence est donc celle d'une console — le premier cran part
+tout de suite, puis un temps de garde de 400 ms, puis une répétition toutes les
+110 ms tant que la direction est tenue.
+
+Ça vit dans un module pur qui reçoit l'instant plutôt que de lire une horloge, ce
+qui rend les trois temps vérifiables sans attendre une seconde par assertion.
+Huit tests, dont le jumeau négatif qui compte: un stick qui traîne à 0,3 n'est
+pas un ordre, sinon une manette usée ferait défiler la liste toute seule.
+
+#### Dix secondes pour répondre, et le service les compte aussi
+
+Une demande de manette sans réponse s'éteint au bout de dix secondes. Le compte à
+rebours est affiché, mais surtout **le service applique la même limite**: sans
+ça, un « oui » tapé cinq minutes plus tard téléporterait une manette au milieu
+d'une partie, et celui qui avait demandé aurait oublié la question depuis
+longtemps.
+
+Le délai est publié dans le contrat OpenAPI plutôt que recopié dans la page.
+Deux nombres à garder d'accord finissent toujours par ne plus l'être, et ce
+carnet en a déjà deux exemples.
+
+Le temps compté est **monotone** et pas l'heure: régler l'horloge de la machine
+ne doit pas faire expirer ou ressusciter une demande.
+
+#### Les prises reprennent leurs couleurs
+
+Une prise occupée est bouchée par une fiche **de la couleur de son port**, à moi
+ou pas. Le port 2 est bleu pour tout le monde, parce que c'est la couleur du
+port et pas celle du propriétaire: sur un écran de Melee, le joueur 2 est bleu
+pour les quatre personnes du canapé.
+
+Ce qui distingue la mienne est le mot dessous, « TOI ». Le contour allumé qu'il y
+avait avant disait la même chose une deuxième fois, et en grisant les trois
+autres il les rendait toutes identiques.
+
+#### La colonne se partage en deux, et les réglages s'en vont
+
+**Salle**: qui joue, avec la pastille de sa couleur, qui regarde, et le son.
+**Détails**: les mesures. Elles ont expliqué quatre blocages différents et
+restent à un clic, mais les avoir en permanence sous les yeux faisait une colonne
+que personne ne lit.
+
+Les réglages, le thème et les touches ont quitté la colonne pour le menu. Une
+colonne qui porte à la fois l'état de la salle et sept boutons de réglage ne
+porte bien ni l'un ni l'autre.
+
+Et l'écran des touches s'ouvre **par-dessus le menu** au lieu de le fermer: on ne
+renvoie plus personne dans la partie pour changer une touche. Le menu reste
+affiché derrière et cesse d'écouter, sinon réassigner une flèche ferait aussi
+défiler la liste dessous.
 ---
 
 ## 8. Les pièges qui ont coûté du temps, et ce qu'ils ont appris

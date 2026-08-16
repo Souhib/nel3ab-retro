@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+
 /**
  * « Tu me la passes ? »
  *
@@ -10,12 +12,35 @@
 export function Asked({
   from,
   port,
+  lasts,
   onAnswer,
+  onExpire,
 }: {
   from: string;
   port: number;
+  /** Combien de secondes pour répondre. Vient du service, qui applique la même
+   * limite: un compte à rebours que le serveur ne connaîtrait pas serait une
+   * décoration, et un « oui » tapé après lui téléporterait une manette. */
+  lasts: number;
   onAnswer: (ok: boolean) => void;
+  onExpire: () => void;
 }) {
+  const [left, setLeft] = useState(Math.ceil(lasts));
+
+  useEffect(() => {
+    const tick = window.setInterval(() => {
+      setLeft((was) => {
+        if (was <= 1) {
+          window.clearInterval(tick);
+          onExpire();
+          return 0;
+        }
+        return was - 1;
+      });
+    }, 1000);
+    return () => window.clearInterval(tick);
+  }, [onExpire]);
+
   return (
     <div
       id="asked"
@@ -23,6 +48,12 @@ export function Asked({
     >
       <span className="text-[14px]">
         <strong className="text-indigo">{from}</strong> demande ta manette {port}
+      </span>
+      <span
+        className="font-mono text-[13px] tabular-nums text-faint"
+        title="sans réponse, il ne se passe rien"
+      >
+        {left} s
       </span>
       <span className="flex gap-2">
         <button

@@ -35,17 +35,32 @@ const say = (ok, line) => {
   if (!ok) bad += 1;
   console.log(`  ${ok ? "ok    " : "FAUX  "} ${line}`);
 };
+/** Ouvre l'écran des touches PAR LE MENU, qui est le seul chemin depuis que les
+ * réglages ont quitté la colonne. L'écran s'ouvre par-dessus le menu: on ne
+ * renvoie plus personne dans la partie pour changer une touche. */
+const openBindings = async () => {
+  await press(page, "#openMenu");
+  await wait(700);
+  await press(page, "#ray-reglages");
+  await wait(500);
+  await press(page, "#item-bindings");
+  await wait(600);
+};
+
 const text = (id) => page.evaluate((i) => document.getElementById(i)?.textContent ?? null, id);
+/** Cliquer depuis la page: deux allers-retours de moins qu'avec la souris de
+ * puppeteer, sur une page qui décode soixante images par seconde. */
+const press = (target, css) => target.evaluate((s) => document.querySelector(s)?.click(), css);
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
-await page.click("#bindings");
+await openBindings();
 await wait(400);
 
 say((await text("pad-A")) === "✕ (bas)", `A se lit « ${await text("pad-A")} » sur une DualSense`);
 say((await text("pad-L")) === "L1 ou L2", `L se lit « ${await text("pad-L")} »`);
 say((await text("key-A")) === "X", `A au clavier se lit « ${await text("key-A")} »`);
 
-await page.click("#pad-A");
+await press(page, "#pad-A");
 await wait(300);
 say((await text("pad-A")) === "appuie sur la manette", "la case attend un appui");
 
@@ -63,7 +78,7 @@ say((await text("pad-A")) === "▢ (gauche)", `A est passé sur « ${await text(
 const during = (await page.evaluate(() => globalThis.nel3abTest.counters().attempts)) - before;
 say(during > 0, `la page a continué d'envoyer pendant la capture (${during} trames, en neutre)`);
 
-await page.click("#key-B");
+await press(page, "#key-B");
 await wait(300);
 await page.keyboard.press("KeyM");
 await wait(400);
@@ -73,7 +88,7 @@ say((await text("key-B")) === "M", `B au clavier est passé sur « ${await text(
 await page.reload({ waitUntil: "domcontentloaded" });
 await enterRoom(page);
 await wait(2500);
-await page.click("#bindings");
+await openBindings();
 await wait(400);
 say((await text("pad-A")) === "▢ (gauche)", "la manette réassignée survit au rechargement");
 say((await text("key-B")) === "M", "le clavier réassigné survit au rechargement");

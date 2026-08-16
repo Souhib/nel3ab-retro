@@ -173,3 +173,23 @@ async def test_a_worker_that_was_never_there_is_an_error(
     async with httpx.AsyncClient(transport=httpx.MockTransport(dead)) as http:
         with pytest.raises(WorkerUnreachable):
             await RoomController(settings, http).describe()
+
+
+def test_an_unanswered_request_expires(rooms: RoomController) -> None:
+    """Un « oui » tapé cinq minutes plus tard téléporterait une manette au
+    milieu d'une partie, et celui qui avait demandé aurait oublié la question."""
+    rooms.asked(2, "sid-vincent", now=100.0)
+
+    assert rooms.take_ask(2, now=109.0) == "sid-vincent"
+
+    rooms.asked(2, "sid-vincent", now=100.0)
+    assert rooms.take_ask(2, now=111.0) is None
+
+
+def test_an_expired_request_is_forgotten_not_kept(rooms: RoomController) -> None:
+    """Le jumeau négatif: une demande expirée ne doit pas rester à traîner et
+    répondre plus tard à la question suivante."""
+    rooms.asked(3, "sid-vincent", now=100.0)
+    assert rooms.take_ask(3, now=200.0) is None
+
+    assert rooms.take_ask(3, now=200.0) is None

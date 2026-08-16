@@ -46,6 +46,14 @@ class Room(BaseModel):
             "manette avait l'air vide."
         ),
     )
+    ask_lasts: float = Field(
+        default=10.0,
+        description=(
+            "Combien de secondes une demande de manette attend une réponse. "
+            "Publié pour que le compte à rebours de la page soit le vrai, et "
+            "non un nombre recopié qui finirait par ne plus correspondre."
+        ),
+    )
     media_url: str = Field(
         description=(
             "Where the browser opens its own video, sound and pad sockets. Empty "

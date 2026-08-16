@@ -92,7 +92,7 @@ export function Bindings({
       /* Un voile sombre dans les deux thèmes. En clair, `bg-ink/80` donnait du
          blanc sur du blanc: la page derrière restait lisible et le panneau ne se
          détachait plus de rien. Un voile est censé éteindre la pièce. */
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/55 p-4"
       onClick={(event) => {
         if (event.target === event.currentTarget && state.capturing === null) onClose();
       }}

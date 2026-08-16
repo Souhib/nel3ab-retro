@@ -8,21 +8,34 @@
  */
 import { useEffect, useRef, useState } from "react";
 import type { Room as RoomState } from "./client";
-import { Bindings, PadSummary } from "./components/Bindings";
-import { cn } from "./lib/cn";
+import { Bindings } from "./components/Bindings";
 import { Entrance } from "./components/Entrance";
 import { Lobby } from "./components/Lobby";
-import { Instruments } from "./components/Instruments";
 import { Booting, type Step } from "./components/Booting";
+import { Sidebar } from "./components/Sidebar";
 import { Asked as AskedBanner, Asking } from "./components/Swap";
+import { Channels } from "./components/Channels";
+import { Home } from "./components/Home";
 import { Xmb, type XmbCategory } from "./components/Xmb";
+import type { MenuAction } from "./media/menupad";
 import { DotIcon, GameIcon, MeasureIcon, RoomIcon, SettingsIcon } from "./components/XmbIcons";
 import { Panel } from "./components/Readout";
 import { Screen } from "./components/Screen";
 import { Seats } from "./components/Seats";
-import { Toggle, Volume } from "./components/Settings";
 import { forgetName, rememberedName } from "./lib/name";
-import { THEMES, applyTheme, rememberTheme, storedTheme, themeLabel } from "./lib/theme";
+import {
+  SHELLS,
+  THEMES,
+  applyTheme,
+  rememberMode,
+  rememberShell,
+  rememberTheme,
+  shellLabel,
+  storedMode,
+  storedShell,
+  storedTheme,
+  themeLabel,
+} from "./lib/theme";
 import { useBare } from "./lib/fullscreen";
 import { useMe, useRename } from "./lib/me";
 import { useLobby, useRoom, type Asked } from "./lib/room";
@@ -125,6 +138,15 @@ function Named({
       onAsk={(port) => {
         setAsking({ port, said: null });
         lobby.ask(port);
+        // Le service oublie la demande au bout du même délai, donc attendre plus
+        // longtemps que lui afficherait une attente qui ne mène nulle part.
+        window.setTimeout(
+          () =>
+            setAsking((was) =>
+              was?.port === port && was.said === null ? { port, said: "pas de réponse" } : was,
+            ),
+          (room?.ask_lasts ?? 10) * 1000,
+        );
       }}
       onAnswer={(ok) => {
         if (asked === null) return;
@@ -132,6 +154,9 @@ function Named({
         if (ok) yieldSeat.current?.();
         setAsked(null);
       }}
+      // Sans réponse, il ne se passe rien: la bannière s'en va et le service a
+      // déjà oublié la demande de son côté.
+      onExpire={() => setAsked(null)}
       onForgetAsk={() => setAsking(null)}
       bind={(take, give) => {
         takeSeat.current = take;
@@ -150,6 +175,7 @@ function Room({
   asking,
   onAsk,
   onAnswer,
+  onExpire,
   onForgetAsk,
   bind,
 }: {
@@ -161,6 +187,7 @@ function Room({
   asking: { port: number; said: string | null } | null;
   onAsk: (port: number) => void;
   onAnswer: (ok: boolean) => void;
+  onExpire: () => void;
   onForgetAsk: () => void;
   /** Rend à l'étage du dessus de quoi prendre et céder une place: la socket du
    * salon vit là-haut, la manette vit ici, et la négociation traverse les deux. */
@@ -173,6 +200,14 @@ function Room({
   const [bindings, setBindings] = useState(false);
   const [menu, setMenu] = useState(false);
   const [theme, setTheme] = useState(storedTheme);
+  /** Ce que la colonne montre. Retenu, parce que quelqu'un qui veut les mesures
+   * les veut encore au prochain chargement. */
+  const [mode, setMode] = useState(storedMode);
+  /** La forme du menu. Un réglage à part du thème: l'un change des couleurs,
+   * l'autre change la façon de se déplacer. */
+  const [shell, setShell] = useState(storedShell);
+  useEffect(() => rememberShell(shell), [shell]);
+  useEffect(() => rememberMode(mode), [mode]);
   /** Le jeu demandé et l'image peinte au moment où on l'a demandé.
    *
    * Deux choses parce que la fin du chargement se reconnaît à une IMAGE, pas à
@@ -218,86 +253,6 @@ function Room({
   const learning = shot?.input.learning ?? null;
   const people = room?.people ?? [];
 
-  /* Les mêmes réglages dans la colonne et dans le menu. Deux copies auraient
-     fini par diverger, et c'est le genre d'écart qu'on ne voit qu'en montrant
-     l'écran à quelqu'un. */
-
-  const settings = (
-    <>
-      {/* A browser refuses to make noise until somebody clicks something,
-              and it is right to: a room that starts shouting when a tab opens is
-              a room nobody opens twice. */}
-      {shot?.sound.state === "running" ? null : (
-        <button
-          type="button"
-          id="sound"
-          onClick={() => void session?.sound.start()}
-          className="mb-1 w-full border border-indigo/60 px-2 py-1.5 text-[12px] text-indigo hover:bg-indigo/10"
-        >
-          activer le son
-        </button>
-      )}
-      <Volume value={volume} onChange={setVolume} />
-      <Toggle
-        id="lipsync"
-        label="caler l'image sur le son"
-        hint="retarde l'image du retard mesuré du son, au lieu de la montrer en avance"
-        on={lipsync}
-        onChange={setLipsync}
-      />
-      <Toggle
-        id="deviceRate"
-        label="laisser la carte son choisir sa fréquence"
-        hint="évite un rééchantillonnage, mais la carte peut imposer un tampon plus long"
-        on={deviceRate}
-        onChange={setDeviceRate}
-      />
-      <div className="mt-1 flex gap-1">
-        <button
-          type="button"
-          id="bare"
-          onClick={() => setBare(true)}
-          className="flex-1 border border-rule px-2 py-1.5 text-[12px] text-muted transition-colors hover:border-indigo hover:text-indigo"
-        >
-          replier (F)
-        </button>
-        <button
-          type="button"
-          onClick={toggleFullscreen}
-          className="flex-1 border border-rule px-2 py-1.5 text-[12px] text-muted transition-colors hover:border-indigo hover:text-indigo"
-        >
-          {fullscreen ? "fenêtre" : "plein écran"}
-        </button>
-      </div>
-
-      <div className="mt-1 flex flex-col gap-1">
-        <span className="text-[11px] uppercase tracking-[0.14em] text-faint">thème</span>
-        <div className="grid grid-cols-2 gap-1">
-          {THEMES.map((choice) => (
-            <button
-              key={choice.id}
-              type="button"
-              id={`theme-${choice.id}`}
-              title={choice.note}
-              onClick={() => setTheme(choice.id)}
-              className={cn(
-                "border px-2 py-1 text-left text-[11px] transition-colors",
-                theme === choice.id
-                  ? "border-indigo text-indigo"
-                  : "border-rule text-muted hover:border-rule-bright",
-              )}
-            >
-              {choice.label}
-            </button>
-          ))}
-        </div>
-      </div>
-    </>
-  );
-  // Le propriétaire décide du jeu. Quand la salle n'en a pas — aucun proxy
-  // devant, donc personne d'identifié — elle retombe sur sa règle d'avant, où
-  // tenir une manette suffit: refuser tout laisserait une salle où plus
-  // personne ne peut rien.
   const boss = room?.owner ?? null;
   const mine = boss === null || (login !== null && boss.login === login);
   const whyNotChoose =
@@ -315,6 +270,7 @@ function Room({
       () => session?.input.yieldSeat(),
     );
   }, [bind, session]);
+
   // Occupancy from the worker, names from the control plane. Neither knows the
   // other's half, and neither is asked for it.
   const names = new Map(
@@ -420,14 +376,32 @@ function Room({
           },
         },
         {
+          id: "shell",
+          label: "menu",
+          value: shellLabel(shell),
+          hint: "la forme du menu: croix, grille ou rangée",
+          icon: <DotIcon className="h-full w-full" />,
+          onAdjust: (by) => {
+            const at = SHELLS.findIndex((choice) => choice.id === shell);
+            setShell(SHELLS[(at + by + SHELLS.length) % SHELLS.length].id);
+          },
+        },
+        {
           id: "bindings",
           label: "touches",
           hint: "l'antisèche, et de quoi les changer",
           icon: <DotIcon className="h-full w-full" />,
-          onEnter: () => {
-            setMenu(false);
-            setBindings(true);
-          },
+          // Le menu reste ouvert DERRIÈRE: renvoyer quelqu'un dans la partie
+          // pour changer une touche est exactement ce qu'on ne veut pas.
+          onEnter: () => setBindings(true),
+        },
+        {
+          id: "deviceRate",
+          label: "laisser la carte son choisir sa fréquence",
+          value: deviceRate ? "oui" : "non",
+          hint: "évite un rééchantillonnage, mais le tampon peut être plus long",
+          icon: <DotIcon className="h-full w-full" />,
+          onEnter: () => setDeviceRate(!deviceRate),
         },
         {
           id: "lipsync",
@@ -513,7 +487,13 @@ function Room({
           </div>
         ) : null}
         {asked ? (
-          <AskedBanner from={asked.from} port={asked.port} onAnswer={onAnswer} />
+          <AskedBanner
+            from={asked.from}
+            port={asked.port}
+            lasts={room?.ask_lasts ?? 10}
+            onAnswer={onAnswer}
+            onExpire={onExpire}
+          />
         ) : asking ? (
           <Asking port={asking.port} said={asking.said} onClose={onForgetAsk} />
         ) : null}
@@ -574,16 +554,19 @@ function Room({
             menu (Échap)
           </button>
 
-          <Panel title="réglages">{settings}</Panel>
-
-          <Panel title="manette">
-            {shot ? <PadSummary state={shot.input} onOpen={() => setBindings(true)} /> : null}
-          </Panel>
-
-          {/* Always rendered, never behind a fold. The numbers are how four
-            separate freezes were explained; a panel somebody has to remember to
-            open is a panel that is shut when it matters. */}
-          <div id="stats">{shot ? <Instruments shot={shot} /> : null}</div>
+          <Sidebar
+            mode={mode}
+            onMode={setMode}
+            people={people}
+            players={shot?.input.players ?? 4}
+            busy={shot?.input.busy ?? []}
+            names={names}
+            mine={port}
+            shot={shot}
+            volume={volume}
+            onVolume={setVolume}
+            onSound={() => void session?.sound.start()}
+          />
         </aside>
       )}
 
@@ -600,13 +583,24 @@ function Room({
         />
       ) : null}
 
-      {menu && shot ? (
-        <Xmb
-          categories={rays}
-          onClose={() => setMenu(false)}
-          footer={`${room?.name ?? "salon"} · ${people.length} présent${people.length > 1 ? "s" : ""}`}
-        />
-      ) : null}
+      {menu && shot
+        ? (() => {
+            const common = {
+              categories: rays,
+              onClose: () => setMenu(false),
+              onPad: (handler: ((action: MenuAction) => void) | null) =>
+                session?.input.setMenu(handler),
+              // Pendant que l'écran des touches est ouvert par-dessus, le menu
+              // reste affiché mais n'écoute plus: sinon réassigner une flèche
+              // ferait aussi défiler la liste dessous.
+              paused: bindings,
+              footer: `${room?.name ?? "salon"} · ${people.length} présent${people.length > 1 ? "s" : ""}`,
+            };
+            if (shell === "grille") return <Channels {...common} />;
+            if (shell === "rangée") return <Home {...common} who={name} />;
+            return <Xmb {...common} />;
+          })()
+        : null}
 
       {bindings && shot ? (
         <Bindings

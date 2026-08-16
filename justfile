@@ -122,6 +122,13 @@ browser-recovery:
 browser-owner:
     cd spikes/m3-browser-drive && node owner.mjs
 
+# La manette conduit-elle le menu, et rien ne descend-il au jeu pendant ?
+#
+# Manette simulée: ce qui est vérifié est le câblage entre la boucle d'entrée et
+# la croix, pas un pilote USB.
+browser-padmenu:
+    cd spikes/m3-browser-drive && node padmenu.mjs
+
 # Demander la manette de quelqu'un, et la lui voir céder ou refuser.
 #
 # Deux pages à travers le VRAI proxy: la négociation traverse le salon, qui ne

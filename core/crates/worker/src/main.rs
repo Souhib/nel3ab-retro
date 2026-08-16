@@ -76,6 +76,17 @@ struct Settings {
     /// Where this machine keeps its games.
     rom_dir: PathBuf,
     dolphin: PathBuf,
+    /// Où trouver `dolphin-tool`, qui sait ouvrir un disque compressé.
+    ///
+    /// Séparé de `dolphin` parce que ce n'est pas le même programme et qu'il ne
+    /// se lance pas pareil: l'émulateur monte un répertoire de session et une
+    /// carte graphique, l'outil ne veut qu'un fichier et un dossier de sortie.
+    dolphin_tool: PathBuf,
+    /// Où les jaquettes déjà lues sont gardées.
+    ///
+    /// Hors du répertoire de session, qui est effacé au redémarrage: ce cache
+    /// n'a d'intérêt que s'il survit, puisque changer de jeu redémarre le worker.
+    art_dir: PathBuf,
     session_dir: PathBuf,
     bind: SocketAddr,
     render_node: PathBuf,
@@ -111,6 +122,13 @@ impl Settings {
                 .unwrap_or_else(|| PathBuf::from(&home).join("roms/gc")),
             dolphin: env_path("NEL3AB_DOLPHIN")
                 .unwrap_or_else(|| repo.join("docker/dolphin-in-docker.sh")),
+            dolphin_tool: env_path("NEL3AB_DOLPHIN_TOOL")
+                .unwrap_or_else(|| repo.join("docker/dolphin-tool-in-docker.sh")),
+            art_dir: env_path("NEL3AB_ART_DIR").unwrap_or_else(|| {
+                env_path("XDG_CACHE_HOME")
+                    .unwrap_or_else(|| PathBuf::from(&home).join(".cache"))
+                    .join("nel3ab/banners")
+            }),
             session_dir: env_path("NEL3AB_SESSION_DIR")
                 .unwrap_or_else(|| PathBuf::from("/tmp/nel3ab-session")),
             // Loopback, not every interface, and this is a security decision
@@ -270,13 +288,28 @@ fn run(settings: &Settings) -> Result<()> {
     // d'avant — tenir une manette suffit — jusqu'à ce que le plan de contrôle
     // dise autre chose. Une salle qui refuserait tout en attendant serait une
     // salle bloquée par un service qui n'est peut-être même pas installé.
+    // Les jaquettes, avant d'ouvrir le serveur pour que la première page les ait.
+    //
+    // Synchrone, et c'est le cache qui l'autorise: lire les huit disques de lgf
+    // coûte 3,7 s la toute première fois et rien ensuite (2026-08-16). Le prix
+    // est payé une fois sur la machine, pas à chaque changement de jeu.
+    let art = nel3ab_emulator::banner::gather(&library, &settings.dolphin_tool, &settings.art_dir);
+    tracing::info!(
+        with = art.iter().filter(|found| found.is_some()).count(),
+        of = art.len(),
+        "les jeux qui ont une jaquette"
+    );
+
     let owner: OwnerSeat = Arc::new(Mutex::new(None));
     nel3ab_transport::control::serve(settings.control_bind, Arc::clone(&owner))?;
 
     let server = Arc::new(BrowserServer::start(
         settings.bind,
         PAGE,
-        catalogue_json(&library, current, settings.players.get()).into(),
+        catalogue_json(&library, &art, current, settings.players.get()).into(),
+        art.iter()
+            .map(|found| found.as_ref().map(|art| Arc::from(art.png.as_slice())))
+            .collect(),
         settings.players,
         &owner,
     )?);

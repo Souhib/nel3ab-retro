@@ -292,14 +292,28 @@ function Room({
       items: (room?.library ?? []).map((game) => ({
         id: `game${game.index}`,
         label: game.name,
-        value: game.index === room?.game?.index ? "en cours" : undefined,
+        // Une première pression ARME et ne lance rien: ce qu'elle confirme est
+        // la fin de la partie de tout le monde. Elle ne se voyait nulle part,
+        // donc elle ressemblait à un clic qui n'avait pas pris, ce qui pousse
+        // exactement au deuxième clic que la confirmation devait faire réfléchir.
+        value:
+          armedGame === game.index
+            ? "confirmer ?"
+            : game.index === room?.game?.index
+              ? "en cours"
+              : undefined,
         hint:
-          game.index === room?.game?.index
-            ? "c'est ce qui tourne"
-            : mine
-              ? "entrée deux fois: changer de jeu arrête la partie de tout le monde"
-              : (whyNotChoose ?? undefined),
+          armedGame === game.index
+            ? "encore une fois pour lancer, ailleurs pour annuler"
+            : game.index === room?.game?.index
+              ? "c'est ce qui tourne"
+              : mine
+                ? "entrée deux fois: changer de jeu arrête la partie de tout le monde"
+                : (whyNotChoose ?? undefined),
         icon: <DotIcon className="h-full w-full" />,
+        game: { index: game.index, art: game.art ?? false },
+        by: game.maker ?? undefined,
+        note: game.about ?? undefined,
         disabled: !mine || game.index === room?.game?.index,
         onEnter: () => {
           if (armedGame !== game.index) return setArmedGame(game.index);

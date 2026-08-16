@@ -19,6 +19,13 @@ nel3ab-protocol = { path = "../protocol" }
 # its socket code is not our problem.
 nix = { version = "0.30", default-features = false, features = ["fs", "signal"] }
 
+# Une jaquette de disque doit arriver au navigateur sous une forme qu'il sait
+# lire. Encoder un PNG à la main tiendrait en quatre-vingts lignes, mais une
+# erreur d'octet s'y voit dans un navigateur et pas dans un autre, et ce n'est
+# pas un endroit où gagner une dépendance vaut le risque. Licence MIT/Apache,
+# comme le reste de l'arbre.
+png = "0.18"
+
 [dev-dependencies]
 rstest.workspace = true
 tempfile = "3"

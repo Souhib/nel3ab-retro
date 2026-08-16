@@ -196,3 +196,71 @@ body {
 
 /* Les formulaires natifs suivent le thème: chaque palette déclare son
    `color-scheme`, sinon un `<input type="range">` reste sombre sur fond clair. */
+
+/*
+ * Les mouvements des menus.
+ *
+ * Le projet interdit les effets ailleurs, parce qu'ils tirent l'oeil hors de
+ * l'image du jeu. Un menu n'a pas d'image derrière lui, et surtout: le mouvement
+ * EST ce qui fait reconnaître un menu de console. Un XMB qui ne glisse pas n'est
+ * pas un XMB, une chaîne de Wii qui ne grossit pas n'est pas une chaîne.
+ *
+ * Deux règles pour que ça ne coûte rien: uniquement `transform` et `opacity`,
+ * que le compositeur traite sans repasser par la mise en page, et rien de tout
+ * ça n'existe pendant qu'on joue — le menu n'est monté que lorsqu'il est ouvert.
+ */
+@keyframes n3-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes n3-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.88);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/** Le liseré qui respire autour de la tuile choisie, sur l'écran d'accueil. */
+@keyframes n3-breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.95);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.35);
+  }
+}
+
+.n3-enter {
+  animation: n3-fade-up 260ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+.n3-pop {
+  animation: n3-pop 320ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+.n3-breathe {
+  animation: n3-breathe 2.4s ease-in-out infinite;
+}
+
+/* Quelqu'un qui a demandé moins d'animation en reçoit moins. Ce n'est pas une
+   préférence esthétique, c'est un réglage d'accessibilité que le système
+   transmet. */
+@media (prefers-reduced-motion: reduce) {
+  .n3-enter,
+  .n3-pop,
+  .n3-breathe {
+    animation: none;
+  }
+}

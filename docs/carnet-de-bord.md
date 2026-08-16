@@ -4140,6 +4140,189 @@ porte les couleurs de sa console — le blanc et le bleu de la Wii, le vert de l
 360, le gris et le rouge de la Switch. Un tableau de bord de Xbox en vert Game
 Boy ne serait plus un tableau de bord de Xbox. Le thème habille la salle; le menu
 est un costume, et les deux se choisissent séparément.
+
+### 7.27 Les trois menus étaient plats, et un mur de tuiles grises ne se lit pas
+
+« C'est pas représentatif, c'est très moche. Le menu PS3 est très bien mais tous
+les autres peuvent être tellement mieux. »
+
+Le constat était juste, et la cause tenait en une phrase: j'avais copié la
+**disposition** de chaque console et rien d'autre. Une console se reconnaît
+pourtant à trois choses, et la disposition est la moins visible des trois.
+
+#### Ce qui manquait
+
+**La matière.** Le tableau de bord de la 360 n'est pas vert plat: c'est un
+dégradé sombre avec un vernis en haut de chaque lame. Une chaîne de Wii n'est pas
+une case dans une grille: c'est un carré blanc posé sur une table claire, avec
+une ombre courte dessous. Sans l'ombre, il n'y a pas d'objet, juste un tableau.
+
+**Le mouvement.** La barre blanche de la 360 glisse d'une ligne à l'autre, la
+chaîne pointée de la Wii grossit, la tuile de la Switch respire. C'est la moitié
+de ce qu'on reconnaît, et je n'en avais rien mis.
+
+**La lecture.** Le vrai défaut était ailleurs, et c'est celui qui compte: sur la
+Switch, huit tuiles grises identiques. Sur ces écrans-là, une console montre la
+**jaquette** du jeu, et on ne relit pas les titres, on reconnaît une place. Sans
+image, la file entière était illisible et il fallait lire huit lignes de texte
+pour retrouver Melee.
+
+#### Une jaquette qu'on fabrique
+
+Les vraies jaquettes ne sont pas à nous, et les chercher en ligne mettrait une
+requête réseau sur un menu. On en fabrique donc une à partir du nom: une teinte
+tirée d'un mélange stable du titre, un dégradé, et les initiales des mots qui
+portent le sens (`front/src/lib/cover.ts`).
+
+Deux propriétés font tout le travail, et les tests les tiennent séparément:
+
+- **stable** — le même nom donne toujours la même couleur, sinon la mémoire de
+  l'endroit est détruite à chaque ouverture;
+- **étalée** — « Mario Party 4 », « 5 » et « 6 » doivent tomber sur trois teintes
+  éloignées. C'est le jumeau négatif du premier test, et il est indispensable:
+  une fonction qui rendrait la même couleur à tout le monde passerait le test de
+  stabilité sans broncher.
+
+D'où le mélange FNV-1a sur le nom entier plutôt qu'un tri par première lettre:
+notre bibliothèque est faite de titres qui ne diffèrent que par leur dernier
+caractère, ce qui est exactement le cas défavorable.
+
+Les initiales écartent les petits mots (« the », « of », « de »), parce que
+« Super Smash Bros Melee » et « Super Mario Strikers » commenceraient tous les
+deux par S. Et un nom qui ne contient que des mots écartés rend `?` plutôt que
+rien: une tuile vide se lit comme une panne d'affichage.
+
+#### La règle des effets, et pourquoi elle ne s'applique pas ici
+
+Ce projet interdit les dégradés et les animations. La raison est écrite: ils
+tirent l'oeil hors de l'image du jeu. Sur un menu il n'y a pas d'image — on a
+quitté la partie pour venir lire une liste — donc la raison ne s'applique pas, et
+la règle non plus. C'est la même exception que le fond du XMB, étendue aux trois
+autres.
+
+Deux garde-fous quand même. Seuls `transform` et `opacity` sont animés, les deux
+propriétés que le compositeur traite sans repasser par la mise en page, donc rien
+de tout ça ne peut voler du temps à la boucle d'images. Et un bloc
+`prefers-reduced-motion` coupe l'ensemble pour qui a demandé à son système
+d'arrêter de bouger.
+
+### 7.28 La jaquette était déjà sur le disque
+
+« J'aime pas les carrés. Pour les menus qui affichent des carrés avec les
+initiales des titres, je préférerais que tu récupères des metadata du jeu et que
+tu les affiches, avec pourquoi pas une image du jeu. »
+
+L'entrée précédente fabriquait une couleur et deux lettres à partir du nom, faute
+d'image. C'était une réponse à la question « comment distinguer huit cases
+identiques » et pas à la question « qu'est-ce que ces cases devraient montrer ».
+La bonne réponse était sur la machine depuis le début.
+
+#### `opening.bnr`
+
+Chaque disque GameCube contient un fichier de ce nom: une image de 96 par 32
+dessinée par l'éditeur, et à côté le nom long du jeu, le studio et une phrase de
+présentation. C'est exactement ce qu'un menu veut afficher, écrit par les gens
+qui ont fait le jeu.
+
+L'autre option était une base de couvertures en ligne, et elle perd sur tous les
+points: il faut le réseau depuis une machine qui n'est que sur le tailnet, il
+faut qu'un tiers reste debout, et les images ne sont pas à nous. Mais l'argument
+qui a tranché est plus petit et plus concret. La bibliothèque contient `GM4E08`,
+un hack appelé *Retro Track Grand Prix*. Aucune base ne le connaît. Son disque,
+lui, porte sa propre bannière et sa propre phrase, parce que ceux qui l'ont fait
+les ont écrites:
+
+> Mario Kart: Double Dash - Retro Track Grand Prix — Portable Productions —
+> « Race on over 30 New Courses In The Ultimate Double Dash Experience! »
+
+En prime, un disque PAL contient six langues. On lit le bloc français, donc les
+Mario Party se présentent en français sans que nous ayons traduit quoi que ce
+soit.
+
+#### Sortir le fichier d'un RVZ
+
+Sept des huit fichiers sont des RVZ: un conteneur compressé dont il faut
+décompresser les blocs avant même de voir le système de fichiers du disque.
+Réécrire ça était hors de question, et ce n'était pas nécessaire: l'image Docker
+que le projet construit déjà contient `dolphin-tool`, qui sait le faire.
+
+    dolphin-tool extract -i jeu.rvz -o dossier -s opening.bnr
+
+0,44 s par disque, 3,7 s pour les huit. C'est mesuré le 2026-08-16, et c'est ce
+qui autorise la lecture à être **synchrone au démarrage**: les jaquettes sont
+mises en cache dans `~/.cache/nel3ab/banners`, hors du répertoire de session qui
+est effacé au redémarrage. Le prix est donc payé une fois sur la machine, et pas
+à chaque changement de jeu — ce qui compte, puisque changer de jeu redémarre le
+worker. Un échec est mis en cache aussi, dans un fichier témoin vide: sans ça, un
+disque sans bannière repaierait l'extraction complète à chaque démarrage, pour
+toujours.
+
+#### Trois pièges de format, dont deux produisent une image plausible
+
+L'image est en RGB5A3. C'est un format où **deux encodages partagent un même
+type**, et c'est le bit de poids fort qui choisit: à 1, cinq bits par couleur et
+pas de transparence; à 0, quatre bits par couleur et trois d'alpha. Un décodeur
+qui ne lirait que la première branche sortirait quand même une image. Sur nos
+huit bannières, entre 1500 et 3072 pixels sur 3072 sont dans la seconde branche.
+L'image aurait été fausse partout et jamais vide.
+
+Les pixels **ne sont pas dans l'ordre de lecture**: ils arrivent par tuiles de
+4 par 4. Recopier le flux tel quel dans une trame donne une image déchiquetée,
+qui ressemble encore à une image. Un test qui vérifierait « on a écrit quelque
+chose » passerait; celui qui est écrit épingle un pixel à une position connue —
+le dix-septième du flux est le premier de la deuxième tuile, donc il va en x=4.
+
+Le texte est en **Windows-1252**, pas en Latin-1. La différence se voit: Mario
+Party 5 écrit `more mayhem\x85`, qui est un point de suspension dans l'un et un
+caractère de contrôle dans l'autre.
+
+Les valeurs pleines se convertissent par décalage et non par multiplication: 7
+sur trois bits doit donner 255 et pas 252, sinon une image que l'artiste a
+dessinée opaque arrive légèrement transparente et toutes les bannières flottent
+sur un voile.
+
+#### Ce qui prouve vraiment l'encodeur PNG
+
+Les tests Rust vérifient la signature du fichier et les dimensions écrites dans
+l'en-tête. C'est notre code contrôlé par notre code, et ça ne dit rien de la
+somme de contrôle ni du flux compressé.
+
+La preuve est donc dans un pilote de navigateur, `art.mjs`, qui lit
+`img.naturalWidth`: c'est ce que le décodeur de Chrome a réussi à lire, et il
+n'est pas de nous. Vérifié en échangeant largeur et hauteur dans l'appel à
+l'encodeur, ce qui produit un PNG parfaitement valide de 32 par 96: le pilote est
+passé de 8/8 à 0/8.
+
+#### La forme, qui était la moitié de la demande
+
+Une bannière fait 96 par 32, donc trois de large pour un de haut. C'est cette
+proportion qui est reprise partout, et c'est elle qui fait disparaître les
+carrés: les tuiles de la Switch sont des bandes, les chaînes de la Wii sont plus
+larges que hautes, les listes de la 360 et de la PS3 portent une vignette.
+
+Deux détails d'affichage ont chacun leur raison. `image-rendering: pixelated`,
+parce qu'une image de 96 pixels agrandie deux ou trois fois est floue si on la
+lisse et nette si on ne la lisse pas: sur un projet qui s'appelle rétro, un gros
+pixel est un choix et un bord flou est un défaut. Et un fond noir derrière chaque
+bannière, parce que la plupart ont un fond transparent — elles étaient faites
+pour le menu de la console, qui était sombre — et qu'un logo blanc sur le tableau
+clair de la Wii disparaîtrait.
+
+#### Un défaut trouvé en écrivant le pilote
+
+Changer de jeu demande deux pressions: la première arme, la seconde lance. La
+première **ne se voyait nulle part**. Elle ressemblait donc à un clic qui n'avait
+pas pris, ce qui pousse exactement à la deuxième pression que la confirmation
+était censée faire réfléchir. L'entrée armée écrit maintenant « confirmer ? ».
+
+C'est le pilote qui l'a révélé: il cherchait un signe observable et il n'y en
+avait aucun.
+
+Dans la foulée, `games.mjs` a appris à se taire quand il ne peut rien prouver. Il
+échouait parce que la salle appartenait à quelqu'un d'autre — la règle du
+propriétaire faisait son travail — et un rouge dû à une salle occupée apprend à
+l'oeil à ignorer un fichier. Il dit maintenant qui possède la salle et sort sans
+prétendre avoir testé.
 ---
 
 ## 8. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
@@ -4203,6 +4386,10 @@ pas échouer**.
 | Une édition qui n'a rien édité, et un commit qui l'affirmait | Un remplacement de texte n'a trouvé aucune cible dans `Seats.tsx`, n'a rien dit, et le message de commit annonçait la règle comme appliquée. Elle ne l'était que dans un composant supprimé depuis | Toute édition scriptée porte une assertion. Et ce qu'un message de commit affirme se vérifie dans le produit, pas dans l'intention |
 | Un pilote qui expire sans que la page soit bloquée | `waitForSelector` et `page.click` font plusieurs allers-retours au navigateur; deux pages qui décodent 60 images par seconde suffisent à les faire expirer | Cliquer depuis la page en un seul appel. Troisième fois que l'instrument est le problème et que le symptôme accuse le sujet |
 | Une touche comptée deux fois | Le menu écoutait `keydown` et la boucle d'entrée lisait aussi le clavier pour le conduire à la manette: une flèche avançait de deux crans. Et ça n'arrivait QUE sans manette branchée, donc l'essai à manette simulée passait à côté | Une entrée, un propriétaire. Et l'assertion utile n'est pas « ça bouge » mais « ça bouge d'exactement un cran »: une addition ne se voit qu'en comptant |
+| Une jaquette fabriquée alors que la vraie était là | On dessinait une couleur et deux lettres par jeu, faute d'image. Chaque disque en contient une, avec le nom du studio et une phrase, depuis toujours | Avant d'inventer une donnée, chercher si l'objet la porte déjà. Un fichier de jeu est un système de fichiers, pas une boîte noire |
+| Deux encodages sous un seul type | RGB5A3 choisit par le bit de poids fort entre cinq bits sans alpha et quatre bits avec. Ne lire qu'une branche donne une image complète et fausse | Quand un format a un aiguillage, tester les DEUX sorties. Un décodeur à demi juste ne produit pas de vide, il produit du plausible |
+| Une confirmation invisible | La première pression armait le changement de jeu sans rien afficher, donc elle ressemblait à un clic manqué et appelait la seconde | Une confirmation qui ne se voit pas est une confirmation qui pousse au geste qu'elle voulait empêcher |
+| Un mur de tuiles identiques | Les jeux s'affichaient en carrés gris tous pareils: rien ne plantait, mais il fallait relire huit titres pour retrouver le sien | Une liste d'objets a besoin d'un signe **par objet**. À défaut d'image, on en fabrique un — et le test qui compte n'est pas « la couleur est stable » mais « deux titres presque identiques tombent loin l'un de l'autre » |
 | Un réglage accroché à un axe | « Régler une valeur » était gauche/droite, mais gauche/droite ne veut pas dire la même chose dans une colonne et dans une rangée: le réglage du menu changeait de page | Accrocher un réglage au geste qui existe partout, « choisir ». Et ne pas écrire dans l'indice le nom d'un axe qui dépend de l'écran |
 
 ---
@@ -4649,6 +4836,17 @@ cher que la perte.
 **TLS** — le chiffrement du web, le `s` de `https`. Sans lui, le navigateur
 refuse l'accès à la manette. Ce seul refus a suffi à nous obliger à le mettre
 en place.
+
+**RGB5A3** — le format d'image des textures GameCube. Un pixel tient sur seize
+bits, et le bit de poids fort choisit entre deux encodages: cinq bits par couleur
+sans transparence, ou quatre bits par couleur plus trois de transparence.
+
+**RVZ** — le format de disque compressé de Dolphin. Il range le disque par blocs
+compressés, donc on ne peut pas y lire un fichier sans décompresser d'abord. Sept
+des huit jeux de la salle sont dans ce format.
+
+**Tuilage (bannière)** — voir *Tuilage*. Les pixels d'une bannière GameCube
+arrivent par carrés de quatre sur quatre et non ligne par ligne.
 
 **Trame (audio)** — un instant de son, une mesure par voie. En stéréo 16 bits,
 une trame fait 4 octets ; à 48 kHz, 480 trames font 10 ms.

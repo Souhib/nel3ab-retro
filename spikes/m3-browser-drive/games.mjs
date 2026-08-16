@@ -35,10 +35,38 @@ if (held === null || held.mine === 0) {
   process.exit(0);
 }
 
+// Changer de jeu appartient au propriétaire de la salle, et le worker applique
+// la règle lui-même. Si quelqu'un d'autre est déjà là, ce pilote ne peut rien
+// prouver: il faut le DIRE, parce qu'un rouge dû à une salle occupée apprend à
+// l'oeil à ignorer ce fichier. Le plan de contrôle est ce qui sait qui décide;
+// absent, personne ne décide et la règle d'avant s'applique.
+const boss = await fetch("http://localhost:8200/api/room")
+  .then((answer) => answer.json())
+  .then((room) => room.owner)
+  .catch(() => null);
+if (boss && boss.seat !== held.mine) {
+  console.log(
+    `RIEN TESTÉ — la salle appartient à ${boss.name} (manette ${boss.seat}), nous tenons la ${held.mine}`,
+  );
+  await browser.close();
+  process.exit(0);
+}
+
+// Les jeux vivent dans le menu depuis qu'il y en a un: il faut l'ouvrir avant
+// de pouvoir en désigner un. Et on clique par `evaluate` plutôt qu'avec
+// `page.click`, qui demande plusieurs allers-retours au navigateur et expire
+// quand la page décode soixante images par seconde à côté.
+const press = (css) => page.evaluate((s) => document.querySelector(s)?.click(), css);
+await press("#openMenu");
+await new Promise((r) => setTimeout(r, 1200));
+
 // Premier clic : il doit ARMER et rien de plus.
-await page.click(`#game${target}`);
+await press(`#item-game${target}`);
 await new Promise((r) => setTimeout(r, 1500));
-const armed = await page.evaluate((i) => document.getElementById(`game${i}`).dataset.armed === "true", target);
+const armed = await page.evaluate(
+  (i) => document.getElementById(`item-game${i}`)?.textContent?.includes("confirmer") ?? false,
+  target,
+);
 const afterOneClick = await roms();
 console.log(`  après un clic : ${armed ? "armé" : "PAS armé"}, jeu courant ${afterOneClick.current}`);
 if (!armed || afterOneClick.current !== before.current) {
@@ -48,7 +76,8 @@ if (!armed || afterOneClick.current !== before.current) {
 }
 
 // Deuxième clic : cette fois ça part.
-await page.click(`#game${target}`);
+await press(`#item-game${target}`);
+await new Promise((r) => setTimeout(r, 1500));
 await browser.close();
 
 // systemd relance le worker; la bibliothèque est rescannée au démarrage.
@@ -62,7 +91,10 @@ for (let attempt = 0; attempt < 40; attempt++) {
     // La salle redémarre, le port ne répond pas encore.
   }
 }
-console.log(`  après confirmation : ${before.roms[before.current]} -> ${after.roms[after.current]}`);
+const named = (list, at) => list[at]?.name ?? list[at] ?? "?";
+console.log(
+  `  après confirmation : ${named(before.roms, before.current)} -> ${named(after.roms, after.current)}`,
+);
 console.log(
   after.current === target
     ? "PASS — un clic arme, le second change de jeu"

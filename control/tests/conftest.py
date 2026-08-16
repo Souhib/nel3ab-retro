@@ -15,7 +15,15 @@ from nel3ab_control.settings import Settings
 LIBRARY = {
     "players": 4,
     "current": 1,
-    "roms": ["Mario Kart Double Dash", "Super Smash Bros Melee"],
+    "roms": [
+        {"name": "Mario Kart Double Dash", "maker": None, "about": None, "art": False},
+        {
+            "name": "Super Smash Bros Melee",
+            "maker": "Nintendo/HAL Laboratory,Inc.",
+            "about": "Let the melee begin!",
+            "art": True,
+        },
+    ],
 }
 
 

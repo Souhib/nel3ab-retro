@@ -31,8 +31,13 @@ const PORTS = 4;
 async function fromWorkerAlone(): Promise<Room> {
   const answer = await fetch("/roms");
   if (!answer.ok) throw new Error(`la salle ne répond pas (${answer.status})`);
-  const found = (await answer.json()) as { current: number | null; roms: string[] };
-  const library = found.roms.map((name, index) => ({ index, name }));
+  // La forme que le worker sert lui-même. Elle a la même information que celle
+  // du plan de contrôle, sans les noms des joueurs, qu'il ne connaît pas.
+  const found = (await answer.json()) as {
+    current: number | null;
+    roms: { name: string; maker: string | null; about: string | null; art: boolean }[];
+  };
+  const library = found.roms.map((game, index) => ({ index, ...game }));
   return {
     name: "salon",
     game: found.current === null ? null : (library[found.current] ?? null),

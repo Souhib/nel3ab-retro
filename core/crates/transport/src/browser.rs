@@ -228,6 +228,7 @@ impl BrowserServer {
         address: SocketAddr,
         page: &'static str,
         catalogue: Arc<str>,
+        art: Arc<[Option<Arc<[u8]>>]>,
         players: PlayerSlot,
         owner: &crate::control::OwnerSeat,
     ) -> Result<Self, TransportError> {
@@ -284,6 +285,7 @@ impl BrowserServer {
                             players,
                             wants_rom,
                             catalogue,
+                            art,
                             owner,
                         },
                     );
@@ -508,6 +510,12 @@ struct Shared {
     /// it lives is the emulator's business, and the transport's job is to hand
     /// bytes to a browser without an opinion about them.
     catalogue: Arc<str>,
+    /// One picture per game, in library order, for whichever games have one.
+    ///
+    /// Bytes, not a type: this crate does not know what a banner is, where it
+    /// came from or how it was encoded, and it does not need to. The same rule
+    /// as the catalogue above, applied to something that is not text.
+    art: Arc<[Option<Arc<[u8]>>]>,
     /// La place qui a le droit de changer de jeu, dite par le plan de contrôle
     /// sur un port que le proxy ne relaie pas. Voir [`crate::control`].
     owner: crate::control::OwnerSeat,
@@ -607,6 +615,10 @@ fn serve_connection(stream: TcpStream, page: &'static str, shared: &Shared) {
         Some(Route::Sound) => sound_thread(stream, &shared.listeners),
         Some(Route::Input { take }) => input_thread(stream, shared, take),
         Some(Route::Roms) => serve_body(stream, &shared.catalogue, "application/json"),
+        Some(Route::Art(index)) => match shared.art.get(index).and_then(Option::as_ref) {
+            Some(png) => serve_bytes(stream, png, "image/png"),
+            None => serve_missing(stream),
+        },
         Some(Route::Page) => serve_body(stream, page, "text/html; charset=utf-8"),
         None => {}
     }
@@ -621,6 +633,12 @@ fn take_from(request: &str) -> Option<PlayerSlot> {
 
 /// What a connection turned out to be.
 enum Route {
+    /// One game's picture, asked for by its position in the library.
+    ///
+    /// By position and never by name, for the reason the library itself gives:
+    /// a position can only ever select something this worker found, so no
+    /// spelling of a path can reach a file it did not offer.
+    Art(usize),
     Video,
     Sound,
     Input {
@@ -694,12 +712,11 @@ fn classify(stream: &TcpStream) -> Option<Route> {
     let read = stream.peek(&mut head).ok()?;
     let text = String::from_utf8_lossy(&head[..read]).to_lowercase();
     if !text.contains("upgrade: websocket") {
-        // Before the catch-all, or the library would be served the HTML page.
-        return Some(if text.starts_with("get /roms") {
-            Route::Roms
-        } else {
-            Route::Page
-        });
+        // Before the catch-all, or both would be served the HTML page.
+        if text.starts_with("get /roms") {
+            return Some(Route::Roms);
+        }
+        return Some(art_from(&text).map_or(Route::Page, Route::Art));
     }
     // Checked once, here, rather than in each of the three socket routes: a
     // check that has to be repeated is a check somebody adds a fourth route
@@ -725,6 +742,54 @@ fn classify(stream: &TcpStream) -> Option<Route> {
         });
     }
     None
+}
+
+/// Reads `/art/<n>.png` out of a request line.
+///
+/// Strict on purpose. Anything that is not exactly a number between `/art/` and
+/// `.png` falls through to the page, which is what every other unknown path
+/// does: a route that accepted `/art/x.png` would have to decide what to do with
+/// it, and there is nothing right to decide.
+fn art_from(text: &str) -> Option<usize> {
+    text.strip_prefix("get /art/")?
+        .split_whitespace()
+        .next()?
+        .strip_suffix(".png")?
+        .parse()
+        .ok()
+}
+
+/// Sends bytes that are not text.
+///
+/// Cached for five minutes, unlike everything else here, and the number has a
+/// reason on each side. Without any cache the browser refetches eight pictures
+/// every time the menu opens, and each one flashes as it arrives. Cached for
+/// ever, a game dropped into the folder would show the previous occupant of its
+/// position until somebody emptied the cache by hand.
+fn serve_bytes(mut stream: TcpStream, body: &[u8], content_type: &str) {
+    let head = format!(
+        "HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\n\
+         Content-Length: {}\r\nCache-Control: max-age=300\r\nConnection: close\r\n\r\n",
+        body.len()
+    );
+    let mut sink = [0_u8; 2048];
+    let _ = stream.read(&mut sink);
+    let _ = stream.write_all(head.as_bytes());
+    let _ = stream.write_all(body);
+    let _ = stream.flush();
+}
+
+/// Says no, for a picture this room does not have.
+///
+/// A real 404 rather than the page, so an `<img>` fails cleanly and the menu
+/// draws its fallback. Served the HTML instead, the browser would report a
+/// broken image only after decoding a page.
+fn serve_missing(mut stream: TcpStream) {
+    let mut sink = [0_u8; 2048];
+    let _ = stream.read(&mut sink);
+    let _ = stream
+        .write_all(b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+    let _ = stream.flush();
 }
 
 fn serve_body(mut stream: TcpStream, body: &str, content_type: &str) {
@@ -1250,6 +1315,7 @@ mod tests {
                 Some(Route::Sound) => "sound",
                 Some(Route::Input { .. }) => "input",
                 Some(Route::Roms) => "roms",
+                Some(Route::Art(_)) => "art",
                 None => "none",
             };
             assert_eq!(got, expected, "for {}", String::from_utf8_lossy(request));
@@ -1350,6 +1416,18 @@ mod tests {
             (&b"GET / HTTP/1.1\r\nHost: x\r\n\r\n"[..], "page"),
             // No prefix match on anything shorter: `/rom` is not `/roms`.
             (&b"GET /rom HTTP/1.1\r\nHost: x\r\n\r\n"[..], "page"),
+            (&b"GET /art/0.png HTTP/1.1\r\nHost: x\r\n\r\n"[..], "art0"),
+            (&b"GET /art/12.png HTTP/1.1\r\nHost: x\r\n\r\n"[..], "art12"),
+            // The negative twins. Each of these would be a picture if the
+            // parsing were loose, and none of them names one.
+            (&b"GET /art/x.png HTTP/1.1\r\nHost: x\r\n\r\n"[..], "page"),
+            (&b"GET /art/.png HTTP/1.1\r\nHost: x\r\n\r\n"[..], "page"),
+            (&b"GET /art/3 HTTP/1.1\r\nHost: x\r\n\r\n"[..], "page"),
+            (&b"GET /art/-1.png HTTP/1.1\r\nHost: x\r\n\r\n"[..], "page"),
+            (
+                &b"GET /art/../roms.png HTTP/1.1\r\nHost: x\r\n\r\n"[..],
+                "page",
+            ),
         ] {
             let listener = TcpListener::bind("127.0.0.1:0").unwrap();
             let address = listener.local_addr().unwrap();
@@ -1362,13 +1440,61 @@ mod tests {
             });
             let (stream, _) = listener.accept().unwrap();
             let got = match classify(&stream) {
-                Some(Route::Roms) => "roms",
-                Some(Route::Page) => "page",
-                _ => "other",
+                Some(Route::Roms) => "roms".to_owned(),
+                Some(Route::Art(index)) => format!("art{index}"),
+                Some(Route::Page) => "page".to_owned(),
+                _ => "other".to_owned(),
             };
             assert_eq!(got, expected, "for {}", String::from_utf8_lossy(request));
             client.join().unwrap();
         }
+    }
+
+    /// Routing a picture is not serving one.
+    ///
+    /// The table above proves `classify` picks the right route; it would go on
+    /// passing if the arm that answers were deleted. This one asks a real server
+    /// over a real socket, and reads the bytes back.
+    #[test]
+    fn a_picture_is_served_and_a_missing_one_is_a_refusal_not_a_page() {
+        let art: Arc<[Option<Arc<[u8]>>]> = Arc::from(vec![Some(Arc::from(&b"PNG-ish"[..])), None]);
+        let server = BrowserServer::start(
+            "127.0.0.1:0".parse().unwrap(),
+            "page",
+            "[]".into(),
+            art,
+            PlayerSlot::new(1).unwrap(),
+            &nobody(),
+        )
+        .unwrap();
+
+        let ask = |path: &str| {
+            let mut stream = TcpStream::connect(server.address()).unwrap();
+            stream
+                .write_all(format!("GET {path} HTTP/1.1\r\nHost: x\r\n\r\n").as_bytes())
+                .unwrap();
+            stream.flush().unwrap();
+            let mut answer = Vec::new();
+            stream
+                .set_read_timeout(Some(Duration::from_secs(2)))
+                .unwrap();
+            let _ = std::io::Read::read_to_end(&mut stream, &mut answer);
+            String::from_utf8_lossy(&answer).into_owned()
+        };
+
+        let found = ask("/art/0.png");
+        assert!(found.starts_with("HTTP/1.1 200"), "{found}");
+        assert!(found.contains("image/png"), "{found}");
+        assert!(found.ends_with("PNG-ish"), "{found}");
+
+        // The twin. A game with no picture must say no, so an `<img>` fails at
+        // once and the menu draws its own fallback. Answering with the page
+        // would make the browser decode an HTML document before giving up.
+        let missing = ask("/art/1.png");
+        assert!(missing.starts_with("HTTP/1.1 404"), "{missing}");
+        // And a position that is not in the library at all, which is the same
+        // answer for a different reason.
+        assert!(ask("/art/9.png").starts_with("HTTP/1.1 404"));
     }
 
     /// Builds a server with no accept loop, for tests that only exercise policy.
@@ -1452,6 +1578,12 @@ mod tests {
     /// Aucun propriétaire déclaré: la salle applique alors sa règle d'avant, où
     /// tenir une manette suffit à changer de jeu. C'est ce que ces essais
     /// vérifiaient déjà, et ce que fait une salle sans plan de contrôle.
+    /// A room whose games have no pictures, which is every room in these tests:
+    /// what is under test here is the serving, not the drawing.
+    fn no_art() -> Arc<[Option<Arc<[u8]>>]> {
+        Arc::from(Vec::new())
+    }
+
     fn nobody() -> crate::control::OwnerSeat {
         Arc::new(Mutex::new(None))
     }
@@ -1534,6 +1666,7 @@ mod tests {
             "127.0.0.1:0".parse().unwrap(),
             "page",
             "[]".into(),
+            no_art(),
             one,
             &nobody(),
         )
@@ -1578,6 +1711,7 @@ mod tests {
             "127.0.0.1:0".parse().unwrap(),
             "page",
             "[]".into(),
+            no_art(),
             four(),
             &nobody(),
         )
@@ -1598,6 +1732,7 @@ mod tests {
             "127.0.0.1:0".parse().unwrap(),
             "page",
             "[]".into(),
+            no_art(),
             one,
             &nobody(),
         )
@@ -1614,6 +1749,7 @@ mod tests {
             "127.0.0.1:0".parse().unwrap(),
             "page",
             "[]".into(),
+            no_art(),
             four(),
             &nobody(),
         )
@@ -1664,6 +1800,7 @@ mod tests {
             "127.0.0.1:0".parse().unwrap(),
             "page",
             "[]".into(),
+            no_art(),
             one,
             &nobody(),
         )
@@ -1688,6 +1825,7 @@ mod tests {
             "127.0.0.1:0".parse().unwrap(),
             "page",
             "[]".into(),
+            no_art(),
             four(),
             &nobody(),
         )
@@ -1732,6 +1870,7 @@ mod tests {
             "127.0.0.1:0".parse().unwrap(),
             "page",
             "[]".into(),
+            no_art(),
             four(),
             &owner,
         )
@@ -1793,6 +1932,7 @@ mod tests {
             players: four(),
             wants_rom: Arc::new(Mutex::new(None)),
             catalogue: "[]".into(),
+            art: no_art(),
             owner: nobody(),
         };
 
@@ -1821,6 +1961,7 @@ mod tests {
             "127.0.0.1:0".parse().unwrap(),
             "page",
             "[]".into(),
+            no_art(),
             four(),
             &nobody(),
         )
@@ -1843,6 +1984,7 @@ mod tests {
             "127.0.0.1:0".parse().unwrap(),
             "page",
             "[]".into(),
+            no_art(),
             four(),
             &nobody(),
         )
@@ -1874,6 +2016,7 @@ mod tests {
             "127.0.0.1:0".parse().unwrap(),
             "page",
             "[]".into(),
+            no_art(),
             one,
             &nobody(),
         )
@@ -1895,6 +2038,7 @@ mod tests {
             "127.0.0.1:0".parse().unwrap(),
             "page",
             "[]".into(),
+            no_art(),
             four(),
             &nobody(),
         )
@@ -1935,6 +2079,7 @@ mod tests {
             "127.0.0.1:0".parse().unwrap(),
             "page",
             "[]".into(),
+            no_art(),
             four(),
             &nobody(),
         )
@@ -1987,6 +2132,7 @@ mod tests {
             "127.0.0.1:0".parse().unwrap(),
             "page",
             "[]".into(),
+            no_art(),
             one,
             &nobody(),
         )
@@ -2041,6 +2187,7 @@ mod tests {
             "127.0.0.1:0".parse().unwrap(),
             "page",
             "[]".into(),
+            no_art(),
             four(),
             &nobody(),
         )
@@ -2066,6 +2213,7 @@ mod tests {
                 "127.0.0.1:0".parse().unwrap(),
                 "page",
                 "[]".into(),
+                no_art(),
                 four(),
                 &nobody(),
             )

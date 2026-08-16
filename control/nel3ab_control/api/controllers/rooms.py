@@ -92,7 +92,11 @@ class RoomController:
             raise WorkerUnreachable(self._settings.worker_url) from error
 
         payload = response.json()
-        games = [Game(index=index, name=name) for index, name in enumerate(payload.get("roms", []))]
+        # Le worker décrivait ses jeux par un simple nom; il en dit maintenant
+        # quatre choses. On accepte encore l'ancienne forme parce que le worker
+        # et ce service se redémarrent séparément, et qu'une salle muette
+        # pendant les cinq secondes de décalage est une salle en panne.
+        games = [_game(index, entry) for index, entry in enumerate(payload.get("roms", []))]
         current = payload.get("current")
         running = games[current] if isinstance(current, int) and current < len(games) else None
         # How many pads the room has, from the only thing that knows: the worker
@@ -220,3 +224,23 @@ class RoomController:
             ask_lasts=ASK_LASTS,
             media_url=self._settings.worker_public_url,
         )
+
+
+def _game(index: int, entry: object) -> Game:
+    """Un jeu, tel que le worker le décrit.
+
+    Deux formes acceptées: un nom seul, qui est ce que le worker disait avant
+    d'apprendre à lire les jaquettes, et un objet qui porte aussi ce que le
+    disque dit de lui-même.
+    """
+    if isinstance(entry, str):
+        return Game(index=index, name=entry)
+    if isinstance(entry, dict):
+        return Game(
+            index=index,
+            name=str(entry.get("name", "")),
+            maker=entry.get("maker"),
+            about=entry.get("about"),
+            art=bool(entry.get("art", False)),
+        )
+    return Game(index=index, name=str(entry))

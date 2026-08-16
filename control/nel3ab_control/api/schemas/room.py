@@ -12,6 +12,28 @@ class Game(BaseModel):
         description="Its position in the worker's library, which is how it is asked for."
     )
     name: str = Field(description="What to call it on screen.")
+    maker: str | None = Field(
+        default=None,
+        description=(
+            "Qui l'a fait, tel que le disque le dit lui-même. Nul quand le "
+            "disque n'a pas donné sa jaquette."
+        ),
+    )
+    about: str | None = Field(
+        default=None,
+        description=(
+            "La phrase que l'éditeur a écrite sur le disque. Peut contenir un "
+            "retour à la ligne: ces textes ont été mis en page sur deux lignes."
+        ),
+    )
+    art: bool = Field(
+        default=False,
+        description=(
+            "Vrai quand le worker sert une image pour ce jeu, à /art/{index}.png. "
+            "Un booléen plutôt qu'une adresse: le chemin appartient au worker, "
+            "et le recopier ici en ferait une deuxième vérité à tenir à jour."
+        ),
+    )
 
 
 class Seat(BaseModel):

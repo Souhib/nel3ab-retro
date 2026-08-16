@@ -22,6 +22,7 @@
  */
 import { useEffect, useRef } from "react";
 import type { MenuAction } from "../media/menupad";
+import { Art } from "./Art";
 import { useShell } from "./shell";
 import { cn } from "../lib/cn";
 
@@ -34,6 +35,16 @@ export type XmbItem = {
   /** Ce que ça vaut en ce moment, à droite: « 70 », « sombre », « en cours ». */
   value?: string;
   icon: React.ReactNode;
+  /** Le jeu que cette entrée désigne, quand c'en est un.
+   *
+   * Sa place dans la bibliothèque, parce que c'est par là qu'on demande sa
+   * jaquette, et ce que le worker a dit de cette jaquette: il en sert une, ou
+   * non. Les entrées qui ne sont pas des jeux gardent leur icône. */
+  game?: { index: number; art: boolean };
+  /** Le studio, tel que le disque le dit. */
+  by?: string;
+  /** La phrase que l'éditeur a écrite sur le disque. */
+  note?: string;
   /** Vrai quand l'entrée existe mais ne se choisit pas. Elle reste visible, avec
    * sa raison: une entrée qui disparaît laisse quelqu'un chercher. */
   disabled?: boolean;
@@ -93,7 +104,7 @@ export function Xmb({
   }, [row, ray]);
 
   return (
-    <div id="menu" className="fixed inset-0 z-50 overflow-hidden bg-ink">
+    <div id="menu" className="n3-enter fixed inset-0 z-50 overflow-hidden bg-ink">
       <Backdrop />
 
       {/* La rangée des rayons. Elle glisse pour que le rayon choisi reste au
@@ -155,11 +166,24 @@ export function Xmb({
               )}
               style={{ top: `${index * DOWN}px`, height: `${DOWN}px` }}
             >
-              <span
-                className={cn("shrink-0 transition-all duration-200", here ? "h-9 w-9" : "h-7 w-7")}
-              >
-                {item.icon}
-              </span>
+              {item.game ? (
+                <Art
+                  index={item.game.index}
+                  name={item.label}
+                  has={item.game.art}
+                  width={here ? 90 : 72}
+                  className="rounded-[3px] transition-all duration-200"
+                />
+              ) : (
+                <span
+                  className={cn(
+                    "shrink-0 transition-all duration-200",
+                    here ? "h-9 w-9" : "h-7 w-7",
+                  )}
+                >
+                  {item.icon}
+                </span>
+              )}
               <span className="flex min-w-0 flex-1 flex-col">
                 <span
                   className={cn(
@@ -169,8 +193,10 @@ export function Xmb({
                 >
                   {item.label}
                 </span>
-                {here && item.hint ? (
-                  <span className="truncate text-[12px] text-faint">{item.hint}</span>
+                {here && (item.hint ?? item.by) ? (
+                  <span className="truncate text-[12px] text-faint">
+                    {item.by && item.hint ? `${item.by} · ${item.hint}` : (item.hint ?? item.by)}
+                  </span>
                 ) : null}
               </span>
               {item.value ? (

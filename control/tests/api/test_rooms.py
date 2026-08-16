@@ -15,7 +15,13 @@ async def test_the_room_reports_the_game_the_worker_is_running(client: httpx.Asy
     assert response.status_code == 200
     room = response.json()
     assert room["name"] == "Salon d'essai"
-    assert room["game"] == {"index": 1, "name": "Super Smash Bros Melee"}
+    assert room["game"] == {
+        "index": 1,
+        "name": "Super Smash Bros Melee",
+        "maker": "Nintendo/HAL Laboratory,Inc.",
+        "about": "Let the melee begin!",
+        "art": True,
+    }
     assert [game["name"] for game in room["library"]] == [
         "Mario Kart Double Dash",
         "Super Smash Bros Melee",
@@ -193,3 +199,24 @@ def test_an_expired_request_is_forgotten_not_kept(rooms: RoomController) -> None
     assert rooms.take_ask(3, now=200.0) is None
 
     assert rooms.take_ask(3, now=200.0) is None
+
+
+async def test_a_worker_that_still_lists_plain_names_is_understood(
+    settings: Settings,
+) -> None:
+    """Le worker et ce service redémarrent séparément.
+
+    Pendant les quelques secondes où l'un est neuf et l'autre pas, la salle doit
+    continuer à répondre. Un nom seul est ce que le worker disait avant
+    d'apprendre à lire les jaquettes.
+    """
+
+    def old_worker(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"players": 4, "current": 0, "roms": ["Melee"]})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(old_worker)) as http:
+        library, running = await RoomController(settings, http).library()
+
+    assert [game.name for game in library] == ["Melee"]
+    assert running is not None
+    assert running.art is False, "sans jaquette plutôt qu'avec une qui n'existe pas"

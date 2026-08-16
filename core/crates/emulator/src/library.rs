@@ -160,7 +160,12 @@ pub fn scan(dir: &Path) -> Vec<Rom> {
 /// meant two settings that had to agree and nothing making them. Anything that
 /// needs the number now asks the thing that knows it.
 #[must_use]
-pub fn catalogue_json(roms: &[Rom], current: Option<usize>, players: u8) -> String {
+pub fn catalogue_json(
+    roms: &[Rom],
+    art: &[Option<crate::banner::Art>],
+    current: Option<usize>,
+    players: u8,
+) -> String {
     let mut out = format!("{{\"players\":{players},\"current\":");
     match current {
         Some(index) => out.push_str(&index.to_string()),
@@ -173,27 +178,62 @@ pub fn catalogue_json(roms: &[Rom], current: Option<usize>, players: u8) -> Stri
         if index > 0 {
             out.push(',');
         }
-        out.push('"');
-        for character in rom.name.chars() {
-            match character {
-                '"' => out.push_str("\\\""),
-                '\\' => out.push_str("\\\\"),
-                // Anything a JSON string may not carry raw. A file name should
-                // not contain a control character, but "should not" is not a
-                // guarantee about somebody else's disk.
-                c if (c as u32) < 0x20 => {
-                    use std::fmt::Write as _;
-                    // The write cannot fail on a String; ignoring the result is
-                    // what `push_str` would have done anyway.
-                    let _ = write!(out, "\\u{:04x}", c as u32);
-                }
-                c => out.push(c),
-            }
+        // `get` rather than an index, and a missing entry means no art rather
+        // than a panic: the two slices are built together and are the same
+        // length, but the worker must not die if that ever stops being true.
+        let found = art.get(index).and_then(Option::as_ref);
+        out.push_str("{\"name\":");
+        quote(&mut out, &rom.name);
+        out.push_str(",\"maker\":");
+        match found
+            .map(|art| art.maker.as_str())
+            .filter(|it| !it.is_empty())
+        {
+            Some(maker) => quote(&mut out, maker),
+            None => out.push_str("null"),
         }
-        out.push('"');
+        out.push_str(",\"about\":");
+        match found
+            .map(|art| art.about.as_str())
+            .filter(|it| !it.is_empty())
+        {
+            Some(about) => quote(&mut out, about),
+            None => out.push_str("null"),
+        }
+        out.push_str(",\"art\":");
+        out.push_str(if found.is_some() { "true" } else { "false" });
+        out.push('}');
     }
     out.push_str("]}");
     out
+}
+
+/// One JSON string, escaped.
+///
+/// Pulled out of [`catalogue_json`] when the catalogue grew from a list of names
+/// to four fields a game: escaping written once is escaping that cannot be right
+/// in three places and wrong in the fourth.
+fn quote(out: &mut String, what: &str) {
+    out.push('"');
+    for character in what.chars() {
+        match character {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            // Anything a JSON string may not carry raw. A file name should
+            // not contain a control character, but "should not" is not a
+            // guarantee about somebody else's disk. A banner's sentence, on
+            // the other hand, carries a real newline: the publishers laid
+            // them out over two lines and the break is theirs.
+            c if (c as u32) < 0x20 => {
+                use std::fmt::Write as _;
+                // The write cannot fail on a String; ignoring the result is
+                // what `push_str` would have done anyway.
+                let _ = write!(out, "\\u{:04x}", c as u32);
+            }
+            c => out.push(c),
+        }
+    }
+    out.push('"');
 }
 
 #[cfg(test)]
@@ -334,16 +374,16 @@ mod tests {
         ];
 
         assert_eq!(
-            catalogue_json(&roms, Some(1), 4),
-            r#"{"players":4,"current":1,"roms":["Melee","Mario Kart"]}"#
+            catalogue_json(&roms, &[], Some(1), 4),
+            r#"{"players":4,"current":1,"roms":[{"name":"Melee","maker":null,"about":null,"art":false},{"name":"Mario Kart","maker":null,"about":null,"art":false}]}"#
         );
         // Nothing running is `null` rather than a number standing in for it.
         assert_eq!(
-            catalogue_json(&roms, None, 4),
-            r#"{"players":4,"current":null,"roms":["Melee","Mario Kart"]}"#
+            catalogue_json(&roms, &[], None, 4),
+            r#"{"players":4,"current":null,"roms":[{"name":"Melee","maker":null,"about":null,"art":false},{"name":"Mario Kart","maker":null,"about":null,"art":false}]}"#
         );
         assert_eq!(
-            catalogue_json(&[], None, 1),
+            catalogue_json(&[], &[], None, 1),
             r#"{"players":1,"current":null,"roms":[]}"#
         );
     }
@@ -359,11 +399,59 @@ mod tests {
             file: "z.rvz".to_owned(),
         }];
 
-        let json = catalogue_json(&roms, Some(0), 2);
+        let json = catalogue_json(&roms, &[], Some(0), 2);
 
         assert_eq!(
             json,
-            r#"{"players":2,"current":0,"roms":["Zelda \"Ocarina\" \\ tab\u0009here"]}"#
+            r#"{"players":2,"current":0,"roms":[{"name":"Zelda \"Ocarina\" \\ tab\u0009here","maker":null,"about":null,"art":false}]}"#
+        );
+    }
+
+    /// The words a disc carries go through the same escaping as its name, and a
+    /// banner's sentence is the one that really contains a newline: publishers
+    /// laid these out over two lines.
+    #[test]
+    fn the_words_from_a_banner_are_escaped_too() {
+        let roms = vec![Rom {
+            path: "/a".into(),
+            name: "Melee".to_owned(),
+            file: "m.rvz".to_owned(),
+        }];
+        let art = vec![Some(crate::banner::Art {
+            png: Vec::new(),
+            maker: "Nintendo".to_owned(),
+            about: "ready to do \nbattle!".to_owned(),
+        })];
+
+        let json = catalogue_json(&roms, &art, None, 4);
+
+        assert_eq!(
+            json,
+            r#"{"players":4,"current":null,"roms":[{"name":"Melee","maker":"Nintendo","about":"ready to do \u000abattle!","art":true}]}"#
+        );
+    }
+
+    /// A disc whose banner gave nothing back must say so with `null` rather than
+    /// with an empty string: a page that draws "par " and stops looks broken,
+    /// and one that checks for null can simply not draw the line.
+    #[test]
+    fn a_game_with_no_words_says_null_rather_than_nothing() {
+        let roms = vec![Rom {
+            path: "/a".into(),
+            name: "Melee".to_owned(),
+            file: "m.rvz".to_owned(),
+        }];
+        let art = vec![Some(crate::banner::Art {
+            png: vec![1],
+            maker: String::new(),
+            about: String::new(),
+        })];
+
+        let json = catalogue_json(&roms, &art, None, 4);
+
+        assert!(
+            json.contains(r#""maker":null,"about":null,"art":true"#),
+            "{json}"
         );
     }
 

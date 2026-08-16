@@ -1,0 +1,16 @@
+import puppeteer from "puppeteer";
+import { enterRoom } from "./open.mjs";
+const dir = process.argv[2], shell = process.argv[3];
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const press = (p, css) => p.evaluate((s) => document.querySelector(s)?.click(), css);
+const browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox"], acceptInsecureCerts: true, protocolTimeout: 30000 });
+const page = await browser.newPage();
+await page.setViewport({ width: 1440, height: 860 });
+await page.evaluateOnNewDocument((id) => localStorage.setItem("nel3ab:shell", id), shell);
+await page.goto("https://lgf.tail3bd01c.ts.net:8443/", { waitUntil: "domcontentloaded" });
+await enterRoom(page);
+await wait(8000);
+await press(page, "#openMenu");
+await wait(1200);
+await page.screenshot({ path: `${dir}/n-${shell}.png` });
+await browser.close();

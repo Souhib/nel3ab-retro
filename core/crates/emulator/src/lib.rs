@@ -55,6 +55,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod banner;
 pub mod config;
 pub mod error;
 pub mod library;

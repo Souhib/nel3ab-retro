@@ -9,6 +9,7 @@
 import { useEffect, useState } from "react";
 import type { Room as RoomState } from "./client";
 import { Bindings, PadSummary } from "./components/Bindings";
+import { cn } from "./lib/cn";
 import { Entrance } from "./components/Entrance";
 import { Lobby } from "./components/Lobby";
 import { Instruments } from "./components/Instruments";
@@ -18,7 +19,7 @@ import { Screen } from "./components/Screen";
 import { Seats } from "./components/Seats";
 import { Toggle, Volume } from "./components/Settings";
 import { forgetName, rememberedName } from "./lib/name";
-import { applyTheme, nextTheme, rememberTheme, storedTheme, themeLabel } from "./lib/theme";
+import { THEMES, applyTheme, rememberTheme, storedTheme } from "./lib/theme";
 import { useLobby, useRoom } from "./lib/room";
 import { useSession, useSnapshot } from "./lib/useSession";
 
@@ -186,15 +187,28 @@ function Room({
             on={deviceRate}
             onChange={setDeviceRate}
           />
-          <button
-            type="button"
-            id="theme"
-            onClick={() => setTheme(nextTheme(theme))}
-            className="mt-1 flex w-full items-baseline justify-between border border-rule px-2 py-1.5 text-[12px] text-muted transition-colors hover:border-indigo hover:text-indigo"
-          >
-            <span>thème</span>
-            <span className="font-mono text-[11px]">{themeLabel(theme)}</span>
-          </button>
+          <div className="mt-1 flex flex-col gap-1">
+            <span className="text-[11px] uppercase tracking-[0.14em] text-faint">thème</span>
+            <div className="grid grid-cols-2 gap-1">
+              {THEMES.map((choice) => (
+                <button
+                  key={choice.id}
+                  type="button"
+                  id={`theme-${choice.id}`}
+                  title={choice.note}
+                  onClick={() => setTheme(choice.id)}
+                  className={cn(
+                    "border px-2 py-1 text-left text-[11px] transition-colors",
+                    theme === choice.id
+                      ? "border-indigo text-indigo"
+                      : "border-rule text-muted hover:border-rule-bright",
+                  )}
+                >
+                  {choice.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </Panel>
 
         <Panel title="manette">

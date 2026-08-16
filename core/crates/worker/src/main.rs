@@ -176,9 +176,13 @@ const CHOICE: &str = "chosen-rom";
 
 /// Which game to boot: what a player last asked for, or the default.
 ///
-/// Remembered by NAME rather than position, because a position only means
+/// Remembered by FILE NAME rather than position, because a position only means
 /// something while the directory is unchanged. Dropping a new game in would
 /// otherwise silently boot a different one after a restart.
+///
+/// By file name and not by the name on screen: that one is cleaned of the
+/// cataloguing dumps carry, and those rules are allowed to improve. A room must
+/// not forget what it was playing because a title lost a parenthesis.
 ///
 /// A name that no longer matches anything falls back to the default instead of
 /// stopping the worker. The disk is not ours to depend on, and a room that
@@ -191,7 +195,7 @@ fn chosen_rom(settings: &Settings, library: &[Rom]) -> PathBuf {
     let remembered = remembered.trim();
     library
         .iter()
-        .find(|rom| rom.name == remembered)
+        .find(|rom| rom.file == remembered)
         .map_or_else(
             || {
                 tracing::warn!(
@@ -699,7 +703,7 @@ fn remember_choice(library: &[Rom], index: u8, session_dir: &std::path::Path) ->
         tracing::warn!(index, games = library.len(), "no such game");
         return false;
     };
-    if let Err(error) = std::fs::write(session_dir.join(CHOICE), &game.name) {
+    if let Err(error) = std::fs::write(session_dir.join(CHOICE), &game.file) {
         tracing::error!(%error, "the choice could not be written down");
         return false;
     }

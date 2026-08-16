@@ -18,8 +18,21 @@
  * ferait rien.
  */
 
-/* Clair, par défaut. */
-:root {
+/*
+ * Les thèmes, un jeu de variables chacun.
+ *
+ * Un thème ne change que des COULEURS et une famille de caractères. Il ne change
+ * ni la disposition, ni ce qui est affiché, et surtout rien par-dessus l'image:
+ * la zone d'écran reste noire dans tous, bandes comprises, parce que des bandes
+ * claires autour d'une image 4:3 tirent l'oeil vers les bords.
+ *
+ * C'est ce qui rend le choix bon marché: six ambiances pour une soixantaine de
+ * lignes, et aucune ne peut toucher la boucle d'affichage.
+ */
+
+/* Instrument clair. L'appareil de mesure, et le défaut. */
+:root,
+:root[data-theme="instrument-clair"] {
   --ink: #ffffff;
   --panel: #f6f6f8;
   --rule: #e2e2e8;
@@ -31,9 +44,12 @@
   --indigo-dim: #b3a9ec;
   --alert: #c22f3d;
   --good: #0a7a45;
+  --chrome: var(--font-sans);
+  color-scheme: light;
 }
 
-:root[data-theme="dark"] {
+/* Instrument sombre. Le même appareil, la nuit. */
+:root[data-theme="instrument-sombre"] {
   --ink: #08080a;
   --panel: #0e0e11;
   --rule: #1e1e25;
@@ -45,6 +61,93 @@
   --indigo-dim: #4a4090;
   --alert: #ff7a7a;
   --good: #6ee7a8;
+  --chrome: var(--font-sans);
+  color-scheme: dark;
+}
+
+/* Phosphore. Un terminal à tube, vert P1, tout en chasse fixe. */
+:root[data-theme="phosphore"] {
+  --ink: #050a07;
+  --panel: #0a1510;
+  --rule: #16291d;
+  --rule-bright: #245c3c;
+  --text: #86f5a8;
+  --muted: #4fae74;
+  --faint: #327c50;
+  --indigo: #5cff9d;
+  --indigo-dim: #1c5c38;
+  --alert: #ff8a6b;
+  --good: #5cff9d;
+  --chrome: var(--font-mono);
+  color-scheme: dark;
+}
+
+/* Ambre. Le même tube en monochrome chaud, plus doux pour les yeux. */
+:root[data-theme="ambre"] {
+  --ink: #0a0704;
+  --panel: #150e06;
+  --rule: #2c1d0c;
+  --rule-bright: #5a3d14;
+  --text: #ffb642;
+  --muted: #bd8130;
+  --faint: #855a1e;
+  --indigo: #ffd48a;
+  --indigo-dim: #6b4715;
+  --alert: #ff6b5a;
+  --good: #cfe06a;
+  --chrome: var(--font-mono);
+  color-scheme: dark;
+}
+
+/* Indigo. Le violet du plastique de la console qu'on émule, sur gris clair. */
+:root[data-theme="indigo"] {
+  --ink: #f3f2f8;
+  --panel: #e8e6f3;
+  --rule: #cec9e5;
+  --rule-bright: #a79fd2;
+  --text: #1c1932;
+  --muted: #575074;
+  --faint: #8983a6;
+  --indigo: #4b3aa6;
+  --indigo-dim: #b7aee2;
+  --alert: #b32a3a;
+  --good: #1f6d4a;
+  --chrome: var(--font-sans);
+  color-scheme: light;
+}
+
+/* Famicom. Crème et rouge, 1983. */
+:root[data-theme="famicom"] {
+  --ink: #f8f2e4;
+  --panel: #efe5d1;
+  --rule: #dbccae;
+  --rule-bright: #bda880;
+  --text: #2a2018;
+  --muted: #6a5943;
+  --faint: #97866d;
+  --indigo: #c1272d;
+  --indigo-dim: #e8b3b0;
+  --alert: #a01f24;
+  --good: #2f6d43;
+  --chrome: var(--font-sans);
+  color-scheme: light;
+}
+
+/* Game Boy. Les quatre verts de l'écran à cristaux liquides de 1989. */
+:root[data-theme="gameboy"] {
+  --ink: #dfeec4;
+  --panel: #cfe2ae;
+  --rule: #a8c586;
+  --rule-bright: #7fa066;
+  --text: #0f2a18;
+  --muted: #35573b;
+  --faint: #5d7d55;
+  --indigo: #2c6b3d;
+  --indigo-dim: #9dc084;
+  --alert: #8c2f22;
+  --good: #2c6b3d;
+  --chrome: var(--font-mono);
+  color-scheme: light;
 }
 
 @theme inline {
@@ -60,6 +163,7 @@
   --color-alert: var(--alert);
   --color-good: var(--good);
 
+  --font-chrome: var(--chrome);
   --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
@@ -74,7 +178,7 @@ body {
   margin: 0;
   background: var(--ink);
   color: var(--text);
-  font-family: var(--font-sans);
+  font-family: var(--chrome);
   /* Des nombres qui ne gigotent pas en changeant: un afficheur qui danse est un
      afficheur que personne ne lit. */
   font-variant-numeric: tabular-nums;
@@ -86,12 +190,5 @@ body {
   scrollbar-color: var(--rule-bright) transparent;
 }
 
-/* Les formulaires natifs suivent le thème, sinon un `<input type="range">` reste
-   sombre sur fond clair et un champ de texte garde le fond du navigateur. */
-:root {
-  color-scheme: light;
-}
-
-:root[data-theme="dark"] {
-  color-scheme: dark;
-}
+/* Les formulaires natifs suivent le thème: chaque palette déclare son
+   `color-scheme`, sinon un `<input type="range">` reste sombre sur fond clair. */

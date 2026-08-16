@@ -3647,6 +3647,64 @@ panoramique et c'est arithmétique. Sur un écran à 240 Hz le motif est 5,5,5,5
 beaucoup moins visible. Un jeu PAL restera donc légèrement moins fluide qu'un
 NTSC sur un écran 60 Hz, et la seule vraie réponse est un dump NTSC ou l'option
 60 Hz du jeu.
+### 7.20 Les noms des jeux, sept ambiances, et une identité déjà là
+
+Trois choses sans rapport, sauf qu'elles arrivent le même jour.
+
+#### Le nom du jeu, sans le catalogue
+
+Une collection de dumps écrit `Mario Party 4 (Europe) (En,Fr,De,Es,It) (Rev 2)`.
+Personne ne veut lire ça sur un menu. La tentation est d'enlever toutes les
+parenthèses, et c'est un piège: un des jeux de cette bibliothèque s'appelle
+`Mario Kart Double Dash (Retro Track Grand Prix)`, où la parenthèse EST le nom du
+hack et la seule chose qui le distingue du jeu d'origine.
+
+La règle ne retire donc que des formes **connues**: une région ou une liste de
+régions, une révision (`Rev 2`, `Rev A`), et une liste d'au moins deux codes de
+langue. Un seul `(En)` ressemble trop à un mot pour être retiré. Tout le reste
+survit, et un test le vérifie sur les quatre titres où la parenthèse compte.
+
+Ce que ça oblige à changer ailleurs: le jeu choisi était mémorisé **par son nom
+affiché**. Il l'est maintenant par son **nom de fichier**, parce que les règles
+de nettoyage ont le droit de s'améliorer et qu'une salle ne doit pas oublier ce
+qu'elle jouait parce qu'un titre a perdu une parenthèse.
+
+#### Sept ambiances, parce qu'une ambiance ne coûte que des variables
+
+La page était en deux thèmes. Elle en a sept, et l'ajout tient en une soixantaine
+de lignes de CSS: chaque thème est un jeu de onze variables, et rien d'autre.
+
+La règle qui les gouverne tous: un thème change des **couleurs** et une famille
+de caractères. Il ne change ni la disposition, ni ce qui est affiché, ni quoi que
+ce soit par-dessus l'image. La zone d'écran reste noire dans les sept, bandes
+comprises. C'est ce qui rend le choix sans risque: aucune ambiance ne peut
+toucher la boucle d'affichage.
+
+Deux d'entre elles passent le cadre entier en chasse fixe (`phosphore`, `ambre`,
+`game boy`), ce qui est la vraie différence entre « un site sombre » et « un
+terminal »: c'est la lettre qui fait l'époque, pas le fond.
+
+#### Le compte qu'on n'a pas besoin d'écrire
+
+La question posée était: comment gérer l'inscription et la connexion ? La réponse
+tenait dans un en-tête, et elle a été mesurée plutôt que supposée, en branchant
+un serveur qui répond avec ce qu'il reçoit:
+
+```
+Tailscale-User-Login: souhib.t@hotmail.fr
+Tailscale-User-Name: Souhib Trabelsi
+```
+
+Le proxy Tailscale ajoute lui-même l'identité **authentifiée** du pair, à partir
+de la connexion WireGuard. Un navigateur ne peut pas la falsifier: elle n'est pas
+envoyée par le client, elle est écrite par le proxy. Et elle n'est une preuve que
+parce que les deux services écoutent sur `127.0.0.1`, donc que le proxy est le
+seul chemin — c'est la raison pour laquelle ce choix avait été fait, et il se
+paie ici.
+
+Il n'y a donc **ni inscription ni connexion à écrire**. Il y a un en-tête à lire.
+Ce qui se débloque avec: un propriétaire de salle qui n'est pas qu'une convention
+d'affichage, et des préférences rattachées à quelqu'un plutôt qu'à un navigateur.
 ---
 
 ## 8. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
@@ -3701,6 +3759,7 @@ pas échouer**.
 | Un correctif pour la mauvaise couche | `PAL60 = True` sous `[Core]` devait faire tourner les jeux PAL à 60 Hz. Dans ce Dolphin, `SYSCONF_PAL60` est un réglage **SYSCONF**, affiché dans les options Wii, et ses deux usages sont gardés derrière `IsWii()` | Un correctif proposé pour la mauvaise couche ressemble à un correctif: il aurait été ajouté, rien ne se serait passé, et un essai raté aurait fourni l'explication. Lire la source de la version épinglée coûte cinq minutes |
 | Une source plus lente prise pour une panne | Un jeu PAL tourne à 50 Hz: sur 60 tics d'affichage par seconde, une dizaine ne trouvent rien de neuf. La page comptait une famine à chaque fois et ajoutait 35 ms de marge pour compenser | Comparer le temps depuis la dernière ARRIVÉE à la période de la source, pas la longueur de la file. Une file vide ne dit rien d'autre que « l'écran est plus rapide que le jeu » |
 | Une région supposée d'après un nom de fichier | Les saccades de Melee ont été attribuées à une version PAL. Melee est `GALE01`, NTSC-U, et aucun jeu PAL n'avait jamais démarré sur ce worker | L'en-tête du disque le dit en une commande. Un nom de fichier est ce que quelqu'un a tapé |
+| Enlever toutes les parenthèses | Nettoyer `(Europe) (En,Fr,De,Es,It) (Rev 2)` d'un nom de jeu, par une règle qui retire tout ce qui est entre parenthèses. Un des jeux de la bibliothèque s'appelle `Mario Kart Double Dash (Retro Track Grand Prix)`: la parenthèse est le nom du hack | Une règle de nettoyage se fait sur des formes CONNUES, pas sur une syntaxe. Et le jumeau négatif du test est le titre dont la parenthèse compte |
 
 ---
 

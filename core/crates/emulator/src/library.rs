@@ -26,8 +26,92 @@ const PLAYABLE: [&str; 5] = ["rvz", "iso", "gcm", "ciso", "gcz"];
 pub struct Rom {
     /// Where it is, for handing to Dolphin.
     pub path: PathBuf,
-    /// What to call it on screen: the file name without its extension.
+    /// What to call it on screen: the file name, cleaned of the cataloguing
+    /// that dump collections carry. See [`title`].
     pub name: String,
+    /// The file name, which is what a choice is REMEMBERED by.
+    ///
+    /// Separate from `name` because the display name is now allowed to change
+    /// when the cleaning rules improve, and a remembered choice must not stop
+    /// matching because a title lost a parenthesis.
+    pub file: String,
+}
+
+/// Groups a dump collection adds, and that nobody wants to read on a menu.
+///
+/// Deliberately a short list of KNOWN shapes rather than "drop every
+/// parenthesis": one of the games here is `Mario Kart Double Dash (Retro Track
+/// Grand Prix)`, where the parenthesis is the name of the hack and the only
+/// thing distinguishing it. A rule that strips everything would have renamed it
+/// to a game it is not.
+fn is_cataloguing(group: &str) -> bool {
+    const REGIONS: [&str; 16] = [
+        "usa",
+        "europe",
+        "japan",
+        "world",
+        "australia",
+        "korea",
+        "france",
+        "germany",
+        "spain",
+        "italy",
+        "netherlands",
+        "sweden",
+        "brazil",
+        "canada",
+        "asia",
+        "taiwan",
+    ];
+    let lower = group.trim().to_lowercase();
+
+    // A region, or a list of them: `USA, Europe`.
+    if lower.split(',').all(|part| REGIONS.contains(&part.trim())) {
+        return true;
+    }
+    // A revision: `Rev 2`, `Rev A`.
+    if let Some(rest) = lower.strip_prefix("rev ")
+        && !rest.is_empty()
+        && rest.chars().all(|c| c.is_ascii_alphanumeric())
+    {
+        return true;
+    }
+    // A language list: `En,Fr,De,Es,It`. Two letters each, at least two of them,
+    // because a single `En` is more likely part of a title than a catalogue tag.
+    let languages: Vec<&str> = group.split(',').map(str::trim).collect();
+    languages.len() >= 2
+        && languages.iter().all(|code| {
+            code.len() == 2
+                && code.starts_with(|c: char| c.is_ascii_uppercase())
+                && code.ends_with(|c: char| c.is_ascii_lowercase())
+        })
+}
+
+/// The name a person reads, from the name a dump carries.
+///
+/// `Mario Party 4 (Europe) (En,Fr,De,Es,It) (Rev 2)` becomes `Mario Party 4`.
+/// Anything that is not recognised cataloguing stays, parentheses included.
+#[must_use]
+pub fn title(stem: &str) -> String {
+    let mut out = String::with_capacity(stem.len());
+    let mut rest = stem;
+    while let Some(open) = rest.find('(') {
+        let Some(close) = rest[open..].find(')') else {
+            break;
+        };
+        let group = &rest[open + 1..open + close];
+        if is_cataloguing(group) {
+            // The text before the group is kept; the group and the space that
+            // introduced it go together, or every removal leaves a double space.
+            out.push_str(rest[..open].trim_end());
+            out.push(' ');
+        } else {
+            out.push_str(&rest[..=open + close]);
+        }
+        rest = &rest[open + close + 1..];
+    }
+    out.push_str(rest);
+    out.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 /// Every game in `dir`, sorted by name so a position means the same thing twice.
@@ -49,8 +133,10 @@ pub fn scan(dir: &Path) -> Vec<Rom> {
             if !PLAYABLE.contains(&extension.as_str()) {
                 return None;
             }
+            let stem = path.file_stem()?.to_string_lossy().into_owned();
             Some(Rom {
-                name: path.file_stem()?.to_string_lossy().into_owned(),
+                name: title(&stem),
+                file: path.file_name()?.to_string_lossy().into_owned(),
                 path,
             })
         })
@@ -176,16 +262,74 @@ mod tests {
         assert_eq!(names, ["animal", "melee", "zelda"]);
     }
 
+    /// Ce que la bibliothèque doit afficher, à partir de ce que les collections
+    /// de dumps écrivent vraiment.
+    #[test]
+    fn cataloguing_is_removed_from_the_name_on_screen() {
+        for (raw, wanted) in [
+            (
+                "Mario Party 4 (Europe) (En,Fr,De,Es,It) (Rev 2)",
+                "Mario Party 4",
+            ),
+            (
+                "Mario Power Tennis (Europe) (En,Fr,De,Es,It)",
+                "Mario Power Tennis",
+            ),
+            ("Super Mario Strikers (USA)", "Super Mario Strikers"),
+            ("Zelda (USA, Europe)", "Zelda"),
+            ("Something (Rev A)", "Something"),
+        ] {
+            assert_eq!(title(raw), wanted, "from {raw}");
+        }
+    }
+
+    /// The negative twin, and the reason the rule is a list of known shapes
+    /// rather than "drop every parenthesis": one game in this library IS its
+    /// parenthesis. Stripping it would rename a hack to the game it modifies.
+    #[test]
+    fn a_parenthesis_that_is_part_of_the_title_survives() {
+        for name in [
+            "Mario Kart Double Dash (Retro Track Grand Prix)",
+            "Super Smash Bros Melee",
+            "Zelda (Collector's Edition)",
+            "Wario Ware (Mega Party Games)",
+        ] {
+            assert_eq!(title(name), name);
+        }
+    }
+
+    /// Un seul code de langue ressemble trop à un mot pour être retiré.
+    #[test]
+    fn one_word_that_looks_like_a_language_is_not_cataloguing() {
+        assert_eq!(title("Something (En)"), "Something (En)");
+    }
+
+    /// The remembered choice keys on the FILE, not on what is displayed: the
+    /// cleaning rules are allowed to improve without a room forgetting what it
+    /// was playing.
+    #[test]
+    fn the_file_name_is_kept_beside_the_title() {
+        let dir = tempfile::tempdir().unwrap();
+        touch(dir.path(), "Mario Party 5 (Europe) (En,Fr,De,Es,It).rvz");
+
+        let found = scan(dir.path());
+
+        assert_eq!(found[0].name, "Mario Party 5");
+        assert_eq!(found[0].file, "Mario Party 5 (Europe) (En,Fr,De,Es,It).rvz");
+    }
+
     #[test]
     fn the_catalogue_says_which_game_is_running() {
         let roms = vec![
             Rom {
                 path: "/a".into(),
                 name: "Melee".to_owned(),
+                file: "Melee.rvz".to_owned(),
             },
             Rom {
                 path: "/b".into(),
                 name: "Mario Kart".to_owned(),
+                file: "Mario Kart.rvz".to_owned(),
             },
         ];
 
@@ -212,6 +356,7 @@ mod tests {
         let roms = vec![Rom {
             path: "/a".into(),
             name: "Zelda \"Ocarina\" \\ tab\there".to_owned(),
+            file: "z.rvz".to_owned(),
         }];
 
         let json = catalogue_json(&roms, Some(0), 2);

@@ -9,12 +9,19 @@ await enterRoom(page);
 await new Promise((r) => setTimeout(r, 4000));
 const text = await page.evaluate(() => document.body.innerText);
 let bad = 0;
-for (const wanted of ["Super Smash Bros Melee", "Mario Kart Double Dash (Retro Track Grand Prix)"]) {
+// La parenthèse de Mario Kart EST le nom du hack: elle doit survivre au nettoyage
+// qui retire « (Europe) », « (En,Fr,De,Es,It) » et « (Rev 2) ».
+for (const wanted of [
+  "Super Smash Bros Melee",
+  "Mario Kart Double Dash (Retro Track Grand Prix)",
+  "Mario Party 4",
+  "Super Mario Strikers",
+]) {
   const ok = text.includes(wanted);
   if (!ok) bad += 1;
   console.log(`  ${ok ? "ok    " : "ABSENT"} ${wanted}`);
 }
-for (const gone of ["v2.1", "melee-ntsc", "melee.rvz"]) {
+for (const gone of ["v2.1", "melee-ntsc", "melee.rvz", "(Europe)", "En,Fr,De,Es,It", "(Rev 2)", "(USA)"]) {
   const ok = !text.includes(gone);
   if (!ok) bad += 1;
   console.log(`  ${ok ? "ok    " : "ENCORE"} plus de « ${gone} »`);

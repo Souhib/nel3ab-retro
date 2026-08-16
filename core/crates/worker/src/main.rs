@@ -23,7 +23,10 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use anyhow::{Context as _, Result, bail};
-use nel3ab_emulator::{CHUNK_BYTES, DolphinConfig, Session, SlotSet, SoundTap, VideoBackend};
+use nel3ab_emulator::{
+    CHUNK_BYTES, DolphinConfig, Rom, Session, SlotSet, SoundTap, VideoBackend, catalogue_json,
+    scan_roms,
+};
 use nel3ab_encoder::av::Encoder;
 use nel3ab_encoder::frame_source::FrameListener;
 use nel3ab_encoder::va::DEFAULT_RENDER_NODE;
@@ -65,6 +68,8 @@ fn main() -> Result<()> {
 /// Everything the worker needs, and where each piece comes from.
 struct Settings {
     rom: PathBuf,
+    /// Where this machine keeps its games.
+    rom_dir: PathBuf,
     dolphin: PathBuf,
     session_dir: PathBuf,
     bind: SocketAddr,
@@ -90,6 +95,8 @@ impl Settings {
         Ok(Self {
             rom: env_path("NEL3AB_ROM")
                 .unwrap_or_else(|| PathBuf::from(&home).join("roms/gc/melee-ntsc.rvz")),
+            rom_dir: env_path("NEL3AB_ROM_DIR")
+                .unwrap_or_else(|| PathBuf::from(&home).join("roms/gc")),
             dolphin: env_path("NEL3AB_DOLPHIN")
                 .unwrap_or_else(|| repo.join("docker/dolphin-in-docker.sh")),
             session_dir: env_path("NEL3AB_SESSION_DIR")
@@ -154,6 +161,44 @@ fn players_from_environment() -> Result<PlayerSlot> {
     PlayerSlot::new(count).map_err(|error| anyhow::anyhow!("NEL3AB_PLAYERS: {error}"))
 }
 
+/// Where the room remembers which game it was told to boot.
+///
+/// In the session directory, so it is forgotten on a reboot along with
+/// everything else there. That is the behaviour worth having: a machine that
+/// comes back up returns to its default game rather than to whatever somebody
+/// picked before it went down.
+const CHOICE: &str = "chosen-rom";
+
+/// Which game to boot: what a player last asked for, or the default.
+///
+/// Remembered by NAME rather than position, because a position only means
+/// something while the directory is unchanged. Dropping a new game in would
+/// otherwise silently boot a different one after a restart.
+///
+/// A name that no longer matches anything falls back to the default instead of
+/// stopping the worker. The disk is not ours to depend on, and a room that
+/// refuses to start because a file was renamed is worse than one that starts
+/// with the usual game.
+fn chosen_rom(settings: &Settings, library: &[Rom]) -> PathBuf {
+    let Ok(remembered) = std::fs::read_to_string(settings.session_dir.join(CHOICE)) else {
+        return settings.rom.clone();
+    };
+    let remembered = remembered.trim();
+    library
+        .iter()
+        .find(|rom| rom.name == remembered)
+        .map_or_else(
+            || {
+                tracing::warn!(
+                    remembered,
+                    "the remembered game is gone; booting the usual one"
+                );
+                settings.rom.clone()
+            },
+            |rom| rom.path.clone(),
+        )
+}
+
 /// What a byte count over a period is worth on a link, in megabits per second.
 fn megabits(bytes: u64, over: Duration) -> f64 {
     let seconds = over.as_secs_f64();
@@ -189,7 +234,24 @@ fn run(settings: &Settings) -> Result<()> {
     // on a path nothing is listening on, which reads as a mystery.
     let _ = std::fs::remove_file(&socket);
 
-    let server = Arc::new(BrowserServer::start(settings.bind, PAGE, settings.players)?);
+    // Scanned once, at start-up. A library that changed under a running room
+    // would move the positions a page is holding, and a player would boot a
+    // different game from the one they clicked. It is rescanned on the restart
+    // that a switch causes anyway, which is the moment it can change safely.
+    let library = scan_roms(&settings.rom_dir);
+    let rom = chosen_rom(settings, &library);
+    let current = library.iter().position(|game| game.path == rom);
+    tracing::info!(
+        games = library.len(),
+        booting = %rom.display(),
+        "the room's library"
+    );
+    let server = Arc::new(BrowserServer::start(
+        settings.bind,
+        PAGE,
+        catalogue_json(&library, current).into(),
+        settings.players,
+    )?);
     tracing::info!(address = %server.address(), "open this in a browser");
 
     let listener = FrameListener::bind(&socket)?;
@@ -234,7 +296,7 @@ fn run(settings: &Settings) -> Result<()> {
     tracing::info!(players = settings.players.get(), "the room's size");
     let mut config = DolphinConfig::new(
         settings.dolphin.clone(),
-        settings.rom.clone(),
+        rom,
         settings.session_dir.clone(),
         ports,
     );
@@ -514,6 +576,23 @@ fn run(settings: &Settings) -> Result<()> {
         if server.take_joined() || server.take_key_frame_request() {
             encoder.force_key_frame();
         }
+        // Somebody chose another game. Dolphin takes its disc as a start-up
+        // argument and has no way to be handed a different one, so switching
+        // means a new emulator — a new frame ring, a new descriptor, a new
+        // encoder. Rebuilding all that in place would be a second start-up path
+        // living beside the real one and tested by nobody, and M4's control
+        // plane will be starting and stopping workers anyway.
+        //
+        // So the worker writes the choice down and STOPS. systemd brings it back
+        // within a couple of seconds on the new game, and the page reconnects on
+        // its own because it already survives a worker restart. Worth noting
+        // what this rests on: the exit path was broken until this week, and a
+        // worker that cannot stop cannot have this feature at all.
+        if let Some(index) = server.take_rom_request()
+            && remember_choice(&library, index, &settings.session_dir)
+        {
+            break;
+        }
         let encoding = Instant::now();
 
         let captured = started.elapsed();
@@ -599,6 +678,28 @@ fn run(settings: &Settings) -> Result<()> {
     let _ = sound_thread.join();
     session.shutdown()?;
     Ok(())
+}
+
+/// Writes down which game to boot next. `true` means the worker should stop.
+///
+/// A position the library does not have is refused rather than clamped: a page
+/// asking for a game that is not there is a page holding a list somebody has
+/// changed, and booting its neighbour instead is a surprise nobody asked for.
+///
+/// A choice that cannot be written down does NOT stop the worker either, and
+/// that ordering is the point: stopping first and failing to record afterwards
+/// would restart the room on the same game with no explanation.
+fn remember_choice(library: &[Rom], index: u8, session_dir: &std::path::Path) -> bool {
+    let Some(game) = library.get(index as usize) else {
+        tracing::warn!(index, games = library.len(), "no such game");
+        return false;
+    };
+    if let Err(error) = std::fs::write(session_dir.join(CHOICE), &game.name) {
+        tracing::error!(%error, "the choice could not be written down");
+        return false;
+    }
+    tracing::info!(game = game.name, "booting another game; stopping for it");
+    true
 }
 
 /// A percentile of a sample set, in the units the samples carry.

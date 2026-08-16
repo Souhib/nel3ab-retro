@@ -57,6 +57,7 @@
 
 pub mod config;
 pub mod error;
+pub mod library;
 pub mod pipe;
 pub mod process;
 pub mod slots;
@@ -64,6 +65,7 @@ mod sound;
 pub mod wire;
 
 pub use error::EmulatorError;
+pub use library::{Rom, catalogue_json, scan as scan_roms};
 pub use pipe::{Delivery, PendingPipes, Pipes};
 pub use process::{ConfigOverride, DolphinConfig, Session, VideoBackend};
 pub use slots::SlotSet;

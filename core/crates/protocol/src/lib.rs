@@ -49,6 +49,17 @@ pub enum ProtocolError {
         got: u8,
     },
 
+    /// The command byte named nothing this version knows.
+    ///
+    /// Rejected rather than ignored, for the reason the button bits are: a
+    /// client asking for something we do not implement is either older, newer,
+    /// or hostile, and silence hides all three.
+    #[error("unknown command {opcode}")]
+    UnknownCommand {
+        /// The byte that named nothing.
+        opcode: u8,
+    },
+
     /// Unknown bits were set in the button mask.
     ///
     /// Rejected rather than masked off: a client setting bits we don't define is
@@ -59,6 +70,70 @@ pub enum ProtocolError {
         /// The offending bits, with the known ones cleared.
         bits: u16,
     },
+}
+
+/// What a seated player can ask for besides moving their pad.
+///
+/// It travels on the SAME channel as [`InputFrame`], and the two are told apart
+/// by length: thirteen bytes is a pad, two is a command. That is unambiguous
+/// because a pad frame is always exactly [`WIRE_LEN`], never nearly it — so a
+/// reader needs no mode, no header and no state to know which it is holding.
+///
+/// **Only somebody holding a controller can send one**, and that is a
+/// consequence of the channel rather than a check: the input socket does not
+/// exist until a port has been claimed. Deciding what the room plays belongs to
+/// the people playing, and nothing had to be written to make that true.
+/// Deliberately NOT `#[non_exhaustive]`, unlike the errors above. That
+/// attribute buys source compatibility for crates outside this workspace, and
+/// there are none — every reader of this type ships in the same commit. What it
+/// would cost is the thing worth keeping: adding a command must make every place
+/// that handles commands stop compiling until it says what to do with it, rather
+/// than fall into a wildcard that ignores it in silence.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Command {
+    /// Boot the game at this position in the room's library.
+    ///
+    /// A POSITION, never a path. A position can only ever name something the
+    /// worker itself found, so no client can ask for a file outside the library
+    /// however it words the request. The check that would reject a bad path is a
+    /// check that can be forgotten; a `u8` index cannot express one.
+    SwitchRom {
+        /// Where in the room's library, counting from zero.
+        index: u8,
+    },
+}
+
+impl Command {
+    /// Bytes a command occupies on the wire: the opcode, then its argument.
+    pub const LEN: usize = 2;
+
+    /// The opcode for [`Command::SwitchRom`].
+    const SWITCH_ROM: u8 = 1;
+
+    /// Serialises to exactly [`Command::LEN`] bytes.
+    #[must_use]
+    pub const fn encode(self) -> [u8; Self::LEN] {
+        match self {
+            Self::SwitchRom { index } => [Self::SWITCH_ROM, index],
+        }
+    }
+
+    /// Parses a command produced by a client.
+    ///
+    /// # Errors
+    /// [`ProtocolError::WrongLength`] or [`ProtocolError::UnknownCommand`].
+    pub const fn decode(buf: &[u8]) -> Result<Self, ProtocolError> {
+        if buf.len() != Self::LEN {
+            return Err(ProtocolError::WrongLength {
+                expected: Self::LEN,
+                got: buf.len(),
+            });
+        }
+        match buf[0] {
+            Self::SWITCH_ROM => Ok(Self::SwitchRom { index: buf[1] }),
+            opcode => Err(ProtocolError::UnknownCommand { opcode }),
+        }
+    }
 }
 
 /// A controller port, guaranteed to be within `1..=4`.
@@ -298,6 +373,42 @@ mod tests {
         assert_eq!(
             PlayerSlot::new(raw),
             Err(ProtocolError::InvalidSlot { got: raw })
+        );
+    }
+
+    // ── Command ───────────────────────────────────────────────────────────
+    #[test]
+    fn a_command_survives_the_wire() {
+        for index in [0, 1, 255] {
+            let sent = Command::SwitchRom { index };
+            assert_eq!(Command::decode(&sent.encode()), Ok(sent));
+        }
+    }
+
+    /// The negative twins. A command channel that accepts anything is a command
+    /// channel that will one day do something nobody asked for.
+    #[rstest]
+    #[case(&[0, 0], ProtocolError::UnknownCommand { opcode: 0 })]
+    #[case(&[2, 0], ProtocolError::UnknownCommand { opcode: 2 })]
+    #[case(&[255, 9], ProtocolError::UnknownCommand { opcode: 255 })]
+    fn an_unnamed_command_is_refused_rather_than_ignored(
+        #[case] bytes: &[u8],
+        #[case] expected: ProtocolError,
+    ) {
+        assert_eq!(Command::decode(bytes), Err(expected));
+    }
+
+    /// And it cannot be confused with a pad frame, in either direction: that is
+    /// the whole basis for sharing one channel between the two.
+    #[test]
+    fn a_command_is_never_the_length_of_a_pad_frame() {
+        assert_ne!(Command::LEN, WIRE_LEN);
+        assert_eq!(
+            Command::decode(&[0; WIRE_LEN]),
+            Err(ProtocolError::WrongLength {
+                expected: Command::LEN,
+                got: WIRE_LEN
+            })
         );
     }
 

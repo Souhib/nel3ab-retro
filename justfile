@@ -148,6 +148,16 @@ browser-steal:
 browser-lesson:
     cd spikes/m3-browser-drive && node lesson.mjs http://localhost:8100/
 
+# Changing the game from the page. RESTARTS THE SESSION, which is the feature,
+# so it must not be run while somebody is playing something they care about.
+#
+# What it pins is the SEQUENCE, not the outcome: one click must arm and boot
+# nothing. A test that only checked "the game changed" would pass just as well on
+# a page that switched on the first click, and what is being confirmed is the end
+# of everybody else's game.
+browser-games:
+    cd spikes/m3-browser-drive && node games.mjs http://localhost:8100/
+
 # One benchmark run of the shipped chain: release worker under systemd, the real
 # Dolphin container, the real GPU, a real headless Chrome watching. RESTARTS THE
 # SESSION, so it must not be run while somebody is playing.

@@ -31,6 +31,15 @@
   .port:focus-visible { outline: 2px solid #6cf; outline-offset: 2px; border-radius: 6px; }
   .port svg { width: 4.4rem; height: auto; display: block; }
   .port .label { font: 600 11px ui-monospace, monospace; }
+  .games { display: flex; flex-direction: column; gap: 4px; margin: 8px 0 0; }
+  .game {
+    background: #1a1a1a; border: 1px solid #333; color: inherit; cursor: pointer;
+    font: inherit; padding: 5px 9px; text-align: left; border-radius: 4px;
+  }
+  .game:hover:not([disabled]) { border-color: #666; }
+  .game[disabled] { cursor: default; border-color: #4a86d9; color: #8ab; }
+  .game.arming { border-color: #e0913a; color: #e0913a; }
+  .game:focus-visible { outline: 2px solid #6cf; outline-offset: 2px; }
 </style>
 
 <div id="wrap">
@@ -39,6 +48,8 @@
     <div id="stats">connecting…</div>
     <div id="ports" class="ports"></div>
     <p id="seat" class="note">en attente d'une manette…</p>
+    <div id="games" class="games"></div>
+    <p id="gamesNote" class="note"></p>
     <p id="pad" class="note"></p>
     <p>
       <button id="sound" type="button">activer le son</button>
@@ -790,6 +801,10 @@
       chunkMs: soundChunks === 0 ? null : (1000 * soundPlayed) / soundChunks,
       gaps: soundGaps,
     }),
+    // The room as the page understands it, so a test can say "this page did not
+    // get a controller" rather than fail for a reason that is not a defect.
+    room: () => room,
+    library: () => library,
     counters: () => ({
       painted,
       shown,
@@ -1134,6 +1149,98 @@
   /// Redraws the panel. Called only when the room changes, which the server
   /// tells us: a page that redrew on a timer would fight the browser for the
   /// same sixty frames a second the picture needs.
+  // ── The library ───────────────────────────────────────────────────────
+  //
+  // Fetched once: the worker scans its games at start-up and does not rescan
+  // while a room is running, precisely so a position means the same thing on
+  // both sides. Re-fetching here would invite the page to hold a newer list
+  // than the worker is answering against.
+  const gamesStrip = document.getElementById("games");
+  const gamesNote = document.getElementById("gamesNote");
+  let library = { current: null, roms: [] };
+  /// Which game is one click away from being booted, and the timer that forgets
+  /// it. The same two-click shape as taking somebody's controller, for the same
+  /// reason: it ends what everybody in the room is doing.
+  let armingGame = null;
+  let armingGameTimer = null;
+
+  function drawGames() {
+    gamesStrip.innerHTML = "";
+    if (library.roms.length === 0) {
+      gamesNote.textContent = "aucun jeu trouvé dans la bibliothèque";
+      return;
+    }
+    library.roms.forEach((name, index) => {
+      const running = index === library.current;
+      const arming = index === armingGame;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = `game${arming ? " arming" : ""}`;
+      button.id = `game${index}`;
+      button.textContent = running
+        ? `▶ ${name}`
+        : arming
+          ? `${name} — QUITTER LA PARTIE ?`
+          : name;
+      button.disabled = running;
+      button.title = running
+        ? "c'est le jeu en cours"
+        : "changer de jeu arrête la partie en cours pour tout le monde";
+      button.addEventListener("click", () => switchTo(index));
+      gamesStrip.appendChild(button);
+    });
+    // The command rides the controller's socket, so holding one is what makes
+    // it possible to send. Said here rather than discovered by clicking.
+    gamesNote.textContent =
+      port === null
+        ? "prends une manette pour pouvoir changer de jeu"
+        : armingGame === null
+          ? "changer de jeu arrête la partie en cours"
+          : "reclique pour confirmer — la partie en cours sera perdue";
+  }
+
+  function switchTo(index) {
+    if (index === library.current) return;
+    if (port === null) {
+      drawGames();
+      return;
+    }
+    // One click arms, the second one boots. Nothing here is undoable: the
+    // emulator stops, the save state of whatever was running is gone, and
+    // everybody else in the room is watching.
+    if (armingGame !== index) {
+      armingGame = index;
+      clearTimeout(armingGameTimer);
+      armingGameTimer = setTimeout(() => {
+        armingGame = null;
+        drawGames();
+      }, 5000);
+      drawGames();
+      return;
+    }
+    clearTimeout(armingGameTimer);
+    armingGame = null;
+    if (input === null || input.readyState !== WebSocket.OPEN) {
+      drawGames();
+      return;
+    }
+    // Two bytes: the opcode, then the position. Never a name and never a path —
+    // the worker resolves the position against the list it built itself.
+    input.send(new Uint8Array([1, index]));
+    gamesNote.textContent = "le jeu démarre… la page se reconnecte toute seule";
+    gamesStrip.querySelectorAll("button").forEach((b) => (b.disabled = true));
+  }
+
+  fetch("/roms")
+    .then((answer) => answer.json())
+    .then((found) => {
+      library = found;
+      drawGames();
+    })
+    .catch(() => {
+      gamesNote.textContent = "la bibliothèque n'a pas pu être lue";
+    });
+
   function drawPorts() {
     const wanted = Math.max(room.players, 1);
     portStrip.innerHTML = "";
@@ -1231,6 +1338,9 @@
           : `tu es le joueur ${port}`;
       seat.className = port === null ? "bad" : "note";
       drawPorts();
+      // The library's note depends on holding a controller, so it follows the
+      // room rather than being drawn once and left to lie.
+      drawGames();
     };
     input.onclose = () => {
       if (mine !== generation) return;
@@ -1252,6 +1362,7 @@
     };
   }
   drawPorts();
+  drawGames();
   connectInput();
 
   const BUTTON = {

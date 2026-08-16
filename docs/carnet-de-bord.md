@@ -2921,6 +2921,80 @@ interrompue. La décision appartient à qui la maintiendra.
 
 ---
 
+### 6.70 Choisir son jeu depuis la page
+
+Trois jeux sur la machine, et un seul moyen d'en changer : éditer un fichier
+systemd. La page liste maintenant la bibliothèque et laisse un joueur en choisir
+un autre.
+
+#### Redémarrer plutôt que recharger, et pourquoi c'est le bon choix
+
+Dolphin reçoit son disque en argument de démarrage. Il n'existe aucun moyen de
+lui en donner un autre en cours de route, donc changer de jeu veut dire **un
+nouvel émulateur** — et avec lui un nouvel anneau d'images, un nouveau
+descripteur, un nouvel encodeur.
+
+Reconstruire tout ça en place aurait créé un second chemin de démarrage à côté du
+vrai, testé par personne. Le worker écrit donc son choix et **s'arrête** ;
+systemd le relance en deux secondes sur le nouveau jeu, et la page se reconnecte
+d'elle-même parce qu'elle sait déjà survivre à un redémarrage.
+
+Ce qui vaut d'être noté : **cette fonctionnalité était impossible il y a deux
+jours**. Le worker ne pouvait pas s'arrêter — les deux threads s'attendaient
+mutuellement (6.62). Un défaut corrigé pour lui-même a rendu possible une
+fonctionnalité qui n'était pas dans le tableau.
+
+#### Une position sur le fil, un nom sur le disque
+
+Le navigateur demande un jeu par sa **position** dans la liste, jamais par un
+chemin. Une position ne peut désigner que ce que le worker a lui-même trouvé,
+donc aucun client ne peut réclamer `../../etc/shadow` quelle que soit la façon
+dont il l'écrit. L'état invalide est inexprimable plutôt que vérifié.
+
+Mais le choix est **retenu par nom**, parce qu'une position n'est stable que tant
+que le répertoire l'est : déposer un jeu de plus ferait redémarrer sur un autre
+sans rien dire. Nom pour se souvenir, position pour transmettre, et aucun des
+deux ne fait le travail de l'autre.
+
+#### Deux clics, et ce qu'un test aurait laissé passer
+
+Changer de jeu arrête la partie de tout le monde. Le premier clic arme donc et
+affiche « QUITTER LA PARTIE ? », le second envoie — la même forme que prendre la
+manette de quelqu'un, pour la même raison.
+
+L'essai de bout en bout vérifie **la séquence, pas le résultat** :
+
+```
+après un clic : classe "game arming", jeu courant 2   <- rien n'a bougé
+après confirmation : melee-ntsc -> Mario Kart Double Dash
+```
+
+Un test qui aurait seulement constaté « le jeu a changé » passerait tout aussi
+bien sur une page qui bascule au premier clic. Or c'est exactement le premier
+clic qui doit ne rien faire.
+
+#### Ce que la commande a coûté au protocole
+
+Elle voyage sur la socket de la manette, distinguée par sa **longueur** : treize
+octets est une manette, deux est une commande. Sans mode, sans en-tête, sans
+état — une trame de manette fait toujours exactement treize octets, jamais
+presque.
+
+Conséquence gratuite et bienvenue : **seul quelqu'un qui tient une manette peut
+changer le jeu**, puisque la socket d'entrée n'existe qu'après avoir obtenu un
+port. Ce que la salle joue appartient à ceux qui y jouent, et rien n'a eu à être
+écrit pour que ce soit vrai.
+
+Le type `Command` n'est délibérément pas `#[non_exhaustive]`, contrairement aux
+erreurs du même fichier. Cet attribut achète une compatibilité de source pour des
+crates extérieurs au workspace, et il n'y en a aucun. Ce qu'il coûterait est ce
+qui vaut d'être gardé : ajouter une commande doit faire échouer la compilation
+partout où l'on traite des commandes, plutôt que tomber dans un fourre-tout qui
+l'ignore en silence. Le compilateur l'a d'ailleurs prouvé dans l'heure, en
+refusant un `match` sur les routes qui ne connaissait pas encore `/roms`.
+
+---
+
 ## 7. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
 
 | Le piège | Ce qui s'est passé | La leçon |

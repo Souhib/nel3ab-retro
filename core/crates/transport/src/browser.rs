@@ -27,7 +27,7 @@ use std::sync::{Arc, Condvar, Mutex};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
-use nel3ab_protocol::{InputFrame, PlayerSlot};
+use nel3ab_protocol::{Command, InputFrame, PlayerSlot};
 use thiserror::Error;
 
 /// How many frames may wait for the socket before one is dropped.
@@ -196,6 +196,11 @@ pub struct BrowserServer {
     dropped: Arc<std::sync::atomic::AtomicU64>,
     joined: Arc<std::sync::atomic::AtomicBool>,
     wants_key: Arc<std::sync::atomic::AtomicBool>,
+    /// Which game a player asked for, if one did.
+    ///
+    /// A slot rather than a queue, for the reason the pads are: only the newest
+    /// wish can be acted on, and acting on it ends the session anyway.
+    wants_rom: Arc<Mutex<Option<u8>>>,
     _accept: JoinHandle<()>,
 }
 
@@ -222,6 +227,7 @@ impl BrowserServer {
     pub fn start(
         address: SocketAddr,
         page: &'static str,
+        catalogue: Arc<str>,
         players: PlayerSlot,
     ) -> Result<Self, TransportError> {
         let listener = TcpListener::bind(address)
@@ -238,6 +244,7 @@ impl BrowserServer {
         let dropped = Arc::new(std::sync::atomic::AtomicU64::new(0));
         let joined = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let wants_key = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let wants_rom = Arc::new(Mutex::new(None));
         let granted_key = Arc::new(Mutex::new(
             Instant::now()
                 .checked_sub(KEY_FRAME_EVERY)
@@ -257,6 +264,7 @@ impl BrowserServer {
                 let listeners = Arc::clone(&listeners);
                 let arrived = Arc::clone(&arrived);
                 let seats = Arc::clone(&seats);
+                let wants_rom = Arc::clone(&wants_rom);
                 move || {
                     accept_loop(
                         &listener,
@@ -272,6 +280,8 @@ impl BrowserServer {
                             granted_key,
                             seats,
                             players,
+                            wants_rom,
+                            catalogue,
                         },
                     );
                 }
@@ -289,6 +299,7 @@ impl BrowserServer {
             dropped,
             joined,
             wants_key,
+            wants_rom,
             _accept: accept,
         })
     }
@@ -387,6 +398,15 @@ impl BrowserServer {
         self.viewers.lock().map_or(0, |viewers| viewers.len())
     }
 
+    /// Which game a player asked to boot, if one did since this was last asked.
+    ///
+    /// Reading it clears it: the caller acts on a wish exactly once, and acting
+    /// on it means ending this session.
+    #[must_use]
+    pub fn take_rom_request(&self) -> Option<u8> {
+        self.wants_rom.lock().ok()?.take()
+    }
+
     /// Whether a viewer asked for a key frame since this was last asked.
     ///
     /// Reading it clears it: one key frame answers everybody who asked while it
@@ -478,6 +498,13 @@ struct Shared {
     granted_key: Arc<Mutex<Instant>>,
     seats: Seats,
     players: PlayerSlot,
+    wants_rom: Arc<Mutex<Option<u8>>>,
+    /// The room's library, already rendered as JSON.
+    ///
+    /// Rendered by the worker rather than here: what a game is called and where
+    /// it lives is the emulator's business, and the transport's job is to hand
+    /// bytes to a browser without an opinion about them.
+    catalogue: Arc<str>,
 }
 
 /// How often a viewer's request for a key frame is honoured.
@@ -573,7 +600,8 @@ fn serve_connection(stream: TcpStream, page: &'static str, shared: &Shared) {
         Some(Route::Video) => video_thread(stream, &shared.viewers, &shared.joined, shared),
         Some(Route::Sound) => sound_thread(stream, &shared.listeners),
         Some(Route::Input { take }) => input_thread(stream, shared, take),
-        Some(Route::Page) => serve_page(stream, page),
+        Some(Route::Roms) => serve_body(stream, &shared.catalogue, "application/json"),
+        Some(Route::Page) => serve_body(stream, page, "text/html; charset=utf-8"),
         None => {}
     }
 }
@@ -589,7 +617,13 @@ fn take_from(request: &str) -> Option<PlayerSlot> {
 enum Route {
     Video,
     Sound,
-    Input { take: Option<PlayerSlot> },
+    Input {
+        take: Option<PlayerSlot>,
+    },
+    /// The room's library, as JSON. A plain `GET`, because listing what is
+    /// there changes nothing — and because a page that can be fetched can be
+    /// looked at with `curl` when it misbehaves.
+    Roms,
     Page,
 }
 
@@ -654,7 +688,12 @@ fn classify(stream: &TcpStream) -> Option<Route> {
     let read = stream.peek(&mut head).ok()?;
     let text = String::from_utf8_lossy(&head[..read]).to_lowercase();
     if !text.contains("upgrade: websocket") {
-        return Some(Route::Page);
+        // Before the catch-all, or the library would be served the HTML page.
+        return Some(if text.starts_with("get /roms") {
+            Route::Roms
+        } else {
+            Route::Page
+        });
     }
     // Checked once, here, rather than in each of the three socket routes: a
     // check that has to be repeated is a check somebody adds a fourth route
@@ -682,11 +721,11 @@ fn classify(stream: &TcpStream) -> Option<Route> {
     None
 }
 
-fn serve_page(mut stream: TcpStream, page: &'static str) {
+fn serve_body(mut stream: TcpStream, body: &str, content_type: &str) {
     let response = format!(
-        "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\n\
-         Content-Length: {}\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n{page}",
-        page.len()
+        "HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\n\
+         Content-Length: {}\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n{body}",
+        body.len()
     );
     // The request is still unread because `classify` only peeked; draining it
     // keeps the client from seeing a reset before it has read the response.
@@ -964,6 +1003,14 @@ fn input_thread(stream: TcpStream, shared: &Shared, take: Option<PlayerSlot>) {
             // proof of life above; text is not something this endpoint speaks.
             _ => continue,
         };
+        // Two bytes is a command, thirteen is a pad. Told apart by length,
+        // which needs no mode and no header — see `Command` in the protocol.
+        if payload.len() == Command::LEN {
+            if obey(&payload, shared, seat) {
+                continue;
+            }
+            break;
+        }
         match InputFrame::decode(&payload) {
             Ok(frame) => {
                 // Stamped with the seat this connection was given, whatever the
@@ -1005,6 +1052,30 @@ fn input_thread(stream: TcpStream, shared: &Shared, take: Option<PlayerSlot>) {
     }
     arrived.notify_one();
     let _ = socket.close(None);
+}
+
+/// Acts on a command from a seated player. `false` means hang up.
+///
+/// Its own function rather than a branch in the loop, because reading a pad and
+/// obeying an order are two different jobs and the loop was doing one of them
+/// well. A command that cannot be understood closes the connection, for the
+/// reason a malformed pad frame does: on a stream there is nothing to
+/// resynchronise against, and a client sending what we do not know is a client
+/// worth noticing rather than humouring.
+fn obey(payload: &[u8], shared: &Shared, seat: PlayerSlot) -> bool {
+    match Command::decode(payload) {
+        Ok(Command::SwitchRom { index }) => {
+            tracing::info!(port = seat.get(), index, "a player asked for another game");
+            if let Ok(mut wanted) = shared.wants_rom.lock() {
+                *wanted = Some(index);
+            }
+            true
+        }
+        Err(error) => {
+            tracing::warn!(%error, "a client sent a command we do not know");
+            false
+        }
+    }
 }
 
 /// Claims the lowest free port, or `None` when the room is full.
@@ -1147,6 +1218,7 @@ mod tests {
                 Some(Route::Video) => "video",
                 Some(Route::Sound) => "sound",
                 Some(Route::Input { .. }) => "input",
+                Some(Route::Roms) => "roms",
                 None => "none",
             };
             assert_eq!(got, expected, "for {}", String::from_utf8_lossy(request));
@@ -1235,6 +1307,39 @@ mod tests {
         }
     }
 
+    /// The library is its own route, and it is NOT the page.
+    ///
+    /// Red-first: move the `/roms` test after the catch-all in `classify` and
+    /// this returns `Page` — which is how a browser asking for the game list
+    /// would quietly receive an HTML document and parse nothing out of it.
+    #[test]
+    fn asking_for_the_library_is_not_asking_for_the_page() {
+        for (request, expected) in [
+            (&b"GET /roms HTTP/1.1\r\nHost: x\r\n\r\n"[..], "roms"),
+            (&b"GET / HTTP/1.1\r\nHost: x\r\n\r\n"[..], "page"),
+            // No prefix match on anything shorter: `/rom` is not `/roms`.
+            (&b"GET /rom HTTP/1.1\r\nHost: x\r\n\r\n"[..], "page"),
+        ] {
+            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let address = listener.local_addr().unwrap();
+            let owned = request.to_vec();
+            let client = std::thread::spawn(move || {
+                let mut stream = TcpStream::connect(address).unwrap();
+                stream.write_all(&owned).unwrap();
+                stream.flush().unwrap();
+                std::thread::sleep(Duration::from_millis(200));
+            });
+            let (stream, _) = listener.accept().unwrap();
+            let got = match classify(&stream) {
+                Some(Route::Roms) => "roms",
+                Some(Route::Page) => "page",
+                _ => "other",
+            };
+            assert_eq!(got, expected, "for {}", String::from_utf8_lossy(request));
+            client.join().unwrap();
+        }
+    }
+
     /// Builds a server with no accept loop, for tests that only exercise policy.
     fn detached(viewers: Vec<SyncSender<Framed>>) -> BrowserServer {
         BrowserServer {
@@ -1247,6 +1352,7 @@ mod tests {
             dropped: Arc::new(std::sync::atomic::AtomicU64::new(0)),
             joined: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             wants_key: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            wants_rom: Arc::new(Mutex::new(None)),
             _accept: std::thread::spawn(|| {}),
         }
     }
@@ -1386,7 +1492,8 @@ mod tests {
     #[test]
     fn a_player_can_take_the_controller_from_a_forgotten_page() {
         let one = PlayerSlot::new(1).unwrap();
-        let server = BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", one).unwrap();
+        let server =
+            BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", "[]".into(), one).unwrap();
         let (mut forgotten, port) = hold(server.address());
         assert_eq!(port, 1);
 
@@ -1423,7 +1530,9 @@ mod tests {
     /// right order.
     #[test]
     fn a_named_port_is_the_port_you_get() {
-        let server = BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", four()).unwrap();
+        let server =
+            BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", "[]".into(), four())
+                .unwrap();
         let (_third, took) = insist_on(server.address(), 3);
         assert_eq!(took, 3, "asked for the third socket");
 
@@ -1436,7 +1545,8 @@ mod tests {
     #[test]
     fn a_port_the_room_does_not_serve_is_refused() {
         let one = PlayerSlot::new(1).unwrap();
-        let server = BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", one).unwrap();
+        let server =
+            BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", "[]".into(), one).unwrap();
         let (_held, port) = insist_on(server.address(), 4);
         assert_eq!(port, 1, "a room of one gave out its only port");
     }
@@ -1445,7 +1555,9 @@ mod tests {
     /// picture of the moment it connected and nothing after.
     #[test]
     fn a_page_is_told_when_somebody_else_plugs_in() {
-        let server = BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", four()).unwrap();
+        let server =
+            BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", "[]".into(), four())
+                .unwrap();
         let (mut first, mine) = hold(server.address());
         assert_eq!(mine, 1);
 
@@ -1488,7 +1600,8 @@ mod tests {
     #[test]
     fn a_newcomer_that_does_not_insist_is_still_refused() {
         let one = PlayerSlot::new(1).unwrap();
-        let server = BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", one).unwrap();
+        let server =
+            BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", "[]".into(), one).unwrap();
         let (_holder, port) = hold(server.address());
         assert_eq!(port, 1);
 
@@ -1505,7 +1618,9 @@ mod tests {
     /// connections; anybody who can reach the port can do it on purpose.
     #[test]
     fn a_silent_connection_does_not_hold_up_the_next_one() {
-        let server = BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", four()).unwrap();
+        let server =
+            BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", "[]".into(), four())
+                .unwrap();
         let address = server.address();
 
         let _silent: Vec<TcpStream> = (0..3)
@@ -1547,6 +1662,8 @@ mod tests {
             )),
             seats: Arc::new(Mutex::new([None; PORTS])),
             players: four(),
+            wants_rom: Arc::new(Mutex::new(None)),
+            catalogue: "[]".into(),
         };
 
         for _ in 0..1000 {
@@ -1570,7 +1687,9 @@ mod tests {
     /// Four browsers, four ports, in the order they arrived.
     #[test]
     fn each_browser_is_given_its_own_port() {
-        let server = BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", four()).unwrap();
+        let server =
+            BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", "[]".into(), four())
+                .unwrap();
         let held: Vec<_> = (0..4).map(|_| hold(server.address())).collect();
         let ports: Vec<u8> = held.iter().map(|(_, port)| *port).collect();
         assert_eq!(
@@ -1585,7 +1704,9 @@ mod tests {
     /// session would exhaust a four-player room in four reloads.
     #[test]
     fn a_port_is_free_again_once_its_browser_leaves() {
-        let server = BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", four()).unwrap();
+        let server =
+            BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", "[]".into(), four())
+                .unwrap();
         let (first, port) = hold(server.address());
         assert_eq!(port, 1);
         drop(first);
@@ -1609,7 +1730,8 @@ mod tests {
     #[test]
     fn a_full_room_turns_the_next_browser_away() {
         let one = PlayerSlot::new(1).unwrap();
-        let server = BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", one).unwrap();
+        let server =
+            BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", "[]".into(), one).unwrap();
         let (_held, port) = hold(server.address());
         assert_eq!(port, 1);
 
@@ -1623,7 +1745,9 @@ mod tests {
     /// and overwriting cannot.
     #[test]
     fn a_browser_cannot_move_another_players_pad() {
-        let server = BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", four()).unwrap();
+        let server =
+            BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", "[]".into(), four())
+                .unwrap();
         let (_first, first_port) = hold(server.address());
         let (mut second, second_port) = hold(server.address());
         assert_eq!((first_port, second_port), (1, 2));
@@ -1656,7 +1780,9 @@ mod tests {
     /// observed, and there is no way to observe one without waiting for it.
     #[test]
     fn a_player_who_presses_nothing_keeps_their_port() {
-        let server = BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", four()).unwrap();
+        let server =
+            BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", "[]".into(), four())
+                .unwrap();
         let (mut quiet, port) = hold(server.address());
         assert_eq!(port, 1);
 
@@ -1701,7 +1827,8 @@ mod tests {
     fn a_socket_with_nobody_behind_it_gives_its_port_back() {
         use tungstenite::client::IntoClientRequest as _;
         let one = PlayerSlot::new(1).unwrap();
-        let server = BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", one).unwrap();
+        let server =
+            BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", "[]".into(), one).unwrap();
         let address = server.address();
 
         // A client that finishes the handshake and then never reads again: it
@@ -1748,7 +1875,9 @@ mod tests {
     /// The stream's cadence has to be the server's, not the emulator's.
     #[test]
     fn a_viewer_hears_from_the_server_even_when_the_emulator_says_nothing() {
-        let server = BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", four()).unwrap();
+        let server =
+            BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", "[]".into(), four())
+                .unwrap();
         let mut socket = watch(server.address());
 
         // Not one frame is sent for the whole of this test.
@@ -1765,8 +1894,10 @@ mod tests {
     /// the test above and quietly double the message rate.
     #[test]
     fn a_stream_that_never_pauses_carries_no_keep_alives() {
-        let server =
-            Arc::new(BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", four()).unwrap());
+        let server = Arc::new(
+            BrowserServer::start("127.0.0.1:0".parse().unwrap(), "page", "[]".into(), four())
+                .unwrap(),
+        );
         let mut socket = watch(server.address());
 
         // A frame every 50 ms — ten times inside the keep-alive window — for

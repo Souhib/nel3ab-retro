@@ -253,6 +253,45 @@ the server grants at most two a second however many are asked for, because one
 byte from anybody on the network would otherwise inflate the bitrate for
 everybody.
 
+### D12 — The control plane is FastAPI, and it never touches a frame
+
+D2 drew the line and left the language open above it. It is FastAPI, laid out the
+way the owner's other services are (`api/routes`, `api/controllers`,
+`api/schemas`, `api/services`), with their tooling: `uv`, `poe` tasks over `ruff`,
+`ty` and `pytest`, and `python-socketio` mounted on the ASGI app for lobby
+events. Copying a layout that is already maintained is worth more than a
+marginally better one nobody else knows.
+
+**What it owns:** who is here and what they are called, which room exists, which
+game it runs, and who claims which pad. **What it must never own:** a frame, a
+chunk of sound, or a pad state. Those stay on the worker's own sockets, and the
+browser opens them itself.
+
+That is the whole latency argument, and it is checkable rather than asserted: if
+the control plane is stopped, a room already open keeps playing. Anything that
+breaks when it stops was on the hot path and should not have been.
+
+**Identity is a name, not an account.** Rooms are private and shared with people
+who are already on the tailnet; a password would protect nothing that the network
+does not already protect, and would be one more thing to lose. The name exists so
+a seat can say "Souhib" rather than "player 2". When rooms become shareable
+outside the tailnet, this is the decision that has to change first — and D2's
+signed token is where it changes.
+
+**The seats the control plane shows are CLAIMED, not held.** The worker is the
+only thing that knows who really has a pad; the control plane knows what each
+page told it. The two can disagree for a second after a reconnection, and the
+page believes the worker, because the worker is the one applying the buttons.
+
+### D6 amended — the OpenAPI document comes from FastAPI
+
+D6 chose Hey API for the generated TypeScript client and named `utoipa` as the
+producer of the document. With the control plane in FastAPI, the document is
+FastAPI's own `/openapi.json` and `utoipa` does not enter. The generator stays
+Hey API rather than the Kubb used in the owner's other front ends: the practice
+being copied is "the client is generated from the contract, never hand-written",
+and which generator does it was already weighed here.
+
 ## Consequences
 
 - AV1 encoding is unavailable (needs RDNA3+). Target H.264/HEVC.

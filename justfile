@@ -26,8 +26,13 @@ default: local
 # cheaper than a runner to maintain.
 local: check gpu-test
 
+# The control plane's own gate, which is its owner's: ruff, ty, pytest, driven by
+# poe exactly as LaTabdhir and Majlisna drive theirs.
+control:
+    cd control && uv run poe check
+
 # Everything a commit must satisfy. Mirrors `poe check`.
-check: fmt-check lint test
+check: fmt-check lint test control
 
 # Auto-fix pass for development. Mirrors `poe fix`.
 fix:

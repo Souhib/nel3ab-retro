@@ -1,0 +1,64 @@
+[project]
+name = "nel3ab-control"
+version = "0.1.0"
+description = "The room's control plane: who is here, which game, which pad. Never a frame."
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.34",
+    "pydantic-settings>=2.7",
+    "python-socketio[asyncio]>=5.12",
+    "httpx>=0.28",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4",
+    "pytest-asyncio>=1.0",
+    "pytest-cov>=7.1",
+    "pytest-xdist>=3.8",
+    "ruff>=0.12",
+    "ty>=0.0.3",
+    "poethepoet>=0.32",
+    "asgi-lifespan>=2.1.0",
+    "python-socketio[asyncio-client]>=5.16.4",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+# The families, named. Not "ALL" at maximum: that shifts between releases and
+# turns an upgrade into an unrelated red build, which is the same reasoning the
+# Rust side gives for not taking `clippy::all`.
+select = ["E", "F", "I", "N", "UP", "B", "A", "C4", "SIM", "RUF", "ASYNC", "S", "T20"]
+ignore = ["S104"]   # binding 0.0.0.0 is the deployment's decision, not this file's
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]   # an assert IS the failure signal in a test
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+addopts = "--cov=nel3ab_control --cov-report=term-missing"
+testpaths = ["tests"]
+
+[tool.poe.tasks]
+# Checks: exactly what CI runs, no modifications.
+lint = "ruff check ."
+format-check = "ruff format --check ."
+type-check = "ty check"
+check = ["lint", "format-check", "type-check", "test"]
+
+# Fixes, for a keyboard rather than a pipeline.
+lint-fix = "ruff check --fix ."
+format = "ruff format ."
+fix = ["format", "lint-fix"]
+
+test = "pytest -n auto"
+test-fast = "pytest -x"
+serve = "uvicorn nel3ab_control.app:app --host 127.0.0.1 --port 8200 --reload"

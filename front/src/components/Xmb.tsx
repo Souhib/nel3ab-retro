@@ -23,16 +23,6 @@
 import { useEffect, useRef } from "react";
 import type { MenuAction } from "../media/menupad";
 import { useShell } from "./shell";
-
-/** Les touches qui conduisent un menu, et rien d'autre. */
-const KEYS: Record<string, MenuAction> = {
-  ArrowLeft: "left",
-  ArrowRight: "right",
-  ArrowUp: "up",
-  ArrowDown: "down",
-  Enter: "confirm",
-  Escape: "back",
-};
 import { cn } from "../lib/cn";
 
 /** Une entrée dans la colonne d'un rayon. */
@@ -94,19 +84,6 @@ export function Xmb({
   useEffect(() => {
     onPad?.(shell.act);
     return () => onPad?.(null);
-  });
-
-  useEffect(() => {
-    const press = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (target && ["INPUT", "TEXTAREA"].includes(target.tagName)) return;
-      const action = KEYS[event.key];
-      if (action === undefined) return;
-      event.preventDefault();
-      shell.act(action);
-    };
-    addEventListener("keydown", press);
-    return () => removeEventListener("keydown", press);
   });
 
   useEffect(() => {

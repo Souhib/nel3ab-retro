@@ -69,6 +69,66 @@ await tap(1);
 await wait(700);
 say(await page.evaluate(() => document.getElementById("menu") === null), "B referme le menu");
 
-console.log(bad === 0 ? "PASS — la manette conduit le menu, et rien ne descend au jeu" : `FAIL — ${bad} écart(s)`);
+// ── Le clavier, sur une page SANS manette ────────────────────────────────
+//
+// C'est la moitié qui compte, et elle demande une autre page: tant qu'une
+// manette est branchée, la boucle d'entrée lit la manette et jamais le clavier.
+// Le doublon n'existait donc QUE sans manette, et un essai avec une manette
+// simulée passait à côté en donnant l'air de vérifier.
+//
+// Il y a eu deux chemins pour une touche — le gestionnaire du menu et la boucle
+// d'entrée — et une flèche bas avançait de deux crans. Compter les crans est le
+// seul moyen de voir une addition: « ça bouge » passait très bien.
+const clavier = await browser.newPage();
+await clavier.goto(url, { waitUntil: "domcontentloaded" });
+await enterRoom(clavier);
+await wait(6000);
+await clavier.evaluate(() => document.getElementById("openMenu")?.click());
+await wait(800);
+
+const seen = () => clavier.evaluate(() => {
+  const ids = [...document.querySelectorAll('#menu [id^="item-"]')].map((el) => el.id);
+  const here = document.querySelector('#menu [data-selected="true"][id^="item-"]')?.id ?? "";
+  return ids.indexOf(here);
+});
+
+await clavier.keyboard.press("ArrowDown");
+await wait(500);
+const oneDown = await seen();
+say(oneDown === 1, `une flèche bas avance d'exactement un cran (0 → ${oneDown})`);
+
+await clavier.keyboard.press("ArrowDown");
+await wait(500);
+const twoDown = await seen();
+say(twoDown === 2, `la suivante aussi (${oneDown} → ${twoDown})`);
+
+await clavier.keyboard.press("ArrowUp");
+await wait(500);
+const backUp = await seen();
+say(backUp === 1, `et la flèche haut revient d'un cran (${twoDown} → ${backUp})`);
+
+// ── Changer de console depuis N'IMPORTE quelle console ───────────────────
+//
+// Le défaut: en mode rangée, gauche et droite parcourent la file, donc pousser à
+// droite sur « menu » changeait de page au lieu de changer de menu. Un réglage
+// doit se régler pareil partout, et « A » est partout.
+for (const from of ["switch", "wii", "xbox360"]) {
+  await clavier.evaluate((id) => localStorage.setItem("nel3ab:shell", id), from);
+  await clavier.reload({ waitUntil: "domcontentloaded" });
+  await enterRoom(clavier);
+  await wait(5000);
+  await clavier.evaluate(() => document.getElementById("openMenu")?.click());
+  await wait(700);
+  await clavier.evaluate(() => document.getElementById("ray-reglages")?.click());
+  await wait(500);
+  await clavier.evaluate(() => document.getElementById("item-shell")?.click());
+  await wait(400);
+  await clavier.evaluate(() => document.getElementById("item-shell")?.click());
+  await wait(700);
+  const now = await clavier.evaluate(() => localStorage.getItem("nel3ab:shell"));
+  say(now !== from, `depuis ${from}, « A » change de console (→ ${now})`);
+}
+
+console.log(bad === 0 ? "PASS — la manette conduit le menu, et une touche vaut un cran" : `FAIL — ${bad} écart(s)`);
 await browser.close();
 process.exit(bad === 0 ? 0 : 1);

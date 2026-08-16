@@ -14,6 +14,7 @@ import { Lobby } from "./components/Lobby";
 import { Booting, type Step } from "./components/Booting";
 import { Sidebar } from "./components/Sidebar";
 import { Asked as AskedBanner, Asking } from "./components/Swap";
+import { Blades } from "./components/Blades";
 import { Channels } from "./components/Channels";
 import { Home } from "./components/Home";
 import { Xmb, type XmbCategory } from "./components/Xmb";
@@ -359,7 +360,7 @@ function Room({
           id: "volume",
           label: "volume",
           value: `${Math.round(volume * 100)}`,
-          hint: "gauche et droite",
+          hint: "A pour changer",
           icon: <DotIcon className="h-full w-full" />,
           onAdjust: (by) => setVolume((was) => Math.min(1, Math.max(0, was + by * 0.05))),
         },
@@ -367,7 +368,7 @@ function Room({
           id: "theme",
           label: "ambiance",
           value: themeLabel(theme),
-          hint: "gauche et droite",
+          hint: "A pour changer",
           icon: <DotIcon className="h-full w-full" />,
           onAdjust: (by) => {
             const at = THEMES.findIndex((choice) => choice.id === theme);
@@ -379,7 +380,7 @@ function Room({
           id: "shell",
           label: "menu",
           value: shellLabel(shell),
-          hint: "la forme du menu: croix, grille ou rangée",
+          hint: "A pour passer à la console suivante",
           icon: <DotIcon className="h-full w-full" />,
           onAdjust: (by) => {
             const at = SHELLS.findIndex((choice) => choice.id === shell);
@@ -596,8 +597,9 @@ function Room({
               paused: bindings,
               footer: `${room?.name ?? "salon"} · ${people.length} présent${people.length > 1 ? "s" : ""}`,
             };
-            if (shell === "grille") return <Channels {...common} />;
-            if (shell === "rangée") return <Home {...common} who={name} />;
+            if (shell === "xbox360") return <Blades {...common} />;
+            if (shell === "wii") return <Channels {...common} />;
+            if (shell === "switch") return <Home {...common} who={name} />;
             return <Xmb {...common} />;
           })()
         : null}

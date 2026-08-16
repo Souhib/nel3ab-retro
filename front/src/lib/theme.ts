@@ -77,16 +77,18 @@ export function rememberMode(mode: Mode): void {
 }
 
 /**
- * La forme du menu: trois consoles, trois façons de se conduire.
+ * Le menu: celui de quelle console.
  *
- * Ce n'est pas un thème: un thème change des couleurs, ceci change la
- * disposition et la façon de naviguer. Les deux se choisissent séparément, donc
- * un XMB en Game Boy est possible et c'est très bien.
+ * Ce n'est pas un thème. Un thème change les couleurs de la SALLE; ceci change
+ * le menu, et chacun porte les couleurs de sa console plutôt que celles du
+ * thème. Copier le tableau de bord d'une Xbox en vert Game Boy ne serait plus
+ * le tableau de bord d'une Xbox.
  */
 export const SHELLS = [
-  { id: "croix", label: "croix", note: "une rangée, une colonne, un croisement fixe" },
-  { id: "grille", label: "grille", note: "une page de tuiles, une barre en bas" },
-  { id: "rangée", label: "rangée", note: "une file de grandes tuiles, une par une" },
+  { id: "ps3", label: "PlayStation 3", note: "la croix du XMB" },
+  { id: "xbox360", label: "Xbox 360", note: "les lames du tableau de bord" },
+  { id: "wii", label: "Wii", note: "le tableau des chaînes" },
+  { id: "switch", label: "Switch", note: "la rangée de l'écran d'accueil" },
 ] as const;
 
 export type Shell = (typeof SHELLS)[number]["id"];
@@ -96,9 +98,9 @@ const SHELL = "nel3ab:shell";
 export function storedShell(): Shell {
   try {
     const found = localStorage.getItem(SHELL);
-    return SHELLS.some((choice) => choice.id === found) ? (found as Shell) : "croix";
+    return SHELLS.some((choice) => choice.id === found) ? (found as Shell) : "ps3";
   } catch {
-    return "croix";
+    return "ps3";
   }
 }
 

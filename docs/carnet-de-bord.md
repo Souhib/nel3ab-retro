@@ -4088,6 +4088,58 @@ Et l'écran des touches s'ouvre **par-dessus le menu** au lieu de le fermer: on 
 renvoie plus personne dans la partie pour changer une touche. Le menu reste
 affiché derrière et cesse d'écouter, sinon réassigner une flèche ferait aussi
 défiler la liste dessous.
+### 7.26 Un clavier compté deux fois, et quatre menus qui portent le nom de leur console
+
+#### Deux chemins pour une touche
+
+« Dans le menu, flèche droite saute deux fois. » C'était une addition, pas une
+sensibilité mal réglée.
+
+Le menu écoute `keydown` lui-même, et la boucle d'entrée lisait AUSSI le clavier
+pour conduire le menu à la manette. Une flèche partait donc deux fois: une par le
+gestionnaire du menu, une par la boucle qui voyait la flèche comme une poussée de
+stick. Le clavier appartient maintenant au menu, et la boucle ne lit que la
+manette.
+
+Le détail qui rend ce défaut instructif: il n'existait **que sans manette
+branchée**. La boucle lit `pad ? manette : clavier`, donc dès qu'une manette est
+là le clavier n'était pas lu et rien ne doublait. Et l'essai de navigation
+utilisait une manette simulée: il passait à côté en donnant l'air de vérifier. Il
+a fallu une **deuxième page, sans manette**, pour le reproduire.
+
+L'assertion qui compte n'est pas « ça bouge » mais « ça bouge d'exactement un
+cran ». Une addition ne se voit qu'en comptant.
+
+Corollaire trouvé au passage: le clavier n'était branché que sur une des trois
+formes de menu. Les deux autres ne se conduisaient qu'à la manette, et personne
+ne l'avait remarqué parce que personne ne les avait ouvertes au clavier. Il vit
+maintenant dans la mécanique partagée, donc les quatre l'ont.
+
+#### Un réglage qui ne se réglait pas
+
+Dans la forme en rangée, gauche et droite parcourent la file. Pousser à droite
+sur « menu » changeait donc de page au lieu de changer de menu, et le réglage
+avait l'air cassé.
+
+La cause est que « régler une valeur » était accroché à un axe, et que cet axe
+n'est pas le même selon la forme. Une entrée qui porte une valeur se règle
+maintenant aussi en la **choisissant**: « A » est partout, quelle que soit la
+géométrie. Les indices disent « A pour changer » plutôt que de nommer un axe qui
+dépend de l'écran.
+
+#### Les menus prennent le nom de leur console
+
+Ils s'appelaient « croix », « grille » et « rangée », ce qui décrivait la forme et
+ratait l'intention: le but était de retrouver le menu d'une console, pas une
+abstraction. Ils s'appellent donc **PlayStation 3**, **Xbox 360**, **Wii** et
+**Switch**, et une quatrième est arrivée avec: les **lames** du tableau de bord de
+la 360, des panneaux de couleur empilés dont un seul est ouvert.
+
+Conséquence qui vaut d'être écrite: **un menu ne suit plus le thème**. Chacun
+porte les couleurs de sa console — le blanc et le bleu de la Wii, le vert de la
+360, le gris et le rouge de la Switch. Un tableau de bord de Xbox en vert Game
+Boy ne serait plus un tableau de bord de Xbox. Le thème habille la salle; le menu
+est un costume, et les deux se choisissent séparément.
 ---
 
 ## 8. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
@@ -4150,6 +4202,8 @@ pas échouer**.
 | Une règle qui ne vit que dans l'interface | « Seul le propriétaire change le jeu » était appliqué par la page, et le worker obéissait à qui tenait une manette. Une console de développeur suffisait | Une règle se met là où l'ordre arrive. Et l'essai doit être au même endroit: un pilote de navigateur ne peut pas attraper ce qu'une page n'envoie jamais |
 | Une édition qui n'a rien édité, et un commit qui l'affirmait | Un remplacement de texte n'a trouvé aucune cible dans `Seats.tsx`, n'a rien dit, et le message de commit annonçait la règle comme appliquée. Elle ne l'était que dans un composant supprimé depuis | Toute édition scriptée porte une assertion. Et ce qu'un message de commit affirme se vérifie dans le produit, pas dans l'intention |
 | Un pilote qui expire sans que la page soit bloquée | `waitForSelector` et `page.click` font plusieurs allers-retours au navigateur; deux pages qui décodent 60 images par seconde suffisent à les faire expirer | Cliquer depuis la page en un seul appel. Troisième fois que l'instrument est le problème et que le symptôme accuse le sujet |
+| Une touche comptée deux fois | Le menu écoutait `keydown` et la boucle d'entrée lisait aussi le clavier pour le conduire à la manette: une flèche avançait de deux crans. Et ça n'arrivait QUE sans manette branchée, donc l'essai à manette simulée passait à côté | Une entrée, un propriétaire. Et l'assertion utile n'est pas « ça bouge » mais « ça bouge d'exactement un cran »: une addition ne se voit qu'en comptant |
+| Un réglage accroché à un axe | « Régler une valeur » était gauche/droite, mais gauche/droite ne veut pas dire la même chose dans une colonne et dans une rangée: le réglage du menu changeait de page | Accrocher un réglage au geste qui existe partout, « choisir ». Et ne pas écrire dans l'indice le nom d'un axe qui dépend de l'écran |
 
 ---
 

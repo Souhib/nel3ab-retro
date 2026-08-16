@@ -469,9 +469,16 @@ export class InputStream {
     // Un menu ouvert prend la main. Le clavier ET la manette, parce que les deux
     // conduisent la même croix.
     if (this.menu !== null) {
-      const reading = pad ? readPad(pad, this.profile) : readKeys(this.held, this.keys);
-      const action = this.menuPad.feed(reading, performance.now());
-      if (action !== null) this.menu(action);
+      // La MANETTE seulement, jamais le clavier.
+      //
+      // Le menu écoute déjà `keydown` lui-même, et le navigateur lui donne la
+      // répétition du système. Lire aussi le clavier ici faisait deux chemins
+      // pour une touche: une flèche droite avançait de deux crans, ce qui
+      // ressemblait à un menu nerveux et était une addition.
+      if (pad) {
+        const action = this.menuPad.feed(readPad(pad, this.profile), performance.now());
+        if (action !== null) this.menu(action);
+      }
       this.sendNeutral();
       return;
     }

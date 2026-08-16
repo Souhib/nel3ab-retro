@@ -7,9 +7,21 @@
  * on lit une page entière d'un coup au lieu de faire défiler.
  *
  * Le rayon choisi est la PAGE: les rayons vivent dans la barre du bas, comme les
- * boutons de la console. C'est la vraie différence avec la croix, où tout est
- * visible en même temps: ici on voit une chose à la fois, en grand.
+ * deux boutons ronds de la console. C'est la vraie différence avec le XMB, où
+ * tout est visible en même temps: ici on voit une chose à la fois, en grand.
+ *
+ * Les couleurs sont celles de la console et **ne suivent pas le thème**: blanc,
+ * gris clair, et le bleu des liserés. Une Wii en vert Game Boy ne serait plus
+ * une Wii, et c'est la différence entre un thème, qui habille la salle, et un
+ * menu, qui est un costume.
  */
+
+/** Le blanc, le gris des chaînes et le bleu du liseré. */
+const PAPER = "#f4f4f4";
+const CHANNEL = "#fdfdfd";
+const EDGE = "#d8dde2";
+const BLUE = "#1ba4e2";
+const INK = "#3a3f44";
 import { useEffect } from "react";
 import { cn } from "../lib/cn";
 import type { MenuAction } from "../media/menupad";
@@ -25,13 +37,15 @@ export function Channels({
   onClose,
   footer,
   onPad,
+  paused,
 }: {
   categories: XmbCategory[];
   onClose: () => void;
   footer?: React.ReactNode;
   onPad?: (handler: ((action: MenuAction) => void) | null) => void;
+  paused?: boolean;
 }) {
-  const shell = useShell(categories, ACROSS, onClose);
+  const shell = useShell(categories, ACROSS, onClose, paused);
   const { category, items, ray, row } = shell;
 
   useEffect(() => {
@@ -40,10 +54,17 @@ export function Channels({
   });
 
   return (
-    <div id="menu" className="fixed inset-0 z-50 flex flex-col bg-panel">
-      <header className="flex items-baseline justify-between border-b border-rule px-8 py-5">
+    <div
+      id="menu"
+      className="fixed inset-0 z-50 flex flex-col"
+      style={{ background: PAPER, color: INK }}
+    >
+      <header
+        className="flex items-baseline justify-between px-8 py-5"
+        style={{ borderBottom: `1px solid ${EDGE}` }}
+      >
         <h1 className="text-[20px] tracking-tight">{category?.label ?? ""}</h1>
-        <span className="text-[12px] text-faint">{footer}</span>
+        <span className="text-[12px] opacity-50">{footer}</span>
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-8">
@@ -58,30 +79,37 @@ export function Channels({
               onMouseEnter={() => shell.point(index)}
               onClick={() => shell.choose(index)}
               className={cn(
-                "flex aspect-square flex-col items-center justify-center gap-3 rounded-2xl border-2 bg-ink px-4 text-center transition-all",
-                index === row
-                  ? "border-indigo shadow-[0_0_0_4px_var(--indigo-dim)]"
-                  : "border-rule hover:border-rule-bright",
+                "flex aspect-square flex-col items-center justify-center gap-3 rounded-2xl px-4 text-center transition-all",
                 item.disabled && "opacity-40",
               )}
+              style={{
+                background: CHANNEL,
+                border: `2px solid ${index === row ? BLUE : EDGE}`,
+                boxShadow: index === row ? `0 0 0 5px ${BLUE}33` : "none",
+              }}
             >
-              <span className="h-12 w-12 text-muted">{item.icon}</span>
+              <span className="h-12 w-12 opacity-40">{item.icon}</span>
               <span className="line-clamp-2 text-[14px] leading-tight">{item.label}</span>
               {item.value ? (
-                <span className="font-mono text-[12px] text-indigo">{item.value}</span>
+                <span className="font-mono text-[12px]" style={{ color: BLUE }}>
+                  {item.value}
+                </span>
               ) : null}
             </button>
           ))}
         </div>
         {items[row]?.hint ? (
-          <p className="mx-auto max-w-5xl pt-5 text-center text-[13px] text-faint">
+          <p className="mx-auto max-w-5xl pt-5 text-center text-[13px] opacity-50">
             {items[row].hint}
           </p>
         ) : null}
       </div>
 
       {/* La barre du bas porte les rayons, comme les boutons de la console. */}
-      <footer className="flex items-center justify-center gap-3 border-t border-rule px-8 py-5">
+      <footer
+        className="flex items-center justify-center gap-3 px-8 py-5"
+        style={{ borderTop: `1px solid ${EDGE}` }}
+      >
         {categories.map((choice, index) => (
           <button
             key={choice.id}
@@ -89,10 +117,12 @@ export function Channels({
             id={`ray-${choice.id}`}
             data-selected={index === ray}
             onClick={() => shell.goTo(index)}
-            className={cn(
-              "flex items-center gap-2 rounded-full border-2 px-5 py-2 text-[13px] transition-colors",
-              index === ray ? "border-indigo text-indigo" : "border-rule text-muted",
-            )}
+            className="flex items-center gap-2 rounded-full border-2 px-5 py-2 text-[13px] transition-colors"
+            style={{
+              borderColor: index === ray ? BLUE : EDGE,
+              color: index === ray ? BLUE : INK,
+              background: CHANNEL,
+            }}
           >
             <span className="h-5 w-5">{choice.icon}</span>
             {choice.label}
@@ -102,7 +132,8 @@ export function Channels({
           type="button"
           id="closeMenu"
           onClick={onClose}
-          className="ml-6 rounded-full border-2 border-rule px-5 py-2 text-[13px] text-muted hover:border-indigo hover:text-indigo"
+          className="ml-6 rounded-full border-2 px-5 py-2 text-[13px]"
+          style={{ borderColor: EDGE, background: CHANNEL }}
         >
           reprendre
         </button>

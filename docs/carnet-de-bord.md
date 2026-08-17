@@ -4947,6 +4947,19 @@ l'écran, et les quatre dernières entrées étaient hors de portée pour toujou
 Sans erreur, sans trace. L'assertion qui l'a vu ne demande pas « est-ce que ça
 descend » mais « la dernière entrée est-elle DANS l'écran ».
 
+#### Un pipeline rouge sans qu'une ligne ait bougé
+
+Le commit est parti, `just check` était vert, et CI a échoué deux fois de suite
+sur l'action qui installe `just`: d'abord un 504 de l'API GitHub en parcourant la
+liste des versions, puis « aucune version ne correspond ». Deux messages
+différents pour la même panne, aucun rapport avec le code.
+
+La version est maintenant épinglée. Ça ne rend pas CI plus rapide, ça la rend
+HONNÊTE: un rouge qui n'a rien à voir avec le commit est un rouge que l'oeil
+apprend à ignorer, et la règle 7 de ce projet existe précisément parce que ça
+s'est déjà produit — « un check rouge pour rien est un check que les gens
+apprennent à sauter ».
+
 ---
 
 ## 8. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
@@ -5018,6 +5031,7 @@ pas échouer**.
 | Une image jetée au milieu d'un groupe | La file pleine jetait l'image, les suivantes référençaient celle qui manquait, et le navigateur décodait du bruit: 306 non décodables contre 192 décodées | Dans un flux où les morceaux dépendent les uns des autres, se taire jusqu'au prochain point d'entrée vaut mieux que continuer à parler |
 | Une icône fourre-tout sur quinze entrées | Le même carré vide servait de « son », « volume », « ambiance » et douze autres. Un menu où tout porte la même icône se relit mot par mot, et un carré vide a l'air d'une image qui n'a pas chargé | Une icône qui ne distingue rien ne fait qu'occuper de la place. Et un repli doit ressembler à un repli, pas à une panne |
 | Un fond sans dedans ni dehors | La première taverne était un aplat marron: les plaques ne se détachaient pas du sol. Ce qui l'a réparée n'est pas plus de détail mais plus d'écart de valeur — vignette, plaques plus claires, panneau enfoncé | Une matière se lit par ses contrastes avant ses ornements |
+| Une action de CI qui cherche sa version | L'installation de `just` parcourait la liste des versions par l'API GitHub: un 504, puis « aucune version ne correspond », deux pipelines rouges sans qu'une ligne de code ait bougé | Épingler ce qu'on installe. Un rouge sans rapport avec le commit est un rouge qu'on apprend à ignorer |
 | Une liste plus longue que son panneau | Les quatre dernières entrées des réglages étaient hors de portée sur un écran court, parce que le défilement ne suivait pas le curseur. Rien n'échouait | Une assertion utile n'est pas « ça descend » mais « la dernière est dans l'écran » |
 | Déplacer puis valider, dans le même clic | Cliquer une ligne d'un sélecteur validait l'option PRÉCÉDENTE: le déplacement du curseur est un changement d'état asynchrone que la validation ne voyait pas encore | Deux gestes séparés au clavier peuvent être un seul geste à la souris. Un chemin d'entrée testé n'est pas les autres |
 | `mouseenter` sur un panneau qui apparaît | Ouvrir un sélecteur à la souris envoyait son curseur là où la souris traînait, parce que l'événement se déclenche aussi quand l'élément arrive SOUS un pointeur immobile | `mousemove` dit « la souris a bougé », `mouseenter` dit « quelque chose est passé dessous ». Ce n'est pas la même question |

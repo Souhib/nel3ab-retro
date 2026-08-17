@@ -46,7 +46,13 @@ const shown = () =>
     const box = canvas.getBoundingClientRect();
     const place = canvas.parentElement.getBoundingClientRect();
     return {
-      picture: { w: canvas.width, h: canvas.height },
+      // La toile telle qu'elle est DESSINÉE, et l'image telle qu'elle est
+      // REÇUE: depuis le deux temps, les deux ne sont plus la même chose.
+      canvas: { w: canvas.width, h: canvas.height },
+      picture: {
+        w: globalThis.nel3abTest.pacing().pictureW ?? canvas.width,
+        h: globalThis.nel3abTest.pacing().pictureH ?? canvas.height,
+      },
       shown: { w: Math.round(box.width), h: Math.round(box.height) },
       place: { w: Math.round(place.width), h: Math.round(place.height) },
       crisp: getComputedStyle(canvas).imageRendering === "pixelated",
@@ -94,6 +100,45 @@ check(seen["remplir-net"].crisp, "« remplir, net » ne lisse pas");
 check(
   seen["remplir-net"].shown.w === seen.remplir.shown.w,
   "et il garde exactement la même taille",
+);
+
+// L'agrandissement en deux temps.
+//
+// « Remplir » dessine la toile à un facteur ENTIER au plus proche voisin, et
+// laisse le compositeur finir en lissé. Mesuré plus fidèle qu'un seul lissage
+// (SSIM 0,96495 contre 0,96157 sur cinq images de course) et nettement plus net
+// à l'oeil.
+//
+// La troisième vérification est la plus importante, et elle épingle un défaut de
+// rétroaction: la taille de l'image publiée était lue sur la TOILE, qui est
+// maintenant un résultat du calcul. Le calcul décidait donc d'après son propre
+// résultat, et la toile oscillait entre 608 et 1216 d'une image à l'autre.
+await pickIn("fit", "remplir");
+await wait(1500);
+const doubled = await shown();
+check(
+  doubled.canvas.w === start.picture.w * 2,
+  `« remplir » dessine la toile au pas entier (${doubled.canvas.w} = 608 x 2)`,
+);
+check(
+  doubled.shown.w > doubled.canvas.w,
+  `et le compositeur finit en lissé (${doubled.canvas.w} -> ${doubled.shown.w})`,
+);
+const suite = [];
+for (let n = 0; n < 3; n += 1) {
+  suite.push((await shown()).canvas.w);
+  await wait(500);
+}
+check(
+  new Set(suite).size === 1,
+  `la toile ne balance pas d'une image à l'autre (${suite.join(", ")})`,
+);
+
+await pickIn("fit", "remplir-net");
+await wait(1200);
+check(
+  (await shown()).canvas.w === start.picture.w,
+  "« net » ne passe pas par un pas entier, puisqu'il refuse le lissage",
 );
 
 // L'aperçu: le menu s'efface, le réglage s'applique en se promenant, et annuler

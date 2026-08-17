@@ -24,6 +24,7 @@ export function Screen({
   fit,
   picture,
   onSpace,
+  onPrescale,
 }: {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
   connected: boolean;
@@ -39,6 +40,12 @@ export function Screen({
    * rendent exactement la même image se présentent comme deux choix différents,
    * et on croit que le réglage ne fait rien. */
   onSpace?: (space: { width: number; height: number }) => void;
+  /** De combien la boucle média doit dessiner la toile plus grande que l'image.
+   *
+   * Calculé ici parce que seule la page connaît la place; appliqué là-bas parce
+   * que seule la boucle dessine. Un nombre qui traverse, pas React sur le chemin
+   * des images. */
+  onPrescale?: (times: number) => void;
 }) {
   const room = useRef<HTMLDivElement>(null);
   const [space, setSpace] = useState({ width: 0, height: 0 });
@@ -62,6 +69,10 @@ export function Screen({
   }, []);
 
   const at = place(fit, picture, space);
+
+  useEffect(() => {
+    onPrescale?.(at.prescale);
+  }, [at.prescale, onPrescale]);
 
   return (
     <div ref={room} className="relative flex min-h-0 flex-1 items-center justify-center bg-black">

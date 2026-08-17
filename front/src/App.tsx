@@ -635,6 +635,7 @@ function Room({
           fit={fit}
           picture={shot?.video.picture ?? { width: 0, height: 0 }}
           onSpace={setSpace}
+          onPrescale={(times) => session?.video.setPrescale(times)}
         />
         {bare ? (
           /* Replié, il reste de quoi revenir. Discret et dans un coin: une barre

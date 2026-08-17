@@ -151,6 +151,20 @@ export class VideoStream {
    * tout le reste — décodeur, horaire, tampon — travaille pareil sur les deux,
    * parce que la seule chose qui diffère est le nombre de pixels. */
   private half = loadHalf();
+  /** De combien la toile est dessinée plus grande que l'image reçue.
+   *
+   * Posé par la page, qui seule connaît la place disponible. Un nombre lu par la
+   * boucle, pas React sur le chemin des images: la règle 8 interdit le second,
+   * pas le premier. */
+  private prescale = 1;
+  /** La taille de la dernière image DÉCODÉE.
+   *
+   * Retenue à part et surtout pas relue sur la toile: depuis que la toile est
+   * dessinée au pas entier, sa taille est un RÉSULTAT du calcul de placement.
+   * La publier ferait décider le calcul d'après son propre résultat, et les deux
+   * se poursuivraient — mesuré: la toile oscillait entre 608 et 1216 d'une image
+   * à l'autre. */
+  private decoded = { width: 0, height: 0 };
   private connected = false;
 
   private lastHeard: number | null = null;
@@ -259,7 +273,7 @@ export class VideoStream {
       gapMs: { p50: this.gaps.at(0.5), p95: this.gaps.at(0.95), max: this.gaps.at(1) },
       jitterMs: this.jitterMs(),
       room: this.queueRoom(),
-      picture: { width: this.canvas.width, height: this.canvas.height },
+      picture: this.decoded,
       half: this.half,
       sourceHz: 1000 / this.sourcePeriodMs(),
       refreshHz: 1000 / this.refreshPeriod(),
@@ -328,6 +342,15 @@ export class VideoStream {
    * attendre. */
   private queueRoom(): number {
     return roomFor(this.boughtMs(), this.sourcePeriodMs());
+  }
+
+  /** De combien dessiner la toile plus grande que l'image reçue.
+   *
+   * Ne redessine pas: la valeur est lue à la prochaine image, qui arrive dans
+   * moins de vingt millisecondes.
+   */
+  setPrescale(times: number): void {
+    this.prescale = Math.max(1, Math.round(times));
   }
 
   /** Est-on sur le flux réduit ? */
@@ -608,9 +631,20 @@ export class VideoStream {
 
     const next = this.queue.shift();
     if (next === undefined) return;
-    this.canvas.width = next.frame.displayWidth;
-    this.canvas.height = next.frame.displayHeight;
-    this.canvas.getContext("2d")?.drawImage(next.frame, 0, 0);
+    // La toile est dessinée au pas entier, au plus proche voisin. Le reste de
+    // l'agrandissement est fait par le compositeur, en lissé. Deux temps plutôt
+    // qu'un seul lissage de 2,41 fois: mesuré plus fidèle, et bien plus net.
+    const times = Math.max(1, Math.round(this.prescale));
+    this.decoded = { width: next.frame.displayWidth, height: next.frame.displayHeight };
+    this.canvas.width = next.frame.displayWidth * times;
+    this.canvas.height = next.frame.displayHeight * times;
+    const ink = this.canvas.getContext("2d");
+    if (ink) {
+      // Le premier temps ne doit RIEN interpoler, sinon on lisse deux fois et
+      // on perd ce qu'on était venu chercher.
+      ink.imageSmoothingEnabled = times === 1;
+      ink.drawImage(next.frame, 0, 0, this.canvas.width, this.canvas.height);
+    }
     next.frame.close();
     this.painted += 1;
     if (this.shownAt !== null) this.holds.push(this.ticks - this.shownAt);

@@ -5245,6 +5245,75 @@ lisser jusqu'à la taille voulue, ce qui garde davantage de hautes fréquences
 qu'un seul agrandissement bâtard. Une passe de plus par image, à mesurer avant de
 l'écrire.
 
+### 7.39 L'agrandisseur en deux temps: mesuré, puis écrit
+
+Suite de l'entrée précédente. La question posée était nette: « mesure ce que
+donne l'agrandisseur entier puis lissé et implémente-le si ça fonctionne bien ».
+
+#### L'expérience
+
+Partir d'une vraie image de course en 1216x896, la réduire en 608x448
+**exactement comme le fait le shader** (moyenne de blocs 2x2), puis la remonter en
+1465x1080 par chaque méthode. La référence est l'image d'origine remontée en
+Lanczos: ce n'est pas la vérité, c'est « le mieux qu'on saurait faire depuis le
+flux pleine taille », et la question devient donc « de combien chaque méthode bon
+marché s'en écarte ». Cinq images, moyennées.
+
+| méthode | SSIM | PSNR |
+|---|---|---|
+| direct bilinéaire | 0,96157 | 31,85 |
+| direct plus proche | 0,94871 | 29,61 |
+| **entier puis lissé** | **0,96495** | **32,00** |
+| direct Lanczos | 0,96937 | 33,30 |
+
+Trois choses à en tirer, et la troisième est la plus utile.
+
+**Le deux temps gagne, mais de peu**: +0,35 % de SSIM sur le bilinéaire direct.
+Sur ce seul chiffre, on n'implémente pas.
+
+**Sauf que l'oeil voit beaucoup plus que la mesure.** En agrandissant un morceau,
+l'écart est franc: bords nets d'un côté, flous de l'autre. SSIM pénalise la
+structure en blocs que l'oeil, lui, lit comme de la netteté. C'est une limite
+connue de la mesure, et c'est le genre de cas où regarder tranche mieux que
+calculer.
+
+**Le plus proche voisin est le PLUS ÉLOIGNÉ de la référence**, à 0,94871. « Remplir,
+net » a donc l'air plus net et est objectivement le moins fidèle. Ce n'est pas un
+défaut du réglage: c'est un goût, et il est maintenant chiffré.
+
+Lanczos ferait quatre fois mieux que le deux temps, et demanderait de remplacer
+la toile en 2D par un shader WebGL sur le chemin le plus critique du projet. Pas
+pour +0,8 % de SSIM.
+
+#### Ce qui rend l'implémentation presque gratuite
+
+Le deux temps ne demande **aucune passe supplémentaire**. La toile est dessinée à
+un facteur entier au plus proche voisin — un `drawImage` qui coûte le même
+transfert — et c'est le COMPOSITEUR qui fait le second temps, en lissé, comme il
+le faisait déjà pour toute la mise à l'échelle. On a seulement déplacé où le pas
+entier se produit.
+
+Et la propriété qui compte pour ce projet: en pleine taille, 1216 dans 1616 ne
+laisse pas la place d'un pas entier, donc le facteur vaut un et **rien ne change
+pour qui a une bonne connexion**. Le gain est réservé au demi-format, qui est
+exactement là où il manquait.
+
+#### Le défaut que ça a créé, et comment il s'est vu
+
+La taille de l'image publiée par la boucle était lue sur la TOILE. Or la toile est
+devenue un **résultat** du calcul de placement. Le calcul décidait donc d'après
+son propre résultat: 608 donne un pas de deux, la toile passe à 1216, 1216 donne
+un pas de un, la toile revient à 608, et ainsi de suite à chaque image.
+
+Trouvé en mesurant dans le navigateur au lieu de croire le calcul hors ligne: la
+toile faisait 608 là où elle aurait dû faire 1216. La boucle retient maintenant la
+taille DÉCODÉE à part, et le pilote lit trois fois de suite à un demi-seconde
+d'intervalle pour vérifier qu'elle ne balance pas.
+
+C'est la deuxième fois cette semaine qu'une grandeur lue à un endroit où elle
+était devenue un résultat provoque un défaut. La première était la file d'images
+qui ne suivait pas l'horaire.
+
 ---
 
 ## 8. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
@@ -5316,6 +5385,7 @@ pas échouer**.
 | Une image jetée au milieu d'un groupe | La file pleine jetait l'image, les suivantes référençaient celle qui manquait, et le navigateur décodait du bruit: 306 non décodables contre 192 décodées | Dans un flux où les morceaux dépendent les uns des autres, se taire jusqu'au prochain point d'entrée vaut mieux que continuer à parler |
 | Une icône fourre-tout sur quinze entrées | Le même carré vide servait de « son », « volume », « ambiance » et douze autres. Un menu où tout porte la même icône se relit mot par mot, et un carré vide a l'air d'une image qui n'a pas chargé | Une icône qui ne distingue rien ne fait qu'occuper de la place. Et un repli doit ressembler à un repli, pas à une panne |
 | Un fond sans dedans ni dehors | La première taverne était un aplat marron: les plaques ne se détachaient pas du sol. Ce qui l'a réparée n'est pas plus de détail mais plus d'écart de valeur — vignette, plaques plus claires, panneau enfoncé | Une matière se lit par ses contrastes avant ses ornements |
+| Une entrée lue sur sa propre sortie | La taille de l'image était lue sur la toile, qui venait de devenir un résultat du calcul de placement: le calcul décidait d'après son propre résultat et la toile oscillait entre 608 et 1216 à chaque image | Quand une valeur devient un résultat, tout ce qui la lisait comme une donnée est à revoir. Et lire trois fois de suite est ce qui rend une oscillation visible |
 | Un réglage qu'on juge de mémoire | Le menu couvrait l'image, donc comparer trois tailles demandait trois cycles ouvrir-valider-fermer-regarder. La différence était mesurable — 14,7 % des pixels — et invisible dans ces conditions | Un réglage qui se voit doit se régler EN LE VOYANT. Et un menu doit annoncer ce que chaque choix donne, sinon deux choix identiques passent pour deux choix |
 | Une assertion vraie par accident | Un pilote affirmait que l'image « fait la taille de son parent ». C'était vrai tant que l'élément était calé sur le parent, et c'est devenu faux quand il a pris la taille de l'image — alors que le comportement s'améliorait | Dire ce qu'on veut dire: « ne dépasse pas et touche un bord », pas « fait la même taille » |
 | Un plafond pris pour un remplissage | Le canvas portait `max-w-full`: en pleine taille l'image dépassait donc le plafond mordait et elle remplissait l'écran; en demi-format elle était plus petite que la place et rien ne la faisait grandir — 28 % de la surface | `max-*` plafonne, il n'agrandit pas. Et un défaut qui n'apparaît qu'avec une nouvelle option ne se voit dans aucun essai de l'ancienne |

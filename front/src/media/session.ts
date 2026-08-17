@@ -148,6 +148,8 @@ export function exposeNothingYet(): void {
       gapP50: 0,
       gapP95: 0,
       heldP95: 0,
+      pictureW: 0,
+      pictureH: 0,
       skipped: 0,
       room: 0,
     }),
@@ -213,6 +215,8 @@ export function exposeForTests(session: Session): void {
         gapP50: shot.video.gapMs.p50,
         gapP95: shot.video.gapMs.p95,
         heldP95: shot.video.heldRefreshes.p95,
+        pictureW: shot.video.picture.width,
+        pictureH: shot.video.picture.height,
         skipped: shot.video.skipped,
         room: shot.video.room,
       };

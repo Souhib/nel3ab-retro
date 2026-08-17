@@ -30,6 +30,7 @@ describe("où poser l'image", () => {
       width: 1216,
       height: 896,
       smooth: false,
+      prescale: 1,
     });
   });
 
@@ -37,11 +38,21 @@ describe("où poser l'image", () => {
     // Le jumeau, et il compte: sur une fenêtre de 1136 de large, doubler 608
     // donnerait 1216, soit plus que la place. Un agrandissement entier qui
     // déborde serait une image coupée, donc il reste à une fois.
-    expect(place("entier", SMALL, ROOM)).toEqual({ width: 608, height: 448, smooth: false });
+    expect(place("entier", SMALL, ROOM)).toEqual({
+      width: 608,
+      height: 448,
+      smooth: false,
+      prescale: 1,
+    });
   });
 
   it("rend l'image telle quelle en taille d'origine", () => {
-    expect(place("origine", SMALL, ROOM)).toEqual({ width: 608, height: 448, smooth: false });
+    expect(place("origine", SMALL, ROOM)).toEqual({
+      width: 608,
+      height: 448,
+      smooth: false,
+      prescale: 1,
+    });
   });
 
   /** Le premier cas limite. Sur une petite fenêtre, une taille fixe déborderait
@@ -95,5 +106,28 @@ describe("le choix retenu", () => {
   it("retombe sur un choix valide quand le stockage dit n'importe quoi", () => {
     localStorage.setItem("nel3ab:fit", "une taille qui n'existe pas");
     expect(FITS.some((choice) => choice.id === storedFit())).toBe(true);
+  });
+});
+
+describe("l'agrandissement en deux temps", () => {
+  it("dessine la toile au pas entier quand il y a la place", () => {
+    // 1920/608 vaut 3,16 et 1080/448 vaut 2,41: le pas est de deux.
+    expect(place("remplir", SMALL, { width: 1920, height: 1080 }).prescale).toBe(2);
+  });
+
+  it("ne fait rien de plus quand il n'y a pas la place", () => {
+    // Le jumeau qui compte: en pleine taille, 1216 dans 1616 ne laisse pas la
+    // place d'un pas entier. Rien ne change donc pour qui a une bonne connexion.
+    expect(place("remplir", BIG, { width: 1616, height: 1080 }).prescale).toBe(1);
+  });
+
+  it("laisse « net » sans deux temps", () => {
+    // Lisser à la fin est exactement ce que ce choix refuse.
+    expect(place("remplir-net", SMALL, { width: 1920, height: 1080 }).prescale).toBe(1);
+  });
+
+  it("n'en a pas besoin pour un agrandissement déjà entier", () => {
+    expect(place("entier", SMALL, { width: 1920, height: 1080 }).prescale).toBe(1);
+    expect(place("origine", SMALL, ROOM).prescale).toBe(1);
   });
 });

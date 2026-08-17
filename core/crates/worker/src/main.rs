@@ -593,6 +593,9 @@ fn run(settings: &Settings) -> Result<()> {
     let mut produced = 0_u64;
     let mut coded_bytes = 0_u64;
     let mut reported_bytes = 0_u64;
+    // Les pertes déjà rapportées, pour n'annoncer que celles de la tranche.
+    let mut reported_dropped = 0_u64;
+    let mut reported_half_dropped = 0_u64;
     let mut reported = Instant::now();
     // When a pad state was last handed to the emulator, so the wait until the
     // next picture can be measured. This is the plumbing's share of input
@@ -754,7 +757,27 @@ fn run(settings: &Settings) -> Result<()> {
             let bytes = frame_bytes.summary();
             tracing::info!(
                 produced,
+                // Les deux flux séparément, et QUI les regarde.
+                //
+                // Sans ces quatre nombres, une ligne de ce journal ne peut pas
+                // répondre à la seule question qu'on lui pose après coup: « son
+                // image a sauté à telle seconde, est-ce que ça venait d'ici ? »
+                // Zéro image jetée avec deux spectateurs répond non, et c'est
+                // une réponse. Le même zéro sans savoir si quelqu'un regardait
+                // n'en est pas une.
+                watchers = server.watchers(),
+                half_watchers = server.half_watchers(),
                 dropped = server.dropped(),
+                half_dropped = server.half_dropped(),
+                // Et les mêmes sur CETTE tranche de dix secondes.
+                //
+                // Les totaux seuls se lisent mal: après une mauvaise minute,
+                // « 439 jetées » se répète sur toutes les lignes suivantes et
+                // une soirée entière a l'air cassée. Un lecteur peut soustraire
+                // deux lignes, mais pas quand le worker a redémarré entre les
+                // deux, et c'est justement là qu'on regarde.
+                dropped_now = server.dropped() - reported_dropped,
+                half_dropped_now = server.half_dropped() - reported_half_dropped,
                 inputs_received = server.inputs_received(),
                 inputs_applied = applied.load(std::sync::atomic::Ordering::Relaxed),
                 sound_starved = sound_starved.load(std::sync::atomic::Ordering::Relaxed),
@@ -781,6 +804,8 @@ fn run(settings: &Settings) -> Result<()> {
             );
             reported = Instant::now();
             reported_bytes = coded_bytes;
+            reported_dropped = server.dropped();
+            reported_half_dropped = server.half_dropped();
             wait_times.clear();
             frame_bytes.clear();
             convert_times.clear();

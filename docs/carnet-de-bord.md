@@ -5691,6 +5691,98 @@ deux minutes qu'elle n'a pas vues.
 
 ---
 
+### 7.45 Le worker n'était pas muet, il parlait dans une autre pièce
+
+#### Ce que je croyais manquer, et ce qui manquait vraiment
+
+J'ai écrit deux fois que le worker « ne note rien de ce qu'il produit ». C'était
+faux. Il émet depuis longtemps un rapport toutes les dix secondes — images
+produites, temps d'attente, de conversion et d'encodage en percentiles, octets
+par image, débit — et systemd le garde. Sur cette machine, six jours, soit trois
+fois plus que les deux qu'on garde des séances.
+
+Ce qui manquait n'était donc pas la mesure. C'était de pouvoir la lire **à côté**
+des séances: le worker date en UTC, le salon à l'heure des joueurs, et répondre à
+« son image a sauté à 22 h 59 » demandait deux outils et une conversion mentale.
+
+La leçon vaut d'être écrite parce qu'elle a failli coûter un deuxième journal:
+avant d'ajouter un système de mesure, regarder ce que les composants disent déjà.
+Le travail utile ici tenait dans une commande `journalctl` et un peu de mise en
+forme, pas dans un nouvel écrivain avec sa propre règle d'effacement.
+
+#### Les deux flux partageaient un seau
+
+Un vrai défaut, celui-là. `send` et `send_half` comptaient leurs images jetées
+dans le même compteur.
+
+C'est précisément le cas qu'on veut distinguer. Quelqu'un passe en format réduit
+quand sa liaison va mal (D15, 7.35): si ses pertes tombent dans le seau commun,
+la ligne ne peut plus dire si le worker a dû jeter des images vers LUI ou vers
+quelqu'un en pleine taille — toute la différence entre « sa liaison lâche » et
+« la nôtre ». Deux compteurs maintenant, et deux tests jumeaux qui remplissent un
+flux pour vérifier que l'autre reste à zéro.
+
+Le rapport dit aussi combien de gens regardent chaque flux. Zéro image jetée avec
+deux spectateurs est une réponse; le même zéro sans savoir si quelqu'un regardait
+n'en est pas une.
+
+#### Deux chiffres qui mentaient à la lecture
+
+**Un total répété passe pour une panne continue.** Le worker rapportait ses
+pertes en cumul. Après une mauvaise minute, « 439 jetées » se répétait sur toutes
+les lignes suivantes, et une soirée entière avait l'air cassée. Il annonce
+maintenant aussi ce que la tranche a perdu. Pour les lignes d'avant, le lecteur
+soustrait — avec un plancher à zéro, parce que le worker **redémarre à chaque
+changement de jeu** et que ses compteurs repartent.
+
+**Un champ absent affiché comme zéro.** Les lignes d'avant aujourd'hui ne
+comptaient pas le public, et « personne ne regardait » s'affichait sur une tranche
+qui avait jeté quatre cents images. Une contradiction qu'on croit avant de la
+comprendre. C'est la troisième fois cette semaine qu'un défaut prend cette forme:
+`offset` publié comme un retard (7.43), le tampon dont la sentinelle valait zéro
+(7.44), et celui-ci. **Un zéro par défaut est un mensonge poli.** Le lecteur dit
+maintenant « public non mesuré à l'époque ».
+
+#### Ce que ça donne, sur un vrai incident
+
+Une page bridée à un trentième de processeur pendant vingt-cinq secondes, puis un
+signalement:
+
+```
+23:42:59  ** ÇA SACCADE ** gigue 7 ms  horaire 16 ms
+          deux minutes avant:      .........................!...!.........!...!.....!...::......
+          sur ces 64 secondes: 2341 peintes sur 2434 arrivées, 88 jetées, 5 fois la file vide
+
+le worker
+23:42:33  600 images  encode p95 1.8 ms  attente max 15 ms  1.3 Mb/s  (1 en grand, 0 en réduit)
+23:42:43  600 images  encode p95 1.8 ms  attente max 16 ms  1.3 Mb/s  (1 en grand, 0 en réduit)
+23:42:53  600 images  encode p95 1.8 ms  attente max 15 ms  0.6 Mb/s  (1 en grand, 0 en réduit)
+```
+
+Le worker a produit ses six cents images par tranche, encodé en moins de deux
+millisecondes, et n'a rien jeté. La page en a perdu quatre-vingt-huit. La
+conclusion se lit sans rien savoir du code: **le problème n'est pas parti d'ici.**
+
+C'est la question à laquelle rien ne savait répondre le 16 août, et il aura fallu
+cinq étapes pour qu'une soirée puisse y répondre toute seule.
+
+#### Ce que la section montre, et ce qu'elle cache
+
+Huit mille six cents tranches par jour ne se parcourent pas. Deux règles:
+
+- **autour d'un signalement**, tout est montré, même les tranches saines. « Tout
+  allait bien ici » est la réponse la plus fréquente et la plus utile;
+- **ailleurs**, seulement ce qui n'allait pas: des images jetées, une attente
+  longue — l'émulateur a hoqueté, et personne n'y peut rien côté réseau — ou un
+  encodage lent, qui dit que le retard part de la carte. Les trois ne s'attaquent
+  pas au même endroit, donc elles ne se formulent pas pareil.
+
+La première lecture a sorti un incident du 17 août à 16 h 41, jamais remarqué:
+trois tranches de suite, 23 puis 248 puis 168 images jetées. Personne ne s'en est
+plaint, et personne n'aurait pu le retrouver.
+
+---
+
 ## 8. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
 
 | Le piège | Ce qui s'est passé | La leçon |

@@ -23,10 +23,13 @@ l'avance de ce qui est intéressant est un résumé qui cache le reste.
 """
 
 import json
+import shutil
+import subprocess
 import sys
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from nel3ab_control.settings import Settings
 
@@ -170,6 +173,165 @@ def _band(fin: dict[str, Any]) -> list[str]:
     return said
 
 
+#: L'unité systemd du worker, d'où vient la moitié « serveur » de l'histoire.
+WORKER_UNIT = "nel3ab-worker"
+
+#: Autour d'un signalement, combien de secondes du worker on montre.
+#:
+#: Trente de chaque côté. Le worker rapporte toutes les dix secondes, donc c'est
+#: trois lignes avant et trois après: assez pour voir si l'anomalie commence
+#: avant le clic, ce qui est presque toujours le cas.
+AROUND = 30
+
+
+def _worker(day: str, zone: ZoneInfo) -> list[tuple[datetime, dict[str, Any]]]:
+    """Ce que le worker a rapporté ce jour-là.
+
+    # Pourquoi on ne lui écrit pas un deuxième journal
+
+    Il en tient déjà un, complet, toutes les dix secondes, et systemd le garde
+    six jours sur cette machine — plus que les deux qu'on garde des séances. Lui
+    ajouter un fichier reviendrait à écrire deux fois la même chose et à
+    entretenir deux règles d'effacement.
+
+    Ce qui manquait n'était donc pas la mesure, c'était de pouvoir la lire À CÔTÉ
+    des séances: le worker date en UTC, le salon à l'heure des joueurs, et les
+    deux demandaient deux outils. C'est cette couture-là qu'on fait ici.
+
+    L'heure vient du champ que `tracing` écrit dans le message, pas de celle que
+    systemd colle devant: la première est celle où la mesure a été prise, la
+    seconde celle où la ligne a été reçue.
+    """
+    start = datetime.fromisoformat(f"{day}T00:00:00").replace(tzinfo=zone)
+    stop = start + timedelta(days=1)
+    # Le chemin complet, résolu plutôt qu'écrit: ça règle du même geste le cas
+    # « pas de systemd ici », qui n'est pas une erreur mais une machine où le
+    # worker tourne autrement.
+    tool = shutil.which("journalctl")
+    if tool is None:
+        return []
+    try:
+        # Bornes en secondes depuis l'époque et nom d'unité constant: rien de ce
+        # qui part dans cette commande ne vient de la ligne de commande, et la
+        # date, seule chose que quelqu'un tape, est passée par `fromisoformat`
+        # avant d'arriver ici.
+        found = subprocess.run(  # noqa: S603
+            [
+                tool,
+                "-u",
+                WORKER_UNIT,
+                "--since",
+                f"@{int(start.timestamp())}",
+                "--until",
+                f"@{int(stop.timestamp())}",
+                "-o",
+                "cat",
+                "--no-pager",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        # Pas de systemd, ou un worker lancé à la main: la moitié « serveur »
+        # manque et on le dit plus bas, plutôt que de faire comme si de rien.
+        return []
+
+    kept: list[tuple[datetime, dict[str, Any]]] = []
+    for raw in found.stdout.splitlines():
+        brace = raw.find("{")
+        if brace < 0:
+            continue
+        try:
+            entry = json.loads(raw[brace:])
+        except ValueError:
+            continue
+        fields = entry.get("fields") or {}
+        if fields.get("message") != "streaming":
+            continue
+        try:
+            when = datetime.fromisoformat(entry["timestamp"].replace("Z", "+00:00"))
+        except (KeyError, ValueError):
+            continue
+        kept.append((when.astimezone(zone), fields))
+    return kept
+
+
+def _lost(fields: dict[str, Any], before: dict[str, Any] | None) -> tuple[int, int] | None:
+    """Les images jetées PENDANT cette tranche, ou rien si on ne peut pas le dire.
+
+    Le worker les annonce lui-même depuis le 17 août 2026. Avant, il ne donnait
+    que des totaux, et un total se lit mal: après une mauvaise minute, « 439
+    jetées » se répétait sur toutes les lignes suivantes et une soirée entière
+    avait l'air cassée.
+
+    Pour les lignes d'avant, on soustrait la précédente. Le plancher à zéro n'est
+    pas de la prudence: le worker REDÉMARRE — à chaque changement de jeu — et ses
+    compteurs repartent, donc la première tranche après une reprise donnerait un
+    nombre négatif.
+
+    Rien du tout quand il n'y a pas de ligne précédente ET pas de champ: on ne
+    sait pas, et le dire vaut mieux que d'annoncer zéro.
+    """
+    if "dropped_now" in fields:
+        return int(fields.get("dropped_now") or 0), int(fields.get("half_dropped_now") or 0)
+    if before is None:
+        return None
+    return (
+        max(0, int(fields.get("dropped", 0) or 0) - int(before.get("dropped", 0) or 0)),
+        max(0, int(fields.get("half_dropped", 0) or 0) - int(before.get("half_dropped", 0) or 0)),
+    )
+
+
+def _worried(fields: dict[str, Any], before: dict[str, Any] | None) -> str | None:
+    """Ce qui, dans une ligne du worker, mérite qu'on la montre.
+
+    Trois choses, et chacune dit quelque chose de différent:
+
+    - des images JETÉES: le worker a produit une image et n'a pas pu la donner,
+      parce que la socket de quelqu'un ne se vidait pas. C'est sa liaison, pas
+      la nôtre, et le flux réduit est compté à part pour que ce soit dicible;
+    - une ATTENTE longue: l'émulateur lui-même a hoqueté. Personne n'y peut rien
+      côté réseau, et c'est la réponse à « c'était pareil pour tout le monde ? »;
+    - un ENCODAGE lent: la carte a mis plus d'une demi-image à faire son travail,
+      donc le retard part d'ici.
+
+    Rien d'autre. Une ligne saine par tranche de dix secondes ferait huit mille
+    six cents lignes par jour, et un journal qu'on ne peut pas parcourir est un
+    journal qu'on n'ouvre pas.
+    """
+    lost = _lost(fields, before)
+    waited = float(fields.get("waiting_max_ms", 0) or 0)
+    encoded = float(fields.get("encoding_p95_ms", 0) or 0)
+    if lost is not None and sum(lost) > 0:
+        return f"{lost[0]} jetées en grand format, {lost[1]} en réduit"
+    if waited > 100:
+        return f"l'émulateur a fait attendre {waited:.0f} ms"
+    if encoded > 8:
+        return f"encodage lent, p95 {encoded:.1f} ms"
+    return None
+
+
+def _worker_said(fields: dict[str, Any]) -> str:
+    """Une ligne du worker, en clair."""
+    # Absent n'est pas zéro. Le worker ne comptait pas son public avant le
+    # 17 août 2026, et afficher « personne ne regardait » sur une tranche qui a
+    # jeté quatre cents images est une contradiction qu'on croit avant de la
+    # comprendre. C'est la même faute que l'ancre publiée comme un retard.
+    if "watchers" not in fields:
+        who = "public non mesuré à l'époque"
+    else:
+        seen = int(fields.get("watchers") or 0), int(fields.get("half_watchers") or 0)
+        who = f"{seen[0]} en grand, {seen[1]} en réduit" if sum(seen) else "personne ne regardait"
+    return (
+        f"{int(fields.get('frames', 0) or 0)} images  "
+        f"encode p95 {float(fields.get('encoding_p95_ms', 0) or 0):.1f} ms  "
+        f"attente max {float(fields.get('waiting_max_ms', 0) or 0):.0f} ms  "
+        f"{float(fields.get('megabits_per_second', 0) or 0):.1f} Mb/s  ({who})"
+    )
+
+
 def _hour(line: dict[str, Any]) -> str:
     try:
         return datetime.fromisoformat(line["quand"]).strftime("%H:%M:%S")
@@ -236,6 +398,8 @@ def main(argv: list[str]) -> int:
             jeu = salle.get("jeu")
             print(f"    {_hour(event)}  {told:<34} {around}" + (f", {jeu}" if jeu else ""))
 
+    _tell_worker(day, [line for line in lines if line["quoi"] == "plainte"])
+
     # Ce qui n'appartient à personne: les changements de propriétaire, qui sont un
     # fait de la SALLE et pas d'une visite. Les ranger sous une visite au hasard
     # les rendrait faux.
@@ -245,6 +409,46 @@ def main(argv: list[str]) -> int:
             told = SAYS.get(event["quoi"], lambda line: line["quoi"])(event)
             print(f"    {_hour(event)}  {told}")
     return 0
+
+
+def _tell_worker(day: str, complaints: list[dict[str, Any]]) -> None:
+    """L'autre moitié de l'histoire: ce que le serveur faisait pendant ce temps.
+
+    Deux sélections, et deux raisons différentes:
+
+    - AUTOUR d'un signalement, on montre tout, même les lignes saines. « Tout
+      allait bien ici » est la réponse la plus fréquente et la plus utile: elle
+      dit que le problème est parti d'ailleurs;
+    - PARTOUT ailleurs, on ne montre que ce qui n'allait pas. Une ligne toutes
+      les dix secondes ferait huit mille six cents lignes par jour.
+    """
+    zone = ZoneInfo(Settings().journal_zone)
+    reported = _worker(day, zone)
+    if not reported:
+        print("\n  le worker: rien à lire (journal système absent ou vide ce jour-là)")
+        return
+
+    marks = []
+    for line in complaints:
+        try:
+            marks.append(datetime.fromisoformat(line["quand"]))
+        except (KeyError, ValueError):
+            continue
+
+    print(f"\n  le worker ({len(reported)} tranches de dix secondes)")
+    shown = 0
+    before: dict[str, Any] | None = None
+    for when, fields in reported:
+        near = any(abs((when - mark).total_seconds()) <= AROUND for mark in marks)
+        wrong = _worried(fields, before)
+        before = fields
+        if not near and wrong is None:
+            continue
+        flag = "  <<< " + wrong if wrong else ""
+        print(f"    {when.strftime('%H:%M:%S')}  {_worker_said(fields)}{flag}")
+        shown += 1
+    if shown == 0:
+        print("    rien à signaler, et aucun signalement à encadrer")
 
 
 if __name__ == "__main__":

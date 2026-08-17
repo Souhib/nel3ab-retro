@@ -225,6 +225,15 @@ pub struct BrowserServer {
     received: Arc<std::sync::atomic::AtomicU64>,
     address: SocketAddr,
     dropped: Arc<std::sync::atomic::AtomicU64>,
+    /// Les images refusées au flux RÉDUIT, comptées à part.
+    ///
+    /// À part parce que confondre les deux rend le compteur muet sur la seule
+    /// question qu'on lui pose. Quelqu'un passe en format réduit précisément
+    /// quand sa liaison va mal: si ses pertes tombent dans le même seau que
+    /// celles des autres, on ne peut plus dire si le worker a dû jeter des
+    /// images vers LUI ou vers quelqu'un en pleine taille, et c'est toute la
+    /// différence entre « sa liaison lâche » et « la nôtre ».
+    half_dropped: Arc<std::sync::atomic::AtomicU64>,
     joined: Arc<std::sync::atomic::AtomicBool>,
     wants_key: Arc<std::sync::atomic::AtomicBool>,
     /// Which game a player asked for, if one did.
@@ -275,6 +284,7 @@ impl BrowserServer {
         let received = Arc::new(std::sync::atomic::AtomicU64::new(0));
         let arrived = Arc::new(Condvar::new());
         let dropped = Arc::new(std::sync::atomic::AtomicU64::new(0));
+        let half_dropped = Arc::new(std::sync::atomic::AtomicU64::new(0));
         let joined = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let wants_key = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let wants_rom = Arc::new(Mutex::new(None));
@@ -352,6 +362,7 @@ impl BrowserServer {
             received,
             address: bound,
             dropped,
+            half_dropped,
             joined,
             wants_key,
             wants_rom,
@@ -390,7 +401,7 @@ impl BrowserServer {
     pub fn send_half(&self, packet: &Packet) -> bool {
         deliver(
             &self.half_viewers,
-            &self.dropped,
+            &self.half_dropped,
             &self.half_wants_key,
             packet,
         )
@@ -545,6 +556,12 @@ impl BrowserServer {
     #[must_use]
     pub fn dropped(&self) -> u64 {
         self.dropped.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    /// Combien d'images le flux RÉDUIT a dû jeter faute de place.
+    #[must_use]
+    pub fn half_dropped(&self) -> u64 {
+        self.half_dropped.load(std::sync::atomic::Ordering::Relaxed)
     }
 }
 
@@ -1806,11 +1823,69 @@ mod tests {
             received: Arc::new(std::sync::atomic::AtomicU64::new(0)),
             address: "127.0.0.1:0".parse().unwrap(),
             dropped: Arc::new(std::sync::atomic::AtomicU64::new(0)),
+            half_dropped: Arc::new(std::sync::atomic::AtomicU64::new(0)),
             joined: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             wants_key: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             wants_rom: Arc::new(Mutex::new(None)),
             _accept: std::thread::spawn(|| {}),
         }
+    }
+
+    /// Une perte sur un flux ne doit pas se voir sur le compteur de l'autre.
+    ///
+    /// C'est la question qu'on pose à ce compteur et pas une autre: quelqu'un
+    /// passe en format réduit précisément quand sa liaison va mal, et si ses
+    /// pertes tombent dans le seau commun on ne peut plus dire si le worker a dû
+    /// jeter des images vers LUI ou vers quelqu'un en pleine taille. Les deux
+    /// moitiés comptent, donc le test remplit un flux et vérifie l'autre.
+    #[test]
+    fn a_stream_that_falls_behind_does_not_stain_the_other_stream() {
+        let (full, _full_held) = sync_channel::<Framed>(OUTGOING_DEPTH);
+        let (half, _half_held) = sync_channel::<Framed>(OUTGOING_DEPTH);
+        let server = detached(vec![full]);
+        server.half_viewers.lock().unwrap().push(Viewer {
+            pipe: half,
+            resyncing: false,
+        });
+
+        // Le demi-format déborde: sa file tient deux images, on en pousse
+        // quatre sans que personne ne lise.
+        for _ in 0..4 {
+            let _sent = server.send_half(&frame());
+        }
+
+        assert!(
+            server.half_dropped() > 0,
+            "le flux réduit a débordé sans que rien ne le compte"
+        );
+        assert_eq!(
+            server.dropped(),
+            0,
+            "la perte du flux réduit a été portée au compte du grand format"
+        );
+    }
+
+    /// Le jumeau: dans l'autre sens.
+    #[test]
+    fn a_full_stream_that_falls_behind_does_not_stain_the_reduced_one() {
+        let (full, _full_held) = sync_channel::<Framed>(OUTGOING_DEPTH);
+        let (half, _half_held) = sync_channel::<Framed>(OUTGOING_DEPTH);
+        let server = detached(vec![full]);
+        server.half_viewers.lock().unwrap().push(Viewer {
+            pipe: half,
+            resyncing: false,
+        });
+
+        for _ in 0..4 {
+            let _sent = server.send(&frame());
+        }
+
+        assert!(server.dropped() > 0, "le grand format a débordé sans trace");
+        assert_eq!(
+            server.half_dropped(),
+            0,
+            "la perte du grand format a été portée au compte du flux réduit"
+        );
     }
 
     fn frame() -> Packet<'static> {

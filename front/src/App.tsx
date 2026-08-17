@@ -437,40 +437,63 @@ function Room({
             ? "608×448, environ 5,6 Mbit/s. Le choix est le tien seul."
             : "1216×896, environ 14 Mbit/s. Réduis si l'image saccade.",
           icon: <MeasureIcon className="h-full w-full" />,
-          onEnter: () => {
-            session?.video.setHalf(!half);
-            setHalf(!half);
+          picks: [
+            { id: "full", label: "pleine taille", hint: "1216×896 · ~14 Mbit/s" },
+            { id: "half", label: "réduit", hint: "608×448 · ~5 Mbit/s" },
+          ],
+          picked: half ? "half" : "full",
+          onPick: (id) => {
+            const wanted = id === "half";
+            session?.video.setHalf(wanted);
+            setHalf(wanted);
           },
         },
         {
           id: "volume",
           label: "volume",
           value: `${Math.round(volume * 100)}`,
-          hint: "A pour changer",
+          hint: "A pour ouvrir la glissière",
           icon: <DotIcon className="h-full w-full" />,
-          onAdjust: (by) => setVolume((was) => Math.min(1, Math.max(0, was + by * 0.05))),
+          // En pour-cent et non en fraction: la glissière avance par crans
+          // entiers, et un cran de 0,05 sur une valeur de 0 à 1 se lit mal quand
+          // il faut l'arrondir à la souris.
+          slide: {
+            value: Math.round(volume * 100),
+            min: 0,
+            max: 100,
+            step: 5,
+            say: (at) => `${at} %`,
+            onSet: (at) => setVolume(at / 100),
+          },
         },
         {
           id: "theme",
           label: "ambiance",
           value: themeLabel(theme),
-          hint: "A pour changer",
+          hint: "A pour voir les sept",
           icon: <DotIcon className="h-full w-full" />,
-          onAdjust: (by) => {
-            const at = THEMES.findIndex((choice) => choice.id === theme);
-            const next = (at + by + THEMES.length) % THEMES.length;
-            setTheme(THEMES[next].id);
+          picks: THEMES.map((choice) => ({
+            id: choice.id,
+            label: choice.label,
+            hint: choice.note,
+          })),
+          picked: theme,
+          onPick: (id) => {
+            const found = THEMES.find((choice) => choice.id === id);
+            if (found) setTheme(found.id);
           },
         },
         {
           id: "shell",
           label: "menu",
           value: shellLabel(shell),
-          hint: "A pour passer à la console suivante",
+          hint: "A pour voir les consoles",
           icon: <DotIcon className="h-full w-full" />,
-          onAdjust: (by) => {
-            const at = SHELLS.findIndex((choice) => choice.id === shell);
-            setShell(SHELLS[(at + by + SHELLS.length) % SHELLS.length].id);
+          picks: SHELLS.map((choice) => ({ id: choice.id, label: choice.label })),
+          picked: shell,
+          onPick: (id) => {
+            const found = SHELLS.find((choice) => choice.id === id);
+            if (found) setShell(found.id);
           },
         },
         {

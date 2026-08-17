@@ -166,6 +166,7 @@ export function exposeNothingYet(): void {
     room: () => ({ mine: 0, watching: false }),
     padList: () => [],
     reading: () => null,
+    volume: () => 0,
   };
 }
 
@@ -245,5 +246,8 @@ export function exposeForTests(session: Session): void {
     /** La dernière lecture envoyée au jeu, pour qu'un pilote puisse vérifier
      * qu'une poussée de manette y arrive vraiment. */
     reading: () => session.input.lastSent(),
+    /** Le volume tel que la sortie l'applique, pour qu'un pilote puisse vérifier
+     * qu'une glissière s'entend en bougeant et qu'annuler la défait. */
+    volume: () => session.sound.volumeNow(),
   };
 }

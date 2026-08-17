@@ -4790,6 +4790,84 @@ du cache: le bouton n'aurait rien fait, et la boucle aurait relu l'ancien profil
 au tic suivant. Trouvé en relisant les chemins d'écriture après coup, pas par un
 test.
 
+### 7.33 Un sélecteur, et le test du bouton qui n'en avait pas
+
+#### Le test qui manquait
+
+L'entrée précédente se terminait sur un aveu: « remettre la manette d'origine »
+effaçait le profil du disque et pas du cache, et ce bouton n'avait toujours pas
+de test. Il en a un.
+
+Trois assertions, et la deuxième existe pour la panne exacte: après avoir remis
+la manette d'origine, on regarde une fois tout de suite, puis **une seconde et
+demie plus tard**. C'est cette attente qui attrape un cache: l'écran affiche la
+bonne valeur pendant un instant, et la boucle d'entrée relit l'ancienne au tic
+suivant. Vérifié en remettant le défaut: les deux lignes rougissent.
+
+Les deux autres tiennent le reste: la remise à zéro de la manette laisse le
+clavier tranquille, et elle survit à un rechargement — donc c'est vraiment
+effacé et pas seulement masqué.
+
+#### Les réglages tournaient en rond
+
+Appuyer sur A passait à la valeur suivante. Avec sept ambiances, ça veut dire
+appuyer sept fois sans jamais voir ce qui existe, et sans pouvoir revenir en
+arrière autrement qu'en refaisant le tour.
+
+Un **sélecteur** les remplace: la liste s'ouvre, on se promène dedans, on valide
+ou on annule. Et pour une valeur continue comme le volume, une **glissière**, qui
+se pousse aux flèches ou se tire à la souris.
+
+Trois décisions valent d'être écrites.
+
+**Le comportement vit dans la mécanique partagée, le dessin dans chaque
+console.** Quatre implémentations d'un même sélecteur finiraient par ne plus être
+d'accord sur ce que « valider » veut dire. Chaque console passe seulement ses
+quatre couleurs: un panneau gris unique jurerait avec le vert de la 360 comme
+avec le blanc de la Wii, et un menu qui porte les couleurs de sa console ne peut
+pas s'arrêter à mi-chemin.
+
+**La glissière s'applique en bougeant, la liste non.** Un volume qu'on règle sans
+l'entendre ne se règle pas, donc la glissière applique à chaque cran et annuler
+remet la valeur d'avant. Une ambiance qui changerait à chaque cran ferait de la
+lecture de la liste un effet stroboscopique, donc elle attend la validation.
+
+**Le sélecteur lit l'action brute, jamais échangée.** Un menu en rangée échange
+les axes — haut et bas y changent de rayon — mais un sélecteur est un panneau et
+pas une disposition. Haut et bas y parcourent la liste partout.
+
+#### Un piège de souris, trouvé par le pilote
+
+Le pilote a d'abord échoué en disant que le curseur partait sur la dernière
+ambiance au lieu de celle en cours. Ce n'était pas le calcul: `mouseenter` se
+déclenche aussi quand un panneau **apparaît sous un pointeur immobile**. Ouvrir
+le sélecteur à la souris envoyait donc le curseur là où la souris se trouvait par
+hasard.
+
+`mousemove` à la place, et le problème disparaît: bouger la souris déplace le
+curseur, poser un panneau dessous, non.
+
+Le même pilote a aussi échoué pour une raison qui n'en était pas une: il
+comparait le TEXTE d'une entrée, et ce texte contient l'indice en plus quand la
+ligne est sélectionnée. Il lit maintenant la valeur retenue. Un pilote qui
+échoue pour une raison cosmétique est un pilote qu'on apprend à ignorer.
+
+#### Et un vrai défaut, que seuls les autres pilotes ont vu
+
+Deux pilotes voisins sont passés au rouge en même temps: `padmenu` ne changeait
+plus de console, `halfstream` ne passait plus en demi-format. Les deux cliquaient
+une ligne du sélecteur.
+
+Le clic déplaçait le curseur puis validait. Or déplacer est un changement d'état
+**asynchrone**, donc la validation relisait l'ancien curseur: on validait
+toujours l'option d'avant. Au clavier ça ne se voyait pas, parce que les deux
+gestes y sont séparés par une pression.
+
+Valider prend maintenant l'option à valider quand on la connaît déjà. Le pilote
+du sélecteur, lui, ne testait que le clavier: il teste aussi la souris depuis.
+C'est le genre de trou qu'un pilote seul ne voit pas et que deux voisins
+attrapent, ce qui est un argument pour en avoir plusieurs qui se recoupent.
+
 ---
 
 ## 8. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
@@ -4859,6 +4937,8 @@ pas échouer**.
 | L'horaire recalé sur l'image la plus chanceuse | Le calage prenait le transit le plus rapide de la fenêtre, et repartait de là à chaque famine. Sur un lien irrégulier, chaque trou reposait l'horaire au plus optimiste et provoquait le suivant | Se caler sur le meilleur cas, c'est jeter tout ce qui n'est pas le meilleur cas |
 | La cadence de la source lue sur les arrivées | Une source à 60 Hz livrée toutes les 26 ms était prise pour une source à 39 Hz, donc ses trous passaient pour normaux | Deux causes différentes ont besoin de deux mesures différentes. Les instants de capture décrivent le jeu, les arrivées décrivent le réseau |
 | Une image jetée au milieu d'un groupe | La file pleine jetait l'image, les suivantes référençaient celle qui manquait, et le navigateur décodait du bruit: 306 non décodables contre 192 décodées | Dans un flux où les morceaux dépendent les uns des autres, se taire jusqu'au prochain point d'entrée vaut mieux que continuer à parler |
+| Déplacer puis valider, dans le même clic | Cliquer une ligne d'un sélecteur validait l'option PRÉCÉDENTE: le déplacement du curseur est un changement d'état asynchrone que la validation ne voyait pas encore | Deux gestes séparés au clavier peuvent être un seul geste à la souris. Un chemin d'entrée testé n'est pas les autres |
+| `mouseenter` sur un panneau qui apparaît | Ouvrir un sélecteur à la souris envoyait son curseur là où la souris traînait, parce que l'événement se déclenche aussi quand l'élément arrive SOUS un pointeur immobile | `mousemove` dit « la souris a bougé », `mouseenter` dit « quelque chose est passé dessous ». Ce n'est pas la même question |
 | Un émulateur oublié sur le même tuyau | Un Dolphin d'une mesure de la veille écrivait son son dans le `audio.fifo` d'une autre salle. Douze heures de son haché, `sound_starved` à zéro, aucune trace | Ce qui ne peut pas être empêché doit être rendu bruyant. Et un compteur à zéro pendant une panne est un indice, pas un dédouanement |
 | Une manette lue sur quatre | Un adaptateur GameCube présente quatre manettes au navigateur; la page ne lisait que la première, donc un pad dans un autre port était muet en jeu comme au menu | Ne pas choisir quand on peut tout lire. Un choix par défaut est un défaut par défaut pour ceux qui ne tombent pas dessus |
 | Un test dont le motif ne testait rien | Le test de réduction utilisait le motif en dégradé déjà là, où la moyenne d'un bloc et son coin ne diffèrent que d'un cran: un passage qui prendrait le coin serait passé | Un test de moyenne a besoin d'un motif où moyenne et échantillon DIFFÈRENT, et le garde qui le dit vaut mieux que la confiance |

@@ -25,6 +25,7 @@ import { useEffect, useState } from "react";
 import { cn } from "../lib/cn";
 import type { MenuAction } from "../media/menupad";
 import { Art } from "./Art";
+import { Picker } from "./Picker";
 import { useShell } from "./shell";
 import type { XmbCategory } from "./Xmb";
 
@@ -193,6 +194,17 @@ export function Channels({
         </div>
         <span className="w-[92px]" />
       </footer>
+
+      <Picker
+        picking={shell.picking}
+        costume={{
+          panel: CHANNEL,
+          ink: INK,
+          edge: EDGE,
+          accent: BLUE,
+          veil: "rgba(90,100,110,.35)",
+        }}
+      />
     </div>
   );
 }

@@ -227,6 +227,7 @@ export function Bindings({
           ) : null}
           <button
             type="button"
+            id="resetPad"
             onClick={onResetPad}
             disabled={identity === null}
             className="border border-rule px-2 py-1 text-[11px] text-muted hover:border-rule-bright disabled:opacity-40"
@@ -235,6 +236,7 @@ export function Bindings({
           </button>
           <button
             type="button"
+            id="resetKeys"
             onClick={onResetKeys}
             className="border border-rule px-2 py-1 text-[11px] text-muted hover:border-rule-bright"
           >

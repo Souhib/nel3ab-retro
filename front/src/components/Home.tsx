@@ -20,6 +20,7 @@ import { useEffect } from "react";
 import { cn } from "../lib/cn";
 import type { MenuAction } from "../media/menupad";
 import { Art } from "./Art";
+import { Picker } from "./Picker";
 import { useShell } from "./shell";
 import type { XmbCategory } from "./Xmb";
 
@@ -199,6 +200,11 @@ export function Home({
           </span>
         </span>
       </footer>
+
+      <Picker
+        picking={shell.picking}
+        costume={{ panel: TILE, ink: "#f2f2f2", edge: EDGE, accent: RED }}
+      />
     </div>
   );
 }

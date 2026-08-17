@@ -93,6 +93,36 @@ await wait(400);
 say((await text("pad-A")) === "▢ (gauche)", "la manette réassignée survit au rechargement");
 say((await text("key-B")) === "M", "le clavier réassigné survit au rechargement");
 
-console.log(bad === 0 ? "PASS — l'antisèche dit vrai et la réassignation tient" : `FAIL — ${bad} écart(s)`);
+// « Manette d'origine »: le bouton rend la disposition du constructeur.
+//
+// Trois assertions, et c'est la deuxième qui existe pour une vraie panne. Lire
+// chaque manette avec son propre profil demande un cache, parce que la boucle
+// d'entrée tourne cent fois par seconde et que `localStorage` est synchrone. Ce
+// cache a survécu à une remise à zéro pendant quelques heures: le bouton effaçait
+// le profil du disque, la boucle le relisait de la mémoire au tic suivant, et le
+// bouton n'avait donc rien fait. L'écran, lui, affichait la bonne valeur pendant
+// un instant. D'où l'attente avant de regarder.
+await press(page, "#resetPad");
+await wait(400);
+say((await text("pad-A")) === "✕ (bas)", `après remise à zéro, A se lit « ${await text("pad-A")} »`);
+
+await wait(1500);
+say(
+  (await text("pad-A")) === "✕ (bas)",
+  "et une seconde et demie plus tard, l'ancien profil n'est pas revenu",
+);
+
+// Le clavier n'a PAS été touché: deux boutons, deux portées.
+say((await text("key-B")) === "M", "la remise à zéro de la manette a laissé le clavier");
+
+// Et c'est vraiment effacé, pas seulement masqué.
+await page.reload({ waitUntil: "domcontentloaded" });
+await enterRoom(page);
+await wait(2500);
+await openBindings();
+await wait(400);
+say((await text("pad-A")) === "✕ (bas)", "la remise à zéro survit au rechargement");
+
+console.log(bad === 0 ? "PASS — l'antisèche dit vrai, la réassignation tient, et la remise à zéro efface" : `FAIL — ${bad} écart(s)`);
 await browser.close();
 process.exit(bad === 0 ? 0 : 1);

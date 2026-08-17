@@ -121,12 +121,19 @@ for (const from of ["switch", "wii", "xbox360"]) {
   await wait(700);
   await clavier.evaluate(() => document.getElementById("ray-reglages")?.click());
   await wait(500);
+  // « A » ouvre le sélecteur des consoles, et on désigne une console PRÉCISE.
+  //
+  // Précise et non « la suivante »: une liste ne boucle pas, donc partir de la
+  // dernière et pousser vers le bas ne va nulle part. Un pilote qui suppose le
+  // contraire échoue sur une seule des quatre, ce qui ressemble à un défaut et
+  // n'en est pas un.
+  const wanted = from === "ps3" ? "wii" : "ps3";
   await clavier.evaluate(() => document.getElementById("item-shell")?.click());
-  await wait(400);
-  await clavier.evaluate(() => document.getElementById("item-shell")?.click());
+  await wait(600);
+  await clavier.evaluate((id) => document.getElementById(`pick-${id}`)?.click(), wanted);
   await wait(700);
   const now = await clavier.evaluate(() => localStorage.getItem("nel3ab:shell"));
-  say(now !== from, `depuis ${from}, « A » change de console (→ ${now})`);
+  say(now === wanted, `depuis ${from}, le sélecteur mène à ${wanted} (→ ${now})`);
 }
 
 console.log(bad === 0 ? "PASS — la manette conduit le menu, et une touche vaut un cran" : `FAIL — ${bad} écart(s)`);

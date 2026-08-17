@@ -14,6 +14,33 @@ import { useEffect, useState } from "react";
 import type { MenuAction } from "../media/menupad";
 import type { XmbCategory, XmbItem } from "./Xmb";
 
+/** Un sélecteur ouvert par-dessus le menu.
+ *
+ * Il vit dans la mécanique partagée et non dans chaque console, pour la même
+ * raison que le reste: quatre implémentations d'un même sélecteur finiraient par
+ * ne plus être d'accord sur ce que « valider » veut dire.
+ */
+export type Picking = {
+  /** L'entrée dont le sélecteur est ouvert. */
+  item: XmbItem;
+  /** L'option sous le curseur pour une liste, la valeur en cours pour une
+   * glissière. Un seul champ pour les deux: il n'y a jamais qu'une chose en
+   * train d'être réglée. */
+  cursor: number;
+  /** Déplace le curseur, ou la valeur. Pour la souris. */
+  moveTo: (cursor: number) => void;
+  /** Valide et referme.
+   *
+   * Prend l'option à valider quand on la connaît déjà, ce qui est le cas d'un
+   * CLIC: déplacer le curseur puis valider ne marche pas, parce que le
+   * déplacement est un changement d'état asynchrone et que la validation
+   * relirait l'ancien. Le défaut était invisible au clavier, où les deux gestes
+   * sont séparés par une pression. */
+  confirm: (cursor?: number) => void;
+  /** Referme, et remet la valeur d'avant. */
+  cancel: () => void;
+};
+
 export type Shell = {
   ray: number;
   row: number;
@@ -23,6 +50,9 @@ export type Shell = {
   point: (row: number) => void;
   choose: (row: number) => void;
   act: (action: MenuAction) => void;
+  /** Le sélecteur ouvert, s'il y en a un. Chaque console le dessine à sa
+   * couleur, mais aucune ne décide de son comportement. */
+  picking: Picking | null;
 };
 
 /** Les touches qui conduisent un menu, et rien d'autre. */
@@ -62,6 +92,10 @@ export function useShell(
   swapAxes = false,
 ): Shell {
   const [ray, setRay] = useState(0);
+  /** Le sélecteur ouvert: sur quelle entrée, où en est le curseur, et ce que
+   * valait la valeur avant qu'on y touche. Le dernier champ est ce qui permet
+   * d'annuler un volume qu'on a déjà entendu bouger. */
+  const [picking, setPicking] = useState<{ row: number; cursor: number; was: number } | null>(null);
   /** Une position retenue par rayon: revenir sur « jeux » doit retrouver le jeu
    * qu'on regardait, comme sur une console. */
   const [rows, setRows] = useState<number[]>(() => categories.map(() => 0));
@@ -91,12 +125,76 @@ export function useShell(
     // forme: dans une rangée, gauche et droite parcourent la file, donc pousser
     // à droite sur « menu » changeait de page au lieu de changer le menu. Un
     // réglage doit se régler pareil partout, et « A » est partout.
+    // Une liste ou une glissière ouvre son sélecteur. Choisir puis valider,
+    // plutôt que de tourner en rond: avec sept ambiances, tourner en rond veut
+    // dire appuyer sept fois sans jamais voir ce qui existe.
+    if (item.picks) {
+      const already = item.picks.findIndex((choice) => choice.id === item.picked);
+      const start = Math.max(0, already);
+      return setPicking({ row: index, cursor: start, was: start });
+    }
+    if (item.slide) {
+      return setPicking({ row: index, cursor: item.slide.value, was: item.slide.value });
+    }
     if (item.onEnter) item.onEnter();
     else item.onAdjust?.(1);
   };
 
+  const closePicking = () => setPicking(null);
+
+  const validate = (which?: number) => {
+    const open = picking;
+    if (open === null) return;
+    const cursor = which ?? open.cursor;
+    const item = items[open.row];
+    if (item?.picks) item.onPick?.(item.picks[cursor]?.id ?? "");
+    else if (item?.slide) item.slide.onSet(cursor);
+    closePicking();
+  };
+
+  const abandon = () => {
+    const open = picking;
+    if (open === null) return;
+    // Une glissière a déjà été entendue bouger, donc annuler doit remettre la
+    // valeur d'avant. Une liste n'a rien changé tant qu'on n'a pas validé.
+    items[open.row]?.slide?.onSet(open.was);
+    closePicking();
+  };
+
+  /** Les ordres pendant qu'un sélecteur est ouvert.
+   *
+   * Sur l'action BRUTE, jamais échangée: un sélecteur est un panneau et pas une
+   * disposition. Haut et bas y parcourent la liste même dans un menu en rangée,
+   * où haut et bas changent de rayon partout ailleurs.
+   */
+  const inPicker = (action: MenuAction) => {
+    const open = picking;
+    if (open === null) return;
+    const item = items[open.row];
+    if (item === undefined) return closePicking();
+    if (action === "back") return abandon();
+    if (action === "confirm") return validate();
+    if (item.picks) {
+      const last = item.picks.length - 1;
+      if (action === "up") return setPicking({ ...open, cursor: Math.max(0, open.cursor - 1) });
+      if (action === "down")
+        return setPicking({ ...open, cursor: Math.min(last, open.cursor + 1) });
+      return;
+    }
+    if (item.slide) {
+      const by = action === "right" ? item.slide.step : action === "left" ? -item.slide.step : 0;
+      if (by === 0) return;
+      const next = Math.min(item.slide.max, Math.max(item.slide.min, open.cursor + by));
+      setPicking({ ...open, cursor: next });
+      item.slide.onSet(next);
+    }
+  };
+
   const act = (raw: MenuAction) => {
     if (paused) return;
+    // Le sélecteur prend la main sur tout: sinon régler le volume ferait aussi
+    // défiler la liste derrière.
+    if (picking !== null) return inPicker(raw);
     const action = swapAxes ? SWAPPED[raw] : raw;
     if (action === "back") return onClose();
     if (action === "confirm") return choose(row);
@@ -132,5 +230,29 @@ export function useShell(
     return () => removeEventListener("keydown", press);
   });
 
-  return { ray: at, row, category, items, goTo: setRay, point, choose, act };
+  const open = picking === null ? undefined : items[picking.row];
+  return {
+    ray: at,
+    row,
+    category,
+    items,
+    goTo: setRay,
+    point,
+    choose,
+    act,
+    picking:
+      picking === null || open === undefined
+        ? null
+        : {
+            item: open,
+            cursor: picking.cursor,
+            moveTo: (cursor) => {
+              setPicking({ ...picking, cursor });
+              // La souris entend aussi ce qu'elle glisse.
+              open.slide?.onSet(cursor);
+            },
+            confirm: validate,
+            cancel: abandon,
+          },
+  };
 }

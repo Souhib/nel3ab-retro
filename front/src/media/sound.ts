@@ -189,6 +189,16 @@ export class SoundStream {
     this.chunks += 1;
   }
 
+  /** Le volume appliqué en ce moment.
+   *
+   * Lu sur le noeud de gain et non sur ce qu'on lui a demandé: c'est ce que
+   * l'oreille entend, et c'est ce qu'un pilote doit vérifier quand il teste une
+   * glissière qui s'applique en bougeant.
+   */
+  volumeNow(): number {
+    return this.gain?.gain.value ?? this.volume;
+  }
+
   /** The lead comes back down when nothing has broken. Growing it is what a
    * break costs; keeping it is what the sound costs against the picture, for
    * ever. */

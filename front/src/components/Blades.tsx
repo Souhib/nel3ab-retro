@@ -26,6 +26,7 @@ import { useEffect } from "react";
 import { cn } from "../lib/cn";
 import type { MenuAction } from "../media/menupad";
 import { Art } from "./Art";
+import { Picker } from "./Picker";
 import { useShell } from "./shell";
 import type { XmbCategory } from "./Xmb";
 
@@ -230,6 +231,15 @@ export function Blades({
           );
         })}
       </div>
+      <Picker
+        picking={shell.picking}
+        costume={{
+          panel: "#12200b",
+          ink: "#e6ece2",
+          edge: "#2c4420",
+          accent: "#8ecb4f",
+        }}
+      />
     </div>
   );
 }

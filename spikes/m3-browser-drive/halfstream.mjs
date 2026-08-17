@@ -58,7 +58,15 @@ await press(player, "#openMenu");
 await wait(1000);
 await press(player, "#ray-reglages");
 await wait(600);
+// Le format est un choix entre deux, donc un sélecteur: on ouvre, on clique la
+// ligne « réduit », et le clic vaut validation.
 await press(player, "#item-half");
+await wait(1200);
+check(
+  await player.evaluate(() => document.getElementById("picker") !== null),
+  "le format ouvre un sélecteur",
+);
+await press(player, "#pick-half");
 await wait(6000);
 
 const switched = await shown(player);
@@ -79,8 +87,10 @@ check(
 
 // Et le retour.
 await press(player, "#item-half");
+await wait(600);
+await press(player, "#pick-full");
 await wait(6000);
-check((await shown(player)).width === FULL, "le même bouton ramène en pleine taille");
+check((await shown(player)).width === FULL, "le sélecteur ramène en pleine taille");
 
 await browser.close();
 await other.close();

@@ -23,6 +23,7 @@
 import { useEffect, useRef } from "react";
 import type { MenuAction } from "../media/menupad";
 import { Art } from "./Art";
+import { Picker } from "./Picker";
 import { useShell } from "./shell";
 import { cn } from "../lib/cn";
 
@@ -52,6 +53,28 @@ export type XmbItem = {
   onEnter?: () => void;
   /** Gauche et droite sur une entrée qui porte une valeur. */
   onAdjust?: (by: 1 | -1) => void;
+  /** Les valeurs possibles, quand il y en a une liste courte.
+   *
+   * Une liste plutôt qu'un `onAdjust` qui tourne en rond, et la différence
+   * compte: avec sept ambiances, tourner en rond veut dire appuyer sept fois
+   * sans jamais voir ce qui existe. Ouvre un sélecteur. */
+  picks?: { id: string; label: string; hint?: string }[];
+  /** Laquelle est en cours, par son identifiant. */
+  picked?: string;
+  /** Ce qu'on fait du choix, à la validation. */
+  onPick?: (id: string) => void;
+  /** Une valeur continue, à faire glisser. */
+  slide?: {
+    value: number;
+    min: number;
+    max: number;
+    step: number;
+    /** Comment l'écrire à l'écran. */
+    say: (value: number) => string;
+    /** Appelé à chaque déplacement, pas seulement à la validation: un volume
+     * qu'on règle sans l'entendre ne se règle pas. Annuler remet l'ancienne. */
+    onSet: (value: number) => void;
+  };
 };
 
 export type XmbCategory = {
@@ -225,6 +248,15 @@ export function Xmb({
           </button>
         </span>
       </footer>
+      <Picker
+        picking={shell.picking}
+        costume={{
+          panel: "var(--panel)",
+          ink: "var(--text)",
+          edge: "var(--rule-bright)",
+          accent: "var(--indigo)",
+        }}
+      />
     </div>
   );
 }

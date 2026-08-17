@@ -4974,6 +4974,92 @@ raisonnable et fausse. C'est en ALLANT VOIR l'endpoint à la main que la cause e
 apparue, pas en relisant le message d'erreur, qui disait « aucune version ne
 correspond » alors que la version existait bel et bien.
 
+### 7.35 Une file de huit images pour un horaire de cent quatre-vingts
+
+Deuxième capture du même ami, en demi-format cette fois. Il dit que c'est mieux et
+qu'il sent encore des ralentissements. Sa capture dit pourquoi, et la cause est
+une régression que j'avais introduite.
+
+| Ce qu'il voyait | Valeur |
+|---|---|
+| Écarts d'arrivée | **16,3** / 29,3 ms p50/p95 |
+| Source | 60 Hz |
+| Arrivées contre peintes | 8594 contre **4971** |
+| Durée d'affichage p95 | **39 rafraîchissements** |
+| Latence ajoutée | 121 ms |
+| Gigue de la liaison | 168 ms |
+| Famines | 321 |
+
+Les deux premières lignes sont une bonne nouvelle et elles innocentent le réseau:
+les images arrivent toutes les 16,3 ms, soit exactement la cadence de la source, et
+la source est correctement lue à 60 Hz. Le demi-format a fait son travail — il
+était à 25,8 / 67,2 ms la fois d'avant.
+
+Et pourtant **58 % seulement des images reçues sont peintes**, et une image reste
+39 rafraîchissements à l'écran au p95, soit 650 ms de gel. C'est ça qu'il ressent.
+
+#### La cause: la même grandeur écrite deux fois
+
+L'horaire d'affichage retarde chaque image de ce qu'il a « acheté »: la gigue plus
+la marge, borné à 180 ms. Chez lui: 168 + 121, donc 180.
+
+La file d'images décodées, elle, gardait **huit** images. À 60 Hz, huit images font
+133 millisecondes.
+
+Un horaire qui fait attendre 180 ms et une file qui tient 133 ms ne peuvent pas
+coexister: l'image la plus ancienne est jetée avant que son tour arrive. Elle est
+arrivée à l'heure, elle a été décodée, et elle est perdue.
+
+C'est **ma** régression: j'ai monté le plafond de marge de 60 à 180 ms (7.29) sans
+toucher à la file. À 60 ms il fallait quatre places sur huit, donc c'était
+confortable et invisible.
+
+Et il y avait un emballement par-dessus: jeter vide la file au mauvais moment, ce
+qui compte une famine, ce qui fait grandir la marge, ce qui retarde l'horaire, ce
+qui fait jeter plus tôt. Sa marge à 121 ms n'est pas une mesure de sa liaison,
+c'est le produit de cette boucle.
+
+#### Les deux corrections
+
+**La taille de la file se calcule.** C'est la même grandeur que l'horaire, exprimée
+en images au lieu de millisecondes, et deux expressions d'une même grandeur
+finissent toujours par ne plus être d'accord. Elle vaut maintenant « de quoi tenir
+ce que l'horaire fait attendre », plus quatre places de rafale, entre huit et
+vingt-quatre. La cadence de la source entre dans le calcul: un jeu PAL produit
+toutes les 20 ms, donc la même marge y tient en moins d'images.
+
+La propriété qui compte est que **rien ne change pour une bonne liaison**: elle
+n'achète presque rien, retombe sur le plancher de huit, et ne paie pas de mémoire.
+Vérifié: 100 % peintes, zéro jetée, marge à 3 ms, huit places.
+
+**Une image jetée interdit d'agrandir la marge.** Jeter veut dire que l'horaire est
+trop tard pour la file; grandir le retarderait encore. C'est ce qui casse
+l'emballement, et c'est écrit dans `nextSlack` avec son jumeau négatif — sans
+lequel « ne grandit pas » pourrait vouloir dire « ne grandit jamais ».
+
+#### Mesuré, sur le même lien serré
+
+| | file fixe à 8 | file dérivée |
+|---|---|---|
+| peintes | 447 | **709** |
+| **durée d'affichage p95** | **60 rafraîchissements** | **3** |
+| écarts d'arrivée p95 | 250 ms | 55 ms |
+
+Le pourcentage de peintes bouge peu, et il faut le dire: le lien de l'essai est
+saturé, donc beaucoup d'images n'arrivent pas du tout. Ce qui change est la
+**tenue**: soixante rafraîchissements au p95, c'est une seconde d'image figée. Trois,
+c'est invisible. Sa capture en montrait trente-neuf.
+
+#### Ce qui l'a rendu trouvable
+
+Rien. Le nombre d'images jetées existait dans le code et n'était affiché nulle part.
+Il l'est maintenant, à côté du nombre de places dans la file, parce que ces deux
+lignes côte à côte auraient donné la réponse en une seconde: « la file en tient
+huit, l'horaire en fait attendre onze ».
+
+C'est la troisième fois dans ce projet qu'un compteur existant et non affiché coûte
+une soirée de recherche.
+
 ---
 
 ## 8. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
@@ -5045,6 +5131,8 @@ pas échouer**.
 | Une image jetée au milieu d'un groupe | La file pleine jetait l'image, les suivantes référençaient celle qui manquait, et le navigateur décodait du bruit: 306 non décodables contre 192 décodées | Dans un flux où les morceaux dépendent les uns des autres, se taire jusqu'au prochain point d'entrée vaut mieux que continuer à parler |
 | Une icône fourre-tout sur quinze entrées | Le même carré vide servait de « son », « volume », « ambiance » et douze autres. Un menu où tout porte la même icône se relit mot par mot, et un carré vide a l'air d'une image qui n'a pas chargé | Une icône qui ne distingue rien ne fait qu'occuper de la place. Et un repli doit ressembler à un repli, pas à une panne |
 | Un fond sans dedans ni dehors | La première taverne était un aplat marron: les plaques ne se détachaient pas du sol. Ce qui l'a réparée n'est pas plus de détail mais plus d'écart de valeur — vignette, plaques plus claires, panneau enfoncé | Une matière se lit par ses contrastes avant ses ornements |
+| Une grandeur écrite deux fois | L'horaire faisait attendre jusqu'à 180 ms et la file gardait huit images, soit 133 ms. Les images arrivaient à l'heure et étaient jetées avant leur tour: 58 % peintes, une seconde de gel au p95 | Deux écritures d'une même grandeur finissent par ne plus être d'accord. Celle qui dépend de l'autre se CALCULE |
+| Un compteur qui existait sans être affiché | Le nombre d'images jetées était compté depuis le début et visible nulle part. Affiché à côté du nombre de places, il donnait la réponse en une seconde | Ce qu'on compte sans le montrer ne sert à personne le jour où il faut chercher |
 | Une action de CI qui cherche sa version | L'installation de `just` parcourait `GET /releases`, qui rendait une liste VIDE alors que `releases/latest` répondait. Épingler la version n'a rien changé: trois pipelines rouges, deux messages différents, zéro ligne de code en cause | Interroger le service à la main avant de croire son message. « Aucune version ne correspond » disait faux: c'était la liste qui était vide |
  L'installation de `just` parcourait la liste des versions par l'API GitHub: un 504, puis « aucune version ne correspond », deux pipelines rouges sans qu'une ligne de code ait bougé | Épingler ce qu'on installe. Un rouge sans rapport avec le commit est un rouge qu'on apprend à ignorer |
 | Une liste plus longue que son panneau | Les quatre dernières entrées des réglages étaient hors de portée sur un écran court, parce que le défilement ne suivait pas le curseur. Rien n'échouait | Une assertion utile n'est pas « ça descend » mais « la dernière est dans l'écran » |

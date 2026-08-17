@@ -55,6 +55,20 @@ export function Instruments({ shot }: { shot: Snapshot }) {
           hint="Le worker encode la même image deux fois et chacun choisit. Le format réduit demande environ 2,6 fois moins de débit."
         />
         <Readout
+          label="jetées avant leur tour"
+          value={video.skipped}
+          unit="images"
+          tone={video.skipped > 0 ? "alert" : "good"}
+          hint="Des images arrivées, décodées, puis jetées parce que la file a débordé avant leur tour. Ce n'est pas le réseau: c'est l'horaire d'affichage qui les fait attendre plus longtemps que la file ne peut tenir."
+        />
+        <Readout
+          label="places dans la file"
+          value={video.room}
+          unit={`pour ${video.backlog} en attente`}
+          tone="faint"
+          hint="Calculée d'après la marge: la file doit pouvoir garder ce que l'horaire fait attendre."
+        />
+        <Readout
           label="gigue de la liaison"
           value={video.jitterMs.toFixed(0)}
           unit="ms absorbés"

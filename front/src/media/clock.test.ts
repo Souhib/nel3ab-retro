@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  QUEUE_CEILING,
+  QUEUE_FLOOR,
   SLACK_CEILING,
   SLACK_FLOOR,
   Window,
   isStarved,
   nextSlack,
   percentile,
+  roomFor,
   steer,
 } from "./clock";
 
@@ -103,5 +106,50 @@ describe("la marge", () => {
   it("ne descend pas sous le plancher", () => {
     expect(nextSlack(SLACK_FLOOR, 0)).toBe(SLACK_FLOOR);
     expect(nextSlack(SLACK_FLOOR + 1, 0)).toBe(SLACK_FLOOR);
+  });
+});
+
+describe("la place dans la file", () => {
+  it("suit l'horaire: cent quatre-vingts millisecondes tiennent onze images", () => {
+    // 180 / 16,7 = 10,8, arrondi à 11, plus quatre places de rafale.
+    expect(roomFor(180, 16.667)).toBe(15);
+  });
+
+  it("retombe sur le plancher pour une bonne liaison", () => {
+    // La propriété qui compte: qui n'achète presque rien garde le comportement
+    // d'avant, huit images, et ne paie pas de mémoire pour rien.
+    expect(roomFor(3, 16.667)).toBe(QUEUE_FLOOR);
+    expect(roomFor(0, 16.667)).toBe(QUEUE_FLOOR);
+  });
+
+  it("s'arrête au plafond", () => {
+    expect(roomFor(10_000, 16.667)).toBe(QUEUE_CEILING);
+  });
+
+  it("tient compte d'une source plus lente", () => {
+    // Un jeu PAL produit toutes les 20 ms: la même marge tient donc en MOINS
+    // d'images. Compter en images sans regarder la cadence surdimensionnerait
+    // la file de vingt pour cent sur tous les jeux européens.
+    expect(roomFor(180, 20)).toBe(13);
+  });
+
+  it("ne divise jamais par zéro", () => {
+    // Le jumeau: la cadence est mesurée, donc elle peut valoir zéro avant la
+    // première image, et une file infinie serait pire qu'une file trop petite.
+    expect(roomFor(180, 0)).toBe(QUEUE_CEILING);
+  });
+});
+
+describe("la marge face à une image jetée", () => {
+  it("ne grandit pas quand la file a débordé, même en ayant eu faim", () => {
+    // Jeter veut dire que l'horaire est trop tard pour la file. Grandir le
+    // retarderait encore: c'est l'emballement mesuré le 2026-08-17.
+    expect(nextSlack(121, 9, 1)).toBe(121);
+  });
+
+  it("et grandit toujours quand rien n'a été jeté", () => {
+    // Le jumeau, sans lequel « ne grandit pas » pourrait vouloir dire « ne
+    // grandit jamais ».
+    expect(nextSlack(121, 9, 0)).toBe(129);
   });
 });

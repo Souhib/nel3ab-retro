@@ -5,7 +5,7 @@
  * Every rule here was paid for. The comments say what by, because the code alone
  * cannot: each one looks removable until you know which failure it answers.
  */
-import { SLACK_CEILING, Window, isStarved, nextSlack, steer } from "./clock";
+import { SLACK_CEILING, Window, isStarved, nextSlack, roomFor, steer } from "./clock";
 import { codecOf, hasIdr } from "./annexb";
 
 /** How long without a byte before the connection is presumed dead.
@@ -41,11 +41,11 @@ const PAINTING_STOPPED = 250;
 /** How far behind the decoder may fall before it is given no more work. */
 const MAX_BACKLOG = 10;
 
-/** A safety valve, not the cadence. It was `target + 1`, which fought the
- * schedule and won: the queue kept one picture, the oldest was dropped for each
- * new one, and the head was always a picture whose time had not come — zero
- * painted, 897 dropped, every other counter green. */
-const MAX_QUEUE = 8;
+/* Il n'y a PLUS de taille de file constante ici, et c'est le sujet de
+   `roomFor`: la file doit contenir ce que l'horaire fait attendre, donc sa taille
+   se calcule au lieu de s'écrire. La constante précédente valait huit images, et
+   le plafond de marge est passé de 60 à 180 ms sans qu'elle bouge: les images
+   arrivaient à l'heure et étaient jetées avant leur tour. */
 
 const SOURCE_FRAME = 16.667;
 const KEY_FRAME_PLEASE = 1;
@@ -70,6 +70,9 @@ export type VideoStats = {
   /** De combien la liaison est irrégulière, en millisecondes. Zéro sur une bonne
    * liaison, et c'est ce que la page ajoute à son tampon. */
   jitterMs: number;
+  /** Combien d'images la file peut retenir en ce moment, calculé d'après la
+   * marge. À comparer avec `backlog`, qui dit combien elle en tient. */
+  room: number;
   /** Vrai quand cette page prend le flux réduit. */
   half: boolean;
   /** À quelle cadence la SOURCE produit, lue sur les instants de capture. Un jeu
@@ -164,6 +167,8 @@ export class VideoStream {
   private starved = 0;
   private starvedRecent = 0;
   private skipped = 0;
+  /** Ce qui avait été jeté à la fin de la fenêtre précédente. */
+  private skippedSeen = 0;
   private undecoded = 0;
   private stalls = 0;
   private restarts = 0;
@@ -248,6 +253,7 @@ export class VideoStream {
       waitMs: { p50: this.waits.at(0.5), p95: this.waits.at(0.95) },
       gapMs: { p50: this.gaps.at(0.5), p95: this.gaps.at(0.95), max: this.gaps.at(1) },
       jitterMs: this.jitterMs(),
+      room: this.queueRoom(),
       half: this.half,
       sourceHz: 1000 / this.sourcePeriodMs(),
       refreshHz: 1000 / this.refreshPeriod(),
@@ -291,6 +297,16 @@ export class VideoStream {
    * C'est ce que faisait la page, et c'est pour ça qu'une liaison irrégulière
    * perdait une image sur cinq. */
   private wantedOffset(): number {
+    return (this.lags.fastest() ?? 0) + this.boughtMs() + this.lipsync;
+  }
+
+  /** Le retard que l'horaire ajoute, en millisecondes.
+   *
+   * Nommé parce que DEUX choses en dépendent, et qu'elles doivent être d'accord:
+   * l'horaire d'affichage, et la place dans la file qui doit tenir ce retard.
+   * Les avoir laissées se contredire est exactement le défaut du 2026-08-17.
+   */
+  private boughtMs(): number {
     // Le total est BORNÉ, et c'est la moitié qui manquait.
     //
     // Mesuré le 2026-08-16 avec `slowlink.mjs`: sur un lien trop étroit, les
@@ -299,8 +315,13 @@ export class VideoStream {
     // tampon qui suivrait ce nombre ajouterait une seconde et demie de retard
     // sans rattraper une seule image. Attendre répare l'irrégulier, jamais
     // l'étroit.
-    const bought = Math.min(this.jitterMs() + this.slackMs, SLACK_CEILING);
-    return (this.lags.fastest() ?? 0) + bought + this.lipsync;
+    return Math.min(this.jitterMs() + this.slackMs, SLACK_CEILING);
+  }
+
+  /** Combien d'images la file garde: assez pour tenir ce que l'horaire fait
+   * attendre. */
+  private queueRoom(): number {
+    return roomFor(this.boughtMs(), this.sourcePeriodMs());
   }
 
   /** Est-on sur le flux réduit ? */
@@ -496,7 +517,7 @@ export class VideoStream {
     const capturedMs = frame.timestamp / 1000;
     this.queue.push({ frame, capturedMs, decodedAt: now });
     this.lags.push(now - capturedMs);
-    while (this.queue.length > MAX_QUEUE) {
+    while (this.queue.length > this.queueRoom()) {
       this.queue.shift()?.frame.close();
       this.skipped += 1;
     }
@@ -618,7 +639,11 @@ export class VideoStream {
       this.offset = Math.abs(this.offset - want) > SNAP ? want : steer(this.offset, want, 5);
     }
 
-    const grown = nextSlack(this.slackMs, this.starvedRecent);
+    // Ce qui a été jeté depuis la dernière fenêtre. Une éviction interdit
+    // d'agrandir la marge: voir `nextSlack`.
+    const evicted = this.skipped - this.skippedSeen;
+    this.skippedSeen = this.skipped;
+    const grown = nextSlack(this.slackMs, this.starvedRecent, evicted);
     if (grown > this.slackMs) {
       // Appliquée d'un coup à l'horaire: la faire gagner cinq millisecondes
       // toutes les deux secondes laisserait la page affamée pendant la montée.

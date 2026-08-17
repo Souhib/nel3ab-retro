@@ -80,10 +80,50 @@ export const SLACK_FLOOR = 3;
  * une marge de trop ne se voit pas. Elle redescend quand même, sinon une seule
  * mauvaise minute coûterait du retard à la manette pour toute la partie.
  */
-export function nextSlack(current: number, starved: number): number {
+export function nextSlack(current: number, starved: number, evicted = 0): number {
+  // Une image JETÉE de la file interdit d'agrandir la marge, et c'est ce qui
+  // casse un emballement.
+  //
+  // Jeter veut dire qu'une image est arrivée, a attendu son tour, et que la file
+  // a débordé avant que son tour vienne: l'horaire est donc trop TARD pour la
+  // file. Grandir le retarde encore, ce qui fait déborder plus tôt, ce qui vide
+  // la file au mauvais moment, ce qui compte une famine, ce qui fait grandir.
+  // Mesuré chez quelqu'un le 2026-08-17: 8594 images arrivées, 4971 peintes,
+  // 321 famines, et une marge montée à 121 ms pour un lien qui livrait à
+  // 16,3 ms d'écart — soit exactement la cadence de la source.
+  if (evicted > 0) return current;
   if (starved > 1) return Math.min(SLACK_CEILING, current + 8);
   if (starved === 0) return Math.max(SLACK_FLOOR, current - 2);
   return current;
+}
+
+/** Le moins d'images que la file garde, quoi qu'il arrive. */
+export const QUEUE_FLOOR = 8;
+/** Le plus. Vingt-quatre images décodées de 1216x896 tiennent dans une
+ * quarantaine de mégaoctets de mémoire graphique, ce qui est acceptable; au-delà
+ * on paierait de la mémoire pour un retard que personne ne veut jouer. */
+export const QUEUE_CEILING = 24;
+/** Des places en plus, pour la rafale qui arrive pendant qu'on peint. */
+const QUEUE_MARGIN = 4;
+
+/**
+ * Combien d'images la file doit pouvoir retenir, d'après l'horaire.
+ *
+ * DÉRIVÉ et non fixé, parce que c'est la même grandeur écrite deux fois:
+ * l'horaire retarde chaque image de `boughtMs` millisecondes, et la file doit
+ * pouvoir garder autant d'images que ça représente. Deux écritures d'une même
+ * grandeur finissent par ne plus être d'accord, et c'est arrivé: le plafond de
+ * marge est passé de 60 à 180 ms sans que la file bouge de ses huit images, soit
+ * 133 ms. Les images arrivaient, attendaient leur tour, et étaient jetées avant
+ * — 58 % peintes chez quelqu'un dont le lien livrait pourtant à l'heure.
+ *
+ * La propriété qui compte: une bonne liaison n'achète presque rien, donc elle
+ * retombe sur le plancher et garde exactement le comportement d'avant.
+ */
+export function roomFor(boughtMs: number, periodMs: number): number {
+  const period = Math.max(1, periodMs);
+  const needed = Math.ceil(Math.max(0, boughtMs) / period) + QUEUE_MARGIN;
+  return Math.min(QUEUE_CEILING, Math.max(QUEUE_FLOOR, needed));
 }
 
 /**

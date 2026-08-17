@@ -76,6 +76,10 @@ console.log(`  marge          ${after.slackMs.toFixed(0)} ms`);
 console.log(`  gigue          ${after.jitter.toFixed(0)} ms`);
 console.log(`  écarts         ${after.gapP50.toFixed(1)} / ${after.gapP95.toFixed(1)} ms p50/p95`);
 console.log(`  tenue p95      ${after.heldP95} rafraîchissements`);
+// Les deux chiffres qui séparent « le réseau est lent » de « la page jette ce
+// qu'elle a reçu ». Voir 7.35.
+console.log(`  jetées         ${after.skipped - before.skipped} avant leur tour`);
+console.log(`  places         ${after.room} dans la file`);
 console.log(`  écran          ${(1000 / after.refresh).toFixed(0)} Hz`);
 console.log(`  horaire        ${after.offset.toFixed(0)} ms  (file ${after.queue})`);
 

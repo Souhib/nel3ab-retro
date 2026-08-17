@@ -148,6 +148,8 @@ export function exposeNothingYet(): void {
       gapP50: 0,
       gapP95: 0,
       heldP95: 0,
+      skipped: 0,
+      room: 0,
     }),
     audio: () => ({
       soundLead: 0,
@@ -211,6 +213,8 @@ export function exposeForTests(session: Session): void {
         gapP50: shot.video.gapMs.p50,
         gapP95: shot.video.gapMs.p95,
         heldP95: shot.video.heldRefreshes.p95,
+        skipped: shot.video.skipped,
+        room: shot.video.room,
       };
     },
     /** The sound budget, poste par poste, in the units the bench prints.

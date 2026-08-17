@@ -39,6 +39,9 @@ export type Picking = {
   confirm: (cursor?: number) => void;
   /** Referme, et remet la valeur d'avant. */
   cancel: () => void;
+  /** Vrai quand ce réglage s'applique en se promenant, et que le menu doit
+   * s'effacer pour qu'on le voie. */
+  previewing: boolean;
 };
 
 export type Shell = {
@@ -156,8 +159,11 @@ export function useShell(
     const open = picking;
     if (open === null) return;
     // Une glissière a déjà été entendue bouger, donc annuler doit remettre la
-    // valeur d'avant. Une liste n'a rien changé tant qu'on n'a pas validé.
-    items[open.row]?.slide?.onSet(open.was);
+    // valeur d'avant. Une liste aussi, dès lors qu'elle s'applique en se
+    // promenant; celles qui attendent la validation n'ont rien changé.
+    const item = items[open.row];
+    item?.slide?.onSet(open.was);
+    if (item?.preview) item.onPick?.(item.picks?.[open.was]?.id ?? "");
     closePicking();
   };
 
@@ -176,9 +182,15 @@ export function useShell(
     if (action === "confirm") return validate();
     if (item.picks) {
       const last = item.picks.length - 1;
-      if (action === "up") return setPicking({ ...open, cursor: Math.max(0, open.cursor - 1) });
-      if (action === "down")
-        return setPicking({ ...open, cursor: Math.min(last, open.cursor + 1) });
+      const to = (cursor: number) => {
+        setPicking({ ...open, cursor });
+        // Un réglage qui se voit s'applique en se promenant: c'est ce qui rend
+        // le choix lisible. Les autres attendent la validation, sinon lire une
+        // liste de sept ambiances ferait clignoter la page sept fois.
+        if (item.preview) item.onPick?.(item.picks?.[cursor]?.id ?? "");
+      };
+      if (action === "up") return to(Math.max(0, open.cursor - 1));
+      if (action === "down") return to(Math.min(last, open.cursor + 1));
       return;
     }
     if (item.slide) {
@@ -248,11 +260,13 @@ export function useShell(
             cursor: picking.cursor,
             moveTo: (cursor) => {
               setPicking({ ...picking, cursor });
-              // La souris entend aussi ce qu'elle glisse.
+              // La souris entend, et voit, ce qu'elle déplace.
               open.slide?.onSet(cursor);
+              if (open.preview) open.onPick?.(open.picks?.[cursor]?.id ?? "");
             },
             confirm: validate,
             cancel: abandon,
+            previewing: open.preview === true,
           },
   };
 }

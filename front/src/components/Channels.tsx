@@ -70,7 +70,10 @@ export function Channels({
   return (
     <div
       id="menu"
-      className="n3-enter fixed inset-0 z-50 flex flex-col"
+      className={cn(
+        "n3-enter fixed inset-0 z-50 flex flex-col",
+        shell.picking?.previewing ? "n3-peek" : "",
+      )}
       style={{
         color: INK,
         background: PAPER,

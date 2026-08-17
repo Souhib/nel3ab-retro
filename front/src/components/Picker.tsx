@@ -53,13 +53,21 @@ export function Picker({ picking, costume }: { picking: Picking | null; costume:
   return (
     <div
       id="picker"
-      className="n3-pop fixed inset-0 z-[70] flex items-center justify-center p-6"
-      style={{ background: costume.veil ?? "rgba(0,0,0,.45)" }}
+      className={cn(
+        "n3-pop fixed inset-0 z-[70] flex justify-center p-6",
+        // Quand il montre, il descend en bas et ne pose plus de voile: l'image
+        // qu'on règle est au milieu, et la cacher pour la régler n'aurait aucun
+        // sens.
+        picking.previewing ? "items-end" : "items-center",
+      )}
+      style={{
+        background: picking.previewing ? "transparent" : (costume.veil ?? "rgba(0,0,0,.45)"),
+      }}
       // Cliquer à côté annule, comme partout ailleurs.
       onClick={picking.cancel}
     >
       <div
-        className="flex w-full max-w-md flex-col gap-3 rounded-[10px] p-4"
+        className="flex w-full max-w-md flex-col gap-3 rounded-[10px] p-4 shadow-2xl"
         style={{
           background: costume.panel,
           color: costume.ink,
@@ -140,9 +148,13 @@ function List({ picking, costume }: { picking: Picking; costume: Costume }) {
               border: `1px solid ${here ? costume.accent : "transparent"}`,
             }}
           >
-            <span className="truncate">{choice.label}</span>
-            <span className="flex shrink-0 items-baseline gap-2 text-[11px]">
-              {choice.hint ? <span className="opacity-50">{choice.hint}</span> : null}
+            {/* Le libellé ne se tronque pas, l'explication oui: c'est le nom du
+                choix qui permet de choisir, et une taille annoncée qui pousse
+                « remplir l'écran » à « rem... » retire l'information utile pour
+                garder l'accessoire. */}
+            <span className="shrink-0">{choice.label}</span>
+            <span className="flex min-w-0 items-baseline gap-2 truncate text-[11px]">
+              {choice.hint ? <span className="truncate opacity-50">{choice.hint}</span> : null}
               {choice.id === picking.item.picked ? (
                 <span style={{ color: costume.accent }}>en cours</span>
               ) : null}

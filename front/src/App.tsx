@@ -55,7 +55,7 @@ import {
   storedTheme,
   themeLabel,
 } from "./lib/theme";
-import { FITS, fitLabel, rememberFit, storedFit } from "./lib/fit";
+import { FITS, fitLabel, place, rememberFit, storedFit } from "./lib/fit";
 import { useBare } from "./lib/fullscreen";
 import { useMe, useRename } from "./lib/me";
 import { useLobby, useRoom, type Asked } from "./lib/room";
@@ -250,6 +250,9 @@ function Room({
   /** Comment l'image est posée à l'écran. Séparé du format transporté: le
    * premier se choisit sur le débit qu'on a, le second sur ce qu'on aime voir. */
   const [fit, setFit] = useState(storedFit);
+  /** La place dont l'image dispose, rapportée par l'écran. Sert au menu, qui
+   * annonce ce que chaque choix donnerait. */
+  const [space, setSpace] = useState({ width: 0, height: 0 });
   useEffect(() => rememberFit(fit), [fit]);
   useEffect(() => rememberShell(shell), [shell]);
   useEffect(() => rememberMode(mode), [mode]);
@@ -331,6 +334,7 @@ function Room({
   /** Regarde-t-on, en ce moment ? Lu sur la session et non sur `watching`, qui
    * ne dit que par quelle porte on est entré. */
   const watchingNow = shot?.input.watching ?? false;
+  const picture = shot?.video.picture ?? { width: 0, height: 0 };
   /** Le format choisi. Gardé ici en plus de la session pour que le menu se
    * redessine tout de suite: l'instantané ne revient que deux fois par seconde,
    * et un réglage qui met une demi-seconde à afficher son nouvel état se lit
@@ -477,12 +481,23 @@ function Room({
           value: fitLabel(fit),
           hint: "ce qu'on affiche, séparé de ce qu'on transporte",
           icon: <ExpandIcon className="h-full w-full" />,
-          picks: FITS.map((choice) => ({
-            id: choice.id,
-            label: choice.label,
-            hint: choice.note,
-          })),
+          // Chaque choix annonce la taille QU'IL DONNERAIT, et pas seulement ce
+          // qu'il promet. Sans ça, deux choix qui rendent exactement la même
+          // image — ce qui arrive dès que la source est proche de l'écran — se
+          // présentent comme deux choix différents, et on croit que le réglage
+          // ne fait rien.
+          picks: FITS.map((choice) => {
+            const would = place(choice.id, picture, space);
+            const size =
+              would.width > 0 ? `${Math.round(would.width)}×${Math.round(would.height)}` : "";
+            return {
+              id: choice.id,
+              label: choice.label,
+              hint: size ? `${size} · ${choice.note}` : choice.note,
+            };
+          }),
           picked: fit,
+          preview: true,
           onPick: (id) => {
             const found = FITS.find((choice) => choice.id === id);
             if (found) setFit(found.id);
@@ -619,6 +634,7 @@ function Room({
           connected={shot?.video.connected ?? false}
           fit={fit}
           picture={shot?.video.picture ?? { width: 0, height: 0 }}
+          onSpace={setSpace}
         />
         {bare ? (
           /* Replié, il reste de quoi revenir. Discret et dans un coin: une barre

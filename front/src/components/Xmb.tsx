@@ -63,6 +63,13 @@ export type XmbItem = {
   picked?: string;
   /** Ce qu'on fait du choix, à la validation. */
   onPick?: (id: string) => void;
+  /** Vrai quand le choix se VOIT sur l'image du jeu.
+   *
+   * Deux conséquences: il s'applique en se promenant dans la liste plutôt qu'à
+   * la validation, et le menu s'efface pour laisser voir ce qu'on règle. Régler
+   * la taille de l'image derrière un menu qui la cache est un réglage qu'on fait
+   * à l'aveugle, et qu'on refait donc trois fois. */
+  preview?: boolean;
   /** Une valeur continue, à faire glisser. */
   slide?: {
     value: number;
@@ -127,7 +134,13 @@ export function Xmb({
   }, [row, ray]);
 
   return (
-    <div id="menu" className="n3-enter fixed inset-0 z-50 overflow-hidden bg-ink">
+    <div
+      id="menu"
+      className={cn(
+        "n3-enter fixed inset-0 z-50 overflow-hidden bg-ink",
+        shell.picking?.previewing ? "n3-peek" : "",
+      )}
+    >
       <Backdrop />
 
       {/* La rangée des rayons. Elle glisse pour que le rayon choisi reste au

@@ -5172,6 +5172,79 @@ moins un bord**. L'image garde ses proportions, donc l'une des deux dimensions
 est forcément plus petite dès que la place n'est pas en 4/3 — l'ancienne
 formulation ne tenait que parce que le hasard des tailles la rendait vraie.
 
+### 7.38 « Je ne vois pas la différence », et il avait raison deux fois
+
+Le réglage de taille venait d'être livré, et le retour est tombé tout de suite:
+« je ne vois pas de différence entre agrandissement entier, remplir net et
+remplir l'écran ». Puis, une fois en demi-format: « même là, je ne vois pas ».
+
+La première réaction utile est de mesurer plutôt que d'expliquer.
+
+#### La différence existe, et elle est mesurable
+
+Sur une image de 608x448 dans une place de 1920x1080:
+
+| choix | affiché | filtre |
+|---|---|---|
+| remplir | 1465x1080 | lissé |
+| remplir, net | 1465x1080 | franc |
+| entier | 1216x896 | franc |
+
+Et entre les deux qui font la MÊME taille, **14,7 % des octets diffèrent de plus
+de 8** sur une capture pixel à pixel. En agrandissant un morceau, la différence
+saute aux yeux: bords flous d'un côté, marches d'escalier de l'autre.
+
+Donc le mécanisme marchait. Le problème était ailleurs, et il était double.
+
+#### Un: on réglait de mémoire
+
+Le menu couvre l'écran. Pour voir l'effet d'un choix il fallait valider, fermer,
+regarder, rouvrir, choisir le suivant, refermer — et comparer deux impressions
+séparées par trois gestes. Personne ne peut juger un écart de 20 % de taille
+comme ça.
+
+Le sélecteur montre maintenant ce qu'il règle: quand le réglage se VOIT, le menu
+s'efface, le sélecteur descend en bas de l'écran, et le choix s'applique en se
+promenant dans la liste. Annuler remet ce qu'on avait.
+
+C'est la généralisation de ce que la glissière de volume faisait déjà — un volume
+qu'on règle sans l'entendre ne se règle pas — étendue à ce qui se voit. Un
+drapeau `preview` sur l'entrée, et la mécanique partagée fait le reste pour les
+quatre consoles.
+
+L'effacement passe par une classe et le seul `!important` du projet: chaque
+console pose son fond en style en ligne, qui bat une classe, et la règle doit
+gagner contre quatre fonds différents sans les connaître.
+
+#### Deux: le menu ne disait pas ce qu'il allait faire
+
+Chaque choix annonce maintenant **la taille qu'il donnerait**, calculée pour
+l'image et la place du moment. Et c'est là que la vraie réponse apparaît:
+
+    remplir l'écran        1465×1080 · toute la place, agrandissement lissé
+    remplir, net           1465×1080 · la même taille, pixels francs
+    agrandissement entier  1216×896  · le plus net, avec des bandes
+    taille d'origine        608×448  · un pixel reçu, un pixel à l'écran
+
+Les deux premiers font **la même taille**. Sans ce chiffre, ils se présentaient
+comme deux choix différents, et ne pas voir de différence de taille entre eux
+était la bonne observation. Un menu qui laisse croire qu'un réglage ne fait rien
+est un menu qui ment par omission.
+
+En pleine taille, d'ailleurs, les trois se ressemblent VRAIMENT: la source fait
+1216 pour une place de 1616, donc il n'y a presque rien à agrandir et
+« entier » vaut « origine ». C'est de l'arithmétique, pas un défaut, et le menu
+le dit maintenant tout seul.
+
+#### Ce que ça ne répare toujours pas
+
+Aucun de ces quatre choix ne fabrique du détail: ils redistribuent les mêmes
+pixels manquants. Le seul levier qui donnerait un gain visible en demi-format est
+un meilleur agrandisseur — agrandir d'un facteur entier au plus proche, PUIS
+lisser jusqu'à la taille voulue, ce qui garde davantage de hautes fréquences
+qu'un seul agrandissement bâtard. Une passe de plus par image, à mesurer avant de
+l'écrire.
+
 ---
 
 ## 8. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
@@ -5243,6 +5316,7 @@ pas échouer**.
 | Une image jetée au milieu d'un groupe | La file pleine jetait l'image, les suivantes référençaient celle qui manquait, et le navigateur décodait du bruit: 306 non décodables contre 192 décodées | Dans un flux où les morceaux dépendent les uns des autres, se taire jusqu'au prochain point d'entrée vaut mieux que continuer à parler |
 | Une icône fourre-tout sur quinze entrées | Le même carré vide servait de « son », « volume », « ambiance » et douze autres. Un menu où tout porte la même icône se relit mot par mot, et un carré vide a l'air d'une image qui n'a pas chargé | Une icône qui ne distingue rien ne fait qu'occuper de la place. Et un repli doit ressembler à un repli, pas à une panne |
 | Un fond sans dedans ni dehors | La première taverne était un aplat marron: les plaques ne se détachaient pas du sol. Ce qui l'a réparée n'est pas plus de détail mais plus d'écart de valeur — vignette, plaques plus claires, panneau enfoncé | Une matière se lit par ses contrastes avant ses ornements |
+| Un réglage qu'on juge de mémoire | Le menu couvrait l'image, donc comparer trois tailles demandait trois cycles ouvrir-valider-fermer-regarder. La différence était mesurable — 14,7 % des pixels — et invisible dans ces conditions | Un réglage qui se voit doit se régler EN LE VOYANT. Et un menu doit annoncer ce que chaque choix donne, sinon deux choix identiques passent pour deux choix |
 | Une assertion vraie par accident | Un pilote affirmait que l'image « fait la taille de son parent ». C'était vrai tant que l'élément était calé sur le parent, et c'est devenu faux quand il a pris la taille de l'image — alors que le comportement s'améliorait | Dire ce qu'on veut dire: « ne dépasse pas et touche un bord », pas « fait la même taille » |
 | Un plafond pris pour un remplissage | Le canvas portait `max-w-full`: en pleine taille l'image dépassait donc le plafond mordait et elle remplissait l'écran; en demi-format elle était plus petite que la place et rien ne la faisait grandir — 28 % de la surface | `max-*` plafonne, il n'agrandit pas. Et un défaut qui n'apparaît qu'avec une nouvelle option ne se voit dans aucun essai de l'ancienne |
 | Une grandeur écrite deux fois | L'horaire faisait attendre jusqu'à 180 ms et la file gardait huit images, soit 133 ms. Les images arrivaient à l'heure et étaient jetées avant leur tour: 58 % peintes, une seconde de gel au p95 | Deux écritures d'une même grandeur finissent par ne plus être d'accord. Celle qui dépend de l'autre se CALCULE |

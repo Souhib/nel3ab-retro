@@ -23,6 +23,7 @@ export function Screen({
   connected,
   fit,
   picture,
+  onSpace,
 }: {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
   connected: boolean;
@@ -31,16 +32,30 @@ export function Screen({
   fit: Fit;
   /** La taille de l'image décodée, telle que la boucle média la publie. */
   picture: { width: number; height: number };
+  /** La place disponible, rapportée vers le haut.
+   *
+   * Parce que le MENU en a besoin: il annonce à côté de chaque choix la taille
+   * qu'il donnerait, et cette taille dépend de la place. Sans ça, deux choix qui
+   * rendent exactement la même image se présentent comme deux choix différents,
+   * et on croit que le réglage ne fait rien. */
+  onSpace?: (space: { width: number; height: number }) => void;
 }) {
   const room = useRef<HTMLDivElement>(null);
   const [space, setSpace] = useState({ width: 0, height: 0 });
+  /* Par une référence: la fonction vient de la page et serait reconstruite à
+     chaque rendu, ce qui reposerait l'observateur en boucle. */
+  const told = useRef(onSpace);
+  told.current = onSpace;
 
   useEffect(() => {
     const box = room.current;
     if (!box) return;
     const watch = new ResizeObserver(([entry]) => {
       const size = entry?.contentRect;
-      if (size) setSpace({ width: size.width, height: size.height });
+      if (!size) return;
+      const now = { width: size.width, height: size.height };
+      setSpace(now);
+      told.current?.(now);
     });
     watch.observe(box);
     return () => watch.disconnect();

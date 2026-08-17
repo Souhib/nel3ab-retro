@@ -257,6 +257,27 @@ body {
 /* Quelqu'un qui a demandé moins d'animation en reçoit moins. Ce n'est pas une
    préférence esthétique, c'est un réglage d'accessibilité que le système
    transmet. */
+/* Le menu s'efface pour qu'on voie ce qu'on règle.
+ *
+ * Régler la taille de l'image derrière un menu qui la cache est un réglage qu'on
+ * fait à l'aveugle, et qu'on refait donc trois fois. Le sélecteur reste, le reste
+ * du menu s'en va, et le jeu réapparaît dessous.
+ *
+ * `!important` parce que chaque console pose son fond en style en ligne, qui bat
+ * une classe. C'est le seul endroit du projet qui en a un, et c'est pour ça: la
+ * règle doit gagner contre quatre fonds différents sans les connaître.
+ *
+ * Le sélecteur est épargné par son identifiant, parce qu'il est l'enfant direct
+ * de la racine dans les quatre formes. */
+.n3-peek {
+  background: none !important;
+}
+
+.n3-peek > *:not(#picker) {
+  opacity: 0 !important;
+  pointer-events: none;
+}
+
 /* Une braise qui monte et s'éteint.
  *
  * Pour la taverne, et seulement pour elle. `transform` et `opacity`, comme le

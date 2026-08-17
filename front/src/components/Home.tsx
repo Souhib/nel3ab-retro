@@ -67,7 +67,10 @@ export function Home({
   return (
     <div
       id="menu"
-      className="n3-enter fixed inset-0 z-50 flex flex-col overflow-hidden"
+      className={cn(
+        "n3-enter fixed inset-0 z-50 flex flex-col overflow-hidden",
+        shell.picking?.previewing ? "n3-peek" : "",
+      )}
       style={{ background: INK, color: "#f2f2f2" }}
     >
       <header className="flex items-center justify-between px-8 py-4">

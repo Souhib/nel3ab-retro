@@ -96,6 +96,46 @@ check(
   "et il garde exactement la même taille",
 );
 
+// L'aperçu: le menu s'efface, le réglage s'applique en se promenant, et annuler
+// remet ce qu'on avait. Régler la taille de l'image derrière un menu qui la
+// cache est un réglage qu'on fait de mémoire, entre deux ouvertures — c'est ce
+// qui a fait dire « je ne vois pas la différence » alors qu'il y en avait une.
+await pickIn("fit", "remplir");
+const before = (await shown()).shown.w;
+await press("#openMenu");
+await wait(700);
+await press("#ray-reglages");
+await wait(400);
+await press("#item-fit");
+await wait(700);
+check(
+  await page.evaluate(() => document.getElementById("menu")?.className.includes("n3-peek") ?? false),
+  "le menu s'efface pendant qu'on règle la taille",
+);
+check(
+  await page.evaluate(() => document.getElementById("picker") !== null),
+  "et le sélecteur reste",
+);
+// Chaque choix annonce ce qu'il donnerait: c'est ce qui montre que deux d'entre
+// eux rendent la même taille, au lieu de laisser croire que rien ne change.
+const announced = await page.evaluate(() =>
+  [...document.querySelectorAll('#picker [id^="pick-"]')].map((e) => e.textContent ?? ""),
+);
+check(
+  announced.filter((line) => /\d+×\d+/.test(line)).length === 4,
+  "et les quatre annoncent la taille qu'ils donnent",
+);
+
+await page.keyboard.press("ArrowDown");
+await page.keyboard.press("ArrowDown");
+await wait(700);
+const during = (await shown()).shown.w;
+check(during !== before, `l'image change sans qu'on ait validé (${before} -> ${during})`);
+
+await page.keyboard.press("Escape");
+await wait(700);
+check((await shown()).shown.w === before, "et annuler remet ce qu'on avait");
+
 await browser.close();
 console.log(
   bad === 0

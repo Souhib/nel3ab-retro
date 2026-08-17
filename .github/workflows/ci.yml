@@ -43,20 +43,26 @@ jobs:
         with:
           workspaces: core
 
-      # La VERSION est épinglée, et c'est une réparation de CI.
+      # `just` n'est PLUS installé par `extractions/setup-just`, et la raison est
+      # mesurée plutôt que supposée.
       #
-      # Sans elle, l'action demande à l'API GitHub la liste des versions de
-      # `just` et la parcourt page par page pour trouver la dernière. Le
-      # 2026-08-17 cette liste a répondu 504, puis « aucune version ne
-      # correspond »: deux messages différents pour la même panne, et deux
-      # pipelines rouges sans qu'une ligne de code ait bougé. Un rouge qui n'a
-      # rien à voir avec le commit est un rouge que l'oeil apprend à ignorer,
-      # ce que ce projet ne peut pas se permettre (règle 7).
+      # Cette action résout la version en parcourant `GET /repos/casey/just/
+      # releases` page par page. Le 2026-08-17 cet endpoint a rendu une liste
+      # VIDE sur toutes les pages, alors que `releases/latest` répondait
+      # correctement — vérifié à la main. L'action ne pouvait donc aboutir ni en
+      # cherchant la dernière version, ni avec une version épinglée: elle a
+      # échoué trois fois, avec deux messages différents pour la même panne, sans
+      # qu'une ligne de code ait bougé.
       #
-      # À monter quand on a besoin d'une nouveauté de `just`, pas avant.
-      - uses: extractions/setup-just@v4
+      # `taiki-e/install-action` résout depuis son propre manifeste et télécharge
+      # l'archive de la version, donc elle ne dépend pas de cet endpoint.
+      #
+      # Ça ne rend pas CI plus rapide, ça la rend honnête: un rouge qui n'a rien
+      # à voir avec le commit est un rouge que l'oeil apprend à ignorer, et la
+      # règle 7 de ce projet existe parce que c'est déjà arrivé ici.
+      - uses: taiki-e/install-action@v2
         with:
-          just-version: "1.58.0"
+          tool: just
 
       # `just lint` runs with --all-features, which builds the libavcodec shim's
       # build script — and a build script needs real headers, unlike clippy which
@@ -112,9 +118,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: extractions/setup-just@v4
+      - uses: taiki-e/install-action@v2
         with:
-          just-version: "1.58.0"
+          tool: just
       # Caching off on purpose. The action caches Python dependencies keyed on a
       # lock file, and this repository has none: it warned that the cache "will
       # never get invalidated", which is the honest description of a cache that

@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from "vitest";
 import type { Snapshot } from "../media/session";
-import { vitals, worthWriting } from "./vitals";
+import { Trailing, vitals, worthWriting } from "./vitals";
 
 /** Un instantané complet, dont chaque test ne change que ce qui l'intéresse. */
 function snap(video: Partial<Snapshot["video"]> = {}, rest: Partial<Snapshot> = {}): Snapshot {
@@ -150,5 +150,96 @@ describe("ce qui mérite d'être écrit", () => {
     // Un onglet en arrière-plan produit six relevés vides par minute, qui
     // noieraient les vrais dans un journal gardé deux jours.
     expect(worthWriting(vitals(snap(), null, 10_000))).toBe(false);
+  });
+});
+
+describe("la trace des deux dernières minutes", () => {
+  /** Une trace nourrie d'une seconde par tour, chacune valant `each`. */
+  function run(seconds: number, each: Partial<Snapshot["video"]> = {}, step = 1000): Trailing {
+    const trail = new Trailing();
+    let total = { shown: 0, painted: 0, skipped: 0 };
+    for (let tick = 0; tick <= seconds; tick += 1) {
+      total = {
+        shown: total.shown + (each.shown ?? 60),
+        painted: total.painted + (each.painted ?? 60),
+        skipped: total.skipped + (each.skipped ?? 0),
+      };
+      trail.push(snap({ ...each, ...total }), tick * step);
+    }
+    return trail;
+  }
+
+  it("date chaque seconde par rapport au signalement, donc en négatif", () => {
+    const rows = run(5).trail(5000).lignes;
+
+    // Cinq lignes pour six pousses: la première pose le point de départ.
+    expect(rows.map((row) => row[0])).toEqual([-4, -3, -2, -1, 0]);
+  });
+
+  it("ne remonte pas plus loin que deux minutes", () => {
+    const rows = run(300).trail(300_000).lignes;
+
+    expect(rows.length).toBeLessThanOrEqual(121);
+    expect(rows[0]?.[0]).toBeGreaterThanOrEqual(-120);
+  });
+
+  it("ne retient jamais plus de deux minutes en mémoire", () => {
+    // Sur la DURÉE et non sur le nombre de lignes. Le cas qui distingue les deux
+    // est l'onglet en arrière-plan, dont le navigateur ralentit les minuteurs à
+    // une fois par minute: couper au nombre de lignes lui ferait garder deux
+    // heures en croyant garder deux minutes.
+    //
+    // Assertion sur la MÉMOIRE et pas sur ce qui est rendu, parce que la lecture
+    // filtre une seconde fois: le premier jet de ce test regardait la sortie, et
+    // remplacer la coupe par « garder les cent vingt dernières » le laissait
+    // vert.
+    const minutes = run(20, {}, 60_000);
+    expect(minutes.held()).toBeLessThanOrEqual(3);
+
+    const seconds = run(600);
+    expect(seconds.held()).toBeLessThanOrEqual(121);
+  });
+
+  it("ne rend jamais une ligne plus vieille que deux minutes", () => {
+    // Le cas qui distingue les deux: un onglet en arrière-plan, dont le
+    // navigateur ralentit les minuteurs à une fois par minute. Couper au nombre
+    // de lignes lui ferait remonter deux heures en croyant remonter deux
+    // minutes, et la trace mentirait sur ce qu'elle couvre.
+    const rows = run(20, {}, 60_000).trail(20 * 60_000).lignes;
+
+    expect(rows.every((row) => (row[0] ?? -9999) >= -120)).toBe(true);
+  });
+
+  it("ramène les compteurs à la seconde quand un tour arrive en retard", () => {
+    // Sans ça, la seconde qui suit un retour au premier plan annonce « 1800
+    // images peintes » à côté de voisines qui en annoncent soixante, et
+    // l'échelle de toute la trace est perdue.
+    const late = run(3, {}, 30_000).trail(90_000).lignes;
+
+    expect(late.every((row) => row[1] === 2)).toBe(true);
+  });
+
+  it("garde le compte des images JETÉES tel quel, parce que c'en est un", () => {
+    const rows = run(4, { skipped: 3 }).trail(4000).lignes;
+
+    expect(rows.map((row) => row[3])).toEqual([3, 3, 3, 3]);
+  });
+
+  it("tient dans ce qu'une socket accepte", () => {
+    // La borne du salon est de seize kilo-octets pour un signalement. Une trace
+    // pleine doit y tenir avec de la marge, sinon le repère qu'on vient de poser
+    // est refusé au moment précis où il servait.
+    const full = JSON.stringify(run(200).trail(200_000));
+
+    expect(full.length).toBeLessThan(8_000);
+  });
+
+  it("ne rend rien tant qu'aucune seconde n'est passée", () => {
+    // Le jumeau: une trace qui rendrait une ligne dès la première pousse la
+    // remplirait des totaux depuis l'ouverture de la page.
+    const trail = new Trailing();
+    trail.push(snap({ shown: 41_000, painted: 40_000 }), 1000);
+
+    expect(trail.trail(1000).lignes).toEqual([]);
   });
 });

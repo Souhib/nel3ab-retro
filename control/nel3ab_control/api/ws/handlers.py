@@ -230,8 +230,19 @@ async def rename(sid: str, data: dict[str, Any]) -> None:
 #: balayage de deux jours n'y peut rien puisqu'il est journalier.
 VITALS_MAX = 2048
 
+#: Ce qu'un SIGNALEMENT a le droit de peser, en octets.
+#:
+#: Seize kilo-octets, huit fois la borne d'un relevé, parce qu'un signalement
+#: emporte les deux dernières minutes à la seconde. Une trace pleine en fait
+#: environ trois; le reste est de la marge pour des colonnes futures.
+#:
+#: Deux bornes et pas une seule: un relevé arrive six fois par minute et par
+#: personne, un signalement demande un clic. Leur donner la même borne
+#: reviendrait à autoriser le débit du premier à la taille du second.
+COMPLAINT_MAX = 16_384
 
-def _measured(data: dict[str, Any]) -> dict[str, Any] | None:
+
+def _measured(data: dict[str, Any], ceiling: int = VITALS_MAX) -> dict[str, Any] | None:
     """Un relevé, ou rien s'il n'a pas la tête d'un relevé.
 
     Ce qui arrive d'une page n'est pas un relevé parce qu'on l'espère. On garde
@@ -250,7 +261,7 @@ def _measured(data: dict[str, Any]) -> dict[str, Any] | None:
     """
     if not isinstance(data, dict):
         return None
-    return data if len(json.dumps(data, ensure_ascii=False)) <= VITALS_MAX else None
+    return data if len(json.dumps(data, ensure_ascii=False)) <= ceiling else None
 
 
 @sio.event
@@ -283,8 +294,14 @@ async def plainte(sid: str, data: dict[str, Any]) -> None:
 
     Écrit comme un relevé, mais sous un autre nom pour que `just sessions` puisse
     le mettre en évidence: c'est la ligne autour de laquelle on lira les autres.
+
+    Il emporte en plus les deux dernières minutes à la seconde, ce que les
+    relevés ordinaires ne portent pas. La question devant un signalement est
+    toujours « et juste avant, ça allait ? », et le relevé de dix secondes y
+    répond trop grossièrement: trois secondes qui rament au milieu de sept qui
+    vont bien s'y lisent comme une fenêtre à peine moins bonne.
     """
-    kept = _measured(data)
+    kept = _measured(data, COMPLAINT_MAX)
     if kept is None:
         return
     session = await sio.get_session(sid)

@@ -1,7 +1,7 @@
 /**
  * Ce que tous les menus ont en commun.
  *
- * Cinq menus, cinq façons de dessiner, une seule façon de se conduire: un
+ * Trois consoles, trois façons de dessiner, une seule façon de se conduire: un
  * rayon choisi, une entrée choisie dedans, et six ordres possibles. Écrire ça
  * une fois évite que la croix et la grille finissent par ne plus être d'accord
  * sur ce que « bas » veut dire.
@@ -17,7 +17,7 @@ import type { XmbCategory, XmbItem } from "./Xmb";
 /** Un sélecteur ouvert par-dessus le menu.
  *
  * Il vit dans la mécanique partagée et non dans chaque console, pour la même
- * raison que le reste: cinq implémentations d'un même sélecteur finiraient par
+ * raison que le reste: trois implémentations d'un même sélecteur finiraient par
  * ne plus être d'accord sur ce que « valider » veut dire.
  */
 export type Picking = {

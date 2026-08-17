@@ -15,8 +15,6 @@ import { Booting, type Step } from "./components/Booting";
 import { Sidebar } from "./components/Sidebar";
 import { Asked as AskedBanner, Asking } from "./components/Swap";
 import { Channels } from "./components/Channels";
-import { Tavern } from "./components/Tavern";
-import { Hearthstone } from "./components/Hearthstone";
 import { Home } from "./components/Home";
 import { Xmb, type XmbCategory, type XmbItem } from "./components/Xmb";
 import type { MenuAction } from "./media/menupad";
@@ -60,7 +58,7 @@ import { FITS, fitLabel, place, rememberFit, storedFit } from "./lib/fit";
 import { useBare } from "./lib/fullscreen";
 import { useMe, useRename } from "./lib/me";
 import { useLobby, useRoom, type Asked } from "./lib/room";
-import { vitals, worthWriting, type Vitals } from "./lib/vitals";
+import { Trailing, TRAIL_EVERY, vitals, worthWriting, type Trail, type Vitals } from "./lib/vitals";
 import type { Snapshot } from "./media/session";
 import { useSession, useSnapshot } from "./lib/useSession";
 
@@ -213,6 +211,15 @@ function Named({
  */
 const VITALS_EVERY = 10_000;
 
+/** Combien de tours de trace fine séparent deux relevés envoyés.
+ *
+ * Un seul minuteur pour les deux cadences, plutôt que deux qui dériveraient
+ * l'un par rapport à l'autre: la trace bat à la seconde, et un tour sur dix part
+ * au salon. Deux minuteurs séparés donneraient des fenêtres qui se chevauchent à
+ * moitié, et deux lignes voisines du journal compteraient les mêmes images.
+ */
+const TICKS_PER_VITALS = VITALS_EVERY / TRAIL_EVERY;
+
 function Room({
   name,
   login,
@@ -249,7 +256,12 @@ function Room({
   bind: (take: (port: number) => void, give: () => void) => void;
   /** Où envoyer ce que ce navigateur mesure. La socket du salon vit à l'étage
    * du dessus, les chiffres vivent ici. */
-  tell: { vitals: (sample: Vitals) => void; complain: (sample: Vitals) => void };
+  tell: {
+    vitals: (sample: Vitals) => void;
+    /** Un signalement emporte en plus les deux dernières minutes à la seconde:
+     * la question devant un « ça saccade » est toujours « et juste avant ? ». */
+    complain: (sample: Vitals & { fin: Trail }) => void;
+  };
 }) {
   const { bare, setBare, fullscreen, toggleFullscreen } = useBare();
   const [volume, setVolume] = useState(0.7);
@@ -297,20 +309,34 @@ function Room({
   sending.current = tell;
   const previous = useRef<Snapshot | null>(null);
   const opened = useRef(performance.now());
+  /** Les deux dernières minutes, à la seconde. Ne part QUE sur un signalement:
+   * l'envoyer en continu multiplierait le journal par quarante pour décrire des
+   * minutes dont personne ne se plaindra jamais. */
+  const trail = useRef(new Trailing());
   const sample = () => {
     const now = seen.current;
     if (!now) return null;
     return vitals(now, previous.current, performance.now() - opened.current);
   };
   useEffect(() => {
+    /* UN seul minuteur pour les deux cadences. La trace bat à la seconde, et un
+       tour sur dix part au salon. Deux minuteurs séparés dériveraient l'un par
+       rapport à l'autre, et deux lignes voisines du journal finiraient par
+       compter les mêmes images. */
+    let ticks = 0;
     const timer = window.setInterval(() => {
       const now = seen.current;
+      if (!now) return;
+      trail.current.push(now, performance.now());
+      ticks += 1;
+      if (ticks < TICKS_PER_VITALS) return;
+      ticks = 0;
       const taken = sample();
-      if (!now || !taken) return;
+      if (!taken) return;
       previous.current = now;
       opened.current = performance.now();
       if (worthWriting(taken)) sending.current.vitals(taken);
-    }, VITALS_EVERY);
+    }, TRAIL_EVERY);
     return () => window.clearInterval(timer);
   }, []);
 
@@ -789,7 +815,9 @@ function Room({
             onLeave={onLeave}
             onComplain={() => {
               const now = sample();
-              if (now) sending.current.complain(now);
+              if (now) {
+                sending.current.complain({ ...now, fin: trail.current.trail(performance.now()) });
+              }
             }}
           />
         </aside>
@@ -822,8 +850,6 @@ function Room({
               footer: `${room?.name ?? "salon"} · ${people.length} présent${people.length > 1 ? "s" : ""}`,
             };
             if (shell === "wii") return <Channels {...common} />;
-            if (shell === "taverne") return <Tavern {...common} />;
-            if (shell === "hearthstone") return <Hearthstone {...common} />;
             if (shell === "switch") return <Home {...common} who={name} />;
             return <Xmb {...common} />;
           })()

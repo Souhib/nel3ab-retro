@@ -15,7 +15,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { io, type Socket } from "socket.io-client";
 import { readRoom, type Room } from "../client";
-import type { Vitals } from "./vitals";
+import type { Trail, Vitals } from "./vitals";
 import { onBench, VISIT } from "./visit";
 
 export const ROOM_KEY = ["room"] as const;
@@ -95,7 +95,7 @@ export type Lobby = {
    * Le geste qui manquait le plus: une plainte arrive le lendemain avec une
    * heure approximative, et il faut la retrouver. Ce bouton pose un repère à
    * l'instant exact, avec ce que la page voyait à ce moment-là. */
-  complain: (sample: Vitals) => void;
+  complain: (sample: Vitals & { fin: Trail }) => void;
 };
 
 /** Une demande reçue: qui, et pour quelle place. */
@@ -160,6 +160,6 @@ export function useLobby(
     ask: (port: number) => socket.current?.emit("ask", { port }),
     answer: (port: number, ok: boolean) => socket.current?.emit("answer", { port, ok }),
     vitals: (sample: Vitals) => socket.current?.emit("mesures", sample),
-    complain: (sample: Vitals) => socket.current?.emit("plainte", sample),
+    complain: (sample: Vitals & { fin: Trail }) => socket.current?.emit("plainte", sample),
   };
 }

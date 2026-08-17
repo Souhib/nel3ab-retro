@@ -14,7 +14,7 @@
  * Une **liste** pour un choix parmi quelques valeurs nommées, et une
  * **glissière** pour une valeur continue. Le comportement des deux vit dans
  * `useShell`, pas ici: ce fichier ne fait que les dessiner. C'est ce qui garantit
- * que les cinq menus sont d'accord sur ce que « valider » veut dire.
+ * que les trois menus sont d'accord sur ce que « valider » veut dire.
  *
  * # La différence entre les deux, et elle est voulue
  *

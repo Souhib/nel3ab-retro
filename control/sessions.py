@@ -50,8 +50,27 @@ SAYS = {
     ),
     "propriétaire": lambda line: f"décide maintenant (place {line.get('place') or 'aucune'})",
     "mesures": lambda line: _seen(line.get("vu") or {}),
-    "plainte": lambda line: f"** ÇA SACCADE ** {_seen(line.get('vu') or {})}",
+    "plainte": lambda line: f"** ÇA SACCADE ** {_state(line.get('vu') or {})}",
 }
+
+
+def _state(vu: dict[str, Any]) -> str:
+    """L'état à l'instant d'un signalement, sans les compteurs.
+
+    Sans eux à dessein. Un signalement tombe où la personne clique, donc au
+    milieu de la fenêtre de dix secondes: un clic arrivé juste après une remise
+    à zéro affichait « 0/0 peintes » sur une séance parfaitement normale, ce qui
+    se lit comme une panne totale. Ce sont des compteurs de fenêtre, et une
+    fenêtre de quatre dixièmes de seconde ne compte rien.
+
+    Ce qui reste sont les JAUGES, vraies à l'instant où on les lit quelle que
+    soit la fenêtre. Les images, c'est la bande qui les dit, et sur deux minutes
+    plutôt que sur un fragment.
+    """
+    said = f"gigue {vu.get('gigue', 0)} ms  horaire {vu.get('horaire') or 0} ms"
+    if vu.get("demi"):
+        said += "  [réduit]"
+    return said
 
 
 def _seen(vu: dict[str, Any]) -> str:
@@ -87,6 +106,68 @@ def _lasted(seconds: float) -> str:
     if seconds < 90:
         return f"{seconds:.0f} s"
     return f"{seconds / 60:.0f} min"
+
+
+#: Combien de secondes la bande dessine.
+BAND = 120
+
+#: Ce que chaque caractère de la bande veut dire.
+#:
+#: Quatre états et pas un chiffre par seconde. Cent vingt nombres alignés ne se
+#: lisent pas; une bande se lit d'un coup d'oeil, et ce qu'on cherche devant un
+#: signalement est une FORME — trois secondes qui rament au milieu de dix qui
+#: vont bien — plutôt qu'une valeur.
+LEGEND = ". sain   : images jetées   ! file vidée   espace: rien mesuré"
+
+
+def _band(fin: dict[str, Any]) -> list[str]:
+    """Les deux minutes avant un signalement, en une bande de caractères.
+
+    Les lignes sont datées en secondes NÉGATIVES avant le signalement, et on les
+    place à leur rang plutôt que les unes après les autres: un onglet passé en
+    arrière-plan voit ses minuteurs ralentis par le navigateur, et ses secondes
+    manquantes doivent laisser un trou visible. Une bande sans trou qui couvre
+    deux minutes avec vingt lignes mentirait sur ce qu'elle a mesuré.
+    """
+    columns = fin.get("colonnes") or []
+    rows = fin.get("lignes") or []
+    if not columns or not rows:
+        return []
+    where = {name: index for index, name in enumerate(columns)}
+
+    def at(row: list[Any], name: str) -> int:
+        found = where.get(name)
+        return int(row[found]) if found is not None and found < len(row) else 0
+
+    strip = [" "] * (BAND + 1)
+    worst: tuple[int, list[Any]] | None = None
+    for row in rows:
+        when = at(row, "s")
+        if not -BAND <= when <= 0:
+            continue
+        lost, dry = at(row, "jetées"), at(row, "affamées")
+        strip[BAND + when] = "!" if dry else ":" if lost else "."
+        hurt = dry * 1000 + lost
+        if hurt > 0 and (worst is None or hurt > worst[0]):
+            worst = (hurt, row)
+
+    seen = [row for row in rows if -BAND <= at(row, "s") <= 0]
+    painted = sum(at(row, "peintes") for row in seen)
+    arrived = sum(at(row, "vues") for row in seen)
+    said = [
+        f"deux minutes avant: {''.join(strip)}",
+        f"({LEGEND})",
+        f"sur ces {len(seen)} secondes: {painted} peintes sur {arrived} arrivées, "
+        f"{sum(at(row, 'jetées') for row in seen)} jetées, "
+        f"{sum(at(row, 'affamées') for row in seen)} fois la file vide",
+    ]
+    if worst is not None:
+        row = worst[1]
+        said.append(
+            f"pire seconde: {at(row, 's')} s, {at(row, 'jetées')} jetées, "
+            f"{at(row, 'affamées')} fois la file vide, gigue {at(row, 'gigue')} ms"
+        )
+    return said
 
 
 def _hour(line: dict[str, Any]) -> str:
@@ -147,6 +228,8 @@ def main(argv: list[str]) -> int:
             if event["quoi"] in ("mesures", "plainte"):
                 # Déjà longues, et leur contexte est dans les lignes voisines.
                 print(f"    {_hour(event)}  {told}")
+                for extra in _band((event.get("vu") or {}).get("fin") or {}):
+                    print(f"              {extra}")
                 continue
             salle = event.get("salle") or {}
             around = f"{salle.get('présents', '?')} présents"

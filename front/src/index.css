@@ -265,10 +265,10 @@ body {
  *
  * `!important` parce que chaque console pose son fond en style en ligne, qui bat
  * une classe. C'est le seul endroit du projet qui en a un, et c'est pour ça: la
- * règle doit gagner contre cinq fonds différents sans les connaître.
+ * règle doit gagner contre trois fonds différents sans les connaître.
  *
  * Le sélecteur est épargné par son identifiant, parce qu'il est l'enfant direct
- * de la racine dans les cinq formes. */
+ * de la racine dans les trois formes. */
 .n3-peek {
   background: none !important;
 }
@@ -278,136 +278,10 @@ body {
   pointer-events: none;
 }
 
-/* Une braise qui monte et s'éteint.
- *
- * Pour la taverne, et seulement pour elle. `transform` et `opacity`, comme le
- * reste: ce sont les deux propriétés que le compositeur traite sans repasser par
- * la mise en page, donc une trentaine de braises ne peuvent pas voler de temps à
- * la boucle d'images. */
-@keyframes n3-ember {
-  0% {
-    opacity: 0;
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-  12% {
-    opacity: 0.85;
-  }
-  100% {
-    opacity: 0;
-    transform: translate3d(var(--drift, 10px), -62vh, 0) scale(0.35);
-  }
-}
-
-/* La lumière d'une bougie: elle ne pulse pas régulièrement, elle hésite. Trois
- * paliers inégaux plutôt qu'une sinusoïde, sinon ça respire comme une machine. */
-@keyframes n3-candle {
-  0%,
-  100% {
-    opacity: 0.5;
-  }
-  35% {
-    opacity: 0.72;
-  }
-  52% {
-    opacity: 0.46;
-  }
-  78% {
-    opacity: 0.66;
-  }
-}
-
-.n3-ember {
-  animation: n3-ember 7s linear infinite;
-}
-
-.n3-candle {
-  animation: n3-candle 5.5s ease-in-out infinite;
-}
-
-/* Le tourbillon d'arcane, pour la boîte de Hearthstone: une rotation lente.
- * `transform`, donc compositeur, comme le reste. */
-@keyframes n3-swirl {
-  to {
-    transform: rotate(1turn);
-  }
-}
-
-/* Sa lueur: elle hésite comme la bougie de la taverne, mais plus lentement et
- * moins fort — une source froide ne flambe pas. */
-@keyframes n3-glow {
-  0%,
-  100% {
-    opacity: 0.55;
-  }
-  41% {
-    opacity: 0.8;
-  }
-  63% {
-    opacity: 0.5;
-  }
-}
-
-/* Une poussière d'arcane. Elle monte en dérivant comme une braise, mais elle
- * SCINTILLE au lieu de s'éteindre en ligne droite: deux paliers d'opacité sur
- * le chemin, parce que la poussière clignote là où la braise meurt. */
-@keyframes n3-mote {
-  0% {
-    opacity: 0;
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-  18% {
-    opacity: 0.8;
-  }
-  46% {
-    opacity: 0.35;
-  }
-  74% {
-    opacity: 0.7;
-  }
-  100% {
-    opacity: 0;
-    transform: translate3d(var(--drift, 8px), -58vh, 0) scale(0.4);
-  }
-}
-
-.n3-swirl {
-  animation: n3-swirl 26s linear infinite;
-}
-
-.n3-glow {
-  animation: n3-glow 7s ease-in-out infinite;
-}
-
-.n3-mote {
-  animation: n3-mote 9s linear infinite;
-}
-
-/* Le ressort. Une courbe qui DÉPASSE puis revient, ce qui donne à une plaque de
- * bois le poids d'un objet qu'on pousse. C'est la moitié de ce qui fait qu'un
- * menu de jeu se sent différent d'une liste. */
-.n3-spring {
-  transition:
-    transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1),
-    box-shadow 200ms ease-out,
-    border-color 200ms ease-out;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .n3-enter,
   .n3-pop,
-  .n3-breathe,
-  .n3-ember,
-  .n3-candle,
-  .n3-swirl,
-  .n3-glow,
-  .n3-mote {
+  .n3-breathe {
     animation: none;
-  }
-
-  /* Le ressort passe par `transition` et non par `animation`: le couper demande
-     de le nommer à part, sinon la plaque continue de rebondir chez quelqu'un
-     qui a demandé à son système d'arrêter de bouger. */
-  .n3-spring {
-    transition: none;
   }
 }

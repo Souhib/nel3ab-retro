@@ -129,9 +129,18 @@ check(
 );
 const complained = mine.filter((line) => line.quoi === "plainte");
 check(complained.length === 1, "le bouton pose exactement un repère");
+const fine = complained[0]?.vu?.fin;
 check(
-  (complained[0]?.vu?.vues ?? 0) > 0,
-  "et le repère emporte ce que la page voyait à cet instant",
+  (fine?.lignes?.length ?? 0) > 0,
+  `et le repère emporte les secondes qui précèdent (${fine?.lignes?.length ?? 0})`,
+);
+check(
+  (fine?.colonnes?.length ?? 0) === (fine?.lignes?.[0]?.length ?? -1),
+  "la légende des colonnes va avec, sinon la trace est illisible",
+);
+check(
+  (fine?.lignes ?? []).every((row) => row[0] <= 0 && row[0] >= -120),
+  "chaque seconde est datée AVANT le signalement, et pas au-delà de deux minutes",
 );
 check(said?.includes("noté"), `le bouton dit qu'il a compris (« ${said} »)`);
 // L'identité du proxy: c'est ce qui manquait le jour où on m'a demandé de

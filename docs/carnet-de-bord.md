@@ -5316,40 +5316,31 @@ qui ne suivait pas l'horaire.
 
 ---
 
-### 7.40 L'auberge, après la taverne
+### 7.40 La taverne et l'auberge, construites puis retirées
 
-La demande d'origine disait « exactement comme si on était dans Hearthstone,
-avec les mêmes animations ». La taverne (7.34) répondait à l'esprit: du bois, une
-bougie, des braises. Elle ne répondait pas à la lettre, et la différence se voit
-tout de suite quand on met les deux côte à côte: **une taverne générique est
-brune, la boîte de Hearthstone est bleue.**
+Deux costumes de menu ont existé quelques jours: une taverne de bois et de
+braises (7.34), puis une auberge de Hearthstone, bleu nuit et laiton, parce que
+la première répondait à l'esprit de la demande et pas à la lettre — une taverne
+générique est brune, la boîte de Hearthstone est bleue.
 
-D'où un huitième costume plutôt qu'une correction du septième. Les deux gardent
-leur intérêt: l'un est une auberge, l'autre est CETTE auberge-là.
+Les deux ont été retirés, avec leurs cent trente lignes de CSS. La raison n'est
+pas consignée ici; elle appartient à qui l'a décidée. Restent trois menus: la
+croix du XMB, le tableau des chaînes, la rangée de la Switch.
 
-Cinq choses font qu'on la reconnaît avant d'y lire quoi que ce soit, et aucune
-n'est un dessin importé — rien de Blizzard n'est dans le dépôt, tout est tracé:
+Ce qui survit au retrait est la règle que ces deux-là ont servi à établir, et qui
+vaut encore pour les trois autres:
 
-- le bois est **teinté nuit**, cerclé de laiton, et c'est la teinte qui fait le
-  plus de travail;
-- un **tourbillon d'arcane** tourne au fronton, à l'endroit où le logo est vissé
-  dans le vrai. Trois arcs en tire-bouchon à trois vitesses: un seul anneau ferait
-  horloge, trois font portail;
-- les boutons **penchent**, chacun d'un angle fixe, comme des plaques posées sur
-  une table. Choisie, la plaque se REDRESSE et se soulève. C'est le redressement,
-  plus que le grossissement, qui donne l'air d'avoir pris quelque chose en main;
-- la poussière d'arcane **scintille** au lieu de s'éteindre. Une braise meurt en
-  montant, en ligne droite; celle-ci clignote sur deux paliers d'opacité;
-- la lumière est **froide** et respire lentement. La taverne est éclairée d'une
-  bougie, celle-ci par son tourbillon.
+- **un menu est un costume**: ses couleurs sont les siennes et ne suivent pas le
+  thème de la page (7.26);
+- **les dégradés et les animations y sont permis alors qu'ils sont interdits
+  partout ailleurs**, parce qu'ils tirent l'oeil hors de l'image du jeu et qu'un
+  menu n'a pas d'image derrière lui;
+- **seuls `transform` et `opacity` sont animés**, ce qui garantit qu'une
+  animation ne peut pas voler de temps à la boucle d'images, et
+  `prefers-reduced-motion` coupe tout.
 
-Mêmes garde-fous que la taverne, et pour les mêmes raisons: seuls `transform` et
-`opacity` sont animés, donc une rotation lente et vingt-six poussières ne peuvent
-pas voler de temps à la boucle d'images; `prefers-reduced-motion` coupe tout,
-ressort compris; et les couleurs sont celles de la boîte plutôt que celles du
-thème, parce qu'un menu est un costume (7.26).
-
----
+Une option retirée n'est pas une option perdue: le coût de l'avoir écrite était
+de deux soirées, et ce qu'elle a appris tient dans les trois lignes ci-dessus.
 
 ### 7.41 Tout ce qu'on calcule sans le montrer
 
@@ -5605,6 +5596,98 @@ audio la déplace d'autant. Elle n'est plus publiée.
 22:43:22   599/600 peintes  gigue 6 ms  horaire 9 ms
 22:43:26  part après 34 s            0 présents, Mario Kart Double Dash
 ```
+
+---
+
+### 7.44 Deux minutes à la seconde, et une bande qu'on lit d'un coup d'oeil
+
+#### Pourquoi le relevé de dix secondes ne suffit pas
+
+Devant un signalement, la question est toujours « et juste avant, ça allait ? ».
+Une fenêtre de dix secondes y répond trop grossièrement: trois secondes qui
+rament au milieu de sept qui vont bien s'y lisent comme une fenêtre à peine moins
+bonne. C'est précisément la forme d'une saccade, et c'est celle qu'on perdait.
+
+La page garde donc les **deux dernières minutes à la seconde**, et ne les envoie
+QUE sur un signalement. En continu, ça multiplierait le journal par quarante pour
+décrire des minutes dont personne ne se plaindra jamais. Le relevé de dix
+secondes couvre toute la séance et sert à dater; la trace fine explique, et on ne
+veut l'explication qu'à l'endroit où quelqu'un a dit « là ».
+
+Deux minutes: une minute rate le début d'une dégradation progressive, cinq
+triplent le poids pour couvrir un moment dont personne ne se souvient.
+
+#### La forme, et son coût
+
+Un tableau de nombres par seconde plutôt qu'un objet, avec le nom des colonnes
+écrit une seule fois à côté. Cent vingt objets nommés pèsent quarante fois leur
+information; cent vingt tableaux pèsent trois kilo-octets et restent lisibles
+tant que la légende voyage avec eux. Le salon accepte seize kilo-octets pour un
+signalement contre deux pour un relevé: le premier demande un clic, le second
+arrive six fois par minute, et leur donner la même borne autoriserait le débit de
+l'un à la taille de l'autre.
+
+La lecture est une **bande**, un caractère par seconde:
+
+```
+22:59:53  ** ÇA SACCADE ** gigue 8 ms  horaire 11 ms
+          deux minutes avant:            .........................!..::...........
+          (. sain   : images jetées   ! file vidée   espace: rien mesuré)
+          sur ces 69 secondes: 3045 peintes sur 3065 arrivées, 13 jetées, 1 fois la file vide
+          pire seconde: -19 s, 0 jetées, 1 fois la file vide, gigue 2160 ms
+```
+
+Cent vingt nombres alignés ne se lisent pas. Une bande se lit d'un coup d'oeil, et
+ce qu'on cherche est une forme plutôt qu'une valeur. Les deux symboles ne disent
+pas la même chose et ne doivent pas se confondre: une image **jetée** veut dire
+que la file a débordé, donc qu'il en arrivait trop à la fois; une file **vide**
+veut dire qu'il n'en arrivait plus du tout, donc que c'est la liaison qui a lâché
+et non l'horaire qui a mal choisi.
+
+La bande ci-dessus n'est pas une illustration: c'est une vraie séance, bridée à un
+vingtième de processeur pendant vingt secondes.
+
+#### Trois défauts, dont deux que les tests ont attrapés
+
+**Une sentinelle qu'une vraie valeur pouvait prendre.** L'anneau marquait « pas
+encore d'instant précédent » par un zéro. Le premier instant d'une page vaut
+justement zéro, donc les deux premières secondes de chaque trace étaient jetées
+en silence. Le test qui comptait les lignes l'a vu tout de suite. La bonne forme
+était de ne pas avoir de sentinelle du tout: un autre champ répondait déjà à la
+question « une pousse a-t-elle eu lieu ».
+
+**Un test qui ne testait pas ce qu'il annonçait.** Le test « coupe sur la durée et
+non sur le nombre de lignes » regardait ce que la trace RENVOIE. Or la lecture
+filtre une seconde fois, donc remplacer la coupe par « garder les cent vingt
+dernières » le laissait vert. Trouvé en mutant le code exprès, pas en le
+relisant. Les deux règles ne font pas double emploi — l'une borne la mémoire
+d'une page ouverte six heures, l'autre décide au moment de répondre ce que « deux
+minutes » veut dire — et il fallait donc rendre la première observable pour
+pouvoir l'éprouver.
+
+C'est la quatrième fois que ce dépôt attrape un test vert sur du code cassé.
+
+**Un en-tête qui annonçait une panne totale.** Un signalement tombe où la
+personne clique, donc au milieu de la fenêtre de dix secondes. Un clic arrivé
+juste après une remise à zéro affichait « 0/0 peintes » sur une séance
+parfaitement normale. Les compteurs sont des compteurs de fenêtre, et une fenêtre
+de quatre dixièmes de seconde ne compte rien: l'en-tête ne porte plus que les
+JAUGES, vraies quelle que soit la fenêtre, et ce sont les images de la bande qui
+disent les images.
+
+#### Un seul minuteur pour les deux
+
+La trace bat à la seconde, et un tour sur dix part au salon. Deux minuteurs
+séparés dériveraient l'un par rapport à l'autre, et deux lignes voisines du
+journal finiraient par compter les mêmes images.
+
+Les compteurs de chaque seconde sont ramenés à la seconde plutôt que laissés
+bruts, parce qu'un minuteur de navigateur n'arrive pas à l'heure: une page qui
+revient au premier plan livre un intervalle de trente secondes, et la ligne dirait
+« 1800 images peintes » à côté de voisines qui en disent soixante. Pour la même
+raison, l'anneau coupe sur la durée et les secondes non mesurées laissent un TROU
+dans la bande: une bande pleine tracée avec trois lignes prétendrait avoir regardé
+deux minutes qu'elle n'a pas vues.
 
 ---
 

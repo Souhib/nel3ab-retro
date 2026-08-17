@@ -5316,6 +5316,190 @@ qui ne suivait pas l'horaire.
 
 ---
 
+### 7.40 L'auberge, après la taverne
+
+La demande d'origine disait « exactement comme si on était dans Hearthstone,
+avec les mêmes animations ». La taverne (7.34) répondait à l'esprit: du bois, une
+bougie, des braises. Elle ne répondait pas à la lettre, et la différence se voit
+tout de suite quand on met les deux côte à côte: **une taverne générique est
+brune, la boîte de Hearthstone est bleue.**
+
+D'où un huitième costume plutôt qu'une correction du septième. Les deux gardent
+leur intérêt: l'un est une auberge, l'autre est CETTE auberge-là.
+
+Cinq choses font qu'on la reconnaît avant d'y lire quoi que ce soit, et aucune
+n'est un dessin importé — rien de Blizzard n'est dans le dépôt, tout est tracé:
+
+- le bois est **teinté nuit**, cerclé de laiton, et c'est la teinte qui fait le
+  plus de travail;
+- un **tourbillon d'arcane** tourne au fronton, à l'endroit où le logo est vissé
+  dans le vrai. Trois arcs en tire-bouchon à trois vitesses: un seul anneau ferait
+  horloge, trois font portail;
+- les boutons **penchent**, chacun d'un angle fixe, comme des plaques posées sur
+  une table. Choisie, la plaque se REDRESSE et se soulève. C'est le redressement,
+  plus que le grossissement, qui donne l'air d'avoir pris quelque chose en main;
+- la poussière d'arcane **scintille** au lieu de s'éteindre. Une braise meurt en
+  montant, en ligne droite; celle-ci clignote sur deux paliers d'opacité;
+- la lumière est **froide** et respire lentement. La taverne est éclairée d'une
+  bougie, celle-ci par son tourbillon.
+
+Mêmes garde-fous que la taverne, et pour les mêmes raisons: seuls `transform` et
+`opacity` sont animés, donc une rotation lente et vingt-six poussières ne peuvent
+pas voler de temps à la boucle d'images; `prefers-reduced-motion` coupe tout,
+ressort compris; et les couleurs sont celles de la boîte plutôt que celles du
+thème, parce qu'un menu est un costume (7.26).
+
+---
+
+### 7.41 Tout ce qu'on calcule sans le montrer
+
+Trois pannes de la semaine ont coûté une soirée chacune. Les trois se sont
+résolues sur un chiffre que la page tenait déjà, à jour, et n'affichait nulle
+part: les images jetées avant leur tour, les places dans la file d'attente, et le
+nombre de manettes vues.
+
+Un compteur qu'on tient sans le montrer ne sert à personne le jour où il faut
+chercher. J'ai donc comparé les champs des trois instantanés que la boucle média
+publie avec tout ce que les composants affichent. Sept manquaient: le retard
+ajouté par l'horaire d'affichage et le transit le plus rapide sur lequel il est
+calé, le temps qu'une image attend avant d'être peinte, le nombre de fois que la
+socket vidéo est repartie de zéro, les morceaux de son reçus, le transit le plus
+rapide du son, et le refus de place.
+
+Les sept sont maintenant affichés, chacun avec une infobulle qui dit à quelle
+question il répond. Et le garde qui empêche le huitième vit dans `just check`:
+`front/audit-readouts.mjs` échoue quand un champ d'instantané n'apparaît dans
+aucun composant. Il y a une liste d'exceptions, vide, où chaque futur ajout devra
+porter sa raison.
+
+Le garde est une lecture de texte, pas une analyse: un champ affiché sous un autre
+nom lui échapperait. C'est moins fin qu'un vrai contrôle et ça a attrapé sept
+chiffres cachés en une seconde.
+
+---
+
+### 7.42 « Retrouve la séance de 16 h 43 », et il n'y avait rien à lire
+
+#### Ce qui manquait
+
+On m'a demandé de retracer la soirée d'un ami qui trouvait le jeu saccadé, vers
+16 h 43. Je n'ai pas pu, et la raison n'était pas un défaut mais une absence
+complète:
+
+- le worker sert des images sans jamais noter à qui;
+- le salon n'avait **aucun journal**, pas même les traces d'accès: elles sont
+  coupées à la construction du serveur Socket.IO;
+- le seul fichier gardé, `people.json`, n'écrit un pseudo que lorsque quelqu'un
+  le CHANGE. Depuis le début du projet, il contient une ligne;
+- et mes propres pilotes d'essai, qui ouvrent la salle des dizaines de fois par
+  soirée, y seraient indiscernables d'un joueur.
+
+Répondre « je ne peux pas savoir » une fois est un constat. Deux fois serait une
+décision.
+
+#### Ce qui a été construit
+
+Deux moitiés, inséparables: un identifiant que personne n'inscrit ne relie rien.
+
+**Le numéro de visite** (`front/src/lib/visit.ts`) naît au chargement de la page
+et vit tant qu'elle vit. Une socket qui se rouvre garde le même, ce qui est tout
+l'intérêt: une mauvaise connexion se reconnecte dix fois et reste une seule
+séance. Un rechargement en donne un nouveau, et c'est voulu, parce qu'un
+rechargement en pleine partie suit presque toujours un problème. Huit caractères
+et pas un UUID: une ligne de journal se lit à l'oeil, et trente-six caractères de
+bruit au milieu la rendent illisible.
+
+**Le journal du salon** (`control/nel3ab_control/journal.py`) écrit une ligne
+JSON par événement, un fichier par jour, gardés deux jours. Arrivées, départs
+avec la durée de la séance, manettes prises et rendues, demandes et réponses,
+changements de pseudo, changements de propriétaire. Chaque ligne porte en plus
+l'état de la salle à cet instant: le jeu, combien de personnes, qui tient quoi.
+
+Cette redondance est assumée. Elle coûte une centaine d'octets et évite de
+rejouer le fichier depuis le début pour répondre à « qui d'autre était là ».
+
+#### Pourquoi ni base de données ni tableau de bord
+
+La question posée était: comptes-tu utiliser un outil pour stocker et analyser ça.
+Non, et pour des raisons chiffrées.
+
+Une ligne pèse **224 octets**, mesuré sur un événement complet. Une soirée de
+quatre joueurs en produit quelques centaines, soit moins de cent kilo-octets;
+deux jours tiennent dans ce qu'une seule image de jeu occupe en mémoire. SQLite
+achèterait un index dont on n'a aucun usage à cette taille et coûterait un schéma
+à faire évoluer. Grafana, Prometheus ou Loki demanderaient trois services à tenir
+en vie pour en surveiller un, et la panne suivante serait la leur.
+
+L'écriture coûte **11 microsecondes** par ligne, mise en forme JSON comprise, la
+poignée du fichier restant ouverte entre deux événements. Une soirée entière:
+quatre millisecondes. C'est pour ça qu'elle reste sur la boucle, contrairement à
+l'écriture des pseudos, qui réécrit un fichier entier et part sur un fil.
+
+La lecture se fait par `just sessions`, qui range les événements par visite, dit
+les heures en clair et cache les pilotes d'essai. Aucune moyenne, aucun verdict:
+ce qu'on cherche après une plainte, on ne le connaît pas d'avance, et un résumé
+qui décide à l'avance de ce qui est intéressant cache le reste.
+
+#### Le défaut que seul le fait de le faire tourner a montré
+
+Le module s'ouvre sur une phrase: l'heure est écrite en local, parce que la
+plainte est locale et que « vers 16 h 43 » doit se chercher tel quel. Les tests
+passaient. La première vraie séance a écrit `19:10:17+00:00`.
+
+Cette machine est réglée sur **UTC**. L'heure locale du serveur n'est pas celle
+des joueurs, et une séance de 16 h 43 s'y écrivait 14 h 43: le journal était
+complet et inutilisable en même temps, c'est-à-dire qu'il reproduisait exactement
+le défaut qu'il existait pour corriger.
+
+Le fuseau est maintenant un réglage, `Europe/Paris` par défaut, et il décide aussi
+d'où les journées se coupent. Le test qui l'attrape part d'un instant dit en UTC
+et vérifie qu'il ressort à 16 h 43: c'est le seul des dix qui aurait échoué sur la
+première version, parce que les autres passaient une heure sans fuseau et la
+récupéraient telle quelle.
+
+Leçon, la même que la toile qui oscillait deux jours plus tôt: une grandeur qu'on
+croit connaître doit être lue là où elle est produite, pas là où on l'imagine.
+
+#### Le pilote qui passait à vide
+
+`spikes/m3-browser-drive/journal.mjs` ouvre la salle par le vrai proxy, prend une
+manette, part, puis relit le fichier. Deux choses à noter.
+
+Il est le seul pilote à ne pas viser `localhost:8100`. Le worker sert la page et
+les flux, mais le salon écoute ailleurs, et c'est le proxy qui aiguille
+`/socket.io` vers lui. Le premier jet visait 8100, ne trouvait rien, et concluait
+que le journal ne marchait pas: la panne était la mienne.
+
+Surtout, il filtrait ses lignes sur le pseudo semé par le pilote. Or le proxy
+remplace ce pseudo par la vraie identité. La liste sortait vide, et `every` sur une
+liste vide répond oui: trois vérifications passaient en ne regardant rien. Il
+filtre maintenant sur le numéro de visite, et vérifie d'abord que la liste n'est
+pas vide.
+
+C'est la troisième fois que ce dépôt attrape un test qui passe en ne testant rien,
+et les trois fois la forme était la même: une assertion dont la précondition
+pouvait silencieusement être fausse.
+
+#### Ce que ça donne
+
+```
+2026-08-17 — 1 visite, 12 événements, 6 de banc écartés
+
+  Souhib <souhib.t@hotmail.fr>  [49cde68c]
+    21:14:09  arrive                    1 présents, Mario Kart Double Dash
+    21:14:09  prend la manette 1        1 présents, Mario Kart Double Dash
+    21:14:15  part après 6 s            0 présents, Mario Kart Double Dash
+```
+
+Le numéro entre crochets est affiché sur la page, dans le panneau des chiffres.
+Quelqu'un qui signale un problème peut le donner, et la soirée se retrouve.
+
+Ce que ça ne dit pas encore: rien de ce que le NAVIGATEUR mesure. Les images
+jetées, la gigue, le débit vécu restent chez le joueur et disparaissent avec
+l'onglet. C'est l'étape suivante, et elle a maintenant un endroit où se ranger.
+
+---
+
 ## 8. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
 
 | Le piège | Ce qui s'est passé | La leçon |

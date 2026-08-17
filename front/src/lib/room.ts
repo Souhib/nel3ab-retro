@@ -15,6 +15,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { io, type Socket } from "socket.io-client";
 import { readRoom, type Room } from "../client";
+import { onBench, VISIT } from "./visit";
 
 export const ROOM_KEY = ["room"] as const;
 
@@ -113,7 +114,10 @@ export function useLobby(
     // every log between here and there, and a name is still a person.
     const lobby = io({
       path: "/socket.io",
-      auth: { name },
+      // La VISITE voyage ici aussi, et le drapeau de banc avec elle. Le salon
+      // les inscrit dans son journal à chaque événement, ce qui est la seule
+      // façon de retrouver une soirée après coup: voir `lib/visit`.
+      auth: { name, visite: VISIT, banc: onBench() },
       transports: ["websocket"],
       // A room whose control plane is not running still plays; it just has no
       // names beside the seats. Backing off to ten seconds keeps that case from

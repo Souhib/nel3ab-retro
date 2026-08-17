@@ -35,6 +35,11 @@ def settings(tmp_path: Path) -> Settings:
         room_name="Salon d'essai",
         worker_url="http://worker.test",
         state_file=tmp_path / "people.json",
+        # Et le journal aussi, pour la même raison ET une pire: le journal
+        # BALAIE ce qu'il trouve de trop vieux. Une suite de tests pointée sur le
+        # vrai dossier effacerait la soirée qu'on voulait relire, et le premier
+        # jet de ce fichier l'a fait.
+        journal_dir=tmp_path / "sessions",
     )
 
 

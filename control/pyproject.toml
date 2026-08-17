@@ -41,6 +41,10 @@ ignore = ["S104"]   # binding 0.0.0.0 is the deployment's decision, not this fil
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S101"]   # an assert IS the failure signal in a test
+# `sessions.py` est un outil de terminal: écrire sur la sortie standard est ce
+# qu'il fait. Un enregistreur y serait une couche entre la question et sa
+# réponse, et il n'a pas de service à qui rapporter.
+"sessions.py" = ["T201"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

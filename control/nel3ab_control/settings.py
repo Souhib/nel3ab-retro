@@ -36,6 +36,31 @@ class Settings(BaseSettings):
             "contrairement aux places, qui meurent avec le processus."
         ),
     )
+    journal_dir: Path = Field(
+        default=Path.home() / ".local/state/nel3ab/sessions",
+        description=(
+            "Où les séances sont écrites, un fichier JSONL par jour. À côté des "
+            "pseudos et pour la même raison: hors du dépôt, et hors de /tmp, où "
+            "un redémarrage de la machine effacerait la trace de la soirée "
+            "qu'on veut justement relire le lendemain."
+        ),
+    )
+    journal_days: int = Field(
+        default=2,
+        description=(
+            "Combien de jours de séances on garde. Deux: le besoin est de "
+            "regarder au plus tard le lendemain d'une plainte, et un journal "
+            "qu'on ne relit pas est un fichier qui grossit."
+        ),
+    )
+    journal_zone: str = Field(
+        default="Europe/Paris",
+        description=(
+            "Sur quelle horloge le journal écrit ses heures. Celle des joueurs "
+            "et pas celle de la machine, qui tourne en UTC: une plainte parle "
+            "de « 16 h 43 », et un journal qui répond 14:43 ne se relit pas."
+        ),
+    )
     worker_control: str = Field(
         default="127.0.0.1:8101",
         description=(

@@ -1,3 +1,4 @@
+import { VISIT } from "../lib/visit";
 import type { Snapshot } from "../media/session";
 import { Panel, Readout } from "./Readout";
 
@@ -69,6 +70,20 @@ export function Instruments({ shot }: { shot: Snapshot }) {
           hint="Calculée d'après la marge: la file doit pouvoir garder ce que l'horaire fait attendre."
         />
         <Readout
+          label="horaire"
+          value={video.offset === null ? "—" : video.offset.toFixed(0)}
+          unit={`ms, ancré sur ${video.fastestLag === null ? "—" : video.fastestLag.toFixed(0)}`}
+          tone="faint"
+          hint="Le retard que la page ajoute à chaque image, et le transit le plus rapide sur lequel il est calé. C'est l'horaire d'affichage, en clair: deux incidents de cette semaine se jouaient dessus et il n'était affiché nulle part."
+        />
+        <Readout
+          label="attente avant peinture"
+          value={`${video.waitMs.p50.toFixed(0)} / ${video.waitMs.p95.toFixed(0)}`}
+          unit="ms p50/p95"
+          tone="faint"
+          hint="Combien de temps une image reste décodée dans la file avant son tour. Grand veut dire que l'horaire la fait attendre; nul veut dire qu'elle arrive déjà en retard."
+        />
+        <Readout
           label="gigue de la liaison"
           value={video.jitterMs.toFixed(0)}
           unit="ms absorbés"
@@ -96,6 +111,12 @@ export function Instruments({ shot }: { shot: Snapshot }) {
         />
         <Readout label="images-clés demandées" value={video.keyFramesAsked} tone="faint" />
         <Readout
+          label="socket rouverte"
+          value={video.reconnects}
+          tone={video.reconnects > 2 ? "alert" : "faint"}
+          hint="Combien de fois la socket vidéo est repartie de zéro. Un changement de jeu en vaut une; plusieurs sans changement de jeu décrivent une liaison qui lâche."
+        />
+        <Readout
           label="famines"
           value={video.starved}
           tone={video.starved > 3 ? "alert" : "faint"}
@@ -110,6 +131,14 @@ export function Instruments({ shot }: { shot: Snapshot }) {
         />
         <Readout label="joué" value={sound.playedSeconds.toFixed(1)} unit="s" />
         <Readout label="coupures" value={sound.gaps} tone={sound.gaps > 0 ? "alert" : "faint"} />
+        <Readout label="morceaux reçus" value={sound.chunks} tone="faint" />
+        <Readout
+          label="transit le plus rapide"
+          value={sound.fastestLag === null ? "—" : sound.fastestLag.toFixed(0)}
+          unit="ms"
+          tone="faint"
+          hint="Le meilleur temps qu'un morceau de son ait mis à arriver. Comparé à celui de l'image, il dit lequel des deux flux traîne."
+        />
         <Readout
           label="sortie"
           value={(sound.sampleRate / 1000).toFixed(1)}
@@ -136,6 +165,12 @@ export function Instruments({ shot }: { shot: Snapshot }) {
         />
         <Readout label="trames envoyées" value={input.sent} tone="faint" />
         <Readout
+          label="place refusée"
+          value={input.refused ? "oui" : "non"}
+          tone={input.refused ? "alert" : "faint"}
+          hint="La salle a dit non à la dernière demande de manette. Se produit quand les quatre places sont prises, et n'était écrit nulle part."
+        />
+        <Readout
           label="matériel"
           value={input.padId ? input.padId.slice(0, 22) : "clavier"}
           tone="faint"
@@ -148,6 +183,16 @@ export function Instruments({ shot }: { shot: Snapshot }) {
         {input.pressed.length > 0 ? (
           <Readout label="appuyé" value={input.pressed.join(" ")} tone="good" />
         ) : null}
+      </Panel>
+
+      <Panel title="séance">
+        <Readout
+          label="numéro"
+          value={VISIT}
+          id="visit"
+          tone="faint"
+          hint="Le numéro de cette visite. Le salon l'écrit à chaque événement, donc le donner en signalant un problème permet de retrouver la soirée exacte. Il change à chaque rechargement de la page."
+        />
       </Panel>
     </div>
   );

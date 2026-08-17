@@ -24,6 +24,16 @@ export async function seedName(page, name = BENCH_NAME) {
   await page.evaluateOnNewDocument((chosen) => {
     try {
       localStorage.setItem("nel3ab:name", chosen);
+      // Et le drapeau qui dit « ceci n'est pas quelqu'un ».
+      //
+      // Le salon tient un journal des séances, et mes pilotes ouvrent la salle
+      // des dizaines de fois par soirée en prenant de vraies places. Sans ce
+      // drapeau ils y sont indiscernables d'un joueur, et une trace noyée dans
+      // son propre bruit ne sert à rien le jour où il faut chercher.
+      //
+      // Ici plutôt que dans chaque pilote: tous passent par cette fonction, et
+      // un drapeau qu'il faut penser à poser est un drapeau qu'on oublie.
+      localStorage.setItem("nel3ab:banc", "1");
     } catch {
       // A context with storage refused still gets the form; the driver will say
       // so by finding no canvas rather than by hanging.

@@ -13,6 +13,7 @@ import socketio
 
 from nel3ab_control.api.controllers.people import PeopleController
 from nel3ab_control.api.controllers.rooms import RoomController
+from nel3ab_control.journal import Journal
 from nel3ab_control.worker import tell_owner
 
 sio = socketio.AsyncServer(
@@ -32,7 +33,9 @@ socketio_app = socketio.ASGIApp(sio, socketio_path="/socket.io")
 ROOM = "room"
 
 
-async def broadcast(rooms: RoomController, people: PeopleController) -> None:
+async def broadcast(
+    rooms: RoomController, people: PeopleController, journal: Journal, banc: bool = False
+) -> None:
     """Dit à tout le monde à quoi la salle ressemble maintenant.
 
     Et au worker aussi, mais seulement quand la place du propriétaire CHANGE: le
@@ -45,4 +48,15 @@ async def broadcast(rooms: RoomController, people: PeopleController) -> None:
     if seat != rooms.told_owner:
         rooms.told_owner = seat
         await tell_owner(rooms.settings.worker_control, seat)
+    # Au journal aussi, et sur le COUPLE (nom, place): qui décide peut changer
+    # sans que la place bouge, quand le premier arrivé part et que le suivant est
+    # déjà assis au même endroit. Ne comparer que la place raterait ce cas-là.
+    now = (room.owner.name if room.owner else None, seat)
+    if now != rooms.noted_owner:
+        rooms.noted_owner = now
+        # Marquée du drapeau de la page qui vient de parler. Un changement de
+        # propriétaire est un fait de la salle, mais celui que provoque un
+        # pilote d'essai reste du bruit d'essai: sans ce drapeau, une soirée de
+        # mise au point noie les vraies sous douze lignes qui ne disent rien.
+        journal.write("propriétaire", pseudo=now[0], place=seat or None, banc=banc)
     await sio.emit("room", room.model_dump(), room=ROOM)

@@ -1,11 +1,22 @@
-"""Ce que le salon fait quand une page dit quelque chose."""
+"""Ce que le salon fait quand une page dit quelque chose.
 
+Chaque geste laisse une ligne dans le journal des séances. Le pourquoi est dans
+[`nel3ab_control.journal`]: une soirée dont personne ne garde trace est une
+soirée qu'on ne peut pas expliquer le lendemain, et ça s'est produit.
+
+L'inscription se fait ICI plutôt que dans les contrôleurs, parce que c'est ici
+qu'on sait à la fois QUI parle, ce qu'il vient de faire, et à quoi la salle
+ressemble à cet instant. Un contrôleur ne connaît qu'un tiers de la ligne.
+"""
+
+from time import monotonic
 from typing import Any
 
 from nel3ab_control.api.controllers.people import PeopleController
 from nel3ab_control.api.controllers.rooms import RoomController
 from nel3ab_control.api.ws.server import ROOM, broadcast, sio
 from nel3ab_control.identity import from_headers
+from nel3ab_control.journal import Journal
 
 
 def _port(data: dict[str, Any]) -> int | None:
@@ -18,7 +29,7 @@ def _port(data: dict[str, Any]) -> int | None:
     return port if 1 <= port <= 4 else None
 
 
-def _state(environ: dict[str, Any]) -> tuple[RoomController, PeopleController]:
+def _state(environ: dict[str, Any]) -> tuple[RoomController, PeopleController, Journal]:
     """Les contrôleurs, tirés de la portée ASGI que l'application y a mise.
 
     Par la portée plutôt que par une dépendance, parce qu'un gestionnaire
@@ -28,7 +39,51 @@ def _state(environ: dict[str, Any]) -> tuple[RoomController, PeopleController]:
     qu'un test unitaire avec une fausse session.
     """
     app = environ["asgi.scope"]["app"]
-    return app.state.rooms, app.state.people
+    return app.state.rooms, app.state.people, app.state.journal
+
+
+def _who(sid: str, session: dict[str, Any]) -> dict[str, Any]:
+    """De qui parle la ligne de journal.
+
+    Les trois identifiants et pas un seul, parce qu'ils ne durent pas pareil:
+
+    - la **visite** naît au chargement de la page et survit aux reconnexions,
+      donc c'est elle qui recolle une mauvaise connexion en une seule séance;
+    - la **socket** change à chaque reconnexion, donc c'est elle qui les compte;
+    - le **login** vient du proxy et survit à tout, donc c'est lui qui relie deux
+      soirées de la même personne.
+
+    Le `banc` dit que ce n'est pas quelqu'un mais un pilote d'essai. Sans lui, le
+    journal se noie dès le premier jour dans mes propres pilotes, qui ouvrent la
+    salle des dizaines de fois par soirée et prennent de vraies places.
+    """
+    return {
+        "visite": session.get("visite"),
+        "socket": sid,
+        "login": session.get("login"),
+        "pseudo": session.get("name"),
+        "banc": bool(session.get("banc")),
+    }
+
+
+def _room_now(rooms: RoomController, people: PeopleController) -> dict[str, Any]:
+    """La salle à cet instant, telle qu'une ligne seule doit pouvoir la raconter.
+
+    Recopiée dans CHAQUE ligne, ce qui est une redondance assumée: ça coûte une
+    centaine d'octets et ça évite de rejouer tout le fichier depuis le début pour
+    répondre à « qui d'autre était là ». À deux jours de rétention, la place ne
+    se discute pas.
+
+    Le jeu vient de ce que le worker a dit la dernière fois, sans l'appeler: une
+    trace ne doit pas ajouter un aller-retour réseau au chemin d'un joueur.
+    """
+    return {
+        "jeu": rooms.known_game(),
+        "présents": len(people.present()),
+        "places": {
+            str(seat.port): seat.player for seat in rooms.seats() if seat.player is not None
+        },
+    }
 
 
 @sio.event
@@ -43,29 +98,46 @@ async def connect(sid: str, environ: dict[str, Any], auth: dict[str, Any] | None
     Sans proxy devant, on retombe sur le prénom que la page envoie: c'est du
     développement local, où il n'y a personne à usurper.
     """
-    rooms, people = _state(environ)
+    rooms, people, journal = _state(environ)
     caller = from_headers(environ["asgi.scope"]["headers"])
     login = caller[0] if caller else None
     name = (
         people.name_for(login, caller[1]) if caller else ((auth or {}).get("name") or "quelqu'un")
     )
-    await sio.save_session(sid, {"name": name, "login": login})
+    # L'instant d'arrivée est MONOTONE et pas une heure: il ne sert qu'à mesurer
+    # une durée au départ, et régler l'horloge de la machine ne doit pas donner
+    # une séance de moins l'infini.
+    session = {
+        "name": name,
+        "login": login,
+        "visite": str((auth or {}).get("visite") or "")[:16] or None,
+        "banc": bool((auth or {}).get("banc")),
+        "since": monotonic(),
+    }
+    await sio.save_session(sid, session)
     people.arrived(sid, login, name)
     await sio.enter_room(sid, ROOM)
-    await broadcast(rooms, people)
+    journal.write("arrivée", **_who(sid, session), salle=_room_now(rooms, people))
+    await broadcast(rooms, people, journal, bool(session.get("banc")))
 
 
 @sio.event
 async def seat(sid: str, data: dict[str, Any]) -> None:
     """Une page dit quelle manette le worker lui a donnée."""
     session = await sio.get_session(sid)
-    rooms, people = _state(sio.get_environ(sid))
+    rooms, people, journal = _state(sio.get_environ(sid))
     port = data.get("port")
     if port is None:
         rooms.release(sid)
     else:
         rooms.claim(int(port), sid, session["name"])
-    await broadcast(rooms, people)
+    journal.write(
+        "place",
+        **_who(sid, session),
+        place=None if port is None else int(port),
+        salle=_room_now(rooms, people),
+    )
+    await broadcast(rooms, people, journal, bool(session.get("banc")))
 
 
 @sio.event
@@ -77,7 +149,7 @@ async def ask(sid: str, data: dict[str, Any]) -> None:
     sait qui tient quoi, donc la page n'envoie qu'un numéro de port; elle n'a
     jamais à savoir comment adresser une autre page.
     """
-    rooms, _people = _state(sio.get_environ(sid))
+    rooms, people, journal = _state(sio.get_environ(sid))
     port = _port(data)
     if port is None:
         return
@@ -86,6 +158,7 @@ async def ask(sid: str, data: dict[str, Any]) -> None:
         return
     session = await sio.get_session(sid)
     rooms.asked(port, sid)
+    journal.write("demande", **_who(sid, session), place=port, salle=_room_now(rooms, people))
     await sio.emit("asked", {"from": session["name"], "port": port}, to=holder)
 
 
@@ -97,7 +170,7 @@ async def answer(sid: str, data: dict[str, Any]) -> None:
     de l'afficher à son nom pendant que l'autre s'y branche, et les deux pages
     se contrediraient le temps d'un aller-retour.
     """
-    rooms, people = _state(sio.get_environ(sid))
+    rooms, people, journal = _state(sio.get_environ(sid))
     port = _port(data)
     if port is None:
         return
@@ -108,8 +181,15 @@ async def answer(sid: str, data: dict[str, Any]) -> None:
     agreed = bool(data.get("ok"))
     if agreed:
         rooms.free(port)
+    journal.write(
+        "réponse",
+        **_who(sid, session),
+        place=port,
+        accordé=agreed,
+        salle=_room_now(rooms, people),
+    )
     await sio.emit("answered", {"ok": agreed, "port": port, "from": session["name"]}, to=asker)
-    await broadcast(rooms, people)
+    await broadcast(rooms, people, journal, bool(session.get("banc")))
 
 
 @sio.event
@@ -122,7 +202,7 @@ async def rename(sid: str, data: dict[str, Any]) -> None:
     pseudo jusqu'à la prochaine reconnexion.
     """
     session = await sio.get_session(sid)
-    rooms, people = _state(sio.get_environ(sid))
+    rooms, people, journal = _state(sio.get_environ(sid))
     was = session["name"]
     now = people.name_for(session["login"]) if session["login"] else str(data.get("name") or was)
     if now != was:
@@ -130,15 +210,30 @@ async def rename(sid: str, data: dict[str, Any]) -> None:
         # change sans que la place suive laisse une manette au nom d'un fantôme.
         rooms.rename(sid, now)
         people.renamed(sid, now)
-        await sio.save_session(sid, {**session, "name": now})
-    await broadcast(rooms, people)
+        session = {**session, "name": now}
+        await sio.save_session(sid, session)
+        # Après la mise à jour, pour que la ligne porte le nom d'ARRIVÉE de la
+        # suite du journal plutôt que celui qu'on vient d'abandonner: c'est ce
+        # nom-là qu'on cherchera dans les lignes suivantes.
+        journal.write("pseudo", **_who(sid, session), avant=was, salle=_room_now(rooms, people))
+    await broadcast(rooms, people, journal, bool(session.get("banc")))
 
 
 @sio.event
 async def disconnect(sid: str) -> None:
     """Une page part. SES manettes retournent à la salle, pas celles du même nom
     sur une autre machine."""
-    rooms, people = _state(sio.get_environ(sid))
+    rooms, people, journal = _state(sio.get_environ(sid))
+    session = await sio.get_session(sid)
     people.left(sid)
     rooms.release(sid)
-    await broadcast(rooms, people)
+    journal.write(
+        "départ",
+        **_who(sid, session),
+        # Combien de temps la socket a tenu. Court et répété est la signature
+        # d'une mauvaise connexion; c'est le chiffre qui distingue « il est
+        # parti » de « il a été déconnecté onze fois ».
+        secondes=round(monotonic() - float(session.get("since") or monotonic()), 1),
+        salle=_room_now(rooms, people),
+    )
+    await broadcast(rooms, people, journal, bool(session.get("banc")))

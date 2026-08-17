@@ -265,10 +265,10 @@ body {
  *
  * `!important` parce que chaque console pose son fond en style en ligne, qui bat
  * une classe. C'est le seul endroit du projet qui en a un, et c'est pour ça: la
- * règle doit gagner contre quatre fonds différents sans les connaître.
+ * règle doit gagner contre cinq fonds différents sans les connaître.
  *
  * Le sélecteur est épargné par son identifiant, parce qu'il est l'enfant direct
- * de la racine dans les quatre formes. */
+ * de la racine dans les cinq formes. */
 .n3-peek {
   background: none !important;
 }
@@ -324,6 +324,64 @@ body {
   animation: n3-candle 5.5s ease-in-out infinite;
 }
 
+/* Le tourbillon d'arcane, pour la boîte de Hearthstone: une rotation lente.
+ * `transform`, donc compositeur, comme le reste. */
+@keyframes n3-swirl {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+/* Sa lueur: elle hésite comme la bougie de la taverne, mais plus lentement et
+ * moins fort — une source froide ne flambe pas. */
+@keyframes n3-glow {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  41% {
+    opacity: 0.8;
+  }
+  63% {
+    opacity: 0.5;
+  }
+}
+
+/* Une poussière d'arcane. Elle monte en dérivant comme une braise, mais elle
+ * SCINTILLE au lieu de s'éteindre en ligne droite: deux paliers d'opacité sur
+ * le chemin, parce que la poussière clignote là où la braise meurt. */
+@keyframes n3-mote {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  18% {
+    opacity: 0.8;
+  }
+  46% {
+    opacity: 0.35;
+  }
+  74% {
+    opacity: 0.7;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--drift, 8px), -58vh, 0) scale(0.4);
+  }
+}
+
+.n3-swirl {
+  animation: n3-swirl 26s linear infinite;
+}
+
+.n3-glow {
+  animation: n3-glow 7s ease-in-out infinite;
+}
+
+.n3-mote {
+  animation: n3-mote 9s linear infinite;
+}
+
 /* Le ressort. Une courbe qui DÉPASSE puis revient, ce qui donne à une plaque de
  * bois le poids d'un objet qu'on pousse. C'est la moitié de ce qui fait qu'un
  * menu de jeu se sent différent d'une liste. */
@@ -339,7 +397,10 @@ body {
   .n3-pop,
   .n3-breathe,
   .n3-ember,
-  .n3-candle {
+  .n3-candle,
+  .n3-swirl,
+  .n3-glow,
+  .n3-mote {
     animation: none;
   }
 

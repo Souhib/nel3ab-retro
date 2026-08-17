@@ -55,6 +55,9 @@ class RoomController:
         #: La dernière place annoncée au worker, pour ne pas le rappeler pour
         #: rien. Publique parce que c'est le salon qui la tient à jour.
         self.told_owner = 0
+        #: Le propriétaire déjà inscrit au journal, pour n'y écrire que les
+        #: changements. Sans ça, chaque diffusion répéterait la même ligne.
+        self.noted_owner: tuple[str | None, int] = (None, 0)
         #: Port -> (session qui demande, instant de la demande).
         #:
         #: Gardé ici plutôt que passé par les pages: sans ça, celui qui demande
@@ -109,6 +112,18 @@ class RoomController:
         )
         self._known = (games, running)
         return games, running
+
+    def known_game(self) -> str | None:
+        """Le jeu qui tourne, d'après la DERNIÈRE réponse du worker.
+
+        Sans l'appeler. Le journal en a besoin à chaque événement, et une trace
+        qui ajoute un aller-retour réseau au chemin d'un joueur est une trace qui
+        coûte ce qu'elle prétend mesurer.
+        """
+        if self._known is None:
+            return None
+        _games, running = self._known
+        return running.name if running else None
 
     def seats(self) -> list[Seat]:
         """Every pad, with the name of whoever claims it.

@@ -69,8 +69,28 @@ front-build:
 front-check:
     cd front && node stamp.mjs --check
 
+# Tout ce que la page calcule doit être affiché quelque part.
+#
+# Trois pannes de la semaine du 2026-08-17 ont coûté une soirée chacune, et les
+# trois se sont résolues sur un chiffre que la page tenait déjà sans le montrer.
+# Un compteur qu'on ne montre pas ne sert à personne le jour où il faut chercher.
+readouts-check:
+    cd front && node audit-readouts.mjs
+
+# Relire une soirée: qui est venu, quand, sur quelle manette, pendant quel jeu.
+#
+# Existe parce que le 16 août 2026 on m'a demandé de retrouver une séance de
+# 16 h 43 et qu'il n'y avait rien à lire. Le salon tient maintenant un journal de
+# deux jours; ceci le rend lisible.
+#
+#   just sessions                     aujourd'hui
+#   just sessions 2026-08-16          ce jour-là
+#   just sessions 2026-08-16 kitaru   seulement ce qui le concerne
+sessions *args:
+    cd control && uv run python sessions.py {{args}}
+
 # Everything a commit must satisfy. Mirrors `poe check`.
-check: fmt-check lint test control front front-check contract-check
+check: fmt-check lint test control front front-check readouts-check contract-check
 
 # Auto-fix pass for development. Mirrors `poe fix`.
 fix:

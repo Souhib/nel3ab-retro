@@ -14,18 +14,23 @@ export function Readout({
   unit,
   tone = "normal",
   hint,
+  id,
 }: {
   label: string;
   value: string | number;
   unit?: string;
   tone?: "normal" | "good" | "alert" | "faint";
   hint?: string;
+  /** Pour qu'un pilote lise CE chiffre-là plutôt que de découper un bloc de
+   * texte. Un pilote qui cherche par position se casse au prochain ajout. */
+  id?: string;
 }) {
   return (
     <div className="flex items-baseline justify-between gap-3 py-[3px]" title={hint}>
       <span className="text-[11px] uppercase tracking-[0.14em] text-faint">{label}</span>
       <span className="flex items-baseline gap-1">
         <span
+          id={id}
           className={cn(
             "font-mono text-[13px] tabular-nums",
             tone === "good" && "text-good",

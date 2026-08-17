@@ -16,6 +16,7 @@ import { Sidebar } from "./components/Sidebar";
 import { Asked as AskedBanner, Asking } from "./components/Swap";
 import { Channels } from "./components/Channels";
 import { Tavern } from "./components/Tavern";
+import { Hearthstone } from "./components/Hearthstone";
 import { Home } from "./components/Home";
 import { Xmb, type XmbCategory, type XmbItem } from "./components/Xmb";
 import type { MenuAction } from "./media/menupad";
@@ -774,6 +775,7 @@ function Room({
             };
             if (shell === "wii") return <Channels {...common} />;
             if (shell === "taverne") return <Tavern {...common} />;
+            if (shell === "hearthstone") return <Hearthstone {...common} />;
             if (shell === "switch") return <Home {...common} who={name} />;
             return <Xmb {...common} />;
           })()

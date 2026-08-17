@@ -7,6 +7,7 @@ unit test and fails the moment it is served.
 """
 
 import asyncio
+import json
 import socket
 from collections.abc import AsyncIterator
 from pathlib import Path
@@ -36,7 +37,13 @@ async def served(tmp_path: Path) -> AsyncIterator[tuple[str, RoomController]]:
     def worker(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json=LIBRARY)
 
-    settings = Settings(worker_url="http://worker.test", state_file=tmp_path / "people.json")
+    settings = Settings(
+        worker_url="http://worker.test",
+        state_file=tmp_path / "people.json",
+        # Jetable: le journal EFFACE ce qu'il juge trop vieux, donc une suite
+        # pointée sur le vrai dossier détruirait la soirée qu'on voulait relire.
+        journal_dir=tmp_path / "sessions",
+    )
     app = create_app(settings)
     port = _free_port()
     server = uvicorn.Server(
@@ -249,3 +256,79 @@ async def test_an_answer_nobody_asked_for_is_ignored(served: tuple[str, RoomCont
 
     await holder.disconnect()
     await intruder.disconnect()
+
+
+async def test_a_whole_visit_can_be_replayed_from_the_journal(
+    served: tuple[str, RoomController], tmp_path: Path
+) -> None:
+    """La question à laquelle rien ne savait répondre: qui a joué, quand, où.
+
+    Contre un vrai serveur et un vrai client, parce que c'est la COUTURE qui a
+    manqué et pas le module: le numéro de visite naît dans la page, voyage dans
+    la poignée de main Socket.IO, se range dans la session du serveur, et doit
+    ressortir sur chaque ligne. Un test unitaire du journal écrirait ce numéro
+    lui-même et ne prouverait rien de ce trajet.
+    """
+    url, _rooms = served
+
+    player = socketio.AsyncClient()
+    await player.connect(
+        url,
+        socketio_path="/socket.io",
+        auth={"name": "Kitaru", "visite": "3f9a2c1b", "banc": False},
+        headers={"Tailscale-User-Login": "kitaru@example.com", "Tailscale-User-Name": "Kitaru"},
+    )
+    await player.emit("seat", {"port": 2})
+    await asyncio.sleep(0.3)
+    await player.disconnect()
+    await asyncio.sleep(0.3)
+
+    written = sorted((tmp_path / "sessions").glob("*.jsonl"))
+    assert written, "une soirée entière et pas une ligne écrite"
+    lines = [json.loads(line) for line in written[0].read_text(encoding="utf-8").splitlines()]
+    mine = [line for line in lines if line.get("visite") == "3f9a2c1b"]
+
+    assert [line["quoi"] for line in mine] == ["arrivée", "place", "départ"]
+    assert {line["login"] for line in mine} == {"kitaru@example.com"}
+    assert mine[1]["place"] == 2
+    # La durée de la séance, qui est ce qui distingue « il est parti » de « il a
+    # été déconnecté onze fois de suite ».
+    assert mine[2]["secondes"] >= 0
+    # Et l'état de la salle voyage avec, donc une ligne seule dit déjà qui tenait
+    # quoi sans qu'on rejoue le fichier.
+    assert mine[1]["salle"]["places"] == {"2": "Kitaru"}
+
+
+async def test_a_test_driver_says_so_and_a_person_does_not(
+    served: tuple[str, RoomController], tmp_path: Path
+) -> None:
+    """Le jumeau qui rend le journal lisible.
+
+    Mes pilotes ouvrent la salle des dizaines de fois par soirée et prennent de
+    vraies places. Sans ce drapeau ils y sont indiscernables d'un joueur, et une
+    trace noyée dans son propre bruit ne sert à rien le jour où il faut chercher.
+
+    Les deux moitiés comptent: un drapeau toujours vrai cacherait tout le monde,
+    un drapeau toujours faux ne cacherait personne.
+    """
+    url, _rooms = served
+
+    robot = socketio.AsyncClient()
+    await robot.connect(
+        url, socketio_path="/socket.io", auth={"name": "banc", "visite": "aaaa1111", "banc": True}
+    )
+    person = socketio.AsyncClient()
+    await person.connect(
+        url, socketio_path="/socket.io", auth={"name": "Souhib", "visite": "bbbb2222"}
+    )
+    await asyncio.sleep(0.3)
+
+    written = sorted((tmp_path / "sessions").glob("*.jsonl"))[0]
+    lines = [json.loads(line) for line in written.read_text(encoding="utf-8").splitlines()]
+    banc = {line["visite"]: line["banc"] for line in lines if line.get("visite")}
+
+    assert banc["aaaa1111"] is True
+    assert banc["bbbb2222"] is False
+
+    await robot.disconnect()
+    await person.disconnect()

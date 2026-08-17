@@ -15,6 +15,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { io, type Socket } from "socket.io-client";
 import { readRoom, type Room } from "../client";
+import type { Vitals } from "./vitals";
 import { onBench, VISIT } from "./visit";
 
 export const ROOM_KEY = ["room"] as const;
@@ -83,6 +84,18 @@ export type Lobby = {
   ask: (port: number) => void;
   /** Répondre à une demande reçue. */
   answer: (port: number, ok: boolean) => void;
+  /** Un relevé de ce que ce navigateur voit, pour le journal des séances.
+   *
+   * Par la socket du salon plutôt que par une requête: elle est déjà ouverte,
+   * elle sait déjà qui parle, et une requête de plus toutes les dix secondes
+   * serait une poignée de main de plus toutes les dix secondes. */
+  vitals: (sample: Vitals) => void;
+  /** « Ça saccade, maintenant. »
+   *
+   * Le geste qui manquait le plus: une plainte arrive le lendemain avec une
+   * heure approximative, et il faut la retrouver. Ce bouton pose un repère à
+   * l'instant exact, avec ce que la page voyait à ce moment-là. */
+  complain: (sample: Vitals) => void;
 };
 
 /** Une demande reçue: qui, et pour quelle place. */
@@ -146,5 +159,7 @@ export function useLobby(
     renamed: (chosen: string) => socket.current?.emit("rename", { name: chosen }),
     ask: (port: number) => socket.current?.emit("ask", { port }),
     answer: (port: number, ok: boolean) => socket.current?.emit("answer", { port, ok }),
+    vitals: (sample: Vitals) => socket.current?.emit("mesures", sample),
+    complain: (sample: Vitals) => socket.current?.emit("plainte", sample),
   };
 }

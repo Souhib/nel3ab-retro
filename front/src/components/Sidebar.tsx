@@ -12,6 +12,7 @@
  * colonne qui porte à la fois l'état de la salle et sept boutons de réglage ne
  * porte bien ni l'un ni l'autre.
  */
+import { useEffect, useState } from "react";
 import type { Person } from "../client";
 import { cn } from "../lib/cn";
 import type { Snapshot } from "../media/session";
@@ -37,6 +38,7 @@ export function Sidebar({
   onWatch,
   onPlay,
   onLeave,
+  onComplain,
 }: {
   mode: Mode;
   onMode: (mode: Mode) => void;
@@ -57,6 +59,13 @@ export function Sidebar({
   onPlay: () => void;
   /** Sortir de la salle. */
   onLeave: () => void;
+  /** « Ça saccade, maintenant. »
+   *
+   * Le geste qui manquait le plus. Une plainte arrive le lendemain avec une
+   * heure approximative, et il a fallu deux fois demander une capture d'écran à
+   * quelqu'un qui jouait. Ce bouton pose un repère à l'instant exact, avec ce
+   * que la page voyait à ce moment-là. */
+  onComplain: () => void;
 }) {
   const seated = people.filter((person) => person.seat !== null);
   const watching = people.filter((person) => person.seat === null);
@@ -171,10 +180,51 @@ export function Sidebar({
               : `${seated.length} manette${seated.length > 1 ? "s" : ""} tenue${seated.length > 1 ? "s" : ""}`}
             . Échap ouvre le menu.
           </p>
+
+          <Complain onComplain={onComplain} />
         </>
       ) : (
         <div id="stats">{shot ? <Instruments shot={shot} /> : null}</div>
       )}
     </>
+  );
+}
+
+/**
+ * Le bouton qui pose un repère dans le journal.
+ *
+ * Il DIT qu'il a compris, et c'est la moitié de son intérêt: un bouton de
+ * signalement sans retour se presse cinq fois de suite par quelqu'un qui n'est
+ * pas sûr d'avoir cliqué, et le journal reçoit cinq repères là où il en fallait
+ * un. Le retour dure trois secondes, assez pour être lu sans rester en travers
+ * de la partie.
+ */
+function Complain({ onComplain }: { onComplain: () => void }) {
+  const [said, setSaid] = useState(false);
+
+  useEffect(() => {
+    if (!said) return;
+    const timer = window.setTimeout(() => setSaid(false), 3000);
+    return () => window.clearTimeout(timer);
+  }, [said]);
+
+  return (
+    <button
+      type="button"
+      id="complain"
+      onClick={() => {
+        onComplain();
+        setSaid(true);
+      }}
+      disabled={said}
+      className={cn(
+        "border px-2 py-1 text-[11px] uppercase tracking-[0.14em] transition-colors",
+        said
+          ? "border-good text-good"
+          : "border-rule text-faint hover:border-alert hover:text-alert",
+      )}
+    >
+      {said ? "noté, l'instant est marqué" : "ça saccade"}
+    </button>
   );
 }

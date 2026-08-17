@@ -70,11 +70,11 @@ export function Instruments({ shot }: { shot: Snapshot }) {
           hint="Calculée d'après la marge: la file doit pouvoir garder ce que l'horaire fait attendre."
         />
         <Readout
-          label="horaire"
-          value={video.offset === null ? "—" : video.offset.toFixed(0)}
+          label="retard ajouté"
+          value={video.addedMs}
           unit={`ms, ancré sur ${video.fastestLag === null ? "—" : video.fastestLag.toFixed(0)}`}
-          tone="faint"
-          hint="Le retard que la page ajoute à chaque image, et le transit le plus rapide sur lequel il est calé. C'est l'horaire d'affichage, en clair: deux incidents de cette semaine se jouaient dessus et il n'était affiché nulle part."
+          tone={video.addedMs > 100 ? "alert" : "faint"}
+          hint="Ce que la page attend avant de peindre, pour absorber une liaison irrégulière, et le transit le plus rapide sur lequel elle se cale. Zéro sur une bonne liaison. Deux incidents de cette semaine se jouaient dessus."
         />
         <Readout
           label="attente avant peinture"

@@ -9,6 +9,7 @@ qu'on sait à la fois QUI parle, ce qu'il vient de faire, et à quoi la salle
 ressemble à cet instant. Un contrôleur ne connaît qu'un tiers de la ligne.
 """
 
+import json
 from time import monotonic
 from typing import Any
 
@@ -217,6 +218,78 @@ async def rename(sid: str, data: dict[str, Any]) -> None:
         # nom-là qu'on cherchera dans les lignes suivantes.
         journal.write("pseudo", **_who(sid, session), avant=was, salle=_room_now(rooms, people))
     await broadcast(rooms, people, journal, bool(session.get("banc")))
+
+
+#: Ce qu'un relevé du navigateur a le droit de peser, en octets une fois remis
+#: en JSON.
+#:
+#: Deux kilo-octets. Un vrai relevé en fait trois cents; le facteur six laisse
+#: la place à des champs futurs sans laisser la place à autre chose. Sans cette
+#: borne, une page — la nôtre modifiée, ou celle de quelqu'un d'autre sur le
+#: réseau — peut faire grossir le journal aussi vite qu'elle sait écrire, et le
+#: balayage de deux jours n'y peut rien puisqu'il est journalier.
+VITALS_MAX = 2048
+
+
+def _measured(data: dict[str, Any]) -> dict[str, Any] | None:
+    """Un relevé, ou rien s'il n'a pas la tête d'un relevé.
+
+    Ce qui arrive d'une page n'est pas un relevé parce qu'on l'espère. On garde
+    la forme plutôt que chaque champ: la liste des mesures va bouger souvent, et
+    un contrôle champ par champ ici deviendrait une deuxième définition à tenir
+    d'accord avec celle de la page.
+
+    Ce qu'on vérifie est donc ce qui protège le FICHIER, pas ce qui décrit une
+    bonne mesure: que ce soit un objet, et qu'il tienne dans sa borne.
+
+    Ce qu'on ne vérifie PAS, parce que la structure s'en charge: le relevé est
+    rangé sous sa propre clé plutôt que fondu dans la ligne. Une page qui
+    enverrait un champ `login` ne peut donc pas se réécrire une identité, et le
+    gestionnaire ne peut pas tomber sur un argument en double. C'est une
+    contrainte de forme plutôt qu'un contrôle, donc elle ne s'oublie pas.
+    """
+    if not isinstance(data, dict):
+        return None
+    return data if len(json.dumps(data, ensure_ascii=False)) <= VITALS_MAX else None
+
+
+@sio.event
+async def mesures(sid: str, data: dict[str, Any]) -> None:
+    """Ce que ce navigateur voit, toutes les dix secondes.
+
+    Le salon ne fait que l'écrire. Il n'en tire aucune conclusion et n'agit sur
+    rien: décider quoi que ce soit à partir d'un chiffre qu'une page envoie
+    donnerait à cette page le pouvoir de changer la salle en mentant.
+
+    Aucune diffusion non plus. Les autres n'ont pas à savoir que la liaison de
+    quelqu'un est mauvaise, et une diffusion toutes les dix secondes par personne
+    serait un trafic ajouté à une salle qui va déjà mal.
+    """
+    kept = _measured(data)
+    if kept is None:
+        return
+    session = await sio.get_session(sid)
+    rooms, people, journal = _state(sio.get_environ(sid))
+    journal.write("mesures", **_who(sid, session), vu=kept, salle=_room_now(rooms, people))
+
+
+@sio.event
+async def plainte(sid: str, data: dict[str, Any]) -> None:
+    """« Ça saccade, maintenant. »
+
+    Le repère qui manquait le plus. Une plainte arrive le lendemain avec une
+    heure approximative, et il a fallu deux fois demander une capture d'écran à
+    quelqu'un qui jouait pour savoir ce qui se passait chez lui.
+
+    Écrit comme un relevé, mais sous un autre nom pour que `just sessions` puisse
+    le mettre en évidence: c'est la ligne autour de laquelle on lira les autres.
+    """
+    kept = _measured(data)
+    if kept is None:
+        return
+    session = await sio.get_session(sid)
+    rooms, people, journal = _state(sio.get_environ(sid))
+    journal.write("plainte", **_who(sid, session), vu=kept, salle=_room_now(rooms, people))
 
 
 @sio.event

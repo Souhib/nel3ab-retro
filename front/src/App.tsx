@@ -60,6 +60,8 @@ import { FITS, fitLabel, place, rememberFit, storedFit } from "./lib/fit";
 import { useBare } from "./lib/fullscreen";
 import { useMe, useRename } from "./lib/me";
 import { useLobby, useRoom, type Asked } from "./lib/room";
+import { vitals, worthWriting, type Vitals } from "./lib/vitals";
+import type { Snapshot } from "./media/session";
 import { useSession, useSnapshot } from "./lib/useSession";
 
 /**
@@ -193,6 +195,7 @@ function Named({
       // déjà oublié la demande de son côté.
       onExpire={() => setAsked(null)}
       onForgetAsk={() => setAsking(null)}
+      tell={lobby}
       bind={(take, give) => {
         takeSeat.current = take;
         yieldSeat.current = give;
@@ -200,6 +203,15 @@ function Named({
     />
   );
 }
+
+/** À quel rythme la page dit ce qu'elle voit, en millisecondes.
+ *
+ * Dix secondes. Assez fin pour dater une saccade à la fenêtre près, assez large
+ * pour qu'une soirée de quatre joueurs tienne dans quelques centaines de
+ * kilo-octets. Une seconde donnerait soixante fois plus de lignes sans rien dire
+ * de plus: ce qui intéresse ici est la forme d'une minute, pas d'une image.
+ */
+const VITALS_EVERY = 10_000;
 
 function Room({
   name,
@@ -215,6 +227,7 @@ function Room({
   onExpire,
   onForgetAsk,
   bind,
+  tell,
 }: {
   name: string;
   login: string | null;
@@ -234,6 +247,9 @@ function Room({
   /** Rend à l'étage du dessus de quoi prendre et céder une place: la socket du
    * salon vit là-haut, la manette vit ici, et la négociation traverse les deux. */
   bind: (take: (port: number) => void, give: () => void) => void;
+  /** Où envoyer ce que ce navigateur mesure. La socket du salon vit à l'étage
+   * du dessus, les chiffres vivent ici. */
+  tell: { vitals: (sample: Vitals) => void; complain: (sample: Vitals) => void };
 }) {
   const { bare, setBare, fullscreen, toggleFullscreen } = useBare();
   const [volume, setVolume] = useState(0.7);
@@ -269,6 +285,34 @@ function Room({
 
   const { ref, session } = useSession(volume, deviceRate, announceSeat, watching);
   const shot = useSnapshot(session);
+
+  /* Le relevé qui part au salon toutes les dix secondes.
+     Par des références et non par des dépendances: `shot` change deux fois par
+     seconde et `tell` est reconstruit à chaque rendu, donc les mettre en
+     dépendances reposerait le minuteur avant qu'il n'ait jamais tiré. C'est le
+     même piège que l'observateur de taille dans `Screen`. */
+  const seen = useRef(shot);
+  seen.current = shot;
+  const sending = useRef(tell);
+  sending.current = tell;
+  const previous = useRef<Snapshot | null>(null);
+  const opened = useRef(performance.now());
+  const sample = () => {
+    const now = seen.current;
+    if (!now) return null;
+    return vitals(now, previous.current, performance.now() - opened.current);
+  };
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      const now = seen.current;
+      const taken = sample();
+      if (!now || !taken) return;
+      previous.current = now;
+      opened.current = performance.now();
+      if (worthWriting(taken)) sending.current.vitals(taken);
+    }, VITALS_EVERY);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => session?.sound.setVolume(volume), [session, volume]);
   useEffect(() => session?.sound.setDeviceRate(deviceRate), [session, deviceRate]);
@@ -743,6 +787,10 @@ function Room({
             onWatch={() => session?.input.watchOnly()}
             onPlay={() => session?.input.play()}
             onLeave={onLeave}
+            onComplain={() => {
+              const now = sample();
+              if (now) sending.current.complain(now);
+            }}
           />
         </aside>
       )}

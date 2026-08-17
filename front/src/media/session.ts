@@ -204,7 +204,7 @@ export function exposeForTests(session: Session): void {
         slackMs: shot.video.slackMs,
         fastest: shot.video.fastestLag,
         refresh: 1000 / shot.video.refreshHz,
-        offset: shot.video.offset ?? 0,
+        offset: session.video.anchorMs(),
         holds: [shot.video.heldRefreshes.p50],
         arrived: shot.video.shown,
         painted: shot.video.painted,

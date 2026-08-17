@@ -65,6 +65,17 @@ const took = await seatOf(page);
 await page.click("#mode-details");
 await wait(600);
 const visit = await page.evaluate(() => document.getElementById("visit")?.textContent ?? null);
+// Et on revient à la salle, où vit le bouton de signalement. Une personne qui
+// joue est de ce côté-là; le panneau des chiffres est ce qu'elle ouvre pour me
+// lire un numéro, pas ce qu'elle regarde en jouant.
+await page.click("#mode-normal");
+await wait(400);
+// Plus long qu'une fenêtre de relevé, sinon il n'y en a aucun à vérifier. Un
+// pilote qui regarde trop tôt trouve un journal correct et une moitié vide.
+await wait(12_000);
+await page.click("#complain");
+await wait(1000);
+const said = await page.$eval("#complain", (button) => button.textContent);
 await page.close();
 await wait(1500);
 
@@ -104,6 +115,25 @@ check(
   mine.some((line) => line.salle && typeof line.salle.présents === "number"),
   "chaque ligne dit à quoi ressemblait la salle",
 );
+
+// ── Ce que le NAVIGATEUR mesure, qui mourait avec l'onglet.
+const measured = mine.filter((line) => line.quoi === "mesures");
+check(measured.length > 0, `le navigateur a rendu ${measured.length} relevés`);
+check(
+  measured.every((line) => line.vu?.vues > 0 && line.vu?.peintes > 0),
+  "et chacun compte des images sur SA fenêtre",
+);
+check(
+  measured.every((line) => Math.abs(line.vu?.horaire ?? 9e9) < 1000),
+  `le retard ajouté est un retard (${measured[0]?.vu?.horaire} ms)`,
+);
+const complained = mine.filter((line) => line.quoi === "plainte");
+check(complained.length === 1, "le bouton pose exactement un repère");
+check(
+  (complained[0]?.vu?.vues ?? 0) > 0,
+  "et le repère emporte ce que la page voyait à cet instant",
+);
+check(said?.includes("noté"), `le bouton dit qu'il a compris (« ${said} »)`);
 // L'identité du proxy: c'est ce qui manquait le jour où on m'a demandé de
 // retrouver quelqu'un. Un `null` ici veut dire qu'on est passé à côté du proxy.
 check(

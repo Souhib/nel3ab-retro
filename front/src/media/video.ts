@@ -86,9 +86,17 @@ export type VideoStats = {
   refreshHz: number;
   backlog: number;
   fastestLag: number | null;
-  /** The delay the schedule adds to every frame, in milliseconds. Null until
-   * the first frame sets it. */
-  offset: number | null;
+  /** Le retard que l'horaire ajoute à chaque image, en millisecondes.
+   *
+   * Ce chiffre-ci et pas l'ancre interne. L'ancre est un instant, exprimé par
+   * rapport à l'horloge du WORKER, dont celle du navigateur est décalée de ce
+   * qu'elle est: affichée telle quelle elle a donné « -15268 ms » dans le
+   * journal d'une séance parfaitement saine, le 17 août 2026. Un nombre affiché
+   * sans qu'on ait vérifié ce qu'il mesure est un nombre qui ment.
+   *
+   * Celui-ci est la gigue plus la marge, borné à `SLACK_CEILING`. Zéro sur une
+   * bonne liaison: la page n'attend alors rien du tout. */
+  addedMs: number;
 };
 
 /** À partir de quel écart l'horaire d'affichage est REPOSÉ plutôt que corrigé,
@@ -279,7 +287,7 @@ export class VideoStream {
       refreshHz: 1000 / this.refreshPeriod(),
       backlog: this.decoder?.decodeQueueSize ?? 0,
       fastestLag: this.lags.fastest(),
-      offset: this.offset,
+      addedMs: Math.round(this.boughtMs()),
     };
   }
 
@@ -316,6 +324,18 @@ export class VideoStream {
    * la liaison est toujours à son meilleur, et à jeter tout ce qui ne l'est pas.
    * C'est ce que faisait la page, et c'est pour ça qu'une liaison irrégulière
    * perdait une image sur cinq. */
+  /** L'ancre de l'horaire, telle quelle: un instant exprimé sur l'horloge du
+   * WORKER, décalée de celle du navigateur de ce qu'elle est.
+   *
+   * Pour les pilotes, et pour eux seuls. Deux d'entre eux vérifient que le
+   * décalage audio la déplace exactement d'autant, ce qui est un contrôle juste.
+   * Elle n'est PAS publiée dans les mesures: affichée telle quelle elle a écrit
+   * « horaire -15268 ms » dans le journal d'une séance saine, parce qu'elle
+   * mesure l'écart entre deux horloges autant que le retard qu'on ajoute. */
+  anchorMs(): number {
+    return this.offset ?? 0;
+  }
+
   private wantedOffset(): number {
     return (this.lags.fastest() ?? 0) + this.boughtMs() + this.lipsync;
   }

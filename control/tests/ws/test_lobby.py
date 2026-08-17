@@ -332,3 +332,62 @@ async def test_a_test_driver_says_so_and_a_person_does_not(
 
     await robot.disconnect()
     await person.disconnect()
+
+
+async def test_what_the_browser_measures_is_written_but_never_believed(
+    served: tuple[str, RoomController], tmp_path: Path
+) -> None:
+    """Le relevé du navigateur arrive au journal, rangé sous sa propre clé.
+
+    Sous sa propre clé, et c'est l'assertion qui compte: une page qui envoie un
+    champ `login` ne doit pas pouvoir se réécrire une identité, ni faire tomber
+    le gestionnaire sur un argument en double. Le salon écrit ce qu'on lui dit,
+    à côté de ce qu'il sait, jamais par-dessus.
+    """
+    url, _rooms = served
+
+    player = socketio.AsyncClient()
+    await player.connect(
+        url,
+        socketio_path="/socket.io",
+        auth={"name": "Kitaru", "visite": "cccc3333"},
+        headers={"Tailscale-User-Login": "kitaru@example.com", "Tailscale-User-Name": "Kitaru"},
+    )
+    await player.emit("mesures", {"vues": 600, "peintes": 412, "login": "quelqu-un-d-autre"})
+    await asyncio.sleep(0.3)
+    await player.disconnect()
+    await asyncio.sleep(0.2)
+
+    written = sorted((tmp_path / "sessions").glob("*.jsonl"))[0]
+    lines = [json.loads(line) for line in written.read_text(encoding="utf-8").splitlines()]
+    (measured,) = [line for line in lines if line["quoi"] == "mesures"]
+
+    assert measured["vu"]["vues"] == 600
+    assert measured["vu"]["peintes"] == 412
+    # L'identité reste celle du proxy, et la tentative est visible sans être crue.
+    assert measured["login"] == "kitaru@example.com"
+    assert measured["vu"]["login"] == "quelqu-un-d-autre"
+
+
+async def test_a_measurement_too_big_to_be_one_is_dropped(
+    served: tuple[str, RoomController], tmp_path: Path
+) -> None:
+    """Le jumeau: sans borne, une page fait grossir le journal aussi vite qu'elle
+    écrit, et le balayage de deux jours n'y peut rien puisqu'il est journalier.
+
+    Les deux moitiés comptent. Une borne qui refuse tout laisserait passer le
+    test d'au-dessus à condition qu'il n'existe pas.
+    """
+    url, _rooms = served
+
+    player = socketio.AsyncClient()
+    await player.connect(url, socketio_path="/socket.io", auth={"visite": "dddd4444"})
+    await player.emit("mesures", {"bavardage": "x" * 4096})
+    await asyncio.sleep(0.3)
+    await player.disconnect()
+    await asyncio.sleep(0.2)
+
+    written = sorted((tmp_path / "sessions").glob("*.jsonl"))[0]
+    lines = [json.loads(line) for line in written.read_text(encoding="utf-8").splitlines()]
+
+    assert [line for line in lines if line["quoi"] == "mesures"] == []

@@ -5500,6 +5500,114 @@ l'onglet. C'est l'étape suivante, et elle a maintenant un endroit où se ranger
 
 ---
 
+### 7.43 Ce que le navigateur voit, et un chiffre affiché sans qu'on sache ce qu'il mesure
+
+#### Le trou qui restait
+
+Le salon sait maintenant qui est venu et quand. Il ne savait toujours rien de ce
+que ces gens ont VU. Or les trois pannes de la semaine se sont toutes résolues
+sur un chiffre du navigateur, et ces chiffres meurent avec l'onglet: deux fois,
+il a fallu demander une capture d'écran à quelqu'un qui jouait.
+
+La page envoie donc un relevé toutes les dix secondes sur la socket du salon,
+déjà ouverte. Dix secondes: assez fin pour dater une saccade à la fenêtre près,
+assez large pour qu'une soirée tienne. Une seconde donnerait soixante fois plus
+de lignes sans rien dire de plus, parce que ce qui intéresse ici est la forme
+d'une minute, pas d'une image.
+
+#### Des écarts, pas des totaux
+
+Un total dit « 41 230 images peintes depuis l'ouverture », ce qui ne se lit qu'en
+le comparant à la ligne d'avant. Un écart dit « sur les dix dernières secondes:
+600 arrivées, 599 peintes », ce qui se lit seul.
+
+Le prix est qu'une ligne perdue est une fenêtre perdue au lieu d'être rattrapée
+par la suivante. Sur une socket qui se rouvre toute seule, c'est un prix qu'on
+paie volontiers pour un journal lisible sans outil.
+
+Le piège correspondant a son test: les compteurs de la page **repartent de zéro**
+quand le flux se rouvre, ce qui arrive à chaque changement de jeu. Sans plancher,
+la fenêtre qui enjambe une reprise annonce « moins quarante mille images
+peintes », et un chiffre absurde est un journal qu'on cesse de croire.
+
+#### Le bouton qui pose un repère
+
+Une plainte arrive le lendemain avec une heure approximative. Le bouton « ça
+saccade » écrit une ligne à l'instant exact, avec ce que la page voyait à ce
+moment-là. C'est autour de cette ligne qu'on lira les autres.
+
+Il DIT qu'il a compris pendant trois secondes, et ce n'est pas de la décoration:
+un bouton de signalement sans retour se presse cinq fois de suite par quelqu'un
+qui n'est pas sûr d'avoir cliqué, et le journal reçoit cinq repères là où il en
+fallait un.
+
+#### Ce que le salon ne fait pas de ces chiffres
+
+Il les écrit. Il n'en tire aucune conclusion et n'agit sur rien: décider quoi que
+ce soit à partir d'un chiffre qu'une page envoie donnerait à cette page le
+pouvoir de changer la salle en mentant. Il ne les diffuse pas non plus — les
+autres n'ont pas à savoir que la liaison de quelqu'un est mauvaise, et six
+diffusions par minute et par personne seraient du trafic ajouté à une salle qui
+va déjà mal.
+
+Deux garde-fous, tous deux mesurés plutôt que supposés:
+
+- le relevé est rangé sous SA propre clé au lieu d'être fondu dans la ligne. Une
+  page qui enverrait un champ `login` ne peut donc pas se réécrire une identité,
+  et le gestionnaire ne peut pas tomber sur un argument en double. C'est une
+  contrainte de forme, donc elle ne s'oublie pas;
+- un relevé pèse au plus deux kilo-octets. Un vrai en fait 653; le facteur trois
+  laisse la place à des champs futurs et pas à autre chose. Sans cette borne, une
+  page fait grossir le journal aussi vite qu'elle sait écrire, et le balayage de
+  deux jours n'y peut rien puisqu'il est journalier.
+
+Le coût mesuré: **653 octets** la ligne, soit 918 Kio par heure à quatre joueurs.
+Une soirée de cinq heures fait quatre mégaoctets et demi. C'est vingt fois plus
+que le reste du journal, et ça reste sans commune mesure avec ce qu'un seul
+écran de jeu occupe.
+
+#### Le défaut, et c'est celui de l'étape d'avant
+
+La page publiait un champ `offset`, documenté « le retard que l'horaire ajoute à
+chaque image ». Deux jours plus tôt, en affichant tout ce qui était calculé sans
+être montré (7.41), je l'ai mis dans le panneau. La première séance enregistrée a
+écrit:
+
+```
+horaire -15268 ms
+```
+
+Un retard négatif de quinze secondes, sur une liaison locale parfaitement saine.
+
+`offset` n'est pas un retard: c'est une ANCRE, un instant exprimé par rapport à
+l'horloge du worker, dont celle du navigateur est décalée de ce qu'elle est. Elle
+mesure l'écart entre deux horloges autant que le retard qu'on ajoute. Le vrai
+retard est la gigue plus la marge, borné, et il valait 9 ms ce soir-là.
+
+La leçon est désagréable parce qu'elle vise l'étape précédente: **afficher tout
+ce qu'on calcule ne sert à rien si on n'a pas vérifié ce que chaque chiffre
+mesure.** Le garde de 7.41 vérifie qu'un champ est montré quelque part; il ne
+peut pas vérifier qu'il veut dire ce que son étiquette prétend. Rien ne le
+pourrait, sauf le regarder tourner sur des vraies données — ce qui est exactement
+ce qui l'a attrapé.
+
+L'ancre reste accessible aux pilotes, qui vérifient à juste titre que le décalage
+audio la déplace d'autant. Elle n'est plus publiée.
+
+#### Ce que ça donne
+
+```
+22:42:52  arrive                     1 présents, Mario Kart Double Dash
+22:42:52  prend la manette 1         1 présents, Mario Kart Double Dash
+22:43:02   597/598 peintes  gigue 7 ms  horaire 10 ms
+22:43:12   599/599 peintes  gigue 13 ms  horaire 16 ms
+22:43:14  ** ÇA SACCADE **  120/120 peintes  gigue 13 ms  horaire 16 ms
+22:43:22   599/600 peintes  gigue 6 ms  horaire 9 ms
+22:43:26  part après 34 s            0 présents, Mario Kart Double Dash
+```
+
+---
+
 ## 8. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
 
 | Le piège | Ce qui s'est passé | La leçon |

@@ -49,7 +49,38 @@ SAYS = {
         ("accepte" if line.get("accordé") else "refuse") + f" pour la manette {line.get('place')}"
     ),
     "propriétaire": lambda line: f"décide maintenant (place {line.get('place') or 'aucune'})",
+    "mesures": lambda line: _seen(line.get("vu") or {}),
+    "plainte": lambda line: f"** ÇA SACCADE ** {_seen(line.get('vu') or {})}",
 }
+
+
+def _seen(vu: dict[str, Any]) -> str:
+    """Ce qu'une fenêtre de dix secondes a donné, sur une ligne.
+
+    Trois chiffres et pas quinze. Le relevé complet est dans le fichier et se lit
+    au besoin; ce qui doit sauter aux yeux en parcourant une soirée est ce qui
+    distingue une fenêtre saine d'une fenêtre qui rame:
+
+    - les images JETÉES, qui ont expliqué à elles seules deux des trois pannes
+      de la semaine;
+    - la GIGUE, qui dit si c'est la liaison plutôt que la machine;
+    - l'HORAIRE, le retard que la page s'ajoute pour compenser, et qui est la
+      conséquence visible des deux autres.
+
+    Le format transporté suit, parce que « il est passé en réduit » change la
+    lecture de tout ce qui vient après.
+    """
+    lost = vu.get("jetées", 0)
+    said = f"{vu.get('peintes', 0):>4}/{vu.get('vues', 0):<4} peintes"
+    if lost:
+        said += f"  {lost} jetées"
+    said += f"  gigue {vu.get('gigue', 0)} ms  horaire {vu.get('horaire') or 0} ms"
+    if vu.get("demi"):
+        said += "  [réduit]"
+    trous = (vu.get("son") or {}).get("trous", 0)
+    if trous:
+        said += f"  {trous} trous de son"
+    return said
 
 
 def _lasted(seconds: float) -> str:
@@ -113,6 +144,10 @@ def main(argv: list[str]) -> int:
         print(f"\n  {who}" + (f" <{login}>" if login else " (sans identité)") + f"  [{visit}]")
         for event in events:
             told = SAYS.get(event["quoi"], lambda line: line["quoi"])(event)
+            if event["quoi"] in ("mesures", "plainte"):
+                # Déjà longues, et leur contexte est dans les lignes voisines.
+                print(f"    {_hour(event)}  {told}")
+                continue
             salle = event.get("salle") or {}
             around = f"{salle.get('présents', '?')} présents"
             jeu = salle.get("jeu")

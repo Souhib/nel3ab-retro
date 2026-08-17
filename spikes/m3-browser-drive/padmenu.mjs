@@ -112,7 +112,7 @@ say(backUp === 1, `et la flèche haut revient d'un cran (${twoDown} → ${backUp
 // Le défaut: en mode rangée, gauche et droite parcourent la file, donc pousser à
 // droite sur « menu » changeait de page au lieu de changer de menu. Un réglage
 // doit se régler pareil partout, et « A » est partout.
-for (const from of ["switch", "wii", "xbox360"]) {
+for (const from of ["switch", "wii", "taverne"]) {
   await clavier.evaluate((id) => localStorage.setItem("nel3ab:shell", id), from);
   await clavier.reload({ waitUntil: "domcontentloaded" });
   await enterRoom(clavier);

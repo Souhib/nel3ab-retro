@@ -4868,6 +4868,85 @@ du sélecteur, lui, ne testait que le clavier: il teste aussi la souris depuis.
 C'est le genre de trou qu'un pilote seul ne voit pas et que deux voisins
 attrapent, ce qui est un argument pour en avoir plusieurs qui se recoupent.
 
+### 7.34 Une taverne, et quinze carrés vides
+
+Trois demandes: retirer le menu Xbox, en ajouter un dans l'esprit de celui de
+Hearthstone avec ses animations, et revoir « le design des carrés ».
+
+#### Les carrés, c'était l'icône fourre-tout
+
+`DotIcon` était un carré vide, posé sur **quinze entrées différentes**: son,
+volume, ambiance, menu, touches, plein écran. Un menu où tout porte le même carré
+ne se lit pas — il faut relire les mots, et l'icône n'occupe alors que de la
+place. Pire: un carré vide ressemble à une image qui n'a pas chargé.
+
+Onze icônes dessinées à la place, une par entrée, dans le style déjà là: un trait
+fin, une silhouette lisible à quarante pixels, tracée en `currentColor` pour que
+le thème les porte sans qu'elles le sachent. Un haut-parleur pour le son, des
+ondes pour le volume, une palette pour l'ambiance, un clavier pour les touches,
+une porte pour quitter.
+
+`DotIcon` survit comme dernier recours, et il est devenu un **point** plutôt qu'un
+carré: un point dit « il y a une entrée ici », un carré vide a l'air d'un défaut.
+
+#### La Xbox retirée, et le test que ça demande
+
+Supprimer une forme de menu n'est pas seulement supprimer un fichier: le choix de
+chacun est retenu dans son navigateur. Quelqu'un qui avait choisi la 360 garde
+`xbox360` en mémoire, et rendre ce nom-là donnerait une salle **sans menu** — un
+écran vide, sans erreur nulle part.
+
+La lecture validait déjà contre la liste, donc le repli marchait. Il est
+maintenant tenu par un test, parce que cette validation vient de devenir
+porteuse: elle est ce qui sépare un menu retiré d'un écran noir.
+
+#### La taverne
+
+Rien de Blizzard n'est dedans: le bois est une pile de dégradés, le grain un motif
+SVG, les ferrures et les volutes des tracés. Ce qu'on reprend est ce qui se décrit
+et se redessine — la matière et le mouvement — pas les images.
+
+Quatre choses font qu'on reconnaît ce genre de menu, et aucune n'est le dessin:
+
+- **ce sont des objets, pas des lignes.** Chaque entrée est une plaque biseautée,
+  lumière en haut, ombre en bas, liseré d'or sur cadre sombre. Deux traits et non
+  un: c'est le second qui donne son épaisseur à une ferrure;
+- **le ressort.** La plaque choisie grossit en DÉPASSANT sa taille puis revient,
+  par `cubic-bezier(.34, 1.56, .64, 1)`. C'est la moitié de ce qui fait qu'un menu
+  de jeu ne se sent pas comme une liste;
+- **la lumière hésite.** Une bougie ne pulse pas régulièrement: trois paliers
+  inégaux plutôt qu'une sinusoïde, sinon la pièce respire comme une machine;
+- **les braises montent.** Trente points qui s'élèvent et s'éteignent, chacun avec
+  son délai et sa dérive — tirés d'une suite FIXE et non au hasard, sinon un rendu
+  de React les remettrait toutes au départ en même temps, ce qui se voit.
+
+Deux passes ont été nécessaires, et la première leçon vaut d'être écrite: la
+version d'essai était **un aplat marron**. Les plaques ne se détachaient pas du
+sol et l'or ne se voyait pas. Ce qui a réparé ça n'est pas plus de détail mais
+plus d'**écart de valeur**: une vignette pour assombrir les bords, des plaques
+franchement plus claires que le fond, et un panneau enfoncé dans lequel la liste
+se pose. Un fond de bois sans dedans ni dehors n'est pas du bois, c'est un
+rectangle brun.
+
+Un détail à contre-courant de l'habitude: une entrée indisponible n'est pas rendue
+transparente mais **assombrie et désaturée**. Une plaque de bois à moitié
+transparente disparaît dans le bois du fond; une plaque sombre se lit comme
+« éteinte » et non comme « absente ».
+
+#### Ce que le pilote a trouvé, et que la capture ne montrait pas
+
+Le dessin se juge sur une capture d'écran, pas sur une assertion. Ce que le pilote
+vérifie est autre chose: que la nouvelle forme est bien une forme du MÊME menu —
+rayons, entrées, sélecteur, manette. Une console de plus avec sa propre mécanique
+serait une console de plus à réparer à chaque fois.
+
+Et il a attrapé ce qu'aucune capture ne montrait: sur un écran de 720 pixels de
+haut, la liste des réglages est plus longue que le panneau, et **le panneau ne
+suivait pas le curseur**. La flèche bas continuait de désigner, rien ne bougeait à
+l'écran, et les quatre dernières entrées étaient hors de portée pour toujours.
+Sans erreur, sans trace. L'assertion qui l'a vu ne demande pas « est-ce que ça
+descend » mais « la dernière entrée est-elle DANS l'écran ».
+
 ---
 
 ## 8. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
@@ -4937,6 +5016,9 @@ pas échouer**.
 | L'horaire recalé sur l'image la plus chanceuse | Le calage prenait le transit le plus rapide de la fenêtre, et repartait de là à chaque famine. Sur un lien irrégulier, chaque trou reposait l'horaire au plus optimiste et provoquait le suivant | Se caler sur le meilleur cas, c'est jeter tout ce qui n'est pas le meilleur cas |
 | La cadence de la source lue sur les arrivées | Une source à 60 Hz livrée toutes les 26 ms était prise pour une source à 39 Hz, donc ses trous passaient pour normaux | Deux causes différentes ont besoin de deux mesures différentes. Les instants de capture décrivent le jeu, les arrivées décrivent le réseau |
 | Une image jetée au milieu d'un groupe | La file pleine jetait l'image, les suivantes référençaient celle qui manquait, et le navigateur décodait du bruit: 306 non décodables contre 192 décodées | Dans un flux où les morceaux dépendent les uns des autres, se taire jusqu'au prochain point d'entrée vaut mieux que continuer à parler |
+| Une icône fourre-tout sur quinze entrées | Le même carré vide servait de « son », « volume », « ambiance » et douze autres. Un menu où tout porte la même icône se relit mot par mot, et un carré vide a l'air d'une image qui n'a pas chargé | Une icône qui ne distingue rien ne fait qu'occuper de la place. Et un repli doit ressembler à un repli, pas à une panne |
+| Un fond sans dedans ni dehors | La première taverne était un aplat marron: les plaques ne se détachaient pas du sol. Ce qui l'a réparée n'est pas plus de détail mais plus d'écart de valeur — vignette, plaques plus claires, panneau enfoncé | Une matière se lit par ses contrastes avant ses ornements |
+| Une liste plus longue que son panneau | Les quatre dernières entrées des réglages étaient hors de portée sur un écran court, parce que le défilement ne suivait pas le curseur. Rien n'échouait | Une assertion utile n'est pas « ça descend » mais « la dernière est dans l'écran » |
 | Déplacer puis valider, dans le même clic | Cliquer une ligne d'un sélecteur validait l'option PRÉCÉDENTE: le déplacement du curseur est un changement d'état asynchrone que la validation ne voyait pas encore | Deux gestes séparés au clavier peuvent être un seul geste à la souris. Un chemin d'entrée testé n'est pas les autres |
 | `mouseenter` sur un panneau qui apparaît | Ouvrir un sélecteur à la souris envoyait son curseur là où la souris traînait, parce que l'événement se déclenche aussi quand l'élément arrive SOUS un pointeur immobile | `mousemove` dit « la souris a bougé », `mouseenter` dit « quelque chose est passé dessous ». Ce n'est pas la même question |
 | Un émulateur oublié sur le même tuyau | Un Dolphin d'une mesure de la veille écrivait son son dans le `audio.fifo` d'une autre salle. Douze heures de son haché, `sound_starved` à zéro, aucune trace | Ce qui ne peut pas être empêché doit être rendu bruyant. Et un compteur à zéro pendant une panne est un indice, pas un dédouanement |

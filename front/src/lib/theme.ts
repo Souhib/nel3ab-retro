@@ -86,8 +86,8 @@ export function rememberMode(mode: Mode): void {
  */
 export const SHELLS = [
   { id: "ps3", label: "PlayStation 3", note: "la croix du XMB" },
-  { id: "xbox360", label: "Xbox 360", note: "les lames du tableau de bord" },
   { id: "wii", label: "Wii", note: "le tableau des chaînes" },
+  { id: "taverne", label: "taverne", note: "le bois et les braises d'un menu de jeu" },
   { id: "switch", label: "Switch", note: "la rangée de l'écran d'accueil" },
 ] as const;
 

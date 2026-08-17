@@ -257,10 +257,75 @@ body {
 /* Quelqu'un qui a demandé moins d'animation en reçoit moins. Ce n'est pas une
    préférence esthétique, c'est un réglage d'accessibilité que le système
    transmet. */
+/* Une braise qui monte et s'éteint.
+ *
+ * Pour la taverne, et seulement pour elle. `transform` et `opacity`, comme le
+ * reste: ce sont les deux propriétés que le compositeur traite sans repasser par
+ * la mise en page, donc une trentaine de braises ne peuvent pas voler de temps à
+ * la boucle d'images. */
+@keyframes n3-ember {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  12% {
+    opacity: 0.85;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--drift, 10px), -62vh, 0) scale(0.35);
+  }
+}
+
+/* La lumière d'une bougie: elle ne pulse pas régulièrement, elle hésite. Trois
+ * paliers inégaux plutôt qu'une sinusoïde, sinon ça respire comme une machine. */
+@keyframes n3-candle {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  35% {
+    opacity: 0.72;
+  }
+  52% {
+    opacity: 0.46;
+  }
+  78% {
+    opacity: 0.66;
+  }
+}
+
+.n3-ember {
+  animation: n3-ember 7s linear infinite;
+}
+
+.n3-candle {
+  animation: n3-candle 5.5s ease-in-out infinite;
+}
+
+/* Le ressort. Une courbe qui DÉPASSE puis revient, ce qui donne à une plaque de
+ * bois le poids d'un objet qu'on pousse. C'est la moitié de ce qui fait qu'un
+ * menu de jeu se sent différent d'une liste. */
+.n3-spring {
+  transition:
+    transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 200ms ease-out,
+    border-color 200ms ease-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .n3-enter,
   .n3-pop,
-  .n3-breathe {
+  .n3-breathe,
+  .n3-ember,
+  .n3-candle {
     animation: none;
+  }
+
+  /* Le ressort passe par `transition` et non par `animation`: le couper demande
+     de le nommer à part, sinon la plaque continue de rebondir chez quelqu'un
+     qui a demandé à son système d'arrêter de bouger. */
+  .n3-spring {
+    transition: none;
   }
 }

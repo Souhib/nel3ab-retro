@@ -14,12 +14,30 @@ import { Lobby } from "./components/Lobby";
 import { Booting, type Step } from "./components/Booting";
 import { Sidebar } from "./components/Sidebar";
 import { Asked as AskedBanner, Asking } from "./components/Swap";
-import { Blades } from "./components/Blades";
 import { Channels } from "./components/Channels";
+import { Tavern } from "./components/Tavern";
 import { Home } from "./components/Home";
 import { Xmb, type XmbCategory, type XmbItem } from "./components/Xmb";
 import type { MenuAction } from "./media/menupad";
-import { DotIcon, GameIcon, MeasureIcon, RoomIcon, SettingsIcon } from "./components/XmbIcons";
+import {
+  ExpandIcon,
+  GameIcon,
+  KeysIcon,
+  LayoutIcon,
+  LeaveIcon,
+  MeasureIcon,
+  PadIcon,
+  PaletteIcon,
+  PanelIcon,
+  RoomIcon,
+  ScreenIcon,
+  SettingsIcon,
+  SoundIcon,
+  SyncIcon,
+  VolumeIcon,
+  WatchIcon,
+  WaveIcon,
+} from "./components/XmbIcons";
 import { Panel } from "./components/Readout";
 import { Screen } from "./components/Screen";
 import { Seats } from "./components/Seats";
@@ -343,7 +361,7 @@ function Room({
               : mine
                 ? "entrée deux fois: changer de jeu arrête la partie de tout le monde"
                 : (whyNotChoose ?? undefined),
-        icon: <DotIcon className="h-full w-full" />,
+        icon: <GameIcon className="h-full w-full" />,
         game: { index: game.index, art: game.art ?? false },
         by: game.maker ?? undefined,
         note: game.about ?? undefined,
@@ -378,7 +396,7 @@ function Room({
                 : held
                   ? "personne ne répond dessus: entrée pour la reprendre"
                   : "entrée pour t'y brancher",
-            icon: <DotIcon className="h-full w-full" />,
+            icon: <PadIcon className="h-full w-full" />,
             disabled: isMine,
             onEnter: () => {
               if (who) {
@@ -398,7 +416,7 @@ function Room({
             hint: watchingNow
               ? "la première place libre"
               : "rend ta place à la salle, l'image et le son continuent",
-            icon: <RoomIcon className="h-full w-full" />,
+            icon: <WatchIcon className="h-full w-full" />,
             onEnter: () => {
               if (watchingNow) session?.input.play();
               else session?.input.watchOnly();
@@ -409,7 +427,7 @@ function Room({
             id: "leave",
             label: "quitter la salle",
             hint: "retour à l'accueil, la partie continue sans toi",
-            icon: <RoomIcon className="h-full w-full" />,
+            icon: <LeaveIcon className="h-full w-full" />,
             onEnter: onLeave,
           },
         ]),
@@ -424,7 +442,7 @@ function Room({
           label: "son",
           value: shot?.sound.state === "running" ? "activé" : "éteint",
           hint: "un navigateur ne fait pas de bruit avant qu'on le lui demande",
-          icon: <DotIcon className="h-full w-full" />,
+          icon: <SoundIcon className="h-full w-full" />,
           onEnter: () => void session?.sound.start(),
         },
         {
@@ -436,7 +454,7 @@ function Room({
           hint: half
             ? "608×448, environ 5,6 Mbit/s. Le choix est le tien seul."
             : "1216×896, environ 14 Mbit/s. Réduis si l'image saccade.",
-          icon: <MeasureIcon className="h-full w-full" />,
+          icon: <ScreenIcon className="h-full w-full" />,
           picks: [
             { id: "full", label: "pleine taille", hint: "1216×896 · ~14 Mbit/s" },
             { id: "half", label: "réduit", hint: "608×448 · ~5 Mbit/s" },
@@ -453,7 +471,7 @@ function Room({
           label: "volume",
           value: `${Math.round(volume * 100)}`,
           hint: "A pour ouvrir la glissière",
-          icon: <DotIcon className="h-full w-full" />,
+          icon: <VolumeIcon className="h-full w-full" />,
           // En pour-cent et non en fraction: la glissière avance par crans
           // entiers, et un cran de 0,05 sur une valeur de 0 à 1 se lit mal quand
           // il faut l'arrondir à la souris.
@@ -471,7 +489,7 @@ function Room({
           label: "ambiance",
           value: themeLabel(theme),
           hint: "A pour voir les sept",
-          icon: <DotIcon className="h-full w-full" />,
+          icon: <PaletteIcon className="h-full w-full" />,
           picks: THEMES.map((choice) => ({
             id: choice.id,
             label: choice.label,
@@ -488,7 +506,7 @@ function Room({
           label: "menu",
           value: shellLabel(shell),
           hint: "A pour voir les consoles",
-          icon: <DotIcon className="h-full w-full" />,
+          icon: <LayoutIcon className="h-full w-full" />,
           picks: SHELLS.map((choice) => ({ id: choice.id, label: choice.label })),
           picked: shell,
           onPick: (id) => {
@@ -500,7 +518,7 @@ function Room({
           id: "bindings",
           label: "touches",
           hint: "l'antisèche, et de quoi les changer",
-          icon: <DotIcon className="h-full w-full" />,
+          icon: <KeysIcon className="h-full w-full" />,
           // Le menu reste ouvert DERRIÈRE: renvoyer quelqu'un dans la partie
           // pour changer une touche est exactement ce qu'on ne veut pas.
           onEnter: () => setBindings(true),
@@ -510,7 +528,7 @@ function Room({
           label: "laisser la carte son choisir sa fréquence",
           value: deviceRate ? "oui" : "non",
           hint: "évite un rééchantillonnage, mais le tampon peut être plus long",
-          icon: <DotIcon className="h-full w-full" />,
+          icon: <WaveIcon className="h-full w-full" />,
           onEnter: () => setDeviceRate(!deviceRate),
         },
         {
@@ -518,7 +536,7 @@ function Room({
           label: "caler l'image sur le son",
           value: lipsync ? "oui" : "non",
           hint: "retarde l'image du retard mesuré du son",
-          icon: <DotIcon className="h-full w-full" />,
+          icon: <SyncIcon className="h-full w-full" />,
           onEnter: () => setLipsync(!lipsync),
         },
         {
@@ -526,14 +544,14 @@ function Room({
           label: "replier la colonne",
           value: bare ? "repliée" : "visible",
           hint: "rend toute la largeur à l'image (F)",
-          icon: <DotIcon className="h-full w-full" />,
+          icon: <PanelIcon className="h-full w-full" />,
           onEnter: () => setBare(!bare),
         },
         {
           id: "fullscreen",
           label: "plein écran",
           value: fullscreen ? "oui" : "non",
-          icon: <DotIcon className="h-full w-full" />,
+          icon: <ExpandIcon className="h-full w-full" />,
           onEnter: toggleFullscreen,
         },
       ],
@@ -548,7 +566,7 @@ function Room({
           label: "images",
           value: `${shot?.video.painted ?? 0} peintes`,
           hint: `${(shot?.video.refreshHz ?? 0).toFixed(0)} Hz à l'écran, marge ${(shot?.video.slackMs ?? 0).toFixed(0)} ms`,
-          icon: <DotIcon className="h-full w-full" />,
+          icon: <ScreenIcon className="h-full w-full" />,
         },
         {
           id: "son",
@@ -558,14 +576,14 @@ function Room({
             shot?.soundGapMs == null
               ? "aucun écart mesuré"
               : `${shot.soundGapMs.toFixed(0)} ms derrière l'image`,
-          icon: <DotIcon className="h-full w-full" />,
+          icon: <SoundIcon className="h-full w-full" />,
         },
         {
           id: "manette",
           label: "manette",
           value: port === null ? "aucune" : `port ${port}`,
           hint: `${shot?.input.sent ?? 0} trames envoyées`,
-          icon: <DotIcon className="h-full w-full" />,
+          icon: <PadIcon className="h-full w-full" />,
         },
       ],
     },
@@ -710,8 +728,8 @@ function Room({
               paused: bindings,
               footer: `${room?.name ?? "salon"} · ${people.length} présent${people.length > 1 ? "s" : ""}`,
             };
-            if (shell === "xbox360") return <Blades {...common} />;
             if (shell === "wii") return <Channels {...common} />;
+            if (shell === "taverne") return <Tavern {...common} />;
             if (shell === "switch") return <Home {...common} who={name} />;
             return <Xmb {...common} />;
           })()

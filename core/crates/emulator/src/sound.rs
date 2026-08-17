@@ -109,6 +109,43 @@ pub struct SoundTap {
 }
 
 impl SoundTap {
+    /// Est-ce qu'un AUTRE émulateur écrit déjà dans ce tuyau ?
+    ///
+    /// # Pourquoi cette question existe
+    ///
+    /// Le 2026-08-17, une salle a servi un son haché pendant une soirée. La
+    /// cause n'était ni l'encodeur ni le réseau: un Dolphin oublié d'une mesure
+    /// de la veille tournait encore, monté sur le MÊME répertoire de session,
+    /// donc les deux écrivaient leur PCM dans ce fichier. Le worker lisait un
+    /// mélange de deux parties. Rien n'a échoué, rien n'a été journalisé, et
+    /// `sound_starved` est resté à zéro pendant douze heures.
+    ///
+    /// Deux processus sur un même tuyau ne devraient pas être une situation
+    /// possible. Faute de pouvoir l'empêcher, on la rend BRUYANTE.
+    ///
+    /// # Pourquoi on écoute plutôt qu'on cherche
+    ///
+    /// Chercher le coupable demanderait de fouiller `/proc`, ou de savoir que
+    /// l'émulateur tourne dans Docker — ce que ce crate ignore volontairement.
+    /// Écouter le tuyau répond à la seule question qui compte, et y répond
+    /// directement: est-ce que quelque chose arrive alors que nous n'avons
+    /// encore rien démarré ?
+    ///
+    /// En deux temps, et c'est le second qui fait la différence. On vide
+    /// d'abord ce qui traîne: des octets restés d'un écrivain déjà mort sont
+    /// périmés, pas une intrusion, et refuser à cause d'eux condamnerait une
+    /// salle pour un fantôme. On écoute ensuite: ce qui arrive APRÈS a forcément
+    /// un vivant derrière.
+    ///
+    /// À appeler avant de démarrer son propre émulateur, sinon la réponse est
+    /// oui et c'est nous.
+    pub fn intruder(&mut self, listen_for: Duration) -> bool {
+        let mut sink = [0_u8; 4096];
+        while matches!(self.file.read(&mut sink), Ok(read) if read > 0) {}
+        std::thread::sleep(listen_for);
+        matches!(self.file.read(&mut sink), Ok(read) if read > 0)
+    }
+
     /// Creates the pipe and opens the read end.
     ///
     /// Non-blocking, and that matters: opening a pipe for reading blocks until
@@ -256,6 +293,73 @@ impl SoundTap {
 mod tests {
     use super::*;
     use crate::config::AUDIO_FRAME_BYTES_U32;
+
+    /// Un écrivain vivant est vu.
+    ///
+    /// C'est la panne du 2026-08-17: un émulateur oublié qui écrivait dans le
+    /// tuyau d'une autre salle, sans que rien n'échoue nulle part.
+    #[test]
+    fn another_writer_on_the_same_pipe_is_seen() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut tap = SoundTap::open(dir.path()).unwrap();
+        let path = tap.path().to_path_buf();
+
+        // Un intrus: il ouvre en écriture et pousse sans s'arrêter, comme le
+        // ferait un émulateur qui tourne.
+        let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let told = std::sync::Arc::clone(&stop);
+        let intruder = std::thread::spawn(move || {
+            let Ok(mut pipe) = std::fs::OpenOptions::new().write(true).open(&path) else {
+                return;
+            };
+            while !told.load(std::sync::atomic::Ordering::Relaxed) {
+                if std::io::Write::write_all(&mut pipe, &[0_u8; 512]).is_err() {
+                    return;
+                }
+                std::thread::sleep(Duration::from_millis(5));
+            }
+        });
+
+        assert!(tap.intruder(Duration::from_millis(200)));
+
+        stop.store(true, std::sync::atomic::Ordering::Relaxed);
+        let _ = intruder.join();
+    }
+
+    /// Le jumeau qui compte le plus: un tuyau tranquille ne doit RIEN dire.
+    ///
+    /// Sans lui, un garde qui répondrait toujours oui passerait le test du
+    /// dessus et empêcherait toute salle de démarrer. C'est un garde de
+    /// démarrage: se tromper dans ce sens-là est pire que la panne qu'il évite.
+    #[test]
+    fn a_quiet_pipe_is_not_an_intrusion() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut tap = SoundTap::open(dir.path()).unwrap();
+
+        assert!(!tap.intruder(Duration::from_millis(200)));
+    }
+
+    /// Et l'autre jumeau: des octets d'un écrivain DÉJÀ MORT sont périmés.
+    ///
+    /// Ils restent dans le tampon du tuyau tant que personne ne les lit, donc un
+    /// garde qui se contenterait de regarder « y a-t-il quelque chose » refuserait
+    /// de démarrer à cause d'un fantôme. C'est le premier temps du garde, celui
+    /// qui vide, qui répond à ça.
+    #[test]
+    fn bytes_left_by_a_dead_writer_are_not_an_intrusion() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut tap = SoundTap::open(dir.path()).unwrap();
+
+        {
+            let mut pipe = std::fs::OpenOptions::new()
+                .write(true)
+                .open(tap.path())
+                .unwrap();
+            std::io::Write::write_all(&mut pipe, &[7_u8; 2048]).unwrap();
+        } // l'écrivain ferme ici, et ses octets restent dans le tuyau
+
+        assert!(!tap.intruder(Duration::from_millis(200)));
+    }
 
     /// The chunk is exactly the length it claims, and the arithmetic that says
     /// so is worth pinning: the first reader written against this pipe took

@@ -131,6 +131,35 @@ export type PadReading = {
 };
 
 /**
+ * Fond deux lectures en une: ce qui bouge quelque part bouge dans le jeu.
+ *
+ * Sert deux fois. Le clavier et la manette d'abord, pour qu'on puisse tenir une
+ * direction au clavier et appuyer sur A à la manette. Et toutes les manettes
+ * entre elles ensuite, ce qui est moins évident et plus important: un adaptateur
+ * GameCube présente QUATRE manettes au navigateur, une par port de l'adaptateur,
+ * même s'il n'y a qu'un pad branché dessus. Ne lire que la première rendait donc
+ * la manette morte trois fois sur quatre, sans rien pour l'expliquer.
+ *
+ * Les boutons s'ajoutent, les gâchettes prennent la plus enfoncée, et un stick
+ * prend la valeur la plus GRANDE EN VALEUR ABSOLUE. Ce dernier point est la
+ * seule subtilité: prendre « la première non nulle » ferait gagner une manette
+ * au repos qui dérive d'un cheveu contre une manette qu'on pousse à fond.
+ */
+export function merge(first: PadReading, second: PadReading): PadReading {
+  const strongest = (left: number, right: number) =>
+    Math.abs(right) > Math.abs(left) ? right : left;
+  return {
+    buttons: first.buttons | second.buttons,
+    x: strongest(first.x, second.x),
+    y: strongest(first.y, second.y),
+    cx: strongest(first.cx, second.cx),
+    cy: strongest(first.cy, second.cy),
+    l: Math.max(first.l, second.l),
+    r: Math.max(first.r, second.r),
+  };
+}
+
+/**
  * La disposition standard, écrite comme un profil qu'on peut modifier.
  *
  * Sans elle, une manette Xbox ou PlayStation n'a pas de profil du tout: `readPad`

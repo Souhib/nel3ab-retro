@@ -409,8 +409,34 @@ fn run(settings: &Settings) -> Result<()> {
     // The pipe has to exist, and be open for reading, before Dolphin looks for
     // it: ALSA's file plugin would otherwise create a plain file and the sound
     // would go quietly to disk.
-    let sound = SoundTap::open(&settings.session_dir)?;
+    let mut sound = SoundTap::open(&settings.session_dir)?;
     tracing::info!(pipe = %sound.path().display(), "sound will come out here");
+
+    // Personne d'autre ne doit écrire dans ce tuyau. On refuse de démarrer
+    // plutôt que de servir un son haché à toute la salle.
+    //
+    // Le 2026-08-17, un Dolphin oublié d'une mesure de la veille tournait encore
+    // sur ce même répertoire de session. Les deux écrivaient leur PCM dans le
+    // même fichier, le worker lisait un mélange de deux parties, et le son a été
+    // haché pendant une soirée. Rien n'a échoué: `sound_starved` est resté à
+    // zéro, l'image restait regardable, et il a fallu chercher.
+    //
+    // Un quart de seconde d'écoute. Un émulateur qui tourne produit du son en
+    // permanence, donc c'est mille fois plus qu'il n'en faut, et c'est payé une
+    // fois au démarrage.
+    //
+    // Le refus est net, et systemd va donc redémarrer en boucle. C'est voulu:
+    // la machine est dans un état que personne n'a demandé, et une boucle qui
+    // dit pourquoi vaut mieux que douze heures de son cassé qui ne dit rien.
+    if sound.intruder(Duration::from_millis(250)) {
+        bail!(
+            "somebody else is already writing sound into {}. Another emulator is \
+             running on this session directory: `docker ps` will show it, and \
+             stopping it is what fixes this. Two emulators on one pipe give a \
+             room a chopped-up sound and nothing else to go on.",
+            sound.path().display()
+        );
+    }
 
     let session = Session::start(&config)?;
     let mut frames = listener.accept(Duration::from_mins(2))?;

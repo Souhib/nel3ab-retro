@@ -164,6 +164,8 @@ export function exposeNothingYet(): void {
     seat: () => null,
     soundGap: () => null,
     room: () => ({ mine: 0, watching: false }),
+    padList: () => [],
+    reading: () => null,
   };
 }
 
@@ -238,5 +240,10 @@ export function exposeForTests(session: Session): void {
       mine: session.getSnapshot().input.port ?? 0,
       watching: session.getSnapshot().input.watching,
     }),
+    /** Les manettes que la page LISTE: une par modèle, pas une par branchement. */
+    padList: () => session.getSnapshot().input.pads,
+    /** La dernière lecture envoyée au jeu, pour qu'un pilote puisse vérifier
+     * qu'une poussée de manette y arrive vraiment. */
+    reading: () => session.input.lastSent(),
   };
 }

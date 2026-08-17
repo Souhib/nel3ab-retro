@@ -1,0 +1,6 @@
+pcm.!default {
+    type file
+    slave.pcm "null"
+    file "audio.fifo"
+    format raw
+}

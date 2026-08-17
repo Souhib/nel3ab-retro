@@ -29,6 +29,28 @@ export function snapshot(pad: Gamepad): Snapshot {
 }
 
 /**
+ * Fond deux instantanés en gardant, pour chaque entrée, la plus grande valeur
+ * absolue.
+ *
+ * Pour un adaptateur qui présente plusieurs manettes du MÊME modèle: le pad est
+ * peut-être dans le troisième port, et demander « appuie sur A » à un port vide
+ * est une leçon qu'on ne peut pas finir. Du même modèle seulement, parce que
+ * fondre les boutons d'une Xbox et d'une GameCube apprendrait n'importe quoi.
+ */
+export function loudest(first: Snapshot, second: Snapshot): Snapshot {
+  const pick = (left: number[], right: number[]) => {
+    const out: number[] = [];
+    for (let at = 0; at < Math.max(left.length, right.length); at += 1) {
+      const a = left[at] ?? 0;
+      const b = right[at] ?? 0;
+      out.push(Math.abs(b) > Math.abs(a) ? b : a);
+    }
+    return out;
+  };
+  return { buttons: pick(first.buttons, second.buttons), axes: pick(first.axes, second.axes) };
+}
+
+/**
  * Ce qui a le plus bougé depuis le repos, ou rien.
  *
  * Le plus loin plutôt que le premier: une gâchette de GameCube déplace son axe

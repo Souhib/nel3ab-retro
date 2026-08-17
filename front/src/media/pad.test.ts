@@ -9,7 +9,16 @@
  * d'exposer une porte de test dont plus personne n'a besoin.
  */
 import { describe, expect, it } from "vitest";
-import { BUTTON, DEFAULT_KEYS, readKeys, readPad, standardProfile, type PadProfile } from "./pad";
+import {
+  BUTTON,
+  DEFAULT_KEYS,
+  readKeys,
+  readPad,
+  standardProfile,
+  type PadProfile,
+  merge,
+  type PadReading,
+} from "./pad";
 
 /** Une manette synthétique. Ce qui est vérifié est la CORRESPONDANCE, et une
  * correspondance se trompe sur le bouton auquel personne n'a pensé. */
@@ -221,5 +230,44 @@ describe("le clavier", () => {
 
   it("ignore une touche qui n'est dans aucun profil", () => {
     expect(readKeys(held("KeyM"), DEFAULT_KEYS).buttons).toBe(0);
+  });
+});
+
+describe("fondre deux lectures", () => {
+  const at = (over: Partial<PadReading> = {}): PadReading => ({
+    buttons: 0,
+    x: 0,
+    y: 0,
+    cx: 0,
+    cy: 0,
+    l: 0,
+    r: 0,
+    ...over,
+  });
+
+  it("additionne les boutons des deux", () => {
+    expect(merge(at({ buttons: 0b0011 }), at({ buttons: 0b0110 })).buttons).toBe(0b0111);
+  });
+
+  it("garde la gâchette la plus enfoncée", () => {
+    expect(merge(at({ l: 0.2 }), at({ l: 0.9 })).l).toBe(0.9);
+    expect(merge(at({ l: 0.9 }), at({ l: 0.2 })).l).toBe(0.9);
+  });
+
+  it("garde le stick le plus poussé, dans un sens comme dans l'autre", () => {
+    expect(merge(at({ x: 0.1 }), at({ x: -1 })).x).toBe(-1);
+    expect(merge(at({ x: -1 }), at({ x: 0.1 })).x).toBe(-1);
+  });
+
+  // Le jumeau qui explique le choix: « la première non nulle » ferait gagner
+  // une manette au repos qui dérive d'un cheveu contre une qu'on pousse à fond.
+  it("ne laisse pas une dérive minuscule battre une vraie poussée", () => {
+    expect(merge(at({ y: 0.02 }), at({ y: 1 })).y).toBe(1);
+  });
+
+  it("rend l'autre lecture quand l'une ne dit rien", () => {
+    const pushed = at({ buttons: 0b1000, x: 0.7, r: 0.5 });
+    expect(merge(at(), pushed)).toEqual(pushed);
+    expect(merge(pushed, at())).toEqual(pushed);
   });
 });

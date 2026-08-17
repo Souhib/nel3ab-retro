@@ -4,13 +4,14 @@
  * The port is the SERVER'S to decide — it alone knows who else is in the room —
  * and it says so in one byte as soon as the socket opens. Zero means no seat.
  */
-import { Capture, Lesson, snapshot } from "./lesson";
+import { Capture, Lesson, loudest, snapshot, type Snapshot } from "./lesson";
 import { MenuPad, type MenuAction } from "./menupad";
 import {
   BUTTON,
   DEFAULT_KEYS,
   encodePad,
   readKeys,
+  merge,
   readPad,
   standardProfile,
   type Action,
@@ -151,6 +152,13 @@ export class InputStream {
    * plupart des gens n'en ont qu'une, et leur demander de choisir serait un
    * écran de plus avant de jouer. */
   private chosen: number | null = null;
+  /** Le profil de chaque manette, par son identifiant.
+   *
+   * Une carte et plus un seul profil, parce qu'on les lit toutes: un adaptateur
+   * GameCube et une manette Xbox branchés ensemble n'ont pas la même
+   * disposition, et lire la seconde avec le profil de la première donnerait des
+   * boutons au hasard. `localStorage` est synchrone, donc on se souvient. */
+  private readonly profiles = new Map<string, PadProfile | null>();
   private lastReading: PadReading | null = null;
   private readonly url: (path: string) => string;
   private readonly onSeat: (port: number | null) => void;
@@ -323,6 +331,16 @@ export class InputStream {
     this.retry = window.setTimeout(() => this.connect(), silenceMs);
   }
 
+  /** La dernière lecture envoyée au jeu.
+   *
+   * Exposée pour les pilotes: « la page a envoyé quelque chose » et « la
+   * poussée de CETTE manette y est » sont deux affirmations différentes, et
+   * seule la seconde attrape une manette qu'on aurait cessé de lire.
+   */
+  lastSent(): PadReading | null {
+    return this.lastReading;
+  }
+
   /** Donne, ou reprend, la manette au menu. */
   setMenu(handler: ((action: MenuAction) => void) | null): void {
     this.menu = handler;
@@ -372,6 +390,58 @@ export class InputStream {
   /** La manette qui joue: celle qu'on a choisie si elle est encore là, sinon la
    * première branchée. Débrancher la sienne ne doit pas laisser la page sans
    * manette alors qu'il en reste une. */
+  /** Toutes les manettes branchées. */
+  private connected(): Gamepad[] {
+    const found = navigator.getGamepads?.() ?? [];
+    return [...found].filter((pad): pad is Gamepad => pad !== null);
+  }
+
+  /** Le profil d'une manette, lu une fois puis retenu. */
+  private profileFor(id: string): PadProfile | null {
+    if (!this.profiles.has(id)) this.profiles.set(id, this.loadProfile(id));
+    return this.profiles.get(id) ?? null;
+  }
+
+  /** Ce que disent TOUTES les manettes, fondu en une lecture, ou rien s'il n'y
+   * en a aucune.
+   *
+   * Toutes et pas une seule, et c'est le coeur du sujet: un adaptateur GameCube
+   * expose quatre manettes au navigateur, une par port, même avec un seul pad
+   * branché dessus. Lire `connected[0]` rendait la manette morte trois fois sur
+   * quatre. Et comme cette page tient UNE place, peu importe laquelle bouge:
+   * c'est le même joueur.
+   *
+   * Conséquence voulue: il n'y a plus rien à choisir pour jouer. Le choix qui
+   * reste, dans l'écran des touches, ne sert qu'à dire laquelle on CONFIGURE.
+   */
+  private padsReading(): PadReading | null {
+    let reading: PadReading | null = null;
+    for (const pad of this.connected()) {
+      const one = readPad(pad, this.profileFor(pad.id));
+      reading = reading === null ? one : merge(reading, one);
+    }
+    return reading;
+  }
+
+  /** Ce que disent toutes les manettes du MÊME modèle que celle qu'on
+   * configure, en valeurs brutes.
+   *
+   * Pour l'apprentissage et la réassignation. Même raison: le pad est peut-être
+   * dans le troisième port de l'adaptateur, et demander « appuie sur A » à un
+   * port vide est une leçon qu'on ne peut pas finir. Du même modèle seulement,
+   * parce que fondre les boutons d'une manette Xbox et d'une GameCube
+   * apprendrait n'importe quoi.
+   */
+  private lessonSnapshot(like: Gamepad): Snapshot {
+    let merged: Snapshot | null = null;
+    for (const pad of this.connected()) {
+      if (pad.id !== like.id) continue;
+      const one = snapshot(pad);
+      merged = merged === null ? one : loudest(merged, one);
+    }
+    return merged ?? snapshot(like);
+  }
+
   private current(): Gamepad | null {
     const found = navigator.getGamepads?.() ?? [];
     const connected = [...found].filter((pad): pad is Gamepad => pad !== null);
@@ -486,8 +556,14 @@ export class InputStream {
 
   private pump = (): void => {
     const found = navigator.getGamepads?.() ?? [];
+    // Une entrée par MODÈLE et non par branchement. Un adaptateur GameCube en
+    // expose quatre, toutes du même nom, et elles partagent forcément une seule
+    // configuration puisque le profil est rangé par identifiant. En afficher
+    // quatre laissait croire qu'il y avait quatre choses à régler.
+    const seen = new Set<string>();
     this.pads = [...found]
       .filter((candidate): candidate is Gamepad => candidate !== null)
+      .filter((candidate) => !seen.has(candidate.id) && seen.add(candidate.id) !== undefined)
       .map((candidate) => ({ index: candidate.index, id: candidate.id }));
     const pad = this.current();
     if (pad) {
@@ -496,18 +572,18 @@ export class InputStream {
       // Learning happens whether or not this page holds a controller, and the
       // presses that answer the questions never reach the game.
       if (this.lesson !== null && !this.lesson.done) {
-        this.lesson.feed(snapshot(pad));
+        this.lesson.feed(this.lessonSnapshot(pad));
         if (this.lesson.done) {
           this.keepProfile(pad.id, this.lesson.learned());
           this.onSettled();
         }
         return;
       }
-      if (this.profile === null) this.profile = this.loadProfile(pad.id);
+      this.profile = this.profileFor(pad.id);
       // Une réassignation de manette en cours: on regarde ce qui bouge, et rien
       // ne part au jeu tant qu'on n'a pas fini.
       if (this.capture?.machine) {
-        const moved = this.capture.machine.feed(snapshot(pad));
+        const moved = this.capture.machine.feed(this.lessonSnapshot(pad));
         if (moved) {
           this.bindPad(pad, this.capture.control, moved.control, moved.value);
           this.capture = null;
@@ -532,8 +608,9 @@ export class InputStream {
       // répétition du système. Lire aussi le clavier ici faisait deux chemins
       // pour une touche: une flèche droite avançait de deux crans, ce qui
       // ressemblait à un menu nerveux et était une addition.
-      if (pad) {
-        const action = this.menuPad.feed(readPad(pad, this.profile), performance.now());
+      const fromPads = this.padsReading();
+      if (fromPads !== null) {
+        const action = this.menuPad.feed(fromPads, performance.now());
         if (action !== null) this.menu(action);
       }
       this.sendNeutral();
@@ -547,18 +624,8 @@ export class InputStream {
     // The keyboard first, then the pad on top of it: a stick at rest must not
     // cancel a key being held.
     let reading: PadReading = readKeys(this.held, this.keys);
-    if (pad) {
-      const fromPad = readPad(pad, this.profile);
-      reading = {
-        buttons: reading.buttons | fromPad.buttons,
-        x: fromPad.x || reading.x,
-        y: fromPad.y || reading.y,
-        cx: fromPad.cx,
-        cy: fromPad.cy,
-        l: Math.max(reading.l, fromPad.l),
-        r: Math.max(reading.r, fromPad.r),
-      };
-    }
+    const fromPads = this.padsReading();
+    if (fromPads !== null) reading = merge(reading, fromPads);
     this.lastReading = reading;
     this.socket.send(encodePad(this.port, reading));
     this.sent += 1;
@@ -612,6 +679,10 @@ export class InputStream {
   }
 
   private forgetProfile(id: string): void {
+    // Le cache d'abord, et ce n'est pas un détail: sans cette ligne, « remettre
+    // la manette d'origine » effaçait le profil du disque et la boucle le
+    // relisait de la mémoire au tic suivant. Le bouton n'aurait rien fait.
+    this.profiles.delete(id);
     try {
       localStorage.removeItem(`nel3ab.pad.${id}`);
     } catch {
@@ -635,6 +706,7 @@ export class InputStream {
 
   private keepProfile(id: string, profile: PadProfile): void {
     this.profile = profile;
+    this.profiles.set(id, profile);
     try {
       localStorage.setItem(`nel3ab.pad.${id}`, JSON.stringify(profile));
     } catch {

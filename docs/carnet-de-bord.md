@@ -4705,6 +4705,91 @@ un signal, et il existe déjà: le worker sait précisément quand la file d'un
 spectateur déborde. Ce qui manque est une règle qui n'oscille pas, et celle-là se
 choisit sur une vraie liaison plutôt qu'à la table.
 
+### 7.32 Un émulateur oublié, et quatre manettes qui n'en font qu'une
+
+Deux pannes rapportées le même matin, sans rapport apparent, et dont l'une
+expliquait la moitié de l'autre.
+
+#### Le son haché
+
+« Le son est cassé, je ne sais pas si c'est ta dernière modification ou celle
+d'avant. » Ni l'une ni l'autre: la veille, pour mesurer ce que coûte le 608x448,
+j'avais arrêté le service et lancé un worker à la main. En le tuant, **son
+Dolphin est resté**. Il tournait encore douze heures plus tard, à 67 % de
+processeur.
+
+Le point qui casse est précis: les deux émulateurs montaient le même répertoire
+de session, donc ils écrivaient dans **le même `audio.fifo`**. Le worker lisait
+un PCM entrelacé venant de deux parties différentes.
+
+Ce qui rend l'histoire intéressante, c'est ce qui n'a rien dit. `sound_starved`
+est resté à zéro pendant douze heures, parce que le worker recevait bien des
+octets — simplement pas ceux d'une seule partie. Aucune erreur, aucune trace.
+C'est ce zéro qui a permis de trancher vite: le serveur produisait, donc la
+casse n'était ni dans l'encodage ni dans l'envoi.
+
+Et ça expliquait aussi la seconde moitié du rapport, « ma manette ne fonctionne
+pas dans le jeu, ni le clavier »: les deux Dolphin lisaient le même tuyau
+d'entrée, donc chacun n'en recevait qu'une partie. Le menu, lui, répondait au
+clavier, parce que le menu vit dans la page et ne traverse aucun émulateur.
+C'était le meilleur indice du rapport, et il désignait le tuyau.
+
+#### Le garde
+
+Deux processus sur un même tuyau ne devraient pas être une situation possible.
+Faute de pouvoir l'empêcher, on la rend bruyante: le worker refuse de démarrer
+si quelque chose écrit déjà dans son tuyau de son.
+
+**On écoute plutôt qu'on cherche.** Chercher le coupable demanderait de fouiller
+`/proc`, ou de savoir que l'émulateur tourne dans Docker, ce que le crate
+`emulator` ignore volontairement. Écouter répond directement à la seule question
+qui compte: est-ce que quelque chose arrive alors que nous n'avons encore rien
+démarré ?
+
+En deux temps, et c'est le second qui fait la différence. On vide d'abord ce qui
+traîne, parce que des octets d'un écrivain déjà mort sont périmés et non une
+intrusion; refuser à cause d'eux condamnerait une salle pour un fantôme. On
+écoute ensuite un quart de seconde: ce qui arrive après a forcément un vivant
+derrière. Trois tests, dont deux jumeaux négatifs — le tuyau tranquille et les
+octets périmés — parce qu'un garde de démarrage qui se trompe dans ce sens-là est
+pire que la panne qu'il évite.
+
+Le refus est net, donc systemd redémarre en boucle. C'est voulu: une boucle qui
+dit pourquoi vaut mieux que douze heures de son cassé qui ne dit rien.
+
+#### Quatre manettes pour un seul pad
+
+L'autre moitié du rapport était un vrai défaut, et il touche tous ceux qui
+branchent une manette GameCube: **un adaptateur présente QUATRE manettes au
+navigateur**, une par port, même avec un seul pad dedans. La page lisait
+`connected[0]`. Un pad dans le troisième port était donc mort, en jeu comme dans
+le menu, sans erreur ni message.
+
+Trois conséquences, toutes réparées par la même idée — lire TOUTES les manettes
+et fondre leurs lectures:
+
+- il n'y a plus rien à choisir pour jouer. Le clavier et toutes les manettes
+  fonctionnent en même temps, ce qui était demandé;
+- la liste des touches montre un **modèle** et non quatre branchements. Les
+  profils étaient déjà rangés par identifiant, donc les quatre ports partageaient
+  déjà une seule configuration: c'est l'affichage qui laissait croire le
+  contraire;
+- l'apprentissage regarde toutes les manettes du même modèle. Demander « appuie
+  sur A » à un port vide est une leçon qu'on ne peut pas finir.
+
+Une subtilité dans la fusion: un stick prend la valeur la plus grande **en
+valeur absolue**, pas la première non nulle. Sinon une manette au repos qui
+dérive d'un cheveu bat une manette qu'on pousse à fond.
+
+#### Et un défaut introduit en réparant
+
+Lire chaque manette avec son propre profil demande un cache, parce que
+`localStorage` est synchrone et que la boucle tourne cent fois par seconde.
+Sauf que « remettre la manette d'origine » effaçait le profil du disque et pas
+du cache: le bouton n'aurait rien fait, et la boucle aurait relu l'ancien profil
+au tic suivant. Trouvé en relisant les chemins d'écriture après coup, pas par un
+test.
+
 ---
 
 ## 8. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
@@ -4774,6 +4859,8 @@ pas échouer**.
 | L'horaire recalé sur l'image la plus chanceuse | Le calage prenait le transit le plus rapide de la fenêtre, et repartait de là à chaque famine. Sur un lien irrégulier, chaque trou reposait l'horaire au plus optimiste et provoquait le suivant | Se caler sur le meilleur cas, c'est jeter tout ce qui n'est pas le meilleur cas |
 | La cadence de la source lue sur les arrivées | Une source à 60 Hz livrée toutes les 26 ms était prise pour une source à 39 Hz, donc ses trous passaient pour normaux | Deux causes différentes ont besoin de deux mesures différentes. Les instants de capture décrivent le jeu, les arrivées décrivent le réseau |
 | Une image jetée au milieu d'un groupe | La file pleine jetait l'image, les suivantes référençaient celle qui manquait, et le navigateur décodait du bruit: 306 non décodables contre 192 décodées | Dans un flux où les morceaux dépendent les uns des autres, se taire jusqu'au prochain point d'entrée vaut mieux que continuer à parler |
+| Un émulateur oublié sur le même tuyau | Un Dolphin d'une mesure de la veille écrivait son son dans le `audio.fifo` d'une autre salle. Douze heures de son haché, `sound_starved` à zéro, aucune trace | Ce qui ne peut pas être empêché doit être rendu bruyant. Et un compteur à zéro pendant une panne est un indice, pas un dédouanement |
+| Une manette lue sur quatre | Un adaptateur GameCube présente quatre manettes au navigateur; la page ne lisait que la première, donc un pad dans un autre port était muet en jeu comme au menu | Ne pas choisir quand on peut tout lire. Un choix par défaut est un défaut par défaut pour ceux qui ne tombent pas dessus |
 | Un test dont le motif ne testait rien | Le test de réduction utilisait le motif en dégradé déjà là, où la moyenne d'un bloc et son coin ne diffèrent que d'un cran: un passage qui prendrait le coin serait passé | Un test de moyenne a besoin d'un motif où moyenne et échantillon DIFFÈRENT, et le garde qui le dit vaut mieux que la confiance |
 | Un onglet d'essai en arrière-plan | La page témoin d'un pilote annonçait une taille qui n'était celle d'aucun flux: Chrome gèle l'affichage d'un onglet caché, donc elle n'avait jamais rien peint | Deux navigateurs et pas deux onglets. Une valeur par défaut qui traverse un test est une valeur qui se fait passer pour une mesure |
 | Un plafond de débit qui plafonne tout | QVBR et CBR bornaient bien la pointe, mais en redistribuant les bits sur toutes les images — et QVBR rendait même la pointe pire. Le réglage retenu ne touche qu'une image toutes les dix secondes | Quand une contrainte dit « sans toucher au reste », le levier se cherche là où la pointe naît, pas là où le débit se règle |

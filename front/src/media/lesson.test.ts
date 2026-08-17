@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Lesson, type Snapshot } from "./lesson";
+import { Lesson, loudest, type Snapshot } from "./lesson";
 import { readPad } from "./pad";
 
 const rest = (): Snapshot => ({ buttons: Array(16).fill(0), axes: [0, 0, 0, 0, -1, -1] });
@@ -87,5 +87,33 @@ describe("learning a pad", () => {
     } as unknown as Gamepad;
 
     expect(readPad(pad, profile).buttons).toBe(1); // A, and nothing else
+  });
+});
+
+describe("fondre deux instantanés du même modèle", () => {
+  it("garde ce qui a le plus bougé, entrée par entrée", () => {
+    const merged = loudest(
+      { buttons: [0, 0.3, 0], axes: [0.1, -0.9] },
+      { buttons: [1, 0, 0], axes: [-1, 0.2] },
+    );
+    expect(merged.buttons).toEqual([1, 0.3, 0]);
+    expect(merged.axes).toEqual([-1, -0.9]);
+  });
+
+  // Le cas réel: un adaptateur GameCube expose quatre manettes, et trois
+  // d'entre elles n'ont rien de branché. Une leçon qui ne regarderait que la
+  // première ne pourrait jamais finir.
+  it("laisse une manette silencieuse ne rien apporter", () => {
+    const silent = { buttons: [0, 0, 0, 0], axes: [0, 0] };
+    const pressed = { buttons: [0, 0, 1, 0], axes: [0, -0.8] };
+    expect(loudest(silent, pressed)).toEqual(pressed);
+    expect(loudest(pressed, silent)).toEqual(pressed);
+  });
+
+  it("supporte deux manettes qui n'annoncent pas le même nombre d'entrées", () => {
+    expect(loudest({ buttons: [1], axes: [] }, { buttons: [0, 0.5], axes: [0.4] })).toEqual({
+      buttons: [1, 0.5],
+      axes: [0.4],
+    });
   });
 });

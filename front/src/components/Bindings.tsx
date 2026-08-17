@@ -128,6 +128,14 @@ export function Bindings({
                     {nameOf(pad.id)}
                   </button>
                 ))}
+                {/* Le malentendu à lever: choisir ici ne DÉSACTIVE rien. Toutes
+                    les manettes branchées jouent, et le clavier avec, en même
+                    temps. Ce bouton dit seulement laquelle on est en train de
+                    régler. */}
+                <span className="w-full text-[10px] text-faint">
+                  toutes jouent en même temps, clavier compris. Ce choix ne dit que laquelle on
+                  règle.
+                </span>
               </div>
             ) : (
               <p className="text-[11px] text-muted">

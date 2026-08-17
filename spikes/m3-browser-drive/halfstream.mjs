@@ -39,13 +39,18 @@ const shown = (page) =>
     return {
       width: canvas?.width ?? 0,
       painted: globalThis.nel3abTest.counters().painted,
-      // À deux pixels près: `object-contain` cale l'élément sur son parent et
-      // met l'image dedans en gardant ses proportions.
+      // « Remplit » veut dire: ne dépasse jamais, et touche au moins un bord.
+      //
+      // Et pas « fait exactement la taille du parent »: l'image garde ses
+      // proportions, donc l'une des deux dimensions est forcément plus petite
+      // dès que la place n'est pas en 4/3. C'est ce qu'affirmait la version
+      // d'avant, et elle ne tenait que par accident.
       fills:
         box !== undefined &&
         place !== undefined &&
-        Math.abs(box.width - place.width) < 2 &&
-        Math.abs(box.height - place.height) < 2,
+        box.width <= place.width + 1 &&
+        box.height <= place.height + 1 &&
+        (Math.abs(box.width - place.width) < 2 || Math.abs(box.height - place.height) < 2),
     };
   });
 

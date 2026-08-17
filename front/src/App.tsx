@@ -55,6 +55,7 @@ import {
   storedTheme,
   themeLabel,
 } from "./lib/theme";
+import { FITS, fitLabel, rememberFit, storedFit } from "./lib/fit";
 import { useBare } from "./lib/fullscreen";
 import { useMe, useRename } from "./lib/me";
 import { useLobby, useRoom, type Asked } from "./lib/room";
@@ -246,6 +247,10 @@ function Room({
   /** La forme du menu. Un réglage à part du thème: l'un change des couleurs,
    * l'autre change la façon de se déplacer. */
   const [shell, setShell] = useState(storedShell);
+  /** Comment l'image est posée à l'écran. Séparé du format transporté: le
+   * premier se choisit sur le débit qu'on a, le second sur ce qu'on aime voir. */
+  const [fit, setFit] = useState(storedFit);
+  useEffect(() => rememberFit(fit), [fit]);
   useEffect(() => rememberShell(shell), [shell]);
   useEffect(() => rememberMode(mode), [mode]);
   /** Le jeu demandé et l'image peinte au moment où on l'a demandé.
@@ -447,7 +452,7 @@ function Room({
         },
         {
           id: "half",
-          label: "format de l'image",
+          label: "format transporté",
           value: shot?.video.half ? "réduit" : "pleine taille",
           // Ce que la personne a besoin de savoir pour choisir, et rien de plus:
           // combien ça coûte, et que ça ne regarde qu'elle.
@@ -464,6 +469,23 @@ function Room({
             const wanted = id === "half";
             session?.video.setHalf(wanted);
             setHalf(wanted);
+          },
+        },
+        {
+          id: "fit",
+          label: "taille à l'écran",
+          value: fitLabel(fit),
+          hint: "ce qu'on affiche, séparé de ce qu'on transporte",
+          icon: <ExpandIcon className="h-full w-full" />,
+          picks: FITS.map((choice) => ({
+            id: choice.id,
+            label: choice.label,
+            hint: choice.note,
+          })),
+          picked: fit,
+          onPick: (id) => {
+            const found = FITS.find((choice) => choice.id === id);
+            if (found) setFit(found.id);
           },
         },
         {
@@ -592,7 +614,12 @@ function Room({
   return (
     <div className="flex h-full">
       <main className="relative flex min-w-0 flex-1 flex-col">
-        <Screen canvasRef={ref} connected={shot?.video.connected ?? false} />
+        <Screen
+          canvasRef={ref}
+          connected={shot?.video.connected ?? false}
+          fit={fit}
+          picture={shot?.video.picture ?? { width: 0, height: 0 }}
+        />
         {bare ? (
           /* Replié, il reste de quoi revenir. Discret et dans un coin: une barre
              permanente par-dessus l'image rendrait le repli inutile. */

@@ -73,6 +73,11 @@ export type VideoStats = {
   /** Combien d'images la file peut retenir en ce moment, calculé d'après la
    * marge. À comparer avec `backlog`, qui dit combien elle en tient. */
   room: number;
+  /** La taille de la dernière image décodée, en pixels. Zéro avant la première.
+   *
+   * Ce que le DÉCODEUR a produit, et non ce qu'on a demandé: c'est la seule
+   * mesure qui ne peut pas mentir sur ce qui arrive vraiment. */
+  picture: { width: number; height: number };
   /** Vrai quand cette page prend le flux réduit. */
   half: boolean;
   /** À quelle cadence la SOURCE produit, lue sur les instants de capture. Un jeu
@@ -254,6 +259,7 @@ export class VideoStream {
       gapMs: { p50: this.gaps.at(0.5), p95: this.gaps.at(0.95), max: this.gaps.at(1) },
       jitterMs: this.jitterMs(),
       room: this.queueRoom(),
+      picture: { width: this.canvas.width, height: this.canvas.height },
       half: this.half,
       sourceHz: 1000 / this.sourcePeriodMs(),
       refreshHz: 1000 / this.refreshPeriod(),

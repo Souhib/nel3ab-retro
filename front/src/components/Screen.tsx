@@ -3,40 +3,66 @@
  *
  * The canvas belongs to the media loop; this component exists to place it and to
  * say when it is empty. It never draws, and it never re-renders on a frame.
+ *
+ * # Poser l'image est un calcul, pas une classe
+ *
+ * Un canvas a une taille INTRINSÈQUE égale à son nombre de pixels, et le CSS ne
+ * sait pas, à lui seul, faire « le plus grand agrandissement entier qui tient »:
+ * ça demande de connaître à la fois la place et la taille de l'image. D'où la
+ * mesure, et d'où [`place`], qui est pure et testée à part.
+ *
+ * La place est mesurée par un `ResizeObserver` plutôt qu'à chaque rendu, parce
+ * qu'elle change quand la colonne se replie ou qu'on passe en plein écran, et
+ * qu'aucun de ces deux gestes ne rend ce composant.
  */
+import { useEffect, useRef, useState } from "react";
+import { place, type Fit } from "../lib/fit";
+
 export function Screen({
   canvasRef,
   connected,
+  fit,
+  picture,
 }: {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
   connected: boolean;
+  /** Comment poser l'image. Séparé du format transporté: ce qu'on économise sur
+   * le réseau n'a pas à décider de la taille qu'on regarde. */
+  fit: Fit;
+  /** La taille de l'image décodée, telle que la boucle média la publie. */
+  picture: { width: number; height: number };
 }) {
+  const room = useRef<HTMLDivElement>(null);
+  const [space, setSpace] = useState({ width: 0, height: 0 });
+
+  useEffect(() => {
+    const box = room.current;
+    if (!box) return;
+    const watch = new ResizeObserver(([entry]) => {
+      const size = entry?.contentRect;
+      if (size) setSpace({ width: size.width, height: size.height });
+    });
+    watch.observe(box);
+    return () => watch.disconnect();
+  }, []);
+
+  const at = place(fit, picture, space);
+
   return (
-    <div className="relative flex min-h-0 flex-1 items-center justify-center bg-black">
+    <div ref={room} className="relative flex min-h-0 flex-1 items-center justify-center bg-black">
       <canvas
         id="screen"
         ref={canvasRef}
         width={1280}
         height={960}
-        /* `h-full w-full` et non `max-h-full max-w-full`, et la différence est
-           tout sauf cosmétique.
-        
-           Un canvas a une taille INTRINSÈQUE égale à son nombre de pixels, et
-           `max-*` ne fait que la plafonner: il ne fait jamais grandir. En pleine
-           taille l'image fait 1216 pixels de large, donc plus que la place
-           disponible, donc elle était rabotée pour tenir et remplissait l'écran.
-           En demi-format elle fait 608, donc moins, donc plus rien ne la faisait
-           grandir: elle s'affichait à 608 pixels au milieu du noir, sur une place
-           de 1136. Mesuré le 2026-08-17: 28 % de la surface.
-        
-           Quelqu'un qui passe en demi-format pour sauver son débit se retrouvait
-           donc avec une image quatre fois plus petite EN PLUS d'être moins fine,
-           ce qui n'était demandé nulle part.
-        
-           `object-contain` fait le reste: l'élément prend toute la place, et
-           l'image garde ses proportions dedans. L'émulateur dessine en 4/3, et
-           l'étirer serait la déformation que personne ne pardonne. */
-        className="h-full w-full object-contain"
+        style={{
+          width: `${at.width}px`,
+          height: `${at.height}px`,
+          // Le lissage: laissé au navigateur pour « remplir », coupé pour les
+          // trois autres. Un agrandissement exact veut des pixels francs; un
+          // agrandissement bâtard veut être lissé, sinon il scintille.
+          imageRendering: at.smooth ? "auto" : "pixelated",
+        }}
       />
       {connected ? null : (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">

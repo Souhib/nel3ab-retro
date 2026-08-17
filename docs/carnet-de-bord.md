@@ -5111,6 +5111,67 @@ place qu'on lui donne », dans les DEUX formats. Vérifié en remettant `max-w-f
 elle rougit sur le demi-format et pas sur l'autre, ce qui est exactement la forme
 du défaut.
 
+### 7.37 Ce qu'on transporte et ce qu'on affiche sont deux décisions
+
+Dans la foulée: « je veux une différence entre le format de l'image qu'on traite
+et le format qu'on affiche ».
+
+La distinction est juste, et le réglage d'avant les confondait. Ce qu'on
+**transporte** — 1216x896 ou 608x448 — se choisit sur le débit qu'on a. Ce qu'on
+**affiche** se choisit sur ce qu'on aime voir. Les avoir liés revenait à dire que
+celui qui économise sa bande passante veut aussi une petite image, ce que
+personne n'a jamais demandé. L'ancien réglage s'appelle donc maintenant « format
+transporté », et « taille à l'écran » vit à côté.
+
+#### Quatre choix, parce que ce sont quatre résultats
+
+Mesuré sur une image de 608x448 dans une place de 1616x1080:
+
+| choix | affiché | agrandissement |
+|---|---|---|
+| remplir | 1465x1080 | 2,41 fois, lissé |
+| remplir, net | 1465x1080 | 2,41 fois, sans lissage |
+| entier | 1216x896 | exactement 2 fois |
+| origine | 608x448 | aucun |
+
+Ce ne sont pas quatre valeurs d'une même grandeur mais quatre résultats
+différents, et c'est pour ça que ce n'est pas un curseur: un curseur donnerait
+mille tailles dont neuf cent quatre-vingt-dix-neuf sont des agrandissements
+bâtards.
+
+**Le lissage suit le choix**, et c'est la moitié de ce qu'on achète. Un
+agrandissement EXACT veut des pixels francs: doubler chaque pixel donne une image
+franchement plus nette qu'un agrandissement de 2,41 fois. Un agrandissement
+bâtard, lui, veut être lissé, sinon il scintille. « Remplir, net » existe parce
+que ce dernier arbitrage est un goût et pas une vérité.
+
+#### Deux cas limites, et ils sont dans la fonction pure
+
+Poser l'image est un calcul et non une classe CSS: « le plus grand agrandissement
+entier qui tient » demande de connaître à la fois la place et la taille de
+l'image, ce que le CSS ne sait pas faire seul. D'où une fonction pure, testée à
+part, où vivent les deux pièges:
+
+- **une taille fixe qui ne tient pas.** Sur une petite fenêtre, 1216x896 en
+  taille d'origine déborderait et l'image serait COUPÉE. « Entier » et « origine »
+  retombent alors sur « remplir », parce qu'une image tronquée est pire qu'une
+  image réduite. Un test le vérifie pour les quatre choix, trois tailles de
+  fenêtre et deux formats: rien ne déborde jamais;
+- **une image de taille nulle**, avant la première image décodée. Diviser par
+  elle donnerait l'infini, et un élément infini casse la mise en page.
+
+#### Un test qui ne tenait que par accident
+
+Le pilote du demi-format affirmait que l'image « fait exactement la taille de son
+parent ». C'était vrai tant que `object-contain` calait l'ÉLÉMENT sur le parent et
+mettait l'image dedans. L'élément fait maintenant la taille de l'image, donc
+l'affirmation est devenue fausse alors que le comportement, lui, est meilleur.
+
+Elle dit maintenant ce qu'elle voulait dire: **ne dépasse jamais, et touche au
+moins un bord**. L'image garde ses proportions, donc l'une des deux dimensions
+est forcément plus petite dès que la place n'est pas en 4/3 — l'ancienne
+formulation ne tenait que parce que le hasard des tailles la rendait vraie.
+
 ---
 
 ## 8. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
@@ -5182,6 +5243,7 @@ pas échouer**.
 | Une image jetée au milieu d'un groupe | La file pleine jetait l'image, les suivantes référençaient celle qui manquait, et le navigateur décodait du bruit: 306 non décodables contre 192 décodées | Dans un flux où les morceaux dépendent les uns des autres, se taire jusqu'au prochain point d'entrée vaut mieux que continuer à parler |
 | Une icône fourre-tout sur quinze entrées | Le même carré vide servait de « son », « volume », « ambiance » et douze autres. Un menu où tout porte la même icône se relit mot par mot, et un carré vide a l'air d'une image qui n'a pas chargé | Une icône qui ne distingue rien ne fait qu'occuper de la place. Et un repli doit ressembler à un repli, pas à une panne |
 | Un fond sans dedans ni dehors | La première taverne était un aplat marron: les plaques ne se détachaient pas du sol. Ce qui l'a réparée n'est pas plus de détail mais plus d'écart de valeur — vignette, plaques plus claires, panneau enfoncé | Une matière se lit par ses contrastes avant ses ornements |
+| Une assertion vraie par accident | Un pilote affirmait que l'image « fait la taille de son parent ». C'était vrai tant que l'élément était calé sur le parent, et c'est devenu faux quand il a pris la taille de l'image — alors que le comportement s'améliorait | Dire ce qu'on veut dire: « ne dépasse pas et touche un bord », pas « fait la même taille » |
 | Un plafond pris pour un remplissage | Le canvas portait `max-w-full`: en pleine taille l'image dépassait donc le plafond mordait et elle remplissait l'écran; en demi-format elle était plus petite que la place et rien ne la faisait grandir — 28 % de la surface | `max-*` plafonne, il n'agrandit pas. Et un défaut qui n'apparaît qu'avec une nouvelle option ne se voit dans aucun essai de l'ancienne |
 | Une grandeur écrite deux fois | L'horaire faisait attendre jusqu'à 180 ms et la file gardait huit images, soit 133 ms. Les images arrivaient à l'heure et étaient jetées avant leur tour: 58 % peintes, une seconde de gel au p95 | Deux écritures d'une même grandeur finissent par ne plus être d'accord. Celle qui dépend de l'autre se CALCULE |
 | Un compteur qui existait sans être affiché | Le nombre d'images jetées était compté depuis le début et visible nulle part. Affiché à côté du nombre de places, il donnait la réponse en une seconde | Ce qu'on compte sans le montrer ne sert à personne le jour où il faut chercher |

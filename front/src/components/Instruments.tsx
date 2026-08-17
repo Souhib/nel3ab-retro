@@ -48,6 +48,13 @@ export function Instruments({ shot }: { shot: Snapshot }) {
           hint="16,7 ms est régulier. Un p95 bien au-dessus veut dire que les images arrivent par paquets."
         />
         <Readout
+          label="format"
+          value={video.half ? "réduit" : "plein"}
+          unit={video.half ? "608×448" : "1216×896"}
+          tone="faint"
+          hint="Le worker encode la même image deux fois et chacun choisit. Le format réduit demande environ 2,6 fois moins de débit."
+        />
+        <Readout
           label="gigue de la liaison"
           value={video.jitterMs.toFixed(0)}
           unit="ms absorbés"

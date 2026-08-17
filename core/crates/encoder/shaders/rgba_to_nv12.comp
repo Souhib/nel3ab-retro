@@ -22,9 +22,38 @@ layout(set = 0, binding = 2, rg8) uniform writeonly image2D chroma;
 
 layout(push_constant) uniform Push
 {
-    ivec2 chroma_size;  // source size / 2
+    ivec2 chroma_size;  // TARGET size / 2
 }
 push;
+
+// Combien de pixels de la source, sur un côté, font un pixel de la sortie.
+//
+// Une constante de spécialisation, pas une variable: elle est fixée à la
+// création du pipeline, donc le compilateur déroule la boucle et efface la
+// division. À 1 ce fichier produit exactement ce qu'il produisait avant — une
+// seule lecture par pixel, divisée par un — et c'est la propriété qui compte:
+// le flux pleine taille ne doit rien payer pour que le demi-format existe.
+//
+// À 2, un pixel de sortie est la MOYENNE d'un bloc de 2x2. Une moyenne et pas
+// un pixel sur deux: prendre un pixel sur deux fait scintiller les damiers et
+// les grilles, dont un jeu GameCube est plein.
+layout(constant_id = 0) const int SCALE = 1;
+
+// Un pixel de la sortie, lu dans la source.
+//
+// Le nombre total de lectures ne change pas avec l'échelle: à 2, chaque
+// invocation lit quatre fois plus, mais il y a quatre fois moins d'invocations.
+// C'est pour ça que le demi-format coûte du temps d'encodage et presque pas de
+// temps de conversion.
+vec3 source_at(ivec2 target_pixel)
+{
+    const ivec2 base = target_pixel * SCALE;
+    vec3 sum = vec3(0.0);
+    for (int y = 0; y < SCALE; ++y)
+        for (int x = 0; x < SCALE; ++x)
+            sum += texelFetch(source, base + ivec2(x, y), 0).rgb;
+    return sum / float(SCALE * SCALE);
+}
 
 const vec3 K = vec3(0.2126, 0.7152, 0.0722);  // BT.709 luma weights
 
@@ -41,10 +70,10 @@ void main()
         return;
 
     const ivec2 p = c * 2;
-    const vec3 s00 = texelFetch(source, p + ivec2(0, 0), 0).rgb;
-    const vec3 s10 = texelFetch(source, p + ivec2(1, 0), 0).rgb;
-    const vec3 s01 = texelFetch(source, p + ivec2(0, 1), 0).rgb;
-    const vec3 s11 = texelFetch(source, p + ivec2(1, 1), 0).rgb;
+    const vec3 s00 = source_at(p + ivec2(0, 0));
+    const vec3 s10 = source_at(p + ivec2(1, 0));
+    const vec3 s01 = source_at(p + ivec2(0, 1));
+    const vec3 s11 = source_at(p + ivec2(1, 1));
 
     imageStore(luma, p + ivec2(0, 0), vec4(luma_of(s00)));
     imageStore(luma, p + ivec2(1, 0), vec4(luma_of(s10)));

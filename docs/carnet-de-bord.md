@@ -4487,6 +4487,31 @@ Le seul cousin du rollback qui existe en vidéo est la reprojection d'image côt
 client, et elle ne marche que pour un mouvement de caméra en 3D avec la carte de
 profondeur. Nous recevons une image finie: il n'y a rien à reprojeter.
 
+#### Un test qui échouait une fois sur vingt-cinq
+
+`just check` est passé au rouge sur un test des jaquettes, puis au vert en le
+rejouant. Un test intermittent est un défaut à part entière, parce qu'il apprend
+à l'oeil à rejouer au lieu de lire. Mesuré plutôt que supposé: **un échec sur 25
+exécutions en parallèle, zéro sur 15 en série**. Puis l'erreur elle-même, en
+l'affichant au lieu de la deviner: `ETXTBSY`, « Text file busy ».
+
+C'est une course connue sous Linux. Écrire un fichier exécutable puis le lancer
+depuis un programme à plusieurs fils échoue parfois: un autre fil qui se duplique
+pendant l'écriture hérite du descripteur ouvert en écriture, et l'exécution
+refuse tant qu'il est ouvert. Les tests écrivaient chacun un faux `dolphin-tool`.
+
+Deux d'entre eux n'avaient aucun besoin d'un script: « sort en disant oui sans
+rien écrire » est `/bin/true`, et « sort en disant non » est `/bin/false`. Ceux-là
+ne peuvent plus courir du tout. Le dernier a besoin d'un outil qui réussit, donc
+d'un script, et il réessaie.
+
+Mais le plus important est ce que la course a révélé dans le code lui-même. Un
+échec à DÉMARRER l'outil écrivait le témoin « ce disque n'a pas de jaquette ». Un
+Docker qui redémarre au mauvais moment condamnait donc un jeu à n'avoir plus
+jamais d'image, jusqu'à ce que quelqu'un vide le cache à la main. Le témoin n'est
+plus écrit que pour une vraie réponse: l'outil a tourné et a dit non, ou le
+disque n'a effectivement pas de bannière.
+
 ### 7.30 La pointe de débit, c'était l'image-clé
 
 Demande: plafonner les pointes de débit, et mesurer. Contrainte: ne rien changer
@@ -4585,30 +4610,101 @@ sa limite quelles que soient les pointes, et aucun réglage d'image-clé n'y peu
 rien. Baisser cette moyenne veut dire baisser la qualité pour tout le monde, ou
 encoder deux fois. Les deux restent ouvertes.
 
-#### Un test qui échouait une fois sur vingt-cinq
+### 7.31 Deux formats, et chacun choisit le sien
 
-`just check` est passé au rouge sur un test des jaquettes, puis au vert en le
-rejouant. Un test intermittent est un défaut à part entière, parce qu'il apprend
-à l'oeil à rejouer au lieu de lire. Mesuré plutôt que supposé: **un échec sur 25
-exécutions en parallèle, zéro sur 15 en série**. Puis l'erreur elle-même, en
-l'affichant au lieu de la deviner: `ETXTBSY`, « Text file busy ».
+L'entrée précédente se terminait sur ce qui n'était pas réglé: en course le flux
+demande treize à quinze mégabits par seconde, et aucun réglage d'image-clé n'y
+peut rien. La demande qui a suivi était la bonne: **un bouton**, pour que celui
+qui rame passe en 608x448 pendant que les autres restent en 1216x896.
 
-C'est une course connue sous Linux. Écrire un fichier exécutable puis le lancer
-depuis un programme à plusieurs fils échoue parfois: un autre fil qui se duplique
-pendant l'écriture hérite du descripteur ouvert en écriture, et l'exécution
-refuse tant qu'il est ouvert. Les tests écrivaient chacun un faux `dolphin-tool`.
+C'est faisable, et la raison tient en une phrase: il n'y a qu'une image encodée,
+partagée par tout le monde, donc il faut en encoder **deux**.
 
-Deux d'entre eux n'avaient aucun besoin d'un script: « sort en disant oui sans
-rien écrire » est `/bin/true`, et « sort en disant non » est `/bin/false`. Ceux-là
-ne peuvent plus courir du tout. Le dernier a besoin d'un outil qui réussit, donc
-d'un script, et il réessaie.
+#### Pourquoi les autres solutions ne pouvaient pas marcher
 
-Mais le plus important est ce que la course a révélé dans le code lui-même. Un
-échec à DÉMARRER l'outil écrivait le témoin « ce disque n'a pas de jaquette ». Un
-Docker qui redémarre au mauvais moment condamnait donc un jeu à n'avoir plus
-jamais d'image, jusqu'à ce que quelqu'un vide le cache à la main. Le témoin n'est
-plus écrit que pour une vraie réponse: l'outil a tourné et a dit non, ou le
-disque n'a effectivement pas de bannière.
+La contrainte « ne rien changer pour une bonne connexion » élimine d'un coup tous
+les leviers partagés, et c'est elle qui rend le choix évident:
+
+- un vrai contrôle de débit redistribue les bits sur toutes les images de tous
+  les spectateurs. Mesuré: le CBR à 12 Mbit/s déplace le p95 de 32 053 à 29 114
+  octets pour tout le monde;
+- baisser la résolution interne de la salle est la même objection en plus gros:
+  ça marche, et ça descend aussi celui qui n'avait pas de problème;
+- une adaptation automatique sans second flux n'a rien vers quoi s'adapter.
+
+#### Ce qui rend ça abordable
+
+Trois choses, découvertes en lisant le code plutôt qu'en le supposant.
+
+**Le rapport est exactement 2.** Le shader travaille déjà par blocs de 2x2 pour
+la chrominance. Le demi-format lit un bloc de 4x4 au lieu de 2x2, et le nombre
+total de lectures ne change pas: quatre fois plus par invocation, quatre fois
+moins d'invocations. C'est pour ça que le second flux coûte du temps d'encodage
+et presque pas de temps de conversion.
+
+**L'échelle est une constante de spécialisation**, pas une variable. Vulkan la
+fige à la création du pipeline, donc le compilateur déroule la boucle et efface
+la division: à 1, le chemin pleine taille produit exactement ce qu'il produisait
+avant, une seule lecture par pixel. Ce n'est pas « presque pareil », c'est le
+même code machine.
+
+**Une moyenne et pas un pixel sur deux.** Prendre un pixel sur deux fait
+scintiller les damiers et les grilles, dont un jeu GameCube est plein. Le test
+GPU épingle ça, et il a fallu changer son motif pour qu'il prouve quelque chose:
+sur le motif en dégradé déjà présent, la moyenne d'un bloc et son coin ne
+diffèrent que d'un cran, donc les deux passaient. Le garde qui l'a dit est écrit
+dans le test lui-même, « ce motif ne distingue pas moyenne et coin, donc ce test
+ne prouve rien », et il a échoué avant que le test ne serve à rien.
+
+#### Ce que ça coûte, mesuré
+
+Sur lgf le 2026-08-17, lu dans les journaux du worker de part et d'autre du
+moment où un spectateur se branche sur le demi-format:
+
+| | sans demi-format | avec |
+|---|---|---|
+| conversion p50 | 0,175 ms | 0,301 ms |
+| encodage p50 | 1,77 ms | 2,85 ms |
+| **attente** (temps libre) | 14,7 ms | 13,5 ms |
+
+Le second flux coûte **1,2 ms par image** sur un budget de 16,7, et l'attente
+baisse d'exactement autant. Elle remonte à 14,7 dès que le spectateur part.
+
+Les deux flux mesurés en même temps pendant une course: 13,7 Mbit/s en pleine
+taille, 5,27 en demi-format. Le rapport de 2,6 tient.
+
+**Il n'est encodé que si quelqu'un le regarde.** C'est la ligne qui fait la
+différence entre respecter la contrainte et l'approcher: une salle où tout le
+monde a une bonne connexion ne paie rien du tout, ni une milliseconde ni un
+octet. Les surfaces, elles, sont allouées au démarrage, parce qu'ouvrir un
+encodeur au milieu d'une partie coûte des dizaines de millisecondes.
+
+#### Ce qui doit rester séparé
+
+Rien n'est partagé entre les deux flux: ni la liste des spectateurs, ni les
+demandes d'image-clé, ni l'annonce d'une arrivée. Une clé de l'un ne répare pas
+l'autre, et une image de l'un donnée à un décodeur démarré sur l'autre ne produit
+pas une erreur mais une bouillie, chez celui qui vient de basculer et chez lui
+seul. C'est le genre de panne qu'on ne reproduit jamais sur sa propre machine,
+donc deux tests la tiennent: un dans le transport, et un pilote de navigateur
+avec une page témoin restée sur l'autre flux.
+
+Ce pilote a d'ailleurs commencé par mentir. Sa page témoin annonçait 1280 de
+large, ce qui n'est aucun des deux formats: c'est la taille écrite dans le HTML,
+parce que l'onglet était en arrière-plan et que Chrome y gèle la boucle
+d'affichage. Elle n'avait jamais rien peint. Deux navigateurs plutôt que deux
+onglets, et la mesure redevient une mesure.
+
+Le son n'est pas dupliqué: réduire une image change ce qu'on voit, pas ce qu'on
+entend, et le son coûte le centième de la vidéo.
+
+#### Ce qui vient après, si on le veut
+
+La bascule est **manuelle**, et c'est volontaire. La rendre automatique demande
+un signal, et il existe déjà: le worker sait précisément quand la file d'un
+spectateur déborde. Ce qui manque est une règle qui n'oscille pas, et celle-là se
+choisit sur une vraie liaison plutôt qu'à la table.
+
 ---
 
 ## 8. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
@@ -4678,6 +4774,8 @@ pas échouer**.
 | L'horaire recalé sur l'image la plus chanceuse | Le calage prenait le transit le plus rapide de la fenêtre, et repartait de là à chaque famine. Sur un lien irrégulier, chaque trou reposait l'horaire au plus optimiste et provoquait le suivant | Se caler sur le meilleur cas, c'est jeter tout ce qui n'est pas le meilleur cas |
 | La cadence de la source lue sur les arrivées | Une source à 60 Hz livrée toutes les 26 ms était prise pour une source à 39 Hz, donc ses trous passaient pour normaux | Deux causes différentes ont besoin de deux mesures différentes. Les instants de capture décrivent le jeu, les arrivées décrivent le réseau |
 | Une image jetée au milieu d'un groupe | La file pleine jetait l'image, les suivantes référençaient celle qui manquait, et le navigateur décodait du bruit: 306 non décodables contre 192 décodées | Dans un flux où les morceaux dépendent les uns des autres, se taire jusqu'au prochain point d'entrée vaut mieux que continuer à parler |
+| Un test dont le motif ne testait rien | Le test de réduction utilisait le motif en dégradé déjà là, où la moyenne d'un bloc et son coin ne diffèrent que d'un cran: un passage qui prendrait le coin serait passé | Un test de moyenne a besoin d'un motif où moyenne et échantillon DIFFÈRENT, et le garde qui le dit vaut mieux que la confiance |
+| Un onglet d'essai en arrière-plan | La page témoin d'un pilote annonçait une taille qui n'était celle d'aucun flux: Chrome gèle l'affichage d'un onglet caché, donc elle n'avait jamais rien peint | Deux navigateurs et pas deux onglets. Une valeur par défaut qui traverse un test est une valeur qui se fait passer pour une mesure |
 | Un plafond de débit qui plafonne tout | QVBR et CBR bornaient bien la pointe, mais en redistribuant les bits sur toutes les images — et QVBR rendait même la pointe pire. Le réglage retenu ne touche qu'une image toutes les dix secondes | Quand une contrainte dit « sans toucher au reste », le levier se cherche là où la pointe naît, pas là où le débit se règle |
 | Un échec transitoire mis en cache | Ne pas réussir à LANCER l'outil d'extraction écrivait le même témoin que « ce disque n'a pas de jaquette ». Un Docker qui redémarre condamnait un jeu pour toujours | Un cache d'échec ne doit retenir que des réponses. « Je n'ai pas pu demander » n'en est pas une |
 | L'étranglement réseau de Chrome | Il ne touche pas les WebSockets: 2 Mbit/s de plafond, et la page peignait toujours 50 images par seconde. Tout ce que ce projet envoie est une WebSocket | Un instrument se vérifie sur un cas où il DOIT bouger, avant de croire ce qu'il dit quand il ne bouge pas |

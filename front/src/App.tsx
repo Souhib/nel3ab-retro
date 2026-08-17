@@ -308,6 +308,14 @@ function Room({
   /** Regarde-t-on, en ce moment ? Lu sur la session et non sur `watching`, qui
    * ne dit que par quelle porte on est entré. */
   const watchingNow = shot?.input.watching ?? false;
+  /** Le format choisi. Gardé ici en plus de la session pour que le menu se
+   * redessine tout de suite: l'instantané ne revient que deux fois par seconde,
+   * et un réglage qui met une demi-seconde à afficher son nouvel état se lit
+   * comme un réglage qui n'a pas pris. */
+  const [half, setHalf] = useState(false);
+  useEffect(() => {
+    if (session) setHalf(session.video.isHalf());
+  }, [session]);
 
   const rays: XmbCategory[] = [
     {
@@ -418,6 +426,21 @@ function Room({
           hint: "un navigateur ne fait pas de bruit avant qu'on le lui demande",
           icon: <DotIcon className="h-full w-full" />,
           onEnter: () => void session?.sound.start(),
+        },
+        {
+          id: "half",
+          label: "format de l'image",
+          value: shot?.video.half ? "réduit" : "pleine taille",
+          // Ce que la personne a besoin de savoir pour choisir, et rien de plus:
+          // combien ça coûte, et que ça ne regarde qu'elle.
+          hint: half
+            ? "608×448, environ 5,6 Mbit/s. Le choix est le tien seul."
+            : "1216×896, environ 14 Mbit/s. Réduis si l'image saccade.",
+          icon: <MeasureIcon className="h-full w-full" />,
+          onEnter: () => {
+            session?.video.setHalf(!half);
+            setHalf(!half);
+          },
         },
         {
           id: "volume",

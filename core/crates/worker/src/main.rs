@@ -18,7 +18,7 @@
 #![forbid(unsafe_code)]
 
 use std::net::SocketAddr;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -450,6 +450,25 @@ fn run(settings: &Settings) -> Result<()> {
     }
     let converter = Converter::new(&context)?;
 
+    // Le second flux, en demi-format, pour qui n'a pas le débit du premier.
+    //
+    // Il est CONSTRUIT ici et n'est ENCODÉ que si quelqu'un le regarde: une
+    // salle où tout le monde a une bonne connexion ne paie donc ni temps de
+    // carte graphique ni octets pour qu'il existe. Construire les surfaces au
+    // démarrage plutôt qu'à la demande évite d'ouvrir un encodeur au milieu
+    // d'une partie, ce qui prend des dizaines de millisecondes.
+    //
+    // Une taille moitié ne convient pas toujours: l'encodeur veut un nombre
+    // entier de macroblocs de 16, et 1216x896 le donne (608x448) là où une
+    // résolution interne exotique pourrait ne pas. On le dit et on continue
+    // sans, plutôt que de refuser de démarrer: le grand format, lui, marche.
+    let mut half = HalfStream::open(
+        &context,
+        &settings.render_node,
+        descriptor.width,
+        descriptor.height,
+    );
+
     // Input runs on its own thread, writing the moment a frame lands rather than
     // once per picture. Measured before: a full frame period of avoidable lag,
     // p50 15.55 ms, because a write locked to the frame notification always
@@ -613,18 +632,27 @@ fn run(settings: &Settings) -> Result<()> {
                 "the emulator went quiet"
             );
         }
+        // Le demi-format n'est encodé que si quelqu'un le regarde. Relu à chaque
+        // image parce qu'on peut basculer en pleine partie, et ça ne coûte
+        // qu'un verrou sur une liste de zéro à quatre éléments. Une salle où
+        // tout le monde a une bonne connexion ne paie donc rien pour lui.
+        let wanted_half = half.is_some() && server.half_watchers() > 0;
         let shading = Instant::now();
         let plane = source.plane();
-        converter.convert(
-            Source {
-                image: plane.image(),
-                view: plane.view(),
-                width: descriptor.width,
-                height: descriptor.height,
-                ownership: Ownership::Foreign,
-            },
-            target,
-        )?;
+        let picture = Source {
+            image: plane.image(),
+            view: plane.view(),
+            width: descriptor.width,
+            height: descriptor.height,
+            ownership: Ownership::Foreign,
+        };
+        converter.convert(picture, target)?;
+        // Ici et pas plus bas: la source appartient encore à l'émulateur jusqu'au
+        // `drop(frame)` d'en dessous, et lire ses pixels après l'avoir rendue est
+        // exactement la course que ce projet a déjà payée une fois.
+        if wanted_half && let Some(small) = &half {
+            small.convert(picture, index)?;
+        }
         let shader_took = shading.elapsed();
         // Released only now: the conversion has been waited on, so the emulator
         // cannot overwrite pixels the shader has not read.
@@ -677,6 +705,10 @@ fn run(settings: &Settings) -> Result<()> {
                 annex_b: coded,
             });
         }
+        if wanted_half && let Some(small) = &mut half {
+            small.encode_and_send(&server, slot_index, captured)?;
+        }
+
         produced += 1;
         wait_times.observe(waited);
         convert_times.observe(shader_took);
@@ -794,6 +826,118 @@ fn init_tracing() {
             EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
         )
         .init();
+}
+
+/// Le second flux vidéo, en demi-format.
+///
+/// Une salle encode la même image deux fois: en pleine taille pour qui a le
+/// débit, et deux fois plus petite de chaque côté pour qui ne l'a pas. Chacun
+/// choisit sur la page, et personne ne subit le choix d'un autre — c'est ce que
+/// « ne rien changer pour une bonne connexion » veut dire, et c'est pour ça que
+/// tout ici est séparé plutôt que réglé.
+///
+/// Mesuré le 2026-08-17 sur lgf: en course, 14,3 Mbit/s en 1216x896 contre
+/// 5,6 Mbit/s en 608x448, soit 2,6 fois moins.
+///
+/// Il est construit au démarrage et n'est ENCODÉ que si quelqu'un le regarde:
+/// ouvrir un encodeur au milieu d'une partie coûte des dizaines de
+/// millisecondes, et les surfaces ne coûtent qu'un peu de mémoire graphique.
+struct HalfStream<'a> {
+    encoder: Encoder,
+    converter: Converter<'a>,
+    targets: Vec<Nv12Target<'a>>,
+}
+
+impl<'a> HalfStream<'a> {
+    /// Ouvre le flux, ou dit non sans empêcher la salle de démarrer.
+    ///
+    /// L'encodeur veut un nombre entier de macroblocs de seize, donc la moitié
+    /// de l'image doit en être un multiple: c'est le cas de 1216x896, qui donne
+    /// 608x448. Une résolution interne exotique pourrait ne pas convenir, et
+    /// alors le grand format marche quand même. Refuser de démarrer pour ça
+    /// serait une salle en panne pour une option.
+    fn open(context: &'a Context, node: &Path, width: u32, height: u32) -> Option<Self> {
+        if !width.is_multiple_of(32) || !height.is_multiple_of(32) {
+            tracing::info!(
+                width,
+                height,
+                "pas de demi-format: la moitié ne tombe pas juste"
+            );
+            return None;
+        }
+        let (half_width, half_height) = (width.div_euclid(2), height.div_euclid(2));
+        let mut encoder = match Encoder::open(node, half_width, half_height, QP, 60, 3) {
+            Ok(encoder) => encoder,
+            Err(error) => {
+                tracing::warn!(%error, "pas de demi-format: l'encodeur a refusé");
+                return None;
+            }
+        };
+        let converter = match Converter::halving(context) {
+            Ok(converter) => converter,
+            Err(error) => {
+                tracing::warn!(%error, "pas de demi-format: le passage de réduction a refusé");
+                return None;
+            }
+        };
+        let mut targets = Vec::with_capacity(encoder.slots() as usize);
+        for index in 0..encoder.slots() {
+            let imported = encoder
+                .export(index)
+                .map_err(|error| tracing::warn!(%error, "pas de demi-format: export refusé"))
+                .ok()
+                .and_then(|surface| {
+                    Nv12Target::import(context, &surface)
+                        .map_err(
+                            |error| tracing::warn!(%error, "pas de demi-format: import refusé"),
+                        )
+                        .ok()
+                });
+            targets.push(imported?);
+        }
+        tracing::info!(
+            width = half_width,
+            height = half_height,
+            "le demi-format est disponible"
+        );
+        Some(Self {
+            encoder,
+            converter,
+            targets,
+        })
+    }
+
+    /// Réduit l'image du jeu dans la surface du petit encodeur.
+    fn convert(&self, picture: Source, slot: usize) -> Result<()> {
+        let Some(target) = self.targets.get(slot) else {
+            bail!("the half-size encode pool shrank underneath us");
+        };
+        self.converter.convert(picture, target)?;
+        Ok(())
+    }
+
+    /// Encode et envoie, à ceux qui regardent ce flux-là.
+    ///
+    /// L'image-clé est demandée ici et pas dans la boucle principale, parce
+    /// qu'elle est propre à ce flux: celle du grand format ne répare pas
+    /// celui-ci, et quelqu'un qui vient de basculer n'a rien demandé à l'autre.
+    fn encode_and_send(
+        &mut self,
+        server: &BrowserServer,
+        slot: u32,
+        captured: Duration,
+    ) -> Result<()> {
+        if server.take_half_joined() || server.take_half_key_frame_request() {
+            self.encoder.force_key_frame();
+        }
+        if let Some(coded) = self.encoder.encode(slot)? {
+            let _delivered = server.send_half(&Packet {
+                captured_micros: u64::try_from(captured.as_micros()).unwrap_or(u64::MAX),
+                annex_b: coded,
+            });
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]

@@ -70,6 +70,8 @@ export type VideoStats = {
   /** De combien la liaison est irrégulière, en millisecondes. Zéro sur une bonne
    * liaison, et c'est ce que la page ajoute à son tampon. */
   jitterMs: number;
+  /** Vrai quand cette page prend le flux réduit. */
+  half: boolean;
   /** À quelle cadence la SOURCE produit, lue sur les instants de capture. Un jeu
    * PAL donne 50; une liaison lente ne la fait pas baisser. */
   sourceHz: number;
@@ -84,6 +86,29 @@ export type VideoStats = {
 /** À partir de quel écart l'horaire d'affichage est REPOSÉ plutôt que corrigé,
  * en millisecondes. Voir la raison dans `adjust`. */
 const SNAP = 120;
+
+/** Où le choix de format est retenu.
+ *
+ * Dans le navigateur et pas sur le serveur, parce que c'est une propriété de la
+ * LIAISON de cette personne et pas de son compte: la même personne sur le
+ * portable du salon et sur le fixe n'a pas le même besoin. */
+const HALF_KEY = "nel3ab:half";
+
+function loadHalf(): boolean {
+  try {
+    return localStorage.getItem(HALF_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function rememberHalf(half: boolean): void {
+  try {
+    localStorage.setItem(HALF_KEY, half ? "1" : "0");
+  } catch {
+    // Un navigateur qui refuse le stockage joue quand même; il redemandera.
+  }
+}
 
 export class VideoStream {
   private socket: WebSocket | null = null;
@@ -111,6 +136,13 @@ export class VideoStream {
   private lipsync = 0;
   private awaitingKey = false;
   private priming = true;
+  /** Vrai quand cette page prend le flux réduit.
+   *
+   * Le worker encode la même image deux fois, en pleine taille et en moitié de
+   * chaque côté, et chacun choisit. Ici il n'y a donc qu'une adresse à changer:
+   * tout le reste — décodeur, horaire, tampon — travaille pareil sur les deux,
+   * parce que la seule chose qui diffère est le nombre de pixels. */
+  private half = loadHalf();
   private connected = false;
 
   private lastHeard: number | null = null;
@@ -216,6 +248,7 @@ export class VideoStream {
       waitMs: { p50: this.waits.at(0.5), p95: this.waits.at(0.95) },
       gapMs: { p50: this.gaps.at(0.5), p95: this.gaps.at(0.95), max: this.gaps.at(1) },
       jitterMs: this.jitterMs(),
+      half: this.half,
       sourceHz: 1000 / this.sourcePeriodMs(),
       refreshHz: 1000 / this.refreshPeriod(),
       backlog: this.decoder?.decodeQueueSize ?? 0,
@@ -270,13 +303,55 @@ export class VideoStream {
     return (this.lags.fastest() ?? 0) + bought + this.lipsync;
   }
 
+  /** Est-on sur le flux réduit ? */
+  isHalf(): boolean {
+    return this.half;
+  }
+
+  /**
+   * Change de flux, et se rebranche.
+   *
+   * On FERME avant d'ouvrir, et le décodeur avec. Les deux flux portent des
+   * images de tailles différentes qui se réfèrent les unes aux autres: en
+   * glisser une du petit dans un décodeur qui a démarré sur le grand ne donne
+   * pas une erreur, ça donne une bouillie, et seulement chez celui qui vient de
+   * basculer. `onclose` reconstruit tout à partir de la première image-clé du
+   * nouveau flux, que le worker fabrique parce qu'il voit arriver quelqu'un.
+   */
+  setHalf(half: boolean): void {
+    if (half === this.half) return;
+    this.half = half;
+    rememberHalf(half);
+    // L'horaire aussi: la taille change, donc le temps de décodage change, et
+    // garder le calage de l'ancien flux ferait passer les premières images du
+    // nouveau pour des retards.
+    this.offset = null;
+    this.lags.clear();
+    this.gaps.clear();
+    this.sourceGaps.clear();
+    this.lastArrival = null;
+    this.lastCaptured = null;
+    const old = this.socket;
+    this.socket = null;
+    if (old !== null) {
+      old.onclose = null;
+      old.close();
+    }
+    this.decoder?.close();
+    this.decoder = null;
+    this.decoderGoneSince = null;
+    this.lastOutput = null;
+    this.priming = true;
+    this.connect();
+  }
+
   private refreshPeriod(): number {
     return this.refreshes.length < 8 ? SOURCE_FRAME : this.refreshes.at(0.5);
   }
 
   private connect(insist = false): void {
     void insist;
-    const socket = new WebSocket(this.url("/video"));
+    const socket = new WebSocket(this.url(this.half ? "/video?half=1" : "/video"));
     socket.binaryType = "arraybuffer";
     this.socket = socket;
     socket.onopen = () => {

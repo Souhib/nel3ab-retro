@@ -190,6 +190,17 @@ pub struct BrowserServer {
     /// of them needs the picture, so the shape is a fan-out, not a lock. A
     /// viewer that falls behind loses its own frames and nobody else's.
     viewers: Viewers,
+    /// Les mêmes, pour le flux encodé en demi-format.
+    ///
+    /// Quatre champs suivent le même préfixe, et ils sont tous là pour la même
+    /// raison: **rien n'est partagé entre les deux flux**. Une image-clé du
+    /// grand ne répare pas le petit, et quelqu'un qui arrive sur l'un n'a rien
+    /// demandé à l'autre. Les mélanger donnerait un écran noir à celui qui
+    /// vient de choisir, ce qui est exactement le genre de panne qu'on ne
+    /// reproduit pas sur sa propre machine.
+    half_viewers: Viewers,
+    half_joined: Arc<std::sync::atomic::AtomicBool>,
+    half_wants_key: Arc<std::sync::atomic::AtomicBool>,
     /// Woken whenever a pad frame lands, so a writer can act on arrival instead
     /// of on a schedule.
     ///
@@ -272,6 +283,14 @@ impl BrowserServer {
                 .checked_sub(KEY_FRAME_EVERY)
                 .unwrap_or_else(Instant::now),
         ));
+        let half_viewers: Viewers = Arc::new(Mutex::new(Vec::new()));
+        let half_joined = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let half_wants_key = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let half_granted_key = Arc::new(Mutex::new(
+            Instant::now()
+                .checked_sub(KEY_FRAME_EVERY)
+                .unwrap_or_else(Instant::now),
+        ));
         let seats: Seats = Arc::new(Mutex::new([None; PORTS]));
 
         let accept = std::thread::Builder::new()
@@ -288,6 +307,10 @@ impl BrowserServer {
                 let seats = Arc::clone(&seats);
                 let wants_rom = Arc::clone(&wants_rom);
                 let owner = Arc::clone(owner);
+                let half_viewers = Arc::clone(&half_viewers);
+                let half_joined = Arc::clone(&half_joined);
+                let half_wants_key = Arc::clone(&half_wants_key);
+                let half_granted_key = Arc::clone(&half_granted_key);
                 move || {
                     accept_loop(
                         &listener,
@@ -305,6 +328,10 @@ impl BrowserServer {
                             players,
                             wants_rom,
                             catalogue,
+                            half_viewers,
+                            half_joined,
+                            half_wants_key,
+                            half_granted_key,
                             art,
                             owner,
                         },
@@ -316,6 +343,9 @@ impl BrowserServer {
         tracing::info!(%bound, "browser server listening");
         Ok(Self {
             viewers,
+            half_viewers,
+            half_joined,
+            half_wants_key,
             listeners,
             arrived,
             incoming,
@@ -347,69 +377,23 @@ impl BrowserServer {
     /// no metric.
     #[must_use]
     pub fn send(&self, packet: &Packet) -> bool {
-        let Ok(mut viewers) = self.viewers.lock() else {
-            return false;
-        };
-        if viewers.is_empty() {
-            return false;
-        }
-        // Framed once and shared, and now that is true. The comment said so
-        // while the thread serving each viewer called `(*message).clone()` on an
-        // `Arc<Vec<u8>>`, which copies the whole picture: four viewers did cost
-        // four copies, the exact thing the line claimed to avoid.
-        //
-        // `Bytes` is what the socket takes anyway — `Message::Binary(Bytes)` —
-        // and cloning one is a refcount. The picture is copied once, here, out
-        // of the encoder's buffer into the frame that goes on the wire.
-        let mut message = Vec::with_capacity(8 + packet.annex_b.len());
-        message.extend_from_slice(&packet.captured_micros.to_le_bytes());
-        message.extend_from_slice(packet.annex_b);
-        let message = Framed::from(message);
+        deliver(&self.viewers, &self.dropped, &self.wants_key, packet)
+    }
 
-        let key = carries_key_frame(packet.annex_b);
-        let mut delivered = false;
-        let mut broke = false;
-        let dropped = &self.dropped;
-        viewers.retain_mut(|viewer| {
-            // Un spectateur dont le flux est cassé n'a rien à faire d'une image
-            // qui référence ce qu'il n'a pas. On attend la clé.
-            if viewer.resyncing {
-                if !key {
-                    return true;
-                }
-                viewer.resyncing = false;
-            }
-            match viewer.pipe.try_send(message.clone()) {
-                Ok(()) => {
-                    delivered = true;
-                    true
-                }
-                // This viewer is behind. Its own frames are lost; the others are
-                // untouched, which is the whole point of a queue each.
-                Err(TrySendError::Full(_)) => {
-                    dropped.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                    // Sauf si c'était la clé: la jeter et l'attendre en même
-                    // temps ne mènerait nulle part.
-                    if !key {
-                        viewer.resyncing = true;
-                        broke = true;
-                    }
-                    true
-                }
-                // Its thread has gone. Forgetting it here is what keeps the list
-                // from growing across a session's reconnections.
-                Err(TrySendError::Disconnected(_)) => false,
-            }
-        });
-        // Demandée ICI plutôt que par le navigateur, qui ne découvre la casse
-        // qu'en échouant à décoder: le worker, lui, sait qu'il vient de jeter.
-        // La demande est déjà limitée en fréquence, donc un spectateur en
-        // difficulté ne peut pas faire grossir le flux de tout le monde.
-        if broke {
-            self.wants_key
-                .store(true, std::sync::atomic::Ordering::Relaxed);
-        }
-        delivered
+    /// The same picture, encoded small, to whoever asked for the small one.
+    ///
+    /// A second list and not a flag on the first: the two streams carry
+    /// DIFFERENT bytes, and a viewer of one must never be handed a frame of the
+    /// other. Its decoder would be reading a picture of another size against
+    /// references it does not have.
+    #[must_use]
+    pub fn send_half(&self, packet: &Packet) -> bool {
+        deliver(
+            &self.half_viewers,
+            &self.dropped,
+            &self.half_wants_key,
+            packet,
+        )
     }
 
     /// Offers one chunk of sound to everybody listening.
@@ -418,6 +402,10 @@ impl BrowserServer {
     /// reads both streams the same way. Sound is dropped rather than queued for
     /// the same reason a picture is: a listener that has fallen behind wants the
     /// present, not a recording of the past.
+    ///
+    /// Un seul flux de son pour les deux flux d'image: réduire une image change
+    /// ce qu'on voit, pas ce qu'on entend, et le son coûte cent fois moins que
+    /// la vidéo.
     #[must_use]
     pub fn send_sound(&self, captured_micros: u64, pcm: &[u8]) -> bool {
         let Ok(mut listeners) = self.listeners.lock() else {
@@ -447,6 +435,31 @@ impl BrowserServer {
     #[must_use]
     pub fn watchers(&self) -> usize {
         self.viewers.lock().map_or(0, |viewers| viewers.len())
+    }
+
+    /// Combien de navigateurs prennent le demi-format.
+    ///
+    /// C'est ce qui autorise le worker à ne PAS l'encoder quand la réponse est
+    /// zéro. Une salle où tout le monde a une bonne connexion ne paie donc rien
+    /// pour que le demi-format existe: ni temps de carte graphique, ni octets.
+    #[must_use]
+    pub fn half_watchers(&self) -> usize {
+        self.half_viewers.lock().map_or(0, |viewers| viewers.len())
+    }
+
+    /// Comme [`take_key_frame_request`](Self::take_key_frame_request), pour le
+    /// demi-format. Séparé parce qu'une image-clé de l'un ne répare pas l'autre.
+    #[must_use]
+    pub fn take_half_key_frame_request(&self) -> bool {
+        self.half_wants_key
+            .swap(false, std::sync::atomic::Ordering::Relaxed)
+    }
+
+    /// Comme [`take_joined`](Self::take_joined), pour le demi-format.
+    #[must_use]
+    pub fn take_half_joined(&self) -> bool {
+        self.half_joined
+            .swap(false, std::sync::atomic::Ordering::Relaxed)
     }
 
     /// Which game a player asked to boot, if one did since this was last asked.
@@ -556,6 +569,12 @@ struct Shared {
     /// it lives is the emulator's business, and the transport's job is to hand
     /// bytes to a browser without an opinion about them.
     catalogue: Arc<str>,
+    /// Le second flux: ses spectateurs, et ce qu'ils demandent. Voir le champ
+    /// du même nom sur [`BrowserServer`] pour pourquoi rien n'est partagé.
+    half_viewers: Viewers,
+    half_joined: Arc<std::sync::atomic::AtomicBool>,
+    half_wants_key: Arc<std::sync::atomic::AtomicBool>,
+    half_granted_key: Arc<Mutex<Instant>>,
     /// One picture per game, in library order, for whichever games have one.
     ///
     /// Bytes, not a type: this crate does not know what a banner is, where it
@@ -604,18 +623,96 @@ fn socket_limits() -> tungstenite::protocol::WebSocketConfig {
         .max_write_buffer_size(4 * 1024 * 1024)
 }
 
+/// Hands one access unit to every viewer of one stream.
+///
+/// Written once and called for both streams: la politique de resynchronisation
+/// juste en dessous est délicate, et deux copies qui divergent donneraient un
+/// flux réparé et un flux cassé sans que rien ne le dise.
+fn deliver(
+    viewers: &Viewers,
+    dropped: &Arc<std::sync::atomic::AtomicU64>,
+    wants_key: &Arc<std::sync::atomic::AtomicBool>,
+    packet: &Packet,
+) -> bool {
+    let Ok(mut viewers) = viewers.lock() else {
+        return false;
+    };
+    if viewers.is_empty() {
+        return false;
+    }
+    // Framed once and shared, and now that is true. The comment said so
+    // while the thread serving each viewer called `(*message).clone()` on an
+    // `Arc<Vec<u8>>`, which copies the whole picture: four viewers did cost
+    // four copies, the exact thing the line claimed to avoid.
+    //
+    // `Bytes` is what the socket takes anyway — `Message::Binary(Bytes)` —
+    // and cloning one is a refcount. The picture is copied once, here, out
+    // of the encoder's buffer into the frame that goes on the wire.
+    let mut message = Vec::with_capacity(8 + packet.annex_b.len());
+    message.extend_from_slice(&packet.captured_micros.to_le_bytes());
+    message.extend_from_slice(packet.annex_b);
+    let message = Framed::from(message);
+
+    let key = carries_key_frame(packet.annex_b);
+    let mut delivered = false;
+    let mut broke = false;
+    viewers.retain_mut(|viewer| {
+        // Un spectateur dont le flux est cassé n'a rien à faire d'une image
+        // qui référence ce qu'il n'a pas. On attend la clé.
+        if viewer.resyncing {
+            if !key {
+                return true;
+            }
+            viewer.resyncing = false;
+        }
+        match viewer.pipe.try_send(message.clone()) {
+            Ok(()) => {
+                delivered = true;
+                true
+            }
+            // This viewer is behind. Its own frames are lost; the others are
+            // untouched, which is the whole point of a queue each.
+            Err(TrySendError::Full(_)) => {
+                dropped.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                // Sauf si c'était la clé: la jeter et l'attendre en même
+                // temps ne mènerait nulle part.
+                if !key {
+                    viewer.resyncing = true;
+                    broke = true;
+                }
+                true
+            }
+            // Its thread has gone. Forgetting it here is what keeps the list
+            // from growing across a session's reconnections.
+            Err(TrySendError::Disconnected(_)) => false,
+        }
+    });
+    // Demandée ICI plutôt que par le navigateur, qui ne découvre la casse
+    // qu'en échouant à décoder: le worker, lui, sait qu'il vient de jeter.
+    // La demande est déjà limitée en fréquence, donc un spectateur en
+    // difficulté ne peut pas faire grossir le flux de tout le monde.
+    if broke {
+        wants_key.store(true, std::sync::atomic::Ordering::Relaxed);
+    }
+    delivered
+}
+
 /// Honours a request for a key frame, at most one per [`KEY_FRAME_EVERY`].
-fn ask_for_key_frame(shared: &Shared) {
-    let Ok(mut granted) = shared.granted_key.lock() else {
+///
+/// Par flux: les deux paires lui sont passées plutôt que lues sur l'état
+/// partagé, parce qu'une image-clé du grand format ne répare pas le petit.
+fn ask_for_key_frame(
+    wants_key: &Arc<std::sync::atomic::AtomicBool>,
+    granted_key: &Arc<Mutex<Instant>>,
+) {
+    let Ok(mut granted) = granted_key.lock() else {
         return;
     };
     if granted.elapsed() < KEY_FRAME_EVERY {
         return;
     }
     *granted = Instant::now();
-    shared
-        .wants_key
-        .store(true, std::sync::atomic::Ordering::Relaxed);
+    wants_key.store(true, std::sync::atomic::Ordering::Relaxed);
 }
 
 /// Serves pages and hands WebSocket connections to their own threads.
@@ -657,7 +754,20 @@ fn accept_loop(listener: &TcpListener, page: &'static str, shared: &Shared) {
 /// Works out what one connection wants, then serves it. Runs on its own thread.
 fn serve_connection(stream: TcpStream, page: &'static str, shared: &Shared) {
     match classify(&stream) {
-        Some(Route::Video) => video_thread(stream, &shared.viewers, &shared.joined, shared),
+        Some(Route::Video { half: false }) => video_thread(
+            stream,
+            &shared.viewers,
+            &shared.joined,
+            &shared.wants_key,
+            &shared.granted_key,
+        ),
+        Some(Route::Video { half: true }) => video_thread(
+            stream,
+            &shared.half_viewers,
+            &shared.half_joined,
+            &shared.half_wants_key,
+            &shared.half_granted_key,
+        ),
         Some(Route::Sound) => sound_thread(stream, &shared.listeners),
         Some(Route::Input { take }) => input_thread(stream, shared, take),
         Some(Route::Roms) => serve_body(stream, &shared.catalogue, "application/json"),
@@ -685,7 +795,15 @@ enum Route {
     /// a position can only ever select something this worker found, so no
     /// spelling of a path can reach a file it did not offer.
     Art(usize),
-    Video,
+    /// La vidéo, et LEQUEL des deux flux.
+    ///
+    /// `/video` donne la pleine taille, `/video?half=1` le demi-format. Un
+    /// paramètre et pas un second chemin, pour la même raison que `?take=` sur
+    /// la manette: le souhait voyage avec la demande plutôt que d'être deviné.
+    Video {
+        /// Vrai pour le flux réduit.
+        half: bool,
+    },
     Sound,
     Input {
         take: Option<PlayerSlot>,
@@ -773,7 +891,9 @@ fn classify(stream: &TcpStream) -> Option<Route> {
         return None;
     }
     if text.starts_with("get /video") {
-        return Some(Route::Video);
+        return Some(Route::Video {
+            half: text.contains("half=1"),
+        });
     }
     if text.starts_with("get /sound") {
         return Some(Route::Sound);
@@ -895,7 +1015,8 @@ fn video_thread(
     stream: TcpStream,
     viewers: &Viewers,
     joined: &Arc<std::sync::atomic::AtomicBool>,
-    shared: &Shared,
+    wants_key: &Arc<std::sync::atomic::AtomicBool>,
+    granted_key: &Arc<Mutex<Instant>>,
 ) {
     // Nagle would hold a small frame back waiting for company. Every frame here
     // is latency-critical and self-contained, so there is nothing to gain by
@@ -949,7 +1070,7 @@ fn video_thread(
         match socket.read() {
             Ok(tungstenite::Message::Close(_)) => break,
             Ok(tungstenite::Message::Binary(bytes)) if bytes.as_ref() == [KEY_FRAME_PLEASE] => {
-                ask_for_key_frame(shared);
+                ask_for_key_frame(wants_key, granted_key);
             }
             Ok(_) => {}
             Err(tungstenite::Error::Io(error))
@@ -1357,7 +1478,10 @@ mod tests {
         });
 
         let (stream, _) = listener.accept().unwrap();
-        assert!(matches!(classify(&stream), Some(Route::Video)));
+        assert!(matches!(
+            classify(&stream),
+            Some(Route::Video { half: false })
+        ));
 
         let mut seen = vec![0_u8; request.len()];
         let mut stream = stream;
@@ -1378,6 +1502,24 @@ mod tests {
                 &b"GET /nope HTTP/1.1\r\nUpgrade: websocket\r\n\r\n"[..],
                 "none",
             ),
+            (
+                &b"GET /video HTTP/1.1\r\nUpgrade: websocket\r\n\r\n"[..],
+                "video",
+            ),
+            (
+                &b"GET /video?half=1 HTTP/1.1\r\nUpgrade: websocket\r\n\r\n"[..],
+                "video-half",
+            ),
+            // Les jumeaux négatifs. Chacun donnerait le demi-format si la
+            // lecture était approximative, et aucun ne le demande.
+            (
+                &b"GET /video?half=0 HTTP/1.1\r\nUpgrade: websocket\r\n\r\n"[..],
+                "video",
+            ),
+            (
+                &b"GET /video?other=1 HTTP/1.1\r\nUpgrade: websocket\r\n\r\n"[..],
+                "video",
+            ),
         ] {
             let listener = TcpListener::bind("127.0.0.1:0").unwrap();
             let address = listener.local_addr().unwrap();
@@ -1392,7 +1534,13 @@ mod tests {
             let route = classify(&stream);
             let got = match route {
                 Some(Route::Page) => "page",
-                Some(Route::Video) => "video",
+                Some(Route::Video { half }) => {
+                    if half {
+                        "video-half"
+                    } else {
+                        "video"
+                    }
+                }
                 Some(Route::Sound) => "sound",
                 Some(Route::Input { .. }) => "input",
                 Some(Route::Roms) => "roms",
@@ -1531,6 +1679,65 @@ mod tests {
         }
     }
 
+    /// Les deux flux ne se mélangent jamais.
+    ///
+    /// C'est l'invariant qui compte, parce que le rater ne donne pas une erreur:
+    /// un décodeur qui reçoit une image d'une autre taille, référencée sur des
+    /// images qu'il n'a pas, rend une bouillie ou rien du tout. Et ça
+    /// n'arriverait qu'à celui qui vient de changer de format.
+    #[test]
+    fn a_frame_of_one_stream_never_reaches_a_viewer_of_the_other() {
+        let (full, full_held) = sync_channel::<Framed>(OUTGOING_DEPTH);
+        let (half, half_held) = sync_channel::<Framed>(OUTGOING_DEPTH);
+        let server = detached(vec![full]);
+        server.half_viewers.lock().unwrap().push(Viewer {
+            pipe: half,
+            resyncing: false,
+        });
+
+        assert!(server.send(&frame()));
+        assert!(full_held.try_recv().is_ok(), "le grand format a reçu");
+        assert!(
+            half_held.try_recv().is_err(),
+            "le demi-format a reçu une image du grand"
+        );
+
+        assert!(server.send_half(&frame()));
+        assert!(half_held.try_recv().is_ok(), "le demi-format a reçu");
+        assert!(
+            full_held.try_recv().is_err(),
+            "le grand format a reçu une image du petit"
+        );
+
+        assert_eq!(server.watchers(), 1);
+        assert_eq!(server.half_watchers(), 1);
+    }
+
+    /// Et une demande d'image-clé ne traverse pas non plus.
+    ///
+    /// Le jumeau du dessus, sur l'autre canal. Une clé du grand format ne
+    /// répare pas le petit: ce sont deux suites d'images sans rapport, et
+    /// partager le drapeau donnerait au demandeur une clé qui ne lui sert à
+    /// rien pendant que l'autre flux en fabrique une pour personne.
+    #[test]
+    fn a_key_frame_asked_for_on_one_stream_is_not_owed_on_the_other() {
+        let (full, full_held) = sync_channel::<Framed>(OUTGOING_DEPTH);
+        let server = detached(vec![full]);
+
+        // La file du grand format déborde sur une image ordinaire, ce qui casse
+        // sa chaîne et lui fait demander une clé.
+        for _ in 0..=OUTGOING_DEPTH {
+            let _ = server.send(&delta());
+        }
+        drop(full_held);
+
+        assert!(server.take_key_frame_request(), "le grand en a demandé une");
+        assert!(
+            !server.take_half_key_frame_request(),
+            "le demi-format n'a rien demandé"
+        );
+    }
+
     /// Routing a picture is not serving one.
     ///
     /// The table above proves `classify` picks the right route; it would go on
@@ -1581,6 +1788,9 @@ mod tests {
     /// Builds a server with no accept loop, for tests that only exercise policy.
     fn detached(viewers: Vec<SyncSender<Framed>>) -> BrowserServer {
         BrowserServer {
+            half_viewers: Arc::new(Mutex::new(Vec::new())),
+            half_joined: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            half_wants_key: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             viewers: Arc::new(Mutex::new(
                 viewers
                     .into_iter()
@@ -2086,6 +2296,10 @@ mod tests {
     fn key_frames_are_granted_no_faster_than_the_limit() {
         let shared = Shared {
             viewers: Arc::new(Mutex::new(Vec::new())),
+            half_viewers: Arc::new(Mutex::new(Vec::new())),
+            half_joined: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            half_wants_key: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            half_granted_key: Arc::new(Mutex::new(Instant::now())),
             listeners: Arc::new(Mutex::new(Vec::new())),
             inputs: Arc::new(Mutex::new([None; PORTS])),
             arrived: Arc::new(Condvar::new()),
@@ -2104,7 +2318,7 @@ mod tests {
         };
 
         for _ in 0..1000 {
-            ask_for_key_frame(&shared);
+            ask_for_key_frame(&shared.wants_key, &shared.granted_key);
         }
         assert!(
             shared
@@ -2113,7 +2327,7 @@ mod tests {
             "the first request should be granted"
         );
         for _ in 0..1000 {
-            ask_for_key_frame(&shared);
+            ask_for_key_frame(&shared.wants_key, &shared.granted_key);
         }
         assert!(
             !shared.wants_key.load(std::sync::atomic::Ordering::Relaxed),

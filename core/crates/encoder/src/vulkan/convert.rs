@@ -33,6 +33,8 @@ const WORKGROUP: u32 = 8;
 /// pipeline.
 pub struct Converter<'a> {
     context: &'a Context,
+    /// Combien de pixels de la source, sur un côté, font un pixel de la cible.
+    scale: u32,
     sampler: vk::Sampler,
     descriptor_layout: vk::DescriptorSetLayout,
     pipeline_layout: vk::PipelineLayout,
@@ -56,15 +58,39 @@ impl<'a> Converter<'a> {
     /// # Errors
     /// [`EncoderError::Vulkan`].
     pub fn new(context: &'a Context) -> Result<Self, EncoderError> {
+        Self::with_scale(context, 1)
+    }
+
+    /// Le même passage, mais qui rend une image DEUX FOIS plus petite de chaque
+    /// côté.
+    ///
+    /// Chaque pixel de sortie est la moyenne d'un bloc de 2x2, faite en linéaire
+    /// avant la conversion de couleur, comme le sous-échantillonnage de la
+    /// chrominance juste à côté. Une moyenne et pas un pixel sur deux: un jeu
+    /// GameCube est plein de damiers et de grilles, et prendre un pixel sur deux
+    /// les fait scintiller.
+    ///
+    /// Un second pipeline plutôt qu'un réglage du premier, parce que l'échelle
+    /// est une constante de spécialisation: le compilateur déroule la boucle et
+    /// le chemin pleine taille reste exactement ce qu'il était.
+    ///
+    /// # Errors
+    /// [`EncoderError::Vulkan`].
+    pub fn halving(context: &'a Context) -> Result<Self, EncoderError> {
+        Self::with_scale(context, 2)
+    }
+
+    fn with_scale(context: &'a Context, scale: u32) -> Result<Self, EncoderError> {
         let device = context.device();
         let mut built = Built::default();
 
         // Every step below can fail, and each leaves objects the next one would
         // leak. `build` returns through one path so `Built`'s teardown is the
         // only place destruction is written.
-        match Self::build(context, &mut built) {
+        match Self::build(context, &mut built, scale) {
             Ok(()) => Ok(Self {
                 context,
+                scale,
                 sampler: built.sampler,
                 descriptor_layout: built.descriptor_layout,
                 pipeline_layout: built.pipeline_layout,
@@ -82,7 +108,7 @@ impl<'a> Converter<'a> {
         }
     }
 
-    fn build(context: &Context, built: &mut Built) -> Result<(), EncoderError> {
+    fn build(context: &Context, built: &mut Built, scale: u32) -> Result<(), EncoderError> {
         let device = context.device();
 
         // NEAREST and no mipmaps: the shader uses texelFetch, which ignores
@@ -132,14 +158,43 @@ impl<'a> Converter<'a> {
         let module = unsafe { device.create_shader_module(&module_create, None) }
             .map_err(|code| fail("vkCreateShaderModule", code))?;
 
+        built.pipeline = Self::compile(context, module, built.pipeline_layout, scale)?;
+        Self::build_rest(context, built)
+    }
+
+    /// Compiles the pipeline, with the échelle figée dans le SPIR-V.
+    ///
+    /// `constant_id = 0` dans le shader. Une constante de spécialisation et pas
+    /// une variable: le compilateur déroule la boucle de moyenne et efface la
+    /// division, donc le pipeline d'échelle 1 est exactement celui d'avant.
+    fn compile(
+        context: &Context,
+        module: vk::ShaderModule,
+        layout: vk::PipelineLayout,
+        scale: u32,
+    ) -> Result<vk::Pipeline, EncoderError> {
+        let device = context.device();
         let entry = c"main";
+        let scale = i32::try_from(scale).unwrap_or(1);
+        debug_assert!(scale >= 1, "une échelle nulle diviserait par zéro");
+        // Nommé, parce que Vulkan garde le pointeur jusqu'à la création du
+        // pipeline: un temporaire serait libéré avant.
+        let scale_bytes = scale.to_ne_bytes();
+        let map = [vk::SpecializationMapEntry::default()
+            .constant_id(0)
+            .offset(0)
+            .size(core::mem::size_of::<i32>())];
+        let specialisation = vk::SpecializationInfo::default()
+            .map_entries(&map)
+            .data(&scale_bytes);
         let stage = vk::PipelineShaderStageCreateInfo::default()
             .stage(vk::ShaderStageFlags::COMPUTE)
             .module(module)
-            .name(entry);
+            .name(entry)
+            .specialization_info(&specialisation);
         let pipeline_create = [vk::ComputePipelineCreateInfo::default()
             .stage(stage)
-            .layout(built.pipeline_layout)];
+            .layout(layout)];
         // SAFETY: the module and layout are live, and `entry` is a `&'static
         // CStr`. ash returns the pipelines it created alongside any error.
         let pipelines = unsafe {
@@ -148,14 +203,21 @@ impl<'a> Converter<'a> {
         // The module is only needed while the pipeline is compiled.
         // SAFETY: creation has returned, so nothing references it any more.
         unsafe { device.destroy_shader_module(module, None) };
-        built.pipeline = *pipelines
+        let pipeline = *pipelines
             .map_err(|(_, code)| fail("vkCreateComputePipelines", code))?
             .first()
             .ok_or(EncoderError::Vulkan {
                 what: "vkCreateComputePipelines returned no pipeline",
                 code: 0,
             })?;
+        Ok(pipeline)
+    }
 
+    /// Les descripteurs, le tampon de commandes et la barrière, qui ne dépendent
+    /// pas de l'échelle.
+    fn build_rest(context: &Context, built: &mut Built) -> Result<(), EncoderError> {
+        let device = context.device();
+        let layouts = [built.descriptor_layout];
         let sizes = [
             vk::DescriptorPoolSize::default()
                 .ty(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
@@ -225,7 +287,12 @@ impl<'a> Converter<'a> {
     /// [`EncoderError::Vulkan`], or [`EncoderError::UnsupportedSize`] if the
     /// source is not the size of the target.
     pub fn convert(&self, source: Source, target: &Nv12Target<'_>) -> Result<(), EncoderError> {
-        if source.width != target.luma.width() || source.height != target.luma.height() {
+        // La source doit faire EXACTEMENT l'échelle fois la cible. Vérifié et
+        // non arrondi: le shader lit `pixel * SCALE + {0,1}` sans borner, donc
+        // une source plus petite d'un pixel lirait à côté de l'image.
+        if source.width != target.luma.width() * self.scale
+            || source.height != target.luma.height() * self.scale
+        {
             return Err(EncoderError::UnsupportedSize {
                 width: source.width,
                 height: source.height,
@@ -666,6 +733,30 @@ mod tests {
         16.0 + 219.0 * (0.2126 * r + 0.7152 * g + 0.0722 * b)
     }
 
+    /// Un damier d'un pixel de côté, plus une pente lente sur les deux autres
+    /// voies.
+    ///
+    /// C'est le pire cas d'une réduction, et le motif dégradé d'à côté ne le
+    /// couvre pas: sur une pente, la moyenne d'un bloc et son coin ne diffèrent
+    /// que d'un cran, donc les deux passent. Ici un bloc de 2x2 contient deux
+    /// extrêmes, sa moyenne est au milieu et son coin est à un bout.
+    ///
+    /// Les deux autres voies gardent une pente pour que l'image réduite ne soit
+    /// pas uniforme, sinon une lecture qui rendrait des zéros passerait aussi.
+    #[cfg(feature = "gpu-tests")]
+    fn checkerboard() -> Vec<u8> {
+        let mut pixels = Vec::with_capacity((WIDTH * HEIGHT * 4) as usize);
+        for y in 0..HEIGHT {
+            for x in 0..WIDTH {
+                pixels.push(if (x + y) % 2 == 0 { 220 } else { 20 });
+                pixels.push(u8::try_from(y & 0xff).unwrap_or(0));
+                pixels.push(u8::try_from(x & 0xff).unwrap_or(0));
+                pixels.push(255);
+            }
+        }
+        pixels
+    }
+
     /// A pattern with structure in both axes and all three channels, so a
     /// swapped axis, a swapped channel or a stale region all change the answer.
     #[cfg(feature = "gpu-tests")]
@@ -770,6 +861,134 @@ mod tests {
             luma.iter().any(|sample| *sample != first),
             "the luma plane is uniform; nothing was written"
         );
+    }
+
+    /// Le demi-format: chaque pixel de sortie est la moyenne d'un bloc de 2x2.
+    ///
+    /// Vérifié sur les valeurs et non sur « il s'est passé quelque chose ». Le
+    /// piège que ça attrape est précis: un passage qui prendrait un pixel sur
+    /// deux au lieu de moyenner produirait une image parfaitement plausible, et
+    /// ferait scintiller tous les damiers du jeu. Le jumeau négatif est en bas:
+    /// la moyenne d'un bloc doit DIFFÉRER de son coin haut-gauche, sinon ce
+    /// test passerait aussi sur un sous-échantillonnage.
+    #[test]
+    #[cfg(feature = "gpu-tests")]
+    fn halving_averages_each_block_rather_than_picking_a_corner() {
+        use crate::av::Encoder;
+        use crate::va::DEFAULT_RENDER_NODE;
+
+        const HALF_W: u32 = WIDTH.div_euclid(2);
+        const HALF_H: u32 = HEIGHT.div_euclid(2);
+
+        let Ok(mut encoder) = Encoder::open(DEFAULT_RENDER_NODE, HALF_W, HALF_H, 26, 60, 3) else {
+            panic!("no encoder on {DEFAULT_RENDER_NODE}: run this where the GPU is");
+        };
+        let Ok(context) = Context::open(DEFAULT_RENDER_NODE) else {
+            panic!("no Vulkan device on {DEFAULT_RENDER_NODE}: run this where the GPU is");
+        };
+
+        let surface = encoder.export(0).unwrap();
+        let target = Nv12Target::import(&context, &surface).unwrap();
+
+        let pixels = checkerboard();
+        let source = scaffold::Rgba::upload(&context, WIDTH, HEIGHT, &pixels);
+        let converter = Converter::halving(&context).unwrap();
+        converter.convert(source.source(), &target).unwrap();
+
+        let luma = scaffold::read_plane(&context, target.luma.image(), HALF_W, HALF_H, 1);
+        assert_eq!(luma.len(), (HALF_W * HALF_H) as usize);
+
+        let sample = |x: u32, y: u32| {
+            let i = ((y * WIDTH + x) * 4) as usize;
+            (
+                f64::from(pixels[i]) / 255.0,
+                f64::from(pixels[i + 1]) / 255.0,
+                f64::from(pixels[i + 2]) / 255.0,
+            )
+        };
+        let mut worst = 0_i32;
+        let mut differed = 0_u32;
+        for y in 0..HALF_H {
+            for x in 0..HALF_W {
+                let block = [
+                    sample(x * 2, y * 2),
+                    sample(x * 2 + 1, y * 2),
+                    sample(x * 2, y * 2 + 1),
+                    sample(x * 2 + 1, y * 2 + 1),
+                ];
+                // La moyenne se fait en RGB linéaire AVANT la conversion, comme
+                // pour la chrominance juste à côté. Moyenner les luminances
+                // après donnerait une autre réponse, légèrement fausse.
+                let mean =
+                    |pick: fn(&(f64, f64, f64)) -> f64| block.iter().map(pick).sum::<f64>() / 4.0;
+                let expected = reference_luma(mean(|p| p.0), mean(|p| p.1), mean(|p| p.2));
+                let corner = reference_luma(block[0].0, block[0].1, block[0].2);
+                if (expected - corner).abs() > 1.5 {
+                    differed += 1;
+                }
+                let got = f64::from(luma[(y * HALF_W + x) as usize]);
+                #[allow(
+                    clippy::cast_possible_truncation,
+                    reason = "a difference between two 8-bit samples fits in i32"
+                )]
+                let delta = (got - expected).abs().round() as i32;
+                worst = worst.max(delta);
+            }
+        }
+        assert!(worst <= 1, "worst luma error {worst} in the halved picture");
+        // Le jumeau: sur ce motif, la moyenne d'un bloc doit s'écarter de son
+        // coin sur une bonne partie de l'image. Sans cette ligne, un passage qui
+        // prendrait le coin passerait le test ci-dessus partout où le motif est
+        // plat, c'est-à-dire presque partout sur une image de jeu.
+        assert!(
+            differed > (HALF_W * HALF_H).div_euclid(4),
+            "le motif ne distingue pas moyenne et coin ({differed} pixels sur \
+             {}), donc ce test ne prouve rien",
+            HALF_W * HALF_H
+        );
+    }
+
+    /// Et le refus: une source qui ne fait pas exactement le double.
+    ///
+    /// Le shader lit `pixel * 2 + {0,1}` sans borner, donc une source plus
+    /// petite d'une ligne lirait à côté de l'image. C'est le genre d'erreur qui
+    /// rend une frange de pixels au hasard plutôt qu'une panne.
+    #[test]
+    #[cfg(feature = "gpu-tests")]
+    fn halving_refuses_a_source_that_is_not_exactly_twice_the_target() {
+        use crate::av::Encoder;
+        use crate::va::DEFAULT_RENDER_NODE;
+
+        let Ok(mut encoder) = Encoder::open(
+            DEFAULT_RENDER_NODE,
+            WIDTH.div_euclid(2),
+            HEIGHT.div_euclid(2),
+            26,
+            60,
+            3,
+        ) else {
+            panic!("no encoder on {DEFAULT_RENDER_NODE}: run this where the GPU is");
+        };
+        let Ok(context) = Context::open(DEFAULT_RENDER_NODE) else {
+            panic!("no Vulkan device on {DEFAULT_RENDER_NODE}: run this where the GPU is");
+        };
+        let surface = encoder.export(0).unwrap();
+        let target = Nv12Target::import(&context, &surface).unwrap();
+        let converter = Converter::halving(&context).unwrap();
+
+        // Une source à la taille de la CIBLE: c'est ce qu'attend le passage
+        // pleine taille, et c'est exactement l'erreur à ne pas laisser passer.
+        let small = scaffold::Rgba::upload(
+            &context,
+            WIDTH.div_euclid(2),
+            HEIGHT.div_euclid(2),
+            &vec![0_u8; (WIDTH.div_euclid(2) * HEIGHT.div_euclid(2) * 4) as usize],
+        );
+
+        assert!(matches!(
+            converter.convert(small.source(), &target),
+            Err(EncoderError::UnsupportedSize { .. })
+        ));
     }
 
     /// The chain as it will actually run, minus who renders the picture.

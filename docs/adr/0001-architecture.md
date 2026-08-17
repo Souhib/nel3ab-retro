@@ -283,6 +283,54 @@ only thing that knows who really has a pad; the control plane knows what each
 page told it. The two can disagree for a second after a reconnection, and the
 page believes the worker, because the worker is the one applying the buttons.
 
+### D15 — The same picture is encoded twice, and each viewer picks
+
+One Dolphin, one compute pass, **two encoders**: 1216x896 and 608x448. A page
+opens `/video` or `/video?half=1` and the choice is its own.
+
+The problem it answers is a measurement, not a hunch. During a race the stream
+costs 14,3 Mbit/s; at half size, 5,6 Mbit/s. A viewer whose link cannot carry the
+first was losing 12 % of frames in transit and the rest of the picture with them
+(see D11 and the logbook, 7.29), while everybody else was fine. Every earlier
+lever — the display schedule, the resync on a broken stream, the cheaper key
+frame — is per-viewer and none of them can create bandwidth.
+
+**What was rejected, and why the constraint made it easy.** The brief was "change
+nothing for a good connection", and that kills every shared lever at once:
+
+- a real rate control (CBR, VBR, QVBR) redistributes bits across ALL frames for
+  ALL viewers. Measured on 2026-08-16: CBR at 12 Mbit/s moves p95 from 32 053 to
+  29 114 bytes for everybody;
+- dropping the room's internal resolution is the same objection with a bigger
+  number: it works, and it takes the person with the good link down too;
+- automatic adaptation without a second stream has nothing to adapt WITH.
+
+**What makes it affordable.** The reduction is a specialisation constant on the
+existing shader, so the full-size path compiles to exactly what it was — one
+`texelFetch` per pixel — and the reduced one averages a 2x2 block. Measured on
+lgf, 2026-08-17: the second stream costs **+1,2 ms per frame** (conversion 0,175
+to 0,301 ms, encode 1,77 to 2,85 ms) inside a 16,7 ms budget, and the worker's
+idle time only falls from 14,7 to 13,5 ms.
+
+And it is **encoded only while somebody watches it**. A room where everybody has a
+good link pays nothing at all: not a millisecond, not a byte. That is the
+difference between honouring the constraint and approximating it.
+
+**What has to stay separate, and why it is written down.** The two streams share
+nothing: viewers, key-frame requests, arrival notifications. A key frame of one
+does not repair the other, and a frame of one fed to a decoder started on the
+other produces mush rather than an error — visible only to the person who just
+switched. Two tests hold that line, one in the transport and one in a browser
+driver with a witness page on the other stream.
+
+Sound is not duplicated: reducing a picture changes what is seen, not what is
+heard, and sound costs a hundredth of the video.
+
+*Revisit*: when somebody wants the switch to be AUTOMATIC. The signal already
+exists — the worker knows exactly when a viewer's queue overflows, which is what
+sets `resyncing`. What is missing is a policy that does not oscillate, and that
+wants a measurement on a real link rather than a rule invented here.
+
 ### D6 amended — the OpenAPI document comes from FastAPI
 
 D6 chose Hey API for the generated TypeScript client and named `utoipa` as the

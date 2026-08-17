@@ -18,10 +18,25 @@ export function Screen({
         ref={canvasRef}
         width={1280}
         height={960}
-        // The emulator draws 4:3. Letting the window stretch it would be the one
-        // deformation nobody forgives.
-        className="max-h-full max-w-full object-contain"
-        style={{ aspectRatio: "4 / 3" }}
+        /* `h-full w-full` et non `max-h-full max-w-full`, et la différence est
+           tout sauf cosmétique.
+        
+           Un canvas a une taille INTRINSÈQUE égale à son nombre de pixels, et
+           `max-*` ne fait que la plafonner: il ne fait jamais grandir. En pleine
+           taille l'image fait 1216 pixels de large, donc plus que la place
+           disponible, donc elle était rabotée pour tenir et remplissait l'écran.
+           En demi-format elle fait 608, donc moins, donc plus rien ne la faisait
+           grandir: elle s'affichait à 608 pixels au milieu du noir, sur une place
+           de 1136. Mesuré le 2026-08-17: 28 % de la surface.
+        
+           Quelqu'un qui passe en demi-format pour sauver son débit se retrouvait
+           donc avec une image quatre fois plus petite EN PLUS d'être moins fine,
+           ce qui n'était demandé nulle part.
+        
+           `object-contain` fait le reste: l'élément prend toute la place, et
+           l'image garde ses proportions dedans. L'émulateur dessine en 4/3, et
+           l'étirer serait la déformation que personne ne pardonne. */
+        className="h-full w-full object-contain"
       />
       {connected ? null : (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">

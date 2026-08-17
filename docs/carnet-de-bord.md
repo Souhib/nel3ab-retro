@@ -5060,6 +5060,57 @@ huit, l'horaire en fait attendre onze ».
 C'est la troisième fois dans ce projet qu'un compteur existant et non affiché coûte
 une soirée de recherche.
 
+### 7.36 Le demi-format tenait dans un quart de l'écran
+
+« Quand on passe en 608x448, l'image est plus petite. Ne peut-on pas zoomer la
+page pour qu'on ne perçoive pas la différence ? »
+
+La question avait l'air d'être une demande de fonctionnalité. C'était un rapport
+de bug, et il était juste.
+
+| | pixels décodés | affiché | place disponible |
+|---|---|---|---|
+| pleine taille | 1216x896 | 1136x852 | 1136x860 |
+| **réduit** | 608x448 | **608x456** | 1136x860 |
+
+En demi-format l'image occupait **28 % de la surface**, posée au milieu du noir.
+
+#### La cause tient en un mot
+
+Le canvas portait `max-w-full max-h-full`. Or un canvas a une taille INTRINSÈQUE
+égale à son nombre de pixels, et `max-*` ne fait que la **plafonner**: il ne fait
+jamais grandir.
+
+En pleine taille, 1216 pixels de large, c'est plus que la place disponible: le
+plafond mordait, l'image était rabotée pour tenir, et elle remplissait l'écran.
+En demi-format, 608, c'est moins: plus rien ne la faisait grandir.
+
+Le défaut était donc **invisible tant que le demi-format n'existait pas**, et il
+est apparu avec lui sans que rien ne le signale. Quelqu'un qui passait en réduit
+pour sauver son débit y perdait aussi les trois quarts de son écran, ce qui n'a
+jamais été demandé nulle part.
+
+`h-full w-full` avec `object-contain`: l'élément prend toute la place, l'image
+garde ses proportions dedans. L'émulateur dessine en 4/3, et l'étirer serait la
+déformation que personne ne pardonne.
+
+#### Ce que ça ne répare pas, et il faut le dire
+
+L'image reste **moins fine**: on envoie le quart des pixels et le navigateur les
+étale sur tout l'écran. Ce qui est réparé est qu'elle occupe l'écran, pas qu'elle
+soit aussi nette. « Zoomer » était le bon mot, et c'est bien tout ce qu'on peut
+faire — le reste est dans le flux.
+
+L'agrandissement reste lissé, volontairement: `pixelated` conviendrait à une
+jaquette de 96 pixels, pas à une image de jeu en trois dimensions.
+
+#### Le pilote qui le tient
+
+L'assertion ne demande pas « quelle taille fait l'image » mais « remplit-elle la
+place qu'on lui donne », dans les DEUX formats. Vérifié en remettant `max-w-full`:
+elle rougit sur le demi-format et pas sur l'autre, ce qui est exactement la forme
+du défaut.
+
 ---
 
 ## 8. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
@@ -5131,6 +5182,7 @@ pas échouer**.
 | Une image jetée au milieu d'un groupe | La file pleine jetait l'image, les suivantes référençaient celle qui manquait, et le navigateur décodait du bruit: 306 non décodables contre 192 décodées | Dans un flux où les morceaux dépendent les uns des autres, se taire jusqu'au prochain point d'entrée vaut mieux que continuer à parler |
 | Une icône fourre-tout sur quinze entrées | Le même carré vide servait de « son », « volume », « ambiance » et douze autres. Un menu où tout porte la même icône se relit mot par mot, et un carré vide a l'air d'une image qui n'a pas chargé | Une icône qui ne distingue rien ne fait qu'occuper de la place. Et un repli doit ressembler à un repli, pas à une panne |
 | Un fond sans dedans ni dehors | La première taverne était un aplat marron: les plaques ne se détachaient pas du sol. Ce qui l'a réparée n'est pas plus de détail mais plus d'écart de valeur — vignette, plaques plus claires, panneau enfoncé | Une matière se lit par ses contrastes avant ses ornements |
+| Un plafond pris pour un remplissage | Le canvas portait `max-w-full`: en pleine taille l'image dépassait donc le plafond mordait et elle remplissait l'écran; en demi-format elle était plus petite que la place et rien ne la faisait grandir — 28 % de la surface | `max-*` plafonne, il n'agrandit pas. Et un défaut qui n'apparaît qu'avec une nouvelle option ne se voit dans aucun essai de l'ancienne |
 | Une grandeur écrite deux fois | L'horaire faisait attendre jusqu'à 180 ms et la file gardait huit images, soit 133 ms. Les images arrivaient à l'heure et étaient jetées avant leur tour: 58 % peintes, une seconde de gel au p95 | Deux écritures d'une même grandeur finissent par ne plus être d'accord. Celle qui dépend de l'autre se CALCULE |
 | Un compteur qui existait sans être affiché | Le nombre d'images jetées était compté depuis le début et visible nulle part. Affiché à côté du nombre de places, il donnait la réponse en une seconde | Ce qu'on compte sans le montrer ne sert à personne le jour où il faut chercher |
 | Une action de CI qui cherche sa version | L'installation de `just` parcourait `GET /releases`, qui rendait une liste VIDE alors que `releases/latest` répondait. Épingler la version n'a rien changé: trois pipelines rouges, deux messages différents, zéro ligne de code en cause | Interroger le service à la main avant de croire son message. « Aucune version ne correspond » disait faux: c'était la liste qui était vide |

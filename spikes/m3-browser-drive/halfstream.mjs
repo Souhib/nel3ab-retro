@@ -29,12 +29,25 @@ const check = (ok, what) => {
 // quelque chose.
 const browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox"] });
 const other = await puppeteer.launch({ headless: true, args: ["--no-sandbox"] });
-/** La largeur que le décodeur a donnée au canevas, et le nombre d'images peintes. */
+/** La largeur que le décodeur a donnée au canevas, le nombre d'images peintes,
+ * et surtout: est-ce que l'image REMPLIT la place qu'on lui donne. */
 const shown = (page) =>
-  page.evaluate(() => ({
-    width: document.getElementById("screen")?.width ?? 0,
-    painted: globalThis.nel3abTest.counters().painted,
-  }));
+  page.evaluate(() => {
+    const canvas = document.getElementById("screen");
+    const box = canvas?.getBoundingClientRect();
+    const place = canvas?.parentElement?.getBoundingClientRect();
+    return {
+      width: canvas?.width ?? 0,
+      painted: globalThis.nel3abTest.counters().painted,
+      // À deux pixels près: `object-contain` cale l'élément sur son parent et
+      // met l'image dedans en gardant ses proportions.
+      fills:
+        box !== undefined &&
+        place !== undefined &&
+        Math.abs(box.width - place.width) < 2 &&
+        Math.abs(box.height - place.height) < 2,
+    };
+  });
 
 // Une page témoin, qui ne touchera à rien.
 const witness = await openRoom(other, url, "temoin");
@@ -52,6 +65,7 @@ if (first.width !== FULL) {
   process.exit(0);
 }
 check(true, `au départ, les deux pages reçoivent du ${FULL}`);
+check(first.fills, "et l'image remplit la place qu'on lui donne");
 
 const press = (page, css) => page.evaluate((s) => document.querySelector(s)?.click(), css);
 await press(player, "#openMenu");
@@ -72,6 +86,12 @@ await wait(6000);
 const switched = await shown(player);
 check(switched.width === HALF, `le bouton fait passer en ${HALF} (reçu ${switched.width})`);
 check(switched.painted > first.painted, "et l'image continue d'arriver après la bascule");
+// Le défaut du 2026-08-17: un canvas a une taille intrinsèque égale à son nombre
+// de pixels, et `max-width` ne fait que la plafonner. En demi-format l'image
+// était donc plus petite que la place et rien ne la faisait grandir: 28 % de la
+// surface, au milieu du noir. Passer en réduit pour sauver son débit coûtait
+// aussi les trois quarts de son écran, ce que personne n'avait demandé.
+check(switched.fills, "et elle remplit TOUJOURS la place, malgré ses quatre fois moins de pixels");
 
 // Le jumeau qui compte: le voisin n'a rien vu passer.
 const untouched = await shown(witness);

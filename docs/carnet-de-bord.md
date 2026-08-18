@@ -6440,6 +6440,69 @@ avant de se lire à la lettre, ce qui est le seul but d'une manette dessinée.
 
 ---
 
+### 7.57 Le son du téléphone, et la marque que je cassais moi-même
+
+#### Ce que le journal a dit, et que je n'aurais pas deviné
+
+Le son ne marchait toujours pas sur téléphone. Plutôt que de continuer à
+supposer, j'ai lu le journal des séances, qui porte depuis deux jours ce que
+chaque page mesure. Deux pages y apparaissaient en même temps:
+
+```
+heure     état      morceaux  trous  avance
+22:53:07  running       1000      0      10
+22:53:10  running        840      8     120
+```
+
+La première est saine: dix millisecondes d'avance, aucun trou. La seconde est le
+téléphone: son avance est **collée au plafond** de cent vingt millisecondes et
+elle prend huit trous par fenêtre de dix secondes. Une avance au plafond qui
+prend encore des trous est une avance trop basse, par définition.
+
+Le plafond passe à quatre cents millisecondes. Il ne coûte rien à qui n'en a pas
+besoin: l'avance ne monte que sur un trou et redescend d'une milliseconde par
+fenêtre tranquille, donc un ordinateur reste à dix.
+
+Le journal a aussi montré un état que je n'attendais pas: `interrupted`. Il
+n'existe pas dans la spécification, c'est une extension de WebKit, et le voir
+prouve que le téléphone touche bien la gestion de session audio d'iOS.
+
+**C'est la première fois que le journal répond à une question que je ne pouvais
+pas trancher autrement.** Il a été écrit pour ça il y a deux jours.
+
+#### Un bip vaut mieux qu'une analyse
+
+Sur un iPhone, un son absent a deux causes qu'aucun chiffre ne sépare: le flux
+qui n'arrive pas à l'heure, ou la session audio du téléphone qui coupe tout.
+Dans les deux cas la page dit `running` et compte ses morceaux.
+
+La pastille « son » de la manette fait donc un bip franc, par le même contexte et
+le même gain que le jeu. S'il s'entend, la sortie fonctionne et le problème est
+chez nous. S'il ne s'entend pas alors que l'état est `running`, c'est le
+téléphone, et aucune ligne de code n'y changera rien.
+
+Une question fermée à la place d'une conversation.
+
+#### Et la marque de la page, que je cassais à chaque tour
+
+Quatre commits sont partis avec une empreinte périmée cette semaine. J'ai
+d'abord corrigé l'ordre de la porte (7.55), ce qui était juste mais ne
+suffisait pas: ça rendait le contrôle honnête sans supprimer la cause.
+
+La cause était moi. Je formatais le front par `npx oxfmt src`, à la main, sans
+les fichiers d'exclusion que le script du projet passe. Or `front/src/client` y
+est exclu **exprès**, et le fichier le dit: son style appartient au générateur,
+le reformater rendrait impossible de vérifier qu'il vient bien du document
+OpenAPI. L'étape suivante de la porte le régénérait, l'empreinte décrivait alors
+des octets qui n'existaient plus, et CI refusait un commit dont la porte locale
+avait été verte.
+
+`just fix` formate maintenant les deux côtés, avec le bon script. Une recette qui
+le fait à votre place est une recette qu'on n'oublie pas — et c'est plus fiable
+que de se souvenir d'une exclusion qu'on ne voit jamais.
+
+---
+
 ### 7.55 La porte vérifiait un état qu'elle changeait ensuite
 
 Trois commits de suite sont partis avec une empreinte de page périmée, et à

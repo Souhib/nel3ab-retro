@@ -102,9 +102,21 @@ sessions *args:
 check: fmt-check lint test control front readouts-check contract-check front-check
 
 # Auto-fix pass for development. Mirrors `poe fix`.
+# Le formatage automatique, des DEUX côtés.
+#
+# La page était absente d'ici, et son absence a coûté quatre commits rouges: à
+# formater le front à la main par `npx oxfmt src`, on reformate aussi
+# `front/src/client`, que le projet exclut exprès parce que son style appartient
+# au générateur. L'étape suivante le régénère, l'empreinte de la page décrit
+# alors des octets qui n'existent plus, et CI refuse un commit dont la porte
+# locale était verte.
+#
+# `npm run format` passe les fichiers d'exclusion. Une recette qui le fait à
+# votre place est une recette qu'on n'oublie pas.
 fix:
     cd core && cargo fmt --all
     cd core && cargo clippy --workspace --all-targets --fix --allow-dirty
+    cd front && npm run format
 
 fmt-check:
     cd core && cargo fmt --all --check

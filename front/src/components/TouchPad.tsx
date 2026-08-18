@@ -266,17 +266,24 @@ export function TouchPad({
             téléphone en fait cent quarante. Mesuré: la seconde mordait de
             dix-sept pixels sur l'image. */}
         <div className={roomy ? "flex flex-col gap-2" : "flex gap-2"}>
-          {soundOff ? (
-            <button
-              type="button"
-              id="wakeSound"
-              onClick={onSound}
-              className="rounded-full border border-alert px-3 text-[11px] uppercase tracking-[0.14em] text-alert"
-              style={{ height: "var(--n3-key)", touchAction: "none" }}
-            >
-              son
-            </button>
-          ) : null}
+          {/* Toujours là, et pas seulement quand le son est coupé.
+              Rouge tant que rien ne joue, terne ensuite. Le taper démarre le son
+              ET fait un bip franc: s'il s'entend, la sortie fonctionne et le
+              problème est dans le flux; s'il ne s'entend pas alors que la page
+              dit jouer, c'est le téléphone. Une question fermée à la place d'une
+              conversation. */}
+          <button
+            type="button"
+            id="wakeSound"
+            onClick={onSound}
+            title="démarrer le son, et le tester par un bip"
+            className={`rounded-full border px-3 text-[11px] uppercase tracking-[0.14em] ${
+              soundOff ? "border-alert text-alert" : "border-rule text-faint"
+            }`}
+            style={{ height: "var(--n3-key)", touchAction: "none" }}
+          >
+            son
+          </button>
           <Small id="showColumn" label="menu" onClick={onMenu} />
           <Small id="hideTouch" label="cacher" onClick={onLeave} />
         </div>

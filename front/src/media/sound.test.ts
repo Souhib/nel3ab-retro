@@ -6,7 +6,7 @@
  * symptôme qu'on essaie de corriger. D'où ces vérifications sur les octets.
  */
 import { describe, expect, it } from "vitest";
-import { silentWav } from "./sound";
+import { LEAD_MAX, LEAD_MIN, silentWav } from "./sound";
 
 function bytesOf(url: string): Uint8Array {
   const base64 = url.slice(url.indexOf(",") + 1);
@@ -41,5 +41,23 @@ describe("le silence qui déplace la session audio", () => {
     const bytes = bytesOf(silentWav());
 
     expect([...bytes.slice(44)].every((sample) => sample === 128)).toBe(true);
+  });
+});
+
+describe("le plafond de l'avance", () => {
+  it("laisse assez de marge pour un téléphone", () => {
+    // Relevé sur un vrai iPhone le 18 août 2026: l'avance restait collée à cent
+    // vingt millisecondes avec huit trous par fenêtre de dix secondes, pendant
+    // qu'une page saine tenait à dix sans un seul trou. Une avance au plafond
+    // qui prend encore des trous est une avance trop basse, par définition.
+    expect(LEAD_MAX).toBeGreaterThanOrEqual(0.3);
+  });
+
+  it("part quand même au plus bas", () => {
+    // Le jumeau: un plancher relevé en même temps que le plafond ferait payer à
+    // tout le monde le retard d'un seul appareil. L'avance ne monte que sur un
+    // trou.
+    expect(LEAD_MIN).toBeLessThanOrEqual(0.02);
+    expect(LEAD_MIN).toBeLessThan(LEAD_MAX);
   });
 });

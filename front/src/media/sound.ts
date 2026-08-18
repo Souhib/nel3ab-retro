@@ -14,8 +14,21 @@ const CHANNELS = 2;
  * so it starts small and is only bought back when the sound actually breaks. It
  * was a flat 40 ms, most of the 68 ms the two streams were first measured
  * apart. */
-const LEAD_MIN = 0.01;
-const LEAD_MAX = 0.12;
+export const LEAD_MIN = 0.01;
+/** Jusqu'où l'avance peut monter, en secondes.
+ *
+ * Quatre cents millisecondes. C'était cent vingt, et cent vingt ne suffit pas à
+ * un iPhone: relevé sur un vrai téléphone le 18 août 2026, l'avance restait
+ * COLLÉE au plafond avec huit trous par fenêtre de dix secondes, pendant qu'une
+ * page saine tenait à dix millisecondes sans un seul trou. Une avance au plafond
+ * qui prend encore des trous est une avance trop basse, par définition.
+ *
+ * Le plafond ne coûte rien à qui n'en a pas besoin: l'avance ne monte que sur un
+ * trou et redescend d'une milliseconde à chaque fenêtre tranquille. Un
+ * ordinateur reste donc à dix. Ce qu'il achète est le cas où le matériel demande
+ * plus que ce qu'on lui accordait, et où le son n'arrivait alors jamais à temps.
+ */
+export const LEAD_MAX = 0.4;
 
 /** Past this the schedule has drifted so far behind that catching up chunk by
  * chunk would take longer than starting again. */
@@ -252,6 +265,43 @@ export class SoundStream {
     // were halved while the behaviour it checked never changed.
     this.played += frames / RATE;
     this.chunks += 1;
+  }
+
+  /**
+   * Un bip franc, pour savoir de quel côté chercher.
+   *
+   * # Pourquoi un bouton qui fait du bruit vaut mieux qu'une analyse
+   *
+   * Sur un iPhone, un son absent a deux causes qu'aucun chiffre ne distingue: le
+   * flux qui n'arrive pas à l'heure, ou la session audio du téléphone qui coupe
+   * tout — l'interrupteur sur le côté, une autre application qui a pris la
+   * parole, un appel. Dans les deux cas la page dit `running`, compte ses
+   * morceaux, et n'a rien d'autre à raconter.
+   *
+   * Ce bip passe par le MÊME contexte et le MÊME gain que le jeu. S'il s'entend,
+   * la sortie fonctionne et le problème est dans notre flux. S'il ne s'entend
+   * pas alors que l'état est `running`, c'est le téléphone, et aucune ligne de
+   * code n'y changera rien.
+   *
+   * Une question fermée à la place d'une conversation.
+   */
+  beep(): void {
+    const context = this.context;
+    if (context === null || this.gain === null) return;
+    const tone = context.createOscillator();
+    const shape = context.createGain();
+    tone.frequency.value = 660;
+    // Une montée et une descente douces: un créneau qui démarre à plein donne un
+    // claquement, et on ne saurait pas si on a entendu le bip ou le claquement.
+    const now = context.currentTime;
+    shape.gain.setValueAtTime(0, now);
+    shape.gain.linearRampToValueAtTime(0.4, now + 0.02);
+    shape.gain.setValueAtTime(0.4, now + 0.18);
+    shape.gain.linearRampToValueAtTime(0, now + 0.22);
+    tone.connect(shape);
+    shape.connect(this.gain);
+    tone.start(now);
+    tone.stop(now + 0.24);
   }
 
   /** Le volume appliqué en ce moment.

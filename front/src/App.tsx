@@ -814,7 +814,11 @@ function Room({
             bar={Math.max(0, (space.width - place(fit, picture, space).width) / 2)}
             touch={session.input.touch}
             soundOff={shot ? shot.sound.state !== "running" : false}
-            onSound={() => void session.sound.start()}
+            onSound={() => {
+              // Démarrer PUIS biper, dans cet ordre et dans le même geste: le
+              // bip ne sort de rien tant que le contexte n'a pas repris.
+              void session.sound.start().then(() => session.sound.beep());
+            }}
             onLeave={() => setTouchPref("off")}
             onMenu={() => setMenu(true)}
           />

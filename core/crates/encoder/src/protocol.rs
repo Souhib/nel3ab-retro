@@ -336,3 +336,66 @@ mod tests {
         assert_eq!(&RELEASE_MAGIC.to_le_bytes(), b"FREL");
     }
 }
+
+/// Ce que la lecture du protocole doit tenir, quelle que soit l'entrée.
+///
+/// L'autre bout est du C, dans le patch Dolphin, sans entête partagé ni code
+/// engendré. Les tests ordinaires épinglent les décalages exacts; ceux-ci
+/// vérifient qu'aucune suite d'octets ne fait mieux que se faire refuser.
+#[cfg(test)]
+#[allow(
+    clippy::expect_used,
+    reason = "a panic IS the failure signal in a test"
+)]
+mod properties {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        /// Un entête, quel qu'il soit, est lu ou refusé, jamais autre chose.
+        #[test]
+        fn no_header_can_make_the_reader_panic(
+            bytes in proptest::collection::vec(any::<u8>(), 0..128),
+        ) {
+            let _ = Header::parse(&bytes);
+        }
+
+        /// Idem pour une notification d'image.
+        #[test]
+        fn no_notification_can_make_the_reader_panic(
+            bytes in proptest::collection::vec(any::<u8>(), 0..128),
+        ) {
+            let _ = FrameReady::parse(&bytes);
+        }
+
+        /// Une notification bien formée se relit telle qu'on l'a écrite.
+        ///
+        /// La moitié qui compte: une lecture qui refuserait tout satisferait les
+        /// deux essais d'au-dessus. Le tour complet prouve que les décalages
+        /// sont les mêmes des deux côtés.
+        #[test]
+        fn a_well_formed_notification_survives_the_round_trip(
+            slot in 0_u32..3,
+            number in any::<u64>(),
+        ) {
+            let mut bytes = [0_u8; FRAME_READY_LEN];
+            bytes[0..4].copy_from_slice(&FRAME_MAGIC.to_le_bytes());
+            bytes[4..8].copy_from_slice(&slot.to_le_bytes());
+            bytes[8..16].copy_from_slice(&number.to_le_bytes());
+
+            let read = FrameReady::parse(&bytes).expect("une notification bien formée");
+            prop_assert_eq!(read.slot, slot);
+            prop_assert_eq!(read.frame_number, number);
+        }
+
+        /// Et un motif qui n'est pas le bon est refusé, quel qu'il soit.
+        #[test]
+        fn any_other_magic_is_refused(magic in any::<u32>()) {
+            prop_assume!(magic != FRAME_MAGIC);
+            let mut bytes = [0_u8; FRAME_READY_LEN];
+            bytes[0..4].copy_from_slice(&magic.to_le_bytes());
+
+            prop_assert!(FrameReady::parse(&bytes).is_err());
+        }
+    }
+}

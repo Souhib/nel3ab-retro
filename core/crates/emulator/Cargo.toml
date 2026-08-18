@@ -27,6 +27,7 @@ nix = { version = "0.30", default-features = false, features = ["fs", "signal"] 
 png = "0.18"
 
 [dev-dependencies]
+proptest = "1"
 rstest.workspace = true
 tempfile = "3"
 

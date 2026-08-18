@@ -32,6 +32,7 @@ cc = "1"
 pkg-config = "0.3"
 
 [dev-dependencies]
+proptest = "1"
 tempfile = "3"
 nel3ab-emulator = { path = "../emulator" }
 nel3ab-protocol = { path = "../protocol" }

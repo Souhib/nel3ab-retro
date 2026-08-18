@@ -259,6 +259,32 @@ const NATIVE: &str = "native-scale";
 /// Compare le chemin plutôt qu'un index: les index bougent quand un disque est
 /// ajouté au dossier, et un marqueur qui désigne le mauvais jeu après un ajout
 /// serait pire qu'aucun marqueur.
+/// Où la salle note qu'un jeu change de taille MÊME à sa taille native.
+///
+/// L'astuce de la taille native marche quand le jeu présente certains écrans en
+/// natif, comme Super Mario Strikers: à ×1 il n'y a plus de changement, puisque
+/// le natif EST déjà la taille de l'anneau.
+///
+/// Elle ne peut rien quand c'est le MODE VIDÉO qui change. Mario Power Tennis
+/// est un disque PAL, `GOMP01`, qui démarre en 50 Hz et propose 60 Hz au premier
+/// écran. Cinquante hertz font 528 lignes, soixante en font 448: la hauteur
+/// change quel que soit le facteur, et repartir à ×1 n'y change rien.
+///
+/// Sans ce second marqueur, la salle repartirait en boucle sur ce jeu et
+/// deviendrait inutilisable jusqu'à ce que quelqu'un aille en choisir un autre.
+/// Avec lui, elle abandonne ce disque et revient sur le jeu par défaut, en le
+/// disant. Ce n'est pas le correctif, c'est ce qui empêche une soirée de
+/// s'arrêter là.
+const UNPLAYABLE: &str = "changes-size";
+
+/// Ce jeu a-t-il déjà échoué à sa taille native ?
+///
+/// Même comparaison que [`wants_native`], et sur le chemin pour la même raison:
+/// les index bougent quand un disque arrive dans le dossier.
+fn gave_up(marked: Option<&str>, rom: &std::path::Path) -> bool {
+    marked.is_some_and(|noted| std::path::Path::new(noted.trim()) == rom)
+}
+
 fn wants_native(marked: Option<&str>, rom: &std::path::Path) -> bool {
     marked.is_some_and(|noted| std::path::Path::new(noted.trim()) == rom)
 }
@@ -384,6 +410,20 @@ fn run(settings: &Settings) -> Result<()> {
     // réglage d'environnement, parce que le marqueur décrit le jeu et le réglage
     // décrit la machine: le premier gagne, sinon on retomberait en boucle.
     let marked = std::fs::read_to_string(settings.session_dir.join(NATIVE)).ok();
+    let refused = std::fs::read_to_string(settings.session_dir.join(UNPLAYABLE)).ok();
+    // Ce jeu a déjà échoué même à sa taille native: on ne recommence pas, sinon
+    // la salle redémarre sans fin et plus personne ne peut rien y faire.
+    let rom = if gave_up(refused.as_deref(), &rom) {
+        tracing::error!(
+            game = %rom.display(),
+            "ce jeu change de taille en cours de route et le worker ne sait pas encore \
+             suivre; la salle revient au jeu par défaut plutôt que de redémarrer sans fin"
+        );
+        let _ = std::fs::remove_file(settings.session_dir.join(CHOICE));
+        settings.rom.clone()
+    } else {
+        rom
+    };
     let native = wants_native(marked.as_deref(), &rom);
     if native {
         tracing::info!(
@@ -711,7 +751,16 @@ fn run(settings: &Settings) -> Result<()> {
     // next picture can be measured. This is the plumbing's share of input
     // latency and nothing more: the game's own logic adds frames on top, and
     // that part is the game's to spend.
-    let mut input_to_frame: Vec<f64> = Vec::new();
+    // Par `Timings` comme les quatre autres distributions, et pas par un
+    // tableau et une fonction locale.
+    //
+    // Le défaut que ça corrige: la fonction locale rendait zéro sur un ensemble
+    // vide, donc une tranche où personne n'avait appuyé annonçait « 0.0 ms »
+    // comme s'il s'agissait d'un résultat exceptionnel. Sur trente heures de
+    // journal, 5 936 tranches sur 10 694 disaient ça, soit 56 % de chiffres qui
+    // n'en étaient pas. `Summary` porte le nombre d'échantillons dont il est
+    // tiré, précisément parce qu'un percentile sans ce nombre ne se pèse pas.
+    let mut input_to_frame = Timings::new(2048);
     // Where the time goes, per window. A stutter has to be attributable before
     // it can be fixed, and "the pipeline slowed down" names nothing.
     // One window per stage, drained on every report. A ten-second window holds
@@ -751,11 +800,14 @@ fn run(settings: &Settings) -> Result<()> {
                     game = %rom.display(),
                     "l'émulateur a changé la taille de l'image; on repart à sa taille native"
                 );
+                // Déjà à sa taille native et il change quand même: l'astuce ne
+                // peut rien pour ce jeu, et insister le ferait boucler.
+                let note = if native { UNPLAYABLE } else { NATIVE };
                 if let Err(error) = std::fs::write(
-                    settings.session_dir.join(NATIVE),
+                    settings.session_dir.join(note),
                     rom.as_os_str().as_encoded_bytes(),
                 ) {
-                    tracing::error!(%error, "le marqueur de taille native n'a pas pu être écrit");
+                    tracing::error!(%error, note, "le marqueur n'a pas pu être écrit");
                 }
                 break;
             }
@@ -781,7 +833,7 @@ fn run(settings: &Settings) -> Result<()> {
         if let Ok(mut slot) = last_input.lock()
             && let Some(at) = slot.take()
         {
-            input_to_frame.push(at.elapsed().as_secs_f64() * 1000.0);
+            input_to_frame.observe(at.elapsed());
         }
         let waited = iteration.elapsed();
         // A ten-second summary says a stall HAPPENED; it cannot say WHEN, and
@@ -910,6 +962,7 @@ fn run(settings: &Settings) -> Result<()> {
                 encode_times.summary(),
             );
             let bytes = frame_bytes.summary();
+            let pressed = input_to_frame.summary();
             tracing::info!(
                 produced,
                 // Les deux flux séparément, et QUI les regarde.
@@ -953,8 +1006,11 @@ fn run(settings: &Settings) -> Result<()> {
                 frame_bytes_p99 = bytes.p99,
                 frame_bytes_max = bytes.max,
                 megabits_per_second = megabits(coded_bytes - reported_bytes, reported.elapsed()),
-                input_to_frame_p50_ms = percentile(&mut input_to_frame, 0.50),
-                input_to_frame_p95_ms = percentile(&mut input_to_frame, 0.95),
+                // Le NOMBRE avant les percentiles: zéro échantillon veut dire
+                // « personne n'a appuyé », pas « zéro milliseconde ».
+                input_to_frame_samples = pressed.samples,
+                input_to_frame_p50_ms = pressed.p50,
+                input_to_frame_p95_ms = pressed.p95,
                 "streaming"
             );
             reported = Instant::now();
@@ -1012,26 +1068,6 @@ fn remember_choice(library: &[Rom], index: u8, session_dir: &std::path::Path) ->
     }
     tracing::info!(game = game.name, "booting another game; stopping for it");
     true
-}
-
-/// A percentile of a sample set, in the units the samples carry.
-///
-/// Sorts in place: the caller clears the set each window and has no use for the
-/// order it collected them in. Zero for an empty set, which reads as "nobody
-/// pressed anything" rather than as a suspiciously good number.
-fn percentile(samples: &mut [f64], quantile: f64) -> f64 {
-    if samples.is_empty() {
-        return 0.0;
-    }
-    samples.sort_by(f64::total_cmp);
-    #[allow(
-        clippy::cast_precision_loss,
-        clippy::cast_possible_truncation,
-        clippy::cast_sign_loss,
-        reason = "an index into a few hundred samples; nothing here is near a limit"
-    )]
-    let index = ((samples.len() - 1) as f64 * quantile) as usize;
-    samples[index]
 }
 
 /// Structured JSON logs, level driven by `RUST_LOG`.
@@ -1170,7 +1206,7 @@ mod tests {
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::time::Duration;
 
-    use super::wants_native;
+    use super::{gave_up, wants_native};
     use std::path::Path;
 
     /// Le marqueur de taille native désigne UN jeu, par son chemin.
@@ -1214,6 +1250,25 @@ mod tests {
             Some("/roms/Super Mario Strikers (USA).rvz\n"),
             rom
         ));
+    }
+
+    /// Un jeu qui a échoué même à sa taille native n'est plus relancé.
+    ///
+    /// C'est ce qui empêche une soirée de s'arrêter. Mario Power Tennis change
+    /// de HAUTEUR en passant de 50 à 60 Hz, 528 lignes contre 448, donc le
+    /// repli sur la taille native n'y peut rien: sans ce second refus, la salle
+    /// redémarrerait sans fin et personne ne pourrait aller choisir autre chose.
+    #[test]
+    fn a_game_that_failed_even_at_its_native_size_is_not_tried_again() {
+        let tennis = Path::new("/roms/Mario Power Tennis.rvz");
+        let kart = Path::new("/roms/Mario Kart Double Dash.iso");
+
+        assert!(gave_up(Some("/roms/Mario Power Tennis.rvz"), tennis));
+        assert!(
+            !gave_up(Some("/roms/Mario Power Tennis.rvz"), kart),
+            "un autre jeu a été refusé à cause du marqueur de celui-ci"
+        );
+        assert!(!gave_up(None, tennis), "aucun marqueur ne refuse rien");
     }
 
     /// Two background threads must BOTH stop when the session ends.

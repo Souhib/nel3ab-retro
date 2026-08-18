@@ -324,11 +324,18 @@ def _worker_said(fields: dict[str, Any]) -> str:
     else:
         seen = int(fields.get("watchers") or 0), int(fields.get("half_watchers") or 0)
         who = f"{seen[0]} en grand, {seen[1]} en réduit" if sum(seen) else "personne ne regardait"
+    # La latence des commandes seulement quand elle a été MESURÉE. Zéro
+    # échantillon veut dire « personne n'a appuyé », et l'afficher comme
+    # « 0,0 ms » serait annoncer une latence parfaite là où il n'y a rien.
+    pressed = int(fields.get("input_to_frame_samples", 0) or 0)
+    lag = ""
+    if pressed:
+        lag = f"  commandes {float(fields.get('input_to_frame_p50_ms', 0) or 0):.1f} ms"
     return (
         f"{int(fields.get('frames', 0) or 0)} images  "
         f"encode p95 {float(fields.get('encoding_p95_ms', 0) or 0):.1f} ms  "
         f"attente max {float(fields.get('waiting_max_ms', 0) or 0):.0f} ms  "
-        f"{float(fields.get('megabits_per_second', 0) or 0):.1f} Mb/s  ({who})"
+        f"{float(fields.get('megabits_per_second', 0) or 0):.1f} Mb/s{lag}  ({who})"
     )
 
 

@@ -404,6 +404,7 @@ dependencies = [
  "nel3ab-protocol",
  "nix",
  "png",
+ "proptest",
  "rstest",
  "tempfile",
  "thiserror",
@@ -420,6 +421,7 @@ dependencies = [
  "nel3ab-protocol",
  "nix",
  "pkg-config",
+ "proptest",
  "tempfile",
  "thiserror",
  "tracing",
@@ -447,6 +449,7 @@ version = "0.1.0"
 dependencies = [
  "flate2",
  "nel3ab-protocol",
+ "proptest",
  "thiserror",
  "tracing",
  "tungstenite",

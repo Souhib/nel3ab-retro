@@ -2914,3 +2914,56 @@ mod tests {
         assert!(!server.is_watched());
     }
 }
+
+/// Ce que la lecture d'un flux H.264 doit tenir, quelle que soit l'entrée.
+///
+/// `carries_key_frame` parcourt des octets qui viennent de l'encodeur, donc de
+/// notre côté, mais elle décide si un spectateur en retard peut reprendre. Une
+/// erreur ici ne se voit pas comme une erreur: elle se voit comme une image en
+/// bouillie chez une seule personne.
+#[cfg(test)]
+mod properties {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        /// Aucune suite d'octets ne fait paniquer le balayage.
+        #[test]
+        fn no_bitstream_can_make_the_scan_panic(
+            bytes in proptest::collection::vec(any::<u8>(), 0..2048),
+        ) {
+            let _ = carries_key_frame(&bytes);
+        }
+
+        /// Une clé reste trouvable où qu'elle soit dans le flux.
+        ///
+        /// La moitié qui compte: un balayage qui répondrait toujours faux
+        /// satisferait l'essai d'au-dessus, et plus aucun spectateur en retard
+        /// ne reprendrait jamais.
+        #[test]
+        fn a_key_frame_is_found_wherever_it_sits(
+            before in proptest::collection::vec(any::<u8>(), 0..64),
+            after in proptest::collection::vec(any::<u8>(), 0..64),
+        ) {
+            let mut stream = before;
+            stream.extend_from_slice(&[0, 0, 0, 1, 0x65]);
+            stream.extend_from_slice(&after);
+
+            prop_assert!(carries_key_frame(&stream));
+        }
+
+        /// Et un flux qui n'en contient pas n'en invente pas.
+        #[test]
+        fn a_stream_of_delta_frames_never_claims_a_key(
+            count in 1_usize..8,
+        ) {
+            let mut stream = Vec::new();
+            for _ in 0..count {
+                // NAL de type 1: une image ordinaire.
+                stream.extend_from_slice(&[0, 0, 0, 1, 0x41, 0x9a, 0x02]);
+            }
+
+            prop_assert!(!carries_key_frame(&stream));
+        }
+    }
+}

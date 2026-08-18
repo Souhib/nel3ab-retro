@@ -5969,6 +5969,61 @@ supposé.
 
 ---
 
+### 7.48 Mario Power Tennis, ou les limites du repli sur la taille native
+
+Le même symptôme que Strikers, une cause différente, et une leçon sur les
+correctifs qui traitent un cas particulier.
+
+Tennis est un disque PAL, `GOMP01`. Il démarre en 50 Hz et propose 60 Hz au
+premier écran. Choisir 60 Hz change le MODE VIDÉO, et un mode vidéo a une
+hauteur: cinquante hertz font 528 lignes, soixante en font 448. L'anneau change
+donc de taille, le worker s'arrête, systemd le relance, le jeu repose la même
+question. Sauf qu'ici, contrairement à Strikers, **repartir à la taille native
+n'y change rien**: 528 et 448 restent différents, quel que soit le facteur.
+
+Mesuré: Tennis démarre en 1280x1056, soit 640x528 doublé.
+
+Il n'y avait rien à effacer, contrairement à ce qu'on pouvait croire: le jeu n'a
+ni sauvegarde ni configuration dans Dolphin. Seuls Mario Kart et Melee en ont
+une.
+
+#### Ce qui a été fait, et ce que ça ne fait pas
+
+Un second marqueur. Quand un jeu change de taille alors qu'il tourne DÉJÀ à sa
+taille native, le worker en conclut que l'astuce ne peut rien pour lui, l'écrit,
+et revient au jeu par défaut en le disant.
+
+Ce n'est pas un correctif, c'est un garde-fou. Il transforme « la salle
+redémarre sans fin et plus personne ne peut aller choisir autre chose » en « la
+salle revient sur Mario Kart, avec une ligne qui explique pourquoi ». Le disque
+reste injouable.
+
+#### Ce que ça dit du correctif précédent
+
+Le repli sur la taille native (7.46) réglait Strikers et paraissait général. Il
+ne l'était pas: il ne traite que les jeux qui présentent certains écrans à leur
+taille native, pas ceux qui changent de mode vidéo. Deux jeux sur huit touchés,
+et deux causes différentes.
+
+**Le vrai correctif reste à faire**, et deux dessins sont possibles:
+
+- **adopter le nouvel anneau**, ce qui demande de reconstruire le convertisseur
+  Vulkan, les surfaces VAAPI et l'encodeur en cours de route, et fait changer la
+  taille du flux sous les yeux du navigateur. La page sait déjà encaisser ça,
+  elle le fait à chaque changement de jeu;
+- **fixer la taille de SORTIE** et laisser le nuanceur encaisser n'importe quelle
+  taille d'entrée. Seuls les images importées et le convertisseur seraient
+  reconstruits, l'encodeur ne bougerait pas, et le navigateur ne verrait rien du
+  tout. C'est le plus élégant, et il demande de généraliser un nuanceur qui fait
+  aujourd'hui une moyenne de bloc à facteur entier.
+
+Le second a ma préférence. Il coûte un nuanceur plus général, et il rend la
+chaîne indifférente à ce que le jeu décide de faire, ce qui est la seule
+propriété qui vaille ici: personne ne sait d'avance quels disques changent de
+mode.
+
+---
+
 ## 8. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
 
 | Le piège | Ce qui s'est passé | La leçon |

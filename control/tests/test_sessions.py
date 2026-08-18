@@ -198,3 +198,17 @@ def test_a_stalled_emulator_and_a_slow_encoder_do_not_read_the_same() -> None:
 
     assert stalled is not None and "l'émulateur" in stalled
     assert slow is not None and "encodage lent" in slow
+
+
+def test_the_command_latency_shows_only_when_somebody_pressed_something() -> None:
+    """Zéro échantillon veut dire « personne n'a appuyé », pas « zéro milliseconde ».
+
+    Sur trente heures de journal, 5 936 tranches sur 10 694 annonçaient
+    « 0.0 ms » comme s'il s'agissait d'un résultat. C'est le quatrième défaut de
+    cette forme trouvé cette semaine, et le lecteur ne doit pas le refaire.
+    """
+    quiet = _worker_said({**WELL, "input_to_frame_samples": 0, "input_to_frame_p50_ms": 0.0})
+    played = _worker_said({**WELL, "input_to_frame_samples": 431, "input_to_frame_p50_ms": 0.53})
+
+    assert "commandes" not in quiet
+    assert "commandes 0.5 ms" in played

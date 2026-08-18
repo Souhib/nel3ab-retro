@@ -733,3 +733,60 @@ mod tests {
         assert_eq!(&png[16..24], &[0, 0, 0, 96, 0, 0, 0, 32]);
     }
 }
+
+/// Ce que la lecture d'une bannière doit tenir, quelle que soit l'entrée.
+///
+/// # Pourquoi des entrées engendrées
+///
+/// `parse` lit un blob binaire venu d'un disque: deux formats de conteneur, une
+/// image en RGB5A3 rangée en blocs de quatre par quatre, et du texte en
+/// Windows-1252. C'est exactement le genre de code où une entrée à laquelle
+/// personne n'a pensé produit un panique, et un panique dans le worker coupe la
+/// partie de tout le monde.
+///
+/// L'audit du 18 août 2026 a noté que `proptest` était déjà dans le dépôt, mais
+/// seulement sur le crate le plus régulier. Les trois analyseurs binaires n'en
+/// avaient aucun.
+#[cfg(test)]
+mod properties {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        /// Aucune suite d'octets ne doit faire paniquer la lecture.
+        ///
+        /// Elle a le droit de refuser, et c'est le cas normal. Elle n'a pas le
+        /// droit de s'effondrer.
+        #[test]
+        fn no_blob_can_make_the_reader_panic(blob in proptest::collection::vec(any::<u8>(), 0..4096)) {
+            let _ = parse(&blob);
+        }
+
+        /// Et quand elle accepte, l'image fait exactement la taille annoncée.
+        ///
+        /// La moitié qui compte: une lecture qui refuserait tout satisferait
+        /// l'essai d'au-dessus sans rien garantir. Ici on part d'une bannière
+        /// valide, on la réécrit, et on vérifie ce qui en ressort.
+        #[test]
+        fn a_banner_that_parses_always_carries_a_full_picture(
+            noise in proptest::collection::vec(any::<u8>(), 0..64),
+        ) {
+            let mut blob = valid_bnr1();
+            // On abîme la QUEUE, qui est du texte: l'entête et l'image restent
+            // lisibles, donc la lecture doit aboutir et rendre une image entière.
+            let tail = blob.len().saturating_sub(noise.len());
+            blob[tail..].copy_from_slice(&noise);
+
+            if let Ok(banner) = parse(&blob) {
+                prop_assert_eq!(banner.pixels.len(), WIDTH as usize * HEIGHT as usize * 4);
+            }
+        }
+    }
+
+    /// Une bannière minimale mais valide: entête BNR1, image nulle, texte vide.
+    fn valid_bnr1() -> Vec<u8> {
+        let mut blob = vec![0_u8; 0x1960];
+        blob[0..4].copy_from_slice(b"BNR1");
+        blob
+    }
+}

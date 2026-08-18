@@ -15,7 +15,7 @@
 //   node stamp.mjs --check   fails if the stamp does not match the sources
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join, relative, sep } from "node:path";
 
 const ROOT = import.meta.dirname;
 const PAGE = join(ROOT, "..", "core", "crates", "worker", "src", "page", "index.html");
@@ -24,9 +24,27 @@ const STAMP = join(ROOT, "..", "core", "crates", "worker", "src", "page", "SOURC
 /** Everything the page is built from, in a fixed order. */
 const INPUTS = ["src", "index.html", "package-lock.json", "vite.config.ts", "tsconfig.app.json"];
 
+/** Ce qui ne part JAMAIS dans la page, et n'a donc rien à faire dans l'empreinte.
+ *
+ * Les tests et leur mise en place vivent sous `src`, mais Vite ne les rassemble
+ * pas: la page construite est identique qu'ils existent ou non. Les compter
+ * rendait l'empreinte rouge à chaque test ajouté, ce qui obligeait à
+ * reconstruire la page pour rien et faisait passer la CI au rouge sur un
+ * commit qui n'avait pas touché à l'interface. Arrivé le 18 août 2026, en
+ * ajoutant les trois premiers tests de composant.
+ *
+ * Le risque de trop exclure est réel et borné: si un fichier de test finissait
+ * dans la page, l'empreinte cesserait de le voir. Le motif ne prend que
+ * `*.test.*` et le dossier `src/test/`, qui sont par construction hors du
+ * paquet.
+ */
+function bundled(path) {
+  return !/\.test\.[jt]sx?$/.test(path) && !path.includes(`${sep}test${sep}`);
+}
+
 function* walk(path) {
   if (statSync(path).isFile()) {
-    yield path;
+    if (bundled(path)) yield path;
     return;
   }
   for (const entry of readdirSync(path).sort()) yield* walk(join(path, entry));

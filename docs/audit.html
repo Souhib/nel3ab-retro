@@ -310,11 +310,15 @@
         panique pas » est réelle, et les dépendances sont propres.
       </p>
       <p>
-        Le danger est ailleurs, et il est bête: <strong>les sauvegardes des
-        joueurs vivent dans un répertoire que la machine vide à chaque
-        démarrage.</strong> Rien dans le code n'est en cause. C'est une variable
-        d'environnement, et elle attend le prochain redémarrage pour effacer les
-        parties de tout le monde sans prévenir personne.
+        Le danger était ailleurs, et il était bête: les sauvegardes des joueurs
+        vivaient dans un répertoire que la machine vide à chaque démarrage.
+        <strong>Corrigé le 18 août</strong>, avec les constats 03, 04 et 05, et
+        avec un jeu qui faisait redémarrer la salle en boucle.
+      </p>
+      <p>
+        Restent six constats, tous mineurs ou moyens, et la moitié du 03: mettre
+        l'émulateur lui-même en pause demande une décision, pas seulement du
+        code.
       </p>
     </div>
   </header>
@@ -351,8 +355,8 @@
 
   <h2>Constats</h2>
 
-  <div class="finding critique">
-    <div class="head"><span class="rank">01</span><span class="chip critique">critique</span></div>
+  <div class="finding corrige">
+    <div class="head"><span class="rank">01</span><span class="chip corrige">corrigé le 18 août</span></div>
     <h3>Les sauvegardes vivent dans <code>/tmp</code>, que la machine vide à chaque démarrage</h3>
     <div class="body prose">
       <p class="first">
@@ -426,7 +430,7 @@ la sauvegarde Mario Kart date de  2026-08-16 21:11   <span class="bad">← ne su
   </div>
 
   <div class="finding important">
-    <div class="head"><span class="rank">03</span><span class="chip important">important</span></div>
+    <div class="head"><span class="rank">03</span><span class="chip important">à moitié corrigé</span></div>
     <h3>Le pipeline encode soixante images par seconde pour personne</h3>
     <div class="body prose">
       <p class="first">
@@ -459,15 +463,19 @@ dolphin-emu   23 % d'un coeur, en permanence</div>
       </p>
       <div class="fix">
         <span class="label">correctif</span>
-        Conditionner la conversion et l'encodage pleine taille à
-        <code>watchers() &gt; 0</code>, comme le demi-format le fait déjà. Puis,
-        plus intéressant, mettre l'émulateur en pause quand la salle se vide.
+        L'encodage est fait, et la mesure a démenti l'espoir: 5,56 W au lieu de
+        5,87, soit trente centièmes de watt. <strong>Le GPU n'était pas le
+        coût.</strong> Les cinq watts et demi restants sont Dolphin, qui fait
+        tourner le jeu pour personne. Le suspendre demande une décision: le
+        processus lancé est <code>docker run</code> et non Dolphin, donc il
+        faudrait nommer le conteneur et le mettre en pause, ce qui crée un état
+        où l'émulateur peut rester gelé.
       </div>
     </div>
   </div>
 
   <div class="finding important">
-    <div class="head"><span class="rank">04</span><span class="chip important">important</span></div>
+    <div class="head"><span class="rank">04</span><span class="chip corrige">corrigé le 18 août</span></div>
     <h3>Dix-neuf composants React, et aucun test que la CI exécute</h3>
     <div class="body prose">
       <p class="first">
@@ -488,16 +496,18 @@ pilotes Puppeteer               42   <span class="bad">zéro exécuté par la CI
       </p>
       <div class="fix">
         <span class="label">correctif</span>
-        Vitest et Testing Library sur les composants qui portent une décision. Le
-        sélecteur, la bannière de demande de manette, le bouton de signalement.
-        Plus tard, quelques pilotes en CI contre un worker bouchon, ce qui ne
-        demande pas de GPU.
+        Fait: dix tests sur le sélecteur et sur les deux boutons de la colonne,
+        chacun sur un bogue réel de la semaine. Les outils étaient installés
+        depuis le début; ce qui manquait tenait en deux lignes de plomberie,
+        jsdom qui ne connaît pas <code>scrollIntoView</code> et le document qui
+        n'est pas vidé entre deux tests. Restent les pilotes en CI contre un
+        worker bouchon.
       </div>
     </div>
   </div>
 
   <div class="finding important">
-    <div class="head"><span class="rank">05</span><span class="chip important">moyen</span></div>
+    <div class="head"><span class="rank">05</span><span class="chip corrige">corrigé le 18 août</span></div>
     <h3>La page part non compressée, et sans cache</h3>
     <div class="body prose">
       <p class="first">
@@ -511,9 +521,9 @@ en-tête Content-Encoding        <span class="bad">absent</span>
 Cache-Control                   <span class="bad">no-store</span>  (rechargée entièrement à chaque visite)</div>
       <div class="fix">
         <span class="label">correctif</span>
-        Compresser à la volée et servir un <code>ETag</code> au lieu de
-        <code>no-store</code>. La page est déjà estampillée par un condensat à la
-        construction, donc l'étiquette existe. Il suffit de la publier.
+        Fait: 424 Kio devenus 128, compressés une seule fois au premier appel, et
+        un <code>ETag</code> qui rend une deuxième visite gratuite. Vérifié:
+        <code>304</code> et zéro octet.
       </div>
     </div>
   </div>
@@ -945,36 +955,56 @@ valeur réelle quand quelqu'un joue         0,53 ms   <span class="ok">← excel
     </div>
   </div>
 
+  <h2>Ce qu'il reste</h2>
+  <div class="prose">
+    <p class="first">
+      Six constats et demi, plus une chose que l'audit n'avait pas vue.
+    </p>
+    <ul class="plain">
+      <li>
+        <strong>Adopter un anneau qui change de taille</strong>, au lieu de
+        repartir. Un jeu qui change de mode vidéo faisait tourner la salle en
+        boucle; le worker s'en aperçoit maintenant et relance le jeu à sa taille
+        native, ce qui coûte un redémarrage et de la netteté. Le vrai correctif
+        est de reconstruire la chaîne d'encodage en route.
+      </li>
+      <li>
+        <strong>Suspendre l'émulateur</strong> quand la salle se vide, moitié
+        restante du constat 03 et la seule qui économise vraiment.
+      </li>
+      <li>
+        <strong>Les zéros qui passent pour des mesures</strong> (06), les
+        analyseurs binaires sans entrées générées (07), la copie des pseudos
+        (09), l'accessibilité (10), les en-têtes de sécurité (11) et le découpage
+        de <code>browser.rs</code> (12).
+      </li>
+    </ul>
+  </div>
+
   <h2>L'ordre que je propose</h2>
   <ol class="order">
     <li>
       <div>
-        <b>Sortir les sauvegardes de <code>/tmp</code></b>
-        <span>Le seul constat où attendre coûte quelque chose d'irrécupérable. Un redémarrage suffit.</span>
-      </div>
-    </li>
-    <li>
-      <div>
-        <b>Mettre en veille la salle vide, et sauvegarder l'état</b>
-        <span>Corrige le constat 03 et livre « reprendre où on en était » du même geste.</span>
-      </div>
-    </li>
-    <li>
-      <div>
-        <b>Compresser la page, et proposer le format réduit</b>
-        <span>Les deux visent la même personne, celle dont la liaison va mal. Petits tous les deux.</span>
-      </div>
-    </li>
-    <li>
-      <div>
-        <b>Tester les composants qui portent une décision</b>
-        <span>Avant d'en ajouter d'autres. Deux bogues de cette semaine vivaient là, et un troisième pendant cet audit.</span>
+        <b>Décider du sort de l'émulateur quand la salle est vide</b>
+        <span>Le mettre en pause économise cinq watts et demi et empêche une partie de dériver, mais crée un état où il peut rester gelé. Ce dépôt a déjà payé douze heures d'émulateur orphelin.</span>
       </div>
     </li>
     <li>
       <div>
         <b>Le clip des trente secondes</b>
         <span>Le premier ajout dont le seul but est le plaisir. Il a été gagné.</span>
+      </div>
+    </li>
+    <li>
+      <div>
+        <b>Les zéros qui passent pour des mesures, et les analyseurs sans fuzzing</b>
+        <span>Deux constats moyens qui se corrigent en une soirée chacun, et qui rendent le reste plus sûr à lire.</span>
+      </div>
+    </li>
+    <li>
+      <div>
+        <b>Adopter un anneau qui change de taille</b>
+        <span>Le vrai correctif du jeu qui redémarrait. Plus gros, et il rendrait sa netteté à Strikers.</span>
       </div>
     </li>
   </ol>

@@ -241,6 +241,39 @@ VITALS_MAX = 2048
 #: reviendrait à autoriser le débit du premier à la taille du second.
 COMPLAINT_MAX = 16_384
 
+#: Le temps minimum entre deux relevés d'une même page, en secondes.
+#:
+#: La page en envoie un toutes les dix secondes. Cinq laisse de la marge à un
+#: minuteur de navigateur, qui n'arrive jamais à l'heure, sans laisser la place à
+#: autre chose.
+#:
+#: Ce n'est pas de la prudence: mesuré le 17 août 2026, une seule page émettant
+#: en boucle a fait écrire **22,6 Mo en trente secondes**, soit 2,7 Go par heure.
+#: La taille d'un relevé était bornée, son DÉBIT ne l'était pas, et le balayage
+#: de deux jours n'y peut rien puisqu'il efface des journées entières. Un disque
+#: plein sur cette machine emporte les parties en cours avec le journal.
+VITALS_EVERY = 5.0
+
+#: Et entre deux signalements. Vingt secondes.
+#:
+#: Le bouton se désarme déjà trois secondes pour éviter le double clic, mais ça
+#: vit dans la page, donc ça ne protège rien: ce qui compte est ce que le serveur
+#: accepte. Un signalement pèse jusqu'à seize kilo-octets.
+COMPLAINT_EVERY = 20.0
+
+
+def too_soon(previous: float | None, now: float, gap: float) -> bool:
+    """Vrai quand ce message arrive trop tôt après le précédent accepté.
+
+    Sur le temps MONOTONE, comme les demandes de manette: régler l'horloge de la
+    machine ne doit ni ouvrir les vannes ni bloquer quelqu'un pour une heure.
+
+    `None` veut dire « le premier », et un premier n'est jamais trop tôt: une
+    page qui vient d'arriver doit pouvoir parler tout de suite, sinon on perd la
+    fenêtre où les problèmes de connexion se voient le mieux.
+    """
+    return previous is not None and (now - previous) < gap
+
 
 def _measured(data: dict[str, Any], ceiling: int = VITALS_MAX) -> dict[str, Any] | None:
     """Un relevé, ou rien s'il n'a pas la tête d'un relevé.
@@ -280,6 +313,10 @@ async def mesures(sid: str, data: dict[str, Any]) -> None:
     if kept is None:
         return
     session = await sio.get_session(sid)
+    now = monotonic()
+    if too_soon(session.get("last_measured"), now, VITALS_EVERY):
+        return
+    await sio.save_session(sid, {**session, "last_measured": now})
     rooms, people, journal = _state(sio.get_environ(sid))
     journal.write("mesures", **_who(sid, session), vu=kept, salle=_room_now(rooms, people))
 
@@ -305,6 +342,10 @@ async def plainte(sid: str, data: dict[str, Any]) -> None:
     if kept is None:
         return
     session = await sio.get_session(sid)
+    now = monotonic()
+    if too_soon(session.get("last_complained"), now, COMPLAINT_EVERY):
+        return
+    await sio.save_session(sid, {**session, "last_complained": now})
     rooms, people, journal = _state(sio.get_environ(sid))
     journal.write("plainte", **_who(sid, session), vu=kept, salle=_room_now(rooms, people))
 

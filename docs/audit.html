@@ -1,0 +1,1021 @@
+<title>État des lieux nel3ab</title>
+<style>
+  /* Palette: celle du projet (front/src/index.css), reprise telle quelle, plus
+     un ambre pour la gravité intermédiaire que la palette n'avait pas. */
+  :root {
+    --ink: #ffffff;
+    --panel: #f6f6f8;
+    --sunk: #eeeef2;
+    --rule: #e2e2e8;
+    --rule-bright: #c8c8d2;
+    --text: #16161c;
+    --muted: #56565f;
+    --faint: #86868f;
+    --indigo: #5540c9;
+    --alert: #c22f3d;
+    --warn: #8a5a00;
+    --good: #0a7a45;
+    --shadow: 0 1px 2px rgba(22, 22, 28, 0.06);
+
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --serif: Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ink: #08080a;
+      --panel: #0e0e11;
+      --sunk: #131318;
+      --rule: #1e1e25;
+      --rule-bright: #2c2c36;
+      --text: #e8e8ee;
+      --muted: #8b8b98;
+      --faint: #5c5c68;
+      --indigo: #7c6ce0;
+      --alert: #ff7a7a;
+      --warn: #e0a94a;
+      --good: #6ee7a8;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ink: #08080a;
+    --panel: #0e0e11;
+    --sunk: #131318;
+    --rule: #1e1e25;
+    --rule-bright: #2c2c36;
+    --text: #e8e8ee;
+    --muted: #8b8b98;
+    --faint: #5c5c68;
+    --indigo: #7c6ce0;
+    --alert: #ff7a7a;
+    --warn: #e0a94a;
+    --good: #6ee7a8;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  }
+
+  body {
+    background: var(--ink);
+    color: var(--text);
+    font-family: var(--serif);
+    font-size: 17px;
+    line-height: 1.65;
+    margin: 0;
+    padding: 0 20px 96px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page { max-width: 74ch; margin: 0 auto; }
+  .prose { max-width: 66ch; }
+  :focus-visible { outline: 2px solid var(--indigo); outline-offset: 3px; }
+
+  .label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+
+  header { padding: 72px 0 0; }
+  h1 {
+    font-family: var(--mono);
+    font-size: clamp(26px, 4.6vw, 38px);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    text-wrap: balance;
+    margin: 14px 0 0;
+  }
+  header p.lede {
+    color: var(--muted);
+    font-size: 19px;
+    margin: 18px 0 0;
+    max-width: 60ch;
+    text-wrap: pretty;
+  }
+
+  .figures {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    margin: 40px 0 0;
+  }
+  .figure { background: var(--panel); padding: 12px 14px; }
+  .figure b {
+    display: block;
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 21px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  .figure span { display: block; margin-top: 3px; }
+
+  .verdict {
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--alert);
+    background: var(--panel);
+    padding: 20px 22px;
+    margin-top: 40px;
+    box-shadow: var(--shadow);
+  }
+  .verdict p { margin-top: 10px; }
+  .verdict p:first-of-type { margin-top: 12px; }
+
+  h2 {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--indigo);
+    margin: 72px 0 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--rule);
+  }
+  h2 + p, h2 + .prose { margin-top: 20px; }
+
+  h3 {
+    font-family: var(--mono);
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.35;
+    margin: 10px 0 0;
+    text-wrap: balance;
+  }
+
+  p { margin: 14px 0 0; }
+  p.first { margin-top: 0; }
+  strong { font-weight: 600; color: var(--text); }
+
+  .finding {
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--stripe, var(--rule-bright));
+    background: var(--panel);
+    box-shadow: var(--shadow);
+    padding: 18px 22px 22px;
+    margin-top: 18px;
+  }
+  .finding.critique { --stripe: var(--alert); }
+  .finding.important { --stripe: var(--warn); }
+  .finding.mineur { --stripe: var(--rule-bright); }
+  .finding.corrige { --stripe: var(--good); }
+
+  .head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .rank {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 13px;
+    color: var(--faint);
+  }
+  .chip {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    border: 1px solid currentColor;
+    border-radius: 2px;
+    padding: 2px 7px;
+    white-space: nowrap;
+  }
+  .chip.critique { color: var(--alert); }
+  .chip.important { color: var(--warn); }
+  .chip.mineur { color: var(--faint); }
+  .chip.corrige { color: var(--good); }
+  .finding .body { margin-top: 12px; }
+
+  .readout {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 1.75;
+    font-variant-numeric: tabular-nums;
+    background: var(--sunk);
+    border: 1px solid var(--rule);
+    padding: 12px 14px;
+    margin-top: 14px;
+    overflow-x: auto;
+    white-space: pre;
+    color: var(--muted);
+  }
+  .readout b { color: var(--text); font-weight: 600; }
+  .readout .bad { color: var(--alert); font-weight: 600; }
+  .readout .ok { color: var(--good); font-weight: 600; }
+
+  .fix {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px dashed var(--rule);
+    font-size: 15.5px;
+    color: var(--muted);
+  }
+  .fix .label { display: block; margin-bottom: 4px; }
+  code {
+    font-family: var(--mono);
+    font-size: 0.86em;
+    background: var(--sunk);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    padding: 1px 5px;
+    color: var(--text);
+  }
+
+  .tier { margin-top: 30px; }
+  .tier > .label { display: block; margin-bottom: 12px; }
+  .cards { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+  .card {
+    border: 1px solid var(--rule);
+    background: var(--panel);
+    padding: 18px 20px 20px;
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+  }
+  .card h3 { font-size: 15.5px; margin-top: 0; }
+  .card p { font-size: 15.5px; margin-top: 10px; color: var(--muted); }
+  .card p strong { color: var(--text); }
+  .meters { display: flex; gap: 18px; margin-top: auto; padding-top: 14px; }
+  .meter { display: flex; align-items: baseline; gap: 6px; }
+  .meter .label { letter-spacing: 0.1em; }
+  .dots { display: inline-flex; gap: 3px; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--rule-bright); }
+  .dot.on { background: var(--indigo); }
+  .dot.cost.on { background: var(--faint); }
+
+  ol.order { list-style: none; counter-reset: step; padding: 0; margin: 20px 0 0; }
+  ol.order li {
+    counter-increment: step;
+    display: grid;
+    grid-template-columns: 30px 1fr;
+    gap: 14px;
+    padding: 14px 0;
+    border-top: 1px solid var(--rule);
+  }
+  ol.order li::before {
+    content: counter(step);
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 13px;
+    color: var(--indigo);
+    padding-top: 2px;
+  }
+  ol.order span { display: block; color: var(--muted); font-size: 15.5px; margin-top: 2px; }
+
+  ul.plain { padding-left: 20px; margin: 12px 0 0; }
+  ul.plain li { margin-top: 9px; color: var(--muted); }
+  ul.plain li strong { color: var(--text); }
+
+  footer {
+    margin-top: 72px;
+    padding-top: 20px;
+    border-top: 1px solid var(--rule);
+    color: var(--faint);
+    font-size: 14.5px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+
+<div class="page">
+  <header>
+    <span class="label">audit du 18 août 2026 · mesuré sur lgf</span>
+    <h1>État des lieux nel3ab</h1>
+    <p class="lede">
+      Douze constats techniques classés par gravité, ce que j'ai essayé de casser
+      et n'ai pas réussi, et onze fonctionnalités pesées contre ce qu'elles
+      coûtent. Chaque chiffre vient d'une mesure faite aujourd'hui sur la
+      machine, avec sa dispersion quand elle en a une.
+    </p>
+
+    <div class="figures">
+      <div class="figure"><b>28,6 k</b><span class="label">lignes de code</span></div>
+      <div class="figure"><b>395</b><span class="label">tests</span></div>
+      <div class="figure"><b>42</b><span class="label">pilotes</span></div>
+      <div class="figure"><b>17</b><span class="label">décisions ADR</span></div>
+      <div class="figure"><b>6 381</b><span class="label">lignes de carnet</span></div>
+      <div class="figure"><b>145</b><span class="label">commits</span></div>
+    </div>
+
+    <div class="verdict prose">
+      <span class="label">verdict</span>
+      <p class="first">
+        Le code est en meilleur état que la machine qui le fait tourner. Les
+        défenses que j'ai attaquées ont toutes tenu, la règle « le worker ne
+        panique pas » est réelle, et les dépendances sont propres.
+      </p>
+      <p>
+        Le danger est ailleurs, et il est bête: <strong>les sauvegardes des
+        joueurs vivent dans un répertoire que la machine vide à chaque
+        démarrage.</strong> Rien dans le code n'est en cause. C'est une variable
+        d'environnement, et elle attend le prochain redémarrage pour effacer les
+        parties de tout le monde sans prévenir personne.
+      </p>
+    </div>
+  </header>
+
+  <h2>Ce qui tient</h2>
+  <div class="prose">
+    <p class="first">
+      Trois choses avant les constats, parce qu'un audit qui ne liste que des
+      défauts donne une image fausse.
+    </p>
+    <ul class="plain">
+      <li>
+        <strong>La règle « le worker ne panique pas » tient vraiment.</strong> Sur
+        16 365 lignes de Rust, six <code>expect</code> subsistent hors des tests,
+        et les six sont dans du code compilé uniquement sous
+        <code>cfg(test)</code>, chacun avec sa raison écrite. J'ai vu peu de
+        projets où cette règle survit au contact.
+      </li>
+      <li>
+        <strong>Une panne de l'émulateur se répare seule.</strong> La mort de la
+        source remonte par <code>?</code> jusqu'à la sortie du processus, et
+        <code>Restart=always</code> le relance en deux secondes. C'est le même
+        chemin que le changement de jeu, donc il sert tous les jours au lieu de
+        rouiller.
+      </li>
+      <li>
+        <strong>Les dépendances sont saines.</strong>
+        <code>cargo deny check advisories</code> passe,
+        <code>npm audit</code> ne trouve rien, et l'identité vient du proxy, donc
+        il n'existe aucun mot de passe à voler.
+      </li>
+    </ul>
+  </div>
+
+  <h2>Constats</h2>
+
+  <div class="finding critique">
+    <div class="head"><span class="rank">01</span><span class="chip critique">critique</span></div>
+    <h3>Les sauvegardes vivent dans <code>/tmp</code>, que la machine vide à chaque démarrage</h3>
+    <div class="body prose">
+      <p class="first">
+        Le worker donne à Dolphin <code>/tmp/nel3ab-session</code> comme
+        répertoire personnel. La console y écrit ses cartes mémoire. La règle de
+        ménage de cette machine commence par un <code>D</code> majuscule, ce qui
+        veut dire « vider le contenu au démarrage », en plus du nettoyage à trente
+        jours.
+      </p>
+      <div class="readout"><b>$ grep -rhs '/tmp' /usr/lib/tmpfiles.d/tmp.conf</b>
+D /tmp 1777 root root 30d          <span class="bad">← D majuscule: vidé à chaque démarrage</span>
+
+<b>$ find /tmp/nel3ab-session -name '*.gci'</b>
+GC/USA/Card A/08-GM4E-MarioKart Double Dash!!.gci
+GC/USA/Card A/01-GALE-SuperSmashBros0110290334.gci
+
+dernier démarrage de la machine   2026-08-16 14:26
+la sauvegarde Mario Kart date de  2026-08-16 21:11   <span class="bad">← ne survivra pas au prochain</span></div>
+      <p>
+        Personne ne verrait rien au moment où ça arrive. La perte se découvrirait
+        à la partie suivante, sous la forme de coupes redevenues verrouillées et
+        de records effacés, sans rien pour relier ça à un redémarrage de la
+        veille. C'est le seul constat de la liste dont l'attente coûte quelque
+        chose d'irrécupérable.
+      </p>
+      <p>
+        J'ai copié les deux sauvegardes dans
+        <code>~/.local/state/nel3ab/sauvegardes/</code> pendant l'audit. C'est un
+        filet, pas le correctif.
+      </p>
+      <div class="fix">
+        <span class="label">correctif</span>
+        Pointer <code>NEL3AB_SESSION_DIR</code> vers
+        <code>~/.local/state/nel3ab/session</code>, où vivent déjà les pseudos et
+        le journal, et suivre le changement dans le montage Docker qui expose ce
+        chemin à Dolphin. Deux lignes, mais elles touchent l'unité systemd et le
+        conteneur, donc à faire quand personne ne joue.
+      </div>
+    </div>
+  </div>
+
+  <div class="finding corrige">
+    <div class="head"><span class="rank">02</span><span class="chip corrige">corrigé pendant l'audit</span></div>
+    <h3>Le débit des relevés n'était pas borné, seulement leur taille</h3>
+    <div class="body prose">
+      <p class="first">
+        Défaut à moi, introduit hier avec le journal des séances. Chaque relevé
+        envoyé par une page était plafonné à deux kilo-octets, et rien ne limitait
+        la fréquence. Je l'ai vérifié en émettant en boucle depuis un seul client,
+        contre le vrai service.
+      </p>
+      <div class="readout"><b>avant</b>   245 072 messages en 4,2 s
+        → <span class="bad">22,6 Mo écrits en 30 s</span>, et le serveur vidait encore sa file
+        (une seule observation, donc un plancher et non une pointe)
+
+<b>après</b>   245 234 messages en 4,2 s
+        → <span class="ok">3 lignes écrites</span>, une toutes les cinq secondes</div>
+      <p>
+        Le balayage de deux jours n'aurait rien pu faire, puisqu'il efface des
+        journées entières et pas des lignes. Un disque plein sur cette machine
+        emporte les parties en cours en même temps que le journal.
+      </p>
+      <div class="fix">
+        <span class="label">fait</span>
+        Un garde de cadence par socket, sur le temps monotone, avec ses deux tests
+        jumeaux. Le cinquantième relevé d'affilée est refusé, et le premier d'une
+        page ne l'est jamais, parce que c'est celui qui montre le mieux une
+        mauvaise liaison.
+      </div>
+    </div>
+  </div>
+
+  <div class="finding important">
+    <div class="head"><span class="rank">03</span><span class="chip important">important</span></div>
+    <h3>Le pipeline encode soixante images par seconde pour personne</h3>
+    <div class="body prose">
+      <p class="first">
+        Le demi-format est conditionné à la présence d'un spectateur, et c'est
+        écrit noir sur blanc dans le code. La pleine taille ne l'est pas. La
+        conversion Vulkan et l'encodage VAAPI tournent à chaque image, salle vide
+        ou non.
+      </p>
+      <div class="readout"><b>trois paires alternées, échantillons de 10 s</b>
+
+           en marche      arrêté     écart
+tour 1      25,65 W      19,09 W     6,56 W
+tour 2      24,78 W      18,91 W     5,87 W
+tour 3      24,66 W      20,67 W     3,99 W
+                                    ───────
+médiane de l'écart                  <span class="bad">5,87 W</span>   (étendue 4,0 à 6,6)
+
+dolphin-emu   23 % d'un coeur, en permanence</div>
+      <p>
+        La dispersion est large parce que la machine n'est pas isolée pendant la
+        mesure. Retenir « environ six watts en continu », pas un chiffre au
+        centième.
+      </p>
+      <p>
+        Les watts ne sont pas le vrai sujet. Le vrai sujet est que
+        <strong>le jeu continue de tourner sans personne</strong>. Une course
+        avance, un chronomètre de menu défile, et une partie laissée en plan dérive
+        pendant des heures. Le projet a déjà payé ce genre de chose une fois, avec
+        un Dolphin orphelin qui a tourné douze heures en volant les entrées.
+      </p>
+      <div class="fix">
+        <span class="label">correctif</span>
+        Conditionner la conversion et l'encodage pleine taille à
+        <code>watchers() &gt; 0</code>, comme le demi-format le fait déjà. Puis,
+        plus intéressant, mettre l'émulateur en pause quand la salle se vide.
+      </div>
+    </div>
+  </div>
+
+  <div class="finding important">
+    <div class="head"><span class="rank">04</span><span class="chip important">important</span></div>
+    <h3>Dix-neuf composants React, et aucun test que la CI exécute</h3>
+    <div class="body prose">
+      <p class="first">
+        Les 132 tests du front portent tous sur des modules purs. Le placement de
+        l'image, l'horloge, les manettes, les relevés. C'est cohérent avec
+        l'architecture, qui garde React hors du chemin des images. Mais la moitié
+        qu'on touche à la souris n'est vérifiée que par les pilotes Puppeteer, et
+        la CI n'en lance aucun.
+      </p>
+      <div class="readout">fichiers de test du front       10   <span class="ok">tous sur des modules purs</span>
+composants React                19   <span class="bad">aucun test unitaire</span>
+pilotes Puppeteer               42   <span class="bad">zéro exécuté par la CI</span></div>
+      <p>
+        Ce n'est pas théorique. Deux défauts de cette semaine vivaient exactement
+        là: le sélecteur qui validait l'option précédente au clic, et le survol
+        déclenché quand un panneau apparaît sous un pointeur immobile. Les deux
+        ont été trouvés à la main.
+      </p>
+      <div class="fix">
+        <span class="label">correctif</span>
+        Vitest et Testing Library sur les composants qui portent une décision. Le
+        sélecteur, la bannière de demande de manette, le bouton de signalement.
+        Plus tard, quelques pilotes en CI contre un worker bouchon, ce qui ne
+        demande pas de GPU.
+      </div>
+    </div>
+  </div>
+
+  <div class="finding important">
+    <div class="head"><span class="rank">05</span><span class="chip important">moyen</span></div>
+    <h3>La page part non compressée, et sans cache</h3>
+    <div class="body prose">
+      <p class="first">
+        Le worker sert l'unique fichier HTML tel quel. C'est la personne dont la
+        liaison va mal qui paie la différence, et c'est celle qu'on passe la
+        semaine à aider.
+      </p>
+      <div class="readout">taille servie                   424 Kio
+taille compressée en gzip       <span class="ok">128 Kio</span>   (3,3 fois moins)
+en-tête Content-Encoding        <span class="bad">absent</span>
+Cache-Control                   <span class="bad">no-store</span>  (rechargée entièrement à chaque visite)</div>
+      <div class="fix">
+        <span class="label">correctif</span>
+        Compresser à la volée et servir un <code>ETag</code> au lieu de
+        <code>no-store</code>. La page est déjà estampillée par un condensat à la
+        construction, donc l'étiquette existe. Il suffit de la publier.
+      </div>
+    </div>
+  </div>
+
+  <div class="finding important">
+    <div class="head"><span class="rank">06</span><span class="chip important">moyen</span></div>
+    <h3>Des zéros qui se font passer pour des mesures</h3>
+    <div class="body prose">
+      <p class="first">
+        Le worker publie la latence entre une commande et l'image qui la montre.
+        Quand personne n'a appuyé sur rien, la fonction qui calcule le percentile
+        rend zéro, et la ligne annonce <code>0.0 ms</code> comme s'il s'agissait
+        d'un résultat.
+      </p>
+      <div class="readout">tranches de dix secondes sur 30 h        10 694
+dont « 0.0 ms », c'est-à-dire aucun appui     <span class="bad">5 936</span>   (56 %)
+valeur réelle quand quelqu'un joue         0,53 ms   <span class="ok">← excellente, et invisible</span></div>
+      <p>
+        Le projet possède déjà le type qui règle ça. <code>Summary</code> porte le
+        nombre d'échantillons dont il est tiré, précisément parce qu'un percentile
+        sans ce nombre ne se pèse pas. Cette mesure contourne le type avec une
+        fonction locale. C'est le quatrième défaut de cette forme cette semaine,
+        après l'ancre publiée comme un retard, la sentinelle à zéro du tampon, et
+        le public non compté affiché comme « personne ».
+      </p>
+      <div class="fix">
+        <span class="label">correctif</span>
+        Passer <code>input_to_frame</code> par <code>Timings</code> comme les
+        quatre autres distributions, ce qui publie le nombre d'échantillons du
+        même geste. La règle mérite une entrée au carnet:
+        <strong>un zéro par défaut est un mensonge poli.</strong>
+      </div>
+    </div>
+  </div>
+
+  <div class="finding important">
+    <div class="head"><span class="rank">07</span><span class="chip important">moyen</span></div>
+    <h3>Trois analyseurs binaires, aucun test à entrées générées</h3>
+    <div class="body prose">
+      <p class="first">
+        <code>proptest</code> est déjà dans le projet, sur <code>protocol</code>,
+        qui est le plus petit crate et le plus régulier. Les trois endroits qui en
+        auraient le plus besoin n'en ont pas: la lecture des bannières de disque
+        (RGB5A3, texte Windows-1252, deux formats de conteneur), le balayage des
+        NAL qui décide si une image est une clé, et le décodage des trames de
+        manette.
+      </p>
+      <p>
+        Le risque réel est faible, parce que les disques viennent de toi et pas
+        d'un inconnu. Mais un analyseur binaire est exactement le genre de code
+        où une entrée à laquelle personne n'a pensé produit un panique, et un
+        panique dans le worker coupe la partie de tout le monde.
+      </p>
+      <div class="fix">
+        <span class="label">correctif</span>
+        Une propriété par analyseur, dans le style déjà présent: « aucune entrée,
+        quelle qu'elle soit, ne doit faire paniquer <code>parse</code> ». C'est
+        une dizaine de lignes chacune et ça tourne en CI sans GPU.
+      </div>
+    </div>
+  </div>
+
+  <div class="finding corrige">
+    <div class="head"><span class="rank">08</span><span class="chip corrige">corrigé pendant l'audit</span></div>
+    <h3>Le bouton « ça saccade » disait « noté » quand le salon refusait</h3>
+    <div class="body prose">
+      <p class="first">
+        Conséquence de mon propre correctif du constat 02. Le serveur refuse un
+        deuxième signalement avant vingt secondes, mais le bouton se réarmait au
+        bout de trois. Entre les deux, un clic répondait « noté, l'instant est
+        marqué » alors que rien n'était écrit.
+      </p>
+      <p>
+        Un contrôle qui annonce ce qu'il n'a pas fait est pire qu'un contrôle
+        absent, et c'est le genre de détail qu'aucun test automatique de ce dépôt
+        n'aurait attrapé, faute de test de composant (voir le constat 04).
+      </p>
+      <div class="fix">
+        <span class="label">fait</span>
+        Le bouton reste désarmé aussi longtemps que le salon refuse, et affiche
+        « déjà signalé » après le remerciement. Une seule constante des deux
+        côtés.
+      </div>
+    </div>
+  </div>
+
+  <div class="finding mineur">
+    <div class="head"><span class="rank">09</span><span class="chip mineur">mineur</span></div>
+    <h3>Les pseudos tiennent dans 37 octets, sans copie</h3>
+    <div class="body prose">
+      <p class="first">
+        <code>people.json</code> est le seul état qui doit survivre à un
+        redémarrage de la machine, et le seul dont il n'existe aucune copie. Une
+        écriture interrompue au mauvais moment, et tout le monde redevient
+        anonyme. Le code encaisse déjà un fichier illisible sans planter, ce qui
+        est bien, mais il ne le répare pas.
+      </p>
+      <div class="fix">
+        <span class="label">correctif</span>
+        Écrire dans un fichier temporaire puis renommer, ce qui rend l'écriture
+        atomique, et garder la version précédente à côté. Une dizaine de lignes.
+      </div>
+    </div>
+  </div>
+
+  <div class="finding mineur">
+    <div class="head"><span class="rank">10</span><span class="chip mineur">mineur</span></div>
+    <h3>Quarante boutons, aucun repère d'accessibilité</h3>
+    <div class="body prose">
+      <p class="first">
+        Aucun <code>aria-label</code>, <code>aria-live</code> ni <code>role</code>
+        dans les dix-neuf composants. Pour l'écran de jeu, tant pis. Un élément
+        mérite quand même le détour: la bannière « quelqu'un demande ta manette »
+        apparaît, compte dix secondes, puis disparaît. C'est le seul message de
+        l'interface qui doit être annoncé, et c'est celui qu'un lecteur d'écran ne
+        verra jamais.
+      </p>
+      <div class="fix">
+        <span class="label">correctif</span>
+        Un <code>aria-live="assertive"</code> sur la bannière de demande, et des
+        étiquettes sur les boutons qui n'ont qu'une icône. Une demi-heure.
+      </div>
+    </div>
+  </div>
+
+  <div class="finding mineur">
+    <div class="head"><span class="rank">11</span><span class="chip mineur">mineur</span></div>
+    <h3>Aucun en-tête de sécurité sur les réponses du worker</h3>
+    <div class="body prose">
+      <p class="first">
+        Ni <code>Content-Security-Policy</code>, ni
+        <code>X-Content-Type-Options</code>, ni <code>X-Frame-Options</code>. Le
+        risque réel est faible, et je le dis sans réserve: le service n'écoute que
+        sur la boucle locale, le proxy est la seule porte, et la socket vérifie
+        déjà l'origine, ce qui est la protection qui compte. La page est un
+        fichier unique sans ressource externe, donc une politique stricte tient en
+        une ligne et ne peut rien casser.
+      </p>
+      <div class="fix">
+        <span class="label">correctif</span>
+        Trois en-têtes constants sur la réponse qui sert la page.
+      </div>
+    </div>
+  </div>
+
+  <div class="finding mineur">
+    <div class="head"><span class="rank">12</span><span class="chip mineur">mineur</span></div>
+    <h3><code>browser.rs</code> porte six métiers sur 2 835 lignes</h3>
+    <div class="body prose">
+      <p class="first">
+        Le plus gros fichier du dépôt fait le routage HTTP, la montée en grade
+        WebSocket, la liste des spectateurs, les manettes, le son et le service
+        des jaquettes. Rien n'y est mal écrit et il porte 40 tests. Le coût est
+        celui de la relecture: chercher pourquoi une jaquette ne s'affiche pas
+        oblige à traverser le code qui distribue les images.
+      </p>
+      <div class="fix">
+        <span class="label">correctif</span>
+        À faire le jour où on y touche pour une autre raison. Commencer par le
+        routage HTTP et les jaquettes, qui n'ont aucun lien avec le reste.
+      </div>
+    </div>
+  </div>
+
+  <h2>Ce que j'ai essayé de casser</h2>
+  <div class="prose">
+    <p class="first">
+      Quatre attaques, toutes contre la machine locale et sans rien détruire.
+      Aucune n'a abouti, et c'est le résultat le plus intéressant de la journée.
+    </p>
+  </div>
+
+  <div class="finding mineur" style="--stripe: var(--good)">
+    <h3 style="margin-top:0">Usurper l'identité de quelqu'un</h3>
+    <div class="body prose">
+      <p class="first">
+        Le plan de contrôle croit un en-tête posé par le proxy Tailscale. J'ai
+        envoyé le mien.
+      </p>
+      <div class="readout"><b>par le proxy, sans rien forger</b>        login = souhib.t@hotmail.fr
+<b>par le proxy, en-tête forgé ajouté</b>     login = souhib.t@hotmail.fr   <span class="ok">← le proxy écrase</span>
+<b>en direct sur 127.0.0.1:8200</b>           login = pirate@example.com    <span class="bad">← cru</span></div>
+      <p>
+        Le proxy remplace l'en-tête, donc rien ne passe depuis le réseau. Et si
+        deux en-têtes arrivaient un jour, le code refuse de choisir, avec la
+        raison écrite au-dessus de la fonction: une ambiguïté sur une identité ne
+        se tranche pas. C'est bien vu.
+      </p>
+      <p>
+        La ligne du bas est la limite du modèle, et elle mérite d'être dite:
+        <strong>toute l'identité repose sur le fait que le port 8200 n'est
+        joignable que par le proxy.</strong> Quiconque obtient un shell sur la
+        machine devient qui il veut. Pour une machine à un seul propriétaire c'est
+        acceptable, à condition de le savoir.
+      </p>
+    </div>
+  </div>
+
+  <div class="finding mineur" style="--stripe: var(--good)">
+    <h3 style="margin-top:0">Voler le flux depuis une autre page</h3>
+    <div class="body prose">
+      <p class="first">
+        Une page malveillante ouverte dans le navigateur de quelqu'un du réseau
+        pourrait tenter d'ouvrir la socket vidéo de la salle.
+      </p>
+      <div class="readout"><b>origine légitime</b>     HTTP/1.1 101 Switching Protocols
+<b>origine étrangère</b>    <span class="ok">connexion fermée</span>
+<b>sans en-tête d'origine</b>  HTTP/1.1 101 Switching Protocols</div>
+      <p>
+        Le contrôle fait son travail. La troisième ligne ressemble à un trou et
+        n'en est pas un: un navigateur ne peut pas omettre cet en-tête sur une
+        socket, donc la menace visée reste couverte. Un client scripté peut, mais
+        il est déjà sur le réseau privé, et c'est un autre attaquant.
+      </p>
+    </div>
+  </div>
+
+  <div class="finding mineur" style="--stripe: var(--good)">
+    <h3 style="margin-top:0">Changer le jeu sans y avoir droit</h3>
+    <div class="body prose">
+      <p class="first">
+        C'est l'action au plus grand rayon: changer de jeu redémarre le worker et
+        coupe tout le monde. La vérification est côté serveur, pas dans la page,
+        avec la raison écrite à côté: une règle qui ne vit que dans une interface
+        se contourne depuis une console de développeur.
+      </p>
+      <p>
+        Un point à connaître quand même. Quand le plan de contrôle est absent,
+        plus personne n'est propriétaire, et la salle retombe sur « tenir une
+        manette suffit ». C'est un choix de disponibilité, écrit et assumé, et la
+        fenêtre dure les deux secondes d'un redémarrage.
+      </p>
+    </div>
+  </div>
+
+  <div class="finding mineur" style="--stripe: var(--good)">
+    <h3 style="margin-top:0">Noyer le worker sous les connexions</h3>
+    <div class="body prose">
+      <p class="first">
+        Déjà borné, et à trois endroits. Soixante-quatre connexions au maximum, un
+        délai pour dire ce qu'on veut avant d'être coupé, et une lecture de
+        classement plafonnée à un kilo-octet. Les jaquettes sont servies par
+        numéro et non par chemin, donc il n'y a rien à remonter.
+      </p>
+      <p>
+        Le seul épuisement que j'aie trouvé était le mien, et il est au constat
+        02.
+      </p>
+    </div>
+  </div>
+
+  <h2>Fonctionnalités</h2>
+  <div class="prose">
+    <p class="first">
+      Classées par ce qu'elles apportent à une soirée réelle contre ce qu'elles
+      coûtent à écrire. Les deux barres se lisent séparément: quatre points de
+      valeur et un de coût est le meilleur rapport possible.
+    </p>
+  </div>
+
+  <div class="tier">
+    <span class="label">premier rang · à faire d'abord</span>
+    <div class="cards">
+      <div class="card">
+        <h3>Reprendre où on en était</h3>
+        <p>
+          Mettre l'émulateur en pause quand la salle se vide, sauvegarder l'état,
+          le recharger au retour. <strong>Le constat 03 devient une
+          fonctionnalité</strong>: la machine cesse de brûler six watts pour
+          personne, et une partie interrompue reprend au même virage plutôt qu'à
+          l'écran-titre.
+        </p>
+        <div class="meters">
+          <div class="meter"><span class="label">valeur</span><span class="dots"><i class="dot on"></i><i class="dot on"></i><i class="dot on"></i><i class="dot on"></i></span></div>
+          <div class="meter"><span class="label">coût</span><span class="dots"><i class="dot cost on"></i><i class="dot cost on"></i><i class="dot"></i><i class="dot"></i></span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Le clip des trente dernières secondes</h3>
+        <p>
+          Un bouton qui écrit un MP4 partageable de ce qui vient de se passer.
+          <strong>Tout est déjà là</strong>: l'encodeur produit du H.264, il suffit
+          d'en garder un anneau, exactement comme la page garde ses deux dernières
+          minutes de mesures. C'est celle dont on parlera le plus.
+        </p>
+        <div class="meters">
+          <div class="meter"><span class="label">valeur</span><span class="dots"><i class="dot on"></i><i class="dot on"></i><i class="dot on"></i><i class="dot on"></i></span></div>
+          <div class="meter"><span class="label">coût</span><span class="dots"><i class="dot cost on"></i><i class="dot cost on"></i><i class="dot"></i><i class="dot"></i></span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Proposer le format réduit au lieu de l'attendre</h3>
+        <p>
+          Ton ami a trouvé le bouton tout seul, et son image s'est améliorée. La
+          page voit la dégradation avant lui: images jetées, file vide, gigue.
+          <strong>Un bandeau discret</strong> quand ça se gâte, avec le bouton
+          dedans. Petit code, effet direct sur la personne qui souffre.
+        </p>
+        <div class="meters">
+          <div class="meter"><span class="label">valeur</span><span class="dots"><i class="dot on"></i><i class="dot on"></i><i class="dot on"></i><i class="dot"></i></span></div>
+          <div class="meter"><span class="label">coût</span><span class="dots"><i class="dot cost on"></i><i class="dot"></i><i class="dot"></i><i class="dot"></i></span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Prévenir sur Discord</h3>
+        <p>
+          Un message quand une partie démarre, avec le jeu et qui est là. C'est
+          déjà là que vous vous parlez, et le journal des séances contient
+          exactement l'événement déclencheur. <strong>Une trentaine de lignes</strong>
+          pour que quelqu'un sache qu'il peut venir.
+        </p>
+        <div class="meters">
+          <div class="meter"><span class="label">valeur</span><span class="dots"><i class="dot on"></i><i class="dot on"></i><i class="dot on"></i><i class="dot"></i></span></div>
+          <div class="meter"><span class="label">coût</span><span class="dots"><i class="dot cost on"></i><i class="dot"></i><i class="dot"></i><i class="dot"></i></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tier">
+    <span class="label">deuxième rang · quand le premier est fait</span>
+    <div class="cards">
+      <div class="card">
+        <h3>Jouer depuis un téléphone</h3>
+        <p>
+          Une manette tactile à l'écran. <strong>Le plus dur est fait</strong>: la
+          décision D3 normalise les manettes dans le navigateur, donc le worker ne
+          verra pas la différence. C'est du dessin et du toucher, pas du protocole.
+          Une soirée passe de quatre personnes équipées à quatre personnes.
+        </p>
+        <div class="meters">
+          <div class="meter"><span class="label">valeur</span><span class="dots"><i class="dot on"></i><i class="dot on"></i><i class="dot on"></i><i class="dot on"></i></span></div>
+          <div class="meter"><span class="label">coût</span><span class="dots"><i class="dot cost on"></i><i class="dot cost on"></i><i class="dot cost on"></i><i class="dot"></i></span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>La file d'attente des manettes</h3>
+        <p>
+          À cinq ou six, demander la manette une par une devient pénible.
+          « Tu passes après Yassine » est plus juste et plus calme, et le serveur
+          sait déjà qui tient quoi. <strong>Se pose sur l'échange existant</strong>
+          au lieu de le remplacer.
+        </p>
+        <div class="meters">
+          <div class="meter"><span class="label">valeur</span><span class="dots"><i class="dot on"></i><i class="dot on"></i><i class="dot on"></i><i class="dot"></i></span></div>
+          <div class="meter"><span class="label">coût</span><span class="dots"><i class="dot cost on"></i><i class="dot cost on"></i><i class="dot"></i><i class="dot"></i></span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>La vibration</h3>
+        <p>
+          Dolphin produit déjà la sortie de vibration et l'API navigateur sait la
+          jouer. Il manque le canal du retour, du worker vers la page.
+          <strong>Un choc dans les mains change la sensation d'un jeu</strong> plus
+          que n'importe quel réglage d'image.
+        </p>
+        <div class="meters">
+          <div class="meter"><span class="label">valeur</span><span class="dots"><i class="dot on"></i><i class="dot on"></i><i class="dot on"></i><i class="dot"></i></span></div>
+          <div class="meter"><span class="label">coût</span><span class="dots"><i class="dot cost on"></i><i class="dot cost on"></i><i class="dot cost on"></i><i class="dot"></i></span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Les statistiques de la soirée</h3>
+        <p>
+          Le journal contient déjà tout: qui, quand, combien de temps, sur quel
+          jeu. <strong>Presque rien à écrire</strong> pour obtenir « quatre heures
+          ce mois-ci, surtout à Melee, et Kitaru a tenu la manette 2 les trois
+          quarts du temps ».
+        </p>
+        <div class="meters">
+          <div class="meter"><span class="label">valeur</span><span class="dots"><i class="dot on"></i><i class="dot on"></i><i class="dot"></i><i class="dot"></i></span></div>
+          <div class="meter"><span class="label">coût</span><span class="dots"><i class="dot cost on"></i><i class="dot"></i><i class="dot"></i><i class="dot"></i></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tier">
+    <span class="label">troisième rang · ça change la forme du projet</span>
+    <div class="cards">
+      <div class="card">
+        <h3>Plusieurs salles</h3>
+        <p>
+          Le code s'y prépare et le dit à trois endroits: « quand une deuxième
+          salle apparaîtra, voilà ce qui change ». Il faut un worker par salle et
+          un superviseur au-dessus. <strong>Le GPU tient probablement deux
+          encodages</strong>, ce qui reste à mesurer avant de s'engager.
+        </p>
+        <div class="meters">
+          <div class="meter"><span class="label">valeur</span><span class="dots"><i class="dot on"></i><i class="dot on"></i><i class="dot"></i><i class="dot"></i></span></div>
+          <div class="meter"><span class="label">coût</span><span class="dots"><i class="dot cost on"></i><i class="dot cost on"></i><i class="dot cost on"></i><i class="dot cost on"></i></span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>D'autres consoles</h3>
+        <p>
+          L'architecture ne parle à Dolphin qu'à travers deux choses: une source
+          d'images et un tuyau de commandes. <strong>Un adaptateur RetroArch</strong>
+          ouvrirait la N64, la PlayStation et la Super Nintendo d'un coup. C'est le
+          seul poste qui multiplie la bibliothèque au lieu de l'améliorer.
+        </p>
+        <div class="meters">
+          <div class="meter"><span class="label">valeur</span><span class="dots"><i class="dot on"></i><i class="dot on"></i><i class="dot on"></i><i class="dot"></i></span></div>
+          <div class="meter"><span class="label">coût</span><span class="dots"><i class="dot cost on"></i><i class="dot cost on"></i><i class="dot cost on"></i><i class="dot cost on"></i></span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Les jeux Wii</h3>
+        <p>
+          Dolphin les fait tourner sans rien changer. Ceux qui se jouent à la
+          manette GameCube, Mario Kart Wii ou Brawl, marcheraient
+          <strong>presque tels quels</strong>. Ceux qui demandent de viser ou de
+          secouer sont hors de portée depuis un navigateur, et il vaut mieux le
+          dire que le découvrir.
+        </p>
+        <div class="meters">
+          <div class="meter"><span class="label">valeur</span><span class="dots"><i class="dot on"></i><i class="dot on"></i><i class="dot"></i><i class="dot"></i></span></div>
+          <div class="meter"><span class="label">coût</span><span class="dots"><i class="dot cost on"></i><i class="dot cost on"></i><i class="dot"></i><i class="dot"></i></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h2>L'ordre que je propose</h2>
+  <ol class="order">
+    <li>
+      <div>
+        <b>Sortir les sauvegardes de <code>/tmp</code></b>
+        <span>Le seul constat où attendre coûte quelque chose d'irrécupérable. Un redémarrage suffit.</span>
+      </div>
+    </li>
+    <li>
+      <div>
+        <b>Mettre en veille la salle vide, et sauvegarder l'état</b>
+        <span>Corrige le constat 03 et livre « reprendre où on en était » du même geste.</span>
+      </div>
+    </li>
+    <li>
+      <div>
+        <b>Compresser la page, et proposer le format réduit</b>
+        <span>Les deux visent la même personne, celle dont la liaison va mal. Petits tous les deux.</span>
+      </div>
+    </li>
+    <li>
+      <div>
+        <b>Tester les composants qui portent une décision</b>
+        <span>Avant d'en ajouter d'autres. Deux bogues de cette semaine vivaient là, et un troisième pendant cet audit.</span>
+      </div>
+    </li>
+    <li>
+      <div>
+        <b>Le clip des trente secondes</b>
+        <span>Le premier ajout dont le seul but est le plaisir. Il a été gagné.</span>
+      </div>
+    </li>
+  </ol>
+
+  <h2>Ce que je n'ai pas regardé</h2>
+  <div class="prose">
+    <p class="first">
+      Un audit qui ne dit pas où il s'arrête laisse croire qu'il a tout vu.
+    </p>
+    <ul class="plain">
+      <li>
+        <strong>Le code FFI du GPU.</strong> Les trois modules qui portent du
+        <code>unsafe</code> ont leurs invariants épinglés à la compilation et
+        leurs tests, mais je n'ai relu ni les durées de vie ni l'arithmétique de
+        pointeurs ligne à ligne. <code>just miri</code> existe pour la partie que
+        Miri sait voir.
+      </li>
+      <li>
+        <strong>La tenue en charge à quatre joueurs.</strong> Tout ce que j'ai
+        mesuré aujourd'hui l'a été à zéro ou un spectateur. La capacité réelle du
+        GPU à quatre flux plus un demi-format n'est pas établie.
+      </li>
+      <li>
+        <strong>La stabilité des tests dans le temps.</strong> J'ai lancé la suite
+        du salon dix fois de suite sans un seul échec, ce qui est bon signe. Mais
+        vingt-six de ses attentes sont des sommeils fixes, et un sommeil qui suffit
+        sur une machine au repos ne suffit plus sur une machine chargée.
+      </li>
+      <li>
+        <strong>L'accessibilité au vrai sens.</strong> J'ai compté des attributs,
+        je n'ai pas essayé la page au lecteur d'écran ni au clavier seul.
+      </li>
+    </ul>
+  </div>
+
+  <footer>
+    Mesuré le 18 août 2026 sur lgf pendant que le service tournait. Les puissances
+    sont des mesures de paquet lues sur RAPL, circuit graphique intégré compris,
+    sur trois paires alternées de dix secondes. Les chiffres de débit du journal
+    viennent d'un client émettant en boucle contre le vrai service, avant et après
+    correction, et les lignes d'essai ont été retirées. Les tentatives d'intrusion
+    visaient la machine locale, sans rien détruire ni exfiltrer.
+  </footer>
+</div>

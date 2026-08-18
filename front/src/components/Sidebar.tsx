@@ -199,14 +199,37 @@ export function Sidebar({
  * un. Le retour dure trois secondes, assez pour être lu sans rester en travers
  * de la partie.
  */
+/** Combien de temps le bouton reste désarmé, en millisecondes.
+ *
+ * La même valeur que le garde du salon, qui refuse un deuxième repère avant
+ * vingt secondes. Deux repères si rapprochés porteraient de toute façon presque
+ * la même trace: chacun emporte les deux minutes qui précèdent.
+ */
+const COMPLAIN_EVERY = 20_000;
+
 function Complain({ onComplain }: { onComplain: () => void }) {
+  /** Vrai depuis le clic, remis à faux quand le salon accepterait un autre
+   * repère. Deux durées et pas une: le remerciement est court parce qu'il ne
+   * doit pas rester en travers de la partie, mais le bouton reste désarmé
+   * aussi longtemps que le serveur refuse.
+   *
+   * Sans ça, le bouton dit « noté » à quatre secondes alors que le salon vient
+   * de jeter le repère, et un contrôle qui annonce ce qu'il n'a pas fait est
+   * pire qu'un contrôle absent. */
   const [said, setSaid] = useState(false);
+  const [held, setHeld] = useState(false);
 
   useEffect(() => {
     if (!said) return;
-    const timer = window.setTimeout(() => setSaid(false), 3000);
-    return () => window.clearTimeout(timer);
+    const thanks = window.setTimeout(() => setSaid(false), 3000);
+    return () => window.clearTimeout(thanks);
   }, [said]);
+
+  useEffect(() => {
+    if (!held) return;
+    const guard = window.setTimeout(() => setHeld(false), COMPLAIN_EVERY);
+    return () => window.clearTimeout(guard);
+  }, [held]);
 
   return (
     <button
@@ -215,16 +238,17 @@ function Complain({ onComplain }: { onComplain: () => void }) {
       onClick={() => {
         onComplain();
         setSaid(true);
+        setHeld(true);
       }}
-      disabled={said}
+      disabled={held}
       className={cn(
         "border px-2 py-1 text-[11px] uppercase tracking-[0.14em] transition-colors",
-        said
-          ? "border-good text-good"
-          : "border-rule text-faint hover:border-alert hover:text-alert",
+        said && "border-good text-good",
+        held && !said && "border-rule text-faint",
+        !held && "border-rule text-faint hover:border-alert hover:text-alert",
       )}
     >
-      {said ? "noté, l'instant est marqué" : "ça saccade"}
+      {said ? "noté, l'instant est marqué" : held ? "déjà signalé" : "ça saccade"}
     </button>
   );
 }

@@ -391,3 +391,56 @@ async def test_a_measurement_too_big_to_be_one_is_dropped(
     lines = [json.loads(line) for line in written.read_text(encoding="utf-8").splitlines()]
 
     assert [line for line in lines if line["quoi"] == "mesures"] == []
+
+
+async def test_one_page_cannot_fill_the_disk_with_measurements(
+    served: tuple[str, RoomController], tmp_path: Path
+) -> None:
+    """La taille d'un relevé était bornée, son DÉBIT ne l'était pas.
+
+    Mesuré le 17 août 2026 contre le vrai service: une seule page émettant en
+    boucle a fait écrire 22,6 Mo en trente secondes, soit 2,7 Go par heure. Le
+    balayage de deux jours n'y peut rien puisqu'il efface des journées entières,
+    et un disque plein sur cette machine emporte les parties en cours.
+
+    Le test envoie cinquante relevés d'affilée et en attend UN.
+    """
+    url, _rooms = served
+
+    page = socketio.AsyncClient()
+    await page.connect(url, socketio_path="/socket.io", auth={"visite": "eeee5555"})
+    for _ in range(50):
+        await page.emit("mesures", {"vues": 600, "peintes": 599})
+    await asyncio.sleep(0.5)
+    await page.disconnect()
+    await asyncio.sleep(0.2)
+
+    written = sorted((tmp_path / "sessions").glob("*.jsonl"))[0]
+    lines = [json.loads(line) for line in written.read_text(encoding="utf-8").splitlines()]
+
+    assert len([line for line in lines if line["quoi"] == "mesures"]) == 1
+
+
+async def test_the_first_measurement_of_a_page_is_never_refused(
+    served: tuple[str, RoomController], tmp_path: Path
+) -> None:
+    """Le jumeau, et il compte autant.
+
+    Une limite qui refuserait aussi le premier relevé satisferait le test
+    d'au-dessus en ne gardant rien du tout. Et le premier est celui qu'on veut
+    le plus: une page qui vient d'arriver sur une mauvaise liaison le montre
+    tout de suite.
+    """
+    url, _rooms = served
+
+    page = socketio.AsyncClient()
+    await page.connect(url, socketio_path="/socket.io", auth={"visite": "eeee6666"})
+    await page.emit("mesures", {"vues": 600, "peintes": 599})
+    await asyncio.sleep(0.4)
+    await page.disconnect()
+    await asyncio.sleep(0.2)
+
+    written = sorted((tmp_path / "sessions").glob("*.jsonl"))[0]
+    lines = [json.loads(line) for line in written.read_text(encoding="utf-8").splitlines()]
+
+    assert len([line for line in lines if line["quoi"] == "mesures"]) == 1

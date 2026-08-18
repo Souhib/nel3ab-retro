@@ -187,3 +187,18 @@ def test_a_folder_it_can_write_drops_nothing(tmp_path: Path) -> None:
 
     assert journal.dropped == 0
     assert len(_lines(tmp_path)) == 1
+
+
+def test_a_cadence_guard_lets_the_first_through_and_holds_the_rest() -> None:
+    """Sur le temps MONOTONE, comme les demandes de manette.
+
+    Régler l'horloge de la machine ne doit ni ouvrir les vannes ni bloquer
+    quelqu'un pour une heure.
+    """
+    from nel3ab_control.api.ws.handlers import too_soon
+
+    assert too_soon(None, 100.0, 5.0) is False, "un premier relevé n'est jamais trop tôt"
+    assert too_soon(100.0, 102.0, 5.0) is True
+    assert too_soon(100.0, 105.0, 5.0) is False
+    # Une horloge reculée ne débloque rien de plus qu'un intervalle normal.
+    assert too_soon(100.0, 99.0, 5.0) is True

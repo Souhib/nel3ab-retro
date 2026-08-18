@@ -6503,6 +6503,79 @@ que de se souvenir d'une exclusion qu'on ne voit jamais.
 
 ---
 
+### 7.58 Un iPhone muet, et quatre leçons pour une seule ligne
+
+Le son ne marchait pas sur téléphone. La correction finale tient en dix lignes,
+et le chemin pour y arriver en vaut plusieurs.
+
+#### Ce que le journal a dit, et que rien d'autre ne pouvait dire
+
+Trois fois, la réponse est venue des relevés que les pages envoient depuis deux
+jours, et jamais d'une relecture du code.
+
+La première: deux pages apparaissaient côte à côte, l'une à dix millisecondes
+d'avance sans un trou, l'autre **collée au plafond** de cent vingt avec huit
+trous par fenêtre. La seconde était le téléphone, et une avance au plafond qui
+prend encore des trous est une avance trop basse.
+
+La deuxième, après que j'ai relevé ce plafond: **mille un trous pour mille
+morceaux**. Pas un seul morceau joué. Silence total, et c'est moi qui venais de
+le fabriquer.
+
+La troisième, une fois la boucle réparée: `refusé: NotSupportedError`. WebKit ne
+veut pas d'un média servi en adresse de données, donc le silence censé débloquer
+iOS n'avait **jamais** joué.
+
+#### Un essai dans le mauvais environnement vaut moins que pas d'essai
+
+Mon pilote affirmait « le son démarre au premier geste », vert, cinq secondes
+jouées. Il tourne dans un Chromium sur le serveur. Chromium n'applique aucune des
+règles de Safari sur iOS, donc cet essai ne prouvait rien de ce qu'il prétendait
+et m'a fait chercher ailleurs pendant une soirée.
+
+Un essai qui passe dans un environnement que le défaut ne touche pas donne une
+confiance fausse, ce qui est pire que pas de confiance du tout.
+
+#### Avaler une erreur, c'est cacher la cause
+
+`catch {}` autour du déblocage. Une ligne, écrite pour que le refus n'empêche pas
+de jouer, et qui a caché la seule information qui comptait. Le jour où je l'ai
+notée et rapportée, la réponse est arrivée en un rechargement.
+
+**Une erreur qu'on avale n'est pas une erreur qu'on gère.**
+
+#### Deux nombres qui doivent s'accorder, et rien qui les accorde
+
+En montant l'avance maximale à quatre cents millisecondes, je n'ai pas vu que le
+seuil de réancrage était resté à deux cent cinquante. Réancrer pose l'horaire à
+`maintenant + avance`, ce qui dépassait aussitôt le seuil, donc le morceau suivant
+réancrait à son tour: une boucle parfaite, et pas un son.
+
+Le seuil est maintenant calculé à partir de l'avance, avec une marge, et deux
+essais l'épinglent. C'est la troisième fois que ce dépôt paie cette forme-là,
+après les manettes et la file d'images.
+
+#### Le correctif
+
+Le déblocage n'utilise plus de fichier. On demande au contexte son propre FLUX,
+on le branche derrière un gain à zéro pour qu'il ne porte rien d'audible, et on
+donne ce flux à un élément média. C'est le chemin des appels vidéo, celui que
+Safari sait le mieux faire.
+
+Mesuré des deux côtés du rechargement, sur le téléphone lui-même:
+
+```
+avant   débloqué=refusé   avance=378 ms   gain=1     (monté à fond, en vain)
+après   débloqué=joue     avance=22 ms    trous=0    gain=0.7
+```
+
+L'avance n'était pas le mal, c'était le symptôme: le contexte tournait, la sortie
+ne consommait rien, et l'horaire dérivait sans fin. Débloquer la session a fait
+retomber l'avance d'un facteur dix-sept et les trous à zéro, sans qu'on touche à
+l'ordonnancement.
+
+---
+
 ### 7.55 La porte vérifiait un état qu'elle changeait ensuite
 
 Trois commits de suite sont partis avec une empreinte de page périmée, et à

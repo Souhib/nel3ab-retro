@@ -278,7 +278,8 @@ function Room({
     complain: (sample: Vitals & { fin: Trail }) => void;
   };
 }) {
-  const { bare, setBare, fullscreen, toggleFullscreen } = useBare();
+  const coarse = useRef(looksLikeAPhone()).current;
+  const { bare, setBare, fullscreen, toggleFullscreen } = useBare(coarse);
   const [volume, setVolume] = useState(0.7);
   const [deviceRate, setDeviceRate] = useState(false);
   const [lipsync, setLipsync] = useState(false);
@@ -297,7 +298,11 @@ function Room({
   /** Faut-il montrer la manette à l'écran. Retenu, parce que quelqu'un qui joue
    * au téléphone y rejouera au téléphone. */
   const [touchPref, setTouchPref] = useState(storedTouch);
-  const coarse = useRef(looksLikeAPhone()).current;
+  /** La manette à l'écran est-elle montée en ce moment. Nommé parce que DEUX
+   * choses en dépendent, et qu'elles doivent être d'accord: la manette
+   * elle-même, et les boutons de coin du mode replié, qui tombaient sinon
+   * exactement sur Z et R. */
+  const onTouch = showsTouchPad(touchPref, coarse);
   /** La place dont l'image dispose, rapportée par l'écran. Sert au menu, qui
    * annonce ce que chaque choix donnerait. */
   const [space, setSpace] = useState({ width: 0, height: 0 });
@@ -750,12 +755,18 @@ function Room({
         {/* La manette à l'écran, par-dessus l'image et sous le menu.
             Montée seulement quand elle sert: cent boutons invisibles au-dessus
             d'une partie jouée au clavier intercepteraient des clics. */}
-        {session && showsTouchPad(touchPref, coarse) ? (
-          <TouchPad touch={session.input.touch} onLeave={() => setTouchPref("off")} />
+        {session && onTouch ? (
+          <TouchPad
+            touch={session.input.touch}
+            onLeave={() => setTouchPref("off")}
+            onColumn={() => setBare(!bare)}
+          />
         ) : null}
-        {bare ? (
+        {bare && !onTouch ? (
           /* Replié, il reste de quoi revenir. Discret et dans un coin: une barre
-             permanente par-dessus l'image rendrait le repli inutile. */
+             permanente par-dessus l'image rendrait le repli inutile.
+             Pas quand la manette à l'écran est là: elle porte les mêmes gestes,
+             et ces deux boutons-ci tombaient pile sur Z et R. */
           <div className="absolute top-2 right-2 flex gap-1 opacity-30 transition-opacity hover:opacity-100">
             <button
               type="button"

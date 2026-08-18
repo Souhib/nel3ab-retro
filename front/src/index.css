@@ -285,3 +285,16 @@ body {
     animation: none;
   }
 }
+
+/* Les tailles de la manette à l'écran.
+ *
+ * En `vmin` avec des bornes, parce que la première version plaçait ses groupes
+ * à des distances fixes et qu'ils se recouvraient au milieu de l'image sur un
+ * vrai téléphone. Un bouton ne descend jamais sous la taille d'un doigt, et ne
+ * dépasse jamais celle où il deviendrait une cible pour la souris. */
+:root {
+  --n3-key: clamp(34px, 9.5vmin, 52px);
+  --n3-key-big: clamp(42px, 12vmin, 64px);
+  --n3-key-small: clamp(28px, 7.5vmin, 40px);
+  --n3-stick: clamp(44px, 15vmin, 68px);
+}

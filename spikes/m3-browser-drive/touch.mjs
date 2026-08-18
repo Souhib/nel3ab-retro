@@ -26,6 +26,36 @@ await new Promise((r) => setTimeout(r, 3000));
 
 check(await page.$("#touchpad") !== null, "la manette apparaît toute seule sur un écran tactile");
 check(await page.$("#touch-A") !== null, "avec ses boutons");
+check(
+  await page.$("aside") === null,
+  "la colonne est repliée d'office: elle prend la moitié d'un écran tenu en travers",
+);
+check(await page.$("#unbare") === null, "et ses boutons de coin ne doublent pas Z et R");
+
+// Rien ne doit se recouvrir. La première version plaçait ses groupes à des
+// distances fixes, et sur un vrai téléphone la croix et les quatre boutons se
+// rejoignaient au milieu de l'image, par-dessus le texte du jeu.
+const groups = await page.evaluate(() => {
+  const box = (id) => {
+    const el = document.getElementById(id);
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return { id, left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+  };
+  return ["touchStick", "touch-D_UP", "touch-D_DOWN", "touch-A", "touch-Y", "touch-L", "touch-R", "touch-START"]
+    .map(box)
+    .filter(Boolean);
+});
+const overlaps = [];
+for (let i = 0; i < groups.length; i++) {
+  for (let j = i + 1; j < groups.length; j++) {
+    const a = groups[i], b = groups[j];
+    if (a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom) {
+      overlaps.push(`${a.id} et ${b.id}`);
+    }
+  }
+}
+check(overlaps.length === 0, `aucun bouton n'en recouvre un autre${overlaps.length ? ": " + overlaps.join(", ") : ""}`);
 
 // `attempts` est le compteur de trames que la page a envoyées au worker: c'est
 // ce que le pilote de bout en bout regarde déjà, et c'est la seule preuve que

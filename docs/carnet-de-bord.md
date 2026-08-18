@@ -6225,6 +6225,58 @@ s'automatiser: qu'un choc dans le jeu se sente dans les mains.
 
 ---
 
+### 7.52 La manette à l'écran, vue sur un vrai téléphone
+
+Elle passait tous ses essais et elle était inutilisable. La capture envoyée
+depuis un iPhone tenu en travers montre deux choses que ni les tests ni le
+pilote ne pouvaient voir.
+
+#### La colonne mangeait la moitié de l'écran
+
+Les places, les boutons et le menu occupaient la moitié droite, et le jeu tenait
+dans ce qui restait. Le repli existait depuis longtemps, mais il fallait le
+connaître: il se déclenche par Échap, et personne ne tape Échap sur un téléphone.
+
+La colonne est donc repliée d'office quand le pointeur est GROSSIER. Un choix
+explicite l'emporte toujours, dans les deux sens: replié sur un ordinateur reste
+replié, déplié sur un téléphone reste déplié. Ce n'est que le défaut qui regarde
+l'appareil.
+
+Et la manette porte maintenant son propre bouton pour rappeler la colonne, parce
+qu'un réglage qu'on ne peut atteindre que par le réglage qu'on cherche n'est pas
+un réglage.
+
+#### Les groupes de boutons se recouvraient
+
+La croix était à 176 pixels du bord gauche, les quatre boutons à 32 du bord
+droit. Sur un écran large ça tenait. Sur la zone de jeu d'un téléphone, large de
+quelques centaines de pixels, les deux groupes se rejoignaient **au milieu de
+l'image**, par-dessus le texte du jeu.
+
+Tout est en `vmin` borné maintenant: un bouton ne descend jamais sous trente-quatre
+pixels, la taille d'un doigt, et ne dépasse jamais cinquante-deux, où il
+deviendrait une cible pour la souris. Les groupes sont ancrés aux quatre coins et
+le milieu reste libre, parce que c'est là qu'est le jeu.
+
+Mesuré après, sur 844x390: le stick tient de 8 à 125 pixels, l'image commence à
+144, et les boutons de droite finissent après elle. **Rien ne couvre le jeu**,
+tout est sur les bandes noires. Vérifié aussi sur 667x375.
+
+#### Ce que le pilote ne regardait pas
+
+Il vérifiait que la manette apparaît et que les appuis arrivent. Il ne regardait
+aucune POSITION, donc il restait vert sur une disposition inutilisable.
+
+Il compare maintenant les rectangles de huit boutons deux à deux et refuse le
+moindre recouvrement. Éprouvé en gonflant le stick jusqu'à ce qu'il touche la
+croix: le pilote passe au rouge et nomme les deux boutons fautifs.
+
+C'est la leçon qui revient le plus souvent dans ce carnet, sous une forme de
+plus: un essai qui ne regarde que le comportement laisse passer tout ce qui est
+géométrique, et une interface est de la géométrie.
+
+---
+
 ## 8. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
 
 | Le piège | Ce qui s'est passé | La leçon |

@@ -23,6 +23,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use anyhow::{Context as _, Result, bail};
+use nel3ab_emulator::nap::{self, Nap, tell_docker};
 use nel3ab_emulator::{
     CHUNK_BYTES, DolphinConfig, Rom, Session, SlotSet, SoundTap, VideoBackend, catalogue_json,
     scan_roms,
@@ -585,6 +586,41 @@ fn run(settings: &Settings) -> Result<()> {
     // done"; this can, and adding a third thread cannot break it.
     let stopping = Arc::new(std::sync::atomic::AtomicBool::new(false));
     let applied = Arc::new(std::sync::atomic::AtomicU64::new(0));
+    // Le fil qui endort le jeu quand la salle se vide.
+    //
+    // Un fil à part et pas la boucle principale, parce que la boucle BLOQUE sur
+    // l'image suivante: une fois le jeu gelé, plus aucune image n'arrive, donc
+    // elle ne pourrait jamais s'apercevoir que quelqu'un est revenu.
+    //
+    // Un demi-seconde entre deux regards. Le gel attend une minute de salle
+    // vide, le réveil ne doit rien attendre du tout: quelqu'un qui arrive
+    // regarde une image figée pendant ce délai-là.
+    let container =
+        std::env::var("NEL3AB_CONTAINER").unwrap_or_else(|_| "nel3ab-dolphin".to_owned());
+    let nap_thread = {
+        let server = Arc::clone(&server);
+        let stopping = Arc::clone(&stopping);
+        let container = container.clone();
+        std::thread::Builder::new()
+            .name("nap".to_owned())
+            .spawn(move || {
+                let mut nap = Nap::new();
+                while !stopping.load(std::sync::atomic::Ordering::Relaxed) {
+                    std::thread::sleep(Duration::from_millis(500));
+                    let Some(what) = nap.saw(server.watchers(), Instant::now(), nap::GRACE) else {
+                        continue;
+                    };
+                    match tell_docker(&container, what) {
+                        Ok(()) => tracing::info!(?what, "le jeu a été gelé ou réveillé"),
+                        // Jamais fatal: une salle qui refuserait de servir parce
+                        // qu'elle n'a pas su s'endormir serait cassée par une
+                        // économie.
+                        Err(error) => tracing::warn!(%error, ?what, "docker n'a pas suivi"),
+                    }
+                }
+            })
+    }?;
+
     let last_input = Arc::new(Mutex::new(None::<Instant>));
     let input_thread = {
         let applied = Arc::clone(&applied);
@@ -939,6 +975,19 @@ fn run(settings: &Settings) -> Result<()> {
     drop(server);
     let _ = input_thread.join();
     let _ = sound_thread.join();
+    let _ = nap_thread.join();
+    // TOUJOURS réveiller avant d'arrêter, même si on ne pense pas dormir.
+    //
+    // Un conteneur en pause ne reçoit aucun signal: le `SIGTERM` de `shutdown`
+    // n'atteindrait rien, l'escalade en `SIGKILL` tuerait le client docker, et
+    // le jeu resterait gelé pour toujours pendant que le worker suivant en
+    // lancerait un second à côté. C'est exactement l'émulateur orphelin qui a
+    // volé les entrées pendant douze heures en août.
+    //
+    // Sans condition, parce que la condition serait un état à croire. Dégeler ce
+    // qui n'est pas gelé rend une erreur qu'on ignore; oublier de dégeler coûte
+    // une soirée.
+    let _ = tell_docker(&container, nap::Move::Wake);
     session.shutdown()?;
     Ok(())
 }

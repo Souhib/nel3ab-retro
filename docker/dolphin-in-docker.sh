@@ -48,7 +48,23 @@ fi
 # --shm-size is NOT optional: Docker defaults /dev/shm to 64 MiB and Dolphin's
 # emulated-memory arena is larger, so it dies of SIGBUS (exit 135) with no log
 # line at all. Verified on lgf, 2026-08-10.
+# Le conteneur porte un NOM, et le nom sert deux fois.
+#
+# D'abord pour pouvoir le mettre en pause quand la salle se vide: `docker pause`
+# demande un nom, et le processus que ce script devient est le client docker, pas
+# Dolphin, donc un signal ne suffirait pas.
+#
+# Ensuite, et c'est le plus important, pour pouvoir RAMASSER ce qui traîne. Un
+# conteneur en pause ne peut pas recevoir de signal: si le worker meurt pendant
+# une pause, il resterait gelé pour toujours et le worker suivant en lancerait un
+# second à côté. Ce dépôt a déjà payé douze heures d'émulateur orphelin qui
+# volait les entrées. On efface donc l'ancien avant d'en lancer un neuf, et cette
+# ligne rend la salle plus sûre qu'elle ne l'était sans pause du tout.
+container="${NEL3AB_CONTAINER:-nel3ab-dolphin}"
+docker rm -f "$container" >/dev/null 2>&1 || true
+
 exec docker run --rm \
+  --name "$container" \
   --shm-size=2g \
   "${frame_socket_env[@]}" \
   --device /dev/dri \

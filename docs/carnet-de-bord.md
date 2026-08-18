@@ -5903,6 +5903,72 @@ pas. C'est probablement ce qui a découragé la première tentative.
 
 ---
 
+### 7.47 La salle vide gèle le jeu, et le gel ne peut pas rester
+
+Le constat 03 de l'audit était à moitié réglé: l'encodage ne tournait plus pour
+personne, et ça n'avait rendu que trente centièmes de watt. Les cinq watts et
+demi restants étaient l'émulateur, qui faisait avancer le jeu tout seul.
+
+Mesuré après coup, trois échantillons de dix secondes:
+
+```
+salle vide, jeu éveillé     24,8 W
+salle vide, jeu gelé        19,2 W
+worker complètement arrêté  19,1 W
+```
+
+**Un jeu gelé coûte ce que coûte une machine sans worker.** Les 5,6 W sont
+entièrement récupérés, et une partie laissée en plan ne dérive plus: elle
+reprend exactement où elle était.
+
+#### Pourquoi ce n'est pas un signal
+
+Le processus que le worker lance est `docker run`, pas Dolphin. Un `SIGSTOP`
+s'arrêterait au client docker et laisserait le jeu tourner derrière. On passe
+donc par `docker pause`, qui gèle par le cgroup freezer et qui demande un nom.
+
+Le fil qui décide vit à part de la boucle principale, et pas par élégance: la
+boucle BLOQUE sur l'image suivante. Une fois le jeu gelé, plus aucune image
+n'arrive, donc elle ne pourrait jamais s'apercevoir que quelqu'un est revenu.
+
+Une minute de salle vide avant de geler, et rien du tout avant de réveiller.
+L'asymétrie est le point: attendre pour geler coûte quelques watts, attendre pour
+réveiller coûte une image figée sous les yeux de quelqu'un qui vient d'arriver.
+Une page qui se recharge laisse la salle vide une seconde ou deux, et geler à
+chaque rechargement serait pire que ne jamais geler.
+
+#### Le danger, et pourquoi la salle en sort plus sûre
+
+Un conteneur en pause ne reçoit aucun signal. Si le worker mourait pendant une
+pause, le `SIGTERM` de l'arrêt n'atteindrait rien, l'escalade en `SIGKILL`
+tuerait le client docker, et le jeu resterait gelé pour toujours pendant que le
+worker suivant en lancerait un second à côté. C'est mot pour mot l'émulateur
+orphelin qui a volé les entrées pendant douze heures.
+
+Deux choses l'empêchent, et aucune ne dépend du fil de veille tournant
+correctement:
+
+- le wrapper efface le conteneur du même nom AVANT d'en lancer un neuf, donc un
+  gelé oublié ne survit pas au démarrage suivant;
+- le worker réveille toujours avant d'arrêter, **sans condition**. La condition
+  serait un état à croire. Dégeler ce qui n'est pas gelé rend une erreur qu'on
+  ignore; oublier de dégeler coûte une soirée.
+
+La première de ces deux lignes rend la salle plus sûre qu'elle ne l'était sans
+pause du tout: avant, un orphelin pouvait survivre à un redémarrage du worker.
+
+#### Le test qui avait tort
+
+Cinq tests couvrent la politique, qui reçoit l'instant plutôt que de lire une
+horloge, donc ils tournent sans attendre une minute. L'un d'eux affirmait qu'une
+salle vidée à la cinquante et unième seconde gèlerait à la cent onzième. Faux: la
+politique compte depuis la première OBSERVATION de vide, pas depuis l'instant
+réel, et personne n'avait regardé entre les deux. L'écart vaut au plus un tour de
+boucle, soit une demi-seconde, et c'est maintenant écrit dans le test plutôt que
+supposé.
+
+---
+
 ## 8. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
 
 | Le piège | Ce qui s'est passé | La leçon |

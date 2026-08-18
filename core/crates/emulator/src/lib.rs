@@ -59,6 +59,7 @@ pub mod banner;
 pub mod config;
 pub mod error;
 pub mod library;
+pub mod nap;
 pub mod pipe;
 pub mod process;
 pub mod slots;

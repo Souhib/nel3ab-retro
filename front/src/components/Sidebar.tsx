@@ -42,6 +42,7 @@ export function Sidebar({
   suggestHalf,
   onTakeHalf,
   onKeepFull,
+  onFold,
 }: {
   mode: Mode;
   onMode: (mode: Mode) => void;
@@ -76,6 +77,13 @@ export function Sidebar({
   onTakeHalf: () => void;
   /** Garder la pleine taille, et ne plus se faire proposer. */
   onKeepFull: () => void;
+  /** Replier la colonne. Un BOUTON et pas seulement Échap.
+   *
+   * Sur un téléphone il n'y a pas de touche Échap, donc la colonne visible n'a
+   * plus aucune sortie: elle prend la moitié de l'écran et rien ne la referme.
+   * Signalé le 18 août 2026, et c'est un piège que j'avais fabriqué en la
+   * repliant d'office sans laisser de porte dans l'autre sens. */
+  onFold?: () => void;
 }) {
   const seated = people.filter((person) => person.seat !== null);
   const watching = people.filter((person) => person.seat === null);
@@ -83,6 +91,17 @@ export function Sidebar({
   return (
     <>
       <div className="flex gap-1">
+        {onFold ? (
+          <button
+            type="button"
+            id="foldColumn"
+            onClick={onFold}
+            title="replier la colonne"
+            className="border border-rule px-2 py-1 text-[13px] text-faint transition-colors hover:border-rule-bright"
+          >
+            ✕
+          </button>
+        ) : null}
         {(["normal", "details"] as Mode[]).map((choice) => (
           <button
             key={choice}

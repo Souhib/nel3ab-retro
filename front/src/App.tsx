@@ -755,6 +755,20 @@ function Room({
         {/* La manette à l'écran, par-dessus l'image et sous le menu.
             Montée seulement quand elle sert: cent boutons invisibles au-dessus
             d'une partie jouée au clavier intercepteraient des clics. */}
+        {/* Cachée, elle laisse une porte pour revenir.
+            « Cacher » sans retour est un piège: sur un téléphone il n'y a ni
+            Échap ni menu atteignable une fois la colonne repliée, donc le geste
+            était définitif pour la visite. Signalé le 18 août 2026. */}
+        {session && !onTouch && coarse ? (
+          <button
+            type="button"
+            id="showTouch"
+            onClick={() => setTouchPref("on")}
+            className="absolute bottom-3 left-3 z-30 rounded-full border border-rule bg-panel/70 px-4 py-2 text-[11px] uppercase tracking-[0.14em] text-faint"
+          >
+            manette
+          </button>
+        ) : null}
         {session && onTouch ? (
           <TouchPad
             touch={session.input.touch}
@@ -880,6 +894,7 @@ function Room({
               rough.current.settled();
               setSuggestHalf(false);
             }}
+            onFold={coarse ? () => setBare(true) : undefined}
             onComplain={() => {
               const now = sample();
               if (now) {

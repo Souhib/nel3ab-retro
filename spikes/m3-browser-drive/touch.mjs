@@ -32,6 +32,29 @@ check(
 );
 check(await page.$("#unbare") === null, "et ses boutons de coin ne doublent pas Z et R");
 
+// Les deux pièges signalés le 18 août 2026: sur un téléphone, il n'y a ni Échap
+// ni menu atteignable une fois la colonne repliée, donc tout geste sans retour
+// est définitif pour la visite.
+const press = (css) => page.evaluate((s) => document.querySelector(s)?.click(), css);
+
+await press("#hideTouch");
+await new Promise((r) => setTimeout(r, 500));
+check(await page.$("#touchpad") === null, "« cacher » cache bien la manette");
+check(await page.$("#showTouch") !== null, "et laisse une porte pour la rappeler");
+
+await press("#showTouch");
+await new Promise((r) => setTimeout(r, 500));
+check(await page.$("#touchpad") !== null, "la manette revient");
+
+await press("#showColumn");
+await new Promise((r) => setTimeout(r, 500));
+check(await page.$("aside") !== null, "le bouton menu ramène la colonne");
+check(await page.$("#foldColumn") !== null, "qui porte de quoi la refermer sans Échap");
+
+await press("#foldColumn");
+await new Promise((r) => setTimeout(r, 500));
+check(await page.$("aside") === null, "et elle se referme");
+
 // Rien ne doit se recouvrir. La première version plaçait ses groupes à des
 // distances fixes, et sur un vrai téléphone la croix et les quatre boutons se
 // rejoignaient au milieu de l'image, par-dessus le texte du jeu.
@@ -96,7 +119,22 @@ check(
 );
 
 // Et sur un ordinateur, elle ne s'invite pas.
-const desk = await openRoom(browser, url, "bureau");
+//
+// Le choix est OUBLIÉ avant de regarder, parce que les essais d'au-dessus l'ont
+// rendu explicite en rappelant la manette, et qu'un choix explicite l'emporte
+// sur l'appareil — c'est voulu. Sans cet oubli, ce contrôle ne dirait plus que
+// « le test précédent a laissé une trace », ce qui n'intéresse personne.
+const desk = await browser.newPage();
+await desk.evaluateOnNewDocument(() => {
+  try {
+    localStorage.removeItem("nel3ab:touchpad");
+    localStorage.removeItem("nel3ab:bare");
+    localStorage.setItem("nel3ab:name", "bureau");
+  } catch {
+    /* stockage refusé: la page demandera un nom, et le pilote le dira */
+  }
+});
+await desk.goto(url, { waitUntil: "domcontentloaded" });
 await enterRoom(desk);
 await new Promise((r) => setTimeout(r, 2000));
 check(await desk.$("#touchpad") === null, "elle ne s'invite pas sur un ordinateur");

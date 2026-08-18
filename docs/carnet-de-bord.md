@@ -6277,6 +6277,49 @@ géométrique, et une interface est de la géométrie.
 
 ---
 
+### 7.53 Deux culs-de-sac fabriqués en réparant le précédent
+
+La disposition corrigée en 7.52 marchait, et j'avais fabriqué deux pièges en
+même temps. Les deux ont la même forme, et c'est la forme qui compte plus que
+les deux cas.
+
+**Cacher la manette était définitif.** Le bouton « cacher » retire la manette et
+retient le choix. Sur un ordinateur on la rappelle par le menu; sur un téléphone,
+la colonne est repliée d'office et le menu s'ouvre par Échap, une touche qui
+n'existe pas. Le geste était donc sans retour pour toute la visite.
+
+**La colonne visible ne se refermait plus.** Même cause exactement. Elle prend la
+moitié d'un écran tenu en travers, et sa seule sortie était Échap.
+
+Chaque moitié du problème dépendait de l'autre: sans manette, pas de bouton pour
+replier; colonne ouverte, pas de manette. Les deux ensemble laissaient une page
+dont on ne pouvait plus rien faire sans vider le stockage du navigateur.
+
+#### Ce qui manquait n'était pas un bouton, c'était une règle
+
+**Tout geste qui cache quelque chose doit laisser ce qui le rappelle.** Cachée,
+la manette laisse une pastille « manette » dans le coin. Visible, la colonne
+porte une croix qui la referme, montrée seulement quand le pointeur est grossier,
+puisque ailleurs Échap suffit.
+
+Le pilote fait maintenant l'aller-retour complet: il cache la manette, vérifie
+qu'une porte reste, la rappelle, ouvre la colonne, la referme par son bouton. Six
+vérifications qui ne parlent que de sorties.
+
+#### Le contrôle qui s'est mis à mentir
+
+En rappelant la manette, l'essai rend le choix EXPLICITE, et un choix explicite
+l'emporte sur l'appareil: c'est voulu. Le dernier contrôle du pilote, « elle ne
+s'invite pas sur un ordinateur », est donc passé au rouge après les nouveaux
+essais, sans qu'aucun défaut n'existe.
+
+Il oublie maintenant le choix avant de regarder. Sinon il ne dirait plus que
+« l'essai précédent a laissé une trace », ce qui n'intéresse personne, et un
+contrôle qui rougit pour une raison étrangère au produit est un contrôle qu'on
+apprend à ignorer.
+
+---
+
 ## 8. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
 
 | Le piège | Ce qui s'est passé | La leçon |

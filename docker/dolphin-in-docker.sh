@@ -45,6 +45,16 @@ if [ -n "${NEL3AB_FRAME_SOCKET:-}" ]; then
   frame_socket_env=(-e NEL3AB_FRAME_SOCKET)
 fi
 
+# Et le tube de vibration, par le même chemin et pour la même raison.
+#
+# `docker run` ne transmet AUCUNE variable de l'hôte sans qu'on le lui demande.
+# Sans cette ligne, le patch cherche `NEL3AB_RUMBLE_PIPE` dans le conteneur, ne
+# le trouve pas, et se tait: la vibration ne sort jamais, sans erreur nulle part.
+# C'est exactement ce qui est arrivé au premier essai.
+if [ -n "${NEL3AB_RUMBLE_PIPE:-}" ]; then
+  frame_socket_env+=(-e NEL3AB_RUMBLE_PIPE)
+fi
+
 # --shm-size is NOT optional: Docker defaults /dev/shm to 64 MiB and Dolphin's
 # emulated-memory arena is larger, so it dies of SIGBUS (exit 135) with no log
 # line at all. Verified on lgf, 2026-08-10.

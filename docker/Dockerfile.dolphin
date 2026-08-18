@@ -65,6 +65,23 @@ RUN cd /src && git apply --verbose /tmp/nel3ab.patch
 COPY docker/dolphin-patches/0002-nel3ab-survive-descriptor-exhaustion.patch /tmp/nel3ab-2.patch
 RUN cd /src && git apply --verbose /tmp/nel3ab-2.patch
 
+# Troisième patch: faire SORTIR la vibration.
+#
+# L'interface d'entrée par tube nommé est à sens unique. Nous écrivons des
+# boutons, et rien ne revient: Dolphin n'a aucun chemin pour rendre la vibration
+# à une manette qu'il ne connaît que par un tube. La console émulée, elle, envoie
+# bien la commande, et elle arrive dans `Pad::Rumble`, une fonction de trois
+# lignes appelée à chaque image.
+#
+# Le patch l'écrit sur un second tube, en deux octets, sans jamais bloquer et
+# seulement quand la valeur change. Le worker le lit et le renvoie au navigateur,
+# qui fait vibrer la manette ou le téléphone.
+#
+# C'est le patch le plus petit des trois, et le seul qui ajoute une sortie
+# plutôt que d'en corriger une.
+COPY docker/dolphin-patches/0003-nel3ab-rumble-export.patch /tmp/nel3ab-3.patch
+RUN cd /src && git apply --verbose /tmp/nel3ab-3.patch
+
 # The pipe input backend is what this whole milestone rests on, and it is
 # compiled in by a CMake side effect (`if(UNIX) add_definitions(-DUSE_PIPES=1)`),
 # not by an option we pass. Assert it in the pinned source: if upstream ever

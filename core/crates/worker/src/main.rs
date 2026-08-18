@@ -24,6 +24,7 @@ use std::time::{Duration, Instant};
 
 use anyhow::{Context as _, Result, bail};
 use nel3ab_emulator::nap::{self, Nap, tell_docker};
+use nel3ab_emulator::rumble::RumbleTap;
 use nel3ab_emulator::{
     CHUNK_BYTES, DolphinConfig, Rom, Session, SlotSet, SoundTap, VideoBackend, catalogue_json,
     scan_roms,
@@ -465,6 +466,13 @@ fn run(settings: &Settings) -> Result<()> {
         );
     }
 
+    // Le tube de vibration, créé AVANT que Dolphin ne démarre: sinon son propre
+    // `open` créerait un fichier ordinaire et les secousses partiraient sur le
+    // disque. Même ordre et même raison que pour le son.
+    let mut rumble = RumbleTap::open(&settings.session_dir)?;
+    config.rumble_pipe = Some(rumble.path().to_path_buf());
+    tracing::info!(pipe = %rumble.path().display(), "la vibration remonte par ici");
+
     let session = Session::start(&config)?;
     let mut frames = listener.accept(Duration::from_mins(2))?;
     let descriptor = *frames.descriptor();
@@ -819,6 +827,15 @@ fn run(settings: &Settings) -> Result<()> {
         }
         if wanted_half && let Some(small) = &mut pipeline.half {
             small.encode_and_send(&server, slot_index, captured)?;
+        }
+
+        // La vibration que l'émulateur vient de demander, rendue à la page qui
+        // tient cette manette. Une lecture non bloquante par image: le tube est
+        // vide la plupart du temps, puisque seuls les CHANGEMENTS y passent.
+        for shake in rumble.drain() {
+            if let Ok(port) = PlayerSlot::new(shake.port) {
+                server.rumble(port, shake.level);
+            }
         }
 
         produced += 1;

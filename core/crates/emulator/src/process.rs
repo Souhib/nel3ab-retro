@@ -197,6 +197,12 @@ pub struct DolphinConfig {
     /// container, that means inside a directory both sides see at the same path
     /// — `user_dir` is already one.
     pub frame_socket: Option<PathBuf>,
+    /// Où Dolphin doit écrire la vibration, quand on veut la recevoir.
+    ///
+    /// Un second tube, à côté de celui du son, et le troisième patch du projet
+    /// est ce qui le remplit: l'interface d'entrée par tube est à sens unique,
+    /// donc sans lui la vibration reste dans l'émulateur.
+    pub rumble_pipe: Option<PathBuf>,
     /// How long to wait for Dolphin to open the input pipes.
     pub startup_timeout: Duration,
     /// How long `SIGTERM` gets before `SIGKILL`.
@@ -215,6 +221,7 @@ impl DolphinConfig {
             video_backend: VideoBackend::default(),
             overrides: Vec::new(),
             frame_socket: None,
+            rumble_pipe: None,
             // Dolphin reads a multi-gigabyte image, builds its shader cache and
             // brings up Vulkan before the input backend exists. Thirty seconds
             // is slack, not a measurement — the attach loop returns as soon as
@@ -273,6 +280,9 @@ impl Session {
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit())
             .stdin(Stdio::null());
+        if let Some(pipe) = &config.rumble_pipe {
+            command.env("NEL3AB_RUMBLE_PIPE", pipe);
+        }
         if let Some(socket) = &config.frame_socket {
             // Set on the child rather than on us: `std::env::set_var` is unsafe
             // in edition 2024 and forbidden here, and a process-wide mutation

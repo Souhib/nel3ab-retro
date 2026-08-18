@@ -1,0 +1,94 @@
+diff --git a/Source/Core/Core/HW/GCPad.cpp b/Source/Core/Core/HW/GCPad.cpp
+index 188882c..c00e632 100644
+--- a/Source/Core/Core/HW/GCPad.cpp
++++ b/Source/Core/Core/HW/GCPad.cpp
+@@ -3,12 +3,75 @@
+ 
+ #include "Core/HW/GCPad.h"
+ 
++#include <array>
++#include <cmath>
++#include <cstdlib>
++#include <fcntl.h>
++#include <unistd.h>
++
+ #include "Common/Common.h"
+ #include "Core/HW/GCPadEmu.h"
+ #include "InputCommon/ControllerEmu/ControlGroup/ControlGroup.h"
+ #include "InputCommon/GCPadStatus.h"
+ #include "InputCommon/InputConfig.h"
+ 
++// nel3ab: la vibration sort par un tube, pour arriver dans les mains du joueur.
++//
++// Dolphin parle aux manettes par son interface d'entrée, qui est à SENS UNIQUE
++// quand elle passe par un tube nommé: nous écrivons des boutons, rien ne
++// revient. La console émulée, elle, envoie bien une commande de vibration, et
++// elle arrive ici, dans une fonction de trois lignes appelée à chaque image.
++//
++// On l'écrit donc telle quelle sur un second tube, que le worker lit et renvoie
++// au navigateur. Deux octets: le port et la force.
++//
++// Trois précautions, et chacune répare un défaut qu'on aurait sinon:
++//
++//   - le tube est ouvert en NON BLOQUANT, et une écriture qui bloquerait est
++//     abandonnée. Un émulateur qui attend un lecteur est un émulateur qui perd
++//     des images, et une vibration vaut moins qu'une image;
++//   - on n'écrit QUE les changements. Cette fonction est appelée soixante fois
++//     par seconde et par manette, soit deux cent quarante écritures par seconde
++//     pour dire quatre fois la même chose;
++//   - la force est quantifiée sur un octet. Un flottant qui oscille au millième
++//     produirait un changement à chaque appel, ce qui annulerait la précaution
++//     précédente.
++namespace
++{
++int s_rumble_pipe = -1;
++bool s_rumble_tried = false;
++std::array<unsigned char, 4> s_rumble_last = {0, 0, 0, 0};
++
++void ExportRumble(int pad_num, double strength)
++{
++  if (pad_num < 0 || pad_num >= static_cast<int>(s_rumble_last.size()))
++    return;
++
++  if (!s_rumble_tried)
++  {
++    s_rumble_tried = true;
++    const char* path = std::getenv("NEL3AB_RUMBLE_PIPE");
++    if (path != nullptr)
++      s_rumble_pipe = open(path, O_WRONLY | O_NONBLOCK | O_CLOEXEC);
++  }
++  if (s_rumble_pipe < 0)
++    return;
++
++  const double clamped = strength < 0.0 ? 0.0 : (strength > 1.0 ? 1.0 : strength);
++  const unsigned char level = static_cast<unsigned char>(std::lround(clamped * 255.0));
++  if (level == s_rumble_last[pad_num])
++    return;
++  s_rumble_last[pad_num] = level;
++
++  const unsigned char message[2] = {static_cast<unsigned char>(pad_num), level};
++  // Le retour est ignoré volontairement: personne n'écoute est le cas normal
++  // quand aucun navigateur n'est branché, et un tube plein veut dire que le
++  // lecteur a pris du retard sur une vibration, ce qui ne se rattrape pas.
++  const ssize_t written = write(s_rumble_pipe, message, sizeof(message));
++  static_cast<void>(written);
++}
++}  // namespace
++
+ namespace Pad
+ {
+ static InputConfig s_config("GCPadNew", _trans("Pad"), "GCPad", "Pad");
+@@ -65,11 +128,13 @@ ControllerEmu::ControlGroup* GetGroup(int pad_num, PadGroup group)
+ 
+ void Rumble(const int pad_num, const ControlState strength)
+ {
++  ExportRumble(pad_num, static_cast<double>(strength));
+   static_cast<GCPad*>(s_config.GetController(pad_num))->SetOutput(strength);
+ }
+ 
+ void ResetRumble(const int pad_num)
+ {
++  ExportRumble(pad_num, 0.0);
+   static_cast<GCPad*>(s_config.GetController(pad_num))->SetOutput(0.0);
+ }
+ 

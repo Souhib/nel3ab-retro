@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { SHELLS, THEMES, storedShell, storedTheme } from "./theme";
+import { SHELLS, THEMES, showsTouchPad, storedShell, storedTheme, storedTouch } from "./theme";
 
 describe("le choix retenu", () => {
   beforeEach(() => localStorage.clear());
@@ -32,5 +32,25 @@ describe("le choix retenu", () => {
   it("applique la même règle aux ambiances", () => {
     localStorage.setItem("nel3ab:theme", "une ambiance qui n'existe pas");
     expect(THEMES.some((choice) => choice.id === storedTheme())).toBe(true);
+  });
+});
+
+describe("la manette à l'écran", () => {
+  it("suit l'appareil quand on ne lui a rien dit", () => {
+    expect(showsTouchPad("auto", true)).toBe(true);
+    expect(showsTouchPad("auto", false)).toBe(false);
+  });
+
+  it("obéit à un choix explicite, contre l'appareil", () => {
+    // La détection se trompe des deux côtés: un portable tactile n'en veut pas,
+    // une tablette avec un clavier peut en vouloir une.
+    expect(showsTouchPad("off", true)).toBe(false);
+    expect(showsTouchPad("on", false)).toBe(true);
+  });
+
+  it("retombe sur l'automatique devant une valeur inconnue", () => {
+    localStorage.setItem("nel3ab:touchpad", "peut-être");
+    expect(storedTouch()).toBe("auto");
+    localStorage.removeItem("nel3ab:touchpad");
   });
 });

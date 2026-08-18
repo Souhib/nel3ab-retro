@@ -4,6 +4,7 @@
  * The port is the SERVER'S to decide — it alone knows who else is in the room —
  * and it says so in one byte as soon as the socket opens. Zero means no seat.
  */
+import { Touch } from "./touch";
 import { Capture, Lesson, loudest, snapshot, type Snapshot } from "./lesson";
 import { MenuPad, type MenuAction } from "./menupad";
 import {
@@ -90,6 +91,33 @@ export type RoomMessage = { players: number; port: number | null; busy: boolean[
  * showed a pad, and only a real browser against a real worker said so. The shape
  * of a message is exactly the kind of thing a unit test can pin, so it does.
  */
+/** Une secousse: quelle manette, et à quelle force de zéro à un. */
+export type Shake = { port: number; strength: number };
+
+/**
+ * La vibration que l'émulateur demande, ou rien.
+ *
+ * Deux octets contre six pour la salle, et c'est la LONGUEUR qui les distingue.
+ * Pas de tag, pas de version: le décodeur de salle rejette déjà tout ce qui n'a
+ * pas sa taille, donc une page qui ne connaîtrait pas les secousses les ignore
+ * sans rien casser, et une page qui les connaît ne peut pas confondre les deux.
+ */
+export function readShake(bytes: Uint8Array): Shake | null {
+  if (bytes.length !== 2) return null;
+  const port = bytes[0] ?? 0;
+  const level = bytes[1] ?? 0;
+  if (port < 1 || port > 4) return null;
+  return { port, strength: level / 255 };
+}
+
+/** Combien de temps une secousse dure, en millisecondes.
+ *
+ * Cent vingt. Assez pour se sentir, assez court pour que la suivante la
+ * remplace sans qu'on entende un trou: l'émulateur en envoie une à chaque
+ * changement, et un jeu qui secoue en continu en envoie plusieurs par seconde.
+ */
+const SHAKE_MS = 120;
+
 export function readRoomMessage(bytes: Uint8Array): RoomMessage | null {
   if (bytes.length !== ROOM_MESSAGE_BYTES) return null;
   const players = bytes[0] ?? 0;
@@ -110,6 +138,11 @@ export class InputStream {
   private timers: number[] = [];
   private port: number | null = null;
   private refused = false;
+  /** Combien de secousses cette page a reçues, pour les pilotes.
+   *
+   * Une vibration ne se mesure pas depuis un navigateur sans mains: ce compteur
+   * est la seule preuve qu'elle est arrivée jusqu'ici. */
+  private shakes = 0;
   private everHeld = false;
   private displaced = false;
   /** Jusqu'à quand cette page s'abstient de reprendre une place.
@@ -483,7 +516,15 @@ export class InputStream {
     this.socket = socket;
     socket.onmessage = (event: MessageEvent<ArrayBuffer>) => {
       if (mine !== this.generation) return;
-      const told = readRoomMessage(new Uint8Array(event.data));
+      const bytes = new Uint8Array(event.data);
+      // La vibration d'abord: elle est plus courte, plus fréquente, et elle ne
+      // touche à rien de l'état de la salle.
+      const shake = readShake(bytes);
+      if (shake !== null) {
+        this.shake(shake);
+        return;
+      }
+      const told = readRoomMessage(bytes);
       if (told === null) return;
       this.players = told.players;
       this.port = told.port;
@@ -626,10 +667,82 @@ export class InputStream {
     let reading: PadReading = readKeys(this.held, this.keys);
     const fromPads = this.padsReading();
     if (fromPads !== null) reading = merge(reading, fromPads);
+    // Et les doigts par-dessus, par la même fusion que les deux autres sources.
+    // La décision D3 normalise les manettes ici, donc le worker ne saura jamais
+    // qu'un joueur tient un téléphone.
+    const fromTouch = this.touch.reading();
+    if (fromTouch !== null) reading = merge(reading, fromTouch);
     this.lastReading = reading;
     this.socket.send(encodePad(this.port, reading));
     this.sent += 1;
   };
+
+  /** La manette à l'écran, écrite par les doigts et lue par la boucle.
+   *
+   * Publique parce que c'est la page qui dessine les boutons et reçoit les
+   * événements de pointeur. Un objet mutable plutôt qu'un état React: cette
+   * boucle tourne cent fois par seconde, et la faire dépendre d'un rendu
+   * remettrait React sur le chemin des commandes.
+   */
+  readonly touch = new Touch();
+
+  /**
+   * Fait vibrer ce qu'on tient: une manette, ou le téléphone.
+   *
+   * Deux chemins parce qu'il n'y a pas d'API commune. Une manette branchée a un
+   * `vibrationActuator`; un téléphone n'en a pas et répond à `navigator.vibrate`.
+   * On essaie les deux et on ignore les refus: un navigateur qui ne sait pas
+   * vibrer doit laisser jouer, pas se plaindre.
+   *
+   * La durée est courte et REDEMANDÉE à chaque changement, plutôt qu'une longue
+   * secousse qu'on arrêterait. Une vibration qu'on oublie d'arrêter est une
+   * manette qui tremble jusqu'à ce qu'on la débranche, et le tube ne promet pas
+   * qu'un zéro arrivera toujours.
+   */
+  private shake({ port, strength }: Shake): void {
+    if (port !== this.port) return;
+    this.shakes += 1;
+    if (strength <= 0) {
+      this.stopShaking();
+      return;
+    }
+    const pad = this.connected().find((one) => one.vibrationActuator);
+    const actuator = pad?.vibrationActuator;
+    if (actuator) {
+      void actuator
+        .playEffect("dual-rumble", {
+          duration: SHAKE_MS,
+          strongMagnitude: strength,
+          weakMagnitude: strength * 0.6,
+        })
+        .catch(() => {
+          // Un navigateur qui refuse laisse jouer.
+        });
+      return;
+    }
+    try {
+      navigator.vibrate?.(Math.round(SHAKE_MS * strength));
+    } catch {
+      // Idem: la vibration est un supplément, jamais une condition.
+    }
+  }
+
+  /** Arrête tout de suite, quand la force retombe à zéro. */
+  private stopShaking(): void {
+    for (const pad of this.connected()) {
+      void pad.vibrationActuator?.reset?.().catch(() => {});
+    }
+    try {
+      navigator.vibrate?.(0);
+    } catch {
+      /* voir au-dessus */
+    }
+  }
+
+  /** Combien de secousses sont arrivées. Pour les pilotes. */
+  shakesFelt(): number {
+    return this.shakes;
+  }
 
   /** Which buttons are down, for a page that shows them. */
   private pressedNames(): string[] {

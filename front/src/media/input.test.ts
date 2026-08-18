@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readRoomMessage } from "./input";
+import { readRoomMessage, readShake } from "./input";
 
 /** `[players, mine, busy1..busy4]`, exactly as the worker writes it. */
 const message = (...bytes: number[]) => new Uint8Array(bytes);
@@ -31,5 +31,27 @@ describe("le message de salle", () => {
     expect(readRoomMessage(message(5, 1, 0, 0, 0, 0))).toBeNull();
     // Une place au-delà de ce que la salle annonce.
     expect(readRoomMessage(message(2, 3, 0, 0, 0, 0))).toBeNull();
+  });
+});
+
+describe("la vibration qui redescend", () => {
+  it("se distingue d'une salle par sa longueur", () => {
+    // Deux octets contre six. Pas de tag et pas de version: le décodeur de
+    // salle rejette déjà tout ce qui n'a pas sa taille.
+    expect(readShake(new Uint8Array([2, 255]))).toEqual({ port: 2, strength: 1 });
+    expect(readShake(message(4, 2, 1, 1, 0, 0))).toBeNull();
+    expect(readRoomMessage(new Uint8Array([2, 255]))).toBeNull();
+  });
+
+  it("ramène la force entre zéro et un", () => {
+    expect(readShake(new Uint8Array([1, 0]))?.strength).toBe(0);
+    expect(readShake(new Uint8Array([1, 128]))?.strength).toBeCloseTo(0.502, 3);
+  });
+
+  it("refuse une manette qui n'existe pas", () => {
+    // Le jumeau: sans lui, un décodeur qui accepterait tout ferait vibrer la
+    // manette de quelqu'un d'autre.
+    expect(readShake(new Uint8Array([0, 200]))).toBeNull();
+    expect(readShake(new Uint8Array([5, 200]))).toBeNull();
   });
 });

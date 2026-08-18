@@ -6137,6 +6137,94 @@ imposée. Mario Power Tennis n'a plus rien de particulier non plus: 528 lignes o
 
 ---
 
+### 7.51 Jouer au doigt, et sentir les chocs
+
+Deux fonctionnalités du deuxième rang de l'audit, et elles n'ont presque rien en
+commun sauf d'aller dans le même sens: rendre la salle jouable par quelqu'un qui
+n'a pas de manette, et rendre au jeu ce qu'il essayait de dire aux mains.
+
+#### La manette à l'écran tient en très peu de code
+
+La décision D3 normalise les manettes DANS LE NAVIGATEUR: le worker ne reçoit
+qu'une trame de boutons et d'axes et ne sait pas d'où elle vient. Une manette
+tactile est donc une troisième source à côté du clavier et des manettes
+physiques, fondue avec elles par la même fonction, et rien en dessous ne change.
+C'est la décision de départ qui paie, trois mois plus tard.
+
+Elle ne repasse pas par React. La boucle d'entrée tourne cent fois par seconde,
+donc les événements de pointeur écrivent dans un module et la boucle y lit. L'état
+« appuyé » est du CSS, ce qui coûte zéro rendu.
+
+Deux calculs valent leur test, et ce sont les deux défauts classiques des
+manettes tactiles:
+
+- une **zone morte** au centre, parce qu'un pouce posé n'est jamais immobile et
+  qu'un personnage dérive sinon pendant qu'on ne touche à rien;
+- un plafond **circulaire** et non carré. Un rapport brut donne 1,41 fois la
+  course en diagonale, donc un personnage plus rapide de biais que droit devant.
+
+Et un détail qui n'en est pas un: `0 - v` plutôt que `-v` pour retourner l'axe
+vertical. La seconde forme rend un zéro NÉGATIF quand la valeur est nulle, et
+`-0` traverse ensuite le JSON, les comparaisons et les tests en ressemblant à
+zéro sans en être. Le premier test l'a attrapé.
+
+#### La vibration a demandé un patch, et il tient en trente lignes
+
+L'interface d'entrée par tube nommé est à SENS UNIQUE: nous écrivons des boutons,
+rien ne revient, et Dolphin n'a aucun chemin pour rendre une vibration à une
+manette qu'il ne connaît que par un tube. La console émulée, elle, envoie bien la
+commande, et elle arrive dans `Pad::Rumble`, trois lignes appelées à chaque image.
+
+Le troisième patch du projet l'écrit sur un second tube. Trois précautions, et
+chacune répare un défaut qu'on aurait sinon: le tube est ouvert en NON BLOQUANT
+et une écriture qui bloquerait est abandonnée, parce qu'une vibration vaut moins
+qu'une image; seuls les CHANGEMENTS sont écrits, sinon il en partirait deux cent
+quarante par seconde pour dire quatre fois la même chose; et la force est
+quantifiée sur un octet, sans quoi un flottant qui oscille au millième annulerait
+la précaution précédente.
+
+Le reste suit le chemin inverse des boutons: le worker lit le tube à chaque
+image, écrit la force dans un emplacement par port, et le fil qui sert cette
+manette l'envoie quand elle change. Pas de canal, pas de diffusion, exactement
+comme la salle.
+
+Côté page, deux octets contre six pour la salle, et c'est la LONGUEUR qui les
+distingue. Pas de tag, pas de version: le décodeur de salle rejette déjà tout ce
+qui n'a pas sa taille, donc une page plus ancienne ignore les secousses sans rien
+casser.
+
+#### Le défaut qui s'est tu
+
+Au premier essai, rien ne vibrait et rien ne se plaignait. Le tube existait,
+Dolphin tournait, le worker lisait: silence complet.
+
+`docker run` ne transmet **aucune** variable de l'hôte sans qu'on le lui demande.
+Le patch cherchait `NEL3AB_RUMBLE_PIPE` dans le conteneur, ne le trouvait pas, et
+se taisait comme il est écrit pour le faire. Une ligne dans l'enveloppe, à côté de
+celle qui existait déjà pour le socket d'images.
+
+Trouvé en regardant `/proc/<pid>/environ` du vrai processus, pas en relisant le
+code. C'est la troisième fois cette semaine qu'un défaut se règle en allant voir
+ce que le processus a vraiment reçu.
+
+#### Ce que le pilote prouve, et ce qu'il ne prouve pas
+
+Il INJECTE la secousse dans le tube, et c'est un choix. Attendre qu'un jeu vibre
+tout seul ne prouve rien de façon fiable: aucun ne le fait dans ses menus, et
+traverser un menu à l'aveugle pour déclencher un choc n'aboutit pas deux fois de
+suite. Un pilote qui ne réussit qu'une fois sur deux est un pilote qu'on finit
+par ignorer.
+
+Il couvre donc quatre étapes sur cinq: le worker lit, le transport envoie, la
+page décode, et une secousse destinée à une autre manette ne se sent pas ici. La
+cinquième, que Dolphin écrive, se vérifie autrement: le processus a ouvert le
+tube en écriture, ce qui n'arrive que si `Pad::Rumble` est appelé.
+
+Il reste une chose à vérifier en jouant vraiment, et elle ne peut pas
+s'automatiser: qu'un choc dans le jeu se sente dans les mains.
+
+---
+
 ## 8. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
 
 | Le piège | Ce qui s'est passé | La leçon |

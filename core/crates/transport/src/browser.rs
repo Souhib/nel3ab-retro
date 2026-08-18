@@ -67,6 +67,15 @@ struct Viewer {
 /// The registry of connected viewers, each with its own bounded queue.
 type Viewers = Arc<Mutex<Vec<Viewer>>>;
 
+/// La force de vibration voulue pour chaque port, de zéro à deux cent
+/// cinquante-cinq.
+///
+/// Un emplacement par port et pas une file: seule la valeur COURANTE compte, et
+/// une file de vibrations en retard secouerait les mains d'un joueur au rythme
+/// d'une partie déjà finie. C'est la même raison que pour les manettes entrantes,
+/// juste en sens inverse.
+type Rumbles = Arc<Mutex<[u8; PORTS]>>;
+
 /// Who currently holds each port, as a claim number rather than a flag.
 ///
 /// A number because a holder must be able to discover it has been REPLACED. A
@@ -224,6 +233,7 @@ pub struct BrowserServer {
     /// Everything that arrived, so a client sending nonsense is still visible.
     received: Arc<std::sync::atomic::AtomicU64>,
     address: SocketAddr,
+    rumbles: Rumbles,
     dropped: Arc<std::sync::atomic::AtomicU64>,
     /// Les images refusées au flux RÉDUIT, comptées à part.
     ///
@@ -283,6 +293,7 @@ impl BrowserServer {
         let incoming: Pads = Arc::new(Mutex::new([None; PORTS]));
         let received = Arc::new(std::sync::atomic::AtomicU64::new(0));
         let arrived = Arc::new(Condvar::new());
+        let rumbles: Rumbles = Arc::new(Mutex::new([0; PORTS]));
         let dropped = Arc::new(std::sync::atomic::AtomicU64::new(0));
         let half_dropped = Arc::new(std::sync::atomic::AtomicU64::new(0));
         let joined = Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -316,6 +327,7 @@ impl BrowserServer {
                 let arrived = Arc::clone(&arrived);
                 let seats = Arc::clone(&seats);
                 let wants_rom = Arc::clone(&wants_rom);
+                let rumbles = Arc::clone(&rumbles);
                 let owner = Arc::clone(owner);
                 let half_viewers = Arc::clone(&half_viewers);
                 let half_joined = Arc::clone(&half_joined);
@@ -335,6 +347,7 @@ impl BrowserServer {
                             wants_key,
                             granted_key,
                             seats,
+                            rumbles,
                             players,
                             wants_rom,
                             catalogue,
@@ -360,6 +373,7 @@ impl BrowserServer {
             arrived,
             incoming,
             received,
+            rumbles,
             address: bound,
             dropped,
             half_dropped,
@@ -558,6 +572,20 @@ impl BrowserServer {
         self.dropped.load(std::sync::atomic::Ordering::Relaxed)
     }
 
+    /// Dit qu'une manette doit vibrer, et à quelle force.
+    ///
+    /// Écrit dans un emplacement plutôt qu'envoyé: le fil qui sert cette manette
+    /// se réveille déjà soixante fois par seconde sur les trames qui montent, et
+    /// il verra le changement au passage. Pas de canal, pas de diffusion, comme
+    /// pour la salle.
+    pub fn rumble(&self, port: PlayerSlot, level: u8) {
+        if let Ok(mut held) = self.rumbles.lock()
+            && let Some(slot) = held.get_mut(port.index())
+        {
+            *slot = level;
+        }
+    }
+
     /// Combien d'images le flux RÉDUIT a dû jeter faute de place.
     #[must_use]
     pub fn half_dropped(&self) -> u64 {
@@ -578,6 +606,7 @@ struct Shared {
     /// When a key frame was last granted to anybody. See [`ask_for_key_frame`].
     granted_key: Arc<Mutex<Instant>>,
     seats: Seats,
+    rumbles: Rumbles,
     players: PlayerSlot,
     wants_rom: Arc<Mutex<Option<u8>>>,
     /// The room's library, already rendered as JSON.
@@ -1329,6 +1358,8 @@ fn input_thread(stream: TcpStream, shared: &Shared, take: Option<PlayerSlot>) {
     };
 
     let mut heard_from = std::time::Instant::now();
+    // La dernière force envoyée à cette page, pour n'envoyer que les changements.
+    let mut shook = 0_u8;
     loop {
         // Checked every time round, so an active page — which reads sixty times a
         // second — learns it was replaced within a frame.
@@ -1342,20 +1373,20 @@ fn input_thread(stream: TcpStream, shared: &Shared, take: Option<PlayerSlot>) {
             )));
             break;
         }
-        // The room can change under a page: somebody plugs in, somebody leaves.
-        // Noticed here rather than pushed from elsewhere, because this thread
-        // already wakes on every pad frame — sixty times a second for a page
-        // that is playing — and on its ping when it is not. No channel, no
-        // broadcast, and a page that is drawing four sockets sees them fill.
-        let current = room_message(players, Some(seat), seats);
-        if current != told {
-            if socket
-                .send(tungstenite::Message::binary(current.clone()))
-                .is_err()
-            {
-                break;
-            }
-            told = current;
+        // La salle et la vibration, toutes deux envoyées seulement quand elles
+        // CHANGENT, et toutes deux depuis ce fil plutôt que poussées d'ailleurs.
+        //
+        // Il se réveille déjà sur chaque trame de manette, soixante fois par
+        // seconde pour une page qui joue, et sur son ping quand elle ne joue
+        // pas. Pas de canal, pas de diffusion, et une page qui dessine quatre
+        // sockets les voit se remplir.
+        match send_rumble(&mut socket, shared, seat, shook) {
+            Ok(now) => shook = now,
+            Err(()) => break,
+        }
+        match send_room(&mut socket, players, seat, seats, told) {
+            Ok(now) => told = now,
+            Err(()) => break,
         }
 
         let message = match socket.read() {
@@ -1543,6 +1574,60 @@ fn occupancy(seats: &Seats) -> [bool; PORTS] {
 /// yours, and which of the others are busy. A page that only knew its own port
 /// could not tell an empty socket from somebody else's, and the whole point of
 /// drawing the sockets is that you can see the room.
+/// Envoie l'état de la salle à cette page, s'il a changé.
+///
+/// Rend ce que la page connaît désormais, ou `Err` quand la socket est partie.
+fn send_room(
+    socket: &mut tungstenite::WebSocket<TcpStream>,
+    players: PlayerSlot,
+    seat: PlayerSlot,
+    seats: &Seats,
+    told: Vec<u8>,
+) -> Result<Vec<u8>, ()> {
+    let current = room_message(players, Some(seat), seats);
+    if current == told {
+        return Ok(told);
+    }
+    socket
+        .send(tungstenite::Message::binary(current.clone()))
+        .map_err(|_| ())?;
+    Ok(current)
+}
+
+/// Envoie la vibration de cette place, si elle a changé.
+///
+/// Par le même chemin que la salle, et pour la même raison: le fil qui sert
+/// cette manette se réveille déjà à chaque trame qui monte, soixante fois par
+/// seconde pour une page qui joue. Pas de canal, pas de diffusion.
+///
+/// Deux octets, contre six pour la salle, et c'est la LONGUEUR qui les
+/// distingue. La page rejette déjà tout ce qui n'a pas la taille d'une salle,
+/// donc il n'y a rien à taguer et une page plus ancienne ignore les secousses
+/// sans rien casser.
+///
+/// Rend la force désormais connue de cette page, ou `Err` quand la socket est
+/// partie.
+fn send_rumble(
+    socket: &mut tungstenite::WebSocket<TcpStream>,
+    shared: &Shared,
+    seat: PlayerSlot,
+    shook: u8,
+) -> Result<u8, ()> {
+    let shaking = shared
+        .rumbles
+        .lock()
+        .ok()
+        .and_then(|held| held.get(seat.index()).copied())
+        .unwrap_or(0);
+    if shaking == shook {
+        return Ok(shook);
+    }
+    socket
+        .send(tungstenite::Message::binary(vec![seat.get(), shaking]))
+        .map_err(|_| ())?;
+    Ok(shaking)
+}
+
 fn room_message(players: PlayerSlot, mine: Option<PlayerSlot>, seats: &Seats) -> Vec<u8> {
     let mut message = Vec::with_capacity(2 + PORTS);
     message.push(players.get());
@@ -1927,6 +2012,7 @@ mod tests {
             incoming: Arc::new(Mutex::new([None; PORTS])),
             received: Arc::new(std::sync::atomic::AtomicU64::new(0)),
             address: "127.0.0.1:0".parse().unwrap(),
+            rumbles: Arc::new(Mutex::new([0; PORTS])),
             dropped: Arc::new(std::sync::atomic::AtomicU64::new(0)),
             half_dropped: Arc::new(std::sync::atomic::AtomicU64::new(0)),
             joined: Arc::new(std::sync::atomic::AtomicBool::new(false)),
@@ -2482,6 +2568,7 @@ mod tests {
             half_granted_key: Arc::new(Mutex::new(Instant::now())),
             listeners: Arc::new(Mutex::new(Vec::new())),
             inputs: Arc::new(Mutex::new([None; PORTS])),
+            rumbles: Arc::new(Mutex::new([0; PORTS])),
             arrived: Arc::new(Condvar::new()),
             received: Arc::new(std::sync::atomic::AtomicU64::new(0)),
             joined: Arc::new(std::sync::atomic::AtomicBool::new(false)),

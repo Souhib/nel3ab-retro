@@ -127,6 +127,8 @@ export function exposeNothingYet(): void {
     restarts: 0,
     undecoded: 0,
     attempts: 0,
+    pressed: [] as string[],
+    shakes: 0,
     soundPlayed: 0,
     soundGaps: 0,
   });
@@ -193,6 +195,12 @@ export function exposeForTests(session: Session): void {
         restarts: shot.video.restarts,
         undecoded: shot.video.undecoded,
         attempts: shot.input.sent,
+        // Ce qui est TENU en ce moment, et pas seulement combien de trames
+        // sont parties. Sans ça, un pilote ne peut pas distinguer « le doigt a
+        // atteint le jeu » de « la boucle tourne toujours »: le compteur monte
+        // dans les deux cas.
+        pressed: shot.input.pressed,
+        shakes: session.input.shakesFelt(),
         soundPlayed: shot.sound.playedSeconds,
         soundGaps: shot.sound.gaps,
       };

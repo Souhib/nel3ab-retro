@@ -39,6 +39,7 @@ import {
 } from "./components/XmbIcons";
 import { Panel } from "./components/Readout";
 import { Screen } from "./components/Screen";
+import { TouchPad } from "./components/TouchPad";
 import { Seats } from "./components/Seats";
 import { forgetName, rememberedName } from "./lib/name";
 import {
@@ -50,8 +51,14 @@ import {
   rememberTheme,
   shellLabel,
   storedMode,
+  looksLikeAPhone,
+  rememberTouch,
+  showsTouchPad,
   storedShell,
   storedTheme,
+  storedTouch,
+  TOUCHPADS,
+  touchLabel,
   themeLabel,
 } from "./lib/theme";
 import { FITS, fitLabel, place, rememberFit, storedFit } from "./lib/fit";
@@ -287,10 +294,15 @@ function Room({
   /** Comment l'image est posée à l'écran. Séparé du format transporté: le
    * premier se choisit sur le débit qu'on a, le second sur ce qu'on aime voir. */
   const [fit, setFit] = useState(storedFit);
+  /** Faut-il montrer la manette à l'écran. Retenu, parce que quelqu'un qui joue
+   * au téléphone y rejouera au téléphone. */
+  const [touchPref, setTouchPref] = useState(storedTouch);
+  const coarse = useRef(looksLikeAPhone()).current;
   /** La place dont l'image dispose, rapportée par l'écran. Sert au menu, qui
    * annonce ce que chaque choix donnerait. */
   const [space, setSpace] = useState({ width: 0, height: 0 });
   useEffect(() => rememberFit(fit), [fit]);
+  useEffect(() => rememberTouch(touchPref), [touchPref]);
   useEffect(() => rememberShell(shell), [shell]);
   useEffect(() => rememberMode(mode), [mode]);
   /** Le jeu demandé et l'image peinte au moment où on l'a demandé.
@@ -560,6 +572,20 @@ function Room({
           },
         },
         {
+          id: "touchpad",
+          label: "manette à l'écran",
+          value: touchLabel(touchPref),
+          hint: "Pour jouer au téléphone. Elle se fond avec le clavier et les manettes: on peut tenir les deux.",
+          icon: <PadIcon className="h-full w-full" />,
+          picks: TOUCHPADS.map((choice) => ({
+            id: choice.id,
+            label: choice.label,
+            hint: choice.note,
+          })),
+          picked: touchPref,
+          onPick: (id) => setTouchPref(id as typeof touchPref),
+        },
+        {
           id: "fit",
           label: "taille à l'écran",
           value: fitLabel(fit),
@@ -721,6 +747,12 @@ function Room({
           onSpace={setSpace}
           onPrescale={(times) => session?.video.setPrescale(times)}
         />
+        {/* La manette à l'écran, par-dessus l'image et sous le menu.
+            Montée seulement quand elle sert: cent boutons invisibles au-dessus
+            d'une partie jouée au clavier intercepteraient des clics. */}
+        {session && showsTouchPad(touchPref, coarse) ? (
+          <TouchPad touch={session.input.touch} onLeave={() => setTouchPref("off")} />
+        ) : null}
         {bare ? (
           /* Replié, il reste de quoi revenir. Discret et dans un coin: une barre
              permanente par-dessus l'image rendrait le repli inutile. */

@@ -113,3 +113,64 @@ export function rememberShell(shell: Shell): void {
 
 export const shellLabel = (shell: Shell): string =>
   SHELLS.find((found) => found.id === shell)?.label ?? shell;
+
+/** Faut-il montrer la manette à l'écran ?
+ *
+ * Trois états et pas deux. « Auto » regarde l'appareil: un écran tactile sans
+ * souris la montre, un ordinateur non. Les deux autres sont un choix explicite,
+ * parce que la détection se trompe des deux côtés — un portable tactile n'a pas
+ * besoin d'une manette à l'écran, et une tablette branchée à un clavier peut
+ * quand même en vouloir une.
+ */
+export const TOUCHPADS = [
+  { id: "auto", label: "selon l'appareil", note: "montrée sur un écran tactile" },
+  { id: "on", label: "toujours", note: "même avec un clavier" },
+  { id: "off", label: "jamais", note: "cachée quoi qu'il arrive" },
+] as const;
+
+export type TouchPref = (typeof TOUCHPADS)[number]["id"];
+
+const TOUCH_KEY = "nel3ab:touchpad";
+
+export function storedTouch(): TouchPref {
+  try {
+    const found = localStorage.getItem(TOUCH_KEY);
+    return TOUCHPADS.some((choice) => choice.id === found) ? (found as TouchPref) : "auto";
+  } catch {
+    return "auto";
+  }
+}
+
+export function rememberTouch(pref: TouchPref): void {
+  try {
+    localStorage.setItem(TOUCH_KEY, pref);
+  } catch {
+    // Navigation privée: le choix dure le temps de l'onglet.
+  }
+}
+
+export function touchLabel(pref: TouchPref): string {
+  return TOUCHPADS.find((choice) => choice.id === pref)?.label ?? pref;
+}
+
+/** L'appareil a-t-il un écran tactile et pas de souris fine ?
+ *
+ * `pointer: coarse` plutôt que la présence d'événements tactiles: un portable
+ * tactile répond oui à la seconde question et n'a pas besoin d'une manette à
+ * l'écran. Ce qu'on veut savoir est comment la personne DÉSIGNE, pas ce que le
+ * matériel sait faire.
+ */
+export function looksLikeAPhone(): boolean {
+  try {
+    return window.matchMedia("(pointer: coarse)").matches;
+  } catch {
+    return false;
+  }
+}
+
+/** Faut-il la montrer, tout compte fait ? */
+export function showsTouchPad(pref: TouchPref, coarse: boolean): boolean {
+  if (pref === "on") return true;
+  if (pref === "off") return false;
+  return coarse;
+}

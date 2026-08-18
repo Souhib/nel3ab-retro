@@ -383,19 +383,22 @@ function Room({
    * de la colonne reste, pour qui aurait refusé au premier tour. */
   useEffect(() => {
     if (!session) return;
+    // On réessaie tant que ça n'a pas PRIS, et pas seulement une fois.
+    //
+    // Ce que `start` demande n'est pas ce que le navigateur accorde. Sur iOS le
+    // premier essai échoue souvent, et se retirer après lui laissait le son
+    // coupé pour toute la visite sans que rien ne le dise. On écoute donc
+    // jusqu'à ce que le contexte joue vraiment.
+    const kinds = ["pointerup", "touchend", "click", "keydown"];
     const wake = () => {
-      void session.sound.start();
-      for (const kind of ["pointerdown", "keydown", "touchend"]) {
-        window.removeEventListener(kind, wake);
-      }
+      void session.sound.start().then(() => {
+        if (!session.sound.running()) return;
+        for (const kind of kinds) window.removeEventListener(kind, wake);
+      });
     };
-    for (const kind of ["pointerdown", "keydown", "touchend"]) {
-      window.addEventListener(kind, wake, { passive: true });
-    }
+    for (const kind of kinds) window.addEventListener(kind, wake, { passive: true });
     return () => {
-      for (const kind of ["pointerdown", "keydown", "touchend"]) {
-        window.removeEventListener(kind, wake);
-      }
+      for (const kind of kinds) window.removeEventListener(kind, wake);
     };
   }, [session]);
 
@@ -810,6 +813,8 @@ function Room({
              * les coins. */
             bar={Math.max(0, (space.width - place(fit, picture, space).width) / 2)}
             touch={session.input.touch}
+            soundOff={shot ? shot.sound.state !== "running" : false}
+            onSound={() => void session.sound.start()}
             onLeave={() => setTouchPref("off")}
             onMenu={() => setMenu(true)}
           />

@@ -36,6 +36,11 @@ export type SoundStats = {
 export class SoundStream {
   private socket: WebSocket | null = null;
   private context: AudioContext | null = null;
+  /** Le silence qui déplace la session audio hors du canal de la sonnerie.
+   *
+   * Gardé, et en boucle: iOS remet la session sur la sonnerie dès que plus rien
+   * ne joue, et le son de la partie repartirait dans le vide au premier blanc. */
+  private silence: HTMLAudioElement | null = null;
   private gain: GainNode | null = null;
   private playAt = 0;
   private lead = LEAD_MIN;
@@ -80,17 +85,77 @@ export class SoundStream {
     void previous?.close();
   }
 
-  /** A browser plays nothing before somebody has asked it to. */
+  /** A browser plays nothing before somebody has asked it to.
+   *
+   * # Sur un iPhone, il ne suffit pas de demander
+   *
+   * Safari sur iOS ajoute deux règles que personne d'autre n'applique, et les
+   * deux donnent exactement le même symptôme: aucun son, aucune erreur.
+   *
+   * **La première**: un contexte audio doit être créé ET repris pendant le geste
+   * lui-même. C'est déjà le cas ici, puisque cette fonction est appelée depuis
+   * un gestionnaire d'événement.
+   *
+   * **La seconde**: le son de Web Audio passe par le canal de la SONNERIE, celui
+   * que coupe le petit interrupteur sur le côté du téléphone. Un iPhone en mode
+   * silencieux ne joue donc rien, même quand tout le reste est correct. Jouer un
+   * élément média fait basculer la session audio vers le canal « lecture », que
+   * l'interrupteur ne coupe pas. D'où le silence de cinquante millisecondes
+   * joué ci-dessous: il ne s'entend pas, et il déplace tout le reste.
+   *
+   * On joue aussi un tampon vide À TRAVERS le contexte, ce qui est la façon
+   * reconnue de le débloquer sur iOS: un contexte repris sans qu'on lui ait rien
+   * fait jouer y reste parfois suspendu.
+   */
   async start(): Promise<void> {
     if (this.context === null) {
       this.build();
       this.connect();
       this.trimmer = window.setInterval(() => this.trim(), 2000);
     }
+    this.unlock();
     await this.context?.resume();
   }
 
+  /** Vrai quand le contexte joue vraiment.
+   *
+   * Ce que `start` a demandé n'est pas ce que le navigateur a accordé, et sur
+   * iOS la différence est fréquente. C'est ce que la page regarde pour savoir
+   * s'il faut réessayer au geste suivant.
+   */
+  running(): boolean {
+    return this.context?.state === "running";
+  }
+
+  /** Les deux gestes qui débloquent le son sur iOS. Sans effet ailleurs. */
+  private unlock(): void {
+    const context = this.context;
+    if (context !== null) {
+      // Un tampon d'un seul échantillon, joué et oublié.
+      try {
+        const empty = context.createBuffer(1, 1, context.sampleRate);
+        const source = context.createBufferSource();
+        source.buffer = empty;
+        source.connect(context.destination);
+        source.start(0);
+      } catch {
+        // Un navigateur qui refuse laisse jouer le reste.
+      }
+    }
+    if (this.silence === null) {
+      this.silence = new Audio(silentWav());
+      this.silence.loop = true;
+      // `playsinline` pour qu'iOS ne passe pas en plein écran sur un média.
+      this.silence.setAttribute("playsinline", "");
+    }
+    void this.silence.play().catch(() => {
+      // Refusé hors d'un geste: on réessaiera au suivant.
+    });
+  }
+
   stop(): void {
+    this.silence?.pause();
+    this.silence = null;
     if (this.trimmer !== null) window.clearInterval(this.trimmer);
     this.socket?.close();
     this.socket = null;
@@ -208,4 +273,44 @@ export class SoundStream {
     }
     this.gapsSeen = this.gaps;
   }
+}
+
+/**
+ * Cinquante millisecondes de silence, en WAV, sous forme d'adresse de données.
+ *
+ * Fabriqué plutôt que collé en base64: une chaîne de trois cents caractères
+ * illisibles ne dit pas ce qu'elle contient, et personne ne peut vérifier qu'elle
+ * est bien silencieuse. Ici chaque champ de l'en-tête est nommé.
+ *
+ * Huit bits non signés, donc le silence vaut 128 et non zéro. Un zéro donnerait
+ * un créneau à fond, ce qui serait un réveil brutal pour un morceau censé ne pas
+ * s'entendre.
+ */
+export function silentWav(): string {
+  const rate = 8000;
+  const samples = rate / 20;
+  const bytes = new Uint8Array(44 + samples);
+  const view = new DataView(bytes.buffer);
+  const put = (at: number, text: string) => {
+    for (let index = 0; index < text.length; index += 1) {
+      bytes[at + index] = text.charCodeAt(index);
+    }
+  };
+  put(0, "RIFF");
+  view.setUint32(4, 36 + samples, true);
+  put(8, "WAVE");
+  put(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, rate, true);
+  view.setUint32(28, rate, true);
+  view.setUint16(32, 1, true);
+  view.setUint16(34, 8, true);
+  put(36, "data");
+  view.setUint32(40, samples, true);
+  bytes.fill(128, 44);
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return `data:audio/wav;base64,${btoa(binary)}`;
 }

@@ -6386,6 +6386,60 @@ lire la lettre.
 
 ---
 
+### 7.56 Un iPhone coupe le son par une deuxième porte
+
+Le son ne marchait toujours pas sur téléphone, alors que le pilote le prouvait
+vert: cinq secondes jouées après le premier geste. Le pilote tourne dans un
+Chromium sur le serveur, et Chromium n'applique pas les règles de Safari sur iOS.
+
+Safari en ajoute deux que personne d'autre n'applique, et les deux donnent
+exactement le même symptôme: aucun son, aucune erreur.
+
+**La première** est connue: un contexte audio doit être créé et repris pendant le
+geste lui-même. C'était déjà le cas. Ce qui ne l'était pas, c'est qu'on se
+retirait après le premier essai, réussi ou non. `start` DEMANDE, le navigateur
+ACCORDE ou non, et sur iOS le premier essai échoue souvent. On écoute maintenant
+jusqu'à ce que le contexte joue vraiment.
+
+**La seconde** est celle qui m'a manqué: le son de Web Audio passe par le canal
+de la SONNERIE, celui que coupe le petit interrupteur sur le côté du téléphone.
+Un iPhone en silencieux ne joue donc rien, même quand tout le reste est correct.
+Jouer un élément média fait basculer la session vers le canal « lecture », que
+l'interrupteur ne coupe pas. D'où cinquante millisecondes de silence, en boucle:
+ça ne s'entend pas, et ça déplace tout le reste. En boucle parce qu'iOS remet la
+session sur la sonnerie dès que plus rien ne joue.
+
+Le silence est FABRIQUÉ plutôt que collé en base64. Une chaîne de trois cents
+caractères illisibles ne dit pas ce qu'elle contient, et personne ne pourrait
+vérifier qu'elle est bien silencieuse. Trois essais regardent ses octets: que
+l'en-tête soit un WAV, que la longueur annoncée corresponde à ce qu'il porte, et
+que les échantillons valent bien 128. En huit bits non signés le silence vaut
+128, pas zéro: un zéro donnerait la butée basse, donc un claquement pour un
+morceau censé ne pas s'entendre.
+
+#### Et une pastille qui dit ce qui se passe
+
+Ces deux causes sont indiscernables depuis le code, et la seconde ne se corrige
+pas depuis une page. La manette porte donc une pastille rouge « SON » tant que le
+navigateur ne joue rien. La taper est elle-même le geste attendu, donc c'est le
+chemin le plus court qui existe; et si elle reste rouge après, c'est
+l'interrupteur.
+
+**Dire « il n'y a pas de son » laisse au moins chercher du bon côté.** Un silence
+sans explication laisse croire à une panne du serveur.
+
+#### Les gâchettes ressemblent enfin à des gâchettes
+
+L et R pendent du bord haut comme des palettes, Z est une petite touche mauve
+posée contre R. Sur une vraie manette Z est violette et se trouve AU-DESSUS de R,
+sous le même index; ici elle est à côté, faute d'un troisième doigt disponible
+sur un écran.
+
+Avec A vert et B rouge, la manette se lit maintenant à la couleur et à la forme
+avant de se lire à la lettre, ce qui est le seul but d'une manette dessinée.
+
+---
+
 ### 7.55 La porte vérifiait un état qu'elle changeait ensuite
 
 Trois commits de suite sont partis avec une empreinte de page périmée, et à

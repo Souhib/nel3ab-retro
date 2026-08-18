@@ -59,6 +59,8 @@ function stickRadius(): number {
 export function TouchPad({
   bar,
   touch,
+  soundOff,
+  onSound,
   onLeave,
   onMenu,
 }: {
@@ -70,6 +72,16 @@ export function TouchPad({
    * remplit la largeur, et alors on retombe sur les coins. */
   bar: number;
   touch: Touch;
+  /** Vrai quand le navigateur ne joue toujours rien.
+   *
+   * Montré plutôt que deviné: sur un iPhone, le son peut rester coupé pour deux
+   * raisons qu'aucun code ne distingue — un geste que le navigateur n'a pas
+   * accepté, ou le petit interrupteur sur le côté du téléphone. Dire « il n'y a
+   * pas de son » laisse au moins chercher du bon côté. */
+  soundOff: boolean;
+  /** Rallumer le son. Le tapotement est lui-même le geste que le navigateur
+   * attend, donc c'est le chemin le plus court qui existe. */
+  onSound: () => void;
   /** Cacher la manette. */
   onLeave: () => void;
   /** Ouvrir le menu du jeu.
@@ -164,8 +176,8 @@ export function TouchPad({
     >
       {/* BANDE GAUCHE, de haut en bas: la gâchette, la croix, le stick.
           Le pouce gauche les atteint toutes les trois sans lâcher le téléphone. */}
-      <div className="pointer-events-auto absolute top-2" style={{ left: leftAt }}>
-        <Key name="L" label="L" wide hold={hold} />
+      <div className="pointer-events-auto absolute top-0" style={{ left: leftAt }}>
+        <Key name="L" label="L" shoulder hold={hold} />
       </div>
 
       <div
@@ -207,9 +219,16 @@ export function TouchPad({
       </div>
 
       {/* BANDE DROITE: les gâchettes en haut, les quatre boutons en bas. */}
-      <div className="pointer-events-auto absolute top-2 flex gap-2" style={{ right: rightAt }}>
-        <Key name="Z" label="Z" wide hold={hold} />
-        <Key name="R" label="R" wide hold={hold} />
+      {/* Les gâchettes, dessinées comme sur la console: L et R sont des palettes
+          larges collées au bord du haut, et Z une petite touche mauve posée
+          contre R. Sur une vraie manette Z est violet et se trouve au-dessus de
+          R, sous l'index droit; ici elle est à côté, faute de troisième doigt. */}
+      <div
+        className="pointer-events-auto absolute top-0 flex items-start gap-1.5"
+        style={{ right: rightAt }}
+      >
+        <Key name="Z" label="Z" tint="z" pill hold={hold} />
+        <Key name="R" label="R" shoulder hold={hold} />
       </div>
 
       {/* La géométrie de la console: A gros au milieu, B en bas à gauche de lui,
@@ -247,6 +266,17 @@ export function TouchPad({
             téléphone en fait cent quarante. Mesuré: la seconde mordait de
             dix-sept pixels sur l'image. */}
         <div className={roomy ? "flex flex-col gap-2" : "flex gap-2"}>
+          {soundOff ? (
+            <button
+              type="button"
+              id="wakeSound"
+              onClick={onSound}
+              className="rounded-full border border-alert px-3 text-[11px] uppercase tracking-[0.14em] text-alert"
+              style={{ height: "var(--n3-key)", touchAction: "none" }}
+            >
+              son
+            </button>
+          ) : null}
           <Small id="showColumn" label="menu" onClick={onMenu} />
           <Small id="hideTouch" label="cacher" onClick={onLeave} />
         </div>
@@ -267,6 +297,8 @@ function Key({
   big = false,
   small = false,
   wide = false,
+  shoulder = false,
+  pill = false,
   tint,
   hold,
 }: {
@@ -276,13 +308,17 @@ function Key({
   big?: boolean;
   small?: boolean;
   wide?: boolean;
-  /** La couleur de la console, pour les deux boutons qui en ont une.
+  /** Une palette large collée au bord du haut, comme L et R sur la console. */
+  shoulder?: boolean;
+  /** Une petite touche allongée, comme Z. */
+  pill?: boolean;
+  /** La couleur de la console, pour les trois boutons qui en ont une.
    *
    * A est vert et B est rouge sur une GameCube, et une main qui a joué dessus
    * les vise à la couleur avant de lire la lettre. Les autres restent neutres,
    * comme sur la vraie manette: teinter les quatre ferait un arc-en-ciel qui
    * n'aide personne. */
-  tint?: "a" | "b";
+  tint?: "a" | "b" | "z";
   hold: (button: ButtonName) => Record<string, unknown>;
 }) {
   const size = big
@@ -295,15 +331,29 @@ function Key({
       type="button"
       id={`touch-${name}`}
       {...hold(name)}
-      className={`${at} flex items-center justify-center rounded-full border font-mono text-[13px] transition-colors ${
+      className={`${at} flex items-center justify-center border font-mono transition-colors ${
+        shoulder
+          ? "rounded-b-[14px] rounded-t-none border-t-0 text-[15px] tracking-[0.1em]"
+          : pill
+            ? "rounded-b-[10px] rounded-t-none border-t-0 text-[13px]"
+            : "rounded-full text-[13px]"
+      } ${
         tint === "a"
           ? "border-[#5ac26a]/70 bg-[#2f6b39]/70 text-[#d9f2de] active:bg-[#5ac26a]/70"
           : tint === "b"
             ? "border-[#d1545e]/70 bg-[#6b2f35]/70 text-[#f6dcde] active:bg-[#d1545e]/70"
-            : "border-rule-bright/70 bg-panel/80 text-text active:border-indigo active:bg-indigo/40"
+            : tint === "z"
+              ? "border-[#8b7bd8]/70 bg-[#3a3270]/80 text-[#ded8f7] active:bg-[#8b7bd8]/70"
+              : "border-rule-bright/70 bg-panel/80 text-text active:border-indigo active:bg-indigo/40"
       }`}
       style={{
-        ...(wide ? { height: "var(--n3-key)", padding: "0 0.9rem" } : size),
+        ...(shoulder
+          ? { height: "calc(var(--n3-key) * 0.86)", width: "calc(var(--n3-key) * 1.9)" }
+          : pill
+            ? { height: "calc(var(--n3-key) * 0.86)", width: "calc(var(--n3-key) * 0.95)" }
+            : wide
+              ? { height: "var(--n3-key)", padding: "0 0.9rem" }
+              : size),
         touchAction: "none",
       }}
     >

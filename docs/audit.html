@@ -979,15 +979,17 @@ valeur réelle quand quelqu'un joue         0,53 ms   <span class="ok">← excel
     </p>
     <ul class="plain">
       <li>
-        <strong>Adopter un anneau qui change de taille</strong>, au lieu de
-        repartir. Un jeu qui change de mode vidéo faisait tourner la salle en
-        boucle; le worker s'en aperçoit maintenant et relance le jeu à sa taille
-        native, ce qui coûte un redémarrage et de la netteté. Le vrai correctif
-        est de reconstruire la chaîne d'encodage en route.
+        <strong>Fait depuis: le worker encaisse un changement de taille.</strong>
+        Deux jeux faisaient redémarrer la salle en boucle, Super Mario Strikers
+        et Mario Power Tennis. La source adopte le nouvel anneau, le worker
+        reconstruit ce qui dépend de la taille, et les deux contournements
+        écrits en chemin ont été retirés: un garde-fou laissé à côté d'un vrai
+        correctif finit par tromper.
       </li>
       <li>
-        <strong>Suspendre l'émulateur</strong> quand la salle se vide, moitié
-        restante du constat 03 et la seule qui économise vraiment.
+        <strong>Fait depuis: l'émulateur se gèle quand la salle est vide.</strong>
+        24,8 W éveillé, 19,2 W gelé, 19,1 W sans worker du tout. Une partie
+        laissée en plan ne dérive plus non plus.
       </li>
       <li>
         <strong>Le découpage de <code>browser.rs</code></strong> (12), à faire le
@@ -1001,12 +1003,6 @@ valeur réelle quand quelqu'un joue         0,53 ms   <span class="ok">← excel
   <ol class="order">
     <li>
       <div>
-        <b>Décider du sort de l'émulateur quand la salle est vide</b>
-        <span>Le mettre en pause économise cinq watts et demi et empêche une partie de dériver, mais crée un état où il peut rester gelé. Ce dépôt a déjà payé douze heures d'émulateur orphelin.</span>
-      </div>
-    </li>
-    <li>
-      <div>
         <b>Le clip des trente secondes</b>
         <span>Le premier ajout dont le seul but est le plaisir. Il a été gagné.</span>
       </div>
@@ -1014,8 +1010,8 @@ valeur réelle quand quelqu'un joue         0,53 ms   <span class="ok">← excel
 
     <li>
       <div>
-        <b>Adopter un anneau qui change de taille</b>
-        <span>Le vrai correctif du jeu qui redémarrait. Plus gros, et il rendrait sa netteté à Strikers.</span>
+        <b>Découper <code>browser.rs</code></b>
+        <span>Le dernier des douze, et le seul qui n'a pas de date: à faire le jour où on y touche pour une autre raison.</span>
       </div>
     </li>
   </ol>

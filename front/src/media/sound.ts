@@ -168,26 +168,53 @@ export class SoundStream {
     return this.context?.state === "running";
   }
 
-  /** Les deux gestes qui débloquent le son sur iOS. Sans effet ailleurs. */
+  /** Les deux gestes qui débloquent le son sur iOS. Sans effet ailleurs.
+   *
+   * # Pourquoi le fichier a été abandonné
+   *
+   * Le premier essai jouait cinquante millisecondes de silence en WAV, sous
+   * forme d'adresse de données. Le téléphone l'a refusé, et l'a dit dans le
+   * journal: `NotSupportedError`. WebKit ne veut pas d'un média servi ainsi.
+   *
+   * Ce qui suit n'utilise aucun fichier. On demande au contexte lui-même un
+   * FLUX, on le branche derrière un gain à zéro pour qu'il ne porte rien
+   * d'audible, et on donne ce flux à un élément média. C'est le chemin des
+   * appels vidéo, donc celui que Safari sait le mieux faire, et il suffit à
+   * faire basculer la session audio du téléphone hors du canal de la sonnerie.
+   *
+   * Le gain à zéro compte: sans lui l'élément rejouerait le jeu par-dessus
+   * lui-même, avec le retard du média en prime.
+   */
   private unlock(): void {
     const context = this.context;
-    if (context !== null) {
-      // Un tampon d'un seul échantillon, joué et oublié.
-      try {
-        const empty = context.createBuffer(1, 1, context.sampleRate);
-        const source = context.createBufferSource();
-        source.buffer = empty;
-        source.connect(context.destination);
-        source.start(0);
-      } catch {
-        // Un navigateur qui refuse laisse jouer le reste.
-      }
+    if (context === null || this.gain === null) return;
+
+    // Un tampon d'un seul échantillon, joué et oublié: la façon reconnue de
+    // réveiller un contexte qu'iOS a laissé suspendu malgré une reprise.
+    try {
+      const empty = context.createBuffer(1, 1, context.sampleRate);
+      const source = context.createBufferSource();
+      source.buffer = empty;
+      source.connect(context.destination);
+      source.start(0);
+    } catch {
+      // Un navigateur qui refuse laisse jouer le reste.
     }
+
     if (this.silence === null) {
-      this.silence = new Audio(silentWav());
-      this.silence.loop = true;
-      // `playsinline` pour qu'iOS ne passe pas en plein écran sur un média.
-      this.silence.setAttribute("playsinline", "");
+      try {
+        const sink = context.createMediaStreamDestination();
+        const mute = context.createGain();
+        mute.gain.value = 0;
+        this.gain.connect(mute);
+        mute.connect(sink);
+        this.silence = new Audio();
+        this.silence.srcObject = sink.stream;
+        this.silence.setAttribute("playsinline", "");
+      } catch (refusal: unknown) {
+        this.unlocked = `flux refusé: ${String(refusal).slice(0, 50)}`;
+        return;
+      }
     }
     void this.silence
       .play()
@@ -195,11 +222,10 @@ export class SoundStream {
         this.unlocked = "joue";
       })
       .catch((refusal: unknown) => {
-        // Refusé hors d'un geste, ou refusé tout court. On le NOTE au lieu de
-        // l'avaler: sur un iPhone, ce silence est justement ce qui déplace le
-        // son hors du canal de la sonnerie, donc son échec explique tout le
-        // reste. L'avaler laissait chercher ailleurs pendant une soirée.
-        this.unlocked = `refusé: ${String(refusal).slice(0, 60)}`;
+        // Noté au lieu d'être avalé: sur un iPhone, c'est ce déblocage qui
+        // déplace le son hors du canal de la sonnerie, donc son échec explique
+        // tout le reste. L'avaler laissait chercher ailleurs pendant une soirée.
+        this.unlocked = `refusé: ${String(refusal).slice(0, 50)}`;
       });
   }
 
@@ -363,44 +389,4 @@ export class SoundStream {
     }
     this.gapsSeen = this.gaps;
   }
-}
-
-/**
- * Cinquante millisecondes de silence, en WAV, sous forme d'adresse de données.
- *
- * Fabriqué plutôt que collé en base64: une chaîne de trois cents caractères
- * illisibles ne dit pas ce qu'elle contient, et personne ne peut vérifier qu'elle
- * est bien silencieuse. Ici chaque champ de l'en-tête est nommé.
- *
- * Huit bits non signés, donc le silence vaut 128 et non zéro. Un zéro donnerait
- * un créneau à fond, ce qui serait un réveil brutal pour un morceau censé ne pas
- * s'entendre.
- */
-export function silentWav(): string {
-  const rate = 8000;
-  const samples = rate / 20;
-  const bytes = new Uint8Array(44 + samples);
-  const view = new DataView(bytes.buffer);
-  const put = (at: number, text: string) => {
-    for (let index = 0; index < text.length; index += 1) {
-      bytes[at + index] = text.charCodeAt(index);
-    }
-  };
-  put(0, "RIFF");
-  view.setUint32(4, 36 + samples, true);
-  put(8, "WAVE");
-  put(12, "fmt ");
-  view.setUint32(16, 16, true);
-  view.setUint16(20, 1, true);
-  view.setUint16(22, 1, true);
-  view.setUint32(24, rate, true);
-  view.setUint32(28, rate, true);
-  view.setUint16(32, 1, true);
-  view.setUint16(34, 8, true);
-  put(36, "data");
-  view.setUint32(40, samples, true);
-  bytes.fill(128, 44);
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return `data:audio/wav;base64,${btoa(binary)}`;
 }

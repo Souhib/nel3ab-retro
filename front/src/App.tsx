@@ -58,7 +58,15 @@ import { FITS, fitLabel, place, rememberFit, storedFit } from "./lib/fit";
 import { useBare } from "./lib/fullscreen";
 import { useMe, useRename } from "./lib/me";
 import { useLobby, useRoom, type Asked } from "./lib/room";
-import { Trailing, TRAIL_EVERY, vitals, worthWriting, type Trail, type Vitals } from "./lib/vitals";
+import {
+  Struggling,
+  Trailing,
+  TRAIL_EVERY,
+  vitals,
+  worthWriting,
+  type Trail,
+  type Vitals,
+} from "./lib/vitals";
 import type { Snapshot } from "./media/session";
 import { useSession, useSnapshot } from "./lib/useSession";
 
@@ -313,6 +321,10 @@ function Room({
    * l'envoyer en continu multiplierait le journal par quarante pour décrire des
    * minutes dont personne ne se plaindra jamais. */
   const trail = useRef(new Trailing());
+  /** Ce qui décide de proposer le format réduit, et de ne le proposer qu'une
+   * fois. La page voit la dégradation avant la personne qui la subit. */
+  const rough = useRef(new Struggling());
+  const [suggestHalf, setSuggestHalf] = useState(false);
   const sample = () => {
     const now = seen.current;
     if (!now) return null;
@@ -336,6 +348,7 @@ function Room({
       previous.current = now;
       opened.current = performance.now();
       if (worthWriting(taken)) sending.current.vitals(taken);
+      if (rough.current.saw(taken)) setSuggestHalf(true);
     }, TRAIL_EVERY);
     return () => window.clearInterval(timer);
   }, []);
@@ -813,6 +826,17 @@ function Room({
             onWatch={() => session?.input.watchOnly()}
             onPlay={() => session?.input.play()}
             onLeave={onLeave}
+            suggestHalf={suggestHalf}
+            onTakeHalf={() => {
+              session?.video.setHalf(true);
+              setHalf(true);
+              rough.current.settled();
+              setSuggestHalf(false);
+            }}
+            onKeepFull={() => {
+              rough.current.settled();
+              setSuggestHalf(false);
+            }}
             onComplain={() => {
               const now = sample();
               if (now) {

@@ -9,6 +9,10 @@ publish = false
 repository.workspace = true
 
 [dependencies]
+# Déjà dans l'arbre par transitivité: la page servie non compressée pèse
+# 424 Kio contre 128 en gzip, et c'est la personne dont la liaison va mal qui
+# paie la différence.
+flate2 = "1"
 nel3ab-protocol = { path = "../protocol" }
 thiserror.workspace = true
 tracing.workspace = true

@@ -5783,6 +5783,126 @@ plaint, et personne n'aurait pu le retrouver.
 
 ---
 
+### 7.46 Un jeu qui redémarrait en boucle, et quatre constats d'audit
+
+#### Super Mario Strikers, ou l'annonce prise pour une panne
+
+Le symptôme: on lance le jeu, on arrive au menu, on appuie sur un bouton, et la
+salle redémarre. Sans fin.
+
+Le journal disait `frame notification has magic 0x3341424e, expected
+0x454d5246`. Or `0x3341424e` n'est pas du bruit: c'est `NBA3`, le motif d'une
+**annonce d'anneau**, parfaitement valide. Le patch recrée son anneau d'images
+dès que la taille de rendu change, et il le réannonce. Le worker lisait les
+seize premiers octets d'une annonce qui en fait soixante-quatre, ne
+reconnaissait pas le motif, et s'arrêtait. systemd le relançait, le jeu refaisait
+exactement la même chose, et ainsi de suite.
+
+Ce que Strikers fait: il démarre en 1280x896 puis présente ses menus en
+**640x448**, exactement la taille native. Le facteur deux est celui de la
+résolution interne. Mesuré: à ×2 le changement arrive à chaque passage de menu,
+à ×1 le jeu traverse quatre-vingts secondes de menus sans jamais recréer son
+anneau, puisque la taille native EST déjà celle de l'anneau.
+
+D'où le correctif: le worker s'en aperçoit tout seul, écrit un marqueur à côté du
+jeu choisi, et repart. Le tour suivant lance ce jeu à sa taille native et il
+tient. Un redémarrage au lieu d'une infinité, et rien à maintenir: personne ne
+sait d'avance quels jeux changent de mode, donc une liste serait une liste
+fausse.
+
+Ce n'est pas le vrai correctif. Le vrai serait d'**adopter** le nouvel anneau au
+lieu de repartir, ce qui demande de reconstruire la chaîne d'encodage en cours de
+route: le convertisseur Vulkan est dimensionné pour la source, et l'encodeur pour
+la sortie. C'est la deuxième voie de démarrage que ce dépôt évite depuis le
+début. Elle est maintenant écrite noir sur blanc comme travail restant.
+
+Le message d'erreur, lui, ne parle plus de motif inconnu. Il dit
+« the emulator changed its picture to 640x448 ». Un défaut qu'on peut lire est un
+défaut à moitié réglé.
+
+#### Les sauvegardes sortent de /tmp
+
+Constat le plus grave de l'audit, et rien à voir avec le code: la règle de ménage
+de cette machine commence par un `D` majuscule, donc `/tmp` est **vidé à chaque
+démarrage**. Dolphin y écrivait ses cartes mémoire. Deux vraies sauvegardes s'y
+trouvaient, Mario Kart et Melee, datées d'après le dernier démarrage et
+condamnées au suivant.
+
+Le dossier de session rejoint les pseudos et le journal des séances, sous
+`~/.local/state/nel3ab/`. Une décision est inversée au passage, et il vaut mieux
+l'écrire: le jeu choisi vivait dans ce dossier précisément pour être oublié au
+redémarrage, « une salle qui revient repart sur son jeu par défaut ». Elle
+reviendra désormais sur le dernier jeu joué. C'est le prix, et il est petit
+devant la progression de tout le monde.
+
+#### L'encodage à vide ne coûtait presque rien
+
+Le demi-format se taisait déjà quand personne ne le regardait; la pleine taille
+tournait toujours. Corrigé, et mesuré des deux côtés sur trois paires alternées
+de dix secondes:
+
+```
+avant   écart médian 5,87 W   (étendue 4,0 à 6,6)
+après   écart médian 5,56 W   (étendue 5,5 à 5,7)
+```
+
+Trente centièmes de watt. **Le travail du GPU n'était pas le coût.** Les cinq
+watts et demi qui restent sont Dolphin lui-même, qui fait tourner le jeu à
+soixante images par seconde pour personne.
+
+La correction reste juste: encoder un flux que personne ne lit est du travail
+inutile, et la salle vide ne produit plus rien. Mais l'économie annoncée était
+fausse, et la première mesure, faite sur un seul échantillon de chaque côté, l'a
+laissée croire. C'est le skill de banc d'essai qui a exigé des tours alternés, et
+il avait raison.
+
+Suspendre l'émulateur lui-même reste à faire, et ça demande une décision: le
+processus que le worker lance est `docker run`, pas Dolphin, donc un SIGSTOP ne
+traverserait pas. Il faudrait nommer le conteneur et le mettre en pause, ce qui
+crée un état où l'émulateur peut rester gelé. Ce dépôt a déjà payé douze heures
+d'émulateur orphelin une fois.
+
+#### La page part enfin compressée
+
+424 Kio contre 128 en gzip, compressée une seule fois au premier appel puisque la
+page ne change pas pendant qu'un worker tourne. Et un `ETag` remplace le
+`Cache-Control: no-store` qui faisait retélécharger la page entière à chaque
+visite: une deuxième visite reçoit maintenant zéro octet.
+
+C'est exactement la personne dont la liaison va mal qui payait ces trois cents
+kilo-octets.
+
+#### La page propose le format réduit au lieu de l'attendre
+
+Un ami avait trouvé le bouton tout seul, après une soirée. La page voyait la
+dégradation avant lui: elle comptait les images jetées et les fois où la file
+s'est vidée pendant qu'il cherchait.
+
+Deux fenêtres mauvaises d'affilée, soit vingt secondes, et un bandeau discret
+dans la colonne. Deux fenêtres et pas une, parce qu'une seule mauvaise fenêtre
+arrive à tout le monde et qu'une page qui propose de baisser la qualité au
+premier hoquet est une page qu'on apprend à ignorer. Un refus la fait taire pour
+de bon.
+
+Elle ne bascule pas toute seule, et c'est délibéré: quelqu'un peut préférer une
+image nette avec quelques saccades à une image molle sans aucune.
+
+#### Dix-neuf composants, et les outils étaient déjà installés
+
+`@testing-library/react`, `jsdom` et un fichier de mise en place étaient dans le
+dépôt depuis le début. Personne ne s'en était servi, et deux bogues de la semaine
+vivaient exactement là.
+
+Trois tests ont suffi à les épingler tous les deux, plus celui trouvé pendant
+l'audit. Ce qui avait empêché ces tests d'exister tient en deux lignes de
+plomberie, écrites une fois pour toutes dans la mise en place: **jsdom ne connaît
+pas `scrollIntoView`**, parce qu'il ne dessine rien, et **le document n'est pas
+vidé entre deux tests** quand vitest ne tourne pas en mode `globals`. Les deux
+produisent des échecs qui ressemblent à des défauts du composant et n'en sont
+pas. C'est probablement ce qui a découragé la première tentative.
+
+---
+
 ## 8. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
 
 | Le piège | Ce qui s'est passé | La leçon |

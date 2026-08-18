@@ -445,6 +445,7 @@ dependencies = [
 name = "nel3ab-transport"
 version = "0.1.0"
 dependencies = [
+ "flate2",
  "nel3ab-protocol",
  "thiserror",
  "tracing",

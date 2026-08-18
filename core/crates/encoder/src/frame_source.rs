@@ -28,7 +28,7 @@ use nix::sys::socket::{ControlMessageOwned, MsgFlags, recvmsg};
 
 use crate::error::EncoderError;
 use crate::protocol::{
-    FRAME_READY_LEN, FrameDescriptor, FrameReady, HEADER_LEN, Header, encode_release,
+    FRAME_READY_LEN, FrameDescriptor, FrameReady, HEADER_LEN, HEADER_MAGIC, Header, encode_release,
 };
 
 /// How often the accept loop checks for a producer.
@@ -255,6 +255,42 @@ impl FrameSource {
                     source,
                 });
             }
+        }
+
+        // Une ANNONCE d'anneau là où on attendait une image.
+        //
+        // Le patch recrée son anneau dès que la taille de rendu change, et
+        // beaucoup de jeux en changent: Super Mario Strikers le fait deux
+        // secondes après le démarrage, en quittant son premier écran. Sans ce
+        // cas, le worker lisait les seize premiers octets d'une annonce de
+        // soixante-quatre, ne reconnaissait pas le motif, et s'arrêtait. Comme
+        // le jeu refait exactement la même chose au redémarrage suivant, la
+        // salle tournait en boucle.
+        //
+        // On lit la fin de l'annonce pour pouvoir DIRE la nouvelle taille. Le
+        // descripteur qui arrive avec elle est perdu, puisque `read_exact` a
+        // déjà jeté les données auxiliaires: c'est acceptable ici parce qu'on
+        // rend une erreur, et ce serait à revoir le jour où on adopte l'anneau
+        // au lieu de repartir.
+        if u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]) == HEADER_MAGIC {
+            let mut rest = [0u8; HEADER_LEN - FRAME_READY_LEN];
+            let mut whole = [0u8; HEADER_LEN];
+            if self.stream.read_exact(&mut rest).is_ok() {
+                whole[..FRAME_READY_LEN].copy_from_slice(&bytes);
+                whole[FRAME_READY_LEN..].copy_from_slice(&rest);
+                if let Ok(header) = Header::parse(&whole) {
+                    return Err(EncoderError::RingChanged {
+                        width: header.descriptor.width,
+                        height: header.descriptor.height,
+                        slots: header.slot_count,
+                    });
+                }
+            }
+            return Err(EncoderError::RingChanged {
+                width: 0,
+                height: 0,
+                slots: 0,
+            });
         }
 
         let ready = FrameReady::parse(&bytes)?;

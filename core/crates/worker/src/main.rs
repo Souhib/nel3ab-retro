@@ -129,8 +129,24 @@ impl Settings {
                     .unwrap_or_else(|| PathBuf::from(&home).join(".cache"))
                     .join("nel3ab/banners")
             }),
-            session_dir: env_path("NEL3AB_SESSION_DIR")
-                .unwrap_or_else(|| PathBuf::from("/tmp/nel3ab-session")),
+            // PAS dans /tmp, et c'est le constat le plus grave de l'audit du
+            // 18 août 2026.
+            //
+            // Dolphin écrit ses CARTES MÉMOIRE ici. La règle de ménage de cette
+            // machine commence par un `D` majuscule, ce qui veut dire « vider le
+            // contenu au démarrage »: chaque redémarrage effaçait les coupes
+            // débloquées et les records de tout le monde, sans que rien ne le
+            // dise. On l'aurait découvert à la partie suivante, sans pouvoir le
+            // relier à un redémarrage de la veille.
+            //
+            // Le dossier d'état est le même que celui des pseudos et du journal
+            // des séances, pour la même raison: ce qui appartient aux joueurs
+            // doit leur survivre.
+            session_dir: env_path("NEL3AB_SESSION_DIR").unwrap_or_else(|| {
+                env_path("HOME")
+                    .unwrap_or_else(|| PathBuf::from("."))
+                    .join(".local/state/nel3ab/session")
+            }),
             // Loopback, not every interface, and this is a security decision
             // rather than a default left in place.
             //
@@ -197,11 +213,54 @@ fn players_from_environment() -> Result<PlayerSlot> {
 
 /// Where the room remembers which game it was told to boot.
 ///
-/// In the session directory, so it is forgotten on a reboot along with
-/// everything else there. That is the behaviour worth having: a machine that
-/// comes back up returns to its default game rather than to whatever somebody
-/// picked before it went down.
+/// Dans le dossier de session. Ce commentaire disait que le choix était oublié
+/// au redémarrage de la machine, et que c'était la bonne façon de faire: une
+/// salle qui revient repart sur son jeu par défaut. **La décision est
+/// inversée**, parce que le dossier de session a quitté `/tmp` le 18 août 2026
+/// pour que les cartes mémoire survivent, et que le choix vit dedans.
+///
+/// Ce qu'on perd: une machine qui redémarre revient sur le dernier jeu joué
+/// plutôt que sur celui d'origine. Ce qu'on gagne: personne ne perd sa
+/// progression. Le second vaut largement le premier, et revenir sur le dernier
+/// jeu est en réalité ce qu'une salle devrait faire.
 const CHOICE: &str = "chosen-rom";
+
+/// Où la salle note qu'un jeu doit tourner à sa résolution native.
+///
+/// # Le défaut que ça répare
+///
+/// Le patch recrée son anneau d'images dès que la taille de rendu change, et
+/// certains jeux en changent en cours de route. Super Mario Strikers présente
+/// ses menus à la taille native même quand on lui demande de doubler: l'anneau
+/// passait de 1280x896 à 640x448 deux secondes après l'ouverture d'un menu, le
+/// worker prenait cette annonce pour une panne et s'arrêtait, systemd le
+/// relançait, et le jeu refaisait exactement la même chose. La salle tournait
+/// en boucle sans que rien ne dise pourquoi.
+///
+/// Mesuré le 18 août 2026: à ×2 le changement arrive à chaque passage de menu,
+/// à ×1 le jeu traverse quatre-vingts secondes de menus sans jamais recréer son
+/// anneau, parce que la taille native EST déjà celle de l'anneau.
+///
+/// # Pourquoi un marqueur plutôt qu'une liste
+///
+/// Une liste de jeux à problème serait une liste à tenir à jour, et personne ne
+/// sait d'avance lesquels changent de mode. Le worker s'en aperçoit tout seul,
+/// l'écrit, et repart. Ça coûte un redémarrage de plus la première fois, puis
+/// plus rien.
+///
+/// Ce n'est pas le vrai correctif. Le vrai serait d'adopter le nouvel anneau au
+/// lieu de repartir, ce qui demande de reconstruire la chaîne d'encodage en
+/// cours de route. Celui-ci rend le jeu jouable aujourd'hui.
+const NATIVE: &str = "native-scale";
+
+/// Ce jeu doit-il tourner à sa taille native ?
+///
+/// Compare le chemin plutôt qu'un index: les index bougent quand un disque est
+/// ajouté au dossier, et un marqueur qui désigne le mauvais jeu après un ajout
+/// serait pire qu'aucun marqueur.
+fn wants_native(marked: Option<&str>, rom: &std::path::Path) -> bool {
+    marked.is_some_and(|noted| std::path::Path::new(noted.trim()) == rom)
+}
 
 /// Which game to boot: what a player last asked for, or the default.
 ///
@@ -320,6 +379,17 @@ fn run(settings: &Settings) -> Result<()> {
     // A string because the override is one; parsed first so a typo stops the
     // worker instead of being handed to Dolphin, which would ignore it in
     // silence and leave us wondering why the picture never changed size.
+    // Ce jeu a-t-il déjà montré qu'il change de taille en route ? Lu AVANT le
+    // réglage d'environnement, parce que le marqueur décrit le jeu et le réglage
+    // décrit la machine: le premier gagne, sinon on retomberait en boucle.
+    let marked = std::fs::read_to_string(settings.session_dir.join(NATIVE)).ok();
+    let native = wants_native(marked.as_deref(), &rom);
+    if native {
+        tracing::info!(
+            game = %rom.display(),
+            "ce jeu change de taille en route: on le lance à sa taille native"
+        );
+    }
     let internal_resolution = match std::env::var("NEL3AB_INTERNAL_RES") {
         Ok(text) => {
             let scale: u8 = text
@@ -357,7 +427,7 @@ fn run(settings: &Settings) -> Result<()> {
     tracing::info!(players = settings.players.get(), "the room's size");
     let mut config = DolphinConfig::new(
         settings.dolphin.clone(),
-        rom,
+        rom.clone(),
         settings.session_dir.clone(),
         ports,
     );
@@ -396,7 +466,11 @@ fn run(settings: &Settings) -> Result<()> {
         // shader, the encoder and the page all take their size from what the
         // emulator announces, so this is the one number that changes the
         // resolution of the whole chain.
-        ("Settings", "InternalResolution", &internal_resolution),
+        (
+            "Settings",
+            "InternalResolution",
+            if native { "1" } else { &internal_resolution },
+        ),
     ] {
         match nel3ab_emulator::ConfigOverride::new("Graphics", section, key, value) {
             Ok(over) => config.overrides.push(over),
@@ -625,6 +699,30 @@ fn run(settings: &Settings) -> Result<()> {
         let iteration = Instant::now();
         let frame = match frames.next_frame() {
             Ok(frame) => frame,
+            // Un changement de taille n'est pas une panne, et le traiter comme
+            // telle faisait tourner la salle en boucle. On note que ce jeu veut
+            // sa taille native et on repart: systemd nous relance, et le tour
+            // suivant ne changera plus de taille.
+            Err(nel3ab_encoder::EncoderError::RingChanged {
+                width,
+                height,
+                slots,
+            }) => {
+                tracing::warn!(
+                    width,
+                    height,
+                    slots,
+                    game = %rom.display(),
+                    "l'émulateur a changé la taille de l'image; on repart à sa taille native"
+                );
+                if let Err(error) = std::fs::write(
+                    settings.session_dir.join(NATIVE),
+                    rom.as_os_str().as_encoded_bytes(),
+                ) {
+                    tracing::error!(%error, "le marqueur de taille native n'a pas pu être écrit");
+                }
+                break;
+            }
             Err(error) => {
                 tracing::info!(%error, "the emulator stopped producing frames");
                 break;
@@ -666,6 +764,18 @@ fn run(settings: &Settings) -> Result<()> {
         // qu'un verrou sur une liste de zéro à quatre éléments. Une salle où
         // tout le monde a une bonne connexion ne paie donc rien pour lui.
         let wanted_half = half.is_some() && server.half_watchers() > 0;
+        // Et la pleine taille aussi, ce qui manquait.
+        //
+        // Le demi-format se taisait déjà quand personne ne le regardait; la
+        // pleine taille tournait toujours. Une salle vide faisait donc convertir
+        // et encoder soixante images par seconde pour personne, mesuré à environ
+        // six watts en continu le 18 août 2026 (trois paires alternées, étendue
+        // de 4,0 à 6,6 W).
+        //
+        // Relu à chaque image, comme pour le demi-format: on peut arriver en
+        // pleine partie, et ça ne coûte qu'un verrou sur une liste de zéro à
+        // quatre éléments.
+        let wanted_full = server.watchers() > 0;
         let shading = Instant::now();
         let plane = source.plane();
         let picture = Source {
@@ -675,7 +785,9 @@ fn run(settings: &Settings) -> Result<()> {
             height: descriptor.height,
             ownership: Ownership::Foreign,
         };
-        converter.convert(picture, target)?;
+        if wanted_full {
+            converter.convert(picture, target)?;
+        }
         // Ici et pas plus bas: la source appartient encore à l'émulateur jusqu'au
         // `drop(frame)` d'en dessous, et lire ses pixels après l'avoir rendue est
         // exactement la course que ce projet a déjà payée une fois.
@@ -715,7 +827,14 @@ fn run(settings: &Settings) -> Result<()> {
 
         let captured = started.elapsed();
         let slot_index = u32::try_from(index).unwrap_or(0);
-        if let Some(coded) = encoder.encode(slot_index)? {
+        // L'image est TOUJOURS reprise et rendue à l'anneau, même sans public:
+        // la garder bloquerait l'émulateur au bout de trois images. Ce qu'on
+        // saute est le travail du GPU, pas la lecture.
+        if let Some(coded) = wanted_full
+            .then(|| encoder.encode(slot_index))
+            .transpose()?
+            .flatten()
+        {
             // What the stream actually costs a network. Latency says whether the
             // machine keeps up; this says whether the link can carry it, and
             // they are different questions with different answers.
@@ -1001,6 +1120,52 @@ mod tests {
     use std::sync::Arc;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::time::Duration;
+
+    use super::wants_native;
+    use std::path::Path;
+
+    /// Le marqueur de taille native désigne UN jeu, par son chemin.
+    ///
+    /// Par le chemin et pas par un index: les index bougent quand un disque
+    /// arrive dans le dossier, et un marqueur qui désignerait le mauvais jeu
+    /// après un ajout serait pire qu'aucun marqueur. Le jeu marqué démarrerait
+    /// en pleine taille et retomberait en boucle, pendant qu'un autre perdrait
+    /// sa qualité sans raison.
+    #[test]
+    fn only_the_game_that_was_marked_boots_at_its_native_size() {
+        let strikers = Path::new("/roms/Super Mario Strikers (USA).rvz");
+        let kart = Path::new("/roms/Mario Kart Double Dash.iso");
+
+        assert!(wants_native(
+            Some("/roms/Super Mario Strikers (USA).rvz"),
+            strikers
+        ));
+        assert!(
+            !wants_native(Some("/roms/Super Mario Strikers (USA).rvz"), kart),
+            "un autre jeu a été dégradé à cause du marqueur de celui-ci"
+        );
+    }
+
+    /// Le jumeau: aucun marqueur veut dire aucune contrainte.
+    ///
+    /// Sans lui, une fonction qui rendrait toujours vrai satisferait l'essai
+    /// d'au-dessus, et tous les jeux tourneraient à leur taille native.
+    #[test]
+    fn a_room_with_no_marker_uses_the_configured_size() {
+        assert!(!wants_native(None, Path::new("/roms/anything.iso")));
+        assert!(!wants_native(Some(""), Path::new("/roms/anything.iso")));
+    }
+
+    /// Le fichier est écrit sans fin de ligne, mais un humain qui le corrige à
+    /// la main en laissera une, et le marqueur doit continuer de marcher.
+    #[test]
+    fn a_trailing_newline_does_not_break_the_marker() {
+        let rom = Path::new("/roms/Super Mario Strikers (USA).rvz");
+        assert!(wants_native(
+            Some("/roms/Super Mario Strikers (USA).rvz\n"),
+            rom
+        ));
+    }
 
     /// Two background threads must BOTH stop when the session ends.
     ///

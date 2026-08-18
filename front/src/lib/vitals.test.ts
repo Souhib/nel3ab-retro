@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from "vitest";
 import type { Snapshot } from "../media/session";
-import { Trailing, vitals, worthWriting } from "./vitals";
+import { Struggling, Trailing, vitals, worthWriting } from "./vitals";
 
 /** Un instantané complet, dont chaque test ne change que ce qui l'intéresse. */
 function snap(video: Partial<Snapshot["video"]> = {}, rest: Partial<Snapshot> = {}): Snapshot {
@@ -241,5 +241,57 @@ describe("la trace des deux dernières minutes", () => {
     trail.push(snap({ shown: 41_000, painted: 40_000 }), 1000);
 
     expect(trail.trail(1000).lignes).toEqual([]);
+  });
+});
+
+describe("proposer le format réduit", () => {
+  const over = (video: Partial<Snapshot["video"]>) =>
+    vitals(snap({ shown: 600, painted: 600, ...video }), null, 10_000);
+
+  it("ne dit rien sur une fenêtre saine", () => {
+    const watching = new Struggling();
+    expect(watching.saw(over({}))).toBe(false);
+    expect(watching.saw(over({}))).toBe(false);
+  });
+
+  it("attend deux fenêtres mauvaises d'affilée", () => {
+    // Une seule mauvaise fenêtre arrive à tout le monde, et une page qui
+    // propose de baisser la qualité au premier hoquet est une page qu'on
+    // apprend à ignorer.
+    const watching = new Struggling();
+    expect(watching.saw(over({ skipped: 14 }))).toBe(false);
+    expect(watching.saw(over({ skipped: 28 }))).toBe(true);
+  });
+
+  it("repart de zéro quand une bonne fenêtre s'intercale", () => {
+    const watching = new Struggling();
+    expect(watching.saw(over({ skipped: 14 }))).toBe(false);
+    expect(watching.saw(over({}))).toBe(false);
+    expect(watching.saw(over({ skipped: 28 }))).toBe(false);
+  });
+
+  it("compte une file vide plus vite que des images jetées", () => {
+    // Les deux ne disent pas la même chose: une file vide veut dire qu'il
+    // n'arrivait plus rien, une image jetée qu'il en arrivait trop à la fois.
+    const watching = new Struggling();
+    watching.saw(over({ starved: 2 }));
+    expect(watching.saw(over({ starved: 4 }))).toBe(true);
+  });
+
+  it("ne propose rien à qui est déjà en format réduit", () => {
+    const watching = new Struggling();
+    watching.saw(over({ skipped: 14, half: true }));
+    expect(watching.saw(over({ skipped: 28, half: true }))).toBe(false);
+  });
+
+  it("n'en reparle plus une fois la question réglée", () => {
+    // Le jumeau qui compte: une proposition qu'on décline et qui revient est
+    // une proposition qu'on finit par ne plus lire.
+    const watching = new Struggling();
+    watching.saw(over({ skipped: 14 }));
+    expect(watching.saw(over({ skipped: 28 }))).toBe(true);
+    watching.settled();
+    watching.saw(over({ skipped: 42 }));
+    expect(watching.saw(over({ skipped: 56 }))).toBe(false);
   });
 });

@@ -792,7 +792,7 @@ fn serve_connection(stream: TcpStream, page: &'static str, shared: &Shared) {
             Some(png) => serve_bytes(stream, png, "image/png"),
             None => serve_missing(stream),
         },
-        Some(Route::Page) => serve_body(stream, page, "text/html; charset=utf-8"),
+        Some(Route::Page { gzip }) => serve_page(stream, page, gzip),
         None => {}
     }
 }
@@ -829,7 +829,10 @@ enum Route {
     /// there changes nothing — and because a page that can be fetched can be
     /// looked at with `curl` when it misbehaves.
     Roms,
-    Page,
+    Page {
+        /// Vrai quand le client a dit accepter le gzip.
+        gzip: bool,
+    },
 }
 
 /// Whether a handshake came from a page this server itself served.
@@ -897,7 +900,8 @@ fn classify(stream: &TcpStream) -> Option<Route> {
         if text.starts_with("get /roms") {
             return Some(Route::Roms);
         }
-        return Some(art_from(&text).map_or(Route::Page, Route::Art));
+        let gzip = text.contains("gzip");
+        return Some(art_from(&text).map_or(Route::Page { gzip }, Route::Art));
     }
     // Checked once, here, rather than in each of the three socket routes: a
     // check that has to be repeated is a check somebody adds a fourth route
@@ -1002,6 +1006,83 @@ fn carries_key_frame(annex_b: &[u8]) -> bool {
         }
     }
     false
+}
+
+/// La page servie: compressée quand le client sait la lire, et étiquetée.
+///
+/// # Ce que ça change, mesuré
+///
+/// 424 Kio non compressée contre 128 en gzip. C'est exactement la personne dont
+/// la liaison va mal qui paie ces trois cent kilo-octets, et c'est celle qu'on
+/// passe son temps à essayer d'aider.
+///
+/// La compression se fait UNE fois, au premier appel, et pas à chaque requête:
+/// la page ne change pas pendant qu'un worker tourne, puisqu'elle est compilée
+/// dans le binaire.
+///
+/// L'étiquette remplace un `Cache-Control: no-store` qui faisait retélécharger
+/// la page entière à chaque visite. Avec `no-cache` et un `ETag`, le navigateur
+/// redemande mais reçoit une réponse vide quand rien n'a changé.
+fn serve_page(mut stream: TcpStream, page: &str, gzip: bool) {
+    static PACKED: std::sync::OnceLock<Vec<u8>> = std::sync::OnceLock::new();
+    let tag = format!("\"{:x}\"", page_tag(page));
+
+    // Déjà à jour chez le client: on ne renvoie rien du tout. Lu sur l'entête
+    // qu'on a déjà en main, en minuscules, d'où la comparaison en minuscules.
+    let mut head = [0_u8; 2048];
+    let read = stream.read(&mut head).unwrap_or(0);
+    let request = String::from_utf8_lossy(&head[..read]).to_lowercase();
+    if request.contains(&tag.to_lowercase()) {
+        let response = format!(
+            "HTTP/1.1 304 Not Modified\r\nETag: {tag}\r\n\
+             Cache-Control: no-cache\r\nConnection: close\r\n\r\n"
+        );
+        let _ = stream.write_all(response.as_bytes());
+        let _ = stream.flush();
+        return;
+    }
+
+    let body: &[u8] = if gzip {
+        PACKED.get_or_init(|| {
+            use flate2::{Compression, write::GzEncoder};
+            let mut packer = GzEncoder::new(Vec::new(), Compression::best());
+            let _ = packer.write_all(page.as_bytes());
+            packer.finish().unwrap_or_else(|_| page.as_bytes().to_vec())
+        })
+    } else {
+        page.as_bytes()
+    };
+    // Le repli est visible: si la compression a échoué, on a rendu les octets
+    // bruts, et annoncer gzip dessus donnerait une page illisible.
+    let packed = gzip && body.len() != page.len();
+    let encoding = if packed {
+        "Content-Encoding: gzip\r\n"
+    } else {
+        ""
+    };
+    let response = format!(
+        "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\n\
+         Content-Length: {}\r\n{encoding}ETag: {tag}\r\n\
+         Cache-Control: no-cache\r\nConnection: close\r\n\r\n",
+        body.len()
+    );
+    let _ = stream.write_all(response.as_bytes());
+    let _ = stream.write_all(body);
+    let _ = stream.flush();
+}
+
+/// Une étiquette de version pour la page, tirée de son contenu.
+///
+/// Un condensat rapide et non cryptographique: il ne protège rien, il distingue
+/// deux versions. Deux pages différentes qui tomberaient sur la même valeur
+/// serviraient une page périmée, ce qui vaut ici un rechargement manuel et non
+/// une faille.
+fn page_tag(page: &str) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    page.len().hash(&mut hasher);
+    page.hash(&mut hasher);
+    hasher.finish()
 }
 
 fn serve_body(mut stream: TcpStream, body: &str, content_type: &str) {
@@ -1550,7 +1631,7 @@ mod tests {
             let (stream, _) = listener.accept().unwrap();
             let route = classify(&stream);
             let got = match route {
-                Some(Route::Page) => "page",
+                Some(Route::Page { .. }) => "page",
                 Some(Route::Video { half }) => {
                     if half {
                         "video-half"
@@ -1688,7 +1769,7 @@ mod tests {
             let got = match classify(&stream) {
                 Some(Route::Roms) => "roms".to_owned(),
                 Some(Route::Art(index)) => format!("art{index}"),
-                Some(Route::Page) => "page".to_owned(),
+                Some(Route::Page { .. }) => "page".to_owned(),
                 _ => "other".to_owned(),
             };
             assert_eq!(got, expected, "for {}", String::from_utf8_lossy(request));

@@ -39,6 +39,9 @@ export function Sidebar({
   onPlay,
   onLeave,
   onComplain,
+  suggestHalf,
+  onTakeHalf,
+  onKeepFull,
 }: {
   mode: Mode;
   onMode: (mode: Mode) => void;
@@ -66,6 +69,13 @@ export function Sidebar({
    * quelqu'un qui jouait. Ce bouton pose un repère à l'instant exact, avec ce
    * que la page voyait à ce moment-là. */
   onComplain: () => void;
+  /** Vrai quand la liaison a raté deux fenêtres d'affilée et que cette page
+   * n'est pas déjà en format réduit. */
+  suggestHalf: boolean;
+  /** Basculer en format réduit. */
+  onTakeHalf: () => void;
+  /** Garder la pleine taille, et ne plus se faire proposer. */
+  onKeepFull: () => void;
 }) {
   const seated = people.filter((person) => person.seat !== null);
   const watching = people.filter((person) => person.seat === null);
@@ -181,6 +191,8 @@ export function Sidebar({
             . Échap ouvre le menu.
           </p>
 
+          {suggestHalf ? <Rough onTake={onTakeHalf} onKeep={onKeepFull} /> : null}
+
           <Complain onComplain={onComplain} />
         </>
       ) : (
@@ -250,5 +262,45 @@ function Complain({ onComplain }: { onComplain: () => void }) {
     >
       {said ? "noté, l'instant est marqué" : held ? "déjà signalé" : "ça saccade"}
     </button>
+  );
+}
+
+/**
+ * « Ton image saute. Tu veux la version légère ? »
+ *
+ * Posée là où la personne regarde déjà les places, et pas en travers de
+ * l'image: une bannière qui recouvre le jeu au moment où le jeu va mal est une
+ * bannière qui agace.
+ *
+ * Deux boutons et pas un. Refuser doit être aussi facile qu'accepter, parce que
+ * quelqu'un peut préférer une image nette avec quelques saccades à une image
+ * molle sans aucune, et parce qu'un refus est ce qui fait taire la proposition.
+ */
+function Rough({ onTake, onKeep }: { onTake: () => void; onKeep: () => void }) {
+  return (
+    <div id="rough" className="flex flex-col gap-2 border border-alert/60 bg-panel p-2">
+      <p className="text-[11px] leading-relaxed text-muted">
+        Ton image saute depuis vingt secondes. Le format réduit demande environ 2,6 fois moins de
+        débit.
+      </p>
+      <div className="flex gap-1">
+        <button
+          type="button"
+          id="takeHalf"
+          onClick={onTake}
+          className="flex-1 border border-alert px-2 py-1 text-[11px] uppercase tracking-[0.14em] text-alert transition-colors hover:bg-alert/10"
+        >
+          passer en réduit
+        </button>
+        <button
+          type="button"
+          id="keepFull"
+          onClick={onKeep}
+          className="border border-rule px-2 py-1 text-[11px] uppercase tracking-[0.14em] text-faint transition-colors hover:border-rule-bright"
+        >
+          non merci
+        </button>
+      </div>
+    </div>
   );
 }

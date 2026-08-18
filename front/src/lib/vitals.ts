@@ -288,3 +288,70 @@ export class Trailing {
     };
   }
 }
+
+/** À partir de combien d'images jetées sur une fenêtre la liaison rame.
+ *
+ * Dix sur dix secondes, soit une par seconde. Les séances saines mesurées le
+ * 18 août 2026 en jettent zéro, et une séance bridée à un trentième de
+ * processeur en jetait quatorze par fenêtre. Le seuil sépare donc les deux avec
+ * de la marge des deux côtés.
+ */
+export const ROUGH_DROPS = 10;
+
+/** Ou à partir de combien de fois la file s'est vidée.
+ *
+ * Deux. Une file vide veut dire qu'il n'arrivait plus d'images du tout, ce qui
+ * est plus grave qu'une image jetée: la première dit que la liaison a lâché, la
+ * seconde qu'il en arrivait trop à la fois.
+ */
+export const ROUGH_STARVES = 2;
+
+/** Combien de fenêtres mauvaises d'affilée avant d'en parler.
+ *
+ * Deux, soit vingt secondes. Une seule mauvaise fenêtre arrive à tout le monde,
+ * et une page qui propose de baisser la qualité au premier hoquet est une page
+ * qu'on apprend à ignorer.
+ */
+export const ROUGH_IN_A_ROW = 2;
+
+/** Cette fenêtre s'est-elle mal passée ? */
+export function rough(sample: Vitals): boolean {
+  return sample.jetées >= ROUGH_DROPS || sample.affamées >= ROUGH_STARVES;
+}
+
+/**
+ * Faut-il proposer le format réduit ?
+ *
+ * # Pourquoi la page le propose au lieu d'attendre
+ *
+ * Un ami a trouvé le bouton tout seul, après une soirée entière, et son image
+ * s'est améliorée tout de suite. La page voyait la dégradation avant lui: elle
+ * comptait les images jetées et les fois où la file s'est vidée pendant qu'il
+ * cherchait.
+ *
+ * # Ce qu'elle ne fait pas
+ *
+ * Elle ne bascule pas toute seule. Le format se choisit, parce que quelqu'un
+ * peut préférer une image nette avec quelques saccades à une image molle sans
+ * aucune, et que personne n'aime qu'un réglage change sous ses yeux.
+ *
+ * Elle ne repropose pas non plus après un refus. Une proposition qu'on décline
+ * et qui revient est une proposition qu'on finit par ne plus lire.
+ */
+export class Struggling {
+  private inARow = 0;
+  private refused = false;
+
+  /** Le relevé d'une fenêtre. Rend vrai quand il faut proposer. */
+  saw(sample: Vitals): boolean {
+    if (this.refused || sample.demi) return false;
+    this.inARow = rough(sample) ? this.inARow + 1 : 0;
+    return this.inARow >= ROUGH_IN_A_ROW;
+  }
+
+  /** La personne a dit non, ou a basculé. On n'en reparle plus. */
+  settled(): void {
+    this.refused = true;
+    this.inARow = 0;
+  }
+}

@@ -58,6 +58,22 @@ pub enum EncoderError {
         got: usize,
     },
 
+    /// L'émulateur a recréé son anneau parce que le jeu a changé de taille.
+    ///
+    /// Ce n'est PAS une panne, et le premier message d'erreur le laissait
+    /// croire: il annonçait un motif inconnu, alors que le motif reçu est celui
+    /// d'une annonce d'anneau parfaitement valide. Super Mario Strikers change
+    /// de mode vidéo deux secondes après le démarrage, ce qui suffisait à faire
+    /// redémarrer le worker en boucle sans que rien ne dise pourquoi.
+    #[error("the emulator changed its picture to {width}x{height} ({slots} slots)")]
+    RingChanged {
+        /// La nouvelle largeur, en pixels.
+        width: u32,
+        /// La nouvelle hauteur.
+        height: u32,
+        /// Combien d'images le nouvel anneau porte.
+        slots: u32,
+    },
     /// A message did not start with the magic its kind requires.
     #[error("{what} has magic {got:#010x}, expected {expected:#010x}")]
     BadMagic {

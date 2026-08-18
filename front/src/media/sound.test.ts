@@ -6,7 +6,7 @@
  * symptôme qu'on essaie de corriger. D'où ces vérifications sur les octets.
  */
 import { describe, expect, it } from "vitest";
-import { LEAD_MAX, LEAD_MIN, silentWav } from "./sound";
+import { LEAD_MAX, LEAD_MIN, RESYNC, silentWav } from "./sound";
 
 function bytesOf(url: string): Uint8Array {
   const base64 = url.slice(url.indexOf(",") + 1);
@@ -59,5 +59,21 @@ describe("le plafond de l'avance", () => {
     // trou.
     expect(LEAD_MIN).toBeLessThanOrEqual(0.02);
     expect(LEAD_MIN).toBeLessThan(LEAD_MAX);
+  });
+});
+
+describe("le seuil de réancrage", () => {
+  it("reste AU-DESSUS de l'avance maximale", () => {
+    // L'invariant qui manquait, et son absence a rendu un téléphone muet.
+    // Réancrer pose l'horaire à « maintenant + avance »: si ça dépasse déjà le
+    // seuil, le morceau suivant réancre aussi, et ainsi de suite. Relevé sur le
+    // téléphone: mille un trous pour mille morceaux, donc pas un seul joué.
+    expect(RESYNC).toBeGreaterThan(LEAD_MAX);
+  });
+
+  it("garde une marge, et pas seulement un cheveu", () => {
+    // Le jumeau: un seuil égal à l'avance plus un millième satisferait l'essai
+    // d'au-dessus tout en réancrant sur la moindre irrégularité d'horloge.
+    expect(RESYNC - LEAD_MAX).toBeGreaterThanOrEqual(0.05);
   });
 });

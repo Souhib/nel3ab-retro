@@ -31,8 +31,24 @@ export const LEAD_MIN = 0.01;
 export const LEAD_MAX = 0.4;
 
 /** Past this the schedule has drifted so far behind that catching up chunk by
- * chunk would take longer than starting again. */
-const RESYNC = 0.25;
+ * chunk would take longer than starting again.
+ *
+ * # Tiré de l'avance maximale, et non écrit à côté
+ *
+ * Les deux nombres sont LIÉS, et l'ignorer a rendu un téléphone complètement
+ * muet pendant une heure le 18 août 2026. En montant l'avance maximale à quatre
+ * cents millisecondes sans regarder ce seuil, resté à deux cent cinquante, j'ai
+ * fabriqué une boucle: réancrer pose l'horaire à `maintenant + avance`, ce qui
+ * dépasse aussitôt le seuil, donc le morceau suivant réancre à son tour. Le
+ * journal du téléphone l'a dit sans ambiguïté: **mille un trous pour mille
+ * morceaux**, c'est-à-dire pas un seul morceau joué.
+ *
+ * Le seuil est donc CALCULÉ à partir de l'avance, avec une marge. Deux nombres
+ * qui doivent s'accorder et rien qui les accorde finissent toujours par
+ * diverger, et ce dépôt le savait déjà pour les manettes et pour la file
+ * d'images.
+ */
+export const RESYNC = LEAD_MAX + 0.1;
 
 export type SoundStats = {
   state: string;

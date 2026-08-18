@@ -138,6 +138,13 @@ def _write(store: Path, names: dict[str, str]) -> None:
         store.parent.mkdir(parents=True, exist_ok=True)
         temporary = store.with_suffix(".tmp")
         temporary.write_text(json.dumps(names, ensure_ascii=False, indent=2), encoding="utf-8")
+        # La version d'avant est gardée à côté avant d'être remplacée.
+        # Le renommage protège d'une coupure; il ne protège pas d'une bêtise de
+        # notre part. Écrire un dictionnaire vide serait atomique et perdrait
+        # quand même tous les pseudos, et ce fichier est le seul état du projet
+        # qui n'existe qu'en un exemplaire. Une copie coûte trente-sept octets.
+        if store.exists():
+            store.replace(store.with_suffix(".json.bak"))
         temporary.replace(store)
     except OSError:
         # Un disque plein ou un dossier en lecture seule ne doit pas casser une

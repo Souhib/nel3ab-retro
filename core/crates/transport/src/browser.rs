@@ -1023,6 +1023,30 @@ fn carries_key_frame(annex_b: &[u8]) -> bool {
 /// L'étiquette remplace un `Cache-Control: no-store` qui faisait retélécharger
 /// la page entière à chaque visite. Avec `no-cache` et un `ETag`, le navigateur
 /// redemande mais reçoit une réponse vide quand rien n'a changé.
+/// Ce qu'on dit au navigateur en plus du contenu.
+///
+/// Le risque est faible et il faut le dire: le service n'écoute que sur la
+/// boucle locale, le proxy est la seule porte, et la socket vérifie déjà
+/// l'origine, ce qui est la protection qui compte. Ces trois lignes ne
+/// remplacent rien; elles ferment ce qui reste ouvert pour rien.
+///
+/// La politique est stricte parce que la page peut se le permettre: c'est un
+/// fichier unique, sans ressource externe, avec ses styles et son script à
+/// l'intérieur. `'unsafe-inline'` est donc la règle et non une concession, et
+/// tout ce qui viendrait d'ailleurs est refusé, y compris une image.
+const HARDENING: &str = concat!(
+    "Content-Security-Policy: ",
+    "default-src 'self'; ",
+    "script-src 'self' 'unsafe-inline'; ",
+    "style-src 'self' 'unsafe-inline'; ",
+    "img-src 'self' data:; ",
+    "connect-src 'self' ws: wss:; ",
+    "frame-ancestors 'none'; ",
+    "base-uri 'none'\r\n",
+    "X-Content-Type-Options: nosniff\r\n",
+    "Referrer-Policy: no-referrer\r\n",
+);
+
 fn serve_page(mut stream: TcpStream, page: &str, gzip: bool) {
     static PACKED: std::sync::OnceLock<Vec<u8>> = std::sync::OnceLock::new();
     let tag = format!("\"{:x}\"", page_tag(page));
@@ -1035,7 +1059,7 @@ fn serve_page(mut stream: TcpStream, page: &str, gzip: bool) {
     if request.contains(&tag.to_lowercase()) {
         let response = format!(
             "HTTP/1.1 304 Not Modified\r\nETag: {tag}\r\n\
-             Cache-Control: no-cache\r\nConnection: close\r\n\r\n"
+             Cache-Control: no-cache\r\n{HARDENING}Connection: close\r\n\r\n"
         );
         let _ = stream.write_all(response.as_bytes());
         let _ = stream.flush();
@@ -1063,7 +1087,7 @@ fn serve_page(mut stream: TcpStream, page: &str, gzip: bool) {
     let response = format!(
         "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\n\
          Content-Length: {}\r\n{encoding}ETag: {tag}\r\n\
-         Cache-Control: no-cache\r\nConnection: close\r\n\r\n",
+         Cache-Control: no-cache\r\n{HARDENING}Connection: close\r\n\r\n",
         body.len()
     );
     let _ = stream.write_all(response.as_bytes());

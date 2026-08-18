@@ -44,6 +44,14 @@ export function Asked({
   return (
     <div
       id="asked"
+      // Annoncé, et c'est le seul message de la page qui doit l'être.
+      //
+      // Cette bannière apparaît, compte dix secondes, puis disparaît. Quelqu'un
+      // qui ne regarde pas l'écran à cet instant précis rate la question et perd
+      // sa manette par défaut. `assertive` plutôt que `polite`: dix secondes ne
+      // laissent pas le temps d'attendre une pause dans la lecture.
+      role="alert"
+      aria-live="assertive"
       className="absolute inset-x-0 top-8 z-40 mx-auto flex w-max max-w-[80%] items-center gap-4 border border-indigo bg-panel px-5 py-3"
     >
       <span className="text-[14px]">

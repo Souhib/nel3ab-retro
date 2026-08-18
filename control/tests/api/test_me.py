@@ -2,6 +2,7 @@
 
 import httpx
 
+from nel3ab_control.settings import Settings
 from tests.conftest import SOUHIB, VINCENT
 
 
@@ -67,3 +68,21 @@ async def test_a_name_longer_than_the_contract_is_refused(client: httpx.AsyncCli
     answer = await client.put("/api/me", json={"name": "x" * 80}, headers=SOUHIB)
 
     assert answer.status_code == 422
+
+
+async def test_the_previous_names_are_kept_beside_the_new_ones(
+    client: httpx.AsyncClient, settings: Settings
+) -> None:
+    """Le renommage protège d'une coupure, pas d'une bêtise de notre part.
+
+    Écrire un dictionnaire vide serait atomique et perdrait quand même tous les
+    pseudos, et ce fichier est le seul état du projet qui n'existe qu'en un
+    exemplaire.
+    """
+    await client.put("/api/me", json={"name": "Souhib"}, headers=SOUHIB)
+    await client.put("/api/me", json={"name": "Kitaru"}, headers=SOUHIB)
+
+    kept = settings.state_file.with_suffix(".json.bak")
+    assert kept.exists(), "aucune copie de la version d'avant"
+    assert "Souhib" in kept.read_text(encoding="utf-8")
+    assert "Kitaru" in settings.state_file.read_text(encoding="utf-8")

@@ -529,7 +529,7 @@ Cache-Control                   <span class="bad">no-store</span>  (rechargée e
   </div>
 
   <div class="finding important">
-    <div class="head"><span class="rank">06</span><span class="chip important">moyen</span></div>
+    <div class="head"><span class="rank">06</span><span class="chip corrige">corrigé le 18 août</span></div>
     <h3>Des zéros qui se font passer pour des mesures</h3>
     <div class="body prose">
       <p class="first">
@@ -551,16 +551,16 @@ valeur réelle quand quelqu'un joue         0,53 ms   <span class="ok">← excel
       </p>
       <div class="fix">
         <span class="label">correctif</span>
-        Passer <code>input_to_frame</code> par <code>Timings</code> comme les
-        quatre autres distributions, ce qui publie le nombre d'échantillons du
-        même geste. La règle mérite une entrée au carnet:
+        Fait. <code>input_to_frame</code> passe par <code>Timings</code> et
+        publie son nombre d'échantillons, et le lecteur n'affiche la latence que
+        quand elle a été mesurée. La règle mérite une entrée au carnet:
         <strong>un zéro par défaut est un mensonge poli.</strong>
       </div>
     </div>
   </div>
 
   <div class="finding important">
-    <div class="head"><span class="rank">07</span><span class="chip important">moyen</span></div>
+    <div class="head"><span class="rank">07</span><span class="chip corrige">corrigé le 18 août</span></div>
     <h3>Trois analyseurs binaires, aucun test à entrées générées</h3>
     <div class="body prose">
       <p class="first">
@@ -579,9 +579,8 @@ valeur réelle quand quelqu'un joue         0,53 ms   <span class="ok">← excel
       </p>
       <div class="fix">
         <span class="label">correctif</span>
-        Une propriété par analyseur, dans le style déjà présent: « aucune entrée,
-        quelle qu'elle soit, ne doit faire paniquer <code>parse</code> ». C'est
-        une dizaine de lignes chacune et ça tourne en CI sans GPU.
+        Fait: neuf propriétés sur les trois analyseurs, chacune avec sa moitié
+        positive, sinon un analyseur qui refuserait tout passerait pour robuste.
       </div>
     </div>
   </div>
@@ -611,26 +610,30 @@ valeur réelle quand quelqu'un joue         0,53 ms   <span class="ok">← excel
   </div>
 
   <div class="finding mineur">
-    <div class="head"><span class="rank">09</span><span class="chip mineur">mineur</span></div>
+    <div class="head"><span class="rank">09</span><span class="chip corrige">corrigé, et j'avais exagéré</span></div>
     <h3>Les pseudos tiennent dans 37 octets, sans copie</h3>
     <div class="body prose">
       <p class="first">
-        <code>people.json</code> est le seul état qui doit survivre à un
-        redémarrage de la machine, et le seul dont il n'existe aucune copie. Une
-        écriture interrompue au mauvais moment, et tout le monde redevient
-        anonyme. Le code encaisse déjà un fichier illisible sans planter, ce qui
-        est bien, mais il ne le répare pas.
+        <strong>Correction: l'écriture était déjà atomique.</strong> En
+        regardant le code pour le corriger, j'ai trouvé un fichier temporaire
+        suivi d'un renommage, avec la raison écrite au-dessus. Le constat était
+        donc à moitié faux, et un audit qui exagère perd sa valeur.
+      </p>
+      <p>
+        Ce qui manquait vraiment est plus étroit: le renommage protège d'une
+        coupure, pas d'une bêtise de notre part. Écrire un dictionnaire vide
+        serait atomique et perdrait quand même tous les pseudos.
       </p>
       <div class="fix">
         <span class="label">correctif</span>
-        Écrire dans un fichier temporaire puis renommer, ce qui rend l'écriture
-        atomique, et garder la version précédente à côté. Une dizaine de lignes.
+        Fait: la version d'avant est gardée à côté avant d'être remplacée. Trois
+        lignes, et un test.
       </div>
     </div>
   </div>
 
   <div class="finding mineur">
-    <div class="head"><span class="rank">10</span><span class="chip mineur">mineur</span></div>
+    <div class="head"><span class="rank">10</span><span class="chip corrige">corrigé, et j'avais exagéré</span></div>
     <h3>Quarante boutons, aucun repère d'accessibilité</h3>
     <div class="body prose">
       <p class="first">
@@ -643,14 +646,19 @@ valeur réelle quand quelqu'un joue         0,53 ms   <span class="ok">← excel
       </p>
       <div class="fix">
         <span class="label">correctif</span>
-        Un <code>aria-live="assertive"</code> sur la bannière de demande, et des
-        étiquettes sur les boutons qui n'ont qu'une icône. Une demi-heure.
+        La bannière est faite: <code>role="alert"</code> et
+        <code>aria-live="assertive"</code>, parce que dix secondes ne laissent
+        pas le temps d'attendre une pause dans la lecture. Les étiquettes de
+        boutons, en revanche, n'étaient pas nécessaires:
+        <strong>les quarante boutons portent tous du texte</strong>, donc ils ont
+        déjà un nom accessible. J'avais compté des attributs sans regarder ce
+        qu'ils auraient nommé.
       </div>
     </div>
   </div>
 
   <div class="finding mineur">
-    <div class="head"><span class="rank">11</span><span class="chip mineur">mineur</span></div>
+    <div class="head"><span class="rank">11</span><span class="chip corrige">corrigé le 18 août</span></div>
     <h3>Aucun en-tête de sécurité sur les réponses du worker</h3>
     <div class="body prose">
       <p class="first">
@@ -664,7 +672,10 @@ valeur réelle quand quelqu'un joue         0,53 ms   <span class="ok">← excel
       </p>
       <div class="fix">
         <span class="label">correctif</span>
-        Trois en-têtes constants sur la réponse qui sert la page.
+        Fait, et le premier jet ne servait à rien: écrits avec des retours à la
+        ligne de continuation Rust, les deux derniers arrivaient repliés dans la
+        politique, sans retour chariot, donc le navigateur les ignorait. Vérifié
+        sur les octets réels et non sur la source.
       </div>
     </div>
   </div>
@@ -960,6 +971,12 @@ valeur réelle quand quelqu'un joue         0,53 ms   <span class="ok">← excel
     <p class="first">
       Six constats et demi, plus une chose que l'audit n'avait pas vue.
     </p>
+    <p>
+      Deux constats étaient <strong>surévalués</strong>, et je les ai corrigés en
+      allant les réparer: l'écriture des pseudos était déjà atomique, et les
+      quarante boutons portent tous du texte. Un audit qui exagère perd sa
+      valeur, donc les deux le disent maintenant.
+    </p>
     <ul class="plain">
       <li>
         <strong>Adopter un anneau qui change de taille</strong>, au lieu de
@@ -973,10 +990,9 @@ valeur réelle quand quelqu'un joue         0,53 ms   <span class="ok">← excel
         restante du constat 03 et la seule qui économise vraiment.
       </li>
       <li>
-        <strong>Les zéros qui passent pour des mesures</strong> (06), les
-        analyseurs binaires sans entrées générées (07), la copie des pseudos
-        (09), l'accessibilité (10), les en-têtes de sécurité (11) et le découpage
-        de <code>browser.rs</code> (12).
+        <strong>Le découpage de <code>browser.rs</code></strong> (12), à faire le
+        jour où on y touche pour une autre raison. C'est tout ce qui reste des
+        douze.
       </li>
     </ul>
   </div>
@@ -995,12 +1011,7 @@ valeur réelle quand quelqu'un joue         0,53 ms   <span class="ok">← excel
         <span>Le premier ajout dont le seul but est le plaisir. Il a été gagné.</span>
       </div>
     </li>
-    <li>
-      <div>
-        <b>Les zéros qui passent pour des mesures, et les analyseurs sans fuzzing</b>
-        <span>Deux constats moyens qui se corrigent en une soirée chacun, et qui rendent le reste plus sûr à lire.</span>
-      </div>
-    </li>
+
     <li>
       <div>
         <b>Adopter un anneau qui change de taille</b>

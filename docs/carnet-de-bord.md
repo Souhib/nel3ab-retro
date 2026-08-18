@@ -6024,6 +6024,54 @@ mode.
 
 ---
 
+### 7.49 Trois petits constats, et deux que j'avais exagérés
+
+Les derniers points de l'audit, et deux corrections à l'audit lui-même.
+
+#### Un en-tête qu'on croit poser et qui n'existe pas
+
+Trois en-têtes de sécurité sur la page. Le premier jet ne servait à rien: écrits
+avec les continuations de ligne de Rust, les deux derniers sortaient **repliés
+dans la politique de sécurité**, précédés d'espaces et sans retour chariot. Un
+navigateur les ignore.
+
+Trouvé en regardant les octets, pas la source. La leçon est la même que celle du
+retard affiché en négatif: ce qu'on croit avoir écrit n'est pas ce qui part.
+
+#### L'écriture des pseudos était déjà atomique
+
+Le constat 09 disait qu'une écriture interrompue perdrait tous les pseudos. Faux:
+en allant le corriger, j'ai trouvé un fichier temporaire suivi d'un renommage,
+avec la raison écrite au-dessus.
+
+Ce qui manquait vraiment est plus étroit, et vaut quand même trois lignes: le
+renommage protège d'une coupure, pas d'une bêtise de notre part. Écrire un
+dictionnaire vide serait atomique et perdrait quand même tout. La version d'avant
+est maintenant gardée à côté.
+
+#### Les quarante boutons avaient déjà un nom
+
+Le constat 10 comptait zéro attribut d'accessibilité sur quarante boutons. Le
+chiffre était juste, la conclusion non: **les quarante portent du texte**, donc
+ils ont déjà un nom accessible. J'avais compté des attributs sans regarder ce
+qu'ils auraient nommé.
+
+Le vrai manque était unique et il est réparé: la bannière « quelqu'un demande ta
+manette » apparaît, compte dix secondes et disparaît. Elle est maintenant
+annoncée, et en `assertive` plutôt qu'en `polite`, parce que dix secondes ne
+laissent pas le temps d'attendre une pause dans la lecture.
+
+#### Ce que ces deux erreurs disent
+
+Un audit qui exagère perd sa valeur, et les deux ont été trouvées de la seule
+façon qui marche: en allant réparer. Lire du code pour le juger et lire du code
+pour le changer ne donnent pas la même lecture.
+
+Les deux entrées du rapport le disent maintenant, plutôt que de se ranger
+silencieusement parmi les corrigés.
+
+---
+
 ## 8. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
 
 | Le piège | Ce qui s'est passé | La leçon |

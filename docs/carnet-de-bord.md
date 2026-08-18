@@ -6072,6 +6072,71 @@ silencieusement parmi les corrigés.
 
 ---
 
+### 7.50 Le worker encaisse enfin un changement de taille
+
+Le vrai correctif des deux jeux qui redémarraient, et le retrait des deux
+contournements qu'il remplace.
+
+#### Ce qui a changé
+
+`next_frame` lit maintenant par `recvmsg` et non par `read`. La différence n'a
+l'air de rien tant qu'on ne lit que des notifications d'image, qui ne portent pas
+de données auxiliaires. Le jour où une annonce d'anneau arrive à cette place, le
+descripteur du dma-buf part en silence avec un `read` ordinaire, et l'anneau
+devient inadoptable. C'est la ligne qui rend tout le reste possible.
+
+Quand l'annonce arrive, la source ramasse les autres emplacements et remplace son
+anneau, puis rend une erreur nommée. Le worker reconstruit alors ce qui dépend de
+la taille et repart. Les anciennes images importées sont détruites en étant
+remplacées, ce qui est légal après la fermeture de leurs dma-buf: l'import a pris
+sa propre référence sur l'objet.
+
+Le flux change de taille sous les yeux du navigateur, et il sait faire: le nouvel
+encodeur commence par une image clé avec ses en-têtes, et la page traverse déjà
+ça à chaque changement de jeu.
+
+#### Une voie, appelée deux fois
+
+Le commentaire du changement de jeu disait qu'une reconstruction en place serait
+« une seconde voie de démarrage vivant à côté de la vraie, testée par personne ».
+Il avait raison, et c'est pour ça que la construction est devenue un `Pipeline`
+avec sa fonction: le démarrage et la reprise passent par la même. Nommer un
+chemin n'est pas le dupliquer.
+
+#### Le défaut de la première tentative
+
+La chaîne se refaisait correctement, l'encodeur s'ouvrait bien en 640x448, et le
+worker sortait aussitôt sur:
+
+```
+Error: 1280x896 is not a whole number of 16-pixel macroblocks
+```
+
+Un message trompeur pour une cause simple: 1280 et 896 sont tous deux divisibles
+par 16, et ce n'était pas la vérification qui parlait. Le convertisseur refusait
+parce que la SOURCE annonçait 1280x896 à des images qui faisaient 640x448. La
+variable `descriptor` était celle du démarrage, laissée dehors, et elle n'avait
+pas suivi.
+
+**Une grandeur qui décrit un objet vit dans cet objet.** Elle est maintenant dans
+le `Pipeline`, où elle ne peut plus diverger de ce qu'elle décrit. C'est la
+troisième fois que ce projet paie pour l'avoir laissée dehors, après la toile qui
+oscillait entre deux tailles et la file d'images qui ne suivait pas l'horaire.
+
+#### Ce que ça remplace
+
+Les deux contournements sont retirés, et c'était la partie la plus importante du
+changement. Un garde-fou laissé à côté d'un vrai correctif finit par tromper: le
+marqueur de taille native aurait continué de dégrader Strikers en 640x448 alors
+que le worker sait désormais le suivre en 1280x896.
+
+Mesuré après: Strikers traverse ses menus, la chaîne se refait deux fois, zéro
+erreur, et la toile du navigateur finit à 1280x896 au lieu de la taille native
+imposée. Mario Power Tennis n'a plus rien de particulier non plus: 528 lignes ou
+448, le worker suit.
+
+---
+
 ## 8. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
 
 | Le piège | Ce qui s'est passé | La leçon |

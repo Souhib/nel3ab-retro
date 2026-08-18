@@ -168,46 +168,29 @@ pub struct FrameSource {
 
 impl FrameSource {
     fn receive_ring(stream: UnixStream, path: PathBuf) -> Result<Self, EncoderError> {
-        let mut slots: Vec<Option<DmaBuf>> = Vec::new();
-        let mut descriptor: Option<FrameDescriptor> = None;
-        let mut remaining = usize::MAX;
-
-        while slots.iter().filter(|s| s.is_some()).count() < remaining {
-            let (header, fd) = receive_header_with_fd(&stream)?;
-            if remaining == usize::MAX {
-                remaining = header.slot_count as usize;
-                slots.resize_with(remaining, || None);
-                descriptor = Some(header.descriptor);
-            }
-            let index = header.slot as usize;
-            let Some(place) = slots.get_mut(index) else {
-                return Err(EncoderError::SlotOutOfRange {
-                    slot: header.slot,
-                    slot_count: header.slot_count,
-                });
-            };
-            if place.is_some() {
-                return Err(EncoderError::DuplicateSlot { slot: header.slot });
-            }
-            // Every slot is allocated together from one modifier list; if they
-            // disagree we are not talking to the patch we ship.
-            if descriptor != Some(header.descriptor) {
-                return Err(EncoderError::InconsistentRing { slot: header.slot });
-            }
-            *place = Some(fd);
-        }
-
-        let (Some(descriptor), true) = (descriptor, !slots.is_empty()) else {
-            return Err(EncoderError::EmptyRing);
-        };
-
+        let (descriptor, slots) = collect_ring(&stream, None)?;
         Ok(Self {
             stream,
             path,
             descriptor,
-            // Every entry was filled or the loop would not have ended.
-            slots: slots.into_iter().flatten().collect(),
+            slots,
         })
+    }
+
+    /// Prend un anneau NEUF, annoncé en cours de route.
+    ///
+    /// Le premier descripteur est déjà arrivé: on l'a lu en croyant lire une
+    /// notification d'image, avec son fichier. On récupère les autres et on
+    /// remplace tout.
+    ///
+    /// Les anciens `DmaBuf` sont fermés en étant remplacés, ce qui est exactement
+    /// ce qu'il faut: Dolphin a détruit ses images, et garder les descripteurs
+    /// ouverts retiendrait de la mémoire graphique que plus personne ne lit.
+    fn adopt(&mut self, first: (Header, DmaBuf)) -> Result<(), EncoderError> {
+        let (descriptor, slots) = collect_ring(&self.stream, Some(first))?;
+        self.descriptor = descriptor;
+        self.slots = slots;
+        Ok(())
     }
 
     /// The layout shared by every slot.
@@ -244,55 +227,55 @@ impl FrameSource {
     /// failure on a malformed notification.
     pub fn next_frame(&mut self) -> Result<LentFrame<'_>, EncoderError> {
         let mut bytes = [0u8; FRAME_READY_LEN];
-        match self.stream.read_exact(&mut bytes) {
-            Ok(()) => {}
-            Err(error) if error.kind() == std::io::ErrorKind::UnexpectedEof => {
-                return Err(EncoderError::ProducerGone);
-            }
-            Err(source) => {
-                return Err(EncoderError::Socket {
-                    what: "reading a frame notification",
-                    source,
-                });
-            }
+        let (read, fd) = receive_with_fd(&self.stream, &mut bytes)?;
+        if read == 0 {
+            return Err(EncoderError::ProducerGone);
         }
 
         // Une ANNONCE d'anneau là où on attendait une image.
         //
         // Le patch recrée son anneau dès que la taille de rendu change, et
-        // beaucoup de jeux en changent: Super Mario Strikers le fait deux
-        // secondes après le démarrage, en quittant son premier écran. Sans ce
-        // cas, le worker lisait les seize premiers octets d'une annonce de
-        // soixante-quatre, ne reconnaissait pas le motif, et s'arrêtait. Comme
-        // le jeu refait exactement la même chose au redémarrage suivant, la
-        // salle tournait en boucle.
+        // beaucoup de jeux en changent: Super Mario Strikers présente ses menus
+        // à la taille native, Mario Power Tennis passe de 50 à 60 Hz et donc de
+        // 528 lignes à 448. Avant, on lisait les seize premiers octets d'une
+        // annonce qui en fait soixante-quatre, on ne reconnaissait pas le motif,
+        // et le worker s'arrêtait. Comme le jeu refaisait la même chose au
+        // redémarrage suivant, la salle tournait en boucle.
         //
-        // On lit la fin de l'annonce pour pouvoir DIRE la nouvelle taille. Le
-        // descripteur qui arrive avec elle est perdu, puisque `read_exact` a
-        // déjà jeté les données auxiliaires: c'est acceptable ici parce qu'on
-        // rend une erreur, et ce serait à revoir le jour où on adopte l'anneau
-        // au lieu de repartir.
+        // Ici on ADOPTE: on finit de lire l'annonce, on ramasse les autres
+        // emplacements, et on rend une erreur nommée pour que l'appelant
+        // reconstruise ce qui dépend de la taille. Le descripteur du dma-buf est
+        // arrivé avec ces seize octets, d'où la lecture par `recvmsg`.
         if u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]) == HEADER_MAGIC {
-            let mut rest = [0u8; HEADER_LEN - FRAME_READY_LEN];
             let mut whole = [0u8; HEADER_LEN];
-            if self.stream.read_exact(&mut rest).is_ok() {
-                whole[..FRAME_READY_LEN].copy_from_slice(&bytes);
-                whole[FRAME_READY_LEN..].copy_from_slice(&rest);
-                if let Ok(header) = Header::parse(&whole) {
-                    return Err(EncoderError::RingChanged {
-                        width: header.descriptor.width,
-                        height: header.descriptor.height,
-                        slots: header.slot_count,
-                    });
-                }
-            }
+            whole[..FRAME_READY_LEN].copy_from_slice(&bytes);
+            self.stream
+                .read_exact(&mut whole[FRAME_READY_LEN..])
+                .map_err(|source| EncoderError::Socket {
+                    what: "reading the rest of a new ring descriptor",
+                    source,
+                })?;
+            let header = Header::parse(&whole)?;
+            let Some(fd) = fd else {
+                return Err(EncoderError::Socket {
+                    what: "a new ring descriptor arrived without its dma-buf",
+                    source: std::io::Error::from(std::io::ErrorKind::InvalidData),
+                });
+            };
+            self.adopt((header, DmaBuf(fd)))?;
             return Err(EncoderError::RingChanged {
-                width: 0,
-                height: 0,
-                slots: 0,
+                width: self.descriptor.width,
+                height: self.descriptor.height,
+                slots: u32::try_from(self.slots.len()).unwrap_or(0),
             });
         }
 
+        if read != FRAME_READY_LEN {
+            return Err(EncoderError::Socket {
+                what: "a frame notification arrived cut short",
+                source: std::io::Error::from(std::io::ErrorKind::UnexpectedEof),
+            });
+        }
         let ready = FrameReady::parse(&bytes)?;
         let slot_count = self.slots.len();
         if ready.slot as usize >= slot_count {
@@ -359,6 +342,105 @@ impl Drop for LentFrame<'_> {
     fn drop(&mut self) {
         self.source.release(self.slot);
     }
+}
+
+/// Rassemble un anneau complet: un descripteur par emplacement, chacun avec son
+/// fichier.
+///
+/// `first` porte le descripteur déjà lu, quand l'appelant en tenait un. C'est le
+/// cas d'un anneau annoncé EN COURS DE ROUTE: le premier descripteur arrive là
+/// où on attendait une image, et on l'a donc déjà consommé avec son fichier.
+///
+/// Une fonction plutôt que deux boucles jumelles: l'anneau de départ et l'anneau
+/// de remplacement se lisent exactement pareil, et deux copies de cette
+/// vérification finiraient par diverger sur le cas qui compte.
+fn collect_ring(
+    stream: &UnixStream,
+    first: Option<(Header, DmaBuf)>,
+) -> Result<(FrameDescriptor, Vec<DmaBuf>), EncoderError> {
+    let mut slots: Vec<Option<DmaBuf>> = Vec::new();
+    let mut descriptor: Option<FrameDescriptor> = None;
+    let mut remaining = usize::MAX;
+    let mut held = first;
+
+    while slots.iter().filter(|slot| slot.is_some()).count() < remaining {
+        let (header, fd) = match held.take() {
+            Some(already) => already,
+            None => receive_header_with_fd(stream)?,
+        };
+        if remaining == usize::MAX {
+            remaining = header.slot_count as usize;
+            slots.resize_with(remaining, || None);
+            descriptor = Some(header.descriptor);
+        }
+        let index = header.slot as usize;
+        let Some(place) = slots.get_mut(index) else {
+            return Err(EncoderError::SlotOutOfRange {
+                slot: header.slot,
+                slot_count: header.slot_count,
+            });
+        };
+        if place.is_some() {
+            return Err(EncoderError::DuplicateSlot { slot: header.slot });
+        }
+        // Every slot is allocated together from one modifier list; if they
+        // disagree we are not talking to the patch we ship.
+        if descriptor != Some(header.descriptor) {
+            return Err(EncoderError::InconsistentRing { slot: header.slot });
+        }
+        *place = Some(fd);
+    }
+
+    let (Some(descriptor), true) = (descriptor, !slots.is_empty()) else {
+        return Err(EncoderError::EmptyRing);
+    };
+    // Every entry was filled or the loop would not have ended.
+    Ok((descriptor, slots.into_iter().flatten().collect()))
+}
+
+/// Lit des octets ET le fichier qui les accompagne, s'il y en a un.
+///
+/// Toujours par `recvmsg`, jamais par `read`: les données auxiliaires voyagent
+/// avec le PREMIER octet d'un message, et un `read` ordinaire les jette. Ça n'a
+/// l'air de rien tant qu'on ne lit que des notifications d'image, qui n'en
+/// portent pas. Le jour où une annonce d'anneau arrive à cette place, le
+/// descripteur du dma-buf partirait en silence et l'anneau serait inadoptable.
+fn receive_with_fd(
+    stream: &UnixStream,
+    bytes: &mut [u8],
+) -> Result<(usize, Option<RawFd>), EncoderError> {
+    let mut iov = [IoSliceMut::new(bytes)];
+    let mut cmsg = nix::cmsg_space!([RawFd; 1]);
+
+    let message = recvmsg::<()>(
+        stream.as_raw_fd(),
+        &mut iov,
+        Some(&mut cmsg),
+        MsgFlags::empty(),
+    )
+    .map_err(|errno| EncoderError::Socket {
+        what: "reading from the emulator",
+        source: std::io::Error::from_raw_os_error(errno as i32),
+    })?;
+
+    let mut received: Option<RawFd> = None;
+    for control in message.cmsgs().map_err(|errno| EncoderError::Socket {
+        what: "reading ancillary data",
+        source: std::io::Error::from_raw_os_error(errno as i32),
+    })? {
+        if let ControlMessageOwned::ScmRights(fds) = control {
+            for fd in fds {
+                match received {
+                    // Exactly one fd per descriptor. A second would leak.
+                    None => received = Some(fd),
+                    Some(_) => {
+                        let _ = nix::unistd::close(fd);
+                    }
+                }
+            }
+        }
+    }
+    Ok((message.bytes, received))
 }
 
 /// Reads one descriptor and the descriptor's file descriptor together.
@@ -445,13 +527,26 @@ mod tests {
     }
 
     fn header_bytes(slot: u32, slot_count: u32, magic: u32, version: u32) -> [u8; HEADER_LEN] {
+        sized_header(slot, slot_count, magic, version, 640, 480)
+    }
+
+    /// Le même, avec une taille choisie: c'est elle qui change quand un jeu
+    /// change de mode.
+    fn sized_header(
+        slot: u32,
+        slot_count: u32,
+        magic: u32,
+        version: u32,
+        width: u32,
+        height: u32,
+    ) -> [u8; HEADER_LEN] {
         let mut b = [0u8; HEADER_LEN];
         b[0..4].copy_from_slice(&magic.to_le_bytes());
         b[4..8].copy_from_slice(&version.to_le_bytes());
         b[8..12].copy_from_slice(&slot.to_le_bytes());
         b[12..16].copy_from_slice(&slot_count.to_le_bytes());
-        b[16..20].copy_from_slice(&640u32.to_le_bytes());
-        b[20..24].copy_from_slice(&480u32.to_le_bytes());
+        b[16..20].copy_from_slice(&width.to_le_bytes());
+        b[20..24].copy_from_slice(&height.to_le_bytes());
         b[24..28].copy_from_slice(&0x3432_4241u32.to_le_bytes());
         b[32..40].copy_from_slice(&0x0200_0000_1860_1b03u64.to_le_bytes());
         b[48..56].copy_from_slice(&2560u64.to_le_bytes());
@@ -675,5 +770,78 @@ mod tests {
             assert!(path.exists());
         }
         assert!(!path.exists());
+    }
+
+    /// Un anneau qui change de taille est ADOPTÉ, pas pris pour une panne.
+    ///
+    /// C'est le défaut qui faisait tourner la salle en boucle sur deux jeux.
+    /// Super Mario Strikers présente ses menus à la taille native, et Mario
+    /// Power Tennis passe de 50 à 60 Hz, donc de 528 lignes à 448. Les deux
+    /// annoncent un anneau neuf en cours de partie.
+    ///
+    /// Le test tient sans GPU: rien ici n'importe quoi que ce soit dans Vulkan,
+    /// on vérifie que le protocole est suivi et que les descripteurs arrivent.
+    #[test]
+    fn a_new_ring_announced_mid_stream_is_adopted() {
+        let path = socket_path("adopt");
+        let _ = std::fs::remove_file(&path);
+        let listener = FrameListener::bind(&path).unwrap();
+
+        let producer = thread::spawn({
+            let path = path.clone();
+            move || {
+                let stream = UnixStream::connect(&path).unwrap();
+                let file = std::fs::File::open("/dev/null").unwrap();
+                for slot in 0..2 {
+                    send_header(
+                        &stream,
+                        &sized_header(slot, 2, HEADER_MAGIC, PROTOCOL_VERSION, 640, 480),
+                        file.as_raw_fd(),
+                    );
+                }
+                // Une image ordinaire, puis un anneau NEUF d'une autre taille.
+                stream
+                    .try_clone()
+                    .unwrap()
+                    .write_all(&frame_bytes(0, 1))
+                    .unwrap();
+                thread::sleep(Duration::from_millis(50));
+                for slot in 0..2 {
+                    send_header(
+                        &stream,
+                        &sized_header(slot, 2, HEADER_MAGIC, PROTOCOL_VERSION, 320, 224),
+                        file.as_raw_fd(),
+                    );
+                }
+                thread::sleep(Duration::from_millis(200));
+            }
+        });
+
+        let mut source = listener.accept(Duration::from_secs(5)).unwrap();
+        assert_eq!(source.descriptor().width, 640);
+
+        // La première image passe normalement.
+        drop(source.next_frame().unwrap());
+
+        // La suivante n'est pas une image: c'est le nouvel anneau.
+        match source.next_frame() {
+            Err(EncoderError::RingChanged {
+                width,
+                height,
+                slots,
+            }) => {
+                assert_eq!((width, height, slots), (320, 224, 2));
+            }
+            other => panic!("un anneau neuf a été pris pour autre chose: {other:?}"),
+        }
+
+        // Et la source décrit maintenant le nouvel anneau, pas l'ancien.
+        assert_eq!(source.descriptor().width, 320);
+        assert_eq!(source.descriptor().height, 224);
+        assert_eq!(source.slot_count(), 2);
+        assert!(source.slot(0).is_some(), "le nouvel emplacement 0 est vide");
+
+        producer.join().unwrap();
+        let _ = std::fs::remove_file(&path);
     }
 }

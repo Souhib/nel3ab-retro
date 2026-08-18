@@ -29,7 +29,8 @@ use nel3ab_emulator::{
     scan_roms,
 };
 use nel3ab_encoder::av::Encoder;
-use nel3ab_encoder::frame_source::FrameListener;
+use nel3ab_encoder::frame_source::{FrameListener, FrameSource};
+use nel3ab_encoder::protocol::FrameDescriptor;
 use nel3ab_encoder::va::DEFAULT_RENDER_NODE;
 use nel3ab_encoder::vulkan::Context;
 use nel3ab_encoder::vulkan::convert::{Converter, Ownership, Source};
@@ -226,69 +227,6 @@ fn players_from_environment() -> Result<PlayerSlot> {
 /// jeu est en réalité ce qu'une salle devrait faire.
 const CHOICE: &str = "chosen-rom";
 
-/// Où la salle note qu'un jeu doit tourner à sa résolution native.
-///
-/// # Le défaut que ça répare
-///
-/// Le patch recrée son anneau d'images dès que la taille de rendu change, et
-/// certains jeux en changent en cours de route. Super Mario Strikers présente
-/// ses menus à la taille native même quand on lui demande de doubler: l'anneau
-/// passait de 1280x896 à 640x448 deux secondes après l'ouverture d'un menu, le
-/// worker prenait cette annonce pour une panne et s'arrêtait, systemd le
-/// relançait, et le jeu refaisait exactement la même chose. La salle tournait
-/// en boucle sans que rien ne dise pourquoi.
-///
-/// Mesuré le 18 août 2026: à ×2 le changement arrive à chaque passage de menu,
-/// à ×1 le jeu traverse quatre-vingts secondes de menus sans jamais recréer son
-/// anneau, parce que la taille native EST déjà celle de l'anneau.
-///
-/// # Pourquoi un marqueur plutôt qu'une liste
-///
-/// Une liste de jeux à problème serait une liste à tenir à jour, et personne ne
-/// sait d'avance lesquels changent de mode. Le worker s'en aperçoit tout seul,
-/// l'écrit, et repart. Ça coûte un redémarrage de plus la première fois, puis
-/// plus rien.
-///
-/// Ce n'est pas le vrai correctif. Le vrai serait d'adopter le nouvel anneau au
-/// lieu de repartir, ce qui demande de reconstruire la chaîne d'encodage en
-/// cours de route. Celui-ci rend le jeu jouable aujourd'hui.
-const NATIVE: &str = "native-scale";
-
-/// Ce jeu doit-il tourner à sa taille native ?
-///
-/// Compare le chemin plutôt qu'un index: les index bougent quand un disque est
-/// ajouté au dossier, et un marqueur qui désigne le mauvais jeu après un ajout
-/// serait pire qu'aucun marqueur.
-/// Où la salle note qu'un jeu change de taille MÊME à sa taille native.
-///
-/// L'astuce de la taille native marche quand le jeu présente certains écrans en
-/// natif, comme Super Mario Strikers: à ×1 il n'y a plus de changement, puisque
-/// le natif EST déjà la taille de l'anneau.
-///
-/// Elle ne peut rien quand c'est le MODE VIDÉO qui change. Mario Power Tennis
-/// est un disque PAL, `GOMP01`, qui démarre en 50 Hz et propose 60 Hz au premier
-/// écran. Cinquante hertz font 528 lignes, soixante en font 448: la hauteur
-/// change quel que soit le facteur, et repartir à ×1 n'y change rien.
-///
-/// Sans ce second marqueur, la salle repartirait en boucle sur ce jeu et
-/// deviendrait inutilisable jusqu'à ce que quelqu'un aille en choisir un autre.
-/// Avec lui, elle abandonne ce disque et revient sur le jeu par défaut, en le
-/// disant. Ce n'est pas le correctif, c'est ce qui empêche une soirée de
-/// s'arrêter là.
-const UNPLAYABLE: &str = "changes-size";
-
-/// Ce jeu a-t-il déjà échoué à sa taille native ?
-///
-/// Même comparaison que [`wants_native`], et sur le chemin pour la même raison:
-/// les index bougent quand un disque arrive dans le dossier.
-fn gave_up(marked: Option<&str>, rom: &std::path::Path) -> bool {
-    marked.is_some_and(|noted| std::path::Path::new(noted.trim()) == rom)
-}
-
-fn wants_native(marked: Option<&str>, rom: &std::path::Path) -> bool {
-    marked.is_some_and(|noted| std::path::Path::new(noted.trim()) == rom)
-}
-
 /// Which game to boot: what a player last asked for, or the default.
 ///
 /// Remembered by FILE NAME rather than position, because a position only means
@@ -409,28 +347,6 @@ fn run(settings: &Settings) -> Result<()> {
     // Ce jeu a-t-il déjà montré qu'il change de taille en route ? Lu AVANT le
     // réglage d'environnement, parce que le marqueur décrit le jeu et le réglage
     // décrit la machine: le premier gagne, sinon on retomberait en boucle.
-    let marked = std::fs::read_to_string(settings.session_dir.join(NATIVE)).ok();
-    let refused = std::fs::read_to_string(settings.session_dir.join(UNPLAYABLE)).ok();
-    // Ce jeu a déjà échoué même à sa taille native: on ne recommence pas, sinon
-    // la salle redémarre sans fin et plus personne ne peut rien y faire.
-    let rom = if gave_up(refused.as_deref(), &rom) {
-        tracing::error!(
-            game = %rom.display(),
-            "ce jeu change de taille en cours de route et le worker ne sait pas encore \
-             suivre; la salle revient au jeu par défaut plutôt que de redémarrer sans fin"
-        );
-        let _ = std::fs::remove_file(settings.session_dir.join(CHOICE));
-        settings.rom.clone()
-    } else {
-        rom
-    };
-    let native = wants_native(marked.as_deref(), &rom);
-    if native {
-        tracing::info!(
-            game = %rom.display(),
-            "ce jeu change de taille en route: on le lance à sa taille native"
-        );
-    }
     let internal_resolution = match std::env::var("NEL3AB_INTERNAL_RES") {
         Ok(text) => {
             let scale: u8 = text
@@ -468,7 +384,7 @@ fn run(settings: &Settings) -> Result<()> {
     tracing::info!(players = settings.players.get(), "the room's size");
     let mut config = DolphinConfig::new(
         settings.dolphin.clone(),
-        rom.clone(),
+        rom,
         settings.session_dir.clone(),
         ports,
     );
@@ -507,11 +423,7 @@ fn run(settings: &Settings) -> Result<()> {
         // shader, the encoder and the page all take their size from what the
         // emulator announces, so this is the one number that changes the
         // resolution of the whole chain.
-        (
-            "Settings",
-            "InternalResolution",
-            if native { "1" } else { &internal_resolution },
-        ),
+        ("Settings", "InternalResolution", &internal_resolution),
     ] {
         match nel3ab_emulator::ConfigOverride::new("Graphics", section, key, value) {
             Ok(over) => config.overrides.push(over),
@@ -565,50 +477,7 @@ fn run(settings: &Settings) -> Result<()> {
     );
 
     let context = Context::open(&settings.render_node)?;
-    let mut encoder = Encoder::open(
-        &settings.render_node,
-        descriptor.width,
-        descriptor.height,
-        QP,
-        60,
-        3,
-    )?;
-
-    // Both rings are imported ONCE. The slots are stable for the life of the
-    // session, and re-importing per frame would reintroduce the per-frame cost
-    // this whole architecture exists to remove.
-    let mut sources = Vec::with_capacity(frames.slot_count());
-    for index in 0..frames.slot_count() {
-        let Some(buffer) = frames.slot(index) else {
-            bail!("the ring announced slot {index} without a descriptor");
-        };
-        sources.push(ImportedFrame::import(&context, &descriptor, buffer)?);
-    }
-    let mut targets = Vec::with_capacity(encoder.slots() as usize);
-    for index in 0..encoder.slots() {
-        let surface = encoder.export(index)?;
-        targets.push(Nv12Target::import(&context, &surface)?);
-    }
-    let converter = Converter::new(&context)?;
-
-    // Le second flux, en demi-format, pour qui n'a pas le débit du premier.
-    //
-    // Il est CONSTRUIT ici et n'est ENCODÉ que si quelqu'un le regarde: une
-    // salle où tout le monde a une bonne connexion ne paie donc ni temps de
-    // carte graphique ni octets pour qu'il existe. Construire les surfaces au
-    // démarrage plutôt qu'à la demande évite d'ouvrir un encodeur au milieu
-    // d'une partie, ce qui prend des dizaines de millisecondes.
-    //
-    // Une taille moitié ne convient pas toujours: l'encodeur veut un nombre
-    // entier de macroblocs de 16, et 1216x896 le donne (608x448) là où une
-    // résolution interne exotique pourrait ne pas. On le dit et on continue
-    // sans, plutôt que de refuser de démarrer: le grand format, lui, marche.
-    let mut half = HalfStream::open(
-        &context,
-        &settings.render_node,
-        descriptor.width,
-        descriptor.height,
-    );
+    let mut pipeline = Pipeline::build(&context, &settings.render_node, &frames)?;
 
     // Input runs on its own thread, writing the moment a frame lands rather than
     // once per picture. Measured before: a full frame period of avoidable lag,
@@ -782,41 +651,48 @@ fn run(settings: &Settings) -> Result<()> {
         // to live here over a 64-deep queue; it belongs where the states are
         // written, which is also where a queue could overflow and did.
         let iteration = Instant::now();
-        let frame = match frames.next_frame() {
-            Ok(frame) => frame,
+        // L'emprunt est rendu AVANT de toucher à `frames`.
+        //
+        // `next_frame` rend une image qui emprunte la source, donc le
+        // vérificateur garde l'emprunt vivant sur tout un `match`, y compris
+        // dans la branche d'erreur qui n'emprunte rien. Séparer la décision de
+        // la prise est ce qui permet de reconstruire la chaîne ici plutôt que de
+        // s'arrêter.
+        let taken = frames.next_frame();
+        if matches!(taken, Err(nel3ab_encoder::EncoderError::RingChanged { .. })) {
+            drop(taken);
             // Un changement de taille n'est pas une panne, et le traiter comme
-            // telle faisait tourner la salle en boucle. On note que ce jeu veut
-            // sa taille native et on repart: systemd nous relance, et le tour
-            // suivant ne changera plus de taille.
-            Err(nel3ab_encoder::EncoderError::RingChanged {
-                width,
-                height,
-                slots,
-            }) => {
-                tracing::warn!(
-                    width,
-                    height,
-                    slots,
-                    game = %rom.display(),
-                    "l'émulateur a changé la taille de l'image; on repart à sa taille native"
-                );
-                // Déjà à sa taille native et il change quand même: l'astuce ne
-                // peut rien pour ce jeu, et insister le ferait boucler.
-                let note = if native { UNPLAYABLE } else { NATIVE };
-                if let Err(error) = std::fs::write(
-                    settings.session_dir.join(note),
-                    rom.as_os_str().as_encoded_bytes(),
-                ) {
-                    tracing::error!(%error, note, "le marqueur n'a pas pu être écrit");
-                }
-                break;
-            }
+            // telle faisait tourner la salle en boucle sur deux jeux. Super
+            // Mario Strikers présente ses menus à la taille native, et Mario
+            // Power Tennis passe de 50 à 60 Hz, donc de 528 lignes à 448.
+            //
+            // La source a DÉJÀ adopté le nouvel anneau: il ne reste qu'à refaire
+            // la chaîne, par le même chemin qu'au démarrage. Les anciennes
+            // images importées sont détruites en étant remplacées, ce qui est
+            // légal après la fermeture de leurs dma-buf, l'import ayant pris sa
+            // propre référence sur l'objet.
+            //
+            // Le flux change alors de taille sous les yeux du navigateur. Il
+            // sait faire: le nouvel encodeur commence par une image clé avec ses
+            // en-têtes, et la page traverse déjà ça à chaque changement de jeu.
+            pipeline = Pipeline::build(&context, &settings.render_node, &frames)?;
+            let now = *frames.descriptor();
+            tracing::info!(
+                width = now.width,
+                height = now.height,
+                slots = frames.slot_count(),
+                "le jeu a changé la taille de son image; la chaîne a été refaite"
+            );
+            continue;
+        }
+        let frame = match taken {
+            Ok(frame) => frame,
             Err(error) => {
                 tracing::info!(%error, "the emulator stopped producing frames");
                 break;
             }
         };
-        let Some(source) = sources.get(frame.slot() as usize) else {
+        let Some(source) = pipeline.sources.get(frame.slot() as usize) else {
             bail!(
                 "the emulator announced slot {} outside its own ring",
                 frame.slot()
@@ -825,8 +701,8 @@ fn run(settings: &Settings) -> Result<()> {
 
         // The modulo first, so the value cast is always small:
         // grows without bound over a long session and the pool has three slots.
-        let index = usize::try_from(produced % targets.len() as u64).unwrap_or(0);
-        let Some(target) = targets.get(index) else {
+        let index = usize::try_from(produced % pipeline.targets.len() as u64).unwrap_or(0);
+        let Some(target) = pipeline.targets.get(index) else {
             bail!("the encode pool shrank underneath us");
         };
         // The first frame after an input: how long the plumbing made it wait.
@@ -851,7 +727,7 @@ fn run(settings: &Settings) -> Result<()> {
         // image parce qu'on peut basculer en pleine partie, et ça ne coûte
         // qu'un verrou sur une liste de zéro à quatre éléments. Une salle où
         // tout le monde a une bonne connexion ne paie donc rien pour lui.
-        let wanted_half = half.is_some() && server.half_watchers() > 0;
+        let wanted_half = pipeline.half.is_some() && server.half_watchers() > 0;
         // Et la pleine taille aussi, ce qui manquait.
         //
         // Le demi-format se taisait déjà quand personne ne le regardait; la
@@ -869,17 +745,17 @@ fn run(settings: &Settings) -> Result<()> {
         let picture = Source {
             image: plane.image(),
             view: plane.view(),
-            width: descriptor.width,
-            height: descriptor.height,
+            width: pipeline.descriptor.width,
+            height: pipeline.descriptor.height,
             ownership: Ownership::Foreign,
         };
         if wanted_full {
-            converter.convert(picture, target)?;
+            pipeline.converter.convert(picture, target)?;
         }
         // Ici et pas plus bas: la source appartient encore à l'émulateur jusqu'au
         // `drop(frame)` d'en dessous, et lire ses pixels après l'avoir rendue est
         // exactement la course que ce projet a déjà payée une fois.
-        if wanted_half && let Some(small) = &half {
+        if wanted_half && let Some(small) = &pipeline.half {
             small.convert(picture, index)?;
         }
         let shader_took = shading.elapsed();
@@ -892,7 +768,7 @@ fn run(settings: &Settings) -> Result<()> {
         // for a new starting point: a decoder that died, a tab that came back.
         // Both want the same thing and one key frame answers both.
         if server.take_joined() || server.take_key_frame_request() {
-            encoder.force_key_frame();
+            pipeline.encoder.force_key_frame();
         }
         // Somebody chose another game. Dolphin takes its disc as a start-up
         // argument and has no way to be handed a different one, so switching
@@ -919,7 +795,7 @@ fn run(settings: &Settings) -> Result<()> {
         // la garder bloquerait l'émulateur au bout de trois images. Ce qu'on
         // saute est le travail du GPU, pas la lecture.
         if let Some(coded) = wanted_full
-            .then(|| encoder.encode(slot_index))
+            .then(|| pipeline.encoder.encode(slot_index))
             .transpose()?
             .flatten()
         {
@@ -941,7 +817,7 @@ fn run(settings: &Settings) -> Result<()> {
                 annex_b: coded,
             });
         }
-        if wanted_half && let Some(small) = &mut half {
+        if wanted_half && let Some(small) = &mut pipeline.half {
             small.encode_and_send(&server, slot_index, captured)?;
         }
 
@@ -1097,6 +973,91 @@ fn init_tracing() {
 /// Il est construit au démarrage et n'est ENCODÉ que si quelqu'un le regarde:
 /// ouvrir un encodeur au milieu d'une partie coûte des dizaines de
 /// millisecondes, et les surfaces ne coûtent qu'un peu de mémoire graphique.
+/// Tout ce qui dépend de la TAILLE de l'anneau, rassemblé.
+///
+/// # Pourquoi c'est un bloc et pas cinq variables
+///
+/// Parce qu'un jeu peut changer de taille en cours de route, et qu'il faut alors
+/// tout refaire d'un coup: les images importées viennent des nouveaux dma-buf,
+/// le convertisseur est dimensionné pour la source, et l'encodeur pour la
+/// sortie. Reconstruire à la main au milieu de la boucle donnerait une seconde
+/// voie de démarrage à côté de la vraie, testée par personne.
+///
+/// Ici il n'y a qu'une voie, appelée deux fois. C'est la différence entre
+/// dupliquer un chemin et le nommer.
+struct Pipeline<'a> {
+    /// La taille pour laquelle tout le reste a été construit.
+    ///
+    /// Rangée ICI et pas à côté, parce que la garder dehors est précisément le
+    /// défaut qui a coûté la première tentative: la chaîne était refaite pour un
+    /// anneau de 640x448 pendant qu'une variable du démarrage annonçait encore
+    /// 1280x896 à chaque image. Le convertisseur refusait, à juste titre, et le
+    /// worker sortait.
+    ///
+    /// Une grandeur qui décrit un objet vit dans cet objet. C'est la troisième
+    /// fois que ce projet paie pour l'avoir laissée dehors, après la toile qui
+    /// oscillait et la file qui ne suivait pas l'horaire.
+    descriptor: FrameDescriptor,
+    encoder: Encoder,
+    sources: Vec<ImportedFrame<'a>>,
+    targets: Vec<Nv12Target<'a>>,
+    converter: Converter<'a>,
+    half: Option<HalfStream<'a>>,
+}
+
+impl<'a> Pipeline<'a> {
+    /// Construit la chaîne pour l'anneau que la source décrit EN CE MOMENT.
+    ///
+    /// Les deux anneaux sont importés une fois. Les emplacements sont stables
+    /// tant que la taille ne bouge pas, et réimporter à chaque image
+    /// réintroduirait le coût que toute cette architecture existe pour retirer.
+    fn build(
+        context: &'a Context,
+        node: &std::path::Path,
+        frames: &FrameSource,
+    ) -> anyhow::Result<Self> {
+        let descriptor = *frames.descriptor();
+        let mut encoder = Encoder::open(node, descriptor.width, descriptor.height, QP, 60, 3)?;
+
+        let mut sources = Vec::with_capacity(frames.slot_count());
+        for index in 0..frames.slot_count() {
+            let Some(buffer) = frames.slot(index) else {
+                bail!("the ring announced slot {index} without a descriptor");
+            };
+            sources.push(ImportedFrame::import(context, &descriptor, buffer)?);
+        }
+        let mut targets = Vec::with_capacity(encoder.slots() as usize);
+        for index in 0..encoder.slots() {
+            let surface = encoder.export(index)?;
+            targets.push(Nv12Target::import(context, &surface)?);
+        }
+        let converter = Converter::new(context)?;
+
+        // Le second flux, en demi-format, pour qui n'a pas le débit du premier.
+        //
+        // Il est CONSTRUIT ici et n'est ENCODÉ que si quelqu'un le regarde: une
+        // salle où tout le monde a une bonne connexion ne paie donc ni temps de
+        // carte graphique ni octets pour qu'il existe. Construire les surfaces
+        // au démarrage plutôt qu'à la demande évite d'ouvrir un encodeur au
+        // milieu d'une partie, ce qui prend des dizaines de millisecondes.
+        //
+        // Une taille moitié ne convient pas toujours: l'encodeur veut un nombre
+        // entier de macroblocs de 16, et 1216x896 le donne (608x448) là où une
+        // résolution interne exotique pourrait ne pas. On le dit et on continue
+        // sans, plutôt que de refuser de démarrer: le grand format, lui, marche.
+        let half = HalfStream::open(context, node, descriptor.width, descriptor.height);
+
+        Ok(Self {
+            descriptor,
+            encoder,
+            sources,
+            targets,
+            converter,
+            half,
+        })
+    }
+}
+
 struct HalfStream<'a> {
     encoder: Encoder,
     converter: Converter<'a>,
@@ -1205,71 +1166,6 @@ mod tests {
     use std::sync::Arc;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::time::Duration;
-
-    use super::{gave_up, wants_native};
-    use std::path::Path;
-
-    /// Le marqueur de taille native désigne UN jeu, par son chemin.
-    ///
-    /// Par le chemin et pas par un index: les index bougent quand un disque
-    /// arrive dans le dossier, et un marqueur qui désignerait le mauvais jeu
-    /// après un ajout serait pire qu'aucun marqueur. Le jeu marqué démarrerait
-    /// en pleine taille et retomberait en boucle, pendant qu'un autre perdrait
-    /// sa qualité sans raison.
-    #[test]
-    fn only_the_game_that_was_marked_boots_at_its_native_size() {
-        let strikers = Path::new("/roms/Super Mario Strikers (USA).rvz");
-        let kart = Path::new("/roms/Mario Kart Double Dash.iso");
-
-        assert!(wants_native(
-            Some("/roms/Super Mario Strikers (USA).rvz"),
-            strikers
-        ));
-        assert!(
-            !wants_native(Some("/roms/Super Mario Strikers (USA).rvz"), kart),
-            "un autre jeu a été dégradé à cause du marqueur de celui-ci"
-        );
-    }
-
-    /// Le jumeau: aucun marqueur veut dire aucune contrainte.
-    ///
-    /// Sans lui, une fonction qui rendrait toujours vrai satisferait l'essai
-    /// d'au-dessus, et tous les jeux tourneraient à leur taille native.
-    #[test]
-    fn a_room_with_no_marker_uses_the_configured_size() {
-        assert!(!wants_native(None, Path::new("/roms/anything.iso")));
-        assert!(!wants_native(Some(""), Path::new("/roms/anything.iso")));
-    }
-
-    /// Le fichier est écrit sans fin de ligne, mais un humain qui le corrige à
-    /// la main en laissera une, et le marqueur doit continuer de marcher.
-    #[test]
-    fn a_trailing_newline_does_not_break_the_marker() {
-        let rom = Path::new("/roms/Super Mario Strikers (USA).rvz");
-        assert!(wants_native(
-            Some("/roms/Super Mario Strikers (USA).rvz\n"),
-            rom
-        ));
-    }
-
-    /// Un jeu qui a échoué même à sa taille native n'est plus relancé.
-    ///
-    /// C'est ce qui empêche une soirée de s'arrêter. Mario Power Tennis change
-    /// de HAUTEUR en passant de 50 à 60 Hz, 528 lignes contre 448, donc le
-    /// repli sur la taille native n'y peut rien: sans ce second refus, la salle
-    /// redémarrerait sans fin et personne ne pourrait aller choisir autre chose.
-    #[test]
-    fn a_game_that_failed_even_at_its_native_size_is_not_tried_again() {
-        let tennis = Path::new("/roms/Mario Power Tennis.rvz");
-        let kart = Path::new("/roms/Mario Kart Double Dash.iso");
-
-        assert!(gave_up(Some("/roms/Mario Power Tennis.rvz"), tennis));
-        assert!(
-            !gave_up(Some("/roms/Mario Power Tennis.rvz"), kart),
-            "un autre jeu a été refusé à cause du marqueur de celui-ci"
-        );
-        assert!(!gave_up(None, tennis), "aucun marqueur ne refuse rien");
-    }
 
     /// Two background threads must BOTH stop when the session ends.
     ///

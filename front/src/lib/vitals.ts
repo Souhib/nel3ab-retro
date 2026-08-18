@@ -108,7 +108,20 @@ export type Vitals = {
   jeuHz: number;
   écranHz: number;
   /** Le son: morceaux reçus, trous, avance en millisecondes. */
-  son: { morceaux: number; trous: number; avance: number; état: string };
+  son: {
+    morceaux: number;
+    trous: number;
+    avance: number;
+    état: string;
+    /** Ce qu'est devenu le déblocage d'iOS, le volume appliqué, la cadence du
+     * matériel et ce qu'il ajoute. Quatre chiffres qui ne servent qu'à une
+     * chose: dire pourquoi un téléphone reste muet alors que tout a l'air de
+     * marcher. */
+    débloqué: string;
+    gain: number;
+    cadence: number;
+    sortie: number;
+  };
   /** La manette: la place tenue, et les trames envoyées sur la fenêtre. */
   manette: { place: number | null; envoyées: number };
 };
@@ -159,6 +172,10 @@ export function vitals(now: Snapshot, before: Snapshot | null, elapsedMs: number
       trous: since(sound.gaps, wasSound?.gaps ?? 0),
       avance: Math.round(sound.leadMs),
       état: sound.state,
+      débloqué: sound.unlocked,
+      gain: Math.round(sound.gain * 100) / 100,
+      cadence: sound.sampleRate,
+      sortie: Math.round(sound.output),
     },
     manette: {
       place: input.port,

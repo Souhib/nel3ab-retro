@@ -36,6 +36,16 @@ const RESYNC = 0.25;
 
 export type SoundStats = {
   state: string;
+  /** Ce qu'est devenu le silence qui débloque iOS, et le volume RÉELLEMENT
+   * appliqué. Les deux sont là parce qu'un son absent sur un téléphone a
+   * plusieurs causes qui se ressemblent toutes, et qu'aucune ne se distingue
+   * sans les regarder. */
+  unlocked: string;
+  gain: number;
+  /** Ce que le matériel ajoute après qu'on lui a donné les échantillons, en
+   * millisecondes. Zéro quand le navigateur ne le dit pas, ce qui est le cas de
+   * WebKit. */
+  output: number;
   chunks: number;
   gaps: number;
   playedSeconds: number;
@@ -54,6 +64,8 @@ export class SoundStream {
    * Gardé, et en boucle: iOS remet la session sur la sonnerie dès que plus rien
    * ne joue, et le son de la partie repartirait dans le vide au premier blanc. */
   private silence: HTMLAudioElement | null = null;
+  /** Ce qu'est devenu le silence de déblocage. Rapporté au journal. */
+  private unlocked = "pas essayé";
   private gain: GainNode | null = null;
   private playAt = 0;
   private lead = LEAD_MIN;
@@ -161,9 +173,18 @@ export class SoundStream {
       // `playsinline` pour qu'iOS ne passe pas en plein écran sur un média.
       this.silence.setAttribute("playsinline", "");
     }
-    void this.silence.play().catch(() => {
-      // Refusé hors d'un geste: on réessaiera au suivant.
-    });
+    void this.silence
+      .play()
+      .then(() => {
+        this.unlocked = "joue";
+      })
+      .catch((refusal: unknown) => {
+        // Refusé hors d'un geste, ou refusé tout court. On le NOTE au lieu de
+        // l'avaler: sur un iPhone, ce silence est justement ce qui déplace le
+        // son hors du canal de la sonnerie, donc son échec explique tout le
+        // reste. L'avaler laissait chercher ailleurs pendant une soirée.
+        this.unlocked = `refusé: ${String(refusal).slice(0, 60)}`;
+      });
   }
 
   stop(): void {
@@ -204,6 +225,9 @@ export class SoundStream {
   stats(): SoundStats {
     return {
       state: this.context?.state ?? "coupé",
+      unlocked: this.unlocked,
+      gain: this.volumeNow(),
+      output: (this.context?.outputLatency ?? 0) * 1000,
       chunks: this.chunks,
       gaps: this.gaps,
       playedSeconds: this.played,

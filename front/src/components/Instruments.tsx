@@ -140,6 +140,25 @@ export function Instruments({ shot }: { shot: Snapshot }) {
           hint="Le meilleur temps qu'un morceau de son ait mis à arriver. Comparé à celui de l'image, il dit lequel des deux flux traîne."
         />
         <Readout
+          label="volume appliqué"
+          value={sound.gain.toFixed(2)}
+          tone={sound.gain > 0 ? "faint" : "alert"}
+          hint="Lu sur le noeud de gain et non sur la glissière: c'est ce que l'oreille reçoit. Zéro explique un silence à lui seul."
+        />
+        <Readout
+          label="déblocage iOS"
+          value={sound.unlocked}
+          tone={sound.unlocked.startsWith("refusé") ? "alert" : "faint"}
+          hint="Le silence en boucle qui déplace le son hors du canal de la sonnerie sur un iPhone. Refusé, le téléphone reste muet même quand tout le reste va bien."
+        />
+        <Readout
+          label="ajout du matériel"
+          value={sound.output.toFixed(0)}
+          unit="ms"
+          tone="faint"
+          hint="Ce que la carte ou le téléphone ajoute après qu'on lui a donné les échantillons. Zéro veut dire que le navigateur ne le dit pas, ce qui est le cas de WebKit."
+        />
+        <Readout
           label="sortie"
           value={(sound.sampleRate / 1000).toFixed(1)}
           unit="kHz"

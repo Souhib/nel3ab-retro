@@ -48,6 +48,9 @@ function snap(video: Partial<Snapshot["video"]> = {}, rest: Partial<Snapshot> = 
       outputMs: 10,
       browserMs: 20,
       fastestLag: 8,
+      unlocked: "joue",
+      gain: 0.7,
+      output: 0,
       ...rest.sound,
     },
     input: {

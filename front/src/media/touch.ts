@@ -121,3 +121,24 @@ export class Touch {
     };
   }
 }
+
+/**
+ * Les tailles du groupe des quatre boutons, pour qu'il tienne dans la bande.
+ *
+ * Le calcul compte TOUT ce qui occupe la largeur: deux colonnes ordinaires, une
+ * colonne large pour A, les deux espaces, et la marge des deux bords. Un premier
+ * jet oubliait le supplément de A et le groupe dépassait de deux pixels sur
+ * l'image — deux pixels qu'aucun oeil n'aurait vus et que le pilote a nommés.
+ *
+ * Pure, donc éprouvable sans écran.
+ */
+export function clusterKeys(bar: number): Record<string, string> {
+  const GAPS = 8;
+  const BIGGER = 8;
+  const MARGIN = 12;
+  const key = Math.max(30, Math.min(52, Math.floor((bar - GAPS - BIGGER - MARGIN) / 3)));
+  return {
+    ["--n3-key" as string]: `${key}px`,
+    ["--n3-key-big" as string]: `${key + BIGGER}px`,
+  };
+}

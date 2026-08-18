@@ -26,7 +26,7 @@ import { cn } from "../lib/cn";
 import type { MenuAction } from "../media/menupad";
 import { Art } from "./Art";
 import { Picker } from "./Picker";
-import { useShell } from "./shell";
+import { useShell, useSwipe } from "./shell";
 import type { XmbCategory } from "./Xmb";
 
 /** Quatre par ligne: au-delà, une chaîne n'est plus lisible depuis un canapé. */
@@ -67,14 +67,18 @@ export function Channels({
     return () => window.clearInterval(tick);
   }, []);
 
+  const drag = useSwipe(shell.act);
+
   return (
     <div
       id="menu"
+      {...drag}
       className={cn(
         "n3-enter fixed inset-0 z-50 flex flex-col",
         shell.picking?.previewing ? "n3-peek" : "",
       )}
       style={{
+        touchAction: "none",
         color: INK,
         background: PAPER,
         backgroundImage:

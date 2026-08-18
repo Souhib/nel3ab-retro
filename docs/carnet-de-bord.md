@@ -6320,6 +6320,99 @@ apprend à ignorer.
 
 ---
 
+### 7.54 Trois choses qu'un téléphone rendait impossibles
+
+Signalées depuis un iPhone tenu en travers, et chacune avait la même racine: la
+page était conçue pour un clavier et une souris, et tout ce qui n'était atteignable
+que par eux n'existait tout simplement pas.
+
+#### Il n'y avait pas de son
+
+Un navigateur ne joue rien avant qu'on le lui ait demandé, et la demande doit
+venir d'un geste. Ce geste était un bouton dans la colonne, la colonne est
+repliée d'office sur un téléphone, et le bouton était donc introuvable.
+
+Le son démarre maintenant au PREMIER geste, quel qu'il soit: un appui sur la
+manette à l'écran en est un. On écoute une fois, on démarre, on se retire. Le
+bouton de la colonne reste pour qui aurait refusé au premier tour.
+
+#### Le menu ne défilait pas
+
+Il se conduit à la croix, et au doigt il n'y avait que le clic: on pouvait taper
+une entrée visible, et rien pour atteindre celles qui ne l'étaient pas.
+
+Un glissement le fait défiler, traduit en crans par un module à part. Il refuse
+un geste trop diagonal plutôt que de deviner, parce que deviner à la place de
+quelqu'un donne un menu qui part de travers une fois sur trois. Et le point de
+départ AVANCE d'autant de crans qu'on en consomme, au lieu d'être remis sous le
+doigt: sans ça un glissement lent perdrait le reste du geste à chaque cran.
+
+Une implémentation et trois usages, parce qu'il y a trois habillages de menu et
+que trois copies de la même arithmétique divergeraient sur le cas qui compte.
+
+#### Et le menu du jeu était inatteignable
+
+Trouvé en écrivant le pilote, qui cherchait un bouton qui n'existait pas: celui
+qui ouvre le menu vit dans la colonne, la colonne est repliée, et Échap n'existe
+pas sur un téléphone. Le bouton de la manette ouvre donc le menu du jeu et non la
+colonne, ce qui est de toute façon le bon geste: c'est le menu qui porte tout, y
+compris de quoi déplier la colonne.
+
+#### La disposition, refaite sur des mesures
+
+Les touches étaient posées sur l'image. Elles se rangent maintenant dans les
+BANDES NOIRES, que la page connaît déjà puisqu'elle calcule le placement de
+l'image pour le menu. Une image 4:3 sur un téléphone tenu en travers en laisse
+deux, larges de cent quarante pixels.
+
+Trois défauts de géométrie, tous trouvés par le pilote et aucun à l'oeil:
+
+- deux pastilles côte à côte font cent trente pixels et la bande en fait cent
+  quarante: la seconde mordait de dix-sept pixels sur l'image. Empilées;
+- `grid-cols-3` donne à chaque colonne la largeur de la PLUS LARGE, donc celle du
+  gros bouton A: le groupe faisait cent cinquante-cinq pixels au lieu de cent
+  trente-neuf. Les colonnes suivent leur contenu maintenant;
+- et le calcul qui dimensionne le groupe sur la bande oubliait le supplément de
+  A. Deux pixels de dépassement, que personne n'aurait vus.
+
+Le pilote refuse maintenant qu'un bouton mange l'image dès qu'il y a une bande
+pour se ranger. C'est lui qui a nommé les trois.
+
+La géométrie des quatre boutons suit enfin celle de la console: A gros au milieu,
+B en bas à gauche de lui, X à sa droite, Y au-dessus. La première version les
+mettait en croix régulière, ce qu'aucune main n'a appris. A est vert et B rouge,
+comme sur la manette: une main qui a joué dessus les vise à la couleur avant de
+lire la lettre.
+
+---
+
+### 7.55 La porte vérifiait un état qu'elle changeait ensuite
+
+Trois commits de suite sont partis avec une empreinte de page périmée, et à
+chaque fois la porte locale était verte au moment où elle a tourné. Ce n'était
+pas un hasard de frappe: c'était l'ORDRE.
+
+`check` enchaînait ses étapes ainsi, et `front-check` était sixième sur sept:
+
+```
+fmt-check  lint  test  control  front  front-check  readouts-check  contract-check
+```
+
+`contract-check` régénère le client TypeScript sous `front/src`. L'empreinte
+était donc vérifiée AVANT la dernière étape qui écrit dans les sources qu'elle
+décrit: elle passait au vert, puis devenait fausse dans la même commande. Le
+commit suivant emportait une marque périmée, et CI la refusait.
+
+`front-check` passe maintenant en dernier. **Vérifier en dernier veut dire
+vérifier ce qui sera commité**, et c'est la seule position qui a du sens pour un
+contrôle qui compare l'arbre à un condensat.
+
+Trouvé en cherchant quel fichier différait plutôt qu'en reconstruisant à
+l'aveugle, ce que j'avais fait deux fois avant. Reconstruire faisait disparaître
+le symptôme et laissait la cause en place.
+
+---
+
 ## 8. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
 
 | Le piège | Ce qui s'est passé | La leçon |

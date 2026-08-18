@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { BUTTON } from "./pad";
-import { stickFrom, Touch } from "./touch";
+import { clusterKeys, stickFrom, Touch } from "./touch";
 
 const CENTRE = { x: 100, y: 100 };
 
@@ -94,5 +94,27 @@ describe("ce que les doigts tiennent", () => {
     touch.releaseAll();
 
     expect(touch.inUse()).toBe(true);
+  });
+});
+
+describe("le groupe des quatre boutons", () => {
+  it("tient dans la bande, supplément du gros bouton compris", () => {
+    // Le calcul doit compter deux colonnes ordinaires, une colonne large pour
+    // A, les deux espaces et la marge. Un premier jet oubliait le supplément de
+    // A, et le groupe dépassait de deux pixels sur l'image.
+    for (const bar of [130, 143, 160, 200, 320]) {
+      const style = clusterKeys(bar);
+      const key = Number.parseInt(style["--n3-key"] ?? "0", 10);
+      const big = Number.parseInt(style["--n3-key-big"] ?? "0", 10);
+      const width = key * 2 + big + 8;
+      expect(width, `bande de ${bar}px`).toBeLessThanOrEqual(bar);
+    }
+  });
+
+  it("ne descend jamais sous la taille d'un doigt", () => {
+    // Le jumeau: un calcul qui rétrécirait sans plancher tiendrait dans
+    // n'importe quelle bande en rendant les boutons invisables.
+    const style = clusterKeys(60);
+    expect(Number.parseInt(style["--n3-key"] ?? "0", 10)).toBeGreaterThanOrEqual(30);
   });
 });

@@ -21,7 +21,7 @@ import { cn } from "../lib/cn";
 import type { MenuAction } from "../media/menupad";
 import { Art } from "./Art";
 import { Picker } from "./Picker";
-import { useShell } from "./shell";
+import { useShell, useSwipe } from "./shell";
 import type { XmbCategory } from "./Xmb";
 
 const INK = "#2b2b2b";
@@ -64,14 +64,17 @@ export function Home({
     return () => onPad?.(null);
   });
 
+  const drag = useSwipe(shell.act);
+
   return (
     <div
       id="menu"
+      {...drag}
       className={cn(
         "n3-enter fixed inset-0 z-50 flex flex-col overflow-hidden",
         shell.picking?.previewing ? "n3-peek" : "",
       )}
-      style={{ background: INK, color: "#f2f2f2" }}
+      style={{ background: INK, color: "#f2f2f2", touchAction: "none" }}
     >
       <header className="flex items-center justify-between px-8 py-4">
         <span className="flex items-center gap-3">

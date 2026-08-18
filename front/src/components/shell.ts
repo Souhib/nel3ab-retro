@@ -10,8 +10,9 @@
  * avance d'une entrée; dans une grille, bas avance d'une ligne entière. D'où le
  * `perRow`.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { MenuAction } from "../media/menupad";
+import { STEP, swipeFrom } from "../media/swipe";
 import type { XmbCategory, XmbItem } from "./Xmb";
 
 /** Un sélecteur ouvert par-dessus le menu.
@@ -268,5 +269,54 @@ export function useShell(
             cancel: abandon,
             previewing: open.preview === true,
           },
+  };
+}
+
+/**
+ * Conduire un menu au doigt.
+ *
+ * Rend les gestionnaires de pointeur à poser sur la racine d'un habillage. Les
+ * trois — la croix du XMB, le tableau des chaînes, la rangée de la Switch —
+ * s'en servent, parce qu'une liste qu'on ne peut pas faire défiler au doigt est
+ * une liste dont on n'atteint que le haut. Signalé depuis un téléphone le
+ * 18 août 2026.
+ *
+ * Une seule implémentation et trois usages: trois copies de la même arithmétique
+ * finiraient par diverger sur le cas qui compte, celui du geste diagonal.
+ *
+ * Par des références et non un état: on lit et on écrit à chaque mouvement du
+ * doigt, et rendre la page à chaque pixel ferait ramer le menu qu'on essaie
+ * justement de faire défiler.
+ */
+export function useSwipe(act: (action: MenuAction) => void) {
+  const from = useRef<{ x: number; y: number } | null>(null);
+  return {
+    onPointerDown: (event: React.PointerEvent) => {
+      from.current = { x: event.clientX, y: event.clientY };
+    },
+    onPointerMove: (event: React.PointerEvent) => {
+      const start = from.current;
+      if (start === null) return;
+      const swipe = swipeFrom(event.clientX - start.x, event.clientY - start.y);
+      if (swipe === null) return;
+      // Le point de départ AVANCE d'autant de crans qu'on en a consommés, au
+      // lieu d'être remis là où le doigt se trouve: sans ça un glissement lent
+      // perdrait le reste du geste à chaque cran, et un long glissement
+      // parcourrait moins de lignes qu'un court.
+      const moved = swipe.steps * STEP;
+      from.current =
+        swipe.axis === "y"
+          ? { x: start.x, y: start.y + moved }
+          : { x: start.x + moved, y: start.y };
+      const way =
+        swipe.axis === "y" ? (swipe.steps > 0 ? "down" : "up") : swipe.steps > 0 ? "right" : "left";
+      for (let done = 0; done < Math.abs(swipe.steps); done += 1) act(way);
+    },
+    onPointerUp: () => {
+      from.current = null;
+    },
+    onPointerCancel: () => {
+      from.current = null;
+    },
   };
 }

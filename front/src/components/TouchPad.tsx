@@ -42,7 +42,7 @@
  */
 import { useEffect, useRef } from "react";
 import type { ButtonName } from "../media/pad";
-import { stickFrom, type Touch } from "../media/touch";
+import { clusterKeys, stickFrom, type Touch } from "../media/touch";
 
 /** Le rayon du stick, en pixels d'écran.
  *
@@ -57,19 +57,30 @@ function stickRadius(): number {
 }
 
 export function TouchPad({
+  bar,
   touch,
   onLeave,
-  onColumn,
+  onMenu,
 }: {
+  /** La largeur d'une bande noire à côté de l'image, en pixels.
+   *
+   * Une image 4:3 sur un téléphone tenu en travers en laisse deux, larges de
+   * cent cinquante pixels environ. Y ranger les touches change tout: elles
+   * cessent d'être posées sur les pieds du personnage. Zéro quand l'image
+   * remplit la largeur, et alors on retombe sur les coins. */
+  bar: number;
   touch: Touch;
   /** Cacher la manette. */
   onLeave: () => void;
-  /** Montrer ou cacher la colonne de droite.
+  /** Ouvrir le menu du jeu.
    *
-   * Ici plutôt que seulement dans le menu: sur un téléphone la colonne est
-   * repliée d'office, et sans ce bouton il faudrait connaître Échap pour la
-   * retrouver. Personne ne tape Échap sur un téléphone. */
-  onColumn: () => void;
+   * Le MENU et non la colonne, et la nuance compte. Le bouton qui ouvre le menu
+   * vit dans la colonne, la colonne est repliée d'office sur un téléphone, et le
+   * menu s'ouvre sinon par Échap: il était donc simplement inatteignable. Or
+   * c'est lui qui porte tout, y compris de quoi déplier la colonne.
+   *
+   * Trouvé en écrivant le pilote, qui cherchait un bouton qui n'existait pas. */
+  onMenu: () => void;
 }) {
   const knob = useRef<HTMLDivElement>(null);
   const well = useRef<HTMLDivElement>(null);
@@ -120,10 +131,30 @@ export function TouchPad({
     }
   };
 
+  /** Assez large pour tenir un groupe de touches sans mordre sur l'image.
+   *
+   * Cent trente pixels: la largeur d'un stick plus sa marge. En dessous, les
+   * boutons déborderaient de la bande et on gagnerait un demi-recouvrement au
+   * lieu d'aucun, ce qui est pire que de les assumer aux coins. */
+  const roomy = bar >= 130;
+
   const rest = () => {
     touch.push(0, 0);
     if (knob.current) knob.current.style.transform = "translate(0px, 0px)";
   };
+
+  /* Les groupes se rangent DANS les bandes noires quand il y en a, et aux coins
+     sinon. `left`/`right` sont donc des positions calculées et non des classes:
+     la largeur de la bande n'est connue qu'à l'exécution. */
+  const leftAt = roomy ? Math.max(6, (bar - 132) / 2) : 8;
+  const rightAt = roomy ? Math.max(6, (bar - 132) / 2) : 8;
+
+  /* Les quatre boutons sont le groupe le plus LARGE: trois colonnes, là où le
+     stick n'en fait qu'une et la croix trois petites. À la taille par défaut il
+     fait cent soixante-quatre pixels et la bande d'un téléphone en fait cent
+     quarante, donc B dépassait sur l'image — attrapé par le pilote, pas à l'oeil.
+     On le redimensionne sur la bande quand elle décide. */
+  const cluster: React.CSSProperties = roomy ? clusterKeys(bar) : {};
 
   return (
     <div
@@ -131,29 +162,15 @@ export function TouchPad({
       className="pointer-events-none absolute inset-0 z-30 select-none"
       style={{ touchAction: "none" }}
     >
-      {/* Les gâchettes, aux coins du haut, là où les index tombent. */}
-      <div className="pointer-events-auto absolute top-2 left-2">
+      {/* BANDE GAUCHE, de haut en bas: la gâchette, la croix, le stick.
+          Le pouce gauche les atteint toutes les trois sans lâcher le téléphone. */}
+      <div className="pointer-events-auto absolute top-2" style={{ left: leftAt }}>
         <Key name="L" label="L" wide hold={hold} />
       </div>
-      <div className="pointer-events-auto absolute top-2 right-2 flex gap-2">
-        <Key name="Z" label="Z" wide hold={hold} />
-        <Key name="R" label="R" wide hold={hold} />
-      </div>
 
-      {/* Start et les deux gestes de la page, en haut au milieu et discrets:
-          ils ne se cherchent qu'une fois, et ils ne doivent pas se trouver
-          sous un pouce qui joue. */}
-      <div className="pointer-events-auto absolute top-2 left-1/2 flex -translate-x-1/2 gap-2">
-        <Key name="START" label="START" wide hold={hold} />
-        <Small id="showColumn" label="menu" onClick={onColumn} />
-        <Small id="hideTouch" label="cacher" onClick={onLeave} />
-      </div>
-
-      {/* La croix, au-dessus du stick: le pouce gauche atteint les deux, et
-          elle sert surtout dans les menus. */}
       <div
-        className="pointer-events-auto absolute left-2 grid grid-cols-3 grid-rows-3 gap-0.5"
-        style={{ bottom: "calc(var(--n3-stick) * 2 + 1.25rem)" }}
+        className="pointer-events-auto absolute grid grid-cols-3 grid-rows-3 gap-0.5"
+        style={{ left: leftAt, bottom: "calc(var(--n3-stick) * 2 + 1.5rem)" }}
       >
         <Key at="col-start-2" name="D_UP" label="▲" small hold={hold} />
         <Key at="col-start-1 row-start-2" name="D_LEFT" label="◀" small hold={hold} />
@@ -161,12 +178,12 @@ export function TouchPad({
         <Key at="col-start-2 row-start-3" name="D_DOWN" label="▼" small hold={hold} />
       </div>
 
-      {/* Le stick, sous le pouce gauche. */}
       <div
         ref={well}
         id="touchStick"
-        className="pointer-events-auto absolute bottom-3 left-2 flex items-center justify-center rounded-full border border-rule-bright/70 bg-panel/40"
+        className="pointer-events-auto absolute bottom-3 flex items-center justify-center rounded-full border border-rule-bright/60 bg-ink/60"
         style={{
+          left: leftAt,
           width: "calc(var(--n3-stick) * 2)",
           height: "calc(var(--n3-stick) * 2)",
           touchAction: "none",
@@ -184,18 +201,55 @@ export function TouchPad({
       >
         <div
           ref={knob}
-          className="rounded-full border border-indigo/70 bg-indigo/30 transition-transform duration-75"
+          className="rounded-full border border-indigo/70 bg-indigo/40 transition-transform duration-75"
           style={{ width: "var(--n3-stick)", height: "var(--n3-stick)" }}
         />
       </div>
 
-      {/* Les quatre boutons, sous le pouce droit, disposés comme sur la console:
-          A gros et en bas, les trois autres autour. */}
-      <div className="pointer-events-auto absolute right-3 bottom-3 grid grid-cols-3 grid-rows-3 gap-1">
+      {/* BANDE DROITE: les gâchettes en haut, les quatre boutons en bas. */}
+      <div className="pointer-events-auto absolute top-2 flex gap-2" style={{ right: rightAt }}>
+        <Key name="Z" label="Z" wide hold={hold} />
+        <Key name="R" label="R" wide hold={hold} />
+      </div>
+
+      {/* La géométrie de la console: A gros au milieu, B en bas à gauche de lui,
+          X à sa droite, Y au-dessus. La première version les mettait en croix
+          régulière, ce qu'aucune main n'a appris. */}
+      <div
+        /* Des colonnes qui suivent leur CONTENU et non trois parts égales:
+           `grid-cols-3` donne à chaque colonne la largeur de la plus large, donc
+           celle du gros bouton A, et le groupe faisait cent cinquante-cinq
+           pixels dans une bande de cent quarante. Mesuré, pas deviné. */
+        className="pointer-events-auto absolute bottom-3 grid grid-cols-[auto_auto_auto] grid-rows-3 gap-1"
+        style={{ right: rightAt, ...cluster }}
+      >
         <Key at="col-start-2 row-start-1" name="Y" label="Y" hold={hold} />
-        <Key at="col-start-1 row-start-2" name="X" label="X" hold={hold} />
-        <Key at="col-start-3 row-start-2" name="B" label="B" hold={hold} />
-        <Key at="col-start-2 row-start-3" name="A" label="A" big hold={hold} />
+        <Key at="col-start-2 row-start-2" name="A" label="A" big tint="a" hold={hold} />
+        <Key at="col-start-3 row-start-2" name="X" label="X" hold={hold} />
+        <Key at="col-start-1 row-start-3" name="B" label="B" tint="b" hold={hold} />
+      </div>
+
+      {/* Start et les deux gestes de la page.
+          Dans la bande droite quand il y en a une, en haut au milieu sinon: ils
+          ne se cherchent qu'une fois, et ils ne doivent jamais tomber sous un
+          pouce qui joue. */}
+      <div
+        className="pointer-events-auto absolute flex items-center gap-2"
+        style={
+          roomy
+            ? { right: rightAt, top: "calc(var(--n3-key) + 1.25rem)", flexDirection: "column" }
+            : { top: "0.5rem", left: "50%", transform: "translateX(-50%)" }
+        }
+      >
+        <Key name="START" label="START" wide hold={hold} />
+        {/* Empilés dans la bande, côte à côte sinon: deux pastilles l'une à
+            côté de l'autre font cent trente pixels de large, et la bande d'un
+            téléphone en fait cent quarante. Mesuré: la seconde mordait de
+            dix-sept pixels sur l'image. */}
+        <div className={roomy ? "flex flex-col gap-2" : "flex gap-2"}>
+          <Small id="showColumn" label="menu" onClick={onMenu} />
+          <Small id="hideTouch" label="cacher" onClick={onLeave} />
+        </div>
       </div>
     </div>
   );
@@ -213,6 +267,7 @@ function Key({
   big = false,
   small = false,
   wide = false,
+  tint,
   hold,
 }: {
   name: ButtonName;
@@ -221,6 +276,13 @@ function Key({
   big?: boolean;
   small?: boolean;
   wide?: boolean;
+  /** La couleur de la console, pour les deux boutons qui en ont une.
+   *
+   * A est vert et B est rouge sur une GameCube, et une main qui a joué dessus
+   * les vise à la couleur avant de lire la lettre. Les autres restent neutres,
+   * comme sur la vraie manette: teinter les quatre ferait un arc-en-ciel qui
+   * n'aide personne. */
+  tint?: "a" | "b";
   hold: (button: ButtonName) => Record<string, unknown>;
 }) {
   const size = big
@@ -233,7 +295,13 @@ function Key({
       type="button"
       id={`touch-${name}`}
       {...hold(name)}
-      className={`${at} flex items-center justify-center rounded-full border border-rule-bright/70 bg-panel/70 font-mono text-[13px] text-text active:border-indigo active:bg-indigo/40`}
+      className={`${at} flex items-center justify-center rounded-full border font-mono text-[13px] transition-colors ${
+        tint === "a"
+          ? "border-[#5ac26a]/70 bg-[#2f6b39]/70 text-[#d9f2de] active:bg-[#5ac26a]/70"
+          : tint === "b"
+            ? "border-[#d1545e]/70 bg-[#6b2f35]/70 text-[#f6dcde] active:bg-[#d1545e]/70"
+            : "border-rule-bright/70 bg-panel/80 text-text active:border-indigo active:bg-indigo/40"
+      }`}
       style={{
         ...(wide ? { height: "var(--n3-key)", padding: "0 0.9rem" } : size),
         touchAction: "none",

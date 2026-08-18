@@ -90,7 +90,16 @@ sessions *args:
     cd control && uv run python sessions.py {{args}}
 
 # Everything a commit must satisfy. Mirrors `poe check`.
-check: fmt-check lint test control front front-check readouts-check contract-check
+# L'ordre compte, et il a coûté trois commits rouges.
+#
+# `front-check` passe EN DERNIER, après `contract-check`. Ce dernier régénère le
+# client TypeScript sous `front/src`, donc une empreinte vérifiée avant lui
+# décrit un état que la porte elle-même vient de changer: la vérification passait
+# au vert puis devenait fausse dans la même commande, et le commit suivant
+# partait avec une marque périmée.
+#
+# Vérifier en dernier veut dire vérifier ce qui sera commité.
+check: fmt-check lint test control front readouts-check contract-check front-check
 
 # Auto-fix pass for development. Mirrors `poe fix`.
 fix:

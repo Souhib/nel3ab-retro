@@ -24,7 +24,7 @@ import { useEffect, useRef } from "react";
 import type { MenuAction } from "../media/menupad";
 import { Art } from "./Art";
 import { Picker } from "./Picker";
-import { useShell } from "./shell";
+import { useShell, useSwipe } from "./shell";
 import { cn } from "../lib/cn";
 
 /** Une entrée dans la colonne d'un rayon. */
@@ -133,9 +133,13 @@ export function Xmb({
     });
   }, [row, ray]);
 
+  const drag = useSwipe(shell.act);
+
   return (
     <div
       id="menu"
+      {...drag}
+      style={{ touchAction: "none" }}
       className={cn(
         "n3-enter fixed inset-0 z-50 overflow-hidden bg-ink",
         shell.picking?.previewing ? "n3-peek" : "",

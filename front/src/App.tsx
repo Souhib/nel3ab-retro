@@ -370,6 +370,35 @@ function Room({
     return () => window.clearInterval(timer);
   }, []);
 
+  /* Le son démarre au PREMIER GESTE, quel qu'il soit.
+   *
+   * Un navigateur ne joue rien avant qu'on le lui ait demandé, et cette demande
+   * doit venir d'un geste de la personne. Sur un ordinateur il y avait un bouton
+   * dans la colonne; sur un téléphone la colonne est repliée et le bouton était
+   * introuvable, donc il n'y avait tout simplement pas de son. Signalé le
+   * 18 août 2026.
+   *
+   * N'importe quel geste fait l'affaire, et le premier appui sur la manette à
+   * l'écran en est un: on écoute une fois, on démarre, on se retire. Le bouton
+   * de la colonne reste, pour qui aurait refusé au premier tour. */
+  useEffect(() => {
+    if (!session) return;
+    const wake = () => {
+      void session.sound.start();
+      for (const kind of ["pointerdown", "keydown", "touchend"]) {
+        window.removeEventListener(kind, wake);
+      }
+    };
+    for (const kind of ["pointerdown", "keydown", "touchend"]) {
+      window.addEventListener(kind, wake, { passive: true });
+    }
+    return () => {
+      for (const kind of ["pointerdown", "keydown", "touchend"]) {
+        window.removeEventListener(kind, wake);
+      }
+    };
+  }, [session]);
+
   useEffect(() => session?.sound.setVolume(volume), [session, volume]);
   useEffect(() => session?.sound.setDeviceRate(deviceRate), [session, deviceRate]);
   useEffect(() => session?.setLipsync(lipsync), [session, lipsync]);
@@ -771,9 +800,18 @@ function Room({
         ) : null}
         {session && onTouch ? (
           <TouchPad
+            /* La largeur des bandes noires de chaque côté de l'image.
+             *
+             * La page la connaît déjà: elle mesure la place et calcule le
+             * placement pour le menu. La manette s'en sert pour se ranger DANS
+             * les bandes plutôt que par-dessus le jeu, ce qui est la différence
+             * entre des boutons posés sur du noir et des boutons posés sur les
+             * pieds du personnage. Quand il n'y a pas de bande, elle retombe sur
+             * les coins. */
+            bar={Math.max(0, (space.width - place(fit, picture, space).width) / 2)}
             touch={session.input.touch}
             onLeave={() => setTouchPref("off")}
-            onColumn={() => setBare(!bare)}
+            onMenu={() => setMenu(true)}
           />
         ) : null}
         {bare && !onTouch ? (

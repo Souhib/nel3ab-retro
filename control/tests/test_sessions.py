@@ -9,7 +9,38 @@ maltraiter une vraie machine, et que ce qu'on vérifie est un rendu, pas une
 mesure. Le pilote, lui, prouve que la trace arrive; celui-ci prouve qu'on la lit.
 """
 
-from sessions import BAND, _band, _lost, _state, _worker_said, _worried
+import re
+from pathlib import Path
+
+from sessions import (
+    BAND,
+    TRANCHE,
+    _band,
+    _lost,
+    _state,
+    _tamed,
+    _worker_said,
+    _worried,
+)
+
+#: Le code du worker, d'où la liste des mesures publiées est lue.
+WORKER = Path(__file__).resolve().parents[2] / "core" / "crates" / "worker" / "src" / "main.rs"
+
+
+def published() -> set[str]:
+    """Les champs de la tranche de dix secondes, lus dans le code du worker.
+
+    Lus plutôt que recopiés: une copie serait une deuxième définition à tenir
+    d'accord avec la première, et c'est exactement la paire qui a divergé.
+    """
+    assert WORKER.is_file(), f"le code du worker est introuvable en {WORKER}"
+    rust = WORKER.read_text(encoding="utf-8")
+    at = rust.index('"streaming"')
+    block = rust[rust.rindex("tracing::info!(", 0, at) : at]
+    found = set(re.findall(r"^\s{16}(\w+)\s*[=,]", block, re.M))
+    assert len(found) > 20, f"la lecture du code du worker n'a trouvé que {found}"
+    return found
+
 
 COLUMNS = ["s", "peintes", "vues", "jetées", "affamées", "encours", "horaire", "gigue"]
 
@@ -212,3 +243,87 @@ def test_the_command_latency_shows_only_when_somebody_pressed_something() -> Non
 
     assert "commandes" not in quiet
     assert "commandes 0.5 ms" in played
+
+
+def test_a_terminal_escape_never_reaches_the_terminal() -> None:
+    """Le journal garde ce qui est arrivé; l'affichage, lui, doit être sûr.
+
+    Vérifié sur la machine le 19 août 2026: un relevé dont un champ valait
+    `\x1b[2J\x1b[1;1H` faisait effacer l'écran de qui lisait le journal, et un
+    pseudo de vingt caractères suffisait à changer le titre de la fenêtre.
+    """
+    dirty = {
+        "pseudo": "\x1b]0;pwned\x07",
+        "vu": {"gigue": "\x1b[2J\x1b[1;1H", "peintes": "\r EFFACE"},
+        "notes": ["ligne\nfabriquée"],
+    }
+
+    clean = _tamed(dirty)
+
+    assert clean["pseudo"] == ".]0;pwned."
+    assert clean["vu"]["gigue"] == ".[2J.[1;1H"
+    assert clean["vu"]["peintes"] == ". EFFACE"
+    # Un saut de ligne dans une donnée fabriquerait une ligne d'affichage qui
+    # n'existe pas.
+    assert clean["notes"] == ["ligne.fabriquée"]
+
+
+def test_what_is_not_a_control_character_is_left_exactly_alone() -> None:
+    """Le jumeau. Un nettoyage qui remplacerait tout satisferait le test
+    au-dessus en rendant le journal illisible."""
+    kept = {
+        "pseudo": "Souhib",
+        "vu": {"gigue": 47, "demi": True},
+        "jeu": "Mario Kart : Double Dash",
+    }
+
+    assert _tamed(kept) == kept
+
+
+def test_every_measurement_the_worker_publishes_can_be_read() -> None:
+    """La règle que la page a depuis le premier audit, et que le worker n'avait pas.
+
+    `front/audit-readouts.mjs` refuse qu'une valeur soit calculée par la page
+    sans être affichée quelque part. Le worker, qui produit bien plus de
+    chiffres, n'avait aucun garde: mesuré le 19 août 2026, il publiait trente
+    mesures toutes les dix secondes et le lecteur en montrait douze.
+
+    Ce n'est pas une question de propreté. `waiting_p99_ms` était publié depuis
+    des semaines, et il aurait montré tout seul que les siestes polluaient
+    `waiting_max_ms`. La mesure était écrite, et personne ne la regardait.
+    """
+    missing = published() - set(TRANCHE)
+
+    assert not missing, (
+        f"le worker publie {sorted(missing)} et le lecteur ne sait pas les dire. "
+        "Ajoute-les à TRANCHE, ou retire-les du worker."
+    )
+
+
+def test_the_reader_does_not_claim_measurements_the_worker_never_sends() -> None:
+    """Le jumeau. Sans lui, un tableau qui listerait cent champs imaginaires
+    satisferait le test au-dessus sans rien prouver."""
+    invented = set(TRANCHE) - published()
+
+    assert not invented, f"le lecteur annonce {sorted(invented)}, que le worker n'envoie pas"
+
+
+def test_a_slice_where_the_room_slept_says_so() -> None:
+    """Sinon la soirée a un trou que personne n'explique.
+
+    Le worker retranche déjà la sieste de l'attente, donc elle n'est plus prise
+    pour une panne de l'émulateur. Restait l'autre lecture fausse: dix minutes
+    sans images et rien qui dise pourquoi.
+    """
+    said = _worker_said({**WELL, "slept_ms": 720_000})
+
+    assert "la salle a dormi 12 min" in said
+
+
+def test_a_slice_from_before_naps_were_measured_does_not_claim_the_room_stayed_awake() -> None:
+    """Le jumeau, et c'est la faute que ce projet a déjà commise quatre fois:
+    un champ absent affiché comme un zéro."""
+    old = {key: value for key, value in WELL.items() if key != "slept_ms"}
+
+    assert "dormi" not in _worker_said(old)
+    assert "dormi" not in _worker_said({**WELL, "slept_ms": 0})

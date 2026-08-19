@@ -26,6 +26,7 @@ import json
 import shutil
 import subprocess
 import sys
+import unicodedata
 from collections import defaultdict
 from datetime import datetime, timedelta
 from typing import Any
@@ -103,6 +104,35 @@ def _seen(vu: dict[str, Any]) -> str:
     if trous:
         said += f"  {trous} trous de son"
     return said
+
+
+def _tamed(value: Any) -> Any:
+    """La même donnée, sans un seul caractère de contrôle.
+
+    Ce que les pages envoient est écrit tel quel dans le journal, et ce lecteur
+    l'imprime dans un terminal. Un terminal obéit à ce qu'on lui écrit:
+    `\x1b[2J` efface l'écran, `\r` réécrit par-dessus la ligne, `\x1b]0;`
+    change le titre de la fenêtre. Vérifié le 19 août 2026: un pseudo de vingt
+    caractères et un champ de relevé suffisaient tous les deux.
+
+    Personne ne prend le contrôle de quoi que ce soit avec ça. Ce qu'on perdrait
+    est plus précis et plus ennuyeux: c'est le seul outil du projet pour
+    comprendre après coup ce qui s'est passé, et on peut le faire mentir sur ce
+    qui s'est passé.
+
+    Nettoyé à la LECTURE et pas à l'écriture. Le journal doit garder ce qui est
+    réellement arrivé, y compris la tentative; c'est l'affichage qui doit être
+    sûr. La catégorie Unicode `C` prend les contrôles, mais aussi les caractères
+    de format comme les marques bidirectionnelles, qui retournent une ligne à
+    l'envers sans un seul octet de contrôle.
+    """
+    if isinstance(value, str):
+        return "".join("." if unicodedata.category(ch).startswith("C") else ch for ch in value)
+    if isinstance(value, dict):
+        return {_tamed(key): _tamed(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_tamed(item) for item in value]
+    return value
 
 
 def _lasted(seconds: float) -> str:
@@ -244,7 +274,7 @@ def _worker(day: str, zone: ZoneInfo) -> list[tuple[datetime, dict[str, Any]]]:
         if brace < 0:
             continue
         try:
-            entry = json.loads(raw[brace:])
+            entry = _tamed(json.loads(raw[brace:]))
         except ValueError:
             continue
         fields = entry.get("fields") or {}
@@ -331,12 +361,87 @@ def _worker_said(fields: dict[str, Any]) -> str:
     lag = ""
     if pressed:
         lag = f"  commandes {float(fields.get('input_to_frame_p50_ms', 0) or 0):.1f} ms"
+    # La sieste, quand il y en a eu une. Le worker la retranche déjà de
+    # l'attente, donc elle n'est plus prise pour une panne; la dire quand même
+    # évite l'autre lecture fausse, celle d'un trou dans la soirée que personne
+    # n'explique. Absent veut dire « ligne d'avant le 19 août 2026 », pas
+    # « la salle est restée éveillée », donc on se tait plutôt que d'écrire zéro.
+    nap = ""
+    if float(fields.get("slept_ms", 0) or 0) > 0:
+        nap = f"  la salle a dormi {_lasted(float(fields['slept_ms']) / 1000)}"
     return (
         f"{int(fields.get('frames', 0) or 0)} images  "
         f"encode p95 {float(fields.get('encoding_p95_ms', 0) or 0):.1f} ms  "
         f"attente max {float(fields.get('waiting_max_ms', 0) or 0):.0f} ms  "
-        f"{float(fields.get('megabits_per_second', 0) or 0):.1f} Mb/s{lag}  ({who})"
+        f"{float(fields.get('megabits_per_second', 0) or 0):.1f} Mb/s{lag}{nap}  ({who})"
     )
+
+
+#: Comment chaque mesure du worker se dit, dans l'ordre où on veut la lire.
+#:
+#: Tout ce que le worker publie est ici, et c'est une règle plutôt qu'un effort:
+#: `tests/test_sessions.py` lit la liste des champs directement dans le code du
+#: worker et refuse qu'il en publie un que ce tableau ignore.
+#:
+#: Pourquoi cette règle. La page a le même garde depuis le premier audit
+#: (`front/audit-readouts.mjs`, « tout ce que la page calcule est affiché quelque
+#: part »). Le worker, qui produit bien plus de chiffres, n'en avait aucun:
+#: mesuré le 19 août 2026, il publiait trente mesures toutes les dix secondes et
+#: le lecteur en montrait douze. Ça coûte pour de vrai. `waiting_p99_ms` aurait
+#: montré tout seul que la sieste polluait `waiting_max_ms`; la mesure était
+#: écrite depuis des semaines et personne ne la regardait.
+#:
+#: Toutes affichées ne veut pas dire toutes sur la même ligne. La ligne courte
+#: reste courte, parce qu'un journal qu'on ne peut pas parcourir est un journal
+#: qu'on n'ouvre pas; celles-ci se lisent avec `just sessions <jour> --tout`.
+TRANCHE: dict[str, tuple[str, str]] = {
+    "frames": ("images", "{:.0f}"),
+    "produced": ("images depuis le démarrage", "{:.0f}"),
+    "slept_ms": ("dormi", "{:.0f} ms"),
+    "watchers": ("public grand format", "{:.0f}"),
+    "half_watchers": ("public format réduit", "{:.0f}"),
+    "dropped_now": ("jetées ici, grand format", "{:.0f}"),
+    "half_dropped_now": ("jetées ici, format réduit", "{:.0f}"),
+    "dropped": ("jetées depuis le démarrage, grand format", "{:.0f}"),
+    "half_dropped": ("jetées depuis le démarrage, format réduit", "{:.0f}"),
+    "waiting_p50_ms": ("attente de l'émulateur p50", "{:.2f} ms"),
+    "waiting_p95_ms": ("attente de l'émulateur p95", "{:.2f} ms"),
+    "waiting_p99_ms": ("attente de l'émulateur p99", "{:.2f} ms"),
+    "waiting_max_ms": ("attente de l'émulateur max", "{:.2f} ms"),
+    "converting_p50_ms": ("conversion GPU p50", "{:.3f} ms"),
+    "converting_p95_ms": ("conversion GPU p95", "{:.3f} ms"),
+    "converting_max_ms": ("conversion GPU max", "{:.3f} ms"),
+    "encoding_p50_ms": ("encodage p50", "{:.2f} ms"),
+    "encoding_p95_ms": ("encodage p95", "{:.2f} ms"),
+    "encoding_p99_ms": ("encodage p99", "{:.2f} ms"),
+    "encoding_max_ms": ("encodage max", "{:.2f} ms"),
+    "frame_bytes_p50": ("poids d'une image p50", "{:.0f} o"),
+    "frame_bytes_p95": ("poids d'une image p95", "{:.0f} o"),
+    "frame_bytes_p99": ("poids d'une image p99", "{:.0f} o"),
+    "frame_bytes_max": ("poids d'une image max", "{:.0f} o"),
+    "megabits_per_second": ("débit", "{:.2f} Mb/s"),
+    "input_to_frame_samples": ("commandes mesurées", "{:.0f}"),
+    "input_to_frame_p50_ms": ("commande vers image p50", "{:.2f} ms"),
+    "input_to_frame_p95_ms": ("commande vers image p95", "{:.2f} ms"),
+    "inputs_received": ("commandes reçues depuis le démarrage", "{:.0f}"),
+    "inputs_applied": ("commandes appliquées depuis le démarrage", "{:.0f}"),
+    "sound_starved": ("son affamé depuis le démarrage", "{:.0f}"),
+}
+
+
+def _tranche(fields: dict[str, Any]) -> list[str]:
+    """Tout ce que cette tranche a mesuré, une ligne par mesure.
+
+    Une mesure ABSENTE ne s'affiche pas. Le worker gagne des champs au fil du
+    temps, et écrire zéro pour une ligne d'avant serait la quatrième fois que ce
+    projet fait passer une absence pour un résultat.
+    """
+    said = []
+    for name, (label, shape) in TRANCHE.items():
+        if name not in fields:
+            continue
+        said.append(f"{label:<42} {shape.format(float(fields[name] or 0))}")
+    return said
 
 
 def _hour(line: dict[str, Any]) -> str:
@@ -349,7 +454,15 @@ def _hour(line: dict[str, Any]) -> str:
 def main(argv: list[str]) -> int:
     today = datetime.now().astimezone().strftime("%Y-%m-%d")
     day = next((arg for arg in argv if arg[:2].isdigit()), today)
-    wanted = next((arg.lower() for arg in argv if not arg[:2].isdigit()), None)
+    # `--tout` déplie chaque tranche du worker en entier. La lecture ordinaire
+    # ne montre que ce qui mérite un regard, parce qu'une ligne saine toutes les
+    # dix secondes fait huit mille six cents lignes par jour; mais quand on
+    # cherche vraiment, tout doit être atteignable sans relire le code du worker.
+    everything = "--tout" in argv
+    wanted = next(
+        (arg.lower() for arg in argv if not arg[:2].isdigit() and not arg.startswith("--")),
+        None,
+    )
     path = FOLDER / f"{day}.jsonl"
     if not path.exists():
         # Dire ce qui EXISTE plutôt que seulement ce qui manque: la rétention est
@@ -360,7 +473,9 @@ def main(argv: list[str]) -> int:
         print(f"journées gardées: {', '.join(known) or 'aucune'}")
         return 1
 
-    lines = [json.loads(raw) for raw in path.read_text(encoding="utf-8").splitlines() if raw]
+    lines = [
+        _tamed(json.loads(raw)) for raw in path.read_text(encoding="utf-8").splitlines() if raw
+    ]
     visits: dict[str, list[dict[str, Any]]] = defaultdict(list)
     loose: list[dict[str, Any]] = []
     benched = 0
@@ -390,8 +505,14 @@ def main(argv: list[str]) -> int:
     print(f", {benched} de banc écartés" if benched else "")
     for visit, events in sorted(visits.items(), key=lambda pair: pair[1][0]["quand"]):
         who = events[-1].get("pseudo") or "quelqu'un"
+        # « manette » plutôt que rien: une page qui ne décode pas l'image
+        # n'envoie aucun relevé, donc sans cette mention elle se lit comme une
+        # page dont la vidéo est cassée.
+        kind = " (manette seule)" if any(event.get("manette") for event in events) else ""
         login = events[-1].get("login")
-        print(f"\n  {who}" + (f" <{login}>" if login else " (sans identité)") + f"  [{visit}]")
+        print(
+            f"\n  {who}" + (f" <{login}>" if login else " (sans identité)") + kind + f"  [{visit}]"
+        )
         for event in events:
             told = SAYS.get(event["quoi"], lambda line: line["quoi"])(event)
             if event["quoi"] in ("mesures", "plainte"):
@@ -405,7 +526,7 @@ def main(argv: list[str]) -> int:
             jeu = salle.get("jeu")
             print(f"    {_hour(event)}  {told:<34} {around}" + (f", {jeu}" if jeu else ""))
 
-    _tell_worker(day, [line for line in lines if line["quoi"] == "plainte"])
+    _tell_worker(day, [line for line in lines if line["quoi"] == "plainte"], everything)
 
     # Ce qui n'appartient à personne: les changements de propriétaire, qui sont un
     # fait de la SALLE et pas d'une visite. Les ranger sous une visite au hasard
@@ -418,7 +539,7 @@ def main(argv: list[str]) -> int:
     return 0
 
 
-def _tell_worker(day: str, complaints: list[dict[str, Any]]) -> None:
+def _tell_worker(day: str, complaints: list[dict[str, Any]], everything: bool = False) -> None:
     """L'autre moitié de l'histoire: ce que le serveur faisait pendant ce temps.
 
     Deux sélections, et deux raisons différentes:
@@ -453,6 +574,9 @@ def _tell_worker(day: str, complaints: list[dict[str, Any]]) -> None:
             continue
         flag = "  <<< " + wrong if wrong else ""
         print(f"    {when.strftime('%H:%M:%S')}  {_worker_said(fields)}{flag}")
+        if everything:
+            for measure in _tranche(fields):
+                print(f"              {measure}")
         shown += 1
     if shown == 0:
         print("    rien à signaler, et aucun signalement à encadrer")

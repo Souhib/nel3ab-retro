@@ -514,21 +514,54 @@ fn run(settings: &Settings) -> Result<()> {
     // regarde une image figée pendant ce délai-là.
     let container =
         std::env::var("NEL3AB_CONTAINER").unwrap_or_else(|_| "nel3ab-dolphin".to_owned());
+    // Combien de temps la salle a passé en pause, en microsecondes, depuis le
+    // démarrage.
+    //
+    // Sans ce compteur, une sieste était indiscernable d'une panne. Le worker
+    // attend son image prochaine aussi longtemps que dure la pause, et
+    // `waiting_max_ms` enregistrait cette attente: `just sessions` annonçait
+    // « l'émulateur a fait attendre 6 310 436 ms » pour une salle qui dormait
+    // une heure quarante-cinq. Sur les 63 tranches signalées en trois jours de
+    // journal, 7 étaient des siestes.
+    //
+    // Retranché de l'attente là où l'attente est mesurée, et publié à part pour
+    // que la sieste reste visible plutôt que gommée.
+    let slept_micros = Arc::new(std::sync::atomic::AtomicU64::new(0));
     let nap_thread = {
         let server = Arc::clone(&server);
         let stopping = Arc::clone(&stopping);
         let container = container.clone();
+        let slept_micros = Arc::clone(&slept_micros);
         std::thread::Builder::new()
             .name("nap".to_owned())
             .spawn(move || {
                 let mut nap = Nap::new();
+                // Rempli quand le gel a RÉUSSI, vidé au réveil. Poser l'instant
+                // avant de savoir si docker a suivi compterait comme dormie une
+                // salle qui ne s'est jamais endormie.
+                let mut asleep_since: Option<Instant> = None;
                 while !stopping.load(std::sync::atomic::Ordering::Relaxed) {
                     std::thread::sleep(Duration::from_millis(500));
                     let Some(what) = nap.saw(server.watchers(), Instant::now(), nap::GRACE) else {
                         continue;
                     };
                     match tell_docker(&container, what) {
-                        Ok(()) => tracing::info!(?what, "le jeu a été gelé ou réveillé"),
+                        Ok(()) => {
+                            match what {
+                                nap::Move::Sleep => asleep_since = Some(Instant::now()),
+                                nap::Move::Wake => {
+                                    if let Some(since) = asleep_since.take() {
+                                        let micros = u64::try_from(since.elapsed().as_micros())
+                                            .unwrap_or(u64::MAX);
+                                        slept_micros.fetch_add(
+                                            micros,
+                                            std::sync::atomic::Ordering::Relaxed,
+                                        );
+                                    }
+                                }
+                            }
+                            tracing::info!(?what, "le jeu a été gelé ou réveillé");
+                        }
                         // Jamais fatal: une salle qui refuserait de servir parce
                         // qu'elle n'a pas su s'endormir serait cassée par une
                         // économie.
@@ -623,6 +656,7 @@ fn run(settings: &Settings) -> Result<()> {
     // Les pertes déjà rapportées, pour n'annoncer que celles de la tranche.
     let mut reported_dropped = 0_u64;
     let mut reported_half_dropped = 0_u64;
+    let mut reported_slept = 0_u64;
     let mut reported = Instant::now();
     // When a pad state was last handed to the emulator, so the wait until the
     // next picture can be measured. This is the plumbing's share of input
@@ -659,6 +693,7 @@ fn run(settings: &Settings) -> Result<()> {
         // to live here over a 64-deep queue; it belongs where the states are
         // written, which is also where a queue could overflow and did.
         let iteration = Instant::now();
+        let slept_before = slept_micros.load(std::sync::atomic::Ordering::Relaxed);
         // L'emprunt est rendu AVANT de toucher à `frames`.
         //
         // `next_frame` rend une image qui emprunte la source, donc le
@@ -719,7 +754,15 @@ fn run(settings: &Settings) -> Result<()> {
         {
             input_to_frame.observe(at.elapsed());
         }
-        let waited = iteration.elapsed();
+        // L'attente, moins ce que la salle a passé en pause pendant cette
+        // attente-là. Une salle qui dort n'est pas un émulateur qui hoquette, et
+        // les confondre envoyait chercher une panne là où il n'y en avait pas.
+        let napped = Duration::from_micros(
+            slept_micros
+                .load(std::sync::atomic::Ordering::Relaxed)
+                .saturating_sub(slept_before),
+        );
+        let waited = nap::awake_wait(iteration.elapsed(), napped);
         // A ten-second summary says a stall HAPPENED; it cannot say WHEN, and
         // "when" is the only thing that lets a profile of the emulator be
         // aligned with it. Named at the instant, so a sampler running alongside
@@ -882,6 +925,21 @@ fn run(settings: &Settings) -> Result<()> {
                 inputs_received = server.inputs_received(),
                 inputs_applied = applied.load(std::sync::atomic::Ordering::Relaxed),
                 sound_starved = sound_starved.load(std::sync::atomic::Ordering::Relaxed),
+                // Le temps passé en pause pendant cette tranche. Zéro veut
+                // dire « la salle est restée éveillée », ce qui est une mesure
+                // et pas une absence: le champ est écrit à chaque tranche.
+                // En millisecondes entières, par `Duration` plutôt que par une
+                // division: une sieste se compte en minutes, et un flottant y
+                // ajouterait une précision dont personne n'a l'usage.
+                slept_ms = u64::try_from(
+                    Duration::from_micros(
+                        slept_micros
+                            .load(std::sync::atomic::Ordering::Relaxed)
+                            .saturating_sub(reported_slept),
+                    )
+                    .as_millis(),
+                )
+                .unwrap_or(u64::MAX),
                 frames = wait.samples,
                 waiting_p50_ms = wait.p50,
                 waiting_p95_ms = wait.p95,
@@ -910,6 +968,7 @@ fn run(settings: &Settings) -> Result<()> {
             reported_bytes = coded_bytes;
             reported_dropped = server.dropped();
             reported_half_dropped = server.half_dropped();
+            reported_slept = slept_micros.load(std::sync::atomic::Ordering::Relaxed);
             wait_times.clear();
             frame_bytes.clear();
             convert_times.clear();

@@ -100,6 +100,26 @@ impl Nap {
     }
 }
 
+/// L'attente qui revient vraiment à l'émulateur.
+///
+/// Le worker mesure le temps passé à attendre son image prochaine. Quand la
+/// salle dort, ce temps contient la sieste, et une sieste n'est pas un hoquet:
+/// `just sessions` annonçait « l'émulateur a fait attendre 6 310 436 ms » pour
+/// une salle en pause depuis une heure quarante-cinq. Sept tranches sur les
+/// soixante-trois signalées en trois jours de journal étaient dans ce cas.
+///
+/// Retranché ici plutôt que corrigé chez le lecteur, parce qu'une mesure fausse
+/// qu'on rattrape à la lecture reste fausse dans le journal.
+///
+/// Ne descend jamais sous zéro. Les deux durées viennent d'horloges lues à des
+/// instants différents, donc la sieste peut dépasser l'attente de quelques
+/// microsecondes, et une soustraction qui déborderait rendrait une attente
+/// gigantesque là où il n'y en avait aucune.
+#[must_use]
+pub const fn awake_wait(elapsed: Duration, napped: Duration) -> Duration {
+    elapsed.saturating_sub(napped)
+}
+
 /// Gèle le conteneur, ou le dégèle.
 ///
 /// # Errors
@@ -217,5 +237,36 @@ mod tests {
             assert_eq!(nap.saw(1, at(start, second), GRACE), None);
         }
         assert!(!nap.asleep());
+    }
+
+    #[test]
+    fn a_wait_that_contained_a_nap_only_counts_what_was_awake() {
+        // Une tranche entière de dix minutes, dont presque tout en pause.
+        let waited = Duration::from_mins(10);
+        let slept = Duration::from_secs(599);
+
+        assert_eq!(awake_wait(waited, slept), Duration::from_secs(1));
+    }
+
+    /// Le jumeau, et il n'est pas décoratif: sans lui, une soustraction qui
+    /// déborde rendrait une attente de cinq cent quatre-vingt-quatre mille ans,
+    /// ce qui est exactement le genre de chiffre que ce module existe pour ne
+    /// plus produire.
+    #[test]
+    fn a_nap_longer_than_the_wait_leaves_nothing_rather_than_everything() {
+        let waited = Duration::from_millis(10);
+        let slept = Duration::from_millis(11);
+
+        assert_eq!(awake_wait(waited, slept), Duration::ZERO);
+    }
+
+    /// Et le cas ordinaire: sans sieste, l'attente est rendue telle quelle.
+    /// Sinon une fonction qui rendrait toujours zéro passerait les deux
+    /// au-dessus.
+    #[test]
+    fn a_wait_without_a_nap_is_left_alone() {
+        let waited = Duration::from_millis(17);
+
+        assert_eq!(awake_wait(waited, Duration::ZERO), waited);
     }
 }

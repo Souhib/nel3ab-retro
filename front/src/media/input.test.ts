@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { readRoomMessage, readShake } from "./input";
+
+import { askEcho, readEcho, readRoomMessage, readShake } from "./input";
 
 /** `[players, mine, busy1..busy4]`, exactly as the worker writes it. */
 const message = (...bytes: number[]) => new Uint8Array(bytes);
@@ -53,5 +54,29 @@ describe("la vibration qui redescend", () => {
     // manette de quelqu'un d'autre.
     expect(readShake(new Uint8Array([0, 200]))).toBeNull();
     expect(readShake(new Uint8Array([5, 200]))).toBeNull();
+  });
+});
+
+describe("l'aller-retour de la manette", () => {
+  it("porte le numéro qu'on lui donne, et le rend", () => {
+    expect(readEcho(askEcho(1))).toBe(1);
+    expect(readEcho(askEcho(4_294_967_295))).toBe(4_294_967_295);
+  });
+
+  it("n'est confondu avec aucun autre message de ce canal", () => {
+    // Les messages se reconnaissent à leur longueur. Une secousse en fait deux,
+    // l'état de la salle six, l'aller-retour neuf.
+    expect(readEcho(new Uint8Array([1, 128]))).toBeNull();
+    expect(readEcho(new Uint8Array([2, 1, 1, 0, 0, 0]))).toBeNull();
+  });
+
+  it("refuse neuf octets qui ne portent pas la marque", () => {
+    // Le jumeau de la marque. Sans lui, une lecture qui ne regarderait que la
+    // longueur prendrait pour une mesure n'importe quel message futur de neuf
+    // octets, et afficherait une latence inventée.
+    const wrong = askEcho(7);
+    wrong[0] = 0x11;
+
+    expect(readEcho(wrong)).toBeNull();
   });
 });

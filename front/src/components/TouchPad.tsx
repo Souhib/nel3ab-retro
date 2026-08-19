@@ -158,8 +158,21 @@ export function TouchPad({
   /* Les groupes se rangent DANS les bandes noires quand il y en a, et aux coins
      sinon. `left`/`right` sont donc des positions calculées et non des classes:
      la largeur de la bande n'est connue qu'à l'exécution. */
-  const leftAt = roomy ? Math.max(6, (bar - 132) / 2) : 8;
-  const rightAt = roomy ? Math.max(6, (bar - 132) / 2) : 8;
+  /* Les bords, zones sûres comprises.
+   *
+   * Un téléphone tenu en travers met sa barre d'adresse en haut et son encoche
+   * sur un côté, et un bouton collé au bord tombe dessous: signalé sur un
+   * iPhone, les gâchettes étaient à moitié sous la barre. `env(safe-area-inset-*)`
+   * est ce que le navigateur promet de laisser libre, et vaut zéro partout
+   * ailleurs, donc l'écart ne coûte rien à un ordinateur.
+   *
+   * Quatorze pixels en plus du haut: assez pour que le doigt ait la place de
+   * poser sans viser le bord, pas assez pour que les gâchettes descendent dans
+   * l'image. */
+  const side = roomy ? Math.max(6, (bar - 132) / 2) : 8;
+  const leftAt = `calc(env(safe-area-inset-left, 0px) + ${side}px)`;
+  const rightAt = `calc(env(safe-area-inset-right, 0px) + ${side}px)`;
+  const topAt = "calc(env(safe-area-inset-top, 0px) + 14px)";
 
   /* Les quatre boutons sont le groupe le plus LARGE: trois colonnes, là où le
      stick n'en fait qu'une et la croix trois petites. À la taille par défaut il
@@ -176,7 +189,7 @@ export function TouchPad({
     >
       {/* BANDE GAUCHE, de haut en bas: la gâchette, la croix, le stick.
           Le pouce gauche les atteint toutes les trois sans lâcher le téléphone. */}
-      <div className="pointer-events-auto absolute top-0" style={{ left: leftAt }}>
+      <div className="pointer-events-auto absolute" style={{ left: leftAt, top: topAt }}>
         <Key name="L" label="L" shoulder hold={hold} />
       </div>
 
@@ -220,12 +233,12 @@ export function TouchPad({
 
       {/* BANDE DROITE: les gâchettes en haut, les quatre boutons en bas. */}
       {/* Les gâchettes, dessinées comme sur la console: L et R sont des palettes
-          larges collées au bord du haut, et Z une petite touche mauve posée
-          contre R. Sur une vraie manette Z est violet et se trouve au-dessus de
-          R, sous l'index droit; ici elle est à côté, faute de troisième doigt. */}
+          larges, et Z une petite touche mauve posée contre R. Sur une vraie
+          manette Z est violet et se trouve au-dessus de R, sous l'index droit;
+          ici elle est à côté, faute de troisième doigt. */}
       <div
-        className="pointer-events-auto absolute top-0 flex items-start gap-1.5"
-        style={{ right: rightAt }}
+        className="pointer-events-auto absolute flex items-start gap-1.5"
+        style={{ right: rightAt, top: topAt }}
       >
         <Key name="Z" label="Z" tint="z" pill hold={hold} />
         <Key name="R" label="R" shoulder hold={hold} />
@@ -256,8 +269,12 @@ export function TouchPad({
         className="pointer-events-auto absolute flex items-center gap-2"
         style={
           roomy
-            ? { right: rightAt, top: "calc(var(--n3-key) + 1.25rem)", flexDirection: "column" }
-            : { top: "0.5rem", left: "50%", transform: "translateX(-50%)" }
+            ? {
+                right: rightAt,
+                top: `calc(${topAt} + var(--n3-key) + 0.75rem)`,
+                flexDirection: "column",
+              }
+            : { top: topAt, left: "50%", transform: "translateX(-50%)" }
         }
       >
         <Key name="START" label="START" wide hold={hold} />
@@ -297,6 +314,26 @@ export function TouchPad({
  * L'état pressé vient de `:active`, donc appuyer ne provoque aucun rendu. C'est
  * la moitié invisible de « React ne touche pas au chemin des commandes ».
  */
+/** Ce qu'une synthèse vocale doit dire de chaque touche.
+ *
+ * Lu dans l'arbre d'accessibilité de Chrome le 19 août 2026: les quinze boutons
+ * de la page en cours de partie avaient tous un nom, mais quatre s'appelaient
+ * d'un glyphe de flèche, que la synthèse lit mal ou pas du tout, et trois d'une
+ * lettre qui ne veut rien dire hors du contexte d'une manette GameCube.
+ *
+ * Seules celles qui en ont besoin sont ici. « A », « B », « X », « Y » et
+ * « START » se lisent déjà comme ce qu'elles sont, et leur inventer une phrase
+ * les rendrait plus longues à entendre sans les rendre plus claires. */
+const SPOKEN: Partial<Record<ButtonName, string>> = {
+  D_UP: "croix directionnelle, haut",
+  D_DOWN: "croix directionnelle, bas",
+  D_LEFT: "croix directionnelle, gauche",
+  D_RIGHT: "croix directionnelle, droite",
+  L: "gâchette gauche",
+  R: "gâchette droite",
+  Z: "bouton Z",
+};
+
 function Key({
   name,
   label,
@@ -337,12 +374,13 @@ function Key({
     <button
       type="button"
       id={`touch-${name}`}
+      aria-label={SPOKEN[name]}
       {...hold(name)}
       className={`${at} flex items-center justify-center border font-mono transition-colors ${
         shoulder
-          ? "rounded-b-[14px] rounded-t-none border-t-0 text-[15px] tracking-[0.1em]"
+          ? "rounded-[14px] text-[15px] tracking-[0.1em]"
           : pill
-            ? "rounded-b-[10px] rounded-t-none border-t-0 text-[13px]"
+            ? "rounded-[10px] text-[13px]"
             : "rounded-full text-[13px]"
       } ${
         tint === "a"

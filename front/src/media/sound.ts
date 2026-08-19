@@ -72,6 +72,69 @@ export type SoundStats = {
   fastestLag: number | null;
 };
 
+/** Sous combien de secondes un morceau posé est déjà en retard.
+ *
+ * Deux millisecondes. Un morceau demandé dans le passé joue immédiatement, donc
+ * tout ce qui passe sous ce seuil arrive déjà en désordre; ce n'est pas une
+ * marge de confort, c'est la limite au-delà de laquelle poser le morceau ne veut
+ * plus rien dire. */
+export const FLOOR = 0.002;
+
+/** Ce que devient l'ordonnancement quand un morceau arrive. */
+export type Schedule = {
+  /** Quand poser le prochain morceau, sur l'horloge du contexte. */
+  playAt: number;
+  /** L'avance à tenir, éventuellement augmentée. */
+  lead: number;
+  /** Vrai quand il a fallu se réancrer, donc quand le son a sauté. */
+  gap: boolean;
+};
+
+/**
+ * Où poser le morceau qui arrive, et ce que ça coûte.
+ *
+ * Sorti de la classe pour une raison précise. Le 18 août 2026, cette décision a
+ * produit **1 001 trous pour 1 000 morceaux** et un silence complet, parce que
+ * le plafond d'avance était passé au-dessus du seuil de réancrage: chaque
+ * morceau se trouvait trop en avance, se réancrait, augmentait l'avance, et
+ * rendait le suivant plus en avance encore. Les quatre tests écrits après la
+ * panne vérifiaient des relations entre constantes; aucun ne faisait tourner la
+ * boucle, et le banc de mutations du 19 août l'a montré en cassant les deux
+ * branches ci-dessous sans qu'un seul test tombe.
+ *
+ * Deux cas de réancrage, et ils ne disent pas la même chose. **En retard**: on
+ * a décroché de l'horloge matérielle et le morceau arriverait après son tour.
+ * **Trop en avance**: le son arriverait si tard après l'image que le décalage
+ * s'entendrait. Les deux se réparent pareil, en repartant de maintenant.
+ *
+ * Le tout premier morceau n'est pas un trou. `playAt` vaut zéro avant qu'on ait
+ * rien posé, et compter ce départ comme une cassure ferait démarrer chaque
+ * séance avec une faute qui n'a pas eu lieu.
+ */
+export function scheduleAt(now: number, playAt: number, lead: number): Schedule {
+  if (playAt >= now + FLOOR && playAt <= now + RESYNC) {
+    return { playAt, lead, gap: false };
+  }
+  const started = playAt !== 0;
+  // L'avance grandit d'un cran à chaque cassure, et JAMAIS au-delà du plafond.
+  // Sans ce plafond, l'avance monte sans fin et le son finit par arriver une
+  // seconde après l'image.
+  const grown = started ? Math.min(LEAD_MAX, lead + 0.01) : lead;
+  return { playAt: now + grown, lead: grown, gap: started };
+}
+
+/**
+ * L'avance redescend quand rien n'a cassé depuis le dernier regard.
+ *
+ * Grandir est ce qu'une cassure coûte; rester est ce que le son coûte contre
+ * l'image, pour toujours. La descente est dix fois plus lente que la montée,
+ * pour qu'une salle qui va mal ne passe pas son temps à faire l'aller-retour.
+ */
+export function trimmed(lead: number, gaps: number, seen: number): number {
+  if (gaps !== seen || lead <= LEAD_MIN) return lead;
+  return Math.max(LEAD_MIN, lead - 0.001);
+}
+
 export class SoundStream {
   private socket: WebSocket | null = null;
   private context: AudioContext | null = null;
@@ -311,16 +374,10 @@ export class SoundStream {
       }
     }
 
-    const now = context.currentTime;
-    if (this.playAt < now + 0.002 || this.playAt > now + RESYNC) {
-      // Either we fell behind the hardware clock or ran so far ahead the sound
-      // would arrive late enough to be wrong. Both are fixed the same way.
-      if (this.playAt !== 0) {
-        this.gaps += 1;
-        this.lead = Math.min(LEAD_MAX, this.lead + 0.01);
-      }
-      this.playAt = now + this.lead;
-    }
+    const placed = scheduleAt(context.currentTime, this.playAt, this.lead);
+    this.playAt = placed.playAt;
+    this.lead = placed.lead;
+    if (placed.gap) this.gaps += 1;
     const source = context.createBufferSource();
     source.buffer = buffer;
     source.connect(this.gain);
@@ -384,9 +441,7 @@ export class SoundStream {
    * break costs; keeping it is what the sound costs against the picture, for
    * ever. */
   private trim(): void {
-    if (this.gaps === this.gapsSeen && this.lead > LEAD_MIN) {
-      this.lead = Math.max(LEAD_MIN, this.lead - 0.001);
-    }
+    this.lead = trimmed(this.lead, this.gaps, this.gapsSeen);
     this.gapsSeen = this.gaps;
   }
 }

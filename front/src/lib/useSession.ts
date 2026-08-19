@@ -17,6 +17,10 @@ export function useSession(
   /** Vrai quand la personne a choisi de regarder. Lu une seule fois, à la
    * construction: changer d'avis ensuite passe par la session elle-même. */
   watching: boolean,
+  /** Vrai quand cette page ne sert que de manette. Contrairement au volume, ce
+   * réglage change QUELS canaux la page ouvre, donc en changer reconstruit la
+   * session: il n'y a pas de moyen d'arrêter une vidéo à moitié. */
+  padOnly: boolean,
 ): { ref: React.RefObject<HTMLCanvasElement | null>; session: Session | null } {
   const ref = useRef<HTMLCanvasElement>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -30,7 +34,14 @@ export function useSession(
   useEffect(() => {
     const canvas = ref.current;
     if (!canvas) return;
-    const made = new Session(canvas, (port) => seat.current(port), volume, deviceRate, watching);
+    const made = new Session(
+      canvas,
+      (port) => seat.current(port),
+      volume,
+      deviceRate,
+      watching,
+      padOnly,
+    );
     made.start();
     exposeForTests(made);
     setSession(made);
@@ -38,10 +49,12 @@ export function useSession(
       made.stop();
       setSession(null);
     };
-    // Once, deliberately. Volume and sample rate are applied THROUGH the session
-    // by their own effects, never by building a second one.
+    // Une seule dépendance, délibérément. Le volume et la fréquence
+    // s'appliquent À TRAVERS la session par leurs propres effets, jamais en en
+    // construisant une seconde. `padOnly` est différent: il décide quels canaux
+    // s'ouvrent, ce qui ne se change pas sur une session déjà partie.
     // oxlint-disable-next-line exhaustive-deps
-  }, []);
+  }, [padOnly]);
 
   return { ref, session };
 }

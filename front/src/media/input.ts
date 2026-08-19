@@ -4,6 +4,7 @@
  * The port is the SERVER'S to decide — it alone knows who else is in the room —
  * and it says so in one byte as soon as the socket opens. Zero means no seat.
  */
+import { Window } from "./clock";
 import { Touch } from "./touch";
 import { Capture, Lesson, loudest, snapshot, type Snapshot } from "./lesson";
 import { MenuPad, type MenuAction } from "./menupad";
@@ -61,6 +62,13 @@ export type InputState = {
   /** Le profil de la manette, s'il y en a un. Nul veut dire « pas de manette »
    * ou « la disposition standard, pas encore personnalisée ». */
   profile: PadProfile | null;
+  /** L'aller-retour de la manette jusqu'à la salle, en millisecondes.
+   *
+   * La médiane des trente derniers. Nul veut dire « pas encore mesuré », et pas
+   * « zéro milliseconde »: une page qui vient d'ouvrir n'a rien envoyé, et
+   * afficher zéro serait annoncer une liaison parfaite là où il n'y a aucune
+   * mesure. */
+  roundTripMs: number | null;
   /** Ce que fait chaque touche du clavier. */
   keys: KeyProfile;
   /** Les manettes branchées, dans l'ordre où le navigateur les donne. */
@@ -102,6 +110,46 @@ export type Shake = { port: number; strength: number };
  * pas sa taille, donc une page qui ne connaîtrait pas les secousses les ignore
  * sans rien casser, et une page qui les connaît ne peut pas confondre les deux.
  */
+/** Combien de temps entre deux mesures d'aller-retour, en millisecondes.
+ *
+ * Une seconde. Neuf octets par seconde et par page, soit un millième du trafic
+ * d'une manette, qui en envoie treize soixante fois par seconde. La mesure ne
+ * coûte donc rien à ce qu'elle mesure, ce qui est la première chose à vérifier
+ * quand on ajoute une sonde sur un chemin chaud.
+ */
+const ECHO_EVERY_MS = 1000;
+
+/** Au bout de combien de temps on oublie un aller-retour parti.
+ *
+ * Cinq secondes. Au-delà, la liaison est cassée plutôt que lente, et garder le
+ * départ ne sert qu'à faire grossir la table pendant toute la soirée. */
+const ECHO_FORGET_MS = 5000;
+
+/** La marque d'un aller-retour, la même que `Echo::TAG` côté worker. */
+const ECHO_TAG = 0xe0;
+
+/** Combien d'octets un aller-retour occupe. La même que `Echo::LEN`. */
+const ECHO_LEN = 9;
+
+/** Prépare un aller-retour portant ce numéro.
+ *
+ * Le jeton est un compteur, pas une horodate: le worker le rend tel quel sans
+ * rien y lire, et la page garde de son côté l'instant qui va avec. Envoyer
+ * l'instant reviendrait à publier une horloge dont personne n'a besoin.
+ */
+export function askEcho(ticket: number): Uint8Array<ArrayBuffer> {
+  const bytes = new Uint8Array(new ArrayBuffer(ECHO_LEN));
+  bytes[0] = ECHO_TAG;
+  new DataView(bytes.buffer).setUint32(1, ticket >>> 0, true);
+  return bytes;
+}
+
+/** Le numéro d'un aller-retour qui revient, ou rien si ce n'en est pas un. */
+export function readEcho(bytes: Uint8Array): number | null {
+  if (bytes.length !== ECHO_LEN || bytes[0] !== ECHO_TAG) return null;
+  return new DataView(bytes.buffer, bytes.byteOffset).getUint32(1, true);
+}
+
 export function readShake(bytes: Uint8Array): Shake | null {
   if (bytes.length !== 2) return null;
   const port = bytes[0] ?? 0;
@@ -144,6 +192,17 @@ export class InputStream {
    * est la seule preuve qu'elle est arrivée jusqu'ici. */
   private shakes = 0;
   private everHeld = false;
+  /** Les allers-retours mesurés, en millisecondes. Trente échantillons, soit
+   * une demi-minute: assez pour que la médiane ne suive pas un hoquet, assez
+   * court pour qu'elle suive un vrai changement de liaison. */
+  private readonly trips = new Window(30);
+  /** Le numéro du prochain aller-retour, et l'instant de ceux qui sont partis.
+   *
+   * Par NUMÉRO et pas par un simple « le dernier »: sur une liaison lente, deux
+   * allers-retours peuvent être en vol en même temps, et attribuer le retour de
+   * l'un au départ de l'autre donnerait une latence inventée. */
+  private ticket = 0;
+  private readonly sentAt = new Map<number, number>();
   private displaced = false;
   /** Jusqu'à quand cette page s'abstient de reprendre une place.
    *
@@ -222,8 +281,31 @@ export class InputStream {
     addEventListener("keyup", this.onKeyUp);
     addEventListener("blur", this.onBlur);
     this.timers.push(window.setInterval(this.pump, PAD_PERIOD_MS));
+    this.timers.push(window.setInterval(this.ping, ECHO_EVERY_MS));
     requestAnimationFrame(this.pumpOnRefresh);
   }
+
+  /** Envoie un aller-retour, et oublie ceux qui ne sont jamais revenus.
+   *
+   * Le ménage compte: sans lui, une liaison qui perd des messages ferait grossir
+   * la table des départs pendant toute la soirée, ce qui est une fuite mémoire
+   * dans le chemin le plus long de la page.
+   */
+  private readonly ping = (): void => {
+    const socket = this.socket;
+    if (socket === null || socket.readyState !== WebSocket.OPEN) return;
+    const now = performance.now();
+    for (const [ticket, at] of this.sentAt) {
+      if (now - at > ECHO_FORGET_MS) this.sentAt.delete(ticket);
+    }
+    this.ticket = (this.ticket + 1) >>> 0;
+    this.sentAt.set(this.ticket, now);
+    try {
+      socket.send(askEcho(this.ticket));
+    } catch {
+      this.sentAt.delete(this.ticket);
+    }
+  };
 
   stop(): void {
     for (const timer of this.timers) window.clearInterval(timer);
@@ -257,6 +339,7 @@ export class InputStream {
           : { control: this.capture.control, source: this.capture.source },
       profile: this.profile,
       keys: this.keys,
+      roundTripMs: this.trips.length === 0 ? null : Math.round(this.trips.at(0.5)),
     };
   }
 
@@ -517,7 +600,18 @@ export class InputStream {
     socket.onmessage = (event: MessageEvent<ArrayBuffer>) => {
       if (mine !== this.generation) return;
       const bytes = new Uint8Array(event.data);
-      // La vibration d'abord: elle est plus courte, plus fréquente, et elle ne
+      // L'aller-retour d'abord: c'est le seul message dont l'exactitude dépend
+      // du moment où on le lit.
+      const ticket = readEcho(bytes);
+      if (ticket !== null) {
+        const at = this.sentAt.get(ticket);
+        if (at !== undefined) {
+          this.sentAt.delete(ticket);
+          this.trips.push(performance.now() - at);
+        }
+        return;
+      }
+      // La vibration ensuite: elle est plus courte, plus fréquente, et elle ne
       // touche à rien de l'état de la salle.
       const shake = readShake(bytes);
       if (shake !== null) {

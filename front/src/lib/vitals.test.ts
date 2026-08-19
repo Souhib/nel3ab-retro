@@ -70,9 +70,11 @@ function snap(video: Partial<Snapshot["video"]> = {}, rest: Partial<Snapshot> = 
       keys: {} as Snapshot["input"]["keys"],
       pads: [],
       using: null,
+      roundTripMs: null,
       ...rest.input,
     },
     soundGapMs: null,
+    padOnly: false,
   };
 }
 

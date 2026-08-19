@@ -1,5 +1,14 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { SHELLS, THEMES, showsTouchPad, storedShell, storedTheme, storedTouch } from "./theme";
+import {
+  SHELLS,
+  THEMES,
+  rememberPadOnly,
+  showsTouchPad,
+  storedPadOnly,
+  storedShell,
+  storedTheme,
+  storedTouch,
+} from "./theme";
 
 describe("le choix retenu", () => {
   beforeEach(() => localStorage.clear());
@@ -52,5 +61,23 @@ describe("la manette à l'écran", () => {
     localStorage.setItem("nel3ab:touchpad", "peut-être");
     expect(storedTouch()).toBe("auto");
     localStorage.removeItem("nel3ab:touchpad");
+  });
+});
+
+describe("la manette seule", () => {
+  it("est absente par défaut", () => {
+    // Quelqu'un qui ouvre la salle veut voir le jeu. Le mode manette est un
+    // choix, pas un état où on se retrouve sans l'avoir demandé.
+    localStorage.clear();
+    expect(storedPadOnly()).toBe(false);
+  });
+
+  it("se garde dans les deux sens", () => {
+    // Le jumeau du test au-dessus: sans lui, une fonction qui rendrait toujours
+    // faux le satisferait sans rien garder du tout.
+    rememberPadOnly(true);
+    expect(storedPadOnly()).toBe(true);
+    rememberPadOnly(false);
+    expect(storedPadOnly()).toBe(false);
   });
 });

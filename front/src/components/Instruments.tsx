@@ -182,6 +182,21 @@ export function Instruments({ shot }: { shot: Snapshot }) {
           value={input.port ?? "aucune"}
           tone={input.port ? "good" : "alert"}
         />
+        <Readout
+          label="aller-retour"
+          value={input.roundTripMs === null ? "pas encore mesuré" : input.roundTripMs}
+          unit={input.roundTripMs === null ? undefined : "ms"}
+          tone={
+            input.roundTripMs === null
+              ? "faint"
+              : input.roundTripMs > 80
+                ? "alert"
+                : input.roundTripMs > 40
+                  ? "normal"
+                  : "good"
+          }
+          hint="Le temps qu'un message met à partir d'ici, atteindre la salle et revenir. Mesuré sur une seule horloge, donc il ne suppose rien. C'est la part de la latence qui vient de TA liaison : grand ici veut dire que ça vient de chez toi, petit avec une image qui saccade veut dire que ça vient d'ailleurs."
+        />
         <Readout label="trames envoyées" value={input.sent} tone="faint" />
         <Readout
           label="place refusée"

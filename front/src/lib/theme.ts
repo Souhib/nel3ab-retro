@@ -132,6 +132,31 @@ export type TouchPref = (typeof TOUCHPADS)[number]["id"];
 
 const TOUCH_KEY = "nel3ab:touchpad";
 
+const PAD_ONLY_KEY = "nel3ab:padonly";
+
+/** Vrai quand cette page ne doit servir que de manette.
+ *
+ * Gardé dans le navigateur, comme les autres réglages: un téléphone qui sert de
+ * manette le soir sert de manette le lendemain, et le redemander à chaque
+ * ouverture serait un geste de plus à faire à quatre.
+ */
+export function storedPadOnly(): boolean {
+  try {
+    return localStorage.getItem(PAD_ONLY_KEY) === "oui";
+  } catch {
+    return false;
+  }
+}
+
+export function rememberPadOnly(only: boolean): void {
+  try {
+    localStorage.setItem(PAD_ONLY_KEY, only ? "oui" : "non");
+  } catch {
+    // Un navigateur en navigation privée refuse d'écrire. Le réglage vaut alors
+    // pour cette séance et pas au-delà, ce qui est mieux que de ne pas marcher.
+  }
+}
+
 export function storedTouch(): TouchPref {
   try {
     const found = localStorage.getItem(TOUCH_KEY);

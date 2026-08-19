@@ -52,8 +52,10 @@ import {
   shellLabel,
   storedMode,
   looksLikeAPhone,
+  rememberPadOnly,
   rememberTouch,
   showsTouchPad,
+  storedPadOnly,
   storedShell,
   storedTheme,
   storedTouch,
@@ -146,9 +148,19 @@ function Named({
   const [asking, setAsking] = useState<{ port: number; said: string | null } | null>(null);
   const yieldSeat = useRef<(() => void) | null>(null);
 
+  /** Cette page ne sert-elle que de manette.
+   *
+   * Ici plutôt que dans la salle, parce que DEUX choses en dépendent et
+   * qu'elles doivent être d'accord: les canaux que la salle ouvre, et ce que le
+   * salon inscrit au journal en voyant arriver quelqu'un. Un réglage rangé plus
+   * bas ne pourrait pas atteindre la socket, qui est ouverte ici. */
+  const [padOnly, setPadOnly] = useState(storedPadOnly);
+  useEffect(() => rememberPadOnly(padOnly), [padOnly]);
+
   const lobby = useLobby(
     login ?? name,
     name,
+    padOnly,
     (heard) => setAsked(heard),
     (answer) => {
       setAsking({ port: answer.port, said: answer.ok ? null : `${answer.from} a dit non` });
@@ -181,6 +193,8 @@ function Named({
       login={login}
       room={room}
       watching={entered === "watch"}
+      padOnly={padOnly}
+      onPadOnly={setPadOnly}
       onLeave={onLeave}
       announceSeat={lobby.seat}
       asked={asked}
@@ -240,6 +254,8 @@ function Room({
   login,
   room,
   watching,
+  padOnly,
+  onPadOnly,
   onLeave,
   announceSeat,
   asked,
@@ -257,6 +273,9 @@ function Room({
   /** Vrai quand on est entré pour regarder. Lu une fois, à la construction de la
    * session; changer d'avis ensuite passe par la session. */
   watching: boolean;
+  /** Vrai quand cette page ne sert que de manette: ni image, ni son. */
+  padOnly: boolean;
+  onPadOnly: (only: boolean) => void;
   /** Sortir de la salle et revenir à l'écran d'accueil. */
   onLeave: () => void;
   announceSeat: (port: number | null) => void;
@@ -303,6 +322,7 @@ function Room({
    * elle-même, et les boutons de coin du mode replié, qui tombaient sinon
    * exactement sur Z et R. */
   const onTouch = showsTouchPad(touchPref, coarse);
+
   /** La place dont l'image dispose, rapportée par l'écran. Sert au menu, qui
    * annonce ce que chaque choix donnerait. */
   const [space, setSpace] = useState({ width: 0, height: 0 });
@@ -320,7 +340,7 @@ function Room({
    * le monde, donc la première entrée arme et la seconde lance. */
   const [armedGame, setArmedGame] = useState<number | null>(null);
 
-  const { ref, session } = useSession(volume, deviceRate, announceSeat, watching);
+  const { ref, session } = useSession(volume, deviceRate, announceSeat, watching, padOnly);
   const shot = useSnapshot(session);
 
   /* Le relevé qui part au salon toutes les dix secondes.
@@ -623,6 +643,26 @@ function Room({
           onPick: (id) => setTouchPref(id as typeof touchPref),
         },
         {
+          id: "padonly",
+          label: "manette seule",
+          value: padOnly ? "sans image" : "avec l'image",
+          hint: "Pour un téléphone posé à côté d'un écran qui montre déjà le jeu. Il cesse de décoder une vidéo que personne ne regarde : mesuré à 13,6 Mbit/s par appareil, c'est autant de wifi et de batterie rendus.",
+          icon: <PadIcon className="h-full w-full" />,
+          picks: [
+            { id: "avec", label: "avec l'image", hint: "le jeu s'affiche ici" },
+            {
+              id: "sans",
+              label: "manette seule",
+              hint: "ni image ni son sur cet appareil",
+            },
+          ],
+          picked: padOnly ? "sans" : "avec",
+          // Changer de mode reconstruit la session, donc la place tenue est
+          // rendue puis reprise. C'est visible, et c'est le prix de ne plus
+          // ouvrir la socket vidéo du tout.
+          onPick: (id) => onPadOnly(id === "sans"),
+        },
+        {
           id: "fit",
           label: "taille à l'écran",
           value: fitLabel(fit),
@@ -784,6 +824,31 @@ function Room({
           onSpace={setSpace}
           onPrescale={(times) => session?.video.setPrescale(times)}
         />
+        {/* Ce qu'on voit quand cet appareil ne sert que de manette.
+            Un écran noir se lit comme une panne, et c'en est une pour qui a
+            oublié avoir choisi ce mode. La toile reste montée derrière: elle
+            appartient à la boucle média, qui la tient par une référence, et la
+            démonter reviendrait à mettre React sur le chemin des images. */}
+        {padOnly ? (
+          <div
+            id="padOnlyNotice"
+            className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-ink px-6 text-center"
+          >
+            <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-faint">
+              manette seule
+            </span>
+            <p className="max-w-[42ch] text-[13px] leading-relaxed text-muted">
+              Cet appareil ne décode ni l&apos;image ni le son. Il envoie les boutons et il vibre,
+              c&apos;est tout.
+            </p>
+            <p className="font-mono text-[12px] text-muted">
+              aller-retour{" "}
+              {shot?.input.roundTripMs === null || shot === null
+                ? "pas encore mesuré"
+                : `${shot.input.roundTripMs} ms`}
+            </p>
+          </div>
+        ) : null}
         {/* La manette à l'écran, par-dessus l'image et sous le menu.
             Montée seulement quand elle sert: cent boutons invisibles au-dessus
             d'une partie jouée au clavier intercepteraient des clics. */}

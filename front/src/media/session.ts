@@ -16,6 +16,13 @@ export type Snapshot = {
   input: InputState;
   /** How far the sound is behind the picture, in milliseconds. */
   soundGapMs: number | null;
+  /** Vrai quand cette page ne sert que de manette.
+   *
+   * Porté dans l'instantané parce que sans lui, les mesures d'image d'une page
+   * qui n'en reçoit aucune se lisent comme une page qui n'arrive pas à en
+   * peindre. C'est la même faute que l'absence affichée comme un zéro, et ce
+   * projet l'a déjà commise quatre fois. */
+  padOnly: boolean;
 };
 
 /** Same origin, always. The worker refuses a WebSocket whose `Origin` is not its
@@ -26,6 +33,8 @@ const socketUrl = (path: string): string =>
   `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}${path}`;
 
 export class Session {
+  /** Vrai quand cette page ne sert que de manette. Voir le constructeur. */
+  readonly padOnly: boolean;
   readonly video: VideoStream;
   readonly sound: SoundStream;
   readonly input: InputStream;
@@ -44,7 +53,19 @@ export class Session {
      * qu'appliqué après coup: une session construite en joueur prendrait une
      * manette le temps d'un aller-retour avant de la rendre. */
     watching = false,
+    /** Vrai quand cette page ne sert que de manette.
+     *
+     * Un téléphone posé à côté d'une télévision décode aujourd'hui la même
+     * vidéo que la télévision, pour personne. Mesuré sur trois jours de journal:
+     * le flux tient un p95 de 13,6 Mb/s, donc quatre téléphones autour d'un
+     * écran demandent au wifi cinquante mégabits d'images que personne ne
+     * regarde, et vident quatre batteries pour ça.
+     *
+     * Le son part avec l'image, et pour la même raison: un haut-parleur de
+     * téléphone à côté de celui de la télévision fait un écho, pas du son. */
+    padOnly = false,
   ) {
+    this.padOnly = padOnly;
     this.video = new VideoStream(canvas, socketUrl);
     this.sound = new SoundStream(socketUrl, volume, deviceRate);
     this.input = new InputStream(socketUrl, onSeat, () => this.refresh(), watching);
@@ -52,7 +73,7 @@ export class Session {
   }
 
   start(): void {
-    this.video.start();
+    if (!this.padOnly) this.video.start();
     this.input.start();
     this.ticker = window.setInterval(() => {
       this.snapshot = this.read();
@@ -105,6 +126,7 @@ export class Session {
       sound: this.sound.stats(),
       input: this.input.state(),
       soundGapMs: this.sound.gapAgainst(video.fastestLag),
+      padOnly: this.padOnly,
     };
   }
 }
@@ -131,6 +153,8 @@ export function exposeNothingYet(): void {
     shakes: 0,
     soundPlayed: 0,
     soundGaps: 0,
+    roundTripMs: null as number | null,
+    padOnly: false,
   });
   anyWindow.nel3abTest = {
     counters: nothing,
@@ -203,6 +227,10 @@ export function exposeForTests(session: Session): void {
         shakes: session.input.shakesFelt(),
         soundPlayed: shot.sound.playedSeconds,
         soundGaps: shot.sound.gaps,
+        // L'aller-retour, pour qu'un pilote puisse vérifier qu'il est MESURÉ et
+        // pas seulement affiché. Nul veut dire « pas encore », jamais zéro.
+        roundTripMs: shot.input.roundTripMs,
+        padOnly: shot.padOnly,
       };
     },
     pacing: () => {

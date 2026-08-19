@@ -107,6 +107,13 @@ export type Answered = { ok: boolean; port: number; from: string };
 export function useLobby(
   key: string,
   name: string,
+  /** Vrai quand cette page ne sert que de manette.
+   *
+   * Voyage à l'arrivée, avec la visite et le drapeau de banc. Le salon l'écrit
+   * au journal, et sans lui une page-manette et une page dont la vidéo est
+   * cassée se ressemblent exactement: ni l'une ni l'autre n'envoie de relevé,
+   * puisqu'il n'y a rien à mesurer. */
+  padOnly: boolean,
   onAsked: (asked: Asked) => void,
   onAnswered: (answered: Answered) => void,
 ): Lobby {
@@ -130,7 +137,7 @@ export function useLobby(
       // La VISITE voyage ici aussi, et le drapeau de banc avec elle. Le salon
       // les inscrit dans son journal à chaque événement, ce qui est la seule
       // façon de retrouver une soirée après coup: voir `lib/visit`.
-      auth: { name, visite: VISIT, banc: onBench() },
+      auth: { name, visite: VISIT, banc: onBench(), manette: padOnly },
       transports: ["websocket"],
       // A room whose control plane is not running still plays; it just has no
       // names beside the seats. Backing off to ten seconds keeps that case from
@@ -151,8 +158,14 @@ export function useLobby(
       lobby.removeAllListeners();
       lobby.close();
     };
+    // Et quand le mode de la page change. Passer en manette seule reconstruit
+    // déjà la session média, donc la place est rendue puis reprise de toute
+    // façon: rouvrir la socket du salon au même moment ne coûte rien de plus et
+    // garde le journal vrai. Sans ça, une page qui a basculé resterait inscrite
+    // sous son mode d'arrivée, et le journal dirait « manette » d'un appareil
+    // qui montre l'image.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, client]);
+  }, [key, client, padOnly]);
 
   return {
     seat: (port: number | null) => socket.current?.emit("seat", { port }),

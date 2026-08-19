@@ -112,7 +112,7 @@ async def test_the_lobby_knows_who_it_is_from_the_proxy(
         # Souhib. C'est l'en-tête qui doit gagner.
         auth={"name": "Imposteur"},
         headers={
-            "Tailscale-User-Login": "souhib.t@hotmail.fr",
+            "Tailscale-User-Login": "souhib@example.com",
             "Tailscale-User-Name": "Souhib Trabelsi",
         },
     )
@@ -123,7 +123,7 @@ async def test_the_lobby_knows_who_it_is_from_the_proxy(
     assert "Souhib" in names
     assert "Imposteur" not in names
     logins = {person["login"] for person in people}
-    assert "souhib.t@hotmail.fr" in logins
+    assert "souhib@example.com" in logins
 
     await known.disconnect()
     await watcher.disconnect()
@@ -148,7 +148,7 @@ async def test_the_first_identified_arrival_owns_the_room(
     await first.connect(
         url,
         socketio_path="/socket.io",
-        headers={"Tailscale-User-Login": "souhib.t@hotmail.fr", "Tailscale-User-Name": "Souhib"},
+        headers={"Tailscale-User-Login": "souhib@example.com", "Tailscale-User-Name": "Souhib"},
     )
     second = socketio.AsyncClient()
     await second.connect(
@@ -157,7 +157,7 @@ async def test_the_first_identified_arrival_owns_the_room(
         headers={"Tailscale-User-Login": "vincent@example.com", "Tailscale-User-Name": "Vincent"},
     )
     await asyncio.sleep(0.3)
-    assert heard[-1]["owner"]["login"] == "souhib.t@hotmail.fr"
+    assert heard[-1]["owner"]["login"] == "souhib@example.com"
 
     # Le propriétaire s'en va: la salle ne reste pas sans personne pour décider.
     await first.disconnect()
@@ -444,3 +444,111 @@ async def test_the_first_measurement_of_a_page_is_never_refused(
     lines = [json.loads(line) for line in written.read_text(encoding="utf-8").splitlines()]
 
     assert len([line for line in lines if line["quoi"] == "mesures"]) == 1
+
+
+async def test_taking_a_seat_in_a_loop_writes_one_line_and_not_fifty(
+    served: tuple[str, RoomController], tmp_path: Path
+) -> None:
+    """La classe, et pas seulement la charge utile.
+
+    Le premier audit avait borné le débit des relevés. Quatre gestionnaires sur
+    six étaient restés dehors, et ceux-là font PLUS de travail qu'un relevé: un
+    `seat` écrit au journal, appelle le worker et diffuse à toute la salle. Une
+    page qui en envoie en boucle multipliait donc son propre trafic par le
+    nombre de personnes présentes.
+    """
+    url, _rooms = served
+
+    page = socketio.AsyncClient()
+    await page.connect(url, socketio_path="/socket.io", auth={"visite": "aaaa1111"})
+    for _ in range(50):
+        await page.emit("seat", {"port": 1})
+    await asyncio.sleep(0.5)
+    await page.disconnect()
+    await asyncio.sleep(0.2)
+
+    written = sorted((tmp_path / "sessions").glob("*.jsonl"))[0]
+    lines = [json.loads(line) for line in written.read_text(encoding="utf-8").splitlines()]
+
+    assert len([line for line in lines if line["quoi"] == "place"]) == 1
+
+
+async def test_a_seat_that_is_not_a_seat_is_ignored_rather_than_recorded(
+    served: tuple[str, RoomController], tmp_path: Path
+) -> None:
+    """Trois formes qui ne veulent rien dire, et qui ne doivent rien faire.
+
+    `seat` appelait `int(port)` sans borne pendant que `ask` et `answer`
+    passaient déjà par `_port`. Un nombre énorme retenait une place inventée, ce
+    qui fait grossir le dictionnaire des places sans limite, et un objet levait
+    une `TypeError` que personne ne rattrapait.
+
+    Le jumeau positif est le test au-dessus: sans lui, un gestionnaire qui ne
+    ferait plus rien du tout passerait celui-ci.
+    """
+    url, rooms = served
+
+    for index, wrong in enumerate([{"port": 999999}, {"port": "trois"}, {"port": {"a": 1}}]):
+        page = socketio.AsyncClient()
+        await page.connect(url, socketio_path="/socket.io", auth={"visite": f"bbbb{index}222"})
+        await page.emit("seat", wrong)
+        await asyncio.sleep(0.3)
+        await page.disconnect()
+        await asyncio.sleep(0.1)
+
+    written = sorted((tmp_path / "sessions").glob("*.jsonl"))[0]
+    lines = [json.loads(line) for line in written.read_text(encoding="utf-8").splitlines()]
+
+    assert [line for line in lines if line["quoi"] == "place"] == []
+    assert rooms.seats() == [seat for seat in rooms.seats() if seat.player is None]
+
+
+async def test_a_pad_only_page_says_so_when_it_arrives(
+    served: tuple[str, RoomController], tmp_path: Path
+) -> None:
+    """Un téléphone qui ne sert que de manette ne décode ni image ni son.
+
+    Il n'envoie donc AUCUN relevé, puisqu'il n'y a rien à mesurer. Sans ce
+    drapeau, il se lit exactement comme une page dont la vidéo est cassée, ce
+    qui est la question la plus fréquente devant un journal.
+    """
+    url, _rooms = served
+
+    page = socketio.AsyncClient()
+    await page.connect(
+        url, socketio_path="/socket.io", auth={"visite": "cccc3333", "manette": True}
+    )
+    await asyncio.sleep(0.3)
+    await page.disconnect()
+    await asyncio.sleep(0.2)
+
+    written = sorted((tmp_path / "sessions").glob("*.jsonl"))[0]
+    lines = [json.loads(line) for line in written.read_text(encoding="utf-8").splitlines()]
+    arrival = next(line for line in lines if line["quoi"] == "arrivée")
+
+    assert arrival["manette"] is True
+
+
+async def test_an_ordinary_page_carries_no_pad_only_mark(
+    served: tuple[str, RoomController], tmp_path: Path
+) -> None:
+    """Le jumeau, et il porte sur la TAILLE autant que sur la vérité.
+
+    Un `false` sur chaque ligne de chaque événement ferait trois cents
+    kilo-octets par soirée pour dire « normal ».
+    """
+    url, _rooms = served
+
+    page = socketio.AsyncClient()
+    await page.connect(url, socketio_path="/socket.io", auth={"visite": "dddd4444"})
+    await asyncio.sleep(0.3)
+    await page.disconnect()
+    await asyncio.sleep(0.2)
+
+    written = sorted((tmp_path / "sessions").glob("*.jsonl"))[0]
+    lines = [json.loads(line) for line in written.read_text(encoding="utf-8").splitlines()]
+    arrival = next(
+        line for line in lines if line["quoi"] == "arrivée" and line["visite"] == "dddd4444"
+    )
+
+    assert "manette" not in arrival

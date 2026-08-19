@@ -4,7 +4,7 @@ import httpx
 import pytest
 
 from nel3ab_control.api.controllers.rooms import RoomController
-from nel3ab_control.api.schemas.error import SeatTaken, WorkerUnreachable
+from nel3ab_control.api.schemas.error import NoSuchSeat, SeatTaken, WorkerUnreachable
 from nel3ab_control.settings import Settings
 from tests.conftest import LIBRARY
 
@@ -220,3 +220,35 @@ async def test_a_worker_that_still_lists_plain_names_is_understood(
     assert [game.name for game in library] == ["Melee"]
     assert running is not None
     assert running.art is False, "sans jaquette plutôt qu'avec une qui n'existe pas"
+
+
+def test_a_seat_that_does_not_exist_cannot_be_claimed(settings: Settings) -> None:
+    """Le dictionnaire des places n'accepte que des places.
+
+    Sans ce refus, `claim(2**40, ...)` marchait: la salle retenait une place que
+    personne ne peut voir ni libérer, et une page pouvait en créer autant qu'elle
+    voulait. Une définition de « une place existe » vit ici, parce que c'est ici
+    que les places sont retenues.
+    """
+    rooms = RoomController(settings, httpx.AsyncClient())
+
+    for absurd in (0, -1, 5, 999999, 2**40):
+        with pytest.raises(NoSuchSeat):
+            rooms.claim(absurd, "sid-souhib", "Souhib")
+
+    assert all(seat.player is None for seat in rooms.seats())
+
+
+def test_the_four_real_seats_are_still_claimable(settings: Settings) -> None:
+    """Le jumeau. Une borne qui refuserait tout satisferait le test au-dessus."""
+    rooms = RoomController(settings, httpx.AsyncClient())
+
+    for port in (1, 2, 3, 4):
+        rooms.claim(port, f"sid-{port}", f"joueur {port}")
+
+    assert [seat.player for seat in rooms.seats()] == [
+        "joueur 1",
+        "joueur 2",
+        "joueur 3",
+        "joueur 4",
+    ]

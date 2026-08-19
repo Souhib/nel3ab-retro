@@ -10,14 +10,32 @@ ressemble à cet instant. Un contrôleur ne connaît qu'un tiers de la ligne.
 """
 
 import json
+from collections.abc import Awaitable, Callable
+from functools import wraps
 from time import monotonic
-from typing import Any
+from typing import Any, Protocol
 
 from nel3ab_control.api.controllers.people import PeopleController
 from nel3ab_control.api.controllers.rooms import RoomController
 from nel3ab_control.api.ws.server import ROOM, broadcast, sio
 from nel3ab_control.identity import from_headers
 from nel3ab_control.journal import Journal
+
+
+class Handler(Protocol):
+    """Ce qu'un gestionnaire de message est.
+
+    Un protocole plutôt qu'un simple `Callable`, pour une raison précise: le
+    garde de cadence range son horodate sous le NOM du gestionnaire, et un
+    `Callable` ne promet pas d'en avoir un. Le dire ici fait vérifier par le
+    typeur ce qui serait sinon un `getattr` avec une valeur de repli, c'est-à-
+    dire une fusion silencieuse de deux quotas le jour où quelqu'un décore
+    autre chose qu'une fonction.
+    """
+
+    __name__: str
+
+    def __call__(self, sid: str, data: dict[str, Any]) -> Awaitable[None]: ...
 
 
 def _port(data: dict[str, Any]) -> int | None:
@@ -64,6 +82,11 @@ def _who(sid: str, session: dict[str, Any]) -> dict[str, Any]:
         "login": session.get("login"),
         "pseudo": session.get("name"),
         "banc": bool(session.get("banc")),
+        # Écrit seulement quand c'est vrai. Un `false` sur chaque ligne de
+        # chaque événement serait trois cents kilo-octets par soirée pour dire
+        # « normal », et un journal qu'on lit mal est un journal qu'on n'ouvre
+        # pas.
+        **({"manette": True} if session.get("manette") else {}),
     }
 
 
@@ -85,139 +108,6 @@ def _room_now(rooms: RoomController, people: PeopleController) -> dict[str, Any]
             str(seat.port): seat.player for seat in rooms.seats() if seat.player is not None
         },
     }
-
-
-@sio.event
-async def connect(sid: str, environ: dict[str, Any], auth: dict[str, Any] | None) -> None:
-    """Une page arrive, et le proxy dit déjà qui c'est.
-
-    L'identité vient de la MONTÉE EN GRADE de la WebSocket, où Tailscale écrit le
-    même en-tête que sur une requête ordinaire (vérifié le 16 août 2026). Il n'y
-    a donc pas de jeton à faire circuler entre une route et une socket, ce qui
-    est une pièce de moins à se faire voler.
-
-    Sans proxy devant, on retombe sur le prénom que la page envoie: c'est du
-    développement local, où il n'y a personne à usurper.
-    """
-    rooms, people, journal = _state(environ)
-    caller = from_headers(environ["asgi.scope"]["headers"])
-    login = caller[0] if caller else None
-    name = (
-        people.name_for(login, caller[1]) if caller else ((auth or {}).get("name") or "quelqu'un")
-    )
-    # L'instant d'arrivée est MONOTONE et pas une heure: il ne sert qu'à mesurer
-    # une durée au départ, et régler l'horloge de la machine ne doit pas donner
-    # une séance de moins l'infini.
-    session = {
-        "name": name,
-        "login": login,
-        "visite": str((auth or {}).get("visite") or "")[:16] or None,
-        "banc": bool((auth or {}).get("banc")),
-        "since": monotonic(),
-    }
-    await sio.save_session(sid, session)
-    people.arrived(sid, login, name)
-    await sio.enter_room(sid, ROOM)
-    journal.write("arrivée", **_who(sid, session), salle=_room_now(rooms, people))
-    await broadcast(rooms, people, journal, bool(session.get("banc")))
-
-
-@sio.event
-async def seat(sid: str, data: dict[str, Any]) -> None:
-    """Une page dit quelle manette le worker lui a donnée."""
-    session = await sio.get_session(sid)
-    rooms, people, journal = _state(sio.get_environ(sid))
-    port = data.get("port")
-    if port is None:
-        rooms.release(sid)
-    else:
-        rooms.claim(int(port), sid, session["name"])
-    journal.write(
-        "place",
-        **_who(sid, session),
-        place=None if port is None else int(port),
-        salle=_room_now(rooms, people),
-    )
-    await broadcast(rooms, people, journal, bool(session.get("banc")))
-
-
-@sio.event
-async def ask(sid: str, data: dict[str, Any]) -> None:
-    """Quelqu'un demande la manette d'un autre.
-
-    Une demande et pas une prise: le porteur est en train de jouer, et la lui
-    arracher est le geste que cette salle ne doit pas rendre facile. Le serveur
-    sait qui tient quoi, donc la page n'envoie qu'un numéro de port; elle n'a
-    jamais à savoir comment adresser une autre page.
-    """
-    rooms, people, journal = _state(sio.get_environ(sid))
-    port = _port(data)
-    if port is None:
-        return
-    holder = rooms.holder_of(port)
-    if holder is None or holder == sid:
-        return
-    session = await sio.get_session(sid)
-    rooms.asked(port, sid)
-    journal.write("demande", **_who(sid, session), place=port, salle=_room_now(rooms, people))
-    await sio.emit("asked", {"from": session["name"], "port": port}, to=holder)
-
-
-@sio.event
-async def answer(sid: str, data: dict[str, Any]) -> None:
-    """Le porteur accepte ou refuse.
-
-    En acceptant, il libère la place ICI aussi: sans ça, la salle continuerait
-    de l'afficher à son nom pendant que l'autre s'y branche, et les deux pages
-    se contrediraient le temps d'un aller-retour.
-    """
-    rooms, people, journal = _state(sio.get_environ(sid))
-    port = _port(data)
-    if port is None:
-        return
-    asker = rooms.take_ask(port)
-    if asker is None:
-        return
-    session = await sio.get_session(sid)
-    agreed = bool(data.get("ok"))
-    if agreed:
-        rooms.free(port)
-    journal.write(
-        "réponse",
-        **_who(sid, session),
-        place=port,
-        accordé=agreed,
-        salle=_room_now(rooms, people),
-    )
-    await sio.emit("answered", {"ok": agreed, "port": port, "from": session["name"]}, to=asker)
-    await broadcast(rooms, people, journal, bool(session.get("banc")))
-
-
-@sio.event
-async def rename(sid: str, data: dict[str, Any]) -> None:
-    """Quelqu'un change de pseudo, et la salle le voit tout de suite.
-
-    Le changement est écrit par la route `PUT /api/me`, qui est la seule à savoir
-    l'enregistrer. Ce message-ci ne fait que rafraîchir la session ouverte et
-    prévenir les autres: sans lui, une salle continuerait d'afficher l'ancien
-    pseudo jusqu'à la prochaine reconnexion.
-    """
-    session = await sio.get_session(sid)
-    rooms, people, journal = _state(sio.get_environ(sid))
-    was = session["name"]
-    now = people.name_for(session["login"]) if session["login"] else str(data.get("name") or was)
-    if now != was:
-        # La place suit son occupant: elle est retenue sous un nom, et un nom qui
-        # change sans que la place suive laisse une manette au nom d'un fantôme.
-        rooms.rename(sid, now)
-        people.renamed(sid, now)
-        session = {**session, "name": now}
-        await sio.save_session(sid, session)
-        # Après la mise à jour, pour que la ligne porte le nom d'ARRIVÉE de la
-        # suite du journal plutôt que celui qu'on vient d'abandonner: c'est ce
-        # nom-là qu'on cherchera dans les lignes suivantes.
-        journal.write("pseudo", **_who(sid, session), avant=was, salle=_room_now(rooms, people))
-    await broadcast(rooms, people, journal, bool(session.get("banc")))
 
 
 #: Ce qu'un relevé du navigateur a le droit de peser, en octets une fois remis
@@ -261,6 +151,55 @@ VITALS_EVERY = 5.0
 #: accepte. Un signalement pèse jusqu'à seize kilo-octets.
 COMPLAINT_EVERY = 20.0
 
+#: Le temps minimum entre deux messages de salle d'une même page, en secondes.
+#:
+#: Prendre une manette, la demander, répondre, changer de pseudo: tous des gestes
+#: humains, tous rares. Une demi-seconde ne gêne personne et borne ce qu'une page
+#: peut faire faire au salon.
+#:
+#: Et ce qu'elle fait faire n'est pas petit. Mesuré le 19 août 2026 sur le journal
+#: du 18: un `seat` écrit 277 octets, appelle `GET /roms` sur le worker, et
+#: diffuse l'état de la salle à toutes les pages connectées. Un message reçu
+#: coûtait donc une écriture disque, une requête réseau, et autant de messages
+#: sortants qu'il y a de monde. Le premier audit avait borné le débit des
+#: relevés; il avait borné une charge utile plutôt qu'une classe, et ces
+#: quatre-là étaient restés dehors.
+ROOM_EVERY = 0.5
+
+
+def not_too_often(gap: float) -> Callable[[Handler], Handler]:
+    """Refuse un message qui arrive trop tôt après le précédent accepté.
+
+    Un décorateur plutôt qu'un appel dans chaque corps, parce que c'est
+    exactement l'oubli qu'on répare: l'appel existait, il était juste absent de
+    quatre gestionnaires sur six.
+
+    La cadence est retenue par NOM d'événement, donc prendre une manette ne
+    consomme pas le droit de changer de pseudo. Sur le temps monotone, comme le
+    reste: régler l'horloge de la machine ne doit ni ouvrir les vannes ni
+    bloquer quelqu'un pour une heure.
+
+    Le comptage se fait AVANT que le gestionnaire regarde la charge utile. Un
+    message mal formé consomme donc le tour de celui qui l'envoie, ce qui est le
+    bon sens: ça coûte à l'émetteur plutôt qu'au salon.
+    """
+
+    def wrap(handler: Handler) -> Handler:
+        key = f"last_{handler.__name__}"
+
+        @wraps(handler)
+        async def guarded(sid: str, data: dict[str, Any] | None = None) -> None:
+            session = await sio.get_session(sid)
+            now = monotonic()
+            if too_soon(session.get(key), now, gap):
+                return
+            await sio.save_session(sid, {**session, key: now})
+            await handler(sid, data or {})
+
+        return guarded
+
+    return wrap
+
 
 def too_soon(previous: float | None, now: float, gap: float) -> bool:
     """Vrai quand ce message arrive trop tôt après le précédent accepté.
@@ -273,6 +212,160 @@ def too_soon(previous: float | None, now: float, gap: float) -> bool:
     fenêtre où les problèmes de connexion se voient le mieux.
     """
     return previous is not None and (now - previous) < gap
+
+
+@sio.event
+async def connect(sid: str, environ: dict[str, Any], auth: dict[str, Any] | None) -> None:
+    """Une page arrive, et le proxy dit déjà qui c'est.
+
+    L'identité vient de la MONTÉE EN GRADE de la WebSocket, où Tailscale écrit le
+    même en-tête que sur une requête ordinaire (vérifié le 16 août 2026). Il n'y
+    a donc pas de jeton à faire circuler entre une route et une socket, ce qui
+    est une pièce de moins à se faire voler.
+
+    Sans proxy devant, on retombe sur le prénom que la page envoie: c'est du
+    développement local, où il n'y a personne à usurper.
+    """
+    rooms, people, journal = _state(environ)
+    caller = from_headers(environ["asgi.scope"]["headers"])
+    login = caller[0] if caller else None
+    name = (
+        people.name_for(login, caller[1]) if caller else ((auth or {}).get("name") or "quelqu'un")
+    )
+    # L'instant d'arrivée est MONOTONE et pas une heure: il ne sert qu'à mesurer
+    # une durée au départ, et régler l'horloge de la machine ne doit pas donner
+    # une séance de moins l'infini.
+    session = {
+        "name": name,
+        "login": login,
+        "visite": str((auth or {}).get("visite") or "")[:16] or None,
+        "banc": bool((auth or {}).get("banc")),
+        # Vrai quand cette page ne sert que de manette: elle n'ouvre ni la vidéo
+        # ni le son. Sans ce drapeau, une page-manette et une page dont l'image
+        # est cassée se ressemblent exactement dans le journal, puisque ni l'une
+        # ni l'autre n'envoie de relevé.
+        "manette": bool((auth or {}).get("manette")),
+        "since": monotonic(),
+    }
+    await sio.save_session(sid, session)
+    people.arrived(sid, login, name)
+    await sio.enter_room(sid, ROOM)
+    journal.write("arrivée", **_who(sid, session), salle=_room_now(rooms, people))
+    await broadcast(rooms, people, journal, bool(session.get("banc")))
+
+
+@sio.event
+@not_too_often(ROOM_EVERY)
+async def seat(sid: str, data: dict[str, Any]) -> None:
+    """Une page dit quelle manette le worker lui a donnée.
+
+    Trois lectures possibles de ce qui arrive, et elles ne se confondent pas:
+    une place absente veut dire « je rends la mienne », une place valide veut
+    dire « je prends celle-là », et n'importe quoi d'autre ne veut rien dire.
+
+    Ce troisième cas manquait. `int(port)` était appelé sans borne, alors que
+    `ask` et `answer` passaient déjà par `_port`, et un objet à la place d'un
+    nombre levait une `TypeError` que personne ne rattrapait.
+    """
+    session = await sio.get_session(sid)
+    rooms, people, journal = _state(sio.get_environ(sid))
+    if data.get("port") is None:
+        port = None
+        rooms.release(sid)
+    else:
+        port = _port(data)
+        if port is None:
+            return
+        rooms.claim(port, sid, session["name"])
+    journal.write(
+        "place",
+        **_who(sid, session),
+        place=port,
+        salle=_room_now(rooms, people),
+    )
+    await broadcast(rooms, people, journal, bool(session.get("banc")))
+
+
+@sio.event
+@not_too_often(ROOM_EVERY)
+async def ask(sid: str, data: dict[str, Any]) -> None:
+    """Quelqu'un demande la manette d'un autre.
+
+    Une demande et pas une prise: le porteur est en train de jouer, et la lui
+    arracher est le geste que cette salle ne doit pas rendre facile. Le serveur
+    sait qui tient quoi, donc la page n'envoie qu'un numéro de port; elle n'a
+    jamais à savoir comment adresser une autre page.
+    """
+    rooms, people, journal = _state(sio.get_environ(sid))
+    port = _port(data)
+    if port is None:
+        return
+    holder = rooms.holder_of(port)
+    if holder is None or holder == sid:
+        return
+    session = await sio.get_session(sid)
+    rooms.asked(port, sid)
+    journal.write("demande", **_who(sid, session), place=port, salle=_room_now(rooms, people))
+    await sio.emit("asked", {"from": session["name"], "port": port}, to=holder)
+
+
+@sio.event
+@not_too_often(ROOM_EVERY)
+async def answer(sid: str, data: dict[str, Any]) -> None:
+    """Le porteur accepte ou refuse.
+
+    En acceptant, il libère la place ICI aussi: sans ça, la salle continuerait
+    de l'afficher à son nom pendant que l'autre s'y branche, et les deux pages
+    se contrediraient le temps d'un aller-retour.
+    """
+    rooms, people, journal = _state(sio.get_environ(sid))
+    port = _port(data)
+    if port is None:
+        return
+    asker = rooms.take_ask(port)
+    if asker is None:
+        return
+    session = await sio.get_session(sid)
+    agreed = bool(data.get("ok"))
+    if agreed:
+        rooms.free(port)
+    journal.write(
+        "réponse",
+        **_who(sid, session),
+        place=port,
+        accordé=agreed,
+        salle=_room_now(rooms, people),
+    )
+    await sio.emit("answered", {"ok": agreed, "port": port, "from": session["name"]}, to=asker)
+    await broadcast(rooms, people, journal, bool(session.get("banc")))
+
+
+@sio.event
+@not_too_often(ROOM_EVERY)
+async def rename(sid: str, data: dict[str, Any]) -> None:
+    """Quelqu'un change de pseudo, et la salle le voit tout de suite.
+
+    Le changement est écrit par la route `PUT /api/me`, qui est la seule à savoir
+    l'enregistrer. Ce message-ci ne fait que rafraîchir la session ouverte et
+    prévenir les autres: sans lui, une salle continuerait d'afficher l'ancien
+    pseudo jusqu'à la prochaine reconnexion.
+    """
+    session = await sio.get_session(sid)
+    rooms, people, journal = _state(sio.get_environ(sid))
+    was = session["name"]
+    now = people.name_for(session["login"]) if session["login"] else str(data.get("name") or was)
+    if now != was:
+        # La place suit son occupant: elle est retenue sous un nom, et un nom qui
+        # change sans que la place suive laisse une manette au nom d'un fantôme.
+        rooms.rename(sid, now)
+        people.renamed(sid, now)
+        session = {**session, "name": now}
+        await sio.save_session(sid, session)
+        # Après la mise à jour, pour que la ligne porte le nom d'ARRIVÉE de la
+        # suite du journal plutôt que celui qu'on vient d'abandonner: c'est ce
+        # nom-là qu'on cherchera dans les lignes suivantes.
+        journal.write("pseudo", **_who(sid, session), avant=was, salle=_room_now(rooms, people))
+    await broadcast(rooms, people, journal, bool(session.get("banc")))
 
 
 def _measured(data: dict[str, Any], ceiling: int = VITALS_MAX) -> dict[str, Any] | None:
@@ -298,6 +391,7 @@ def _measured(data: dict[str, Any], ceiling: int = VITALS_MAX) -> dict[str, Any]
 
 
 @sio.event
+@not_too_often(VITALS_EVERY)
 async def mesures(sid: str, data: dict[str, Any]) -> None:
     """Ce que ce navigateur voit, toutes les dix secondes.
 
@@ -313,15 +407,12 @@ async def mesures(sid: str, data: dict[str, Any]) -> None:
     if kept is None:
         return
     session = await sio.get_session(sid)
-    now = monotonic()
-    if too_soon(session.get("last_measured"), now, VITALS_EVERY):
-        return
-    await sio.save_session(sid, {**session, "last_measured": now})
     rooms, people, journal = _state(sio.get_environ(sid))
     journal.write("mesures", **_who(sid, session), vu=kept, salle=_room_now(rooms, people))
 
 
 @sio.event
+@not_too_often(COMPLAINT_EVERY)
 async def plainte(sid: str, data: dict[str, Any]) -> None:
     """« Ça saccade, maintenant. »
 
@@ -342,10 +433,6 @@ async def plainte(sid: str, data: dict[str, Any]) -> None:
     if kept is None:
         return
     session = await sio.get_session(sid)
-    now = monotonic()
-    if too_soon(session.get("last_complained"), now, COMPLAINT_EVERY):
-        return
-    await sio.save_session(sid, {**session, "last_complained": now})
     rooms, people, journal = _state(sio.get_environ(sid))
     journal.write("plainte", **_who(sid, session), vu=kept, salle=_room_now(rooms, people))
 

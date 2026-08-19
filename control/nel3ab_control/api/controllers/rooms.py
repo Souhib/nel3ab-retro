@@ -12,7 +12,7 @@ from time import monotonic
 import httpx
 
 from nel3ab_control.api.controllers.people import PeopleController
-from nel3ab_control.api.schemas.error import SeatTaken, WorkerUnreachable
+from nel3ab_control.api.schemas.error import NoSuchSeat, SeatTaken, WorkerUnreachable
 from nel3ab_control.api.schemas.player import Person
 from nel3ab_control.api.schemas.room import Game, Room, Seat
 from nel3ab_control.settings import Settings
@@ -101,7 +101,10 @@ class RoomController:
         # pendant les cinq secondes de décalage est une salle en panne.
         games = [_game(index, entry) for index, entry in enumerate(payload.get("roms", []))]
         current = payload.get("current")
-        running = games[current] if isinstance(current, int) and current < len(games) else None
+        # `0 <=` et pas seulement `<`: un index négatif compte depuis la fin en
+        # Python, donc `current = -1` désignait le dernier jeu de la liste au
+        # lieu de ne désigner personne.
+        running = games[current] if isinstance(current, int) and 0 <= current < len(games) else None
         # How many pads the room has, from the only thing that knows: the worker
         # is what tells Dolphin which ports hold a controller when it boots. It
         # was configured here as well, which made two settings that had to agree
@@ -138,6 +141,17 @@ class RoomController:
             for port in range(1, self._players + 1)
         ]
 
+    def real(self, port: int) -> bool:
+        """Vrai quand ce numéro est une place de cette salle.
+
+        Une seule définition de « une place existe », ici, parce que c'est ici
+        que les places sont retenues. La répéter chez chaque appelant serait une
+        deuxième définition à tenir d'accord, et le 19 août 2026 un appelant
+        l'avait déjà oubliée: le gestionnaire `seat` passait `int(port)` sans
+        borne, et retenir la place 1 099 511 627 776 marchait.
+        """
+        return 1 <= port <= self._players
+
     def claim(self, port: int, session: str, name: str) -> None:
         """Records that a SESSION says it holds a pad.
 
@@ -145,7 +159,13 @@ class RoomController:
         error: a page that reconnects says the same thing again, and treating
         that as a conflict would lock a player out of the seat they are sitting
         in.
+
+        Refuse aussi une place qui n'existe pas. Sans ce refus, le dictionnaire
+        des places accepte n'importe quel entier et grossit sans borne, ce qui
+        est une fuite mémoire qu'une page suffit à provoquer.
         """
+        if not self.real(port):
+            raise NoSuchSeat(port)
         held = self._claims.get(port)
         if held is not None and held != session:
             raise SeatTaken(port)

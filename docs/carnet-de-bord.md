@@ -2515,7 +2515,7 @@ En mesurant ce que Tailscale transmet réellement au worker, une surprise utile 
 ```
 Host: lgf.tail3bd01c.ts.net:8445
 Origin: https://lgf.tail3bd01c.ts.net:8445
-Tailscale-User-Login: souhib.t@hotmail.fr
+Tailscale-User-Login: souhib@example.com
 Tailscale-User-Name: Souhib Trabelsi
 ```
 
@@ -3691,7 +3691,7 @@ tenait dans un en-tête, et elle a été mesurée plutôt que supposée, en bran
 un serveur qui répond avec ce qu'il reçoit:
 
 ```
-Tailscale-User-Login: souhib.t@hotmail.fr
+Tailscale-User-Login: souhib@example.com
 Tailscale-User-Name: Souhib Trabelsi
 ```
 
@@ -3716,7 +3716,7 @@ Tout le montage repose dessus, donc aucune n'a été supposée.
 
 **Le proxy écrase ce que le client envoie.** Une requête portant
 `Tailscale-User-Login: attaquant@example.com` est arrivée au service avec
-`souhib.t@hotmail.fr`, une seule fois. Ce n'est donc pas une déclaration du
+`souhib@example.com`, une seule fois. Ce n'est donc pas une déclaration du
 navigateur, c'est une constatation du réseau.
 
 **L'en-tête est là sur la montée en grade d'une WebSocket aussi.** Vérifié avec
@@ -5476,7 +5476,7 @@ pouvait silencieusement être fausse.
 ```
 2026-08-17 — 1 visite, 12 événements, 6 de banc écartés
 
-  Souhib <souhib.t@hotmail.fr>  [49cde68c]
+  Souhib <souhib@example.com>  [49cde68c]
     21:14:09  arrive                    1 présents, Mario Kart Double Dash
     21:14:09  prend la manette 1        1 présents, Mario Kart Double Dash
     21:14:15  part après 6 s            0 présents, Mario Kart Double Dash
@@ -6573,6 +6573,238 @@ L'avance n'était pas le mal, c'était le symptôme: le contexte tournait, la so
 ne consommait rien, et l'horaire dérivait sans fin. Débloquer la session a fait
 retomber l'avance d'un facteur dix-sept et les trous à zéro, sans qu'on touche à
 l'ordonnancement.
+
+---
+
+### 7.59 Le bord du haut n'appartient pas à la page
+
+Les gâchettes L, R et Z étaient posées à zéro pixel du haut, et START juste en
+dessous. Sur un ordinateur c'est propre. Sur un iPhone tenu en travers, la barre
+d'adresse du navigateur et l'encoche occupent cette bande: les palettes se
+retrouvaient à moitié dessous, et il fallait viser un bord pour appuyer.
+
+Le navigateur sait ce qu'il occupe et le dit: `env(safe-area-inset-top)` et ses
+trois voisins donnent la hauteur qu'il faut laisser libre. La valeur vaut zéro
+partout où il n'y a rien à éviter, donc la même règle ne coûte rien à un écran
+d'ordinateur. Les quatre bords du pavé s'y accrochent maintenant, plus quatorze
+pixels en haut pour que le doigt ait de la place à côté du bord plutôt que
+dessus.
+
+Une conséquence de dessin: L et R pendaient du haut, coin supérieur carré et
+bordure du haut retirée, ce qui ne se lit que si elles touchent vraiment quelque
+chose. Descendues, elles deviennent des touches arrondies comme les autres.
+
+La leçon générale: une position exprimée en zéro suppose que le bord de la
+fenêtre est le bord de l'écran, et c'est faux sur tout téléphone. Ce genre de
+défaut ne se voit pas au pilote, qui mesure des recouvrements entre nos propres
+boutons et ne connaît pas le décor du navigateur autour. Il se voit sur la
+machine, et il a fallu qu'on me le dise.
+
+---
+
+### 7.60 Deuxième audit, et ce que la première correction avait manqué
+
+Le document complet est dans [`audit-2026-08-19.html`](audit-2026-08-19.html).
+Ce qui suit est ce qui change ce qu'on fait, et rien d'autre.
+
+#### Une socket muette gèle le port de contrôle
+
+`control::serve` accepte les connexions une par une et appelle `read_line` sans
+délai. Une connexion qui n'envoie jamais de fin de ligne bloque donc la boucle
+pour toujours. Reproduit sur la machine: ordre servi en 0,00 s avant, délai
+dépassé pendant, servi de nouveau dès la socket refermée. Le siège du
+propriétaire cesse de pouvoir changer, sans une ligne de trace.
+
+Le port n'écoute que sur la boucle locale, ce qui borne le sujet sans le fermer:
+un autre service de la machine y accède, et jellyfin écoute à côté sur toutes
+les interfaces.
+
+#### La sieste a cassé une mesure, et personne ne pouvait le voir
+
+Pendant une pause, le worker attend son image prochaine aussi longtemps que dure
+la pause, et `waiting_max_ms` l'enregistre. `just sessions` annonce donc que
+l'émulateur a fait attendre 6 310 436 ms pour une salle qui dormait. Sur les 63
+tranches signalées en trois jours, 7 sont des siestes.
+
+La leçon générale est plus large que le défaut: **une fonctionnalité peut casser
+une mesure sans toucher au code qui la produit.** Rien dans `nap.rs` ne parle de
+`waiting_max_ms`. Le lien passe par le monde réel, où une pause est une attente.
+
+Le tableau donne aussi la fausse bonne idée et sa réfutation. Une sieste est UNE
+attente longue, donc elle n'atteint jamais le p99, et lire le p99 au lieu du max
+séparerait les siestes des saccades. Sauf qu'une vraie panne de onze secondes a
+elle aussi un p99 normal: le p99 masquerait une vraie panne pour cacher une
+fausse. Il faut un champ `slept_ms`, pas un percentile plus malin.
+
+#### Corriger la charge utile n'est pas corriger la classe
+
+Le premier audit avait trouvé les relevés non bornés en débit, et j'ai posé un
+garde de cadence. Sur ce gestionnaire-là. Les quatre autres qui écrivent au
+journal n'en ont toujours aucun, et chacun déclenche en plus une requête HTTP
+vers le worker et une diffusion à toute la salle.
+
+Même forme du côté des tests. Le premier audit avait ajouté un plafond de 64
+connexions et une borne de 4 ko sur les messages. J'ai supprimé les deux, un par
+un: la suite reste verte. Le rapport déclarait le constat corrigé, et rien ne le
+tenait.
+
+#### Le banc de mutations, et pourquoi il vaut mieux qu'un pourcentage
+
+Vingt-deux règles cassées une par une, seize tuées par un test. Ce qui compte
+n'est pas le taux, c'est la forme des six survivantes: toutes dans du code écrit
+ces trois derniers jours, sous la pression de faire marcher le téléphone. Dont
+les deux branches du son dont le désaccord avait produit 1 001 trous pour 1 000
+morceaux. Les quatre tests que j'avais écrits après cette panne vérifient des
+relations entre constantes; aucun ne fait jouer un son.
+
+#### Un piège, en passant
+
+J'ai lancé `npx vite build` directement pour lire la répartition du paquet. Vite
+vide son répertoire de sortie, qui est le répertoire de la page dans les sources
+du worker, et le fichier `SOURCES` du tampon a disparu avec. `just check` l'a
+attrapé tout de suite. La règle: passer par `just front-build`, jamais par vite
+en direct, même pour seulement regarder.
+
+---
+
+### 7.61 Les quinze constats réglés, et trois tests qui ne pouvaient pas échouer
+
+Le second audit a produit quinze constats. Ils sont tous traités, sauf un qui
+était faux et que je corrige plus bas. Ce qui suit ne raconte pas les
+corrections une par une, le document les liste déjà; ce sont les choses que les
+corrections m'ont apprises.
+
+#### Un test qui passe des deux côtés de la faute
+
+J'avais écrit ceci pour tenir la borne de quatre kilo-octets sur les messages
+WebSocket, dont l'audit venait de montrer qu'aucun test ne la retenait:
+
+```rust
+assert!(eventually(|| socket.read().is_err()), "la socket est restée ouverte");
+```
+
+Il passait. Il passait aussi avec la borne retirée, et c'est le banc de
+mutations construit le matin même qui l'a dit. La raison tient en une ligne:
+**un délai de lecture dépassé est aussi une erreur.** La socket cliente avait
+trois secondes de patience, donc `read()` rendait `Err` au bout de trois
+secondes quoi qu'il arrive, et l'assertion était vraie sans rien avoir vérifié.
+
+La version qui tient distingue les cas: un `Close` ou une erreur qui n'est ni
+`WouldBlock` ni `TimedOut` prouve que le serveur a fermé; un délai dépassé ne
+prouve rien et fait réessayer.
+
+C'est le troisième test de ce dépôt trouvé vert sur du code cassé, et le premier
+que j'écris moi-même en corrigeant le constat qui dénonçait exactement ce défaut.
+La leçon n'est donc pas « faire attention »: c'est qu'un test écrit pour combler
+un trou doit être muté avant d'être cru, au même titre que le code.
+
+#### Le même piège, deux heures plus tard, par un autre chemin
+
+La CSP par empreinte a d'abord gardé son résultat dans un `OnceLock`, puisque la
+page ne change pas d'un démarrage à l'autre. Deux tests ont échoué tout de
+suite: le premier à tourner remplissait le cache, et le second lisait la
+politique d'une page qui n'était pas la sienne.
+
+Le cache était juste en production et faux en test, ce qui est la pire des deux
+combinaisons: il aurait pu rester longtemps. Retiré. Le calcul est une passe de
+SHA-256 sur 450 ko, seulement quand quelqu'un charge la page, et ça ne se mesure
+pas à côté des 118 ko qui partent derrière.
+
+#### Une borne dont l'effet ne se voyait pas
+
+Troisième variante encore. Le port de contrôle du worker lisait sans borne; j'ai
+posé `take(64)` et écrit un test qui envoie quatre mille octets sans saut de
+ligne et attend « no ». Il passait avec la borne et sans elle: sans elle, le
+serveur attend simplement l'expiration du délai de lecture, puis répond « no »
+quand même.
+
+Ce qui les sépare est le TEMPS. Le test donne donc au client une seconde de
+patience contre deux secondes côté serveur: avec la borne, la réponse part tout
+de suite; sans elle, elle arrive après que le client a renoncé. Deux
+comportements séparés par une seconde et demie, ce qui n'est pas une assertion
+de chronomètre fragile.
+
+#### Retirer la sieste de l'attente, à la source plutôt qu'à la lecture
+
+Le lecteur pouvait cacher les fausses alertes. Le worker peut faire mieux: il
+sait qu'il dort. Un compteur partagé accumule le temps passé en pause, la boucle
+d'images le retranche de l'attente qu'elle vient de mesurer, et la tranche
+publie `slept_ms` à côté.
+
+La règle générale derrière: **une mesure fausse qu'on rattrape à la lecture reste
+fausse dans le journal.** Trente heures de traces gardent déjà des attentes de
+six millions de millisecondes, et aucune correction du lecteur ne les rend
+vraies.
+
+La soustraction elle-même vit dans `nap.rs` et pas dans le binaire, avec ses
+trois tests: la version évidente, `elapsed - napped`, déborde quand les deux
+horloges sont lues à un instant d'écart, et rendrait une attente de cinq cent
+quatre-vingt-quatre mille ans.
+
+#### Une règle mécanique pour les mesures du worker
+
+L'audit disait que le worker publiait trente mesures et que le lecteur en
+montrait douze. Plutôt que de choisir à la main lesquelles garder, j'ai posé la
+règle dans la machine, comme la page l'a depuis le premier audit: un test lit la
+liste des champs **directement dans le code du worker** et exige que le lecteur
+sache dire chacun.
+
+Toutes affichées ne veut pas dire toutes sur la même ligne. La ligne courte reste
+courte; `just sessions <jour> --tout` déplie le reste. Et le test a son jumeau,
+qui refuse que le lecteur annonce un champ que le worker n'envoie pas.
+
+#### Le son: quatre tests sur des constantes remplacés par un flux
+
+La décision d'ordonnancement est sortie de la classe. `scheduleAt(now, playAt,
+lead)` est une fonction pure, donc on peut lui faire jouer mille morceaux avec
+une secousse au milieu et compter les trous. C'est exactement la panne du 18
+août: une secousse doit coûter UN trou, et elle en coûtait un par morceau
+jusqu'à la fin de la partie.
+
+Six mutations posées sur les six branches, six tuées. Les quatre tests d'avant
+n'en tuaient qu'une.
+
+#### Corriger un constat que j'avais inventé
+
+Le constat 15 disait qu'une règle `tailscale serve` sur le port 8444 était
+orpheline, parce qu'elle pointait vers un répertoire absent. C'est faux: c'est
+le site de documentation, construit par `just docs`, et le répertoire est absent
+parce que rien ne l'avait construit sur cette machine depuis un nettoyage. La
+bonne action était de reconstruire, pas de retirer le partage.
+
+Je l'ai reconstruit, et 8444 rend de nouveau une page. La leçon est celle qu'un
+audit doit s'appliquer à lui-même: **un fichier absent ne prouve pas qu'une
+configuration est morte**, il prouve qu'on n'a pas cherché qui l'écrit.
+
+#### Ce que les deux fonctionnalités ont demandé
+
+**La manette seule.** Le mode n'ouvre ni `/video` ni `/sound`. La difficulté
+n'était pas de ne pas ouvrir les sockets, c'était de ne pas mentir ensuite: une
+page qui ne peint aucune image ressemble exactement à une page dont la vidéo est
+cassée. Le drapeau voyage donc à l'arrivée, avec la visite, et le journal
+distingue les deux. Un pilote compte les sockets ouvertes, parce qu'une
+soustraction ne se voit pas à l'œil: une page qui affiche « manette seule » tout
+en décodant derrière aurait exactement l'air de marcher.
+
+**La latence montrée au joueur.** Un aller-retour, et pas une horodate. Les deux
+horloges ne sont pas synchronisées, et l'instant de capture porté par chaque
+image est une ancre sur l'horloge du worker, pas un retard: les confondre avait
+déjà affiché moins quinze secondes. Un aller-retour se mesure sur une seule
+horloge et ne suppose rien.
+
+Neuf octets par seconde et par page, contre treize octets soixante fois par
+seconde pour une manette: la sonde coûte un millième de ce qu'elle mesure, ce
+qui est la première chose à vérifier avant d'en poser une sur un chemin chaud.
+
+#### Les chiffres, pour mémoire
+
+| | avant | après |
+|---|---|---|
+| page envoyée | 137 569 o en gzip | **118 874 o en brotli** |
+| `script-src` | `'unsafe-inline'` | l'empreinte du seul script de la page |
+| conteneur Dolphin | réseau complet, toutes capacités | `none`, `cap-drop=ALL`, 512 processus |
+| cadence bornée | 2 gestionnaires sur 6 | **6 sur 6** |
+| tests | 447 | **503** |
 
 ---
 

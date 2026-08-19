@@ -1,0 +1,1399 @@
+<title>Second passage sur nel3ab</title>
+<style>
+  /* Palette: celle du projet (front/src/index.css), reprise telle quelle, plus
+     un ambre pour la gravité intermédiaire que la palette n'avait pas. */
+  :root {
+    --ink: #ffffff;
+    --panel: #f6f6f8;
+    --sunk: #eeeef2;
+    --rule: #e2e2e8;
+    --rule-bright: #c8c8d2;
+    --text: #16161c;
+    --muted: #56565f;
+    --faint: #86868f;
+    --indigo: #5540c9;
+    --alert: #c22f3d;
+    --warn: #8a5a00;
+    --good: #0a7a45;
+    --shadow: 0 1px 2px rgba(22, 22, 28, 0.06);
+
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --serif: Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ink: #08080a;
+      --panel: #0e0e11;
+      --sunk: #131318;
+      --rule: #1e1e25;
+      --rule-bright: #2c2c36;
+      --text: #e8e8ee;
+      --muted: #8b8b98;
+      --faint: #5c5c68;
+      --indigo: #7c6ce0;
+      --alert: #ff7a7a;
+      --warn: #e0a94a;
+      --good: #6ee7a8;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ink: #08080a;
+    --panel: #0e0e11;
+    --sunk: #131318;
+    --rule: #1e1e25;
+    --rule-bright: #2c2c36;
+    --text: #e8e8ee;
+    --muted: #8b8b98;
+    --faint: #5c5c68;
+    --indigo: #7c6ce0;
+    --alert: #ff7a7a;
+    --warn: #e0a94a;
+    --good: #6ee7a8;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  }
+
+  body {
+    background: var(--ink);
+    color: var(--text);
+    font-family: var(--serif);
+    font-size: 17px;
+    line-height: 1.65;
+    margin: 0;
+    padding: 0 20px 96px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page { max-width: 74ch; margin: 0 auto; }
+  .prose { max-width: 66ch; }
+  :focus-visible { outline: 2px solid var(--indigo); outline-offset: 3px; }
+
+  .label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+
+  header { padding: 72px 0 0; }
+  h1 {
+    font-family: var(--mono);
+    font-size: clamp(26px, 4.6vw, 38px);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    text-wrap: balance;
+    margin: 14px 0 0;
+  }
+  header p.lede {
+    color: var(--muted);
+    font-size: 19px;
+    margin: 18px 0 0;
+    max-width: 60ch;
+    text-wrap: pretty;
+  }
+
+  .figures {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    margin: 40px 0 0;
+  }
+  .figure { background: var(--panel); padding: 12px 14px; }
+  .figure b {
+    display: block;
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 21px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  .figure span { display: block; margin-top: 3px; }
+
+  .verdict {
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--alert);
+    background: var(--panel);
+    padding: 20px 22px;
+    margin-top: 40px;
+    box-shadow: var(--shadow);
+  }
+  .verdict p { margin-top: 10px; }
+  .verdict p:first-of-type { margin-top: 12px; }
+
+  h2 {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--indigo);
+    margin: 72px 0 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--rule);
+  }
+  h2 + p, h2 + .prose { margin-top: 20px; }
+
+  h3 {
+    font-family: var(--mono);
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.35;
+    margin: 10px 0 0;
+    text-wrap: balance;
+  }
+
+  p { margin: 14px 0 0; }
+  p.first { margin-top: 0; }
+  strong { font-weight: 600; color: var(--text); }
+
+  .finding {
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--stripe, var(--rule-bright));
+    background: var(--panel);
+    box-shadow: var(--shadow);
+    padding: 18px 22px 22px;
+    margin-top: 18px;
+  }
+  .finding.critique { --stripe: var(--alert); }
+  .finding.important { --stripe: var(--warn); }
+  .finding.mineur { --stripe: var(--rule-bright); }
+  .finding.corrige { --stripe: var(--good); }
+
+  .head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .rank {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 13px;
+    color: var(--faint);
+  }
+  .chip {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    border: 1px solid currentColor;
+    border-radius: 2px;
+    padding: 2px 7px;
+    white-space: nowrap;
+  }
+  .chip.critique { color: var(--alert); }
+  .chip.important { color: var(--warn); }
+  .chip.mineur { color: var(--faint); }
+  .chip.corrige { color: var(--good); }
+  .finding .body { margin-top: 12px; }
+
+  .readout {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 1.75;
+    font-variant-numeric: tabular-nums;
+    background: var(--sunk);
+    border: 1px solid var(--rule);
+    padding: 12px 14px;
+    margin-top: 14px;
+    overflow-x: auto;
+    white-space: pre;
+    color: var(--muted);
+  }
+  .readout b { color: var(--text); font-weight: 600; }
+  .readout .bad { color: var(--alert); font-weight: 600; }
+  .readout .ok { color: var(--good); font-weight: 600; }
+
+  .fix {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px dashed var(--rule);
+    font-size: 15.5px;
+    color: var(--muted);
+  }
+  .fix .label { display: block; margin-bottom: 4px; }
+  code {
+    font-family: var(--mono);
+    font-size: 0.86em;
+    background: var(--sunk);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    padding: 1px 5px;
+    color: var(--text);
+  }
+
+  .tier { margin-top: 30px; }
+  .tier > .label { display: block; margin-bottom: 12px; }
+  .cards { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+  .card {
+    border: 1px solid var(--rule);
+    background: var(--panel);
+    padding: 18px 20px 20px;
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+  }
+  .card h3 { font-size: 15.5px; margin-top: 0; }
+  .card p { font-size: 15.5px; margin-top: 10px; color: var(--muted); }
+  .card p strong { color: var(--text); }
+  .meters { display: flex; gap: 18px; margin-top: auto; padding-top: 14px; }
+  .meter { display: flex; align-items: baseline; gap: 6px; }
+  .meter .label { letter-spacing: 0.1em; }
+  .dots { display: inline-flex; gap: 3px; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--rule-bright); }
+  .dot.on { background: var(--indigo); }
+  .dot.cost.on { background: var(--faint); }
+
+  ol.order { list-style: none; counter-reset: step; padding: 0; margin: 20px 0 0; }
+  ol.order li {
+    counter-increment: step;
+    display: grid;
+    grid-template-columns: 30px 1fr;
+    gap: 14px;
+    padding: 14px 0;
+    border-top: 1px solid var(--rule);
+  }
+  ol.order li::before {
+    content: counter(step);
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 13px;
+    color: var(--indigo);
+    padding-top: 2px;
+  }
+  ol.order span { display: block; color: var(--muted); font-size: 15.5px; margin-top: 2px; }
+
+  ul.plain { padding-left: 20px; margin: 12px 0 0; }
+  ul.plain li { margin-top: 9px; color: var(--muted); }
+  ul.plain li strong { color: var(--text); }
+
+  footer {
+    margin-top: 72px;
+    padding-top: 20px;
+    border-top: 1px solid var(--rule);
+    color: var(--faint);
+    font-size: 14.5px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+  /* Ajouts de ce document: le banc de mutations et les tableaux de mesures. */
+  table.bench { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 15px; }
+  table.bench th, table.bench td {
+    text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--rule); vertical-align: top;
+  }
+  table.bench th {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--faint); font-weight: 600;
+  }
+  table.bench td.verdict-cell { font-family: var(--mono); font-size: 12px; white-space: nowrap; }
+  table.bench td.tue { color: var(--good); }
+  table.bench td.survit { color: var(--alert); font-weight: 600; }
+  .scroll { overflow-x: auto; }
+  .aside {
+    border: 1px solid var(--rule); background: var(--sunk);
+    padding: 16px 18px; margin-top: 18px; font-size: 15.5px; color: var(--muted);
+  }
+  .aside .label { display: block; margin-bottom: 6px; }
+  .aside p { margin-top: 8px; }
+  .aside p:first-of-type { margin-top: 0; }
+</style>
+
+<div class="page">
+  <header>
+    <span class="label">audit du 19 août 2026 · mesuré sur lgf</span>
+    <h1>Second passage sur nel3ab</h1>
+    <p class="lede">
+      Cent cinquante-deux commits après le premier audit, avec la manette
+      tactile, la vibration, le son du téléphone et la sieste de la salle en
+      plus. Quinze constats, un banc de mutations qui dit où les tests mentent
+      par omission, soixante heures de flux dépouillées, et huit fonctionnalités
+      nouvelles.
+    </p>
+
+    <div class="figures">
+      <div class="figure"><b>32,5 k</b><span class="label">lignes de code</span></div>
+      <div class="figure"><b>447</b><span class="label">tests</span></div>
+      <div class="figure"><b>44</b><span class="label">pilotes</span></div>
+      <div class="figure"><b>59,6 h</b><span class="label">de flux lues</span></div>
+      <div class="figure"><b>12,9 M</b><span class="label">images produites</span></div>
+      <div class="figure"><b>166</b><span class="label">commits</span></div>
+    </div>
+
+    <div class="verdict prose" style="border-left-color: var(--good)">
+      <span class="label">tout est corrigé — 19 août, fin de journée</span>
+      <p class="first">
+        <strong>Les quinze constats sont traités</strong>, et le quinzième était
+        faux: la règle de partage sur le port 8444 n'est pas orpheline, c'est le
+        site de documentation, dont le répertoire manquait parce que rien ne
+        l'avait construit ici. Reconstruit plutôt que retiré.
+      </p>
+      <p>
+        Deux fonctionnalités en plus: <strong>la manette seule</strong>, qui
+        n'ouvre ni la vidéo ni le son, et <strong>l'aller-retour</strong> affiché
+        à qui le subit. La suite passe de 447 à 503 tests, et chaque correction a
+        été vérifiée en réintroduisant le défaut.
+      </p>
+      <p>
+        Trois des tests que j'ai écrits pour combler ces trous ne pouvaient pas
+        échouer, et le banc de mutations construit le matin même les a attrapés.
+        C'est raconté dans l'entrée 7.61 du carnet.
+      </p>
+    </div>
+
+    <div class="verdict prose">
+      <span class="label">verdict d\'origine</span>
+      <p class="first">
+        La chaîne d'images est excellente et je peux enfin le chiffrer. Sur
+        21 468 tranches de dix secondes, l'encodage tient un p95 de 2,0 ms, la
+        conversion GPU 0,15 ms, et zéro image n'a été jetée sur les 5 249
+        tranches qui savent le compter. La page n'est pas lente non plus: LCP à
+        148 ms avec le processeur bridé quatre fois, et pas une seule tâche
+        longue.
+      </p>
+      <p>
+        Le vrai défaut est ailleurs, et je l'ai reproduit sur la machine.
+        <strong>Une seule connexion TCP qui n'envoie rien gèle le port de
+        contrôle du worker</strong>, indéfiniment, et le siège du propriétaire
+        cesse de pouvoir changer. Zéro octet envoyé, aucune trace, aucune reprise
+        automatique.
+      </p>
+      <p>
+        Le reste dessine un thème: <strong>les corrections du premier audit ont
+        traité le symptôme, pas la classe</strong>. La limite de cadence protège
+        un gestionnaire sur six. Les deux plafonds ajoutés contre le déni de
+        service ne sont tenus par aucun test, et j'ai pu les supprimer sans
+        qu'une seule ligne rougisse.
+      </p>
+    </div>
+  </header>
+
+  <h2>Ce qui a changé depuis le 18 août</h2>
+  <div class="prose">
+    <p class="first">
+      Les douze constats du premier audit sont réglés, sauf un que j'avais
+      moi-même reporté. Ce n'est pas une liste de félicitations, c'est le point
+      de départ pour ne pas répéter les mêmes.
+    </p>
+    <ul class="plain">
+      <li>
+        <strong>Les sauvegardes ont quitté <code>/tmp</code></strong>, la salle
+        vide met le conteneur en pause après une minute, la page part en gzip
+        avec un ETag qui rend bien un 304, et le jeu qui redémarrait en boucle
+        est réglé pour de bon par l'adoption de l'anneau en cours de route.
+      </li>
+      <li>
+        <strong>Le constat 12 reste ouvert</strong>: <code>browser.rs</code>
+        porte toujours six métiers, sur 3 080 lignes maintenant au lieu de 2 835.
+        Il grossit. Je maintiens qu'on le coupera le jour où on y touche pour une
+        autre raison, mais la pente est à noter.
+      </li>
+      <li>
+        <strong>Je corrige un constat que j'avais exagéré.</strong> J'avais écrit
+        « quarante boutons, aucun repère d'accessibilité ». En lisant l'arbre
+        d'accessibilité réel de la page de jeu: quinze boutons, aucun sans nom.
+        Le défaut existe mais il est plus petit et plus précis, et il est décrit
+        au constat 12 plus bas.
+      </li>
+    </ul>
+  </div>
+
+  <h2>Ce qui tient, avec les chiffres</h2>
+  <div class="prose">
+    <p class="first">
+      Tout ce qui suit vient de trois jours de journal système, soit 21 468
+      tranches de dix secondes et 12 863 687 images réellement produites. Ce
+      n'est pas un banc synthétique, c'est ce que la salle a fait.
+    </p>
+  </div>
+
+  <div class="scroll">
+    <div class="readout">                        p50       p95       p99       max
+attente de l'émulateur   15,50     18,73     52,05    voir constat 03
+conversion GPU (p95)      0,15      0,21      0,31      0,69 ms
+encodage (p95)            <b>1,67</b>      <b>2,01</b>      3,04      4,06 ms
+commande vers image       0,14      2,56      9,13    218,80 ms
+débit                     0,40     13,60     25,65     40,46 Mb/s
+images par tranche         600       600       600       607
+
+images jetées, sur les 5 249 tranches qui le mesurent : <span class="ok">0</span></div>
+  </div>
+
+  <div class="prose">
+    <ul class="plain">
+      <li>
+        <strong>Le budget d'une image est de 16,7 ms et la chaîne en consomme
+        2,2.</strong> Conversion plus encodage au p95. L'encodage ne serait donc
+        pas ce qui limiterait une deuxième salle sur cette carte. Ce qui la
+        limiterait, mémoire vidéo et second Dolphin, n'est pas mesuré.
+      </li>
+      <li>
+        <strong>La règle « le worker ne panique pas » tient encore.</strong> Sur
+        les 48 <code>unwrap</code>, <code>expect</code> et <code>panic!</code>
+        du dépôt, 42 sont dans <code>tests/</code> ou <code>examples/</code>, et
+        les six derniers sont dans une fonction portant
+        <code>#[cfg(all(test, feature = "gpu-tests"))]</code> avec sa raison
+        écrite. Vérifié, pas supposé.
+      </li>
+      <li>
+        <strong>La diffusion d'une image ne copie qu'une fois.</strong> Le
+        chemin par image encode dans un <code>Bytes</code> compté par référence,
+        et chaque spectateur en prend une référence par
+        <code>try_send</code> non bloquant sur une file de deux. Quatre joueurs
+        ne coûtent pas quatre copies, et un navigateur lent ne peut pas retenir
+        le fil qui distribue.
+      </li>
+      <li>
+        <strong>La liaison est confinée.</strong> Le worker écoute sur
+        <code>127.0.0.1</code> seulement, et <code>tailscaled</code> termine le
+        TLS sur l'adresse du tailnet. Rien de la salle n'est joignable depuis le
+        réseau local ni depuis internet.
+      </li>
+      <li>
+        <strong>La page revalidée ne coûte rien.</strong> Avec son ETag elle
+        rend un 304 de zéro octet. Les 136 ko sont un coût de première visite,
+        pas un coût par partie.
+      </li>
+      <li>
+        <strong>Le réveil ne peut pas s'emballer.</strong> La sieste demande une
+        minute de salle vide et le réveil est immédiat, donc personne ne peut
+        faire battre <code>docker pause</code> en ouvrant et fermant un onglet.
+      </li>
+    </ul>
+  </div>
+
+  <h2>Constats</h2>
+  <div class="prose">
+    <p class="first">
+      Quinze, classés par ce qu'ils coûtent si on les laisse. Les trois premiers
+      sont confirmés sur la machine, pas déduits de la lecture.
+    </p>
+  </div>
+
+  <div class="finding corrige">
+    <div class="head">
+      <span class="rank">01</span>
+      <span class="chip critique">confirmé sur la machine</span>
+      <span class="chip corrige">corrigé</span>
+    </div>
+    <h3>Une connexion inerte gèle le port de contrôle du worker</h3>
+    <div class="body prose">
+      <p class="first">
+        <code>control::serve</code> accepte les connexions une par une, et pour
+        chacune appelle <code>read_line</code> sans délai d'attente. Une
+        connexion qui n'envoie jamais de fin de ligne bloque donc la boucle pour
+        toujours, et aucune autre ne sera acceptée. Le siège du propriétaire ne
+        peut plus changer, et rien dans les traces ne dit pourquoi.
+      </p>
+      <p>
+        J'ai ouvert une socket sur <code>127.0.0.1:8101</code> et n'ai rien
+        envoyé. Voici ce que la salle a répondu.
+      </p>
+      <div class="readout">avant           <span class="ok">ok</span>          en 0,00 s
+pendant         <span class="bad">rien</span>        délai dépassé après 5,00 s
+après fermeture <span class="ok">ok</span>          en 0,00 s</div>
+      <p>
+        Le port n'écoute que sur la boucle locale, donc il faut déjà un processus
+        sur lgf pour en profiter. Ce n'est pas rien: jellyfin écoute sur
+        <code>0.0.0.0:8096</code> à côté, et un service compromis depuis le
+        réseau local atteint la boucle locale. Le même code porte un second
+        défaut sans le premier: <code>read_line</code> remplit une
+        <code>String</code> sans borne, donc un flot sans fin de ligne fait
+        grossir la mémoire du worker jusqu'à ce que le noyau le tue.
+      </p>
+      <div class="fix">
+        <span class="label">ce que ça coûte de le corriger</span>
+        Un <code>set_read_timeout</code> sur le flux accepté, et une lecture
+        bornée à la longueur du plus long ordre valide plus un. Une vingtaine de
+        lignes, plus un test qui ouvre une socket muette et vérifie que la
+        suivante est servie. Le test est facile: je viens de l'écrire en Python.
+      </div>
+    </div>
+  </div>
+
+  <div class="finding corrige">
+    <div class="head">
+      <span class="rank">02</span>
+      <span class="chip important">moyen</span>
+      <span class="chip corrige">corrigé</span>
+    </div>
+    <h3>La limite de cadence protège un gestionnaire sur six</h3>
+    <div class="body prose">
+      <p class="first">
+        Le premier audit a trouvé que <code>mesures</code> pouvait écrire
+        22,6 Mo en trente secondes, et j'ai posé un garde de cadence. Sur
+        <code>mesures</code>. Et sur <code>plainte</code>. Les quatre autres
+        gestionnaires qui écrivent au journal n'en ont aucun, et chacun fait
+        trois choses par message reçu.
+      </p>
+      <div class="readout">gestionnaire   cadence bornée   écrit au journal   appelle le worker   diffuse à la salle
+mesures        <span class="ok">oui, 5 s</span>         626 o              non                 non
+plainte        <span class="ok">oui, 20 s</span>        1 384 o            non                 non
+seat           <span class="bad">non</span>              277 o              <span class="bad">oui, GET /roms</span>      <span class="bad">oui</span>
+answer         <span class="bad">non</span>              277 o              <span class="bad">oui, GET /roms</span>      <span class="bad">oui</span>
+rename         <span class="bad">non</span>              114 o              <span class="bad">oui, GET /roms</span>      <span class="bad">oui</span>
+ask            <span class="bad">non</span>              277 o              non                 non</div>
+      <p>
+        Chaque <code>seat</code> reçu déclenche donc une écriture disque, une
+        requête HTTP vers le worker, et un message vers toutes les pages
+        connectées. Une page qui en envoie en boucle multiplie son propre trafic
+        par le nombre de personnes présentes. La correction du premier audit
+        traitait la charge utile; c'est la classe qu'il fallait traiter.
+      </p>
+      <div class="fix">
+        <span class="label">ce que ça coûte de le corriger</span>
+        Un décorateur qui porte la cadence, appliqué aux six gestionnaires, avec
+        un intervalle par nom d'événement. La fonction <code>too_soon</code>
+        existe déjà et elle est testée; il ne manque que de l'appeler partout.
+      </div>
+    </div>
+  </div>
+
+  <div class="finding corrige">
+    <div class="head">
+      <span class="rank">03</span>
+      <span class="chip important">moyen</span>
+      <span class="chip corrige">corrigé</span>
+    </div>
+    <h3>La sieste fait crier au secours le relevé de santé</h3>
+    <div class="body prose">
+      <p class="first">
+        Mettre la salle vide en pause était une bonne idée. Elle a cassé une
+        mesure, et personne ne l'a vu parce que la mesure est lue par un humain
+        qui n'était pas là. Pendant une pause, le worker attend son image
+        prochaine aussi longtemps que dure la pause, et
+        <code>waiting_max_ms</code> enregistre cette attente.
+      </p>
+      <div class="readout">                     max        p99      p95      p50   images
+sieste           <span class="bad">6 310 436</span>       20,3     20,1     20,0      272
+sieste           <span class="bad">1 168 328</span>       17,1     16,9     16,7      236
+sieste             <span class="bad">721 491</span>       16,9     16,8     16,7      538
+vraie saccade       41 074   <span class="bad">41 074,0</span>     17,8     16,7       29
+vraie saccade       11 564       21,0     20,8     20,2      172</div>
+      <p>
+        <code>just sessions</code> annonce donc « l'émulateur a fait attendre
+        6 310 436 ms » pour une salle qui dormait tranquillement pendant une
+        heure quarante-cinq. Sur les 63 tranches que le lecteur signale, 7 sont
+        des siestes. Un relevé qui crie pour rien est un relevé qu'on apprend à
+        ignorer, et c'est la troisième fois que ce projet produit ce défaut.
+      </p>
+      <p>
+        Le tableau montre aussi pourquoi la correction facile ne suffit pas. Une
+        sieste est UNE attente longue, donc elle n'atteint jamais le p99, et
+        lire le p99 au lieu du max séparerait les deux premières colonnes. Mais
+        la deuxième vraie saccade, onze secondes de gel réel, a elle aussi un p99
+        normal. Le p99 masquerait donc une vraie panne pour cacher une fausse.
+      </p>
+      <div class="fix">
+        <span class="label">ce que ça coûte de le corriger</span>
+        Le worker sait qu'il dort: la machine à états <code>Nap</code> le lui
+        dit. Publier <code>slept_ms</code> dans la tranche et le retrancher de
+        l'attente, ou simplement laisser le lecteur écrire « la salle dormait ».
+        Une dizaine de lignes de chaque côté, et un test rouge d'abord avec une
+        tranche de sieste fabriquée.
+      </div>
+    </div>
+  </div>
+
+  <div class="finding corrige">
+    <div class="head">
+      <span class="rank">04</span>
+      <span class="chip important">moyen</span>
+      <span class="chip corrige">corrigé</span>
+    </div>
+    <h3>Les deux plafonds posés contre le déni de service ne sont tenus par aucun test</h3>
+    <div class="body prose">
+      <p class="first">
+        C'est le constat que je trouve le plus gênant, parce qu'il porte sur mon
+        propre travail d'il y a deux jours. Le premier audit a ajouté
+        <code>MAX_CONNECTIONS = 64</code> et un plafond de 4 ko sur les messages
+        WebSocket. J'ai supprimé les deux, un par un, et lancé toute la suite du
+        crate <code>transport</code>. Elle est restée verte.
+      </p>
+      <p>
+        La règle 4 du projet dit qu'un test qui ne peut pas échouer est pire que
+        pas de test, parce qu'il annonce une couverture qui n'existe pas. Ici
+        c'est le rapport d'audit lui-même qui annonce la couverture: il déclare
+        le constat corrigé, et rien ne le tient.
+      </p>
+      <div class="fix">
+        <span class="label">ce que ça coûte de le corriger</span>
+        Le minimum est deux assertions sur <code>socket_limits()</code>, qui
+        attraperaient la suppression mais pas un changement de comportement. Le
+        bon niveau est un test qui ouvre 65 connexions sur un
+        <code>TcpListener</code> éphémère et vérifie que la 65e est refusée. Le
+        crate a déjà des tests qui lient une socket, donc l'outillage existe.
+      </div>
+    </div>
+  </div>
+
+  <div class="finding corrige">
+    <div class="head">
+      <span class="rank">05</span>
+      <span class="chip important">moyen</span>
+      <span class="chip corrige">corrigé</span>
+    </div>
+    <h3>Un gestionnaire contourne la seule fonction qui borne un numéro de manette</h3>
+    <div class="body prose">
+      <p class="first">
+        <code>_port()</code> existe précisément pour ça, et son commentaire dit
+        la bonne chose: « ce qui arrive d'une page n'est pas un nombre parce
+        qu'on l'espère ». <code>ask</code> et <code>answer</code> l'utilisent.
+        <code>seat</code> appelle <code>int(port)</code> directement.
+      </p>
+      <div class="readout">RoomController.claim() avec 0, -1, 999999 et 2^40 :
+  places retenues : <span class="bad">[-1, 0, 999999, 1099511627776]</span>
+  sièges annoncés : [1, 2, 3, 4]</div>
+      <p>
+        Deux conséquences. Le dictionnaire des places accepte n'importe quel
+        entier et grossit sans borne, ce qui se combine mal avec le constat 02.
+        Et une valeur non numérique, un objet par exemple, lève une
+        <code>TypeError</code> non rattrapée dans le gestionnaire.
+      </p>
+      <p>
+        La bonne correction n'est pas d'ajouter un appel. C'est la règle 3 du
+        projet: du côté Rust, <code>PlayerSlot</code> ne peut pas contenir zéro,
+        donc aucun appelant ne peut passer un mauvais numéro et aucun test n'a
+        besoin de le prouver. Du côté Python, la borne est une fonction qu'un
+        appelant peut oublier, et un appelant l'a oubliée.
+      </p>
+      <div class="fix">
+        <span class="label">ce que ça coûte de le corriger</span>
+        Un type <code>Port</code> validé par pydantic, accepté par
+        <code>claim</code>, <code>free</code> et <code>holder_of</code>. Une
+        heure, et le sujet est clos pour de bon. Au passage: la plage 1 à 4 de
+        <code>_port</code> n'est elle-même tenue par aucun test, je l'ai
+        supprimée sans rougir la suite.
+      </div>
+    </div>
+  </div>
+
+  <div class="finding corrige">
+    <div class="head">
+      <span class="rank">06</span>
+      <span class="chip important">moyen</span>
+      <span class="chip corrige">corrigé</span>
+    </div>
+    <h3>Quatre tests sur le son, et aucun ne fait jouer un son</h3>
+    <div class="body prose">
+      <p class="first">
+        Après la panne de son sur iPhone, j'ai écrit quatre tests. Ils vérifient
+        que <code>RESYNC</code> reste au-dessus de <code>LEAD_MAX</code>, que
+        <code>LEAD_MIN</code> est plus petit que <code>LEAD_MAX</code>, et que la
+        marge entre les deux fait au moins cinquante millisecondes. Ce sont des
+        assertions sur des constantes. Aucun ne construit un
+        <code>Sound</code> et ne le fait tourner.
+      </p>
+      <p>
+        Le banc de mutations le montre sans discussion. J'ai cassé la condition
+        qui décide de réancrer, et j'ai enlevé le plafond de l'avance, c'est-à-
+        dire exactement la paire dont le désaccord avait produit 1 001 trous pour
+        1 000 morceaux. Les deux mutations survivent.
+      </p>
+      <p>
+        <code>video.ts</code> est dans le même cas en pire: 768 lignes sur le
+        chemin des images, aucun fichier de test. <code>App.tsx</code> en fait
+        1 025 sans test non plus, mais c'est de l'assemblage, donc ça se défend.
+      </p>
+      <div class="fix">
+        <span class="label">ce que ça coûte de le corriger</span>
+        Un faux <code>AudioContext</code> avec une horloge qu'on avance à la
+        main, puis trois scénarios: le son en retard, le son trop en avance, et
+        la suite de morceaux réguliers qui ne doit produire aucun trou. Une
+        demi-journée, et elle rembourse tout de suite: cette classe de panne a
+        déjà coûté deux soirées.
+      </div>
+    </div>
+  </div>
+
+  <div class="finding corrige">
+    <div class="head">
+      <span class="rank">07</span>
+      <span class="chip mineur">structurel</span>
+      <span class="chip corrige">corrigé</span>
+    </div>
+    <h3>Le worker publie trente mesures et le lecteur en montre douze</h3>
+    <div class="body prose">
+      <p class="first">
+        La page a un garde mécanique: <code>audit-readouts.mjs</code> tourne dans
+        <code>just check</code> et refuse un calcul qui ne s'affiche nulle part.
+        Il m'a arrêté avant-hier sur <code>SoundStats.gain</code>. Le worker
+        produit beaucoup plus de chiffres et n'a pas d'équivalent.
+      </p>
+      <div class="readout">jamais lues nulle part, toutes les dix secondes, depuis des mois :
+
+  converting_max_ms      encoding_p50_ms     frame_bytes_p95    produced
+  converting_p50_ms      encoding_p99_ms     frame_bytes_p99    sound_starved
+  converting_p95_ms      frame_bytes_max     input_to_frame_p95_ms
+  encoding_max_ms        frame_bytes_p50     inputs_applied     waiting_p50_ms
+                                             inputs_received    waiting_p95_ms
+                                                                waiting_p99_ms</div>
+      <p>
+        Ce n'est pas du code mort, c'est du journal, et un humain peut toujours
+        y plonger. Le coût est réel quand même: le constat 03 se serait vu tout
+        seul si <code>waiting_p99_ms</code> avait été affiché à côté du max. La
+        mesure existait, elle était écrite, et personne ne la regardait.
+      </p>
+      <div class="fix">
+        <span class="label">ce que ça coûte de le corriger</span>
+        Deux chemins, et je préfère le second. Soit un garde sur le worker comme
+        celui de la page. Soit un ménage: retirer les quinze champs dont personne
+        n'a jamais eu besoin, et afficher les trois qui manquent vraiment.
+      </div>
+    </div>
+  </div>
+
+  <div class="finding corrige">
+    <div class="head">
+      <span class="rank">08</span>
+      <span class="chip mineur">mineur</span>
+      <span class="chip corrige">corrigé</span>
+    </div>
+    <h3>Le conteneur Dolphin a plus de droits qu'il n'en faut</h3>
+    <div class="body prose">
+      <p class="first">
+        Dolphin est un gros programme C++ qui lit des fichiers de jeu que des
+        amis apportent. Le conteneur est la seule chose entre ce parseur et la
+        machine. Il tourne déjà sous l'identité de l'utilisateur plutôt qu'en
+        root, ce qui est le plus important. Il lui manque trois lignes.
+      </p>
+      <div class="readout">--network none               le réseau, dont Dolphin n'a aucun besoin ici:
+                             son, images et manettes passent par des tubes et
+                             une socket unix, tous dans le montage. L'image
+                             embarque miniupnpc et libcurl.
+--cap-drop=ALL               aucune capacité n'est utilisée
+--security-opt=no-new-privileges
+--pids-limit=512             une borne, pour qu'un plantage ne noie pas lgf</div>
+      <p>
+        À vérifier avant de le poser: que <code>--network none</code> ne casse
+        rien. Je pense que non, la salle ne parle à Dolphin que par le système de
+        fichiers, mais je ne l'ai pas essayé et un essai demande de relancer une
+        partie.
+      </p>
+      <div class="fix">
+        <span class="label">ce que ça coûte de le corriger</span>
+        Quatre lignes dans <code>dolphin-in-docker.sh</code>, et une partie
+        d'essai pour confirmer. Dix minutes.
+      </div>
+    </div>
+  </div>
+
+  <div class="finding corrige">
+    <div class="head">
+      <span class="rank">09</span>
+      <span class="chip mineur">mineur</span>
+      <span class="chip corrige">corrigé</span>
+    </div>
+    <h3>Une page peut écrire dans le terminal de qui lit le journal</h3>
+    <div class="body prose">
+      <p class="first">
+        Les relevés qu'une page envoie sont écrits tels quels dans le journal,
+        puis <code>just sessions</code> les met en forme et les imprime. Rien
+        n'enlève les caractères de contrôle en chemin.
+      </p>
+      <div class="readout">_seen({"gigue": "\x1b[2J\x1b[1;1H", "peintes": "\x07\rEFFACE"})
+  -> '\x07\rEFFACE/0    peintes  gigue \x1b[2J\x1b[1;1H ms  horaire 0 ms'
+
+SAYS["pseudo"]({"avant": "\x1b]0;pwned\x07"})
+  -> "s'appelait \x1b]0;pwned\x07"</div>
+      <p>
+        <code>\x1b[2J</code> efface l'écran, <code>\r</code> réécrit par-dessus
+        la ligne, <code>\x1b]0;</code> change le titre de la fenêtre. Le pseudo
+        passe par le même chemin: le schéma le borne à 24 caractères et refuse
+        les blancs, mais accepte n'importe quel caractère de contrôle.
+      </p>
+      <p>
+        L'impact est petit et précis. Personne ne prend le contrôle de rien. En
+        revanche l'outil qui sert à comprendre ce qui s'est passé peut être fait
+        pour cacher ce qui s'est passé, et c'est le seul outil de ce genre du
+        projet. Dans le navigateur il n'y a rien: React échappe, et je n'ai
+        trouvé aucun <code>innerHTML</code> dans le front.
+      </p>
+      <div class="fix">
+        <span class="label">ce que ça coûte de le corriger</span>
+        Une fonction qui remplace tout caractère de catégorie Unicode C par un
+        point, appliquée à l'entrée du lecteur plutôt qu'à l'écriture: le journal
+        doit garder ce qui est arrivé, c'est l'affichage qui doit être sûr. Vingt
+        lignes avec son test.
+      </div>
+    </div>
+  </div>
+
+  <div class="finding corrige">
+    <div class="head">
+      <span class="rank">10</span>
+      <span class="chip mineur">mineur</span>
+      <span class="chip corrige">corrigé</span>
+    </div>
+    <h3>La page n'est pas lente, elle est lourde une seule fois</h3>
+    <div class="body prose">
+      <p class="first">
+        Je m'attendais à trouver un problème de taille et j'ai trouvé un
+        problème de transfert, ce qui n'appelle pas les mêmes corrections. Avec
+        le processeur bridé quatre fois, sur un gabarit de téléphone:
+      </p>
+      <div class="readout">bridage   TTFB    FCP     LCP     DOM     tâches longues   CLS
+x1        6 ms    52 ms   <span class="ok">52 ms</span>   31 ms   <span class="ok">0 ms</span>             <span class="ok">0,000</span>
+x4        8 ms    148 ms  <span class="ok">148 ms</span>  92 ms   <span class="ok">0 ms</span>             <span class="ok">0,000</span>
+
+première image peinte, selon le lien :
+  sans bride   602 / 604 / 620 ms
+  4G rapide    704 / 735 / 744 ms
+  3G lente     <span class="bad">2 923 / 2 956 / 3 437 ms</span></div>
+      <p>
+        Les 422 ko de JavaScript en ligne n'ont jamais bloqué le fil principal
+        cinquante millisecondes, et la mise en page ne bouge pas d'un pixel. Sur
+        3G lente en revanche, 136 ko à 400 kbit/s font 2,7 s, ce qui explique
+        presque toute la seconde et demie qui manque. Le coût est le transfert.
+      </p>
+      <div class="readout">brut        451 846 o
+gzip -9     136 493 o
+brotli q11  <span class="ok">117 841 o</span>   13,7 % de moins, soit 2,73 s -> 2,36 s à 400 kbit/s
+
+et la page grossit :
+  16 août   353 778 o brut   109 267 o gzip
+  17 août   418 948 o brut   126 461 o gzip
+  18 août   434 936 o brut   131 343 o gzip
+  19 août   451 846 o brut   136 404 o gzip   <span class="bad">+25 % de gzip en trois jours</span></div>
+      <p>
+        Brotli est particulièrement adapté ici parce que la page est un artefact
+        COMMIS: elle est compressée une fois, à la construction, donc le niveau
+        11 ne coûte rien à personne au moment de servir.
+      </p>
+      <div class="fix">
+        <span class="label">ce que ça coûte de le corriger</span>
+        Compresser à la construction et servir le résultat selon
+        l'<code>Accept-Encoding</code>, à côté du gzip existant. Et surtout: le
+        tampon de <code>front/stamp.mjs</code> connaît déjà la page et tourne
+        déjà dans <code>just check</code>. Y ajouter un plafond de taille rend
+        le budget mécanique au lieu de reposer sur ma mémoire.
+      </div>
+    </div>
+  </div>
+
+  <div class="finding corrige">
+    <div class="head">
+      <span class="rank">11</span>
+      <span class="chip mineur">mineur</span>
+      <span class="chip corrige">corrigé</span>
+    </div>
+    <h3>La politique de sécurité du contenu est décorative</h3>
+    <div class="body prose">
+      <p class="first">
+        L'en-tête est bien là, avec <code>frame-ancestors 'none'</code> et
+        <code>base-uri 'none'</code> qui servent vraiment. Mais
+        <code>script-src</code> porte <code>'unsafe-inline'</code>, ce qui
+        autorise n'importe quel script en ligne et retire à la règle presque tout
+        son intérêt contre l'injection.
+      </p>
+      <p>
+        C'est la conséquence de la page en un seul fichier, et ce choix reste
+        bon. Sauf que le contenu est figé à la construction et que le projet le
+        hache déjà pour son tampon. Calculer le <code>sha256</code> du script au
+        moment de la construction et l'écrire dans l'en-tête transforme une règle
+        de façade en règle réelle, sans rien changer à l'architecture.
+      </p>
+      <div class="fix">
+        <span class="label">ce que ça coûte de le corriger</span>
+        Le hachage dans <code>stamp.mjs</code>, une constante dans le worker, et
+        un test qui vérifie que les deux sont d'accord. Une heure.
+      </div>
+    </div>
+  </div>
+
+  <div class="finding corrige">
+    <div class="head">
+      <span class="rank">12</span>
+      <span class="chip mineur">mineur</span>
+      <span class="chip corrige">corrigé</span>
+    </div>
+    <h3>Sept boutons portent un nom qu'un lecteur d'écran ne peut pas dire</h3>
+    <div class="body prose">
+      <p class="first">
+        Voici ce que Chrome expose vraiment, lu dans l'arbre d'accessibilité de
+        la page en cours de partie, sur un gabarit de téléphone.
+      </p>
+      <div class="readout">boutons vus par un lecteur d'écran : 15
+dont sans aucun nom                : <span class="ok">0</span>
+
+noms lus : "L" "<span class="bad">▲</span>" "<span class="bad">◀</span>" "<span class="bad">▶</span>" "<span class="bad">▼</span>" "Z" "R" "Y" "A" "X" "B" "START" "SON" "MENU" "CACHER"</div>
+      <p>
+        Tous les boutons ont donc un nom, ce qui corrige mon constat précédent.
+        Mais quatre s'appellent d'un glyphe de flèche, que la synthèse vocale
+        lit mal ou pas du tout, et trois s'appellent d'une lettre qui ne veut
+        rien dire hors du contexte d'une manette GameCube.
+      </p>
+      <div class="fix">
+        <span class="label">ce que ça coûte de le corriger</span>
+        Sept <code>aria-label</code>: « haut », « bas », « gauche », « droite »,
+        « gâchette gauche », « gâchette droite », « bouton Z ». Cinq minutes, et
+        le pilote peut le vérifier puisqu'il lit déjà l'arbre.
+      </div>
+    </div>
+  </div>
+
+  <div class="finding corrige">
+    <div class="head">
+      <span class="rank">13</span>
+      <span class="chip mineur">mineur</span>
+      <span class="chip corrige">corrigé</span>
+    </div>
+    <h3>Le dépôt épingle son émulateur au commit près et ses actions de CI à un
+    nom qui bouge</h3>
+    <div class="body prose">
+      <p class="first">
+        Le <code>Dockerfile</code> fixe <code>DOLPHIN_REF</code> à un hachage de
+        commit, ce qui est la bonne discipline. Les sept actions tierces du
+        pipeline sont épinglées à <code>@v5</code>, <code>@v3</code>,
+        <code>@v2</code>, autrement dit à des étiquettes que leur auteur peut
+        déplacer. L'une d'elles reçoit <code>GITHUB_TOKEN</code>.
+      </p>
+      <p>
+        Il manque aussi un bloc <code>permissions:</code>, donc le jeton hérite
+        des droits par défaut du dépôt au lieu de <code>contents: read</code>.
+        Le dépôt est public, ce qui rend les deux points plus concrets. Point
+        rassurant en face: le déclencheur est <code>pull_request</code> et non
+        <code>pull_request_target</code>, donc une contribution extérieure tourne
+        déjà sans secrets.
+      </p>
+      <div class="fix">
+        <span class="label">ce que ça coûte de le corriger</span>
+        <code>permissions: contents: read</code> en tête du fichier, une ligne.
+        L'épinglage par hachage est plus ennuyeux à tenir à jour; il se justifie
+        surtout pour l'action qui reçoit le jeton.
+      </div>
+    </div>
+  </div>
+
+  <div class="finding corrige">
+    <div class="head">
+      <span class="rank">14</span>
+      <span class="chip mineur">mineur</span>
+      <span class="chip corrige">corrigé</span>
+    </div>
+    <h3>Une adresse personnelle réelle, dix-neuf fois, dans un dépôt public</h3>
+    <div class="body prose">
+      <p class="first">
+        Les fixtures utilisent déjà la bonne convention par ailleurs, ce qui rend
+        l'exception facile à corriger.
+      </p>
+      <div class="readout">19  souhib.t@hotmail.fr        <span class="bad">adresse réelle</span>
+ 4  vincent@example.com       <span class="ok">synthétique</span>
+ 4  kitaru@example.com        <span class="ok">synthétique</span>
+ 4  attaquant@example.com     <span class="ok">synthétique</span>
+ 1  pirate@example.com        <span class="ok">synthétique</span>
+
+et 20 mentions du nom du tailnet, dans le code, le carnet et les pilotes</div>
+      <p>
+        Une adresse dans un dépôt public finit dans les moissonneuses. Le nom du
+        tailnet n'est pas un secret et n'ouvre rien, puisqu'il faut y être
+        invité, mais c'est un identifiant durable attaché à une personne, publié
+        pour toujours. À toi de décider si ça te gêne; je le signale, je ne le
+        tranche pas.
+      </p>
+      <div class="fix">
+        <span class="label">ce que ça coûte de le corriger</span>
+        Les fixtures: un remplacement. L'historique git garderait la trace, donc
+        la correction vaut pour la suite, pas pour le passé. Le nom d'hôte des
+        pilotes: une variable d'environnement avec la valeur actuelle par défaut.
+      </div>
+    </div>
+  </div>
+
+  <div class="finding corrige">
+    <div class="head">
+      <span class="rank">15</span>
+      <span class="chip corrige">constat erroné</span>
+    </div>
+    <h3>Une règle de partage que j'ai prise pour une orpheline</h3>
+    <div class="body prose">
+      <p class="first">
+        J'avais écrit que <code>tailscale serve</code> publiait
+        <code>lgf:8444</code> sur un répertoire inexistant, et proposé de retirer
+        le partage. <strong>C'est faux.</strong> Ce répertoire est la sortie de
+        <code>just docs</code>, qui construit le site de documentation à partir
+        du carnet de bord; il est ignoré par git, donc absent après un nettoyage.
+        La recette <code>docs-deploy</code>, six lignes plus haut dans le
+        <code>justfile</code>, dit exactement à quoi sert ce port.
+      </p>
+      <p>
+        Reconstruit plutôt que retiré: <code>just docs</code>, et 8444 rend de
+        nouveau une page. Je le laisse ici en entier au lieu de l'effacer, parce
+        que la leçon vaut pour l'audit lui-même: <strong>un fichier absent ne
+        prouve pas qu'une configuration est morte</strong>, il prouve qu'on n'a
+        pas cherché qui l'écrit.
+      </p>
+    </div>
+  </div>
+
+  <div class="aside">
+    <span class="label">une piste, pas un constat</span>
+    <p>
+      <code>npm audit</code> annonce quatre alertes de gravité haute. Toutes les
+      quatre viennent de <code>@hey-api/openapi-ts</code>, qui embarque une
+      version de <code>js-yaml</code> vulnérable à une explosion de temps de
+      calcul sur des ancres YAML. Cet outil ne tourne qu'à la construction et ne
+      lit qu'un fichier: notre propre <code>openapi.json</code>, qui est du JSON.
+    </p>
+    <p>
+      <code>npm audit --omit=dev</code> ne trouve rien. Ce qui part dans le
+      navigateur est propre. Je le note pour qu'un futur passage ne relance pas
+      l'enquête depuis zéro, et surtout pour qu'on ne lance pas
+      <code>npm audit fix --force</code> sur la foi d'un chiffre.
+    </p>
+  </div>
+
+  <h2>Le banc de mutations</h2>
+  <div class="prose">
+    <p class="first">
+      La règle 4 du projet dit de vérifier en réintroduisant le défaut plutôt
+      qu'en raisonnant. J'ai donc pris vingt-deux règles écrites dans le code
+      récent, je les ai cassées une par une, et j'ai lancé la suite concernée.
+      Une mutation qui survit nomme un trou; c'est plus honnête qu'un
+      pourcentage de couverture.
+    </p>
+  </div>
+  <div class="scroll">
+    <table class="bench">
+      <thead>
+        <tr><th>Ce que j'ai cassé</th><th>Où</th><th>Résultat</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Le port ne compte plus à partir de un</td><td>rumble.rs</td><td class="verdict-cell tue">tuée</td></tr>
+        <tr><td>L'octet orphelin est jeté au lieu d'être reporté</td><td>rumble.rs</td><td class="verdict-cell tue">tuée</td></tr>
+        <tr><td>On ne garde plus l'octet orphelin</td><td>rumble.rs</td><td class="verdict-cell tue">tuée</td></tr>
+        <tr><td>Le seuil de grâce glisse d'un cran</td><td>nap.rs</td><td class="verdict-cell tue">tuée</td></tr>
+        <tr><td>Un seul spectateur ne réveille plus la salle</td><td>nap.rs</td><td class="verdict-cell tue">tuée</td></tr>
+        <tr><td>On oublie de remettre à zéro le compteur de vide</td><td>nap.rs</td><td class="verdict-cell tue">tuée</td></tr>
+        <tr><td>On signale le changement de taille sans adopter le nouvel anneau</td><td>frame_source.rs</td><td class="verdict-cell tue">tuée</td></tr>
+        <tr><td>La nouvelle taille annoncée est fausse</td><td>frame_source.rs</td><td class="verdict-cell tue">tuée</td></tr>
+        <tr><td>On accepte une poignée de main venue d'une autre origine</td><td>browser.rs</td><td class="verdict-cell tue">tuée</td></tr>
+        <tr><td>La zone morte du stick disparaît</td><td>touch.ts</td><td class="verdict-cell tue">tuée</td></tr>
+        <tr><td>Le zéro négatif revient sur l'axe vertical</td><td>touch.ts</td><td class="verdict-cell tue">tuée</td></tr>
+        <tr><td>On ne borne plus la course au cercle</td><td>touch.ts</td><td class="verdict-cell tue">tuée</td></tr>
+        <tr><td>Le seuil de réancrage repasse sous le plafond d'avance</td><td>sound.ts</td><td class="verdict-cell tue">tuée</td></tr>
+        <tr><td>La limite de cadence ne refuse plus rien</td><td>handlers.py</td><td class="verdict-cell tue">tuée</td></tr>
+        <tr><td>La borne de taille d'un relevé saute</td><td>handlers.py</td><td class="verdict-cell tue">tuée</td></tr>
+        <tr><td>La perte peut redevenir négative après un redémarrage</td><td>sessions.py</td><td class="verdict-cell tue">tuée</td></tr>
+        <tr><td>Le plafond de 64 connexions saute</td><td>browser.rs</td><td class="verdict-cell survit">survit</td></tr>
+        <tr><td>La borne de 4 ko sur un message saute</td><td>browser.rs</td><td class="verdict-cell survit">survit</td></tr>
+        <tr><td>On ne rattrape plus un son en retard</td><td>sound.ts</td><td class="verdict-cell survit">survit</td></tr>
+        <tr><td>L'avance du son n'est plus plafonnée</td><td>sound.ts</td><td class="verdict-cell survit">survit</td></tr>
+        <tr><td>Un numéro de manette hors de 1 à 4 est accepté</td><td>handlers.py</td><td class="verdict-cell survit">survit</td></tr>
+        <tr><td>Plus de plafond sur la taille des touches</td><td>touch.ts</td><td class="verdict-cell survit">survit</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="prose">
+    <p>
+      Seize sur vingt-deux. Le chiffre compte moins que la forme des six
+      survivantes: elles tombent toutes dans du code écrit ces trois derniers
+      jours, sous la pression de faire marcher le téléphone. Les modules plus
+      anciens, <code>rumble</code> mis à part qui est neuf aussi, tuent tout.
+    </p>
+    <p>
+      Deux réserves d'honnêteté. Ce sont vingt-deux mutations que j'ai choisies,
+      pas un balayage exhaustif, donc le taux n'est pas une statistique. Et une
+      mutation tuée prouve qu'un test réagit, pas qu'il réagit pour la bonne
+      raison.
+    </p>
+  </div>
+
+  <h2>Ce que j'ai essayé de casser</h2>
+  <div class="prose">
+    <p class="first">
+      Sur ma propre machine, avec des données fabriquées, sans jamais lancer de
+      charge capable de gêner une partie en cours.
+    </p>
+    <ul class="plain">
+      <li>
+        <strong>Geler le port de contrôle: réussi.</strong> C'est le constat 01.
+        Une socket, zéro octet. J'ai remis le siège du propriétaire comme il
+        était juste après.
+      </li>
+      <li>
+        <strong>Faire écrire n'importe quoi dans le terminal du lecteur:
+        réussi.</strong> C'est le constat 09.
+      </li>
+      <li>
+        <strong>Retenir une manette qui n'existe pas: réussi.</strong> C'est le
+        constat 05, montré sur le contrôleur directement.
+      </li>
+      <li>
+        <strong>Ouvrir le flux depuis une autre page: échoué.</strong> La
+        vérification d'origine sur la poignée de main WebSocket refuse, et la
+        mutation qui la retire est tuée par un test. Une page malveillante que
+        quelqu'un visiterait ne peut donc pas voir la partie.
+      </li>
+      <li>
+        <strong>Envoyer un message énorme: échoué.</strong> Le plafond de 4 ko
+        tient. Il n'est tenu par aucun test, ce qui est le constat 04, mais il
+        fonctionne aujourd'hui.
+      </li>
+      <li>
+        <strong>Trouver un secret dans le dépôt: échoué.</strong> Rien, et le
+        pipeline passe déjà <code>gitleaks</code> sur tout l'historique. Il n'y a
+        d'ailleurs aucun mot de passe à voler, l'identité venant du proxy.
+      </li>
+      <li>
+        <strong>Faire battre la sieste: échoué.</strong> Une minute pour
+        s'endormir contre un réveil immédiat, donc au pire un cycle par minute.
+      </li>
+    </ul>
+    <p>
+      Un cas que je classe en risque accepté plutôt qu'en constat.
+      <code>/input?take=3</code> prend la manette de quelqu'un sans passer par la
+      demande et la réponse. La politesse vit dans le salon et dans la page, pas
+      dans le worker. Comme la vérification d'origine bloque le cas de la page
+      piégée, il reste les appareils déjà sur ton tailnet, c'est-à-dire les gens
+      que tu as invités. C'est la frontière de confiance du projet, et je pense
+      qu'elle est au bon endroit; je l'écris pour qu'elle soit choisie plutôt
+      que subie.
+    </p>
+  </div>
+
+  <h2>Fonctionnalités</h2>
+  <div class="prose">
+    <p class="first">
+      Huit nouvelles, pesées contre ce qu'elles coûtent. Trois du premier audit
+      sont faites: jouer depuis un téléphone, la vibration, et proposer le format
+      réduit au lieu de l'attendre. Les six autres restent, et je les reprends
+      plus bas sans les réécrire.
+    </p>
+  </div>
+
+  <div class="tier">
+    <span class="label">ce que je ferais d'abord</span>
+    <div class="cards">
+
+      <div class="card">
+        <h3>Le téléphone en manette seule, sans image</h3>
+        <p>
+          Aujourd'hui un téléphone qui sert de manette décode aussi la vidéo.
+          <strong>Le flux tient un p95 de 13,6 Mb/s</strong>, donc quatre
+          téléphones posés autour d'une télévision demandent au wifi cinquante
+          mégabits d'images que personne ne regarde, et vident quatre batteries
+          pour ça. Un mode qui n'ouvre que la socket des manettes et celle de la
+          vibration supprime tout. Avec un QR sur l'écran de la télévision pour
+          rejoindre sans taper d'adresse.
+        </p>
+        <div class="meters">
+          <div class="meter"><span class="label">valeur</span><span class="dots"><i class="dot on"></i><i class="dot on"></i><i class="dot on"></i><i class="dot on"></i></span></div>
+          <div class="meter"><span class="label">coût</span><span class="dots"><i class="dot cost on"></i><i class="dot cost on"></i><i class="dot"></i><i class="dot"></i></span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Le rembobinage de dix secondes</h3>
+        <p>
+          Un bouton qui ramène la partie dix secondes en arrière. C'est la
+          fonctionnalité la plus amusante de l'émulation, et elle demande la
+          même plomberie que « reprendre où on en était »: des sauvegardes
+          d'état régulières, gardées en mémoire. <strong>Faire les deux d'un
+          coup</strong> coûte à peine plus cher que faire la seconde seule.
+        </p>
+        <div class="meters">
+          <div class="meter"><span class="label">valeur</span><span class="dots"><i class="dot on"></i><i class="dot on"></i><i class="dot on"></i><i class="dot on"></i></span></div>
+          <div class="meter"><span class="label">coût</span><span class="dots"><i class="dot cost on"></i><i class="dot cost on"></i><i class="dot cost on"></i><i class="dot"></i></span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>La latence, montrée à celui qui la subit</h3>
+        <p>
+          Toute la machinerie de signalement existe parce que personne ne pouvait
+          dire où était le retard. Côté serveur je mesure 0,14 ms entre la
+          commande et l'image. <strong>Ce chiffre ne dit rien au joueur</strong>,
+          parce que le sien inclut le réseau et le décodage. Un aller-retour
+          marqué, affiché en clair, permet enfin de répondre « c'est chez toi »
+          ou « c'est chez nous ».
+        </p>
+        <div class="meters">
+          <div class="meter"><span class="label">valeur</span><span class="dots"><i class="dot on"></i><i class="dot on"></i><i class="dot on"></i><i class="dot"></i></span></div>
+          <div class="meter"><span class="label">coût</span><span class="dots"><i class="dot cost on"></i><i class="dot"></i><i class="dot"></i><i class="dot"></i></span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="tier">
+    <span class="label">ensuite</span>
+    <div class="cards">
+
+      <div class="card">
+        <h3>Rejouer une trace de manette</h3>
+        <p>
+          Enregistrer trente secondes d'entrées et les rejouer contre une
+          empreinte d'image connue. C'est une fonctionnalité pour qui veut
+          rejouer un exploit, et surtout <strong>le seul test de bout en bout
+          que ce projet n'a pas</strong>: <code>video.ts</code> fait 768 lignes
+          sur le chemin des images sans un seul test. Deux besoins, une
+          plomberie.
+        </p>
+        <div class="meters">
+          <div class="meter"><span class="label">valeur</span><span class="dots"><i class="dot on"></i><i class="dot on"></i><i class="dot on"></i><i class="dot"></i></span></div>
+          <div class="meter"><span class="label">coût</span><span class="dots"><i class="dot cost on"></i><i class="dot cost on"></i><i class="dot cost on"></i><i class="dot"></i></span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Les soirées, montrées dans la page</h3>
+        <p>
+          Le journal a déjà 59,6 heures de flux et 12,9 millions d'images, plus
+          les arrivées, les départs et les manettes prises. <strong>Rien de tout
+          ça ne s'affiche nulle part</strong> sauf dans un terminal. « Ce qu'on a
+          joué ce mois-ci, combien de temps, qui a tenu quelle manette » est une
+          page, pas un projet.
+        </p>
+        <div class="meters">
+          <div class="meter"><span class="label">valeur</span><span class="dots"><i class="dot on"></i><i class="dot on"></i><i class="dot on"></i><i class="dot"></i></span></div>
+          <div class="meter"><span class="label">coût</span><span class="dots"><i class="dot cost on"></i><i class="dot cost on"></i><i class="dot"></i><i class="dot"></i></span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>La place gardée pendant un redémarrage</h3>
+        <p>
+          Changer de jeu redémarre le worker et tout le monde perd sa manette.
+          Le journal du 18 août compte <strong>244 événements de place en une
+          journée</strong>, dont une bonne partie est ce va-et-vient. Garder le
+          siège quelques secondes pour la même identité supprime la course au
+          moment où tout le monde se reconnecte.
+        </p>
+        <div class="meters">
+          <div class="meter"><span class="label">valeur</span><span class="dots"><i class="dot on"></i><i class="dot on"></i><i class="dot"></i><i class="dot"></i></span></div>
+          <div class="meter"><span class="label">coût</span><span class="dots"><i class="dot cost on"></i><i class="dot"></i><i class="dot"></i><i class="dot"></i></span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Le vote pour changer de jeu</h3>
+        <p>
+          Aujourd'hui c'est le propriétaire qui décide, et le premier arrivé le
+          reste. À quatre, une proposition que les autres acceptent d'un geste
+          règle une discussion qui se tient sinon à voix haute. <strong>Le salon
+          sait déjà qui est là</strong> et diffuse déjà l'état de la salle.
+        </p>
+        <div class="meters">
+          <div class="meter"><span class="label">valeur</span><span class="dots"><i class="dot on"></i><i class="dot on"></i><i class="dot"></i><i class="dot"></i></span></div>
+          <div class="meter"><span class="label">coût</span><span class="dots"><i class="dot cost on"></i><i class="dot"></i><i class="dot"></i><i class="dot"></i></span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Un appui long sur START ouvre le menu</h3>
+        <p>
+          Sur téléphone, atteindre le menu demande de viser un petit bouton parmi
+          quinze. Un appui long sur START, geste que tout joueur de console
+          connaît, le remplace. <strong>Le pavé tactile lit déjà la durée d'un
+          appui</strong> pour la répétition, donc la mesure existe.
+        </p>
+        <div class="meters">
+          <div class="meter"><span class="label">valeur</span><span class="dots"><i class="dot on"></i><i class="dot on"></i><i class="dot"></i><i class="dot"></i></span></div>
+          <div class="meter"><span class="label">coût</span><span class="dots"><i class="dot cost on"></i><i class="dot"></i><i class="dot"></i><i class="dot"></i></span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="prose">
+    <p>
+      Toujours en attente du premier audit, sans changement d'avis: le clip des
+      trente dernières secondes, que tu as mis de côté et qui reste la plus
+      spectaculaire; l'annonce sur Discord; la file d'attente des manettes;
+      plusieurs salles; d'autres consoles par RetroArch; les jeux Wii.
+    </p>
+  </div>
+
+  <h2>L'ordre que je propose</h2>
+  <ol class="order">
+    <li>
+      <div>
+        Le port de contrôle, avec son délai d'attente et sa lecture bornée
+        <span>Constat 01. C'est le seul de la liste qui casse la salle depuis
+        l'extérieur du code, et il se corrige en une heure avec son test.</span>
+      </div>
+    </li>
+    <li>
+      <div>
+        La cadence sur les six gestionnaires, et un type pour le numéro de manette
+        <span>Constats 02 et 05. Même après-midi: les deux vivent dans le même
+        fichier et se testent avec le même outillage.</span>
+      </div>
+    </li>
+    <li>
+      <div>
+        Les tests qui manquent sous les garde-fous
+        <span>Constats 04 et 06. À faire avant d'ajouter quoi que ce soit,
+        sinon le prochain audit trouvera les mêmes trous à un endroit
+        différent.</span>
+      </div>
+    </li>
+    <li>
+      <div>
+        <code>slept_ms</code>, pour que la sieste cesse de crier
+        <span>Constat 03. Rapide, et ça rend le journal utilisable les soirs
+        où on en a vraiment besoin.</span>
+      </div>
+    </li>
+    <li>
+      <div>
+        Les quatre lignes du conteneur, les sept <code>aria-label</code>, la
+        règle orpheline
+        <span>Constats 08, 12 et 15. Une demi-heure en tout, aucun risque.</span>
+      </div>
+    </li>
+    <li>
+      <div>
+        Le téléphone en manette seule
+        <span>La première fonctionnalité, parce qu'elle rend meilleur ce qu'on
+        vient de construire au lieu d'ouvrir un chantier neuf.</span>
+      </div>
+    </li>
+  </ol>
+
+  <h2>Ce que je n'ai pas regardé</h2>
+  <div class="prose">
+    <ul class="plain">
+      <li>
+        <strong>Le code FFI sous Miri.</strong> <code>just miri</code> existe et
+        je ne l'ai pas lancé pendant ce passage. Il ne peut de toute façon rien
+        dire des appels libva et Vulkan eux-mêmes.
+      </li>
+      <li>
+        <strong>Le comportement à quatre joueurs réels.</strong> Tout ce que j'ai
+        mesuré vient d'un ou deux spectateurs. La marge de la carte est calculée,
+        pas éprouvée.
+      </li>
+      <li>
+        <strong>Les mesures de page sur un vrai téléphone.</strong> Elles
+        viennent d'un Chromium sans interface, sur cette machine, à travers le
+        tailnet local. Le bridage du processeur approche un milieu de gamme, mais
+        les chiffres sont des planchers et pas des mesures d'iPhone.
+      </li>
+      <li>
+        <strong>Une secousse ressentie dans une vraie main.</strong> Le pilote
+        prouve que la commande part et arrive. Que la manette vibre au bon moment
+        dans une partie, seule une personne peut le dire.
+      </li>
+      <li>
+        <strong>La consommation électrique avec la sieste.</strong> Mesurée au
+        premier audit sans la sieste; je ne l'ai pas refaite depuis qu'elle
+        existe.
+      </li>
+    </ul>
+  </div>
+
+  <footer>
+    Audit du 19 août 2026, mesuré sur lgf. Les chiffres de flux couvrent trois
+    jours de journal système, soit 21 468 tranches de dix secondes. Les mesures
+    de page sont la médiane de trois passages entrelacés. Le banc de mutations
+    restaure chaque fichier qu'il modifie, et <code>just check</code> ainsi que
+    <code>just gpu-test</code> passent sur l'arbre tel qu'il est.
+  </footer>
+</div>

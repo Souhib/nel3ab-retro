@@ -73,8 +73,29 @@ fi
 container="${NEL3AB_CONTAINER:-nel3ab-dolphin}"
 docker rm -f "$container" >/dev/null 2>&1 || true
 
+# Ce que le conteneur n'a pas le droit de faire.
+#
+# Dolphin est un gros programme C++ qui lit des fichiers de jeu que des amis
+# apportent, et ce conteneur est la seule chose entre ce parseur et la machine.
+# Il tournait déjà sous l'identité de l'utilisateur plutôt qu'en root, ce qui est
+# le plus important; il lui manquait le reste.
+#
+# `--network none` d'abord, et c'est le plus utile: la salle ne parle à Dolphin
+# que par le système de fichiers, un tube nommé pour les manettes, un pour la
+# vibration, un pour le son et une socket unix pour les images, tous dans le
+# montage. L'image embarque pourtant libcurl et miniupnpc, dont Dolphin se sert
+# pour son jeu en réseau, ses ouvertures de port automatiques et ses statistiques
+# d'usage. Rien de tout ça n'a de raison de partir d'ici.
+#
+# Les trois autres sont du même ordre: aucune capacité n'est utilisée, aucun
+# programme lancé ici n'a de raison de gagner des droits, et une borne sur le
+# nombre de processus empêche un plantage de noyer la machine.
 exec docker run --rm \
   --name "$container" \
+  --network none \
+  --cap-drop=ALL \
+  --security-opt=no-new-privileges \
+  --pids-limit=512 \
   --shm-size=2g \
   "${frame_socket_env[@]}" \
   --device /dev/dri \

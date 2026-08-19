@@ -364,7 +364,7 @@ which authenticated peer is on the other end, and writes it into the request it
 forwards:
 
 ```
-Tailscale-User-Login: souhib.t@hotmail.fr
+Tailscale-User-Login: souhib@example.com
 Tailscale-User-Name: Souhib Trabelsi
 ```
 

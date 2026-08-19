@@ -12,9 +12,9 @@ import { writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import puppeteer from "puppeteer";
-import { enterRoom, openRoom, seatOf } from "./open.mjs";
+import { enterRoom, openRoom, seatOf, ROOM_URL } from "./open.mjs";
 
-const url = process.argv[2] ?? "https://lgf.tail3bd01c.ts.net:8443/";
+const url = process.argv[2] ?? ROOM_URL;
 let bad = 0;
 const check = (ok, what) => {
   console.log(`  ${ok ? "ok  " : "RATÉ"}   ${what}`);

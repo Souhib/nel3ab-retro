@@ -357,7 +357,7 @@ docs:
 # tailscaled, so neither needs its own certificate.
 docs-deploy: docs
     sudo tailscale serve --bg --https=8444 {{justfile_directory()}}/site
-    @echo "https://lgf.tail3bd01c.ts.net:8444/"
+    @echo "${NEL3AB_SITE_URL:-https://lgf.tail3bd01c.ts.net:8444/}"
 
 # Rebuild on every change, with a local preview. For writing, not for publishing.
 docs-watch:

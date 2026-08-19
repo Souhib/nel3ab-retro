@@ -3,9 +3,9 @@
 // Deux pages, à travers le VRAI proxy: la négociation traverse le salon, et le
 // salon ne sait qui tient quoi que parce que le proxy dit qui est qui.
 import puppeteer from "puppeteer";
-import { enterRoom, seatOf } from "./open.mjs";
+import { enterRoom, seatOf, ROOM_URL } from "./open.mjs";
 
-const url = "https://lgf.tail3bd01c.ts.net:8443/";
+const url = ROOM_URL;
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 let bad = 0;
 const say = (ok, line) => { if (!ok) bad += 1; console.log(`  ${ok ? "ok    " : "FAUX  "} ${line}`); };

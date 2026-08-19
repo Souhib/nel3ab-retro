@@ -45,7 +45,7 @@ def settings(tmp_path: Path) -> Settings:
 
 #: L'en-tête que le proxy Tailscale écrit, et que le client ne peut pas forger.
 SOUHIB = {
-    "Tailscale-User-Login": "souhib.t@hotmail.fr",
+    "Tailscale-User-Login": "souhib@example.com",
     "Tailscale-User-Name": "Souhib Trabelsi",
 }
 VINCENT = {"Tailscale-User-Login": "vincent@example.com", "Tailscale-User-Name": "Vincent Lemaire"}

@@ -4,10 +4,10 @@
 // onglet envoie un paquet de déconnexion, tuer le navigateur n'envoie rien et
 // laisse le serveur le découvrir par lui-même.
 import puppeteer from "puppeteer";
-import { enterRoom } from "./open.mjs";
+import { enterRoom, ROOM_URL } from "./open.mjs";
 
 const api = "http://127.0.0.1:8200/api/room";
-const url = "https://lgf.tail3bd01c.ts.net:8443/";
+const url = ROOM_URL;
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const count = async () => (await (await fetch(api)).json()).people.length;
 

@@ -3,9 +3,9 @@
 // Contre l'adresse tailscale et pas localhost, parce que c'est le proxy qui
 // écrit l'identité: mesurer ailleurs mesurerait l'absence de proxy.
 import puppeteer from "puppeteer";
-import { enterRoom } from "./open.mjs";
+import { enterRoom, ROOM_LOGIN, ROOM_URL } from "./open.mjs";
 
-const url = "https://lgf.tail3bd01c.ts.net:8443/";
+const url = ROOM_URL;
 const browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox"], acceptInsecureCerts: true });
 const page = await browser.newPage();
 page.on("pageerror", (e) => console.log(`[pageerror] ${e.message}`));
@@ -21,7 +21,10 @@ await wait(2500);
 const text = await page.evaluate(() => document.body.innerText);
 say(!text.includes("Qui joue"), "aucun formulaire de prénom: le proxy a déjà dit qui c'est");
 say(/bonjour\s+\S/.test(text), `la page salue quelqu'un: « ${(text.match(/bonjour[^\n·]*/) ?? [""])[0].trim()} »`);
-say(text.includes("souhib.t@hotmail.fr"), "l'adresse vérifiée est affichée");
+// L'adresse attendue vient de l'environnement: elle dépend de qui fait
+// tourner la salle, et ce dépôt est public.
+if (ROOM_LOGIN) say(text.includes(ROOM_LOGIN), "l'adresse vérifiée est affichée");
+else say(/@/.test(text), "une adresse vérifiée est affichée");
 
 // Changer de pseudo, et le retrouver après un rechargement complet.
 await page.click("#rename");

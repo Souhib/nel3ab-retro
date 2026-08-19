@@ -9,7 +9,7 @@ from tests.conftest import SOUHIB, VINCENT
 async def test_the_proxy_says_who_it_is(client: httpx.AsyncClient) -> None:
     found = (await client.get("/api/me", headers=SOUHIB)).json()
 
-    assert found["login"] == "souhib.t@hotmail.fr"
+    assert found["login"] == "souhib@example.com"
     # Faute de pseudo choisi, on propose le prénom du fournisseur d'identité.
     assert found["name"] == "Souhib"
 

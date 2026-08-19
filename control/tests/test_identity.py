@@ -2,19 +2,19 @@
 
 from nel3ab_control.identity import from_headers, suggested_name
 
-REAL = (b"tailscale-user-login", b"souhib.t@hotmail.fr")
+REAL = (b"tailscale-user-login", b"souhib@example.com")
 NAME = (b"tailscale-user-name", b"Souhib Trabelsi")
 
 
 def test_reads_the_identity_the_proxy_wrote() -> None:
-    assert from_headers([REAL, NAME]) == ("souhib.t@hotmail.fr", "Souhib Trabelsi")
+    assert from_headers([REAL, NAME]) == ("souhib@example.com", "Souhib Trabelsi")
 
 
 def test_normalises_the_address() -> None:
-    headers = [(b"Tailscale-User-Login", b"  Souhib.T@Hotmail.FR  ")]
+    headers = [(b"Tailscale-User-Login", b"  Souhib@Example.COM  ")]
     found = from_headers(headers)
     assert found is not None
-    assert found[0] == "souhib.t@hotmail.fr"
+    assert found[0] == "souhib@example.com"
 
 
 def test_no_header_is_nobody_rather_than_a_guess() -> None:
@@ -45,11 +45,11 @@ def test_two_identities_are_no_identity() -> None:
 
 def test_a_display_name_that_appears_twice_is_dropped_not_guessed() -> None:
     found = from_headers([REAL, NAME, (b"tailscale-user-name", b"Autre")])
-    assert found == ("souhib.t@hotmail.fr", "")
+    assert found == ("souhib@example.com", "")
 
 
 def test_the_suggested_name_is_a_first_name_then_the_local_part() -> None:
-    assert suggested_name("souhib.t@hotmail.fr", "Souhib Trabelsi") == "Souhib"
+    assert suggested_name("souhib@example.com", "Souhib Trabelsi") == "Souhib"
     assert suggested_name("vincent@example.com", "") == "vincent"
     # Rien d'exploitable des deux côtés: on propose quelque chose plutôt que vide.
     assert suggested_name("@", "") == "quelqu'un"

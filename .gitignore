@@ -21,3 +21,6 @@ __pycache__/
 .venv/
 .pytest_cache/
 .ruff_cache/
+
+# La sortie d'un pilote de navigateur, gardée le temps de la lire et pas plus.
+spikes/m3-browser-drive/*.log

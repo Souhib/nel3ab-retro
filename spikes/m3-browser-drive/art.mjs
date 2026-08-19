@@ -14,9 +14,9 @@
 // 3. les mots du disque arrivent jusqu'à l'écran, ce qui est la moitié de ce
 //    qu'on est allé chercher dans le disque.
 import puppeteer from "puppeteer";
-import { enterRoom } from "./open.mjs";
+import { enterRoom, ROOM_URL } from "./open.mjs";
 
-const url = process.argv[2] ?? "https://lgf.tail3bd01c.ts.net:8443/";
+const url = process.argv[2] ?? ROOM_URL;
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 let bad = 0;
 const check = (ok, what) => {

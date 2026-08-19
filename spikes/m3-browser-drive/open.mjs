@@ -12,7 +12,23 @@
 /** A name each driver can be recognised by in a log. */
 export const BENCH_NAME = "banc";
 
-export async function openRoom(browser, url = "http://localhost:8100/", name = BENCH_NAME) {
+/** La salle contre laquelle ces pilotes tournent.
+ *
+ * Par variable d'environnement, avec la valeur locale par défaut. Le nom de
+ * machine et l'adresse du propriétaire vivaient en dur dans dix fichiers, et ce
+ * dépôt est public: un nom de tailnet n'ouvre rien, puisqu'il faut y être
+ * invité, mais c'est un identifiant durable attaché à une personne, publié pour
+ * toujours et pour rien.
+ *
+ *   NEL3AB_URL=https://<machine>.<tailnet>.ts.net:8443/ node touch.mjs
+ *   NEL3AB_LOGIN=<adresse>  pour les deux pilotes qui vérifient l'identité
+ */
+export const ROOM_URL = process.env.NEL3AB_URL ?? "http://localhost:8100/";
+
+/** L'adresse que le proxy est censé annoncer, pour les pilotes qui la vérifient. */
+export const ROOM_LOGIN = process.env.NEL3AB_LOGIN ?? null;
+
+export async function openRoom(browser, url = ROOM_URL, name = BENCH_NAME) {
   const page = await browser.newPage();
   await seedName(page, name);
   await page.goto(url, { waitUntil: "domcontentloaded" });

@@ -3,7 +3,7 @@
 Tailscale termine la connexion WireGuard, sait donc quel pair authentifié est en
 face, et l'écrit dans la requête qu'il transmet:
 
-    Tailscale-User-Login: souhib.t@hotmail.fr
+    Tailscale-User-Login: souhib@example.com
     Tailscale-User-Name: Souhib Trabelsi
 
 C'est une **preuve** et non une déclaration, pour deux raisons vérifiées le

@@ -3,9 +3,9 @@
 // À travers le VRAI proxy: sans lui personne n'a d'identité et il n'y a pas de
 // propriétaire du tout, ce qui est le comportement de repli et non celui-ci.
 import puppeteer from "puppeteer";
-import { enterRoom } from "./open.mjs";
+import { enterRoom, ROOM_LOGIN, ROOM_URL } from "./open.mjs";
 
-const url = "https://lgf.tail3bd01c.ts.net:8443/";
+const url = ROOM_URL;
 const browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox"], acceptInsecureCerts: true });
 let bad = 0;
 const say = (ok, line) => { if (!ok) bad += 1; console.log(`  ${ok ? "ok    " : "FAUX  "} ${line}`); };
@@ -28,7 +28,7 @@ await wait(3500);
 
 const room = await boss.evaluate(async () => (await (await fetch("/api/room")).json()));
 say(room.owner !== null, `la salle a un propriétaire: ${room.owner?.name ?? "aucun"}`);
-say(room.owner?.login === "souhib.t@hotmail.fr", "c'est le premier arrivé");
+say(ROOM_LOGIN ? room.owner?.login === ROOM_LOGIN : Boolean(room.owner?.login), "c'est le premier arrivé");
 
 // Le propriétaire peut choisir; la note ne doit pas dire le contraire.
 const note = await boss.evaluate(() => document.body.innerText);

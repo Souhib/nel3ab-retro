@@ -22,9 +22,9 @@ import { readFileSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import puppeteer from "puppeteer";
-import { enterRoom, openRoom, seatOf } from "./open.mjs";
+import { enterRoom, openRoom, seatOf, ROOM_URL } from "./open.mjs";
 
-const url = process.argv[2] ?? "https://lgf.tail3bd01c.ts.net:8443/";
+const url = process.argv[2] ?? ROOM_URL;
 const FOLDER = join(homedir(), ".local/state/nel3ab/sessions");
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 let bad = 0;

@@ -4,9 +4,9 @@
 // la croix, pas un pilote USB. Et surtout: ce qu'on pousse dans le menu ne doit
 // pas descendre au jeu.
 import puppeteer from "puppeteer";
-import { enterRoom } from "./open.mjs";
+import { enterRoom, ROOM_URL } from "./open.mjs";
 
-const url = "https://lgf.tail3bd01c.ts.net:8443/";
+const url = ROOM_URL;
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 let bad = 0;
 const say = (ok, line) => { if (!ok) bad += 1; console.log(`  ${ok ? "ok    " : "FAUX  "} ${line}`); };

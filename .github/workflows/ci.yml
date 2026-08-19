@@ -12,6 +12,14 @@ concurrency:
   # replacing run only covers ITS own push.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# Ce que le jeton de la CI a le droit de faire: lire, et rien d'autre.
+#
+# Sans ce bloc, il hérite des droits par défaut du dépôt, qui peuvent inclure
+# l'écriture. Le dépôt est public et sept actions tierces tournent dans ce
+# pipeline, dont une reçoit le jeton: aucune n'a de raison d'écrire ici.
+permissions:
+  contents: read
+
 env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: -D warnings

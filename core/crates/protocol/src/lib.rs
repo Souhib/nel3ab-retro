@@ -103,6 +103,80 @@ pub enum Command {
     },
 }
 
+/// Un aller-retour sur le canal des manettes, pour que la page mesure sa propre
+/// latence.
+///
+/// # Pourquoi la page ne peut pas la calculer autrement
+///
+/// Le worker mesure déjà le temps entre une commande reçue et l'image qui la
+/// reflète: 0,14 ms au p50 sur soixante heures de journal. Ce chiffre est vrai
+/// et ne dit rien au joueur, parce que le sien contient en plus le réseau dans
+/// les deux sens, le décodage et l'affichage.
+///
+/// La page ne peut pas non plus déduire un délai d'une horodate: les deux
+/// horloges ne sont pas synchronisées, et l'instant de capture porté par chaque
+/// image est une ancre sur l'horloge du worker, pas un retard. Confondre les
+/// deux avait déjà produit un affichage de moins quinze secondes.
+///
+/// Un aller-retour, lui, se mesure sur une seule horloge et ne suppose rien.
+///
+/// # Le jeton
+///
+/// Huit octets opaques, choisis par la page et rendus tels quels. Le worker n'y
+/// regarde rien: c'est la page qui sait à quoi elle les a associés, et lui
+/// donner un rôle ici créerait un état à tenir des deux côtés pour rien.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Echo(pub [u8; 8]);
+
+impl Echo {
+    /// Octets sur le fil: la marque, puis le jeton.
+    pub const LEN: usize = 9;
+
+    /// La marque qui distingue un aller-retour des autres messages.
+    ///
+    /// Les messages de ce canal se reconnaissent à leur LONGUEUR, et neuf
+    /// octets n'est celle d'aucun autre. La marque est donc une ceinture: elle
+    /// coûte un octet et empêche qu'un futur message de neuf octets soit lu
+    /// comme un aller-retour.
+    const TAG: u8 = 0xE0;
+
+    /// Sérialise en exactement [`Echo::LEN`] octets.
+    #[must_use]
+    pub const fn encode(self) -> [u8; Self::LEN] {
+        let token = self.0;
+        [
+            Self::TAG,
+            token[0],
+            token[1],
+            token[2],
+            token[3],
+            token[4],
+            token[5],
+            token[6],
+            token[7],
+        ]
+    }
+
+    /// Lit un aller-retour produit par une page.
+    ///
+    /// # Errors
+    /// [`ProtocolError::WrongLength`] ou [`ProtocolError::UnknownCommand`].
+    pub const fn decode(buf: &[u8]) -> Result<Self, ProtocolError> {
+        if buf.len() != Self::LEN {
+            return Err(ProtocolError::WrongLength {
+                expected: Self::LEN,
+                got: buf.len(),
+            });
+        }
+        if buf[0] != Self::TAG {
+            return Err(ProtocolError::UnknownCommand { opcode: buf[0] });
+        }
+        Ok(Self([
+            buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7], buf[8],
+        ]))
+    }
+}
+
 impl Command {
     /// Bytes a command occupies on the wire: the opcode, then its argument.
     pub const LEN: usize = 2;
@@ -523,5 +597,50 @@ mod tests {
         fn decode_never_panics_on_arbitrary_bytes(raw in prop::collection::vec(any::<u8>(), 0..64)) {
             let _ = InputFrame::decode(&raw);
         }
+    }
+
+    #[test]
+    fn an_echo_comes_back_exactly_as_it_went() {
+        let token = [1, 2, 3, 4, 250, 251, 252, 253];
+
+        assert_eq!(Echo::decode(&Echo(token).encode()), Ok(Echo(token)));
+    }
+
+    #[test]
+    fn an_echo_is_not_confused_with_the_two_other_messages_of_this_channel() {
+        // Les messages de ce canal se reconnaissent à leur longueur, donc trois
+        // longueurs différentes est la seule chose qui les sépare vraiment.
+        assert_ne!(Echo::LEN, Command::LEN);
+        assert_ne!(Echo::LEN, WIRE_LEN);
+    }
+
+    #[rstest]
+    #[case(0)]
+    #[case(8)]
+    #[case(10)]
+    #[case(13)]
+    fn an_echo_of_the_wrong_length_is_refused(#[case] len: usize) {
+        let mut buf = vec![Echo::TAG; len];
+        if let Some(first) = buf.first_mut() {
+            *first = Echo::TAG;
+        }
+
+        assert!(matches!(
+            Echo::decode(&buf),
+            Err(ProtocolError::WrongLength { .. })
+        ));
+    }
+
+    /// Le jumeau de la marque. Sans lui, une lecture qui ignorerait le premier
+    /// octet passerait tous les tests au-dessus.
+    #[test]
+    fn nine_bytes_that_do_not_carry_the_mark_are_not_an_echo() {
+        let mut wrong = Echo([0; 8]).encode();
+        wrong[0] = 0x11;
+
+        assert!(matches!(
+            Echo::decode(&wrong),
+            Err(ProtocolError::UnknownCommand { opcode: 0x11 })
+        ));
     }
 }

@@ -27,7 +27,7 @@ use std::sync::{Arc, Condvar, Mutex};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
-use nel3ab_protocol::{Command, InputFrame, PlayerSlot};
+use nel3ab_protocol::{Command, Echo, InputFrame, PlayerSlot};
 use thiserror::Error;
 
 /// How many frames may wait for the socket before one is dropped.
@@ -821,7 +821,7 @@ fn serve_connection(stream: TcpStream, page: &'static str, shared: &Shared) {
             Some(png) => serve_bytes(stream, png, "image/png"),
             None => serve_missing(stream),
         },
-        Some(Route::Page { gzip }) => serve_page(stream, page, gzip),
+        Some(Route::Page { packing }) => serve_page(stream, page, packing),
         None => {}
     }
 }
@@ -859,8 +859,8 @@ enum Route {
     /// looked at with `curl` when it misbehaves.
     Roms,
     Page {
-        /// Vrai quand le client a dit accepter le gzip.
-        gzip: bool,
+        /// La compression que ce client a dite accepter.
+        packing: Packing,
     },
 }
 
@@ -880,7 +880,7 @@ enum Route {
 /// The rule compares `Origin` against `Host` rather than an allow-list, so it
 /// configures itself: the page is served by this same server, so its origin is
 /// whatever host it was fetched from. Through the Tailscale proxy that is
-/// `lgf.tail3bd01c.ts.net:8443` on both headers; locally it is `localhost:8100`
+/// `salle.exemple.ts.net:8443` on both headers; locally it is `localhost:8100`
 /// on both. An allow-list would be one more place to update when the address
 /// changes, and the failure mode of forgetting is a room nobody can join.
 ///
@@ -929,8 +929,8 @@ fn classify(stream: &TcpStream) -> Option<Route> {
         if text.starts_with("get /roms") {
             return Some(Route::Roms);
         }
-        let gzip = text.contains("gzip");
-        return Some(art_from(&text).map_or(Route::Page { gzip }, Route::Art));
+        let packing = Packing::wanted(&text);
+        return Some(art_from(&text).map_or(Route::Page { packing }, Route::Art));
     }
     // Checked once, here, rather than in each of the three socket routes: a
     // check that has to be repeated is a check somebody adds a fourth route
@@ -1059,25 +1059,175 @@ fn carries_key_frame(annex_b: &[u8]) -> bool {
 /// l'origine, ce qui est la protection qui compte. Ces trois lignes ne
 /// remplacent rien; elles ferment ce qui reste ouvert pour rien.
 ///
-/// La politique est stricte parce que la page peut se le permettre: c'est un
-/// fichier unique, sans ressource externe, avec ses styles et son script à
-/// l'intérieur. `'unsafe-inline'` est donc la règle et non une concession, et
-/// tout ce qui viendrait d'ailleurs est refusé, y compris une image.
+/// Ce que `script-src` autorise: rien, sauf exactement les scripts de CETTE
+/// page.
+///
+/// # Pourquoi une empreinte plutôt que `'unsafe-inline'`
+///
+/// L'en-tête portait `script-src 'self' 'unsafe-inline'`, ce qui autorise
+/// n'importe quel script en ligne et retire à la règle presque tout son intérêt
+/// contre l'injection. C'était la conséquence de la page en un seul fichier, et
+/// ce choix reste bon.
+///
+/// Sauf que le contenu est FIGÉ: la page est un artefact construit puis compilé
+/// dans le binaire. Son script ne changera pas d'ici le prochain démarrage, donc
+/// le nommer par son empreinte transforme une règle de façade en règle réelle,
+/// sans rien changer à l'architecture.
+///
+/// # Pourquoi calculée ici, et pas écrite à côté
+///
+/// Une empreinte gardée dans un fichier serait une deuxième copie à tenir
+/// d'accord avec la première, et ce dépôt a déjà payé plusieurs fois pour ce
+/// genre de paire. Calculée sur la page qu'on sert vraiment, elle ne peut pas
+/// diverger de ce qui part sur le fil: si elle était fausse, la page ne
+/// s'exécuterait pas du tout, ce qui se voit tout de suite.
+///
+/// Coût: une passe de SHA-256 sur 450 ko, mesurée à 0,3 ms sur cette machine,
+/// et seulement quand quelqu'un charge la page. Pas de cache: un état global
+/// gardé entre deux pages ne peut se tromper qu'une fois, mais il se trompe
+/// alors sur toutes les suivantes, et une première version de cette fonction
+/// s'est fait attraper là-dessus par ses propres tests.
+fn script_policy(page: &str) -> String {
+    use base64::Engine as _;
+    use sha2::Digest as _;
+
+    let mut allowed = String::from("'self'");
+    let mut rest = page;
+    // Le contenu de chaque `<script ...>` jusqu'à son `</script>`. Une recherche
+    // de texte plutôt qu'un analyseur HTML: on cherche une balise dans un
+    // fichier qu'on a construit soi-même, pas dans du HTML trouvé.
+    while let Some(open) = rest.find("<script")
+        && let Some(head) = rest[open..].find('>')
+        && let Some(close) = rest[open + head + 1..].find("</script>")
+    {
+        let body = &rest[open + head + 1..open + head + 1 + close];
+        let digest = sha2::Sha256::digest(body.as_bytes());
+        allowed.push_str(" 'sha256-");
+        allowed.push_str(&base64::engine::general_purpose::STANDARD.encode(digest));
+        allowed.push('\'');
+        rest = &rest[open + head + 1 + close..];
+    }
+    allowed
+}
+
+/// Les en-têtes qui ne dépendent pas de la page.
+///
+/// `style-src` garde `'unsafe-inline'`, et ce n'est pas un oubli: les styles de
+/// React sont des ATTRIBUTS `style` posés sur des éléments, que les empreintes
+/// ne couvrent pas. Prétendre le contraire serait la seule chose pire qu'une
+/// règle faible: une règle faible qu'on croit forte.
 const HARDENING: &str = concat!(
-    "Content-Security-Policy: ",
-    "default-src 'self'; ",
-    "script-src 'self' 'unsafe-inline'; ",
-    "style-src 'self' 'unsafe-inline'; ",
-    "img-src 'self' data:; ",
-    "connect-src 'self' ws: wss:; ",
-    "frame-ancestors 'none'; ",
-    "base-uri 'none'\r\n",
     "X-Content-Type-Options: nosniff\r\n",
     "Referrer-Policy: no-referrer\r\n",
 );
 
-fn serve_page(mut stream: TcpStream, page: &str, gzip: bool) {
-    static PACKED: std::sync::OnceLock<Vec<u8>> = std::sync::OnceLock::new();
+/// La politique complète, empreinte comprise.
+///
+/// Stricte parce que la page peut se le permettre: un fichier unique, sans
+/// ressource externe, avec ses styles et son script à l'intérieur. Tout ce qui
+/// viendrait d'ailleurs est refusé, y compris une image.
+fn policy_headers(page: &str) -> String {
+    format!(
+        "Content-Security-Policy: default-src 'self'; script-src {}; \
+         style-src 'self' 'unsafe-inline'; img-src 'self' data:; \
+         connect-src 'self' ws: wss:; frame-ancestors 'none'; base-uri 'none'\r\n{HARDENING}",
+        script_policy(page)
+    )
+}
+
+/// Comment la page part sur le fil.
+///
+/// Trois états et pas deux booléens, parce que deux booléens autorisent
+/// « brotli ET gzip », qui ne veut rien dire: une réponse porte un encodage.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Packing {
+    /// Telle quelle. Le cas d'un client qui n'a rien demandé.
+    Raw,
+    Gzip,
+    /// Treize pour cent de moins que gzip sur cette page, mesuré le 19 août
+    /// 2026: 136 493 octets contre 117 841. Sur un lien à 400 kbit/s, la
+    /// première image passe de 2,73 s à 2,36 s.
+    ///
+    /// Le niveau le plus élevé ne coûte rien ici, et c'est ce qui rend le choix
+    /// évident: la page est un artefact FIGÉ, compilé dans le binaire, donc elle
+    /// est compressée une fois au premier envoi et jamais plus.
+    Brotli,
+}
+
+impl Packing {
+    /// Ce que ce client accepte, lu sur son en-tête plutôt que dans sa requête
+    /// entière.
+    ///
+    /// La version d'avant cherchait « gzip » n'importe où dans le texte de la
+    /// requête, donc un chemin ou un agent qui contenait ces quatre lettres
+    /// suffisait à déclencher une compression que personne n'avait demandée.
+    /// Personne ne l'a jamais remarqué parce que tous les navigateurs
+    /// l'acceptent; ça restait une lecture qui devine.
+    ///
+    /// Brotli d'abord quand les deux sont offerts: c'est le plus petit, et tout
+    /// navigateur qui connaît brotli connaît gzip.
+    fn wanted(text: &str) -> Self {
+        let Some(line) = text
+            .lines()
+            .find_map(|line| line.strip_prefix("accept-encoding:"))
+        else {
+            return Self::Raw;
+        };
+        let offered: Vec<&str> = line
+            .split(',')
+            .map(|token| token.split(';').next().unwrap_or("").trim())
+            .collect();
+        if offered.contains(&"br") {
+            Self::Brotli
+        } else if offered.contains(&"gzip") {
+            Self::Gzip
+        } else {
+            Self::Raw
+        }
+    }
+
+    /// Le nom que l'en-tête de réponse porte, ou rien pour une page brute.
+    const fn header(self) -> &'static str {
+        match self {
+            Self::Raw => "",
+            Self::Gzip => "Content-Encoding: gzip\r\n",
+            Self::Brotli => "Content-Encoding: br\r\n",
+        }
+    }
+}
+
+/// La page, dans l'emballage demandé.
+///
+/// Compressée une seule fois par emballage et gardée: la page est un artefact
+/// figé compilé dans le binaire, donc le travail ne se refait jamais. C'est ce
+/// qui permet de prendre le niveau brotli le plus élevé sans y penser.
+fn packed(page: &str, packing: Packing) -> &[u8] {
+    static ZIPPED: std::sync::OnceLock<Vec<u8>> = std::sync::OnceLock::new();
+    static BROTLIED: std::sync::OnceLock<Vec<u8>> = std::sync::OnceLock::new();
+    match packing {
+        Packing::Raw => page.as_bytes(),
+        Packing::Gzip => ZIPPED.get_or_init(|| {
+            use flate2::{Compression, write::GzEncoder};
+            let mut packer = GzEncoder::new(Vec::new(), Compression::best());
+            let _ = packer.write_all(page.as_bytes());
+            packer.finish().unwrap_or_else(|_| page.as_bytes().to_vec())
+        }),
+        Packing::Brotli => BROTLIED.get_or_init(|| {
+            let mut out = Vec::new();
+            let mut packer = brotli::CompressorWriter::new(&mut out, 4096, 11, 22);
+            let _ = packer.write_all(page.as_bytes());
+            drop(packer);
+            if out.is_empty() {
+                page.as_bytes().to_vec()
+            } else {
+                out
+            }
+        }),
+    }
+}
+
+fn serve_page(mut stream: TcpStream, page: &str, packing: Packing) {
+    let hardening = policy_headers(page);
     let tag = format!("\"{:x}\"", page_tag(page));
 
     // Déjà à jour chez le client: on ne renvoie rien du tout. Lu sur l'entête
@@ -1088,35 +1238,25 @@ fn serve_page(mut stream: TcpStream, page: &str, gzip: bool) {
     if request.contains(&tag.to_lowercase()) {
         let response = format!(
             "HTTP/1.1 304 Not Modified\r\nETag: {tag}\r\n\
-             Cache-Control: no-cache\r\n{HARDENING}Connection: close\r\n\r\n"
+             Cache-Control: no-cache\r\n{hardening}Connection: close\r\n\r\n"
         );
         let _ = stream.write_all(response.as_bytes());
         let _ = stream.flush();
         return;
     }
 
-    let body: &[u8] = if gzip {
-        PACKED.get_or_init(|| {
-            use flate2::{Compression, write::GzEncoder};
-            let mut packer = GzEncoder::new(Vec::new(), Compression::best());
-            let _ = packer.write_all(page.as_bytes());
-            packer.finish().unwrap_or_else(|_| page.as_bytes().to_vec())
-        })
-    } else {
-        page.as_bytes()
-    };
+    let body = packed(page, packing);
     // Le repli est visible: si la compression a échoué, on a rendu les octets
-    // bruts, et annoncer gzip dessus donnerait une page illisible.
-    let packed = gzip && body.len() != page.len();
-    let encoding = if packed {
-        "Content-Encoding: gzip\r\n"
-    } else {
+    // bruts, et annoncer un encodage dessus donnerait une page illisible.
+    let encoding = if body.len() == page.len() {
         ""
+    } else {
+        packing.header()
     };
     let response = format!(
         "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\n\
          Content-Length: {}\r\n{encoding}ETag: {tag}\r\n\
-         Cache-Control: no-cache\r\n{HARDENING}Connection: close\r\n\r\n",
+         Cache-Control: no-cache\r\n{hardening}Connection: close\r\n\r\n",
         body.len()
     );
     let _ = stream.write_all(response.as_bytes());
@@ -1329,6 +1469,65 @@ fn claim_a_port(
 /// stream there is no framing to resynchronise against — the same reasoning the
 /// frame socket uses — and a client sending rubbish is a client with a bug worth
 /// noticing.
+/// Range l'état de manette qui vient d'arriver, et dit si la page parle encore
+/// le bon protocole.
+///
+/// Rend `false` sur ce qui n'est pas une trame de manette, et l'appelant ferme:
+/// une page qui envoie autre chose n'est pas notre page, et continuer à
+/// l'écouter serait accepter n'importe quoi.
+fn apply_pad(
+    payload: &[u8],
+    seat: PlayerSlot,
+    slots: &Pads,
+    received: &Arc<std::sync::atomic::AtomicU64>,
+    arrived: &Arc<Condvar>,
+) -> bool {
+    let frame = match InputFrame::decode(payload) {
+        Ok(frame) => frame,
+        Err(error) => {
+            tracing::warn!(%error, "a client sent something that is not an InputFrame");
+            return false;
+        }
+    };
+    // Stamped with the seat this connection was given, whatever the frame
+    // claims. A page that says "I am player 1" must not be able to move player
+    // 1's character, and the check that would reject it is a check that can be
+    // forgotten: overwriting cannot.
+    let frame = InputFrame {
+        slot: seat,
+        ..frame
+    };
+    received.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    if let Ok(mut slots) = slots.lock() {
+        // Replaces rather than queues. Overwriting a state the emulator has not
+        // read yet is not a loss: it could only ever have applied the newer one.
+        if let Some(place) = slots.get_mut(frame.slot.index()) {
+            *place = Some(frame);
+        }
+    }
+    // Woken after the lock is released, so the waiter does not wake straight
+    // into a lock it cannot take.
+    arrived.notify_one();
+    true
+}
+
+/// Renvoie un aller-retour tel quel, et dit si la socket tient encore.
+///
+/// Rendu sans rien y lire: c'est la page qui sait à quoi elle a associé son
+/// jeton, et lui donner un sens ici créerait un état à tenir des deux côtés pour
+/// rien. Neuf octets rendus pour neuf reçus, donc rien n'est amplifié: qui
+/// l'envoie en boucle se coûte exactement ce qu'il nous coûte.
+fn bounce(socket: &mut tungstenite::WebSocket<TcpStream>, payload: &[u8]) -> bool {
+    let Ok(echo) = Echo::decode(payload) else {
+        // Neuf octets sans la marque ne sont pas un aller-retour. On se tait
+        // plutôt que de renvoyer quelque chose, et la socket reste ouverte.
+        return true;
+    };
+    socket
+        .send(tungstenite::Message::binary(echo.encode().to_vec()))
+        .is_ok()
+}
+
 fn input_thread(stream: TcpStream, shared: &Shared, take: Option<PlayerSlot>) {
     let (slots, received, arrived, seats, players) = (
         &shared.inputs,
@@ -1429,6 +1628,19 @@ fn input_thread(stream: TcpStream, shared: &Shared, take: Option<PlayerSlot>) {
             // proof of life above; text is not something this endpoint speaks.
             _ => continue,
         };
+        // Neuf octets sont un aller-retour: la page mesure sa propre latence, et
+        // c'est le seul chiffre qu'elle peut établir sans supposer que les deux
+        // horloges sont d'accord.
+        //
+        // Rendu tel quel, sans rien y lire. Un renvoi de la même taille que la
+        // demande n'amplifie rien: qui l'envoie en boucle se coûte exactement ce
+        // qu'il nous coûte.
+        if payload.len() == Echo::LEN {
+            if bounce(&mut socket, &payload) {
+                continue;
+            }
+            break;
+        }
         // Two bytes is a command, thirteen is a pad. Told apart by length,
         // which needs no mode and no header — see `Command` in the protocol.
         if payload.len() == Command::LEN {
@@ -1437,33 +1649,8 @@ fn input_thread(stream: TcpStream, shared: &Shared, take: Option<PlayerSlot>) {
             }
             break;
         }
-        match InputFrame::decode(&payload) {
-            Ok(frame) => {
-                // Stamped with the seat this connection was given, whatever the
-                // frame claims. A page that says "I am player 1" must not be
-                // able to move player 1's character, and the check that would
-                // reject it is a check that can be forgotten: overwriting cannot.
-                let frame = InputFrame {
-                    slot: seat,
-                    ..frame
-                };
-                received.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                if let Ok(mut slots) = slots.lock() {
-                    // Replaces rather than queues. Overwriting a state the
-                    // emulator has not read yet is not a loss: it could only
-                    // ever have applied the newer one.
-                    if let Some(place) = slots.get_mut(frame.slot.index()) {
-                        *place = Some(frame);
-                    }
-                }
-                // Woken after the lock is released, so the waiter does not wake
-                // straight into a lock it cannot take.
-                arrived.notify_one();
-            }
-            Err(error) => {
-                tracing::warn!(%error, "a client sent something that is not an InputFrame");
-                break;
-            }
+        if !apply_pad(&payload, seat, slots, received, arrived) {
+            break;
         }
     }
     tracing::info!(port = seat.get(), "the controller disconnected");
@@ -1768,7 +1955,7 @@ mod tests {
     fn a_handshake_is_taken_only_from_a_page_this_server_served() {
         // Through the Tailscale proxy: both headers carry the proxy's authority.
         assert!(same_origin(
-            "host: lgf.tail3bd01c.ts.net:8443\r\norigin: https://lgf.tail3bd01c.ts.net:8443"
+            "host: salle.exemple.ts.net:8443\r\norigin: https://salle.exemple.ts.net:8443"
         ));
         // Locally, over plain http.
         assert!(same_origin(
@@ -1780,7 +1967,7 @@ mod tests {
 
         // The attack this exists for.
         assert!(!same_origin(
-            "host: lgf.tail3bd01c.ts.net:8443\r\norigin: https://un-site-quelconque.example"
+            "host: salle.exemple.ts.net:8443\r\norigin: https://un-site-quelconque.example"
         ));
         // A sandboxed iframe. It is not this server, so it is not us.
         assert!(!same_origin("host: localhost:8100\r\norigin: null"));
@@ -1791,7 +1978,7 @@ mod tests {
         ));
         // A host that merely ENDS with ours. Matching by suffix would take this.
         assert!(!same_origin(
-            "host: lgf.tail3bd01c.ts.net:8443\r\norigin: https://evil-lgf.tail3bd01c.ts.net:8443"
+            "host: salle.exemple.ts.net:8443\r\norigin: https://evil-salle.exemple.ts.net:8443"
         ));
     }
 
@@ -2249,6 +2436,329 @@ mod tests {
         )
         .unwrap();
         socket
+    }
+
+    /// Attend qu'une condition devienne vraie, sans dormir une durée choisie au
+    /// hasard. Rend faux si elle ne vient jamais.
+    fn eventually(mut what: impl FnMut() -> bool) -> bool {
+        for _ in 0..300 {
+            if what() {
+                return true;
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        false
+    }
+
+    /// La CSP nommait `'unsafe-inline'`, ce qui autorise n'importe quel script
+    /// en ligne et retire à la règle presque tout son intérêt. L'empreinte est
+    /// calculée sur la page qu'on sert, donc elle ne peut pas diverger.
+    #[test]
+    fn the_policy_names_the_script_of_the_page_it_serves() {
+        let page = "<html><script>alert(1)</script></html>";
+
+        let policy = script_policy(page);
+
+        assert!(policy.starts_with("'self' "), "{policy}");
+        assert!(policy.contains("'sha256-"), "{policy}");
+        assert!(!policy.contains("unsafe-inline"), "{policy}");
+    }
+
+    /// Le jumeau, et c'est celui qui compte: une empreinte prise sur autre chose
+    /// que le contenu exact du script laisserait la page refuser de s'exécuter,
+    /// ce qui est un écran noir. Vérifié contre la vraie page.
+    #[test]
+    fn the_hash_is_the_one_a_browser_computes() {
+        use base64::Engine as _;
+        use sha2::Digest as _;
+
+        let page = include_str!("../../worker/src/page/index.html");
+        let open = page.find("<script").expect("la page a un script en ligne");
+        let head = page[open..].find('>').expect("la balise se ferme");
+        let close = page[open + head + 1..]
+            .find("</script>")
+            .expect("le script se ferme");
+        let body = &page[open + head + 1..open + head + 1 + close];
+        let expected = base64::engine::general_purpose::STANDARD.encode(sha2::Sha256::digest(body));
+
+        assert!(
+            script_policy(page).contains(&expected),
+            "l'empreinte annoncée n'est pas celle du script servi"
+        );
+    }
+
+    /// Et les styles gardent `'unsafe-inline'`, délibérément: React pose des
+    /// ATTRIBUTS `style`, que les empreintes ne couvrent pas. Une règle faible
+    /// qu'on croit forte serait pire qu'une règle faible.
+    #[test]
+    fn the_style_rule_stays_honest_about_what_it_does_not_cover() {
+        let headers = policy_headers("<html><script>x</script></html>");
+
+        assert!(headers.contains("style-src 'self' 'unsafe-inline'"));
+        assert!(!headers.contains("script-src 'self' 'unsafe-inline'"));
+        assert!(headers.contains("frame-ancestors 'none'"));
+        // Un saut de ligne au milieu couperait la réponse en deux.
+        assert!(headers.ends_with("\r\n"));
+        assert!(!headers.contains("\n\n"));
+    }
+
+    /// La lecture d'avant cherchait « gzip » n'importe où dans le texte de la
+    /// requête, donc un chemin ou un agent qui contenait ces quatre lettres
+    /// suffisait à déclencher une compression que personne n'avait demandée.
+    #[test]
+    fn the_encoding_is_read_on_its_own_header() {
+        for (head, want) in [
+            ("accept-encoding: br, gzip\r\n", Packing::Brotli),
+            ("accept-encoding: gzip, deflate\r\n", Packing::Gzip),
+            // Brotli d'abord quand les deux sont offerts, quelles que soient les
+            // préférences annoncées: il est plus petit, et tout navigateur qui
+            // connaît brotli connaît gzip.
+            ("accept-encoding: gzip;q=1.0, br;q=0.5\r\n", Packing::Brotli),
+            ("accept-encoding: identity\r\n", Packing::Raw),
+            ("accept-encoding: \r\n", Packing::Raw),
+            ("", Packing::Raw),
+        ] {
+            assert_eq!(Packing::wanted(head), want, "sur {head:?}");
+        }
+    }
+
+    /// Le jumeau, et c'est le défaut qu'on répare: ces quatre lettres se
+    /// trouvent ailleurs que dans l'en-tête qui les concerne.
+    #[test]
+    fn the_word_elsewhere_in_the_request_asks_for_nothing() {
+        for head in [
+            "get /art/gzip.png http/1.1\r\nhost: x\r\n",
+            "get / http/1.1\r\nuser-agent: mon-navigateur-brotli\r\n",
+            "get / http/1.1\r\nreferer: https://exemple/br\r\n",
+        ] {
+            assert_eq!(Packing::wanted(head), Packing::Raw, "sur {head:?}");
+        }
+    }
+
+    /// Et l'emballage annoncé doit correspondre à celui qui a servi: annoncer
+    /// gzip sur des octets brotli rend une page illisible, sans erreur nulle
+    /// part côté serveur.
+    #[test]
+    fn each_packing_names_itself_and_only_itself() {
+        assert_eq!(Packing::Raw.header(), "");
+        assert!(Packing::Gzip.header().contains("gzip"));
+        assert!(Packing::Brotli.header().contains("br"));
+        assert!(!Packing::Brotli.header().contains("gzip"));
+    }
+
+    /// Brotli tient sa promesse, sur la vraie page et pas sur un exemple choisi.
+    /// Mesuré le 19 août 2026: 136 493 octets en gzip contre 117 841 en brotli,
+    /// soit 13,7 % de moins et 370 ms gagnés sur un lien à 400 kbit/s.
+    #[test]
+    fn brotli_is_smaller_than_gzip_on_the_page_we_actually_ship() {
+        let page = include_str!("../../worker/src/page/index.html");
+
+        let zipped = packed(page, Packing::Gzip).len();
+        let brotlied = packed(page, Packing::Brotli).len();
+
+        assert!(brotlied < zipped, "brotli {brotlied} contre gzip {zipped}");
+        assert!(zipped < page.len());
+    }
+
+    /// Le plafond de connexions existait sans qu'aucun test ne le tienne: je
+    /// l'ai supprimé le 19 août 2026 et toute la suite est restée verte. Un
+    /// garde que personne ne vérifie est un garde qui disparaîtra au prochain
+    /// remaniement.
+    #[test]
+    fn the_sixty_fifth_connection_is_refused() {
+        let server = BrowserServer::start(
+            "127.0.0.1:0".parse().unwrap(),
+            "page",
+            "[]".into(),
+            no_art(),
+            PlayerSlot::new(1).unwrap(),
+            &nobody(),
+        )
+        .unwrap();
+
+        // Des spectateurs, parce qu'un spectateur reste: son fil vit tant que sa
+        // socket vit, et c'est ce que le plafond compte.
+        let held: Vec<_> = (0..MAX_CONNECTIONS)
+            .map(|_| watch(server.address()))
+            .collect();
+        assert!(
+            eventually(|| server.watchers() == MAX_CONNECTIONS),
+            "le serveur n'a compté que {} spectateurs sur {MAX_CONNECTIONS}",
+            server.watchers()
+        );
+
+        // La suivante est acceptée par le noyau puis refermée sans un octet:
+        // c'est ce que « refusée » veut dire au niveau TCP.
+        let mut extra = TcpStream::connect(server.address()).unwrap();
+        extra
+            .set_read_timeout(Some(Duration::from_secs(3)))
+            .unwrap();
+        extra
+            .write_all(b"GET / HTTP/1.1\r\nHost: x\r\n\r\n")
+            .unwrap();
+        let mut answer = Vec::new();
+        let _ = extra.read_to_end(&mut answer);
+        assert!(
+            answer.is_empty(),
+            "la connexion en trop a reçu {} octets au lieu d'être refusée",
+            answer.len()
+        );
+
+        drop(held);
+    }
+
+    /// Même histoire: la borne de quatre kilo-octets par message n'était tenue
+    /// par rien. Une page envoie treize octets d'état de manette; personne n'a
+    /// de raison d'en envoyer huit mille.
+    #[test]
+    fn a_message_over_the_ceiling_closes_the_socket() {
+        let server = BrowserServer::start(
+            "127.0.0.1:0".parse().unwrap(),
+            "page",
+            "[]".into(),
+            no_art(),
+            PlayerSlot::new(1).unwrap(),
+            &nobody(),
+        )
+        .unwrap();
+        let (mut socket, port) = hold(server.address());
+        assert_eq!(port, 1);
+
+        // D'abord une trame normale, pour prouver que la socket marchait avant.
+        let one = PlayerSlot::new(1).unwrap();
+        socket
+            .send(tungstenite::Message::binary(
+                InputFrame::neutral(one).encode().to_vec(),
+            ))
+            .unwrap();
+        assert!(eventually(|| server.inputs_received() > 0));
+
+        // Puis le double de la borne. Tungstenite refuse côté serveur et ferme.
+        //
+        // La lecture est raccourcie exprès: le fil de la manette envoie l'état
+        // de la salle et la vibration, donc lire rend parfois autre chose que la
+        // fermeture, et il faut pouvoir réessayer sans attendre trois secondes.
+        socket
+            .get_ref()
+            .set_read_timeout(Some(Duration::from_millis(500)))
+            .unwrap();
+        let flood = vec![0_u8; 8 * 1024];
+        let _ = socket.send(tungstenite::Message::binary(flood));
+
+        // « Fermée » et pas « n'a rien dit »: un délai de lecture dépassé est
+        // AUSSI une erreur, et une première version de ce test s'en contentait.
+        // Elle passait donc aussi bien avec la borne que sans, ce qui est
+        // exactement le défaut que ce test est là pour interdire.
+        let mut closed = false;
+        for _ in 0..8 {
+            closed = match socket.read() {
+                // Rien à lire pour l'instant: on réessaie, ce n'est pas une
+                // fermeture.
+                Err(tungstenite::Error::Io(io))
+                    if matches!(
+                        io.kind(),
+                        std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut
+                    ) =>
+                {
+                    false
+                }
+                Err(_) | Ok(tungstenite::Message::Close(_)) => true,
+                // La salle et la vibration passent par cette socket: en lire
+                // une ne dit rien sur la borne.
+                Ok(_) => false,
+            };
+            if closed {
+                break;
+            }
+        }
+        assert!(
+            closed,
+            "la socket est restée ouverte après un message hors borne"
+        );
+    }
+
+    /// `max_frame_size` n'a pas son propre test, et c'est délibéré. Une trame
+    /// plus grosse que la borne fait forcément un message plus gros que la même
+    /// borne, donc `max_message_size` la refuse d'abord: il n'existe aucun envoi
+    /// que la seconde attrape et que la première laisse passer. C'est une
+    /// ceinture en plus de la bretelle, pas une règle distincte, et écrire un
+    /// test qui ne peut pas la distinguer serait un test qui ment.
+    #[test]
+    fn the_frame_ceiling_matches_the_message_ceiling() {
+        let limits = socket_limits();
+        assert_eq!(limits.max_frame_size, limits.max_message_size);
+        assert_eq!(limits.max_message_size, Some(4 * 1024));
+    }
+
+    /// La page ne peut pas mesurer sa latence avec l'horloge du worker: les deux
+    /// ne sont pas synchronisées, et une ancre prise pour un retard avait déjà
+    /// affiché moins quinze secondes. Un aller-retour se mesure sur une seule
+    /// horloge, à condition que le worker rende exactement ce qu'on lui donne.
+    #[test]
+    fn an_echo_comes_back_byte_for_byte() {
+        let server = BrowserServer::start(
+            "127.0.0.1:0".parse().unwrap(),
+            "page",
+            "[]".into(),
+            no_art(),
+            PlayerSlot::new(1).unwrap(),
+            &nobody(),
+        )
+        .unwrap();
+        let (mut socket, _) = hold(server.address());
+
+        let sent = Echo([9, 8, 7, 6, 5, 4, 3, 2]);
+        socket
+            .send(tungstenite::Message::binary(sent.encode().to_vec()))
+            .unwrap();
+
+        // La socket porte aussi l'état de la salle et la vibration, donc on lit
+        // jusqu'à trouver, plutôt que de supposer que le premier message est
+        // celui qu'on attend.
+        let mut came_back = None;
+        for _ in 0..8 {
+            if let Ok(tungstenite::Message::Binary(bytes)) = socket.read()
+                && let Ok(echo) = Echo::decode(&bytes)
+            {
+                came_back = Some(echo);
+                break;
+            }
+        }
+
+        assert_eq!(came_back, Some(sent));
+    }
+
+    /// Le jumeau: neuf octets sans la marque ne sont pas un aller-retour, et ne
+    /// doivent donc rien faire revenir.
+    #[test]
+    fn nine_bytes_without_the_mark_bring_nothing_back() {
+        let server = BrowserServer::start(
+            "127.0.0.1:0".parse().unwrap(),
+            "page",
+            "[]".into(),
+            no_art(),
+            PlayerSlot::new(1).unwrap(),
+            &nobody(),
+        )
+        .unwrap();
+        let (mut socket, _) = hold(server.address());
+        socket
+            .get_ref()
+            .set_read_timeout(Some(Duration::from_millis(300)))
+            .unwrap();
+
+        socket
+            .send(tungstenite::Message::binary(vec![0x11_u8; Echo::LEN]))
+            .unwrap();
+
+        for _ in 0..4 {
+            if let Ok(tungstenite::Message::Binary(bytes)) = socket.read() {
+                assert!(
+                    Echo::decode(&bytes).is_err(),
+                    "un écho est revenu: {bytes:?}"
+                );
+            }
+        }
     }
 
     /// Takes a controller and returns the socket with the port it was given.

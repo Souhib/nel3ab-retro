@@ -13,6 +13,15 @@ repository.workspace = true
 # 424 Kio contre 128 en gzip, et c'est la personne dont la liaison va mal qui
 # paie la différence.
 flate2 = "1"
+# Pour l'empreinte des scripts en ligne que la CSP nomme. Calculée sur la page
+# qu'on sert vraiment, donc elle ne peut pas diverger de ce qui part sur le fil.
+sha2 = { version = "0.10", default-features = false }
+base64 = { version = "0.22", default-features = false, features = ["alloc"] }
+# Treize pour cent de moins que gzip sur la page, mesuré le 19 août 2026. Le
+# coût de compression ne se paie qu'une fois, au premier envoi après un
+# démarrage, parce que la page est un artefact figé compilé dans le binaire.
+# En Rust pur, donc rien à installer sur la machine de construction.
+brotli = { version = "8", default-features = false, features = ["std"] }
 nel3ab-protocol = { path = "../protocol" }
 thiserror.workspace = true
 tracing.workspace = true

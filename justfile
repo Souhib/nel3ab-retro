@@ -56,6 +56,17 @@ contract-check:
 front-build:
     cd front && npm run build && node stamp.mjs
 
+# La sieste, jouée en vrai: la salle s'endort, on la réveille, et on lit ce que
+# le worker en a écrit.
+#
+# Ici et pas dans `check` parce que c'est une COURSE entre le fil qui dégèle et
+# celui qui encode, elle se joue en quelques millisecondes autour de
+# `docker unpause`, et aucun test unitaire ne peut la voir. Il faut un vrai
+# conteneur, un vrai émulateur et une minute de patience: exactement la même
+# raison que `gpu-test`.
+nap-test:
+    cd spikes/m3-browser-drive && node nap.mjs
+
 # Is the committed page the one these sources produce?
 #
 # The page is a build artefact that is committed, so `cargo build` never needs

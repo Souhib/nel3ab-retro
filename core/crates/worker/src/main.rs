@@ -545,20 +545,39 @@ fn run(settings: &Settings) -> Result<()> {
                     let Some(what) = nap.saw(server.watchers(), Instant::now(), nap::GRACE) else {
                         continue;
                     };
+                    // Le temps dormi est crédité AVANT de dégeler, et l'ordre
+                    // est tout le sujet.
+                    //
+                    // Posé après, il arrivait trop tard: `docker unpause` rend
+                    // la main, Dolphin repart et pousse une image dans la
+                    // milliseconde, et la boucle d'images lisait le compteur
+                    // avant que le fil de sieste ait fini d'y ajouter. Observé
+                    // le 29 août 2026 sur la vraie salle, à la seconde près:
+                    //
+                    //   23:51:17  avertissement, attente 319 811 ms
+                    //   23:51:17  tranche: dormi 0 ms, attente max 319 811 ms
+                    //   23:51:17  Wake
+                    //   23:51:27  tranche: dormi 319 795 ms, attente max 15 ms
+                    //
+                    // La sieste tombait donc dans la tranche SUIVANTE, et celle
+                    // du réveil gardait l'attente entière: exactement le défaut
+                    // que ce compteur existe pour supprimer.
+                    //
+                    // Crédité d'abord, il ne peut plus arriver en retard: rien
+                    // ne peut produire une image tant que le dégel n'a pas été
+                    // demandé. Le prix est de quelques millisecondes de sieste
+                    // non comptées, celles de l'appel lui-même, et c'est le bon
+                    // côté sur lequel se tromper.
+                    if what == nap::Move::Wake
+                        && let Some(since) = asleep_since.take()
+                    {
+                        let micros = u64::try_from(since.elapsed().as_micros()).unwrap_or(u64::MAX);
+                        slept_micros.fetch_add(micros, std::sync::atomic::Ordering::Relaxed);
+                    }
                     match tell_docker(&container, what) {
                         Ok(()) => {
-                            match what {
-                                nap::Move::Sleep => asleep_since = Some(Instant::now()),
-                                nap::Move::Wake => {
-                                    if let Some(since) = asleep_since.take() {
-                                        let micros = u64::try_from(since.elapsed().as_micros())
-                                            .unwrap_or(u64::MAX);
-                                        slept_micros.fetch_add(
-                                            micros,
-                                            std::sync::atomic::Ordering::Relaxed,
-                                        );
-                                    }
-                                }
+                            if what == nap::Move::Sleep {
+                                asleep_since = Some(Instant::now());
                             }
                             tracing::info!(?what, "le jeu a été gelé ou réveillé");
                         }

@@ -6808,6 +6808,80 @@ qui est la première chose à vérifier avant d'en poser une sur un chemin chaud
 
 ---
 
+### 7.62 La correction qui arrivait une milliseconde trop tard
+
+Dix jours après l'audit, en faisant l'état des lieux d'une salle que personne
+n'avait ouverte, le journal du worker portait encore ceci:
+
+```
+avertissement, attente 203 860 121 ms
+```
+
+Deux cent trois millions de millisecondes, soit les cinquante-six heures de
+sieste. C'est exactement le défaut que l'entrée 7.61 déclarait corrigé.
+
+#### Ce que j'avais mal lu
+
+Le jour de la correction, j'avais cherché dans le journal une tranche portant une
+sieste et j'avais trouvé ceci, que j'ai pris pour une preuve:
+
+```
+sieste de 3398 min, attente max 24 ms, 606 images
+```
+
+C'est vrai, et ça ne prouve rien. J'avais lu la bonne tranche sans regarder la
+mauvaise, celle d'avant.
+
+#### Ce que le journal disait vraiment
+
+En réveillant la salle exprès et en lisant les quatre lignes dans l'ordre:
+
+```
+23:51:17  avertissement, attente 319 811 ms
+23:51:17  tranche: dormi 0 ms, attente max 319 811 ms
+23:51:17  Wake
+23:51:27  tranche: dormi 319 795 ms, attente max 15 ms
+```
+
+Le fil de sieste créditait le temps dormi **après** avoir appelé
+`docker unpause`. Or `unpause` rend la main, Dolphin repart et pousse une image
+dans la milliseconde, et la boucle d'images lisait le compteur avant que
+l'addition soit faite. La sieste tombait donc dans la tranche suivante, et celle
+du réveil gardait l'attente entière.
+
+Une course de quelques millisecondes entre deux fils, dans du code que la
+relecture trouve juste. Créditer avant de dégeler la ferme complètement: rien ne
+peut produire une image tant que le dégel n'a pas été demandé.
+
+#### La leçon, qui n'est pas sur les fils
+
+Elle est sur la vérification. Une correction qui produit un ordre entre deux
+effets de bord ne se vérifie pas en lisant le code, ni en trouvant une trace qui
+va dans le bon sens: **il faut chercher la trace qui irait dans le mauvais.**
+
+Ce qui a fini par la trouver est un pilote qui joue le cas en vrai:
+`nap.mjs` attend que la salle s'endorme, la réveille, et refuse qu'une seule
+tranche du réveil annonce une attente au-dessus d'une seconde. Vérifié en
+remettant la faute, comme la règle 4 le demande: avec elle, 2 550 ms et le cri
+au secours; sans elle, 91 ms et rien.
+
+Il vit sous `just nap-test`, à côté de `just gpu-test` et pour la même raison:
+la machine peut prouver quelque chose que la CI ne peut pas.
+
+#### Deux autres choses vues au passage
+
+**Le salon annonce un échec quand il s'arrête normalement.** `uvicorn` sort en
+143 sur un `SIGTERM`, et l'unité systemd ne compte pas 143 comme une sortie
+propre: chaque redémarrage laisse donc `Failed with result 'exit-code'` dans le
+journal. Rien n'est cassé, mais une vraie panne y ressemblerait trait pour
+trait, ce qui est le genre de bruit qui fait rater la vraie.
+
+**La sieste tient ses promesses.** Sur dix jours sans personne, la salle a
+produit 21 068 images. Une salle qui tournerait sans arrêt en aurait produit
+cinquante et un millions.
+
+---
+
 ### 7.55 La porte vérifiait un état qu'elle changeait ensuite
 
 Trois commits de suite sont partis avec une empreinte de page périmée, et à

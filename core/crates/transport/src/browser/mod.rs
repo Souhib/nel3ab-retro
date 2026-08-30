@@ -39,6 +39,7 @@
 //! latency problem and hides it — the player would see a smooth stream of
 //! increasingly old pictures. Dropping is visible and recoverable.
 
+use std::io::{Read as _, Write as _};
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::sync::mpsc::TrySendError;
 use std::sync::{Arc, Condvar, Mutex};
@@ -58,7 +59,7 @@ mod stream;
 use pad::input_thread;
 use page::{Packing, serve_body, serve_bytes, serve_missing, serve_page};
 use route::{Route, classify};
-use stream::{Viewer, deliver, sound_thread, video_thread};
+use stream::{Viewer, carries_key_frame, deliver, sound_thread, video_thread};
 
 /// How many frames may wait for the socket before one is dropped.
 ///
@@ -197,6 +198,8 @@ pub struct BrowserServer {
     /// because the two streams are independent: a page may watch without
     /// hearing, and losing one must not disturb the other.
     listeners: Viewers,
+    /// Les dernières secondes de la partie. Voir [`crate::clip`].
+    clips: Arc<Mutex<crate::clip::Clips>>,
     /// One queue per connected viewer.
     ///
     /// This was a single queue behind a mutex, served by one thread — one
@@ -284,6 +287,23 @@ impl BrowserServer {
     ///
     /// # Errors
     /// [`TransportError::Bind`] or [`TransportError::Accept`].
+    /// Ouvre l'écoute et rend l'adresse qu'elle a vraiment prise.
+    ///
+    /// Séparé parce que l'adresse DEMANDÉE n'est pas toujours celle qu'on
+    /// obtient: les tests lient le port zéro, et c'est le noyau qui choisit.
+    fn bound_listener(address: SocketAddr) -> Result<(TcpListener, SocketAddr), TransportError> {
+        let listener = TcpListener::bind(address)
+            .map_err(|source| TransportError::Bind { address, source })?;
+        let bound = listener
+            .local_addr()
+            .map_err(|source| TransportError::Accept { source })?;
+        Ok((listener, bound))
+    }
+
+    /// Ouvre l'écoute, monte l'état partagé, et rend le serveur.
+    ///
+    /// # Errors
+    /// [`TransportError::Bind`] si le port est pris.
     pub fn start(
         address: SocketAddr,
         page: &'static str,
@@ -292,12 +312,9 @@ impl BrowserServer {
         players: PlayerSlot,
         owner: &crate::control::OwnerSeat,
     ) -> Result<Self, TransportError> {
-        let listener = TcpListener::bind(address)
-            .map_err(|source| TransportError::Bind { address, source })?;
-        let bound = listener
-            .local_addr()
-            .map_err(|source| TransportError::Accept { source })?;
+        let (listener, bound) = Self::bound_listener(address)?;
 
+        let clips = Arc::new(Mutex::new(crate::clip::Clips::new()));
         let viewers: Viewers = Arc::new(Mutex::new(Vec::new()));
         let listeners: Viewers = Arc::new(Mutex::new(Vec::new()));
         let incoming: Pads = Arc::new(Mutex::new([None; PORTS]));
@@ -327,6 +344,7 @@ impl BrowserServer {
         let accept = std::thread::Builder::new()
             .name("browser-accept".to_owned())
             .spawn({
+                let clips = Arc::clone(&clips);
                 let joined = Arc::clone(&joined);
                 let wants_key = Arc::clone(&wants_key);
                 let granted_key = Arc::clone(&granted_key);
@@ -348,6 +366,7 @@ impl BrowserServer {
                         &listener,
                         page,
                         &Shared {
+                            clips: Arc::clone(&clips),
                             viewers,
                             listeners,
                             inputs,
@@ -375,6 +394,7 @@ impl BrowserServer {
 
         tracing::info!(%bound, "browser server listening");
         Ok(Self {
+            clips,
             viewers,
             half_viewers,
             half_joined,
@@ -412,7 +432,34 @@ impl BrowserServer {
     /// no metric.
     #[must_use]
     pub fn send(&self, packet: &Packet) -> bool {
+        // Gardé AVANT d'être distribué, et sans regarder si quelqu'un écoute:
+        // une image jetée faute de place chez un spectateur reste une image que
+        // la partie a produite, et un clip qui aurait des trous là où une
+        // liaison a hoqueté ne montrerait pas la partie.
+        if let Ok(mut clips) = self.clips.lock() {
+            clips.keep(
+                Instant::now(),
+                carries_key_frame(packet.annex_b),
+                packet.annex_b,
+            );
+        }
         deliver(&self.viewers, &self.dropped, &self.wants_key, packet)
+    }
+
+    /// Le clip des dernières secondes, emballé et prêt à partager.
+    ///
+    /// Rend l'attente restante quand le précédent est trop récent, et `None`
+    /// quand la salle vient de démarrer et n'a pas encore de quoi couper. Trois
+    /// réponses et pas deux, parce que « pas encore » et « trop tôt » n'appellent
+    /// pas la même phrase à l'écran.
+    ///
+    /// # Errors
+    /// [`crate::clip::TooSoon`] avec ce qu'il reste à patienter.
+    pub fn take_clip(&self) -> Result<Option<crate::clip::Cut>, crate::clip::TooSoon> {
+        let Ok(mut clips) = self.clips.lock() else {
+            return Ok(None);
+        };
+        clips.take(Instant::now())
     }
 
     /// The same picture, encoded small, to whoever asked for the small one.
@@ -606,6 +653,12 @@ impl BrowserServer {
 /// What the connection threads share with the server.
 #[derive(Clone)]
 struct Shared {
+    /// Les dernières secondes, gardées pour qu'on puisse les revoir.
+    ///
+    /// Nourri par [`BrowserServer::send`], donc par le flux GRAND format et lui
+    /// seul: un clip doit montrer ce qu'on regardait, pas la version réduite
+    /// que quelqu'un d'autre a choisie pour sa liaison.
+    clips: Arc<Mutex<crate::clip::Clips>>,
     viewers: Viewers,
     listeners: Viewers,
     inputs: Pads,
@@ -715,6 +768,133 @@ fn accept_loop(listener: &TcpListener, page: &'static str, shared: &Shared) {
     }
 }
 
+/// Emballe les dernières secondes et les rend, ou dit pourquoi il n'y en a pas.
+///
+/// Sur le fil de cette connexion, donc jamais sur celui des images: emballer
+/// prend le temps que ffmpeg prend, et une partie ne doit pas hoqueter parce que
+/// quelqu'un a cliqué.
+///
+/// Trois refus, et ils ne disent pas la même chose. **429** avec le temps qui
+/// reste: le précédent est trop récent, et le nombre est ce qui permet au bouton
+/// de compter à rebours honnêtement plutôt que de deviner. **409**: la salle
+/// vient de démarrer et n'a pas encore trente secondes derrière une image-clé.
+/// **500**: l'emballage a échoué, et le message dit lequel des trois cas.
+fn serve_clip(mut stream: TcpStream, shared: &Shared) {
+    // La requête est LUE avant qu'on réponde, comme les autres routes de ce
+    // serveur le font déjà.
+    //
+    // `classify` ne fait que regarder: elle appelle `peek`, donc les octets de
+    // la requête restent dans la file de réception. Fermer une socket qui en
+    // contient encore fait envoyer un RST au noyau plutôt qu'un FIN, et le
+    // client perd alors tout ce qu'il avait déjà reçu. Sur un clip, ça donne
+    // « Failed to fetch » côté navigateur pendant que le worker écrit dans son
+    // journal « un clip est parti », ce qui est le pire des deux mondes.
+    // Retrouvé le 30 août 2026, en local, sur un clip de 1,2 Mo.
+    let mut sink = [0_u8; 2048];
+    let _ = stream.read(&mut sink);
+
+    let Ok(mut ring) = shared.clips.lock() else {
+        serve_refusal(stream, 500, 0, "la salle n'a pas pu lire son anneau");
+        return;
+    };
+    let taken = ring.take(Instant::now());
+    // Le verrou est rendu AVANT d'emballer: ffmpeg prend une seconde, et le
+    // garder pendant ce temps arrêterait la boucle d'images, qui range chaque
+    // image dans le même anneau.
+    drop(ring);
+    let cut = match taken {
+        Err(crate::clip::TooSoon { wait }) => {
+            let seconds = wait.as_secs() + u64::from(wait.subsec_millis() > 0);
+            serve_refusal(
+                stream,
+                429,
+                seconds,
+                "un clip couvre au moins trente secondes, donc deux clips plus rapprochés se recouvrent",
+            );
+            return;
+        }
+        Ok(None) => {
+            serve_refusal(
+                stream,
+                409,
+                0,
+                "la salle n'a pas encore trente secondes de jeu derrière une image-clé",
+            );
+            return;
+        }
+        Ok(Some(cut)) => cut,
+    };
+
+    let covers = cut.covers.as_secs();
+    let fps = cut.fps();
+    match crate::clip::to_mp4(&cut.annex_b, fps) {
+        Ok(mp4) => {
+            tracing::info!(
+                seconds = covers,
+                frames = cut.frames,
+                fps,
+                bytes = mp4.len(),
+                "un clip est parti"
+            );
+            serve_mp4(stream, &mp4, covers);
+        }
+        Err(error) => {
+            tracing::warn!(%error, "le clip n'a pas pu être emballé");
+            serve_refusal(stream, 500, 0, &error.to_string());
+        }
+    }
+}
+
+/// Le fichier, nommé pour qu'on sache ce qu'on partage sans l'ouvrir.
+fn serve_mp4(mut stream: TcpStream, mp4: &[u8], covers: u64) {
+    let head = format!(
+        "HTTP/1.1 200 OK\r\nContent-Type: video/mp4\r\nContent-Length: {}\r\n\
+         Content-Disposition: attachment; filename=\"nel3ab-{covers}s.mp4\"\r\n\
+         Cache-Control: no-store\r\n{HARDENING}Connection: close\r\n\r\n",
+        mp4.len()
+    );
+    // L'écriture est SURVEILLÉE, contrairement au reste des réponses de ce
+    // serveur. Un clip fait des dizaines de mégaoctets là où une page en fait
+    // moins d'un, donc c'est la seule réponse qui puisse s'arrêter au milieu:
+    // le navigateur voit alors un corps tronqué et dit « Failed to fetch »,
+    // c'est-à-dire rien. Repéré le 30 août 2026 sur un clip de 18,7 Mo, où le
+    // worker annonçait « un clip est parti » pendant que la page n'avait rien.
+    let sent = stream
+        .write_all(head.as_bytes())
+        .and_then(|()| stream.write_all(mp4))
+        .and_then(|()| stream.flush());
+    if let Err(error) = sent {
+        tracing::warn!(%error, bytes = mp4.len(), "le clip n'a pas pu être livré en entier");
+    }
+}
+
+/// Un refus, avec de quoi l'afficher en français plutôt qu'en code.
+fn serve_refusal(mut stream: TcpStream, code: u16, wait: u64, why: &str) {
+    let reason = match code {
+        429 => "Too Many Requests",
+        409 => "Conflict",
+        _ => "Internal Server Error",
+    };
+    // Le corps porte le message, l'en-tête porte l'attente: `Retry-After` est ce
+    // qu'un client générique sait lire, et le message est ce qu'une personne
+    // sait lire.
+    let body = format!("{{\"attendre\":{wait},\"pourquoi\":\"{why}\"}}");
+    let retry = if wait > 0 {
+        format!("Retry-After: {wait}\r\n")
+    } else {
+        String::new()
+    };
+    let head = format!(
+        "HTTP/1.1 {code} {reason}\r\nContent-Type: application/json; charset=utf-8\r\n\
+         Content-Length: {}\r\n{retry}Cache-Control: no-store\r\n{HARDENING}\
+         Connection: close\r\n\r\n",
+        body.len()
+    );
+    let _ = stream.write_all(head.as_bytes());
+    let _ = stream.write_all(body.as_bytes());
+    let _ = stream.flush();
+}
+
 /// Works out what one connection wants, then serves it. Runs on its own thread.
 fn serve_connection(stream: TcpStream, page: &'static str, shared: &Shared) {
     match classify(&stream) {
@@ -735,6 +915,7 @@ fn serve_connection(stream: TcpStream, page: &'static str, shared: &Shared) {
         Some(Route::Sound) => sound_thread(stream, &shared.listeners),
         Some(Route::Input { take }) => input_thread(stream, shared, take),
         Some(Route::Roms) => serve_body(stream, &shared.catalogue, "application/json"),
+        Some(Route::Clip) => serve_clip(stream, shared),
         Some(Route::Art(index)) => match shared.art.get(index).and_then(Option::as_ref) {
             Some(png) => serve_bytes(stream, png, "image/png"),
             None => serve_missing(stream),

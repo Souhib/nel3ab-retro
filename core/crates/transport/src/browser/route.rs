@@ -22,6 +22,8 @@ pub(super) fn take_from(request: &str) -> Option<PlayerSlot> {
 
 /// What a connection turned out to be.
 pub(super) enum Route {
+    /// Les dernières secondes, emballées et rendues telles quelles.
+    Clip,
     /// One game's picture, asked for by its position in the library.
     ///
     /// By position and never by name, for the reason the library itself gives:
@@ -115,6 +117,22 @@ pub(super) fn classify(stream: &TcpStream) -> Option<Route> {
         // Before the catch-all, or both would be served the HTML page.
         if text.starts_with("get /roms") {
             return Some(Route::Roms);
+        }
+        // Le clip: la seule route qui CHANGE quelque chose sans être une
+        // poignée de main. L'origine est donc vérifiée ici aussi, et pas
+        // seulement sur les montées en grade.
+        //
+        // Sans ça, une page que quelqu'un visiterait ailleurs pourrait faire
+        // écrire un clip par son navigateur. Elle ne pourrait pas le LIRE, le
+        // navigateur refusant la réponse, mais l'effet aurait lieu quand même,
+        // et l'effet est une trentaine de secondes de la partie de quelqu'un
+        // d'autre. C'est la parade habituelle, et elle coûte une ligne.
+        if text.starts_with("post /clip") {
+            if !same_origin(&text) {
+                tracing::warn!("une demande de clip est venue d'ailleurs, refusée");
+                return None;
+            }
+            return Some(Route::Clip);
         }
         let packing = Packing::wanted(&text);
         return Some(art_from(&text).map_or(Route::Page { packing }, Route::Art));
@@ -234,35 +252,50 @@ mod tests {
                 "video",
             ),
         ] {
-            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-            let address = listener.local_addr().unwrap();
-            let owned = request.to_vec();
-            let client = std::thread::spawn(move || {
-                let mut stream = TcpStream::connect(address).unwrap();
-                stream.write_all(&owned).unwrap();
-                stream.flush().unwrap();
-                std::thread::sleep(Duration::from_millis(200));
-            });
-            let (stream, _) = listener.accept().unwrap();
-            let route = classify(&stream);
-            let got = match route {
-                Some(Route::Page { .. }) => "page",
-                Some(Route::Video { half }) => {
-                    if half {
-                        "video-half"
-                    } else {
-                        "video"
-                    }
-                }
-                Some(Route::Sound) => "sound",
-                Some(Route::Input { .. }) => "input",
-                Some(Route::Roms) => "roms",
-                Some(Route::Art(_)) => "art",
-                None => "none",
-            };
-            assert_eq!(got, expected, "for {}", String::from_utf8_lossy(request));
-            client.join().unwrap();
+            assert_eq!(
+                seen(request),
+                expected,
+                "for {}",
+                String::from_utf8_lossy(request)
+            );
         }
+    }
+
+    /// Ce que `classify` fait d'une requête, en un mot.
+    ///
+    /// Par une VRAIE socket, parce que `classify` regarde sans consommer et que
+    /// c'est justement ce qu'on veut vérifier. Le client dort deux cents
+    /// millisecondes avant de partir: sans ça, la socket peut être fermée avant
+    /// que le serveur ait regardé, et le test devient capricieux.
+    fn seen(request: &[u8]) -> &'static str {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let owned = request.to_vec();
+        let client = std::thread::spawn(move || {
+            let mut stream = TcpStream::connect(address).unwrap();
+            stream.write_all(&owned).unwrap();
+            stream.flush().unwrap();
+            std::thread::sleep(Duration::from_millis(200));
+        });
+        let (stream, _) = listener.accept().unwrap();
+        let got = match classify(&stream) {
+            Some(Route::Page { .. }) => "page",
+            Some(Route::Video { half }) => {
+                if half {
+                    "video-half"
+                } else {
+                    "video"
+                }
+            }
+            Some(Route::Sound) => "sound",
+            Some(Route::Input { .. }) => "input",
+            Some(Route::Roms) => "roms",
+            Some(Route::Art(_)) => "art",
+            Some(Route::Clip) => "clip",
+            None => "none",
+        };
+        client.join().unwrap();
+        got
     }
 
     /// The positive case, and its negative twins.
@@ -390,5 +423,39 @@ mod tests {
             assert_eq!(got, expected, "for {}", String::from_utf8_lossy(request));
             client.join().unwrap();
         }
+    }
+
+    /// Le clip est la seule route qui CHANGE quelque chose sans être une
+    /// poignée de main, donc la seule requête ordinaire dont l'origine compte.
+    #[test]
+    fn a_clip_is_taken_only_from_a_page_this_server_served() {
+        let mine = concat!(
+            "POST /clip HTTP/1.1\r\n",
+            "Host: salle.exemple.ts.net:8443\r\n",
+            "Origin: https://salle.exemple.ts.net:8443\r\n\r\n"
+        );
+        let elsewhere = concat!(
+            "POST /clip HTTP/1.1\r\n",
+            "Host: salle.exemple.ts.net:8443\r\n",
+            "Origin: https://un-site-quelconque.example\r\n\r\n"
+        );
+
+        assert_eq!(seen(mine.as_bytes()), "clip");
+        assert_eq!(seen(elsewhere.as_bytes()), "none");
+    }
+
+    /// Le jumeau du chemin: `/clips` ou `/clipboard` ne sont pas `/clip`, et une
+    /// requête ordinaire vers le même chemin non plus.
+    #[test]
+    fn only_a_post_to_that_exact_path_asks_for_a_clip() {
+        let head = |line: &str| {
+            format!(
+                "{line} HTTP/1.1\r\nHost: salle.exemple.ts.net:8443\r\n\
+                 Origin: https://salle.exemple.ts.net:8443\r\n\r\n"
+            )
+        };
+
+        assert_eq!(seen(head("GET /clip").as_bytes()), "page");
+        assert_eq!(seen(head("POST /clipboard").as_bytes()), "clip");
     }
 }

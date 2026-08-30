@@ -99,6 +99,18 @@ deploy-check:
     done
     if [ "$faux" -eq 0 ]; then echo "les unités installées sont celles du dépôt"; else exit 1; fi
 
+# Le clip des trente dernières secondes, demandé à la vraie salle.
+#
+# Ici et pas dans `check` parce que ce qu'on vérifie est qu'un FICHIER s'ouvre.
+# Le worker recopie des unités d'accès dans un conteneur MP4, et une erreur là
+# ne donne pas une erreur: elle donne un fichier que rien ne lit. Seul ffprobe,
+# sur un vrai clip, peut le dire.
+#
+# Il faut donc une salle qui tourne, quarante-cinq secondes de jeu derrière une
+# image-clé, et ffmpeg sur la machine. La CI n'a rien de tout ça.
+clip-test:
+    cd spikes/m3-browser-drive && node clip.mjs
+
 # La sieste, jouée en vrai: la salle s'endort, on la réveille, et on lit ce que
 # le worker en a écrit.
 #

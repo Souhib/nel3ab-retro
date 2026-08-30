@@ -77,6 +77,8 @@ import {
   type Vitals,
 } from "./lib/vitals";
 import type { Snapshot } from "./media/session";
+import { clipLabel } from "./lib/clip";
+import { useClip } from "./lib/useClip";
 import { useSession, useSnapshot } from "./lib/useSession";
 
 /**
@@ -341,6 +343,7 @@ function Room({
   const [armedGame, setArmedGame] = useState<number | null>(null);
 
   const { ref, session } = useSession(volume, deviceRate, announceSeat, watching, padOnly);
+  const clip = useClip();
   const shot = useSnapshot(session);
 
   /* Le relevé qui part au salon toutes les dix secondes.
@@ -571,6 +574,35 @@ function Room({
           };
         })
         .concat([
+          {
+            id: "clip",
+            label: clipLabel(clip.state),
+            value:
+              clip.state.phase === "fait" ? `${Math.round(clip.state.bytes / 1e6)} Mo` : undefined,
+            hint:
+              clip.state.phase === "fait"
+                ? "entrée pour l'enregistrer, puis le partager"
+                : clip.state.phase === "attendre"
+                  ? "un clip couvre trente secondes, donc deux clips plus rapprochés se recouvrent"
+                  : clip.state.phase === "raté"
+                    ? clip.state.why
+                    : "les trente dernières secondes, en un fichier",
+            icon: <ScreenIcon className="h-full w-full" />,
+            disabled: clip.state.phase === "en cours" || clip.state.phase === "attendre",
+            onEnter: () => {
+              // Prêt: on télécharge, et le bouton se réarme. Un lien qu'on a
+              // déjà pris ne doit pas rester en travers du suivant.
+              if (clip.state.phase === "fait") {
+                const link = document.createElement("a");
+                link.href = clip.state.url;
+                link.download = clip.state.name;
+                link.click();
+                clip.forget();
+                return;
+              }
+              clip.ask();
+            },
+          },
           {
             id: "watch",
             label: watchingNow ? "reprendre une manette" : "regarder sans manette",

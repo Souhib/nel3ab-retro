@@ -20,6 +20,7 @@
 #![forbid(unsafe_code)]
 
 pub mod browser;
+pub mod clip;
 pub mod control;
 
 pub use browser::{BrowserServer, Packet, TransportError};

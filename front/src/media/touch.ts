@@ -132,13 +132,39 @@ export class Touch {
  *
  * Pure, donc éprouvable sans écran.
  */
-export function clusterKeys(bar: number): Record<string, string> {
+/** Le groupe de quatre boutons: ce qu'il mesure, et ce qui le dimensionne. */
+export type Cluster = {
+  /** Les variables CSS qui donnent leur taille aux touches. */
+  style: Record<string, string>;
+  /** Ce que le groupe mesure une fois posé, en pixels.
+   *
+   * Rendu plutôt que redit ailleurs, et c'est tout l'objet de ce type. La
+   * version d'avant calculait la taille des touches ici et ancrait le groupe
+   * là-bas contre une constante de 132 pixels. Les deux ont fini par ne plus
+   * dire la même chose: mesuré le 30 août 2026 sur un écran 4:3, le groupe
+   * faisait 148 pixels et l'ancrage en supposait 132, donc il partait huit
+   * pixels trop à gauche et mordait sur l'image. Le pilote l'a vu, l'œil non.
+   *
+   * C'est la deuxième fois que cette paire diverge. La première, le 18 août,
+   * l'ancrage avait oublié que le bouton A est plus large que les autres. */
+  width: number;
+};
+
+export function clusterKeys(bar: number): Cluster {
+  /** L'espace entre deux touches, deux fois, comme la grille le pose. */
   const GAPS = 8;
+  /** De combien le bouton A dépasse les autres. */
   const BIGGER = 8;
+  /** Ce qu'on laisse au bord pour que le groupe ne touche rien. */
   const MARGIN = 12;
   const key = Math.max(30, Math.min(52, Math.floor((bar - GAPS - BIGGER - MARGIN) / 3)));
   return {
-    ["--n3-key" as string]: `${key}px`,
-    ["--n3-key-big" as string]: `${key + BIGGER}px`,
+    style: {
+      ["--n3-key" as string]: `${key}px`,
+      ["--n3-key-big" as string]: `${key + BIGGER}px`,
+    },
+    // Trois colonnes: une touche, le gros bouton, une touche, et les deux
+    // espaces entre elles.
+    width: key * 3 + BIGGER + GAPS,
   };
 }

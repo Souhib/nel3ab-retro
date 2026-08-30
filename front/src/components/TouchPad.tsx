@@ -169,7 +169,10 @@ export function TouchPad({
    * Quatorze pixels en plus du haut: assez pour que le doigt ait la place de
    * poser sans viser le bord, pas assez pour que les gâchettes descendent dans
    * l'image. */
-  const side = roomy ? Math.max(6, (bar - 132) / 2) : 8;
+  const group = clusterKeys(bar);
+  // Centré sur ce que le groupe MESURE, et pas sur une largeur supposée: voir
+  // `Cluster.width`, où la constante d'avant est racontée.
+  const side = roomy ? Math.max(6, (bar - group.width) / 2) : 8;
   const leftAt = `calc(env(safe-area-inset-left, 0px) + ${side}px)`;
   const rightAt = `calc(env(safe-area-inset-right, 0px) + ${side}px)`;
   const topAt = "calc(env(safe-area-inset-top, 0px) + 14px)";
@@ -179,7 +182,7 @@ export function TouchPad({
      fait cent soixante-quatre pixels et la bande d'un téléphone en fait cent
      quarante, donc B dépassait sur l'image — attrapé par le pilote, pas à l'oeil.
      On le redimensionne sur la bande quand elle décide. */
-  const cluster: React.CSSProperties = roomy ? clusterKeys(bar) : {};
+  const cluster: React.CSSProperties = roomy ? group.style : {};
 
   return (
     <div

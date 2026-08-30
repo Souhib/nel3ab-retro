@@ -103,18 +103,50 @@ describe("le groupe des quatre boutons", () => {
     // A, les deux espaces et la marge. Un premier jet oubliait le supplément de
     // A, et le groupe dépassait de deux pixels sur l'image.
     for (const bar of [130, 143, 160, 200, 320]) {
-      const style = clusterKeys(bar);
-      const key = Number.parseInt(style["--n3-key"] ?? "0", 10);
-      const big = Number.parseInt(style["--n3-key-big"] ?? "0", 10);
-      const width = key * 2 + big + 8;
-      expect(width, `bande de ${bar}px`).toBeLessThanOrEqual(bar);
+      const group = clusterKeys(bar);
+      const key = Number.parseInt(group.style["--n3-key"] ?? "0", 10);
+      const big = Number.parseInt(group.style["--n3-key-big"] ?? "0", 10);
+      // La largeur ANNONCÉE doit être celle qu'on retrouve en additionnant les
+      // colonnes: c'est la seule chose qui empêche les deux de diverger, ce
+      // qu'elles ont déjà fait deux fois.
+      expect(group.width, `bande de ${bar}px`).toBe(key * 2 + big + 8);
+      expect(group.width, `bande de ${bar}px`).toBeLessThanOrEqual(bar);
     }
   });
 
   it("ne descend jamais sous la taille d'un doigt", () => {
     // Le jumeau: un calcul qui rétrécirait sans plancher tiendrait dans
     // n'importe quelle bande en rendant les boutons invisables.
-    const style = clusterKeys(60);
-    expect(Number.parseInt(style["--n3-key"] ?? "0", 10)).toBeGreaterThanOrEqual(30);
+    const group = clusterKeys(60);
+    expect(Number.parseInt(group.style["--n3-key"] ?? "0", 10)).toBeGreaterThanOrEqual(30);
+  });
+});
+
+describe("le groupe de boutons dans sa bande", () => {
+  /** Où le groupe se pose, du bord de l'écran vers l'intérieur. */
+  const posed = (bar: number) => {
+    const group = clusterKeys(bar);
+    const side = Math.max(6, (bar - group.width) / 2);
+    return { debut: side + group.width, width: group.width };
+  };
+
+  it("tient dans sa bande, sur toute la plage où on l'affiche", () => {
+    // Le défaut du 30 août 2026: la largeur était calculée d'un côté et
+    // supposée de l'autre, et les deux ont divergé de seize pixels. Le groupe
+    // partait alors sur l'image, d'un pixel, sur un écran 4:3.
+    for (let bar = 130; bar <= 400; bar++) {
+      const { debut } = posed(bar);
+      expect(debut, `bande de ${bar} px`).toBeLessThanOrEqual(bar);
+    }
+  });
+
+  it("grandit avec la bande, jusqu'à son plafond", () => {
+    // Le jumeau: une largeur qui rendrait toujours zéro tiendrait dans
+    // n'importe quelle bande sans jamais rien dessiner.
+    expect(clusterKeys(130).width).toBeGreaterThan(100);
+    expect(clusterKeys(200).width).toBeGreaterThan(clusterKeys(130).width);
+    // Et elle cesse de grandir, sinon une bande large donnerait des boutons
+    // qu'aucun pouce n'atteint.
+    expect(clusterKeys(1000).width).toBe(clusterKeys(400).width);
   });
 });

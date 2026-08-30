@@ -542,7 +542,14 @@ fn run(settings: &Settings) -> Result<()> {
                 let mut asleep_since: Option<Instant> = None;
                 while !stopping.load(std::sync::atomic::Ordering::Relaxed) {
                     std::thread::sleep(Duration::from_millis(500));
-                    let Some(what) = nap.saw(server.watchers(), Instant::now(), nap::GRACE) else {
+                    // Tout ce qui a besoin que la salle tourne, et pas seulement
+                    // les spectateurs du grand format. Voir `nap::Busy`.
+                    let busy = nap::Busy {
+                        watching: server.watchers() + server.half_watchers(),
+                        holding: server.pads_held(),
+                        wanted: server.rom_wanted(),
+                    };
+                    let Some(what) = nap.saw(busy, Instant::now(), nap::GRACE) else {
                         continue;
                     };
                     // Le temps dormi est crédité AVANT de dégeler, et l'ordre

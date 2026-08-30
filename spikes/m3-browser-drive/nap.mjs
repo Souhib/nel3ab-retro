@@ -65,6 +65,49 @@ await browser.close();
 say(peintes > 300, `elle se réveille et peint (${peintes} images)`);
 say(!paused(), "et elle reste éveillée tant qu'on regarde");
 
+// 2 bis. Ce qui doit AUSSI tenir la salle éveillée.
+//
+// Trois façons d'être dans une salle sans ouvrir le grand format, et la sieste
+// les ignorait toutes les trois le 30 août 2026: le format réduit, la manette
+// seule, et un jeu demandé pendant que personne ne regarde. La salle gelait
+// alors sous des gens qui étaient là, et le jeu qu'ils demandaient n'arrivait
+// jamais, parce que la boucle d'images qui lit la demande est bloquée sur un
+// émulateur en pause.
+async function stillAwakeWith(what, open) {
+  process.stdout.write(`  on attend le gel avant d'essayer « ${what} »`);
+  for (let i = 0; i < 40 && !paused(); i++) {
+    process.stdout.write(".");
+    await new Promise((done) => setTimeout(done, 3000));
+  }
+  console.log();
+  if (!paused()) {
+    say(false, `la salle ne s'est pas endormie, « ${what} » n'a pas pu être testé`);
+    return;
+  }
+  const seen = await open();
+  say(!paused(), `« ${what} » réveille la salle`);
+  say(seen > 0, `et elle produit des images (${seen})`);
+}
+
+await stillAwakeWith("format réduit", async () => {
+  const page = await browser.newPage();
+  await page.goto(ROOM_URL, { waitUntil: "domcontentloaded" });
+  const seen = await page.evaluate(
+    () =>
+      new Promise((done) => {
+        const socket = new WebSocket(`${location.origin.replace(/^http/, "ws")}/video?half=1`);
+        socket.binaryType = "arraybuffer";
+        let frames = 0;
+        socket.onmessage = (event) => {
+          if (event.data.byteLength > 8) frames++;
+        };
+        setTimeout(() => done(frames), 12000);
+      }),
+  );
+  await page.close();
+  return seen;
+});
+
 // 3. Ce que le worker a écrit du réveil.
 const vues = tranches(depuis).filter((m) => m.fields.message === "streaming");
 const dormi = vues.filter((m) => Number(m.fields.slept_ms ?? 0) > 0);

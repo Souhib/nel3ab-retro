@@ -198,6 +198,9 @@ pub struct BrowserServer {
     /// because the two streams are independent: a page may watch without
     /// hearing, and losing one must not disturb the other.
     listeners: Viewers,
+    /// Qui tient quelle place. Le serveur en a besoin pour dire combien de
+    /// manettes sont tenues, ce que la sieste doit savoir.
+    seats: Seats,
     /// Les dernières secondes de la partie. Voir [`crate::clip`].
     clips: Arc<Mutex<crate::clip::Clips>>,
     /// One queue per connected viewer.
@@ -395,6 +398,7 @@ impl BrowserServer {
         tracing::info!(%bound, "browser server listening");
         Ok(Self {
             clips,
+            seats,
             viewers,
             half_viewers,
             half_joined,
@@ -542,6 +546,29 @@ impl BrowserServer {
     pub fn take_half_joined(&self) -> bool {
         self.half_joined
             .swap(false, std::sync::atomic::Ordering::Relaxed)
+    }
+
+    /// Combien de manettes sont tenues en ce moment.
+    ///
+    /// Pour la sieste, qui doit compter les joueurs et pas seulement les
+    /// spectateurs: geler le jeu sous les doigts de quelqu'un qui joue sans
+    /// regarder l'image, parce qu'il est sur un téléphone en manette seule, est
+    /// exactement ce qui est arrivé le 30 août 2026.
+    #[must_use]
+    pub fn pads_held(&self) -> usize {
+        self.seats.lock().map_or(0, |seats| {
+            seats.iter().filter(|held| held.is_some()).count()
+        })
+    }
+
+    /// Vrai quand un jeu a été demandé et pas encore servi.
+    ///
+    /// Regarde sans prendre, contrairement à [`take_rom_request`](Self::take_rom_request).
+    /// La sieste a besoin de le SAVOIR pour se réveiller; c'est la boucle
+    /// d'images qui a le droit de le consommer.
+    #[must_use]
+    pub fn rom_wanted(&self) -> bool {
+        self.wants_rom.lock().is_ok_and(|wanted| wanted.is_some())
     }
 
     /// Which game a player asked to boot, if one did since this was last asked.

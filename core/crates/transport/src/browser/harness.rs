@@ -25,6 +25,7 @@ use super::{BrowserServer, Framed, PORTS, Packet, Viewer};
 pub(in crate::browser) fn detached(viewers: Vec<SyncSender<Framed>>) -> BrowserServer {
     BrowserServer {
         clips: Arc::new(Mutex::new(crate::clip::Clips::new())),
+        seats: Arc::new(Mutex::new([None; PORTS])),
         half_viewers: Arc::new(Mutex::new(Vec::new())),
         half_joined: Arc::new(std::sync::atomic::AtomicBool::new(false)),
         half_wants_key: Arc::new(std::sync::atomic::AtomicBool::new(false)),

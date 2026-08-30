@@ -51,6 +51,47 @@ pub enum Move {
     Wake,
 }
 
+/// Ce qui empêche une salle de dormir.
+///
+/// Un type plutôt qu'un nombre, et la raison est un vrai défaut. La sieste ne
+/// regardait que les spectateurs du GRAND format. Trois personnes pouvaient
+/// donc être dans la salle sans qu'elle s'en aperçoive: celle qui a choisi le
+/// format réduit parce que sa liaison est mauvaise, celle qui a mis son
+/// téléphone en manette seule, et celle qui tient une manette sans regarder.
+///
+/// Ce que ça donnait, vécu le 30 août 2026: le conteneur gelé, un écran noir, et
+/// surtout **un jeu demandé qui n'arrivait jamais**. La boucle d'images est
+/// bloquée sur un émulateur en pause, et c'est elle qui lit la demande de jeu:
+/// la demande était donc notée puis oubliée, sans un mot, jusqu'à ce que
+/// quelqu'un d'autre ouvre le grand format par hasard.
+///
+/// Nommer chaque raison plutôt que les additionner à l'appel force à décider
+/// pour chacune, et rend le défaut d'origine impossible à réintroduire par
+/// oubli: ajouter un champ casse la compilation de tout ce qui construit un
+/// `Busy`.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Busy {
+    /// Combien regardent, les deux formats confondus.
+    pub watching: usize,
+    /// Combien tiennent une manette. Geler le jeu sous les doigts de quelqu'un
+    /// qui joue est le pire cas, et c'était possible.
+    pub holding: usize,
+    /// Vrai quand un jeu a été demandé et pas encore servi.
+    ///
+    /// Une salle vide qui reçoit une demande doit se réveiller pour l'exécuter.
+    /// Sans ça, la personne qui a cliqué attend un jeu qui ne viendra qu'au
+    /// prochain spectateur.
+    pub wanted: bool,
+}
+
+impl Busy {
+    /// Vrai quand plus personne n'a besoin que la salle tourne.
+    #[must_use]
+    pub const fn quiet(&self) -> bool {
+        self.watching == 0 && self.holding == 0 && !self.wanted
+    }
+}
+
 /// Décide quand geler et quand réveiller.
 ///
 /// Sans horloge à lui: l'instant est passé à chaque tour, ce qui rend la règle
@@ -83,8 +124,8 @@ impl Nap {
     /// Seulement au changement, parce que `docker pause` sur un conteneur déjà
     /// gelé est une erreur, et parce qu'appeler docker deux fois par seconde
     /// pour ne rien changer serait une dépense pour éviter une dépense.
-    pub fn saw(&mut self, watchers: usize, now: Instant, grace: Duration) -> Option<Move> {
-        if watchers > 0 {
+    pub fn saw(&mut self, busy: Busy, now: Instant, grace: Duration) -> Option<Move> {
+        if !busy.quiet() {
             self.empty_since = None;
             return self.asleep.then(|| {
                 self.asleep = false;
@@ -150,6 +191,14 @@ pub fn tell_docker(container: &str, what: Move) -> Result<(), String> {
     reason = "a panic IS the failure signal in a test"
 )]
 mod tests {
+    /// Une salle où `n` personnes regardent, et rien d'autre.
+    fn watching(n: usize) -> Busy {
+        Busy {
+            watching: n,
+            ..Busy::default()
+        }
+    }
+
     use super::*;
 
     fn at(base: Instant, seconds: u64) -> Instant {
@@ -166,10 +215,13 @@ mod tests {
         let start = Instant::now();
         let mut nap = Nap::new();
 
-        assert_eq!(nap.saw(0, start, GRACE), None);
-        assert_eq!(nap.saw(0, at(start, 30), GRACE), None);
-        assert_eq!(nap.saw(0, at(start, 59), GRACE), None);
-        assert_eq!(nap.saw(0, at(start, 60), GRACE), Some(Move::Sleep));
+        assert_eq!(nap.saw(Busy::default(), start, GRACE), None);
+        assert_eq!(nap.saw(Busy::default(), at(start, 30), GRACE), None);
+        assert_eq!(nap.saw(Busy::default(), at(start, 59), GRACE), None);
+        assert_eq!(
+            nap.saw(Busy::default(), at(start, 60), GRACE),
+            Some(Move::Sleep)
+        );
     }
 
     /// Et le compteur repart de zéro dès que quelqu'un revient.
@@ -178,18 +230,21 @@ mod tests {
         let start = Instant::now();
         let mut nap = Nap::new();
 
-        assert_eq!(nap.saw(0, at(start, 50), GRACE), None);
-        assert_eq!(nap.saw(1, at(start, 51), GRACE), None);
+        assert_eq!(nap.saw(Busy::default(), at(start, 50), GRACE), None);
+        assert_eq!(nap.saw(watching(1), at(start, 51), GRACE), None);
         // Le compte repart de la première observation de vide, pas de l'instant
         // où la salle s'est vraiment vidée: personne ne l'a regardée entre les
         // deux. L'écart vaut au plus un tour de boucle, soit une seconde.
-        assert_eq!(nap.saw(0, at(start, 100), GRACE), None);
+        assert_eq!(nap.saw(Busy::default(), at(start, 100), GRACE), None);
         assert_eq!(
-            nap.saw(0, at(start, 111), GRACE),
+            nap.saw(Busy::default(), at(start, 111), GRACE),
             None,
             "le compte a repris au départ au lieu de la dernière fois qu'on a vu du monde"
         );
-        assert_eq!(nap.saw(0, at(start, 160), GRACE), Some(Move::Sleep));
+        assert_eq!(
+            nap.saw(Busy::default(), at(start, 160), GRACE),
+            Some(Move::Sleep)
+        );
     }
 
     /// Le réveil est immédiat, sans délai de grâce.
@@ -201,10 +256,13 @@ mod tests {
     fn the_first_person_back_wakes_the_game_at_once() {
         let start = Instant::now();
         let mut nap = Nap::new();
-        nap.saw(0, start, GRACE);
-        assert_eq!(nap.saw(0, at(start, 60), GRACE), Some(Move::Sleep));
+        nap.saw(Busy::default(), start, GRACE);
+        assert_eq!(
+            nap.saw(Busy::default(), at(start, 60), GRACE),
+            Some(Move::Sleep)
+        );
 
-        assert_eq!(nap.saw(1, at(start, 61), GRACE), Some(Move::Wake));
+        assert_eq!(nap.saw(watching(1), at(start, 61), GRACE), Some(Move::Wake));
         assert!(!nap.asleep());
     }
 
@@ -217,14 +275,20 @@ mod tests {
     fn nothing_is_said_twice() {
         let start = Instant::now();
         let mut nap = Nap::new();
-        nap.saw(0, start, GRACE);
-        assert_eq!(nap.saw(0, at(start, 60), GRACE), Some(Move::Sleep));
+        nap.saw(Busy::default(), start, GRACE);
+        assert_eq!(
+            nap.saw(Busy::default(), at(start, 60), GRACE),
+            Some(Move::Sleep)
+        );
 
-        assert_eq!(nap.saw(0, at(start, 61), GRACE), None);
-        assert_eq!(nap.saw(0, at(start, 600), GRACE), None);
+        assert_eq!(nap.saw(Busy::default(), at(start, 61), GRACE), None);
+        assert_eq!(nap.saw(Busy::default(), at(start, 600), GRACE), None);
 
-        assert_eq!(nap.saw(2, at(start, 601), GRACE), Some(Move::Wake));
-        assert_eq!(nap.saw(2, at(start, 602), GRACE), None);
+        assert_eq!(
+            nap.saw(watching(2), at(start, 601), GRACE),
+            Some(Move::Wake)
+        );
+        assert_eq!(nap.saw(watching(2), at(start, 602), GRACE), None);
     }
 
     /// Une salle qui n'a jamais été vide ne gèle rien.
@@ -234,7 +298,7 @@ mod tests {
         let mut nap = Nap::new();
 
         for second in 0..300 {
-            assert_eq!(nap.saw(1, at(start, second), GRACE), None);
+            assert_eq!(nap.saw(watching(1), at(start, second), GRACE), None);
         }
         assert!(!nap.asleep());
     }
@@ -268,5 +332,75 @@ mod tests {
         let waited = Duration::from_millis(17);
 
         assert_eq!(awake_wait(waited, Duration::ZERO), waited);
+    }
+
+    #[test]
+    fn somebody_on_the_reduced_format_keeps_the_room_awake() {
+        // Le défaut du 30 août 2026, et il coûtait cher. La sieste ne comptait
+        // que les spectateurs du GRAND format, donc quelqu'un qui a choisi le
+        // format réduit parce que sa liaison est mauvaise voyait la salle geler
+        // sous lui: écran noir, et surtout un jeu demandé qui n'arrivait jamais.
+        let mut nap = Nap::new();
+        let start = Instant::now();
+        assert_eq!(nap.saw(watching(1), start, GRACE), None);
+
+        let reduced = Busy {
+            watching: 1,
+            ..Busy::default()
+        };
+        assert_eq!(nap.saw(reduced, at(start, 120), GRACE), None);
+    }
+
+    #[test]
+    fn somebody_holding_a_pad_keeps_the_room_awake() {
+        // Le pire cas du même défaut: un téléphone en manette seule n'ouvre
+        // AUCUNE socket vidéo, donc la salle gelait sous les doigts de quelqu'un
+        // qui était en train de jouer.
+        let mut nap = Nap::new();
+        let start = Instant::now();
+        let playing = Busy {
+            holding: 1,
+            ..Busy::default()
+        };
+
+        assert_eq!(nap.saw(playing, start, GRACE), None);
+        assert_eq!(nap.saw(playing, at(start, 120), GRACE), None);
+    }
+
+    #[test]
+    fn a_game_asked_for_wakes_a_sleeping_room() {
+        // La boucle d'images lit la demande de jeu, et elle est bloquée quand
+        // l'émulateur est gelé. Sans ce réveil, la demande attend le prochain
+        // spectateur: elle est notée puis oubliée, sans un mot.
+        let mut nap = Nap::new();
+        let start = Instant::now();
+        assert_eq!(nap.saw(Busy::default(), start, GRACE), None);
+        assert_eq!(
+            nap.saw(Busy::default(), at(start, 61), GRACE),
+            Some(Move::Sleep)
+        );
+
+        let asked = Busy {
+            wanted: true,
+            ..Busy::default()
+        };
+
+        assert_eq!(nap.saw(asked, at(start, 62), GRACE), Some(Move::Wake));
+    }
+
+    /// Le jumeau de tout ce qui précède: une salle où personne ne fait RIEN doit
+    /// toujours s'endormir. Sans lui, une règle qui rendrait « occupée » en
+    /// permanence satisferait les trois tests au-dessus et supprimerait la
+    /// sieste.
+    #[test]
+    fn a_room_where_nobody_does_anything_still_sleeps() {
+        let mut nap = Nap::new();
+        let start = Instant::now();
+        nap.saw(Busy::default(), start, GRACE);
+
+        assert_eq!(
+            nap.saw(Busy::default(), at(start, 61), GRACE),
+            Some(Move::Sleep)
+        );
     }
 }

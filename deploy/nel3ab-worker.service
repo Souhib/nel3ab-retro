@@ -49,7 +49,17 @@ RestartSec=2
 # Quoted: the games have spaces in their names, which is what a person
 # reading a library expects to see.
 Environment="NEL3AB_ROM=/home/souhib/roms/gc/Super Smash Bros Melee.rvz"
-Environment=NEL3AB_SESSION_DIR=/tmp/nel3ab-session
+# Le répertoire de session de Dolphin: sa configuration, ses sauvegardes, ses
+# tubes nommés.
+#
+# PAS dans /tmp. La machine le vide à chaque démarrage, donc une carte mémoire
+# de Mario Kart y survivait jusqu'au prochain redémarrage et pas plus. Corrigé
+# le 18 août 2026, et ce fichier ne l'avait jamais appris: la correction vivait
+# sur la machine, le dépôt disait toujours /tmp, et la première réinstallation
+# de cette unité l'a défaite en silence. Le 30 août 2026, ça m'a coûté une
+# demi-heure à comprendre pourquoi la vibration ne passait plus: le worker
+# écoutait un tube dans /tmp pendant que le pilote écrivait dans l'ancien.
+Environment=NEL3AB_SESSION_DIR=/home/souhib/.local/state/nel3ab/session
 # How many ports the room serves, 1..=4. Fixed for the session: Dolphin reads
 # which ports hold a controller when it boots. Left at one on purpose — an
 # unserved port holding a phantom pad changes what the GAME does, and a room for

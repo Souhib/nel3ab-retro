@@ -66,6 +66,39 @@ contract-check:
 front-build:
     cd front && npm run build && node stamp.mjs
 
+# Les unités installées sont-elles celles du dépôt ?
+#
+# Ce dépôt garde ses trois unités systemd sous `deploy/`, et rien ne vérifiait
+# qu'elles ressemblent à ce qui tourne. Les deux ont divergé pendant douze
+# jours: le premier audit avait sorti le répertoire de session de `/tmp`, la
+# correction avait été appliquée sur la machine, et personne ne l'avait
+# committée. Le dépôt disait donc encore `/tmp`.
+#
+# Ça s'est payé le 30 août 2026. En corrigeant autre chose j'ai réinstallé
+# l'unité depuis le dépôt, ce qui a ramené le répertoire de session dans `/tmp`
+# sans un mot: la vibration a cessé de passer, parce que le worker écoutait un
+# tube ailleurs. Une demi-heure pour comprendre.
+#
+# Dans les DEUX sens, délibérément. Une dérive ne dit pas d'elle-même quel côté
+# a raison, et un contrôle qui ne regarderait qu'un sens laisserait exactement
+# le cas qui vient de se produire.
+deploy-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    faux=0
+    for unit in deploy/*.service; do
+        installe="/etc/systemd/system/$(basename "$unit")"
+        if [ ! -f "$installe" ]; then
+            echo "  absente de la machine: $(basename "$unit")"; faux=1; continue
+        fi
+        if ! diff -q "$unit" "$installe" >/dev/null; then
+            echo "  diverge: $(basename "$unit")"
+            diff "$unit" "$installe" | sed 's/^/      /'
+            faux=1
+        fi
+    done
+    if [ "$faux" -eq 0 ]; then echo "les unités installées sont celles du dépôt"; else exit 1; fi
+
 # La sieste, jouée en vrai: la salle s'endort, on la réveille, et on lit ce que
 # le worker en a écrit.
 #

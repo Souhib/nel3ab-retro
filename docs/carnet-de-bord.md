@@ -6882,6 +6882,67 @@ cinquante et un millions.
 
 ---
 
+### 7.63 Le dépôt disait /tmp, et j'ai cru le dépôt
+
+En fermant les derniers constats ouverts, j'ai corrigé une broutille: chaque
+redémarrage du salon laissait « Failed with result 'exit-code' » dans le journal,
+parce que `uvicorn` sort en 143 sur un `SIGTERM` et que l'unité systemd ne
+comptait pas 143 comme propre. Deux lignes, aucun risque.
+
+Puis j'ai réinstallé les unités depuis `deploy/`. Et la vibration a cessé de
+passer.
+
+#### Ce qui s'était passé
+
+Le premier audit avait sorti le répertoire de session de `/tmp`, que la machine
+vide à chaque démarrage: une carte mémoire de Mario Kart n'y survivait pas à un
+redémarrage. La correction avait été appliquée sur la machine. **Elle n'avait
+jamais été committée.**
+
+`deploy/nel3ab-worker.service` disait donc encore `/tmp/nel3ab-session`, depuis
+douze jours, sans que rien ne le remarque. En le copiant par-dessus l'unité
+installée, j'ai défait la correction en silence: le worker s'est mis à écouter
+un tube nommé dans `/tmp` pendant que le pilote écrivait dans l'ancien.
+
+Le symptôme n'aidait pas. Le pilote de vibration ne rendait AUCUNE ligne, pas
+même sa première: il bloquait sur l'ouverture du tube, et Node garde sa sortie en
+tampon quand elle n'est pas un terminal, donc tout ce qu'il avait déjà écrit
+mourait avec lui. Ce qui a fini par le dire est une écriture non bloquante sur le
+tube, qui rend `ENXIO` quand personne ne lit.
+
+#### La leçon, et le garde
+
+Un fichier de déploiement committé n'est pas un fichier de déploiement appliqué.
+Tant que rien ne compare les deux, le dépôt est une opinion.
+
+`just deploy-check` compare maintenant les trois unités, **dans les deux sens**.
+Le sens qui compte n'est pas évident: une dérive ne dit pas d'elle-même quel côté
+a raison, et un contrôle qui n'aurait regardé que « la machine a-t-elle bien la
+version du dépôt » aurait dit oui juste après que j'aie tout cassé.
+
+Vérifié en remettant `/tmp` dans l'unité installée: le contrôle nomme la ligne et
+sort en erreur.
+
+#### Ce que le même passage a trouvé d'autre
+
+**Un pixel.** Le pilote tactile refusait le bouton B, qui mordait sur l'image.
+Sur un écran 4:3 les bandes latérales s'élargissent, et là `clusterKeys`
+calculait la taille des touches d'un côté pendant que `TouchPad` ancrait le
+groupe de l'autre contre une constante de 132 pixels. Le groupe en mesurait 148.
+
+C'est la deuxième fois que cette paire diverge; la première, le 18 août, la
+correction avait ajusté la constante. Celle-ci la supprime: `clusterKeys` rend
+la largeur avec les variables, donc il n'y a plus deux nombres à tenir d'accord.
+Un cas particulier de la leçon d'au-dessus, et le troisième du même mois.
+
+**`browser.rs` est enfin coupé.** 3 590 lignes et six métiers, signalé par le
+premier audit et reporté par le second au « jour où on y touche pour une autre
+raison ». J'y avais touché trois fois en deux semaines. Quatre modules, les
+tests avec leur sujet, les fixtures partagées dans un fichier à part. Aucun
+changement de comportement: 238 tests avant, 238 après.
+
+---
+
 ### 7.55 La porte vérifiait un état qu'elle changeait ensuite
 
 Trois commits de suite sont partis avec une empreinte de page périmée, et à

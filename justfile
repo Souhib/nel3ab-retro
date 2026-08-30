@@ -173,6 +173,16 @@ save-reset jeu emplacement:
     find "$dossier" -maxdepth 1 -name '*.gci' -delete
     echo "  $n sauvegarde(s) effacée(s) dans {{jeu}}/{{emplacement}}"
 
+# Les deux sauvegardes, jouées en vrai contre la salle.
+#
+# Ici et pas dans `check` parce que ce qu'on vérifie est un état du DISQUE après
+# un vrai redémarrage: le worker fait pointer le dossier de carte de Dolphin
+# vers l'emplacement choisi, et une erreur là ne donne pas une erreur. Elle
+# donne une partie qui écrase la mauvaise sauvegarde, ce qui ne se voit qu'une
+# fois trop tard.
+saves-test:
+    cd spikes/m3-browser-drive && node saves.mjs
+
 # La sieste, jouée en vrai: la salle s'endort, on la réveille, et on lit ce que
 # le worker en a écrit.
 #

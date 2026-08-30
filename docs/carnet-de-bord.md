@@ -6943,6 +6943,88 @@ changement de comportement: 238 tests avant, 238 après.
 
 ---
 
+### 7.64 Le clip des trente dernières secondes
+
+La fonctionnalité que le premier audit avait mise en tête et que la suite avait
+reportée deux fois. Un bouton, un fichier MP4, et une limite pour qu'on ne puisse
+pas le marteler.
+
+#### Ce qu'il fallait garder, et pourquoi plus que trente secondes
+
+Un anneau des unités d'accès telles que l'encodeur les a produites. Rien n'est
+réencodé: le fichier contient exactement les octets qui sont partis vers les
+navigateurs, donc le clip montre ce que les joueurs ont vu.
+
+Le piège est qu'un décodeur ne peut pas commencer au milieu, il lui faut une
+image-clé. Le GOP fait dix secondes, donc un anneau de trente secondes contient
+deux ou trois clés et couper à la plus ancienne rendrait un clip de vingt
+secondes une fois sur trois. On garde donc quarante secondes et on coupe à la clé
+la plus RÉCENTE qui laisse trente secondes derrière elle.
+
+Les bornes viennent de mesures et pas d'habitudes. Sur 29 374 tranches de vraie
+partie, le débit tient 8,4 Mb/s à la médiane, 24,8 au p95 et 43,2 au maximum.
+Quarante secondes au pire mesuré font 216 Mo, d'où un plafond de 224 Mio: au-delà,
+l'anneau oublie ses plus vieilles images et le clip est simplement plus court.
+
+#### La limite, et pourquoi trente secondes
+
+Une toutes les trente secondes, et ce n'est pas un frein arbitraire: un clip
+couvre au moins trente secondes, donc deux clips plus rapprochés se recouvrent et
+le second n'apporte rien. La limite dit la même chose que la fonctionnalité.
+
+Elle vit du côté SERVEUR, et le serveur rend le temps qui reste dans un
+`Retry-After`. La page affiche ce nombre-là plutôt qu'un décompte à elle: c'est la
+leçon du bouton « ça saccade », qui se réarmait à trois secondes pendant que le
+salon en refusait vingt, et qui pendant dix-sept secondes avait l'air de marcher.
+
+#### Le multiplexeur, et pourquoi ffmpeg cette fois
+
+L'ADR D7 avait refusé libavcodec pour ENCODER. Ici on l'accepte pour EMBALLER, et
+les deux décisions ne se contredisent pas: encoder est soixante fois par seconde
+sur le chemin critique, emballer est une fois par demi-minute sur un fil à part.
+`-c copy` ne réencode rien; ce qui reste est de l'écriture de boîtes MP4,
+entièrement spécifiée et entièrement ennuyeuse, où une erreur donne un fichier
+que rien n'ouvre sans dire pourquoi.
+
+La cadence est lue sur le clip et pas supposée: l'Annex B ne porte aucune
+horloge, et un jeu PAL emballé à soixante images par seconde sort en accéléré
+sans qu'aucune erreur le signale.
+
+#### Le défaut que j'ai mis une demi-heure à voir
+
+Le premier essai de bout en bout donnait ceci: le worker écrivait « un clip est
+parti, 18 732 348 octets » dans son journal, et le navigateur répondait
+« Failed to fetch ». En local, sans proxy, le client Python voyait un
+`ConnectionReset`.
+
+`classify` ne fait que REGARDER la requête: elle appelle `peek`, donc les octets
+restent dans la file de réception de la socket. Fermer une socket qui en contient
+encore fait envoyer un RST par le noyau plutôt qu'un FIN, et le client perd alors
+tout ce qu'il avait déjà reçu.
+
+Le code voisin connaissait déjà la leçon. `serve_bytes` et `serve_missing` lisent
+la requête dans un seau avant de répondre, sans que rien ne dise pourquoi. Ma
+route ne le faisait pas. Le commentaire est maintenant sur les deux endroits.
+
+C'est la troisième fois ce mois-ci qu'un défaut vient d'une chose que le code
+faisait sans l'écrire: la constante de largeur du pavé tactile, le répertoire de
+session du dépôt, et ce seau-là.
+
+#### Ce que la machine prouve et que la CI ne peut pas
+
+`just clip-test` demande un clip à la vraie salle et le passe à ffprobe. Ce qu'on
+vérifie est qu'un FICHIER s'ouvre, et une erreur de conteneur ne donne pas une
+erreur: elle donne un fichier que rien ne lit.
+
+Rouge d'abord, comme la règle 4 le demande: en forçant la cadence à vingt-cinq
+images par seconde, le pilote annonce un clip de 83,9 secondes au lieu de 35 et
+tombe. C'est exactement le défaut qu'aucun code de sortie ne signale.
+
+Le vrai clip mesuré: H.264, 1280x896, 35,0 secondes, et un deuxième aussitôt
+demandé refusé avec trente secondes à attendre.
+
+---
+
 ### 7.55 La porte vérifiait un état qu'elle changeait ensuite
 
 Trois commits de suite sont partis avec une empreinte de page périmée, et à

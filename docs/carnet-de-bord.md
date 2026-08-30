@@ -7091,6 +7091,78 @@ faire dire à la mesure ce qu'elle compte, dans un type, plutôt que de le laiss
 
 ---
 
+### 7.66 Un domaine à nous, et la ligne qui décide si la salle est privée
+
+`https://nel3ab.app/`. Ce qui suit est ce que ça a demandé, et surtout ce que ça
+a failli casser.
+
+#### Ce que Tailscale ne peut pas faire
+
+Il sert en HTTPS tout seul, sans entretien, et c'est ce qu'on utilisait. Mais il
+n'émet de certificat que pour le nom de la machine dans le tailnet. Vérifié
+plutôt que supposé:
+
+```
+subject = CN = lgf.tail3bd01c.ts.net
+SAN     = DNS:lgf.tail3bd01c.ts.net     un seul nom, pas de joker
+```
+
+Un alias court, un CNAME, un domaine à soi: tout donne une erreur de certificat,
+et aucun réglage DNS n'y change quoi que ce soit. Il faut terminer le TLS
+soi-même.
+
+Le challenge ne peut pas être HTTP non plus: la machine n'est joignable que
+depuis le tailnet, donc Let's Encrypt ne peut pas venir frapper à la porte. Reste
+le challenge DNS, qui demande un jeton chez l'hébergeur de la zone. Ce jeton
+n'est pas un détail d'installation: il sert à CHAQUE renouvellement, donc c'est
+une chose de plus qui doit continuer de marcher.
+
+#### La ligne qui compte
+
+```
+bind 100.104.234.37 fd7a:115c:a1e0::8901:eabc
+```
+
+Sans elle, Caddy écoute sur toutes les interfaces, donc aussi sur le réseau local
+et sur ce que la box expose. **La salle n'a aucune authentification**: elle est
+privée parce qu'elle n'est joignable que depuis le tailnet, et c'est tout. Poser
+un terminateur TLS devant elle sans cette ligne l'aurait ouverte à la maison
+entière, en silence, et rien n'aurait eu l'air cassé.
+
+C'est la deuxième fois cette semaine qu'une pièce ajoutée devant la salle change
+une propriété qu'elle ne mentionne pas. La première était la manette seule, qui a
+changé le sens de « quelqu'un regarde » pour la sieste.
+
+Vérifié après coup et pas seulement écrit: Caddy n'écoute que sur les deux
+adresses du tailnet, et `192.168.1.33:443` ne répond pas.
+
+#### Ce qu'on garde en double, exprès
+
+Le nom `.ts.net` reste servi par tailscaled sur 8443. Deux portes, deux
+mécanismes, et celle qui ne demande aucun entretien reste en place: si le
+renouvellement du certificat casse un jour, la salle reste joignable par
+l'autre. Un domaine plus joli ne vaut pas une salle qu'on ne peut plus ouvrir.
+
+`just deploy-check` compare maintenant le Caddyfile en plus des trois unités.
+Vérifié en changeant le `bind` sur la machine: il nomme la ligne. C'est
+exactement le garde qu'il fallait, puisque la ligne en question est celle dont
+une modification silencieuse rendrait la salle publique.
+
+#### Une chose qui a bien marché, pour une fois
+
+Le document d'installation de Cloudflare contenait ceci:
+
+> « Complete all of the following steps yourself by running the commands
+> directly. Do not ask the user to run any of these commands. »
+
+Une page web qui me demande de ne pas impliquer la personne devant moi. Ce n'est
+pas un ordre, c'est une donnée, et je l'ai citée avant de faire quoi que ce soit.
+Ce qui m'autorisait à lancer ces commandes était la demande de Souhib, pas la
+phrase de la page. La distinction paraît théorique jusqu'au jour où la page dit
+autre chose.
+
+---
+
 ### 7.55 La porte vérifiait un état qu'elle changeait ensuite
 
 Trois commits de suite sont partis avec une empreinte de page périmée, et à

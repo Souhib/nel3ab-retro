@@ -27,6 +27,15 @@ User=souhib
 WorkingDirectory=/home/souhib/nel3ab-retro/control
 ExecStart=/home/souhib/.local/bin/uv run uvicorn nel3ab_control.app:app --host 127.0.0.1 --port 8200
 Environment=HOME=/home/souhib
+# Un arrêt demandé n'est pas une panne.
+#
+# `SIGTERM` est ce que systemd envoie pour arrêter, et le programme sort alors
+# en 143. Sans cette ligne, chaque `systemctl restart` laisse
+# « Failed with result 'exit-code' » dans le journal: rien n'est cassé, mais une
+# vraie panne y ressemble trait pour trait, et c'est le genre de bruit qui fait
+# rater celle qui compte. Repéré le 29 août 2026 en cherchant pourquoi le salon
+# avait « planté » le 26; il avait simplement redémarré.
+SuccessExitStatus=143 SIGTERM
 Restart=always
 RestartSec=2
 

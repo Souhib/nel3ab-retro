@@ -5,7 +5,16 @@
 # process tree — went with it. A worker that outlives nothing is not a worker,
 # so this is the right shape rather than a convenience.
 #
-# `Restart=always` matters for a second reason: the worker exits cleanly when
+# `# Un arrêt demandé n'est pas une panne.
+#
+# `SIGTERM` est ce que systemd envoie pour arrêter, et le programme sort alors
+# en 143. Sans cette ligne, chaque `systemctl restart` laisse
+# « Failed with result 'exit-code' » dans le journal: rien n'est cassé, mais une
+# vraie panne y ressemble trait pour trait, et c'est le genre de bruit qui fait
+# rater celle qui compte. Repéré le 29 août 2026 en cherchant pourquoi le salon
+# avait « planté » le 26; il avait simplement redémarré.
+SuccessExitStatus=143 SIGTERM
+Restart=always` matters for a second reason: the worker exits cleanly when
 # the emulator stops producing frames, which is what happens if Dolphin crashes
 # or is killed. Restarting is the correct answer to that, and it is one line.
 #

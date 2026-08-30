@@ -7163,6 +7163,65 @@ autre chose.
 
 ---
 
+### 7.67 Deux sauvegardes par jeu, et ce que je ne sais pas faire
+
+Demande en deux moitiés, et elles ne se ressemblent pas du tout: un mécanisme à
+deux emplacements, et le remplissage de l'emplacement « tout débloqué ». La
+première est faite. La seconde, je ne sais pas la faire seul, et l'entrée
+existe surtout pour dire pourquoi.
+
+#### Le mécanisme, sans rien demander à Dolphin
+
+Dolphin range les sauvegardes GameCube en fichiers `.gci` séparés, sous
+`GC/<région>/Card A`. Le choix se fait donc en faisant POINTER ce dossier vers
+l'emplacement voulu, par un lien.
+
+Un lien plutôt qu'une copie: Dolphin écrit directement dans l'emplacement
+pendant qu'on joue, donc il n'y a rien à recopier au bon moment et rien à perdre
+si la salle s'arrête mal. Toutes les autres formes de cette fonctionnalité
+demandent de choisir QUAND recopier, et ce choix se paie tôt ou tard.
+
+Un lien plutôt qu'un réglage, aussi, et c'est une décision prise faute de
+preuve. Dolphin a peut-être une clé de configuration pour ce dossier; je n'ai
+pas pu la vérifier sur cette version, et **une clé qu'on suppose est une clé qui
+ne marche pas en silence**. Le lien ne dépend d'aucune clé, et relier les trois
+régions au même endroit évite au worker d'avoir à savoir d'où vient le jeu.
+
+#### Ce que je ne sais pas faire
+
+« Tout débloqué » veut dire, selon le jeu: toutes les coupes, tous les
+personnages, tous les plateaux, tous les modes. Cet état vit dans le `.gci`, et
+il n'y a que trois façons de l'obtenir.
+
+**Jouer.** Des dizaines d'heures par jeu, et il y en a huit.
+
+**Un code de triche.** Dolphin sait appliquer des codes Action Replay ou Gecko,
+mais deux choses manquent: les codes eux-mêmes, qui ne sont pas fournis avec
+Dolphin, et surtout le fait qu'un code agit sur la mémoire vive. Il faut ensuite
+que le JEU écrive sa sauvegarde, donc naviguer ses menus jusqu'à ce qu'il le
+fasse. Faisable, par le pavé tactile et des captures d'écran, mais c'est huit
+jeux et huit menus différents.
+
+**Un fichier tout fait.** C'est ce que font les gens, et ces fichiers sont des
+données d'utilisateur plutôt que du code de jeu. Mais les télécharger revient à
+donner à un émulateur des octets venus d'ailleurs, sur la machine de quelqu'un
+d'autre, et ce n'est pas à moi de le décider seul.
+
+J'ai donc construit le pont plutôt que de choisir: `just save-import` pose un
+fichier dans un emplacement, d'où qu'il vienne. La question de la provenance
+reste posée, et elle est posée à Souhib.
+
+#### Ce que le pilote vérifie, et pourquoi il faut un pilote
+
+`just saves-test` choisit l'emplacement dans le menu, lance un autre jeu, attend
+le redémarrage, et va lire sur le DISQUE où pointe le dossier de carte.
+
+Ce n'est pas de la ceinture. Une erreur ici ne donne pas une erreur: elle donne
+une partie qui écrase la mauvaise sauvegarde, et ça ne se voit qu'une fois trop
+tard, quand quelqu'un cherche sa progression.
+
+---
+
 ### 7.55 La porte vérifiait un état qu'elle changeait ensuite
 
 Trois commits de suite sont partis avec une empreinte de page périmée, et à

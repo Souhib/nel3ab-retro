@@ -258,10 +258,7 @@ pub fn to_mp4(annex_b: &[u8], fps: u32) -> Result<Vec<u8>, ClipError> {
         next_scratch()
     ));
     let mut ffmpeg = std::process::Command::new("ffmpeg")
-        .args(["-hide_banner", "-loglevel", "error", "-f", "h264", "-r"])
-        .arg(fps.to_string())
-        .args(["-i", "-", "-c", "copy", "-movflags", "+faststart", "-y"])
-        .arg(&scratch)
+        .args(mux_args(fps, &scratch))
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::piped())
@@ -286,6 +283,50 @@ pub fn to_mp4(annex_b: &[u8], fps: u32) -> Result<Vec<u8>, ClipError> {
     mp4
 }
 
+/// Ce qu'on demande au multiplexeur, en une liste qu'on peut lire et vérifier.
+///
+/// Sortie de l'appel pour une raison précise: la seule chose qu'on POSSÈDE ici
+/// est cette liste, et elle porte une décision qu'aucune erreur ne signalerait
+/// si elle disparaissait. `-r` dit la cadence, que l'Annex B ne porte pas: sans
+/// lui, ffmpeg suppose vingt-cinq images par seconde et un clip de trente-cinq
+/// secondes en annonce quatre-vingt-quatre, au ralenti, sans un mot.
+///
+/// La version d'avant vérifiait ça en regardant ce que ffmpeg répondait, donc
+/// elle ne passait que sur une machine qui a ffmpeg. La CI n'en a pas, et le
+/// test y échouait sur une absence plutôt que sur un défaut.
+fn mux_args(fps: u32, out: &std::path::Path) -> Vec<std::ffi::OsString> {
+    use std::ffi::OsString;
+
+    let mut args: Vec<OsString> = [
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        // L'entrée est de l'Annex B brut, sans conteneur.
+        "-f",
+        "h264",
+        "-r",
+    ]
+    .iter()
+    .map(OsString::from)
+    .collect();
+    args.push(OsString::from(fps.to_string()));
+    args.extend(
+        [
+            "-i",
+            "-", // depuis l'entrée standard
+            "-c",
+            "copy", // les mêmes octets, jamais réencodés
+            "-movflags",
+            "+faststart", // l'index en tête, pour lire sans tout charger
+            "-y",
+        ]
+        .iter()
+        .map(OsString::from),
+    );
+    args.push(out.as_os_str().to_owned());
+    args
+}
+
 /// Un numéro qui monte, pour que deux clips simultanés n'écrivent pas au même
 /// endroit. La limite de cadence les rend improbables; se reposer dessus pour
 /// la CORRECTION serait faire d'un confort une garantie.
@@ -297,6 +338,7 @@ fn next_scratch() -> u64 {
 #[cfg(test)]
 #[expect(
     clippy::unwrap_used,
+    clippy::expect_used,
     clippy::integer_division,
     reason = "a panic IS the failure signal in a test, and a frame lands to the millisecond"
 )]
@@ -474,14 +516,38 @@ mod tests {
     #[test]
     fn the_muxer_is_asked_for_the_frame_rate_it_cannot_guess() {
         // L'Annex B ne porte aucune horloge. Sans `-r`, ffmpeg suppose
-        // vingt-cinq images par seconde et un clip de soixante sort au ralenti,
-        // ce qui est une erreur qu'aucun code de sortie ne signale.
-        //
-        // Vérifié sur le message d'erreur, faute de pouvoir inspecter la ligne
-        // de commande: ffmpeg répète ce qu'on lui a demandé quand il refuse.
-        let refused = to_mp4(b"pas une video", 60);
+        // vingt-cinq images par seconde et un clip de trente-cinq secondes en
+        // annonce quatre-vingt-quatre, au ralenti, sans un mot.
+        let args = mux_args(50, std::path::Path::new("/tmp/x.mp4"));
+        let said: Vec<String> = args
+            .iter()
+            .map(|a| a.to_string_lossy().into_owned())
+            .collect();
 
-        assert!(matches!(refused, Err(ClipError::Refused(_))));
+        let rate = said
+            .iter()
+            .position(|a| a == "-r")
+            .expect("la cadence est demandée");
+        assert_eq!(said[rate + 1], "50");
+    }
+
+    #[test]
+    fn the_muxer_is_told_to_copy_rather_than_re_encode() {
+        // Le jumeau, et il porte la promesse de la fonctionnalité: le clip
+        // contient les octets qui sont partis vers les navigateurs. Un
+        // réencodage donnerait un fichier qui montre la même partie sans être
+        // la même vidéo, et coûterait la carte graphique pendant qu'on joue.
+        let said: Vec<String> = mux_args(60, std::path::Path::new("/tmp/x.mp4"))
+            .iter()
+            .map(|a| a.to_string_lossy().into_owned())
+            .collect();
+
+        let codec = said
+            .iter()
+            .position(|a| a == "-c")
+            .expect("le codec est nommé");
+        assert_eq!(said[codec + 1], "copy");
+        assert_eq!(said.last().map(String::as_str), Some("/tmp/x.mp4"));
     }
 
     #[test]

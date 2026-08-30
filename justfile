@@ -46,6 +46,16 @@ front:
 # Diffing works for these, unlike for the page: a JSON dump and a code generator
 # both give the same bytes for the same input. The page cannot be checked this
 # way because its minifier does not (see `front-check`).
+#
+# `front/package.json` contraint `js-yaml` à `^4.3.2`, et la raison vit ici
+# parce que le JSON ne porte pas de commentaire. Le générateur embarque une
+# version vulnérable à une explosion de temps de calcul sur des ancres YAML;
+# elle ne lit que notre propre `openapi.json`, qui est du JSON, donc rien n'est
+# atteignable. Ce qui coûtait était le chiffre: `npm audit` annonçait quatre
+# alertes hautes, et une alerte qu'on apprend à ignorer est une alerte perdue.
+# La correction que npm proposait était de RECULER `@hey-api/openapi-ts` de deux
+# versions majeures; la contrainte fait mieux pour moins cher. Vérifié le 30 août
+# 2026: la page construite est identique à l'octet près, seule sa marque change.
 contract-check:
     cd control && uv run poe openapi
     cd front && npx openapi-ts

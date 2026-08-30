@@ -309,6 +309,18 @@ mod tests {
         assert!(same_origin(
             "host: salle.exemple.ts.net:8443\r\norigin: https://salle.exemple.ts.net:8443"
         ));
+        // Sur le port par défaut, où le port disparaît des DEUX en-têtes. C'est
+        // le cas de la salle depuis le 30 août 2026, et rien ne le tenait: une
+        // comparaison qui aurait ajouté un port d'un seul côté aurait refusé
+        // toutes les poignées de main de la salle réelle.
+        assert!(same_origin(
+            "host: salle.exemple.ts.net\r\norigin: https://salle.exemple.ts.net"
+        ));
+        // Et son jumeau: le port par défaut d'un côté seulement n'est pas la
+        // même origine, parce qu'on compare des chaînes et pas des URL.
+        assert!(!same_origin(
+            "host: salle.exemple.ts.net\r\norigin: https://salle.exemple.ts.net:8443"
+        ));
         // Locally, over plain http.
         assert!(same_origin(
             "host: localhost:8100\r\norigin: http://localhost:8100"

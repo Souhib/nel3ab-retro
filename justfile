@@ -114,6 +114,65 @@ deploy-check:
 clip-test:
     cd spikes/m3-browser-drive && node clip.mjs
 
+# Ce que chaque jeu a comme sauvegardes, et ce qu'elles pèsent.
+saves:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    racine=~/.local/state/nel3ab/saves
+    [ -d "$racine" ] || { echo "aucune sauvegarde pour l'instant"; exit 0; }
+    for jeu in "$racine"/*/; do
+        echo "$(basename "$jeu")"
+        for emplacement in neuve debloquee; do
+            dossier="$jeu$emplacement"
+            if [ -d "$dossier" ]; then
+                n=$(find "$dossier" -name '*.gci' | wc -l)
+                poids=$(du -sh "$dossier" 2>/dev/null | cut -f1)
+                printf '    %-11s %s fichier(s), %s\n' "$emplacement" "$n" "$poids"
+            else
+                printf '    %-11s vide\n' "$emplacement"
+            fi
+        done
+    done
+
+# Pose un fichier de sauvegarde dans l'emplacement d'un jeu.
+#
+#   just save-import mario-kart-double-dash-retro-track-grand-prix-iso debloquee ~/tout.gci
+#
+# Le nom du jeu est celui que `just saves` affiche, et il vient du nom de
+# fichier de la ROM. L'ancien contenu de l'emplacement est écarté plutôt
+# qu'effacé: une sauvegarde qu'on remplace est une sauvegarde que quelqu'un
+# voudra peut-être revoir.
+save-import jeu emplacement fichier:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dossier=~/.local/state/nel3ab/saves/{{jeu}}/{{emplacement}}
+    case "{{emplacement}}" in
+        neuve|debloquee) ;;
+        *) echo "emplacement inconnu: {{emplacement}} (neuve ou debloquee)"; exit 1 ;;
+    esac
+    [ -f "{{fichier}}" ] || { echo "fichier introuvable: {{fichier}}"; exit 1; }
+    mkdir -p "$dossier"
+    if compgen -G "$dossier/*.gci" > /dev/null; then
+        vieux="$dossier/remplacees-$(date +%Y%m%d-%H%M%S)"
+        mkdir -p "$vieux" && mv "$dossier"/*.gci "$vieux"/
+        echo "  ancien contenu écarté dans $(basename "$vieux")"
+    fi
+    cp "{{fichier}}" "$dossier/"
+    echo "  posé: $(basename "{{fichier}}") dans {{jeu}}/{{emplacement}}"
+
+# Remet un emplacement à neuf, pour de vrai.
+#
+# « Neuve » cesse de l'être dès qu'on a joué une heure dessus. Sans ce geste, le
+# mot ment au bout d'une soirée.
+save-reset jeu emplacement:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dossier=~/.local/state/nel3ab/saves/{{jeu}}/{{emplacement}}
+    [ -d "$dossier" ] || { echo "rien à vider"; exit 0; }
+    n=$(find "$dossier" -maxdepth 1 -name '*.gci' | wc -l)
+    find "$dossier" -maxdepth 1 -name '*.gci' -delete
+    echo "  $n sauvegarde(s) effacée(s) dans {{jeu}}/{{emplacement}}"
+
 # La sieste, jouée en vrai: la salle s'endort, on la réveille, et on lit ce que
 # le worker en a écrit.
 #

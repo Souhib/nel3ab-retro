@@ -78,6 +78,7 @@ import {
 } from "./lib/vitals";
 import type { Snapshot } from "./media/session";
 import { clipLabel } from "./lib/clip";
+import { rememberSlot, slotLabel, SLOTS, storedSlot, type Slot } from "./lib/saves";
 import { useClip } from "./lib/useClip";
 import { useSession, useSnapshot } from "./lib/useSession";
 
@@ -341,6 +342,12 @@ function Room({
   /** Le jeu qui attend une confirmation. Changer de jeu arrête la partie de tout
    * le monde, donc la première entrée arme et la seconde lance. */
   const [armedGame, setArmedGame] = useState<number | null>(null);
+  /** Sur quelle sauvegarde le prochain jeu démarrera.
+   *
+   * Retenu dans le navigateur, comme les autres réglages: quelqu'un qui joue en
+   * soirée sur les parties débloquées y rejouera le lendemain. */
+  const [saveSlot, setSaveSlot] = useState<Slot>(storedSlot);
+  useEffect(() => rememberSlot(saveSlot), [saveSlot]);
 
   const { ref, session } = useSession(volume, deviceRate, announceSeat, watching, padOnly);
   const clip = useClip();
@@ -505,41 +512,64 @@ function Room({
       id: "jeux",
       label: "jeux",
       icon: <GameIcon className="h-full w-full" />,
-      items: (room?.library ?? []).map((game) => ({
-        id: `game${game.index}`,
-        label: game.name,
-        // Une première pression ARME et ne lance rien: ce qu'elle confirme est
-        // la fin de la partie de tout le monde. Elle ne se voyait nulle part,
-        // donc elle ressemblait à un clic qui n'avait pas pris, ce qui pousse
-        // exactement au deuxième clic que la confirmation devait faire réfléchir.
-        value:
-          armedGame === game.index
-            ? "confirmer ?"
-            : game.index === room?.game?.index
-              ? "en cours"
-              : undefined,
-        hint:
-          armedGame === game.index
-            ? "encore une fois pour lancer, ailleurs pour annuler"
-            : game.index === room?.game?.index
-              ? "c'est ce qui tourne"
-              : mine
-                ? "entrée deux fois: changer de jeu arrête la partie de tout le monde"
-                : (whyNotChoose ?? undefined),
-        icon: <GameIcon className="h-full w-full" />,
-        game: { index: game.index, art: game.art ?? false },
-        by: game.maker ?? undefined,
-        note: game.about ?? undefined,
-        disabled: !mine || game.index === room?.game?.index,
-        onEnter: () => {
-          if (armedGame !== game.index) return setArmedGame(game.index);
-          setArmedGame(null);
-          if (session?.input.chooseGame(game.index)) {
-            setBooting({ game: game.name, painted: shot?.video.painted ?? 0 });
-            setMenu(false);
-          }
-        },
-      })),
+      items: (
+        [
+          {
+            id: "save",
+            label: "sauvegarde",
+            value: slotLabel(saveSlot),
+            hint: "chaque jeu en a deux, et elles ne se marchent pas dessus. Le choix vaut pour le prochain jeu lancé.",
+            icon: <GameIcon className="h-full w-full" />,
+            picks: SLOTS.map((choice) => ({
+              id: String(choice.id),
+              label: choice.label,
+              hint: choice.note,
+            })),
+            picked: String(saveSlot),
+            onPick: (id: string) => setSaveSlot(id === "1" ? 1 : 0),
+          },
+        ] as XmbItem[]
+      ).concat(
+        (room?.library ?? []).map((game) => ({
+          id: `game${game.index}`,
+          label: game.name,
+          // Une première pression ARME et ne lance rien: ce qu'elle confirme est
+          // la fin de la partie de tout le monde. Elle ne se voyait nulle part,
+          // donc elle ressemblait à un clic qui n'avait pas pris, ce qui pousse
+          // exactement au deuxième clic que la confirmation devait faire réfléchir.
+          value:
+            armedGame === game.index
+              ? "confirmer ?"
+              : game.index === room?.game?.index
+                ? "en cours"
+                : undefined,
+          hint:
+            armedGame === game.index
+              ? `encore une fois pour lancer sur « ${slotLabel(saveSlot)} », ailleurs pour annuler`
+              : game.index === room?.game?.index
+                ? "c'est ce qui tourne"
+                : mine
+                  ? "entrée deux fois: changer de jeu arrête la partie de tout le monde"
+                  : (whyNotChoose ?? undefined),
+          icon: <GameIcon className="h-full w-full" />,
+          game: { index: game.index, art: game.art ?? false },
+          by: game.maker ?? undefined,
+          note: game.about ?? undefined,
+          disabled: !mine || game.index === room?.game?.index,
+          onEnter: () => {
+            if (armedGame !== game.index) return setArmedGame(game.index);
+            setArmedGame(null);
+            // La sauvegarde AVANT le jeu: le worker retient le choix sans rien
+            // déclencher, et c'est le changement de jeu qui agit. L'ordre compte,
+            // parce que l'ordre de jeu fait redémarrer la salle.
+            session?.input.chooseSave(saveSlot);
+            if (session?.input.chooseGame(game.index)) {
+              setBooting({ game: game.name, painted: shot?.video.painted ?? 0 });
+              setMenu(false);
+            }
+          },
+        })),
+      ),
     },
     {
       id: "salle",

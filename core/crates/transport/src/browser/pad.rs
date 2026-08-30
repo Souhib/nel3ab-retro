@@ -264,6 +264,20 @@ pub(super) fn input_thread(stream: TcpStream, shared: &Shared, take: Option<Play
 /// worth noticing rather than humouring.
 pub(super) fn obey(payload: &[u8], shared: &Shared, seat: PlayerSlot) -> bool {
     match Command::decode(payload) {
+        Ok(Command::ChooseSave { slot }) => {
+            // Retenu sans rien déclencher: c'est le changement de jeu qui agit,
+            // et la page envoie ce message juste avant. Le séparer laisse la
+            // salle changer d'avis sur la sauvegarde sans redémarrer.
+            //
+            // Aucune règle de propriétaire ici, contrairement au changement de
+            // jeu. Choisir une sauvegarde ne décide rien tant que personne ne
+            // lance quoi que ce soit, et c'est le lancement qui est gardé.
+            if let Ok(mut wanted) = shared.wants_save.lock() {
+                *wanted = slot;
+            }
+            tracing::info!(port = seat.get(), slot, "une sauvegarde a été choisie");
+            true
+        }
         Ok(Command::SwitchRom { index }) => {
             // Le propriétaire décide, et c'est vérifié ICI plutôt que dans la
             // page: une règle qui ne vit que dans une interface est une règle

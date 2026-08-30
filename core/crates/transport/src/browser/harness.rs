@@ -26,6 +26,7 @@ pub(in crate::browser) fn detached(viewers: Vec<SyncSender<Framed>>) -> BrowserS
     BrowserServer {
         clips: Arc::new(Mutex::new(crate::clip::Clips::new())),
         seats: Arc::new(Mutex::new([None; PORTS])),
+        wants_save: Arc::new(Mutex::new(0)),
         half_viewers: Arc::new(Mutex::new(Vec::new())),
         half_joined: Arc::new(std::sync::atomic::AtomicBool::new(false)),
         half_wants_key: Arc::new(std::sync::atomic::AtomicBool::new(false)),

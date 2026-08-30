@@ -201,6 +201,8 @@ pub struct BrowserServer {
     /// Qui tient quelle place. Le serveur en a besoin pour dire combien de
     /// manettes sont tenues, ce que la sieste doit savoir.
     seats: Seats,
+    /// L'emplacement de sauvegarde voulu pour le prochain jeu.
+    wants_save: Arc<Mutex<u8>>,
     /// Les dernières secondes de la partie. Voir [`crate::clip`].
     clips: Arc<Mutex<crate::clip::Clips>>,
     /// One queue per connected viewer.
@@ -290,6 +292,15 @@ impl BrowserServer {
     ///
     /// # Errors
     /// [`TransportError::Bind`] or [`TransportError::Accept`].
+    /// L'instant à partir duquel une image-clé peut être accordée.
+    ///
+    /// Dans le passé, exprès: la toute première demande ne doit pas attendre.
+    fn key_frame_epoch() -> Instant {
+        Instant::now()
+            .checked_sub(KEY_FRAME_EVERY)
+            .unwrap_or_else(Instant::now)
+    }
+
     /// Ouvre l'écoute et rend l'adresse qu'elle a vraiment prise.
     ///
     /// Séparé parce que l'adresse DEMANDÉE n'est pas toujours celle qu'on
@@ -329,19 +340,12 @@ impl BrowserServer {
         let joined = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let wants_key = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let wants_rom = Arc::new(Mutex::new(None));
-        let granted_key = Arc::new(Mutex::new(
-            Instant::now()
-                .checked_sub(KEY_FRAME_EVERY)
-                .unwrap_or_else(Instant::now),
-        ));
+        let wants_save = Arc::new(Mutex::new(0_u8));
+        let granted_key = Arc::new(Mutex::new(Self::key_frame_epoch()));
         let half_viewers: Viewers = Arc::new(Mutex::new(Vec::new()));
         let half_joined = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let half_wants_key = Arc::new(std::sync::atomic::AtomicBool::new(false));
-        let half_granted_key = Arc::new(Mutex::new(
-            Instant::now()
-                .checked_sub(KEY_FRAME_EVERY)
-                .unwrap_or_else(Instant::now),
-        ));
+        let half_granted_key = Arc::new(Mutex::new(Self::key_frame_epoch()));
         let seats: Seats = Arc::new(Mutex::new([None; PORTS]));
 
         let accept = std::thread::Builder::new()
@@ -358,6 +362,7 @@ impl BrowserServer {
                 let arrived = Arc::clone(&arrived);
                 let seats = Arc::clone(&seats);
                 let wants_rom = Arc::clone(&wants_rom);
+                let wants_save = Arc::clone(&wants_save);
                 let rumbles = Arc::clone(&rumbles);
                 let owner = Arc::clone(owner);
                 let half_viewers = Arc::clone(&half_viewers);
@@ -382,6 +387,7 @@ impl BrowserServer {
                             rumbles,
                             players,
                             wants_rom,
+                            wants_save,
                             catalogue,
                             half_viewers,
                             half_joined,
@@ -414,6 +420,7 @@ impl BrowserServer {
             joined,
             wants_key,
             wants_rom,
+            wants_save,
             _accept: accept,
         })
     }
@@ -571,6 +578,16 @@ impl BrowserServer {
         self.wants_rom.lock().is_ok_and(|wanted| wanted.is_some())
     }
 
+    /// L'emplacement de sauvegarde voulu pour le prochain jeu.
+    ///
+    /// Ne se consomme PAS, contrairement au choix de jeu: la salle garde le
+    /// dernier choix jusqu'à ce que quelqu'un en fasse un autre, et redémarrer
+    /// sur le même jeu doit retomber sur la même sauvegarde.
+    #[must_use]
+    pub fn save_wanted(&self) -> u8 {
+        self.wants_save.lock().map_or(0, |slot| *slot)
+    }
+
     /// Which game a player asked to boot, if one did since this was last asked.
     ///
     /// Reading it clears it: the caller acts on a wish exactly once, and acting
@@ -699,6 +716,8 @@ struct Shared {
     rumbles: Rumbles,
     players: PlayerSlot,
     wants_rom: Arc<Mutex<Option<u8>>>,
+    /// L'emplacement de sauvegarde voulu pour le prochain jeu.
+    wants_save: Arc<Mutex<u8>>,
     /// The room's library, already rendered as JSON.
     ///
     /// Rendered by the worker rather than here: what a game is called and where

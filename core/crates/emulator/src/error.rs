@@ -20,6 +20,22 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum EmulatorError {
+    /// Un emplacement de sauvegarde n'a pas pu être préparé.
+    ///
+    /// Nommé avec le geste qui a échoué et le chemin concerné, parce que les
+    /// trois causes plausibles se corrigent différemment: un disque plein, des
+    /// droits, ou un chemin qui n'existe pas.
+    #[error("les sauvegardes: impossible de {what} ({path}): {source}")]
+    Saves {
+        /// Ce qu'on essayait de faire, en français.
+        what: &'static str,
+        /// Où.
+        path: std::path::PathBuf,
+        /// Ce que le système a dit.
+        #[source]
+        source: std::io::Error,
+    },
+
     /// A holder of the input pipes panicked while writing.
     ///
     /// Recorded as an error rather than a panic of our own: rule 6 says the

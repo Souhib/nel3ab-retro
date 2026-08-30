@@ -362,6 +362,7 @@ mod tests {
     fn key_frames_are_granted_no_faster_than_the_limit() {
         let shared = Shared {
             clips: Arc::new(Mutex::new(crate::clip::Clips::new())),
+            wants_save: Arc::new(Mutex::new(0)),
             viewers: Arc::new(Mutex::new(Vec::new())),
             half_viewers: Arc::new(Mutex::new(Vec::new())),
             half_joined: Arc::new(std::sync::atomic::AtomicBool::new(false)),

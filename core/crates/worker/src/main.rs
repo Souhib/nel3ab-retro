@@ -25,6 +25,7 @@ use std::time::{Duration, Instant};
 use anyhow::{Context as _, Result, bail};
 use nel3ab_emulator::nap::{self, Nap, tell_docker};
 use nel3ab_emulator::rumble::RumbleTap;
+use nel3ab_emulator::saves;
 use nel3ab_emulator::{
     CHUNK_BYTES, DolphinConfig, Rom, Session, SlotSet, SoundTap, VideoBackend, catalogue_json,
     scan_roms,
@@ -228,6 +229,16 @@ fn players_from_environment() -> Result<PlayerSlot> {
 /// jeu est en réalité ce qu'une salle devrait faire.
 const CHOICE: &str = "chosen-rom";
 
+/// Et l'emplacement de sauvegarde choisi, à côté, pour la même raison.
+const SAVE_CHOICE: &str = "chosen-save";
+
+/// Où vivent les deux sauvegardes de chaque jeu.
+///
+/// À côté de la session et pas dedans: le répertoire de session porte la
+/// configuration de Dolphin, ses tubes nommés et ses caches, c'est-à-dire des
+/// choses qu'on peut effacer sans rien perdre. Une sauvegarde ne l'est pas.
+const SAVES: &str = "saves";
+
 /// Which game to boot: what a player last asked for, or the default.
 ///
 /// Remembered by FILE NAME rather than position, because a position only means
@@ -260,6 +271,45 @@ fn chosen_rom(settings: &Settings, library: &[Rom]) -> PathBuf {
             },
             |rom| rom.path.clone(),
         )
+}
+
+/// L'emplacement de sauvegarde retenu, ou une partie neuve.
+///
+/// Comme pour le jeu: ce qui n'est pas lisible retombe sur le défaut plutôt que
+/// d'arrêter la salle. Le pire cas est de démarrer sur une partie neuve, ce qui
+/// n'efface rien.
+fn chosen_slot(session_dir: &Path) -> saves::Slot {
+    std::fs::read_to_string(session_dir.join(SAVE_CHOICE))
+        .ok()
+        .and_then(|kept| kept.trim().parse::<u8>().ok())
+        .map_or(saves::Slot::Fresh, saves::Slot::from_code)
+}
+
+/// Prépare les sauvegardes du jeu qu'on s'apprête à lancer.
+///
+/// Fait pointer les dossiers de carte de Dolphin vers l'emplacement choisi, de
+/// sorte que tout ce que le jeu écrit y atterrisse directement. Voir
+/// [`nel3ab_emulator::saves`].
+///
+/// Un échec est tracé et n'arrête pas la salle: on jouera alors sur ce que
+/// Dolphin trouve, ce qui est moins bien mais reste une salle qui marche.
+fn prepare_saves(session_dir: &Path, rom: &Path, slot: saves::Slot) {
+    let file = rom
+        .file_name()
+        .map_or_else(String::new, |name| name.to_string_lossy().into_owned());
+    let Some(root) = session_dir.parent().map(|up| up.join(SAVES)) else {
+        tracing::warn!("pas de dossier parent pour les sauvegardes");
+        return;
+    };
+    let dir = saves::slot_dir(&root, &file, slot);
+    match saves::point_card_at(session_dir, &dir) {
+        Ok(()) => tracing::info!(
+            slot = slot.folder(),
+            path = %dir.display(),
+            "les sauvegardes de ce jeu sont en place"
+        ),
+        Err(error) => tracing::warn!(%error, "les sauvegardes n'ont pas pu être préparées"),
+    }
 }
 
 /// What a byte count over a period is worth on a link, in megabits per second.
@@ -303,10 +353,15 @@ fn run(settings: &Settings) -> Result<()> {
     // that a switch causes anyway, which is the moment it can change safely.
     let library = scan_roms(&settings.rom_dir);
     let rom = chosen_rom(settings, &library);
+    // Les sauvegardes AVANT que Dolphin ne démarre: il ouvre son dossier de
+    // carte au lancement, et le déplacer après coup ne serait plus vu.
+    let slot = chosen_slot(&settings.session_dir);
+    prepare_saves(&settings.session_dir, &rom, slot);
     let current = library.iter().position(|game| game.path == rom);
     tracing::info!(
         games = library.len(),
         booting = %rom.display(),
+        save = slot.folder(),
         "the room's library"
     );
     // Qui décide du jeu. Vide au démarrage, donc la salle applique sa règle
@@ -860,7 +915,12 @@ fn run(settings: &Settings) -> Result<()> {
         // what this rests on: the exit path was broken until this week, and a
         // worker that cannot stop cannot have this feature at all.
         if let Some(index) = server.take_rom_request()
-            && remember_choice(&library, index, &settings.session_dir)
+            && remember_choice(
+                &library,
+                index,
+                saves::Slot::from_code(server.save_wanted()),
+                &settings.session_dir,
+            )
         {
             break;
         }
@@ -1035,7 +1095,12 @@ fn run(settings: &Settings) -> Result<()> {
 /// A choice that cannot be written down does NOT stop the worker either, and
 /// that ordering is the point: stopping first and failing to record afterwards
 /// would restart the room on the same game with no explanation.
-fn remember_choice(library: &[Rom], index: u8, session_dir: &std::path::Path) -> bool {
+fn remember_choice(
+    library: &[Rom],
+    index: u8,
+    slot: saves::Slot,
+    session_dir: &std::path::Path,
+) -> bool {
     let Some(game) = library.get(index as usize) else {
         tracing::warn!(index, games = library.len(), "no such game");
         return false;
@@ -1043,6 +1108,12 @@ fn remember_choice(library: &[Rom], index: u8, session_dir: &std::path::Path) ->
     if let Err(error) = std::fs::write(session_dir.join(CHOICE), &game.file) {
         tracing::error!(%error, "the choice could not be written down");
         return false;
+    }
+    // L'emplacement de sauvegarde voyage avec le jeu, dans son propre fichier.
+    // Un échec ici n'annule pas le changement de jeu: on repartira sur une
+    // partie neuve, ce qui n'efface rien et se corrige d'un clic.
+    if let Err(error) = std::fs::write(session_dir.join(SAVE_CHOICE), slot.code().to_string()) {
+        tracing::warn!(%error, "l'emplacement de sauvegarde n'a pas pu être retenu");
     }
     tracing::info!(game = game.name, "booting another game; stopping for it");
     true

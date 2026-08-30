@@ -412,6 +412,24 @@ export class InputStream {
   }
 
   /**
+   * Dit sur quelle sauvegarde le prochain jeu doit démarrer.
+   *
+   * Un message à part de `chooseGame`, envoyé JUSTE AVANT lui: le worker retient
+   * le choix sans rien déclencher, et c'est le changement de jeu qui agit. Les
+   * séparer laisse changer d'avis sur la sauvegarde sans redémarrer la salle.
+   *
+   * Zéro est la partie neuve, un est celle où tout est débloqué. Voir
+   * `nel3ab_emulator::saves::Slot`, qui est l'endroit où ces deux nombres sont
+   * définis; ici on ne fait que les transporter.
+   */
+  chooseSave(slot: number): boolean {
+    if (this.port === null || this.socket?.readyState !== WebSocket.OPEN) return false;
+    if (slot !== 0 && slot !== 1) return false;
+    this.socket.send(new Uint8Array([2, slot]));
+    return true;
+  }
+
+  /**
    * Commence à réassigner une commande. La prochaine chose qui bouge la prend.
    *
    * Pendant ce temps la manette n'atteint plus le jeu: on continue d'envoyer un

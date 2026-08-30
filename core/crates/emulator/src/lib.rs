@@ -63,6 +63,7 @@ pub mod nap;
 pub mod pipe;
 pub mod process;
 pub mod rumble;
+pub mod saves;
 pub mod slots;
 mod sound;
 pub mod wire;

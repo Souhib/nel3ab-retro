@@ -101,6 +101,17 @@ pub enum Command {
         /// Where in the room's library, counting from zero.
         index: u8,
     },
+    /// Laquelle des deux sauvegardes le prochain jeu doit utiliser.
+    ///
+    /// Un message à part plutôt qu'un argument de `SwitchRom`, et c'est
+    /// délibéré: la page l'envoie AVANT de demander le jeu, donc le worker
+    /// connaît déjà le choix quand il s'arrête pour redémarrer. Le mettre dans
+    /// `SwitchRom` aurait demandé un troisième octet, et les messages de ce
+    /// canal se reconnaissent à leur longueur.
+    ChooseSave {
+        /// Le code de l'emplacement. Voir `nel3ab_emulator::saves::Slot`.
+        slot: u8,
+    },
 }
 
 /// Un aller-retour sur le canal des manettes, pour que la page mesure sa propre
@@ -184,11 +195,15 @@ impl Command {
     /// The opcode for [`Command::SwitchRom`].
     const SWITCH_ROM: u8 = 1;
 
+    /// L'opcode pour [`Command::ChooseSave`].
+    const CHOOSE_SAVE: u8 = 2;
+
     /// Serialises to exactly [`Command::LEN`] bytes.
     #[must_use]
     pub const fn encode(self) -> [u8; Self::LEN] {
         match self {
             Self::SwitchRom { index } => [Self::SWITCH_ROM, index],
+            Self::ChooseSave { slot } => [Self::CHOOSE_SAVE, slot],
         }
     }
 
@@ -205,6 +220,7 @@ impl Command {
         }
         match buf[0] {
             Self::SWITCH_ROM => Ok(Self::SwitchRom { index: buf[1] }),
+            Self::CHOOSE_SAVE => Ok(Self::ChooseSave { slot: buf[1] }),
             opcode => Err(ProtocolError::UnknownCommand { opcode }),
         }
     }
@@ -463,7 +479,7 @@ mod tests {
     /// channel that will one day do something nobody asked for.
     #[rstest]
     #[case(&[0, 0], ProtocolError::UnknownCommand { opcode: 0 })]
-    #[case(&[2, 0], ProtocolError::UnknownCommand { opcode: 2 })]
+    #[case(&[3, 0], ProtocolError::UnknownCommand { opcode: 3 })]
     #[case(&[255, 9], ProtocolError::UnknownCommand { opcode: 255 })]
     fn an_unnamed_command_is_refused_rather_than_ignored(
         #[case] bytes: &[u8],
@@ -642,5 +658,24 @@ mod tests {
             Echo::decode(&wrong),
             Err(ProtocolError::UnknownCommand { opcode: 0x11 })
         ));
+    }
+
+    #[test]
+    fn choosing_a_save_survives_the_wire() {
+        for slot in [0_u8, 1] {
+            let sent = Command::ChooseSave { slot };
+            assert_eq!(Command::decode(&sent.encode()), Ok(sent));
+        }
+    }
+
+    /// Le jumeau, et il porte tout le sujet: deux ordres qui se confondraient
+    /// feraient changer de jeu quand on voulait changer de sauvegarde.
+    #[test]
+    fn choosing_a_save_is_not_choosing_a_game() {
+        let save = Command::ChooseSave { slot: 1 };
+        let game = Command::SwitchRom { index: 1 };
+
+        assert_ne!(save.encode(), game.encode());
+        assert_eq!(save.encode().len(), game.encode().len());
     }
 }

@@ -7025,6 +7025,72 @@ demandé refusé avec trente secondes à attendre.
 
 ---
 
+### 7.65 La salle dormait sous des gens qui étaient là
+
+« J'arrive pas à lancer un jeu. » Le symptôme était exact et n'aidait pas: le
+worker recevait bien la demande, l'écrivait, et ne faisait rien.
+
+#### Ce que le journal disait
+
+```
+13:09:57  le jeu a été gelé ou réveillé   Sleep
+13:26:04  a browser is watching
+13:26:14  a player asked for another game  index 0
+          (rien)
+13:30:42  booting another game; stopping for it
+```
+
+Quatre minutes entre la demande et son exécution, et ce qui l'a débloquée est
+qu'un spectateur du grand format est arrivé par hasard.
+
+#### La cause
+
+La sieste ne comptait que `server.watchers()`, c'est-à-dire les spectateurs du
+GRAND format. Elle ignorait donc trois façons d'être dans une salle:
+
+- **le format réduit**, choisi précisément par ceux dont la liaison est mauvaise;
+- **la manette seule**, le mode livré la veille, qui n'ouvre aucune socket vidéo;
+- **une demande de jeu en attente**, qui a besoin que la salle tourne pour être
+  servie.
+
+Et le deuxième effet est pire que le premier. La boucle d'images est bloquée sur
+`next_frame()` quand l'émulateur est gelé, et **c'est elle qui lit la demande de
+jeu**. La demande était donc notée dans `wants_rom` puis oubliée, sans un mot,
+jusqu'au prochain spectateur du grand format.
+
+#### La preuve, en trois lignes
+
+```
+avant: en pause = true
+spectateur RÉDUIT ouvert: 0 images en douze secondes
+après: en pause = true
+```
+
+#### La correction
+
+`nap.saw` prend maintenant un `Busy`, qui NOMME chaque raison de rester
+éveillée plutôt que d'additionner un nombre à l'appel. Ajouter une raison casse
+la compilation de tout ce qui en construit un, ce qui est la seule façon
+d'empêcher le même oubli.
+
+Vérifié sur la salle réelle pendant que deux personnes jouaient: zéro
+spectateur en grand format, deux en réduit, six cents images par tranche.
+C'était exactement le cas qui la gelait.
+
+#### La leçon, qui n'est pas neuve
+
+J'ai livré la manette seule la veille sans me demander ce que la sieste
+comptait. Une fonctionnalité qui retire une socket a changé le sens d'une
+mesure prise ailleurs, et personne ne relit tout le code en ajoutant un mode.
+
+C'est la deuxième fois en deux jours: la sieste elle-même avait cassé le sens de
+`waiting_max_ms` (entrée 7.61). **Une fonctionnalité peut casser une mesure sans
+toucher au code qui la produit**, et la seule défense trouvée jusqu'ici est de
+faire dire à la mesure ce qu'elle compte, dans un type, plutôt que de le laisser
+à l'appelant.
+
+---
+
 ### 7.55 La porte vérifiait un état qu'elle changeait ensuite
 
 Trois commits de suite sont partis avec une empreinte de page périmée, et à

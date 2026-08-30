@@ -86,8 +86,11 @@ deploy-check:
     #!/usr/bin/env bash
     set -euo pipefail
     faux=0
-    for unit in deploy/*.service; do
-        installe="/etc/systemd/system/$(basename "$unit")"
+    for unit in deploy/*.service deploy/Caddyfile; do
+        case "$unit" in
+            *.service) installe="/etc/systemd/system/$(basename "$unit")" ;;
+            *Caddyfile) installe="/etc/caddy/Caddyfile" ;;
+        esac
         if [ ! -f "$installe" ]; then
             echo "  absente de la machine: $(basename "$unit")"; faux=1; continue
         fi
@@ -419,20 +422,16 @@ docs:
 # internal hostnames and says plainly that the game server has no authentication,
 # so it stays where the reader has already been invited.
 #
-# Sur `/docs` du même hôte que le jeu, et sur le port par défaut.
+# Reconstruit, et c'est tout: Caddy sert `site/` en direct sous `/docs`.
 #
-# Le jeu a longtemps vécu sur 8443 et la documentation sur 8444, chacun avec son
-# port dans l'URL. Le certificat que Tailscale émet ne couvre que le nom complet
-# de la machine, donc un nom court est impossible; le PORT, lui, peut
-# disparaître. `https://<machine>.<tailnet>.ts.net/` est ce qu'on peut faire de
-# plus court, et `/docs` tient à côté sans gêner le jeu: `tailscale serve` route
-# par préfixe le plus long, et rien de ce que la page demande ne commence par là.
+# Il n'y a donc plus rien à publier, et c'est mieux ainsi: la recette existait
+# pour empêcher de publier un site que personne n'avait reconstruit, et le seul
+# moyen sûr d'éviter ça est qu'il n'y ait pas d'étape de publication du tout.
 #
-# Les deux anciens ports continuent de répondre, délibérément: personne ne doit
+# L'ancien partage sur 8444 continue de répondre, délibérément: personne ne doit
 # retrouver un signet mort.
 docs-deploy: docs
-    sudo tailscale serve --bg --https=443 --set-path=/docs {{justfile_directory()}}/site
-    @echo "${NEL3AB_SITE_URL:-https://lgf.tail3bd01c.ts.net/docs/}"
+    @echo "${NEL3AB_SITE_URL:-https://nel3ab.app/docs/}"
 
 # Rebuild on every change, with a local preview. For writing, not for publishing.
 docs-watch:

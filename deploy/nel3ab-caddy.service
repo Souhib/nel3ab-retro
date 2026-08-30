@@ -1,0 +1,26 @@
+# La porte d'entrée TLS pour nel3ab.app. Voir deploy/Caddyfile.
+[Unit]
+Description=nel3ab TLS front door (nel3ab.app)
+Documentation=https://nel3ab.app/docs/
+# Après tailscaled, parce que Caddy se lie aux adresses du tailnet et que
+# celles-ci n'existent pas avant lui.
+After=network-online.target tailscaled.service
+Wants=network-online.target
+
+[Service]
+User=souhib
+Environment=HOME=/home/souhib
+# Le jeton Cloudflare, pour le renouvellement du certificat. Le fichier
+# appartient à l'utilisateur et n'est lisible que par lui.
+EnvironmentFile=/home/souhib/.config/nel3ab/cloudflare.env
+ExecStart=/usr/local/bin/caddy run --config /etc/caddy/Caddyfile
+ExecReload=/usr/local/bin/caddy reload --config /etc/caddy/Caddyfile --force
+# Pour se lier au port 443 sans être root.
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+Restart=always
+RestartSec=2
+# Un arrêt demandé n'est pas une panne. Voir les deux autres unités.
+SuccessExitStatus=143 SIGTERM
+
+[Install]
+WantedBy=multi-user.target

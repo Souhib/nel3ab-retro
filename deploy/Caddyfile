@@ -1,0 +1,69 @@
+# La porte d'entrée TLS de la salle, pour le domaine nel3ab.app.
+#
+# Pourquoi elle existe. Tailscale sait servir en HTTPS tout seul, sans entretien,
+# mais il n'émet de certificat que pour le nom de la machine dans le tailnet.
+# Pour un domaine à nous, il faut terminer le TLS soi-même, et c'est tout ce que
+# ce fichier fait: le même routage que `tailscale serve`, sous un autre nom.
+#
+# Le nom `.ts.net` continue de vivre sur son port 8443, servi par tailscaled.
+# Deux portes, deux mécanismes, et celle qui ne demande aucun entretien reste en
+# place: si le renouvellement du certificat casse ici, la salle reste joignable.
+
+{
+	# Pas de port d'administration: rien à joindre, rien à défendre.
+	admin off
+
+	# Pas de redirection HTTP, et donc pas de port 80 du tout.
+	#
+	# `.app` est un domaine préchargé en HSTS: les navigateurs refusent d'y
+	# parler en clair, quoi qu'on réponde. Une redirection depuis le port 80 ne
+	# servirait donc jamais, et ouvrir un port pour rien est un port de trop.
+	auto_https disable_redirects
+}
+
+nel3ab.app {
+	# Lié aux SEULES adresses de cette machine sur le tailnet.
+	#
+	# C'est la ligne la plus importante du fichier. Sans elle, Caddy écoute sur
+	# toutes les interfaces, donc aussi sur le réseau local et sur ce que la box
+	# expose. La salle n'a aucune authentification: elle est privée parce qu'elle
+	# n'est joignable que depuis le tailnet, et rien d'autre ne le tient.
+	#
+	# Les deux adresses viennent de `tailscale ip -4` et `tailscale ip -6`. Elles
+	# sont stables tant que la machine reste la même dans le tailnet; si elle est
+	# retirée puis rajoutée, elles changent et Caddy refusera de démarrer. Le
+	# message le dira, et c'est ici qu'il faut les corriger.
+	bind 100.104.234.37 fd7a:115c:a1e0::8901:eabc
+
+	# Le certificat par challenge DNS, et il ne peut pas en être autrement: la
+	# machine n'est joignable que depuis le tailnet, donc Let's Encrypt ne peut
+	# pas venir frapper à la porte pour un challenge HTTP.
+	tls {
+		dns cloudflare {env.CF_API_TOKEN}
+		resolvers 1.1.1.1
+	}
+
+	# La documentation, sous un préfixe. `handle_path` retire le `/docs` avant de
+	# chercher le fichier, ce que le site attend: ses liens sont relatifs.
+	handle_path /docs/* {
+		root * /home/souhib/nel3ab-retro/site
+		file_server
+	}
+
+	# Le salon: qui est là, quel jeu, quelle manette.
+	handle /api/* {
+		reverse_proxy 127.0.0.1:8200
+	}
+	handle /socket.io/* {
+		reverse_proxy 127.0.0.1:8200
+	}
+
+	# Et tout le reste au worker: la page, l'image, le son, les manettes, le clip.
+	#
+	# L'en-tête `Host` d'origine est conservé par défaut, et il faut qu'il le
+	# reste: le worker refuse une poignée de main WebSocket dont l'`Origin` ne
+	# correspond pas au `Host`, et le réécrire ferait tomber le jeu entier.
+	handle {
+		reverse_proxy 127.0.0.1:8100
+	}
+}

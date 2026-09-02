@@ -49,6 +49,10 @@ RestartSec=2
 # Quoted: the games have spaces in their names, which is what a person
 # reading a library expects to see.
 Environment="NEL3AB_ROM=/home/souhib/roms/gc/Super Smash Bros Melee.rvz"
+# Les bibliothèques, séparées par `:` comme un `PATH`. Une console par dossier,
+# parce que c'est ainsi que ces collections se rangent, et parce que le conteneur
+# monte le dossier du jeu qu'il lance: un dossier de plus ne coûte rien ailleurs.
+Environment="NEL3AB_ROM_DIR=/home/souhib/roms/gc:/home/souhib/roms/wii"
 # Le répertoire de session de Dolphin: sa configuration, ses sauvegardes, ses
 # tubes nommés.
 #

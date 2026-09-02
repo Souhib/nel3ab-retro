@@ -25,7 +25,12 @@ Wants=network-online.target
 [Service]
 User=souhib
 WorkingDirectory=/home/souhib/nel3ab-retro/control
-ExecStart=/home/souhib/.local/bin/uv run uvicorn nel3ab_control.app:app --host 127.0.0.1 --port 8200
+# `--forwarded-allow-ips` dit à uvicorn de QUI il a le droit de croire
+# `X-Forwarded-For`, et c'est la seule chose qui sépare « le proxy dit qui tu
+# es » de « tu dis qui tu es ». C'est la valeur par défaut d'uvicorn, écrite ici
+# parce qu'une règle d'identité qui repose sur un défaut implicite est une règle
+# qui change le jour d'une mise à jour, sans que personne ne le lise.
+ExecStart=/home/souhib/.local/bin/uv run uvicorn nel3ab_control.app:app --host 127.0.0.1 --port 8200 --forwarded-allow-ips 127.0.0.1
 Environment=HOME=/home/souhib
 # Un arrêt demandé n'est pas une panne.
 #
@@ -47,6 +52,17 @@ RestartSec=2
 # Where the worker is, and what to call the room.
 Environment=NEL3AB_WORKER_URL=http://127.0.0.1:8100
 Environment=NEL3AB_ROOM_NAME=lgf
+# La seule adresse qui peut publier la configuration de référence de la salle.
+#
+# Ici et pas dans la salle, délibérément. La salle a déjà un propriétaire, et il
+# ne convient pas: il change quand quelqu'un part, et depuis le 31 août 2026 il
+# se donne tout seul quand celui qui le tient s'absente trois minutes. Une
+# référence à laquelle on veut pouvoir revenir QUOI QU'IL ARRIVE ne peut pas
+# dépendre d'un titre qui tourne.
+#
+# Vide veut dire personne, et c'est le défaut: une salle déployée ailleurs n'a
+# pas de référence et se comporte comme avant.
+Environment=NEL3AB_ADMIN=souhib.t@hotmail.fr
 # Nothing about pads here on purpose: the worker reports how many the room has,
 # in `/roms`, because it is what tells Dolphin which ports hold a controller.
 # This file used to carry a second copy of that number, which had to agree with

@@ -51,6 +51,23 @@ nel3ab.app {
 	}
 
 	# Le salon: qui est là, quel jeu, quelle manette.
+	#
+	# Caddy écrit `X-Forwarded-For` avec l'adresse du pair, et c'est ce qui rend
+	# l'identité possible sous ce nom de domaine. Le nom `.ts.net` est servi par
+	# tailscaled, qui écrit lui-même les en-têtes d'identité; ici c'est Caddy qui
+	# sert, et il ne sait rien du tailnet. Le salon redemande donc à tailscaled
+	# qui se cache derrière cette adresse.
+	#
+	# Le passage à ce nom de domaine avait fait tomber l'identité SANS RIEN
+	# CASSER DE VISIBLE: la salle marchait, elle avait juste cessé de savoir qui
+	# était là, donc plus personne n'était propriétaire et n'importe qui pouvait
+	# changer le jeu de tout le monde.
+	#
+	# Ce que le client mettrait lui-même dans cet en-tête est APPENDU, pas cru:
+	# le serveur derrière ne retient que la dernière valeur, celle que Caddy vient
+	# d'écrire depuis la connexion qu'il a acceptée. Et Caddy n'accepte de
+	# connexion que sur les adresses du tailnet (voir `bind`), donc cette adresse
+	# est toujours une adresse du tailnet.
 	handle /api/* {
 		reverse_proxy 127.0.0.1:8200
 	}

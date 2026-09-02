@@ -118,7 +118,7 @@ clip-test:
 saves:
     #!/usr/bin/env bash
     set -euo pipefail
-    racine=~/.local/state/nel3ab/saves
+    racine="${NEL3AB_SESSION_DIR:-$HOME/.local/state/nel3ab/session}"/saves
     [ -d "$racine" ] || { echo "aucune sauvegarde pour l'instant"; exit 0; }
     for jeu in "$racine"/*/; do
         echo "$(basename "$jeu")"
@@ -145,7 +145,7 @@ saves:
 save-import jeu emplacement fichier:
     #!/usr/bin/env bash
     set -euo pipefail
-    dossier=~/.local/state/nel3ab/saves/{{jeu}}/{{emplacement}}
+    dossier="${NEL3AB_SESSION_DIR:-$HOME/.local/state/nel3ab/session}"/saves/{{jeu}}/{{emplacement}}
     case "{{emplacement}}" in
         neuve|debloquee) ;;
         *) echo "emplacement inconnu: {{emplacement}} (neuve ou debloquee)"; exit 1 ;;
@@ -167,7 +167,7 @@ save-import jeu emplacement fichier:
 save-reset jeu emplacement:
     #!/usr/bin/env bash
     set -euo pipefail
-    dossier=~/.local/state/nel3ab/saves/{{jeu}}/{{emplacement}}
+    dossier="${NEL3AB_SESSION_DIR:-$HOME/.local/state/nel3ab/session}"/saves/{{jeu}}/{{emplacement}}
     [ -d "$dossier" ] || { echo "rien à vider"; exit 0; }
     n=$(find "$dossier" -maxdepth 1 -name '*.gci' | wc -l)
     find "$dossier" -maxdepth 1 -name '*.gci' -delete
@@ -180,8 +180,60 @@ save-reset jeu emplacement:
 # vers l'emplacement choisi, et une erreur là ne donne pas une erreur. Elle
 # donne une partie qui écrase la mauvaise sauvegarde, ce qui ne se voit qu'une
 # fois trop tard.
+# Ouvre un `data.bin` de Wii et pose son contenu dans un emplacement.
+#
+# Ce qui circule pour une Wii est un export CHIFFRÉ de console, pas un fichier de
+# sauvegarde. Dolphin sait l'importer par son interface graphique, que cette
+# machine n'a pas. La clé est publique et le format documenté: voir l'en-tête de
+# `tools/wii-save-decode.py`, qui dit aussi les deux endroits où la documentation
+# ne colle pas à ce qu'on trouve dans les fichiers.
+#
+# `just saves` dit quels emplacements existent.
+wii-save-import export dossier:
+    python3 tools/wii-save-decode.py {{export}} {{dossier}}
+
+# La page et la salle sont-elles d\'accord sur ce qui peut être transporté ? Le
+# demi-format n'existe pas pour toutes les tailles d'image, et c'est un vrai
+# encodeur devant un vrai jeu qui le dit.
+formats-test:
+    cd spikes/m3-browser-drive && node formats.mjs
+
+# Les réglages de manette suivent-ils la personne ? Demande le worker ET le plan
+# de contrôle en marche, et une identité, donc le proxy devant.
+manettes-test:
+    cd spikes/m3-browser-drive && node manettes.mjs
+
 saves-test:
     cd spikes/m3-browser-drive && node saves.mjs
+
+# Les plans de manette: chaque pièce sur son boîtier, et une image à regarder.
+#
+# Ici et pas dans `check` parce qu'il faut un vrai rendu: `getBBox` et
+# `isPointInFill` n'existent pas dans jsdom, et l'oeil ne se triche pas. Le
+# premier script vérifie la GÉOMÉTRIE (rien ne pend hors de la coque), le second
+# écrit une capture dans /tmp/padmap-visuel.png pour la regarder. Ne compile
+# rien, ne parle à aucune salle: l'aperçu est servi par Vite tout seul.
+padmap-visuel:
+    cd spikes/m3-browser-drive && node padmap-visuel.mjs
+
+# Le banc d'essai, regardé et mesuré.
+#
+# Ici et pas dans `check` pour la même raison que l'aperçu des plans: ce qui se
+# juge ici ne se mesure pas en jsdom — un chiffre qui déborde de sa case, une
+# jauge trop fine pour se voir. Le contraste, lui, EST mesuré, et il l'est ici
+# plutôt que par `browser-contraste`: celui-là tape le worker en vie, donc la
+# page compilée dans son binaire, et ne voit pas un écran pas encore déployé.
+# Vite sert l'aperçu tout seul, aucune salle n'est touchée.
+banc-visuel:
+    cd spikes/m3-browser-drive && node banc-visuel.mjs /tmp/banc-visuel.png
+
+# Le même écran, mais contre la VRAIE salle et sa page déployée.
+#
+# Les deux ne regardent pas la même chose et c'est le point: `banc-visuel` voit
+# l'arbre de travail par Vite, celui-ci voit la page compilée dans le binaire du
+# worker. Quand les deux divergent, c'est qu'on a oublié de reconstruire.
+banc-reel:
+    cd spikes/m3-browser-drive && node banc.mjs http://localhost:8100/ /tmp/banc-reel.png
 
 # La sieste, jouée en vrai: la salle s'endort, on la réveille, et on lit ce que
 # le worker en a écrit.
@@ -416,6 +468,27 @@ browser-steal:
 # nothing. A test that only checked "the game changed" would pass just as well on
 # a page that switched on the first click, and what is being confirmed is the end
 # of everybody else's game.
+# Le contraste EFFECTIF de chaque texte, dans les trois coques.
+#
+# Ici et pas dans `check` parce qu'il faut un vrai rendu: l'opacité s'accumule
+# sur les ancêtres, le fond vient du premier ancêtre qui en peint un, et le
+# produit des deux n'apparaît dans aucun des fichiers où on l'écrit. Le 2
+# septembre 2026 il a trouvé 196 textes sous le seuil, dont l'état des quatre
+# manettes dans la colonne — ce qu'on regarde le plus souvent de la page.
+#
+# N'ARRÊTE PAS la partie: il ouvre le menu, il ne lance rien.
+browser-contraste:
+    cd spikes/m3-browser-drive && node contraste.mjs http://localhost:8100/
+
+# Ce que la page MONTRE pendant un changement de jeu.
+#
+# RESTARTS THE SESSION. Ici et pas dans `check` parce que ce qui est vérifié est
+# une IMAGE à l'écran: le défaut du 31 août 2026 laissait tous les compteurs
+# cohérents et montrait l'ancien jeu figé cinq secondes et demie. Aucun essai
+# unitaire ne peut voir ça, et c'est exactement pourquoi ce fichier existe.
+browser-loading:
+    cd spikes/m3-browser-drive && node loading.mjs http://localhost:8100/
+
 browser-games:
     cd spikes/m3-browser-drive && node games.mjs http://localhost:8100/
 

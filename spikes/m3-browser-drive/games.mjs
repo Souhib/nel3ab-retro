@@ -18,7 +18,6 @@ if (before.roms.length < 2) {
   console.log(`RIEN TESTÉ — il faut au moins deux jeux, la salle en a ${before.roms.length}`);
   process.exit(0);
 }
-const target = before.roms.findIndex((_, index) => index !== before.current);
 
 const browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox"] });
 const page = await browser.newPage();
@@ -58,25 +57,58 @@ if (boss && boss.seat !== held.mine) {
 // quand la page décode soixante images par seconde à côté.
 const press = (css) => page.evaluate((s) => document.querySelector(s)?.click(), css);
 await press("#openMenu");
-await new Promise((r) => setTimeout(r, 1200));
+await new Promise((r) => setTimeout(r, 1500));
 
-// Premier clic : il doit ARMER et rien de plus.
+// L'ÉTAGÈRE d'abord, et la cible choisie dans ce qu'elle montre.
+//
+// La bibliothèque a deux étages depuis qu'il y a des jeux Wii, et ce pilote
+// cliquait sur `#item-gameN` au premier niveau, où plus rien ne porte ce nom.
+// Il ne changeait donc plus de jeu du tout — et il passait quand même, parce
+// qu'il ne vérifiait « pas armé » que sur un élément absent. Trouvé le 31 août
+// 2026 en écrivant un autre pilote, pas en le voyant rouge.
+await press("#item-shelf-gc");
+await new Promise((r) => setTimeout(r, 900));
+const shown = await page.evaluate(() =>
+  [...document.querySelectorAll("[id^='item-game']")].map((n) => Number(n.id.slice(9))),
+);
+const target = shown.find((index) => index !== before.current);
+if (target === undefined) {
+  console.log(`RIEN TESTÉ — rien d'autre à lancer sur cette étagère (vu ${shown.join(", ")})`);
+  await browser.close();
+  process.exit(0);
+}
+
+// Premier clic : il ne doit RIEN lancer. Selon le jeu il arme ou il ouvre le
+// panneau des sauvegardes; ce qui compte est que la partie de tout le monde ne
+// s'arrête pas sur une seule pression.
 await press(`#item-game${target}`);
 await new Promise((r) => setTimeout(r, 1500));
-const armed = await page.evaluate(
-  (i) => document.getElementById(`item-game${i}`)?.textContent?.includes("confirmer") ?? false,
+const state = await page.evaluate(
+  (i) => ({
+    armed: document.getElementById(`item-game${i}`)?.textContent?.includes("confirmer") ?? false,
+    panel: document.querySelector('[id^="pick-"]') !== null,
+  }),
   target,
 );
 const afterOneClick = await roms();
-console.log(`  après un clic : ${armed ? "armé" : "PAS armé"}, jeu courant ${afterOneClick.current}`);
-if (!armed || afterOneClick.current !== before.current) {
-  console.log("FAIL — un seul clic a suffi, ou n'a pas armé");
+const asked = state.armed || state.panel;
+console.log(
+  `  après un clic : ${state.armed ? "armé" : state.panel ? "panneau ouvert" : "RIEN"}` +
+    `, jeu courant ${afterOneClick.current}`,
+);
+if (!asked || afterOneClick.current !== before.current) {
+  console.log("FAIL — un seul clic a suffi, ou n'a rien demandé du tout");
   await browser.close();
   process.exit(1);
 }
 
-// Deuxième clic : cette fois ça part.
-await press(`#item-game${target}`);
+// Deuxième geste : cette fois ça part. Le panneau se confirme par un choix, un
+// jeu sans sauvegardes par une deuxième pression.
+if (state.panel) {
+  await page.evaluate(() => document.querySelector('[id^="pick-"]')?.click());
+} else {
+  await press(`#item-game${target}`);
+}
 await new Promise((r) => setTimeout(r, 1500));
 await browser.close();
 

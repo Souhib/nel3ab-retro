@@ -39,8 +39,19 @@ const SNAPSHOTS = [
  * range ce qu'on ne veut pas expliquer.
  */
 const EXCUSED = new Map([
-  // (vide pour l'instant: les sept qui manquaient ont été affichés le
-  // 2026-08-17, et rien n'a encore justifié d'y échapper)
+  // Le coût de la sonde de luminosité, en millisecondes.
+  //
+  // Pas affiché parce qu'il vaut ZÉRO pendant une partie, par construction: la
+  // sonde ne tourne que dans les quinze secondes qui suivent un changement de
+  // jeu, donc une ligne « sonde 0,0 ms » occuperait le relevé en permanence pour
+  // ne rien dire. Mais le chiffre existe et se lit — c'est un pilote qui l'a lu,
+  // et c'est comme ça qu'on a su qu'une première version coûtait 15,1 ms au p95
+  // et faisait tomber le débit de 60 à 50 images par seconde.
+  //
+  // La règle du fichier reste la bonne: un compteur qu'on tient sans le montrer
+  // ne sert à personne. Celui-ci se montre à la demande, dans
+  // `just browser-loading`, et c'est ce qui justifie l'exception.
+  ["probeMs", "nul pendant une partie; lu par les pilotes, mesuré le 2026-08-31"],
 ]);
 
 const root = new URL(".", import.meta.url).pathname;

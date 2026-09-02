@@ -20,14 +20,16 @@ import { place, type Fit } from "../lib/fit";
 
 export function Screen({
   canvasRef,
-  connected,
   fit,
   picture,
   onSpace,
   onPrescale,
 }: {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
-  connected: boolean;
+  /** Gardé bien que non utilisé ici: la page s'en sert pour poser l'écran de
+   * chargement à la place de l'ancienne étiquette. Le retirer de la signature
+   * obligerait l'appelant à savoir que cet écran ne s'en soucie plus. */
+  connected?: boolean;
   /** Comment poser l'image. Séparé du format transporté: ce qu'on économise sur
    * le réseau n'a pas à décider de la taille qu'on regarde. */
   fit: Fit;
@@ -90,13 +92,11 @@ export function Screen({
           imageRendering: at.smooth ? "auto" : "pixelated",
         }}
       />
-      {connected ? null : (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <span className="border border-rule bg-panel/90 px-4 py-2 font-mono text-[12px] text-muted">
-            en attente de l'image
-          </span>
-        </div>
-      )}
+      {/* Il y avait ici une petite étiquette « en attente de l'image ». Elle
+          disait vrai et n'aidait personne: quand la salle n'envoie plus rien, ce
+          qu'on veut lire est CE QUI ARRIVE, pas qu'il n'y a rien. L'écran de
+          chargement le dit, avec le nom du jeu, et c'est la page qui le pose —
+          voir `App`, où la même absence d'image le déclenche. */}
     </div>
   );
 }

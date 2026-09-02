@@ -20,7 +20,7 @@ const SAID: Record<Step, string> = {
   painting: "première image",
 };
 
-export function Booting({ game, step }: { game: string; step: Step }) {
+export function Booting({ game, save, step }: { game: string; save?: string; step: Step }) {
   const steps: Step[] = ["asked", "waiting", "painting"];
   const reached = steps.indexOf(step);
 
@@ -34,6 +34,11 @@ export function Booting({ game, step }: { game: string; step: Step }) {
           chargement
         </span>
         <h2 className="max-w-[70vw] truncate text-center text-[22px] text-text">{game}</h2>
+        {/* Sur quelle sauvegarde on part. Le choix se fait juste avant, puis
+            l'écran devient noir pour une dizaine de secondes: sans ce rappel, la
+            seule façon de savoir ce qu'on a choisi est d'attendre le jeu et de
+            regarder. */}
+        {save ? <p className="text-[12px] text-faint">sur « {save} »</p> : null}
       </div>
 
       {/* Quatre prises qui s'allument l'une après l'autre. Ce n'est pas une

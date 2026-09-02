@@ -155,6 +155,7 @@ export function exposeNothingYet(): void {
     soundGaps: 0,
     roundTripMs: null as number | null,
     padOnly: false,
+    port: null as number | null,
   });
   anyWindow.nel3abTest = {
     counters: nothing,
@@ -176,6 +177,8 @@ export function exposeNothingYet(): void {
       heldP95: 0,
       pictureW: 0,
       pictureH: 0,
+      probeP95: 0,
+      probeMax: 0,
       skipped: 0,
       room: 0,
     }),
@@ -231,6 +234,12 @@ export function exposeForTests(session: Session): void {
         // pas seulement affiché. Nul veut dire « pas encore », jamais zéro.
         roundTripMs: shot.input.roundTripMs,
         padOnly: shot.padOnly,
+        // La place tenue, parce que la règle du worker est par PLACE: seul le
+        // siège propriétaire change le jeu. Un pilote qui ne peut pas la lire
+        // compare des identités à la place, dit « je peux » à un deuxième onglet
+        // de la même personne, et rate ensuite pour une raison qui n'est pas un
+        // défaut. Nul veut dire « aucune », jamais zéro.
+        port: shot.input.port,
       };
     },
     pacing: () => {
@@ -253,6 +262,8 @@ export function exposeForTests(session: Session): void {
         heldP95: shot.video.heldRefreshes.p95,
         pictureW: shot.video.picture.width,
         pictureH: shot.video.picture.height,
+        probeP95: shot.video.probeMs.p95,
+        probeMax: shot.video.probeMs.max,
         skipped: shot.video.skipped,
         room: shot.video.room,
       };

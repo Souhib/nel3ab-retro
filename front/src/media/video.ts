@@ -52,6 +52,37 @@ const KEY_FRAME_PLEASE = 1;
 
 type Held = { frame: VideoFrame; capturedMs: number; decodedAt: number };
 
+/** Combien d'images entre deux sondes de luminosité.
+ *
+ * Trente, soit deux mesures par seconde à soixante images. La relecture force
+ * une synchronisation avec la carte graphique; la faire à chaque image serait
+ * payer soixante fois pour une réponse qui change en secondes.
+ */
+const PROBE_EVERY = 30;
+
+/** La taille de la toile de sonde. Huit sur huit: soixante-quatre pixels
+ * suffisent à distinguer du noir d'une image, et une relecture de 256 octets est
+ * ce qu'on peut demander de plus petit sans que le coût soit la synchronisation
+ * elle-même. */
+const PROBE_SIDE = 8;
+
+/** À partir de quelle luminosité moyenne on considère qu'il y a une image.
+ *
+ * Vingt-quatre sur 255, mesuré le 31 août 2026 sur la vraie salle: un jeu qui
+ * tourne donne 109, et le démarrage de Dolphin donne moins de 12. Le seuil est
+ * au dixième de l'échelle, loin des deux.
+ */
+const DARK_LEVEL = 24;
+
+/** Combien d'images du nouveau flux on sonde avant d'abandonner.
+ *
+ * Neuf cents, soit quinze secondes. Un jeu a le droit de commencer sur du noir —
+ * une introduction, un fondu — et un écran de chargement qui ne partirait jamais
+ * serait pire que celui qui part trop tôt. Le plafond de soixante secondes du
+ * côté de la page reste, celui-ci ne fait qu'arrêter de PAYER la sonde.
+ */
+const PROBE_WINDOW = 900;
+
 export type VideoStats = {
   painted: number;
   shown: number;
@@ -64,6 +95,29 @@ export type VideoStats = {
   skipped: number;
   connected: boolean;
   reconnects: number;
+  /** Images peintes DEPUIS la dernière reconnexion.
+   *
+   * `painted` compte depuis l'ouverture de la page et ne repart jamais à zéro.
+   * Il ne sert donc à rien pour répondre à « le nouveau flux est-il arrivé ? »:
+   * l'ancien en peint encore soixante avant que sa socket ne tombe. */
+  paintedSince: number;
+  /** Vrai quand un redémarrage a été DEMANDÉ et n'est pas encore arrivé.
+   *
+   * Dit par la page, pas deviné: changer de jeu arrête le worker, mais pas dans
+   * la seconde, et l'ancien flux continue de peindre pendant ce temps. Aucun
+   * compteur ne distingue « il peint encore l'ancien jeu » de « le nouveau est
+   * arrivé », et les deux heuristiques essayées — trente images, une
+   * reconnexion — se trompaient toutes les deux. Celui qui SAIT qu'un
+   * redémarrage arrive est celui qui l'a demandé. */
+  awaitingRestart: boolean;
+  /** L'image est-elle encore noire, dans la fenêtre où la question se pose ?
+   *
+   * Faux pendant une partie: la sonde ne tourne pas, donc il n'y a pas de
+   * réponse, et une absence de réponse ne doit pas retenir un écran. */
+  dark: boolean;
+  /** Ce que la sonde coûte, en millisecondes. Publié pour que ce soit vérifiable
+   * plutôt que promis. */
+  probeMs: { p50: number; p95: number; max: number };
   heldRefreshes: { p05: number; p50: number; p95: number };
   waitMs: { p50: number; p95: number };
   gapMs: { p50: number; p95: number; max: number };
@@ -80,6 +134,8 @@ export type VideoStats = {
   picture: { width: number; height: number };
   /** Vrai quand cette page prend le flux réduit. */
   half: boolean;
+  /** La salle a refusé le demi-format pour l'image de ce jeu. */
+  halfDenied: boolean;
   /** À quelle cadence la SOURCE produit, lue sur les instants de capture. Un jeu
    * PAL donne 50; une liaison lente ne la fait pas baisser. */
   sourceHz: number;
@@ -144,6 +200,16 @@ export class VideoStream {
   private readonly sourceGaps = new Window(600);
   private lastCaptured: number | null = null;
   private readonly holds = new Window(240);
+  /** Ce que la sonde de luminosité coûte, en millisecondes. Voir `sampleDark`. */
+  private readonly probeMs = new Window(240);
+  /** La toile minuscule où l'image est réduite pour être lue. */
+  private readonly probe = document.createElement("canvas");
+  /** Luminosité moyenne de la dernière image sondée, de 0 à 255. */
+  private darkness = 255;
+  /** Combien d'images depuis la dernière sonde. */
+  private sinceProbe = 0;
+  /** Sonde-t-on en ce moment ? Faux pendant une partie, et c'est TOUT le sujet. */
+  private probing = false;
   private readonly waits = new Window(240);
   private readonly refreshes = new Window(120);
 
@@ -200,10 +266,15 @@ export class VideoStream {
   private stalls = 0;
   private restarts = 0;
   private reconnects = 0;
+  /** Où en était `painted` à la dernière reconnexion. Voir `paintedSince`. */
+  private paintedAtConnect = 0;
+  private awaiting = false;
   private keyFramesAsked = 0;
   private calmWindows = 0;
 
   private timers: number[] = [];
+  /** La reconnexion programmée, s'il y en a une. Voir `connect`. */
+  private reconnectIn: number | null = null;
 
   private readonly canvas: HTMLCanvasElement;
   private readonly url: (path: string) => string;
@@ -214,12 +285,66 @@ export class VideoStream {
   }
 
   start(): void {
+    // Demander d'abord ce que la salle sait produire, et ne le demander que si
+    // ça peut changer quelque chose. Le plein format existe toujours.
+    if (this.half) void this.checkFormat();
     this.connect();
     requestAnimationFrame(this.paint);
     this.timers.push(
       window.setInterval(this.watchSilence, 500),
       window.setInterval(this.watchDecoder, 500),
     );
+  }
+
+  /**
+   * Le demi-format existe-t-il pour l'image de ce jeu ?
+   *
+   * Il n'existe pas pour toutes les tailles: l'encodeur veut un nombre entier de
+   * macroblocs de seize, et la moitié de 912 n'en est pas un. Une salle sans
+   * petit flux démarre quand même, et c'est le bon choix — mais une page restée
+   * sur ce réglage recevait alors ZÉRO image en gardant le son, donc un écran
+   * noir que rien n'expliquait. Ni le rechargement ni le vidage du cache n'y
+   * changeaient quoi que ce soit, puisque le réglage vit dans le navigateur.
+   *
+   * Trois réponses, pas deux. `503` veut dire « pas encore su »: la taille de
+   * l'image n'est connue qu'une seconde après le démarrage de la salle, et
+   * basculer sur un « non » prématuré changerait le réglage de quelqu'un sans
+   * qu'il l'ait demandé. On redemande une fois, puis on laisse tomber: le pire
+   * cas est alors celui d'avant, et il se corrige d'un clic.
+   */
+  private async checkFormat(tries = 3): Promise<void> {
+    for (let attempt = 0; attempt < tries; attempt++) {
+      try {
+        const answer = await fetch("/formats", { cache: "no-store" });
+        if (answer.ok) {
+          const said = (await answer.json()) as { half?: boolean };
+          if (said.half === false && this.half) {
+            this.deniedHalf = true;
+            this.setHalf(false);
+          }
+          return;
+        }
+        if (answer.status !== 503) return;
+      } catch {
+        return; // Salle injoignable: la vidéo dira elle-même qu'elle ne vient pas.
+      }
+      await new Promise((wake) => setTimeout(wake, 700));
+    }
+  }
+
+  /** Vrai quand la salle a refusé le demi-format pour ce jeu.
+   *
+   * Gardé pour que la page puisse le DIRE. Un réglage qui se remet tout seul
+   * sans un mot se lit comme un réglage qui n'a pas pris, et la personne le
+   * remet — sur un flux qui n'existe toujours pas. */
+  deniedHalf = false;
+
+  /** Prévient que la salle va redémarrer, donc que ce flux va s'arrêter.
+   *
+   * Appelé par la page au moment où elle demande un autre jeu. Sans ça, rien ne
+   * permet de savoir si les images qui arrivent sont encore celles d'avant. */
+  expectRestart(): void {
+    this.awaiting = true;
   }
 
   stop(): void {
@@ -272,6 +397,17 @@ export class VideoStream {
       skipped: this.skipped,
       connected: this.connected,
       reconnects: this.reconnects,
+      awaitingRestart: this.awaiting,
+      paintedSince: this.painted - this.paintedAtConnect,
+      // Le SEUIL vit ici, avec la mesure qui l'a fixé. La page demande « est-ce
+      // encore noir », pas « quelle luminosité »: sinon le nombre et sa
+      // signification finiraient dans deux fichiers.
+      //
+      // Faux dès qu'on ne sonde plus, quelle que soit la dernière valeur: hors
+      // de la fenêtre de chargement la question n'a pas de réponse, et « pas de
+      // réponse » ne doit jamais retenir un écran de chargement.
+      dark: this.probing && this.darkness <= DARK_LEVEL,
+      probeMs: { p50: this.probeMs.at(0.5), p95: this.probeMs.at(0.95), max: this.probeMs.at(1) },
       heldRefreshes: {
         p05: this.holds.at(0.05),
         p50: this.holds.at(0.5),
@@ -283,6 +419,7 @@ export class VideoStream {
       room: this.queueRoom(),
       picture: this.decoded,
       half: this.half,
+      halfDenied: this.deniedHalf,
       sourceHz: 1000 / this.sourcePeriodMs(),
       refreshHz: 1000 / this.refreshPeriod(),
       backlog: this.decoder?.decodeQueueSize ?? 0,
@@ -421,6 +558,12 @@ export class VideoStream {
 
   private connect(insist = false): void {
     void insist;
+    // Une seule reconnexion en vol. La deuxième ne remplaçait pas la première,
+    // elle s'ajoutait.
+    if (this.reconnectIn !== null) {
+      window.clearTimeout(this.reconnectIn);
+      this.reconnectIn = null;
+    }
     const socket = new WebSocket(this.url(this.half ? "/video?half=1" : "/video"));
     socket.binaryType = "arraybuffer";
     this.socket = socket;
@@ -431,6 +574,16 @@ export class VideoStream {
     socket.onclose = () => {
       if (this.socket !== socket) return;
       this.connected = false;
+      // Le format a pu changer SOUS la page: changer de jeu change la taille de
+      // l'image, et le demi-format n'existe pas pour toutes les tailles.
+      //
+      // Sans cette ligne, une page en format réduit qui traverse un changement
+      // de jeu redemande à l'infini un flux que la salle ne produit plus. Elle
+      // garde le son, qui passe par une autre socket, et reste sur son écran de
+      // chargement. Seul un rechargement la réparait, parce que la question
+      // n'était posée qu'au démarrage. Mesuré le 30 août 2026: 699 images
+      // peintes avant le changement, 702 après, et plus rien.
+      if (this.half) void this.checkFormat();
       // The decoder is bound to a stream that has ended; the next one starts
       // from its own key frame with its own configuration.
       this.decoder?.close();
@@ -438,12 +591,40 @@ export class VideoStream {
       this.decoderGoneSince = null;
       this.lastOutput = null;
       this.reconnects += 1;
-      window.setTimeout(() => this.connect(), 500);
+      this.paintedAtConnect = this.painted;
+      // Le redémarrage demandé est arrivé: c'est cette socket-ci qui tombe.
+      this.awaiting = false;
+      // On rouvre la sonde pour le flux qui vient: c'est la seule fenêtre où
+      // « l'image est-elle encore noire » a une réponse utile. Zéro par défaut,
+      // parce qu'on ne sait pas encore, et « on ne sait pas » doit se comporter
+      // comme « c'est noir »: sinon l'écran de chargement partirait avant la
+      // première mesure.
+      this.darkness = 0;
+      this.probing = true;
+      this.sinceProbe = 0;
+      // Gardée, pour pouvoir l'annuler: sans ça, une reconnexion demandée
+      // ailleurs pendant cette demi-seconde en ouvre une DEUXIÈME.
+      this.reconnectIn = window.setTimeout(() => this.connect(), 500);
     };
     socket.onerror = () => {
       if (this.socket === socket) socket.close();
     };
-    socket.onmessage = (event) => this.onMessage(event);
+    socket.onmessage = (event) => {
+      // La socket qui parle doit être CELLE qu'on écoute.
+      //
+      // `onclose` le vérifiait déjà, `onmessage` non, et pendant longtemps ça ne
+      // s'est pas vu: il n'y avait jamais qu'une socket à la fois. Le jour où
+      // deux ont coexisté une seconde — une reconnexion programmée qui croise un
+      // changement de format — les deux ont nourri le MÊME décodeur, avec deux
+      // suites d'images indépendantes. Le décodeur avale l'image-clé, meurt sur
+      // la suivante, redémarre, recommence: trente morts en une minute, une
+      // dizaine d'images peintes, et l'écran de chargement qui ne part jamais.
+      //
+      // Une image de la mauvaise suite ne donne pas une erreur qu'on peut lire:
+      // elle donne « Decoding error » et rien d'autre.
+      if (this.socket !== socket) return;
+      this.onMessage(event);
+    };
   }
 
   /** Closes a socket, and does not trust it to close. */
@@ -665,12 +846,65 @@ export class VideoStream {
       ink.imageSmoothingEnabled = times === 1;
       ink.drawImage(next.frame, 0, 0, this.canvas.width, this.canvas.height);
     }
+    this.sampleDark(next.frame);
     next.frame.close();
     this.painted += 1;
     if (this.shownAt !== null) this.holds.push(this.ticks - this.shownAt);
     this.shownAt = this.ticks;
     this.waits.push(now - next.decodedAt);
   };
+
+  /**
+   * « L'image est-elle encore noire ? », mesuré plutôt que supposé.
+   *
+   * # Pourquoi il a fallu lire des pixels
+   *
+   * La taille de l'image encodée était le candidat gratuit: une image noire se
+   * compresse en presque rien. Mesuré le 31 août 2026 sur un vrai changement de
+   * jeu, et l'idée est morte: un menu FIXE et clair pèse 48 octets comme un
+   * écran noir, parce que le codec mesure le MOUVEMENT et pas la lumière. Les
+   * images claires vont de 48 à 28 000 octets selon ce qui bouge, donc aucun
+   * seuil ne sépare quoi que ce soit.
+   *
+   * # Ce que ça coûte
+   *
+   * Une réduction à 8x8 puis une relecture de 256 octets, une image sur trente,
+   * soit deux fois par seconde. `probeMs` publie ce que ça prend vraiment, pour
+   * que le coût soit une mesure et pas une promesse.
+   *
+   * Une image sur trente et pas chaque image: la relecture force une
+   * synchronisation avec la carte graphique, et c'est le genre de chose qui ne
+   * se voit pas sur une machine rapide et fait tomber une image sur deux
+   * ailleurs. Deux mesures par seconde suffisent largement pour un écran de
+   * chargement.
+   */
+  private sampleDark(frame: VideoFrame): void {
+    if (!this.probing) return;
+    // Assez vu: l'image n'est plus noire, ou le nouveau flux peint depuis quinze
+    // secondes. Dans les deux cas la question ne se pose plus, et continuer de
+    // payer une synchronisation deux fois par seconde pour rien serait le défaut
+    // qu'on vient justement de mesurer.
+    if (this.darkness > DARK_LEVEL || this.painted - this.paintedAtConnect > PROBE_WINDOW) {
+      this.probing = false;
+      return;
+    }
+    this.sinceProbe += 1;
+    if (this.sinceProbe < PROBE_EVERY) return;
+    this.sinceProbe = 0;
+    const started = performance.now();
+    this.probe.width = PROBE_SIDE;
+    this.probe.height = PROBE_SIDE;
+    const ink = this.probe.getContext("2d", { willReadFrequently: true });
+    if (!ink) return;
+    ink.drawImage(frame, 0, 0, PROBE_SIDE, PROBE_SIDE);
+    const pixels = ink.getImageData(0, 0, PROBE_SIDE, PROBE_SIDE).data;
+    let sum = 0;
+    for (let at = 0; at < pixels.length; at += 4) {
+      sum += (pixels[at] ?? 0) + (pixels[at + 1] ?? 0) + (pixels[at + 2] ?? 0);
+    }
+    this.darkness = sum / (PROBE_SIDE * PROBE_SIDE * 3);
+    this.probeMs.push(performance.now() - started);
+  }
 
   /** Grows the slack when the picture starves, and earns it back when it does
    * not. It was a whole frame, set once and never given back — felt at the

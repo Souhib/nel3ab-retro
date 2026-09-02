@@ -6,7 +6,15 @@
  * by frame with a real gamepad. Feeding snapshots to a function instead makes
  * that a unit test, and the same defect could not survive it.
  */
-import { BUTTON, CONTROLS, MOVED, type ButtonName, type Control, type PadProfile } from "./pad";
+import {
+  BUTTON,
+  CONTROLS,
+  MOVED,
+  controlsFor,
+  type ButtonName,
+  type Control,
+  type PadProfile,
+} from "./pad";
 
 /** What the pad reports right now, flattened so a step can compare "before"
  * with "now" without caring what kind of control moved. */
@@ -67,7 +75,10 @@ export function furthest(
   now.buttons.forEach((value, index) => {
     const moved = Math.abs(value - (neutral.buttons[index] ?? 0));
     if (moved > MOVED && (best === null || moved > best.moved)) {
-      best = { control: { button: index }, value, moved };
+      // Le repos voyage AVEC la commande. Sans lui, un adaptateur qui pose sa
+      // gâchette à 0,6 au repos donne un bouton tenu pendant toute la partie, et
+      // rien en aval ne peut plus le rattraper: l'instantané neutre n'est qu'ici.
+      best = { control: { button: index, rest: neutral.buttons[index] ?? 0 }, value, moved };
     }
   });
   now.axes.forEach((value, index) => {
@@ -111,17 +122,25 @@ export class Lesson {
    * each answer was the bug: the sample was taken while the button was still
    * down, so RELEASING it moved just as far as pressing and answered the next
    * question. One press of A took the counter from 1 to 3. */
-  constructor(id: string, neutral: Snapshot) {
+  /** Les questions, nommées pour la console qu'on joue.
+   *
+   * La manette apprise est la même — la page envoie toujours la même trame — mais
+   * personne ne cherche « le bouton X » sur une Wiimote. Ce sont les mots qui
+   * changent, pas ce qu'on enregistre. */
+  private readonly steps: { key: StepKey; ask: string }[];
+
+  constructor(id: string, neutral: Snapshot, console = "gc", pad: 0 | 1 | 2 = 0) {
     this.neutral = neutral;
     this.profile = { id, buttons: {}, triggers: {}, sticks: {} };
+    this.steps = controlsFor(console, pad).map(({ key, ask }) => ({ key, ask }));
   }
 
   get done(): boolean {
-    return this.step >= STEPS.length;
+    return this.step >= this.steps.length;
   }
 
   get asking(): string {
-    return this.done ? "" : STEPS[this.step].ask;
+    return this.done ? "" : (this.steps[this.step]?.ask ?? "");
   }
 
   learned(): PadProfile {
@@ -145,7 +164,7 @@ export class Lesson {
     const best = furthest(this.neutral, now);
     if (best === null) return false;
 
-    const { key } = STEPS[this.step];
+    const { key } = this.steps[this.step];
     if (key === "L" || key === "R") {
       this.profile.triggers[key] = best.control;
     } else if (key === "x" || key === "y" || key === "cx" || key === "cy") {
@@ -155,6 +174,9 @@ export class Lesson {
         this.profile.sticks[key] = {
           axis: best.control.axis,
           sign: best.value >= best.control.rest ? 1 : -1,
+          // Un stick de GameCube ne revient pas au centre. Le garder ici est ce
+          // qui évite un personnage qui marche tout seul pendant tout un match.
+          rest: best.control.rest,
         };
       }
     } else {

@@ -11,6 +11,8 @@
 import { describe, expect, it } from "vitest";
 import {
   BUTTON,
+  CONTROLS,
+  controlsFor,
   DEFAULT_KEYS,
   readKeys,
   readPad,
@@ -154,6 +156,70 @@ describe("un profil appris", () => {
     const idle = read(none, rest);
     expect([idle.l, idle.r, idle.buttons]).toEqual([0, 0, 0]);
   });
+
+  // Le même piège, sur le stick, et c'est celui qui gâche une partie: un stick de
+  // GameCube ne revient PAS à zéro. Sans repos, la page pousse le personnage dans
+  // cette direction en permanence, et il court tout seul du début à la fin.
+  it("un stick qui ne revient pas à zéro est quand même au repos", () => {
+    const drifting: PadProfile = {
+      ...profile,
+      sticks: {
+        x: { axis: 0, sign: 1, rest: 0.25 },
+        y: { axis: 1, sign: -1, rest: -0.3 },
+        cx: { axis: 2, sign: 1, rest: 0.4 },
+        cy: { axis: 3, sign: -1, rest: 0 },
+      },
+    };
+    const idle = readPad(pad(none, [0.25, -0.3, 0.4, 0], "", "adapter"), drifting);
+
+    expect([idle.x, idle.y, idle.cx, idle.cy]).toEqual([0, 0, 0, 0]);
+  });
+
+  it("et il pousse encore quand on le pousse vraiment", () => {
+    // Le jumeau: centrer sur le repos ne doit pas rendre le stick sourd, sinon on
+    // aurait échangé un personnage qui court tout seul contre un qui ne bouge plus.
+    const drifting: PadProfile = {
+      ...profile,
+      sticks: { ...profile.sticks, x: { axis: 0, sign: 1, rest: 0.25 } },
+    };
+    const pushed = readPad(pad(none, [1, 0, 0, 0], "", "adapter"), drifting);
+
+    expect(pushed.x).toBeGreaterThan(0.9);
+  });
+
+  // Et le troisième endroit où le repos comptait: une commande posée sur un
+  // BOUTON. Un adaptateur qui présente une gâchette ainsi lui donne une valeur
+  // au repos, et rien ne la soustrayait: la page envoyait 89 sur 255 en
+  // permanence, c'est-à-dire un frein tiré au tiers pendant tout le match.
+  //
+  // Le seuil compte ici: au-dessus de 0,5 de repos, il resterait moins de 0,5 de
+  // course, et la leçon ne saurait plus apprendre la commande du tout. Le cas
+  // qui existe vraiment est donc le repos PARTIEL, et c'est celui qu'on fixe.
+  it("une gâchette posée sur un bouton lit zéro au repos, pas un tiers", () => {
+    const partial: PadProfile = {
+      ...profile,
+      triggers: { ...profile.triggers, L: { button: 6, rest: 0.35 } },
+    };
+    const idle = [...none];
+    idle[6] = 0.35;
+
+    expect(readPad(pad(idle, rest, "", "adapter"), partial).l).toBe(0);
+  });
+
+  it("et elle va bien jusqu'au bout quand on l'écrase", () => {
+    // Le jumeau: soustraire le repos ne doit pas raboter la course utile, sinon
+    // la gâchette n'atteindrait jamais son clic de fin.
+    const partial: PadProfile = {
+      ...profile,
+      triggers: { ...profile.triggers, L: { button: 6, rest: 0.35 } },
+    };
+    const held = [...none];
+    held[6] = 1;
+    const crushed = readPad(pad(held, rest, "", "adapter"), partial);
+
+    expect(crushed.l).toBe(255);
+    expect(crushed.buttons & BUTTON.L).not.toBe(0);
+  });
 });
 
 /**
@@ -269,5 +335,70 @@ describe("fondre deux lectures", () => {
     const pushed = at({ buttons: 0b1000, x: 0.7, r: 0.5 });
     expect(merge(at(), pushed)).toEqual(pushed);
     expect(merge(pushed, at())).toEqual(pushed);
+  });
+});
+
+describe("les commandes nommées pour ce qu'on tient", () => {
+  it("garde les noms GameCube sur un jeu GameCube", () => {
+    const said = controlsFor("gc", 2).map((one) => one.label);
+
+    expect(said).toContain("A");
+    expect(said).not.toContain("verte");
+  });
+
+  it("garde les noms GameCube quand on tient une manette GameCube sur un jeu Wii", () => {
+    // Le worker écrit alors un fichier de manette GameCube: demander « le bouton
+    // A de la Wiimote » à quelqu'un qui tient une manette GameCube serait faux.
+    expect(controlsFor("wii", 0).map((one) => one.label)).toContain("A");
+  });
+
+  it("dit Wiimote et guitare avec des mots DIFFÉRENTS", () => {
+    // Le jumeau qui compte: une fonction qui rendrait toujours la même table
+    // passerait tous les essais positifs et laisserait la guitare sans ses
+    // frettes. Ce qui est vérifié est que les trois profils se distinguent.
+    const gc = controlsFor("wii", 0)
+      .map((one) => one.label)
+      .join(" ");
+    const wii = controlsFor("wii", 1)
+      .map((one) => one.label)
+      .join(" ");
+    const guitar = controlsFor("wii", 2)
+      .map((one) => one.label)
+      .join(" ");
+
+    expect(new Set([gc, wii, guitar]).size).toBe(3);
+    expect(wii).toContain("1");
+    // La secousse a remplacé « moins ». Sans cette ligne, personne ne verrait
+    // qu'un bouton a changé de sens, et on chercherait « moins » à l'écran.
+    expect(wii).toContain("secouer");
+    expect(wii).not.toContain("−");
+    expect(guitar).toContain("verte");
+  });
+
+  it("nomme les cinq frettes et le grattage", () => {
+    const said = controlsFor("wii", 2);
+    const label = (key: string) => said.find((one) => one.key === key)?.label;
+
+    expect([label("A"), label("B"), label("X"), label("Y"), label("Z")]).toEqual([
+      "verte",
+      "rouge",
+      "jaune",
+      "bleue",
+      "orange",
+    ]);
+    expect(label("D_UP")).toBe("gratter ↑");
+    expect(label("D_DOWN")).toBe("gratter ↓");
+  });
+
+  it("garde les seize commandes quoi qu'on tienne", () => {
+    // Renommer ne doit rien perdre. Une table partielle mal appliquée
+    // laisserait l'écran des touches avec des lignes en moins, donc des
+    // commandes que personne ne peut plus assigner.
+    for (const held of [0, 1, 2] as const) {
+      expect(controlsFor("wii", held)).toHaveLength(CONTROLS.length);
+      expect(controlsFor("wii", held).map((one) => one.key)).toEqual(
+        CONTROLS.map((one) => one.key),
+      );
+    }
   });
 });

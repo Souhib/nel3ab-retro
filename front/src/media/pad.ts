@@ -51,6 +51,85 @@ export const CONTROLS = [
 
 export type ControlKey = (typeof CONTROLS)[number]["key"];
 
+/** Les mêmes seize commandes, dites comme une Wiimote les nomme.
+ *
+ * # Pourquoi ce n'est pas un deuxième profil
+ *
+ * La page envoie toujours la même trame: douze boutons, deux sticks, deux
+ * gâchettes. C'est Dolphin qui la relit ensuite comme une manette GameCube OU
+ * comme une Wiimote, selon le fichier de correspondances qu'on lui écrit — les
+ * deux à la fois, sur le même tuyau. Une personne n'a donc qu'UNE manette à
+ * apprendre, et ce sont les mots qui changent.
+ *
+ * L'apprendre deux fois serait pire que redondant: il faudrait se souvenir
+ * laquelle des deux vaut pour le jeu qu'on lance.
+ *
+ * # Ce qui n'a pas de nom ici
+ *
+ * Le bouton Home et le bouton « moins ». Une Wiimote plus un Nunchuk comptent
+ * treize boutons, notre trame en porte douze, et la secousse en demandait un
+ * quatorzième; voir `emulator::config::wiimote_ini`, qui dit lesquels on
+ * sacrifie et pourquoi.
+ */
+const WII_NAMES: Partial<Record<ControlKey, { label: string; ask: string }>> = {
+  A: { label: "A", ask: "le bouton A de la Wiimote" },
+  B: { label: "B", ask: "le bouton B, la gâchette sous la Wiimote" },
+  X: { label: "1", ask: "le bouton 1" },
+  Y: { label: "2", ask: "le bouton 2" },
+  // « Moins » a laissé sa place à la secousse: notre trame porte douze boutons
+  // et une Wiimote avec son Nunchuk en demande treize, Home déjà sacrifié. Le
+  // besoin est concret — Mario Strikers Charged met les coups d'épaule sur une
+  // secousse, et ils sont différents des tacles. Voir `emulator::config`.
+  Z: { label: "secouer", ask: "de quoi SECOUER la Wiimote" },
+  START: { label: "+", ask: "le bouton plus" },
+  L: { label: "C", ask: "le bouton C du Nunchuk" },
+  R: { label: "Z", ask: "le bouton Z du Nunchuk" },
+  x: { label: "stick →", ask: "le stick du Nunchuk à DROITE" },
+  y: { label: "stick ↑", ask: "le stick du Nunchuk en HAUT" },
+  cx: { label: "viser →", ask: "de quoi viser à DROITE" },
+  cy: { label: "viser ↑", ask: "de quoi viser en HAUT" },
+};
+
+/** Les mêmes commandes, dites comme une guitare les nomme.
+ *
+ * Les cinq frettes sur les cinq boutons, le grattage sur la croix haut et bas.
+ * C'est la disposition des jeux de guitare sur clavier, et la seule qui tienne:
+ * notre trame porte douze boutons, une guitare en demande cinq plus deux.
+ *
+ * Ce qui n'a pas de nom ici est ce que la guitare n'a pas. Une croix gauche et
+ * droite, par exemple: elle n'en a pas, donc la ligne garde son nom de manette
+ * plutôt que d'inventer un mot pour rien.
+ */
+const GUITAR_NAMES: Partial<Record<ControlKey, { label: string; ask: string }>> = {
+  A: { label: "verte", ask: "la frette VERTE" },
+  B: { label: "rouge", ask: "la frette ROUGE" },
+  X: { label: "jaune", ask: "la frette JAUNE" },
+  Y: { label: "bleue", ask: "la frette BLEUE" },
+  Z: { label: "orange", ask: "la frette ORANGE" },
+  D_UP: { label: "gratter ↑", ask: "gratter vers le HAUT" },
+  D_DOWN: { label: "gratter ↓", ask: "gratter vers le BAS" },
+  START: { label: "+", ask: "le bouton plus" },
+  L: { label: "−", ask: "le bouton moins" },
+  cx: { label: "vibrato", ask: "la barre de vibrato, poussée à fond" },
+};
+
+/** Les commandes, nommées pour ce qu'on tient.
+ *
+ * La console ne suffit pas: sur un jeu Wii on peut tenir une Wiimote ou une
+ * guitare, et ce ne sont pas les mêmes mots. Rien ne change dans ce qu'on
+ * envoie, seulement dans ce qu'on demande à la personne.
+ */
+export function controlsFor(console: string, pad: 0 | 1 | 2 = 0): typeof CONTROLS {
+  // Une manette GameCube reste une manette GameCube, même sur un jeu Wii: c'est
+  // ce que le worker écrit dans son fichier de correspondances.
+  if (console !== "wii" || pad === 0) return CONTROLS;
+  const said = pad === 2 ? GUITAR_NAMES : WII_NAMES;
+  return CONTROLS.map((one) => {
+    const named = said[one.key];
+    return named ? { ...one, ...named } : one;
+  }) as unknown as typeof CONTROLS;
+}
+
 /** Ce qu'une touche fait, du point de vue de la GameCube.
  *
  * Trois formes, parce qu'une manette a trois sortes de commandes et qu'une
@@ -110,8 +189,20 @@ const TRIGGER_CLICK = 0.9;
 /** How far a control must move from rest to count as "that one". */
 export const MOVED = 0.5;
 
-export type Control = { button: number } | { axis: number; rest: number; full: number };
-export type StickAxis = { axis: number; sign: number };
+/** Une commande apprise, et son REPOS.
+ *
+ * Le repos n'est pas un détail de confort: aucune manette ne rend zéro quand on
+ * ne la touche pas. Un stick de GameCube revient où il veut, et un adaptateur
+ * qui présente une gâchette comme un bouton lui donne une valeur au repos. Sans
+ * ce nombre, la page envoie cette valeur au jeu en permanence, et ça se voit
+ * comme un bouton coincé ou un personnage qui court tout seul.
+ *
+ * Absent veut dire zéro, pour que les profils appris avant ce champ continuent
+ * de marcher exactement comme avant. */
+export type Control =
+  | { button: number; rest?: number }
+  | { axis: number; rest: number; full: number };
+export type StickAxis = { axis: number; sign: number; rest?: number };
 
 export type PadProfile = {
   id: string;
@@ -249,10 +340,33 @@ const analogue = (button: GamepadButton | undefined): number =>
  * Both are read the same way here so nothing above has to know which it was. */
 function travel(pad: Gamepad, control: Control | undefined): number {
   if (control === undefined) return 0;
-  if ("button" in control) return analogue(pad.buttons[control.button]);
+  if ("button" in control) {
+    // Depuis le repos, et pas depuis zéro. Un adaptateur qui rapporte une
+    // gâchette comme un bouton la pose au repos à 0,6: sans cette soustraction
+    // le bouton est tenu pour toute la partie, sans que rien ne l'ait touché.
+    const rest = control.rest ?? 0;
+    const span = 1 - rest;
+    const moved = analogue(pad.buttons[control.button]) - rest;
+    return span <= 0 ? 0 : Math.max(0, Math.min(1, moved / span));
+  }
   const value = pad.axes[control.axis] ?? control.rest;
   const span = control.full - control.rest;
   return span === 0 ? 0 : Math.max(0, Math.min(1, (value - control.rest) / span));
+}
+
+/** Un axe de stick ramené autour de son repos, sur toute sa course.
+ *
+ * Recentrer sans redimensionner rendrait le stick asymétrique: un axe qui repose
+ * à 0,25 n'a plus que 0,75 de course d'un côté et 1,25 de l'autre, donc le
+ * personnage irait plus vite d'un côté que de l'autre. Les deux moitiés sont
+ * donc remises à l'échelle séparément.
+ */
+function centred(value: number, axis: StickAxis): number {
+  const rest = axis.rest ?? 0;
+  const moved = value - rest;
+  if (moved === 0) return 0;
+  const span = moved > 0 ? 1 - rest : 1 + rest;
+  return span <= 0 ? 0 : Math.max(-1, Math.min(1, moved / span));
 }
 
 /** Zéro est zéro.
@@ -281,7 +395,7 @@ export function readPad(pad: Gamepad, profile: PadProfile | null): PadReading {
     l = travel(pad, profile.triggers.L);
     r = travel(pad, profile.triggers.R);
     const stick = (axis: StickAxis | undefined) =>
-      axis ? plainZero(dead((pad.axes[axis.axis] ?? 0) * axis.sign)) : 0;
+      axis ? plainZero(dead(centred(pad.axes[axis.axis] ?? 0, axis) * axis.sign)) : 0;
     x = stick(profile.sticks.x);
     y = stick(profile.sticks.y);
     cx = stick(profile.sticks.cx);

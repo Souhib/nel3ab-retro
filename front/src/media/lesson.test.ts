@@ -57,7 +57,7 @@ describe("learning a pad", () => {
     // Asked for RIGHT, and this pad reports right as negative.
     lesson.feed({ buttons: Array(16).fill(0), axes: [-1, 0, 0, 0, -1, -1] });
 
-    expect(lesson.learned().sticks.x).toEqual({ axis: 0, sign: -1 });
+    expect(lesson.learned().sticks.x).toEqual({ axis: 0, sign: -1, rest: 0 });
   });
 
   it("produces a profile a pad can be read through", () => {
@@ -115,5 +115,53 @@ describe("fondre deux instantanés du même modèle", () => {
       buttons: [1, 0.5],
       axes: [0.4],
     });
+  });
+});
+
+/**
+ * Le repos, retenu au moment de la leçon.
+ *
+ * Sans lui, la correction de `readPad` ne sert à rien: la page saurait quoi
+ * faire d'un repos mais n'en aurait jamais. Le défaut se voit comme un bouton
+ * coincé ou un personnage qui court tout seul, et il a coûté une soirée de
+ * Mario Strikers.
+ */
+describe("ce que la leçon retient du repos", () => {
+  /** Une manette qui ne rend pas zéro quand on n'y touche pas: stick à 0,25,
+   * et une gâchette présentée comme un bouton posée à 0,6. */
+  const crooked = (): Snapshot => ({
+    buttons: [0, 0.35, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    axes: [0.25, 0, 0, 0, -1, -1],
+  });
+
+  it("retient le repos d'un bouton qui ne repose pas à zéro", () => {
+    const lesson = new Lesson("adapter", crooked());
+    const held = crooked();
+    held.buttons[1] = 1;
+    lesson.feed(held);
+
+    expect(lesson.learned().buttons.A).toEqual({ button: 1, rest: 0.35 });
+  });
+
+  it("retient le repos d'un stick qui ne revient pas au centre", () => {
+    const lesson = new Lesson("adapter", crooked());
+    // On saute jusqu'à la question du stick principal vers la droite.
+    while (lesson.asking !== "le stick principal à DROITE") lesson.skip();
+    // Une image de repos d'abord: sauter met la leçon en attente d'une main qui
+    // lâche, et répondre pendant cette attente ne compte pas.
+    lesson.feed(crooked());
+    const pushed = crooked();
+    pushed.axes[0] = 1;
+    lesson.feed(pushed);
+
+    expect(lesson.learned().sticks.x).toEqual({ axis: 0, sign: 1, rest: 0.25 });
+  });
+
+  it("retient zéro quand la manette repose vraiment à zéro", () => {
+    // Le jumeau: une leçon qui inventerait un repos décalerait une manette saine.
+    const lesson = new Lesson("adapter", rest());
+    lesson.feed(pressing(1));
+
+    expect(lesson.learned().buttons.A).toEqual({ button: 1, rest: 0 });
   });
 });

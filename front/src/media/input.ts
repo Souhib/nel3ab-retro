@@ -23,6 +23,23 @@ import {
   type PadProfile,
   type PadReading,
 } from "./pad";
+import { KEYS_STORED, PAD_PREFIX, push as pushBindings } from "../lib/bindings";
+import { roomReference } from "../lib/bindings";
+import { typingIn } from "../lib/typing";
+import {
+  activated,
+  added,
+  edited,
+  fresh,
+  mine as ownKeys,
+  names as keyNames,
+  playing as playingKeys,
+  readKeySet,
+  removed,
+  ROOM_MARK,
+  withRoom,
+  type KeySet,
+} from "../lib/keys";
 
 /** How often the pad state is sent.
  *
@@ -57,8 +74,29 @@ export type InputState = {
   players: number;
   /** Which of them are held, this one included. */
   busy: boolean[];
+  /** Cette page a-t-elle le droit de changer le jeu, en ce moment ?
+   *
+   * C'est le WORKER qui le dit, parce que c'est lui qui accepte ou refuse. Il
+   * répond oui à la place propriétaire, et aussi à tout le monde quand cette
+   * place n'a rien touché depuis trois minutes: sans ça, quelqu'un qui part
+   * manger en gardant son onglet ouvert bloque la soirée entière. */
+  deciding: boolean;
   /** La commande qu'on est en train de réassigner, et où on l'attend. */
   capturing: { control: ControlKey; source: "pad" | "key" } | null;
+  /** Les jeux de touches de cette personne, dans l'ordre de création.
+   *
+   * PERSONNELS: en changer ne touche ni la salle, ni la partie, ni l'écran de
+   * qui que ce soit. C'est ce qui les distingue du type de manette, qui est un
+   * réglage de la salle et fait redémarrer le jeu. */
+  keyProfiles: string[];
+  /** Celui qui joue. */
+  keyProfile: string;
+  /** Ceux qui viennent de la SALLE: ni modifiables, ni effaçables.
+   *
+   * Ils ne sont pas rangés dans le dossier de la personne. Les modifier crée une
+   * copie à soi plutôt que de refuser, donc rien ne bute et la référence reste
+   * ce qu'elle est. */
+  lockedProfiles: string[];
   /** Le profil de la manette, s'il y en a un. Nul veut dire « pas de manette »
    * ou « la disposition standard, pas encore personnalisée ». */
   profile: PadProfile | null;
@@ -71,15 +109,22 @@ export type InputState = {
   roundTripMs: number | null;
   /** Ce que fait chaque touche du clavier. */
   keys: KeyProfile;
-  /** Les manettes branchées, dans l'ordre où le navigateur les donne. */
-  pads: { index: number; id: string }[];
+  /** Les manettes branchées, dans l'ordre où le navigateur les donne.
+   *
+   * Les COMPTES en font partie: le banc d'essai montre une jauge par bouton et
+   * un cadran par paire d'axes, et il les tient d'ici plutôt que de relire le
+   * navigateur pour son compte. Deux lectures de la même manette finiraient par
+   * ne pas dire le même nombre le jour d'un débranchement. Ils ne bougent qu'à
+   * un branchement, donc l'instantané deux fois par seconde suffit. */
+  pads: { index: number; id: string; buttons: number; axes: number }[];
   /** Celle qui joue et qu'on configure. Nulle quand il n'y en a aucune. */
   using: number | null;
 };
 
 /** What the worker says about the room, in one message on the pad socket.
  *
- * `[players, mine, busy1, busy2, busy3, busy4]`, where `mine` is 0 for "no pad".
+ * `[players, mine, deciding, busy1, busy2, busy3, busy4]`, where `mine` is 0
+ * for "no pad" and `deciding` says whether this page may change the game.
  * One message rather than two, because a page that only knew its own port could
  * not tell a free socket from somebody else's, and seeing the room is the whole
  * point of drawing the four sockets.
@@ -88,28 +133,19 @@ export type InputState = {
  * beside these seats and nothing more, which is why it can be down while the
  * game carries on.
  */
-const ROOM_MESSAGE_BYTES = 2 + 4;
+const ROOM_MESSAGE_BYTES = 3 + 4;
 
-export type RoomMessage = { players: number; port: number | null; busy: boolean[] };
+export type RoomMessage = {
+  players: number;
+  port: number | null;
+  /** Cette page peut-elle changer le jeu ? Voir `InputState.deciding`. */
+  deciding: boolean;
+  busy: boolean[];
+};
 
-/** Reads that message, or refuses it.
- *
- * A separate function because the first port of this page read it as a single
- * byte, which is what the seat used to be. Nothing failed: the page simply never
- * showed a pad, and only a real browser against a real worker said so. The shape
- * of a message is exactly the kind of thing a unit test can pin, so it does.
- */
 /** Une secousse: quelle manette, et à quelle force de zéro à un. */
 export type Shake = { port: number; strength: number };
 
-/**
- * La vibration que l'émulateur demande, ou rien.
- *
- * Deux octets contre six pour la salle, et c'est la LONGUEUR qui les distingue.
- * Pas de tag, pas de version: le décodeur de salle rejette déjà tout ce qui n'a
- * pas sa taille, donc une page qui ne connaîtrait pas les secousses les ignore
- * sans rien casser, et une page qui les connaît ne peut pas confondre les deux.
- */
 /** Combien de temps entre deux mesures d'aller-retour, en millisecondes.
  *
  * Une seconde. Neuf octets par seconde et par page, soit un millième du trafic
@@ -150,6 +186,14 @@ export function readEcho(bytes: Uint8Array): number | null {
   return new DataView(bytes.buffer, bytes.byteOffset).getUint32(1, true);
 }
 
+/**
+ * La vibration que l'émulateur demande, ou rien.
+ *
+ * Deux octets contre sept pour la salle, et c'est la LONGUEUR qui les distingue.
+ * Pas de tag, pas de version: le décodeur de salle rejette déjà tout ce qui n'a
+ * pas sa taille, donc une page qui ne connaîtrait pas les secousses les ignore
+ * sans rien casser, et une page qui les connaît ne peut pas confondre les deux.
+ */
 export function readShake(bytes: Uint8Array): Shake | null {
   if (bytes.length !== 2) return null;
   const port = bytes[0] ?? 0;
@@ -166,6 +210,13 @@ export function readShake(bytes: Uint8Array): Shake | null {
  */
 const SHAKE_MS = 120;
 
+/** Reads that message, or refuses it.
+ *
+ * A separate function because the first port of this page read it as a single
+ * byte, which is what the seat used to be. Nothing failed: the page simply never
+ * showed a pad, and only a real browser against a real worker said so. The shape
+ * of a message is exactly the kind of thing a unit test can pin, so it does.
+ */
 export function readRoomMessage(bytes: Uint8Array): RoomMessage | null {
   if (bytes.length !== ROOM_MESSAGE_BYTES) return null;
   const players = bytes[0] ?? 0;
@@ -175,7 +226,8 @@ export function readRoomMessage(bytes: Uint8Array): RoomMessage | null {
   return {
     players,
     port: seat === 0 ? null : seat,
-    busy: [...bytes.slice(2)].map((held) => held !== 0),
+    deciding: (bytes[2] ?? 0) !== 0,
+    busy: [...bytes.slice(3)].map((held) => held !== 0),
   };
 }
 
@@ -191,6 +243,8 @@ export class InputStream {
    * Une vibration ne se mesure pas depuis un navigateur sans mains: ce compteur
    * est la seule preuve qu'elle est arrivée jusqu'ici. */
   private shakes = 0;
+  /** Cette page peut-elle changer le jeu ? Dit par le worker. */
+  private deciding = false;
   private everHeld = false;
   /** Les allers-retours mesurés, en millisecondes. Trente échantillons, soit
    * une demi-minute: assez pour que la médiane ne suive pas un hoquet, assez
@@ -231,13 +285,28 @@ export class InputStream {
   private sent = 0;
   private held = new Set<string>();
   private profile: PadProfile | null = null;
-  private keys: KeyProfile = loadKeys();
+  /** Les profils nommés, et lequel joue. */
+  private keySet: KeySet = loadKeys();
+  /** Le profil qui joue, à plat: la boucle le lit à chaque image, et traverser
+   * le dossier à chaque tour coûterait pour rien. */
+  private keys: KeyProfile = playingKeys(this.keySet);
+  /** La console du jeu en cours, pour NOMMER les commandes.
+   *
+   * Rien de ce qu'on envoie n'en dépend: la trame est la même. Seules les
+   * questions posées pendant l'apprentissage changent, parce que personne ne
+   * cherche « le bouton X » sur une Wiimote. */
+  private console = "gc";
+  /** Ce qu'on tient: `0` la manette GameCube, `1` la Wiimote, `2` la guitare.
+   *
+   * Sert à NOMMER les commandes, pas à les envoyer: la trame est la même dans
+   * les trois cas, et c'est Dolphin qui la relit autrement. */
+  private pad: 0 | 1 | 2 = 0;
   private lesson: Lesson | null = null;
   private capture: { control: ControlKey; source: "pad" | "key"; machine: Capture | null } | null =
     null;
   private padId: string | null = null;
   private padLayout: "standard" | "unknown" | null = null;
-  private pads: { index: number; id: string }[] = [];
+  private pads: { index: number; id: string; buttons: number; axes: number }[] = [];
   /** La manette choisie, par sa position chez le navigateur.
    *
    * Nulle veut dire « la première branchée », ce qui est le bon défaut: la
@@ -330,6 +399,7 @@ export class InputStream {
       pressed: this.pressedNames(),
       players: this.players,
       busy: this.busy,
+      deciding: this.deciding,
       pads: this.pads,
       using: this.current()?.index ?? null,
       displaced: this.displaced,
@@ -339,6 +409,9 @@ export class InputStream {
           : { control: this.capture.control, source: this.capture.source },
       profile: this.profile,
       keys: this.keys,
+      keyProfiles: keyNames(this.keySet),
+      keyProfile: this.keySet.active,
+      lockedProfiles: this.keySet.locked,
       roundTripMs: this.trips.length === 0 ? null : Math.round(this.trips.at(0.5)),
     };
   }
@@ -430,6 +503,30 @@ export class InputStream {
   }
 
   /**
+   * Dit quelle manette le prochain jeu Wii doit présenter.
+   *
+   * Zéro la manette GameCube, un la Wiimote. Une SEULE des deux, et c'est tout
+   * l'intérêt du message: elles peuvent lire le même tuyau, mais un jeu qui voit
+   * les deux compte deux manettes pour une personne. À deux joueurs, le premier
+   * occupe deux places et le second n'entre jamais.
+   *
+   * Sans effet sur un jeu GameCube, qui n'a pas de Wiimote: le worker le sait et
+   * garde la sienne quoi qu'on demande.
+   */
+  choosePad(kind: number): boolean {
+    if (kind !== 0 && kind !== 1 && kind !== 2) return false;
+    // Retenu AVANT de regarder la socket, et même si l'envoi échoue: ce qu'on
+    // tient décide aussi des mots de l'écran des touches, et cette moitié-là ne
+    // dépend d'aucun réseau. Les lier ferait qu'une socket fermée une seconde
+    // laisserait la leçon demander « le bouton X » à quelqu'un qui tient une
+    // guitare.
+    this.pad = kind;
+    if (this.port === null || this.socket?.readyState !== WebSocket.OPEN) return false;
+    this.socket.send(new Uint8Array([3, kind]));
+    return true;
+  }
+
+  /**
    * Commence à réassigner une commande. La prochaine chose qui bouge la prend.
    *
    * Pendant ce temps la manette n'atteint plus le jeu: on continue d'envoyer un
@@ -496,14 +593,55 @@ export class InputStream {
     } else {
       this.forgetProfile(pad.id);
       this.profile = null;
-      this.lesson = new Lesson(pad.id, snapshot(pad));
+      this.lesson = new Lesson(pad.id, snapshot(pad), this.console, this.pad);
     }
+  }
+
+  /**
+   * Joue ce jeu de touches-là.
+   *
+   * Personnel et immédiat: rien ne part sur le réseau, rien ne redémarre. C'est
+   * la différence avec le type de manette, qui est un réglage de la salle et
+   * fait repartir la partie de tout le monde. Les avoir confondus une demi-heure
+   * a suffi pour qu'un réglage de touches coupe la partie de quatre personnes.
+   */
+  pickKeys(name: string): void {
+    this.capture = null;
+    this.keySet = activated(this.keySet, name);
+    this.keys = playingKeys(this.keySet);
+    keepKeys(this.keySet);
+  }
+
+  /** Un jeu de touches de plus, actif, copie de celui qui jouait.
+   *
+   * Un nom vide ou déjà pris ne fait rien, et le dit en ne changeant rien: voir
+   * `added`, qui porte la règle. */
+  newKeys(name: string): void {
+    this.capture = null;
+    this.keySet = added(this.keySet, name);
+    this.keys = playingKeys(this.keySet);
+    keepKeys(this.keySet);
+  }
+
+  /** Le contenu d'un profil, pour le publier. Rien si le nom ne dit rien. */
+  keyProfileNamed(name: string): KeyProfile | null {
+    return this.keySet.byName[name] ?? null;
+  }
+
+  /** Oublie celui-là. Le dernier ne s'oublie pas: voir `removed`. */
+  forgetKeys(name: string): void {
+    this.capture = null;
+    this.keySet = removed(this.keySet, name);
+    this.keys = playingKeys(this.keySet);
+    keepKeys(this.keySet);
   }
 
   resetKeys(): void {
     this.capture = null;
+    this.forkIfLocked();
     this.keys = { ...DEFAULT_KEYS };
-    keepKeys(this.keys);
+    this.keySet = edited(this.keySet, this.keys);
+    keepKeys(this.keySet);
   }
 
   /** Joue et configure CETTE manette-là.
@@ -586,10 +724,15 @@ export class InputStream {
     return connected[0] ?? null;
   }
 
+  /** Dit quelle console tourne, pour que les questions parlent d'elle. */
+  playing(console: string): void {
+    this.console = console;
+  }
+
   beginLesson(): void {
     const pad = this.current();
     if (!pad) return;
-    this.lesson = new Lesson(pad.id, snapshot(pad));
+    this.lesson = new Lesson(pad.id, snapshot(pad), this.console, this.pad);
   }
 
   skipLessonStep(): void {
@@ -649,6 +792,7 @@ export class InputStream {
         this.displaced = false;
       }
       this.busy = told.busy;
+      this.deciding = told.deciding;
       this.onSeat(this.port);
     };
     socket.onclose = () => {
@@ -680,6 +824,12 @@ export class InputStream {
   }
 
   private onKeyDown = (event: KeyboardEvent): void => {
+    // Un champ de texte gagne toujours, et AVANT la réassignation: on y écrit un
+    // pseudo ou un nom de profil, et les lettres qu'on tape sont justement
+    // celles qui pilotent la manette. Sans cette ligne, `preventDefault` plus
+    // bas empêchait d'écrire un `a` ou un `s` dans n'importe quel champ de la
+    // page — le pseudo du salon compris, depuis le début.
+    if (typingIn(event.target)) return;
     // En cours de réassignation: cette touche EST la réponse, elle ne descend
     // pas au jeu et elle ne s'ajoute pas aux touches tenues.
     if (this.capture?.source === "key") {
@@ -694,6 +844,9 @@ export class InputStream {
     this.held.add(event.code);
   };
 
+  // PAS de garde ici, et l'asymétrie est voulue: relâcher ne fait jamais que
+  // libérer. Une touche enfoncée dans le jeu puis relâchée après un clic dans un
+  // champ doit sortir de la liste, sinon elle y reste appuyée pour toujours.
   private onKeyUp = (event: KeyboardEvent): void => {
     this.held.delete(event.code);
   };
@@ -717,7 +870,12 @@ export class InputStream {
     this.pads = [...found]
       .filter((candidate): candidate is Gamepad => candidate !== null)
       .filter((candidate) => !seen.has(candidate.id) && seen.add(candidate.id) !== undefined)
-      .map((candidate) => ({ index: candidate.index, id: candidate.id }));
+      .map((candidate) => ({
+        index: candidate.index,
+        id: candidate.id,
+        buttons: candidate.buttons.length,
+        axes: candidate.axes.length,
+      }));
     const pad = this.current();
     if (pad) {
       this.padId = pad.id;
@@ -892,7 +1050,34 @@ export class InputStream {
    * son ancien poste. Deux commandes sur la même touche donneraient une manette
    * où appuyer sur X fait A et saute, sans rien pour l'expliquer.
    */
+  /** Un profil de la salle ne se modifie pas: on part d'une copie à soi.
+   *
+   * Bifurquer plutôt que refuser. Refuser voudrait dire une touche pressée qui
+   * ne fait rien, et rien à l'écran pour dire pourquoi; bifurquer garde le
+   * geste, garde la référence intacte, et se VOIT — le profil actif change de
+   * nom sous les yeux de la personne.
+   *
+   * Le nom dérive de celui de la salle, avec un compteur si besoin: deux
+   * bifurcations depuis la même référence ne doivent pas s'écraser.
+   */
+  private forkIfLocked(): void {
+    if (!this.keySet.locked.includes(this.keySet.active)) return;
+    const from = this.keySet.active.startsWith(ROOM_MARK)
+      ? this.keySet.active.slice(ROOM_MARK.length)
+      : this.keySet.active;
+    for (let n = 0; n < 50; n += 1) {
+      const wanted = n === 0 ? `${from} (à moi)` : `${from} (à moi ${n + 1})`;
+      const after = added(this.keySet, wanted);
+      if (after !== this.keySet) {
+        this.keySet = after;
+        this.keys = playingKeys(this.keySet);
+        return;
+      }
+    }
+  }
+
   private bindKey(code: string, key: ControlKey): void {
+    this.forkIfLocked();
     const action = actionFor(key);
     const keys: KeyProfile = {};
     for (const [existing, what] of Object.entries(this.keys)) {
@@ -900,7 +1085,8 @@ export class InputStream {
     }
     keys[code] = action;
     this.keys = keys;
-    keepKeys(keys);
+    this.keySet = edited(this.keySet, keys);
+    keepKeys(this.keySet);
   }
 
   private forgetProfile(id: string): void {
@@ -909,7 +1095,8 @@ export class InputStream {
     // relisait de la mémoire au tic suivant. Le bouton n'aurait rien fait.
     this.profiles.delete(id);
     try {
-      localStorage.removeItem(`nel3ab.pad.${id}`);
+      localStorage.removeItem(`${PAD_PREFIX}${id}`);
+      pushBindings();
     } catch {
       // Navigation privée: le profil disparaît de toute façon avec l'onglet.
     }
@@ -933,7 +1120,8 @@ export class InputStream {
     this.profile = profile;
     this.profiles.set(id, profile);
     try {
-      localStorage.setItem(`nel3ab.pad.${id}`, JSON.stringify(profile));
+      localStorage.setItem(`${PAD_PREFIX}${id}`, JSON.stringify(profile));
+      pushBindings();
     } catch {
       // Private browsing. The profile still works for this session.
     }
@@ -941,7 +1129,7 @@ export class InputStream {
 
   private loadProfile(id: string): PadProfile | null {
     try {
-      const saved = localStorage.getItem(`nel3ab.pad.${id}`);
+      const saved = localStorage.getItem(`${PAD_PREFIX}${id}`);
       return saved ? (JSON.parse(saved) as PadProfile) : null;
     } catch {
       return null;
@@ -976,22 +1164,39 @@ function sameAction(left: Action, right: Action): boolean {
   return left.stick === other.stick && left.sign === other.sign;
 }
 
-const KEYS_STORED = "nel3ab.keys";
-
-function loadKeys(): KeyProfile {
+/** Tout ce qui est rangé, toutes manettes confondues.
+ *
+ * Relu à chaque fois plutôt que gardé en mémoire: écrire ne touche qu'UN profil,
+ * et garder une copie du dossier ferait qu'un réglage semé par le service ou par
+ * un autre onglet serait écrasé au prochain bouton réassigné.
+ */
+/** Les profils nommés et celui qui joue: ceux de la personne, plus ceux de la
+ * salle par-dessus, verrouillés.
+ *
+ * La référence vient du CACHE et pas du réseau: cette fonction est appelée quand
+ * la boucle d'entrée se construit, et elle ne peut pas attendre une requête. La
+ * copie est rafraîchie ailleurs, quand la requête aboutit.
+ */
+function loadKeys(): KeySet {
+  let own = fresh();
   try {
     const found = localStorage.getItem(KEYS_STORED);
-    return found ? (JSON.parse(found) as KeyProfile) : { ...DEFAULT_KEYS };
+    if (found) own = readKeySet(JSON.parse(found));
   } catch {
-    // Un profil illisible est un profil qu'on remplace, pas une page qui refuse
-    // de démarrer.
-    return { ...DEFAULT_KEYS };
+    // Un dossier illisible est un dossier qu'on remplace, pas une page qui
+    // refuse de démarrer.
   }
+  const proposed = readKeySet(roomReference().keys);
+  return withRoom(own, proposed.byName);
 }
 
-function keepKeys(keys: KeyProfile): void {
+function keepKeys(set: KeySet): void {
   try {
-    localStorage.setItem(KEYS_STORED, JSON.stringify(keys));
+    // `mine` et pas `set`: ce qui est rangé ne contient JAMAIS un profil de la
+    // salle. Sinon il deviendrait une copie personnelle, donc modifiable, donc
+    // perdable, et figée au jour de la copie.
+    localStorage.setItem(KEYS_STORED, JSON.stringify(ownKeys(set)));
+    pushBindings();
   } catch {
     /* navigation privée */
   }

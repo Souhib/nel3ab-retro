@@ -10,6 +10,7 @@
  * plein écran au chargement sans qu'il l'ait demandé, et les navigateurs le
  * refusent de toute façon hors d'un geste.
  */
+import { typingIn } from "./typing";
 import { useCallback, useEffect, useState } from "react";
 
 const REMEMBERED = "nel3ab:bare";
@@ -72,9 +73,8 @@ export function useBare(coarse = false): {
   // à retenir pour une.
   useEffect(() => {
     const press = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null;
       // Pas pendant qu'on tape un pseudo ou qu'on réassigne une touche.
-      if (target && ["INPUT", "TEXTAREA"].includes(target.tagName)) return;
+      if (typingIn(event.target)) return;
       if (event.key === "f" || event.key === "F") setBare(!bare);
     };
     addEventListener("keydown", press);

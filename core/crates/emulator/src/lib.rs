@@ -57,6 +57,7 @@
 
 pub mod banner;
 pub mod config;
+pub mod disc;
 pub mod error;
 pub mod library;
 pub mod nap;
@@ -68,8 +69,10 @@ pub mod slots;
 mod sound;
 pub mod wire;
 
+pub use config::PadKind;
+pub use disc::{Console, Disc, consoles, discs};
 pub use error::EmulatorError;
-pub use library::{Rom, catalogue_json, scan as scan_roms};
+pub use library::{Rom, catalogue_json, scan as scan_roms, scan_all as scan_libraries};
 pub use pipe::{Delivery, PendingPipes, Pipes};
 pub use process::{ConfigOverride, DolphinConfig, Session, VideoBackend};
 pub use slots::SlotSet;

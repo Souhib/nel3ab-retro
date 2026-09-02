@@ -44,6 +44,21 @@ pub(super) fn serve_missing(mut stream: TcpStream) {
     let _ = stream.flush();
 }
 
+/// Dit « pas encore », pour une question dont la réponse n'existe pas d'abord.
+///
+/// La taille de l'image n'est connue qu'une fois l'émulateur démarré. Répondre
+/// une valeur par défaut avant ça serait répondre faux la moitié du temps, et
+/// une page qui agit sur cette réponse en garderait la conséquence.
+pub(super) fn serve_unready(mut stream: TcpStream) {
+    let mut sink = [0_u8; 2048];
+    let _ = stream.read(&mut sink);
+    let _ = stream.write_all(
+        b"HTTP/1.1 503 Service Unavailable\r\nContent-Length: 0\r\n\
+          Cache-Control: no-store\r\nConnection: close\r\n\r\n",
+    );
+    let _ = stream.flush();
+}
+
 /// La page servie: compressée quand le client sait la lire, et étiquetée.
 ///
 /// # Ce que ça change, mesuré

@@ -18,8 +18,9 @@ from typing import Any, Protocol
 from nel3ab_control.api.controllers.people import PeopleController
 from nel3ab_control.api.controllers.rooms import RoomController
 from nel3ab_control.api.ws.server import ROOM, broadcast, sio
-from nel3ab_control.identity import from_headers
+from nel3ab_control.identity import caller_of
 from nel3ab_control.journal import Journal
+from nel3ab_control.worker import may_decide
 
 
 class Handler(Protocol):
@@ -227,7 +228,7 @@ async def connect(sid: str, environ: dict[str, Any], auth: dict[str, Any] | None
     développement local, où il n'y a personne à usurper.
     """
     rooms, people, journal = _state(environ)
-    caller = from_headers(environ["asgi.scope"]["headers"])
+    caller = await caller_of(environ["asgi.scope"])
     login = caller[0] if caller else None
     name = (
         people.name_for(login, caller[1]) if caller else ((auth or {}).get("name") or "quelqu'un")
@@ -455,3 +456,81 @@ async def disconnect(sid: str) -> None:
         salle=_room_now(rooms, people),
     )
     await broadcast(rooms, people, journal, bool(session.get("banc")))
+
+
+#: Les deux emplacements de sauvegarde, nommés comme la page les nomme.
+#:
+#: Un deuxième exemplaire de deux chaînes, et il est assumé: l'alternative serait
+#: de laisser la page envoyer le texte à afficher, donc de laisser n'importe quel
+#: navigateur écrire ce qu'il veut sur l'écran des autres. Ici, une page n'envoie
+#: qu'un code, et c'est le serveur qui parle.
+#:
+#: Les deux exemplaires ne peuvent pas diverger en silence: un essai lit
+#: `front/src/lib/saves.ts` et compare, parce que deux libellés qui se
+#: contredisent donneraient à celui qui lance et à ceux qui regardent deux
+#: versions différentes du même écran.
+SAVES = ("partie neuve", "tout débloqué")
+
+
+@sio.event
+@not_too_often(ROOM_EVERY)
+async def booting(sid: str, data: dict[str, Any]) -> None:
+    """« Je change de jeu, tenez-vous prêts. »
+
+    Le worker ne peut pas porter ce message: changer de jeu l'arrête, et ses
+    sockets partent avec lui. Le salon reste debout pendant ces dix secondes,
+    donc c'est lui qui prévient. Sans ça, seul celui qui a cliqué voyait l'écran
+    de chargement; les autres regardaient du noir sans savoir si c'était cassé.
+
+    La page envoie l'INDICE du jeu et le CODE de l'emplacement. Le serveur les
+    traduit depuis sa propre bibliothèque, donc une page ne peut pas écrire un
+    texte de son choix sur l'écran des autres.
+
+    Et seul CELUI QUI DÉCIDE est relayé. Sans ce contrôle, n'importe quelle page
+    pourrait cacher le jeu de tous derrière un écran de chargement qui ne mène
+    nulle part.
+
+    La règle est DEMANDÉE AU WORKER, pas rejouée ici. Ce gestionnaire tranchait
+    autrefois sur son propre propriétaire élu, celui du plan de contrôle, qui est
+    « le premier arrivé identifié » et ne connaît pas les absences. Le jour où le
+    worker s'est mis à laisser décider quelqu'un d'autre quand le propriétaire a
+    quitté son écran, les deux règles ont divergé: le lancement passait, et
+    l'annonce était jetée ici. Celui qui cliquait voyait son écran de chargement,
+    tous les autres voyaient dix secondes de noir.
+
+    Le repli quand le worker ne répond pas est l'ancienne règle, et pas
+    « laisser passer »: un worker muet est un worker qui redémarre, et ce n'est
+    pas le moment d'ouvrir la porte à toutes les pages.
+    """
+    rooms, people, journal = _state(sio.get_environ(sid))
+    session = await sio.get_session(sid)
+    seat = rooms.seat_of(sid)
+    verdict = await may_decide(rooms.settings.worker_control, seat) if seat is not None else None
+    if verdict is False:
+        return
+    if verdict is None:
+        boss = people.owner()
+        if boss is not None and session.get("login") != boss[0]:
+            return
+    try:
+        index = int(data.get("jeu", -1))
+        slot = int(data.get("sauvegarde", 0))
+    except (TypeError, ValueError):
+        return
+    if not 0 <= slot < len(SAVES):
+        return
+    library, _ = await rooms.library()
+    if not 0 <= index < len(library):
+        return
+    game = library[index].name
+    journal.write(
+        "changement",
+        **_who(sid, session),
+        jeu=game,
+        sauvegarde=SAVES[slot],
+        salle=_room_now(rooms, people),
+    )
+    # À tout le monde SAUF celui qui a cliqué: sa page a déjà posé l'écran, tout
+    # de suite et sans attendre le salon. Le lui renvoyer ne ferait que remettre
+    # à zéro son compteur d'images, donc allonger son attente.
+    await sio.emit("booting", {"game": game, "save": SAVES[slot]}, room=ROOM, skip_sid=sid)

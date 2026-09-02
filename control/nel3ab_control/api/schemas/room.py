@@ -26,6 +26,17 @@ class Game(BaseModel):
             "retour à la ligne: ces textes ont été mis en page sur deux lignes."
         ),
     )
+    console: str = Field(
+        default="?",
+        description=(
+            "Quelle console ce disque demande, lue sur le disque: « gc », « wii », "
+            "ou « ? » quand le disque n'a pas répondu. La page s'en sert pour ne "
+            "pas proposer un choix qui ne déciderait rien: un jeu Wii n'a pas de "
+            "carte mémoire, donc pas deux emplacements de sauvegarde. « ? » n'est "
+            "pas « gc »: proposer un choix qui ne fait rien est pire que ne pas "
+            "le proposer."
+        ),
+    )
     art: bool = Field(
         default=False,
         description=(

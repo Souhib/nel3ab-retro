@@ -183,6 +183,10 @@ pub struct DolphinConfig {
     pub user_dir: PathBuf,
     /// Which controller ports this session serves.
     pub slots: SlotSet,
+    /// Quelle manette ces places présentent au jeu.
+    ///
+    /// Une seule des deux, jamais les deux: voir [`crate::config::PadKind`].
+    pub pads: crate::config::PadKind,
     /// Renderer to use.
     pub video_backend: VideoBackend,
     /// Extra `-C` overrides, applied above the generated files.
@@ -218,6 +222,10 @@ impl DolphinConfig {
             game,
             user_dir,
             slots,
+            // La manette GameCube par défaut: c'est ce que fait un jeu
+            // GameCube, et c'est ce que la salle faisait avant qu'une Wiimote
+            // existe. Un défaut ne doit rien changer à ce qui marchait.
+            pads: crate::config::PadKind::GameCube,
             video_backend: VideoBackend::default(),
             overrides: Vec::new(),
             frame_socket: None,
@@ -514,7 +522,18 @@ fn write_config_files(config: &DolphinConfig) -> Result<(), EmulatorError> {
 
     for (name, contents) in [
         ("GCPadNew.ini", config::gcpad_ini(config.slots)),
-        ("Dolphin.ini", config::dolphin_ini(config.slots)),
+        // Écrit pour TOUS les jeux, pas seulement les jeux Wii. Une console
+        // GameCube n'a pas de Wiimote et ce fichier ne lui coûte rien; brancher
+        // l'écriture sur la console demanderait de la connaître ici, où on ne
+        // sait que lancer un disque.
+        (
+            "WiimoteNew.ini",
+            config::wiimote_ini(config.slots, config.pads),
+        ),
+        (
+            "Dolphin.ini",
+            config::dolphin_ini(config.slots, config.pads),
+        ),
     ] {
         let path = dir.join(name);
         std::fs::write(&path, contents).map_err(|source| EmulatorError::WriteConfig {

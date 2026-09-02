@@ -29,12 +29,17 @@ for ((i = 0; i < ${#args[@]}; i++)); do
 done
 
 [ -n "$input" ] || { echo "dolphin-tool-in-docker: no -i in arguments" >&2; exit 64; }
-[ -n "$output" ] || { echo "dolphin-tool-in-docker: no -o in arguments" >&2; exit 64; }
+# `header` ne produit rien: il LIT le disque et écrit sur la sortie standard.
+# Exiger un `-o` obligerait à inventer un dossier pour une commande qui n'écrit
+# nulle part, et un dossier inventé finit par être monté en écriture pour rien.
+mounts=(-v "$(dirname "$input"):$(dirname "$input"):ro")
+if [ -n "$output" ]; then
+  mounts+=(-v "$output:$output")
+fi
 
 exec docker run --rm \
   --user "$(id -u):$(id -g)" \
-  -v "$(dirname "$input"):$(dirname "$input"):ro" \
-  -v "$output:$output" \
+  "${mounts[@]}" \
   --entrypoint dolphin-tool \
   "${NEL3AB_DOLPHIN_IMAGE:-nel3ab/dolphin:dev}" \
   "$@"

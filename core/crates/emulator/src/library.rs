@@ -114,6 +114,40 @@ pub fn title(stem: &str) -> String {
     out.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
+/// Every game across `dirs`, sorted by name so a position means the same thing
+/// twice.
+///
+/// Plusieurs dossiers et pas un seul, parce qu'une console par dossier est la
+/// façon dont ces collections se rangent: `roms/gc` d'un côté, `roms/wii` de
+/// l'autre. Le conteneur monte le dossier du jeu qu'on lance, donc un dossier de
+/// plus ne demande rien de plus ailleurs.
+///
+/// **Un nom de fichier ne peut apparaître qu'une fois.** Le choix d'un jeu est
+/// retenu par son NOM DE FICHIER, et deux fichiers du même nom dans deux
+/// dossiers rendraient ce souvenir ambigu: la salle redémarrerait sur l'un ou
+/// sur l'autre selon l'ordre du balayage. Le second est écarté, avec une ligne
+/// qui le dit, plutôt que de laisser une salle choisir toute seule.
+#[must_use]
+pub fn scan_all(dirs: &[PathBuf]) -> Vec<Rom> {
+    let mut roms: Vec<Rom> = Vec::new();
+    for dir in dirs {
+        for rom in scan(dir) {
+            if let Some(already) = roms.iter().find(|kept| kept.file == rom.file) {
+                tracing::warn!(
+                    file = rom.file,
+                    kept = %already.path.display(),
+                    skipped = %rom.path.display(),
+                    "deux jeux portent le même nom de fichier: le second est écarté"
+                );
+                continue;
+            }
+            roms.push(rom);
+        }
+    }
+    roms.sort_by(|left, right| left.name.cmp(&right.name));
+    roms
+}
+
 /// Every game in `dir`, sorted by name so a position means the same thing twice.
 ///
 /// An unreadable directory is an empty library rather than an error: a room with
@@ -163,6 +197,7 @@ pub fn scan(dir: &Path) -> Vec<Rom> {
 pub fn catalogue_json(
     roms: &[Rom],
     art: &[Option<crate::banner::Art>],
+    consoles: &[crate::disc::Console],
     current: Option<usize>,
     players: u8,
 ) -> String {
@@ -202,6 +237,20 @@ pub fn catalogue_json(
         }
         out.push_str(",\"art\":");
         out.push_str(if found.is_some() { "true" } else { "false" });
+        // La console, parce que la page décide des choses avec: un jeu Wii n'a
+        // pas de carte mémoire, donc le choix entre deux sauvegardes n'y décide
+        // rien. Une valeur inconnue voyage telle quelle plutôt qu'en
+        // « GameCube » par défaut: proposer un choix qui ne fait rien est pire
+        // que ne pas le proposer.
+        out.push_str(",\"console\":");
+        quote(
+            &mut out,
+            consoles
+                .get(index)
+                .copied()
+                .unwrap_or(crate::disc::Console::Unknown)
+                .code(),
+        );
         out.push('}');
     }
     out.push_str("]}");
@@ -374,16 +423,16 @@ mod tests {
         ];
 
         assert_eq!(
-            catalogue_json(&roms, &[], Some(1), 4),
-            r#"{"players":4,"current":1,"roms":[{"name":"Melee","maker":null,"about":null,"art":false},{"name":"Mario Kart","maker":null,"about":null,"art":false}]}"#
+            catalogue_json(&roms, &[], &[], Some(1), 4),
+            r#"{"players":4,"current":1,"roms":[{"name":"Melee","maker":null,"about":null,"art":false,"console":"?"},{"name":"Mario Kart","maker":null,"about":null,"art":false,"console":"?"}]}"#
         );
         // Nothing running is `null` rather than a number standing in for it.
         assert_eq!(
-            catalogue_json(&roms, &[], None, 4),
-            r#"{"players":4,"current":null,"roms":[{"name":"Melee","maker":null,"about":null,"art":false},{"name":"Mario Kart","maker":null,"about":null,"art":false}]}"#
+            catalogue_json(&roms, &[], &[], None, 4),
+            r#"{"players":4,"current":null,"roms":[{"name":"Melee","maker":null,"about":null,"art":false,"console":"?"},{"name":"Mario Kart","maker":null,"about":null,"art":false,"console":"?"}]}"#
         );
         assert_eq!(
-            catalogue_json(&[], &[], None, 1),
+            catalogue_json(&[], &[], &[], None, 1),
             r#"{"players":1,"current":null,"roms":[]}"#
         );
     }
@@ -399,11 +448,11 @@ mod tests {
             file: "z.rvz".to_owned(),
         }];
 
-        let json = catalogue_json(&roms, &[], Some(0), 2);
+        let json = catalogue_json(&roms, &[], &[], Some(0), 2);
 
         assert_eq!(
             json,
-            r#"{"players":2,"current":0,"roms":[{"name":"Zelda \"Ocarina\" \\ tab\u0009here","maker":null,"about":null,"art":false}]}"#
+            r#"{"players":2,"current":0,"roms":[{"name":"Zelda \"Ocarina\" \\ tab\u0009here","maker":null,"about":null,"art":false,"console":"?"}]}"#
         );
     }
 
@@ -423,11 +472,11 @@ mod tests {
             about: "ready to do \nbattle!".to_owned(),
         })];
 
-        let json = catalogue_json(&roms, &art, None, 4);
+        let json = catalogue_json(&roms, &art, &[], None, 4);
 
         assert_eq!(
             json,
-            r#"{"players":4,"current":null,"roms":[{"name":"Melee","maker":"Nintendo","about":"ready to do \u000abattle!","art":true}]}"#
+            r#"{"players":4,"current":null,"roms":[{"name":"Melee","maker":"Nintendo","about":"ready to do \u000abattle!","art":true,"console":"?"}]}"#
         );
     }
 
@@ -447,12 +496,72 @@ mod tests {
             about: String::new(),
         })];
 
-        let json = catalogue_json(&roms, &art, None, 4);
+        let json = catalogue_json(&roms, &art, &[], None, 4);
 
         assert!(
             json.contains(r#""maker":null,"about":null,"art":true"#),
             "{json}"
         );
+    }
+
+    /// Plusieurs dossiers, une seule bibliothèque, et l'ordre est celui des noms.
+    #[test]
+    fn several_directories_become_one_library_sorted_by_name() {
+        let home = tempfile::tempdir().unwrap();
+        let gc = home.path().join("gc");
+        let wii = home.path().join("wii");
+        std::fs::create_dir_all(&gc).unwrap();
+        std::fs::create_dir_all(&wii).unwrap();
+        touch(&gc, "Melee.rvz");
+        touch(&wii, "Mario Kart Wii.rvz");
+
+        let found = scan_all(&[gc, wii]);
+
+        assert_eq!(
+            found
+                .iter()
+                .map(|rom| rom.name.as_str())
+                .collect::<Vec<_>>(),
+            ["Mario Kart Wii", "Melee"],
+            "les deux dossiers se rangent ensemble, par nom"
+        );
+    }
+
+    /// Le jumeau, et il porte la vraie règle: un dossier de plus ne doit pas
+    /// PERDRE ce qu'un seul trouvait.
+    #[test]
+    fn a_second_directory_that_is_empty_changes_nothing() {
+        let home = tempfile::tempdir().unwrap();
+        let gc = home.path().join("gc");
+        std::fs::create_dir_all(&gc).unwrap();
+        touch(&gc, "Melee.rvz");
+
+        let alone = scan(&gc);
+        let with_empty = scan_all(&[gc, home.path().join("nulle-part")]);
+
+        assert_eq!(with_empty, alone);
+    }
+
+    /// Deux fichiers du même nom dans deux dossiers: le second est écarté.
+    ///
+    /// Pas un caprice: le choix d'un jeu est retenu par son NOM DE FICHIER, donc
+    /// deux fois le même nom rendrait ce souvenir ambigu, et la salle
+    /// redémarrerait sur l'un ou sur l'autre selon l'ordre du balayage. Écarter
+    /// se voit dans le menu; choisir au hasard ne se voit qu'un soir sur deux.
+    #[test]
+    fn the_same_file_name_twice_is_kept_once() {
+        let home = tempfile::tempdir().unwrap();
+        let first = home.path().join("un");
+        let second = home.path().join("deux");
+        std::fs::create_dir_all(&first).unwrap();
+        std::fs::create_dir_all(&second).unwrap();
+        touch(&first, "Melee.rvz");
+        touch(&second, "Melee.rvz");
+
+        let found = scan_all(&[first.clone(), second]);
+
+        assert_eq!(found.len(), 1, "un nom de fichier, un jeu");
+        assert_eq!(found[0].path, first.join("Melee.rvz"), "le premier trouvé");
     }
 
     #[test]

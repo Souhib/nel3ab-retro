@@ -363,10 +363,15 @@ mod tests {
         let shared = Shared {
             clips: Arc::new(Mutex::new(crate::clip::Clips::new())),
             wants_save: Arc::new(Mutex::new(0)),
+            wants_pad: Arc::new(Mutex::new(0_u8)),
+            acted: Arc::new(Mutex::new([None; PORTS])),
             viewers: Arc::new(Mutex::new(Vec::new())),
             half_viewers: Arc::new(Mutex::new(Vec::new())),
             half_joined: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             half_wants_key: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            half_ready: Arc::new(std::sync::atomic::AtomicU8::new(
+                crate::browser::HALF_UNKNOWN,
+            )),
             half_granted_key: Arc::new(Mutex::new(Instant::now())),
             listeners: Arc::new(Mutex::new(Vec::new())),
             inputs: Arc::new(Mutex::new([None; PORTS])),

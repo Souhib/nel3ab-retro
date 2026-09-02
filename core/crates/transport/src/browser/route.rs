@@ -47,6 +47,20 @@ pub(super) enum Route {
     /// there changes nothing — and because a page that can be fetched can be
     /// looked at with `curl` when it misbehaves.
     Roms,
+    /// Quels flux cette salle sait produire.
+    ///
+    /// Le demi-format n'existe pas pour toutes les tailles d'image: l'encodeur
+    /// veut un nombre entier de macroblocs de seize, et la moitié de 912 n'en est
+    /// pas un. La salle démarrait quand même, sans le petit flux, et acceptait
+    /// pourtant les spectateurs qui le demandaient. Ils recevaient zéro image,
+    /// gardaient le son, et voyaient un écran noir que ni le rechargement ni le
+    /// vidage du cache ne réparaient, puisque le choix du format vit dans le
+    /// navigateur.
+    ///
+    /// Une porte qu'on demande plutôt qu'un message poussé: la page a besoin de
+    /// la réponse au moment où elle choisit, et une réponse qu'on demande ne peut
+    /// pas être ratée pendant une reconnexion.
+    Formats,
     Page {
         /// La compression que ce client a dite accepter.
         packing: Packing,
@@ -115,6 +129,9 @@ pub(super) fn classify(stream: &TcpStream) -> Option<Route> {
     let text = String::from_utf8_lossy(&head[..read]).to_lowercase();
     if !text.contains("upgrade: websocket") {
         // Before the catch-all, or both would be served the HTML page.
+        if text.starts_with("get /formats") {
+            return Some(Route::Formats);
+        }
         if text.starts_with("get /roms") {
             return Some(Route::Roms);
         }
@@ -290,6 +307,7 @@ mod tests {
             Some(Route::Sound) => "sound",
             Some(Route::Input { .. }) => "input",
             Some(Route::Roms) => "roms",
+            Some(Route::Formats) => "formats",
             Some(Route::Art(_)) => "art",
             Some(Route::Clip) => "clip",
             None => "none",
@@ -400,6 +418,7 @@ mod tests {
     fn asking_for_the_library_is_not_asking_for_the_page() {
         for (request, expected) in [
             (&b"GET /roms HTTP/1.1\r\nHost: x\r\n\r\n"[..], "roms"),
+            (&b"GET /formats HTTP/1.1\r\nHost: x\r\n\r\n"[..], "formats"),
             (&b"GET / HTTP/1.1\r\nHost: x\r\n\r\n"[..], "page"),
             // No prefix match on anything shorter: `/rom` is not `/roms`.
             (&b"GET /rom HTTP/1.1\r\nHost: x\r\n\r\n"[..], "page"),
@@ -428,6 +447,7 @@ mod tests {
             let (stream, _) = listener.accept().unwrap();
             let got = match classify(&stream) {
                 Some(Route::Roms) => "roms".to_owned(),
+                Some(Route::Formats) => "formats".to_owned(),
                 Some(Route::Art(index)) => format!("art{index}"),
                 Some(Route::Page { .. }) => "page".to_owned(),
                 _ => "other".to_owned(),

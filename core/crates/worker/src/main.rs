@@ -28,7 +28,7 @@ use nel3ab_emulator::rumble::RumbleTap;
 use nel3ab_emulator::saves;
 use nel3ab_emulator::{
     CHUNK_BYTES, DolphinConfig, Rom, Session, SlotSet, SoundTap, VideoBackend, catalogue_json,
-    scan_roms,
+    scan_libraries,
 };
 use nel3ab_encoder::av::Encoder;
 use nel3ab_encoder::frame_source::{FrameListener, FrameSource};
@@ -78,7 +78,13 @@ fn main() -> Result<()> {
 struct Settings {
     rom: PathBuf,
     /// Where this machine keeps its games.
-    rom_dir: PathBuf,
+    /// Les dossiers où sont les jeux, dans l'ordre où on les balaie.
+    ///
+    /// Plusieurs, séparés par `:` comme un `PATH`, parce qu'une console par
+    /// dossier est la façon dont ces collections se rangent. Un dossier qui
+    /// n'existe pas est un dossier vide, pas une erreur: la salle démarre avec
+    /// ce qu'elle trouve.
+    rom_dirs: Vec<PathBuf>,
     dolphin: PathBuf,
     /// Où trouver `dolphin-tool`, qui sait ouvrir un disque compressé.
     ///
@@ -122,8 +128,12 @@ impl Settings {
         Ok(Self {
             rom: env_path("NEL3AB_ROM")
                 .unwrap_or_else(|| PathBuf::from(&home).join("roms/gc/Super Smash Bros Melee.rvz")),
-            rom_dir: env_path("NEL3AB_ROM_DIR")
-                .unwrap_or_else(|| PathBuf::from(&home).join("roms/gc")),
+            rom_dirs: env_dirs("NEL3AB_ROM_DIR").unwrap_or_else(|| {
+                vec![
+                    PathBuf::from(&home).join("roms/gc"),
+                    PathBuf::from(&home).join("roms/wii"),
+                ]
+            }),
             dolphin: env_path("NEL3AB_DOLPHIN")
                 .unwrap_or_else(|| repo.join("docker/dolphin-in-docker.sh")),
             dolphin_tool: env_path("NEL3AB_DOLPHIN_TOOL")
@@ -231,6 +241,8 @@ const CHOICE: &str = "chosen-rom";
 
 /// Et l'emplacement de sauvegarde choisi, à côté, pour la même raison.
 const SAVE_CHOICE: &str = "chosen-save";
+/// La manette retenue, écrite à côté du jeu et de la sauvegarde.
+const PAD_CHOICE: &str = "chosen-pad";
 
 /// Où vivent les deux sauvegardes de chaque jeu.
 ///
@@ -278,6 +290,23 @@ fn chosen_rom(settings: &Settings, library: &[Rom]) -> PathBuf {
 /// Comme pour le jeu: ce qui n'est pas lisible retombe sur le défaut plutôt que
 /// d'arrêter la salle. Le pire cas est de démarrer sur une partie neuve, ce qui
 /// n'efface rien.
+/// Quelle manette la salle présente, pour un disque donné.
+///
+/// Un jeu GameCube garde la sienne quoi qu'on ait demandé: il n'a pas de
+/// Wiimote, et la question ne se pose pas. Pour un jeu Wii, c'est le choix
+/// retenu, et il faut en choisir UNE: un jeu qui voit les deux compte deux
+/// manettes pour une personne, et le deuxième joueur n'entre jamais.
+fn chosen_pad(session_dir: &Path, disc: &nel3ab_emulator::Disc) -> nel3ab_emulator::PadKind {
+    if disc.console != nel3ab_emulator::Console::Wii {
+        return nel3ab_emulator::PadKind::GameCube;
+    }
+    let code = std::fs::read_to_string(session_dir.join(PAD_CHOICE))
+        .ok()
+        .and_then(|kept| kept.trim().parse::<u8>().ok())
+        .unwrap_or(0);
+    nel3ab_emulator::PadKind::from_code(code)
+}
+
 fn chosen_slot(session_dir: &Path) -> saves::Slot {
     std::fs::read_to_string(session_dir.join(SAVE_CHOICE))
         .ok()
@@ -293,16 +322,30 @@ fn chosen_slot(session_dir: &Path) -> saves::Slot {
 ///
 /// Un échec est tracé et n'arrête pas la salle: on jouera alors sur ce que
 /// Dolphin trouve, ce qui est moins bien mais reste une salle qui marche.
-fn prepare_saves(session_dir: &Path, rom: &Path, slot: saves::Slot) {
+fn prepare_saves(session_dir: &Path, rom: &Path, disc: &nel3ab_emulator::Disc, slot: saves::Slot) {
     let file = rom
         .file_name()
         .map_or_else(String::new, |name| name.to_string_lossy().into_owned());
-    let Some(root) = session_dir.parent().map(|up| up.join(SAVES)) else {
-        tracing::warn!("pas de dossier parent pour les sauvegardes");
-        return;
+    // Sous le dossier de session, et c'est structurel plutôt que rangé par
+    // goût. Le conteneur ne monte que ce dossier: un emplacement posé à côté
+    // donnait un lien qui pointait, depuis le conteneur, vers rien. Dolphin
+    // suit un lien mort sans le dire, n'annonce aucune erreur, et le jeu
+    // repart sur « Data has been created » à chaque démarrage. Trouvé le 30
+    // août 2026, après avoir soupçonné le nom du fichier puis le code
+    // d'éditeur. Ici, le lien ne PEUT plus sortir du montage.
+    let dir = saves::slot_dir(&session_dir.join(SAVES), &file, slot);
+    // Deux consoles, deux endroits. Une GameCube écrit dans une carte mémoire,
+    // une Wii dans sa propre mémoire, sous l'identifiant du titre. Le disque dit
+    // lequel, et un disque muet retombe sur la carte: c'est ce qu'on faisait
+    // avant de savoir poser la question, et ça ne casse rien pour un jeu Wii
+    // dont la partie ira simplement dans la console sans passer par nous.
+    let posed = match (disc.console, disc.title.as_deref()) {
+        (nel3ab_emulator::Console::Wii, Some(title)) => {
+            saves::point_nand_at(session_dir, title, &dir)
+        }
+        _ => saves::point_card_at(session_dir, &dir),
     };
-    let dir = saves::slot_dir(&root, &file, slot);
-    match saves::point_card_at(session_dir, &dir) {
+    match posed {
         Ok(()) => tracing::info!(
             slot = slot.folder(),
             path = %dir.display(),
@@ -331,6 +374,19 @@ fn env_path(name: &str) -> Option<PathBuf> {
     std::env::var_os(name).map(PathBuf::from)
 }
 
+/// Une LISTE de dossiers, séparés par `:` comme un `PATH`.
+///
+/// Le même séparateur que le shell, parce que c'est celui que quelqu'un qui
+/// écrit une unité systemd a déjà dans les doigts. Une valeur sans deux-points
+/// reste donc un seul dossier, et l'ancien réglage continue de marcher.
+fn env_dirs(name: &str) -> Option<Vec<PathBuf>> {
+    let raw = std::env::var_os(name)?;
+    let dirs: Vec<PathBuf> = std::env::split_paths(&raw)
+        .filter(|part| !part.as_os_str().is_empty())
+        .collect();
+    (!dirs.is_empty()).then_some(dirs)
+}
+
 /// Wires the four crates together and runs until the emulator stops.
 #[allow(
     clippy::too_many_lines,
@@ -351,13 +407,25 @@ fn run(settings: &Settings) -> Result<()> {
     // would move the positions a page is holding, and a player would boot a
     // different game from the one they clicked. It is rescanned on the restart
     // that a switch causes anyway, which is the moment it can change safely.
-    let library = scan_roms(&settings.rom_dir);
+    let library = scan_libraries(&settings.rom_dirs);
+    // Ce que chaque disque est, lu sur le disque et gardé en cache. Calculé ICI
+    // et pas plus bas, parce que les sauvegardes en dépendent et qu'elles
+    // doivent être en place avant que Dolphin ne démarre.
+    let discs = nel3ab_emulator::discs(&library, &settings.dolphin_tool, &settings.art_dir);
     let rom = chosen_rom(settings, &library);
     // Les sauvegardes AVANT que Dolphin ne démarre: il ouvre son dossier de
     // carte au lancement, et le déplacer après coup ne serait plus vu.
     let slot = chosen_slot(&settings.session_dir);
-    prepare_saves(&settings.session_dir, &rom, slot);
     let current = library.iter().position(|game| game.path == rom);
+    let disc = current
+        .and_then(|at| discs.get(at))
+        .cloned()
+        .unwrap_or(nel3ab_emulator::Disc {
+            console: nel3ab_emulator::Console::Unknown,
+            title: None,
+        });
+    let pads = chosen_pad(&settings.session_dir, &disc);
+    prepare_saves(&settings.session_dir, &rom, &disc, slot);
     tracing::info!(
         games = library.len(),
         booting = %rom.display(),
@@ -373,20 +441,35 @@ fn run(settings: &Settings) -> Result<()> {
     // Synchrone, et c'est le cache qui l'autorise: lire les huit disques de lgf
     // coûte 3,7 s la toute première fois et rien ensuite (2026-08-16). Le prix
     // est payé une fois sur la machine, pas à chaque changement de jeu.
-    let art = nel3ab_emulator::banner::gather(&library, &settings.dolphin_tool, &settings.art_dir);
+    let art = nel3ab_emulator::banner::gather(
+        &library,
+        &settings.dolphin_tool,
+        &settings.art_dir,
+        &discs,
+        &settings.session_dir.join(SAVES),
+    );
     tracing::info!(
         with = art.iter().filter(|found| found.is_some()).count(),
         of = art.len(),
         "les jeux qui ont une jaquette"
     );
 
+    let consoles: Vec<_> = discs.iter().map(|disc| disc.console).collect();
+    tracing::info!(
+        wii = consoles
+            .iter()
+            .filter(|found| **found == nel3ab_emulator::Console::Wii)
+            .count(),
+        of = consoles.len(),
+        "les jeux qui sont des jeux Wii"
+    );
+
     let owner: OwnerSeat = Arc::new(Mutex::new(None));
-    nel3ab_transport::control::serve(settings.control_bind, Arc::clone(&owner))?;
 
     let server = Arc::new(BrowserServer::start(
         settings.bind,
         PAGE,
-        catalogue_json(&library, &art, current, settings.players.get()).into(),
+        catalogue_json(&library, &art, &consoles, current, settings.players.get()).into(),
         art.iter()
             .map(|found| found.as_ref().map(|art| Arc::from(art.png.as_slice())))
             .collect(),
@@ -394,6 +477,35 @@ fn run(settings: &Settings) -> Result<()> {
         &owner,
     )?);
     tracing::info!(address = %server.address(), "open this in a browser");
+
+    // APRÈS le serveur, et c'est le point: le plan de contrôle demande sur ce
+    // port si une place a le droit de changer de jeu, et seul le serveur connaît
+    // la réponse. Ouvrir le port plus tôt donnerait quelques millisecondes
+    // pendant lesquelles il faudrait répondre sans savoir.
+    let asked = Arc::clone(&server);
+    nel3ab_transport::control::serve(
+        settings.control_bind,
+        Arc::clone(&owner),
+        Box::new(move |seat| asked.may_decide(seat)),
+    )?;
+
+    // La NAND est balayée AVANT de démarrer l'émulateur.
+    //
+    // Un disque qui quitte la bibliothèque laisse son entrée de NAND: un lien
+    // qui ne mène nulle part. Dolphin parcourt la NAND au démarrage et lève une
+    // exception dessus, qu'il ne rattrape pas — le processus meurt, aucune image
+    // n'arrive, et la page reste noire. Ça a tué chaque démarrage pendant deux
+    // jours, y compris pour des jeux GameCube, qui n'ont rien à faire de la NAND.
+    //
+    // Ici et pas au moment de poser un lien: ce qu'on retire est ce que le jeu
+    // qu'on lance ne mentionne PAS, donc l'endroit qui pose un lien ne peut pas
+    // le voir.
+    for title in nel3ab_emulator::saves::sweep_nand(&settings.session_dir) {
+        tracing::warn!(
+            title = %title,
+            "une sauvegarde de la NAND ne pointait sur rien: entrée retirée"
+        );
+    }
 
     let listener = FrameListener::bind(&socket)?;
 
@@ -444,6 +556,11 @@ fn run(settings: &Settings) -> Result<()> {
         settings.session_dir.clone(),
         ports,
     );
+    // Une seule manette à la fois. Un jeu qui voit une manette GameCube ET une
+    // Wiimote compte deux manettes pour une personne: à deux joueurs, le premier
+    // occupe deux places et le second n'entre jamais. Mesuré sur Mario Kart Wii.
+    config.pads = pads;
+    tracing::info!(pads = pads.name(), "la manette que la salle présente");
     config.video_backend = VideoBackend::Vulkan;
     // Dolphin compiles a specialised shader the first time it meets a new
     // material, and stops the world while it does. Measured on this machine:
@@ -484,6 +601,26 @@ fn run(settings: &Settings) -> Result<()> {
         match nel3ab_emulator::ConfigOverride::new("Graphics", section, key, value) {
             Ok(over) => config.overrides.push(over),
             Err(error) => tracing::warn!(%error, key, "a graphics override was refused"),
+        }
+    }
+    // La carte mémoire, et sans elle rien ne se sauvegarde.
+    //
+    // C'est le défaut qui a coûté le plus cher à trouver. Dolphin sans réglage
+    // n'a AUCUNE carte: chaque jeu annonce « Data has been created » à chaque
+    // démarrage, ne trouve jamais sa progression, et n'écrit rien à l'arrêt.
+    // Aucune erreur nulle part, ni côté Dolphin ni côté worker. Vu le 30 août
+    // 2026 en essayant de poser des sauvegardes toutes faites: elles étaient
+    // ignorées, et j'ai cherché du côté du nom de fichier et du code d'éditeur
+    // avant de comprendre qu'il n'y avait pas de carte du tout.
+    //
+    // Huit est `EXIDeviceType::MemoryCardFolder`, lu dans le code de Dolphin au
+    // commit qu'on épingle plutôt que deviné. Le dossier plutôt qu'une image de
+    // carte, parce que c'est ce qui donne un fichier par jeu, et c'est ce sur
+    // quoi reposent les deux emplacements de sauvegarde.
+    for (section, key, value) in [("Core", "SlotA", "8")] {
+        match nel3ab_emulator::ConfigOverride::new("Dolphin", section, key, value) {
+            Ok(over) => config.overrides.push(over),
+            Err(error) => tracing::warn!(%error, key, "un réglage de carte a été refusé"),
         }
     }
     config.frame_socket = Some(socket);
@@ -541,6 +678,15 @@ fn run(settings: &Settings) -> Result<()> {
 
     let context = Context::open(&settings.render_node)?;
     let mut pipeline = Pipeline::build(&context, &settings.render_node, &frames)?;
+    // La salle DIT ce qu'elle sait produire, dès qu'elle le sait.
+    //
+    // Sans cette ligne le serveur acceptait des spectateurs en demi-format qu'il
+    // ne pouvait pas servir: zéro image, le son qui continue, et un écran noir
+    // que ni le rechargement ni le vidage du cache ne réparent, puisque le choix
+    // du format vit dans le navigateur. Trouvé le 30 août 2026 sur Mario Kart
+    // Wii, dont l'anneau fait 1216x912: la moitié de 912 n'est pas un nombre
+    // entier de macroblocs de seize, donc le petit encodeur n'ouvre pas.
+    server.half_offered(pipeline.half.is_some());
 
     // Input runs on its own thread, writing the moment a frame lands rather than
     // once per picture. Measured before: a full frame period of avoidable lag,
@@ -800,6 +946,8 @@ fn run(settings: &Settings) -> Result<()> {
             // sait faire: le nouvel encodeur commence par une image clé avec ses
             // en-têtes, et la page traverse déjà ça à chaque changement de jeu.
             pipeline = Pipeline::build(&context, &settings.render_node, &frames)?;
+            // La taille a pu changer avec le jeu: on le redit.
+            server.half_offered(pipeline.half.is_some());
             let now = *frames.descriptor();
             tracing::info!(
                 width = now.width,
@@ -919,6 +1067,7 @@ fn run(settings: &Settings) -> Result<()> {
                 &library,
                 index,
                 saves::Slot::from_code(server.save_wanted()),
+                nel3ab_emulator::PadKind::from_code(server.pad_wanted()),
                 &settings.session_dir,
             )
         {
@@ -997,6 +1146,10 @@ fn run(settings: &Settings) -> Result<()> {
                 // n'en est pas une.
                 watchers = server.watchers(),
                 half_watchers = server.half_watchers(),
+                // Une salle qui change de règle toute seule doit le dire: sans
+                // cette ligne, personne ne comprend pourquoi quelqu'un a pu
+                // lancer un jeu alors qu'il n'est pas propriétaire.
+                owner_away = server.owner_away(),
                 dropped = server.dropped(),
                 half_dropped = server.half_dropped(),
                 // Et les mêmes sur CETTE tranche de dix secondes.
@@ -1099,6 +1252,7 @@ fn remember_choice(
     library: &[Rom],
     index: u8,
     slot: saves::Slot,
+    pads: nel3ab_emulator::PadKind,
     session_dir: &std::path::Path,
 ) -> bool {
     let Some(game) = library.get(index as usize) else {
@@ -1112,6 +1266,11 @@ fn remember_choice(
     // L'emplacement de sauvegarde voyage avec le jeu, dans son propre fichier.
     // Un échec ici n'annule pas le changement de jeu: on repartira sur une
     // partie neuve, ce qui n'efface rien et se corrige d'un clic.
+    // La manette voyage avec le reste. Un échec ici repart sur la manette
+    // GameCube, ce qui est l'état d'avant et se corrige d'un clic.
+    if let Err(error) = std::fs::write(session_dir.join(PAD_CHOICE), pads.code().to_string()) {
+        tracing::warn!(%error, "la manette n'a pas pu être retenue");
+    }
     if let Err(error) = std::fs::write(session_dir.join(SAVE_CHOICE), slot.code().to_string()) {
         tracing::warn!(%error, "l'emplacement de sauvegarde n'a pas pu être retenu");
     }

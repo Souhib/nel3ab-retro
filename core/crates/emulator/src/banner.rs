@@ -76,8 +76,13 @@ const INSIDE_THE_DISC: &str = "opening.bnr";
 /// A banner, read.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Banner {
-    /// The picture, RGBA, row by row. Always `WIDTH * HEIGHT * 4` bytes.
+    /// The picture, RGBA, row by row. Always `width * height * 4` bytes.
     pub pixels: Vec<u8>,
+    /// Sa taille. Portée par la bannière plutôt que fixée par le module: une
+    /// GameCube en écrit une de 96 par 32, une Wii de 192 par 64.
+    pub width: u32,
+    /// Voir `width`.
+    pub height: u32,
     /// The name the disc gives itself, which is not always the file's name.
     pub name: String,
     /// Who made it.
@@ -169,17 +174,83 @@ pub fn parse(blob: &[u8]) -> Result<Banner, BannerError> {
     }
     let words = words_of(blob, languages);
     Ok(Banner {
-        pixels: untile(blob),
+        pixels: untile(blob, IMAGE_AT, W, H),
+        width: WIDTH,
+        height: HEIGHT,
         name: text(words, LONG_NAME_AT, 64),
         maker: text(words, LONG_MAKER_AT, 64),
         about: text(words, ABOUT_AT, 128),
     })
 }
 
+/// La bannière d'une SAUVEGARDE de Wii, qui est là où une Wii range la sienne.
+///
+/// Un disque Wii ne porte pas son image comme un disque GameCube. Le sien est
+/// enfoui dans une archive dans une archive, en plusieurs morceaux compressés;
+/// celui de sa SAUVEGARDE, lui, est un fichier `banner.bin` posé à plat, au même
+/// format de pixels que la GameCube. On lit donc celui-là.
+///
+/// Le prix à dire: il n'existe qu'une fois le jeu lancé au moins une fois. Un
+/// jeu Wii jamais démarré reste sans image, ce qui est l'état d'avant.
+///
+/// Disposition, vérifiée sur la sauvegarde de Mario Kart Wii: `WIBN`, le titre
+/// en UTF-16 à 0x20, le sous-titre à 0x60, puis 192 par 64 pixels à 0xA0. Les
+/// tailles s'additionnent exactement: 0xA0 + 192*64*2 + 48*48*2 = 0x72A0, ce que
+/// pèse le fichier.
+///
+/// # Errors
+/// [`BannerError::NotABanner`] quand la signature n'y est pas.
+pub fn parse_wii(blob: &[u8]) -> Result<Banner, BannerError> {
+    let magic = blob.get(..4).unwrap_or_default();
+    if magic != b"WIBN" {
+        return Err(BannerError::NotABanner(
+            String::from_utf8_lossy(magic).into_owned(),
+        ));
+    }
+    let want = WII_IMAGE_AT + WII_W * WII_H * 2;
+    if blob.len() < want {
+        return Err(BannerError::TooShort {
+            want,
+            got: blob.len(),
+        });
+    }
+    Ok(Banner {
+        pixels: untile(blob, WII_IMAGE_AT, WII_W, WII_H),
+        width: WII_WIDTH,
+        height: WII_HEIGHT,
+        name: utf16(blob, 0x20, 32),
+        maker: String::new(),
+        about: utf16(blob, 0x60, 32),
+    })
+}
+
+/// Où la bannière d'une sauvegarde Wii commence, et ce qu'elle mesure.
+const WII_IMAGE_AT: usize = 0xA0;
+const WII_WIDTH: u32 = 192;
+const WII_HEIGHT: u32 = 64;
+const WII_W: usize = WII_WIDTH as usize;
+const WII_H: usize = WII_HEIGHT as usize;
+
+/// Un titre écrit en UTF-16 gros-boutiste, comme la Wii les écrit.
+fn utf16(blob: &[u8], at: usize, units: usize) -> String {
+    let mut out = String::new();
+    for step in 0..units {
+        let Some([high, low]) = blob.get(at + step * 2..at + step * 2 + 2) else {
+            break;
+        };
+        let point = u16::from_be_bytes([*high, *low]);
+        if point == 0 {
+            break;
+        }
+        out.push(char::from_u32(u32::from(point)).unwrap_or('?'));
+    }
+    out.trim().replace('\n', " ")
+}
+
 /// Encodes a banner for a browser.
 pub fn encode(banner: &Banner) -> Result<Vec<u8>, BannerError> {
     let mut png = Vec::new();
-    let mut encoder = png::Encoder::new(&mut png, WIDTH, HEIGHT);
+    let mut encoder = png::Encoder::new(&mut png, banner.width, banner.height);
     encoder.set_color(png::ColorType::Rgba);
     encoder.set_depth(png::BitDepth::Eight);
     let mut writer = encoder.write_header().map_err(BannerError::NotEncodable)?;
@@ -210,23 +281,23 @@ fn words_of(blob: &[u8], languages: usize) -> &[u8] {
 }
 
 /// Turns the tiled RGB5A3 image into RGBA, row by row.
-fn untile(blob: &[u8]) -> Vec<u8> {
+fn untile(blob: &[u8], at_in: usize, wide: usize, high_rows: usize) -> Vec<u8> {
     let image = blob
-        .get(IMAGE_AT..IMAGE_AT + IMAGE_BYTES)
+        .get(at_in..at_in + wide * high_rows * 2)
         .unwrap_or_default();
-    let mut out = vec![0_u8; W * H * 4];
+    let mut out = vec![0_u8; wide * high_rows * 4];
     let mut at = 0_usize;
-    for tile_y in (0..H).step_by(TILE) {
-        for tile_x in (0..W).step_by(TILE) {
+    for tile_y in (0..high_rows).step_by(TILE) {
+        for tile_x in (0..wide).step_by(TILE) {
             for y in 0..TILE {
                 for x in 0..TILE {
-                    let Some([high, low]) = image.get(at..at + 2) else {
+                    let Some([top, bottom]) = image.get(at..at + 2) else {
                         return out;
                     };
                     at += 2;
-                    let into = ((tile_y + y) * W + tile_x + x) * 4;
+                    let into = ((tile_y + y) * wide + tile_x + x) * 4;
                     if let Some(slot) = out.get_mut(into..into + 4) {
-                        slot.copy_from_slice(&rgb5a3(u16::from_be_bytes([*high, *low])));
+                        slot.copy_from_slice(&rgb5a3(u16::from_be_bytes([*top, *bottom])));
                     }
                 }
             }
@@ -313,19 +384,64 @@ fn text(words: &[u8], at: usize, len: usize) -> String {
 ///
 /// A failure is remembered too, in an empty marker file. Without it, a disc with
 /// no banner would pay the full extraction on every single start, for ever.
-pub fn gather(roms: &[Rom], tool: &Path, cache: &Path) -> Vec<Option<Art>> {
+pub fn gather(
+    roms: &[Rom],
+    tool: &Path,
+    cache: &Path,
+    // `discs`: ce que chaque disque est. Un disque Wii ne porte pas son image
+    // comme un disque GameCube — la sienne est enfouie dans une archive dans une
+    // archive — alors que celle de sa SAUVEGARDE est posée à plat.
+    // `saves`: où vivent les emplacements, pour y trouver cette image.
+    discs: &[crate::disc::Disc],
+    saves: &Path,
+) -> Vec<Option<Art>> {
     if let Err(error) = std::fs::create_dir_all(cache) {
         tracing::warn!(?cache, %error, "no banner cache, reading every disc every time");
     }
     roms.iter()
-        .map(|rom| match art_of(rom, tool, cache) {
-            Ok(art) => Some(art),
-            Err(error) => {
-                tracing::info!(rom = %rom.name, %error, "no banner for this one");
-                None
+        .enumerate()
+        .map(|(at, rom)| {
+            let wii = discs
+                .get(at)
+                .is_some_and(|disc| disc.console == crate::disc::Console::Wii);
+            let found = if wii {
+                from_a_wii_save(rom, saves)
+            } else {
+                art_of(rom, tool, cache)
+            };
+            match found {
+                Ok(art) => Some(art),
+                Err(error) => {
+                    tracing::info!(rom = %rom.name, %error, "no banner for this one");
+                    None
+                }
             }
         })
         .collect()
+}
+
+/// L'image d'un jeu Wii, prise dans sa sauvegarde.
+///
+/// Les deux emplacements portent la même, et on prend le premier qui en a une:
+/// c'est le jeu qui l'écrit, pas nous, donc elle est identique des deux côtés.
+/// Un jeu jamais lancé n'en a aucune, ce qui est l'état d'avant.
+fn from_a_wii_save(rom: &Rom, saves: &Path) -> Result<Art, BannerError> {
+    let key = crate::saves::key(&rom.file);
+    for slot in [crate::saves::Slot::Unlocked, crate::saves::Slot::Fresh] {
+        let file = saves.join(&key).join(slot.folder()).join("banner.bin");
+        let Ok(blob) = std::fs::read(&file) else {
+            continue;
+        };
+        let banner = parse_wii(&blob)?;
+        return Ok(Art {
+            png: encode(&banner)?,
+            maker: banner.maker.clone(),
+            about: banner.about.clone(),
+        });
+    }
+    Err(BannerError::NothingWritten {
+        path: saves.join(key).join("*/banner.bin"),
+    })
 }
 
 /// One game's art, from the cache when it is there and from the disc when it is
@@ -634,13 +750,25 @@ mod tests {
     /// corrigé: un échec à démarrer l'outil ne laisse plus de témoin.
     fn patiently(rom: &Rom, tool: &Path, cache: &Path) -> Vec<Option<Art>> {
         for _ in 0..100 {
-            let found = gather(std::slice::from_ref(rom), tool, cache);
+            let found = gather(
+                std::slice::from_ref(rom),
+                tool,
+                cache,
+                &[],
+                std::path::Path::new("/nulle-part"),
+            );
             if found.first().is_some_and(Option::is_some) {
                 return found;
             }
             std::thread::sleep(std::time::Duration::from_millis(10));
         }
-        gather(std::slice::from_ref(rom), tool, cache)
+        gather(
+            std::slice::from_ref(rom),
+            tool,
+            cache,
+            &[],
+            std::path::Path::new("/nulle-part"),
+        )
     }
 
     fn a_rom(dir: &Path) -> Rom {
@@ -670,7 +798,13 @@ mod tests {
         // The tool is taken away. A second read that still works can only have
         // come from the cache, which is the whole claim.
         std::fs::remove_file(&tool).unwrap();
-        let second = gather(std::slice::from_ref(&rom), &tool, &cache);
+        let second = gather(
+            std::slice::from_ref(&rom),
+            &tool,
+            &cache,
+            &[],
+            std::path::Path::new("/nulle-part"),
+        );
         assert_eq!(second[0].as_ref().unwrap().maker, "Nintendo");
     }
 
@@ -685,6 +819,8 @@ mod tests {
             &[rom.clone(), rom],
             Path::new(REFUSES),
             &dir.path().join("cache"),
+            &[],
+            Path::new("/nulle-part"),
         );
 
         assert_eq!(found.len(), 2);
@@ -696,7 +832,13 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let cache = dir.path().join("cache");
         let rom = a_rom(dir.path());
-        let _ = gather(std::slice::from_ref(&rom), Path::new(REFUSES), &cache);
+        let _ = gather(
+            std::slice::from_ref(&rom),
+            Path::new(REFUSES),
+            &cache,
+            &[],
+            Path::new("/nulle-part"),
+        );
 
         // The tool now WOULD work. A second pass that still finds nothing proves
         // the marker was written and read, which is what keeps a disc with no
@@ -704,7 +846,16 @@ mod tests {
         let mut raw = blob(*b"BNR1", 1);
         put(&mut raw, 0, LONG_MAKER_AT, b"Nintendo");
         let working = fake_tool(dir.path(), Some(&raw), 0);
-        assert!(gather(std::slice::from_ref(&rom), &working, &cache)[0].is_none());
+        assert!(
+            gather(
+                std::slice::from_ref(&rom),
+                &working,
+                &cache,
+                &[],
+                std::path::Path::new("/nulle-part")
+            )[0]
+            .is_none()
+        );
     }
 
     #[test]
@@ -720,6 +871,41 @@ mod tests {
             matches!(refused, Err(BannerError::NothingWritten { .. })),
             "{refused:?}"
         );
+    }
+
+    /// La bannière d'une sauvegarde de Wii, lue au même format de pixels.
+    ///
+    /// Construite ici plutôt que lue sur le disque: un essai qui dépend d'un
+    /// fichier de sauvegarde ne tourne que sur la machine qui l'a.
+    #[test]
+    fn a_wii_save_banner_is_read_at_its_own_size() {
+        let mut blob = vec![0_u8; WII_IMAGE_AT + WII_W * WII_H * 2];
+        blob[..4].copy_from_slice(b"WIBN");
+        // « Mario » en UTF-16 gros-boutiste, là où la Wii met le titre.
+        for (step, letter) in "Mario".chars().enumerate() {
+            let point = u16::try_from(u32::from(letter)).unwrap();
+            blob[0x20 + step * 2..0x22 + step * 2].copy_from_slice(&point.to_be_bytes());
+        }
+        // Un pixel opaque au tout début de l'image.
+        blob[WII_IMAGE_AT..WII_IMAGE_AT + 2].copy_from_slice(&0xFFFF_u16.to_be_bytes());
+
+        let read = parse_wii(&blob).unwrap();
+
+        assert_eq!((read.width, read.height), (192, 64));
+        assert_eq!(read.pixels.len(), 192 * 64 * 4);
+        assert_eq!(read.name, "Mario");
+        assert_eq!(&read.pixels[..4], &[255, 255, 255, 255]);
+    }
+
+    #[test]
+    fn something_that_is_not_a_wii_banner_is_refused() {
+        // Le jumeau: sans la signature, un lecteur rendrait 192 par 64 pixels de
+        // n'importe quoi, et une image de bruit a l'air d'un défaut d'affichage
+        // plutôt que d'un fichier qu'on n'aurait pas dû lire.
+        assert!(parse_wii(b"BNR1 et la suite").is_err());
+        assert!(parse_wii(&[]).is_err());
+        // Et la bonne signature sur un fichier trop court, aussi.
+        assert!(parse_wii(b"WIBN").is_err());
     }
 
     #[test]

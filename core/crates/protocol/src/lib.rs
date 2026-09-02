@@ -112,6 +112,23 @@ pub enum Command {
         /// Le code de l'emplacement. Voir `nel3ab_emulator::saves::Slot`.
         slot: u8,
     },
+    /// Quelle manette le prochain jeu Wii doit présenter.
+    ///
+    /// # Pourquoi il faut choisir
+    ///
+    /// Une manette GameCube et une Wiimote peuvent lire le MÊME tuyau, et c'est
+    /// ce qui rend une Wiimote possible sans changer un octet du protocole. Mais
+    /// un jeu qui voit les deux compte deux manettes pour une personne: à deux
+    /// joueurs, le premier occupe deux places et le second n'entre jamais.
+    /// Mesuré sur Mario Kart Wii.
+    ///
+    /// Le choix ne concerne que les jeux Wii. Un jeu GameCube n'a pas de Wiimote
+    /// et garde sa manette quoi qu'on demande.
+    ChoosePad {
+        /// `0` la manette GameCube, `1` la Wiimote. Voir
+        /// `nel3ab_emulator::config::PadKind`.
+        kind: u8,
+    },
 }
 
 /// Un aller-retour sur le canal des manettes, pour que la page mesure sa propre
@@ -198,12 +215,16 @@ impl Command {
     /// L'opcode pour [`Command::ChooseSave`].
     const CHOOSE_SAVE: u8 = 2;
 
+    /// L'opcode pour [`Command::ChoosePad`].
+    const CHOOSE_PAD: u8 = 3;
+
     /// Serialises to exactly [`Command::LEN`] bytes.
     #[must_use]
     pub const fn encode(self) -> [u8; Self::LEN] {
         match self {
             Self::SwitchRom { index } => [Self::SWITCH_ROM, index],
             Self::ChooseSave { slot } => [Self::CHOOSE_SAVE, slot],
+            Self::ChoosePad { kind } => [Self::CHOOSE_PAD, kind],
         }
     }
 
@@ -221,6 +242,7 @@ impl Command {
         match buf[0] {
             Self::SWITCH_ROM => Ok(Self::SwitchRom { index: buf[1] }),
             Self::CHOOSE_SAVE => Ok(Self::ChooseSave { slot: buf[1] }),
+            Self::CHOOSE_PAD => Ok(Self::ChoosePad { kind: buf[1] }),
             opcode => Err(ProtocolError::UnknownCommand { opcode }),
         }
     }
@@ -391,6 +413,23 @@ impl InputFrame {
         }
     }
 
+    /// Personne ne touche à rien: aucun bouton, sticks au centre, gâchettes
+    /// relâchées.
+    ///
+    /// Sert à distinguer « quelqu'un joue » de « une page est ouverte ». La page
+    /// envoie une trame à chaque tour, même immobile, donc l'arrivée d'une trame
+    /// ne prouve la présence de personne.
+    #[must_use]
+    pub const fn is_neutral(&self) -> bool {
+        self.buttons.bits() == 0
+            && self.main.x == 0
+            && self.main.y == 0
+            && self.c.x == 0
+            && self.c.y == 0
+            && self.l == 0
+            && self.r == 0
+    }
+
     /// Serialises to exactly [`WIRE_LEN`] bytes.
     #[must_use]
     pub fn encode(&self) -> [u8; WIRE_LEN] {
@@ -479,7 +518,7 @@ mod tests {
     /// channel that will one day do something nobody asked for.
     #[rstest]
     #[case(&[0, 0], ProtocolError::UnknownCommand { opcode: 0 })]
-    #[case(&[3, 0], ProtocolError::UnknownCommand { opcode: 3 })]
+    #[case(&[4, 0], ProtocolError::UnknownCommand { opcode: 4 })]
     #[case(&[255, 9], ProtocolError::UnknownCommand { opcode: 255 })]
     fn an_unnamed_command_is_refused_rather_than_ignored(
         #[case] bytes: &[u8],
@@ -511,6 +550,28 @@ mod tests {
         let result = Buttons::from_bits(bits);
         // Assert — the UNKNOWN bits are reported, not the whole mask.
         assert_eq!(result, Err(ProtocolError::UnknownButtons { bits: 1 << 12 }));
+    }
+
+    /// Une trame neutre est celle où personne ne touche à rien.
+    ///
+    /// C'est ce qui distingue « quelqu'un joue » de « une page est ouverte », et
+    /// donc ce qui permet de rendre une salle qu'un absent garderait sinon.
+    #[test]
+    fn a_neutral_frame_is_nobody_touching_anything() {
+        let slot = PlayerSlot::new(1).unwrap();
+        assert!(InputFrame::neutral(slot).is_neutral());
+    }
+
+    #[rstest]
+    #[case::bouton(InputFrame { buttons: Buttons::A, ..InputFrame::neutral(PlayerSlot::new(1).unwrap()) })]
+    #[case::stick(InputFrame { main: Stick::new(1, 0), ..InputFrame::neutral(PlayerSlot::new(1).unwrap()) })]
+    #[case::stick_c(InputFrame { c: Stick::new(0, -1), ..InputFrame::neutral(PlayerSlot::new(1).unwrap()) })]
+    #[case::gachette(InputFrame { l: 1, ..InputFrame::neutral(PlayerSlot::new(1).unwrap()) })]
+    fn anything_held_at_all_is_not_neutral(#[case] frame: InputFrame) {
+        // Les jumeaux, et ils comptent un par un: un test qui n'en vérifierait
+        // qu'un laisserait une commande entière invisible, et quelqu'un qui ne
+        // joue QUE du stick passerait pour absent.
+        assert!(!frame.is_neutral());
     }
 
     #[test]
@@ -670,6 +731,26 @@ mod tests {
 
     /// Le jumeau, et il porte tout le sujet: deux ordres qui se confondraient
     /// feraient changer de jeu quand on voulait changer de sauvegarde.
+    /// La manette voyage comme la sauvegarde: son propre message, avant le jeu.
+    #[test]
+    fn choosing_a_pad_survives_the_wire() {
+        for kind in [0_u8, 1] {
+            let sent = Command::ChoosePad { kind };
+            assert_eq!(Command::decode(&sent.encode()), Ok(sent));
+        }
+        // Et elle ne se confond avec aucune autre: trois commandes, trois
+        // opcodes, et un décodeur qui les distingue est ce qui empêche une
+        // demande de jeu de devenir une demande de manette.
+        assert_ne!(
+            Command::ChoosePad { kind: 1 }.encode(),
+            Command::ChooseSave { slot: 1 }.encode()
+        );
+        assert_ne!(
+            Command::ChoosePad { kind: 1 }.encode(),
+            Command::SwitchRom { index: 1 }.encode()
+        );
+    }
+
     #[test]
     fn choosing_a_save_is_not_choosing_a_game() {
         let save = Command::ChooseSave { slot: 1 };

@@ -277,5 +277,6 @@ def _game(index: int, entry: object) -> Game:
             maker=entry.get("maker"),
             about=entry.get("about"),
             art=bool(entry.get("art", False)),
+            console=str(entry.get("console", "?")),
         )
     return Game(index=index, name=str(entry))

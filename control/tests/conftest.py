@@ -35,6 +35,16 @@ def settings(tmp_path: Path) -> Settings:
         room_name="Salon d'essai",
         worker_url="http://worker.test",
         state_file=tmp_path / "people.json",
+        # Et les réglages de manette, pour exactement la même raison. Oubliés au
+        # premier jet, les tests écrivaient dans le VRAI fichier: ils auraient
+        # remplacé les manettes de quelqu'un par celles d'un test.
+        bindings_file=tmp_path / "bindings.json",
+        # La référence de la salle, jetable aussi: un essai qui publie dans le
+        # vrai fichier remplacerait la configuration de tout le monde.
+        room_bindings_file=tmp_path / "room-bindings.json",
+        # Et une adresse qui a le droit de publier, sinon aucun essai ne
+        # pourrait couvrir le chemin qui écrit.
+        admin="souhib@example.com",
         # Et le journal aussi, pour la même raison ET une pire: le journal
         # BALAIE ce qu'il trouve de trop vieux. Une suite de tests pointée sur le
         # vrai dossier effacerait la soirée qu'on voulait relire, et le premier

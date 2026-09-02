@@ -21,6 +21,7 @@ async def test_the_room_reports_the_game_the_worker_is_running(client: httpx.Asy
         "maker": "Nintendo/HAL Laboratory,Inc.",
         "about": "Let the melee begin!",
         "art": True,
+        "console": "?",
     }
     assert [game["name"] for game in room["library"]] == [
         "Mario Kart Double Dash",

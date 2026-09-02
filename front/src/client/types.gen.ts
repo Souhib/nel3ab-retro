@@ -5,6 +5,39 @@ export type ClientOptions = {
 };
 
 /**
+ * Bindings
+ *
+ * Ce que quelqu'un a réglé sur ses manettes et son clavier.
+ *
+ * Le contenu est OPAQUE au service, et c'est délibéré. La forme d'un profil
+ * appartient à la page: elle sait ce qu'un axe, un repos et un signe veulent
+ * dire, et elle est la seule à s'en servir. La décrire ici en donnerait une
+ * deuxième version à tenir d'accord avec la première, et il faudrait publier le
+ * service pour ajouter un champ à une manette.
+ *
+ * Ce qui est vérifié est ce qui protège le disque: un objet, sous un plafond
+ * (voir `BindingsController.CEILING`).
+ */
+export type Bindings = {
+    /**
+     * Pads
+     *
+     * Un profil par manette, indexé par l'identifiant que le navigateur donne.
+     */
+    pads?: {
+        [key: string]: unknown;
+    };
+    /**
+     * Keys
+     *
+     * Ce que chaque touche du clavier fait, indexé par sa POSITION physique.
+     */
+    keys?: {
+        [key: string]: unknown;
+    };
+};
+
+/**
  * Game
  *
  * One game the room can run.
@@ -34,6 +67,12 @@ export type Game = {
      * La phrase que l'éditeur a écrite sur le disque. Peut contenir un retour à la ligne: ces textes ont été mis en page sur deux lignes.
      */
     about?: string | null;
+    /**
+     * Console
+     *
+     * Quelle console ce disque demande, lue sur le disque: « gc », « wii », ou « ? » quand le disque n'a pas répondu. La page s'en sert pour ne pas proposer un choix qui ne déciderait rien: un jeu Wii n'a pas de carte mémoire, donc pas deux emplacements de sauvegarde. « ? » n'est pas « gc »: proposer un choix qui ne fait rien est pire que ne pas le proposer.
+     */
+    console?: string;
     /**
      * Art
      *
@@ -96,6 +135,12 @@ export type Me = {
      * Le nom que le fournisseur d'identité affiche, pour information.
      */
     display?: string;
+    /**
+     * Publishes
+     *
+     * Cette personne peut-elle publier la configuration de référence de la salle ? Un booléen et non l'adresse de qui le peut: la page a besoin de savoir ce qu'ELLE peut faire, pas de connaître l'adresse de quelqu'un d'autre.
+     */
+    publishes?: boolean;
 };
 
 /**
@@ -253,6 +298,47 @@ export type RenameMeResponses = {
 
 export type RenameMeResponse = RenameMeResponses[keyof RenameMeResponses];
 
+export type ReadBindingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/me/bindings';
+};
+
+export type ReadBindingsResponses = {
+    /**
+     * Successful Response
+     */
+    200: Bindings;
+};
+
+export type ReadBindingsResponse = ReadBindingsResponses[keyof ReadBindingsResponses];
+
+export type KeepBindingsData = {
+    body: Bindings;
+    path?: never;
+    query?: never;
+    url: '/api/me/bindings';
+};
+
+export type KeepBindingsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type KeepBindingsError = KeepBindingsErrors[keyof KeepBindingsErrors];
+
+export type KeepBindingsResponses = {
+    /**
+     * Successful Response
+     */
+    200: Bindings;
+};
+
+export type KeepBindingsResponse = KeepBindingsResponses[keyof KeepBindingsResponses];
+
 export type ReadRoomData = {
     body?: never;
     path?: never;
@@ -268,3 +354,44 @@ export type ReadRoomResponses = {
 };
 
 export type ReadRoomResponse = ReadRoomResponses[keyof ReadRoomResponses];
+
+export type ReadRoomBindingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/room/bindings';
+};
+
+export type ReadRoomBindingsResponses = {
+    /**
+     * Successful Response
+     */
+    200: Bindings;
+};
+
+export type ReadRoomBindingsResponse = ReadRoomBindingsResponses[keyof ReadRoomBindingsResponses];
+
+export type PublishRoomBindingsData = {
+    body: Bindings;
+    path?: never;
+    query?: never;
+    url: '/api/room/bindings';
+};
+
+export type PublishRoomBindingsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PublishRoomBindingsError = PublishRoomBindingsErrors[keyof PublishRoomBindingsErrors];
+
+export type PublishRoomBindingsResponses = {
+    /**
+     * Successful Response
+     */
+    200: Bindings;
+};
+
+export type PublishRoomBindingsResponse = PublishRoomBindingsResponses[keyof PublishRoomBindingsResponses];

@@ -68,6 +68,68 @@
         }
       }
     },
+    "/api/me/bindings": {
+      "get": {
+        "tags": [
+          "me"
+        ],
+        "summary": "Read Bindings",
+        "description": "Les réglages de manette de celui qui demande.\n\nVides quand aucun proxy n'est devant: sans identité il n'y a pas de dossier à\nouvrir, et la page garde alors ses réglages dans le navigateur, comme avant.\nCe n'est pas une erreur, c'est la salle sans son proxy.",
+        "operationId": "read_bindings",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Bindings"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "me"
+        ],
+        "summary": "Keep Bindings",
+        "description": "Garde ses propres réglages, et ceux de personne d'autre.\n\nSous l'adresse que le PROXY donne, jamais sous une adresse envoyée par le\nclient: c'est la même règle que pour le pseudo, et c'est la différence entre\nrégler sa manette et régler celle de quelqu'un d'autre.",
+        "operationId": "keep_bindings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Bindings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Bindings"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/room": {
       "get": {
         "tags": [
@@ -89,10 +151,91 @@
           }
         }
       }
+    },
+    "/api/room/bindings": {
+      "get": {
+        "tags": [
+          "room"
+        ],
+        "summary": "Read Room Bindings",
+        "description": "La configuration de référence de la salle.\n\nSans identité aussi, contrairement au dossier personnel: la référence est ce\nque la salle propose à qui entre, et exiger de savoir qui demande la rendrait\ninvisible exactement à ceux qui n'ont encore rien réglé.\n\nVide quand personne ne l'a publiée. La page se comporte alors comme avant.",
+        "operationId": "read_room_bindings",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Bindings"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "room"
+        ],
+        "summary": "Publish Room Bindings",
+        "description": "Remplace la référence de la salle. Une seule personne le peut.\n\n# Pourquoi une adresse écrite dans la configuration et pas le propriétaire\n\nLa salle a déjà une notion de propriétaire, et elle ne convient pas ici: elle\nest faite pour décider du jeu en cours, elle change quand quelqu'un part, et\ndepuis peu elle se donne toute seule quand le propriétaire s'absente trois\nminutes. Rendre la référence modifiable par ce propriétaire-là voudrait dire\nque n'importe qui peut l'écraser pendant qu'on mange.\n\nUne référence à laquelle on veut pouvoir revenir QUOI QU'IL ARRIVE ne peut\npas dépendre d'un titre qui tourne. Elle dépend d'une adresse, écrite dans\nl'unité systemd, que rien dans la salle ne peut changer.\n\nVide veut dire personne, et c'est le défaut: une salle fraîchement déployée\nn'a pas de référence et se comporte exactement comme avant.",
+        "operationId": "publish_room_bindings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Bindings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Bindings"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "Bindings": {
+        "properties": {
+          "pads": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Pads",
+            "description": "Un profil par manette, indexé par l'identifiant que le navigateur donne."
+          },
+          "keys": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Keys",
+            "description": "Ce que chaque touche du clavier fait, indexé par sa POSITION physique."
+          }
+        },
+        "type": "object",
+        "title": "Bindings",
+        "description": "Ce que quelqu'un a réglé sur ses manettes et son clavier.\n\nLe contenu est OPAQUE au service, et c'est délibéré. La forme d'un profil\nappartient à la page: elle sait ce qu'un axe, un repos et un signe veulent\ndire, et elle est la seule à s'en servir. La décrire ici en donnerait une\ndeuxième version à tenir d'accord avec la première, et il faudrait publier le\nservice pour ajouter un champ à une manette.\n\nCe qui est vérifié est ce qui protège le disque: un objet, sous un plafond\n(voir `BindingsController.CEILING`)."
+      },
       "Game": {
         "properties": {
           "index": {
@@ -128,6 +271,12 @@
             ],
             "title": "About",
             "description": "La phrase que l'éditeur a écrite sur le disque. Peut contenir un retour à la ligne: ces textes ont été mis en page sur deux lignes."
+          },
+          "console": {
+            "type": "string",
+            "title": "Console",
+            "description": "Quelle console ce disque demande, lue sur le disque: « gc », « wii », ou « ? » quand le disque n'a pas répondu. La page s'en sert pour ne pas proposer un choix qui ne déciderait rien: un jeu Wii n'a pas de carte mémoire, donc pas deux emplacements de sauvegarde. « ? » n'est pas « gc »: proposer un choix qui ne fait rien est pire que ne pas le proposer.",
+            "default": "?"
           },
           "art": {
             "type": "boolean",
@@ -197,6 +346,12 @@
             "title": "Display",
             "description": "Le nom que le fournisseur d'identité affiche, pour information.",
             "default": ""
+          },
+          "publishes": {
+            "type": "boolean",
+            "title": "Publishes",
+            "description": "Cette personne peut-elle publier la configuration de référence de la salle ? Un booléen et non l'adresse de qui le peut: la page a besoin de savoir ce qu'ELLE peut faire, pas de connaître l'adresse de quelqu'un d'autre.",
+            "default": false
           }
         },
         "type": "object",

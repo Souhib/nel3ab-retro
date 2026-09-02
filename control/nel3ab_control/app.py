@@ -7,6 +7,10 @@ import httpx
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
 
+from nel3ab_control.api.controllers.bindings import (
+    BindingsController,
+    RoomBindingsController,
+)
 from nel3ab_control.api.controllers.people import PeopleController
 from nel3ab_control.api.controllers.rooms import RoomController
 from nel3ab_control.api.routes import me as me_routes
@@ -24,6 +28,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.client = client
         app.state.rooms = RoomController(settings, client)
         app.state.people = PeopleController(settings.state_file)
+        app.state.bindings = BindingsController(settings.bindings_file)
+        app.state.room_bindings = RoomBindingsController(settings.room_bindings_file)
         # Le journal balaie AVANT de servir: un service rallumé après trois
         # semaines d'arrêt ne doit pas garder trois semaines de séances au
         # prétexte qu'aucun jour n'a tourné pendant qu'il dormait.

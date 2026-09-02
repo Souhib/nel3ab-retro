@@ -36,6 +36,25 @@ class Settings(BaseSettings):
             "contrairement aux places, qui meurent avec le processus."
         ),
     )
+    bindings_file: Path = Field(
+        default=Path.home() / ".local/state/nel3ab/bindings.json",
+        description=(
+            "Où sont gardés les réglages de manette de chacun. Sous la personne "
+            "et pas sous la machine: une manette apprise au salon n'a aucune "
+            "raison d'être réapprise au bureau."
+        ),
+    )
+    room_bindings_file: Path = Field(
+        default=Path.home() / ".local/state/nel3ab/room-bindings.json",
+        description="La configuration de RÉFÉRENCE de la salle, celle que tout le monde reçoit.",
+    )
+    admin: str = Field(
+        default="",
+        description=(
+            "L'adresse de la seule personne qui peut publier la référence de la salle. "
+            "Vide veut dire personne, et une salle sans référence se comporte comme avant."
+        ),
+    )
     journal_dir: Path = Field(
         default=Path.home() / ".local/state/nel3ab/sessions",
         description=(

@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { ReadMeData, ReadMeResponses, ReadRoomData, ReadRoomResponses, RenameMeData, RenameMeErrors, RenameMeResponses } from './types.gen';
+import type { KeepBindingsData, KeepBindingsErrors, KeepBindingsResponses, PublishRoomBindingsData, PublishRoomBindingsErrors, PublishRoomBindingsResponses, ReadBindingsData, ReadBindingsResponses, ReadMeData, ReadMeResponses, ReadRoomBindingsData, ReadRoomBindingsResponses, ReadRoomData, ReadRoomResponses, RenameMeData, RenameMeErrors, RenameMeResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -48,8 +48,79 @@ export const renameMe = <ThrowOnError extends boolean = false>(options: Options<
 });
 
 /**
+ * Read Bindings
+ *
+ * Les réglages de manette de celui qui demande.
+ *
+ * Vides quand aucun proxy n'est devant: sans identité il n'y a pas de dossier à
+ * ouvrir, et la page garde alors ses réglages dans le navigateur, comme avant.
+ * Ce n'est pas une erreur, c'est la salle sans son proxy.
+ */
+export const readBindings = <ThrowOnError extends boolean = false>(options?: Options<ReadBindingsData, ThrowOnError>): RequestResult<ReadBindingsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ReadBindingsResponses, unknown, ThrowOnError>({ url: '/api/me/bindings', ...options });
+
+/**
+ * Keep Bindings
+ *
+ * Garde ses propres réglages, et ceux de personne d'autre.
+ *
+ * Sous l'adresse que le PROXY donne, jamais sous une adresse envoyée par le
+ * client: c'est la même règle que pour le pseudo, et c'est la différence entre
+ * régler sa manette et régler celle de quelqu'un d'autre.
+ */
+export const keepBindings = <ThrowOnError extends boolean = false>(options: Options<KeepBindingsData, ThrowOnError>): RequestResult<KeepBindingsResponses, KeepBindingsErrors, ThrowOnError> => (options.client ?? client).put<KeepBindingsResponses, KeepBindingsErrors, ThrowOnError>({
+    url: '/api/me/bindings',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
  * Read Room
  *
  * What is loaded, what else could be, who claims which pad, and who is here.
  */
 export const readRoom = <ThrowOnError extends boolean = false>(options?: Options<ReadRoomData, ThrowOnError>): RequestResult<ReadRoomResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ReadRoomResponses, unknown, ThrowOnError>({ url: '/api/room', ...options });
+
+/**
+ * Read Room Bindings
+ *
+ * La configuration de référence de la salle.
+ *
+ * Sans identité aussi, contrairement au dossier personnel: la référence est ce
+ * que la salle propose à qui entre, et exiger de savoir qui demande la rendrait
+ * invisible exactement à ceux qui n'ont encore rien réglé.
+ *
+ * Vide quand personne ne l'a publiée. La page se comporte alors comme avant.
+ */
+export const readRoomBindings = <ThrowOnError extends boolean = false>(options?: Options<ReadRoomBindingsData, ThrowOnError>): RequestResult<ReadRoomBindingsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ReadRoomBindingsResponses, unknown, ThrowOnError>({ url: '/api/room/bindings', ...options });
+
+/**
+ * Publish Room Bindings
+ *
+ * Remplace la référence de la salle. Une seule personne le peut.
+ *
+ * # Pourquoi une adresse écrite dans la configuration et pas le propriétaire
+ *
+ * La salle a déjà une notion de propriétaire, et elle ne convient pas ici: elle
+ * est faite pour décider du jeu en cours, elle change quand quelqu'un part, et
+ * depuis peu elle se donne toute seule quand le propriétaire s'absente trois
+ * minutes. Rendre la référence modifiable par ce propriétaire-là voudrait dire
+ * que n'importe qui peut l'écraser pendant qu'on mange.
+ *
+ * Une référence à laquelle on veut pouvoir revenir QUOI QU'IL ARRIVE ne peut
+ * pas dépendre d'un titre qui tourne. Elle dépend d'une adresse, écrite dans
+ * l'unité systemd, que rien dans la salle ne peut changer.
+ *
+ * Vide veut dire personne, et c'est le défaut: une salle fraîchement déployée
+ * n'a pas de référence et se comporte exactement comme avant.
+ */
+export const publishRoomBindings = <ThrowOnError extends boolean = false>(options: Options<PublishRoomBindingsData, ThrowOnError>): RequestResult<PublishRoomBindingsResponses, PublishRoomBindingsErrors, ThrowOnError> => (options.client ?? client).put<PublishRoomBindingsResponses, PublishRoomBindingsErrors, ThrowOnError>({
+    url: '/api/room/bindings',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});

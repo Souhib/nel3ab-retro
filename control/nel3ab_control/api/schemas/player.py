@@ -1,5 +1,7 @@
 """Who is playing, which here is a name and nothing else."""
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 NAME_MAX = 24
@@ -22,6 +24,29 @@ class Session(Identity):
     id: str = Field(description="Opaque, per browser, so a reconnection is recognised.")
 
 
+class Bindings(BaseModel):
+    """Ce que quelqu'un a réglé sur ses manettes et son clavier.
+
+    Le contenu est OPAQUE au service, et c'est délibéré. La forme d'un profil
+    appartient à la page: elle sait ce qu'un axe, un repos et un signe veulent
+    dire, et elle est la seule à s'en servir. La décrire ici en donnerait une
+    deuxième version à tenir d'accord avec la première, et il faudrait publier le
+    service pour ajouter un champ à une manette.
+
+    Ce qui est vérifié est ce qui protège le disque: un objet, sous un plafond
+    (voir `BindingsController.CEILING`).
+    """
+
+    pads: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Un profil par manette, indexé par l'identifiant que le navigateur donne.",
+    )
+    keys: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Ce que chaque touche du clavier fait, indexé par sa POSITION physique.",
+    )
+
+
 class Me(BaseModel):
     """Qui le service croit avoir en face.
 
@@ -36,6 +61,14 @@ class Me(BaseModel):
     name: str = Field(description="Le pseudo, choisi et modifiable.")
     display: str = Field(
         default="", description="Le nom que le fournisseur d'identité affiche, pour information."
+    )
+    publishes: bool = Field(
+        default=False,
+        description=(
+            "Cette personne peut-elle publier la configuration de référence de la salle ? "
+            "Un booléen et non l'adresse de qui le peut: la page a besoin de savoir ce "
+            "qu'ELLE peut faire, pas de connaître l'adresse de quelqu'un d'autre."
+        ),
     )
 
 

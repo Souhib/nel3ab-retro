@@ -13,6 +13,11 @@ the decisions and their reasons.
 human: how the project was built, what fought back, and what every acronym means.
 Start there if you want the reasoning rather than the ruling.
 
+[`docs/ecran-manettes.md`](docs/ecran-manettes.md) is a hand-off note for one
+screen — the two live controller diagrams under `touches`. Read it before
+touching `lib/padmap.ts`, `lib/wiring.ts` or `components/Wiring.tsx`: the invariant
+it states (one frame, three readings) is not visible in any of them.
+
 ## The rules that matter
 
 ### 1. No rule without its reason — and the reason is measured

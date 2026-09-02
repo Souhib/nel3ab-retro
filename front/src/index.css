@@ -38,7 +38,7 @@
   --rule-bright: #c8c8d2;
   --text: #16161c;
   --muted: #56565f;
-  --faint: #86868f;
+  --faint: #70707a;
   --indigo: #5540c9;
   --indigo-dim: #b3a9ec;
   --alert: #c22f3d;
@@ -60,7 +60,7 @@
   --rule-bright: #2c2c36;
   --text: #e8e8ee;
   --muted: #8b8b98;
-  --faint: #5c5c68;
+  --faint: #797988;
   --indigo: #7c6ce0;
   --indigo-dim: #4a4090;
   --alert: #ff7a7a;
@@ -77,7 +77,7 @@
   --rule-bright: #245c3c;
   --text: #86f5a8;
   --muted: #4fae74;
-  --faint: #327c50;
+  --faint: #388d5b;
   --indigo: #5cff9d;
   --indigo-dim: #1c5c38;
   --alert: #ff8a6b;
@@ -94,7 +94,7 @@
   --rule-bright: #5a3d14;
   --text: #ffb642;
   --muted: #bd8130;
-  --faint: #855a1e;
+  --faint: #a57025;
   --indigo: #ffd48a;
   --indigo-dim: #6b4715;
   --alert: #ff6b5a;
@@ -111,7 +111,7 @@
   --rule-bright: #a79fd2;
   --text: #1c1932;
   --muted: #575074;
-  --faint: #8983a6;
+  --faint: #6a638b;
   --indigo: #4b3aa6;
   --indigo-dim: #b7aee2;
   --alert: #b32a3a;
@@ -128,7 +128,7 @@
   --rule-bright: #bda880;
   --text: #2a2018;
   --muted: #6a5943;
-  --faint: #97866d;
+  --faint: #736552;
   --indigo: #c1272d;
   --indigo-dim: #e8b3b0;
   --alert: #a01f24;
@@ -145,7 +145,7 @@
   --rule-bright: #7fa066;
   --text: #0f2a18;
   --muted: #35573b;
-  --faint: #5d7d55;
+  --faint: #4e6746;
   --indigo: #2c6b3d;
   --indigo-dim: #9dc084;
   --alert: #8c2f22;
@@ -168,6 +168,27 @@
   --color-good: var(--good);
 
   --font-chrome: var(--chrome);
+  /* `--faint` a été relevé dans les SEPT thèmes le 2 septembre 2026.
+   *
+   * Il valait entre 3,04:1 et 3,93:1 selon le thème — le troisième niveau de la
+   * rampe n'était lisible dans aucun. Ce n'est pas une opacité qui l'abîmait: la
+   * couleur elle-même était trop pâle, et un pilote qui mesure le contraste
+   * EFFECTIF dans le rendu a trouvé 196 textes sous le seuil, tous sur ce jeton.
+   *
+   * Ce qu'on lisait avec: l'état des quatre manettes dans la colonne — « libre »,
+   * « toi », le nom de qui la tient — c'est-à-dire ce qu'on regarde le plus
+   * souvent de toute la page.
+   *
+   * Chaque valeur garde la TEINTE et la SATURATION d'origine; seule la clarté
+   * bouge, jusqu'à 4,5:1 sur le PIRE des deux fonds du thème. Le pire, et pas
+   * `--ink`: un premier passage visait le fond de la page et laissait la colonne
+   * à 4,38:1, parce qu'elle est peinte sur `--panel`, un ton plus clair. Un
+   * seuil visé sur la mauvaise surface est un seuil qu'on croit tenir. La rampe reste
+   * donc à trois niveaux — texte, --muted, --faint — mais les trois se lisent.
+   *
+   * Ce qui décore plutôt que d'informer a ses propres jetons, `--rule` et
+   * `--rule-bright`, et n'est pas concerné.
+   */
   --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 }

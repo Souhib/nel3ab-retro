@@ -283,6 +283,36 @@ only thing that knows who really has a pad; the control plane knows what each
 page told it. The two can disagree for a second after a reconnection, and the
 page believes the worker, because the worker is the one applying the buttons.
 
+**The room has a REFERENCE configuration, and one named person publishes it.**
+Pads and keys are personal, but a room where everyone starts from nothing makes
+every newcomer relearn sixteen controls. The control plane therefore holds one
+reference set that every page reads, merged into each person's list as read-only
+profiles under a prefixed name — a prefix rather than a flag because the
+collisions are certain, not hypothetical, and a prefix removes the arbitration.
+
+**Who may publish it is a login in the unit file, not the room's owner.** The
+owner is built for deciding the running game: it changes when somebody leaves,
+and since the away rule it is handed over on its own after three minutes of
+silence. A reference one must be able to return to *whatever happens* cannot
+depend on a title that rotates. Empty means nobody, which is the default: a fresh
+deployment has no reference and behaves exactly as before.
+
+**The reference is cached in the browser**, for the same reason the whole line
+exists: a room already open keeps playing when the control plane stops. Reading
+it over HTTP alone would make room profiles vanish mid-game, and take the keys
+with them if one was in use.
+
+**And who DECIDES is the worker's answer too.** The control plane elects an owner
+— the first identified person in the room — and holds that election until the
+socket drops. A tab left open never drops, so a friend who walks away keeps the
+room. The worker therefore overrides the election: it stamps each seat when a
+frame arrives that is not neutral, and once the owner has been silent for three
+minutes anybody may change the game. The room message carries the answer as a
+byte, so the page reads a verdict instead of computing one. This removes a second
+authority as much as it removes the deadlock: the page used to compare its own
+login against the control plane's owner, while the worker reasoned in seats, and
+the two disagreed after every reconnection.
+
 ### D15 — The same picture is encoded twice, and each viewer picks
 
 One Dolphin, one compute pass, **two encoders**: 1216x896 and 608x448. A page

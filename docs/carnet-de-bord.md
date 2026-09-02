@@ -7249,6 +7249,2028 @@ le symptôme et laissait la cause en place.
 
 ---
 
+### La bannière tronquée, qui rendait les sauvegardes corrompues
+
+Trois jeux Wii annonçaient « données corrompues » alors que Mario Kart Wii, avec
+une sauvegarde importée exactement de la même façon, marchait très bien. C'est
+cette différence, signalée par la personne qui joue, qui a mené à la cause.
+
+**J'avais figé la taille de la bannière à 0x72A0.** Une bannière de sauvegarde
+Wii porte de une à huit icônes, donc elle mesure 0x72A0, 0xBAA0 ou 0xF0A0 selon
+le jeu. Mesuré sur les cinq sauvegardes de cette collection:
+
+| jeu | annoncé | posé au départ |
+|---|---|---|
+| Mario Kart Wii | 29 344 | 29 344 |
+| Mario Party 9 | 29 344 | 29 344 |
+| Guitar Hero III | 47 776 | 47 776 |
+| **Mario Party 8** | **61 600** | 29 344 |
+| **Mario Strikers Charged** | **61 600** | 29 344 |
+
+Mario Kart Wii marchait donc **par chance**: sa bannière est la plus petite des
+trois tailles, celle que j'avais figée. Deux jeux sur cinq ont reçu un fichier
+tronqué de moitié, ce qui est exactement une sauvegarde corrompue.
+
+**Pourquoi ça n'a pas été vu tout de suite.** Une bannière tronquée commence
+quand même par sa signature `WIBN`, donc le contrôle du décodeur passait. Et j'ai
+vérifié chaque installation en regardant l'écran-titre, où rien ne se voit: le
+message n'arrive qu'en chargeant la partie. **Un contrôle qui lit le début d'un
+fichier ne dit rien de sa fin.**
+
+**Une piste écartée, et vérifiée plutôt que supposée.** J'ai d'abord soupçonné
+les droits: Dolphin tient un registre `fst.bin` avec le propriétaire et les
+permissions de chaque fichier de la NAND, et nos fichiers n'y sont pas. Sa source
+dit le contraire — un fichier présent sur le disque mais absent du registre reçoit
+une entrée par défaut en lecture et écriture pour tout le monde. La remarque de
+la personne qui joue — « pourtant Mario Kart Wii a très bien fonctionné alors
+qu'on a importé aussi » — disait déjà que le mécanisme d'import n'était pas en
+cause.
+
+**Ce qui reste.** Mario Party 9 refuse la seule sauvegarde qui circule, bannière
+correcte et région identique: elle est simplement mauvaise. Guitar Hero III avait
+sa bannière correcte lui aussi, et je n'ai pas reproduit son message.
+
+### Le choix de manette a quitté le panneau de lancement
+
+Il y a vécu une journée, à côté du choix de sauvegarde, ce qui faisait quatre
+lignes au lancement d'un jeu Wii. C'était le mauvais endroit, et la personne qui
+joue l'a dit mieux que moi: **une sauvegarde se choisit par partie, une manette
+se choisit une fois.**
+
+Elle est maintenant sous « manettes », avec le reste de ce qui décrit ce qu'on
+tient, et retenue dans le navigateur comme les autres réglages de manette. Le
+panneau de lancement est revenu à deux lignes.
+
+Changer le réglage pendant qu'un jeu Wii tourne le relance, parce que Dolphin lit
+sa configuration de manette au démarrage. Pendant qu'un jeu GameCube tourne, il ne
+relance rien: le réglage n'y déciderait de rien, et couper une partie pour ça
+serait gratuit.
+
+---
+
+### Les sauvegardes des quatre jeux Wii ajoutés, et les deux qui manquent
+
+Quatre disques Wii ajoutés à la bibliothèque. Ce qu'on a trouvé, et surtout ce
+qu'on n'a pas trouvé.
+
+**La source.** `repo.mariocube.com` est un miroir ouvert et parcourable de
+plusieurs collections de sauvegardes — WiiSave.com, GameFAQs, Brewology,
+TheTechGame — là où les sites d'origine refusent une requête qui ne vient pas
+d'un navigateur, ou demandent un compte. Un `curl` et un `ls` suffisent.
+
+**Ce qui est posé, et vérifié.** Mario Party 8, Mario Strikers Charged et
+Guitar Hero III. Chaque
+fichier a été déchiffré puis contrôlé sur son identifiant de titre INTERNE
+comparé à celui du disque: `00010000524d3850` pour RM8P, `0001000052345145` pour
+R4QE. Les deux jeux démarrent ensuite sur leur écran normal, sans demande de
+création ni message de données corrompues.
+
+**Mario Party 9 refuse la seule sauvegarde qui circule, et ce n'est PAS une
+question de région.** Posée d'abord dans l'emplacement d'un disque PAL, elle a
+donné « The file cannot be used because the data is corrupted », et j'en ai
+conclu que la région bloquait. **C'était faux, et le lendemain l'a montré**: le
+disque remplacé par sa version américaine, avec une sauvegarde dont
+l'identifiant de titre est exactement celui du disque, donne le même message.
+
+Deux miroirs indépendants — Brewology et TheTechGame — servent d'ailleurs le
+MÊME fichier, empreinte identique. Il n'y a donc qu'une sauvegarde de Mario Party
+9 en circulation, et elle ne marche pas ici.
+
+La leçon: **une explication qui colle à une observation n'est pas une cause.**
+« Les régions ne se mélangent pas » expliquait parfaitement le message, et se
+trouvait être fausse. Ce qui l'a démontée est un deuxième essai où la seule chose
+qui changeait était justement la région.
+
+L'emplacement est laissé vide plutôt que rempli d'un fichier refusé: un
+emplacement vide donne une partie neuve, un emplacement refusé donne un écran
+d'erreur au démarrage.
+
+**Guitar Hero III marche, une fois le disque en version américaine.** Sa
+sauvegarde a demandé deux corrections au décodeur, et les deux étaient muettes:
+
+- la bannière ne mesure pas toujours 0x72A0. Elle porte de une à huit icônes,
+  donc 0x72A0, 0xBAA0 ou 0xF0A0. En figer une TRONQUE les autres, et une
+  bannière tronquée commence quand même par sa signature: le contrôle passait,
+  et l'image seule aurait dit le contraire;
+- une sauvegarde peut contenir un DOSSIER. Celle-ci range ses deux fichiers dans
+  `nocopy/`. Le décodeur annonçait le dossier sans le créer, et le fichier
+  suivant échouait sur un chemin absent.
+
+Le jeu lit ensuite sa sauvegarde — il annonce « Autosave has been disabled »,
+c'est-à-dire un réglage venu du fichier — puis demande sa guitare en plastique.
+Dolphin sait en émuler une comme extension de Wiimote; la salle ne le fait pas
+encore.
+
+Les fichiers `.wii` de GameFAQs, eux, ne sont pas au format d'export: leur
+en-tête déchiffré ne donne aucun identifiant cohérent.
+
+**Le décodeur sort maintenant la bannière** en plus des fichiers. Elle vit dans
+la zone chiffrée de l'en-tête, avant la liste des fichiers, et c'est l'image que
+la salle affiche pour un jeu Wii. Sans elle, un jeu jamais lancé restait sans
+jaquette même après avoir reçu sa sauvegarde.
+
+---
+
+### Le jeu en cours redevient choisissable, et l'étiquette disparaît
+
+Deux trous laissés par les changements de la veille, tous deux signalés par la
+personne qui joue.
+
+**On ne pouvait plus changer de manette.** Le choix se fait dans le panneau qui
+s'ouvre en lançant un jeu; or l'entrée du jeu QUI TOURNE était grisée. Pour
+passer à la Wiimote il fallait lancer un autre jeu puis revenir. La griser était
+juste tant que cette entrée ne décidait de rien une fois le jeu lancé; depuis
+qu'elle porte la sauvegarde et la manette, elle décide de deux choses, et la
+relancer est la seule façon de les changer. Elle reste grisée pour qui ne décide
+pas du jeu.
+
+La leçon: **une entrée grisée est une règle, et une règle vieillit.** Celle-ci
+disait « ça ne servirait à rien », ce qui a cessé d'être vrai sans que la ligne
+change.
+
+**« En attente de l'image » a été retirée pour de bon.** Trois tentatives pour la
+devancer avaient échoué — un seuil d'images, un compteur de reconnexions, une
+durée de noir accumulée — et à chaque fois elle réapparaissait dans un cas que je
+n'avais pas prévu. Elle n'existe plus: l'écran de chargement prend sa place dès
+que la salle n'envoie plus rien depuis sept centièmes de seconde, avec le nom du
+jeu en cours.
+
+Deux détails qui comptent dans cette dernière version:
+
+- la mesure est un INSTANT retenu, pas une durée accumulée à chaque rendu.
+  Additionner faisait dépendre le résultat du rythme des rendus, qui s'arrête
+  dans un onglet en arrière-plan;
+- rien ne s'affiche pour une page-manette, qui n'a pas d'image à attendre.
+
+Vérifié en coupant la salle: deux secondes après l'arrêt du worker, l'écran de
+chargement est là avec « Mario Kart Wii », et il repart quand l'image revient.
+L'ancienne étiquette n'apparaît plus nulle part, puisqu'elle n'est plus écrite.
+
+---
+
+### Deux manettes pour une personne, et le deuxième joueur qui n'entre jamais
+
+Le lendemain du jour où la Wiimote a été ajoutée: à deux sur Mario Kart Wii, la
+manette du deuxième joueur n'était pas prise en compte.
+
+**La cause est exactement ce qui rendait la Wiimote facile.** Une manette
+GameCube et une Wiimote peuvent lire le MÊME tuyau — c'est ce qui a permis de
+l'ajouter sans changer un octet du protocole. Mais un jeu qui voit les deux
+compte **deux manettes pour une personne**: le premier joueur occupe deux places,
+et le second n'entre jamais.
+
+Une commodité qui devient un défaut dès qu'on est deux. Elle ne se voyait pas
+seul, ce qui est la pire forme: la fonction marchait chez celui qui l'a écrite.
+
+**La correction est une exclusivité, et elle vit dans le type.** `PadKind` n'a
+que deux variantes, GameCube et Wiimote; il n'y a pas de variante « les deux ».
+Quand la salle joue à la manette GameCube, `WiimoteNew.ini` est vide; quand elle
+joue à la Wiimote, `SIDevice` vaut zéro sur les quatre ports. Deux essais
+jumeaux le fixent: aucun des deux fichiers ne décrit une manette qu'on n'a pas
+choisie, et chacun décrit bien la sienne quand c'est elle qu'on a choisie.
+
+**Le choix se fait où il agit.** Le panneau qui s'ouvre en lançant un jeu Wii
+propose maintenant quatre lignes: les deux sauvegardes croisées avec les deux
+manettes. Un jeu GameCube en garde deux, puisqu'il n'a pas de Wiimote à choisir.
+Poser ce réglage ailleurs, dans un menu, en aurait fait un réglage qu'on oublie
+d'avoir mis — c'est déjà arrivé une fois avec les sauvegardes.
+
+**Le défaut reste la manette GameCube**, c'est-à-dire ce que la salle faisait
+avant qu'une Wiimote existe. Un défaut ne doit rien changer à ce qui marchait, et
+la Wiimote est là pour les jeux qui n'acceptent qu'elle.
+
+Vérifié sur les quatre combinaisons, en lisant ce que Dolphin reçoit: jeu
+GameCube, `SIDevice0 = 6` et pas de Wiimote; jeu Wii avec la manette GameCube,
+pareil; jeu Wii avec la Wiimote, `SIDevice0 = 0` et 3 300 octets de
+correspondances. Et le panneau montre bien ses quatre lignes.
+
+---
+
+### Une Wiimote émulée, et le mouvement remplacé par les sticks
+
+Beaucoup de jeux Wii n'acceptent pas la manette GameCube. Ils démarraient,
+affichaient leur titre, et ne répondaient à rien.
+
+**La cause n'était pas qu'il manquait une Wiimote: il en manquait les
+correspondances.** Dolphin émule une Wiimote par défaut — c'est même le réglage
+d'origine de la place 1 — mais `WiimoteNew.ini` était vide, zéro octet. Le jeu
+voyait donc une Wiimote parfaitement connectée sur laquelle personne n'appuie
+jamais. Un défaut de configuration absente, pas de capacité manquante.
+
+**Le même tuyau porte les deux manettes.** Dolphin sépare l'APPAREIL de ce qu'on
+en fait: `Pipe/0/p1` nourrit la manette GameCube de la place 1 et sa Wiimote à la
+fois, et c'est le jeu qui décide laquelle il écoute. Un jeu qui accepte les deux,
+comme Mario Kart Wii, laisse donc le choix à l'écran; un jeu qui n'accepte que la
+Wiimote la trouve. Aucun changement de protocole: la trame de treize octets qu'on
+envoyait déjà suffit.
+
+**Le mouvement passe par les sticks, et c'était possible depuis toujours.**
+Dolphin expose `Tilt`, `Swing`, `Shake` et le pointeur `IR` comme des commandes
+ordinaires, qui se branchent sur n'importe quel bouton ou axe. Le stick principal
+penche donc la Wiimote, le stick C déplace son pointeur. Le principal sert DEUX
+fois — inclinaison et stick du Nunchuk — et ce n'est pas un oubli: un jeu qui se
+joue Wiimote seule lit l'inclinaison et n'a pas de Nunchuk, un jeu à Nunchuk lit
+son stick et ignore l'inclinaison. Les deux familles tiennent sur le même stick.
+
+**Ce qui reste sans correspondance, dit plutôt que caché.** Le bouton Home et la
+secousse. Une Wiimote plus un Nunchuk comptent treize boutons; le tuyau en porte
+douze. Home ouvre le menu de la console, dont cette salle n'a pas besoin. Les
+mettre sur une combinaison rendrait deux vrais boutons imprévisibles.
+
+**Un défaut attrapé en écrivant, et il aurait été muet.** Le premier jet écrivait
+`Tilt/Up` et `Tilt/Down`. Le groupe `Tilt` de Dolphin s'appelle Forward et
+Backward: une inclinaison va en avant et en arrière, pas en haut et en bas. Une
+clé que Dolphin ne connaît pas est **ignorée sans un mot** — la Wiimote n'aurait
+jamais penché, et rien n'aurait dit pourquoi. Un essai fixe maintenant les quatre
+noms, et refuse explicitement `Tilt/Up`.
+
+**L'essai qui ne laisse aucun doute.** Une Wiimote et une manette GameCube lisent
+le même tuyau, donc toute pression fait réagir les deux et aucune capture d'écran
+ne prouve laquelle a parlé. J'ai donc RETIRÉ la manette GameCube — `SIDevice` à
+zéro sur les quatre ports — et relancé. Le jeu démarre, accepte les appuis, passe
+l'écran de dragonne, la sélection de licence, et arrive au menu principal. Le seul
+périphérique que Dolphin avait était la Wiimote émulée.
+
+La leçon: **quand deux chemins mènent au même effet, en couper un est le seul
+moyen de savoir lequel marche.** Trois captures d'écran avant celle-là ne
+prouvaient rien, et j'ai failli conclure sur un glyphe blanc qui était déjà là
+avant le changement.
+
+**Binder comme une Wiimote, sans deuxième profil.** L'écran des touches nomme
+maintenant les commandes selon la console du jeu en cours: A, B, 1, 2, moins,
+plus, la croix, C et Z du Nunchuk, son stick, et « viser ». Ce qu'on enregistre ne
+change pas — la page envoie toujours la même trame — seuls les mots changent.
+Apprendre la manette deux fois serait pire que redondant: il faudrait se souvenir
+laquelle des deux vaut pour le jeu qu'on lance.
+
+---
+
+### L'écran de chargement, et pourquoi trois règles sur quatre étaient fausses
+
+Le symptôme: passer d'un jeu GameCube à un jeu Wii n'affichait pas l'écran de
+chargement. On voyait un instant « en attente de l'image », puis rien pendant les
+trente secondes de démarrage.
+
+**La cause tient en une phrase: changer de jeu n'arrête pas le worker tout de
+suite.** Il écrit son choix, finit son tour de boucle, et sort. Pendant cette
+seconde, l'ancien flux continue de peindre — une soixantaine d'images. Or l'écran
+s'effaçait après trente. Il durait donc une demi-seconde.
+
+Trois règles ont été essayées avant la bonne, et les deux premières sont
+instructives:
+
+1. **« trente images de plus »** — c'était la règle d'origine. Elle compte les
+   images de l'ANCIEN jeu;
+2. **« une reconnexion, puis trente images »** — mieux, mais un simple hoquet de
+   réseau en provoque une, et l'écran repartait pareil. Mesuré: le compteur
+   ralentit à 21 images par seconde pendant trois secondes, puis reprend;
+3. **« deux secondes sans image, puis trente »** — plus proche, mais un jeu qui
+   affiche un écran noir peint quand même, et le temps réel entre deux flux est
+   parfois d'une seconde seulement.
+
+**La bonne règle ne devine rien: elle demande.** Celui qui SAIT qu'un
+redémarrage arrive est celui qui l'a demandé. La page appelle donc
+`expectRestart()` sur son flux vidéo au moment où elle demande un autre jeu, et
+l'écran reste tant que ce redémarrage-là n'est pas arrivé ET que le nouveau flux
+n'a pas peint. Aucune heuristique, aucun seuil de temps.
+
+La leçon générale, et elle vaut au-delà d'ici: **quand un état dépend d'une
+intention, demander à celui qui l'a eue coûte moins qu'un compteur bien réglé**,
+et ne se dérègle pas.
+
+Il reste un plafond d'une minute, pour le seul cas où le redémarrage n'arrive
+jamais: un changement de jeu refusé ne provoque rien du tout, et un écran de
+chargement qui ne part plus est pire que celui qui partait trop tôt.
+
+**Et le petit texte a disparu.** « En attente de l'image » ne disait rien d'utile:
+la salle redémarre pour toutes sortes de raisons, et ce qu'on veut lire à ce
+moment est ce qui arrive. L'écran de chargement prend sa place, avec le nom du
+jeu en cours, après deux secondes sans connexion — assez pour qu'un hoquet ne
+fasse pas clignoter un écran plein.
+
+### La jaquette d'un jeu Wii, prise dans sa sauvegarde
+
+Un disque GameCube porte son image dans un fichier `opening.bnr` posé à plat.
+Un disque Wii, non: la sienne est enfouie dans une archive dans une archive, en
+morceaux compressés. C'est pour ça que les jeux Wii apparaissaient sans image.
+
+Mais la SAUVEGARDE d'un jeu Wii, elle, porte un `banner.bin` posé à plat, et **au
+même format de pixels que la GameCube**: du RGB5A3 en tuiles de quatre par
+quatre. Le décodeur existait donc déjà; il lui manquait de savoir que les
+dimensions ne sont pas toujours 96 par 32. Une Wii écrit 192 par 64, à 0xA0.
+
+Les tailles s'additionnent exactement, ce qui confirme la disposition sans avoir
+à la croire: 0xA0 + 192×64×2 + 48×48×2 = 0x72A0, ce que pèse le fichier.
+
+**Le prix à dire:** cette image n'existe qu'une fois le jeu lancé au moins une
+fois, puisque c'est le jeu qui l'écrit. Un jeu Wii jamais démarré reste sans
+image, ce qui est l'état d'avant.
+
+Le rapport largeur/hauteur est le même que celui d'une GameCube, trois pour un,
+donc la tuile du menu n'a pas bougé.
+
+---
+
+### Ouvrir une sauvegarde de Wii, qui ne se télécharge pas comme les autres
+
+Une sauvegarde GameCube circule telle quelle: un `.gci` qu'on pose dans un
+dossier. Une sauvegarde Wii, non. Ce qui circule est un `data.bin`, l'export
+**chiffré** qu'une console écrit sur une carte SD et que seule une console est
+censée relire. Dolphin sait l'importer, mais par son interface graphique, et
+cette machine n'en a pas.
+
+La clé est publique depuis 2008 et le format est documenté, donc le déchiffrement
+tient en soixante lignes. `tools/wii-save-decode.py` les porte, et
+`just wii-save-import` les appelle.
+
+**Trois endroits où la documentation ne colle pas aux fichiers**, tous trouvés en
+vérifiant une signature plutôt qu'en supposant:
+
+- l'en-tête `Bk` s'écrit `taille, "Bk", version`, et non `taille, version, "Bk"`;
+- la zone chiffrée du début est plus longue que ce que le champ « taille de
+  bannière » annonce. On CHERCHE donc cet en-tête au lieu de le calculer: une
+  position déduite d'un seul fichier se trompe sur le suivant;
+- le nom d'un fichier occupe 0x45 octets, pas 0x40. **Cinq octets d'écart**
+  mettent le vecteur d'initialisation au mauvais endroit, et le déchiffrement
+  rend alors des octets parfaitement plausibles qui ne sont une sauvegarde de
+  rien. Rien ne le signale: pas d'erreur, pas de taille absurde, juste un
+  fichier qui n'est pas ce qu'il prétend.
+
+C'est la signature qui l'a dit. `rksys.dat` commence par `RKSD`, et celui du jeu
+sur cette machine le confirmait: on obtenait `e9283b27`. **Comparer à ce qu'on a
+déjà sous la main vaut mieux que relire trois fois une spécification.**
+
+L'archive s'arrêtait aussi 2 432 octets avant la fin déclarée. Ces octets sont
+complétés de zéros plutôt que de livrer un fichier plus court que ce que le jeu
+attend: c'est la queue du fichier, là où vivent les fantômes, pas les déblocages.
+
+**Vérifié à l'écran, pas déduit d'une taille.** L'écran de sélection de cylindrée
+montre 50cc, 100cc, 150cc **et Mirror**. Sur une partie neuve, seuls 50 et 100
+existent: le 150cc se débloque, et Mirror demande d'avoir gagné toutes les coupes
+en 150. Les quatre présents veulent dire que la sauvegarde est lue et qu'elle est
+bien celle qu'on croyait.
+
+---
+
+### Deux étages dans la bibliothèque, et deux sauvegardes pour la Wii aussi
+
+**Les jeux sont rangés par console.** Une seule liste les mêlait par ordre
+alphabétique, et « Mario Kart Wii » tombait entre deux Mario Party. Le premier
+étage montre une étagère par console, avec son nombre de jeux; le second montre
+ses jeux. Retour remonte d'un étage plutôt que de fermer le menu, parce que
+corriger un clic ne doit pas demander de rouvrir et de redescendre.
+
+Un seul étage quand il n'y a qu'une console: un dossier qu'on est obligé
+d'ouvrir pour arriver au seul endroit possible est un clic pour rien.
+
+Les icônes sont un cube et une manette longue, dessinés ici. Le principe est
+celui qui gouverne déjà ce fichier d'icônes: les marques de Nintendo ne sont pas
+à nous, et un logo redessiné de mémoire aurait l'air de vouloir tromper. De la
+géométrie dit la même chose sans emprunter quoi que ce soit.
+
+**Une Wii sauvegarde ailleurs, mais elle sauvegarde.** Elle n'a pas de carte
+mémoire: elle écrit dans sa propre mémoire, sous l'identifiant du titre, et pour
+Mario Kart Wii en PAL c'est `Wii/title/00010004/524d4350/data`. Cet identifiant
+vient de `dolphin-tool`, jamais d'un calcul sur le code de jeu: la moitié haute
+change selon le type de titre, et la deviner marcherait sur les disques essayés
+avant de se tromper sur le premier qui sort du lot. Les deux emplacements
+marchent donc pour les deux consoles, avec le même choix à l'écran et deux
+chemins différents dessous.
+
+**Deux défauts trouvés en vérifiant, et le second est le pire de la journée.**
+
+Le premier: le cache de console d'une version précédente écrivait `wii` sans
+l'identifiant. Le relire comme « console inconnue » faisait ranger la partie d'un
+jeu Wii dans une carte mémoire, en silence, et le cache gardait l'erreur pour
+toujours. Une entrée qu'on ne sait pas lire est maintenant une entrée à
+REDEMANDER, pas une entrée à interpréter de travers.
+
+Le second: relier un dossier de sauvegarde appelait `remove_dir_all` sur ce qui
+était là. Un vrai dossier à cet endroit veut dire **une partie écrite avant qu'on
+range par emplacements**, et le premier changement d'emplacement l'aurait effacée
+sans un mot. Une sauvegarde effacée ne se récupère pas, et personne ne pense à en
+faire une copie d'avance. Elle est maintenant déplacée dans l'emplacement choisi
+quand il est vide, ce qui est le cas juste après la migration et ce qu'on attend:
+ce qu'on jouait devient ce qu'on retrouve. Quand il ne l'est pas, l'ancien
+dossier est mis de côté plutôt que mélangé. Vérifié en remettant l'effacement:
+deux essais passent au rouge.
+
+Constaté sur la machine: la partie que Mario Kart Wii s'était écrite pendant les
+essais, 2 867 200 octets de `rksys.dat`, s'est retrouvée dans l'emplacement
+« partie neuve » au lieu de disparaître.
+
+**Ce qui n'est pas fait.** Aucune sauvegarde « tout débloqué » n'est installée
+pour la Wii. Les deux sources propres trouvées distribuent une archive RAR, que
+cette machine ne sait pas ouvrir, et GameFAQs refuse les requêtes qui ne viennent
+pas d'un navigateur. Le reste passe par des hébergeurs de liens, d'où je ne tire
+pas de binaire. L'emplacement attend, vide, et un fichier déposé dedans marchera.
+
+---
+
+### Les jeux Wii entrent dans la salle
+
+Ce qui a été établi en démarrant vraiment `Mario Kart Wii` plutôt qu'en le
+supposant: **la chaîne marche déjà**. Le disque RVZ démarre dans le conteneur tel
+quel, soixante images par seconde, zéro jetée, un anneau de 1216x912, le son
+sort, et la manette GameCube pilote le jeu. Mario Kart Wii accepte nativement
+cette manette, ce qui évite entièrement la question du Wiimote.
+
+Trois choses manquaient, et aucune n'était grosse.
+
+**La bibliothèque ne balayait qu'un dossier.** Elle en accepte maintenant
+plusieurs, séparés par `:` comme un `PATH`, parce qu'une console par dossier est
+la façon dont ces collections se rangent. Le conteneur monte déjà le dossier du
+jeu qu'il lance, donc un dossier de plus ne coûte rien ailleurs. Un même nom de
+fichier dans deux dossiers est écarté avec une ligne qui le dit: le choix d'un
+jeu est retenu par son NOM DE FICHIER, et deux fois le même nom ferait redémarrer
+la salle sur l'un ou sur l'autre selon l'ordre du balayage.
+
+**La console est lue sur le disque, pas déduite du dossier.** La tentation était
+de conclure « `roms/wii` donc Wii », et ça marche jusqu'au jour où quelqu'un
+déplace un fichier — alors ça échoue en silence. `dolphin-tool header` répond sur
+les deux, et la différence est franche: un disque Wii porte un **Title ID**, un
+disque GameCube n'en a pas. C'est l'outil de Dolphin qui le dit, donc le même
+code qui bootera le jeu. La réponse est gardée en cache à côté des jaquettes: un
+conteneur par disque, et une salle qui redémarre trois fois par soirée les
+paierait trois fois.
+
+**Trois réponses, pas deux.** Un outil qui n'a pas pu démarrer ne prouve rien, et
+répondre « GameCube » par défaut ferait exactement le mensonge qu'on cherchait à
+éviter. `Console::Unknown` existe pour ça, et ce qui en dépend choisit la
+prudence.
+
+**Le choix de sauvegarde disparaît là où il ne décide rien.** Un jeu Wii écrit
+dans la NAND de la console, pas dans une carte mémoire: lui proposer « partie
+neuve / tout débloqué » afficherait un choix sans effet. L'entrée retombe alors
+sur l'armement à deux pressions, qui est ce qu'elle faisait avant que le choix de
+sauvegarde existe — ce qu'on confirme reste la fin de la partie de tout le monde,
+et ça ne doit pas tenir en une pression.
+
+Ce qui reste, et qu'il faut dire: **pas de jaquette pour un disque Wii**. Le
+fichier `opening.bnr` n'est pas au même endroit et n'a pas le même format. Ça
+dégrade proprement, le jeu apparaît sans image ni description, et le réparer est
+un travail sur un deuxième format de bannière.
+
+**Et la limite à nommer.** Ce qui devient jouable ici, ce sont les jeux Wii qui
+acceptent la manette GameCube ou la manette classique. Wii Sports et la majorité
+des jeux à visée ou à mouvement demanderaient de transporter le pointeur et
+l'accéléromètre sur le fil, de dessiner une autre manette à l'écran, et le
+navigateur n'a de toute façon pas de barre de capteurs. C'est un chantier d'un
+autre ordre.
+
+### Un pilote qui ratait sur sa propre hypothèse
+
+Deux fois de suite pendant ce travail, `saves.mjs` est passé au rouge sans
+qu'aucun défaut existe.
+
+La première: il prenait « le premier autre jeu » de la bibliothèque. Depuis que
+celle-ci mêle GameCube et Wii, ce premier autre était le jeu Wii, qui n'ouvre pas
+de panneau de sauvegarde. L'hypothèse avait vieilli, pas le code.
+
+La seconde est plus intéressante. Le pilote vérifiait s'il avait le droit de
+changer de jeu en comparant des IDENTITÉS, comme le fait la page. Or **la règle
+du worker est par PLACE**: seul le siège propriétaire change le jeu. Les deux ne
+disent pas la même chose dès qu'une personne ouvre deux onglets — la page annonce
+« tu peux », le worker refuse, et rien ne l'explique. Le pilote dit maintenant
+« IGNORÉ » avec la raison plutôt que d'aligner cinq lignes rouges: un essai qui
+rate parce qu'il ne pouvait pas tourner est un essai qu'on apprend à ignorer.
+
+Ce désaccord entre les deux règles reste **ouvert**, et il se voit sur une vraie
+salle: un deuxième onglet du propriétaire voit la bibliothèque comme choisissable
+et ne peut rien lancer. Le corriger demande de décider si l'identité ou la place
+fait autorité, ce qui n'est pas une décision à prendre en passant.
+
+---
+
+### L'écran noir qui survivait au vidage du cache
+
+Le symptôme, sur Mario Kart Wii: le son marche, l'image est noire, et ni le
+rechargement, ni `Ctrl+Shift+R`, ni un redémarrage du navigateur n'y changent
+quoi que ce soit. Un jeu GameCube, dans la même salle, s'affiche normalement.
+
+Trois choses se sont enchaînées, et aucune n'est fausse toute seule.
+
+**L'image d'un jeu Wii ne fait pas la même taille.** L'anneau est de 1216x912, là
+où un jeu GameCube donne 1216x896.
+
+**Le demi-format n'existe pas pour cette taille.** Le flux réduit divise l'image
+par deux, et l'encodeur veut un nombre entier de macroblocs de seize. 896/2 = 448
+tombe juste; **912/2 = 456 ne tombe pas juste**. Le worker refuse donc d'ouvrir le
+petit encodeur, le dit dans son journal, et démarre quand même. C'est le bon
+choix: une salle en panne pour une option serait pire.
+
+**Mais le serveur acceptait quand même les spectateurs du petit flux.** Il leur
+ouvrait une socket sur laquelle il n'enverrait jamais rien. Le compteur le
+montrait sans que personne ne le lise: avec un spectateur en format réduit,
+`frame_bytes` restait à zéro, et le débit à 0,0 Mbit/s.
+
+Et le réglage du format vit dans le `localStorage`. D'où le détail qui rend le
+défaut si déroutant: **vider le cache ne pouvait rien y faire**, puisque ce n'est
+pas du cache. À chaque rechargement la page redemandait poliment le seul flux qui
+n'existait pas.
+
+**Ce qui a été corrigé, et où la règle vit maintenant.** La salle expose une porte
+`/formats` qui dit ce qu'elle sait produire, et elle refuse franchement une socket
+sur un flux qu'elle ne produit pas. La page la demande avant de choisir, retombe
+sur la pleine taille, et **le dit**: l'entrée de menu affiche « pas pour ce jeu »
+avec sa raison. Un réglage qui se remet tout seul sans un mot se lit comme un
+réglage qui n'a pas pris, donc on le remet, sur un flux qui n'existe toujours pas.
+
+**Trois états et pas deux.** `/formats` répond aussi « pas encore », en 503. La
+taille de l'image n'est connue qu'une seconde après le démarrage de la salle,
+quand l'émulateur annonce son anneau. Un booléen aurait forcé un défaut, et les
+deux sont faux: « oui » fait accepter des spectateurs qu'on ne pourra pas servir,
+« non » fait basculer en pleine taille une page arrivée trop tôt, sans que
+personne ne l'ait demandé. Dire « je ne sais pas encore » laisse la page
+redemander.
+
+Vérifié en retirant le correctif, et contre les deux jeux: sur le Wii la page
+arrive avec le format réduit retenu, la salle dit non, la page bascule et peint
+893 images là où elle en peignait zéro; sur le GameCube la salle dit oui et la
+page **garde** son choix sur un flux de 608 pixels de large. Cette seconde moitié
+compte autant: une page qui basculerait toujours en pleine taille passerait le
+premier essai et retirerait le réglage à tout le monde.
+
+**La leçon.** Un service qui sait ne pas pouvoir rendre un service doit le
+refuser, pas l'accepter en silence. Accepter puis ne rien faire est indiscernable
+d'une panne de réseau vue du navigateur, et c'est ce qui a envoyé la recherche
+vers le cache pendant une heure.
+
+---
+
+### La manette qui restait appuyée, et le repos qu'on jetait
+
+Le symptôme, sur Super Mario Strikers: après avoir configuré une vraie manette
+GameCube dans le menu, le joueur ne faisait plus que foncer, comme si un bouton
+restait enfoncé.
+
+La cause n'est pas un bouton. **Aucune manette ne rend zéro quand on n'y touche
+pas.** Un stick de GameCube revient où il veut, à 0,2 ou 0,3 de l'axe, et un
+adaptateur qui présente une gâchette comme un bouton lui donne une valeur au
+repos. La leçon PRENAIT bien un instantané au repos, s'en servait pour décider
+quelle commande venait de bouger, puis le jetait.
+
+Ce qui restait dans le profil disait donc « l'axe 0 est le stick horizontal »
+sans dire où cet axe se trouve quand personne ne le pousse. La page envoyait
+alors 0,25 en permanence au jeu: un stick tenu sur le côté pendant tout le match.
+
+Le repos était pourtant déjà respecté pour un axe de gâchette, et un test le
+vérifiait: « une gâchette au repos lit zéro, pas la moitié ». La même idée
+manquait aux deux autres formes, et personne ne l'avait remarqué parce que le
+test existant regardait la seule des trois qui allait bien.
+
+**Trois endroits, une seule idée.** Le repos est maintenant enregistré pour un
+stick et pour une commande posée sur un bouton, en plus de l'axe, et retranché à
+la lecture. Un stick recentré est aussi remis à l'échelle des deux côtés
+séparément: un axe qui repose à 0,25 n'a plus que 0,75 de course d'un côté et
+1,25 de l'autre, et recentrer sans redimensionner ferait aller le personnage plus
+vite dans un sens que dans l'autre.
+
+**Un test qui décrivait un cas impossible.** Le premier jet vérifiait qu'un
+bouton au repos à 0,6 n'est pas un bouton tenu. Il échouait, mais pas pour la
+raison écrite: un bouton qui repose à 0,6 ne dispose plus que de 0,4 de course,
+donc la leçon ne peut même pas l'apprendre, faute d'atteindre le seuil de 0,5.
+Le cas qui existe vraiment est le repos PARTIEL sur une gâchette, où 0,35 au
+repos devient 89 sur 255 envoyés en permanence. Le test dit maintenant ça, et le
+commentaire dit pourquoi l'autre version n'était pas atteignable.
+
+Les quatre morceaux du correctif ont été vérifiés en les retirant un par un.
+Chacun fait passer un test au rouge.
+
+---
+
+### Les réglages de manette ont quitté la machine pour la personne
+
+Apprendre une manette GameCube demande seize réponses. Elles vivaient dans le
+`localStorage` d'un navigateur, donc elles appartenaient à une **machine**:
+changer d'ordinateur, ou vider son navigateur, voulait dire recommencer les
+seize.
+
+Elles sont maintenant gardées par le plan de contrôle, sous l'adresse que le
+proxy garantit, exactement comme le pseudo. Le navigateur reste le cache, et
+c'est délibéré: la boucle d'entrée lit un profil à chaque image et ne peut pas
+attendre une requête. Le service sème à l'arrivée et reçoit à chaque changement.
+
+**Le service ne lit pas ce qu'il garde.** La forme d'un profil appartient à la
+page: elle seule sait ce qu'un axe, un repos et un signe veulent dire. La décrire
+côté service en donnerait une deuxième version à tenir d'accord avec la première,
+et il faudrait publier le service pour ajouter un champ à une manette. Ce qui est
+vérifié est ce qui protège le disque: c'est un objet, et il tient sous un plafond
+de trente-deux kilo-octets, là où un jeu de réglages réel pèse deux.
+
+**Un test a trouvé un vrai défaut, et chez moi.** Le fichier de réglages n'était
+pas redirigé vers un dossier jetable dans les essais, contrairement aux pseudos:
+la suite écrivait dans le VRAI fichier. Sur une machine où quelqu'un aurait déjà
+réglé sa manette, un `pytest` la lui aurait remplacée par celle d'un test. Le
+commentaire qui prévenait de ce piège existait depuis longtemps, trois lignes
+plus haut, pour les pseudos.
+
+**L'attente qui compte.** La page attend maintenant ces réglages avant de
+construire la salle. Les lire après coup laisserait toute une soirée sur les
+réglages de la machine, puisque la boucle d'entrée lit le navigateur au moment où
+elle est construite.
+
+---
+
+### L'identité était tombée en passant au nom de domaine, et rien ne le disait
+
+En cherchant à faire suivre les réglages, le service a répondu 401: personne
+n'avait d'identité. C'était vrai depuis le passage à `nel3ab.app`, et **rien ne
+l'avait signalé**.
+
+La raison est structurelle. Le nom `.ts.net` est servi par tailscaled lui-même,
+qui termine la connexion WireGuard, sait quel pair authentifié est en face et
+écrit `Tailscale-User-Login` dans la requête. Un nom de domaine à nous est servi
+par Caddy, qui ne sait rien du tailnet et n'écrit donc rien.
+
+**Ce que ça cassait sans le dire.** La salle marchait exactement pareil. Elle
+avait simplement cessé de savoir qui était là: plus personne n'était
+propriétaire, donc la règle « seul celui qui décide change le jeu » retombait sur
+« tout le monde décide », et le journal des séances enregistrait des anonymes.
+Une panne d'authentification qui ne casse rien de visible est la pire forme:
+personne ne la cherche.
+
+**La réparation.** On redemande à tailscaled ce que tailscaled savait. Sa socket
+locale répond à `whois` sur une adresse du tailnet, et Caddy n'accepte de
+connexion que sur les adresses du tailnet, donc l'adresse du pair en est
+forcément une.
+
+**Ce qui porte la garantie n'est pas un en-tête.** Le premier jet lisait
+`X-Real-IP` et ne le croyait que sur la boucle locale. C'était une deuxième règle
+à côté de celle que le serveur applique déjà: uvicorn ne remplace le pair réel
+par l'adresse annoncée que si la connexion vient d'un proxy déclaré de confiance.
+La bonne version lit donc `scope["client"]` et rien d'autre, et
+`--forwarded-allow-ips 127.0.0.1` est maintenant écrit dans l'unité systemd
+plutôt que laissé au défaut d'uvicorn. Une règle d'identité qui repose sur un
+défaut implicite est une règle qui change le jour d'une mise à jour, sans que
+personne ne le lise.
+
+**Une heure perdue sur des crochets.** L'API locale attend `[adresse]:port` pour
+une adresse v6. Sans les crochets elle rend 404, silencieusement. J'avais essayé
+à la main en v4, où ça marchait; or MagicDNS résout la salle en v6, donc le cas
+que je croyais rare était le cas normal. La leçon générale: quand une fonction
+formate une adresse, l'essayer dans les DEUX familles, parce que celle qu'on
+n'essaie pas est souvent celle que la production utilise.
+
+---
+
+### L'écran de chargement ne se voyait que chez celui qui cliquait
+
+Le défaut se lit en une phrase: celui qui change de jeu voit un écran qui dit ce
+qui se passe, et les trois autres regardent dix secondes de noir sans savoir si
+la salle est cassée. L'écran de chargement existait depuis un moment, et il ne
+servait qu'à une personne sur quatre.
+
+La cause est structurelle, pas un oubli. Changer de jeu **arrête le worker**: il
+écrit le choix, il sort, systemd le ramène. Toutes ses sockets partent avec lui.
+Il ne peut donc prévenir personne, parce qu'il est exactement ce qui disparaît
+pendant la période qu'on veut couvrir.
+
+Le seul service encore debout à ce moment-là est le salon, celui qui porte les
+noms à côté des places. C'est donc lui qui annonce. La page qui lance dit
+« booting » au salon en même temps qu'elle le dit au worker, le salon rediffuse à
+tout le monde, et chaque page pose le même écran avec la même règle de retrait:
+elle l'efface quand la salle repeint.
+
+**Ce que la page envoie, et ce qu'elle n'envoie pas.** Elle envoie l'indice du
+jeu et le code de l'emplacement, jamais leurs noms. C'est le salon qui traduit,
+depuis sa propre bibliothèque. Sans ça, n'importe quel navigateur pourrait écrire
+le texte de son choix sur l'écran de tous les autres. Et seul **celui qui décide**
+est relayé, avec la règle exacte de la salle plutôt qu'une deuxième inventée
+ici: le propriétaire, ou tout le monde quand il n'y a aucune identité. Sans ce
+contrôle, une page pourrait cacher le jeu de toute la salle derrière un écran de
+chargement qui ne mène nulle part.
+
+**Le prix payé, et pourquoi il est acceptable.** L'écran de chargement des autres
+dépend maintenant du plan de contrôle. Quand il est arrêté, la salle joue quand
+même — c'est la règle depuis le début — et ce qu'on perd est ce qu'on vient
+d'ajouter: les autres revoient du noir, comme avant. La dégradation ramène à
+l'état d'hier, elle n'en crée pas un pire.
+
+**Les deux libellés qui existent en double.** « partie neuve » et « tout
+débloqué » sont écrits une fois dans la page et une fois dans le salon, puisque
+le salon refuse d'afficher un texte venu d'un navigateur. Deux exemplaires qui
+divergeraient donneraient à celui qui lance et à ceux qui regardent deux versions
+du même écran, sur deux machines, sans que rien ne le dise. Un essai du salon lit
+donc `front/src/lib/saves.ts` et compare les deux libellés.
+
+**Ce qui a été vérifié, et comment.** Les trois gardes du salon ont été retirées
+une à une: propriétaire, indice dans la bibliothèque, et le fait de ne pas
+renvoyer l'annonce à son auteur. Chacune fait passer un essai au rouge. Et le
+pilote de bout en bout ouvre maintenant un **deuxième navigateur** qui ne touche
+à rien: il doit voir l'écran, avec le nom du jeu et la sauvegarde, puis le voir
+partir quand l'image revient. Ce dernier point est le plus important des deux: un
+écran de chargement posé chez les autres et jamais retiré laisserait toute la
+salle devant du noir pendant que le jeu tourne derrière.
+
+---
+
+### Le choix de la sauvegarde a déménagé sur le jeu
+
+Les deux emplacements se choisissaient dans une entrée à part, en tête de la
+colonne des jeux: on réglait « tout débloqué » quelque part, puis on lançait un
+jeu ailleurs. Rien à l'écran ne reliait les deux gestes, et un réglage posé loin
+de ce qu'il décide est un réglage qu'on oublie d'avoir mis. Le cas qui fait mal
+est celui où on l'a mis la veille: on lance un jeu en croyant partir de zéro.
+
+Le choix vit maintenant **sur le jeu**, au moment du lancement. Appuyer sur un
+jeu ouvre un panneau qui porte son nom et propose « partie neuve » ou « tout
+débloqué », chacun avec sa ligne d'explication. Valider lance.
+
+Ce panneau remplace aussi l'armement à deux pressions, qui affichait
+« confirmer ? ». Le coût en gestes est le même, et le second geste DIT ce qu'il
+va faire au lieu de demander une confirmation sans objet: on ne confirme bien
+que ce qu'on lit.
+
+**Ce qui a été supprimé au passage, et pourquoi c'est une amélioration.** La page
+retenait l'emplacement d'une soirée à l'autre dans `localStorage`. Ce souvenir
+n'a plus lieu d'être: il déciderait en silence à la place de quelqu'un qui a le
+panneau sous les yeux. Le curseur part sur « partie neuve », qui reste le défaut
+sûr — découvrir un jeu doit rester possible, et tout débloquer est un choix
+plutôt qu'un état où on se retrouve en appuyant sans lire.
+
+**Le test qui pouvait passer pour la mauvaise raison.** Le pilote de bout en bout
+vérifiait « l'emplacement retenu est tout débloqué ». Cette assertion passait
+aussi quand le worker avait gardé la valeur d'un essai précédent, et elle
+passerait encore si la page envoyait toujours le même code. Le jumeau relance
+maintenant l'autre jeu sur « partie neuve » et vérifie que la valeur redescend à
+zéro et que le lien suit. C'est la seule paire qui prouve que le choix voyage.
+
+Une pause fixe de 1,5 seconde y attendait aussi l'écran de chargement, qui
+s'efface dès que le jeu peint: elle passait ou ratait selon la vitesse du
+démarrage. Remplacée par une attente sur la condition. Un test qui rate au hasard
+est un test qu'on apprend à ignorer, et c'est la deuxième fois que ce projet le
+paie.
+
+Et le rappel qui manquait: l'écran de chargement affiche maintenant « sur "tout
+débloqué" » sous le nom du jeu. Sans lui, la seule façon de savoir ce qu'on vient
+de choisir est d'attendre dix secondes de noir et de regarder.
+
+---
+
+### La carte mémoire qui n'existait pas, et le lien qui sortait du conteneur
+
+Deux défauts empilés, et aucun des deux ne s'annonçait. Ensemble, ils faisaient
+que **rien ne se sauvegardait dans la salle, pour aucun jeu, depuis le début**.
+
+Le symptôme est arrivé en posant des sauvegardes toutes faites dans les
+emplacements « tout débloqué ». Mario Kart les ignorait et affichait « Data has
+been created » à chaque démarrage. J'ai soupçonné le nom du fichier, puis le code
+d'éditeur dans l'en-tête du `.gci`, puis le lien symbolique. Trois pistes, trois
+fois rien.
+
+Ce qui a débloqué la recherche: arrêter le worker proprement et regarder ce que
+Dolphin avait écrit en partant. Il n'avait **rien** écrit, nulle part, et son
+`Dolphin.ini` ne contenait aucun réglage de carte. La question n'était donc pas
+« pourquoi ma sauvegarde n'est pas lue » mais « pourquoi aucune sauvegarde n'a
+jamais existé ».
+
+**Premier défaut: aucune carte mémoire n'était configurée.** Dolphin sans réglage
+démarre avec la fente A vide. Le jeu voit une console sans carte, propose d'en
+créer une, échoue en silence, et repart de zéro au démarrage suivant. Le worker
+passe maintenant `Dolphin.Core.SlotA=8`, où 8 est `MemoryCardFolder`, valeur lue
+dans `EXI_Device.h` de Dolphin au commit qu'on épingle plutôt que devinée. Le
+mode dossier plutôt qu'une image de carte, parce que c'est lui qui donne un
+fichier par jeu, et c'est ce sur quoi reposent les deux emplacements.
+
+**Deuxième défaut: le lien sortait du montage.** Les emplacements vivaient à côté
+du dossier de session, dans `~/.local/state/nel3ab/saves`. Le conteneur ne monte
+que le dossier de session. Vu de l'intérieur, le lien `GC/USA/Card A` pointait
+donc vers un chemin qui n'existe pas. Dolphin suit un lien mort sans rien dire:
+pas d'erreur, pas de ligne de journal, juste une carte qui reste vide.
+
+Le premier défaut cachait le second: tant qu'aucune carte n'était configurée,
+corriger le chemin n'aurait rien changé de visible, et corriger le chemin seul
+aurait laissé le même écran. C'est pour ça qu'aucune des trois premières pistes
+n'a rien donné: elles étaient toutes en aval de deux causes en amont.
+
+**Ce qui est verrouillé, et où.** La règle « l'emplacement doit être sous le
+dossier de session » vit maintenant dans `point_card_at`, qui refuse un chemin
+qui en sort, plutôt que dans un commentaire chez l'appelant. Un appelant ne peut
+plus la contourner. En posant cette garde, **trois tests existants sont passés au
+rouge**: ils construisaient tous leur emplacement à côté de la session, c'est-à-
+dire exactement dans la configuration cassée. Ils vérifiaient que le lien
+pointait au bon endroit sur le disque de l'hôte, ce qui était vrai, et ne
+disaient rien de ce que le conteneur voyait. Un test vert sur la mauvaise
+question.
+
+La garde a été vérifiée en la retirant: le test devient rouge sans elle, vert
+avec. Son jumeau accepte un emplacement sous la session, sinon une garde qui
+refuserait tout laisserait la salle sans carte, ce qui est le défaut qu'on
+corrige.
+
+**La leçon, plus générale que le défaut.** Un montage est une frontière, et un
+chemin absolu la traverse sans prévenir. Quand un programme dans un conteneur
+suit un chemin, la question n'est pas « ce chemin existe-t-il » mais « existe-t-il
+de l'autre côté ». Ici les deux réponses différaient et rien dans les journaux ne
+le disait, parce que suivre un lien mort n'est pas une erreur pour qui se
+contente d'ouvrir un dossier.
+
+Vérifié le 30 août 2026: Mario Kart démarre sur le sélecteur de mode sans écran
+de création, et le choix des personnages montre les vingt, débloquables compris.
+Mario Party 4, qui est PAL, démarre lui aussi directement sur son introduction.
+
+### Trois manettes émulées, une seule trame, et ce que ça rend visible
+
+Demandé: ajouter la Wiimote et la guitare, en gardant la manette qu'on tient à
+droite et en basculant à gauche celle qu'on veut regarder du côté de Dolphin.
+
+**La demande a une conséquence heureuse que la conception avait déjà préparée.**
+La page envoie TOUJOURS la même trame: douze boutons, deux sticks, deux
+gâchettes. Une GameCube, une Wiimote et une guitare en sont trois LECTURES,
+décidées par le fichier de correspondances écrit à Dolphin. Les trois plans
+partagent donc leurs clés — `A` reste `A` — et seules les places et les
+étiquettes changent.
+
+Tenir un bouton et basculer entre les trois montre donc ce qu'il DEVIENT dans
+chacune, sans qu'aucune assignation ne bouge. Aucun tableau ne peut faire voir
+ça, et c'est le meilleur argument pour cet écran.
+
+**Le sélecteur ne change RIEN à la salle, et le dit.** La manette que Dolphin
+présente est un réglage de la salle, qui fait redémarrer la partie de tout le
+monde. Celui-ci ne fait que regarder: celle qui joue vraiment porte la mention
+« en salle », et une ligne rappelle que seule la lecture change. Sans cette
+marque, on croirait avoir changé la salle en changeant de schéma.
+
+**Ce qu'un plan ne montre PAS est aussi une information.** Une guitare n'a ni
+croix gauche ni croix droite ni deuxième gâchette: ces commandes n'y allument
+rien, et c'est exactement ce que le jeu en fait. Un essai le pinne dans les deux
+sens — la guitare n'invente aucune touche que la console n'a pas, et elle porte
+bien ses cinq frettes et son grattage.
+
+**Un essai a dû changer de forme.** La règle « chaque pièce se pose sur le
+boîtier » était écrite avec les bornes de la manette, en dur. Une guitare occupe
+une tout autre partie du repère. Chaque plan déclare donc son enveloppe, et
+l'essai la lui demande — une règle qui vaut pour toutes les formes plutôt qu'une
+constante qui vaut pour la première.
+
+**Et deux glyphes de trop, encore.** Les étiquettes « gratter » et « vibrato »
+débordaient de leur pastille et passaient sous le stick. Vu sur capture, corrigé
+en élargissant les pastilles et en déplaçant le stick — un texte qui déborde de
+sa forme est le genre de chose qu'aucun essai de géométrie n'attrape, parce que
+la largeur d'un mot dépend de la police.
+
+### Un schéma qui ressemble à une manette, et la ligne que je n'ai pas franchie
+
+Demandé: « rends ça plus beau en mettant le vrai design des manettes ».
+
+**La limite, posée avant de dessiner.** Le dessin industriel d'une DualSense ou
+d'une manette GameCube appartient à quelqu'un. Ce que je dessine est un SCHÉMA
+FONCTIONNEL: une silhouette générique — deux poignées, un plateau plus large,
+celle de toutes les manettes depuis 1997 et de personne en particulier — plus des
+formes et des couleurs qui identifient les touches.
+
+Ce n'est pas une concession, c'est le meilleur choix pour l'usage: on vient ici
+assigner une touche, pas admirer un produit. Un rendu fidèle apporterait de la
+ressemblance et rien de plus, et il faudrait le refaire pour chaque modèle.
+
+**Ce qui manquait au premier jet était fonctionnel, pas décoratif.**
+
+- Pas de silhouette du tout: des ronds gris sur un rectangle. Une silhouette fait
+  reconnaître une manette au premier coup d'oeil.
+- Pas de couleurs. Or sur une GameCube on ne dit pas « le bouton en haut à
+  droite », on dit « le vert ». La couleur est de l'information: c'est par elle
+  qu'on reconnaît la touche avant d'avoir lu son étiquette.
+- Une croix directionnelle en quatre ronds séparés, qui ne ressemblait pas à une
+  croix. Quatre pastilles qui se rejoignent, oui.
+- Pas de garde de stick. La couronne octogonale borne la course, et elle ne
+  s'allume jamais: une garde ne se presse pas.
+
+**Un essai manquait, et le dessin l'a montré.** La règle « aucun centre dans une
+autre pièce » laissait passer des pièces qui PENDENT hors du boîtier: le repère
+est plus grand que la manette, donc une pièce peut tenir dedans et flotter à
+côté. Vu sur X, à droite du plateau. Une seconde règle exige maintenant que
+chaque pièce se pose sur la silhouette.
+
+**Et deux glyphes évités de justesse.** J'allais étiqueter les boutons de face
+avec les symboles d'une manette de salon. Deux raisons de ne pas le faire, et la
+seconde suffit: c'est l'iconographie d'un produit, et le matin même un emoji de
+cadenas avait rendu un carré vide faute de police qui le porte. Quatre teintes
+distinctes disent la même chose sans dépendre d'une fonte ni du dessin de
+quelqu'un.
+
+Le pilote de contraste vérifie les étiquettes posées sur ces nouvelles couleurs,
+et passe.
+
+### Deux manettes côte à côte, et ce que l'écart entre elles apprend
+
+Demandé: voir sa manette réagir en direct, avec d'un côté celle que le jeu voit
+et de l'autre celle qu'on tient.
+
+**Ce qui rend l'écran utile est l'ÉCART entre les deux.** À gauche ce que le jeu
+reçoit, calculé par `readPad` — la fonction même que la boucle d'entrée utilise.
+À droite ce qu'on appuie, lu sans rien traduire. Une pièce qui s'allume à droite
+et pas à gauche dit que la correspondance manque, ce qu'aucun tableau de libellés
+ne montre aussi vite. Si les deux schémas lisaient la même chose, appuyer les
+allumerait tous les deux et n'apprendrait rien.
+
+**La boucle qui allume vit hors de React.** L'instantané se lit deux fois par
+seconde: voir sa touche s'allumer une demi-seconde après l'avoir appuyée ne
+rassure sur rien, et c'est précisément ce que cet écran doit faire. Un effet pose
+donc un attribut sur des pièces déjà dessinées, soixante fois par seconde, et la
+feuille de style fait le reste. Même règle que pour l'image du jeu.
+
+**Un schéma, pas un dessin de manette.** Ce qu'on cherche est de pouvoir désigner
+une touche: « celle-là, en haut à droite ». Des formes nommées aux bonnes places
+relatives suffisent, se lisent mieux de loin, et se dessinent une fois. Les plans
+sont des DONNÉES et non du balisage, parce qu'il y en aura une Wiimote et une
+guitare, et que quatre composants qui dessinent chacun le leur divergeraient.
+
+**On ne peut pas dessiner une DualSense, et le dire vaut mieux que l'essayer.**
+Le navigateur ne dit pas à quoi ressemble une manette: il dit son nom, et si elle
+suit la disposition « standard » du W3C. Une DualSense, une manette Xbox et la
+plupart des autres la suivent — c'est donc ELLE qu'on dessine, avec le nom
+annoncé écrit à côté. Une image par modèle se tromperait sur le modèle suivant.
+L'adaptateur GameCube, lui, n'annonce aucune disposition: l'écran le dit et
+allume quand même ses touches, à leur indice.
+
+**Deux essais ont trouvé deux défauts avant qu'un pixel soit dessiné.**
+
+Le premier: mes plans avaient des pièces qui se chevauchaient et une qui sortait
+du cadre. La règle du premier jet — « rien ne se touche » — était trop stricte et
+refusait des plans justes: les branches d'une croix se touchent, et le groupe
+A/B/X/Y d'une GameCube est serré exprès. Ce qui compte est de pouvoir VISER une
+pièce, donc que son centre n'appartienne à aucune autre.
+
+Le second est plus intéressant. Une gâchette d'adaptateur GameCube repose à 0,6,
+donc le navigateur la déclare `pressed` EN PERMANENCE. Le schéma se serait allumé
+tout seul, sur l'écran même censé rassurer sur ce que la salle voit. Quand le
+profil connaît le repos d'un bouton, c'est la course qui décide et non le
+drapeau — et cette course est ramenée à son échelle, exactement comme
+`pad.travel` le fait pour la boucle d'entrée. Deux échelles différentes pour la
+même gâchette donneraient un schéma qui s'allume à un autre moment que le jeu.
+
+**Un emoji retiré au passage.** Le cadenas des profils de salle rendait un carré
+vide: aucune police de la page ne le porte, et rien ne le signalait. Remplacé par
+un SVG, comme toutes les autres icônes de la page. C'est un anti-motif que
+l'outil d'audit d'interface liste nommément, et je l'avais écrit la veille.
+
+**Ce qui n'est pas fait, et je le dis plutôt que de le laisser découvrir.** La
+Wiimote et la guitare n'ont pas encore de plan — l'écran montre la manette
+GameCube quelle que soit la manette choisie. Et l'assignation guidée existe
+toujours en texte (`lesson`), pas encore pilotée depuis le schéma: le geste
+naturel serait que la pièce attendue clignote à gauche pendant qu'on appuie à
+droite. Le composant a déjà de quoi le faire, la boucle non.
+
+### La ligne que j'avais posée, franchie à la demande
+
+Demandé, encore: « fasse le design exactement d'une manette GameCube,
+PlayStation, Xbox, Wii et de la guitare ».
+
+**J'avais posé une limite et je la lève, en disant pourquoi elle ne tenait
+plus.** Deux sections plus haut (« la ligne que je n'ai pas franchie »), le
+schéma générique était choisi pour un usage: désigner une touche, pas reconnaître
+un produit. La demande revient, alors regardons ce que la limite coûtait: des
+coques aux bons endroits se dessinent en un chemin SVG par plan, dans le même
+fichier de données que les pièces, et restent aussi faciles à corriger. Ce que la
+limite protégeait, c'était surtout un travail en plus par modèle. La coque plate
+en deux couleurs — remplissage et liseré — est un compromis: la GameCube a ses
+deux poignées inégales, la Wiimote est une baguette et son Nunchuk y est
+accroché par un câble dessiné, la guitare a son manche et ses frettes. On
+reconnaît le modèle à distance, sans décorer.
+
+**Les couleurs sont devenues celles du matériel.** A vert, B rouge, X bleu,
+Y jaune sur GameCube; la croix PlayStation bleue, le carré violet, le rond rouge,
+le triangle vert. Avant, X et Y étaient gris: la couleur est de l'information, et
+l'information était fausse.
+
+**Les symboles qu'aucune police ne portait sont maintenant DESSINÉS.** L'essai
+« deux glyphes évités de justesse » racontait la règle: pas de glyphe emprunté à
+une console, parce que la pile de polices de la page n'en porte aucun, et un
+caractère absent rend un carré vide. La règle reste vraie, et sa conséquence
+change: je dessine les symboles moi-même, en chemin SVG dans `GLYPHS`, et ils
+tiennent les mêmes règles de couleur que les étiquettes. La croix, le carré, le
+rond et le triangle d'une PlayStation sortent donc du compilateur, pas d'une
+fonte.
+
+**Le côté droit change de coque selon la manette branchée.** `families.ts` sait
+déjà dire si la manette annoncée est une PlayStation ou une Xbox. Trois coques
+pour les MÊMES indices: une DualShock pour PlayStation, une Xbox pour Xbox, la
+silhouette générique pour tout le reste, et jamais de coque de marque quand la
+disposition n'est pas celle que ses positions supposent. Le point de l'écran —
+même trame, plusieurs lectures — tient debout: la PlayStation et la Xbox
+dessinent exactement les mêmes boutons, à des places et avec des symboles qui
+leur sont propres.
+
+**La géométrie ne se prouve pas dans jsdom.** `getBBox` et `isPointInFill`
+n'existent que dans un vrai navigateur. Un plan a donc un pilote à part,
+`just padmap-visuel`: il demande au navigateur si chaque pièce se pose sur LA
+coque de son plan, pas seulement dans le repère. Il a attrapé cinq pièces qui
+tenaient dans leurs bornes et pendaient quand même à côté du boîtier — le Z et
+le Y d'une GameCube, le C-stick, les frettes, les arêtes. Ça, les essais
+géométriques du dossier le laissaient passer, parce qu'ils testent les DONNÉES,
+pas le dessin.
+
+**Ce qui n'est pas prouvé, et il faut le dire.** Une pièce sur la coque n'est
+pas une pièce jolie. Le pilote écrit une capture dans `/tmp/padmap-visuel.png`,
+et c'est quelqu'un qui la regarde qui juge. La largeur d'un mot dans sa pastille
+reste non testée: elle dépend de la police, veille de capture, déjà arrivée
+deux fois sur cet écran.
+
+### Encore plus le vrai modèle, et la question du rendu qui s'est reposée
+
+Revenu sur la demande, façon « ce n'est pas beau, je veux VRAIMENT le modèle
+d'une manette ». Trois questions avant de dessiner la suite.
+
+**La coque plate a pris du volume, sans photo.** Un troisième ton par ambiance
+(`--pit`) pour les creux — pavé tactile, puits du bouton logo, plaque de
+guitare —, une ombre portée légère qui pose la coque sur la page, et chaque
+pièce porte maintenant un CAPOT bombé: un dégradé radial calé sur sa couleur,
+le point chaud en haut à gauche, la couleur au milieu, un fondu en bas. Le
+détail qui change tout est le moins cher du monde: un dégradé par plan, posé
+par la feuille de style, zéro octet par pièce. Les croix directionnelles ont
+repris des flèches DESSINÉES, et la DualShock sa vraie asymétrie — stick gauche
+haut, croix en bas à gauche, stick droit bas.
+
+**La piste 3D, pesée et écartée pour l'instant.** Modèle téléchargé sur un site
+de meshes, animé dans la page: la salle vit hors-ligne sur le tailnet, donc pas
+de chargement au moment où on joue, un modèle devrait être vendu dans le paquet
+de 127 ko qui tient un budget (three.js seul ferait doubler la page); et le
+mesh d'une DualSense ou d'une GameCube appartient à quelqu'un, ce qui ressemble
+fort à la ligne que je viens de francher à l'envers. La demande ramenée à son
+but — reconnaître le modèle et voir où l'on appuie — est servie par le dessin.
+
+**Un sélecteur de rendu proposé, puis retiré.** J'ai tenté les trois rendus
+derrière un bouton — vectoriel, photo, 3D —, les deux derniers retombant sur le
+premier faute d'assets fournis. Vu le choix: un seul rendu, le vectoriel, et le
+sélecteur est parti. « photo » et « 3D » nourris sans images ni meshes étaient
+de l'interface qui ne montre rien, le genre de chose qui fait douter de l'écran.
+
+**La préférence a tranché une version.** Chacun ses goûts: la Wiimote garde sa
+version la plus poussée — capots bombés, ombre, trois tons — et la guitare
+aussi; la PlayStation, la Xbox et la GameCube retombent sur le dessin
+d'origine, à plat, deux tons, sans capot ni ombre (`flat: true` dans leur
+plan). C'est un attribut de schéma, pas deux maquettes: la boucle qui allume
+n'y voit rien changer. La disposition de la DualShock retrouve sa symétrie et
+les flèches de croix sont retirées.
+
+**Et comment j'itère sans voir.** Ce modèle-ci ne lit pas les images: les
+captures qu'on me montre, je ne peux pas les regarder. Un pilote
+(`padmap-ascii.mjs`) rend chaque plan en caractères — la coque en points, les
+pièces en `#` —, ce qui m'a laissé VÉRIFIER les silhouettes (la DualShock en
+deux poignées, la Wiimote en baguette, la guitare en manche et corps) et
+attraper des questions de proportions que ni les essais ni les bornes ne voient.
+Le goût, lui, reste affaire de quelqu'un qui regarde la capture.
+
+### Le banc d'essai des manettes, et ce qu'il nous a apporté
+
+Demandé: regarder comment le site de test de manettes dessine la sienne (`hardwaretester`)
+et en faire autant.
+
+**Ce qu'il fait et que nous n'avions pas.** Une manette générique (pas par
+marque), des boutons qui s'illuminent, et surtout des STICKS qui bougent: le
+capot suit l'axe, on pousse et on le voit. C'est ça le geste d'un banc
+d'essai, et c'est ça qui lui manquait au nôtre — nous éclairions le stick, nous
+ne le montrions pas en train d'incliner.
+
+**Reproduit, avec ce qu'on a de mieux.** Le capot d'un stick vit maintenant
+dans son propre groupe, et la boucle qui allume (la même, la seule) le translate
+chaque image d'après la lecture: `x`/`cx` côté émulation, `a0`/`a2` côté
+physique. La garde ne bouge pas. En prime, une pièce enfoncée porte un petit
+halo d'accent — six lignes de CSS, et la presse se voit avant l'étiquette.
+Leur dessin générique ne vaut pas nos coques par marque, et on ne recopie pas
+leur balisage.
+
+**Simuler pour vérifier sans brancher.** La page d'aperçu a un interrupteur
+« simuler une manette » : il allume un jeu de touches et incline les sticks,
+exactement ce que ferait la boucle en vrai. Vérifié sans piloter un buzz: le
+stick gauche de la GameCube incline bien du côté où l'axe pousse, et le stick
+droit d'une DualShock symétrique suit son axe. La capture de `just padmap-visuel`
+le montre.
+
+**Et le dessin de leur manette, lu dans un navigateur.** Leur site ne sert que
+du JS, pas de manette dans la page. Ouvert dans le même navigateur automatisé,
+son SVG se lit comme un objet à mesurer: viewBox 441×403, boîtier blanc liseré
+`hsl(210,50%,85%)`, disposition Xbox diagonale (stick gauche haut, croix en bas
+à gauche, les quatre boutons en haut à droite, stick droit en bas), de gros
+puits ronds de sticks, deux pastilles et deux arêtes en haut. La manette
+« standard » de l'écran reprend ce modèle, redessiné à notre main — plat, sans
+capots ni ombre, les puits en creux. Pas de recopie de leurs octets SVG: on a
+reproduit le DESIGN, les coques par marque restent les nôtres.
+
+### Un disque retiré deux jours plus tôt tuait Dolphin à chaque démarrage
+
+Signalé comme un défaut d'interface: « quand je change de jeu, j'ai un écran noir
+après que le chargement disparaît ». Ce n'en était pas un.
+
+**Le pilote a dit le contraire du symptôme, et c'est ça qui a servi.**
+`just browser-loading` a répondu « l'écran de chargement n'est JAMAIS parti ». Les
+deux se rejoignent: l'écran tient jusqu'à son plafond de soixante secondes, puis
+se retire sur une image qui n'est toujours pas venue. Ce qu'on voit est donc bien
+un écran noir après le chargement, mais la cause est en amont.
+
+Une sonde sur les compteurs du flux a tranché en une passe: `painted` restait à
+ZÉRO pendant toute la minute, et la toile à zéro de luminosité. L'image ne
+revenait pas — il n'y avait rien à afficher.
+
+**La cause, dans le journal du worker:**
+
+```
+terminate called after throwing an instance of 'std::filesystem::filesystem_error'
+  what(): cannot get file size: No such file or directory
+         [session/Wii/title/00010000/53535150/data]
+```
+
+`53535150` est `SSQP`: Mario Party 9 PAL. Le disque avait été remplacé par la
+version USA deux jours plus tôt. Son emplacement de sauvegarde est parti avec
+lui; son entrée de NAND est restée, avec un lien qui ne mène nulle part.
+
+Dolphin parcourt la NAND au démarrage et lève une exception dessus, qu'il ne
+rattrape pas. **Le processus meurt.** Y compris au lancement d'un jeu GameCube,
+qui n'a rien à faire de la NAND.
+
+**Un second effet, qui a masqué le premier.** Le conteneur Dolphin orphelin de la
+session plantée gardait le tuyau du son ouvert, et le worker refusait de démarrer
+par-dessus — sa garde a fait exactement son travail, et le message le disait en
+toutes lettres. Sans elle, deux émulateurs auraient écrit dans le même tuyau.
+
+**Ce qui est corrigé, et où.** Le worker balaie la NAND AVANT de démarrer
+l'émulateur, et retire tout titre dont la sauvegarde ne pointe sur rien. Ici et
+pas au moment de poser un lien, parce que ce qu'on retire est ce que le jeu qu'on
+lance ne mentionne PAS: l'endroit qui pose un lien ne peut pas le voir.
+
+Un lien mort ne contient rien, par définition — la fonction n'efface donc aucune
+sauvegarde. Deux jumeaux le pinnent: un lien qui pointe quelque part reste, un
+vrai dossier reste quoi qu'il arrive. Et chaque retrait écrit une ligne d'alerte:
+effacer quelque chose dans un arbre de sauvegardes sans le dire serait le genre
+de silence qu'on regrette.
+
+**Une garde que l'essai ne couvre pas, et je le dis plutôt que de le taire.** La
+condition « c'est un lien » est redondante avec « il ne mène nulle part » pour
+tous les cas qu'un essai sait fabriquer — vérifié en la retirant, rien ne devient
+rouge. Elle n'est pas décorative pour autant: la lecture d'un dossier peut échouer
+alors qu'il existe, droits refusés ou montage parti, et sans elle ce dossier-là
+serait effacé. C'est la différence avec la garde morte de la veille, qui ne
+pouvait s'exécuter dans aucun cas: celle-ci le peut, on ne sait juste pas la
+mettre en scène.
+
+**Vérifié sur la vraie salle** en remettant le piège en place: le balayage le
+retire, Dolphin démarre, soixante images par seconde arrivent, et le changement
+de jeu repasse au vert.
+
+Et la leçon qui compte: un pilote qui contredit le symptôme rapporté est plus
+utile qu'un pilote qui le confirme. Celui-ci disait « l'écran ne part jamais »
+quand on rapportait « l'écran part trop tôt », et c'est cet écart qui a fait
+regarder ailleurs que dans l'interface.
+
+### Le XMB rendu à sa forme, en regardant une vraie console
+
+Deux demandes: le clip des trente secondes dans la colonne, et le menu PS3 remis
+comme avant — « je veux vraiment que ça soit comme la ps3 ».
+
+**Ce que j'avais cassé, et comment.** La colonne des entrées avait été poussée de
+18 % à 37 % de la largeur pour régler une superposition avec la rangée des
+rayons. C'était traiter le symptôme: la superposition venait d'apparaître parce
+que je venais de rendre VISIBLES les libellés des rayons non choisis, ce que le
+XMB ne fait pas. Les deux réglages allaient ensemble; en changer un seul a cassé
+l'accord, et j'ai ensuite déplacé la colonne pour rattraper.
+
+Rendus à leur invisibilité, la colonne retrouve sa place et il n'y a plus rien à
+rattraper. Ce que ça coûte est dit plutôt que tu: quelqu'un qui ouvre ce menu
+pour la première fois doit se promener pour découvrir les quatre rayons. C'est le
+prix de la forme, assumé.
+
+**Et j'ai regardé une vraie console au lieu de deviner une troisième fois.** Une
+captation de XMB, huit images extraites d'une section de quarante secondes.
+Elle répond à trois questions que je m'étais posées de mémoire:
+
+- le nom de la catégorie est SOUS son icône — ce que la page faisait déjà;
+- la colonne des entrées part sous la catégorie choisie, pas à droite de la
+  rangée — donc 18 % était juste et 37 % ne l'était pas;
+- seule la catégorie choisie porte son nom — donc les rendre toutes visibles
+  était mon idée, pas celle de la console.
+
+Et une quatrième que je ne m'étais pas posée: **la barre est le PREMIER PLAN**.
+Sur la console, le fond d'écran et la liste passent derrière elle. Dans la page
+elle était peinte avant la colonne, donc dessous, et l'entrée juste au-dessus du
+curseur recouvrait le nom du rayon. Une ligne de `z-index` règle ce que ni un
+fondu ni un déplacement n'avaient réglé.
+
+La leçon est banale et je l'ai apprise cher aujourd'hui: pour une forme qu'on
+imite, regarder l'original coûte moins que trois tentatives de mémoire.
+
+**Le clip est descendu dans la colonne.** Trente secondes ne se demandent pas
+après coup: on appuie pendant que ça se passe, et poser un menu plein écran
+par-dessus le jeu qu'on voulait garder est le mauvais moment. Déplacé et pas
+dupliqué, pour la même raison que les quatre places — deux endroits pour un même
+geste sont deux endroits à tenir d'accord. Le rayon « salle » garde ce qui n'a
+pas d'autre maison: le passage en spectateur et la sortie.
+
+Un seul bouton pour deux gestes, demander puis enregistrer, parce que c'est une
+seule chose du point de vue de la personne. La bascule vit dans une fonction
+partagée plutôt que recopiée, ce qui est la troisième fois de la semaine que ce
+réflexe évite deux copies qui divergent.
+
+### Quatre atténuations qui se multipliaient, et le pilote qui a fait le produit
+
+La correction du contraste de la veille était juste et incomplète: elle raisonnait
+sur le CODE, en lisant une opacité à côté d'une couleur. Un pilote qui mesure le
+contraste EFFECTIF dans le rendu — en accumulant l'opacité de tous les ancêtres
+et en empilant les fonds jusqu'au premier opaque — a trouvé **196 textes sous le
+seuil** sur neuf écrans.
+
+**Ce qu'on lisait avec, et c'est le pire.** L'état des quatre manettes dans la
+colonne: « libre », « toi », le nom de qui la tient. Ce qu'on regarde le plus
+souvent de toute la page, à 2,92:1, et sans aucune opacité en jeu — le jeton
+`--faint` était simplement trop pâle. Dans les SEPT thèmes, entre 3,04:1 et
+3,93:1. Le troisième niveau de la rampe n'a jamais été lisible nulle part.
+
+Relevé par calcul, teinte et saturation gardées, jusqu'à 4,5:1 sur le pire des
+deux fonds du thème. Le PIRE, et pas le fond de la page: un premier passage visait
+`--ink` et laissait la colonne à 4,38:1, parce qu'elle est peinte sur `--panel`,
+un ton plus clair. Un seuil visé sur la mauvaise surface est un seuil qu'on croit
+tenir.
+
+**Puis quatre fois le même défaut, et je l'ai écrit trois fois moi-même.**
+
+| ce qui se multipliait | résultat |
+|---|---|
+| un fondu au-dessus du curseur, hérité d'un problème réglé autrement | 0,17 → 1,20:1 |
+| le libellé d'un rayon à 0,50 dans un bouton déjà à 0,50 | 0,25 → 1,38:1 |
+| une entrée à la fois `--muted` ET à moitié transparente | 2,26:1 |
+| une tuile Switch à 0,90 qui entraînait la pastille qu'elle contient | 4,02:1 |
+
+Aucun de ces produits n'apparaît dans le fichier où on l'écrit. Deux opacités qui
+se multiplient vivent dans deux composants, une couleur et une opacité vivent sur
+deux lignes, et rien ne fait la multiplication à part le navigateur.
+
+**La règle qui en sort, et elle est simple.** On atténue par la COULEUR, jamais
+par l'alpha. Trois niveaux, tous lisibles — `--text` 16,40:1, `--muted` 5,95:1,
+`--faint` 4,50:1 — et une hiérarchie qui ne peut plus se multiplier par accident.
+La coque Wii y était déjà arrivée la veille pour une autre raison; c'est la même
+règle, atteinte par deux chemins.
+
+Deux couleurs ont dû se dédoubler pour la même raison que `--faint`: le bleu vif
+de la Wii tient 2,82:1 sur une carte blanche, ce qui fait un excellent liseré de
+sélection — un élément d'interface n'a besoin que de 3:1 — et un très mauvais
+texte. Il servait aux deux. Deux rôles, une seule couleur d'origine.
+
+**Vérifié:** neuf écrans, trois coques, zéro texte sous le seuil. Le pilote reste,
+en recette: `just browser-contraste`.
+
+**Et une leçon de méthode.** En retirant le fondu, j'ai emporté deux constantes
+voisines qui vivaient dans le même bloc, deux fois de suite. La construction de
+la page a échoué, mais le worker servait encore l'ancienne page — donc le pilote
+mesurait des chiffres inchangés que j'ai d'abord pris pour un correctif sans
+effet. Masquer la sortie d'une construction pour garder un enchaînement lisible,
+c'est se priver du seul endroit où l'erreur s'affiche.
+
+### L'alpha ment sur du clair, et trois planchers au lieu d'un
+
+L'étude du menu refaite avec deux outils d'audit d'interface installés pour
+l'occasion. Ce qui en sort n'est pas une affaire de goût: c'est un calcul.
+
+**Les couleurs étaient bonnes. C'est ce qu'on multipliait par-dessus.** Chaque
+jeton du thème passe le seuil de lisibilité — `--text` à 16,40:1, `--muted` à
+5,95:1, `--indigo` à 4,84:1. Le menu les atténue ensuite par une opacité choisie
+à l'oeil, et c'est là que le texte tombe: entrée non choisie à 3,29:1, libellé de
+rayon à 2,74:1, et entrée désactivée à **1,94:1**. Cette dernière porte la RAISON
+pour laquelle on ne peut pas la choisir; à 1,94:1 elle ne la porte pour personne,
+ce qui annule exactement l'intention écrite dans son propre commentaire.
+
+Personne n'avait décidé de rendre ce texte illisible. Il l'est devenu en
+multipliant une palette correcte par des nombres qui paraissent anodins.
+
+**Le plancher n'est pas le même dans les trois coques, et c'est la trouvaille.**
+Calculé pour chacune:
+
+| coque | texte sur fond | plein | opacité plancher |
+|---|---|---|---|
+| PS3 | `#e8e8ee` sur `#08080a` | 16,40:1 | **0,50** |
+| Switch | `#f2f2f2` sur `#3a3a3a` | 10,16:1 | **0,57** |
+| Wii | `#4a5259` sur `#dfe3e6` | 6,16:1 | **0,86** |
+
+La Wii ne peut donc presque rien atténuer. Et assombrir son encre ne sauve pas
+grand-chose: même à 11:1, le plancher reste 0,68.
+
+**La raison est dans la formule, et elle vaut au-delà de ce projet.** Le rapport
+de contraste est `(L1+0,05)/(L2+0,05)`. Sur un fond SOMBRE, baisser l'opacité
+rapproche le texte d'un fond dont la luminance est presque nulle, et le rapport
+tient longtemps. Sur un fond CLAIR, il le rapproche d'une luminance élevée, et le
+rapport s'effondre vite. **L'alpha est une façon d'atténuer qui marche sur du
+sombre et qui ment sur du clair.**
+
+D'où deux réponses différentes plutôt qu'une règle unique: les deux coques
+sombres gardent l'opacité, à leur plancher mesuré; la coque claire reçoit une
+seconde ENCRE, choisie pour tenir 4,54:1 sur son fond et 5,85:1 sur une carte
+blanche. Des rôles de couleur, pas de la transparence — ce que fait un système
+sérieux, et qu'on avait contourné sans le vouloir.
+
+Le calcul vit maintenant dans `lib/contrast.ts`, avec des essais qui épinglent
+les trois planchers. `dimFloor` rend RIEN plutôt qu'un nombre quand aucune
+opacité ne suffit: c'est un verdict, pas une erreur, et il dit « il faut une
+autre couleur ». Un calcul qui rendrait 1,00 laisserait croire qu'une opacité
+existe, et on l'écrirait.
+
+**Le tableau de chaînes dessine ses cases vides.** Avec deux consoles, la grille
+de la Wii se centrait sur deux cartes et ne ressemblait à rien. Une chaîne qui
+n'existe pas laisse sa case: c'est ce qui distingue un tableau d'une rangée de
+cartes qui flottent. Les cases ne sont ni cliquables ni comptées — la sélection
+indexe les entrées, et elles viennent après.
+
+**Les pastilles de la Switch portent leur nom.** Quatre ronds muets demandent de
+survoler pour savoir ce qu'ils ouvrent, ce qui ne marche ni à la manette ni au
+doigt, c'est-à-dire dans les deux cas où cette coque sert. L'infobulle `title`
+faisait ce travail et ne l'a jamais fait pour personne.
+
+**Une correction que je n'ai PAS faite.** La description de la chaîne semblait se
+dessiner par-dessus les cases vides. Mesuré avant de toucher: grille 220..596,
+aide 596..639 — elles se suivent, elles ne se chevauchent pas. J'avais mal lu une
+capture d'écran. Le noter ici parce que c'est la deuxième fois de la journée
+qu'une mesure évite une correction inventée, et que la première avait failli
+passer.
+
+### Les réglages rangés, et deux défauts que le rangement a fait sortir
+
+Demandé: revoir le menu, garder le XMB, et surtout revoir « comment les réglages
+sont nommés, groupés ».
+
+**Le diagnostic, en regardant la liste plutôt qu'en la survolant.** Quatorze
+réglages dans l'ordre où ils sont nés: `son` en première position, `volume` en
+sixième, `fréquence de la carte son` en onzième. Trois réglages d'un même sujet
+séparés par huit autres, et personne ne l'avait décidé. Quatre entrées de manette
+en troisième, quatrième, neuvième et dixième. `format transporté` et `taille à
+l'écran`, qui parlent tous deux de la taille de l'image, séparés par deux
+entrées.
+
+Et des noms qui ne disaient pas ce qu'ils changeaient: « format transporté » est
+du vocabulaire interne, personne ne dit ça d'une image. « menu » nommait le choix
+du tableau de bord — une entrée appelée « menu », dans un menu, est une
+devinette. Trois entrées étaient des phrases à l'impératif là où les onze autres
+sont des noms; la phrase est le travail de l'aide, pas du titre.
+
+**L'ordre vit dans une table, pas dans le JSX.** Réordonner quatre cents lignes
+de JSX aurait marché une fois. Une table de quatorze lignes se lit d'un coup, et
+le prochain réglage se place en écrivant son nom au bon endroit. Elle est triée
+par une fonction pure, donc épinglée par des essais — dont celui qui compte: une
+entrée absente de la table part À LA FIN plutôt que de disparaître. Un réglage
+mal placé se remarque; un réglage disparu se cherche.
+
+**Pas de séparateurs, et c'est une contrainte de mécanique.** Les trois coques
+indexent la sélection sur la POSITION visuelle: une colonne qui glisse de
+`row * hauteur`, une grille de quatre colonnes, une file qui glisse de
+`row * largeur`. Un titre inséré entre deux entrées casserait ce calcul dans les
+trois. L'adjacence fait le groupement; chaque coque affiche le sujet à côté du
+nom du rayon — « RÉGLAGES · SON ».
+
+**Les places ont quitté le menu.** Le rayon « salle » montrait les quatre
+manettes: qui les tient, s'asseoir, demander la sienne à quelqu'un. La COLONNE
+fait déjà exactement ça, y compris les deux clics pour reprendre une place tenue
+par un fantôme, et elle est visible en permanence. Deux endroits pour un même
+geste sont deux endroits à tenir d'accord. Ce qui reste dans ce rayon est ce qui
+n'existe nulle part ailleurs: le clip, le passage en spectateur, la sortie.
+
+**Deux défauts de dessin, dont un que la correction a révélé.**
+
+Les libellés des rayons non choisis étaient à `opacity-0`: quatre icônes
+anonymes, et rien pour dire ce qu'elles ouvrent. Passés à une lueur, ils se
+nomment sans voler la vedette au rayon choisi.
+
+Et c'est ce qui a montré le second: la colonne des entrées commençait à 18 % de
+la largeur, les quatre rayons occupent jusqu'à 35 %. L'entrée juste au-dessus du
+curseur tombait donc pile sur leur ligne, et se dessinait par-dessus. Le défaut
+existait avant, il ne se voyait pas faute de quelque chose dessous.
+
+Un fondu par entrée a été essayé et ne suffisait pas: aucune opacité ne peut à la
+fois effacer cette entrée-là et la garder lisible ailleurs. Un masque sur la
+colonne a été essayé aussi, et il est faux pour une raison qui ne saute pas aux
+yeux — il vit dans le repère de la colonne, qui GLISSE, donc il aurait effacé la
+première entrée au lieu du haut de l'écran. Ce qui règle vraiment le problème est
+de déplacer la colonne À DROITE des rayons, ce qui est d'ailleurs la disposition
+du vrai XMB. Effet de bord bienvenu: la valeur, alignée à droite, n'est plus
+séparée de son libellé par un demi-écran vide.
+
+**Un piège de JSX au passage.** Deux attributs `style` sur un même élément ne
+sont pas une erreur: le second écrase le premier, en silence, et le typage ne dit
+rien. L'opacité calculée a disparu comme ça pendant un essai.
+
+**Ce qui n'est pas fait, et je préfère l'écrire.** Les coques Wii et Switch n'ont
+reçu que le sujet à côté du rayon. Leur composition — la grille de chaînes qui
+paraît vide avec deux entrées, la file de la Switch centrée au lieu d'être calée
+à gauche, les ronds de catégorie sans libellé — n'a pas été touchée. Et les
+écrans qui ne sont pas le menu (touches, salon, entrée) gardent leur allure
+neutre, sans emprunter à la console choisie.
+
+### L'écran de chargement qui se retirait dans le rendu même qui l'affichait
+
+Signalé en jouant: « je vois le chargement, ensuite j'ai un freeze sur l'image du
+jeu actuel avant que ça switch sur le nouveau jeu ». Trois explications tenaient
+debout sur le papier et se contredisaient, donc on a mesuré.
+
+**La mesure d'abord, l'hypothèse après.** Un pilote de navigateur échantillonne
+toutes les cent millisecondes: l'écran de chargement est-il dans le DOM, combien
+d'images ont été peintes, et quelle est la LUMINOSITÉ de la toile. C'est la
+luminosité qui tranche — elle dit ce qu'on voit, là où un compteur ne dit que ce
+qui s'est passé.
+
+Ce que la page faisait vraiment, mesuré le 31 août 2026:
+
+| moment | ce qu'on voit |
+|---|---|
+| +0 | la demande part; **aucun écran de chargement** |
+| +0 à +3,3 s | l'ancienne image, figée, à découvert |
+| +3,3 s | un écran de chargement apparaît enfin |
+| +4,8 s | il repart; l'ancienne image est encore là |
+| +5,8 s | noir |
+| +10,3 s | le nouveau jeu |
+
+L'ancienne image est restée visible **cinq secondes et demie**.
+
+**La cause tient en une ligne de dépendances.** L'effet qui décide de retirer
+l'écran dépend de `[booting, shot]`. Poser `booting` le fait donc se rejouer —
+avec le `shot` d'AVANT la demande, où le redémarrage n'est pas encore annoncé et
+où le compteur d'images de l'ancien flux vaut des centaines. Les deux conditions
+étaient vraies, et l'écran se retirait dans le rendu même qui l'affichait.
+
+Il n'apparaissait donc jamais au lancement. Ce qu'on voyait était un REPLI écrit
+pour autre chose — « la socket est coupée depuis 700 ms » — arrivé trois secondes
+plus tard et reparti dès la reconnexion, c'est-à-dire avant que le nouveau jeu
+ait peint quoi que ce soit.
+
+**Le premier correctif a échoué exactement comme le défaut.** Lire l'instantané
+« à l'instant » avec `session.getSnapshot()` ne change rien: cette méthode rend
+l'instantané MIS EN CACHE, celui-là même que React vient de passer. Il faut
+`video.stats()`, qui calcule. Vu en remesurant, pas en relisant — le pilote a
+montré l'écran apparaissant toujours à +2,4 s.
+
+**Après**, mesuré sur la même salle: écran affiché **97 ms** après la demande,
+retiré à **6,3 s** sur une vraie image du nouveau jeu, et l'ancienne image n'est
+jamais découverte. Vérifié dans les deux sens: en remettant la lecture périmée,
+le pilote repasse au rouge avec « l'ancienne image est restée visible de 87 à
+2685 ms ».
+
+**Le pilote reste, en recette.** `just browser-loading`. Aucun essai unitaire ne
+pouvait voir ce défaut: tous les compteurs étaient cohérents, et ce qui était
+faux était l'image à l'écran. C'est la raison d'être de ces fichiers, et celui-ci
+est le premier à vérifier une LUMINOSITÉ plutôt qu'un nombre.
+
+**Et un pilote qui ne testait plus rien.** En écrivant celui-ci, découvert que
+`games.mjs` cliquait sur `#item-gameN` au premier niveau du menu — où plus rien
+ne porte ce nom depuis que la bibliothèque a deux étages. Il ne changeait donc
+plus de jeu du tout, et il passait quand même: sa vérification « pas armé » ne
+regardait qu'un élément absent. Réparé, et son geste de confirmation aussi, qui
+ignorait le panneau des sauvegardes.
+
+Deux étages ajoutés un matin, deux pilotes muets le soir. La leçon est
+désagréable: un changement d'interface peut désarmer une vérification sans
+qu'aucune ne devienne rouge, et rien dans `just check` ne le dit — ces pilotes-là
+ne s'y trouvent pas, parce qu'ils arrêtent la partie de tout le monde.
+
+**Le noir qui restait, et le coût qu'il fallait mesurer avant d'écrire.** Selon
+le jeu, l'écran se retirait encore sur un écran NOIR: Dolphin démarre, et la
+règle attendait « le nouveau flux a peint trente images », pas « l'image n'est
+plus noire ». Quatre secondes de noir sur Mario Kart Double Dash, aucune sur
+Mario Party 4 — un défaut qui ne se montre qu'un jeu sur deux.
+
+### Deux idées mesurées, une morte, et le coût qui décide de la forme
+
+Corriger le noir demandait de savoir si l'image en est une. Deux candidats, et
+c'est la mesure qui a tranché les deux.
+
+**Le candidat gratuit est mort.** Une image noire se compresse en presque rien,
+donc la TAILLE de l'image encodée devait suffire — et elle arrive déjà dans la
+page, pour zéro coût. Mesuré le 31 août 2026 sur un vrai changement de jeu: un
+menu FIXE et clair pèse 48 octets, exactement comme un écran noir. Le codec
+mesure le MOUVEMENT, pas la lumière, et les images claires vont de 48 à 28 000
+octets selon ce qui bouge. Aucun seuil ne sépare quoi que ce soit.
+
+L'idée a été RETIRÉE du code, pas mise de côté « au cas où ». Un compteur gardé
+sans usage est précisément ce que l'audit des relevés existe pour empêcher, et il
+l'a d'ailleurs signalé tout seul.
+
+**Le candidat qui marche coûtait une image entière.** Réduire l'image à 8x8 et
+relire les pixels donne la réponse directement. Première version, sondée une
+image sur trente pendant toute la partie: **15,1 ms au p95, 15,4 ms au maximum**.
+Un budget d'image à 60 Hz en fait 16,7. La relecture force une synchronisation
+avec la carte graphique, et le débit est tombé de 60 à 50 images par seconde.
+
+C'est exactement le piège que « mesure d'abord » attrape: sur le papier, lire 256
+octets ne coûte rien.
+
+**La forme qui rend le coût nul.** La question « l'image est-elle encore noire »
+ne se pose QUE pendant un chargement. La sonde ne tourne donc que dans la fenêtre
+qui suit un redémarrage, et s'arrête dès qu'elle voit une image ou au bout de
+quinze secondes. Mesuré après: **0,000 ms au p95 et au maximum** pendant une
+partie, parce qu'elle ne s'exécute pas.
+
+Une contre-vérification qui a failli devenir une fausse conclusion: le débit
+mesuré après le correctif était de 50 images par seconde contre 60 avant, et
+j'ai d'abord cru à une régression. C'était le JEU — Mario Party 4 est PAL, et la
+page mesure la source à 49,8 Hz. Deux mesures prises sur deux jeux différents ne
+se comparent pas, et le réflexe d'attribuer un écart au changement qu'on vient de
+faire est le plus difficile à ne pas avoir.
+
+**Le seuil est une mesure, pas un choix.** Vingt-quatre sur 255: un jeu qui
+tourne donne 109, le démarrage de Dolphin moins de 12. Le seuil est au dixième de
+l'échelle, loin des deux. Et un plafond de quinze secondes, parce qu'un jeu a le
+droit de commencer sur du noir et qu'un écran de chargement qui ne partirait
+jamais serait pire que celui qui partait trop tôt.
+
+**Vérifié dans les deux sens sur le MÊME jeu**, ce qui a demandé de pouvoir
+forcer la cible du pilote: sans la règle, « l'écran s'est retiré sur une image
+noire (luminosité 8066) »; avec elle, il tient à travers le noir et se retire à
+5,8 s sur une image à 818 553.
+
+### La configuration de la salle, et pourquoi les deux idées n'en faisaient qu'une
+
+Demandé ainsi: « est-ce possible de mettre par défaut toute ma config pour tous
+les users et tous les futurs users ? Ils pourront modifier, mais je veux pouvoir
+quoi qu'il arrive revenir à ces configs. Ou peut-être les mettre intouchables et
+laisser l'utilisateur en créer d'autres. »
+
+Les deux propositions ne sont pas des alternatives. **La seconde est ce qui rend
+la première sûre.** Une référence que tout le monde reçoit n'est une référence
+que si personne ne peut l'abîmer; sinon c'est juste un point de départ, et « quoi
+qu'il arrive » ne veut plus rien dire.
+
+**L'option écartée, et pourquoi elle était tentante.** Pointer la référence sur le
+dossier d'une personne aurait coûté trois lignes: elle serait toujours à jour,
+sans bouton ni geste. Elle serait aussi toujours en train de bouger. Ce qu'on
+veut est un état auquel on REVIENT, donc un instantané qu'on publie, pas un
+miroir de ce que quelqu'un est en train de régler. La différence ne se voit pas
+le premier jour; elle se voit le soir où on a cassé sa configuration et où la
+référence a été cassée en même temps.
+
+**Trois choses que la conception a fait sortir avant la première ligne de code.**
+
+*La référence doit être en cache dans le navigateur.* D12 promet qu'une salle
+déjà ouverte continue de jouer quand le plan de contrôle s'arrête. Lire la
+référence par requête seulement aurait fait disparaître les profils de la salle
+en cours de partie, et emporté les touches avec eux si l'un jouait. Une promesse
+tenue partout sauf sur le chemin qu'on vient d'ajouter n'est plus une promesse.
+
+*Les collisions de noms sont certaines, pas hypothétiques.* La référence
+contiendra un profil « défaut »; toute personne ayant déjà réglé ses touches en a
+un aussi, puisque c'est le nom que la migration donne. Les profils de salle sont
+donc préfixés `salle · `, ce qui rend la collision impossible par construction.
+Un drapeau à côté du nom aurait demandé une règle d'arbitrage, et une règle
+d'arbitrage sur un nom finit toujours par cacher un profil à quelqu'un.
+
+*Ce qui part au service ne doit jamais contenir un profil de la salle.* Sinon il
+devient une copie personnelle: modifiable, donc perdable, et figée au jour de la
+copie. La garantie tomberait sans qu'aucune erreur ne s'affiche. C'est l'essai le
+plus important du lot, et il vérifie une ABSENCE — la forme d'essai qu'on oublie
+d'écrire.
+
+**Qui publie est une adresse dans l'unité systemd, pas le propriétaire de la
+salle.** Le propriétaire est fait pour décider du jeu en cours: il change quand
+quelqu'un part, et depuis la règle de l'absence il se donne tout seul après trois
+minutes de silence. Une référence à laquelle on veut revenir quoi qu'il arrive ne
+peut pas dépendre d'un titre qui tourne — sinon n'importe qui l'écrase pendant
+qu'on mange. Vide veut dire personne, et c'est le défaut.
+
+**Modifier un profil de la salle le RECOPIE au lieu de refuser.** Refuser
+voudrait dire une touche pressée qui ne fait rien et rien à l'écran pour dire
+pourquoi. Bifurquer garde le geste, garde la référence intacte, et se voit: le
+profil actif change de nom sous les yeux de la personne.
+
+**Une garde écrite qui ne pouvait pas s'exécuter.** La route refusait de publier
+si l'adresse de l'administrateur était vide OU différente de celle qui appelle.
+La première moitié est morte: les deux chemins d'identité refusent déjà une
+adresse vide, donc personne ne peut en porter une. Vu en la retirant — aucun
+essai ne bougeait. Retirée, avec un commentaire qui dit où la protection vit
+vraiment. Une ligne qui ne peut pas s'exécuter est une protection qu'on CROIT
+avoir, ce qui est pire que pas de protection.
+
+À la place, une garde qui sert: la mise en minuscules des deux côtés. L'identité
+arrive normalisée, la configuration est écrite à la main dans un fichier. Une
+majuscule dans l'unité aurait fermé la porte à celui qui tient la salle, sans un
+mot. Le genre de défaut qui coûte une soirée pour un caractère.
+
+Vérifié le 31 août 2026 contre le vrai service: 401 sans identité, 403 pour
+quelqu'un d'autre, 200 pour l'adresse nommée, et `/api/me` répond `publishes`
+vrai à une seule personne.
+
+### La règle recopiée trois fois, absente du quatrième endroit
+
+Signalé en essayant de nommer un profil: « je ne peux pas utiliser sur le clavier
+a ou s ». Ces touches-là pilotent la manette, et la boucle d'entrée appelle
+`preventDefault` dessus. Impossible d'écrire.
+
+La garde qui empêche ça — « si on est dans un champ de texte, laisser passer » —
+existait en TROIS exemplaires recopiés: le menu, la coquille, le plein écran. Le
+quatrième endroit, celui qui appelle `preventDefault`, ne l'avait pas.
+
+**Le défaut ne datait pas du champ qui l'a révélé.** Le pseudo du salon est un
+champ de texte lui aussi, et taper un `a` dedans ne marchait pas non plus. Depuis
+le début. Personne ne l'avait dit, parce qu'un pseudo se tape une fois et qu'on
+suppose s'être trompé de touche. Il a fallu un DEUXIÈME champ pour que ça devienne
+un motif plutôt qu'un accident.
+
+Une règle recopiée est une règle qu'un endroit finit par ne pas avoir, et
+l'endroit qui l'oublie est celui où on n'a pas pensé qu'elle s'appliquait — ici
+la boucle d'entrée, qu'on ne range pas mentalement avec « les écouteurs de
+clavier de l'interface ». Un seul exemplaire maintenant, utilisé aux quatre
+endroits.
+
+**L'asymétrie est voulue, et elle est écrite.** La garde est sur l'appui, pas sur
+le relâchement: relâcher ne fait jamais que libérer. Une touche enfoncée dans le
+jeu puis relâchée après un clic dans un champ doit sortir de la liste, sinon elle
+y reste appuyée pour toujours.
+
+**Et la fonction mentait sur son type.** Écrite `a || b || target.isContentEditable`,
+elle rendait `undefined` — jsdom n'implémente pas cette propriété — là où sa
+signature promettait un booléen. Utilisée dans un `if`, ça marchait; le type
+mentait quand même, et TypeScript ne pouvait pas le voir puisque le mensonge est
+à l'exécution. Trouvé par un essai qui compare le TYPE de ce qui sort, pas
+seulement sa valeur.
+
+### Une secousse coûte un bouton, et il faut dire lequel
+
+Demandé pour Mario Strikers Charged, où les coups d'épaule sont une secousse de
+Wiimote et non un tacle: sans elle, une moitié du jeu est injouable.
+
+Dolphin sait le faire, groupe `Shake` avec `X`, `Y`, `Z` — lu dans `Force.cpp` au
+commit qu'on épingle, avec sa zone morte à cinquante pour cent par défaut, son
+intensité à dix et sa fréquence à six. Le problème n'était pas Dolphin.
+
+**Il n'y avait plus de place.** Notre trame porte douze boutons. Une Wiimote avec
+son Nunchuk en demande treize, et le bouton Home avait déjà été sacrifié pour
+tenir dans douze. La secousse en demandait un quatorzième. Ce genre de contrainte
+ne se contourne pas, il se dépense: la question n'était pas « comment ajouter »
+mais « lequel perdre ».
+
+« Moins » a été choisi, et la raison est dite plutôt que sous-entendue: il ne sert
+que dans les menus, où A et la croix font la même chose. Le partager avec la
+secousse a été écarté — un geste qui fait deux choses se remarque le jour où les
+deux comptent.
+
+**Les trois axes sur le même bouton.** On ne sait pas lequel un jeu échantillonne
+et Dolphin ne le dira pas, donc les trois ensemble suppriment la question. C'est
+aussi ce que fait une vraie main: personne ne secoue une manette sur un seul axe.
+
+**Un essai a mordu dans la minute.** La secousse avait été posée dans la partie
+COMMUNE du rendu, donc la guitare en héritait: la note orange, qui est le même
+jeton, aurait secoué la Wiimote à chaque fois. Le jumeau — « rien d'autre ne se
+secoue » — l'a dit avant qu'une seule personne ne joue. C'est le genre d'essai qui
+paraît gratuit en l'écrivant.
+
+**Ce qui n'est pas vérifié, et je le dis ici plutôt que de le laisser croire.** Un
+bouton tout ou rien suffit-il à déclencher une secousse que Dolphin anime sur une
+durée ? Je ne l'ai pas vu marcher. Si non, il restera à envoyer une impulsion sur
+plusieurs images depuis la page, ce qui ne coûte aucun bouton de plus.
+
+### Deux choses de portées différentes ne partagent pas un bouton
+
+Demandé en jouant: des profils de touches, pour en avoir un pour Guitar Hero sans
+défaire celui qui marche partout ailleurs. Le besoin était clair du premier coup.
+Il a fallu trois allers-retours pour que la solution le soit, et la faute était la
+même à chaque fois.
+
+**Le premier jet accrochait les touches au TYPE DE MANETTE.** Un jeu de touches
+pour la manette GameCube, un pour la Wiimote, un pour la guitare, et la bascule
+les changeait toute seule. C'était séduisant: zéro écran en plus, zéro geste en
+plus, et le cas de Guitar Hero tombait juste puisqu'on y passe en guitare de toute
+façon.
+
+Ça marchait, et c'était faux. La phrase qui l'a dit: « quand je change de profil,
+ça relance le jeu, ça ne devrait pas, les profils doivent être individuels à
+chaque personne et c'est juste des bindings ».
+
+**Une portée, pas une préférence.** Le type de manette est un réglage de la
+SALLE: Dolphin le lit au démarrage, donc en changer relance la partie de tout le
+monde. Un jeu de touches est PERSONNEL: c'est une correspondance entre un clavier
+et douze boutons, et ça ne regarde personne d'autre. Accrocher le second au
+premier faisait redémarrer le jeu de quatre personnes parce qu'une seule voulait
+régler ses touches.
+
+C'est la leçon générale, et elle vaut au-delà de ce cas: deux réglages qui n'ont
+pas la même PORTÉE ne partagent pas un bouton, même quand ils changent presque
+toujours ensemble. Le presque coûte tout.
+
+**Le symptôme intermédiaire disait déjà quelque chose.** Entre les deux, la
+première question a été « je ne vois pas de bouton pour créer un nouveau profil ».
+J'ai répondu qu'il n'y en avait pas et que c'était voulu, et j'ai ajouté une
+rangée pour rendre le mécanisme visible. C'était traiter le symptôme: si
+l'absence d'un bouton « nouveau » surprend, c'est que la chose montrée n'est pas
+celle qu'on croyait manipuler. Une fonctionnalité qu'il faut expliquer à l'écran
+est souvent une fonctionnalité mal découpée.
+
+**Ce qui existe maintenant.** Des profils nommés, dans l'écran des touches:
+choisir, créer, oublier. Créer part d'une COPIE de celui qui joue — on crée un
+profil pour changer deux touches, pas pour refaire les seize. Le dernier ne
+s'efface pas: un dossier vide voudrait dire un clavier qui ne fait rien, et
+« oublier » doit laisser la salle jouable. Changer de profil est immédiat, local,
+et ne fait rien redémarrer.
+
+**Trois formes de rangement à relire, aucune avec un numéro de version.** La
+forme nommée, la forme par manette qui a vécu une demi-heure, et le profil à plat
+qui a vécu des mois. Les trois se distinguent par une clé que les autres ne
+peuvent pas porter, et c'est ce qui remplace un numéro: écrire une version dans
+la forme à plat est précisément ce qu'on ne peut plus faire, elle est déjà sur
+les disques. Personne ne perd un réglage, y compris ceux faits pendant la
+demi-heure où l'idée était fausse.
+
+Rien à changer côté service, comme la fois d'avant: le contenu des réglages y est
+opaque. Trois formes de stockage successives en une journée, et zéro migration de
+schéma.
+
+**Encore deux essais qui ne pouvaient pas échouer.** Celui sur la copie, corrigé
+en photographiant l'état attendu en texte avant la mutation. Et celui qui vérifie
+qu'un nom déjà pris est refusé: il recréait le profil ACTIF, or recréer l'actif
+redonne un dossier identique avec ou sans le refus. Le vrai danger est d'écraser
+un AUTRE profil, donc l'essai crée maintenant depuis un profil différent. Les
+deux ont été vus en retirant la règle, pas en relisant.
+
+Cinq essais de cette forme dans ce carnet, et la règle se resserre: **une
+assertion qui compare deux choses pouvant être la même ne compare rien.**
+
+### Une extension n'est pas un supplément qu'on branche au cas où
+
+Guitar Hero III démarrait, affichait ses menus, et ne répondait qu'au bouton A.
+Ni la croix, ni les autres boutons. Le symptôme exact rapporté en jouant: « y'a
+que le c du clavier qui sert de bouton A, j'ai pas les flèches ».
+
+**Ce que le code affirmait, et qui était faux.** Le rendu de `WiimoteNew.ini`
+branchait un Nunchuk dans tous les cas, avec ce commentaire: « un jeu qui n'en
+veut pas l'ignore; un jeu qui en exige un ne démarrerait pas sans. Le brancher
+sert donc les deux. » La première moitié est fausse. Guitar Hero III voit une
+Wiimote avec un Nunchuk, attend une guitare, et n'obéit plus qu'aux boutons de la
+Wiimote elle-même — ceux que l'extension ne couvre pas.
+
+Une extension déclare CE QU'ON TIENT. Ce n'est pas un accessoire qu'on ajoute au
+cas où, et un jeu a le droit de refuser ce qu'il ne reconnaît pas. C'est la même
+famille d'erreur que « deux manettes pour une personne »: déclarer plus n'est pas
+déclarer mieux.
+
+**La troisième manette.** `PadKind` gagne `Guitar`, à côté de `GameCube` et
+`Wiimote`, et les trois s'excluent pour la raison qui vaut déjà pour les deux
+premières. Les noms de groupes viennent de `Guitar.cpp` de Dolphin au commit
+qu'on épingle, pas d'une supposition: les groupes sont `Frets`, `Strum`,
+`Buttons`, `Stick`, `Whammy` et `Slider Bar`, et les frettes s'appellent `Green`,
+`Red`, `Yellow`, `Blue`, `Orange`. Un essai les épingle, pour la raison exacte
+qui avait coûté une demi-journée sur `Tilt/Up`: une clé que Dolphin ne connaît
+pas est ignorée sans un mot.
+
+Sur le clavier, cinq frettes sur les cinq boutons et le grattage sur la croix
+haut et bas. C'est la disposition des jeux de guitare sur clavier, et la seule
+qui tienne: notre trame porte douze boutons et une guitare en demande cinq plus
+deux. La barre de vibrato va sur le stick C, en n'utilisant que sa moitié
+positive, parce que Dolphin la déclare comme une gâchette qui compte de zéro à
+un.
+
+**Deux replis silencieux trouvés en écrivant, pas en jouant.** `choosePad`
+refusait tout code différent de 0 ou 1, donc la guitare aurait été avalée sans un
+mot par la page qui la propose. Et `storedPad` comparait la valeur retenue à la
+chaîne `"1"`, donc l'arrivée d'un troisième choix aurait ramené tout le monde à
+la manette GameCube au rechargement suivant. Les deux se lisent maintenant dans
+la table des choix, qui est le seul endroit où la liste existe.
+
+**Les mots de l'écran des touches suivent ce qu'on tient, pas la console.**
+`controlsFor` prenait la console seule, ce qui suffisait tant qu'un jeu Wii
+voulait dire « Wiimote ». Sur un jeu Wii on peut maintenant tenir trois choses
+différentes, donc la fonction prend les deux. Un essai vérifie que les trois
+profils se distinguent vraiment: sans lui, une fonction qui rendrait toujours la
+même table passerait tous les essais positifs. Vérifié en supprimant la table de
+la guitare — deux essais deviennent rouges.
+
+### La porte que mon propre correctif avait laissée ouverte
+
+Trouvée en relisant le chemin de l'annonce pour une autre raison, et c'est une
+régression que j'avais introduite la veille sans la voir.
+
+La règle du propriétaire absent vit dans le worker: il horodate chaque place et
+rend la salle à qui la prend au bout de trois minutes. La page lit ce verdict.
+Mais le PLAN DE CONTRÔLE, lui, filtrait encore l'annonce « je change de jeu » sur
+son propre propriétaire élu, qui est « le premier arrivé identifié » et ne connaît
+pas les absences.
+
+Les deux règles divergeaient donc exactement dans le cas qu'on venait de traiter:
+le worker acceptait le lancement, et le plan de contrôle jetait l'annonce. Celui
+qui cliquait voyait son écran de chargement, tous les autres regardaient dix
+secondes de noir sans savoir si c'était cassé — c'est-à-dire précisément le
+défaut que cette annonce existe pour empêcher.
+
+**La correction: demander, pas rejouer.** Le port de contrôle portait un seul
+message, `owner <place>`. Il en porte un second, `decides <place>`, qui va dans
+l'autre sens: le plan de contrôle demande, le worker répond `yes` ou `no` en
+appelant la MÊME fonction que la socket de manette. Une règle, un exemplaire.
+Deux exemplaires d'une règle finissent toujours par répondre différemment à la
+même question, et c'est ce qui venait de se produire.
+
+Trois états et non deux, et la distinction porte tout: `no` est un refus, une
+absence de réponse n'en est pas un. Un worker muet est un worker qui redémarre,
+ce qui arrive à chaque changement de jeu. Les confondre rendrait la salle muette
+exactement quand elle a le plus besoin de parler. Le repli sur absence de réponse
+est l'ancienne règle, pas « laisser passer ».
+
+**Un essai qui passait sans rien prouver.** Le premier jet de l'essai positif
+connectait ses clients avec un pseudonyme au lieu d'une identité. Or sans
+identité il n'y a pas de propriétaire élu du tout, l'ancienne règle laisse tout
+passer, et l'essai était vert avec l'ancien code comme avec le neuf. Vu en
+remettant le défaut: un seul des deux essais devenait rouge. Corrigé en donnant
+de vraies identités aux clients, et les deux mordent maintenant.
+
+C'est le troisième essai de ce genre relevé dans ce carnet, et la forme est
+toujours la même: la condition qu'on croit vérifier n'est jamais atteinte, donc
+l'assertion est vraie pour une raison qui n'a rien à voir. Remettre le défaut est
+la seule chose qui le dise.
+
+**Et un trou trouvé par un essai plutôt que par la lecture.** L'essai qui fait
+répondre zéro octet au faux worker a fait remonter une exception au lieu d'une
+réponse: `EndOfStream` d'anyio n'est pas une `OSError`, donc rien ne l'attrapait.
+Le défaut était dans les DEUX fonctions, y compris celle qui tourne depuis des
+semaines: un worker qui accepte la connexion puis raccroche sans répondre aurait
+tué une diffusion de salon. Les deux attrapent maintenant la même liste.
+
+**Une petite fausseté corrigée au passage.** Changer de manette relance le jeu, et
+cette relance annonçait l'emplacement zéro en dur. Le worker, lui, garde son
+choix et repart au bon endroit, donc le jeu était juste; seule l'annonce était
+fausse, et les autres pages lisaient « partie neuve » sur leur écran de
+chargement pendant que la sauvegarde complète se chargeait. La page retient
+maintenant l'emplacement sur lequel elle a lancé, et `null` quand ce n'est pas
+elle qui a lancé, parce qu'on ne devine pas.
+
+### Seize octets, et pourquoi « sauvegarde corrompue » a résisté trois jours
+
+Le meilleur défaut du projet jusqu'ici, dans le sens où il a survécu à trois
+explications successives qui étaient toutes fausses.
+
+Le symptôme, stable depuis trois jours: un jeu Wii démarre, affiche son menu,
+montre la sauvegarde complète, et dit « This file cannot be used because the data
+is corrupted » dès qu'on l'ouvre. Mario Party 9, Mario Strikers Charged et Guitar
+Hero III, tous les trois. Mario Kart Wii, lui, marchait.
+
+**La cause.** Dans l'export d'une sauvegarde Wii, chaque fichier est précédé d'un
+en-tête de 0x80 octets qui porte son nom et son vecteur d'initialisation. Le nom
+occupe 0x45 octets, donc le vecteur commence à 0x50. Le décodeur le lisait à
+0x4B, cinq octets trop tôt.
+
+**Pourquoi cinq octets d'écart sont presque invisibles.** En chiffrement CBC, le
+vecteur ne sert qu'au PREMIER bloc. Un vecteur faux corrompt donc seize octets et
+rien d'autre: tout le reste du fichier sort parfaitement, avec sa structure, ses
+suites de zéros, ses tailles justes. Le fichier soutient n'importe quel examen
+superficiel. On peut mesurer son entropie — 1,93 bit par octet, 72 % de zéros — et
+conclure qu'il est parfaitement déchiffré. Il l'est, à seize octets près, et ces
+seize-là sont l'en-tête que le jeu lit en premier.
+
+Vérification faite en comparant l'ancien fichier au neuf: **identiques après le
+seizième octet**, sur les 35 600 octets de Mario Strikers Charged comme sur les
+49 152 de Mario Party 8.
+
+**Les trois fausses pistes, et ce qui les a nourries.** D'abord la région du
+disque, réfutée en posant une sauvegarde USA sur un disque USA. Ensuite les
+permissions de la NAND, réfutée en lisant `HostFileSystem` de Dolphin, qui donne
+des droits complets à un fichier qu'il ne connaît pas. Enfin la bannière
+tronquée, qui était un VRAI défaut — j'avais figé 0x72A0 alors que certains jeux
+annoncent 0xF0A0 — et c'est ce qui l'a rendue si convaincante: la corriger a
+changé quelque chose de visible, l'image de jaquette, donc j'ai cru avoir trouvé.
+Un défaut réel qui n'est pas LE défaut est plus coûteux qu'aucune piste du tout.
+
+**Ce que Mario Kart Wii disait depuis le début.** Le carnet notait déjà que le
+nom occupe 0x45 octets et pas 0x40, et que cinq octets d'écart mettent le vecteur
+au mauvais endroit. C'était écrit dans la documentation du décodeur, avec la
+preuve: `RKSD` attendu, du bruit obtenu. **Et le code n'a jamais reçu la
+correction.** Mario Kart Wii marchait parce que sa sauvegarde à lui avait été
+extraite à la main pendant la mise au point, avec la bonne position; tout ce qui
+est passé par l'outil ensuite est sorti abîmé. La question de l'utilisateur —
+« pourtant Mario Kart Wii a très bien fonctionné alors qu'on a importé également
+une sauvegarde » — était la bonne question, et il l'a posée deux fois avant que
+j'en tire quelque chose.
+
+La leçon tient en une phrase: **une explication écrite n'est pas une garantie.**
+Ce projet s'appuie beaucoup sur des commentaires qui disent le pourquoi, et
+celui-ci était juste, complet, et démenti par la ligne d'en dessous.
+
+**Le contrôle qui rend l'erreur impossible à écrire.** Deux idées ont été
+essayées et jetées avant la bonne, et elles valent d'être notées parce qu'elles
+paraissent solides:
+
+- *Rechiffrer ce qu'on a déchiffré et comparer à la source.* Ne prouve rien: en
+  CBC, l'aller-retour redonne toujours la source, quel que soit le vecteur.
+- *Vérifier que le vecteur ne commence pas par des zéros*, en supposant le champ
+  de nom rempli de zéros après le terminateur. Mesuré sur un vrai fichier le
+  31 août 2026: il ne l'est pas, il contient des octets quelconques. La garde ne
+  mordait donc pas, et je l'ai vue ne pas mordre en remettant le défaut.
+- *Vérifier l'empreinte de l'en-tête*, seize octets à 0x0E. Sa portée ne s'est pas
+  laissée retrouver: ni MD5 ni SHA-1, sur la zone en-tête plus bannière comme sur
+  la zone jusqu'à l'en-tête `Bk`, pour toutes les positions de champ de 0x00 à
+  0x20. Un contrôle écrit faux serait pire que pas de contrôle, donc il n'y en a
+  pas, et le fichier le dit à la place de le taire.
+
+Ce qui marche est arithmétique. Les champs de l'en-tête doivent **paver** ses
+0x80 octets: nom à 0x0B sur 0x45, vecteur à 0x50 sur 0x10, queue de 0x20. La
+somme fait exactement 0x80. La version fautive donnait 0x7B, et laissait cinq
+octets que rien ne réclamait. Cette soustraction se pose au chargement du script,
+avant d'ouvrir quoi que ce soit, et elle refuse de démarrer sur la mauvaise
+disposition — vérifié dans les deux sens le 31 août 2026.
+
+C'est la même forme de règle que `encoder::va::sys`, qui épingle tailles et
+positions contre les vrais en-têtes: une disposition mal déclarée doit casser la
+construction, pas rendre des octets plausibles.
+
+**Ce qui a été réinstallé.** Mario Strikers Charged, Mario Party 8, Mario Party 9
+et Guitar Hero III, dont les deux fichiers vivent dans un sous-dossier `nocopy`.
+L'état d'avant est gardé de côté plutôt que remplacé: une sauvegarde ne se
+supprime pas, même quand on est sûr qu'elle est abîmée.
+
+Vérifié le 31 août 2026 sur la vraie salle: Mario Strikers Charged ouvre sa
+sauvegarde complète et entre dans le jeu, là où il annonçait « data is
+corrupted » trois jours durant.
+
+### Le déménagement à moitié fait, qui lançait la mauvaise sauvegarde
+
+Question posée en jouant: « est-ce normal que j'aie toujours manette GameCube et
+Wiimote et Nunchuk quand je lance un jeu Wii ? » Non. Le choix de manette avait
+déménagé dans les réglages la veille, et j'avais réécrit ce que le panneau FAIT
+en laissant ce qu'il MONTRE.
+
+Le reste vient tout seul, et c'est le vrai défaut. Le panneau croisait les deux
+emplacements avec les deux manettes, ce qui donnait quatre entrées nommées
+« 0-0 » à « 1-1 ». Le lecteur de choix, lui, était passé à `id === "1"` en même
+temps que la manette partait. Or aucune des quatre entrées ne s'appelle « 1 ».
+**Tout jeu Wii démarrait donc sur « partie neuve », y compris quand on demandait
+« tout débloqué ».**
+
+Rien n'échouait, et c'est ce qui rend ce défaut désagréable. Le jeu se lançait,
+l'écran de chargement passait, la partie commençait. Simplement pas la bonne, et
+il fallait arriver au menu des personnages pour s'en apercevoir. C'est
+exactement la classe de défauts contre laquelle la règle 4 est écrite: un repli
+silencieux vers une valeur par défaut plausible.
+
+**Ce qui a été corrigé, et où.** Le panneau ne propose plus qu'une décision, la
+sauvegarde, et la même pour les deux consoles. Les deux moitiés du choix, ce
+qu'on propose et comment on le relit, ont quitté `App.tsx` pour `lib/saves.ts`
+sous `launchPicks` et `slotFromPick`. Elles étaient dans un composant React, donc
+à un endroit où rien ne pouvait les comparer l'une à l'autre. C'est la règle 5,
+transposée à la page: ce qui décide de quelque chose doit vivre là où un essai
+l'atteint sans navigateur.
+
+Et `slotFromPick` rend maintenant « rien » sur un identifiant inconnu, au lieu de
+retomber sur zéro. Un panneau qui ne lance rien se voit; un panneau qui lance
+autre chose ne se voit pas.
+
+**Vérifié en remettant le défaut**, pas en raisonnant: les quatre essais passent
+au vert avec le correctif, et les quatre repassent au rouge quand on remet le
+croisement et le repli. Ils comparent le panneau à `SLOTS` plutôt qu'à une liste
+écrite à la main, qui aurait été la même erreur recopiée, et le dernier jumeau
+vérifie que les deux entrées ne désignent pas le même emplacement, sinon un
+lecteur qui rendrait toujours zéro passerait la boucle sans rien dire.
+
+La leçon générale, la même que pour la carte mémoire: quand un réglage déménage,
+l'ancien endroit ne disparaît pas de lui-même. Il reste, il a l'air de marcher,
+et il parle à un lecteur qui ne l'écoute plus.
+
+### Un ami parti se coucher restait chef de la salle
+
+Le symptôme est arrivé un soir de partie: impossible de changer de jeu, parce que
+Yannis tenait la salle et n'était plus devant son écran. Rien n'était cassé, tout
+marchait comme prévu, et c'était bien le problème.
+
+**Pourquoi ça bloque.** Le propriétaire d'une salle est élu par le plan de
+contrôle: la première personne identifiée qui arrive. Cette élection dure tant que
+sa connexion tient. Or un onglet laissé ouvert ne se ferme pas. Quelqu'un qui va
+dormir garde donc la salle toute la nuit, et personne d'autre ne peut lancer un
+jeu.
+
+**Redémarrer n'était pas la solution, et je l'ai dit avant d'y toucher.** Une
+salle qui repart réélit un propriétaire à la reconnexion, et l'onglet de l'absent
+se reconnecte aussi vite que les autres. On aurait rejoué la même partie, avec une
+chance sur le nombre de personnes présentes. Ce qui a débloqué la soirée est
+d'ailleurs exactement ce hasard: en redémarrant le worker pour installer le
+correctif, c'est Souhib qui est revenu le premier. De la chance, pas une
+réparation.
+
+**La règle qu'on a posée.** Le worker horodate chaque place quand une image de
+manette arrive **qui n'est pas au repos**. Si le propriétaire n'a rien touché
+depuis trois minutes, n'importe qui peut changer le jeu. S'il n'a jamais rien
+touché, il ne bloque personne non plus: une élection sans une seule pression de
+bouton derrière ne vaut rien.
+
+Le « pas au repos » est la moitié qui compte. Une manette branchée envoie soixante
+images par seconde qu'on la tienne ou non. Compter les images tout court aurait
+donné une horloge qui ne s'arrête jamais, donc un propriétaire éternel, donc
+exactement le défaut qu'on corrige avec du code en plus. `PadFrame::is_neutral`
+est la distinction, et elle est épinglée par un jumeau négatif: chaque bouton,
+chaque axe et chaque gâchette pris un par un, sinon un champ oublié rendrait toute
+manette « au repos ».
+
+**Trois minutes n'est pas une mesure, et je préfère l'écrire que laisser croire le
+contraire.** C'est un jugement encadré par deux contraintes: assez long pour qu'un
+joueur qui regarde une cinématique ou lit un menu ne perde pas la salle, assez
+court pour qu'une absence ne coûte pas la soirée. Ce qui le remettrait en cause
+est concret: quelqu'un qui perd la salle sans avoir bougé de sa chaise, et le
+nombre monte. Le worker publie `owner_away` dans son journal pour qu'on puisse le
+constater après coup plutôt que le supposer.
+
+**Le défaut de fond était ailleurs, et il tombe avec.** Deux endroits répondaient
+à « ai-je le droit de lancer un jeu ». La page comparait son propre identifiant au
+propriétaire annoncé par le plan de contrôle; le worker, lui, raisonne en places.
+Les deux divergeaient après chaque reconnexion, le temps que le plan de contrôle
+rattrape. Maintenant le message de salle porte un troisième octet, et la page lit
+un verdict au lieu d'en calculer un. Une question, une autorité — c'est la même
+règle que D12 pose déjà pour les places tenues.
+
+Le message de salle est passé de six à sept octets, ce qui a fait tomber quatre
+essais de la page d'un coup. C'est le comportement voulu: la longueur est la seule
+chose qui distingue un message de salle d'une vibration, et un décodeur qui
+accepterait les deux tailles confondrait les deux messages.
+
+Vérifié le 31 août 2026: le salon repart avec Souhib propriétaire, les 222 essais
+de la page et les 78 du transport passent, et `just` est vert des deux côtés.
+
+---
+
 ## 8. Les pièges qui ont coûté du temps, et ce qu'ils ont appris
 
 | Le piège | Ce qui s'est passé | La leçon |
@@ -7258,6 +9280,12 @@ le symptôme et laissait la cause en place.
 | `vaDeriveImage` | 99,6 % de l'image annoncée fausse, à tort | Quand le pilote est l'autorité, demander au pilote |
 | `docker exec` sans `-i` | Le script reçoit EOF, ne fait rien, **et rapporte un succès** | Vérifier l'effet, pas le code de retour |
 | Deux tests verts avec le bug remis | Ils lisaient la bonne chose au mauvais endroit | Vérifier en réintroduisant le bug, jamais en raisonnant |
+| La carte mémoire absente | Aucun jeu ne sauvegardait, **et rien ne le disait** | Quand une donnée manque, vérifier que le support existe avant de suspecter la donnée |
+| Un lien qui sortait du montage | Dolphin suivait un lien mort **sans une erreur** | Un chemin absolu traverse la frontière d'un conteneur sans prévenir |
+| Le repos jeté après usage | La leçon le mesurait, s'en servait, puis l'oubliait | Une valeur mesurée pour décider est souvent celle qu'il faut aussi garder |
+| L'identité tombée en silence | Le nom de domaine marchait, mais plus personne n'était reconnu | Une panne d'authentification qui ne casse rien de visible est la pire: personne ne la cherche |
+| Une adresse v6 sans crochets | 404 muet, et le cas v4 essayé à la main marchait | Essayer une adresse dans les deux familles: celle qu'on saute est celle de la production |
+| Une socket acceptée puis jamais servie | Écran noir, son intact, et le vidage du cache sans effet | Un service qui sait ne pas pouvoir servir doit refuser, pas accepter en silence |
 | Une édition qui ne s'applique pas | Un remplacement de texte ne trouve pas sa cible (le formateur était passé avant), ne dit rien, et le test suivant échoue pour une **autre** raison — qui masque le no-op | Le même piège que `docker exec` sans `-i`, sous une autre forme : vérifier l'effet, pas l'absence d'erreur |
 | Une relecture ne prouve pas ce qu'on croit | Relire les pixels écrits pour vérifier le rangement mémoire : **ça passe même avec un rangement faux**, parce que l'écriture et la lecture traversent la même déclaration. Un mensonge cohérent avec lui-même est invisible à un aller-retour à travers lui | Vérifier une déclaration contre **l'autre partie**, pas contre soi-même. Ici : comparer ce qu'on a déclaré à ce que la surface est vraiment |
 | **Troisième** test vert avec le bug remis | Déclarer un rangement *linéaire* pour une image tuilée : le pilote accepte, crée l'image, renvoie succès. Seuls les pixels auraient protesté, bien plus tard | Corrigé en **demandant à Vulkan** quel rangement l'image porte vraiment, au lieu de se fier à ce qu'on avait déclaré. Encore une fois : quand le pilote est l'autorité, l'interroger |
@@ -7591,6 +9619,10 @@ quantité qui compte, c'est la régularité.
 directement. Quand la VRAM est pleine, les allocations tombent ici : un
 compteur GTT qui monte est le signe que la VRAM déborde.
 
+**Glyphe** — un dessin qui tient lieu de texte. Ici, les symboles DESSINÉS d'une
+PlayStation (croix, carré, rond, triangle), tracés en SVG dans `GLYPHS` parce
+qu'aucune des polices de la page ne les porterait en caractères.
+
 **H.264** — le format de compression vidéo utilisé. Universellement décodé par les
 navigateurs, et accéléré par le matériel.
 
@@ -7845,3 +9877,143 @@ gel.
 
 *Ce document est tenu à jour au fil du projet. Si une décision change, c'est ici
 qu'on explique pourquoi — pas seulement dans l'ADR.*
+
+## Deux nombres qui se ressemblent et ne veulent pas dire la même chose
+
+Sur l'écran des deux manettes, les sticks de gauche partaient du mauvais côté.
+Souhib l'a vu tout de suite, et a dit la chose exacte qui désigne le coupable:
+en jouant, tout marche. Le défaut ne pouvait donc pas être sur le fil, seulement
+dans l'affichage.
+
+Il l'était. Le schéma de droite s'incline des axes bruts du navigateur, qui
+comptent le vertical vers le bas. Celui de gauche s'incline de ce que le jeu
+reçoit, où le haut est positif — c'est `readPad` qui retourne l'axe, et c'est
+juste: c'est la convention de la manette émulée, et elle part telle quelle sur
+le fil. SVG, lui, compte vers le bas comme le navigateur. Le côté gauche
+descendait donc quand on poussait en haut.
+
+Ce qui rend le défaut intéressant n'est pas le signe, c'est qu'il était
+**indicible**. Les deux appels passaient un `[number, number]`, le même type des
+deux côtés, pour deux conventions opposées. Aucun compilateur ne pouvait s'en
+plaindre, et aucune relecture non plus: les deux lignes se ressemblaient trop.
+
+Le correctif n'est donc pas le moins du monde: c'est un type `Tilt` qui ne se
+construit qu'en nommant le repère d'où l'on vient, `upward` ou `downward`. Le
+signe n'est plus écrit à l'appel, il est écrit une fois dans la fonction qui
+porte le nom de la convention. C'est la règle « rendre l'état invalide
+irreprésentable » appliquée à quelque chose d'aussi petit qu'un signe.
+
+L'essai qui compte n'assure pas qu'`upward` nie son argument — ça, c'est
+relire le code deux fois. Il pousse un stick une seule fois, en haut à droite,
+fait descendre cette poussée par les deux chemins, et exige que les deux
+schémas penchent du même côté. Il échoue si l'un des deux se retourne, quel que
+soit celui qui a tort. Vérifié en réintroduisant le défaut: trois essais
+rouges.
+
+La leçon générale est plus large que cet écran. Deux grandeurs qui ont la même
+forme et des conventions contraires finiront par être échangées, et le jour où
+ça arrive, rien ne le dit. Le moment de leur donner deux noms est celui où on
+s'aperçoit qu'il y en a deux.
+
+## Un schéma qui s'allume ne dit pas pourquoi ça marche mal
+
+Souhib a pointé hardwaretester.com/gamepad et dit qu'il n'aimait pas notre
+écran. En allant regarder la page, ce n'est pas son habillage qui saute aux
+yeux, c'est son parti pris: elle n'affiche presque pas de manette. Elle affiche
+des **nombres**. Un chiffre par bouton, deux par stick, un horodatage, et une
+petite silhouette dans un coin.
+
+C'est un meilleur outil que le nôtre pour une raison précise. Notre schéma
+répond à « est-ce que ça marche »: une pièce s'allume ou pas. Les pannes de
+manette qu'on rencontre vraiment ne sont pas binaires. Un stick qui dérive de
+0,03 fait avancer le personnage tout seul; une gâchette qui repose à 0,6 est
+enfoncée en permanence pour le navigateur; un bouton qui plafonne à 0,98 marche
+partout sauf là où le jeu attend 1. Un schéma arrondit ces trois cas à
+« allumé », et on les cherche ailleurs pendant une heure.
+
+Le banc d'essai ajoute donc les chiffres bruts sous les deux schémas. Notre
+palette et nos thèmes restent: ce qui est repris est l'ORGANISATION de
+l'information, pas l'habillage d'un site, et il n'était de toute façon pas
+question de copier son dessin de manette.
+
+Deux décisions valent d'être notées.
+
+La première: le panneau se calcule du nombre d'axes que la manette annonce,
+pas d'un gabarit à deux sticks. Une manette standard en rend quatre; un
+adaptateur en rend ce qu'il veut. Un compte impair n'est pas une anomalie,
+c'est une pédale ou un curseur, et l'arrondir en bas ferait disparaître un axe
+en silence. C'est exactement la forme de la panne d'adaptateur GameCube qu'on a
+déjà eue, alors elle a son essai.
+
+La seconde: les vingt nombres bougent à la cadence de l'écran, et la règle 8
+interdit de rendre React sur le chemin de l'image. La structure est donc rendue
+une fois avec des marques stables, et une fonction écrit dedans. Ça rend un
+contrat implicite explicite: tant que « qui pose les marques » et « qui écrit
+dedans » vivaient dans deux fichiers, rien ne pouvait vérifier qu'ils parlaient
+des mêmes. Maintenant des essais jsdom posent le balisage, appellent, et lisent
+ce qui a été écrit.
+
+Et un piège rejoué, pour la deuxième fois. Après avoir tout construit, j'ai
+photographié l'écran contre le worker qui tourne — et le banc n'y était pas. Le
+worker sert la page compilée dans son binaire, donc il servait celle d'avant. Le
+même piège avait déjà coûté du temps il y a quelques semaines. Ce qui a changé
+cette fois est que je l'ai reconnu tout de suite, mais la vraie leçon est plus
+gênante: le balayage de contraste, `just browser-contraste`, tape ce même worker.
+Il a annoncé « tout le texte tient son seuil » sans avoir jamais vu le banc.
+
+Un outil de vérification qui regarde la mauvaise version ne dit pas qu'il s'est
+trompé: il dit que tout va bien. C'est pire que pas d'outil, et c'est la même
+famille d'erreur qu'un essai qui passe alors qu'il ne teste rien. Le contraste
+du banc est donc mesuré par un pilote qui passe par Vite, et la note de reprise
+dit maintenant, à côté de chaque commande, quelle version elle regarde.
+
+## Ajouter n'est pas changer
+
+Après avoir construit le banc d'essai, Souhib a répondu: « rien n'a changé en
+terme de design ». Il avait raison, et la leçon dépasse cet écran.
+
+Il avait demandé le design de hardwaretester parce qu'il n'aimait pas le nôtre.
+J'ai regardé la page, compris ce qui la rend bonne — elle montre des nombres
+plutôt qu'une manette — et j'ai AJOUTÉ un panneau de nombres sous nos deux
+schémas. Les schémas, c'est-à-dire exactement la chose qu'il regardait et disait
+ne pas aimer, n'ont pas bougé d'un pixel.
+
+C'est une manière de rater une demande qui se déguise en travail sérieux: on
+livre quelque chose de vrai, de mesuré, de testé, et à côté de la question.
+« J'aime pas le design actuel » désigne un objet précis, et j'ai répondu à
+« qu'est-ce qui manque » au lieu de « qu'est-ce qui déplaît ».
+
+Une cause plus bête brouillait le diagnostic, et elle vaut d'être notée: un
+onglet resté ouvert depuis avant le redémarrage continue de faire tourner
+l'ancien JavaScript. Le flux vidéo, lui, se reconnecte tout seul, ce qui donne
+une page qui a l'air vivante et qui est périmée. « Rien n'a changé » pouvait donc
+vouloir dire deux choses très différentes, et il fallait le demander plutôt que
+de deviner une deuxième fois.
+
+Le dessin est maintenant en trait fin: contour au repos, aplat quand la pièce
+est enfoncée. Trois choses sont parties avec le volume, et la troisième coûte
+quelque chose.
+
+Les dégradés et les capots bombés, d'abord: ils faisaient joli et mettaient du
+relief entre l'oeil et la seule question qu'on pose à ce schéma, « laquelle
+bouge ». Le halo ensuite, qui servait à faire voir un changement par-dessus des
+pastilles déjà colorées; sur des contours vides il ne fait plus que baver sur
+les voisines.
+
+Les couleurs d'identification enfin. J'avais écrit, en les ajoutant, que le vert
+d'un A se reconnaît avant qu'on ait lu son étiquette, et c'est vrai. Ce qui est
+aussi vrai est que l'étiquette est juste là, dans la pièce, et dit la même chose.
+Deux codes pour une seule information, dont un qui se disputait l'accent avec la
+pièce enfoncée. Le trait fin tranche, et c'est une perte assumée.
+
+Un nombre est sorti de tout ça. Le trait existait déjà, mais comme LISERÉ autour
+d'une pièce remplie: il ne portait rien, et personne n'avait jamais mesuré son
+contraste. Devenu le dessin lui-même, il tombait à 1,40:1 sur le thème sombre,
+quand un élément d'interface non textuel en demande 3:1. Il était littéralement
+invisible sur la première capture, et je ne l'ai vu qu'en regardant l'image.
+La coque porte maintenant `--faint`, les pièces `--muted`, mesurés sur les sept
+thèmes.
+
+La généralité vaut au-delà des couleurs: **quand un élément décoratif devient
+porteur, son exigence change et rien ne le signale.** Le liseré était acceptable
+tant qu'il ne servait à rien.

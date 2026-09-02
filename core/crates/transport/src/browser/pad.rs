@@ -11,7 +11,7 @@ use std::sync::{Arc, Condvar};
 
 use nel3ab_protocol::{Command, Echo, InputFrame, PlayerSlot};
 
-use super::{GONE_AFTER, PING_EVERY, PORTS, Pads, Seats, Shared, socket_limits};
+use super::{AWAY_AFTER, Acted, GONE_AFTER, PING_EVERY, PORTS, Pads, Seats, Shared, socket_limits};
 
 /// Takes a port for this connection and tells the page about the room.
 ///
@@ -30,11 +30,16 @@ pub(super) fn claim_a_port(
     let Some((seat, claim)) = take_seat(seats, players, take) else {
         tracing::info!("a browser asked for a controller in a full room");
         let _ = socket.send(tungstenite::Message::binary(room_message(
-            players, None, seats,
+            players, None, seats, false,
         )));
         return None;
     };
-    let told = room_message(players, Some(seat), seats);
+    let told = room_message(
+        players,
+        Some(seat),
+        seats,
+        decides(&shared.owner, &shared.acted, seat),
+    );
     if socket
         .send(tungstenite::Message::binary(told.clone()))
         .is_err()
@@ -66,6 +71,7 @@ pub(super) fn apply_pad(
     payload: &[u8],
     seat: PlayerSlot,
     slots: &Pads,
+    acted: &Acted,
     received: &Arc<std::sync::atomic::AtomicU64>,
     arrived: &Arc<Condvar>,
 ) -> bool {
@@ -85,6 +91,16 @@ pub(super) fn apply_pad(
         ..frame
     };
     received.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    // Une trame NEUTRE ne compte pas comme une présence. La page en envoie une à
+    // chaque tour, même quand personne ne touche à rien: prendre « une trame est
+    // arrivée » pour « quelqu'un joue » rendrait tout le monde éternellement
+    // présent, et c'est précisément ce qu'on cherche à distinguer.
+    if !frame.is_neutral()
+        && let Ok(mut acted) = acted.lock()
+        && let Some(when) = acted.get_mut(seat.index())
+    {
+        *when = Some(std::time::Instant::now());
+    }
     if let Ok(mut slots) = slots.lock() {
         // Replaces rather than queues. Overwriting a state the emulator has not
         // read yet is not a loss: it could only ever have applied the newer one.
@@ -155,7 +171,7 @@ pub(super) fn input_thread(stream: TcpStream, shared: &Shared, take: Option<Play
             // controller and stops asking rather than reconnecting, because two
             // pages that both insisted would trade the pad for ever.
             let _ = socket.send(tungstenite::Message::binary(room_message(
-                players, None, seats,
+                players, None, seats, false,
             )));
             break;
         }
@@ -170,7 +186,7 @@ pub(super) fn input_thread(stream: TcpStream, shared: &Shared, take: Option<Play
             Ok(now) => shook = now,
             Err(()) => break,
         }
-        match send_room(&mut socket, players, seat, seats, told) {
+        match send_room(&mut socket, players, seat, seats, shared, told) {
             Ok(now) => told = now,
             Err(()) => break,
         }
@@ -236,7 +252,7 @@ pub(super) fn input_thread(stream: TcpStream, shared: &Shared, take: Option<Play
             }
             break;
         }
-        if !apply_pad(&payload, seat, slots, received, arrived) {
+        if !apply_pad(&payload, seat, slots, &shared.acted, received, arrived) {
             break;
         }
     }
@@ -278,6 +294,18 @@ pub(super) fn obey(payload: &[u8], shared: &Shared, seat: PlayerSlot) -> bool {
             tracing::info!(port = seat.get(), slot, "une sauvegarde a été choisie");
             true
         }
+        Ok(Command::ChoosePad { kind }) => {
+            // Comme la sauvegarde: on retient, on ne déclenche rien. C'est la
+            // demande de jeu qui agit, et elle arrive juste après.
+            //
+            // Pas de contrôle de propriétaire ici non plus: tant que personne
+            // n'a demandé de jeu, ce choix ne décide de rien.
+            if let Ok(mut wanted) = shared.wants_pad.lock() {
+                *wanted = kind;
+            }
+            tracing::info!(port = seat.get(), kind, "une manette a été choisie");
+            true
+        }
         Ok(Command::SwitchRom { index }) => {
             // Le propriétaire décide, et c'est vérifié ICI plutôt que dans la
             // page: une règle qui ne vit que dans une interface est une règle
@@ -287,12 +315,7 @@ pub(super) fn obey(payload: &[u8], shared: &Shared, seat: PlayerSlot) -> bool {
             // retombe sur ce qu'elle faisait avant: tenir une manette suffit.
             // C'est le cas quand le plan de contrôle n'est pas là, et refuser
             // tout ferait une salle où plus personne ne peut rien.
-            let decides = shared
-                .owner
-                .lock()
-                .ok()
-                .and_then(|held| *held)
-                .is_none_or(|boss| boss == seat);
+            let decides = decides(&shared.owner, &shared.acted, seat);
             if !decides {
                 tracing::info!(
                     port = seat.get(),
@@ -370,9 +393,15 @@ pub(super) fn send_room(
     players: PlayerSlot,
     seat: PlayerSlot,
     seats: &Seats,
+    shared: &Shared,
     told: Vec<u8>,
 ) -> Result<Vec<u8>, ()> {
-    let current = room_message(players, Some(seat), seats);
+    let current = room_message(
+        players,
+        Some(seat),
+        seats,
+        decides(&shared.owner, &shared.acted, seat),
+    );
     if current == told {
         return Ok(told);
     }
@@ -420,12 +449,52 @@ pub(super) fn room_message(
     players: PlayerSlot,
     mine: Option<PlayerSlot>,
     seats: &Seats,
+    // Vrai quand CETTE place a le droit de changer le jeu, en ce moment.
+    //
+    // Dit par le worker plutôt que déduit par la page, et c'est la correction
+    // d'un vieux désaccord: le worker tranche par PLACE, le salon nommait un
+    // propriétaire par PERSONNE. Les deux ne disaient pas la même chose dès
+    // qu'on ouvrait deux onglets, et la page annonçait un droit que le worker
+    // refusait ensuite en silence.
+    may_decide: bool,
 ) -> Vec<u8> {
-    let mut message = Vec::with_capacity(2 + PORTS);
+    let mut message = Vec::with_capacity(3 + PORTS);
     message.push(players.get());
     message.push(mine.map_or(0, PlayerSlot::get));
+    message.push(u8::from(may_decide));
     message.extend(occupancy(seats).into_iter().map(u8::from));
     message
+}
+
+/// Qui a le droit de changer le jeu, en ce moment.
+///
+/// Trois cas, et le troisième est celui qui a manqué pendant une soirée:
+///
+/// - **aucun propriétaire déclaré**: tout le monde décide. C'est la salle sans
+///   son plan de contrôle, et refuser tout ferait une salle où plus personne ne
+///   peut rien;
+/// - **c'est notre place**: on décide, évidemment;
+/// - **le propriétaire n'a rien touché depuis trois minutes**: tout le monde
+///   décide. Sans ce cas, quelqu'un qui part manger en gardant son onglet ouvert
+///   bloque la soirée entière, et personne ne peut le lui retirer.
+///
+/// Le troisième cas se mesure sur ce qu'on TOUCHE, pas sur une page ouverte: une
+/// page immobile envoie quand même une trame à chaque tour.
+pub(super) fn decides(owner: &crate::control::OwnerSeat, acted: &Acted, seat: PlayerSlot) -> bool {
+    let Some(boss) = owner.lock().ok().and_then(|held| *held) else {
+        return true;
+    };
+    if boss == seat {
+        return true;
+    }
+    let Ok(acted) = acted.lock() else {
+        return false;
+    };
+    acted
+        .get(boss.index())
+        .copied()
+        .flatten()
+        .is_none_or(|when| when.elapsed() >= AWAY_AFTER)
 }
 
 /// Gives the port back, but only if it is still ours: a holder that was replaced

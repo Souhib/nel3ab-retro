@@ -12,10 +12,12 @@ import socket
 from collections.abc import AsyncIterator
 from pathlib import Path
 
+import anyio
 import httpx
 import pytest
 import socketio
 import uvicorn
+from anyio.abc import SocketAttribute, SocketStream
 
 from nel3ab_control.api.controllers.rooms import RoomController
 from nel3ab_control.app import create_app
@@ -552,3 +554,263 @@ async def test_an_ordinary_page_carries_no_pad_only_mark(
     )
 
     assert "manette" not in arrival
+
+
+async def test_a_game_change_is_announced_to_everybody_else(
+    served: tuple[str, RoomController],
+) -> None:
+    """Le changement de jeu prévient toute la salle, pas seulement l'auteur.
+
+    Le défaut que ça corrige: seul celui qui cliquait voyait l'écran de
+    chargement. Les autres regardaient dix secondes de noir sans savoir si la
+    salle était cassée, parce que le worker qui aurait pu les prévenir est
+    justement ce qui s'arrête.
+    """
+    url, _rooms = served
+    told: list[dict] = []
+
+    boss = socketio.AsyncClient()
+    mine: list[dict] = []
+    boss.on("booting", mine.append)
+    await boss.connect(url, auth={"name": "Souhib"}, socketio_path="/socket.io")
+
+    watcher = socketio.AsyncClient()
+    watcher.on("booting", told.append)
+    await watcher.connect(url, auth={"name": "Vincent"}, socketio_path="/socket.io")
+    await asyncio.sleep(0.2)
+
+    await boss.emit("booting", {"jeu": 0, "sauvegarde": 1})
+    await asyncio.sleep(0.3)
+
+    # Le NOM vient de la bibliothèque du serveur, pas de la page: une page
+    # n'écrit pas le texte que les autres liront.
+    assert told == [{"game": "Super Smash Bros Melee", "save": "tout débloqué"}]
+    # Et pas à l'auteur: sa page a déjà posé l'écran sans attendre le salon, et
+    # le lui renvoyer remettrait son compteur d'images à zéro.
+    assert mine == []
+
+    await boss.disconnect()
+    await watcher.disconnect()
+
+
+async def test_the_worker_decides_who_may_warn_the_room(
+    served: tuple[str, RoomController],
+) -> None:
+    """Celui que le WORKER laisse décider peut prévenir la salle, propriétaire ou non.
+
+    Le cas exact qui a fait écrire ceci: le propriétaire élu est parti se
+    coucher sans fermer son onglet, le worker rend donc la salle à qui la prend,
+    et ce gestionnaire jetait quand même l'annonce parce qu'il tranchait sur SON
+    propriétaire à lui. Celui qui cliquait voyait son écran de chargement, tous
+    les autres dix secondes de noir.
+
+    Le faux worker répond `yes` sans regarder la place: ce qui est vérifié ici
+    est que la réponse du worker l'emporte sur l'élection du plan de contrôle,
+    pas la règle des trois minutes, qui est vérifiée là où elle vit.
+    """
+    url, rooms = served
+    told: list[dict] = []
+
+    async def listener(stream: SocketStream) -> None:
+        async with stream:
+            await stream.receive(64)
+            await stream.send(b"yes\n")
+
+    async with await anyio.create_tcp_listener(local_host="127.0.0.1", local_port=0) as worker:
+        port = worker.extra(SocketAttribute.local_address)[1]  # noqa: S610
+        rooms.settings.worker_control = f"127.0.0.1:{port}"
+        async with anyio.create_task_group() as group:
+            group.start_soon(worker.serve, listener)
+
+            # Des IDENTITÉS, et pas des pseudonymes: sans elles il n'y a pas de
+            # propriétaire élu du tout, l'ancienne règle laisse tout passer, et
+            # cet essai passerait sans rien prouver. Vérifié en remettant
+            # l'ancien code: il devient rouge.
+            boss = socketio.AsyncClient()
+            await boss.connect(
+                url,
+                socketio_path="/socket.io",
+                headers={
+                    "Tailscale-User-Login": "souhib@example.com",
+                    "Tailscale-User-Name": "Souhib",
+                },
+            )
+
+            watcher = socketio.AsyncClient()
+            watcher.on("booting", told.append)
+            await watcher.connect(
+                url,
+                socketio_path="/socket.io",
+                headers={
+                    "Tailscale-User-Login": "vincent@example.com",
+                    "Tailscale-User-Name": "Vincent",
+                },
+            )
+
+            other = socketio.AsyncClient()
+            await other.connect(
+                url,
+                socketio_path="/socket.io",
+                headers={
+                    "Tailscale-User-Login": "yannis@example.com",
+                    "Tailscale-User-Name": "Yannis",
+                },
+            )
+            await other.emit("seat", {"port": 2})
+            await asyncio.sleep(0.3)
+
+            await other.emit("booting", {"jeu": 0, "sauvegarde": 1})
+            await asyncio.sleep(0.4)
+
+            await boss.disconnect()
+            await watcher.disconnect()
+            await other.disconnect()
+            group.cancel_scope.cancel()
+
+    assert told == [{"game": "Super Smash Bros Melee", "save": "tout débloqué"}]
+
+
+async def test_a_worker_that_refuses_stops_the_announcement(
+    served: tuple[str, RoomController],
+) -> None:
+    """Le jumeau, et il porte tout le contrôle.
+
+    Sans lui, un gestionnaire qui relaierait TOUT passerait l'essai du dessus
+    sans rien vérifier, et n'importe quelle page pourrait poser un écran de
+    chargement sur celui des autres.
+    """
+    url, rooms = served
+    told: list[dict] = []
+
+    async def listener(stream: SocketStream) -> None:
+        async with stream:
+            await stream.receive(64)
+            await stream.send(b"no\n")
+
+    async with await anyio.create_tcp_listener(local_host="127.0.0.1", local_port=0) as worker:
+        port = worker.extra(SocketAttribute.local_address)[1]  # noqa: S610
+        rooms.settings.worker_control = f"127.0.0.1:{port}"
+        async with anyio.create_task_group() as group:
+            group.start_soon(worker.serve, listener)
+
+            watcher = socketio.AsyncClient()
+            watcher.on("booting", told.append)
+            await watcher.connect(url, auth={"name": "Vincent"}, socketio_path="/socket.io")
+
+            # Le propriétaire élu LUI-MÊME: le refus du worker l'emporte dans les
+            # deux sens, sinon la règle ne serait qu'un assouplissement.
+            boss = socketio.AsyncClient()
+            await boss.connect(
+                url,
+                socketio_path="/socket.io",
+                headers={
+                    "Tailscale-User-Login": "souhib@example.com",
+                    "Tailscale-User-Name": "Souhib",
+                },
+            )
+            await boss.emit("seat", {"port": 1})
+            await asyncio.sleep(0.3)
+
+            await boss.emit("booting", {"jeu": 0, "sauvegarde": 1})
+            await asyncio.sleep(0.4)
+
+            await watcher.disconnect()
+            await boss.disconnect()
+            group.cancel_scope.cancel()
+
+    assert told == []
+
+
+async def test_an_announcement_naming_a_game_that_is_not_there_says_nothing(
+    served: tuple[str, RoomController],
+) -> None:
+    """Le jumeau: un indice hors de la bibliothèque ne doit rien diffuser.
+
+    Sans ce contrôle, il ne resterait rien entre une page et l'écran des autres:
+    l'indice sert à CHOISIR dans une liste, et une liste où tout indice est
+    valable n'est plus une liste.
+    """
+    url, _rooms = served
+    told: list[dict] = []
+
+    watcher = socketio.AsyncClient()
+    watcher.on("booting", told.append)
+    await watcher.connect(url, auth={"name": "Vincent"}, socketio_path="/socket.io")
+
+    liar = socketio.AsyncClient()
+    await liar.connect(url, auth={"name": "Souhib"}, socketio_path="/socket.io")
+    await asyncio.sleep(0.2)
+
+    for bad in (
+        {"jeu": 7, "sauvegarde": 0},
+        {"jeu": -1, "sauvegarde": 0},
+        {"jeu": 0, "sauvegarde": 9},
+    ):
+        await liar.emit("booting", bad)
+        await asyncio.sleep(0.6)
+
+    assert told == []
+
+    await liar.disconnect()
+    await watcher.disconnect()
+
+
+async def test_only_the_one_who_decides_can_announce(
+    served: tuple[str, RoomController],
+) -> None:
+    """Qui ne décide pas du jeu ne peut pas non plus annoncer un changement.
+
+    Sinon n'importe quelle page cacherait le jeu de toute la salle derrière un
+    écran de chargement qui ne mène nulle part. La règle est celle de la salle,
+    pas une deuxième inventée ici: le propriétaire, ou tout le monde quand il n'y
+    a aucune identité.
+    """
+    url, _rooms = served
+    told: list[dict] = []
+
+    watcher = socketio.AsyncClient()
+    watcher.on("booting", told.append)
+    await watcher.connect(url, socketio_path="/socket.io")
+
+    owner = socketio.AsyncClient()
+    await owner.connect(
+        url,
+        socketio_path="/socket.io",
+        headers={"Tailscale-User-Login": "souhib@example.com", "Tailscale-User-Name": "Souhib"},
+    )
+    other = socketio.AsyncClient()
+    await other.connect(
+        url,
+        socketio_path="/socket.io",
+        headers={"Tailscale-User-Login": "vincent@example.com", "Tailscale-User-Name": "Vincent"},
+    )
+    await asyncio.sleep(0.3)
+
+    await other.emit("booting", {"jeu": 0, "sauvegarde": 0})
+    await asyncio.sleep(0.4)
+    assert told == [], "une page qui ne décide pas ne doit rien diffuser"
+
+    # Le jumeau, dans la même vie de salle: le propriétaire, lui, passe. Sans
+    # cette moitié, un gestionnaire qui refuserait TOUT satisferait le test.
+    await owner.emit("booting", {"jeu": 0, "sauvegarde": 0})
+    await asyncio.sleep(0.4)
+    assert told == [{"game": "Super Smash Bros Melee", "save": "partie neuve"}]
+
+    await owner.disconnect()
+    await other.disconnect()
+    await watcher.disconnect()
+
+
+def test_the_two_save_names_say_the_same_thing_on_both_sides() -> None:
+    """Les libellés du salon et ceux de la page ne peuvent pas diverger.
+
+    Ils existent en deux exemplaires, parce que le serveur refuse d'afficher un
+    texte écrit par une page. Deux exemplaires qui divergent donneraient à celui
+    qui lance et à ceux qui regardent deux versions du même écran, et rien ne le
+    dirait: les deux écrans sont sur des machines différentes.
+    """
+    from nel3ab_control.api.ws.handlers import SAVES
+
+    source = (Path(__file__).parents[3] / "front/src/lib/saves.ts").read_text(encoding="utf-8")
+    for code, label in enumerate(SAVES):
+        assert f'id: {code}, label: "{label}"' in source, f"la page ne nomme plus {code} ainsi"

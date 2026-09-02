@@ -27,9 +27,13 @@ pub(in crate::browser) fn detached(viewers: Vec<SyncSender<Framed>>) -> BrowserS
         clips: Arc::new(Mutex::new(crate::clip::Clips::new())),
         seats: Arc::new(Mutex::new([None; PORTS])),
         wants_save: Arc::new(Mutex::new(0)),
+        wants_pad: Arc::new(Mutex::new(0_u8)),
+        acted: Arc::new(Mutex::new([None; PORTS])),
+        owner: Arc::new(Mutex::new(None)),
         half_viewers: Arc::new(Mutex::new(Vec::new())),
         half_joined: Arc::new(std::sync::atomic::AtomicBool::new(false)),
         half_wants_key: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        half_ready: Arc::new(std::sync::atomic::AtomicU8::new(super::HALF_UNKNOWN)),
         viewers: Arc::new(Mutex::new(
             viewers
                 .into_iter()
@@ -141,7 +145,7 @@ pub(in crate::browser) fn hold(
     let told = socket.read().unwrap().into_data();
     assert_eq!(
         told.len(),
-        2 + PORTS,
+        3 + PORTS,
         "the room is announced in one message"
     );
     (socket, told[1])

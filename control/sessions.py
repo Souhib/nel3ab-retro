@@ -400,6 +400,10 @@ TRANCHE: dict[str, tuple[str, str]] = {
     "slept_ms": ("dormi", "{:.0f} ms"),
     "watchers": ("public grand format", "{:.0f}"),
     "half_watchers": ("public format réduit", "{:.0f}"),
+    # Vrai quand le propriétaire n'a rien touché depuis trois minutes et que la
+    # salle est redevenue à qui la prend. Se lit dans un journal pour comprendre
+    # après coup pourquoi quelqu'un a pu lancer un jeu.
+    "owner_away": ("propriétaire absent", "{}"),
     "dropped_now": ("jetées ici, grand format", "{:.0f}"),
     "half_dropped_now": ("jetées ici, format réduit", "{:.0f}"),
     "dropped": ("jetées depuis le démarrage, grand format", "{:.0f}"),

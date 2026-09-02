@@ -57,7 +57,7 @@ mod route;
 mod stream;
 
 use pad::input_thread;
-use page::{Packing, serve_body, serve_bytes, serve_missing, serve_page};
+use page::{Packing, serve_body, serve_bytes, serve_missing, serve_page, serve_unready};
 use route::{Route, classify};
 use stream::{Viewer, carries_key_frame, deliver, sound_thread, video_thread};
 
@@ -100,6 +100,26 @@ type Seats = Arc<Mutex<[Option<u64>; PORTS]>>;
 
 /// The latest pad state per port.
 type Pads = Arc<Mutex<[Option<InputFrame>; PORTS]>>;
+
+/// Quand chaque place a TOUCHÉ à quelque chose pour la dernière fois.
+///
+/// Pas « quand une trame est arrivée »: la page en envoie une à chaque tour,
+/// même immobile. Voir `InputFrame::is_neutral`.
+type Acted = Arc<Mutex<[Option<std::time::Instant>; PORTS]>>;
+
+/// Au bout de combien de temps sans rien toucher une place cesse de décider.
+///
+/// Trois minutes. Assez long pour lire un menu ou regarder une cinématique sans
+/// perdre la main; assez court pour qu'une soirée ne reste pas bloquée derrière
+/// quelqu'un parti manger. Le cas qui a fait écrire ceci: le propriétaire est
+/// resté connecté, sa page tenait sa place, et plus personne ne pouvait changer
+/// de jeu.
+///
+/// Ce n'est pas une mesure, et l'écrire vaut mieux que laisser le nombre le
+/// suggérer. Ce qui le remettrait en cause est concret: quelqu'un qui perd la
+/// salle sans avoir quitté sa chaise, et le nombre monte. Le worker publie
+/// `owner_away` pour qu'on puisse le constater plutôt que le supposer.
+const AWAY_AFTER: std::time::Duration = std::time::Duration::from_mins(3);
 
 /// How long a single frame write may take before the viewer is given up on.
 ///
@@ -191,6 +211,11 @@ pub struct Packet<'a> {
     pub annex_b: &'a [u8],
 }
 
+/// Les trois états de `half_ready`, nommés plutôt que devinés.
+const HALF_UNKNOWN: u8 = 0;
+const HALF_YES: u8 = 1;
+const HALF_NO: u8 = 2;
+
 /// A running server: one page, one video channel, one input channel.
 #[derive(Debug)]
 pub struct BrowserServer {
@@ -203,6 +228,8 @@ pub struct BrowserServer {
     seats: Seats,
     /// L'emplacement de sauvegarde voulu pour le prochain jeu.
     wants_save: Arc<Mutex<u8>>,
+    /// La manette voulue pour le prochain jeu. Voir `Command::ChoosePad`.
+    wants_pad: Arc<Mutex<u8>>,
     /// Les dernières secondes de la partie. Voir [`crate::clip`].
     clips: Arc<Mutex<crate::clip::Clips>>,
     /// One queue per connected viewer.
@@ -228,6 +255,18 @@ pub struct BrowserServer {
     half_viewers: Viewers,
     half_joined: Arc<std::sync::atomic::AtomicBool>,
     half_wants_key: Arc<std::sync::atomic::AtomicBool>,
+    /// Cette salle sait-elle produire le demi-format ? Trois états, pas deux.
+    ///
+    /// `0` veut dire « on ne sait pas encore », et cet état est la raison d'être
+    /// du champ. La taille de l'image n'est connue qu'au moment où l'émulateur
+    /// annonce son anneau, une seconde environ après que le serveur écoute. Un
+    /// simple booléen forcerait à choisir un défaut: « oui » ferait accepter des
+    /// spectateurs qu'on ne pourra pas servir, « non » ferait basculer en plein
+    /// format une page arrivée trop tôt, et sans que personne ne l'ait demandé.
+    /// Dire « pas encore » laisse la page redemander.
+    ///
+    /// `1` oui, `2` non.
+    half_ready: Arc<std::sync::atomic::AtomicU8>,
     /// Woken whenever a pad frame lands, so a writer can act on arrival instead
     /// of on a schedule.
     ///
@@ -248,6 +287,10 @@ pub struct BrowserServer {
     /// A slot per port cannot overflow, cannot go stale, and needs no policy for
     /// what to discard: writing simply replaces.
     incoming: Pads,
+    /// Quand chaque place a touché à quelque chose. Voir `decides`.
+    acted: Acted,
+    /// La place qui décide, telle que le plan de contrôle l'a dite.
+    owner: crate::control::OwnerSeat,
     /// Everything that arrived, so a client sending nonsense is still visible.
     received: Arc<std::sync::atomic::AtomicU64>,
     address: SocketAddr,
@@ -318,6 +361,15 @@ impl BrowserServer {
     ///
     /// # Errors
     /// [`TransportError::Bind`] si le port est pris.
+    #[expect(
+        clippy::too_many_lines,
+        reason = "cette fonction EST le câblage, et l'ordre y est le contenu: chaque \
+                  état partagé est créé, cloné pour le fil d'acceptation, puis remis \
+                  aux deux structures qui le lisent. La couper en morceaux \
+                  demanderait de passer une vingtaine de références d'un morceau à \
+                  l'autre, ce qui déplace le risque sans le réduire. 103 lignes pour \
+                  un plafond de 100, mesuré le 31 août 2026."
+    )]
     pub fn start(
         address: SocketAddr,
         page: &'static str,
@@ -332,6 +384,7 @@ impl BrowserServer {
         let viewers: Viewers = Arc::new(Mutex::new(Vec::new()));
         let listeners: Viewers = Arc::new(Mutex::new(Vec::new()));
         let incoming: Pads = Arc::new(Mutex::new([None; PORTS]));
+        let acted: Acted = Arc::new(Mutex::new([None; PORTS]));
         let received = Arc::new(std::sync::atomic::AtomicU64::new(0));
         let arrived = Arc::new(Condvar::new());
         let rumbles: Rumbles = Arc::new(Mutex::new([0; PORTS]));
@@ -341,10 +394,12 @@ impl BrowserServer {
         let wants_key = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let wants_rom = Arc::new(Mutex::new(None));
         let wants_save = Arc::new(Mutex::new(0_u8));
+        let wants_pad = Arc::new(Mutex::new(0_u8));
         let granted_key = Arc::new(Mutex::new(Self::key_frame_epoch()));
         let half_viewers: Viewers = Arc::new(Mutex::new(Vec::new()));
         let half_joined = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let half_wants_key = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let half_ready = Arc::new(std::sync::atomic::AtomicU8::new(HALF_UNKNOWN));
         let half_granted_key = Arc::new(Mutex::new(Self::key_frame_epoch()));
         let seats: Seats = Arc::new(Mutex::new([None; PORTS]));
 
@@ -352,10 +407,12 @@ impl BrowserServer {
             .name("browser-accept".to_owned())
             .spawn({
                 let clips = Arc::clone(&clips);
+                let half_ready = Arc::clone(&half_ready);
                 let joined = Arc::clone(&joined);
                 let wants_key = Arc::clone(&wants_key);
                 let granted_key = Arc::clone(&granted_key);
                 let inputs = Arc::clone(&incoming);
+                let acted = Arc::clone(&acted);
                 let received = Arc::clone(&received);
                 let viewers = Arc::clone(&viewers);
                 let listeners = Arc::clone(&listeners);
@@ -363,10 +420,12 @@ impl BrowserServer {
                 let seats = Arc::clone(&seats);
                 let wants_rom = Arc::clone(&wants_rom);
                 let wants_save = Arc::clone(&wants_save);
+                let wants_pad = Arc::clone(&wants_pad);
                 let rumbles = Arc::clone(&rumbles);
                 let owner = Arc::clone(owner);
                 let half_viewers = Arc::clone(&half_viewers);
                 let half_joined = Arc::clone(&half_joined);
+                let half_wants_key = Arc::clone(&half_wants_key);
                 let half_wants_key = Arc::clone(&half_wants_key);
                 let half_granted_key = Arc::clone(&half_granted_key);
                 move || {
@@ -378,6 +437,7 @@ impl BrowserServer {
                             viewers,
                             listeners,
                             inputs,
+                            acted,
                             arrived,
                             received,
                             joined,
@@ -388,10 +448,12 @@ impl BrowserServer {
                             players,
                             wants_rom,
                             wants_save,
+                            wants_pad,
                             catalogue,
                             half_viewers,
                             half_joined,
                             half_wants_key,
+                            half_ready,
                             half_granted_key,
                             art,
                             owner,
@@ -403,15 +465,18 @@ impl BrowserServer {
 
         tracing::info!(%bound, "browser server listening");
         Ok(Self {
+            owner: Arc::clone(owner),
             clips,
             seats,
             viewers,
             half_viewers,
             half_joined,
             half_wants_key,
+            half_ready,
             listeners,
             arrived,
             incoming,
+            acted,
             received,
             rumbles,
             address: bound,
@@ -421,6 +486,7 @@ impl BrowserServer {
             wants_key,
             wants_rom,
             wants_save,
+            wants_pad,
             _accept: accept,
         })
     }
@@ -578,6 +644,27 @@ impl BrowserServer {
         self.wants_rom.lock().is_ok_and(|wanted| wanted.is_some())
     }
 
+    /// Dit si cette salle sait produire le demi-format, une fois la taille connue.
+    ///
+    /// Appelé par le binaire quand la chaîne d'encodage est bâtie, parce que
+    /// c'est le seul endroit qui sait si le petit encodeur a ouvert. Tant que
+    /// personne ne l'a appelé, la porte répond « pas encore » plutôt qu'une
+    /// valeur par défaut qui serait fausse la moitié du temps.
+    ///
+    /// Dire NON ferme aussi les spectateurs déjà branchés dessus. Sans ça, une
+    /// page arrivée pendant la seconde d'incertitude resterait sur un flux qui
+    /// n'arrivera jamais, et l'écran noir qu'on corrige survivrait à sa
+    /// correction.
+    pub fn half_offered(&self, offered: bool) {
+        self.half_ready.store(
+            if offered { HALF_YES } else { HALF_NO },
+            std::sync::atomic::Ordering::Relaxed,
+        );
+        if !offered && let Ok(mut viewers) = self.half_viewers.lock() {
+            viewers.clear();
+        }
+    }
+
     /// L'emplacement de sauvegarde voulu pour le prochain jeu.
     ///
     /// Ne se consomme PAS, contrairement au choix de jeu: la salle garde le
@@ -586,6 +673,45 @@ impl BrowserServer {
     #[must_use]
     pub fn save_wanted(&self) -> u8 {
         self.wants_save.lock().map_or(0, |slot| *slot)
+    }
+
+    /// Le propriétaire est-il parti, laissant la salle à qui la prend ?
+    ///
+    /// Sert au journal: une salle qui change de règle toute seule doit le dire,
+    /// sinon personne ne comprend pourquoi quelqu'un a pu lancer un jeu.
+    #[must_use]
+    pub fn owner_away(&self) -> bool {
+        let Some(boss) = self.owner.lock().ok().and_then(|held| *held) else {
+            return false;
+        };
+        self.acted.lock().is_ok_and(|acted| {
+            acted
+                .get(boss.index())
+                .copied()
+                .flatten()
+                .is_none_or(|when| when.elapsed() >= AWAY_AFTER)
+        })
+    }
+
+    /// Cette place a-t-elle le droit de changer de jeu, maintenant ?
+    ///
+    /// La MÊME règle que celle qu'applique la socket de manette, appelée au même
+    /// endroit: le plan de contrôle pose cette question avant de relayer « je
+    /// change de jeu » aux autres pages. Sans elle il tranchait avec sa propre
+    /// idée du propriétaire, qui ignore les absences, et refusait de prévenir
+    /// les autres pour un lancement que le worker, lui, acceptait.
+    #[must_use]
+    pub fn may_decide(&self, seat: PlayerSlot) -> bool {
+        pad::decides(&self.owner, &self.acted, seat)
+    }
+
+    /// La manette voulue pour le prochain jeu.
+    ///
+    /// Ne se consomme pas, comme la sauvegarde: la salle garde le dernier choix
+    /// jusqu'à ce que quelqu'un en fasse un autre.
+    #[must_use]
+    pub fn pad_wanted(&self) -> u8 {
+        self.wants_pad.lock().map_or(0, |kind| *kind)
     }
 
     /// Which game a player asked to boot, if one did since this was last asked.
@@ -706,6 +832,8 @@ struct Shared {
     viewers: Viewers,
     listeners: Viewers,
     inputs: Pads,
+    /// Quand chaque place a touché à quelque chose. Voir `decides`.
+    acted: Acted,
     arrived: Arc<Condvar>,
     received: Arc<std::sync::atomic::AtomicU64>,
     joined: Arc<std::sync::atomic::AtomicBool>,
@@ -718,6 +846,8 @@ struct Shared {
     wants_rom: Arc<Mutex<Option<u8>>>,
     /// L'emplacement de sauvegarde voulu pour le prochain jeu.
     wants_save: Arc<Mutex<u8>>,
+    /// La manette voulue pour le prochain jeu. Voir `Command::ChoosePad`.
+    wants_pad: Arc<Mutex<u8>>,
     /// The room's library, already rendered as JSON.
     ///
     /// Rendered by the worker rather than here: what a game is called and where
@@ -729,6 +859,8 @@ struct Shared {
     half_viewers: Viewers,
     half_joined: Arc<std::sync::atomic::AtomicBool>,
     half_wants_key: Arc<std::sync::atomic::AtomicBool>,
+    /// Ce que la salle sait produire, vu par la porte. Voir `BrowserServer`.
+    half_ready: Arc<std::sync::atomic::AtomicU8>,
     half_granted_key: Arc<Mutex<Instant>>,
     /// One picture per game, in library order, for whichever games have one.
     ///
@@ -951,6 +1083,15 @@ fn serve_connection(stream: TcpStream, page: &'static str, shared: &Shared) {
             &shared.wants_key,
             &shared.granted_key,
         ),
+        // Refuser franchement plutôt que d'accepter et ne rien envoyer. Une
+        // socket acceptée qui ne porte jamais d'image donne un écran noir que
+        // rien n'explique, et que ni le rechargement ni le vidage du cache ne
+        // réparent, puisque le choix du format vit dans le navigateur.
+        Some(Route::Video { half: true })
+            if shared.half_ready.load(std::sync::atomic::Ordering::Relaxed) == HALF_NO =>
+        {
+            serve_missing(stream);
+        }
         Some(Route::Video { half: true }) => video_thread(
             stream,
             &shared.half_viewers,
@@ -961,6 +1102,17 @@ fn serve_connection(stream: TcpStream, page: &'static str, shared: &Shared) {
         Some(Route::Sound) => sound_thread(stream, &shared.listeners),
         Some(Route::Input { take }) => input_thread(stream, shared, take),
         Some(Route::Roms) => serve_body(stream, &shared.catalogue, "application/json"),
+        Some(Route::Formats) => {
+            match shared.half_ready.load(std::sync::atomic::Ordering::Relaxed) {
+                HALF_YES => serve_body(stream, "{\"half\":true}", "application/json"),
+                HALF_NO => serve_body(stream, "{\"half\":false}", "application/json"),
+                // Pas encore su. Un 503 plutôt qu'un « non » prudent: répondre non
+                // ferait basculer en plein format une page arrivée pendant la
+                // seconde où l'émulateur n'a pas encore annoncé sa taille, et elle
+                // y resterait sans que personne ne l'ait demandé.
+                _ => serve_unready(stream),
+            }
+        }
         Some(Route::Clip) => serve_clip(stream, shared),
         Some(Route::Art(index)) => match shared.art.get(index).and_then(Option::as_ref) {
             Some(png) => serve_bytes(stream, png, "image/png"),
@@ -1038,6 +1190,122 @@ mod tests {
 
     use super::harness::*;
     use super::*;
+
+    /// Une salle qui ne sait pas produire le demi-format le DIT, et lâche ceux
+    /// qui l'attendaient.
+    ///
+    /// Le défaut du 30 août 2026: un jeu Wii donne un anneau de 1216x912, dont
+    /// la moitié ne tombe pas sur un nombre entier de macroblocs de seize. Le
+    /// petit encodeur n'ouvrait pas, la salle démarrait quand même — ce qui est
+    /// le bon choix — mais elle acceptait quand même les spectateurs du petit
+    /// flux. Ils recevaient zéro image en gardant le son, donc un écran noir que
+    /// ni le rechargement ni le vidage du cache ne réparaient, puisque le choix
+    /// du format vit dans le navigateur.
+    #[test]
+    fn a_room_without_the_small_stream_drops_those_waiting_for_it() {
+        let (half, half_held) = sync_channel::<Framed>(OUTGOING_DEPTH);
+        let server = detached(vec![]);
+        server.half_viewers.lock().unwrap().push(Viewer {
+            pipe: half,
+            resyncing: false,
+        });
+
+        server.half_offered(false);
+
+        assert_eq!(server.half_watchers(), 0, "le spectateur doit être lâché");
+        assert!(
+            !server.send_half(&frame()),
+            "et plus rien ne part vers un flux qu'on ne produit pas"
+        );
+        drop(half_held);
+    }
+
+    /// Le jumeau: une salle QUI sait le produire ne lâche personne.
+    ///
+    /// Sans cette moitié, un `half_offered` qui viderait toujours la liste
+    /// satisferait le test au-dessus et couperait le petit flux de tout le
+    /// monde, sur tous les jeux.
+    #[test]
+    fn a_room_that_has_the_small_stream_keeps_its_viewers() {
+        let (half, half_held) = sync_channel::<Framed>(OUTGOING_DEPTH);
+        let server = detached(vec![]);
+        server.half_viewers.lock().unwrap().push(Viewer {
+            pipe: half,
+            resyncing: false,
+        });
+
+        server.half_offered(true);
+
+        assert_eq!(server.half_watchers(), 1, "le spectateur doit rester");
+        assert!(server.send_half(&frame()), "et recevoir ses images");
+        assert!(half_held.try_recv().is_ok());
+    }
+
+    /// Le propriétaire qui s'absente rend la salle, et c'est ce qui manquait.
+    ///
+    /// Le cas vécu le 31 août 2026: quelqu'un garde son onglet ouvert, ne touche
+    /// plus à rien, et la soirée entière reste bloquée derrière lui — personne
+    /// ne peut changer de jeu, et il n'y a aucun moyen de le lui retirer.
+    #[test]
+    fn an_owner_who_stops_playing_gives_the_room_back() {
+        use std::time::{Duration, Instant};
+        let owner: crate::control::OwnerSeat = Arc::new(Mutex::new(None));
+        let acted: Acted = Arc::new(Mutex::new([None; PORTS]));
+        let boss = PlayerSlot::new(2).unwrap();
+        let other = PlayerSlot::new(1).unwrap();
+        *owner.lock().unwrap() = Some(boss);
+        acted.lock().unwrap()[boss.index()] = Some(Instant::now());
+
+        assert!(
+            pad::decides(&owner, &acted, boss),
+            "il décide pendant qu'il joue"
+        );
+        assert!(
+            !pad::decides(&owner, &acted, other),
+            "et lui seul, tant qu'il joue"
+        );
+
+        // Trois minutes plus tard, sans avoir rien touché.
+        acted.lock().unwrap()[boss.index()] =
+            Instant::now().checked_sub(AWAY_AFTER + Duration::from_secs(1));
+
+        assert!(
+            pad::decides(&owner, &acted, other),
+            "la salle revient à qui la prend"
+        );
+        assert!(
+            pad::decides(&owner, &acted, boss),
+            "et lui la reprend en touchant à quelque chose"
+        );
+    }
+
+    /// Le jumeau: sans propriétaire déclaré, tout le monde décide.
+    ///
+    /// C'est la salle sans son plan de contrôle. Refuser tout ferait une salle où
+    /// plus personne ne peut rien, ce qui est pire que le défaut qu'on corrige.
+    #[test]
+    fn a_room_with_nobody_in_charge_lets_everybody_decide() {
+        let owner: crate::control::OwnerSeat = Arc::new(Mutex::new(None));
+        let acted: Acted = Arc::new(Mutex::new([None; PORTS]));
+
+        for raw in 1..=4 {
+            assert!(pad::decides(&owner, &acted, PlayerSlot::new(raw).unwrap()));
+        }
+    }
+
+    /// Et un propriétaire qui n'a JAMAIS rien touché ne bloque pas non plus.
+    ///
+    /// Le cas de la page ouverte sur une manette prise et jamais utilisée: sans
+    /// cette ligne, « aucune activité connue » se lirait comme « activité à
+    /// l'instant », et la salle resterait bloquée pour toujours.
+    #[test]
+    fn an_owner_who_never_touched_anything_blocks_nobody() {
+        let owner: crate::control::OwnerSeat = Arc::new(Mutex::new(None));
+        let acted: Acted = Arc::new(Mutex::new([None; PORTS]));
+        *owner.lock().unwrap() = Some(PlayerSlot::new(2).unwrap());
+
+        assert!(pad::decides(&owner, &acted, PlayerSlot::new(1).unwrap()));
+    }
 
     /// Les deux flux ne se mélangent jamais.
     ///
@@ -1585,7 +1853,7 @@ mod tests {
         while std::time::Instant::now() < deadline && update.is_none() {
             match first.read() {
                 Ok(tungstenite::Message::Binary(bytes))
-                    if bytes.len() == 2 + PORTS && bytes[3] == 1 =>
+                    if bytes.len() == 3 + PORTS && bytes[4] == 1 =>
                 {
                     update = Some(bytes);
                 }
@@ -1596,9 +1864,11 @@ mod tests {
         let update = update.expect("the page was never told that port 2 filled");
         assert_eq!(update[0], 4, "four ports in this room");
         assert_eq!(update[1], 1, "still mine");
-        assert_eq!(update[2], 1, "port 1 is held");
-        assert_eq!(update[3], 1, "port 2 filled while we watched");
-        assert_eq!(update[4], 0, "port 3 is free");
+        // Le troisième octet dit si CETTE page peut changer le jeu; les places
+        // occupées commencent après lui.
+        assert_eq!(update[3], 1, "port 1 is held");
+        assert_eq!(update[4], 1, "port 2 filled while we watched");
+        assert_eq!(update[5], 0, "port 3 is free");
     }
 
     /// The negative twin: without asking, a newcomer is still refused. Taking a
@@ -1693,8 +1963,12 @@ mod tests {
         let (mut second, two) = hold(address);
         assert_eq!((one, two), (1, 2), "the room hands out ports in order");
 
-        // La place 1 décide.
+        // La place 1 décide, ET elle joue: sans cette seconde moitié la salle
+        // serait à qui la prend, puisqu'un propriétaire qui ne touche à rien la
+        // rend au bout de trois minutes — et « jamais rien touché » compte comme
+        // absent.
         *owner.lock().unwrap() = Some(PlayerSlot::new(1).unwrap());
+        server.acted.lock().unwrap()[0] = Some(std::time::Instant::now());
 
         // Le joueur 2 demande: rien ne doit bouger, et il garde sa manette.
         second

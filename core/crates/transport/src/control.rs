@@ -15,8 +15,16 @@
 //! # Le protocole, et pourquoi il tient en une ligne
 //!
 //! `owner <place>\n`, où la place est `0..=4` et `0` veut dire personne. Pas de
-//! HTTP, pas de JSON: un seul message existe, et une bibliothèque de plus pour
-//! le lire serait une dépendance à tenir à jour pour deux mots.
+//! HTTP, pas de JSON: deux messages existent, et une bibliothèque de plus pour
+//! les lire serait une dépendance à tenir à jour pour trois mots.
+//!
+//! Le second est `decides <place>\n`, et il va dans l'autre sens: il DEMANDE au
+//! worker si cette place a le droit de changer de jeu, et le worker répond `yes`
+//! ou `no`. Il existe parce que le worker sait une chose que le plan de contrôle
+//! ne peut pas savoir: depuis quand le propriétaire n'a rien touché. Sans cette
+//! question, le plan de contrôle refusait de relayer « je change de jeu » venant
+//! de quelqu'un que le worker, lui, laissait décider — et tout le monde sauf
+//! celui qui avait cliqué regardait dix secondes de noir.
 
 use std::io::{BufRead as _, BufReader, Read as _, Write as _};
 use std::net::{SocketAddr, TcpListener};
@@ -36,16 +44,36 @@ use crate::browser::TransportError;
 /// peut rien.
 pub type OwnerSeat = Arc<Mutex<Option<PlayerSlot>>>;
 
+/// Ce qu'une ligne demande.
+///
+/// Un type plutôt qu'un booléen à côté d'une place: les deux messages n'ont pas
+/// la même forme — `owner 0` est valide et veut dire personne, `decides 0` ne
+/// veut rien dire — et les distinguer par le type évite d'avoir à s'en souvenir.
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum Order {
+    /// « Voici la place qui décide », ou personne.
+    SetOwner(Option<PlayerSlot>),
+    /// « Cette place a-t-elle le droit de changer de jeu ? »
+    MayDecide(PlayerSlot),
+}
+
 /// Lit un ordre. `None` veut dire « je ne comprends pas », et l'appelant se tait
 /// plutôt que d'agir sur une supposition.
 #[must_use]
-pub fn parse(line: &str) -> Option<Option<PlayerSlot>> {
-    let rest = line.trim().strip_prefix("owner ")?;
-    let seat: u8 = rest.trim().parse().ok()?;
-    if seat == 0 {
-        return Some(None);
+pub fn parse(line: &str) -> Option<Order> {
+    let line = line.trim();
+    if let Some(rest) = line.strip_prefix("owner ") {
+        let seat: u8 = rest.trim().parse().ok()?;
+        if seat == 0 {
+            return Some(Order::SetOwner(None));
+        }
+        return PlayerSlot::new(seat)
+            .ok()
+            .map(|seat| Order::SetOwner(Some(seat)));
     }
-    PlayerSlot::new(seat).ok().map(Some)
+    let rest = line.strip_prefix("decides ")?;
+    let seat: u8 = rest.trim().parse().ok()?;
+    PlayerSlot::new(seat).ok().map(Order::MayDecide)
 }
 
 /// Le temps qu'une connexion a pour dire ce qu'elle veut, et pour lire la
@@ -64,18 +92,31 @@ const SAY_WITHIN: Duration = Duration::from_secs(2);
 
 /// Ce qu'on accepte de lire avant de refuser.
 ///
-/// Le plus long ordre valide est `owner 4` avec ses espaces autour, donc une
+/// Le plus long ordre valide est `decides 4` avec ses espaces autour, donc une
 /// vingtaine d'octets. Soixante-quatre laisse de la place à une variante future
 /// sans laisser de place à un flot sans fin: `read_line` remplit une `String`
 /// qui grossit tant qu'aucun saut de ligne n'arrive, et le worker n'a pas le
 /// droit de mourir de faim mémoire pour un port de service.
 const ORDER_MAX: u64 = 64;
 
+/// Répond à `decides <place>`.
+///
+/// Une fonction plutôt qu'une valeur, parce que la réponse dépend de QUAND on
+/// pose la question: le propriétaire s'absente tout seul, sans que personne
+/// n'envoie rien. La règle elle-même vit dans `browser`, avec les horodatages
+/// qu'elle lit, et n'est pas réécrite ici: deux exemplaires d'une règle
+/// finissent par répondre différemment à la même question.
+pub type Decider = Box<dyn Fn(PlayerSlot) -> bool + Send>;
+
 /// Écoute les ordres du plan de contrôle jusqu'à l'arrêt du processus.
 ///
 /// # Errors
 /// [`TransportError::Bind`] si le port est pris.
-pub fn serve(address: SocketAddr, owner: OwnerSeat) -> Result<JoinHandle<()>, TransportError> {
+pub fn serve(
+    address: SocketAddr,
+    owner: OwnerSeat,
+    decides: Decider,
+) -> Result<JoinHandle<()>, TransportError> {
     let listener =
         TcpListener::bind(address).map_err(|source| TransportError::Bind { address, source })?;
     let bound = listener
@@ -108,17 +149,30 @@ pub fn serve(address: SocketAddr, owner: OwnerSeat) -> Result<JoinHandle<()>, Tr
                         tracing::warn!(line = line.trim(), "an order we do not understand");
                         "no\n"
                     },
-                    |seat| {
-                        if let Ok(mut held) = owner.lock() {
-                            if *held != seat {
-                                tracing::info!(
-                                    seat = seat.map_or(0, PlayerSlot::get),
-                                    "the room's owner changed"
-                                );
+                    |order| match order {
+                        Order::SetOwner(seat) => {
+                            if let Ok(mut held) = owner.lock() {
+                                if *held != seat {
+                                    tracing::info!(
+                                        seat = seat.map_or(0, PlayerSlot::get),
+                                        "the room's owner changed"
+                                    );
+                                }
+                                *held = seat;
                             }
-                            *held = seat;
+                            "ok\n"
                         }
-                        "ok\n"
+                        // `yes`/`no` et pas `ok`: une réponse à une question ne
+                        // doit pas ressembler à un accusé de réception, sinon un
+                        // client qui teste `== "ok"` lit « refusé » comme
+                        // « accepté ».
+                        Order::MayDecide(seat) => {
+                            if decides(seat) {
+                                "yes\n"
+                            } else {
+                                "no\n"
+                            }
+                        }
                     },
                 );
                 let _ = stream.write_all(answer.as_bytes());
@@ -137,14 +191,32 @@ mod tests {
 
     #[test]
     fn an_order_names_a_seat_or_nobody() {
-        assert_eq!(parse("owner 2\n"), Some(Some(PlayerSlot::new(2).unwrap())));
-        assert_eq!(parse("owner 0\n"), Some(None));
+        let two = Order::SetOwner(Some(PlayerSlot::new(2).unwrap()));
+        assert_eq!(parse("owner 2\n"), Some(two));
+        assert_eq!(parse("owner 0\n"), Some(Order::SetOwner(None)));
         // Sans saut de ligne, et avec des espaces autour: ce qui arrive d'une
         // socket n'est pas toujours ce qu'on a écrit.
-        assert_eq!(
-            parse("  owner 4  "),
-            Some(Some(PlayerSlot::new(4).unwrap()))
-        );
+        let four = Order::SetOwner(Some(PlayerSlot::new(4).unwrap()));
+        assert_eq!(parse("  owner 4  "), Some(four));
+    }
+
+    #[test]
+    fn a_question_about_a_seat_is_not_an_order_about_it() {
+        // Les deux messages portent une place et ne veulent pas dire la même
+        // chose. Les confondre ferait qu'une simple QUESTION changerait qui
+        // décide, ce qui est exactement le pouvoir que ce port ne doit pas
+        // donner deux fois.
+        let asked = Order::MayDecide(PlayerSlot::new(3).unwrap());
+        assert_eq!(parse("decides 3\n"), Some(asked));
+        assert_ne!(parse("decides 3\n"), parse("owner 3\n"));
+    }
+
+    /// Le jumeau: `owner 0` veut dire personne, `decides 0` ne veut rien dire.
+    /// Une place est `1..=4`, et il n'y a personne à interroger au numéro zéro.
+    #[test]
+    fn nobody_is_a_valid_owner_but_not_a_valid_question() {
+        assert_eq!(parse("owner 0"), Some(Order::SetOwner(None)));
+        assert!(parse("decides 0").is_none());
     }
 
     /// Le jumeau négatif. Sans lui, une lecture qui rendrait toujours `Some`
@@ -161,6 +233,11 @@ mod tests {
             "owner 2 3",
             "hello",
             "OWNER 2",
+            "decides",
+            "decides x",
+            "decides 5",
+            "decides -1",
+            "DECIDES 2",
         ] {
             assert!(parse(line).is_none(), "accepted {line:?}");
         }
@@ -168,10 +245,15 @@ mod tests {
 
     /// Ouvre une écoute sur un port libre et rend son adresse.
     fn a_listening_port(owner: &OwnerSeat) -> SocketAddr {
+        a_listening_port_where(owner, Box::new(|_| true))
+    }
+
+    /// La même, en disant ce que le worker répond à `decides`.
+    fn a_listening_port_where(owner: &OwnerSeat, decides: Decider) -> SocketAddr {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let address = listener.local_addr().unwrap();
         drop(listener);
-        serve(address, Arc::clone(owner)).unwrap();
+        serve(address, Arc::clone(owner), decides).unwrap();
         address
     }
 
@@ -254,13 +336,57 @@ mod tests {
         assert_eq!(*owner.lock().unwrap(), Some(PlayerSlot::new(2).unwrap()));
     }
 
+    /// Ce que le plan de contrôle demande avant de relayer « je change de jeu ».
+    ///
+    /// L'essai existe parce que la règle vivait à DEUX endroits: le worker
+    /// laissait quelqu'un lancer un jeu quand le propriétaire s'était absenté,
+    /// et le plan de contrôle refusait de prévenir les autres, avec sa propre
+    /// idée du propriétaire, qui ne connaît pas les absences. Résultat: celui
+    /// qui cliquait voyait son écran de chargement, et tous les autres dix
+    /// secondes de noir.
+    #[test]
+    fn the_listener_answers_whether_a_seat_may_decide() {
+        let owner: OwnerSeat = Arc::new(Mutex::new(None));
+        let address = a_listening_port_where(&owner, Box::new(|seat| seat.get() == 3));
+
+        assert_eq!(asked(address, "decides 3\n"), "yes");
+        // Le jumeau: une écoute qui répondrait toujours `yes` laisserait
+        // n'importe quelle page poser un écran de chargement sur celui des
+        // autres, ce qui est la raison d'être du contrôle.
+        assert_eq!(asked(address, "decides 2\n"), "no");
+    }
+
+    /// Une question ne doit pas nommer un propriétaire au passage.
+    #[test]
+    fn asking_the_question_changes_nothing() {
+        let owner: OwnerSeat = Arc::new(Mutex::new(None));
+        let address = a_listening_port_where(&owner, Box::new(|_| true));
+
+        assert_eq!(asked(address, "decides 4\n"), "yes");
+
+        assert_eq!(
+            *owner.lock().unwrap(),
+            None,
+            "une question a changé qui décide"
+        );
+    }
+
+    /// Envoie une ligne et rend la réponse, sans le saut de ligne.
+    fn asked(address: SocketAddr, line: &str) -> String {
+        let mut stream = connected(address);
+        stream.write_all(line.as_bytes()).unwrap();
+        let mut back = String::new();
+        BufReader::new(&mut stream).read_line(&mut back).unwrap();
+        back.trim().to_owned()
+    }
+
     #[test]
     fn the_listener_takes_an_order_and_answers() {
         let owner: OwnerSeat = Arc::new(Mutex::new(None));
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let address = listener.local_addr().unwrap();
         drop(listener);
-        serve(address, Arc::clone(&owner)).unwrap();
+        serve(address, Arc::clone(&owner), Box::new(|_| true)).unwrap();
 
         // La liaison est faite dans le fil, donc on réessaie plutôt que de
         // dormir une durée choisie au hasard.

@@ -37,7 +37,13 @@ async function fromWorkerAlone(): Promise<Room> {
   // du plan de contrôle, sans les noms des joueurs, qu'il ne connaît pas.
   const found = (await answer.json()) as {
     current: number | null;
-    roms: { name: string; maker: string | null; about: string | null; art: boolean }[];
+    roms: {
+      name: string;
+      maker: string | null;
+      about: string | null;
+      art: boolean;
+      console: string;
+    }[];
   };
   const library = found.roms.map((game, index) => ({ index, ...game }));
   return {
@@ -90,6 +96,19 @@ export type Lobby = {
    * elle sait déjà qui parle, et une requête de plus toutes les dix secondes
    * serait une poignée de main de plus toutes les dix secondes. */
   vitals: (sample: Vitals) => void;
+  /** « Je change de jeu, tenez-vous prêts. »
+   *
+   * Par le SALON et non par le worker, parce que le worker est justement ce qui
+   * s'arrête: il écrit le choix, il sort, et systemd le ramène. Toute socket
+   * qu'il tient se ferme avec lui, donc rien de ce qu'il pourrait dire ne
+   * traverserait les dix secondes qu'on veut couvrir. Le salon, lui, reste
+   * debout.
+   *
+   * On envoie l'INDICE du jeu et le CODE de l'emplacement, pas leurs noms: c'est
+   * le serveur qui les traduit, à partir de sa propre bibliothèque. Une page ne
+   * peut donc pas écrire un texte de son choix sur l'écran des autres.
+   */
+  booting: (game: number, save: number) => void;
   /** « Ça saccade, maintenant. »
    *
    * Le geste qui manquait le plus: une plainte arrive le lendemain avec une
@@ -97,6 +116,9 @@ export type Lobby = {
    * l'instant exact, avec ce que la page voyait à ce moment-là. */
   complain: (sample: Vitals & { fin: Trail }) => void;
 };
+
+/** Ce que le salon dit quand la salle change de jeu: des noms, déjà traduits. */
+export type Booting = { game: string; save: string };
 
 /** Une demande reçue: qui, et pour quelle place. */
 export type Asked = { from: string; port: number };
@@ -116,11 +138,13 @@ export function useLobby(
   padOnly: boolean,
   onAsked: (asked: Asked) => void,
   onAnswered: (answered: Answered) => void,
+  /** La salle change de jeu, et ce n'est pas nous qui l'avons demandé. */
+  onBooting: (told: Booting) => void,
 ): Lobby {
   const client = useQueryClient();
   const socket = useRef<Socket | null>(null);
-  const heard = useRef({ asked: onAsked, answered: onAnswered });
-  heard.current = { asked: onAsked, answered: onAnswered };
+  const heard = useRef({ asked: onAsked, answered: onAnswered, booting: onBooting });
+  heard.current = { asked: onAsked, answered: onAnswered, booting: onBooting };
   const [, setOpen] = useState(false);
 
   // La socket se rouvre quand l'IDENTITÉ change, pas quand le pseudo change.
@@ -149,6 +173,7 @@ export function useLobby(
     // seraient reconstruites à chaque rendu, ce qui rouvrirait la socket.
     lobby.on("asked", (asked: Asked) => heard.current.asked(asked));
     lobby.on("answered", (answered: Answered) => heard.current.answered(answered));
+    lobby.on("booting", (told: Booting) => heard.current.booting(told));
     // A reconnection may have missed a change while it was down, so ask.
     lobby.io.on("reconnect", () => void client.invalidateQueries({ queryKey: ROOM_KEY }));
     socket.current = lobby;
@@ -172,6 +197,8 @@ export function useLobby(
     renamed: (chosen: string) => socket.current?.emit("rename", { name: chosen }),
     ask: (port: number) => socket.current?.emit("ask", { port }),
     answer: (port: number, ok: boolean) => socket.current?.emit("answer", { port, ok }),
+    booting: (game: number, save: number) =>
+      socket.current?.emit("booting", { jeu: game, sauvegarde: save }),
     vitals: (sample: Vitals) => socket.current?.emit("mesures", sample),
     complain: (sample: Vitals & { fin: Trail }) => socket.current?.emit("plainte", sample),
   };

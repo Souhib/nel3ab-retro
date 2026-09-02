@@ -36,7 +36,51 @@ const PAPER = "#dfe3e6";
 const CHANNEL = "#ffffff";
 const EDGE = "#c3cbd2";
 const BLUE = "#26a4dd";
+
+/** Le même bleu, assez sombre pour porter du TEXTE.
+ *
+ * `BLUE` vaut 2,82:1 sur une carte blanche et 2,19:1 sur le fond: il fait un
+ * très bon liseré de sélection — un élément d'interface n'a besoin que de 3:1 —
+ * et un très mauvais texte. Il servait aux deux.
+ *
+ * Celui-ci tient 5,83:1 sur la carte et 4,52:1 sur le fond, à teinte et
+ * saturation constantes. Deux rôles, une seule couleur d'origine: c'est la même
+ * correction que pour `--faint`, et pour la même raison.
+ */
+const BLUE_INK = "#176c93";
 const INK = "#4a5259";
+
+/**
+ * L'encre du texte SECONDAIRE, et pourquoi ce n'est pas une opacité.
+ *
+ * Sur les deux coques sombres, atténuer par l'alpha marche: `#e8e8ee` sur
+ * `#08080a` tient 4,5:1 jusqu'à 0,50 d'opacité. Ici non, et la raison est dans
+ * la formule du contraste: sur un fond CLAIR, baisser l'opacité rapproche le
+ * texte du fond, et le rapport s'effondre bien plus vite. Mesuré le 31 août
+ * 2026: l'encre actuelle ne tient 4,5:1 que jusqu'à 0,86 d'opacité — autant dire
+ * qu'elle ne peut pas s'atténuer du tout. Et assombrir l'encre ne sauve pas
+ * grand-chose: même à 11:1 le plancher reste 0,68.
+ *
+ * D'où une seconde COULEUR plutôt qu'un alpha, choisie pour tenir le seuil sur
+ * les deux fonds de cette coque: 4,54:1 sur le fond, 5,85:1 sur une carte
+ * blanche. C'est ce que fait un système de couleurs sérieux — des rôles, pas de
+ * la transparence.
+ *
+ * La leçon, plus générale que cette coque: l'alpha est une façon d'atténuer qui
+ * marche sur du sombre et qui ment sur du clair.
+ */
+const INK_SOFT = "#5d666d";
+
+/** Combien de cases vides ajouter pour que le tableau reste un tableau.
+ *
+ * On complète jusqu'à la ligne pleine, avec un minimum de deux lignes: une seule
+ * ligne à moitié remplie se lit comme une rangée, pas comme un tableau. Douze au
+ * plus, parce qu'au-delà on dessine du vide pour du vide.
+ */
+const EMPTY_SLOTS = (held: number): number => {
+  const rows = Math.max(2, Math.ceil(held / 4));
+  return Math.max(0, Math.min(12, rows * 4 - held));
+};
 
 export function Channels({
   categories,
@@ -87,11 +131,16 @@ export function Channels({
       }}
     >
       <header className="flex items-baseline justify-center gap-6 px-8 pt-6 pb-2">
-        <span className="text-[13px] opacity-60">{category?.label ?? ""}</span>
+        <span className="text-[13px]" style={{ color: INK_SOFT }}>
+          {category?.label ?? ""}
+          {items[row]?.group ? <span className="opacity-70"> · {items[row].group}</span> : null}
+        </span>
         <span className="font-mono text-[28px] tracking-tight" style={{ color: "#6b757d" }}>
           {clock}
         </span>
-        <span className="text-[13px] opacity-50">{footer}</span>
+        <span className="text-[13px]" style={{ color: INK_SOFT }}>
+          {footer}
+        </span>
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col justify-center overflow-y-auto px-10 py-6">
@@ -111,7 +160,7 @@ export function Channels({
                   "n3-pop relative flex min-h-[178px] flex-col items-center justify-center gap-3 overflow-hidden rounded-[12px] px-2 py-3 text-center",
                   "transition-transform duration-200 ease-out",
                   here && "scale-[1.06]",
-                  item.disabled && "opacity-45",
+                  item.disabled && "opacity-70",
                 )}
                 style={{
                   animationDelay: `${Math.min(index, 11) * 45}ms`,
@@ -148,21 +197,38 @@ export function Channels({
                   {item.label}
                 </span>
                 {item.by ? (
-                  <span className="relative max-w-full truncate text-[11px] opacity-45">
+                  <span
+                    className="relative max-w-full truncate text-[11px]"
+                    style={{ color: INK_SOFT }}
+                  >
                     {item.by}
                   </span>
                 ) : null}
                 {item.value ? (
-                  <span className="relative font-mono text-[12px]" style={{ color: BLUE }}>
+                  <span className="relative font-mono text-[12px]" style={{ color: BLUE_INK }}>
                     {item.value}
                   </span>
                 ) : null}
               </button>
             );
           })}
+          {/* Les emplacements VIDES du tableau.
+              Une chaîne qui n'existe pas laisse sa case, elle ne fait pas
+              rétrécir le tableau: c'est ce qui distingue un tableau de chaînes
+              d'une rangée de cartes qui flottent. Avec deux consoles, la grille
+              se dessinait centrée sur deux cartes et ne ressemblait à rien.
+              Ils ne sont ni cliquables ni comptés: la sélection indexe `items`,
+              et ceux-ci viennent après. */}
+          {Array.from({ length: EMPTY_SLOTS(items.length) }, (_, at) => (
+            <span
+              key={`vide-${at}`}
+              aria-hidden="true"
+              className="aspect-[4/3] rounded-[10px] border border-white/70 bg-black/[0.03] shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]"
+            />
+          ))}
         </div>
         {items[row]?.hint ? (
-          <p className="mx-auto max-w-5xl pt-6 text-center text-[13px] opacity-55">
+          <p className="mx-auto max-w-5xl pt-6 text-center text-[13px]" style={{ color: INK_SOFT }}>
             {items[row].hint}
           </p>
         ) : null}
@@ -188,7 +254,10 @@ export function Channels({
               style={{
                 background: CHANNEL,
                 border: `2px solid ${index === ray ? BLUE : EDGE}`,
-                color: index === ray ? BLUE : INK,
+                // Le liseré garde le bleu vif — un élément d'interface n'a
+                // besoin que de 3:1 — mais le LIBELLÉ prend l'encre. Le même
+                // bleu servait aux deux, et le texte tombait à 2,82:1.
+                color: index === ray ? BLUE_INK : INK,
                 boxShadow: index === ray ? `0 0 0 3px rgba(38,164,221,.2)` : "none",
               }}
             >

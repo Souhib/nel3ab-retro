@@ -28,6 +28,19 @@ const INK = "#2b2b2b";
 const TILE = "#3a3a3a";
 const EDGE = "#4a4a4a";
 const RED = "#e60012";
+
+/**
+ * L'opacité la plus basse à laquelle du texte reste lisible ici.
+ *
+ * Cinquante-sept pour cent, calculé sur le pire des deux fonds de cette coque:
+ * `#f2f2f2` sur une vignette `#3a3a3a` donne 10,16:1 à plein, et 0,57 ramène ça
+ * à 4,5:1. Sur le fond de l'écran (`#2b2b2b`) le plancher serait 0,51; on garde
+ * le plus exigeant, parce que la même classe sert aux deux.
+ *
+ * Ce qui était écrit avant descendait à 0,30 pour une vignette désactivée et à
+ * 0,35 pour la ligne d'aide. Mesuré le 31 août 2026.
+ */
+const DIM = "opacity-[0.57]";
 /** Largeur d'une tuile et de l'espace entre deux, en pixels: la file coulisse
  * d'un pas exact pour que la tuile choisie reste à la même place.
  *
@@ -86,7 +99,7 @@ export function Home({
           </span>
           <span className="text-[14px]">{who}</span>
         </span>
-        <span className="text-[12px] opacity-45">{footer}</span>
+        <span className={cn("text-[12px]", DIM)}>{footer}</span>
       </header>
 
       {/* La file. Elle coulisse pour que la tuile choisie reste au même endroit,
@@ -113,8 +126,13 @@ export function Home({
                 onClick={() => shell.choose(index)}
                 className={cn(
                   "relative flex shrink-0 flex-col items-center justify-center gap-3 rounded-[10px] transition-all duration-300 ease-out",
-                  chosen ? "n3-breathe" : "opacity-90",
-                  item.disabled && "opacity-30",
+                  // PAS d'opacité sur la tuile: elle entraîne tout ce qu'elle
+                  // contient, y compris la pastille du nombre de jeux, dont le
+                  // blanc sur rouge tient 4,80:1 à plein et tombe à 4,02:1 à
+                  // 0,90. Une tuile non choisie se distingue par sa taille et
+                  // son liseré, qui ne déteignent sur rien.
+                  chosen ? "n3-breathe" : "",
+                  item.disabled && DIM,
                 )}
                 style={{
                   width: TILE_WIDTH,
@@ -154,9 +172,12 @@ export function Home({
 
       {/* Le nom de ce qu'on pointe, en grand, sous la file. */}
       <div className="flex min-h-[132px] flex-col items-center justify-center gap-1 px-8">
+        {here?.group ? (
+          <p className={cn("text-[11px] uppercase tracking-[0.18em]", DIM)}>{here.group}</p>
+        ) : null}
         <p className="max-w-[80%] truncate text-center text-[22px]">{here?.label ?? ""}</p>
         {here?.by ? (
-          <p className="max-w-[70%] truncate text-center text-[13px] opacity-45">{here.by}</p>
+          <p className={cn("max-w-[70%] truncate text-center text-[13px]", DIM)}>{here.by}</p>
         ) : null}
         {/* La phrase que l'éditeur a écrite sur le disque. `pre-line` parce que
             ces textes ont été mis en page sur deux lignes et que la coupure est
@@ -170,7 +191,7 @@ export function Home({
           </p>
         ) : null}
         {here?.hint ? (
-          <p className="max-w-[70%] truncate text-center text-[12px] opacity-35">{here.hint}</p>
+          <p className={cn("max-w-[70%] truncate text-center text-[12px]", DIM)}>{here.hint}</p>
         ) : null}
       </div>
 
@@ -186,15 +207,29 @@ export function Home({
               id={`ray-${choice.id}`}
               data-selected={index === ray}
               onClick={() => shell.goTo(index)}
-              title={choice.label}
-              className="flex h-11 w-11 items-center justify-center rounded-full transition-all duration-150"
-              style={{
-                background: index === ray ? "#f2f2f2" : "transparent",
-                color: index === ray ? INK : "#9a9a9a",
-                border: `1px solid ${index === ray ? "#f2f2f2" : EDGE}`,
-              }}
+              className="flex w-16 flex-col items-center gap-1.5 transition-all duration-150"
             >
-              <span className="flex h-6 w-6 [&>svg]:h-full [&>svg]:w-full">{choice.icon}</span>
+              <span
+                className="flex h-11 w-11 items-center justify-center rounded-full"
+                style={{
+                  background: index === ray ? "#f2f2f2" : "transparent",
+                  color: index === ray ? INK : "#9a9a9a",
+                  border: `1px solid ${index === ray ? "#f2f2f2" : EDGE}`,
+                }}
+              >
+                <span className="flex h-6 w-6 [&>svg]:h-full [&>svg]:w-full">{choice.icon}</span>
+              </span>
+              {/* Le NOM sous la pastille. Quatre ronds muets demandent de survoler
+                  pour savoir ce qu'ils ouvrent, ce qui ne marche ni à la manette ni
+                  au doigt — c'est-à-dire dans les deux cas où cette coque sert.
+                  L'infobulle `title` faisait ce travail et ne l'a jamais fait pour
+                  personne. */}
+              <span
+                className="max-w-full truncate text-[11px]"
+                style={{ color: index === ray ? "#f2f2f2" : "#9a9a9a" }}
+              >
+                {choice.label}
+              </span>
             </button>
           ))}
         </span>

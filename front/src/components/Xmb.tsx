@@ -33,6 +33,14 @@ export type XmbItem = {
   label: string;
   /** La ligne sous le titre, quand il y a quelque chose à expliquer. */
   hint?: string;
+  /** Le SUJET auquel cette entrée appartient: « son », « manettes »…
+   *
+   * Affiché à côté du nom du rayon plutôt qu'en séparateur dans la liste. Les
+   * trois coques indexent la sélection sur la POSITION visuelle — une colonne
+   * qui glisse, une grille de quatre, une file horizontale — et un titre inséré
+   * entre deux entrées casserait ce calcul dans les trois. L'adjacence fait le
+   * groupement; cette ligne dit lequel. */
+  group?: string;
   /** Ce que ça vaut en ce moment, à droite: « 70 », « sombre », « en cours ». */
   value?: string;
   icon: React.ReactNode;
@@ -91,11 +99,37 @@ export type XmbCategory = {
   items: XmbItem[];
 };
 
+/**
+ * Pourquoi cette coque n'atténue plus RIEN par l'opacité.
+ *
+ * Trois corrections faites le 2 septembre 2026 se sont contredites, et chaque
+ * fois pour la même raison: deux mécanismes d'atténuation qui se multiplient.
+ *
+ * 1. Un fondu au-dessus du curseur, hérité d'un problème de superposition déjà
+ *    réglé autrement, multipliait l'opacité de chaque entrée: 0,17 à deux rangs,
+ *    soit 1,20:1.
+ * 2. Le libellé d'un rayon portait une opacité, et son bouton une autre: deux
+ *    fois 0,50 font 0,25, soit 1,38:1.
+ * 3. Une entrée non choisie était à la fois `--muted` ET à moitié transparente.
+ *    `--muted` tient 5,95:1 à plein et n'a donc presque aucune marge: 2,26:1.
+ *
+ * Aucun de ces produits n'est visible dans le fichier où on l'écrit. Il a fallu
+ * un pilote qui mesure le contraste EFFECTIF dans le rendu, en accumulant les
+ * opacités des ancêtres et en empilant les fonds.
+ *
+ * D'où la règle, la même que celle que la coque Wii avait déjà imposée pour une
+ * autre raison: on atténue par la COULEUR, jamais par l'alpha. Trois niveaux,
+ * tous lisibles — `--text` 16,40:1, `--muted` 5,95:1, `--faint` 4,50:1 — et une
+ * hiérarchie qui ne peut plus se multiplier par accident.
+ */
+
 /** Où la croix se pose, en proportion de la hauteur. Un peu au-dessus du milieu,
  * comme sur la console: la colonne a besoin de plus de place que la rangée. */
 const CROSS = 0.4;
+
 /** Pas entre deux rayons et entre deux entrées, en pixels. */
 const ACROSS = 148;
+
 const DOWN = 74;
 
 export function Xmb({
@@ -147,10 +181,16 @@ export function Xmb({
     >
       <Backdrop />
 
+      {/* La rangée des rayons est le PREMIER PLAN, et c'est ce que fait la
+          console: la barre est devant, le fond d'écran et la colonne passent
+          derrière. Sans `z-10` elle est peinte avant la colonne, donc dessous,
+          et l'entrée juste au-dessus du curseur recouvre le nom du rayon.
+          Vu sur une captation de vraie XMB, pas déduit: la barre y masque tout
+          ce qui la croise. */}
       {/* La rangée des rayons. Elle glisse pour que le rayon choisi reste au
           croisement, qui ne bouge jamais. */}
       <div
-        className="pointer-events-none absolute left-[18%] transition-transform duration-200 ease-out"
+        className="pointer-events-none absolute z-10 left-[18%] transition-transform duration-200 ease-out"
         style={{ top: `calc(${CROSS * 100}% - 34px)`, transform: `translateX(${-ray * ACROSS}px)` }}
       >
         {categories.map((choice, index) => (
@@ -162,7 +202,12 @@ export function Xmb({
             onClick={() => shell.goTo(index)}
             className={cn(
               "pointer-events-auto absolute flex w-[120px] flex-col items-center gap-1 border-0 bg-transparent transition-all duration-200",
-              index === ray ? "text-text opacity-100" : "text-muted opacity-45",
+              // La COULEUR seule dit ce qui n'est pas choisi, plus l'opacité.
+              // Les deux se cumulaient: `--muted` tient 5,95:1 à plein, et une
+              // moitié d'opacité par-dessus le fait tomber à 2,26:1. Deux
+              // mécanismes d'atténuation qui se multiplient donnent un résultat
+              // que ni l'un ni l'autre n'annonce.
+              index === ray ? "text-text" : "text-muted",
             )}
             style={{ left: `${index * ACROSS}px` }}
           >
@@ -173,11 +218,26 @@ export function Xmb({
             </span>
             <span
               className={cn(
-                "text-[11px] uppercase tracking-[0.2em] transition-opacity duration-200",
+                // Seul le rayon CHOISI porte son nom, comme sur la console.
+                //
+                // Les autres ont été nommés pendant une journée, pour qu'on sache
+                // ce que quatre icônes ouvrent. Ça se défend, et ce n'est pas ce
+                // menu-ci: le XMB dit où on est, pas ce qui existe ailleurs, et
+                // c'est le déplacement du croisement qui l'apprend. Nommer les
+                // quatre poussait la colonne hors de sa place pour leur laisser
+                // le passage.
+                //
+                // Ce que ça coûte, dit plutôt que tu: quelqu'un qui ouvre ce menu
+                // pour la première fois doit se promener pour découvrir les
+                // quatre rayons. C'est le prix de la forme, assumé.
+                "whitespace-nowrap text-[11px] uppercase tracking-[0.2em] transition-opacity duration-200",
                 index === ray ? "opacity-100" : "opacity-0",
               )}
             >
               {choice.label}
+              {index === ray && items[row]?.group ? (
+                <span className="opacity-55"> · {items[row].group}</span>
+              ) : null}
             </span>
           </button>
         ))}
@@ -186,8 +246,18 @@ export function Xmb({
       {/* La colonne du rayon choisi. Elle glisse pour que l'entrée choisie reste
           juste sous le croisement. */}
       <div
+        // Sous le croisement, à 18 %, comme la console.
+        //
+        // Elle a été poussée à 37 % pendant une journée pour régler une
+        // superposition avec la rangée des rayons. C'était traiter le symptôme:
+        // la superposition venait d'avoir rendu VISIBLES les libellés des rayons
+        // non choisis, ce que le XMB ne fait pas. Rendus à leur invisibilité, la
+        // colonne retrouve sa place et il n'y a plus rien à régler.
         className="absolute left-[18%] w-[62%] transition-transform duration-200 ease-out"
-        style={{ top: `calc(${CROSS * 100}% + 46px)`, transform: `translateY(${-row * DOWN}px)` }}
+        style={{
+          top: `calc(${CROSS * 100}% + 46px)`,
+          transform: `translateY(${-row * DOWN}px)`,
+        }}
       >
         {items.map((item, index) => {
           const here = index === row;
@@ -199,12 +269,19 @@ export function Xmb({
               data-selected={here}
               disabled={item.disabled}
               onClick={() => shell.choose(index)}
-              className={cn(
-                "absolute flex w-full items-center gap-4 border-0 bg-transparent px-2 text-left transition-all duration-200",
-                here ? "opacity-100" : "opacity-40",
-                item.disabled && "opacity-25",
-              )}
-              style={{ top: `${index * DOWN}px`, height: `${DOWN}px` }}
+              className="absolute flex w-full items-center gap-4 border-0 bg-transparent px-2 text-left transition-all duration-200"
+              // L'opacité en STYLE et non en classe: elle est CALCULÉE, et une
+              // classe Tailwind ne peut pas porter une valeur qui varie. Dans le
+              // même objet que la position, parce que deux attributs `style` sur
+              // un même élément ne sont pas une erreur en JSX: le second écrase
+              // le premier, en silence.
+              style={{
+                top: `${index * DOWN}px`,
+                height: `${DOWN}px`,
+                // Plus d'opacité du tout sur une entrée: elle se distingue par
+                // sa TAILLE et sa COULEUR, qui sont trois niveaux tous lisibles
+                // — `--text` 16,40:1, `--muted` 5,95:1, `--faint` 4,50:1.
+              }}
             >
               {item.game ? (
                 <Art
@@ -229,6 +306,7 @@ export function Xmb({
                   className={cn(
                     "truncate",
                     here ? "text-[17px] text-text" : "text-[14px] text-muted",
+                    item.disabled && "text-faint",
                   )}
                 >
                   {item.label}

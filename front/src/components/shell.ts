@@ -10,6 +10,7 @@
  * avance d'une entrée; dans une grille, bas avance d'une ligne entière. D'où le
  * `perRow`.
  */
+import { typingIn } from "../lib/typing";
 import { useEffect, useRef, useState } from "react";
 import type { MenuAction } from "../media/menupad";
 import { STEP, swipeFrom } from "../media/swipe";
@@ -232,8 +233,7 @@ export function useShell(
      deux d'entre elles s'en passaient — ce qui était le cas. */
   useEffect(() => {
     const press = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (target && ["INPUT", "TEXTAREA"].includes(target.tagName)) return;
+      if (typingIn(event.target)) return;
       const action = KEYS[event.key];
       if (action === undefined) return;
       event.preventDefault();

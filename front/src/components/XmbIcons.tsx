@@ -227,3 +227,35 @@ export function ExpandIcon({ className }: IconProps) {
     </svg>
   );
 }
+
+/** Le dossier des jeux `GameCube`: un cube en perspective.
+ *
+ * De la géométrie, pas un logo. Le principe est celui de l'en-tête de ce
+ * fichier: les marques de Nintendo ne sont pas à nous, et un logo redessiné de
+ * mémoire aurait l'air de vouloir tromper. Un cube dit « GameCube » à qui
+ * connaît la console, et ne prétend être la propriété de personne.
+ */
+export function CubeIcon({ className }: IconProps) {
+  return (
+    <svg viewBox={box} className={className} fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M24 8 40 17v18l-16 9-16-9V17z" strokeLinejoin="round" />
+      <path d="M8 17l16 9 16-9M24 26v18" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/** Le dossier des jeux Wii: la silhouette de sa manette.
+ *
+ * Une forme de matériel plutôt qu'un mot: elle se reconnaît à quarante pixels,
+ * et pour la même raison que le cube, elle n'emprunte rien à personne.
+ */
+export function WandIcon({ className }: IconProps) {
+  return (
+    <svg viewBox={box} className={className} fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="17" y="5" width="14" height="38" rx="4" />
+      <path d="M21 12h6M24 9v6" strokeLinecap="round" />
+      <circle cx="24" cy="24" r="2.4" fill="currentColor" stroke="none" />
+      <path d="M20 33h8" strokeLinecap="round" />
+    </svg>
+  );
+}

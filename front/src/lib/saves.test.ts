@@ -1,49 +1,52 @@
-import { beforeEach, describe, expect, it } from "vitest";
+/**
+ * Le panneau de lancement, et le défaut qu'il a caché deux jours.
+ *
+ * Le panneau croisait les emplacements avec les manettes et numérotait ses
+ * entrées « 0-0 » à « 1-1 ». Quand la manette a déménagé dans les réglages, le
+ * lecteur de choix est passé à `id === "1"`, vrai pour aucune des quatre. Tout
+ * jeu Wii démarrait donc sur « partie neuve » quoi qu'on demande, sans rien
+ * échouer: le jeu se lançait, simplement pas celui qu'on avait demandé.
+ *
+ * Ce fichier existe pour que les deux moitiés du choix ne puissent plus
+ * diverger sans que quelque chose devienne rouge.
+ */
+import { describe, expect, it } from "vitest";
 
-import { rememberSlot, SLOTS, slotLabel, storedSlot } from "./saves";
+import { SLOTS, launchPicks, slotFromPick } from "./saves";
 
-beforeEach(() => localStorage.clear());
-
-describe("les deux sauvegardes", () => {
-  it("part sur la partie neuve quand rien n'est retenu", () => {
-    // Neuve par défaut, et pas l'inverse: quelqu'un qui découvre un jeu doit le
-    // découvrir. Tout débloquer est un choix, pas un état où on se retrouve.
-    expect(storedSlot()).toBe(0);
+describe("le panneau de lancement", () => {
+  it("propose une entrée par emplacement, et rien de plus", () => {
+    // Comparé à SLOTS plutôt qu'à une liste écrite ici: une liste recopiée à la
+    // main serait la même erreur, écrite deux fois.
+    expect(launchPicks()).toHaveLength(SLOTS.length);
   });
 
-  it("se garde dans les deux sens", () => {
-    // Le jumeau: une fonction qui rendrait toujours zéro satisferait le test
-    // au-dessus sans rien retenir du tout.
-    rememberSlot(1);
-    expect(storedSlot()).toBe(1);
-    rememberSlot(0);
-    expect(storedSlot()).toBe(0);
+  it("ne propose plus de manette, qui est un réglage et pas une décision de partie", () => {
+    const said = launchPicks()
+      .map((pick) => `${pick.label} ${pick.hint}`)
+      .join(" ");
+
+    expect(said).not.toMatch(/manette|Wiimote|Nunchuk/i);
   });
 
-  it("ne connaît que deux emplacements, et ils ne se confondent pas", () => {
-    expect(SLOTS).toHaveLength(2);
-    expect(new Set(SLOTS.map((s) => s.id)).size).toBe(2);
-    expect(new Set(SLOTS.map((s) => s.label)).size).toBe(2);
+  it("relit chacun de ses identifiants comme l'emplacement qu'il désigne", () => {
+    // LE défaut, épinglé: « tout débloqué » doit rendre 1, pas 0. Un lecteur qui
+    // se tromperait rendrait ici l'emplacement d'à côté.
+    for (const pick of launchPicks()) {
+      const wanted = SLOTS.find((choice) => choice.label === pick.label);
+      expect(slotFromPick(pick.id), pick.label).toBe(wanted?.id);
+    }
+    // Et les deux entrées ne désignent pas le même emplacement, sinon un lecteur
+    // qui rendrait toujours zéro passerait la boucle sur un panneau à une entrée.
+    const seen = new Set(launchPicks().map((pick) => slotFromPick(pick.id)));
+    expect(seen.size).toBe(SLOTS.length);
   });
 
-  it("nomme chaque emplacement, et retombe sur la neuve pour le reste", () => {
-    expect(slotLabel(0)).toBe("partie neuve");
-    expect(slotLabel(1)).toBe("tout débloqué");
-  });
-
-  it("survit à un stockage cassé", () => {
-    // Navigation privée: `localStorage` lève au lieu de répondre. Le pire cas
-    // doit être « on démarre sur une partie neuve », pas une page blanche.
-    const broken = {
-      getItem: () => {
-        throw new Error("refusé");
-      },
-      setItem: () => {
-        throw new Error("refusé");
-      },
-    };
-    Object.defineProperty(globalThis, "localStorage", { value: broken, configurable: true });
-    expect(storedSlot()).toBe(0);
-    expect(() => rememberSlot(1)).not.toThrow();
+  it("ne lance rien sur un identifiant qu'il ne connaît pas", () => {
+    // Le jumeau négatif, et la forme exacte du défaut: l'ancien lecteur repliait
+    // tout inconnu sur zéro, donc « 1-1 » lançait une partie neuve en silence.
+    expect(slotFromPick("1-1")).toBeNull();
+    expect(slotFromPick("")).toBeNull();
+    expect(slotFromPick("2")).toBeNull();
   });
 });

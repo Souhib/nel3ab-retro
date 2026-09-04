@@ -24,6 +24,7 @@
 //! compromise: a stalled write would hold up every other player, whereas a
 //! dropped frame is corrected by the next one ~8 ms later.
 
+use std::fmt::Write as _;
 use std::fs::{File, OpenOptions};
 use std::io::Write as _;
 use std::os::unix::fs::OpenOptionsExt as _;
@@ -37,7 +38,7 @@ use nix::errno::Errno;
 use nix::fcntl::OFlag;
 use nix::sys::stat::Mode;
 
-use crate::config::{PIPES_DIR, pipe_file_name};
+use crate::config::{Extension, PIPES_DIR, control_pipe_file_name, pipe_file_name};
 use crate::error::EmulatorError;
 use crate::slots::SlotSet;
 use crate::wire::{self, PadState};
@@ -89,6 +90,7 @@ struct PendingPadPipe {
 pub struct PendingPipes {
     dir: PathBuf,
     pending: Vec<PendingPadPipe>,
+    control: Vec<PendingPadPipe>,
 }
 
 impl PendingPipes {
@@ -125,7 +127,35 @@ impl PendingPipes {
             pending.push(PendingPadPipe { slot, path });
         }
 
-        Ok(Self { dir, pending })
+        // Le tuyau de CONTRÔLE de chaque place, à côté du sien.
+        //
+        // Il ne porte aucune manette: seules les expressions du fichier de
+        // correspondances le lisent, pour décider ce qui est branché au bout de
+        // la Wiimote. Il est créé même quand la salle joue à la manette
+        // GameCube, où il ne sert à rien: un tuyau que personne ne lit ne coûte
+        // rien, et deux chemins de création selon la manette en coûteraient un.
+        let mut control = Vec::with_capacity(slots.len() as usize);
+        for slot in slots.iter() {
+            let path = dir.join(control_pipe_file_name(slot));
+            if path.exists() {
+                std::fs::remove_file(&path).map_err(|source| EmulatorError::CreateFifo {
+                    path: path.clone(),
+                    source,
+                })?;
+            }
+            nix::unistd::mkfifo(&path, FIFO_MODE).map_err(|errno| EmulatorError::CreateFifo {
+                path: path.clone(),
+                source: errno_to_io(errno),
+            })?;
+            tracing::debug!(slot = slot.get(), path = %path.display(), "created control FIFO");
+            control.push(PendingPadPipe { slot, path });
+        }
+
+        Ok(Self {
+            dir,
+            pending,
+            control,
+        })
     }
 
     /// The directory Dolphin must be pointed at.
@@ -177,8 +207,53 @@ impl PendingPipes {
             }
         }
 
-        Ok(Pipes { pads })
+        let mut controls = Vec::with_capacity(self.control.len());
+        for pending in self.control {
+            loop {
+                liveness()?;
+                if let Some(writer) = try_open_writer(&pending.path)? {
+                    tracing::debug!(
+                        slot = pending.slot.get(),
+                        "Dolphin attached to control FIFO"
+                    );
+                    controls.push(ControlPipe {
+                        slot: pending.slot,
+                        path: pending.path.clone(),
+                        writer,
+                    });
+                    break;
+                }
+                let waited = started.elapsed();
+                if waited >= timeout {
+                    return Err(EmulatorError::PipeNeverRead {
+                        path: pending.path,
+                        slot: pending.slot,
+                        waited,
+                    });
+                }
+                std::thread::sleep(ATTACH_POLL_INTERVAL);
+            }
+        }
+
+        Ok(Pipes { pads, controls })
     }
+}
+
+/// Les boutons que le tuyau de contrôle porte.
+///
+/// Deux bits, lus par l'expression `1 + A + 2 * B` que `config` écrit dans le
+/// fichier de correspondances. Les deux vivent à deux endroits, et l'essai
+/// `the_expression_and_the_held_buttons_agree` les noue.
+const CONTROL_TOKENS: &[&str] = &["A", "B"];
+
+/// Le tuyau de contrôle d'une place: ce qui décide de son extension.
+#[derive(Debug)]
+struct ControlPipe {
+    slot: PlayerSlot,
+    /// Gardé pour le message d'erreur: « écrire a raté » sans dire où est un
+    /// diagnostic à moitié.
+    path: PathBuf,
+    writer: File,
 }
 
 /// Every FIFO for a session, with a persistent write end held open.
@@ -197,6 +272,7 @@ impl PendingPipes {
 #[derive(Debug)]
 pub struct Pipes {
     pads: Vec<PadPipe>,
+    controls: Vec<ControlPipe>,
 }
 
 /// A handle on the input pipes that a second thread can hold.
@@ -253,6 +329,49 @@ impl From<Arc<Mutex<Pipes>>> for PadWriter {
 }
 
 impl Pipes {
+    /// Branche une extension sur la Wiimote d'une place, sans relancer le jeu.
+    ///
+    /// # Un état complet, pas une différence
+    ///
+    /// Les DEUX boutons sont écrits à chaque appel, l'un pressé et l'autre
+    /// relâché selon ce qu'on veut. Écrire seulement ce qui change demanderait
+    /// de se rappeler ce qui a été envoyé, et de rester d'accord avec Dolphin
+    /// à travers un redémarrage que personne ne coordonne. Un état complet est
+    /// idempotent: le réaffirmer répare tout désaccord au lieu de l'aggraver.
+    ///
+    /// C'est aussi pour ça que l'ordre est un NIVEAU et non une impulsion. Une
+    /// impulsion perdue serait perdue pour de bon.
+    ///
+    /// # Erreurs
+    /// [`EmulatorError::WritePipe`] si le tuyau n'accepte plus rien. Une place
+    /// que la salle ne sert pas n'est pas une erreur: il n'y a rien à brancher.
+    pub fn set_extension(
+        &mut self,
+        slot: PlayerSlot,
+        extension: Extension,
+    ) -> Result<(), EmulatorError> {
+        let Some(control) = self.controls.iter_mut().find(|one| one.slot == slot) else {
+            return Ok(());
+        };
+        let held = extension.held();
+        let mut out = String::with_capacity(32);
+        for token in CONTROL_TOKENS {
+            let verb = if held.contains(token) {
+                "PRESS"
+            } else {
+                "RELEASE"
+            };
+            let _ = writeln!(out, "{verb} {token}");
+        }
+        control
+            .writer
+            .write_all(out.as_bytes())
+            .map_err(|source| EmulatorError::WriteFifo {
+                path: control.path.clone(),
+                source,
+            })
+    }
+
     /// Routes a client frame to the pipe for its slot.
     ///
     /// The frame carries the slot, so the caller never picks the pipe — which is
@@ -412,16 +531,95 @@ mod tests {
     /// Creates the FIFOs, attaches a fake reader to each, then attaches the
     /// writers — the same order Dolphin imposes.
     fn session(slots: SlotSet) -> (tempfile::TempDir, Pipes, Vec<FakeDolphin>) {
+        let (dir, pipes, readers, _) = session_with_control(slots);
+        (dir, pipes, readers)
+    }
+
+    /// La même chose, en gardant aussi les lecteurs des tuyaux de CONTRÔLE.
+    ///
+    /// Le faux Dolphin doit ouvrir les deux familles, parce que le vrai le fait:
+    /// il balaye le dossier et prend un appareil par FIFO. Un harnais qui n'en
+    /// ouvrirait qu'une ferait échouer l'attachement sur un défaut qui n'existe
+    /// pas — ce qui est arrivé en écrivant ceci.
+    fn session_with_control(
+        slots: SlotSet,
+    ) -> (tempfile::TempDir, Pipes, Vec<FakeDolphin>, Vec<FakeDolphin>) {
         let dir = tempfile::tempdir().unwrap();
         let pending = PendingPipes::create(dir.path(), slots).unwrap();
         let readers: Vec<FakeDolphin> = slots
             .iter()
             .map(|s| FakeDolphin::attach(&pending.dir().join(pipe_file_name(s))))
             .collect();
+        let controls: Vec<FakeDolphin> = slots
+            .iter()
+            .map(|s| FakeDolphin::attach(&pending.dir().join(control_pipe_file_name(s))))
+            .collect();
         let pipes = pending
             .attach_all(Duration::from_secs(5), || Ok(()))
             .unwrap();
-        (dir, pipes, readers)
+        (dir, pipes, readers, controls)
+    }
+
+    /// Brancher une extension écrit un ÉTAT COMPLET sur le tuyau de contrôle.
+    ///
+    /// Les deux boutons à chaque fois, pas seulement celui qui change. Une
+    /// différence obligerait à se rappeler ce qui a été envoyé et à rester
+    /// d'accord avec Dolphin à travers un redémarrage que personne ne coordonne.
+    #[test]
+    fn an_extension_is_asked_for_as_a_whole_state() {
+        let (_dir, mut pipes, _pads, mut controls) =
+            session_with_control(SlotSet::EMPTY.with(slot(1)));
+
+        pipes.set_extension(slot(1), Extension::Guitare).unwrap();
+        assert_eq!(controls[0].drain(), "RELEASE A\nPRESS B\n");
+
+        pipes.set_extension(slot(1), Extension::Nunchuk).unwrap();
+        assert_eq!(controls[0].drain(), "RELEASE A\nRELEASE B\n");
+    }
+
+    /// Le jumeau: redemander la même extension la réaffirme au lieu de se taire.
+    ///
+    /// C'est l'inverse de ce que fait la trame de jeu, qui n'envoie que les
+    /// différences. Ici le silence serait un défaut: après un redémarrage de
+    /// Dolphin, seul un état réaffirmé peut rétablir ce que la salle veut.
+    #[test]
+    fn asking_twice_says_it_twice() {
+        let (_dir, mut pipes, _pads, mut controls) =
+            session_with_control(SlotSet::EMPTY.with(slot(1)));
+
+        pipes.set_extension(slot(1), Extension::Guitare).unwrap();
+        controls[0].drain();
+        pipes.set_extension(slot(1), Extension::Guitare).unwrap();
+        assert_eq!(controls[0].drain(), "RELEASE A\nPRESS B\n");
+    }
+
+    /// L'extension d'une place ne touche qu'elle.
+    ///
+    /// Sans ce jumeau, un tuyau choisi au hasard passerait les deux essais du
+    /// dessus et changerait la manette de quelqu'un d'autre — la panne exacte
+    /// que cette fonction existe pour supprimer.
+    #[test]
+    fn an_extension_reaches_only_its_own_seat() {
+        let (_dir, mut pipes, _pads, mut controls) = session_with_control(SlotSet::ALL);
+
+        pipes.set_extension(slot(3), Extension::Guitare).unwrap();
+
+        assert_eq!(controls[2].drain(), "RELEASE A\nPRESS B\n");
+        for other in [0, 1, 3] {
+            assert_eq!(controls[other].drain(), "", "place {}", other + 1);
+        }
+    }
+
+    /// Une place que la salle ne sert pas n'est pas une erreur.
+    ///
+    /// Il n'y a rien à brancher, et rendre une erreur ferait remonter au worker
+    /// une panne qui n'en est pas une, sur un chemin qui doit rester silencieux.
+    #[test]
+    fn an_unserved_seat_has_nothing_to_plug() {
+        let (_dir, mut pipes, _pads, _controls) =
+            session_with_control(SlotSet::EMPTY.with(slot(1)));
+
+        assert!(pipes.set_extension(slot(4), Extension::Guitare).is_ok());
     }
 
     #[test]

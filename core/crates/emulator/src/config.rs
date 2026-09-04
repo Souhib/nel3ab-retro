@@ -111,6 +111,114 @@ pub fn pipe_device(slot: PlayerSlot) -> String {
     format!("Pipe/0/{}", pipe_file_name(slot))
 }
 
+/// The FIFO file name for a player's CONTROL pipe, e.g. `c1`.
+///
+/// # Pourquoi un second tuyau
+///
+/// Le tuyau de Dolphin n'expose que douze boutons — exactement les douze de
+/// notre trame. Faire passer un ordre par celui du jeu coûterait donc un bouton
+/// de jeu, sur une manette qui n'en a pas de trop.
+///
+/// Celui-ci ne porte aucune manette: il ne sert qu'aux expressions qui décident
+/// ce qui est branché. Un jeu n'en voit jamais rien.
+#[must_use]
+pub fn control_pipe_file_name(slot: PlayerSlot) -> String {
+    format!("c{}", slot.get())
+}
+
+/// The Dolphin device string for a player's control pipe, e.g. `Pipe/0/c1`.
+#[must_use]
+pub fn control_pipe_device(slot: PlayerSlot) -> String {
+    format!("Pipe/0/{}", control_pipe_file_name(slot))
+}
+
+/// Ce qui est branché au bout d'une Wiimote, et qui peut changer EN COURS DE JEU.
+///
+/// # Pourquoi ce n'est pas une variante de `PadKind`
+///
+/// `PadKind` dit quel APPAREIL Dolphin présente, ce qui se décide au démarrage:
+/// une manette GameCube et une Wiimote ne se remplacent pas à chaud. Une
+/// extension, si. C'est le comportement du vrai matériel — on débranche un
+/// Nunchuk et on branche une guitare sans éteindre la console — et Dolphin le
+/// fait déjà: `Wiimote::Update()` appelle `HandleExtensionSwap` à 200 Hz.
+///
+/// Prouvé le 2026-09-02 contre Mario Strikers Charged, jeu tournant depuis
+/// vingt-cinq secondes: voir `spikes/m5-manette-a-chaud`.
+///
+/// # Un NIVEAU, pas un front
+///
+/// L'ordre est un bouton TENU sur le tuyau de contrôle, pas une impulsion. Le
+/// worker maintient ce qu'il veut et le réaffirme après tout redémarrage: l'état
+/// vit chez lui, et Dolphin n'a rien à se rappeler. Une impulsion demanderait aux
+/// deux de rester d'accord, ce que rien ne pourrait rétablir après une reprise.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Extension {
+    /// Le Nunchuk, ce que la plupart des jeux Wii attendent.
+    #[default]
+    Nunchuk,
+    /// La guitare, pour les jeux qui n'acceptent qu'elle.
+    Guitare,
+}
+
+impl Extension {
+    /// Le numéro d'attachement chez Dolphin.
+    ///
+    /// L'ordre vient de `WiimoteEmu::Wiimote::Wiimote`, qui les ajoute dans cet
+    /// ordre: 0 rien, 1 Nunchuk, 2 Classic, 3 guitare. Le NOMBRE est le contrat,
+    /// parce que l'expression rend un entier et non un nom.
+    ///
+    /// 2 manque exprès: la manette Classic n'a pas encore ses correspondances,
+    /// et l'offrir sans elles donnerait une manette dont aucun bouton ne répond.
+    #[must_use]
+    pub const fn attachment(self) -> u8 {
+        match self {
+            Self::Nunchuk => 1,
+            Self::Guitare => 3,
+        }
+    }
+
+    /// Les boutons du tuyau de contrôle à TENIR pour l'obtenir.
+    ///
+    /// Deux bits, un par bouton, lus par l'expression écrite dans le fichier.
+    /// `A` vaut un, `B` vaut deux, et l'attachement est `1 + A + 2 * B`. `A`
+    /// reste libre pour la Classic, ce qui rendra son ajout purement additif.
+    #[must_use]
+    pub const fn held(self) -> &'static [&'static str] {
+        match self {
+            Self::Nunchuk => &[],
+            Self::Guitare => &["B"],
+        }
+    }
+
+    /// Ce qui voyage sur le fil et ce qu'on écrit sur le disque.
+    #[must_use]
+    pub const fn code(self) -> u8 {
+        match self {
+            Self::Nunchuk => 0,
+            Self::Guitare => 1,
+        }
+    }
+
+    /// Ce que la page envoie. Tout code inconnu retombe sur le Nunchuk, qui est
+    /// ce que la plupart des jeux attendent.
+    #[must_use]
+    pub const fn from_code(code: u8) -> Self {
+        match code {
+            1 => Self::Guitare,
+            _ => Self::Nunchuk,
+        }
+    }
+
+    /// Comment on l'appelle dans un journal.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Nunchuk => "nunchuk",
+            Self::Guitare => "guitare",
+        }
+    }
+}
+
 /// Quelle manette une place présente au jeu.
 ///
 /// # Pourquoi c'est un CHOIX et pas les deux
@@ -219,12 +327,18 @@ pub fn wiimote_ini(slots: SlotSet, pads: PadKind) -> String {
     }
     let mut out = String::new();
     for slot in slots.iter() {
-        let _ = write!(out, "{}", wiimote_section(slot, pads));
+        let _ = write!(out, "{}", wiimote_section(slot));
     }
     out
 }
 
-fn wiimote_section(slot: PlayerSlot, pads: PadKind) -> String {
+/// Une section `[WiimoteN]`.
+///
+/// Elle ne prend PLUS la manette de la salle, et c'est le compilateur qui l'a
+/// dit: depuis que l'extension est une expression, le fichier ne la décide plus.
+/// Ce qui est branché à un instant donné vit sur le tuyau de contrôle, chez le
+/// worker, et non dans un fichier écrit une fois au démarrage.
+fn wiimote_section(slot: PlayerSlot) -> String {
     let mut out = String::new();
     let w = &mut out;
     let _ = writeln!(w, "[Wiimote{}]", slot.get());
@@ -285,10 +399,16 @@ fn wiimote_section(slot: PlayerSlot, pads: PadKind) -> String {
     // n'obéit alors qu'au bouton A de la Wiimote elle-même: ni la croix, ni les
     // autres boutons. Une extension n'est pas un supplément qu'on branche au cas
     // où, c'est une déclaration de ce qu'on tient.
-    if pads == PadKind::Guitar {
-        let _ = write!(w, "{}", guitar_binds());
-    } else {
-        let _ = writeln!(w, "Extension = Nunchuk");
+    // Les correspondances des DEUX extensions, toujours, quelle que soit celle
+    // qui est branchée à cet instant.
+    //
+    // C'est la conséquence directe de l'échange à chaud: si l'extension peut
+    // changer sans relancer, le fichier ne peut plus décrire une seule des deux.
+    // Écrire celles de la guitare seulement quand la salle démarre en guitare
+    // rendrait l'échange possible et inutile — on obtiendrait une guitare dont
+    // aucune frette ne répond.
+    let _ = write!(w, "{}", guitar_binds());
+    {
         // La secousse, sur le bouton qui portait « moins ».
         //
         // # Pourquoi elle coûte un bouton
@@ -317,6 +437,22 @@ fn wiimote_section(slot: PlayerSlot, pads: PadKind) -> String {
         // se demander plus tard pourquoi la secousse est capricieuse.
         let _ = writeln!(w, "Shake/Dead Zone = 0.0");
     }
+
+    // L'extension, décidée par une EXPRESSION plutôt que par un nom.
+    //
+    // Dolphin relit une expression à chaque sondage tant que la valeur n'est pas
+    // une constante (`NumericSetting::GetValue`), et `Attachments::LoadConfig`
+    // le dit lui-même: « First assume attachment string is a valid expression. »
+    // Un nom fige l'extension au démarrage; un calcul la rend vivante.
+    //
+    // `1 + A + 2 * B` sur le tuyau de contrôle: rien tenu donne 1, le Nunchuk;
+    // B tenu donne 3, la guitare. 2 est la Classic, laissée pour quand elle aura
+    // ses correspondances.
+    let _ = writeln!(
+        w,
+        "Extension = 1 + `{device}:Button A` + 2 * `{device}:Button B`",
+        device = control_pipe_device(slot)
+    );
     out
 }
 
@@ -362,7 +498,6 @@ fn guitar_binds() -> String {
     let _ = writeln!(w, "Guitar/Stick/Right = `Axis MAIN X +`");
     let _ = writeln!(w, "Guitar/Stick/Dead Zone = 0.0");
     let _ = writeln!(w, "Guitar/Whammy/Bar = `Axis C X +`");
-    let _ = writeln!(w, "Extension = Guitar");
     out
 }
 
@@ -566,25 +701,90 @@ Options/Always Connected = True
         assert!(dolphin_ini(SlotSet::ALL, PadKind::GameCube).contains("SIDevice0 = 6"));
     }
 
-    /// La guitare est une extension, pas un supplément.
+    /// Une seule extension est branchée à la fois, et ce n'est plus le fichier
+    /// qui le décide.
     ///
     /// Guitar Hero III voit une Wiimote avec un Nunchuk, attend une guitare, et
     /// n'obéit alors qu'au bouton A de la Wiimote elle-même — constaté le
-    /// 31 août 2026 en jouant. Déclarer les deux ne serait donc pas « plus
-    /// complet », ce serait la même famille de défaut que deux manettes pour une
-    /// personne.
+    /// 31 août 2026 en jouant. Deux extensions déclarées seraient la même
+    /// famille de défaut que deux manettes pour une personne.
+    ///
+    /// L'invariant tient toujours, à un autre endroit: l'expression rend UN
+    /// entier, donc Dolphin attache UNE extension. Ce qui a changé est que le
+    /// fichier porte désormais les correspondances des deux, parce que l'une ou
+    /// l'autre peut être branchée sans relancer le jeu.
     #[test]
-    fn a_guitar_replaces_the_nunchuk_rather_than_joining_it() {
-        let ini = wiimote_ini(SlotSet::EMPTY.with(slot(1)), PadKind::Guitar);
+    fn one_extension_at_a_time_even_though_both_are_bound() {
+        let ini = wiimote_ini(SlotSet::EMPTY.with(slot(1)), PadKind::Wiimote);
 
-        assert!(ini.contains("Extension = Guitar"), "{ini}");
+        // Une seule ligne `Extension =`, et c'est un calcul et non un nom.
+        assert_eq!(
+            ini.lines()
+                .filter(|l| l.starts_with("Extension = "))
+                .count(),
+            1,
+            "{ini}"
+        );
+        assert!(
+            ini.contains("Extension = 1 + `Pipe/0/c1:Button A`"),
+            "{ini}"
+        );
+        // Un NOM figerait l'extension au démarrage, ce qui est exactement ce
+        // qu'on vient de retirer.
         assert!(!ini.contains("Extension = Nunchuk"), "{ini}");
-        // Le jumeau, dans l'autre sens: sans lui, un rendu qui écrirait toujours
-        // `Guitar` passerait la ligne du dessus et casserait tous les autres
-        // jeux Wii.
-        let nunchuk = wiimote_ini(SlotSet::EMPTY.with(slot(1)), PadKind::Wiimote);
-        assert!(nunchuk.contains("Extension = Nunchuk"), "{nunchuk}");
-        assert!(!nunchuk.contains("Extension = Guitar"), "{nunchuk}");
+        assert!(!ini.contains("Extension = Guitar"), "{ini}");
+
+        // Et les deux jeux de correspondances sont là. Sans ça l'échange serait
+        // possible et inutile: on obtiendrait une guitare dont aucune frette ne
+        // répond.
+        assert!(ini.contains("Nunchuk/Buttons/C = `Button L`"), "{ini}");
+        assert!(ini.contains("Guitar/Frets/Green = `Button A`"), "{ini}");
+    }
+
+    /// Le calcul écrit dans le fichier et le type Rust disent la même chose.
+    ///
+    /// L'expression est `1 + A + 2 * B`, et `held()` dit quels boutons tenir.
+    /// Les deux vivent à deux endroits et rien ne les relie: ce jumeau-là les
+    /// noue. Changer l'un sans l'autre donnerait une extension qui s'annonce et
+    /// une autre qui arrive, sans un mot.
+    #[test]
+    fn the_expression_and_the_held_buttons_agree() {
+        for wanted in [Extension::Nunchuk, Extension::Guitare] {
+            let held = wanted.held();
+            let computed = 1 + u8::from(held.contains(&"A")) + 2 * u8::from(held.contains(&"B"));
+            assert_eq!(
+                computed,
+                wanted.attachment(),
+                "{} tenu sur {held:?} donne {computed}, pas {}",
+                wanted.name(),
+                wanted.attachment()
+            );
+        }
+        // Le jumeau négatif: deux extensions ne peuvent pas demander le même
+        // attachement, sinon en choisir une donnerait l'autre.
+        assert_ne!(
+            Extension::Nunchuk.attachment(),
+            Extension::Guitare.attachment()
+        );
+    }
+
+    /// Le tuyau de contrôle d'une place est LE SIEN.
+    ///
+    /// Sans ça, l'extension du joueur 1 changerait celle de tout le monde — la
+    /// panne exacte qu'on cherche à supprimer, réintroduite un cran plus bas.
+    #[test]
+    fn each_seat_reads_its_own_control_pipe() {
+        let ini = wiimote_ini(SlotSet::ALL, PadKind::Wiimote);
+
+        for raw in 1..=4 {
+            assert!(
+                ini.contains(&format!("Extension = 1 + `Pipe/0/c{raw}:Button A`")),
+                "place {raw}:\n{ini}"
+            );
+        }
+        // Et il n'est jamais confondu avec le tuyau du JEU: un ordre passé par
+        // celui-là coûterait un bouton de jeu.
+        assert!(!ini.contains("Extension = 1 + `Pipe/0/p"), "{ini}");
     }
 
     /// La secousse existe, sur les trois axes, et « moins » a bien laissé sa place.
@@ -603,19 +803,30 @@ Options/Always Connected = True
         }
         // Le bouton est DÉPENSÉ, pas partagé: le laisser sur les deux ferait
         // secouer la Wiimote chaque fois que quelqu'un ouvre un menu.
-        assert!(!ini.contains("Buttons/-"), "{ini}");
+        //
+        // Sur la LIGNE et non en sous-chaîne. Depuis que les correspondances de
+        // la guitare sont toujours écrites, `Guitar/Buttons/-` contient
+        // `Buttons/-`: l'essai échouait sur un défaut qui n'existait pas, ce qui
+        // est la même perte de temps qu'un essai qui passe à tort.
+        assert!(
+            !ini.lines().any(|line| line.starts_with("Buttons/-")),
+            "{ini}"
+        );
     }
 
-    /// Le jumeau: la secousse ne doit exister QUE là où une Wiimote existe.
+    /// Le jumeau: rien de tout ça n'existe sans Wiimote.
     ///
-    /// Sans lui, un rendu qui écrirait `Shake` partout passerait l'essai du
-    /// dessus, et une guitare porterait des lignes que Dolphin lit sans
-    /// comprendre.
+    /// Il ne dit plus « une guitare ne se secoue pas ». La secousse est un
+    /// groupe de la Wiimote elle-même et non de son extension, donc elle reste
+    /// écrite quelle que soit l'extension branchée — c'est le corps qu'on secoue.
+    ///
+    /// Conséquence assumée: `Button Z` porte à la fois la secousse et la frette
+    /// orange, donc avec une guitare branchée, une frette secoue aussi la
+    /// Wiimote. Douze boutons pour trois manettes se paient quelque part, et
+    /// aucun jeu de guitare connu ne lit la secousse de la Wiimote.
     #[test]
-    fn nothing_else_can_be_shaken() {
+    fn nothing_is_written_without_a_wiimote() {
         assert_eq!(wiimote_ini(SlotSet::ALL, PadKind::GameCube), "");
-        let guitar = wiimote_ini(SlotSet::EMPTY.with(slot(1)), PadKind::Guitar);
-        assert!(!guitar.contains("Shake/"), "{guitar}");
     }
 
     /// La zone morte de la secousse est à zéro, et ce n'est pas cosmétique.
@@ -736,8 +947,11 @@ Options/Always Connected = True
         // Sans cette ligne, Dolphin n'émule rien du tout pour les places 2 à 4:
         // seule la première est émulée par défaut.
         assert!(ini.contains("Source = 1"));
-        assert!(ini.contains("Extension = Nunchuk"));
         assert!(ini.contains("Nunchuk/Buttons/C = `Button L`"));
+        // Le Nunchuk est ce qu'on obtient quand rien n'est tenu sur le tuyau de
+        // contrôle: c'est le `1` en tête du calcul.
+        assert_eq!(Extension::default(), Extension::Nunchuk);
+        assert_eq!(Extension::Nunchuk.held(), &[] as &[&str]);
     }
 
     #[test]

@@ -297,6 +297,25 @@ pub struct PadWriter {
 }
 
 impl PadWriter {
+    /// Branche une extension sur la Wiimote d'une place, sans relancer le jeu.
+    ///
+    /// Le même verrou que les trames de jeu, et c'est voulu: les deux écrivent
+    /// à la même session, et deux verrous sur un seul émulateur finiraient par
+    /// s'entrelacer d'une façon que personne n'a prévue.
+    ///
+    /// # Erreurs
+    /// [`EmulatorError::PipesPoisoned`] ou un échec d'écriture.
+    pub fn set_extension(
+        &self,
+        slot: PlayerSlot,
+        extension: Extension,
+    ) -> Result<(), EmulatorError> {
+        self.pipes
+            .lock()
+            .map_err(|_| EmulatorError::PipesPoisoned)?
+            .set_extension(slot, extension)
+    }
+
     /// Routes a client frame to the pipe for its slot.
     ///
     /// # Errors

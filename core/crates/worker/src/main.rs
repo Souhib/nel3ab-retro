@@ -693,6 +693,38 @@ fn run(settings: &Settings) -> Result<()> {
     // p50 15.55 ms, because a write locked to the frame notification always
     // landed just after the emulator polled its pipe.
     let pad = session.pad_writer();
+
+    // Ce qui est branché au bout de chaque Wiimote, affirmé une fois au démarrage.
+    //
+    // # Pourquoi ça ne peut pas rester dans le fichier
+    //
+    // Le fichier de correspondances n'écrit plus de nom d'extension: il écrit un
+    // calcul qui lit le tuyau de contrôle, pour que l'extension puisse changer
+    // sans relancer le jeu. Personne ne tenant rien, ce calcul rend le Nunchuk.
+    // Une salle réglée sur la guitare obtiendrait donc un Nunchuk si cette
+    // boucle n'existait pas — et Guitar Hero III n'obéit alors qu'au bouton A.
+    //
+    // L'état vit ici, chez le worker, et il est réaffirmé à chaque démarrage:
+    // c'est ce qui rend le tuyau de contrôle sans mémoire, et donc réparable.
+    let extension = if pads == nel3ab_emulator::PadKind::Guitar {
+        nel3ab_emulator::Extension::Guitare
+    } else {
+        nel3ab_emulator::Extension::Nunchuk
+    };
+    for slot in config.slots.iter() {
+        if let Err(error) = pad.set_extension(slot, extension) {
+            // Un avertissement et pas un arrêt: la partie tourne, et une
+            // extension qui n'a pas pu être demandée laisse le Nunchuk, qui est
+            // jouable pour presque tout. Mourir ici serait pire que le défaut.
+            tracing::warn!(%error, slot = slot.get(), "l'extension n'a pas pu être branchée");
+        } else {
+            tracing::info!(
+                slot = slot.get(),
+                extension = extension.name(),
+                "extension branchée"
+            );
+        }
+    }
     // Why a flag rather than "am I the last one holding the server": the loops
     // below used to break on `Arc::strong_count(&server) == 1`, which was CORRECT
     // when the pad thread was the only extra holder and became unsatisfiable the

@@ -69,7 +69,7 @@ pub mod slots;
 mod sound;
 pub mod wire;
 
-pub use config::PadKind;
+pub use config::{Extension, PadKind};
 pub use disc::{Console, Disc, consoles, discs};
 pub use error::EmulatorError;
 pub use library::{Rom, catalogue_json, scan as scan_roms, scan_all as scan_libraries};

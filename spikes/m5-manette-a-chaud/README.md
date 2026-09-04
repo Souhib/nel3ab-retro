@@ -97,6 +97,29 @@ qu'irait un quatrième patch, et il ouvrirait du même coup les sauvegardes d'é
 Ce serait une décision, pas une commodité: elle mérite son entrée d'ADR avant
 d'être écrite.
 
+## Le chemin complet, depuis la page
+
+`depuis-la-page.py` (`just manette-depuis-la-page`) va plus loin: il clique dans
+la vraie page, contre la vraie salle, et vérifie les cinq couches entre le clic
+et Dolphin.
+
+L'observable qui compte n'est pas le journal, c'est **l'identifiant du processus
+Dolphin**. Sans lui, un redémarrage donnerait exactement les mêmes lignes et
+passerait pour une réussite — la panne qu'on supprime, déguisée en preuve
+qu'elle est supprimée.
+
+Deux choses trouvées en l'écrivant:
+
+- **La page ne sait pas ce que la salle présente.** Son idée de la manette vient
+  de son stockage local, donc un navigateur neuf croit tenir une manette
+  GameCube quoi que la salle affiche, et le sélecteur prend alors le chemin du
+  redémarrage. C'est correct de son point de vue et c'est un écart réel: le
+  message de salle ne porte pas la manette. Le pilote sème la valeur d'un joueur
+  qui revient; la vraie correction serait que la salle le dise.
+- **Dolphin réécrit son `Logger.ini` au démarrage.** Y déposer une verbosité ne
+  survit donc pas, ce qui est la raison pour laquelle son journal ne s'observe
+  que dans la manip isolée, qui contrôle tout le dossier utilisateur.
+
 ## Rejouer
 
 ```

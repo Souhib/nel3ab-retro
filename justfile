@@ -248,6 +248,19 @@ banc-reel:
 manette-a-chaud:
     python3 spikes/m5-manette-a-chaud/extension-a-chaud.py
 
+# Le chemin COMPLET: un clic dans la page change l'extension, sans rien relancer.
+#
+# `manette-a-chaud` prouve que Dolphin échange sur ordre extérieur; celle-ci
+# prouve que l'ordre part de la page et arrive jusqu'à lui, c'est-à-dire les cinq
+# couches entre les deux qu'aucun essai unitaire ne traverse.
+#
+# L'observable qui compte est l'identifiant du processus Dolphin: sans lui, un
+# redémarrage donnerait les mêmes lignes de journal et passerait pour une
+# réussite. La salle doit tourner sur un jeu Wii réglé en Wiimote; le pilote le
+# dit et s'arrête plutôt que de passer à vide.
+manette-depuis-la-page:
+    python3 spikes/m5-manette-a-chaud/depuis-la-page.py
+
 # La sieste, jouée en vrai: la salle s'endort, on la réveille, et on lit ce que
 # le worker en a écrit.
 #

@@ -693,6 +693,10 @@ fn run(settings: &Settings) -> Result<()> {
     // p50 15.55 ms, because a write locked to the frame notification always
     // landed just after the emulator polled its pipe.
     let pad = session.pad_writer();
+    // Un SECOND écrivain pour la boucle principale: le premier part vivre dans
+    // le fil des entrées. Les deux partagent le même verrou par-dessous, donc ce
+    // n'est pas un second chemin vers l'émulateur, c'est la même porte.
+    let hotplug = session.pad_writer();
 
     // Ce qui est branché au bout de chaque Wiimote, affirmé une fois au démarrage.
     //
@@ -1081,6 +1085,23 @@ fn run(settings: &Settings) -> Result<()> {
         // Both want the same thing and one key frame answers both.
         if server.take_joined() || server.take_key_frame_request() {
             pipeline.encoder.force_key_frame();
+        }
+        // Quelqu'un veut autre chose au bout de sa Wiimote, et ça se fait SANS
+        // rien arrêter — contrairement au changement de jeu juste en dessous,
+        // qui stoppe le worker. Une extension n'est pas un appareil: Dolphin
+        // l'échange en cours de partie, comme on débranche un Nunchuk pour
+        // brancher une guitare sans éteindre la console.
+        for (seat, code) in server.take_extension_requests() {
+            let asked = nel3ab_emulator::Extension::from_code(code);
+            if let Err(error) = hotplug.set_extension(seat, asked) {
+                tracing::warn!(%error, slot = seat.get(), "l'extension n'a pas pu être branchée");
+            } else {
+                tracing::info!(
+                    slot = seat.get(),
+                    extension = asked.name(),
+                    "extension branchée en cours de partie"
+                );
+            }
         }
         // Somebody chose another game. Dolphin takes its disc as a start-up
         // argument and has no way to be handed a different one, so switching

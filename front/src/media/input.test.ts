@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { askEcho, readEcho, readRoomMessage, readShake } from "./input";
+import { InputStream, askEcho, readEcho, readRoomMessage, readShake } from "./input";
 
 /** `[players, mine, deciding, busy1..busy4]`, exactement ce qu'écrit le worker. */
 const message = (...bytes: number[]) => new Uint8Array(bytes);
@@ -86,5 +86,58 @@ describe("l'aller-retour de la manette", () => {
     wrong[0] = 0x11;
 
     expect(readEcho(wrong)).toBeNull();
+  });
+});
+
+describe("ce qu'on branche au bout de sa Wiimote", () => {
+  /** Une socket qui note ce qu'on lui donne, sans réseau. */
+  const spy = () => {
+    const sent: Uint8Array[] = [];
+    return {
+      sent,
+      socket: {
+        readyState: 1,
+        send: (bytes: Uint8Array) => sent.push(bytes),
+      },
+    };
+  };
+
+  /** Un flux d'entrée à qui on a donné une place et une socket. */
+  const wired = () => {
+    const spied = spy();
+    const stream = Object.create(InputStream.prototype) as InputStream;
+    Object.assign(stream, { socket: spied.socket, port: 1, pad: 1 });
+    return { stream, sent: spied.sent };
+  };
+
+  it("part sur l'opcode quatre, distinct de celui de la manette", () => {
+    const { stream, sent } = wired();
+
+    expect(stream.chooseExtension(1)).toBe(true);
+    expect([...sent[0]!]).toEqual([4, 1]);
+    // Le jumeau: `choosePad` porte le trois. Deux commandes qui partageraient un
+    // opcode s'encoderaient l'une en l'autre sans qu'on le voie.
+    stream.choosePad(2);
+    expect(sent[1]![0]).toBe(3);
+  });
+
+  it("refuse une extension qui n'existe pas plutôt que de l'envoyer", () => {
+    // Le jumeau négatif: sans lui, un code inconnu partirait sur le fil et le
+    // worker retomberait silencieusement sur le Nunchuk. Un refus ici se voit;
+    // un repli là-bas ne se voit pas.
+    const { stream, sent } = wired();
+
+    expect(stream.chooseExtension(2)).toBe(false);
+    expect(stream.chooseExtension(-1)).toBe(false);
+    expect(sent).toHaveLength(0);
+  });
+
+  it("ne prétend pas avoir envoyé quand personne ne tient de place", () => {
+    const spied = spy();
+    const stream = Object.create(InputStream.prototype) as InputStream;
+    Object.assign(stream, { socket: spied.socket, port: null, pad: 1 });
+
+    expect(stream.chooseExtension(1)).toBe(false);
+    expect(spied.sent).toHaveLength(0);
   });
 });

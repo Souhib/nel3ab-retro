@@ -306,6 +306,25 @@ pub(super) fn obey(payload: &[u8], shared: &Shared, seat: PlayerSlot) -> bool {
             tracing::info!(port = seat.get(), kind, "une manette a été choisie");
             true
         }
+        Ok(Command::ChooseExtension { kind }) => {
+            // Elle AGIT, contrairement aux deux du dessus qu'on retient jusqu'au
+            // prochain démarrage. Rien ne redémarre: Dolphin échange l'extension
+            // d'une Wiimote émulée en cours de partie, comme on débranche un
+            // Nunchuk pour brancher une guitare.
+            //
+            // Aucune règle de propriétaire, et c'est délibéré. Changer ce qu'on
+            // a dans les mains est personnel, comme ses touches; ça ne touche ni
+            // la partie ni la manette de qui que ce soit d'autre. La place vient
+            // de la SOCKET et non du message, donc personne ne peut viser la
+            // Wiimote de son voisin.
+            if let Ok(mut wanted) = shared.wants_extension.lock()
+                && let Some(place) = wanted.get_mut(usize::from(seat.get() - 1))
+            {
+                *place = Some(kind);
+            }
+            tracing::info!(port = seat.get(), kind, "une extension a été demandée");
+            true
+        }
         Ok(Command::SwitchRom { index }) => {
             // Le propriétaire décide, et c'est vérifié ICI plutôt que dans la
             // page: une règle qui ne vit que dans une interface est une règle

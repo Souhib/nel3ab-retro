@@ -129,6 +129,30 @@ pub enum Command {
         /// `nel3ab_emulator::config::PadKind`.
         kind: u8,
     },
+    /// Ce que la personne veut au bout de SA Wiimote, tout de suite.
+    ///
+    /// # Ce qui la distingue des deux commandes du dessus
+    ///
+    /// `ChooseSave` et `ChoosePad` sont RETENUES: elles ne décident de rien tant
+    /// que personne ne demande un jeu, et c'est le redémarrage qui les applique.
+    /// Celle-ci AGIT à la réception. Rien ne redémarre, rien ne s'arrête, et la
+    /// partie des autres ne bouge pas.
+    ///
+    /// C'est possible parce qu'une extension n'est pas un appareil. Dolphin
+    /// échange l'extension d'une Wiimote émulée à 200 Hz, comme on débranche un
+    /// Nunchuk pour brancher une guitare sans éteindre la console. Un appareil,
+    /// lui — une manette GameCube contre une Wiimote — ne se remplace pas à
+    /// chaud, et reste sur `ChoosePad`.
+    ///
+    /// # Pourquoi la place n'est pas dans le message
+    ///
+    /// La place est celle de la socket qui l'envoie, décidée par le worker.
+    /// L'écrire ici laisserait quelqu'un changer la manette de son voisin.
+    ChooseExtension {
+        /// `0` le Nunchuk, `1` la guitare. Voir
+        /// `nel3ab_emulator::config::Extension`.
+        kind: u8,
+    },
 }
 
 /// Un aller-retour sur le canal des manettes, pour que la page mesure sa propre
@@ -218,6 +242,9 @@ impl Command {
     /// L'opcode pour [`Command::ChoosePad`].
     const CHOOSE_PAD: u8 = 3;
 
+    /// L'opcode pour [`Command::ChooseExtension`].
+    const CHOOSE_EXTENSION: u8 = 4;
+
     /// Serialises to exactly [`Command::LEN`] bytes.
     #[must_use]
     pub const fn encode(self) -> [u8; Self::LEN] {
@@ -225,6 +252,7 @@ impl Command {
             Self::SwitchRom { index } => [Self::SWITCH_ROM, index],
             Self::ChooseSave { slot } => [Self::CHOOSE_SAVE, slot],
             Self::ChoosePad { kind } => [Self::CHOOSE_PAD, kind],
+            Self::ChooseExtension { kind } => [Self::CHOOSE_EXTENSION, kind],
         }
     }
 
@@ -243,6 +271,7 @@ impl Command {
             Self::SWITCH_ROM => Ok(Self::SwitchRom { index: buf[1] }),
             Self::CHOOSE_SAVE => Ok(Self::ChooseSave { slot: buf[1] }),
             Self::CHOOSE_PAD => Ok(Self::ChoosePad { kind: buf[1] }),
+            Self::CHOOSE_EXTENSION => Ok(Self::ChooseExtension { kind: buf[1] }),
             opcode => Err(ProtocolError::UnknownCommand { opcode }),
         }
     }
@@ -508,17 +537,48 @@ mod tests {
     // ── Command ───────────────────────────────────────────────────────────
     #[test]
     fn a_command_survives_the_wire() {
-        for index in [0, 1, 255] {
-            let sent = Command::SwitchRom { index };
-            assert_eq!(Command::decode(&sent.encode()), Ok(sent));
+        // Les quatre, et pas seulement la première. Une commande ajoutée sans
+        // son aller-retour est une commande dont personne ne sait si elle
+        // revient telle qu'elle est partie.
+        for argument in [0, 1, 255] {
+            for sent in [
+                Command::SwitchRom { index: argument },
+                Command::ChooseSave { slot: argument },
+                Command::ChoosePad { kind: argument },
+                Command::ChooseExtension { kind: argument },
+            ] {
+                assert_eq!(Command::decode(&sent.encode()), Ok(sent));
+            }
         }
+    }
+
+    /// Deux commandes ne partagent pas d'opcode.
+    ///
+    /// Le jumeau qui manquait: sans lui, réutiliser un numéro donnerait une
+    /// commande qui s'encode et se décode en une AUTRE, ce que l'aller-retour
+    /// du dessus ne verrait pas — il ne compare que ce qui revient.
+    #[test]
+    fn no_two_commands_share_an_opcode() {
+        let opcodes: Vec<u8> = [
+            Command::SwitchRom { index: 0 },
+            Command::ChooseSave { slot: 0 },
+            Command::ChoosePad { kind: 0 },
+            Command::ChooseExtension { kind: 0 },
+        ]
+        .iter()
+        .map(|one| one.encode()[0])
+        .collect();
+        let mut seen = opcodes.clone();
+        seen.sort_unstable();
+        seen.dedup();
+        assert_eq!(seen.len(), opcodes.len(), "{opcodes:?}");
     }
 
     /// The negative twins. A command channel that accepts anything is a command
     /// channel that will one day do something nobody asked for.
     #[rstest]
     #[case(&[0, 0], ProtocolError::UnknownCommand { opcode: 0 })]
-    #[case(&[4, 0], ProtocolError::UnknownCommand { opcode: 4 })]
+    #[case(&[5, 0], ProtocolError::UnknownCommand { opcode: 5 })]
     #[case(&[255, 9], ProtocolError::UnknownCommand { opcode: 255 })]
     fn an_unnamed_command_is_refused_rather_than_ignored(
         #[case] bytes: &[u8],

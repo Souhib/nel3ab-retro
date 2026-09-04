@@ -10083,3 +10083,55 @@ La leçon est plus large que le nom d'un conteneur: **un script d'essai qui
 emprunte l'outillage de la production en hérite les effets de bord, y compris
 ceux qui sont voulus.** Le `rm -f` n'est pas un défaut, c'est une protection;
 elle protégeait juste quelqu'un d'autre que moi.
+
+## Le clic qui ne relance plus rien
+
+La manip avait prouvé que Dolphin échange l'extension d'une Wiimote en cours de
+partie. Restait à relier ça au bouton que Souhib appuie, ce qui veut dire cinq
+couches: la page, la socket, le protocole, le worker, le tuyau de contrôle.
+
+Le protocole gagne une commande, et sa différence avec les deux voisines est
+tout le sujet. `ChooseSave` et `ChoosePad` sont RETENUES: elles ne décident de
+rien tant que personne ne demande un jeu, et c'est le redémarrage qui les
+applique. `ChooseExtension` AGIT à la réception. C'est possible parce qu'une
+extension n'est pas un appareil: on débranche un Nunchuk et on branche une
+guitare sans éteindre la console, alors qu'une manette GameCube et une Wiimote
+ne se remplacent pas à chaud.
+
+La place n'est pas dans le message, et c'est délibéré. Elle vient de la socket
+qui l'envoie, décidée par le worker. Il n'existe donc aucune façon de formuler la
+demande qui viserait la Wiimote du voisin — la même forme de garantie que
+l'index de jeu, qui est une position et jamais un chemin. Ce qui ne peut pas
+s'exprimer n'a pas besoin d'être refusé.
+
+Aucune règle de propriétaire non plus, contrairement au changement de jeu. Ce
+qu'on a dans les mains est personnel, comme ses touches: ça ne touche ni la
+partie ni la manette de personne d'autre.
+
+Côté page, rien de neuf à l'écran. Le sélecteur de manette existait déjà; ce qui
+change est qu'il cesse de relancer quand il peut. Entre Nunchuk et guitare il
+envoie l'ordre et s'arrête là; vers la manette GameCube ou depuis elle, il
+repart comme avant. La consigne affichée le dit maintenant, parce qu'elle
+promettait un redémarrage pour les trois choix.
+
+Deux choses trouvées en écrivant le pilote de bout en bout, et la première
+compte plus que la fonction elle-même.
+
+**La page ne sait pas ce que la salle présente.** Son idée de la manette vient de
+son stockage local. Un navigateur neuf croit donc tenir une manette GameCube quoi
+que la salle affiche, et le sélecteur prend alors le chemin du redémarrage. Ce
+n'est pas un défaut de ce changement, c'est un écart qui existait déjà et que ce
+changement rend visible: le message de salle ne porte pas la manette. Le pilote
+sème la valeur d'un joueur qui revient, ce qui est honnête pour un essai et ne
+répare rien. La vraie correction serait que la salle le dise.
+
+**Dolphin réécrit son `Logger.ini` au démarrage.** Y déposer une verbosité pour
+observer ne survit pas, ce qui explique pourquoi son journal ne s'observe que
+dans la manip isolée, qui contrôle tout le dossier utilisateur.
+
+L'observable du pilote complet n'est d'ailleurs pas le journal, c'est
+l'identifiant du processus Dolphin. Sans lui, un redémarrage donnerait exactement
+les mêmes lignes et passerait pour une réussite: la panne qu'on supprime,
+déguisée en preuve qu'elle est supprimée. C'est la même famille que l'essai qui
+passe alors qu'il ne teste rien, et ce projet en a assez produit pour la
+reconnaître.

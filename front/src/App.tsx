@@ -739,9 +739,25 @@ function Room({
   };
 
   const switchPad = (wanted: Pad) => {
+    const held = pad;
     setPad(wanted);
     rememberPad(wanted);
     session?.input.choosePad(wanted);
+
+    // Passer du Nunchuk à la guitare ne relance RIEN.
+    //
+    // Les deux sont la même Wiimote avec autre chose au bout, et Dolphin échange
+    // une extension en cours de partie — comme on débranche un Nunchuk pour
+    // brancher une guitare sans éteindre la console. Seul un changement
+    // d'APPAREIL, vers ou depuis la manette GameCube, demande de repartir.
+    //
+    // `choosePad` est quand même envoyé juste au-dessus: il décide de ce que la
+    // salle présentera au prochain démarrage, et le laisser en arrière ferait
+    // revenir l'ancienne extension à la première relance.
+    if (held !== 0 && wanted !== 0) {
+      session?.input.chooseExtension(wanted === 2 ? 1 : 0);
+      return;
+    }
     // Dolphin lit sa configuration de manette au démarrage, donc le changement
     // demande de relancer. On ne le fait que si un jeu Wii tourne: pour un jeu
     // GameCube le réglage ne décide de rien, et couper une partie pour ça serait
@@ -1121,9 +1137,16 @@ function Room({
           // Deux choses changent d'un coup, et taire la seconde ferait croire à
           // un réglage perdu: la manette que le jeu voit, ET le jeu de touches
           // qu'on règle sous « touches ».
+          // Ce que ça coûte de changer, et ce n'est plus le même prix pour les
+          // trois. Passer du Nunchuk à la guitare ne relance rien: c'est la même
+          // Wiimote avec autre chose au bout, et Dolphin échange une extension
+          // en cours de partie. Aller vers la manette GameCube, ou en revenir,
+          // change d'APPAREIL et demande de repartir.
           hint:
             room?.game?.console === "wii"
-              ? "chaque manette a ses propres touches. Changer relance le jeu en cours."
+              ? pad === 0
+                ? "chaque manette a ses propres touches. Passer à la Wiimote relance le jeu."
+                : "chaque manette a ses propres touches. Entre Wiimote et guitare, rien ne relance."
               : "chaque manette a ses propres touches. Vaudra pour le prochain jeu Wii lancé.",
           icon: <PadIcon className="h-full w-full" />,
           picks: PADS.map((one) => ({

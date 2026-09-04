@@ -527,6 +527,30 @@ export class InputStream {
   }
 
   /**
+   * Dit ce qu'on veut au bout de SA Wiimote, tout de suite.
+   *
+   * Zéro le Nunchuk, un la guitare.
+   *
+   * # Ce qui la distingue de `choosePad`
+   *
+   * `choosePad` est RETENU: il ne décide de rien jusqu'au prochain démarrage,
+   * parce qu'une manette GameCube et une Wiimote sont deux APPAREILS et qu'un
+   * appareil ne se remplace pas à chaud. Une extension, si: Dolphin l'échange en
+   * cours de partie, comme on débranche un Nunchuk pour brancher une guitare
+   * sans éteindre la console. Rien ne redémarre, et la partie des autres ne
+   * bouge pas.
+   *
+   * La place n'est pas dans le message: c'est celle de la socket, décidée par le
+   * worker. Personne ne peut donc viser la Wiimote de son voisin.
+   */
+  chooseExtension(kind: number): boolean {
+    if (kind !== 0 && kind !== 1) return false;
+    if (this.port === null || this.socket?.readyState !== WebSocket.OPEN) return false;
+    this.socket.send(new Uint8Array([4, kind]));
+    return true;
+  }
+
+  /**
    * Commence à réassigner une commande. La prochaine chose qui bouge la prend.
    *
    * Pendant ce temps la manette n'atteint plus le jeu: on continue d'envoyer un

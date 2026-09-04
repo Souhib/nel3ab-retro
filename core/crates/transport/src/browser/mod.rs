@@ -230,6 +230,13 @@ pub struct BrowserServer {
     wants_save: Arc<Mutex<u8>>,
     /// La manette voulue pour le prochain jeu. Voir `Command::ChoosePad`.
     wants_pad: Arc<Mutex<u8>>,
+    /// Ce que chaque place veut au bout de sa Wiimote, MAINTENANT.
+    ///
+    /// Par place et non pour la salle, contrairement à `wants_pad`: c'est un
+    /// réglage personnel, comme les touches. Et une demande en attente plutôt
+    /// qu'un état, parce que le worker l'applique une fois et que ce qui est
+    /// branché vit ensuite chez lui.
+    wants_extension: Arc<Mutex<[Option<u8>; PORTS]>>,
     /// Les dernières secondes de la partie. Voir [`crate::clip`].
     clips: Arc<Mutex<crate::clip::Clips>>,
     /// One queue per connected viewer.
@@ -395,6 +402,7 @@ impl BrowserServer {
         let wants_rom = Arc::new(Mutex::new(None));
         let wants_save = Arc::new(Mutex::new(0_u8));
         let wants_pad = Arc::new(Mutex::new(0_u8));
+        let wants_extension: Arc<Mutex<[Option<u8>; PORTS]>> = Arc::new(Mutex::new([None; PORTS]));
         let granted_key = Arc::new(Mutex::new(Self::key_frame_epoch()));
         let half_viewers: Viewers = Arc::new(Mutex::new(Vec::new()));
         let half_joined = Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -421,6 +429,7 @@ impl BrowserServer {
                 let wants_rom = Arc::clone(&wants_rom);
                 let wants_save = Arc::clone(&wants_save);
                 let wants_pad = Arc::clone(&wants_pad);
+                let wants_extension = Arc::clone(&wants_extension);
                 let rumbles = Arc::clone(&rumbles);
                 let owner = Arc::clone(owner);
                 let half_viewers = Arc::clone(&half_viewers);
@@ -449,6 +458,7 @@ impl BrowserServer {
                             wants_rom,
                             wants_save,
                             wants_pad,
+                            wants_extension,
                             catalogue,
                             half_viewers,
                             half_joined,
@@ -487,6 +497,7 @@ impl BrowserServer {
             wants_rom,
             wants_save,
             wants_pad,
+            wants_extension,
             _accept: accept,
         })
     }
@@ -714,6 +725,34 @@ impl BrowserServer {
         self.wants_pad.lock().map_or(0, |kind| *kind)
     }
 
+    /// Ce que des places ont demandé de brancher depuis la dernière fois.
+    ///
+    /// Se CONSOMME, contrairement à `pad_wanted`: une demande d'extension est
+    /// appliquée une fois, et ce qui est branché vit ensuite chez le worker.
+    /// La garder ici en ferait une seconde source de vérité, qui finirait par
+    /// ne plus dire la même chose que la première.
+    #[must_use]
+    pub fn take_extension_requests(&self) -> Vec<(PlayerSlot, u8)> {
+        let Ok(mut wanted) = self.wants_extension.lock() else {
+            return Vec::new();
+        };
+        let mut out = Vec::new();
+        for (index, slot_wish) in wanted.iter_mut().enumerate() {
+            if let Some(kind) = slot_wish.take() {
+                // L'index vient d'un tableau de taille PORTS, donc la place
+                // existe forcément; `filter_map` plutôt qu'un `unwrap` parce que
+                // le worker n'a pas le droit de paniquer.
+                if let Some(seat) = u8::try_from(index + 1)
+                    .ok()
+                    .and_then(|raw| PlayerSlot::new(raw).ok())
+                {
+                    out.push((seat, kind));
+                }
+            }
+        }
+        out
+    }
+
     /// Which game a player asked to boot, if one did since this was last asked.
     ///
     /// Reading it clears it: the caller acts on a wish exactly once, and acting
@@ -848,6 +887,9 @@ struct Shared {
     wants_save: Arc<Mutex<u8>>,
     /// La manette voulue pour le prochain jeu. Voir `Command::ChoosePad`.
     wants_pad: Arc<Mutex<u8>>,
+    /// Ce que chaque place veut au bout de sa Wiimote, maintenant. La place
+    /// vient de la SOCKET qui écrit ici, jamais du message.
+    wants_extension: Arc<Mutex<[Option<u8>; PORTS]>>,
     /// The room's library, already rendered as JSON.
     ///
     /// Rendered by the worker rather than here: what a game is called and where
@@ -1943,6 +1985,67 @@ mod tests {
     /// Rouge d'abord: sans le contrôle dans `obey`, la première assertion passe
     /// et la salle change de jeu sur l'ordre de n'importe qui. Le pilote de
     /// navigateur ne pouvait pas l'attraper, parce qu'une page qui n'offre pas
+    /// Une extension demandée arrive sur la place de CELUI QUI DEMANDE.
+    ///
+    /// La place vient de la socket et jamais du message, donc il n'existe pas de
+    /// façon de la formuler qui viserait la Wiimote de quelqu'un d'autre. C'est
+    /// la même forme de garantie que l'index de jeu, qui est une position et
+    /// jamais un chemin: ce qui ne peut pas s'exprimer n'a pas besoin d'être
+    /// refusé.
+    ///
+    /// Et personne ne vérifie qui est propriétaire, contrairement au changement
+    /// de jeu: ce qu'on a dans les mains est personnel, comme ses touches.
+    #[test]
+    fn an_extension_lands_on_the_seat_that_asked_for_it() {
+        let owner: crate::control::OwnerSeat = Arc::new(Mutex::new(None));
+        let server = BrowserServer::start(
+            "127.0.0.1:0".parse().unwrap(),
+            "page",
+            "[]".into(),
+            no_art(),
+            four(),
+            &owner,
+        )
+        .unwrap();
+        let address = server.address();
+
+        let (mut first, one) = hold(address);
+        let (mut second, two) = hold(address);
+        assert_eq!((one, two), (1, 2));
+
+        // Le propriétaire est la place 1: la place 2 doit être obéie QUAND MÊME.
+        *owner.lock().unwrap() = Some(PlayerSlot::new(1).unwrap());
+        server.acted.lock().unwrap()[0] = Some(std::time::Instant::now());
+
+        second
+            .send(tungstenite::Message::binary(
+                Command::ChooseExtension { kind: 1 }.encode().to_vec(),
+            ))
+            .unwrap();
+        std::thread::sleep(Duration::from_millis(200));
+        assert_eq!(
+            server.take_extension_requests(),
+            vec![(PlayerSlot::new(2).unwrap(), 1)],
+            "la demande doit arriver sur la place 2, sans règle de propriétaire"
+        );
+
+        // Elle se consomme: la relire ne doit pas la rejouer, sinon le worker
+        // rebrancherait la même extension à chaque image.
+        assert!(server.take_extension_requests().is_empty());
+
+        // Le jumeau: la place 1 vise la place 1, pas la 2.
+        first
+            .send(tungstenite::Message::binary(
+                Command::ChooseExtension { kind: 0 }.encode().to_vec(),
+            ))
+            .unwrap();
+        std::thread::sleep(Duration::from_millis(200));
+        assert_eq!(
+            server.take_extension_requests(),
+            vec![(PlayerSlot::new(1).unwrap(), 0)]
+        );
+    }
+
     /// le bouton n'envoie pas l'octet — c'est précisément la console de
     /// développeur qu'on essaie de fermer.
     #[test]

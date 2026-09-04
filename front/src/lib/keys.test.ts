@@ -6,18 +6,19 @@
  * dossier neuf, donc la disposition d'origine, donc seize touches à refaire sans
  * que rien n'ait échoué.
  */
+import type { KeyProfile } from "../media/pad";
 import { describe, expect, it } from "vitest";
 
 import { DEFAULT_KEYS } from "../media/pad";
 import {
+  DEFAULT_NAME,
   activated,
   added,
-  DEFAULT_NAME,
   edited,
   fresh,
+  mine,
   names,
   playing,
-  mine,
   readKeySet,
   removed,
   roomName,
@@ -247,5 +248,51 @@ describe("les profils de la salle", () => {
     expect(roomName("salle · guitare")).toBe("guitare");
     // Et laissent tranquille ce qui n'en porte pas.
     expect(roomName("mon truc")).toBe("mon truc");
+  });
+});
+
+describe("relire ce que la salle propose", () => {
+  const profile = (code: string) => ({ [code]: { kind: "button", name: "A" } }) as KeyProfile;
+
+  it("remplace les profils de la salle sans toucher aux siens", () => {
+    // Le défaut du 4 septembre 2026: la référence n'était lue qu'à la
+    // construction de la boucle d'entrée, donc « publier dans la salle »
+    // n'arrivait qu'aux gens qui ouvraient la page APRÈS. Le service répondait
+    // 200 et le bouton avait l'air cassé.
+    const own = { byName: { à_moi: profile("KeyA") }, active: "à_moi", locked: [] };
+    const first = withRoom(own, { défaut: profile("KeyB") });
+    expect(Object.keys(first.byName).sort()).toEqual(["salle · défaut", "à_moi"]);
+
+    // La salle republie autre chose. On repart de `mine`, jamais du mélange.
+    const again = withRoom(
+      { ...mine(first), locked: [] },
+      { défaut: profile("KeyC"), duo: profile("KeyD") },
+    );
+    expect(Object.keys(again.byName).sort()).toEqual(["salle · duo", "salle · défaut", "à_moi"]);
+    expect(again.byName["salle · défaut"]).toEqual(profile("KeyC"));
+    expect(again.byName["à_moi"]).toEqual(profile("KeyA"));
+  });
+
+  // Le jumeau qui porte le « repartir de `mine` ». Sans lui, relire depuis le
+  // MÉLANGE empilerait les profils de la salle à chaque passage, et un profil
+  // retiré de la référence ne partirait jamais.
+  it("laisse partir un profil que la salle a retiré", () => {
+    const own = { byName: { à_moi: profile("KeyA") }, active: "à_moi", locked: [] };
+    const before = withRoom(own, { défaut: profile("KeyB"), duo: profile("KeyD") });
+    const after = withRoom({ ...mine(before), locked: [] }, { défaut: profile("KeyB") });
+
+    expect(after.byName["salle · duo"]).toBeUndefined();
+    expect(after.locked).toEqual(["salle · défaut"]);
+  });
+
+  it("garde en jeu le profil de la salle qu'on jouait, dans sa nouvelle version", () => {
+    const own = { byName: { à_moi: profile("KeyA") }, active: "à_moi", locked: [] };
+    const inPlay = { ...withRoom(own, { défaut: profile("KeyB") }), active: "salle · défaut" };
+    const after = withRoom({ ...mine(inPlay), locked: [] }, { défaut: profile("KeyC") });
+
+    // `mine` rend l'actif à un profil personnel quand la salle jouait, et
+    // `withRoom` le laisse là: c'est `settled` qui tranche. Ce qui compte est
+    // qu'on ne joue jamais un nom qui n'existe plus.
+    expect(after.byName[after.active]).toBeDefined();
   });
 });

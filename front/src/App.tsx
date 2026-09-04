@@ -68,7 +68,7 @@ import {
 } from "./lib/theme";
 import { FITS, fitLabel, place, rememberFit, storedFit } from "./lib/fit";
 import { useBare } from "./lib/fullscreen";
-import { useBindings } from "./lib/bindings";
+import { useBindings, useRoomReference } from "./lib/bindings";
 import { cn } from "./lib/cn";
 import { publishProfile } from "./lib/bindings";
 import { arrange } from "./lib/settings";
@@ -83,7 +83,7 @@ import {
   type Trail,
   type Vitals,
 } from "./lib/vitals";
-import type { Snapshot } from "./media/session";
+import type { Session, Snapshot } from "./media/session";
 import { clipLabel } from "./lib/clip";
 import { CONSOLES } from "./lib/consoles";
 import {
@@ -450,6 +450,20 @@ function Room({
    * soirée sur les parties débloquées y rejouera le lendemain. */
 
   const { ref, session } = useSession(volume, deviceRate, announceSeat, watching, padOnly);
+
+  /** Ce que la salle propose, relu pendant la visite.
+   *
+   * La boucle d'entrée lisait la référence une seule fois, à sa construction:
+   * publier un profil n'arrivait donc qu'aux gens qui ouvraient la page ENSUITE.
+   * Le service répondait 200 et le bouton avait l'air cassé — il l'était pour
+   * tout le monde sauf celui qui appuyait.
+   *
+   * La référence arrive dans le navigateur, puis on demande à la boucle de la
+   * relire: sans ce second geste, la case du navigateur serait à jour et l'écran
+   * montrerait toujours l'ancienne liste. */
+  const alive = useRef<Session | null>(null);
+  alive.current = session;
+  useRoomReference(() => alive.current?.input.refreshRoomKeys());
   const clip = useClip();
   const shot = useSnapshot(session);
   {

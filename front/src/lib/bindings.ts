@@ -172,6 +172,54 @@ export function publish(kept: Bindings): Promise<boolean> {
  * d'entrée lit le navigateur au moment où elle est construite, donc semer après
  * coup laisserait une soirée entière sur les réglages de la machine.
  */
+/** Combien de temps une publication met à atteindre les gens déjà là.
+ *
+ * Trente secondes est un jugement et non une mesure: une référence change
+ * quelques fois par soirée, jamais par seconde, et la réponse pèse quelques
+ * centaines d'octets. Plus court coûterait des requêtes pour rien; plus long
+ * ferait douter de la publication, ce qui est exactement le défaut qu'on répare.
+ */
+const REFERENCE_EVERY = 30_000;
+
+/**
+ * Ce que la salle propose, RELU pendant la visite.
+ *
+ * # Pourquoi c'est une requête à part
+ *
+ * `useBindings` ne se relit jamais, et pour une bonne raison: le dossier
+ * personnel est écrit par cette page, donc relire écraserait le plus récent par
+ * le plus ancien. La référence de la salle est l'inverse — personne ici ne
+ * l'écrit, sauf l'administrateur, et elle est rangée dans sa propre case du
+ * navigateur. La relire ne peut donc rien perdre.
+ *
+ * Les avoir confondues faisait que « publier dans la salle » n'arrivait qu'aux
+ * gens qui ouvraient la page APRÈS. Le service répondait 200, le bouton avait
+ * l'air cassé, et il l'était pour tout le monde sauf celui qui appuyait.
+ */
+export function useRoomReference(onChange?: () => void) {
+  return useQuery({
+    queryKey: ["room-bindings"],
+    queryFn: async () => {
+      const proposed = await readRoomBindings({ throwOnError: true })
+        .then((got) => got.data ?? null)
+        .catch(() => null);
+      const kept: Bindings = {
+        pads: (proposed?.pads ?? {}) as Record<string, unknown>,
+        keys: (proposed?.keys ?? {}) as Record<string, unknown>,
+      };
+      // Rangé AVANT de prévenir: celui qu'on prévient relit le navigateur.
+      keepReference(kept);
+      onChange?.();
+      return kept;
+    },
+    refetchInterval: REFERENCE_EVERY,
+    // Et au retour sur l'onglet: quelqu'un qui revient d'un autre écran est
+    // exactement celui à qui on vient de dire « c'est publié, regarde ».
+    refetchOnWindowFocus: true,
+    retry: 1,
+  });
+}
+
 export function useBindings(login: string | null) {
   return useQuery({
     queryKey: ["bindings", login],

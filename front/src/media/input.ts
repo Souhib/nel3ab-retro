@@ -647,6 +647,36 @@ export class InputStream {
     keepKeys(this.keySet);
   }
 
+  /** Relit ce que la salle propose, sans toucher à ce qui est à soi.
+   *
+   * # Pourquoi ça ne pouvait pas marcher avant
+   *
+   * La référence était lue UNE FOIS, à la construction de cette boucle. Publier
+   * un profil arrivait donc chez les gens qui ouvraient la page ensuite, et chez
+   * personne d'autre: un ami déjà connecté ne voyait jamais rien changer, et le
+   * bouton avait l'air cassé alors que le service répondait 200.
+   *
+   * Reconstruit depuis `mine`, jamais depuis le mélange: `withRoom` ajoute les
+   * profils de la salle à ceux de la personne, et repartir du mélange les
+   * empilerait à chaque relecture. Les profils de la salle qui ont disparu s'en
+   * vont donc aussi, ce qui est le comportement voulu — une référence retirée
+   * doit se retirer.
+   *
+   * Ce qui JOUE ne change pas si la personne avait choisi un profil à elle. Si
+   * elle jouait un profil de la salle qui vient d'être republié, elle joue la
+   * nouvelle version: c'est la définition d'une référence.
+   */
+  refreshRoomKeys(): void {
+    const proposed = readKeySet(roomReference().keys);
+    // `mine` rend le dossier sans les profils de la salle, mais sans la liste
+    // des verrous: c'est `withRoom` qui la reconstruit, et c'est justement ce
+    // qu'on veut — les verrous sont ceux de la NOUVELLE référence.
+    this.keySet = withRoom({ ...ownKeys(this.keySet), locked: [] }, proposed.byName);
+    // Rien n'est rangé: `keepKeys` n'écrit que `mine`, et `mine` n'a pas bougé.
+    // Écrire ici enverrait une requête de plus à chaque relecture, pour rien.
+    this.keys = playingKeys(this.keySet);
+  }
+
   /** Le contenu d'un profil, pour le publier. Rien si le nom ne dit rien. */
   keyProfileNamed(name: string): KeyProfile | null {
     return this.keySet.byName[name] ?? null;

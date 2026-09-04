@@ -18,6 +18,7 @@ function snap(video: Partial<Snapshot["video"]> = {}, rest: Partial<Snapshot> = 
       undecoded: 0,
       stalls: 0,
       restarts: 0,
+      overloaded: false,
       keyFramesAsked: 0,
       slackMs: 0,
       starved: 0,

@@ -158,3 +158,42 @@ export function isStarved(sinceLastArrivalMs: number, sourcePeriodMs: number): b
   if (sourcePeriodMs <= 0) return true;
   return sinceLastArrivalMs > sourcePeriodMs * LATE;
 }
+
+/** Combien de fenêtres d'affilée la marge doit rester au plafond pour conclure.
+ *
+ * Cinq, soit dix secondes: la marge monte de huit millisecondes par fenêtre, donc
+ * atteindre le plafond depuis le plancher demande déjà une vingtaine de fenêtres
+ * de famine continue. Y RESTER cinq de plus n'arrive pas par accident.
+ *
+ * Plus court prendrait une mauvaise minute pour un mauvais lien et réduirait
+ * l'image de quelqu'un qui n'avait qu'un hoquet. Plus long laisserait la
+ * personne subir une image qui traîne pendant qu'on hésite.
+ */
+export const GIVE_UP_WINDOWS = 5;
+
+/** Depuis combien de fenêtres l'allure a renoncé.
+ *
+ * # Pourquoi ce nombre veut dire quelque chose
+ *
+ * La marge existe pour absorber une arrivée irrégulière: quand la page manque
+ * d'images, elle grandit, ce qui ajoute du retard mais lisse le mouvement. C'est
+ * la bonne réponse à un réseau qui hoquette.
+ *
+ * Ce n'est PAS la bonne réponse à un lien trop étroit. Là, la marge monte
+ * jusqu'au plafond et y reste, et tout ce qu'elle a fait est transformer un
+ * manque de débit en retard permanent — ce qui se voit comme une image au
+ * ralenti qui saute de temps en temps. Rapporté le 2026-09-04 exactement dans
+ * ces mots.
+ *
+ * La marge collée au plafond est donc le signal que l'allure a fait tout ce
+ * qu'elle pouvait et que ça ne suffit pas. Ce qu'il faut alors n'est pas plus de
+ * marge, c'est moins d'octets.
+ */
+export function stuckAtCeiling(previous: number, slackMs: number): number {
+  return slackMs >= SLACK_CEILING ? previous + 1 : 0;
+}
+
+/** L'allure a-t-elle renoncé ? */
+export function pacingGaveUp(windowsAtCeiling: number): boolean {
+  return windowsAtCeiling >= GIVE_UP_WINDOWS;
+}

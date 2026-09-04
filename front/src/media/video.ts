@@ -5,7 +5,16 @@
  * Every rule here was paid for. The comments say what by, because the code alone
  * cannot: each one looks removable until you know which failure it answers.
  */
-import { SLACK_CEILING, Window, isStarved, nextSlack, roomFor, steer } from "./clock";
+import {
+  SLACK_CEILING,
+  Window,
+  isStarved,
+  nextSlack,
+  pacingGaveUp,
+  roomFor,
+  steer,
+  stuckAtCeiling,
+} from "./clock";
 import { codecOf, hasIdr } from "./annexb";
 
 /** How long without a byte before the connection is presumed dead.
@@ -92,6 +101,8 @@ export type VideoStats = {
   keyFramesAsked: number;
   slackMs: number;
   starved: number;
+  /** L'allure a renoncé: le lien ne porte pas ce flux. */
+  overloaded: boolean;
   skipped: number;
   connected: boolean;
   reconnects: number;
@@ -259,6 +270,8 @@ export class VideoStream {
   private ticks = 0;
   private starved = 0;
   private starvedRecent = 0;
+  /** Depuis combien de fenêtres la marge est collée au plafond. */
+  private atCeiling = 0;
   private skipped = 0;
   /** Ce qui avait été jeté à la fin de la fenêtre précédente. */
   private skippedSeen = 0;
@@ -394,6 +407,7 @@ export class VideoStream {
       keyFramesAsked: this.keyFramesAsked,
       slackMs: this.slackMs,
       starved: this.starved,
+      overloaded: pacingGaveUp(this.atCeiling),
       skipped: this.skipped,
       connected: this.connected,
       reconnects: this.reconnects,
@@ -948,6 +962,10 @@ export class VideoStream {
     } else {
       this.calmWindows = 0;
     }
+    // La marge collée au plafond dit que l'allure a fait tout ce qu'elle
+    // pouvait. Compté APRÈS l'avoir posée: on juge ce qu'on vient de décider,
+    // pas ce qu'on avait décidé la fois d'avant.
+    this.atCeiling = stuckAtCeiling(this.atCeiling, grown);
     this.slackMs = grown;
     this.starvedRecent = 0;
   }

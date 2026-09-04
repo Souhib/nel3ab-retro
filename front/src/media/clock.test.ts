@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  GIVE_UP_WINDOWS,
   QUEUE_CEILING,
   QUEUE_FLOOR,
   SLACK_CEILING,
@@ -7,9 +8,11 @@ import {
   Window,
   isStarved,
   nextSlack,
+  pacingGaveUp,
   percentile,
   roomFor,
   steer,
+  stuckAtCeiling,
 } from "./clock";
 
 /**
@@ -151,5 +154,33 @@ describe("la marge face à une image jetée", () => {
     // Le jumeau, sans lequel « ne grandit pas » pourrait vouloir dire « ne
     // grandit jamais ».
     expect(nextSlack(121, 9, 0)).toBe(129);
+  });
+});
+
+describe("quand l'allure a renoncé", () => {
+  it("compte les fenêtres passées au plafond, et repart de zéro dès qu'on en sort", () => {
+    let held = 0;
+    for (const slack of [SLACK_CEILING, SLACK_CEILING, SLACK_CEILING]) {
+      held = stuckAtCeiling(held, slack);
+    }
+    expect(held).toBe(3);
+    // Une seule fenêtre en dessous efface le compte: ce qu'on cherche est un
+    // état QUI DURE, pas un total de mauvais moments répartis sur une soirée.
+    expect(stuckAtCeiling(held, SLACK_CEILING - 1)).toBe(0);
+  });
+
+  it("ne conclut pas avant dix secondes de plafond", () => {
+    expect(pacingGaveUp(GIVE_UP_WINDOWS - 1)).toBe(false);
+    expect(pacingGaveUp(GIVE_UP_WINDOWS)).toBe(true);
+  });
+
+  // Le jumeau négatif, et c'est lui qui protège quelqu'un dont le lien va bien:
+  // une marge qui monte SANS atteindre le plafond est l'allure qui fait son
+  // travail. Conclure là ferait réduire l'image de gens qui n'ont qu'un hoquet.
+  it("ne conclut rien d'une marge qui monte mais absorbe", () => {
+    let held = 0;
+    for (const slack of [40, 90, 150, 170, 179]) held = stuckAtCeiling(held, slack);
+    expect(held).toBe(0);
+    expect(pacingGaveUp(held)).toBe(false);
   });
 });

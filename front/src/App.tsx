@@ -796,6 +796,39 @@ function Room({
     if (denied) setHalf(false);
   }, [denied]);
 
+  /** Le lien ne porte pas le grand format: on réduit, et on le DIT.
+   *
+   * # Pourquoi la page décide toute seule
+   *
+   * Le demi-format existait déjà et personne ne s'en servait: il fallait le
+   * trouver dans les réglages, et quelqu'un dont l'image traîne cherche une
+   * panne, pas une case à cocher. Le 4 septembre 2026 un ami a passé une soirée
+   * à 24 Mbit/s sur un lien qui ne suivait pas, pendant que le flux réduit à
+   * 5 Mbit/s l'attendait, coché par personne.
+   *
+   * # Pourquoi c'est une bascule et pas une proposition
+   *
+   * Une proposition demande de l'attention à quelqu'un qui joue. Le geste est
+   * réversible d'un clic, il est annoncé, et le pire cas est une image plus
+   * petite pendant quelques secondes chez quelqu'un qui avait un hoquet. Le
+   * pire cas de l'inverse est une soirée gâchée.
+   *
+   * # Et jamais dans l'autre sens
+   *
+   * On ne remonte pas tout seul. Un lien qui vient d'être jugé trop étroit
+   * redeviendrait large dès que la marge redescend, c'est-à-dire dès que le
+   * format réduit fait son effet: on oscillerait entre les deux toute la
+   * soirée. Remonter est une décision de la personne.
+   */
+  const overloaded = shot?.video.overloaded ?? false;
+  const [reduced, setReduced] = useState(false);
+  useEffect(() => {
+    if (!overloaded || half || denied || !session) return;
+    session.video.setHalf(true);
+    setHalf(true);
+    setReduced(true);
+  }, [overloaded, half, denied, session]);
+
   /** Les consoles présentes dans cette bibliothèque, dans l'ordre des sorties.
    *
    * Construites depuis ce que la salle annonce, jamais depuis une liste écrite
@@ -1274,6 +1307,41 @@ function Room({
             oublié avoir choisi ce mode. La toile reste montée derrière: elle
             appartient à la boucle média, qui la tient par une référence, et la
             démonter reviendrait à mettre React sur le chemin des images. */}
+        {/* Le format a été réduit tout seul: on le DIT, et on laisse revenir.
+            Réduire en silence ferait chercher pourquoi l'image est devenue
+            moins nette, ce qui est exactement le temps qu'on essaie de rendre. */}
+        {reduced ? (
+          <div
+            id="reducedNotice"
+            className="absolute inset-x-0 bottom-4 z-20 mx-auto flex max-w-[46ch] flex-col gap-2 border border-rule bg-panel px-4 py-3 text-center"
+          >
+            <p className="text-[13px] leading-relaxed text-bright">
+              Ton lien ne suivait pas: l&apos;image est passée en format réduit.
+            </p>
+            <div className="flex justify-center gap-2">
+              <button
+                type="button"
+                id="keepReduced"
+                onClick={() => setReduced(false)}
+                className="border border-rule px-2 py-0.5 text-[11px] text-muted hover:border-rule-bright"
+              >
+                d&apos;accord
+              </button>
+              <button
+                type="button"
+                id="undoReduced"
+                onClick={() => {
+                  session?.video.setHalf(false);
+                  setHalf(false);
+                  setReduced(false);
+                }}
+                className="border border-indigo px-2 py-0.5 text-[11px] text-indigo"
+              >
+                revenir en pleine taille
+              </button>
+            </div>
+          </div>
+        ) : null}
         {padOnly ? (
           <div
             id="padOnlyNotice"

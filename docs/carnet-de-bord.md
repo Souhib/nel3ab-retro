@@ -10017,3 +10017,69 @@ thèmes.
 La généralité vaut au-delà des couleurs: **quand un élément décoratif devient
 porteur, son exigence change et rien ne le signale.** Le liseré était acceptable
 tant qu'il ne servait à rien.
+
+## Changer de manette sans relancer: ce que Dolphin savait déjà faire
+
+Souhib voulait qu'un joueur puisse dire « je reste le joueur 1, mais débranche
+mon Nunchuk et donne-moi autre chose » sans relancer la partie de tout le monde.
+Aujourd'hui c'est impossible parce que le choix de manette voyage sur le chemin
+du CHANGEMENT DE JEU: le worker l'écrit dans le dossier de session, s'arrête, et
+systemd le relance. Un réglage personnel emprunte la machinerie d'un réglage de
+salle.
+
+En lisant la source du Dolphin épinglé plutôt qu'en supposant, la question s'est
+coupée en trois problèmes qui ressemblaient à un seul.
+
+**Un: l'extension d'une Wiimote.** Nunchuk, Classic, guitare, rien. Dolphin les
+échange déjà à 200 Hz, et son propre commentaire le dit: « If a new extension is
+requested in the GUI the change will happen here. » C'est le comportement du
+vrai matériel — on débranche un Nunchuk et on branche une guitare sans éteindre
+la console.
+
+**Deux: brancher une manette GameCube.** Dolphin sait aussi le faire à chaud,
+avec une seconde de battement et un détachement avant l'attachement, parce
+qu'une manette GameCube est branchable à chaud sur la vraie console.
+
+**Trois: passer de la Wiimote à la GameCube sur un jeu Wii.** Mécaniquement le
+deux plus un débranchement de Wiimote. Et là, deux murs: le débranchement
+n'existe que derrière un raccourci de l'interface Qt alors qu'on tourne en
+`--platform headless`, et surtout, sur une vraie Wii, perdre la Wiimote fait
+monter le bandeau système « reconnectez la manette » que brancher une manette
+GameCube ne renvoie pas. Le jeu décide, pas nous.
+
+Le constat général vaut au-delà de cette fonction: **il ne nous manque pas une
+fonction, il nous manque un canal.** Le tuyau qu'on a vers Dolphin ne transporte
+que des boutons et des axes. Tout le reste — changer d'appareil, écrire une
+sauvegarde d'état — est là, dans Dolphin, et injoignable.
+
+Sauf pour le cas un, et c'est la trouvaille. Le choix d'extension accepte une
+EXPRESSION d'entrée, réévaluée à chaque sondage, et Dolphin le documente:
+« First assume attachment string is a valid expression. » On peut donc écrire
+l'extension comme un calcul qui lit un second tuyau, dédié au contrôle. Un
+second tuyau et pas un jeton du premier, parce que le tuyau de Dolphin n'expose
+que douze boutons, exactement les douze de notre trame: en voler un coûterait un
+bouton de jeu.
+
+La manip le prouve contre Mario Strikers Charged, avec le jeu qui tourne depuis
+vingt-cinq secondes au moment du premier ordre. Nunchuk vers Classic, vers
+guitare, retour au Nunchuk, et Dolphin ne redémarre jamais. L'observable est un
+nombre dans le journal de Dolphin, `Switching to Extension N`: pas d'écran à
+regarder, et le nombre NOMME ce qu'on a obtenu au lieu de le laisser deviner.
+
+Ce que la manip ne prouve pas, et exprès: que le JEU accepte l'échange à ce
+moment-là. Dolphin échange, le jeu en fait ce qu'il veut. Guitar Hero attend
+qu'on branche une guitare et devrait suivre; un jeu qui ne lit son type de
+manette qu'à son écran de choix ignorera un changement en plein niveau. Mélanger
+les deux ferait promettre à l'interface une chose que le jeu ne tient pas.
+
+Et un piège qui a coûté une partie à quelqu'un. `dolphin-in-docker.sh` fait
+`docker rm -f nel3ab-dolphin` avant de démarrer, pour la bonne raison qu'un
+émulateur orphelin vole les entrées. La première version de la manip n'a pas
+nommé son conteneur: elle a tué le Dolphin de la salle en cours, qui a redémarré
+et tué le sien en repartant. Code de sortie 137, et une partie relancée sous les
+doigts de quelqu'un pendant que je croyais mesurer.
+
+La leçon est plus large que le nom d'un conteneur: **un script d'essai qui
+emprunte l'outillage de la production en hérite les effets de bord, y compris
+ceux qui sont voulus.** Le `rm -f` n'est pas un défaut, c'est une protection;
+elle protégeait juste quelqu'un d'autre que moi.

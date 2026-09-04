@@ -235,6 +235,19 @@ banc-visuel:
 banc-reel:
     cd spikes/m3-browser-drive && node banc.mjs http://localhost:8100/ /tmp/banc-reel.png
 
+# Changer d'extension de Wiimote sans relancer le jeu.
+#
+# Ici et pas dans `check` parce que ça demande un vrai jeu Wii, l'image Dolphin
+# et une minute: c'est une manip, pas un essai. Elle prouve que Dolphin échange
+# l'extension en cours de partie sur ordre extérieur, et elle ne prouve PAS que
+# le jeu accepte l'échange à ce moment-là — voir son README, qui dit pourquoi la
+# distinction compte.
+#
+# Elle tourne dans son propre conteneur. Sans ça elle tue la salle en cours, ce
+# qui est arrivé.
+manette-a-chaud:
+    python3 spikes/m5-manette-a-chaud/extension-a-chaud.py
+
 # La sieste, jouée en vrai: la salle s'endort, on la réveille, et on lit ce que
 # le worker en a écrit.
 #

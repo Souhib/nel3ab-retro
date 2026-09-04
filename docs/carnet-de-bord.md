@@ -10135,3 +10135,73 @@ les mêmes lignes et passerait pour une réussite: la panne qu'on supprime,
 déguisée en preuve qu'elle est supprimée. C'est la même famille que l'essai qui
 passe alors qu'il ne teste rien, et ce projet en a assez produit pour la
 reconnaître.
+
+## Une soirée à chercher pourquoi un ami rame
+
+Souhib joue, son ami rame. La salle, elle, affiche des chiffres parfaits: 600
+images par fenêtre de dix secondes, encodage à 1,73 ms, entrée à l'image en
+3,3 ms au 95e centile, et zéro image jetée. Tout va bien, sauf pour la personne
+concernée.
+
+C'est la première leçon de la soirée, et elle est gênante: **toutes nos mesures
+étaient des sommes.** Une somme dit « la salle va bien » tant que la MOYENNE va
+bien, ce qui est exactement faux quand une personne sur deux souffre. Le journal
+ne mentait pas, il ne parlait pas de lui.
+
+J'ai aussi pris une fausse piste, et il faut la noter parce qu'elle a coûté du
+temps. Le journal d'accès de Caddy ne montrait qu'une seule adresse, celle de
+Souhib. J'en ai conclu que l'ami n'était pas connecté et j'ai construit une
+hypothèse entière là-dessus. C'était faux: **un WebSocket n'est journalisé qu'à
+sa fermeture**, donc une connexion vivante n'apparaît nulle part. Le journal
+d'uvicorn, lui, montrait bien ses requêtes. Un absent dans un journal ne veut
+pas dire un absent.
+
+Le vrai chiffre est arrivé en mesurant les interfaces: **23,8 Mbit/s par
+spectateur sur Mario Kart Wii**, contre 4 sur Mario Party 4. Un jeu qui bouge
+coûte six fois plus cher, et deux spectateurs demandent alors une cinquantaine
+de mégabits par seconde de montée.
+
+Puis la description exacte des symptômes a tout ouvert: « des rollbacks, des
+images pixelisées, ou au ralenti ». Trois mots, trois défauts différents.
+
+**Pixelisé.** Quand la file d'un spectateur déborde, on le met en attente d'une
+image-clé, parce que les images suivantes référencent celle qui manque. Sauf si
+l'image jetée ÉTAIT la clé: là on la jetait sans rien mettre en attente et sans
+en redemander une. Les images d'après partaient donc en référençant une clé
+jamais reçue, et le décodeur rendait des blocs jusqu'au groupe suivant. Le
+commentaire qui portait l'exception disait « jeter la clé et l'attendre en même
+temps ne mène nulle part »: c'est faux, on n'attend pas celle-là, on attend la
+suivante.
+
+Ce qui rend ce défaut sévère est qu'il frappe le cas le plus PROBABLE. Une clé
+pèse 62 ko contre 9 ko pour une image ordinaire: la file d'un spectateur lent
+déborde donc de préférence sur elle. **Le système jetait de préférence l'image
+dont la perte abîme tout le reste.**
+
+**Au ralenti.** La page allonge sa marge d'affichage quand elle manque d'images.
+C'est la bonne réponse à un réseau qui hoquette et la mauvaise à un lien trop
+étroit: la marge monte au plafond et y reste, et tout ce qu'elle a fait est
+transformer un manque de débit en retard permanent. Le signal existait donc déjà
+et disait la bonne chose; personne ne l'écoutait. La page réduit maintenant le
+format elle-même quand la marge reste au plafond dix secondes, et le dit.
+
+Un compteur manquait, et je l'ai trouvé en écrivant un essai qui a échoué pour
+une raison à laquelle je ne m'attendais pas. `dropped` ne compte que les images
+refusées par une file pleine. Dès que la chaîne casse, on se TAIT au lieu de
+jeter — donc un gel d'une seconde à soixante images par seconde s'y lisait
+« une image jetée ». C'est un compteur qui donne un ordre de grandeur soixante
+fois trop petit, exactement là où il compte. `starved` compte ce qui n'a pas été
+envoyé pendant l'attente.
+
+Et le bug rapporté en passant, « publier dans la salle ne marche pas », était le
+plus simple et le plus vicieux. Le service répondait 200. La référence était
+seulement lue UNE FOIS, à la construction de la boucle d'entrée: publier
+atteignait donc les gens qui ouvraient la page ensuite, et personne d'autre. Le
+bouton marchait pour celui qui appuyait, et pour lui seul — la pire forme de
+panne, parce que celui qui pourrait la voir est le seul à qui elle est invisible.
+
+La leçon qui vaut au-delà de cette soirée: **une mesure agrégée ne peut pas
+répondre à une question individuelle.** On avait construit un tableau de bord
+qui répond à « est-ce que la salle tient » alors que la question posée est
+toujours « pourquoi MOI je rame ». Les deux ne se déduisent pas l'une de
+l'autre, et la première rassure pendant que la seconde saigne.

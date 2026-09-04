@@ -61,6 +61,31 @@ use page::{Packing, serve_body, serve_bytes, serve_missing, serve_page, serve_un
 use route::{Route, classify};
 use stream::{Viewer, carries_key_frame, deliver, sound_thread, video_thread};
 
+pub use stream::ViewerHealth;
+
+/// Relève l'état de chaque spectateur d'une liste.
+///
+/// Une liste verrouillée un instant, pas un compteur tenu en parallèle: deux
+/// sources pour le même nombre finissent par ne plus dire la même chose, et
+/// c'est toujours celle qu'on lit qui a tort.
+fn health_of(viewers: &Viewers) -> Vec<stream::ViewerHealth> {
+    viewers.lock().map_or_else(
+        |_| Vec::new(),
+        |held| {
+            held.iter()
+                .map(|one| stream::ViewerHealth {
+                    tag: one.tag,
+                    delivered: one.delivered,
+                    dropped: one.dropped,
+                    breaks: one.breaks,
+                    starved: one.starved,
+                    resyncing: one.resyncing,
+                })
+                .collect()
+        },
+    )
+}
+
 /// How many frames may wait for the socket before one is dropped.
 ///
 /// Two, not zero and not twenty. Zero would drop a frame every time the write
@@ -725,6 +750,29 @@ impl BrowserServer {
         self.wants_pad.lock().map_or(0, |kind| *kind)
     }
 
+    /// L'état de chaque spectateur du grand format, un par un.
+    ///
+    /// # Pourquoi un par un et pas un total
+    ///
+    /// Les mesures de cette salle étaient toutes des sommes. Un total dit « la
+    /// salle va bien » tant que la MOYENNE va bien, ce qui est exactement faux
+    /// quand une personne sur deux souffre. Le 2026-09-04 quelqu'un a rapporté
+    /// un ami qui ramait pendant que le journal affichait zéro image jetée:
+    /// c'était vrai, et ça ne parlait pas de lui.
+    ///
+    /// Rendu brut, sans jugement: c'est le binaire qui décide ce qui mérite une
+    /// ligne de journal, parce que c'est lui qui connaît la cadence.
+    #[must_use]
+    pub fn viewer_health(&self) -> Vec<stream::ViewerHealth> {
+        health_of(&self.viewers)
+    }
+
+    /// La même chose pour le demi-format.
+    #[must_use]
+    pub fn half_viewer_health(&self) -> Vec<stream::ViewerHealth> {
+        health_of(&self.half_viewers)
+    }
+
     /// Ce que des places ont demandé de brancher depuis la dernière fois.
     ///
     /// Se CONSOMME, contrairement à `pad_wanted`: une demande d'extension est
@@ -1247,10 +1295,7 @@ mod tests {
     fn a_room_without_the_small_stream_drops_those_waiting_for_it() {
         let (half, half_held) = sync_channel::<Framed>(OUTGOING_DEPTH);
         let server = detached(vec![]);
-        server.half_viewers.lock().unwrap().push(Viewer {
-            pipe: half,
-            resyncing: false,
-        });
+        server.half_viewers.lock().unwrap().push(Viewer::new(half));
 
         server.half_offered(false);
 
@@ -1271,10 +1316,7 @@ mod tests {
     fn a_room_that_has_the_small_stream_keeps_its_viewers() {
         let (half, half_held) = sync_channel::<Framed>(OUTGOING_DEPTH);
         let server = detached(vec![]);
-        server.half_viewers.lock().unwrap().push(Viewer {
-            pipe: half,
-            resyncing: false,
-        });
+        server.half_viewers.lock().unwrap().push(Viewer::new(half));
 
         server.half_offered(true);
 
@@ -1360,10 +1402,7 @@ mod tests {
         let (full, full_held) = sync_channel::<Framed>(OUTGOING_DEPTH);
         let (half, half_held) = sync_channel::<Framed>(OUTGOING_DEPTH);
         let server = detached(vec![full]);
-        server.half_viewers.lock().unwrap().push(Viewer {
-            pipe: half,
-            resyncing: false,
-        });
+        server.half_viewers.lock().unwrap().push(Viewer::new(half));
 
         assert!(server.send(&frame()));
         assert!(full_held.try_recv().is_ok(), "le grand format a reçu");
@@ -1467,10 +1506,7 @@ mod tests {
         let (full, _full_held) = sync_channel::<Framed>(OUTGOING_DEPTH);
         let (half, _half_held) = sync_channel::<Framed>(OUTGOING_DEPTH);
         let server = detached(vec![full]);
-        server.half_viewers.lock().unwrap().push(Viewer {
-            pipe: half,
-            resyncing: false,
-        });
+        server.half_viewers.lock().unwrap().push(Viewer::new(half));
 
         // Le demi-format déborde: sa file tient deux images, on en pousse
         // quatre sans que personne ne lise.
@@ -1495,10 +1531,7 @@ mod tests {
         let (full, _full_held) = sync_channel::<Framed>(OUTGOING_DEPTH);
         let (half, _half_held) = sync_channel::<Framed>(OUTGOING_DEPTH);
         let server = detached(vec![full]);
-        server.half_viewers.lock().unwrap().push(Viewer {
-            pipe: half,
-            resyncing: false,
-        });
+        server.half_viewers.lock().unwrap().push(Viewer::new(half));
 
         for _ in 0..4 {
             let _sent = server.send(&frame());

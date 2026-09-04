@@ -917,6 +917,12 @@ fn run(settings: &Settings) -> Result<()> {
     let mut coded_bytes = 0_u64;
     let mut reported_bytes = 0_u64;
     // Les pertes déjà rapportées, pour n'annoncer que celles de la tranche.
+    // Ce que chaque spectateur avait perdu à la fenêtre précédente, par numéro.
+    // Un spectateur qui part disparaît de la relève suivante, donc la table se
+    // remplace en entier plutôt que de se mettre à jour: sinon elle grandirait
+    // d'un souvenir par reconnexion, toute la soirée.
+    let mut health_before: std::collections::HashMap<u64, (u64, u64, u64)> =
+        std::collections::HashMap::new();
     let mut reported_dropped = 0_u64;
     let mut reported_half_dropped = 0_u64;
     let mut reported_slept = 0_u64;
@@ -1256,6 +1262,57 @@ fn run(settings: &Settings) -> Result<()> {
                 input_to_frame_p95_ms = pressed.p95,
                 "streaming"
             );
+
+            // Chaque spectateur, un par un, et seulement ceux qui souffrent.
+            //
+            // # Pourquoi une ligne par personne
+            //
+            // La ligne du dessus est une somme, et une somme dit « la salle va
+            // bien » tant que la MOYENNE va bien. Le 2026-09-04 quelqu'un a
+            // rapporté un ami qui ramait pendant qu'elle affichait zéro image
+            // jetée: c'était vrai, et ça ne parlait pas de lui.
+            //
+            // # Pourquoi un ÉCART et pas un cumul
+            //
+            // Un cumul ne dit jamais si ça se passe maintenant. Celui qui a
+            // souffert une fois il y a une heure garderait son nombre pour la
+            // soirée, et on chercherait une panne éteinte.
+            //
+            // # Pourquoi seulement ceux qui souffrent
+            //
+            // Une ligne par spectateur toutes les dix secondes noierait le
+            // journal d'un « tout va bien » que la ligne du dessus dit déjà.
+            for one in server.viewer_health() {
+                let before = health_before.get(&one.tag).copied().unwrap_or((0, 0, 0));
+                let lost = one.dropped.saturating_sub(before.0);
+                let breaks = one.breaks.saturating_sub(before.1);
+                let missed = one.starved.saturating_sub(before.2);
+                if lost > 0 || breaks > 0 || missed > 0 || one.resyncing {
+                    tracing::warn!(
+                        viewer = one.tag,
+                        dropped_now = lost,
+                        breaks_now = breaks,
+                        // Ce qu'il a vraiment manqué: `dropped` ne compte que le
+                        // refus initial, et un gel d'une seconde à soixante
+                        // images se lirait « une image jetée » sans celui-ci.
+                        missed_now = missed,
+                        // Les cumuls aussi: « il en a perdu trois » se lit
+                        // autrement selon qu'il est là depuis dix secondes ou
+                        // depuis deux heures.
+                        dropped = one.dropped,
+                        missed = one.starved,
+                        delivered = one.delivered,
+                        waiting_for_key = one.resyncing,
+                        "ce spectateur ne suit pas"
+                    );
+                }
+            }
+            health_before = server
+                .viewer_health()
+                .into_iter()
+                .map(|one| (one.tag, (one.dropped, one.breaks, one.starved)))
+                .collect();
+
             reported = Instant::now();
             reported_bytes = coded_bytes;
             reported_dropped = server.dropped();

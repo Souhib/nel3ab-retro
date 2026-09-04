@@ -35,15 +35,7 @@ pub(in crate::browser) fn detached(viewers: Vec<SyncSender<Framed>>) -> BrowserS
         half_joined: Arc::new(std::sync::atomic::AtomicBool::new(false)),
         half_wants_key: Arc::new(std::sync::atomic::AtomicBool::new(false)),
         half_ready: Arc::new(std::sync::atomic::AtomicU8::new(super::HALF_UNKNOWN)),
-        viewers: Arc::new(Mutex::new(
-            viewers
-                .into_iter()
-                .map(|pipe| Viewer {
-                    pipe,
-                    resyncing: false,
-                })
-                .collect(),
-        )),
+        viewers: Arc::new(Mutex::new(viewers.into_iter().map(Viewer::new).collect())),
         listeners: Arc::new(Mutex::new(Vec::new())),
         arrived: Arc::new(Condvar::new()),
         incoming: Arc::new(Mutex::new([None; PORTS])),

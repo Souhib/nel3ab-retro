@@ -33,6 +33,69 @@ pub(super) struct Viewer {
     /// propre. Un spectateur dont la file ne déborde jamais ne voit rien de tout
     /// ceci.
     pub(super) resyncing: bool,
+    /// De quoi le NOMMER dans un journal.
+    ///
+    /// Sans ça les mesures sont des totaux, et un total ne dit jamais qui
+    /// souffre. Le 2026-09-04 quelqu'un a rapporté un ami qui ramait pendant que
+    /// la salle affichait « zéro image jetée »: c'était vrai en moyenne, et
+    /// inutile. Un numéro stable par spectateur est ce qui manquait.
+    pub(super) tag: u64,
+    /// Combien d'images ont été jetées POUR LUI.
+    pub(super) dropped: u64,
+    /// Combien de fois sa chaîne a été cassée, donc combien de gels il a vus.
+    ///
+    /// Distinct des images jetées: une chaîne cassée jette ensuite tout un
+    /// groupe en silence. Compter les deux sépare « il perd une image de temps
+    /// en temps » de « il passe sa soirée à attendre des clés ».
+    pub(super) breaks: u64,
+    /// Combien lui sont arrivées.
+    pub(super) delivered: u64,
+    /// Combien ne lui ont PAS été envoyées pendant qu'il attendait une clé.
+    ///
+    /// C'est le nombre qui dit ce qu'il a vraiment perdu, et il manquait.
+    /// `dropped` ne compte que les images refusées par une file pleine: dès que
+    /// la chaîne casse, on se tait au lieu de jeter, donc un spectateur qui rate
+    /// un groupe entier n'enregistrait qu'UNE image perdue. Un gel d'une seconde
+    /// à soixante images par seconde se lisait « une image jetée ».
+    pub(super) starved: u64,
+}
+
+/// Le prochain numéro de spectateur.
+static NEXT_TAG: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+
+impl Viewer {
+    /// Un spectateur neuf, avec son numéro.
+    pub(super) fn new(pipe: SyncSender<Framed>) -> Self {
+        Self {
+            pipe,
+            resyncing: false,
+            tag: NEXT_TAG.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+            dropped: 0,
+            breaks: 0,
+            delivered: 0,
+            starved: 0,
+        }
+    }
+}
+
+/// Ce qu'on sait d'un spectateur, à un instant.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ViewerHealth {
+    /// Son numéro, stable tant qu'il reste connecté.
+    pub tag: u64,
+    /// Images livrées depuis qu'il est là.
+    pub delivered: u64,
+    /// Images jetées pour lui depuis qu'il est là.
+    pub dropped: u64,
+    /// Fois où sa chaîne a été cassée depuis qu'il est là.
+    pub breaks: u64,
+    /// Images qu'on ne lui a pas envoyées pendant qu'il attendait une clé.
+    ///
+    /// Ce qu'il a réellement manqué, par opposition à `dropped`, qui ne compte
+    /// que le refus initial d'une file pleine.
+    pub starved: u64,
+    /// Attend-il une image-clé en ce moment ?
+    pub resyncing: bool,
 }
 
 /// Hands one access unit to every viewer of one stream.
@@ -73,12 +136,14 @@ pub(super) fn deliver(
         // qui référence ce qu'il n'a pas. On attend la clé.
         if viewer.resyncing {
             if !key {
+                viewer.starved += 1;
                 return true;
             }
             viewer.resyncing = false;
         }
         match viewer.pipe.try_send(message.clone()) {
             Ok(()) => {
+                viewer.delivered += 1;
                 delivered = true;
                 true
             }
@@ -86,12 +151,28 @@ pub(super) fn deliver(
             // untouched, which is the whole point of a queue each.
             Err(TrySendError::Full(_)) => {
                 dropped.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                // Sauf si c'était la clé: la jeter et l'attendre en même
-                // temps ne mènerait nulle part.
-                if !key {
-                    viewer.resyncing = true;
-                    broke = true;
+                // Une clé jetée casse la chaîne comme n'importe quelle image, et
+                // l'exception qui vivait ici rendait des blocs à l'écran.
+                //
+                // Elle disait: jeter la clé et l'attendre en même temps ne mène
+                // nulle part. C'est faux. On n'attend pas CELLE-LÀ, qui n'existe
+                // plus, on attend la SUIVANTE — et on la demande tout de suite.
+                // Sans ça, les images d'après partaient en référençant une clé
+                // jamais reçue, et le décodeur rendait du bruit jusqu'au groupe
+                // suivant.
+                //
+                // C'est le cas le plus PROBABLE, pas le plus rare: une clé pèse
+                // 62 ko contre 9 ko pour une image ordinaire, donc la file d'un
+                // spectateur lent déborde de préférence sur elle.
+                viewer.dropped += 1;
+                // Une chaîne DÉJÀ cassée ne se casse pas deux fois: sans ça, un
+                // spectateur qui rate tout un groupe compterait autant de gels
+                // que d'images, et le nombre ne dirait plus rien.
+                if !viewer.resyncing {
+                    viewer.breaks += 1;
                 }
+                viewer.resyncing = true;
+                broke = true;
                 true
             }
             // Its thread has gone. Forgetting it here is what keeps the list
@@ -196,10 +277,7 @@ pub(super) fn video_thread(
 
     let (sender, frames) = sync_channel::<Framed>(OUTGOING_DEPTH);
     match viewers.lock() {
-        Ok(mut viewers) => viewers.push(Viewer {
-            pipe: sender,
-            resyncing: false,
-        }),
+        Ok(mut viewers) => viewers.push(Viewer::new(sender)),
         Err(_) => return,
     }
     joined.store(true, std::sync::atomic::Ordering::Relaxed);
@@ -258,10 +336,7 @@ pub(super) fn sound_thread(stream: TcpStream, listeners: &Viewers) {
 
     let (sender, chunks) = sync_channel::<Framed>(OUTGOING_DEPTH);
     match listeners.lock() {
-        Ok(mut listeners) => listeners.push(Viewer {
-            pipe: sender,
-            resyncing: false,
-        }),
+        Ok(mut listeners) => listeners.push(Viewer::new(sender)),
         Err(_) => return,
     }
     tracing::info!("a browser is listening");
@@ -321,6 +396,101 @@ mod tests {
         assert!(!carries_key_frame(&[0, 0, 0, 1, 0x41, 0x05, 0x05]));
         // Deux zéros et un un ne font un code de départ qu'ensemble.
         assert!(!carries_key_frame(&[0, 1, 0x65]));
+    }
+
+    /// Les mesures nomment CELUI qui souffre, pas la salle.
+    ///
+    /// Un total dit « tout va bien » tant que la moyenne va bien. Le
+    /// 2026-09-04, quelqu'un a rapporté un ami qui ramait pendant que le journal
+    /// affichait zéro image jetée: c'était vrai, et ça ne parlait pas de lui.
+    #[test]
+    fn each_viewer_carries_its_own_count() {
+        let (fast, fast_held) = sync_channel::<Framed>(OUTGOING_DEPTH);
+        let (slow, _slow_held) = sync_channel::<Framed>(OUTGOING_DEPTH);
+        let server = detached(vec![fast, slow]);
+
+        // Le lent ne vide jamais sa file; le rapide, si.
+        for _ in 0..OUTGOING_DEPTH + 2 {
+            // Le verdict de `send` ne dit rien ici: il vaut « au moins un l'a
+            // reçue », et ce qu'on mesure est la répartition entre les deux.
+            let _ = server.send(&delta());
+            while fast_held.try_recv().is_ok() {}
+        }
+
+        let health = server.viewer_health();
+        assert_eq!(health.len(), 2);
+        let (quick, stuck) = (health[0], health[1]);
+
+        assert_eq!(quick.dropped, 0, "le rapide ne perd rien: {quick:?}");
+        assert!(stuck.dropped > 0, "le lent perd: {stuck:?}");
+        assert!(stuck.resyncing, "et il attend une clé");
+        // Le jumeau qui porte tout: les deux ne se confondent pas. Sans lui, un
+        // relevé qui rendrait deux fois le même spectateur passerait.
+        assert_ne!(quick.tag, stuck.tag);
+        assert!(quick.delivered > stuck.delivered);
+    }
+
+    /// Une chaîne déjà cassée ne se casse pas une seconde fois.
+    ///
+    /// Sans ça, un spectateur qui rate tout un groupe compterait autant de gels
+    /// que d'images perdues, et le nombre cesserait de vouloir dire « combien de
+    /// fois son image s'est figée ».
+    #[test]
+    fn a_broken_chain_counts_one_break_not_many() {
+        let (slow, _held) = sync_channel::<Framed>(OUTGOING_DEPTH);
+        let server = detached(vec![slow]);
+
+        for _ in 0..OUTGOING_DEPTH + 5 {
+            let _ = server.send(&delta());
+        }
+
+        let health = server.viewer_health()[0];
+        assert_eq!(
+            health.breaks, 1,
+            "un seul gel, pas un par image: {health:?}"
+        );
+        // Une seule image REFUSÉE: dès que la chaîne casse on se tait au lieu de
+        // jeter. C'est ce qui rendait `dropped` trompeur — un gel d'une seconde
+        // s'y lisait « une image ».
+        assert_eq!(health.dropped, 1, "{health:?}");
+        // Ce qu'il a vraiment manqué, lui, est compté.
+        assert!(health.starved >= 4, "{health:?}");
+    }
+
+    /// Une CLÉ jetée casse la chaîne comme n'importe quelle image.
+    ///
+    /// Le défaut du 4 septembre 2026, rapporté comme « des images pixelisées ».
+    /// Quand la file débordait, on mettait le spectateur en attente d'une clé —
+    /// sauf si l'image jetée ÉTAIT la clé. On la jetait alors sans rien mettre
+    /// en attente et sans en redemander une, donc les images suivantes partaient
+    /// quand même en référençant une clé jamais reçue. Le décodeur rendait des
+    /// blocs jusqu'à la clé suivante, une seconde plus loin.
+    ///
+    /// Et c'est le cas le PLUS probable, pas le plus rare: une clé pèse
+    /// 62 ko contre 9 ko pour une image ordinaire, mesuré ce soir-là. La file
+    /// d'un spectateur lent déborde donc de préférence sur l'image dont la perte
+    /// abîme tout ce qui suit.
+    #[test]
+    fn a_dropped_key_frame_breaks_the_chain_like_any_other() {
+        let (sender, held) = sync_channel::<Framed>(OUTGOING_DEPTH);
+        let server = detached(vec![sender]);
+
+        for _ in 0..OUTGOING_DEPTH {
+            assert!(server.send(&delta()));
+        }
+        // La clé qui déborde. Elle est perdue comme les autres.
+        assert!(!server.send(&frame()), "la file est pleine");
+        assert_eq!(server.dropped(), 1);
+
+        // La file se vide, et rien ne doit repartir: les images qui suivent
+        // référencent la clé qu'on vient de jeter.
+        while held.try_recv().is_ok() {}
+        assert!(!server.send(&delta()), "rien tant que la clé manque");
+        assert!(held.try_recv().is_err(), "et rien n'est arrivé non plus");
+
+        // La clé SUIVANTE répare, comme dans l'autre sens.
+        assert!(server.send(&frame()), "la clé suivante passe");
+        assert!(held.try_recv().is_ok());
     }
 
     /// Ce qu'un spectateur en difficulté reçoit entre deux clés: rien.

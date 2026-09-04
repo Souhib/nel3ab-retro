@@ -23,5 +23,5 @@ pub mod browser;
 pub mod clip;
 pub mod control;
 
-pub use browser::{BrowserServer, Packet, TransportError};
+pub use browser::{BrowserServer, Packet, TransportError, ViewerHealth};
 pub use control::OwnerSeat;

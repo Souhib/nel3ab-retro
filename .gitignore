@@ -24,3 +24,8 @@ __pycache__/
 
 # La sortie d'un pilote de navigateur, gardée le temps de la lire et pas plus.
 spikes/m3-browser-drive/*.log
+
+# Le cache de vitest s'était retrouvé suivi: il change à chaque essai lancé,
+# donc il salissait tous les diffs et a failli entrer dans un commit qui ne
+# parlait pas de lui.
+node_modules/

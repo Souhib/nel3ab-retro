@@ -27,7 +27,7 @@ export function Booting({ game, save, step }: { game: string; save?: string; ste
   return (
     <div
       id="booting"
-      className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-6 bg-black"
+      className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-6 bg-ink"
     >
       <div className="flex flex-col items-center gap-2">
         <span className="font-mono text-[11px] uppercase tracking-[0.3em] text-faint">

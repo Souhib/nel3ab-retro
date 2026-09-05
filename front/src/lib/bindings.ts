@@ -203,9 +203,16 @@ export function useRoomReference(onChange?: () => void) {
       const proposed = await readRoomBindings({ throwOnError: true })
         .then((got) => got.data ?? null)
         .catch(() => null);
+      // Un plan de contrôle qui ne répond pas n'est pas une salle sans
+      // référence. La version d'avant rangeait alors une référence VIDE, donc
+      // une coupure de trente secondes effaçait chez tout le monde les profils
+      // publiés — et la boucle, prévenue, les retirait de l'écran. Trouvé par
+      // l'audit du 2026-09-05, sur le correctif de la veille. On garde ce qu'on
+      // avait et on ne prévient personne: rien n'a changé.
+      if (proposed === null) return roomReference();
       const kept: Bindings = {
-        pads: (proposed?.pads ?? {}) as Record<string, unknown>,
-        keys: (proposed?.keys ?? {}) as Record<string, unknown>,
+        pads: (proposed.pads ?? {}) as Record<string, unknown>,
+        keys: (proposed.keys ?? {}) as Record<string, unknown>,
       };
       // Rangé AVANT de prévenir: celui qu'on prévient relit le navigateur.
       keepReference(kept);

@@ -822,12 +822,20 @@ function Room({
    */
   const overloaded = shot?.video.overloaded ?? false;
   const [reduced, setReduced] = useState(false);
+  /** La personne a dit non: on ne réduit plus de la visite.
+   *
+   * Sans ce verrou, « revenir en pleine taille » était annulé dans la foulée:
+   * remonter remettait `half` à faux, l'effet se rejouait, `overloaded` était
+   * toujours vrai, et la page réduisait à nouveau avant le rendu suivant. Le
+   * bouton avait l'air de ne rien faire. Trouvé par l'audit du 2026-09-05, sur
+   * le correctif de la veille. */
+  const [declined, setDeclined] = useState(false);
   useEffect(() => {
-    if (!overloaded || half || denied || !session) return;
+    if (!overloaded || half || denied || declined || !session) return;
     session.video.setHalf(true);
     setHalf(true);
     setReduced(true);
-  }, [overloaded, half, denied, session]);
+  }, [overloaded, half, denied, declined, session]);
 
   /** Les consoles présentes dans cette bibliothèque, dans l'ordre des sorties.
    *
@@ -1331,6 +1339,7 @@ function Room({
                 type="button"
                 id="undoReduced"
                 onClick={() => {
+                  setDeclined(true);
                   session?.video.setHalf(false);
                   setHalf(false);
                   setReduced(false);

@@ -253,3 +253,58 @@ def test_the_four_real_seats_are_still_claimable(settings: Settings) -> None:
         "joueur 3",
         "joueur 4",
     ]
+
+
+async def test_a_session_holds_one_seat_at_a_time() -> None:
+    """Se rebrancher ailleurs rend la place d'avant.
+
+    Le défaut du 5 septembre 2026: `claim` retenait la nouvelle place sans
+    lâcher l'ancienne. Une page qui recharge et à qui le worker donne un autre
+    port occupait alors DEUX places, et son nom s'affichait sous deux numéros —
+    rapporté comme « mon nom apparaît sous joueur 1 alors que je suis 2 ».
+    """
+    settings = Settings()
+    rooms = RoomController(settings, httpx.AsyncClient())
+
+    rooms.claim(1, "sid-souhib", "Souhib")
+    rooms.claim(2, "sid-souhib", "Souhib")
+
+    held = {seat.port: seat.player for seat in rooms.seats()}
+    assert held[2] == "Souhib"
+    assert held[1] is None, f"la place d'avant doit être rendue: {held}"
+
+
+async def test_a_seat_held_by_somebody_gone_can_be_taken() -> None:
+    """Une place retenue par une socket morte se rend, elle ne bloque pas.
+
+    Sur un rechargement, l'ancienne socket tient encore la place quand la
+    nouvelle l'annonce: le worker, lui, a déjà réattribué le port. Refuser la
+    nouvelle laissait la salle afficher l'ancien état, et le refus n'était même
+    pas rattrapé — le gestionnaire mourait avant de prévenir qui que ce soit.
+    """
+    settings = Settings()
+    rooms = RoomController(settings, httpx.AsyncClient())
+    rooms.claim(1, "sid-avant", "Souhib")
+
+    # Seule la nouvelle socket est encore là.
+    rooms.forget_absent({"sid-apres"})
+    rooms.claim(1, "sid-apres", "Souhib")
+
+    assert rooms.holder_of(1) == "sid-apres"
+
+
+async def test_a_seat_held_by_somebody_still_here_is_left_alone() -> None:
+    """Le jumeau: on ne rend que ce qui est vraiment parti.
+
+    Sans lui, un balayage qui viderait tout passerait l'essai du dessus et
+    libérerait la manette de quelqu'un en train de jouer.
+    """
+    settings = Settings()
+    rooms = RoomController(settings, httpx.AsyncClient())
+    rooms.claim(1, "sid-souhib", "Souhib")
+    rooms.claim(2, "sid-yassine", "Yassine")
+
+    rooms.forget_absent({"sid-souhib", "sid-yassine"})
+
+    assert rooms.holder_of(1) == "sid-souhib"
+    assert rooms.holder_of(2) == "sid-yassine"

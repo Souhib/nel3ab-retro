@@ -64,6 +64,15 @@ class PeopleController:
         if sid in self._present:
             self._present[sid] = (self._present[sid][0], name)
 
+    def live(self) -> set[str]:
+        """Les sockets encore là.
+
+        Rendu à la salle pour qu'elle rende les places de celles qui sont
+        parties. La présence est tenue ICI, donc la question se pose ici; en
+        garder une seconde copie ailleurs ferait deux vérités à tenir d'accord.
+        """
+        return set(self._present)
+
     def left(self, sid: str) -> None:
         self._present.pop(sid, None)
 

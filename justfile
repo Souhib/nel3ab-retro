@@ -434,6 +434,15 @@ browser-background:
 browser-seats:
     cd spikes/m3-browser-drive && node seat-kept.mjs http://localhost:8100/ 25
 
+# Les noms des places suivent-ils qui les tient, après un rechargement ?
+#
+# Contre la salle COMPLÈTE, par le proxy: c'est le désaccord entre le worker,
+# qui attribue les ports, et le plan de contrôle, qui porte les noms, qu'on
+# vient mesurer. Taper le worker en direct donnerait une salle sans noms, donc
+# un pilote qui passe en ne vérifiant rien.
+places:
+    cd spikes/m3-browser-drive && node places.mjs
+
 # Can a person take the controller back from a page that is merely open? Needs
 # the worker RUNNING and NOBODY else holding a port — the test says so rather
 # than passing vacuously.

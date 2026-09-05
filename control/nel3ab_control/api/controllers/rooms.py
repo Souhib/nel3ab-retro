@@ -7,6 +7,7 @@ The two can disagree for a second after a reconnection, and the page believes th
 worker.
 """
 
+from collections.abc import Container
 from time import monotonic
 
 import httpx
@@ -169,6 +170,15 @@ class RoomController:
         held = self._claims.get(port)
         if held is not None and held != session:
             raise SeatTaken(port)
+        # Une session tient UNE place. Sans cette ligne, une page qui recharge et
+        # à qui le worker donne un autre port occupait les deux, et son nom
+        # s'affichait sous deux numéros — rapporté le 5 septembre 2026 comme
+        # « mon nom apparaît sous joueur 1 alors que je suis 2 ».
+        #
+        # C'est le worker qui attribue les ports, jamais nous: cette table n'est
+        # qu'une copie de sa décision, et une copie qui garde deux valeurs pour
+        # une seule vérité finit toujours par montrer la mauvaise.
+        self._claims = {at: who for at, who in self._claims.items() if who != session or at == port}
         self._claims[port] = session
         self._named[session] = name
 
@@ -181,6 +191,32 @@ class RoomController:
         """
         self._claims = {port: who for port, who in self._claims.items() if who != session}
         self._named.pop(session, None)
+
+    def forget_absent(self, live: Container[str]) -> list[int]:
+        """Rend les places dont la session n'est plus là. Dit lesquelles.
+
+        # Pourquoi ça ne peut pas attendre la déconnexion
+
+        Une page qui recharge ouvre sa nouvelle socket AVANT que l'ancienne soit
+        déclarée partie. Le worker, lui, a déjà réattribué le port: il ne compte
+        que les tuyaux vivants. Pendant cette fenêtre, la nouvelle annonce
+        tombait sur une place que l'ancienne tenait encore, `SeatTaken` était
+        levée, et personne ne rattrapait rien — le gestionnaire mourait avant de
+        prévenir la salle, qui restait donc sur l'affichage d'avant.
+
+        Rendre d'abord ce qui est mort transforme ce conflit en non-événement.
+
+        # Ce que ça ne fait PAS
+
+        Rendre une place que quelqu'un tient encore. C'est le jumeau qui compte:
+        un balayage qui viderait tout passerait l'essai du dessus et arracherait
+        la manette de quelqu'un en train de jouer.
+        """
+        gone = [at for at, who in self._claims.items() if who not in live]
+        for at in gone:
+            who = self._claims.pop(at)
+            self._named.pop(who, None)
+        return gone
 
     def rename(self, session: str, now: str) -> None:
         """Une place suit son occupant quand il change de pseudo.

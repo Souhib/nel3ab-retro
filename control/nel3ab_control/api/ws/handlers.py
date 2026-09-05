@@ -17,6 +17,7 @@ from typing import Any, Protocol
 
 from nel3ab_control.api.controllers.people import PeopleController
 from nel3ab_control.api.controllers.rooms import RoomController
+from nel3ab_control.api.schemas.error import SeatTaken
 from nel3ab_control.api.ws.server import ROOM, broadcast, sio
 from nel3ab_control.identity import caller_of
 from nel3ab_control.journal import Journal
@@ -277,7 +278,30 @@ async def seat(sid: str, data: dict[str, Any]) -> None:
         port = _port(data)
         if port is None:
             return
-        rooms.claim(port, sid, session["name"])
+        # Rendre d'abord ce que des sockets mortes tiennent encore.
+        #
+        # Une page qui recharge ouvre sa nouvelle socket AVANT que l'ancienne
+        # soit déclarée partie, alors que le worker a déjà réattribué le port:
+        # il ne compte que les tuyaux vivants. Sans ce balayage, la nouvelle
+        # annonce tombait sur une place tenue par un fantôme.
+        rooms.forget_absent(people.live())
+        try:
+            rooms.claim(port, sid, session["name"])
+        except SeatTaken:
+            # Refusée, mais la salle est prévenue QUAND MÊME.
+            #
+            # L'exception traversait le gestionnaire sans que personne ne la
+            # rattrape: ni le journal ni la diffusion ne tournaient, donc les
+            # autres pages restaient sur l'affichage d'avant et le refus était
+            # invisible. Une place refusée est un fait à montrer, pas une panne.
+            journal.write(
+                "place refusée",
+                **_who(sid, session),
+                place=port,
+                salle=_room_now(rooms, people),
+            )
+            await broadcast(rooms, people, journal, bool(session.get("banc")))
+            return
     journal.write(
         "place",
         **_who(sid, session),

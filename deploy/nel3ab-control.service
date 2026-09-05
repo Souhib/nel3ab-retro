@@ -63,6 +63,13 @@ Environment=NEL3AB_ROOM_NAME=lgf
 # Vide veut dire personne, et c'est le défaut: une salle déployée ailleurs n'a
 # pas de référence et se comporte comme avant.
 Environment=NEL3AB_ADMIN=souhib.t@hotmail.fr
+# Les origines admises au salon, en JSON. Jamais vide: vide veut dire « tout le
+# monde » pour python-socketio, et n'importe quel site ouvert dans le navigateur
+# d'un membre du tailnet parlait alors à la salle en son nom (5 septembre 2026).
+# Si la porte `.ts.net` sert encore, son origine doit s'ajouter ici.
+# Guillemets simples autour de tout: systemd retire les guillemets doubles d'une
+# valeur non protégée, et le JSON arrivait au service sans les siens.
+Environment='NEL3AB_ORIGINS=["https://nel3ab.app"]'
 # Nothing about pads here on purpose: the worker reports how many the room has,
 # in `/roms`, because it is what tells Dolphin which ports hold a controller.
 # This file used to carry a second copy of that number, which had to agree with

@@ -347,6 +347,14 @@ async def answer(sid: str, data: dict[str, Any]) -> None:
     port = _port(data)
     if port is None:
         return
+    # Seul le PORTEUR répond. Sans cette ligne, n'importe qui — y compris celui
+    # qui demande — pouvait envoyer « oui » à sa propre demande et libérer la
+    # place de quelqu'un en train de jouer: exactement la prise que « demander
+    # au lieu de prendre » existe pour empêcher. Trouvé par l'audit du
+    # 2026-09-05. Vérifié AVANT de consommer la demande, sinon un faux « oui »
+    # l'effacerait et le vrai porteur n'aurait plus rien à quoi répondre.
+    if rooms.holder_of(port) != sid:
+        return
     asker = rooms.take_ask(port)
     if asker is None:
         return

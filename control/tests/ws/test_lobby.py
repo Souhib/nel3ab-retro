@@ -814,3 +814,42 @@ def test_the_two_save_names_say_the_same_thing_on_both_sides() -> None:
     source = (Path(__file__).parents[3] / "front/src/lib/saves.ts").read_text(encoding="utf-8")
     for code, label in enumerate(SAVES):
         assert f'id: {code}, label: "{label}"' in source, f"la page ne nomme plus {code} ainsi"
+
+
+async def test_only_the_holder_may_answer(served: tuple[str, RoomController]) -> None:
+    """Celui qui demande ne peut pas répondre « oui » à sa propre demande.
+
+    Le défaut du 5 septembre 2026: la réponse n'était pas rapprochée du
+    porteur. N'importe quelle page pouvait envoyer « oui » et libérer la place
+    de quelqu'un en train de jouer, ce qui est la prise que « demander au lieu
+    de prendre » existe pour empêcher.
+    """
+    url, rooms = served
+    answered: list[dict] = []
+
+    holder = socketio.AsyncClient()
+    await holder.connect(url, auth={"name": "Souhib"}, socketio_path="/socket.io")
+    await holder.emit("seat", {"port": 2})
+    await asyncio.sleep(0.2)
+
+    asker = socketio.AsyncClient()
+    asker.on("answered", answered.append)
+    await asker.connect(url, auth={"name": "Vincent"}, socketio_path="/socket.io")
+    await asker.emit("ask", {"port": 2})
+    await asyncio.sleep(0.2)
+    # Le demandeur se répond à lui-même.
+    await asker.emit("answer", {"port": 2, "ok": True})
+    await asyncio.sleep(0.3)
+
+    assert answered == [], "personne ne doit recevoir de réponse"
+    assert rooms.seats()[1].player == "Souhib", "la place n'a pas bougé"
+
+    # Et la demande n'a pas été consommée par le faux « oui »: le vrai porteur
+    # peut encore y répondre. Sans ce jumeau, un refus qui aurait quand même
+    # effacé la demande passerait les deux assertions du dessus.
+    await holder.emit("answer", {"port": 2, "ok": True})
+    await asyncio.sleep(0.3)
+    assert answered == [{"ok": True, "port": 2, "from": "Souhib"}]
+
+    await holder.disconnect()
+    await asker.disconnect()

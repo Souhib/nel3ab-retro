@@ -10251,3 +10251,71 @@ l'expose à personne. Le plan de contrôle ne peut donc pas se recaler sur lui,
 seulement espérer que les annonces arrivent dans le bon ordre. Tant que la
 question « qui est à la place 2 » aura deux réponses possibles, on rattrapera
 des symptômes.
+
+## L'audit qui s'est arrêté à mi-chemin, et ce qu'il a trouvé quand même
+
+Souhib a demandé un audit complet, en remettant tout en question. Seize
+auditeurs indépendants, chacun sur une partie ou une question, puis trois
+sceptiques par constat, puis une synthèse. La limite de session du compte est
+tombée après neuf auditeurs sur seize: 104 constats bruts, aucun contredit, pas
+de synthèse. Les sept regards manquants sont précisément ceux qui comptent le
+plus pour un système en production: la boucle média, la sécurité, la
+performance, les essais, l'exploitation, la documentation, et la remise en
+question des prémisses.
+
+Ce qui a été fait de l'intervalle: vérifier moi-même les dix-sept constats
+critiques et hauts en ouvrant le code cité, et corriger ceux qui étaient à la
+fois confirmés et petits. Plusieurs visaient mon propre travail de la nuit
+d'avant, ce qui est exactement à quoi sert un regard extérieur.
+
+**La faille.** Sur la porte `nel3ab.app`, n'importe quel pair du tailnet pouvait
+être Souhib. Le service essaie les en-têtes d'identité AVANT de demander à
+tailscaled, et les croit dès qu'il y en a exactement un. Le Caddyfile disait
+« ce que le client mettrait lui-même est appendu, pas cru » — c'était vrai de
+la porte `.ts.net`, où tailscaled écrit l'en-tête, et faux de celle-ci, où
+Caddy relayait tel quel. Vérifié en forgeant `attaquant@example.com`: la salle
+répondait `attaquant@example.com`. Caddy retire maintenant ces en-têtes; il ne
+reste que `X-Forwarded-For`, qu'il écrit lui-même, et `whois`.
+
+Une découverte à côté: `reload` ne peut jamais marcher sur cette unité, parce
+que le Caddyfile dit `admin off` et que `caddy reload` passe par l'API
+d'administration. Ça échouait en silence, et la salle continuait sur l'ancienne
+configuration en ayant l'air d'avoir pris la nouvelle. Il faut redémarrer.
+
+**La régression à moi.** Mon correctif de la veille faisait qu'une clé jetée
+casse la chaîne, ce qui est juste. Mais la chaîne cassée redemande une clé, et
+cette demande-là posait le drapeau directement, sans passer par le limiteur —
+le commentaire disait « déjà limitée en fréquence », c'était faux sur ce
+chemin. Un spectateur dont la file reste pleine faisait donc une boucle: clé
+forcée, jetée, chaîne cassée, clé redemandée. Une image-clé à CHAQUE image,
+pour tout le monde, six fois le débit. Tant que la clé jetée ne cassait rien,
+la boucle n'existait pas: c'est mon correctif qui l'a ouverte. L'auditeur l'a
+vue en moins d'une heure; je ne l'avais pas vue en la déployant.
+
+**Le vol de manette.** N'importe qui pouvait répondre « oui » à une demande de
+manette, y compris celui qui demandait. La réponse n'était pas rapprochée du
+porteur. C'est la prise que « demander au lieu de prendre » existe pour
+empêcher.
+
+**La sauvegarde effacée.** `rescue` promettait « jamais à la poubelle » et, quand
+le nom de mise à l'abri était pris, supprimait le dossier avec un `unwrap_or(())`
+qui cachait même l'échec. Le cas est rare. Une sauvegarde effacée ne se
+récupère pas.
+
+Et trois petites choses à moi, de la veille: une coupure du plan de contrôle
+effaçait la référence publiée chez tout le monde (on rangeait une référence
+vide au lieu de garder l'ancienne); « revenir en pleine taille » était annulé
+dans la foulée parce que l'effet se rejouait; les spectateurs du demi-format,
+ceux dont la liaison va le moins bien, n'étaient pas dans le relevé.
+
+Ce qui est confirmé et PAS corrigé, parce que c'est de la structure: le choix
+d'extension par place est perdu au redémarrage, où le worker rebranche la même
+chose sur toutes les places depuis un réglage de salle. La page envoie deux
+messages pour tenir les deux d'accord, avec une table écrite à la main. La
+bonne forme est que la place porte son extension et que le worker la retienne
+par place.
+
+La leçon de la nuit tient en une phrase: **les constats les plus utiles de cet
+audit portaient sur le code de la veille.** Un correctif écrit sous la pression
+d'un ami qui rame est exactement celui qu'il faut relire à froid, et je ne
+l'avais pas fait.

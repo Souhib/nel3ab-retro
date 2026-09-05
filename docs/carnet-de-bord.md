@@ -9949,6 +9949,45 @@ audit portaient sur le code de la veille.** Un correctif écrit sous la pression
 d'un ami qui rame est exactement celui qu'il faut relire à froid, et je ne
 l'avais pas fait.
 
+### La deuxième moitié de l'audit, et une porte de plus
+
+Quinze regards sur seize ont fini. Cinq nouveaux constats hauts, vérifiés à
+la main comme la veille; trois visaient encore mon code de la nuit d'avant.
+
+**Une deuxième porte ouverte.** Le salon acceptait la poignée de main socket.io
+de n'importe quelle origine. Le commentaire disait « vide: même origine
+seulement »; pour python-socketio, une liste vide veut dire aucun contrôle.
+Vérifié avec `Origin: https://evil.example`: HTTP 200 et un identifiant de
+session. N'importe quel site ouvert dans le navigateur d'un membre du tailnet
+pouvait donc parler à la salle, et le service l'identifiait, par `whois` sur
+l'adresse du membre, comme le membre lui-même. Une garde qui n'existait pas,
+avec un commentaire qui disait qu'elle existait. C'est la même famille que la
+porte d'hier: la sûreté reposait sur une croyance écrite, jamais sur une
+épreuve.
+
+En l'appliquant, une minute de coupure à moi: systemd retire les guillemets
+doubles d'une valeur d'environnement non protégée, donc le JSON arrivait au
+service sans les siens et il refusait de démarrer. Guillemets simples autour de
+tout. Une valeur qui a la forme d'un code source ne se dépose pas dans une
+unité sans se relire.
+
+**Mon code, encore.** La bascule automatique en demi-format était MÉMORISÉE:
+elle passait par le même chemin que le choix de la personne, donc la visite
+suivante démarrait réduite même sur un bon lien, sans un mot. Et la fenêtre
+d'allure se fermait tous les 120 rendus, pas toutes les deux secondes: « dix
+secondes au plafond » devenait trente sur un client qui peint à 20 images par
+seconde, précisément celui qu'on voulait soulager, et jamais si la page cessait
+de peindre. Toutes les durées écrites autour étaient fausses dans le seul cas
+qui comptait. Elle se ferme au temps.
+
+**Une assertion qui ne pouvait pas échouer.** Dans un essai de bannière,
+`prop_assert_eq!` vivait derrière un `if let Ok`: quand la lecture échouait,
+l'essai passait sans rien dire, alors que le commentaire du dessus promettait
+qu'elle aboutit. La règle 4 nomme exactement ce cas, et il était là.
+
+Le compte, à ce point: quatorze constats vérifiés et corrigés, dont sept sur du
+code écrit dans les quarante-huit heures précédentes.
+
 ## 12. Glossaire complet
 
 **ABI** — *Application Binary Interface*. La disposition exacte des données en

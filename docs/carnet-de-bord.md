@@ -9497,7 +9497,459 @@ dont trois qui ont d'abord trouvé de vraies régressions (7.11).
 
 ---
 
-## 11. Glossaire complet
+## 11. Septembre: ce que le mois a appris
+
+Les entrées de ce chapitre ont été écrites au fil de l'eau entre le 2 et le
+5 septembre 2026, chacune dans le changement qui l'a méritée. Elles avaient
+atterri APRÈS le glossaire: l'ancrage qui les rangeait cherchait un titre
+« Glossaire » et le vrai titre porte un numéro. Huit fois de suite, sans que
+rien ne le dise. C'est l'auditeur de la documentation qui l'a vu, le 5
+septembre, et c'est exactement le genre de dérive qu'un audit sert à trouver:
+un fichier qui grandit du mauvais côté en ayant l'air d'être tenu.
+
+### Deux nombres qui se ressemblent et ne veulent pas dire la même chose
+
+Sur l'écran des deux manettes, les sticks de gauche partaient du mauvais côté.
+Souhib l'a vu tout de suite, et a dit la chose exacte qui désigne le coupable:
+en jouant, tout marche. Le défaut ne pouvait donc pas être sur le fil, seulement
+dans l'affichage.
+
+Il l'était. Le schéma de droite s'incline des axes bruts du navigateur, qui
+comptent le vertical vers le bas. Celui de gauche s'incline de ce que le jeu
+reçoit, où le haut est positif — c'est `readPad` qui retourne l'axe, et c'est
+juste: c'est la convention de la manette émulée, et elle part telle quelle sur
+le fil. SVG, lui, compte vers le bas comme le navigateur. Le côté gauche
+descendait donc quand on poussait en haut.
+
+Ce qui rend le défaut intéressant n'est pas le signe, c'est qu'il était
+**indicible**. Les deux appels passaient un `[number, number]`, le même type des
+deux côtés, pour deux conventions opposées. Aucun compilateur ne pouvait s'en
+plaindre, et aucune relecture non plus: les deux lignes se ressemblaient trop.
+
+Le correctif n'est donc pas le moins du monde: c'est un type `Tilt` qui ne se
+construit qu'en nommant le repère d'où l'on vient, `upward` ou `downward`. Le
+signe n'est plus écrit à l'appel, il est écrit une fois dans la fonction qui
+porte le nom de la convention. C'est la règle « rendre l'état invalide
+irreprésentable » appliquée à quelque chose d'aussi petit qu'un signe.
+
+L'essai qui compte n'assure pas qu'`upward` nie son argument — ça, c'est
+relire le code deux fois. Il pousse un stick une seule fois, en haut à droite,
+fait descendre cette poussée par les deux chemins, et exige que les deux
+schémas penchent du même côté. Il échoue si l'un des deux se retourne, quel que
+soit celui qui a tort. Vérifié en réintroduisant le défaut: trois essais
+rouges.
+
+La leçon générale est plus large que cet écran. Deux grandeurs qui ont la même
+forme et des conventions contraires finiront par être échangées, et le jour où
+ça arrive, rien ne le dit. Le moment de leur donner deux noms est celui où on
+s'aperçoit qu'il y en a deux.
+
+### Un schéma qui s'allume ne dit pas pourquoi ça marche mal
+
+Souhib a pointé hardwaretester.com/gamepad et dit qu'il n'aimait pas notre
+écran. En allant regarder la page, ce n'est pas son habillage qui saute aux
+yeux, c'est son parti pris: elle n'affiche presque pas de manette. Elle affiche
+des **nombres**. Un chiffre par bouton, deux par stick, un horodatage, et une
+petite silhouette dans un coin.
+
+C'est un meilleur outil que le nôtre pour une raison précise. Notre schéma
+répond à « est-ce que ça marche »: une pièce s'allume ou pas. Les pannes de
+manette qu'on rencontre vraiment ne sont pas binaires. Un stick qui dérive de
+0,03 fait avancer le personnage tout seul; une gâchette qui repose à 0,6 est
+enfoncée en permanence pour le navigateur; un bouton qui plafonne à 0,98 marche
+partout sauf là où le jeu attend 1. Un schéma arrondit ces trois cas à
+« allumé », et on les cherche ailleurs pendant une heure.
+
+Le banc d'essai ajoute donc les chiffres bruts sous les deux schémas. Notre
+palette et nos thèmes restent: ce qui est repris est l'ORGANISATION de
+l'information, pas l'habillage d'un site, et il n'était de toute façon pas
+question de copier son dessin de manette.
+
+Deux décisions valent d'être notées.
+
+La première: le panneau se calcule du nombre d'axes que la manette annonce,
+pas d'un gabarit à deux sticks. Une manette standard en rend quatre; un
+adaptateur en rend ce qu'il veut. Un compte impair n'est pas une anomalie,
+c'est une pédale ou un curseur, et l'arrondir en bas ferait disparaître un axe
+en silence. C'est exactement la forme de la panne d'adaptateur GameCube qu'on a
+déjà eue, alors elle a son essai.
+
+La seconde: les vingt nombres bougent à la cadence de l'écran, et la règle 8
+interdit de rendre React sur le chemin de l'image. La structure est donc rendue
+une fois avec des marques stables, et une fonction écrit dedans. Ça rend un
+contrat implicite explicite: tant que « qui pose les marques » et « qui écrit
+dedans » vivaient dans deux fichiers, rien ne pouvait vérifier qu'ils parlaient
+des mêmes. Maintenant des essais jsdom posent le balisage, appellent, et lisent
+ce qui a été écrit.
+
+Et un piège rejoué, pour la deuxième fois. Après avoir tout construit, j'ai
+photographié l'écran contre le worker qui tourne — et le banc n'y était pas. Le
+worker sert la page compilée dans son binaire, donc il servait celle d'avant. Le
+même piège avait déjà coûté du temps il y a quelques semaines. Ce qui a changé
+cette fois est que je l'ai reconnu tout de suite, mais la vraie leçon est plus
+gênante: le balayage de contraste, `just browser-contraste`, tape ce même worker.
+Il a annoncé « tout le texte tient son seuil » sans avoir jamais vu le banc.
+
+Un outil de vérification qui regarde la mauvaise version ne dit pas qu'il s'est
+trompé: il dit que tout va bien. C'est pire que pas d'outil, et c'est la même
+famille d'erreur qu'un essai qui passe alors qu'il ne teste rien. Le contraste
+du banc est donc mesuré par un pilote qui passe par Vite, et la note de reprise
+dit maintenant, à côté de chaque commande, quelle version elle regarde.
+
+### Ajouter n'est pas changer
+
+Après avoir construit le banc d'essai, Souhib a répondu: « rien n'a changé en
+terme de design ». Il avait raison, et la leçon dépasse cet écran.
+
+Il avait demandé le design de hardwaretester parce qu'il n'aimait pas le nôtre.
+J'ai regardé la page, compris ce qui la rend bonne — elle montre des nombres
+plutôt qu'une manette — et j'ai AJOUTÉ un panneau de nombres sous nos deux
+schémas. Les schémas, c'est-à-dire exactement la chose qu'il regardait et disait
+ne pas aimer, n'ont pas bougé d'un pixel.
+
+C'est une manière de rater une demande qui se déguise en travail sérieux: on
+livre quelque chose de vrai, de mesuré, de testé, et à côté de la question.
+« J'aime pas le design actuel » désigne un objet précis, et j'ai répondu à
+« qu'est-ce qui manque » au lieu de « qu'est-ce qui déplaît ».
+
+Une cause plus bête brouillait le diagnostic, et elle vaut d'être notée: un
+onglet resté ouvert depuis avant le redémarrage continue de faire tourner
+l'ancien JavaScript. Le flux vidéo, lui, se reconnecte tout seul, ce qui donne
+une page qui a l'air vivante et qui est périmée. « Rien n'a changé » pouvait donc
+vouloir dire deux choses très différentes, et il fallait le demander plutôt que
+de deviner une deuxième fois.
+
+Le dessin est maintenant en trait fin: contour au repos, aplat quand la pièce
+est enfoncée. Trois choses sont parties avec le volume, et la troisième coûte
+quelque chose.
+
+Les dégradés et les capots bombés, d'abord: ils faisaient joli et mettaient du
+relief entre l'oeil et la seule question qu'on pose à ce schéma, « laquelle
+bouge ». Le halo ensuite, qui servait à faire voir un changement par-dessus des
+pastilles déjà colorées; sur des contours vides il ne fait plus que baver sur
+les voisines.
+
+Les couleurs d'identification enfin. J'avais écrit, en les ajoutant, que le vert
+d'un A se reconnaît avant qu'on ait lu son étiquette, et c'est vrai. Ce qui est
+aussi vrai est que l'étiquette est juste là, dans la pièce, et dit la même chose.
+Deux codes pour une seule information, dont un qui se disputait l'accent avec la
+pièce enfoncée. Le trait fin tranche, et c'est une perte assumée.
+
+Un nombre est sorti de tout ça. Le trait existait déjà, mais comme LISERÉ autour
+d'une pièce remplie: il ne portait rien, et personne n'avait jamais mesuré son
+contraste. Devenu le dessin lui-même, il tombait à 1,40:1 sur le thème sombre,
+quand un élément d'interface non textuel en demande 3:1. Il était littéralement
+invisible sur la première capture, et je ne l'ai vu qu'en regardant l'image.
+La coque porte maintenant `--faint`, les pièces `--muted`, mesurés sur les sept
+thèmes.
+
+La généralité vaut au-delà des couleurs: **quand un élément décoratif devient
+porteur, son exigence change et rien ne le signale.** Le liseré était acceptable
+tant qu'il ne servait à rien.
+
+### Changer de manette sans relancer: ce que Dolphin savait déjà faire
+
+Souhib voulait qu'un joueur puisse dire « je reste le joueur 1, mais débranche
+mon Nunchuk et donne-moi autre chose » sans relancer la partie de tout le monde.
+Aujourd'hui c'est impossible parce que le choix de manette voyage sur le chemin
+du CHANGEMENT DE JEU: le worker l'écrit dans le dossier de session, s'arrête, et
+systemd le relance. Un réglage personnel emprunte la machinerie d'un réglage de
+salle.
+
+En lisant la source du Dolphin épinglé plutôt qu'en supposant, la question s'est
+coupée en trois problèmes qui ressemblaient à un seul.
+
+**Un: l'extension d'une Wiimote.** Nunchuk, Classic, guitare, rien. Dolphin les
+échange déjà à 200 Hz, et son propre commentaire le dit: « If a new extension is
+requested in the GUI the change will happen here. » C'est le comportement du
+vrai matériel — on débranche un Nunchuk et on branche une guitare sans éteindre
+la console.
+
+**Deux: brancher une manette GameCube.** Dolphin sait aussi le faire à chaud,
+avec une seconde de battement et un détachement avant l'attachement, parce
+qu'une manette GameCube est branchable à chaud sur la vraie console.
+
+**Trois: passer de la Wiimote à la GameCube sur un jeu Wii.** Mécaniquement le
+deux plus un débranchement de Wiimote. Et là, deux murs: le débranchement
+n'existe que derrière un raccourci de l'interface Qt alors qu'on tourne en
+`--platform headless`, et surtout, sur une vraie Wii, perdre la Wiimote fait
+monter le bandeau système « reconnectez la manette » que brancher une manette
+GameCube ne renvoie pas. Le jeu décide, pas nous.
+
+Le constat général vaut au-delà de cette fonction: **il ne nous manque pas une
+fonction, il nous manque un canal.** Le tuyau qu'on a vers Dolphin ne transporte
+que des boutons et des axes. Tout le reste — changer d'appareil, écrire une
+sauvegarde d'état — est là, dans Dolphin, et injoignable.
+
+Sauf pour le cas un, et c'est la trouvaille. Le choix d'extension accepte une
+EXPRESSION d'entrée, réévaluée à chaque sondage, et Dolphin le documente:
+« First assume attachment string is a valid expression. » On peut donc écrire
+l'extension comme un calcul qui lit un second tuyau, dédié au contrôle. Un
+second tuyau et pas un jeton du premier, parce que le tuyau de Dolphin n'expose
+que douze boutons, exactement les douze de notre trame: en voler un coûterait un
+bouton de jeu.
+
+La manip le prouve contre Mario Strikers Charged, avec le jeu qui tourne depuis
+vingt-cinq secondes au moment du premier ordre. Nunchuk vers Classic, vers
+guitare, retour au Nunchuk, et Dolphin ne redémarre jamais. L'observable est un
+nombre dans le journal de Dolphin, `Switching to Extension N`: pas d'écran à
+regarder, et le nombre NOMME ce qu'on a obtenu au lieu de le laisser deviner.
+
+Ce que la manip ne prouve pas, et exprès: que le JEU accepte l'échange à ce
+moment-là. Dolphin échange, le jeu en fait ce qu'il veut. Guitar Hero attend
+qu'on branche une guitare et devrait suivre; un jeu qui ne lit son type de
+manette qu'à son écran de choix ignorera un changement en plein niveau. Mélanger
+les deux ferait promettre à l'interface une chose que le jeu ne tient pas.
+
+Et un piège qui a coûté une partie à quelqu'un. `dolphin-in-docker.sh` fait
+`docker rm -f nel3ab-dolphin` avant de démarrer, pour la bonne raison qu'un
+émulateur orphelin vole les entrées. La première version de la manip n'a pas
+nommé son conteneur: elle a tué le Dolphin de la salle en cours, qui a redémarré
+et tué le sien en repartant. Code de sortie 137, et une partie relancée sous les
+doigts de quelqu'un pendant que je croyais mesurer.
+
+La leçon est plus large que le nom d'un conteneur: **un script d'essai qui
+emprunte l'outillage de la production en hérite les effets de bord, y compris
+ceux qui sont voulus.** Le `rm -f` n'est pas un défaut, c'est une protection;
+elle protégeait juste quelqu'un d'autre que moi.
+
+### Le clic qui ne relance plus rien
+
+La manip avait prouvé que Dolphin échange l'extension d'une Wiimote en cours de
+partie. Restait à relier ça au bouton que Souhib appuie, ce qui veut dire cinq
+couches: la page, la socket, le protocole, le worker, le tuyau de contrôle.
+
+Le protocole gagne une commande, et sa différence avec les deux voisines est
+tout le sujet. `ChooseSave` et `ChoosePad` sont RETENUES: elles ne décident de
+rien tant que personne ne demande un jeu, et c'est le redémarrage qui les
+applique. `ChooseExtension` AGIT à la réception. C'est possible parce qu'une
+extension n'est pas un appareil: on débranche un Nunchuk et on branche une
+guitare sans éteindre la console, alors qu'une manette GameCube et une Wiimote
+ne se remplacent pas à chaud.
+
+La place n'est pas dans le message, et c'est délibéré. Elle vient de la socket
+qui l'envoie, décidée par le worker. Il n'existe donc aucune façon de formuler la
+demande qui viserait la Wiimote du voisin — la même forme de garantie que
+l'index de jeu, qui est une position et jamais un chemin. Ce qui ne peut pas
+s'exprimer n'a pas besoin d'être refusé.
+
+Aucune règle de propriétaire non plus, contrairement au changement de jeu. Ce
+qu'on a dans les mains est personnel, comme ses touches: ça ne touche ni la
+partie ni la manette de personne d'autre.
+
+Côté page, rien de neuf à l'écran. Le sélecteur de manette existait déjà; ce qui
+change est qu'il cesse de relancer quand il peut. Entre Nunchuk et guitare il
+envoie l'ordre et s'arrête là; vers la manette GameCube ou depuis elle, il
+repart comme avant. La consigne affichée le dit maintenant, parce qu'elle
+promettait un redémarrage pour les trois choix.
+
+Deux choses trouvées en écrivant le pilote de bout en bout, et la première
+compte plus que la fonction elle-même.
+
+**La page ne sait pas ce que la salle présente.** Son idée de la manette vient de
+son stockage local. Un navigateur neuf croit donc tenir une manette GameCube quoi
+que la salle affiche, et le sélecteur prend alors le chemin du redémarrage. Ce
+n'est pas un défaut de ce changement, c'est un écart qui existait déjà et que ce
+changement rend visible: le message de salle ne porte pas la manette. Le pilote
+sème la valeur d'un joueur qui revient, ce qui est honnête pour un essai et ne
+répare rien. La vraie correction serait que la salle le dise.
+
+**Dolphin réécrit son `Logger.ini` au démarrage.** Y déposer une verbosité pour
+observer ne survit pas, ce qui explique pourquoi son journal ne s'observe que
+dans la manip isolée, qui contrôle tout le dossier utilisateur.
+
+L'observable du pilote complet n'est d'ailleurs pas le journal, c'est
+l'identifiant du processus Dolphin. Sans lui, un redémarrage donnerait exactement
+les mêmes lignes et passerait pour une réussite: la panne qu'on supprime,
+déguisée en preuve qu'elle est supprimée. C'est la même famille que l'essai qui
+passe alors qu'il ne teste rien, et ce projet en a assez produit pour la
+reconnaître.
+
+### Une soirée à chercher pourquoi un ami rame
+
+Souhib joue, son ami rame. La salle, elle, affiche des chiffres parfaits: 600
+images par fenêtre de dix secondes, encodage à 1,73 ms, entrée à l'image en
+3,3 ms au 95e centile, et zéro image jetée. Tout va bien, sauf pour la personne
+concernée.
+
+C'est la première leçon de la soirée, et elle est gênante: **toutes nos mesures
+étaient des sommes.** Une somme dit « la salle va bien » tant que la MOYENNE va
+bien, ce qui est exactement faux quand une personne sur deux souffre. Le journal
+ne mentait pas, il ne parlait pas de lui.
+
+J'ai aussi pris une fausse piste, et il faut la noter parce qu'elle a coûté du
+temps. Le journal d'accès de Caddy ne montrait qu'une seule adresse, celle de
+Souhib. J'en ai conclu que l'ami n'était pas connecté et j'ai construit une
+hypothèse entière là-dessus. C'était faux: **un WebSocket n'est journalisé qu'à
+sa fermeture**, donc une connexion vivante n'apparaît nulle part. Le journal
+d'uvicorn, lui, montrait bien ses requêtes. Un absent dans un journal ne veut
+pas dire un absent.
+
+Le vrai chiffre est arrivé en mesurant les interfaces: **23,8 Mbit/s par
+spectateur sur Mario Kart Wii**, contre 4 sur Mario Party 4. Un jeu qui bouge
+coûte six fois plus cher, et deux spectateurs demandent alors une cinquantaine
+de mégabits par seconde de montée.
+
+Puis la description exacte des symptômes a tout ouvert: « des rollbacks, des
+images pixelisées, ou au ralenti ». Trois mots, trois défauts différents.
+
+**Pixelisé.** Quand la file d'un spectateur déborde, on le met en attente d'une
+image-clé, parce que les images suivantes référencent celle qui manque. Sauf si
+l'image jetée ÉTAIT la clé: là on la jetait sans rien mettre en attente et sans
+en redemander une. Les images d'après partaient donc en référençant une clé
+jamais reçue, et le décodeur rendait des blocs jusqu'au groupe suivant. Le
+commentaire qui portait l'exception disait « jeter la clé et l'attendre en même
+temps ne mène nulle part »: c'est faux, on n'attend pas celle-là, on attend la
+suivante.
+
+Ce qui rend ce défaut sévère est qu'il frappe le cas le plus PROBABLE. Une clé
+pèse 62 ko contre 9 ko pour une image ordinaire: la file d'un spectateur lent
+déborde donc de préférence sur elle. **Le système jetait de préférence l'image
+dont la perte abîme tout le reste.**
+
+**Au ralenti.** La page allonge sa marge d'affichage quand elle manque d'images.
+C'est la bonne réponse à un réseau qui hoquette et la mauvaise à un lien trop
+étroit: la marge monte au plafond et y reste, et tout ce qu'elle a fait est
+transformer un manque de débit en retard permanent. Le signal existait donc déjà
+et disait la bonne chose; personne ne l'écoutait. La page réduit maintenant le
+format elle-même quand la marge reste au plafond dix secondes, et le dit.
+
+Un compteur manquait, et je l'ai trouvé en écrivant un essai qui a échoué pour
+une raison à laquelle je ne m'attendais pas. `dropped` ne compte que les images
+refusées par une file pleine. Dès que la chaîne casse, on se TAIT au lieu de
+jeter — donc un gel d'une seconde à soixante images par seconde s'y lisait
+« une image jetée ». C'est un compteur qui donne un ordre de grandeur soixante
+fois trop petit, exactement là où il compte. `starved` compte ce qui n'a pas été
+envoyé pendant l'attente.
+
+Et le bug rapporté en passant, « publier dans la salle ne marche pas », était le
+plus simple et le plus vicieux. Le service répondait 200. La référence était
+seulement lue UNE FOIS, à la construction de la boucle d'entrée: publier
+atteignait donc les gens qui ouvraient la page ensuite, et personne d'autre. Le
+bouton marchait pour celui qui appuyait, et pour lui seul — la pire forme de
+panne, parce que celui qui pourrait la voir est le seul à qui elle est invisible.
+
+La leçon qui vaut au-delà de cette soirée: **une mesure agrégée ne peut pas
+répondre à une question individuelle.** On avait construit un tableau de bord
+qui répond à « est-ce que la salle tient » alors que la question posée est
+toujours « pourquoi MOI je rame ». Les deux ne se déduisent pas l'une de
+l'autre, et la première rassure pendant que la seconde saigne.
+
+### Deux vérités pour une seule place
+
+« Quand je recharge, mon nom s'affiche sous joueur 1 alors que je suis 2. »
+
+La cause n'est pas un calcul faux, c'est une architecture: **deux sources de
+vérité pour la même question**. Le worker attribue les ports — il ne compte que
+les tuyaux vivants, et c'est lui qui décide. Le plan de contrôle porte les noms,
+et il apprend la place par une ANNONCE de la page. Entre les deux il y a un
+rechargement, deux sockets, et un ordre d'événements que personne ne contrôle.
+
+Trois défauts vivaient dans cet écart, et chacun suffit à croiser un nom.
+
+`claim` retenait la nouvelle place sans lâcher l'ancienne. Une page à qui le
+worker donne un autre port occupait donc les deux. L'invariant « une session
+tient une place » semblait si évident qu'il n'était écrit nulle part, ce qui est
+exactement la façon dont un invariant se perd.
+
+Une place retenue par une socket morte bloquait la nouvelle annonce. Un
+rechargement ouvre la nouvelle socket avant que l'ancienne soit déclarée partie,
+et le worker, lui, a déjà rendu le port: il voit un tuyau fermé tout de suite,
+là où socket.io attend son délai de ping. C'est cette asymétrie de vitesse qui
+ouvre la fenêtre.
+
+Et le refus n'était rattrapé par personne. `SeatTaken` traversait le
+gestionnaire, donc ni le journal ni la diffusion ne tournaient. Le refus était
+donc doublement invisible: la salle gardait l'affichage d'avant, et rien
+n'enregistrait qu'un refus avait eu lieu. **Une exception non rattrapée dans un
+gestionnaire d'événements ne fait pas que rater son travail: elle efface aussi
+la trace qu'il y avait du travail à faire.**
+
+Ce que je n'ai pas réussi à faire, et il faut le dire. Le pilote `just places`
+recharge une page et vérifie que la personne n'occupe qu'une place, celle du
+worker. Il passe — mais il passait DÉJÀ avant le correctif: un rechargement
+propre rend le port tout de suite, donc il ne déclenche jamais la course. Il
+garde contre une régression de l'invariant, il ne prouve pas la panne.
+
+Les trois défauts sont réels et couverts. Que l'un d'eux soit celui que Souhib a
+vu reste une déduction, pas une mesure, et l'écrire ici est plus utile que de
+prétendre le contraire.
+
+La correction de fond, elle, n'est pas faite: le worker sait qui tient quoi et ne
+l'expose à personne. Le plan de contrôle ne peut donc pas se recaler sur lui,
+seulement espérer que les annonces arrivent dans le bon ordre. Tant que la
+question « qui est à la place 2 » aura deux réponses possibles, on rattrapera
+des symptômes.
+
+### L'audit qui s'est arrêté à mi-chemin, et ce qu'il a trouvé quand même
+
+Souhib a demandé un audit complet, en remettant tout en question. Seize
+auditeurs indépendants, chacun sur une partie ou une question, puis trois
+sceptiques par constat, puis une synthèse. La limite de session du compte est
+tombée après neuf auditeurs sur seize: 104 constats bruts, aucun contredit, pas
+de synthèse. Les sept regards manquants sont précisément ceux qui comptent le
+plus pour un système en production: la boucle média, la sécurité, la
+performance, les essais, l'exploitation, la documentation, et la remise en
+question des prémisses.
+
+Ce qui a été fait de l'intervalle: vérifier moi-même les dix-sept constats
+critiques et hauts en ouvrant le code cité, et corriger ceux qui étaient à la
+fois confirmés et petits. Plusieurs visaient mon propre travail de la nuit
+d'avant, ce qui est exactement à quoi sert un regard extérieur.
+
+**La faille.** Sur la porte `nel3ab.app`, n'importe quel pair du tailnet pouvait
+être Souhib. Le service essaie les en-têtes d'identité AVANT de demander à
+tailscaled, et les croit dès qu'il y en a exactement un. Le Caddyfile disait
+« ce que le client mettrait lui-même est appendu, pas cru » — c'était vrai de
+la porte `.ts.net`, où tailscaled écrit l'en-tête, et faux de celle-ci, où
+Caddy relayait tel quel. Vérifié en forgeant `attaquant@example.com`: la salle
+répondait `attaquant@example.com`. Caddy retire maintenant ces en-têtes; il ne
+reste que `X-Forwarded-For`, qu'il écrit lui-même, et `whois`.
+
+Une découverte à côté: `reload` ne peut jamais marcher sur cette unité, parce
+que le Caddyfile dit `admin off` et que `caddy reload` passe par l'API
+d'administration. Ça échouait en silence, et la salle continuait sur l'ancienne
+configuration en ayant l'air d'avoir pris la nouvelle. Il faut redémarrer.
+
+**La régression à moi.** Mon correctif de la veille faisait qu'une clé jetée
+casse la chaîne, ce qui est juste. Mais la chaîne cassée redemande une clé, et
+cette demande-là posait le drapeau directement, sans passer par le limiteur —
+le commentaire disait « déjà limitée en fréquence », c'était faux sur ce
+chemin. Un spectateur dont la file reste pleine faisait donc une boucle: clé
+forcée, jetée, chaîne cassée, clé redemandée. Une image-clé à CHAQUE image,
+pour tout le monde, six fois le débit. Tant que la clé jetée ne cassait rien,
+la boucle n'existait pas: c'est mon correctif qui l'a ouverte. L'auditeur l'a
+vue en moins d'une heure; je ne l'avais pas vue en la déployant.
+
+**Le vol de manette.** N'importe qui pouvait répondre « oui » à une demande de
+manette, y compris celui qui demandait. La réponse n'était pas rapprochée du
+porteur. C'est la prise que « demander au lieu de prendre » existe pour
+empêcher.
+
+**La sauvegarde effacée.** `rescue` promettait « jamais à la poubelle » et, quand
+le nom de mise à l'abri était pris, supprimait le dossier avec un `unwrap_or(())`
+qui cachait même l'échec. Le cas est rare. Une sauvegarde effacée ne se
+récupère pas.
+
+Et trois petites choses à moi, de la veille: une coupure du plan de contrôle
+effaçait la référence publiée chez tout le monde (on rangeait une référence
+vide au lieu de garder l'ancienne); « revenir en pleine taille » était annulé
+dans la foulée parce que l'effet se rejouait; les spectateurs du demi-format,
+ceux dont la liaison va le moins bien, n'étaient pas dans le relevé.
+
+Ce qui est confirmé et PAS corrigé, parce que c'est de la structure: le choix
+d'extension par place est perdu au redémarrage, où le worker rebranche la même
+chose sur toutes les places depuis un réglage de salle. La page envoie deux
+messages pour tenir les deux d'accord, avec une table écrite à la main. La
+bonne forme est que la place porte son extension et que le worker la retienne
+par place.
+
+La leçon de la nuit tient en une phrase: **les constats les plus utiles de cet
+audit portaient sur le code de la veille.** Un correctif écrit sous la pression
+d'un ami qui rame est exactement celui qu'il faut relire à froid, et je ne
+l'avais pas fait.
+
+## 12. Glossaire complet
 
 **ABI** — *Application Binary Interface*. La disposition exacte des données en
 mémoire. Un désaccord d'ABI ne produit pas d'erreur, seulement des valeurs
@@ -9877,445 +10329,3 @@ gel.
 
 *Ce document est tenu à jour au fil du projet. Si une décision change, c'est ici
 qu'on explique pourquoi — pas seulement dans l'ADR.*
-
-## Deux nombres qui se ressemblent et ne veulent pas dire la même chose
-
-Sur l'écran des deux manettes, les sticks de gauche partaient du mauvais côté.
-Souhib l'a vu tout de suite, et a dit la chose exacte qui désigne le coupable:
-en jouant, tout marche. Le défaut ne pouvait donc pas être sur le fil, seulement
-dans l'affichage.
-
-Il l'était. Le schéma de droite s'incline des axes bruts du navigateur, qui
-comptent le vertical vers le bas. Celui de gauche s'incline de ce que le jeu
-reçoit, où le haut est positif — c'est `readPad` qui retourne l'axe, et c'est
-juste: c'est la convention de la manette émulée, et elle part telle quelle sur
-le fil. SVG, lui, compte vers le bas comme le navigateur. Le côté gauche
-descendait donc quand on poussait en haut.
-
-Ce qui rend le défaut intéressant n'est pas le signe, c'est qu'il était
-**indicible**. Les deux appels passaient un `[number, number]`, le même type des
-deux côtés, pour deux conventions opposées. Aucun compilateur ne pouvait s'en
-plaindre, et aucune relecture non plus: les deux lignes se ressemblaient trop.
-
-Le correctif n'est donc pas le moins du monde: c'est un type `Tilt` qui ne se
-construit qu'en nommant le repère d'où l'on vient, `upward` ou `downward`. Le
-signe n'est plus écrit à l'appel, il est écrit une fois dans la fonction qui
-porte le nom de la convention. C'est la règle « rendre l'état invalide
-irreprésentable » appliquée à quelque chose d'aussi petit qu'un signe.
-
-L'essai qui compte n'assure pas qu'`upward` nie son argument — ça, c'est
-relire le code deux fois. Il pousse un stick une seule fois, en haut à droite,
-fait descendre cette poussée par les deux chemins, et exige que les deux
-schémas penchent du même côté. Il échoue si l'un des deux se retourne, quel que
-soit celui qui a tort. Vérifié en réintroduisant le défaut: trois essais
-rouges.
-
-La leçon générale est plus large que cet écran. Deux grandeurs qui ont la même
-forme et des conventions contraires finiront par être échangées, et le jour où
-ça arrive, rien ne le dit. Le moment de leur donner deux noms est celui où on
-s'aperçoit qu'il y en a deux.
-
-## Un schéma qui s'allume ne dit pas pourquoi ça marche mal
-
-Souhib a pointé hardwaretester.com/gamepad et dit qu'il n'aimait pas notre
-écran. En allant regarder la page, ce n'est pas son habillage qui saute aux
-yeux, c'est son parti pris: elle n'affiche presque pas de manette. Elle affiche
-des **nombres**. Un chiffre par bouton, deux par stick, un horodatage, et une
-petite silhouette dans un coin.
-
-C'est un meilleur outil que le nôtre pour une raison précise. Notre schéma
-répond à « est-ce que ça marche »: une pièce s'allume ou pas. Les pannes de
-manette qu'on rencontre vraiment ne sont pas binaires. Un stick qui dérive de
-0,03 fait avancer le personnage tout seul; une gâchette qui repose à 0,6 est
-enfoncée en permanence pour le navigateur; un bouton qui plafonne à 0,98 marche
-partout sauf là où le jeu attend 1. Un schéma arrondit ces trois cas à
-« allumé », et on les cherche ailleurs pendant une heure.
-
-Le banc d'essai ajoute donc les chiffres bruts sous les deux schémas. Notre
-palette et nos thèmes restent: ce qui est repris est l'ORGANISATION de
-l'information, pas l'habillage d'un site, et il n'était de toute façon pas
-question de copier son dessin de manette.
-
-Deux décisions valent d'être notées.
-
-La première: le panneau se calcule du nombre d'axes que la manette annonce,
-pas d'un gabarit à deux sticks. Une manette standard en rend quatre; un
-adaptateur en rend ce qu'il veut. Un compte impair n'est pas une anomalie,
-c'est une pédale ou un curseur, et l'arrondir en bas ferait disparaître un axe
-en silence. C'est exactement la forme de la panne d'adaptateur GameCube qu'on a
-déjà eue, alors elle a son essai.
-
-La seconde: les vingt nombres bougent à la cadence de l'écran, et la règle 8
-interdit de rendre React sur le chemin de l'image. La structure est donc rendue
-une fois avec des marques stables, et une fonction écrit dedans. Ça rend un
-contrat implicite explicite: tant que « qui pose les marques » et « qui écrit
-dedans » vivaient dans deux fichiers, rien ne pouvait vérifier qu'ils parlaient
-des mêmes. Maintenant des essais jsdom posent le balisage, appellent, et lisent
-ce qui a été écrit.
-
-Et un piège rejoué, pour la deuxième fois. Après avoir tout construit, j'ai
-photographié l'écran contre le worker qui tourne — et le banc n'y était pas. Le
-worker sert la page compilée dans son binaire, donc il servait celle d'avant. Le
-même piège avait déjà coûté du temps il y a quelques semaines. Ce qui a changé
-cette fois est que je l'ai reconnu tout de suite, mais la vraie leçon est plus
-gênante: le balayage de contraste, `just browser-contraste`, tape ce même worker.
-Il a annoncé « tout le texte tient son seuil » sans avoir jamais vu le banc.
-
-Un outil de vérification qui regarde la mauvaise version ne dit pas qu'il s'est
-trompé: il dit que tout va bien. C'est pire que pas d'outil, et c'est la même
-famille d'erreur qu'un essai qui passe alors qu'il ne teste rien. Le contraste
-du banc est donc mesuré par un pilote qui passe par Vite, et la note de reprise
-dit maintenant, à côté de chaque commande, quelle version elle regarde.
-
-## Ajouter n'est pas changer
-
-Après avoir construit le banc d'essai, Souhib a répondu: « rien n'a changé en
-terme de design ». Il avait raison, et la leçon dépasse cet écran.
-
-Il avait demandé le design de hardwaretester parce qu'il n'aimait pas le nôtre.
-J'ai regardé la page, compris ce qui la rend bonne — elle montre des nombres
-plutôt qu'une manette — et j'ai AJOUTÉ un panneau de nombres sous nos deux
-schémas. Les schémas, c'est-à-dire exactement la chose qu'il regardait et disait
-ne pas aimer, n'ont pas bougé d'un pixel.
-
-C'est une manière de rater une demande qui se déguise en travail sérieux: on
-livre quelque chose de vrai, de mesuré, de testé, et à côté de la question.
-« J'aime pas le design actuel » désigne un objet précis, et j'ai répondu à
-« qu'est-ce qui manque » au lieu de « qu'est-ce qui déplaît ».
-
-Une cause plus bête brouillait le diagnostic, et elle vaut d'être notée: un
-onglet resté ouvert depuis avant le redémarrage continue de faire tourner
-l'ancien JavaScript. Le flux vidéo, lui, se reconnecte tout seul, ce qui donne
-une page qui a l'air vivante et qui est périmée. « Rien n'a changé » pouvait donc
-vouloir dire deux choses très différentes, et il fallait le demander plutôt que
-de deviner une deuxième fois.
-
-Le dessin est maintenant en trait fin: contour au repos, aplat quand la pièce
-est enfoncée. Trois choses sont parties avec le volume, et la troisième coûte
-quelque chose.
-
-Les dégradés et les capots bombés, d'abord: ils faisaient joli et mettaient du
-relief entre l'oeil et la seule question qu'on pose à ce schéma, « laquelle
-bouge ». Le halo ensuite, qui servait à faire voir un changement par-dessus des
-pastilles déjà colorées; sur des contours vides il ne fait plus que baver sur
-les voisines.
-
-Les couleurs d'identification enfin. J'avais écrit, en les ajoutant, que le vert
-d'un A se reconnaît avant qu'on ait lu son étiquette, et c'est vrai. Ce qui est
-aussi vrai est que l'étiquette est juste là, dans la pièce, et dit la même chose.
-Deux codes pour une seule information, dont un qui se disputait l'accent avec la
-pièce enfoncée. Le trait fin tranche, et c'est une perte assumée.
-
-Un nombre est sorti de tout ça. Le trait existait déjà, mais comme LISERÉ autour
-d'une pièce remplie: il ne portait rien, et personne n'avait jamais mesuré son
-contraste. Devenu le dessin lui-même, il tombait à 1,40:1 sur le thème sombre,
-quand un élément d'interface non textuel en demande 3:1. Il était littéralement
-invisible sur la première capture, et je ne l'ai vu qu'en regardant l'image.
-La coque porte maintenant `--faint`, les pièces `--muted`, mesurés sur les sept
-thèmes.
-
-La généralité vaut au-delà des couleurs: **quand un élément décoratif devient
-porteur, son exigence change et rien ne le signale.** Le liseré était acceptable
-tant qu'il ne servait à rien.
-
-## Changer de manette sans relancer: ce que Dolphin savait déjà faire
-
-Souhib voulait qu'un joueur puisse dire « je reste le joueur 1, mais débranche
-mon Nunchuk et donne-moi autre chose » sans relancer la partie de tout le monde.
-Aujourd'hui c'est impossible parce que le choix de manette voyage sur le chemin
-du CHANGEMENT DE JEU: le worker l'écrit dans le dossier de session, s'arrête, et
-systemd le relance. Un réglage personnel emprunte la machinerie d'un réglage de
-salle.
-
-En lisant la source du Dolphin épinglé plutôt qu'en supposant, la question s'est
-coupée en trois problèmes qui ressemblaient à un seul.
-
-**Un: l'extension d'une Wiimote.** Nunchuk, Classic, guitare, rien. Dolphin les
-échange déjà à 200 Hz, et son propre commentaire le dit: « If a new extension is
-requested in the GUI the change will happen here. » C'est le comportement du
-vrai matériel — on débranche un Nunchuk et on branche une guitare sans éteindre
-la console.
-
-**Deux: brancher une manette GameCube.** Dolphin sait aussi le faire à chaud,
-avec une seconde de battement et un détachement avant l'attachement, parce
-qu'une manette GameCube est branchable à chaud sur la vraie console.
-
-**Trois: passer de la Wiimote à la GameCube sur un jeu Wii.** Mécaniquement le
-deux plus un débranchement de Wiimote. Et là, deux murs: le débranchement
-n'existe que derrière un raccourci de l'interface Qt alors qu'on tourne en
-`--platform headless`, et surtout, sur une vraie Wii, perdre la Wiimote fait
-monter le bandeau système « reconnectez la manette » que brancher une manette
-GameCube ne renvoie pas. Le jeu décide, pas nous.
-
-Le constat général vaut au-delà de cette fonction: **il ne nous manque pas une
-fonction, il nous manque un canal.** Le tuyau qu'on a vers Dolphin ne transporte
-que des boutons et des axes. Tout le reste — changer d'appareil, écrire une
-sauvegarde d'état — est là, dans Dolphin, et injoignable.
-
-Sauf pour le cas un, et c'est la trouvaille. Le choix d'extension accepte une
-EXPRESSION d'entrée, réévaluée à chaque sondage, et Dolphin le documente:
-« First assume attachment string is a valid expression. » On peut donc écrire
-l'extension comme un calcul qui lit un second tuyau, dédié au contrôle. Un
-second tuyau et pas un jeton du premier, parce que le tuyau de Dolphin n'expose
-que douze boutons, exactement les douze de notre trame: en voler un coûterait un
-bouton de jeu.
-
-La manip le prouve contre Mario Strikers Charged, avec le jeu qui tourne depuis
-vingt-cinq secondes au moment du premier ordre. Nunchuk vers Classic, vers
-guitare, retour au Nunchuk, et Dolphin ne redémarre jamais. L'observable est un
-nombre dans le journal de Dolphin, `Switching to Extension N`: pas d'écran à
-regarder, et le nombre NOMME ce qu'on a obtenu au lieu de le laisser deviner.
-
-Ce que la manip ne prouve pas, et exprès: que le JEU accepte l'échange à ce
-moment-là. Dolphin échange, le jeu en fait ce qu'il veut. Guitar Hero attend
-qu'on branche une guitare et devrait suivre; un jeu qui ne lit son type de
-manette qu'à son écran de choix ignorera un changement en plein niveau. Mélanger
-les deux ferait promettre à l'interface une chose que le jeu ne tient pas.
-
-Et un piège qui a coûté une partie à quelqu'un. `dolphin-in-docker.sh` fait
-`docker rm -f nel3ab-dolphin` avant de démarrer, pour la bonne raison qu'un
-émulateur orphelin vole les entrées. La première version de la manip n'a pas
-nommé son conteneur: elle a tué le Dolphin de la salle en cours, qui a redémarré
-et tué le sien en repartant. Code de sortie 137, et une partie relancée sous les
-doigts de quelqu'un pendant que je croyais mesurer.
-
-La leçon est plus large que le nom d'un conteneur: **un script d'essai qui
-emprunte l'outillage de la production en hérite les effets de bord, y compris
-ceux qui sont voulus.** Le `rm -f` n'est pas un défaut, c'est une protection;
-elle protégeait juste quelqu'un d'autre que moi.
-
-## Le clic qui ne relance plus rien
-
-La manip avait prouvé que Dolphin échange l'extension d'une Wiimote en cours de
-partie. Restait à relier ça au bouton que Souhib appuie, ce qui veut dire cinq
-couches: la page, la socket, le protocole, le worker, le tuyau de contrôle.
-
-Le protocole gagne une commande, et sa différence avec les deux voisines est
-tout le sujet. `ChooseSave` et `ChoosePad` sont RETENUES: elles ne décident de
-rien tant que personne ne demande un jeu, et c'est le redémarrage qui les
-applique. `ChooseExtension` AGIT à la réception. C'est possible parce qu'une
-extension n'est pas un appareil: on débranche un Nunchuk et on branche une
-guitare sans éteindre la console, alors qu'une manette GameCube et une Wiimote
-ne se remplacent pas à chaud.
-
-La place n'est pas dans le message, et c'est délibéré. Elle vient de la socket
-qui l'envoie, décidée par le worker. Il n'existe donc aucune façon de formuler la
-demande qui viserait la Wiimote du voisin — la même forme de garantie que
-l'index de jeu, qui est une position et jamais un chemin. Ce qui ne peut pas
-s'exprimer n'a pas besoin d'être refusé.
-
-Aucune règle de propriétaire non plus, contrairement au changement de jeu. Ce
-qu'on a dans les mains est personnel, comme ses touches: ça ne touche ni la
-partie ni la manette de personne d'autre.
-
-Côté page, rien de neuf à l'écran. Le sélecteur de manette existait déjà; ce qui
-change est qu'il cesse de relancer quand il peut. Entre Nunchuk et guitare il
-envoie l'ordre et s'arrête là; vers la manette GameCube ou depuis elle, il
-repart comme avant. La consigne affichée le dit maintenant, parce qu'elle
-promettait un redémarrage pour les trois choix.
-
-Deux choses trouvées en écrivant le pilote de bout en bout, et la première
-compte plus que la fonction elle-même.
-
-**La page ne sait pas ce que la salle présente.** Son idée de la manette vient de
-son stockage local. Un navigateur neuf croit donc tenir une manette GameCube quoi
-que la salle affiche, et le sélecteur prend alors le chemin du redémarrage. Ce
-n'est pas un défaut de ce changement, c'est un écart qui existait déjà et que ce
-changement rend visible: le message de salle ne porte pas la manette. Le pilote
-sème la valeur d'un joueur qui revient, ce qui est honnête pour un essai et ne
-répare rien. La vraie correction serait que la salle le dise.
-
-**Dolphin réécrit son `Logger.ini` au démarrage.** Y déposer une verbosité pour
-observer ne survit pas, ce qui explique pourquoi son journal ne s'observe que
-dans la manip isolée, qui contrôle tout le dossier utilisateur.
-
-L'observable du pilote complet n'est d'ailleurs pas le journal, c'est
-l'identifiant du processus Dolphin. Sans lui, un redémarrage donnerait exactement
-les mêmes lignes et passerait pour une réussite: la panne qu'on supprime,
-déguisée en preuve qu'elle est supprimée. C'est la même famille que l'essai qui
-passe alors qu'il ne teste rien, et ce projet en a assez produit pour la
-reconnaître.
-
-## Une soirée à chercher pourquoi un ami rame
-
-Souhib joue, son ami rame. La salle, elle, affiche des chiffres parfaits: 600
-images par fenêtre de dix secondes, encodage à 1,73 ms, entrée à l'image en
-3,3 ms au 95e centile, et zéro image jetée. Tout va bien, sauf pour la personne
-concernée.
-
-C'est la première leçon de la soirée, et elle est gênante: **toutes nos mesures
-étaient des sommes.** Une somme dit « la salle va bien » tant que la MOYENNE va
-bien, ce qui est exactement faux quand une personne sur deux souffre. Le journal
-ne mentait pas, il ne parlait pas de lui.
-
-J'ai aussi pris une fausse piste, et il faut la noter parce qu'elle a coûté du
-temps. Le journal d'accès de Caddy ne montrait qu'une seule adresse, celle de
-Souhib. J'en ai conclu que l'ami n'était pas connecté et j'ai construit une
-hypothèse entière là-dessus. C'était faux: **un WebSocket n'est journalisé qu'à
-sa fermeture**, donc une connexion vivante n'apparaît nulle part. Le journal
-d'uvicorn, lui, montrait bien ses requêtes. Un absent dans un journal ne veut
-pas dire un absent.
-
-Le vrai chiffre est arrivé en mesurant les interfaces: **23,8 Mbit/s par
-spectateur sur Mario Kart Wii**, contre 4 sur Mario Party 4. Un jeu qui bouge
-coûte six fois plus cher, et deux spectateurs demandent alors une cinquantaine
-de mégabits par seconde de montée.
-
-Puis la description exacte des symptômes a tout ouvert: « des rollbacks, des
-images pixelisées, ou au ralenti ». Trois mots, trois défauts différents.
-
-**Pixelisé.** Quand la file d'un spectateur déborde, on le met en attente d'une
-image-clé, parce que les images suivantes référencent celle qui manque. Sauf si
-l'image jetée ÉTAIT la clé: là on la jetait sans rien mettre en attente et sans
-en redemander une. Les images d'après partaient donc en référençant une clé
-jamais reçue, et le décodeur rendait des blocs jusqu'au groupe suivant. Le
-commentaire qui portait l'exception disait « jeter la clé et l'attendre en même
-temps ne mène nulle part »: c'est faux, on n'attend pas celle-là, on attend la
-suivante.
-
-Ce qui rend ce défaut sévère est qu'il frappe le cas le plus PROBABLE. Une clé
-pèse 62 ko contre 9 ko pour une image ordinaire: la file d'un spectateur lent
-déborde donc de préférence sur elle. **Le système jetait de préférence l'image
-dont la perte abîme tout le reste.**
-
-**Au ralenti.** La page allonge sa marge d'affichage quand elle manque d'images.
-C'est la bonne réponse à un réseau qui hoquette et la mauvaise à un lien trop
-étroit: la marge monte au plafond et y reste, et tout ce qu'elle a fait est
-transformer un manque de débit en retard permanent. Le signal existait donc déjà
-et disait la bonne chose; personne ne l'écoutait. La page réduit maintenant le
-format elle-même quand la marge reste au plafond dix secondes, et le dit.
-
-Un compteur manquait, et je l'ai trouvé en écrivant un essai qui a échoué pour
-une raison à laquelle je ne m'attendais pas. `dropped` ne compte que les images
-refusées par une file pleine. Dès que la chaîne casse, on se TAIT au lieu de
-jeter — donc un gel d'une seconde à soixante images par seconde s'y lisait
-« une image jetée ». C'est un compteur qui donne un ordre de grandeur soixante
-fois trop petit, exactement là où il compte. `starved` compte ce qui n'a pas été
-envoyé pendant l'attente.
-
-Et le bug rapporté en passant, « publier dans la salle ne marche pas », était le
-plus simple et le plus vicieux. Le service répondait 200. La référence était
-seulement lue UNE FOIS, à la construction de la boucle d'entrée: publier
-atteignait donc les gens qui ouvraient la page ensuite, et personne d'autre. Le
-bouton marchait pour celui qui appuyait, et pour lui seul — la pire forme de
-panne, parce que celui qui pourrait la voir est le seul à qui elle est invisible.
-
-La leçon qui vaut au-delà de cette soirée: **une mesure agrégée ne peut pas
-répondre à une question individuelle.** On avait construit un tableau de bord
-qui répond à « est-ce que la salle tient » alors que la question posée est
-toujours « pourquoi MOI je rame ». Les deux ne se déduisent pas l'une de
-l'autre, et la première rassure pendant que la seconde saigne.
-
-## Deux vérités pour une seule place
-
-« Quand je recharge, mon nom s'affiche sous joueur 1 alors que je suis 2. »
-
-La cause n'est pas un calcul faux, c'est une architecture: **deux sources de
-vérité pour la même question**. Le worker attribue les ports — il ne compte que
-les tuyaux vivants, et c'est lui qui décide. Le plan de contrôle porte les noms,
-et il apprend la place par une ANNONCE de la page. Entre les deux il y a un
-rechargement, deux sockets, et un ordre d'événements que personne ne contrôle.
-
-Trois défauts vivaient dans cet écart, et chacun suffit à croiser un nom.
-
-`claim` retenait la nouvelle place sans lâcher l'ancienne. Une page à qui le
-worker donne un autre port occupait donc les deux. L'invariant « une session
-tient une place » semblait si évident qu'il n'était écrit nulle part, ce qui est
-exactement la façon dont un invariant se perd.
-
-Une place retenue par une socket morte bloquait la nouvelle annonce. Un
-rechargement ouvre la nouvelle socket avant que l'ancienne soit déclarée partie,
-et le worker, lui, a déjà rendu le port: il voit un tuyau fermé tout de suite,
-là où socket.io attend son délai de ping. C'est cette asymétrie de vitesse qui
-ouvre la fenêtre.
-
-Et le refus n'était rattrapé par personne. `SeatTaken` traversait le
-gestionnaire, donc ni le journal ni la diffusion ne tournaient. Le refus était
-donc doublement invisible: la salle gardait l'affichage d'avant, et rien
-n'enregistrait qu'un refus avait eu lieu. **Une exception non rattrapée dans un
-gestionnaire d'événements ne fait pas que rater son travail: elle efface aussi
-la trace qu'il y avait du travail à faire.**
-
-Ce que je n'ai pas réussi à faire, et il faut le dire. Le pilote `just places`
-recharge une page et vérifie que la personne n'occupe qu'une place, celle du
-worker. Il passe — mais il passait DÉJÀ avant le correctif: un rechargement
-propre rend le port tout de suite, donc il ne déclenche jamais la course. Il
-garde contre une régression de l'invariant, il ne prouve pas la panne.
-
-Les trois défauts sont réels et couverts. Que l'un d'eux soit celui que Souhib a
-vu reste une déduction, pas une mesure, et l'écrire ici est plus utile que de
-prétendre le contraire.
-
-La correction de fond, elle, n'est pas faite: le worker sait qui tient quoi et ne
-l'expose à personne. Le plan de contrôle ne peut donc pas se recaler sur lui,
-seulement espérer que les annonces arrivent dans le bon ordre. Tant que la
-question « qui est à la place 2 » aura deux réponses possibles, on rattrapera
-des symptômes.
-
-## L'audit qui s'est arrêté à mi-chemin, et ce qu'il a trouvé quand même
-
-Souhib a demandé un audit complet, en remettant tout en question. Seize
-auditeurs indépendants, chacun sur une partie ou une question, puis trois
-sceptiques par constat, puis une synthèse. La limite de session du compte est
-tombée après neuf auditeurs sur seize: 104 constats bruts, aucun contredit, pas
-de synthèse. Les sept regards manquants sont précisément ceux qui comptent le
-plus pour un système en production: la boucle média, la sécurité, la
-performance, les essais, l'exploitation, la documentation, et la remise en
-question des prémisses.
-
-Ce qui a été fait de l'intervalle: vérifier moi-même les dix-sept constats
-critiques et hauts en ouvrant le code cité, et corriger ceux qui étaient à la
-fois confirmés et petits. Plusieurs visaient mon propre travail de la nuit
-d'avant, ce qui est exactement à quoi sert un regard extérieur.
-
-**La faille.** Sur la porte `nel3ab.app`, n'importe quel pair du tailnet pouvait
-être Souhib. Le service essaie les en-têtes d'identité AVANT de demander à
-tailscaled, et les croit dès qu'il y en a exactement un. Le Caddyfile disait
-« ce que le client mettrait lui-même est appendu, pas cru » — c'était vrai de
-la porte `.ts.net`, où tailscaled écrit l'en-tête, et faux de celle-ci, où
-Caddy relayait tel quel. Vérifié en forgeant `attaquant@example.com`: la salle
-répondait `attaquant@example.com`. Caddy retire maintenant ces en-têtes; il ne
-reste que `X-Forwarded-For`, qu'il écrit lui-même, et `whois`.
-
-Une découverte à côté: `reload` ne peut jamais marcher sur cette unité, parce
-que le Caddyfile dit `admin off` et que `caddy reload` passe par l'API
-d'administration. Ça échouait en silence, et la salle continuait sur l'ancienne
-configuration en ayant l'air d'avoir pris la nouvelle. Il faut redémarrer.
-
-**La régression à moi.** Mon correctif de la veille faisait qu'une clé jetée
-casse la chaîne, ce qui est juste. Mais la chaîne cassée redemande une clé, et
-cette demande-là posait le drapeau directement, sans passer par le limiteur —
-le commentaire disait « déjà limitée en fréquence », c'était faux sur ce
-chemin. Un spectateur dont la file reste pleine faisait donc une boucle: clé
-forcée, jetée, chaîne cassée, clé redemandée. Une image-clé à CHAQUE image,
-pour tout le monde, six fois le débit. Tant que la clé jetée ne cassait rien,
-la boucle n'existait pas: c'est mon correctif qui l'a ouverte. L'auditeur l'a
-vue en moins d'une heure; je ne l'avais pas vue en la déployant.
-
-**Le vol de manette.** N'importe qui pouvait répondre « oui » à une demande de
-manette, y compris celui qui demandait. La réponse n'était pas rapprochée du
-porteur. C'est la prise que « demander au lieu de prendre » existe pour
-empêcher.
-
-**La sauvegarde effacée.** `rescue` promettait « jamais à la poubelle » et, quand
-le nom de mise à l'abri était pris, supprimait le dossier avec un `unwrap_or(())`
-qui cachait même l'échec. Le cas est rare. Une sauvegarde effacée ne se
-récupère pas.
-
-Et trois petites choses à moi, de la veille: une coupure du plan de contrôle
-effaçait la référence publiée chez tout le monde (on rangeait une référence
-vide au lieu de garder l'ancienne); « revenir en pleine taille » était annulé
-dans la foulée parce que l'effet se rejouait; les spectateurs du demi-format,
-ceux dont la liaison va le moins bien, n'étaient pas dans le relevé.
-
-Ce qui est confirmé et PAS corrigé, parce que c'est de la structure: le choix
-d'extension par place est perdu au redémarrage, où le worker rebranche la même
-chose sur toutes les places depuis un réglage de salle. La page envoie deux
-messages pour tenir les deux d'accord, avec une table écrite à la main. La
-bonne forme est que la place porte son extension et que le worker la retienne
-par place.
-
-La leçon de la nuit tient en une phrase: **les constats les plus utiles de cet
-audit portaient sur le code de la veille.** Un correctif écrit sous la pression
-d'un ami qui rame est exactement celui qu'il faut relire à froid, et je ne
-l'avais pas fait.

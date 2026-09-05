@@ -963,9 +963,20 @@ mod properties {
             let tail = blob.len().saturating_sub(noise.len());
             blob[tail..].copy_from_slice(&noise);
 
-            if let Ok(banner) = parse(&blob) {
-                prop_assert_eq!(banner.pixels.len(), WIDTH as usize * HEIGHT as usize * 4);
-            }
+            // L'assertion était derrière un `if let Ok`: quand la lecture
+            // échouait, l'essai passait sans rien dire, alors que le commentaire
+            // du dessus promet qu'elle aboutit. C'est le contraire exact de la
+            // règle 4: une assertion derrière une condition qui peut être fausse
+            // en silence. Trouvé par l'audit du 5 septembre 2026.
+            let banner = match parse(&blob) {
+                Ok(banner) => banner,
+                Err(error) => {
+                    return Err(proptest::test_runner::TestCaseError::fail(format!(
+                        "la lecture doit aboutir avec une queue abîmée: {error}"
+                    )));
+                }
+            };
+            prop_assert_eq!(banner.pixels.len(), WIDTH as usize * HEIGHT as usize * 4);
         }
     }
 

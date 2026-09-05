@@ -10205,3 +10205,49 @@ répondre à une question individuelle.** On avait construit un tableau de bord
 qui répond à « est-ce que la salle tient » alors que la question posée est
 toujours « pourquoi MOI je rame ». Les deux ne se déduisent pas l'une de
 l'autre, et la première rassure pendant que la seconde saigne.
+
+## Deux vérités pour une seule place
+
+« Quand je recharge, mon nom s'affiche sous joueur 1 alors que je suis 2. »
+
+La cause n'est pas un calcul faux, c'est une architecture: **deux sources de
+vérité pour la même question**. Le worker attribue les ports — il ne compte que
+les tuyaux vivants, et c'est lui qui décide. Le plan de contrôle porte les noms,
+et il apprend la place par une ANNONCE de la page. Entre les deux il y a un
+rechargement, deux sockets, et un ordre d'événements que personne ne contrôle.
+
+Trois défauts vivaient dans cet écart, et chacun suffit à croiser un nom.
+
+`claim` retenait la nouvelle place sans lâcher l'ancienne. Une page à qui le
+worker donne un autre port occupait donc les deux. L'invariant « une session
+tient une place » semblait si évident qu'il n'était écrit nulle part, ce qui est
+exactement la façon dont un invariant se perd.
+
+Une place retenue par une socket morte bloquait la nouvelle annonce. Un
+rechargement ouvre la nouvelle socket avant que l'ancienne soit déclarée partie,
+et le worker, lui, a déjà rendu le port: il voit un tuyau fermé tout de suite,
+là où socket.io attend son délai de ping. C'est cette asymétrie de vitesse qui
+ouvre la fenêtre.
+
+Et le refus n'était rattrapé par personne. `SeatTaken` traversait le
+gestionnaire, donc ni le journal ni la diffusion ne tournaient. Le refus était
+donc doublement invisible: la salle gardait l'affichage d'avant, et rien
+n'enregistrait qu'un refus avait eu lieu. **Une exception non rattrapée dans un
+gestionnaire d'événements ne fait pas que rater son travail: elle efface aussi
+la trace qu'il y avait du travail à faire.**
+
+Ce que je n'ai pas réussi à faire, et il faut le dire. Le pilote `just places`
+recharge une page et vérifie que la personne n'occupe qu'une place, celle du
+worker. Il passe — mais il passait DÉJÀ avant le correctif: un rechargement
+propre rend le port tout de suite, donc il ne déclenche jamais la course. Il
+garde contre une régression de l'invariant, il ne prouve pas la panne.
+
+Les trois défauts sont réels et couverts. Que l'un d'eux soit celui que Souhib a
+vu reste une déduction, pas une mesure, et l'écrire ici est plus utile que de
+prétendre le contraire.
+
+La correction de fond, elle, n'est pas faite: le worker sait qui tient quoi et ne
+l'expose à personne. Le plan de contrôle ne peut donc pas se recaler sur lui,
+seulement espérer que les annonces arrivent dans le bon ordre. Tant que la
+question « qui est à la place 2 » aura deux réponses possibles, on rattrapera
+des symptômes.

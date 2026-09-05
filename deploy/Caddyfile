@@ -68,11 +68,30 @@ nel3ab.app {
 	# d'écrire depuis la connexion qu'il a acceptée. Et Caddy n'accepte de
 	# connexion que sur les adresses du tailnet (voir `bind`), donc cette adresse
 	# est toujours une adresse du tailnet.
+	# Les en-têtes d'IDENTITÉ sont retirés avant de passer derrière.
+	#
+	# Le commentaire du dessus décrit la porte `.ts.net`, où tailscaled écrit
+	# lui-même `Tailscale-User-Login`. Sur CETTE porte, Caddy ne l'écrit pas et
+	# ne l'effaçait pas non plus: il relayait tel quel ce que le client mettait.
+	# Or le service essaie ces en-têtes AVANT de demander à tailscaled qui est
+	# derrière l'adresse, et les croit dès qu'il y en a exactement un. N'importe
+	# quel pair du tailnet pouvait donc envoyer l'adresse de l'administrateur et
+	# l'être: propriétaire de la salle, et maître de la référence. Trouvé par
+	# l'audit du 2026-09-05; vérifié en forgeant l'en-tête, avant et après.
+	#
+	# Retirés ici, il ne reste que `X-Forwarded-For`, que Caddy écrit lui-même
+	# depuis la connexion qu'il a acceptée, et le service redemande à tailscaled.
 	handle /api/* {
-		reverse_proxy 127.0.0.1:8200
+		reverse_proxy 127.0.0.1:8200 {
+			header_up -Tailscale-User-Login
+			header_up -Tailscale-User-Name
+		}
 	}
 	handle /socket.io/* {
-		reverse_proxy 127.0.0.1:8200
+		reverse_proxy 127.0.0.1:8200 {
+			header_up -Tailscale-User-Login
+			header_up -Tailscale-User-Name
+		}
 	}
 
 	# Et tout le reste au worker: la page, l'image, le son, les manettes, le clip.

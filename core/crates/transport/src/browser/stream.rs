@@ -107,6 +107,7 @@ pub(super) fn deliver(
     viewers: &Viewers,
     dropped: &Arc<std::sync::atomic::AtomicU64>,
     wants_key: &Arc<std::sync::atomic::AtomicBool>,
+    granted_key: &Arc<Mutex<Instant>>,
     packet: &Packet,
 ) -> bool {
     let Ok(mut viewers) = viewers.lock() else {
@@ -134,6 +135,11 @@ pub(super) fn deliver(
     viewers.retain_mut(|viewer| {
         // Un spectateur dont le flux est cassé n'a rien à faire d'une image
         // qui référence ce qu'il n'a pas. On attend la clé.
+        // Retenu AVANT d'effacer: si la clé qui répare est elle-même refusée
+        // juste en dessous, c'est le MÊME gel qui continue, pas un nouveau.
+        // Sans ça un spectateur bloqué comptait un gel par clé jetée, et le
+        // nombre cessait de dire « combien de fois son image s'est figée ».
+        let was_resyncing = viewer.resyncing;
         if viewer.resyncing {
             if !key {
                 viewer.starved += 1;
@@ -168,7 +174,7 @@ pub(super) fn deliver(
                 // Une chaîne DÉJÀ cassée ne se casse pas deux fois: sans ça, un
                 // spectateur qui rate tout un groupe compterait autant de gels
                 // que d'images, et le nombre ne dirait plus rien.
-                if !viewer.resyncing {
+                if !was_resyncing {
                     viewer.breaks += 1;
                 }
                 viewer.resyncing = true;
@@ -184,8 +190,18 @@ pub(super) fn deliver(
     // qu'en échouant à décoder: le worker, lui, sait qu'il vient de jeter.
     // La demande est déjà limitée en fréquence, donc un spectateur en
     // difficulté ne peut pas faire grossir le flux de tout le monde.
+    // Par le LIMITEUR, et non en posant le drapeau directement.
+    //
+    // Le commentaire du dessus disait « la demande est déjà limitée en
+    // fréquence »; c'était faux sur ce chemin, qui posait le drapeau sans
+    // passer par `ask_for_key_frame`. Tant qu'une clé jetée ne cassait pas la
+    // chaîne, ça ne se voyait pas. Depuis qu'elle la casse (correctif du
+    // 2026-09-04), un spectateur dont la file reste pleine faisait une boucle:
+    // clé forcée, jetée, chaîne cassée, clé redemandée — une image-clé à CHAQUE
+    // image, pour tout le monde, six fois le débit. Trouvé par l'audit du
+    // 2026-09-05, sur le correctif de la veille.
     if broke {
-        wants_key.store(true, std::sync::atomic::Ordering::Relaxed);
+        ask_for_key_frame(wants_key, granted_key);
     }
     delivered
 }
@@ -455,6 +471,58 @@ mod tests {
         assert_eq!(health.dropped, 1, "{health:?}");
         // Ce qu'il a vraiment manqué, lui, est compté.
         assert!(health.starved >= 4, "{health:?}");
+    }
+
+    /// Un spectateur bloqué ne force pas une clé à chaque image.
+    ///
+    /// La régression du 2026-09-04: depuis qu'une clé jetée casse la chaîne,
+    /// un spectateur dont la file reste pleine faisait une boucle — clé forcée,
+    /// jetée, chaîne cassée, clé redemandée — donc une image-clé à CHAQUE image
+    /// pour tout le monde. La demande passe maintenant par le limiteur, comme
+    /// celle du navigateur.
+    #[test]
+    fn a_stuck_viewer_does_not_force_a_key_frame_every_frame() {
+        let (sender, _held) = sync_channel::<Framed>(OUTGOING_DEPTH);
+        let server = detached(vec![sender]);
+
+        for _ in 0..OUTGOING_DEPTH {
+            assert!(server.send(&delta()));
+        }
+        // La première clé refusée a le droit de redemander: le limiteur part
+        // d'une époque qui l'autorise.
+        assert!(!server.send(&frame()));
+        assert!(
+            server.take_key_frame_request(),
+            "une première demande passe"
+        );
+
+        // Les suivantes, refusées dans la foulée, ne redemandent PAS: la
+        // précédente vient d'être accordée. Sans le limiteur, chacune passait.
+        for _ in 0..5 {
+            assert!(!server.send(&frame()));
+            assert!(!server.take_key_frame_request(), "pas de tempête de clés");
+        }
+    }
+
+    /// Un gel qui continue reste UN gel.
+    ///
+    /// La clé qui répare peut elle-même être refusée par une file toujours
+    /// pleine. C'est le même gel: compter un de plus par clé jetée ferait dire
+    /// « son image s'est figée dix fois » pour une seule seconde d'attente.
+    #[test]
+    fn a_key_refused_during_a_break_does_not_count_a_second_break() {
+        let (sender, _held) = sync_channel::<Framed>(OUTGOING_DEPTH);
+        let server = detached(vec![sender]);
+
+        for _ in 0..OUTGOING_DEPTH {
+            let _ = server.send(&delta());
+        }
+        let _ = server.send(&delta());
+        for _ in 0..3 {
+            let _ = server.send(&frame());
+        }
+
+        assert_eq!(server.viewer_health()[0].breaks, 1);
     }
 
     /// Une CLÉ jetée casse la chaîne comme n'importe quelle image.

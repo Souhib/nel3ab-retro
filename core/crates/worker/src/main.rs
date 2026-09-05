@@ -1282,7 +1282,20 @@ fn run(settings: &Settings) -> Result<()> {
             //
             // Une ligne par spectateur toutes les dix secondes noierait le
             // journal d'un « tout va bien » que la ligne du dessus dit déjà.
-            for one in server.viewer_health() {
+            // Les DEUX flux. Le demi-format est celui des liaisons les plus
+            // étroites, donc de ceux qui ont le plus de chances de souffrir; ne
+            // relever que le grand format laissait justement ceux-là invisibles.
+            let everyone = server
+                .viewer_health()
+                .into_iter()
+                .map(|one| ("plein", one))
+                .chain(
+                    server
+                        .half_viewer_health()
+                        .into_iter()
+                        .map(|one| ("demi", one)),
+                );
+            for (stream, one) in everyone {
                 let before = health_before.get(&one.tag).copied().unwrap_or((0, 0, 0));
                 let lost = one.dropped.saturating_sub(before.0);
                 let breaks = one.breaks.saturating_sub(before.1);
@@ -1290,6 +1303,7 @@ fn run(settings: &Settings) -> Result<()> {
                 if lost > 0 || breaks > 0 || missed > 0 || one.resyncing {
                     tracing::warn!(
                         viewer = one.tag,
+                        stream,
                         dropped_now = lost,
                         breaks_now = breaks,
                         // Ce qu'il a vraiment manqué: `dropped` ne compte que le
@@ -1310,6 +1324,7 @@ fn run(settings: &Settings) -> Result<()> {
             health_before = server
                 .viewer_health()
                 .into_iter()
+                .chain(server.half_viewer_health())
                 .map(|one| (one.tag, (one.dropped, one.breaks, one.starved)))
                 .collect();
 

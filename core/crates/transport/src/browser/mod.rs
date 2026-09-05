@@ -255,6 +255,11 @@ pub struct BrowserServer {
     wants_save: Arc<Mutex<u8>>,
     /// La manette voulue pour le prochain jeu. Voir `Command::ChoosePad`.
     wants_pad: Arc<Mutex<u8>>,
+    /// Le limiteur des images-clés, par flux. Le même que celui du fil d'accueil:
+    /// une demande venue du navigateur et une venue d'une file pleine se
+    /// partagent la même fréquence, sinon l'une contournerait l'autre.
+    granted_key: Arc<Mutex<Instant>>,
+    half_granted_key: Arc<Mutex<Instant>>,
     /// Ce que chaque place veut au bout de sa Wiimote, MAINTENANT.
     ///
     /// Par place et non pour la salle, contrairement à `wants_pad`: c'est un
@@ -523,6 +528,8 @@ impl BrowserServer {
             wants_save,
             wants_pad,
             wants_extension,
+            granted_key: Arc::clone(&granted_key),
+            half_granted_key: Arc::clone(&half_granted_key),
             _accept: accept,
         })
     }
@@ -556,7 +563,13 @@ impl BrowserServer {
                 packet.annex_b,
             );
         }
-        deliver(&self.viewers, &self.dropped, &self.wants_key, packet)
+        deliver(
+            &self.viewers,
+            &self.dropped,
+            &self.wants_key,
+            &self.granted_key,
+            packet,
+        )
     }
 
     /// Le clip des dernières secondes, emballé et prêt à partager.
@@ -587,6 +600,7 @@ impl BrowserServer {
             &self.half_viewers,
             &self.half_dropped,
             &self.half_wants_key,
+            &self.half_granted_key,
             packet,
         )
     }

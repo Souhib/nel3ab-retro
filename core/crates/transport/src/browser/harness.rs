@@ -30,6 +30,8 @@ pub(in crate::browser) fn detached(viewers: Vec<SyncSender<Framed>>) -> BrowserS
         wants_pad: Arc::new(Mutex::new(0_u8)),
         acted: Arc::new(Mutex::new([None; PORTS])),
         wants_extension: Arc::new(Mutex::new([None; PORTS])),
+        granted_key: Arc::new(Mutex::new(BrowserServer::key_frame_epoch())),
+        half_granted_key: Arc::new(Mutex::new(BrowserServer::key_frame_epoch())),
         owner: Arc::new(Mutex::new(None)),
         half_viewers: Arc::new(Mutex::new(Vec::new())),
         half_joined: Arc::new(std::sync::atomic::AtomicBool::new(false)),

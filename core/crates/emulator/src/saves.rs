@@ -212,16 +212,32 @@ fn rescue(from: &Path, slot: &Path) -> Result<(), std::io::Error> {
         }
         return std::fs::remove_dir(from);
     }
-    // `.mis-de-cote` une seule fois: écraser une mise à l'abri par une autre
-    // ferait perdre la première, ce qui est exactement ce qu'on évite ici.
-    let aside = from.with_extension("mis-de-cote");
-    if aside.exists() {
-        return {
-            std::fs::remove_dir_all(from).unwrap_or(());
-            Ok(())
-        };
+    // Une mise à l'abri de plus, jamais une de moins.
+    //
+    // La version d'avant disait « `.mis-de-cote` une seule fois » et, quand le
+    // nom était pris, SUPPRIMAIT le dossier qu'elle était censée mettre à
+    // l'abri — sans une ligne de journal, avec un `unwrap_or(())` qui cachait
+    // même l'échec de la suppression. Le contraire exact de ce que la fonction
+    // promet trois lignes plus haut. Trouvé par l'audit du 2026-09-05. Le cas
+    // est rare (une vraie carte réapparaît après une restauration à la main),
+    // mais une sauvegarde effacée ne se récupère pas.
+    //
+    // Numéroté, donc: la deuxième s'appelle `-2`, la troisième `-3`. Borné
+    // pour qu'un dossier qui refuserait tout ne fasse pas tourner en rond.
+    let first = from.with_extension("mis-de-cote");
+    if !first.exists() {
+        return std::fs::rename(from, &first);
     }
-    std::fs::rename(from, &aside)
+    for n in 2..=99_u32 {
+        let aside = from.with_extension(format!("mis-de-cote-{n}"));
+        if !aside.exists() {
+            return std::fs::rename(from, &aside);
+        }
+    }
+    Err(std::io::Error::new(
+        std::io::ErrorKind::AlreadyExists,
+        "quatre-vingt-dix-neuf mises à l'abri portent déjà ce nom",
+    ))
 }
 
 /// Relie UN dossier vers l'emplacement, en retirant ce qui était là.
@@ -580,6 +596,38 @@ mod tests {
     }
 
     /// Et quand l'emplacement n'est PAS vide, on ne mélange pas deux parties.
+    /// Deux mises à l'abri de suite gardent les DEUX.
+    ///
+    /// Le défaut du 2026-09-05: quand `.mis-de-cote` existait déjà, la seconde
+    /// carte était supprimée au lieu d'être mise à l'abri, en silence. Une
+    /// sauvegarde ne se supprime pas, et ce fichier le dit trois fois.
+    #[test]
+    fn a_second_rescue_keeps_both_rather_than_deleting_one() {
+        let dir = tempfile::tempdir().unwrap();
+        let slot = dir.path().join("emplacement");
+        std::fs::create_dir_all(&slot).unwrap();
+        std::fs::write(slot.join("occupe.gci"), b"x").unwrap();
+
+        let card = dir.path().join("Card A");
+        std::fs::create_dir_all(&card).unwrap();
+        std::fs::write(card.join("premiere.gci"), b"1").unwrap();
+        rescue(&card, &slot).unwrap();
+
+        std::fs::create_dir_all(&card).unwrap();
+        std::fs::write(card.join("seconde.gci"), b"2").unwrap();
+        rescue(&card, &slot).unwrap();
+
+        assert!(!card.exists(), "la carte a été mise à l'abri");
+        assert_eq!(
+            std::fs::read(dir.path().join("Card A.mis-de-cote").join("premiere.gci")).unwrap(),
+            b"1"
+        );
+        assert_eq!(
+            std::fs::read(dir.path().join("Card A.mis-de-cote-2").join("seconde.gci")).unwrap(),
+            b"2"
+        );
+    }
+
     #[test]
     fn an_older_save_is_set_aside_rather_than_mixed_in() {
         let home = tempfile::tempdir().unwrap();

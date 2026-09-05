@@ -91,6 +91,8 @@ const DARK_LEVEL = 24;
  * côté de la page reste, celui-ci ne fait qu'arrêter de PAYER la sonde.
  */
 const PROBE_WINDOW = 900;
+/** La fenêtre d'allure, en millisecondes: deux secondes quel que soit le rythme de rendu. */
+const PACE_WINDOW_MS = 2000;
 
 export type VideoStats = {
   painted: number;
@@ -268,6 +270,8 @@ export class VideoStream {
   private shown = 0;
   private repeated = 0;
   private ticks = 0;
+  /** Quand la dernière fenêtre d'allure s'est fermée. */
+  private lastWindow: number | null = null;
   private starved = 0;
   private starvedRecent = 0;
   /** Depuis combien de fenêtres la marge est collée au plafond. */
@@ -539,10 +543,15 @@ export class VideoStream {
    * basculer. `onclose` reconstruit tout à partir de la première image-clé du
    * nouveau flux, que le worker fabrique parce qu'il voit arriver quelqu'un.
    */
-  setHalf(half: boolean): void {
+  setHalf(half: boolean, remember = true): void {
     if (half === this.half) return;
     this.half = half;
-    rememberHalf(half);
+    // Retenu seulement quand c'est la PERSONNE qui choisit. La bascule
+    // automatique passe `remember = false`: elle répond à ce lien-là, ce
+    // soir-là, et le retenir faisait démarrer la visite suivante en format
+    // réduit même sur un bon lien, sans un mot. Trouvé par l'audit du
+    // 5 septembre 2026, sur le correctif de la veille.
+    if (remember) rememberHalf(half);
     // L'horaire aussi: la taille change, donc le temps de décodage change, et
     // garder le calage de l'ancien flux ferait passer les premières images du
     // nouveau pour des retards.
@@ -924,7 +933,15 @@ export class VideoStream {
    * not. It was a whole frame, set once and never given back — felt at the
    * controller, and rightly. */
   private adjust(): void {
-    if (this.ticks % 120 !== 0) return;
+    // En TEMPS et non en rendus. La version d'avant comptait 120 rendus, ce
+    // qui fait deux secondes à 60 Hz, quatre à 30, et jamais si la page cesse
+    // de peindre. Toutes les durées écrites autour (« deux secondes », « dix
+    // secondes au plafond ») étaient donc fausses sur un client qui peine —
+    // exactement celui qu'elles servent. Trouvé par l'audit du 5 septembre
+    // 2026, sur le correctif de la veille.
+    const now = performance.now();
+    if (this.lastWindow !== null && now - this.lastWindow < PACE_WINDOW_MS) return;
+    this.lastWindow = now;
 
     // Steer towards "as fast as this pipe has been, plus the slack", five
     // milliseconds at a time: a fifth of a refresh, invisible, and an unlucky

@@ -832,7 +832,9 @@ function Room({
   const [declined, setDeclined] = useState(false);
   useEffect(() => {
     if (!overloaded || half || denied || declined || !session) return;
-    session.video.setHalf(true);
+    // Sans le retenir: ce choix est celui de la page pour ce lien, pas celui de
+    // la personne pour toutes ses visites.
+    session.video.setHalf(true, false);
     setHalf(true);
     setReduced(true);
   }, [overloaded, half, denied, declined, session]);

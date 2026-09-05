@@ -18,6 +18,7 @@ import pytest
 import socketio
 import uvicorn
 from anyio.abc import SocketAttribute, SocketStream
+from socketio.exceptions import ConnectionError as SocketConnectionError
 
 from nel3ab_control.api.controllers.rooms import RoomController
 from nel3ab_control.app import create_app
@@ -853,3 +854,36 @@ async def test_only_the_holder_may_answer(served: tuple[str, RoomController]) ->
 
     await holder.disconnect()
     await asker.disconnect()
+
+
+async def test_a_foreign_origin_cannot_open_the_lobby(served: tuple[str, RoomController]) -> None:
+    """Un site étranger ouvert dans le navigateur d'un membre ne parle pas à la salle.
+
+    Le défaut du 5 septembre 2026: `cors_allowed_origins=[]` voulait dire « même
+    origine seulement » dans le commentaire, et « aucun contrôle » pour la
+    bibliothèque. Vérifié avec une origine forgée sur la vraie salle: poignée de
+    main acceptée, et le service identifiait la session, par `whois` sur
+    l'adresse du membre, comme le membre lui-même.
+    """
+    url, _rooms = served
+
+    stranger = socketio.AsyncClient()
+    with pytest.raises(SocketConnectionError):
+        await stranger.connect(
+            url,
+            auth={"name": "Intrus"},
+            socketio_path="/socket.io",
+            headers={"Origin": "https://evil.example"},
+        )
+
+    # Le jumeau: l'origine de la page, elle, entre. Sans lui, un contrôle qui
+    # refuserait tout passerait l'assertion du dessus et fermerait la salle.
+    page = socketio.AsyncClient()
+    await page.connect(
+        url,
+        auth={"name": "Souhib"},
+        socketio_path="/socket.io",
+        headers={"Origin": "https://nel3ab.app"},
+    )
+    assert page.connected
+    await page.disconnect()

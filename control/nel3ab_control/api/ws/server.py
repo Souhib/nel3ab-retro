@@ -18,10 +18,15 @@ from nel3ab_control.worker import tell_owner
 
 sio = socketio.AsyncServer(
     async_mode="asgi",
-    # Empty: only same-origin handshakes. The page is served from this origin in
-    # production and the dev proxy makes it same-origin in development, so an
-    # allowed list would exist only to be forgotten when the address changes.
-    cors_allowed_origins=[],
+    # Posée par `create_app` depuis les réglages: voir `allow_origins`. Le
+    # commentaire d'avant disait « vide: même origine seulement ». C'était le
+    # contraire: pour python-socketio, une liste vide DÉSACTIVE le contrôle, et
+    # n'importe quel site ouvert dans le navigateur d'un membre du tailnet
+    # ouvrait une session que le service identifiait, par `whois` sur l'adresse
+    # du membre, comme le membre lui-même. Une garde qui n'existait pas, avec un
+    # commentaire qui disait qu'elle existait. Trouvé par l'audit du 5 septembre
+    # 2026, vérifié avec une origine forgée.
+    cors_allowed_origins=["https://nel3ab.app"],
     ping_interval=15,
     ping_timeout=10,
     logger=False,
@@ -29,6 +34,18 @@ sio = socketio.AsyncServer(
 )
 
 socketio_app = socketio.ASGIApp(sio, socketio_path="/socket.io")
+
+
+def allow_origins(origins: list[str]) -> None:
+    """Les origines admises, depuis les réglages, jamais vides.
+
+    Refuse une liste vide plutôt que de la passer: vide, c'est « tout le monde »
+    chez python-socketio, et c'est exactement le défaut qu'on ferme.
+    """
+    if not origins:
+        raise ValueError("NEL3AB_ORIGINS ne peut pas être vide: vide veut dire tout le monde")
+    sio.eio.cors_allowed_origins = list(origins)
+
 
 ROOM = "room"
 

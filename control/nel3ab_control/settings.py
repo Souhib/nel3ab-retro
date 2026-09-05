@@ -28,6 +28,16 @@ class Settings(BaseSettings):
             "origin as the page, which is the case behind the Tailscale proxy."
         ),
     )
+    origins: list[str] = Field(
+        default_factory=lambda: ["https://nel3ab.app"],
+        description=(
+            "Les origines qui ont le droit d'ouvrir le salon depuis un navigateur. "
+            "Une liste, jamais vide: pour python-socketio, une liste vide veut "
+            "dire AUCUN contrôle, et n'importe quel site ouvert dans le navigateur "
+            "d'un membre du tailnet parlait alors à la salle en son nom. Vérifié "
+            "le 5 septembre 2026 avec une origine forgée: poignée de main acceptée."
+        ),
+    )
     state_file: Path = Field(
         default=Path.home() / ".local/state/nel3ab/people.json",
         description=(

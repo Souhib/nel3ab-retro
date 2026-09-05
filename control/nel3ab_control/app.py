@@ -16,6 +16,7 @@ from nel3ab_control.api.controllers.rooms import RoomController
 from nel3ab_control.api.routes import me as me_routes
 from nel3ab_control.api.routes import rooms as rooms_routes
 from nel3ab_control.api.ws import socketio_app
+from nel3ab_control.api.ws.server import allow_origins
 from nel3ab_control.journal import Journal
 from nel3ab_control.settings import Settings
 
@@ -68,6 +69,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         generate_unique_id_function=operation_id,
     )
     app.state.settings = settings or Settings()
+    allow_origins(app.state.settings.origins)
     app.include_router(me_routes.router)
     app.include_router(rooms_routes.router)
     app.mount("/socket.io", socketio_app)

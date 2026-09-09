@@ -1,0 +1,49 @@
+diff --git a/nuget.config b/nuget.config
+index c8d71a8..4a7afdc 100644
+--- a/nuget.config
++++ b/nuget.config
+@@ -1,25 +1,6 @@
+-﻿<?xml version="1.0" encoding="utf-8"?>
+-
++<?xml version="1.0" encoding="utf-8"?>
+ <configuration>
+-    <packageSources>
+-        <clear />
+-        <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
+-        <!-- Only needed when using pre-release versions of Ryujinx.LibHac. -->
+-        <add key="LibHacAlpha" value="https://git.ryujinx.app/api/v4/projects/17/packages/nuget/index.json" />
+-        <add key="Ryujinx.UpdateClient" value="https://git.ryujinx.app/api/v4/projects/71/packages/nuget/index.json" />
+-    </packageSources>
+-    <packageSourceMapping>
+-        <!-- key value for <packageSource> should match key values from <packageSources> element -->
+-        <!-- These are defined and .NET still yells about multiple package sources with no mappings. Not sure what to do, this is in the docs lol -->
+-        <packageSource key="nuget.org">
+-            <package pattern="*" />
+-        </packageSource>
+-        <packageSource key="Ryujinx.UpdateClient">
+-            <package pattern="Ryujinx.UpdateClient" />
+-            <package pattern="Ryujinx.Systems.Update.Common" />
+-        </packageSource>
+-        <packageSource key="LibHacAlpha">
+-            <package pattern="Ryujinx.LibHac" />
+-        </packageSource>
+-    </packageSourceMapping>
++  <!-- The two vanished GitLab update packages come from the matching release
++       as direct assembly references. All remaining packages use nuget.org. -->
++  <packageSources><clear /><add key="nuget.org" value="https://api.nuget.org/v3/index.json" /></packageSources>
+ </configuration>
+diff --git a/src/Ryujinx/Ryujinx.csproj b/src/Ryujinx/Ryujinx.csproj
+index 480d147..d91dd01 100644
+--- a/src/Ryujinx/Ryujinx.csproj
++++ b/src/Ryujinx/Ryujinx.csproj
+@@ -65,8 +65,8 @@
+     <PackageReference Include="Ryujinx.Audio.OpenAL.Dependencies" Condition="'$(RuntimeIdentifier)' != 'linux-x64' AND '$(RuntimeIdentifier)' != 'linux-arm64' AND '$(RuntimeIdentifier)' != 'osx-x64' AND '$(RuntimeIdentifier)' != 'osx-arm64'" />
+     <PackageReference Include="Ryujinx.Graphics.Nvdec.Dependencies.AllArch" />
+     <PackageReference Include="Ryujinx.Graphics.Vulkan.Dependencies.MoltenVK" Condition="'$(RuntimeIdentifier)' != 'linux-x64' AND '$(RuntimeIdentifier)' != 'linux-arm64' AND '$(RuntimeIdentifier)' != 'win-x64' AND '$(RuntimeIdentifier)' != 'win-arm64'" />
+-    <PackageReference Include="Ryujinx.UpdateClient" />
+-    <PackageReference Include="Ryujinx.Systems.Update.Common" />
++    <Reference Include="Ryujinx.Systems.Update.Client"><HintPath>$(Nel3abReleaseLibraries)/Ryujinx.Systems.Update.Client.dll</HintPath></Reference>
++    <Reference Include="Ryujinx.Systems.Update.Common"><HintPath>$(Nel3abReleaseLibraries)/Ryujinx.Systems.Update.Common.dll</HintPath></Reference>
+     <PackageReference Include="securifybv.ShellLink" />
+     <PackageReference Include="Sep" />
+     <PackageReference Include="Silk.NET.Vulkan" />

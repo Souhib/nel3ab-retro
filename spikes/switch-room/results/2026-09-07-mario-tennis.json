@@ -1,0 +1,74 @@
+{
+  "date": "2026-09-07",
+  "engine": "Ryubing 1.3.3",
+  "title": "Mario Tennis Aces",
+  "title_id": "0100bde00862a000",
+  "game_version": "1.0.0",
+  "update_applied": false,
+  "firmware": "4.1.0",
+  "firmware_source": "update partition of the user-supplied XCI, installed by Ryubing",
+  "keys": "user-supplied prod.keys, outside repository, mode 0600; values omitted",
+  "title_keys_installed": false,
+  "backend": "Vulkan RX 6650 XT, SoftwarePageTable",
+  "observations": [
+    "NCA decryption succeeds",
+    "Missing FontStandard before firmware installation",
+    "Title screen and introductory scenes rendered",
+    "Browser commands advance introductory dialogue"
+  ],
+  "browsers": [
+    {
+      "port": 1,
+      "picture": {
+        "width": 1280,
+        "height": 720
+      },
+      "audio_running": true
+    },
+    {
+      "port": 2,
+      "picture": {
+        "width": 1280,
+        "height": 720
+      },
+      "audio_running": true
+    },
+    {
+      "port": 3,
+      "picture": {
+        "width": 1280,
+        "height": 720
+      },
+      "audio_running": true
+    },
+    {
+      "port": 4,
+      "picture": {
+        "width": 640,
+        "height": 360
+      },
+      "audio_running": true
+    }
+  ],
+  "clip": {
+    "duration": 30.233333,
+    "video": "h264",
+    "audio": "aac",
+    "sample_rate": 48000,
+    "channels": 2,
+    "rms": [
+      1936.2217671214541,
+      1604.6188842279378
+    ],
+    "audio_start": 0.0,
+    "video_start": 0.0
+  },
+  "limits": [
+    "No commercial-game frame-rate benchmark",
+    "No four-player match validated",
+    "No update or DLC validated",
+    "Save restoration not yet validated",
+    "No physical controller or speaker check",
+    "Prototype only; production services unchanged"
+  ]
+}

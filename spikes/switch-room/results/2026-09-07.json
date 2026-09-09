@@ -1,0 +1,150 @@
+{
+  "date": "2026-09-07",
+  "ryubing": "1.3.3",
+  "eden": "0.2.1 amd64 clang-pgo",
+  "dolphin_image": "sha256:8dbc536385ca2af2de7d01aec1f2688980da1e355abea4f88360e7a1fe6b28ee",
+  "prototype_image": "sha256:7740569c96f13fc5c86dc20c85361f7147d6ae986b53c96ed3201a46897fcaee",
+  "gpu": "AMD Radeon RX 6650 XT (RADV NAVI23), Mesa 25.2.8",
+  "guest": {
+    "players": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "extended_buttons": [
+      [
+        "a",
+        "b",
+        "x",
+        "y",
+        "l",
+        "r",
+        "minus",
+        "ls",
+        "rs"
+      ],
+      [
+        "a",
+        "b",
+        "x",
+        "y",
+        "l",
+        "r",
+        "minus",
+        "ls",
+        "rs",
+        "plus"
+      ],
+      [
+        "a",
+        "b",
+        "x",
+        "y",
+        "l",
+        "r",
+        "minus",
+        "ls",
+        "rs"
+      ],
+      [
+        "a",
+        "b",
+        "x",
+        "y",
+        "l",
+        "r",
+        "minus",
+        "ls",
+        "rs"
+      ]
+    ],
+    "neutral_ms": [
+      1106,
+      1072,
+      1137,
+      1137
+    ],
+    "save_counter": 5
+  },
+  "cadence": {
+    "frames": 306,
+    "seconds": 5.086568264989182,
+    "guest_hz": 60.15843768502943
+  },
+  "browser": {
+    "players": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "claims": [
+      "P1 released by spectator and reclaimed"
+    ],
+    "rumble_callbacks": [
+      1,
+      1,
+      1,
+      1
+    ],
+    "full": {
+      "width": 1280,
+      "height": 720
+    },
+    "half": {
+      "width": 640,
+      "height": 360
+    }
+  },
+  "clip": {
+    "duration": 30.216667,
+    "peaks_hz": [
+      440.0,
+      880.0
+    ],
+    "rms": [
+      4240.5922625159,
+      4218.530641572832
+    ],
+    "audio_start": 0.0,
+    "video_start": 0.0,
+    "negative_twins": [
+      "video-only rejected",
+      "silent audio rejected"
+    ]
+  },
+  "commercial_game": {
+    "base": "Mario Tennis Aces.xci",
+    "base_bytes": 3992977408,
+    "patch_bytes": 698504152,
+    "patch_type": "Patch",
+    "patch_version": 786432,
+    "title_id": "0100bde00862a000",
+    "loaded": false,
+    "reason": "Unable to decrypt NCA header; no prod.keys found"
+  },
+  "limitations": [
+    "Homebrew fixture, not a commercial-game benchmark",
+    "Ryubing requires SoftwarePageTable in this configuration",
+    "Eden exits 139 during NRO load, also with fastmem disabled; cause unproven",
+    "Browser vibration actuator is simulated; physical vibration was not felt",
+    "Fixed GOP, no dynamic IDR request",
+    "Timestamp after encoding, not original frame capture",
+    "No collective Switch preparation or personal-profile UI integration yet",
+    "Guest exit did not terminate the emulator within five seconds"
+  ],
+  "steady_input": {
+    "kernel_events_checked": true,
+    "original_reset_then_press_failed": true,
+    "held_state_passed": true,
+    "actual_release_passed": true
+  },
+  "validation": {
+    "just": "passed with a disposable index for pre-existing generated contract changes",
+    "prototype_clippy": "passed with warnings denied",
+    "docs": "strict build passed",
+    "python_lint": "passed",
+    "real_index_modified": false
+  }
+}

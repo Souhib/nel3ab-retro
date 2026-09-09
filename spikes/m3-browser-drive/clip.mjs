@@ -3,7 +3,9 @@
 // Ce que la CI ne peut pas prouver: qu'un fichier s'ouvre. Le worker recopie des
 // unités d'accès dans un conteneur, et une erreur là-dedans ne donne pas une
 // erreur, elle donne un fichier que rien ne lit. Ce pilote demande un clip à la
-// vraie salle et le passe à ffprobe, qui est le seul juge qui compte.
+// vraie salle, vérifie ses deux pistes et décode le son avec ffmpeg. Le signal
+// audible est vérifié séparément sur une source connue par clip-audio-test :
+// un jeu réellement silencieux doit encore produire un clip valide.
 //
 // Il vérifie aussi la limite de cadence, du côté SERVEUR: un bouton qui promet
 // autre chose que ce que le serveur accepte est un bouton qui ment, et ce dépôt
@@ -14,7 +16,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import puppeteer from "puppeteer";
 
-import { enterRoom, openRoom, ROOM_URL } from "./open.mjs";
+import { watchRoom, openRoom, ROOM_URL } from "./open.mjs";
 
 let bad = 0;
 const say = (ok, what) => {
@@ -24,7 +26,7 @@ const say = (ok, what) => {
 
 const browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox"] });
 const page = await openRoom(browser, ROOM_URL);
-await enterRoom(page);
+await watchRoom(page);
 
 /** Demande un clip et rend ce que la salle a répondu.
  *
@@ -69,16 +71,25 @@ if (first.code === 200) {
     const probed = JSON.parse(
       execFileSync("ffprobe", [
         "-v", "error", "-print_format", "json",
-        "-show_entries", "format=duration:stream=codec_name,width,height",
+        "-show_entries", "format=duration:stream=codec_type,codec_name,width,height,sample_rate,channels,duration",
         file,
       ]).toString(),
     );
-    const stream = probed.streams?.[0] ?? {};
+    const stream = probed.streams?.find((one) => one.codec_type === "video") ?? {};
+    const audio = probed.streams?.find((one) => one.codec_type === "audio") ?? {};
     const seconds = Number(probed.format?.duration ?? 0);
     say(stream.codec_name === "h264", `le fichier est du H.264 (${stream.codec_name})`);
     say(stream.width > 0 && stream.height > 0, `il a une image (${stream.width}x${stream.height})`);
     say(seconds >= 29, `il couvre au moins trente secondes (${seconds.toFixed(1)} s)`);
     say(seconds <= 45, `et pas beaucoup plus (${seconds.toFixed(1)} s)`);
+    say(audio.codec_name === "aac", `il contient une piste audio AAC (${audio.codec_name})`);
+    say(Number(audio.sample_rate) === 48000 && audio.channels === 2, `son stéréo à 48 kHz (${audio.sample_rate}, ${audio.channels} canaux)`);
+    say(Math.abs(Number(audio.duration) - Number(stream.duration)) < 0.1, "son et image couvrent la même durée à moins de 100 ms près");
+    const pcm = execFileSync("ffmpeg", ["-v", "error", "-i", file, "-map", "0:a:0", "-f", "s16le", "-ac", "2", "-ar", "48000", "pipe:1"], { maxBuffer: 16 * 1024 * 1024 });
+    say(pcm.length >= 29 * 48000 * 4, "la piste se décode sur toute la durée du clip");
+    let peak = 0;
+    for (let at = 0; at < pcm.length; at += 2) peak = Math.max(peak, Math.abs(pcm.readInt16LE(at)));
+    console.log(`  niveau maximal du son décodé : ${peak}/32768 (zéro est légitime si le jeu était silencieux)`);
   } catch (error) {
     say(false, `ffprobe refuse le fichier: ${String(error).slice(0, 120)}`);
   }

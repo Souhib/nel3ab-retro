@@ -1,0 +1,111 @@
+diff --git a/src/frame-writer.cpp b/src/frame-writer.cpp
+index b13e4e3..92824ef 100644
+--- a/src/frame-writer.cpp
++++ b/src/frame-writer.cpp
+@@ -4,6 +4,9 @@
+ // Audio encoding - thanks to wlstream, a lot of the code/ideas are taken from there
+ 
+ #include <iostream>
++#include <fstream>
++#include <fcntl.h>
++#include <unistd.h>
+ #include "frame-writer.hpp"
+ #include <vector>
+ #include <queue>
+@@ -647,6 +650,16 @@ FrameWriter::FrameWriter(const FrameWriterParams& _params) :
+     }
+ 
+     init_codecs();
++    // Private local control, opened without waiting for a writer. Regular
++    // recordings have no descriptor and retain their usual GOP.
++    if (const char *pipe = getenv("NEL3AB_KEY_PIPE"))
++    {
++        key_pipe = open(pipe, O_RDONLY | O_NONBLOCK | O_CLOEXEC);
++        if (key_pipe < 0) {
++            std::cerr << "Cannot open private key-frame pipe" << std::endl;
++            std::exit(-1);
++        }
++    }
+ }
+ 
+ void FrameWriter::encode(AVCodecContext *enc_ctx, AVFrame *frame, AVPacket *pkt)
+@@ -712,7 +725,12 @@ bool FrameWriter::push_frame(AVFrame *frame, int64_t usec)
+             return false;
+         }
+ 
+-        filtered_frame->pict_type = AV_PICTURE_TYPE_NONE;
++        // Exactly one intra frame for all pending requests, as in Dolphin's
++        // encoder shim. Clear on every other frame to avoid a bitrate storm.
++        char requests[64];
++        const bool requested = key_pipe >= 0 && read(key_pipe, requests, sizeof(requests)) > 0;
++        filtered_frame->pict_type = requested ? AV_PICTURE_TYPE_I : AV_PICTURE_TYPE_NONE;
++        if (requested) std::cerr << "NEL3AB_KEY requested_pts=" << usec << std::endl;
+ 
+         // So we have a frame. Encode it!
+         AVPacket *pkt = av_packet_alloc();
+@@ -881,6 +899,32 @@ void FrameWriter::add_audio(const void* buffer)
+ 
+ void FrameWriter::finish_frame(AVCodecContext *enc_ctx, AVPacket& pkt)
+ {
++    // Private cloud-gaming ingress: preserve complete packet boundaries and
++    // the compositor clock. Raw Annex B requires the reader to await another
++    // frame to discover this one's end and loses its presentation timestamp.
++    // This branch is only for the video-only prototype. Ordinary recordings
++    // retain their muxer and timestamp origin when the environment is unset.
++    if (const char *pipe = getenv("NEL3AB_PACKET_PIPE"))
++    {
++        if (enc_ctx != videoCodecCtx || pkt.pts == AV_NOPTS_VALUE || pkt.size <= 0)
++        {
++            params.write_aborted_flag = true;
++            av_packet_unref(&pkt);
++            return;
++        }
++        static std::ofstream output(pipe, std::ios::binary);
++        uint64_t captured = av_rescale_q(pkt.pts, enc_ctx->time_base, US_RATIONAL);
++        uint32_t size = pkt.size;
++        unsigned char header[12];
++        for (int i = 0; i < 8; i++) header[i] = captured >> (i * 8);
++        for (int i = 0; i < 4; i++) header[8 + i] = size >> (i * 8);
++        output.write(reinterpret_cast<const char *>(header), sizeof(header));
++        output.write(reinterpret_cast<const char *>(pkt.data), pkt.size);
++        output.flush();
++        if (!output) params.write_aborted_flag = true;
++        av_packet_unref(&pkt);
++        return;
++    }
+     static std::mutex fmt_mutex, pending_mutex;
+ 
+     if (enc_ctx == videoCodecCtx)
+@@ -917,6 +961,7 @@ void FrameWriter::finish_frame(AVCodecContext *enc_ctx, AVPacket& pkt)
+ 
+ FrameWriter::~FrameWriter()
+ {
++    if (key_pipe >= 0) close(key_pipe);
+     // Writing the delayed frames:
+     AVPacket *pkt = av_packet_alloc();
+ 
+diff --git a/src/frame-writer.hpp b/src/frame-writer.hpp
+index 4b8fb5c..c6db2aa 100644
+--- a/src/frame-writer.hpp
++++ b/src/frame-writer.hpp
+@@ -84,6 +84,7 @@ struct FrameWriterParams
+ class FrameWriter
+ {
+     FrameWriterParams params;
++    int key_pipe = -1;
+     void load_codec_options(AVDictionary **dict);
+     void load_audio_codec_options(AVDictionary **dict);
+ 
+diff --git a/src/main.cpp b/src/main.cpp
+index c53bba1..f7e68cb 100644
+--- a/src/main.cpp
++++ b/src/main.cpp
+@@ -1207,7 +1207,7 @@ int main(int argc, char *argv[])
+             first_frame = buffer.presented;
+ 
+         buffer.base_usec = timespec_to_usec(buffer.presented)
+-            - timespec_to_usec(first_frame);
++            - (getenv("NEL3AB_PACKET_PIPE") ? 0 : timespec_to_usec(first_frame));
+ 
+         buffers.next_capture();
+     }

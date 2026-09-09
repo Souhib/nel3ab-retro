@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "backend": "GamepadSDL2",
+  "id": "",
+  "controller_type": "ProController",
+  "player_index": "Player1",
+  "deadzone_left": 0.1,
+  "deadzone_right": 0.1,
+  "range_left": 1.0,
+  "range_right": 1.0,
+  "trigger_threshold": 0.5,
+  "left_joycon_stick": {"joystick": "Left", "stick_button": "LeftStick"},
+  "right_joycon_stick": {"joystick": "Right", "stick_button": "RightStick"},
+  "left_joycon": {
+    "button_minus": "Minus", "button_l": "LeftShoulder", "button_zl": "LeftTrigger",
+    "dpad_up": "DpadUp", "dpad_down": "DpadDown", "dpad_left": "DpadLeft", "dpad_right": "DpadRight"
+  },
+  "right_joycon": {
+    "button_a": "A", "button_b": "B", "button_x": "Y", "button_y": "X",
+    "button_plus": "Plus", "button_r": "RightShoulder", "button_zr": "RightTrigger"
+  },
+  "motion": {"motion_backend": "GamepadDriver", "enable_motion": false},
+  "rumble": {"strong_rumble": 1.0, "weak_rumble": 1.0, "enable_rumble": true}
+}

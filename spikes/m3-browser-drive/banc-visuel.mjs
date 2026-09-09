@@ -13,9 +13,12 @@ await new Promise((resolve, reject) => {
 });
 const browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox"] });
 const page = await browser.newPage();
-page.on("pageerror", (e) => console.log(`[pageerror] ${e.message}`));
+const pageErrors = [];
+page.on("pageerror", (e) => { pageErrors.push(e.message); console.log(`[pageerror] ${e.message}`); });
 await page.setViewport({ width: 1200, height: 1000, deviceScaleFactor: 2 });
 await page.goto("http://localhost:5201/bench-preview.html", { waitUntil: "networkidle0" });
+await page.waitForSelector("#banc [data-part]");
+await page.waitForSelector("#banc [data-bench]");
 await page.evaluate(() => document.fonts.ready);
 await new Promise((r) => setTimeout(r, 700));
 await (await page.$("#banc")).screenshot({ path: out });
@@ -99,4 +102,4 @@ if (bad.length) {
 }
 await browser.close();
 vite.kill("SIGTERM");
-process.exit(0); // Vite garde la boucle en vie, et ce script a fini.
+process.exit(bad.length || thin.length || pageErrors.length ? 1 : 0); // Un écart de contraste doit faire échouer la recette.

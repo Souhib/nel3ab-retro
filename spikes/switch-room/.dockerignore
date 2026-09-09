@@ -1,0 +1,4 @@
+*
+!Dockerfile
+!Dockerfile.capture
+!wf-recorder-packets.patch

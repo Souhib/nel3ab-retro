@@ -1,0 +1,16 @@
+# Extend the measured prototype, leaving the production Dolphin image alone.
+FROM nel3ab/switch-prototype:2026-09-08 AS builder
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git build-essential meson ninja-build pkg-config libwayland-dev wayland-protocols \
+    libgbm-dev libavformat-dev libavcodec-dev libavutil-dev libavfilter-dev \
+    libswresample-dev libswscale-dev libpulse-dev libdrm-dev \
+ && rm -rf /var/lib/apt/lists/*
+RUN git clone https://github.com/ammen99/wf-recorder.git /build/wf-recorder \
+ && git -C /build/wf-recorder checkout --detach d3c26b210f374060fb790602aa573b650363989a
+COPY wf-recorder-packets.patch /build/packets.patch
+RUN cd /build/wf-recorder && git apply --check ../packets.patch && git apply ../packets.patch \
+ && meson setup build --buildtype=release \
+ && ninja -C build
+FROM nel3ab/switch-prototype:2026-09-08
+COPY --from=builder /build/wf-recorder/build/wf-recorder /usr/local/bin/nel3ab-wf-recorder

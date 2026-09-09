@@ -1,0 +1,82 @@
+{
+  "date": "2026-09-08",
+  "scope": "Switch gameplay controls and individual configuration in the isolated prototype",
+  "browser_to_kernel": {
+    "fourPlayers": true,
+    "buttons": 16,
+    "fractionalAxes": true,
+    "configurationNeutral": true,
+    "namedProfiles": true,
+    "reload": true,
+    "spectatorRelease": true,
+    "disconnectRelease": true,
+    "mobileOverflow": false,
+    "pageErrors": [],
+    "html": "3650b3ae5096ed4357de809097c7d054b9f97bfd7f52f8b67582a3e539b329ef",
+    "root": "/tmp/nel3ab-switch-controls-KmULm1"
+  },
+  "served_page": {
+    "url": "https://lgf.tail3bd01c.ts.net:8445",
+    "html": "3650b3ae5096ed4357de809097c7d054b9f97bfd7f52f8b67582a3e539b329ef",
+    "play": true,
+    "watch": true,
+    "leave": true,
+    "half": true,
+    "volume": true,
+    "notificationExpired": true,
+    "pageErrors": []
+  },
+  "axis_regression": {
+    "input": 8192,
+    "old_bridge_output": 2097152,
+    "corrected_bridge_output": 8192,
+    "negative_test": "axis-mutation-red.log"
+  },
+  "gates": {
+    "just": "passed; Rust, Python, frontend, GPU and MP4 audio",
+    "frontend_tests": 471,
+    "switch_controls_test": "passed",
+    "prototype_clippy": "passed",
+    "docs_strict": "passed"
+  },
+  "game_preserved": {
+    "pid_in_container": 53,
+    "executable": "/emulator/publish/Ryujinx",
+    "container_id": "fc943da6f0d99cbaec2764a565de2287b7b610d27b8dd19ce028c9a1ea9e09c1"
+  },
+  "negative_proofs": [
+    "axis-red.log",
+    "axis-mutation-red.log",
+    "first-press-red.log",
+    "layout-red.log",
+    "selection-red.log",
+    "feedback-red.log"
+  ],
+  "limitations": [
+    "Kernel-state checks do not measure guest input-to-picture latency.",
+    "Profiles are local to this browser, transferable by JSON; control-plane identity sync is pending.",
+    "This individual setup is not collective pre-launch preparation.",
+    "Production catalogue and save-slot integration are pending.",
+    "Home, Capture and gyro are not transmitted."
+  ],
+  "sources_sha256": {
+    "core/crates/protocol/src/switch.rs": "b42a89afab46eb1fd9cb91a9a480ae9eb2fd622190f67a855d4d5c8d11fb9f75",
+    "core/crates/transport/src/browser/controller.rs": "5f0ba43a9f41f33558dd61e1908e4814123a29782fb7a1d65253d8353bf57074",
+    "core/crates/transport/src/browser/mod.rs": "a4ac2cfdff70abf5804fc15fe84655fb6be458cc72c41cb852b7f0192d85802f",
+    "core/crates/transport/src/browser/pad.rs": "9937fab086b4999a16b2a7672d01b1347a22229b6b13ed297916ed0706acce9f",
+    "front/src/media/input-source.ts": "8e376c368407ae51a285cd9f4310b91bd7909db8e2cc99cd78fdbafd9e1c8028",
+    "front/src/media/input.ts": "c35bbc0ac5d21aba648c5b06744d6c0f645ed216fff44522c6f2ae180f109c42",
+    "front/src/media/switch.ts": "0adaa7f90e0f1eab129cf56ab0ed99cb627cb262d538957ddb1c96d4c125eaeb",
+    "front/src/media/session.ts": "bfea8747916d79a7c30554f4b0b0a6696f5994bd2e23744cb48c1984cb7526cd",
+    "spikes/switch-room/bridge/src/lib.rs": "c539a823fff89b4dff839f470702bcc4787fb32556f7e882ae4985d5ff2f5d85",
+    "spikes/switch-room/bridge/src/main.rs": "3c8c8c183db5ac7c109d4bdc680f9bdc30bd880c9ad21e71b35e3374aa2765fd",
+    "spikes/switch-room/bridge/client.ts": "af84ba83873630fd35787fa596b95fe6945e20113b7745d517828c66d004f877",
+    "spikes/switch-room/bridge/setup.ts": "f011291b151ec98929526acaec3440f4a6c1d4dca84d612b2f1e33dabcc266b9",
+    "spikes/switch-room/bridge/page.template.html": "ddfd4bef656f8f91438d610b2878d1f32e40cf632515a5c37e29507fa0b60d79",
+    "spikes/switch-room/bridge/page.html": "3650b3ae5096ed4357de809097c7d054b9f97bfd7f52f8b67582a3e539b329ef",
+    "spikes/switch-room/check-controls.mjs": "50b0092dc4cf79bdeb3f62dab5e430d6725a0adc809cefa8a77ad123314f01c4",
+    "spikes/switch-room/observe-pads.py": "5d6ba1ce9cf8d4d719ec85e62f3b2e468740c260491f9d0ac95e9b09190c2f26",
+    "spikes/switch-room/pads.py": "4b37544f0c56380cbda193ae10893d59ec56dbc697ad9f1ecfbba68535c6ecef"
+  },
+  "private_evidence_directory": "/tmp/nel3ab-switch-lab/controls"
+}

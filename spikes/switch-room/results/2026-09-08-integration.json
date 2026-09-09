@@ -1,0 +1,174 @@
+{
+  "date": "2026-09-08",
+  "engine": "Ryubing 1.3.3",
+  "title": "Mario Tennis Aces",
+  "title_id": "0100bde00862a000",
+  "game_version": "3.1.0",
+  "update_applied": true,
+  "update_content_version": 786432,
+  "firmware": "4.1.0",
+  "firmware_source": "update partition of user-supplied XCI",
+  "memory_mode": "SoftwarePageTable",
+  "gpu": "AMD Radeon RX 6650 XT",
+  "cpu": "AMD Ryzen 5 3600",
+  "docker_image": "sha256:0a51860f38acf041ac181c41001d80aaf3930554806a1e8f28f91b9ef610cc1e",
+  "match": {
+    "mode": "Single-Console Play, 4 players, doubles, clay court",
+    "players": [
+      "Mario",
+      "Daisy",
+      "Wario",
+      "Waluigi"
+    ],
+    "observed": [
+      "P2 alone changes Luigi to Daisy while P1/P3/P4 retain their selection",
+      "Each of the four browser pages confirms its character",
+      "P3 serves, P1 returns a ball, P2 and P4 move through their browser sticks",
+      "Score advances to 15-15"
+    ],
+    "limits": [
+      "Scripted controls in four Chrome contexts on the emulator host",
+      "No completed match, physical controller or remote-network endurance test"
+    ]
+  },
+  "browser_paths": [
+    {
+      "port": 1,
+      "picture": {
+        "width": 1280,
+        "height": 720
+      },
+      "audio_state": "running",
+      "rumble_api_calls": 190,
+      "video_queue_wait_ms": {
+        "p50": 87.5,
+        "p95": 103
+      }
+    },
+    {
+      "port": 2,
+      "picture": {
+        "width": 1280,
+        "height": 720
+      },
+      "audio_state": "running",
+      "rumble_api_calls": 9,
+      "video_queue_wait_ms": {
+        "p50": 71.79999995231628,
+        "p95": 87
+      }
+    },
+    {
+      "port": 3,
+      "picture": {
+        "width": 1280,
+        "height": 720
+      },
+      "audio_state": "running",
+      "rumble_api_calls": 26,
+      "video_queue_wait_ms": {
+        "p50": 87.5,
+        "p95": 102.70000004768372
+      }
+    },
+    {
+      "port": 4,
+      "picture": {
+        "width": 640,
+        "height": 360
+      },
+      "audio_state": "running",
+      "rumble_api_calls": 12,
+      "video_queue_wait_ms": {
+        "p50": 102.39999997615814,
+        "p95": 113.29999995231628
+      }
+    }
+  ],
+  "render_measurement": {
+    "tool": "MangoHud 0.6.9.1-2build1, Vulkan layer on emulator",
+    "interval": "approximately 19:11:23 to 19:12:23 UTC; court, serves, points and between-point animations",
+    "sample_period_ms": 100,
+    "data": "2026-09-08-mario-tennis-render.csv",
+    "requested_seconds": [
+      1072.0,
+      1132.0
+    ],
+    "observed_seconds": [
+      1072.014950149,
+      1131.913631171
+    ],
+    "duration_seconds": 59.89868102199989,
+    "samples": 599,
+    "fps_sample_median": 38.0746,
+    "fps_sample_p05": 31.7106,
+    "fps_sample_min": 5.43866,
+    "frametime_sample_max_ms": 183.869,
+    "limits": [
+      "One early minute of a match, not an endurance benchmark",
+      "Sampled presentation cadence; not a measurement of input-to-pixel latency",
+      "Four local Chrome contexts and both capture encoders share the host CPU and GPU",
+      "Shader compilation and cache warm-up are not isolated",
+      "p05 is a percentile of sampled FPS, not a per-frame 1% low",
+      "CPU bottleneck is a hypothesis; no A/B profile isolates it"
+    ]
+  },
+  "clip": {
+    "duration": 30.55,
+    "video": "h264",
+    "audio": "aac",
+    "channels": 2,
+    "sample_rate": 48000,
+    "audio_start": 0.0,
+    "video_start": 0.0,
+    "first_three_seconds_rms": [
+      1207.9500411854788,
+      1180.0058575566713
+    ]
+  },
+  "save_restart": {
+    "before": {
+      "0000000000000001/1/save7.dat": {
+        "bytes": 31232,
+        "sha256": "03cfbe5368457f140cc00bc1f7238cb4e0b13d5e1df2d862fc5eb1c6927babd5"
+      },
+      "0000000000000001/0/save7.dat": {
+        "bytes": 31232,
+        "sha256": "03cfbe5368457f140cc00bc1f7238cb4e0b13d5e1df2d862fc5eb1c6927babd5"
+      }
+    },
+    "same_bytes_after_restart": true,
+    "observed": "Title enters main menu directly; Adventure returns to Mario at Marina Stadium, level 1, without replaying the introduction",
+    "limits": [
+      "One committed save, not a stop during a write",
+      "No new/unlocked slots, import/export or second system user tested"
+    ]
+  },
+  "shutdown": {
+    "elapsed_seconds": 1.4700015699490905,
+    "exit_code": 139,
+    "oom_killed": false,
+    "phase": "doubles court, after save committed"
+  },
+  "host_mapped_attempt": {
+    "mode": "HostMapped",
+    "exit_code": 134,
+    "oom_killed": false,
+    "last_guest_uptime_seconds": 10.98,
+    "error": "System.AccessViolationException in VirtualMemoryManager.Fill / KPageTable.MapPages / SetHeapSize",
+    "conclusion": "Does not boot this game in the tested environment; cause not established; default remains SoftwarePageTable"
+  },
+  "window_close_attempt": {
+    "tool": "wlrctl 0.2.2-1",
+    "result": "Foreign Toplevel Management interface not found",
+    "conclusion": "The installed Cage session cannot be closed through this protocol; not a graceful-stop solution"
+  },
+  "production_switch_enabled": false,
+  "checks": {
+    "full_local_gate": "passed: just (Rust, Python 229 tests, frontend 436 tests, generated contract and page stamp, 71 GPU tests, MP4 stereo fixture)",
+    "docs": "passed: just docs, strict build",
+    "measurement_tool": "selected/mixed intervals accepted; empty/reversed/non-finite intervals, invalid samples and non-monotonic timestamps rejected; empty CLI interval exits 2",
+    "scripts": "node --check, oxfmt drive.mjs; bash -n launch.sh; ruff check/format measure-render.py",
+    "git_index": "disposable index for pre-existing generated contract changes; working index untouched; no commit"
+  }
+}

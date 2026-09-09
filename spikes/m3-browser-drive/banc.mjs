@@ -47,6 +47,7 @@ await wait(500);
 await press("#item-bindings");
 await wait(700);
 await press("#view-schema");
+await press("details:has([data-bench]) > summary");
 await wait(900);
 await page.evaluate(() => document.fonts.ready);
 await wait(600);

@@ -1,0 +1,161 @@
+{
+  "date": "2026-09-08",
+  "scope": "Isolated Switch prototype. No production Switch integration, no Dolphin service restart.",
+  "endpoint": "https://lgf.tail3bd01c.ts.net:8445",
+  "versions": {
+    "ryubing": "1.3.3",
+    "wf_recorder_commit": "d3c26b210f374060fb790602aa573b650363989a",
+    "image": "nel3ab/switch-prototype:2026-09-08-recovery",
+    "image_id": "sha256:75e09b6caa55eee211e04e89436ccab9d5b29050d6bf8cb7e22eee5db8286b1e",
+    "recorder_sha256": "f958eb7fe8c853b22a152ea59bef73740a5716f0b976820510208bd1a2909514",
+    "deployment_note": "Recorder copied from the built image into the existing container after capture stop. Hashes match; emulator was not restarted. Python sources are mounted from the working tree."
+  },
+  "source_sha256": {
+    "capture.py": "c26215c1f2f36c93e033f7dbdf82e004da26954b55c95c2f372021cf2e2fbfc9",
+    "capture_audio.py": "187e33ea8a396a1d96805186241387d2f532ff5f84e3d733ffc50305f854115b",
+    "capture_health.py": "c7ddd705d676f5b5a87def43f8b14f96b97685b49d46c611128e86e3af1fd2ad",
+    "capture_keys.py": "48233ed727c550c4301f79f25505591bd2d78081ebe560f3dcaef58584442fe6",
+    "capture_process.py": "bdc679bc6d70ab32919a037bdfd9c977a1e66d458a8d28119f40704742e0d87d",
+    "capture_demand.py": "a40c8e2aab2ed514a5c87023f0f4f2099162595bd55c176e58bf7a8c1b3b94b8",
+    "capture-service.sh": "203cf98cfac0559ff04a33550408d76a81719571a5247ab64ff0f075dc2395df",
+    "wf-recorder-packets.patch": "f8af6ae6c77ca630775310d8c6e004a7bd88edc00be8317c5ee62bbcdc43dc0a",
+    "bridge/src/main.rs": "ad67ca614b8a452c9fd97bae16db2d8bfa3fd966c01ed74e7e2af7bb0d42b0aa",
+    "bridge/client.ts": "e70a8c8f0b7eb73bcb682261d1316c15a9f36c8b06dc3741551134af0ba1d8b4",
+    "launch.sh": "4567935521793286009595db9b832388dd9b11365c7056d2fcfd44e2635b9b1b"
+  },
+  "recovery_keys": [
+    {
+      "stream": "full",
+      "responseMs": 34.636507000000165,
+      "otherGopMs": 1000.8861440000001
+    },
+    {
+      "stream": "half",
+      "responseMs": 30.892982000000302,
+      "otherGopMs": 999.8494609999998
+    }
+  ],
+  "encoder_crashes": [
+    {
+      "stream": "full",
+      "resumeMs": 1998.5634689999997,
+      "seat": 1,
+      "emulatorPid": 53
+    },
+    {
+      "stream": "half",
+      "resumeMs": 2474.3172430000004,
+      "seat": 1,
+      "emulatorPid": 53
+    }
+  ],
+  "silent_video": [
+    {
+      "stream": "full",
+      "failure": "unresponsive",
+      "resumeMs": 36964.581596,
+      "seat": 1,
+      "emulatorPid": 53
+    }
+  ],
+  "silent_audio": [
+    {
+      "stream": "audio",
+      "failure": "unresponsive",
+      "resumeMs": 36866.127521,
+      "seat": 1,
+      "emulatorPid": 53
+    }
+  ],
+  "explicit_stop": {
+    "explicit_stop_stays_stopped": true,
+    "capture_children_remaining": 0
+  },
+  "restart_limit": {
+    "killed": [
+      3753,
+      3853,
+      3964
+    ],
+    "fourth_start_refused": true,
+    "orphan_children": 0
+  },
+  "source_to_local_browser": {
+    "samples": 60,
+    "p50_ms": 42.924560546875,
+    "p95_ms": 53.918212890625,
+    "limitation": "Synthetic colour changes, compositor capture to local headless Chrome; not game-controller-to-photon and not remote latency."
+  },
+  "final_40s_https": {
+    "paintedHz": 57.353779101800704,
+    "starved": 0,
+    "skipped": 105,
+    "wait": {
+      "p50": 5.100000023841858,
+      "p95": 20.59999990463257
+    },
+    "restarts": 0,
+    "soundSeconds": 39.99999999999996
+  },
+  "clip": {
+    "duration": 30.05,
+    "video": {
+      "codec_name": "h264",
+      "width": 1280,
+      "height": 720,
+      "start_time": "0.000000",
+      "duration": "30.050000"
+    },
+    "audio": {
+      "codec_name": "aac",
+      "channels": 2,
+      "sample_rate": "48000",
+      "start_time": "0.000000",
+      "duration": "30.050000"
+    },
+    "rms": [
+      723.2468099370803,
+      720.9882580613519
+    ],
+    "decoded_video": "passed",
+    "decoded_audio": "passed"
+  },
+  "browser_ui": {
+    "url": "https://lgf.tail3bd01c.ts.net:8445",
+    "html": "d4e878b4192769542929d86f5dfcb8f21595f27a5ffc619f63953072091c2ac5",
+    "play": true,
+    "watch": true,
+    "leave": true,
+    "half": true,
+    "volume": true,
+    "notificationExpired": true,
+    "pageErrors": []
+  },
+  "validation": {
+    "just": "passed: check, GPU tests and decoded stereo clip fixture",
+    "prototype_tests": 22,
+    "prototype_tests_command": "just switch-capture-test",
+    "rust_clippy": "passed with warnings denied",
+    "python_lint": "passed for touched capture sources and tests",
+    "key_regression": "old bridge/recorder fail actual-IDR response deadline",
+    "crash_regression": "original capture unit fails full encoder crash recovery",
+    "audio_regression": "blocked audio pipe prevents restart; suspended-producer test fails before nonblocking read",
+    "mutation_tests": [
+      "silent-progress deadline removed: rejected",
+      "paused-child kill removed: rejected",
+      "half key sent to full pipe: rejected",
+      "audio read made blocking: rejected"
+    ],
+    "half_demand_lifecycle": "passed with real recorder PIDs and browser decoders",
+    "docs_strict": "passed"
+  },
+  "remaining": [
+    "Complete Switch input protocol and profiles",
+    "Catalogue, save-slot isolation, collective preparation and control-plane identity integration",
+    "Direct emulator frame export and original audio timing",
+    "Detect a stopped emulated session even if the compositor repeats its last picture",
+    "Long remote multiplayer and constrained-link trials"
+  ],
+  "emulator_pid_preserved": 53,
+  "private_evidence": "/tmp/nel3ab-switch-lab/reliability"
+}

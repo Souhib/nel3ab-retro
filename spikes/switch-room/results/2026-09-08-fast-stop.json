@@ -1,0 +1,125 @@
+{
+  "date": "2026-09-08",
+  "memory_red": {
+    "shm_bytes": 536870912,
+    "maximum_used_bytes": 536870912,
+    "exit_code": 134
+  },
+  "memory_green": {
+    "shm_bytes": 8589934592,
+    "used_at_title_bytes": 3822006272,
+    "mode": "HostMapped"
+  },
+  "cage_four_browsers": {
+    "requested_seconds": [
+      582.315752,
+      642.315752
+    ],
+    "observed_seconds": [
+      582.315752,
+      642.302328546
+    ],
+    "duration_seconds": 59.98657654600004,
+    "samples": 600,
+    "fps_sample_median": 52.4063,
+    "fps_sample_p05": 45.6083,
+    "fps_sample_min": 13.7965,
+    "frametime_sample_max_ms": 72.482
+  },
+  "same_court_without_capture_or_browsers": {
+    "requested_seconds": [
+      670.531780875,
+      700.531780875
+    ],
+    "observed_seconds": [
+      670.534943734,
+      700.46781098
+    ],
+    "duration_seconds": 29.932867246,
+    "samples": 300,
+    "fps_sample_median": 60.083650000000006,
+    "fps_sample_p05": 55.5345,
+    "fps_sample_min": 51.3175,
+    "frametime_sample_max_ms": 19.4865
+  },
+  "cage_stop": {
+    "seconds": 1.5253,
+    "exit_code": 139
+  },
+  "upstream_sway_stop": {
+    "seconds": 31.233944833977148,
+    "exit": 1,
+    "lifecycle": {
+      "exit_code": 137,
+      "stop_requested": true,
+      "window_closed": true,
+      "forced": true,
+      "stop_seconds": 31.01585901202634
+    }
+  },
+  "patched_sway_stop": {
+    "seconds": 3.5028007050277665,
+    "lifecycle": {
+      "exit_code": 0,
+      "stop_requested": true,
+      "window_closed": true,
+      "forced": false,
+      "stop_seconds": 3.343664999003522
+    }
+  },
+  "caveats": [
+    "One measured window per condition; the earlier 38 FPS run used Mario, this one Koopa Troopa. Both are four-player clay-court doubles.",
+    "Capture and browsers were removed together; their individual contributions are not separated.",
+    "Normal close tested; no forced interruption at a known save-write instruction.",
+    "Shutdown patch is for the Linux headless Vulkan prototype; no claim about OpenGL, desktop UI or other operating systems."
+  ],
+  "https_browser": {
+    "url": "https://lgf.tail3bd01c.ts.net:8445",
+    "html": "e26c0fccb6bcb33afc26bec7ebc98cdd1676f77df3819bc0927de8f91b1efa2d",
+    "play": true,
+    "watch": true,
+    "leave": true,
+    "half": true,
+    "volume": true,
+    "notificationExpired": true,
+    "pageErrors": []
+  },
+  "clip": {
+    "seconds": 30.783333,
+    "audio": "AAC 48000 Hz stereo",
+    "both_tracks_start_seconds": 0,
+    "first_three_seconds_pcm_rms": [
+      1590.4587148882201,
+      1592.3061420947852
+    ]
+  },
+  "normal_stop_in_adventure": {
+    "seconds": 1.4456390490522608,
+    "exit": 0,
+    "lifecycle": {
+      "exit_code": 0,
+      "stop_requested": true,
+      "window_closed": true,
+      "forced": false,
+      "stop_seconds": 1.2027442010585219
+    }
+  },
+  "profiling_stop_in_adventure": {
+    "seconds": 1.640698745031841,
+    "exit": 1,
+    "lifecycle": {
+      "exit_code": 139,
+      "stop_requested": true,
+      "window_closed": true,
+      "forced": false,
+      "stop_seconds": 1.4091619569808245
+    }
+  },
+  "final_profiling_enabled": false,
+  "emulator_sha256": "f53ca20cc67abdc1336a63d4275643903f004ce5bed06f698da9bee994f330b2",
+  "save": {
+    "save7_bytes": 31232,
+    "both_copies_unchanged": true,
+    "adventure_loaded": "Mario, level 1, Marina Stadium"
+  }
+}

@@ -1,0 +1,115 @@
+diff --git a/src/Ryujinx/Headless/HeadlessRyujinx.cs b/src/Ryujinx/Headless/HeadlessRyujinx.cs
+index 9a06482..5205131 100644
+--- a/src/Ryujinx/Headless/HeadlessRyujinx.cs
++++ b/src/Ryujinx/Headless/HeadlessRyujinx.cs
+@@ -72,7 +72,9 @@ namespace Ryujinx.Headless
+                         invoked.Set();
+                     });
+ 
+-                    invoked.WaitOne();
++                    // No further SDL action can be processed after MainLoop
++                    // exits. Do not hold SDL2Driver.Dispose's thread join forever.
++                    WaitHandle.WaitAny([invoked, WindowBase.MainThreadStopped]);
+                 };
+             }
+ 
+@@ -375,6 +377,14 @@ namespace Ryujinx.Headless
+             _window.Execute();
+ 
+             _emulationContext.Dispose();
++            // Vulkan has no OpenGL context to bind. Stop the threaded renderer
++            // here, after the CPU has stopped producing commands. Waiting until
++            // RunLoop returns deadlocks: only renderer disposal ends that loop.
++            if (_window is VulkanWindow)
++            {
++                _emulationContext.DisposeGpu();
++                _window.JoinRenderer();
++            }
+             _window.Dispose();
+ 
+             if (OperatingSystem.IsWindows())
+diff --git a/src/Ryujinx/Headless/Windows/VulkanWindow.cs b/src/Ryujinx/Headless/Windows/VulkanWindow.cs
+index 2abbbd1..4639f59 100644
+--- a/src/Ryujinx/Headless/Windows/VulkanWindow.cs
++++ b/src/Ryujinx/Headless/Windows/VulkanWindow.cs
+@@ -102,7 +102,7 @@ namespace Ryujinx.Headless
+ 
+         protected override void FinalizeWindowRenderer()
+         {
+-            Device.DisposeGpu();
++            // Disposed by ExecutionEntrypoint before joining this render loop.
+         }
+ 
+         protected override void SwapBuffers() { }
+diff --git a/src/Ryujinx/Headless/Windows/WindowBase.cs b/src/Ryujinx/Headless/Windows/WindowBase.cs
+index 14b0902..fbb81d1 100644
+--- a/src/Ryujinx/Headless/Windows/WindowBase.cs
++++ b/src/Ryujinx/Headless/Windows/WindowBase.cs
+@@ -82,6 +82,7 @@ namespace Ryujinx.Headless
+ 
+         private long _ticks;
+         private bool _isActive;
++        private Thread _renderLoopThread;
+         private bool _isStopped;
+         private uint _windowId;
+ 
+@@ -230,7 +231,10 @@ namespace Ryujinx.Headless
+                         break;
+ 
+                     case SDL_WindowEventID.SDL_WINDOWEVENT_CLOSE:
+-                        Exit();
++                        // SDL dispatch runs inside MainLoop on Linux/macOS. Exit()
++                        // waits for that loop: requesting closure must not join it.
++                        _gpuCancellationTokenSource.Cancel();
++                        _isActive = false;
+                         break;
+                 }
+             }
+@@ -345,6 +349,10 @@ namespace Ryujinx.Headless
+             _exitEvent.Dispose();
+         }
+ 
++        // Release an SDL dispatcher even if its last action was queued just
++        // after the main loop stopped. Disposal then joins that dispatcher.
++        public static readonly ManualResetEvent MainThreadStopped = new(false);
++
+         public static void ProcessMainThreadQueue()
+         {
+             while (_mainThreadActions.TryDequeue(out Action action))
+@@ -367,6 +375,7 @@ namespace Ryujinx.Headless
+                 Thread.Sleep(1);
+             }
+ 
++            MainThreadStopped.Set();
+             _exitEvent.Set();
+         }
+ 
+@@ -427,16 +436,17 @@ namespace Ryujinx.Headless
+ 
+         public void Execute()
+         {
++            MainThreadStopped.Reset();
+             _chrono.Restart();
+             _isActive = true;
+ 
+             InitializeWindow();
+ 
+-            Thread renderLoopThread = new(Render)
++            _renderLoopThread = new Thread(Render)
+             {
+                 Name = "GUI.RenderLoop",
+             };
+-            renderLoopThread.Start();
++            _renderLoopThread.Start();
+ 
+             Thread nvidiaStutterWorkaround = null;
+             if (Renderer is OpenGLRenderer)
+@@ -459,6 +469,8 @@ namespace Ryujinx.Headless
+             Exit();
+         }
+ 
++        public void JoinRenderer() => _renderLoopThread.Join();
++
+         public bool DisplayInputDialog(SoftwareKeyboardUIArgs args, out string userText)
+         {
+             // SDL2 doesn't support input dialogs

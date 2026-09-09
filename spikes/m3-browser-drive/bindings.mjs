@@ -47,7 +47,18 @@ const openBindings = async () => {
   await wait(600);
 };
 
-const text = (id) => page.evaluate((i) => document.getElementById(i)?.textContent ?? null, id);
+const text = async (id) => {
+  if (id.startsWith("pad-")) {
+    await page.click("#view-schema");
+    await page.select("#command", id.slice(4));
+    return page.$eval(".n3-current-binding", (node) => node.textContent.trim());
+  }
+  if (id.startsWith("key-")) {
+    await page.click("#view-table");
+    return page.$eval(`#${id} > span`, (node) => node.textContent.trim());
+  }
+  return page.$eval(`#${id}`, (node) => node.textContent);
+};
 /** Cliquer depuis la page: deux allers-retours de moins qu'avec la souris de
  * puppeteer, sur une page qui décode soixante images par seconde. */
 const press = (target, css) => target.evaluate((s) => document.querySelector(s)?.click(), css);
@@ -60,9 +71,11 @@ say((await text("pad-A")) === "✕ (bas)", `A se lit « ${await text("pad-A")} �
 say((await text("pad-L")) === "L1 ou L2", `L se lit « ${await text("pad-L")} »`);
 say((await text("key-A")) === "X", `A au clavier se lit « ${await text("key-A")} »`);
 
+await page.click("#view-schema");
+await page.select("#command", "A");
 await press(page, "#pad-A");
 await wait(300);
-say((await text("pad-A")) === "appuie sur la manette", "la case attend un appui");
+say(!!(await page.$(".n3-inline-capture")), "la commande attend un appui");
 
 const before = await page.evaluate(() => globalThis.nel3abTest.counters().attempts);
 await page.evaluate(() => {
@@ -78,6 +91,7 @@ say((await text("pad-A")) === "▢ (gauche)", `A est passé sur « ${await text(
 const during = (await page.evaluate(() => globalThis.nel3abTest.counters().attempts)) - before;
 say(during > 0, `la page a continué d'envoyer pendant la capture (${during} trames, en neutre)`);
 
+await page.click("#view-table");
 await press(page, "#key-B");
 await wait(300);
 await page.keyboard.press("KeyM");
@@ -102,7 +116,9 @@ say((await text("key-B")) === "M", "le clavier réassigné survit au rechargemen
 // le profil du disque, la boucle le relisait de la mémoire au tic suivant, et le
 // bouton n'avait donc rien fait. L'écran, lui, affichait la bonne valeur pendant
 // un instant. D'où l'attente avant de regarder.
+await page.click("#view-schema");
 await press(page, "#resetPad");
+await page.click("#confirmReset");
 await wait(400);
 say((await text("pad-A")) === "✕ (bas)", `après remise à zéro, A se lit « ${await text("pad-A")} »`);
 

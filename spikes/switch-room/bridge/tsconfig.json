@@ -1,0 +1,9 @@
+{
+  "extends": "../../../front/tsconfig.app.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./.tsbuildinfo",
+    "typeRoots": ["../../../front/node_modules/@types"],
+    "types": []
+  },
+  "include": ["*.ts", "../../../front/src/**/*.d.ts"]
+}

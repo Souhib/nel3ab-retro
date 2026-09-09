@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="$(Nel3abRyubingSource)/src/Ryujinx.Audio.Backends.SDL2/Ryujinx.Audio.Backends.SDL2.csproj" />
+    <!-- Use the pinned upstream memory stub; the audio samples are supplied
+         directly, so no emulated memory is read and no extra test package is needed. -->
+    <Compile Include="$(Nel3abRyubingSource)/src/Ryujinx.Tests.Memory/MockVirtualMemoryManager.cs" Link="MockVirtualMemoryManager.cs" />
+  </ItemGroup>
+</Project>

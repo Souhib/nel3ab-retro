@@ -12098,6 +12098,33 @@ manette ») et elle mérite l'expérience de deux heures qu'il proposait, pas un
 substitution un soir de correctifs. Ce qui est fait : le chiffre, pour que la
 décision se prenne sur lui.
 
+### Le 10 septembre, un réglage qui parlait GameCube à un joueur Switch
+
+Souhib demande si les réglages « qualité reçue » et « image à l'écran » ont un
+sens sur Switch, ou s'ils devraient dépendre de la console. La réponse est
+mesurable, et elle est à moitié oui.
+
+« Image à l'écran » calcule ses tailles depuis l'image décodée : il s'adapte
+déjà. « Qualité reçue », lui, portait trois nombres en dur, 1216×896, 608×448,
+14 et 5,6 Mbit/s, tous mesurés sur Dolphin. La Switch envoie du 1280×720 et du
+640×360, et Mario Kart Wii coûtait 24 Mbit/s le 4 septembre : les chiffres
+n'étaient justes pour aucune console, et faux à l'œil nu sur l'une d'elles.
+
+La correction n'est pas une table par console, ce serait une troisième source
+de vérité à tenir. Les deux tailles viennent de la même source que le fit,
+l'image reçue ; le demi-format est exactement la moitié pour les deux consoles,
+donc l'une se retrouve depuis l'autre. Le débit n'est plus chiffré : la page ne
+le mesure pas, et « le quart » est ce qu'un quart de pixels coûte partout.
+Vérifié par un pilote sur la vraie page : « pleine taille 1280×720 · en cours »
+et « réduit 640×360 · le quart du débit ».
+
+Le redémarrage du worker pour ce déploiement a aussi relancé Looney Tunes, et
+donc appliqué les deux correctifs de la veille qui attendaient un relancement.
+Mesuré dans la foulée sur la salle réelle : la sortie Sway répond 60 000 mHz,
+la cadence est passée de 31,5 à 57,2 images par seconde (318 écarts d'une
+période sur 342, contre 15 sur 249 avant), et le binaire monté porte le
+correctif audio.
+
 ### 9 septembre 2026 : rendre la reprise fidèle au travail effectué
 
 Souhib demande si les décisions, les essais et les pistes écartées ont suivi

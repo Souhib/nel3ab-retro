@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { FITS, place, storedFit } from "./fit";
+import { FITS, place, qualities, storedFit } from "./fit";
 
 /** Une place d'écran ordinaire, et les deux formats que le worker envoie. */
 const ROOM = { width: 1136, height: 860 };
@@ -129,5 +129,32 @@ describe("l'agrandissement en deux temps", () => {
   it("n'en a pas besoin pour un agrandissement déjà entier", () => {
     expect(place("entier", SMALL, { width: 1920, height: 1080 }).prescale).toBe(1);
     expect(place("origine", SMALL, ROOM).prescale).toBe(1);
+  });
+});
+
+describe("les deux qualités, dites d'après l'image reçue", () => {
+  it("nomme la pleine taille et le demi depuis ce qui arrive en plein", () => {
+    // GameCube et Switch n'ont pas la même image; aucune n'est écrite ici.
+    expect(qualities({ width: 1216, height: 896 }, false)).toEqual({
+      full: "1216×896",
+      half: "608×448",
+    });
+    expect(qualities({ width: 1280, height: 720 }, false)).toEqual({
+      full: "1280×720",
+      half: "640×360",
+    });
+  });
+
+  it("retrouve la pleine taille quand c'est le demi qui arrive", () => {
+    // Le jumeau qui porte le défaut: en demi-format, l'image reçue est la
+    // moitié, et afficher ses dimensions comme « pleine taille » mentirait.
+    expect(qualities({ width: 640, height: 360 }, true)).toEqual({
+      full: "1280×720",
+      half: "640×360",
+    });
+  });
+
+  it("ne dit rien avant la première image", () => {
+    expect(qualities({ width: 0, height: 0 }, false)).toEqual({ full: "", half: "" });
   });
 });

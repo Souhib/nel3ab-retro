@@ -73,7 +73,7 @@ import {
   touchLabel,
   themeLabel,
 } from "./lib/theme";
-import { FITS, fitLabel, place, rememberFit, storedFit } from "./lib/fit";
+import { FITS, fitLabel, place, qualities, rememberFit, storedFit } from "./lib/fit";
 import { useBare } from "./lib/fullscreen";
 import { useBindings, useRoomReference } from "./lib/bindings";
 import { cn } from "./lib/cn";
@@ -764,6 +764,8 @@ function Room({
    * et un réglage qui met une demi-seconde à afficher son nouvel état se lit
    * comme un réglage qui n'a pas pris. */
   const [half, setHalf] = useState(false);
+  /** Les deux qualités, dites d'après l'image reçue: voir `qualities`. */
+  const sizes = qualities(shot?.video.picture ?? { width: 0, height: 0 }, half);
   /** La manette que les jeux Wii présentent. Un réglage, pas une décision de
    * partie: voir `lib/saves`. */
   const [pad, setPad] = useState<Pad>(storedPad);
@@ -1163,13 +1165,23 @@ function Room({
           value: shot?.video.half ? "réduit" : "pleine taille",
           // Ce que la personne a besoin de savoir pour choisir, et rien de plus:
           // combien ça coûte, et que ça ne regarde qu'elle.
+          //
+          // Les tailles viennent de l'image REÇUE, comme celles du réglage
+          // « image à l'écran », et non d'une table: les 1216×896 et 608×448
+          // écrits ici étaient ceux de Dolphin, et la Switch envoie du
+          // 1280×720. Le débit n'est plus chiffré, la page ne le mesure pas;
+          // « le quart » est ce qu'un quart de pixels coûte, sur toute console.
           hint: half
-            ? "608×448, environ 5,6 Mbit/s. Le choix est le tien seul."
-            : "1216×896, environ 14 Mbit/s. Réduis si l'image saccade.",
+            ? `${sizes.half || "réduit"}, environ le quart du débit. Le choix est le tien seul.`
+            : `${sizes.full || "pleine taille"}. Réduis si l'image saccade.`,
           icon: <ScreenIcon className="h-full w-full" />,
           picks: [
-            { id: "full", label: "pleine taille", hint: "1216×896 · ~14 Mbit/s" },
-            { id: "half", label: "réduit", hint: "608×448 · ~5 Mbit/s" },
+            { id: "full", label: "pleine taille", hint: sizes.full || "toute l'image" },
+            {
+              id: "half",
+              label: "réduit",
+              hint: sizes.half ? `${sizes.half} · le quart du débit` : "le quart du débit",
+            },
           ],
           picked: half ? "half" : "full",
           onPick: (id) => {

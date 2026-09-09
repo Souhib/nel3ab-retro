@@ -143,3 +143,29 @@ export function place(fit: Fit, picture: Placed | Size, room: Size): Placed {
 
 /** Une largeur et une hauteur, en pixels. */
 export type Size = { width: number; height: number };
+
+/** Les deux qualités qu'on peut recevoir, dites d'après l'image REÇUE.
+ *
+ * # Pourquoi elles ne sont pas écrites en dur
+ *
+ * Le réglage « qualité reçue » annonçait 1216×896 et 608×448, avec 14 et
+ * 5,6 Mbit/s: des chiffres mesurés sur Dolphin. La Switch envoie du 1280×720
+ * et du 640×360, et Mario Kart Wii coûtait 24 Mbit/s le 4 septembre 2026. Les
+ * nombres n'étaient donc justes pour aucune console, et faux à l'œil nu sur
+ * l'une d'elles. Ce que la page sait de sûr est la taille de l'image qu'elle
+ * décode; le reste se déduit.
+ *
+ * Le demi-format est exactement la moitié en largeur et en hauteur, pour les
+ * deux consoles (1216→608, 1280→640): la pleine taille se retrouve donc depuis
+ * le demi, et l'inverse. Le débit n'est pas mesuré par la page, donc il n'est
+ * pas affiché en chiffres: « environ le quart » est ce qu'un quart de pixels
+ * coûte, et c'est vrai partout.
+ */
+export function qualities(received: Size, half: boolean): { full: string; half: string } {
+  if (received.width <= 0 || received.height <= 0) return { full: "", half: "" };
+  const full = half ? { width: received.width * 2, height: received.height * 2 } : received;
+  return {
+    full: `${Math.round(full.width)}×${Math.round(full.height)}`,
+    half: `${Math.round(full.width / 2)}×${Math.round(full.height / 2)}`,
+  };
+}

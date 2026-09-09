@@ -123,8 +123,25 @@ impl FrameListener {
     /// [`EncoderError::NoProducer`] on timeout, or any parse failure from the
     /// descriptors that follow.
     pub fn accept(self, timeout: Duration) -> Result<FrameSource, EncoderError> {
+        self.accept_while(timeout, || true)
+    }
+
+    /// Like `accept`, with cancellation checked during the connection wait.
+    /// The initial ring has a read deadline too, so a connected silent producer
+    /// cannot prevent shutdown. Five seconds is a generous startup allowance,
+    /// not a measured latency; a stopped producer makes this error explicit.
+    /// # Errors
+    /// The errors from `accept`, or `Cancelled`.
+    pub fn accept_while(
+        self,
+        timeout: Duration,
+        waiting: impl Fn() -> bool,
+    ) -> Result<FrameSource, EncoderError> {
         let deadline = Instant::now() + timeout;
         let stream = loop {
+            if !waiting() {
+                return Err(EncoderError::Cancelled);
+            }
             match self.listener.accept() {
                 Ok((stream, _)) => break stream,
                 Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
@@ -147,6 +164,12 @@ impl FrameListener {
                 what: "switching the frame socket to blocking",
                 source,
             })?;
+        stream
+            .set_read_timeout(Some(Duration::from_secs(5)))
+            .map_err(|source| EncoderError::Socket {
+                what: "setting the initial ring deadline",
+                source,
+            })?;
         FrameSource::receive_ring(stream, self.path.clone())
     }
 }
@@ -167,6 +190,17 @@ pub struct FrameSource {
 }
 
 impl FrameSource {
+    /// Bounds a silent producer without polling or adding a wait to ready data.
+    /// # Errors
+    /// The socket could not accept the timeout.
+    pub fn set_read_timeout(&self, timeout: Duration) -> Result<(), EncoderError> {
+        self.stream
+            .set_read_timeout(Some(timeout))
+            .map_err(|source| EncoderError::Socket {
+                what: "setting the frame deadline",
+                source,
+            })
+    }
     fn receive_ring(stream: UnixStream, path: PathBuf) -> Result<Self, EncoderError> {
         let (descriptor, slots) = collect_ring(&stream, None)?;
         Ok(Self {
@@ -227,7 +261,20 @@ impl FrameSource {
     /// failure on a malformed notification.
     pub fn next_frame(&mut self) -> Result<LentFrame<'_>, EncoderError> {
         let mut bytes = [0u8; FRAME_READY_LEN];
-        let (read, fd) = receive_with_fd(&self.stream, &mut bytes)?;
+        let (read, fd) = match receive_with_fd(&self.stream, &mut bytes) {
+            Err(EncoderError::Socket { ref source, .. })
+                if matches!(
+                    source.kind(),
+                    std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut
+                ) =>
+            {
+                return Err(EncoderError::FrameIdle);
+            }
+            other => other?,
+        };
+        // Own ancillary descriptors before parsing or reading more bytes.
+        // A timeout during a replacement ring must close them too.
+        let fd = fd.map(DmaBuf);
         if read == 0 {
             return Err(EncoderError::ProducerGone);
         }
@@ -262,7 +309,7 @@ impl FrameSource {
                     source: std::io::Error::from(std::io::ErrorKind::InvalidData),
                 });
             };
-            self.adopt((header, DmaBuf(fd)))?;
+            self.adopt((header, fd))?;
             return Err(EncoderError::RingChanged {
                 width: self.descriptor.width,
                 height: self.descriptor.height,
@@ -571,6 +618,51 @@ mod tests {
         let cmsg = [nix::sys::socket::ControlMessage::ScmRights(&fds)];
         nix::sys::socket::sendmsg::<()>(stream.as_raw_fd(), &iov, &cmsg, MsgFlags::empty(), None)
             .unwrap();
+    }
+
+    #[test]
+    fn idle_is_recoverable_but_eof_and_partial_frames_are_not() {
+        for partial in [false, true] {
+            let (consumer, mut producer) = UnixStream::pair().unwrap();
+            let file = tempfile::tempfile().unwrap();
+            send_header(
+                &producer,
+                &header_bytes(0, 1, HEADER_MAGIC, PROTOCOL_VERSION),
+                file.as_raw_fd(),
+            );
+            let mut source = FrameSource::receive_ring(consumer, PathBuf::new()).unwrap();
+            source.set_read_timeout(Duration::from_millis(20)).unwrap();
+            assert!(matches!(source.next_frame(), Err(EncoderError::FrameIdle)));
+            producer.write_all(&frame_bytes(0, 42)).unwrap();
+            let frame = source.next_frame().unwrap();
+            assert_eq!(frame.frame_number(), 42);
+            drop(frame);
+            let mut released = [0u8; 8];
+            producer.read_exact(&mut released).unwrap();
+            if partial {
+                producer.write_all(&[1, 2, 3]).unwrap();
+                assert!(matches!(
+                    source.next_frame(),
+                    Err(EncoderError::Socket { .. })
+                ));
+            } else {
+                drop(producer);
+                assert!(matches!(
+                    source.next_frame(),
+                    Err(EncoderError::ProducerGone)
+                ));
+            }
+        }
+    }
+
+    #[test]
+    fn cancellation_does_not_wait_for_a_producer() {
+        let path = socket_path("cancel");
+        let listener = FrameListener::bind(&path).unwrap();
+        assert!(matches!(
+            listener.accept_while(Duration::from_secs(5), || false),
+            Err(EncoderError::Cancelled)
+        ));
     }
 
     #[test]

@@ -599,6 +599,8 @@ mod tests {
     #[test]
     fn key_frames_are_granted_no_faster_than_the_limit() {
         let shared = Shared {
+            input_kind: crate::browser::InputKind::Dolphin,
+            devices: Arc::new(Mutex::new([0; PORTS])),
             clips: Arc::new(Mutex::new(crate::clip::Clips::new())),
             wants_save: Arc::new(Mutex::new(0)),
             wants_pad: Arc::new(Mutex::new(0_u8)),

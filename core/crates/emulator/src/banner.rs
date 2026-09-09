@@ -401,6 +401,12 @@ pub fn gather(
     roms.iter()
         .enumerate()
         .map(|(at, rom)| {
+            if discs
+                .get(at)
+                .is_some_and(|disc| disc.console == crate::disc::Console::Switch)
+            {
+                return crate::switch::art(&rom.path);
+            }
             let wii = discs
                 .get(at)
                 .is_some_and(|disc| disc.console == crate::disc::Console::Wii);
@@ -779,6 +785,67 @@ mod tests {
             name: "Melee".to_owned(),
             file: "game.rvz".to_owned(),
         }
+    }
+
+    #[test]
+    fn switch_art_uses_the_registered_game_and_survives_missing_or_broken_images() {
+        let dir = tempfile::tempdir().unwrap();
+        let rom = Rom {
+            path: dir.path().join("tennis.xci"),
+            name: "Mario Tennis Aces".into(),
+            file: "tennis.xci".into(),
+        };
+        let registration = dir.path().join("tennis.xci.nel3ab.json");
+        std::fs::write(
+            &registration,
+            r#"{"console":"switch","name":"Mario Tennis Aces","title":"0100BDE00862A000","maker":"Nintendo","about":"Tennis en simple ou en double."}"#,
+        ).unwrap();
+        let discs = [crate::disc::Disc {
+            console: crate::disc::Console::Switch,
+            title: Some("0100bde00862a000".into()),
+        }];
+        let read = || {
+            gather(
+                std::slice::from_ref(&rom),
+                &dir.path().join("no-dolphin-tool"),
+                &dir.path().join("cache"),
+                &discs,
+                &dir.path().join("no-saves"),
+            )
+        };
+        assert_eq!(read(), vec![None]);
+        let picture = dir.path().join("tennis.xci.nel3ab.png");
+        let png = encode(&parse(&blob(*b"BNR1", 1)).unwrap()).unwrap();
+        std::fs::write(&picture, &png).unwrap();
+        let found = read();
+        let art = found[0].as_ref().unwrap();
+        assert_eq!(art.png, png);
+        assert_eq!(art.maker, "Nintendo");
+        assert_eq!(art.about, "Tennis en simple ou en double.");
+        // An image added after a missing one is visible. Corrupt, oversized and
+        // unregistered files never become a browser image or hide the game.
+        for broken in [
+            png[..24].to_vec(),
+            b"not a PNG".to_vec(),
+            vec![0; 1_048_577],
+        ] {
+            std::fs::write(&picture, broken).unwrap();
+            assert_eq!(read(), vec![None]);
+        }
+        let wide = encode(&Banner {
+            pixels: vec![0; 1025 * 4],
+            width: 1025,
+            height: 1,
+            name: String::new(),
+            maker: String::new(),
+            about: String::new(),
+        })
+        .unwrap();
+        std::fs::write(&picture, wide).unwrap();
+        assert_eq!(read(), vec![None]);
+        std::fs::write(&picture, &png).unwrap();
+        std::fs::remove_file(&registration).unwrap();
+        assert_eq!(read(), vec![None]);
     }
 
     #[test]

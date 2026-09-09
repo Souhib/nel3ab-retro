@@ -2,8 +2,8 @@
 //!
 //! # Ce qui est gardé, et pourquoi si peu
 //!
-//! Un anneau des unités d'accès telles que l'encodeur les a produites. Rien
-//! n'est réencodé: le fichier rendu contient exactement les octets qui sont
+//! Un anneau des unités d'accès telles que l'encodeur les a produites. La vidéo
+//! n'est pas réencodée: le fichier rendu contient exactement les octets qui sont
 //! partis vers les navigateurs, donc un clip montre ce que les joueurs ont vu
 //! plutôt qu'une deuxième version de la même partie.
 //!
@@ -19,6 +19,7 @@
 //! au moins trente secondes, et au plus quarante.
 
 use std::collections::VecDeque;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 /// Ce qu'un clip couvre au minimum.
@@ -56,20 +57,44 @@ const HOLDS: usize = 224 * 1024 * 1024;
 pub const APART: Duration = Duration::from_secs(30);
 
 /// Une image encodée, telle qu'elle est partie sur le fil.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Kept {
     /// L'instant de capture, sur l'horloge du worker.
-    at: Instant,
+    at: Duration,
     /// Vrai quand un décodeur peut commencer ici.
     key: bool,
-    bytes: Vec<u8>,
+    bytes: Arc<[u8]>,
+}
+
+// Contrat du son transmis par le worker : 48 kHz, stéréo, i16 little endian.
+const SAMPLE_RATE: usize = 48_000;
+const SAMPLE_BYTES: usize = 4;
+// 40 s × 48 000 × 4 = 7,68 Mo, calcul du 2026-09-06. La borne en octets
+// s'applique aussi si des horodatages répétés empêchent la borne en temps.
+const SOUND_HOLDS: usize = 40 * SAMPLE_RATE * SAMPLE_BYTES;
+
+#[derive(Debug, Clone)]
+struct Sound {
+    at: Duration,
+    pcm: Arc<[u8]>,
+}
+
+#[expect(
+    clippy::integer_division,
+    reason = "position entière dans le PCM, erreur inférieure à un échantillon (21 µs à 48 kHz)"
+)]
+fn sample_at(at: Duration) -> usize {
+    usize::try_from(at.as_nanos() * SAMPLE_RATE as u128 / 1_000_000_000).unwrap_or(usize::MAX)
 }
 
 /// Un clip prêt à emballer.
 #[derive(Debug)]
 pub struct Cut {
     /// Les unités d'accès, telles qu'elles sont parties sur le fil.
-    pub annex_b: Vec<u8>,
+    pub annex_b: Vec<Arc<[u8]>>,
+    /// Première image, sur l'horloge de capture commune au son et à la vidéo.
+    from: Duration,
+    sound: Vec<Sound>,
     /// Ce que le clip couvre.
     pub covers: Duration,
     /// Combien d'images il contient.
@@ -77,6 +102,44 @@ pub struct Cut {
 }
 
 impl Cut {
+    /// Le son coupé sur la première image, avec la durée des images exportées.
+    /// La mémoire est allouée ici, après avoir rendu le verrou de l'anneau.
+    #[must_use]
+    #[expect(
+        clippy::integer_division,
+        reason = "nombre entier de trames stéréo ; la dernière fraction vaut moins de 21 µs"
+    )]
+    pub fn pcm(&self) -> Option<Vec<u8>> {
+        let length = self.frames.saturating_mul(SAMPLE_RATE) / self.fps() as usize;
+        let from = sample_at(self.from);
+        let end = from.saturating_add(length);
+        let mut out = vec![0; length * SAMPLE_BYTES];
+        let mut cursor = None;
+        let mut heard = false;
+        for sound in &self.sound {
+            let count = sound.pcm.len() / SAMPLE_BYTES;
+            let stamped = sample_at(sound.at);
+            // Les réveils du fil bougent de quelques échantillons. Garder les
+            // morceaux contigus évite de découper la forme d'onde à chaque
+            // réveil. Un écart supérieur à un morceau est une vraie coupure :
+            // on repart de l'horodatage, le trou reste silencieux.
+            let start = cursor
+                .filter(|next: &usize| next.abs_diff(stamped) <= count)
+                .unwrap_or(stamped);
+            let stop = start.saturating_add(count);
+            cursor = Some(stop);
+            let left = start.max(from);
+            let right = stop.min(end);
+            if left < right {
+                out[(left - from) * SAMPLE_BYTES..(right - from) * SAMPLE_BYTES].copy_from_slice(
+                    &sound.pcm[(left - start) * SAMPLE_BYTES..(right - start) * SAMPLE_BYTES],
+                );
+                heard = true;
+            }
+        }
+        heard.then_some(out)
+    }
+
     /// La cadence à annoncer au multiplexeur.
     ///
     /// Lue sur le clip plutôt que supposée: un jeu PAL tourne à cinquante images
@@ -118,6 +181,8 @@ pub struct Clips {
     kept: VecDeque<Kept>,
     bytes: usize,
     taken: Option<Instant>,
+    sound: VecDeque<Sound>,
+    sound_bytes: usize,
 }
 
 impl Clips {
@@ -128,15 +193,15 @@ impl Clips {
     }
 
     /// Range une image encodée, et oublie ce qui sort des bornes.
-    pub fn keep(&mut self, at: Instant, key: bool, annex_b: &[u8]) {
+    pub fn keep(&mut self, at: Duration, key: bool, annex_b: &[u8]) {
         self.bytes += annex_b.len();
         self.kept.push_back(Kept {
             at,
             key,
-            bytes: annex_b.to_vec(),
+            bytes: Arc::from(annex_b),
         });
         while let Some(oldest) = self.kept.front() {
-            let too_old = at.saturating_duration_since(oldest.at) > KEEPS;
+            let too_old = at.saturating_sub(oldest.at) > KEEPS;
             if !too_old && self.bytes <= HOLDS {
                 break;
             }
@@ -145,10 +210,29 @@ impl Clips {
         }
     }
 
+    /// Range le PCM même si aucun navigateur n'a activé son haut-parleur.
+    pub fn keep_sound(&mut self, at: Duration, pcm: &[u8]) {
+        if pcm.is_empty() || !pcm.len().is_multiple_of(SAMPLE_BYTES) || pcm.len() > SOUND_HOLDS {
+            return;
+        }
+        self.sound_bytes += pcm.len();
+        self.sound.push_back(Sound {
+            at,
+            pcm: Arc::from(pcm),
+        });
+        while let Some(first) = self.sound.front() {
+            if at.saturating_sub(first.at) <= KEEPS && self.sound_bytes <= SOUND_HOLDS {
+                break;
+            }
+            self.sound_bytes -= first.pcm.len();
+            self.sound.pop_front();
+        }
+    }
+
     /// Ce que l'anneau retient, en octets. Pour le journal.
     #[must_use]
     pub const fn weight(&self) -> usize {
-        self.bytes
+        self.bytes + self.sound_bytes
     }
 
     /// Depuis quand l'anneau a de quoi couper, ou rien s'il n'a pas encore
@@ -163,7 +247,7 @@ impl Clips {
         self.kept
             .iter()
             .enumerate()
-            .rfind(|(_, k)| k.key && last.saturating_duration_since(k.at) >= COVERS)
+            .rfind(|(_, k)| k.key && last.saturating_sub(k.at) >= COVERS)
             .map(|(index, _)| index)
     }
 
@@ -193,20 +277,26 @@ impl Clips {
             // troisième cas.
             return Ok(None);
         };
-        let mut annex_b = Vec::with_capacity(self.bytes);
-        for kept in self.kept.iter().skip(from) {
-            annex_b.extend_from_slice(&kept.bytes);
-        }
+        // Les données restent partagées : ni copie vidéo ni assemblage PCM
+        // sous le verrou que prennent les fils d'image et de son.
+        let annex_b = self
+            .kept
+            .iter()
+            .skip(from)
+            .map(|kept| Arc::clone(&kept.bytes))
+            .collect();
         let covers = self
             .kept
             .back()
             .zip(self.kept.get(from))
             .map_or(Duration::ZERO, |(last, first)| {
-                last.at.saturating_duration_since(first.at)
+                last.at.saturating_sub(first.at)
             });
         self.taken = Some(now);
         Ok(Some(Cut {
             annex_b,
+            from: self.kept[from].at,
+            sound: self.sound.iter().cloned().collect(),
             covers,
             frames: self.kept.len() - from,
         }))
@@ -216,6 +306,12 @@ impl Clips {
 /// Ce qui peut rater entre les octets et le fichier.
 #[derive(Debug, thiserror::Error)]
 pub enum ClipError {
+    /// La vidéo a survécu dans l'anneau, mais pas le son de cette période.
+    /// Un refus explicite vaut mieux qu'un fichier silencieux annoncé réussi.
+    #[error(
+        "le son de cette période n'est plus disponible ; laisse jouer trente secondes puis reprends un clip"
+    )]
+    MissingSound,
     /// `ffmpeg` n'est pas sur la machine, ou n'a pas pu démarrer.
     #[error("ffmpeg n'a pas démarré: {0}")]
     NoMuxer(#[source] std::io::Error),
@@ -232,107 +328,105 @@ pub enum ClipError {
 ///
 /// # Pourquoi `ffmpeg` et pas un multiplexeur à nous
 ///
-/// Rien n'est réencodé: `-c copy` recopie les mêmes octets dans un conteneur.
+/// La vidéo n'est pas réencodée : `-c:v copy` conserve ses octets. Le son brut
+/// devient une piste AAC au moment du téléchargement, sur ce fil séparé.
 /// Ce qui reste à faire est de l'écriture de boîtes MP4, entièrement spécifiée
 /// et entièrement ennuyeuse, et une erreur y donne un fichier qui ne s'ouvre
 /// nulle part sans dire pourquoi.
 ///
 /// Le coût est mesuré et petit: un processus par clip, au plus un toutes les
-/// trente secondes, et jamais sur le chemin des images. C'est l'inverse du
-/// raisonnement de l'ADR D7, qui refusait libavcodec pour ENCODER; encoder est
-/// soixante fois par seconde sur le chemin critique, emballer est une fois par
-/// demi-minute sur un fil à part.
+/// trente secondes, et jamais sur le chemin des images. D7 utilise la
+/// bibliothèque libavcodec pour l'image en direct ; ce processus séparé ne
+/// travaille que sur le fichier demandé.
 ///
 /// L'Annex B ne porte aucune horloge, d'où `-r`: sans lui, ffmpeg suppose
 /// vingt-cinq images par seconde et le clip sort au ralenti.
 ///
 /// # Errors
 /// [`ClipError`] quand ffmpeg manque, refuse, ou rend un fichier illisible.
-pub fn to_mp4(annex_b: &[u8], fps: u32) -> Result<Vec<u8>, ClipError> {
+pub fn to_mp4(cut: &Cut) -> Result<Vec<u8>, ClipError> {
     use std::io::Write as _;
 
-    // Un nom qui ne peut pas entrer en collision avec un autre clip en cours.
-    let scratch = std::env::temp_dir().join(format!(
-        "nel3ab-clip-{}-{}.mp4",
-        std::process::id(),
-        next_scratch()
-    ));
+    // Répertoire privé et nettoyage automatique, même sur un refus de ffmpeg.
+    let scratch = tempfile::Builder::new()
+        .prefix("nel3ab-clip-")
+        .tempdir()
+        .map_err(ClipError::Unreadable)?;
+    let out = scratch.path().join("clip.mp4");
+    let pcm = cut.pcm().ok_or(ClipError::MissingSound)?;
+    let audio = scratch.path().join("audio.s16le");
+    std::fs::write(&audio, pcm).map_err(ClipError::Unreadable)?;
     let mut ffmpeg = std::process::Command::new("ffmpeg")
-        .args(mux_args(fps, &scratch))
+        .args(mux_args(cut.fps(), Some(&audio), &out))
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::piped())
         .spawn()
         .map_err(ClipError::NoMuxer)?;
     if let Some(mut input) = ffmpeg.stdin.take() {
-        // L'erreur est ignorée à dessein: ffmpeg qui ferme son entrée plus tôt
-        // est un refus, et c'est sa sortie d'erreur qui le dira proprement.
-        let _ = input.write_all(annex_b);
+        for bytes in &cut.annex_b {
+            // Un refus précoce ferme le tube ; stderr donne sa raison.
+            if input.write_all(bytes).is_err() {
+                break;
+            }
+        }
     }
     let done = ffmpeg.wait_with_output().map_err(ClipError::NoMuxer)?;
     if !done.status.success() {
-        let _ = std::fs::remove_file(&scratch);
         return Err(ClipError::Refused(
             String::from_utf8_lossy(&done.stderr).trim().to_owned(),
         ));
     }
-    let mp4 = std::fs::read(&scratch).map_err(ClipError::Unreadable);
-    // Effacé quoi qu'il arrive: le fichier ne sert qu'à traverser ffmpeg, et
-    // celui qui reste est celui qu'on oublie.
-    let _ = std::fs::remove_file(&scratch);
-    mp4
+    std::fs::read(out).map_err(ClipError::Unreadable)
 }
 
-/// Ce qu'on demande au multiplexeur, en une liste qu'on peut lire et vérifier.
-///
-/// Sortie de l'appel pour une raison précise: la seule chose qu'on POSSÈDE ici
-/// est cette liste, et elle porte une décision qu'aucune erreur ne signalerait
-/// si elle disparaissait. `-r` dit la cadence, que l'Annex B ne porte pas: sans
-/// lui, ffmpeg suppose vingt-cinq images par seconde et un clip de trente-cinq
-/// secondes en annonce quatre-vingt-quatre, au ralenti, sans un mot.
-///
-/// La version d'avant vérifiait ça en regardant ce que ffmpeg répondait, donc
-/// elle ne passait que sur une machine qui a ffmpeg. La CI n'en a pas, et le
-/// test y échouait sur une absence plutôt que sur un défaut.
-fn mux_args(fps: u32, out: &std::path::Path) -> Vec<std::ffi::OsString> {
+/// La vidéo reste inchangée. Seul le PCM est encodé en AAC pour le MP4.
+/// 192 kbit/s stéréo : 720 ko pour trente secondes, contre 5,76 Mo en PCM.
+/// Choix du 2026-09-06, vérifié par décodage du fichier ; aucun encodeur audio
+/// ne tourne dans la boucle de jeu. Les options suivent la documentation ffmpeg.
+fn mux_args(
+    fps: u32,
+    audio: Option<&std::path::Path>,
+    out: &std::path::Path,
+) -> Vec<std::ffi::OsString> {
     use std::ffi::OsString;
-
-    let mut args: Vec<OsString> = [
-        "-hide_banner",
-        "-loglevel",
-        "error",
-        // L'entrée est de l'Annex B brut, sans conteneur.
-        "-f",
-        "h264",
-        "-r",
-    ]
-    .iter()
-    .map(OsString::from)
-    .collect();
-    args.push(OsString::from(fps.to_string()));
-    args.extend(
-        [
-            "-i",
-            "-", // depuis l'entrée standard
-            "-c",
-            "copy", // les mêmes octets, jamais réencodés
-            "-movflags",
-            "+faststart", // l'index en tête, pour lire sans tout charger
-            "-y",
-        ]
+    let mut args: Vec<OsString> = ["-hide_banner", "-loglevel", "error", "-f", "h264", "-r"]
         .iter()
-        .map(OsString::from),
+        .map(OsString::from)
+        .collect();
+    args.push(fps.to_string().into());
+    args.extend(["-i", "pipe:0"].iter().map(OsString::from));
+    if let Some(audio) = audio {
+        args.extend(
+            ["-f", "s16le", "-ar", "48000", "-ac", "2", "-i"]
+                .iter()
+                .map(OsString::from),
+        );
+        args.push(audio.as_os_str().to_owned());
+        args.extend(
+            [
+                "-map",
+                "0:v:0",
+                "-map",
+                "1:a:0",
+                "-c:a",
+                "aac",
+                "-b:a",
+                "192k",
+                "-threads:a",
+                "1",
+            ]
+            .iter()
+            .map(OsString::from),
+        );
+    }
+    args.extend(
+        ["-c:v", "copy", "-movflags", "+faststart", "-y"]
+            .iter()
+            .map(OsString::from),
     );
     args.push(out.as_os_str().to_owned());
     args
-}
-
-/// Un numéro qui monte, pour que deux clips simultanés n'écrivent pas au même
-/// endroit. La limite de cadence les rend improbables; se reposer dessus pour
-/// la CORRECTION serait faire d'un confort une garantie.
-fn next_scratch() -> u64 {
-    static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-    NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
 }
 
 #[cfg(test)]
@@ -348,16 +442,13 @@ mod tests {
     /// Une partie ordinaire: soixante images par seconde, une clé toutes les dix
     /// secondes, comme l'encodeur les produit.
     fn played(seconds: u64) -> (Clips, Instant) {
-        let start = Instant::now();
+        let start = Duration::ZERO;
         let mut clips = Clips::new();
         for frame in 0..seconds * 60 {
             let at = start + Duration::from_millis(frame * 1000 / 60);
             clips.keep(at, frame % 600 == 0, &[0_u8; 8 * 1024]);
         }
-        (
-            clips,
-            start + Duration::from_millis(seconds * 60 * 1000 / 60),
-        )
+        (clips, Instant::now())
     }
 
     #[test]
@@ -391,7 +482,7 @@ mod tests {
     /// par « la plus ancienne » sans qu'un test tombe.
     #[test]
     fn when_several_keys_would_do_the_clip_starts_at_the_newest() {
-        let start = Instant::now();
+        let start = Duration::ZERO;
         let mut clips = Clips::new();
         // Une clé par seconde, comme une salle où des gens arrivent.
         for frame in 0..60 * 60_u32 {
@@ -399,11 +490,7 @@ mod tests {
             clips.keep(at, frame % 60 == 0, &frame.to_le_bytes());
         }
 
-        let covers = clips
-            .take(start + Duration::from_mins(1))
-            .unwrap()
-            .unwrap()
-            .covers;
+        let covers = clips.take(Instant::now()).unwrap().unwrap().covers;
 
         // La plus ancienne rendrait quarante secondes. Ce qu'on veut est les
         // trente dernières, pas tout ce qu'on a.
@@ -417,7 +504,7 @@ mod tests {
     fn a_clip_starts_on_a_key_frame_and_nowhere_else() {
         // Sans ça, le décodeur reçoit des images qui référencent une image
         // qu'il n'a jamais eue, et le fichier ne s'ouvre pas du tout.
-        let start = Instant::now();
+        let start = Duration::ZERO;
         let mut clips = Clips::new();
         // Chaque image porte son propre numéro, pour qu'on puisse dire laquelle
         // ouvre le clip plutôt que d'espérer.
@@ -427,10 +514,11 @@ mod tests {
         }
 
         let bytes = clips
-            .take(start + Duration::from_mins(1))
+            .take(Instant::now())
             .unwrap()
             .unwrap()
-            .annex_b;
+            .annex_b
+            .concat();
 
         let first = u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
         assert_eq!(
@@ -487,7 +575,7 @@ mod tests {
         // Le jumeau de la borne en temps. Un jeu plus agité que tout ce qu'on a
         // mesuré ne doit pas pouvoir manger la mémoire de la machine: l'anneau
         // rend un clip plus court plutôt que de grandir.
-        let start = Instant::now();
+        let start = Duration::ZERO;
         let mut clips = Clips::new();
         for frame in 0..40 * 60_u64 {
             let at = start + Duration::from_millis(frame * 1000 / 60);
@@ -502,7 +590,13 @@ mod tests {
     fn a_muxer_that_is_not_there_is_named_rather_than_guessed() {
         // Le cas d'une machine sans ffmpeg. On veut une erreur qui dit quoi
         // installer, pas un fichier vide qui ne s'ouvre nulle part.
-        let missing = to_mp4(&[0, 0, 0, 1, 0x65], 60);
+        let missing = to_mp4(&Cut {
+            annex_b: vec![Arc::from([0, 0, 0, 1, 0x65])],
+            from: Duration::ZERO,
+            sound: vec![chunk(Duration::ZERO, 480, 1)],
+            covers: Duration::from_secs(1),
+            frames: 60,
+        });
 
         // Sur cette machine ffmpeg EST là, donc l'appel échoue plus loin: sur
         // des octets qui ne sont pas une vidéo. Les deux chemins sont des
@@ -518,7 +612,7 @@ mod tests {
         // L'Annex B ne porte aucune horloge. Sans `-r`, ffmpeg suppose
         // vingt-cinq images par seconde et un clip de trente-cinq secondes en
         // annonce quatre-vingt-quatre, au ralenti, sans un mot.
-        let args = mux_args(50, std::path::Path::new("/tmp/x.mp4"));
+        let args = mux_args(50, None, std::path::Path::new("/tmp/x.mp4"));
         let said: Vec<String> = args
             .iter()
             .map(|a| a.to_string_lossy().into_owned())
@@ -537,14 +631,14 @@ mod tests {
         // contient les octets qui sont partis vers les navigateurs. Un
         // réencodage donnerait un fichier qui montre la même partie sans être
         // la même vidéo, et coûterait la carte graphique pendant qu'on joue.
-        let said: Vec<String> = mux_args(60, std::path::Path::new("/tmp/x.mp4"))
+        let said: Vec<String> = mux_args(60, None, std::path::Path::new("/tmp/x.mp4"))
             .iter()
             .map(|a| a.to_string_lossy().into_owned())
             .collect();
 
         let codec = said
             .iter()
-            .position(|a| a == "-c")
+            .position(|a| a == "-c:v")
             .expect("le codec est nommé");
         assert_eq!(said[codec + 1], "copy");
         assert_eq!(said.last().map(String::as_str), Some("/tmp/x.mp4"));
@@ -554,14 +648,14 @@ mod tests {
     fn the_clip_reports_the_cadence_it_actually_holds() {
         // Un jeu PAL tourne à cinquante images par seconde. Emballer à soixante
         // rendrait un fichier en accéléré, sans qu'aucune erreur le dise.
-        let start = Instant::now();
+        let start = Duration::ZERO;
         let mut clips = Clips::new();
         for frame in 0..50 * 60_u64 {
             let at = start + Duration::from_millis(frame * 1000 / 50);
             clips.keep(at, frame % 500 == 0, &[0_u8; 1024]);
         }
 
-        let cut = clips.take(start + Duration::from_mins(1)).unwrap().unwrap();
+        let cut = clips.take(Instant::now()).unwrap().unwrap();
 
         assert_eq!(cut.fps(), 50);
     }
@@ -572,10 +666,243 @@ mod tests {
         // une cadence `NaN` passée à ffmpeg est un refus illisible.
         let empty = Cut {
             annex_b: Vec::new(),
+            from: Duration::ZERO,
+            sound: Vec::new(),
             covers: Duration::ZERO,
             frames: 0,
         };
 
         assert!(empty.fps() >= 1);
+    }
+    fn audio_cut() -> Cut {
+        Cut {
+            annex_b: Vec::new(),
+            from: Duration::from_secs(10),
+            sound: Vec::new(),
+            covers: Duration::from_secs(1),
+            frames: 60,
+        }
+    }
+
+    fn chunk(at: Duration, frames: usize, value: u8) -> Sound {
+        Sound {
+            at,
+            pcm: Arc::from(vec![value; frames * SAMPLE_BYTES]),
+        }
+    }
+
+    #[test]
+    fn audio_is_cut_at_the_first_picture_not_the_oldest_sound() {
+        let mut cut = audio_cut();
+        let at = cut.from;
+        cut.sound = vec![
+            chunk(at.checked_sub(Duration::from_secs(1)).unwrap(), 480, 99),
+            chunk(at.checked_sub(Duration::from_millis(5)).unwrap(), 480, 1),
+            chunk(at + Duration::from_millis(5), 480, 2),
+            chunk(at + Duration::from_millis(995), 480, 3),
+            chunk(at + Duration::from_secs(2), 480, 99),
+        ];
+        let pcm = cut.pcm().unwrap();
+        assert_eq!(pcm.len(), SAMPLE_RATE * SAMPLE_BYTES);
+        assert!(pcm[..240 * SAMPLE_BYTES].iter().all(|b| *b == 1));
+        assert!(
+            pcm[240 * SAMPLE_BYTES..720 * SAMPLE_BYTES]
+                .iter()
+                .all(|b| *b == 2)
+        );
+        assert!(
+            pcm[720 * SAMPLE_BYTES..47760 * SAMPLE_BYTES]
+                .iter()
+                .all(|b| *b == 0)
+        );
+        assert!(pcm[47760 * SAMPLE_BYTES..].iter().all(|b| *b == 3));
+        assert!(!pcm.contains(&99));
+    }
+
+    #[test]
+    fn scheduling_jitter_does_not_cut_the_waveform_between_chunks() {
+        let mut cut = audio_cut();
+        for tick in 0..100 {
+            let jitter = if tick % 2 == 0 { 0 } else { 300 };
+            cut.sound.push(chunk(
+                cut.from + Duration::from_micros(tick * 10_000 + jitter),
+                480,
+                7,
+            ));
+        }
+        assert!(cut.pcm().unwrap().iter().all(|byte| *byte == 7));
+    }
+
+    #[test]
+    fn sound_outside_the_video_does_not_invent_an_audio_track() {
+        let mut cut = audio_cut();
+        assert!(cut.pcm().is_none());
+        cut.sound.push(chunk(Duration::ZERO, 480, 7));
+        assert!(cut.pcm().is_none());
+        cut.sound.push(chunk(cut.from, 480, 0));
+        assert!(
+            cut.pcm().unwrap().iter().all(|byte| *byte == 0),
+            "silence produit et son absent sont distincts"
+        );
+    }
+
+    #[test]
+    fn audio_storage_is_bounded_by_time_and_by_bytes() {
+        let mut clips = Clips::new();
+        clips.keep_sound(Duration::ZERO, &[1; 1920]);
+        clips.keep_sound(KEEPS + Duration::from_secs(1), &[2; 1920]);
+        assert_eq!(clips.sound.len(), 1);
+        assert_eq!(clips.sound.front().unwrap().pcm[0], 2);
+        for _ in 0..5000 {
+            clips.keep_sound(KEEPS, &[3; 1920]);
+        }
+        assert!(clips.sound_bytes <= SOUND_HOLDS);
+        assert!(clips.sound_bytes > SOUND_HOLDS - 1920);
+        let before = clips.sound_bytes;
+        clips.keep_sound(KEEPS, &[1, 2, 3]);
+        clips.keep_sound(KEEPS, &[]);
+        assert_eq!(clips.sound_bytes, before);
+    }
+
+    #[test]
+    fn the_muxer_copies_video_but_encodes_and_selects_the_audio() {
+        let args = mux_args(
+            60,
+            Some(std::path::Path::new("/tmp/sound.s16le")),
+            std::path::Path::new("/tmp/x.mp4"),
+        );
+        let said: Vec<_> = args.iter().map(|a| a.to_string_lossy()).collect();
+        for (option, value) in [
+            ("-c:v", "copy"),
+            ("-c:a", "aac"),
+            ("-ar", "48000"),
+            ("-ac", "2"),
+        ] {
+            let at = said.iter().position(|arg| *arg == option).unwrap();
+            assert_eq!(said[at + 1], value);
+        }
+        assert!(said.windows(2).any(|pair| pair == ["-map", "1:a:0"]));
+        let silent = mux_args(60, None, std::path::Path::new("/tmp/x.mp4"));
+        assert!(!silent.iter().any(|arg| arg == "-c:a"));
+    }
+
+    fn generated_video() -> Arc<[u8]> {
+        let generated = std::process::Command::new("ffmpeg")
+            .args([
+                "-v",
+                "error",
+                "-f",
+                "lavfi",
+                "-i",
+                "color=c=black:s=16x16:r=60",
+                "-t",
+                "1",
+                "-c:v",
+                "libx264",
+                "-preset",
+                "ultrafast",
+                "-tune",
+                "zerolatency",
+                "-f",
+                "h264",
+                "pipe:1",
+            ])
+            .output()
+            .unwrap();
+        assert!(
+            generated.status.success(),
+            "{}",
+            String::from_utf8_lossy(&generated.stderr)
+        );
+        Arc::from(generated.stdout)
+    }
+
+    #[test]
+    #[ignore = "requires ffmpeg and ffprobe; run just clip-audio-test"]
+    fn the_exported_mp4_contains_audible_stereo_and_preserves_its_start() {
+        use std::process::Command;
+        let mut cut = audio_cut();
+        cut.annex_b = vec![generated_video()];
+        let pcm: Vec<u8> = (0..36000)
+            .flat_map(|sample| {
+                let value: i16 = if sample % 100 < 50 { 8000 } else { -8000 };
+                [value.to_le_bytes(), (-value).to_le_bytes()].concat()
+            })
+            .collect();
+        cut.sound = vec![Sound {
+            at: cut.from + Duration::from_millis(250),
+            pcm: Arc::from(pcm),
+        }];
+        let tmp = tempfile::tempdir().unwrap();
+        let file = tmp.path().join("clip.mp4");
+        std::fs::write(&file, to_mp4(&cut).unwrap()).unwrap();
+        let probe = Command::new("ffprobe")
+            .args([
+                "-v",
+                "error",
+                "-select_streams",
+                "a:0",
+                "-show_entries",
+                "stream=codec_name,sample_rate,channels",
+                "-of",
+                "csv=p=0",
+            ])
+            .arg(&file)
+            .output()
+            .unwrap();
+        assert!(probe.status.success());
+        assert_eq!(String::from_utf8_lossy(&probe.stdout).trim(), "aac,48000,2");
+        let decoded = Command::new("ffmpeg")
+            .args(["-v", "error", "-i"])
+            .arg(&file)
+            .args([
+                "-map", "0:a:0", "-f", "s16le", "-ac", "2", "-ar", "48000", "pipe:1",
+            ])
+            .output()
+            .unwrap();
+        assert!(
+            decoded.status.success(),
+            "{}",
+            String::from_utf8_lossy(&decoded.stderr)
+        );
+        let samples: Vec<_> = decoded
+            .stdout
+            .chunks_exact(4)
+            .map(|s| {
+                (
+                    i16::from_le_bytes([s[0], s[1]]),
+                    i16::from_le_bytes([s[2], s[3]]),
+                )
+            })
+            .collect();
+        assert!(
+            (48000..=49024).contains(&samples.len()),
+            "{} samples",
+            samples.len()
+        );
+        assert!(
+            samples[..9600]
+                .iter()
+                .all(|(left, right)| left.unsigned_abs() < 20 && right.unsigned_abs() < 20),
+            "le son commence avant son image"
+        );
+        let loud = &samples[24000..36000];
+        assert!(
+            loud.iter()
+                .map(|(left, _)| u64::from(left.unsigned_abs()))
+                .sum::<u64>()
+                > 12000 * 1000,
+            "la piste existe mais reste muette"
+        );
+        assert!(
+            loud.iter()
+                .map(|(left, right)| i64::from(*left) * i64::from(*right))
+                .sum::<i64>()
+                < 0,
+            "les deux canaux ont perdu leur signal distinct"
+        );
+        // Un son absent est une erreur ; un vrai silence reste une piste.
+        cut.sound.clear();
+        assert!(matches!(to_mp4(&cut), Err(ClipError::MissingSound)));
     }
 }

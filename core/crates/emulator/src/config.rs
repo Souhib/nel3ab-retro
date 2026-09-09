@@ -158,6 +158,8 @@ pub enum Extension {
     Nunchuk,
     /// La guitare, pour les jeux qui n'acceptent qu'elle.
     Guitare,
+    /// Wiimote sans accessoire, notamment pour Mario Party.
+    None,
 }
 
 impl Extension {
@@ -174,19 +176,21 @@ impl Extension {
         match self {
             Self::Nunchuk => 1,
             Self::Guitare => 3,
+            Self::None => 0,
         }
     }
 
     /// Les boutons du tuyau de contrôle à TENIR pour l'obtenir.
     ///
-    /// Deux bits, un par bouton, lus par l'expression écrite dans le fichier.
-    /// `A` vaut un, `B` vaut deux, et l'attachement est `1 + A + 2 * B`. `A`
-    /// reste libre pour la Classic, ce qui rendra son ajout purement additif.
+    /// Trois boutons lus par l'expression du fichier. `X` détache toute
+    /// extension ; sinon `1 + A + 2 * B` choisit le Nunchuk ou la guitare.
+    /// `A` reste réservé à la Classic, encore dépourvue de correspondances.
     #[must_use]
     pub const fn held(self) -> &'static [&'static str] {
         match self {
             Self::Nunchuk => &[],
             Self::Guitare => &["B"],
+            Self::None => &["X"],
         }
     }
 
@@ -196,6 +200,7 @@ impl Extension {
         match self {
             Self::Nunchuk => 0,
             Self::Guitare => 1,
+            Self::None => 2,
         }
     }
 
@@ -205,6 +210,7 @@ impl Extension {
     pub const fn from_code(code: u8) -> Self {
         match code {
             1 => Self::Guitare,
+            2 => Self::None,
             _ => Self::Nunchuk,
         }
     }
@@ -215,6 +221,7 @@ impl Extension {
         match self {
             Self::Nunchuk => "nunchuk",
             Self::Guitare => "guitare",
+            Self::None => "sans extension",
         }
     }
 }
@@ -246,6 +253,8 @@ pub enum PadKind {
     /// une Wiimote et son Nunchuk: seul le bouton A de la Wiimote elle-même
     /// faisait quelque chose, ni la croix ni les autres boutons.
     Guitar,
+    /// Wiimote seule, sans Nunchuk ni guitare.
+    WiimoteOnly,
 }
 
 impl PadKind {
@@ -255,6 +264,7 @@ impl PadKind {
         match code {
             1 => Self::Wiimote,
             2 => Self::Guitar,
+            3 => Self::WiimoteOnly,
             _ => Self::GameCube,
         }
     }
@@ -266,6 +276,7 @@ impl PadKind {
             Self::GameCube => 0,
             Self::Wiimote => 1,
             Self::Guitar => 2,
+            Self::WiimoteOnly => 3,
         }
     }
 
@@ -276,6 +287,7 @@ impl PadKind {
             Self::GameCube => "gamecube",
             Self::Wiimote => "wiimote",
             Self::Guitar => "guitare",
+            Self::WiimoteOnly => "wiimote seule",
         }
     }
 }
@@ -319,15 +331,20 @@ impl PadKind {
 /// dit, pas un oubli: les mettre sur une combinaison rendrait deux vrais boutons
 /// imprévisibles.
 #[must_use]
-pub fn wiimote_ini(slots: SlotSet, pads: PadKind) -> String {
+pub fn wiimote_ini(slots: SlotSet, pads: impl Into<crate::PadSetup>) -> String {
+    let pads = pads.into();
     // Rien du tout quand la salle joue à la manette GameCube. Une Wiimote qui
     // existe sans qu'on s'en serve n'est pas neutre: le jeu la COMPTE.
-    if pads == PadKind::GameCube {
+    if pads == PadKind::GameCube.into() {
         return String::new();
     }
     let mut out = String::new();
     for slot in slots.iter() {
-        let _ = write!(out, "{}", wiimote_section(slot));
+        if pads.at(slot) == PadKind::GameCube {
+            let _ = writeln!(out, "[Wiimote{}]\nSource = 0\n", slot.get());
+        } else {
+            let _ = write!(out, "{}", wiimote_section(slot));
+        }
     }
     out
 }
@@ -447,10 +464,10 @@ fn wiimote_section(slot: PlayerSlot) -> String {
     //
     // `1 + A + 2 * B` sur le tuyau de contrôle: rien tenu donne 1, le Nunchuk;
     // B tenu donne 3, la guitare. 2 est la Classic, laissée pour quand elle aura
-    // ses correspondances.
+    // ses correspondances. X tenu multiplie ce résultat par zéro : aucune extension.
     let _ = writeln!(
         w,
-        "Extension = 1 + `{device}:Button A` + 2 * `{device}:Button B`",
+        "Extension = (1 - `{device}:Button X`) * (1 + `{device}:Button A` + 2 * `{device}:Button B`)",
         device = control_pipe_device(slot)
     );
     out
@@ -573,7 +590,8 @@ fn gcpad_section(slot: PlayerSlot) -> String {
 
 /// Renders `Dolphin.ini` for the given ports.
 #[must_use]
-pub fn dolphin_ini(slots: SlotSet, pads: PadKind) -> String {
+pub fn dolphin_ini(slots: SlotSet, pads: impl Into<crate::PadSetup>) -> String {
+    let pads = pads.into();
     let mut out = String::new();
     let w = &mut out;
 
@@ -587,7 +605,7 @@ pub fn dolphin_ini(slots: SlotSet, pads: PadKind) -> String {
         // une personne: à deux joueurs, le premier occupe deux places et le
         // second n'entre jamais.
         let device = PlayerSlot::new(raw).map_or(SIDEVICE_NONE, |slot| {
-            if slots.contains(slot) && pads == PadKind::GameCube {
+            if slots.contains(slot) && pads.at(slot) == PadKind::GameCube {
                 SIDEVICE_GC_CONTROLLER
             } else {
                 SIDEVICE_NONE
@@ -726,7 +744,7 @@ Options/Always Connected = True
             "{ini}"
         );
         assert!(
-            ini.contains("Extension = 1 + `Pipe/0/c1:Button A`"),
+            ini.contains("Extension = (1 - `Pipe/0/c1:Button X`) * (1 + `Pipe/0/c1:Button A`"),
             "{ini}"
         );
         // Un NOM figerait l'extension au démarrage, ce qui est exactement ce
@@ -743,15 +761,16 @@ Options/Always Connected = True
 
     /// Le calcul écrit dans le fichier et le type Rust disent la même chose.
     ///
-    /// L'expression est `1 + A + 2 * B`, et `held()` dit quels boutons tenir.
+    /// L'expression est `(1-X)*(1+A+2*B)`, et `held()` dit quels boutons tenir.
     /// Les deux vivent à deux endroits et rien ne les relie: ce jumeau-là les
     /// noue. Changer l'un sans l'autre donnerait une extension qui s'annonce et
     /// une autre qui arrive, sans un mot.
     #[test]
     fn the_expression_and_the_held_buttons_agree() {
-        for wanted in [Extension::Nunchuk, Extension::Guitare] {
+        for wanted in [Extension::Nunchuk, Extension::Guitare, Extension::None] {
             let held = wanted.held();
-            let computed = 1 + u8::from(held.contains(&"A")) + 2 * u8::from(held.contains(&"B"));
+            let computed = (1 - u8::from(held.contains(&"X")))
+                * (1 + u8::from(held.contains(&"A")) + 2 * u8::from(held.contains(&"B")));
             assert_eq!(
                 computed,
                 wanted.attachment(),
@@ -778,7 +797,9 @@ Options/Always Connected = True
 
         for raw in 1..=4 {
             assert!(
-                ini.contains(&format!("Extension = 1 + `Pipe/0/c{raw}:Button A`")),
+                ini.contains(&format!(
+                    "Extension = (1 - `Pipe/0/c{raw}:Button X`) * (1 + `Pipe/0/c{raw}:Button A`"
+                )),
                 "place {raw}:\n{ini}"
             );
         }

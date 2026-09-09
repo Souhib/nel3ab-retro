@@ -164,6 +164,13 @@ pub fn scan(dir: &Path) -> Vec<Rom> {
         .filter_map(|entry| {
             let path = entry.path();
             let extension = path.extension()?.to_str()?.to_lowercase();
+            if let Some(game) = crate::switch::registered(&path) {
+                return Some(Rom {
+                    name: game.name,
+                    file: path.file_name()?.to_string_lossy().into_owned(),
+                    path,
+                });
+            }
             if !PLAYABLE.contains(&extension.as_str()) {
                 return None;
             }

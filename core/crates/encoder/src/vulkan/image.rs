@@ -327,8 +327,9 @@ impl Drop for ImportedPlane<'_> {
         let device = self.context.device();
         // SAFETY: the view, image and memory were all created on this device and
         // are destroyed in dependency order. Any work referencing them has been
-        // waited on — `Context`'s own Drop waits, and it outlives this by the
-        // borrow, so the ordering holds for the whole lifetime.
+        // waited on by the caller. Pipeline drops its Converter first, which
+        // waits for pending work even after a failed submission. Context's
+        // later Drop alone cannot establish this ordering.
         unsafe {
             device.destroy_image_view(self.view, None);
             device.destroy_image(self.image, None);

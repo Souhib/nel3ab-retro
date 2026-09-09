@@ -46,6 +46,8 @@ pub enum Console {
     GameCube,
     /// La NAND de la console, donc une seule partie et pas de choix à proposer.
     Wii,
+    /// Registered Switch application, launched by the separate Ryubing adapter.
+    Switch,
     /// Le disque n'a pas répondu. Voir le module: ce n'est pas « GameCube ».
     Unknown,
 }
@@ -57,6 +59,7 @@ impl Console {
         match self {
             Self::GameCube => "gc",
             Self::Wii => "wii",
+            Self::Switch => "switch",
             Self::Unknown => "?",
         }
     }
@@ -149,6 +152,12 @@ pub fn consoles(roms: &[Rom], tool: &Path, cache: &Path) -> Vec<Console> {
 }
 
 fn disc_of(rom: &Rom, tool: &Path, cache: &Path) -> Disc {
+    if let Some(game) = crate::switch::registered(&rom.path) {
+        return Disc {
+            console: Console::Switch,
+            title: Some(game.title),
+        };
+    }
     let kept = cache_file(rom, cache);
     if let Ok(said) = std::fs::read_to_string(&kept)
         && let Some(found) = Disc::from_code(&said)

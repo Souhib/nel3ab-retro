@@ -24,6 +24,9 @@ use super::{BrowserServer, Framed, PORTS, Packet, Viewer};
 /// Builds a server with no accept loop, for tests that only exercise policy.
 pub(in crate::browser) fn detached(viewers: Vec<SyncSender<Framed>>) -> BrowserServer {
     BrowserServer {
+        prepared: Mutex::new(None),
+        closing: std::sync::atomic::AtomicBool::new(false),
+        devices: Arc::new(Mutex::new([0; PORTS])),
         clips: Arc::new(Mutex::new(crate::clip::Clips::new())),
         seats: Arc::new(Mutex::new([None; PORTS])),
         wants_save: Arc::new(Mutex::new(0)),

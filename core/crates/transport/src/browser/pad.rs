@@ -7,11 +7,10 @@
 //! qu'elle prétende.
 
 use std::net::TcpStream;
-use std::sync::{Arc, Condvar};
 
-use nel3ab_protocol::{Command, Echo, InputFrame, PlayerSlot};
+use nel3ab_protocol::{Command, Echo, PlayerSlot};
 
-use super::{AWAY_AFTER, Acted, GONE_AFTER, PING_EVERY, PORTS, Pads, Seats, Shared, socket_limits};
+use super::{AWAY_AFTER, Acted, GONE_AFTER, PING_EVERY, PORTS, Seats, Shared, socket_limits};
 
 /// Takes a port for this connection and tells the page about the room.
 ///
@@ -25,9 +24,11 @@ pub(super) fn claim_a_port(
     socket: &mut tungstenite::WebSocket<TcpStream>,
     shared: &Shared,
     take: Option<PlayerSlot>,
+    prefer: Option<PlayerSlot>,
+    expected: Option<&str>,
 ) -> Option<(PlayerSlot, u64, Vec<u8>)> {
     let (seats, players) = (&shared.seats, shared.players);
-    let Some((seat, claim)) = take_seat(seats, players, take) else {
+    let Some((seat, claim)) = take_seat(seats, players, take, prefer, expected) else {
         tracing::info!("a browser asked for a controller in a full room");
         let _ = socket.send(tungstenite::Message::binary(room_message(
             players, None, seats, false,
@@ -67,50 +68,36 @@ pub(super) fn claim_a_port(
 /// Rend `false` sur ce qui n'est pas une trame de manette, et l'appelant ferme:
 /// une page qui envoie autre chose n'est pas notre page, et continuer à
 /// l'écouter serait accepter n'importe quoi.
-pub(super) fn apply_pad(
-    payload: &[u8],
-    seat: PlayerSlot,
-    slots: &Pads,
-    acted: &Acted,
-    received: &Arc<std::sync::atomic::AtomicU64>,
-    arrived: &Arc<Condvar>,
-) -> bool {
-    let frame = match InputFrame::decode(payload) {
-        Ok(frame) => frame,
-        Err(error) => {
-            tracing::warn!(%error, "a client sent something that is not an InputFrame");
-            return false;
-        }
+pub(super) fn apply_pad(payload: &[u8], seat: PlayerSlot, shared: &Shared) -> bool {
+    // The room fixes the format; the connection fixes the seat. Neither comes
+    // from a client claim, including a valid frame naming somebody else's port.
+    let Some(frame) = shared.input_kind.decode(payload, seat) else {
+        tracing::warn!("a client sent an invalid controller frame for this room");
+        return false;
     };
-    // Stamped with the seat this connection was given, whatever the frame
-    // claims. A page that says "I am player 1" must not be able to move player
-    // 1's character, and the check that would reject it is a check that can be
-    // forgotten: overwriting cannot.
-    let frame = InputFrame {
-        slot: seat,
-        ..frame
-    };
-    received.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    shared
+        .received
+        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     // Une trame NEUTRE ne compte pas comme une présence. La page en envoie une à
     // chaque tour, même quand personne ne touche à rien: prendre « une trame est
     // arrivée » pour « quelqu'un joue » rendrait tout le monde éternellement
     // présent, et c'est précisément ce qu'on cherche à distinguer.
     if !frame.is_neutral()
-        && let Ok(mut acted) = acted.lock()
+        && let Ok(mut acted) = shared.acted.lock()
         && let Some(when) = acted.get_mut(seat.index())
     {
         *when = Some(std::time::Instant::now());
     }
-    if let Ok(mut slots) = slots.lock() {
+    if let Ok(mut slots) = shared.inputs.lock() {
         // Replaces rather than queues. Overwriting a state the emulator has not
         // read yet is not a loss: it could only ever have applied the newer one.
-        if let Some(place) = slots.get_mut(frame.slot.index()) {
+        if let Some(place) = slots.get_mut(seat.index()) {
             *place = Some(frame);
         }
     }
     // Woken after the lock is released, so the waiter does not wake straight
     // into a lock it cannot take.
-    arrived.notify_one();
+    shared.arrived.notify_one();
     true
 }
 
@@ -131,10 +118,45 @@ pub(super) fn bounce(socket: &mut tungstenite::WebSocket<TcpStream>, payload: &[
         .is_ok()
 }
 
-pub(super) fn input_thread(stream: TcpStream, shared: &Shared, take: Option<PlayerSlot>) {
-    let (slots, received, arrived, seats, players) = (
+/// L'ancien message de sept octets reste intact. Les lecteurs qui demandent
+/// une identité reçoivent aussi leur attribution et l'appareil réellement tenu.
+fn announce_assignment(
+    socket: &mut tungstenite::WebSocket<TcpStream>,
+    shared: &Shared,
+    seat: PlayerSlot,
+    claim: u64,
+) -> Result<(), tungstenite::Error> {
+    socket.send(tungstenite::Message::text(format!(
+        "seat {}",
+        crate::control::receipt(claim)
+    )))?;
+    let kind = shared.devices.lock().map_or(0, |pads| pads[seat.index()]);
+    socket.send(tungstenite::Message::text(format!("pad {kind}")))
+}
+
+// The first poll after a seat grant must already know the input format.
+fn announce_format(
+    socket: &mut tungstenite::WebSocket<TcpStream>,
+    shared: &Shared,
+    identity: bool,
+) -> bool {
+    !identity
+        || !matches!(shared.input_kind, super::InputKind::Switch)
+        || socket
+            .send(tungstenite::Message::text("format switch"))
+            .is_ok()
+}
+
+pub(super) fn input_thread(
+    stream: TcpStream,
+    shared: &Shared,
+    take: Option<PlayerSlot>,
+    identity: bool,
+    prefer: Option<PlayerSlot>,
+    expected: Option<&str>,
+) {
+    let (slots, arrived, seats, players) = (
         &shared.inputs,
-        &shared.received,
         &shared.arrived,
         &shared.seats,
         shared.players,
@@ -154,10 +176,20 @@ pub(super) fn input_thread(stream: TcpStream, shared: &Shared, take: Option<Play
         return;
     };
 
-    let Some((seat, claim, mut told)) = claim_a_port(&mut socket, shared, take) else {
+    if !announce_format(&mut socket, shared, identity) {
+        return;
+    }
+
+    let Some((seat, claim, mut told)) = claim_a_port(&mut socket, shared, take, prefer, expected)
+    else {
         let _ = socket.close(None);
         return;
     };
+
+    if identity && announce_assignment(&mut socket, shared, seat, claim).is_err() {
+        release_seat(seats, seat, claim);
+        return;
+    }
 
     let mut heard_from = std::time::Instant::now();
     // La dernière force envoyée à cette page, pour n'envoyer que les changements.
@@ -252,7 +284,7 @@ pub(super) fn input_thread(stream: TcpStream, shared: &Shared, take: Option<Play
             }
             break;
         }
-        if !apply_pad(&payload, seat, slots, &shared.acted, received, arrived) {
+        if !apply_pad(&payload, seat, shared) {
             break;
         }
     }
@@ -264,7 +296,7 @@ pub(super) fn input_thread(stream: TcpStream, shared: &Shared, take: Option<Play
     if let Ok(mut slots) = slots.lock()
         && let Some(place) = slots.get_mut(seat.index())
     {
-        *place = Some(InputFrame::neutral(seat));
+        *place = Some(shared.input_kind.neutral(seat));
     }
     arrived.notify_one();
     let _ = socket.close(None);
@@ -369,6 +401,8 @@ pub(super) fn take_seat(
     seats: &Seats,
     players: PlayerSlot,
     take: Option<PlayerSlot>,
+    prefer: Option<PlayerSlot>,
+    expected: Option<&str>,
 ) -> Option<(PlayerSlot, u64)> {
     let claim = next_claim();
     // The lock lives in this block and no longer: every caller of this function
@@ -376,7 +410,22 @@ pub(super) fn take_seat(
     // is how one slow client stops everybody else from joining.
     let taken = {
         let mut seats = seats.lock().ok()?;
+        // Le délai de réponse vise UNE attribution. Une reconnexion ou un
+        // lancement entre-temps annule la reprise, même si le port est le même.
+        if let Some(expected) = expected {
+            let wanted = take?;
+            if seats[wanted.index()].is_none_or(|held| crate::control::receipt(held) != expected) {
+                return None;
+            }
+        }
         let chosen = match take {
+            None if prefer.is_some() => {
+                let wanted = prefer?;
+                if wanted.get() > players.get() || seats[wanted.index()].is_some() {
+                    return None;
+                }
+                wanted
+            }
             // A named port, occupied or not: somebody clicked that socket.
             Some(wanted) if wanted.get() <= players.get() => wanted,
             // A port this room does not serve is not a port. Fall through to

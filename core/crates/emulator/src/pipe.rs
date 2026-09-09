@@ -241,10 +241,10 @@ impl PendingPipes {
 
 /// Les boutons que le tuyau de contrôle porte.
 ///
-/// Deux bits, lus par l'expression `1 + A + 2 * B` que `config` écrit dans le
+/// Trois boutons, lus par `(1-X)*(1+A+2*B)` que `config` écrit dans le
 /// fichier de correspondances. Les deux vivent à deux endroits, et l'essai
 /// `the_expression_and_the_held_buttons_agree` les noue.
-const CONTROL_TOKENS: &[&str] = &["A", "B"];
+const CONTROL_TOKENS: &[&str] = &["A", "B", "X"];
 
 /// Le tuyau de contrôle d'une place: ce qui décide de son extension.
 #[derive(Debug)]
@@ -590,10 +590,13 @@ mod tests {
             session_with_control(SlotSet::EMPTY.with(slot(1)));
 
         pipes.set_extension(slot(1), Extension::Guitare).unwrap();
-        assert_eq!(controls[0].drain(), "RELEASE A\nPRESS B\n");
+        assert_eq!(controls[0].drain(), "RELEASE A\nPRESS B\nRELEASE X\n");
+
+        pipes.set_extension(slot(1), Extension::None).unwrap();
+        assert_eq!(controls[0].drain(), "RELEASE A\nRELEASE B\nPRESS X\n");
 
         pipes.set_extension(slot(1), Extension::Nunchuk).unwrap();
-        assert_eq!(controls[0].drain(), "RELEASE A\nRELEASE B\n");
+        assert_eq!(controls[0].drain(), "RELEASE A\nRELEASE B\nRELEASE X\n");
     }
 
     /// Le jumeau: redemander la même extension la réaffirme au lieu de se taire.
@@ -609,7 +612,7 @@ mod tests {
         pipes.set_extension(slot(1), Extension::Guitare).unwrap();
         controls[0].drain();
         pipes.set_extension(slot(1), Extension::Guitare).unwrap();
-        assert_eq!(controls[0].drain(), "RELEASE A\nPRESS B\n");
+        assert_eq!(controls[0].drain(), "RELEASE A\nPRESS B\nRELEASE X\n");
     }
 
     /// L'extension d'une place ne touche qu'elle.
@@ -623,7 +626,7 @@ mod tests {
 
         pipes.set_extension(slot(3), Extension::Guitare).unwrap();
 
-        assert_eq!(controls[2].drain(), "RELEASE A\nPRESS B\n");
+        assert_eq!(controls[2].drain(), "RELEASE A\nPRESS B\nRELEASE X\n");
         for other in [0, 1, 3] {
             assert_eq!(controls[other].drain(), "", "place {}", other + 1);
         }

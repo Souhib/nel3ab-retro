@@ -20,6 +20,9 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum EmulatorError {
+    /// The worker was asked to stop while waiting for input pipes.
+    #[error("emulator startup cancelled")]
+    Cancelled,
     /// Un emplacement de sauvegarde n'a pas pu être préparé.
     ///
     /// Nommé avec le geste qui a échoué et le chemin concerné, parce que les

@@ -49,6 +49,9 @@ use std::time::{Duration, Instant};
 use nel3ab_protocol::{InputFrame, PlayerSlot};
 use thiserror::Error;
 
+mod controller;
+pub use controller::{ControllerFrame, InputKind};
+
 #[cfg(test)]
 mod harness;
 mod pad;
@@ -124,7 +127,7 @@ type Rumbles = Arc<Mutex<[u8; PORTS]>>;
 type Seats = Arc<Mutex<[Option<u64>; PORTS]>>;
 
 /// The latest pad state per port.
-type Pads = Arc<Mutex<[Option<InputFrame>; PORTS]>>;
+type Pads = Arc<Mutex<[Option<ControllerFrame>; PORTS]>>;
 
 /// Quand chaque place a TOUCHÉ à quelque chose pour la dernière fois.
 ///
@@ -251,6 +254,7 @@ pub struct BrowserServer {
     /// Qui tient quelle place. Le serveur en a besoin pour dire combien de
     /// manettes sont tenues, ce que la sieste doit savoir.
     seats: Seats,
+    devices: Arc<Mutex<[u8; PORTS]>>,
     /// L'emplacement de sauvegarde voulu pour le prochain jeu.
     wants_save: Arc<Mutex<u8>>,
     /// La manette voulue pour le prochain jeu. Voir `Command::ChoosePad`.
@@ -349,6 +353,8 @@ pub struct BrowserServer {
     /// A slot rather than a queue, for the reason the pads are: only the newest
     /// wish can be acted on, and acting on it ends the session anyway.
     wants_rom: Arc<Mutex<Option<u8>>>,
+    prepared: Mutex<Option<crate::control::PreparedLaunch>>,
+    closing: std::sync::atomic::AtomicBool,
     _accept: JoinHandle<()>,
 }
 
@@ -398,6 +404,26 @@ impl BrowserServer {
     ///
     /// # Errors
     /// [`TransportError::Bind`] si le port est pris.
+    pub fn start(
+        address: SocketAddr,
+        page: &'static str,
+        catalogue: Arc<str>,
+        art: Arc<[Option<Arc<[u8]>>]>,
+        players: PlayerSlot,
+        owner: &crate::control::OwnerSeat,
+    ) -> Result<Self, TransportError> {
+        Self::start_with_input(
+            address,
+            page,
+            catalogue,
+            art,
+            players,
+            owner,
+            InputKind::Dolphin,
+        )
+    }
+
+    /// Start a room with an immutable controller wire format.
     #[expect(
         clippy::too_many_lines,
         reason = "cette fonction EST le câblage, et l'ordre y est le contenu: chaque \
@@ -407,13 +433,14 @@ impl BrowserServer {
                   l'autre, ce qui déplace le risque sans le réduire. 103 lignes pour \
                   un plafond de 100, mesuré le 31 août 2026."
     )]
-    pub fn start(
+    pub fn start_with_input(
         address: SocketAddr,
         page: &'static str,
         catalogue: Arc<str>,
         art: Arc<[Option<Arc<[u8]>>]>,
         players: PlayerSlot,
         owner: &crate::control::OwnerSeat,
+        input_kind: InputKind,
     ) -> Result<Self, TransportError> {
         let (listener, bound) = Self::bound_listener(address)?;
 
@@ -430,6 +457,7 @@ impl BrowserServer {
         let joined = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let wants_key = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let wants_rom = Arc::new(Mutex::new(None));
+        let devices = Arc::new(Mutex::new([0; PORTS]));
         let wants_save = Arc::new(Mutex::new(0_u8));
         let wants_pad = Arc::new(Mutex::new(0_u8));
         let wants_extension: Arc<Mutex<[Option<u8>; PORTS]>> = Arc::new(Mutex::new([None; PORTS]));
@@ -457,6 +485,7 @@ impl BrowserServer {
                 let arrived = Arc::clone(&arrived);
                 let seats = Arc::clone(&seats);
                 let wants_rom = Arc::clone(&wants_rom);
+                let devices = Arc::clone(&devices);
                 let wants_save = Arc::clone(&wants_save);
                 let wants_pad = Arc::clone(&wants_pad);
                 let wants_extension = Arc::clone(&wants_extension);
@@ -476,6 +505,7 @@ impl BrowserServer {
                             viewers,
                             listeners,
                             inputs,
+                            input_kind,
                             acted,
                             arrived,
                             received,
@@ -485,6 +515,7 @@ impl BrowserServer {
                             seats,
                             rumbles,
                             players,
+                            devices,
                             wants_rom,
                             wants_save,
                             wants_pad,
@@ -530,6 +561,9 @@ impl BrowserServer {
             wants_extension,
             granted_key: Arc::clone(&granted_key),
             half_granted_key: Arc::clone(&half_granted_key),
+            devices,
+            prepared: Mutex::new(None),
+            closing: std::sync::atomic::AtomicBool::new(false),
             _accept: accept,
         })
     }
@@ -558,7 +592,7 @@ impl BrowserServer {
         // liaison a hoqueté ne montrerait pas la partie.
         if let Ok(mut clips) = self.clips.lock() {
             clips.keep(
-                Instant::now(),
+                Duration::from_micros(packet.captured_micros),
                 carries_key_frame(packet.annex_b),
                 packet.annex_b,
             );
@@ -617,6 +651,9 @@ impl BrowserServer {
     /// la vidéo.
     #[must_use]
     pub fn send_sound(&self, captured_micros: u64, pcm: &[u8]) -> bool {
+        if let Ok(mut clips) = self.clips.lock() {
+            clips.keep_sound(Duration::from_micros(captured_micros), pcm);
+        }
         let Ok(mut listeners) = self.listeners.lock() else {
             return false;
         };
@@ -692,6 +729,8 @@ impl BrowserServer {
     #[must_use]
     pub fn rom_wanted(&self) -> bool {
         self.wants_rom.lock().is_ok_and(|wanted| wanted.is_some())
+            || self.prepared.lock().is_ok_and(|wanted| wanted.is_some())
+            || self.stop_requested()
     }
 
     /// Dit si cette salle sait produire le demi-format, une fois la taille connue.
@@ -753,6 +792,93 @@ impl BrowserServer {
     #[must_use]
     pub fn may_decide(&self, seat: PlayerSlot) -> bool {
         pad::decides(&self.owner, &self.acted, seat)
+    }
+
+    /// Les attributions actuelles, lues sous un seul verrou. Un tiret signifie
+    /// une place libre. Le salon y rattache ses noms, sans inventer l'occupation.
+    #[must_use]
+    pub fn seat_receipts(&self) -> [String; PORTS] {
+        self.seats.lock().map_or_else(
+            |_| std::array::from_fn(|_| "-".to_owned()),
+            |held| held.map(|claim| claim.map_or_else(|| "-".to_owned(), crate::control::receipt)),
+        )
+    }
+
+    /// Accepte les paramètres ensemble, seulement pour l'attribution qui décide.
+    pub fn prepare_launch(
+        &self,
+        seat: PlayerSlot,
+        claim: &str,
+        choice: crate::control::PreparedLaunch,
+    ) -> bool {
+        let Ok(seats) = self.seats.lock() else {
+            return false;
+        };
+        if seats[seat.index()].is_none_or(|held| crate::control::receipt(held) != claim)
+            || seats.map(|held| held.map_or_else(|| "-".to_owned(), crate::control::receipt))
+                != choice.expected
+            || !self.may_decide(seat)
+            || choice.save > 1
+            || choice.pads.iter().any(|code| *code > 4)
+        {
+            return false;
+        }
+        let Ok(mut pending) = self.prepared.lock() else {
+            return false;
+        };
+        if pending.is_some() || self.stop_requested() {
+            return false;
+        }
+        *pending = Some(choice);
+        true
+    }
+
+    /// Le chef est authentifié par le salon, y compris quand il regarde sans
+    /// manette. Cet ordre ne traverse que le port privé. Refuse une occupation
+    /// différente de celle que le salon a vérifiée, ou un lancement déjà accepté.
+    pub fn request_stop(&self, expected: &[String; PORTS]) -> bool {
+        let Ok(seats) = self.seats.lock() else {
+            return false;
+        };
+        if seats.map(|held| held.map_or_else(|| "-".to_owned(), crate::control::receipt))
+            != *expected
+        {
+            return false;
+        }
+        let Ok(pending) = self.prepared.lock() else {
+            return false;
+        };
+        if pending.is_some() || self.wants_rom.lock().is_ok_and(|wanted| wanted.is_some()) {
+            return false;
+        }
+        self.closing
+            .store(true, std::sync::atomic::Ordering::Relaxed);
+        true
+    }
+
+    /// Annule un arrêt dont le choix persistant n’a pas pu être écrit.
+    pub fn cancel_stop(&self) {
+        self.closing
+            .store(false, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    /// Reste vrai jusqu'à la sortie : la sieste doit réveiller Dolphin avant
+    /// que le fil des images puisse le fermer et vider sa carte mémoire.
+    #[must_use]
+    pub fn stop_requested(&self) -> bool {
+        self.closing.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    /// Consomme un lancement collectif sans relire des choix globaux mutables.
+    pub fn take_prepared_launch(&self) -> Option<crate::control::PreparedLaunch> {
+        self.prepared.lock().ok()?.take()
+    }
+
+    /// Les appareils que le worker a réellement branchés, annoncés aux arrivants.
+    pub fn set_devices(&self, devices: [u8; PORTS]) {
+        if let Ok(mut current) = self.devices.lock() {
+            *current = devices;
+        }
     }
 
     /// La manette voulue pour le prochain jeu.
@@ -862,7 +988,11 @@ impl BrowserServer {
         let Ok(mut slots) = self.incoming.lock() else {
             return Vec::new();
         };
-        slots.iter_mut().filter_map(Option::take).collect()
+        slots
+            .iter_mut()
+            .filter_map(Option::take)
+            .filter_map(ControllerFrame::dolphin)
+            .collect()
     }
 
     /// Blocks until a pad frame arrives, then takes the newest state per port.
@@ -876,6 +1006,15 @@ impl BrowserServer {
     /// dropped pad frame is recoverable and a dead input thread is not.
     #[must_use]
     pub fn wait_input(&self, timeout: Duration) -> Vec<InputFrame> {
+        self.wait_controller_input(timeout)
+            .into_iter()
+            .filter_map(ControllerFrame::dolphin)
+            .collect()
+    }
+
+    /// Receive the newest state per seat using the room's chosen input format.
+    #[must_use]
+    pub fn wait_controller_input(&self, timeout: Duration) -> Vec<ControllerFrame> {
         let Ok(slots) = self.incoming.lock() else {
             return Vec::new();
         };
@@ -933,6 +1072,7 @@ struct Shared {
     viewers: Viewers,
     listeners: Viewers,
     inputs: Pads,
+    input_kind: InputKind,
     /// Quand chaque place a touché à quelque chose. Voir `decides`.
     acted: Acted,
     arrived: Arc<Condvar>,
@@ -942,6 +1082,7 @@ struct Shared {
     /// When a key frame was last granted to anybody. See [`ask_for_key_frame`].
     granted_key: Arc<Mutex<Instant>>,
     seats: Seats,
+    devices: Arc<Mutex<[u8; PORTS]>>,
     rumbles: Rumbles,
     players: PlayerSlot,
     wants_rom: Arc<Mutex<Option<u8>>>,
@@ -1109,7 +1250,7 @@ fn serve_clip(mut stream: TcpStream, shared: &Shared) {
 
     let covers = cut.covers.as_secs();
     let fps = cut.fps();
-    match crate::clip::to_mp4(&cut.annex_b, fps) {
+    match crate::clip::to_mp4(&cut) {
         Ok(mp4) => {
             tracing::info!(
                 seconds = covers,
@@ -1204,7 +1345,12 @@ fn serve_connection(stream: TcpStream, page: &'static str, shared: &Shared) {
             &shared.half_granted_key,
         ),
         Some(Route::Sound) => sound_thread(stream, &shared.listeners),
-        Some(Route::Input { take }) => input_thread(stream, shared, take),
+        Some(Route::Input {
+            take,
+            identity,
+            prefer,
+            expected,
+        }) => input_thread(stream, shared, take, identity, prefer, expected.as_deref()),
         Some(Route::Roms) => serve_body(stream, &shared.catalogue, "application/json"),
         Some(Route::Formats) => {
             match shared.half_ready.load(std::sync::atomic::Ordering::Relaxed) {
@@ -1294,6 +1440,125 @@ mod tests {
 
     use super::harness::*;
     use super::*;
+
+    #[test]
+    fn closing_wakes_the_room_and_refuses_a_stale_occupation() {
+        let server = detached(Vec::new());
+        let empty = server.seat_receipts();
+        let mut stale = empty.clone();
+        stale[0] = crate::control::receipt(1);
+        assert!(!server.request_stop(&stale));
+        assert!(!server.stop_requested());
+        assert!(!server.rom_wanted());
+        assert!(server.request_stop(&empty));
+        assert!(server.stop_requested());
+        assert!(server.rom_wanted());
+        server.cancel_stop();
+        assert!(!server.stop_requested());
+        assert!(!server.rom_wanted());
+        *server.wants_rom.lock().unwrap() = Some(0);
+        assert!(!server.request_stop(&empty));
+    }
+
+    #[test]
+    fn a_page_can_identify_its_exact_seat_assignment() {
+        let server = BrowserServer::start(
+            "127.0.0.1:0".parse().unwrap(),
+            "test",
+            "{}".into(),
+            no_art(),
+            four(),
+            &nobody(),
+        )
+        .unwrap();
+        let stream = std::net::TcpStream::connect(server.address()).unwrap();
+        stream
+            .set_read_timeout(Some(Duration::from_millis(500)))
+            .unwrap();
+        let (mut socket, _) = tungstenite::client(
+            format!("ws://{}/input?identity=1", server.address()),
+            stream,
+        )
+        .unwrap();
+        assert!(matches!(
+            socket.read().unwrap(),
+            tungstenite::Message::Binary(_)
+        ));
+        assert_eq!(
+            socket.read().unwrap(),
+            tungstenite::Message::Text(format!("seat {}", server.seat_receipts()[0]).into())
+        );
+        socket.close(None).unwrap();
+    }
+
+    #[test]
+    fn preparing_requires_every_current_assignment_and_the_deciding_seat() {
+        let server = detached(vec![]);
+        *server.seats.lock().unwrap() = [Some(11), Some(12), None, None];
+        let one = PlayerSlot::new(1).unwrap();
+        *server.owner.lock().unwrap() = Some(one);
+        server.acted.lock().unwrap()[0] = Some(Instant::now());
+        let choice = crate::control::PreparedLaunch {
+            game: 2,
+            save: 1,
+            pads: [0, 1, 3, 2],
+            expected: server.seat_receipts(),
+        };
+        assert!(!server.prepare_launch(
+            PlayerSlot::new(2).unwrap(),
+            &crate::control::receipt(12),
+            choice.clone()
+        ));
+        assert!(!server.prepare_launch(one, &crate::control::receipt(10), choice.clone()));
+        let mut stale = choice.clone();
+        stale.expected[1] = crate::control::receipt(9);
+        assert!(!server.prepare_launch(one, &crate::control::receipt(11), stale));
+        assert!(server.take_prepared_launch().is_none());
+        assert!(server.prepare_launch(one, &crate::control::receipt(11), choice.clone()));
+        assert!(!server.prepare_launch(one, &crate::control::receipt(11), choice.clone()));
+        assert!(server.rom_wanted());
+        assert_eq!(server.take_prepared_launch(), Some(choice));
+        assert!(!server.rom_wanted());
+    }
+
+    #[test]
+    fn a_delayed_take_cannot_displace_a_new_occupant() {
+        let seats = Arc::new(Mutex::new([None; PORTS]));
+        let one = PlayerSlot::new(1).unwrap();
+        let (_, original) = pad::take_seat(&seats, four(), Some(one), None, None).unwrap();
+        let stale = "ancienne attribution";
+        assert!(pad::take_seat(&seats, four(), Some(one), None, Some(stale)).is_none());
+        assert_eq!(seats.lock().unwrap()[0], Some(original));
+        let expected = crate::control::receipt(original);
+        let (_, received) =
+            pad::take_seat(&seats, four(), Some(one), None, Some(&expected)).unwrap();
+        assert_eq!(seats.lock().unwrap()[0], Some(received));
+        assert!(pad::take_seat(&seats, four(), Some(one), None, Some(&expected)).is_none());
+        assert_eq!(seats.lock().unwrap()[0], Some(received));
+    }
+
+    #[test]
+    fn reconnecting_in_reverse_order_keeps_ports_without_taking_them() {
+        let seats = Arc::new(Mutex::new([None; PORTS]));
+        let two = PlayerSlot::new(2).unwrap();
+        let one = PlayerSlot::new(1).unwrap();
+        assert_eq!(
+            pad::take_seat(&seats, four(), None, Some(two), None)
+                .unwrap()
+                .0,
+            two
+        );
+        let first_claim = seats.lock().unwrap()[1];
+        assert!(pad::take_seat(&seats, four(), None, Some(two), None).is_none());
+        assert_eq!(seats.lock().unwrap()[1], first_claim);
+        assert_eq!(
+            pad::take_seat(&seats, four(), None, Some(one), None)
+                .unwrap()
+                .0,
+            one
+        );
+        assert_ne!(seats.lock().unwrap()[0], first_claim);
+    }
 
     /// Une salle qui ne sait pas produire le demi-format le DIT, et lâche ceux
     /// qui l'attendaient.
@@ -2497,9 +2762,9 @@ mod tests {
         };
 
         for buttons in [Buttons::A, Buttons::B, Buttons::START] {
-            slots.lock().unwrap()[one.index()] = Some(with(one, buttons));
+            slots.lock().unwrap()[one.index()] = Some(with(one, buttons).into());
         }
-        slots.lock().unwrap()[two.index()] = Some(with(two, Buttons::Z));
+        slots.lock().unwrap()[two.index()] = Some(with(two, Buttons::Z).into());
 
         let mut taken = server.drain_input();
         taken.sort_by_key(|frame| frame.slot.get());
@@ -2526,10 +2791,13 @@ mod tests {
 
         let writer = std::thread::spawn(move || {
             std::thread::sleep(Duration::from_millis(50));
-            slots.lock().unwrap()[one.index()] = Some(InputFrame {
-                buttons: Buttons::A,
-                ..InputFrame::neutral(one)
-            });
+            slots.lock().unwrap()[one.index()] = Some(
+                InputFrame {
+                    buttons: Buttons::A,
+                    ..InputFrame::neutral(one)
+                }
+                .into(),
+            );
             arrived.notify_one();
         });
 
@@ -2572,5 +2840,26 @@ mod tests {
             "an empty room must not look like congestion"
         );
         assert!(!server.is_watched());
+    }
+
+    #[test]
+    fn clips_keep_the_sound_even_when_nobody_listens() {
+        let server = harness::detached(Vec::new());
+        for tick in 0..3101_u64 {
+            let at = tick * 10_000;
+            assert!(!server.send_sound(at, &[7; 1920]));
+            if tick % 2 == 0 {
+                let _ = server.send(&Packet {
+                    captured_micros: at,
+                    ..harness::frame()
+                });
+            }
+        }
+        let cut = server.take_clip().unwrap().unwrap();
+        let pcm = cut
+            .pcm()
+            .expect("les clips gardent le son sans dépendre des haut-parleurs des pages");
+        assert!(pcm.len() >= 30 * 48000 * 4);
+        assert!(pcm[..30 * 48000 * 4].iter().all(|byte| *byte == 7));
     }
 }

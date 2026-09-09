@@ -186,7 +186,7 @@ pub struct DolphinConfig {
     /// Quelle manette ces places présentent au jeu.
     ///
     /// Une seule des deux, jamais les deux: voir [`crate::config::PadKind`].
-    pub pads: crate::config::PadKind,
+    pub pads: crate::PadSetup,
     /// Renderer to use.
     pub video_backend: VideoBackend,
     /// Extra `-C` overrides, applied above the generated files.
@@ -225,7 +225,7 @@ impl DolphinConfig {
             // La manette GameCube par défaut: c'est ce que fait un jeu
             // GameCube, et c'est ce que la salle faisait avant qu'une Wiimote
             // existe. Un défaut ne doit rien changer à ce qui marchait.
-            pads: crate::config::PadKind::GameCube,
+            pads: crate::config::PadKind::GameCube.into(),
             video_backend: VideoBackend::default(),
             overrides: Vec::new(),
             frame_socket: None,
@@ -253,6 +253,7 @@ pub struct Session {
     /// Set once the process has been reaped, so `Drop` knows there is nothing
     /// left to do and cannot signal a pid the OS may have recycled.
     exit_status: Option<ExitStatus>,
+    container: Option<String>,
 }
 
 impl Session {
@@ -267,6 +268,17 @@ impl Session {
     /// Anything in [`EmulatorError`]. On failure the process is terminated
     /// rather than left behind.
     pub fn start(config: &DolphinConfig) -> Result<Self, EmulatorError> {
+        Self::start_controlled(config, &std::sync::atomic::AtomicBool::new(false), None)
+    }
+
+    /// Starts with cooperative cancellation and optional Docker wakeup on exit.
+    /// # Errors
+    /// The startup errors from `start`, or an explicit cancellation.
+    pub fn start_controlled(
+        config: &DolphinConfig,
+        stopping: &std::sync::atomic::AtomicBool,
+        container: Option<&str>,
+    ) -> Result<Self, EmulatorError> {
         write_config_files(config)?;
         let pending = PendingPipes::create(&config.user_dir, config.slots)?;
 
@@ -308,10 +320,15 @@ impl Session {
         let pid = child.id();
         tracing::info!(pid, slots = config.slots.len(), "Dolphin started");
 
-        let attached = pending.attach_all(config.startup_timeout, || match child.try_wait() {
-            Ok(Some(status)) => Err(EmulatorError::ExitedDuringStartup { status }),
-            Ok(None) => Ok(()),
-            Err(source) => Err(EmulatorError::ProcessControl { pid, source }),
+        let attached = pending.attach_all(config.startup_timeout, || {
+            if stopping.load(std::sync::atomic::Ordering::Relaxed) {
+                return Err(EmulatorError::Cancelled);
+            }
+            match child.try_wait() {
+                Ok(Some(status)) => Err(EmulatorError::ExitedDuringStartup { status }),
+                Ok(None) => Ok(()),
+                Err(source) => Err(EmulatorError::ProcessControl { pid, source }),
+            }
         });
 
         let pipes = match attached {
@@ -333,6 +350,7 @@ impl Session {
             user_dir: config.user_dir.clone(),
             shutdown_grace: config.shutdown_grace,
             exit_status: None,
+            container: container.map(str::to_owned),
         })
     }
 
@@ -414,7 +432,12 @@ impl Session {
         if let Some(status) = self.exit_status {
             return Ok(status);
         }
+        // Also covers early errors: a paused container cannot receive SIGTERM.
+        if let Some(container) = &self.container {
+            let _ = crate::nap::tell_docker(container, crate::nap::Move::Wake);
+        }
         let status = terminate_child(&mut self.child, grace)?;
+        tracing::info!(pid = self.child.id(), %status, "Dolphin exit status");
         self.exit_status = Some(status);
         Ok(status)
     }

@@ -55,13 +55,18 @@
 
 #![forbid(unsafe_code)]
 
+pub mod external;
+pub mod switch;
+
 pub mod banner;
 pub mod config;
 pub mod disc;
 pub mod error;
 pub mod library;
+pub mod lifecycle;
 pub mod nap;
 pub mod pipe;
+pub mod playback;
 pub mod process;
 pub mod rumble;
 pub mod saves;
@@ -78,3 +83,6 @@ pub use process::{ConfigOverride, DolphinConfig, Session, VideoBackend};
 pub use slots::SlotSet;
 pub use sound::{CHUNK, CHUNK_BYTES, CHUNK_FRAMES, SoundTap};
 pub use wire::PadState;
+
+pub mod setup;
+pub use setup::PadSetup;

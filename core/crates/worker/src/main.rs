@@ -23,6 +23,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use anyhow::{Context as _, Result, bail};
+use nel3ab_emulator::lifecycle::Health;
 use nel3ab_emulator::nap::{self, Nap, tell_docker};
 use nel3ab_emulator::rumble::RumbleTap;
 use nel3ab_emulator::saves;
@@ -65,13 +66,14 @@ const STALL: Duration = Duration::from_millis(250);
 
 fn main() -> Result<()> {
     init_tracing();
+    let shutdown = nel3ab_emulator::lifecycle::Shutdown::listen()?;
     tracing::info!(
         version = env!("CARGO_PKG_VERSION"),
         "nel3ab worker starting"
     );
 
     let settings = Settings::from_environment()?;
-    run(&settings)
+    run(&settings, &shutdown.flag())
 }
 
 /// Everything the worker needs, and where each piece comes from.
@@ -395,9 +397,15 @@ fn env_dirs(name: &str) -> Option<Vec<PathBuf>> {
               only after the conversion has been waited on. Splitting it into \
               helpers would hide the one thing worth reading."
 )]
-fn run(settings: &Settings) -> Result<()> {
+fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Result<()> {
+    let container =
+        std::env::var("NEL3AB_CONTAINER").unwrap_or_else(|_| "nel3ab-dolphin".to_owned());
     std::fs::create_dir_all(&settings.session_dir)
         .with_context(|| format!("creating {}", settings.session_dir.display()))?;
+    nel3ab_emulator::lifecycle::prepare(&settings.dolphin, &settings.session_dir)?;
+    if stopping.load(std::sync::atomic::Ordering::Relaxed) {
+        return Ok(());
+    }
     let socket = settings.session_dir.join("frames.sock");
     // A stale socket from a previous run would make `bind` fail with EADDRINUSE
     // on a path nothing is listening on, which reads as a mystery.
@@ -412,11 +420,15 @@ fn run(settings: &Settings) -> Result<()> {
     // et pas plus bas, parce que les sauvegardes en dépendent et qu'elles
     // doivent être en place avant que Dolphin ne démarre.
     let discs = nel3ab_emulator::discs(&library, &settings.dolphin_tool, &settings.art_dir);
+    let idle = nel3ab_emulator::playback::Playback::read(&settings.session_dir)?
+        == nel3ab_emulator::playback::Playback::Idle;
     let rom = chosen_rom(settings, &library);
     // Les sauvegardes AVANT que Dolphin ne démarre: il ouvre son dossier de
     // carte au lancement, et le déplacer après coup ne serait plus vu.
     let slot = chosen_slot(&settings.session_dir);
-    let current = library.iter().position(|game| game.path == rom);
+    let current = (!idle)
+        .then(|| library.iter().position(|game| game.path == rom))
+        .flatten();
     let disc = current
         .and_then(|at| discs.get(at))
         .cloned()
@@ -424,8 +436,16 @@ fn run(settings: &Settings) -> Result<()> {
             console: nel3ab_emulator::Console::Unknown,
             title: None,
         });
-    let pads = chosen_pad(&settings.session_dir, &disc);
-    prepare_saves(&settings.session_dir, &rom, &disc, slot);
+    let legacy_pad = chosen_pad(&settings.session_dir, &disc);
+    let mut pads = if disc.console == nel3ab_emulator::Console::Wii {
+        current
+            .and_then(|index| {
+                nel3ab_emulator::PadSetup::load_for(&settings.session_dir, &library[index].file)
+            })
+            .unwrap_or_else(|| legacy_pad.into())
+    } else {
+        nel3ab_emulator::PadKind::GameCube.into()
+    };
     tracing::info!(
         games = library.len(),
         booting = %rom.display(),
@@ -466,7 +486,8 @@ fn run(settings: &Settings) -> Result<()> {
 
     let owner: OwnerSeat = Arc::new(Mutex::new(None));
 
-    let server = Arc::new(BrowserServer::start(
+    let switch = disc.console == nel3ab_emulator::Console::Switch;
+    let server = Arc::new(BrowserServer::start_with_input(
         settings.bind,
         PAGE,
         catalogue_json(&library, &art, &consoles, current, settings.players.get()).into(),
@@ -475,7 +496,13 @@ fn run(settings: &Settings) -> Result<()> {
             .collect(),
         settings.players,
         &owner,
+        if switch {
+            nel3ab_transport::browser::InputKind::Switch
+        } else {
+            nel3ab_transport::browser::InputKind::Dolphin
+        },
     )?);
+    server.set_devices(if switch { [4; 4] } else { pads.codes() });
     tracing::info!(address = %server.address(), "open this in a browser");
 
     // APRÈS le serveur, et c'est le point: le plan de contrôle demande sur ce
@@ -483,11 +510,74 @@ fn run(settings: &Settings) -> Result<()> {
     // la réponse. Ouvrir le port plus tôt donnerait quelques millisecondes
     // pendant lesquelles il faudrait répondre sans savoir.
     let asked = Arc::clone(&server);
+    let seated = Arc::clone(&server);
+    let launching = Arc::clone(&server);
+    let stopping_game = Arc::clone(&server);
     nel3ab_transport::control::serve(
         settings.control_bind,
         Arc::clone(&owner),
         Box::new(move |seat| asked.may_decide(seat)),
+        Box::new(move || seated.seat_receipts()),
+        Box::new(move |seat, claim, choice| launching.prepare_launch(seat, claim, choice)),
+        Box::new(move |expected| stopping_game.request_stop(&expected)),
     )?;
+
+    if idle {
+        server.half_offered(false);
+        tracing::info!("salle ouverte sans jeu, aucun Dolphin lancé");
+        while !stopping.load(std::sync::atomic::Ordering::Relaxed)
+            && !remember_request(&server, &library, &settings.session_dir)
+        {
+            // Dix lectures par seconde au repos bornent la réponse au menu à
+            // 100 ms sans entretenir une boucle d'images ou un émulateur.
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        return Ok(());
+    }
+    if switch {
+        // Private ingress owns no emulator. The adapter closes capture before
+        // Ryubing, and only then flushes/backups the selected persistent slot.
+        let runtime = tempfile::Builder::new()
+            .prefix("room-switch-")
+            .tempdir_in(&settings.session_dir)?;
+        let _ingress =
+            nel3ab_transport::ingress::Ingress::bind(runtime.path(), Arc::clone(&server))?;
+        server.half_offered(true);
+        let script = std::env::var_os("NEL3AB_SWITCH_ADAPTER").map_or_else(
+            || PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../docker/switch-room.py"),
+            PathBuf::from,
+        );
+        let mut engine = nel3ab_emulator::external::External::start(
+            &script,
+            &rom,
+            disc.title
+                .as_deref()
+                .context("registered Switch title missing")?,
+            slot.folder(),
+            runtime.path(),
+        )?;
+        while !stopping.load(std::sync::atomic::Ordering::Relaxed) {
+            if server.stop_requested() {
+                nel3ab_emulator::playback::Playback::Idle.store(&settings.session_dir)?;
+                break;
+            }
+            if remember_request(&server, &library, &settings.session_dir) {
+                break;
+            }
+            if let Some(status) = engine.status()? {
+                // A broken adapter must not create an unbounded restart loop.
+                // Keep the room available so its owner can choose/retry a game.
+                tracing::error!(%status, "Switch stopped unexpectedly; leaving the room idle");
+                nel3ab_emulator::playback::Playback::Idle.store(&settings.session_dir)?;
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        let status = engine.shutdown()?;
+        tracing::info!(%status, "Switch adapter stopped");
+        return Ok(());
+    }
+    prepare_saves(&settings.session_dir, &rom, &disc, slot);
 
     // La NAND est balayée AVANT de démarrer l'émulateur.
     //
@@ -560,7 +650,7 @@ fn run(settings: &Settings) -> Result<()> {
     // Wiimote compte deux manettes pour une personne: à deux joueurs, le premier
     // occupe deux places et le second n'entre jamais. Mesuré sur Mario Kart Wii.
     config.pads = pads;
-    tracing::info!(pads = pads.name(), "la manette que la salle présente");
+    tracing::info!(pads = %pads.encode(), "la manette que la salle présente");
     config.video_backend = VideoBackend::Vulkan;
     // Dolphin compiles a specialised shader the first time it meets a new
     // material, and stops the world while it does. Measured on this machine:
@@ -665,8 +755,19 @@ fn run(settings: &Settings) -> Result<()> {
     config.rumble_pipe = Some(rumble.path().to_path_buf());
     tracing::info!(pipe = %rumble.path().display(), "la vibration remonte par ici");
 
-    let session = Session::start(&config)?;
-    let mut frames = listener.accept(Duration::from_mins(2))?;
+    let session = match Session::start_controlled(&config, stopping, Some(&container)) {
+        Err(nel3ab_emulator::EmulatorError::Cancelled) => return Ok(()),
+        result => result?,
+    };
+    let mut workers = nel3ab_emulator::lifecycle::Workers::new(Arc::clone(stopping));
+    let mut frames = match listener.accept_while(Duration::from_mins(2), || {
+        !stopping.load(std::sync::atomic::Ordering::Relaxed)
+    }) {
+        Err(nel3ab_encoder::EncoderError::Cancelled) => return Ok(()),
+        result => result?,
+    };
+    // Ready data returns immediately; only silence waits up to one second.
+    frames.set_read_timeout(Duration::from_secs(1))?;
     let descriptor = *frames.descriptor();
     tracing::info!(
         slots = frames.slot_count(),
@@ -710,12 +811,14 @@ fn run(settings: &Settings) -> Result<()> {
     //
     // L'état vit ici, chez le worker, et il est réaffirmé à chaque démarrage:
     // c'est ce qui rend le tuyau de contrôle sans mémoire, et donc réparable.
-    let extension = if pads == nel3ab_emulator::PadKind::Guitar {
-        nel3ab_emulator::Extension::Guitare
-    } else {
-        nel3ab_emulator::Extension::Nunchuk
-    };
     for slot in config.slots.iter() {
+        let extension = if pads.at(slot) == nel3ab_emulator::PadKind::Guitar {
+            nel3ab_emulator::Extension::Guitare
+        } else if pads.at(slot) == nel3ab_emulator::PadKind::WiimoteOnly {
+            nel3ab_emulator::Extension::None
+        } else {
+            nel3ab_emulator::Extension::Nunchuk
+        };
         if let Err(error) = pad.set_extension(slot, extension) {
             // Un avertissement et pas un arrêt: la partie tourne, et une
             // extension qui n'a pas pu être demandée laisse le Nunchuk, qui est
@@ -738,7 +841,6 @@ fn run(settings: &Settings) -> Result<()> {
     // Dolphin still running, and systemd sees a live process and never restarts
     // it. A count that means "how many of us are there" cannot express "we are
     // done"; this can, and adding a third thread cannot break it.
-    let stopping = Arc::new(std::sync::atomic::AtomicBool::new(false));
     let applied = Arc::new(std::sync::atomic::AtomicU64::new(0));
     // Le fil qui endort le jeu quand la salle se vide.
     //
@@ -749,8 +851,7 @@ fn run(settings: &Settings) -> Result<()> {
     // Un demi-seconde entre deux regards. Le gel attend une minute de salle
     // vide, le réveil ne doit rien attendre du tout: quelqu'un qui arrive
     // regarde une image figée pendant ce délai-là.
-    let container =
-        std::env::var("NEL3AB_CONTAINER").unwrap_or_else(|_| "nel3ab-dolphin".to_owned());
+    let sleeping = Arc::new(std::sync::atomic::AtomicBool::new(false));
     // Combien de temps la salle a passé en pause, en microsecondes, depuis le
     // démarrage.
     //
@@ -766,9 +867,9 @@ fn run(settings: &Settings) -> Result<()> {
     let slept_micros = Arc::new(std::sync::atomic::AtomicU64::new(0));
     let nap_thread = {
         let server = Arc::clone(&server);
-        let stopping = Arc::clone(&stopping);
-        let container = container.clone();
+        let stopping = Arc::clone(stopping);
         let slept_micros = Arc::clone(&slept_micros);
+        let sleeping = Arc::clone(&sleeping);
         std::thread::Builder::new()
             .name("nap".to_owned())
             .spawn(move || {
@@ -820,6 +921,10 @@ fn run(settings: &Settings) -> Result<()> {
                     }
                     match tell_docker(&container, what) {
                         Ok(()) => {
+                            sleeping.store(
+                                what == nap::Move::Sleep,
+                                std::sync::atomic::Ordering::Relaxed,
+                            );
                             if what == nap::Move::Sleep {
                                 asleep_since = Some(Instant::now());
                             }
@@ -836,10 +941,11 @@ fn run(settings: &Settings) -> Result<()> {
 
     let last_input = Arc::new(Mutex::new(None::<Instant>));
     let input_thread = {
+        workers.add(nap_thread);
         let applied = Arc::clone(&applied);
         let last_input = Arc::clone(&last_input);
         let server = Arc::clone(&server);
-        let stopping = Arc::clone(&stopping);
+        let stopping = Arc::clone(stopping);
         std::thread::Builder::new()
             .name("pad".to_owned())
             .spawn(move || {
@@ -883,8 +989,9 @@ fn run(settings: &Settings) -> Result<()> {
     // this is the counter that would show the cut going too far.
     let sound_starved = Arc::new(std::sync::atomic::AtomicU64::new(0));
     let sound_thread = {
+        workers.add(input_thread);
         let server = Arc::clone(&server);
-        let stopping = Arc::clone(&stopping);
+        let stopping = Arc::clone(stopping);
         let sound_starved = Arc::clone(&sound_starved);
         std::thread::Builder::new()
             .name("sound".to_owned())
@@ -921,6 +1028,7 @@ fn run(settings: &Settings) -> Result<()> {
     // Un spectateur qui part disparaît de la relève suivante, donc la table se
     // remplace en entier plutôt que de se mettre à jour: sinon elle grandirait
     // d'un souvenir par reconnexion, toute la soirée.
+    workers.add(sound_thread);
     let mut health_before: std::collections::HashMap<u64, (u64, u64, u64)> =
         std::collections::HashMap::new();
     let mut reported_dropped = 0_u64;
@@ -952,7 +1060,25 @@ fn run(settings: &Settings) -> Result<()> {
     let mut convert_times = Timings::new(2048);
     let mut encode_times = Timings::new(2048);
 
+    let mut silence = nel3ab_emulator::lifecycle::Silence::new(Instant::now());
     loop {
+        if stopping.load(std::sync::atomic::Ordering::Relaxed) {
+            break;
+        }
+        // Retain launch/close before waiting: an intentionally sleeping or
+        // stalled emulator must not prevent a request from being handled.
+        if server.stop_requested() {
+            match nel3ab_emulator::playback::Playback::Idle.store(&settings.session_dir) {
+                Ok(()) => break,
+                Err(error) => {
+                    tracing::error!(%error, "game close could not be retained");
+                    server.cancel_stop();
+                }
+            }
+        }
+        if remember_request(&server, &library, &settings.session_dir) {
+            break;
+        }
         // Input first. A pad frame that arrived while the last picture was
         // encoding should reach the emulator before it renders the next one —
         // half a frame of latency, free, for putting this line above the wait.
@@ -971,6 +1097,25 @@ fn run(settings: &Settings) -> Result<()> {
         // la prise est ce qui permet de reconstruire la chaîne ici plutôt que de
         // s'arrêter.
         let taken = frames.next_frame();
+        if matches!(taken, Err(nel3ab_encoder::EncoderError::FrameIdle)) {
+            drop(taken);
+            match silence.saw(
+                false,
+                sleeping.load(std::sync::atomic::Ordering::Relaxed),
+                Instant::now(),
+            ) {
+                Health::Warn => {
+                    tracing::warn!("emulator awake but no frames; waiting before recovery");
+                }
+                Health::Restart => {
+                    tracing::error!("emulator awake without frames for 30 seconds; restarting");
+                    break;
+                }
+                Health::Healthy => {}
+            }
+            continue;
+        }
+        silence.saw(true, false, Instant::now());
         if matches!(taken, Err(nel3ab_encoder::EncoderError::RingChanged { .. })) {
             drop(taken);
             // Un changement de taille n'est pas une panne, et le traiter comme
@@ -1102,35 +1247,23 @@ fn run(settings: &Settings) -> Result<()> {
             if let Err(error) = hotplug.set_extension(seat, asked) {
                 tracing::warn!(%error, slot = seat.get(), "l'extension n'a pas pu être branchée");
             } else {
+                let changed = pads.with_extension(seat, asked);
+                if changed != pads {
+                    pads = changed;
+                    server.set_devices(pads.codes());
+                    if let Some(index) = current
+                        && let Err(error) =
+                            pads.save_for(&settings.session_dir, &library[index].file)
+                    {
+                        tracing::warn!(%error, "la nouvelle extension n'a pas été retenue sur disque");
+                    }
+                }
                 tracing::info!(
                     slot = seat.get(),
                     extension = asked.name(),
                     "extension branchée en cours de partie"
                 );
             }
-        }
-        // Somebody chose another game. Dolphin takes its disc as a start-up
-        // argument and has no way to be handed a different one, so switching
-        // means a new emulator — a new frame ring, a new descriptor, a new
-        // encoder. Rebuilding all that in place would be a second start-up path
-        // living beside the real one and tested by nobody, and M4's control
-        // plane will be starting and stopping workers anyway.
-        //
-        // So the worker writes the choice down and STOPS. systemd brings it back
-        // within a couple of seconds on the new game, and the page reconnects on
-        // its own because it already survives a worker restart. Worth noting
-        // what this rests on: the exit path was broken until this week, and a
-        // worker that cannot stop cannot have this feature at all.
-        if let Some(index) = server.take_rom_request()
-            && remember_choice(
-                &library,
-                index,
-                saves::Slot::from_code(server.save_wanted()),
-                nel3ab_emulator::PadKind::from_code(server.pad_wanted()),
-                &settings.session_dir,
-            )
-        {
-            break;
         }
         let encoding = Instant::now();
 
@@ -1343,11 +1476,8 @@ fn run(settings: &Settings) -> Result<()> {
 
     // Said once, to everybody. Both threads check it within their own wait —
     // 250 ms for the pad, 10 ms for the sound — so this returns promptly.
-    stopping.store(true, std::sync::atomic::Ordering::Relaxed);
+    drop(workers);
     drop(server);
-    let _ = input_thread.join();
-    let _ = sound_thread.join();
-    let _ = nap_thread.join();
     // TOUJOURS réveiller avant d'arrêter, même si on ne pense pas dormir.
     //
     // Un conteneur en pause ne reçoit aucun signal: le `SIGTERM` de `shutdown`
@@ -1359,8 +1489,8 @@ fn run(settings: &Settings) -> Result<()> {
     // Sans condition, parce que la condition serait un état à croire. Dégeler ce
     // qui n'est pas gelé rend une erreur qu'on ignore; oublier de dégeler coûte
     // une soirée.
-    let _ = tell_docker(&container, nap::Move::Wake);
-    session.shutdown()?;
+    let status = session.shutdown()?;
+    tracing::info!(%status, "emulator stopped; worker exiting");
     Ok(())
 }
 
@@ -1377,13 +1507,17 @@ fn remember_choice(
     library: &[Rom],
     index: u8,
     slot: saves::Slot,
-    pads: nel3ab_emulator::PadKind,
+    pads: nel3ab_emulator::PadSetup,
     session_dir: &std::path::Path,
 ) -> bool {
     let Some(game) = library.get(index as usize) else {
         tracing::warn!(index, games = library.len(), "no such game");
         return false;
     };
+    if let Err(error) = pads.save_for(session_dir, &game.file) {
+        tracing::error!(%error, "les manettes n’ont pas pu être retenues, lancement annulé");
+        return false;
+    }
     if let Err(error) = std::fs::write(session_dir.join(CHOICE), &game.file) {
         tracing::error!(%error, "the choice could not be written down");
         return false;
@@ -1393,14 +1527,45 @@ fn remember_choice(
     // partie neuve, ce qui n'efface rien et se corrige d'un clic.
     // La manette voyage avec le reste. Un échec ici repart sur la manette
     // GameCube, ce qui est l'état d'avant et se corrige d'un clic.
-    if let Err(error) = std::fs::write(session_dir.join(PAD_CHOICE), pads.code().to_string()) {
+    if let Err(error) = std::fs::write(session_dir.join(PAD_CHOICE), pads.codes()[0].to_string()) {
         tracing::warn!(%error, "la manette n'a pas pu être retenue");
     }
     if let Err(error) = std::fs::write(session_dir.join(SAVE_CHOICE), slot.code().to_string()) {
         tracing::warn!(%error, "l'emplacement de sauvegarde n'a pas pu être retenu");
     }
+    if let Err(error) = nel3ab_emulator::playback::Playback::Playing.store(session_dir) {
+        tracing::error!(%error, "lancement annulé : la salle ne peut pas quitter le repos");
+        return false;
+    }
     tracing::info!(game = game.name, "booting another game; stopping for it");
     true
+}
+
+/// Le même ordre et la même écriture au repos ou pendant une partie.
+fn remember_request(server: &BrowserServer, library: &[Rom], session_dir: &Path) -> bool {
+    if let Some(choice) = server.take_prepared_launch()
+        && remember_choice(
+            library,
+            choice.game,
+            saves::Slot::from_code(choice.save),
+            nel3ab_emulator::PadSetup::new(choice.pads.map(nel3ab_emulator::PadKind::from_code)),
+            session_dir,
+        )
+    {
+        return true;
+    }
+    if let Some(index) = server.take_rom_request()
+        && remember_choice(
+            library,
+            index,
+            saves::Slot::from_code(server.save_wanted()),
+            nel3ab_emulator::PadKind::from_code(server.pad_wanted()).into(),
+            session_dir,
+        )
+    {
+        return true;
+    }
+    false
 }
 
 /// Structured JSON logs, level driven by `RUST_LOG`.
@@ -1455,10 +1620,11 @@ struct Pipeline<'a> {
     /// fois que ce projet paie pour l'avoir laissée dehors, après la toile qui
     /// oscillait et la file qui ne suivait pas l'horaire.
     descriptor: FrameDescriptor,
+    // Wait before destroying images or the encoder that owns their storage.
+    converter: Converter<'a>,
     encoder: Encoder,
     sources: Vec<ImportedFrame<'a>>,
     targets: Vec<Nv12Target<'a>>,
-    converter: Converter<'a>,
     half: Option<HalfStream<'a>>,
 }
 
@@ -1502,44 +1668,49 @@ impl<'a> Pipeline<'a> {
         // entier de macroblocs de 16, et 1216x896 le donne (608x448) là où une
         // résolution interne exotique pourrait ne pas. On le dit et on continue
         // sans, plutôt que de refuser de démarrer: le grand format, lui, marche.
-        let half = HalfStream::open(context, node, descriptor.width, descriptor.height);
+        let half = HalfStream::open(
+            context,
+            node,
+            descriptor.width,
+            descriptor.height,
+            encoder.slots(),
+        );
 
         Ok(Self {
             descriptor,
+            converter,
             encoder,
             sources,
             targets,
-            converter,
             half,
         })
     }
 }
 
 struct HalfStream<'a> {
-    encoder: Encoder,
     converter: Converter<'a>,
+    encoder: Encoder,
     targets: Vec<Nv12Target<'a>>,
 }
 
 impl<'a> HalfStream<'a> {
     /// Ouvre le flux, ou dit non sans empêcher la salle de démarrer.
     ///
-    /// L'encodeur veut un nombre entier de macroblocs de seize, donc la moitié
-    /// de l'image doit en être un multiple: c'est le cas de 1216x896, qui donne
-    /// 608x448. Une résolution interne exotique pourrait ne pas convenir, et
-    /// alors le grand format marche quand même. Refuser de démarrer pour ça
-    /// serait une salle en panne pour une option.
-    fn open(context: &'a Context, node: &Path, width: u32, height: u32) -> Option<Self> {
-        if !width.is_multiple_of(32) || !height.is_multiple_of(32) {
-            tracing::info!(
-                width,
-                height,
-                "pas de demi-format: la moitié ne tombe pas juste"
-            );
-            return None;
-        }
-        let (half_width, half_height) = (width.div_euclid(2), height.div_euclid(2));
-        let mut encoder = match Encoder::open(node, half_width, half_height, QP, 60, 3) {
+    /// La bibliothèque vérifie les blocs de chrominance. `FFmpeg` décrit le
+    /// recadrage des macroblocs incomplets, notamment en 608x456 pour la Wii.
+    /// Un refus garde le plein format disponible. Les deux pools ont la même
+    /// taille puisque la boucle leur transmet le même index de surface.
+    fn open(
+        context: &'a Context,
+        node: &Path,
+        width: u32,
+        height: u32,
+        slots: u32,
+    ) -> Option<Self> {
+        let (half_width, half_height) = Encoder::half_size(width, height)
+            .map_err(|error| tracing::info!(%error, "pas de demi-format"))
+            .ok()?;
+        let mut encoder = match Encoder::open(node, half_width, half_height, QP, 60, slots) {
             Ok(encoder) => encoder,
             Err(error) => {
                 tracing::warn!(%error, "pas de demi-format: l'encodeur a refusé");
@@ -1574,8 +1745,8 @@ impl<'a> HalfStream<'a> {
             "le demi-format est disponible"
         );
         Some(Self {
-            encoder,
             converter,
+            encoder,
             targets,
         })
     }

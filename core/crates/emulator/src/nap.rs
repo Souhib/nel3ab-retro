@@ -172,13 +172,15 @@ pub fn tell_docker(container: &str, what: Move) -> Result<(), String> {
         Move::Sleep => "pause",
         Move::Wake => "unpause",
     };
-    let status = Command::new("docker")
-        .arg(verb)
-        .arg(container)
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .map_err(|error| format!("docker {verb} n'a pas pu être lancé: {error}"))?;
+    let status = crate::lifecycle::bounded_status(
+        Command::new("docker")
+            .arg(verb)
+            .arg(container)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null()),
+        Duration::from_secs(5),
+    )
+    .map_err(|error| format!("docker {verb} n'a pas pu être lancé: {error}"))?;
     if status.success() {
         return Ok(());
     }

@@ -16,6 +16,8 @@
 
 #![forbid(unsafe_code)]
 
+pub mod switch;
+
 use thiserror::Error;
 
 /// Number of bytes an [`InputFrame`] occupies on the wire.
@@ -125,7 +127,8 @@ pub enum Command {
     /// Le choix ne concerne que les jeux Wii. Un jeu GameCube n'a pas de Wiimote
     /// et garde sa manette quoi qu'on demande.
     ChoosePad {
-        /// `0` la manette GameCube, `1` la Wiimote. Voir
+        /// `0` GameCube, `1` Wiimote avec Nunchuk, `2` guitare,
+        /// `3` Wiimote seule. Voir
         /// `nel3ab_emulator::config::PadKind`.
         kind: u8,
     },
@@ -149,7 +152,7 @@ pub enum Command {
     /// La place est celle de la socket qui l'envoie, décidée par le worker.
     /// L'écrire ici laisserait quelqu'un changer la manette de son voisin.
     ChooseExtension {
-        /// `0` le Nunchuk, `1` la guitare. Voir
+        /// `0` le Nunchuk, `1` la guitare, `2` aucune extension. Voir
         /// `nel3ab_emulator::config::Extension`.
         kind: u8,
     },

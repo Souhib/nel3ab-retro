@@ -42,6 +42,9 @@ pub(super) enum Route {
     Sound,
     Input {
         take: Option<PlayerSlot>,
+        identity: bool,
+        prefer: Option<PlayerSlot>,
+        expected: Option<String>,
     },
     /// The room's library, as JSON. A plain `GET`, because listing what is
     /// there changes nothing — and because a page that can be fetched can be
@@ -177,6 +180,35 @@ pub(super) fn classify(stream: &TcpStream) -> Option<Route> {
         // being guessed at from the state of the room.
         return Some(Route::Input {
             take: take_from(&text),
+            expected: text
+                .lines()
+                .next()
+                .and_then(|line| line.split_whitespace().nth(1))
+                .and_then(|path| path.split_once('?'))
+                .and_then(|(_, query)| {
+                    query
+                        .split('&')
+                        .find_map(|part| part.strip_prefix("expected="))
+                })
+                .map(str::to_owned),
+            prefer: text
+                .lines()
+                .next()
+                .and_then(|line| line.split_whitespace().nth(1))
+                .and_then(|path| path.split_once('?'))
+                .and_then(|(_, query)| {
+                    query
+                        .split('&')
+                        .find_map(|part| part.strip_prefix("prefer="))
+                })
+                .and_then(|value| value.parse().ok())
+                .and_then(|raw| PlayerSlot::new(raw).ok()),
+            identity: text.lines().next().is_some_and(|line| {
+                line.split_whitespace()
+                    .nth(1)
+                    .and_then(|path| path.split_once('?'))
+                    .is_some_and(|(_, query)| query.split('&').any(|part| part == "identity=1"))
+            }),
         });
     }
     None

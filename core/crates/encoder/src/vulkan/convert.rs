@@ -991,6 +991,67 @@ mod tests {
         ));
     }
 
+    /// The decoded picture must retain its last row and column, with no visible
+    /// macroblock padding. ffmpeg is already required by the local audio gate.
+    #[test]
+    #[cfg(feature = "gpu-tests")]
+    fn halved_wii_edges_survive_h264_cropping() {
+        use crate::av::Encoder;
+        use crate::va::DEFAULT_RENDER_NODE;
+
+        for (width, height) in [(608_u32, 456_u32), (606, 454), (640, 480)] {
+            let mut encoder = Encoder::open(DEFAULT_RENDER_NODE, width, height, 26, 60, 3).unwrap();
+            let context = Context::open(DEFAULT_RENDER_NODE).unwrap();
+            let surface = encoder.export(0).unwrap();
+            let target = Nv12Target::import(&context, &surface).unwrap();
+            let mut pixels = Vec::new();
+            for y in 0..height * 2 {
+                for x in 0..width * 2 {
+                    let bright = x >= width * 2 - 32 || y >= height * 2 - 32;
+                    let value = if bright { 224 } else { 32 };
+                    pixels.extend_from_slice(&[value, value, value, 255]);
+                }
+            }
+            let source = scaffold::Rgba::upload(&context, width * 2, height * 2, &pixels);
+            let converter = Converter::halving(&context).unwrap();
+            converter.convert(source.source(), &target).unwrap();
+            let directory = tempfile::tempdir().unwrap();
+            let stream = directory.path().join("cropped.h264");
+            std::fs::write(&stream, encoder.encode(0).unwrap().expect("an IDR")).unwrap();
+            let decoded = std::process::Command::new("ffmpeg")
+                .args(["-v", "error", "-i"])
+                .arg(&stream)
+                .args([
+                    "-frames:v",
+                    "1",
+                    "-f",
+                    "rawvideo",
+                    "-pix_fmt",
+                    "gray",
+                    "pipe:1",
+                ])
+                .output()
+                .expect("ffmpeg must be installed for the local gate");
+            assert!(
+                decoded.status.success(),
+                "{}",
+                String::from_utf8_lossy(&decoded.stderr)
+            );
+            assert_eq!(
+                decoded.stdout.len(),
+                (width * height) as usize,
+                "visible size {width}x{height}"
+            );
+            let at = |x, y| decoded.stdout[(y * width + x) as usize];
+            // Widely separated grey patches test the retained edges without
+            // turning this into a quantiser-specific exact-pixel comparison.
+            assert!(at(0, 0) < 64);
+            assert!(at(width - 1, 0) > 192, "right edge was lost");
+            assert!(at(0, height - 1) > 192, "bottom edge was lost");
+            assert!(at(width - 1, height - 1) > 192, "corner was lost");
+        }
+    }
+
     /// The chain as it will actually run, minus who renders the picture.
     ///
     /// A **real dma-buf** carrying the pattern, described by a real

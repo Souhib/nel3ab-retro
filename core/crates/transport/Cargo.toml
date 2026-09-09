@@ -23,6 +23,9 @@ base64 = { version = "0.22", default-features = false, features = ["alloc"] }
 # En Rust pur, donc rien à installer sur la machine de construction.
 brotli = { version = "8", default-features = false, features = ["std"] }
 nel3ab-protocol = { path = "../protocol" }
+# Fichiers privés du multiplexeur, retirés aussi lorsqu'il échoue.
+tempfile = "3"
+serde_json = "1" # Private virtual-pad commands, shared with the Switch adapter.
 thiserror.workspace = true
 tracing.workspace = true
 

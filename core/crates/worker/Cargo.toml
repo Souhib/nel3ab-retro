@@ -9,6 +9,7 @@ publish = false
 repository.workspace = true
 
 [dependencies]
+tempfile = "3" # A private Switch ingress per worker, removed after adapter shutdown.
 nel3ab-protocol = { path = "../protocol" }
 nel3ab-emulator = { path = "../emulator" }
 nel3ab-encoder = { path = "../encoder", features = ["vaapi"] }

@@ -76,6 +76,18 @@ pub struct Encoder {
 }
 
 impl Encoder {
+    /// Exact half-size whose NV12 chroma still consists of complete 2x2 blocks.
+    ///
+    /// # Errors
+    /// [`EncoderError::UnsupportedSize`] for an empty source or a dimension
+    /// that cannot be halved without losing a pixel or a chroma sample.
+    pub const fn half_size(width: u32, height: u32) -> Result<(u32, u32), EncoderError> {
+        if width == 0 || height == 0 || !width.is_multiple_of(4) || !height.is_multiple_of(4) {
+            return Err(EncoderError::UnsupportedSize { width, height });
+        }
+        Ok((width.div_euclid(2), height.div_euclid(2)))
+    }
+
     /// Opens an encoder on a DRM render node.
     ///
     /// `qp` is the constant quantiser — rate control by target bitrate is a
@@ -84,8 +96,8 @@ impl Encoder {
     /// announces, for the same reason that ring exists.
     ///
     /// # Errors
-    /// [`EncoderError::UnsupportedSize`] for a picture that is not a whole
-    /// number of macroblocks, [`EncoderError::SlotOutOfRange`] for a pool size
+    /// [`EncoderError::UnsupportedSize`] for an empty or odd-sized NV12 picture,
+    /// [`EncoderError::SlotOutOfRange`] for a pool size
     /// outside `1..=MAX_SLOTS`, [`EncoderError::RenderNode`] if the path is
     /// not representable as a C string, or [`EncoderError::Av`].
     pub fn open(
@@ -96,10 +108,10 @@ impl Encoder {
         fps: u32,
         slots: u32,
     ) -> Result<Self, EncoderError> {
-        // Cropping is not written on our side and libavcodec would silently
-        // encode the padding as picture, so refuse rather than produce a stream
-        // with garbage down two edges.
-        if !width.is_multiple_of(16) || !height.is_multiple_of(16) {
+        // NV12 needs complete 2x2 chroma blocks. libavcodec writes the H.264
+        // crop for even pictures that do not fill a 16x16 macroblock. The GPU
+        // regression covers the 608x456 half of Mario Kart Wii (2026-09-07).
+        if width == 0 || height == 0 || !width.is_multiple_of(2) || !height.is_multiple_of(2) {
             return Err(EncoderError::UnsupportedSize { width, height });
         }
         if slots == 0 || slots > MAX_SLOTS {
@@ -366,12 +378,37 @@ mod tests {
     }
 
     #[test]
-    fn a_size_that_is_not_whole_macroblocks_is_refused() {
-        let error = Encoder::open(DEFAULT_RENDER_NODE, 1920, 1081, 26, 60, 3).unwrap_err();
-        assert!(
-            matches!(error, EncoderError::UnsupportedSize { height: 1081, .. }),
-            "{error:?}"
-        );
+    fn an_odd_picture_is_refused() {
+        for (width, height) in [(1920, 1081), (607, 456), (0, 456), (608, 0)] {
+            let error = Encoder::open(DEFAULT_RENDER_NODE, width, height, 26, 60, 3).unwrap_err();
+            assert!(
+                matches!(error, EncoderError::UnsupportedSize { .. }),
+                "{error:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn halving_keeps_every_pixel_and_complete_chroma() {
+        assert_eq!(Encoder::half_size(1216, 912).unwrap(), (608, 456));
+        assert_eq!(Encoder::half_size(1280, 960).unwrap(), (640, 480));
+        for (width, height) in [(1215, 912), (1216, 910), (0, 912), (1216, 0)] {
+            assert!(matches!(
+                Encoder::half_size(width, height),
+                Err(EncoderError::UnsupportedSize { .. })
+            ));
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "gpu-tests")]
+    fn a_half_wii_picture_keeps_its_visible_height() {
+        let mut encoder = Encoder::open(DEFAULT_RENDER_NODE, 608, 456, 26, 60, 3)
+            .expect("the half of a 1216x912 Wii picture must encode");
+        let surface = encoder.export(0).unwrap();
+        assert_eq!((surface.width, surface.height), (608, 456));
+        assert_eq!((encoder.width(), encoder.height()), (608, 456));
+        assert!(!encoder.encode(0).unwrap().expect("an IDR").is_empty());
     }
 
     #[test]

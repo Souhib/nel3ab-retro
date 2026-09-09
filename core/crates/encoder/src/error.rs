@@ -13,6 +13,12 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum EncoderError {
+    /// No notification arrived before the read deadline; the stream is intact.
+    #[error("no emulator frame before the read deadline")]
+    FrameIdle,
+    /// The worker was asked to stop before the producer connected.
+    #[error("waiting for emulator cancelled")]
+    Cancelled,
     /// The frame socket could not be created.
     #[error("binding the frame socket {path} failed")]
     Bind {
@@ -186,11 +192,8 @@ pub enum EncoderError {
         name: &'static str,
     },
 
-    /// A frame size the encoder cannot express yet.
-    ///
-    /// Cropping is not written, so a picture that is not a whole number of
-    /// macroblocks would encode its padding as picture.
-    #[error("{width}x{height} is not a whole number of 16-pixel macroblocks")]
+    /// A size incompatible with the requested NV12 encode or conversion.
+    #[error("{width}x{height} is incompatible with this NV12 encode or conversion")]
     UnsupportedSize {
         /// Requested width.
         width: u32,

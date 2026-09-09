@@ -28,9 +28,9 @@
 
 use std::io::{BufRead as _, BufReader, Read as _, Write as _};
 use std::net::{SocketAddr, TcpListener};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::thread::JoinHandle;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use nel3ab_protocol::PlayerSlot;
 
@@ -49,12 +49,54 @@ pub type OwnerSeat = Arc<Mutex<Option<PlayerSlot>>>;
 /// Un type plutôt qu'un booléen à côté d'une place: les deux messages n'ont pas
 /// la même forme — `owner 0` est valide et veut dire personne, `decides 0` ne
 /// veut rien dire — et les distinguer par le type évite d'avoir à s'en souvenir.
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Order {
     /// « Voici la place qui décide », ou personne.
     SetOwner(Option<PlayerSlot>),
     /// « Cette place a-t-elle le droit de changer de jeu ? »
     MayDecide(PlayerSlot),
+    /// Les quatre attributions actuelles, sans noms de personne.
+    Seats,
+    /// Fermer le jeu, après autorisation du chef par le plan de contrôle privé.
+    Stop([String; 4]),
+    /// Un lancement et ses quatre choix, remis ensemble au worker.
+    Launch {
+        /// Le port qui lance.
+        seat: PlayerSlot,
+        /// Son attribution actuelle.
+        claim: String,
+        /// Le jeu et les appareils confirmés.
+        choice: PreparedLaunch,
+    },
+}
+
+/// Les paramètres validés d’un lancement collectif.
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct PreparedLaunch {
+    /// Position du disque dans la bibliothèque.
+    pub game: u8,
+    /// Emplacement de sauvegarde.
+    pub save: u8,
+    /// Appareil par port, codes 0 à 3.
+    pub pads: [u8; 4],
+    /// Les attributions que les joueurs ont confirmées, un tiret pour une place libre.
+    pub expected: [String; 4],
+}
+
+/// Identifie une attribution, même si le compteur repart après un redémarrage.
+///
+/// Le préfixe est l'instant du premier appel dans ce processus, en nanosecondes.
+/// C'est un repère de génération, jamais une identité ni un secret d'accès.
+#[must_use]
+pub fn receipt(claim: u64) -> String {
+    static EPOCH: OnceLock<u128> = OnceLock::new();
+    let epoch = EPOCH.get_or_init(|| {
+        SystemTime::now().duration_since(UNIX_EPOCH).map_or_else(
+            |before| before.duration().as_nanos(),
+            |since| since.as_nanos(),
+        )
+    });
+    format!("{epoch:032x}-{claim}")
 }
 
 /// Lit un ordre. `None` veut dire « je ne comprends pas », et l'appelant se tait
@@ -62,6 +104,64 @@ pub enum Order {
 #[must_use]
 pub fn parse(line: &str) -> Option<Order> {
     let line = line.trim();
+    if let Some(rest) = line.strip_prefix("stop ") {
+        let parts: Vec<_> = rest.split_whitespace().collect();
+        let [a, b, c, d] = parts.as_slice() else {
+            return None;
+        };
+        if parts.iter().any(|part| part.len() > 53) {
+            return None;
+        }
+        return Some(Order::Stop([a, b, c, d].map(|part| (*part).to_owned())));
+    }
+    if line.starts_with("launch ") {
+        let parts: Vec<_> = line.split_whitespace().collect();
+        let [
+            _,
+            seat,
+            claim,
+            game,
+            save,
+            a,
+            b,
+            c,
+            d,
+            one,
+            two,
+            three,
+            four,
+        ] = parts.as_slice()
+        else {
+            return None;
+        };
+        let seat = PlayerSlot::new(seat.parse().ok()?).ok()?;
+        let pads = [
+            a.parse().ok()?,
+            b.parse().ok()?,
+            c.parse().ok()?,
+            d.parse().ok()?,
+        ];
+        let save: u8 = save.parse().ok()?;
+        if [one, two, three, four].iter().any(|value| value.len() > 53) {
+            return None;
+        }
+        if save > 1 || pads.iter().any(|code| *code > 4) || claim.len() > 53 {
+            return None;
+        }
+        return Some(Order::Launch {
+            seat,
+            claim: (*claim).to_owned(),
+            choice: PreparedLaunch {
+                game: game.parse().ok()?,
+                save,
+                pads,
+                expected: [one, two, three, four].map(|value| (*value).to_owned()),
+            },
+        });
+    }
+    if line == "seats" {
+        return Some(Order::Seats);
+    }
     if let Some(rest) = line.strip_prefix("owner ") {
         let seat: u8 = rest.trim().parse().ok()?;
         if seat == 0 {
@@ -92,12 +192,11 @@ const SAY_WITHIN: Duration = Duration::from_secs(2);
 
 /// Ce qu'on accepte de lire avant de refuser.
 ///
-/// Le plus long ordre valide est `decides 4` avec ses espaces autour, donc une
-/// vingtaine d'octets. Soixante-quatre laisse de la place à une variante future
-/// sans laisser de place à un flot sans fin: `read_line` remplit une `String`
-/// qui grossit tant qu'aucun saut de ligne n'arrive, et le worker n'a pas le
-/// droit de mourir de faim mémoire pour un port de service.
-const ORDER_MAX: u64 = 64;
+/// Un lancement contient cinq attributions de 53 octets au maximum, les quatre
+/// appareils et les numéros du jeu et de la sauvegarde. Au 6 septembre 2026,
+/// sa forme maximale occupe 293 octets avec le saut de ligne. La borne de 320
+/// couvre cette forme sans accepter une ligne qui grossit sans fin.
+const ORDER_MAX: u64 = 320;
 
 /// Répond à `decides <place>`.
 ///
@@ -106,6 +205,9 @@ const ORDER_MAX: u64 = 64;
 /// n'envoie rien. La règle elle-même vit dans `browser`, avec les horodatages
 /// qu'elle lit, et n'est pas réécrite ici: deux exemplaires d'une règle
 /// finissent par répondre différemment à la même question.
+pub type Launcher = Box<dyn Fn(PlayerSlot, &str, PreparedLaunch) -> bool + Send>;
+
+/// Interroge la règle actuelle du worker.
 pub type Decider = Box<dyn Fn(PlayerSlot) -> bool + Send>;
 
 /// Écoute les ordres du plan de contrôle jusqu'à l'arrêt du processus.
@@ -116,6 +218,9 @@ pub fn serve(
     address: SocketAddr,
     owner: OwnerSeat,
     decides: Decider,
+    seats: Box<dyn Fn() -> [String; 4] + Send>,
+    launch: Launcher,
+    stop: Box<dyn Fn([String; 4]) -> bool + Send>,
 ) -> Result<JoinHandle<()>, TransportError> {
     let listener =
         TcpListener::bind(address).map_err(|source| TransportError::Bind { address, source })?;
@@ -147,9 +252,23 @@ pub fn serve(
                 let answer = read.ok().and_then(|_| parse(&line)).map_or_else(
                     || {
                         tracing::warn!(line = line.trim(), "an order we do not understand");
-                        "no\n"
+                        "no\n".to_owned()
                     },
                     |order| match order {
+                        Order::Stop(expected) => {
+                            if stop(expected) { "ok\n" } else { "no\n" }.to_owned()
+                        }
+                        Order::Launch {
+                            seat,
+                            claim,
+                            choice,
+                        } => {
+                            if launch(seat, &claim, choice) {
+                                "ok\n".to_owned()
+                            } else {
+                                "no\n".to_owned()
+                            }
+                        }
                         Order::SetOwner(seat) => {
                             if let Ok(mut held) = owner.lock() {
                                 if *held != seat {
@@ -160,7 +279,7 @@ pub fn serve(
                                 }
                                 *held = seat;
                             }
-                            "ok\n"
+                            "ok\n".to_owned()
                         }
                         // `yes`/`no` et pas `ok`: une réponse à une question ne
                         // doit pas ressembler à un accusé de réception, sinon un
@@ -168,11 +287,12 @@ pub fn serve(
                         // « accepté ».
                         Order::MayDecide(seat) => {
                             if decides(seat) {
-                                "yes\n"
+                                "yes\n".to_owned()
                             } else {
-                                "no\n"
+                                "no\n".to_owned()
                             }
                         }
+                        Order::Seats => format!("{}\n", seats().join(" ")),
                     },
                 );
                 let _ = stream.write_all(answer.as_bytes());
@@ -188,6 +308,131 @@ pub fn serve(
 )]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_stop_requires_all_four_assignments() {
+        assert_eq!(
+            parse("stop - - - -"),
+            Some(Order::Stop(std::array::from_fn(|_| "-".into())))
+        );
+        for malformed in [
+            "stop",
+            "stop - - -",
+            "stop - - - - -",
+            "stop - - -\nlaunch 1",
+        ] {
+            assert_eq!(parse(malformed), None);
+        }
+    }
+
+    #[test]
+    fn a_prepared_launch_crosses_the_real_control_port() {
+        let owner = Arc::new(Mutex::new(None));
+        let server = Arc::new(
+            crate::browser::BrowserServer::start(
+                "127.0.0.1:0".parse().unwrap(),
+                "test",
+                "{}".into(),
+                Arc::from(Vec::new()),
+                PlayerSlot::new(4).unwrap(),
+                &owner,
+            )
+            .unwrap(),
+        );
+        let stream = std::net::TcpStream::connect(server.address()).unwrap();
+        stream
+            .set_read_timeout(Some(Duration::from_secs(3)))
+            .unwrap();
+        let (mut input, _) = tungstenite::client(
+            format!("ws://{}/input?identity=1", server.address()),
+            stream,
+        )
+        .unwrap();
+        assert!(matches!(
+            input.read().unwrap(),
+            tungstenite::Message::Binary(_)
+        ));
+        let receipt_message = input.read().unwrap().into_text().unwrap();
+        let claim = receipt_message.strip_prefix("seat ").unwrap();
+        assert_eq!(input.read().unwrap().into_text().unwrap(), "pad 0");
+        let temporary = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = temporary.local_addr().unwrap();
+        drop(temporary);
+        let deciding = Arc::clone(&server);
+        let seated = Arc::clone(&server);
+        let launching = Arc::clone(&server);
+        let stopping = Arc::clone(&server);
+        serve(
+            address,
+            owner,
+            Box::new(move |seat| deciding.may_decide(seat)),
+            Box::new(move || seated.seat_receipts()),
+            Box::new(move |seat, claim, choice| launching.prepare_launch(seat, claim, choice)),
+            Box::new(move |expected| stopping.request_stop(&expected)),
+        )
+        .unwrap();
+        let receipts = server.seat_receipts();
+        assert_eq!(ask(address, "seats\n"), Some(receipts.join(" ")));
+        assert_eq!(ask(address, "stop - - - -\n"), Some("no".into()));
+        assert!(!server.stop_requested());
+        assert_eq!(
+            ask(address, &format!("launch 1 {claim} 2 1 0 1 2 3 - - - -\n")),
+            Some("no".into())
+        );
+        assert!(server.take_prepared_launch().is_none());
+        assert_eq!(
+            ask(
+                address,
+                &format!("launch 1 {claim} 2 1 0 1 2 3 {}\n", receipts.join(" "))
+            ),
+            Some("ok".into())
+        );
+        assert_eq!(
+            server.take_prepared_launch(),
+            Some(PreparedLaunch {
+                game: 2,
+                save: 1,
+                pads: [0, 1, 2, 3],
+                expected: receipts.clone()
+            })
+        );
+        assert_eq!(
+            ask(address, &format!("stop {}\n", receipts.join(" "))),
+            Some("ok".into())
+        );
+        assert!(server.stop_requested());
+        assert!(server.rom_wanted());
+        input.close(None).unwrap();
+    }
+
+    #[test]
+    fn a_launch_carries_every_choice_and_every_confirmed_assignment() {
+        let claim = receipt(1);
+        let line = format!("launch 1 {claim} 255 1 0 1 2 3 {claim} - - -\n");
+        assert_eq!(
+            parse(&line),
+            Some(Order::Launch {
+                seat: PlayerSlot::new(1).unwrap(),
+                claim: claim.clone(),
+                choice: PreparedLaunch {
+                    game: 255,
+                    save: 1,
+                    pads: [0, 1, 2, 3],
+                    expected: [claim, "-".into(), "-".into(), "-".into()]
+                }
+            })
+        );
+        for bad in [
+            line.replace("0 1 2 3", "0 1 2 5"),
+            line.replace("255 1", "256 1"),
+            line.replace("255 1", "255 2"),
+            line.replace("launch 1", "launch 0"),
+            line.replace(" - - -", " - -"),
+            format!("{line}extra"),
+        ] {
+            assert!(parse(&bad).is_none(), "accepted {bad}");
+        }
+    }
 
     #[test]
     fn an_order_names_a_seat_or_nobody() {
@@ -253,7 +498,15 @@ mod tests {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let address = listener.local_addr().unwrap();
         drop(listener);
-        serve(address, Arc::clone(owner), decides).unwrap();
+        serve(
+            address,
+            Arc::clone(owner),
+            decides,
+            Box::new(|| std::array::from_fn(|_| "-".to_owned())),
+            Box::new(|_, _, _| false),
+            Box::new(|_| false),
+        )
+        .unwrap();
         address
     }
 
@@ -386,7 +639,15 @@ mod tests {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let address = listener.local_addr().unwrap();
         drop(listener);
-        serve(address, Arc::clone(&owner), Box::new(|_| true)).unwrap();
+        serve(
+            address,
+            Arc::clone(&owner),
+            Box::new(|_| true),
+            Box::new(|| std::array::from_fn(|_| "-".to_owned())),
+            Box::new(|_, _, _| false),
+            Box::new(|_| false),
+        )
+        .unwrap();
 
         // La liaison est faite dans le fil, donc on réessaie plutôt que de
         // dormir une durée choisie au hasard.

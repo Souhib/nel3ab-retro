@@ -1,5 +1,12 @@
 # M3 — Get the stream into a browser, and the buttons back out
 
+**Historical plan, last implementation-era update: 2026-08-14 (`44f4b04`).**
+Its open-defect list describes that period. In particular, the GPU-memory growth
+and Resizable BAR conclusions were revised by later experiments recorded in the
+[logbook](carnet-de-bord.md). Do not restart that investigation from this plan
+alone. Use the [current project state](etat-du-projet.md) and
+[ADR](adr/0001-architecture.md) for the retained decisions.
+
 Working document, same contract as [`m2-working-plan.md`](m2-working-plan.md):
 research that cost real hours lives here so the next session does not re-derive
 it, and **the risky unknown is settled by experiment before any crate code is

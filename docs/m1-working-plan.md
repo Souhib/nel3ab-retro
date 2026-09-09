@@ -1,6 +1,11 @@
 # M1 — Drive Dolphin headless through named pipes
 
-Working document. **Read this before touching anything**: it carries research and
+**Historical plan, last implementation-era update: 2026-08-10 (`dded837`).**
+The measurements below describe M1 at that date. Read the
+[current project state](etat-du-projet.md) and [ADR](adr/0001-architecture.md)
+for today's commands, supported consoles and remaining work.
+
+Original working document. It carries research and
 operational lessons that cost real hours to learn, and it is written so a session
 starting fresh **on the server** can begin immediately.
 

@@ -1,17 +1,17 @@
 # The documentation site, built by Zensical and served on the tailnet.
 #
-# Why a site at all: `docs/carnet-de-bord.md` is 2800 lines written for a human
+# Why a site at all: `docs/carnet-de-bord.md` is a long narrative for a human
 # who is not in a terminal. GitHub renders it as one endless page with no table
 # of contents, which is the wrong shape for a document whose whole point is that
 # somebody can find the part they care about. The site gives it a navigation
 # pane, a search box and anchors.
 #
 # It is built from the SAME files the repository already keeps. There is no
-# second copy of anything: `docs_dir` points at `docs/`, so a document can never
-# be up to date on the site and stale in the repository.
+# separately maintained source: `docs_dir` points at `docs/`. The generated
+# `site/` can still lag behind edited Markdown until `just docs` is run.
 #
-# Build: `just docs`. Publish: `just docs-serve`. Both are one command because
-# the alternative is a sequence somebody eventually gets wrong.
+# Build the directory served by Caddy: `just docs` (also `just docs-deploy`).
+# Local editing preview: `just docs-watch`. No game service restart is needed.
 
 [project]
 site_name = "Nel3ab Retro"
@@ -29,9 +29,14 @@ repo_name = "nel3ab-retro"
 # sense on its own.
 nav = [
   { "Accueil" = "index.md" },
+  { "État du projet" = "etat-du-projet.md" },
   { "Carnet de bord" = "carnet-de-bord.md" },
+  { "Touches et manettes" = "ecran-manettes.md" },
+  { "Switch dans la salle" = "switch-room.md" },
+  { "Étude Switch" = "etude-switch-2026-09-07.md" },
+  { "Audit du 6 septembre" = "audit-2026-09-06.md" },
   { "Décisions (ADR)" = "adr/0001-architecture.md" },
-  { "Plans de travail" = [
+  { "Plans historiques" = [
     { "M1 — les touches" = "m1-working-plan.md" },
     { "M2 — les images" = "m2-working-plan.md" },
     { "M3 — le navigateur" = "m3-working-plan.md" },
@@ -43,7 +48,7 @@ nav = [
 # working plans keep their own language; this only sets the interface.
 language = "fr"
 features = [
-  # The carnet has 60 subsections in one chapter. Without a table of contents
+  # The carnet has many subsections in one chapter. Without a table of contents
   # that follows the scroll, finding one of them means scrolling and hoping.
   "navigation.instant",
   "navigation.top",

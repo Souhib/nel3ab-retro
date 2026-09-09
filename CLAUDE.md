@@ -9,6 +9,11 @@ browser players, server-side GPU emulation and encoding. Read
 [`docs/adr/0001-architecture.md`](docs/adr/0001-architecture.md) first — it holds
 the decisions and their reasons.
 
+[`docs/etat-du-projet.md`](docs/etat-du-projet.md) is the dated entry point for
+resuming work: delivered features, evidence, replaced approaches and remaining
+questions. Check the working tree as well as commits; an installed change may
+still be uncommitted. Do not infer deployment or remote CI status from either.
+
 [`docs/carnet-de-bord.md`](docs/carnet-de-bord.md) is the same story told for a
 human: how the project was built, what fought back, and what every acronym means.
 Start there if you want the reasoning rather than the ruling.
@@ -98,20 +103,70 @@ binary, at the boundary.
 
 ### 7. A task is not done until CI is green — and CI cannot see the GPU
 
-Run **`just`** (which is `check` + `gpu-test`) locally, then watch the run. A
+Run **`just`** (which is `check` + `gpu-test` + `clip-audio-test` +
+`switch-saves-test` + `switch-capture-test`) locally, then watch the run. A
 failing early step means the later gates were **skipped, not passed**.
+
+The local gate also runs `switch-saves-test` and `switch-capture-test`. The adapter
+and capture now serve the main room; their filesystem and packet tests must not
+remain optional prototype checks. `switch-controls-test` additionally verifies
+four disposable kernel controllers and browser inputs when that path changes.
+
+The local gate also runs `clip-audio-test`, which requires ffmpeg and ffprobe.
+The CI runner has neither. On 2026-09-06 the existing clip driver was found to
+accept a video-only MP4: checking that an image opens does not prove sound.
+The fixture must decode known stereo audio and verify its start and its signal.
 
 Two halves, and neither covers the other:
 
-- **`just check`** is exactly what CI runs, so a red one here is a red pipeline
-  later. Never put it in the same command as `git push`: the push has to be a
-  decision taken *after* reading the result. That rule exists because the output
+- **`just check`** is the shared code-quality recipe used by the CI `quality`
+  job. CI also scans secrets and runs separate documentation and supply-chain
+  jobs; those are not included in `check`. Run `just docs` for prose and
+  `just audit` for the Rust advisory and licence checks. A local pass is not a
+  remote CI result. Never put `check` in the same command as `git push`: the push
+  has to be a decision taken *after* reading the result. That rule exists because the output
   was ignored three times, the third after an earlier spurious red had taught
   the eye to skip it.
-- **`just gpu-test`** is everything CI structurally cannot prove. The runner has
+- **`just gpu-test`** covers the GPU paths CI structurally cannot prove. The runner has
   no GPU, so the dma-buf import, the compute pass and the encode are invisible
   to it — a green pipeline says nothing about the half of this project that
   matters most.
+
+Tests must never inherit the live worker control address or persistent state.
+Integration fixtures override `NEL3AB_WORKER_CONTROL` before constructing settings
+and use temporary storage. Tests that exercise TCP bind an ephemeral loopback
+port. On 2026-09-06, a mock HTTP worker was found alongside the real default
+control port: mocking `/roms` alone does not isolate owner announcements.
+Browser network tests must prove the input socket has actually disconnected.
+An offline toggle or a throttle setting alone is not that proof. A close handshake
+without its reply must be exercised: it exposed a stale local seat on 2026-09-06.
+An isolated real room also gives its proxy separate configuration and data
+directories, with automatic config persistence disabled. A separate listening
+port does not prevent Caddy from overwriting the user's restart configuration.
+
+A stopped `docker exec` client does not prove its container process has exited.
+On 2026-09-08, capture restarts left four producers mixing video and sound in the
+Switch prototype and invalidated the measurements. Capture services must stop
+and wait for the process inside Docker, refuse a second producer, and verify
+that no recorder or audio reader survives their stop before a new measurement.
+Recovery tests must suspend both video and sound producers, not only kill an
+encoder. On 2026-09-08, the audio watchdog reached its deadline but a blocking
+read still prevented shutdown. Pipe reads must let the stop request through,
+and tests must prove this while the writer remains alive and silent.
+
+
+Switch controller changes also run `just switch-controls-test`. It creates four
+isolated virtual devices and reads their kernel state after real browser input.
+Checking a serialized message alone does not prove its axis scale survives the
+bridge: on 2026-09-08 an extra multiplication saturated already 16-bit sticks.
+Its individual setup must block game input and accept the first new key after
+closing at rest. Test this through the native dialog: its asynchronous close
+event once cleared that key a second time after the unit-tested reader accepted it.
+The same driver exercises real force-feedback events for all four players,
+then refuses vibration delivery and verifies that buttons still work. Use the
+production helper launch arguments and ingress, including their permissions.
+On 2026-09-09 the test helper had DAC_OVERRIDE, unlike the installed helper;
+it hid a permission failure that destroyed all four pads on the first vibration.
 
 Hence the split between the `vaapi` feature (compiles the FFI, needs only
 headers) and `gpu-tests` (needs a real device). They were one flag until the
@@ -123,7 +178,7 @@ when more than one person commits.
 
 ### 8. The page is a committed artefact, and it can go stale
 
-`crates/worker/src/page/index.html` is built from `front/` and compiled into the
+`core/crates/worker/src/page/index.html` is built from `front/` and compiled into the
 binary. Change anything under `front/src` and you must run `just front-build`
 and commit the result, or the worker ships yesterday's page.
 
@@ -132,6 +187,12 @@ the page that build produced (`front/stamp.mjs`, ADR D13). Do not replace that
 with a rebuild-and-diff: the minifier renames locals differently between runs of
 identical sources, so it goes red for no reason, and a check that is red for no
 reason is a check people learn to skip.
+
+Browser drivers against a temporary worker compare its served HTML hash with
+this artefact before exercising the page. Building the front end and running
+`cargo test` does not rebuild the executable in `target/debug`. On 2026-09-07,
+a direct driver invocation tested the previous controller screen until a new
+assertion exposed it. Use the `just` recipe that builds the worker first.
 
 The other half of the rule: **React must never end up on the frame path.** The
 media loop lives in `front/src/media/` as plain modules that own the canvas and
@@ -168,19 +229,29 @@ Two things it must keep doing:
   best case, or taken on unrealistic input, say so next to the number rather than
   letting the table imply more than it showed.
 
+When a later experiment replaces a conclusion, retain the dated account and add
+a pointer to the replacement. Update the current entry pages and hand-off notes
+in the same change. On 2026-09-09, the logbook described an installed Switch
+integration while the study still presented it as future work. History and a
+current setup guide must not give contradictory instructions to the next reader.
+Building `just docs` refreshes the `site/` directory served by Caddy; editing
+Markdown alone does not update the site.
+
 ## Commands
 
 | | |
 |---|---|
-| **`just`** | **the gate before a commit: `check` + `gpu-test`** |
-| `just check` | Rust + Python + page: fmt, lints, tests, page stamp — exactly what CI runs |
+| **`just`** | **the gate before a commit: `check` + `gpu-test` + `clip-audio-test` + `switch-saves-test` + `switch-capture-test`** |
+| `just check` | Rust + Python + page: the shared code-quality recipe used by CI |
+| `just docs` | strict documentation build; also refreshes the site served by Caddy |
 | `just gpu-test` | the tests only this machine can run (no GPU on CI) |
 | `just front-build` | rebuilds the page into the worker's source tree, and stamps it |
 | `just browser-watch` | what the page renders over a minute, without restarting anything |
 | `just end-to-end` | the whole chain against a real Dolphin and ROM |
 | `just fix` | auto-format, auto-fix lints |
 | `just audit` | advisories + licences (blocking) |
-| `just miri` | undefined-behaviour check on FFI |
+| `just clip-audio-test` | exports a real MP4 and decodes its audio with ffmpeg, without a running room |
+| `just miri` | CPU bitstream/parser tests under Miri; the GPU FFI feature is not enabled |
 
 ## Conventions
 

@@ -1,5 +1,10 @@
 # M2 — Get the frame out of Dolphin and into the GPU encoder
 
+**Historical plan, last implementation-era update: 2026-08-11 (`8224d61`).**
+The experiments below are preserved with their original conclusions. Later
+decisions and the current pipeline are in the [ADR](adr/0001-architecture.md)
+and [project state](etat-du-projet.md); this is not a current deployment guide.
+
 Working document, same contract as [`m1-working-plan.md`](m1-working-plan.md):
 research that cost real hours lives here so the next session does not re-derive
 it, and the risky unknown is settled **before** any crate code is written.

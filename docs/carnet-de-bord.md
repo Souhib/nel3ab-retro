@@ -6,8 +6,9 @@ termes au passage. Les autres documents sont des documents de travail :
 
 | Document | Pour quoi |
 |---|---|
-| `adr/0001-architecture.md` | les décisions, en une ligne chacune, avec leur raison |
-| `m1-`, `m2-`, `m3-working-plan.md` | l'état d'avancement, les mesures brutes |
+| [État du projet](etat-du-projet.md) | ce qui fonctionne au 9 septembre 2026, les limites et les vérifications à reprendre |
+| [ADR](adr/0001-architecture.md) | les décisions et leurs modifications datées, avec leur raison |
+| Plans [M1](m1-working-plan.md), [M2](m2-working-plan.md), [M3](m3-working-plan.md) | les expériences d'août, conservées comme archives |
 | **ce document** | l'histoire, le raisonnement, le vocabulaire |
 
 ---
@@ -15,12 +16,18 @@ termes au passage. Les autres documents sont des documents de travail :
 ## 1. Ce qu'on construit
 
 Des **salles de jeu rétro auto-hébergées**. Une personne ouvre un navigateur,
-rejoint une salle, et joue à un jeu GameCube avec jusqu'à trois amis. Tout tourne
+rejoint une salle, et joue avec jusqu'à trois amis. Le premier moteur était
+Dolphin pour GameCube et Wii ; depuis le 9 septembre 2026, Ryubing fait aussi
+tourner des jeux Switch dans cette même salle. Tout tourne
 sur **notre** serveur : l'émulation, le rendu 3D, l'encodage vidéo. Le navigateur
 ne fait que recevoir une vidéo et renvoyer les touches.
 
 C'est du **cloud gaming**, mais chez soi. Le serveur s'appelle `lgf` et porte une
 carte graphique AMD Radeon RX 6650 XT.
+
+Voici la chaîne initiale de Dolphin. La capture et les périphériques de la Switch
+ont un autre chemin, expliqué dans les entrées de septembre et dans
+l'[étude Switch](etude-switch-2026-09-07.md).
 
 ```
    Navigateur                      Serveur (lgf)
@@ -32,9 +39,12 @@ carte graphique AMD Radeon RX 6650 XT.
    └──────────┘                    └───────────────────────────────┘
 ```
 
-Au moment où ces lignes sont écrites, ça marche : image, son, quatre manettes,
-sur le réseau privé. Ce qui manque est écrit en clair au chapitre 10, et le plus
-gros trou est qu'**il n'y a aucune authentification**.
+Au 9 septembre, la salle reste privée sur Tailscale. L'identité vient de cette
+connexion, sans créer de compte propre à nel3ab ; le chef peut choisir le jeu,
+et une reprise explicite permet de remplacer un chef absent. Il n'y a toujours
+qu'une salle orchestrée. Les limites actuelles sont dans l'[état du projet](etat-du-projet.md).
+Le chapitre 10 conserve le bilan d'août ; le chapitre 11 raconte les changements
+qui l'ont suivi, y compris ceux qui ont remplacé ses conclusions.
 
 La difficulté n'est pas de faire marcher ça. C'est de le faire marcher **vite**.
 Chaque milliseconde entre l'appui sur un bouton et le pixel affiché se sent
@@ -9372,10 +9382,14 @@ pas échouer**.
 
 ## 9. Les décisions, en résumé
 
+Résumé relu le **9 septembre 2026**. L'[ADR](adr/0001-architecture.md) conserve
+les raisons détaillées, les dates et les conditions de réexamen. Les décisions
+d'août ne décrivent pas à elles seules les deux moteurs actuels.
+
 | | Décision | En clair |
 |---|---|---|
-| **D1** | On n'écrit pas d'émulateur | On intègre Dolphin. La règle générale : ne pas réécrire un objet de cette taille |
-| **D2** | Rust pour le worker | Pas de plantage possible dans une partie en cours ; la couche au-dessus reste en Python/TypeScript |
+| **D1** | On n'écrit pas d'émulateur | On intègre Dolphin, puis Ryubing pour la Switch. La règle générale : ne pas réécrire un objet de cette taille |
+| **D2** | Rust pour le worker | Les erreurs attendues sont typées et les paniques interdites ; cela n'empêche pas toute panne, notamment dans les bibliothèques GPU. La couche au-dessus reste en Python/TypeScript |
 | **D3** | Les manettes sont normalisées **dans le navigateur** | Le serveur reçoit une forme unique quel que soit le matériel du joueur |
 | **D4** | L'attribution des places est un état serveur | Deux joueurs ne peuvent pas revendiquer la même place |
 | **D5** | Topologie « Sunshine » : allouer côté encodeur **d'abord** | Évite le refus DCC et supprime une passe de conversion |
@@ -9387,10 +9401,31 @@ pas échouer**.
 | **D11** | Les images-clés se demandent, elles ne se programment pas | Une image-clé pèse six fois une image ordinaire ; une par seconde pour personne, c'est une bosse par seconde sur le réseau. Le serveur en accorde au plus deux par seconde, quoi qu'on lui demande |
 | **D12** | Le plan de contrôle ne touche jamais une image | Le worker sait qui tient une manette, le service Python sait comment il s'appelle. Arrêter le second n'interrompt pas une partie |
 | **D13** | La page est un artefact committé, et marqué | `cargo build` n'a jamais besoin de node ; une marque sur les sources ET sur la page produite attrape celle qu'on a oublié de reconstruire |
+| **D14** | L'identité vient du proxy Tailscale | Le nom affiché peut changer sans changer l'identité. Le domaine ne rend pas la salle publique et le proxy retire les en-têtes d'identité fournis par le client |
+| **D15** | Un second flux pour les liaisons difficiles | Chaque spectateur choisit son format ; réduire son image ne dégrade pas celle des autres |
+| **D16** | Le worker prouve l'attribution d'une place | Un reçu relie la socket d'entrée au nom annoncé au salon. Une réponse manquante ne signifie pas que toutes les places sont libres |
+| **D17** | Les manettes se préparent avant le lancement Wii | Chaque place choisit son appareil et confirme ; la préparation Switch réutilise cette coordination |
+| **D18** | La salle peut rester ouverte sans jeu | Fermer le jeu rend le catalogue disponible sans effacer les données personnelles |
+| **D19** | Une personne absente peut être remplacée explicitement | La demande attend une réponse, puis demande confirmation au repreneur. Le silence seul n'expulse personne |
+| **D20** | Un arrêt demandé parcourt le nettoyage | Réveiller Dolphin avant de l'arrêter, ramasser son propre orphelin et borner le silence éveillé ; une sieste n'est pas une panne |
+
+Les modifications datées qui suivent D20 dans l'ADR n'ont pas reçu de nouveau
+numéro. Elles couvrent le configurateur, les profils proposés par jeu pour
+Dolphin, le calcul du décalage son/image, puis la chaîne Switch. Cette dernière
+garde le salon et le transport communs, mais possède sa propre trame de manette,
+ses périphériques Linux privés, sa capture et ses sauvegardes. La règle de D3
+qui écartait ces périphériques concernait le chemin d'entrée de Dolphin.
 
 ---
 
 ## 10. Où on en est
+
+**Bilan historique d'août, conservé pour ses mesures.** Les résolutions, comptes
+d'essais, restrictions d'identité et travaux annoncés ci-dessous ne sont plus
+un état actuel. Plusieurs paragraphes ont été complétés à des dates différentes,
+ce qui explique leurs contradictions. Pour reprendre le projet, lire
+l'[état du 9 septembre](etat-du-projet.md) et le chapitre suivant. Les nombres
+d'origine restent ici avec leurs conditions, sans leur attribuer une nouvelle date.
 
 **On y joue.** Depuis un navigateur, sur le réseau privé, avec le son, une
 manette configurée et jusqu'à quatre joueurs. Ce qui suit est mesuré sur la
@@ -9499,13 +9534,18 @@ dont trois qui ont d'abord trouvé de vraies régressions (7.11).
 
 ## 11. Septembre: ce que le mois a appris
 
-Les entrées de ce chapitre ont été écrites au fil de l'eau entre le 2 et le
-5 septembre 2026, chacune dans le changement qui l'a méritée. Elles avaient
+Les huit premières entrées de ce chapitre ont été écrites au fil de l'eau entre
+le 2 et le 5 septembre 2026, chacune dans le changement qui l'a méritée. Elles avaient
 atterri APRÈS le glossaire: l'ancrage qui les rangeait cherchait un titre
 « Glossaire » et le vrai titre porte un numéro. Huit fois de suite, sans que
 rien ne le dise. C'est l'auditeur de la documentation qui l'a vu, le 5
 septembre, et c'est exactement le genre de dérive qu'un audit sert à trouver:
 un fichier qui grandit du mauvais côté en ayant l'air d'être tenu.
+
+Les entrées datées des 6 au 9 septembre continuent maintenant ce chapitre, avant
+le glossaire. Elles couvrent la relecture de l'audit, les retours des joueurs,
+les réglages et la Switch. L'[état du projet](etat-du-projet.md) permet de les
+retrouver par sujet sans transformer ce récit chronologique en liste de tâches.
 
 ### Deux nombres qui se ressemblent et ne veulent pas dire la même chose
 
@@ -9988,7 +10028,2171 @@ qu'elle aboutit. La règle 4 nomme exactement ce cas, et il était là.
 Le compte, à ce point: quatorze constats vérifiés et corrigés, dont sept sur du
 code écrit dans les quarante-huit heures précédentes.
 
+### 6 septembre 2026 : relire l'audit et refaire le configurateur
+
+L'audit transmis contient de vrais défauts, mais ses entrées ne sont pas autant
+de pannes indépendantes. Il compte plusieurs fois les mêmes causes, mélange
+des bugs et des expériences à faire, et se contredit sur le bruit de systemd.
+Le [rapport de relecture](audit-2026-09-06.md) sépare ce qui a été exécuté de ce
+qui a seulement été déduit du code. Les conversations locales du projet et les
+messages de commits ont aussi été consultés pour retrouver les raisons, sans
+recopier leur contenu privé.
+
+Souhib demandait surtout que les manettes deviennent plus belles et que leur
+configuration soit plus claire. Le dialogue réunit maintenant les dessins,
+la commande sélectionnée et son assignation. Les profils clavier ont leur
+section, distincte des correspondances de chaque modèle de manette. Le choix
+du dessin est nommé « aperçu » : il ne prétend plus annoncer l'appareil de la
+salle, que le protocole ne donne toujours pas.
+
+Les dessins retrouvent du volume et des couleurs. La décision du 2 septembre
+avait retiré ces deux choses pour privilégier les traits du diagnostic. Cette
+fois, le besoin est aussi de reconnaître et d'apprécier les manettes. On garde
+les deux lectures indépendantes et les indices canoniques, mais on modèle les
+coques en SVG, un dessin vectoriel dont les pièces restent animables. Aucun
+fichier image supplémentaire ne part dans le flux de jeu. La règle de poids
+de la page n'a pas été relevée pour permettre ce changement.
+
+Une famille reconnue ne suffit pas à choisir la coque physique. Il faut aussi
+que le navigateur annonce sa disposition standard. Un adaptateur inconnu garde
+ses indices bruts. Les ports du même modèle sont désormais lus par le diagnostic
+comme par la capture : auparavant le troisième port répondait à l'apprentissage
+tout en laissant le dessin éteint. Un essai reproduit cette divergence, et son
+jumeau vérifie qu'un autre modèle n'entre pas dans ce diagnostic.
+
+La configuration guidée reste dans le dialogue. Elle donne la commande, l'étape
+et le moment où il faut relâcher. Un bouton ne peut plus répondre à une question
+qui demande un stick. Une assignation isolée retient le repos de l'axe, comme la
+leçon complète. Un adaptateur inconnu ne reçoit plus quinze correspondances
+standard inventées quand on lui apprend seulement A.
+
+Trois pièges d'état ont été reproduits. La leçon laissait parfois le dernier
+bouton enfoncé dans le jeu, même si ses nouveaux appuis n'étaient plus envoyés.
+Le dernier appui d'une capture arrivait au jeu dès le tour suivant. Enfin, arrêter
+la session laissait sa boucle d'animation programmée. Les nouveaux essais
+conduisent la vraie boucle d'entrée avec une manette, une horloge et une socket
+simulées. Ils ont rougi avant les corrections. Le premier échec du montage,
+l'absence de `getGamepads` dans jsdom, n'a pas été compté comme une reproduction.
+
+Les touches du clavier ont maintenant leurs deux directions de stick. Le dialogue
+possède ses flèches et sa tabulation. Le menu suspendait sa navigation mais
+continuait à supprimer l'action native des flèches : ne pas changer de curseur
+ne suffisait donc pas à laisser un champ fonctionner.
+
+Les réglages en attente du salon survivent au prochain chargement. Ils sont
+rangés par identité et les envois d'un onglet attendent leur tour. Une réponse
+ancienne ne confirme pas une modification plus récente. Le dernier envoi reçu
+reste la règle entre deux appareils. Cette protection n'est pas une sauvegarde
+du disque et ne garantit pas une fusion entre deux onglets.
+
+Côté serveur, une expérience force deux écritures à se croiser. Avant correction,
+les deux entrent dans l'écriture du même fichier temporaire. Après, un verrou
+couvre la modification en mémoire et son écriture. Le test joue les profils
+personnels, la référence et les pseudos, puis relit le fichier et sa copie.
+
+Chaque nouvelle socket de manette réaffirme aussi son extension personnelle.
+Un redémarrage ne doit pas laisser la page dessiner une guitare alors que le
+worker a rebranché le Nunchuk du lanceur. Cela ne résout pas tout le modèle :
+l'appareil effectivement présenté au jeu doit encore être annoncé par la salle.
+
+Un essai qui réussissait en affichant un échec a été trouvé dans `banc-visuel`.
+Le script imprimait « RATÉ » pour un contraste insuffisant, puis sortait toujours
+avec le code zéro. En donnant volontairement au texte la couleur du fond,
+31 textes sont devenus illisibles et la recette est restée verte. Le même essai
+sort maintenant avec le code un. La couleur de contrôle a ensuite été retirée.
+C'est une nouvelle occurrence de la règle : un texte d'erreur n'est pas un échec
+si le processus ne le signale pas à son appelant.
+
+L'unité du worker portait également deux affectations hors section.
+`systemd-analyze verify` les annonçait avant correction et se tait après.
+Le fichier local a été corrigé, sans remplacer l'unité installée. Aucun arrêt
+de la salle n'a servi de test : les 90 secondes lues dans la configuration ne
+sont pas une durée de redémarrage mesurée ici.
+
+Le passage final de `just` réussit : 332 tests Rust ordinaires, 366 tests de page
+dans 29 fichiers, 128 tests Python et les 66 tests du lot GPU. Le premier passage
+avait été arrêté par une règle de lint dans un nouveau test ; le lot GPU n'avait
+donc pas tourné. La correction a été suivie d'un passage complet, pas seulement
+du test concerné. Les avertissements déjà présents de lint et de dépréciation
+Python restent visibles.
+
+La page reconstruite pèse 134 475 octets en Brotli, contre 129 670 au départ,
+pour un budget inchangé de 140 000. Cette compression réduit les octets à
+télécharger ; ce nombre ne mesure pas le temps d'affichage. L'aperçu Chromium
+vérifie la capture, les profils, le clavier et l'apprentissage à 390 × 844 pixels.
+Les inscriptions des deux manettes affichées, GameCube et DualSense, donnent un
+minimum de 4,84:1 sur les sept thèmes, au repos et pendant un appui. Cela ne
+mesure pas tous les textes de la page ni toutes les coques. Le banc visuel séparé
+réussit aussi. Le défilement Wii a été observé sur des fenêtres de 1280 × 720 et
+844 × 390 pixels, et les quatorze tuiles Switch portent chacune leur nom.
+En remettant temporairement l'ancienne grille, la dernière ligne est sélectionnée
+mais reste hors de la zone visible : le pilote échoue. La version corrigée est
+ensuite rétablie et vérifiée avec le même parcours.
+
+`just audit` accepte les dépendances Rust. Les contrôles séparés des dépendances
+de production Python et npm ne signalent aucun avis connu. Les dépendances de
+développement de ces deux piles et le système du conteneur Dolphin restent hors
+de cette mesure. Le site de documentation est reconstruit avec `just docs`.
+Les [captures du configurateur](audit-2026-09-06.md#apercus) viennent de l'aperçu
+isolé. Aucun commit, binaire de production ou fichier de service installé n'a
+été changé par ces validations.
+
+### 6 septembre 2026 : préparer chacun sa manette avant le jeu
+
+La demande a évolué pendant la refonte. Passer en spectateur laissait parfois
+« occupé » sous l'ancienne prise ; des retours dans la salle échangeaient les
+noms. La même demande voulait montrer le chef, lister les spectateurs et demander
+à chacun son appareil avant de lancer un jeu Wii. Un profil enregistré devait
+ensuite éviter de refaire ces choix à chaque soirée.
+
+Le numéro seul ne suffit pas à reconnaître une attribution. P2 peut appartenir
+à Yassine puis à Souhib, et une annonce retardée du premier navigateur porte
+encore P2. Le worker donne maintenant à chaque attribution un repère qui change
+à chaque connexion et à chaque redémarrage. Le salon compare ce repère à ceux
+que le worker tient réellement. Le nom disparaît quand l'attribution disparaît.
+Le mot « occupé » n'est plus utilisé comme nom de remplacement. La couronne suit
+le chef élu par le salon, pas le droit administrateur de publier des réglages.
+
+Ce repère est public : il n'authentifie personne. La relecture a justement trouvé
+qu'un premier correctif acceptait qu'une autre session annonce le même repère.
+Un test a montré le nom remplacé ; le salon refuse maintenant de remplacer une
+session encore présente. Une attribution réellement nouvelle libère d'abord
+l'ancienne association. Il reste la frontière privée du projet, pas un nouveau
+système d'identification des joueurs.
+
+Un autre test a reproduit le pseudo qui revient en arrière après un renommage.
+Le salon poussait le nouveau nom, puis une lecture HTTP lancée en même temps
+replaçait l'ancien. La lecture supplémentaire a été retirée. L'état final du nom,
+pas seulement l'exécution de la fonction de renommage, est désormais vérifié.
+
+Pour Wii, le salon ouvre une préparation avec les personnes qui tiennent une
+prise. Chacune choisit son appareil, teste ses commandes, puis dit qu'elle est
+prête. Le lancement reste un dernier geste de la personne qui l'a proposé.
+Quelqu'un qui revient doit confirmer à nouveau. Quelqu'un qui part ne bloque
+plus les autres. Si l'initiateur part, la préparation s'annule. Un spectateur
+voit l'avancement et ne peut pas confirmer pour un joueur.
+
+L'appareil appartient désormais à une place. Un tableau de quatre choix remplace
+le choix uniforme au moment d'écrire les fichiers de Dolphin. GameCube et Wiimote
+ne sont jamais branchées ensemble sur la même place. Un ordre complet remet au
+worker le jeu, la sauvegarde, les quatre choix et les quatre attributions que
+les joueurs ont confirmées. Si quelqu'un est arrivé entre-temps, il faut le faire
+confirmer ; le worker ne lance pas sur un état ancien. Les anciens réglages
+locaux ne peuvent pas écraser cet ordre.
+
+La reconnexion devait aussi conserver le port demandé. Reprendre la première
+prise libre aurait échangé les appareils de deux joueurs si leurs navigateurs
+revenaient dans l'ordre inverse. Le retour demande maintenant l'ancien port,
+sans le prendre à quelqu'un qui l'occupe déjà. Les essais couvrent l'ordre
+inverse et le refus de voler une prise occupée.
+
+Les profils complets ont un nom et appartiennent à la personne : type d'appareil,
+correspondances physiques et clavier. Charger prépare seulement cette page.
+Enregistrer un nom déjà utilisé demande « Mettre à jour ». Les dispositions
+standard peuvent passer d'une manette standard à une autre ; un adaptateur
+inconnu demande son modèle exact. Le service conserve ces profils dans le même
+fichier personnel que les touches. Il n'y a pas de fichier mondial de profils
+qui ferait modifier les quatre joueurs par le dernier clic.
+
+Les commandes de Kart et Strikers sont reformulées depuis les manuels Nintendo.
+Kart accepte notamment GameCube et Wiimote avec Nunchuk ; Strikers demande cette
+dernière combinaison. Party utilise une Wiimote seule : le choix sans extension
+a été ajouté, et les règles des mini-jeux restent la référence pour les gestes.
+Le projet ne transmet pas encore tous les mouvements possibles. Les afficher
+comme tous jouables parce qu'un dessin s'allume serait répéter le piège précédent.
+Les sources sont liées depuis la fiche du jeu, sans copie de leurs illustrations.
+
+Le travail a aussi révélé un défaut d'isolation des tests. Le faux worker HTTP
+remplaçait le catalogue, mais la configuration conservait le vrai port de contrôle
+8101. Un essai de salon pouvait donc annoncer un chef au worker vivant. Toutes
+les fixtures remplacent maintenant ce port avant de lire les réglages, et les
+preuves du protocole ouvrent leur propre port temporaire. La règle figure aussi
+dans les instructions du dépôt. Aucun redémarrage de la salle n'a servi de test.
+
+Les essais Socket.IO font participer deux clients et un spectateur. Chromium
+éprouve les profils après rechargement, les confirmations et le défilement sur
+ordinateur, téléphone et téléphone tourné. Les essais de configuration vérifient
+les fichiers par place. À cette étape, ces preuves ne sont pas une séance de
+Mario Kart avec une GameCube et une Wiimote simultanées dans Dolphin. La
+validation réelle restait à faire ; la section suivante rapporte cet essai.
+Le détail et les limites des vérifications
+sont dans le [rapport de relecture](audit-2026-09-06.md).
+
+La porte complète est verte sur cette machine : 341 tests Rust, 178 Python,
+380 tests de page et 66 du lot GPU. La génération des schémas est vérifiée avec
+un index Git temporaire, pour ne pas committer ni modifier l'index de travail
+sans demande. Chromium, le banc de contraste, la documentation stricte et les
+avis de dépendances Rust complètent cette porte. Le serveur de jeu vivant garde
+son binaire précédent ; ces nombres décrivent l'arbre de travail.
+
+La préparation affiche aussi la sauvegarde retenue. Son annonce transporte
+maintenant le numéro d'emplacement, pas seulement son libellé. Si une page vient
+d'arriver dans une partie en cours et ne connaît pas ce numéro, le changement
+d'appareil renvoie au choix dans la bibliothèque plutôt que de supposer zéro.
+
+La taille limite des profils cachait enfin deux représentations différentes.
+La page comptait des octets de texte compact, le service des caractères avec
+des espaces entre les champs. Dans le test du 6 septembre, 3 400 petites entrées
+occupaient 29 522 octets compacts mais 36 326 caractères espacés : la page les
+acceptait, le service les refusait. L'autre sens existait avec des caractères
+qui occupent plusieurs octets. Deux tests ont reproduit les refus et acceptations
+inversés avant d'aligner le service sur les octets envoyés par la page.
+
+### 6 septembre : les configurations mixtes arrivent dans le vrai jeu
+
+La première preuve ne suffisait pas : les tests construisaient bien deux
+appareils différents, mais aucun jeu ne les avait reconnus ensemble. Une seconde
+salle a donc été lancée avec son propre conteneur, ses ports et un dossier de
+sauvegarde temporaire. La salle en service est restée en pause, avec le même
+processus. Le binaire testé est celui de développement, hors du chemin utilisé
+par systemd.
+
+Mario Kart Wii a affiché une manette GameCube en première place et une Wiimote
+avec Nunchuk en deuxième. L'appui du second navigateur a ajouté cette seconde
+manette à l'écran d'enregistrement du jeu. La préparation collective a ensuite
+inversé les choix. Après le redémarrage, le jeu a reconnu la Wiimote en première
+place et la GameCube en deuxième. Les noms des deux navigateurs sont restés sur
+leurs places, avec le troisième nom parmi les spectateurs. Les boutons et le
+stick ont été exercés depuis des manettes simulées dans Chromium ; ce n'est
+pas une course entière jouée avec deux appareils physiques.
+
+Trois défauts de notre préparation sont apparus en allant au-delà de l'aperçu.
+Un navigateur neuf proposait GameCube alors que le worker lui annonçait une
+Wiimote. Le brouillon suit maintenant l'appareil réel avant la préparation,
+puis garde le choix de la personne pendant que les autres répondent. Deux
+assertions ont échoué avec le comportement précédent.
+
+Le profil complet était enregistré sur le serveur, mais la fonction chargée
+de lire les réglages au début de la visite ne copiait que les touches et les
+correspondances physiques. Elle oubliait la collection des profils complets.
+Le premier navigateur pouvait recharger sa copie locale ; un second navigateur
+ne trouvait rien. Le test avec quatre contextes de navigateur a échoué sur cette
+absence. Deux tests du chargement vérifient maintenant le profil présent et
+le profil supprimé depuis un autre appareil. Tous deux étaient rouges avant
+la correction. Tester seulement la fonction de stockage avait laissé passer
+l'oubli de son branchement dans l'application.
+
+Enfin, « prêt » et « lancer » partageaient la même limite d'un clic par
+demi-seconde. Le bouton de lancement devenait actif mais le serveur refusait
+son clic. La cadence est maintenant séparée entre les quatre actions connues.
+Le test enchaîne les étapes à horloge fixe et vérifie aussi qu'une répétition
+du même geste est refusée. Les inconnues sont rejetées avant de créer une clé
+de cadence. La limite n'a pas été supprimée pour faire passer le pilote.
+
+La recette `preparation-test` conserve ce parcours de bout en bout. Elle démarre
+uniquement une salle temporaire, ferme ses processus et annonce où lire les
+traces. Le proxy temporaire conserve aussi son état dans ce dossier. Lors de
+l'essai manuel initial, son écriture automatique avait touché la copie de reprise
+Caddy de l'utilisateur ; elle a été reconstruite depuis le fichier installé,
+sans recharger le service. L'essai relançable désactive cette écriture et définit
+des dossiers propres au proxy. Isoler les ports sans isoler l'état des outils
+n'est pas une isolation complète.
+
+Le parcours complet passe après les trois corrections. Les images reviennent
+chez les deux joueurs 5 280 ms après le clic de lancement sur ce passage local.
+Cette durée inclut le redémarrage ; elle ne mesure pas la latence des commandes
+et n'est pas une moyenne. La porte `just` passe à nouveau : 341 tests Rust,
+179 Python, 385 de la page et 66 du lot GPU. Les deux pilotes de configurateur
+passent aussi. La page construite pèse 138 321 octets brotli sur les 140 000
+autorisés. Aucun service n'a été remplacé et aucun commit n'a été créé.
+
+### 6 septembre : une manette qui entre sans son nom
+
+Pendant une vraie partie de Mario Kart Wii, Souhib signale un ami visible comme
+« occupé » sous une prise. Le salon ne connaît alors que Souhib, tandis que son
+journal refuse en boucle une connexion en 403. Ce nombre désigne un accès refusé.
+La porte Tailscale sur le port 8443 sert toujours la vidéo et les manettes, mais
+la liste des origines du salon n'admet que `https://nel3ab.app`. Une origine est
+l'adresse complète de la page, protocole et port compris. Une même personne
+peut donc jouer tout en restant absente du salon.
+
+La vérification sur le service en marche distingue les trois cas : l'origine
+`nel3ab.app` passe, celle de `lgf.tail3bd01c.ts.net:8443` est refusée avec ce motif
+explicite, et un site étranger est refusé aussi. Cela reproduit une cause de ce
+symptôme ; l'adresse utilisée par l'ami reste à confirmer. Le test lit la ligne
+réellement fournie à systemd et ouvre de vraies connexions au salon jetable. Il
+échoue avant la correction, puis accepte les deux portes de jeu tout en refusant
+un site étranger et le port 8444 réservé à la documentation. Les 180 tests Python
+passent. Seul le salon doit redémarrer pour charger cette liste ; le worker et
+Dolphin restent actifs pendant l'intervention. Après le redémarrage du salon,
+les connexions auparavant refusées sont acceptées ; finfin est nommé en P2 et lu
+en P3. La page de Souhib ne réannonce pas sa place et doit encore être actualisée
+ou recevoir un nouvel état des manettes. Le worker en cours (PID 762137) a été
+lancé à 15 h 15 pour Super Mario Strikers à la demande d'un joueur, avant cette
+intervention ; il n'a pas été redémarré pour corriger les noms. Le nouveau rapprochement des noms
+avec les attributions du worker traite séparément les courses de reconnexion.
+
+### 6 septembre : voir ce que les flèches commandent
+
+Souhib signale qu'il peut assigner le clavier mais ne dispose pas d'un dessin
+pour en vérifier la traduction. Il a essayé les flèches dans Mario Kart Wii
+sans parvenir à tourner. L'ancienne table ne proposait que les sens positifs
+des sticks : droite et haut. La réassignation les traitait tous comme positifs.
+Le nouveau test remet cette ancienne règle en place : gauche et bas échouent,
+droite et haut passent. Les quatre sens ont maintenant leur propre ligne.
+
+Un autre geste peut produire une flèche qui ne tourne pas : choisir la croix de
+la Wiimote plutôt que le stick du Nunchuk. Les deux entrées existent dans
+Dolphin mais n'ont pas le même rôle dans Mario Kart Wii. Nous ne connaissons pas
+les correspondances présentes dans le navigateur de Souhib au moment du
+signalement ; nous ne pouvons donc pas attribuer son essai à une seule cause.
+Le tableau distingue ces commandes, place les directions du stick en premier
+et affiche les actions du jeu quand sa fiche est disponible.
+
+Le nouvel aperçu montre les touches pressées d'un côté et la commande traduite
+de l'autre. Deux directions opposées éclairent deux touches mais recentrent le
+stick : lire deux fois la sortie aurait caché cette distinction. L'aperçu ne
+prend le clavier que dans une zone explicitement activée. Le reste du formulaire
+garde ses touches et aucun appui de test ne part dans la partie. Un test a aussi
+attrapé une première version qui ignorait Ctrl même après son assignation :
+la réserve des raccourcis n'avait pas sa place dans cette zone de test.
+
+Chromium capture réellement chacune des quatre flèches depuis le tableau,
+vérifie le sens du dessin et son retour au repos. Les tests de la boucle
+d'entrée vérifient la commande envoyée et l'absence de bouton de croix. Cela
+ne remplace pas une course jouée au clavier dans Dolphin : aucune nouvelle
+session d'émulation n'est lancée pendant la partie de Souhib et de ses amis.
+
+L'intervention sur le salon révèle aussi le défaut de l'ancienne page lors
+d'une reconnexion : elle ne réannonce pas sa place si la manette reste connectée.
+La nouvelle page réannonce la place actuelle, jamais une file d'anciennes places.
+Les deux essais échouent lorsque cette réannonce est retirée. Les prises gardent
+aussi leur numéro P1 à P4 même sur leur propre page, avec le nom en dessous.
+Une dernière lecture du salon confirme finfin en P1, lu en P2 et Souhib en P3,
+toujours sur le même worker. Les changements de places ont fait revenir les
+annonces de l'ancienne page. La porte complète passe avec 341 tests Rust,
+180 Python, 396 de la page et 66 tests GPU. Le dessin du clavier et ses quatre
+flèches sont également vérifiés dans Chromium sur ordinateur et téléphone.
+La nouvelle page pèse 138 872 octets brotli, sous la limite inchangée de 140 000.
+Elle est reconstruite dans les sources, mais pas installée dans le worker actif.
+
+### Le sélecteur Wii et la mise en service du configurateur, 6 septembre 2026
+
+Souhib demande de voir ces changements dans la salle et autorise le redémarrage
+même en présence de joueurs. Le choix d'appareil n'apporte rien sur GameCube :
+le configurateur montre désormais directement sa manette. Seul un jeu Wii
+présente le sélecteur avec « en salle ». Avant son lancement, la préparation
+dit « ton choix », puisque Dolphin n'a pas encore adopté cet appareil.
+Le pilote de navigateur échoue d'abord contre le sélecteur GameCube existant,
+puis passe après la correction. Son cas Wii vérifie que le choix reste présent.
+
+La couronne suit la place du chef annoncée par le salon. Un test place le chef
+en P2 avec Souhib en P1, puis retire le chef ; la couronne suit ce changement.
+Elle ne dépend ni du nom Souhib ni du statut administrateur. L'onglet Clavier
+montre les touches pressées et la manette émulée. Quitter un aperçu d'un autre
+appareil rétablit la vraie lecture de sa place avant ce test du clavier.
+
+Le binaire destiné à la salle est compilé dans un dossier séparé. Le service
+continue d'exécuter l'ancienne version pendant les vérifications. Cette étape
+évite qu'un changement de jeu d'un ami installe une compilation encore en cours
+de vérification. La mise en service se fait ensuite avec une copie de retour
+du binaire précédent et de l'unité systemd.
+
+Le lancement collectif est rejoué avec un vrai Dolphin isolé, un joueur en
+Wiimote avec Nunchuk et l'autre en GameCube. Les deux pages retrouvent leurs
+places et leurs images en 5 664 ms sur ce passage local automatisé. Ce chiffre
+inclut le redémarrage, pas une mesure de latence pendant une course. La porte
+complète passe : 341 tests Rust, 180 Python, 397 de la page et 66 tests GPU.
+La page pèse 138 953 octets brotli pour une limite inchangée de 140 000.
+
+La nouvelle version est installée à 15 h 54 UTC. Le worker passe du processus
+762137 au 776837 et reprend Super Mario Strikers. Son empreinte commence par
+`f544c35740b8`. Une copie du binaire, de l'unité et de l'état persistant après
+l'arrêt de Dolphin est conservée dans le dossier local
+`~/.local/state/nel3ab/deployments/20260906T155432Z`. C'est une copie sur le même
+disque, pas la sauvegarde extérieure encore demandée par l'audit. La relance
+automatique est suspendue seulement pendant cet arrêt, puis rétablie.
+Le fichier d'unité corrigé est aussi installé ; sa validation ne produit plus
+les avertissements de lignes hors section.
+
+Le déploiement expose un piège que l'essai entre pages neuves ne couvrait pas :
+les onglets déjà ouverts reconnectent leurs sockets sans recharger leur code.
+Souhib voit encore « toi » et « occupé ». Ces anciennes pages ne connaissent
+pas le reçu qui relie maintenant une personne à une place. Le worker observe
+P1 et P2 prises, mais le salon refuse de leur attribuer un nom sans ce reçu.
+Accepter les anciennes annonces au hasard réintroduirait les inversions que
+ce changement corrige. Une actualisation de chaque ancienne page est donc
+nécessaire pour cette migration et aurait dû être annoncée avant la relance.
+Ce besoin ne concerne pas les prochains redémarrages entre versions identiques.
+
+Une page neuve ouverte sur le vrai domaine, en spectateur, reçoit exactement
+l'artefact construit et affiche les images. Elle ouvre le configurateur
+GameCube sans sélecteur Wii et l'aperçu clavier. Aucun port de joueur n'est pris
+par ce contrôle. Le retour des noms sur les anciennes pages demande encore
+leur actualisation par leurs utilisateurs ; ce contrôle ne prétend pas l'avoir
+observé à leur place.
+
+### Le clip avait une image et aucun son, 6 septembre 2026
+
+Souhib signale un clip de trente secondes sans son. Un fichier demandé à la
+vraie salle confirme le défaut : 35,55 secondes de H.264 et aucune piste audio.
+Ce n'est pas un volume trop bas. L'anneau gardait seulement les images et ffmpeg
+ne recevait que cette vidéo. Le pilote vérifiait ses dimensions et sa durée,
+jamais la présence ni le contenu du son. Un test vert pouvait donc accompagner
+exactement le défaut signalé.
+
+Le worker garde maintenant aussi le PCM, les échantillons sonores bruts qu'il
+envoie aux navigateurs. Il le fait avant de regarder si une page écoute : couper
+ses haut-parleurs ne doit pas rendre le souvenir de la partie muet. Le son et
+l'image utilisent leurs horodatages de capture communs. Le clip coupe les
+échantillons sur sa première image et couvre la durée des images exportées.
+Les petits écarts de réveil du fil ne découpent pas la forme d'onde entre deux
+morceaux ; un écart supérieur à la durée d'un morceau garde un trou silencieux.
+Les tests vérifient la coupe dans un morceau, le retard initial, les vrais trous
+et l'absence du son situé avant ou après la vidéo.
+
+À la demande du fichier, ffmpeg copie la vidéo et transforme seulement le son
+en **AAC**, un format audio compressé lisible dans un MP4. Le flux joué dans
+les navigateurs reste inchangé. La mémoire des échantillons est bornée à
+7,68 Mo : quarante secondes, 48 000 échantillons stéréo par seconde, quatre octets
+par paire. Le débit choisi de 192 kbit/s représente environ 720 ko pour trente
+secondes. Ce sont des calculs datés, pas une écoute comparative de plusieurs
+débits. Les données du clip sont partagées pendant leur sélection ; leur copie
+et l'encodage du son se font après avoir rendu le verrou des fils du jeu.
+Les fichiers temporaires vivent dans un dossier privé effacé aussi sur erreur.
+
+Le nouveau test fabrique une vidéo et deux signaux audio opposés, précédés d'un
+quart de seconde de silence. Il exporte le MP4, relit ses pistes et décode le son.
+Il vérifie ce retard, la durée, un signal non nul et la différence des canaux.
+Retirer le stockage audio fait échouer le test du transport. Retirer la piste
+du multiplexeur fait échouer l'export réel : son absence ne peut plus passer
+pour un fichier réussi. Une période dont le son a déjà quitté l'anneau rend
+une erreur explicite ; une période réellement silencieuse garde une piste.
+La recette `clip-audio-test` entre dans la porte locale `just`. Elle n'a besoin
+ni de Dolphin ni d'un joueur, seulement de ffmpeg et ffprobe.
+
+La porte complète passe avec 347 tests Rust ordinaires, 180 Python, 397 de la
+page, 66 tests GPU et le test d'export audio exécuté explicitement. La vérification
+des dépendances et la documentation stricte passent aussi. Le contrôle des
+schémas emploie encore un index Git temporaire, parce que les changements
+précédents ne sont pas commités ; aucun contrôle n'est sauté.
+
+La correction est installée à 16 h 38 UTC, après arrêt propre de Dolphin, dans
+le worker 788427. L'empreinte du binaire commence par `480c0cb06a00`.
+La copie de retour est dans
+`~/.local/state/nel3ab/deployments/20260906T163838Z`. Mario Power Tennis reprend.
+La page embarquée est identique à la précédente : ce correctif de fichier ne
+change ni l'interface ni le protocole de place et ne demande pas d'actualisation.
+
+Le pilote entre en spectateur sur `nel3ab.app`, attend la durée nécessaire et
+demande un clip. Le fichier obtenu couvre 32,6 secondes en H.264, 1280 × 896,
+avec du son AAC stéréo à 48 kHz. Ses deux pistes ont la même durée à moins de
+100 ms près. Le son se décode sur toute la coupe et son amplitude maximale vaut
+28 037 sur 32 768 : ce clip contient bien un signal, pas seulement une piste
+vide. C'est une vérification de fichier, pas une écoute comparative ni une
+mesure absolue de synchronisation chez les joueurs. Une seconde demande
+immédiate reste refusée avec 29 secondes d'attente, comme prévu.
+
+### Des joueurs rangés parmi les spectateurs, 6 septembre 2026
+
+Souhib signale que les personnes jouent mais apparaissent comme spectateurs,
+avec « personne » sous leur manette. À 17 h 20 UTC, le worker tient quatre
+places. Le salon relie Tomy et Souhib à deux d'entre elles, mais ne relie ni
+finfin ni lu aux deux autres. Après le départ de lu et les reconnexions des
+autres, finfin reste le seul nom manquant. Les trois portes, locale, nel3ab.app
+et Tailscale, rendent exactement la même page avec une consigne de revalidation
+du cache. Ce n'est pas une ancienne page servie par une autre porte.
+
+Le code distingue déjà une prise tenue et son nom confirmé, mais la colonne
+écrivait « personne » dans les deux cas. Elle classait aussi chaque personne
+sans place confirmée comme spectateur. L'ancienne visite de finfin précède le
+déploiement du protocole de reçus et ne réannonce pas sa place chaque seconde.
+Les deux pages dont le nom est confirmé le font. Une page ouverte garde son
+code pendant que ses sockets se reconnectent. Recharger l'ancienne page est
+nécessaire pour qu'elle transmette le reçu ; ce constat n'attribue pas un nom
+à une prise par élimination, ce qui ferait revenir les inversions.
+
+La description de salle distingue désormais une attribution en attente d'un
+spectateur confirmé. Un spectateur annonce explicitement qu'il ne tient aucune
+manette. Si la même personne a plusieurs pages, une page qui joue ou attend son
+attribution l'emporte sur celle qui regarde. La colonne garde les noms en attente
+à part, indique qu'une ancienne page doit être rechargée, et réserve « personne »
+aux places libres. Elle ne remplace pas un nom inconnu par « occupé ».
+
+Une autre cause est reproduite en test : une lecture du port de contrôle qui
+expire effaçait tous les noms. Une absence de réponse devenait quatre places
+libres. La dernière lecture complète est maintenant conservée jusqu'à la suivante.
+Une vraie réponse vide rend toujours les places ; une nouvelle génération de
+reçus après redémarrage efface toujours les anciennes associations. Les tests
+réintroduisent l'effacement et le classement spectateur pour vérifier qu'ils
+échouent. Un essai avec de vrais clients Socket.IO couvre aussi une page sans
+reçu, sa correction, une reconnexion et le passage en spectateur. Les refus
+de place indiquent désormais au journal si le reçu était absent, pour que la
+prochaine enquête puisse distinguer ce cas d'un reçu devenu périmé.
+
+La porte complète passe : 347 tests Rust, 185 Python, 398 de la page,
+66 tests GPU et l'export du clip avec son. Les deux erreurs de typage trouvées
+au premier passage sont corrigées avant de rejouer la porte entière. La page
+pèse 139 099 octets brotli, toujours sous les 140 000 autorisés.
+
+La correction est installée à 17 h 34 UTC dans le worker 796093, dont
+l'empreinte commence par `50dab0502f30`. Le dossier de retour est
+`~/.local/state/nel3ab/deployments/20260906T173407Z`. Mario Power Tennis reprend.
+Une page neuve entre en spectateur sur le vrai domaine sans prendre de manette.
+Elle montre Souhib en P3, finfin à part avec la couronne et une attribution
+en attente, et zéro spectateur : la page de contrôle supplémentaire appartient
+à Souhib, qui joue déjà dans un autre onglet. Le navigateur n'a aucune erreur.
+Finfin n'a pas encore actualisé sa page au moment de cette vérification ; son
+retour sous la bonne prise n'est donc pas prétendu mesuré.
+
+La reprise ajoute une preuve qui manquait au déploiement : la véritable page
+du commit `16eebcb` est servie dans une salle jetable avec un worker actuel.
+Elle joue, ferme sa socket et la rouvre, mais garde son ancien protocole.
+Un spectateur muni de la page actuelle voit son nom en attente. Le fichier
+servi est ensuite remplacé par la page actuelle et le navigateur actualise
+la même adresse. Le nom rejoint alors la bonne manette. Le test redémarre
+aussi le salon temporaire : les noms reviennent sans changer les reçus ni
+relancer Dolphin. La recette `seat-migration-test` conserve ce scénario.
+
+Le premier montage de ce test injectait le HTML dans Chromium au lieu de le
+servir. Deux essais ont attendu une minute sans recevoir d'image. Le journal
+du navigateur montre `ERR_BLOCKED_BY_LOCAL_NETWORK_ACCESS_CHECKS` : Chromium
+refuse les sockets locales de cette page fabriquée. Servir le fichier par le
+vrai proxy temporaire supprime ce blocage sans retirer la protection du
+navigateur. Cette erreur du montage ne prouvait rien sur la salle.
+
+Un passage complet après cette correction a aussi rejoué la préparation Wii,
+les profils, les noms et les appareils mixtes, avec les images revenues en
+4 744 ms après le lancement. C'est encore un navigateur automatisé local.
+Les deux scénarios gardent des recettes distinctes : redémarrer le salon élit
+son chef suivant l'ordre des reconnexions, alors que le pilote de préparation
+fait volontairement arriver son initiateur en premier. Attendre le même chef
+après un redémarrage rendrait le test dépendant de cet ordre aléatoire.
+
+### Fermer le jeu sans fermer la salle, 6 septembre 2026
+
+La demande distingue deux gestes : quitter sa place et terminer le jeu de toute
+la salle. Passer en spectateur ne ferme rien. Une entrée « fermer le jeu », dans
+le rayon « salle », demande une confirmation et reste réservée au chef. Son
+identité permet de le faire après avoir rendu sa manette. Un autre joueur ne
+peut pas contourner cette règle en émettant le message depuis sa page.
+
+Fermer ne signifie pas mettre Dolphin en pause. Le worker écrit que la salle ne
+joue plus, réveille l'émulateur s'il dort, puis le laisse vider ses sauvegardes
+avant de sortir. Le superviseur le ramène, comme pour un changement de jeu, mais
+cette fois il ouvre uniquement les menus, les places et le canal de contrôle.
+Aucun émulateur ni encodeur n'est créé. La bibliothèque annonce explicitement
+« aucun jeu ». Un redémarrage de la machine conserve ce choix. Choisir un jeu
+l'efface, après avoir retenu le disque et les appareils à employer. Les cartes
+mémoire et les profils ne sont jamais effacés. L'ADR D18 décrit ce choix et son
+coût : les sockets se reconnectent encore lors de la transition.
+
+Les spectateurs doivent apprendre la fermeture eux aussi. Ils n'ont pas de
+socket de manette pour remarquer le redémarrage. Le salon relit donc le jeu une
+fois par seconde, à côté des places, et ne diffuse que les changements. Cette
+lecture locale n'est faite que s'il y a quelqu'un et ne touche jamais au chemin
+des images. Chaque page ouvre le choix des jeux quand la salle devient vide.
+La préparation Wii fonctionne aussi en partant de cet écran.
+
+Arrêter la vidéo a révélé un défaut concret : la méthode fermait la socket et le
+décodeur, mais la boucle de dessin se programmait encore. Une reconnexion déjà
+planifiée pouvait aussi rouvrir le flux. Le test a réintroduit l'ancienne méthode
+et obtenu deux échecs : dessin toujours programmé et images en attente non
+libérées. La correction annule les minuteurs et la peinture, rend les images au
+navigateur, puis permet une seule reprise. Le son garde le contexte déjà autorisé
+par la personne, mais ferme son flux au repos. Une ancienne reconnexion ne peut
+pas ouvrir un deuxième flux après une reprise rapide.
+
+Le pilote `just idle-room-test '/chemin/Mario Kart Wii.rvz'` a traversé le vrai
+salon, le worker et Dolphin dans une salle séparée. Alice, devenue spectatrice,
+a fermé le jeu que Benoit jouait encore. L'entrée était refusée à Benoit.
+Le conteneur avait disparu et les trois pages montraient le choix des jeux après
+3396 ms, mesurés sur cette machine en navigateur automatisé. Ce chiffre ne
+préjuge pas d'une liaison distante ni du temps de sortie de tous les jeux.
+Le worker a ensuite été redémarré au repos : aucun Dolphin n'est réapparu. Une
+nouvelle spectatrice a obtenu les menus. Enfin Alice et Benoit ont confirmé une
+Wiimote et une manette GameCube pour Mario Kart Wii, et les images sont revenues
+chez les trois personnes. Le pilote conserve ses traces et une capture dans son
+dossier temporaire ; il ne touche pas aux sauvegardes de la vraie salle.
+
+Un second passage, avec les bibliothèques Wii et GameCube, a mesuré 3636 ms pour
+la fermeture. Après la reprise de Mario Kart, une deuxième fermeture a permis
+de lancer Melee directement depuis le repos, sans formulaire Wii. Le worker a
+réaffirmé deux manettes GameCube et les deux pages ont reçu les images. Pour
+inclure ce parcours, le pilote accepte `NEL3AB_TEST_GC_ROM` avec le chemin de
+Melee. Le test isolé du salon vérifie aussi le cas où aucune place ne change :
+retirer l'annonce du changement de jeu le fait échouer.
+
+Dans le configurateur, les correspondances sont maintenant placées avant le
+diagnostic brut, ouvertes par défaut. Le diagnostic reste fermé. Les deux
+parcours, menu ordinaire et préparation collective, utilisent la même disposition
+et les pilotes de navigateur en vérifient les états et le défilement sur téléphone.
+
+La mise en service a eu lieu le 6 septembre à 19 h 12 UTC, après la validation
+locale complète : Rust, 192 essais Python, 401 essais de page, 66 essais GPU et
+l'export réel du clip avec son. Les deux essais supplémentaires d'annonce aux
+spectateurs passent aussi, ainsi que la construction stricte de la documentation.
+Le binaire `00a4f60acf03c38f` sert la page `97204c337196f185` sur les deux portes.
+Dolphin a été arrêté proprement ; Mario Power Tennis a repris. La copie de retour
+est dans `~/.local/state/nel3ab/deployments/20260906T191227Z`.
+Une page de contrôle, entrée en spectateur, a reçu les images et vérifié le
+nouveau menu et les correspondances ouvertes, sans prendre de place ni fermer
+le jeu de la vraie salle. Le bouton nommait correctement le chef actuel, lu.
+
+### Un chef connecté qui n'est plus devant son écran, 6 septembre 2026
+
+Lu était resté spectateur avec la couronne alors qu'il était absent. Le salon
+choisissait toujours la première identité connectée. Son onglet pouvait donc
+conserver le rôle sans limite. Le worker permettait déjà aux autres places de
+changer de jeu après trois minutes sans entrée du chef, mais cette exception ne
+changeait ni le nom sous la couronne ni le droit de fermer le jeu.
+
+Nous avons écarté une expulsion automatique fondée sur les boutons : regarder
+une partie en silence est un usage normal. Le message envoyé chaque seconde par
+une page confirme sa connexion, pas la présence de quelqu'un devant elle. Le
+nouveau bouton « chef absent ? reprendre le rôle » envoie un avertissement. Le
+chef peut répondre depuis chacun de ses appareils. Cliquer sur une manette tenue
+par une personne ouvre la même demande pour cette manette.
+
+La personne dispose de vingt secondes pour garder sa place ou la passer. Sans
+réponse, le demandeur peut confirmer la reprise. Le délai seul ne prend rien.
+Un refus ferme la demande et protège la même cible pendant une minute. Une
+demande abandonnée disparaît au bout d'une minute ; une seule attend à la fois
+dans la salle. Ce sont des choix d'interface du jour, pas des mesures qui
+prétendraient savoir quand quelqu'un est absent. Le service mesure une durée
+écoulée, indépendante d'un réglage de l'heure de la machine.
+
+Une reprise de rôle choisit réellement une autre identité. L'ancien chef reste
+spectateur ou joueur, et ouvrir un nouvel onglet ne lui rend pas la couronne.
+Quand le nouveau chef quitte tous ses appareils, le rôle passe à la première
+identité restante. Comme la présence, ce choix est en mémoire : redémarrer le
+salon recommence l'élection, changer de jeu ne la recommence pas.
+
+Pour une manette, le numéro seul ne suffit pas. Durant les vingt secondes, la
+personne peut partir et quelqu'un d'autre peut prendre sa place. La confirmation
+porte donc aussi le reçu de l'attribution visée, déjà utilisé pour les noms. Le
+worker compare ce reçu sous le verrou des places, au moment de brancher la
+nouvelle page. Une demande devenue ancienne est refusée. Le salon ne remplace
+pas un nom par anticipation : il attend l'attribution que le worker a réellement
+donnée. La personne dépossédée conserve l'image, voit l'avertissement existant et
+ne redemande pas de manette toute seule. Aucune de ces reprises ne relance le jeu.
+
+Les vérifications ont réintroduit trois défauts : redonner systématiquement le
+rôle au premier connecté, autoriser une confirmation avant le délai, ignorer le
+reçu lors de la reprise. Les trois essais correspondants sont devenus rouges,
+puis verts après restauration. Un autre essai vérifie qu'un refus pour une
+manette n'efface pas le refus déjà donné pour le rôle de chef.
+
+Le pilote `just recovery-test` a ensuite ouvert Alice, Benoit et Camille devant
+un vrai Dolphin dans une salle séparée. Benoit a d'abord refusé de céder sa
+manette. Alice est restée spectatrice sans répondre à la demande de rôle ; après
+vingt secondes et confirmation, la couronne est passée à Benoit sur les trois
+pages. Revenir jouer n'a pas rendu le rôle à Alice. Camille a ensuite repris sa
+manette, avec le bon nom ; Alice a vu l'avertissement et est restée spectatrice.
+Une connexion portant l'ancien reçu a été refusée. Le processus du worker n'a
+pas changé et les images ont continué. Un second passage a vérifié l'annulation
+quand le demandeur quitte la partie et le panneau dans une fenêtre de 390 pixels.
+Ces essais portent sur des navigateurs automatisés locaux, pas sur la capacité
+d'une personne à lire le message pendant une partie.
+
+La validation locale complète a réussi : 352 essais Rust sans GPU, 218 Python,
+406 pour la page, 66 avec le GPU et l'export réel du clip sonore. La page reste
+dans son budget de chargement, à 139 959 octets en brotli sur 140 000. Le panneau
+d'attente envoyé auparavant et le nouveau panneau ne sont pas empilés : les
+nouvelles pages utilisent la même reprise pour les deux demandes. La réception
+des anciennes demandes reste disponible pour les pages non actualisées.
+
+La mise en service a eu lieu à 20 h 48 UTC le 6 septembre. Dolphin a été arrêté
+proprement, puis Mario Power Tennis a repris avec le binaire `8b1ec30d0479cf31`.
+Les deux adresses servent la page `592296218172b242`. La copie de retour est
+dans `~/.local/state/nel3ab/deployments/20260906T204813Z`. Les pages déjà ouvertes
+doivent être rechargées pour recevoir le nouveau panneau d'avertissement et les
+boutons de reprise.
+
+### Le domaine fonctionne pour Souhib, mais pas pour les invités, 6 septembre 2026
+
+Les amis ouvraient la salle par `lgf.tail3bd01c.ts.net:8443`, mais pas par
+`nel3ab.app`. Les deux adresses arrivent sur la même machine, par deux ports
+différents. Le nom court utilise le port HTTPS habituel, 443. Le nom Tailscale
+utilise explicitement 8443.
+
+Le DNS public, qui traduit un nom en adresse, donne bien les deux adresses
+Tailscale de lgf : `100.104.234.37` en IPv4 et
+`fd7a:115c:a1e0::8901:eabc` en IPv6. Depuis le serveur, deux requêtes HTTPS,
+chacune forcée dans une famille d'adresses, reçoivent la page avec un statut 200
+et un certificat accepté. Caddy écoute sur ces deux adresses. Le pare-feu de
+Linux laisse passer les connexions sur l'interface Tailscale.
+
+La différence est dans le filtre que Tailscale applique avant Linux. La lecture
+de `sudo tailscale debug netmap`, comparée aux appareils de `tailscale status
+--json`, donne ceci pour TCP, le protocole utilisé par ces connexions :
+
+| Destination | Appareils des invités autorisés | Autres appareils de Souhib autorisés |
+|---|---:|---:|
+| IPv4, port 8443 | 26 sur 26 | 3 sur 3 |
+| IPv4, port 443 | 0 sur 26 | 3 sur 3 |
+| IPv6, port 443 | 0 sur 26 | 3 sur 3 |
+
+Ce sont des appareils présents dans la carte du réseau, pas autant de personnes
+ni de connexions actives. Le tableau lit les règles effectives ; il ne prétend
+pas avoir lancé une requête depuis l'ordinateur d'un ami. Il établit néanmoins
+un blocage : aucun de ces invités n'a le droit d'atteindre Caddy. Le défaut du
+chapitre 7.15 revient avec le port du nouveau domaine.
+
+Le correctif préparé dans `deploy/tailscale-nel3ab.grant.json` est **un objet à
+ajouter à la liste `grants` de la politique Tailscale existante**, dans la console
+d'administration, rubrique *Access controls*. Ce fichier n'est pas une politique
+complète et ne doit pas remplacer celle qui donne déjà accès à Sunshine et à
+8443. Il autorise uniquement TCP 443, vers les deux adresses de lgf, aux appareils
+des utilisateurs qui ont accepté une invitation de partage. Si les partages
+doivent avoir des droits différents, sa source doit être le groupe déjà autorisé
+à ouvrir la salle sur 8443. Les [sources et ports d'un grant](https://tailscale.com/docs/reference/syntax/grants)
+sont définis dans la documentation Tailscale. Un *grant* est une autorisation
+supplémentaire, pas une ouverture de la machine à Internet.
+
+Au moment du diagnostic, la session disposait du filtre reçu par le serveur,
+mais pas d'un accès administratif à la politique hébergée par Tailscale. Aucun
+DNS, service ou jeu n'a été redémarré pour cette recherche. Souhib a ensuite
+confirmé que l'accès par `nel3ab.app` fonctionne chez ses amis. C'est une
+confirmation d'usage, pas une nouvelle mesure du filtre depuis chaque appareil.
+Le nom en `.ts.net:8443` reste la porte de secours.
+
+Une autre piste a été examinée : Tailscale peut attribuer une IPv4 différente
+à une machine partagée dans le réseau de son destinataire, comme l'explique
+[son mécanisme de partage](https://tailscale.com/blog/choose-your-ip). Cela ne
+justifie pas de changer le DNS avant de corriger le refus du port. Si le domaine
+échoue encore après cette correction, comparer sa résolution et celle du nom
+Tailscale depuis l'appareil concerné permettra de distinguer ce cas d'un filtre
+DNS local. La présence d'une adresse IPv6 publiée ne suffit pas si le filtre
+Tailscale ne l'autorise pas.
+
+### Arrêter proprement, même quand Dolphin dort, 6 septembre 2026
+
+La demande porte cette fois sur les reprises de panne, les parcours à quatre et
+le diagnostic que chacun peut lire. Le premier défaut est bien celui que l'audit
+appelait a35 : systemd envoyait SIGTERM, le signal qui demande un arrêt propre,
+mais le worker n'avait aucun gestionnaire pour le recevoir. Son code de nettoyage
+existait sans être parcouru dans ce cas. Quand Dolphin était en pause, il ne
+pouvait même pas recevoir le signal transmis par le client Docker.
+
+Le signal pose désormais un drapeau. Les boucles le lisent puis finissent leur
+travail ; aucune commande Docker ne part du gestionnaire de signal. La lecture
+vidéo rend la main au bout d'une seconde sans données. Cela ne retarde pas une
+image disponible. La session réveille ensuite Dolphin et lui laisse arrêter le
+jeu, puis journalise son code de sortie. Le même nettoyage couvre une erreur au
+milieu du démarrage. Les objets du convertisseur graphique sont détruits avant
+les images qu'une opération encore en cours pourrait utiliser.
+
+Le démarrage récupère aussi le conteneur de la session précédente **avant** de
+vérifier si quelqu'un écrit déjà dans le tuyau du son. L'ordre inverse interdisait
+justement de ramasser l'orphelin. Le nom du conteneur ne suffit pas : son montage
+doit désigner le dossier de cette session. Un essai avec un autre dossier a été
+refusé et a laissé l'émulateur en marche.
+
+Les essais ont utilisé une autre salle Mario Kart Wii, avec ses propres ports,
+son conteneur, ses identités et ses sauvegardes. Sur lgf, le 6 septembre 2026 :
+
+| Situation imposée | Résultat observé |
+|---|---|
+| SIGTERM avec Dolphin éveillé | arrêt propre en 1 600 ms |
+| SIGTERM avec Dolphin en pause | arrêt propre en 1 501 ms |
+| Producteur vivant, bloqué hors de la sieste | avertissement, arrêt, puis images revenues en 36 s |
+| Worker tué brutalement, conteneur encore en pause | images revenues au redémarrage suivant, sans boucle |
+
+Le silence éveillé est signalé après trois secondes et déclenche une reprise
+après trente. Ce sont des délais de politique de récupération, pas des durées
+mesurées au-delà desquelles tous les jeux seraient forcément cassés. La sieste
+volontaire remet le délai à zéro. Un blocage du pilote graphique dans le noyau
+n'a pas été reproduit par ces essais.
+
+Côté navigateur, un décodeur qui avalait les données sans jamais produire sa
+première image échappait au contrôle. Son délai commence maintenant dès la
+première soumission. Le test lui donne des données pendant plus de trois
+secondes ; son jumeau utilise un décodeur qui produit pendant la même durée.
+En réintroduisant l'ancien défaut, le premier essai échoue. La même vérification
+a été faite pour le refus de demi-format retenu entre deux jeux, le délai de
+lecture, la sieste et les réponses aux signalements. Un essai vert après avoir
+réintroduit le défaut n'aurait pas été une preuve.
+
+Le test a ensuite révélé une limite du premier correctif : si la file du
+décodeur atteint sa limite, la page cesse de lui soumettre des images. Mesurer
+le silence depuis la dernière soumission ne pouvait alors jamais atteindre
+le délai attendu. Le contrôle utilise maintenant le temps écoulé tant que des
+travaux restent sans sortie. Le test de file saturée était rouge avant ce second
+correctif ; celui d'un décodeur qui produit reste vert.
+
+Le parcours à quatre a exposé une autre attente sans borne : une WebSocket en
+cours de fermeture pouvait ne jamais déclencher son événement de fin. La page
+conservait alors son ancienne place locale. La sonde d'entrée retire désormais
+cette connexion et redemande poliment la place précédente. Cinq secondes sans
+réponse déclenchent la même reprise. Revenir après une suspension du navigateur
+laisse un nouveau délai aux réponses en attente. Une ancienne connexion ne peut
+pas effacer la place obtenue par la suivante. Cela ne reprend jamais de force
+une manette appartenant à quelqu'un d'autre.
+
+### Branchement, correspondances et diagnostic personnel, 6 septembre 2026
+
+Le message de branchement distingue une manette reconnue, un adaptateur à
+configurer, une déconnexion et le retour d'une manette déjà vue. Il suit son
+identifiant matériel plutôt que le numéro de prise attribué par le navigateur.
+Un profil chargé est annoncé comme tel ; cela ne prétend pas que chaque commande
+a été vérifiée. Le bouton conduit au configurateur et la place reste tenue lors
+d'un débranchement. Aucun rendu React n'a été ajouté à la boucle des entrées.
+
+Les correspondances occupent une seule colonne, dans les réglages comme dans la
+préparation Wii. La liste reste ouverte par défaut et le diagnostic brut reste
+fermé. Le pilote de navigateur vérifie cette disposition et les contrastes,
+avec un minimum de 4,84 pour 1 sur les inscriptions mesurées dans les sept thèmes.
+
+La salle volontairement au repos n’affiche pas de diagnostic de vidéo coupée.
+Le test reproduit cette confusion, puis vérifie le cas opposé : un jeu qui
+devrait encore transmettre ses images.
+
+Le diagnostic de connexion réutilise les observations du lecteur vidéo : lien
+coupé, premières images attendues, file de décodage en retard, ou réception dont
+la marge ne suffit plus. Il propose une réduction seulement sur cette page. Le
+serveur indique séparément si Tailscale observe un trajet direct ou un relais.
+Le champ du relais préféré reste rempli même en trajet direct : le lire seul
+aurait inventé un problème. Une connexion inactive ou non retrouvée reste
+« non disponible ». Aucun nom ni adresse d'un autre appareil n'est renvoyé.
+
+Le signalement emporte déjà les deux minutes précédentes de mesures. Il attend
+maintenant la réponse du salon avant d'annoncer son enregistrement. Un refus de
+cadence, une écriture échouée ou un salon injoignable affiche une erreur. Le
+trajet observé est ajouté au journal à cet instant. Cela ne suffit pas à conclure
+que Tailscale est responsable d'une saccade.
+
+Le premier build avec ces ajouts pesait 141 531 octets en Brotli, la compression
+servie au navigateur, contre 139 959 auparavant. Les 1 572 octets supplémentaires
+représentent 31 ms au débit supposé de 400 kbit/s du budget initial. Aucun sélecteur
+CSS inutilisé n'a été trouvé dans la feuille de styles. Le plafond devient
+150 000 octets pour exprimer les trois secondes de transfert déjà visées par la
+règle, au lieu de 140 000. Le calcul reste une estimation de transfert : les
+allers-retours et le démarrage du navigateur s'ajoutent. Ce n'est pas une mesure
+du temps avant la première image.
+
+### Les essais à quatre et la limite du banc réseau, 6 septembre 2026
+
+Le scénario à quatre répète trois fois les passages en spectateur, la fermeture
+d'un onglet, son retour et une coupure des connexions. Il vérifie les noms chez
+chacun, la liste des spectateurs et la couronne, puis débranche une manette et la
+rebranche sous un autre numéro du navigateur. Les quatre personnes choisissent
+ensuite leur appareil avant le lancement Wii. Ce parcours passe après la
+correction de l'attente de fermeture de la connexion d'entrée.
+
+Le premier essai de réseau a rappelé une limite déjà écrite dans le worker :
+Mario Kart Wii produit ici une image de 1216 × 912. Sa moitié, 608 × 456, ne
+respecte pas l'alignement actuellement exigé par l'encodeur. Le serveur refuse
+correctement ce flux et la page reçoit le plein format. Compter cette page comme
+un spectateur réduit aurait donné une fausse comparaison ; l'assertion sur les
+dimensions a arrêté le banc. Le diagnostic personnel dit maintenant quand cette
+réduction est indisponible. La capacité est relue après une reconnexion, y compris
+si le salon n'a pas pu annoncer le changement de jeu.
+
+Sur Melee, deux pages recevaient 1280 × 960 et la troisième 640 × 480. Le relais
+TCP temporaire compte les octets effectivement remis au navigateur et partage
+son plafond entre les connexions de cette page. Il ralentit les lectures en
+amont quand son morceau en attente n'est pas vidé. Son essai a transféré
+300 000 octets identiques en 2 403 ms sous un plafond de 1 Mbit/s, avec au plus
+65 536 octets dans sa file JavaScript. Cela ne borne pas les tampons du noyau.
+
+Les mesures suivantes portent sur quinze secondes chacune :
+
+| Condition de la troisième page | Débit reçu | Images peintes sur les deux pleins | Images peintes sur le réduit |
+|---|---|---|---|
+| Pas de plafond utile | 0,0397 Mbit/s | 897 et 899 | 900 |
+| Plafond de 5 Mbit/s | 0,0397 Mbit/s | 899 et 900 | 899 |
+| Plafond de 0,01985 Mbit/s | 0,01988 Mbit/s | 899 et 898 | 119 |
+
+Le dernier passage impose bien un goulot, et les deux autres pages continuent
+à recevoir leurs images. Mais la capture montre un écran de confirmation de
+carte mémoire, pas une partie en mouvement. Le passage à 5 Mbit/s ne contraint
+donc rien sur cette scène. Ces chiffres prouvent le fonctionnement du banc et
+l'isolement des spectateurs, **pas** la qualité en course ni l'intérêt d'un autre
+réglage d'encodage. Aucun changement de QP ou de contrôle de débit n'en découle.
+Les captures et le fichier `network.json` sont conservés avec les traces de
+chaque salle temporaire ; les recettes permettent de recommencer sur une scène
+jouée. QP, le paramètre de quantification, règle le compromis entre détail de
+l'image et nombre d'octets encodés.
+
+### Vérification et mise en service, 6 septembre 2026 à 23 h 20 UTC
+
+La porte locale complète `just` passe, y compris les essais GPU et l’export du
+clip avec son stéréo audible. Elle exécute notamment 421 essais côté page et
+227 côté salon. La documentation passe aussi sa construction stricte. Les
+avertissements de lint JavaScript et de bibliothèques Python déjà admis par ces
+outils restent visibles ; ils ne sont pas comptés comme des erreurs corrigées.
+Aucune exécution de CI distante n’est revendiquée : aucun commit n’a été créé.
+
+Le parcours à quatre a été rejoué jusqu’au retour des images chez chacun, après
+la préparation Wii. La reprise du chef absent et celle d’une manette passent
+également, avec le délai réel de vingt secondes, le refus d’une personne présente
+et le rejet d’une autorisation devenue ancienne. Le worker ne redémarre pas pour
+ces reprises de places.
+
+La version `663d2888b8d4` du binaire a été installée après conservation du binaire,
+de l’unité, des réglages et des sauvegardes précédents. La salle était sans jeu ;
+elle le reste après le redémarrage du worker et du salon. La copie de retour se
+trouve sous `~/.local/state/nel3ab/deployments/20260906T232013Z`.
+
+Une page ouverte sur nel3ab.app en spectateur reçoit le nouvel artefact, dont
+l’empreinte correspond au fichier construit. Avec une manette simulée, elle
+montre les correspondances ouvertes sur une colonne et le diagnostic brut fermé,
+sans erreur JavaScript, sans prendre de place et sans lancer de jeu. Le trajet
+Tailscale vaut « non disponible » pour cette observation depuis lgf lui-même ;
+cela ne prétend pas mesurer le trajet d’un ami distant. La page finale pèse
+141 672 octets en Brotli.
+
+### Les messages de branchement disparaissent seuls, 7 septembre 2026
+
+Le message « manette connectée » restait sur le jeu tant que personne ne le
+fermait. À la demande de Souhib, chaque message de connexion, de déconnexion
+ou de reconnexion disparaît désormais après cinq secondes. C’est un choix de
+lecture, pas une durée mesurée auprès de joueurs. Le configurateur reste
+accessible dans le menu et la croix permet toujours de fermer plus tôt.
+
+Le délai appartient au message, pas au relevé de manette reçu deux fois par
+seconde. Sinon chaque relevé repousserait la disparition. Un nouveau branchement
+reçoit son propre délai ; ouvrir puis fermer le menu ne ressuscite pas le message
+précédent. Deux essais de composant ont échoué avec le comportement antérieur,
+puis passent avec cette expiration, en faisant avancer une horloge simulée.
+
+La porte locale complète `just` passe, dont 423 essais côté page, les essais GPU
+et le clip avec son. La documentation passe sa construction stricte. La page
+est déployée le 7 septembre à 4 h 59 UTC ; son empreinte est vérifiée via
+nel3ab.app. Aucun jeu n’a été lancé : la salle était au repos et le reste.
+
+### Fenêtre grise dans Zen sous Windows : piste à confirmer, 7 septembre 2026
+
+Souhib signale un gel intermittent de Zen quand nel3ab est ouvert. La fenêtre
+devient grise, le son continue et déplacer la souris rétablit l’affichage.
+Chrome ne présente pas ce symptôme lors de sa comparaison.
+
+Le [signalement Mozilla 2027413](https://bugzilla.mozilla.org/show_bug.cgi?id=2027413#c9)
+décrit un blocage voisin du compositeur graphique sous Windows, également
+rapporté dans Zen. Des participants constatent une amélioration avec
+`gfx.webrender.compositor=false`, après redémarrage du navigateur. Ce sera un
+essai local réversible, pas un correctif nel3ab présenté comme certain.
+
+Le compositeur assemble les éléments de la fenêtre pour les afficher. Notre
+lecture du code ne reproduit pas ce gel Windows.
+
+Le même jour, Souhib confirme que toute la fenêtre devient grise, onglets
+compris, et que l’essai n’a pas résolu le problème. Son rapport `about:support`
+confirme que le compositeur natif est désactivé par cette préférence. Le reste
+du rendu matériel reste disponible : ce réglage ne désactive pas toute
+l’accélération graphique. Le rapport donne Zen 1.22b, un moteur Firefox 155,
+une Radeon RX 7900 XTX et le pilote Windows `32.0.12019.1028`. AMD associe ce
+numéro à [Adrenalin 24.10.1](https://www.amd.com/en/resources/support-articles/release-notes/RN-RAD-WIN-24-10-1.html),
+une version de 2024.
+
+Le journal graphique contient huit lignes `CompositorBridgeChild receives IPC
+close with reason=AbnormalShutdown`. IPC désigne ici la communication entre
+processus : ces lignes constatent la fermeture anormale du canal du compositeur.
+Elles ne prouvent ni huit plantages distincts, ni que le pilote est la cause,
+ni que leur heure coïncide avec celle d’un gel observé. Le
+[signalement Mozilla 1906490](https://bugzilla.mozilla.org/show_bug.cgi?id=1906490#c9)
+cite précisément ce pilote et la famille RX 7900 pour des plantages vidéo.
+Sans rapport de plantage de cette séance, les deux incidents restent distincts.
+
+YouTube et Twitch ne présentent jamais ce symptôme d’après Souhib. Cette
+comparaison compte : nel3ab utilise WebCodecs puis dessine chaque image dans
+un canvas, une zone de dessin de la page. Une vidéo qui fonctionne ailleurs
+ne valide pas cette chaîne. Le site peut donc déclencher un défaut du rendu
+de Zen ; les erreurs graphiques ne suffisent pas à l’innocenter.
+
+Le prochain essai proposé est le pilote recommandé par AMD pour cette carte,
+puis un redémarrage de Windows et une nouvelle séance dans les mêmes conditions.
+Si le gel persiste, désactiver temporairement l’accélération matérielle entière
+de Zen permettra de comparer les deux chemins, avec un coût possible en fluidité.
+Ces essais restent à faire sur le poste Windows. Aucun contournement graphique
+n’a été ajouté à la page et aucun correctif n’est annoncé comme vérifié.
+
+### 7 septembre : le demi-format Wii, le son programmé et les profils par jeu
+
+Le format réduit de Mario Kart Wii échouait avant même d'atteindre la carte
+graphique : 1216×912 devient 608×456, et notre garde exigeait un multiple de seize.
+FFmpeg sait pourtant décrire le recadrage des macroblocs, les carrés utilisés par
+H.264. Le refus appartenait à notre bibliothèque. La nouvelle garde conserve
+les dimensions paires dont le format de couleur a besoin, sans arrondir ni
+couper une ligne du jeu. Le test GPU a d'abord échoué avec l'ancien refus.
+Un second essai convertit un motif dont les deux derniers bords sont clairs,
+encode puis décode l'image. Les tailles 608×456, 606×454 et 640×480 ont toutes
+conservé leurs dimensions et leurs bords. Cela prouve la géométrie, pas encore
+le débit d'une course. Les deux encodeurs reçoivent aussi le même nombre de
+places depuis le même paramètre.
+
+L'écart du son utilisait une avance cible et la liaison la plus rapide. Il ne
+soustrayait pas tout ce que l'image attendait déjà. Il compare maintenant
+l'instant réellement demandé à Web Audio, la sortie annoncée par le navigateur
+et l'horaire de présentation vidéo. La compensation se recalcule au rythme des
+relevés et son propre retard est retiré avant le calcul suivant : elle ne
+s'ajoute pas deux fois. Les essais ont fait rougir l'ancienne formule. Un autre
+rouge a montré que 400 ms supplémentaires ne réservaient aucune image de plus.
+La file réserve désormais les images correspondant au retard demandé. À 60 Hz,
+400 ms font 24 images, environ 40 Mo supplémentaires au format du jeu : estimation
+de volume, pas mesure de consommation du navigateur. Désactiver l'alignement
+rend ces places. Le chiffre reste une estimation d'horaires, pas une mesure
+physique par microphone et caméra ; la sortie audio n'est pas connue dans tous
+les navigateurs.
+
+Un profil complet peut maintenant être proposé pour un jeu précis. La préférence
+voyage avec les réglages personnels existants et reste isolée par identité.
+Elle choisit le profil présenté, puis le joueur le charge et vérifie sa manette.
+Elle ne le déclare pas prêt. Le catalogue ne publie pas encore l'identifiant du
+disque : console et titre servent de clé, avec la limite explicite que deux
+éditions de même nom partagent la préférence. Remplacer un profil conserve ce
+choix ; le supprimer retire aussi ses associations.
+
+Les fiches avant lancement et dans le configurateur distinguent la capacité du
+jeu, les appareils proposés ici et les limites connues. Les manuels Nintendo
+ont été relus pour les quatre jeux Wii déjà documentés. Les fiches GameCube
+proviennent des pages éditeur ; les commandes variables des mini-jeux restent
+inconnues au lieu d'être inventées. Les titres modifiés ne reprennent pas la
+fiche d'un titre voisin par ressemblance.
+
+L'essai dans Chromium a également créé un profil « Conduite test », l'a associé
+à Mario Kart Wii, refermé puis rouvert le configurateur et chargé la proposition.
+Le calcul de compensation affichait alors environ 102 ms et un écart restant nul.
+Ce zéro prouve le calcul des horaires, pas l'absence de décalage à l'oreille.
+Le premier essai réseau en course a été écarté comme preuve de débit : après le
+départ, le kart commandé automatiquement a fini contre un mur. Le débit du plein
+format est passé d'une fenêtre à 18,46 Mbit/s à environ 4,7 Mbit/s. Les trois
+navigateurs continuaient bien de peindre, mais le plafond de 5 Mbit/s avait fini
+par devenir trop généreux pour cette scène. Une image qui bouge un peu n'est
+pas une charge de course représentative.
+
+Un second essai a gardé l'accélérateur et le stick droit, avec des captures
+espacées de huit secondes : le kart décrit des cercles entre route et herbe,
+passe près du mur et continue de changer de direction. Les trois navigateurs
+jouent le son. Sur trois fenêtres de quinze secondes, les deux clients pleins
+restent en 1216×912 et le troisième reçoit bien 608×456. Les relevés sont gardés
+dans `bench/results/2026-09-07-mario-kart-wii-half.json`.
+
+| Liaison du client réduit | Débit reçu, son compris | Images peintes par le client réduit | Images peintes par chacun des clients pleins |
+| --- | --- | --- | --- |
+| Sans plafond utile | 9,66 Mbit/s | 900 | 898 et 898 |
+| Plafond 5 Mbit/s | 5,00 Mbit/s | 538 | 900 et 900 |
+| Plafond 4,83 Mbit/s | 4,83 Mbit/s | 515 | 901 et 900 |
+
+La séparation des spectateurs tient ; le demi-format à qualité fixe ne suffit
+pas pour une liaison de 5 Mbit/s sur cette scène. Ses trous et sa gigue augmentent,
+ceux des deux pleins restent nuls pendant les fenêtres contraintes. Il faudra
+mesurer un plafond d'encodage propre au flux réduit si l'on veut servir ce lien.
+Ce passage local avec conduite circulaire n'est ni une course complète à quatre,
+ni une reproduction des pertes Wi-Fi. La vraie salle continuait de tourner sur
+le même GPU. Les tests GPU de bibliothèque avaient fini avant ces mesures.
+
+La vérification complète `just` passe, dont 436 essais de page, 229 de Python,
+71 essais GPU et l'export du clip avec décodage stéréo. Les parcours visuels
+vérifient encore les touches, le téléphone et la préparation. Un passage réel
+a révélé une course dans le pilote : la place était déjà libérée au salon mais
+le bouton « prendre une manette » attendait le relevé suivant dans la page.
+Le pilote attend maintenant le vrai bouton avant de cliquer, sans sommeil fixe.
+
+Un autre contrôle a trouvé le binaire de développement en retard sur la page.
+La page avait été reconstruite, les essais unitaires passaient, mais l'appel
+direct du pilote réutilisait encore l'ancien exécutable. La recette `just`
+reconstruit cet exécutable ; un appel direct ne le fait pas. Le pilote compare
+désormais l'empreinte de la page servie à celle du fichier construit, avant
+l'ouverture des navigateurs. Cette garde a d'abord refusé l'ancien binaire.
+Les mesures réseau portent sur les mêmes modules média ; l'écart de page
+concernait le repli de la fiche et l'emplacement de l'onglet Profils.
+
+La dernière préparation complète passe également avec la page recompilée :
+Alice recharge son profil Wii, Benoit garde la manette GameCube, aucun profil
+n'est partagé entre ces identités, puis leurs noms et leurs appareils reviennent
+après le lancement. Le passage mesuré prend 5,17 secondes entre confirmation
+et images revenues, sur cette salle locale automatisée. Une seconde préparation
+propose le profil sans rendre personne prêt. Après annulation, l'onglet Profils
+du menu ordinaire le recharge sans redémarrage. Les fiches compactes laissent
+leurs détails fermés dans le configurateur ; les correspondances restent ouvertes.
+
+L'[étude Switch](etude-switch-2026-09-07.md) examine le serveur, les sources de
+Ryubing, Eden et Citron Neo. Le mode sans interface de Ryubing expose déjà des
+profils par joueur : c'est le premier candidat d'intégration. Eden reste son
+comparatif nécessaire pour la fluidité. Aucun jeu Switch n'a tourné pendant
+cette étude. La capture d'image et le nouveau protocole de manettes restent à
+construire et à mesurer avant d'ajouter cette console à la salle.
+
+Le lot a été déployé le 7 septembre à 21 h 06 UTC. Une copie du binaire,
+de l'unité et des sauvegardes a été conservée avant remplacement. Le worker
+et le salon sont actifs, Mario Power Tennis reste le jeu sélectionné et sa
+nouvelle fiche est servie. L'empreinte de la page servie correspond à l'artefact
+construit. Dix messages binaires ont été reçus sur chacun des deux flux vidéo
+et sur le son, sans prendre de manette. Ce dernier contrôle prouve la sortie
+des flux du service ; les parcours de configuration ont été joués dans la salle
+isolée. Aucun moteur Switch n'a été installé par ce déploiement.
+
+### 7 septembre : ce que désigne dolphin-switch
+
+Souhib fournit le dépôt précis `xerpi/dolphin-switch`. Sa description et ses
+instructions de compilation montrent que la Switch exécute Dolphin, lequel
+continue d'émuler la GameCube et la Wii. Cette vérification du dépôt, ajoutée
+à l'[étude Switch](etude-switch-2026-09-07.md#le-depot-dolphin-switch-de-xerpi),
+explique pourquoi il ne permet pas d'ajouter des jeux Switch au serveur.
+Le premier document ne l'avait pas examiné séparément. Ryubing et Eden restent
+les deux candidats au prototype ; aucune mesure de fluidité Switch n'est ajoutée
+par cette lecture.
+
+### 7 septembre : une Switch de test arrive jusqu'aux quatre navigateurs
+
+Souhib a demandé de dépasser l'étude et de vérifier ce que l'ajout Switch
+conserverait des fonctions de Dolphin. Le prototype est séparé de la salle
+actuelle : son propre affichage, son son, ses appareils d'entrée et ses données.
+Il emploie les bibliothèques de transport et les modules média de nel3ab,
+sans brancher le plan de contrôle de la vraie salle.
+
+Un programme Switch a été écrit pour cet essai. Chaque manette possède une
+zone de l'image. Les boutons allument des marqueurs, les sticks déplacent des
+points, et un appui produit une vibration. Un compteur d'images prouve que le
+programme avance ; un second compteur, écrit dans la carte SD virtuelle,
+prouve que cet état survit à un lancement suivant. Le son porte deux notes :
+440 Hz à gauche et 880 Hz à droite. Ce programme est un NRO, le format des
+programmes Switch développés hors du catalogue commercial. Il se compile avec
+les outils libres devkitA64 et libnx, sans contenu de jeu commercial.
+
+Le premier affichage, Xvfb, créait un écran X11 dans la mémoire du processeur.
+Ryubing retombait sur le dessin logiciel, malgré la présence de la Radeon.
+Cage a résolu ce problème en fournissant un affichage Wayland, le protocole par
+lequel les applications Linux donnent leurs fenêtres au compositeur. Ce
+compositeur assemble l'image à montrer. Dans ce montage sans écran, Ryubing
+annonce bien la RX 6650 XT et le moteur Vulkan. Le mode mémoire par défaut a
+toutefois produit une violation d'accès. Le mode `SoftwarePageTable`, qui
+traduit les adresses mémoire en logiciel, permet l'exécution. Son coût sur un
+vrai jeu n'a pas encore été mesuré.
+
+Un autre message avait induit en erreur : « fichier non pris en charge ».
+Le chargeur de programmes NRO ouvrait le fichier en lecture-écriture, alors
+qu'il était monté en lecture seule. Une copie privée a permis le chargement.
+Le problème n'était pas le format compilé. Les jeux eux-mêmes restent montés
+en lecture seule dans le prototype.
+
+Quatre appareils uinput, créés par l'interface du noyau Linux destinée aux
+périphériques virtuels, sont lus par SDL, la bibliothèque d'entrée des
+émulateurs. Les essais vérifient chaque manette, les boutons supplémentaires
+Switch, les sticks, les gâchettes et la croix. Quand les commandes cessent,
+les marqueurs reviennent au neutre en 1,07 à 1,14 seconde, pour une expiration
+fixée à une seconde. Une course au lancement a aussi été rencontrée : Docker
+avait créé son conteneur avant que les numéros des appareils existent. Le
+lanceur attend maintenant le socket du helper, pas une durée supposée.
+
+Le contrôle des images ne suffisait pas pour un bouton tenu. Un essai lisant
+les événements du noyau a trouvé qu'un état répété relâchait puis réappuyait
+sur A. La remise au neutre effectuée avant chaque état était la cause. Le
+helper n'écrit maintenant que les différences. Le même essai, d'abord rouge,
+vérifie qu'aucun nouvel appui n'apparaît pendant la tenue, puis qu'un vrai
+relâchement produit bien son événement.
+
+La chaîne continue dans le vrai transport Rust et les modules média de la
+page. Quatre contextes Chrome obtiennent quatre places. Un appui ne change
+que l'image de la manette correspondante. La vibration remonte à l'API de la
+bonne page ; cette API est simulée dans le pilote, donc aucune vibration
+physique n'a été ressentie. Le passage en spectateur libère une place, et
+une autre page peut la reprendre. Les deux tailles, 1280×720 et 640×360,
+sont décodées par le navigateur.
+
+Le clip du dernier passage dure 30,22 secondes. Après décodage, les deux
+notes sont retrouvées sur leurs canaux respectifs. Le même vérificateur refuse
+une copie sans piste audio et une copie contenant du silence. Le premier jet
+du pilote avait pourtant accepté une page HTML enregistrée avec l'extension
+MP4 : il demandait le clip avec GET au lieu de POST et n'affirmait que le statut
+200. L'assertion sur le type de contenu a d'abord été vue rouge contre cette
+version, puis la méthode a été corrigée. Le contrôle de la signature du fichier
+et le vrai décodage empêchent désormais ce faux succès.
+
+Le compteur du programme avance de 306 images en environ 5,09 secondes, soit
+près de 60 images/s. Des rectangles ne coûtent pas une partie de Mario Tennis.
+Cette mesure prouve l'avancement du programme, pas la puissance disponible
+pour un jeu à quatre. Eden 0.2.1 a aussi été exécuté. Après ses demandes de
+clés au démarrage, il quitte avec le code 139 au chargement du programme,
+y compris avec les options fastmem désactivées. La cause reste inconnue.
+
+Les archives de Mario Tennis reçues ensuite ont permis de vérifier une autre
+distinction. Le premier NSP, un conteneur de fichiers Switch, ne portait
+qu'une mise à jour. Le second fichier est le jeu de base en XCI, le format
+d'une copie de cartouche. Il est extrait et reconnu, mais Ryubing ne peut pas
+déchiffrer l'en-tête NCA, un conteneur interne de contenu, sans les clés de la
+console. Les chemins du firmware, son logiciel système, et de `prod.keys`
+ont été demandés. Aucun essai de partie commerciale n'est annoncé.
+
+La lecture des partitions de la cartouche, le 7 septembre, précise ce qui
+manque. Le XCI contient aussi une partition `update` avec 201 fichiers,
+occupant 385 810 432 octets. Ryubing sait installer le logiciel système depuis
+une copie de cartouche : demander un fichier de firmware séparé était donc
+prématuré. Les clés restent nécessaires au déchiffrement. Sans elles, ni la
+version de ce logiciel système ni sa compatibilité avec la mise à jour du jeu
+ne sont vérifiées.
+
+L'[étude mise à jour](etude-switch-2026-09-07.md) compare chaque fonction de
+Dolphin avec ce prototype. Les différences qui empêchent encore une mise en
+service sont concrètes. Les commandes supplémentaires Switch ne traversent
+pas toutes le protocole du navigateur. Les horodatages sont pris après
+l'encodage, et le parseur attend encore l'image suivante. Les demandes
+immédiates d'images-clés ne sont pas transmises. Les deux encodeurs tournent
+même sans spectateur. Enfin, quitter le programme invité n'arrête pas Ryubing
+dans les cinq secondes observées ; capturer son compositeur peut continuer
+à produire une image figée. Le futur superviseur doit connaître l'état de la
+session émulée et tester les sauvegardes pendant l'arrêt.
+
+La porte `just` a été rejouée. La première exécution s'arrêtait au contrôle du
+contrat : les fichiers OpenAPI déjà modifiés par les travaux précédents
+étaient comparés à l'index Git, alors qu'aucun commit n'était demandé. La
+seconde utilise un index temporaire contenant ces fichiers générés et passe
+la porte complète, tests GPU et clip audio compris. Cet index disparaît après
+la commande ; l'index de travail n'a pas été modifié. La recompilation du
+contrat reste vérifiée, et aucune publication Git n'a été effectuée.
+
+### Le 7 septembre, Mario Tennis dépasse enfin le chargement
+
+Souhib a fourni une archive contenant `prod.keys` et `title.keys`. Le premier
+fichier a été vérifié sans afficher ses valeurs, puis installé dans le dossier
+privé du prototype, lisible uniquement par son utilisateur. Le second n'a pas
+été nécessaire pour cet essai. Le nom de version sur une archive de clés ne
+prouve pas ce qu'elle permet de lire : le déchiffrement du jeu est la preuve.
+
+Ryubing reconnaît maintenant Mario Tennis Aces 1.0.0. Le premier essai avec les
+clés s'arrête sur `FontStandard`, la police de caractères fournie par le système
+Switch. Les clés et le firmware sont bien deux besoins distincts. L'installateur
+de Ryubing reconnaît le firmware 4.1.0 dans la partition de mise à jour du XCI,
+puis l'installe. Aucun firmware séparé n'a été téléchargé.
+
+Le jeu affiche alors son écran titre sur la Radeon et les navigateurs reçoivent
+ses scènes d'introduction. Les commandes du navigateur font avancer les
+dialogues. Quatre pages prennent quatre places, dont une en demi-format.
+Le clip de cette exécution dure 30,23 secondes ; son audio stéréo est décodé
+et contient un signal sur les deux canaux. Ce résultat complète les sons de
+test précédents avec du contenu produit par un vrai jeu.
+
+Il ne prouve pas un match fluide à quatre. L'encodeur produit soixante images
+par seconde, mais le compositeur peut répéter une image quand le jeu ralentit.
+La mise à jour NSP n'est pas appliquée : le jeu testé est 1.0.0 et non la version
+3.1.1 annoncée dans la fiche de téléchargement. Les sauvegardes sont privées
+au prototype ; leur restauration n'a pas encore été éprouvée. La salle Dolphin
+en service n'a pas été redémarrée pour cette expérience.
+
+### Le 8 septembre, quatre pages jouent un double sur Switch
+
+Le lancement de la veille ne prouvait que le titre et l'introduction. Cette
+fois, les quatre pages ont choisi chacune leur personnage dans Mario Tennis
+Aces, puis lancé un double sur terre battue. La deuxième page a changé Luigi
+en Daisy sans changer les trois autres personnages. Chacune a ensuite confirmé
+son choix. Sur le terrain, la troisième a servi, la première a renvoyé une
+balle et les sticks des deuxième et quatrième ont déplacé leurs personnages.
+Le score a atteint quinze partout. Ces commandes sont scriptées dans quatre
+contextes Chrome sur le serveur ; ce n'est pas une soirée avec quatre amis
+depuis leurs réseaux respectifs.
+
+La mise à jour fournie fonctionne, mais le moteur et le titre l'identifient
+comme 3.1.0. La fiche du site annonçait 3.1.1. Le firmware 4.1.0 installé depuis
+le XCI suffit aux fonctions essayées ; rien ne permet d'en déduire une règle
+pour tous les jeux. Un piège de configuration a coûté un redémarrage : le
+fichier des mises à jour attend `selected` et `paths`, en minuscules. Écrire
+les noms `Selected` et `Paths` vus dans les types C# laisse le jeu en 1.0.0,
+sans erreur. Vérifier la version réellement chargée est donc une étape du
+lancement, pas une commodité d'affichage.
+
+Le clip de ce double dure 30,55 secondes. Les pistes vidéo et audio commencent
+à zéro ; le son stéréo décodé contient un signal à gauche comme à droite.
+Trois pages regardent le plein format et la quatrième le demi-format. Les
+vibrations remontent aux quatre API simulées. Cela complète la preuve du
+programme invité, sans prétendre qu'une vraie manette a vibré ni que quelqu'un
+a jugé le son à l'écoute.
+
+Il fallait surtout cesser de confondre les images du flux avec celles du jeu.
+MangoHud est un outil qui observe la présentation des images par Vulkan dans
+le processus qui les dessine. Il écrit ici un fichier CSV, une table de texte
+dont les colonnes sont séparées par des virgules, toutes les cent millisecondes.
+Son activation reste un choix du banc avec `SWITCH_PROFILE=1`. Le menu de
+l'aventure tourne autour de trente présentations par seconde alors que la
+capture en produit environ soixante. Le compteur du navigateur pouvait donc
+paraître bon tout en recevant deux fois la même image.
+
+Sur une minute du terrain, services, points et animations compris, 599 relevés
+donnent une médiane de 38,07 images par seconde. Le cinquième percentile vaut
+31,71 et un relevé descend à 5,44. La plus grande durée d'image rapportée vaut
+183,87 millisecondes. C'est la première minute mesurée, avec les quatre pages
+et les deux encodeurs sur le même serveur. Nous n'avons isolé ni les caches,
+ni la compilation graphique, ni le coût de Chrome. Ce chiffre n'est donc pas
+une limite de la machine ; c'est la limite observée de cette configuration.
+Il ne mesure pas non plus le délai entre un appui et son effet. Le CSV retenu
+et `measure-render.py` permettent de refaire le calcul. Un intervalle vide ou
+invalide doit produire une erreur, pas un résultat présenté comme une mesure.
+
+Le mode mémoire `HostMapped` aurait pu éviter une partie du travail du mode
+`SoftwarePageTable`, qui gère les adresses par logiciel. L'essai n'a pas donné
+un meilleur chiffre : le moteur a quitté avec le code 134 après environ onze
+secondes, sur une violation d'accès pendant la préparation de la mémoire du
+jeu. La cause reste à chercher. Le mode fonctionnel reste donc le défaut du
+prototype. Il faut mesurer puis isoler le coût, pas annoncer que ce serveur
+ne peut pas faire mieux ni promettre qu'un réglage résoudra tout.
+
+Quitter l'aventure par son menu a écrit une sauvegarde de 31 232 octets. Après
+arrêt, essai du mode qui plante et relance du mode fonctionnel, son empreinte
+est identique. Le jeu ouvre directement le menu, puis reprend Mario devant
+Marina Stadium au niveau un. Il ne rejoue pas l'introduction. C'est une vraie
+relecture de l'état sauvegardé. Elle ne prouve pas un arrêt pendant une écriture,
+les imports ou les deux emplacements proposés par nel3ab.
+
+L'arrêt du conteneur pendant le match reste incorrect : 1,47 seconde, code
+139. Une tentative de fermeture par `wlrctl`, l'outil qui commande les fenêtres
+Wayland, échoue parce que Cage n'expose pas le protocole demandé. Le chemin de
+fermeture existe dans la fenêtre du moteur, mais nous ne savons pas encore le
+déclencher proprement dans ce montage. La vitesse et cet arrêt passent donc
+avant le raccordement au salon. L'étude décrit ensuite les commandes Switch
+complètes, le catalogue, les profils et la préparation, les horloges du flux,
+puis les noms, le chef, les spectateurs et les sauvegardes de chaque salle.
+
+Les outils de mesure et le pilote interactif sont dans `spikes/switch-room`.
+Les données de jeu et les clés restent dans le dossier privé du laboratoire.
+La porte `just` est verte, tests GPU et clip audio compris. Comme la veille,
+le contrôle de génération OpenAPI utilise un index Git temporaire contenant
+le contrat déjà modifié par les travaux précédents ; aucun commit ni changement
+de l'index de travail n'a eu lieu. Les processus du laboratoire sont arrêtés.
+Le worker Dolphin et le plan de contrôle en service sont restés actifs.
+
+### Le 8 septembre, corriger le laboratoire avant de proposer un essai
+
+Souhib demande une adresse pour jouer, après un travail sur la fluidité et
+l'arrêt. La première découverte renverse notre diagnostic du matin. Le mode
+mémoire rapide n'était pas condamné par le moteur : notre conteneur ne donnait
+que 512 mébioctets à `/dev/shm`, le dossier qui stocke ses fichiers partagés en
+mémoire. Un mébioctet vaut 1 048 576 octets. Ryubing y place la mémoire de la
+console. Le relevé atteint exactement 536 870 912 octets occupés, puis le
+programme plante. Avec un plafond de huit gibioctets, le même mode démarre et
+occupe déjà environ 3,56 gibioctets à l'écran titre. Le plafond ne réserve pas
+cette quantité d'avance. Le nombre de gigaoctets disponibles sur la machine
+ne disait donc rien de ce quota particulier. L'absence d'alerte de manque de
+mémoire dans Docker ne le disculpait pas non plus.
+
+Le mode `HostMapped` devient le défaut du prototype. Une nouvelle minute de
+double sur terre battue donne 52,41 images par seconde médianes, contre 38,07
+lors du premier passage. Koopa remplace Mario et les échanges diffèrent : ce
+n'est pas une mesure exacte du gain du seul réglage. Dans la même partie,
+retirer ensemble les quatre navigateurs et la capture donne ensuite 60,08
+sur trente secondes. Le terrain continue de bouger en attendant le service.
+Le banc alourdit bien le jeu dans ce cas. Il reste à séparer le prix de Chrome
+et celui de la capture, puis à mesurer chez les joueurs. Les relevés et leurs
+limites vivent à côté du pilote, dans `results/2026-09-08-fast-stop.json`.
+
+Pour quitter normalement, Sway remplace Cage dans ce laboratoire. Sway sait
+demander à l'application de fermer sa fenêtre, puis attendre sa réponse.
+Cette demande révèle plusieurs attentes circulaires dans le mode sans
+interface de Ryubing. Le fil qui traite la fermeture attendait la fin de sa
+propre boucle. Ensuite, la boucle du rendu attendait d'être libérée par un
+nettoyage prévu après son retour. La lecture des piles des fils a permis de
+séparer ces deux problèmes. Une pile décrit les fonctions qui se sont appelées
+jusqu'au point où un fil attend ; elle ne remplace pas un essai de fermeture.
+
+Le correctif local demande la sortie sans attendre depuis l'événement, libère
+le fil de lecture des événements quand la boucle s'arrête, puis nettoie et
+rejoint le rendu Vulkan avant de retirer la fenêtre. Il ne change pas Dolphin.
+Sa reconstruction a révélé un autre problème : deux paquets de développement
+ne sont plus servis aux anciennes adresses GitLab. Les bibliothèques DLL,
+fichiers de code que le programme charge, sont pourtant dans la version
+publique 1.3.3 déjà téléchargée et vérifiée. Le script les en extrait, conserve
+leurs empreintes et les référence directement. Les sources, bibliothèques et
+sorties compilées restent dans le laboratoire ; les correctifs et la recette
+restent dans le dépôt. Le SDK .NET, l'ensemble des outils de compilation, est
+installé dans ce même dossier privé.
+
+La fermeture depuis le titre rend maintenant zéro en 3,50 secondes. Depuis
+l'aventure avec le navigateur et la capture actifs, elle rend zéro en
+1,45 seconde. Le superviseur n'a forcé aucun de ces deux arrêts. Les deux
+copies de `save7.dat` gardent leur empreinte, et une relance retrouve Mario
+niveau un devant Marina Stadium. Les métadonnées de visite ont changé.
+Cela ne prouve pas qu'une coupure brutale pendant une écriture serait sans
+conséquence. Le test avec MangoHud encore activé a rendu 139 ; ce défaut du
+chemin instrumenté reste ouvert et l'outil reste désactivé pour jouer.
+
+Un test du superviseur lance un vrai enfant qui écrit sa sauvegarde avant de
+sortir. Retirer la demande de fermeture le fait échouer. Son contraire refuse
+de fermer et doit être signalé comme forcé, avec un code différent de zéro.
+Une limite de trente secondes borne ce refus ; elle ne prétend pas mesurer
+la durée normale d'une sauvegarde. Une disparition de l'affichage ne laisse
+pas non plus un jeu oublié. Les quatre essais passent, puis la porte `just`
+passe, y compris le GPU et le clip avec son. L'index Git jetable reste limité
+au contrat déjà modifié, comme au premier passage ; aucun commit n'est créé.
+
+Une page privée est maintenant servie sur le port HTTPS 8445 du nom Tailscale.
+Le proxy ne change aucune des routes de la salle habituelle. La page propose
+jouer, regarder, quitter sa place, plein écran, volume, formats et clip. Les
+explications de touches restent visibles et les diagnostics se replient. Le
+message de branchement disparaît après sept secondes. Le pilote vérifie ces
+comportements par cette adresse HTTPS, en comparant aussi la page reçue à
+celle qui vient d'être construite. Le clip de ce passage contient 30,78
+secondes d'image et de son stéréo ; le décodage vérifie le signal des deux
+canaux, pas seulement la présence d'une piste.
+
+La session laissée ouverte pour Souhib utilise les quatre appareils virtuels
+et ignore la fenêtre système qui réclame de les reconfigurer sur le bureau.
+Le nombre de joueurs se choisit dans le menu du jeu. L'aventure a été relue
+ainsi. Les noms, les profils, la préparation collective et les commandes
+Switch supplémentaires restent des travaux d'intégration, pas des propriétés
+promises par cette page d'essai.
+
+### Le 8 septembre, le son attendait avant même de sortir de l'émulateur
+
+Souhib essaie Mario Tennis depuis son navigateur. Le jeu répond, mais moins
+vite que les jeux Wii et GameCube ; le son arrive plusieurs secondes après
+l'image. Mesurer seulement les messages du réseau aurait envoyé chercher au
+mauvais endroit. Les mêmes échantillons, lus directement dans le serveur audio
+privé puis reçus sur le transport du prototype, arrivent à environ quatre
+millisecondes d'écart. Le navigateur local ajoute quelques dizaines de
+millisecondes. Rien dans ces deux mesures n'explique plusieurs secondes.
+
+La file de SDL, la bibliothèque audio utilisée par l'émulateur, contient en
+revanche 1 725 ms de son dès le démarrage, puis environ 1 860 ms. Le producteur
+peut accumuler pendant une attente ; quand le périphérique reprend à vitesse
+normale, cette avance ne disparaît plus. Le correctif dans le laboratoire
+retire le son ancien quand cette file dépasse 50 ms. Il garde les 15 ms les
+plus récentes, soit trois morceaux produits par le moteur, ou au moins ce que
+le périphérique demande en un appel. Ce choix paie un trou après un blocage
+pour revenir au présent. Il ne modifie aucun échantillon d'une file saine.
+Les compteurs qui rendent les buffers au jeu avancent avec les sons abandonnés.
+Leur publication et celle des échantillons partagent désormais un verrou ; un
+lecteur ne doit pas consommer le son avant que son buffer soit enregistré.
+
+L'essai appelle le vrai backend SDL avec un périphérique factice. En remettant
+le code amont, il lit un son vieux de 600 ms et devient rouge. Avec le
+correctif, il lit les sons récents et rend tous les buffers attendus. Les
+jumeaux gardent une file saine dans son ordre exact, ne coupent rien au seuil
+de 50 ms et rendent du silence si aucun son n'est disponible. Les quatre
+passent. La file du vrai jeu se tient ensuite autour de 20 à 30 ms. Arrêter
+une seconde le seul serveur audio privé puis le réveiller abandonne 1 065 ms
+de son nouveau et retrouve une file de 5 ms. Le test compare le compteur avant
+et après l'arrêt : une suppression ancienne ne peut pas le faire passer.
+Ce n'est pas une mesure physique de l'écart entre le haut-parleur de Souhib
+et son écran.
+
+L'image avait deux attentes évitables. Le recorder gardait plusieurs encodages
+en cours et notre lecteur attendait le début de l'image suivante pour savoir
+où finissait la précédente. Le prototype ne laisse plus qu'un encodage en vol.
+Un correctif de wf-recorder, fixé sur sa version 0.4.1, transmet directement le
+paquet terminé et l'instant fourni par le compositeur. Une horloge monotone
+mesure un temps qui avance sans les corrections de l'heure civile. Lire deux
+images arrivées ensemble ne leur donne donc plus deux faux instants de capture
+presque identiques. Le petit protocole privé porte instant, longueur et image.
+Une fin tronquée est une erreur, et recevoir un paquet complet suffit pour
+le rendre immédiatement. Restaurer l'attente d'un octet supplémentaire fait
+échouer le test ; les morceaux incomplets restent au contraire en attente.
+
+Un pilote dessine une couleur dans une fenêtre Sway, puis attend ce même pixel
+dans Chrome local. La médiane initiale est de 114,51 ms sur onze changements,
+après retrait du premier pour le démarrage. Avec un seul encodage en vol, elle
+est de 82,56 ms. Avec les paquets terminés et leur horloge, deux passages après
+nettoyage donnent 78,55 puis 78,32 ms ; le dernier est fait après reconstruction
+et redémarrage du conteneur. Onze changements ne décrivent pas les rares
+saccades d'une soirée. Cette fenêtre remplace le rendu du jeu : ces nombres
+ne sont ni la latence d'un appui dans Mario Tennis, ni une comparaison physique
+avec Dolphin, ni une preuve de soixante images de jeu par seconde. Le seuil
+optionnel de 100 ms appartient à ce banc sur cette machine.
+
+Entre ces relevés, une erreur de notre procédure a coûté une série d'essais.
+Arrêter l'unité qui portait `docker exec` arrêtait ce client, mais la capture
+restait dans le conteneur. Les relances ont créé quatre producteurs envoyant
+leurs images et leurs sons dans le même pont. Les cadences impossibles, les
+relances du décodeur et les délais jusqu'à plusieurs centaines de millisecondes
+étaient alors des mesures du laboratoire cassé. Ces séries sont invalidées,
+y compris l'essai qui retirait le filtre à soixante images par seconde ; elles
+ne permettent pas de conclure sur cette option. Le filtre reste celui de la
+référence. Le service demande maintenant l'arrêt dans Docker et attend la
+sortie des producteurs. Un verrou refuse une seconde capture. Le test devient
+rouge en retirant ce verrou ; l'essai réel vérifie le refus puis l'absence de
+tout encodeur et lecteur audio après l'arrêt. La règle correspondante entre
+dans AGENTS.md, qui pointe vers CLAUDE.md.
+
+Les sources modifiées, les trois correctifs Ryubing et celui du recorder
+restent dans `spikes/switch-room`. Aucun nouveau module Rust non sûr n'est
+ajouté. Le moteur corrigé s'arrête normalement en 1,20 seconde sans arrêt
+forcé ; la version reconstruite et la nouvelle image de capture servent
+ensuite la même adresse privée sur le port 8445. Le délai restant comporte
+encore le compositeur et la capture, là où Dolphin prête directement son
+image. Les demandes immédiates d'image-clé, le demi-format produit seulement
+s'il est regardé et la mesure d'appui depuis un autre appareil restent ouverts.
+
+La porte locale `just` a passé Rust, Python, page, GPU et clip avec son. Comme
+au passage précédent, un index Git jetable contient uniquement le contrat
+généré déjà modifié pour vérifier sa cohérence, sans toucher à l'index réel
+ni créer de commit. Les nouveaux essais du prototype sont lancés séparément :
+quatre pour le backend audio, cinq pour les paquets et deux pour l'exclusion
+des captures. Le pilote HTTPS vérifie aussi la page servie, les deux formats, les places et
+l'extinction du message de branchement, sans erreur JavaScript. Un clip de
+30,30 secondes contient deux pistes qui commencent à zéro ; le décodage de
+la vidéo réussit et celui du son retrouve un signal sur les deux canaux.
+Les détails chiffrés, versions et limites sont conservés dans
+`spikes/switch-room/results/2026-09-08-audio-latency.json`.
+
+### Le 8 septembre, ce qui reste dans les 78 ms du prototype Switch
+
+Souhib demande si l'image peut arriver plus tôt. La relecture distingue des
+attentes réelles du coût encore inconnu de l'émulation. Dans le dernier banc,
+une image déjà décodée attend 22,6 ms médianes avant d'être peinte par Chrome.
+Le tampon absorbe les arrivées irrégulières ; le supprimer sans corriger cette
+irrégularité pourrait rendre le jeu plus saccadé. Un relevé en lecture seule
+des trois dernières minutes du journal, sur 36 points par format, donne
+24,13 ms médianes du temps fourni par le compositeur jusqu'à l'envoi du plein
+format, de 12,20 à 39,88 ms. Le demi-format donne 24,23 ms. Ces observations
+ne sont pas les étapes chronométrées des mêmes images : les additionner ne
+constituerait pas une décomposition des 78 ms.
+
+Le filtre qui recale la capture à soixante images par seconde garde bien deux
+images avant de produire sa sortie normale : cela se lit dans
+[le code FFmpeg utilisé par cette génération du recorder](https://github.com/FFmpeg/FFmpeg/blob/n6.1.1/libavfilter/vf_fps.c#L298).
+Une période vaut 16,67 ms à cette cadence ; ce n'est pas un gain promis en
+retirant le filtre, car l'attente et la restitution dans le navigateur changent
+ensemble. L'essai précédent sans ce filtre était invalidé par les captures
+multiples. Il mérite donc un nouveau passage isolé. Les deux captures restent
+actives même si personne ne regarde le petit format. Les arrêter selon la
+présence est une autre piste, dont le gain n'a pas encore été séparé.
+
+La différence structurelle avec Dolphin reste l'affichage dans Sway suivi
+de sa recapture. Un export de l'image GPU depuis Ryubing pourrait éviter ces
+étapes, mais il demanderait un correctif propre au moteur et des preuves de
+synchronisation. Ce passage n'en implémente aucun et ne relance pas le jeu.
+La priorité proposée est de mesurer le filtre et la double capture avant de
+réduire la marge du navigateur ou d'engager cet export direct.
+
+### Le 8 septembre, trois attentes retirées du chemin Switch
+
+Souhib demande de traiter les trois pistes proposées. Le premier passage garde
+le même jeu et vérifie qu'un seul processus de capture est actif. Retirer le
+filtre `fps=60` fait passer la médiane de 81,48 à 45,00 ms sur onze changements
+de couleur. `-B 60` annonce seulement la cadence nominale au recorder ; `-r 60`
+insérait le filtre qui attend l'image suivante. Les vrais instants de capture
+restent dans les paquets. Le filtre de conversion du demi-format ne conserve
+que le redimensionnement et la conversion de couleur.
+
+La relecture de la page trouve ensuite une attente différente. Après un
+blocage du navigateur, elle montre une seule ancienne image par tic. Si les
+images continuent d'arriver au même rythme, elle ne rattrape jamais cette file.
+L'essai fait passer 64 ms sans dessin, puis livre les images des instants 16,
+32, 48 et 96 ms. L'ancienne page montre celle de 16 ms. La correction montre
+celle de 48 ms et garde celle de 96 ms, dont l'heure n'est pas encore venue.
+Remettre l'ancienne boucle rend bien ce test rouge. Le jumeau prouve qu'une
+arrivée régulière conserve toutes ses images et que celles en avance attendent.
+Les images abandonnées sont fermées pour rendre leur mémoire. La marge contre
+les arrivées irrégulières reste en place : le gain vient du rattrapage, pas de
+la suppression de cette protection. Cette correction vit dans le module vidéo
+commun, reconstruit dans les deux pages ; seul le prototype est relancé ici.
+
+Le petit flux interroge maintenant le pont sur son socket privé. Le nombre
+de spectateurs vient du transport Rust, qui tient les connexions réelles.
+Le premier spectateur démarre un encodeur ; le deuxième utilise le même.
+Le départ du premier ne change rien ; celui du dernier demande l'arrêt et
+attend réellement la sortie du processus avant une éventuelle relance.
+La vérification se fait toutes les 100 ms, hors des boucles d'image. Cela peut
+ajouter jusqu'à 100 ms à la découverte d'un premier spectateur, avant le coût
+de démarrage de l'encodeur. Le plein format reste actif pour conserver les
+clips, et le son continue. La petite image revient avec la première image-clé
+d'un encodeur neuf. Une panne de cet encodeur est une erreur visible, pas une
+invitation à en démarrer un autre par-dessus.
+
+Le pilote contrôle les vrais processus et les images reçues. L'ancien code
+garde un petit encodeur sans spectateur et fait échouer l'assertion. Le nouveau
+passe les deux arrivées, les deux départs, le retour et le changement de format,
+en conservant le même encodeur du plein format et le son. Le premier essai de
+la version corrigée trouvait pourtant encore un petit encodeur : un ami le
+regardait réellement. Le banc était mal isolé, et le code faisait ce qu'il
+fallait. Pour mesurer l'absence de spectateurs, le pont est temporairement lié
+au port local 8311, sans route Tailscale ; le jeu reste ouvert. Après le test,
+le port habituel 8310 et l'adresse privée 8445 sont rétablis.
+
+La comparaison suivante retire les autres spectateurs et fait soixante
+changements de couleur par variante. Les intervalles entre couleurs varient
+suivant la même suite pour éviter de mesurer toujours la même phase de l'écran.
+Avec les deux autres corrections actives, remettre le filtre fait remonter la
+médiane à 65,45 ms et le 95e percentile à 78,89 ms. Le retirer redonne 41,19 ms
+et 51,02 ms. Le navigateur attend alors 8,4 ms médianes après le décodage,
+contre 19,9 ms dans la variante avec filtre. La comparaison confirme le gain
+du filtre dans ces conditions ; elle n'attribue pas séparément un nombre à
+la suppression du petit encodeur ou au rattrapage du navigateur. Les premiers
+81,48 ms et les derniers 41,19 ms viennent de campagnes de tailles différentes.
+La fenêtre artificielle ne traverse toujours pas l'émulation d'un appui dans
+Mario Tennis ni le réseau de Souhib. Les compteurs de famine ne sont pas nuls
+et ces passages courts ne promettent pas une soirée sans saccade.
+
+Une lecture de quarante secondes par HTTPS, après le démarrage, donne 57,02
+images peintes par seconde et 7,1 ms d'attente médiane après décodage. Le son
+avance de quarante secondes, sans reconnexion ni redémarrage du décodeur.
+Huit famines et 119 images sautées restent comptées : une partie des images
+arrive plus vite que le rafraîchissement et le rattrapage les abandonne, mais
+ce relevé ne prouve pas que tous ces sauts sont imperceptibles. Le clip dure
+30,50 secondes, avec deux pistes commençant à zéro. La vidéo entière se décode
+et les deux canaux audio portent un signal. Le pilote de la page HTTPS vérifie
+aussi les places, les deux formats et le message de branchement qui disparaît.
+
+La porte `just` passe, avec les tests du GPU et du clip sonore. L'index Git
+jetable se limite encore au contrat généré déjà modifié, sans toucher à l'index
+réel ni créer de commit. Neuf tests Python exercent les paquets et les cycles
+de capture ; les deux nouveaux tests vidéo passent aussi. Le pilote du petit
+flux et les comparaisons sont conservés avec les sources du prototype. Les
+mesures complètes sont dans `results/2026-09-08-three-latency.json` dans ce
+même dossier.
+
+### Le 8 septembre, une panne de capture ne doit pas arrêter la Switch
+
+Le joueur trouve maintenant le flux fluide et ne ressent plus le retard. Avant
+de mettre la Switch dans le menu habituel, nous reprenons deux mécanismes déjà
+présents avec Dolphin : demander une image qui permet de repartir, et arrêter
+une attente qui ne peut plus aboutir.
+
+Une image-clé contient ce dont le décodeur a besoin pour reprendre sans les
+images précédentes. Le navigateur savait déjà en demander une. Le pont Switch
+ne lisait pas cette demande. Il attendait la clé périodique, une fois par seconde.
+Un essai demande une clé juste après celle-ci : l'ancienne version dépasse les
+350 millisecondes de sa limite et échoue. La nouvelle répond en 34,6 ms pour le
+plein format et 30,9 ms pour le petit, sur ce premier passage local. Nous lisons
+les vraies images IDR, les images de reprise indépendantes du passé, dans les
+octets du flux ; un accusé de réception du pont n'aurait rien prouvé.
+
+Le mécanisme garde les deux formats séparés. Une demande pour le petit ne fait
+pas payer une clé au grand. La demande est consommée une fois et la borne de
+500 ms du transport reste celle de Dolphin. Le contrôle passe hors de la boucle
+d'image, toutes les 100 ms, puis par un petit tuyau local que l'encodeur lit sans
+attendre. L'image suivante reprend son encodage habituel. L'essai vérifie ces
+deux absences : pas de clé supplémentaire dans l'autre flux, pas de demande
+oubliée qui transformerait toute la vidéo en images-clés.
+
+Ensuite nous tuons le processus qui capture le plein format. Avant la correction,
+la capture s'arrête et la page ne repart pas. Après, seule la capture redémarre.
+Le jeu garde son processus, le joueur sa place et le navigateur sa socket. Son
+et image reviennent en 2,00 secondes, puis en 2,47 secondes quand nous tuons le
+petit encodeur. Ce temps inclut la vérification de trente nouvelles images et
+d'une demi-seconde de son, pas seulement l'apparition d'un processus neuf.
+
+Un programme bloqué peut rester vivant. Nous suspendons donc aussi un encodeur,
+qui ne peut même plus traiter sa demande d'arrêt. La surveillance annonce le
+silence après trois secondes et abandonne après trente, la politique prudente
+déjà utilisée avec Dolphin. Le vieux processus de capture est tué puis attendu
+avant d'autoriser son remplaçant. La page récupère en 36,96 secondes dans cet
+essai. Elle explique l'interruption pendant l'attente et retire le message au
+retour de l'image. Un arrêt demandé par l'opérateur reste un arrêt ; les essais
+vérifient qu'aucun producteur ne survit et que rien ne redémarre tout seul.
+Trois démarrages par minute bornent les nouvelles tentatives en cas de panne
+persistante. Nous ne tuons jamais l'émulateur pour réparer sa capture.
+
+Deux pièges ont concerné les preuves. Le superviseur porte le chemin du moteur
+dans ses arguments : un simple filtre de texte trouvait son numéro de processus
+1 plutôt que celui du moteur. La précondition a échoué avant tout signal et le
+filtre regarde maintenant l'exécutable. Deux pages de test dans le même navigateur
+laissaient aussi la première cachée ; nous observons désormais les deux formats
+dans deux navigateurs visibles indépendants. Une image non peinte par une page
+cachée n'est pas une panne de capture.
+
+Le son a révélé un troisième piège. Le chien de garde constatait bien trente
+secondes de silence, mais la lecture audio attendait encore ses 1 920 octets.
+Suspendre son producteur, au lieu de le tuer, empêchait donc tout l'arrêt de se
+terminer. Le premier essai de récupération audio échoue après 43 secondes.
+La lecture est maintenant non bloquante et conserve les morceaux incomplets
+jusqu'à former dix millisecondes de vrai son stéréo. Le même essai récupère en
+36,87 secondes sans relancer le jeu. Trois essais de tuyaux réels vérifient aussi
+l'ordre des octets, le refus d'une fin tronquée et l'arrêt pendant que l'écrivain
+reste vivant et muet. Rétablir la lecture bloquante fait échouer le dernier.
+
+Une nouvelle mesure avec soixante changements de couleur donne 42,92 ms de
+médiane et 53,92 ms au 95e centile, proche du passage précédent à 41,19 ms.
+Ce n'est toujours pas le délai entre la manette d'un ami et son écran. Le gain
+de ce passage est la récupération après panne, pas une nouvelle promesse de
+cadence du jeu. `just` passe, ainsi que les 22 essais propres à la capture et
+au superviseur. Le plafond de redémarrages est aussi provoqué pour de vrai :
+le quatrième démarrage est refusé et aucun enfant de capture ne reste vivant.
+
+Cette surveillance ne voit pas un jeu figé dont le compositeur continue de
+produire des paquets valides. Ce problème demande l'état de la session émulée.
+Le dernier passage sur l'adresse HTTPS affiche 57,35 images par seconde pendant
+quarante secondes, avec autant de son et aucun redémarrage du décodeur. Un clip
+de 30,05 secondes est décodé avec ses deux canaux non muets ; son et image ont
+le même départ. Les empreintes des sources, du binaire de capture et les mesures
+sont réunies dans `spikes/switch-room/results/2026-09-08-recovery.json`.
+Les boutons Switch supplémentaires, les profils, le catalogue et les règles du
+salon restent également à raccorder. Les essais portent sur le prototype isolé,
+pas sur une Switch devenue interchangeable avec Dolphin dans la salle principale.
+
+### Le 8 septembre, la Switch reçoit enfin ses propres commandes
+
+L'image et le son avaient gagné en fluidité, mais les commandes passaient encore
+par le format de la GameCube. Ce format ne peut pas nommer séparément les deux
+épaules, les deux gâchettes, les boutons plus et moins et les clics des sticks.
+Le nouveau format Switch transporte seize boutons et quatre axes. Le serveur
+choisit le format de sa salle au démarrage. Il garde la gestion des places,
+les reconnexions et la vibration du chemin Dolphin. Une page qui écrit « joueur
+1 » dans sa trame continue à piloter seulement la place attribuée à sa connexion.
+
+La relecture a aussi trouvé un vrai défaut de précision. Le navigateur envoyait
+déjà les axes sur seize bits, mais le pont les multipliait encore par 256.
+Un quart de course, soit 8 192, devenait 2 097 152. Le périphérique virtuel
+ramenait cette valeur à son maximum. Le mouvement progressif devenait donc
+presque immédiatement une direction complète. Le test a échoué avec l'ancien
+calcul, puis avec ce calcul réintroduit dans la nouvelle traduction. Le pont
+conserve maintenant les valeurs et inverse seulement le sens vertical attendu
+par le périphérique Linux.
+
+Avant de prendre une place dans le prototype, on peut maintenant préparer sa
+manette. Le schéma de la manette Pro montre les commandes reconnues et le
+mouvement des sticks. Chaque ligne montre la commande Switch, sa touche clavier
+et sa commande physique. « Toutes les correspondances » reste ouvert, dans une
+seule liste ; le diagnostic brut reste fermé. Le clavier a sa propre zone de
+test. Les profils nommés se sauvegardent et se chargent dans ce navigateur.
+L'export et l'import par fichier permettent de les transférer. Ce n'est pas
+encore une synchronisation par identité avec le salon, ni le menu collectif
+qui précède un changement de jeu dans la salle principale.
+
+Un refus d'enregistrement du navigateur reste visible : le profil fonctionne
+pour cette session, mais le bouton ne prétend plus l'avoir sauvegardé. Le test
+remplace l'écriture par un refus et vérifie les deux faits séparément. Le fichier
+écrit respecte aussi la limite acceptée à la lecture, pour qu'un enregistrement
+réussi reste lisible à la visite suivante.
+
+La lecture et la capture d'un bouton réutilisent les fonctions qui servent
+Dolphin. Un adaptateur inconnu reçoit seulement les commandes qu'on lui a
+apprises. Une manette standard garde ses autres correspondances lorsqu'on en
+change une. Pendant ces essais, la place reçoit des commandes neutres. Si un
+bouton reste tenu quand on ferme, il faut le relâcher avant de reprendre.
+Si tout est au repos, le premier nouvel appui doit passer immédiatement.
+
+Le navigateur a montré pourquoi ces deux phrases doivent avoir deux preuves.
+Une première attente de repos avalait le nouvel appui lorsqu'il arrivait avant
+le prochain tour de lecture. Après sa correction en unitaire, l'essai dans
+Chrome échouait encore : la fermeture du dialogue libérait les commandes, puis
+son événement de fermeture, livré plus tard, vidait une seconde fois les touches
+qui venaient d'être pressées. Une seule fermeture doit rendre la main. Un autre
+essai, à 390 pixels de large, a montré le bouton de reprise coupé par le bas du
+dialogue. La hauteur de son en-tête changeait lorsque le texte passait sur deux
+lignes. La zone défilante prend maintenant la place réellement disponible.
+
+La vérification finale ouvre quatre navigateurs et quatre manettes virtuelles
+jetables. Aucun jeu ni sauvegarde ne participe à cet essai. Les seize boutons
+sont lus dans l'état réel des périphériques Linux, un par un. Les autres joueurs
+restent au repos. Les axes 0,25, −0,5, −0,75 et 0,2 arrivent avec leur précision,
+le signe vertical étant inversé pour Linux. Charger un profil, recharger la
+page, devenir spectateur et fermer l'onglet sont aussi exercés. Cela prouve le
+chemin du navigateur jusqu'au noyau, pas le délai avant que le jeu consomme
+l'entrée. Home, Capture et les mouvements du gyroscope ne sont toujours pas
+transmis ; le configurateur le dit au lieu d'afficher des boutons inactifs comme
+s'ils fonctionnaient.
+
+### Le 9 septembre, la Switch rejoint le catalogue de la salle
+
+Le prototype validé par Souhib rejoint le même salon que Dolphin. Les noms,
+les reçus de place, le chef et le choix de sauvegarde restent ceux de la salle.
+Le worker démarre un adaptateur Switch seulement pour un disque explicitement
+inscrit par un petit fichier voisin. Une extension NSP ne suffit pas : elle peut
+aussi désigner une mise à jour. Le jeu annoncé au navigateur impose le format
+des commandes avant sa première trame. Au retour sur Dolphin, ce format est
+réinitialisé à la reconnexion. Un essai traverse les deux sens.
+
+Avant un lancement Switch, chaque place confirme une manette Pro et peut charger
+ou enregistrer son profil personnel. Les profils passent par le même envoi différé
+que les touches Dolphin : une panne du salon ne doit pas effacer un réglage local.
+Les Joy-Con séparés et le mouvement ne sont pas encore raccordés. Les images
+et le son entrent dans le transport commun, donc le clip utilise ses deux pistes.
+La capture conserve ses correctifs mesurés dans le prototype ; elle ne devient
+pas pour autant l'export direct d'image que Dolphin possède.
+
+La première partie vierge a révélé une dépendance de Ryubing. Supprimer son
+dossier de sauvegarde laisse une référence dans sa mémoire système. Mario Tennis
+s'arrête alors sur « ResultFsTargetNotFound ». Le nouvel essai de fichiers échoue
+avec cette suppression. L'adaptateur conserve maintenant les métadonnées et vide
+seulement les deux copies de progression. Les emplacements sont indépendants,
+nommés par l'identifiant du jeu et copiés avant le lancement puis après son arrêt.
+Une restauration ou une importation refuse un emplacement encore en cours de jeu.
+
+La sauvegarde communautaire Mario Tennis annoncée complète contient seulement
+`save.dat` et `save7.dat`. Son origine et son empreinte sont conservées avec
+l'importation. L'étiquette « complète » ne prouve pas le contenu : il faut encore
+ouvrir les menus du jeu. La progression de Souhib reste dans un autre emplacement.
+
+Le parcours de lancement a aussi découvert une mise à jour oubliée dans le
+raccordement. Son fichier de choix était copié, mais le conteneur ne montait pas
+le dossier qui contenait la mise à jour. Ryubing retombait sur Mario Tennis 1.0.0
+sans refuser le lancement. Les premiers courts et le niveau 99 ont donc été vus
+sur cette version, pas sur la 3.1.0 du prototype. L'adaptateur vérifie maintenant
+le fichier sélectionné et monte son dossier en lecture seule. L'essai refuse un
+fichier absent ; rétablir l'ancien comportement le fait échouer. Le pilote lit
+aussi la version réellement chargée dans le journal de l'émulateur.
+
+Sur la 3.1.0, les quatre pages ont ensuite validé séparément Mario, Luigi, Wario
+et Waluigi. Le menu des courts propose notamment Piranha Plant Forest, Mirage
+Mansion, Snowfall Mountain, Savage Sea et Inferno Island. Cela vérifie leur
+accessibilité dans cette sauvegarde, sans prétendre inspecter chaque tenue.
+La première campagne automatisée a parcouru les trois consoles, retrouvé les
+quatre noms après les départs et les retours, puis regardé trois minutes avec un
+cinquième navigateur en format réduit à 5 Mbit/s. Le clip obtenu dure 30,78 s,
+sa musique décodée est non nulle et ses deux canaux sont présents. Les sorties
+de l'émulateur sont normales sur les deux emplacements. Cette campagne tournait
+sur la 1.0.0. La répétition sur la 3.1.0 passe ensuite elle aussi, avec deux
+minutes finales, le même clip sonore et une vérification explicite de la version.
+
+Un dernier cas concernait le configurateur, pas l'émulation : pendant une partie
+Switch, préparer une Wii laissait le lecteur de manette dans sa branche Switch.
+La fenêtre Wii s'ouvrait mais une réassignation physique n'aboutissait pas.
+Le nouvel essai reproduit ce blocage, puis vérifie la capture Dolphin en gardant
+une trame Switch neutre vers le jeu en cours. La console préparée et la console
+qui joue sont maintenant distinguées à cet endroit aussi.
+Le pilote de navigateur le vérifie également : après fermeture de Mario Tennis,
+la préparation Wii capture un autre bouton et éclaire sa commande sur le dessin.
+
+À 1 h 37 UTC, la version vérifiée est installée sur la salle habituelle. Les deux
+adresses servent exactement la page construite. L'ancien prototype est arrêté
+proprement avant de copier sa progression ; les deux fichiers de jeu sont
+comparés octet pour octet. La sauvegarde communautaire occupe seulement
+« tout débloqué ». Le catalogue reste ouvert, sans partie lancée. Les essais
+automatisés utilisent une copie de la configuration installée et leurs propres
+dossiers de progression. Les copies de secours restent locales à cette machine.
+
+### Le 9 septembre, reconnaître la Switch avant de lancer un jeu
+
+Souhib voit une GameCube devant le dossier Switch, puis aucun dessin pour Mario
+Tennis. Ce sont deux oublis d'intégration : le menu choisit Wii ou GameCube sans
+troisième cas, et le lecteur de jaquettes sort immédiatement pour une Switch.
+Les nouveaux essais échouent sur ces deux comportements avant leur correction.
+
+La Switch a maintenant une silhouette d'écran avec ses deux commandes latérales.
+Une console inconnue reçoit le dessin générique des jeux. Pour Mario Tennis,
+l'illustration de la fiche Nintendo est conservée à côté du disque, avec sa
+source, l'éditeur et une courte présentation. Elle mesure 640 × 360 pixels et
+pèse 497 170 octets. La limite de lecture est de 1 Mio ; le décodeur PNG dispose
+de 8 Mio et refuse une dimension supérieure à 1 024 pixels. Un fichier tronqué,
+trop grand ou absent laisse la place sans image, pas le jeu hors du catalogue.
+Rien ne contacte Nintendo au démarrage ni depuis le navigateur d'un joueur.
+
+La forme des anciennes bannières est trois fois plus large que haute. L'image
+Switch garde sa proportion dans ce cadre, entière et lissée à sa taille réduite.
+Le pilote `catalogue-test` ouvre les trois menus contre un worker temporaire sans
+lancer de jeu. Il vérifie l'image réellement décodée, l'éditeur et trois dessins
+de console différents. Les captures montrent les mêmes données dans les trois
+styles. La salle et les sauvegardes habituelles ne participent pas à cet essai.
+
+### Le 9 septembre, une vibration débranche les quatre manettes
+
+Mario Tennis reste sur une annonce de défi en coopération, avec un bouton OK.
+Souhib entend le son et voit l'image mais aucune touche ne ferme la fenêtre.
+Le journal donne la cause à 09:04:38 UTC : le programme qui crée les manettes
+virtuelles reçoit une première vibration, ne peut pas la transmettre au worker
+et quitte. Sa fermeture détruit ses quatre périphériques. Le jeu continue,
+puis demande en boucle de connecter une manette.
+
+Le récepteur `rumble.sock` appartient au compte du worker. Ses droits étaient
+0755 : son propriétaire pouvait écrire, mais pas les membres de son groupe.
+Le programme des manettes tourne sous root dans un conteneur dont les privilèges
+sont retirés. Son groupe lui ouvre le dossier privé ; il ne lui ouvre pas cette
+prise. Être root dans ce conteneur ne permet donc pas d'ignorer les droits.
+L'erreur de permission n'était pas parmi les erreurs tolérées.
+
+Le worker crée maintenant cette prise en 0660 : lecture et écriture pour lui
+et le groupe partagé, aucun accès pour les autres. Le programme des manettes
+traite séparément le retour de vibration : une erreur est signalée, sans tuer
+les commandes, et une file pleine ne peut pas bloquer leur lecture. Le prochain
+retour est essayé normalement ; le rétablissement est aussi signalé.
+
+L'ancien essai des quatre navigateurs avait un privilège de plus que la salle :
+`DAC_OVERRIDE`, qui permet de passer outre les droits des fichiers. Il utilisait
+aussi son propre récepteur et ne demandait jamais de vibration. Il pouvait donc
+passer pendant que la partie réelle était cassée. Le pilote utilise désormais
+les arguments de lancement du conteneur installé et le même récepteur Rust.
+Il provoque un retour depuis chaque périphérique Linux, vérifie le seul
+navigateur destinataire, retire le droit d'écriture, joue les seize boutons,
+puis rétablit la vibration. Les essais unitaires ont d'abord échoué avec les
+anciens droits et l'ancienne gestion de l'erreur.
+
+Sur la partie déjà ouverte, les droits sont corrigés et seules les manettes
+virtuelles sont recréées. Le processus de Mario Tennis reste le même. Les quatre
+périphériques sont à nouveau lisibles, mais l'émulateur ne les rouvre pas après
+leur disparition ; une nouvelle annonce de branchement ne le débloque pas non
+plus. Cette limite de récupération est distincte de la cause du plantage.
+
+Après les vérifications, une seule relance de la salle active le nouveau worker.
+La commande de redémarrage prend 4,5 secondes ; ce chiffre ne mesure pas le temps
+jusqu'à la première image du jeu. La capture suivante montre le menu principal,
+sans l'annonce bloquante. Souhib confirme ensuite qu'il a pu fermer le message
+avec ses commandes. Les vibrations émises par Mario Tennis passent et le
+programme des manettes reste vivant. Aucun appui n'a été injecté dans la partie
+pour ces captures. `just`, `switch-controls-test` et la construction stricte de
+la documentation passent. Les essais de boutons et de vibration utilisent des
+périphériques jetables ; le constat en salle porte sur ce jeu et cette visite.
+
+### Le 9 septembre, Looney Tunes rejoint les jeux Switch
+
+Souhib fournit deux archives : le jeu de base et sa mise à jour. Leurs noms ne
+suffisent pas à les inscrire. Les fichiers sont extraits hors du dépôt, puis le
+jeu est lancé dans un emplacement temporaire avec les mêmes programmes de
+capture et de manettes que la salle. Mario Tennis reste ouvert dans la salle
+principale pendant cet essai. L'émulateur confirme le titre Looney Tunes: Wacky
+World of Sports, l'identifiant `0100D3601D4B4000` et la version `0.1.0.27382`.
+
+Le premier outil sait lire la liste de l'archive RAR mais pas décompresser sa
+méthode. Lire les noms sans erreur ne prouvait donc rien sur l'extraction.
+L'utilitaire unrar du dépôt Ubuntu extrait ensuite les fichiers et vérifie leur
+intégrité. Les archives fournies restent intactes. Le jeu, sa mise à jour et la
+jaquette officielle restent dans les dossiers privés de la machine.
+
+L'écran titre attend L et R ensemble. Le mode Sports propose Classique ou
+Mouvement ; seul Classique correspond aux commandes transmises par la salle.
+Quatre navigateurs choisissent leur équipe et quatre personnages différents,
+puis les déplacent dans un match de basket. Le jeu propose déjà les neuf
+portraits de base sur cette progression vierge. Le clip exporté dure 30,166
+secondes ; son audio stéréo à 48 kHz se décode avec un signal sur les deux
+canaux et commence au même temps que la vidéo. Cela ne prouve ni tous les sports
+ni la fluidité chez quatre personnes éloignées. Les relevés du match montrent
+environ trente images source par seconde dans cet essai à deux émulateurs et
+quatre navigateurs sur la même machine.
+
+La demande de sauvegarde complète n'est pas satisfaite par un fichier vérifié.
+L'index communautaire NX_Saves ne contient pas le jeu au moment de la recherche.
+Les autres résultats consultés ne donnent pas de sauvegarde Switch contrôlable ;
+une page générique concerne la version PC et son contenu additionnel. Aucun de
+ces résultats n'est présenté comme un 100 %. Les deux emplacements du nouveau
+jeu sont préparés sans progression, avec la même mise à jour. L'emplacement
+générique appelé « débloquée » reste donc vierge pour ce titre.
+
+Pendant l'essai simultané, la porte locale échoue sur la conversion d'une image
+importée par dma-buf : écart maximal de luminance 235, au lieu du maximum admis
+de 1. Les étapes précédentes passent ; les étapes suivantes ne sont pas jouées.
+Après l'arrêt normal de la salle temporaire, ce test seul passe sans changement
+de code. Cela ne démontre pas que la charge causait l'échec. La première sortie
+reste conservée avec les captures dans `/tmp/nel3ab-looney-2026-09-09` et la porte
+complète passe ensuite : 71 tests GPU, puis les essais du clip audio, des
+sauvegardes et de la capture Switch. Aucun seuil du test n'est changé pour
+obtenir du vert. La construction stricte de la documentation passe également.
+
+L'ajout fait aussi rougir le pilote du catalogue : il vérifiait l'éditeur Nintendo
+sur le premier jeu Switch, qui est maintenant Looney Tunes. Il choisit désormais
+chaque jeu par son titre et vérifie les deux jaquettes dans les trois menus.
+Une seconde attente portait sur la toile vidéo alors qu'aucun jeu n'est lancé
+dans cet essai. Elle porte maintenant sur le menu visible de la salle vide.
+Ces attentes ont échoué avant leur correction ; le jeu ajouté n'est pas renommé
+ou déplacé pour conserver l'ordre que le pilote supposait.
+
+### Le 9 septembre, le son déchiré de Looney Tunes
+
+Souhib lance Looney Tunes : image fluide, son « pas normal », puis, quand je lui
+demande de préciser, « un mélange des trois » entre grésillement, coupures et
+ralenti. Le diagnostic a commencé dans une autre session et je l'ai repris là où
+il s'arrêtait : la cause était trouvée, l'essai qui la reproduit écrit et rouge,
+le correctif pas encore posé.
+
+La cause est notre propre correctif de la veille. Pour Mario Tennis, le patch
+`ryubing-audio-queue` jette le son ancien dès que la file SDL dépasse 50 ms,
+parce que ce jeu accumulait 1,7 s de retard au démarrage et ne le rendait
+jamais. Sur Looney Tunes, la sonde du patch comptait 239 secondes de son jetées
+en 80 secondes de jeu. La file n'était pas en retard : elle était coupée en
+continu.
+
+Ce qui distingue les deux jeux n'est pas un réglage, c'est un chemin. Dans
+Ryujinx, deux voies audio aboutissent à la même session SDL et ne veulent pas
+dire la même chose par « en attente ». Le renderer pousse des blocs de 5 ms sur
+sa propre horloge : là, une file qui grossit est du retard, et rien d'autre.
+AudioOut est la voie où le jeu tient lui-même sa file : jusqu'à quatre buffers
+de 1 024 frames, soit 85 ms, et il ne fournit le suivant qu'après avoir vu le
+précédent consommé. Ces 85 ms sont une lecture cadencée, pas un retard. Les
+jeter fait produire au jeu la suite trop tôt, à chaque appel, et le son se
+déchire.
+
+Le discriminant existait déjà dans le code : une session AudioOut est ouverte
+avec un gestionnaire de mémoire, une session du renderer jamais. Le correctif
+tient en une condition. L'essai qui l'a exigé simule les quatre buffers du jeu
+et vérifie qu'aucun n'est libéré avant d'avoir été lu ; son jumeau vérifie que
+le renderer, lui, jette toujours ses gros buffers. Rouge, puis vert, puis le
+vrai jeu.
+
+La preuve sur le vrai jeu vient de deux captures de 20 s en sortie de Pulse.
+Avant : 313 discontinuités d'amplitude, toutes à la même phase modulo 1 024, un
+buffer coupé net à chaque cycle. Après : plus aucun alignement, zéro jeté, file
+stable à 85,33 ms, arrêt propre en 3,3 s.
+
+Trois choses trouvées en chemin, et aucune ne concerne le son. La régénération
+du patch à la main l'a corrompu : un patch se régénère par `git diff` depuis la
+source, jamais en éditant les blocs. Un état de sonde créé avant que
+l'adaptateur n'ait copié le modèle n'a ni clés ni firmware, et l'émulateur meurt
+en trois secondes dans un service système avec une trace qui ne dit rien du
+son ; la première ligne du journal, elle, disait `Keys not found`. Et tenir
+ouvert le stdin d'un lanceur depuis un outil qui recrée son shell à chaque
+commande ne tient pas : la fin de fichier est précisément l'ordre d'arrêt propre,
+et le jeu s'est arrêté tout seul deux fois avant que je comprenne qui le lui
+demandait.
+
+Le binaire corrigé est installé dans le dossier que la salle monte, empreinte
+vérifiée. Mais la partie de Souhib a démarré avant : son processus tient
+l'ancien fichier en mémoire (l'inode exécuté n'est plus celui du disque), et
+il gardera le son déchiré jusqu'à ce que le jeu soit relancé. Je ne relance
+pas une partie en cours. Les deux captures de 20 s, avant et après, sont
+gardées en `.wav` dans le dossier de mesure pour être réécoutées.
+
+La leçon qui dépasse ce jeu : **un correctif qui règle un symptôme mesuré sur un
+seul jeu est une hypothèse sur tous les autres.** Le rattrapage était juste pour
+Mario Tennis et faux pour le premier jeu qui passe par l'autre voie. Il a fallu
+un second jeu pour le voir, et il l'a montré dès les premières secondes.
+
+### Le 9 septembre, la Switch tournait à trente images par seconde sans que rien ne le dise
+
+Souhib est fibré, câblé, et sa page affiche `source 31 Hz`, 162 famines et 108
+images jetées sur Looney Tunes. Le réseau n'y est pour rien : les écarts
+d'arrivée sont réguliers à 30,8 ms, ce qui est la signature d'une source à
+32 images par seconde, pas d'une liaison qui hoquette.
+
+Le chemin Switch est une recapture : Ryujinx dessine dans Sway, et wf-recorder
+copie la sortie de Sway à chaque redessin. Il ne copie QUE sur redessin
+(`copy_with_damage`), ce qui est juste : un écran immobile ne produit aucune
+image, et je l'ai vérifié, zéro image en cinq secondes sur l'écran de titre
+figé. La cadence livrée est donc celle à laquelle Sway compose.
+
+Or la sortie headless de Sway est créée par une ligne `output HEADLESS-1 mode
+1280x720`, sans taux de rafraîchissement. `swaymsg -t get_outputs` sur la salle
+réelle répond `@ 0 mHz`. Avec un refresh de zéro, wlroots compose « quand il
+peut », et ce « quand il peut » dépend de la charge de la machine. Le `-B 60`
+passé au recorder ne fait que déclarer une cadence à l'encodeur ; il n'en impose
+aucune à la source.
+
+La preuve est une comparaison au même instant, sur la même machine, sur le même
+écran de titre, lue par le flux `/video` comme la page le lit. Salle réelle,
+refresh nul : 31,5 images par seconde, 234 écarts de deux périodes sur 249. Une
+sonde identique avec `@60Hz` écrit : 58,9 images par seconde, 452 écarts d'une
+période sur 470. Une ligne, et la cadence double.
+
+Le correctif est cette ligne, extraite dans une fonction pure pour pouvoir être
+épinglée : l'essai exige le suffixe, et son jumeau refuse un refresh nul. Rouge
+sans le suffixe, vert avec. Le conteneur en marche a lu l'ancien fichier au
+démarrage ; la correction vaut au prochain lancement du jeu.
+
+Ce que cet après-midi a coûté en fausses pistes, et pourquoi elles valent
+d'être écrites. J'ai d'abord soupçonné le jeu : un fil invité à 27 % d'un cœur,
+1 860 préemptions par seconde, tout désignait une émulation qui perd le cœur
+au mauvais moment. Ces chiffres étaient vrais et gonflés par ma propre sonde,
+qui tournait en même temps que la salle réelle sur les mêmes cœurs. J'ai
+ensuite cassé la capture de la sonde trois fois en lisant son FIFO à la main
+pour voir l'écran : un FIFO n'a qu'un lecteur, et mes lectures volaient des
+octets au milieu des paquets, ce que le relais prenait pour un en-tête invalide
+et relançait tout. Les relances étaient mon artefact. La mesure juste est venue
+de lire le flux exactement comme la page, par WebSocket, sans toucher à rien.
+
+Deux leçons, plus larges que Sway. **Une cadence déclarée n'est pas une cadence
+imposée** : `-B 60` avait l'air de régler la question et ne réglait rien. Et
+**une sonde qui partage la machine avec ce qu'elle mesure mesure aussi
+elle-même** : la moitié de mes chiffres de l'après-midi décrivaient la
+contention que j'avais ajoutée.
+
+Ce qui reste ouvert : le son affiche un « transit » de moins 788 millions de
+millisecondes. Ce nombre est la différence entre `performance.now()` de la page
+et un horodatage posé par le relais avec `time.monotonic_ns()`, deux horloges
+sans origine commune. Il ne veut rien dire et il faut cesser de l'afficher, ou
+le calculer dans un seul repère.
+
+### 9 septembre 2026 : rendre la reprise fidèle au travail effectué
+
+Souhib demande si les décisions, les essais et les pistes écartées ont suivi
+toute la conversation dans la documentation. Le carnet les contient déjà pour
+l'essentiel, jusqu'au lancement de Looney Tunes. Le défaut est ailleurs : les
+pages par lesquelles on arrive racontent encore une autre version du projet.
+Le README annonce seulement la GameCube et aucune authentification ; le README
+du salon décrit une route supprimée. L'étude Switch dit encore ce qu'il faudrait
+faire avant l'intégration, alors que le chapitre précédent raconte cette intégration.
+
+La relecture croise les commits, les différences de l'arbre de travail, les
+recettes, le code et les résultats déjà conservés. Le dernier commit est
+`16eebcb`, du 5 septembre. Une grande partie du travail des quatre jours suivants
+est donc présente sur disque, parfois déjà installée, sans nouveau commit.
+Lire seulement `git log` donnerait un faux arrêt du développement. Cette passe
+ne transforme pas non plus une porte locale verte en résultat de CI distante.
+
+Une page d'état datée rassemble maintenant les fonctions disponibles, leurs
+preuves et les limites. Les plans M1 à M3 et le chapitre 10 restent historiques.
+Leurs conclusions ne sont pas réécrites comme si l'on avait su dès août ce que
+septembre a appris. Les règles qui ont changé portent une modification datée
+dans l'ADR ; l'étude et les notes pratiques renvoient vers cette nouvelle situation.
+Le carnet garde ainsi les raisons des échecs sans les proposer comme prochaines
+étapes à la personne qui reprend.
+
+Deux questions de la conversation n'ont pas de mesure comparative : réécrire
+l'émulateur Switch de C# en Rust, et choisir Mario Kart 8 sur Wii U plutôt que
+Deluxe sur Switch. Le langage ne donne pas à lui seul un chiffre de fluidité.
+Les améliorations obtenues ici viennent notamment de la file sonore et de la
+capture ; aucun essai des deux Mario Kart sur cette machine ne tranche leur choix.
+La documentation les garde ouvertes, au lieu d'inventer une option écartée.
+
+La relecture distingue aussi les profils : Dolphin peut proposer une configuration
+personnelle pour un jeu ; la Switch permet de charger des profils nommés, mais
+n'a pas encore cette préférence par titre. Elle conserve les limites des mesures
+de latence, le problème Zen sur Windows non résolu, l'absence de copie hors du
+disque et l'essai GPU intermittent du passage Looney Tunes. Un bouton vérifié
+sur un périphérique Linux ne prouve pas chacune de ses actions dans chaque jeu.
+
+Le suivi de l'audit est complété par sujet. Il ne devient pas une nouvelle
+validation des 194 identifiants : certains se recouvrent et plusieurs questions
+de performance demandent toujours une expérience. Le coût d'un document honnête
+est de laisser ces cases ouvertes, même après une partie réussie.
+
+Les commentaires des commandes sont remis en accord avec leurs recettes.
+`just check` est la commande de qualité partagée avec la CI, qui joue aussi
+la documentation, les dépendances et la recherche de secrets hors de cette
+commande. `just miri` ne compile pas les modules GPU : il ne prouve donc pas
+leurs appels étrangers ni leur arithmétique interne. Ce sont des corrections
+de promesses, sans modification des programmes ni des recettes exécutées.
+
+La porte locale complète `just` passe à nouveau pendant cette relecture,
+jusqu'aux essais GPU, clip audio, sauvegardes et capture Switch. Le contrat
+engendré est comparé dans un index Git temporaire contenant les fichiers courants,
+comme lors des validations précédentes ; l'index habituel reste intact.
+La construction `just docs` passe en mode strict et reconstruit le répertoire
+servi par Caddy. Aucun redémarrage du jeu ni nouveau commit ne fait partie de
+cette mise à jour documentaire.
+
 ## 12. Glossaire complet
+
+**CBR** : *Constant Bit Rate*, débit constant visé par l'encodeur. Le contrôle
+adapte la quantité de détail conservée pour tenir ce débit ; sa régularité réelle
+dépend de l'encodeur et doit se mesurer.
+
+**QP et CQP** : *Quantization Parameter*, le nombre qui règle la quantification,
+c'est-à-dire la précision conservée pendant la compression. Un QP plus élevé
+perd davantage de détail. *Constant QP* garde ce nombre fixe ; cela ne garantit
+pas un débit fixe, car une scène complexe produit plus d'octets.
+
+**RAR** : format d'archive compressée. Il emballe ici des fichiers fournis pour
+l'essai ; son nom ne dit rien de la console ou du jeu contenu.
+
+**HD Rumble** : vibrations détaillées des manettes Switch, avec des fréquences
+et amplitudes distinctes. Transmettre une intensité de vibration ordinaire ne
+prouve pas la restitution de ces effets.
+
+**NAS** : *Network Attached Storage*, un stockage accessible par le réseau.
+Une copie sur ce stockage peut survivre à la perte du disque du serveur ; une
+copie dans un autre dossier du même disque ne le peut pas.
+
+**DLL** : *Dynamic Link Library*. Fichier contenant du code et des données chargés par un programme ; .NET utilise aussi cette extension pour ses bibliothèques.
+
+**SDK** : *Software Development Kit*. Ensemble des outils et bibliothèques permettant de compiler des programmes.
+
+**Mio et Gio** : mébioctet et gibioctet. Un Mio vaut 1 048 576 octets ; un Gio vaut 1 024 Mio. Ces unités évitent de confondre puissances de deux et unités décimales.
+
+**CSV** : *Comma-Separated Values*. Fichier de texte représentant une table, avec les valeurs de chaque ligne séparées par des virgules. Le banc de rendu conserve ainsi ses relevés bruts.
+
+**NRO** : format des programmes exécutables Switch utilisés notamment pour les programmes développés hors du catalogue commercial.
+
+**NSP** : conteneur regroupant des fichiers de jeu, de mise à jour ou de contenu supplémentaire Switch. Son extension ne dit pas lequel de ces cas il contient.
+
+**XCI** : format représentant le contenu d’une cartouche Switch.
+
+**NCA** : conteneur interne de contenu Switch. Son en-tête et ses sections peuvent demander des clés pour être lus.
+
+**uinput** : interface du noyau Linux qui permet à un programme de créer un clavier, une souris ou une manette virtuelle.
+
+**Wayland** : protocole par lequel les applications Linux échangent avec le programme qui compose l’affichage des fenêtres.
+
+**X11** : protocole du système de fenêtres X, également utilisé par Xwayland pour faire fonctionner ces applications dans un affichage Wayland.
+
+**Xvfb** : serveur X11 qui dessine un écran virtuel dans la mémoire du processeur.
+
+**SDL** : Simple DirectMedia Layer, bibliothèque utilisée par des jeux et émulateurs pour leurs fenêtres, leur son et leurs périphériques d’entrée.
+
+**Firmware** : logiciel système d’un appareil. Le firmware Switch désigne ici les composants du système de la console.
+
+
+**IPC** : *Inter-Process Communication*. Les échanges entre processus. Dans un
+navigateur, un canal peut par exemple relier une page au processus qui compose
+l’affichage de la fenêtre.
+
+**Brotli** : compression du fichier de la page avant son transfert au navigateur.
+
+**SIGTERM** : signal qui demande à un processus de terminer proprement. Il faut
+un gestionnaire et un chemin de nettoyage pour que le programme puisse le faire.
+
+**SIGKILL** : signal qui termine immédiatement un processus. Il ne lui laisse
+pas le temps de nettoyer ses ressources ou d'écrire une sauvegarde.
+
+
+**AAC** — *Advanced Audio Coding*. Un format de son compressé. Les clips
+l’utilisent dans leur MP4 ; le son de la partie continue de voyager en PCM brut.
 
 **ABI** — *Application Binary Interface*. La disposition exacte des données en
 mémoire. Un désaccord d'ABI ne produit pas d'erreur, seulement des valeurs
@@ -10080,6 +12284,10 @@ nom.
 **dma-buf** — mécanisme du noyau Linux pour partager de la mémoire GPU entre
 processus sans copie.
 
+**DNS** — *Domain Name System*. Le système qui traduit un nom comme
+`nel3ab.app` en adresses réseau. Trouver une adresse ne donne pas le droit de
+s'y connecter : Tailscale vérifie cette permission séparément.
+
 **DPB** — *Decoded Picture Buffer*. Le tampon où un codec garde les images de
 référence servant à compresser les suivantes.
 
@@ -10106,6 +12314,10 @@ carte.
 peut être parfait avec une gigue qui rend l'image saccadée : ce n'est pas la
 quantité qui compte, c'est la régularité.
 
+**Grant (Tailscale)** — une autorisation indiquant quels appareils peuvent
+joindre quelles destinations, par quels protocoles et ports. Elle complète les
+autres autorisations de la politique du réseau.
+
 **GTT** — *Graphics Translation Table*. La mémoire système que le GPU peut lire
 directement. Quand la VRAM est pleine, les allocations tombent ici : un
 compteur GTT qui monte est le signe que la VRAM déborde.
@@ -10119,6 +12331,13 @@ navigateurs, et accéléré par le matériel.
 
 **Headless** — sans fenêtre. Utile sur un serveur, mais supprime des événements
 (comme l'affichage) sur lesquels du code pouvait compter sans le dire.
+
+**HTTPS** — *Hypertext Transfer Protocol Secure*. L'échange web protégé par TLS.
+Sans port écrit dans l'adresse, le navigateur utilise le port 443.
+
+**IPv4 / IPv6** — deux versions du protocole Internet, avec des formats
+d'adresses différents. Tailscale donne les deux à la machine ; publier les deux
+dans le DNS demande aussi de les autoriser toutes les deux dans sa politique.
 
 **IDR** — *Instantaneous Decoder Refresh*. Une image complète, décodable seule.
 Un flux commence toujours par là.
@@ -10368,3 +12587,17 @@ gel.
 
 *Ce document est tenu à jour au fil du projet. Si une décision change, c'est ici
 qu'on explique pourquoi — pas seulement dans l'ADR.*
+
+
+**SVG** : *Scalable Vector Graphics*. Un dessin décrit par des tracés et des
+formes. Le navigateur peut redimensionner et animer ses pièces sans charger une
+nouvelle image.
+
+**CSS** : *Cascading Style Sheets*. Les règles qui donnent couleurs, tailles et
+disposition aux éléments de la page.
+
+**UI** : *User Interface*, l'interface visible et les commandes proposées à la
+personne.
+
+**UX** : *User Experience*, l'expérience d'utilisation : comprendre quoi faire,
+voir le résultat et pouvoir revenir sur son choix.

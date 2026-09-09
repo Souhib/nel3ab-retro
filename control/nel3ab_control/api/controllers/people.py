@@ -14,7 +14,7 @@ dans une salle qui vient de redémarrer. Elle reste en mémoire, comme les place
 import json
 from pathlib import Path
 
-from anyio import to_thread
+from anyio import Lock, to_thread
 
 from nel3ab_control.identity import suggested_name
 
@@ -24,6 +24,9 @@ class PeopleController:
 
     def __init__(self, store: Path) -> None:
         self._store = store
+        # La mutation et sa copie disque partagent ce verrou. Un nom temporaire
+        # unique seul laisserait encore deux instantanés se remplacer à rebours.
+        self._writing = Lock()
         self._names: dict[str, str] = _read(store)
         #: Une entrée par socket, pas par personne: la même personne peut ouvrir
         #: deux onglets, et fermer l'un ne la fait pas disparaître de l'autre.
@@ -31,6 +34,7 @@ class PeopleController:
         #: recalculer perdait le nom affiché par le fournisseur d'identité, et
         #: quelqu'un sans identité du tout n'a pas de nom à recalculer.
         self._present: dict[str, tuple[str | None, str]] = {}
+        self._owner: str | None = None
 
     def name_for(self, login: str | None, display: str = "") -> str:
         """Le pseudo choisi, ou celui qu'on propose faute de mieux."""
@@ -49,11 +53,12 @@ class PeopleController:
         kept = name.strip()
         if not kept:
             raise ValueError("un pseudo vide n'est pas un pseudo")
-        self._names[login] = kept
-        # Sur un fil, pas sur la boucle: l'écriture est minuscule et rare, mais
-        # une écriture disque sur la boucle bloque tout le monde, y compris le
-        # salon qui diffuse.
-        await to_thread.run_sync(_write, self._store, dict(self._names))
+        async with self._writing:
+            self._names[login] = kept
+            # Sur un fil, pas sur la boucle: l'écriture est minuscule et rare, mais
+            # une écriture disque sur la boucle bloque tout le monde, y compris le
+            # salon qui diffuse.
+            await to_thread.run_sync(_write, self._store, dict(self._names))
         return kept
 
     def arrived(self, sid: str, login: str | None, name: str) -> None:
@@ -75,23 +80,35 @@ class PeopleController:
 
     def left(self, sid: str) -> None:
         self._present.pop(sid, None)
+        self.owner()
 
-    def owner(self) -> tuple[str | None, str] | None:
-        """Qui décide, c'est-à-dire qui est arrivé en premier et est encore là.
+    def owner(self) -> tuple[str, str] | None:
+        """Le chef choisi, sinon la première identité encore connectée.
 
-        Le premier arrivé plutôt qu'un titre attribué: personne ne veut cliquer
-        sur « prendre la salle » avant de jouer, et une salle vide qui se remplit
-        a toujours un premier. Quand il part, ça passe au suivant tout seul,
-        parce que ce dictionnaire garde son ordre d'insertion.
-
-        Il faut une IDENTITÉ pour décider. Sans proxy devant, tout le monde est
-        anonyme et personne n'est propriétaire: la salle retombe alors sur sa
-        règle d'avant, où tenir une manette suffit.
+        Le 6 septembre, un onglet spectateur oublié gardait ce rôle indéfiniment.
+        Une reprise confirmée change désormais la personne choisie. L'ancien
+        chef ne repasse pas devant en ouvrant un autre onglet. Sans identité,
+        la règle du worker reste celle de la manette tenue.
         """
         for login, name in self._present.values():
-            if login is not None:
+            if login is not None and login == self._owner:
                 return login, name
+        for login, name in self._present.values():
+            if login is not None:
+                self._owner = login
+                return login, name
+        self._owner = None
         return None
+
+    def transfer_owner(self, expected: str, wanted: str) -> bool:
+        """Une réponse ancienne ne remplace ni un nouveau chef ni un absent."""
+        current = self.owner()
+        if current is None or current[0] != expected:
+            return False
+        if not any(login == wanted for login, _ in self._present.values()):
+            return False
+        self._owner = wanted
+        return True
 
     def sessions(self) -> dict[str, list[str]]:
         """Les sockets de chaque personne, par identité.

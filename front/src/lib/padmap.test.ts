@@ -126,7 +126,12 @@ describe("les plans des manettes émulées", () => {
   it("suivent l'ordre du réglage qui les choisit", () => {
     // `EMULATED[n]` doit être la manette que `PADS[n]` nomme, sinon le sélecteur
     // montrerait une guitare en disant « Wiimote ».
-    expect(EMULATED.map((one) => one.id)).toEqual(["gamecube", "wiimote", "guitar"]);
+    expect(EMULATED.map((one) => one.id)).toEqual([
+      "gamecube",
+      "wiimote",
+      "guitar",
+      "wiimote-only",
+    ]);
   });
 });
 

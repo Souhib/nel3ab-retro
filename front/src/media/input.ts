@@ -1,3 +1,6 @@
+import { SwitchInput } from "./switch";
+import { saveSwitchBindings } from "../lib/bindings";
+import type { InputSource } from "./input-source";
 /**
  * The controller socket: one seat, and the state that goes down it.
  *
@@ -6,8 +9,10 @@
  */
 import { Window } from "./clock";
 import { Touch } from "./touch";
-import { Capture, Lesson, loudest, snapshot, type Snapshot } from "./lesson";
+import { Capture, Lesson, modelSnapshot, type Snapshot } from "./lesson";
 import { MenuPad, type MenuAction } from "./menupad";
+import type { SetupProfile } from "../lib/setups";
+import { readProfile } from "./profile";
 import {
   BUTTON,
   DEFAULT_KEYS,
@@ -16,6 +21,7 @@ import {
   merge,
   readPad,
   standardProfile,
+  isStick,
   type Action,
   type Control,
   type ControlKey,
@@ -54,6 +60,8 @@ import {
 const PAD_PERIOD_MS = 4;
 
 export type InputState = {
+  /** Appareil confirmé par le worker pour cette place. */
+  device?: 0 | 1 | 2 | 3;
   port: number | null;
   /** Vrai quand cette page regarde sans manette, par choix. */
   watching: boolean;
@@ -62,6 +70,7 @@ export type InputState = {
   padId: string | null;
   padLayout: "standard" | "unknown" | null;
   learning: string | null;
+  lesson: { control: ControlKey; step: number; total: number; waiting: boolean } | null;
   pressed: string[];
   /** True once this page HAD a pad and was told it no longer has one.
    *
@@ -82,7 +91,7 @@ export type InputState = {
    * manger en gardant son onglet ouvert bloque la soirée entière. */
   deciding: boolean;
   /** La commande qu'on est en train de réassigner, et où on l'attend. */
-  capturing: { control: ControlKey; source: "pad" | "key" } | null;
+  capturing: { control: ControlKey; source: "pad" | "key"; sign?: 1 | -1 } | null;
   /** Les jeux de touches de cette personne, dans l'ordre de création.
    *
    * PERSONNELS: en changer ne touche ni la salle, ni la partie, ni l'écran de
@@ -236,6 +245,10 @@ export class InputStream {
   private generation = 0;
   private retry: number | null = null;
   private timers: number[] = [];
+  private heardAt: number | null = null;
+  private checkedAt: number | null = null;
+  private retire: (() => void) | null = null;
+  private animation: number | null = null;
   private port: number | null = null;
   private refused = false;
   /** Combien de secousses cette page a reçues, pour les pilotes.
@@ -245,6 +258,11 @@ export class InputStream {
   private shakes = 0;
   /** Cette page peut-elle changer le jeu ? Dit par le worker. */
   private deciding = false;
+  private configurationOpen = false;
+  private configuringDolphin = false;
+  private device: 0 | 1 | 2 | 3 | undefined;
+  private receipt: string | null = null;
+  private preferredPort: number | null = null;
   private everHeld = false;
   /** Les allers-retours mesurés, en millisecondes. Trente échantillons, soit
    * une demi-minute: assez pour que la médiane ne suive pas un hoquet, assez
@@ -300,10 +318,17 @@ export class InputStream {
    *
    * Sert à NOMMER les commandes, pas à les envoyer: la trame est la même dans
    * les trois cas, et c'est Dolphin qui la relit autrement. */
-  private pad: 0 | 1 | 2 = 0;
+  private pad: 0 | 1 | 2 | 3 = 0;
+  private extension: 0 | 1 | 2 = 0;
   private lesson: Lesson | null = null;
-  private capture: { control: ControlKey; source: "pad" | "key"; machine: Capture | null } | null =
-    null;
+  private capture: {
+    control: ControlKey;
+    source: "pad" | "key";
+    sign?: 1 | -1;
+    machine: Capture | null;
+  } | null = null;
+  private configuringId: string | null = null;
+  private releasing: { id: string; atRest: (now: Snapshot) => boolean } | null = null;
   private padId: string | null = null;
   private padLayout: "standard" | "unknown" | null = null;
   private pads: { index: number; id: string; buttons: number; axes: number }[] = [];
@@ -322,8 +347,14 @@ export class InputStream {
   private readonly profiles = new Map<string, PadProfile | null>();
   private lastReading: PadReading | null = null;
   private readonly url: (path: string) => string;
-  private readonly onSeat: (port: number | null) => void;
+  private readonly onSeat: (port: number | null, claim: string | null) => void;
   private readonly onSettled: () => void;
+  private source: InputSource | null;
+  private readonly fixedSource: boolean;
+  readonly switch = new SwitchInput(saveSwitchBindings);
+  switchActive(): boolean {
+    return this.source === this.switch;
+  }
 
   /** `onSettled` prévient quand quelque chose que l'écran montre a changé sans
    * qu'une action de la personne l'ait provoqué: une capture qui se termine, une
@@ -331,17 +362,21 @@ export class InputStream {
    * dire « appuie sur une touche » alors que la touche est déjà enregistrée. */
   constructor(
     url: (path: string) => string,
-    onSeat: (port: number | null) => void,
+    onSeat: (port: number | null, claim: string | null) => void,
     onSettled: () => void = () => {},
     watching = false,
+    source: InputSource | null = null,
   ) {
     this.url = url;
     this.onSeat = onSeat;
     this.onSettled = onSettled;
     this.watching = watching;
+    this.source = source;
+    this.fixedSource = source !== null;
   }
 
   start(): void {
+    if (this.animation !== null) return;
     // Une page qui entre pour regarder ne prend jamais de place, même une
     // fraction de seconde. Se brancher puis se débrancher volerait une manette
     // à quelqu'un le temps d'un aller-retour, et l'aurait affiché.
@@ -351,7 +386,7 @@ export class InputStream {
     addEventListener("blur", this.onBlur);
     this.timers.push(window.setInterval(this.pump, PAD_PERIOD_MS));
     this.timers.push(window.setInterval(this.ping, ECHO_EVERY_MS));
-    requestAnimationFrame(this.pumpOnRefresh);
+    this.animation = requestAnimationFrame(this.pumpOnRefresh);
   }
 
   /** Envoie un aller-retour, et oublie ceux qui ne sont jamais revenus.
@@ -362,8 +397,25 @@ export class InputStream {
    */
   private readonly ping = (): void => {
     const socket = this.socket;
-    if (socket === null || socket.readyState !== WebSocket.OPEN) return;
+    if (socket === null) return;
     const now = performance.now();
+    // A suspended tab has not polled the peer. Give queued replies a fresh
+    // grace period on return instead of treating suspension as a lost socket.
+    if (this.checkedAt !== null && now - this.checkedAt > ECHO_FORGET_MS) {
+      this.heardAt = now;
+      this.sentAt.clear();
+    }
+    this.checkedAt = now;
+    // A lost close handshake never calls onclose. Retire this generation before
+    // asking politely again, so an old callback cannot clear its successor.
+    // Reuse the five-second echo allowance: a silent input channel must not
+    // advertise an old local seat forever. No forced take is sent on recovery.
+    if (socket.readyState >= 2 || (this.heardAt !== null && now - this.heardAt >= ECHO_FORGET_MS)) {
+      this.retire?.();
+      socket.close();
+      return;
+    }
+    if (socket.readyState !== WebSocket.OPEN) return;
     for (const [ticket, at] of this.sentAt) {
       if (now - at > ECHO_FORGET_MS) this.sentAt.delete(ticket);
     }
@@ -377,6 +429,12 @@ export class InputStream {
   };
 
   stop(): void {
+    if (this.animation !== null) cancelAnimationFrame(this.animation);
+    this.animation = null;
+    if (this.retry !== null) window.clearTimeout(this.retry);
+    this.retry = null;
+    this.cancelCapture();
+    this.held.clear();
     for (const timer of this.timers) window.clearInterval(timer);
     this.timers = [];
     removeEventListener("keydown", this.onKeyDown);
@@ -385,28 +443,51 @@ export class InputStream {
     this.generation += 1;
     this.socket?.close();
     this.socket = null;
+    this.releaseLocalSeat();
+  }
+
+  private releaseLocalSeat(): void {
+    if (this.port !== null) this.busy[this.port - 1] = false;
+    this.port = null;
+    this.receipt = null;
+    this.deciding = false;
+    this.onSeat(null, null);
+  }
+
+  attribution(): string | null {
+    return this.receipt;
+  }
+
+  blockGameplay(blocked: boolean, device?: "dolphin" | "switch"): void {
+    if (this.configurationOpen && !blocked) this.source?.releaseBeforePlay();
+    this.configurationOpen = blocked;
+    this.configuringDolphin = blocked && device === "dolphin";
+    this.held.clear();
+    if (blocked) this.sendNeutral();
   }
 
   state(): InputState {
     return {
       port: this.port,
+      device: this.device,
       watching: this.watching,
       refused: this.refused,
       sent: this.sent,
       padId: this.padId,
       padLayout: this.padLayout,
       learning: this.lesson?.done === false ? this.lesson.asking : null,
+      lesson: this.lesson?.progress ?? null,
       pressed: this.pressedNames(),
       players: this.players,
       busy: this.busy,
       deciding: this.deciding,
       pads: this.pads,
-      using: this.current()?.index ?? null,
+      using: (this.source ? this.source.pad : this.current())?.index ?? null,
       displaced: this.displaced,
       capturing:
         this.capture === null
           ? null
-          : { control: this.capture.control, source: this.capture.source },
+          : { control: this.capture.control, source: this.capture.source, sign: this.capture.sign },
       profile: this.profile,
       keys: this.keys,
       keyProfiles: keyNames(this.keySet),
@@ -425,13 +506,13 @@ export class InputStream {
    * Only a person may ask. Doing it automatically would have two open pages
    * trade the pad between them for ever.
    */
-  take(port: number): void {
+  take(port: number, expected?: string): void {
     // Reprendre une place est une décision, donc elle efface l'avis. Et le mode
     // spectateur avec, sinon la place prise serait rendue à la première coupure.
     this.displaced = false;
     this.watching = false;
     this.silentUntil = 0;
-    this.connect(port);
+    this.connect(port, expected);
   }
 
   /** Rend la manette et n'en redemande plus: regarder, sans jouer.
@@ -443,7 +524,8 @@ export class InputStream {
   watchOnly(): void {
     if (this.watching) return;
     this.watching = true;
-    this.port = null;
+    this.preferredPort = null;
+    this.releaseLocalSeat();
     this.generation += 1;
     if (this.retry !== null) {
       window.clearTimeout(this.retry);
@@ -451,7 +533,6 @@ export class InputStream {
     }
     this.socket?.close();
     this.socket = null;
-    this.onSeat(null);
   }
 
   /** Redemande une manette: la première libre.
@@ -462,6 +543,7 @@ export class InputStream {
    */
   play(): void {
     this.watching = false;
+    this.preferredPort = null;
     this.displaced = false;
     this.silentUntil = 0;
     this.connect();
@@ -514,13 +596,14 @@ export class InputStream {
    * garde la sienne quoi qu'on demande.
    */
   choosePad(kind: number): boolean {
-    if (kind !== 0 && kind !== 1 && kind !== 2) return false;
+    if (kind !== 0 && kind !== 1 && kind !== 2 && kind !== 3) return false;
     // Retenu AVANT de regarder la socket, et même si l'envoi échoue: ce qu'on
     // tient décide aussi des mots de l'écran des touches, et cette moitié-là ne
     // dépend d'aucun réseau. Les lier ferait qu'une socket fermée une seconde
     // laisserait la leçon demander « le bouton X » à quelqu'un qui tient une
     // guitare.
     this.pad = kind;
+    this.extension = kind === 2 ? 1 : kind === 3 ? 2 : 0;
     if (this.port === null || this.socket?.readyState !== WebSocket.OPEN) return false;
     this.socket.send(new Uint8Array([3, kind]));
     return true;
@@ -529,7 +612,7 @@ export class InputStream {
   /**
    * Dit ce qu'on veut au bout de SA Wiimote, tout de suite.
    *
-   * Zéro le Nunchuk, un la guitare.
+   * Zéro le Nunchuk, un la guitare, deux sans extension.
    *
    * # Ce qui la distingue de `choosePad`
    *
@@ -544,7 +627,8 @@ export class InputStream {
    * worker. Personne ne peut donc viser la Wiimote de son voisin.
    */
   chooseExtension(kind: number): boolean {
-    if (kind !== 0 && kind !== 1) return false;
+    if (kind !== 0 && kind !== 1 && kind !== 2) return false;
+    this.extension = kind;
     if (this.port === null || this.socket?.readyState !== WebSocket.OPEN) return false;
     this.socket.send(new Uint8Array([4, kind]));
     return true;
@@ -557,9 +641,11 @@ export class InputStream {
    * état neutre. Sans ça, réassigner « A » consisterait à appuyer sur A dans la
    * partie de tout le monde.
    */
-  beginCapture(control: ControlKey, source: "pad" | "key"): void {
+  beginCapture(control: ControlKey, source: "pad" | "key", sign: 1 | -1 = 1): void {
+    this.cancelCapture();
+    this.held.clear();
     if (source === "key") {
-      this.capture = { control, source, machine: null };
+      this.capture = { control, source, sign, machine: null };
       return;
     }
     const pad = this.current();
@@ -567,7 +653,8 @@ export class InputStream {
     // Le repos est pris MAINTENANT, au clic de souris, donc les mains ne sont
     // pas encore sur la manette. C'est ce qui permet de se passer de l'attente
     // de relâchement que la leçon complète doit faire entre deux questions.
-    this.capture = { control, source, machine: new Capture(snapshot(pad)) };
+    this.configuringId = pad.id;
+    this.capture = { control, source, machine: new Capture(this.lessonSnapshot(pad)) };
   }
 
   /** Cède sa place, et se tait le temps que l'autre s'y branche.
@@ -578,8 +665,8 @@ export class InputStream {
    */
   yieldSeat(silenceMs = 6000): void {
     this.silentUntil = Date.now() + silenceMs;
-    this.port = null;
-    this.onSeat(null);
+    this.preferredPort = null;
+    this.releaseLocalSeat();
     this.generation += 1;
     this.socket?.close();
     this.socket = null;
@@ -603,21 +690,22 @@ export class InputStream {
 
   cancelCapture(): void {
     this.capture = null;
+    this.lesson = null;
+    this.configuringId = null;
   }
 
   /** Remet la manette à la disposition d'origine: celle du constructeur si elle
    * est standard, une leçon à refaire sinon. */
-  resetPad(): void {
-    this.capture = null;
+  resetPad(console = this.console, kind = this.pad): void {
+    this.cancelCapture();
     const pad = this.current();
     if (!pad) return;
     if (pad.mapping === "standard") {
       this.forgetProfile(pad.id);
       this.profile = null;
     } else {
-      this.forgetProfile(pad.id);
-      this.profile = null;
-      this.lesson = new Lesson(pad.id, snapshot(pad), this.console, this.pad);
+      // L'ancien profil reste jouable si la personne annule la leçon.
+      this.beginLesson(console, kind);
     }
   }
 
@@ -690,6 +778,28 @@ export class InputStream {
     keepKeys(this.keySet);
   }
 
+  /** Charge les commandes du profil sur cette page, jamais sur une autre place. */
+  applySetup(name: string, setup: SetupProfile): void {
+    const pad = this.current();
+    if (
+      setup.device &&
+      (!pad || (!(setup.standard && pad.mapping === "standard") && pad.id !== setup.device))
+    )
+      throw new Error(
+        "Branche la manette de ce profil, ou choisis un profil pour ta manette actuelle.",
+      );
+    this.cancelCapture();
+    if (setup.pad && pad) this.keepProfile(pad.id, { ...structuredClone(setup.pad), id: pad.id });
+    // Un profil chargé reçoit son propre jeu de touches. Les références de la
+    // salle ne sont jamais écrasées par un profil personnel.
+    const keyName = `Profil · ${name}`.slice(0, 24);
+    this.keySet = added(this.keySet, keyName);
+    this.keySet = activated(this.keySet, keyName);
+    this.keys = structuredClone(setup.keys);
+    this.keySet = edited(this.keySet, this.keys);
+    keepKeys(this.keySet);
+  }
+
   resetKeys(): void {
     this.capture = null;
     this.forkIfLocked();
@@ -707,10 +817,13 @@ export class InputStream {
    */
   useP(index: number | null): void {
     this.chosen = index;
-    this.capture = null;
+    this.cancelCapture();
     // Le profil appartient à la manette: en changer veut dire relire celui de la
     // nouvelle, sinon la seconde hérite des touches de la première.
-    this.profile = null;
+    const pad = this.current();
+    this.profile = pad ? this.profileFor(pad.id) : null;
+    this.padId = pad?.id ?? null;
+    this.padLayout = pad ? (pad.mapping === "standard" ? "standard" : "unknown") : null;
   }
 
   /** La manette qui joue: celle qu'on a choisie si elle est encore là, sinon la
@@ -759,13 +872,7 @@ export class InputStream {
    * apprendrait n'importe quoi.
    */
   private lessonSnapshot(like: Gamepad): Snapshot {
-    let merged: Snapshot | null = null;
-    for (const pad of this.connected()) {
-      if (pad.id !== like.id) continue;
-      const one = snapshot(pad);
-      merged = merged === null ? one : loudest(merged, one);
-    }
-    return merged ?? snapshot(like);
+    return modelSnapshot(this.connected(), like);
   }
 
   private current(): Gamepad | null {
@@ -783,17 +890,27 @@ export class InputStream {
     this.console = console;
   }
 
-  beginLesson(): void {
+  beginLesson(console = this.console, kind = this.pad): void {
+    this.cancelCapture();
     const pad = this.current();
     if (!pad) return;
-    this.lesson = new Lesson(pad.id, snapshot(pad), this.console, this.pad);
+    this.configuringId = pad.id;
+    this.held.clear();
+    this.sendNeutral();
+    this.lesson = new Lesson(pad.id, this.lessonSnapshot(pad), console, kind);
   }
 
   skipLessonStep(): void {
     this.lesson?.skip();
+    const pad = this.current();
+    if (this.lesson?.done && pad?.id === this.configuringId) {
+      this.keepProfile(pad.id, this.lesson.learned());
+      this.cancelCapture();
+    }
+    this.onSettled();
   }
 
-  private connect(take: number | null = null): void {
+  private connect(take: number | null = null, expected?: string): void {
     this.generation += 1;
     const mine = this.generation;
     if (this.retry !== null) {
@@ -809,11 +926,41 @@ export class InputStream {
       this.socket.close();
     }
     this.refused = false;
-    const socket = new WebSocket(this.url(take === null ? "/input" : `/input?take=${take}`));
+    this.receipt = null;
+    if (!this.fixedSource) this.source = null;
+    const socket = new WebSocket(
+      this.url(
+        `/input?identity=1${take === null ? (this.preferredPort === null ? "" : `&prefer=${this.preferredPort}`) : `&take=${take}`}${expected === undefined ? "" : `&expected=${encodeURIComponent(expected)}`}`,
+      ),
+    );
     socket.binaryType = "arraybuffer";
     this.socket = socket;
-    socket.onmessage = (event: MessageEvent<ArrayBuffer>) => {
+    this.heardAt = performance.now();
+    this.checkedAt = this.heardAt;
+    this.sentAt.clear();
+    let greeted = false;
+    socket.onmessage = (event: MessageEvent<ArrayBuffer | string>) => {
       if (mine !== this.generation) return;
+      this.heardAt = performance.now();
+      if (typeof event.data === "string") {
+        if (event.data === "format switch") {
+          if (!this.fixedSource) this.source = this.switch;
+          return;
+        }
+        if (/^pad [0-3]$/.test(event.data)) {
+          this.device = Number(event.data.slice(4)) as 0 | 1 | 2 | 3;
+          this.pad = this.device;
+          this.chooseExtension(this.device === 2 ? 1 : this.device === 3 ? 2 : 0);
+          this.onSettled();
+          return;
+        }
+        const found = /^seat ([0-9a-f]{32}-[1-9][0-9]{0,19})$/.exec(event.data);
+        if (found && this.port !== null && found[1] !== this.receipt) {
+          this.receipt = found[1];
+          this.onSeat(this.port, this.receipt);
+        }
+        return;
+      }
       const bytes = new Uint8Array(event.data);
       // L'aller-retour d'abord: c'est le seul message dont l'exactitude dépend
       // du moment où on le lit.
@@ -836,7 +983,15 @@ export class InputStream {
       const told = readRoomMessage(bytes);
       if (told === null) return;
       this.players = told.players;
+      const previousPort = this.port;
       this.port = told.port;
+      if (this.port !== null) this.preferredPort = this.port;
+      // Le worker remet ses extensions au démarrage. Chaque nouvelle prise
+      // réaffirme celle de cette page, sans réécrire le choix global de salle.
+      if (!this.source && this.port !== null && (!greeted || previousPort !== this.port))
+        this.chooseExtension(this.extension);
+      const changed = !greeted || previousPort !== this.port;
+      greeted = true;
       this.refused = this.port === null;
       // Displaced, rather than merely without: this page held a pad and the
       // worker has just told it that it does not.
@@ -847,12 +1002,16 @@ export class InputStream {
       }
       this.busy = told.busy;
       this.deciding = told.deciding;
-      this.onSeat(this.port);
+      if (changed) this.onSeat(this.port, this.receipt);
     };
-    socket.onclose = () => {
+    const disconnected = () => {
       if (mine !== this.generation) return;
-      this.port = null;
-      this.onSeat(null);
+      this.generation += 1;
+      this.socket = null;
+      this.heardAt = null;
+      this.retire = null;
+      socket.onclose = null;
+      this.releaseLocalSeat();
       // A DISPLACED page stops asking. Found by the player: his page was taken,
       // picked up the next free socket three seconds later, and he carried on
       // driving a different character with nothing on screen to say so. Coming
@@ -872,29 +1031,50 @@ export class InputStream {
       // up by itself the moment it is free.
       this.retry = window.setTimeout(() => this.connect(), this.refused ? 3000 : 500);
     };
+    socket.onclose = disconnected;
+    this.retire = disconnected;
     socket.onerror = () => {
       if (mine === this.generation) socket.close();
     };
   }
 
   private onKeyDown = (event: KeyboardEvent): void => {
+    if (event.code === "Escape" && (this.capture !== null || this.lesson !== null)) {
+      event.preventDefault();
+      this.cancelCapture();
+      this.onSettled();
+      return;
+    }
     // Un champ de texte gagne toujours, et AVANT la réassignation: on y écrit un
     // pseudo ou un nom de profil, et les lettres qu'on tape sont justement
     // celles qui pilotent la manette. Sans cette ligne, `preventDefault` plus
     // bas empêchait d'écrire un `a` ou un `s` dans n'importe quel champ de la
     // page — le pseudo du salon compris, depuis le début.
     if (typingIn(event.target)) return;
+    if ((this.switch.capturing ? this.switch : this.source)?.captureKey(event)) {
+      event.preventDefault();
+      this.held.clear();
+      return;
+    }
     // En cours de réassignation: cette touche EST la réponse, elle ne descend
     // pas au jeu et elle ne s'ajoute pas aux touches tenues.
     if (this.capture?.source === "key") {
       event.preventDefault();
       // Échap annule, sinon aucune touche ne pourrait sortir d'une capture.
-      if (event.code !== "Escape") this.bindKey(event.code, this.capture.control);
+      if (event.code !== "Escape")
+        this.bindKey(event.code, this.capture.control, this.capture.sign);
       this.capture = null;
       this.onSettled();
       return;
     }
-    if (event.code in this.keys || event.code.startsWith("Arrow")) event.preventDefault();
+    // Un dialogue natif possède ses flèches, sa barre d'espace et sa tabulation.
+    // La capture ci-dessus est la seule raison de lui prendre une touche.
+    if (event.target instanceof Element && event.target.closest("dialog[open]")) return;
+    if (
+      (this.source ? this.source.handlesKey(event.code) : event.code in this.keys) ||
+      event.code.startsWith("Arrow")
+    )
+      event.preventDefault();
     this.held.add(event.code);
   };
 
@@ -910,7 +1090,7 @@ export class InputStream {
   };
 
   private pumpOnRefresh = (): void => {
-    requestAnimationFrame(this.pumpOnRefresh);
+    this.animation = requestAnimationFrame(this.pumpOnRefresh);
     this.pump();
   };
 
@@ -930,16 +1110,46 @@ export class InputStream {
         buttons: candidate.buttons.length,
         axes: candidate.axes.length,
       }));
+    this.source?.poll(this.held, found);
+    // Preparing a Wii game can happen while Switch is still running. Read the
+    // Dolphin capture below, but sendNeutral keeps the active Switch wire.
+    if (this.source && !this.configuringDolphin) {
+      const active = this.source.pad;
+      if (this.menu && !this.configurationOpen && active?.mapping === "standard") {
+        const reading = readPad(active, standardProfile(active.id));
+        const action = this.menuPad.feed(reading, performance.now());
+        if (action !== null) this.menu(action);
+      }
+      this.padId = active?.id ?? null;
+      this.padLayout = active ? (active.mapping === "standard" ? "standard" : "unknown") : null;
+      if (this.socket?.readyState === WebSocket.OPEN && this.port !== null) {
+        this.socket.send(
+          this.source.frame(this.port, this.configurationOpen || this.menu !== null),
+        );
+        this.sent += 1;
+      }
+      return;
+    }
     const pad = this.current();
+    if (this.configuringId !== null && pad?.id !== this.configuringId) this.cancelCapture();
+    if (!pad) {
+      this.padId = null;
+      this.padLayout = null;
+      this.profile = null;
+    }
     if (pad) {
       this.padId = pad.id;
       this.padLayout = pad.mapping === "standard" ? "standard" : "unknown";
       // Learning happens whether or not this page holds a controller, and the
       // presses that answer the questions never reach the game.
       if (this.lesson !== null && !this.lesson.done) {
+        this.sendNeutral();
         this.lesson.feed(this.lessonSnapshot(pad));
         if (this.lesson.done) {
           this.keepProfile(pad.id, this.lesson.learned());
+          this.releasing = { id: pad.id, atRest: this.lesson.atRest.bind(this.lesson) };
+          this.lesson = null;
+          this.configuringId = null;
           this.onSettled();
         }
         return;
@@ -949,10 +1159,17 @@ export class InputStream {
       // ne part au jeu tant qu'on n'a pas fini.
       if (this.capture?.machine) {
         const moved = this.capture.machine.feed(this.lessonSnapshot(pad));
-        if (moved) {
+        if (moved && (!isStick(this.capture.control) || "axis" in moved.control)) {
           this.bindPad(pad, this.capture.control, moved.control, moved.value);
+          const machine = this.capture.machine;
+          this.releasing = { id: pad.id, atRest: (now) => machine.feed(now) === null };
           this.capture = null;
+          this.configuringId = null;
           this.onSettled();
+          // L'appui qui vient de répondre ne doit pas aussi atteindre le jeu
+          // ou valider une entrée du menu pendant ce même tour.
+          this.sendNeutral();
+          return;
         }
       }
     }
@@ -960,6 +1177,22 @@ export class InputStream {
     // appuyer sur A dans la partie de tout le monde. On envoie quand même un
     // état neutre, sinon le dernier appui resterait tenu dans l émulateur.
     if (this.capture !== null) {
+      this.sendNeutral();
+      return;
+    }
+
+    // La dernière réponse ne devient pas aussitôt un appui dans le jeu ou le
+    // menu. Attendre le même repos que celui mesuré au début de la capture.
+    if (this.releasing) {
+      if (!pad || pad.id !== this.releasing.id || this.releasing.atRest(this.lessonSnapshot(pad))) {
+        this.releasing = null;
+      } else {
+        this.sendNeutral();
+        return;
+      }
+    }
+
+    if (this.configurationOpen) {
       this.sendNeutral();
       return;
     }
@@ -1030,7 +1263,9 @@ export class InputStream {
       this.stopShaking();
       return;
     }
-    const pad = this.connected().find((one) => one.vibrationActuator);
+    const pad = this.source
+      ? this.source.pad
+      : this.connected().find((one) => one.vibrationActuator);
     const actuator = pad?.vibrationActuator;
     if (actuator) {
       void actuator
@@ -1053,7 +1288,7 @@ export class InputStream {
 
   /** Arrête tout de suite, quand la force retombe à zéro. */
   private stopShaking(): void {
-    for (const pad of this.connected()) {
+    for (const pad of this.source ? (this.source.pad ? [this.source.pad] : []) : this.connected()) {
       void pad.vibrationActuator?.reset?.().catch(() => {});
     }
     try {
@@ -1083,14 +1318,23 @@ export class InputStream {
    * premier changement effacerait les quinze autres commandes.
    */
   private bindPad(pad: Gamepad, key: ControlKey, control: Control, value: number): void {
-    const profile = this.profile ?? standardProfile(pad.id);
+    const profile = structuredClone(
+      this.profile ??
+        (pad.mapping === "standard"
+          ? standardProfile(pad.id)
+          : { id: pad.id, buttons: {}, triggers: {}, sticks: {} }),
+    );
     if (key === "L" || key === "R") {
       profile.triggers[key] = control;
     } else if (key === "x" || key === "y" || key === "cx" || key === "cy") {
       // Un stick est signé, et le signe est le sens qu'on vient de pousser:
       // demander la DROITE ou le HAUT veut dire que ce sens-là est positif.
       if ("axis" in control) {
-        profile.sticks[key] = { axis: control.axis, sign: value >= control.rest ? 1 : -1 };
+        profile.sticks[key] = {
+          axis: control.axis,
+          sign: value >= control.rest ? 1 : -1,
+          rest: control.rest,
+        };
       }
     } else {
       profile.buttons[key] = control;
@@ -1130,9 +1374,9 @@ export class InputStream {
     }
   }
 
-  private bindKey(code: string, key: ControlKey): void {
+  private bindKey(code: string, key: ControlKey, sign: 1 | -1 = 1): void {
     this.forkIfLocked();
-    const action = actionFor(key);
+    const action = actionFor(key, sign);
     const keys: KeyProfile = {};
     for (const [existing, what] of Object.entries(this.keys)) {
       if (existing !== code && !sameAction(what, action)) keys[existing] = what;
@@ -1166,7 +1410,9 @@ export class InputStream {
     if (this.socket?.readyState !== WebSocket.OPEN || this.port === null) return;
     const neutral: PadReading = { buttons: 0, x: 0, y: 0, cx: 0, cy: 0, l: 0, r: 0 };
     this.lastReading = neutral;
-    this.socket.send(encodePad(this.port, neutral));
+    this.socket.send(
+      this.source ? this.source.frame(this.port, true) : encodePad(this.port, neutral),
+    );
     this.sent += 1;
   }
 
@@ -1184,7 +1430,7 @@ export class InputStream {
   private loadProfile(id: string): PadProfile | null {
     try {
       const saved = localStorage.getItem(`${PAD_PREFIX}${id}`);
-      return saved ? (JSON.parse(saved) as PadProfile) : null;
+      return saved ? readProfile(JSON.parse(saved), id) : null;
     } catch {
       return null;
     }
@@ -1200,12 +1446,12 @@ export class InputStream {
 }
 
 /** Ce qu'une commande de GameCube veut dire pour une touche de clavier. */
-function actionFor(key: ControlKey): Action {
+function actionFor(key: ControlKey, sign: 1 | -1 = 1): Action {
   if (key === "L" || key === "R") return { kind: "trigger", side: key };
   if (key === "x" || key === "y" || key === "cx" || key === "cy") {
     // Le tableau demande « stick → » et « stick ↑ », donc le sens positif. Les
     // sens négatifs se réassignent en cliquant la ligne opposée, qui existe.
-    return { kind: "stick", stick: key, sign: 1 };
+    return { kind: "stick", stick: key, sign };
   }
   return { kind: "button", name: key };
 }

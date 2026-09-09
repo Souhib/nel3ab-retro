@@ -2,11 +2,25 @@
 
 from pydantic import BaseModel, Field
 
+from nel3ab_control.api.controllers.preparation import Preparation
 from nel3ab_control.api.schemas.player import Person
+
+
+class GameGuide(BaseModel):
+    players: int | None = Field(default=None, ge=1, le=8)
+    multiplayer: str = ""
+    devices: list[str] = Field(default_factory=list)
+    checked: str | None = None
+    allowed: list[int]
+    source: str
+    note: str
+    actions: dict[str, dict[str, str]]
 
 
 class Game(BaseModel):
     """One game the room can run."""
+
+    guide: GameGuide | None = None
 
     index: int = Field(
         description="Its position in the worker's library, which is how it is asked for."
@@ -54,11 +68,19 @@ class Seat(BaseModel):
     player: str | None = Field(
         default=None, description="The name of whoever claims it, if anybody."
     )
+    held: bool | None = Field(
+        default=None, description="Occupation lue chez le worker, ou inconnue sur un ancien worker."
+    )
+    claim: str | None = Field(
+        default=None,
+        description="Repère de l'attribution actuelle. Ce n'est ni un nom ni un secret.",
+    )
 
 
 class Room(BaseModel):
     """The room, as a page needs to render it."""
 
+    preparation: Preparation | None = None
     name: str
     game: Game | None = Field(default=None, description="What is loaded right now.")
     library: list[Game]
@@ -66,7 +88,7 @@ class Room(BaseModel):
     owner: Person | None = Field(
         default=None,
         description=(
-            "Qui décide du jeu: le premier arrivé encore présent. Nul quand "
+            "Le chef choisi après une reprise, sinon le premier arrivé encore connecté. Nul quand "
             "personne n'a d'identité, et la salle retombe alors sur sa règle "
             "d'avant, où tenir une manette suffit."
         ),

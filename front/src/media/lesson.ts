@@ -10,6 +10,7 @@ import {
   BUTTON,
   CONTROLS,
   MOVED,
+  isStick,
   controlsFor,
   type ButtonName,
   type Control,
@@ -56,6 +57,17 @@ export function loudest(first: Snapshot, second: Snapshot): Snapshot {
     return out;
   };
   return { buttons: pick(first.buttons, second.buttons), axes: pick(first.axes, second.axes) };
+}
+
+/** Les ports d'un adaptateur partagent leur profil et leur diagnostic. */
+export function modelSnapshot(pads: readonly (Gamepad | null)[], like: Gamepad): Snapshot {
+  let merged: Snapshot | null = null;
+  for (const pad of pads) {
+    if (!pad || pad.id !== like.id) continue;
+    const one = snapshot(pad);
+    merged = merged === null ? one : loudest(merged, one);
+  }
+  return merged ?? snapshot(like);
 }
 
 /**
@@ -129,7 +141,7 @@ export class Lesson {
    * changent, pas ce qu'on enregistre. */
   private readonly steps: { key: StepKey; ask: string }[];
 
-  constructor(id: string, neutral: Snapshot, console = "gc", pad: 0 | 1 | 2 = 0) {
+  constructor(id: string, neutral: Snapshot, console = "gc", pad: 0 | 1 | 2 | 3 = 0) {
     this.neutral = neutral;
     this.profile = { id, buttons: {}, triggers: {}, sticks: {} };
     this.steps = controlsFor(console, pad).map(({ key, ask }) => ({ key, ask }));
@@ -141,6 +153,18 @@ export class Lesson {
 
   get asking(): string {
     return this.done ? "" : (this.steps[this.step]?.ask ?? "");
+  }
+
+  get progress(): { control: StepKey; step: number; total: number; waiting: boolean } | null {
+    const current = this.steps[this.step];
+    return current
+      ? {
+          control: current.key,
+          step: this.step + 1,
+          total: this.steps.length,
+          waiting: this.waiting,
+        }
+      : null;
   }
 
   learned(): PadProfile {
@@ -165,6 +189,7 @@ export class Lesson {
     if (best === null) return false;
 
     const { key } = this.steps[this.step];
+    if (isStick(key) && !("axis" in best.control)) return false;
     if (key === "L" || key === "R") {
       this.profile.triggers[key] = best.control;
     } else if (key === "x" || key === "y" || key === "cx" || key === "cy") {
@@ -187,7 +212,7 @@ export class Lesson {
     return true;
   }
 
-  private atRest(now: Snapshot): boolean {
+  atRest(now: Snapshot): boolean {
     return (
       now.buttons.every(
         (value, index) => Math.abs(value - (this.neutral.buttons[index] ?? 0)) <= MOVED,

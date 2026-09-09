@@ -37,6 +37,16 @@ class Bindings(BaseModel):
     (voir `BindingsController.CEILING`).
     """
 
+    switch: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Profils Switch personnels, séparés des commandes Dolphin.",
+    )
+
+    setups: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Profils personnels nommés : appareil, manette physique et touches.",
+    )
+
     pads: dict[str, Any] = Field(
         default_factory=dict,
         description="Un profil par manette, indexé par l'identifiant que le navigateur donne.",
@@ -78,3 +88,7 @@ class Person(BaseModel):
     name: str
     login: str | None = None
     seat: int | None = Field(default=None, description="La manette qu'il tient, s'il en tient une.")
+    seat_pending: bool = Field(
+        default=True,
+        description="L'attribution reste à confirmer ; cette personne n'est pas un spectateur.",
+    )

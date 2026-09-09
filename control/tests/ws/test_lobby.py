@@ -8,6 +8,7 @@ unit test and fails the moment it is served.
 
 import asyncio
 import json
+import shlex
 import socket
 from collections.abc import AsyncIterator
 from pathlib import Path
@@ -18,9 +19,11 @@ import pytest
 import socketio
 import uvicorn
 from anyio.abc import SocketAttribute, SocketStream
+from anyio.lowlevel import checkpoint
 from socketio.exceptions import ConnectionError as SocketConnectionError
 
 from nel3ab_control.api.controllers.rooms import RoomController
+from nel3ab_control.api.schemas.error import WorkerUnreachable
 from nel3ab_control.app import create_app
 from nel3ab_control.settings import Settings
 
@@ -82,13 +85,84 @@ async def test_a_page_that_takes_a_pad_is_broadcast_to_everybody(
 
     assert heard, "the watcher was told nothing at all"
     seats = heard[-1]["seats"]
-    assert seats[1] == {"port": 2, "player": "Souhib"}
+    assert seats[1] == {"port": 2, "player": "Souhib", "held": None, "claim": None}
     assert rooms.seats()[1].player == "Souhib"
 
     await player.disconnect()
     await asyncio.sleep(0.3)
     assert rooms.seats()[1].player is None, "leaving must give the pad back"
     await watcher.disconnect()
+
+
+async def test_invalid_messages_do_not_stop_another_players_broadcast(
+    served: tuple[str, RoomController],
+) -> None:
+    """L'accusé de réception attend le gestionnaire, sans sommeil de livraison."""
+    url, rooms = served
+    watcher = socketio.AsyncClient()
+    sender = socketio.AsyncClient()
+    heard: asyncio.Queue[dict] = asyncio.Queue()
+    watcher.on("room", heard.put_nowait)
+    try:
+        await watcher.connect(url, auth={"name": "Yassine"})
+        await sender.connect(url, auth={"name": "Souhib"})
+        await sender.call("seat", "pas un objet", timeout=2)
+        await watcher.call("seat", {"port": 2}, timeout=2)
+        async with asyncio.timeout(2):
+            room = await heard.get()
+            while room["seats"][1]["player"] != "Yassine":
+                room = await heard.get()
+        assert rooms.seats()[1].player == "Yassine"
+        assert {person["name"] for person in room["people"]} == {"Souhib", "Yassine"}
+    finally:
+        await sender.disconnect()
+        await watcher.disconnect()
+
+
+async def test_a_failed_connect_is_refused_and_the_next_one_can_join(
+    served: tuple[str, RoomController],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    url, rooms = served
+    rejected = socketio.AsyncClient()
+    accepted = socketio.AsyncClient()
+    failures: list[dict] = []
+    heard: asyncio.Queue[dict] = asyncio.Queue()
+    rejected.on("connect_error", failures.append)
+    accepted.on("room", heard.put_nowait)
+    original = rooms.describe
+
+    async def offline(_people=None):
+        raise WorkerUnreachable("http://worker.test")
+
+    try:
+        monkeypatch.setattr(rooms, "describe", offline)
+        with pytest.raises(SocketConnectionError):
+            await rejected.connect(url, auth={"name": "Fantôme"})
+        assert failures, "le serveur doit envoyer CONNECT_ERROR, pas laisser expirer l'attente"
+        monkeypatch.setattr(rooms, "describe", original)
+        await accepted.connect(url, auth={"name": "Souhib"})
+        async with asyncio.timeout(2):
+            room = await heard.get()
+        assert [person["name"] for person in room["people"]] == ["Souhib"]
+    finally:
+        await rejected.disconnect()
+        await accepted.disconnect()
+
+
+async def test_an_object_used_as_a_name_is_refused_over_socketio(
+    served: tuple[str, RoomController],
+) -> None:
+    url, _rooms = served
+    client = socketio.AsyncClient()
+    failures: list[dict] = []
+    client.on("connect_error", failures.append)
+    try:
+        with pytest.raises(SocketConnectionError):
+            await client.connect(url, auth={"name": {"bad": "name"}})
+        assert failures
+    finally:
+        await client.disconnect()
 
 
 async def test_the_lobby_knows_who_it_is_from_the_proxy(
@@ -585,7 +659,7 @@ async def test_a_game_change_is_announced_to_everybody_else(
 
     # Le NOM vient de la bibliothèque du serveur, pas de la page: une page
     # n'écrit pas le texte que les autres liront.
-    assert told == [{"game": "Super Smash Bros Melee", "save": "tout débloqué"}]
+    assert told == [{"game": "Super Smash Bros Melee", "save": "tout débloqué", "saveSlot": 1}]
     # Et pas à l'auteur: sa page a déjà posé l'écran sans attendre le salon, et
     # le lui renvoyer remettrait son compteur d'images à zéro.
     assert mine == []
@@ -668,7 +742,7 @@ async def test_the_worker_decides_who_may_warn_the_room(
             await other.disconnect()
             group.cancel_scope.cancel()
 
-    assert told == [{"game": "Super Smash Bros Melee", "save": "tout débloqué"}]
+    assert told == [{"game": "Super Smash Bros Melee", "save": "tout débloqué", "saveSlot": 1}]
 
 
 async def test_a_worker_that_refuses_stops_the_announcement(
@@ -795,7 +869,7 @@ async def test_only_the_one_who_decides_can_announce(
     # cette moitié, un gestionnaire qui refuserait TOUT satisferait le test.
     await owner.emit("booting", {"jeu": 0, "sauvegarde": 0})
     await asyncio.sleep(0.4)
-    assert told == [{"game": "Super Smash Bros Melee", "save": "partie neuve"}]
+    assert told == [{"game": "Super Smash Bros Melee", "save": "partie neuve", "saveSlot": 0}]
 
     await owner.disconnect()
     await other.disconnect()
@@ -887,3 +961,201 @@ async def test_a_foreign_origin_cannot_open_the_lobby(served: tuple[str, RoomCon
     )
     assert page.connected
     await page.disconnect()
+
+
+async def test_both_deployed_doors_share_names_but_foreign_origins_are_refused(
+    served: tuple[str, RoomController],
+) -> None:
+    """Lit la valeur livrée à systemd, pas une liste recopiée dans le test."""
+    from nel3ab_control.api.ws.server import allow_origins
+
+    unit = Path(__file__).parents[3] / "deploy/nel3ab-control.service"
+    lines = [line for line in unit.read_text().splitlines() if line.startswith("Environment=")]
+    environment = dict(shlex.split(line.partition("=")[2])[0].split("=", 1) for line in lines)
+    allow_origins(json.loads(environment["NEL3AB_ORIGINS"]))
+    url, _rooms = served
+    clients: list[socketio.AsyncClient] = []
+    try:
+        for origin in ["https://nel3ab.app", "https://lgf.tail3bd01c.ts.net:8443"]:
+            page = socketio.AsyncClient()
+            clients.append(page)
+            await page.connect(url, auth={"name": "Ami"}, headers={"Origin": origin})
+            assert page.connected
+        for origin in ["https://evil.example", "https://lgf.tail3bd01c.ts.net:8444"]:
+            stranger = socketio.AsyncClient()
+            with pytest.raises(SocketConnectionError):
+                await stranger.connect(url, headers={"Origin": origin})
+            assert not stranger.connected
+    finally:
+        for page in clients:
+            if page.connected:
+                await page.disconnect()
+
+
+async def test_collective_preparation_reaches_everyone_and_keeps_each_choice(
+    served: tuple[str, RoomController],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Vrais clients et port de contrôle jetable ; aucun processus de la salle."""
+    from nel3ab_control.api.ws import handlers
+
+    url, rooms = served
+    claims = ["a" * 32 + "-1", "a" * 32 + "-2", "-", "-"]
+    launches: list[str] = []
+
+    async def worker(stream: SocketStream) -> None:
+        async with stream:
+            line = b""
+            while b"\n" not in line:
+                line += await stream.receive(320)
+            command = line.decode().strip()
+            if command == "seats":
+                await stream.send((" ".join(claims) + "\n").encode())
+            elif command.startswith("decides"):
+                await stream.send(b"yes\n" if command == "decides 1" else b"no\n")
+            elif command.startswith("launch"):
+                launches.append(command)
+                # L'accusé peut arriver dans deux lectures TCP.
+                await stream.send(b"o")
+                await checkpoint()
+                await stream.send(b"k\n")
+            else:
+                await stream.send(b"ok\n")
+
+    async def catalog(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "current": 0,
+                "roms": [
+                    {"name": "Mario Kart Wii", "console": "wii", "art": False},
+                ],
+            },
+        )
+
+    # La cadence a ses essais propres. Celui-ci enchaîne des réponses acquittées
+    # pour vérifier la préparation, sans attendre un délai arbitraire par clic.
+    monkeypatch.setattr(handlers, "ROOM_EVERY", 0)
+    async with httpx.AsyncClient(transport=httpx.MockTransport(catalog)) as client:
+        monkeypatch.setattr(rooms, "_client", client)
+        async with await anyio.create_tcp_listener(
+            local_host="127.0.0.1", local_port=0
+        ) as listener:
+            port = listener.extra(SocketAttribute.local_address)[1]  # noqa: S610
+            rooms.settings.worker_control = f"127.0.0.1:{port}"
+            async with anyio.create_task_group() as group:
+                group.start_soon(listener.serve, worker)
+                players = [socketio.AsyncClient() for _ in range(3)]
+                heard: asyncio.Queue[dict] = asyncio.Queue()
+                booting: asyncio.Queue[dict] = asyncio.Queue()
+                players[2].on("room", heard.put_nowait)
+                players[2].on("booting", booting.put_nowait)
+                try:
+                    for player, name in zip(players, ["Souhib", "Yassine", "Vincent"], strict=True):
+                        await player.connect(url, auth={"name": name})
+                    for index, player in enumerate(players[:2]):
+                        await player.call("seat", {"port": index + 1, "claim": claims[index]})
+                    assert [s.player for s in rooms.seats()] == ["Souhib", "Yassine", None, None]
+                    assert "error" in await players[1].call(
+                        "preparation", {"action": "begin", "game": 0}
+                    )
+                    assert await players[0].call(
+                        "preparation", {"action": "begin", "game": 0, "save": 1}
+                    ) == {"ok": True}
+                    assert rooms.preparation is not None
+                    preparation_id = rooms.preparation.id
+                    async with asyncio.timeout(3):
+                        pushed = await heard.get()
+                        while pushed.get("preparation") is None:
+                            pushed = await heard.get()
+                    assert [p["name"] for p in pushed["preparation"]["players"]] == [
+                        "Souhib",
+                        "Yassine",
+                    ]
+
+                    async def act(index: int, **action):
+                        return await players[index].call(
+                            "preparation", {"id": preparation_id, **action}
+                        )
+
+                    assert "error" in await act(2, action="choose", pad=0, ready=True)
+                    assert "error" in await act(1, action="choose", pad=2, ready=True)
+                    assert await act(0, action="choose", pad=0, ready=True) == {"ok": True}
+                    assert "error" in await act(0, action="launch")
+                    assert launches == []
+                    assert await act(1, action="choose", pad=1, ready=True) == {"ok": True}
+                    assert await act(0, action="launch") == {"ok": True}
+                    assert launches == [f"launch 1 {claims[0]} 0 1 0 1 1 1 {' '.join(claims)}"]
+                    async with asyncio.timeout(3):
+                        announcement = await booting.get()
+                    assert announcement["pads"] == {claims[0]: 0, claims[1]: 1}
+                    assert announcement["saveSlot"] == 1
+                    assert rooms.preparation is None
+                    assert "error" in await act(0, action="launch")
+                finally:
+                    for player in players:
+                        await player.disconnect()
+                    group.cancel_scope.cancel()
+
+
+async def test_old_page_and_reconnection_do_not_become_false_spectators(served, monkeypatch):
+    from itertools import count
+    from unittest.mock import AsyncMock
+
+    from nel3ab_control.api.controllers import rooms as module
+    from nel3ab_control.api.ws import handlers
+
+    url, rooms = served
+    first, second = "a" * 32 + "-1", "a" * 32 + "-2"
+    observed = [first, second, None, None]
+    monkeypatch.setattr(module, "read_seats", AsyncMock(side_effect=lambda _: list(observed)))
+    ticks = count(100)
+    monkeypatch.setattr(handlers, "monotonic", lambda: float(next(ticks)))
+    await rooms.synchronise()
+    old, current, watcher = [socketio.AsyncClient() for _ in range(3)]
+    heard: asyncio.Queue[dict] = asyncio.Queue()
+    watcher.on("room", heard.put_nowait)
+
+    async def pushed(predicate):
+        async with asyncio.timeout(3):
+            while True:
+                room = await heard.get()
+                if predicate(room):
+                    return room
+
+    try:
+        for page, name in [(old, "Alice"), (current, "Benoit"), (watcher, "Camille")]:
+            await page.connect(url, auth={"name": name})
+        await watcher.call("seat", {"port": None, "claim": None})
+        await old.call("seat", {"port": 1})
+        await current.call("seat", {"port": 2, "claim": second})
+        room = await pushed(lambda r: r["seats"][1]["player"] == "Benoit")
+        assert room["seats"][0]["held"] is True
+        assert room["seats"][0]["player"] is None
+        persons = {p["name"]: p for p in room["people"]}
+        assert persons["Alice"]["seat_pending"] is True
+        assert persons["Camille"]["seat_pending"] is False
+        assert persons["Camille"]["seat"] is None
+        # Une page actualisée conserve son vrai port, sans déduire le nom de l'ordre d'arrivée.
+        await old.call("seat", {"port": 1, "claim": first})
+        room = await pushed(lambda r: r["seats"][0]["player"] == "Alice")
+        assert [s["player"] for s in room["seats"]] == ["Alice", "Benoit", None, None]
+        assert all(not p["seat_pending"] for p in room["people"])
+        # Le salon seul redémarre : le repère de la manette reste le même.
+        await current.disconnect()
+        await current.connect(url, auth={"name": "Benoit"})
+        await current.call("seat", {"port": 2, "claim": second})
+        await pushed(lambda r: r["seats"][1]["player"] == "Benoit")
+        observed[0] = None
+        await old.call("seat", {"port": None, "claim": None})
+        room = await pushed(
+            lambda r: any(
+                p["name"] == "Alice" and p["seat"] is None and not p["seat_pending"]
+                for p in r["people"]
+            )
+        )
+        assert room["seats"][0]["player"] is None
+        assert room["seats"][1]["player"] == "Benoit"
+    finally:
+        for page in [old, current, watcher]:
+            await page.disconnect()

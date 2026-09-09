@@ -1,0 +1,5 @@
+{
+  "src": ["autogroup:shared"],
+  "dst": ["100.104.234.37", "fd7a:115c:a1e0::8901:eabc"],
+  "ip": ["tcp:443"]
+}

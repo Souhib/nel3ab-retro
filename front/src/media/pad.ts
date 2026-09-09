@@ -51,6 +51,10 @@ export const CONTROLS = [
 
 export type ControlKey = (typeof CONTROLS)[number]["key"];
 
+export function isStick(key: ControlKey): key is "x" | "y" | "cx" | "cy" {
+  return key === "x" || key === "y" || key === "cx" || key === "cy";
+}
+
 /** Les mêmes seize commandes, dites comme une Wiimote les nomme.
  *
  * # Pourquoi ce n'est pas un deuxième profil
@@ -119,11 +123,22 @@ const GUITAR_NAMES: Partial<Record<ControlKey, { label: string; ask: string }>> 
  * guitare, et ce ne sont pas les mêmes mots. Rien ne change dans ce qu'on
  * envoie, seulement dans ce qu'on demande à la personne.
  */
-export function controlsFor(console: string, pad: 0 | 1 | 2 = 0): typeof CONTROLS {
+export function controlsFor(console: string, pad: 0 | 1 | 2 | 3 = 0): typeof CONTROLS {
   // Une manette GameCube reste une manette GameCube, même sur un jeu Wii: c'est
   // ce que le worker écrit dans son fichier de correspondances.
   if (console !== "wii" || pad === 0) return CONTROLS;
-  const said = pad === 2 ? GUITAR_NAMES : WII_NAMES;
+  const said =
+    pad === 2
+      ? GUITAR_NAMES
+      : pad === 3
+        ? {
+            ...WII_NAMES,
+            L: { label: "sans extension", ask: "C du Nunchuk (inutilisé ici, tu peux passer)" },
+            R: { label: "sans extension", ask: "Z du Nunchuk (inutilisé ici, tu peux passer)" },
+            x: { label: "incliner →", ask: "de quoi incliner la Wiimote à DROITE" },
+            y: { label: "incliner ↑", ask: "de quoi incliner la Wiimote en AVANT" },
+          }
+        : WII_NAMES;
   return CONTROLS.map((one) => {
     const named = said[one.key];
     return named ? { ...one, ...named } : one;
@@ -182,7 +197,7 @@ export const STANDARD: ReadonlyArray<readonly [number, ButtonName]> = [
 
 /** Below this a stick is centred. The browser applies the dead zone and Dolphin
  * applies none (ADR D3): two would compound into a numb stick. */
-const DEAD_ZONE = 0.15;
+export const DEAD_ZONE = 0.15;
 /** A GameCube trigger clicks at the end of its travel, and games read that click
  * as a button rather than as a big number. */
 const TRIGGER_CLICK = 0.9;
@@ -338,7 +353,10 @@ const analogue = (button: GamepadButton | undefined): number =>
  *
  * A control can be a button OR an axis, and which one is not ours to decide.
  * Both are read the same way here so nothing above has to know which it was. */
-function travel(pad: Gamepad, control: Control | undefined): number {
+export function travel(
+  pad: Pick<Gamepad, "buttons" | "axes">,
+  control: Control | undefined,
+): number {
   if (control === undefined) return 0;
   if ("button" in control) {
     // Depuis le repos, et pas depuis zéro. Un adaptateur qui rapporte une
@@ -361,7 +379,7 @@ function travel(pad: Gamepad, control: Control | undefined): number {
  * personnage irait plus vite d'un côté que de l'autre. Les deux moitiés sont
  * donc remises à l'échelle séparément.
  */
-function centred(value: number, axis: StickAxis): number {
+export function centred(value: number, axis: StickAxis): number {
   const rest = axis.rest ?? 0;
   const moved = value - rest;
   if (moved === 0) return 0;
@@ -378,7 +396,10 @@ function centred(value: number, axis: StickAxis): number {
  * le sujet, alors on retire la distinction ici. */
 const plainZero = (value: number): number => (value === 0 ? 0 : value);
 
-export function readPad(pad: Gamepad, profile: PadProfile | null): PadReading {
+export function readPad(
+  pad: Pick<Gamepad, "buttons" | "axes">,
+  profile: PadProfile | null,
+): PadReading {
   const dead = (value: number) => plainZero(Math.abs(value) < DEAD_ZONE ? 0 : value);
   let buttons = 0;
   let l = 0;

@@ -1,5 +1,5 @@
 /**
- * La jaquette d'un jeu, telle que son disque la porte.
+ * La jaquette d'un jeu, servie localement par le worker.
  *
  * Chaque disque GameCube contient un fichier `opening.bnr`: une image de 96 par
  * 32 dessinée par l'éditeur, et à côté le nom long du jeu, son studio et une
@@ -8,13 +8,13 @@
  * # Trois choses que la forme décide
  *
  * **Ce n'est pas un carré.** L'image fait trois de large pour un de haut, et
- * c'est cette proportion qui est reprise partout: les menus n'ont plus une seule
- * case carrée. La hauteur n'est donc jamais donnée, elle se déduit.
+ * c'est la proportion du cadre partagé par les menus. Une illustration Switch
+ * garde ses propres proportions dans ce cadre, sans découpage ni étirement.
  *
  * **Les pixels restent des pixels.** `image-rendering: pixelated` parce qu'une
  * image de 96 pixels agrandie deux ou trois fois est floue si on la lisse, et
- * nette si on ne la lisse pas. Sur un projet qui s'appelle rétro, un gros pixel
- * est un choix; un bord flou est un défaut.
+ * nette si on ne la lisse pas. Les illustrations Switch, plus grandes, utilisent
+ * le lissage normal du navigateur lorsqu'il les réduit.
  *
  * **Il y a un fond noir derrière.** La plupart de ces images ont un fond
  * transparent: elles ont été dessinées pour le menu de la console, qui était
@@ -26,7 +26,7 @@
  */
 import { cn } from "../lib/cn";
 
-/** L'image d'origine, en pixels. Tous les disques, sans exception. */
+/** Le cadre hérité des bannières GameCube, partagé par les menus. */
 const NATIVE = { width: 96, height: 32 };
 
 export function Art({
@@ -35,6 +35,7 @@ export function Art({
   has,
   width,
   className,
+  console,
 }: {
   /** Sa place dans la bibliothèque, qui est la seule façon de la demander. */
   index: number;
@@ -45,6 +46,8 @@ export function Art({
   /** La largeur voulue. La hauteur en découle et n'est jamais passée. */
   width: number;
   className?: string;
+  /** La Switch utilise une illustration haute définition plutôt qu'une bannière pixelisée. */
+  console?: string;
 }) {
   const height = (width * NATIVE.height) / NATIVE.width;
   return (
@@ -62,7 +65,12 @@ export function Art({
           height={height}
           alt=""
           className="block"
-          style={{ imageRendering: "pixelated" }}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "contain",
+            imageRendering: console === "switch" ? "auto" : "pixelated",
+          }}
         />
       ) : (
         <span

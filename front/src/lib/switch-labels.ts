@@ -1,0 +1,56 @@
+import type { SwitchTarget } from "../media/switch";
+export const labels: Record<SwitchTarget, string> = {
+  A: "A",
+  B: "B",
+  X: "X",
+  Y: "Y",
+  L: "L · épaule gauche",
+  R: "R · épaule droite",
+  ZL: "ZL · gâchette gauche",
+  ZR: "ZR · gâchette droite",
+  PLUS: "+ · pause",
+  MINUS: "−",
+  LS: "Clic du stick gauche",
+  RS: "Clic du stick droit",
+  UP: "Croix · haut",
+  DOWN: "Croix · bas",
+  LEFT: "Croix · gauche",
+  RIGHT: "Croix · droite",
+  "lx+": "Stick gauche · droite",
+  "lx-": "Stick gauche · gauche",
+  "ly+": "Stick gauche · haut",
+  "ly-": "Stick gauche · bas",
+  "rx+": "Stick droit · droite",
+  "rx-": "Stick droit · gauche",
+  "ry+": "Stick droit · haut",
+  "ry-": "Stick droit · bas",
+};
+export const physical = [
+  "Bas · A Xbox / ✕ PlayStation",
+  "Droite · B Xbox / ○ PlayStation",
+  "Gauche · X Xbox / □ PlayStation",
+  "Haut · Y Xbox / △ PlayStation",
+  "L1 / LB",
+  "R1 / RB",
+  "L2 / LT",
+  "R2 / RT",
+  "Select / Share",
+  "Start / Options",
+  "Clic gauche",
+  "Clic droit",
+  "Croix haut",
+  "Croix bas",
+  "Croix gauche",
+  "Croix droite",
+];
+export const keyName = (code: string | undefined) =>
+  code
+    ? ({
+        ArrowLeft: "←",
+        ArrowRight: "→",
+        ArrowUp: "↑",
+        ArrowDown: "↓",
+        Enter: "Entrée",
+        Backspace: "Retour arrière",
+      }[code] ?? code.replace(/^Key|^Digit/, ""))
+    : "Non assigné";

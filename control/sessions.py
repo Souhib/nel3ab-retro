@@ -42,6 +42,8 @@ FOLDER = Settings().journal_dir
 #: Comment chaque événement se raconte. La forme est fixe pour que deux lignes
 #: voisines s'alignent à l'oeil.
 SAYS = {
+    "reprise": lambda line: f"reprise {line.get('étape', '')} : {line.get('cible', '')}",
+    "fermeture": lambda line: f"ferme le jeu {line.get('jeu', '')}",
     "arrivée": lambda line: "arrive",
     "départ": lambda line: f"part après {_lasted(line.get('secondes') or 0)}",
     "place": lambda line: (

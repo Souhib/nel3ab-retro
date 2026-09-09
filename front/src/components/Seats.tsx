@@ -1,25 +1,20 @@
 /**
  * Les quatre prises, et qui est assis dedans.
  *
- * Deux sources, et elles ne se recouvrent pas. Qu'une prise soit TENUE vient du
- * worker, parce que c'est lui qui applique les boutons et donc le seul qui
- * puisse avoir raison là-dessus. Le NOM à côté vient du plan de contrôle, ce qui
- * explique qu'une salle dont le plan de contrôle est arrêté affiche « occupée »
- * plutôt que rien (ADR D12).
- *
- * Une prise est un bloc numéroté et pas un avatar: les ports sont numérotés sur
- * la console elle-même, et le joueur 2 est le joueur 2 parce que le tuyau
- * s'appelle `p2` (ADR D3). Plus joli montrerait une chose que la machine ne sait
- * pas.
+ * Les noms sont rapprochés des attributions lues chez le worker. Une prise
+ * sans nom connu ne reçoit pas de faux prénom ni de libellé « occupée ».
+ * Le dessin conserve l'occupation pour prendre ou demander la bonne manette.
  */
 import { useEffect, useState } from "react";
 import { cn } from "../lib/cn";
+import { Crown } from "./Crown";
 import { Socket } from "./Socket";
 
 /** Combien de temps l'armement se souvient de lui-même. */
 const ARMED_FOR_MS = 5000;
 
 export function Seats({
+  ownerSeat,
   players,
   busy,
   names,
@@ -28,6 +23,7 @@ export function Seats({
   onTake,
   onAsk,
 }: {
+  ownerSeat?: number | null;
   players: number;
   busy: boolean[];
   names: Map<number, string>;
@@ -82,6 +78,7 @@ export function Seats({
               id={`port${port}`}
               data-state={isMine ? "mine" : held ? "busy" : "free"}
               data-armed={isArmed}
+              aria-label={`Manette ${port}${name ? ` · ${name}` : ""}${isArmed ? " · reprendre ?" : ""}`}
               disabled={isMine}
               onClick={() => click(port)}
               title={
@@ -114,7 +111,13 @@ export function Seats({
                         : "text-faint",
                 )}
               >
-                {isMine ? (name ?? "toi") : held ? (name ?? "occupée") : "libre"}
+                {(held || isMine) && name ? (
+                  <>
+                    {port === ownerSeat ? <Crown /> : null} {name}
+                  </>
+                ) : (
+                  "\u00a0"
+                )}
               </span>
             </button>
           );
@@ -122,7 +125,7 @@ export function Seats({
       </div>
       {displaced ? (
         <p id="displaced" className="text-[11px] text-alert">
-          quelqu'un a pris ton port
+          quelqu'un a repris ta manette. Choisis une prise libre ou demande une manette.
         </p>
       ) : mine === null ? (
         <p className="text-[11px] text-faint">

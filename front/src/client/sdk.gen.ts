@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { KeepBindingsData, KeepBindingsErrors, KeepBindingsResponses, PublishRoomBindingsData, PublishRoomBindingsErrors, PublishRoomBindingsResponses, ReadBindingsData, ReadBindingsResponses, ReadMeData, ReadMeResponses, ReadRoomBindingsData, ReadRoomBindingsResponses, ReadRoomData, ReadRoomResponses, RenameMeData, RenameMeErrors, RenameMeResponses } from './types.gen';
+import type { KeepBindingsData, KeepBindingsErrors, KeepBindingsResponses, PublishRoomBindingsData, PublishRoomBindingsErrors, PublishRoomBindingsResponses, ReadBindingsData, ReadBindingsResponses, ReadMeData, ReadMeResponses, ReadMyConnectionData, ReadMyConnectionResponses, ReadRoomBindingsData, ReadRoomBindingsResponses, ReadRoomData, ReadRoomResponses, RenameMeData, RenameMeErrors, RenameMeResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -17,6 +17,13 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
      */
     meta?: keyof ClientMeta extends never ? Record<string, unknown> : ClientMeta;
 };
+
+/**
+ * Read My Connection
+ *
+ * Seulement le pair établi par le proxy de confiance, aucun paramètre IP.
+ */
+export const readMyConnection = <ThrowOnError extends boolean = false>(options?: Options<ReadMyConnectionData, ThrowOnError>): RequestResult<ReadMyConnectionResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ReadMyConnectionResponses, unknown, ThrowOnError>({ url: '/api/me/connection', ...options });
 
 /**
  * Read Me

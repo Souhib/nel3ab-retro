@@ -14,6 +14,7 @@
 export const CONSOLES: readonly { code: string; label: string; note: string }[] = [
   { code: "gc", label: "GameCube", note: "carte mémoire, deux sauvegardes par jeu" },
   { code: "wii", label: "Wii", note: "sauvegarde dans la console, deux par jeu" },
+  { code: "switch", label: "Switch", note: "manettes Pro et sauvegardes séparées par jeu" },
   // Un disque dont l'outil n'a pas su dire la console. Il a quand même son
   // dossier: le cacher ferait disparaître un jeu de la salle sans rien dire, et
   // un jeu qu'on ne voit plus est pire qu'un jeu mal rangé.

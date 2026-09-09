@@ -115,7 +115,7 @@ jobs:
   # The prose, checked the same way the code is. `just docs` runs Zensical in
   # strict mode, which fails on a link or an anchor pointing at nothing.
   #
-  # This is here because the logbook is 2800 lines and renaming a section is a
+  # This is here because the logbook keeps growing and renaming a section is a
   # normal thing to do: without this job, every link to the old name dies quietly
   # and the first person to find out is a reader. Strict mode found two on its
   # first run, both in a page written the same afternoon.

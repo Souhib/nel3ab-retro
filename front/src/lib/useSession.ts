@@ -13,7 +13,7 @@ import { Session, exposeForTests, type Snapshot } from "../media/session";
 export function useSession(
   volume: number,
   deviceRate: boolean,
-  onSeat: (port: number | null) => void,
+  onSeat: (port: number | null, claim: string | null) => void,
   /** Vrai quand la personne a choisi de regarder. Lu une seule fois, à la
    * construction: changer d'avis ensuite passe par la session elle-même. */
   watching: boolean,
@@ -36,7 +36,7 @@ export function useSession(
     if (!canvas) return;
     const made = new Session(
       canvas,
-      (port) => seat.current(port),
+      (port, claim) => seat.current(port, claim),
       volume,
       deviceRate,
       watching,

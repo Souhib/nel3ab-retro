@@ -9,18 +9,25 @@
 import { typingIn } from "./lib/typing";
 import { useEffect, useRef, useState } from "react";
 import type { Room as RoomState } from "./client";
+import { SetupProfiles } from "./components/SetupProfiles";
+import { GameCard } from "./components/GameCard";
+import { setupGameKey } from "./lib/setups";
+import { Preparation } from "./components/Preparation";
+import { useSetupChoice } from "./lib/useSetupChoice";
 import { Bindings } from "./components/Bindings";
 import { Entrance } from "./components/Entrance";
 import { Lobby } from "./components/Lobby";
+import { ControllerStatus } from "./components/ControllerStatus";
 import { Booting, type Step } from "./components/Booting";
 import { Sidebar } from "./components/Sidebar";
-import { Asked as AskedBanner, Asking } from "./components/Swap";
+import { Recovery } from "./components/Recovery";
+import { Asked as AskedBanner } from "./components/Swap";
 import { Channels } from "./components/Channels";
 import { Home } from "./components/Home";
 import { Xmb, type XmbCategory, type XmbItem } from "./components/Xmb";
 import type { MenuAction } from "./media/menupad";
 import {
-  CubeIcon,
+  ConsoleIcon,
   ExpandIcon,
   GameIcon,
   KeysIcon,
@@ -36,12 +43,12 @@ import {
   SoundIcon,
   SyncIcon,
   VolumeIcon,
-  WandIcon,
   WatchIcon,
   WaveIcon,
 } from "./components/XmbIcons";
 import { Panel } from "./components/Readout";
 import { Screen } from "./components/Screen";
+import { SwitchTouchPad } from "./components/SwitchTouchPad";
 import { TouchPad } from "./components/TouchPad";
 import { Seats } from "./components/Seats";
 import { forgetName, rememberedName } from "./lib/name";
@@ -73,7 +80,13 @@ import { cn } from "./lib/cn";
 import { publishProfile } from "./lib/bindings";
 import { arrange } from "./lib/settings";
 import { useMe, useRename } from "./lib/me";
-import { useLobby, useRoom, type Asked, type Booting as Told } from "./lib/room";
+import {
+  useLobby,
+  useRoom,
+  type Asked,
+  type RecoveryNotice,
+  type Booting as Told,
+} from "./lib/room";
 import {
   Struggling,
   Trailing,
@@ -85,6 +98,7 @@ import {
 } from "./lib/vitals";
 import type { Session, Snapshot } from "./media/session";
 import { clipLabel } from "./lib/clip";
+import { SwitchBindings } from "./components/SwitchBindings";
 import { CONSOLES } from "./lib/consoles";
 import {
   PADS,
@@ -115,7 +129,7 @@ export default function App() {
    * Attendus, et pas seulement lancés: la boucle d'entrée lit le navigateur au
    * moment où elle est construite, donc semer après coup laisserait toute une
    * soirée sur les réglages de la machine plutôt que sur les siens. */
-  const settled = useBindings(me?.login ?? null);
+  const settled = useBindings(me?.login ?? null, !isPending);
   const [local, setLocal] = useState(rememberedName);
   /** Comment on est entré: pour jouer, pour regarder, ou pas encore.
    *
@@ -179,9 +193,9 @@ function Named({
   const { data: room, isError } = useRoom();
   /** Une demande reçue, à laquelle il faut répondre. */
   const [asked, setAsked] = useState<Asked | null>(null);
-  /** Où en est une demande qu'on a envoyée. */
-  const [asking, setAsking] = useState<{ port: number; said: string | null } | null>(null);
   const yieldSeat = useRef<(() => void) | null>(null);
+  const [recovery, setRecovery] = useState<RecoveryNotice | null>(null);
+  const [recoveryError, setRecoveryError] = useState("");
 
   /** Cette page ne sert-elle que de manette.
    *
@@ -197,78 +211,89 @@ function Named({
     name,
     padOnly,
     (heard) => setAsked(heard),
-    (answer) => {
-      setAsking({ port: answer.port, said: answer.ok ? null : `${answer.from} a dit non` });
-      // Accepté: la place vient d'être libérée, on s'y branche. `take` plutôt
-      // qu'attendre la reconnexion polie, parce qu'une autre page libre la
-      // prendrait entre-temps et que la demande était pour NOUS.
-      if (answer.ok) takeSeat.current?.(answer.port);
-    },
+    () => {},
     // Quelqu'un d'autre a changé de jeu. La salle vit à l'étage du dessous, avec
     // ce qu'elle sait de son image; on ne fait que lui passer le message.
     (told) => showBoot.current?.(told),
+    (notice) => {
+      setRecovery(notice);
+      setRecoveryError("");
+    },
   );
-  const takeSeat = useRef<((port: number) => void) | null>(null);
+  const takeSeat = useRef<((port: number, expected?: string) => void) | null>(null);
   const showBoot = useRef<((told: Told) => void) | null>(null);
   const rename = useRename(lobby.renamed);
 
-  if (entered === null) {
-    return (
-      <Lobby
-        room={room}
-        name={name}
-        login={login}
-        failed={isError}
-        onEnter={onEnter}
-        onWatch={onWatch}
-        onForget={onForget}
-        onRename={(chosen) => rename.mutate(chosen)}
-      />
-    );
-  }
+  const recover = async (action: Record<string, unknown>) => {
+    setRecoveryError("");
+    try {
+      const result = await lobby.recover(action);
+      if (result.port !== null && result.claim !== null)
+        takeSeat.current?.(result.port, result.claim);
+    } catch (error) {
+      setRecoveryError(error instanceof Error ? error.message : "Le salon ne répond pas.");
+    }
+  };
   return (
-    <Room
-      name={name}
-      login={login}
-      publishes={publishes}
-      room={room}
-      watching={entered === "watch"}
-      padOnly={padOnly}
-      onPadOnly={setPadOnly}
-      onLeave={onLeave}
-      announceSeat={lobby.seat}
-      asked={asked}
-      asking={asking}
-      onAsk={(port) => {
-        setAsking({ port, said: null });
-        lobby.ask(port);
-        // Le service oublie la demande au bout du même délai, donc attendre plus
-        // longtemps que lui afficherait une attente qui ne mène nulle part.
-        window.setTimeout(
-          () =>
-            setAsking((was) =>
-              was?.port === port && was.said === null ? { port, said: "pas de réponse" } : was,
-            ),
-          (room?.ask_lasts ?? 10) * 1000,
-        );
-      }}
-      onAnswer={(ok) => {
-        if (asked === null) return;
-        lobby.answer(asked.port, ok);
-        if (ok) yieldSeat.current?.();
-        setAsked(null);
-      }}
-      // Sans réponse, il ne se passe rien: la bannière s'en va et le service a
-      // déjà oublié la demande de son côté.
-      onExpire={() => setAsked(null)}
-      onForgetAsk={() => setAsking(null)}
-      tell={lobby}
-      bind={(take, give, boot) => {
-        takeSeat.current = take;
-        yieldSeat.current = give;
-        showBoot.current = boot;
-      }}
-    />
+    <>
+      {entered === null ? (
+        <Lobby
+          room={room}
+          name={name}
+          login={login}
+          failed={isError}
+          onEnter={onEnter}
+          onWatch={onWatch}
+          onForget={onForget}
+          onRename={(chosen) => rename.mutate(chosen)}
+        />
+      ) : (
+        <Room
+          name={name}
+          login={login}
+          publishes={publishes}
+          room={room}
+          watching={entered === "watch"}
+          padOnly={padOnly}
+          onPadOnly={setPadOnly}
+          onLeave={() => {
+            if (recovery?.asking && !recovery.reason)
+              void recover({ action: "cancel", id: recovery.id });
+            takeSeat.current = null;
+            onLeave();
+          }}
+          announceSeat={lobby.seat}
+          asked={asked}
+          onRecover={(port) => {
+            void recover({ action: "begin", port });
+          }}
+          onAnswer={(ok) => {
+            if (asked === null) return;
+            lobby.answer(asked.port, ok);
+            if (ok) yieldSeat.current?.();
+            setAsked(null);
+          }}
+          // Sans réponse, il ne se passe rien: la bannière s'en va et le service a
+          // déjà oublié la demande de son côté.
+          onExpire={() => setAsked(null)}
+          tell={lobby}
+          bind={(take, give, boot) => {
+            takeSeat.current = take;
+            yieldSeat.current = give;
+            showBoot.current = boot;
+          }}
+        />
+      )}
+      <Recovery
+        notice={recovery}
+        error={recoveryError}
+        onAction={recover}
+        onClose={() => {
+          setRecovery(null);
+          setRecoveryError("");
+        }}
+      />
+    </>
   );
 }
 
@@ -314,11 +339,9 @@ function Room({
   onLeave,
   announceSeat,
   asked,
-  asking,
-  onAsk,
   onAnswer,
   onExpire,
-  onForgetAsk,
+  onRecover,
   bind,
   tell,
 }: {
@@ -339,26 +362,30 @@ function Room({
   onPadOnly: (only: boolean) => void;
   /** Sortir de la salle et revenir à l'écran d'accueil. */
   onLeave: () => void;
-  announceSeat: (port: number | null) => void;
+  announceSeat: (port: number | null, claim: string | null) => void;
   asked: Asked | null;
-  asking: { port: number; said: string | null } | null;
-  onAsk: (port: number) => void;
   onAnswer: (ok: boolean) => void;
   onExpire: () => void;
-  onForgetAsk: () => void;
+  onRecover: (port: number | null) => void;
   /** Rend à l'étage du dessus de quoi prendre et céder une place: la socket du
    * salon vit là-haut, la manette vit ici, et la négociation traverse les deux. */
-  bind: (take: (port: number) => void, give: () => void, boot: (told: Told) => void) => void;
+  bind: (
+    take: (port: number, expected?: string) => void,
+    give: () => void,
+    boot: (told: Told) => void,
+  ) => void;
   /** Où envoyer ce que ce navigateur mesure. La socket du salon vit à l'étage
    * du dessus, les chiffres vivent ici. */
   tell: {
+    closeGame: (game: number) => Promise<void>;
+    prepare: (action: Record<string, unknown>) => Promise<void>;
     /** Prévenir la salle qu'on change de jeu. Par le salon, parce que le worker
      * est justement ce qui s'arrête. */
     booting: (game: number, save: number) => void;
     vitals: (sample: Vitals) => void;
     /** Un signalement emporte en plus les deux dernières minutes à la seconde:
      * la question devant un « ça saccade » est toujours « et juste avant ? ». */
-    complain: (sample: Vitals & { fin: Trail }) => void;
+    complain: (sample: Vitals & { fin: Trail }) => Promise<void>;
   };
 }) {
   const coarse = useRef(looksLikeAPhone()).current;
@@ -367,6 +394,7 @@ function Room({
   const [deviceRate, setDeviceRate] = useState(false);
   const [lipsync, setLipsync] = useState(false);
   const [bindings, setBindings] = useState(false);
+  const [preparationError, setPreparationError] = useState("");
   /** Combien d'images ont été peintes, lisible sans redéclencher d'effet.
    *
    * L'annonce venue du salon a besoin de ce nombre au moment où elle arrive. Le
@@ -379,7 +407,8 @@ function Room({
    * hoquet d'un changement de jeu est la durée du noir, une seconde contre
    * trente. Remis à zéro dès qu'une image arrive. */
   const darkSince = useRef<number | null>(null);
-  const [menu, setMenu] = useState(false);
+  const idle = room?.game === null;
+  const [menu, setMenu] = useState(idle);
   /** Le jeu ARMÉ, pour ceux qui n'ont pas de choix de sauvegarde.
    *
    * Un jeu de carte mémoire se confirme par son panneau de sauvegarde. Un jeu
@@ -450,6 +479,19 @@ function Room({
    * soirée sur les parties débloquées y rejouera le lendemain. */
 
   const { ref, session } = useSession(volume, deviceRate, announceSeat, watching, padOnly);
+  useEffect(() => {
+    if (!session) return;
+    session.sound.setIdle(idle || padOnly);
+    if (idle || padOnly) session.video.stop();
+    else session.video.start();
+    if (!idle) setMenu(false);
+    if (idle) {
+      setBooting(null);
+      setPreparationError("");
+      setFolder(null);
+      setMenu(true);
+    }
+  }, [idle, padOnly, session]);
 
   /** Ce que la salle propose, relu pendant la visite.
    *
@@ -474,7 +516,7 @@ function Room({
     //
     // Sur la CONNEXION et pas sur le compteur d'images: un jeu qui affiche un
     // écran noir peint quand même.
-    const live = shot?.video.connected ?? true;
+    const live = shot === null || (shot.video.connected && shot.video.paintedSince > 0);
     if (live) darkSince.current = null;
     else darkSince.current ??= performance.now();
   }
@@ -653,6 +695,7 @@ function Room({
    * manettes des autres. */
   const mine = shot?.input.deciding ?? false;
   /** Le propriétaire est là, mais il ne joue plus. */
+  const canClose = boss ? login !== null && boss.login === login : mine;
   const away = mine && boss !== null && (login === null || boss.login !== login);
   const whyNotChoose =
     port === null
@@ -667,12 +710,20 @@ function Room({
   // socket du salon.
   useEffect(() => {
     bind(
-      (chosen) => session?.input.take(chosen),
+      (chosen, expected) => session?.input.take(chosen, expected),
       () => session?.input.yieldSeat(),
       // L'annonce des AUTRES. On repart du nombre d'images peint MAINTENANT,
       // exactement comme celui qui a cliqué: l'écran s'efface quand la salle
       // repeint, et c'est la même règle pour tout le monde.
       (told) => {
+        if (told.saveSlot === 0 || told.saveSlot === 1) setRanWith(told.saveSlot);
+        const chosen = told.pads?.[session?.input.attribution() ?? ""];
+        if (chosen !== undefined && [0, 1, 2, 3].includes(chosen)) {
+          const kind = chosen as Pad;
+          session?.input.choosePad(kind);
+          rememberPad(kind);
+          setPad(kind);
+        }
         session?.video.expectRestart();
         setBooting({
           game: told.game,
@@ -683,10 +734,19 @@ function Room({
     );
   }, [bind, session]);
 
-  // Occupancy from the worker, names from the control plane. Neither knows the
-  // other's half, and neither is asked for it.
+  // La relève du salon reste fraîche même sans socket de manette, donc aussi
+  // pour les spectateurs. Un ancien worker laisse held à null.
+  const occupied = Array.from({ length: shot?.input.players ?? 4 }, (_, index) => {
+    const seat = room?.seats.find((entry) => entry.port === index + 1);
+    return (
+      seat?.held ??
+      (shot?.input.watching ? Boolean(seat?.player) : (shot?.input.busy[index] ?? false))
+    );
+  });
   const names = new Map(
-    (room?.seats ?? []).flatMap((seat) => (seat.player ? [[seat.port, seat.player] as const] : [])),
+    (room?.seats ?? []).flatMap((seat) =>
+      seat.player && occupied[seat.port - 1] ? [[seat.port, seat.player] as const] : [],
+    ),
   );
 
   /* Les rayons du menu.
@@ -708,6 +768,9 @@ function Room({
    * partie: voir `lib/saves`. */
   const [pad, setPad] = useState<Pad>(storedPad);
   useEffect(() => {
+    if (shot?.input.device !== undefined) setPad(shot.input.device);
+  }, [shot?.input.device]);
+  useEffect(() => {
     if (session) setHalf(session.video.isHalf());
   }, [session]);
   // La console du jeu en cours, dite à la boucle d'entrée: elle NOMME les
@@ -725,13 +788,17 @@ function Room({
     session?.input.choosePad(pad);
   }, [session, pad]);
 
-  /** Changer de manette, et donc de jeu de touches.
-   *
-   * UNE fonction pour les deux écrans qui l'offrent — les réglages et « touches »
-   * — parce que deux copies d'un même geste finissent par ne plus faire la même
-   * chose. Le premier jet en avait bien deux, et l'une des deux lisait le choix
-   * avec un repli qui ramenait la guitare sur la manette GameCube.
-   */
+  const pendingSetup = room?.preparation ?? null;
+  const [setupChoice, setSetupChoice] = useSetupChoice(pad, pendingSetup);
+  const setupPlayer = pendingSetup?.players.find((p) => p.claim === session?.input.attribution());
+  const configuring = bindings || Boolean(setupPlayer);
+  const setupGame = room?.library.find((game) => game.index === pendingSetup?.game);
+  const configuringSwitch = (setupGame?.console ?? room?.game?.console) === "switch";
+  useEffect(() => {
+    session?.input.blockGameplay(configuring, configuringSwitch ? "switch" : "dolphin");
+    return () => session?.input.blockGameplay(false);
+  }, [session, configuring, configuringSwitch]);
+
   /** Demander un clip, ou enregistrer celui qui est prêt.
    *
    * UNE fonction, parce que le clip a deux gestes dans le même bouton — demander
@@ -753,39 +820,33 @@ function Room({
   };
 
   const switchPad = (wanted: Pad) => {
-    const held = pad;
+    if (wanted === pad) return;
+    const game = room?.game;
+    if (game?.console === "wii" && (wanted === 0 || pad === 0)) {
+      if (ranWith === null) {
+        setPreparationError(
+          "Pour relancer avec cet appareil, ouvre ce jeu dans la bibliothèque et choisis sa sauvegarde avant la préparation. Cette page ne connaît pas l'emplacement du lancement précédent.",
+        );
+        return;
+      }
+      // Changer d'appareil nécessite un démarrage de Dolphin. Les quatre
+      // personnes le préparent ensemble avant que quoi que ce soit s'arrête.
+      setSetupChoice(wanted);
+      void tell
+        .prepare({ action: "begin", game: game.index, save: ranWith ?? 0 })
+        .then(() => setMenu(false))
+        .catch((error) =>
+          setPreparationError(
+            error instanceof Error ? error.message : "La préparation n'a pas pu commencer.",
+          ),
+        );
+      return;
+    }
     setPad(wanted);
     rememberPad(wanted);
     session?.input.choosePad(wanted);
-
-    // Passer du Nunchuk à la guitare ne relance RIEN.
-    //
-    // Les deux sont la même Wiimote avec autre chose au bout, et Dolphin échange
-    // une extension en cours de partie — comme on débranche un Nunchuk pour
-    // brancher une guitare sans éteindre la console. Seul un changement
-    // d'APPAREIL, vers ou depuis la manette GameCube, demande de repartir.
-    //
-    // `choosePad` est quand même envoyé juste au-dessus: il décide de ce que la
-    // salle présentera au prochain démarrage, et le laisser en arrière ferait
-    // revenir l'ancienne extension à la première relance.
-    if (held !== 0 && wanted !== 0) {
-      session?.input.chooseExtension(wanted === 2 ? 1 : 0);
-      return;
-    }
-    // Dolphin lit sa configuration de manette au démarrage, donc le changement
-    // demande de relancer. On ne le fait que si un jeu Wii tourne: pour un jeu
-    // GameCube le réglage ne décide de rien, et couper une partie pour ça serait
-    // gratuit.
-    if (room?.game?.console !== "wii" || room.game.index === undefined) return;
-    if (!session?.input.chooseGame(room.game.index)) return;
-    session.video.expectRestart();
-    // L'emplacement SUR LEQUEL on tourne, pas zéro. Le worker garde son choix et
-    // repart au bon endroit; c'est cette annonce qui mettait « partie neuve » sur
-    // l'écran de chargement des autres alors que le jeu redémarrait sur la
-    // sauvegarde complète.
-    tell.booting(room.game.index, ranWith ?? 0);
-    setBooting({ game: room.game.name, save: padLabel(wanted), at: performance.now() });
-    setMenu(false);
+    if (game?.console === "wii")
+      session?.input.chooseExtension(wanted === 2 ? 1 : wanted === 3 ? 2 : 0);
   };
   /** La salle a refusé le demi-format pour l'image de ce jeu.
    *
@@ -882,12 +943,7 @@ function Room({
               label: shelf.label,
               value: `${shelf.games.length} jeu${shelf.games.length > 1 ? "x" : ""}`,
               hint: shelf.note,
-              icon:
-                shelf.code === "wii" ? (
-                  <WandIcon className="h-full w-full" />
-                ) : (
-                  <CubeIcon className="h-full w-full" />
-                ),
+              icon: <ConsoleIcon console={shelf.code} className="h-full w-full" />,
               onEnter: () => setFolder(shelf.code),
             }))
           : shown.map<XmbItem>((game) => {
@@ -900,10 +956,22 @@ function Room({
               // Un disque dont la console est INCONNUE n'a pas de choix: l'outil n'a
               // pas répondu, donc on ne sait pas où sa partie ira, et proposer un
               // choix qui ne décide peut-être rien est pire que ne pas le proposer.
-              const saves = game.console === "gc" || game.console === "wii";
+              const saves = ["gc", "wii", "switch"].includes(game.console ?? "");
               const running = game.index === room?.game?.index;
               /** Lancer, une fois la sauvegarde décidée quand il y en a une. */
               const launch = (slot: Slot | null) => {
+                if (game.console === "wii" || game.console === "switch") {
+                  setPreparationError("");
+                  void tell
+                    .prepare({ action: "begin", game: game.index, save: slot ?? 0 })
+                    .then(() => setMenu(false))
+                    .catch((error: unknown) =>
+                      setPreparationError(
+                        error instanceof Error ? error.message : "Le salon ne répond pas.",
+                      ),
+                    );
+                  return;
+                }
                 // La sauvegarde AVANT le jeu: le worker retient le choix sans rien
                 // déclencher, et c'est le changement de jeu qui agit. L'ordre compte,
                 // parce que l'ordre de jeu fait redémarrer la salle.
@@ -945,7 +1013,8 @@ function Room({
                         ? "encore une fois pour lancer, ailleurs pour annuler"
                         : "entrée deux fois: ce disque n'a pas dit de quelle console il est",
                 icon: <GameIcon className="h-full w-full" />,
-                game: { index: game.index, art: game.art ?? false },
+                game: { index: game.index, art: game.art ?? false, console: game.console },
+                details: <GameCard game={game} />,
                 by: game.maker ?? undefined,
                 note: game.about ?? undefined,
                 // Le jeu QUI TOURNE reste choisissable, et c'est nouveau: le
@@ -1001,6 +1070,48 @@ function Room({
       // Ce qui reste ici est ce qui n'existe nulle part ailleurs: le clip, le
       // passage en spectateur, et la sortie.
       items: ([] as XmbItem[]).concat([
+        ...(boss && login && boss.login !== login
+          ? [
+              {
+                id: "recover-owner",
+                label: "reprendre le rôle de chef",
+                hint: `${boss.name} sera prévenu. Reprise possible après 20 s sans réponse, à confirmer.`,
+                icon: <RoomIcon className="h-full w-full" />,
+                onEnter: () => {
+                  setMenu(false);
+                  onRecover(null);
+                },
+              },
+            ]
+          : []),
+        ...(room?.game
+          ? [
+              {
+                id: "close-game",
+                label: "fermer le jeu",
+                hint: canClose
+                  ? "Arrête la partie de tous. Les sauvegardes sont conservées, la salle reste ouverte."
+                  : `${boss?.name ?? "Le chef"} peut fermer le jeu.`,
+                icon: <GameIcon className="h-full w-full" />,
+                disabled: !canClose,
+                picks: [
+                  { id: "close", label: "fermer le jeu", hint: room.game.name },
+                  { id: "cancel", label: "continuer à jouer" },
+                ],
+                onPick: (id: string) => {
+                  if (id !== "close" || !room.game) return;
+                  void tell
+                    .closeGame(room.game.index)
+                    .then(() => setPreparationError("Fermeture du jeu en cours…"))
+                    .catch((error: unknown) =>
+                      setPreparationError(
+                        error instanceof Error ? error.message : "Le salon ne répond pas.",
+                      ),
+                    );
+                },
+              },
+            ]
+          : []),
         // Le clip a quitté ce rayon pour la COLONNE, où il est atteignable sans
         // ouvrir de menu — c'est un geste qu'on fait pendant qu'il se passe
         // quelque chose, et poser un menu par-dessus le jeu qu'on voulait garder
@@ -1069,7 +1180,7 @@ function Room({
         },
         {
           id: "touchpad",
-          label: "manette à l'écran",
+          label: "commandes tactiles",
           value: touchLabel(touchPref),
           hint: "Pour jouer au téléphone. Elle se fond avec le clavier et les manettes: on peut tenir les deux.",
           icon: <PadIcon className="h-full w-full" />,
@@ -1083,7 +1194,7 @@ function Room({
         },
         {
           id: "padonly",
-          label: "cette page en manette",
+          label: "télécommande sans vidéo",
           value: padOnly ? "sans image" : "avec l'image",
           hint: "Pour un téléphone posé à côté d'un écran qui montre déjà le jeu. Il cesse de décoder une vidéo que personne ne regarde : mesuré à 13,6 Mbit/s par appareil, c'est autant de wifi et de batterie rendus.",
           icon: <PadIcon className="h-full w-full" />,
@@ -1202,9 +1313,9 @@ function Room({
           hint:
             room?.game?.console === "wii"
               ? pad === 0
-                ? "chaque manette a ses propres touches. Passer à la Wiimote relance le jeu."
-                : "chaque manette a ses propres touches. Entre Wiimote et guitare, rien ne relance."
-              : "chaque manette a ses propres touches. Vaudra pour le prochain jeu Wii lancé.",
+                ? "Appareil présenté aux jeux Wii. Passer à la Wiimote relance le jeu."
+                : "Extension de ta place. Entre Nunchuk et guitare, rien ne relance."
+              : "Appareil du prochain jeu Wii. Les profils clavier restent indépendants.",
           icon: <PadIcon className="h-full w-full" />,
           picks: PADS.map((one) => ({
             id: String(one.id),
@@ -1224,10 +1335,8 @@ function Room({
           id: "bindings",
           // « touches » sous-vendait: cet écran règle aussi les manettes.
           label: "touches et manettes",
-          // Dit quel jeu de touches on va régler. Il y en a un par type de
-          // manette, et personne ne peut le deviner depuis une entrée qui
-          // s'appelle « touches ».
-          hint: `l'antisèche, et de quoi les changer · ${padLabel(pad)}`,
+          // Le profil clavier est nommé; les correspondances des manettes sont par modèle.
+          hint: `tester et réassigner · clavier ${shot?.input.keyProfile ?? "défaut"}`,
           icon: <KeysIcon className="h-full w-full" />,
           // Le menu reste ouvert DERRIÈRE: renvoyer quelqu'un dans la partie
           // pour changer une touche est exactement ce qu'on ne veut pas.
@@ -1244,8 +1353,10 @@ function Room({
         {
           id: "lipsync",
           label: "image calée sur le son",
-          value: lipsync ? "oui" : "non",
-          hint: "retarde l'image du retard mesuré du son",
+          value: lipsync ? `+${Math.round(shot?.soundSyncMs ?? 0)} ms` : "non",
+          hint: lipsync
+            ? "compensation ajustée au son ; elle ajoute aussi du retard aux commandes"
+            : "retarde l'image pour suivre le son, seulement sur cet écran",
           icon: <SyncIcon className="h-full w-full" />,
           onEnter: () => setLipsync(!lipsync),
         },
@@ -1287,7 +1398,7 @@ function Room({
           hint:
             shot?.soundGapMs == null
               ? "aucun écart mesuré"
-              : `${shot.soundGapMs.toFixed(0)} ms derrière l'image`,
+              : `${Math.abs(shot.soundGapMs).toFixed(0)} ms ${shot.soundGapMs < 0 ? "devant" : "derrière"} l'image`,
           icon: <SoundIcon className="h-full w-full" />,
         },
         {
@@ -1380,6 +1491,13 @@ function Room({
             « Cacher » sans retour est un piège: sur un téléphone il n'y a ni
             Échap ni menu atteignable une fois la colonne repliée, donc le geste
             était définitif pour la visite. Signalé le 18 août 2026. */}
+        {shot ? (
+          <ControllerStatus
+            visible={port !== null && !menu && !configuring}
+            state={shot.input}
+            onConfigure={() => setBindings(true)}
+          />
+        ) : null}
         {session && !onTouch && coarse ? (
           <button
             type="button"
@@ -1390,7 +1508,16 @@ function Room({
             manette
           </button>
         ) : null}
-        {session && onTouch ? (
+        {session && onTouch && room?.game?.console === "switch" ? (
+          <SwitchTouchPad
+            source={session.input.switch}
+            onMenu={() => setMenu(true)}
+            onLeave={() => setTouchPref("off")}
+            onSound={() => {
+              void session.sound.start();
+            }}
+          />
+        ) : session && onTouch ? (
           <TouchPad
             /* La largeur des bandes noires de chaque côté de l'image.
              *
@@ -1443,8 +1570,6 @@ function Room({
             onAnswer={onAnswer}
             onExpire={onExpire}
           />
-        ) : asking ? (
-          <Asking port={asking.port} said={asking.said} onClose={onForgetAsk} />
         ) : null}
 
         {learning ? (
@@ -1482,15 +1607,27 @@ function Room({
             </p>
           </header>
 
+          {boss ? <p className="text-[12px] text-muted">Chef : {boss.name}</p> : null}
+          {boss && login && boss.login !== login ? (
+            <button
+              id="recoverOwner"
+              type="button"
+              className="border border-rule px-3 py-2 text-[12px] text-muted hover:text-indigo"
+              onClick={() => onRecover(null)}
+            >
+              chef absent ? reprendre le rôle
+            </button>
+          ) : null}
           <Panel title="manettes">
             <Seats
+              ownerSeat={boss?.seat}
               players={shot?.input.players ?? 4}
-              busy={shot?.input.busy ?? []}
+              busy={occupied}
               names={names}
               mine={port}
               displaced={shot?.input.displaced ?? false}
               onTake={(chosen) => session?.input.take(chosen)}
-              onAsk={onAsk}
+              onAsk={(chosen) => onRecover(chosen)}
             />
           </Panel>
 
@@ -1547,11 +1684,13 @@ function Room({
           </button>
 
           <Sidebar
+            idle={idle}
+            owner={boss}
             mode={mode}
             onMode={setMode}
             people={people}
             players={shot?.input.players ?? 4}
-            busy={shot?.input.busy ?? []}
+            busy={occupied}
             names={names}
             mine={port}
             shot={shot}
@@ -1574,15 +1713,32 @@ function Room({
               setSuggestHalf(false);
             }}
             onFold={coarse ? () => setBare(true) : undefined}
-            onComplain={() => {
+            onComplain={async () => {
               const now = sample();
               if (now) {
-                sending.current.complain({ ...now, fin: trail.current.trail(performance.now()) });
+                await sending.current.complain({
+                  ...now,
+                  fin: trail.current.trail(performance.now()),
+                });
+              } else {
+                throw new Error("Les mesures ne sont pas encore disponibles.");
               }
             }}
           />
         </aside>
       )}
+
+      {idle && !menu && !configuring ? (
+        <div
+          className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-4 bg-ink"
+          id="idle-room"
+        >
+          <h2>Aucun jeu en cours</h2>
+          <button type="button" className="n3-action primary" onClick={() => setMenu(true)}>
+            Choisir un jeu
+          </button>
+        </div>
+      ) : null}
 
       {/* L'écran de chargement prend AUSSI la place de l'ancienne étiquette
           « en attente de l'image », qui ne disait rien d'utile. La salle s'arrête
@@ -1593,11 +1749,28 @@ function Room({
           Sept centièmes de seconde de noir avant de le montrer: plus court ne se
           voit pas, et un hoquet ne doit pas faire clignoter un écran plein. Rien
           pour une page-manette, qui n'a pas d'image à attendre. */}
-      {booting === null && darkFor > 700 && shot && !shot.padOnly ? (
-        <Booting game={room?.game?.name ?? "la salle"} step="asked" />
+      {!idle && booting === null && darkFor > 700 && shot && !shot.padOnly ? (
+        <div
+          id="video-recovery"
+          role="status"
+          className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-4 bg-ink p-6 text-center"
+        >
+          <h2>
+            {shot.video.connected ? "Récupération de l’image" : "Connexion à la salle interrompue"}
+          </h2>
+          <p>La page réessaie automatiquement. Ta connexion ou le serveur peuvent être en cause.</p>
+          {darkFor > 15_000 ? (
+            <button type="button" className="n3-action" onClick={() => window.location.reload()}>
+              Recharger la page
+            </button>
+          ) : null}
+          <button type="button" className="n3-action" onClick={() => setMenu(true)}>
+            Ouvrir le menu
+          </button>
+        </div>
       ) : null}
 
-      {booting ? (
+      {!idle && booting ? (
         <Booting
           game={booting.game}
           save={booting.save}
@@ -1615,6 +1788,7 @@ function Room({
         ? (() => {
             const common = {
               categories: rays,
+              idle,
               onClose: () => {
                 // Retour: on remonte d'un ÉTAGE avant de fermer. Sortir du menu
                 // depuis l'intérieur d'un dossier obligerait à rouvrir et à
@@ -1628,19 +1802,83 @@ function Room({
               // Pendant que l'écran des touches est ouvert par-dessus, le menu
               // reste affiché mais n'écoute plus: sinon réassigner une flèche
               // ferait aussi défiler la liste dessous.
-              paused: bindings,
-              footer: `${room?.name ?? "salon"} · ${people.length} présent${people.length > 1 ? "s" : ""}`,
+              paused: configuring,
+              footer: `${idle ? "aucun jeu · choisis un jeu" : (room?.name ?? "salon")} · ${people.length} présent${people.length > 1 ? "s" : ""}`,
             };
-            if (shell === "wii") return <Channels {...common} />;
-            if (shell === "switch") return <Home {...common} who={name} />;
-            return <Xmb {...common} />;
+            if (shell === "wii") return <Channels key={String(idle)} {...common} />;
+            if (shell === "switch") return <Home key={String(idle)} {...common} who={name} />;
+            return <Xmb key={String(idle)} {...common} />;
           })()
         : null}
 
-      {bindings && shot ? (
+      {preparationError ? (
+        <div className="n3-preparation-error" role="alert">
+          {preparationError}
+          <button type="button" onClick={() => setPreparationError("")}>
+            Fermer
+          </button>
+        </div>
+      ) : null}
+      {pendingSetup && !setupPlayer ? (
+        <div className="n3-preparation-watching" role="status">
+          Préparation de {setupGame?.name} · {pendingSetup.players.filter((p) => p.ready).length}/
+          {pendingSetup.players.length} joueurs prêts
+        </div>
+      ) : null}
+      {configuring &&
+      shot &&
+      session &&
+      (setupGame?.console ?? room?.game?.console) === "switch" ? (
+        <SwitchBindings
+          source={session.input.switch}
+          input={session.input}
+          pending={pendingSetup}
+          game={setupGame ?? room?.game}
+          send={tell.prepare}
+          close={() => setBindings(false)}
+        />
+      ) : configuring && shot ? (
         <Bindings
-          console={room?.game?.console ?? "gc"}
-          held={pad}
+          console={pendingSetup ? "wii" : (room?.game?.console ?? "gc")}
+          held={pendingSetup ? setupChoice : pad}
+          readOnly={Boolean(setupPlayer?.ready)}
+          actions={
+            (setupGame ?? room?.game)?.guide?.actions[String(pendingSetup ? setupChoice : pad)]
+          }
+          preparation={
+            pendingSetup && session ? (
+              <Preparation
+                key={pendingSetup.id}
+                pending={pendingSetup}
+                game={setupGame}
+                input={session.input}
+                state={shot.input}
+                selected={setupChoice}
+                onSelect={(kind) => {
+                  setSetupChoice(kind);
+                  session.refresh();
+                }}
+                send={tell.prepare}
+              />
+            ) : undefined
+          }
+          profiles={
+            !pendingSetup && session ? (
+              <section className="n3-preparation" aria-label="Mes profils complets">
+                {room?.game ? <GameCard game={room.game} kind={pad} compact /> : null}
+                <SetupProfiles
+                  key={room?.game ? setupGameKey(room.game) : "idle"}
+                  game={room?.game ?? undefined}
+                  input={session.input}
+                  state={shot.input}
+                  selected={pad}
+                  allowed={[pad]}
+                  onSelect={() => session.refresh()}
+                  disabled={shot.input.capturing !== null || shot.input.lesson !== null}
+                />
+              </section>
+            ) : undefined
+          }
           onPickKeys={(chosen) => {
             session?.input.pickKeys(chosen);
             session?.refresh();
@@ -1658,9 +1896,15 @@ function Room({
              règle, c'est du confort. */
           onPublish={
             publishes
-              ? (chosen) => {
+              ? async (chosen) => {
                   const profile = session?.input.keyProfileNamed(chosen);
-                  if (profile) void publishProfile(chosen, profile);
+                  if (!profile) return false;
+                  const published = await publishProfile(chosen, profile);
+                  if (published) {
+                    session?.input.refreshRoomKeys();
+                    session?.refresh();
+                  }
+                  return published;
                 }
               : undefined
           }
@@ -1672,8 +1916,8 @@ function Room({
             session?.input.useP(index);
             session?.refresh();
           }}
-          onCapture={(control, source) => {
-            session?.input.beginCapture(control, source);
+          onCapture={(control, source, sign) => {
+            session?.input.beginCapture(control, source, sign);
             session?.refresh();
           }}
           onCancel={() => {
@@ -1681,11 +1925,21 @@ function Room({
             session?.refresh();
           }}
           onLearn={() => {
-            session?.input.beginLesson();
-            setBindings(false);
+            session?.input.beginLesson(
+              pendingSetup ? "wii" : (room?.game?.console ?? "gc"),
+              pendingSetup ? setupChoice : pad,
+            );
+            session?.refresh();
+          }}
+          onSkip={() => {
+            session?.input.skipLessonStep();
+            session?.refresh();
           }}
           onResetPad={() => {
-            session?.input.resetPad();
+            session?.input.resetPad(
+              pendingSetup ? "wii" : (room?.game?.console ?? "gc"),
+              pendingSetup ? setupChoice : pad,
+            );
             session?.refresh();
           }}
           onResetKeys={() => {

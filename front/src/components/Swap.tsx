@@ -84,32 +84,3 @@ export function Asked({
     </div>
   );
 }
-
-/** Ce que voit celui qui a demandé, tant qu'il attend ou qu'on lui a dit non. */
-export function Asking({
-  port,
-  said,
-  onClose,
-}: {
-  port: number;
-  said: string | null;
-  onClose: () => void;
-}) {
-  return (
-    <div
-      id="asking"
-      className="absolute inset-x-0 top-8 z-40 mx-auto flex w-max max-w-[80%] items-center gap-4 border border-rule bg-panel px-5 py-3"
-    >
-      <span className={said ? "text-[14px] text-alert" : "text-[14px] text-muted"}>
-        {said ?? `demande envoyée pour la manette ${port}…`}
-      </span>
-      <button
-        type="button"
-        onClick={onClose}
-        className="border border-rule px-2 py-1 text-[11px] text-faint hover:text-text"
-      >
-        fermer
-      </button>
-    </div>
-  );
-}

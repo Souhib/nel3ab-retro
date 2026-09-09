@@ -53,6 +53,7 @@ const GAP = 22;
 export function Home({
   categories,
   onClose,
+  idle = false,
   footer,
   onPad,
   paused,
@@ -60,6 +61,7 @@ export function Home({
 }: {
   categories: XmbCategory[];
   onClose: () => void;
+  idle?: boolean;
   footer?: React.ReactNode;
   onPad?: (handler: ((action: MenuAction) => void) | null) => void;
   paused?: boolean;
@@ -149,11 +151,15 @@ export function Home({
                     index={item.game.index}
                     name={item.label}
                     has={item.game.art}
+                    console={item.game.console}
                     width={TILE_WIDTH}
                   />
                 ) : (
-                  <span className="flex h-14 w-14 items-center justify-center opacity-60 [&>svg]:h-full [&>svg]:w-full">
-                    {item.icon}
+                  <span className="flex flex-col items-center gap-4 px-4">
+                    <span className="flex h-12 w-12 items-center justify-center [&>svg]:h-full [&>svg]:w-full">
+                      {item.icon}
+                    </span>
+                    <span className="text-center text-[14px] leading-snug">{item.label}</span>
                   </span>
                 )}
                 {item.value ? (
@@ -237,7 +243,7 @@ export function Home({
         <span className="flex items-center gap-5 text-[12px] opacity-70">
           <Pip letter="A" what="choisir" />
           <span id="closeMenu" onClick={onClose} className="cursor-pointer">
-            <Pip letter="B" what="reprendre" />
+            <Pip letter="B" what={idle ? "fermer" : "reprendre"} />
           </span>
         </span>
       </footer>

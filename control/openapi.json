@@ -6,6 +6,28 @@
     "version": "0.1.0"
   },
   "paths": {
+    "/api/me/connection": {
+      "get": {
+        "tags": [
+          "me"
+        ],
+        "summary": "Read My Connection",
+        "description": "Seulement le pair établi par le proxy de confiance, aucun paramètre IP.",
+        "operationId": "read_my_connection",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Connection"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/me": {
       "get": {
         "tags": [
@@ -219,6 +241,18 @@
     "schemas": {
       "Bindings": {
         "properties": {
+          "switch": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Switch",
+            "description": "Profils Switch personnels, séparés des commandes Dolphin."
+          },
+          "setups": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Setups",
+            "description": "Profils personnels nommés : appareil, manette physique et touches."
+          },
           "pads": {
             "additionalProperties": true,
             "type": "object",
@@ -236,8 +270,35 @@
         "title": "Bindings",
         "description": "Ce que quelqu'un a réglé sur ses manettes et son clavier.\n\nLe contenu est OPAQUE au service, et c'est délibéré. La forme d'un profil\nappartient à la page: elle sait ce qu'un axe, un repos et un signe veulent\ndire, et elle est la seule à s'en servir. La décrire ici en donnerait une\ndeuxième version à tenir d'accord avec la première, et il faudrait publier le\nservice pour ajouter un champ à une manette.\n\nCe qui est vérifié est ce qui protège le disque: un objet, sous un plafond\n(voir `BindingsController.CEILING`)."
       },
+      "Connection": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "direct",
+              "relay",
+              "unknown"
+            ],
+            "title": "Kind",
+            "default": "unknown"
+          }
+        },
+        "type": "object",
+        "title": "Connection",
+        "description": "Une observation de trajet, jamais une mesure de qualité."
+      },
       "Game": {
         "properties": {
+          "guide": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GameGuide"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "index": {
             "type": "integer",
             "title": "Index",
@@ -292,6 +353,79 @@
         ],
         "title": "Game",
         "description": "One game the room can run."
+      },
+      "GameGuide": {
+        "properties": {
+          "players": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 8.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Players"
+          },
+          "multiplayer": {
+            "type": "string",
+            "title": "Multiplayer",
+            "default": ""
+          },
+          "devices": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Devices"
+          },
+          "checked": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked"
+          },
+          "allowed": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Allowed"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "note": {
+            "type": "string",
+            "title": "Note"
+          },
+          "actions": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "type": "object",
+            "title": "Actions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "allowed",
+          "source",
+          "note",
+          "actions"
+        ],
+        "title": "GameGuide"
       },
       "HTTPValidationError": {
         "properties": {
@@ -361,6 +495,51 @@
         "title": "Me",
         "description": "Qui le service croit avoir en face.\n\n`login` vient du proxy et n'est pas modifiable; `name` est choisi et l'est.\nUn `login` nul veut dire « aucun proxy devant », donc aucune identité: la\npage retombe alors sur un prénom gardé dans le navigateur."
       },
+      "Participant": {
+        "properties": {
+          "port": {
+            "type": "integer",
+            "title": "Port"
+          },
+          "claim": {
+            "type": "string",
+            "title": "Claim"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "pad": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pad"
+          },
+          "ready": {
+            "type": "boolean",
+            "title": "Ready",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "port",
+          "claim"
+        ],
+        "title": "Participant"
+      },
       "Person": {
         "properties": {
           "name": {
@@ -389,6 +568,12 @@
             ],
             "title": "Seat",
             "description": "La manette qu'il tient, s'il en tient une."
+          },
+          "seat_pending": {
+            "type": "boolean",
+            "title": "Seat Pending",
+            "description": "L'attribution reste à confirmer ; cette personne n'est pas un spectateur.",
+            "default": true
           }
         },
         "type": "object",
@@ -398,8 +583,61 @@
         "title": "Person",
         "description": "Quelqu'un dans la salle, qu'il tienne une manette ou non."
       },
+      "Preparation": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "game": {
+            "type": "integer",
+            "title": "Game"
+          },
+          "save": {
+            "type": "integer",
+            "title": "Save"
+          },
+          "starter": {
+            "type": "string",
+            "title": "Starter"
+          },
+          "allowed": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Allowed"
+          },
+          "players": {
+            "items": {
+              "$ref": "#/components/schemas/Participant"
+            },
+            "type": "array",
+            "title": "Players"
+          }
+        },
+        "type": "object",
+        "required": [
+          "game",
+          "save",
+          "starter",
+          "allowed",
+          "players"
+        ],
+        "title": "Preparation"
+      },
       "Room": {
         "properties": {
+          "preparation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Preparation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "name": {
             "type": "string",
             "title": "Name"
@@ -438,7 +676,7 @@
                 "type": "null"
               }
             ],
-            "description": "Qui décide du jeu: le premier arrivé encore présent. Nul quand personne n'a d'identité, et la salle retombe alors sur sa règle d'avant, où tenir une manette suffit."
+            "description": "Le chef choisi après une reprise, sinon le premier arrivé encore connecté. Nul quand personne n'a d'identité, et la salle retombe alors sur sa règle d'avant, où tenir une manette suffit."
           },
           "people": {
             "items": {
@@ -489,6 +727,30 @@
             ],
             "title": "Player",
             "description": "The name of whoever claims it, if anybody."
+          },
+          "held": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Held",
+            "description": "Occupation lue chez le worker, ou inconnue sur un ancien worker."
+          },
+          "claim": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Claim",
+            "description": "Repère de l'attribution actuelle. Ce n'est ni un nom ni un secret."
           }
         },
         "type": "object",

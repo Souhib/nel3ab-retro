@@ -1,11 +1,18 @@
 """Qui je suis, et comment je veux qu'on m'appelle. No logic here."""
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, status
 
 from nel3ab_control.api.schemas.player import Bindings, Identity, Me
+from nel3ab_control.connection import Connection, read_connection
 from nel3ab_control.dependencies import BindingsDep, CallerDep, PeopleDep, SettingsDep
 
 router = APIRouter(prefix="/api", tags=["me"])
+
+
+@router.get("/me/connection", response_model=Connection)
+async def read_my_connection(request: Request) -> Connection:
+    """Seulement le pair établi par le proxy de confiance, aucun paramètre IP."""
+    return await read_connection(request.client.host if request.client else "")
 
 
 @router.get("/me", response_model=Me)

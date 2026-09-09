@@ -69,7 +69,6 @@ export type SoundStats = {
   sampleRate: number;
   outputMs: number;
   browserMs: number;
-  fastestLag: number | null;
 };
 
 /** Sous combien de secondes un morceau posé est déjà en retard.
@@ -182,6 +181,7 @@ export class SoundStream {
     this.gain.gain.value = this.volume;
     this.gain.connect(this.context.destination);
     this.playAt = 0;
+    this.scheduledOffset = null;
     this.gaps = 0;
     this.gapsSeen = 0;
     this.lead = LEAD_MIN;
@@ -318,13 +318,19 @@ export class SoundStream {
     void this.context.resume();
   }
 
-  /** How far the sound is behind the picture: its longer path, plus the lead
-   * this page schedules with, plus what the hardware adds after we hand it the
-   * samples. */
-  gapAgainst(pictureLag: number | null): number | null {
-    const ours = this.lags.fastest();
-    if (ours === null || pictureLag === null) return null;
-    return ours - pictureLag + (this.context?.outputLatency ?? 0) * 1000 + this.lead * 1000;
+  private scheduledOffset: number | null = null;
+
+  /** Compare les horaires réellement programmés. L'avance cible peut avoir
+   * baissé alors que des morceaux attendent encore : elle ne décrit pas ce
+   * qui sera entendu. Le retard matériel reste l'estimation du navigateur. */
+  gapAgainst(pictureOffset: number | null): number | null {
+    if (
+      this.context?.state !== "running" ||
+      this.scheduledOffset === null ||
+      pictureOffset === null
+    )
+      return null;
+    return this.scheduledOffset + (this.context.outputLatency ?? 0) * 1000 - pictureOffset;
   }
 
   stats(): SoundStats {
@@ -340,17 +346,36 @@ export class SoundStream {
       sampleRate: this.context?.sampleRate ?? 0,
       outputMs: (this.context?.outputLatency ?? 0) * 1000,
       browserMs: (this.context?.baseLatency ?? 0) * 1000,
-      fastestLag: this.lags.fastest(),
     };
   }
 
+  private idle = false;
+
+  /** Garde l’autorisation audio, mais ne demande aucun son dans une salle au repos. */
+  setIdle(idle: boolean): void {
+    if (idle === this.idle) return;
+    this.idle = idle;
+    this.socket?.close();
+    this.socket = null;
+    this.playAt = 0;
+    this.scheduledOffset = null;
+    this.lags.clear();
+    this.scheduledOffset = null;
+    if (!idle && this.context !== null) this.connect();
+  }
+
   private connect(): void {
+    if (this.idle || this.context === null) return;
     const socket = new WebSocket(this.url("/sound"));
     socket.binaryType = "arraybuffer";
     this.socket = socket;
     socket.onmessage = (event) => this.onChunk(event);
     socket.onclose = () => {
-      if (this.socket === socket) window.setTimeout(() => this.connect(), 500);
+      if (this.socket === socket) this.scheduledOffset = null;
+      if (this.socket === socket)
+        window.setTimeout(() => {
+          if (this.socket === socket) this.connect();
+        }, 500);
     };
     socket.onerror = () => socket.close();
   }
@@ -382,6 +407,8 @@ export class SoundStream {
     source.buffer = buffer;
     source.connect(this.gain);
     source.start(this.playAt);
+    this.scheduledOffset =
+      performance.now() + (this.playAt - context.currentTime) * 1000 - capturedMs;
     this.playAt += frames / RATE;
     // Counted in SECONDS rather than chunks: the length of a chunk is an
     // implementation detail, and a test that counted them broke the day they

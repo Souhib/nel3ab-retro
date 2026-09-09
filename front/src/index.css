@@ -5,9 +5,9 @@
  *
  * L'image EST le produit: tout ce qui l'entoure est un cadre mince qui doit
  * ressembler à un appareil de mesure, parce que c'est ce que cette salle est.
- * Pas de dégradé, pas de verre, pas de halo: ces effets tirent l'oeil hors d'une
- * image d'émulateur en 1280x960, qui est la seule chose à l'écran pour laquelle
- * quelqu'un est venu.
+ * Le cadre de jeu reste discret. Les menus et le configurateur peuvent
+ * représenter la matière des consoles: ils sont ouverts pour choisir et
+ * comprendre les commandes, sans ajouter de travail à la peinture du jeu.
  *
  * Un seul accent, et il est mérité: l'indigo de la console qu'on émule.
  *
@@ -320,142 +320,650 @@ body {
   --n3-stick: clamp(44px, 15vmin, 68px);
 }
 
-/* Le schéma de manette.
-   Dans la feuille et non en classes utilitaires, parce que c'est la BOUCLE qui
-   pose `data-lit` soixante fois par seconde: elle change un attribut, le style
-   suit, et React n'est jamais rendu. */
-
-/* Le boîtier: un contour, et rien dedans.
- *
- * Le dessin était modelé — dégradé vertical, capots bombés, ombre portée,
- * pastilles colorées. C'était joli et c'était le mauvais objet: un banc d'essai
- * n'est pas une photo de manette, c'est un instrument, et le volume mettait du
- * bruit entre l'oeil et la seule question qu'on lui pose, « laquelle bouge ».
- *
- * Le trait fin y répond mieux parce qu'il ne laisse qu'un contraste à lire:
- * creux ou plein. Une pièce au repos est un contour, une pièce enfoncée est un
- * aplat. Rien d'autre ne change dans l'image, donc le changement se voit du
- * coin de l'oeil. */
-.n3-shell {
-  fill: none;
-  /* `--faint` et non `--rule-bright`: mesuré le 2026-09-02, `--rule-bright` sur
-     `--panel` ne donne que 1,40:1 à 2,37:1 selon le thème, quand un élément
-     d'interface non textuel en demande 3:1. Il servait de LISERÉ sur un
-     remplissage, où il n'avait rien à porter; devenu le dessin lui-même, il
-     disparaissait. `--faint` tient 4,50:1 partout. */
-  stroke: var(--faint);
-  stroke-width: 0.6;
+/* Les manettes ont leur matière dans le configurateur. La teinte d'une touche
+   la situe; seul l'aplat d'accent indique un appui. Aucun effet ne couvre le jeu. */
+[data-padmap] {
+  --pad-shell-top: color-mix(in srgb, var(--panel) 91%, var(--text));
+  --pad-shell-bottom: var(--panel);
+  --pad-cap-top: color-mix(in srgb, var(--panel) 96%, var(--text));
+  --pad-cap-bottom: var(--ink);
+  overflow: visible;
 }
-
-/* Les creux d'une coque — le pavé tactile, le puits du bouton logo, la plaque
-   de la guitare. Un trait plus fin que celui des pièces: un creux se situe, il
-   ne se presse pas. Il portait un ton de remplissage à lui (`--pit`) tant que
-   la coque était pleine; le trait fin l'a laissé sans usage, et il est parti. */
+.n3-shell {
+  fill: var(--shell-fill, var(--panel));
+  stroke: var(--faint);
+  stroke-width: 0.55;
+  filter: drop-shadow(0 1.8px 1.2px #0003);
+}
 .n3-recess {
-  fill: none;
+  fill: var(--ink);
   stroke: var(--faint);
   stroke-width: 0.3;
 }
-
+.n3-wire,
 .n3-slots {
   fill: none;
   stroke: var(--faint);
-  stroke-width: 0.3;
+  stroke-width: 0.45;
   stroke-linecap: round;
 }
-
-/* Ce qui est DESSINÉ entre ou sur les corps — le câble du Nunchuk, la couture
-   d'une PlayStation. Un liseré discret, et il ne s'allume jamais. */
-.n3-wire {
+.n3-cap {
+  fill: var(--cap-fill, var(--ink));
+  stroke: var(--muted);
+  stroke-width: 0.55;
+}
+[data-part][style] .n3-cap {
+  stroke: color-mix(in srgb, var(--part-tint) 22%, var(--muted));
+}
+.n3-gate {
+  fill: var(--ink);
+  stroke: var(--faint);
+  stroke-width: 0.55;
+}
+.n3-stick-grip {
   fill: none;
   stroke: var(--faint);
-  stroke-width: 0.4;
-  stroke-linecap: round;
+  stroke-width: 0.3;
+  stroke-dasharray: 0.5 0.65;
 }
-
-/* Un symbole DESSINÉ dans une pièce — la croix, le carré, le rond et le
-   triangle d'une PlayStation. Écrit en texte, aucune des polices de la page ne
-   garantissait de les porter; dessinés, ils tiennent la même règle que les
-   étiquettes: la couleur du texte à l'arrêt, l'encre quand la pièce s'allume. */
 .n3-glyph {
   fill: none;
   stroke: var(--text);
-  stroke-width: 0.75;
+  stroke-width: 0.65;
   stroke-linecap: round;
   stroke-linejoin: round;
   pointer-events: none;
 }
-
-/* La garde d'un stick: présente, discrète, et elle ne s'allume jamais — une
-   garde ne se presse pas, elle borne. */
-.n3-gate {
-  stroke: var(--faint);
-  stroke-width: 0.4;
-  stroke-dasharray: 1.6 1.2;
-  opacity: 0.6;
-}
-
-/* Une pièce au repos: un contour vide.
- *
- * Les couleurs d'identification ont sauté avec le volume. Elles disaient « le
- * vert d'un A se reconnaît avant qu'on ait lu son étiquette », ce qui était
- * vrai, mais l'étiquette est juste là et dit la même chose. Deux codes pour une
- * seule information, dont un qui se disputait l'accent avec la pièce enfoncée.
- * Sélecteurs par DESCENDANCE: le corps d'un stick vit dans son propre groupe
- * mobile, plus profondément. */
-[data-padmap] g circle:not(.n3-gate):not(.n3-wanted),
-[data-padmap] g rect {
-  fill: none;
-  /* Les pièces portent le trait le plus FORT (`--muted`, 5,38:1 au pire), la
-     coque un cran en dessous (`--faint`): ce qu'on regarde est la pièce, la
-     coque ne fait que la situer. */
-  stroke: var(--muted);
-  stroke-width: 0.4;
-  transition:
-    fill 60ms linear,
-    stroke 60ms linear;
-}
-
 [data-padmap] text {
   fill: var(--text);
   font-family: var(--font-chrome);
+  font-weight: 600;
   pointer-events: none;
 }
-
-/* Une pièce enfoncée: le contour se remplit.
- *
- * Pas de halo. Il servait à faire voir le changement par-dessus des pastilles
- * déjà colorées; sur des contours vides, passer de creux à plein est le
- * changement le plus visible qu'une forme puisse faire, et le halo ne faisait
- * plus que baver sur ses voisines. */
-[data-padmap] g[data-lit="oui"] circle:not(.n3-gate):not(.n3-wanted),
-[data-padmap] g[data-lit="oui"] rect {
+[data-padmap] [data-lit="oui"] .n3-cap {
   fill: var(--indigo);
   stroke: var(--indigo);
-  stroke-width: 0.4;
 }
-[data-padmap] g[data-lit="oui"] > text {
+[data-padmap] [data-lit="oui"] text {
   fill: var(--ink);
-  stroke: none;
 }
-
-[data-padmap] g[data-lit="oui"] > .n3-glyph {
+[data-padmap] [data-lit="oui"] .n3-glyph,
+[data-padmap] [data-lit="oui"] .n3-stick-grip {
   stroke: var(--ink);
 }
-
-/* Celle que l'apprentissage attend. */
+[data-padmap] [role="button"] {
+  cursor: pointer;
+  outline: none;
+}
+[data-padmap] [role="button"]:hover .n3-cap,
+[data-padmap] [role="button"]:focus-visible .n3-cap {
+  stroke: var(--indigo);
+  stroke-width: 1;
+}
+.n3-selection,
+.n3-wanted {
+  fill: none;
+  stroke: var(--indigo);
+  stroke-width: 0.65;
+  pointer-events: none;
+}
+.n3-selection {
+  stroke-dasharray: 1.2 1;
+}
 .n3-wanted {
   stroke: var(--good);
-  stroke-width: 0.8;
   animation: n3-wanted 1.1s ease-in-out infinite;
 }
 @keyframes n3-wanted {
   0%,
   100% {
-    opacity: 0.35;
+    opacity: 0.4;
   }
   50% {
     opacity: 1;
+  }
+}
+
+.n3-bindings {
+  width: min(1120px, calc(100vw - 40px));
+  max-width: none;
+  height: min(850px, calc(100dvh - 48px));
+  max-height: none;
+  margin: auto;
+  padding: 0;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--rule-bright);
+  border-radius: 20px;
+  box-shadow: 0 32px 120px #0009;
+  overflow: hidden;
+}
+.n3-bindings::backdrop {
+  background: #030308b8;
+  backdrop-filter: blur(8px);
+}
+.n3-bindings-frame {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.n3-bindings-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 25px 30px 20px;
+}
+.n3-eyebrow {
+  display: block;
+  color: var(--indigo);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+  margin-bottom: 7px;
+}
+.n3-bindings-header h2 {
+  font-size: 27px;
+  font-weight: 550;
+  letter-spacing: -0.035em;
+  line-height: 1.2;
+}
+.n3-bindings-header p {
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 8px;
+}
+.n3-close {
+  display: grid;
+  place-content: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--rule);
+  border-radius: 50%;
+  font-size: 25px;
+  line-height: 1;
+  color: var(--muted);
+}
+.n3-close:hover {
+  border-color: var(--indigo);
+  color: var(--text);
+}
+.n3-bindings-tabs {
+  display: flex;
+  align-items: center;
+  padding: 0 30px;
+  gap: 26px;
+  border-bottom: 1px solid var(--rule);
+}
+.n3-bindings-tabs button {
+  border-bottom: 2px solid transparent;
+  padding: 13px 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+.n3-bindings-tabs button[aria-pressed="true"] {
+  color: var(--text);
+  border-bottom-color: var(--indigo);
+}
+.n3-bindings-local {
+  font-size: 11px;
+  margin-left: auto;
+  color: var(--faint);
+}
+.n3-bindings-content {
+  min-height: 0;
+  overflow-y: auto;
+  flex: 1;
+  padding: 23px 30px;
+  scrollbar-gutter: stable;
+}
+.n3-device-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 23px;
+}
+.n3-device-row strong {
+  font-size: 14px;
+  font-weight: 500;
+}
+.n3-device-row p {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 5px;
+}
+.n3-status-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--faint);
+  margin-right: 8px;
+}
+.n3-status-dot.connected {
+  background: var(--good);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--good) 9%, transparent);
+}
+.n3-workbench {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 250px;
+  align-items: start;
+  gap: 23px;
+}
+.n3-reading-choice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 15px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.n3-reading-choice > span {
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 1px 5px;
+  color: var(--faint);
+  font-size: 10px;
+}
+.n3-controller-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.n3-controller {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  border: 1px solid var(--rule);
+  border-radius: 13px;
+  padding: 14px 10px 12px;
+  background: radial-gradient(
+    ellipse at 50% 80%,
+    color-mix(in srgb, var(--indigo) 6%, var(--ink)),
+    var(--ink) 75%
+  );
+}
+.n3-controller figcaption {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 5px 12px;
+}
+.n3-controller figcaption span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.n3-controller > svg {
+  aspect-ratio: 1.4;
+}
+.n3-command-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  border: 1px solid var(--rule-bright);
+  border-radius: 13px;
+  background: var(--ink);
+}
+.n3-command-editor h3 {
+  font-size: 29px;
+  line-height: 1;
+  font-weight: 550;
+  letter-spacing: -0.02em;
+}
+.n3-command-editor .n3-eyebrow {
+  margin: 0;
+}
+.n3-command-editor label,
+.n3-field-label {
+  font-size: 11px;
+  color: var(--muted);
+}
+.n3-command-editor p {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.n3-current-binding {
+  font-size: 13px;
+  line-height: 1.6;
+  font-family: var(--font-mono);
+}
+.n3-command-editor .n3-editor-note {
+  border-top: 1px solid var(--rule);
+  padding-top: 12px;
+  font-size: 11px;
+}
+.n3-action {
+  border: 1px solid var(--rule-bright);
+  border-radius: 7px;
+  padding: 9px 13px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text);
+  white-space: nowrap;
+}
+.n3-action:hover {
+  border-color: var(--indigo);
+  background: color-mix(in srgb, var(--indigo) 5%, transparent);
+}
+.n3-action.primary {
+  background: var(--indigo);
+  border-color: var(--indigo);
+  color: var(--ink);
+  font-weight: 600;
+}
+.n3-bindings button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.n3-bindings :is(button, input, select, summary):focus-visible {
+  outline: 2px solid var(--indigo);
+  outline-offset: 4px;
+}
+.n3-bindings select,
+.n3-bindings input {
+  min-width: 0;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--rule-bright);
+  border-radius: 7px;
+  padding: 8px 10px;
+  font-size: 12px;
+}
+.n3-device-row select {
+  max-width: 100%;
+}
+.n3-diagnostics {
+  margin-top: 16px;
+  border-top: 1px solid var(--rule);
+  padding-top: 15px;
+}
+.n3-diagnostics summary {
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 4px 0;
+}
+.n3-diagnostics summary > span {
+  float: right;
+  color: var(--faint);
+  font-size: 11px;
+}
+.n3-mapping-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px 20px;
+  padding-top: 12px;
+}
+.n3-mapping-list button {
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  text-align: left;
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+.n3-mapping-list button[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--indigo) 9%, var(--ink));
+}
+.n3-mapping-list button > span:last-child {
+  color: var(--muted);
+}
+.n3-capture-banner {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 18px 0;
+  padding: 16px;
+  border: 1px solid var(--indigo);
+  background: var(--ink);
+  border-radius: 10px;
+}
+.n3-capture-banner > div {
+  flex: 1;
+  min-width: 200px;
+}
+.n3-capture-banner strong {
+  font-size: 14px;
+  font-weight: 500;
+}
+.n3-capture-banner p {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.6;
+  margin-top: 4px;
+}
+.n3-bindings-tools {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  padding-top: 22px;
+}
+.n3-bindings-tools > span {
+  max-width: 570px;
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+.n3-bindings-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-top: 1px solid var(--rule);
+  padding: 14px 30px;
+  background: var(--ink);
+}
+.n3-bindings-footer > span {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+.n3-keyboard-wiring {
+  margin-bottom: 16px;
+}
+.n3-keyboard-wiring .n3-controller > svg {
+  height: 230px;
+  aspect-ratio: auto;
+}
+.n3-keyboard-test {
+  gap: 18px;
+  text-align: left;
+  font-size: 12px;
+  cursor: pointer;
+}
+.n3-keyboard-test:focus-visible {
+  outline: 2px solid var(--indigo);
+  outline-offset: 2px;
+}
+.n3-keyboard-caps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.n3-keyboard-caps kbd {
+  min-width: 36px;
+  padding: 8px;
+  text-align: center;
+  border: 1px solid var(--rule-bright);
+  border-bottom-width: 3px;
+  border-radius: 6px;
+}
+.n3-keyboard-caps [data-lit="oui"] {
+  color: var(--ink);
+  background: var(--indigo);
+}
+.n3-keyboard-test output {
+  min-height: 3em;
+  font-weight: 600;
+}
+.n3-key-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.n3-key-table th {
+  color: var(--muted);
+  text-align: left;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.13em;
+  font-weight: 500;
+  padding: 0 12px 10px;
+}
+.n3-key-table td {
+  border-top: 1px solid var(--rule);
+  padding: 5px 12px;
+}
+.n3-key-table td:first-child {
+  width: 40%;
+}
+.n3-binding-cell {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  width: 100%;
+  text-align: left;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.n3-binding-cell > span:last-child {
+  color: var(--faint);
+}
+.n3-binding-cell:hover,
+.n3-binding-cell[data-capturing="true"] {
+  border-color: var(--indigo);
+  background: var(--ink);
+}
+.n3-profiles {
+  max-width: 610px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.n3-profiles h3 {
+  font-size: 24px;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+.n3-profiles p {
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--muted);
+}
+.n3-profiles label {
+  display: block;
+  font-size: 12px;
+  margin-bottom: 7px;
+}
+.n3-profiles form {
+  border-block: 1px solid var(--rule);
+  padding: 20px 0;
+}
+.n3-profiles form p {
+  margin-top: 8px;
+}
+.n3-profiles input {
+  flex: 1;
+}
+.n3-bindings-notice {
+  font-size: 13px;
+  color: var(--text);
+  margin-top: 20px;
+}
+.n3-command-editor progress {
+  width: 100%;
+  height: 5px;
+  accent-color: var(--indigo);
+}
+
+@media (max-width: 900px) {
+  .n3-workbench {
+    grid-template-columns: 1fr;
+  }
+  .n3-command-editor {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: center;
+  }
+  .n3-command-editor .n3-editor-note {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 600px) {
+  .n3-bindings {
+    width: 100%;
+    height: 100dvh;
+    border-radius: 0;
+    border: 0;
+  }
+  .n3-bindings-header {
+    padding: 20px 18px 15px;
+  }
+  .n3-bindings-header h2 {
+    font-size: 23px;
+  }
+  .n3-bindings-tabs {
+    padding-inline: 18px;
+    gap: 23px;
+  }
+  .n3-bindings-local {
+    display: none;
+  }
+  .n3-bindings-content {
+    padding: 18px;
+    scrollbar-gutter: auto;
+  }
+  .n3-device-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .n3-controller-pair {
+    grid-template-columns: 1fr;
+  }
+  .n3-controller {
+    padding: 16px;
+  }
+  .n3-controller > svg {
+    max-height: 230px;
+  }
+  .n3-reading-choice {
+    flex-wrap: wrap;
+  }
+  .n3-command-editor {
+    display: flex;
+    align-items: stretch;
+  }
+  .n3-bindings-footer {
+    padding: 12px 18px;
+  }
+  .n3-bindings-tools {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .n3-mapping-list {
+    grid-template-columns: 1fr;
+  }
+  .n3-key-table td {
+    padding-inline: 0;
+  }
+  .n3-action,
+  .n3-binding-cell {
+    min-height: 42px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -463,4 +971,550 @@ body {
     animation: none;
     opacity: 1;
   }
+}
+
+/* Les matières identifient la coque, les inscriptions gardent un fond sombre.
+   L'appui ajoute un anneau et un déplacement, sans reposer sur la couleur seule. */
+[data-padmap="gamecube"] {
+  --pad-shell-top: #685da5;
+  --pad-shell-bottom: #302847;
+}
+[data-padmap="dualshock"],
+[data-padmap="wiimote"] {
+  --pad-shell-top: #edf0f4;
+  --pad-shell-bottom: #a9b3c1;
+}
+[data-padmap="xbox"],
+[data-padmap="standard"] {
+  --pad-shell-top: #454d5b;
+  --pad-shell-bottom: #202630;
+}
+[data-padmap="guitar"] {
+  --pad-shell-top: #b5bfc9;
+  --pad-shell-bottom: #525e71;
+}
+[data-padmap] {
+  --pad-cap-top: #353c48;
+  --pad-cap-bottom: #151a23;
+}
+.n3-shell {
+  stroke: #a1a6bc;
+  stroke-width: 0.45;
+  filter: drop-shadow(0 2px 1.6px #0007);
+}
+.n3-cap {
+  filter: drop-shadow(0 0.6px 0.35px #0009);
+}
+[data-part][style] .n3-cap {
+  fill: color-mix(in srgb, var(--part-tint) 40%, #161c27);
+  stroke: #b7bcc8;
+  stroke-width: 0.4;
+}
+[data-padmap] text {
+  fill: #f5f6fa;
+}
+.n3-glyph {
+  stroke: #f5f6fa;
+}
+.n3-gate {
+  fill: #161b25;
+  stroke: #abb2bf;
+}
+.n3-stick-grip {
+  stroke: #acb3c1;
+  stroke-width: 0.45;
+}
+.n3-recess {
+  fill: #191e29;
+  stroke: #a1a6bc;
+}
+.n3-slots {
+  stroke: #7f879e;
+}
+[data-padmap] [data-lit="oui"] .n3-cap {
+  fill: var(--indigo);
+  stroke: var(--text);
+  stroke-width: 1;
+}
+.n3-inline-capture {
+  color: var(--text) !important;
+  border-left: 2px solid var(--indigo);
+  padding-left: 10px;
+}
+.n3-inline-capture button {
+  display: block;
+  text-decoration: underline;
+  padding-top: 8px;
+}
+@media (max-width: 900px) {
+  .n3-workbench[data-busy="true"] {
+    display: flex;
+    flex-direction: column;
+  }
+  .n3-workbench[data-busy="true"] > div {
+    width: 100%;
+  }
+  .n3-workbench[data-busy="true"] .n3-command-editor {
+    order: -1;
+    width: 100%;
+  }
+}
+@media (max-width: 600px) {
+  .n3-bindings-content:has(.n3-workbench[data-busy="true"]) .n3-device-row,
+  .n3-workbench[data-busy="true"] .n3-reading-choice,
+  .n3-workbench[data-busy="true"] .n3-editor-note {
+    display: none;
+  }
+  .n3-workbench[data-busy="true"] .n3-command-editor {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    padding: 14px;
+    gap: 8px 12px;
+  }
+  .n3-workbench[data-busy="true"] .n3-command-editor h3 {
+    font-size: 22px;
+  }
+  .n3-workbench[data-busy="true"] .n3-eyebrow {
+    flex: 1;
+    align-self: center;
+  }
+  .n3-workbench[data-busy="true"] .n3-command-editor > p {
+    width: 100%;
+  }
+  .n3-workbench:has(.n3-inline-capture)
+    .n3-command-editor
+    > :is(label, select, .n3-field-label, .n3-current-binding, .n3-action),
+  .n3-workbench:has(.n3-inline-capture) .n3-command-editor > p:not([role="status"]) {
+    display: none;
+  }
+  .n3-workbench[data-busy="true"] .n3-controller > svg {
+    max-height: 190px;
+  }
+}
+
+.n3-bindings-fields {
+  min-width: 0;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: contents;
+}
+.n3-preparation {
+  padding: 18px 28px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--panel);
+}
+.n3-preparation-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 20px;
+}
+.n3-preparation h3 {
+  font-size: 22px;
+  color: var(--text);
+  margin: 4px 0;
+}
+.n3-preparation p {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+.n3-preparation a {
+  text-decoration: underline;
+  color: var(--indigo);
+}
+.n3-preparation-players {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 14px 0;
+}
+.n3-preparation-players > div {
+  display: grid;
+  gap: 3px;
+  border: 1px solid var(--rule);
+  padding: 10px;
+  border-radius: 10px;
+}
+.n3-preparation-players > div[data-ready="true"] {
+  border-color: var(--good);
+}
+.n3-preparation-players span,
+.n3-preparation-players small {
+  font-size: 11px;
+  color: var(--muted);
+}
+.n3-preparation-players strong {
+  font-size: 13px;
+  color: var(--text);
+  min-height: 18px;
+}
+.n3-preparation-choice,
+.n3-preparation-profiles > div {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0;
+}
+.n3-preparation-choice label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  flex: 1;
+}
+.n3-preparation select,
+.n3-preparation input {
+  background: var(--ink);
+  color: var(--text);
+  border: 1px solid var(--rule-bright);
+  padding: 9px 12px;
+  border-radius: 7px;
+  font-size: 13px;
+  min-width: 0;
+}
+.n3-preparation-profiles {
+  border: 0;
+  padding: 8px 0 0;
+  margin: 0;
+  min-width: 0;
+}
+.n3-preparation-profiles legend {
+  font-size: 12px;
+  color: var(--muted);
+}
+.n3-game-action {
+  padding: 12px;
+  border: 1px solid var(--indigo);
+  border-radius: 8px;
+  display: grid;
+  gap: 5px;
+}
+.n3-game-action span {
+  color: var(--muted);
+  font-size: 11px;
+}
+.n3-game-action strong {
+  color: var(--text);
+  font-size: 14px;
+}
+.n3-preparation-error,
+.n3-preparation-watching {
+  position: fixed;
+  z-index: 100;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--rule-bright);
+  border-radius: 12px;
+  padding: 18px;
+  font-size: 13px;
+  max-width: 90vw;
+}
+.n3-preparation-error button {
+  margin-left: 15px;
+  text-decoration: underline;
+}
+@media (max-width: 650px) {
+  .n3-preparation {
+    padding: 14px;
+  }
+  .n3-preparation-heading {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .n3-preparation-players {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.n3-bindings-scroll {
+  display: contents;
+}
+.n3-bindings-frame[data-preparing="true"] .n3-bindings-scroll {
+  display: block;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.n3-bindings-frame[data-preparing="true"] .n3-bindings-content {
+  overflow: visible;
+}
+.n3-preparation-players,
+.n3-preparation-profiles {
+  overflow-wrap: anywhere;
+}
+.n3-preparation-profiles input {
+  flex: 1;
+}
+
+.n3-preparation-saved summary {
+  cursor: pointer;
+  font-size: 13px;
+  padding: 10px 0;
+  color: var(--text);
+}
+
+.n3-bindings:has([data-preparing="true"]) {
+  height: calc(100dvh - 32px);
+}
+.n3-bindings-frame[data-preparing="true"] .n3-bindings-header {
+  padding-top: 16px;
+  padding-bottom: 16px;
+}
+.n3-preparation-players > div {
+  padding: 7px 10px;
+}
+.n3-preparation-players span,
+.n3-preparation-players small {
+  line-height: 14px;
+}
+@media (max-width: 600px) {
+  .n3-preparation-choice label {
+    flex-basis: 100%;
+  }
+  .n3-bindings:has([data-preparing="true"]) {
+    height: 100dvh;
+  }
+}
+
+/* La même fiche se lit dans les trois menus et pendant la préparation. */
+.n3-game-card {
+  font-size: 12px;
+  line-height: 1.5;
+  padding: 12px 0;
+  border-block: 1px solid currentColor;
+  border-color: color-mix(in srgb, currentColor 18%, transparent);
+}
+.n3-game-card p {
+  margin-top: 6px;
+}
+.n3-game-facts {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.n3-game-card a {
+  display: inline-block;
+  margin-top: 6px;
+  text-decoration: underline;
+}
+
+.n3-game-essentials {
+  margin-top: 10px;
+}
+.n3-game-essentials dl {
+  display: grid;
+  gap: 4px;
+  margin-top: 6px;
+}
+.n3-game-essentials dl div {
+  display: grid;
+  grid-template-columns: 3rem 1fr;
+  gap: 8px;
+}
+.n3-game-essentials dt {
+  font-weight: 600;
+}
+
+/* Switch settings share the room's modal lifecycle; long mappings scroll,
+   while confirmation remains visible on a phone. */
+.n3-switch-setup {
+  color: #edf4fc;
+  background: #111b2a;
+  border: 1px solid #60748f;
+  border-radius: 18px;
+  width: min(980px, calc(100% - 20px));
+  max-height: 92dvh;
+  padding: 0;
+}
+.n3-switch-setup[open] {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.n3-switch-setup::backdrop {
+  background: #030712cc;
+}
+.n3-switch-setup header,
+.n3-switch-setup footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px;
+  flex-shrink: 0;
+  border-bottom: 1px solid #42536c;
+}
+.n3-switch-setup h2 {
+  font-size: 24px;
+}
+.n3-switch-body {
+  overflow: auto;
+  min-height: 0;
+  padding: 20px;
+}
+.n3-switch-setup fieldset {
+  min-width: 0;
+}
+.n3-switch-setup p {
+  margin: 12px 0;
+  color: #bdccdf;
+}
+.n3-switch-setup button,
+.n3-switch-setup select,
+.n3-switch-setup input:not([hidden]) {
+  color: inherit;
+  background: #25344a;
+  border: 1px solid #5b708c;
+  border-radius: 8px;
+  padding: 9px 12px;
+  max-width: 100%;
+}
+.n3-switch-setup button:disabled,
+.n3-switch-setup fieldset:disabled {
+  opacity: 0.65;
+}
+.n3-switch-preview,
+.n3-switch-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.n3-switch-preview svg {
+  width: min(420px, 100%);
+  height: auto;
+}
+.n3-switch-preview circle {
+  fill: #172438;
+  stroke: #9bacc4;
+  stroke-width: 1.6;
+}
+.n3-switch-preview text {
+  fill: #e5eef8;
+  font: 12px system-ui;
+  text-anchor: middle;
+}
+.n3-switch-preview [data-lit="true"] circle {
+  fill: #80e0cc;
+  stroke: #d3fff3;
+}
+.n3-switch-preview [data-lit="true"] text {
+  fill: #0c2925;
+}
+.n3-switch-keytest {
+  padding: 15px;
+  border: 1px dashed #83e0cd;
+  border-radius: 10px;
+}
+.n3-switch-setup :focus-visible {
+  outline: 3px solid #83e0cd;
+  outline-offset: 2px;
+}
+.n3-switch-setup summary {
+  cursor: pointer;
+  padding: 16px 0;
+  font-weight: 600;
+}
+.n3-switch-binding {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) 1fr 1.5fr;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid #40516a;
+}
+.n3-switch-binding > div {
+  display: flex;
+  gap: 4px;
+  min-width: 0;
+}
+.n3-switch-binding button:first-child {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+.n3-switch-binding[data-waiting="true"] {
+  background: #3a3423;
+}
+.n3-switch-setup pre {
+  white-space: pre-wrap;
+  max-height: 240px;
+  overflow: auto;
+}
+@media (max-width: 600px) {
+  .n3-switch-binding {
+    grid-template-columns: 1fr 1fr;
+  }
+  .n3-switch-binding strong {
+    grid-column: 1/-1;
+  }
+  .n3-switch-body {
+    padding: 14px;
+  }
+}
+
+.n3-switch-touch {
+  position: absolute;
+  inset: auto 0 10px;
+  z-index: 30;
+  display: flex;
+  justify-content: space-between;
+  padding: 8px;
+  gap: 16px;
+  pointer-events: none;
+}
+.n3-switch-touch-side {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(35px, 48px));
+  gap: 5px;
+  pointer-events: auto;
+}
+.n3-switch-touch button {
+  min-height: 38px;
+  border: 1px solid #8294b3;
+  border-radius: 12px;
+  background: #17233cd9;
+  color: #edf4ff;
+  touch-action: none;
+  user-select: none;
+  font-size: 12px;
+}
+.n3-switch-touch button:active {
+  background: #536e9c;
+}
+.n3-switch-touch-tools {
+  position: absolute;
+  bottom: 140px;
+  left: 8px;
+  display: flex;
+  gap: 6px;
+  pointer-events: auto;
+}
+.n3-switch-touch-tools button {
+  padding: 0 10px;
+}
+@media (max-width: 420px) {
+  .n3-switch-touch {
+    gap: 10px;
+    padding: 4px;
+  }
+  .n3-switch-touch-side {
+    grid-template-columns: repeat(4, 35px);
+    gap: 3px;
+  }
+}
+
+.n3-switch-binding strong small {
+  display: block;
+  margin-top: 3px;
+  font-size: 12px;
+  font-weight: 400;
+  color: #b6c5dc;
 }

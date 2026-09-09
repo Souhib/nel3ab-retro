@@ -11,12 +11,17 @@ from collections.abc import Container
 from time import monotonic
 
 import httpx
+from anyio import Lock
 
 from nel3ab_control.api.controllers.people import PeopleController
+from nel3ab_control.api.controllers.preparation import Preparation
+from nel3ab_control.api.controllers.recovery import Recovery
 from nel3ab_control.api.schemas.error import NoSuchSeat, SeatTaken, WorkerUnreachable
 from nel3ab_control.api.schemas.player import Person
 from nel3ab_control.api.schemas.room import Game, Room, Seat
+from nel3ab_control.game_controls import guide_for
 from nel3ab_control.settings import Settings
+from nel3ab_control.worker import read_seats
 
 #: What a GameCube has, and therefore the most a room can ever serve.
 PADS_MAX = 4
@@ -66,6 +71,49 @@ class RoomController:
         #: une page apprendrait comment adresser une autre page. Le serveur sait
         #: déjà qui tient quoi; il n'a pas besoin qu'on le lui dise.
         self._asks: dict[int, tuple[str, float]] = {}
+        self._receipts: dict[str, str] = {}
+        # Une absence de nom ne prouve pas que la personne regarde. Seule une
+        # annonce explicite « aucune manette » permet de la classer spectateur.
+        self._watching: set[str] = set()
+        self._worker_seats: list[str | None] | None = None
+        self._syncing = Lock()
+        self.preparation: Preparation | None = None
+        self.preparing = Lock()
+        self.recovery: Recovery | None = None
+        self.recovering = Lock()
+        # Cinq cibles possibles : chef (0), puis quatre ports. Un refus sur une
+        # autre cible ne doit pas annuler la protection de la première.
+        self.recovery_refused: dict[int, tuple[str, float]] = {}
+
+    async def synchronise(self) -> bool:
+        """Rattache les noms aux attributions actuelles, jamais au numéro seul.
+
+        Les réponses sont ordonnées sous ce verrou. Une réponse ancienne ne
+        doit pas remettre le nom de la personne qui occupait le port avant.
+        """
+        async with self._syncing:
+            observed = await read_seats(self._settings.worker_control)
+            if observed is None:
+                # Un délai dépassé n'est pas quatre places libres. Garder la
+                # dernière lecture jusqu'à une réponse complète, y compris au
+                # redémarrage : ses nouveaux repères invalideront les anciens.
+                return False
+            return self.observe_seats(observed)
+
+    def observe_seats(self, observed: list[str | None]) -> bool:
+        """Applique une lecture complète et déjà validée du worker."""
+        changed = observed != self._worker_seats
+        self._worker_seats = list(observed)
+        for port, sid in list(self._claims.items()):
+            receipt = self._receipts.get(sid)
+            if receipt is None or receipt != observed[port - 1]:
+                self.release(sid)
+                changed = True
+        if changed:
+            # Le compteur d'attribution contient une génération de processus.
+            # Réaffirmer le chef couvre donc aussi un worker redémarré.
+            self.told_owner = -1
+        return changed
 
     @property
     def settings(self) -> Settings:
@@ -138,7 +186,14 @@ class RoomController:
         second, and hiding one that does is a player who cannot sit down.
         """
         return [
-            Seat(port=port, player=self._named.get(self._claims.get(port) or ""))
+            Seat(
+                port=port,
+                player=self._named.get(self._claims.get(port) or ""),
+                held=self._worker_seats[port - 1] is not None
+                if self._worker_seats is not None
+                else None,
+                claim=self._worker_seats[port - 1] if self._worker_seats is not None else None,
+            )
             for port in range(1, self._players + 1)
         ]
 
@@ -153,7 +208,7 @@ class RoomController:
         """
         return 1 <= port <= self._players
 
-    def claim(self, port: int, session: str, name: str) -> None:
+    def claim(self, port: int, session: str, name: str, receipt: str | None = None) -> None:
         """Records that a SESSION says it holds a pad.
 
         Refuses a pad another session claims. Re-claiming one's own is not an
@@ -167,6 +222,10 @@ class RoomController:
         """
         if not self.real(port):
             raise NoSuchSeat(port)
+        self._watching.discard(session)
+        verified = self._worker_seats is not None
+        if verified and (receipt is None or receipt != self._worker_seats[port - 1]):
+            raise SeatTaken(port)
         held = self._claims.get(port)
         if held is not None and held != session:
             raise SeatTaken(port)
@@ -181,6 +240,8 @@ class RoomController:
         self._claims = {at: who for at, who in self._claims.items() if who != session or at == port}
         self._claims[port] = session
         self._named[session] = name
+        if receipt is not None:
+            self._receipts[session] = receipt
 
     def release(self, session: str) -> None:
         """Forgets every pad THIS session claimed.
@@ -191,6 +252,15 @@ class RoomController:
         """
         self._claims = {port: who for port, who in self._claims.items() if who != session}
         self._named.pop(session, None)
+        self._receipts.pop(session, None)
+        self._watching.discard(session)
+
+    def watch(self, session: str) -> bool:
+        """Rend la place et confirme le mode spectateur, même à la première annonce."""
+        changed = session not in self._watching or self.seat_of(session) is not None
+        self.release(session)
+        self._watching.add(session)
+        return changed
 
     def forget_absent(self, live: Container[str]) -> list[int]:
         """Rend les places dont la session n'est plus là. Dit lesquelles.
@@ -213,9 +283,9 @@ class RoomController:
         la manette de quelqu'un en train de jouer.
         """
         gone = [at for at, who in self._claims.items() if who not in live]
+        self._watching = {sid for sid in self._watching if sid in live}
         for at in gone:
-            who = self._claims.pop(at)
-            self._named.pop(who, None)
+            self.release(self._claims[at])
         return gone
 
     def rename(self, session: str, now: str) -> None:
@@ -264,6 +334,12 @@ class RoomController:
                 return port
         return None
 
+    def announced(self, session: str, port: int | None, receipt: str | None) -> bool:
+        """Une réaffirmation identique n'est pas un nouveau geste à journaliser."""
+        if port is None:
+            return session in self._watching and receipt is None
+        return self.seat_of(session) == port and self._receipts.get(session) == receipt
+
     async def describe(self, people: PeopleController | None = None) -> Room:
         """Toute la salle, telle qu'une page a besoin de la dessiner."""
         library, running = await self.library()
@@ -278,18 +354,37 @@ class RoomController:
             for session in sessions
             if (port := self.seat_of(session)) is not None
         }
+        pending = {
+            identity: identity not in held and any(sid not in self._watching for sid in sessions)
+            for identity, sessions in (people.sessions() if people else {}).items()
+        }
+        if self.preparation and not self.preparation.synchronise(
+            [(seat.port, seat.claim, seat.player) for seat in seats if seat.claim is not None]
+        ):
+            self.preparation = None
         return Room(
+            preparation=self.preparation,
             name=self._settings.room_name,
             game=running,
             library=library,
             seats=seats,
             owner=(
-                Person(name=boss[1], login=boss[0], seat=held.get(boss[0] or boss[1]))
+                Person(
+                    name=boss[1],
+                    login=boss[0],
+                    seat=held.get(boss[0] or boss[1]),
+                    seat_pending=pending.get(boss[0] or boss[1], True),
+                )
                 if boss
                 else None
             ),
             people=[
-                Person(name=name, login=login, seat=held.get(login or name))
+                Person(
+                    name=name,
+                    login=login,
+                    seat=held.get(login or name),
+                    seat_pending=pending.get(login or name, True),
+                )
                 for login, name in present
             ],
             ask_lasts=ASK_LASTS,
@@ -310,6 +405,7 @@ def _game(index: int, entry: object) -> Game:
         return Game(
             index=index,
             name=str(entry.get("name", "")),
+            guide=guide_for(str(entry.get("name", "")), str(entry.get("console", "?"))),
             maker=entry.get("maker"),
             about=entry.get("about"),
             art=bool(entry.get("art", False)),

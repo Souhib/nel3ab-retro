@@ -17,6 +17,7 @@ async def test_the_room_reports_the_game_the_worker_is_running(client: httpx.Asy
     assert room["name"] == "Salon d'essai"
     assert room["game"] == {
         "index": 1,
+        "guide": None,
         "name": "Super Smash Bros Melee",
         "maker": "Nintendo/HAL Laboratory,Inc.",
         "about": "Let the melee begin!",
@@ -43,7 +44,7 @@ async def test_a_claimed_pad_carries_the_name(
     rooms.claim(2, "sid-souhib", "Souhib")
 
     room = (await client.get("/api/room")).json()
-    assert room["seats"][1] == {"port": 2, "player": "Souhib"}
+    assert room["seats"][1] == {"port": 2, "player": "Souhib", "held": None, "claim": None}
 
 
 async def test_a_pad_another_session_claims_is_refused(

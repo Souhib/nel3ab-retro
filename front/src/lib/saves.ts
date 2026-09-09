@@ -19,13 +19,13 @@ export const SLOTS: readonly { id: Slot; label: string; note: string }[] = [
   { id: 1, label: "tout débloqué", note: "personnages, circuits, coupes, modes" },
 ] as const;
 
-/** Les deux manettes qu'un jeu Wii peut présenter.
+/** Les appareils qu'un jeu Wii peut présenter, un choix par place.
  *
  * Une seule à la fois, jamais les deux: elles lisent le même tuyau, et un jeu
  * qui voit les deux compte deux manettes pour une personne. À deux joueurs, le
  * premier occupe deux places et le second n'entre jamais.
  */
-export type Pad = 0 | 1 | 2;
+export type Pad = 0 | 1 | 2 | 3;
 
 export const PADS: readonly { id: Pad; label: string; note: string }[] = [
   {
@@ -43,21 +43,13 @@ export const PADS: readonly { id: Pad; label: string; note: string }[] = [
     label: "guitare",
     note: "pour Guitar Hero. Cinq frettes sur les boutons, le grattage sur la croix.",
   },
+  { id: 3, label: "Wiimote seule", note: "Sans accessoire, notamment pour Mario Party 8 et 9." },
 ] as const;
 
-/** La manette retenue pour les jeux Wii, gardée dans le navigateur.
- *
- * # Pourquoi elle est retenue ICI et pas au lancement
- *
- * Elle l'a été au lancement pendant une journée, dans le même panneau que la
- * sauvegarde. C'était le mauvais endroit: une sauvegarde se choisit par PARTIE,
- * une manette se choisit une fois et ne change plus. Les mettre ensemble
- * obligeait à redire son choix de manette à chaque lancement, et faisait quatre
- * lignes là où deux suffisent.
- *
- * Retenue par navigateur et non par salle, comme le reste des réglages de
- * manette: c'est un choix qui décrit CE QU'ON TIENT, pas ce que la salle joue.
- */
+/** Le dernier appareil connu sert d'aperçu avant de recevoir la place.
+ * Le worker annonce ensuite l'appareil réellement branché sur cette place.
+ * Depuis la préparation collective (ADR D17), ce cache ne décide plus à lui
+ * seul de la configuration d'un lancement Wii. */
 const PAD_KEY = "nel3ab:pad";
 
 export function storedPad(): Pad {

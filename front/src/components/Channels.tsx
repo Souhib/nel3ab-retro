@@ -21,7 +21,7 @@
  *
  * Les couleurs sont celles de la console et ne suivent pas le thème.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "../lib/cn";
 import type { MenuAction } from "../media/menupad";
 import { Art } from "./Art";
@@ -85,18 +85,24 @@ const EMPTY_SLOTS = (held: number): number => {
 export function Channels({
   categories,
   onClose,
+  idle = false,
   footer,
   onPad,
   paused,
 }: {
   categories: XmbCategory[];
   onClose: () => void;
+  idle?: boolean;
   footer?: React.ReactNode;
   onPad?: (handler: ((action: MenuAction) => void) | null) => void;
   paused?: boolean;
 }) {
   const shell = useShell(categories, ACROSS, onClose, paused);
   const { category, items, ray, row } = shell;
+  const grid = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    grid.current?.querySelector('[data-selected="true"]')?.scrollIntoView({ block: "nearest" });
+  }, [ray, row]);
   const [clock, setClock] = useState(() => now());
 
   useEffect(() => {
@@ -143,8 +149,8 @@ export function Channels({
         </span>
       </header>
 
-      <div className="flex min-h-0 flex-1 flex-col justify-center overflow-y-auto px-10 py-6">
-        <div className="mx-auto grid max-w-6xl grid-cols-4 gap-5">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-10 py-6">
+        <div ref={grid} className="mx-auto my-auto grid max-w-6xl grid-cols-4 gap-5">
           {items.map((item, index) => {
             const here = index === row;
             return (
@@ -185,6 +191,7 @@ export function Channels({
                     index={item.game.index}
                     name={item.label}
                     has={item.game.art}
+                    console={item.game.console}
                     width={228}
                     className="rounded-[5px]"
                   />
@@ -241,7 +248,7 @@ export function Channels({
           borderTop: `1px solid ${EDGE}`,
         }}
       >
-        <Round big label="reprendre" id="closeMenu" onClick={onClose} />
+        <Round big label={idle ? "fermer" : "reprendre"} id="closeMenu" onClick={onClose} />
         <div className="flex flex-1 justify-center gap-3">
           {categories.map((choice, index) => (
             <button

@@ -67,7 +67,7 @@ export function Picker({ picking, costume }: { picking: Picking | null; costume:
       onClick={picking.cancel}
     >
       <div
-        className="flex w-full max-w-md flex-col gap-3 rounded-[10px] p-4 shadow-2xl"
+        className="flex w-full max-w-md max-h-[90dvh] overflow-y-auto flex-col gap-3 rounded-[10px] p-4 shadow-2xl"
         style={{
           background: costume.panel,
           color: costume.ink,
@@ -76,6 +76,8 @@ export function Picker({ picking, costume }: { picking: Picking | null; costume:
         onClick={(event) => event.stopPropagation()}
       >
         <p className="text-[13px] opacity-70">{item.label}</p>
+
+        {item.details}
 
         {item.picks ? (
           <List picking={picking} costume={costume} />

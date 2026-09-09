@@ -10,18 +10,32 @@ ressemble à cet instant. Un contrôleur ne connaît qu'un tiers de la ligne.
 """
 
 import json
+import logging
 from collections.abc import Awaitable, Callable
 from functools import wraps
 from time import monotonic
 from typing import Any, Protocol
 
+from socketio.exceptions import ConnectionRefusedError as Refused
+
 from nel3ab_control.api.controllers.people import PeopleController
 from nel3ab_control.api.controllers.rooms import RoomController
 from nel3ab_control.api.schemas.error import SeatTaken
+from nel3ab_control.api.schemas.player import NAME_MAX
 from nel3ab_control.api.ws.server import ROOM, broadcast, sio
+from nel3ab_control.connection import read_connection
 from nel3ab_control.identity import caller_of
 from nel3ab_control.journal import Journal
 from nel3ab_control.worker import may_decide
+
+logger = logging.getLogger(__name__)
+
+
+def _name(value: object) -> str | None:
+    """Le même plafond que PUT /me, sans convertir un objet en pseudo."""
+    if not isinstance(value, str) or len(value) > NAME_MAX:
+        return None
+    return value.strip() or None
 
 
 class Handler(Protocol):
@@ -37,7 +51,7 @@ class Handler(Protocol):
 
     __name__: str
 
-    def __call__(self, sid: str, data: dict[str, Any]) -> Awaitable[None]: ...
+    def __call__(self, sid: str, data: dict[str, Any]) -> Awaitable[object]: ...
 
 
 def _port(data: dict[str, Any]) -> int | None:
@@ -190,13 +204,17 @@ def not_too_often(gap: float) -> Callable[[Handler], Handler]:
         key = f"last_{handler.__name__}"
 
         @wraps(handler)
-        async def guarded(sid: str, data: dict[str, Any] | None = None) -> None:
+        async def guarded(sid: str, data: object = None) -> object:
             session = await sio.get_session(sid)
             now = monotonic()
             if too_soon(session.get(key), now, gap):
-                return
+                return {"ok": False, "error": "Demande trop rapprochée. Réessaie dans un instant."}
             await sio.save_session(sid, {**session, key: now})
-            await handler(sid, data or {})
+            # Une liste vide devenait {}, donc pouvait rendre une manette.
+            # Refuser après le quota évite aussi de rendre les erreurs gratuites.
+            if not isinstance(data, dict):
+                return {"ok": False, "error": "Message invalide."}
+            return await handler(sid, data)
 
         return guarded
 
@@ -217,7 +235,7 @@ def too_soon(previous: float | None, now: float, gap: float) -> bool:
 
 
 @sio.event
-async def connect(sid: str, environ: dict[str, Any], auth: dict[str, Any] | None) -> None:
+async def connect(sid: str, environ: dict[str, Any], auth: object) -> None:
     """Une page arrive, et le proxy dit déjà qui c'est.
 
     L'identité vient de la MONTÉE EN GRADE de la WebSocket, où Tailscale écrit le
@@ -228,12 +246,16 @@ async def connect(sid: str, environ: dict[str, Any], auth: dict[str, Any] | None
     Sans proxy devant, on retombe sur le prénom que la page envoie: c'est du
     développement local, où il n'y a personne à usurper.
     """
+    if auth is None:
+        auth = {}
+    if not isinstance(auth, dict):
+        raise Refused("les informations de connexion doivent être un objet")
     rooms, people, journal = _state(environ)
     caller = await caller_of(environ["asgi.scope"])
     login = caller[0] if caller else None
-    name = (
-        people.name_for(login, caller[1]) if caller else ((auth or {}).get("name") or "quelqu'un")
-    )
+    name = people.name_for(login, caller[1]) if caller else _name(auth.get("name", "quelqu'un"))
+    if name is None:
+        raise Refused(f"le pseudo doit contenir de 1 à {NAME_MAX} caractères")
     # L'instant d'arrivée est MONOTONE et pas une heure: il ne sert qu'à mesurer
     # une durée au départ, et régler l'horloge de la machine ne doit pas donner
     # une séance de moins l'infini.
@@ -249,11 +271,26 @@ async def connect(sid: str, environ: dict[str, Any], auth: dict[str, Any] | None
         "manette": bool((auth or {}).get("manette")),
         "since": monotonic(),
     }
-    await sio.save_session(sid, session)
-    people.arrived(sid, login, name)
-    await sio.enter_room(sid, ROOM)
-    journal.write("arrivée", **_who(sid, session), salle=_room_now(rooms, people))
-    await broadcast(rooms, people, journal, bool(session.get("banc")))
+    admitted = False
+    try:
+        await sio.save_session(sid, session)
+        people.arrived(sid, login, name)
+        await sio.enter_room(sid, ROOM)
+        journal.write("arrivée", **_who(sid, session), salle=_room_now(rooms, people))
+        await broadcast(rooms, people, journal, bool(session.get("banc")))
+        admitted = True
+    except Exception as error:
+        # Socket.IO ne nettoie sa propre connexion que pour ce refus nommé.
+        # La trace technique reste ici ; le client ne reçoit aucun détail local.
+        logger.exception("connexion au salon abandonnée", extra={"sid": sid})
+        raise Refused("le salon ne peut pas encore accueillir cette connexion") from error
+    finally:
+        # Couvre aussi l'annulation pendant l'attente du worker. Une présence
+        # ajoutée avant CONNECT ne doit jamais survivre à son échec.
+        if not admitted:
+            people.left(sid)
+            rooms.release(sid)
+            await sio.leave_room(sid, ROOM)
 
 
 @sio.event
@@ -271,13 +308,20 @@ async def seat(sid: str, data: dict[str, Any]) -> None:
     """
     session = await sio.get_session(sid)
     rooms, people, journal = _state(sio.get_environ(sid))
+    receipt = data.get("claim")
+    if receipt is not None and (not isinstance(receipt, str) or len(receipt) > 53):
+        return
     if data.get("port") is None:
         port = None
-        rooms.release(sid)
+        if not rooms.watch(sid):
+            return
     else:
         port = _port(data)
         if port is None:
             return
+        if rooms.announced(sid, port, receipt):
+            return
+        await rooms.synchronise()
         # Rendre d'abord ce que des sockets mortes tiennent encore.
         #
         # Une page qui recharge ouvre sa nouvelle socket AVANT que l'ancienne
@@ -286,7 +330,7 @@ async def seat(sid: str, data: dict[str, Any]) -> None:
         # annonce tombait sur une place tenue par un fantôme.
         rooms.forget_absent(people.live())
         try:
-            rooms.claim(port, sid, session["name"])
+            rooms.claim(port, sid, session["name"], receipt)
         except SeatTaken:
             # Refusée, mais la salle est prévenue QUAND MÊME.
             #
@@ -298,6 +342,7 @@ async def seat(sid: str, data: dict[str, Any]) -> None:
                 "place refusée",
                 **_who(sid, session),
                 place=port,
+                raison="attribution absente" if receipt is None else "attribution non confirmée",
                 salle=_room_now(rooms, people),
             )
             await broadcast(rooms, people, journal, bool(session.get("banc")))
@@ -386,7 +431,9 @@ async def rename(sid: str, data: dict[str, Any]) -> None:
     session = await sio.get_session(sid)
     rooms, people, journal = _state(sio.get_environ(sid))
     was = session["name"]
-    now = people.name_for(session["login"]) if session["login"] else str(data.get("name") or was)
+    now = people.name_for(session["login"]) if session["login"] else _name(data.get("name"))
+    if now is None:
+        return
     if now != was:
         # La place suit son occupant: elle est retenue sous un nom, et un nom qui
         # change sans que la place suive laisse une manette au nom d'un fantôme.
@@ -446,7 +493,7 @@ async def mesures(sid: str, data: dict[str, Any]) -> None:
 
 @sio.event
 @not_too_often(COMPLAINT_EVERY)
-async def plainte(sid: str, data: dict[str, Any]) -> None:
+async def plainte(sid: str, data: dict[str, Any]) -> dict[str, Any]:
     """« Ça saccade, maintenant. »
 
     Le repère qui manquait le plus. Une plainte arrive le lendemain avec une
@@ -464,10 +511,24 @@ async def plainte(sid: str, data: dict[str, Any]) -> None:
     """
     kept = _measured(data, COMPLAINT_MAX)
     if kept is None:
-        return
+        return {"ok": False, "error": "Le relevé est trop volumineux."}
     session = await sio.get_session(sid)
     rooms, people, journal = _state(sio.get_environ(sid))
-    journal.write("plainte", **_who(sid, session), vu=kept, salle=_room_now(rooms, people))
+    scope = sio.get_environ(sid)["asgi.scope"]
+    peer = scope.get("client")
+    connection = await read_connection(peer[0] if peer else "")
+    lost = journal.dropped
+    journal.write(
+        "plainte",
+        **_who(sid, session),
+        vu=kept,
+        lien=connection.kind,
+        salle=_room_now(rooms, people),
+    )
+    return {
+        "ok": journal.dropped == lost,
+        "error": "Le journal n'a pas pu enregistrer le signalement.",
+    }
 
 
 @sio.event
@@ -565,4 +626,164 @@ async def booting(sid: str, data: dict[str, Any]) -> None:
     # À tout le monde SAUF celui qui a cliqué: sa page a déjà posé l'écran, tout
     # de suite et sans attendre le salon. Le lui renvoyer ne ferait que remettre
     # à zéro son compteur d'images, donc allonger son attente.
-    await sio.emit("booting", {"game": game, "save": SAVES[slot]}, room=ROOM, skip_sid=sid)
+    await sio.emit(
+        "booting", {"game": game, "save": SAVES[slot], "saveSlot": slot}, room=ROOM, skip_sid=sid
+    )
+
+
+@sio.event
+async def preparation(sid: str, data: object = None) -> dict[str, str | bool]:
+    """Chaque joueur confirme son choix ; l'initiateur lance quand tous sont prêts."""
+    from nel3ab_control.api.controllers.preparation import Participant, Preparation
+    from nel3ab_control.worker import launch_prepared
+
+    if not isinstance(data, dict) or data.get("action") not in (
+        "begin",
+        "choose",
+        "cancel",
+        "launch",
+    ):
+        return {"error": "Demande de préparation invalide."}
+    action = data["action"]
+    rooms, people, journal = _state(sio.get_environ(sid))
+    session = await sio.get_session(sid)
+    now = monotonic()
+    # Quatre actions bornées, chacune avec la cadence existante. Le 6 septembre,
+    # Chromium a confirmé « prêt » puis « lancer » dans la même demi-seconde :
+    # le bouton actif était refusé parce qu'il partageait le compteur du précédent.
+    # On permet cet enchaînement, tout en refusant les répétitions de chaque action.
+    rate_key = f"last_preparation_{action}"
+    if too_soon(session.get(rate_key), now, ROOM_EVERY):
+        return {"error": "Attends un instant avant de confirmer à nouveau."}
+    await sio.save_session(sid, {**session, rate_key: now})
+    async with rooms.preparing:
+        await rooms.synchronise()
+        room = await rooms.describe(people)
+        port = rooms.seat_of(sid)
+        seat = next((s for s in room.seats if s.port == port), None)
+        if seat is None or seat.claim is None:
+            return {"error": "Attends que ta manette soit attribuée, puis réessaie."}
+        try:
+            if action == "begin":
+                if await may_decide(rooms.settings.worker_control, seat.port) is not True:
+                    raise ValueError("Cette manette ne peut pas changer le jeu maintenant.")
+                index = data.get("game")
+                save = data.get("save", 0)
+                if type(index) is not int or type(save) is not int or save not in (0, 1):
+                    raise ValueError("Le jeu ou la sauvegarde est invalide.")
+                game = next((g for g in room.library if g.index == index), None)
+                if game is None or game.console not in ("wii", "switch"):
+                    raise ValueError("Cette préparation concerne les jeux Wii et Switch.")
+                if rooms.preparation is not None:
+                    raise ValueError("Une préparation est déjà ouverte.")
+                rooms.preparation = Preparation(
+                    game=index,
+                    save=save,
+                    starter=seat.claim,
+                    allowed=[4]
+                    if game.console == "switch"
+                    else game.guide.allowed
+                    if game.guide
+                    else [1, 0, 2, 3],
+                    players=[
+                        Participant(port=s.port, name=s.player, claim=s.claim)
+                        for s in room.seats
+                        if s.claim
+                    ],
+                )
+            else:
+                pending = rooms.preparation
+                if pending is None or data.get("id") != pending.id:
+                    raise ValueError(
+                        "Cette préparation est terminée. Rouvre le jeu depuis le menu."
+                    )
+                if action == "choose":
+                    pad = data.get("pad")
+                    ready = data.get("ready")
+                    if type(pad) is not int or type(ready) is not bool:
+                        raise ValueError("Choisis un type de manette puis confirme.")
+                    pending.choose(seat.claim, pad, ready)
+                elif action == "cancel":
+                    if seat.claim != pending.starter:
+                        raise ValueError("Seule la personne qui prépare peut annuler le lancement.")
+                    rooms.preparation = None
+                elif action == "launch":
+                    pads = pending.launch(seat.claim)
+                    if not await launch_prepared(
+                        rooms.settings.worker_control,
+                        seat.port,
+                        seat.claim,
+                        pending.game,
+                        pending.save,
+                        pads,
+                        [s.claim or "-" for s in room.seats],
+                    ):
+                        raise ValueError(
+                            "Le worker n'a pas accepté le lancement. La préparation reste ouverte."
+                        )
+                    game = room.library[pending.game]
+                    journal.write(
+                        "changement",
+                        **_who(sid, session),
+                        jeu=game.name,
+                        sauvegarde=SAVES[pending.save],
+                        salle=_room_now(rooms, people),
+                    )
+                    await sio.emit(
+                        "booting",
+                        {
+                            "game": game.name,
+                            "save": SAVES[pending.save],
+                            "saveSlot": pending.save,
+                            "pads": {p.claim: p.pad for p in pending.players},
+                        },
+                        room=ROOM,
+                    )
+                    rooms.preparation = None
+                else:
+                    raise ValueError("Cette action de préparation est inconnue.")
+        except ValueError as error:
+            return {"error": str(error)}
+        await broadcast(rooms, people, journal, bool(session.get("banc")))
+    return {"ok": True}
+
+
+@sio.event
+async def close_game(sid: str, data: object = None) -> dict[str, str | bool]:
+    """Le chef peut fermer le jeu même après avoir rendu sa manette.
+
+    Cette autorisation porte sur son identité authentifiée, jamais sur un nom
+    envoyé par la page. Sans identité, la règle habituelle du worker s'applique
+    à une attribution vérifiée. Le port privé ne peut pas être appelé par le web.
+    """
+    from nel3ab_control.worker import read_seats, stop_game
+
+    rooms, people, journal = _state(sio.get_environ(sid))
+    session = await sio.get_session(sid)
+    now = monotonic()
+    if too_soon(session.get("last_close_game"), now, ROOM_EVERY):
+        return {"error": "Attends un instant avant de réessayer."}
+    await sio.save_session(sid, {**session, "last_close_game": now})
+    async with rooms.preparing:
+        observed = await read_seats(rooms.settings.worker_control)
+        if observed is None:
+            return {"error": "Le jeu ne répond pas. Réessaie dans un instant."}
+        rooms.observe_seats(observed)
+        boss = people.owner()
+        seat = rooms.seat_of(sid)
+        allowed = (
+            session.get("login") == boss[0]
+            if boss is not None
+            else seat is not None and await may_decide(rooms.settings.worker_control, seat) is True
+        )
+        if not allowed:
+            return {"error": "Seul le chef de la salle peut fermer le jeu."}
+        _, running = await rooms.library()
+        if not isinstance(data, dict) or running is None or data.get("game") != running.index:
+            return {"error": "Le jeu a changé. Rouvre le menu avant de le fermer."}
+        if not await stop_game(rooms.settings.worker_control, [r or "-" for r in observed]):
+            return {"error": "La fermeture n'a pas été acceptée. Réessaie."}
+        rooms.preparation = None
+        journal.write("fermeture", **_who(sid, session), jeu=running.name)
+        await broadcast(rooms, people, journal)
+        return {"ok": True}

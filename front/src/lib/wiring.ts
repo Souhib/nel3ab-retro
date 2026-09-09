@@ -19,7 +19,15 @@
  * on les soustrait ici comme la boucle d'entrée le fait, sinon la moitié des
  * pièces s'allument alors que personne ne touche à rien.
  */
-import { MOVED, type PadProfile } from "../media/pad";
+import {
+  BUTTON,
+  MOVED,
+  readPad,
+  type ButtonName,
+  type PadProfile,
+  type PadReading,
+} from "../media/pad";
+import { paintBench } from "./bench";
 
 /** Une manette réduite à ce qu'on lit d'elle. Un objet plutôt que `Gamepad`,
  * pour que ça s'écrive dans un essai sans navigateur. */
@@ -119,4 +127,54 @@ export function upward(along: number, up: number): Tilt {
  * qui sont déjà ceux de l'écran. */
 export function downward(along: number, down: number): Tilt {
   return { along, down };
+}
+
+/** Remplit le vrai balisage de PadMapView. Les deux lectures restent séparées:
+ * readPad traduit la gauche, heldOn lit les indices bruts à droite. */
+export function paintWiring(
+  root: Element,
+  live: Pick<Gamepad, "buttons" | "axes" | "timestamp"> | null,
+  profile: PadProfile | null,
+): void {
+  const on = new Set(live ? heldOn(live, profile) : []);
+  const reading = live ? readPad(live, profile) : { buttons: 0, x: 0, y: 0, cx: 0, cy: 0 };
+  const axes = live?.axes ?? [];
+  paintReading(root, reading, on, {
+    a0: downward(axes[0] ?? 0, axes[1] ?? 0),
+    a2: downward(axes[2] ?? 0, axes[3] ?? 0),
+  });
+  if (live) paintBench(root, live);
+}
+
+/** Le dessin de sortie commun au clavier et à la manette physique.
+ * La lecture d'entrée reste distincte : readKeys ou readPad. */
+export function paintReading(
+  root: Element,
+  reading: Pick<PadReading, "buttons" | "x" | "y" | "cx" | "cy">,
+  on = new Set<string>(),
+  physical: Record<string, Tilt> = {},
+): void {
+  for (const name of Object.keys(BUTTON) as ButtonName[]) {
+    if ((reading.buttons & BUTTON[name]) !== 0) on.add(name);
+  }
+  if (Math.abs(reading.x) > MOVED || Math.abs(reading.y) > MOVED) on.add("x");
+  if (Math.abs(reading.cx) > MOVED || Math.abs(reading.cy) > MOVED) on.add("cx");
+  for (const piece of root.querySelectorAll<SVGGElement>("[data-part]")) {
+    piece.dataset["lit"] = on.has(piece.dataset["part"] ?? "") ? "oui" : "non";
+  }
+  const tilts: Record<string, Tilt> = {
+    ...physical,
+    x: upward(reading.x, reading.y),
+    cx: upward(reading.cx, reading.cy),
+  };
+  for (const piece of root.querySelectorAll<SVGGElement>("[data-stick]")) {
+    const body = piece.querySelector<SVGGElement>(".n3-stick-body");
+    const push = tilts[piece.dataset["stick"] ?? ""];
+    if (!body || !push) continue;
+    const travel = Number(body.dataset["drive"] ?? 0);
+    body.setAttribute(
+      "transform",
+      `translate(${(Math.max(-1, Math.min(1, push.along)) * travel).toFixed(2)} ${(Math.max(-1, Math.min(1, push.down)) * travel).toFixed(2)})`,
+    );
+  }
 }

@@ -5,16 +5,7 @@
 # process tree — went with it. A worker that outlives nothing is not a worker,
 # so this is the right shape rather than a convenience.
 #
-# `# Un arrêt demandé n'est pas une panne.
-#
-# `SIGTERM` est ce que systemd envoie pour arrêter, et le programme sort alors
-# en 143. Sans cette ligne, chaque `systemctl restart` laisse
-# « Failed with result 'exit-code' » dans le journal: rien n'est cassé, mais une
-# vraie panne y ressemble trait pour trait, et c'est le genre de bruit qui fait
-# rater celle qui compte. Repéré le 29 août 2026 en cherchant pourquoi le salon
-# avait « planté » le 26; il avait simplement redémarré.
-SuccessExitStatus=143 SIGTERM
-Restart=always` matters for a second reason: the worker exits cleanly when
+# `Restart=always` matters for a second reason: the worker exits when
 # the emulator stops producing frames, which is what happens if Dolphin crashes
 # or is killed. Restarting is the correct answer to that, and it is one line.
 #
@@ -24,14 +15,16 @@ Restart=always` matters for a second reason: the worker exits cleanly when
 #
 #   sudo cp deploy/nel3ab-worker.service /etc/systemd/system/
 #   sudo systemctl daemon-reload
-#   sudo systemctl start nel3ab-worker      # `enable` too, to survive a reboot
+#   sudo systemctl enable --now nel3ab-worker
 #   journalctl -u nel3ab-worker -f
 #
-# Deliberately NOT enabled at boot by the instructions above: a machine that
-# starts an emulator on its own is a decision for whoever owns it.
+# This room is enabled at boot. Dolphin uses the last remembered game; the
+# NEL3AB_ROM value below is the fallback when no remembered choice is available.
+# A game-closed marker keeps the room online without Dolphin until an explicit
+# launch from the menu. Restarting this unit preserves that idle choice (D18).
 
 [Unit]
-Description=nel3ab session worker (one emulator, one video stream)
+Description=nel3ab session worker (one emulator, two video formats)
 After=network-online.target docker.service
 Wants=network-online.target
 
@@ -43,16 +36,24 @@ Environment=HOME=/home/souhib
 Environment=RUST_LOG=info
 Restart=always
 RestartSec=2
+# Only the worker receives SIGTERM first. It wakes and stops Dolphin before
+# exiting, including when the room is asleep. Switch closes capture before its
+# game (40 s maximum) and virtual pads (5 s). Ninety seconds also covers capture
+# cleanup and save copies. The isolated normal close took about 2 s on 2026-09-09.
+# The final SIGKILL still covers every remaining child if cleanup is stuck.
+KillMode=mixed
+TimeoutStopSec=90
 
-# The session directory holds the frame socket and Dolphin's config. Under /tmp
-# so a stale one never outlives a reboot.
 # Quoted: the games have spaces in their names, which is what a person
 # reading a library expects to see.
 Environment="NEL3AB_ROM=/home/souhib/roms/gc/Super Smash Bros Melee.rvz"
 # Les bibliothèques, séparées par `:` comme un `PATH`. Une console par dossier,
 # parce que c'est ainsi que ces collections se rangent, et parce que le conteneur
 # monte le dossier du jeu qu'il lance: un dossier de plus ne coûte rien ailleurs.
-Environment="NEL3AB_ROM_DIR=/home/souhib/roms/gc:/home/souhib/roms/wii"
+Environment="NEL3AB_ROM_DIR=/home/souhib/roms/gc:/home/souhib/roms/wii:/home/souhib/roms/switch"
+# Private Switch configuration contains local engine, template and save paths.
+# No keys or firmware are stored in this unit or in the repository.
+Environment=NEL3AB_SWITCH_CONFIG=/home/souhib/.config/nel3ab/switch.json
 # Le répertoire de session de Dolphin: sa configuration, ses sauvegardes, ses
 # tubes nommés.
 #
@@ -64,11 +65,9 @@ Environment="NEL3AB_ROM_DIR=/home/souhib/roms/gc:/home/souhib/roms/wii"
 # demi-heure à comprendre pourquoi la vibration ne passait plus: le worker
 # écoutait un tube dans /tmp pendant que le pilote écrivait dans l'ancien.
 Environment=NEL3AB_SESSION_DIR=/home/souhib/.local/state/nel3ab/session
-# How many ports the room serves, 1..=4. Fixed for the session: Dolphin reads
-# which ports hold a controller when it boots. Left at one on purpose — an
-# unserved port holding a phantom pad changes what the GAME does, and a room for
-# one should look like one console with one controller in it. Set it to 4 (and
-# restart) for a room with friends in it.
+# Four ports are available from startup. This avoids excluding friends from a
+# one-port room. A game may see an unused GameCube pad; the worker documents
+# this tradeoff in players_from_environment. Wii games use their Wiimote slots.
 Environment=NEL3AB_PLAYERS=4
 # How many times native the emulator renders: 1 is 640×480, 2 is 1280×960, 3 is
 # 1920×1440. Two by default — measured at four times the pixels for one extra

@@ -1,3 +1,4 @@
+import type { InputSource } from "./input-source";
 /**
  * The three streams, tied together, and the one snapshot React reads.
  *
@@ -16,6 +17,8 @@ export type Snapshot = {
   input: InputState;
   /** How far the sound is behind the picture, in milliseconds. */
   soundGapMs: number | null;
+  /** Compensation réellement ajoutée à l'image, distincte de l'écart restant. */
+  soundSyncMs: number;
   /** Vrai quand cette page ne sert que de manette.
    *
    * Porté dans l'instantané parce que sans lui, les mesures d'image d'une page
@@ -46,7 +49,7 @@ export class Session {
 
   constructor(
     canvas: HTMLCanvasElement,
-    onSeat: (port: number | null) => void,
+    onSeat: (port: number | null, claim: string | null) => void,
     volume: number,
     deviceRate: boolean,
     /** Vrai quand la personne est entrée pour regarder. Passé ici plutôt
@@ -64,11 +67,12 @@ export class Session {
      * Le son part avec l'image, et pour la même raison: un haut-parleur de
      * téléphone à côté de celui de la télévision fait un écho, pas du son. */
     padOnly = false,
+    inputSource: InputSource | null = null,
   ) {
     this.padOnly = padOnly;
     this.video = new VideoStream(canvas, socketUrl);
     this.sound = new SoundStream(socketUrl, volume, deviceRate);
-    this.input = new InputStream(socketUrl, onSeat, () => this.refresh(), watching);
+    this.input = new InputStream(socketUrl, onSeat, () => this.refresh(), watching, inputSource);
     this.snapshot = this.read();
   }
 
@@ -111,8 +115,15 @@ export class Session {
   /** Lines the picture up with the sound, or lets it stay early. */
   setLipsync(on: boolean): void {
     this.lipsync = on;
-    const gap = this.sound.gapAgainst(this.video.stats().fastestLag);
-    this.video.setLipsync(on && gap !== null ? Math.max(0, gap) : 0);
+    if (!on) {
+      this.video.setLipsync(0);
+      return;
+    }
+    const picture = this.video.presentationOffsetMs();
+    // Soustraire la compensation précédente évite de l'appliquer deux fois.
+    const base = picture === null ? null : picture - this.video.compensationMs();
+    const gap = this.sound.gapAgainst(base);
+    if (gap !== null) this.video.setLipsync(Math.max(0, gap));
   }
 
   get lipsyncOn(): boolean {
@@ -120,12 +131,16 @@ export class Session {
   }
 
   private read(): Snapshot {
+    // Même cadence que le relevé, hors du chemin des images. Le réglage reste
+    // facultatif ; activé, il suit l'horaire audio qui peut redescendre.
+    if (this.lipsync) this.setLipsync(true);
     const video = this.video.stats();
     return {
       video,
       sound: this.sound.stats(),
       input: this.input.state(),
-      soundGapMs: this.sound.gapAgainst(video.fastestLag),
+      soundGapMs: this.sound.gapAgainst(this.video.presentationOffsetMs()),
+      soundSyncMs: this.video.compensationMs(),
       padOnly: this.padOnly,
     };
   }

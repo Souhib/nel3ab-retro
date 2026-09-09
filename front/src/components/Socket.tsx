@@ -70,7 +70,7 @@ export function Socket({ port, state }: { port: number; state: SocketState }) {
         fill={plugged ? colour : "#8a8a98"}
         style={{ font: "600 11px ui-monospace, monospace" }}
       >
-        {armed ? "PRENDRE ?" : state === "mine" ? "TOI" : port}
+        {armed ? "PRENDRE ?" : `P${port}`}
       </text>
     </svg>
   );

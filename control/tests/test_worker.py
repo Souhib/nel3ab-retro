@@ -1,6 +1,7 @@
 """Les deux messages entre le plan de contrôle et le worker."""
 
 import anyio
+import anyio.lowlevel
 import pytest
 from anyio.abc import SocketAttribute, SocketStream
 
@@ -99,3 +100,48 @@ async def test_a_seat_that_is_not_one_is_refused_without_asking(seat: int) -> No
     refus, pas une absence de réponse, donc ça ne retombe pas sur l'ancienne
     règle."""
     assert await may_decide("127.0.0.1:1", seat) is False
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        b"no\n",
+        b"- - -\n",
+        b"- - - - extra\n",
+        b"\xff - - -\n",
+        b"anything - - -\n",
+        b"a" * 32 + b"-1 " + b"a" * 32 + b"-1 - -\n",
+    ],
+)
+def test_an_invalid_snapshot_is_not_four_free_seats(answer: bytes) -> None:
+    from nel3ab_control.worker import seat_receipts
+
+    assert seat_receipts(answer) is None
+
+
+async def test_seats_can_arrive_in_several_reads() -> None:
+    from nel3ab_control.worker import read_seats
+
+    receipt = "a" * 32 + "-1"
+    heard = []
+
+    async def listener(stream: SocketStream) -> None:
+        async with stream:
+            heard.append(await stream.receive(64))
+            await stream.send(receipt[:10].encode())
+            await anyio.lowlevel.checkpoint()
+            await stream.send((receipt[10:] + " - - -\n").encode())
+
+    async with await anyio.create_tcp_listener(local_host="127.0.0.1", local_port=0) as server:
+        port = server.extra(SocketAttribute.local_address)[1]  # noqa: S610
+        async with anyio.create_task_group() as group:
+            group.start_soon(server.serve, listener)
+            assert await read_seats(f"127.0.0.1:{port}") == [receipt, None, None, None]
+            group.cancel_scope.cancel()
+    assert heard == [b"seats\n"]
+
+
+def test_four_free_seats_are_a_valid_snapshot() -> None:
+    from nel3ab_control.worker import seat_receipts
+
+    assert seat_receipts(b"- - - -\n") == [None, None, None, None]

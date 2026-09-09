@@ -76,12 +76,12 @@ const join = (labels: string[]): string | null =>
 
 /** Les touches qui déclenchent cette commande. Plusieurs, parce que rien
  * n'empêche d'en mettre deux, et une seule, le plus souvent. */
-export function keysFor(keys: KeyProfile, key: ControlKey): string[] {
+export function keysFor(keys: KeyProfile, key: ControlKey, sign: 1 | -1 = 1): string[] {
   return Object.entries(keys)
     .filter(([, action]) => {
       if (action.kind === "button") return action.name === key;
       if (action.kind === "trigger") return action.side === key;
-      return action.stick === key && action.sign === 1;
+      return action.stick === key && action.sign === sign;
     })
     .map(([code]) => code);
 }

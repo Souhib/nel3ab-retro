@@ -17,14 +17,18 @@ import type { Person } from "../client";
 import { cn } from "../lib/cn";
 import type { Snapshot } from "../media/session";
 import { PLAYER_COLOURS } from "../media/players";
+import { ConnectionDiagnostic } from "./ConnectionDiagnostic";
+import { Crown } from "./Crown";
 import { Instruments } from "./Instruments";
 import { Volume } from "./Settings";
 
 export type Mode = "normal" | "details";
 
 export function Sidebar({
+  idle,
   mode,
   onMode,
+  owner,
   people,
   players,
   busy,
@@ -44,8 +48,10 @@ export function Sidebar({
   onKeepFull,
   onFold,
 }: {
+  idle: boolean;
   mode: Mode;
   onMode: (mode: Mode) => void;
+  owner?: Person | null;
   people: Person[];
   players: number;
   busy: boolean[];
@@ -69,7 +75,7 @@ export function Sidebar({
    * heure approximative, et il a fallu deux fois demander une capture d'écran à
    * quelqu'un qui jouait. Ce bouton pose un repère à l'instant exact, avec ce
    * que la page voyait à ce moment-là. */
-  onComplain: () => void;
+  onComplain: () => Promise<void>;
   /** Vrai quand la liaison a raté deux fenêtres d'affilée et que cette page
    * n'est pas déjà en format réduit. */
   suggestHalf: boolean;
@@ -85,8 +91,9 @@ export function Sidebar({
    * repliant d'office sans laisser de porte dans l'autre sens. */
   onFold?: () => void;
 }) {
-  const seated = people.filter((person) => person.seat !== null);
-  const watching = people.filter((person) => person.seat === null);
+  const heldCount = busy.filter(Boolean).length;
+  const watching = people.filter((person) => person.seat == null && person.seat_pending === false);
+  const pending = people.filter((person) => person.seat == null && person.seat_pending !== false);
 
   return (
     <>
@@ -147,21 +154,63 @@ export function Sidebar({
                       isMine ? "text-indigo" : held ? "text-text" : "text-faint",
                     )}
                   >
-                    {isMine ? `${who ?? "toi"} (toi)` : (who ?? (held ? "occupée" : "libre"))}
+                    {held || isMine
+                      ? who
+                        ? `${who}${isMine ? " (toi)" : ""}`
+                        : "\u00a0"
+                      : "personne"}
+                    {who && held && owner?.seat === port ? (
+                      <>
+                        {" "}
+                        <Crown />
+                      </>
+                    ) : null}
                   </span>
                 </div>
               );
             })}
           </section>
 
-          {watching.length > 0 ? (
-            <section className="flex flex-col gap-1 border-t border-rule pt-2">
-              <span className="text-[10px] uppercase tracking-[0.2em] text-indigo/70">
-                {watching.length === 1 ? "spectateur" : "spectateurs"}
-              </span>
-              <p className="text-[12px] text-muted">
-                {watching.map((person) => person.name).join(", ")}
-              </p>
+          <section
+            aria-label="spectateurs"
+            className="flex flex-col gap-2 border-t border-rule pt-2"
+          >
+            <span className="text-[10px] uppercase tracking-[0.2em] text-indigo/70">
+              spectateurs · {watching.length}
+            </span>
+            {watching.length ? (
+              watching.map((person) => (
+                <div
+                  key={person.login ?? person.name}
+                  className="flex items-center gap-2 text-[12px] text-muted"
+                >
+                  <span
+                    className="h-6 w-6 shrink-0 rounded-full border border-rule bg-panel text-center leading-6"
+                    aria-hidden="true"
+                  >
+                    {person.name.slice(0, 1).toUpperCase()}
+                  </span>
+                  <span className="truncate">{person.name}</span>
+                  {owner?.login && owner.login === person.login ? <Crown /> : null}
+                </div>
+              ))
+            ) : (
+              <p className="text-[11px] text-faint">personne pour l'instant</p>
+            )}
+          </section>
+
+          {pending.length ? (
+            <section
+              aria-label="attributions en attente"
+              className="border-t border-rule pt-2 text-[11px] text-muted"
+            >
+              {pending.map((person) => (
+                <p key={person.login ?? person.name}>
+                  {person.name} {owner?.login && owner.login === person.login ? <Crown /> : null}
+                  {" · manette à confirmer"}
+                </p>
+              ))}
+              <p>Si vous jouez déjà, rechargez votre page pour retrouver votre nom.</p>
             </section>
           ) : null}
 
@@ -204,14 +253,17 @@ export function Sidebar({
           </section>
 
           <p className="border-t border-rule pt-2 text-[11px] leading-relaxed text-faint">
-            {seated.length === 0
+            {heldCount === 0
               ? "personne ne tient de manette"
-              : `${seated.length} manette${seated.length > 1 ? "s" : ""} tenue${seated.length > 1 ? "s" : ""}`}
+              : `${heldCount} manette${heldCount > 1 ? "s" : ""} tenue${heldCount > 1 ? "s" : ""}`}
             . Échap ouvre le menu.
           </p>
 
           {suggestHalf ? <Rough onTake={onTakeHalf} onKeep={onKeepFull} /> : null}
 
+          {!idle && shot && !shot.padOnly ? (
+            <ConnectionDiagnostic video={shot.video} onReduce={onTakeHalf} />
+          ) : null}
           <Complain onComplain={onComplain} />
         </>
       ) : (
@@ -238,7 +290,7 @@ export function Sidebar({
  */
 const COMPLAIN_EVERY = 20_000;
 
-function Complain({ onComplain }: { onComplain: () => void }) {
+function Complain({ onComplain }: { onComplain: () => Promise<void> }) {
   /** Vrai depuis le clic, remis à faux quand le salon accepterait un autre
    * repère. Deux durées et pas une: le remerciement est court parce qu'il ne
    * doit pas rester en travers de la partie, mais le bouton reste désarmé
@@ -249,6 +301,8 @@ function Complain({ onComplain }: { onComplain: () => void }) {
    * pire qu'un contrôle absent. */
   const [said, setSaid] = useState(false);
   const [held, setHeld] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     if (!said) return;
@@ -263,24 +317,47 @@ function Complain({ onComplain }: { onComplain: () => void }) {
   }, [held]);
 
   return (
-    <button
-      type="button"
-      id="complain"
-      onClick={() => {
-        onComplain();
-        setSaid(true);
-        setHeld(true);
-      }}
-      disabled={held}
-      className={cn(
-        "border px-2 py-1 text-[11px] uppercase tracking-[0.14em] transition-colors",
-        said && "border-good text-good",
-        held && !said && "border-rule text-faint",
-        !held && "border-rule text-faint hover:border-alert hover:text-alert",
-      )}
-    >
-      {said ? "noté, l'instant est marqué" : held ? "déjà signalé" : "ça saccade"}
-    </button>
+    <>
+      <button
+        type="button"
+        id="complain"
+        onClick={async () => {
+          setPending(true);
+          setError("");
+          try {
+            await onComplain();
+            setSaid(true);
+            setHeld(true);
+          } catch (reason) {
+            setError(
+              reason instanceof Error ? reason.message : "Signalement non confirmé. Réessaie.",
+            );
+          } finally {
+            setPending(false);
+          }
+        }}
+        disabled={held || pending}
+        className={cn(
+          "border px-2 py-1 text-[11px] uppercase tracking-[0.14em] transition-colors",
+          said && "border-good text-good",
+          held && !said && "border-rule text-faint",
+          !held && "border-rule text-faint hover:border-alert hover:text-alert",
+        )}
+      >
+        {pending
+          ? "envoi…"
+          : said
+            ? "signalement enregistré"
+            : held
+              ? "déjà signalé"
+              : "signaler un problème"}
+      </button>
+      {error ? (
+        <p role="alert" className="text-xs text-alert">
+          {error}
+        </p>
+      ) : null}
+    </>
   );
 }
 

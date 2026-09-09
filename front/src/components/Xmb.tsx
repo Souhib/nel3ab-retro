@@ -33,6 +33,7 @@ export type XmbItem = {
   label: string;
   /** La ligne sous le titre, quand il y a quelque chose à expliquer. */
   hint?: string;
+  details?: React.ReactNode;
   /** Le SUJET auquel cette entrée appartient: « son », « manettes »…
    *
    * Affiché à côté du nom du rayon plutôt qu'en séparateur dans la liste. Les
@@ -49,7 +50,7 @@ export type XmbItem = {
    * Sa place dans la bibliothèque, parce que c'est par là qu'on demande sa
    * jaquette, et ce que le worker a dit de cette jaquette: il en sert une, ou
    * non. Les entrées qui ne sont pas des jeux gardent leur icône. */
-  game?: { index: number; art: boolean };
+  game?: { index: number; art: boolean; console?: string };
   /** Le studio, tel que le disque le dit. */
   by?: string;
   /** La phrase que l'éditeur a écrite sur le disque. */
@@ -135,12 +136,14 @@ const DOWN = 74;
 export function Xmb({
   categories,
   onClose,
+  idle = false,
   footer,
   onPad,
   paused,
 }: {
   categories: XmbCategory[];
   onClose: () => void;
+  idle?: boolean;
   footer?: React.ReactNode;
   /** Donne au menu de quoi recevoir la manette, et la lui rend en partant. */
   onPad?: (handler: ((action: MenuAction) => void) | null) => void;
@@ -288,6 +291,7 @@ export function Xmb({
                   index={item.game.index}
                   name={item.label}
                   has={item.game.art}
+                  console={item.game.console}
                   width={here ? 90 : 72}
                   className="rounded-[3px] transition-all duration-200"
                 />
@@ -339,7 +343,7 @@ export function Xmb({
           <span>↑ ↓ entrée</span>
           <span>A choisit</span>
           <button type="button" id="closeMenu" onClick={onClose} className="hover:text-indigo">
-            Échap reprend la partie
+            Échap {idle ? "ferme le menu" : "reprend la partie"}
           </button>
         </span>
       </footer>

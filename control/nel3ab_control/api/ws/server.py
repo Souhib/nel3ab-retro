@@ -9,6 +9,9 @@ exists to share state between several, and adding one would mean running Redis t
 serve a room that fits in a dictionary.
 """
 
+import logging
+
+import anyio
 import socketio
 
 from nel3ab_control.api.controllers.people import PeopleController
@@ -50,6 +53,34 @@ def allow_origins(origins: list[str]) -> None:
 ROOM = "room"
 
 
+async def follow_seats(state) -> None:
+    """Rafraîchit aussi les pages qui regardent sans socket de manette.
+
+    Une seconde est un choix de fraîcheur : au plus une lecture locale par
+    seconde, plus la bibliothèque, puis une diffusion si les places ou le jeu
+    changent. La fermeture doit aussi parvenir aux seuls spectateurs. Aucun travail
+    quand le salon est vide, aucun appel sur le chemin d'une image.
+    """
+    # Import local : ces événements utilisent le serveur une fois construit.
+    from nel3ab_control.api.ws.recovery import expire
+
+    known_game: int | None = None
+    while True:
+        await anyio.sleep(1)
+        try:
+            await expire(state.rooms, state.people)
+            if not state.people.live():
+                continue
+            changed = await state.rooms.synchronise()
+            _, running = await state.rooms.library()
+            current = running.index if running else None
+            if changed or current != known_game:
+                await broadcast(state.rooms, state.people, state.journal)
+            known_game = current
+        except Exception:
+            logging.getLogger(__name__).exception("la lecture des places n'a pas abouti")
+
+
 async def broadcast(
     rooms: RoomController, people: PeopleController, journal: Journal, banc: bool = False
 ) -> None:
@@ -62,9 +93,8 @@ async def broadcast(
     """
     room = await rooms.describe(people)
     seat = room.owner.seat if room.owner and room.owner.seat else 0
-    if seat != rooms.told_owner:
+    if seat != rooms.told_owner and await tell_owner(rooms.settings.worker_control, seat):
         rooms.told_owner = seat
-        await tell_owner(rooms.settings.worker_control, seat)
     # Au journal aussi, et sur le COUPLE (nom, place): qui décide peut changer
     # sans que la place bouge, quand le premier arrivé part et que le suivant est
     # déjà assis au même endroit. Ne comparer que la place raterait ce cas-là.

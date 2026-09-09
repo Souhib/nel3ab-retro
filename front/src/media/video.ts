@@ -48,7 +48,7 @@ const KEY_FRAME_PATIENCE = 3000;
 const PAINTING_STOPPED = 250;
 
 /** How far behind the decoder may fall before it is given no more work. */
-const MAX_BACKLOG = 10;
+export const MAX_BACKLOG = 10;
 
 /* Il n'y a PLUS de taille de file constante ici, et c'est le sujet de
    `roomFor`: la file doit contenir ce que l'horaire fait attendre, donc sa taille
@@ -199,7 +199,6 @@ export class VideoStream {
   private socket: WebSocket | null = null;
   private decoder: VideoDecoder | null = null;
   private readonly queue: Held[] = [];
-  private readonly submitted = new Map<number, { at: number; transit: number }>();
   private readonly lags = new Window(240);
   private readonly gaps = new Window(600);
   /** L'écart entre deux INSTANTS DE CAPTURE, qui mesure la source.
@@ -261,8 +260,6 @@ export class VideoStream {
   private lastRefresh: number | null = null;
   private decoderGoneSince: number | null = null;
   private shownAt: number | null = null;
-  private firstCapture: number | null = null;
-  private firstArrival: number | null = null;
   private lastArrival: number | null = null;
   private lastAsk = 0;
 
@@ -287,7 +284,6 @@ export class VideoStream {
   private paintedAtConnect = 0;
   private awaiting = false;
   private keyFramesAsked = 0;
-  private calmWindows = 0;
 
   private timers: number[] = [];
   /** La reconnexion programmée, s'il y en a une. Voir `connect`. */
@@ -301,12 +297,18 @@ export class VideoStream {
     this.url = url;
   }
 
+  private active = false;
+  private frame = 0;
+
   start(): void {
+    if (this.active) return;
+    this.active = true;
+    this.awaiting = false;
     // Demander d'abord ce que la salle sait produire, et ne le demander que si
     // ça peut changer quelque chose. Le plein format existe toujours.
     if (this.half) void this.checkFormat();
     this.connect();
-    requestAnimationFrame(this.paint);
+    this.frame = requestAnimationFrame(this.paint);
     this.timers.push(
       window.setInterval(this.watchSilence, 500),
       window.setInterval(this.watchDecoder, 500),
@@ -330,14 +332,16 @@ export class VideoStream {
    * cas est alors celui d'avant, et il se corrige d'un clic.
    */
   private async checkFormat(tries = 3): Promise<void> {
-    for (let attempt = 0; attempt < tries; attempt++) {
+    const generation = ++this.formatGeneration;
+    for (let attempt = 0; attempt < tries && this.active; attempt++) {
       try {
         const answer = await fetch("/formats", { cache: "no-store" });
+        if (!this.active || generation !== this.formatGeneration) return;
         if (answer.ok) {
           const said = (await answer.json()) as { half?: boolean };
-          if (said.half === false && this.half) {
-            this.deniedHalf = true;
-            this.setHalf(false);
+          if (typeof said.half === "boolean") {
+            this.deniedHalf = !said.half;
+            if (this.deniedHalf && this.half) this.setHalf(false);
           }
           return;
         }
@@ -355,6 +359,7 @@ export class VideoStream {
    * sans un mot se lit comme un réglage qui n'a pas pris, et la personne le
    * remet — sur un flux qui n'existe toujours pas. */
   deniedHalf = false;
+  private formatGeneration = 0;
 
   /** Prévient que la salle va redémarrer, donc que ce flux va s'arrêter.
    *
@@ -362,9 +367,32 @@ export class VideoStream {
    * permet de savoir si les images qui arrivent sont encore celles d'avant. */
   expectRestart(): void {
     this.awaiting = true;
+    this.formatGeneration += 1;
+    this.deniedHalf = false;
   }
 
   stop(): void {
+    this.formatGeneration += 1;
+    this.active = false;
+    this.lags.clear();
+    this.gaps.clear();
+    this.sourceGaps.clear();
+    this.lastArrival = null;
+    this.lastCaptured = null;
+    this.lastRefresh = null;
+    this.deniedHalf = false;
+    cancelAnimationFrame(this.frame);
+    if (this.reconnectIn !== null) window.clearTimeout(this.reconnectIn);
+    this.reconnectIn = null;
+    this.connected = false;
+    this.canvas.getContext("2d")?.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.awaiting = false;
+    this.offset = null;
+    this.lastOutput = null;
+    this.decoderGoneSince = null;
+    this.priming = true;
+    this.paintedAtConnect = this.painted;
+    while (this.queue.length) this.queue.shift()?.frame.close();
     for (const timer of this.timers) window.clearInterval(timer);
     this.timers = [];
     this.socket?.close();
@@ -491,6 +519,17 @@ export class VideoStream {
     return this.offset ?? 0;
   }
 
+  /** Horaire courant, avec la marge et la compensation. Usage interne : les
+   * deux flux partagent l'horloge serveur, mais ce nombre n'est pas une latence.
+   * L'instant physique d'affichage reste précis à un rafraîchissement près. */
+  presentationOffsetMs(): number | null {
+    return this.connected && !this.priming ? this.offset : null;
+  }
+
+  compensationMs(): number {
+    return this.lipsync;
+  }
+
   private wantedOffset(): number {
     return (this.lags.fastest() ?? 0) + this.boughtMs() + this.lipsync;
   }
@@ -516,7 +555,11 @@ export class VideoStream {
   /** Combien d'images la file garde: assez pour tenir ce que l'horaire fait
    * attendre. */
   private queueRoom(): number {
-    return roomFor(this.boughtMs(), this.sourcePeriodMs());
+    // La compensation demandée garde elle aussi des images. Calcul du 7 septembre
+    // 2026 : 400 ms à 60 Hz ajoutent 24 images, environ 40 Mo en NV12 1216×912.
+    // Ce coût n'existe que lorsque la personne active l'alignement avec le son.
+    const period = this.sourcePeriodMs();
+    return roomFor(this.boughtMs(), period) + Math.ceil(this.lipsync / Math.max(1, period));
   }
 
   /** De combien dessiner la toile plus grande que l'image reçue.
@@ -579,8 +622,8 @@ export class VideoStream {
     return this.refreshes.length < 8 ? SOURCE_FRAME : this.refreshes.at(0.5);
   }
 
-  private connect(insist = false): void {
-    void insist;
+  private connect(): void {
+    if (!this.active) return;
     // Une seule reconnexion en vol. La deuxième ne remplaçait pas la première,
     // elle s'ajoutait.
     if (this.reconnectIn !== null) {
@@ -593,6 +636,9 @@ export class VideoStream {
     socket.onopen = () => {
       this.connected = true;
       this.lastHeard = performance.now();
+      // A game can change while the lobby is unavailable. Read capability
+      // from the new worker connection, including for a full-format viewer.
+      void this.checkFormat();
     };
     socket.onclose = () => {
       if (this.socket !== socket) return;
@@ -679,13 +725,6 @@ export class VideoStream {
     const unit = message.subarray(8);
     const arrived = performance.now();
 
-    if (this.firstCapture === null) {
-      this.firstCapture = capturedMicros / 1000;
-      this.firstArrival = arrived;
-    }
-    const transit =
-      arrived - (this.firstArrival ?? arrived) - (capturedMicros / 1000 - this.firstCapture);
-
     // Nobody is painting, or the decoder cannot keep up. Either way the work
     // would never reach a screen, and doing it anyway is what makes the backlog
     // unbounded.
@@ -721,6 +760,9 @@ export class VideoStream {
         error: () => this.restartDecoder(),
       });
       this.decoder.configure({ codec, optimizeForLatency: true });
+      // Start the output deadline on the first submitted frame too. Otherwise
+      // a new decoder that never produces anything cannot trigger recovery.
+      this.lastOutput = performance.now();
     }
 
     if (this.lastArrival !== null) this.gaps.push(arrived - this.lastArrival);
@@ -735,11 +777,6 @@ export class VideoStream {
     }
     this.lastCaptured = capturedMs;
 
-    this.submitted.set(capturedMicros, { at: arrived, transit });
-    if (this.submitted.size > 300) {
-      const oldest = this.submitted.keys().next().value;
-      if (oldest !== undefined) this.submitted.delete(oldest);
-    }
     this.lastFed = performance.now();
     try {
       this.decoder.decode(
@@ -761,10 +798,12 @@ export class VideoStream {
   }
 
   private onDecoded(frame: VideoFrame): void {
+    if (!this.active) {
+      frame.close();
+      return;
+    }
     const now = performance.now();
     this.lastOutput = now;
-    const sent = this.submitted.get(frame.timestamp);
-    if (sent !== undefined) this.submitted.delete(frame.timestamp);
     // Straight off the frame rather than out of a queue: pairing an output to
     // its input BY POSITION is off by one for ever the day one is dropped.
     const capturedMs = frame.timestamp / 1000;
@@ -789,14 +828,14 @@ export class VideoStream {
     this.decoderGoneSince = performance.now();
     this.lastOutput = null;
     while (this.queue.length) this.queue.shift()?.frame.close();
-    this.submitted.clear();
     this.offset = null;
     this.priming = true;
     this.askForKeyFrame();
   }
 
   private paint = (): void => {
-    requestAnimationFrame(this.paint);
+    if (!this.active) return;
+    this.frame = requestAnimationFrame(this.paint);
     this.ticks += 1;
     const tickAt = performance.now();
     if (this.lastRefresh !== null) this.refreshes.push(tickAt - this.lastRefresh);
@@ -853,6 +892,17 @@ export class VideoStream {
       return;
     }
 
+    // Après un blocage, dérouler une seule ancienne image par tic ne rattrape
+    // jamais une source qui arrive au même rythme que l'écran. L'essai du
+    // 8 septembre 2026 bloque 64 ms : l'ancien code montre encore l'image de
+    // 16 ms alors que celle de 48 ms est prête. On montre la dernière dont
+    // l'heure est venue, et on garde celles qui sont encore en avance. Cela
+    // abandonne des images déjà périmées sans retirer la marge contre la gigue.
+    while (this.queue.length > 1 && this.queue[1].capturedMs + this.offset - slack <= now) {
+      this.queue.shift()?.frame.close();
+      this.skipped += 1;
+    }
+
     const next = this.queue.shift();
     if (next === undefined) return;
     // La toile est dessinée au pas entier, au plus proche voisin. Le reste de
@@ -860,8 +910,10 @@ export class VideoStream {
     // qu'un seul lissage de 2,41 fois: mesuré plus fidèle, et bien plus net.
     const times = Math.max(1, Math.round(this.prescale));
     this.decoded = { width: next.frame.displayWidth, height: next.frame.displayHeight };
-    this.canvas.width = next.frame.displayWidth * times;
-    this.canvas.height = next.frame.displayHeight * times;
+    const width = next.frame.displayWidth * times;
+    const height = next.frame.displayHeight * times;
+    if (this.canvas.width !== width) this.canvas.width = width;
+    if (this.canvas.height !== height) this.canvas.height = height;
     const ink = this.canvas.getContext("2d");
     if (ink) {
       // Le premier temps ne doit RIEN interpoler, sinon on lisse deux fois et
@@ -973,11 +1025,6 @@ export class VideoStream {
       // Appliquée d'un coup à l'horaire: la faire gagner cinq millisecondes
       // toutes les deux secondes laisserait la page affamée pendant la montée.
       if (this.offset !== null) this.offset += grown - this.slackMs;
-      this.calmWindows = 0;
-    } else if (this.starvedRecent === 0) {
-      this.calmWindows += 1;
-    } else {
-      this.calmWindows = 0;
     }
     // La marge collée au plafond dit que l'allure a fait tout ce qu'elle
     // pouvait. Compté APRÈS l'avoir posée: on juge ce qu'on vient de décider,
@@ -1006,12 +1053,15 @@ export class VideoStream {
     // seconds — code written to recover a failure, preventing the recovery.
     if (this.lastPaintTick === null || now - this.lastPaintTick > PAINTING_STOPPED) return;
 
-    // Fed, and producing nothing. The gap is measured between the two rather
-    // than against the clock, so pausing the feed can never look like a failure.
+    // Bytes still arrive and the screen still paints, but submitted work has
+    // not produced output. Measure elapsed time even when a full decode queue
+    // stops further submissions. With no outstanding input, a paused feed is
+    // healthy and must not restart the decoder.
     if (
       this.lastOutput !== null &&
       this.lastFed !== null &&
-      this.lastFed - this.lastOutput > SILENCE_LIMIT
+      (this.lastFed > this.lastOutput || (this.decoder?.decodeQueueSize ?? 0) > 0) &&
+      now - this.lastOutput > SILENCE_LIMIT
     ) {
       this.restartDecoder();
       return;

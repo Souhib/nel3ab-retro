@@ -14,6 +14,8 @@ bibliothèque de plus pour les écrire serait une dépendance à tenir à jour p
 trois mots.
 """
 
+import re
+
 import anyio
 
 #: Ce qui peut mal se passer sur cette socket, et qui ne doit jamais remonter.
@@ -24,6 +26,51 @@ import anyio
 #: qui répond zéro octet, pas en lisant le code. Une diffusion de salon serait
 #: morte sur une exception pour un worker en train de redémarrer.
 MUTE = (OSError, TimeoutError, ValueError, anyio.EndOfStream, anyio.BrokenResourceError)
+
+
+def seat_receipts(line: bytes) -> list[str | None] | None:
+    """Quatre repères exacts, ou aucune réponse exploitable.
+
+    Ce n'est pas une identité : le salon conserve la personne authentifiée et
+    compare seulement son attribution à celle que le worker tient maintenant.
+    """
+    try:
+        values = line.decode("ascii").strip().split()
+    except UnicodeError:
+        return None
+    if len(values) != 4:
+        return None
+    if any(
+        value != "-" and not re.fullmatch(r"[0-9a-f]{32}-[1-9][0-9]{0,19}", value)
+        for value in values
+    ):
+        return None
+    occupied = [value for value in values if value != "-"]
+    if len(set(occupied)) != len(occupied):
+        return None
+    return [None if value == "-" else value for value in values]
+
+
+async def read_seats(address: str) -> list[str | None] | None:
+    """Lit le worker même si aucune page ne tient plus de manette.
+
+    Au plus 256 octets : quatre préfixes de 32 caractères, quatre compteurs
+    u64 de 20 chiffres et leurs séparateurs tiennent dans 216 octets. Un vieux
+    worker répond `no`, ce qui reste distinct de quatre places libres.
+    """
+    host, _, port = address.rpartition(":")
+    try:
+        with anyio.fail_after(2):
+            async with await anyio.connect_tcp(host or "127.0.0.1", int(port)) as stream:
+                await stream.send(b"seats\n")
+                answer = b""
+                while b"\n" not in answer and len(answer) < 256:
+                    answer += await stream.receive(256 - len(answer))
+                if not answer.endswith(b"\n"):
+                    return None
+        return seat_receipts(answer)
+    except MUTE:
+        return None
 
 
 async def tell_owner(address: str, seat: int) -> bool:
@@ -71,3 +118,57 @@ async def may_decide(address: str, seat: int) -> bool | None:
     if said == b"yes":
         return True
     return False if said == b"no" else None
+
+
+async def launch_prepared(
+    address: str, seat: int, claim: str, game: int, save: int, pads: list[int], expected: list[str]
+) -> bool:
+    """Un ordre complet, avec un accusé de réception du worker."""
+    if (
+        seat not in range(1, 5)
+        or not 0 <= game <= 255
+        or save not in (0, 1)
+        or len(expected) != 4
+        or seat_receipts((" ".join(expected)).encode()) is None
+        or len(pads) != 4
+        or any(p not in (0, 1, 2, 3, 4) for p in pads)
+    ):
+        return False
+    if not re.fullmatch(r"[0-9a-f]{32}-[1-9][0-9]{0,19}", claim):
+        return False
+    host, _, port = address.rpartition(":")
+    try:
+        with anyio.fail_after(2):
+            async with await anyio.connect_tcp(host or "127.0.0.1", int(port)) as stream:
+                await stream.send(
+                    (
+                        f"launch {seat} {claim} {game} {save} "
+                        + " ".join(map(str, pads))
+                        + " "
+                        + " ".join(expected)
+                        + "\n"
+                    ).encode()
+                )
+                answer = b""
+                while b"\n" not in answer and len(answer) < 16:
+                    answer += await stream.receive(16 - len(answer))
+                return answer == b"ok\n"
+    except MUTE:
+        return False
+
+
+async def stop_game(address: str, expected: list[str]) -> bool:
+    """Ferme le jeu par le port privé, après autorisation dans le salon."""
+    if seat_receipts((" ".join(expected)).encode()) is None:
+        return False
+    host, _, port = address.rpartition(":")
+    try:
+        with anyio.fail_after(2):
+            async with await anyio.connect_tcp(host or "127.0.0.1", int(port)) as stream:
+                await stream.send(("stop " + " ".join(expected) + "\n").encode())
+                answer = b""
+                while b"\n" not in answer and len(answer) < 16:
+                    answer += await stream.receive(16 - len(answer))
+                return answer == b"ok\n"
+    except MUTE:
+        return False

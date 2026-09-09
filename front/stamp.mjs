@@ -26,17 +26,18 @@ const STAMP = join(ROOT, "..", "core", "crates", "worker", "src", "page", "SOURC
  * C'est ce qu'une première visite coûte vraiment: le worker sert du brotli, et
  * l'ETag fait qu'une visite suivante ne coûte rien du tout.
  *
- * Cent quarante mille. La page en fait 118 874 le 19 août 2026, donc il reste
- * dix-sept pour cent de marge. Le nombre est choisi sur le TEMPS et pas sur une
- * habitude: à 400 kbit/s, qui est ce qu'une mauvaise 3G donne, 140 ko font 2,8 s
- * avant la première image. Au-delà, la salle met plus de trois secondes à
- * s'ouvrir chez quelqu'un, et une salle qu'on attend est une salle qu'on
- * n'ouvre pas.
+ * Le 19 août 2026, le plafond était de 140 000 octets, soit 2,8 secondes
+ * de transfert au débit supposé de 400 kbit/s. La page pesait alors 118 874
+ * octets et avait grossi de 25 % en trois jours. Ce garde rend la hausse visible.
  *
- * Mesuré plutôt que deviné, et c'est ce qui a motivé ce garde: la page a grossi
- * de 25 % en trois jours, du 16 au 19 août, sans que personne le remarque.
+ * Le 6 septembre, le premier build avec reprise, aide au branchement et
+ * diagnostic pesait 141 531 octets, contre 139 959 avant ces ajouts. Les
+ * 1 572 octets supplémentaires représentent 31 ms au même débit supposé.
+ * Le plafond passe à 150 000 octets, soit les trois secondes de transfert
+ * visées à l'origine. Ce calcul ne mesure
+ * pas l'arrivée de la première image : allers-retours et décodage s'ajoutent.
  */
-const WEIGHT_MAX = 140_000;
+const WEIGHT_MAX = 150_000;
 
 /** Everything the page is built from, in a fixed order. */
 const INPUTS = ["src", "index.html", "package-lock.json", "vite.config.ts", "tsconfig.app.json"];

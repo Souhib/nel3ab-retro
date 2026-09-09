@@ -23,6 +23,8 @@
 set -euo pipefail
 
 args=("$@")
+cleanup=false
+if [ "${1:-}" = "--cleanup" ]; then cleanup=true; fi
 user_dir=""
 game=""
 for ((i = 0; i < ${#args[@]}; i++)); do
@@ -33,7 +35,29 @@ for ((i = 0; i < ${#args[@]}; i++)); do
 done
 
 [ -n "$user_dir" ] || { echo "dolphin-in-docker: no --user in arguments" >&2; exit 64; }
-[ -n "$game" ] || { echo "dolphin-in-docker: no --exec in arguments" >&2; exit 64; }
+if ! "$cleanup"; then
+  [ -n "$game" ] || { echo "dolphin-in-docker: no --exec in arguments" >&2; exit 64; }
+fi
+
+# Run this before the worker probes the audio FIFO, not only at docker run.
+# Compare the mount too: a reused container name must never kill another room.
+container="${NEL3AB_CONTAINER:-nel3ab-dolphin}"
+old=$(timeout 5s docker container ls -aq --filter "name=^/${container}$")
+if [ -n "$old" ]; then
+  mounts=$(timeout 5s docker inspect --format '{{range .Mounts}}{{println .Source}}{{end}}' "$old")
+  if ! printf '%s\n' "$mounts" | rg -Fx -- "$user_dir" >/dev/null; then
+    echo "dolphin-in-docker: refusing foreign container $container (different session directory)" >&2
+    exit 65
+  fi
+  timeout 5s docker unpause "$old" >/dev/null 2>&1 || true
+  # Give the previous emulator time to flush its memory card before removal.
+  timeout 15s docker stop -t 10 "$old" >/dev/null
+  timeout 5s docker rm -f "$old" >/dev/null 2>&1 || {
+    # --rm containers can disappear as soon as stop completes.
+    [ -z "$(timeout 5s docker container ls -aq --filter "id=$old")" ] || exit 1
+  }
+fi
+if "$cleanup"; then exit 0; fi
 
 # The frame socket, when the caller asked for one. `-e NAME` without a value
 # passes the variable through from this shell, which inherited it from the
@@ -70,8 +94,7 @@ fi
 # second à côté. Ce dépôt a déjà payé douze heures d'émulateur orphelin qui
 # volait les entrées. On efface donc l'ancien avant d'en lancer un neuf, et cette
 # ligne rend la salle plus sûre qu'elle ne l'était sans pause du tout.
-container="${NEL3AB_CONTAINER:-nel3ab-dolphin}"
-docker rm -f "$container" >/dev/null 2>&1 || true
+# Cleanup already ran before the audio probe and is repeated for direct callers.
 
 # Ce que le conteneur n'a pas le droit de faire.
 #

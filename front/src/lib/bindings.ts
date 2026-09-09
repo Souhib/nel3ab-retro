@@ -27,6 +27,8 @@ import { keepBindings, publishRoomBindings, readBindings, readRoomBindings } fro
 export const PAD_PREFIX = "nel3ab.pad.";
 /** Et les touches du clavier, qui tiennent en une seule. */
 export const KEYS_STORED = "nel3ab.keys";
+export const SWITCH_STORED = "nel3ab:switch-profiles:1";
+export const SETUPS_STORED = "nel3ab.setups";
 
 /** La RÉFÉRENCE de la salle, gardée en copie dans le navigateur.
  *
@@ -43,7 +45,12 @@ export const KEYS_STORED = "nel3ab.keys";
  */
 export const ROOM_STORED = "nel3ab.room";
 
-export type Bindings = { pads: Record<string, unknown>; keys: Record<string, unknown> };
+export type Bindings = {
+  pads: Record<string, unknown>;
+  keys: Record<string, unknown>;
+  setups?: Record<string, unknown>;
+  switch?: Record<string, unknown>;
+};
 
 /** Tout ce que ce navigateur a gardé, prêt à partir au service. */
 export function gather(): Bindings {
@@ -61,7 +68,18 @@ export function gather(): Bindings {
   } catch {
     // Navigation privée, ou une entrée illisible: on envoie ce qu'on a pu lire.
   }
-  return { pads, keys };
+  const saved = storedValue(SETUPS_STORED);
+  try {
+    const switched = storedValue(SWITCH_STORED);
+    return {
+      pads,
+      keys,
+      ...(saved ? { setups: JSON.parse(saved) } : {}),
+      ...(switched ? { switch: JSON.parse(switched) } : {}),
+    };
+  } catch {
+    return { pads, keys };
+  }
 }
 
 /** Écrit dans le navigateur ce que le service gardait pour cette personne.
@@ -72,6 +90,14 @@ export function gather(): Bindings {
 export function seed(kept: Bindings): boolean {
   let sown = false;
   try {
+    if (kept.switch && Object.keys(kept.switch).length > 0) {
+      localStorage.setItem(SWITCH_STORED, JSON.stringify(kept.switch));
+      sown = true;
+    }
+    if (kept.setups) {
+      localStorage.setItem(SETUPS_STORED, JSON.stringify(kept.setups));
+      sown = true;
+    }
     for (const [id, profile] of Object.entries(kept.pads ?? {})) {
       localStorage.setItem(`${PAD_PREFIX}${id}`, JSON.stringify(profile));
       sown = true;
@@ -86,17 +112,102 @@ export function seed(kept: Bindings): boolean {
   return sown;
 }
 
-/** Envoie au service ce que ce navigateur a maintenant.
- *
- * Sans attendre la réponse, et sans la regarder: un réglage vient d'être
- * appliqué localement, il marche déjà, et une erreur réseau ne doit pas défaire
- * ce que la personne vient de faire. Le pire cas est qu'il ne suive pas sur
- * l'autre machine, ce qui est l'état d'avant.
- */
-export function push(): void {
-  void keepBindings({ body: gather() }).catch(() => {
-    /* Pas de plan de contrôle, ou pas d'identité: les réglages restent locaux. */
+/** Une copie non confirmée survit au rechargement, sous sa propre identité.
+ * Deux envois de cet onglet sont ordonnés: une réponse ancienne ne peut pas
+ * confirmer une modification plus récente. Les autres appareils gardent la
+ * règle du dernier envoi reçu, sans fusion implicite des profils supprimés. */
+const OWNER = "nel3ab.bindings-owner";
+const PENDING = "nel3ab.bindings-pending.";
+let activeLogin: string | null = null;
+let sending: Promise<void> = Promise.resolve();
+
+function storedValue(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function identifyBindings(login: string | null): void {
+  activeLogin = login;
+  if (!login) return;
+  try {
+    const previous = localStorage.getItem(OWNER);
+    if (previous && previous !== login) {
+      for (const key of Object.keys(localStorage)) {
+        if (
+          key.startsWith(PAD_PREFIX) ||
+          key === KEYS_STORED ||
+          key === SETUPS_STORED ||
+          key === SWITCH_STORED
+        )
+          localStorage.removeItem(key);
+      }
+    }
+    localStorage.setItem(OWNER, login);
+  } catch {
+    /* Les réglages en mémoire restent utilisables en navigation privée. */
+  }
+}
+
+function enqueue(login: string, body: Bindings, serialized: string): void {
+  sending = sending.then(async () => {
+    if (activeLogin !== login) return;
+    try {
+      await keepBindings({ body, throwOnError: true });
+      if (storedValue(PENDING + login) === serialized) localStorage.removeItem(PENDING + login);
+    } catch {
+      /* Conserver la copie non confirmée, y compris sur une réponse HTTP 4xx/5xx. */
+    }
   });
+}
+
+export function push(): void {
+  const login = activeLogin ?? storedValue(OWNER);
+  if (!login) return;
+  const body = gather();
+  const serialized = JSON.stringify(body);
+  try {
+    localStorage.setItem(PENDING + login, serialized);
+  } catch {
+    /* Le service peut encore la garder. */
+  }
+  // Une identité mise en cache sert à ranger, jamais à autoriser une requête.
+  if (activeLogin === login) enqueue(login, body, serialized);
+}
+
+export async function reconcile(login: string | null, kept: Bindings): Promise<void> {
+  identifyBindings(login);
+  const serialized = login ? storedValue(PENDING + login) : null;
+  if (serialized && login) {
+    try {
+      const pending = JSON.parse(serialized) as Bindings;
+      if (
+        pending.pads &&
+        typeof pending.pads === "object" &&
+        pending.keys &&
+        typeof pending.keys === "object"
+      ) {
+        // Le dossier est un instantané complet, suppressions comprises.
+        for (const key of Object.keys(localStorage)) {
+          if (key.startsWith(PAD_PREFIX)) localStorage.removeItem(key);
+        }
+        seed(pending);
+        enqueue(login, pending, serialized);
+        await sending;
+        return;
+      }
+    } catch {
+      /* Une copie illisible ne doit pas empêcher de charger celle du service. */
+    }
+  }
+  seed(kept);
+}
+
+/** Attend les envois de cet onglet, notamment pour éprouver leur ordre. */
+export function flushed(): Promise<void> {
+  return sending;
 }
 
 /** Ce que la salle propose, tel que ce navigateur l'a vu la dernière fois.
@@ -227,10 +338,12 @@ export function useRoomReference(onChange?: () => void) {
   });
 }
 
-export function useBindings(login: string | null) {
+export function useBindings(login: string | null, enabled = true) {
   return useQuery({
     queryKey: ["bindings", login],
+    enabled,
     queryFn: async () => {
+      identifyBindings(login);
       // La RÉFÉRENCE d'abord, et sans identité: c'est ce que la salle propose à
       // qui entre, donc elle doit arriver même quand la personne n'a encore rien
       // réglé. Une erreur ici n'est pas une erreur — une salle sans référence se
@@ -248,6 +361,7 @@ export function useBindings(login: string | null) {
       const kept: Bindings = {
         pads: (answer?.pads ?? {}) as Record<string, unknown>,
         keys: (answer?.keys ?? {}) as Record<string, unknown>,
+        setups: (answer?.setups ?? {}) as Record<string, unknown>,
       };
       // Les manettes de la salle sèment celui qui n'a RIEN, et lui seul:
       // apprendre une manette demande seize questions, et quelqu'un qui a le
@@ -257,7 +371,7 @@ export function useBindings(login: string | null) {
       if (proposed && Object.keys(kept.pads).length === 0) {
         kept.pads = (proposed.pads ?? {}) as Record<string, unknown>;
       }
-      seed(kept);
+      await reconcile(login, kept);
       return kept;
     },
     // Une fois par visite. Ce qui change ensuite vient de cette page, qui écrit
@@ -266,4 +380,13 @@ export function useBindings(login: string | null) {
     refetchOnWindowFocus: false,
     retry: 1,
   });
+}
+
+/** Same identity/outbox as Dolphin, with the service bound checked before saving. */
+export function saveSwitchBindings(text: string): void {
+  const value = JSON.parse(text) as Record<string, unknown>;
+  if (new TextEncoder().encode(JSON.stringify({ ...gather(), switch: value })).length > 32768)
+    throw new Error("Tes profils dépassent la place disponible. Supprime un ancien profil.");
+  localStorage.setItem(SWITCH_STORED, text);
+  push();
 }

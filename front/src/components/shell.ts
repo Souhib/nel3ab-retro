@@ -212,8 +212,8 @@ export function useShell(
     const action = swapAxes ? SWAPPED[raw] : raw;
     if (action === "back") return onClose();
     if (action === "confirm") return choose(row);
-    if (action === "up") return point(Math.max(0, row - perRow));
-    if (action === "down") return point(Math.min(items.length - 1, row + perRow));
+    if (action === "up") return point(row >= perRow ? row - perRow : row);
+    if (action === "down") return point(row + perRow < items.length ? row + perRow : row);
     const by = action === "right" ? 1 : -1;
     // Sur une entrée qui porte une valeur, gauche et droite la règlent plutôt
     // que de changer de rayon: c'est ce que fait un curseur de volume.
@@ -233,6 +233,7 @@ export function useShell(
      deux d'entre elles s'en passaient — ce qui était le cas. */
   useEffect(() => {
     const press = (event: KeyboardEvent) => {
+      if (paused) return;
       if (typingIn(event.target)) return;
       const action = KEYS[event.key];
       if (action === undefined) return;

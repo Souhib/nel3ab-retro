@@ -3,6 +3,7 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+import anyio
 import httpx
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
@@ -16,7 +17,7 @@ from nel3ab_control.api.controllers.rooms import RoomController
 from nel3ab_control.api.routes import me as me_routes
 from nel3ab_control.api.routes import rooms as rooms_routes
 from nel3ab_control.api.ws import socketio_app
-from nel3ab_control.api.ws.server import allow_origins
+from nel3ab_control.api.ws.server import allow_origins, follow_seats
 from nel3ab_control.journal import Journal
 from nel3ab_control.settings import Settings
 
@@ -39,7 +40,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         )
         app.state.journal.sweep()
         try:
-            yield
+            async with anyio.create_task_group() as group:
+                group.start_soon(follow_seats, app.state)
+                try:
+                    yield
+                finally:
+                    group.cancel_scope.cancel()
         finally:
             app.state.journal.close()
 

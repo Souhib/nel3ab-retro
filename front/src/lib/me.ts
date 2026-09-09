@@ -13,7 +13,6 @@
  */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { readMe, renameMe, type Me } from "../client";
-import { ROOM_KEY } from "./room";
 
 export const ME_KEY = ["me"] as const;
 
@@ -47,7 +46,8 @@ export function useRename(announce: (name: string) => void) {
     onSuccess: (me) => {
       client.setQueryData(ME_KEY, me);
       announce(me.name);
-      void client.invalidateQueries({ queryKey: ROOM_KEY });
+      // Le salon pousse le nom confirmé. Un GET concurrent pourrait rétablir
+      // celui qui précédait l’événement de renommage.
     },
   });
 }

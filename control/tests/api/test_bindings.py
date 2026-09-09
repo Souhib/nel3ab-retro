@@ -16,6 +16,8 @@ from nel3ab_control.settings import Settings
 from tests.conftest import SOUHIB, VINCENT
 
 PROFILE = {
+    "setups": {},
+    "switch": {},
     "pads": {
         "adaptateur": {
             "id": "adaptateur",
@@ -29,7 +31,12 @@ PROFILE = {
 
 
 async def test_what_someone_sets_comes_back_to_them(client: httpx.AsyncClient) -> None:
-    assert (await client.get("/api/me/bindings", headers=SOUHIB)).json() == {"pads": {}, "keys": {}}
+    assert (await client.get("/api/me/bindings", headers=SOUHIB)).json() == {
+        "pads": {},
+        "keys": {},
+        "setups": {},
+        "switch": {},
+    }
 
     kept = await client.put("/api/me/bindings", json=PROFILE, headers=SOUHIB)
     assert kept.status_code == 200
@@ -53,7 +60,7 @@ async def test_the_settings_are_written_under_the_address_the_proxy_gave(
     await client.put("/api/me/bindings", json=PROFILE, headers=SOUHIB)
 
     autre = (await client.get("/api/me/bindings", headers=VINCENT)).json()
-    assert autre == {"pads": {}, "keys": {}}
+    assert autre == {"pads": {}, "keys": {}, "setups": {}, "switch": {}}
 
 
 async def test_without_a_proxy_there_is_no_drawer_to_open(client: httpx.AsyncClient) -> None:
@@ -63,7 +70,12 @@ async def test_without_a_proxy_there_is_no_drawer_to_open(client: httpx.AsyncCli
     proxy. Écrire, en revanche, doit refuser: garder des réglages sous personne
     les donnerait au suivant qui passe.
     """
-    assert (await client.get("/api/me/bindings")).json() == {"pads": {}, "keys": {}}
+    assert (await client.get("/api/me/bindings")).json() == {
+        "pads": {},
+        "keys": {},
+        "setups": {},
+        "switch": {},
+    }
     assert (await client.put("/api/me/bindings", json=PROFILE)).status_code == 401
 
 
@@ -101,6 +113,8 @@ async def test_the_settings_survive_a_restart(settings: Settings) -> None:
 
 #: La référence de la salle: ce que quelqu'un qui entre reçoit sans rien régler.
 REFERENCE = {
+    "setups": {},
+    "switch": {},
     "pads": {
         "DualSense": {
             "id": "DualSense",
@@ -122,7 +136,12 @@ async def test_a_room_without_a_reference_answers_nothing_rather_than_failing(
     vide, et garde ses réglages. Répondre 404 obligerait la page à distinguer
     « pas encore publié » de « service cassé », deux choses qu'elle traite pareil.
     """
-    assert (await client.get("/api/room/bindings")).json() == {"pads": {}, "keys": {}}
+    assert (await client.get("/api/room/bindings")).json() == {
+        "pads": {},
+        "keys": {},
+        "setups": {},
+        "switch": {},
+    }
 
 
 async def test_the_reference_is_readable_without_an_identity(
@@ -155,7 +174,12 @@ async def test_only_the_named_person_publishes_the_reference(
     assert refused.status_code == 403
     # Et rien n'a été écrit: un refus qui publierait quand même serait pire qu'un
     # refus absent, parce qu'il aurait l'air de protéger.
-    assert (await client.get("/api/room/bindings")).json() == {"pads": {}, "keys": {}}
+    assert (await client.get("/api/room/bindings")).json() == {
+        "pads": {},
+        "keys": {},
+        "setups": {},
+        "switch": {},
+    }
 
 
 async def test_publishing_without_an_identity_is_refused(client: httpx.AsyncClient) -> None:
@@ -256,3 +280,35 @@ async def test_nobody_is_told_they_may_publish_without_an_identity(
 ) -> None:
     """Sans proxy devant, personne n'a d'adresse, donc personne ne publie."""
     assert (await client.get("/api/me")).json()["publishes"] is False
+
+
+async def test_the_profile_limit_counts_the_same_bytes_as_the_browser(
+    client: httpx.AsyncClient,
+) -> None:
+    body = {"pads": {}, "keys": {}, "switch": {}, "setups": {str(i): 0 for i in range(3400)}}
+    compact = json.dumps(body, ensure_ascii=False, separators=(",", ":")).encode()
+    assert len(compact) < 32768 < len(json.dumps(body))
+    accepted = await client.put("/api/me/bindings", json=body, headers=SOUHIB)
+    assert accepted.status_code == 200
+    assert (await client.get("/api/me/bindings", headers=SOUHIB)).json() == body
+
+
+async def test_a_unicode_profile_cannot_bypass_the_byte_limit(client: httpx.AsyncClient) -> None:
+    body = {"setups": {"long": "🎮" * 9000}}
+    assert len(json.dumps(body, ensure_ascii=False)) < 32768
+    assert len(json.dumps(body, ensure_ascii=False, separators=(",", ":")).encode()) > 32768
+    refused = await client.put("/api/me/bindings", json=body, headers=SOUHIB)
+    assert refused.status_code == 422
+    assert (await client.get("/api/me/bindings", headers=SOUHIB)).json()["setups"] == {}
+
+
+async def test_switch_profiles_follow_the_authenticated_player(client: httpx.AsyncClient) -> None:
+    profile = {
+        "working": {"console": "switch", "version": 1},
+        "named": {"Tennis": {"keys": {"A": "KeyX"}}},
+    }
+    saved = await client.put("/api/me/bindings", headers=SOUHIB, json={"switch": profile})
+    assert saved.status_code == 200
+    assert (await client.get("/api/me/bindings", headers=SOUHIB)).json()["switch"] == profile
+    assert (await client.get("/api/me/bindings", headers=VINCENT)).json()["switch"] == {}
+    assert (await client.put("/api/me/bindings", json={"switch": profile})).status_code == 401

@@ -20,6 +20,22 @@ export type ClientOptions = {
  */
 export type Bindings = {
     /**
+     * Switch
+     *
+     * Profils Switch personnels, séparés des commandes Dolphin.
+     */
+    switch?: {
+        [key: string]: unknown;
+    };
+    /**
+     * Setups
+     *
+     * Profils personnels nommés : appareil, manette physique et touches.
+     */
+    setups?: {
+        [key: string]: unknown;
+    };
+    /**
      * Pads
      *
      * Un profil par manette, indexé par l'identifiant que le navigateur donne.
@@ -38,11 +54,24 @@ export type Bindings = {
 };
 
 /**
+ * Connection
+ *
+ * Une observation de trajet, jamais une mesure de qualité.
+ */
+export type Connection = {
+    /**
+     * Kind
+     */
+    kind?: 'direct' | 'relay' | 'unknown';
+};
+
+/**
  * Game
  *
  * One game the room can run.
  */
 export type Game = {
+    guide?: GameGuide | null;
     /**
      * Index
      *
@@ -79,6 +108,48 @@ export type Game = {
      * Vrai quand le worker sert une image pour ce jeu, à /art/{index}.png. Un booléen plutôt qu'une adresse: le chemin appartient au worker, et le recopier ici en ferait une deuxième vérité à tenir à jour.
      */
     art?: boolean;
+};
+
+/**
+ * GameGuide
+ */
+export type GameGuide = {
+    /**
+     * Players
+     */
+    players?: number | null;
+    /**
+     * Multiplayer
+     */
+    multiplayer?: string;
+    /**
+     * Devices
+     */
+    devices?: Array<string>;
+    /**
+     * Checked
+     */
+    checked?: string | null;
+    /**
+     * Allowed
+     */
+    allowed: Array<number>;
+    /**
+     * Source
+     */
+    source: string;
+    /**
+     * Note
+     */
+    note: string;
+    /**
+     * Actions
+     */
+    actions: {
+        [key: string]: {
+            [key: string]: string;
+        };
+    };
 };
 
 /**
@@ -144,6 +215,32 @@ export type Me = {
 };
 
 /**
+ * Participant
+ */
+export type Participant = {
+    /**
+     * Port
+     */
+    port: number;
+    /**
+     * Claim
+     */
+    claim: string;
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Pad
+     */
+    pad?: number | null;
+    /**
+     * Ready
+     */
+    ready?: boolean;
+};
+
+/**
  * Person
  *
  * Quelqu'un dans la salle, qu'il tienne une manette ou non.
@@ -163,6 +260,42 @@ export type Person = {
      * La manette qu'il tient, s'il en tient une.
      */
     seat?: number | null;
+    /**
+     * Seat Pending
+     *
+     * L'attribution reste à confirmer ; cette personne n'est pas un spectateur.
+     */
+    seat_pending?: boolean;
+};
+
+/**
+ * Preparation
+ */
+export type Preparation = {
+    /**
+     * Id
+     */
+    id?: string;
+    /**
+     * Game
+     */
+    game: number;
+    /**
+     * Save
+     */
+    save: number;
+    /**
+     * Starter
+     */
+    starter: string;
+    /**
+     * Allowed
+     */
+    allowed: Array<number>;
+    /**
+     * Players
+     */
+    players: Array<Participant>;
 };
 
 /**
@@ -171,6 +304,7 @@ export type Person = {
  * The room, as a page needs to render it.
  */
 export type Room = {
+    preparation?: Preparation | null;
     /**
      * Name
      */
@@ -188,7 +322,7 @@ export type Room = {
      */
     seats: Array<Seat>;
     /**
-     * Qui décide du jeu: le premier arrivé encore présent. Nul quand personne n'a d'identité, et la salle retombe alors sur sa règle d'avant, où tenir une manette suffit.
+     * Le chef choisi après une reprise, sinon le premier arrivé encore connecté. Nul quand personne n'a d'identité, et la salle retombe alors sur sa règle d'avant, où tenir une manette suffit.
      */
     owner?: Person | null;
     /**
@@ -227,6 +361,18 @@ export type Seat = {
      * The name of whoever claims it, if anybody.
      */
     player?: string | null;
+    /**
+     * Held
+     *
+     * Occupation lue chez le worker, ou inconnue sur un ancien worker.
+     */
+    held?: boolean | null;
+    /**
+     * Claim
+     *
+     * Repère de l'attribution actuelle. Ce n'est ni un nom ni un secret.
+     */
+    claim?: string | null;
 };
 
 /**
@@ -256,6 +402,22 @@ export type ValidationError = {
         [key: string]: unknown;
     };
 };
+
+export type ReadMyConnectionData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/me/connection';
+};
+
+export type ReadMyConnectionResponses = {
+    /**
+     * Successful Response
+     */
+    200: Connection;
+};
+
+export type ReadMyConnectionResponse = ReadMyConnectionResponses[keyof ReadMyConnectionResponses];
 
 export type ReadMeData = {
     body?: never;

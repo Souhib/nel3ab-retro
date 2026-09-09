@@ -115,10 +115,12 @@ describe("ce qu'on branche au bout de sa Wiimote", () => {
 
     expect(stream.chooseExtension(1)).toBe(true);
     expect([...sent[0]!]).toEqual([4, 1]);
+    expect(stream.chooseExtension(2)).toBe(true);
+    expect([...sent[1]!]).toEqual([4, 2]);
     // Le jumeau: `choosePad` porte le trois. Deux commandes qui partageraient un
     // opcode s'encoderaient l'une en l'autre sans qu'on le voie.
     stream.choosePad(2);
-    expect(sent[1]![0]).toBe(3);
+    expect(sent[2]![0]).toBe(3);
   });
 
   it("refuse une extension qui n'existe pas plutôt que de l'envoyer", () => {
@@ -127,7 +129,7 @@ describe("ce qu'on branche au bout de sa Wiimote", () => {
     // un repli là-bas ne se voit pas.
     const { stream, sent } = wired();
 
-    expect(stream.chooseExtension(2)).toBe(false);
+    expect(stream.chooseExtension(3)).toBe(false);
     expect(stream.chooseExtension(-1)).toBe(false);
     expect(sent).toHaveLength(0);
   });

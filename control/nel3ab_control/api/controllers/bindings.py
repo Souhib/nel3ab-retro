@@ -21,7 +21,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from anyio import to_thread
+from anyio import Lock, to_thread
 
 #: Ce qu'un jeu de réglages a le droit de peser, en octets de JSON.
 #:
@@ -30,6 +30,10 @@ from anyio import to_thread
 #: Trente-deux mille laissent de la marge pour une collection déraisonnable tout
 #: en gardant ce fichier lisible et sa lecture instantanée. Sans plafond, une
 #: page pourrait remplir le disque de la machine avec une requête.
+# Même représentation que JSON.stringify dans la page : compacte et UTF-8.
+# Le 6 septembre 2026, le test à 3 400 entrées occupait 29 522 octets sur le fil
+# mais 36 326 caractères avec les espaces Python. À l'inverse, 9 000 caractères
+# non ASCII pouvaient passer l'ancien comptage malgré plus de 32 Kio transmis.
 CEILING = 32_768
 
 
@@ -53,6 +57,9 @@ class RoomBindingsController:
 
     def __init__(self, store: Path) -> None:
         self._store = store
+        # La mutation et sa copie disque partagent ce verrou. Un nom temporaire
+        # unique seul laisserait encore deux instantanés se remplacer à rebours.
+        self._writing = Lock()
         self._kept: dict[str, Any] = _read_one(store)
 
     def read(self) -> dict[str, Any]:
@@ -65,10 +72,14 @@ class RoomBindingsController:
         Fusionner ferait survivre un profil qu'on vient justement de retirer, et
         « retirer de la salle » est un bouton qui doit marcher.
         """
-        if len(json.dumps(settings, ensure_ascii=False)) > CEILING:
+        if (
+            len(json.dumps(settings, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
+            > CEILING
+        ):
             raise ValueError("ces réglages sont trop gros pour être des réglages")
-        self._kept = settings
-        await to_thread.run_sync(_write, self._store, dict(settings))
+        async with self._writing:
+            self._kept = settings
+            await to_thread.run_sync(_write, self._store, dict(settings))
         return settings
 
 
@@ -77,6 +88,9 @@ class BindingsController:
 
     def __init__(self, store: Path) -> None:
         self._store = store
+        # La mutation et sa copie disque partagent ce verrou. Un nom temporaire
+        # unique seul laisserait encore deux instantanés se remplacer à rebours.
+        self._writing = Lock()
         self._kept: dict[str, dict[str, Any]] = _read(store)
 
     def of(self, login: str) -> dict[str, Any]:
@@ -89,12 +103,16 @@ class BindingsController:
         Un remplacement et pas une fusion: la page envoie tout ce qu'elle a, et
         fusionner ferait survivre une manette qu'on vient justement d'oublier.
         """
-        if len(json.dumps(settings, ensure_ascii=False)) > CEILING:
+        if (
+            len(json.dumps(settings, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
+            > CEILING
+        ):
             raise ValueError("ces réglages sont trop gros pour être des réglages")
-        self._kept[login] = settings
-        # Sur un fil, comme les pseudos: l'écriture est rare et minuscule, mais
-        # sur la boucle elle bloquerait le salon qui diffuse au même moment.
-        await to_thread.run_sync(_write, self._store, dict(self._kept))
+        async with self._writing:
+            self._kept[login] = settings
+            # Sur un fil, comme les pseudos: l'écriture est rare et minuscule, mais
+            # sur la boucle elle bloquerait le salon qui diffuse au même moment.
+            await to_thread.run_sync(_write, self._store, dict(self._kept))
         return settings
 
 

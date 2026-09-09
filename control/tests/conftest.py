@@ -27,6 +27,16 @@ LIBRARY = {
 }
 
 
+@pytest.fixture(autouse=True)
+def isolate_worker_control(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Un test de salon ne doit jamais nommer le propriétaire du worker réel.
+
+    Les scénarios de protocole donnent leur propre port éphémère. Les autres
+    utilisent une porte fermée, même sur la machine qui héberge une partie.
+    """
+    monkeypatch.setenv("NEL3AB_WORKER_CONTROL", "127.0.0.1:1")
+
+
 @pytest.fixture
 def settings(tmp_path: Path) -> Settings:
     # Les pseudos vont dans un dossier jetable: un test qui écrit dans le vrai

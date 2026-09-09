@@ -1,0 +1,156 @@
+{
+  "baseline": {
+    "label": "deux pleins, un réduit sans plafond utile",
+    "cap": 1000,
+    "seconds": 15.00152315600001,
+    "receivedMbps": 9.662569226647127,
+    "bytes": 122415090,
+    "maximumQueued": 65536,
+    "viewers": [
+      {
+        "width": 1216,
+        "height": 912,
+        "painted": 898,
+        "arrived": 899,
+        "starved": 0,
+        "undecoded": 0,
+        "jitter": 20.90299997612601,
+        "queue": 0,
+        "refresh": 16.699999928474426,
+        "slackMs": 3
+      },
+      {
+        "width": 1216,
+        "height": 912,
+        "painted": 898,
+        "arrived": 900,
+        "starved": 0,
+        "undecoded": 0,
+        "jitter": 20.234999928448815,
+        "queue": 0,
+        "refresh": 16.699999928474426,
+        "slackMs": 3
+      },
+      {
+        "width": 608,
+        "height": 456,
+        "painted": 900,
+        "arrived": 899,
+        "starved": 0,
+        "undecoded": 0,
+        "jitter": 9.041000095370691,
+        "queue": 0,
+        "refresh": 16.699999928474426,
+        "slackMs": 3
+      }
+    ]
+  },
+  "narrow": {
+    "label": "demi-format à 5 Mbit/s",
+    "cap": 5,
+    "seconds": 15.000930692999972,
+    "receivedMbps": 5.0035551484165595,
+    "bytes": 134298432,
+    "maximumQueued": 131072,
+    "viewers": [
+      {
+        "width": 1216,
+        "height": 912,
+        "painted": 900,
+        "arrived": 899,
+        "starved": 0,
+        "undecoded": 0,
+        "jitter": 16.17400002386421,
+        "queue": 0,
+        "refresh": 16.699999928474426,
+        "slackMs": 3
+      },
+      {
+        "width": 1216,
+        "height": 912,
+        "painted": 900,
+        "arrived": 899,
+        "starved": 0,
+        "undecoded": 0,
+        "jitter": 15.718000023858622,
+        "queue": 0,
+        "refresh": 16.699999928474426,
+        "slackMs": 3
+      },
+      {
+        "width": 608,
+        "height": 456,
+        "painted": 538,
+        "arrived": 538,
+        "starved": 93,
+        "undecoded": 0,
+        "jitter": 2436.5890000238433,
+        "queue": 0,
+        "refresh": 16.699999928474426,
+        "slackMs": 75
+      }
+    ]
+  },
+  "squeezed": {
+    "label": "plafond sous le débit observé",
+    "cap": 4.831284613323564,
+    "seconds": 15.000814695999958,
+    "receivedMbps": 4.831079475925032,
+    "bytes": 145773286,
+    "maximumQueued": 131072,
+    "viewers": [
+      {
+        "width": 1216,
+        "height": 912,
+        "painted": 901,
+        "arrived": 900,
+        "starved": 0,
+        "undecoded": 0,
+        "jitter": 15.990999976173043,
+        "queue": 0,
+        "refresh": 16.699999928474426,
+        "slackMs": 3
+      },
+      {
+        "width": 1216,
+        "height": 912,
+        "painted": 900,
+        "arrived": 900,
+        "starved": 0,
+        "undecoded": 0,
+        "jitter": 16.111999952292535,
+        "queue": 0,
+        "refresh": 16.699999928474426,
+        "slackMs": 3
+      },
+      {
+        "width": 608,
+        "height": 456,
+        "painted": 515,
+        "arrived": 515,
+        "starved": 148,
+        "undecoded": 0,
+        "jitter": 2684.2359999761684,
+        "queue": 0,
+        "refresh": 16.699999928474426,
+        "slackMs": 147
+      }
+    ]
+  },
+  "date": "2026-09-07",
+  "scene": "Mario Kart Wii, course Luigi Circuit 50cc, Mario, kart standard automatique, accélérateur tenu et stick à droite. Trois sons actifs. Captures moving-N toutes les huit secondes pour distinguer la conduite circulaire d’un kart bloqué. Le test ne représente pas quatre conducteurs humains.",
+  "limits": [
+    "Conduite circulaire automatisée, départ et bord de piste ; pas une course complète à quatre humains.",
+    "Le plafond et le débit reçu incluent le son PCM et les échanges de la page.",
+    "Chromium local, proxy isolé ; pas le Wi-Fi de l’ami, pas de perte de paquets simulée.",
+    "La vraie salle restait active sur le même GPU. Aucun test GPU de bibliothèque ne tournait pendant les trois fenêtres."
+  ],
+  "source_dimensions": [
+    1216,
+    912
+  ],
+  "reduced_dimensions": [
+    608,
+    456
+  ]
+}

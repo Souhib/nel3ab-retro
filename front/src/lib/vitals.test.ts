@@ -14,6 +14,7 @@ function snap(video: Partial<Snapshot["video"]> = {}, rest: Partial<Snapshot> = 
   return {
     video: {
       painted: 0,
+      fastestLag: null,
       shown: 0,
       undecoded: 0,
       stalls: 0,
@@ -40,7 +41,6 @@ function snap(video: Partial<Snapshot["video"]> = {}, rest: Partial<Snapshot> = 
       sourceHz: 60,
       refreshHz: 240,
       backlog: 2,
-      fastestLag: 12,
       addedMs: 0,
       ...video,
     },
@@ -53,7 +53,6 @@ function snap(video: Partial<Snapshot["video"]> = {}, rest: Partial<Snapshot> = 
       sampleRate: 48000,
       outputMs: 10,
       browserMs: 20,
-      fastestLag: 8,
       unlocked: "joue",
       gain: 0.7,
       output: 0,
@@ -67,6 +66,7 @@ function snap(video: Partial<Snapshot["video"]> = {}, rest: Partial<Snapshot> = 
       padId: null,
       padLayout: null,
       learning: null,
+      lesson: null,
       pressed: [],
       displaced: false,
       players: 4,
@@ -84,6 +84,7 @@ function snap(video: Partial<Snapshot["video"]> = {}, rest: Partial<Snapshot> = 
       ...rest.input,
     },
     soundGapMs: null,
+    soundSyncMs: 0,
     padOnly: false,
   };
 }

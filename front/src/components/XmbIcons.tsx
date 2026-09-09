@@ -13,6 +13,34 @@ type IconProps = { className?: string };
 
 const box = "0 0 48 48";
 
+/** Les dossiers de console partagent ce choix dans les trois menus. */
+export function ConsoleIcon({ console, className }: IconProps & { console: string }) {
+  switch (console) {
+    case "gc":
+      return <CubeIcon className={className} />;
+    case "wii":
+      return <WandIcon className={className} />;
+    case "switch":
+      return <SwitchIcon className={className} />;
+    default:
+      return <GameIcon className={className} />;
+  }
+}
+
+/** Deux commandes détachables et leur écran, lisibles à la taille d'un dossier. */
+export function SwitchIcon({ className }: IconProps) {
+  return (
+    <svg viewBox={box} className={className} fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="3" y="12" width="42" height="25" rx="7" />
+      <path d="M13 12v25M35 12v25" />
+      <rect x="17" y="16" width="14" height="17" rx="1" strokeWidth="1.5" />
+      <circle cx="8" cy="20" r="2" fill="currentColor" stroke="none" />
+      <path d="M6 29h4M8 27v4M38 20h4M40 18v4" strokeLinecap="round" />
+      <circle cx="40" cy="29" r="2" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
 export function GameIcon({ className }: IconProps) {
   return (
     <svg viewBox={box} className={className} fill="none" stroke="currentColor" strokeWidth="2">

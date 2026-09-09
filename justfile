@@ -1,10 +1,11 @@
-# One entry point for humans and for CI. CI runs these exact recipes, so a green
-# local run and a green pipeline cannot diverge.
+# Shared recipes for humans and CI. The quality job calls `check`; CI also scans
+# secrets and runs separate docs and supply-chain jobs. `check` alone does not
+# prove the whole pipeline. Use `docs` for prose and `audit` for Rust dependencies.
 #
 # That promise was broken once: CI set `RUSTFLAGS: -D warnings` in the workflow
 # while the justfile passed it only to clippy, so `just check` went green locally
 # on code that failed the pipeline on a dead-code warning. Setting it here is what
-# makes the promise true — the strictness belongs to the recipe, not to one
+# keeps the code-quality checks aligned: strictness belongs to the recipe, not to one
 # caller of it.
 export RUSTFLAGS := "-D warnings"
 
@@ -12,7 +13,7 @@ default: local
 
 # THE GATE BEFORE A COMMIT, on a machine that has the GPU.
 #
-# `check` is what CI can prove; `gpu-test` is what only this machine can. CI runs
+# `check` is shared with CI; `gpu-test` needs this machine's GPU. CI runs
 # on a GitHub runner with no GPU, so everything M2 built — the dma-buf import,
 # the compute pass, the encode — is invisible to it. A green pipeline therefore
 # says nothing about the half of this project that matters most, and running
@@ -24,7 +25,10 @@ default: local
 # The way to make CI cover this is a self-hosted runner on lgf. Worth doing when
 # more than one person commits; until then a rule that costs one command is
 # cheaper than a runner to maintain.
-local: check gpu-test
+# Le MP4 demande ffmpeg et ffprobe, disponibles ici et absents de CI.
+# Depuis le 2026-09-06, la porte locale décode aussi sa piste audio : ffprobe
+# seul laissait passer les clips muets puisqu'il ne vérifiait que l'image.
+local: check gpu-test clip-audio-test switch-saves-test switch-capture-test
 
 # The control plane's own gate, which is its owner's: ruff, ty, pytest, driven by
 # poe exactly as LaTabdhir and Majlisna drive theirs.
@@ -101,6 +105,10 @@ deploy-check:
         fi
     done
     if [ "$faux" -eq 0 ]; then echo "les unités installées sont celles du dépôt"; else exit 1; fi
+
+# Vérifie les pistes du MP4 et décode réellement son audio, sans Dolphin ni salle.
+clip-audio-test:
+    cd core && cargo test -p nel3ab-transport the_exported_mp4 -- --ignored
 
 # Le clip des trente dernières secondes, demandé à la vraie salle.
 #
@@ -261,6 +269,15 @@ manette-a-chaud:
 manette-depuis-la-page:
     python3 spikes/m5-manette-a-chaud/depuis-la-page.py
 
+# La cadence réelle du flux Switch, lue par WebSocket comme la page la lit.
+#
+# Ici et pas dans `check` parce qu'il faut une salle Switch qui tourne. Range
+# les écarts entre images en périodes de 16,67 ms: une source à 60 donne tout
+# en « 1 », une sortie Sway sans taux de rafraîchissement tout en « 2 ». C'est
+# la mesure qui a trouvé le 31,5 images par seconde du 9 septembre 2026.
+switch-cadence seconds="8":
+    cd spikes/m3-browser-drive && node switch-cadence.mjs http://127.0.0.1:8100 {{seconds}} full && node switch-cadence.mjs http://127.0.0.1:8100 {{seconds}} half
+
 # La sieste, jouée en vrai: la salle s'endort, on la réveille, et on lit ce que
 # le worker en a écrit.
 #
@@ -305,7 +322,8 @@ readouts-check:
 sessions *args:
     cd control && uv run python sessions.py {{args}}
 
-# Everything a commit must satisfy. Mirrors `poe check`.
+# Shared code-quality checks. GPU, audio clip, Switch adapter, docs and dependency
+# checks have separate recipes; this one is called by CI's quality job.
 # L'ordre compte, et il a coûté trois commits rouges.
 #
 # `front-check` passe EN DERNIER, après `contract-check`. Ce dernier régénère le
@@ -553,17 +571,17 @@ audit:
 # `getcwd`, which Miri's isolation refuses. A check that cannot fail and does
 # not run is worse than no check.
 #
-# `nel3ab-encoder` is where all 94 `unsafe` blocks live. The two flags are not
-# decoration:
+# This recipe selects `nel3ab-encoder` without `vaapi`, so it does not compile
+# the GPU FFI modules. The two flags keep its CPU-only tests runnable:
 #
 #   -Zmiri-disable-isolation   proptest reads the filesystem to persist failing
 #                              seeds; isolation blocks that and aborts the run.
 #   --skip frame_source        Miri implements AF_INET and AF_INET6 only, so the
 #                              tests that bind a Unix socket cannot run under it.
 #
-# What is left is exactly what CLAUDE.md rule 2 asks for: the H.264 bitstream
-# writer and the wire parsers, where a mistake would be ours rather than the
-# GPU's. Miri cannot execute libva or Vulkan and never will.
+# What remains is the H.264 bitstream writer and wire parsers. This does not
+# exercise the unsafe arithmetic inside the feature-gated FFI modules or foreign
+# libva/Vulkan calls; a green result is not a proof of the GPU boundary.
 miri:
     cd core && MIRIFLAGS=-Zmiri-disable-isolation cargo +nightly miri test \
         -p nel3ab-encoder --lib -- --skip frame_source
@@ -577,7 +595,7 @@ doc:
 #
 # `--strict` is the point of this recipe, not a flourish. It fails the build on a
 # link or an anchor that resolves to nothing, which is the one kind of rot a
-# 2800-line document acquires silently: a section gets renamed, every link to it
+# long document acquires silently: a section gets renamed, every link to it
 # dies, and nothing says so until a reader clicks. It caught two on its first
 # run.
 #
@@ -585,31 +603,96 @@ doc:
 docs:
     zensical build --strict
 
-# Rebuild, then publish on the tailnet. Two commands are one because publishing a
-# site nobody rebuilt is the failure this recipe exists to prevent.
-#
-# Served straight from `site/` rather than copied to /srv: one directory, so the
-# site cannot be current in the repository and stale where it is served. The cost
-# is a sub-second window during a rebuild where a reader could fetch a half-built
-# page — acceptable for a documentation site on a private network, and it would
-# not be for anything a stranger reaches.
-#
-# TAILNET ONLY, deliberately. `tailscale serve` shares inside the tailnet;
-# `tailscale funnel` would put it on the public internet. This document names
-# internal hostnames and says plainly that the game server has no authentication,
-# so it stays where the reader has already been invited.
-#
-# Reconstruit, et c'est tout: Caddy sert `site/` en direct sous `/docs`.
-#
-# Il n'y a donc plus rien à publier, et c'est mieux ainsi: la recette existait
-# pour empêcher de publier un site que personne n'avait reconstruit, et le seul
-# moyen sûr d'éviter ça est qu'il n'y ait pas d'étape de publication du tout.
-#
-# L'ancien partage sur 8444 continue de répondre, délibérément: personne ne doit
-# retrouver un signet mort.
+# Rebuild the files Caddy already serves from `site/` under `/docs`, then show
+# the address. No service restart or Tailscale configuration change is needed.
+# Markdown can be newer than the site until this build runs; serving one output
+# directory avoids a second copy, not the need to rebuild. A reader can encounter
+# incomplete output during the build, so this is only the private prose site.
 docs-deploy: docs
     @echo "${NEL3AB_SITE_URL:-https://nel3ab.app/docs/}"
 
 # Rebuild on every change, with a local preview. For writing, not for publishing.
 docs-watch:
     zensical serve
+
+# Le configurateur réel dans Chromium, avec une manette simulée et sans salle.
+# Démarrer `npm run dev -- --host 127.0.0.1 --port 5202` dans front au préalable.
+browser-configuration:
+    cd spikes/m3-browser-drive && node configuration-ui.mjs
+
+# Préparation collective et profils personnels dans l'aperçu isolé, sans lancer de jeu.
+browser-preparation:
+    cd spikes/m3-browser-drive && node preparation-ui.mjs
+
+# Page, salon, worker et Dolphin dans une salle temporaire. Disque Mario Kart Wii
+# requis. Ports, conteneur et sauvegardes propres à l'essai ; le binaire de
+# développement est construit, jamais celui que systemd lancera en production.
+preparation-test rom:
+    cd core && cargo build -p nel3ab-worker
+    node spikes/m3-browser-drive/preparation-room.mjs {{quote(rom)}}
+
+# Même salle jetable, avec une vraie page d'avant le protocole de reçus.
+# Prouve le besoin d'actualisation et le retour des noms après celle-ci.
+seat-migration-test rom:
+    cd core && cargo build -p nel3ab-worker
+    NEL3AB_TEST_LEGACY_PAGE=1 node spikes/m3-browser-drive/preparation-room.mjs {{quote(rom)}}
+
+# Salle jetable : fermeture, repos persistant et lancement Wii collectif depuis les menus.
+idle-room-test rom:
+    cd core && cargo build -p nel3ab-worker
+    NEL3AB_TEST_IDLE_ROOM=1 node spikes/m3-browser-drive/preparation-room.mjs {{quote(rom)}}
+
+# Chef spectateur absent, refus, reprise de manette et attribution périmée.
+# Le délai de réponse est réel ; les trois pages et le jeu sont isolés de la salle.
+recovery-test rom:
+    cd core && cargo build -p nel3ab-worker
+    NEL3AB_TEST_RECOVERY=1 node spikes/m3-browser-drive/preparation-room.mjs {{quote(rom)}}
+
+# Quatre joueurs, départs, reconnexions réseau et préparation Wii. Salle isolée.
+room-churn-test rom:
+    cd core && cargo build -p nel3ab-worker
+    cd spikes/m3-browser-drive && NEL3AB_TEST_CHURN=1 node preparation-room.mjs {{quote(rom)}}
+
+# SIGTERM éveillé/endormi, producteur muet et orphelin. Salle isolée et GPU réel.
+resilience-test rom:
+    cd core && cargo build -p nel3ab-worker
+    cd spikes/m3-browser-drive && NEL3AB_TEST_RESILIENCE=1 node preparation-room.mjs {{quote(rom)}}
+
+# Deux flux pleins et un réduit, sous un plafond TCP mesuré. Salle isolée.
+network-room-test rom:
+    node spikes/m3-browser-drive/limited-link-test.mjs
+    cd core && cargo build -p nel3ab-worker
+    cd spikes/m3-browser-drive && NEL3AB_TEST_NETWORK=1 node preparation-room.mjs {{quote(rom)}}
+
+# Capture Switch utilisée par la salle : preuves sans ROM, GPU ou état persistant.
+# Les pilotes qui arrêtent la capture restent explicites et décrits dans son README.
+switch-capture-test:
+    python3 -m unittest discover -s spikes/switch-room -p 'test_*.py'
+
+# Commandes, profils et vibrations de quatre périphériques virtuels jetables.
+# Un retour de vibration refusé doit laisser les boutons répondre. Aucun émulateur
+# ni ROM ; exige Docker et /dev/uinput, avec les droits du conteneur installé.
+switch-controls-test:
+    bash spikes/switch-room/bridge/build-page.sh
+    cargo build --manifest-path spikes/switch-room/bridge/Cargo.toml
+    cargo test --manifest-path core/Cargo.toml -p nel3ab-transport ingress --lib
+    node spikes/switch-room/check-setup-layout.mjs
+    node spikes/switch-room/check-controls.mjs
+
+# Pure adapter file operations, including save restore and refusal of live slots.
+switch-saves-test:
+    python3 -m unittest discover -s docker -p test_switch_room.py
+    cd control && uv run ruff check --config pyproject.toml ../docker/switch-room.py ../docker/switch-saves.py ../docker/test_switch_room.py
+    cd control && uv run ruff format --check --config pyproject.toml ../docker/switch-room.py ../docker/switch-saves.py ../docker/test_switch_room.py
+
+# Four isolated browsers and real GC/Wii/Switch engines. Requires the private
+# NEL3AB_TEST_SWITCH_CONFIG; optional NEL3AB_TEST_SWITCH_SAVE tests unlocked saves.
+# No installed room, controller port or persistent save is used by this driver.
+switch-room-test rom:
+    cargo build --manifest-path core/Cargo.toml -p nel3ab-worker
+    node spikes/m3-browser-drive/switch-room.mjs '{{rom}}'
+
+# Catalogue local et trois menus, sans émulateur lancé ni salle installée touchée.
+catalogue-test:
+    cargo build --manifest-path core/Cargo.toml -p nel3ab-worker
+    node spikes/m3-browser-drive/catalogue.mjs

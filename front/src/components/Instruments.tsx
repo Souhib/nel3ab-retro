@@ -74,7 +74,7 @@ export function Instruments({ shot }: { shot: Snapshot }) {
           value={video.addedMs}
           unit={`ms, ancré sur ${video.fastestLag === null ? "—" : video.fastestLag.toFixed(0)}`}
           tone={video.addedMs > 100 ? "alert" : "faint"}
-          hint="Ce que la page attend avant de peindre, pour absorber une liaison irrégulière, et le transit le plus rapide sur lequel elle se cale. Zéro sur une bonne liaison. Deux incidents de cette semaine se jouaient dessus."
+          hint="Ce que la page attend avant de peindre, pour absorber une liaison irrégulière. Le nombre d'ancrage est l'écart entre l'horloge de la page et celle de la capture pour l'image arrivée le plus vite: il n'a pas de sens seul, seules ses variations comptent. Zéro de retard sur une bonne liaison. Deux incidents de cette semaine se jouaient dessus."
         />
         <Readout
           label="attente avant peinture"
@@ -132,13 +132,14 @@ export function Instruments({ shot }: { shot: Snapshot }) {
         <Readout label="joué" value={sound.playedSeconds.toFixed(1)} unit="s" />
         <Readout label="coupures" value={sound.gaps} tone={sound.gaps > 0 ? "alert" : "faint"} />
         <Readout label="morceaux reçus" value={sound.chunks} tone="faint" />
-        <Readout
-          label="transit le plus rapide"
-          value={sound.fastestLag === null ? "—" : sound.fastestLag.toFixed(0)}
-          unit="ms"
-          tone="faint"
-          hint="Le meilleur temps qu'un morceau de son ait mis à arriver. Comparé à celui de l'image, il dit lequel des deux flux traîne."
-        />
+        {/* Le « transit le plus rapide » n'est plus montré. C'était
+            `performance.now()` moins l'horodatage du relais, deux horloges sans
+            origine commune: sur la Switch il affichait moins 788 millions de
+            millisecondes (2026-09-09). Ce nombre n'a de sens qu'en DIFFÉRENCE
+            avec lui-même, ce que la gigue et le retard ajouté font déjà. Ce qui
+            compte pour la personne, l'écart entre son et image, est calculé
+            dans un seul repère par `gapAgainst` et affiché sous « retard sur
+            l'image » juste en dessous. */}
         <Readout
           label="volume appliqué"
           value={sound.gain.toFixed(2)}

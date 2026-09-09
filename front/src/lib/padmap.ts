@@ -38,6 +38,8 @@
  * Choisies assez soutenues pour tenir sur les sept ambiances, claires comprises,
  * et le pilote `just browser-contraste` vérifie que leurs étiquettes se lisent.
  */
+import type { PadIdentity } from "../media/families";
+
 export const TINTS = {
   vert: "#2f9e5e",
   rouge: "#c8402f",
@@ -57,7 +59,7 @@ export const TINTS = {
  * règles de couleur que les étiquettes.
  */
 export const GLYPHS = {
-  triangle: "M -1.9 -1.35 L 1.9 -1.35 L 0 1.9 Z",
+  triangle: "M -1.9 1.35 L 1.9 1.35 L 0 -1.9 Z",
   croix: "M -1.7 -1.7 L 1.7 1.7 M 1.7 -1.7 L -1.7 1.7",
   rond: "M -1.75 0 A 1.75 1.75 0 1 0 1.75 0 A 1.75 1.75 0 1 0 -1.75 0",
   carre: "M -1.5 -1.5 L 1.5 -1.5 L 1.5 1.5 L -1.5 1.5 Z",
@@ -134,22 +136,20 @@ export type PadMap = {
  * Deux poignées inégales, la droite longue pour loger le stick C sous le groupe
  * de boutons, une crête plate entre les épaules des gâchettes L et R. Le bouton
  * Start est au fond d'un petit puits rectangulaire, comme sur la console.
- * Les couleurs sont celles du matériel: A vert, B rouge, X bleu, Y jaune.
+ * Les couleurs sont celles du matériel: A vert, B rouge, X et Y gris, stick C jaune.
  */
 export const GAMECUBE: PadMap = {
   id: "gamecube",
   name: "manette GameCube",
   body:
-    "M 21 9 C 21 5, 26 4, 31 7 C 35 9, 39 10, 43 10 C 48 10, 52 10, 57 10 " +
-    "C 61 10, 65 9, 68 7 C 72 5, 77 4, 79 8 C 83 13, 87 20, 89 28 " +
-    "C 92 37, 91 46, 87 52 C 83 56, 78 56, 75 53 C 73 51, 70 52, 66 52 " +
-    "C 60 51, 55 51, 50 51 C 45 51, 41 52, 37 52 C 34 52, 31 52, 28 53 " +
-    "C 26 55, 22 54, 18 50 C 14 46, 13 39, 12 32 C 12 23, 12 15, 15 12 " +
-    "C 17 10, 19 9, 21 9 Z",
+    "M 17 13 C 18 5, 28 3, 36 8 C 43 12, 57 12, 64 8 C 74 2, 82 7, 84 15 " +
+    "C 87 24, 94 42, 90 54 C 88 62, 79 62, 75 55 L 67 48 " +
+    "C 59 43, 42 43, 35 49 L 29 57 C 24 64, 15 62, 12 54 C 8 43, 11 23, 17 13 Z",
+  slots: "M 16 39 Q 16 52 22 55 M 83 38 Q 87 50 82 55 M 42 18 Q 50 20 58 18",
   recess:
     "M 47 23.5 L 57 23.5 C 58.5 23.5, 59 24, 59 25.5 C 59 27, 58.5 27.5, 57 27.5 " +
     "L 47 27.5 C 45.5 27.5, 45 27, 45 25.5 C 45 24, 45.5 23.5, 47 23.5 Z",
-  hull: { left: 11, right: 92, top: 4, bottom: 56 },
+  hull: { left: 8, right: 94, top: 3, bottom: 64 },
   flat: true,
   parts: [
     { key: "L", label: "L", x: 28, y: 13, r: 3.2, shape: "pastille", wide: 2.2 },
@@ -201,8 +201,8 @@ export const GAMECUBE: PadMap = {
     },
     { key: "A", label: "A", x: 75, y: 30, r: 6.6, shape: "rond", tint: TINTS.vert },
     { key: "B", label: "B", x: 63, y: 38, r: 3.6, shape: "rond", tint: TINTS.rouge },
-    { key: "X", label: "X", x: 66, y: 22, r: 3, shape: "rond", tint: TINTS.bleu },
-    { key: "Y", label: "Y", x: 84, y: 22, r: 3, shape: "rond", tint: TINTS.jaune },
+    { key: "Y", label: "Y", x: 66, y: 22, r: 3, shape: "pastille", wide: 1.4, tint: TINTS.gris },
+    { key: "X", label: "X", x: 84, y: 22, r: 3, shape: "pastille", wide: 1.1, tint: TINTS.gris },
   ],
 };
 
@@ -311,7 +311,7 @@ export const DUALSHOCK: PadMap = {
   recess:
     "M 34 11.5 C 34 11, 35 10.5, 36 10.5 L 64 10.5 C 65 10.5, 66 11, 66 11.5 " +
     "L 66 15 C 66 15.6, 65 16, 64 16 L 36 16 C 35 16, 34 15.6, 34 15 Z",
-  wire: "M 50 4 C 50 14, 50 34, 50 48",
+  slots: "M 16 35 Q 13 48 20 50 M 84 35 Q 88 46 81 50",
   hull: { left: 12, right: 94, top: 3, bottom: 55 },
   flat: true,
   parts: [
@@ -394,8 +394,8 @@ export const DUALSHOCK: PadMap = {
 /**
  * La manette Xbox qu'on tient, quand son nom le dit.
  *
- * Même disposition que la PlayStation — c'est la norme W3C — mais la coque et
- * les boutons sont ceux de Microsoft: deux sticks hauts et symétriques, la
+ * Les indices suivent la norme du navigateur, comme sur PlayStation. La coque
+ * et les boutons sont ceux de Microsoft: deux sticks asymétriques, la
  * croix en bas à gauche, les lettres A B X Y en bas à droite, le bouton au logo
  * au creux du haut.
  */
@@ -411,7 +411,7 @@ export const XBOX: PadMap = {
   recess:
     "M 50 4.5 C 47 4.5, 45.5 6, 45.5 8 C 45.5 10, 47 11.5, 50 11.5 " +
     "C 53 11.5, 54.5 10, 54.5 8 C 54.5 6, 53 4.5, 50 4.5 Z",
-  wire: "M 50 4 C 50 12, 50 28, 50 47",
+  slots: "M 14 34 Q 13 46 20 50 M 87 36 Q 90 46 82 50",
   hull: { left: 8, right: 92, top: 2, bottom: 56 },
   flat: true,
   parts: [
@@ -425,8 +425,8 @@ export const XBOX: PadMap = {
     {
       key: "b10",
       label: "",
-      x: 34,
-      y: 25,
+      x: 25,
+      y: 27,
       r: 6,
       shape: "rond",
       gate: true,
@@ -436,8 +436,8 @@ export const XBOX: PadMap = {
     {
       key: "b11",
       label: "",
-      x: 66,
-      y: 25,
+      x: 61,
+      y: 43,
       r: 6,
       shape: "rond",
       gate: true,
@@ -447,8 +447,8 @@ export const XBOX: PadMap = {
     {
       key: "b12",
       label: "",
-      x: 25,
-      y: 32,
+      x: 36,
+      y: 35,
       r: 3,
       shape: "pastille",
       wide: 0.45,
@@ -456,8 +456,8 @@ export const XBOX: PadMap = {
     {
       key: "b13",
       label: "",
-      x: 25,
-      y: 46,
+      x: 36,
+      y: 49,
       r: 3,
       shape: "pastille",
       wide: 0.45,
@@ -465,8 +465,8 @@ export const XBOX: PadMap = {
     {
       key: "b14",
       label: "",
-      x: 18,
-      y: 39,
+      x: 29,
+      y: 42,
       r: 1.5,
       shape: "pastille",
       wide: 2.3,
@@ -474,16 +474,16 @@ export const XBOX: PadMap = {
     {
       key: "b15",
       label: "",
-      x: 32,
-      y: 39,
+      x: 43,
+      y: 42,
       r: 1.5,
       shape: "pastille",
       wide: 2.3,
     },
-    { key: "b3", label: "Y", x: 78, y: 31, r: 3.4, shape: "rond", tint: TINTS.jaune },
-    { key: "b2", label: "X", x: 69, y: 39, r: 3.4, shape: "rond", tint: TINTS.bleu },
-    { key: "b1", label: "B", x: 88, y: 39, r: 3.2, shape: "rond", tint: TINTS.rouge },
-    { key: "b0", label: "A", x: 78.5, y: 47, r: 3.2, shape: "rond", tint: TINTS.vert },
+    { key: "b3", label: "Y", x: 75, y: 23, r: 3.4, shape: "rond", tint: TINTS.jaune },
+    { key: "b2", label: "X", x: 67, y: 30, r: 3.4, shape: "rond", tint: TINTS.bleu },
+    { key: "b1", label: "B", x: 83, y: 30, r: 3.2, shape: "rond", tint: TINTS.rouge },
+    { key: "b0", label: "A", x: 75, y: 37, r: 3.2, shape: "rond", tint: TINTS.vert },
   ],
 };
 
@@ -706,11 +706,29 @@ export const GUITAR: PadMap = {
 
 /** Le plan de chaque manette que Dolphin peut présenter, dans l'ordre du réglage
  * qui les choisit (`lib/saves.PADS`). */
-export const EMULATED: readonly PadMap[] = [GAMECUBE, WIIMOTE, GUITAR];
+export const WIIMOTE_ONLY: PadMap = {
+  ...WIIMOTE,
+  id: "wiimote-only",
+  name: "Wiimote seule",
+  body: "M 62 4 C 60 4, 60 6, 60 8 L 60 48 C 60 52, 62 55, 66 55 L 72 55 C 76 55, 77 52, 77 48 L 77 8 C 77 5, 74 4, 73 4 Z",
+  wire: "",
+  hull: { left: 60, right: 77, top: 4, bottom: 55 },
+  parts: WIIMOTE.parts.filter((part) => part.x > 50),
+};
+export const EMULATED: readonly PadMap[] = [GAMECUBE, WIIMOTE, GUITAR, WIIMOTE_ONLY];
 
 /** Les coques parmi lesquelles l'écran choisit celle qu'on TIENT. La famille
  * que le navigateur annonce décide (voir `Wiring.tsx`). */
 export const PHYSICAL: readonly PadMap[] = [STANDARD_PAD, DUALSHOCK, XBOX];
+
+/** Les positions ne sont fiables que si le navigateur annonce la norme.
+ * Une marque reconnue sans disposition standard reste un diagramme d'indices. */
+export function physicalMap(identity: PadIdentity | null): PadMap {
+  if (!identity?.standard) return STANDARD_PAD;
+  if (identity.family === "playstation") return DUALSHOCK;
+  if (identity.family === "xbox") return XBOX;
+  return STANDARD_PAD;
+}
 
 export const MAPS: Record<string, PadMap> = {
   [GAMECUBE.id]: GAMECUBE,

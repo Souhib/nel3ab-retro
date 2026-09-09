@@ -12068,6 +12068,36 @@ et un horodatage posé par le relais avec `time.monotonic_ns()`, deux horloges
 sans origine commune. Il ne veut rien dire et il faut cesser de l'afficher, ou
 le calculer dans un seul repère.
 
+### Le 9 septembre, la page est à un pour cent de son mur
+
+Sur la pointe, `just check` annonce 148 933 octets en brotli pour un budget de
+150 000. Le plafond avait été relevé de 140 000 le 6 septembre, avec sa raison
+écrite : trois secondes de transfert à 400 kbit/s. Depuis, la page a pris
+7 400 octets, et le prochain ajout la fera rougir.
+
+Avant de décider quoi que ce soit, j'ai mesuré ce qui pèse, par le compte que
+Rollup tient de chaque module rendu. Le résultat déplace la question :
+
+| part du bundle | quoi |
+|---|---|
+| 42,7 % | react-dom |
+| 6,0 % | @tanstack/query-core |
+| 5,2 % | tailwind-merge |
+| 4,1 % | App.tsx, le plus gros fichier du projet |
+| 63 % | toutes les dépendances |
+| 37 % | tout le code du projet |
+
+Le code que nous écrivons n'est pas ce qui approche du mur ; ce qui l'approche
+est ce que nous embarquons, et une seule bibliothèque en fait près de la
+moitié. Alléger App.tsx de moitié gagnerait deux pour cent. Remplacer react-dom
+par une bibliothèque compatible dix fois plus petite en gagnerait quarante.
+
+Ce n'est pas fait ce soir, et exprès. C'est la question d'architecture que
+l'audit du 5 septembre posait déjà (« React pour un écran de télé piloté à la
+manette ») et elle mérite l'expérience de deux heures qu'il proposait, pas une
+substitution un soir de correctifs. Ce qui est fait : le chiffre, pour que la
+décision se prenne sur lui.
+
 ### 9 septembre 2026 : rendre la reprise fidèle au travail effectué
 
 Souhib demande si les décisions, les essais et les pistes écartées ont suivi

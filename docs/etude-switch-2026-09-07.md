@@ -370,6 +370,16 @@ cette reconstruction. La compilation privée conserve les bibliothèques non
 réduites par l'éditeur de liens ; ce choix évite d'ajouter une transformation
 supplémentaire au test de fermeture.
 
+Le 10 septembre 2026, l'amont `475615f` a été essayé dans une sonde. Il passe à
+SDL3 et au SDK .NET 10 ; le correctif des paquets y devient inutile, et les deux
+autres ont été portés dans `spikes/switch-room/amont/`. Sur Looney Tunes, la
+cadence, le délai de l'appui à l'image et la charge processeur sont égaux à
+ceux de ce commit. Le
+[carnet](carnet-de-bord.md#le-10-septembre-lamont-de-ryubing-ne-change-rien-a-looney-tunes)
+donne les chiffres. Le même soir, un défaut de son propre à l'amont a été
+trouvé et corrigé, et la salle est passée sur `475615f` :
+[suite](carnet-de-bord.md#le-10-septembre-lamont-coupe-le-son-et-notre-chaine-coute-15-ms).
+
 Le superviseur conserve le vrai code de sortie et indique si la fermeture
 a dû être forcée. Sa limite de trente secondes borne un blocage ; ce n'est
 pas une mesure de la durée normale d'une sauvegarde. Les tests lancent un

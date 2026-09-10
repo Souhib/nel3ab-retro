@@ -115,6 +115,18 @@ avec A toujours tenu ne doit créer aucun nouvel appui ou relâchement. La vraie
 libération doit au contraire apparaître. Ce test a d'abord échoué contre la
 version qui remettait la manette au neutre avant chaque nouvel état.
 
+Depuis le 10 septembre 2026, la salle utilise l'amont de Ryubing (`475615f`),
+construit par [`amont/build.sh`](amont/README.md) avec ses correctifs.
+`build-ryubing.sh` reste le chemin de la version épinglée `e2143d4`, installée à
+côté pour pouvoir y revenir. Le délai se découpe étape par étape avec
+[`latence/`](latence/README.md).
+
+La fréquence à laquelle Sway compose sur le serveur se règle par `refresh_hz`
+dans `switch.json` : 60 par défaut, un entier de 30 à 240, refusé sinon avant
+tout démarrage. La salle est à 120 depuis le 10 septembre 2026 : l'attente du
+compositeur passe de 10,8 à 0,3 ms, et les images deviennent régulières. Ce n'est pas l'écran des joueurs : le jeu produit toujours ses
+propres images, et chacune est capturée quand elle arrive.
+
 ## Essayer un jeu
 
 `launch.sh ryubing /chemin/jeu.xci` monte le jeu en lecture seule. Les `.nro`

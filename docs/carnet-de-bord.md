@@ -12184,7 +12184,331 @@ La construction `just docs` passe en mode strict et reconstruit le répertoire
 servi par Caddy. Aucun redémarrage du jeu ni nouveau commit ne fait partie de
 cette mise à jour documentaire.
 
+### Le 10 septembre, l'amont de Ryubing ne change rien à Looney Tunes
+
+Souhib demande ce qu'on pourrait améliorer du côté du nouvel émulateur, au-delà
+de ce qui a été fait pour Dolphin. Deux propositions sont retenues : mesurer
+d'abord ce qu'un joueur Switch attend entre son appui et l'image, puis essayer la
+version amont de Ryubing sur une sonde, jamais dans la salle. L'amont, c'est le
+dépôt d'origine du logiciel, par opposition à la copie figée qu'on utilise.
+
+La version épinglée date du 11 octobre 2025 (`e2143d4`). L'amont en est à
+`475615f`, du 26 août 2026 : 328 commits plus loin, avec deux changements qui
+comptent pour nous. Le son et les manettes sont passés de SDL2 à SDL3, et la
+construction exige le SDK de .NET 10 au lieu de 9. Aucun de nos trois
+correctifs ne s'applique tel quel. Celui des sources de paquets est devenu
+inutile : les deux paquets de mise à jour qu'il remplaçait sont maintenant sur
+nuget.org. Les deux autres gardent leur logique. Le correctif d'arrêt ne change
+que le nom d'un événement SDL. Celui de la file son vit dans un autre fichier,
+`SDL3HardwareDeviceSession.cs`, où la fonction de remplissage reçoit désormais
+une quantité à ajouter au lieu d'un tampon à remplir. Les deux ont été portés
+dans l'arbre amont, puis régénérés par `git diff`, et rangés dans
+`spikes/switch-room/amont/`.
+
+La comparaison se fait dans une sonde : ses propres conteneurs, son propre
+pont, une sauvegarde neuve, le même Looney Tunes. Les deux moteurs ont tourné
+l'un après l'autre, jamais ensemble. La salle réelle faisait tourner le même jeu
+sur la même machine pendant tout l'essai, ce qui charge les deux mesures de la
+même façon mais les charge quand même.
+
+| Mesure | Épinglé `e2143d4` | Amont `475615f` |
+|---|---|---|
+| Cadence, cinématique d'ouverture, une minute après le démarrage | 57,6 images/s | 58,8 images/s |
+| De l'appui à la première image changée, écran de titre, premier critère, fondu compris | médiane 217 ms, de 204 à 241, 9 essais valides sur 10 | médiane 218 ms, de 149 à 254, 9 sur 10 |
+| Même mesure au curseur du menu, critère final, dix appuis | médiane 110 ms, de 96 à 136, série refusée par un témoin | médiane 118 ms, de 113 à 194, série acceptée |
+| Processeur du conteneur, écran de titre | 277 % | 276 % |
+| Fil le plus chargé | 80 % d'un cœur | 81 % d'un cœur |
+
+Rien ne sépare les deux sur ce jeu. On reste sur la version épinglée, et les
+correctifs portés attendent le jour où un jeu aura besoin d'une correction de
+l'amont. Deux choses restent non prouvées sur l'amont, et le README du dossier
+le dit. Le son : le correctif tourne, mais personne ne l'a écouté, et l'essai
+d'échantillons appelle la signature SDL2, donc il faut le réécrire avant de le
+croire. L'arrêt : la sonde s'est arrêtée proprement deux fois, mais aucun essai
+sans le correctif n'a montré que l'amont en a encore besoin.
+
+Suite le même soir : ces deux points ont été tranchés, et l'amont coupait bien
+le son. Voir [l'entrée suivante](#le-10-septembre-lamont-coupe-le-son-et-notre-chaine-coute-15-ms).
+
+**Une mesure du 9 septembre est retirée.** Ce jour-là, j'avais annoncé 51 ms de
+l'appui à l'image, dans la conversation seulement, jamais dans ces pages. Le
+critère était la taille : la première image de plus de 60 Kio et de trois fois
+la médiane après l'appui. Réécrit en pilote, ce critère a annoncé 1,5 ms. Aucun
+jeu ne répond en 1,5 ms : c'était une image clé. L'encodeur en place une toutes
+les 2,1 s, elle pèse 126 Kio contre 25 pour les autres, et elle était tombée
+juste après l'appui. Une fois les images clés écartées, le critère ne voyait
+plus rien du tout, parce que le fondu de cet écran ne produit pas d'images plus
+lourdes que les autres. Les 51 ms étaient très probablement des images clés, eux
+aussi. La taille d'une image dit comment l'encodeur l'a codée, pas ce qu'elle
+montre.
+
+Le pilote décode donc les images. ffmpeg réduit chacune à 32 sur 18 points en
+niveaux de gris, et une image a changé quand elle s'écarte de plus de 6 niveaux
+sur 255 de la moyenne de la demi-seconde avant l'appui. Ce pilote a trouvé un
+second piège avant de donner un chiffre. Sur un flux en direct, ffmpeg jette le
+premier groupe d'images entier, jusqu'à la deuxième image clé, et ne le signale
+pas. J'associais la k-ième image décodée au k-ième paquet reçu : tout était
+décalé de soixante images, soit deux secondes, et la référence prise « avant
+l'appui » montrait déjà le menu. Trois essais ont conclu que rien ne changeait,
+sur un jeu qui répondait très bien quand je le regardais. Le décalage est
+maintenant mesuré à la fin, et il doit valoir zéro ou exactement la position
+d'une image clé. Toute autre valeur arrête le pilote.
+
+Ce que contiennent les 217 ms : la prise d'entrée, la traduction en manette
+virtuelle, le jeu, Sway, l'enregistreur, le relais, le worker et la prise
+vidéo. Pas le réseau du joueur ni son décodeur. Et surtout le jeu lui-même, qui
+joue un fondu avant de quitter l'écran de titre. C'est donc un plafond pour
+notre chaîne sur cet écran, pas la part de notre chaîne.
+
+Le plancher est venu du menu principal : Bas déplace le curseur, Haut le
+ramène, et un curseur n'a pas de raison d'attendre. Le critère a dû changer pour
+le voir. La moyenne sur toute l'image ne remarque pas un curseur qui couvre un
+centième de l'écran. Le pilote réduit maintenant chaque image à 64 sur 36
+points, donne à chaque point son enveloppe, le plus clair et le plus sombre
+qu'il a été pendant la demi-seconde d'avant, et compte les points qui en
+sortent. Ce compte grandit aussi sans aucun appui, parce qu'un écran de jeu
+s'anime. Chaque appui est donc précédé d'un témoin : deux secondes sans aucun
+bouton, comptées de la même façon. Une image a changé quand son compte dépasse
+le double de ce que les témoins ont fait seuls au même temps écoulé. Chaque
+témoin est aussi jugé contre les autres, et un seul qui déclenche fait refuser
+la série entière.
+
+Les témoins ont corrigé une phrase de ce carnet avant qu'elle ne soit publiée.
+J'avais écrit que le fondu du titre commençait entre 145 et 175 ms. Sans aucun
+appui, l'écran de titre fait déjà sortir 30 à 45 points de leur enveloppe à ce
+moment-là, parce que ses rayons tournent. Ce que je prenais pour le début du
+fondu était en partie l'animation. Le fondu se détache nettement vers 200 ms.
+La règle des témoins a elle-même eu un défaut : leur première image se
+comparait aux autres témoins avant leur première image, c'est-à-dire à rien, et
+le bruit d'encodage suffisait à faire refuser la série. La comparaison tolère
+maintenant une image d'écart.
+
+Au menu, sur la version épinglée, une première série a donné 112, 118, 118, 125
+et 138 ms, médiane 118 ms, avec les règles de ce moment-là. Une autre avait
+donné une fois 501 ms, après 415 ms sans aucune image reçue. Ce trou ne s'est
+pas reproduit, l'adaptateur n'a signalé aucune capture en retard, et sa cause
+n'est pas connue. L'écran de titre, lui, est refusé par ce critère : un témoin
+sur cinq y déclenche contre les autres, parce que l'animation varie trop d'un
+instant à l'autre. Les appuis y donnent 202 à 237 ms, médiane 218 ms, ce qui
+rejoint les 217 ms du premier critère, mais ce chiffre n'a pas passé son propre
+contrôle.
+
+L'amont a trouvé le défaut suivant. Sur une série dont les cinq témoins
+étaient calmes, il a donné 6,4 et 19,8 ms au menu. Aucun jeu ne répond en 6 ms.
+Les courbes le disent : ces deux appuis partaient d'un écran qui bougeait déjà,
+77 et 45 points hors enveloppe dès la première image, parce que le décor du menu
+change avec la ligne choisie et que ce changement durait encore depuis l'appui
+précédent. Les témoins communs ne voient pas cela, puisqu'ils sont pris à un
+autre moment. Chaque appui a donc maintenant son propre témoin, les 600 ms qui
+le précèdent. Si l'écran y bougeait déjà assez pour déclencher, l'appui est
+écarté et compté à part. Le temps de repos entre deux appuis au menu passe
+aussi de 1,2 à 2,5 s.
+
+Avec ces règles, l'amont donne au menu 93 à 125 ms sur neuf appuis valides,
+médiane 114 ms, un appui écarté pour écran agité, aucun témoin refusé.
+
+La même série de règles a ensuite refusé la version épinglée deux fois, et la
+cause était encore une asymétrie. Les appuis avaient leur contrôle d'écran
+calme, les témoins pas : le témoin fautif partait à 49 points dès sa première
+image dans une série, à 11 dans l'autre. Les témoins passent désormais le même
+contrôle, jugés contre les autres témoins, et un témoin pris sur un écran agité
+est écarté au lieu de faire refuser la série. Cette règle a été ajoutée après
+avoir vu ces refus. Je le dis parce qu'une règle ajustée à chaque refus finit
+par dire ce qu'on veut entendre. Après elle, je ne me suis autorisé qu'une
+chose : plus d'échantillons, pas une règle de plus.
+
+Les séries finales ont dix appuis et dix témoins chacune. L'amont est accepté :
+113 à 194 ms, médiane 118 ms, deux témoins écartés pour écran agité. La version
+épinglée est refusée : 96 à 136 ms, médiane 110 ms, tous les appuis mesurés, mais
+un témoin déclenche contre les autres. Le décor du menu s'est mis à bouger de
+lui-même juste au moment où ce témoin commençait, 58 points à 48 ms quand les
+autres n'en avaient pas plus de 26. C'est exactement ce que les témoins doivent
+attraper, puisqu'un appui tombé à cet instant aurait eu l'air de répondre en
+48 ms. Cette série reste donc refusée. Les deux versions tombent dans le même
+ordre de grandeur, et rien ne permet de dire que l'une réagit plus vite que
+l'autre.
+
+Environ 110 à 120 ms, c'est donc ce que coûte, de la prise d'entrée à la prise
+vidéo, un changement que le jeu affiche aussi vite qu'il le peut. Ce délai
+contient encore la boucle du jeu, qui tourne ici à trente images par seconde :
+une lecture de manette ne s'affiche qu'après au moins une image du jeu, soit
+33 ms. Notre part est dans le reste. La séparer demanderait de marquer l'instant où Ryujinx lit la
+manette, et cet instrument n'existe pas encore.
+
+Le worker porte désormais sa propre part de ce chiffre sur le chemin Switch,
+sous le nom qu'il utilise déjà pour Dolphin, `input_to_frame`. La fenêtre part
+de la commande remise aux manettes virtuelles et se ferme à la première image
+capturée ensuite, en plein ou en demi-format. La règle est celle de Dolphin : le
+dernier appui gagne, et seule la première image qui suit le ferme. Elle mesure
+donc la cadence de capture après une commande, et pas la réponse du jeu. Deux
+essais la tiennent : un appui n'est fermé que par l'image suivante, et un
+paquet de son ne ferme rien. Retirer la fermeture par le demi-format rend le
+second rouge. Le worker en service est antérieur à ce changement : les champs
+apparaîtront au prochain redémarrage, qui n'a pas été fait parce que la salle
+était occupée.
+
+### Le 10 septembre, l'amont coupe le son, et notre chaîne coûte 15 ms
+
+Souhib pose deux questions. Si l'amont va aussi vite, pourquoi ne pas
+l'utiliser ? Et combien coûte chaque étape de notre chaîne, pour savoir quoi
+améliorer ? À la première, la réponse est oui, à condition de prouver trois
+choses restées ouvertes : le son, l'arrêt, et Mario Tennis avec ses
+sauvegardes. La seconde demandait une horloge à chaque étape.
+
+L'outil commun est le programme de test maison, `guest/nel3ab-probe.nro`. Il
+dessine l'état de chaque bouton à chaque image, fait vibrer la manette sur A, et
+joue une sinusoïde de 440 Hz à gauche et de 880 Hz à droite. Il la joue par
+AudioOut, le chemin où le jeu tient sa propre file, avec un seul tampon de 960
+échantillons à la fois : il n'en fournit un nouveau qu'une fois le précédent
+rendu.
+
+**L'amont coupait le son.** Une sinusoïde pure se vérifie échantillon par
+échantillon, donc un morceau perdu se compte. Sur vingt secondes, la version
+épinglée donne 2 à 3 cassures et aucun silence. L'amont, avec nos correctifs
+portés, donne 990 cassures et 277 silences, chacun de 5 ms exactement, toutes
+les 60 à 80 ms. L'amont sans aucun correctif donne 1018 cassures et 282
+silences : le défaut est le sien, pas celui de notre portage. La file du jeu
+n'a rien jeté pendant ce temps.
+
+La cause tient à ce que SDL3 a changé. SDL2 ouvrait une sortie son par session
+et la taillait sur ses tampons : un tampon de 960 échantillons partait d'un
+bloc, et le jeu avait 20 ms pour fournir le suivant. SDL3 partage une seule
+sortie, qui demande 5 ms à la fois, ce qu'on appelle sa période. Ne rendre que
+ce qu'elle demandait laissait au jeu 5 ms au lieu de 20, et il les ratait une
+fois sur trois ou quatre. La correction rend à chaque session sa propre
+période, comme SDL2 : le surplus reste dans le flux SDL, qui ne rappelle qu'une
+fois à court. Un essai nouveau la tient, rouge avant la correction (3840 octets
+attendus, 960 reçus), vert après. Les six essais de la file son ont été portés
+sur SDL3 par un agent : rouges sur l'amont d'origine là où ils doivent l'être,
+et rouge pour la file du jeu quand sa garde est retirée. Après la correction, la
+sinusoïde passe vingt secondes sans une cassure ni un silence, comme sur la
+version épinglée. La musique de l'écran de titre de Mario Tennis n'a aucun
+silence inséré.
+
+**L'arrêt a encore besoin de notre correctif.** Sans lui, l'amont s'arrête en
+plantant : code 134, un abandon, parce qu'un fil du jeu touche l'adresse zéro
+pendant que l'émulateur se détruit. Avec lui, le code est 0, sur Looney Tunes
+comme sur Mario Tennis. Un plantage à l'arrêt peut perdre la dernière écriture
+d'une sauvegarde : le correctif reste.
+
+**Mario Tennis charge sa sauvegarde.** Sur une copie de l'emplacement
+« débloquée », l'amont démarre la version 3.1.0, atteint le menu, et le mode
+Aventure affiche le niveau 99. Le premier démarrage prend quatre minutes, le
+temps de refaire le cache des traductions du processeur. Le fichier de
+configuration de l'emplacement passe de la version 70 à 73. La version
+épinglée refuserait ensuite ce fichier, donc un retour arrière passe par une
+copie gardée avant. La vibration passe aussi : dix appuis sur A donnent vingt
+messages de vibration au navigateur, un pour démarrer et un pour s'arrêter.
+
+**Notre chaîne, étape par étape.** Chaque étape est datée dans l'horloge
+monotone de la machine : le noyau pour l'événement de la manette virtuelle,
+deux marqueurs posés dans Ryubing pour la sonde seulement, l'horodatage que le
+compositeur porte avec chaque image, et Node pour l'envoi et l'arrivée. Dix
+appuis sur le programme de test, tous recollés :
+
+| Étape | Médiane | Écart |
+|---|---|---|
+| Entrée : envoi, worker, manette virtuelle | 0,4 ms | 0,4 à 0,6 |
+| Lecture : la boucle d'entrée de l'émulateur | 1,6 ms | 1,1 à 1,9 |
+| Jeu : le programme, l'émulation et le rendu | 54,5 ms | 46,0 à 60,7 |
+| Compositeur : attente de Sway | 8,5 ms | 2,9 à 14,2 |
+| Transit : capture, encodage, relais, worker, envoi | 4,2 ms | 2,4 à 7,2 |
+| Total | 69,6 ms | 53,4 à 83,5 |
+
+La version épinglée donne 67,4 ms au total, sans marqueurs. Notre chaîne en
+prend donc environ 15 ms, et le programme de test avec l'émulation environ 54,
+un peu plus de trois images à 60 Hz pour un programme qui dessine dès qu'il lit
+la manette. Sur toutes les images, le transit vaut 5 ms en médiane. Le
+8 septembre, un relevé du journal donnait 24 ms du compositeur à l'envoi, avant
+le retrait de trois attentes. Les deux mesures ne portent pas sur les mêmes
+images, mais l'écart dit que ce retrait a porté. Ce découpage ne voit ni le
+réseau du joueur ni son navigateur, qui garde en plus environ 22 ms d'avance
+(mesuré le 8 septembre).
+
+Ce qu'on peut encore gagner chez nous est donc petit. Le compositeur attend en
+moyenne une demi-image de Sway à 60 Hz ; une sortie à 120 Hz la ramènerait vers
+4 ms, à essayer en surveillant la cadence. L'export direct depuis Ryubing
+retirerait au plus cette attente et une partie du transit, pour un gros
+correctif du moteur. La plus grosse part est dans l'émulateur : un marqueur de
+plus, à l'instant où le jeu remet son image, dirait si l'émulateur garde des
+images en file.
+
+La mesure a eu ses pièges. Le premier témoin recevait la première trame de la
+prise de place, et le programme redessinait alors toute la manette : 406 points
+à 25 ms, et un seuil trop haut pour tous les appuis. Une trame neutre part
+maintenant dès la prise de place. Puis le compteur d'images du programme, en
+haut de l'écran, a basculé ses seize cases d'un coup en passant de 32767 à
+32768 : 586 points dans un témoin. Aucun bouton n'est dessiné dans cette bande,
+et l'analyse l'écarte désormais. Les outils sont dans `spikes/switch-room/latence/`.
+
+La version amont corrigée est construite, empreinte `91b2be67…`. Souhib donne
+son accord, et elle est installée à côté de l'ancienne. La salle la prend au
+prochain lancement d'un jeu Switch ; rien n'a été redémarré pour cela. Une copie
+de la configuration de la salle et de celle de chaque emplacement est gardée
+pour revenir en arrière. Une sonde lancée sur le dossier installé lui-même donne
+un son intact, 60 images par seconde et un arrêt propre.
+
+**Le compositeur à 120 Hz.** Le compositeur était notre plus grosse étape. La
+fréquence à laquelle Sway compose se règle maintenant dans la configuration de
+la salle (`refresh_hz`, 60 par défaut, refusée hors de 30 à 240 avant tout
+démarrage). Ce réglage ne touche pas l'écran des joueurs : le jeu produit
+toujours ses 60 ou 30 images par seconde, et chacune est capturée quand elle
+arrive. Un joueur devant un écran à 60 Hz reçoit le même nombre d'images.
+
+Sur le programme de test, l'une après l'autre :
+
+| | 60 Hz | 120 Hz |
+|---|---|---|
+| De l'appui à l'image, médiane de 10 appuis | 65,7 ms | 57,2 ms |
+| Attente du compositeur | 10,8 ms | 0,3 ms |
+| Écarts de deux images, sur 8 s | 15 | 0 |
+| Dispersion de l'espacement des images | 2,82 ms | 0,27 ms |
+
+Le gain de délai est d'environ 8 ms, une demi-image, comme prévu. Le second
+gain n'était pas prévu. À « 60 Hz », les images arrivaient en réalité toutes les
+16,24 ms et non 16,67, et une manquait deux fois par seconde : la sortie de Sway
+tourne un peu plus vite que le jeu, et les deux se décalent. Mon hypothèse est
+une minuterie arrondie à la milliseconde, 16 ms au lieu de 16,67 ; les chiffres
+la soutiennent, mais je ne l'ai pas lue dans le code de wlroots. À 120 Hz, chaque
+image du jeu trouve une composition dans les 8 ms, et l'espacement devient
+régulier à 0,27 ms près. Pour la page du joueur, qui absorbe les irrégularités
+avec sa réserve, c'est moins d'à-coups à rattraper.
+
+Sur un vrai jeu, la cinématique d'ouverture de Looney Tunes, dix secondes
+chacune : à 60 Hz, 25 écarts de deux images ; à 120 Hz, 3 écarts de deux et un
+de trois. Le prix est un espacement un peu plus variable d'une image à l'autre,
+95e centile à 18,0 ms contre 16,9, et quatre images arrivées presque ensemble.
+Les deux passages ont aussi un arrêt de 130 à 150 ms, que le jeu fait dans les
+deux cas. La salle passe à `refresh_hz: 120`, effectif au prochain lancement
+d'un jeu Switch ; remettre 60 ou retirer la clé revient à l'ancien réglage.
+Ce qui n'est pas mesuré : une partie jouée à 120 Hz, et la page d'un joueur
+distant, dont la réserve dira si ces images plus régulières se voient.
+
+
 ## 12. Glossaire complet
+
+**GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une
+image clé à la suivante. Un décodeur ne peut pas commencer au milieu d'un GOP :
+il lui faut l'image clé qui l'ouvre.
+
+**.NET** : la plateforme de Microsoft sur laquelle Ryubing est écrit, en C#. Le
+SDK est l'ensemble d'outils qui compile un programme .NET ; chaque version de
+Ryubing exige la sienne.
+
+**Amont** : le dépôt d'origine d'un logiciel, là où ses auteurs continuent de
+le modifier, par opposition à la copie figée qu'un projet utilise.
+
+**Horloge monotone** : une horloge qui compte depuis le démarrage de la machine et
+ne recule jamais, même quand l'heure affichée change. Le noyau, les conteneurs,
+ffmpeg, Node et .NET la lisent tous, ce qui permet de comparer leurs heures.
+
+**Période** : la quantité de son qu'une sortie audio demande à chaque fois. Une
+période de 5 ms oblige à fournir du son toutes les 5 ms, faute de quoi la sortie
+joue du silence.
+
+**AudioOut** : le service de la Switch par lequel un jeu envoie lui-même ses
+tampons de son, à la place du moteur de rendu audio. Le jeu y tient sa propre
+file : il fournit un tampon quand un précédent lui est rendu.
 
 **CBR** : *Constant Bit Rate*, débit constant visé par l'encodeur. Le contrôle
 adapte la quantité de détail conservée pour tenir ce débit ; sa régularité réelle

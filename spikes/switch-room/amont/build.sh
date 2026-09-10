@@ -3,8 +3,9 @@
 # <dossier>/publish, et note l'empreinte de l'exécutable. Source, SDK et cache
 # NuGet restent hors du dépôt, dans SWITCH_LAB. NEL3AB_LATENCY_PROBE_BUILD=1
 # ajoute les marqueurs de latence : pour une sonde, jamais pour la salle.
-# NEL3AB_HOLD_FRONT_BUFFER_BUILD=1 ajoute l'expérience du tampon affiché, qui ne
-# change rien tant que NEL3AB_HOLD_FRONT_BUFFER ne vaut pas 1 au lancement.
+# Le correctif du tampon affiché est toujours construit : il ne change rien tant
+# que NEL3AB_HOLD_FRONT_BUFFER ne vaut pas 1, ce que `hold_front_buffer` de
+# switch.json décide pour la salle.
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 lab=${SWITCH_LAB:-/tmp/nel3ab-switch-lab}
@@ -25,8 +26,7 @@ fi
 git -C "$source_dir" checkout -q --detach --force "$commit"
 git -C "$source_dir" reset -q --hard "$commit"
 git -C "$source_dir" clean -q -fd
-patches=(ryubing-headless-stop.patch ryubing-audio-queue.patch)
-if [ "${NEL3AB_HOLD_FRONT_BUFFER_BUILD:-}" = 1 ]; then patches+=(ryubing-hold-front-buffer.patch); fi
+patches=(ryubing-headless-stop.patch ryubing-audio-queue.patch ryubing-hold-front-buffer.patch)
 if [ "${NEL3AB_LATENCY_PROBE_BUILD:-}" = 1 ]; then patches+=(ryubing-latency-probe.patch); fi
 for patch in "${patches[@]}"; do git -C "$source_dir" apply "$here/$patch"; done
 NUGET_PACKAGES="$lab/nuget" DOTNET_CLI_TELEMETRY_OPTOUT=1 "$dotnet_bin" publish \

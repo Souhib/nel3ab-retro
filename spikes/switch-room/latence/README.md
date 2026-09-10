@@ -43,8 +43,9 @@ moteur de la salle.
     python3 recoller.py vidage.json boutons.jsonl moteur.log
 
 Avec `NEL3AB_HOLD_FRONT_BUFFER=1` dans l'environnement de `sonde.py`, le moteur
-garde l'image affichée jusqu'à la suivante : l'expérience du 10 septembre,
-construite par `NEL3AB_HOLD_FRONT_BUFFER_BUILD=1 ../amont/build.sh`.
+garde l'image affichée jusqu'à la suivante : l'expérience du 10 septembre. Le
+correctif est toujours construit par `../amont/build.sh` ; dans la salle, c'est
+`hold_front_buffer` de `switch.json` qui l'allume.
 
 `/dev/input/eventN` est la première entrée de `devices.json` dans le dossier de
 manettes de la sonde. `sonde.py` reprend l'image Docker et les dossiers de la

@@ -543,6 +543,7 @@ dependencies = [
  "brotli",
  "flate2",
  "nel3ab-protocol",
+ "nel3ab-telemetry",
  "proptest",
  "serde_json",
  "sha2",

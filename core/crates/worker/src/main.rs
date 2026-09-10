@@ -540,7 +540,7 @@ fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Re
         let runtime = tempfile::Builder::new()
             .prefix("room-switch-")
             .tempdir_in(&settings.session_dir)?;
-        let _ingress =
+        let ingress =
             nel3ab_transport::ingress::Ingress::bind(runtime.path(), Arc::clone(&server))?;
         server.half_offered(true);
         let script = std::env::var_os("NEL3AB_SWITCH_ADAPTER").map_or_else(
@@ -556,7 +556,22 @@ fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Re
             slot.folder(),
             runtime.path(),
         )?;
+        // The same field names as the Dolphin report, at the same ten seconds,
+        // so one grep reads both consoles. Only this one number: the rest of
+        // the Dolphin report is the encoder's, and the Switch encodes elsewhere.
+        let mut reported = Instant::now();
         while !stopping.load(std::sync::atomic::Ordering::Relaxed) {
+            if reported.elapsed() >= Duration::from_secs(10) {
+                reported = Instant::now();
+                let pressed = ingress.reaction();
+                tracing::info!(
+                    input_to_frame_samples = pressed.samples,
+                    input_to_frame_p50_ms = pressed.p50,
+                    input_to_frame_p95_ms = pressed.p95,
+                    input_to_frame_max_ms = pressed.max,
+                    "Switch: de la commande aux manettes à l'image suivante"
+                );
+            }
             if server.stop_requested() {
                 nel3ab_emulator::playback::Playback::Idle.store(&settings.session_dir)?;
                 break;

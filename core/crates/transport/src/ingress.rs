@@ -2,6 +2,7 @@
 //! physical event numbers cross the room's controller protocol.
 use crate::browser::{BrowserServer, ControllerFrame, Packet};
 use nel3ab_protocol::switch::SwitchFrame;
+use nel3ab_telemetry::{Summary, Timings};
 use std::{
     io::{self, Read, Write},
     os::unix::{
@@ -10,22 +11,100 @@ use std::{
     },
     path::Path,
     sync::{
-        Arc,
+        Arc, Mutex,
         atomic::{AtomicBool, Ordering},
     },
     thread,
-    time::Duration,
+    time::{Duration, Instant},
 };
+
+/// From the command handed to the private pads to the first picture captured
+/// after it: the Switch path's own `input_to_frame`, with the Dolphin meaning.
+///
+/// The same rule as the Dolphin loop, so the two numbers compare: the latest
+/// command wins, and only the first picture after it is measured. A player
+/// holding a stick sends a command a frame, and then this measures the capture
+/// cadence and nothing more, which is exactly what the Dolphin number does.
+///
+/// Both streams take the pending press. The adapter captures the half stream
+/// alone when nobody watches the full one, and a press taken only by a full
+/// picture would wait for the next full watcher and be counted minutes late.
+///
+/// Measured on 2026-09-09 from outside, on the Looney Tunes title screen:
+/// 51 ms from the pad command to the first heavy picture on `/video`, three
+/// stable trials. That number was read by a script that no longer exists; this
+/// window is what makes it a figure the room reports about itself.
+#[derive(Debug)]
+pub struct Reaction {
+    pending: Mutex<Option<Instant>>,
+    window: Mutex<Timings>,
+}
+impl Default for Reaction {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+impl Reaction {
+    /// An empty window. Two thousand samples is a full ten-second window at
+    /// sixty commands a second, plus room; a fuller one says so in `dropped`.
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            pending: Mutex::new(None),
+            window: Mutex::new(Timings::new(2048)),
+        }
+    }
+    /// A command left for the pads now.
+    pub fn pressed(&self) {
+        if let Ok(mut at) = self.pending.lock() {
+            *at = Some(Instant::now());
+        }
+    }
+    /// A picture arrived: the first one after a press closes that press.
+    pub fn pictured(&self) {
+        if let Ok(mut at) = self.pending.lock()
+            && let Some(at) = at.take()
+            && let Ok(mut window) = self.window.lock()
+        {
+            window.observe(at.elapsed());
+        }
+    }
+    /// The window since the last call, then a new one.
+    pub fn summary(&self) -> Summary {
+        self.window.lock().map_or(
+            Summary {
+                samples: 0,
+                p50: 0.0,
+                p95: 0.0,
+                p99: 0.0,
+                max: 0.0,
+            },
+            |mut window| {
+                let summary = window.summary();
+                window.clear();
+                summary
+            },
+        )
+    }
+}
 
 /// Private capture and controller ingress. Dropping it stops all readers;
 /// emulator lifecycle remains the caller's responsibility.
-pub struct Ingress(Arc<AtomicBool>);
+pub struct Ingress {
+    stopping: Arc<AtomicBool>,
+    reaction: Arc<Reaction>,
+}
 impl Drop for Ingress {
     fn drop(&mut self) {
-        self.0.store(true, Ordering::Relaxed);
+        self.stopping.store(true, Ordering::Relaxed);
     }
 }
 impl Ingress {
+    /// What the pads-to-picture window holds since the last report.
+    #[must_use]
+    pub fn reaction(&self) -> Summary {
+        self.reaction.summary()
+    }
     /// Bind only a fresh private directory, never unlink another worker's sockets.
     pub fn bind(root: &Path, server: Arc<BrowserServer>) -> io::Result<Self> {
         let listener = UnixListener::bind(root.join("media.sock"))?;
@@ -40,15 +119,23 @@ impl Ingress {
         let input = UnixDatagram::unbound()?;
         let pad_address = root.join("pads.sock");
         let stopping = Arc::new(AtomicBool::new(false));
+        let reaction = Arc::new(Reaction::new());
         let stopped = Arc::clone(&stopping);
         let output = Arc::clone(&server);
+        let pressed = Arc::clone(&reaction);
         thread::spawn(move || {
             while !stopped.load(Ordering::Relaxed) {
                 for frame in output.wait_controller_input(Duration::from_millis(50)) {
                     if let ControllerFrame::Switch(frame) = frame {
                         let bytes = command(frame).to_string();
-                        if let Err(error) = input.send_to(bytes.as_bytes(), &pad_address) {
-                            tracing::debug!(%error, "Switch virtual pads not yet available");
+                        match input.send_to(bytes.as_bytes(), &pad_address) {
+                            // Counted from the moment the pads could have read
+                            // it. A command refused before the helper listens
+                            // reached nothing, and no picture answers it.
+                            Ok(_) => pressed.pressed(),
+                            Err(error) => {
+                                tracing::debug!(%error, "Switch virtual pads not yet available");
+                            }
                         }
                     }
                 }
@@ -67,14 +154,16 @@ impl Ingress {
             }
         });
         let stopped = Arc::clone(&stopping);
+        let pictured = Arc::clone(&reaction);
         thread::spawn(move || {
             while !stopped.load(Ordering::Relaxed) {
                 match listener.accept() {
                     Ok((stream, _)) => {
                         let output = Arc::clone(&server);
                         let stop = Arc::clone(&stopped);
+                        let reaction = Arc::clone(&pictured);
                         thread::spawn(move || {
-                            if let Err(error) = receive(stream, &output, &stop) {
+                            if let Err(error) = receive(stream, &output, &reaction, &stop) {
                                 tracing::info!(%error, "Switch capture connection ended");
                             }
                         });
@@ -89,7 +178,7 @@ impl Ingress {
                 }
             }
         });
-        Ok(Self(stopping))
+        Ok(Self { stopping, reaction })
     }
 }
 fn read(stream: &mut UnixStream, mut bytes: &mut [u8], stop: &AtomicBool) -> io::Result<()> {
@@ -110,7 +199,12 @@ fn read(stream: &mut UnixStream, mut bytes: &mut [u8], stop: &AtomicBool) -> io:
     }
     Ok(())
 }
-fn receive(mut stream: UnixStream, output: &BrowserServer, stop: &AtomicBool) -> io::Result<()> {
+fn receive(
+    mut stream: UnixStream,
+    output: &BrowserServer,
+    reaction: &Reaction,
+    stop: &AtomicBool,
+) -> io::Result<()> {
     stream.set_read_timeout(Some(Duration::from_millis(100)))?;
     stream.set_write_timeout(Some(Duration::from_secs(1)))?;
     loop {
@@ -148,9 +242,11 @@ fn receive(mut stream: UnixStream, output: &BrowserServer, stop: &AtomicBool) ->
         };
         match header[0] {
             b'F' => {
+                reaction.pictured();
                 let _ = output.send(&packet);
             }
             b'H' => {
+                reaction.pictured();
                 let _ = output.send_half(&packet);
             }
             b'A' => {
@@ -230,7 +326,9 @@ mod tests {
         )
         .unwrap();
         let (mut client, receiver) = UnixStream::pair().unwrap();
-        let reader = thread::spawn(move || receive(receiver, &server, &AtomicBool::new(false)));
+        let reader = thread::spawn(move || {
+            receive(receiver, &server, &Reaction::new(), &AtomicBool::new(false))
+        });
         let mut header = [0; 13];
         header[0] = b'D';
         client.write_all(&header).unwrap();
@@ -242,6 +340,85 @@ mod tests {
         assert_eq!(
             reader.join().unwrap().unwrap_err().kind(),
             io::ErrorKind::InvalidData
+        );
+    }
+    #[test]
+    fn a_press_is_closed_by_the_next_picture_and_by_nothing_else() {
+        let reaction = Reaction::new();
+        // The negative twin first: pictures with nothing pending measure nothing.
+        reaction.pictured();
+        reaction.pictured();
+        assert_eq!(reaction.summary().samples, 0);
+        reaction.pressed();
+        thread::sleep(Duration::from_millis(20));
+        reaction.pictured();
+        // A second picture belongs to no press.
+        reaction.pictured();
+        let summary = reaction.summary();
+        assert_eq!(summary.samples, 1);
+        assert!(
+            summary.p50 >= 20.0,
+            "measured {} ms for a 20 ms wait",
+            summary.p50
+        );
+        // A summary is a window: reading it starts the next one empty.
+        assert_eq!(reaction.summary().samples, 0);
+        // The latest press wins, as in the Dolphin loop: a stick held for a
+        // second measures the picture after its last command, not its first.
+        reaction.pressed();
+        thread::sleep(Duration::from_millis(40));
+        reaction.pressed();
+        reaction.pictured();
+        assert!(reaction.summary().p50 < 30.0);
+    }
+    #[test]
+    fn only_pictures_close_a_press_on_the_wire() {
+        let owner = Arc::new(std::sync::Mutex::new(None));
+        let server = BrowserServer::start(
+            ([127, 0, 0, 1], 0).into(),
+            "",
+            Arc::from("[]"),
+            Arc::from([]),
+            PlayerSlot::new(4).unwrap(),
+            &owner,
+        )
+        .unwrap();
+        let reaction = Arc::new(Reaction::new());
+        let (mut client, receiver) = UnixStream::pair().unwrap();
+        let read_by = Arc::clone(&reaction);
+        let reader =
+            thread::spawn(move || receive(receiver, &server, &read_by, &AtomicBool::new(false)));
+        let packet = |client: &mut UnixStream, kind: u8| {
+            let mut header = [0; 13];
+            header[0] = kind;
+            header[9..13].copy_from_slice(&4_u32.to_le_bytes());
+            client.write_all(&header).unwrap();
+            client.write_all(&[0, 0, 0, 1]).unwrap();
+        };
+        let settled = |pending: bool| {
+            for _ in 0..100 {
+                thread::sleep(Duration::from_millis(5));
+                if reaction.pending.lock().unwrap().is_some() == pending {
+                    return;
+                }
+            }
+            panic!("the reader did not settle");
+        };
+        reaction.pressed();
+        packet(&mut client, b'A');
+        thread::sleep(Duration::from_millis(50));
+        // Sound is not a picture: the press is still open.
+        settled(true);
+        packet(&mut client, b'H');
+        settled(false);
+        reaction.pressed();
+        packet(&mut client, b'F');
+        settled(false);
+        assert_eq!(reaction.summary().samples, 2);
+        drop(client);
+        assert_eq!(
+            reader.join().unwrap().unwrap_err().kind(),
+            io::ErrorKind::UnexpectedEof
         );
     }
     #[test]

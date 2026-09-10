@@ -124,7 +124,13 @@ côté pour pouvoir y revenir. Le délai se découpe étape par étape avec
 La fréquence à laquelle Sway compose sur le serveur se règle par `refresh_hz`
 dans `switch.json` : 60 par défaut, un entier de 30 à 240, refusé sinon avant
 tout démarrage. La salle est à 120 depuis le 10 septembre 2026 : l'attente du
-compositeur passe de 10,8 à 0,3 ms, et les images deviennent régulières. Ce n'est pas l'écran des joueurs : le jeu produit toujours ses
+compositeur passe de 10,8 à 0,3 ms, et les images deviennent régulières.
+
+`hold_front_buffer` (`true` ou `false`, faux par défaut, toute autre valeur
+refusée avant tout démarrage) fait garder à l'émulateur l'image affichée
+jusqu'à la présentation de la suivante, comme une console. Sans lui, le jeu
+récupère son tampon une image trop tôt et prend une image d'avance : une image
+de délai en plus (carnet de bord, 10 septembre). Ce n'est pas l'écran des joueurs : le jeu produit toujours ses
 propres images, et chacune est capturée quand elle arrive.
 
 ## Essayer un jeu

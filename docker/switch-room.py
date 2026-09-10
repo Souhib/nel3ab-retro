@@ -142,6 +142,11 @@ def engine_environment(config: dict) -> list[str]:
     refresh = config.get("refresh_hz", 60)
     if type(refresh) is not int or not 30 <= refresh <= 240:
         raise ValueError(f"refresh_hz must be a whole number from 30 to 240, not {refresh!r}")
+    # Keep the image on screen until the next one is presented, as a console
+    # does (amont/ryubing-hold-front-buffer.patch). Off unless the room says so.
+    hold = config.get("hold_front_buffer", False)
+    if type(hold) is not bool:
+        raise ValueError(f"hold_front_buffer must be true or false, not {hold!r}")
     return [
         "-e",
         "DISPLAY_BACKEND=wayland",
@@ -149,6 +154,7 @@ def engine_environment(config: dict) -> list[str]:
         "SWITCH_COMPOSITOR=sway",
         "-e",
         f"SWITCH_REFRESH_HZ={refresh}",
+        *(["-e", "NEL3AB_HOLD_FRONT_BUFFER=1"] if hold else []),
     ]
 
 

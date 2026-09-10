@@ -151,6 +151,21 @@ class EngineEnvironment(unittest.TestCase):
         self.assertIn("SWITCH_REFRESH_HZ=60", module.engine_environment({}))
         self.assertIn("SWITCH_REFRESH_HZ=120", module.engine_environment({"refresh_hz": 120}))
 
+    def test_the_held_front_buffer_is_off_unless_the_room_turns_it_on(self):
+        self.assertNotIn("NEL3AB_HOLD_FRONT_BUFFER=1", module.engine_environment({}))
+        self.assertNotIn(
+            "NEL3AB_HOLD_FRONT_BUFFER=1", module.engine_environment({"hold_front_buffer": False})
+        )
+        self.assertIn(
+            "NEL3AB_HOLD_FRONT_BUFFER=1", module.engine_environment({"hold_front_buffer": True})
+        )
+
+    def test_the_held_front_buffer_accepts_only_true_or_false(self):
+        # "true" in quotes or 1 must name the mistake rather than guess.
+        for bad in ("true", 1, 0, None, "on"):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                module.engine_environment({"hold_front_buffer": bad})
+
     def test_a_bad_rate_stops_the_room_before_any_container_starts(self):
         # Refused rather than clamped or cast: "120" in quotes, 59.94 or true
         # in switch.json must name the mistake, not run at another rate.

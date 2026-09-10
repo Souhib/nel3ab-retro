@@ -5,6 +5,7 @@
 // Each read hands it a real stream with no device behind it, then takes the
 // bytes back out of that stream.
 using System.Reflection;
+using System.Runtime.InteropServices;
 using Ryujinx.Audio.Backends.SDL3;
 using Ryujinx.Audio.Common;
 using Ryujinx.Audio.Integration;
@@ -33,6 +34,8 @@ foreach (var (name, test) in new (string, Action)[] {
     ("guest AudioOut keeps its four buffers and its playback clock", GuestOutput),
     ("renderer backlog still discards the same large buffers", RendererLargeBuffers),
     ("a single guest buffer leaves in one piece, as with SDL2's per-session period", GuestSingleBuffer),
+    ("SDL itself pulls 5 ms at a time, and no more than one period waits ahead", DevicePull),
+    ("the probe line never asks SDL while holding the queue lock", ProbeLockOrder),
 }) {
     try { test(); Console.WriteLine($"PASS: {name}"); }
     catch (Exception error) { failures.Add(name); Console.Error.WriteLine($"FAIL: {name}: {(error as TargetInvocationException)?.InnerException?.Message ?? error.Message}"); }
@@ -145,6 +148,67 @@ void GuestSingleBuffer() {
     Equal(true, session.WasBufferFullyConsumed(only));
     Equal(960ul, session.GetPlayedSampleCount());
     Silence(session);
+}
+
+unsafe void DevicePull() {
+    // SDL3 calls the get callback on every read of a device stream, with
+    // additional_amount the bytes the stream lacks: zero when an earlier period
+    // left enough. The other tests call Update by hand; here SDL drives it, as
+    // the device does, 240 frames per read. Handing a period over on the zero
+    // calls too drained the guest as fast as SDL asked: the game produced
+    // faster than real time and the SDL stream grew without bound. Looney
+    // Tunes played its intro silence for minutes in the room (2026-09-10).
+    using var session = Session(guest: true);
+    for (int i = 0; i < 4; i++) Queue(session, (short)(1000 + i), (ulong)i, 1024);
+    var spec = new SDL_AudioSpec { format = SDL_AudioFormat.SDL_AUDIO_S16LE, channels = 2, freq = 48000 };
+    SDL_AudioStream* stream = SDL_CreateAudioStream(&spec, &spec);
+    if (stream == null) throw new Exception($"SDL_CreateAudioStream failed: {SDL_GetError()}");
+    try {
+        var callback = (Delegate)(session.GetType().GetField("_callbackDelegate", BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(session)
+            ?? throw new Exception("actual SDL callback delegate is missing"));
+        var pointer = (delegate* unmanaged[Cdecl]<nint, SDL_AudioStream*, int, int, void>)Marshal.GetFunctionPointerForDelegate(callback);
+        SDL_SetAudioStreamGetCallback(stream, pointer, 0);
+        var chunk = new byte[240 * 4];
+        for (int read = 0; read < 8; read++) {
+            int got; fixed (byte* at = chunk) got = SDL_GetAudioStreamData(stream, (nint)at, chunk.Length);
+            Equal(chunk.Length, got);
+            if (read == 0) { var first = new short[240 * 2]; Buffer.BlockCopy(chunk, 0, first, 0, chunk.Length); Tone(1000, first); }
+        }
+        // 1920 frames read. At most one 1024-frame period, plus the read that
+        // asked for it, may have been handed over ahead of them.
+        ulong played = session.GetPlayedSampleCount();
+        if (played > 1920 + 1024 + 240) throw new Exception($"{played} frames handed over for 1920 read: the SDL stream grows without bound");
+        int ahead = SDL_GetAudioStreamAvailable(stream) / 4;
+        if (ahead > 1024 + 240) throw new Exception($"{ahead} frames wait in the SDL stream");
+    } finally { SDL_DestroyAudioStream(stream); }
+}
+
+unsafe void ProbeLockOrder() {
+    // SDL calls Update holding its stream lock, and Update takes the queue
+    // lock. The probe line of QueueBuffer asked SDL for its backlog while
+    // holding the queue lock: the opposite order. On 2026-09-10 the test
+    // program's audio thread froze at its first buffer that way, and the probe
+    // could only be stopped by force. Here one thread holds the SDL stream lock,
+    // as SDL does during a callback, and QueueBuffer runs on another: the queue
+    // lock must stay free for the callback that SDL would be running.
+    Environment.SetEnvironmentVariable("NEL3AB_AUDIO_PROBE", "1");
+    try {
+        using var session = Session(guest: true);
+        Queue(session, 1000, 1, 960);
+        var type = session.GetType();
+        var queueLock = type.GetField("_queueLock", BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(session) ?? throw new Exception("queue lock is missing");
+        var output = (SDL_AudioStream*)Pointer.Unbox(type.GetField("_outputStream", BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(session) ?? throw new Exception("output stream is missing"));
+        type.GetField("_nextProbe", BindingFlags.Instance | BindingFlags.NonPublic)?.SetValue(session, 0L);
+        SDL_LockAudioStream(output);
+        var queued = new Thread(() => Queue(session, 1001, 2, 960));
+        try {
+            queued.Start();
+            Thread.Sleep(200);
+            if (!Monitor.TryEnter(queueLock, 1000)) throw new Exception("QueueBuffer holds the queue lock while waiting for SDL: a callback would deadlock");
+            Monitor.Exit(queueLock);
+        } finally { SDL_UnlockAudioStream(output); }
+        if (!queued.Join(5000)) throw new Exception("QueueBuffer never finished");
+    } finally { Environment.SetEnvironmentVariable("NEL3AB_AUDIO_PROBE", null); }
 }
 
 void RendererLargeBuffers() {

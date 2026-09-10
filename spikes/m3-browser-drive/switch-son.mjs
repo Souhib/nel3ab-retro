@@ -8,6 +8,11 @@
 // répété casse la phase, et le reste saute d'une fraction de l'amplitude.
 // C'est le défaut du 9 septembre sur Looney Tunes, devenu un nombre.
 //
+// Ce contrôle ne voit PAS le retard : une sinusoïde en retard reste une
+// sinusoïde parfaite. Le 10 septembre 2026, il a validé un son qui arrivait avec
+// un retard croissant (carnet de bord). Le retard se lit ailleurs : l'essai
+// DevicePull de `spikes/switch-room/amont/` et `sdl_ms` du compteur de sonde.
+//
 // Compte aussi les silences de plus de 5 ms (une famine) et les trous entre
 // les horodatages des paquets. Le son arrive en s16le stéréo à 48 kHz, le
 // format que `capture.py` demande à parec.

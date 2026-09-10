@@ -1,0 +1,38 @@
+diff --git a/src/Ryujinx.HLE/HOS/Services/SurfaceFlinger/SurfaceFlinger.cs b/src/Ryujinx.HLE/HOS/Services/SurfaceFlinger/SurfaceFlinger.cs
+index 9717781..24b43d3 100644
+--- a/src/Ryujinx.HLE/HOS/Services/SurfaceFlinger/SurfaceFlinger.cs
++++ b/src/Ryujinx.HLE/HOS/Services/SurfaceFlinger/SurfaceFlinger.cs
+@@ -486,9 +486,32 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
+             }
+         }
+ 
++        // nel3ab experiment, 2026-09-10 (NEL3AB_HOLD_FRONT_BUFFER=1): keep the
++        // image on screen until the next one is presented, then hand the
++        // previous buffer back to the game. Without it the buffer returns as
++        // soon as the host has presented it, a frame before a console would
++        // free it: the test program always had a second image queued, and each
++        // image waited 24.1 ms for a 16.7 ms vsync.
++        private static readonly bool _holdFrontBuffer = Environment.GetEnvironmentVariable("NEL3AB_HOLD_FRONT_BUFFER") == "1";
++        private TextureCallbackInformation _frontBuffer;
++
+         private void ReleaseBuffer(object obj)
+         {
+-            ReleaseBuffer((TextureCallbackInformation)obj);
++            TextureCallbackInformation information = (TextureCallbackInformation)obj;
++
++            // Called on the GPU thread once the host has presented this image.
++            // The direct release after a failed enqueue does not come here.
++            if (_holdFrontBuffer)
++            {
++                information = Interlocked.Exchange(ref _frontBuffer, information);
++
++                if (information == null)
++                {
++                    return;
++                }
++            }
++
++            ReleaseBuffer(information);
+         }
+ 
+         private void ReleaseBuffer(TextureCallbackInformation information)

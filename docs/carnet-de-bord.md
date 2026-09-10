@@ -12602,6 +12602,22 @@ arrêté avant la première image. La relance a écrasé son journal, et la caus
 n'est pas connue. Tant que ce démarrage raté n'est pas expliqué ou reproduit,
 l'expérience reste dans les sondes et la salle n'en a pas.
 
+Souhib demande de le vérifier puis de l'activer. Vingt démarrages avec
+l'expérience, chaque journal gardé : dix de Mario Tennis, premières images en
+15 à 20 s, et dix de Looney Tunes, en 17 à 29 s. Tous atteignent leurs images,
+tous s'arrêtent en code 0. Le démarrage raté ne se reproduit pas en vingt
+essais ; sa cause reste inconnue, et le journal de chaque démarrage est
+désormais gardé pour la prochaine fois. Le correctif est maintenant toujours
+construit dans le moteur, sans effet tant que la salle ne l'allume pas, et la
+salle l'allume par `hold_front_buffer: true` dans `switch.json`. Remettre
+`false` ou retirer la clé revient à l'ancien comportement au prochain lancement.
+
+La salle a été relancée dessus (`ryubing-1.3.3-475615f-d`, empreinte
+`f76623ac…`), Looney Tunes, 120 Hz. Le son arrive dès la cinématique, le flux
+tient 59,8 images par seconde avec deux écarts de deux images en 8 s, et le
+worker rapporte son `input_to_frame`. Ce qui n'est pas mesuré : le délai de
+l'appui à l'image dans la salle même, et une partie longue avec l'expérience.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une

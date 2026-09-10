@@ -12485,6 +12485,61 @@ Ce qui n'est pas mesuré : une partie jouée à 120 Hz, et la page d'un joueur
 distant, dont la réserve dira si ces images plus régulières se voient.
 
 
+### Le 10 septembre au soir, le son en retard trouvé en lançant la salle
+
+Souhib demande de lancer un vrai jeu Switch pour vérifier. Looney Tunes démarre
+dans la salle avec le nouveau moteur, Sway à 120 Hz, une image régulière, et le
+worker rapporte son `input_to_frame`. Mais dix secondes de son de l'écran de
+titre sont un silence parfait : pas un échantillon différent de zéro.
+
+Les premières comparaisons ont été piégées, et je les retire. J'avais lancé
+l'ancien et le nouveau moteur dans des sondes, et je naviguais à heure fixe dans
+les menus. Les captures ont montré que les deux sondes n'étaient pas au même
+endroit : l'une sur le logo de l'éditeur, l'autre en pleine cinématique. La
+comparaison valable a été de lancer les deux moteurs ensemble, sans aucun
+appui, et d'enregistrer cent secondes de son et d'images dès la capture. Les
+images suivent le même déroulé à quelques secondes près. L'ancien moteur fait
+entendre la cinématique à partir de 70 s. Le nouveau reste muet pendant les
+cent secondes. Et la salle, sur le nouveau moteur, avait du son un quart
+d'heure plus tard.
+
+La cause est dans ma correction du jour. SDL3 appelle notre fonction à chaque
+lecture de la sortie son, en indiquant ce qui manque : souvent rien, puisque la
+période laisse de l'avance. Ma correction remettait une période à chaque appel,
+même quand rien ne manquait. Le jeu était donc vidé plus vite que le temps réel,
+il produisait plus vite, et le flux SDL grossissait sans fin. On entendait le
+silence des logos, avec un retard qui ne cessait de croître.
+
+Pourquoi rien ne l'avait vu. Les essais appelaient la fonction à la main, avec
+une demande fixe : jamais comme SDL l'appelle. Et le contrôle à la sinusoïde ne
+peut pas voir un retard : une sinusoïde en retard reste une sinusoïde parfaite.
+Le son du programme de test et la musique de Mario Tennis étaient justes, et en
+retard. Un essai nouveau laisse SDL lui-même tirer le son, 5 ms à la fois,
+comme le fait la sortie. Sur la correction du jour, il a remis 4096
+échantillons pour 1920 lus : rouge. La fonction ne remet plus rien quand rien
+ne manque. Le compteur de sonde donne aussi, désormais, ce qui attend dans SDL.
+
+La leçon dépasse le son. Un essai doit exercer l'appelant réel, pas l'idée
+qu'on s'en fait. Et un contrôle de qualité du son doit aussi mesurer son
+retard, sinon il valide un son parfait qui arrive trop tard.
+
+Le compteur ajouté pour voir ce retard a lui-même bloqué le son. Pour lire ce
+qui attend dans SDL, il interrogeait SDL en tenant notre verrou de file. Or SDL
+appelle notre fonction en tenant son propre verrou, et cette fonction prend le
+nôtre : chacun attendait l'autre. Le fil son du programme de test s'est figé
+dès son premier tampon, et la sonde n'a pu être arrêtée que de force. Cela ne
+touche que les sondes, où ce compteur est allumé, jamais la salle. Un essai
+tient maintenant l'ordre des verrous : un fil tient le verrou de SDL comme
+pendant un appel, un autre met un tampon en file, et notre verrou doit rester
+libre. Il échouait avant que l'appel à SDL ne sorte du verrou.
+
+La version corrigée a été vérifiée en sonde avant d'être installée. Looney
+Tunes, lancé sans appui, fait entendre sa cinématique au même moment que
+l'ancien moteur, et ce qui attend dans SDL reste à 19 ms, une période. La
+sinusoïde du programme de test est intacte, avec 15 ms dans SDL. Les deux
+s'arrêtent proprement. Elle remplace la première installation du soir, qui
+reste sur le disque sans servir, et la salle a été relancée dessus.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une

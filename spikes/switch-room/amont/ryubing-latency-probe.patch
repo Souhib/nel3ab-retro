@@ -1,0 +1,56 @@
+diff --git a/src/Ryujinx.Graphics.Vulkan/Window.cs b/src/Ryujinx.Graphics.Vulkan/Window.cs
+index eb8d433..f04d18f 100644
+--- a/src/Ryujinx.Graphics.Vulkan/Window.cs
++++ b/src/Ryujinx.Graphics.Vulkan/Window.cs
+@@ -309,6 +309,8 @@ namespace Ryujinx.Graphics.Vulkan
+             return new Extent2D(width, height);
+         }
+ 
++        private static readonly bool _latencyProbe = Environment.GetEnvironmentVariable("NEL3AB_LATENCY_PROBE") == "1";
++
+         public unsafe override void Present(ITexture texture, ImageCrop crop, Action swapBuffersCallback)
+         {
+             _gd.PipelineInternal.AutoFlush.Present();
+@@ -484,6 +486,13 @@ namespace Ryujinx.Graphics.Vulkan
+             {
+                 _gd.SwapchainApi.QueuePresent(_gd.Queue, in presentInfo);
+             }
++
++            // nel3ab, sonde de latence (jamais dans la salle) : l'image vient
++            // d'être remise au compositeur, en horloge monotone.
++            if (_latencyProbe)
++            {
++                Console.Error.WriteLine($"NEL3AB_PRESENT t_ns={System.Diagnostics.Stopwatch.GetTimestamp()}");
++            }
+         }
+ 
+         public override void SetAntiAliasing(AntiAliasing effect)
+diff --git a/src/Ryujinx.Input/HLE/NpadManager.cs b/src/Ryujinx.Input/HLE/NpadManager.cs
+index fcc527c..7abef12 100644
+--- a/src/Ryujinx.Input/HLE/NpadManager.cs
++++ b/src/Ryujinx.Input/HLE/NpadManager.cs
+@@ -32,6 +32,11 @@ namespace Ryujinx.Input.HLE
+ 
+         private readonly IGamepadDriver _keyboardDriver;
+         private readonly IGamepadDriver _gamepadDriver;
++        // nel3ab, sonde de latence (jamais dans la salle) : l'instant où l'état
++        // du joueur 1 change dans la mémoire HID que le jeu lit, en horloge
++        // monotone. Stopwatch lit CLOCK_MONOTONIC sous Linux.
++        private static readonly bool _latencyProbe = Environment.GetEnvironmentVariable("NEL3AB_LATENCY_PROBE") == "1";
++        private ulong _probeButtons;
+         private readonly IGamepadDriver _mouseDriver;
+         private bool _isDisposed;
+ 
+@@ -412,6 +417,12 @@ namespace Ryujinx.Input.HLE
+ 
+                         inputState.Buttons |= _device.Hid.UpdateStickButtons(inputState.LStick, inputState.RStick);
+ 
++                        if (_latencyProbe && playerIndex == PlayerIndex.Player1 && (ulong)inputState.Buttons != _probeButtons)
++                        {
++                            _probeButtons = (ulong)inputState.Buttons;
++                            Console.Error.WriteLine($"NEL3AB_HID t_ns={Stopwatch.GetTimestamp()} f={Stopwatch.Frequency} buttons={_probeButtons:x}");
++                        }
++
+                         isJoyconPair = inputConfig.ControllerType == ControllerType.JoyconPair;
+ 
+                         SixAxisInput altMotionState = isJoyconPair ? controller.GetHLEMotionState(true) : default;

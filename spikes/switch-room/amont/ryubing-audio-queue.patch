@@ -1,0 +1,129 @@
+diff --git a/src/Ryujinx.Audio.Backends.SDL3/SDL3HardwareDeviceSession.cs b/src/Ryujinx.Audio.Backends.SDL3/SDL3HardwareDeviceSession.cs
+index ca7b131..7c0850c 100644
+--- a/src/Ryujinx.Audio.Backends.SDL3/SDL3HardwareDeviceSession.cs
++++ b/src/Ryujinx.Audio.Backends.SDL3/SDL3HardwareDeviceSession.cs
+@@ -25,6 +25,10 @@ namespace Ryujinx.Audio.Backends.SDL3
+         private readonly int _bytesPerFrame;
+         private uint _sampleCount;
+         private bool _started;
++        private long _nextProbe;
++        private long _discardedFrames;
++        private readonly object _queueLock = new();
++        private readonly bool _probe = Environment.GetEnvironmentVariable("NEL3AB_AUDIO_PROBE") == "1";
+         private float _volume;
+         private readonly SDL_AudioFormat _nativeSampleFormat;
+ 
+@@ -81,23 +85,67 @@ namespace Ryujinx.Audio.Backends.SDL3
+ 
+         private unsafe void Update(nint userdata, SDL_AudioStream* streamDevice, int additionalAmount, int totalAmmount)
+         {
+-            using SpanOwner<byte> stream = SpanOwner<byte>.Rent(additionalAmount);
+-            Span<byte> streamSpan = stream.Span;
+-
++            lock (_queueLock)
++            {
++                FillBuffer(streamDevice, additionalAmount);
++            }
++        }
+ 
++        private unsafe void FillBuffer(SDL_AudioStream* streamDevice, int additionalAmount)
++        {
+             int maxFrameCount = (int)GetSampleCount(additionalAmount);
+             int bufferedFrames = _ringBuffer.Length / _bytesPerFrame;
+ 
+-            int frameCount = Math.Min(bufferedFrames, maxFrameCount);
++            // Prototype measurement, 2026-09-08: Mario Tennis accumulated 1725 ms
++            // during startup, then retained that delay indefinitely. SDL has no
++            // playback-speed catch-up. Above 50 ms, keep the latest 15 ms (three
++            // renderer chunks), or one callback when the device requests more.
++            // This deliberately drops old sound once after a stall. Healthy
++            // queues and all their sample values remain unchanged.
++            //
++            // Renderer sessions only. Two paths end here and do not mean the
++            // same thing by "queued". The renderer pushes 5 ms chunks on its own
++            // clock, so a backlog is delay and nothing else. AudioOut (Looney
++            // Tunes, 2026-09-09) is the guest's own queue: up to four 1024-frame
++            // buffers, and the game supplies the next only after seeing one
++            // consumed. Its 85 ms is ordinary paced playback. Discarding it made
++            // the game produce the following sound early, every callback: the
++            // probe counted 239 s discarded in 80 s of play, and the sound was
++            // torn. A guest session is the one opened with a memory manager, as
++            // AudioOutputManager does and the renderer never does.
++            bool guestOwnsQueue = MemoryManager != null;
++            int keepFrames = Math.Max(maxFrameCount, (int)RequestedSampleRate * 15 / 1000);
++            int limitFrames = Math.Max(keepFrames, (int)RequestedSampleRate / 20);
++            int discarded = !guestOwnsQueue && bufferedFrames > limitFrames ? bufferedFrames - keepFrames : 0;
++            if (discarded != 0)
++            {
++                _ringBuffer.Clear(discarded * _bytesPerFrame);
++                _discardedFrames += discarded;
++                bufferedFrames -= discarded;
++            }
++
++            // One period per callback, the session's own, as SDL2 did. SDL2
++            // opened one device per session, sized by that session's buffers:
++            // a 960-frame AudioOut buffer left in one piece, and the guest had
++            // 20 ms to supply the next. SDL3 shares one device that asks for
++            // 5 ms at a time. Handing over only what it asked left a guest with
++            // a single buffer in flight 5 ms to refill, and the test program
++            // (2026-09-10) went silent for 5 ms every 60 to 80 ms: 277 silences
++            // in 20 s, against none on SDL2. The surplus stays queued in the SDL
++            // stream, which calls back only once it runs short again.
++            int periodFrames = _sampleCount == uint.MaxValue ? maxFrameCount : Math.Max(maxFrameCount, (int)_sampleCount);
++            int frameCount = Math.Min(bufferedFrames, periodFrames);
+ 
+             if (frameCount == 0)
+             {
+-                // SDL3 left the responsibility to the user to clear the buffer.
+-                streamSpan.Clear();
+-
++                // Nothing to put: SDL3's device pads a short stream with silence.
+                 return;
+             }
+ 
++            int putBytes = Math.Max(additionalAmount, frameCount * _bytesPerFrame);
++            using SpanOwner<byte> stream = SpanOwner<byte>.Rent(putBytes);
++            Span<byte> streamSpan = stream.Span;
++
+             using SpanOwner<byte> samplesOwner = SpanOwner<byte>.Rent(frameCount * _bytesPerFrame);
+ 
+             Span<byte> samples = samplesOwner.Span;
+@@ -113,11 +161,13 @@ namespace Ryujinx.Audio.Backends.SDL3
+ 
+                     // Apply volume to written data
+                     SDL_MixAudio(pStreamDst, pStreamSrc, _nativeSampleFormat, (uint)samples.Length, _driver.Volume * _volume);
+-                    SDL_PutAudioStreamData(streamDevice, (nint)pStreamDst, additionalAmount);
++                    SDL_PutAudioStreamData(streamDevice, (nint)pStreamDst, putBytes);
+                 }
+             }
+ 
+-            ulong sampleCount = GetSampleCount(samples.Length);
++            // Retired samples also release the guest's buffers. Only trimming
++            // the bytes would leave the bookkeeping several seconds behind.
++            ulong sampleCount = (ulong)discarded + GetSampleCount(samples.Length);
+ 
+             ulong availaibleSampleCount = sampleCount;
+ 
+@@ -168,9 +218,19 @@ namespace Ryujinx.Audio.Backends.SDL3
+             {
+                 SDL3AudioBuffer driverBuffer = new(buffer.DataPointer, GetSampleCount(buffer));
+ 
+-                _ringBuffer.Write(buffer.Data, 0, buffer.Data.Length);
+-
+-                _queuedBuffers.Enqueue(driverBuffer);
++                // Publish samples and their ownership together. Otherwise the
++                // callback can consume freshly written bytes before their tag
++                // is queued, leaving release accounting permanently behind.
++                lock (_queueLock)
++                {
++                    _ringBuffer.Write(buffer.Data, 0, buffer.Data.Length);
++                    _queuedBuffers.Enqueue(driverBuffer);
++                    if (_probe && Environment.TickCount64 >= _nextProbe)
++                    {
++                        _nextProbe = Environment.TickCount64 + 5000;
++                        Console.Error.WriteLine($"NEL3AB_AUDIO queued_ms={_ringBuffer.Length * 1000.0 / _bytesPerFrame / RequestedSampleRate:F2} discarded_ms={_discardedFrames * 1000.0 / RequestedSampleRate:F2}");
++                    }
++                }
+             }
+             else
+             {

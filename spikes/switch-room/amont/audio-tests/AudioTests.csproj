@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- Upstream's global.json requires the .NET 10 SDK. -->
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- The SDL3 callback takes an SDL_AudioStream pointer, and the SDL3-CS
+         bindings expose it only as a pointer type. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="$(Nel3abRyubingSource)/src/Ryujinx.Audio.Backends.SDL3/Ryujinx.Audio.Backends.SDL3.csproj" />
+    <!-- Use the pinned upstream memory stub; the audio samples are supplied
+         directly, so no emulated memory is read and no extra test package is needed. -->
+    <Compile Include="$(Nel3abRyubingSource)/src/Ryujinx.Tests.Memory/MockVirtualMemoryManager.cs" Link="MockVirtualMemoryManager.cs" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,4 @@
+# Build output of this test project. The SDL2 rule in spikes/switch-room/.gitignore
+# names its own path and does not reach this directory.
+bin/
+obj/

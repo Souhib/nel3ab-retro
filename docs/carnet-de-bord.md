@@ -12540,6 +12540,68 @@ sinusoïde du programme de test est intacte, avec 15 ms dans SDL. Les deux
 s'arrêtent proprement. Elle remplace la première installation du soir, qui
 reste sur le disque sans servir, et la salle a été relancée dessus.
 
+### Le 10 septembre, où partent les 54 ms de l'émulateur
+
+Souhib demande de découper les 54 ms que le programme de test et l'émulation
+prennent entre la manette lue et l'image remise à l'écran de la machine. Quatre
+marqueurs de plus, dans la sonde seulement, suivent chaque image Switch par son
+numéro : le jeu la remet, le compositeur Switch émulé la prend à sa
+synchronisation verticale (sa « vsync », l'instant régulier où un écran prend
+l'image suivante), le fil GPU commence à la présenter, puis la barrière qui dit
+que le jeu a fini de la dessiner est levée.
+
+Dix appuis à 120 Hz, tous recollés : le programme met 27,2 ms entre la manette
+lue et l'image remise ; l'image attend 23,8 ms sa prise ; le passage au fil GPU
+et la barrière ne coûtent rien, ce programme dessine au processeur ; le rendu
+jusqu'à la machine prend 2,7 ms. Les 27 ms du programme sont les siennes : il
+lit la manette en haut de sa boucle, attend un tampon libre, dessine, puis
+remet.
+
+L'attente de 24 ms intrigue, parce qu'elle dépasse une image. Sur toutes les
+images de la série, le compositeur émulé prend une image toutes les 16,7 ms
+exactement, chaque image remise attend 24,1 ms médians, et quand le programme
+en remet une, il y en a presque toujours déjà une autre en file (4013 fois sur
+4017). Le programme a donc une image d'avance. Mon hypothèse, non vérifiée :
+l'émulateur rend un tampon au jeu dès qu'il l'a présenté sur la machine, alors
+qu'une console garderait l'image affichée jusqu'à la prise de la suivante. Le
+jeu récupère ainsi un tampon une image trop tôt, et chaque image attend une
+période de plus. Ce serait environ 16 ms, un tiers des 54, qui tiennent à
+l'émulation et non au jeu. L'expérience qui tranchera : rendre le tampon à la
+prise de l'image suivante, remesurer avec les mêmes marqueurs, puis vérifier
+que les vrais jeux gardent leur cadence.
+
+**L'expérience, le même soir.** Un correctif de sonde,
+`amont/ryubing-hold-front-buffer.patch`, garde l'image affichée jusqu'à la
+présentation de la suivante, et ne rend qu'alors le tampon précédent au jeu. Il
+ne fait rien tant que `NEL3AB_HOLD_FRONT_BUFFER` ne vaut pas 1 : le même moteur
+tourne avec et sans, l'un après l'autre.
+
+| | Sans | Avec |
+|---|---|---|
+| Programme de test, de l'appui à l'image, 10 appuis | 64,5 ms | 39,9 ms |
+| Programme de test, attente avant la prise, toutes images | 24,0 ms | 7,1 ms |
+| Programme de test, images en file à chaque remise | 2 | 1 |
+| Mario Tennis, attente avant la prise | 48,1 ms | 31,4 ms |
+| Mario Tennis, images en file à chaque remise | 3 | 2 |
+| Mario Tennis, images remises par seconde, et flux | 60,0, régulier | 60,0, régulier |
+
+L'hypothèse tient, et le gain dépasse la prévision : 24,6 ms sur le programme
+de test, parce que le programme lit aussi sa manette plus tard, juste avant de
+dessiner. Mario Tennis garde trois images en vol et en perd une : 16,7 ms, sans
+rien céder de sa cadence. Ces chiffres viennent du programme de test et de
+l'écran de titre de Mario Tennis, pas d'une partie.
+
+Looney Tunes a demandé plus de soin. Un premier passage, les caches froids,
+montrait avec l'expérience deux accrocs de 170 à 200 ms. Refait à chaud, en
+alternant sans, avec, sans, avec : 59,6 et 56,5 images remises par seconde
+sans, 57,9 et 55,9 avec, et l'attente avant la prise tombe de 17,3 et 14,2 ms à
+10,1 et 12,6. Les gros accrocs, de 34 à 109 périodes, apparaissent dans les
+deux modes au même moment de la cinématique : c'est le jeu qui charge, pas
+l'expérience. Un démarrage avec l'expérience a échoué une fois, l'émulateur
+arrêté avant la première image. La relance a écrasé son journal, et la cause
+n'est pas connue. Tant que ce démarrage raté n'est pas expliqué ou reproduit,
+l'expérience reste dans les sondes et la salle n'en a pas.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une

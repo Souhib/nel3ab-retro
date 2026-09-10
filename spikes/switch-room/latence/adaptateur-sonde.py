@@ -1,8 +1,10 @@
 # L'adaptateur de la salle, tel quel, avec deux ajouts réservés aux sondes :
 # les variables de sonde du moteur (marqueurs de latence et file son), et le
 # programme de test monté en écriture. C'est une copie privée, et le chargeur
-# de homebrew de Ryubing l'ouvre en écriture.
+# de homebrew de Ryubing l'ouvre en écriture. NEL3AB_HOLD_FRONT_BUFFER=1 dans
+# l'environnement de la sonde passe au moteur : l'expérience du tampon affiché.
 import importlib.util
+import os
 from pathlib import Path
 
 spec = importlib.util.spec_from_file_location("adapter", Path(__file__).resolve().parents[3] / "docker/switch-room.py")
@@ -14,7 +16,8 @@ original = mod.run
 def run(*args, **kwargs):
     if args[:2] == ("docker", "run") and "/probe/runtime.sh" in args:
         args = tuple(a[:-3] if isinstance(a, str) and a.endswith("/game/input.nro:ro") else a for a in args)
-        args = (*args[:2], "-e", "NEL3AB_LATENCY_PROBE=1", "-e", "NEL3AB_AUDIO_PROBE=1", *args[2:])
+        extra = ("-e", "NEL3AB_HOLD_FRONT_BUFFER=1") if os.environ.get("NEL3AB_HOLD_FRONT_BUFFER") == "1" else ()
+        args = (*args[:2], "-e", "NEL3AB_LATENCY_PROBE=1", "-e", "NEL3AB_AUDIO_PROBE=1", *extra, *args[2:])
     return original(*args, **kwargs)
 
 

@@ -25,6 +25,86 @@ index eb8d433..f04d18f 100644
          }
  
          public override void SetAntiAliasing(AntiAliasing effect)
+diff --git a/src/Ryujinx.HLE/HOS/Services/SurfaceFlinger/BufferQueueProducer.cs b/src/Ryujinx.HLE/HOS/Services/SurfaceFlinger/BufferQueueProducer.cs
+index 9afb26c..4742909 100644
+--- a/src/Ryujinx.HLE/HOS/Services/SurfaceFlinger/BufferQueueProducer.cs
++++ b/src/Ryujinx.HLE/HOS/Services/SurfaceFlinger/BufferQueueProducer.cs
+@@ -11,6 +11,12 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
+ {
+     class BufferQueueProducer : IGraphicBufferProducer
+     {
++        // nel3ab, sonde de latence (jamais dans la salle) : horodatages en
++        // horloge monotone (Stopwatch lit CLOCK_MONOTONIC sous Linux). Le seul
++        // verrou que ces lignes prennent est celui de la console, qui n'appelle
++        // jamais le code de l'émulateur : aucun ordre de verrous ne s'inverse.
++        private static readonly bool _latencyProbe = Environment.GetEnvironmentVariable("NEL3AB_LATENCY_PROBE") == "1";
++
+         public BufferQueueCore Core { get; }
+ 
+         private readonly ITickSource _tickSource;
+@@ -406,6 +412,12 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
+                 item.IsAutoTimestamp = input.IsAutoTimestamp != 0;
+                 item.SwapInterval = input.SwapInterval;
+                 item.FrameNumber = Core.FrameCounter;
++
++                // Le jeu remet son image N à l'émulateur.
++                if (_latencyProbe)
++                {
++                    Console.Error.WriteLine($"NEL3AB_QUEUE t_ns={System.Diagnostics.Stopwatch.GetTimestamp()} frame={item.FrameNumber}");
++                }
+                 item.Slot = slot;
+                 item.Fence = input.Fence;
+                 item.IsDroppable = Core.DequeueBufferCannotBlock || input.Async != 0;
+diff --git a/src/Ryujinx.HLE/HOS/Services/SurfaceFlinger/SurfaceFlinger.cs b/src/Ryujinx.HLE/HOS/Services/SurfaceFlinger/SurfaceFlinger.cs
+index 9717781..5ce3a8a 100644
+--- a/src/Ryujinx.HLE/HOS/Services/SurfaceFlinger/SurfaceFlinger.cs
++++ b/src/Ryujinx.HLE/HOS/Services/SurfaceFlinger/SurfaceFlinger.cs
+@@ -15,6 +15,12 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
+ {
+     class SurfaceFlinger : IConsumerListener, IDisposable
+     {
++        // nel3ab, sonde de latence (jamais dans la salle) : horodatages en
++        // horloge monotone (Stopwatch lit CLOCK_MONOTONIC sous Linux). Le seul
++        // verrou que ces lignes prennent est celui de la console, qui n'appelle
++        // jamais le code de l'émulateur : aucun ordre de verrous ne s'inverse.
++        private static readonly bool _latencyProbe = Environment.GetEnvironmentVariable("NEL3AB_LATENCY_PROBE") == "1";
++
+         private readonly Switch _device;
+ 
+         private readonly Dictionary<long, Layer> _layers;
+@@ -372,6 +378,12 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
+ 
+                 if (acquireStatus == Status.Success)
+                 {
++                    // Le compositeur émulé prend l'image N, à sa synchronisation verticale.
++                    if (_latencyProbe)
++                    {
++                        Console.Error.WriteLine($"NEL3AB_ACQUIRE t_ns={Stopwatch.GetTimestamp()} frame={item.FrameNumber}");
++                    }
++
+                     if (_device.VSyncMode == VSyncMode.Unbounded)
+                     {
+                         if (_swapInterval != 0)
+@@ -505,7 +517,19 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
+ 
+         private void AcquireBuffer(TextureCallbackInformation information)
+         {
++            // Le fil GPU commence à présenter l'image N, puis attend la barrière
++            // qui dit que le jeu a fini de la dessiner.
++            if (_latencyProbe)
++            {
++                Console.Error.WriteLine($"NEL3AB_RENDER t_ns={Stopwatch.GetTimestamp()} frame={information.Item.FrameNumber}");
++            }
++
+             information.Item.Fence.WaitForever(_device.Gpu);
++
++            if (_latencyProbe)
++            {
++                Console.Error.WriteLine($"NEL3AB_READY t_ns={Stopwatch.GetTimestamp()} frame={information.Item.FrameNumber}");
++            }
+         }
+ 
+         public static Format ConvertColorFormat(ColorFormat colorFormat)
 diff --git a/src/Ryujinx.Input/HLE/NpadManager.cs b/src/Ryujinx.Input/HLE/NpadManager.cs
 index fcc527c..7abef12 100644
 --- a/src/Ryujinx.Input/HLE/NpadManager.cs

@@ -146,5 +146,26 @@ class SaveSlots(unittest.TestCase):
             self.assertNotIn(("docker", "rm", "other-container"), commands)
 
 
+class EngineEnvironment(unittest.TestCase):
+    def test_the_room_rate_reaches_the_engine_and_sixty_is_the_default(self):
+        self.assertIn("SWITCH_REFRESH_HZ=60", module.engine_environment({}))
+        self.assertIn("SWITCH_REFRESH_HZ=120", module.engine_environment({"refresh_hz": 120}))
+
+    def test_a_bad_rate_stops_the_room_before_any_container_starts(self):
+        # Refused rather than clamped or cast: "120" in quotes, 59.94 or true
+        # in switch.json must name the mistake, not run at another rate.
+        for bad in (0, 29, 241, "120", 59.94, True, None):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                module.engine_environment({"refresh_hz": bad})
+        with (
+            tempfile.TemporaryDirectory() as temp,
+            patch.object(module, "run") as run,
+            self.assertRaises(ValueError),
+        ):
+            root = Path(temp)
+            module.serve({"image": "unused", "refresh_hz": 0}, root / "game.xci", root, root)
+        run.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()

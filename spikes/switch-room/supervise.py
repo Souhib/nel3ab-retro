@@ -50,6 +50,21 @@ def wait_game(child, close_window, stopping, timeout=30, healthy=lambda: True):
     }
 
 
+def refresh_hz(environ):
+    """The compositor rate the room chose, 60 unless SWITCH_REFRESH_HZ says otherwise.
+
+    This is the rate at which Sway composes on the server, not what players see:
+    the game still presents its own 60 or 30 images a second, and the recorder
+    copies each one when it arrives. A faster rate only shortens the wait between
+    the emulator handing over an image and Sway composing it: 8.5 ms median at
+    60 Hz on the test program (2026-09-10), half a period on average.
+    """
+    text = environ.get("SWITCH_REFRESH_HZ", "60")
+    if not text.isdigit() or not 30 <= int(text) <= 240:
+        raise ValueError(f"SWITCH_REFRESH_HZ must be a whole number from 30 to 240, not {text!r}")
+    return int(text)
+
+
 def sway_config(width=1280, height=720, refresh_hz=60):
     """The compositor's configuration. Pure, so its one load-bearing line can be pinned.
 
@@ -79,7 +94,7 @@ def main():
     display_file = Path("/run-data/display.json")
     display_file.unlink(missing_ok=True)
     config = runtime / "sway.conf"
-    config.write_text(sway_config())
+    config.write_text(sway_config(refresh_hz=refresh_hz(os.environ)))
     # Profiling belongs to the game, not the compositor.
     compositor_env = {k: v for k, v in os.environ.items() if not k.startswith("MANGOHUD")}
     with Path("/run-data/sway.log").open("w") as log:

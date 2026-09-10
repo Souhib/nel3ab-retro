@@ -133,6 +133,25 @@ def pad_command(image: str, pads: Path, helper: str, label: str) -> list[str]:
     ]
 
 
+def engine_environment(config: dict) -> list[str]:
+    """Engine container environment, checked before any container starts.
+
+    refresh_hz is Sway's composing rate on the server, not the players' screens:
+    see refresh_hz in spikes/switch-room/supervise.py, which checks it again.
+    """
+    refresh = config.get("refresh_hz", 60)
+    if type(refresh) is not int or not 30 <= refresh <= 240:
+        raise ValueError(f"refresh_hz must be a whole number from 30 to 240, not {refresh!r}")
+    return [
+        "-e",
+        "DISPLAY_BACKEND=wayland",
+        "-e",
+        "SWITCH_COMPOSITOR=sway",
+        "-e",
+        f"SWITCH_REFRESH_HZ={refresh}",
+    ]
+
+
 def serve(config: dict, rom: Path, slot: Path, pads: Path) -> None:
     # Instance names follow the private runtime, so integration rooms cannot
     # stop the production room. Docker refuses duplicates instead of stealing.
@@ -140,6 +159,7 @@ def serve(config: dict, rom: Path, slot: Path, pads: Path) -> None:
     engine = f"nel3ab-switch-{token}"
     helper = f"{engine}-pads"
     image = config["image"]
+    environment = engine_environment(config)
     updates = update_mount(config, slot)
     uid, gid = str(os.getuid()), str(os.getgid())
     # Helper has no DAC override: share this one directory with the host group.
@@ -182,10 +202,7 @@ def serve(config: dict, rom: Path, slot: Path, pads: Path) -> None:
             str(os.stat("/dev/dri/renderD128").st_gid),
             "--device=/dev/dri/renderD128",
             "--shm-size=8g",
-            "-e",
-            "DISPLAY_BACKEND=wayland",
-            "-e",
-            "SWITCH_COMPOSITOR=sway",
+            *environment,
             "-v",
             f"{Path(config['engine']).resolve()}:/emulator:ro",
             "-v",

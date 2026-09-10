@@ -10,7 +10,7 @@ import threading
 import unittest
 from pathlib import Path
 
-from supervise import sway_config, wait_game
+from supervise import refresh_hz, sway_config, wait_game
 
 
 class Shutdown(unittest.TestCase):
@@ -82,3 +82,15 @@ class SwayConfig(unittest.TestCase):
         line = next(l for l in config.splitlines() if l.startswith("output HEADLESS-1"))
         self.assertRegex(line, r"@[1-9]\d*Hz$")
         self.assertNotIn("@0Hz", config)
+
+    def test_the_room_chooses_the_rate_and_sixty_is_the_default(self):
+        self.assertEqual(refresh_hz({}), 60)
+        self.assertEqual(refresh_hz({"SWITCH_REFRESH_HZ": "120"}), 120)
+        self.assertIn("mode 1280x720@120Hz\n", sway_config(refresh_hz=refresh_hz({"SWITCH_REFRESH_HZ": "120"})))
+
+    def test_a_rate_outside_the_range_or_not_a_whole_number_is_refused(self):
+        # Refused rather than clamped: a typo in the room's configuration must
+        # stop the game with its name, not quietly run at another rate.
+        for bad in ("0", "29", "241", "abc", "59.94", ""):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                refresh_hz({"SWITCH_REFRESH_HZ": bad})

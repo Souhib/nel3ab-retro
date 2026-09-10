@@ -16,10 +16,17 @@ import WebSocket from "ws";
 const [url, seconds, half] = [process.argv[2], Number(process.argv[3] ?? 8), process.argv[4] === "half"];
 const ws = new WebSocket(url.replace(/^http/, "ws") + (half ? "/video?half=1" : "/video")); ws.binaryType = "nodebuffer";
 let last = null; const gaps = [];
-ws.on("message", (m) => { const pts = Number(m.readBigUInt64LE(0)) / 1000; if (last !== null) gaps.push(pts - last); last = pts; });
+// Un message de moins de huit octets n'est pas une image : Looney Tunes en a
+// reçu le 10 septembre, et le pilote s'arrêtait net sur sa lecture.
+let short = 0;
+ws.on("message", (m) => { if (m.length < 8) { short++; return; } const pts = Number(m.readBigUInt64LE(0)) / 1000; if (last !== null) gaps.push(pts - last); last = pts; });
 ws.on("open", () => setTimeout(() => {
   const bins = {}; for (const g of gaps) { const k = Math.round(g / 16.67); bins[k] = (bins[k] ?? 0) + 1; }
   const runs = []; let run = 0; for (const g of gaps) { if (g > 25) { run++; } else if (run) { runs.push(run); run = 0; } }
-  console.log(JSON.stringify({ stream: half ? "half" : "full", frames: gaps.length + 1, fps: +((gaps.length + 1) / seconds).toFixed(1), periods: bins, consecutive_misses: runs.slice(0, 12) }));
+  // La régularité, en millisecondes : un compositeur plus rapide ne change pas
+  // le nombre d'images, mais peut changer leur espacement.
+  const sorted = [...gaps].sort((a, b) => a - b); const at = (q) => +(sorted[Math.round((sorted.length - 1) * q)] ?? 0).toFixed(2);
+  const mean = gaps.reduce((a, b) => a + b, 0) / gaps.length; const spread = Math.sqrt(gaps.reduce((a, g) => a + (g - mean) ** 2, 0) / gaps.length);
+  console.log(JSON.stringify({ stream: half ? "half" : "full", frames: gaps.length + 1, fps: +((gaps.length + 1) / seconds).toFixed(1), periods: bins, consecutive_misses: runs.slice(0, 12), short_messages: short, gap_ms: { p5: at(0.05), p50: at(0.5), p95: at(0.95), spread: +spread.toFixed(2) } }));
   ws.close(); process.exit(0);
 }, seconds * 1000));

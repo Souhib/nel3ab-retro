@@ -278,6 +278,21 @@ manette-depuis-la-page:
 switch-cadence seconds="8":
     cd spikes/m3-browser-drive && node switch-cadence.mjs http://127.0.0.1:8100 {{seconds}} full && node switch-cadence.mjs http://127.0.0.1:8100 {{seconds}} half
 
+# De l'appui à l'image sur le chemin Switch, mesuré de l'extérieur: une trame
+# entre par `/input`, et l'on chronomètre la première image qui a changé sur
+# `/video`. Changé se lit en décodant, jamais à la taille des images: une image
+# clé périodique passait pour une réponse (1,5 ms annoncées le 10 septembre).
+#
+# Ici et pas dans `check` parce qu'il faut une salle Switch qui tourne, et
+# ffmpeg. `screen=menu` part du menu principal de Looney Tunes (Bas, puis Haut):
+# le plancher. `screen=titre` part de l'écran de titre (L+R, puis B): un plafond,
+# fondu du jeu compris. Chaque appui est comparé à un témoin sans appui, et la
+# série est refusée si les témoins se contredisent. Prend la place demandée: à
+# lancer quand personne ne joue. Le worker mesure en même temps sa propre part
+# sous « input_to_frame » dans son journal.
+switch-reaction screen="menu" trials="5" port="1":
+    cd spikes/m3-browser-drive && node switch-reaction.mjs http://127.0.0.1:8100 {{trials}} {{port}} {{screen}}
+
 # La sieste, jouée en vrai: la salle s'endort, on la réveille, et on lit ce que
 # le worker en a écrit.
 #

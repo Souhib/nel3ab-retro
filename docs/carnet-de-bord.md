@@ -12664,6 +12664,33 @@ essais : la règle des places avec des horloges fictives, un vrai serveur où un
 page prend la place 3 et où le fichier dit `3`, l'adaptateur qui passe le chemin
 du fichier, chacun rouge avant son code.
 
+### Le 11 septembre, F repliait la colonne à chaque R de la Switch
+
+Souhib demande de changer le raccourci « plein écran » de F à Ctrl, parce que F
+est une touche qu'on pourrait assigner. Elle l'était déjà : le profil clavier
+Switch par défaut met le bouton R sur F. F ne mettait pas le navigateur en
+plein écran, il repliait la colonne de droite, et chaque R d'une partie Switch
+au clavier la repliait ou la dépliait.
+
+Le raccourci devient Ctrl seule, appuyée puis relâchée sans rien d'autre : une
+combinaison comme Ctrl+C, un clic ou la molette pendant qu'elle est tenue
+annulent le geste, et rien ne se passe dans un champ de texte. Ctrl ne peut plus
+devenir une touche de jeu, ni Alt ni Méta : la Switch les refusait déjà, la
+GameCube et la Wii les acceptaient. Tenue comme bouton, Ctrl plus W aurait
+fermé l'onglet en pleine partie. Un essai tient chaque cas, et chacun échouait
+avant son code.
+
+L'écran des touches Switch avait trois défauts que Souhib a relevés avec un
+clavier seul. La colonne des commandes de manette restait affichée, remplie de
+« Non assigné » sans manette branchée : elle n'apparaît plus qu'avec une
+manette, sous un en-tête qui dit Clavier et Manette. Le menu des manettes
+annonçait « Première manette détectée » sans manette : il dit « Aucune manette
+détectée » et reste grisé. Le menu des profils ne proposait que « Choisir… » :
+il commence par « Profil par défaut », que « Charger » remet en service, et une
+ligne dit quel profil est en service, ou que les réglages ont été modifiés sans
+être enregistrés. Le bouton « Configuration d’origine » faisait la même chose que
+charger le profil par défaut ; il disparaît.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une

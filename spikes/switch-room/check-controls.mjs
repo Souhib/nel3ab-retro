@@ -74,7 +74,11 @@ try {
  const change=async(page,button,value=1)=>page.evaluate((button,value)=>Object.assign(window.testPad.buttons[button],{value,pressed:value>.5}),button,value);
  // Every standard gameplay button, after all real translations. Kernel codes
  // are Linux input-event-codes.h, independent of our JSON translation table.
- const keys=[304,305,307,308,310,311,null,null,314,315,317,318,null,null,null,null];
+ // X is 308 and Y 307: SDL reads these pads as Xbox 360 controllers, whose
+ // left button X sends 307 and top button Y sends 308, and Ryubing maps the
+ // Switch X to the top button. With X on 307, the page's X reached the game as
+ // Y: Mario Party Superstars opened its X panel on Y (2026-09-11).
+ const keys=[304,305,308,307,310,311,null,null,314,315,317,318,null,null,null,null];
  for(let bit=0;bit<16;bit++) {
   await change(page,bit);await until(async()=>{const all=await readState();const s=all[1];const expected=keys[bit];return all.every((p,i)=>i===1||neutral(p)) && (expected!==null?s.keys.length===1&&s.keys[0]===expected:s.keys.length===0&&s.axes[bit===6?'zl':bit===7?'zr':bit<14?'dy':'dx']===(bit<8?255:bit===12||bit===14?-1:1));},`button ${bit} did not reach only P2`);
   await change(page,bit,0);await until(async()=>(await readState()).every(neutral),`button ${bit} remained held`);

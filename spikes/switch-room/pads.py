@@ -19,11 +19,15 @@ from evdev import ecodes as e
 from pad_rumble import send_rumble
 
 ROOT = Path("/run-data")
+# Xbox 360 codes, because SDL reads these pads as Xbox 360 controllers. For
+# them BTN_X (also named BTN_NORTH) is the left X button and BTN_Y the top Y
+# button. Ryubing's profile maps the Switch X to the top button. With
+# BTN_NORTH, the page's X reached the game as Y (Mario Party, 2026-09-11).
 BUTTONS = {
-    "a": e.BTN_SOUTH,
-    "b": e.BTN_EAST,
-    "x": e.BTN_NORTH,
-    "y": e.BTN_WEST,
+    "a": e.BTN_A,
+    "b": e.BTN_B,
+    "x": e.BTN_Y,
+    "y": e.BTN_X,
     "l": e.BTN_TL,
     "r": e.BTN_TR,
     "minus": e.BTN_SELECT,

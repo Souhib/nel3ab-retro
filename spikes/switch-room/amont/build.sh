@@ -26,7 +26,9 @@ fi
 git -C "$source_dir" checkout -q --detach --force "$commit"
 git -C "$source_dir" reset -q --hard "$commit"
 git -C "$source_dir" clean -q -fd
-patches=(ryubing-headless-stop.patch ryubing-audio-queue.patch ryubing-hold-front-buffer.patch)
+# ryubing-seats.patch ne branche que les places occupées quand NEL3AB_SEATS_FILE
+# est donné, ce que fait l'adaptateur de la salle.
+patches=(ryubing-headless-stop.patch ryubing-audio-queue.patch ryubing-hold-front-buffer.patch ryubing-seats.patch)
 if [ "${NEL3AB_LATENCY_PROBE_BUILD:-}" = 1 ]; then patches+=(ryubing-latency-probe.patch); fi
 for patch in "${patches[@]}"; do git -C "$source_dir" apply "$here/$patch"; done
 NUGET_PACKAGES="$lab/nuget" DOTNET_CLI_TELEMETRY_OPTOUT=1 "$dotnet_bin" publish \

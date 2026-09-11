@@ -10,6 +10,7 @@ salle.
 | `ryubing-headless-stop.patch` | arrêter sans fenêtre, sans planter | Sans lui, l'amont plante à l'arrêt sur Looney Tunes : code 134, un fil du jeu touche l'adresse zéro pendant la destruction. Avec lui, code 0 sur Looney Tunes et Mario Tennis. |
 | `ryubing-audio-queue.patch` | file son : le retard du moteur de rendu retiré, la file du jeu intacte, une période par session, rien remis quand rien ne manque | `./test-audio.sh`, neuf essais sur le vrai rappel SDL3 (voir plus bas). |
 | `ryubing-latency-probe.patch` | marqueurs de latence (manette, remise, prise, rendu, présentation), pour les sondes seulement | `../latence/` |
+| `ryubing-seats.patch` | ne brancher que les manettes des places occupées : Ryubing relit quatre fois par seconde le fichier que le worker écrit (`NEL3AB_SEATS_FILE`) ; sans fichier, toutes les manettes comme avant | Mario Tennis, Free Play à deux : le jeu demandait 2 joueurs, l'émulateur répondait 4, et le jeu imposait le double |
 | `ryubing-hold-front-buffer.patch` | garder l'image affichée jusqu'à la présentation de la suivante, quand `NEL3AB_HOLD_FRONT_BUFFER=1` (réglage `hold_front_buffer` de la salle) ; toujours construit, sans effet sinon | carnet de bord, 10 septembre : 64,5 à 39,9 ms sur le programme de test |
 
 Le correctif des sources de paquets de la version épinglée est inutile ici :

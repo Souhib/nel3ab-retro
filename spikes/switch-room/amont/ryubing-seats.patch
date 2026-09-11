@@ -1,0 +1,107 @@
+diff --git a/src/Ryujinx.Input/HLE/NpadManager.cs b/src/Ryujinx.Input/HLE/NpadManager.cs
+index fcc527c..98f2b7e 100644
+--- a/src/Ryujinx.Input/HLE/NpadManager.cs
++++ b/src/Ryujinx.Input/HLE/NpadManager.cs
+@@ -2,10 +2,12 @@ using Ryujinx.Common;
+ using Ryujinx.Common.Configuration.Hid;
+ using Ryujinx.Common.Configuration.Hid.Controller;
+ using Ryujinx.Common.Configuration.Hid.Keyboard;
++using Ryujinx.Common.Logging;
+ using Ryujinx.HLE.HOS.Services.Hid;
+ using System;
+ using System.Buffers;
+ using System.Collections.Generic;
++using System.IO;
+ using System.Diagnostics;
+ using System.Linq;
+ using System.Numerics;
+@@ -171,6 +173,61 @@ namespace Ryujinx.Input.HLE
+             return controller.IsAvailable;
+         }
+ 
++        // nel3ab, 2026-09-10: connect only the players whose seat is taken in
++        // the room. The worker writes the seat numbers to NEL3AB_SEATS_FILE.
++        // Every connected controller counts as a player: Mario Tennis asked the
++        // controller applet for exactly 2, was told 4, and forced doubles. A
++        // console lets people unplug the extra controllers; the room does it
++        // for them. No variable, or no file yet: every configured player.
++        private static readonly string _seatsFile = Environment.GetEnvironmentVariable("NEL3AB_SEATS_FILE");
++        private long _seatsCheckedAt;
++        private string _seatsText;
++        private HashSet<Ryujinx.Common.Configuration.Hid.PlayerIndex> _seats;
++
++        private void RefreshSeats()
++        {
++            if (_seatsFile == null || Environment.TickCount64 - _seatsCheckedAt < 250)
++            {
++                return;
++            }
++
++            _seatsCheckedAt = Environment.TickCount64;
++
++            string text;
++            try
++            {
++                text = File.Exists(_seatsFile) ? File.ReadAllText(_seatsFile) : null;
++            }
++            catch (IOException)
++            {
++                return;
++            }
++
++            if (text == null || text == _seatsText)
++            {
++                return;
++            }
++
++            _seatsText = text;
++
++            HashSet<Ryujinx.Common.Configuration.Hid.PlayerIndex> seats = [];
++            foreach (string token in text.Split((char[])null, StringSplitOptions.RemoveEmptyEntries))
++            {
++                if (int.TryParse(token, out int seat) && seat is >= 1 and <= 8)
++                {
++                    seats.Add((Ryujinx.Common.Configuration.Hid.PlayerIndex)(seat - 1));
++                }
++            }
++
++            lock (_lock)
++            {
++                _seats = seats;
++                ReloadConfiguration(_requestedInputConfig, _playerInputAssignments, _enableKeyboard, _enableMouse);
++            }
++
++            Logger.Info?.Print(LogClass.Hid, $"nel3ab seats: players {string.Join(" ", seats.Select(player => (int)player + 1))} connected");
++        }
++
+         public void ReloadConfiguration(List<InputConfig> inputConfig, bool enableKeyboard, bool enableMouse)
+         {
+             ReloadConfiguration(inputConfig, [], enableKeyboard, enableMouse);
+@@ -225,7 +282,17 @@ namespace Ryujinx.Input.HLE
+                     else
+                     {
+                         _controllers[index] = controller;
+-                        validInputs.Add(activeConfig);
++
++                        // An empty seat keeps its controller, and SDL keeps the
++                        // device open, but the game sees it unplugged: only
++                        // seated players reach RefreshInputConfig and Update.
++                        // Disposing it closed the SDL gamepad, and the one
++                        // reopened when the player came back lost its rumble
++                        // ("Rumble is not supported", 2026-09-10).
++                        if (_seats == null || _seats.Contains(inputConfigEntry.PlayerIndex))
++                        {
++                            validInputs.Add(activeConfig);
++                        }
+                     }
+                 }
+ 
+@@ -382,6 +449,8 @@ namespace Ryujinx.Input.HLE
+ 
+         public void Update(float aspectRatio = 1)
+         {
++            RefreshSeats();
++
+             lock (_lock)
+             {
+                 _hleInputStates.Clear();

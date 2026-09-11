@@ -68,17 +68,38 @@ export function useBare(coarse = false): {
     return () => document.removeEventListener("fullscreenchange", change);
   }, []);
 
-  // `F` replie et déplie. Pas de raccourci pour le plein écran: le navigateur en
-  // a déjà un, et en ajouter un qui fait presque la même chose fait deux choses
-  // à retenir pour une.
+  // Ctrl seule, appuyée puis relâchée sans rien d'autre, replie et déplie. Pas
+  // de raccourci pour le plein écran: le navigateur en a déjà un.
+  //
+  // C'était `F` jusqu'au 11 septembre 2026, et `F` est une touche de jeu: le
+  // profil clavier Switch par défaut y met R, donc chaque R repliait la colonne
+  // en pleine partie. Ctrl ne peut pas être assignée à une manette (Ctrl+W
+  // fermerait l'onglet), et une combinaison, un clic ou la molette pendant
+  // qu'elle est tenue annulent le geste: Ctrl+C ou le zoom ne replient rien.
   useEffect(() => {
-    const press = (event: KeyboardEvent) => {
-      // Pas pendant qu'on tape un pseudo ou qu'on réassigne une touche.
-      if (typingIn(event.target)) return;
-      if (event.key === "f" || event.key === "F") setBare(!bare);
+    let alone = false;
+    const down = (event: KeyboardEvent) => {
+      alone = event.key === "Control" && !event.repeat ? !typingIn(event.target) : false;
     };
-    addEventListener("keydown", press);
-    return () => removeEventListener("keydown", press);
+    const up = (event: KeyboardEvent) => {
+      if (event.key === "Control" && alone) setBare(!bare);
+      alone = false;
+    };
+    const cancel = () => {
+      alone = false;
+    };
+    addEventListener("keydown", down);
+    addEventListener("keyup", up);
+    addEventListener("pointerdown", cancel);
+    addEventListener("wheel", cancel);
+    addEventListener("blur", cancel);
+    return () => {
+      removeEventListener("keydown", down);
+      removeEventListener("keyup", up);
+      removeEventListener("pointerdown", cancel);
+      removeEventListener("wheel", cancel);
+      removeEventListener("blur", cancel);
+    };
   }, [bare, setBare]);
 
   return { bare, setBare, fullscreen, toggleFullscreen };

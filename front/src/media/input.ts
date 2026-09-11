@@ -1060,6 +1060,10 @@ export class InputStream {
     // pas au jeu et elle ne s'ajoute pas aux touches tenues.
     if (this.capture?.source === "key") {
       event.preventDefault();
+      // Ctrl, Alt et Méta ne deviennent pas des touches de jeu, comme pour la
+      // Switch: Ctrl tenue avec W fermerait l'onglet en pleine partie, et Ctrl
+      // seule replie la colonne. La capture attend la touche suivante.
+      if (event.ctrlKey || event.altKey || event.metaKey) return;
       // Échap annule, sinon aucune touche ne pourrait sortir d'une capture.
       if (event.code !== "Escape")
         this.bindKey(event.code, this.capture.control, this.capture.sign);

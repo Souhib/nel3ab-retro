@@ -1378,7 +1378,7 @@ function Room({
           // travail de l'aide, pas du titre.
           label: "colonne de droite",
           value: bare ? "repliée" : "visible",
-          hint: "rend toute la largeur à l'image (F)",
+          hint: "rend toute la largeur à l'image (Ctrl)",
           icon: <PanelIcon className="h-full w-full" />,
           onEnter: () => setBare(!bare),
         },
@@ -1563,7 +1563,7 @@ function Room({
               onClick={() => setBare(false)}
               className="border border-rule bg-panel px-2 py-1 text-[11px] text-muted"
             >
-              montrer (F)
+              montrer (Ctrl)
             </button>
             <button
               type="button"

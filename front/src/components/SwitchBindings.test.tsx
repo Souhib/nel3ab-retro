@@ -12,8 +12,9 @@ beforeEach(() => {
   };
 });
 afterEach(() => vi.unstubAllGlobals());
-function show(ready = false, pending = false) {
+function show(ready = false, pending = false, pads: Gamepad[] = []) {
   const input = new InputStream((p) => p, vi.fn(), vi.fn());
+  input.switch.pads = pads;
   vi.spyOn(input, "attribution").mockReturnValue("claim-1");
   const block = vi.spyOn(input, "blockGameplay");
   const send = vi.fn().mockResolvedValue(undefined);
@@ -64,8 +65,37 @@ it("saves and restores a named personal profile without marking the player ready
 it("a ready player must withdraw confirmation before changing a profile", () => {
   const { send } = show(true, true);
   expect(screen.getByText("Enregistrer")).toBeDisabled();
-  expect(screen.getByText("Configuration d’origine")).toBeDisabled();
+  expect(screen.getByText("Charger")).toBeDisabled();
   expect(screen.getByText("Lancer le jeu")).toBeDisabled();
   fireEvent.click(screen.getByText("Modifier ma configuration"));
   expect(send).toHaveBeenCalledWith({ id: "launch-1", action: "choose", pad: 4, ready: false });
+});
+
+it("shows only the keyboard column, and says no controller is there, with a keyboard alone", () => {
+  show();
+  expect(screen.getByText("Clavier")).toBeInTheDocument();
+  expect(screen.queryByText("Manette")).toBeNull();
+  // The negative twin of the controller test below: 24 disabled
+  // "Non assigné" buttons used to fill this column without a controller.
+  expect(screen.queryAllByText("Non assigné")).toHaveLength(0);
+  expect(screen.queryAllByLabelText(/Effacer la commande/)).toHaveLength(0);
+  expect(screen.getByText("Aucune manette détectée")).toBeInTheDocument();
+  expect(screen.getByLabelText(/Manette physique/)).toBeDisabled();
+});
+it("adds the controller column once a controller is plugged in", () => {
+  const pad = { index: 0, id: "Manette test", mapping: "standard", buttons: [], axes: [] };
+  show(false, false, [pad as unknown as Gamepad]);
+  expect(screen.getByText("Manette")).toBeInTheDocument();
+  expect(screen.getAllByLabelText(/Effacer la commande/)).toHaveLength(24);
+  expect(screen.getByText("Première manette détectée")).toBeInTheDocument();
+});
+it("starts on the default profile and loads it back after a change", () => {
+  const { input } = show();
+  const select = screen.getByLabelText("Profil") as HTMLSelectElement;
+  expect(select.value).toBe("");
+  expect(select.options[0].text).toBe("Profil par défaut");
+  expect(screen.getByText(/En service : Profil par défaut/)).toBeInTheDocument();
+  input.switch.profile.keys.A = "KeyM";
+  fireEvent.click(screen.getByText("Charger"));
+  expect(input.switch.profile.keys.A).toBe("KeyX");
 });

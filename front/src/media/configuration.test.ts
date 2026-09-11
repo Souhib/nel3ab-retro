@@ -198,6 +198,23 @@ describe("configurer une manette pendant une partie", () => {
     expect(stream.lastSent()?.[axis]).toBe(0);
   });
 
+  it("refuse Ctrl, Alt et Méta comme touche de jeu et attend la suivante", () => {
+    // Ctrl tenue avec W fermerait l'onglet en pleine partie, et Ctrl seule
+    // replie la colonne de la page.
+    stream.beginCapture("A", "key");
+    for (const [code, key, flag] of [
+      ["ControlLeft", "Control", "ctrlKey"],
+      ["AltLeft", "Alt", "altKey"],
+      ["MetaLeft", "Meta", "metaKey"],
+    ] as const) {
+      dispatchEvent(new KeyboardEvent("keydown", { code, key, [flag]: true }));
+      expect(stream.state().keys[code]).toBeUndefined();
+    }
+    expect(stream.state().capturing).not.toBeNull();
+    dispatchEvent(new KeyboardEvent("keydown", { code: "KeyM", key: "m" }));
+    expect(stream.state().keys.KeyM).toBeDefined();
+  });
+
   it("une flèche assignée à la croix ne tourne pas le stick du Nunchuk", () => {
     stream.beginCapture("D_LEFT", "key");
     dispatchEvent(new KeyboardEvent("keydown", { code: "ArrowLeft" }));

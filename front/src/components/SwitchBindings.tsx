@@ -6,6 +6,7 @@ import type { InputStream } from "../media/input";
 import {
   SWITCH_BUTTONS,
   SWITCH_TARGETS,
+  defaultSwitchProfile,
   type SwitchInput,
   type SwitchButton,
   type SwitchAxis,
@@ -49,7 +50,13 @@ export function SwitchBindings({
 }) {
   const [, refresh] = useState(0);
   const [name, setName] = useState("");
-  const [chosen, setChosen] = useState("");
+  // Le profil en service: un profil enregistré identique, "" pour le profil par
+  // défaut, null pour des réglages modifiés et pas enregistrés.
+  const same = (a: unknown) => JSON.stringify(a) === JSON.stringify(source.profile);
+  const active =
+    Object.keys(source.named).find((n) => same(source.named[n])) ??
+    (same(defaultSwitchProfile()) ? "" : null);
+  const [chosen, setChosen] = useState(active ?? "");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const svg = useRef<SVGSVGElement>(null);
@@ -173,6 +180,7 @@ export function SwitchBindings({
           <label>
             Manette physique{" "}
             <select
+              disabled={!source.pads.length}
               value={source.selected ?? "auto"}
               onChange={(e) =>
                 edit(() => {
@@ -181,7 +189,9 @@ export function SwitchBindings({
                 })
               }
             >
-              <option value="auto">Première manette détectée</option>
+              <option value="auto">
+                {source.pads.length ? "Première manette détectée" : "Aucune manette détectée"}
+              </option>
               {source.pads.map((p) => (
                 <option key={p.index} value={p.index}>
                   {p.index + 1} · {p.id}
@@ -266,15 +276,18 @@ export function SwitchBindings({
               <label>
                 Profil{" "}
                 <select value={chosen} onChange={(e) => setChosen(e.target.value)}>
-                  <option value="">Choisir…</option>
+                  <option value="">Profil par défaut</option>
                   {Object.keys(source.named).map((n) => (
                     <option key={n}>{n}</option>
                   ))}
                 </select>
               </label>
-              <button disabled={!chosen} onClick={() => edit(() => source.load(chosen))}>
+              <button onClick={() => edit(() => (chosen ? source.load(chosen) : source.reset()))}>
                 Charger
               </button>
+              <small>
+                En service : {active === "" ? "Profil par défaut" : (active ?? "réglages modifiés")}
+              </small>
               <button
                 onClick={() => {
                   const url = URL.createObjectURL(
@@ -316,6 +329,11 @@ export function SwitchBindings({
             <p>
               Clique pour réassigner. Actionne le stick dans la direction indiquée. Échap annule.
             </p>
+            <div className="n3-switch-binding n3-switch-heads" aria-hidden="true">
+              <span />
+              <span>Clavier</span>
+              {source.pad ? <span>Manette</span> : null}
+            </div>
             {SWITCH_TARGETS.map((target) => (
               <div
                 className="n3-switch-binding"
@@ -328,12 +346,9 @@ export function SwitchBindings({
                     <small>{guide.actions["4"][target]}</small>
                   ) : null}
                 </strong>
-                {(["key", "pad"] as const).map((kind) => (
+                {(source.pad ? (["key", "pad"] as const) : (["key"] as const)).map((kind) => (
                   <div key={kind}>
-                    <button
-                      disabled={kind === "pad" && !source.pad}
-                      onClick={() => edit(() => source.begin(target, kind))}
-                    >
+                    <button onClick={() => edit(() => source.begin(target, kind))}>
                       {source.capturing?.target === target && source.capturing.source === kind
                         ? "Actionne la commande…"
                         : kind === "key"
@@ -366,7 +381,6 @@ export function SwitchBindings({
             </p>
           ) : null}
           <p>Home, Capture et le gyroscope ne sont pas disponibles.</p>
-          <button onClick={() => edit(() => source.reset())}>Configuration d’origine</button>
         </fieldset>
         <p role="status">{notice || source.message}</p>
       </div>

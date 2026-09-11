@@ -68,6 +68,34 @@ Pour un essai à plusieurs, tenir les places pendant tout l'essai. Une place
 libérée se débranche 5 s plus tard côté jeu, et un jeu comme Mario Party
 redemande alors les manettes, ce qui fausse l'essai (11 septembre 2026).
 
+## Mesurer les gels d'un jeu
+
+    node gels.mjs <url> <emplacement> <secondes> gels.jsonl &
+    python3 fils.py <pid de Ryujinx> <secondes> fils.jsonl
+    python3 analyse-gels.py gels.jsonl 50
+    python3 compare-gels.py a.jsonl b.jsonl
+
+`gels.mjs` lit `/video` comme une page et note, sur l'horloge monotone, l'heure
+d'affichage portée par chaque image et son heure d'arrivée. Un trou dans la
+première vient de l'émulateur ; un trou seulement dans la seconde, du transport.
+Il relève aussi la taille du cache de shaders de l'emplacement toutes les 50 ms
+et chaque ligne du journal du moteur au moment où elle est écrite. `fils.py` note
+le temps processeur de chaque fil de l'émulateur toutes les 100 ms (le pid se
+lit avec `pgrep -x Ryujinx`). `analyse-gels.py` met chaque trou en face des
+compilations et du journal ; `compare-gels.py` résume la première minute de
+plusieurs enregistrements.
+
+Le régulateur de fréquence du processeur compte : le 11 septembre 2026, le même
+combat perdait 1,2 s par minute en `performance` contre 1,6 s en `schedutil`,
+deux essais de chaque. Le noter avec la mesure, il se lit dans
+`/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor`.
+
+Mesurer une sonde pendant que la salle fait tourner un autre jeu fausse tout :
+le 11 septembre 2026, Smash au menu dans la salle prenait 1,6 à 2,2 cœurs, et un
+combat en sonde perdait trois fois plus d'images. Pour attendre la fin d'un
+enregistrement, attendre son numéro de processus : un `pgrep -f` dont le motif
+figure dans la commande qui l'appelle se trouve lui-même, et ne finit jamais.
+
 ## Mesure du 10 septembre 2026
 
 Amont `475615f` avec les trois correctifs, dix appuis, dix recollés :

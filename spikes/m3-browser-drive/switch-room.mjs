@@ -188,7 +188,7 @@ try {
   config.state = join(root,"switch-saves");
   await writeFile(env.NEL3AB_SWITCH_CONFIG,JSON.stringify(config));
   if(process.env.NEL3AB_TEST_SWITCH_SAVE) {
-    for(const action of ["prepare", "import-tennis"]) await execute("python3",[join(repo,"docker/switch-saves.py"),env.NEL3AB_SWITCH_CONFIG,"0100bde00862a000","debloquee",action,...(action === "import-tennis" ? [process.env.NEL3AB_TEST_SWITCH_SAVE] : [])]);
+    for(const action of ["prepare", "import"]) await execute("python3",[join(repo,"docker/switch-saves.py"),env.NEL3AB_SWITCH_CONFIG,"0100bde00862a000","debloquee",action,...(action === "import" ? [process.env.NEL3AB_TEST_SWITCH_SAVE] : [])]);
   }
   if (network && process.env.NEL3AB_TEST_SEED_SAVES) {
     await cp(await realpath(process.env.NEL3AB_TEST_SEED_SAVES), join(env.NEL3AB_SESSION_DIR, "saves"), { recursive: true });

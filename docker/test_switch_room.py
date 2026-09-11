@@ -23,6 +23,18 @@ saves = importlib.util.module_from_spec(saves_spec)
 saves_spec.loader.exec_module(saves)
 
 
+def account(slot, name, program, kind=1):
+    """A save container as Ryubing writes it: its owner and type in ExtraData0."""
+    container = slot / "data/bis/user/save" / name
+    for bank in ("0", "1"):
+        (container / bank).mkdir(parents=True)
+    extra = bytearray(512)
+    extra[0:8] = program.to_bytes(8, "little")
+    extra[0x20] = kind
+    (container / "ExtraData0").write_bytes(bytes(extra))
+    return container
+
+
 class SaveSlots(unittest.TestCase):
     def test_slots_start_separately_and_existing_progress_survives_initialisation(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -57,15 +69,14 @@ class SaveSlots(unittest.TestCase):
     def test_import_preserves_previous_progress_and_restore_rejects_escape(self):
         with tempfile.TemporaryDirectory() as temp:
             slot = Path(temp)
-            container = slot / "data/bis/user/save/1"
+            container = account(slot, "1", 0x0100BDE00862A000)
             for bank in ("0", "1"):
-                (container / bank).mkdir(parents=True)
                 (container / bank / "save7.dat").write_bytes(b"my match")
             archive = slot / "community.zip"
             with zipfile.ZipFile(archive, "w") as z:
                 z.writestr("save.dat", b"unlocked")
                 z.writestr("save7.dat", b"completed adventure")
-            saves.import_tennis(slot, archive)
+            saves.import_save(slot, "0100bde00862a000", archive)
             for bank in ("0", "1"):
                 self.assertEqual(
                     (container / bank / "save7.dat").read_bytes(), b"completed adventure"
@@ -84,7 +95,7 @@ class SaveSlots(unittest.TestCase):
                 z.writestr("../save7.dat", b"escape")
                 z.writestr("save.dat", b"bad")
             with self.assertRaises(ValueError):
-                saves.import_tennis(slot, archive)
+                saves.import_save(slot, "0100bde00862a000", archive)
             self.assertEqual(len(list((slot / "backups").iterdir())), count)
             self.assertEqual((container / "0/save7.dat").read_bytes(), b"my match")
 
@@ -110,6 +121,90 @@ class SaveSlots(unittest.TestCase):
             metadata.write_text(json.dumps({"selected": "/run-data/updates/../private.nsp"}))
             with self.assertRaises(ValueError):
                 module.update_mount(config, slot)
+
+    def test_each_game_imports_only_what_was_checked_in_it(self):
+        with tempfile.TemporaryDirectory() as temp:
+            slot = Path(temp)
+            # The template brings Mario Tennis' container into every slot.
+            tennis = account(slot, "0000000000000001", 0x0100BDE00862A000)
+            device = account(slot, "0000000000000003", 0x0100152000022000, kind=3)
+            kart = account(slot, "0000000000000002", 0x0100152000022000)
+            for bank in ("0", "1"):
+                (kart / bank / "userdata.dat").write_bytes(b"fresh")
+            archive = slot / "kart.zip"
+            with zipfile.ZipFile(archive, "w") as z:
+                z.writestr("100% save file/dump/userdata.dat", b"gold mario")
+                z.writestr("100% save file/dump/rp001.dat", b"replay of a later version")
+                z.writestr("100% save file/amiibo.jpg", b"picture")
+            saves.import_save(slot, "0100152000022000", archive)
+            for bank in ("0", "1"):
+                self.assertEqual(sorted(p.name for p in (kart / bank).iterdir()), ["userdata.dat"])
+                self.assertEqual((kart / bank / "userdata.dat").read_bytes(), b"gold mario")
+                self.assertEqual(list((tennis / bank).iterdir()), [])
+                self.assertEqual(list((device / bank).iterdir()), [])
+            record = json.loads((slot / "import.json").read_text())
+            self.assertEqual(record["title"], "0100152000022000")
+            self.assertEqual(record["files"], ["userdata.dat"])
+
+    def test_a_tree_import_keeps_its_folders_and_leaves_the_rest(self):
+        with tempfile.TemporaryDirectory() as temp:
+            slot = Path(temp)
+            smash = account(slot, "0000000000000002", 0x01006A800016E000)
+            (smash / "0/save_data").mkdir()
+            (smash / "0/save_data/system_data.bin").write_bytes(b"fresh")
+            archive = slot / "smash.zip"
+            with zipfile.ZipFile(archive, "w") as z:
+                z.writestr("__user__/save_data/system_data.bin", b"all spirits")
+                z.writestr("__user__/save_data/mii/mii_1018.bin", b"a mii")
+                z.writestr("__bcat__/directories.meta", b"online events")
+            saves.import_save(slot, "01006a800016e000", archive)
+            for bank in ("0", "1"):
+                self.assertEqual(
+                    sorted(str(p.relative_to(smash / bank)) for p in (smash / bank).rglob("*.bin")),
+                    ["save_data/mii/mii_1018.bin", "save_data/system_data.bin"],
+                )
+            self.assertEqual((smash / "1/save_data/system_data.bin").read_bytes(), b"all spirits")
+            self.assertFalse((slot / "import.pending").exists())
+
+    def test_an_import_refuses_before_touching_the_slot(self):
+        with tempfile.TemporaryDirectory() as temp:
+            slot = Path(temp)
+            archive = slot / "save.zip"
+            with zipfile.ZipFile(archive, "w") as z:
+                z.writestr("hs_save_data", b"shop")
+            # Never started: no container for this game yet.
+            account(slot, "0000000000000001", 0x0100BDE00862A000)
+            with self.assertRaises(ValueError):
+                saves.import_save(slot, "01006fe013472000", archive)
+            party = account(slot, "0000000000000002", 0x01006FE013472000)
+            (party / "0/hs_save_data").write_bytes(b"mine")
+            # A game nobody checked a save for, even once started.
+            account(slot, "0000000000000004", 0x0100D3601D4B4000)
+            with self.assertRaises(ValueError):
+                saves.import_save(slot, "0100d3601d4b4000", archive)
+            refused = {
+                "missing": {"other": b"x"},
+                "twice": {"a/hs_save_data": b"x", "b/hs_save_data": b"y"},
+            }
+            for files in refused.values():
+                with zipfile.ZipFile(archive, "w") as z:
+                    for name, payload in files.items():
+                        z.writestr(name, payload)
+                with self.assertRaises(ValueError):
+                    saves.import_save(slot, "01006fe013472000", archive)
+            smash = account(slot, "0000000000000003", 0x01006A800016E000)
+            for name in ("__user__/../escape.bin", "__user__//save.bin", "__user__/a\\b.bin"):
+                with zipfile.ZipFile(archive, "w") as z:
+                    z.writestr(name, b"x")
+                with self.assertRaises(ValueError):
+                    saves.import_save(slot, "01006a800016e000", archive)
+            with zipfile.ZipFile(archive, "w") as z:
+                z.writestr("__bcat__/only.bin", b"x")
+            with self.assertRaises(ValueError):
+                saves.import_save(slot, "01006a800016e000", archive)
+            self.assertFalse((slot / "backups").exists())
+            self.assertEqual((party / "0/hs_save_data").read_bytes(), b"mine")
+            self.assertEqual(list((smash / "0").iterdir()), [])
 
     def test_add_on_content_must_exist_in_the_container_mount(self):
         with tempfile.TemporaryDirectory() as temp:

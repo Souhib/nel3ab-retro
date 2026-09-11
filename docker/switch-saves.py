@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Backup, restore or import a stopped Switch save slot, never a live game.
 
-Only Mario Tennis Aces' two verified data filenames are accepted for imports.
-No archive path is used as a destination and no downloaded code is executed.
+An import brings only what was checked in that game: see RULES. No archive
+path is used unchecked as a destination and no downloaded code is executed.
 """
 
 from __future__ import annotations
@@ -16,41 +16,146 @@ import shutil
 import sys
 import time
 import zipfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
+from typing import NamedTuple
 
 spec = importlib.util.spec_from_file_location("adapter", Path(__file__).with_name("switch-room.py"))
 adapter = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(adapter)
 
 
-def import_tennis(slot: Path, archive: Path) -> None:
-    if archive.stat().st_size > 2_000_000:
-        raise ValueError("Archive exceeds the save import limit")
-    with zipfile.ZipFile(archive) as source:
-        files = source.infolist()
-        if {f.filename for f in files} != {"save.dat", "save7.dat"} or len(files) != 2:
-            raise ValueError("Expected only save.dat and save7.dat")
-        if any(f.file_size > 1_000_000 for f in files):
-            raise ValueError("Invalid save file size")
-        data = {f.filename: source.read(f) for f in files}
-    saves = slot / "data/bis/user/save"
-    entries = [entry for entry in saves.iterdir() if entry.is_dir()]
-    if len(entries) != 1 or not all((entries[0] / name).is_dir() for name in ("0", "1")):
+class Files(NamedTuple):
+    """These names only, each found once anywhere in the archive."""
+
+    names: tuple[str, ...]
+
+
+class Tree(NamedTuple):
+    """Every file under this archive folder, keeping its subfolders."""
+
+    folder: str
+
+
+# One entry per game, added after its save was opened in that game.
+RULES: dict[str, Files | Tree] = {
+    # Mario Tennis Aces, checked on 2026-09-09.
+    "0100bde00862a000": Files(("save.dat", "save7.dat")),
+    # Mario Kart 8 Deluxe, checked on 2026-09-11 on 1.0.0 and 4.0.0. On 1.0.0
+    # the ghosts and replays of a later version crashed it 54 s after boot; the
+    # progression file alone carries the unlocks, Booster Course Pass included.
+    "0100152000022000": Files(("userdata.dat",)),
+    # Mario Party Superstars 1.1.1, checked on 2026-09-11.
+    "01006fe013472000": Files(("hs_save_data",)),
+    # Super Mario Party Jamboree 2.3.0, checked on 2026-09-11 with a Checkpoint
+    # export from 1.0: Pauline and Ninji unlocked, the plaza's balloon offered.
+    "0100965017338000": Files(("bqSaveData", "bqSaveData2")),
+    # Super Smash Bros. Ultimate 13.0.5, checked on 2026-09-11. The __bcat__
+    # folder beside it holds online events, not progression.
+    "01006a800016e000": Tree("__user__/"),
+}
+
+# Measured on 2026-09-11 over twelve community saves for these games: at most
+# 17.4 MB per archive, 5.98 MB per file, 11.5 MB and 13 files per import. The
+# limits leave twice that room and bound what a malformed archive can write.
+ARCHIVE_LIMIT = 40_000_000
+FILE_LIMIT = 12_000_000
+TOTAL_LIMIT = 24_000_000
+COUNT_LIMIT = 64
+
+# Ryubing keeps each container's owner in ExtraData0, laid out as the system's
+# SaveDataAttribute: program at 0x00, save type at 0x20 (1 is a user's save).
+ACCOUNT = 1
+
+
+def account_container(slot: Path, title: str) -> Path:
+    """The game's own user save. The template also brings Mario Tennis' container."""
+    found = []
+    for container in (slot / "data/bis/user/save").iterdir():
+        extra = container / "ExtraData0"
+        if container.is_dir() and extra.is_file():
+            head = extra.read_bytes()[:0x21]
+            if (
+                len(head) == 0x21
+                and int.from_bytes(head[:8], "little") == int(title, 16)
+                and head[0x20] == ACCOUNT
+            ):
+                found.append(container)
+    if len(found) != 1:
         raise ValueError("Start and close this game's slot once before importing")
+    return found[0]
+
+
+def chosen(rule: Files | Tree, archive: zipfile.ZipFile) -> dict[PurePosixPath, zipfile.ZipInfo]:
+    """Where each accepted archive entry goes inside a save bank."""
+    entries = [entry for entry in archive.infolist() if not entry.is_dir()]
+    for entry in entries:
+        # An archive that tries to leave its own folders is not trusted at all.
+        parts = entry.filename.split("/")
+        if "\\" in entry.filename or any(part in ("", ".", "..") for part in parts):
+            raise ValueError("Refusing an archive path outside the save")
+    if isinstance(rule, Files):
+        picked = {}
+        for name in rule.names:
+            matches = [entry for entry in entries if PurePosixPath(entry.filename).name == name]
+            if len(matches) != 1:
+                raise ValueError(f"Expected {name} exactly once in the archive")
+            picked[PurePosixPath(name)] = matches[0]
+        return picked
+    picked = {}
+    for entry in entries:
+        if not entry.filename.startswith(rule.folder):
+            continue
+        picked[PurePosixPath(entry.filename[len(rule.folder) :])] = entry
+    if not picked:
+        raise ValueError(f"Expected files under {rule.folder}")
+    return picked
+
+
+def import_save(slot: Path, title: str, archive: Path, source: str = "", note: str = "") -> None:
+    rule = RULES.get(title.lower())
+    if rule is None:
+        raise ValueError("No save for this game was checked yet; see RULES")
+    if archive.stat().st_size > ARCHIVE_LIMIT:
+        raise ValueError("Archive exceeds the save import limit")
+    with zipfile.ZipFile(archive) as source_archive:
+        picked = chosen(rule, source_archive)
+        if len(picked) > COUNT_LIMIT:
+            raise ValueError("Too many save files")
+        data = {}
+        for inner, entry in picked.items():
+            with source_archive.open(entry) as stream:
+                payload = stream.read(FILE_LIMIT + 1)
+            if len(payload) > FILE_LIMIT:
+                raise ValueError("Invalid save file size")
+            data[inner] = payload
+    if sum(map(len, data.values())) > TOTAL_LIMIT:
+        raise ValueError("Save exceeds the import limit")
+    container = account_container(slot, title.lower())
     adapter.backup(slot)
+    pending = slot / "import.pending"
+    if pending.exists():
+        shutil.rmtree(pending)
     for bank in ("0", "1"):
-        for name, payload in data.items():
-            target = entries[0] / bank / name
-            temporary = target.with_suffix(".pending")
-            temporary.write_bytes(payload)
-            temporary.replace(target)
+        for inner, payload in data.items():
+            target = pending / bank / inner
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(payload)
+    # The whole bank is replaced: a complete save is one coherent set of files.
+    for bank in ("0", "1"):
+        replaced = pending / f"{bank}.replaced"
+        (container / bank).rename(replaced)
+        (pending / bank).rename(container / bank)
+    shutil.rmtree(pending)
     (slot / "import.json").write_text(
         json.dumps(
             {
+                "title": title.lower(),
+                "archive": archive.name,
                 "archive_sha256": hashlib.sha256(archive.read_bytes()).hexdigest(),
                 "imported_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                "source": "https://github.com/Viren070/NX_Saves/blob/main/index.md",
-                "description": "Complete + Online Skins Unlocked; verify in the game",
+                "files": sorted(str(inner) for inner in data),
+                "source": source,
+                "description": note,
             },
             indent=2,
         )
@@ -83,8 +188,10 @@ def main():
     parser.add_argument("config", type=Path)
     parser.add_argument("title")
     parser.add_argument("slot", choices=["neuve", "debloquee"])
-    parser.add_argument("action", choices=["list", "prepare", "backup", "restore", "import-tennis"])
+    parser.add_argument("action", choices=["list", "prepare", "backup", "restore", "import"])
     parser.add_argument("value", nargs="?")
+    parser.add_argument("--source", default="", help="where the imported archive came from")
+    parser.add_argument("--note", default="", help="what its author says it contains")
     args = parser.parse_args()
     if len(args.title) != 16 or any(c not in "0123456789abcdefABCDEF" for c in args.title):
         parser.error("Invalid title identifier")
@@ -107,14 +214,10 @@ def main():
             sys.stdout.write(str(adapter.backup(slot)) + "\n")
         elif args.action == "restore" and args.value:
             restore(slot, args.value)
-        elif (
-            args.action == "import-tennis"
-            and args.value
-            and args.title.lower() == "0100bde00862a000"
-        ):
-            import_tennis(slot, Path(args.value))
+        elif args.action == "import" and args.value:
+            import_save(slot, args.title, Path(args.value), args.source, args.note)
         else:
-            parser.error("Missing backup/archive, or unsupported game")
+            parser.error("Missing backup or archive")
 
 
 if __name__ == "__main__":

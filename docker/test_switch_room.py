@@ -241,6 +241,44 @@ class SaveSlots(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     module.update_mount(config, slot)
 
+    def test_both_slots_share_one_cache_per_game_and_keep_the_fullest(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            title = "01006a800016e000"
+            fresh, unlocked = root / title / "neuve", root / title / "debloquee"
+            # Two slots already played: each has its own shader and driver caches.
+            for slot, size in ((fresh, 10), (unlocked, 300)):
+                shader = slot / "data/games" / title / "cache/shader"
+                shader.mkdir(parents=True)
+                (shader / "guest.data").write_bytes(b"x" * size)
+                mesa = slot / "home/.cache/mesa_shader_cache"
+                mesa.mkdir(parents=True)
+                (mesa / "index").write_bytes(b"y" * size)
+            mounts = module.cache_mounts(fresh)
+            shared, driver = root / title / "cache", root / title / "mesa"
+            self.assertEqual(
+                mounts,
+                [
+                    "-v",
+                    f"{shared}:/run-data/data/games/{title}/cache",
+                    "-v",
+                    f"{driver}:/run-data/home/.cache/mesa_shader_cache",
+                ],
+            )
+            # The fullest cache of the two seeds the shared one, once.
+            self.assertEqual((shared / "shader/guest.data").read_bytes(), b"x" * 300)
+            self.assertEqual((driver / "index").read_bytes(), b"y" * 300)
+            (shared / "shader/guest.data").write_bytes(b"z" * 400)
+            module.cache_mounts(unlocked)
+            self.assertEqual((shared / "shader/guest.data").read_bytes(), b"z" * 400)
+            # A slot that never ran still gets the mounts, and the shared cache.
+            other = root / title / "autre"
+            module.cache_mounts(other)
+            self.assertTrue((shared / "shader").is_dir())
+            # Docker must not create these mount points itself, as root.
+            self.assertTrue((other / "data/games" / title / "cache").is_dir())
+            self.assertTrue((other / "home/.cache/mesa_shader_cache").is_dir())
+
     def test_live_slot_refuses_even_a_backup(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

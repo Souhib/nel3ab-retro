@@ -107,6 +107,45 @@ def update_mount(config: dict, slot: Path) -> list[str]:
     return ["-v", f"{root}:/run-data/updates:ro"]
 
 
+def cache_mounts(slot: Path) -> list[str]:
+    """One shader and driver cache per game, shared by its two slots.
+
+    A cache holds no progression: it only saves the work of preparing a shader
+    or translating a function, which is the same in both slots. Kept apart,
+    each slot paid that work again (Smash, 2026-09-11).
+    """
+    title = slot.parent.name
+    for name, pattern in (
+        ("cache", f"*/data/games/{title}/cache"),
+        ("mesa", "*/home/.cache/mesa_shader_cache"),
+    ):
+        shared = slot.parent / name
+        if shared.exists():
+            continue
+        # The fullest slot seeds the shared cache, once, rather than the emptiest.
+        found = sorted(
+            (path for path in slot.parent.glob(pattern) if path.is_dir()),
+            key=lambda path: sum(f.stat().st_size for f in path.rglob("*") if f.is_file()),
+        )
+        pending = slot.parent / f"{name}.pending"
+        if pending.exists():
+            shutil.rmtree(pending)
+        if found:
+            shutil.copytree(found[-1], pending)
+        else:
+            pending.mkdir(parents=True)
+        pending.rename(shared)
+    # Docker would create a missing mount point as root inside the slot.
+    for inside in (slot / "data/games" / title / "cache", slot / "home/.cache/mesa_shader_cache"):
+        inside.mkdir(parents=True, exist_ok=True)
+    return [
+        "-v",
+        f"{slot.parent / 'cache'}:/run-data/data/games/{title}/cache",
+        "-v",
+        f"{slot.parent / 'mesa'}:/run-data/home/.cache/mesa_shader_cache",
+    ]
+
+
 def pad_command(image: str, pads: Path, helper: str, label: str) -> list[str]:
     """Use the same confinement for the live helper and its real rumble test."""
     uid, gid = str(os.getuid()), str(os.getgid())
@@ -235,6 +274,7 @@ def serve(config: dict, rom: Path, slot: Path, pads: Path) -> None:
             f"{rom}:/game/input{rom.suffix}:ro",
         ]
         args.extend(updates)
+        args.extend(cache_mounts(slot))
         for device in devices:
             args.extend(["--device", device])
         args.extend(

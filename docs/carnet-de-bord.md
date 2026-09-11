@@ -12691,6 +12691,90 @@ ligne dit quel profil est en service, ou que les réglages ont été modifiés s
 être enregistrés. Le bouton « Configuration d’origine » faisait la même chose que
 charger le profil par défaut ; il disparaît.
 
+### Le 11 septembre, Mario Kart 8 Deluxe et Mario Party Superstars rejoignent la salle
+
+Souhib avait déposé trois archives dans le dossier personnel du serveur : Mario
+Kart 8 Deluxe sans mise à jour, Mario Party Superstars et sa mise à jour 1.1.1.
+Avant les jeux, deux incidents de machine ont coûté la matinée.
+
+**systemd bloqué.** À 6 h 02, les mises à jour automatiques d'Ubuntu ont
+demandé à systemd de se relancer lui-même. systemd est le premier programme de
+la machine, PID 1, celui qui démarre et relance les services. Il est resté
+bloqué dans cette relance, et plus aucun `systemctl restart` n'aboutissait.
+J'ai alors arrêté le worker à la main, en comptant sur systemd pour le relancer
+comme d'habitude. Il ne l'a pas fait : la salle est restée hors ligne jusqu'au
+redémarrage de la machine par Souhib, à 9 h 18. La leçon : quand `systemctl`
+ne répond plus, `systemctl is-system-running` le dit en une commande, et il ne
+faut jamais arrêter un service qu'on ne peut plus relancer. Au démarrage
+suivant, le montage du NAS a échoué faute de réponse à temps. C'est sans lien
+avec la salle, mais c'est pour ça que systemd se dit « degraded ».
+
+**`/tmp` vidé.** Le redémarrage efface `/tmp`. Le moteur installé et les
+sauvegardes n'y étaient pas, mais le laboratoire de construction de Ryubing
+(SDK .NET et sources) et le lanceur d'essai d'un vrai jeu y vivaient. Ce
+lanceur est désormais dans le dépôt : `spikes/switch-room/latence/jeu.py`.
+
+**L'extraction.** L'outil d'archives présent, unar, échouait sur les deux jeux
+de base. Pour Mario Party, il annonçait une taille de −1 370 346 560 octets
+au lieu de 2 924 620 736 : la vraie taille relue
+comme un nombre signé de 32 bits, qui déborde passé 2 Go. La mise à jour de
+131 Mo passait, les jeux de base non. Souhib a installé unrar, qui extrait et
+vérifie les deux fichiers.
+
+**Les essais.** Chaque jeu tourne dans une sonde : le même adaptateur, le même
+moteur et les mêmes manettes virtuelles que la salle, mais des conteneurs, des
+places et une sauvegarde à part. La salle en ligne n'a pas été touchée.
+
+Mario Party Superstars démarre en version 1.1.1, avec le son. À l'écran
+« How many people will play? », le jeu montre une manette par place occupée :
+une seule avec une place, deux avec deux places. Avec deux places tenues sans
+interruption, le choix de deux joueurs passe, puis Offline Play commence par la
+présentation de Kamek, sans nouvelle demande de manettes. Il faut savoir que le
+jeu associe chaque joueur à un profil de la console : Ryubing n'en a qu'un,
+RyuPlayer. Le joueur 2 sort de cette étape avec Y (Cancel) plutôt qu'avec A. Un
+plateau complet à deux n'a pas été joué.
+
+Mario Kart 8 Deluxe démarre en version 1.0.0, avec le son : 8 secondes relevées
+à l'écran titre, crête à 7 568, aucun échantillon nul. Au premier lancement, il
+demande de choisir un Mii, l'avatar des consoles Nintendo. Avec deux places
+tenues, le menu Multiplayer propose 2 joueurs, et le jeu passe au menu de
+l'écran partagé : Grand Prix, VS Race et Battle, sans Time Trials, qui se joue
+seul. Il n'appelle pas l'écran de choix des manettes. Aucune course à deux n'a
+été courue. Un seul avertissement dans son journal : une attente GPU de plus
+d'une seconde, pendant la démonstration qui suit l'écran titre.
+
+**Un piège de l'essai, pas de la salle.** Au moment où la place 2 se vidait,
+Mario Party a redemandé deux manettes et en a reçu une
+(`ControllerApplet Arg 2 2`, puis `ReturnResult 1`). J'ai d'abord cru que la
+place arrivait en retard. Chronométrée, elle arrive dans le fichier des places
+0,22 s après la connexion, et le moteur suit à 0,25 s près. Le vrai coupable
+était mon outil : chaque commande ouvrait ses propres connexions et les fermait
+en partant. Entre deux commandes, la place 2 restait vide plus de 5 s, le délai
+de grâce était dépassé et la manette se débranchait. Mario Party réagit alors
+comme sur une vraie console : une manette débranchée pendant la préparation
+rouvre l'écran des manettes. Un pilote qui garde les places ouvertes du début à
+la fin de l'essai fait disparaître le problème. Pour un joueur réel, dont la page
+reste ouverte, rien ne se débranche. Cela confirme aussi qu'un joueur qui quitte
+une partie de Mario Party en cours déclenche cet écran chez les autres.
+
+Un deuxième lancement de la même sonde a échoué : Docker ne trouvait pas
+`/dev/input/event8`. L'adaptateur attend le fichier `devices.json` que le
+programme des manettes écrit au démarrage. Or le dossier de la sonde contenait
+encore celui de l'essai précédent, qui désignait des manettes disparues.
+L'adaptateur n'a donc pas attendu. La salle n'est pas concernée : le worker
+crée un dossier neuf, au nom aléatoire, pour chaque salle. `jeu.py` et `sonde.py`
+repartent maintenant eux aussi d'un dossier vide.
+
+**L'inscription.** Les deux fichiers de jeu sont rangés dans `~/roms/switch`
+sous leur nom propre. Chacun a sa fiche `.nel3ab.json` (titre de base, nom,
+éditeur, description, version) et la jaquette 640 × 360 de sa page Nintendo, avec
+son adresse, sa taille et son empreinte. Les deux emplacements de sauvegarde de
+Mario Party sont créés depuis le modèle, avec la mise à jour 1.1.1 choisie. Comme
+pour Looney Tunes, aucune progression complète n'a été fournie : l'emplacement
+« débloquée » commence vide. Le worker ne relit sa bibliothèque qu'à son
+démarrage, qui a lieu à chaque changement de jeu. Les deux jeux apparaissent
+donc au prochain changement de jeu dans la salle, ou au prochain redémarrage.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une
@@ -12700,6 +12784,9 @@ il lui faut l'image clé qui l'ouvre.
 **.NET** : la plateforme de Microsoft sur laquelle Ryubing est écrit, en C#. Le
 SDK est l'ensemble d'outils qui compile un programme .NET ; chaque version de
 Ryubing exige la sienne.
+
+**Applet** : un petit programme de la console que les jeux appellent pour un
+écran commun à tous, comme le choix des manettes ou d'un profil.
 
 **Amont** : le dépôt d'origine d'un logiciel, là où ses auteurs continuent de
 le modifier, par opposition à la copie figée qu'un projet utilise.

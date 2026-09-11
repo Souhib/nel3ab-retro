@@ -10,7 +10,10 @@ root = pathlib.Path(os.environ.get("NEL3AB_SONDE", "/tmp/nel3ab-sonde")); root.m
 repo = pathlib.Path(__file__).resolve().parents[3]
 name, engine = sys.argv[1], sys.argv[2]
 title = "0100000000000e1b"
-pads = root / f"room-guest-{name}"; pads.mkdir(exist_ok=True)
+# Un dossier neuf à chaque lancement, comme la salle : l'adaptateur attend
+# devices.json, et celui d'un essai précédent désignait des manettes
+# disparues (Docker : /dev/input/event8 introuvable, 11 septembre 2026).
+pads = root / f"room-guest-{name}"; shutil.rmtree(pads, ignore_errors=True); pads.mkdir()
 game = root / f"guest-{name}"; game.mkdir(exist_ok=True)
 shutil.copyfile(repo / "spikes/switch-room/guest/nel3ab-probe.nro", game / "nel3ab-probe.nro")
 config = json.loads(pathlib.Path(os.environ["NEL3AB_SWITCH_CONFIG_BASE"]).expanduser().read_text())

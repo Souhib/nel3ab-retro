@@ -53,6 +53,21 @@ configuration de la salle, mais la sonde a ses propres conteneurs, manettes et
 sauvegarde. Le son se vérifie sur la même sonde avec
 `node ../../m3-browser-drive/switch-son.mjs <url> 20 440 880`.
 
+## Essayer un vrai jeu
+
+    NEL3AB_SWITCH_CONFIG_BASE=~/.config/nel3ab/switch.json \
+      python3 jeu.py <nom> <moteur> <rom> <titre> <emplacement> <dossier d'état>
+
+`jeu.py` lance un jeu inscrit dans une sonde, comme `sonde.py` lance le
+programme de test. `<dossier d'état>` remplace le `state` de la configuration :
+l'emplacement `<dossier d'état>/<titre>/<emplacement>` doit être préparé avant,
+par `initialise` de `docker/switch-room.py`, puis son `updates.json` si le jeu a
+une mise à jour. Effacer `keep-running-jeu-<nom>` dans `NEL3AB_SONDE` l'arrête.
+
+Pour un essai à plusieurs, tenir les places pendant tout l'essai. Une place
+libérée se débranche 5 s plus tard côté jeu, et un jeu comme Mario Party
+redemande alors les manettes, ce qui fausse l'essai (11 septembre 2026).
+
 ## Mesure du 10 septembre 2026
 
 Amont `475615f` avec les trois correctifs, dix appuis, dix recollés :

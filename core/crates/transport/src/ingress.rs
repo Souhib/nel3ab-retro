@@ -88,6 +88,63 @@ impl Reaction {
     }
 }
 
+/// The seats the emulator connects a controller for, from who sits where.
+///
+/// A Switch game counts every connected controller as a player. Mario Tennis
+/// asked the controller applet for exactly two, was told four, and forced
+/// doubles (2026-09-10). A console lets people unplug the extra controllers;
+/// the room does it for them through the `seats` file that Ryubing reads
+/// (`amont/ryubing-seats.patch`).
+///
+/// A seat joins at once and leaves only after `grace`: a page that reloads
+/// takes its seat back, and a controller unplugged mid-match stops the game.
+/// With nobody seated, seat 1 stays connected, so a game never runs without a
+/// controller at all.
+#[derive(Debug)]
+pub struct Connected {
+    last_seen: Vec<Option<Instant>>,
+    grace: Duration,
+}
+impl Connected {
+    /// Nobody seen yet, for a room of `seats` seats.
+    #[must_use]
+    pub fn new(seats: usize, grace: Duration) -> Self {
+        Self {
+            last_seen: vec![None; seats],
+            grace,
+        }
+    }
+    /// The seat numbers, from 1, to connect at `now`.
+    pub fn update(&mut self, occupied: &[bool], now: Instant) -> Vec<u8> {
+        let mut connected = Vec::new();
+        for ((seen, &taken), number) in self.last_seen.iter_mut().zip(occupied).zip(1_u8..) {
+            if taken {
+                *seen = Some(now);
+            }
+            if seen.is_some_and(|at| now.saturating_duration_since(at) < self.grace) {
+                connected.push(number);
+            }
+        }
+        if connected.is_empty() {
+            connected.push(1);
+        }
+        connected
+    }
+}
+
+/// Staged then renamed, so Ryubing never reads half a list.
+fn write_seats(root: &Path, seats: &[u8]) -> io::Result<()> {
+    let text: Vec<String> = seats.iter().map(u8::to_string).collect();
+    let staged = root.join("seats.tmp");
+    std::fs::write(&staged, text.join(" ") + "\n")?;
+    std::fs::rename(staged, root.join("seats"))
+}
+
+/// How long an empty seat keeps its controller. Chosen, not measured: longer
+/// than a page reload takes to reclaim its seat on the tailnet, and short
+/// enough that a player who leaves frees the game within a few seconds.
+const SEAT_GRACE: Duration = Duration::from_secs(5);
+
 /// Private capture and controller ingress. Dropping it stops all readers;
 /// emulator lifecycle remains the caller's responsibility.
 pub struct Ingress {
@@ -150,6 +207,24 @@ impl Ingress {
                     && let Ok(seat) = nel3ab_protocol::PlayerSlot::new(bytes[0])
                 {
                     output.rumble(seat, bytes[1]);
+                }
+            }
+        });
+        let mut connected = Connected::new(server.occupied_seats().len(), SEAT_GRACE);
+        let mut written = connected.update(&server.occupied_seats(), Instant::now());
+        write_seats(root, &written)?;
+        let stopped = Arc::clone(&stopping);
+        let output = Arc::clone(&server);
+        let seats_root = root.to_path_buf();
+        thread::spawn(move || {
+            while !stopped.load(Ordering::Relaxed) {
+                thread::sleep(Duration::from_millis(100));
+                let wanted = connected.update(&output.occupied_seats(), Instant::now());
+                if wanted != written {
+                    match write_seats(&seats_root, &wanted) {
+                        Ok(()) => written = wanted,
+                        Err(error) => tracing::warn!(%error, "the seats file could not be written"),
+                    }
                 }
             }
         });
@@ -341,6 +416,79 @@ mod tests {
             reader.join().unwrap().unwrap_err().kind(),
             io::ErrorKind::InvalidData
         );
+    }
+    #[test]
+    fn a_seat_joins_at_once_and_leaves_only_after_its_grace() {
+        let start = Instant::now();
+        let grace = Duration::from_secs(5);
+        let mut connected = Connected::new(4, grace);
+        assert_eq!(
+            connected.update(&[false; 4], start),
+            vec![1],
+            "nobody seated keeps seat 1"
+        );
+        assert_eq!(
+            connected.update(&[false, true, false, false], start),
+            vec![2]
+        );
+        let reload = start + Duration::from_secs(4);
+        assert_eq!(
+            connected.update(&[false; 4], reload),
+            vec![2],
+            "a reload does not unplug"
+        );
+        let gone = start + grace + Duration::from_millis(1);
+        assert_eq!(
+            connected.update(&[false; 4], gone),
+            vec![1],
+            "a player who left is unplugged"
+        );
+        // The negative twin: a seat nobody took is never connected.
+        assert_eq!(
+            connected.update(&[true, false, true, false], gone),
+            vec![1, 3]
+        );
+    }
+    #[test]
+    fn the_emulator_reads_the_seats_the_room_holds() {
+        use tungstenite::client::IntoClientRequest as _;
+        let root = tempfile::tempdir().unwrap();
+        let owner = Arc::new(std::sync::Mutex::new(None));
+        let server = Arc::new(
+            BrowserServer::start(
+                ([127, 0, 0, 1], 0).into(),
+                "",
+                Arc::from("[]"),
+                Arc::from([]),
+                PlayerSlot::new(4).unwrap(),
+                &owner,
+            )
+            .unwrap(),
+        );
+        let address = server.address();
+        let _ingress = Ingress::bind(root.path(), Arc::clone(&server)).unwrap();
+        let seats = || std::fs::read_to_string(root.path().join("seats")).unwrap();
+        assert_eq!(
+            seats(),
+            "1\n",
+            "an empty room keeps one controller, not four"
+        );
+        let stream = std::net::TcpStream::connect(address).unwrap();
+        let (_socket, _) = tungstenite::client(
+            format!("ws://{address}/input?take=3")
+                .as_str()
+                .into_client_request()
+                .unwrap(),
+            stream,
+        )
+        .unwrap();
+        for _ in 0..40 {
+            if seats() == "3\n" {
+                return;
+            }
+            thread::sleep(Duration::from_millis(50));
+        }
+        panic!("the seats file still says {:?}", seats());
     }
     #[test]
     fn a_press_is_closed_by_the_next_picture_and_by_nothing_else() {

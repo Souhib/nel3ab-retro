@@ -126,6 +126,13 @@ dans `switch.json` : 60 par défaut, un entier de 30 à 240, refusé sinon avant
 tout démarrage. La salle est à 120 depuis le 10 septembre 2026 : l'attente du
 compositeur passe de 10,8 à 0,3 ms, et les images deviennent régulières.
 
+Seules les places occupées ont une manette branchée côté émulateur. Le worker
+écrit les places prises dans `seats`, dans le dossier privé de la salle, et
+Ryubing ne branche que celles-là (`amont/ryubing-seats.patch`). Une place
+rejoint tout de suite et ne part qu'après 5 s sans personne, pour qu'une page
+rechargée ne débranche pas sa manette en plein match. Sans personne assis, la
+manette 1 reste branchée.
+
 `hold_front_buffer` (`true` ou `false`, faux par défaut, toute autre valeur
 refusée avant tout démarrage) fait garder à l'émulateur l'image affichée
 jusqu'à la présentation de la suivante, comme une console. Sans lui, le jeu

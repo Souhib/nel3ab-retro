@@ -154,6 +154,9 @@ def engine_environment(config: dict) -> list[str]:
         "SWITCH_COMPOSITOR=sway",
         "-e",
         f"SWITCH_REFRESH_HZ={refresh}",
+        # Only the seats taken in the room get a controller (ryubing-seats.patch).
+        "-e",
+        "NEL3AB_SEATS_FILE=/pads/seats",
         *(["-e", "NEL3AB_HOLD_FRONT_BUFFER=1"] if hold else []),
     ]
 

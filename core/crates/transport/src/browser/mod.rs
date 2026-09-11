@@ -804,6 +804,11 @@ impl BrowserServer {
         )
     }
 
+    /// Which seats someone holds right now.
+    pub fn occupied_seats(&self) -> [bool; PORTS] {
+        pad::occupancy(&self.seats)
+    }
+
     /// Accepte les paramètres ensemble, seulement pour l'attribution qui décide.
     pub fn prepare_launch(
         &self,

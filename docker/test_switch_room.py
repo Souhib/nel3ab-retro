@@ -151,6 +151,10 @@ class EngineEnvironment(unittest.TestCase):
         self.assertIn("SWITCH_REFRESH_HZ=60", module.engine_environment({}))
         self.assertIn("SWITCH_REFRESH_HZ=120", module.engine_environment({"refresh_hz": 120}))
 
+    def test_the_engine_reads_which_seats_are_taken(self):
+        # The worker writes the taken seats to <pads>/seats, mounted at /pads.
+        self.assertIn("NEL3AB_SEATS_FILE=/pads/seats", module.engine_environment({}))
+
     def test_the_held_front_buffer_is_off_unless_the_room_turns_it_on(self):
         self.assertNotIn("NEL3AB_HOLD_FRONT_BUFFER=1", module.engine_environment({}))
         self.assertNotIn(

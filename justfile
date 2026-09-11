@@ -694,11 +694,12 @@ switch-controls-test:
     node spikes/switch-room/check-setup-layout.mjs
     node spikes/switch-room/check-controls.mjs
 
-# Pure adapter file operations, including save restore and refusal of live slots.
+# Pure adapter file operations, including save restore and refusal of live slots,
+# and add-on listing from NSP files built with a test key.
 switch-saves-test:
-    python3 -m unittest discover -s docker -p test_switch_room.py
-    cd control && uv run ruff check --config pyproject.toml ../docker/switch-room.py ../docker/switch-saves.py ../docker/test_switch_room.py
-    cd control && uv run ruff format --check --config pyproject.toml ../docker/switch-room.py ../docker/switch-saves.py ../docker/test_switch_room.py
+    python3 -m unittest discover -s docker -p 'test_switch_*.py'
+    cd control && uv run ruff check --config pyproject.toml ../docker/switch-room.py ../docker/switch-saves.py ../docker/switch-dlc.py ../docker/test_switch_room.py ../docker/test_switch_dlc.py
+    cd control && uv run ruff format --check --config pyproject.toml ../docker/switch-room.py ../docker/switch-saves.py ../docker/switch-dlc.py ../docker/test_switch_room.py ../docker/test_switch_dlc.py
 
 # Four isolated browsers and real GC/Wii/Switch engines. Requires the private
 # NEL3AB_TEST_SWITCH_CONFIG; optional NEL3AB_TEST_SWITCH_SAVE tests unlocked saves.

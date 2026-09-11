@@ -79,20 +79,31 @@ def main() -> None:
 
 
 def update_mount(config: dict, slot: Path) -> list[str]:
-    """Never silently run the base game when its selected update is unavailable."""
-    metadata = slot / "data/games" / slot.parent.name / "updates.json"
-    if not metadata.exists():
+    """Never silently run a game without its selected update or its add-ons.
+
+    Ryubing skips a missing add-on with a warning: Smash would start without
+    the fighters bought for it. Add-ons live in the same private folder.
+    """
+    games = slot / "data/games" / slot.parent.name
+    wanted = []
+    metadata = games / "updates.json"
+    if metadata.exists() and (selected := json.loads(metadata.read_text()).get("selected")):
+        wanted.append(selected)
+    listing = games / "dlc.json"
+    if listing.exists():
+        wanted += [container["path"] for container in json.loads(listing.read_text())]
+    if not wanted:
         return []
-    selected = json.loads(metadata.read_text()).get("selected")
-    if not selected:
-        return []
-    guest = Path(selected)
     prefix = Path("/run-data/updates")
-    if "updates" not in config or not guest.is_relative_to(prefix) or ".." in guest.parts:
-        raise ValueError("Selected Switch update requires its private updates directory")
+    if "updates" not in config:
+        raise ValueError("Selected Switch content requires its private updates directory")
     root = Path(config["updates"]).resolve()
-    if not (root / guest.relative_to(prefix)).is_file():
-        raise ValueError("Selected Switch update is missing; refusing to start the base game")
+    for selected in wanted:
+        guest = Path(selected)
+        if not guest.is_relative_to(prefix) or ".." in guest.parts:
+            raise ValueError("Selected Switch content must stay in the updates directory")
+        if not (root / guest.relative_to(prefix)).is_file():
+            raise ValueError("Selected Switch content is missing; refusing to start without it")
     return ["-v", f"{root}:/run-data/updates:ro"]
 
 

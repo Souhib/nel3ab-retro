@@ -111,6 +111,41 @@ class SaveSlots(unittest.TestCase):
             with self.assertRaises(ValueError):
                 module.update_mount(config, slot)
 
+    def test_add_on_content_must_exist_in_the_container_mount(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            slot = root / "01006a800016e000/neuve"
+            listing = slot / "data/games/01006a800016e000/dlc.json"
+            listing.parent.mkdir(parents=True)
+            updates = root / "updates"
+            (updates / "smash-dlc").mkdir(parents=True)
+            config = {"updates": str(updates)}
+
+            def lists(*paths):
+                listing.write_text(
+                    json.dumps(
+                        [
+                            {"path": path, "dlc_nca_list": [{"path": "/a.nca", "is_enabled": True}]}
+                            for path in paths
+                        ]
+                    )
+                )
+
+            lists("/run-data/updates/smash-dlc/joker.nsp")
+            with self.assertRaises(ValueError):
+                module.update_mount(config, slot)
+            (updates / "smash-dlc/joker.nsp").write_bytes(b"licence")
+            # No update selected: the add-ons alone still need the folder.
+            self.assertEqual(
+                module.update_mount(config, slot), ["-v", f"{updates}:/run-data/updates:ro"]
+            )
+            with self.assertRaises(ValueError):
+                module.update_mount({}, slot)
+            for outside in ("/run-data/updates/../joker.nsp", "/home/joker.nsp"):
+                lists("/run-data/updates/smash-dlc/joker.nsp", outside)
+                with self.assertRaises(ValueError):
+                    module.update_mount(config, slot)
+
     def test_live_slot_refuses_even_a_backup(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

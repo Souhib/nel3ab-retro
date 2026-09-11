@@ -1,6 +1,6 @@
 # Jouer à la Switch dans la salle
 
-État au **9 septembre 2026**. Les choix et leurs expériences restent dans
+État au **11 septembre 2026**. Les choix et leurs expériences restent dans
 l'[étude Switch](etude-switch-2026-09-07.md) ; les travaux communs à la salle
 sont indexés dans l'[état du projet](etat-du-projet.md).
 
@@ -34,7 +34,7 @@ Le fichier privé `~/.config/nel3ab/switch.json` désigne les chemins et valeurs
 | `engine` | Dossier contenant `publish/Ryujinx` |
 | `template` | Configuration système privée de Ryubing |
 | `state` | Racine des sauvegardes par jeu et emplacement |
-| `updates` | Dossier privé des mises à jour sélectionnées, monté en lecture seule |
+| `updates` | Dossier privé des mises à jour et contenus additionnels, monté en lecture seule |
 
 L'unité du worker fournit `NEL3AB_SWITCH_CONFIG`. Les fichiers du jeu restent
 hors du dépôt. Le catalogue n'accepte un NSP ou XCI qu'avec un fichier voisin
@@ -82,6 +82,25 @@ python3 docker/switch-saves.py ~/.config/nel3ab/switch.json 0100bde00862a000 neu
 python3 docker/switch-saves.py ~/.config/nel3ab/switch.json 0100bde00862a000 neuve restore NOM_DE_LA_COPIE
 ```
 
+Une sauvegarde complète s'importe dans `debloquee`, pour un jeu dont une
+sauvegarde a déjà été ouverte dans le jeu lui-même :
+
+```sh
+python3 docker/switch-saves.py ~/.config/nel3ab/switch.json TITRE debloquee prepare
+# lancer et fermer cet emplacement une fois, pour que le jeu crée sa sauvegarde
+python3 docker/switch-saves.py ~/.config/nel3ab/switch.json TITRE debloquee import /chemin/sauvegarde.zip \
+  --source ADRESSE --note "ce que l'auteur annonce"
+```
+
+La liste `RULES` de `docker/switch-saves.py` dit, jeu par jeu, quels fichiers
+de l'archive sont pris : des noms précis, ou tout un dossier. Un jeu absent de
+cette liste est refusé. L'outil retrouve la sauvegarde du joueur par ses
+métadonnées (`ExtraData0` : programme et type), car le modèle apporte aussi le
+conteneur de Mario Tennis dans chaque emplacement. Il refuse une archive dont un
+chemin sort de ses dossiers, borne les tailles, copie l'emplacement avant
+d'écrire, remplace entièrement les deux banques `0` et `1`, et retient l'origine,
+l'empreinte et les fichiers pris dans `import.json`.
+
 La restauration conserve aussi l'état remplacé. Ne pas supprimer les fichiers
 `ExtraData` ou les dossiers `0` et `1` : les index du système les référencent.
 La création d'un emplacement vierge conserve cette structure et vide seulement
@@ -103,12 +122,10 @@ la compatibilité observée, pas l'affirmation exhaustive « 100 % » de l'auteu
 
 ```sh
 python3 docker/switch-saves.py ~/.config/nel3ab/switch.json 0100bde00862a000 debloquee prepare
-python3 docker/switch-saves.py ~/.config/nel3ab/switch.json 0100bde00862a000 debloquee import-tennis /chemin/sauvegarde.zip
+python3 docker/switch-saves.py ~/.config/nel3ab/switch.json 0100bde00862a000 debloquee import /chemin/sauvegarde.zip
 ```
 
-L'importateur n'accepte que ces deux noms, refuse les chemins d'archive et borne
-les tailles. Une copie précède l'écriture. L'origine et l'empreinte de l'archive
-sont retenues dans `import.json` à côté de cet emplacement.
+L'importateur ne prend que ces deux noms pour ce jeu.
 
 ## Looney Tunes : Wacky World of Sports
 
@@ -133,6 +150,127 @@ Une page annonçant une sauvegarde PC du contenu additionnel ne prouve pas sa
 compatibilité avec la Switch. Aucun fichier de cette origine n'est importé.
 Les deux emplacements commencent donc sans progression ; le nom générique
 « débloquée » du menu ne signifie pas qu'un 100 % a été installé pour ce jeu.
+
+## Contenus additionnels
+
+Ryubing lit, pour chaque jeu, un fichier `data/games/<titre>/dlc.json` dans
+l'emplacement. Chaque entrée désigne un NSP et la partie de données (NCA) qu'il
+contient, avec son identifiant de titre. Les NSP vont dans un dossier du
+dossier privé `updates`, puis :
+
+```sh
+python3 docker/switch-dlc.py ~/.config/nel3ab/switch.json TITRE DOSSIER
+```
+
+L'outil lit l'en-tête de chaque NCA avec la clé d'en-tête de la console
+(`template/system/prod.keys`), au lieu de croire le nom du fichier. Il refuse un
+NSP qui n'a pas exactement une partie de données, ou dont le titre n'appartient
+pas au jeu : le titre d'un contenu additionnel est celui du jeu plus `0x1000`,
+puis son numéro. Il écrit la même liste dans les deux emplacements, qui doivent
+être fermés. Au lancement, l'adaptateur refuse de démarrer si un fichier listé
+manque : Ryubing se contenterait d'un avertissement, et Smash démarrerait sans
+ses combattants. Le journal du moteur annonce chaque contenu chargé
+(`AddAocItem: Found AddOnContent`).
+
+## Mario Kart 8 Deluxe
+
+Inscrit sous `0100152000022000`, avec la mise à jour 4.0.0 (`1441792`) et le
+Booster Course Pass (`0100152000023001`, dans `updates/mario-kart-8-deluxe-dlc`).
+Ce contenu additionnel n'est qu'une licence : les circuits sont dans la mise à
+jour. Le 11 septembre 2026, en 1.0.0, l'essai à deux joueurs allait jusqu'au
+choix de la cylindrée, sans écran de choix des manettes. Au premier lancement,
+le jeu demande un Mii.
+
+L'import ne prend que `userdata.dat`, le fichier de progression. En 1.0.0, les
+fantômes et replays d'une version plus récente faisaient planter le jeu 54 s
+après le démarrage. Dans `debloquee`, la sauvegarde « Unlocked Perfect + Wave
+1,2,3,4,5 + Amiibo » d'octobre 2023, de
+[l'index NX_Saves](https://github.com/Viren070/NX_Saves/blob/main/index.md),
+se charge en 4.0.0 : Mirror et 200cc ouverts, coupes d'or, personnages du
+Booster Course Pass, et la deuxième page de douze coupes, Golden Dash Cup
+comprise avec son trophée d'or. Les coupes de la dernière vague n'ont pas été
+regardées une par une.
+
+## Mario Party Superstars
+
+Inscrit sous `01006FE013472000`, avec la mise à jour 1.1.1 (`131072`). Le jeu
+montre une manette par place occupée. Il associe chaque joueur à un profil de la
+console, et Ryubing n'en a qu'un : pour le joueur 2, descendre sur « OK! » et
+appuyer sur A. Une place vide plus de 5 s pendant la préparation rouvre l'écran
+des manettes, comme une manette débranchée sur console. À l'inverse, choisir
+« 1 » joueur avec deux places prises peut bloquer sur « OK! » : le jeu demande
+une manette et en reçoit deux.
+
+`debloquee` contient une sauvegarde « LV99 with all pages and stickers »,
+exportée avec JKSV et partagée sur MEGA en réponse à
+[une question GameBanana](https://gamebanana.com/questions/92518) (janvier 2026).
+Le 11 septembre 2026, le panneau du joueur (X sur la place) affiche Mario Party
+niveau 99, 3 235 pièces et 86 heures de jeu. L'importateur ne prend que
+`hs_save_data`. Pages et autocollants n'ont pas été parcourus un par un. Choisir
+le tuyau du mode Mario Party sur la place lance à chaque fois son ouverture :
+ce n'est pas un retour au début de partie.
+
+## Super Mario Party Jamboree
+
+Inscrit sous `0100965017338000`, avec la mise à jour 2.3.0 (`458752`). Le
+11 septembre 2026, le jeu passe son introduction et son écran titre (L et R
+ensemble), puis le choix du personnage mène à la Party Plaza. Aucune partie à
+plusieurs n'a été jouée. Aucune sauvegarde complète vérifiable : l'index
+NX_Saves ne contient pas ce jeu. Souhib a fourni un export Checkpoint du
+23 octobre 2024 (`bqSaveData`, `bqSaveData2`) : avec lui, le choix des
+personnages en propose 22, Pauline et Ninji compris, et la place propose la
+montgolfière. Il est importé dans `debloquee`. Ce n'est pas un 100 % vérifié.
+
+## Super Smash Bros. Ultimate
+
+Inscrit sous `01006A800016E000`, avec la mise à jour 13.0.5 (`2031616`) et 99
+contenus additionnels dans `updates/super-smash-bros-ultimate-dlc`, nommés par
+leur titre. Ils comprennent les onze Challenger Packs, Piranha Plant, les
+costumes Mii et les packs d'esprits. Ce sont des licences de quelques
+kilo-octets : les combattants eux-mêmes sont dans la mise à jour. Sur une partie
+neuve, le jeu annonce Piranha Plant, Joker et les autres combattants
+additionnels, puis une centaine d'objets à valider. Le raccourci « X Skip »
+ne réagissait pas le 11 septembre : c'était l'inversion de X et Y décrite
+ci-dessous, pas le jeu.
+
+Le cache de shaders des deux emplacements part d'un cache partagé sur
+[Ryujinx-Shader-Cache](https://github.com/Lone-Wolf-Co/Ryujinx-Shader-Cache)
+(10 395 shaders, fichiers `guest` et `shared`), recompilé pour cette carte dans
+une sonde, puis complété par cinq combats. Ryubing le charge en 13 s. Les caches
+précédents sont gardés à côté, dans `cache-shader-avant-2026-09-11`. Le détail
+des mesures est dans le carnet (« les petits gels de Smash »).
+
+`debloquee` contient la sauvegarde « All Spirits July 15 2021 » de
+[l'index NX_Saves](https://github.com/Viren070/NX_Saves/blob/main/index.md),
+dossier `__user__` seulement. Le dossier `__bcat__` voisin contient les
+événements en ligne, pas la progression. Avec cette sauvegarde, l'écran des
+combattants montre les 89, contenus additionnels compris, et toutes les arènes.
+Le joueur 2 rejoint avec A. Aucun combat n'a été lancé.
+
+## X et Y
+
+Les manettes virtuelles se présentent comme des manettes Xbox 360. SDL lit
+alors le code `BTN_X` (0x133, aussi nommé `BTN_NORTH`) comme le bouton X Xbox,
+à gauche, et `BTN_Y` (0x134) comme le Y Xbox, en haut. Le profil Ryubing associe
+le X Switch au bouton du haut. `pads.py` envoie donc le X de la page sous
+`BTN_Y`. Jusqu'au 11 septembre 2026, il l'envoyait sous `BTN_NORTH`, et le X de
+la page arrivait au jeu comme Y : Mario Party ouvrait son panneau X sur Y.
+`just switch-controls-test` lit les codes du noyau, pas ce que le jeu reçoit :
+une modification de ces boutons se vérifie aussi dans un jeu qui affiche X.
+
+## Caches de shaders et de traduction
+
+Un jeu garde deux caches : celui de Ryubing (`data/games/<titre>/cache`, shaders
+traduits et fonctions traduites à l'avance) et celui du pilote graphique
+(`home/.cache/mesa_shader_cache`). Ils ne contiennent aucune progression : juste
+le travail de préparation, identique pour les deux emplacements. Ils sont donc
+partagés par jeu, dans `<state>/<titre>/cache` et `<state>/<titre>/mesa`, montés
+dans l'emplacement au lancement. Le premier lancement après cette mise en place
+recopie le plus rempli des deux emplacements, une seule fois : 442 Mo et 125 Mo
+en 2,9 s pour Smash le 11 septembre 2026.
+
+Supprimer ces dossiers ne perd aucune sauvegarde ; le jeu les refabrique en
+jouant, au prix de quelques gels le temps de recompiler.
 
 ## Vérifier une modification
 

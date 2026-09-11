@@ -12732,7 +12732,9 @@ interruption, le choix de deux joueurs passe, puis Offline Play commence par la
 présentation de Kamek, sans nouvelle demande de manettes. Il faut savoir que le
 jeu associe chaque joueur à un profil de la console : Ryubing n'en a qu'un,
 RyuPlayer. Le joueur 2 sort de cette étape avec Y (Cancel) plutôt qu'avec A. Un
-plateau complet à deux n'a pas été joué.
+plateau complet à deux n'a pas été joué. (Corrigé plus tard le même jour : Y ne
+faisait rien, X et Y étaient inversés ; c'est « bas » puis A sur « OK! » qui a
+fait passer l'étape. Voir « Le 11 septembre, le X de la page arrivait comme Y ».)
 
 Mario Kart 8 Deluxe démarre en version 1.0.0, avec le son : 8 secondes relevées
 à l'écran titre, crête à 7 568, aucun échantillon nul. Au premier lancement, il
@@ -12771,9 +12773,272 @@ sous leur nom propre. Chacun a sa fiche `.nel3ab.json` (titre de base, nom,
 son adresse, sa taille et son empreinte. Les deux emplacements de sauvegarde de
 Mario Party sont créés depuis le modèle, avec la mise à jour 1.1.1 choisie. Comme
 pour Looney Tunes, aucune progression complète n'a été fournie : l'emplacement
-« débloquée » commence vide. Le worker ne relit sa bibliothèque qu'à son
+« débloquée » commence vide (remplacé le jour même : voir l'entrée suivante, qui
+y importe des sauvegardes complètes). Le worker ne relit sa bibliothèque qu'à son
 démarrage, qui a lieu à chaque changement de jeu. Les deux jeux apparaissent
 donc au prochain changement de jeu dans la salle, ou au prochain redémarrage.
+
+### Le 11 septembre, Jamboree, Smash, ses 99 contenus additionnels et des sauvegardes complètes
+
+Souhib ajoute deux jeux dans son dossier : Super Mario Party Jamboree avec sa
+mise à jour 2.3.0, et Super Smash Bros. Ultimate avec sa mise à jour et une
+archive annoncée « 99 DLC ». DLC, *downloadable content*, désigne les contenus
+additionnels achetés à part. Il demande aussi de chercher des sauvegardes
+complètes pour les nouveaux jeux, comme celle de Mario Tennis.
+
+**Les deux jeux.** Jamboree démarre en 2.3.0, avec le son. Son introduction de
+premier lancement passe, puis l'écran titre (L et R ensemble), le choix du
+personnage et la Party Plaza. Aucune partie à plusieurs n'a été jouée. Smash
+démarre en 13.0.5. Tous deux sont inscrits avec leur jaquette Nintendo.
+
+**Les contenus additionnels.** L'archive ne pèse que 11,7 Mo pour 99 fichiers :
+ce sont des licences de quelques kilo-octets, les combattants eux-mêmes sont
+dans la mise à jour. Ryubing les lit dans un fichier `dlc.json` par jeu, qui doit
+nommer, pour chaque NSP, la partie de données (NCA) qu'il contient et son titre.
+Le nom du fichier annonce ce titre, mais un nom n'est pas une preuve. L'en-tête
+de chaque NCA est chiffré avec la clé d'en-tête de la console, en AES-XTS.
+L'outil `docker/switch-dlc.py` le déchiffre, garde la seule partie de données
+de chaque NSP et vérifie que son titre appartient au jeu : celui du jeu plus
+`0x1000`, puis un numéro. Les 99 titres lus correspondent aux 99 noms. Au
+lancement, le moteur annonce 99 fois « Found AddOnContent ». Sur une partie
+neuve, Smash annonce Piranha Plant, Joker, Terry, Steve, Kazuya et les autres,
+puis une centaine d'objets à valider un par un : X, le raccourci « Skip »
+affiché, ne les passe pas. (Ce n'était pas le jeu : voir « Le 11 septembre, le X
+de la page arrivait comme Y ».)
+
+Ryubing ignore un contenu listé mais absent, avec un simple avertissement : Smash
+démarrerait sans ses combattants. L'adaptateur de la salle refuse maintenant de
+lancer un jeu si un fichier listé dans `dlc.json` manque, comme il le faisait
+déjà pour une mise à jour choisie. Il monte aussi le dossier privé quand un jeu
+n'a que des contenus additionnels.
+
+**Les sauvegardes.** L'index communautaire NX_Saves propose Mario Kart, Mario
+Party et Smash, pas Jamboree. Les pages qui en annoncent une pour Jamboree sont
+sur GBAtemp, qui refuse les lectures automatiques (erreur 403). Chaque
+sauvegarde a d'abord été importée à la main dans une sonde, puis ouverte dans le
+jeu.
+
+- Smash, « All Spirits » de juillet 2021 : l'archive a deux dossiers,
+  `__user__` pour la progression et `__bcat__` pour les événements en ligne
+  que Nintendo pousse. Avec `__user__` seul, le jeu annonce Sora, arrivé après
+  la sauvegarde. L'écran des combattants montre ensuite les 89, contenus
+  additionnels compris, et toutes les arènes. Le joueur 2 rejoint avec A.
+- Mario Party, « All Shop Items » : le jeu garde le fichier, avec 17 octets
+  changés sur 2,6 Mo, et lance une partie sur Yoshi's Tropical Island. Mais
+  l'introduction se rejoue : la sauvegarde part d'un début de partie. La
+  boutique n'a pas été ouverte. (Faux, corrigé dans l'entrée suivante : cette
+  introduction est l'ouverture du mode Mario Party, rejouée à chaque fois qu'on
+  choisit son tuyau sur la place.)
+- Mario Kart : il n'y a pas de mise à jour, le jeu est en 1.0.0. La sauvegarde
+  « Unlocked Perfect » de 2020 le fait planter 54 s après le démarrage, par un
+  accès mémoire invalide dans son propre code. Son fichier de progression,
+  `userdata.dat`, a pourtant la taille et l'en-tête (`SUTC`) de celui que la
+  1.0.0 écrit. Les autres fichiers sont des fantômes et des replays de versions
+  plus récentes. Avec `userdata.dat` seul, pris dans une sauvegarde de 2018, le
+  jeu démarre, ne demande plus de Mii, ouvre Mirror et 200cc, et propose
+  Mario Doré et son kart doré.
+
+**Où va une sauvegarde.** Chaque emplacement contient plusieurs conteneurs de
+sauvegarde, numérotés dans l'ordre de création. Le premier est celui de Mario
+Tennis : le modèle qui sert à créer les emplacements vient de lui. Mario Kart a
+aussi une sauvegarde liée à la console, et Smash un stockage des événements en
+ligne. L'ancien importateur de Mario Tennis supposait un seul conteneur. Le
+propriétaire et le type de chacun sont écrits dans son fichier `ExtraData0` :
+le programme à l'octet 0, le type à l'octet 0x20, où 1 désigne la sauvegarde
+d'un joueur. Le décodage de ces fichiers donne la bonne réponse pour les quatre
+jeux.
+
+L'importateur devient générique : `switch-saves.py … import`. Une liste
+`RULES` dit, jeu par jeu, ce qui a été vérifié dans le jeu : des noms précis,
+trouvés une seule fois n'importe où dans l'archive, ou tout un dossier. Un jeu
+absent de la liste est refusé. Une archive dont un chemin sort de ses dossiers
+est refusée en entier, avant toute écriture. Les deux banques de la sauvegarde
+sont remplacées d'un bloc. Les limites de taille viennent de douze sauvegardes
+mesurées : 17,4 Mo par archive au plus, 5,98 Mo par fichier, 11,5 Mo et 13
+fichiers par import.
+
+Chaque défaut a été réintroduit un par un pour vérifier que les tests le voient.
+Trois tests passaient pour une mauvaise raison et ont été corrigés. Le refus
+d'un jeu non vérifié venait en fait de l'absence de conteneur dans le test. Une
+« mauvaise clé » était refusée par hasard, parce que les octets déchiffrés ne
+valaient pas le bon type. Un dossier hors des mises à jour était refusé parce
+qu'il était vide, pas parce qu'il sortait du dossier. Chacun a maintenant un
+cas qui échoue seulement si la règle manque.
+
+**Installé.** Les quatre jeux ont leurs deux emplacements, avec leur mise à jour,
+et les 99 contenus pour Smash. Les emplacements « débloquée » réels de Mario
+Kart, Mario Party et Smash ont été lancés une fois pour créer leur sauvegarde,
+puis importés par l'outil. Celui de Mario Kart a été relancé : Mario Doré y est.
+Après le redémarrage du worker, les six jeux Switch sont au catalogue.
+
+### Le 11 septembre, le X de la page arrivait comme Y
+
+Souhib fournit une sauvegarde de Jamboree et demande d'en chercher une autre pour
+Mario Party Superstars. Pour lire le niveau d'une sauvegarde, la place de Mario
+Party affiche « X Mario Party Lv. ». X ne faisait rien. Y ouvrait le panneau.
+
+La chaîne d'un bouton traverse quatre traductions. La page envoie le bit X. Le
+pont le transmet sous le nom `x` à `pads.py`, qui presse `BTN_NORTH` sur une
+manette virtuelle présentée comme une manette Xbox 360. Pour ce modèle, SDL (la
+bibliothèque de manettes de Ryubing) suit la convention du pilote Linux des
+manettes Xbox : le code 0x133 est le bouton X Xbox, celui de gauche. Or
+`BTN_NORTH` et `BTN_X` sont deux noms du même code 0x133. Enfin, le profil
+Ryubing associe le X Switch au bouton du haut, le Y Xbox. Le X de la page
+arrivait donc au jeu comme Y, et le Y comme X. A et B n'étaient pas touchés.
+
+Le test des commandes (`just switch-controls-test`) passait. Il vérifie que
+chaque bouton de la page produit le bon code dans le noyau, et il attendait
+0x133 pour X : il avait écrit la même erreur que `pads.py`. Lire le noyau ne dit
+pas ce que le jeu reçoit. Ce bug expliquait deux conclusions fausses du jour :
+« X Skip » ne réagissait pas dans Smash, et le Y de Mario Party ne faisait rien.
+Le seul essai qui tranche regarde un jeu : après la correction, X ouvre le
+panneau du niveau et Y ne fait rien sur la place.
+
+La correction envoie les codes Xbox : `BTN_Y` pour le X Switch, `BTN_X` pour le
+Y. Le test attend maintenant 308 pour X et 307 pour Y. Il a d'abord échoué sur
+le bouton 2 avec l'ancien `pads.py`, puis réussi avec le nouveau. La salle monte
+`spikes/switch-room` depuis le dépôt : la correction vaut au prochain lancement
+d'un jeu Switch. Pour une vraie manette branchée au navigateur, la page associe
+déjà le bouton de gauche au X et celui du haut au Y, comme les lettres Xbox :
+elle aussi recevait X et Y inversés dans le jeu.
+
+**Mario Party Superstars.** Une réponse de janvier 2026 à une question de
+GameBanana partage une sauvegarde « LV99 with all pages and stickers » sur MEGA.
+MEGA chiffre ses fichiers : la clé est dans le lien, après `#`, et sert à
+déchiffrer le fichier en AES-CTR. Un petit script a suffi, sans outil à
+installer, et les sommes CRC de l'archive sont bonnes. Avec elle, le panneau du
+joueur affiche Mario Party niveau 99, 3 235 pièces et 86 heures de jeu. Elle
+remplace « All Shop Items » dans l'emplacement « débloquée », après une copie.
+
+Cet essai corrige aussi une conclusion précédente : l'introduction qui « se
+rejouait » est l'ouverture du mode Mario Party. Mes appuis sur A choisissaient
+le tuyau de ce mode dès l'arrivée sur la place. Choisir « 1 » joueur avec deux
+places prises bloque parfois sur « OK! » : le jeu demande une manette et en
+reçoit deux, comme une console qui attend qu'on débranche la seconde.
+
+**Jamboree.** La sauvegarde de Souhib est un export Checkpoint du
+23 octobre 2024 : `bqSaveData` et `bqSaveData2`, les deux fichiers et la taille
+exacte de ceux que le jeu crée. La 2.3.0 la lit : le choix des personnages en
+propose 22, Pauline et Ninji compris, grisés sur une partie neuve, et la place
+propose la montgolfière. Jamboree rejoint la liste des imports vérifiés. Le test
+qui prenait Jamboree comme exemple de jeu non vérifié passait alors pour une
+autre raison : il utilise maintenant Looney Tunes.
+
+**Booster Course Pass.** Une archive de 124 Ko pour Mario Kart est aussi arrivée.
+C'est la licence du contenu additionnel ; les circuits sont dans les mises à jour
+2.0 et suivantes. Sans mise à jour du jeu, elle ne sert à rien, et elle n'est
+pas installée. (Installée plus tard le même jour avec la mise à jour 4.0.0 :
+voir l'entrée suivante.)
+
+### Le 11 septembre, Mario Kart passe en 4.0.0 avec le Booster Course Pass
+
+Souhib fournit la mise à jour `1441792` de Mario Kart 8 Deluxe, qui charge la
+version 4.0.0. L'en-tête de ses parties confirme le titre de mise à jour du jeu
+(`0100152000022800`), et celui du contenu additionnel le premier titre de sa
+famille (`0100152000023001`). `switch-dlc.py` l'a listé dans les deux
+emplacements, comme les 99 de Smash.
+
+Avec une version récente, la sauvegarde la plus complète de NX_Saves devient
+utilisable : « Unlocked Perfect + Wave 1,2,3,4,5 + Amiibo », d'octobre 2023. Son
+fichier de progression se charge sans plantage. Le jeu ne demande plus de Mii,
+ouvre Mirror et 200cc, propose les personnages du Booster Course Pass (Kamek,
+Pauline, Petey Piranha, Diddy et Funky Kong) et une deuxième page de douze
+coupes. La Golden Dash Cup y porte déjà son trophée d'or et ses trois étoiles.
+Elle remplace la sauvegarde de 2018 dans l'emplacement « débloquée », après une
+copie. L'emplacement réel a été relancé : 4.0.0, le contenu chargé, aucune
+exception. Les fantômes et replays ne sont toujours pas importés, par prudence
+et parce que la progression tient dans `userdata.dat`. Aucune course n'a été
+jouée.
+
+### Le 11 septembre, les petits gels de Smash
+
+Souhib trouve Smash fluide, avec parfois de très légers gels. Le journal de
+l'émulateur donnait deux indices : un cache de shaders vide au démarrage
+(« Loading 0 shaders »), et « Background pipeline compile missed on draw ». Un
+shader est un petit programme que la carte graphique exécute pour dessiner un
+effet ; l'émulateur doit traduire chaque shader de la Switch, puis le faire
+compiler par le pilote, la première fois qu'il apparaît.
+
+**La mesure.** Un enregistreur lit le flux comme une page et note, pour chaque
+image, l'heure d'affichage qu'elle porte et son heure d'arrivée, sur l'horloge
+monotone de la machine. Il relève aussi la taille du cache de shaders toutes les
+50 ms et chaque ligne du journal au moment où elle est écrite. Un second outil
+note le temps processeur de chacun des 127 fils de l'émulateur toutes les 100 ms.
+Sur 348 s de la partie de Souhib : 132 trous de plus de 50 ms. Les images
+arrivent 5 ms après leur affichage, et les trous sont les mêmes à la source et à
+l'arrivée : la chaîne vidéo de la salle n'y est pour rien. 49 % des trous tombent
+pendant une compilation de shader, contre 6 % d'instants calmes pris au hasard ;
+69 % pendant que l'émulateur traduit en fond du code du jeu, contre 20 %. 85 %
+des trous ont l'une ou l'autre cause à côté. L'enregistrement périodique du
+profil de traduction n'y est pour rien.
+
+Ces deux coûts sont de première fois. Ryubing garde les shaders déjà vus, et le
+PPTC garde la liste des fonctions du jeu souvent exécutées pour les traduire dès
+le démarrage suivant. Les deux caches survivent bien d'une partie à l'autre : les
+journaux de Mario Tennis montrent 707, puis 850, puis 877 shaders chargés. Mais
+Smash a des milliers d'effets, et chaque emplacement a ses propres caches.
+
+**Un cache partagé.** Le dépôt communautaire Ryujinx-Shader-Cache propose un
+cache de Smash pour les cartes AMD, marqué « en cours ». Ses 10 395 shaders
+couvrent 77 % des 2 400 que la partie de Souhib a compilés. Sa partie propre au
+traducteur date d'une version voisine (7353 contre 7354) : Ryubing l'a refaite au
+premier démarrage d'une sonde, en 1 min 54 s, sans erreur. Au démarrage suivant,
+9 382 shaders se chargent en 13 s.
+
+**Un piège de mesure.** Le premier combat en sonde perdait 104 images sur
+100 s. Pendant ce temps, la salle faisait tourner son propre Smash au menu, qui
+prenait 1,6 à 2,2 des 6 cœurs. Worker arrêté, le même genre de combat en perd 30.
+
+**Quatre combats identiques.** Dark Samus contre Ness sur Dream Land, avec la même
+suite de commandes, en redémarrant l'émulateur entre chaque. Par minute : 3,2 s
+perdues et 19 compilations, puis 2,9 s et 2, puis 1,6 s et 0, puis 1,6 s et 0.
+Le troisième combat se passait sans la vérification d'intégrité des fichiers du
+jeu, parce que pendant les trous restants c'est un fil du jeu qui lit ses
+ressources. Le quatrième l'a réactivée et donne le même résultat : ce réglage
+n'y est pour rien, la baisse venait de l'échauffement. Il reste environ 14 petits
+trous par minute sur un combat déjà vu, surtout pendant les cinq premières
+secondes. Leur cause n'est pas établie.
+
+**Installé.** Le cache de la sonde, communautaire plus les cinq combats et déjà
+compilé pour cette carte, remplace celui des deux emplacements de Smash. Les
+anciens sont gardés à côté. Le cache du pilote Mesa y est ajouté sans rien
+écraser. L'emplacement « débloquée » garde le profil de traduction de la partie
+de Souhib ; « neuve », jamais joué, reçoit celui de la sonde. Dans la salle,
+Smash charge maintenant 9 449 shaders en 13,5 s au démarrage.
+
+Trois fois pendant ces mesures, une commande s'est arrêtée elle-même : un
+`pgrep -f` ou un `pkill -f` dont le motif figure dans la commande qui l'appelle
+se trouve lui-même. Il faut attendre ou arrêter un processus par son numéro.
+
+### Le 11 septembre au soir, un cache par jeu et le régulateur du processeur
+
+Deux pistes restaient après l'étude des gels de Smash.
+
+**Le régulateur du processeur.** Linux choisit la fréquence des cœurs selon une
+règle, le régulateur. La machine était en `schedutil`, qui monte la fréquence
+quand la charge monte, donc avec un temps de réaction. En `performance`, les
+cœurs restent au maximum. Le même combat, Dark Samus contre Ness sur Dream Land,
+perd 1,63 s puis 1,57 s par minute en `schedutil`, et 1,18 s en `performance` ;
+avec Meta Knight, 1,25 s en `performance`. Deux essais de chaque, même contenu,
+caches déjà chauds : environ un quart de temps perdu en moins, et 10 trous par
+minute au lieu de 14. Le réglage est posé pour l'instant, mais il ne survit pas
+à un redémarrage de la machine : le rendre permanent est une décision de Souhib.
+
+**Un cache par jeu.** Chaque emplacement avait ses propres caches, celui de
+Ryubing et celui du pilote graphique. Jouer en « neuve » ne servait donc pas à
+« débloquée », et les tailles le montraient : Looney Tunes avait 222 Mo d'un côté
+et 4,8 Mo de l'autre. Or ces caches ne contiennent aucune progression : ils
+gardent le travail de préparation d'un shader ou de traduction d'une fonction,
+identique pour les deux emplacements. L'adaptateur les monte désormais depuis
+`<state>/<titre>/cache` et `<state>/<titre>/mesa`. Le premier lancement recopie
+le plus rempli des deux emplacements, une seule fois, puis les deux partagent.
+Pour Smash : 442 Mo et 125 Mo recopiés en 2,9 s.
+
+Les essais couvrent le choix du plus rempli, la recopie unique et la création
+des points de montage. Ce dernier cas compte : Docker crée un point de montage
+manquant en tant que root, dans le dossier de l'emplacement. Trois défauts
+réintroduits sur quatre sont vus par les essais ; le quatrième, oublier le
+montage dans `serve`, demande un vrai Docker, comme pour les mises à jour.
 
 ## 12. Glossaire complet
 
@@ -12838,6 +13103,22 @@ copie dans un autre dossier du même disque ne le peut pas.
 **XCI** : format représentant le contenu d’une cartouche Switch.
 
 **NCA** : conteneur interne de contenu Switch. Son en-tête et ses sections peuvent demander des clés pour être lus.
+
+**Shader** : petit programme que la carte graphique exécute pour dessiner. Un émulateur traduit ceux de la console, puis le pilote les compile pour la carte : c'est lent la première fois, d'où les caches.
+
+**Régulateur (de fréquence)** : la règle que Linux suit pour choisir la fréquence des cœurs. `schedutil` la fait varier avec la charge, `performance` la garde au maximum.
+
+**JIT** : *just-in-time*, traduction du code de la console en code de la machine au moment où il s'exécute pour la première fois.
+
+**PPTC** : *Profiled Persistent Translation Cache*. Ryubing note les fonctions du jeu souvent exécutées et les traduit dès le démarrage suivant, au lieu de les traduire en pleine partie.
+
+**DLC** : *downloadable content*, contenu additionnel acheté à part d'un jeu. Sur Switch, un NSP à son propre titre, dérivé de celui du jeu.
+
+**BCAT** : service de Nintendo qui pousse des données à un jeu, comme les événements du tableau des esprits de Smash. Elles ont leur propre stockage, séparé de la progression.
+
+**AES-XTS** : mode de chiffrement par secteurs de disque. Chaque secteur est chiffré avec la même clé et son numéro ; la Switch écrit ce numéro dans l'ordre inverse du standard.
+
+**ExtraData** : fichier de métadonnées que Ryubing garde à côté de chaque sauvegarde : à quel jeu elle appartient, son type, sa taille.
 
 **uinput** : interface du noyau Linux qui permet à un programme de créer un clavier, une souris ou une manette virtuelle.
 

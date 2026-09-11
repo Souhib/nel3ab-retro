@@ -157,6 +157,9 @@ and tests must prove this while the writer remains alive and silent.
 
 Switch controller changes also run `just switch-controls-test`. It creates four
 isolated virtual devices and reads their kernel state after real browser input.
+Kernel state is not what the game receives. On 2026-09-11 the test expected the
+same wrong code as the helper, and the page's X reached every game as Y. A
+button change is also checked in a game that shows which button it read.
 Checking a serialized message alone does not prove its axis scale survives the
 bridge: on 2026-09-08 an extra multiplication saturated already 16-bit sticks.
 Its individual setup must block game input and accept the first new key after

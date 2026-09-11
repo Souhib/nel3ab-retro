@@ -12618,6 +12618,52 @@ tient 59,8 images par seconde avec deux écarts de deux images en 8 s, et le
 worker rapporte son `input_to_frame`. Ce qui n'est pas mesuré : le délai de
 l'appui à l'image dans la salle même, et une partie longue avec l'expérience.
 
+### Le 10 septembre, Mario Tennis en simple : n'offrir au jeu que les manettes des joueurs présents
+
+Souhib ne pouvait pas lancer un Free Play à deux dans Mario Tennis : même à
+deux sur le site, le jeu voyait quatre manettes. La salle branchait toujours les
+quatre manettes virtuelles, et Ryubing les présentait toutes au jeu.
+
+L'étude, dans une sonde et sur une copie de la sauvegarde. En Free Play,
+« Players: 2 » fait appeler par le jeu l'écran de choix des manettes de la
+console, l'applet (un petit programme du système que les jeux appellent). Le
+journal de Ryubing le montre : le jeu demande exactement deux joueurs, et
+l'émulateur répond quatre (`ControllerApplet Arg 2 2`, puis `ReturnResult 4`).
+Sur une console, cet écran demanderait de débrancher les manettes en trop. La
+salle passe `--ignore-controller-applet` parce qu'aucun écran ne peut s'ouvrir
+sans fenêtre : Ryubing compte donc les manettes branchées et renvoie ce compte
+tel quel. Avec quatre joueurs annoncés, Mario Tennis passe en « Doubles Only ».
+
+La correction fait ce que Souhib proposait : seules les places occupées ont
+une manette branchée côté émulateur. Le worker écrit les places prises dans un
+fichier `seats`, dans le dossier privé de la salle que le moteur voit. Un
+correctif de Ryubing, `amont/ryubing-seats.patch`, relit ce fichier quatre fois
+par seconde et ne présente au jeu que ces joueurs, comme si les autres manettes
+étaient débranchées. Une place rejoint tout de suite et ne part qu'après 5 s
+sans personne, pour qu'une page rechargée ne débranche pas sa manette en plein
+match ; cette durée est choisie, pas mesurée. Sans personne assis, la manette 1
+reste branchée, pour qu'un jeu n'ait jamais zéro manette.
+
+La première version débranchait en fermant la manette côté SDL. Au retour du
+joueur, la manette rouverte avait perdu sa vibration : « Rumble is not
+supported », puis une erreur à chaque vibration que le jeu envoyait. Aucune de
+ces erreurs n'existait dans les vingt démarrages d'avant. Une place vide garde
+désormais sa manette ouverte, mais le jeu la voit débranchée : seules les places
+occupées reçoivent l'état des manettes et les vibrations. Après une coupure et
+un retour forcés de la place 2, plus aucune erreur, et la place 2 reçoit de
+nouveau les vibrations du jeu.
+
+Avec les deux places tenues : `players 1 2 connected`, le jeu demande deux
+joueurs et reçoit deux (`ReturnResult 2`), les règles passent en « Singles
+Only », Mario et Luigi se choisissent, le salon du match affiche P1 contre P2,
+et le match se charge jusqu'à l'écran de conseils qui précède le service. Le
+match lui-même n'a pas été joué. La salle tourne sur ce moteur
+(`ryubing-1.3.3-475615f-f`) depuis minuit, et son fichier dit `1` quand
+personne n'est assis. Les
+essais : la règle des places avec des horloges fictives, un vrai serveur où une
+page prend la place 3 et où le fichier dit `3`, l'adaptateur qui passe le chemin
+du fichier, chacun rouge avant son code.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une

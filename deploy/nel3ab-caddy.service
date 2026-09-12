@@ -14,7 +14,21 @@ Environment=HOME=/home/souhib
 # appartient à l'utilisateur et n'est lisible que par lui.
 EnvironmentFile=/home/souhib/.config/nel3ab/cloudflare.env
 ExecStart=/usr/local/bin/caddy run --config /etc/caddy/Caddyfile
-ExecReload=/usr/local/bin/caddy reload --config /etc/caddy/Caddyfile --force
+# PAS d'ExecReload, et ce n'est pas un oubli.
+#
+# `caddy reload` n'envoie pas un signal: il POSTe la nouvelle configuration à
+# l'API d'administration de l'instance qui tourne, sur le port 2019. Or le
+# Caddyfile porte `admin off`, parce qu'un port d'administration ouvert est un
+# port à défendre. Le rechargement ne peut donc PAS marcher, et il ne marchait
+# pas: le 12 septembre 2026, un `systemctl reload` a échoué en silence pendant
+# que le routage restait à l'ancien, pointant vers une salle qu'on venait
+# d'arrêter. Trois adresses sur trois rendaient 502 sans que rien n'explique
+# pourquoi.
+#
+# Un redémarrage est la bonne commande ici, et son coût est une coupure de
+# moins d'une seconde: Caddy relit son fichier au démarrage.
+#
+#   sudo systemctl restart nel3ab-caddy
 # Pour se lier au port 443 sans être root.
 AmbientCapabilities=CAP_NET_BIND_SERVICE
 Restart=always

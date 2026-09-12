@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>nel3ab — les salles</title>
+<style>
+  :root {
+    --fond: #0b0b0f;
+    --carte: #16161d;
+    --trait: #2a2a36;
+    --texte: #f2f2f5;
+    --doux: #a0a0b0;
+    --vif: #7c5cff;
+    --ouverte: #4ade80;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 5vh 6vw;
+    background: var(--fond);
+    color: var(--texte);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  h1 { font-size: clamp(2rem, 5vw, 3.5rem); margin: 0 0 .2em; letter-spacing: -.02em; }
+  .sous { color: var(--doux); font-size: clamp(1rem, 2vw, 1.4rem); margin: 0 0 2em; }
+  .salles { display: grid; gap: 1.2rem; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .salle {
+    background: var(--carte);
+    border: 1px solid var(--trait);
+    border-radius: 14px;
+    padding: 1.5rem;
+    display: flex; flex-direction: column; gap: .8rem;
+  }
+  .titre { font-size: clamp(1.3rem, 2.5vw, 1.8rem); font-weight: 600; }
+  .etat { color: var(--doux); font-size: 1.05rem; display: flex; align-items: center; gap: .5rem; }
+  .point { width: .7rem; height: .7rem; border-radius: 50%; background: var(--trait); }
+  .salle[data-ouverte="oui"] .point { background: var(--ouverte); }
+  a.bouton, button {
+    font: inherit; font-size: 1.1rem; font-weight: 600;
+    min-height: 48px; padding: .7rem 1.2rem;
+    border-radius: 10px; border: 1px solid var(--trait);
+    background: #22222c; color: var(--texte);
+    text-decoration: none; text-align: center; cursor: pointer;
+  }
+  a.bouton { background: var(--vif); border-color: var(--vif); }
+  button:hover, a.bouton:hover { filter: brightness(1.15); }
+  button:disabled { opacity: .45; cursor: default; }
+  :focus-visible { outline: 3px solid var(--vif); outline-offset: 3px; }
+  .ouvrir { margin-top: 2.5rem; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+  .mot { color: var(--doux); font-size: 1.05rem; }
+  .mot[data-refus="oui"] { color: #ffb4a2; }
+</style>
+</head>
+<body>
+  <h1>nel3ab</h1>
+  <p class="sous">Choisis une salle, ou ouvre la tienne.</p>
+
+  <div class="salles" id="salles" aria-live="polite"></div>
+
+  <div class="ouvrir">
+    <button id="ouvrir" type="button">ouvrir une salle</button>
+    <span class="mot" id="mot"></span>
+  </div>
+
+<script>
+  const liste = document.getElementById("salles");
+  const mot = document.getElementById("mot");
+  const bouton = document.getElementById("ouvrir");
+
+  function dessiner(salles) {
+    liste.replaceChildren(...salles.map(salle => {
+      const carte = document.createElement("div");
+      carte.className = "salle";
+      carte.dataset.ouverte = salle.ouverte ? "oui" : "non";
+
+      const titre = document.createElement("div");
+      titre.className = "titre";
+      titre.textContent = `salle ${salle.numero}`;
+
+      const etat = document.createElement("div");
+      etat.className = "etat";
+      const point = document.createElement("span");
+      point.className = "point";
+      etat.append(point, salle.ouverte ? "ouverte" : "éteinte");
+
+      carte.append(titre, etat);
+      if (salle.ouverte) {
+        const lien = document.createElement("a");
+        lien.className = "bouton";
+        lien.href = salle.chemin;
+        lien.textContent = "rejoindre";
+        carte.append(lien);
+      }
+      return carte;
+    }));
+    // Toutes prises: le bouton ne sert plus à rien, et un bouton qui échoue
+    // toujours vaut moins qu'un bouton éteint qui dit pourquoi.
+    const pleine = salles.every(salle => salle.ouverte);
+    bouton.disabled = pleine;
+    if (pleine && !mot.dataset.refus) {
+      mot.textContent = `déjà ${salles.length} salles ouvertes, rejoins-en une`;
+    }
+  }
+
+  async function relire() {
+    try {
+      const reponse = await fetch("/api/salles", { cache: "no-store" });
+      if (reponse.ok) dessiner(await reponse.json());
+    } catch {
+      // Le salon redémarre en deux secondes: on retentera au prochain tour
+      // plutôt que d'effacer la liste sous les yeux de quelqu'un.
+    }
+  }
+
+  bouton.addEventListener("click", async () => {
+    bouton.disabled = true;
+    mot.dataset.refus = "";
+    mot.textContent = "on ouvre la salle…";
+    try {
+      const reponse = await fetch("/api/salles", { method: "POST" });
+      const dit = await reponse.json();
+      if (reponse.ok) { location.href = dit.chemin; return; }
+      mot.dataset.refus = "oui";
+      mot.textContent = dit.detail ?? "la salle n'a pas voulu s'ouvrir";
+    } catch {
+      mot.dataset.refus = "oui";
+      mot.textContent = "le salon ne répond pas";
+    }
+    bouton.disabled = false;
+    relire();
+  });
+
+  relire();
+  setInterval(relire, 5000);
+</script>
+</body>
+</html>

@@ -13410,6 +13410,47 @@ faute qui n'était pas la sienne. Restreint aux salles du pilote, il passe. La
 leçon vaut au-delà: un essai qui observe la machine entière observe aussi les
 autres essais.
 
+### La racine devient le salon, et la salle unique devient la salle 1
+
+*12 septembre 2026.*
+
+**Ce qui a changé.** `nel3ab.app` ne mène plus à une salle mais à la LISTE des
+salles. Chaque salle vit sous son adresse, `/r/1/`, et le proxy retire ce
+préfixe avant de transmettre au worker, qui n'apprend donc rien. C'est le
+changement qui rend les salles multiples possibles: tant que la racine menait à
+un worker, il fallait qu'un worker tourne pour qu'une page existe, et une
+machine où personne ne joue n'aurait rien montré du tout.
+
+La page d'accueil est servie par le salon, en HTML simple, et tout ce qu'elle
+montre elle le demande à `/api/salles` depuis le navigateur. Elle n'entre pas au
+contrat OpenAPI: une page n'est pas une ressource, et l'y inscrire ajouterait au
+client TypeScript de la salle une fonction qui rend du HTML et que personne
+n'appellerait.
+
+**La migration.** L'ancienne salle unique a été arrêtée puis retirée du
+démarrage automatique, et ses 60 Mo de session, cartes mémoire et sauvegardes
+comprises, sont devenus ceux de la salle 1. Rien n'a été perdu, et le dossier a
+été copié en préservant les liens symboliques par lesquels les sauvegardes sont
+reliées.
+
+**Le piège, et il est beau.** Installer le nouveau routage puis `systemctl
+reload nel3ab-caddy` a échoué, et pendant ce temps les trois adresses rendaient
+502: le routage servait encore l'ancien, qui pointait vers la salle qu'on venait
+d'arrêter. La cause n'était pas le fichier. `caddy reload` n'envoie pas un
+signal: il POSTe la nouvelle configuration à l'API d'administration de
+l'instance qui tourne, sur le port 2019. Or ce Caddyfile porte `admin off`,
+parce qu'un port d'administration ouvert est un port à défendre. Le
+rechargement ne pouvait donc PAS marcher, et ne marchait pas depuis le jour où
+`admin off` a été écrit: l'unité portait un `ExecReload` que personne n'avait
+jamais eu besoin d'utiliser.
+
+Il a été retiré, avec sa raison écrite noir sur blanc. La bonne commande est un
+redémarrage, et il coûte moins d'une seconde de coupure.
+
+La leçon générale: une commande d'exploitation qu'on n'a jamais lancée n'est pas
+une commande qui marche. Celle-ci attendait tranquillement le jour où quelqu'un
+en aurait vraiment besoin, c'est-à-dire le jour d'une bascule.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une

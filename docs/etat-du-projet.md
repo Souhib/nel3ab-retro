@@ -10,8 +10,16 @@ qui en résultent. Les anciens plans M1 à M3 sont des archives de conception.
 reste le moteur GameCube/Wii. Ryubing, en version amont `475615f` depuis le
 10 septembre, avec les correctifs locaux de `spikes/switch-room/amont/`, exécute
 la Switch. Le salon, les places, le chef, les profils et
-le transport vers les navigateurs sont communs. Il existe toujours une seule
-salle administrée par le projet, avec au plus quatre places de jeu.
+le transport vers les navigateurs sont communs.
+
+**Depuis le 12 septembre 2026, la machine tient trois salles.** `nel3ab.app` ne
+mène plus à une salle mais à leur liste: on en ouvre une d'un clic, et chacune
+vit sous son adresse, `/r/1/` à `/r/3/`, avec au plus quatre places de jeu. Une
+seule salle à la fois peut faire tourner un jeu Switch, parce que Ryubing coûte
+bien plus cher que Dolphin; la règle vit dans le worker, sous forme de verrou de
+fichier, parce qu'une page demande son jeu au worker sans passer par le salon.
+Une salle dont plus personne ne touche une manette pendant trente minutes
+prévient cinq minutes avant, puis ferme son jeu et se ferme.
 
 ## Ce que l'historique Git contient
 
@@ -41,7 +49,7 @@ commit ni envoi vers GitHub n'est créé par cette mise à jour documentaire.
 | Arrêt et reprise Dolphin | Arrêt coopératif, réveil avant fermeture, nettoyage de son propre orphelin avant le contrôle du tuyau audio, silence éveillé borné. | ADR D20 ; arrêt éveillé/en pause, producteur muet et conteneur orphelin reproduits dans une salle séparée. |
 | Vidéo et son | Premier décodeur muet surveillé, capacité du demi-format relue, recadrage H.264 compatible avec le demi-format Wii, estimation son/image fondée sur les horaires complets. | Carnet du 7 septembre ; tests de décodeur, conversion GPU et décodage des bords. L'estimation n'est pas une mesure physique chez le joueur. |
 | Clips | Vidéo et son sont conservés ensemble ; l'export MP4 encode une piste AAC. Le test décode un signal stéréo connu et refuse les variantes muettes. | Carnet, « Le clip avait une image et aucun son » ; `just clip-audio-test`. |
-| Accès des amis | `nel3ab.app` sur TCP 443 et la porte de secours `.ts.net:8443` sont admis par le salon. L'autorisation Tailscale manquante pour 443 a été diagnostiquée ; Souhib confirme ensuite l'accès des amis. | Carnet du 6 septembre ; exemple d'autorisation dans `deploy/tailscale-nel3ab.grant.json`. Le domaine ne rend pas la salle publique. |
+| Accès des amis | `nel3ab.app` sur TCP 443 montre la LISTE des salles depuis le 12 septembre, et la porte de secours `.ts.net:8443` est admise par le salon. L'autorisation Tailscale manquante pour 443 a été diagnostiquée ; Souhib confirme ensuite l'accès des amis. | Carnet du 6 septembre ; exemple d'autorisation dans `deploy/tailscale-nel3ab.grant.json`. Le domaine ne rend pas la salle publique. |
 | Switch | Manette Pro par place, préparation et profils personnels, plein/demi-format, capture récupérable, son et clips, sauvegardes distinctes par titre. Une livraison de vibration refusée laisse les quatre manettes répondre. | [Utilisation et sauvegardes Switch](switch-room.md), [étude et mesures](etude-switch-2026-09-07.md), carnet des 8 et 9 septembre. |
 
 La connexion au réseau privé reste nécessaire. L'identité vient de Tailscale,

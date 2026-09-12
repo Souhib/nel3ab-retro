@@ -94,12 +94,51 @@ nel3ab.app {
 		}
 	}
 
-	# Et tout le reste au worker: la page, l'image, le son, les manettes, le clip.
+	# Chaque salle sous son propre chemin, et son port qui va avec.
+	#
+	# `handle_path` RETIRE le préfixe avant de transmettre, si bien que le worker
+	# reçoit `/`, `/roms`, `/video` comme avant et n'apprend rien de tout ceci.
+	# C'est la page qui sait sous quel préfixe elle vit, et elle le lit plutôt que
+	# de le deviner. Voir `front/src/lib/base.ts`.
+	#
+	# La redirection vers la barre finale compte: sans elle, `/r/1` ferait
+	# calculer le dossier parent à la page, donc `/roms` au lieu de `/r/1/roms`,
+	# c'est-à-dire le salon. La page survit à son absence, mais la barre évite un
+	# aller-retour à chaque arrivée.
+	#
+	# Les ports suivent le numéro de salle, comme dans le modèle d'unité: 8110
+	# pour la salle 1, 8120 pour la deuxième, 8130 pour la troisième. Trois
+	# salles, décidé le 12 septembre 2026, dont une seule peut jouer à la Switch.
 	#
 	# L'en-tête `Host` d'origine est conservé par défaut, et il faut qu'il le
 	# reste: le worker refuse une poignée de main WebSocket dont l'`Origin` ne
 	# correspond pas au `Host`, et le réécrire ferait tomber le jeu entier.
+	redir /r/1 /r/1/
+	handle_path /r/1/* {
+		reverse_proxy 127.0.0.1:8110
+	}
+	redir /r/2 /r/2/
+	handle_path /r/2/* {
+		reverse_proxy 127.0.0.1:8120
+	}
+	redir /r/3 /r/3/
+	handle_path /r/3/* {
+		reverse_proxy 127.0.0.1:8130
+	}
+
+	# Et la racine au salon, qui montre la liste des salles.
+	#
+	# C'est le changement qui rend les salles multiples possibles: tant que la
+	# racine menait à un worker, il fallait qu'un worker tourne pour qu'une page
+	# existe, et une machine sans salle ouverte n'aurait rien montré du tout.
+	#
+	# Les en-têtes d'IDENTITÉ sont retirés ici aussi, et pour la même raison que
+	# plus haut: sur cette porte, Caddy ne les écrit pas, donc il relaierait ce
+	# qu'un client y met.
 	handle {
-		reverse_proxy 127.0.0.1:8100
+		reverse_proxy 127.0.0.1:8200 {
+			header_up -Tailscale-User-Login
+			header_up -Tailscale-User-Name
+		}
 	}
 }

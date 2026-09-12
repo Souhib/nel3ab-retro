@@ -96,6 +96,31 @@ combat en sonde perdait trois fois plus d'images. Pour attendre la fin d'un
 enregistrement, attendre son numéro de processus : un `pgrep -f` dont le motif
 figure dans la commande qui l'appelle se trouve lui-même, et ne finit jamais.
 
+## Savoir qui perd une image
+
+Avec un moteur construit par `../amont/build.sh` en mode sonde, chaque étape est
+datée : `NEL3AB_QUEUE` (le jeu remet l'image), `NEL3AB_ACQUIRE` (le compositeur
+émulé la prend), `NEL3AB_RENDER` et `NEL3AB_READY` (le dessin), `NEL3AB_PRESENT`
+(remise à la machine), plus `NEL3AB_SKIP` (le compositeur n'a rien trouvé, avec
+le statut et le nombre d'images en file), `NEL3AB_DEQWAIT` (le jeu attend un
+tampon libre) et `NEL3AB_JIT` (une traduction de code de plus d'une milliseconde,
+faite sur le fil du jeu). Ces marqueurs partent sur la sortie d'erreur, donc dans
+`docker logs`, avec une heure en nanosecondes sur la même horloge monotone que le
+champ `pts` des images.
+
+    docker logs -f nel3ab-switch-room-jeu-<nom> > moteur.log 2>&1 &
+    node gels.mjs <url> <emplacement> 200 gels.jsonl
+    python3 partition.py gels.jsonl moteur.log   # quelle étape a perdu l'image
+    python3 jit.py gels.jsonl moteur.log         # la part de traduction dans chaque trou
+    python3 attente.py <pid> 200 attente.jsonl   # calcul contre attente, par fil
+    python3 systeme.py <pid> 200 systeme.jsonl   # lectures, défauts de page, pression, GPU
+
+`attente.py` demande `kernel.sched_schedstats=1` pour que le temps d'attente en
+file du répartiteur soit compté ; le remettre à 0 après la mesure. Les marqueurs
+coûtent : 2,4 à 2,7 trous par minute avec, 1,6 sans (12 septembre 2026), donc
+comparer des conditions entre elles, jamais un chiffre absolu à une mesure sans
+marqueurs.
+
 ## Mesure du 10 septembre 2026
 
 Amont `475615f` avec les trois correctifs, dix appuis, dix recollés :

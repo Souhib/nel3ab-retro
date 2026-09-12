@@ -23,6 +23,7 @@ from nel3ab_control.api.ws import socketio_app
 from nel3ab_control.api.ws.server import allow_origins, follow_seats
 from nel3ab_control.journal import Journal
 from nel3ab_control.settings import Settings
+from nel3ab_control.worker import read_seats
 
 
 @asynccontextmanager
@@ -37,9 +38,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         # exactement ce qui a fait rendre 503 à tout le salon après la bascule.
         app.state.salons = Salons(settings, client)
         app.state.rooms = app.state.salons.pour(1)
-        # Les salles de la machine. Sans client HTTP: elle interroge systemd,
-        # pas les workers, et ce qu'elle sait doit survivre à un worker mort.
-        app.state.salles = SallesController(settings, client=client)
+        # Les salles de la machine. Elle interroge systemd pour savoir qui
+        # tourne, et les workers pour le jeu et les places. Tout ce qu'elle tient
+        # d'un worker reste FACULTATIF: une salle qui se tait est décrite sans
+        # ces détails, jamais retirée de la liste ni remontée en erreur.
+        app.state.salles = SallesController(settings, client=client, lire_places=read_seats)
         app.state.people = PeopleController(settings.state_file)
         app.state.bindings = BindingsController(settings.bindings_file)
         app.state.room_bindings = RoomBindingsController(settings.room_bindings_file)

@@ -46,6 +46,28 @@ try {
         assert.ok(carte.texte.includes(salle.jeu),
           `la carte ne dit pas le jeu en cours: ${carte.texte}`);
       }
+
+      // Deux champs qui ont le DROIT de ne rien valoir, et dont le rien ne
+      // doit rien écrire. Une carte qui annonce « 4 MANETTES LIBRES » sur une
+      // salle dont le worker s'est tu y envoie du monde pour rien; une qui
+      // annonce « DEPUIS 0 MIN » fait passer une absence pour une mesure. Les
+      // deux branches sont vérifiées, sinon la moitié muette ne prouve rien.
+      if (salle.ouverte_depuis == null) {
+        assert.doesNotMatch(carte.texte, /EN ANTENNE/,
+          `la carte invente une ancienneté que le salon ne donne pas: ${carte.texte}`);
+      } else {
+        assert.match(carte.texte, /EN ANTENNE DEPUIS (?:MOINS DE 1 MIN|\d+ MIN|\d+H\d\d)/,
+          `la carte ne dit pas depuis quand la salle tourne: ${carte.texte}`);
+      }
+      if (salle.places == null) {
+        assert.doesNotMatch(carte.texte, /MANETTE/,
+          `la carte invente des places libres: ${carte.texte}`);
+      } else {
+        const pluriel = salle.places > 1 ? "S" : "";
+        const attenduPlaces = `${salle.places} MANETTE${pluriel} LIBRE${pluriel}`;
+        assert.ok(carte.texte.includes(attenduPlaces),
+          `la carte ne dit pas « ${attenduPlaces} »: ${carte.texte}`);
+      }
     }
   }
 
@@ -86,6 +108,10 @@ try {
   assert.ok(await normal.$eval("#retour", element => element.hidden),
     "le bandeau de retour s'affiche alors que personne ne revient d'une fermeture");
 
+  const ancienne = ouvertes.filter(s => s.ouverte_depuis != null).length;
+  const comptees = ouvertes.filter(s => s.places != null).length;
+  console.log(`${ancienne}/${ouvertes.length} salle(s) disent depuis quand elles tournent, `
+    + `${comptees}/${ouvertes.length} disent leurs manettes libres`);
   console.log(`l'accueil montre ${cartes.length} salle(s) ouverte(s) sur ${attendu.length} `
     + `emplacements, le bouton dit « ${bouton.texte} », et le retour d'une salle `
     + "fermée s'annonce puis se ferme d'un clic");

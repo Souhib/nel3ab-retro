@@ -83,7 +83,7 @@ if (said.half === false) {
 // Le pilote CHANGE le jeu de la salle par le fichier de choix, pas par
 // l'interface: ce qu'on éprouve ici est la traversée d'un redémarrage, pas le
 // droit de décider.
-const roms = JSON.parse(execFileSync("curl", ["-s", "http://127.0.0.1:8100/roms"]).toString());
+const roms = JSON.parse(execFileSync("curl", ["-s", "http://127.0.0.1:8110/roms"]).toString());
 const wii = roms.roms.find((r) => r.console === "wii");
 const was = roms.roms[roms.current];
 if (wii && said.half === true) {

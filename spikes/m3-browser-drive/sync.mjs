@@ -3,7 +3,7 @@ import { enterRoom, seedName } from "./open.mjs";
 const browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox", "--autoplay-policy=no-user-gesture-required"] });
 const page = await browser.newPage();
 await seedName(page);
-await page.goto(process.argv[2] ?? "http://localhost:8100/", { waitUntil: "domcontentloaded" });
+await page.goto(process.argv[2] ?? "http://localhost:8110/", { waitUntil: "domcontentloaded" });
 await enterRoom(page);
 await new Promise((r) => setTimeout(r, 3000));
 await page.click("#sound");

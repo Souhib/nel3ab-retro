@@ -7,7 +7,7 @@
 import puppeteer from "puppeteer";
 import { enterRoom, seedName } from "./open.mjs";
 
-const url = process.argv[2] ?? "http://localhost:8100/";
+const url = process.argv[2] ?? "http://localhost:8110/";
 const seconds = Number(process.argv[3] ?? 60);
 
 const browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox"] });

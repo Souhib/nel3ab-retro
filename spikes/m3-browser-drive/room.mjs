@@ -3,7 +3,7 @@
 import puppeteer from "puppeteer";
 import { enterRoom, seedName } from "./open.mjs";
 
-const url = process.argv[2] ?? "http://localhost:8100/";
+const url = process.argv[2] ?? "http://localhost:8110/";
 const players = Number(process.argv[3] ?? 2);
 
 const browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox"] });

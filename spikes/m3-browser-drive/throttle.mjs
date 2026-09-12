@@ -88,7 +88,7 @@ function meter(from, to, rateOf, swing) {
  * l'image. Le sens page vers serveur n'est pas bridé: une manette fait quelques
  * octets, et l'étrangler mesurerait autre chose que ce qu'on cherche.
  */
-export function throttled({ port, toPort = 8100, megabits, swing = 0 }) {
+export function throttled({ port, toPort = 8110, megabits, swing = 0 }) {
   // Le débit se change en cours de route, et c'est ce qui rend la mesure
   // honnête: la PAGE se charge à pleine vitesse, comme chez n'importe qui, et le
   // goulot ne se referme qu'ensuite. Sinon on mesure un téléchargement de

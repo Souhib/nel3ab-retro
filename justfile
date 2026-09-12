@@ -261,7 +261,7 @@ banc-visuel:
 # l'arbre de travail par Vite, celui-ci voit la page compilée dans le binaire du
 # worker. Quand les deux divergent, c'est qu'on a oublié de reconstruire.
 banc-reel:
-    cd spikes/m3-browser-drive && node banc.mjs http://localhost:8100/ /tmp/banc-reel.png
+    cd spikes/m3-browser-drive && node banc.mjs http://localhost:8110/ /tmp/banc-reel.png
 
 # Changer d'extension de Wiimote sans relancer le jeu.
 #
@@ -296,7 +296,7 @@ manette-depuis-la-page:
 # en « 1 », une sortie Sway sans taux de rafraîchissement tout en « 2 ». C'est
 # la mesure qui a trouvé le 31,5 images par seconde du 9 septembre 2026.
 switch-cadence seconds="8":
-    cd spikes/m3-browser-drive && node switch-cadence.mjs http://127.0.0.1:8100 {{seconds}} full && node switch-cadence.mjs http://127.0.0.1:8100 {{seconds}} half
+    cd spikes/m3-browser-drive && node switch-cadence.mjs http://127.0.0.1:8110 {{seconds}} full && node switch-cadence.mjs http://127.0.0.1:8110 {{seconds}} half
 
 # De l'appui à l'image sur le chemin Switch, mesuré de l'extérieur: une trame
 # entre par `/input`, et l'on chronomètre la première image qui a changé sur
@@ -311,7 +311,7 @@ switch-cadence seconds="8":
 # lancer quand personne ne joue. Le worker mesure en même temps sa propre part
 # sous « input_to_frame » dans son journal.
 switch-reaction screen="menu" trials="5" port="1":
-    cd spikes/m3-browser-drive && node switch-reaction.mjs http://127.0.0.1:8100 {{trials}} {{port}} {{screen}}
+    cd spikes/m3-browser-drive && node switch-reaction.mjs http://127.0.0.1:8110 {{trials}} {{port}} {{screen}}
 
 # La sieste, jouée en vrai: la salle s'endort, on la réveille, et on lit ce que
 # le worker en a écrit.
@@ -423,7 +423,7 @@ gpu-test:
 # Not part of `local`: it drives a real Chrome against a real session, so it is
 # the recipe to run when the page changes rather than on every commit.
 browser-recovery:
-    cd spikes/m3-browser-drive && node wedge.mjs http://localhost:8100/ 6
+    cd spikes/m3-browser-drive && node wedge.mjs http://localhost:8110/ 6
 
 # Le propriétaire de la salle: le premier arrivé, et la passation quand il part.
 #
@@ -437,7 +437,7 @@ browser-owner:
 # Manette simulée: ce qui est vérifié est le câblage entre la boucle d'entrée et
 # la croix, pas un pilote USB.
 browser-padmenu:
-    cd spikes/m3-browser-drive && node padmenu.mjs
+    cd spikes/m3-browser-drive && node padmenu.mjs http://127.0.0.1:8110/
 
 # Demander la manette de quelqu'un, et la lui voir céder ou refuser.
 #
@@ -461,7 +461,7 @@ browser-identity:
 # vraie DualSense sur le serveur pour tester l'affichage d'un nom serait un
 # montage que personne ne peut rejouer.
 browser-bindings:
-    cd spikes/m3-browser-drive && node bindings.mjs http://localhost:8100/
+    cd spikes/m3-browser-drive && node bindings.mjs http://localhost:8110/
 
 # Ce que la page rend, sur une minute, sans rien redémarrer.
 #
@@ -469,7 +469,7 @@ browser-bindings:
 # quelqu'un joue. Celui-ci n'est qu'un spectateur de plus: il mesure le côté
 # navigateur, qui est la moitié qu'un changement de page peut dégrader.
 browser-watch seconds="60":
-    cd spikes/m3-browser-drive && node watch.mjs http://localhost:8100/ {{seconds}}
+    cd spikes/m3-browser-drive && node watch.mjs http://localhost:8110/ {{seconds}}
 
 # Does the page survive being switched away from? Needs the worker RUNNING.
 # Opens a second tab to push the first one into the background, which is how a
@@ -477,7 +477,7 @@ browser-watch seconds="60":
 # asking. Watching the decoder's backlog instead would pass on a machine whose
 # decoder is fast enough to keep up with work nobody wanted — this one is.
 browser-background:
-    cd spikes/m3-browser-drive && node backgrounded.mjs http://localhost:8100/ 30
+    cd spikes/m3-browser-drive && node backgrounded.mjs http://localhost:8110/ 30
 
 # Does a controller survive its player switching away, and only that? Needs the
 # worker RUNNING. Backgrounds a real tab for longer than the ping deadline, then
@@ -485,7 +485,7 @@ browser-background:
 # can answer whether Chrome pongs while a tab is throttled, and the whole design
 # rests on it doing so.
 browser-seats:
-    cd spikes/m3-browser-drive && node seat-kept.mjs http://localhost:8100/ 25
+    cd spikes/m3-browser-drive && node seat-kept.mjs http://localhost:8110/ 25
 
 # L'accueil montre-t-il vraiment les salles ouvertes, et elles seules ?
 #
@@ -582,15 +582,15 @@ places:
 # the worker RUNNING and NOBODY else holding a port — the test says so rather
 # than passing vacuously.
 browser-claim:
-    cd spikes/m3-browser-drive && node claim.mjs http://localhost:8100/
+    cd spikes/m3-browser-drive && node claim.mjs http://localhost:8110/
 
 # Does sound come out, at the rate it was recorded at, and does the page play it?
 # Needs the worker RUNNING. The first check reads the stream the way the page
 # does and looks at the samples; the second drives the page's own playback with
 # autoplay forced on, which is the only thing it fakes.
 browser-sound:
-    cd spikes/m3-browser-drive && node sound.mjs http://localhost:8100/ 20
-    cd spikes/m3-browser-drive && node playback.mjs http://localhost:8100/ 12
+    cd spikes/m3-browser-drive && node sound.mjs http://localhost:8110/ 20
+    cd spikes/m3-browser-drive && node playback.mjs http://localhost:8110/ 12
 
 # Where the audio latency goes, poste by poste, on the client's side of the wire.
 # Needs the worker RUNNING. Give it 60 s or more: the page's lead decays one
@@ -603,17 +603,17 @@ browser-sound:
 # truth was 54 — which is why the "line the picture up with the sound" control
 # looked inert. It was compensating by the wrong number, not failing to work.
 audio-budget seconds="60":
-    cd spikes/m3-browser-drive && node audio-budget.mjs http://localhost:8100/ {{seconds}}
+    cd spikes/m3-browser-drive && node audio-budget.mjs http://localhost:8110/ {{seconds}}
 
 # The two ways of building the audio context, one after the other on the same
 # stream. Prints what each costs; whether either buzzes is a question for ears.
 browser-rates:
-    cd spikes/m3-browser-drive && node rates.mjs http://localhost:8100/
+    cd spikes/m3-browser-drive && node rates.mjs http://localhost:8110/
 
 # Does the lip-sync box move the picture when it is clicked, rather than twenty
 # seconds later? Needs the worker RUNNING.
 browser-lipsync:
-    cd spikes/m3-browser-drive && node lipsync.mjs http://localhost:8100/
+    cd spikes/m3-browser-drive && node lipsync.mjs http://localhost:8110/
 
 # Do the numbers stay beside the picture, without scrolling, at the widths people
 # actually use? Needs the worker RUNNING.
@@ -629,7 +629,7 @@ browser-library:
 # was taken from is told and left unplugged rather than quietly moved. Needs the
 # worker RUNNING and ONE free port — not an empty room.
 browser-steal:
-    cd spikes/m3-browser-drive && node steal.mjs http://localhost:8100/
+    cd spikes/m3-browser-drive && node steal.mjs http://localhost:8110/
 
 # Changing the game from the page. RESTARTS THE SESSION, which is the feature,
 # so it must not be run while somebody is playing something they care about.
@@ -663,10 +663,10 @@ browser-contraste:
 # cohérents et montrait l'ancien jeu figé cinq secondes et demie. Aucun essai
 # unitaire ne peut voir ça, et c'est exactement pourquoi ce fichier existe.
 browser-loading:
-    cd spikes/m3-browser-drive && node loading.mjs http://localhost:8100/
+    cd spikes/m3-browser-drive && node loading.mjs http://localhost:8110/
 
 browser-games:
-    cd spikes/m3-browser-drive && node games.mjs http://localhost:8100/
+    cd spikes/m3-browser-drive && node games.mjs http://localhost:8110/
 
 # One benchmark run of the shipped chain: release worker under systemd, the real
 # Dolphin container, the real GPU, a real headless Chrome watching. RESTARTS THE

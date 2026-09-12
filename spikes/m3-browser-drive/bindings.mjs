@@ -7,7 +7,7 @@
 import puppeteer from "puppeteer";
 import { enterRoom, seedName } from "./open.mjs";
 
-const url = process.argv[2] ?? "http://localhost:8100/";
+const url = process.argv[2] ?? "http://localhost:8110/";
 const browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox"] });
 const page = await browser.newPage();
 page.on("pageerror", (e) => console.log(`[pageerror] ${e.message}`));

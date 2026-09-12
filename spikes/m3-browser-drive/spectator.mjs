@@ -11,7 +11,7 @@
 import puppeteer from "puppeteer";
 import { enterRoom, openRoom, seatOf, watchRoom } from "./open.mjs";
 
-const url = process.argv[2] ?? "http://localhost:8100/";
+const url = process.argv[2] ?? "http://localhost:8110/";
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 /** Plus long que la reconnexion polie de la page, qui est d'une demi-seconde. */
 const LONGER_THAN_A_RECONNECT = 2500;

@@ -2,12 +2,12 @@
 //
 // # Pourquoi celui-ci passe par le PROXY et pas par localhost
 //
-// Tous les autres pilotes ouvrent `http://localhost:8100/`, qui est le worker.
+// Tous les autres pilotes ouvrent `http://localhost:8110/`, qui est le worker.
 // Ça marche pour l'image, le son et les manettes, qui sont à lui. Le SALON n'est
 // pas à lui: il écoute sur 8200, et c'est le proxy Tailscale qui aiguille
 // `/socket.io` et `/api` vers lui.
 //
-// Donc un pilote qui vise 8100 ne touche jamais le salon, et un pilote qui
+// Donc un pilote qui vise le worker ne touche jamais le salon, et un pilote qui
 // vérifierait le journal depuis là verrait un fichier vide en concluant que le
 // journal ne marche pas. C'est exactement ce qui s'est produit en écrivant ce
 // fichier: le premier jet visait 8100, n'a rien trouvé, et la panne était la

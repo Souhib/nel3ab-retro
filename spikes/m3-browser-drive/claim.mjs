@@ -5,7 +5,7 @@
 // controller of the room. Only a person pressing the button may displace it.
 import puppeteer from "puppeteer";
 import { displacedOn, enterRoom, seatOf, seedName } from "./open.mjs";
-const url = process.argv[2] ?? "http://localhost:8100/";
+const url = process.argv[2] ?? "http://localhost:8110/";
 const browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox"] });
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 

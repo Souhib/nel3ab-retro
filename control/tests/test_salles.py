@@ -1,6 +1,7 @@
 """Ouvrir et fermer des salles, sans systemd."""
 
-from collections.abc import Sequence
+import time
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 import httpx
@@ -18,9 +19,17 @@ from nel3ab_control.settings import Settings
 class FauxSysteme:
     """Un systemd de papier: il note ce qu'on lui demande et répond ce qu'on veut."""
 
-    def __init__(self, allumees: Sequence[int] = (), refuse: bool = False) -> None:
+    def __init__(
+        self,
+        allumees: Sequence[int] = (),
+        refuse: bool = False,
+        depuis: Mapping[int, float] | None = None,
+    ) -> None:
         self.allumees = set(allumees)
         self.refuse = refuse
+        #: Depuis combien de SECONDES chaque salle tourne. Absente d'ici, une
+        #: salle répond comme une unité qui n'a jamais démarré.
+        self.depuis = dict(depuis or {})
         self.commandes: list[list[str]] = []
 
     async def __call__(self, commande: Sequence[str]) -> tuple[int, str]:
@@ -28,6 +37,13 @@ class FauxSysteme:
         numero = int(commande[-1].split("@")[1])
         if "is-active" in commande:
             return (0, "active") if numero in self.allumees else (3, "inactive")
+        if "show" in commande:
+            # systemd rend des MICROSECONDES d'horloge monotone prises au
+            # démarrage de l'unité, et `0` pour une unité jamais démarrée.
+            age = self.depuis.get(numero)
+            if age is None:
+                return 0, "0"
+            return 0, str(int((time.monotonic() - age) * 1_000_000))
         if self.refuse:
             return 1, "Unit not found."
         if "start" in commande:
@@ -226,3 +242,98 @@ async def test_sans_registre_la_liste_ne_dit_personne(reglages: Settings) -> Non
     salles = SallesController(reglages, FauxSysteme(allumees=[1]))
 
     assert [s.gens for s in await salles.etat()] == [[], [], []]
+
+
+#: Un reçu de place tel que le worker les écrit: 32 hexa, un tiret, un compteur.
+TENUE = "a" * 32 + "-1"
+
+
+class FauxWorker:
+    """Un worker de papier qui dit quelles manettes sont tenues."""
+
+    def __init__(self, places: list[str | None] | None) -> None:
+        self.places = places
+        self.demandes: list[str] = []
+
+    async def __call__(self, adresse: str) -> list[str | None] | None:
+        self.demandes.append(adresse)
+        return self.places
+
+
+async def test_la_liste_dit_depuis_quand_une_salle_tourne(reglages: Settings) -> None:
+    """Une carte qui ne dit pas depuis quand la salle tourne oblige à entrer pour
+    savoir si on arrive au milieu d'une partie commencée il y a deux heures."""
+    systeme = FauxSysteme(allumees=[1], depuis={1: 300.0})
+    salles = SallesController(reglages, systeme)
+
+    etat = await salles.etat()
+
+    assert etat[0].ouverte_depuis == pytest.approx(300, abs=2)
+
+
+async def test_une_salle_eteinte_n_a_pas_d_anciennete(reglages: Settings) -> None:
+    """Le jumeau négatif: une salle qui ne tourne pas ne tourne DEPUIS rien, et
+    elle ne doit pas non plus coûter une question à systemd."""
+    systeme = FauxSysteme(allumees=[1], depuis={1: 300.0})
+    salles = SallesController(reglages, systeme)
+
+    etat = await salles.etat()
+
+    assert [s.ouverte_depuis for s in etat[1:]] == [None, None]
+    interrogees = [c[-1] for c in systeme.commandes if "show" in c]
+    assert interrogees == ["nel3ab-worker@1"]
+
+
+async def test_une_unite_sans_horodatage_ne_dit_pas_zero(reglages: Settings) -> None:
+    """systemd rend `0` pour une unité qui n'a jamais démarré. Le rendre tel quel
+    afficherait « ouverte depuis 0 seconde », une absence déguisée en mesure,
+    c'est-à-dire exactement la faute que le schéma interdit."""
+    systeme = FauxSysteme(allumees=[1])
+
+    etat = await SallesController(reglages, systeme).etat()
+
+    assert etat[0].ouverte is True
+    assert etat[0].ouverte_depuis is None
+
+
+async def test_la_liste_dit_combien_de_manettes_sont_libres(reglages: Settings) -> None:
+    """L'autre moitié de « puis-je entrer »: savoir qu'il reste une manette."""
+    worker = FauxWorker([TENUE, None, None, None])
+    salles = SallesController(reglages, FauxSysteme(allumees=[1]), lire_places=worker)
+
+    etat = await salles.etat()
+
+    assert etat[0].places == 3
+    assert worker.demandes == ["127.0.0.1:8111"], "la salle 1 se contrôle sur 8111"
+
+
+async def test_un_worker_muet_ne_dit_pas_quatre_places_libres(reglages: Settings) -> None:
+    """Le jumeau: un worker qui se tait n'est pas une salle vide. Annoncer quatre
+    places libres ferait venir quatre personnes sur une salle pleine."""
+    salles = SallesController(reglages, FauxSysteme(allumees=[1]), lire_places=FauxWorker(None))
+
+    etat = await salles.etat()
+
+    assert etat[0].places is None
+
+
+async def test_une_salle_eteinte_n_est_pas_interrogee_pour_ses_places(
+    reglages: Settings,
+) -> None:
+    """Le second jumeau: attendre deux secondes la réponse d'un worker qui
+    n'existe pas retarderait la liste entière pour la salle la plus morte."""
+    worker = FauxWorker([None, None, None, None])
+    salles = SallesController(reglages, FauxSysteme(), lire_places=worker)
+
+    etat = await salles.etat()
+
+    assert worker.demandes == []
+    assert [s.places for s in etat] == [None, None, None]
+
+
+async def test_sans_lecteur_la_liste_ne_dit_pas_les_places(reglages: Settings) -> None:
+    """Le défaut est de ne PAS savoir. Brancher le vrai lecteur par défaut ferait
+    taper le worker de cette machine depuis les essais, qui écoute pour de vrai."""
+    etat = await SallesController(reglages, FauxSysteme(allumees=[1])).etat()
+
+    assert etat[0].places is None

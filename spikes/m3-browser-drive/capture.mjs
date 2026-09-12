@@ -21,11 +21,11 @@ const out = process.argv[3] ?? "/tmp/capture.h264";
  * `i_quant_offset`, un pilote qui l'ignore — la pointe redouble en silence et
  * seule cette ligne s'en aperçoit. */
 const peakUnder = Number(process.env.NEL3AB_PEAK_UNDER ?? 0);
-const url = process.argv[4] ?? "ws://localhost:8100/video";
+const url = process.argv[4] ?? "ws://localhost:8110/video";
 
 const file = fs.createWriteStream(out);
 const sizes = [];
-const socket = new WebSocket(url, { origin: "http://localhost:8100" });
+const socket = new WebSocket(url, { origin: "http://localhost:8110" });
 socket.binaryType = "arraybuffer";
 socket.on("message", (data) => {
   const bytes = new Uint8Array(data);

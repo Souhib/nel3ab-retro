@@ -14,6 +14,7 @@ Switch. La demande de trop ne fait pas la queue, elle est refusée tout de suite
 avec de quoi comprendre.
 """
 
+import time
 from collections.abc import Awaitable, Callable, Sequence
 from pathlib import Path
 
@@ -109,6 +110,11 @@ class SalleRebelle(HTTPException):
 #: Ce qui exécute une ligne de commande et rend son code et ce qu'elle a dit.
 Lanceur = Callable[[Sequence[str]], Awaitable[tuple[int, str]]]
 
+#: Ce qui demande à une salle quelles manettes sont tenues, par son adresse de
+#: contrôle. Rend un reçu par place, `None` pour une place libre, et `None` tout
+#: court quand la salle n'a rien répondu d'exploitable.
+LecteurPlaces = Callable[[str], Awaitable[list[str | None] | None]]
+
 
 async def par_le_systeme(commande: Sequence[str]) -> tuple[int, str]:
     """Le vrai lanceur. Injecté, pour que les essais n'aient pas besoin de systemd."""
@@ -125,6 +131,7 @@ class SallesController:
         settings: Settings,
         lancer: Lanceur = par_le_systeme,
         client: httpx.AsyncClient | None = None,
+        lire_places: LecteurPlaces | None = None,
     ) -> None:
         self._settings = settings
         self._lancer = lancer
@@ -132,6 +139,12 @@ class SallesController:
         #: liste dit alors seulement qui est ouverte: une salle qu'on ne peut
         #: pas interroger n'a pas de jeu CONNU, ce qui n'est pas « pas de jeu ».
         self._client = client
+        #: Pour demander à chaque salle quelles manettes sont tenues. Absent en
+        #: essai, et la liste ne dit alors rien des places. Absent PAR DÉFAUT, et
+        #: c'est le point: le vrai lecteur ouvre une connexion vers le worker de
+        #: cette machine, qui écoute pour de vrai, et un essai ne doit jamais
+        #: dépendre de lui.
+        self._lire_places = lire_places
 
     async def etat(
         self,
@@ -162,6 +175,11 @@ class SallesController:
                     # Une salle fermée n'a personne: le demander pour elle
                     # laisserait passer un fantôme si le registre traînait.
                     gens=list(present(numero)) if ouverte and present else [],
+                    # Une salle fermée ne tourne DEPUIS rien et n'a pas de
+                    # places: l'interroger ferait attendre la liste entière pour
+                    # la salle la plus morte.
+                    ouverte_depuis=await self._depuis(numero) if ouverte else None,
+                    places=await self._places(numero) if ouverte else None,
                 )
             )
         return salles
@@ -190,6 +208,61 @@ class SallesController:
             return None, False
         joue = jeux[courant]
         return joue.get("name"), joue.get("console") == "switch"
+
+    async def _depuis(self, numero: int) -> int | None:
+        """Depuis combien de secondes cette salle tourne, demandé à systemd.
+
+        L'horloge MONOTONE plutôt que l'horodatage lisible. systemd écrit aussi
+        « Sat 2026-09-12 23:19:54 UTC », qu'il faudrait analyser avec son jour,
+        son mois et son fuseau; une analyse qui se trompe de fuseau rend une
+        ancienneté fausse, pas une ancienneté absente, et une valeur fausse est
+        pire que pas de valeur. Des microsecondes depuis le démarrage de la
+        machine ne se lisent que d'une façon. Les deux ont été comparées sur
+        cette machine le 12 septembre 2026: 0,7 seconde d'écart sur 264, soit le
+        délai entre les deux questions.
+
+        L'unité est le dernier mot de la commande, comme partout dans ce fichier.
+        """
+        code, dit = await self._lancer(
+            [
+                "systemctl",
+                "show",
+                "--value",
+                "-p",
+                "ActiveEnterTimestampMonotonic",
+                unite(numero),
+            ]
+        )
+        if code != 0:
+            return None
+        try:
+            demarree = int(dit.strip())
+        except ValueError:
+            return None
+        # `0` est ce que systemd rend pour une unité qui n'a jamais démarré. Le
+        # rendre tel quel afficherait « ouverte depuis 0 seconde », c'est-à-dire
+        # une absence déguisée en mesure.
+        if demarree <= 0:
+            return None
+        age = time.monotonic() - demarree / 1_000_000
+        return int(age) if age >= 0 else None
+
+    async def _places(self, numero: int) -> int | None:
+        """Combien de manettes personne ne tient, demandé à la salle elle-même.
+
+        À elle plutôt qu'au salon, et ce n'est pas la même question: le salon
+        sait qui est CONNECTÉ, ce qui n'est pas qui tient une manette. Quelqu'un
+        qui regarde sans jouer ferait compter occupée une place qui est libre.
+
+        Une salle qui se tait rend « on ne sait pas », jamais quatre places
+        libres: c'est l'annonce qui enverrait du monde sur une salle pleine.
+        """
+        if self._lire_places is None:
+            return None
+        places = await self._lire_places(controle(numero))
+        if places is None:
+            return None
+        return sum(1 for tenue in places if tenue is None)
 
     async def ouverte(self, numero: int) -> bool:
         """Cette salle tourne-t-elle ?

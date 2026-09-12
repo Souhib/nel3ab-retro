@@ -14354,6 +14354,146 @@ ou bien il n'y en a aucune. Trancher entre les deux change le caractère du menu
 ce qui est une décision de conception et non un arbitrage technique. La fenêtre
 et la garde du pied sont conservées, le reste est écrit ici.
 
+### Le port disparu, balayé à la source, et un pilote qui n'avait jamais dit son nom
+
+Trois pilotes avaient été réparés un par un plus haut. Cette fois le balayage a
+eu lieu à la source, et le compte dit pourquoi il fallait le faire: vingt-sept
+pilotes portaient `process.argv[2] ?? "http://localhost:8100/"`, quatre autres
+portaient la même adresse morte sous une forme que cette tournure ne trouvait
+pas (`capture.mjs` en WebSocket, `formats.mjs` dans un appel à curl,
+`ui-shots.mjs` en variable d'environnement seule, `throttle.mjs` en port de
+destination), `open.mjs` servait ce port par défaut à dix-huit importateurs, et
+le justfile lui-même le passait dans quinze recettes.
+
+Après le balayage, plus aucun fichier de `spikes/m3-browser-drive` ne vise ce
+port dans son code. Ce qui en reste est de la prose qui raconte la migration, et
+une ligne de `journal.mjs` qui affirmait « tous les autres pilotes ouvrent
+8100 »: elle était devenue fausse par mon propre changement, elle est corrigée.
+
+`padmenu.mjs` méritait à lui seul le reste de l'histoire. Le port n'était que sa
+première couche. Une fois qu'il a su recevoir une adresse, il a atteint une
+vraie salle et il est mort quinze secondes plus tard sur `#enter`. La page était
+parfaitement saine: elle affichait « Qui joue ? », l'écran du nom, où `#enter`
+n'existe pas encore. Ce pilote fabrique ses pages lui-même, avec
+`browser.newPage()`, pour y injecter une fausse manette. Il ne passe donc pas
+par `openRoom`, qui est l'endroit où `seedName` est appelé, et il sautait la
+seule étape qui n'a rien à voir avec une manette. Les cinquante et un autres
+pilotes passent par l'aide, lui non.
+
+La leçon vaut au-delà du cas: une aide qui porte une étape obligatoire est une
+étape que saute quiconque contourne l'aide. Le nom est posé sur les deux pages
+du pilote, celle de la manette et celle du clavier.
+
+Réparé, il a trouvé un écart, et l'écart était dans le pilote. Il affirmait
+« B referme le menu » après avoir appuyé sur A. Mesuré contre une vraie salle:
+
+| geste | menu | entrées visibles |
+|---|---|---|
+| menu ouvert | ouvert | 3 étagères de console |
+| après A | ouvert | 8 jeux |
+| après un B | ouvert | 3 étagères |
+| après un second B | fermé | aucune |
+
+B remonte d'un niveau, puis ferme. L'attente datait d'un menu plat, d'avant les
+étagères par console, et rendait donc FAUX sur un comportement correct. Les deux
+crans sont désormais vérifiés séparément: n'en vérifier qu'un laisserait passer
+un menu qui se referme d'un coup en perdant le niveau intermédiaire. Le pilote
+passe ses treize vérifications.
+
+Le relevé des pilotes a donc été refait, et c'était le troisième. Les deux
+premiers cherchaient la chaîne `localhost:8100`. Le troisième cherchait
+`process.argv[2]`, et ratait `capture-salle.mjs`, qui lit
+`process.argv.slice(2)` et reçoit bel et bien une adresse de sa recette. Un
+détecteur qui se trompe de forme se trompe de compte. Le quatrième cherche
+`process.argv` sous toute forme, et il a été falsifié avant d'être cru: cinq
+pilotes réputés paramétrables doivent ressortir paramétrables, sinon le relevé
+ne vaut rien.
+
+Il a fallu un cinquième passage, déclenché par une capture ratée, pour voir le
+défaut du quatrième. Chercher `process.argv` n'importe où classe
+« paramétrable » un pilote qui prend bien un argument, mais pour autre chose:
+`capture-accueil.mjs` y reçoit son fichier de sortie et garde son adresse en
+dur. Un critère de capacité doit demander « un argument POUR QUOI », sinon il
+se trompe dans un sens puis dans l'autre. Quatre pilotes sont dans ce cas.
+
+Résultat au 12 septembre au soir: soixante et un pilotes ouvrent une page, dix
+n'acceptent ni argument ni variable d'environnement, et quatre de plus prennent
+un argument qui ne désigne pas l'adresse, soit quatorze dont l'adresse ne se
+change pas de l'extérieur. Mais les regarder un par un
+change la conclusion précédente, qui annonçait « onze à reprendre un par un
+contre une vraie salle ». Aucun des quatorze ne vise une salle avec une
+adresse périmée. Quatre calculent la leur depuis un port qu'ils gèrent déjà
+(`avertissement-fermeture`, `prefixe-de-salle`, `preparation-room`,
+`switch-room`), deux visent un site extérieur qui n'est pas une salle, un vise
+le salon sur 8200, qui est vivant, et les autres pilotent un aperçu Vite local
+ou reçoivent leur adresse par un autre chemin. La dette est donc bien plus petite que le
+chiffre seul ne le laissait croire, et c'est la lecture des dix, pas leur
+nombre, qui le dit.
+
+La barrière a menti une fois de plus, de la même façon que plus haut: le
+processus a rendu zéro alors que `ruff format --check` refusait deux fichiers.
+Le détail qui compte est ailleurs: la barrière s'arrête au premier échec, donc
+les quatre étapes suivantes n'avaient pas été passées, elles avaient été
+sautées. Un échec précoce ne dit rien des étapes d'après.
+
+### Les cartes du salon disent depuis quand, et combien de manettes restent
+
+C'était le dernier manque visible de la liste du salon. Deux questions qu'on se
+pose avant d'entrer: est-ce que j'arrive au milieu d'une partie commencée il y a
+deux heures, et reste-t-il une manette.
+
+L'ancienneté vient de systemd, par le même lanceur injecté que le reste, donc
+sans sudo et testable sans systemd. Il la donne sous deux formes. La première
+est lisible, « Sat 2026-09-12 23:19:54 UTC », et demande d'analyser un jour, un
+mois et un fuseau. La seconde est un nombre de microsecondes d'horloge monotone
+prises au démarrage de l'unité. La seconde a été choisie, parce qu'une analyse
+qui se trompe de fuseau rend une ancienneté FAUSSE et non une ancienneté
+absente, et qu'une valeur fausse est pire que pas de valeur. Les deux ont été
+comparées sur la machine: zéro virgule sept seconde d'écart sur deux cent
+soixante-quatre, ce qui est le délai entre les deux questions.
+
+Le piège était le zéro. systemd rend `0` pour une unité qui n'a jamais démarré.
+Le rendre tel quel afficherait « ouverte depuis 0 seconde », c'est-à-dire une
+absence déguisée en mesure, la faute que le schéma de la salle interdit par
+écrit depuis qu'elle a été commise quatre fois. Un essai le vérifie.
+
+Les places libres viennent de la salle elle-même, pas du salon. La distinction
+n'est pas théorique: le salon sait qui est CONNECTÉ, ce qui n'est pas qui tient
+une manette, et quelqu'un qui regarde sans jouer ferait compter occupée une
+place libre. « Quatre moins les présents » aurait donc été faux. Le worker rend
+quatre reçus ou rien du tout, jamais une réponse partielle, si bien que le
+compte est soit exact soit absent. Une salle qui se tait rend « on ne sait pas »
+et jamais quatre places libres, parce que c'est cette annonce-là qui enverrait
+du monde sur une salle pleine.
+
+Le lecteur de places est injecté et vaut « rien » par défaut. Ce n'est pas de la
+prudence gratuite: le vrai lecteur ouvre une connexion vers le worker de cette
+machine, qui écoute pour de vrai, et un essai qui le prendrait par défaut lirait
+la salle en train de servir quelqu'un.
+
+La police a imposé le vocabulaire. La fonte machine de cette page est un
+sous-ensemble de quarante-cinq glyphes: l'espace, les chiffres, les capitales,
+et `% - . / : · •`. Ni apostrophe, ni virgule, ni minuscule, ni chevron. « MOINS
+D'UNE MINUTE » y aurait dessiné un carré vide à la place de l'apostrophe, et un
+carré vide se lit comme une panne. Chaque chaîne affichée a été vérifiée contre
+la table des glyphes avant d'être écrite.
+
+Le premier jet arrondissait la minute vers le haut, et la capture a montré
+pourquoi c'était faux: une salle ouverte depuis une seconde y annonçait « EN
+ANTENNE DEPUIS 1 MIN ». La raison écrite ne tenait pas non plus. J'avais écarté
+« MOINS D'UNE MINUTE » pour son apostrophe et « < 1 MIN » pour son chevron, tous
+deux absents de la police, sans voir que « MOINS DE 1 MIN » ne demande que des
+capitales et un chiffre. S'ancrer sur une formulation fait conclure à
+l'impossible. La durée est maintenant tronquée et non arrondie, parce que
+« depuis » compte le temps écoulé: annoncer deux minutes au bout de quatre-vingt-
+dix secondes ferait croire à une partie plus avancée qu'elle ne l'est.
+
+Le pilote du salon vérifie les deux champs, et les deux branches de chacun: ce
+qui doit s'écrire quand la valeur existe, et ce qui ne doit RIEN écrire quand
+elle manque. Les deux assertions ont été falsifiées une par une, en cassant le
+rendu et en vérifiant qu'elles mordent avec leur propre message. Une assertion
+qu'on n'a pas vue échouer ne prouve rien.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une

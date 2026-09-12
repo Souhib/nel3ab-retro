@@ -13,7 +13,7 @@
 import puppeteer from "puppeteer";
 import { enterRoom, openRoom } from "./open.mjs";
 
-const url = process.argv[2] ?? "http://localhost:8100/";
+const url = process.argv[2] ?? "http://localhost:8110/";
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const FULL = 1216;
 const HALF = 608;

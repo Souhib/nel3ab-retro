@@ -16,7 +16,7 @@
 import puppeteer from "puppeteer";
 import { enterRoom, seedName } from "./open.mjs";
 
-const url = process.argv[2] ?? "http://localhost:8100/";
+const url = process.argv[2] ?? "http://localhost:8110/";
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 let bad = 0;
 const check = (ok, what) => {

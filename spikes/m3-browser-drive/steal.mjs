@@ -6,7 +6,7 @@
 // a different character with nothing on screen to say so.
 import puppeteer from "puppeteer";
 import { displacedOn, enterRoom, seatOf, seedName } from "./open.mjs";
-const url = process.argv[2] ?? "http://localhost:8100/";
+const url = process.argv[2] ?? "http://localhost:8110/";
 const browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox"] });
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 /** La prise est-elle armée ? Un attribut de données, pas un libellé: une prise

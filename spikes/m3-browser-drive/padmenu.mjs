@@ -4,15 +4,21 @@
 // la croix, pas un pilote USB. Et surtout: ce qu'on pousse dans le menu ne doit
 // pas descendre au jeu.
 import puppeteer from "puppeteer";
-import { enterRoom, ROOM_URL } from "./open.mjs";
+import { enterRoom, ROOM_URL, seedName } from "./open.mjs";
 
-const url = ROOM_URL;
+const url = process.argv[2] ?? ROOM_URL;
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 let bad = 0;
 const say = (ok, line) => { if (!ok) bad += 1; console.log(`  ${ok ? "ok    " : "FAUX  "} ${line}`); };
 
 const browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox"], acceptInsecureCerts: true, protocolTimeout: 30000 });
 const page = await browser.newPage();
+// Le nom AVANT tout le reste. Sans lui la page reste sur « Qui joue ? », où
+// `#enter` n'existe pas encore, et le pilote expire au bout de quinze secondes
+// sur un écran parfaitement sain. Les autres pilotes passent par `openRoom`,
+// qui pose le nom; celui-ci fabrique ses pages lui-même pour y injecter la
+// fausse manette, et sautait donc la seule étape qui ne concerne pas la manette.
+await seedName(page);
 await page.evaluateOnNewDocument(() => {
   globalThis.__pad = {
     id: "Xbox Wireless Controller (STANDARD GAMEPAD Vendor: 045e Product: 02fd)",
@@ -55,6 +61,18 @@ await wait(400);
 const third = await chosen();
 say(third !== second, `tenu, ça répète (« ${third} »)`);
 
+/** Le menu a des NIVEAUX: le rayon des jeux porte une étagère par console, et
+ * ouvrir une étagère descend d'un cran. Compter les entrées visibles est la
+ * façon la plus simple de savoir à quel niveau on se trouve. */
+const niveau = () => page.evaluate(() => ({
+  menu: document.getElementById("menu") !== null,
+  entrees: document.querySelectorAll('#menu [id^="item-"]').length,
+}));
+// La racine du rayon, avant d'y descendre. Toutes ses entrées sont des
+// étagères, donc le A qui suit en ouvre forcément une: c'est une PRÉCONDITION
+// qu'on affirme, pas une condition sur laquelle on se branche.
+const racine = (await niveau()).entrees;
+
 // Ce qu'on pousse dans le menu ne descend pas au jeu.
 const before = await page.evaluate(() => globalThis.nel3abTest.counters().attempts);
 await push(1, 1);
@@ -64,10 +82,29 @@ await push(1, 0);
 const after = await page.evaluate(() => globalThis.nel3abTest.counters().attempts);
 say(after > before, `la page continue d'envoyer pendant le menu (${after - before} trames, en neutre)`);
 
-// B revient en arrière, donc referme le menu.
+// B remonte d'UN niveau, il ne referme pas tout d'un coup.
+//
+// Mesuré le 12 septembre 2026 contre une vraie salle: menu ouvert, trois
+// étagères de console; A ouvre celle qui est choisie et fait apparaître huit
+// jeux; un premier B revient aux trois étagères; un second ferme le menu.
+//
+// L'attente d'origine réclamait la fermeture en UN seul B. Elle datait d'un
+// menu plat, d'avant les étagères, et rendait donc FAUX sur une page
+// parfaitement saine. Les deux crans sont vérifiés séparément: n'en vérifier
+// qu'un laisserait passer un menu qui se referme d'un coup en perdant le
+// niveau intermédiaire.
+const dedans = await niveau();
+say(dedans.menu && dedans.entrees > racine,
+  `A ouvre l'étagère (${racine} étagères → ${dedans.entrees} entrées)`);
 await tap(1);
 await wait(700);
-say(await page.evaluate(() => document.getElementById("menu") === null), "B referme le menu");
+const remonte = await niveau();
+say(remonte.menu && remonte.entrees === racine,
+  `un B remonte d'un cran, sans fermer (${dedans.entrees} → ${remonte.entrees})`);
+await tap(1);
+await wait(700);
+say(await page.evaluate(() => document.getElementById("menu") === null),
+  "un second B referme le menu");
 
 // ── Le clavier, sur une page SANS manette ────────────────────────────────
 //
@@ -80,6 +117,8 @@ say(await page.evaluate(() => document.getElementById("menu") === null), "B refe
 // d'entrée — et une flèche bas avançait de deux crans. Compter les crans est le
 // seul moyen de voir une addition: « ça bouge » passait très bien.
 const clavier = await browser.newPage();
+// La seconde page est une page neuve: elle a besoin du nom elle aussi.
+await seedName(clavier);
 await clavier.goto(url, { waitUntil: "domcontentloaded" });
 await enterRoom(clavier);
 await wait(6000);

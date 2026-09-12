@@ -5,7 +5,7 @@
 // thing this test fakes; everything below it is the page's own code.
 import puppeteer from "puppeteer";
 import { enterRoom, seedName } from "./open.mjs";
-const url = process.argv[2] ?? "http://localhost:8100/";
+const url = process.argv[2] ?? "http://localhost:8110/";
 const seconds = Number(process.argv[3] ?? 12);
 
 const browser = await puppeteer.launch({

@@ -5,7 +5,7 @@ const browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox", 
 const page = await browser.newPage();
 await seedName(page);
 page.on("pageerror", (e) => console.log(`[pageerror] ${e.message}`));
-await page.goto(process.argv[2] ?? "http://localhost:8100/", { waitUntil: "domcontentloaded" });
+await page.goto(process.argv[2] ?? "http://localhost:8110/", { waitUntil: "domcontentloaded" });
 await enterRoom(page);
 await new Promise((r) => setTimeout(r, 2500));
 await page.click("#sound");

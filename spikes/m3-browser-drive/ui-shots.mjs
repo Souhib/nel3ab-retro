@@ -2,7 +2,7 @@
 import puppeteer from "puppeteer";
 import { enterRoom } from "./open.mjs";
 
-const url = process.env.NEL3AB_URL ?? "http://localhost:8100/";
+const url = process.env.NEL3AB_URL ?? "http://localhost:8110/";
 const out = process.env.NEL3AB_SHOTS ?? "/tmp";
 const browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox"] });
 

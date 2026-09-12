@@ -360,6 +360,11 @@ export type Room = {
  * maintenant, et pour une autre raison: le salon ne les demande à personne, il
  * les tient lui-même, puisque c'est à lui que les pages se connectent. Ce qu'il
  * en dit est donc vrai de première main, même quand une salle ne répond plus.
+ *
+ * Deux champs entrent en pouvant valoir « rien », et c'est une exception
+ * RAISONNÉE plutôt qu'un oubli. Ce qui rendait la règle nécessaire est qu'une
+ * absence finit affichée comme un zéro. Ici l'absence ne s'affiche pas du
+ * tout: la page qui lit ces deux champs tait la ligne au lieu d'écrire 0.
  */
 export type Salle = {
     /**
@@ -398,6 +403,18 @@ export type Salle = {
      * Qui est dans la salle, par son pseudo, une fois par personne et non une fois par onglet. Vide veut dire « personne », jamais « on n'a pas pu savoir »: le salon tient lui-même cette liste. Une salle fermée n'a personne, par construction.
      */
     gens?: Array<string>;
+    /**
+     * Ouverte Depuis
+     *
+     * Depuis combien de SECONDES cette salle tourne, ou rien quand systemd ne le dit pas. Rien ne s'affiche pas: une salle « ouverte depuis 0 seconde » serait une absence déguisée en mesure.
+     */
+    ouverte_depuis?: number | null;
+    /**
+     * Places
+     *
+     * Combien de manettes personne ne tient, demandé à la salle. Rien quand elle ne répond pas, jamais quatre: annoncer libre une salle pleine y enverrait du monde pour rien. Ce n'est pas « quatre moins les présents »: on peut regarder une partie sans tenir de manette.
+     */
+    places?: number | null;
 };
 
 /**

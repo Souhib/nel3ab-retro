@@ -68,7 +68,7 @@
 //
 // Prend une place: à lancer quand personne ne joue, sur le bon écran.
 //
-//   node switch-reaction.mjs http://127.0.0.1:8100 5 1 menu
+//   node switch-reaction.mjs http://127.0.0.1:8110 5 1 menu
 import WebSocket from "ws";
 import { spawn } from "node:child_process";
 const [url, trials, port, screen] = [process.argv[2], Number(process.argv[3] ?? 5), Number(process.argv[4] ?? 1), process.argv[5] ?? "titre"];

@@ -11,7 +11,7 @@
 // prend pour un en-tête invalide. Trois relances de capture ont été provoquées
 // ainsi avant que ce pilote existe.
 //
-//   node switch-cadence.mjs http://127.0.0.1:8100 8 full
+//   node switch-cadence.mjs http://127.0.0.1:8110 8 full
 import WebSocket from "ws";
 const [url, seconds, half] = [process.argv[2], Number(process.argv[3] ?? 8), process.argv[4] === "half"];
 const ws = new WebSocket(url.replace(/^http/, "ws") + (half ? "/video?half=1" : "/video")); ws.binaryType = "nodebuffer";

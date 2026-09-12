@@ -140,6 +140,10 @@
                           font-size: clamp(18px, 1.9vw, 26px); }
   .gens { font-size: clamp(15px, 1.5vw, 20px); color: var(--craie); margin-top: .25em; }
   .gens[data-vide="oui"] { color: var(--legende); }
+  /* Depuis quand la salle est en antenne. En légende et sous les présents:
+     c'est ce qu'on lit APRÈS avoir décidé d'entrer, jamais ce qui fait entrer. */
+  .antenne { font-family: var(--machine); font-size: 12px; letter-spacing: .1em;
+    color: var(--legende); margin-top: .45em; }
 
   /* La jauge: un segment par personne présente, quatre segments.
      Elle dit COMBIEN de personnes sont là, jamais qui tient quelle
@@ -407,7 +411,9 @@
     jeu.className = "jeu";
     const gens = document.createElement("div");
     gens.className = "gens";
-    corps.append(jeu, gens);
+    const antenne = document.createElement("div");
+    antenne.className = "antenne";
+    corps.append(jeu, gens, antenne);
 
     const droite = document.createElement("div");
     const jauge = document.createElement("div");
@@ -420,6 +426,24 @@
     carte.append(numero, corps, droite);
     remplir(carte, salle);
     return carte;
+  }
+
+  /** Une durée écrite dans les 45 glyphes de la police machine.
+   *
+   * Elle ne porte ni apostrophe, ni virgule, ni minuscule, ni chevron: « MOINS
+   * D'UNE MINUTE » et « < 1 MIN » y dessineraient un carré vide, et un carré
+   * vide se lit comme une panne. « MOINS DE 1 MIN » ne demande que des
+   * capitales et un chiffre, et dit la vérité: une salle ouverte il y a une
+   * seconde ne tourne pas « depuis 1 MIN ».
+   *
+   * On tronque, on n'arrondit pas: « depuis » compte le temps ÉCOULÉ, et
+   * annoncer deux minutes au bout de quatre-vingt-dix secondes ferait croire à
+   * une partie plus avancée qu'elle ne l'est. */
+  function duree(secondes) {
+    if (secondes < 60) return "MOINS DE 1 MIN";
+    const minutes = Math.floor(secondes / 60);
+    if (minutes < 60) return `${minutes} MIN`;
+    return `${Math.floor(minutes / 60)}H${String(minutes % 60).padStart(2, "0")}`;
   }
 
   /** Ce qui CHANGE dans une carte, sans refaire la carte. */
@@ -447,6 +471,14 @@
     // La jauge dit COMBIEN de personnes sont là. Surtout pas qui tient
     // quelle manette: `/api/salles` rend une liste de pseudos sans numéro
     // de place, et prétendre le contraire serait un mensonge d'interface.
+    // Depuis quand elle tourne. La ligne DISPARAÎT quand le salon ne le sait
+    // pas: écrire « EN ANTENNE DEPUIS 0 MIN » ferait passer une absence pour
+    // une mesure, ce qui est exactement ce que le schéma refuse.
+    const antenne = noeud.querySelector(".antenne");
+    const depuis = salle.ouverte_depuis;
+    antenne.textContent = depuis == null ? "" : `EN ANTENNE DEPUIS ${duree(depuis)}`;
+    antenne.hidden = depuis == null;
+
     const cases = noeud.querySelectorAll(".jauge span");
     cases.forEach((c, i) => { c.dataset.plein = i < gens.length ? "oui" : "non"; });
     const mot = noeud.querySelector(".jauge-mot");
@@ -454,6 +486,14 @@
     // personnes, pas des manettes: le salon ne sait pas qui tient quoi.
     const bouts = [gens.length === 0 ? "PERSONNE"
       : `${gens.length} PRESENT${gens.length > 1 ? "S" : ""}`];
+    // Les manettes LIBRES, qui ne valent pas « quatre moins les présents »:
+    // on peut regarder une partie sans en tenir une. Absentes quand la salle
+    // n'a pas répondu, parce que « 4 MANETTES LIBRES » sur une salle pleine y
+    // enverrait du monde pour rien.
+    if (typeof salle.places === "number") {
+      const s = salle.places > 1 ? "S" : "";
+      bouts.push(`${salle.places} MANETTE${s} LIBRE${s}`);
+    }
     if (salle.switch) bouts.push("SWITCH");
     mot.textContent = bouts.join(" · ");
   }

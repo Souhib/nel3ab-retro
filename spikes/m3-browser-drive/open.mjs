@@ -23,7 +23,7 @@ export const BENCH_NAME = "banc";
  *   NEL3AB_URL=https://<machine>.<tailnet>.ts.net:8443/ node touch.mjs
  *   NEL3AB_LOGIN=<adresse>  pour les deux pilotes qui vérifient l'identité
  */
-export const ROOM_URL = process.env.NEL3AB_URL ?? "http://localhost:8100/";
+export const ROOM_URL = process.env.NEL3AB_URL ?? "http://localhost:8110/";
 
 /** L'adresse que le proxy est censé annoncer, pour les pilotes qui la vérifient. */
 export const ROOM_LOGIN = process.env.NEL3AB_LOGIN ?? null;

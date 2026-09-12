@@ -17,7 +17,7 @@
 // les horodatages des paquets. Le son arrive en s16le stéréo à 48 kHz, le
 // format que `capture.py` demande à parec.
 //
-//   node switch-son.mjs http://127.0.0.1:8100 10 440 880
+//   node switch-son.mjs http://127.0.0.1:8110 10 440 880
 import WebSocket from "ws";
 const [url, seconds, left, right] = [process.argv[2], Number(process.argv[3] ?? 10), Number(process.argv[4] ?? 440), Number(process.argv[5] ?? 880)];
 const RATE = 48000, SPIKE = 0.05, QUIET = 0.02, QUIET_RUN = RATE / 200;

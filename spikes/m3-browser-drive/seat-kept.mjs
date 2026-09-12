@@ -7,7 +7,7 @@ import { execSync } from "node:child_process";
 import puppeteer from "puppeteer";
 import { enterRoom, seatOf, seedName } from "./open.mjs";
 
-const url = process.argv[2] ?? "http://localhost:8100/";
+const url = process.argv[2] ?? "http://localhost:8110/";
 const away = Number(process.argv[3] ?? 25) * 1000;
 const since = new Date().toISOString();
 

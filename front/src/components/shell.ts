@@ -67,6 +67,15 @@ const KEYS: Record<string, MenuAction> = {
   ArrowUp: "up",
   ArrowDown: "down",
   Enter: "confirm",
+  // Espace vaut A, et il doit passer par ICI.
+  //
+  // Sans cette ligne, Espace n'est pas reconnu, donc il ne reçoit pas le
+  // `preventDefault` plus bas et déclenche l'activation NATIVE du bouton qui a
+  // le focus du navigateur, c'est-à-dire une entrée que la croix ne désigne
+  // pas. Sur le rayon « jeux », ça lance un jeu, et lancer un jeu arrête la
+  // partie de tout le monde. Entrée était protégé, lui, uniquement parce qu'il
+  // figure dans cette table.
+  " ": "confirm",
   Escape: "back",
 };
 

@@ -134,7 +134,6 @@ export function Home({
                   // 0,90. Une tuile non choisie se distingue par sa taille et
                   // son liseré, qui ne déteignent sur rien.
                   chosen ? "n3-breathe" : "",
-                  item.disabled && DIM,
                 )}
                 style={{
                   width: TILE_WIDTH,
@@ -159,7 +158,12 @@ export function Home({
                     <span className="flex h-12 w-12 items-center justify-center [&>svg]:h-full [&>svg]:w-full">
                       {item.icon}
                     </span>
-                    <span className="text-center text-[14px] leading-snug">{item.label}</span>
+                    <span
+                      className="text-center text-[14px] leading-snug"
+                      style={{ color: item.disabled ? "#b4b4b4" : undefined }}
+                    >
+                      {item.label}
+                    </span>
                   </span>
                 )}
                 {item.value ? (
@@ -250,7 +254,16 @@ export function Home({
 
       <Picker
         picking={shell.picking}
-        costume={{ panel: TILE, ink: "#f2f2f2", edge: EDGE, accent: RED }}
+        costume={{
+          panel: TILE,
+          ink: "#f2f2f2",
+          edge: EDGE,
+          accent: RED,
+          // RED tient 2,37:1 sur la tuile: illisible en lettres. Ces deux
+          // encres tiennent 5,99:1 et 5,49:1, mesurées le 12 septembre 2026.
+          accentInk: "#fca5a5",
+          dim: "#b4b4b4",
+        }}
       />
     </div>
   );

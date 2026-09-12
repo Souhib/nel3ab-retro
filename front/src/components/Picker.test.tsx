@@ -16,6 +16,8 @@ const COSTUME: Costume = {
   ink: "#eee",
   edge: "#333",
   accent: "#7c6ce0",
+  accentInk: "#7c6ce0",
+  dim: "#8b8b98",
 };
 
 function picking(overrides: Partial<Picking> = {}): Picking {

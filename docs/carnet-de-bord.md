@@ -13841,6 +13841,288 @@ chargée, elle est en mémoire, et la deuxième visite ne la retélécharge mêm
 Ce qui protège la latence est ailleurs, et c'est une règle autrement plus
 stricte: React ne touche jamais le chemin des images.
 
+### Une revue de toute l'interface, et trois constats rejetés sur preuve
+
+Le 12 septembre 2026, l'interface entière est passée en revue: treize agents de
+lecture, un par écran ou par axe, puis trois vérificateurs chargés de démolir ce
+que les premiers avaient trouvé. Cent six constats en sont sortis. Les trois
+vérificateurs ne se sont pas accordés sur le volume, et c'est justement l'intérêt
+d'en avoir trois: quatre-vingt-quatorze constats retenus pour le premier,
+quatre-vingt-onze pour le deuxième, douze pour celui à qui on avait demandé
+d'être dur. C'est la liste de douze qui a servi d'ordre de marche.
+
+Trois constats ont été rejetés après vérification, et c'est la partie de la revue
+qui vaut le plus cher.
+
+Le premier affirmait que les trois gestes des prises n'existaient que dans un
+attribut `title`, donc invisibles. Le fichier dit le contraire: `Seats.tsx`
+affiche déjà une ligne sous les prises, et la consigne pour reprendre une prise
+sans réponse apparaît dès qu'elle est armée. Rien à ajouter, et un texte de plus
+aurait été du bruit.
+
+Le deuxième affirmait que la couleur d'accent ne pouvait pas porter de texte dans
+le menu XMB. Mesure faite sur les sept ambiances: `--indigo` sur `--panel` va de
+4,62:1 en game boy à 14,41:1 en phosphore. Le pire cas passe le seuil AA de
+4,5:1, donc l'accent y porte du texte sans reproche. Le défaut existe bel et
+bien, mais ailleurs: sur les coques Wii et Switch, qui peignent des couleurs de
+console en dur, le bleu tient 2,82:1 et le rouge 2,37:1. Un constat juste dans sa
+forme et faux dans son périmètre reste un constat faux.
+
+Le troisième affirmait que deux entrées indisponibles tombaient sous le seuil.
+Elles y tombent. Mais ce sont des boutons désactivés, et la règle WCAG 1.4.3
+exempte explicitement le texte des commandes inactives; le pilote de contraste
+les filtre exprès et compte ses exclusions. Elles ont été corrigées quand même,
+pour une tout autre raison: ce projet s'interdit d'atténuer par l'alpha, et
+`Home.tsx` portait un commentaire disant exactement cela deux lignes au-dessus de
+la ligne qui le faisait.
+
+### La liste d'étapes du chargement reculait
+
+L'écran de chargement montre trois étapes cochées l'une après l'autre. Lues dans
+le rendu, elles n'allaient pas dans l'ordre. Le clic posait « le jeu démarre »
+alors que la socket vivait encore, sa chute revenait à « la salle a reçu la
+demande », puis la toute première image noire allumait « première image » pendant
+qu'on regardait encore du noir.
+
+La cause tient en une ligne: l'expression lisait l'état de la socket d'abord,
+alors que les faits qui comptent sont ceux qui retirent l'écran. Le calcul est
+sorti du rendu vers `front/src/lib/booting.ts`, où il se prouve en quatre lignes
+d'essai au lieu d'attendre un vrai redémarrage de salle. « Première image »
+s'allume désormais exactement à la condition qui lève l'écran, et un plancher
+interdit à une étape franchie de se décocher.
+
+La leçon générale: une liste ordonnée est une affirmation sur le temps, et une
+affirmation sur le temps ne se vérifie pas en la relisant.
+
+### Espace lançait un jeu que la croix ne désignait pas
+
+La table des touches du menu connaissait les quatre flèches, Entrée et Échap.
+Pas Espace. Une touche absente de cette table ne reçoit pas le `preventDefault`,
+donc Espace déclenchait l'activation native du bouton qui portait le focus du
+navigateur. Or ce focus n'est pas la croix: la tabulation le promène sur les
+entrées pendant que la croix reste où elle est. Sur le rayon des jeux, cela
+lançait un jeu, et lancer un jeu arrête la partie de tout le monde.
+
+Entrée était protégé, lui, pour la seule raison qu'il figurait dans la table. La
+correction tient en une ligne. Ce qui mérite d'être retenu, c'est la forme du
+défaut: deux curseurs coexistaient, dont un invisible, et rien dans le fichier ne
+le disait.
+
+### Deux essais qui passaient sans rien éprouver
+
+Deux fois dans la même journée, un essai neuf a été pris en train de ne rien
+prouver.
+
+Le premier surveille la page du salon. Sa liste se reconstruisait entièrement
+toutes les cinq secondes, ce qui relançait l'animation des cartes et faisait
+tomber le focus du clavier. Un pilote a été écrit pour le démontrer: il pose un
+témoin sur une carte et regarde s'il survit à deux tours de sondage. Il est passé
+du premier coup. En réintroduisant le défaut pour le falsifier, il a échoué, mais
+sur une autre assertion que celle qui comptait. Il fallait donc réintroduire le
+défaut SEUL, en gardant le reste intact, pour voir enfin mordre l'assertion du
+témoin. Un essai qui échoue pour la mauvaise raison ne prouve rien de ce qu'il
+prétend.
+
+Le second mesure le contraste. Il a été étendu pour auditer le sélecteur de
+réglages sur les sept ambiances. Il a rendu « rien à signaler » sur les quatorze
+écrans. Sauf que si le clic qui ouvre le sélecteur avait raté, la page serait
+restée sur le menu, et l'audit aurait rendu exactement la même chose: un écran
+mesuré à la place d'un autre, et un feu vert pour un écran jamais vu. Le pilote
+vérifie maintenant que le sélecteur est ouvert avant de mesurer, et lève une
+erreur sinon.
+
+La leçon est la même des deux côtés, et elle était déjà dans les règles de ce
+dépôt: un essai doit pouvoir échouer, et il faut le prouver en cassant ce qu'il
+surveille, pas en relisant son code.
+
+### Deux pièges de méthode, et ce qu'ils ont coûté
+
+Le premier: la porte de qualité a été déclarée verte alors qu'elle était morte
+sur sa première étape, faute de `cargo` dans le chemin du shell. Ce qui avait été
+lu était le code de sortie de l'enveloppe, pas le verdict de la porte. La règle
+du dépôt le disait déjà: une étape qui échoue tôt veut dire que les suivantes ont
+été SAUTÉES, pas réussies. Il faut lire la sortie, jamais le code de retour seul.
+
+Le second: pour vérifier qu'un binaire embarquait bien la page reconstruite, une
+chaîne neuve a été cherchée dedans avec `grep -c`, et un témoin ancien avec
+`grep -ac`. La première a rendu zéro, la seconde a rendu le bon compte, et le
+binaire a été déclaré périmé. Il ne l'était pas: sur un fichier binaire, les deux
+invocations ne se comportent pas pareil. Une sonde ne vaut que si son témoin
+passe exactement par le même chemin qu'elle.
+
+### Un stick tactile qui n'avait que quatre positions
+
+La manette tactile de la Switch dessinait chaque stick en quatre boutons: haut,
+bas, gauche, droite. Chacun disait « poussé à fond » ou « rien ». Sur un
+téléphone, un stick n'avait donc que quatre positions, aucune valeur
+intermédiaire, et aucune diagonale sans tenir deux touches du même pouce.
+
+Le plus intéressant est que rien ne manquait en dessous. Le format d'envoi porte
+un entier de seize bits par axe depuis toujours, et l'essai du flux vérifiait
+déjà une demi-course à 8192. La lecture des axes, elle, écrivait la valeur du
+stick directement dans le relevé. Il ne manquait qu'une façon de PRODUIRE autre
+chose que plus un ou moins un.
+
+La correction réutilise ce que le projet avait déjà: `stickFrom`, écrit pour la
+manette tactile de Dolphin, qui rend une position continue, la ramène au bord
+quand le doigt sort du puits, applique une zone morte et retourne l'axe vertical
+parce qu'un écran compte vers le bas et une manette vers le haut. Le puits occupe
+exactement les quatre cases que prenaient les quatre boutons, en deux sur deux,
+donc la grille ne bouge pas d'un pixel. Le tout-ou-rien reste en repli: le doigt
+l'emporte quand il y a un doigt, et sinon rien ne change.
+
+La valeur ne passe pas par un état React. Elle est écrite dans une référence, et
+le rond qui suit le pouce est déplacé directement dans son style, parce que c'est
+du dessin et pas de la donnée. C'est le même choix que la manette tactile de
+Dolphin, et il vient de la règle qui interdit à React de se trouver sur le chemin
+des images.
+
+Les cibles ont été mesurées au passage: 35 par 38 pixels avec 3 pixels d'écart
+sous 420 pixels de large, c'est-à-dire sur les téléphones, le seul endroit où
+cette manette sert. La hauteur passe à 44 pixels, le plancher usuel d'une cible
+tactile, et l'écart double. La largeur, elle, reste à 35: huit colonnes de 44
+pixels demanderaient 352 pixels de touches sur un écran qui en fait 400. C'est
+une limite assumée, écrite dans le fichier, et non un oubli.
+
+### La colonne de droite avait quatre tailles et aucune hiérarchie
+
+La colonne qui borde l'image portait du texte en 10, 11, 12 et 13 pixels, mêlés
+sans qu'aucune taille ne dise ce qu'elle voulait dire. Le plus frappant est ce
+qui était le plus petit: l'état des quatre manettes, c'est-à-dire qui tient
+laquelle, écrit en 10 pixels pour le numéro de prise et 12 pour le nom. C'est
+pourtant ce qu'on regarde le plus souvent de cette page, et depuis un canapé.
+
+Trois crans remplacent les quatre tailles: 12 pixels pour les étiquettes en
+capitales, 13 pour le courant, 15 pour l'identité. L'en-tête de la même colonne,
+qui vit dans un autre fichier, suit les mêmes crans; corriger une moitié de
+colonne aurait seulement déplacé l'incohérence.
+
+Ce qui a décidé de l'ampleur est une mesure, pas un goût. La colonne fait 304
+pixels de large, ne rétrécit pas, et DÉFILE. Tout grossir ne la ferait donc pas
+déborder: cela pousserait les places sous la ligne de flottaison, ce qui est pire
+que du petit texte. Les étiquettes en capitales, espacées de 0,2em, ne montent
+que d'un seul cran pour la même raison.
+
+Le pilote de disposition avait été soupçonné de se fâcher: il vérifie à quatre
+largeurs que la colonne reste À CÔTÉ de l'image et qu'elle tient dans la hauteur.
+Lecture faite, ni l'un ni l'autre ne pouvait casser, la largeur étant fixe et la
+hauteur bornée par le défilement. Le soupçon était raisonnable et faux, et c'est
+la lecture qui l'a tranché plutôt que l'essai.
+
+### Des pilotes qui visaient un port disparu
+
+Le pilote de disposition a été lancé pour vérifier que la colonne agrandie tenait
+toujours à côté de l'image. Il a rendu la main sans rien mesurer: il ouvrait
+`http://localhost:8100/`, écrit en dur dans son appel de navigation, et ce port
+n'existe plus depuis que les salles ont pris les leurs, 8110, 8120 et 8130. Ni
+son argument ni `NEL3AB_URL` ne pouvaient le détourner.
+
+Deux choses méritent d'être notées. La première est que l'enveloppe a rendu zéro
+alors que le pilote était mort sur `ERR_CONNECTION_REFUSED`: c'est la même leçon
+que plus haut, on lit la sortie et pas le code de retour. La seconde est que le
+pilote de contraste avait EXACTEMENT le même défaut, découvert le même jour: une
+adresse passée par la recette que le script ne lisait pas, et une valeur par
+défaut périmée qui masquait la panne.
+
+Les deux sont réparés et prennent leur adresse en argument. Le reste ne l'est
+pas: vingt fichiers du même dossier mentionnent encore 8100. Seize l'écrivent
+comme valeur de repli derrière `process.argv[2]`, donc une recette qui passe une
+adresse les sauve. Quatre l'écrivent en dur sans échappatoire: `polite.mjs`,
+`stir.mjs`, `panel.mjs`, et le pilote de disposition avant sa correction. Ils
+n'ont pas été touchés faute de pouvoir les exercer aujourd'hui; les réparer sans
+les faire tourner reviendrait à échanger une panne visible contre une panne
+silencieuse.
+
+### Le configurateur des touches, et pourquoi deux règles sur trois
+
+Le panneau des touches écrit entre 10 et 13 pixels, sur une page qui part de 16.
+Trois règles touchaient le plancher de 10. Deux ont été remontées à 12, une a été
+laissée telle quelle, et c'est ce partage qui vaut d'être expliqué.
+
+Les deux remontées appartiennent au panneau seul. L'une habille l'en-tête du
+tableau des touches, qui était donc plus PETIT que le tableau lui-même, à 13
+pixels: une colonne dont on ne lit pas le titre oblige à deviner ce qu'elle
+contient. L'autre habille une étiquette dans une rangée de réglage.
+
+La troisième est `.n3-eyebrow`, et elle est partagée. Cinq emplois, dans le
+panneau des touches, dans celui de la Switch, et dans la PRÉPARATION. Or c'est la
+préparation dont un pilote mesure le cadre à 390 sur 844, et ce pilote demande
+une vraie ROM Wii pour tourner. La changer sans pouvoir l'exercer aurait été un
+pari sur l'écran le plus contraint des trois.
+
+Il faut corriger ici ce qui a d'abord été écrit, parce que c'était faux. Le
+raisonnement de départ disait: ce panneau est une boîte de hauteur fixe,
+`min(850px, 100dvh - 48px)`, et son contenu ne défile pas hors préparation
+puisque `.n3-bindings-scroll` vaut `display: contents`; donc ce qui grossit trop
+se coupe sans prévenir.
+
+La mesure dit autre chose. Le défilement n'est pas porté par l'élément qu'on
+avait lu, mais par `.n3-bindings-content`, qui vaut `overflow-y: auto` et
+contient 1406 pixels de contenu dans une fenêtre de 508. Ce qui grossit est donc
+absorbé par le défilement, et non coupé. Les dix pixels par lesquels la fiche de
+commande dépasse le cadre sont la limite de ce défilement, pas une perte.
+
+La faute de méthode vaut plus que le résultat: une conclusion a été tirée sur un
+sélecteur en ayant lu un AUTRE sélecteur, celui qui portait le nom le plus
+évocateur. Personne ne s'en serait aperçu, la conclusion étant prudente et le
+changement inoffensif. C'est une capture d'écran, prise pour une raison
+différente, qui a montré une fiche coupée, et la mesure qui a suivi qui a montré
+que la coupure n'était pas ce qu'on croyait.
+
+Les deux crans restent deux crans: allonger encore une liste de réglages qu'on
+parcourt déjà sur 898 pixels n'est pas gratuit. Et `.n3-eyebrow` reste intouchée,
+mais pour son autre raison, qui tient toujours: elle est partagée avec l'écran de
+préparation, dont un pilote mesure le cadre et qu'on ne peut pas exercer sans une
+vraie ROM.
+
+### La préparation était étalée sur toute la largeur du panneau
+
+Souhib a demandé à centrer le panneau qui s'ouvre quand on change de jeu, celui
+où chacun prépare sa manette. Il avait raison, et la cause est en deux lignes de
+style: le panneau fait jusqu'à 1120 pixels de large, la préparation s'y étalait
+sans aucune borne, et son en-tête est en `justify-content: space-between`. Le
+titre était donc collé au bord gauche et le bouton au bord droit, avec un mètre
+de vide entre les deux sur un téléviseur. Les quatre cases de joueurs, tirées
+chacune à 260 pixels pour remplir la ligne, achevaient de désaligner l'ensemble.
+
+Le contenu est maintenant borné à 760 pixels et centré, le fond restant pleine
+largeur: borner la bande elle-même aurait coupé son trait de séparation en plein
+milieu du panneau. Les cases de joueurs passent en `auto-fit`, parce qu'à deux
+joueurs quatre colonnes fixes laissaient deux cases vides et deux cases étirées.
+
+### Cinq tentatives pour photographier un écran, et zéro photo
+
+Ce changement aurait dû être vérifié à l'oeil avant d'être écrit. Il ne l'a pas
+été, et le détour mérite d'être raconté parce qu'il a coûté plus que le
+changement lui-même.
+
+Le pilote de préparation, qui prend justement une capture de cet écran, a échoué
+deux fois sur « La salle temporaire ne démarre pas ». Les traces montraient
+pourtant Dolphin chargeant le jeu et le salon répondant 578 fois. L'hypothèse
+retenue fut un nom de jeu qui ne correspondait pas, la recette attendant
+exactement « Mario Kart Wii » et la ROM portant ses étiquettes de région. Un lien
+symbolique au bon nom n'a rien changé. La bibliothèque, interrogée pour de bon,
+rend en fait des noms déjà nettoyés: l'hypothèse était fausse, deux fois de
+suite, et la vraie cause reste à trouver.
+
+La capture a ensuite été tentée sur la flotte réelle. Elle a échoué parce que le
+document `/roms` du worker ne porte aucun index, alors que les identifiants du
+menu viennent du salon: deux charges utiles différentes, et un sélecteur construit
+sur la mauvaise. Corrigé en cherchant le jeu par son NOM affiché, ce qui ne peut
+pas dériver. Le clic passe alors, mais la préparation ne s'ouvre pas depuis une
+salle au repos où l'on est seul.
+
+Ce qui a sauvé le détour est le diagnostic ajouté à la dernière tentative: plutôt
+que d'échouer sèchement, il imprime ce qui est à l'écran. Il a montré deux choses
+qu'aucun essai unitaire ne pouvait montrer: la colonne de droite rend bien ses
+trois crans, et l'en-tête du menu affiche « JEUX · 1/5 », c'est-à-dire
+l'indicateur de position ajouté le même jour, vu pour la première fois dans la
+vraie page.
+
+La leçon: quand une sonde échoue, la faire PARLER coûte une ligne et rapporte
+plus qu'une tentative de plus. Et quand une hypothèse est fausse deux fois, il
+faut arrêter de la réparer et aller mesurer ailleurs.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une
@@ -14361,3 +14643,11 @@ personne.
 
 **UX** : *User Experience*, l'expérience d'utilisation : comprendre quoi faire,
 voir le résultat et pouvoir revenir sur son choix.
+
+**WCAG** : *Web Content Accessibility Guidelines*, les règles d'accessibilité du
+web. Elles fixent notamment des seuils de contraste entre un texte et son fond.
+
+**AA** : le niveau de conformité WCAG visé ici. Il demande un rapport de
+contraste d'au moins 4,5:1 pour du texte courant, 3:1 pour du gros texte et pour
+les éléments qui ne sont pas du texte. Un rapport se lit « 4,5 contre 1 » : plus
+il est grand, plus le texte se détache de son fond.

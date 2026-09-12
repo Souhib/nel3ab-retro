@@ -226,6 +226,14 @@ export class SwitchInput implements InputSource {
   message = "";
   readonly previewKeys = new Set<string>();
   readonly touched = new Set<SwitchTarget>();
+  /** Les sticks poussés AU DOIGT, en proportion et non en tout-ou-rien.
+   *
+   * `touched` ne sait dire qu'une chose: poussé à fond, ou rien. Sur un
+   * téléphone, cela veut dire qu'un stick n'a que quatre positions et aucune
+   * diagonale sans appuyer sur deux touches. Le format d'envoi porte pourtant
+   * déjà des valeurs continues: `encodeSwitch` écrit un entier 16 bits par
+   * axe. Il ne manquait qu'une façon de les produire. */
+  readonly pushed = new Map<SwitchAxis, number>();
   private releasing: { id: string; machine: Capture } | null = null;
   private waitingForRest = false;
 
@@ -324,7 +332,11 @@ export class SwitchInput implements InputSource {
     for (const button of SWITCH_BUTTONS)
       if (this.touched.has(button)) this.reading.buttons |= 1 << SWITCH_BUTTONS.indexOf(button);
     for (const axis of SWITCH_AXES) {
-      if (this.touched.has(`${axis}+`) || this.touched.has(`${axis}-`))
+      // Le puits proportionnel d'abord: quand un doigt tient un stick, sa
+      // valeur est plus précise que n'importe quel tout-ou-rien.
+      const doigt = this.pushed.get(axis);
+      if (doigt !== undefined) this.reading[axis] = doigt;
+      else if (this.touched.has(`${axis}+`) || this.touched.has(`${axis}-`))
         this.reading[axis] =
           Number(this.touched.has(`${axis}+`)) - Number(this.touched.has(`${axis}-`));
     }

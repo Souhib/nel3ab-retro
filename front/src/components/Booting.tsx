@@ -10,9 +10,14 @@
  * elle en est. Pas une barre qui avance toute seule, parce qu'aucun des deux
  * services ne dit où il en est et qu'une barre inventée est un mensonge poli.
  */
+import { useEffect, useState } from "react";
 import { Socket } from "./Socket";
+import { STEPS, type Step } from "../lib/booting";
 
-export type Step = "asked" | "waiting" | "painting";
+/* Le type et la liste vivent avec la fonction qui les CALCULE, pas avec l'écran
+   qui les affiche. Deux listes d'étapes finiraient par ne plus être d'accord,
+   et c'est précisément ce que cet écran doit garantir: un ordre. */
+export type { Step };
 
 const SAID: Record<Step, string> = {
   asked: "la salle a reçu la demande",
@@ -20,19 +25,54 @@ const SAID: Record<Step, string> = {
   painting: "première image",
 };
 
-export function Booting({ game, save, step }: { game: string; save?: string; step: Step }) {
-  const steps: Step[] = ["asked", "waiting", "painting"];
-  const reached = steps.indexOf(step);
+export function Booting({
+  game,
+  save,
+  step,
+  label = "chargement",
+  stalled = false,
+  onMenu,
+  onGiveUp,
+}: {
+  game: string;
+  save?: string;
+  step: Step;
+  /** Ce qu'on attend. « chargement » pour un changement de jeu, autre chose
+   * pour une première arrivée: les étapes sont les mêmes, la raison non. */
+  label?: string;
+  /** Vrai quand la page a cessé d'attendre: plus rien n'arrivera tout seul. */
+  stalled?: boolean;
+  onMenu?: () => void;
+  onGiveUp?: () => void;
+}) {
+  const reached = STEPS.indexOf(step);
+  /** Depuis combien de secondes on attend.
+   *
+   * Compté ICI, et pas reçu de la page: quand plus rien n'arrive, la page ne se
+   * redessine plus, et c'est EXACTEMENT le cas où cet écran doit proposer une
+   * sortie. Remis à zéro quand le jeu demandé change. */
+  const [waited, setWaited] = useState(0);
+  useEffect(() => {
+    setWaited(0);
+    const depuis = performance.now();
+    const battement = window.setInterval(
+      () => setWaited(Math.round((performance.now() - depuis) / 1000)),
+      1000,
+    );
+    return () => window.clearInterval(battement);
+  }, [game]);
+  const perdu = stalled || waited >= 20;
 
   return (
     <div
       id="booting"
-      className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-6 bg-ink"
+      /* Au-dessus du menu, qui est en z-50. Un chargement en cours est ce
+         qu'il y a de plus important à l'écran: le menu ouvert par-dessus
+         annonçait « aucun jeu » pendant que le jeu demandé démarrait. */
+      className="absolute inset-0 z-[60] flex flex-col items-center justify-center gap-6 bg-ink"
     >
       <div className="flex flex-col items-center gap-2">
-        <span className="font-mono text-[11px] uppercase tracking-[0.3em] text-faint">
-          chargement
-        </span>
+        <span className="font-mono text-[11px] uppercase tracking-[0.3em] text-faint">{label}</span>
         <h2 className="max-w-[70vw] truncate text-center text-[22px] text-text">{game}</h2>
         {/* Sur quelle sauvegarde on part. Le choix se fait juste avant, puis
             l'écran devient noir pour une dizaine de secondes: sans ce rappel, la
@@ -57,7 +97,7 @@ export function Booting({ game, save, step }: { game: string; save?: string; ste
       </div>
 
       <ol className="flex flex-col gap-1 text-[12px]">
-        {steps.map((name, index) => (
+        {STEPS.map((name, index) => (
           <li
             key={name}
             className={index <= reached ? "text-text" : "text-faint"}
@@ -70,6 +110,34 @@ export function Booting({ game, save, step }: { game: string; save?: string; ste
           </li>
         ))}
       </ol>
+
+      {/* Une sortie, et seulement quand elle devient utile.
+          Dix secondes de noir sont supportables quand on sait qu'on attend.
+          Soixante sans rien à toucher sont indiscernables d'une panne, et la
+          seule action possible depuis le canapé devient alors de recharger la
+          page — ce qui rend sa place et relance l'attente pour la personne qui
+          vient justement de lancer le jeu. */}
+      {perdu ? (
+        <p className="max-w-[44ch] text-center text-[13px] text-muted">
+          {stalled
+            ? "La salle n’a pas rendu d’image. Le jeu n’a pas démarré."
+            : "Le jeu met plus longtemps que d’habitude."}
+        </p>
+      ) : null}
+      {(perdu || waited >= 8) && (onMenu ?? onGiveUp) ? (
+        <div className="flex flex-wrap justify-center gap-2">
+          {onMenu ? (
+            <button type="button" id="bootingMenu" className="n3-action" onClick={onMenu}>
+              ouvrir le menu
+            </button>
+          ) : null}
+          {onGiveUp && perdu ? (
+            <button type="button" id="bootingGiveUp" className="n3-action" onClick={onGiveUp}>
+              annuler et revenir au menu
+            </button>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -231,3 +231,27 @@ it("touch controls use Switch targets independently from the player's keyboard p
   source.poll(new Set(), []);
   expect(source.reading).toEqual(emptySwitch());
 });
+
+it("un stick poussé au doigt donne sa valeur, et le tout-ou-rien reste le repli", () => {
+  const source = new SwitchInput();
+
+  // Le repli: sans doigt, une cible tenue vaut toujours le fond de course.
+  source.touched.add("lx+");
+  source.poll(new Set(), []);
+  expect(source.reading.lx).toBe(1);
+
+  // Le doigt l'emporte, et il porte une valeur INTERMÉDIAIRE, ce dont le canal
+  // tout-ou-rien est incapable par construction.
+  source.pushed.set("lx", 0.42);
+  source.poll(new Set(), []);
+  expect(source.reading.lx).toBeCloseTo(0.42);
+
+  // Le jumeau négatif: un doigt relâché rend la main au repli plutôt que de
+  // laisser le stick collé à sa dernière valeur, ce qui ferait courir tout seul.
+  source.pushed.delete("lx");
+  source.poll(new Set(), []);
+  expect(source.reading.lx).toBe(1);
+  source.touched.delete("lx+");
+  source.poll(new Set(), []);
+  expect(source.reading.lx).toBe(0);
+});

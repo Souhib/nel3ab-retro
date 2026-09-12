@@ -18,7 +18,8 @@ import { Bindings } from "./components/Bindings";
 import { Entrance } from "./components/Entrance";
 import { Lobby } from "./components/Lobby";
 import { ControllerStatus } from "./components/ControllerStatus";
-import { Booting, type Step } from "./components/Booting";
+import { Booting } from "./components/Booting";
+import { bootingStep } from "./lib/booting";
 import { Sidebar } from "./components/Sidebar";
 import { Recovery } from "./components/Recovery";
 import { Asked as AskedBanner } from "./components/Swap";
@@ -222,6 +223,7 @@ function Named({
   );
   const takeSeat = useRef<((port: number, expected?: string) => void) | null>(null);
   const showBoot = useRef<((told: Told) => void) | null>(null);
+  const padTo = useRef<((handler: ((action: MenuAction) => void) | null) => void) | null>(null);
   const rename = useRename(lobby.renamed);
 
   const recover = async (action: Record<string, unknown>) => {
@@ -277,10 +279,11 @@ function Named({
           // déjà oublié la demande de son côté.
           onExpire={() => setAsked(null)}
           tell={lobby}
-          bind={(take, give, boot) => {
+          bind={(take, give, boot, pad) => {
             takeSeat.current = take;
             yieldSeat.current = give;
             showBoot.current = boot;
+            padTo.current = pad;
           }}
         />
       )}
@@ -288,6 +291,7 @@ function Named({
         notice={recovery}
         error={recoveryError}
         onAction={recover}
+        pad={(handler) => padTo.current?.(handler)}
         onClose={() => {
           setRecovery(null);
           setRecoveryError("");
@@ -373,6 +377,10 @@ function Room({
     take: (port: number, expected?: string) => void,
     give: () => void,
     boot: (told: Told) => void,
+    /** De quoi donner la manette au panneau de reprise, qui vit à l'étage du
+     * dessus alors que le flux d'entrée vit ici. Même trajet que les trois
+     * autres, et pour la même raison. */
+    pad: (handler: ((action: MenuAction) => void) | null) => void,
   ) => void;
   /** Où envoyer ce que ce navigateur mesure. La socket du salon vit à l'étage
    * du dessus, les chiffres vivent ici. */
@@ -394,6 +402,12 @@ function Room({
   const [deviceRate, setDeviceRate] = useState(false);
   const [lipsync, setLipsync] = useState(false);
   const [bindings, setBindings] = useState(false);
+  /** La préparation est-elle mise de côté par quelqu'un qui ne l'a pas lancée ?
+   *
+   * Locale, et surtout pas partagée: mettre le panneau de côté ne quitte pas la
+   * préparation et ne change rien pour les autres. Le lancement reste bloqué
+   * tant que cette personne n'est pas prête, exactement comme avant. */
+  const [setupHidden, setSetupHidden] = useState(false);
   const [preparationError, setPreparationError] = useState("");
   /** Combien d'images ont été peintes, lisible sans redéclencher d'effet.
    *
@@ -407,7 +421,23 @@ function Room({
    * hoquet d'un changement de jeu est la durée du noir, une seconde contre
    * trente. Remis à zéro dès qu'une image arrive. */
   const darkSince = useRef<number | null>(null);
+  /** A-t-on DÉJÀ peint une image depuis que cette session existe ?
+   *
+   * Sans cette mémoire, « il n'y a pas d'image » et « il n'y a pas ENCORE eu
+   * d'image » se confondent. À chaque entrée normale dans une salle, la page
+   * passe forcément un moment sans image — le temps d'ouvrir la socket et
+   * d'attendre la première image-clé — et elle annonçait « Connexion à la salle
+   * interrompue », c'est-à-dire une panne, sur le tout premier écran qu'un
+   * invité voit de la salle. La réaction naturelle est de recharger, ce qui
+   * rend sa place et recommence l'attente. */
+  const everPainted = useRef(false);
   const idle = room?.game === null;
+  /** Une partie tourne-t-elle ? `null` tant que le salon n'a pas répondu.
+   *
+   * `idle` ne distingue pas: `room?.game === null` vaut faux quand `room` est
+   * encore `undefined`, donc la page se croyait EN PARTIE avant même de savoir
+   * s'il y en avait une, et s'alarmait en conséquence. */
+  const playing = room === undefined ? null : room.game !== null;
   const [menu, setMenu] = useState(idle);
   /** Le jeu ARMÉ, pour ceux qui n'ont pas de choix de sauvegarde.
    *
@@ -458,7 +488,18 @@ function Room({
     save: string;
     /** Quand on a lancé, pour ne pas rester coincé si rien n'arrive jamais. */
     at: number;
+    /** Vrai quand le plafond est atteint: on a cessé d'attendre, et l'écran
+     * propose une sortie au lieu de s'effacer sur du noir. */
+    stalled?: boolean;
   } | null>(null);
+  /** Le chargement en cours, lisible depuis un effet sans l'y mettre en
+   * dépendance.
+   *
+   * Même raison que `seen` plus bas: `booting` change au rythme des étapes, et
+   * le mettre dans les dépendances de l'effet qui démarre et arrête la vidéo
+   * relancerait le flux à chaque changement d'étape. */
+  const bootingNow = useRef(booting);
+  bootingNow.current = booting;
   /** L'emplacement sur lequel CETTE page a lancé le jeu en cours.
    *
    * Sert à une seule chose: relancer pour changer de manette ne doit pas
@@ -486,10 +527,22 @@ function Room({
     else session.video.start();
     if (!idle) setMenu(false);
     if (idle) {
-      setBooting(null);
       setPreparationError("");
-      setFolder(null);
-      setMenu(true);
+      // Un chargement EN COURS survit au passage au repos.
+      //
+      // C'est le prolongement de la correction du 12 septembre 2026: au tout
+      // premier lancement d'une salle vide, le worker redémarre, donc la salle
+      // repasse « au repos » PENDANT que le jeu se charge. Effacer l'écran ici
+      // et ouvrir le menu revenait à annoncer « aucun jeu » à quelqu'un qui
+      // venait justement d'en choisir un: le rendu avait été corrigé le
+      // 12 septembre, cet effet le défaisait.
+      //
+      // Le cas où rien n'arrive jamais est déjà couvert par le plafond de
+      // soixante secondes plus bas.
+      if (bootingNow.current === null) {
+        setFolder(null);
+        setMenu(true);
+      }
     }
   }, [idle, padOnly, session]);
 
@@ -526,9 +579,16 @@ function Room({
     // Sur la CONNEXION et pas sur le compteur d'images: un jeu qui affiche un
     // écran noir peint quand même.
     const live = shot === null || (shot.video.connected && shot.video.paintedSince > 0);
+    if (shot !== null && shot.video.paintedSince > 0) everPainted.current = true;
     if (live) darkSince.current = null;
     else darkSince.current ??= performance.now();
   }
+  /* Une session NEUVE n'a rien peint: la bascule « télécommande sans vidéo »
+     reconstruit la session, et l'arrivée qui suit est une arrivée comme une
+     autre — pas la reprise d'une image qu'on aurait perdue. */
+  useEffect(() => {
+    everPainted.current = false;
+  }, [session]);
   /** Depuis combien de temps il n'y a plus d'image, en millisecondes. */
   const darkFor = darkSince.current === null ? 0 : performance.now() - darkSince.current;
 
@@ -677,9 +737,15 @@ function Room({
     // pour zéro coût pendant une partie; voir `video.sampleDark`.
     if (!live.awaitingRestart && live.paintedSince > 30 && !live.dark) return setBooting(null);
     // Et un plafond, pour le cas où rien n'arrive jamais: un changement de jeu
-    // refusé ne provoque aucune reconnexion, et un écran de chargement qui ne
-    // part plus est pire que celui qui partait trop tôt.
-    if (performance.now() - booting.at > 60_000) setBooting(null);
+    // refusé ne provoque aucune reconnexion.
+    //
+    // L'écran ne DISPARAÎT plus à cet instant. Il s'effaçait sur du noir, sans
+    // un mot, ce qui remettait exactement dans l'état d'avant: regarder du
+    // noir sans savoir si c'est cassé. C'est le seul endroit où la page SAIT
+    // qu'elle a échoué, donc c'est là que la sortie doit être proposée.
+    if (performance.now() - booting.at > 60_000 && booting.stalled !== true) {
+      setBooting({ ...booting, stalled: true });
+    }
   }, [booting, shot, session]);
   useEffect(() => {
     applyTheme(theme);
@@ -739,7 +805,15 @@ function Room({
           save: told.save,
           at: performance.now(),
         });
+        // Le menu et le dossier se ferment, comme sur le chemin local.
+        //
+        // Sans ça, celui qui n'a PAS cliqué garde son menu ouvert par-dessus
+        // l'écran de chargement — le menu est au-dessus — et il y lit « aucun
+        // jeu » pendant que le jeu demandé démarre.
+        setMenu(false);
+        setFolder(null);
       },
+      (handler) => session?.input.setMenu(handler),
     );
   }, [bind, session]);
 
@@ -802,7 +876,17 @@ function Room({
   const pendingSetup = room?.preparation ?? null;
   const [setupChoice, setSetupChoice] = useSetupChoice(pad, pendingSetup);
   const setupPlayer = pendingSetup?.players.find((p) => p.claim === session?.input.attribution());
-  const configuring = bindings || Boolean(setupPlayer);
+  /* Une préparation qui liste ma place montait le panneau MODAL sans que rien ne
+     puisse le refermer: la croix est cachée pendant une préparation, Échap et le
+     clic sur le fond ne faisaient que `setBindings(false)` — sans effet, puisque
+     c'est `setupPlayer` qui monte le panneau — et le seul bouton d'annulation
+     appartient à l'initiateur. Le menu, « quitter la salle » et l'image sont
+     dessous. C'était le seul endroit de la page dont on ne pouvait pas sortir. */
+  const configuring = bindings || (Boolean(setupPlayer) && !setupHidden);
+  /* Une NOUVELLE préparation se montre, même si la précédente avait été mise de
+     côté: ce qu'on a écarté est cette préparation-là, pas toutes les suivantes. */
+  const setupId = pendingSetup?.id ?? null;
+  useEffect(() => setSetupHidden(false), [setupId]);
   const setupGame = room?.library.find((game) => game.index === pendingSetup?.game);
   const configuringSwitch = (setupGame?.console ?? room?.game?.console) === "switch";
   useEffect(() => {
@@ -1642,12 +1726,12 @@ function Room({
           className="flex w-[19rem] shrink-0 flex-col gap-3 overflow-y-auto border-l border-rule bg-panel px-3 py-3"
         >
           <header className="flex flex-col gap-0.5">
-            <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-indigo">
+            <span className="font-mono text-[12px] uppercase tracking-[0.3em] text-indigo">
               nel3ab
             </span>
             <h1 className="truncate text-[15px] font-medium">{room?.name ?? "salon"}</h1>
-            <p className="truncate text-[12px] text-muted">{room?.game?.name ?? "aucun jeu"}</p>
-            <p id="seat" className="text-[11px] text-faint">
+            <p className="truncate text-[13px] text-muted">{room?.game?.name ?? "aucun jeu"}</p>
+            <p id="seat" className="text-[13px] text-faint">
               {name}
               {port === null ? " · sans manette" : ` · manette ${port}`}
             </p>
@@ -1795,7 +1879,29 @@ function Room({
           Sept centièmes de seconde de noir avant de le montrer: plus court ne se
           voit pas, et un hoquet ne doit pas faire clignoter un écran plein. Rien
           pour une page-manette, qui n'a pas d'image à attendre. */}
-      {!idle && booting === null && darkFor > 700 && shot && !shot.padOnly ? (
+      {/* Première arrivée: rien n'a ENCORE été peint, donc parler de panne
+          serait faux. Mêmes étapes que le chargement, et le nom du jeu qui
+          tourne, pour que l'attente ressemble à ce qu'elle est. */}
+      {playing === true &&
+      !everPainted.current &&
+      booting === null &&
+      darkFor > 700 &&
+      shot &&
+      !shot.padOnly ? (
+        <Booting
+          label="connexion à la salle"
+          game={room?.game?.name ?? "la salle"}
+          step={bootingStep(shot.video)}
+          onMenu={() => setMenu(true)}
+        />
+      ) : null}
+
+      {playing === true &&
+      everPainted.current &&
+      booting === null &&
+      darkFor > 700 &&
+      shot &&
+      !shot.padOnly ? (
         <div
           id="video-recovery"
           role="status"
@@ -1826,17 +1932,32 @@ function Room({
         <Booting
           game={booting.game}
           save={booting.save}
-          step={
-            ((shot?.video.connected ?? false)
-              ? shot && !shot.video.awaitingRestart && shot.video.paintedSince > 0
-                ? "painting"
-                : "waiting"
-              : "asked") as Step
-          }
+          stalled={booting.stalled ?? false}
+          onMenu={() => setMenu(true)}
+          onGiveUp={() => {
+            setBooting(null);
+            setMenu(true);
+          }}
+          step={bootingStep(
+            // Pas d'instantané: la demande vient de partir, donc « envoyée ».
+            shot?.video ?? {
+              connected: true,
+              awaitingRestart: true,
+              paintedSince: 0,
+              dark: true,
+            },
+          )}
         />
       ) : null}
 
-      {menu && shot
+      {/* SANS `&& shot`: le menu ne dépend pas de l'image.
+          Avec, cliquer « Choisir un jeu » dans une salle au repos faisait
+          disparaître le panneau sans monter le menu — écran noir, aucune
+          commande, jusqu'à l'arrivée du premier instantané. La bascule
+          « télécommande sans vidéo » reconstruit la session, donc elle
+          faisait s'évaporer le menu sous les doigts pour la même raison.
+          Les entrées lisent déjà l'instantané en optionnel, avec un repli. */}
+      {menu
         ? (() => {
             const common = {
               categories: rays,
@@ -1874,10 +1995,20 @@ function Room({
           </button>
         </div>
       ) : null}
-      {pendingSetup && !setupPlayer ? (
+      {pendingSetup && (!setupPlayer || setupHidden) ? (
         <div className="n3-preparation-watching" role="status">
           Préparation de {setupGame?.name} · {pendingSetup.players.filter((p) => p.ready).length}/
           {pendingSetup.players.length} joueurs prêts
+          {setupHidden ? (
+            <button
+              type="button"
+              id="resumePreparation"
+              className="n3-action"
+              onClick={() => setSetupHidden(false)}
+            >
+              Reprendre la préparation
+            </button>
+          ) : null}
         </div>
       ) : null}
       {configuring &&
@@ -1890,7 +2021,10 @@ function Room({
           pending={pendingSetup}
           game={setupGame ?? room?.game}
           send={tell.prepare}
-          close={() => setBindings(false)}
+          close={() => {
+            setBindings(false);
+            setSetupHidden(true);
+          }}
         />
       ) : configuring && shot ? (
         <Bindings
@@ -1914,6 +2048,7 @@ function Room({
                   session.refresh();
                 }}
                 send={tell.prepare}
+                onLater={() => setSetupHidden(true)}
               />
             ) : undefined
           }
@@ -2004,6 +2139,10 @@ function Room({
           onClose={() => {
             session?.input.cancelCapture();
             setBindings(false);
+            // Échap et le clic sur le fond doivent aussi pouvoir écarter une
+            // préparation, sinon ils ne font rien du tout quand c'est elle qui
+            // monte le panneau.
+            setSetupHidden(true);
           }}
         />
       ) : null}

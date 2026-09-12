@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { Recovery } from "./Recovery";
 import type { RecoveryNotice } from "../lib/room";
+import type { MenuAction } from "../media/menupad";
 
 const notice: RecoveryNotice = {
   id: "one",
@@ -85,4 +86,54 @@ it("une demande terminée et une coupure ne laissent aucun bouton de reprise", (
   );
   expect(screen.getByText("Le salon ne répond pas.")).toBeVisible();
   expect(screen.queryByRole("button", { name: "reprendre maintenant" })).toBeNull();
+});
+
+it("la manette répond « je suis là », et ne peut jamais céder la place", async () => {
+  const action = vi.fn().mockResolvedValue(undefined);
+  const recus: ((a: MenuAction) => void)[] = [];
+  render(
+    <Recovery
+      notice={{ ...notice, asking: false }}
+      error=""
+      onAction={action}
+      onClose={() => {}}
+      pad={(h) => {
+        if (h) recus.push(h);
+      }}
+    />,
+  );
+  expect(recus.length).toBeGreaterThan(0);
+  await act(async () => recus.at(-1)!("confirm"));
+  expect(action).toHaveBeenCalledWith({ action: "answer", id: "one", ok: false });
+  // Le jumeau négatif, et c'est le coeur de la règle: aucune autre touche ne
+  // décide à la place de personne, et AUCUNE ne donne la place à quelqu'un
+  // d'autre. Une pression sur la manette qu'on tient déjà se fait sans regarder.
+  action.mockClear();
+  await act(async () => {
+    for (const geste of ["left", "right", "up", "down", "back"] as MenuAction[]) {
+      recus.at(-1)!(geste);
+    }
+  });
+  expect(action).not.toHaveBeenCalled();
+});
+
+it("la manette ne confirme pas une reprise avant la fin du délai", async () => {
+  const action = vi.fn().mockResolvedValue(undefined);
+  const recus: ((a: MenuAction) => void)[] = [];
+  render(
+    <Recovery
+      notice={notice}
+      error=""
+      onAction={action}
+      onClose={() => {}}
+      pad={(h) => {
+        if (h) recus.push(h);
+      }}
+    />,
+  );
+  await act(async () => recus.at(-1)!("confirm"));
+  expect(action).not.toHaveBeenCalled();
+  act(() => vi.advanceTimersByTime(20_000));
+  await act(async () => recus.at(-1)!("confirm"));
+  expect(action).toHaveBeenCalledWith({ action: "finish", id: "one" });
 });

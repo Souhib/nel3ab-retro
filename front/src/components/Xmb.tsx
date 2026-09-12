@@ -20,7 +20,7 @@
  * la règle non plus. Le dégradé et l'onde viennent quand même de la couleur du
  * thème, pour que les sept ambiances restent vraies.
  */
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import type { MenuAction } from "../media/menupad";
 import { Art } from "./Art";
 import { Picker } from "./Picker";
@@ -154,7 +154,6 @@ export function Xmb({
 }) {
   const shell = useShell(categories, 1, onClose, paused);
   const { items, ray, row } = shell;
-  const list = useRef<HTMLDivElement>(null);
 
   /* La manette conduit la même croix que le clavier, par le même chemin. Le
      gestionnaire est reposé à chaque rendu parce qu'il ferme sur l'état courant;
@@ -164,11 +163,12 @@ export function Xmb({
     return () => onPad?.(null);
   });
 
-  useEffect(() => {
-    list.current?.querySelector<HTMLElement>('[data-cursor="true"]')?.scrollIntoView({
-      block: "nearest",
-    });
-  }, [row, ray]);
+  /* Il y avait ici un effet de recentrage, mort DEUX FOIS: la référence
+     `list` n'était attachée à aucun élément, donc toujours nulle, et aucun
+     élément de la page ne porte `data-cursor` — le rendu pose
+     `data-selected`. Il ne servirait de toute façon à rien: la colonne ne
+     défile pas, elle GLISSE par un `translateY`, et `scrollIntoView` n'a
+     aucune prise sur une transformation. Supprimé plutôt que réparé. */
 
   const drag = useSwipe(shell.act);
 
@@ -239,7 +239,17 @@ export function Xmb({
             >
               {choice.label}
               {index === ray && items[row]?.group ? (
-                <span className="opacity-55"> · {items[row].group}</span>
+                <span className="text-muted"> · {items[row].group}</span>
+              ) : null}
+              {/* Où on en est dans la liste, et combien elle en compte.
+                  La colonne est découpée par le bas: sur un écran de 900 px de
+                  haut elle laisse voir sept entrées sur quatorze, et RIEN ne
+                  disait qu'il y en avait d'autres dessous. Le XMB ne met pas de
+                  barre de défilement, et ce n'est pas ce qu'on lui ajoute: un
+                  rang sur un total tient sur une ligne déjà présente, se lit de
+                  loin, et ne déplace pas la colonne d'un pixel. */}
+              {index === ray && items.length > 1 ? (
+                <span className="text-muted">{` · ${row + 1}/${items.length}`}</span>
               ) : null}
             </span>
           </button>
@@ -354,6 +364,11 @@ export function Xmb({
           ink: "var(--text)",
           edge: "var(--rule-bright)",
           accent: "var(--indigo)",
+          // Mesuré sur les SEPT ambiances: --indigo sur --panel va de 4,62:1
+          // (gameboy) à 14,41:1 (phosphore), donc il porte du texte partout.
+          // --muted va de 5,38:1 (famicom) à 6,77:1 (phosphore).
+          accentInk: "var(--indigo)",
+          dim: "var(--muted)",
         }}
       />
     </div>

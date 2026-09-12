@@ -566,7 +566,14 @@ body {
   border-radius: 4px;
   padding: 1px 5px;
   color: var(--faint);
-  font-size: 10px;
+  /* Le plancher du panneau des touches était à 10 px, alors que la page part
+     de 16.
+     Mesuré dans le rendu le 12 septembre 2026, et non déduit: `.n3-bindings`
+     est bien de hauteur fixe, mais c'est `.n3-bindings-content` qui porte le
+     défilement, avec 1406 px de contenu dans 508 px de fenêtre. Ce qui grossit
+     est donc absorbé, pas coupé. Deux crans quand même: allonger encore une
+     liste de réglages qu'on parcourt déjà sur 898 px n'est pas gratuit. */
+  font-size: 12px;
 }
 .n3-controller-pair {
   display: grid;
@@ -814,7 +821,10 @@ body {
 .n3-key-table th {
   color: var(--muted);
   text-align: left;
-  font-size: 10px;
+  /* 12 px et non 10: l'en-tête d'un tableau était plus PETIT que le tableau
+     lui-même, qui est à 13 px. Une colonne dont on ne lit pas le titre oblige
+     à déduire ce qu'elle contient. */
+  font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.13em;
   font-weight: 500;
@@ -1100,10 +1110,23 @@ body {
   padding: 0;
   display: contents;
 }
+/* La préparation est CENTRÉE dans le panneau, et bornée en largeur.
+   Le panneau fait jusqu'à 1120 px. La préparation s'y étalait sur toute la
+   largeur: le titre collé au bord gauche, le bouton collé au bord droit, un
+   mètre de vide entre les deux sur un téléviseur, et quatre cases de joueurs
+   tirées à 260 px chacune pour y tenir. Rien n'était aligné sur rien.
+   Le fond reste pleine largeur, c'est le CONTENU qui est borné: sans ça, la
+   bande et son trait de séparation se couperaient en plein milieu du panneau.
+   La borne est au-dessus de la rupture téléphone de 650 px, qui empile déjà
+   l'en-tête et n'est pas touchée. */
 .n3-preparation {
   padding: 18px 28px;
   border-bottom: 1px solid var(--rule);
   background: var(--panel);
+}
+.n3-preparation > * {
+  max-width: 760px;
+  margin-inline: auto;
 }
 .n3-preparation-heading {
   display: flex;
@@ -1127,7 +1150,9 @@ body {
 }
 .n3-preparation-players {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  /* `auto-fit` plutôt que quatre colonnes fixes: à deux joueurs, quatre
+     colonnes laissaient deux cases vides et deux cases étirées. */
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 8px;
   margin: 14px 0;
 }
@@ -1482,7 +1507,15 @@ body {
   pointer-events: auto;
 }
 .n3-switch-touch button {
-  min-height: 38px;
+  /* 44 px de haut, et pas 38.
+     Mesuré le 12 septembre 2026: les touches faisaient 35 par 38 pixels avec
+     3 px d'écart sous 420 px de large, c'est-à-dire sur les téléphones, le seul
+     endroit où cette manette sert. Le plancher usuel d'une cible tactile est
+     44 px. La HAUTEUR est gratuite ici, le pad étant collé en bas de l'écran.
+     La LARGEUR ne l'est pas: huit colonnes de 44 px demanderaient 352 px rien
+     que de touches, plus les écarts, sur un écran qui en fait 400. Elle reste
+     donc à 35 px, et c'est une limite assumée, pas un oubli. */
+  min-height: 44px;
   border: 1px solid #8294b3;
   border-radius: 12px;
   background: #17233cd9;
@@ -1490,6 +1523,30 @@ body {
   touch-action: none;
   user-select: none;
   font-size: 12px;
+}
+/* Le puits d'un stick: il occupe les quatre cases qu'occupaient les quatre
+   boutons de direction, en 2 sur 2, donc la grille ne bouge pas d'un pixel. */
+.n3-switch-touch-well {
+  grid-column: span 2;
+  grid-row: span 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #8294b3;
+  border-radius: 50%;
+  background: #17233cd9;
+  touch-action: none;
+  user-select: none;
+}
+.n3-switch-touch-knob {
+  width: 42%;
+  height: 42%;
+  border-radius: 50%;
+  border: 1px solid #8294b3;
+  background: #536e9c;
+  /* Court, parce que le rond doit suivre le pouce et non le poursuivre. */
+  transition: transform 60ms linear;
+  pointer-events: none;
 }
 .n3-switch-touch button:active {
   background: #536e9c;
@@ -1512,7 +1569,10 @@ body {
   }
   .n3-switch-touch-side {
     grid-template-columns: repeat(4, 35px);
-    gap: 3px;
+    /* 6 px et non 3: l'écart sépare deux cibles voisines, et c'est lui qui
+       décide des appuis à côté. Il coûte 18 px de large en tout, ce que le
+       calcul ci-dessus laisse. */
+    gap: 6px;
   }
 }
 

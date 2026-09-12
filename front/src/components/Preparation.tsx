@@ -13,6 +13,7 @@ export function Preparation({
   selected,
   onSelect,
   send,
+  onLater,
 }: {
   pending: Pending;
   game?: Game;
@@ -21,6 +22,15 @@ export function Preparation({
   selected: Pad;
   onSelect: (kind: Pad) => void;
   send: (action: Record<string, unknown>) => Promise<void>;
+  /** Masquer la préparation sans la quitter, pour qui ne l'a pas lancée.
+   *
+   * Le panneau est MODAL: il couvre le menu, le bouton « quitter la salle » et
+   * l'image, et il bloque l'entrée du jeu. Tant qu'il n'existait que le bouton
+   * d'annulation de l'initiateur, les autres n'avaient aucune commande pour en
+   * sortir — Échap et le clic sur le fond ne pouvaient rien, puisque c'est la
+   * préparation elle-même qui monte le panneau. C'était le seul endroit de la
+   * page dont on ne pouvait pas sortir. */
+  onLater?: () => void;
 }) {
   const [notice, setNotice] = useState("");
   const [working, setWorking] = useState(false);
@@ -60,6 +70,10 @@ export function Preparation({
             onClick={() => void act({ action: "cancel" })}
           >
             Annuler le lancement
+          </button>
+        ) : onLater ? (
+          <button type="button" id="laterPreparation" className="n3-action" onClick={onLater}>
+            Plus tard
           </button>
         ) : null}
       </div>

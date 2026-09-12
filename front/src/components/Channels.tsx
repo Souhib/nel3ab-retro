@@ -139,7 +139,7 @@ export function Channels({
       <header className="flex items-baseline justify-center gap-6 px-8 pt-6 pb-2">
         <span className="text-[13px]" style={{ color: INK_SOFT }}>
           {category?.label ?? ""}
-          {items[row]?.group ? <span className="opacity-70"> · {items[row].group}</span> : null}
+          {items[row]?.group ? <span> · {items[row].group}</span> : null}
         </span>
         <span className="font-mono text-[28px] tracking-tight" style={{ color: "#6b757d" }}>
           {clock}
@@ -166,7 +166,6 @@ export function Channels({
                   "n3-pop relative flex min-h-[178px] flex-col items-center justify-center gap-3 overflow-hidden rounded-[12px] px-2 py-3 text-center",
                   "transition-transform duration-200 ease-out",
                   here && "scale-[1.06]",
-                  item.disabled && "opacity-70",
                 )}
                 style={{
                   animationDelay: `${Math.min(index, 11) * 45}ms`,
@@ -200,7 +199,14 @@ export function Channels({
                     {item.icon}
                   </span>
                 )}
-                <span className="relative line-clamp-2 text-[14px] leading-tight">
+                {/* Une chaîne indisponible s'atténue par son ENCRE et non par
+                    l'alpha: l'opacité entraînait la tuile entière, son vernis et
+                    sa valeur avec elle. INK_SOFT tient 5,85:1 sur le blanc de
+                    cette coque, mesuré le 12 septembre 2026. */}
+                <span
+                  className="relative line-clamp-2 text-[14px] leading-tight"
+                  style={{ color: item.disabled ? INK_SOFT : undefined }}
+                >
                   {item.label}
                 </span>
                 {item.by ? (
@@ -285,6 +291,10 @@ export function Channels({
           ink: INK,
           edge: EDGE,
           accent: BLUE,
+          // BLUE tient 2,82:1 sur le blanc de cette coque: il ne peut pas
+          // porter de lettres. BLUE_INK en tient 5,83:1, INK_SOFT 5,85:1.
+          accentInk: BLUE_INK,
+          dim: INK_SOFT,
           veil: "rgba(90,100,110,.35)",
         }}
       />

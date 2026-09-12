@@ -49,3 +49,34 @@ it("le panneau de configuration suspend aussi les raccourcis du navigateur", () 
   act(() => result.current.act("back"));
   expect(close).toHaveBeenCalledOnce();
 });
+
+it("Espace valide par la croix, et une touche inconnue ne fait rien", () => {
+  const choisi = vi.fn();
+  const jeux: XmbCategory[] = [
+    {
+      id: "jeux",
+      label: "Jeux",
+      icon: null,
+      items: [
+        { id: "a", label: "A", icon: null, onEnter: choisi },
+        { id: "b", label: "B", icon: null, onEnter: vi.fn() },
+      ],
+    },
+  ];
+  const { result } = renderHook(() => useShell(jeux, 1, vi.fn()));
+  act(() => result.current.point(0));
+  // Espace DOIT passer par la mécanique du menu. Sans ça, il ne reçoit pas le
+  // `preventDefault` et déclenche l'activation native du bouton qui a le focus,
+  // c'est-à-dire une entrée que la croix ne désigne pas: sur le rayon « jeux »,
+  // ça lance un jeu et ça coupe la partie de tout le monde.
+  const espace = new KeyboardEvent("keydown", { key: " ", cancelable: true });
+  act(() => dispatchEvent(espace));
+  expect(espace.defaultPrevented).toBe(true);
+  expect(choisi).toHaveBeenCalledOnce();
+  // Le jumeau négatif: une touche qui ne conduit pas le menu doit rester au
+  // navigateur, sinon on confisquerait tout le clavier de la page.
+  const lettre = new KeyboardEvent("keydown", { key: "a", cancelable: true });
+  act(() => dispatchEvent(lettre));
+  expect(lettre.defaultPrevented).toBe(false);
+  expect(choisi).toHaveBeenCalledOnce();
+});

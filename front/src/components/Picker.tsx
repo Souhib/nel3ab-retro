@@ -41,8 +41,20 @@ export type Costume = {
   ink: string;
   /** Les traits. */
   edge: string;
-  /** Ce qui est choisi. */
+  /** Ce qui est choisi. Un APLAT ou un trait, jamais du texte: mesuré le
+   * 12 septembre 2026, il tient 2,82:1 sur la coque Wii et 2,37:1 sur la
+   * Switch, très en dessous du seuil de 4,5:1. */
   accent: string;
+  /** L'accent quand il doit porter du TEXTE. Séparé parce qu'une couleur de
+   * console choisie pour se voir sur un aplat n'est pas lisible en lettres. */
+  accentInk: string;
+  /** Le second niveau de texte: explications, légendes, options non choisies.
+   *
+   * Une ENCRE, et surtout pas une opacité. Le panneau empilait cinq `opacity-*`
+   * bruts; mesurés sur la coque Wii ils donnaient 2,39 · 2,64 · 3,27 · 3,68:1,
+   * tous sous le seuil. Une opacité atténue le texte ET son fond, donc elle ne
+   * peut pas annoncer ce qu'elle produit; une encre, si. */
+  dim: string;
   /** Le voile posé sur le menu derrière. */
   veil?: string;
 };
@@ -75,7 +87,9 @@ export function Picker({ picking, costume }: { picking: Picking | null; costume:
         }}
         onClick={(event) => event.stopPropagation()}
       >
-        <p className="text-[13px] opacity-70">{item.label}</p>
+        <p className="text-[13px]" style={{ color: costume.dim }}>
+          {item.label}
+        </p>
 
         {item.details}
 
@@ -85,10 +99,18 @@ export function Picker({ picking, costume }: { picking: Picking | null; costume:
           <Slider picking={picking} costume={costume} />
         ) : null}
 
-        <div className="flex items-center justify-between pt-1 text-[11px] opacity-55">
+        <div
+          className="flex items-center justify-between pt-1 text-[11px]"
+          style={{ color: costume.dim }}
+        >
           <span>{item.slide ? "← → régler" : "↑ ↓ choisir"}</span>
           <span className="flex gap-3">
-            <button type="button" id="pickerCancel" onClick={picking.cancel} className="opacity-80">
+            <button
+              type="button"
+              id="pickerCancel"
+              onClick={picking.cancel}
+              style={{ color: costume.dim }}
+            >
               B annuler
             </button>
             <button
@@ -97,7 +119,7 @@ export function Picker({ picking, costume }: { picking: Picking | null; costume:
               // Enveloppé: un gestionnaire de clic passe l'événement en premier
               // argument, et `confirm` prendrait la souris pour un curseur.
               onClick={() => picking.confirm()}
-              style={{ color: costume.accent }}
+              style={{ color: costume.accentInk }}
             >
               A valider
             </button>
@@ -143,10 +165,10 @@ function List({ picking, costume }: { picking: Picking; costume: Costume }) {
             onClick={() => picking.confirm(index)}
             className={cn(
               "flex items-baseline justify-between gap-3 rounded-[5px] px-3 py-1.5 text-left text-[13px] transition-colors",
-              here ? "opacity-100" : "opacity-65",
             )}
             style={{
               background: here ? `color-mix(in srgb, ${costume.accent} 18%, transparent)` : "none",
+              color: here ? costume.ink : costume.dim,
               border: `1px solid ${here ? costume.accent : "transparent"}`,
             }}
           >
@@ -156,9 +178,13 @@ function List({ picking, costume }: { picking: Picking; costume: Costume }) {
                 garder l'accessoire. */}
             <span className="shrink-0">{choice.label}</span>
             <span className="flex min-w-0 items-baseline gap-2 truncate text-[11px]">
-              {choice.hint ? <span className="truncate opacity-50">{choice.hint}</span> : null}
+              {choice.hint ? (
+                <span className="truncate" style={{ color: costume.dim }}>
+                  {choice.hint}
+                </span>
+              ) : null}
               {choice.id === picking.item.picked ? (
-                <span style={{ color: costume.accent }}>en cours</span>
+                <span style={{ color: costume.accentInk }}>en cours</span>
               ) : null}
             </span>
           </button>
@@ -189,7 +215,7 @@ function Slider({ picking, costume }: { picking: Picking; costume: Costume }) {
 
   return (
     <div className="flex flex-col gap-2">
-      <p className="font-mono text-[22px]" style={{ color: costume.accent }}>
+      <p className="font-mono text-[22px]" style={{ color: costume.accentInk }}>
         {slide.say(picking.cursor)}
       </p>
       {/* La piste. `setPointerCapture` pour que le glissement suive la souris

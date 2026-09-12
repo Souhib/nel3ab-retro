@@ -13583,6 +13583,69 @@ un sens, et c'est exactement leur travail: ils ont signalé le changement au lie
 de le laisser passer. Un quatrième, côté salon, vérifiait la ligne envoyée au
 worker et a vu le champ de plus.
 
+### Le salon est resté à l'ancienne adresse, et la salle a paru muette
+
+*12 septembre 2026.*
+
+**Le symptôme, rapporté par Souhib.** Charger un jeu pour la première fois ne
+montrait rien: la partie démarrait vraiment, mais l'écran restait comme avant,
+et il fallait quitter la salle et y revenir pour la voir. Et passer d'un jeu
+GameCube à un jeu Switch répondait « la salle ne répond pas ».
+
+**La cause, et elle est à moi.** La bascule a déplacé les salles sur les ports
+8110, 8120 et 8130. Le salon, lui, est resté configuré sur l'ancienne salle
+unique, port 8100, qui n'existait plus. Son journal le disait sans ambiguïté:
+`WorkerUnreachable: the worker at http://127.0.0.1:8100 is not answering`, et
+`/api/room` rendait 503 à chaque appel.
+
+Or c'est par le salon que passent les places, les noms, le propriétaire, la
+préparation collective et **l'annonce de démarrage**. La page, elle, obtenait
+son catalogue directement du worker par son préfixe, donc la salle avait l'air
+de marcher: on pouvait voir les jeux, en lancer un, et le jeu démarrait
+vraiment. Seul ce qui passait par le salon était mort. Les deux symptômes n'en
+faisaient qu'un.
+
+**La leçon, qui vaut au-delà.** Quand un service change d'adresse, tout ce qui
+le NOMME doit changer dans le même geste. Ici le déplacement était visible
+partout — modèle d'unité, routage du proxy, liste des salles — sauf dans la
+seule ligne qui comptait pour le reste de la salle. Et rien ne le vérifiait: le
+contrôle des unités compare les fichiers installés à ceux du dépôt, pas les
+adresses qu'ils se donnent les uns aux autres.
+
+**Ce qui a été fait, et ce qui reste.** Le salon pointe sur la salle 1, ce qui
+rétablit tout de suite l'usage. C'est un pansement assumé et écrit comme tel
+dans l'unité: ce service ne connaît qu'une salle à la fois, et il en existe
+trois. La vraie réparation est qu'il sache de quelle salle chaque page lui
+parle, au lieu d'en servir une seule pour tout le monde.
+
+### La liste des salles dit ce qui tourne, et où la Switch est prise
+
+*12 septembre 2026.*
+
+La liste ne montrait que des salles allumées ou éteintes. Elle annonce
+maintenant le jeu en cours de chacune, et marque celle qui fait tourner un jeu
+Switch. La raison est la règle de la Switch: une seule salle à la fois peut en
+jouer, et sans cette marque on l'apprenait APRÈS avoir ouvert une salle et
+choisi son jeu, c'est-à-dire au pire moment.
+
+**Demandé aux salles, pas tenu dans un registre.** Chaque salle est la seule à
+savoir ce qui tourne vraiment chez elle: un registre tenu par le salon serait
+faux dès qu'un joueur change de jeu depuis sa page, ce qui est le chemin normal.
+Le salon interroge donc chaque salle ouverte, et une salle éteinte n'est pas
+interrogée du tout — demander à un worker qui n'existe pas ferait attendre la
+liste pour la salle la plus morte de toutes.
+
+**Une salle qui boude reste dans la liste**, décrite sans son jeu. La retirer,
+ou faire échouer la liste entière, empêcherait de rejoindre les autres salles
+pour une raison qui ne les concerne pas. « Ouverte, jeu inconnu » et « éteinte »
+s'affichent donc différemment: la première invite à rejoindre, la seconde à
+ouvrir.
+
+Quatre essais tiennent ces choix, et deux mutants les ont éprouvés: ne marquer
+aucun jeu comme Switch en tue un, interroger les salles éteintes en tue deux.
+Vérifié en production le jour même: la liste annonce « Mario Kart Double Dash »
+pour la salle 1, sans marque Switch.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une

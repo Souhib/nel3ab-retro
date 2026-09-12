@@ -18,3 +18,19 @@ class Salle(BaseModel):
     chemin: str = Field(
         description="Sous quelle adresse la rejoindre, par exemple `/r/1/`.",
     )
+    jeu: str | None = Field(
+        default=None,
+        description=(
+            "Le jeu qui tourne, ou rien quand la salle est sur son menu. Rien "
+            "veut dire « aucun jeu », jamais « on n'a pas pu demander »: une "
+            "salle injoignable est décrite comme fermée, pas comme vide."
+        ),
+    )
+    switch: bool = Field(
+        default=False,
+        description=(
+            "Vrai quand ce jeu est un jeu Switch. Une seule salle à la fois "
+            "peut en faire tourner un, donc la liste doit le montrer plutôt "
+            "que de laisser quelqu'un se faire refuser après coup."
+        ),
+    )

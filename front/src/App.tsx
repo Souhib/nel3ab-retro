@@ -971,7 +971,13 @@ function Room({
               const running = game.index === room?.game?.index;
               /** Lancer, une fois la sauvegarde décidée quand il y en a une. */
               const launch = (slot: Slot | null) => {
-                if (game.console === "wii" || game.console === "switch") {
+                // La GameCube passe par la préparation elle aussi depuis le 12
+                // septembre 2026. Elle se lançait en deux pressions, sans
+                // passer par le salon, et seul le salon certifie QUI lance:
+                // « ta sauvegarde » retombait donc en silence sur la partie
+                // neuve. Un disque de console inconnue garde l'ancien chemin,
+                // faute de savoir quel appareil lui présenter.
+                if (game.console === "gc" || game.console === "wii" || game.console === "switch") {
                   setPreparationError("");
                   void tell
                     .prepare({ action: "begin", game: game.index, save: slot ?? 0 })

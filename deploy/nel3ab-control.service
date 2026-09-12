@@ -50,7 +50,20 @@ RestartSec=2
 # accepterait l'en-tête de n'importe qui. Ne pas changer `--host` sans lire ça.
 #
 # Where the worker is, and what to call the room.
-Environment=NEL3AB_WORKER_URL=http://127.0.0.1:8100
+# La SALLE 1, et plus l'ancienne salle unique du port 8100.
+#
+# Depuis la bascule du 12 septembre 2026, les salles vivent sur 8110, 8120 et
+# 8130. Le salon est resté pointé sur 8100 pendant une demi-heure: il rendait
+# 503 sur toute la salle, donc la page n'avait ni places, ni noms, ni annonce de
+# démarrage, et chaque préparation échouait par « la salle ne répond pas ».
+#
+# C'est un PANSEMENT: ce service ne connaît qu'une salle à la fois, et il en
+# existe trois. La vraie réparation est qu'il sache de quelle salle chaque page
+# lui parle.
+Environment=NEL3AB_WORKER_URL=http://127.0.0.1:8110
+# Le port de contrôle de la même salle. Son défaut, 8101, désignait lui aussi
+# l'ancienne salle unique.
+Environment=NEL3AB_WORKER_CONTROL=127.0.0.1:8111
 Environment=NEL3AB_ROOM_NAME=lgf
 # La seule adresse qui peut publier la configuration de référence de la salle.
 #

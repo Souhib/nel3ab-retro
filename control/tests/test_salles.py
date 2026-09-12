@@ -3,6 +3,7 @@
 from collections.abc import Sequence
 from pathlib import Path
 
+import httpx
 import pytest
 
 from nel3ab_control.api.controllers.salles import (
@@ -108,3 +109,84 @@ async def test_un_refus_de_systemd_est_rapporte(reglages: Settings) -> None:
         await salles.ouvrir()
 
     assert "Unit not found." in raté.value.detail
+
+
+def worker_qui_joue(jeu: str, console: str) -> httpx.AsyncClient:
+    """Un worker de papier qui dit ce qu'il fait tourner."""
+
+    def repond(request: httpx.Request) -> httpx.Response:
+        if request.url.path != "/roms":
+            return httpx.Response(404)
+        return httpx.Response(
+            200,
+            json={
+                "current": 1,
+                "players": 4,
+                "roms": [
+                    {"name": "Un autre jeu", "console": "gc"},
+                    {"name": jeu, "console": console},
+                ],
+            },
+        )
+
+    return httpx.AsyncClient(transport=httpx.MockTransport(repond))
+
+
+async def test_la_liste_dit_ce_que_chaque_salle_joue(reglages: Settings) -> None:
+    async with worker_qui_joue("Mario Tennis Aces", "switch") as client:
+        salles = SallesController(reglages, FauxSysteme(allumees=[1]), client=client)
+
+        etat = await salles.etat()
+
+    assert (etat[0].jeu, etat[0].switch) == ("Mario Tennis Aces", True)
+    assert (etat[1].jeu, etat[1].switch) == (None, False), "une salle éteinte ne joue rien"
+
+
+async def test_un_jeu_qui_n_est_pas_switch_ne_prend_pas_la_place_switch(
+    reglages: Settings,
+) -> None:
+    """Le jumeau: une seule salle peut jouer à la Switch, et la liste doit dire
+    laquelle. Marquer tous les jeux ferait refuser la Switch à tout le monde."""
+    async with worker_qui_joue("Super Smash Bros Melee", "gc") as client:
+        salles = SallesController(reglages, FauxSysteme(allumees=[1]), client=client)
+
+        etat = await salles.etat()
+
+    assert etat[0].jeu == "Super Smash Bros Melee"
+    assert etat[0].switch is False
+
+
+async def test_une_salle_qui_ne_repond_pas_reste_dans_la_liste(reglages: Settings) -> None:
+    """Une salle qui boude est décrite sans son jeu, pas retirée de la liste.
+
+    La retirer, ou faire échouer la liste entière, empêcherait de rejoindre les
+    autres salles pour une raison qui ne les concerne pas.
+    """
+
+    def muet(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("personne au bout")
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(muet)) as client:
+        salles = SallesController(reglages, FauxSysteme(allumees=[1]), client=client)
+
+        etat = await salles.etat()
+
+    assert etat[0].ouverte is True
+    assert etat[0].jeu is None
+
+
+async def test_une_salle_eteinte_n_est_pas_interrogee(reglages: Settings) -> None:
+    """Le second jumeau: demander à un worker qui n'existe pas ferait attendre
+    la liste pour rien, et ce serait l'attente de la salle la plus morte."""
+    demandes: list[str] = []
+
+    def note(request: httpx.Request) -> httpx.Response:
+        demandes.append(str(request.url))
+        return httpx.Response(404)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(note)) as client:
+        salles = SallesController(reglages, FauxSysteme(), client=client)
+
+        await salles.etat()
+
+    assert demandes == []

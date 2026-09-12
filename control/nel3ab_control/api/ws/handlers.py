@@ -674,16 +674,32 @@ async def preparation(sid: str, data: object = None) -> dict[str, str | bool]:
                 if type(index) is not int or type(save) is not int or save not in (0, 1, 2):
                     raise ValueError("Le jeu ou la sauvegarde est invalide.")
                 game = next((g for g in room.library if g.index == index), None)
-                if game is None or game.console not in ("wii", "switch"):
-                    raise ValueError("Cette préparation concerne les jeux Wii et Switch.")
+                # La GameCube passe par ici depuis le 12 septembre 2026. Elle se
+                # lançait en deux pressions, sans passer par le salon, et ce
+                # raccourci coûtait l'identité: seul le salon certifie qui
+                # lance, donc « ta sauvegarde » retombait en silence sur la
+                # partie neuve pour ces jeux-là.
+                #
+                # Un disque dont la console est INCONNUE reste dehors: on ne
+                # sait pas quel appareil lui présenter, et une préparation qui
+                # propose une manette au hasard déciderait à la place du joueur.
+                if game is None or game.console not in ("gc", "wii", "switch"):
+                    raise ValueError(
+                        "Cette préparation demande de savoir de quelle console est le disque."
+                    )
                 if rooms.preparation is not None:
                     raise ValueError("Une préparation est déjà ouverte.")
                 rooms.preparation = Preparation(
                     game=index,
                     save=save,
                     starter=seat.claim,
+                    # Les appareils qu'on peut présenter au jeu. Une GameCube
+                    # n'en a qu'un: la préparation lui sert à choisir la
+                    # sauvegarde et à confirmer, pas à choisir une manette.
                     allowed=[4]
                     if game.console == "switch"
+                    else [0]
+                    if game.console == "gc"
                     else game.guide.allowed
                     if game.guide
                     else [1, 0, 2, 3],

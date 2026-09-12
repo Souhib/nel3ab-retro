@@ -17,6 +17,7 @@ from collections.abc import Awaitable, Callable, Sequence
 from pathlib import Path
 
 import anyio
+import httpx
 from fastapi import HTTPException, status
 
 from nel3ab_control.api.schemas.salle import Salle
@@ -41,6 +42,16 @@ def unite(numero: int) -> str:
 def chemin(numero: int) -> str:
     """L'adresse sous laquelle le proxy sert cette salle."""
     return f"/r/{numero}/"
+
+
+def adresse(numero: int) -> str:
+    """Où joindre le worker de cette salle, de machine à machine.
+
+    Les mêmes ports que le modèle d'unité, et pour la même raison qu'eux: le
+    numéro s'insère dans le port plutôt que de se calculer. 8110 pour la salle
+    1, 8120 pour la deuxième.
+    """
+    return f"http://127.0.0.1:81{numero}0"
 
 
 class PlusDeSalle(HTTPException):
@@ -98,16 +109,60 @@ async def par_le_systeme(commande: Sequence[str]) -> tuple[int, str]:
 class SallesController:
     """Ouvre et ferme les salles de cette machine."""
 
-    def __init__(self, settings: Settings, lancer: Lanceur = par_le_systeme) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        lancer: Lanceur = par_le_systeme,
+        client: httpx.AsyncClient | None = None,
+    ) -> None:
         self._settings = settings
         self._lancer = lancer
+        #: Pour demander à chaque salle ce qu'elle joue. Absent en essai, et la
+        #: liste dit alors seulement qui est ouverte: une salle qu'on ne peut
+        #: pas interroger n'a pas de jeu CONNU, ce qui n'est pas « pas de jeu ».
+        self._client = client
 
     async def etat(self) -> list[Salle]:
-        """Toutes les salles, ouvertes ou non."""
-        return [
-            Salle(numero=numero, ouverte=await self.ouverte(numero), chemin=chemin(numero))
-            for numero in SALLES
-        ]
+        """Toutes les salles, ouvertes ou non, et ce qu'elles jouent."""
+        salles = []
+        for numero in SALLES:
+            ouverte = await self.ouverte(numero)
+            jeu, switch = await self._joue(numero) if ouverte else (None, False)
+            salles.append(
+                Salle(
+                    numero=numero,
+                    ouverte=ouverte,
+                    chemin=chemin(numero),
+                    jeu=jeu,
+                    switch=switch,
+                )
+            )
+        return salles
+
+    async def _joue(self, numero: int) -> tuple[str | None, bool]:
+        """Ce que cette salle fait tourner, demandé à elle-même.
+
+        À la salle plutôt qu'à un registre: elle est la seule à savoir ce qui
+        tourne vraiment chez elle, et un registre tenu ici serait faux dès
+        qu'un joueur change de jeu sans passer par le salon.
+
+        Un worker qui ne répond pas rend « aucun jeu connu » plutôt qu'une
+        erreur: la liste doit rester affichable même si une salle boude.
+        """
+        if self._client is None:
+            return None, False
+        try:
+            reponse = await self._client.get(f"{adresse(numero)}/roms", timeout=2.0)
+            reponse.raise_for_status()
+            dit = reponse.json()
+        except (httpx.HTTPError, ValueError):
+            return None, False
+        courant = dit.get("current")
+        jeux = dit.get("roms") or []
+        if not isinstance(courant, int) or not 0 <= courant < len(jeux):
+            return None, False
+        joue = jeux[courant]
+        return joue.get("name"), joue.get("console") == "switch"
 
     async def ouverte(self, numero: int) -> bool:
         """Cette salle tourne-t-elle ?

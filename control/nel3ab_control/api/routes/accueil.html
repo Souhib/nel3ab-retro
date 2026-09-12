@@ -36,6 +36,14 @@
   .etat { color: var(--doux); font-size: 1.05rem; display: flex; align-items: center; gap: .5rem; }
   .point { width: .7rem; height: .7rem; border-radius: 50%; background: var(--trait); }
   .salle[data-ouverte="oui"] .point { background: var(--ouverte); }
+  .marque {
+    align-self: flex-start;
+    border: 1px solid var(--trait);
+    border-radius: 999px;
+    padding: .15rem .6rem;
+    font-size: .95rem;
+    color: var(--doux);
+  }
   a.bouton, button {
     font: inherit; font-size: 1.1rem; font-weight: 600;
     min-height: 48px; padding: .7rem 1.2rem;
@@ -82,9 +90,22 @@
       etat.className = "etat";
       const point = document.createElement("span");
       point.className = "point";
-      etat.append(point, salle.ouverte ? "ouverte" : "éteinte");
+      // Ce qui tourne, quand la salle a bien voulu le dire. « éteinte » et
+      // « ouverte, jeu inconnu » ne sont pas la même chose: la seconde arrive
+      // quand une salle ne répond pas, et l'afficher comme vide ferait croire
+      // qu'on peut s'y installer.
+      etat.append(
+        point,
+        salle.ouverte ? (salle.jeu ?? "ouverte, sur son menu") : "éteinte",
+      );
 
       carte.append(titre, etat);
+      if (salle.switch) {
+        const marque = document.createElement("div");
+        marque.className = "marque";
+        marque.textContent = "Switch";
+        carte.append(marque);
+      }
       if (salle.ouverte) {
         const lien = document.createElement("a");
         lien.className = "bouton";
@@ -98,8 +119,16 @@
     // toujours vaut moins qu'un bouton éteint qui dit pourquoi.
     const pleine = salles.every(salle => salle.ouverte);
     bouton.disabled = pleine;
-    if (pleine && !mot.dataset.refus) {
-      mot.textContent = `déjà ${salles.length} salles ouvertes, rejoins-en une`;
+    // Deux nouvelles différentes, et la Switch d'abord: c'est celle qui explique
+    // un refus qu'on rencontrerait SINON après avoir ouvert une salle et choisi
+    // son jeu, ce qui est le pire moment pour l'apprendre.
+    const switchPrise = salles.some(salle => salle.switch);
+    if (!mot.dataset.refus) {
+      mot.textContent = pleine
+        ? `déjà ${salles.length} salles ouvertes, rejoins-en une`
+        : switchPrise
+          ? "une salle joue déjà à la Switch: une seule à la fois"
+          : "";
     }
   }
 

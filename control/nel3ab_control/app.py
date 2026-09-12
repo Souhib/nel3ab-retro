@@ -34,7 +34,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.rooms = RoomController(settings, client)
         # Les salles de la machine. Sans client HTTP: elle interroge systemd,
         # pas les workers, et ce qu'elle sait doit survivre à un worker mort.
-        app.state.salles = SallesController(settings)
+        app.state.salles = SallesController(settings, client=client)
         app.state.people = PeopleController(settings.state_file)
         app.state.bindings = BindingsController(settings.bindings_file)
         app.state.room_bindings = RoomBindingsController(settings.room_bindings_file)

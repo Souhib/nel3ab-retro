@@ -1162,3 +1162,73 @@ async def test_old_page_and_reconnection_do_not_become_false_spectators(served, 
     finally:
         for page in [old, current, watcher]:
             await page.disconnect()
+
+
+async def test_une_preparation_s_ouvre_aussi_pour_un_jeu_gamecube(
+    served: tuple[str, RoomController],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """La GameCube passe par la préparation depuis le 12 septembre 2026.
+
+    Elle se lançait en deux pressions, sans passer par le salon, et seul le
+    salon certifie QUI lance: « ta sauvegarde » retombait donc en silence sur la
+    partie neuve pour ces jeux-là.
+
+    Le jumeau est dans le même essai: un disque dont la console est inconnue
+    reste dehors, parce qu'on ne sait pas quel appareil lui présenter.
+    """
+    from nel3ab_control.api.ws import handlers
+
+    url, rooms = served
+    claim = "b" * 32 + "-1"
+
+    async def worker(stream: SocketStream) -> None:
+        async with stream:
+            line = b""
+            while b"\n" not in line:
+                line += await stream.receive(320)
+            command = line.decode().strip()
+            if command == "seats":
+                await stream.send((" ".join([claim, "-", "-", "-"]) + "\n").encode())
+            elif command.startswith("decides"):
+                await stream.send(b"yes\n")
+            else:
+                await stream.send(b"ok\n")
+
+    async def catalog(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "current": None,
+                "roms": [
+                    {"name": "Super Smash Bros Melee", "console": "gc", "art": False},
+                    {"name": "Un disque muet", "art": False},
+                ],
+            },
+        )
+
+    monkeypatch.setattr(handlers, "ROOM_EVERY", 0)
+    async with httpx.AsyncClient(transport=httpx.MockTransport(catalog)) as client:
+        monkeypatch.setattr(rooms, "_client", client)
+        async with await anyio.create_tcp_listener(
+            local_host="127.0.0.1", local_port=0
+        ) as listener:
+            port = listener.extra(SocketAttribute.local_address)[1]  # noqa: S610
+            rooms.settings.worker_control = f"127.0.0.1:{port}"
+            async with anyio.create_task_group() as group:
+                group.start_soon(listener.serve, worker)
+                player = socketio.AsyncClient()
+                await player.connect(url, auth={"name": "Souhib"}, socketio_path="/socket.io")
+                await player.call("seat", {"port": 1, "claim": claim})
+
+                ouvert = await player.call("preparation", {"action": "begin", "game": 0, "save": 2})
+                assert ouvert == {"ok": True}
+                assert rooms.preparation is not None
+
+                rooms.preparation = None
+                refuse = await player.call("preparation", {"action": "begin", "game": 1, "save": 0})
+                assert "error" in refuse, "un disque sans console est entré en préparation"
+                assert rooms.preparation is None
+
+                await player.disconnect()
+                group.cancel_scope.cancel()

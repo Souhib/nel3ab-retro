@@ -136,6 +136,10 @@
     box-shadow: 0 0 10px var(--ouverte);
     vertical-align: middle;
   }
+  /* Les présents, sous le jeu. Même encre que lui: c'est la même nature
+     d'information, ce que la salle contient en ce moment. */
+  .gens { color: var(--texte); font-size: 1.02rem; }
+  .gens[data-vide="oui"] { color: var(--doux); }
   .marques { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: auto; }
   .marque {
     border: 1px solid var(--trait);
@@ -346,12 +350,14 @@
     titre.className = "titre";
     const etat = document.createElement("div");
     etat.className = "etat";
+    const gens = document.createElement("div");
+    gens.className = "gens";
     const marques = document.createElement("div");
     marques.className = "marques";
     const rejoindre = document.createElement("span");
     rejoindre.className = "rejoindre";
     rejoindre.textContent = "rejoindre";
-    carte.append(titre, etat, marques, rejoindre);
+    carte.append(titre, etat, gens, marques, rejoindre);
     remplir(carte, salle);
     return carte;
   }
@@ -364,6 +370,12 @@
     noeud.href = salle.chemin;
     noeud.querySelector(".titre").textContent = `salle ${salle.numero}`;
     noeud.querySelector(".etat").textContent = salle.jeu ?? "sur son menu";
+    // Qui est là, en toutes lettres. Une carte qui ne le dit pas oblige à
+    // entrer pour le savoir, et entrer prend une manette à quelqu'un.
+    const gens = salle.gens ?? [];
+    const ligne = noeud.querySelector(".gens");
+    ligne.textContent = gens.length === 0 ? "personne pour l'instant" : gens.join(" · ");
+    ligne.dataset.vide = gens.length === 0 ? "oui" : "non";
     const marques = noeud.querySelector(".marques");
     const veut = salle.switch ? ["Switch"] : [];
     if ([...marques.children].map(n => n.textContent).join("|") !== veut.join("|")) {

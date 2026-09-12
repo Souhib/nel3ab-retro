@@ -135,10 +135,17 @@ export const publishRoomBindings = <ThrowOnError extends boolean = false>(option
 /**
  * Read Salles
  *
- * Toutes les salles, ouvertes ou non.
+ * Toutes les salles, ouvertes ou non, et qui s'y trouve.
  *
  * Sans identité: la liste est ce que le salon montre à qui arrive, et exiger
- * de savoir qui demande la rendrait invisible à celui qui vient jouer.
+ * de savoir qui demande la rendrait invisible à celui qui vient jouer. Savoir
+ * QUI est là n'est pas savoir qui demande: la première est publique dans le
+ * tailnet, la seconde serait une condition d'entrée.
+ *
+ * Les deux dépendances sont assemblées ICI, et pas dans le contrôleur des
+ * salles: celui-ci interroge systemd et les salles, et ce qu'il sait doit
+ * survivre à un worker mort. Le pseudo l'emporte sur l'adresse, parce que
+ * c'est un nom que ses amis reconnaissent et pas un identifiant.
  */
 export const readSalles = <ThrowOnError extends boolean = false>(options?: Options<ReadSallesData, ThrowOnError>): RequestResult<ReadSallesResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ReadSallesResponses, unknown, ThrowOnError>({ url: '/api/salles', ...options });
 

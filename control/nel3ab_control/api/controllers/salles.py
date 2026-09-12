@@ -8,9 +8,10 @@ contrôle qui redémarre ne doit pas oublier les salles ouvertes; une liste tenu
 ici serait fausse dès le premier redémarrage, et fausse d'une manière que
 personne ne verrait avant d'avoir perdu une partie.
 
-Deux emplacements, pas plus, décidé le 12 septembre 2026: la machine a une carte
-graphique et deux émulateurs y tiennent. La troisième demande ne fait pas la
-queue, elle est refusée tout de suite avec de quoi comprendre.
+Trois emplacements, pas plus, décidé le 12 septembre 2026. La limite n'est pas
+le nombre de salles mais ce qu'elles font tourner: une seule peut jouer à un jeu
+Switch. La demande de trop ne fait pas la queue, elle est refusée tout de suite
+avec de quoi comprendre.
 """
 
 from collections.abc import Awaitable, Callable, Sequence
@@ -132,8 +133,21 @@ class SallesController:
         #: pas interroger n'a pas de jeu CONNU, ce qui n'est pas « pas de jeu ».
         self._client = client
 
-    async def etat(self) -> list[Salle]:
-        """Toutes les salles, ouvertes ou non, et ce qu'elles jouent."""
+    async def etat(
+        self,
+        present: Callable[[int], list[str]] | None = None,
+    ) -> list[Salle]:
+        """Toutes les salles, ouvertes ou non, ce qu'elles jouent et qui y est.
+
+        `present` dit qui se trouve dans une salle. En PARAMÈTRE plutôt que
+        retenu à la construction, et c'est délibéré: cette classe interroge
+        systemd et les salles elles-mêmes, et ce qu'elle sait doit survivre à un
+        worker mort. Lui donner un second contrôleur la ferait dépendre de
+        l'état d'un troisième, pour une information qu'elle ne fait que relayer.
+
+        Absent, la liste ne dit personne. C'est le cas des essais, et c'est plus
+        honnête qu'une liste vide qui prétendrait que la salle est déserte.
+        """
         salles = []
         for numero in SALLES:
             ouverte = await self.ouverte(numero)
@@ -145,6 +159,9 @@ class SallesController:
                     chemin=chemin(numero),
                     jeu=jeu,
                     switch=switch,
+                    # Une salle fermée n'a personne: le demander pour elle
+                    # laisserait passer un fantôme si le registre traînait.
+                    gens=list(present(numero)) if ouverte and present else [],
                 )
             )
         return salles

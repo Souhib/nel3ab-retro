@@ -3,19 +3,28 @@
 from fastapi import APIRouter, status
 
 from nel3ab_control.api.schemas.salle import Salle
-from nel3ab_control.dependencies import SallesDep
+from nel3ab_control.dependencies import PeopleDep, SallesDep
 
 router = APIRouter(prefix="/api", tags=["salles"])
 
 
 @router.get("/salles", response_model=list[Salle])
-async def read_salles(salles: SallesDep) -> list[Salle]:
-    """Toutes les salles, ouvertes ou non.
+async def read_salles(salles: SallesDep, people: PeopleDep) -> list[Salle]:
+    """Toutes les salles, ouvertes ou non, et qui s'y trouve.
 
     Sans identité: la liste est ce que le salon montre à qui arrive, et exiger
-    de savoir qui demande la rendrait invisible à celui qui vient jouer.
+    de savoir qui demande la rendrait invisible à celui qui vient jouer. Savoir
+    QUI est là n'est pas savoir qui demande: la première est publique dans le
+    tailnet, la seconde serait une condition d'entrée.
+
+    Les deux dépendances sont assemblées ICI, et pas dans le contrôleur des
+    salles: celui-ci interroge systemd et les salles, et ce qu'il sait doit
+    survivre à un worker mort. Le pseudo l'emporte sur l'adresse, parce que
+    c'est un nom que ses amis reconnaissent et pas un identifiant.
     """
-    return await salles.etat()
+    return await salles.etat(
+        lambda numero: [name or login or "" for login, name in people.present(numero)],
+    )
 
 
 @router.post("/salles", response_model=Salle, status_code=status.HTTP_201_CREATED)

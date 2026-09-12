@@ -190,3 +190,39 @@ async def test_une_salle_eteinte_n_est_pas_interrogee(reglages: Settings) -> Non
         await salles.etat()
 
     assert demandes == []
+
+
+async def test_la_liste_dit_qui_est_dans_chaque_salle(reglages: Settings) -> None:
+    """Une carte qui ne dit pas qui est là oblige à entrer pour le savoir, et
+    entrer prend une manette. Le salon tient lui-même cette liste: il n'a rien à
+    demander à la salle pour la remplir, donc elle reste vraie même quand une
+    salle ne répond plus."""
+    salles = SallesController(reglages, FauxSysteme(allumees=[1]))
+
+    etat = await salles.etat(lambda numero: ["Souhib", "Lu"] if numero == 1 else [])
+
+    assert etat[0].gens == ["Souhib", "Lu"]
+    assert etat[1].gens == [], "une salle que le registre ne nomme pas n'a personne"
+
+
+async def test_une_salle_fermee_n_a_personne_meme_si_le_registre_le_croit(
+    reglages: Settings,
+) -> None:
+    """Le jumeau, et c'est lui qui compte: le registre des présents peut traîner
+    derrière la fermeture d'une salle. Un nom sur une carte veut dire « rejoins
+    les », donc un fantôme dans une salle éteinte enverrait quelqu'un frapper à
+    une porte qui n'existe plus."""
+    salles = SallesController(reglages, FauxSysteme(allumees=[1]))
+
+    etat = await salles.etat(lambda _numero: ["fantôme"])
+
+    assert etat[0].gens == ["fantôme"], "la salle ouverte dit bien qui y est"
+    assert [s.gens for s in etat[1:]] == [[], []], "une salle fermée n'a personne"
+
+
+async def test_sans_registre_la_liste_ne_dit_personne(reglages: Settings) -> None:
+    """Sans registre fourni, la liste se tait au lieu d'affirmer que les salles
+    sont désertes. C'est le cas des essais, et de tout appelant qui ne sait pas."""
+    salles = SallesController(reglages, FauxSysteme(allumees=[1]))
+
+    assert [s.gens for s in await salles.etat()] == [[], [], []]

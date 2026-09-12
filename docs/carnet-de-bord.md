@@ -14123,6 +14123,47 @@ La leçon: quand une sonde échoue, la faire PARLER coûte une ligne et rapporte
 plus qu'une tentative de plus. Et quand une hypothèse est fausse deux fois, il
 faut arrêter de la réparer et aller mesurer ailleurs.
 
+### Les cartes du salon disent enfin qui est là
+
+Une carte annonçait le numéro de la salle et le jeu qui tourne, mais pas qui s'y
+trouve. Pour le savoir il fallait entrer, et entrer prend une manette à
+quelqu'un. C'est le dernier des douze constats de la revue d'interface, et le
+seul qui demandait de toucher au contrat de l'API.
+
+Le schéma d'une salle portait pourtant une interdiction écrite: les présents n'y
+sont PAS, parce qu'un champ déclaré et non rempli s'affiche comme une absence, et
+qu'une absence affichée ne se distingue pas d'un zéro vrai. Le commentaire disait
+que le projet avait déjà commis cette faute quatre fois. Il valait pour une
+donnée que seule la salle connaît; il ne vaut pas ici. Le salon ne demande pas
+les présents à la salle: il les TIENT, puisque c'est à lui que les pages se
+connectent. Ce qu'il en dit est donc vrai de première main, même quand une salle
+ne répond plus. Le commentaire a été réécrit dans le même changement, pour ne pas
+laisser une interdiction contredire le code juste en dessous.
+
+Le registre des présents entre par un PARAMÈTRE de `etat()`, et non par un
+contrôleur retenu à la construction. La raison est dans la classe elle-même: elle
+interroge systemd et les salles, et ce qu'elle sait doit survivre à un worker
+mort. Lui donner un second contrôleur la ferait dépendre de l'état d'un
+troisième, pour une information qu'elle ne fait que relayer. Effet secondaire
+appréciable: les sept essais existants construisent le contrôleur sans rien
+changer.
+
+Une salle FERMÉE n'a personne, par construction et pas par hasard. Le registre
+peut traîner derrière une fermeture, et un nom sur une carte veut dire « rejoins
+les »: afficher un fantôme enverrait quelqu'un frapper à une porte qui n'existe
+plus. C'est l'essai qui compte, et il a été vérifié falsifiable en retirant le
+garde: sur quatorze essais, un seul est tombé, celui du fantôme, avec
+`[['fantôme'], ['fantôme']] == [[], []]`.
+
+Vérifié en vrai, par la vraie porte. Il fallait passer par `nel3ab.app` et non
+par le port du worker: la présence s'enregistre en socket.io auprès du SALON, et
+une page servie directement par la salle calculerait son adresse de socket sur
+elle-même, où rien ne répond. La liste a bien rendu le nom de la personne qui
+jouait. Elle n'a pas rendu deux noms: la seconde connexion venait de la même
+machine, donc de la même identité Tailscale, et `present()` compte une personne
+et non un onglet. Ce qui reste non démontré est donc le cas à deux personnes
+distinctes, et la disparition d'un nom au départ.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une

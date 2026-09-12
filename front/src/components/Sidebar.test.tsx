@@ -209,3 +209,25 @@ it("ne rappelle rien quand la salle est sur son menu", () => {
 
   expect(screen.queryByText(/sauvegarder/i)).toBeNull();
 });
+
+it("ramène à la liste des salles, à la racine du domaine", () => {
+  // Une adresse ABSOLUE: le salon est le même pour toutes les salles et vit à
+  // la racine, alors que la page, elle, est servie sous `/r/<n>/`. Relative,
+  // ce lien mènerait à `/r/1/`, c'est-à-dire nulle part ailleurs qu'ici.
+  show();
+
+  const lien = screen.getByText("les salles");
+
+  expect(lien.getAttribute("href")).toBe("/");
+});
+
+it("laisse « quitter » rendre la place plutôt que changer de page", () => {
+  // Le jumeau: les deux boutons voisins ne font pas la même chose, et confondre
+  // les deux ferait perdre sa manette à qui voulait juste voir la liste.
+  const props = show();
+
+  fireEvent.click(screen.getByText("quitter"));
+
+  expect(props.onLeave).toHaveBeenCalled();
+  expect(screen.getByText("les salles").getAttribute("href")).toBe("/");
+});

@@ -13778,6 +13778,37 @@ seule couleur, et toute animation coupée quand le système demande moins de
 mouvement. La cascade d'apparition est du décor: elle ne doit rien coûter à qui
 ne peut pas la voir.
 
+### On peut revenir choisir une autre salle
+
+*12 septembre 2026.*
+
+Depuis une salle, « quitter » rend la manette et ramène à l'accueil de CETTE
+salle. Il n'existait aucun chemin vers la LISTE des salles: il fallait réécrire
+l'adresse à la main pour en changer. Un lien voisin y mène.
+
+Son adresse est ABSOLUE, et c'est tout l'intérêt de l'écrire ici: la page vit
+sous `/r/1/`, mais le salon est le même pour toutes les salles et vit à la
+racine du domaine. Écrite relativement, elle serait retombée sur la salle qu'on
+voulait justement quitter. C'est exactement la distinction que le pilote du
+préfixe surveille: les adresses du worker se préfixent, celles du salon non.
+
+### L'accueil se resserre, et son écran vide se centre
+
+*12 septembre 2026.*
+
+Deux retours de Souhib sur la première version, et tous deux se voyaient à
+l'œil nu sur une capture.
+
+La page occupait toute la largeur, contenu collé au bord gauche. Sur un
+téléviseur, l'œil traverse alors un mètre de vide pour rien. Le contenu tient
+maintenant dans une colonne centrée, et les cartes gardent une taille de carte
+au lieu de s'étirer sur toute la ligne quand il n'y en a qu'une.
+
+« Aucune salle ouverte » s'affichait en haut, sous le titre, avec le reste de
+l'écran vide en dessous: un message d'attente posé là se lit comme un reste de
+page. Quand aucune salle ne tourne, tout se centre dans la hauteur — le message
+n'est plus une note en marge de la page, il EST la page.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une

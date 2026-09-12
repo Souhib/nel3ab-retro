@@ -234,6 +234,20 @@ export function Sidebar({
             >
               quitter
             </button>
+            {/* Vers la LISTE des salles, à la racine du domaine.
+                Une adresse absolue, et non relative au préfixe de cette salle:
+                le salon est le même pour toutes et vit à la racine. Voir
+                `lib/base`, qui explique quelles adresses se préfixent.
+                « Quitter » ne fait que rendre la place et revenir à l'accueil de
+                CETTE salle; d'ici, on ne pouvait pas retourner en choisir une
+                autre sans réécrire l'adresse à la main. */}
+            <a
+              href="/"
+              id="backToLobby"
+              className="border border-rule px-2 py-1 text-[11px] text-faint transition-colors hover:border-indigo hover:text-indigo"
+            >
+              les salles
+            </a>
           </section>
 
           <section className="flex flex-col gap-1 border-t border-rule pt-2">

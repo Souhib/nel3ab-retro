@@ -35,6 +35,8 @@
     margin: 0;
     min-height: 100vh;
     padding: clamp(2rem, 5vh, 4rem) clamp(1.2rem, 6vw, 5rem);
+    display: flex;
+    flex-direction: column;
     background:
       radial-gradient(120% 80% at 15% -10%, rgba(124, 58, 237, .28), transparent 60%),
       radial-gradient(90% 60% at 100% 0%, rgba(244, 63, 94, .14), transparent 55%),
@@ -42,6 +44,25 @@
     color: var(--texte);
     font: 16px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   }
+  /* Une colonne, centrée. Sur un téléviseur large, un contenu collé au bord
+     gauche laisse l'œil traverser un mètre de vide pour rien. */
+  .page {
+    width: 100%;
+    max-width: 1080px;
+    margin-inline: auto;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  /* Aucune salle ouverte: tout se centre dans la hauteur. Un message d'attente
+     collé en haut d'un écran vide se lit comme un reste de page; au milieu, il
+     EST la page. */
+  body[data-vide="oui"] .page { justify-content: center; }
+  body[data-vide="oui"] .salles,
+  body[data-vide="oui"] .ouvrir { justify-content: center; }
+  body[data-vide="oui"] header { text-align: center; }
+  body[data-vide="oui"] .vide-mot { margin-inline: auto; }
+
   h1 {
     font-family: var(--titre);
     font-size: clamp(2.4rem, 6vw, 4rem);
@@ -187,15 +208,19 @@
        finit par être contourné. -->
   <button type="button" id="retour" class="retour" hidden></button>
 
-  <h1>nel3ab</h1>
-  <p class="sous">Choisis une salle, ou ouvre la tienne.</p>
+  <main class="page">
+    <header>
+      <h1>nel3ab</h1>
+      <p class="sous">Choisis une salle, ou ouvre la tienne.</p>
+    </header>
 
-  <div class="salles" id="salles" aria-live="polite"></div>
+    <div class="salles" id="salles" aria-live="polite"></div>
 
-  <div class="ouvrir">
-    <button id="ouvrir" type="button">ouvrir une salle</button>
-    <span class="mot" id="mot"></span>
-  </div>
+    <div class="ouvrir">
+      <button id="ouvrir" type="button">ouvrir une salle</button>
+      <span class="mot" id="mot"></span>
+    </div>
+  </main>
 
 <script>
   // Pourquoi on se retrouve ici. Le proxy renvoie au salon quand une salle
@@ -224,6 +249,9 @@
     const ouvertes = salles.filter(salle => salle.ouverte);
     const libres = salles.length - ouvertes.length;
 
+    // Le style centre tout quand il n'y a rien à rejoindre. Un attribut plutôt
+    // qu'une classe: il dit un ÉTAT de la page, pas une décoration.
+    document.body.dataset.vide = ouvertes.length === 0 ? "oui" : "non";
     if (ouvertes.length === 0) {
       // Un écran vide se lit comme une panne. Celui-ci dit ce qui se passe et
       // ce qu'on peut faire, ce qui est la seule chose qui manque ici.

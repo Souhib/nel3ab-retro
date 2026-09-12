@@ -57,6 +57,11 @@ pub fn take(session_dir: &Path) -> io::Result<Option<Held>> {
 
 #[cfg(test)]
 mod tests {
+    #![expect(
+        clippy::expect_used,
+        reason = "un panic EST le signal d'échec dans un test"
+    )]
+
     use super::*;
 
     /// Deux salles sur le même dossier: la seconde doit être refusée.
@@ -93,7 +98,10 @@ mod tests {
         let une = tempfile::tempdir()?;
         let autre = tempfile::tempdir()?;
         let _premier = take(une.path())?.expect("la première salle entre");
-        assert!(take(autre.path())?.is_some(), "une autre salle a été bloquée");
+        assert!(
+            take(autre.path())?.is_some(),
+            "une autre salle a été bloquée"
+        );
         Ok(())
     }
 }

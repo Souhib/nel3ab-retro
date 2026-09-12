@@ -19,7 +19,7 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { createWriteStream } from "node:fs";
-import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
@@ -65,7 +65,7 @@ async function salle({ jeu, secondes, avertir }) {
   worker.stdout.pipe(log); worker.stderr.pipe(log);
   for (let n = 0; n < 100; n++) {
     const up = await fetch(`http://127.0.0.1:${media}/roms`).then(r => r.ok).catch(() => false);
-    if (up) return { worker, path, started: Date.now() };
+    if (up) return { worker, path, root, started: Date.now() };
     assert.equal(worker.exitCode, null, `Le worker est mort au démarrage, voir ${path}`);
     await new Promise(done => setTimeout(done, 200));
   }
@@ -86,6 +86,11 @@ try {
   assert.match(journal, /la salle fermera bientôt/, "Aucun avertissement avant la fermeture");
   assert.match(journal, /la salle se ferme/, "La salle est morte sans dire pourquoi");
   assert.ok(vecu < 25, `Fermeture bien trop tardive: ${vecu.toFixed(1)} s`);
+  // Et la salle doit revenir SANS jeu. Le worker installé est relancé par
+  // systemd: sans ce marqueur il relancerait le jeu qu'il vient de fermer, et
+  // la fermeture n'aurait servi qu'à perdre la partie en cours.
+  assert.ok(await stat(join(jouee.root, "session/game-closed")).catch(() => null),
+    "La salle fermée relancerait son jeu au prochain démarrage");
 
   // Le jumeau négatif: une salle ouverte sans jeu, même délai court, doit être
   // encore là quand l'autre est morte depuis longtemps.

@@ -13730,6 +13730,54 @@ indiquant qu'on a fermé la salle ». Il manquait encore, parce que la salle
 fermée n'avait plus personne à qui le dire. C'est le salon qui le dit, au
 retour, et c'est le bon endroit.
 
+### « Aucun jeu » pendant qu'on en charge un
+
+*12 septembre 2026.*
+
+**Le symptôme.** Choisir un jeu dans une salle qui n'en avait pas affichait « aucun
+jeu · choisis un jeu » en grand pendant quelques secondes, puis le chargement
+apparaissait enfin. Le jeu démarrait bien; c'est l'écran qui racontait le
+contraire de ce qu'on venait de faire.
+
+**La cause.** L'écran de chargement était conditionné à « la salle n'est PAS au
+repos ». Or au premier lancement, la salle EST encore au repos: le worker doit
+redémarrer sur le jeu demandé, et pendant ces quelques secondes elle n'a
+toujours pas de jeu. Les deux conditions se contredisaient donc exactement au
+moment où l'écran comptait le plus, et elles se rejoignaient ensuite, ce qui
+explique que tout finissait par s'afficher normalement.
+
+Un lancement demandé passe maintenant avant l'état de repos, à l'écran comme
+dans le pied de page du menu. La leçon: un état transitoire — « on a demandé,
+ça n'est pas encore arrivé » — ne se déduit pas de l'absence du résultat. Il
+doit être porté par lui-même, sans quoi il est indiscernable du rien.
+
+### L'accueil des salles reçoit une direction visuelle
+
+*12 septembre 2026.*
+
+La page de choix de salle était fonctionnelle et sans intention: fond sombre
+neutre, cartes grises, une seule couleur d'accent héritée de la salle. La base
+UI/UX du projet a été interrogée pour ce qu'elle est — un salon de jeu, sur un
+téléviseur, dans le noir — et propose une direction: violet profond, action en
+rose, cartes en relief, apparition en cascade, typographie affirmée.
+
+**Ce qui a été retenu, et ce qui a été écarté.** La direction proposait de la 3D
+temps réel. Sa propre fiche annonce un coût élevé et un risque d'accessibilité,
+pour une page qui doit s'afficher en une seconde sur un téléviseur et dont le
+seul travail est de montrer deux ou trois cartes. La profondeur vient donc
+d'ombres en couches et d'une lueur au survol, sans moteur 3D ni image lourde.
+
+Les polices proposées viennent d'un service tiers. Elles ont été écartées aussi:
+dépendre d'Internet pour afficher la page d'accueil d'une machine privée serait
+une panne de plus à la merci du réseau. La hiérarchie tient donc à la graisse et
+à l'espacement, sur les polices du système.
+
+**Ce que la liste de contrôle a imposé**, et qui ne se voit pas: un focus
+visible au clavier, des transitions de 150 à 200 ms, aucun statut porté par la
+seule couleur, et toute animation coupée quand le système demande moins de
+mouvement. La cascade d'apparition est du décor: elle ne doit rien coûter à qui
+ne peut pas la voir.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une

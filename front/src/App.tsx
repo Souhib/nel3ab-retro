@@ -1816,7 +1816,13 @@ function Room({
         </div>
       ) : null}
 
-      {!idle && booting ? (
+      {/* SANS `!idle`, et c'est la correction du 12 septembre 2026: au tout
+          premier lancement d'une salle vide, le jeu n'est pas encore chargé
+          côté worker, donc la salle est encore « au repos » pendant qu'il
+          redémarre. L'écran de chargement ne s'affichait donc qu'APRÈS coup, et
+          entre-temps le menu annonçait « aucun jeu » à quelqu'un qui venait
+          justement d'en choisir un. */}
+      {booting ? (
         <Booting
           game={booting.game}
           save={booting.save}
@@ -1849,7 +1855,10 @@ function Room({
               // reste affiché mais n'écoute plus: sinon réassigner une flèche
               // ferait aussi défiler la liste dessous.
               paused: configuring,
-              footer: `${idle ? "aucun jeu · choisis un jeu" : (room?.name ?? "salon")} · ${people.length} présent${people.length > 1 ? "s" : ""}`,
+              // Un lancement en cours passe AVANT le repos: la salle est encore
+              // vide le temps que le worker redémarre, et lui dire « aucun jeu »
+              // à cet instant contredit ce qu'on vient de faire.
+              footer: `${booting ? `${booting.game} · chargement` : idle ? "aucun jeu · choisis un jeu" : (room?.name ?? "salon")} · ${people.length} présent${people.length > 1 ? "s" : ""}`,
             };
             if (shell === "wii") return <Channels key={String(idle)} {...common} />;
             if (shell === "switch") return <Home key={String(idle)} {...common} who={name} />;

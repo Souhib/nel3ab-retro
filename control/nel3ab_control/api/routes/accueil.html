@@ -5,93 +5,180 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>nel3ab — les salles</title>
 <style>
+  /* Direction visuelle tirée de la base UI/UX (12 septembre 2026): violet néon
+     sur fond profond, action rose, cartes en relief, apparition en cascade.
+     Le style proposé s'appuyait sur de la 3D temps réel; elle est écartée ici,
+     sa fiche annonçant elle-même un coût élevé et un risque d'accessibilité,
+     pour une page qui doit s'afficher en une seconde sur un téléviseur. La
+     profondeur est donc obtenue par des ombres en couches et une lueur, sans
+     moteur 3D ni image lourde.
+
+     Les polices restent celles du système: dépendre d'un service tiers pour
+     afficher la page d'accueil d'une machine privée serait une panne de plus à
+     la merci du réseau. */
   :root {
-    --fond: #0b0b0f;
-    --carte: #16161d;
-    --trait: #2a2a36;
-    --texte: #f2f2f5;
-    --doux: #a0a0b0;
-    --vif: #7c5cff;
+    --fond: #0f0f23;
+    --fond-haut: #16163a;
+    --carte: #1e1c35;
+    --carte-haute: #272348;
+    --trait: #4c1d95;
+    --texte: #e2e8f0;
+    --doux: #94a3b8;
+    --vif: #7c3aed;
+    --vif-clair: #a78bfa;
+    --action: #f43f5e;
     --ouverte: #4ade80;
+    --titre: ui-sans-serif, "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    padding: 5vh 6vw;
-    background: var(--fond);
+    min-height: 100vh;
+    padding: clamp(2rem, 5vh, 4rem) clamp(1.2rem, 6vw, 5rem);
+    background:
+      radial-gradient(120% 80% at 15% -10%, rgba(124, 58, 237, .28), transparent 60%),
+      radial-gradient(90% 60% at 100% 0%, rgba(244, 63, 94, .14), transparent 55%),
+      var(--fond);
     color: var(--texte);
-    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+    font: 16px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   }
-  h1 { font-size: clamp(2rem, 5vw, 3.5rem); margin: 0 0 .2em; letter-spacing: -.02em; }
-  .sous { color: var(--doux); font-size: clamp(1rem, 2vw, 1.4rem); margin: 0 0 2em; }
-  .salles { display: grid; gap: 1.2rem; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
-  /* La carte entière est le lien: viser une petite étiquette « rejoindre » à
-     deux mètres d'un écran est le genre de cible qu'on rate. */
+  h1 {
+    font-family: var(--titre);
+    font-size: clamp(2.4rem, 6vw, 4rem);
+    font-weight: 800;
+    letter-spacing: -.03em;
+    margin: 0 0 .15em;
+    background: linear-gradient(100deg, var(--texte) 25%, var(--vif-clair));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .sous { color: var(--doux); font-size: clamp(1.05rem, 2vw, 1.35rem); margin: 0 0 2.5em; }
+
+  .salles {
+    display: grid;
+    gap: 1.4rem;
+    grid-template-columns: repeat(auto-fill, minmax(290px, 360px));
+    justify-content: start;
+  }
+  /* L'écran vide, lui, occupe toute la largeur disponible: il n'est pas une
+     carte, et le border-dashed d'une seule colonne se lirait comme une salle
+     fantôme. */
+  .salles:has(.vide) { grid-template-columns: minmax(0, 720px); }
+
+  /* La carte ENTIÈRE est le lien: viser une petite étiquette à deux mètres d'un
+     téléviseur est une cible qu'on rate. */
   a.salle {
-    background: var(--carte);
+    position: relative;
+    display: flex; flex-direction: column; gap: .55rem;
+    min-height: 190px;
+    padding: 1.6rem;
     border: 1px solid var(--trait);
-    border-radius: 14px;
-    padding: 1.5rem;
-    min-height: 168px;
-    display: flex; flex-direction: column; gap: .6rem;
+    border-radius: 18px;
+    background: linear-gradient(165deg, var(--carte-haute), var(--carte));
+    box-shadow: 0 1px 0 rgba(255,255,255,.06) inset, 0 18px 40px -24px rgba(0,0,0,.9);
     color: inherit; text-decoration: none;
-    transition: border-color .12s ease, background .12s ease;
+    cursor: pointer;
+    transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+    animation: monte .38s cubic-bezier(.2,.8,.3,1.2) both;
+    animation-delay: calc(var(--rang, 0) * 60ms);
   }
-  a.salle:hover { border-color: var(--vif); background: #1b1b24; }
-  .titre { font-size: clamp(1.3rem, 2.5vw, 1.8rem); font-weight: 600; }
-  .etat { color: var(--doux); font-size: 1.05rem; }
+  a.salle:hover, a.salle:focus-visible {
+    transform: translateY(-3px);
+    border-color: var(--vif-clair);
+    box-shadow: 0 1px 0 rgba(255,255,255,.10) inset, 0 26px 50px -26px rgba(124,58,237,.85);
+  }
+  @keyframes monte { from { opacity: 0; transform: translateY(14px) scale(.97); } }
+
+  .titre {
+    font-family: var(--titre);
+    font-size: clamp(1.45rem, 2.6vw, 2rem);
+    font-weight: 700;
+    letter-spacing: -.01em;
+  }
+  /* Le jeu en toutes lettres: une pastille de couleur ne se lit ni de loin, ni
+     pour qui distingue mal les couleurs. */
+  .etat { color: var(--doux); font-size: 1.08rem; }
+  .etat::before {
+    content: "";
+    display: inline-block;
+    width: .55rem; height: .55rem;
+    margin-right: .55rem;
+    border-radius: 50%;
+    background: var(--ouverte);
+    box-shadow: 0 0 10px var(--ouverte);
+    vertical-align: middle;
+  }
   .marques { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: auto; }
   .marque {
     border: 1px solid var(--trait);
     border-radius: 999px;
-    padding: .15rem .7rem;
+    padding: .2rem .75rem;
     font-size: .95rem;
-    color: var(--doux);
+    color: var(--vif-clair);
+    background: rgba(124,58,237,.12);
   }
   .rejoindre {
     align-self: flex-start;
-    color: var(--vif);
-    font-weight: 600;
-    font-size: 1.05rem;
+    margin-top: .3rem;
+    color: var(--vif-clair);
+    font-weight: 650;
+    font-size: 1.08rem;
   }
+  a.salle:hover .rejoindre::after, a.salle:focus-visible .rejoindre::after { transform: translateX(4px); }
+  .rejoindre::after {
+    content: "→";
+    display: inline-block;
+    margin-left: .4rem;
+    transition: transform .18s ease;
+  }
+
   .vide {
     grid-column: 1 / -1;
     border: 1px dashed var(--trait);
-    border-radius: 14px;
-    padding: 2.5rem 1.5rem;
+    border-radius: 18px;
+    padding: 3rem 1.5rem;
     text-align: center;
+    background: rgba(30,28,53,.5);
   }
-  .vide-titre { margin: 0 0 .4rem; font-size: 1.4rem; font-weight: 600; }
-  .vide-mot { margin: 0; color: var(--doux); font-size: 1.05rem; }
-  a.bouton, button {
-    font: inherit; font-size: 1.1rem; font-weight: 600;
-    min-height: 48px; padding: .7rem 1.2rem;
-    border-radius: 10px; border: 1px solid var(--trait);
-    background: #22222c; color: var(--texte);
-    text-decoration: none; text-align: center; cursor: pointer;
+  .vide-titre { font-family: var(--titre); margin: 0 0 .5rem; font-size: 1.6rem; font-weight: 700; }
+  .vide-mot { margin: 0 auto; max-width: 46ch; color: var(--doux); font-size: 1.08rem; }
+
+  .ouvrir { margin-top: 2.8rem; display: flex; align-items: center; gap: 1.2rem; flex-wrap: wrap; }
+  button {
+    font: inherit; font-size: 1.1rem; font-weight: 650;
+    min-height: 52px; padding: .8rem 1.6rem;
+    border: 0; border-radius: 12px;
+    background: linear-gradient(160deg, var(--action), #be123c);
+    color: #fff;
+    cursor: pointer;
+    box-shadow: 0 14px 30px -18px var(--action);
+    transition: transform .15s ease, box-shadow .15s ease, filter .15s ease;
   }
-  a.bouton { background: var(--vif); border-color: var(--vif); }
-  button:hover, a.bouton:hover { filter: brightness(1.15); }
-  button:disabled { opacity: .45; cursor: default; }
-  :focus-visible { outline: 3px solid var(--vif); outline-offset: 3px; }
-  .ouvrir { margin-top: 2.5rem; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+  button:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.08); }
+  button:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; }
   .mot { color: var(--doux); font-size: 1.05rem; }
   .mot[data-refus="oui"] { color: #ffb4a2; }
+
+  .retour[hidden] { display: none; }
   .retour {
     display: block;
     width: 100%;
-    margin: 0 0 2rem;
-    padding: 1rem 1.2rem;
-    border: 1px solid var(--trait);
-    border-radius: 12px;
-    background: var(--carte);
-    color: var(--texte);
-    font: inherit;
-    font-size: 1.05rem;
-    text-align: left;
-    cursor: pointer;
+    max-width: 78ch;
+    margin: 0 0 2.2rem; padding: 1.1rem 1.3rem;
+    border: 1px solid var(--trait); border-radius: 14px;
+    background: linear-gradient(165deg, var(--carte-haute), var(--carte));
+    color: var(--texte); font: inherit; font-size: 1.05rem;
+    text-align: left; cursor: pointer;
   }
-  .retour:hover { border-color: var(--vif); }
+  .retour:hover { border-color: var(--vif-clair); }
+
+  :focus-visible { outline: 3px solid var(--vif-clair); outline-offset: 3px; }
+
+  /* Une animation n'est jamais nécessaire à la compréhension de cette page. */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
 </style>
 </head>
 <body>

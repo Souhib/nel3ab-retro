@@ -389,6 +389,104 @@ fn env_dirs(name: &str) -> Option<Vec<PathBuf>> {
     (!dirs.is_empty()).then_some(dirs)
 }
 
+/// Un DÉLAI en secondes, pour qu'un essai n'ait pas à attendre une demi-heure.
+///
+/// Une valeur illisible ou nulle est ignorée plutôt que fatale: une salle qui
+/// refuserait de démarrer à cause d'un réglage de confort serait cassée par une
+/// économie. Le défaut du dépôt reprend alors la main.
+fn env_secs(name: &str) -> Option<Duration> {
+    let raw = std::env::var(name).ok()?;
+    let seconds: u64 = raw.trim().parse().ok()?;
+    (seconds > 0).then(|| Duration::from_secs(seconds))
+}
+
+/// Le garde qui arrête le fil d'inactivité quand la salle se termine.
+///
+/// Un `Drop` plutôt qu'un drapeau posé à la main: `run` sort par cinq chemins
+/// différents, dont un `?`, et celui qu'on oublierait laisserait le fil regarder
+/// une salle qui n'existe plus.
+struct IdleWatch {
+    over: Arc<std::sync::atomic::AtomicBool>,
+    thread: Option<std::thread::JoinHandle<()>>,
+}
+
+impl Drop for IdleWatch {
+    fn drop(&mut self) {
+        self.over.store(true, std::sync::atomic::Ordering::Relaxed);
+        if let Some(thread) = self.thread.take() {
+            drop(thread.join());
+        }
+    }
+}
+
+/// Surveille l'inactivité de la salle et demande sa fermeture le moment venu.
+///
+/// Un fil et pas la boucle principale, pour la même raison que la sieste: les
+/// boucles bloquent sur l'image suivante, et une salle gelée n'en produit plus.
+/// Un cinquième de seconde entre deux regards, assez court pour que le garde
+/// n'ajoute rien de visible au changement de jeu.
+fn watch_idle(
+    server: &Arc<BrowserServer>,
+    stopping: &Arc<std::sync::atomic::AtomicBool>,
+) -> Result<IdleWatch> {
+    let close_after = env_secs("NEL3AB_CLOSE_AFTER_SECS").unwrap_or(nap::CLOSE_AFTER);
+    let warn_before = env_secs("NEL3AB_WARN_BEFORE_SECS").unwrap_or(nap::WARN_BEFORE);
+    let over = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let thread = {
+        let server = Arc::clone(server);
+        let stopping = Arc::clone(stopping);
+        let over = Arc::clone(&over);
+        std::thread::Builder::new()
+            .name("idle".to_owned())
+            .spawn(move || {
+                let mut idle = nap::Idle::new();
+                // Tant que personne n'a joué, l'ouverture de la salle fait
+                // office de dernier geste: une salle ouverte et jamais touchée
+                // doit se fermer comme les autres.
+                let opened = Instant::now();
+                while !over.load(std::sync::atomic::Ordering::Relaxed)
+                    && !stopping.load(std::sync::atomic::Ordering::Relaxed)
+                {
+                    std::thread::sleep(Duration::from_millis(200));
+                    let busy = nap::Busy {
+                        watching: server.watchers() + server.half_watchers(),
+                        holding: server.pads_held(),
+                        wanted: server.rom_wanted(),
+                    };
+                    match idle.saw(
+                        busy,
+                        server.last_action().unwrap_or(opened),
+                        Instant::now(),
+                        close_after,
+                        warn_before,
+                    ) {
+                        Some(nap::Step::Warn) => tracing::info!(
+                            secondes = close_after.as_secs(),
+                            "personne n'a joué: la salle fermera bientôt"
+                        ),
+                        Some(nap::Step::Close) => {
+                            if server.close_idle() {
+                                tracing::info!(
+                                    secondes = close_after.as_secs(),
+                                    "personne n'a joué: la salle se ferme"
+                                );
+                            } else {
+                                tracing::info!(
+                                    "fermeture pour inactivité refusée: un jeu est en route"
+                                );
+                            }
+                        }
+                        None => {}
+                    }
+                }
+            })?
+    };
+    Ok(IdleWatch {
+        over,
+        thread: Some(thread),
+    })
+}
+
 /// Wires the four crates together and runs until the emulator stops.
 #[allow(
     clippy::too_many_lines,
@@ -534,10 +632,28 @@ fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Re
         Box::new(move |expected| stopping_game.request_stop(&expected)),
     )?;
 
+    // Le fil qui ferme une salle que plus personne ne touche.
+    //
+    // Ici, avant les trois états possibles d'une salle, et surtout PAS dans le
+    // fil de sieste: celui-là n'existe que dans la salle Dolphin, si bien qu'une
+    // salle Switch ou une salle ouverte sans jeu ne se serait jamais fermée. Ce
+    // sont pourtant elles qui coûtent le plus longtemps, mesuré le 12 septembre
+    // 2026 sur une salle Switch restée trois heures sans une seule commande.
+    //
+    // Le garde qu'il rend arrête le fil à la sortie de cette fonction, quelle
+    // qu'elle soit: une salle qui change de jeu sort par un `return` que le
+    // ramasseur de fils du chemin Dolphin ne voit pas.
+    let _idle_watch = watch_idle(&server, stopping)?;
+
     if idle {
         server.half_offered(false);
         tracing::info!("salle ouverte sans jeu, aucun Dolphin lancé");
+        // `stop_requested` compte ici autant que dans la boucle d'images:
+        // une salle ouverte sans jeu tient quand même un worker et une des deux
+        // places du serveur. Rien à écrire en sortant, l'état retenu dit déjà
+        // qu'aucun jeu ne tourne, c'est même la raison d'être de cette branche.
         while !stopping.load(std::sync::atomic::Ordering::Relaxed)
+            && !server.stop_requested()
             && !remember_request(&server, &library, &settings.session_dir)
         {
             // Dix lectures par seconde au repos bornent la réponse au menu à

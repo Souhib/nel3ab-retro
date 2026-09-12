@@ -13170,6 +13170,45 @@ attente, ni une salle qui attend un jeu demandé. Sinon deux ordres se
 disputeraient la même boucle d'images. Chaque garde a son jumeau négatif, et
 chacun a été vu échouer en rendant la garde fausse exprès.
 
+### La règle branchée au mauvais endroit, et le pilote qui l'a dit
+
+*12 septembre 2026.*
+
+**Le piège.** La règle d'inactivité a d'abord été posée dans le fil de sieste,
+qui semblait fait pour ça : il regarde la salle deux fois par seconde et il
+existait déjà. Un pilote monté ensuite a montré que c'était faux. Le worker a
+**trois** états, et ce fil ne vit que dans le dernier : une salle ouverte sans
+jeu attend dans sa propre boucle, une salle Switch dans la sienne, et le fil de
+sieste n'est lancé que sur le chemin Dolphin, parce que geler un jeu n'a de sens
+que là. Une salle Switch ou une salle vide ne se serait donc **jamais** fermée —
+et ce sont justement celles qui coûtent le plus longtemps : ce jour-là, la salle
+de la machine tournait depuis trois heures sans une seule commande de manette.
+
+La leçon générale : un fil qui « regarde la salle » ne regarde en réalité que
+l'état dans lequel il a été lancé. Avant de greffer une surveillance sur un fil
+existant, il faut savoir quels états ce fil ne voit pas.
+
+**La correction.** Un fil à part, lancé avant les trois branches, donc présent
+dans les trois. Il s'arrête par un garde relâché à la sortie de la fonction :
+celle-ci sort par cinq chemins différents, dont un `?` et le changement de jeu,
+et le drapeau qu'on aurait oublié de poser sur l'un d'eux aurait laissé un fil
+regarder une salle disparue. La boucle de la salle sans jeu a appris au passage
+à honorer un arrêt demandé, sans quoi la fermeture n'aurait fermé personne.
+
+**Le pilote.** Il lance un vrai worker, dans un dossier jetable, sur des ports
+réservés, avec le délai raccourci par l'environnement, et attend qu'il s'arrête
+**tout seul** : six secondes d'inactivité, fermeture à 6,1 s, avertissement
+compris. Le jumeau négatif, délai de dix minutes, est toujours là quinze
+secondes plus tard. Vérifier la règle en mémoire n'aurait rien prouvé du
+branchement, et c'est précisément le branchement qui était faux. Aucun conteneur
+n'est visé par ce pilote : son nom de conteneur n'existe pas, pour qu'une sieste
+ne puisse en aucun cas geler la salle de quelqu'un.
+
+**Un défaut du pilote lui-même.** Sa première version a échoué en laissant
+derrière elle un worker bien vivant, qu'il a fallu retrouver par son dossier de
+session. Il ramasse maintenant tout ce qu'il a lancé, quoi qu'il arrive. Un
+essai qui pollue la machine qu'il mesure finit par mesurer sa propre pollution.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une

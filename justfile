@@ -476,6 +476,17 @@ browser-background:
 browser-seats:
     cd spikes/m3-browser-drive && node seat-kept.mjs http://localhost:8100/ 25
 
+# Une salle que personne ne touche se ferme-t-elle vraiment ?
+#
+# Lance un VRAI worker dans un dossier jetable, délai raccourci par
+# l'environnement, et attend qu'il s'arrête tout seul. Vérifier la règle en
+# mémoire ne prouverait pas le branchement: c'est la boucle d'images qui doit
+# voir l'arrêt demandé. Le jumeau négatif, délai long, doit survivre.
+#
+# Ne vise aucun conteneur: une sieste ne peut donc pas geler une salle vivante.
+salle-inactive:
+    cd spikes/m3-browser-drive && node salle-inactive.mjs
+
 # Les noms des places suivent-ils qui les tient, après un rechargement ?
 #
 # Contre la salle COMPLÈTE, par le proxy: c'est le désaccord entre le worker,

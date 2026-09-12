@@ -487,6 +487,15 @@ browser-background:
 browser-seats:
     cd spikes/m3-browser-drive && node seat-kept.mjs http://localhost:8100/ 25
 
+# L'accueil montre-t-il vraiment les salles ouvertes, et elles seules ?
+#
+# La page se construit dans le navigateur à partir de `/api/salles`: lire son
+# source ne prouve rien de ce qu'elle affiche. Ce pilote la charge pour de bon
+# et compare son rendu à ce que le salon déclare. Contre le salon EN DIRECT:
+# c'est la page qu'on vérifie, pas le routage.
+salon-accueil:
+    cd spikes/m3-browser-drive && node salon-accueil.mjs
+
 # La salle prévient-elle À L'ÉCRAN avant de fermer, et le clic la fait-il taire ?
 #
 # Le journal disait déjà « la salle fermera bientôt », mais un journal ne

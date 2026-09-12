@@ -13106,6 +13106,44 @@ manquait alors qu'il était bien compilé, et `strings -e l` le montre. Enfin,
 dans le moteur : .NET affiche le premier nom déclaré, ce qui accuse le mauvais
 chemin, et le marqueur affiche maintenant aussi la valeur numérique.
 
+### Une salle qu'on a quittée finit par se fermer
+
+*12 septembre 2026.*
+
+**Le besoin.** Une salle laissée ouverte fait tourner un émulateur, un encodeur
+et une carte graphique pour personne. Souhib a demandé qu'après **trente minutes**
+sans le moindre geste, le jeu et la salle se ferment, avec un avertissement cinq
+minutes avant pour celui qui revient des toilettes.
+
+**Pourquoi ce n'est pas une sieste de plus.** La sieste existait déjà : elle gèle
+Dolphin quand la salle est vide, et le réveille dès qu'on revient. Elle rend ses
+décisions sous la forme d'un `Move`, `Sleep` ou `Wake`, et ce mot-là se traduit
+directement en verbe docker, `pause` ou `unpause`. Or fermer une salle n'est pas
+un verbe docker : ajouter une troisième variante aurait obligé la fonction de
+traduction à inventer une commande qui n'existe pas. La fermeture est donc une
+règle voisine, avec son propre type de décision — prévenir ou fermer — et son
+propre délai.
+
+**Présence n'est pas activité**, et c'est tout le piège. La sieste compte les
+spectateurs ; un onglet oublié dans un coin compte comme un spectateur. Une règle
+d'inactivité bâtie là-dessus ne fermerait jamais rien. Elle lit donc autre chose :
+le dernier geste réel, celui que le transport estampille quand une trame de
+manette arrive **non neutre**. Les deux mesures cohabitent sans se confondre.
+
+**Un jumeau négatif malhonnête, attrapé par l'essai lui-même.** Le premier jumeau
+écrit affirmait qu'une manette touchée vingt-neuf minutes plus tôt « ne ferme
+rien », et attendait une décision vide. C'est faux : à vingt-neuf minutes
+l'avertissement est dû, puisqu'il tombe à vingt-cinq. L'essai est passé au rouge
+et c'est la règle qui avait raison. Il a été coupé en deux essais honnêtes :
+vingt-quatre minutes ne disent rien du tout, vingt-neuf préviennent sans fermer.
+La leçon générale : un jumeau négatif écrit trop vite affirme l'absence de TOUTE
+réaction alors qu'il ne voulait nier qu'une seule.
+
+**Vérifié en cassant.** La règle rendue fausse exprès — l'avertissement déplacé à
+l'heure de la fermeture — fait tomber trois essais sur quatre ; remise droite,
+tout redevient vert. Sans cette étape, un essai qui ne peut pas échouer annonce
+une garantie qui n'existe pas.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une

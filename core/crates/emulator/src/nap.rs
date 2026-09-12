@@ -42,6 +42,94 @@ use std::time::{Duration, Instant};
 /// finie ne laisse pas la machine tourner jusqu'au lendemain.
 pub const GRACE: Duration = Duration::from_mins(1);
 
+/// Depuis combien de temps sans le moindre geste une salle se ferme.
+///
+/// Trente minutes, décidé par Souhib le 12 septembre 2026. La sieste, elle, ne
+/// gèle que Dolphin et ne rend rien pour la Switch, qui ne fait jamais la
+/// sieste et tourne à plein tant que personne ne ferme.
+pub const CLOSE_AFTER: Duration = Duration::from_mins(30);
+
+/// Combien de temps avant la fermeture on prévient la salle.
+///
+/// Cinq minutes: assez pour revenir des toilettes, assez court pour ne pas
+/// laisser tourner une salle qu'on a quittée. Un seul geste annule tout.
+pub const WARN_BEFORE: Duration = Duration::from_mins(5);
+
+/// Ce qu'une salle sans geste mérite, s'il faut faire quelque chose.
+///
+/// Un type à part de [`Move`], et pas une variante de plus: `Move` se traduit
+/// en verbe docker (`pause`, `unpause`), et fermer une salle n'est pas un verbe
+/// docker. Les mélanger obligerait `tell_docker` à inventer une commande.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Step {
+    /// Prévenir: la fermeture approche.
+    Warn,
+    /// Fermer le jeu et rendre la salle à son catalogue.
+    Close,
+}
+
+/// La règle d'inactivité.
+///
+/// Présence et activité ne sont pas la même chose, et c'est tout le sujet: un
+/// onglet oublié compte comme un spectateur, donc une règle bâtie sur [`Busy`]
+/// ne fermerait jamais rien. L'instant qu'on lui passe est celui du dernier
+/// geste réel, celui que le transport estampille sur une trame NON NEUTRE.
+///
+/// Sans horloge à elle, comme [`Nap`]: chaque instant est passé, donc la règle
+/// se vérifie sans attendre une demi-heure.
+#[derive(Debug, Default)]
+pub struct Idle {
+    /// Le dernier instant de vie observé, pour repérer qu'un geste a eu lieu.
+    seen: Option<Instant>,
+    warned: bool,
+    closed: bool,
+}
+
+impl Idle {
+    /// Une salle dont on ne sait encore rien.
+    #[must_use]
+    pub const fn new() -> Self {
+        Self {
+            seen: None,
+            warned: false,
+            closed: false,
+        }
+    }
+
+    /// Un tour d'observation. Rend un geste une seule fois par échéance.
+    ///
+    /// `alive` est le dernier moment où la salle a vécu: le dernier geste d'un
+    /// joueur, ou l'ouverture de la salle tant que personne n'a joué. Un jeu
+    /// demandé ou une fermeture déjà en route suspendent la règle: la boucle
+    /// d'images a déjà du travail, et lui en ajouter ferait deux ordres pour
+    /// une seule salle.
+    pub fn saw(
+        &mut self,
+        busy: Busy,
+        alive: Instant,
+        now: Instant,
+        after: Duration,
+        warn: Duration,
+    ) -> Option<Step> {
+        if self.seen != Some(alive) {
+            self.seen = Some(alive);
+            self.warned = false;
+            self.closed = false;
+        }
+        if busy.wanted {
+            return None;
+        }
+        let idle = now.saturating_duration_since(alive);
+        if idle >= after {
+            return (!std::mem::replace(&mut self.closed, true)).then_some(Step::Close);
+        }
+        if idle >= after.saturating_sub(warn) {
+            return (!std::mem::replace(&mut self.warned, true)).then_some(Step::Warn);
+        }
+        None
+    }
+}
+
 /// Ce qu'il faut faire à l'émulateur, s'il faut faire quelque chose.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Move {
@@ -403,6 +491,140 @@ mod tests {
         assert_eq!(
             nap.saw(Busy::default(), at(start, 61), GRACE),
             Some(Move::Sleep)
+        );
+    }
+
+    /// Une salle qu'on ne touche plus finit par se fermer.
+    #[test]
+    fn une_salle_sans_geste_depuis_trente_minutes_demande_la_fermeture() {
+        let start = Instant::now();
+        let mut idle = Idle::new();
+        let vu = |idle: &mut Idle, s: u64| {
+            idle.saw(watching(1), start, at(start, s), CLOSE_AFTER, WARN_BEFORE)
+        };
+
+        assert_eq!(vu(&mut idle, 60), None);
+        assert_eq!(vu(&mut idle, 25 * 60 - 1), None);
+        assert_eq!(vu(&mut idle, 25 * 60), Some(Step::Warn));
+        assert_eq!(vu(&mut idle, 26 * 60), None, "l'avertissement se répète");
+        assert_eq!(vu(&mut idle, 30 * 60), Some(Step::Close));
+        assert_eq!(vu(&mut idle, 31 * 60), None, "la fermeture se répète");
+    }
+
+    /// Le premier jumeau négatif: un geste récent ne déclenche rien du tout.
+    #[test]
+    fn une_manette_touchee_il_y_a_vingt_quatre_minutes_ne_dit_rien() {
+        let start = Instant::now();
+        let mut idle = Idle::new();
+
+        assert_eq!(
+            idle.saw(
+                watching(1),
+                at(start, 60),
+                at(start, 60 + 24 * 60),
+                CLOSE_AFTER,
+                WARN_BEFORE
+            ),
+            None
+        );
+    }
+
+    /// Le second: à vingt-neuf minutes l'avertissement est dû, la fermeture non.
+    /// Prévenir n'est pas fermer, et c'est tout l'intérêt des cinq minutes.
+    #[test]
+    fn une_manette_touchee_il_y_a_vingt_neuf_minutes_previent_sans_fermer() {
+        let start = Instant::now();
+        let mut idle = Idle::new();
+        let geste = at(start, 60);
+
+        assert_eq!(
+            idle.saw(
+                watching(1),
+                geste,
+                at(start, 60 + 29 * 60),
+                CLOSE_AFTER,
+                WARN_BEFORE
+            ),
+            Some(Step::Warn)
+        );
+        assert_eq!(
+            idle.saw(
+                watching(1),
+                geste,
+                at(start, 60 + 29 * 60 + 59),
+                CLOSE_AFTER,
+                WARN_BEFORE
+            ),
+            None,
+            "la salle s'est fermée une seconde avant l'heure"
+        );
+    }
+
+    /// Un geste pendant le compte à rebours annule tout, avertissement compris.
+    #[test]
+    fn un_geste_annule_la_fermeture_qui_approche() {
+        let start = Instant::now();
+        let mut idle = Idle::new();
+
+        assert_eq!(
+            idle.saw(
+                watching(1),
+                start,
+                at(start, 25 * 60),
+                CLOSE_AFTER,
+                WARN_BEFORE
+            ),
+            Some(Step::Warn)
+        );
+        let geste = at(start, 26 * 60);
+        assert_eq!(
+            idle.saw(
+                watching(1),
+                geste,
+                at(start, 27 * 60),
+                CLOSE_AFTER,
+                WARN_BEFORE
+            ),
+            None,
+            "un geste n'a pas remis le compte à zéro"
+        );
+        assert_eq!(
+            idle.saw(
+                watching(1),
+                geste,
+                at(start, 31 * 60),
+                CLOSE_AFTER,
+                WARN_BEFORE
+            ),
+            None,
+            "la salle s'est fermée alors qu'on venait d'y jouer"
+        );
+        assert_eq!(
+            idle.saw(
+                watching(1),
+                geste,
+                at(start, 26 * 60 + 30 * 60),
+                CLOSE_AFTER,
+                WARN_BEFORE
+            ),
+            Some(Step::Close)
+        );
+    }
+
+    /// Une salle qui attend un jeu ne se ferme pas sous les doigts de celui qui
+    /// vient de cliquer: la boucle d'images a déjà cet ordre à servir.
+    #[test]
+    fn une_salle_qui_attend_un_jeu_ne_se_ferme_pas() {
+        let start = Instant::now();
+        let mut idle = Idle::new();
+        let demande = Busy {
+            wanted: true,
+            ..Busy::default()
+        };
+
+        assert_eq!(
+            idle.saw(demande, start, at(start, 31 * 60), CLOSE_AFTER, WARN_BEFORE),
+            None
         );
     }
 }

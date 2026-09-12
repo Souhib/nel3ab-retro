@@ -6,11 +6,15 @@ import { client } from "./client/client.gen";
 import { applyTheme, storedTheme } from "./lib/theme";
 import { exposeNothingYet } from "./media/session";
 import "./index.css";
+import { salle } from "./lib/base";
 
 /* The generated client talks to this page's own origin. In production one
  * hostname reaches both services; in development the Vite proxy makes that true
  * as well, which is what keeps the worker's same-origin check satisfied. */
-client.setConfig({ baseUrl: "" });
+// Le salon vit à la racine du domaine pour toutes les salles, donc l'adresse ne
+// dit pas de laquelle on parle: ce numéro le dit. En en-tête plutôt qu'en
+// paramètre, pour ne pas avoir à l'ajouter à chaque appel du client engendré.
+client.setConfig({ baseUrl: "", headers: { "X-Nel3ab-Salle": String(salle()) } });
 
 /* Before React mounts, so a browser driver that looks early is told zero rather
  * than finding nothing at all. */

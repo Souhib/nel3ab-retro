@@ -15,14 +15,18 @@ async def test_game_changes_are_pushed_without_input_connections(
     monkeypatch: pytest.MonkeyPatch, after: int | None, expected: int
 ) -> None:
     game = SimpleNamespace(index=0)
+    rooms = SimpleNamespace(
+        recovery=None,
+        recovering=Lock(),
+        synchronise=AsyncMock(return_value=False),
+        library=AsyncMock(side_effect=[([], game), ([], None if after is None else game)]),
+    )
+    # La boucle parcourt les salles ÉVEILLÉES, celles dont quelqu'un s'est déjà
+    # occupé: une salle que personne n'a ouverte n'a pas de worker à interroger.
     state = SimpleNamespace(
-        people=SimpleNamespace(live=lambda: {"spectator"}),
-        rooms=SimpleNamespace(
-            recovery=None,
-            recovering=Lock(),
-            synchronise=AsyncMock(return_value=False),
-            library=AsyncMock(side_effect=[([], game), ([], None if after is None else game)]),
-        ),
+        people=SimpleNamespace(live=lambda _salle=None: {"spectator"}),
+        rooms=rooms,
+        salons=SimpleNamespace(eveilles=lambda: [(1, rooms)]),
         journal=object(),
     )
     broadcast = AsyncMock()

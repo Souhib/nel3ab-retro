@@ -18,6 +18,7 @@ import { readRoom, type Room } from "../client";
 import type { Trail, Vitals } from "./vitals";
 import { onBench, VISIT } from "./visit";
 import { under } from "./base";
+import { salle } from "./base";
 
 export const ROOM_KEY = ["room"] as const;
 
@@ -195,7 +196,11 @@ export function useLobby(
       // La VISITE voyage ici aussi, et le drapeau de banc avec elle. Le salon
       // les inscrit dans son journal à chaque événement, ce qui est la seule
       // façon de retrouver une soirée après coup: voir `lib/visit`.
-      auth: { name, visite: VISIT, banc: onBench(), manette: padOnly },
+      // La SALLE dont cette page parle, lue dans son adresse. Le salon en
+      // sert trois et il est le même pour toutes: sans ce numéro, il
+      // répondrait les places, les noms et le jeu de la salle 1 à tout le
+      // monde, ce qui est exactement la panne du 12 septembre 2026.
+      auth: { name, visite: VISIT, banc: onBench(), manette: padOnly, salle: salle() },
       transports: ["websocket"],
       // A room whose control plane is not running still plays; it just has no
       // names beside the seats. Backing off to ten seconds keeps that case from

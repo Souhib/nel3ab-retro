@@ -34,3 +34,19 @@ export const socketUnder = (path: string): string => {
   url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
   return url.toString();
 };
+
+/** Le numéro de la salle que cette page sert, d'après son adresse.
+ *
+ * Une salle vit sous `/r/2/`, et c'est la seule chose qui distingue une page de
+ * salle d'une autre: le salon, lui, est le même pour toutes. La page le lui dit
+ * en se connectant, et le salon lui répond avec les places, les noms et le jeu
+ * de CETTE salle.
+ *
+ * Un: une page servie à la racine est celle d'avant les salles multiples, et la
+ * salle 1 est celle qu'elle voyait.
+ */
+export const salle = (): number => {
+  const trouve = /^\/r\/(\d+)\//.exec(base());
+  const numero = trouve ? Number(trouve[1]) : 1;
+  return Number.isInteger(numero) && numero > 0 ? numero : 1;
+};

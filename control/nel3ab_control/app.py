@@ -13,8 +13,8 @@ from nel3ab_control.api.controllers.bindings import (
     RoomBindingsController,
 )
 from nel3ab_control.api.controllers.people import PeopleController
-from nel3ab_control.api.controllers.rooms import RoomController
 from nel3ab_control.api.controllers.salles import SallesController
+from nel3ab_control.api.controllers.salons import Salons
 from nel3ab_control.api.routes import accueil as accueil_routes
 from nel3ab_control.api.routes import me as me_routes
 from nel3ab_control.api.routes import rooms as rooms_routes
@@ -31,7 +31,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings: Settings = app.state.settings
     async with httpx.AsyncClient() as client:
         app.state.client = client
-        app.state.rooms = RoomController(settings, client)
+        # Un contrôleur PAR salle, créé au premier besoin. `state.rooms` reste
+        # celui de la salle 1 tant que tous les appelants ne disent pas la leur:
+        # un défaut explicite vaut mieux qu'une adresse écrite à la main, qui est
+        # exactement ce qui a fait rendre 503 à tout le salon après la bascule.
+        app.state.salons = Salons(settings, client)
+        app.state.rooms = app.state.salons.pour(1)
         # Les salles de la machine. Sans client HTTP: elle interroge systemd,
         # pas les workers, et ce qu'elle sait doit survivre à un worker mort.
         app.state.salles = SallesController(settings, client=client)

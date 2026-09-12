@@ -340,23 +340,29 @@ class RoomController:
             return session in self._watching and receipt is None
         return self.seat_of(session) == port and self._receipts.get(session) == receipt
 
-    async def describe(self, people: PeopleController | None = None) -> Room:
-        """Toute la salle, telle qu'une page a besoin de la dessiner."""
+    async def describe(self, people: PeopleController | None = None, salle: int = 1) -> Room:
+        """Toute la salle, telle qu'une page a besoin de la dessiner.
+
+        `salle` dit DE QUELLE salle on parle, parce que les présents sont tenus
+        ensemble pour toutes: sans lui, les joueurs d'une salle apparaîtraient
+        dans la liste d'une autre, et son chef pourrait être désigné par
+        quelqu'un qui n'y est même pas.
+        """
         library, running = await self.library()
         seats = self.seats()
-        present = people.present() if people else []
-        boss = people.owner() if people else None
+        present = people.present(salle) if people else []
+        boss = people.owner(salle) if people else None
         # La place d'une personne se trouve par ses SESSIONS: le nom ne suffit
         # pas, deux appareils d'une même personne portent le même.
         held = {
             login_or_name: port
-            for login_or_name, sessions in (people.sessions() if people else {}).items()
+            for login_or_name, sessions in (people.sessions(salle) if people else {}).items()
             for session in sessions
             if (port := self.seat_of(session)) is not None
         }
         pending = {
             identity: identity not in held and any(sid not in self._watching for sid in sessions)
-            for identity, sessions in (people.sessions() if people else {}).items()
+            for identity, sessions in (people.sessions(salle) if people else {}).items()
         }
         if self.preparation and not self.preparation.synchronise(
             [(seat.port, seat.claim, seat.player) for seat in seats if seat.claim is not None]

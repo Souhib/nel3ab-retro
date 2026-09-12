@@ -50,7 +50,19 @@ def allow_origins(origins: list[str]) -> None:
     sio.eio.cors_allowed_origins = list(origins)
 
 
-ROOM = "room"
+def piece(salle: int) -> str:
+    """La « pièce » Socket.IO d'une salle, où sa diffusion est confinée.
+
+    Une par salle, et c'est indispensable depuis qu'il y en a trois: une pièce
+    unique aurait montré à chacun les places, les noms et les lancements des
+    autres salles, et le chef de l'une aurait été désigné par la présence d'un
+    joueur de l'autre.
+    """
+    return f"salle-{salle}"
+
+
+#: La pièce de la salle 1, pour les appelants qui ne disent pas encore la leur.
+ROOM = piece(1)
 
 
 async def follow_seats(state) -> None:
@@ -64,25 +76,34 @@ async def follow_seats(state) -> None:
     # Import local : ces événements utilisent le serveur une fois construit.
     from nel3ab_control.api.ws.recovery import expire
 
-    known_game: int | None = None
+    known_game: dict[int, int | None] = {}
     while True:
         await anyio.sleep(1)
         try:
-            await expire(state.rooms, state.people)
-            if not state.people.live():
-                continue
-            changed = await state.rooms.synchronise()
-            _, running = await state.rooms.library()
-            current = running.index if running else None
-            if changed or current != known_game:
-                await broadcast(state.rooms, state.people, state.journal)
-            known_game = current
+            # Chaque salle éveillée, et elles seules: une salle que personne n'a
+            # ouverte n'a pas de worker, donc l'interroger reviendrait à frapper
+            # une fois par seconde à une porte qui n'existe pas.
+            for salle, rooms in state.salons.eveilles():
+                ici = state.people.live(salle)
+                await expire(rooms, state.people)
+                if not ici:
+                    continue
+                changed = await rooms.synchronise()
+                _, running = await rooms.library()
+                current = running.index if running else None
+                if changed or current != known_game.get(salle):
+                    await broadcast(rooms, state.people, state.journal, salle=salle)
+                known_game[salle] = current
         except Exception:
             logging.getLogger(__name__).exception("la lecture des places n'a pas abouti")
 
 
 async def broadcast(
-    rooms: RoomController, people: PeopleController, journal: Journal, banc: bool = False
+    rooms: RoomController,
+    people: PeopleController,
+    journal: Journal,
+    banc: bool = False,
+    salle: int = 1,
 ) -> None:
     """Dit à tout le monde à quoi la salle ressemble maintenant.
 
@@ -91,7 +112,7 @@ async def broadcast(
     ouvrir une socket à chaque événement du salon serait le défaut qu'on vient de
     corriger dans l'autre sens.
     """
-    room = await rooms.describe(people)
+    room = await rooms.describe(people, salle=salle)
     seat = room.owner.seat if room.owner and room.owner.seat else 0
     if seat != rooms.told_owner and await tell_owner(rooms.settings.worker_control, seat):
         rooms.told_owner = seat
@@ -106,4 +127,4 @@ async def broadcast(
         # pilote d'essai reste du bruit d'essai: sans ce drapeau, une soirée de
         # mise au point noie les vraies sous douze lignes qui ne disent rien.
         journal.write("propriétaire", pseudo=now[0], place=seat or None, banc=banc)
-    await sio.emit("room", room.model_dump(), room=ROOM)
+    await sio.emit("room", room.model_dump(), room=piece(salle))

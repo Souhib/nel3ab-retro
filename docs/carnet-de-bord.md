@@ -13646,6 +13646,57 @@ aucun jeu comme Switch en tue un, interroger les salles éteintes en tue deux.
 Vérifié en production le jour même: la liste annonce « Mario Kart Double Dash »
 pour la salle 1, sans marque Switch.
 
+### Le salon apprend à servir trois salles à la fois
+
+*12 septembre 2026.*
+
+**Le point de départ.** Le salon ne connaissait qu'une salle, par une adresse
+écrite dans son unité. Après la bascule, cette adresse pointait sur une salle
+morte et tout le salon rendait 503. Le pansement l'a repointé sur la salle 1; la
+réparation, c'est qu'il sache de laquelle chaque page lui parle.
+
+**L'adresse se déduit du numéro, elle ne s'écrit plus.** Un registre fabrique un
+contrôleur par salle, avec `worker_url` et `worker_control` calculés comme les
+ports du modèle d'unité et comme le routage du proxy. Il n'y a plus qu'un seul
+endroit qui sait que la salle 2 vit sur 8120, et une adresse écrite à la main
+pour une salle parmi trois est une erreur qui attend son heure.
+
+Chaque salle garde SON contrôleur d'un appel à l'autre: il tient ses places, ses
+reçus et sa dernière bibliothèque, qui ne veulent rien dire pour la salle d'à
+côté. Un contrôleur neuf à chaque requête aurait fait repartir les places de
+zéro à chaque page.
+
+**La page dit sa salle, parce qu'elle est la seule à la connaître.** Elle la lit
+dans son adresse, `/r/2/`, et l'annonce de deux façons: dans ce qu'elle envoie
+en ouvrant sa socket, et dans un en-tête sur ses appels au salon. En en-tête
+plutôt qu'en paramètre pour ces derniers, afin de ne pas l'ajouter à chaque
+appel du client engendré. Le salon refuse un numéro qui n'est pas une salle au
+lieu de le ramener à 1: servir la salle 1 à qui demande la salle 7 lui
+montrerait les places et le jeu de quelqu'un d'autre en croyant voir les siens.
+
+**Ce qui devait être cloisonné l'a été.** La diffusion a maintenant une « pièce »
+par salle, sans quoi chacun aurait vu les places, les noms et les lancements des
+autres. La présence aussi: elle était tenue ensemble pour tout le monde, si bien
+que le chef d'une salle aurait pu être désigné par quelqu'un qui n'y est même
+pas. Les pseudos, eux, restent partagés: ils appartiennent à la personne, pas à
+la salle.
+
+**Le piège des essais, et il valait la peine.** Cinquante-quatre essais sont
+tombés d'un coup. Leur montage posait son contrôleur dans `state.rooms`, à côté
+du registre, si bien que l'essai observait un objet pendant que le salon en
+utilisait un autre. C'est exactement la panne qu'on venait de corriger, en plus
+discret. Le registre a donc un point d'entrée pour accueillir un contrôleur, et
+les montages s'en servent.
+
+**La page d'accueil ne montre plus trois cases.** Elle liste les salles
+ouvertes, et rien d'autre: trois cases dont deux vides donnaient à croire que la
+machine tient trois salles en permanence, alors qu'il n'en tourne aucune tant
+que personne n'en ouvre une. Sans salle ouverte, un écran vide se lirait comme
+une panne, donc il dit ce qui se passe et ce qu'on peut faire. Le jeu en cours
+s'écrit en toutes lettres plutôt que par une pastille de couleur, qui ne se lit
+ni de loin ni pour qui les distingue mal, et la carte entière est le lien: viser
+une petite étiquette à deux mètres d'un écran est une cible qu'on rate.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une

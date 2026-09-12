@@ -11,7 +11,7 @@ from nel3ab_control.api.controllers.bindings import (
 )
 from nel3ab_control.api.controllers.people import PeopleController
 from nel3ab_control.api.controllers.rooms import RoomController
-from nel3ab_control.api.controllers.salles import SallesController
+from nel3ab_control.api.controllers.salles import SalleInconnue, SallesController
 from nel3ab_control.identity import caller_of
 from nel3ab_control.settings import Settings
 
@@ -32,8 +32,28 @@ def get_client(request: Request) -> httpx.AsyncClient:
 
 
 def get_rooms(request: Request) -> RoomController:
-    """The single room."""
-    return request.app.state.rooms
+    """La salle dont CETTE page parle.
+
+    Le numéro voyage en paramètre de requête, `?salle=2`, et vaut 1 par défaut:
+    une page qui ne le dit pas est une page d'avant les salles multiples, et la
+    salle 1 est celle qu'elle voyait. Lu ici plutôt que dans chaque route, pour
+    qu'aucune route ne puisse l'oublier.
+
+    Un numéro qui n'est pas une salle est refusé plutôt que ramené à 1: servir
+    la salle 1 à qui demande la salle 7 lui montrerait les places et le jeu de
+    quelqu'un d'autre en croyant voir les siens.
+    """
+    # Le paramètre d'abord, l'en-tête ensuite: le premier se lit dans une trace
+    # et se forge à la main pour essayer une salle, le second évite d'ajouter un
+    # paramètre à chaque appel du client engendré.
+    demande = request.query_params.get("salle") or request.headers.get("X-Nel3ab-Salle")
+    if demande is None:
+        return request.app.state.salons.pour(1)
+    try:
+        numero = int(demande)
+    except ValueError as error:
+        raise SalleInconnue(0) from error
+    return request.app.state.salons.pour(numero)
 
 
 def get_salles(request: Request) -> SallesController:

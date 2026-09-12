@@ -33,7 +33,11 @@ class PeopleController:
         #: On garde le nom RÉSOLU à la connexion, et pas seulement l'adresse: le
         #: recalculer perdait le nom affiché par le fournisseur d'identité, et
         #: quelqu'un sans identité du tout n'a pas de nom à recalculer.
-        self._present: dict[str, tuple[str | None, str]] = {}
+        #: La troisième valeur est le NUMÉRO DE SALLE. Sans elle, les présents
+        #: d'une salle apparaissaient dans toutes les autres: trois salles
+        #: tournant ensemble se seraient montré mutuellement leurs joueurs, et
+        #: le chef de l'une aurait pu être désigné par la présence d'un autre.
+        self._present: dict[str, tuple[str | None, str, int]] = {}
         self._owner: str | None = None
 
     def name_for(self, login: str | None, display: str = "") -> str:
@@ -61,28 +65,31 @@ class PeopleController:
             await to_thread.run_sync(_write, self._store, dict(self._names))
         return kept
 
-    def arrived(self, sid: str, login: str | None, name: str) -> None:
-        self._present[sid] = (login, name)
+    def arrived(self, sid: str, login: str | None, name: str, salle: int = 1) -> None:
+        self._present[sid] = (login, name, salle)
 
     def renamed(self, sid: str, name: str) -> None:
         """Le nouveau pseudo, sur la socket qui vient d'en changer."""
         if sid in self._present:
-            self._present[sid] = (self._present[sid][0], name)
+            login, _, salle = self._present[sid]
+            self._present[sid] = (login, name, salle)
 
-    def live(self) -> set[str]:
+    def live(self, salle: int | None = None) -> set[str]:
         """Les sockets encore là.
 
         Rendu à la salle pour qu'elle rende les places de celles qui sont
         parties. La présence est tenue ICI, donc la question se pose ici; en
         garder une seconde copie ailleurs ferait deux vérités à tenir d'accord.
         """
-        return set(self._present)
+        if salle is None:
+            return set(self._present)
+        return {sid for sid, (_, _, ou) in self._present.items() if ou == salle}
 
     def left(self, sid: str) -> None:
         self._present.pop(sid, None)
         self.owner()
 
-    def owner(self) -> tuple[str, str] | None:
+    def owner(self, salle: int | None = None) -> tuple[str, str] | None:
         """Le chef choisi, sinon la première identité encore connectée.
 
         Le 6 septembre, un onglet spectateur oublié gardait ce rôle indéfiniment.
@@ -90,10 +97,11 @@ class PeopleController:
         chef ne repasse pas devant en ouvrant un autre onglet. Sans identité,
         la règle du worker reste celle de la manette tenue.
         """
-        for login, name in self._present.values():
+        ici = self._dans(salle)
+        for login, name in ici:
             if login is not None and login == self._owner:
                 return login, name
-        for login, name in self._present.values():
+        for login, name in ici:
             if login is not None:
                 self._owner = login
                 return login, name
@@ -105,12 +113,12 @@ class PeopleController:
         current = self.owner()
         if current is None or current[0] != expected:
             return False
-        if not any(login == wanted for login, _ in self._present.values()):
+        if not any(login == wanted for login, _ in self._dans(None)):
             return False
         self._owner = wanted
         return True
 
-    def sessions(self) -> dict[str, list[str]]:
+    def sessions(self, salle: int | None = None) -> dict[str, list[str]]:
         """Les sockets de chaque personne, par identité.
 
         Une personne peut en avoir plusieurs: deux onglets, ou deux machines.
@@ -118,11 +126,13 @@ class PeopleController:
         confondre ses appareils entre eux.
         """
         found: dict[str, list[str]] = {}
-        for sid, (login, name) in self._present.items():
+        for sid, (login, name, ou) in self._present.items():
+            if salle is not None and ou != salle:
+                continue
             found.setdefault(login or name, []).append(sid)
         return found
 
-    def present(self) -> list[tuple[str | None, str]]:
+    def present(self, salle: int | None = None) -> list[tuple[str | None, str]]:
         """Qui est là, une fois par personne et non une fois par onglet.
 
         Deux onglets de la même adresse sont une personne. Quelqu'un sans
@@ -130,9 +140,19 @@ class PeopleController:
         faute de pouvoir les distinguer autrement.
         """
         seen: dict[str, tuple[str | None, str]] = {}
-        for sid, (login, name) in self._present.items():
+        for sid, (login, name, ou) in self._present.items():
+            if salle is not None and ou != salle:
+                continue
             seen.setdefault(login or name or f"anonyme:{sid}", (login, name))
         return list(seen.values())
+
+    def _dans(self, salle: int | None) -> list[tuple[str | None, str]]:
+        """Les présents d'une salle, ou de toutes quand aucune n'est nommée."""
+        return [
+            (login, name)
+            for login, name, ou in self._present.values()
+            if salle is None or ou == salle
+        ]
 
 
 def _read(store: Path) -> dict[str, str]:

@@ -63,6 +63,9 @@ async def served(tmp_path: Path) -> AsyncIterator[tuple[str, RoomController]]:
     # The fake worker replaces the client the lifespan opened.
     app.state.client = httpx.AsyncClient(transport=httpx.MockTransport(worker))
     app.state.rooms = RoomController(settings, app.state.client)
+    # Posé dans le registre, sinon le salon en fabriquerait un autre et les deux
+    # regarderaient des salles différentes sans que rien ne le dise.
+    app.state.salons.poser(1, app.state.rooms)
     yield f"http://127.0.0.1:{port}", app.state.rooms
     server.should_exit = True
     await task

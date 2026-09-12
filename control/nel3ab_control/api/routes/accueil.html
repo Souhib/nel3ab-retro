@@ -25,25 +25,44 @@
   h1 { font-size: clamp(2rem, 5vw, 3.5rem); margin: 0 0 .2em; letter-spacing: -.02em; }
   .sous { color: var(--doux); font-size: clamp(1rem, 2vw, 1.4rem); margin: 0 0 2em; }
   .salles { display: grid; gap: 1.2rem; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
-  .salle {
+  /* La carte entière est le lien: viser une petite étiquette « rejoindre » à
+     deux mètres d'un écran est le genre de cible qu'on rate. */
+  a.salle {
     background: var(--carte);
     border: 1px solid var(--trait);
     border-radius: 14px;
     padding: 1.5rem;
-    display: flex; flex-direction: column; gap: .8rem;
+    min-height: 168px;
+    display: flex; flex-direction: column; gap: .6rem;
+    color: inherit; text-decoration: none;
+    transition: border-color .12s ease, background .12s ease;
   }
+  a.salle:hover { border-color: var(--vif); background: #1b1b24; }
   .titre { font-size: clamp(1.3rem, 2.5vw, 1.8rem); font-weight: 600; }
-  .etat { color: var(--doux); font-size: 1.05rem; display: flex; align-items: center; gap: .5rem; }
-  .point { width: .7rem; height: .7rem; border-radius: 50%; background: var(--trait); }
-  .salle[data-ouverte="oui"] .point { background: var(--ouverte); }
+  .etat { color: var(--doux); font-size: 1.05rem; }
+  .marques { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: auto; }
   .marque {
-    align-self: flex-start;
     border: 1px solid var(--trait);
     border-radius: 999px;
-    padding: .15rem .6rem;
+    padding: .15rem .7rem;
     font-size: .95rem;
     color: var(--doux);
   }
+  .rejoindre {
+    align-self: flex-start;
+    color: var(--vif);
+    font-weight: 600;
+    font-size: 1.05rem;
+  }
+  .vide {
+    grid-column: 1 / -1;
+    border: 1px dashed var(--trait);
+    border-radius: 14px;
+    padding: 2.5rem 1.5rem;
+    text-align: center;
+  }
+  .vide-titre { margin: 0 0 .4rem; font-size: 1.4rem; font-weight: 600; }
+  .vide-mot { margin: 0; color: var(--doux); font-size: 1.05rem; }
   a.bouton, button {
     font: inherit; font-size: 1.1rem; font-weight: 600;
     min-height: 48px; padding: .7rem 1.2rem;
@@ -77,59 +96,76 @@
   const bouton = document.getElementById("ouvrir");
 
   function dessiner(salles) {
-    liste.replaceChildren(...salles.map(salle => {
-      const carte = document.createElement("div");
-      carte.className = "salle";
-      carte.dataset.ouverte = salle.ouverte ? "oui" : "non";
+    // Seules les salles OUVERTES sont montrées. Trois cases dont deux vides
+    // donnaient à croire que la machine tient trois salles en permanence; il
+    // n'en tourne aucune tant que personne n'en ouvre une, et c'est le but.
+    const ouvertes = salles.filter(salle => salle.ouverte);
+    const libres = salles.length - ouvertes.length;
 
-      const titre = document.createElement("div");
-      titre.className = "titre";
-      titre.textContent = `salle ${salle.numero}`;
-
-      const etat = document.createElement("div");
-      etat.className = "etat";
-      const point = document.createElement("span");
-      point.className = "point";
-      // Ce qui tourne, quand la salle a bien voulu le dire. « éteinte » et
-      // « ouverte, jeu inconnu » ne sont pas la même chose: la seconde arrive
-      // quand une salle ne répond pas, et l'afficher comme vide ferait croire
-      // qu'on peut s'y installer.
-      etat.append(
-        point,
-        salle.ouverte ? (salle.jeu ?? "ouverte, sur son menu") : "éteinte",
-      );
-
-      carte.append(titre, etat);
-      if (salle.switch) {
-        const marque = document.createElement("div");
-        marque.className = "marque";
-        marque.textContent = "Switch";
-        carte.append(marque);
-      }
-      if (salle.ouverte) {
-        const lien = document.createElement("a");
-        lien.className = "bouton";
-        lien.href = salle.chemin;
-        lien.textContent = "rejoindre";
-        carte.append(lien);
-      }
-      return carte;
-    }));
-    // Toutes prises: le bouton ne sert plus à rien, et un bouton qui échoue
-    // toujours vaut moins qu'un bouton éteint qui dit pourquoi.
-    const pleine = salles.every(salle => salle.ouverte);
-    bouton.disabled = pleine;
-    // Deux nouvelles différentes, et la Switch d'abord: c'est celle qui explique
-    // un refus qu'on rencontrerait SINON après avoir ouvert une salle et choisi
-    // son jeu, ce qui est le pire moment pour l'apprendre.
-    const switchPrise = salles.some(salle => salle.switch);
-    if (!mot.dataset.refus) {
-      mot.textContent = pleine
-        ? `déjà ${salles.length} salles ouvertes, rejoins-en une`
-        : switchPrise
-          ? "une salle joue déjà à la Switch: une seule à la fois"
-          : "";
+    if (ouvertes.length === 0) {
+      // Un écran vide se lit comme une panne. Celui-ci dit ce qui se passe et
+      // ce qu'on peut faire, ce qui est la seule chose qui manque ici.
+      liste.replaceChildren(vide());
+    } else {
+      liste.replaceChildren(...ouvertes.map(carte));
     }
+
+    bouton.disabled = libres === 0;
+    bouton.textContent = ouvertes.length === 0 ? "ouvrir la première salle" : "ouvrir une salle";
+    if (!mot.dataset.refus) {
+      mot.textContent = libres === 0
+        ? `les ${salles.length} salles sont ouvertes, rejoins-en une`
+        : salles.some(salle => salle.switch)
+          ? "une salle joue déjà à la Switch: une seule à la fois"
+          : libres === salles.length
+            ? "aucune salle n'est ouverte, donc rien ne tourne"
+            : `${libres} salle${libres > 1 ? "s" : ""} encore disponible${libres > 1 ? "s" : ""}`;
+    }
+  }
+
+  function vide() {
+    const bloc = document.createElement("div");
+    bloc.className = "vide";
+    const titre = document.createElement("p");
+    titre.className = "vide-titre";
+    titre.textContent = "Aucune salle ouverte";
+    const dit = document.createElement("p");
+    dit.className = "vide-mot";
+    dit.textContent =
+      "Rien ne tourne sur le serveur pour l'instant. Ouvre une salle et choisis ton jeu.";
+    bloc.append(titre, dit);
+    return bloc;
+  }
+
+  function carte(salle) {
+    const carte = document.createElement("a");
+    carte.className = "salle";
+    carte.href = salle.chemin;
+
+    const titre = document.createElement("div");
+    titre.className = "titre";
+    titre.textContent = `salle ${salle.numero}`;
+
+    const etat = document.createElement("div");
+    etat.className = "etat";
+    // Le jeu en toutes lettres, et pas seulement une pastille de couleur: une
+    // couleur seule ne se lit ni de loin ni pour qui les distingue mal.
+    etat.textContent = salle.jeu ?? "sur son menu";
+
+    const marques = document.createElement("div");
+    marques.className = "marques";
+    if (salle.switch) {
+      const marque = document.createElement("span");
+      marque.className = "marque";
+      marque.textContent = "Switch";
+      marques.append(marque);
+    }
+    const rejoindre = document.createElement("span");
+    rejoindre.className = "rejoindre";
+    rejoindre.textContent = "rejoindre";
+
+    carte.append(titre, etat, marques, rejoindre);
+    return carte;
   }
 
   async function relire() {

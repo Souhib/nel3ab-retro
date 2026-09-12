@@ -94,7 +94,11 @@ async def app(settings: Settings, worker: httpx.MockTransport) -> AsyncIterator[
     built = create_app(settings)
     async with LifespanManager(built):
         built.state.client = httpx.AsyncClient(transport=worker)
+        # DANS le registre, et pas à côté: les gestionnaires demandent le
+        # contrôleur de leur salle au registre, donc un contrôleur posé ailleurs
+        # serait observé par l'essai pendant que le salon en utilise un autre.
         built.state.rooms = RoomController(settings, built.state.client)
+        built.state.salons.poser(1, built.state.rooms)
         yield built
 
 

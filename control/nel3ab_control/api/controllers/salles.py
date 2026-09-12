@@ -54,6 +54,16 @@ def adresse(numero: int) -> str:
     return f"http://127.0.0.1:81{numero}0"
 
 
+def controle(numero: int) -> str:
+    """Où DIRE quelque chose au worker de cette salle.
+
+    Un autre port que celui des pages, et que le proxy ne relaie pas: c'est ce
+    qui empêche un navigateur de se déclarer propriétaire. Même façon de compter
+    que `adresse`, et pour la même raison.
+    """
+    return f"127.0.0.1:81{numero}1"
+
+
 class PlusDeSalle(HTTPException):
     """Les deux emplacements sont pris.
 

@@ -266,84 +266,116 @@ export function Xmb({
         // la superposition venait d'avoir rendu VISIBLES les libellés des rayons
         // non choisis, ce que le XMB ne fait pas. Rendus à leur invisibilité, la
         // colonne retrouve sa place et il n'y a plus rien à régler.
-        className="absolute left-[18%] w-[62%] transition-transform duration-200 ease-out"
+        // BORNÉE, en haut et en bas.
+        //
+        // La colonne glissait sans fenêtre: les entrées au-dessus de la
+        // sélection remontaient dans la rangée des rayons (la rangée est en
+        // `z-10`, donc elle les masquait, mais elles étaient bien là), et
+        // celles du bas sortaient de l'écran sans que rien ne le dise. Sur
+        // 900 px de haut, une liste de quatorze entrées n'en montrait que
+        // sept, et l'indicateur « 3/14 » du rayon était le seul aveu.
+        //
+        // La fenêtre commence SOUS la rangée des rayons et descend jusqu'en
+        // bas. Elle découpe au lieu de superposer: ce qui sort est coupé net,
+        // ce qui est dedans est entier, et la colonne garde son glissement.
+        className="absolute left-[18%] w-[62%] overflow-hidden"
         style={{
-          top: `calc(${CROSS * 100}% + 46px)`,
-          transform: `translateY(${-row * DOWN}px)`,
+          // La fenêtre commence AU-DESSUS du croisement et s'arrête AU-DESSUS
+          // du pied.
+          //
+          // Premier essai: elle commençait AU croisement, donc les entrées
+          // situées avant la sélection étaient coupées net. Un XMB en montre,
+          // et c'est ce qui donne le sentiment que la liste défile sous un
+          // curseur fixe plutôt que de commencer là où on est. Elles passent
+          // derrière la rangée des rayons, qui est en `z-10` et les masque:
+          // c'est voulu, pas un accident.
+          //
+          // En bas, 72 px de garde: la fenêtre descendait jusqu'au ras de
+          // l'écran et la dernière entrée percutait la légende du pied.
+          top: `calc(${CROSS * 100}% - 110px)`,
+          bottom: 72,
         }}
       >
-        {items.map((item, index) => {
-          const here = index === row;
-          return (
-            <button
-              key={item.id}
-              type="button"
-              id={`item-${item.id}`}
-              data-selected={here}
-              disabled={item.disabled}
-              onClick={() => shell.choose(index)}
-              className="absolute flex w-full items-center gap-4 border-0 bg-transparent px-2 text-left transition-all duration-200"
-              // L'opacité en STYLE et non en classe: elle est CALCULÉE, et une
-              // classe Tailwind ne peut pas porter une valeur qui varie. Dans le
-              // même objet que la position, parce que deux attributs `style` sur
-              // un même élément ne sont pas une erreur en JSX: le second écrase
-              // le premier, en silence.
-              style={{
-                top: `${index * DOWN}px`,
-                height: `${DOWN}px`,
-                // Plus d'opacité du tout sur une entrée: elle se distingue par
-                // sa TAILLE et sa COULEUR, qui sont trois niveaux tous lisibles
-                // — `--text` 16,40:1, `--muted` 5,95:1, `--faint` 4,50:1.
-              }}
-            >
-              {item.game ? (
-                <Art
-                  index={item.game.index}
-                  name={item.label}
-                  has={item.game.art}
-                  console={item.game.console}
-                  width={here ? 90 : 72}
-                  className="rounded-[3px] transition-all duration-200"
-                />
-              ) : (
-                <span
-                  className={cn(
-                    "shrink-0 transition-all duration-200",
-                    here ? "h-9 w-9" : "h-7 w-7",
-                  )}
-                >
-                  {item.icon}
+        <div
+          className="absolute inset-x-0 top-0 transition-transform duration-200 ease-out"
+          // 156 px: la distance entre le haut de la fenêtre et le croisement,
+          // soit (CROSS + 46) - (CROSS - 110). La sélection retombe donc
+          // exactement où elle était avant qu'il y ait une fenêtre.
+          style={{ transform: `translateY(${156 - row * DOWN}px)` }}
+        >
+          {items.map((item, index) => {
+            const here = index === row;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                id={`item-${item.id}`}
+                data-selected={here}
+                disabled={item.disabled}
+                onClick={() => shell.choose(index)}
+                className="absolute flex w-full items-center gap-4 border-0 bg-transparent px-2 text-left transition-all duration-200"
+                // L'opacité en STYLE et non en classe: elle est CALCULÉE, et une
+                // classe Tailwind ne peut pas porter une valeur qui varie. Dans le
+                // même objet que la position, parce que deux attributs `style` sur
+                // un même élément ne sont pas une erreur en JSX: le second écrase
+                // le premier, en silence.
+                style={{
+                  top: `${index * DOWN}px`,
+                  height: `${DOWN}px`,
+                  // Plus d'opacité du tout sur une entrée: elle se distingue par
+                  // sa TAILLE et sa COULEUR, qui sont trois niveaux tous lisibles
+                  // — `--text` 16,40:1, `--muted` 5,95:1, `--faint` 4,50:1.
+                }}
+              >
+                {item.game ? (
+                  <Art
+                    index={item.game.index}
+                    name={item.label}
+                    has={item.game.art}
+                    console={item.game.console}
+                    width={here ? 90 : 72}
+                    className="rounded-[3px] transition-all duration-200"
+                  />
+                ) : (
+                  <span
+                    className={cn(
+                      "shrink-0 transition-all duration-200",
+                      here ? "h-9 w-9" : "h-7 w-7",
+                    )}
+                  >
+                    {item.icon}
+                  </span>
+                )}
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span
+                    className={cn(
+                      "truncate",
+                      here ? "text-[17px] text-text" : "text-[14px] text-muted",
+                      item.disabled && "text-faint",
+                    )}
+                  >
+                    {item.label}
+                  </span>
+                  {here && (item.hint ?? item.by) ? (
+                    <span className="truncate text-[12px] text-faint">
+                      {item.by && item.hint ? `${item.by} · ${item.hint}` : (item.hint ?? item.by)}
+                    </span>
+                  ) : null}
                 </span>
-              )}
-              <span className="flex min-w-0 flex-1 flex-col">
-                <span
-                  className={cn(
-                    "truncate",
-                    here ? "text-[17px] text-text" : "text-[14px] text-muted",
-                    item.disabled && "text-faint",
-                  )}
-                >
-                  {item.label}
-                </span>
-                {here && (item.hint ?? item.by) ? (
-                  <span className="truncate text-[12px] text-faint">
-                    {item.by && item.hint ? `${item.by} · ${item.hint}` : (item.hint ?? item.by)}
+                {item.value ? (
+                  <span
+                    className={cn(
+                      "shrink-0 font-mono text-[13px]",
+                      here ? "text-indigo" : "text-faint",
+                    )}
+                  >
+                    {item.value}
                   </span>
                 ) : null}
-              </span>
-              {item.value ? (
-                <span
-                  className={cn(
-                    "shrink-0 font-mono text-[13px]",
-                    here ? "text-indigo" : "text-faint",
-                  )}
-                >
-                  {item.value}
-                </span>
-              ) : null}
-            </button>
-          );
-        })}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <footer className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-4 px-8 py-5 text-[12px] text-faint">

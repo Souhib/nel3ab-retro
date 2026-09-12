@@ -25,6 +25,7 @@
  * jeux devient une rangée de hauteurs différentes.
  */
 import { cn } from "../lib/cn";
+import { under } from "../lib/base";
 
 /** Le cadre hérité des bannières GameCube, partagé par les menus. */
 const NATIVE = { width: 96, height: 32 };
@@ -60,7 +61,7 @@ export function Art({
     >
       {has ? (
         <img
-          src={`/art/${index}.png`}
+          src={under(`/art/${index}.png`).toString()}
           width={width}
           height={height}
           alt=""

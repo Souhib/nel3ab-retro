@@ -10,6 +10,7 @@ import type { InputSource } from "./input-source";
 import { InputStream, type InputState } from "./input";
 import { SoundStream, type SoundStats } from "./sound";
 import { VideoStream, type VideoStats } from "./video";
+import { socketUnder } from "../lib/base";
 
 export type Snapshot = {
   video: VideoStats;
@@ -28,12 +29,10 @@ export type Snapshot = {
   padOnly: boolean;
 };
 
-/** Same origin, always. The worker refuses a WebSocket whose `Origin` is not its
- * own `Host` — the check that stops a stranger's page from opening this room's
- * video in a visitor's browser — and the dev proxy keeps that true in
- * development. */
-const socketUrl = (path: string): string =>
-  `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}${path}`;
+/** Même origine, toujours, et sous le préfixe de CETTE salle: une salle est
+ * servie à `/r/1/`, et une adresse absolue irait frapper à la racine, donc au
+ * salon. Voir `lib/base`, qui porte la raison complète. */
+const socketUrl = socketUnder;
 
 export class Session {
   /** Vrai quand cette page ne sert que de manette. Voir le constructeur. */

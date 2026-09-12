@@ -16,6 +16,7 @@ import {
   stuckAtCeiling,
 } from "./clock";
 import { codecOf, hasIdr } from "./annexb";
+import { under } from "../lib/base";
 
 /** How long without a byte before the connection is presumed dead.
  *
@@ -335,7 +336,7 @@ export class VideoStream {
     const generation = ++this.formatGeneration;
     for (let attempt = 0; attempt < tries && this.active; attempt++) {
       try {
-        const answer = await fetch("/formats", { cache: "no-store" });
+        const answer = await fetch(under("/formats"), { cache: "no-store" });
         if (!this.active || generation !== this.formatGeneration) return;
         if (answer.ok) {
           const said = (await answer.json()) as { half?: boolean };

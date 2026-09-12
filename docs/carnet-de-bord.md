@@ -13239,6 +13239,46 @@ La salle sans jeu devient le jumeau négatif : elle doit survivre. Mesuré le jo
 même : fermeture à 6,0 s pour six secondes demandées, avertissement compris, et
 la salle sans jeu toujours debout quinze secondes plus tard.
 
+### La page apprend qu'elle vit sous un préfixe
+
+*12 septembre 2026.*
+
+**Pourquoi.** Aujourd'hui `nel3ab.app/` mène droit à la salle, parce qu'un seul
+worker existe et qu'il sert la page. Avec plusieurs salles, la racine doit
+montrer la LISTE, et chaque salle vivre sous son adresse à elle, `/r/1/`. Le
+proxy retire ce préfixe avant de transmettre, donc le worker n'a rien à
+apprendre. La page, si: une adresse écrite en dur comme `/roms` irait frapper à
+la racine, c'est-à-dire au salon, qui ne sert aucun jeu.
+
+**Ce que ça a coûté.** Beaucoup moins que craint: cinq endroits. Les trois
+sockets, image, son et manettes, sont construites en UN seul point, et les
+quatre autres adresses sont le catalogue, les formats, le clip et les jaquettes.
+Un petit module calcule le préfixe et les rend toutes relatives. Il normalise la
+barre finale, sans quoi une salle atteinte par `/r/1` sans barre renverrait au
+dossier parent et demanderait `/roms`: la page tomberait sans dire pourquoi. Le
+proxy redirige bien vers la barre finale, mais une page ne doit pas dépendre
+d'une redirection pour savoir où elle est. Coût sur le poids de la page: 122
+octets compressés, sur 749 encore disponibles.
+
+**Ce que le pilote a appris, et que je n'avais pas vu.** La page parle à DEUX
+serveurs. Le worker sert la salle, le plan de contrôle sert les noms, les places
+et sa socket, et lui vit à la racine du domaine pour tout le monde. Préfixer ses
+adresses les enverrait à la salle, qui ne les connaît pas. Ma première règle
+disait « aucune adresse hors du préfixe » et accusait donc à tort les appels au
+salon. La règle juste distingue les deux serveurs, et le pilote vérifie
+maintenant les deux sens: rien du worker à la racine, et au moins un appel au
+salon, sans quoi la distinction aurait cessé d'être vérifiée sans prévenir.
+
+**Deux pièges de pilote.** Le premier: viser le mauvais écran. La salle s'ouvre
+sur son salon, places libres et deux boutons, et le catalogue n'arrive
+qu'ensuite; le pilote attendait un nom de jeu et voyait un écran parfaitement
+sain. Il fallait aussi lui donner un pseudo, sinon il restait sur « Qui joue ? ».
+Le second, plus instructif: le pilote RÉUSSISSAIT, affichait sa preuve, puis
+mourait sur une écriture dans une socket que le navigateur venait de fermer. Code
+de sortie non nul, donc essai rouge alors que la mesure était bonne. Un rapport
+faux dans ce sens-là est aussi dangereux que dans l'autre: on apprend à ignorer
+un essai qui crie pour rien.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une

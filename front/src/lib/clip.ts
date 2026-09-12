@@ -12,6 +12,8 @@
  * chose que ce que le serveur accepte est un bouton qui ment.
  */
 
+import { under } from "./base";
+
 /** Où en est la demande. */
 export type ClipState =
   | { phase: "prêt" }
@@ -39,7 +41,7 @@ export async function askForClip(
 ): Promise<ClipState> {
   let answer: Response;
   try {
-    answer = await send("/clip", { method: "POST" });
+    answer = await send(under("/clip"), { method: "POST" });
   } catch (error) {
     return { phase: "raté", why: `la salle n'a pas répondu (${String(error)})` };
   }

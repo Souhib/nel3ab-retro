@@ -17,6 +17,7 @@ import { io, type Socket } from "socket.io-client";
 import { readRoom, type Room } from "../client";
 import type { Trail, Vitals } from "./vitals";
 import { onBench, VISIT } from "./visit";
+import { under } from "./base";
 
 export const ROOM_KEY = ["room"] as const;
 
@@ -31,7 +32,7 @@ const PORTS = 4;
  * all come from the worker and keep working.
  */
 async function fromWorkerAlone(): Promise<Room> {
-  const answer = await fetch("/roms");
+  const answer = await fetch(under("/roms"));
   if (!answer.ok) throw new Error(`la salle ne répond pas (${answer.status})`);
   // La forme que le worker sert lui-même. Elle a la même information que celle
   // du plan de contrôle, sans les noms des joueurs, qu'il ne connaît pas.

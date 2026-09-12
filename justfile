@@ -476,6 +476,16 @@ browser-background:
 browser-seats:
     cd spikes/m3-browser-drive && node seat-kept.mjs http://localhost:8100/ 25
 
+# Une salle servie sous un préfixe se comporte-t-elle normalement ?
+#
+# Le salon prendra la racine du domaine et chaque salle vivra sous `/r/<n>/`.
+# Ce pilote monte un worker, un proxy qui imite `handle_path` de Caddy, et
+# charge la page dans un vrai navigateur sous ce préfixe. Il refuse toute
+# requête qui repart à la racine, WebSockets comprises: une adresse oubliée
+# passerait inaperçue jusqu'au jour de la bascule.
+prefixe-de-salle:
+    cd spikes/m3-browser-drive && node prefixe-de-salle.mjs
+
 # Une salle que personne ne touche se ferme-t-elle vraiment ?
 #
 # Lance un VRAI worker dans un dossier jetable, délai raccourci par

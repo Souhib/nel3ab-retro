@@ -1,5 +1,10 @@
 import puppeteer from "puppeteer";
 import { enterRoom } from "./open.mjs";
+
+// L'adresse en ARGUMENT: le port 8100 n'existe plus depuis que les salles
+// ont pris les leurs (8110, 8120, 8130). Un pilote qui l'écrit en dur se
+// connecte à rien et meurt sur ECONNREFUSED sans que sa recette le dise.
+const url = process.argv[2] ?? process.env.NEL3AB_URL ?? "http://localhost:8110/";
 const browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox"] });
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const page = await browser.newPage();
@@ -8,7 +13,7 @@ await page.evaluateOnNewDocument(() => {
   localStorage.setItem("nel3ab:name", "banc"); localStorage.setItem("nel3ab:banc", "1");
   localStorage.setItem("nel3ab:shell", "ps3");
 });
-await page.goto("http://localhost:8100/", { waitUntil: "domcontentloaded" });
+await page.goto(url, { waitUntil: "domcontentloaded" });
 await enterRoom(page); await wait(3500);
 
 const look = () => page.evaluate(() => {

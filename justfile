@@ -623,7 +623,7 @@ browser-layout:
 # Does the library show the names a person reads, and none of the file clutter?
 # Needs the worker RUNNING.
 browser-library:
-    cd spikes/m3-browser-drive && node library.mjs
+    cd spikes/m3-browser-drive && node library.mjs http://127.0.0.1:8110/
 
 # Taking a socket somebody is playing on: two clicks to do it, and the player it
 # was taken from is told and left unplugged rather than quietly moved. Needs the

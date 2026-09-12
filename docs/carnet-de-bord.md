@@ -13809,6 +13809,38 @@ l'écran vide en dessous: un message d'attente posé là se lit comme un reste d
 page. Quand aucune salle ne tourne, tout se centre dans la hauteur — le message
 n'est plus une note en marge de la page, il EST la page.
 
+### Le plafond de la page passe à 300 000 octets
+
+*12 septembre 2026.*
+
+La page de la salle avait le droit de peser 150 000 octets compressés, et elle
+en pesait 149 617: il restait 383 octets, c'est-à-dire rien, au moment précis où
+son interface avait du travail devant elle.
+
+**Ce qui change est l'hypothèse de débit, pas la tolérance à la graisse.** Les
+400 kbit/s supposés dataient d'une prudence d'origine, du temps où la salle
+pouvait s'ouvrir à n'importe qui. Elle ne s'ouvre pas à n'importe qui: elle vit
+dans un tailnet privé, pour une dizaine de personnes, sur des liaisons
+domestiques. À 20 Mbit/s, 300 000 octets valent 120 ms, contre six secondes au
+débit d'avant. Souhib l'a dit clairement, et il a raison: à cette échelle, les
+octets ne sont pas le sujet.
+
+**Le garde reste, et c'est le point.** Ce qu'il protège n'a jamais été la bande
+passante mais la VISIBILITÉ d'une dérive: en août, la page avait grossi de 25 %
+en trois jours sans que personne ne s'en aperçoive. Un plafond qu'on relève en
+écrivant pourquoi reste un plafond; un plafond qu'on supprime ne dit plus jamais
+rien.
+
+**Portée, parce qu'elle prête à confusion.** Ce budget ne couvre que la page
+compilée dans le worker, celle d'une salle. L'accueil des salles est servi par le
+plan de contrôle et n'y est pas soumis: l'enrichir ne coûte rien à ce compteur.
+
+**Et ce qu'il ne mesure toujours pas.** Ni la latence du jeu, ni l'arrivée de la
+première image. Le poids de la page ne joue que sur la PREMIÈRE visite; une fois
+chargée, elle est en mémoire, et la deuxième visite ne la retélécharge même pas.
+Ce qui protège la latence est ailleurs, et c'est une règle autrement plus
+stricte: React ne touche jamais le chemin des images.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une

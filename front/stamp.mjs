@@ -36,8 +36,23 @@ const STAMP = join(ROOT, "..", "core", "crates", "worker", "src", "page", "SOURC
  * Le plafond passe à 150 000 octets, soit les trois secondes de transfert
  * visées à l'origine. Ce calcul ne mesure
  * pas l'arrivée de la première image : allers-retours et décodage s'ajoutent.
+ *
+ * Le 12 septembre 2026, le plafond passe à 300 000 octets, et c'est l'HYPOTHÈSE
+ * DE DÉBIT qui change, pas la tolérance à la graisse.
+ *
+ * Les 400 kbit/s supposés étaient une prudence d'origine, du temps où la salle
+ * pouvait être ouverte à n'importe qui. Elle ne l'est pas: elle vit dans un
+ * tailnet privé, pour une dizaine de personnes, sur des liaisons domestiques.
+ * À 20 Mbit/s, 300 000 octets valent 120 ms, contre 6 s au débit supposé
+ * d'avant. La page pesait 149 617 octets ce jour-là, à 383 octets du plafond,
+ * et l'interface de la salle avait du travail devant elle.
+ *
+ * Ce que ce garde protège ne change pas, et c'est pourquoi il reste: il rend
+ * une DÉRIVE visible. En août, la page avait grossi de 25 % en trois jours sans
+ * que personne s'en aperçoive. Un plafond qu'on relève en écrivant pourquoi
+ * reste un plafond; un plafond qu'on supprime ne dit plus jamais rien.
  */
-const WEIGHT_MAX = 150_000;
+const WEIGHT_MAX = 300_000;
 
 /** Everything the page is built from, in a fixed order. */
 const INPUTS = ["src", "index.html", "package-lock.json", "vite.config.ts", "tsconfig.app.json"];

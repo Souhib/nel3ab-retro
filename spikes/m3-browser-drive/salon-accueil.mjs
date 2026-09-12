@@ -55,8 +55,40 @@ try {
   assert.equal(bouton.eteint, ouvertes.length === attendu.length,
     "le bouton d'ouverture ne reflète pas les places restantes");
 
+  // Le retour d'une salle fermée. Le proxy y renvoie avec la raison dans
+  // l'adresse, parce qu'une salle qui se ferme comme prévu ne doit pas se
+  // présenter comme une panne de serveur.
+  const revenu = await browser.newPage();
+  await revenu.goto(new URL("?salle=fermee", SALON).toString(), {
+    waitUntil: "domcontentloaded",
+  });
+  await revenu.waitForFunction(
+    () => {
+      const bandeau = document.getElementById("retour");
+      return bandeau !== null && !bandeau.hidden;
+    },
+    { timeout: 15_000 },
+  );
+  const dit = await revenu.$eval("#retour", element => element.innerText);
+  assert.match(dit, /fermée faute d'activité/, `le bandeau dit: ${dit}`);
+  // L'adresse est nettoyée tout de suite: recharger ne doit pas reproduire une
+  // nouvelle vieille de dix minutes.
+  assert.equal(await revenu.evaluate(() => location.search), "",
+    "l'adresse garde la raison, donc le message reviendra à chaque rechargement");
+  await revenu.click("#retour");
+  await revenu.waitForFunction(() => document.getElementById("retour").hidden,
+    { timeout: 5_000 });
+
+  // Le jumeau: sans cette raison dans l'adresse, aucun bandeau ne doit
+  // apparaître, sinon il finirait par être ignoré comme un décor.
+  const normal = await browser.newPage();
+  await normal.goto(SALON, { waitUntil: "domcontentloaded" });
+  assert.ok(await normal.$eval("#retour", element => element.hidden),
+    "le bandeau de retour s'affiche alors que personne ne revient d'une fermeture");
+
   console.log(`l'accueil montre ${cartes.length} salle(s) ouverte(s) sur ${attendu.length} `
-    + `emplacements, et le bouton dit « ${bouton.texte} »`);
+    + `emplacements, le bouton dit « ${bouton.texte} », et le retour d'une salle `
+    + "fermée s'annonce puis se ferme d'un clic");
 } finally {
   await browser?.close();
 }

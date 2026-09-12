@@ -14024,14 +14024,31 @@ pilote de contraste avait EXACTEMENT le même défaut, découvert le même jour:
 adresse passée par la recette que le script ne lisait pas, et une valeur par
 défaut périmée qui masquait la panne.
 
-Les deux sont réparés et prennent leur adresse en argument. Le reste ne l'est
-pas: vingt fichiers du même dossier mentionnent encore 8100. Seize l'écrivent
-comme valeur de repli derrière `process.argv[2]`, donc une recette qui passe une
-adresse les sauve. Quatre l'écrivent en dur sans échappatoire: `polite.mjs`,
-`stir.mjs`, `panel.mjs`, et le pilote de disposition avant sa correction. Ils
-n'ont pas été touchés faute de pouvoir les exercer aujourd'hui; les réparer sans
-les faire tourner reviendrait à échanger une panne visible contre une panne
-silencieuse.
+Les deux sont réparés et prennent leur adresse en argument.
+
+Le relevé du reste a été faux DEUX FOIS, et c'est la leçon la plus utile de
+l'affaire. Premier compte: vingt fichiers dont quatre en dur. Deuxième compte:
+trente-sept dont six. Les deux cherchaient la chaîne `localhost:8100`, ce qui
+ne trouve que les pilotes cassés D'UNE certaine façon. `padmenu.mjs` n'écrit
+nulle part ce port: il importe `ROOM_URL`, n'accepte aucun argument, a une
+recette qui ne lui en passe pas, et meurt sur `goto`. Il était invisible aux
+deux relevés.
+
+Le bon critère n'est pas une chaîne, c'est une CAPACITÉ: tout fichier qui
+appelle `.goto(`, et qui accepte ou non `process.argv[2]`, `NEL3AB_URL`, ou
+`ROOM_URL` importé. Compté ainsi: soixante et un pilotes ouvrent une page,
+onze n'ont aucun moyen de changer d'adresse.
+
+Deux chiffres faux publiés coup sur coup dans ce carnet valent un rappel: un
+nombre écrit ici porte une autorité que la prose n'a pas, et un mauvais nombre
+égare plus sûrement qu'un silence. On écrit donc la méthode à côté du compte,
+pour que le suivant puisse le refaire au lieu de le croire.
+
+Parmi les six, un seul avait une recette: `library.mjs`, lancé sans adresse,
+donc un pilote cassé derrière une recette qui prétendait le lancer. Il est
+corrigé et exercé. Les cinq autres n'ont aucune recette, prennent désormais une
+adresse en argument, et n'ont PAS été exercés faute de savoir ce qu'ils
+attendent d'une salle. C'est écrit ici pour que personne ne les croie verts.
 
 ### Le configurateur des touches, et pourquoi deux règles sur trois
 
@@ -14298,6 +14315,44 @@ Un essai qui passe une fois sur deux est plus dangereux qu'un essai rouge, parce
 qu'on apprend à le relancer. La leçon est sur l'ENCHAÎNEMENT et pas sur le
 pilote: deux essais qui se disputent une ressource nommée « la première libre »
 ne doivent jamais tourner à la suite sans isolation.
+
+### La colonne du XMB, trois tentatives et un défaut plus ancien que moi
+
+Le constat disait que la colonne du menu n'est bornée ni en haut ni en bas, et
+qu'elle laisse la moitié d'une longue liste hors de l'écran. L'indicateur de
+position, « RÉGLAGES · SON · 7/14 », avait déjà été ajouté et se voit en vrai.
+Restait la géométrie.
+
+Premier essai: une fenêtre de découpe commençant AU croisement. Mesure et
+capture: l'entrée choisie se collait au bord haut, donc plus AUCUNE entrée
+n'était visible au-dessus du curseur. C'est précisément ce qui fait un XMB, la
+liste qui défile sous un curseur fixe; sans les entrées du dessus, le menu
+commence là où on est et ne défile plus. Et la fenêtre descendait jusqu'au ras
+de l'écran: la dernière entrée percutait la légende du pied.
+
+Deuxième essai: la fenêtre commence 110 px AU-DESSUS du croisement et s'arrête
+72 px au-dessus du pied, le glissement étant décalé de 156 px pour que la
+sélection retombe exactement où elle était. Mesuré: trois entrées au-dessus du
+curseur au lieu de zéro, huit visibles sur quatorze au lieu de six, et plus
+aucun contact avec le pied.
+
+C'est en regardant CETTE capture qu'un défaut bien plus ancien est apparu:
+l'entrée juste au-dessus de la sélection se superpose au libellé du rayon.
+« volume » s'imprime sur « RÉGLAGES · SON · 7/14 », et les deux icônes se
+chevauchent. Vérification faite du calcul d'origine, cette entrée se posait
+déjà à `CROSS - 28px`, donc dans la bande des rayons, AVANT toute modification.
+La rangée des rayons est en `z-10` et masque ce qui la croise, mais elle ne
+masque pas son propre libellé.
+
+Le défaut n'est donc pas né ici: il a été RÉVÉLÉ, parce qu'aucune capture
+n'était jamais descendue au septième rang d'une liste de quatorze. Les trois
+menus n'avaient jamais été photographiés ailleurs qu'à leur première entrée.
+
+Il n'est pas corrigé, et la raison est une tension structurelle plutôt qu'un
+manque de temps: ou bien les entrées du dessus entrent dans la bande des rayons,
+ou bien il n'y en a aucune. Trancher entre les deux change le caractère du menu,
+ce qui est une décision de conception et non un arbitrage technique. La fenêtre
+et la garde du pied sont conservées, le reste est écrit ici.
 
 ## 12. Glossaire complet
 

@@ -32,7 +32,7 @@ const repo = new URL("../../", import.meta.url).pathname;
 // pollution.
 const lances = [];
 
-async function salle({ jeu, secondes, avertir }) {
+async function salle({ jeu, secondes, avertir, vide }) {
   const root = await mkdtemp(join(tmpdir(), "nel3ab-inactive-"));
   const held = await Promise.all([0, 1].map(async () => {
     const server = createServer();
@@ -63,6 +63,11 @@ async function salle({ jeu, secondes, avertir }) {
       NEL3AB_CONTAINER: "nel3ab-aucune-salle-ici",
       NEL3AB_CLOSE_AFTER_SECS: String(secondes),
       NEL3AB_WARN_BEFORE_SECS: String(avertir),
+      // Les DEUX règles savent fermer une salle, et une salle vide les
+      // déclenche toutes les deux. Chaque scénario allonge donc celle
+      // qu'il ne mesure pas, sinon ce pilote ne prouverait plus laquelle
+      // a fermé la salle.
+      NEL3AB_EMPTY_AFTER_SECS: String(vide),
     }, stdio: ["ignore", "pipe", "pipe"],
   });
   lances.push(worker);
@@ -77,9 +82,10 @@ async function salle({ jeu, secondes, avertir }) {
 }
 
 try {
-  // La salle qui doit se fermer: un jeu en cours, six secondes sans le moindre
-  // geste, avertie trois secondes avant. Personne n'ouvre la page.
-  const jouee = await salle({ jeu: true, secondes: 6, avertir: 3 });
+  // La salle qui doit se fermer par INACTIVITÉ: un jeu en cours, six secondes
+  // sans le moindre geste, avertie trois secondes avant. La règle de la salle
+  // vide est mise hors de portée pour qu'elle ne puisse pas voler la fermeture.
+  const jouee = await salle({ jeu: true, secondes: 6, avertir: 3, vide: 900 });
   const fin = await Promise.race([
     once(jouee.worker, "exit"),
     new Promise(done => setTimeout(() => done(null), 30_000)),
@@ -96,17 +102,29 @@ try {
   assert.ok(await stat(join(jouee.root, "session/game-closed")).catch(() => null),
     "La salle fermée relancerait son jeu au prochain démarrage");
 
-  // Le jumeau négatif: une salle ouverte sans jeu, même délai court, doit être
-  // encore là quand l'autre est morte depuis longtemps.
-  const vide = await salle({ jeu: false, secondes: 6, avertir: 3 });
+  // L'autre règle, seule cette fois: plus personne dans la salle. L'inactivité
+  // est mise hors de portée, donc seul le départ peut expliquer la fermeture.
+  const desertee = await salle({ jeu: true, secondes: 900, avertir: 60, vide: 5 });
+  const partie = await Promise.race([
+    once(desertee.worker, "exit"),
+    new Promise(done => setTimeout(() => done(null), 30_000)),
+  ]);
+  assert.ok(partie, `Une salle que personne n'occupe tourne encore, voir ${desertee.path}`);
+  const seule = (Date.now() - desertee.started) / 1000;
+  assert.ok(seule < 25, `Fermeture bien trop tardive: ${seule.toFixed(1)} s`);
+
+  // Le jumeau négatif: une salle ouverte sans jeu, mêmes délais courts, doit
+  // être encore là quand les deux autres sont mortes depuis longtemps.
+  const vide = await salle({ jeu: false, secondes: 6, avertir: 3, vide: 5 });
   await new Promise(done => setTimeout(done, 15_000));
   assert.equal(vide.worker.exitCode, null,
     `Une salle sans jeu s'est fermée pour rien, voir ${vide.path}`);
   const rien = await readFile(vide.path, "utf8");
   assert.doesNotMatch(rien, /la salle se ferme/, "Une salle sans jeu a annoncé sa fermeture");
 
-  console.log(`la salle jouée s'est fermée seule après ${vecu.toFixed(1)} s, `
-    + "et la salle sans jeu a survécu 15 s");
+  console.log(`inactivité: fermée après ${vecu.toFixed(1)} s ; `
+    + `salle désertée: fermée après ${seule.toFixed(1)} s ; `
+    + "salle sans jeu: toujours debout après 15 s");
 } finally {
   for (const worker of lances) {
     if (worker.exitCode === null) {

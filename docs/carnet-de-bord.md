@@ -13451,6 +13451,42 @@ La leçon générale: une commande d'exploitation qu'on n'a jamais lancée n'est
 une commande qui marche. Celle-ci attendait tranquillement le jour où quelqu'un
 en aurait vraiment besoin, c'est-à-dire le jour d'une bascule.
 
+### Une salle que tout le monde a quittée ferme son jeu
+
+*12 septembre 2026.*
+
+**La demande, et pourquoi ce n'est pas la même règle que l'inactivité.** Souhib
+voulait que le jeu se ferme quand plus personne n'est dans la salle. Ce n'est pas
+l'inactivité: là, quelqu'un est présent et ne touche à rien, il peut revenir
+d'une minute à l'autre, et on le prévient. Ici, il n'y a personne à prévenir.
+
+Le délai est donc bien plus court, trois minutes, le même que celui qui donne la
+main à quelqu'un d'autre quand le propriétaire s'absente. Trois minutes et pas
+zéro: recharger une page laisse la salle vide une seconde ou deux, et fermer
+sur-le-champ tuerait la partie de quelqu'un qui vient d'appuyer sur F5.
+
+La règle passe AVANT celle de l'inactivité, parce qu'une salle vide est aussi une
+salle inactive: l'ordre décide laquelle ferme, et la plus courte doit gagner.
+
+**Tenir une manette sans regarder, c'est être là.** La présence compte les deux
+formats d'image ET les manettes tenues. C'est exactement le défaut que la sieste
+avait eu avant: elle ne voyait que les spectateurs du grand format et gelait le
+jeu sous les doigts de celui qui jouait au format réduit ou en manette seule.
+
+**L'essai avait tort, pas la règle.** Le premier jet comptait le vide depuis
+l'ouverture de la salle et attendait une fermeture à trois minutes pile. Or on ne
+peut savoir qu'une salle est vide qu'à partir du moment où on la REGARDE: le
+compte part du premier tour d'observation. En vrai la différence est invisible,
+le fil regarde cinq fois par seconde, mais l'essai, lui, choisissait ses
+instants et mesurait donc autre chose que ce qu'il annonçait.
+
+**Le pilote a dû apprendre à isoler.** Il montait une salle vide pour prouver
+l'inactivité; depuis cette règle-ci, une salle vide déclenche les DEUX, et le
+pilote ne prouvait plus laquelle avait fermé. Chaque scénario allonge maintenant
+la règle qu'il ne mesure pas. Mesuré le jour même: fermeture par inactivité à
+6,0 s pour six secondes demandées, fermeture par désertion à 5,2 s pour cinq
+secondes, et la salle sans jeu toujours debout après quinze secondes.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une

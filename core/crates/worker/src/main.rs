@@ -452,6 +452,7 @@ fn watch_idle(
     let limits = nap::Limits {
         after: env_secs("NEL3AB_CLOSE_AFTER_SECS").unwrap_or(nap::CLOSE_AFTER),
         warn: env_secs("NEL3AB_WARN_BEFORE_SECS").unwrap_or(nap::WARN_BEFORE),
+        empty: env_secs("NEL3AB_EMPTY_AFTER_SECS").unwrap_or(nap::EMPTY_AFTER),
     };
     let over = Arc::new(std::sync::atomic::AtomicBool::new(false));
     let thread = {

@@ -66,6 +66,14 @@ pub struct Limits {
     pub after: Duration,
     /// Combien de temps avant la fermeture on prévient.
     pub warn: Duration,
+    /// Après combien de temps SANS PERSONNE la salle ferme son jeu.
+    ///
+    /// Bien plus court que l'inactivité, parce que ce n'est pas la même chose:
+    /// là, plus personne n'est là pour revenir. Trois minutes quand même, et pas
+    /// zéro: recharger une page laisse la salle vide une seconde ou deux, et
+    /// fermer sur-le-champ tuerait la partie de quelqu'un qui vient d'appuyer
+    /// sur F5.
+    pub empty: Duration,
 }
 
 impl Default for Limits {
@@ -73,9 +81,17 @@ impl Default for Limits {
         Self {
             after: CLOSE_AFTER,
             warn: WARN_BEFORE,
+            empty: EMPTY_AFTER,
         }
     }
 }
+
+/// Depuis combien de temps SANS PERSONNE une salle ferme son jeu.
+///
+/// Trois minutes. Le même délai que celui qui donne la main à quelqu'un d'autre
+/// quand le propriétaire s'absente, et pour la même raison: c'est le temps au
+/// bout duquel une absence cesse d'être un aller-retour.
+pub const EMPTY_AFTER: Duration = Duration::from_mins(3);
 
 /// Ce qu'une salle sans geste mérite, s'il faut faire quelque chose.
 ///
@@ -103,6 +119,12 @@ pub enum Step {
 pub struct Idle {
     /// Le dernier instant de vie observé, pour repérer qu'un geste a eu lieu.
     seen: Option<Instant>,
+    /// Depuis quand la salle est vide, si elle l'est.
+    ///
+    /// Mesuré ici plutôt que déduit du dernier geste: quelqu'un qui regarde
+    /// sans toucher à rien n'a pas fait de geste depuis longtemps, et il est
+    /// pourtant là.
+    empty_since: Option<Instant>,
     warned: bool,
     closed: bool,
 }
@@ -113,6 +135,7 @@ impl Idle {
     pub const fn new() -> Self {
         Self {
             seen: None,
+            empty_since: None,
             warned: false,
             closed: false,
         }
@@ -144,6 +167,18 @@ impl Idle {
         // libérerait rien et rouvrirait la même salle deux secondes plus tard.
         if !playing || busy.wanted {
             return None;
+        }
+        // La salle désertée, AVANT l'inactivité: quand plus personne n'est là,
+        // il n'y a personne à prévenir et rien à attendre. Une salle vide est
+        // aussi une salle inactive, donc l'ordre décide laquelle des deux
+        // ferme, et la plus courte doit gagner.
+        if busy.quiet() {
+            let depuis = *self.empty_since.get_or_insert(now);
+            if now.saturating_duration_since(depuis) >= limits.empty {
+                return (!std::mem::replace(&mut self.closed, true)).then_some(Step::Close);
+            }
+        } else {
+            self.empty_since = None;
         }
         let idle = now.saturating_duration_since(alive);
         if idle >= limits.after {
@@ -674,6 +709,103 @@ mod tests {
             ),
             None,
             "une salle sans jeu s'est fermée pour rien"
+        );
+    }
+
+    /// Une salle que tout le monde a quittée ferme son jeu, et vite.
+    #[test]
+    fn une_salle_que_tout_le_monde_a_quittee_ferme_son_jeu() {
+        let start = Instant::now();
+        let mut idle = Idle::new();
+        let personne = Busy::default();
+
+        // Le compte part du premier REGARD, pas de l'ouverture: avant d'avoir
+        // observé la salle, on ne sait pas qu'elle est vide. Le fil la regarde
+        // cinq fois par seconde, donc la différence est invisible en vrai.
+        assert_eq!(
+            idle.saw(personne, true, start, start, Limits::default()),
+            None
+        );
+        assert_eq!(
+            idle.saw(personne, true, start, at(start, 60), Limits::default()),
+            None,
+            "une minute de salle vide n'est pas un départ"
+        );
+        assert_eq!(
+            idle.saw(personne, true, start, at(start, 3 * 60), Limits::default()),
+            Some(Step::Close)
+        );
+    }
+
+    /// Le jumeau: quelqu'un qui revient annule tout, et le compte repart à zéro.
+    #[test]
+    fn un_spectateur_qui_revient_annule_la_fermeture() {
+        let start = Instant::now();
+        let mut idle = Idle::new();
+        let personne = Busy::default();
+
+        assert_eq!(
+            idle.saw(personne, true, start, start, Limits::default()),
+            None
+        );
+        assert_eq!(
+            idle.saw(
+                watching(1),
+                true,
+                start,
+                at(start, 2 * 60),
+                Limits::default()
+            ),
+            None,
+            "quelqu'un est là"
+        );
+        // La salle se revide à deux minutes trente: la fermeture est donc due à
+        // cinq minutes trente, et pas à trois minutes.
+        assert_eq!(
+            idle.saw(
+                personne,
+                true,
+                start,
+                at(start, 2 * 60 + 30),
+                Limits::default()
+            ),
+            None
+        );
+        assert_eq!(
+            idle.saw(personne, true, start, at(start, 5 * 60), Limits::default()),
+            None,
+            "le compte n'est pas reparti de zéro quand la salle s'est revidée"
+        );
+        assert_eq!(
+            idle.saw(
+                personne,
+                true,
+                start,
+                at(start, 5 * 60 + 30),
+                Limits::default()
+            ),
+            Some(Step::Close)
+        );
+    }
+
+    /// Le second jumeau: une manette tenue sans regarder est quelqu'un.
+    ///
+    /// C'est le défaut que la sieste avait eu avant nous: elle ne comptait que
+    /// les spectateurs du grand format, et gelait le jeu sous les doigts de
+    /// celui qui jouait au format réduit ou en manette seule.
+    #[test]
+    fn une_manette_tenue_sans_regarder_garde_la_salle() {
+        let start = Instant::now();
+        let mut idle = Idle::new();
+        let manette = Busy {
+            holding: 1,
+            ..Busy::default()
+        };
+
+        assert_eq!(
+            idle.saw(manette, true, start, at(start, 10 * 60), Limits::default()),
+            None,
+            "la salle s'est fermée sous les doigts de quelqu'un"
         );
     }
 }

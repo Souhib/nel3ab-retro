@@ -13319,6 +13319,38 @@ protection que le jour où ce droit général disparaît, ou si le plan de contr
 passe sous un compte à lui. C'est une décision qui appartient à l'humain, pas au
 programme.
 
+### Le salon apprend à ouvrir et fermer des salles
+
+*12 septembre 2026.*
+
+**Trois emplacements, et la vérité chez systemd.** Le plan de contrôle ne
+connaissait qu'une salle, par une adresse écrite dans son unité. Il tient
+maintenant une flotte de trois, et il ne garde AUCUNE liste en mémoire: il
+demande à systemd si chaque instance tourne. Une liste tenue ici serait fausse
+dès le premier redémarrage du service, et fausse d'une manière que personne ne
+verrait avant d'avoir perdu une partie.
+
+**Le droit d'allumer, et strictement rien d'autre.** Ouvrir une salle demande
+sudo; lire son état, non. La séparation est écrite dans le code et vérifiée par
+un essai qui refuse de voir `sudo` sur un chemin de lecture: chaque commande
+privilégiée est une ligne qu'un service joignable par le réseau peut faire
+tourner en tant que root, et il n'y en a que deux.
+
+**Une salle qu'on ouvre arrive sur son menu.** Le marqueur « sans jeu » est posé
+avant le démarrage, sinon le worker relancerait le dernier jeu retenu dans ce
+dossier et une salle neuve démarrerait un émulateur que personne n'a demandé.
+
+**Les essais tournent sans systemd.** Le lanceur est injecté: un systemd de
+papier note ce qu'on lui demande et répond ce qu'on veut. Les trois mutants
+essayés tuent bien leurs essais: reprendre une salle déjà ouverte, oublier le
+marqueur, ou faire passer une lecture par sudo.
+
+**Ce que la liste ne dit pas encore, et pourquoi.** Ni le jeu en cours ni les
+personnes présentes: le salon ne va pas encore les demander aux salles. Déclarer
+ces champs sans les remplir les afficherait comme des absences, et une absence
+affichée est indiscernable d'un zéro vrai. Ce projet a déjà commis cette faute
+quatre fois.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une

@@ -346,6 +346,38 @@ export type Room = {
 };
 
 /**
+ * Salle
+ *
+ * Une salle, vue de la liste.
+ *
+ * Volontairement maigre: le jeu en cours et les personnes présentes ne sont
+ * PAS ici tant que le salon ne va pas les demander à la salle elle-même.
+ * Déclarer un champ qu'on ne remplit pas encore le ferait afficher comme une
+ * absence, et une absence affichée est indiscernable d'un zéro vrai. Ce projet
+ * a déjà commis cette faute quatre fois.
+ */
+export type Salle = {
+    /**
+     * Numero
+     *
+     * Le numéro de la salle, celui de son unité.
+     */
+    numero: number;
+    /**
+     * Ouverte
+     *
+     * Vrai quand son worker tourne.
+     */
+    ouverte: boolean;
+    /**
+     * Chemin
+     *
+     * Sous quelle adresse la rejoindre, par exemple `/r/1/`.
+     */
+    chemin: string;
+};
+
+/**
  * Seat
  *
  * One of the room's pads, and who claims it.
@@ -557,3 +589,67 @@ export type PublishRoomBindingsResponses = {
 };
 
 export type PublishRoomBindingsResponse = PublishRoomBindingsResponses[keyof PublishRoomBindingsResponses];
+
+export type ReadSallesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/salles';
+};
+
+export type ReadSallesResponses = {
+    /**
+     * Response Read Salles
+     *
+     * Successful Response
+     */
+    200: Array<Salle>;
+};
+
+export type ReadSallesResponse = ReadSallesResponses[keyof ReadSallesResponses];
+
+export type OpenSalleData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/salles';
+};
+
+export type OpenSalleResponses = {
+    /**
+     * Successful Response
+     */
+    201: Salle;
+};
+
+export type OpenSalleResponse = OpenSalleResponses[keyof OpenSalleResponses];
+
+export type CloseSalleData = {
+    body?: never;
+    path: {
+        /**
+         * Numero
+         */
+        numero: number;
+    };
+    query?: never;
+    url: '/api/salles/{numero}';
+};
+
+export type CloseSalleErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CloseSalleError = CloseSalleErrors[keyof CloseSalleErrors];
+
+export type CloseSalleResponses = {
+    /**
+     * Successful Response
+     */
+    200: Salle;
+};
+
+export type CloseSalleResponse = CloseSalleResponses[keyof CloseSalleResponses];

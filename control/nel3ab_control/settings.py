@@ -90,6 +90,16 @@ class Settings(BaseSettings):
             "de « 16 h 43 », et un journal qui répond 14:43 ne se relit pas."
         ),
     )
+    salles_dir: Path = Field(
+        default=Path.home() / ".local/state/nel3ab/salles",
+        description=(
+            "Où chaque salle garde sa session: ses sauvegardes, sa configuration "
+            "et son dernier jeu. Un dossier par numéro, le MÊME que celui écrit "
+            "dans le modèle d'unité: deux salles qui le partageraient "
+            "écraseraient leurs sauvegardes l'une l'autre, et le worker refuse "
+            "d'ailleurs de démarrer sur un dossier déjà tenu."
+        ),
+    )
     worker_control: str = Field(
         default="127.0.0.1:8101",
         description=(

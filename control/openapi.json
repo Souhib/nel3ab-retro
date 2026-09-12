@@ -235,6 +235,95 @@
           }
         }
       }
+    },
+    "/api/salles": {
+      "get": {
+        "tags": [
+          "salles"
+        ],
+        "summary": "Read Salles",
+        "description": "Toutes les salles, ouvertes ou non.\n\nSans identité: la liste est ce que le salon montre à qui arrive, et exiger\nde savoir qui demande la rendrait invisible à celui qui vient jouer.",
+        "operationId": "read_salles",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Salle"
+                  },
+                  "type": "array",
+                  "title": "Response Read Salles"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "salles"
+        ],
+        "summary": "Open Salle",
+        "description": "Ouvre le premier emplacement libre, ou refuse quand il n'y en a plus.",
+        "operationId": "open_salle",
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Salle"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/salles/{numero}": {
+      "delete": {
+        "tags": [
+          "salles"
+        ],
+        "summary": "Close Salle",
+        "description": "Ferme une salle, et le jeu qui tourne avec.\n\nSans condition de propriétaire pour l'instant: la salle se ferme d'elle-même\naprès une demi-heure sans personne, et ce bouton-ci sert à rendre la place\ntout de suite plutôt qu'à prendre une décision sur la partie de quelqu'un.",
+        "operationId": "close_salle",
+        "parameters": [
+          {
+            "name": "numero",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Numero"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Salle"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -707,6 +796,34 @@
         ],
         "title": "Room",
         "description": "The room, as a page needs to render it."
+      },
+      "Salle": {
+        "properties": {
+          "numero": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Numero",
+            "description": "Le numéro de la salle, celui de son unité."
+          },
+          "ouverte": {
+            "type": "boolean",
+            "title": "Ouverte",
+            "description": "Vrai quand son worker tourne."
+          },
+          "chemin": {
+            "type": "string",
+            "title": "Chemin",
+            "description": "Sous quelle adresse la rejoindre, par exemple `/r/1/`."
+          }
+        },
+        "type": "object",
+        "required": [
+          "numero",
+          "ouverte",
+          "chemin"
+        ],
+        "title": "Salle",
+        "description": "Une salle, vue de la liste.\n\nVolontairement maigre: le jeu en cours et les personnes présentes ne sont\nPAS ici tant que le salon ne va pas les demander à la salle elle-même.\nDéclarer un champ qu'on ne remplit pas encore le ferait afficher comme une\nabsence, et une absence affichée est indiscernable d'un zéro vrai. Ce projet\na déjà commis cette faute quatre fois."
       },
       "Seat": {
         "properties": {

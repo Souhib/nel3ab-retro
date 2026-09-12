@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { KeepBindingsData, KeepBindingsErrors, KeepBindingsResponses, PublishRoomBindingsData, PublishRoomBindingsErrors, PublishRoomBindingsResponses, ReadBindingsData, ReadBindingsResponses, ReadMeData, ReadMeResponses, ReadMyConnectionData, ReadMyConnectionResponses, ReadRoomBindingsData, ReadRoomBindingsResponses, ReadRoomData, ReadRoomResponses, RenameMeData, RenameMeErrors, RenameMeResponses } from './types.gen';
+import type { CloseSalleData, CloseSalleErrors, CloseSalleResponses, KeepBindingsData, KeepBindingsErrors, KeepBindingsResponses, OpenSalleData, OpenSalleResponses, PublishRoomBindingsData, PublishRoomBindingsErrors, PublishRoomBindingsResponses, ReadBindingsData, ReadBindingsResponses, ReadMeData, ReadMeResponses, ReadMyConnectionData, ReadMyConnectionResponses, ReadRoomBindingsData, ReadRoomBindingsResponses, ReadRoomData, ReadRoomResponses, ReadSallesData, ReadSallesResponses, RenameMeData, RenameMeErrors, RenameMeResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -131,3 +131,31 @@ export const publishRoomBindings = <ThrowOnError extends boolean = false>(option
         ...options.headers
     }
 });
+
+/**
+ * Read Salles
+ *
+ * Toutes les salles, ouvertes ou non.
+ *
+ * Sans identité: la liste est ce que le salon montre à qui arrive, et exiger
+ * de savoir qui demande la rendrait invisible à celui qui vient jouer.
+ */
+export const readSalles = <ThrowOnError extends boolean = false>(options?: Options<ReadSallesData, ThrowOnError>): RequestResult<ReadSallesResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ReadSallesResponses, unknown, ThrowOnError>({ url: '/api/salles', ...options });
+
+/**
+ * Open Salle
+ *
+ * Ouvre le premier emplacement libre, ou refuse quand il n'y en a plus.
+ */
+export const openSalle = <ThrowOnError extends boolean = false>(options?: Options<OpenSalleData, ThrowOnError>): RequestResult<OpenSalleResponses, unknown, ThrowOnError> => (options?.client ?? client).post<OpenSalleResponses, unknown, ThrowOnError>({ url: '/api/salles', ...options });
+
+/**
+ * Close Salle
+ *
+ * Ferme une salle, et le jeu qui tourne avec.
+ *
+ * Sans condition de propriétaire pour l'instant: la salle se ferme d'elle-même
+ * après une demi-heure sans personne, et ce bouton-ci sert à rendre la place
+ * tout de suite plutôt qu'à prendre une décision sur la partie de quelqu'un.
+ */
+export const closeSalle = <ThrowOnError extends boolean = false>(options: Options<CloseSalleData, ThrowOnError>): RequestResult<CloseSalleResponses, CloseSalleErrors, ThrowOnError> => (options.client ?? client).delete<CloseSalleResponses, CloseSalleErrors, ThrowOnError>({ url: '/api/salles/{numero}', ...options });

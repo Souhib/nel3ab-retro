@@ -14,8 +14,10 @@ from nel3ab_control.api.controllers.bindings import (
 )
 from nel3ab_control.api.controllers.people import PeopleController
 from nel3ab_control.api.controllers.rooms import RoomController
+from nel3ab_control.api.controllers.salles import SallesController
 from nel3ab_control.api.routes import me as me_routes
 from nel3ab_control.api.routes import rooms as rooms_routes
+from nel3ab_control.api.routes import salles as salles_routes
 from nel3ab_control.api.ws import socketio_app
 from nel3ab_control.api.ws.server import allow_origins, follow_seats
 from nel3ab_control.journal import Journal
@@ -29,6 +31,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     async with httpx.AsyncClient() as client:
         app.state.client = client
         app.state.rooms = RoomController(settings, client)
+        # Les salles de la machine. Sans client HTTP: elle interroge systemd,
+        # pas les workers, et ce qu'elle sait doit survivre à un worker mort.
+        app.state.salles = SallesController(settings)
         app.state.people = PeopleController(settings.state_file)
         app.state.bindings = BindingsController(settings.bindings_file)
         app.state.room_bindings = RoomBindingsController(settings.room_bindings_file)
@@ -78,6 +83,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     allow_origins(app.state.settings.origins)
     app.include_router(me_routes.router)
     app.include_router(rooms_routes.router)
+    app.include_router(salles_routes.router)
     app.mount("/socket.io", socketio_app)
     return app
 

@@ -11,6 +11,7 @@ from nel3ab_control.api.controllers.bindings import (
 )
 from nel3ab_control.api.controllers.people import PeopleController
 from nel3ab_control.api.controllers.rooms import RoomController
+from nel3ab_control.api.controllers.salles import SallesController
 from nel3ab_control.identity import caller_of
 from nel3ab_control.settings import Settings
 
@@ -33,6 +34,11 @@ def get_client(request: Request) -> httpx.AsyncClient:
 def get_rooms(request: Request) -> RoomController:
     """The single room."""
     return request.app.state.rooms
+
+
+def get_salles(request: Request) -> SallesController:
+    """Les salles de la machine, ouvertes ou non."""
+    return request.app.state.salles
 
 
 def get_people(request: Request) -> PeopleController:
@@ -71,3 +77,4 @@ RoomBindingsDep = Annotated[RoomBindingsController, Depends(get_room_bindings)]
 CallerDep = Annotated[tuple[str, str] | None, Depends(get_caller)]
 ClientDep = Annotated[httpx.AsyncClient, Depends(get_client)]
 RoomsDep = Annotated[RoomController, Depends(get_rooms)]
+SallesDep = Annotated[SallesController, Depends(get_salles)]

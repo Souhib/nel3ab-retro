@@ -10,7 +10,11 @@
 import puppeteer from "puppeteer";
 import { enterRoom } from "./open.mjs";
 
-const url = process.env.NEL3AB_URL ?? "http://localhost:8100/";
+// L'adresse en ARGUMENT d'abord: la recette en passait une que le script ne
+// lisait pas, et le défaut se voyait d'autant moins que la valeur par défaut
+// pointait sur 8100 — un port qui n'existe plus depuis que les salles ont pris
+// leurs propres ports (8110, 8120, 8130).
+const url = process.argv[2] ?? process.env.NEL3AB_URL ?? "http://localhost:8110/";
 const browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox"] });
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -107,6 +111,54 @@ for (const shell of ["ps3", "wii", "switch"]) {
   await page.evaluate(() => document.querySelector("#item-bindings")?.click());
   await wait(900);
   screens.push([`${shell} · touches`, await page.evaluate(AUDIT)]);
+  await page.close();
+}
+// Les SEPT ambiances, et le SÉLECTEUR, que rien ne regardait.
+//
+// Deux trous distincts. Le sélecteur n'était visité par aucun écran de ce
+// pilote, alors que c'est précisément lui qui empilait cinq opacités brutes.
+// Et tout tournait sur la seule ambiance par défaut, alors que `--muted`,
+// `--indigo` et `--panel` changent aux sept.
+//
+// Sur la coque PS3 seule, et c'est délibéré: les coques Wii et Switch peignent
+// des couleurs de console EN DUR et ne bougent pas d'une ambiance à l'autre.
+// Les passer toutes ferait vingt et un écrans pour prouver trois fois la même
+// chose.
+const AMBIANCES = [
+  "instrument-sombre", "instrument-clair", "phosphore", "ambre",
+  "indigo", "famicom", "gameboy",
+];
+for (const ambiance of AMBIANCES) {
+  const page = await browser.newPage();
+  await page.setViewport({ width: 1440, height: 900 });
+  await page.evaluateOnNewDocument((a) => {
+    localStorage.setItem("nel3ab:name", "banc");
+    localStorage.setItem("nel3ab:banc", "1");
+    localStorage.setItem("nel3ab:shell", "ps3");
+    localStorage.setItem("nel3ab:theme", a);
+  }, ambiance);
+  await page.goto(url, { waitUntil: "domcontentloaded" });
+  await enterRoom(page);
+  await wait(3500);
+  await page.evaluate(() => document.querySelector("#openMenu")?.click());
+  await wait(900);
+  await page.keyboard.press("ArrowRight"); await wait(250);
+  await page.keyboard.press("ArrowRight"); await wait(600);
+  screens.push([`ps3 · réglages · ${ambiance}`, await page.evaluate(AUDIT)]);
+  // Le sélecteur, ouvert sur l'entrée des ambiances.
+  await page.evaluate(() => document.querySelector("#item-theme")?.click());
+  await wait(700);
+  // On VÉRIFIE qu'il est ouvert avant de mesurer.
+  //
+  // Sans ça, un clic qui rate laisse la page sur le menu des réglages, et
+  // l'audit rend « rien à signaler » pour un écran qu'il n'a jamais vu: un
+  // essai qui passe sans rien éprouver, ce qui est pire que pas d'essai.
+  if ((await page.$("#pickerCancel")) === null) {
+    throw new Error(
+      `le sélecteur ne s'est pas ouvert (${ambiance}): l'écran mesuré n'est pas celui qu'on croit`,
+    );
+  }
+  screens.push([`ps3 · sélecteur · ${ambiance}`, await page.evaluate(AUDIT)]);
   await page.close();
 }
 await browser.close();

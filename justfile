@@ -496,6 +496,39 @@ browser-seats:
 salon-accueil:
     cd spikes/m3-browser-drive && node salon-accueil.mjs
 
+# La liste du salon est-elle MISE À JOUR, ou refaite à chaque tour ?
+#
+# Elle se reconstruisait entièrement toutes les cinq secondes: chaque carte
+# était remplacée par un noeud neuf, donc l'animation d'apparition repartait et
+# le focus du clavier retombait sur le corps de la page. Lire le source ne le
+# prouve pas: ce pilote pose un témoin sur la carte et regarde s'il survit à
+# deux tours de sondage.
+#
+# Il OUVRE une salle et la referme: c'est le seul moyen d'avoir une carte à
+# regarder, et la machine est rendue telle qu'elle était.
+#
+# Vérifié falsifiable le 12 septembre 2026 en réintroduisant `replaceChildren`
+# seul, `--rang` gardé: c'est bien l'assertion du témoin qui mord.
+salon-reconciliation:
+    cd spikes/m3-browser-drive && node reconciliation.mjs
+
+# Des IMAGES des quatre écrans d'une salle, pour les regarder au lieu de les
+# décrire.
+#
+# Écrit le 12 septembre 2026 pendant la revue de l'interface, et gardé parce
+# qu'il a servi tout de suite: les captures ont montré que trois langages
+# visuels distincts cohabitaient (l'arrivée et le salon en blocs bordés gris,
+# le menu XMB fini et soigné, l'écran « aucun jeu » avec un bouton arrondi qui
+# n'existe nulle part ailleurs). Aucune lecture du code ne montrait ça.
+#
+# Ce n'est PAS un essai: il n'affirme rien et ne peut pas échouer. Il produit de
+# quoi juger, ce qui est un autre métier.
+#
+# La salle doit déjà tourner. `just salon-reconciliation` montre comment en
+# ouvrir une et la refermer proprement.
+capture-salle url="http://127.0.0.1:8110/" dossier="/tmp/nel3ab-captures":
+    cd spikes/m3-browser-drive && node capture-salle.mjs "{{url}}" "{{dossier}}"
+
 # La salle prévient-elle À L'ÉCRAN avant de fermer, et le clic la fait-il taire ?
 #
 # Le journal disait déjà « la salle fermera bientôt », mais un journal ne
@@ -585,7 +618,7 @@ browser-lipsync:
 # Do the numbers stay beside the picture, without scrolling, at the widths people
 # actually use? Needs the worker RUNNING.
 browser-layout:
-    cd spikes/m3-browser-drive && node layout.mjs
+    cd spikes/m3-browser-drive && node layout.mjs http://127.0.0.1:8110/
 
 # Does the library show the names a person reads, and none of the file clutter?
 # Needs the worker RUNNING.
@@ -605,7 +638,8 @@ browser-steal:
 # nothing. A test that only checked "the game changed" would pass just as well on
 # a page that switched on the first click, and what is being confirmed is the end
 # of everybody else's game.
-# Le contraste EFFECTIF de chaque texte, dans les trois coques.
+# Le contraste EFFECTIF de chaque texte: trois coques, puis le SÉLECTEUR sur
+# les sept ambiances.
 #
 # Ici et pas dans `check` parce qu'il faut un vrai rendu: l'opacité s'accumule
 # sur les ancêtres, le fond vient du premier ancêtre qui en peint un, et le
@@ -613,9 +647,14 @@ browser-steal:
 # septembre 2026 il a trouvé 196 textes sous le seuil, dont l'état des quatre
 # manettes dans la colonne — ce qu'on regarde le plus souvent de la page.
 #
+# Les sept ambiances ne tournent que sur la coque PS3, et c'est délibéré: les
+# coques Wii et Switch peignent des couleurs de console EN DUR et ne bougent
+# pas d'une ambiance à l'autre. Le sélecteur, lui, n'était visité par aucun
+# écran alors que c'est lui qui empilait cinq opacités brutes.
+#
 # N'ARRÊTE PAS la partie: il ouvre le menu, il ne lance rien.
 browser-contraste:
-    cd spikes/m3-browser-drive && node contraste.mjs http://localhost:8100/
+    cd spikes/m3-browser-drive && node contraste.mjs http://localhost:8110/
 
 # Ce que la page MONTRE pendant un changement de jeu.
 #

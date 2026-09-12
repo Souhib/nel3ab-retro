@@ -850,6 +850,22 @@ impl BrowserServer {
         {
             return false;
         }
+        drop(seats);
+        self.close_now()
+    }
+
+    /// Ferme la salle sans reçus: cette fois personne ne l'a demandé.
+    ///
+    /// C'est la règle d'inactivité qui l'ordonne, une demi-heure après le
+    /// dernier geste. Exiger les reçus ici n'aurait aucun sens: ils prouvent
+    /// que le demandeur voit la même salle que nous, et il n'y a pas de
+    /// demandeur. Les deux autres gardes, elles, gardent tout leur sens.
+    pub fn close_idle(&self) -> bool {
+        self.close_now()
+    }
+
+    /// Le corps commun: on ne ferme pas une salle qui a du travail en route.
+    fn close_now(&self) -> bool {
         let Ok(pending) = self.prepared.lock() else {
             return false;
         };
@@ -859,6 +875,16 @@ impl BrowserServer {
         self.closing
             .store(true, std::sync::atomic::Ordering::Relaxed);
         true
+    }
+
+    /// Le dernier geste d'un joueur, toutes places confondues.
+    ///
+    /// La règle d'inactivité lit ceci et rien d'autre: un onglet resté ouvert
+    /// compte comme un spectateur alors qu'il n'a touché à rien. Chaque case est
+    /// estampillée par la socket de manette sur une trame NON NEUTRE.
+    #[must_use]
+    pub fn last_action(&self) -> Option<Instant> {
+        self.acted.lock().ok()?.iter().flatten().copied().max()
     }
 
     /// Annule un arrêt dont le choix persistant n’a pas pu être écrit.
@@ -1494,6 +1520,56 @@ mod tests {
             tungstenite::Message::Text(format!("seat {}", server.seat_receipts()[0]).into())
         );
         socket.close(None).unwrap();
+    }
+
+    /// La règle d'inactivité lit le geste le plus récent, pas le premier venu.
+    #[test]
+    fn le_dernier_geste_est_le_plus_recent_des_quatre() {
+        let server = detached(vec![]);
+        assert_eq!(server.last_action(), None, "une salle neuve n'a rien vu");
+        let base = Instant::now();
+        let vieux = base.checked_sub(Duration::from_mins(10)).unwrap();
+        server.acted.lock().unwrap()[2] = Some(vieux);
+        assert_eq!(server.last_action(), Some(vieux));
+        server.acted.lock().unwrap()[0] = Some(base);
+        assert_eq!(
+            server.last_action(),
+            Some(base),
+            "le plus ancien des deux gestes a été retenu"
+        );
+    }
+
+    /// La fermeture pour inactivité n'a pas de demandeur, donc pas de reçus.
+    #[test]
+    fn la_fermeture_pour_inactivite_ne_demande_pas_de_recus() {
+        let server = detached(vec![]);
+        *server.seats.lock().unwrap() = [Some(11), None, None, None];
+        assert!(!server.stop_requested());
+        assert!(server.close_idle());
+        assert!(server.stop_requested());
+    }
+
+    /// Le jumeau négatif: un lancement déjà accepté survit à l'inactivité.
+    #[test]
+    fn une_salle_qui_prepare_un_lancement_ne_ferme_pas_pour_inactivite() {
+        let server = detached(vec![]);
+        *server.prepared.lock().unwrap() = Some(crate::control::PreparedLaunch {
+            game: 2,
+            save: 1,
+            pads: [0, 1, 3, 2],
+            expected: server.seat_receipts(),
+        });
+        assert!(!server.close_idle());
+        assert!(!server.stop_requested());
+    }
+
+    /// Le second jumeau: un jeu demandé mais pas encore servi.
+    #[test]
+    fn une_salle_qui_attend_un_jeu_ne_ferme_pas_pour_inactivite() {
+        let server = detached(vec![]);
+        *server.wants_rom.lock().unwrap() = Some(3);
+        assert!(!server.close_idle());
+        assert!(!server.stop_requested());
     }
 
     #[test]

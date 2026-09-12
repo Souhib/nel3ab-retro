@@ -13144,6 +13144,32 @@ l'heure de la fermeture — fait tomber trois essais sur quatre ; remise droite,
 tout redevient vert. Sans cette étape, un essai qui ne peut pas échouer annonce
 une garantie qui n'existe pas.
 
+### Ce que la règle d'inactivité regarde, et ce qu'elle a le droit de fermer
+
+*12 septembre 2026.*
+
+**Le dernier geste.** Le transport gardait déjà, place par place, l'instant de la
+dernière trame de manette **non neutre** : il s'en servait pour savoir si le
+propriétaire d'une salle s'était absenté et pour laisser quelqu'un d'autre
+décider. La règle d'inactivité a besoin de la même chose, mais toutes places
+confondues : le plus récent des quatre instants, ou rien si personne n'a jamais
+touché à quoi que ce soit. Une salle de quatre joueurs dont un seul joue reste
+donc une salle vivante.
+
+**Fermer sans demandeur.** La salle savait déjà se fermer, mais seulement sur
+demande du chef, et cette demande exige des **reçus** : la liste des places
+occupées telle que le salon l'a vérifiée, comparée à celle que le worker voit.
+Ces reçus prouvent que le demandeur regarde bien la même salle que nous. Une
+fermeture pour inactivité n'a pas de demandeur, donc rien à prouver : la garde
+des reçus n'a plus de sens, et l'exiger aurait obligé à fabriquer de faux reçus,
+c'est-à-dire à écrire un mensonge dans le code pour satisfaire un contrôle.
+
+Les deux **autres** gardes, elles, gardent tout leur sens et sont partagées par
+les deux chemins : on ne ferme pas une salle qui a un lancement déjà accepté en
+attente, ni une salle qui attend un jeu demandé. Sinon deux ordres se
+disputeraient la même boucle d'images. Chaque garde a son jumeau négatif, et
+chacun a été vu échouer en rendant la garde fausse exprès.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une

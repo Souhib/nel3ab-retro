@@ -26,7 +26,11 @@
     --doux: #94a3b8;
     --vif: #7c3aed;
     --vif-clair: #a78bfa;
-    --action: #f43f5e;
+    /* Mesuré le 12 septembre 2026: le rose précédent (#f43f5e) donnait
+       3,67:1 avec du texte blanc, sous le seuil AA de 4,5:1, sur la SEULE
+       action de la page. Celui-ci donne 4,70:1, et le bas du dégradé
+       (#9f1239) 8,02:1: tout le bouton passe, pas seulement un bord. */
+    --action: #e11d48;
     --ouverte: #4ade80;
     --titre: ui-sans-serif, "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
   }
@@ -79,7 +83,9 @@
   .salles {
     display: grid;
     gap: 1.4rem;
-    grid-template-columns: repeat(auto-fill, minmax(290px, 360px));
+    /* `min(290px, 100%)`: sous ~330 px de large, un plancher de 290 px plus les
+     marges du corps poussait la grille plus loin que l'écran. */
+    grid-template-columns: repeat(auto-fill, minmax(min(290px, 100%), 360px));
     justify-content: start;
   }
   /* L'écran vide, lui, occupe toute la largeur disponible: il n'est pas une
@@ -170,16 +176,24 @@
     font: inherit; font-size: 1.1rem; font-weight: 650;
     min-height: 52px; padding: .8rem 1.6rem;
     border: 0; border-radius: 12px;
-    background: linear-gradient(160deg, var(--action), #be123c);
+    background: linear-gradient(160deg, var(--action), #9f1239);
     color: #fff;
     cursor: pointer;
     box-shadow: 0 14px 30px -18px var(--action);
     transition: transform .15s ease, box-shadow .15s ease, filter .15s ease;
   }
   button:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.08); }
-  button:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; }
+  /* PAS `opacity: .4`: le texte tombait à 2,21:1, illisible. Des couleurs
+     explicites tiennent 6,44:1 tout en disant clairement « indisponible ». */
+  button:disabled {
+    cursor: not-allowed; box-shadow: none;
+    background: var(--carte); color: var(--doux);
+    border: 1px solid var(--trait);
+  }
   .mot { color: var(--doux); font-size: 1.05rem; }
   .mot[data-refus="oui"] { color: #ffb4a2; }
+  .perdu { color: #ffb4a2; font-size: 1.05rem; }
+  .perdu[hidden] { display: none; }
 
   .retour[hidden] { display: none; }
   .retour {
@@ -219,6 +233,7 @@
     <div class="ouvrir">
       <button id="ouvrir" type="button">ouvrir une salle</button>
       <span class="mot" id="mot"></span>
+      <span class="perdu" id="perdu" hidden>la liste ne se met plus à jour</span>
     </div>
   </main>
 
@@ -241,6 +256,7 @@
   const liste = document.getElementById("salles");
   const mot = document.getElementById("mot");
   const bouton = document.getElementById("ouvrir");
+  const perdu = document.getElementById("perdu");
 
   function dessiner(salles) {
     // Seules les salles OUVERTES sont montrées. Trois cases dont deux vides
@@ -255,21 +271,56 @@
     if (ouvertes.length === 0) {
       // Un écran vide se lit comme une panne. Celui-ci dit ce qui se passe et
       // ce qu'on peut faire, ce qui est la seule chose qui manque ici.
-      liste.replaceChildren(vide());
+      if (!liste.querySelector(".vide")) liste.replaceChildren(vide());
     } else {
-      liste.replaceChildren(...ouvertes.map(carte));
+      // Les cartes sont MISES À JOUR, pas refaites.
+      //
+      // `replaceChildren` toutes les cinq secondes remplaçait chaque carte par
+      // un noeud neuf: l'animation d'apparition repartait à zéro, le survol
+      // sautait, et le focus du clavier retombait sur le corps de la page au
+      // milieu d'une navigation. Rien de tout ça ne se voit en développement,
+      // où la liste ne change jamais pendant qu'on la regarde.
+      liste.querySelector(".vide")?.remove();
+      const vieilles = new Map(
+        [...liste.children].map(noeud => [noeud.dataset.salle, noeud]),
+      );
+      let precedent = null;
+      ouvertes.forEach((salle, rang) => {
+        const cle = String(salle.numero);
+        let noeud = vieilles.get(cle);
+        if (noeud) {
+          remplir(noeud, salle);
+          vieilles.delete(cle);
+        } else {
+          noeud = carte(salle);
+          // La cascade: le CSS lit `--rang`, que personne ne posait, donc les
+          // cartes apparaissaient toutes en même temps.
+          noeud.style.setProperty("--rang", String(rang));
+        }
+        // Déplacé SEULEMENT si sa place a changé: bouger un noeud relance son
+        // animation, et c'est précisément ce qu'on vient d'éviter.
+        const attendu = precedent === null ? liste.firstChild : precedent.nextSibling;
+        if (attendu !== noeud) liste.insertBefore(noeud, attendu);
+        precedent = noeud;
+      });
+      for (const partie of vieilles.values()) partie.remove();
     }
 
     bouton.disabled = libres === 0;
     bouton.textContent = ouvertes.length === 0 ? "ouvrir la première salle" : "ouvrir une salle";
     if (!mot.dataset.refus) {
-      mot.textContent = libres === 0
+      const reste = libres === 0
         ? `les ${salles.length} salles sont ouvertes, rejoins-en une`
-        : salles.some(salle => salle.switch)
-          ? "une salle joue déjà à la Switch: une seule à la fois"
-          : libres === salles.length
-            ? "aucune salle n'est ouverte, donc rien ne tourne"
-            : `${libres} salle${libres > 1 ? "s" : ""} encore disponible${libres > 1 ? "s" : ""}`;
+        : libres === salles.length
+          ? "aucune salle n'est ouverte, donc rien ne tourne"
+          : `${libres} salle${libres > 1 ? "s" : ""} encore disponible${libres > 1 ? "s" : ""}`;
+      // Les deux faits comptent, et l'un n'annule pas l'autre: savoir que la
+      // Switch est prise ne dit pas s'il reste une salle à ouvrir. Le message
+      // sur la Switch effaçait le nombre de places libres au moment précis où
+      // ce nombre décide si on peut ouvrir la sienne.
+      mot.textContent = salles.some(salle => salle.switch)
+        ? `${reste} · la Switch est prise`
+        : reste;
     }
   }
 
@@ -290,41 +341,62 @@
   function carte(salle) {
     const carte = document.createElement("a");
     carte.className = "salle";
-    carte.href = salle.chemin;
-
+    carte.dataset.salle = String(salle.numero);
     const titre = document.createElement("div");
     titre.className = "titre";
-    titre.textContent = `salle ${salle.numero}`;
-
     const etat = document.createElement("div");
     etat.className = "etat";
-    // Le jeu en toutes lettres, et pas seulement une pastille de couleur: une
-    // couleur seule ne se lit ni de loin ni pour qui les distingue mal.
-    etat.textContent = salle.jeu ?? "sur son menu";
-
     const marques = document.createElement("div");
     marques.className = "marques";
-    if (salle.switch) {
-      const marque = document.createElement("span");
-      marque.className = "marque";
-      marque.textContent = "Switch";
-      marques.append(marque);
-    }
     const rejoindre = document.createElement("span");
     rejoindre.className = "rejoindre";
     rejoindre.textContent = "rejoindre";
-
     carte.append(titre, etat, marques, rejoindre);
+    remplir(carte, salle);
     return carte;
   }
 
+  /** Ce qui CHANGE dans une carte, sans refaire la carte.
+   *
+   * Le jeu en toutes lettres, et pas seulement une pastille de couleur: une
+   * couleur seule ne se lit ni de loin ni pour qui les distingue mal. */
+  function remplir(noeud, salle) {
+    noeud.href = salle.chemin;
+    noeud.querySelector(".titre").textContent = `salle ${salle.numero}`;
+    noeud.querySelector(".etat").textContent = salle.jeu ?? "sur son menu";
+    const marques = noeud.querySelector(".marques");
+    const veut = salle.switch ? ["Switch"] : [];
+    if ([...marques.children].map(n => n.textContent).join("|") !== veut.join("|")) {
+      marques.replaceChildren(...veut.map(texte => {
+        const marque = document.createElement("span");
+        marque.className = "marque";
+        marque.textContent = texte;
+        return marque;
+      }));
+    }
+  }
+
+  /** Combien de tours de suite le salon n'a rien rendu. */
+  let ratés = 0;
   async function relire() {
     try {
       const reponse = await fetch("/api/salles", { cache: "no-store" });
-      if (reponse.ok) dessiner(await reponse.json());
+      if (!reponse.ok) throw new Error(String(reponse.status));
+      const salles = await reponse.json();
+      ratés = 0;
+      perdu.hidden = true;
+      // Un refus PRÉCÉDENT ne doit pas figer la ligne d'état pour toujours: il
+      // restait jusqu'au rechargement, donc la page continuait d'annoncer un
+      // échec que le tour suivant avait démenti.
+      delete mot.dataset.refus;
+      dessiner(salles);
     } catch {
-      // Le salon redémarre en deux secondes: on retentera au prochain tour
-      // plutôt que d'effacer la liste sous les yeux de quelqu'un.
+      // Le salon redémarre en deux secondes: on retente au prochain tour plutôt
+      // que d'effacer la liste sous les yeux de quelqu'un. Mais une liste qui
+      // ne se met plus à jour a EXACTEMENT l'air d'une liste fraîche, et c'est
+      // le pire des deux: au bout de deux tours, elle le dit.
+      ratés += 1;
+      if (ratés >= 2) perdu.hidden = false;
     }
   }
 

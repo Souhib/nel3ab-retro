@@ -259,6 +259,12 @@ export function Sidebar({
             . Échap ouvre le menu.
           </p>
 
+          {idle ? null : (
+            <p id="saveReminder" className="text-[11px] leading-relaxed text-faint">
+              Pense à sauvegarder dans le jeu: une salle que tout le monde quitte ferme la partie.
+            </p>
+          )}
+
           {suggestHalf ? <Rough onTake={onTakeHalf} onKeep={onKeepFull} /> : null}
 
           {!idle && shot && !shot.padOnly ? (

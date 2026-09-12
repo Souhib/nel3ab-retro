@@ -13487,6 +13487,20 @@ la règle qu'il ne mesure pas. Mesuré le jour même: fermeture par inactivité 
 6,0 s pour six secondes demandées, fermeture par désertion à 5,2 s pour cinq
 secondes, et la salle sans jeu toujours debout après quinze secondes.
 
+### Un rappel de sauvegarde, et rien de plus
+
+*12 septembre 2026.*
+
+Souhib voulait qu'on pense à sauvegarder, sans gros encart: une ligne discrète.
+Elle est dans la colonne, au même format que les autres lignes de service, et
+elle dit pourquoi elle existe plutôt que de donner un ordre: une salle que tout
+le monde quitte ferme la partie.
+
+Elle n'apparaît QUE lorsqu'un jeu tourne, et c'est son jumeau négatif qui le
+tient. Deux raisons: il n'y a rien à sauvegarder devant un menu, et un rappel
+affiché en permanence cesse très vite d'être lu. Un conseil qu'on affiche
+toujours a le même effet qu'un conseil qu'on n'affiche jamais.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une

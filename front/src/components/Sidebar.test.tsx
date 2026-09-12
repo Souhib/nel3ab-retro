@@ -195,3 +195,17 @@ it("attend l'accusé du salon, puis montre le refus sans annoncer un enregistrem
   expect(screen.getByText("signaler un problème")).not.toBeDisabled();
   expect(screen.queryByText("signalement enregistré")).not.toBeInTheDocument();
 });
+
+it("rappelle de sauvegarder quand un jeu tourne", () => {
+  show({ idle: false });
+
+  expect(screen.getByText(/sauvegarder/i)).toBeTruthy();
+});
+
+it("ne rappelle rien quand la salle est sur son menu", () => {
+  // Le jumeau: un rappel affiché en permanence cesse d'être lu, et il n'y a
+  // rien à sauvegarder quand aucun jeu ne tourne.
+  show({ idle: true });
+
+  expect(screen.queryByText(/sauvegarder/i)).toBeNull();
+});

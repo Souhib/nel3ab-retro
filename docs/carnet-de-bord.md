@@ -14164,6 +14164,32 @@ machine, donc de la même identité Tailscale, et `present()` compte une personn
 et non un onglet. Ce qui reste non démontré est donc le cas à deux personnes
 distinctes, et la disparition d'un nom au départ.
 
+### Un fichier de travail écrasé, puis supprimé par son propre nettoyage
+
+Le pire geste de la journée, et il tient en deux étourderies enchaînées.
+
+Il fallait un petit script jetable pour vérifier qu'un nom de joueur remontait
+bien jusqu'aux cartes du salon. Il a été écrit dans le dossier des pilotes, sous
+le nom `presence.mjs`, sans regarder si ce nom était pris. Il l'était:
+`presence.mjs` existe depuis des semaines et mesure combien de temps une salle
+met à oublier quelqu'un qui est parti, en distinguant un onglet fermé proprement
+d'un navigateur tué. Le script jetable l'a donc écrasé. Puis le `trap` chargé de
+faire le ménage a supprimé le fichier en partant, emportant le vrai pilote avec
+lui.
+
+Ce qui l'a rattrapé n'est pas de la vigilance: c'est `git status`, qui a montré
+`D spikes/m3-browser-drive/presence.mjs` au moment du commit suivant. Le fichier
+était suivi depuis `71bb899`, donc récupérable intact par `git checkout`. Rien
+n'a atteint l'index: aucun des quatre commits ne touche ce chemin, et la
+suppression n'est jamais partie sur le distant. Vérifié après coup, fichier par
+fichier, que les deux autres pilotes ajoutés le même jour n'écrasaient rien.
+
+Deux règles, dont une que ce dépôt écrit déjà ailleurs: on regarde ce qu'on va
+écraser AVANT de l'écraser, et un dossier suivi par git n'est pas un dossier de
+brouillons. Le répertoire temporaire de la séance existe précisément pour ça; le
+script jetable n'y a pas été mis pour une raison sans valeur, la résolution des
+modules de Node. Un lien symbolique aurait suffi.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une

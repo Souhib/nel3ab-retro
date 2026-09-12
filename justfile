@@ -104,6 +104,15 @@ deploy-check:
             faux=1
         fi
     done
+    # L'autre sens: une unité posée à la main sur la machine, sans copie ici.
+    # Le 12 septembre 2026, nel3ab-cpu-performance tournait depuis la veille et
+    # aucune boucle ne la voyait, parce que celle du dessus part du dépôt.
+    for installe in /etc/systemd/system/nel3ab-*.service; do
+        [ -e "$installe" ] || continue
+        if [ ! -f "deploy/$(basename "$installe")" ]; then
+            echo "  installée sans copie au dépôt: $(basename "$installe")"; faux=1
+        fi
+    done
     if [ "$faux" -eq 0 ]; then echo "les unités installées sont celles du dépôt"; else exit 1; fi
 
 # Vérifie les pistes du MP4 et décode réellement son audio, sans Dolphin ni salle.

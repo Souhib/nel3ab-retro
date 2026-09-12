@@ -1,0 +1,15 @@
+[Unit]
+Description=Regulateur de frequence "performance" pour les salles nel3ab
+Documentation=https://github.com/Souhib/nel3ab-retro
+After=multi-user.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# Mesure du 11 septembre 2026 : le meme combat Switch perd 1,2 s par minute en
+# performance contre 1,6 s en schedutil, caches chauds, deux essais de chaque.
+ExecStart=/bin/sh -c 'for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do echo performance > "$g"; done'
+ExecStop=/bin/sh -c 'for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do echo schedutil > "$g"; done'
+
+[Install]
+WantedBy=multi-user.target

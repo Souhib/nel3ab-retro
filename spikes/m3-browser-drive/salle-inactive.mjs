@@ -56,6 +56,10 @@ async function salle({ jeu, secondes, avertir }) {
       NEL3AB_WORKER_CONTROL: `127.0.0.1:${control}`,
       NEL3AB_SESSION_DIR: join(root, "session"),
       NEL3AB_SWITCH_ADAPTER: join(repo, "spikes/m3-browser-drive/faux-adaptateur.py"),
+      // LA place de la Switch, dans un dossier jetable. Sans cela le
+      // pilote prendrait celle de la vraie salle, et empêcherait
+      // quelqu'un de lancer un jeu Switch pendant qu'il mesure.
+      NEL3AB_SWITCH_LOCK: join(root, "switch.lock"),
       NEL3AB_CONTAINER: "nel3ab-aucune-salle-ici",
       NEL3AB_CLOSE_AFTER_SECS: String(secondes),
       NEL3AB_WARN_BEFORE_SECS: String(avertir),

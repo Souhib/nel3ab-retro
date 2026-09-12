@@ -19,4 +19,6 @@
 souhib ALL=(root) NOPASSWD: /usr/bin/systemctl start nel3ab-worker@1, \
                             /usr/bin/systemctl stop nel3ab-worker@1, \
                             /usr/bin/systemctl start nel3ab-worker@2, \
-                            /usr/bin/systemctl stop nel3ab-worker@2
+                            /usr/bin/systemctl stop nel3ab-worker@2, \
+                            /usr/bin/systemctl start nel3ab-worker@3, \
+                            /usr/bin/systemctl stop nel3ab-worker@3

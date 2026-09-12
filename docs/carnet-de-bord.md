@@ -13351,6 +13351,65 @@ ces champs sans les remplir les afficherait comme des absences, et une absence
 affichée est indiscernable d'un zéro vrai. Ce projet a déjà commis cette faute
 quatre fois.
 
+### Une seule salle à la fois joue à la Switch
+
+*12 septembre 2026.*
+
+**La demande.** Trois salles peuvent tourner ensemble, mais une seule peut faire
+tourner un jeu Switch: Ryubing coûte bien plus cher que Dolphin, et trois
+émulateurs Switch ne tiendraient pas sur une carte graphique.
+
+**Où la règle peut vivre, et où elle ne peut pas.** L'endroit qui semblait
+évident était le salon: c'est lui qui voit toutes les salles. C'est pourtant
+impossible, et la lecture du code le dit sans ambiguïté. Une page demande son
+jeu AU WORKER, directement, par la socket de manette; le salon apprend le
+changement, il ne l'autorise pas. Une règle tenue par lui serait donc contournée
+par le chemin normal, sans la moindre malveillance, le jour où quelqu'un clique
+dans sa salle plutôt que dans la liste.
+
+La règle vit donc là où le jeu démarre vraiment, sous la forme d'un **verrou de
+fichier** partagé par toutes les salles, pris juste avant de lancer Ryubing et
+tenu pendant toute la partie. C'est le même geste que le verrou qui empêche deux
+workers de partager un répertoire de session, et il a les mêmes qualités: aucun
+dialogue réseau, aucune course, et le noyau le relâche si le worker meurt, donc
+une salle qui plante ne condamne pas la Switch pour les autres.
+
+**Refuser n'est pas fermer.** Une salle à qui on refuse la Switch reste ouverte
+sur son menu, vivante: elle a simplement cliqué au mauvais moment. Le marqueur
+« sans jeu » est retenu AVANT d'attendre, sans quoi le worker relancerait au
+démarrage suivant le jeu qu'on vient de lui refuser. L'attente est la même que
+celle d'une salle ouverte sans jeu, et c'est maintenant la même fonction: deux
+copies d'une même attente finissent toujours par diverger.
+
+**Le piège qui aurait coûté une salle à chaque partie.** Le modèle d'unité
+portait d'abord `Restart=on-failure`, ce qui semblait évident: une salle fermée
+doit rester fermée. C'est faux, et la raison est ancienne. Le worker SORT à
+chaque changement de jeu: il retient le choix, se termine, et le service le
+relance sur le nouveau jeu. Avec `on-failure`, ces sorties-là n'auraient pas été
+relevées et la salle aurait disparu dès que quelqu'un change de jeu.
+
+Les deux sorties ne se distinguent donc pas par leur nature mais par leur
+**code**: 42 veut dire « la salle se ferme, ne me relance pas », et l'unité le
+nomme dans `RestartPreventExitStatus`. Le transport porte la différence dans un
+drapeau à part, avec son jumeau négatif: fermer le JEU ne ferme pas la salle.
+
+**La preuve du terrain, tombée pendant le chantier.** La règle d'inactivité a
+fermé la vraie salle toute seule le jour même: avertissement à 12 h 48, fermeture
+à 12 h 53, adaptateur Switch arrêté proprement trois secondes plus tard. Personne
+ne l'a demandée, et c'est bien le but.
+
+**Deux pilotes qui mesuraient à côté.** Le premier jet vérifiait qu'une seconde
+salle n'avait pas lancé de jeu en lisant son catalogue. Or le catalogue annonce
+le jeu RETENU, pas celui qui tourne, et il est figé à l'ouverture de la salle:
+il disait « jeu 14 » pour une salle qui n'avait rien lancé du tout. La preuve
+juste est le nombre d'adaptateurs réellement vivants.
+
+Le deuxième jet les comptait sur TOUTE la machine, et trois pilotes tournaient en
+parallèle: il comptait donc les processus des autres et accusait le verrou d'une
+faute qui n'était pas la sienne. Restreint aux salles du pilote, il passe. La
+leçon vaut au-delà: un essai qui observe la machine entière observe aussi les
+autres essais.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une

@@ -59,6 +59,10 @@ try {
       NEL3AB_BIND: `127.0.0.1:${media}`, NEL3AB_CONTROL_BIND: `127.0.0.1:${control}`,
       NEL3AB_WORKER_CONTROL: `127.0.0.1:${control}`,
       NEL3AB_SESSION_DIR: join(root, "session"),
+      // LA place de la Switch, dans un dossier jetable. Sans cela le
+      // pilote prendrait celle de la vraie salle, et empêcherait
+      // quelqu'un de lancer un jeu Switch pendant qu'il mesure.
+      NEL3AB_SWITCH_LOCK: join(root, "switch.lock"),
       NEL3AB_CONTAINER: "nel3ab-aucune-salle-ici",
     }, stdio: ["ignore", "pipe", "pipe"],
   });

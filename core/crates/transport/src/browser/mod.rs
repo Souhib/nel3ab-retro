@@ -355,6 +355,15 @@ pub struct BrowserServer {
     wants_rom: Arc<Mutex<Option<u8>>>,
     prepared: Mutex<Option<crate::control::PreparedLaunch>>,
     closing: std::sync::atomic::AtomicBool,
+    /// Vrai quand c'est la SALLE qui se ferme, pas seulement le jeu.
+    ///
+    /// Les deux se ressemblent et n'ont pas du tout les mêmes suites. Fermer le
+    /// jeu rend la main au menu, et le worker sort pour que le service le
+    /// relance dessus: c'est ainsi qu'on change de jeu depuis toujours. Fermer
+    /// la salle veut dire qu'il ne faut PAS le relancer. Sans cette distinction,
+    /// une salle fermée pour inactivité rouvrirait deux secondes plus tard, ou
+    /// bien un simple changement de jeu ferait disparaître la salle.
+    room_closing: std::sync::atomic::AtomicBool,
     _accept: JoinHandle<()>,
 }
 
@@ -564,6 +573,7 @@ impl BrowserServer {
             devices,
             prepared: Mutex::new(None),
             closing: std::sync::atomic::AtomicBool::new(false),
+            room_closing: std::sync::atomic::AtomicBool::new(false),
             _accept: accept,
         })
     }
@@ -861,7 +871,22 @@ impl BrowserServer {
     /// que le demandeur voit la même salle que nous, et il n'y a pas de
     /// demandeur. Les deux autres gardes, elles, gardent tout leur sens.
     pub fn close_idle(&self) -> bool {
-        self.close_now()
+        if !self.close_now() {
+            return false;
+        }
+        self.room_closing
+            .store(true, std::sync::atomic::Ordering::Relaxed);
+        true
+    }
+
+    /// La salle se ferme-t-elle pour de bon ?
+    ///
+    /// Lu par le binaire au moment de sortir, pour rendre au service un code qui
+    /// dit « ne me relance pas ». Faux pour un changement de jeu, qui sort aussi
+    /// mais veut être relancé.
+    #[must_use]
+    pub fn room_closing(&self) -> bool {
+        self.room_closing.load(std::sync::atomic::Ordering::Relaxed)
     }
 
     /// Le corps commun: on ne ferme pas une salle qui a du travail en route.
@@ -1547,6 +1572,29 @@ mod tests {
         assert!(!server.stop_requested());
         assert!(server.close_idle());
         assert!(server.stop_requested());
+    }
+
+    /// Fermer pour inactivité ferme la SALLE, pas seulement le jeu.
+    #[test]
+    fn la_fermeture_pour_inactivite_ferme_la_salle() {
+        let server = detached(vec![]);
+        assert!(!server.room_closing());
+        assert!(server.close_idle());
+        assert!(server.room_closing(), "la salle se rouvrirait toute seule");
+    }
+
+    /// Le jumeau négatif, et c'est celui qui compte: fermer le JEU ne ferme pas
+    /// la salle. Confondre les deux ferait disparaître une salle à chaque
+    /// changement de jeu, puisque le worker sort pour être relancé dessus.
+    #[test]
+    fn fermer_le_jeu_ne_ferme_pas_la_salle() {
+        let server = detached(vec![]);
+        assert!(server.request_stop(&server.seat_receipts()));
+        assert!(server.stop_requested(), "le jeu devait se fermer");
+        assert!(
+            !server.room_closing(),
+            "un changement de jeu a fermé la salle"
+        );
     }
 
     /// Le jumeau négatif: un lancement déjà accepté survit à l'inactivité.

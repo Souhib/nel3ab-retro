@@ -26,6 +26,7 @@ pub(in crate::browser) fn detached(viewers: Vec<SyncSender<Framed>>) -> BrowserS
     BrowserServer {
         prepared: Mutex::new(None),
         closing: std::sync::atomic::AtomicBool::new(false),
+        room_closing: std::sync::atomic::AtomicBool::new(false),
         devices: Arc::new(Mutex::new([0; PORTS])),
         clips: Arc::new(Mutex::new(crate::clip::Clips::new())),
         seats: Arc::new(Mutex::new([None; PORTS])),

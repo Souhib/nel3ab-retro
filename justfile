@@ -90,17 +90,28 @@ deploy-check:
     #!/usr/bin/env bash
     set -euo pipefail
     faux=0
-    for unit in deploy/*.service deploy/Caddyfile; do
+    for unit in deploy/*.service deploy/Caddyfile deploy/*.sudoers; do
         case "$unit" in
             *.service) installe="/etc/systemd/system/$(basename "$unit")" ;;
             *Caddyfile) installe="/etc/caddy/Caddyfile" ;;
+            *.sudoers) installe="/etc/sudoers.d/$(basename "$unit" .sudoers)" ;;
         esac
-        if [ ! -f "$installe" ]; then
+        if [ ! -e "$installe" ]; then
             echo "  absente de la machine: $(basename "$unit")"; faux=1; continue
         fi
-        if ! diff -q "$unit" "$installe" >/dev/null; then
+        # Une règle sudo est lisible de root seul, par construction. La lire
+        # avec sudo plutôt que la déclarer non vérifiable: un contrôle qui passe
+        # sans rien regarder est pire que pas de contrôle du tout.
+        if [ -r "$installe" ]; then
+            ecart=$(diff "$unit" "$installe" || true)
+        elif sudo -n cat "$installe" >/dev/null 2>&1; then
+            ecart=$(sudo -n cat "$installe" | diff "$unit" - || true)
+        else
+            echo "  illisible sans droits: $(basename "$unit")"; faux=1; continue
+        fi
+        if [ -n "$ecart" ]; then
             echo "  diverge: $(basename "$unit")"
-            diff "$unit" "$installe" | sed 's/^/      /'
+            echo "$ecart" | sed 's/^/      /'
             faux=1
         fi
     done
@@ -475,6 +486,16 @@ browser-background:
 # rests on it doing so.
 browser-seats:
     cd spikes/m3-browser-drive && node seat-kept.mjs http://localhost:8100/ 25
+
+# Deux salles peuvent-elles faire tourner un jeu Switch en même temps ?
+#
+# Elles ne doivent pas: Ryubing coûte bien plus cher que Dolphin. La règle ne
+# peut pas vivre dans le salon, puisqu'une page demande son jeu au worker
+# directement; elle vit là où le jeu démarre. Ce pilote monte deux vraies
+# salles avec le même verrou et un faux adaptateur: la première joue, la seconde
+# reste sur son menu, vivante, et dit pourquoi.
+une-seule-switch:
+    cd spikes/m3-browser-drive && node une-seule-switch.mjs
 
 # Une salle servie sous un préfixe se comporte-t-elle normalement ?
 #

@@ -45,10 +45,45 @@ pub struct Held(
 /// inaccessible, ce qui n'est pas la même chose qu'un répertoire déjà pris.
 pub fn take(session_dir: &Path) -> io::Result<Option<Held>> {
     std::fs::create_dir_all(session_dir)?;
-    let file = File::create(session_dir.join(LOCK))?;
+    hold(&session_dir.join(LOCK))
+}
+
+/// Prend LA place de la Switch, pour toute la machine.
+///
+/// Une seule salle à la fois peut faire tourner un jeu Switch, décidé le 12
+/// septembre 2026: Ryubing coûte bien plus cher que Dolphin, et trois salles
+/// Switch ne tiendraient pas sur une seule carte graphique.
+///
+/// # Pourquoi un verrou de fichier, et pas une question au salon
+///
+/// Parce qu'une page demande son jeu AU WORKER, directement, par la socket de
+/// manette. Le salon n'est pas sur ce chemin-là: il apprend le changement, il
+/// ne l'autorise pas. Une règle tenue par lui serait donc contournée par le
+/// chemin normal, sans la moindre malveillance, le jour où quelqu'un clique
+/// dans sa salle plutôt que dans la liste.
+///
+/// Ici, la règle vit là où le jeu démarre vraiment. Elle tient quel que soit le
+/// chemin, elle ne demande aucun dialogue réseau, et le noyau la relâche si le
+/// worker meurt: une salle qui plante ne condamne pas la Switch pour les autres.
+///
+/// Rend `None` quand une autre salle tient la place.
+///
+/// # Errors
+/// L'erreur du système de fichiers si le verrou est inaccessible, ce qui n'est
+/// pas la même chose qu'une place déjà prise.
+pub fn take_switch(path: &Path) -> io::Result<Option<Held>> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    hold(path)
+}
+
+/// Le geste commun aux deux verrous: tenir un fichier tant que la valeur vit.
+fn hold(path: &Path) -> io::Result<Option<Held>> {
+    let file = File::create(path)?;
     match file.try_lock() {
         Ok(()) => Ok(Some(Held(file))),
-        // Déjà tenu: une autre salle vit ici. Ce n'est pas une panne du disque,
+        // Déjà tenu: quelqu'un d'autre est là. Ce n'est pas une panne du disque,
         // et l'appelant doit pouvoir le dire avec ses mots.
         Err(std::fs::TryLockError::WouldBlock) => Ok(None),
         Err(std::fs::TryLockError::Error(error)) => Err(error),
@@ -101,6 +136,51 @@ mod tests {
         assert!(
             take(autre.path())?.is_some(),
             "une autre salle a été bloquée"
+        );
+        Ok(())
+    }
+
+    /// Une seule salle peut faire tourner un jeu Switch sur cette machine.
+    #[test]
+    fn deux_salles_ne_peuvent_pas_jouer_a_la_switch_en_meme_temps() -> io::Result<()> {
+        let etat = tempfile::tempdir()?;
+        let place = etat.path().join("switch.lock");
+        let premiere = take_switch(&place)?;
+        assert!(premiere.is_some(), "la première salle doit pouvoir jouer");
+        assert!(
+            take_switch(&place)?.is_none(),
+            "deux salles font tourner Ryubing en même temps"
+        );
+        drop(premiere);
+        Ok(())
+    }
+
+    /// Le jumeau négatif: la place rendue doit servir à la salle suivante.
+    #[test]
+    fn la_place_switch_rendue_laisse_entrer_la_suivante() -> io::Result<()> {
+        let etat = tempfile::tempdir()?;
+        let place = etat.path().join("switch.lock");
+        let premiere = take_switch(&place)?;
+        assert!(premiere.is_some());
+        drop(premiere);
+        assert!(
+            take_switch(&place)?.is_some(),
+            "la place Switch est restée prise après la fin de la partie"
+        );
+        Ok(())
+    }
+
+    /// Les deux verrous ne parlent pas de la même chose: une salle qui joue à la
+    /// Switch ne doit pas empêcher une AUTRE salle d'exister sur son dossier.
+    #[test]
+    fn le_verrou_switch_ne_ferme_pas_les_autres_salles() -> io::Result<()> {
+        let etat = tempfile::tempdir()?;
+        let dossier = tempfile::tempdir()?;
+        let _switch = take_switch(&etat.path().join("switch.lock"))?
+            .expect("la première salle prend la Switch");
+        assert!(
+            take(dossier.path())?.is_some(),
+            "une salle Dolphin a été bloquée par la place Switch"
         );
         Ok(())
     }

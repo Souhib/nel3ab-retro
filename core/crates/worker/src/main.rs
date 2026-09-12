@@ -73,8 +73,20 @@ fn main() -> Result<()> {
     );
 
     let settings = Settings::from_environment()?;
-    run(&settings, &shutdown.flag())
+    if run(&settings, &shutdown.flag())? {
+        tracing::info!("la salle est fermée, le service ne doit pas la relancer");
+        std::process::exit(FERMEE);
+    }
+    Ok(())
 }
+
+/// Le code de sortie qui dit au service « ne me relance pas ».
+///
+/// Le worker sort AUSSI à chaque changement de jeu, et il veut être relancé
+/// dessus: c'est le mécanisme depuis le début. Les deux sorties se ressemblent
+/// et n'ont pas du tout les mêmes suites, donc c'est le code qui les distingue.
+/// L'unité le nomme dans `RestartPreventExitStatus`.
+const FERMEE: i32 = 42;
 
 /// Everything the worker needs, and where each piece comes from.
 struct Settings {
@@ -100,6 +112,11 @@ struct Settings {
     /// n'a d'intérêt que s'il survit, puisque changer de jeu redémarre le worker.
     art_dir: PathBuf,
     session_dir: PathBuf,
+    /// Le fichier qui tient LA place de la Switch, pour toute la machine.
+    ///
+    /// Partagé par toutes les salles, contrairement au répertoire de session.
+    /// Voir `lock::take_switch`, qui porte la raison complète.
+    switch_lock: PathBuf,
     bind: SocketAddr,
     render_node: PathBuf,
     /// Où le plan de contrôle dit qui décide du jeu.
@@ -128,6 +145,8 @@ impl Settings {
         let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_owned());
         let repo = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../..");
         Ok(Self {
+            switch_lock: env_path("NEL3AB_SWITCH_LOCK")
+                .unwrap_or_else(|| PathBuf::from(&home).join(".local/state/nel3ab/switch.lock")),
             rom: env_path("NEL3AB_ROM")
                 .unwrap_or_else(|| PathBuf::from(&home).join("roms/gc/Super Smash Bros Melee.rvz")),
             rom_dirs: env_dirs("NEL3AB_ROM_DIR").unwrap_or_else(|| {
@@ -490,6 +509,33 @@ fn watch_idle(
     })
 }
 
+/// Sert le menu jusqu'à ce qu'on demande un jeu ou qu'on ferme la salle.
+///
+/// Rend vrai quand c'est la SALLE qui se ferme, pas le jeu: l'appelant doit
+/// alors sortir avec un code qui empêche le service de la relancer.
+///
+/// Une fonction plutôt que deux boucles jumelles: une salle ouverte sans jeu et
+/// une salle à qui on refuse la Switch attendent exactement la même chose, et
+/// deux copies d'une même attente finissent par diverger.
+fn servir_sans_jeu(
+    server: &BrowserServer,
+    stopping: &std::sync::atomic::AtomicBool,
+    library: &[Rom],
+    session_dir: &Path,
+) -> bool {
+    // `stop_requested` compte ici autant que dans la boucle d'images: une salle
+    // ouverte sans jeu tient quand même un worker et une place sur la machine.
+    while !stopping.load(std::sync::atomic::Ordering::Relaxed)
+        && !server.stop_requested()
+        && !remember_request(server, library, session_dir)
+    {
+        // Dix lectures par seconde au repos bornent la réponse au menu à 100 ms
+        // sans entretenir une boucle d'images ou un émulateur.
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    server.room_closing()
+}
+
 /// Wires the four crates together and runs until the emulator stops.
 #[allow(
     clippy::too_many_lines,
@@ -498,7 +544,7 @@ fn watch_idle(
               only after the conversion has been waited on. Splitting it into \
               helpers would hide the one thing worth reading."
 )]
-fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Result<()> {
+fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Result<bool> {
     let container =
         std::env::var("NEL3AB_CONTAINER").unwrap_or_else(|_| "nel3ab-dolphin".to_owned());
     std::fs::create_dir_all(&settings.session_dir)
@@ -517,7 +563,8 @@ fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Re
     };
     nel3ab_emulator::lifecycle::prepare(&settings.dolphin, &settings.session_dir)?;
     if stopping.load(std::sync::atomic::Ordering::Relaxed) {
-        return Ok(());
+        // Arrêté avant d'avoir ouvert quoi que ce soit: aucune salle à fermer.
+        return Ok(false);
     }
     let socket = settings.session_dir.join("frames.sock");
     // A stale socket from a previous run would make `bind` fail with EADDRINUSE
@@ -652,21 +699,38 @@ fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Re
     if idle {
         server.half_offered(false);
         tracing::info!("salle ouverte sans jeu, aucun Dolphin lancé");
-        // `stop_requested` compte ici autant que dans la boucle d'images:
-        // une salle ouverte sans jeu tient quand même un worker et une des deux
-        // places du serveur. Rien à écrire en sortant, l'état retenu dit déjà
-        // qu'aucun jeu ne tourne, c'est même la raison d'être de cette branche.
-        while !stopping.load(std::sync::atomic::Ordering::Relaxed)
-            && !server.stop_requested()
-            && !remember_request(&server, &library, &settings.session_dir)
-        {
-            // Dix lectures par seconde au repos bornent la réponse au menu à
-            // 100 ms sans entretenir une boucle d'images ou un émulateur.
-            std::thread::sleep(Duration::from_millis(100));
-        }
-        return Ok(());
+        // Rien à écrire en sortant: l'état retenu dit déjà qu'aucun jeu ne
+        // tourne, c'est même la raison d'être de cette branche.
+        return Ok(servir_sans_jeu(
+            &server,
+            stopping,
+            &library,
+            &settings.session_dir,
+        ));
     }
     if switch {
+        // Une seule salle à la fois joue à la Switch. La règle vit ICI, au
+        // démarrage du jeu, et pas dans le salon: une page demande son jeu au
+        // worker directement, par la socket de manette, et le salon n'est pas
+        // sur ce chemin-là. Voir `lock::take_switch`.
+        let Some(_place_switch) = nel3ab_emulator::lock::take_switch(&settings.switch_lock)
+            .with_context(|| format!("prendre {}", settings.switch_lock.display()))?
+        else {
+            tracing::info!(
+                place = %settings.switch_lock.display(),
+                "une autre salle joue déjà à la Switch: cette salle reste sur son menu"
+            );
+            // Retenu AVANT d'attendre: sans cela, le worker relancerait le même
+            // jeu refusé au prochain démarrage, et la salle bouclerait.
+            nel3ab_emulator::playback::Playback::Idle.store(&settings.session_dir)?;
+            server.half_offered(false);
+            return Ok(servir_sans_jeu(
+                &server,
+                stopping,
+                &library,
+                &settings.session_dir,
+            ));
+        };
         // Private ingress owns no emulator. The adapter closes capture before
         // Ryubing, and only then flushes/backups the selected persistent slot.
         let runtime = tempfile::Builder::new()
@@ -722,7 +786,7 @@ fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Re
         }
         let status = engine.shutdown()?;
         tracing::info!(%status, "Switch adapter stopped");
-        return Ok(());
+        return Ok(server.room_closing());
     }
     prepare_saves(&settings.session_dir, &rom, &disc, slot);
 
@@ -903,14 +967,16 @@ fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Re
     tracing::info!(pipe = %rumble.path().display(), "la vibration remonte par ici");
 
     let session = match Session::start_controlled(&config, stopping, Some(&container)) {
-        Err(nel3ab_emulator::EmulatorError::Cancelled) => return Ok(()),
+        // Annulé pendant le démarrage: aucune salle n'a été ouverte,
+        // donc aucune salle à fermer.
+        Err(nel3ab_emulator::EmulatorError::Cancelled) => return Ok(false),
         result => result?,
     };
     let mut workers = nel3ab_emulator::lifecycle::Workers::new(Arc::clone(stopping));
     let mut frames = match listener.accept_while(Duration::from_mins(2), || {
         !stopping.load(std::sync::atomic::Ordering::Relaxed)
     }) {
-        Err(nel3ab_encoder::EncoderError::Cancelled) => return Ok(()),
+        Err(nel3ab_encoder::EncoderError::Cancelled) => return Ok(false),
         result => result?,
     };
     // Ready data returns immediately; only silence waits up to one second.
@@ -1624,6 +1690,10 @@ fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Re
     // Said once, to everybody. Both threads check it within their own wait —
     // 250 ms for the pad, 10 ms for the sound — so this returns promptly.
     drop(workers);
+    // Lu AVANT de rendre le serveur: la fermeture est décidée par le fil
+    // d'inactivité, qui a fini son travail quand on arrive ici, et l'`Arc`
+    // ne survit pas à la ligne suivante.
+    let fermee = server.room_closing();
     drop(server);
     // TOUJOURS réveiller avant d'arrêter, même si on ne pense pas dormir.
     //
@@ -1638,7 +1708,7 @@ fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Re
     // une soirée.
     let status = session.shutdown()?;
     tracing::info!(%status, "emulator stopped; worker exiting");
-    Ok(())
+    Ok(fermee)
 }
 
 /// Writes down which game to boot next. `true` means the worker should stop.

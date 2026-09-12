@@ -402,6 +402,18 @@ fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Re
         std::env::var("NEL3AB_CONTAINER").unwrap_or_else(|_| "nel3ab-dolphin".to_owned());
     std::fs::create_dir_all(&settings.session_dir)
         .with_context(|| format!("creating {}", settings.session_dir.display()))?;
+    // Tenu jusqu'au bout de `run`: deux workers sur le même répertoire posent
+    // chacun leurs liens de sauvegarde, et le second à s'arrêter écrase la
+    // partie du premier sans une erreur nulle part. Le nom compte: un `_` seul
+    // relâcherait le verrou tout de suite.
+    let Some(_room_lock) = nel3ab_emulator::lock::take(&settings.session_dir)
+        .with_context(|| format!("locking {}", settings.session_dir.display()))?
+    else {
+        anyhow::bail!(
+            "un autre worker tient déjà {} ; deux salles sur le même répertoire écraseraient leurs sauvegardes",
+            settings.session_dir.display()
+        );
+    };
     nel3ab_emulator::lifecycle::prepare(&settings.dolphin, &settings.session_dir)?;
     if stopping.load(std::sync::atomic::Ordering::Relaxed) {
         return Ok(());

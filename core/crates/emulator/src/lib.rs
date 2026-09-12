@@ -63,6 +63,7 @@ pub mod config;
 pub mod disc;
 pub mod error;
 pub mod library;
+pub mod lock;
 pub mod lifecycle;
 pub mod nap;
 pub mod pipe;

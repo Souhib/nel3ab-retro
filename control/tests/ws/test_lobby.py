@@ -1085,7 +1085,10 @@ async def test_collective_preparation_reaches_everyone_and_keeps_each_choice(
                     assert launches == []
                     assert await act(1, action="choose", pad=1, ready=True) == {"ok": True}
                     assert await act(0, action="launch") == {"ok": True}
-                    assert launches == [f"launch 1 {claims[0]} 0 1 0 1 1 1 {' '.join(claims)}"]
+                    # Le tiret final est l'identité de qui lance: vide ici, faute
+                    # de proxy devant le salon, et le worker retombera donc sur
+                    # la partie neuve.
+                    assert launches == [f"launch 1 {claims[0]} 0 1 0 1 1 1 {' '.join(claims)} -"]
                     async with asyncio.timeout(3):
                         announcement = await booting.get()
                     assert announcement["pads"] == {claims[0]: 0, claims[1]: 1}

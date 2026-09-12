@@ -12,12 +12,21 @@
  */
 
 /** Ce qu'un emplacement est, tel qu'il voyage sur le fil. */
-export type Slot = 0 | 1;
+export type Slot = 0 | 1 | 2;
 
 export const SLOTS: readonly { id: Slot; label: string; note: string }[] = [
   { id: 0, label: "partie neuve", note: "rien de débloqué, comme à la sortie du jeu" },
   { id: 1, label: "tout débloqué", note: "personnages, circuits, coupes, modes" },
+  { id: 2, label: "ta sauvegarde", note: "la tienne, dans cette salle comme dans une autre" },
 ] as const;
+
+/** L'emplacement personnel, qui n'existe que si le salon sait qui tu es.
+ *
+ * Le worker ne peut pas nommer un dossier d'après quelqu'un qu'il ne connaît
+ * pas: l'identité vient du salon, qui la tient du proxy. Proposer cette ligne
+ * sans lui ferait cliquer sur un choix qui retombe en silence sur la partie
+ * neuve, ce qui est exactement le repli muet que ce projet corrige partout. */
+export const PERSONAL: Slot = 2;
 
 /** Les appareils qu'un jeu Wii peut présenter, un choix par place.
  *
@@ -93,8 +102,8 @@ export function padLabel(pad: Pad): string {
  * et un essai les compare l'une à l'autre plutôt qu'à une liste écrite à la
  * main, qui serait la même erreur recopiée.
  */
-export function launchPicks(): { id: string; label: string; hint: string }[] {
-  return SLOTS.map((choice) => ({
+export function launchPicks(personal = false): { id: string; label: string; hint: string }[] {
+  return SLOTS.filter((choice) => personal || choice.id !== PERSONAL).map((choice) => ({
     id: String(choice.id),
     label: choice.label,
     hint: choice.note,

@@ -10,6 +10,7 @@ from __future__ import annotations
 import fcntl
 import json
 import os
+import re
 import selectors
 import shutil
 import subprocess
@@ -59,12 +60,20 @@ def backup(slot: Path) -> Path | None:
     return target
 
 
+#: Les emplacements de sauvegarde qu'une salle peut demander.
+#:
+#: Les deux de la salle, ou celui d'une personne. Un SEUL segment, sans barre ni
+#: point: ce texte vient du worker et sert à construire un chemin sous l'état
+#: des jeux, donc un `..` ou une barre y ouvrirait n'importe quel dossier.
+SLOT = r"^(neuve|debloquee|joueur-[a-z0-9][a-z0-9-]*)$"
+
+
 def main() -> None:
     rom, title, choice, pads = sys.argv[1:]
     if (
         len(title) != 16
         or any(c not in "0123456789abcdef" for c in title)
-        or choice not in ("neuve", "debloquee")
+        or not re.fullmatch(SLOT, choice)
     ):
         raise ValueError("Invalid Switch title or save slot")
     config = json.loads(Path(os.environ["NEL3AB_SWITCH_CONFIG"]).read_text())

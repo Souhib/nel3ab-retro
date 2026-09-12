@@ -669,7 +669,9 @@ async def preparation(sid: str, data: object = None) -> dict[str, str | bool]:
                     raise ValueError("Cette manette ne peut pas changer le jeu maintenant.")
                 index = data.get("game")
                 save = data.get("save", 0)
-                if type(index) is not int or type(save) is not int or save not in (0, 1):
+                # Trois emplacements depuis le 12 septembre 2026: la partie neuve,
+                # celle où tout est débloqué, et celle de la personne qui lance.
+                if type(index) is not int or type(save) is not int or save not in (0, 1, 2):
                     raise ValueError("Le jeu ou la sauvegarde est invalide.")
                 game = next((g for g in room.library if g.index == index), None)
                 if game is None or game.console not in ("wii", "switch"):
@@ -709,6 +711,10 @@ async def preparation(sid: str, data: object = None) -> dict[str, str | bool]:
                     rooms.preparation = None
                 elif action == "launch":
                     pads = pending.launch(seat.claim)
+                    # L'identité vient de la SESSION, que le proxy a établie, et
+                    # pas de ce que la page raconte: c'est elle qui décide dans
+                    # quel dossier la partie sera écrite. Vide quand aucun proxy
+                    # n'est devant, et le worker retombe alors sur la partie neuve.
                     if not await launch_prepared(
                         rooms.settings.worker_control,
                         seat.port,
@@ -717,6 +723,7 @@ async def preparation(sid: str, data: object = None) -> dict[str, str | bool]:
                         pending.save,
                         pads,
                         [s.claim or "-" for s in room.seats],
+                        session["login"] or "",
                     ):
                         raise ValueError(
                             "Le worker n'a pas accepté le lancement. La préparation reste ouverte."

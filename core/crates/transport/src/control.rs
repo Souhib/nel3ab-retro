@@ -77,6 +77,13 @@ pub struct PreparedLaunch {
     pub game: u8,
     /// Emplacement de sauvegarde.
     pub save: u8,
+    /// Qui lance, pour l'emplacement personnel. Vide quand personne n'est nommé.
+    ///
+    /// Vient du SALON et de lui seul, parce qu'il est le seul à certifier une
+    /// identité: la socket de manette, elle, accepte ce qu'une page raconte.
+    /// Une salle sans salon n'a donc pas d'emplacement personnel, et retombe
+    /// sur la partie neuve, ce qui n'efface rien.
+    pub person: String,
     /// Appareil par port, codes 0 à 3.
     pub pads: [u8; 4],
     /// Les attributions que les joueurs ont confirmées, un tiret pour une place libre.
@@ -130,6 +137,7 @@ pub fn parse(line: &str) -> Option<Order> {
             two,
             three,
             four,
+            person,
         ] = parts.as_slice()
         else {
             return None;
@@ -145,7 +153,13 @@ pub fn parse(line: &str) -> Option<Order> {
         if [one, two, three, four].iter().any(|value| value.len() > 53) {
             return None;
         }
-        if save > 1 || pads.iter().any(|code| *code > 4) || claim.len() > 53 {
+        // Trois emplacements depuis le 12 septembre 2026, dont le personnel.
+        if save > 2 || pads.iter().any(|code| *code > 4) || claim.len() > 53 {
+            return None;
+        }
+        // Un tiret veut dire « personne », comme pour une place libre: un champ
+        // vide disparaîtrait au découpage et décalerait tout le reste.
+        if person.len() > 64 {
             return None;
         }
         return Some(Order::Launch {
@@ -156,6 +170,11 @@ pub fn parse(line: &str) -> Option<Order> {
                 save,
                 pads,
                 expected: [one, two, three, four].map(|value| (*value).to_owned()),
+                person: if *person == "-" {
+                    String::new()
+                } else {
+                    (*person).to_owned()
+                },
             },
         });
     }
@@ -376,14 +395,17 @@ mod tests {
         assert_eq!(ask(address, "stop - - - -\n"), Some("no".into()));
         assert!(!server.stop_requested());
         assert_eq!(
-            ask(address, &format!("launch 1 {claim} 2 1 0 1 2 3 - - - -\n")),
+            ask(
+                address,
+                &format!("launch 1 {claim} 2 1 0 1 2 3 - - - - -\n")
+            ),
             Some("no".into())
         );
         assert!(server.take_prepared_launch().is_none());
         assert_eq!(
             ask(
                 address,
-                &format!("launch 1 {claim} 2 1 0 1 2 3 {}\n", receipts.join(" "))
+                &format!("launch 1 {claim} 2 1 0 1 2 3 {} -\n", receipts.join(" "))
             ),
             Some("ok".into())
         );
@@ -393,7 +415,8 @@ mod tests {
                 game: 2,
                 save: 1,
                 pads: [0, 1, 2, 3],
-                expected: receipts.clone()
+                expected: receipts.clone(),
+                person: String::new()
             })
         );
         assert_eq!(
@@ -408,7 +431,7 @@ mod tests {
     #[test]
     fn a_launch_carries_every_choice_and_every_confirmed_assignment() {
         let claim = receipt(1);
-        let line = format!("launch 1 {claim} 255 1 0 1 2 3 {claim} - - -\n");
+        let line = format!("launch 1 {claim} 255 1 0 1 2 3 {claim} - - - -\n");
         assert_eq!(
             parse(&line),
             Some(Order::Launch {
@@ -418,14 +441,18 @@ mod tests {
                     game: 255,
                     save: 1,
                     pads: [0, 1, 2, 3],
-                    expected: [claim, "-".into(), "-".into(), "-".into()]
+                    expected: [claim, "-".into(), "-".into(), "-".into()],
+                    person: String::new()
                 }
             })
         );
         for bad in [
             line.replace("0 1 2 3", "0 1 2 5"),
             line.replace("255 1", "256 1"),
-            line.replace("255 1", "255 2"),
+            // Trois, et plus deux: l'emplacement personnel a pris le code 2 le
+            // 12 septembre 2026, et ce jumeau l'a signalé plutôt que de laisser
+            // passer un emplacement inconnu.
+            line.replace("255 1", "255 3"),
             line.replace("launch 1", "launch 0"),
             line.replace(" - - -", " - -"),
             format!("{line}extra"),

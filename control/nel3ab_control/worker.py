@@ -121,13 +121,29 @@ async def may_decide(address: str, seat: int) -> bool | None:
 
 
 async def launch_prepared(
-    address: str, seat: int, claim: str, game: int, save: int, pads: list[int], expected: list[str]
+    address: str,
+    seat: int,
+    claim: str,
+    game: int,
+    save: int,
+    pads: list[int],
+    expected: list[str],
+    person: str = "",
 ) -> bool:
-    """Un ordre complet, avec un accusé de réception du worker."""
+    """Un ordre complet, avec un accusé de réception du worker.
+
+    `person` est l'identité de qui lance, pour l'emplacement de sauvegarde
+    personnel. Vide veut dire personne, et le worker retombe alors sur la partie
+    neuve. Elle part d'ICI et de nulle part ailleurs: le salon est le seul à la
+    tenir du proxy, donc le seul à pouvoir la certifier.
+    """
     if (
         seat not in range(1, 5)
         or not 0 <= game <= 255
-        or save not in (0, 1)
+        or save not in (0, 1, 2)
+        # Un espace couperait la ligne en deux et décalerait tout ce qui suit.
+        or len(person) > 64
+        or any(blanc in person for blanc in " \t\n\r")
         or len(expected) != 4
         or seat_receipts((" ".join(expected)).encode()) is None
         or len(pads) != 4
@@ -146,6 +162,9 @@ async def launch_prepared(
                         + " ".join(map(str, pads))
                         + " "
                         + " ".join(expected)
+                        # Un tiret pour « personne », comme une place libre.
+                        + " "
+                        + (person or "-")
                         + "\n"
                     ).encode()
                 )

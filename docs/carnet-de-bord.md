@@ -13540,6 +13540,49 @@ elle attendait sept, au lieu de laisser passer un décalage silencieux. Et
 dans un essai de mesures que `tsc --noEmit` laissait passer: les deux ne
 vérifient pas le même périmètre, et c'est la construction qui a raison.
 
+### Chacun sa sauvegarde, et personne ne joue sur celle d'un autre
+
+*12 septembre 2026.*
+
+**Une troisième ligne au lancement.** À côté de « partie neuve » et « tout
+débloqué », qui appartiennent à la salle, il y a maintenant « ta sauvegarde »,
+qui appartient à une personne. Le dossier porte son nom: `joueur-<identité
+nettoyée>`, un seul segment, sous le jeu concerné.
+
+**Un seul segment, et c'est une contrainte, pas un goût.** L'adaptateur Switch
+reçoit ce nom en argument et le colle à la racine de son état. Un nom en deux
+morceaux y deviendrait deux dossiers, et le validateur qui protège ce chemin ne
+pourrait plus le vérifier d'un coup d'œil. Les deux outils Switch acceptent donc
+un motif plutôt qu'une liste: les deux emplacements de la salle, ou un
+emplacement personnel, sans barre ni point, donc impossible à faire sortir de
+son dossier.
+
+**L'identité ne voyage pas par où on croit.** Une page demande son jeu AU
+WORKER, directement, et ce qu'elle raconte n'est pas vérifiable. Le salon, lui,
+tient l'identité du proxy. La variante `Person` ne porte donc PAS de nom: elle
+est un code comme les autres, et le nom arrive à côté, dans l'ordre de lancement
+que seul le salon peut envoyer. Une salle sans salon, ou un lancement fait
+depuis la page sans passer par la préparation collective, retombe sur la partie
+neuve, ce qui n'efface rien.
+
+La page suit la même règle: la troisième ligne n'est proposée que si le salon
+sait qui tu es. Proposer un choix qui retomberait en silence sur autre chose est
+exactement le repli muet que ce projet corrige partout.
+
+**Un défaut attrapé par son propre essai.** La clé d'une personne est nettoyée
+comme un nom de fichier, et ce nettoyage retombe sur `sans-nom` quand il ne
+reste rien de lisible. Sans garde, deux identités illisibles auraient partagé le
+dossier `joueur-sans-nom`, c'est-à-dire la même sauvegarde. L'essai qui exigeait
+un repli sur la partie neuve l'a signalé avant qu'il n'existe ailleurs que dans
+ma tête.
+
+**Ce que le code 2 a réveillé.** Trois essais affirmaient qu'il était inconnu:
+le lecteur de code côté worker, le parseur de l'ordre de lancement, et le
+panneau de la page. Tous les trois sont devenus rouges le jour où ce code a pris
+un sens, et c'est exactement leur travail: ils ont signalé le changement au lieu
+de le laisser passer. Un quatrième, côté salon, vérifiait la ligne envoyée au
+worker et a vu le champ de plus.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une

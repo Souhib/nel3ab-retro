@@ -12,6 +12,7 @@ import fcntl
 import hashlib
 import importlib.util
 import json
+import re
 import shutil
 import sys
 import time
@@ -183,11 +184,19 @@ def restore(slot: Path, name: str) -> None:
         raise
 
 
+#: Les emplacements de sauvegarde qu'une salle peut demander.
+#:
+#: Les deux de la salle, ou celui d'une personne. Un SEUL segment, sans barre ni
+#: point: ce texte vient du worker et sert à construire un chemin sous l'état
+#: des jeux, donc un `..` ou une barre y ouvrirait n'importe quel dossier.
+SLOT = r"^(neuve|debloquee|joueur-[a-z0-9][a-z0-9-]*)$"
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("config", type=Path)
     parser.add_argument("title")
-    parser.add_argument("slot", choices=["neuve", "debloquee"])
+    parser.add_argument("slot")
     parser.add_argument("action", choices=["list", "prepare", "backup", "restore", "import"])
     parser.add_argument("value", nargs="?")
     parser.add_argument("--source", default="", help="where the imported archive came from")
@@ -195,6 +204,11 @@ def main():
     args = parser.parse_args()
     if len(args.title) != 16 or any(c not in "0123456789abcdefABCDEF" for c in args.title):
         parser.error("Invalid title identifier")
+    # Vérifié ici plutôt que par `choices`: la liste ne peut pas énumérer les
+    # emplacements personnels, dont le nom porte une identité. Le motif, lui,
+    # refuse toujours une barre ou un point, donc un chemin qui sortirait.
+    if not re.fullmatch(SLOT, args.slot):
+        parser.error("Invalid save slot")
     config = json.loads(args.config.read_text())
     slot = Path(config["state"]) / args.title.lower() / args.slot
     if args.action == "list":

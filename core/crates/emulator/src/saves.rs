@@ -33,11 +33,10 @@ use crate::error::EmulatorError;
 /// seule partie tourne à la fois, donc une seule de ces trois sert.
 const REGIONS: [&str; 3] = ["USA", "EUR", "JAP"];
 
-/// Laquelle des deux sauvegardes d'un jeu.
+/// Laquelle des sauvegardes d'un jeu.
 ///
 /// Un type et pas une chaîne: une salle ne peut pas se retrouver à lancer un
-/// jeu sur un emplacement mal orthographié, et il n'y a pas de troisième cas à
-/// traiter nulle part.
+/// jeu sur un emplacement mal orthographié.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Slot {
     /// Rien de débloqué: on commence le jeu comme à sa sortie.
@@ -45,6 +44,14 @@ pub enum Slot {
     Fresh,
     /// Tout débloqué: personnages, circuits, coupes, modes.
     Unlocked,
+    /// Celle de la personne qui lance, et d'elle seule.
+    ///
+    /// La variante ne porte PAS l'identité: un `Slot` voyage sur le fil sous
+    /// forme de code, et une identité ne peut pas voyager par là sans être
+    /// forgeable. Elle vient du salon, qui est le seul à la certifier, et se
+    /// joint à l'emplacement au moment de composer le dossier. Sans elle, on
+    /// retombe sur la partie neuve, ce qui n'efface rien.
+    Person,
 }
 
 impl Slot {
@@ -54,6 +61,9 @@ impl Slot {
         match self {
             Self::Fresh => "neuve",
             Self::Unlocked => "debloquee",
+            // Sans la personne, qui s'ajoute dans `folder_for`: ce nom-ci est
+            // celui de la FAMILLE d'emplacements, pas d'un dossier réel.
+            Self::Person => "joueur",
         }
     }
 
@@ -63,6 +73,7 @@ impl Slot {
         match self {
             Self::Fresh => "partie neuve",
             Self::Unlocked => "tout débloqué",
+            Self::Person => "ta sauvegarde",
         }
     }
 
@@ -72,6 +83,7 @@ impl Slot {
         match self {
             Self::Fresh => 0,
             Self::Unlocked => 1,
+            Self::Person => 2,
         }
     }
 
@@ -84,11 +96,19 @@ impl Slot {
     pub const fn from_code(code: u8) -> Self {
         if code == Self::Unlocked.code() {
             Self::Unlocked
+        } else if code == Self::Person.code() {
+            Self::Person
         } else {
             Self::Fresh
         }
     }
 }
+
+/// Ce que rend `key` quand il ne reste rien de lisible.
+///
+/// Nommé plutôt qu'écrit deux fois: c'est aussi ce que `folder_for` doit
+/// REFUSER, sans quoi deux identités illisibles partageraient un dossier.
+const NO_NAME: &str = "sans-nom";
 
 /// La clé sous laquelle les sauvegardes d'un jeu sont rangées.
 ///
@@ -114,15 +134,48 @@ pub fn key(rom_file: &str) -> String {
     if trimmed.is_empty() {
         // Un nom qui ne contient aucune lettre ni chiffre. Il en faut un quand
         // même, sinon on écrirait à la racine du dossier des sauvegardes.
-        return "sans-nom".to_owned();
+        return NO_NAME.to_owned();
     }
     trimmed.to_owned()
 }
 
+/// La clé sous laquelle les sauvegardes d'une PERSONNE sont rangées.
+///
+/// Même nettoyage que pour un nom de ROM, et pour les mêmes raisons: ce texte
+/// vient d'une adresse de connexion et sert à construire un CHEMIN. Une adresse
+/// contenant `..` ou une barre oblique donnerait un dossier ailleurs.
+#[must_use]
+pub fn person_key(login: &str) -> String {
+    key(login)
+}
+
+/// Le nom du dossier d'un emplacement, la personne comprise.
+///
+/// Un SEUL segment, jamais deux: l'adaptateur Switch reçoit ce nom en argument
+/// et le colle à la racine de son état. Un nom en deux morceaux y deviendrait
+/// deux dossiers, et le validateur qui le protège ne pourrait plus le vérifier
+/// d'un coup d'œil.
+///
+/// Sans personne, l'emplacement personnel retombe sur la partie neuve. C'est le
+/// même repli que partout ailleurs ici: il n'efface rien et se corrige d'un clic.
+#[must_use]
+pub fn folder_for(slot: Slot, person: Option<&str>) -> String {
+    match (slot, person) {
+        // `person_key` ne rend jamais rien de vide: il retombe sur `NO_NAME`,
+        // qui n'appartient à personne. Deux identités illisibles y auraient
+        // partagé un dossier, donc elles retombent sur la partie neuve.
+        (Slot::Person, Some(login)) if person_key(login) != NO_NAME => {
+            format!("{}-{}", Slot::Person.folder(), person_key(login))
+        }
+        (Slot::Person, _) => Slot::Fresh.folder().to_owned(),
+        (other, _) => other.folder().to_owned(),
+    }
+}
+
 /// Où vivent les sauvegardes d'un jeu, pour un emplacement donné.
 #[must_use]
-pub fn slot_dir(root: &Path, rom_file: &str, slot: Slot) -> PathBuf {
-    root.join(key(rom_file)).join(slot.folder())
+pub fn slot_dir(root: &Path, rom_file: &str, slot: Slot, person: Option<&str>) -> PathBuf {
+    root.join(key(rom_file)).join(folder_for(slot, person))
 }
 
 /// Fait pointer la sauvegarde d'un jeu WII vers cet emplacement.
@@ -518,14 +571,19 @@ mod tests {
     fn the_two_slots_never_share_a_folder_or_a_code() {
         // Le jumeau de tout ce module: deux emplacements qui se confondraient
         // feraient jouer sur la sauvegarde de l'autre sans rien signaler.
-        assert_ne!(Slot::Fresh.folder(), Slot::Unlocked.folder());
-        assert_ne!(Slot::Fresh.code(), Slot::Unlocked.code());
-        assert_ne!(Slot::Fresh.label(), Slot::Unlocked.label());
+        let tous = [Slot::Fresh, Slot::Unlocked, Slot::Person];
+        for (rang, un) in tous.iter().enumerate() {
+            for autre in &tous[rang + 1..] {
+                assert_ne!(un.folder(), autre.folder());
+                assert_ne!(un.code(), autre.code());
+                assert_ne!(un.label(), autre.label());
+            }
+        }
     }
 
     #[test]
     fn a_slot_survives_the_trip_to_a_page_and_back() {
-        for slot in [Slot::Fresh, Slot::Unlocked] {
+        for slot in [Slot::Fresh, Slot::Unlocked, Slot::Person] {
             assert_eq!(Slot::from_code(slot.code()), slot);
         }
     }
@@ -535,7 +593,9 @@ mod tests {
         // Le pire cas doit être « on démarre sur une partie neuve », qui
         // n'efface rien et se corrige d'un clic. Refuser laisserait la salle
         // sans jeu du tout.
-        for wrong in [2, 7, 255] {
+        // Deux est désormais l'emplacement personnel: le code inconnu commence
+        // après lui, et cet essai a signalé le changement au lieu de le subir.
+        for wrong in [3, 7, 255] {
             assert_eq!(Slot::from_code(wrong), Slot::Fresh);
         }
     }
@@ -679,7 +739,12 @@ mod tests {
     fn un_jeu_wii_range_sa_partie_sous_son_titre() {
         let home = tempfile::tempdir().unwrap();
         let session = home.path().join("session");
-        let dedans = slot_dir(&session.join("saves"), "mario-kart.rvz", Slot::Unlocked);
+        let dedans = slot_dir(
+            &session.join("saves"),
+            "mario-kart.rvz",
+            Slot::Unlocked,
+            None,
+        );
 
         point_nand_at(&session, "00010004524d4350", &dedans).unwrap();
 
@@ -699,7 +764,7 @@ mod tests {
     fn un_identifiant_de_titre_qui_n_en_est_pas_un_est_refuse() {
         let home = tempfile::tempdir().unwrap();
         let session = home.path().join("session");
-        let dedans = slot_dir(&session.join("saves"), "jeu.rvz", Slot::Fresh);
+        let dedans = slot_dir(&session.join("saves"), "jeu.rvz", Slot::Fresh, None);
 
         for faux in ["", "00010004", "../../../../etc/passwd", "00010004524d435z"] {
             assert!(
@@ -737,7 +802,7 @@ mod tests {
         // carte mémoire, ce qui est exactement le défaut qu'on corrige.
         let home = tempfile::tempdir().unwrap();
         let session = home.path().join("session");
-        let dedans = slot_dir(&session.join("saves"), "un-jeu.iso", Slot::Fresh);
+        let dedans = slot_dir(&session.join("saves"), "un-jeu.iso", Slot::Fresh, None);
 
         point_card_at(&session, &dedans).unwrap();
 
@@ -747,5 +812,49 @@ mod tests {
             dedans,
             "la carte doit pointer vers l'emplacement demandé"
         );
+    }
+
+    /// La sauvegarde d'une personne est à elle, et son dossier le dit.
+    #[test]
+    fn la_sauvegarde_d_une_personne_porte_son_nom() {
+        assert_eq!(
+            folder_for(Slot::Person, Some("souhib@example.com")),
+            "joueur-souhib-example-com"
+        );
+        assert_ne!(
+            folder_for(Slot::Person, Some("souhib@example.com")),
+            folder_for(Slot::Person, Some("vincent@example.com")),
+            "deux personnes joueraient sur la même sauvegarde"
+        );
+    }
+
+    /// Le jumeau: sans personne, on retombe sur la partie neuve plutôt que
+    /// d'écrire dans un dossier à moitié nommé.
+    #[test]
+    fn une_sauvegarde_personnelle_sans_personne_retombe_sur_la_neuve() {
+        assert_eq!(folder_for(Slot::Person, None), Slot::Fresh.folder());
+        assert_eq!(folder_for(Slot::Person, Some("...")), Slot::Fresh.folder());
+    }
+
+    /// Le second jumeau: une identité ne peut pas sortir de son dossier.
+    #[test]
+    fn une_identite_ne_peut_pas_remonter_dans_les_dossiers() {
+        let dedans = folder_for(Slot::Person, Some("../../etc/passwd"));
+
+        assert!(!dedans.contains('/'), "un chemin s'est glissé dans le nom");
+        assert!(
+            !dedans.contains(".."),
+            "un remontage s'est glissé dans le nom"
+        );
+    }
+
+    /// Les deux autres emplacements ignorent la personne: ils sont à la salle.
+    #[test]
+    fn les_emplacements_de_la_salle_ne_dependent_de_personne() {
+        assert_eq!(
+            folder_for(Slot::Unlocked, Some("souhib@example.com")),
+            Slot::Unlocked.folder()
+        );
+        assert_eq!(folder_for(Slot::Fresh, Some("qui-que-ce-soit")), "neuve");
     }
 }

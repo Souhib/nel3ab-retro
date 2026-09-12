@@ -1040,7 +1040,11 @@ function Room({
                 // consoles. La manette se choisit sous « manettes »: voir
                 // `launchPicks`, qui dit pourquoi les deux moitiés du choix vivent
                 // ensemble plutôt qu'ici.
-                picks: saves ? launchPicks() : undefined,
+                // La sauvegarde personnelle n'est proposée QUE si le salon sait qui
+                // tu es: le worker ne peut pas nommer un dossier d'après quelqu'un
+                // qu'il ne connaît pas, et la proposer sans identité ferait cliquer
+                // sur un choix qui retombe en silence sur la partie neuve.
+                picks: saves ? launchPicks(login !== null) : undefined,
                 // Sans emplacements il n'y a pas de panneau, donc plus rien ne
                 // confirme. On remet l'armement à deux pressions, qui est ce que cette
                 // entrée faisait avant que le choix de sauvegarde existe: ce qu'on

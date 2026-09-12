@@ -262,6 +262,13 @@ const CHOICE: &str = "chosen-rom";
 
 /// Et l'emplacement de sauvegarde choisi, à côté, pour la même raison.
 const SAVE_CHOICE: &str = "chosen-save";
+
+/// Qui a lancé, pour l'emplacement de sauvegarde personnel.
+///
+/// À côté du code d'emplacement plutôt que dedans: le code voyage sur le fil,
+/// une identité non. Celle-ci vient du salon, qui est le seul à la certifier, et
+/// ne sert qu'à composer un nom de dossier.
+const SAVE_PERSON: &str = "chosen-person";
 /// La manette retenue, écrite à côté du jeu et de la sauvegarde.
 const PAD_CHOICE: &str = "chosen-pad";
 
@@ -328,6 +335,18 @@ fn chosen_pad(session_dir: &Path, disc: &nel3ab_emulator::Disc) -> nel3ab_emulat
     nel3ab_emulator::PadKind::from_code(code)
 }
 
+/// Qui a lancé la partie en cours, si quelqu'un est nommé.
+///
+/// Rien plutôt qu'une chaîne vide: « personne ne l'a lancée » et « elle a été
+/// lancée par quelqu'un sans nom » ne sont pas la même chose, et le second
+/// n'existe pas. Sans personne, l'emplacement personnel retombe sur la partie
+/// neuve, ce qui n'efface rien.
+fn chosen_person(session_dir: &Path) -> Option<String> {
+    let kept = std::fs::read_to_string(session_dir.join(SAVE_PERSON)).ok()?;
+    let trimmed = kept.trim();
+    (!trimmed.is_empty()).then(|| trimmed.to_owned())
+}
+
 fn chosen_slot(session_dir: &Path) -> saves::Slot {
     std::fs::read_to_string(session_dir.join(SAVE_CHOICE))
         .ok()
@@ -343,7 +362,13 @@ fn chosen_slot(session_dir: &Path) -> saves::Slot {
 ///
 /// Un échec est tracé et n'arrête pas la salle: on jouera alors sur ce que
 /// Dolphin trouve, ce qui est moins bien mais reste une salle qui marche.
-fn prepare_saves(session_dir: &Path, rom: &Path, disc: &nel3ab_emulator::Disc, slot: saves::Slot) {
+fn prepare_saves(
+    session_dir: &Path,
+    rom: &Path,
+    disc: &nel3ab_emulator::Disc,
+    slot: saves::Slot,
+    person: Option<&str>,
+) {
     let file = rom
         .file_name()
         .map_or_else(String::new, |name| name.to_string_lossy().into_owned());
@@ -354,7 +379,7 @@ fn prepare_saves(session_dir: &Path, rom: &Path, disc: &nel3ab_emulator::Disc, s
     // repart sur « Data has been created » à chaque démarrage. Trouvé le 30
     // août 2026, après avoir soupçonné le nom du fichier puis le code
     // d'éditeur. Ici, le lien ne PEUT plus sortir du montage.
-    let dir = saves::slot_dir(&session_dir.join(SAVES), &file, slot);
+    let dir = saves::slot_dir(&session_dir.join(SAVES), &file, slot, person);
     // Deux consoles, deux endroits. Une GameCube écrit dans une carte mémoire,
     // une Wii dans sa propre mémoire, sous l'identifiant du titre. Le disque dit
     // lequel, et un disque muet retombe sur la carte: c'est ce qu'on faisait
@@ -368,7 +393,7 @@ fn prepare_saves(session_dir: &Path, rom: &Path, disc: &nel3ab_emulator::Disc, s
     };
     match posed {
         Ok(()) => tracing::info!(
-            slot = slot.folder(),
+            slot = saves::folder_for(slot, person),
             path = %dir.display(),
             "les sauvegardes de ce jeu sont en place"
         ),
@@ -592,6 +617,8 @@ fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Re
     // Les sauvegardes AVANT que Dolphin ne démarre: il ouvre son dossier de
     // carte au lancement, et le déplacer après coup ne serait plus vu.
     let slot = chosen_slot(&settings.session_dir);
+    // Qui a lancé, pour l'emplacement personnel. Voir `chosen_person`.
+    let person = chosen_person(&settings.session_dir);
     let current = (!idle)
         .then(|| library.iter().position(|game| game.path == rom))
         .flatten();
@@ -615,7 +642,7 @@ fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Re
     tracing::info!(
         games = library.len(),
         booting = %rom.display(),
-        save = slot.folder(),
+        save = saves::folder_for(slot, person.as_deref()),
         "the room's library"
     );
     // Qui décide du jeu. Vide au démarrage, donc la salle applique sa règle
@@ -755,7 +782,7 @@ fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Re
             disc.title
                 .as_deref()
                 .context("registered Switch title missing")?,
-            slot.folder(),
+            &saves::folder_for(slot, person.as_deref()),
             runtime.path(),
         )?;
         // The same field names as the Dolphin report, at the same ten seconds,
@@ -794,7 +821,7 @@ fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Re
         tracing::info!(%status, "Switch adapter stopped");
         return Ok(server.room_closing());
     }
-    prepare_saves(&settings.session_dir, &rom, &disc, slot);
+    prepare_saves(&settings.session_dir, &rom, &disc, slot, person.as_deref());
 
     // La NAND est balayée AVANT de démarrer l'émulateur.
     //
@@ -1730,6 +1757,7 @@ fn remember_choice(
     library: &[Rom],
     index: u8,
     slot: saves::Slot,
+    person: &str,
     pads: nel3ab_emulator::PadSetup,
     session_dir: &std::path::Path,
 ) -> bool {
@@ -1756,6 +1784,11 @@ fn remember_choice(
     if let Err(error) = std::fs::write(session_dir.join(SAVE_CHOICE), slot.code().to_string()) {
         tracing::warn!(%error, "l'emplacement de sauvegarde n'a pas pu être retenu");
     }
+    // Écrit MÊME vide, pour effacer celle d'avant: sans ça, le lancement
+    // suivant jouerait sur la sauvegarde de la personne précédente.
+    if let Err(error) = std::fs::write(session_dir.join(SAVE_PERSON), person) {
+        tracing::warn!(%error, "qui lance n'a pas pu être retenu");
+    }
     if let Err(error) = nel3ab_emulator::playback::Playback::Playing.store(session_dir) {
         tracing::error!(%error, "lancement annulé : la salle ne peut pas quitter le repos");
         return false;
@@ -1771,6 +1804,7 @@ fn remember_request(server: &BrowserServer, library: &[Rom], session_dir: &Path)
             library,
             choice.game,
             saves::Slot::from_code(choice.save),
+            &choice.person,
             nel3ab_emulator::PadSetup::new(choice.pads.map(nel3ab_emulator::PadKind::from_code)),
             session_dir,
         )
@@ -1782,6 +1816,9 @@ fn remember_request(server: &BrowserServer, library: &[Rom], session_dir: &Path)
             library,
             index,
             saves::Slot::from_code(server.save_wanted()),
+            // Ce chemin-là ne passe pas par le salon, donc personne n'est
+            // certifié: l'emplacement personnel y retombe sur la partie neuve.
+            "",
             nel3ab_emulator::PadKind::from_code(server.pad_wanted()).into(),
             session_dir,
         )

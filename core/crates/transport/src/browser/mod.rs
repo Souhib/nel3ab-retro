@@ -1643,6 +1643,7 @@ mod tests {
             save: 1,
             pads: [0, 1, 3, 2],
             expected: server.seat_receipts(),
+            person: String::new(),
         });
         assert!(!server.close_idle());
         assert!(!server.stop_requested());
@@ -1669,6 +1670,7 @@ mod tests {
             save: 1,
             pads: [0, 1, 3, 2],
             expected: server.seat_receipts(),
+            person: String::new(),
         };
         assert!(!server.prepare_launch(
             PlayerSlot::new(2).unwrap(),

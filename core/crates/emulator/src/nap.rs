@@ -55,6 +55,28 @@ pub const CLOSE_AFTER: Duration = Duration::from_mins(30);
 /// laisser tourner une salle qu'on a quittée. Un seul geste annule tout.
 pub const WARN_BEFORE: Duration = Duration::from_mins(5);
 
+/// Les deux délais de la règle, ensemble.
+///
+/// Ensemble parce qu'ils n'ont de sens que l'un par rapport à l'autre: prévenir
+/// après avoir fermé ne veut rien dire. Les passer séparément donnait une
+/// signature que personne ne relit, et deux occasions de les inverser.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Limits {
+    /// Après combien de temps sans geste la salle se ferme.
+    pub after: Duration,
+    /// Combien de temps avant la fermeture on prévient.
+    pub warn: Duration,
+}
+
+impl Default for Limits {
+    fn default() -> Self {
+        Self {
+            after: CLOSE_AFTER,
+            warn: WARN_BEFORE,
+        }
+    }
+}
+
 /// Ce qu'une salle sans geste mérite, s'il faut faire quelque chose.
 ///
 /// Un type à part de [`Move`], et pas une variante de plus: `Move` se traduit
@@ -106,24 +128,28 @@ impl Idle {
     pub fn saw(
         &mut self,
         busy: Busy,
+        playing: bool,
         alive: Instant,
         now: Instant,
-        after: Duration,
-        warn: Duration,
+        limits: Limits,
     ) -> Option<Step> {
         if self.seen != Some(alive) {
             self.seen = Some(alive);
             self.warned = false;
             self.closed = false;
         }
-        if busy.wanted {
+        // Une salle sans jeu n'a rien à fermer, et le dire ici plutôt que chez
+        // l'appelant garde la règle entière au même endroit. Le worker installé
+        // est relancé par systemd dès qu'il s'arrête: fermer une salle vide ne
+        // libérerait rien et rouvrirait la même salle deux secondes plus tard.
+        if !playing || busy.wanted {
             return None;
         }
         let idle = now.saturating_duration_since(alive);
-        if idle >= after {
+        if idle >= limits.after {
             return (!std::mem::replace(&mut self.closed, true)).then_some(Step::Close);
         }
-        if idle >= after.saturating_sub(warn) {
+        if idle >= limits.after.saturating_sub(limits.warn) {
             return (!std::mem::replace(&mut self.warned, true)).then_some(Step::Warn);
         }
         None
@@ -500,7 +526,7 @@ mod tests {
         let start = Instant::now();
         let mut idle = Idle::new();
         let vu = |idle: &mut Idle, s: u64| {
-            idle.saw(watching(1), start, at(start, s), CLOSE_AFTER, WARN_BEFORE)
+            idle.saw(watching(1), true, start, at(start, s), Limits::default())
         };
 
         assert_eq!(vu(&mut idle, 60), None);
@@ -520,10 +546,10 @@ mod tests {
         assert_eq!(
             idle.saw(
                 watching(1),
+                true,
                 at(start, 60),
                 at(start, 60 + 24 * 60),
-                CLOSE_AFTER,
-                WARN_BEFORE
+                Limits::default(),
             ),
             None
         );
@@ -540,20 +566,20 @@ mod tests {
         assert_eq!(
             idle.saw(
                 watching(1),
+                true,
                 geste,
                 at(start, 60 + 29 * 60),
-                CLOSE_AFTER,
-                WARN_BEFORE
+                Limits::default(),
             ),
             Some(Step::Warn)
         );
         assert_eq!(
             idle.saw(
                 watching(1),
+                true,
                 geste,
                 at(start, 60 + 29 * 60 + 59),
-                CLOSE_AFTER,
-                WARN_BEFORE
+                Limits::default(),
             ),
             None,
             "la salle s'est fermée une seconde avant l'heure"
@@ -569,10 +595,10 @@ mod tests {
         assert_eq!(
             idle.saw(
                 watching(1),
+                true,
                 start,
                 at(start, 25 * 60),
-                CLOSE_AFTER,
-                WARN_BEFORE
+                Limits::default(),
             ),
             Some(Step::Warn)
         );
@@ -580,10 +606,10 @@ mod tests {
         assert_eq!(
             idle.saw(
                 watching(1),
+                true,
                 geste,
                 at(start, 27 * 60),
-                CLOSE_AFTER,
-                WARN_BEFORE
+                Limits::default(),
             ),
             None,
             "un geste n'a pas remis le compte à zéro"
@@ -591,10 +617,10 @@ mod tests {
         assert_eq!(
             idle.saw(
                 watching(1),
+                true,
                 geste,
                 at(start, 31 * 60),
-                CLOSE_AFTER,
-                WARN_BEFORE
+                Limits::default(),
             ),
             None,
             "la salle s'est fermée alors qu'on venait d'y jouer"
@@ -602,10 +628,10 @@ mod tests {
         assert_eq!(
             idle.saw(
                 watching(1),
+                true,
                 geste,
                 at(start, 26 * 60 + 30 * 60),
-                CLOSE_AFTER,
-                WARN_BEFORE
+                Limits::default(),
             ),
             Some(Step::Close)
         );
@@ -623,8 +649,31 @@ mod tests {
         };
 
         assert_eq!(
-            idle.saw(demande, start, at(start, 31 * 60), CLOSE_AFTER, WARN_BEFORE),
+            idle.saw(demande, true, start, at(start, 31 * 60), Limits::default(),),
             None
+        );
+    }
+
+    /// Une salle ouverte SANS jeu n'a rien à fermer.
+    ///
+    /// Le worker installé est relancé par systemd dès qu'il s'arrête. Fermer une
+    /// salle vide ne libérerait donc rien et provoquerait un redémarrage toutes
+    /// les demi-heures, éternellement. Ce qui coûte, c'est l'émulateur.
+    #[test]
+    fn une_salle_sans_jeu_en_cours_ne_se_ferme_jamais() {
+        let start = Instant::now();
+        let mut idle = Idle::new();
+
+        assert_eq!(
+            idle.saw(
+                watching(1),
+                false,
+                start,
+                at(start, 60 * 60),
+                Limits::default(),
+            ),
+            None,
+            "une salle sans jeu s'est fermée pour rien"
         );
     }
 }

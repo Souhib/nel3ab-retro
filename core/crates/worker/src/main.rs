@@ -428,9 +428,12 @@ impl Drop for IdleWatch {
 fn watch_idle(
     server: &Arc<BrowserServer>,
     stopping: &Arc<std::sync::atomic::AtomicBool>,
+    playing: bool,
 ) -> Result<IdleWatch> {
-    let close_after = env_secs("NEL3AB_CLOSE_AFTER_SECS").unwrap_or(nap::CLOSE_AFTER);
-    let warn_before = env_secs("NEL3AB_WARN_BEFORE_SECS").unwrap_or(nap::WARN_BEFORE);
+    let limits = nap::Limits {
+        after: env_secs("NEL3AB_CLOSE_AFTER_SECS").unwrap_or(nap::CLOSE_AFTER),
+        warn: env_secs("NEL3AB_WARN_BEFORE_SECS").unwrap_or(nap::WARN_BEFORE),
+    };
     let over = Arc::new(std::sync::atomic::AtomicBool::new(false));
     let thread = {
         let server = Arc::clone(server);
@@ -455,19 +458,19 @@ fn watch_idle(
                     };
                     match idle.saw(
                         busy,
+                        playing,
                         server.last_action().unwrap_or(opened),
                         Instant::now(),
-                        close_after,
-                        warn_before,
+                        limits,
                     ) {
                         Some(nap::Step::Warn) => tracing::info!(
-                            secondes = close_after.as_secs(),
+                            secondes = limits.after.as_secs(),
                             "personne n'a joué: la salle fermera bientôt"
                         ),
                         Some(nap::Step::Close) => {
                             if server.close_idle() {
                                 tracing::info!(
-                                    secondes = close_after.as_secs(),
+                                    secondes = limits.after.as_secs(),
                                     "personne n'a joué: la salle se ferme"
                                 );
                             } else {
@@ -643,7 +646,8 @@ fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Re
     // Le garde qu'il rend arrête le fil à la sortie de cette fonction, quelle
     // qu'elle soit: une salle qui change de jeu sort par un `return` que le
     // ramasseur de fils du chemin Dolphin ne voit pas.
-    let _idle_watch = watch_idle(&server, stopping)?;
+    // `!idle`: une salle ouverte sans jeu n'a rien à fermer. Voir `nap::Idle`.
+    let _idle_watch = watch_idle(&server, stopping, !idle)?;
 
     if idle {
         server.half_offered(false);

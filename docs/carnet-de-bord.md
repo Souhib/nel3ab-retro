@@ -13209,6 +13209,36 @@ derrière elle un worker bien vivant, qu'il a fallu retrouver par son dossier de
 session. Il ramasse maintenant tout ce qu'il a lancé, quoi qu'il arrive. Un
 essai qui pollue la machine qu'il mesure finit par mesurer sa propre pollution.
 
+### Fermer une salle vide n'aurait rien libéré du tout
+
+*12 septembre 2026.*
+
+**Ce que l'unité systemd a appris à la règle.** Avant de recompiler, une
+relecture de l'unité installée a montré `Restart=always` : quand le worker
+s'arrête, systemd le relance deux secondes plus tard. Une salle **vide** fermée
+pour inactivité serait donc rouverte aussitôt, puis refermée une demi-heure plus
+tard, et ainsi de suite pour toujours. Le gain aurait été nul et le journal
+aurait porté un redémarrage toutes les trente minutes, jour et nuit.
+
+Ce qui coûte cher dans une salle, ce n'est pas la page servie, c'est l'émulateur
+et la carte graphique derrière. La règle ne ferme donc plus que les salles où un
+jeu tourne. Une salle ouverte sur son menu ne coûte presque rien et reste
+disponible : c'est le plan de contrôle, quand il gérera plusieurs salles, qui
+libérera une place réservée pour rien, parce que lui seul compte les salles.
+
+La garde vit dans la règle et pas chez l'appelant, pour que la règle entière
+tienne au même endroit et se vérifie sans processus.
+
+**Le pilote y a gagné.** Il montait une salle sans jeu, c'est-à-dire exactement
+le cas qui ne doit plus rien fermer. Il monte maintenant une vraie salle Switch
+avec un **faux adaptateur** : un script qui ne lance rien et attend simplement
+que le worker lui ferme l'entrée standard, ce qui est tout le contrat entre les
+deux. Aucun conteneur, aucune image, aucune carte graphique, donc aucun risque
+pour une salle vivante qui tourne à côté, et la fermeture se prouve pour de bon.
+La salle sans jeu devient le jumeau négatif : elle doit survivre. Mesuré le jour
+même : fermeture à 6,0 s pour six secondes demandées, avertissement compris, et
+la salle sans jeu toujours debout quinze secondes plus tard.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une

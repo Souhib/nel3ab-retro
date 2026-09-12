@@ -90,6 +90,12 @@ export type InputState = {
    * place n'a rien touché depuis trois minutes: sans ça, quelqu'un qui part
    * manger en gardant son onglet ouvert bloque la soirée entière. */
   deciding: boolean;
+  /** Dans combien de minutes la salle ferme faute d'activité, zéro sinon.
+   *
+   * Dit par le WORKER, qui est le seul à tenir le compte, et porté dans le
+   * message de salle: une page qui arrive en plein compte à rebours doit le
+   * voir comme les autres. */
+  closingIn: number;
   /** La commande qu'on est en train de réassigner, et où on l'attend. */
   capturing: { control: ControlKey; source: "pad" | "key"; sign?: 1 | -1 } | null;
   /** Les jeux de touches de cette personne, dans l'ordre de création.
@@ -142,13 +148,14 @@ export type InputState = {
  * beside these seats and nothing more, which is why it can be down while the
  * game carries on.
  */
-const ROOM_MESSAGE_BYTES = 3 + 4;
+const ROOM_MESSAGE_BYTES = 4 + 4;
 
 export type RoomMessage = {
   players: number;
   port: number | null;
   /** Cette page peut-elle changer le jeu ? Voir `InputState.deciding`. */
   deciding: boolean;
+  closingIn: number;
   busy: boolean[];
 };
 
@@ -236,13 +243,16 @@ export function readRoomMessage(bytes: Uint8Array): RoomMessage | null {
     players,
     port: seat === 0 ? null : seat,
     deciding: (bytes[2] ?? 0) !== 0,
-    busy: [...bytes.slice(3)].map((held) => held !== 0),
+    /** Dans combien de minutes la salle ferme, zéro quand il n'y a rien à dire. */
+    closingIn: bytes[3] ?? 0,
+    busy: [...bytes.slice(4)].map((held) => held !== 0),
   };
 }
 
 export class InputStream {
   private socket: WebSocket | null = null;
   private generation = 0;
+  private closingIn = 0;
   private retry: number | null = null;
   private timers: number[] = [];
   private heardAt: number | null = null;
@@ -481,6 +491,7 @@ export class InputStream {
       players: this.players,
       busy: this.busy,
       deciding: this.deciding,
+      closingIn: this.closingIn,
       pads: this.pads,
       using: (this.source ? this.source.pad : this.current())?.index ?? null,
       displaced: this.displaced,
@@ -1002,6 +1013,7 @@ export class InputStream {
       }
       this.busy = told.busy;
       this.deciding = told.deciding;
+      this.closingIn = told.closingIn;
       if (changed) this.onSeat(this.port, this.receipt);
     };
     const disconnected = () => {

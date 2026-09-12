@@ -44,7 +44,7 @@ beforeEach(() => {
     source,
   );
   stream.start();
-  sockets[0].onmessage!({ data: new Uint8Array([4, 2, 1, 0, 1, 0, 0]).buffer });
+  sockets[0].onmessage!({ data: new Uint8Array([4, 2, 1, 0, 0, 1, 0, 0]).buffer });
 });
 afterEach(() => {
   stream.stop();
@@ -99,7 +99,7 @@ it("Dolphin's default pump still uses the thirteen-byte contract", () => {
     () => {},
   );
   stream.start();
-  sockets[0].onmessage!({ data: new Uint8Array([4, 2, 1, 0, 1, 0, 0]).buffer });
+  sockets[0].onmessage!({ data: new Uint8Array([4, 2, 1, 0, 0, 1, 0, 0]).buffer });
   tick();
   expect(last()).toHaveLength(13);
   expect(last()[2]).toBe(2);
@@ -139,14 +139,14 @@ it("the worker format greeting selects Switch before the first frame; a fresh Do
   stream.start();
   let socket = sockets.at(-1)!;
   socket.onmessage!({ data: "format switch" });
-  socket.onmessage!({ data: new Uint8Array([4, 1, 1, 1, 0, 0, 0]).buffer });
+  socket.onmessage!({ data: new Uint8Array([4, 1, 1, 0, 1, 0, 0, 0]).buffer });
   tick();
   expect(socket.sent.at(-1)).toHaveLength(15);
   expect(stream.switchActive()).toBe(true);
   stream.watchOnly();
   stream.play();
   socket = sockets.at(-1)!;
-  socket.onmessage!({ data: new Uint8Array([4, 1, 1, 1, 0, 0, 0]).buffer });
+  socket.onmessage!({ data: new Uint8Array([4, 1, 1, 0, 1, 0, 0, 0]).buffer });
   tick();
   expect(socket.sent.at(-1)).toHaveLength(13);
   expect(stream.switchActive()).toBe(false);

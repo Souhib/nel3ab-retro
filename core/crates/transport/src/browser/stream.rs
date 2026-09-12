@@ -602,6 +602,7 @@ mod tests {
             input_kind: crate::browser::InputKind::Dolphin,
             devices: Arc::new(Mutex::new([0; PORTS])),
             clips: Arc::new(Mutex::new(crate::clip::Clips::new())),
+            closing_in: Arc::new(std::sync::atomic::AtomicU8::new(0)),
             wants_save: Arc::new(Mutex::new(0)),
             wants_pad: Arc::new(Mutex::new(0_u8)),
             acted: Arc::new(Mutex::new([None; PORTS])),

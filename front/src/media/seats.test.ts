@@ -15,7 +15,7 @@ class FakeSocket {
   send() {}
   close() {}
   room(port: number, busy = [1, 0, 0, 0]) {
-    this.onmessage({ data: new Uint8Array([4, port, 1, ...busy]).buffer });
+    this.onmessage({ data: new Uint8Array([4, port, 1, 0, ...busy]).buffer });
   }
 }
 let stream: InputStream;

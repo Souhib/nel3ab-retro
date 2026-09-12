@@ -476,13 +476,18 @@ fn watch_idle(
                         holding: server.pads_held(),
                         wanted: server.rom_wanted(),
                     };
-                    match idle.saw(
+                    let decision = idle.saw(
                         busy,
                         playing,
                         server.last_action().unwrap_or(opened),
                         Instant::now(),
                         limits,
-                    ) {
+                    );
+                    // Recopié à CHAQUE tour, et pas seulement quand la règle
+                    // parle: c'est une valeur que les pages affichent, donc un
+                    // geste doit l'effacer aussi vite qu'une échéance la pose.
+                    server.set_closing_in(idle.closing_in());
+                    match decision {
                         Some(nap::Step::Warn) => tracing::info!(
                             secondes = limits.after.as_secs(),
                             "personne n'a joué: la salle fermera bientôt"

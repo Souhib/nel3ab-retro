@@ -13501,6 +13501,45 @@ tient. Deux raisons: il n'y a rien à sauvegarder devant un menu, et un rappel
 affiché en permanence cesse très vite d'être lu. Un conseil qu'on affiche
 toujours a le même effet qu'un conseil qu'on n'affiche jamais.
 
+### La salle prévient à l'écran, et le clic la fait taire
+
+*12 septembre 2026.*
+
+**Le journal ne prévient personne.** La règle d'inactivité écrivait déjà « la
+salle fermera bientôt » cinq minutes avant de fermer, mais dans le journal du
+service. Personne ne lit un journal en jouant. Il fallait que la page le dise.
+
+**Une valeur, pas un événement.** Le worker annonce DANS COMBIEN DE MINUTES la
+salle ferme, zéro quand il n'y a rien à dire, et il le répète à chaque tour.
+C'est ce qui permet à une page qui arrive en plein compte à rebours de le voir
+comme les autres: un événement, lui, ne se rejoue pas pour les retardataires.
+Un geste remet la valeur à zéro, donc l'annonce s'efface partout à la fois.
+
+**Dans le message de salle, pas dans un message à part.** Ce message porte déjà
+les places et les manettes, il part vers toutes les pages, il n'est envoyé que
+lorsqu'il change, et une page qui se connecte le reçoit d'emblée. Un canal
+dédié aurait tout redemandé et raté exactement les cas ci-dessus.
+
+**Le bandeau** est en haut de l'image, parce que c'est la seule chose qui vaille
+qu'on quitte le jeu des yeux, et il disparaît au clic. Un message qu'on ne peut
+pas faire taire finit par être contourné en fermant l'onglet. Il se réarme quand
+le compte à rebours s'efface: une salle sauvée puis redélaissée doit prévenir de
+nouveau. Vérifié dans un vrai navigateur: le bandeau arrive tout seul, dit « la
+salle ferme dans 1 minute », et le clic le fait disparaître.
+
+**Ce que l'octet de plus a coûté.** Le message de salle est passé de sept à huit
+octets, et TOUT ce qui le fabrique ou l'indexe à la main a dû suivre: trois
+fichiers d'essais côté page, qui écrivaient chacun leurs octets dans un coin, et
+deux essais côté worker. Un format sans fabrique partagée se paie à chaque
+changement, et le prix est proportionnel au nombre d'endroits qui le recopient.
+
+Deux gardes ont bien travaillé. La fixture du transport affirmait « la salle est
+annoncée en un seul message » avec sa taille exacte: elle a signalé huit là où
+elle attendait sept, au lieu de laisser passer un décalage silencieux. Et
+`tsc -b`, que lance la construction de la page, a trouvé un faux état d'entrée
+dans un essai de mesures que `tsc --noEmit` laissait passer: les deux ne
+vérifient pas le même périmètre, et c'est la construction qui a raison.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une

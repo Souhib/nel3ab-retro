@@ -487,6 +487,15 @@ browser-background:
 browser-seats:
     cd spikes/m3-browser-drive && node seat-kept.mjs http://localhost:8100/ 25
 
+# La salle prévient-elle À L'ÉCRAN avant de fermer, et le clic la fait-il taire ?
+#
+# Le journal disait déjà « la salle fermera bientôt », mais un journal ne
+# prévient personne. Ce pilote ouvre la page dans un vrai navigateur, entre dans
+# la salle, et attend que le bandeau arrive tout seul. Délais raccourcis par
+# l'environnement; la règle de la salle désertée est mise hors de portée.
+avertissement-fermeture:
+    cd spikes/m3-browser-drive && node avertissement-fermeture.mjs
+
 # Deux salles peuvent-elles faire tourner un jeu Switch en même temps ?
 #
 # Elles ne doivent pas: Ryubing coûte bien plus cher que Dolphin. La règle ne

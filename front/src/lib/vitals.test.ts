@@ -72,6 +72,7 @@ function snap(video: Partial<Snapshot["video"]> = {}, rest: Partial<Snapshot> = 
       players: 4,
       busy: [true, false, false, false],
       deciding: false,
+      closingIn: 0,
       capturing: null,
       profile: null,
       keys: {} as Snapshot["input"]["keys"],

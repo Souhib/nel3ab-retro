@@ -27,6 +27,7 @@ pub(in crate::browser) fn detached(viewers: Vec<SyncSender<Framed>>) -> BrowserS
         prepared: Mutex::new(None),
         closing: std::sync::atomic::AtomicBool::new(false),
         room_closing: std::sync::atomic::AtomicBool::new(false),
+        closing_in: Arc::new(std::sync::atomic::AtomicU8::new(0)),
         devices: Arc::new(Mutex::new([0; PORTS])),
         clips: Arc::new(Mutex::new(crate::clip::Clips::new())),
         seats: Arc::new(Mutex::new([None; PORTS])),
@@ -144,7 +145,7 @@ pub(in crate::browser) fn hold(
     let told = socket.read().unwrap().into_data();
     assert_eq!(
         told.len(),
-        3 + PORTS,
+        4 + PORTS,
         "the room is announced in one message"
     );
     (socket, told[1])

@@ -289,17 +289,17 @@ describe("configurer une manette pendant une partie", () => {
     stream.chooseExtension(1);
     stream.take(1);
     expect(sockets).toHaveLength(1);
-    sockets[0].onmessage({ data: new Uint8Array([4, 1, 1, 1, 0, 0, 0]).buffer });
+    sockets[0].onmessage({ data: new Uint8Array([4, 1, 1, 0, 1, 0, 0, 0]).buffer });
     expect(messages).toContainEqual([4, 1]);
     messages.length = 0;
-    sockets[0].onmessage({ data: new Uint8Array([4, 1, 1, 1, 1, 0, 0]).buffer });
+    sockets[0].onmessage({ data: new Uint8Array([4, 1, 1, 0, 1, 1, 0, 0]).buffer });
     expect(messages).toEqual([]);
     stream.choosePad(1);
     stream.chooseExtension(0);
     messages.length = 0;
     stream.take(1);
     expect(sockets).toHaveLength(2);
-    sockets[1].onmessage({ data: new Uint8Array([4, 1, 1, 1, 0, 0, 0]).buffer });
+    sockets[1].onmessage({ data: new Uint8Array([4, 1, 1, 0, 1, 0, 0, 0]).buffer });
     expect(messages).toContainEqual([4, 0]);
   });
 

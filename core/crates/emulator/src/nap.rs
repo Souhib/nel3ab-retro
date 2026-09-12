@@ -125,6 +125,13 @@ pub struct Idle {
     /// sans toucher à rien n'a pas fait de geste depuis longtemps, et il est
     /// pourtant là.
     empty_since: Option<Instant>,
+    /// Dans combien de MINUTES la salle ferme, si c'est assez proche pour le
+    /// dire. Zéro veut dire « rien à annoncer ».
+    ///
+    /// Tenu à jour à chaque tour, et pas seulement au moment d'avertir: une
+    /// page qui arrive en plein compte à rebours doit le voir elle aussi, et
+    /// un geste doit l'effacer chez tout le monde.
+    closing_in: u8,
     warned: bool,
     closed: bool,
 }
@@ -136,9 +143,20 @@ impl Idle {
         Self {
             seen: None,
             empty_since: None,
+            closing_in: 0,
             warned: false,
             closed: false,
         }
+    }
+
+    /// Dans combien de minutes la salle ferme, ou zéro s'il n'y a rien à dire.
+    ///
+    /// Lu à chaque tour par le binaire, qui le donne aux pages. Une valeur et
+    /// pas un événement: une page qui arrive après l'avertissement doit voir le
+    /// compte à rebours, et un événement ne se répète pas.
+    #[must_use]
+    pub const fn closing_in(&self) -> u8 {
+        self.closing_in
     }
 
     /// Un tour d'observation. Rend un geste une seule fois par échéance.
@@ -166,6 +184,7 @@ impl Idle {
         // est relancé par systemd dès qu'il s'arrête: fermer une salle vide ne
         // libérerait rien et rouvrirait la même salle deux secondes plus tard.
         if !playing || busy.wanted {
+            self.closing_in = 0;
             return None;
         }
         // La salle désertée, AVANT l'inactivité: quand plus personne n'est là,
@@ -181,6 +200,15 @@ impl Idle {
             self.empty_since = None;
         }
         let idle = now.saturating_duration_since(alive);
+        // Le compte à rebours que la salle affiche. Arrondi au MINUTE
+        // SUPÉRIEURE: annoncer « dans 0 minute » pendant cinquante secondes
+        // ferait mentir le compte dans le sens qui inquiète.
+        let left = limits.after.saturating_sub(idle);
+        self.closing_in = if idle >= limits.after.saturating_sub(limits.warn) {
+            u8::try_from(left.as_secs().div_ceil(60)).unwrap_or(u8::MAX)
+        } else {
+            0
+        };
         if idle >= limits.after {
             return (!std::mem::replace(&mut self.closed, true)).then_some(Step::Close);
         }
@@ -807,5 +835,68 @@ mod tests {
             None,
             "la salle s'est fermée sous les doigts de quelqu'un"
         );
+    }
+
+    /// La salle annonce le compte à rebours, et seulement quand il compte.
+    #[test]
+    fn la_salle_dit_dans_combien_de_minutes_elle_ferme() {
+        let start = Instant::now();
+        let mut idle = Idle::new();
+        let present = watching(1);
+
+        idle.saw(present, true, start, at(start, 10 * 60), Limits::default());
+        assert_eq!(idle.closing_in(), 0, "vingt minutes avant, rien à annoncer");
+
+        idle.saw(present, true, start, at(start, 25 * 60), Limits::default());
+        assert_eq!(idle.closing_in(), 5);
+
+        idle.saw(
+            present,
+            true,
+            start,
+            at(start, 29 * 60 + 30),
+            Limits::default(),
+        );
+        assert_eq!(
+            idle.closing_in(),
+            1,
+            "trente secondes restantes s'annoncent comme une minute"
+        );
+    }
+
+    /// Le jumeau: un geste efface le compte à rebours chez tout le monde.
+    #[test]
+    fn un_geste_efface_le_compte_a_rebours() {
+        let start = Instant::now();
+        let mut idle = Idle::new();
+        let present = watching(1);
+
+        idle.saw(present, true, start, at(start, 26 * 60), Limits::default());
+        assert_eq!(idle.closing_in(), 4);
+
+        let geste = at(start, 26 * 60);
+        idle.saw(present, true, geste, at(start, 27 * 60), Limits::default());
+        assert_eq!(
+            idle.closing_in(),
+            0,
+            "la salle annonce encore une fermeture annulée"
+        );
+    }
+
+    /// Le second jumeau: une salle sans jeu n'annonce rien du tout.
+    #[test]
+    fn une_salle_sans_jeu_n_annonce_aucune_fermeture() {
+        let start = Instant::now();
+        let mut idle = Idle::new();
+
+        idle.saw(
+            watching(1),
+            false,
+            start,
+            at(start, 29 * 60),
+            Limits::default(),
+        );
+
+        assert_eq!(idle.closing_in(), 0);
     }
 }

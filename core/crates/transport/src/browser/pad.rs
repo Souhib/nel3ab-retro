@@ -31,7 +31,11 @@ pub(super) fn claim_a_port(
     let Some((seat, claim)) = take_seat(seats, players, take, prefer, expected) else {
         tracing::info!("a browser asked for a controller in a full room");
         let _ = socket.send(tungstenite::Message::binary(room_message(
-            players, None, seats, false,
+            players,
+            None,
+            seats,
+            false,
+            shared.closing_in.load(std::sync::atomic::Ordering::Relaxed),
         )));
         return None;
     };
@@ -40,6 +44,7 @@ pub(super) fn claim_a_port(
         Some(seat),
         seats,
         decides(&shared.owner, &shared.acted, seat),
+        shared.closing_in.load(std::sync::atomic::Ordering::Relaxed),
     );
     if socket
         .send(tungstenite::Message::binary(told.clone()))
@@ -203,7 +208,11 @@ pub(super) fn input_thread(
             // controller and stops asking rather than reconnecting, because two
             // pages that both insisted would trade the pad for ever.
             let _ = socket.send(tungstenite::Message::binary(room_message(
-                players, None, seats, false,
+                players,
+                None,
+                seats,
+                false,
+                shared.closing_in.load(std::sync::atomic::Ordering::Relaxed),
             )));
             break;
         }
@@ -469,6 +478,7 @@ pub(super) fn send_room(
         Some(seat),
         seats,
         decides(&shared.owner, &shared.acted, seat),
+        shared.closing_in.load(std::sync::atomic::Ordering::Relaxed),
     );
     if current == told {
         return Ok(told);
@@ -525,11 +535,19 @@ pub(super) fn room_message(
     // qu'on ouvrait deux onglets, et la page annonçait un droit que le worker
     // refusait ensuite en silence.
     may_decide: bool,
+    // Dans combien de minutes la salle ferme, zéro quand il n'y a rien à dire.
+    //
+    // Dans CE message plutôt que dans un message à part: il n'est envoyé que
+    // lorsqu'il change, il part vers toutes les pages, et une page qui arrive
+    // le reçoit d'emblée. Un message d'avertissement séparé aurait raté celle
+    // qui se connecte après l'annonce.
+    closing_in: u8,
 ) -> Vec<u8> {
-    let mut message = Vec::with_capacity(3 + PORTS);
+    let mut message = Vec::with_capacity(4 + PORTS);
     message.push(players.get());
     message.push(mine.map_or(0, PlayerSlot::get));
     message.push(u8::from(may_decide));
+    message.push(closing_in);
     message.extend(occupancy(seats).into_iter().map(u8::from));
     message
 }

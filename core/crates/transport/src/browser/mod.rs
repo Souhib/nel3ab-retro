@@ -355,6 +355,12 @@ pub struct BrowserServer {
     wants_rom: Arc<Mutex<Option<u8>>>,
     prepared: Mutex<Option<crate::control::PreparedLaunch>>,
     closing: std::sync::atomic::AtomicBool,
+    /// Dans combien de minutes la salle ferme, ou zéro s'il n'y a rien à dire.
+    ///
+    /// Une VALEUR et pas un événement: une page qui arrive en plein compte à
+    /// rebours doit le voir comme les autres, et un événement ne se répète pas.
+    /// Elle voyage dans le message de salle, avec les places et les manettes.
+    closing_in: Arc<std::sync::atomic::AtomicU8>,
     /// Vrai quand c'est la SALLE qui se ferme, pas seulement le jeu.
     ///
     /// Les deux se ressemblent et n'ont pas du tout les mêmes suites. Fermer le
@@ -466,6 +472,7 @@ impl BrowserServer {
         let joined = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let wants_key = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let wants_rom = Arc::new(Mutex::new(None));
+        let closing_in = Arc::new(std::sync::atomic::AtomicU8::new(0));
         let devices = Arc::new(Mutex::new([0; PORTS]));
         let wants_save = Arc::new(Mutex::new(0_u8));
         let wants_pad = Arc::new(Mutex::new(0_u8));
@@ -505,6 +512,7 @@ impl BrowserServer {
                 let half_wants_key = Arc::clone(&half_wants_key);
                 let half_wants_key = Arc::clone(&half_wants_key);
                 let half_granted_key = Arc::clone(&half_granted_key);
+                let closing_in = Arc::clone(&closing_in);
                 move || {
                     accept_loop(
                         &listener,
@@ -526,6 +534,7 @@ impl BrowserServer {
                             players,
                             devices,
                             wants_rom,
+                            closing_in,
                             wants_save,
                             wants_pad,
                             wants_extension,
@@ -573,6 +582,7 @@ impl BrowserServer {
             devices,
             prepared: Mutex::new(None),
             closing: std::sync::atomic::AtomicBool::new(false),
+            closing_in,
             room_closing: std::sync::atomic::AtomicBool::new(false),
             _accept: accept,
         })
@@ -879,6 +889,20 @@ impl BrowserServer {
         true
     }
 
+    /// Annonce aux pages dans combien de minutes la salle ferme.
+    ///
+    /// Zéro efface l'annonce, ce qui arrive dès qu'un geste repousse l'échéance.
+    pub fn set_closing_in(&self, minutes: u8) {
+        self.closing_in
+            .store(minutes, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    /// Ce que les pages entendent en ce moment.
+    #[must_use]
+    pub fn closing_in(&self) -> u8 {
+        self.closing_in.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
     /// La salle se ferme-t-elle pour de bon ?
     ///
     /// Lu par le binaire au moment de sortir, pour rendre au service un code qui
@@ -1142,6 +1166,8 @@ struct Shared {
     rumbles: Rumbles,
     players: PlayerSlot,
     wants_rom: Arc<Mutex<Option<u8>>>,
+    /// Dans combien de minutes la salle ferme. Voir `BrowserServer::closing_in`.
+    closing_in: Arc<std::sync::atomic::AtomicU8>,
     /// L'emplacement de sauvegarde voulu pour le prochain jeu.
     wants_save: Arc<Mutex<u8>>,
     /// La manette voulue pour le prochain jeu. Voir `Command::ChoosePad`.
@@ -1572,6 +1598,17 @@ mod tests {
         assert!(!server.stop_requested());
         assert!(server.close_idle());
         assert!(server.stop_requested());
+    }
+
+    /// Ce que la salle annonce se lit et s'efface.
+    #[test]
+    fn la_salle_annonce_sa_fermeture_prochaine() {
+        let server = detached(vec![]);
+        assert_eq!(server.closing_in(), 0, "une salle neuve n'annonce rien");
+        server.set_closing_in(5);
+        assert_eq!(server.closing_in(), 5);
+        server.set_closing_in(0);
+        assert_eq!(server.closing_in(), 0, "un geste n'a pas effacé l'annonce");
     }
 
     /// Fermer pour inactivité ferme la SALLE, pas seulement le jeu.
@@ -2336,7 +2373,7 @@ mod tests {
         while std::time::Instant::now() < deadline && update.is_none() {
             match first.read() {
                 Ok(tungstenite::Message::Binary(bytes))
-                    if bytes.len() == 3 + PORTS && bytes[4] == 1 =>
+                    if bytes.len() == 4 + PORTS && bytes[5] == 1 =>
                 {
                     update = Some(bytes);
                 }
@@ -2347,11 +2384,13 @@ mod tests {
         let update = update.expect("the page was never told that port 2 filled");
         assert_eq!(update[0], 4, "four ports in this room");
         assert_eq!(update[1], 1, "still mine");
-        // Le troisième octet dit si CETTE page peut changer le jeu; les places
-        // occupées commencent après lui.
-        assert_eq!(update[3], 1, "port 1 is held");
-        assert_eq!(update[4], 1, "port 2 filled while we watched");
-        assert_eq!(update[5], 0, "port 3 is free");
+        // Le troisième octet dit si CETTE page peut changer le jeu, le quatrième
+        // dans combien de minutes la salle ferme; les places occupées commencent
+        // après eux.
+        assert_eq!(update[3], 0, "rien à annoncer dans cette salle");
+        assert_eq!(update[4], 1, "port 1 is held");
+        assert_eq!(update[5], 1, "port 2 filled while we watched");
+        assert_eq!(update[6], 0, "port 3 is free");
     }
 
     /// The negative twin: without asking, a newcomer is still refused. Taking a

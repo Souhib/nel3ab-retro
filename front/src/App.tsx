@@ -508,6 +508,15 @@ function Room({
   useRoomReference(() => alive.current?.input.refreshRoomKeys());
   const clip = useClip();
   const shot = useSnapshot(session);
+  // Le compte à rebours de fermeture, dit par le worker dans le message de
+  // salle. Masqué d'un clic, et RÉARMÉ quand le compte s'efface: une salle
+  // sauvée puis redélaissée doit prévenir de nouveau.
+  const closingIn = shot?.input.closingIn ?? 0;
+  const [closingHidden, setClosingHidden] = useState(false);
+  useEffect(() => {
+    if (closingIn === 0) setClosingHidden(false);
+  }, [closingIn]);
+  const closingSoon = closingIn > 0 && !closingHidden ? closingIn : null;
   {
     // DEPUIS QUAND la salle n'envoie plus rien, et non « combien de temps
     // accumulé »: additionner à chaque rendu fait dépendre la mesure du rythme
@@ -1443,6 +1452,21 @@ function Room({
         {/* Le format a été réduit tout seul: on le DIT, et on laisse revenir.
             Réduire en silence ferait chercher pourquoi l'image est devenue
             moins nette, ce qui est exactement le temps qu'on essaie de rendre. */}
+        {/* La salle va fermer faute d'activité. En haut, parce que c'est la
+            seule chose qui vaille qu'on quitte le jeu des yeux, et cliquable
+            pour disparaître: un message qu'on ne peut pas faire taire finit par
+            être contourné en fermant l'onglet. */}
+        {closingSoon !== null ? (
+          <button
+            type="button"
+            id="closingNotice"
+            onClick={() => setClosingHidden(true)}
+            className="absolute inset-x-0 top-4 z-30 mx-auto max-w-[52ch] border border-alert/60 bg-panel px-4 py-3 text-center text-[13px] leading-relaxed text-bright"
+          >
+            Personne n&apos;a joué depuis un moment: la salle ferme dans {closingSoon}
+            {closingSoon > 1 ? " minutes" : " minute"}. Touche une manette pour rester.
+          </button>
+        ) : null}
         {reduced ? (
           <div
             id="reducedNotice"

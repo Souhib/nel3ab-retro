@@ -13040,6 +13040,72 @@ manquant en tant que root, dans le dossier de l'emplacement. Trois défauts
 réintroduits sur quatre sont vus par les essais ; le quatrième, oublier le
 montage dans `serve`, demande un vrai Docker, comme pour les mises à jour.
 
+### Le 12 septembre, d'où viennent vraiment les gels de Smash
+
+Les caches chauds, il restait une poignée de petits gels par minute, et aucune
+des douze hypothèses de l'enquête n'avait survécu à sa réfutation. La raison
+était toujours la même : leur signature n'avait jamais été enregistrée. Trois
+grandeurs manquaient à la mesure, et il a fallu les fabriquer.
+
+**Le temps d'attente.** Nos relevés comptaient le temps de calcul de chaque fil,
+jamais son temps d'attente, et la comptabilité du noyau qui le mesure était
+désactivée sur la machine. Activée (`kernel.sched_schedstats=1`, remis à 0
+depuis), elle répond sans ambiguïté : pendant les trous, l'attente en file du
+répartiteur ne dépasse pas 4,6 ms, aucun fil n'est bloqué sur le disque, il n'y a
+aucune lecture, la pression du cgroup est plate et le GPU est entre 3 et 9 %. La
+machine n'est jamais à court de rien : les fils calculent.
+
+**L'étape perdue.** Le moteur a été reconstruit avec ses marqueurs, plus trois
+nouveaux. `NEL3AB_SKIP` dit pourquoi le compositeur émulé n'a rien pris ;
+`NEL3AB_DEQWAIT` encadre l'attente d'un tampon libre par le jeu ; `NEL3AB_JIT`
+chronomètre une traduction de code de plus d'une milliseconde, qui s'exécute sur
+le fil du jeu. Un invariant rend la partition exacte : une image présentée est
+une image prise, et une image prise est une image remise par le jeu.
+
+Le verdict tient sur deux enregistrements de 200 s : **les 32 trous viennent tous
+du jeu émulé qui ne remet pas d'image**. Aucun `NEL3AB_PRESENT` dans le trou,
+autant de `NEL3AB_SKIP` que d'images manquantes, et le statut dit « file vide ».
+Notre chaîne est hors de cause, mesurée et non supposée : 11 878 images livrées
+pour 11 877 présentées, et 0,3 ms entre la présentation et l'horodatage du
+paquet. Le moteur aussi : 17 600 remises, 17 599 prises, 17 599 présentations.
+
+**Ce que fait le jeu pendant ce temps.** Les petits trous, de 50 à 83 ms : le fil
+principal du jeu calcule 76 à 146 ms, et la traduction de code à la demande en
+explique plus de la moitié dans trois cas sur huit, 29 à 63 ms, contre 0 à 42 ms
+dans les fenêtres témoins décalées d'une et trois secondes. Les gros, de 117 à
+367 ms : le fil de décompression de ressources du jeu travaille 185 à 264 ms,
+avec 5 000 à 7 700 défauts de page mineurs contre 707 pour douze fenêtres calmes,
+et pas une seule traduction. Ce sont des chargements du jeu.
+
+**Deux innocents nommés.** Notre correctif du tampon affiché ne bloque rien : en
+200 s, le compositeur n'a refusé l'acquisition qu'une fois pour cause d'image
+déjà détenue, et la plus longue attente de tampon du jeu dure 17,8 ms, trop court
+pour un trou de 50 ms. Le déversement d'un rapport de jeu dans le journal, lui,
+coïncide vraiment avec des grappes de trous en fin de match sur trois
+enregistrements indépendants, 122 lignes d'un coup contre zéro dans le témoin
+décalé de trois secondes ; mais aucun trou de combat mesuré avec marqueurs ne
+contient de ligne de journal. C'est donc un coût de fin de match, pas la cause du
+résidu. À noter tout de même pour plus tard : en mode sans interface, la cible de
+journal est une file de 1 000 messages dont la politique de débordement est
+« bloquer », donc c'est le fil appelant qui attendrait.
+
+**Le coût de la mesure.** Les marqueurs écrivent six lignes par image : 2,4 à 2,7
+trous par minute avec, 1,6 sans. Les comparaisons se font donc entre conditions
+instrumentées, jamais contre un chiffre sans marqueurs.
+
+**Ce qui reste invérifiable ici.** Personne ne peut dire si une vraie Switch
+produirait ces images. Il faudrait une console pour comparer, et cette machine ne
+peut pas trancher.
+
+**Trois pièges rencontrés.** Un `pgrep -f` ou un `pkill -f` dont le motif figure
+dans la commande qui l'appelle se trouve lui-même : trois commandes se sont
+arrêtées elles-mêmes avant que la leçon rentre. Un `grep` ASCII ne trouve pas les
+chaînes d'un binaire .NET, écrites en UTF-16 : le garde-fou a cru que le marqueur
+manquait alors qu'il était bien compilé, et `strings -e l` le montre. Enfin,
+`Status.NoBufferAvailaible` et `Status.ReleaseAllBuffers` valent tous les deux 2
+dans le moteur : .NET affiche le premier nom déclaré, ce qui accuse le mauvais
+chemin, et le marqueur affiche maintenant aussi la valeur numérique.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une
@@ -13105,6 +13171,10 @@ copie dans un autre dossier du même disque ne le peut pas.
 **NCA** : conteneur interne de contenu Switch. Son en-tête et ses sections peuvent demander des clés pour être lus.
 
 **Shader** : petit programme que la carte graphique exécute pour dessiner. Un émulateur traduit ceux de la console, puis le pilote les compile pour la carte : c'est lent la première fois, d'où les caches.
+
+**Défaut de page** : interruption quand un programme touche une page mémoire pas encore prête. Mineur si le noyau la fournit sans lire le disque, majeur sinon.
+
+**PSI** : *pressure stall information*. Compteurs du noyau qui disent combien de temps des tâches ont attendu le processeur, le disque ou la mémoire.
 
 **Régulateur (de fréquence)** : la règle que Linux suit pour choisir la fréquence des cœurs. `schedutil` la fait varier avec la charge, `performance` la garde au maximum.
 

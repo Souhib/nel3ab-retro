@@ -247,6 +247,35 @@ dossier `__user__` seulement. Le dossier `__bcat__` voisin contient les
 combattants montre les 89, contenus additionnels compris, et toutes les arènes.
 Le joueur 2 rejoint avec A. Aucun combat n'a été lancé.
 
+## D'où viennent les gels
+
+Mesuré le 12 septembre 2026 avec un moteur à marqueurs, sur deux enregistrements
+de 200 s : **chacun des 32 trous d'image vient du jeu émulé qui n'a pas produit
+l'image**. Au moment du trou, le moteur n'a rien présenté (`NEL3AB_PRESENT`
+absent), le compositeur émulé a trouvé sa file vide à chaque tic de 16,67 ms, et
+notre chaîne n'a rien perdu : 11 878 images livrées pour 11 877 présentées, avec
+0,3 ms entre la présentation et l'horodatage du paquet. Rien n'attend non plus :
+au plus 4,6 ms d'attente du répartiteur, aucun fil en attente disque, aucune
+lecture, pression du cgroup plate, GPU entre 3 et 9 %.
+
+Deux familles se partagent les trous. Les petits, de 50 à 83 ms : le fil
+principal du jeu calcule 76 à 146 ms, et la traduction de code à la demande en
+explique plus de la moitié dans trois cas sur huit (29 à 63 ms, contre 0 à 42 ms
+dans les fenêtres témoins décalées). Les gros, de 117 à 367 ms : le fil de
+décompression de ressources du jeu travaille 185 à 264 ms, avec 5 000 à 7 700
+défauts de page mineurs contre 707 dans douze fenêtres calmes, et aucune
+traduction. Ce sont donc des chargements du jeu lui-même.
+
+Ce qui n'est pas en cause, vérifié : notre correctif du tampon affiché (un seul
+refus d'acquisition en 200 s), la vérification d'intégrité des fichiers, le
+partage du GPU avec l'encodeur, et la capture. Le déversement d'un rapport de jeu
+dans le journal coïncide avec des trous en fin de match sur trois enregistrements
+(122 lignes d'un coup), mais aucun trou de combat mesuré avec marqueurs ne
+contient de ligne de journal.
+
+Ce qu'on ne peut pas savoir ici : si une vraie Switch produirait ces images. Il
+faudrait une console pour comparer.
+
 ## X et Y
 
 Les manettes virtuelles se présentent comme des manettes Xbox 360. SDL lit

@@ -13697,6 +13697,39 @@ s'écrit en toutes lettres plutôt que par une pastille de couleur, qui ne se li
 ni de loin ni pour qui les distingue mal, et la carte entière est le lien: viser
 une petite étiquette à deux mètres d'un écran est une cible qu'on rate.
 
+### Une salle fermée disait « 502 Bad Gateway »
+
+*12 septembre 2026.*
+
+**Ce qui s'est passé.** Souhib est revenu sur l'adresse de sa salle et a reçu un
+502. Le journal raconte une histoire parfaitement normale: avertissement à 15 h
+15, fermeture à 15 h 20 faute d'activité, worker sorti avec le code qui dit « ne
+me relance pas », et personne dans la salle entre-temps. Deux minutes plus tard
+il rouvrait une salle depuis l'accueil, et tout remarchait.
+
+**Le défaut n'est donc pas dans la logique, il est dans ce qu'on montre.** Une
+salle qui se ferme comme prévu ne doit pas se présenter comme une panne de
+serveur. « 502 Bad Gateway » ne dit ni ce qui s'est passé, ni quoi faire, et
+laisse croire que la machine est cassée alors qu'elle vient d'économiser ce
+qu'on lui a demandé d'économiser.
+
+**La correction est dans le proxy**, parce que c'est lui qui constate qu'il n'y
+a personne au bout: une adresse de salle dont le worker ne répond pas renvoie
+maintenant au salon, avec la raison dans l'adresse. Le salon l'affiche en haut,
+et le message se ferme d'un clic, comme celui de la salle.
+
+Un détail qui aurait coûté une demi-heure sans le dire: la condition porte sur
+le chemin d'ORIGINE. Le proxy retire le préfixe `/r/1` avant de transmettre,
+donc au moment où l'erreur remonte, le chemin courant vaut `/` et une condition
+écrite dessus n'aurait jamais rien attrapé — ou pire, aurait renvoyé au salon
+les erreurs du salon lui-même.
+
+**Ce que ça règle au passage.** C'est aussi le message de retour demandé au tout
+début du chantier: « si une personne ne joue pas, on lui affiche un message
+indiquant qu'on a fermé la salle ». Il manquait encore, parce que la salle
+fermée n'avait plus personne à qui le dire. C'est le salon qui le dit, au
+retour, et c'est le bon endroit.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une

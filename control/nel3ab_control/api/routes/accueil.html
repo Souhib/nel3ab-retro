@@ -77,9 +77,29 @@
   .ouvrir { margin-top: 2.5rem; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
   .mot { color: var(--doux); font-size: 1.05rem; }
   .mot[data-refus="oui"] { color: #ffb4a2; }
+  .retour {
+    display: block;
+    width: 100%;
+    margin: 0 0 2rem;
+    padding: 1rem 1.2rem;
+    border: 1px solid var(--trait);
+    border-radius: 12px;
+    background: var(--carte);
+    color: var(--texte);
+    font: inherit;
+    font-size: 1.05rem;
+    text-align: left;
+    cursor: pointer;
+  }
+  .retour:hover { border-color: var(--vif); }
 </style>
 </head>
 <body>
+  <!-- Le retour d'une salle qui s'est fermée. Cliquable pour disparaître,
+       comme le bandeau de la salle: un message qu'on ne peut pas faire taire
+       finit par être contourné. -->
+  <button type="button" id="retour" class="retour" hidden></button>
+
   <h1>nel3ab</h1>
   <p class="sous">Choisis une salle, ou ouvre la tienne.</p>
 
@@ -91,6 +111,21 @@
   </div>
 
 <script>
+  // Pourquoi on se retrouve ici. Le proxy renvoie au salon quand une salle
+  // n'existe plus, plutôt que d'afficher « 502 Bad Gateway », qui se lit comme
+  // une panne alors que la salle s'est fermée exactement comme prévu.
+  const retour = document.getElementById("retour");
+  if (new URLSearchParams(location.search).get("salle") === "fermee") {
+    retour.textContent =
+      "Cette salle s'est fermée faute d'activité, et le jeu avec elle. "
+      + "Tu peux en rouvrir une : les sauvegardes sont intactes.";
+    retour.hidden = false;
+    // L'adresse est nettoyée tout de suite: recharger la page ne doit pas
+    // reproduire une nouvelle qui date d'il y a dix minutes.
+    history.replaceState(null, "", location.pathname);
+  }
+  retour.addEventListener("click", () => { retour.hidden = true; });
+
   const liste = document.getElementById("salles");
   const mot = document.getElementById("mot");
   const bouton = document.getElementById("ouvrir");

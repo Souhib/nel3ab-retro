@@ -126,6 +126,21 @@ nel3ab.app {
 		reverse_proxy 127.0.0.1:8130
 	}
 
+	# Une salle éteinte renvoie au salon, et dit pourquoi.
+	#
+	# Sans ceci, revenir sur `/r/1/` après une fermeture affichait « 502 Bad
+	# Gateway », c'est-à-dire une panne, alors que la salle s'était fermée
+	# exactement comme prévu faute d'activité. Souhib l'a rencontré le
+	# 12 septembre 2026, deux minutes après la fermeture automatique.
+	#
+	# Le chemin d'ORIGINE est testé, et pas le chemin courant: `handle_path` a
+	# déjà retiré le préfixe quand l'erreur remonte, donc `/r/1/` s'y lit `/`.
+	handle_errors {
+		@salle_absente expression `{http.request.orig_uri.path}.startsWith("/r/")`
+		redir @salle_absente /?salle=fermee 302
+		respond "{err.status_code} {err.status_text}"
+	}
+
 	# Et la racine au salon, qui montre la liste des salles.
 	#
 	# C'est le changement qui rend les salles multiples possibles: tant que la

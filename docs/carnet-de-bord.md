@@ -14190,6 +14190,115 @@ brouillons. Le répertoire temporaire de la séance existe précisément pour ç
 script jetable n'y a pas été mis pour une raison sans valeur, la résolution des
 modules de Node. Un lien symbolique aurait suffi.
 
+### La page d'accueil ressemblait à une page générée, parce qu'elle l'était
+
+Souhib a demandé « plus unique et moins AI slop ». Le diagnostic n'a pas été
+long: le coupable était la page d'accueil, et c'est moi qui l'avais faite ainsi
+le matin même, en la tirant d'un générateur de systèmes de design. Violet néon
+vers rose sur bleu nuit, titre en dégradé, carte arrondie à grosse ombre,
+apparition en cascade: le rendu par défaut de n'importe quelle interface
+générée. Regardée en capture, elle aurait pu habiller un outil de gestion de
+projet. Rien n'y disait jeu rétro, téléviseur, ni amis.
+
+Le pire n'était pas décoratif. À deux mètres, `nel3ab` s'étalait en énorme alors
+que personne n'a besoin de lire le nom du site, pendant que ce qu'on vient
+chercher, le jeu et les présents, tenait en petit gris.
+
+**Onze directions, six juges.** Deux recherches parallèles ont été lancées: cinq
+directions tirées du matériau du projet lui-même, puis six tirées de lignées
+extérieures avec obligation de citer des références réelles. Un résultat mérite
+d'être noté: TROIS agents indépendants, sur deux vagues distinctes, ont proposé
+la même « face avant d'appareil ». C'est la démonstration expérimentale que le
+skeuomorphisme de façade est le réflexe par défaut pour ce genre de projet, donc
+exactement ce qu'il fallait fuir. Un juge l'a écrit avant que je le voie.
+
+La direction retenue traite le service comme une CHAÎNE PRIVÉE à trois canaux, et
+la page d'accueil comme sa régie. Références réelles: l'habillage d'antenne de
+Canal+ par Étienne Robial (1984), les idents de Channel 4 par Martin Lambie-Nairn
+(1982), la mire Test Card F de George Hersee pour la BBC (2 juillet 1967), dont
+les barres EBU donnent l'identité des trois canaux.
+
+Deux greffes venues d'autres directions, réclamées par deux juges sur trois.
+L'écran vide devient la plus belle image du service: une mire plein cadre qui
+annonce HORS ANTENNE, alors que c'est l'état le plus FRÉQUENT et qu'il était
+traité comme une excuse. Et l'horloge du rail n'affiche pas l'heure qu'il est,
+mais celle du dernier relevé réussi: elle se fige et grise quand le salon se
+tait. Une preuve de vie portée par une VALEUR, donc elle survit à
+prefers-reduced-motion, qui ne doit jamais retirer une information.
+
+Un refus, formulé par deux juges après lecture du schéma: aucune signature ne
+prétend montrer qui est assis à quelle place. `/api/salles` ne rend qu'une liste
+de pseudos, sans numéro ni ordre. La jauge dit donc COMBIEN de personnes sont
+là, jamais lesquelles tiennent une manette.
+
+### La règle « polices du système » supposait un système riche
+
+La machine n'a que trois familles installées: DejaVu Sans, DejaVu Serif, DejaVu
+Sans Mono. Aucun Segoe, aucun Inter, aucun Helvetica. Or la page déclarait une
+pile `ui-sans-serif, "Segoe UI Variable Display", "Segoe UI", system-ui`: tout
+cela retombait sur DejaVu Sans. Le titre jugé générique n'était donc pas une
+police choisie, c'était le dernier repli d'une pile qui ne trouvait rien.
+
+La règle écrite interdit de dépendre d'un SERVICE tiers pour afficher la page
+d'une machine privée. Elle n'interdit pas un caractère. Une police
+auto-hébergée, sous-ensemblée et embarquée dans la page, respecte entièrement sa
+raison d'être. La règle a donc été relue plutôt que contournée.
+
+Deux caractères libres, tous deux sous OFL: Anybody de Tyler Finck, une grotesque
+à axe de largeur variable héritée du lettrage d'antenne, et Departure Mono de
+Helena Zhang, une chasse fixe à dessin bitmap pour les lectures machine.
+
+Les mesures, faites ici et non estimées:
+
+- Anybody variable sous-ensemblée, axes conservés: 45 320 octets.
+- Anybody en trois coupes figées (700 large, 600, 400): 25 644 octets au total.
+  La variable coûtait presque le double pour une souplesse inutile.
+- Departure Mono livrée par l'éditeur: 22 496 octets. Sous-ensemblée aux
+  chiffres, aux capitales et à quelques symboles: 1 296 octets.
+
+Un mot sur la provenance de ces chiffres. Trois agents avaient rendu des mesures
+à l'octet près en écrivant « mesuré sur cette machine avec fontTools et brotli ».
+`fontTools` n'était installé nulle part. Les chiffres étaient peut-être
+plausibles, leur provenance annoncée était fausse, et rien n'a été bâti dessus
+avant de refaire les mesures dans un environnement jetable.
+
+### Une jauge dont les deux contraintes s'opposaient
+
+La jauge d'occupation a demandé trois passes, et la dernière vaut d'être notée
+parce qu'elle décrit une classe de problème.
+
+D'abord quatre cases ajourées. À l'écran, quatre rectangles vides alignés à côté
+d'un texte en chasse fixe se lisent comme du « tofu », le carré qu'un navigateur
+dessine quand un glyphe manque. Une jauge qui a l'air d'un bug est pire qu'une
+jauge absente.
+
+Ensuite quatre segments pleins, le vide en gris clair pour qu'on voie l'échelle.
+Mesure: le vide tenait 3,09:1 contre la plaque, mais les segments PLEINS ne
+tenaient plus que 2,98:1 en cyan et 2,81:1 en vert contre ce vide devenu clair.
+Un échec échangé contre un autre, et l'information de la jauge vit précisément
+dans l'écart plein/vide.
+
+Les deux contraintes sont incompatibles avec une seule couleur: le vide doit
+être clair pour porter l'échelle sur un fond sombre, et sombre pour laisser
+ressortir des couleurs vives. La sortie a été de les confier à deux éléments
+différents. Un CADRE porte l'échelle (3,32:1 sur la plaque), des segments vides
+sombres portent la lecture (7,05 à 9,76:1 selon le canal). Quand deux exigences
+se disputent une même propriété, il faut souvent ajouter un élément plutôt que
+chercher la valeur qui contentera les deux.
+
+### Deux pilotes qui se disputaient la même salle
+
+Le pilote de réconciliation a échoué une fois, puis passé trois fois de suite
+sans qu'une ligne change. La cause n'était pas la page: `salon-accueil` et
+`reconciliation` ouvrent chacun « le premier emplacement libre », et ils avaient
+été lancés à la suite dans le même script. Le nettoyage de l'un refermait la
+salle que l'autre regardait.
+
+Un essai qui passe une fois sur deux est plus dangereux qu'un essai rouge, parce
+qu'on apprend à le relancer. La leçon est sur l'ENCHAÎNEMENT et pas sur le
+pilote: deux essais qui se disputent une ressource nommée « la première libre »
+ne doivent jamais tourner à la suite sans isolation.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une

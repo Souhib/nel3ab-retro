@@ -5,232 +5,240 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>nel3ab — les salles</title>
 <style>
-  /* Direction visuelle tirée de la base UI/UX (12 septembre 2026): violet néon
-     sur fond profond, action rose, cartes en relief, apparition en cascade.
-     Le style proposé s'appuyait sur de la 3D temps réel; elle est écartée ici,
-     sa fiche annonçant elle-même un coût élevé et un risque d'accessibilité,
-     pour une page qui doit s'afficher en une seconde sur un téléviseur. La
-     profondeur est donc obtenue par des ombres en couches et une lueur, sans
-     moteur 3D ni image lourde.
+  /* ─────────────────────────────────────────────────────────────────────
+     RÉGIE. nel3ab n'est pas un site avec des cartes, c'est une chaîne
+     privée à trois canaux, et cette page est sa régie: ce qui est à
+     l'antenne, ce qui est éteint, et qui se trouve dans le studio.
 
-     Les polices restent celles du système: dépendre d'un service tiers pour
-     afficher la page d'accueil d'une machine privée serait une panne de plus à
-     la merci du réseau. */
+     Références réelles, pas un style tiré d'un catalogue: l'habillage
+     d'antenne de Canal+ par Étienne Robial (1984, tenu jusqu'en 2009),
+     les idents de Channel 4 par Martin Lambie-Nairn (1982), et la mire
+     Test Card F de George Hersee pour la BBC (2 juillet 1967), dont les
+     barres de couleur EBU donnent ici l'identité des trois canaux.
+
+     Ce que cette page N'EST PAS, volontairement: une grille de cartes
+     arrondies à ombre diffuse sur un dégradé violet. C'était la version
+     précédente, produite par un générateur de systèmes de design, et
+     elle aurait pu habiller n'importe quel tableau de bord.
+     ───────────────────────────────────────────────────────────────── */
+  /*__POLICES__*/
+
   :root {
-    --fond: #0f0f23;
-    --fond-haut: #16163a;
-    --carte: #1e1c35;
-    --carte-haute: #272348;
-    --trait: #4c1d95;
-    --texte: #e2e8f0;
-    --doux: #94a3b8;
-    --vif: #7c3aed;
-    --vif-clair: #a78bfa;
-    /* Mesuré le 12 septembre 2026: le rose précédent (#f43f5e) donnait
-       3,67:1 avec du texte blanc, sous le seuil AA de 4,5:1, sur la SEULE
-       action de la page. Celui-ci donne 4,70:1, et le bas du dégradé
-       (#9f1239) 8,02:1: tout le bouton passe, pas seulement un bord. */
-    --action: #e11d48;
-    --ouverte: #4ade80;
-    --titre: ui-sans-serif, "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+    /* Graphite neutre de matériel de studio. Ni bleu nuit, ni noir pur. */
+    --fond: #15171b;
+    --plaque: #1e2126;
+    --creux: #101216;
+    --craie: #eef0f2;
+    --legende: #9aa2ab;
+    /* Mesuré: #3a4048 ne tenait que 1,54:1 sur la plaque, très en dessous
+       des 3:1 exigés d'un élément non textuel. Ce n'est pas un détail: ce
+       trait dessine les segments VIDES de la jauge, et un segment vide
+       invisible fait disparaître l'échelle. On verrait un remplissage sans
+       savoir « sur combien ». Celui-ci tient 3,32:1 sur la plaque. */
+    --trait: #6b727b;
+    /* Les trois canaux prennent trois barres EBU. Une salle garde SA
+       couleur: le canal 2 est cyan même quand il est le seul allumé. */
+    --canal-1: #f2e14b;
+    --canal-2: #57d3f0;
+    --canal-3: #63d488;
+    --alerte: #ff8f6b;
+    --titre: "Anybody", "Helvetica Neue", Arial, sans-serif;
+    --machine: "Departure", ui-monospace, "DejaVu Sans Mono", monospace;
   }
   * { box-sizing: border-box; }
   body {
-    margin: 0;
-    min-height: 100vh;
-    padding: clamp(2rem, 5vh, 4rem) clamp(1.2rem, 6vw, 5rem);
-    display: flex;
-    flex-direction: column;
-    background:
-      radial-gradient(120% 80% at 15% -10%, rgba(124, 58, 237, .28), transparent 60%),
-      radial-gradient(90% 60% at 100% 0%, rgba(244, 63, 94, .14), transparent 55%),
-      var(--fond);
-    color: var(--texte);
-    font: 16px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    margin: 0; min-height: 100vh;
+    display: flex; flex-direction: column;
+    background: var(--fond); color: var(--craie);
+    font: 400 18px/1.5 var(--titre);
+    padding: clamp(1rem, 2.5vh, 2rem) clamp(1rem, 3vw, 3rem);
   }
-  /* Une colonne, centrée. Sur un téléviseur large, un contenu collé au bord
-     gauche laisse l'œil traverser un mètre de vide pour rien. */
-  .page {
-    width: 100%;
-    max-width: 1080px;
-    margin-inline: auto;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-  }
-  /* Aucune salle ouverte: tout se centre dans la hauteur. Un message d'attente
-     collé en haut d'un écran vide se lit comme un reste de page; au milieu, il
-     EST la page. */
-  body[data-vide="oui"] .page { justify-content: center; }
-  body[data-vide="oui"] .salles,
-  body[data-vide="oui"] .ouvrir { justify-content: center; }
-  body[data-vide="oui"] header { text-align: center; }
-  body[data-vide="oui"] .vide-mot { margin-inline: auto; }
+  .page { width: 100%; max-width: 1400px; margin-inline: auto; flex: 1;
+          display: flex; flex-direction: column; gap: clamp(1rem, 2vh, 1.6rem); }
 
-  h1 {
-    font-family: var(--titre);
-    font-size: clamp(2.4rem, 6vw, 4rem);
-    font-weight: 800;
-    letter-spacing: -.03em;
-    margin: 0 0 .15em;
-    background: linear-gradient(100deg, var(--texte) 25%, var(--vif-clair));
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+  /* ── Le rail de continuité, en haut ─────────────────────────────── */
+  .rail {
+    display: flex; align-items: baseline; gap: 1.5rem; flex-wrap: wrap;
+    border-bottom: 2px solid var(--trait); padding-bottom: .7rem;
   }
-  .sous { color: var(--doux); font-size: clamp(1.05rem, 2vw, 1.35rem); margin: 0 0 2.5em; }
+  .marque { font-family: var(--machine); font-size: clamp(15px, 1.5vw, 19px);
+            letter-spacing: .34em; text-transform: uppercase; }
+  .rail-fait { font-family: var(--machine); font-size: clamp(13px, 1.2vw, 16px);
+               color: var(--legende); letter-spacing: .12em; }
+  /* L'horloge est une PREUVE DE VIE, pas une décoration: elle avance tant
+     que le salon répond, elle se fige et grise quand il se tait. Une
+     valeur plutôt qu'une animation, donc elle survit à
+     prefers-reduced-motion, qui ne doit jamais retirer une information. */
+  #horloge { font-family: var(--machine); font-variant-numeric: tabular-nums;
+             margin-left: auto; font-size: clamp(15px, 1.6vw, 21px); letter-spacing: .08em; }
+  #horloge[data-perdue="oui"] { color: var(--legende); }
 
-  .salles {
-    display: grid;
-    gap: 1.4rem;
-    /* `min(290px, 100%)`: sous ~330 px de large, un plancher de 290 px plus les
-     marges du corps poussait la grille plus loin que l'écran. */
-    grid-template-columns: repeat(auto-fill, minmax(min(290px, 100%), 360px));
-    justify-content: start;
-  }
-  /* L'écran vide, lui, occupe toute la largeur disponible: il n'est pas une
-     carte, et le border-dashed d'une seule colonne se lirait comme une salle
-     fantôme. */
-  .salles:has(.vide) { grid-template-columns: minmax(0, 720px); }
+  /* ── Les canaux ─────────────────────────────────────────────────── */
+  .salles { display: flex; flex-direction: column; gap: .6rem; flex: 1; }
 
-  /* La carte ENTIÈRE est le lien: viser une petite étiquette à deux mètres d'un
-     téléviseur est une cible qu'on rate. */
+  /* Les trois canaux se PARTAGENT la hauteur. Une seule bande fine en haut
+     d'un écran de télévision laissait un demi-mètre de vide mort en dessous,
+     ce qui était le défaut principal de la page précédente. */
+  /* Le canal À L'ANTENNE domine: une régie donne le grand écran au direct,
+     et les canaux éteints n'ont presque rien à dire. */
+  a.salle { flex: 2.2; min-height: clamp(120px, 18vh, 260px); }
+  .eteint { flex: 1; min-height: clamp(72px, 9vh, 130px); }
   a.salle {
-    position: relative;
-    display: flex; flex-direction: column; gap: .55rem;
-    min-height: 190px;
-    padding: 1.6rem;
-    border: 1px solid var(--trait);
-    border-radius: 18px;
-    background: linear-gradient(165deg, var(--carte-haute), var(--carte));
-    box-shadow: 0 1px 0 rgba(255,255,255,.06) inset, 0 18px 40px -24px rgba(0,0,0,.9);
-    color: inherit; text-decoration: none;
-    cursor: pointer;
-    transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
-    animation: monte .38s cubic-bezier(.2,.8,.3,1.2) both;
-    animation-delay: calc(var(--rang, 0) * 60ms);
+    --canal: var(--canal-1);
+    position: relative; display: grid; align-items: center;
+    grid-template-columns: clamp(76px, 9vw, 136px) 1fr auto;
+    gap: clamp(1rem, 2.5vw, 2.4rem);
+    padding: clamp(.9rem, 1.8vh, 1.5rem) clamp(1rem, 2vw, 1.8rem);
+    background: var(--plaque); color: inherit; text-decoration: none;
+    border: 0; border-left: 6px solid var(--canal);
+    animation: entre .32s steps(4, end) both;
+    animation-delay: calc(var(--rang, 0) * 70ms);
   }
-  a.salle:hover, a.salle:focus-visible {
-    transform: translateY(-3px);
-    border-color: var(--vif-clair);
-    box-shadow: 0 1px 0 rgba(255,255,255,.10) inset, 0 26px 50px -26px rgba(124,58,237,.85);
-  }
-  @keyframes monte { from { opacity: 0; transform: translateY(14px) scale(.97); } }
+  a.salle[data-canal="2"] { --canal: var(--canal-2); }
+  a.salle[data-canal="3"] { --canal: var(--canal-3); }
+  /* Pas de soulèvement ni d'ombre portée: sur un pupitre de régie, le
+     canal sélectionné s'ÉCLAIRE, il ne décolle pas de la table. */
+  a.salle:hover, a.salle:focus-visible { background: #262a30; }
+  a.salle:focus-visible { outline: 3px solid var(--craie); outline-offset: -3px; }
+  @keyframes entre { from { opacity: 0; } }
 
-  .titre {
-    font-family: var(--titre);
-    font-size: clamp(1.45rem, 2.6vw, 2rem);
-    font-weight: 700;
-    letter-spacing: -.01em;
+  /* Un canal ÉTEINT reste à sa place: la machine a trois emplacements, et
+     les cacher laissait croire qu'elle n'en a qu'un. Ce n'est pas un lien:
+     il n'y a rien à rejoindre, et le pilote compte les salles ouvertes. */
+  .eteint {
+    display: grid; align-items: center;
+    grid-template-columns: clamp(76px, 9vw, 136px) 1fr;
+    gap: clamp(1rem, 2.5vw, 2.4rem);
+    padding: clamp(.9rem, 1.8vh, 1.5rem) clamp(1rem, 2vw, 1.8rem);
+    border-left: 6px solid var(--trait);
+    background: var(--creux); color: var(--legende);
   }
-  /* Le jeu en toutes lettres: une pastille de couleur ne se lit ni de loin, ni
-     pour qui distingue mal les couleurs. */
-  .etat { color: var(--doux); font-size: 1.08rem; }
-  .etat::before {
-    content: "";
-    display: inline-block;
-    width: .55rem; height: .55rem;
-    margin-right: .55rem;
-    border-radius: 50%;
-    background: var(--ouverte);
-    box-shadow: 0 0 10px var(--ouverte);
-    vertical-align: middle;
-  }
-  /* Les présents, sous le jeu. Même encre que lui: c'est la même nature
-     d'information, ce que la salle contient en ce moment. */
-  .gens { color: var(--texte); font-size: 1.02rem; }
-  .gens[data-vide="oui"] { color: var(--doux); }
-  .marques { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: auto; }
-  .marque {
-    border: 1px solid var(--trait);
-    border-radius: 999px;
-    padding: .2rem .75rem;
-    font-size: .95rem;
-    color: var(--vif-clair);
-    background: rgba(124,58,237,.12);
-  }
-  .rejoindre {
-    align-self: flex-start;
-    margin-top: .3rem;
-    color: var(--vif-clair);
-    font-weight: 650;
-    font-size: 1.08rem;
-  }
-  a.salle:hover .rejoindre::after, a.salle:focus-visible .rejoindre::after { transform: translateX(4px); }
-  .rejoindre::after {
-    content: "→";
-    display: inline-block;
-    margin-left: .4rem;
-    transition: transform .18s ease;
-  }
+  .eteint .canal-chiffre { color: var(--trait); }
+  .eteint-mot { font-family: var(--machine); font-size: clamp(13px, 1.3vw, 17px);
+                letter-spacing: .18em; }
 
-  .vide {
-    grid-column: 1 / -1;
-    border: 1px dashed var(--trait);
-    border-radius: 18px;
-    padding: 3rem 1.5rem;
-    text-align: center;
-    background: rgba(30,28,53,.5);
-  }
-  .vide-titre { font-family: var(--titre); margin: 0 0 .5rem; font-size: 1.6rem; font-weight: 700; }
-  .vide-mot { margin: 0 auto; max-width: 46ch; color: var(--doux); font-size: 1.08rem; }
+  .numero { display: flex; flex-direction: column; gap: .25rem; }
+  /* En bas de casse et SANS text-transform: `innerText` rend la casse
+     affichée, et le pilote du salon cherche « salle N » tel quel. En
+     Anybody et non en Departure, dont le sous-ensemble n'a que les
+     capitales et les chiffres. */
+  .canal-mot { font-family: var(--titre); font-weight: 400;
+               font-size: clamp(12px, 1.1vw, 15px); letter-spacing: .16em;
+               color: var(--legende); white-space: nowrap; }
+  .canal-chiffre { font-family: var(--titre); font-weight: 700;
+                   font-size: clamp(40px, 6.4vw, 96px); line-height: .82;
+                   color: var(--canal); font-variant-numeric: tabular-nums; }
+  .corps { min-width: 0; }
+  /* RÈGLE TENUE COMME UNE CONTRAINTE: le nom du jeu est la plus grosse
+     ligne de TEXTE de la page. C'est la seule chose qu'on vient lire. */
+  .jeu { font-family: var(--titre); font-weight: 700;
+         font-size: clamp(24px, 3.2vw, 44px); line-height: 1.08;
+         letter-spacing: -.01em; overflow-wrap: anywhere; }
+  /* Sans jeu, « sur son menu » cesse d'être la plus grosse ligne de la
+     page: la règle veut que le JEU domine, pas son absence. */
+  .jeu[data-menu="oui"] { color: var(--legende); font-weight: 400;
+                          font-size: clamp(18px, 1.9vw, 26px); }
+  .gens { font-size: clamp(15px, 1.5vw, 20px); color: var(--craie); margin-top: .25em; }
+  .gens[data-vide="oui"] { color: var(--legende); }
 
-  .ouvrir { margin-top: 2.8rem; display: flex; align-items: center; gap: 1.2rem; flex-wrap: wrap; }
-  button {
-    font: inherit; font-size: 1.1rem; font-weight: 650;
-    min-height: 52px; padding: .8rem 1.6rem;
-    border: 0; border-radius: 12px;
-    background: linear-gradient(160deg, var(--action), #9f1239);
-    color: #fff;
-    cursor: pointer;
-    box-shadow: 0 14px 30px -18px var(--action);
-    transition: transform .15s ease, box-shadow .15s ease, filter .15s ease;
+  /* La jauge: un segment par personne présente, quatre segments.
+     Elle dit COMBIEN de personnes sont là, jamais qui tient quelle
+     manette: la liste du salon ne porte pas les places. */
+  /* Des segments PLEINS, jamais des cadres vides: quatre rectangles ajourés
+     alignés à côté d'un texte en chasse fixe se lisaient comme du « tofu »,
+     le carré qu'un navigateur dessine quand un glyphe manque. Une jauge qui
+     a l'air d'un bug est pire qu'une jauge absente. */
+  /* Une PISTE encadrée, et non quatre cases flottantes. Deux contraintes
+     s'opposaient: le segment vide doit se voir sur la plaque (échelle), et
+     le segment plein doit se détacher du vide (lecture). Un gris unique ne
+     peut pas les tenir toutes les deux face à des couleurs vives: mesuré,
+     le vert ne tenait que 2,81:1 contre un vide assez clair. Le cadre porte
+     donc l'échelle, et les segments vides redeviennent sombres. */
+  .jauge { display: flex; gap: 3px; justify-content: flex-end;
+           border: 2px solid var(--trait); padding: 3px; }
+  /* Le segment VIDE doit se voir: mesuré, #2b313a ne tenait que 1,23:1 sur
+     la plaque, donc l'échelle disparaissait et la jauge ne disait plus « sur
+     combien ». Celui-ci tient 3,08:1, seuil du non textuel, sans redevenir
+     un cadre ajouré. */
+  .jauge span { width: clamp(13px, 1.5vw, 20px); height: clamp(26px, 4vh, 50px);
+                background: #2b313a; }
+  .jauge span[data-plein="oui"] { background: var(--canal); }
+  .jauge-mot { font-family: var(--machine); font-size: 12px; letter-spacing: .1em;
+               color: var(--legende); margin-top: .35rem; text-align: right; }
+  .marque-switch { font-family: var(--machine); font-size: 12px; letter-spacing: .12em;
+                   color: var(--fond); background: var(--canal); padding: 2px 7px; }
+
+  /* ── Hors antenne: la mire prend toute la page ──────────────────── */
+  .vide { flex: 1; display: grid; place-items: center; position: relative;
+          border: 2px solid var(--trait); min-height: 40vh; overflow: hidden; }
+  /* Barres EBU, dessinées en dégradé à arrêts nets: aucune image. */
+  .vide::before {
+    /* Une mire tire sa force de sa SATURATION. À 22 pour cent elle rendait
+       un olive et un mauve délavés, c'est-à-dire le réflexe timide qui
+       produit du générique. */
+    content: ""; position: absolute; inset: 0; opacity: .62;
+    background: linear-gradient(90deg,
+      #eef0f2 0 14.28%, #f2e14b 14.28% 28.56%, #57d3f0 28.56% 42.84%,
+      #63d488 42.84% 57.12%, #d06fd0 57.12% 71.4%, #e0604f 71.4% 85.68%,
+      #4f63e0 85.68% 100%);
   }
-  button:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.08); }
-  /* PAS `opacity: .4`: le texte tombait à 2,21:1, illisible. Des couleurs
-     explicites tiennent 6,44:1 tout en disant clairement « indisponible ». */
-  button:disabled {
-    cursor: not-allowed; box-shadow: none;
-    background: var(--carte); color: var(--doux);
-    border: 1px solid var(--trait);
+  /* OPAQUE. À 86 pour cent, les barres transparaissaient derrière les
+     lettres et le contraste changeait d'un mot à l'autre, alors que la
+     mesure supposait un fond uni. Une couleur qu'on ne peut pas mesurer
+     n'est pas une couleur accessible. */
+  .vide-bloc { position: relative; text-align: center;
+               padding: clamp(1.5rem, 4vh, 2.6rem) clamp(1.5rem, 4vw, 3rem);
+               background: var(--fond); border: 2px solid var(--trait); }
+  .vide-titre { font-family: var(--machine); font-size: clamp(22px, 3.4vw, 46px);
+                letter-spacing: .22em; margin: 0 0 .5rem; }
+  .vide-mot { margin: 0 auto; max-width: 48ch; color: var(--legende);
+              font-size: clamp(15px, 1.6vw, 20px); }
+
+  /* ── Le pupitre, en bas ─────────────────────────────────────────── */
+  .ouvrir { display: flex; align-items: center; gap: 1.2rem; flex-wrap: wrap;
+            border-top: 2px solid var(--trait); padding-top: 1rem; }
+  button#ouvrir {
+    font: 700 clamp(16px, 1.7vw, 21px) var(--titre); letter-spacing: .02em;
+    min-height: 56px; padding: .7rem 1.8rem;
+    border: 2px solid var(--craie); border-radius: 0;
+    background: var(--craie); color: var(--fond); cursor: pointer;
   }
-  .mot { color: var(--doux); font-size: 1.05rem; }
-  .mot[data-refus="oui"] { color: #ffb4a2; }
-  .perdu { color: #ffb4a2; font-size: 1.05rem; }
+  button#ouvrir:hover:not(:disabled) { background: var(--canal-1); border-color: var(--canal-1); }
+  button#ouvrir:disabled { cursor: not-allowed; background: transparent;
+                           color: var(--legende); border-color: var(--trait); }
+  .mot, .perdu { font-size: clamp(14px, 1.4vw, 18px); color: var(--legende); }
+  .mot[data-refus="oui"], .perdu { color: var(--alerte); }
   .perdu[hidden] { display: none; }
 
   .retour[hidden] { display: none; }
-  .retour {
-    display: block;
-    width: 100%;
-    max-width: 78ch;
-    margin: 0 0 2.2rem; padding: 1.1rem 1.3rem;
-    border: 1px solid var(--trait); border-radius: 14px;
-    background: linear-gradient(165deg, var(--carte-haute), var(--carte));
-    color: var(--texte); font: inherit; font-size: 1.05rem;
-    text-align: left; cursor: pointer;
+  .retour { display: block; width: 100%; margin: 0 0 .4rem; padding: 1rem 1.2rem;
+            border: 0; border-left: 6px solid var(--alerte); background: var(--creux);
+            color: var(--craie); font: inherit; font-size: clamp(15px, 1.5vw, 19px);
+            text-align: left; cursor: pointer; }
+  :focus-visible { outline: 3px solid var(--craie); outline-offset: 3px; }
+
+  @media (max-width: 620px) {
+    a.salle { grid-template-columns: clamp(56px, 14vw, 76px) 1fr; }
+    .jauge { grid-column: 1 / -1; flex-direction: row; }
+    .jauge span { width: 100%; height: 10px; }
+    .jauge-mot { text-align: left; }
   }
-  .retour:hover { border-color: var(--vif-clair); }
-
-  :focus-visible { outline: 3px solid var(--vif-clair); outline-offset: 3px; }
-
-  /* Une animation n'est jamais nécessaire à la compréhension de cette page. */
+  /* Une animation n'est jamais nécessaire à la compréhension de cette
+     page. L'horloge, elle, reste: c'est une valeur, pas un mouvement. */
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; transition: none !important; }
   }
 </style>
 </head>
 <body>
-  <!-- Le retour d'une salle qui s'est fermée. Cliquable pour disparaître,
-       comme le bandeau de la salle: un message qu'on ne peut pas faire taire
-       finit par être contourné. -->
   <button type="button" id="retour" class="retour" hidden></button>
 
   <main class="page">
-    <header>
-      <h1>nel3ab</h1>
-      <p class="sous">Choisis une salle, ou ouvre la tienne.</p>
-    </header>
+    <div class="rail">
+      <span class="marque">nel3ab</span>
+      <span class="rail-fait" id="antenne"></span>
+      <span class="rail-fait" id="horloge">--:--:--</span>
+    </div>
 
     <div class="salles" id="salles" aria-live="polite"></div>
 
@@ -285,30 +293,36 @@
       // milieu d'une navigation. Rien de tout ça ne se voit en développement,
       // où la liste ne change jamais pendant qu'on la regarde.
       liste.querySelector(".vide")?.remove();
+      // Les noeuds sont MIS À JOUR, pas refaits: refaire relance l'animation
+      // et fait tomber le focus du clavier au milieu d'une navigation.
       const vieilles = new Map(
         [...liste.children].map(noeud => [noeud.dataset.salle, noeud]),
       );
       let precedent = null;
-      ouvertes.forEach((salle, rang) => {
+      salles.forEach((salle, rang) => {
         const cle = String(salle.numero);
         let noeud = vieilles.get(cle);
-        if (noeud) {
-          remplir(noeud, salle);
+        // Un emplacement change de NATURE quand il s'ouvre ou se ferme: on ne
+        // transforme pas un lien en bloc éteint, on remplace le noeud.
+        const bonType = noeud
+          && (salle.ouverte ? noeud.tagName === "A" : noeud.tagName !== "A");
+        if (noeud && bonType) {
+          (salle.ouverte ? remplir : remplirEteint)(noeud, salle);
           vieilles.delete(cle);
         } else {
-          noeud = carte(salle);
-          // La cascade: le CSS lit `--rang`, que personne ne posait, donc les
-          // cartes apparaissaient toutes en même temps.
+          if (noeud) { noeud.remove(); vieilles.delete(cle); }
+          noeud = salle.ouverte ? carte(salle) : eteint(salle);
           noeud.style.setProperty("--rang", String(rang));
         }
-        // Déplacé SEULEMENT si sa place a changé: bouger un noeud relance son
-        // animation, et c'est précisément ce qu'on vient d'éviter.
         const attendu = precedent === null ? liste.firstChild : precedent.nextSibling;
         if (attendu !== noeud) liste.insertBefore(noeud, attendu);
         precedent = noeud;
       });
       for (const partie of vieilles.values()) partie.remove();
     }
+
+    document.getElementById("antenne").textContent =
+      `${ouvertes.length} / ${salles.length} CANAUX EN ANTENNE`;
 
     bouton.disabled = libres === 0;
     bouton.textContent = ouvertes.length === 0 ? "ouvrir la première salle" : "ouvrir une salle";
@@ -329,67 +343,139 @@
   }
 
   function vide() {
+    // HORS ANTENNE. L'état le plus fréquent du service devient sa plus belle
+    // image, et non une excuse: la machine est allumée, elle n'émet rien.
     const bloc = document.createElement("div");
     bloc.className = "vide";
+    const dedans = document.createElement("div");
+    dedans.className = "vide-bloc";
     const titre = document.createElement("p");
     titre.className = "vide-titre";
-    titre.textContent = "Aucune salle ouverte";
+    titre.textContent = "HORS ANTENNE";
     const dit = document.createElement("p");
     dit.className = "vide-mot";
+    // Le pilote du salon vérifie cette phrase: « Aucune salle ouverte ».
     dit.textContent =
-      "Rien ne tourne sur le serveur pour l'instant. Ouvre une salle et choisis ton jeu.";
-    bloc.append(titre, dit);
+      "Aucune salle ouverte. Rien ne tourne sur le serveur, "
+      + "donc rien ne consomme. Ouvre un canal et choisis ton jeu.";
+    dedans.append(titre, dit);
+    bloc.append(dedans);
     return bloc;
+  }
+
+  function eteint(salle) {
+    const bloc = document.createElement("div");
+    bloc.className = "eteint";
+    bloc.dataset.salle = String(salle.numero);
+    const numero = document.createElement("div");
+    numero.className = "numero";
+    const mot = document.createElement("span");
+    mot.className = "canal-mot";
+    const chiffre = document.createElement("span");
+    chiffre.className = "canal-chiffre";
+    numero.append(mot, chiffre);
+    const dit = document.createElement("div");
+    dit.className = "eteint-mot";
+    bloc.append(numero, dit);
+    remplirEteint(bloc, salle);
+    return bloc;
+  }
+
+  function remplirEteint(noeud, salle) {
+    noeud.querySelector(".canal-mot").textContent = `salle ${salle.numero}`;
+    noeud.querySelector(".canal-chiffre").textContent = String(salle.numero);
+    noeud.querySelector(".eteint-mot").textContent = "HORS SERVICE";
   }
 
   function carte(salle) {
     const carte = document.createElement("a");
     carte.className = "salle";
     carte.dataset.salle = String(salle.numero);
-    const titre = document.createElement("div");
-    titre.className = "titre";
-    const etat = document.createElement("div");
-    etat.className = "etat";
+    carte.dataset.canal = String(salle.numero);
+
+    const numero = document.createElement("div");
+    numero.className = "numero";
+    const canalMot = document.createElement("span");
+    canalMot.className = "canal-mot";
+    const canalChiffre = document.createElement("span");
+    canalChiffre.className = "canal-chiffre";
+    numero.append(canalMot, canalChiffre);
+
+    const corps = document.createElement("div");
+    corps.className = "corps";
+    const jeu = document.createElement("div");
+    jeu.className = "jeu";
     const gens = document.createElement("div");
     gens.className = "gens";
-    const marques = document.createElement("div");
-    marques.className = "marques";
-    const rejoindre = document.createElement("span");
-    rejoindre.className = "rejoindre";
-    rejoindre.textContent = "rejoindre";
-    carte.append(titre, etat, gens, marques, rejoindre);
+    corps.append(jeu, gens);
+
+    const droite = document.createElement("div");
+    const jauge = document.createElement("div");
+    jauge.className = "jauge";
+    for (let i = 0; i < 4; i += 1) jauge.append(document.createElement("span"));
+    const mot = document.createElement("div");
+    mot.className = "jauge-mot";
+    droite.append(jauge, mot);
+
+    carte.append(numero, corps, droite);
     remplir(carte, salle);
     return carte;
   }
 
-  /** Ce qui CHANGE dans une carte, sans refaire la carte.
-   *
-   * Le jeu en toutes lettres, et pas seulement une pastille de couleur: une
-   * couleur seule ne se lit ni de loin ni pour qui les distingue mal. */
+  /** Ce qui CHANGE dans une carte, sans refaire la carte. */
   function remplir(noeud, salle) {
     noeud.href = salle.chemin;
-    noeud.querySelector(".titre").textContent = `salle ${salle.numero}`;
-    noeud.querySelector(".etat").textContent = salle.jeu ?? "sur son menu";
-    // Qui est là, en toutes lettres. Une carte qui ne le dit pas oblige à
-    // entrer pour le savoir, et entrer prend une manette à quelqu'un.
+    // Le pilote lit « salle N » dans le texte de la carte: le chiffre seul
+    // ne suffirait pas, et un lecteur d'écran ne dirait qu'un nombre.
+    noeud.setAttribute("aria-label", `salle ${salle.numero}`);
+    // « salle N » en toutes lettres, et visible: un chiffre nu ne dit pas
+    // « 1 de quoi ». Le pilote du salon le lit dans le texte de la carte.
+    noeud.querySelector(".canal-mot").textContent = `salle ${salle.numero}`;
+    noeud.querySelector(".canal-chiffre").textContent = String(salle.numero);
+
+    // Le jeu en toutes lettres, et c'est la plus grosse ligne de la page:
+    // c'est la seule chose qu'on vient lire de loin.
+    const jeu = noeud.querySelector(".jeu");
+    jeu.textContent = salle.jeu ?? "sur son menu";
+    jeu.dataset.menu = salle.jeu ? "non" : "oui";
+
     const gens = salle.gens ?? [];
     const ligne = noeud.querySelector(".gens");
     ligne.textContent = gens.length === 0 ? "personne pour l'instant" : gens.join(" · ");
     ligne.dataset.vide = gens.length === 0 ? "oui" : "non";
-    const marques = noeud.querySelector(".marques");
-    const veut = salle.switch ? ["Switch"] : [];
-    if ([...marques.children].map(n => n.textContent).join("|") !== veut.join("|")) {
-      marques.replaceChildren(...veut.map(texte => {
-        const marque = document.createElement("span");
-        marque.className = "marque";
-        marque.textContent = texte;
-        return marque;
-      }));
-    }
+
+    // La jauge dit COMBIEN de personnes sont là. Surtout pas qui tient
+    // quelle manette: `/api/salles` rend une liste de pseudos sans numéro
+    // de place, et prétendre le contraire serait un mensonge d'interface.
+    const cases = noeud.querySelectorAll(".jauge span");
+    cases.forEach((c, i) => { c.dataset.plein = i < gens.length ? "oui" : "non"; });
+    const mot = noeud.querySelector(".jauge-mot");
+    // Elle se NOMME, sinon quatre traits ne disent rien. Et elle compte des
+    // personnes, pas des manettes: le salon ne sait pas qui tient quoi.
+    const bouts = [gens.length === 0 ? "PERSONNE"
+      : `${gens.length} PRESENT${gens.length > 1 ? "S" : ""}`];
+    if (salle.switch) bouts.push("SWITCH");
+    mot.textContent = bouts.join(" · ");
   }
 
   /** Combien de tours de suite le salon n'a rien rendu. */
   let ratés = 0;
+  const horloge = document.getElementById("horloge");
+
+  /** L'heure du DERNIER relevé réussi, pas l'heure qu'il est.
+   *
+   * C'est ce qui en fait une preuve de vie: elle avance tant que le salon
+   * répond, elle se fige dès qu'il se tait. Une valeur, pas une animation,
+   * donc elle dit encore quelque chose sous prefers-reduced-motion. */
+  function marquer(perdue) {
+    if (!perdue) {
+      const d = new Date();
+      const deux = (n) => String(n).padStart(2, "0");
+      horloge.textContent = `${deux(d.getHours())}:${deux(d.getMinutes())}:${deux(d.getSeconds())}`;
+    }
+    horloge.dataset.perdue = perdue ? "oui" : "non";
+  }
+
   async function relire() {
     try {
       const reponse = await fetch("/api/salles", { cache: "no-store" });
@@ -397,18 +483,15 @@
       const salles = await reponse.json();
       ratés = 0;
       perdu.hidden = true;
-      // Un refus PRÉCÉDENT ne doit pas figer la ligne d'état pour toujours: il
-      // restait jusqu'au rechargement, donc la page continuait d'annoncer un
-      // échec que le tour suivant avait démenti.
+      marquer(false);
+      // Un refus PRÉCÉDENT ne doit pas figer la ligne d'état pour toujours.
       delete mot.dataset.refus;
       dessiner(salles);
     } catch {
-      // Le salon redémarre en deux secondes: on retente au prochain tour plutôt
-      // que d'effacer la liste sous les yeux de quelqu'un. Mais une liste qui
-      // ne se met plus à jour a EXACTEMENT l'air d'une liste fraîche, et c'est
-      // le pire des deux: au bout de deux tours, elle le dit.
+      // Une liste qui ne se met plus à jour a EXACTEMENT l'air d'une liste
+      // fraîche: au bout de deux tours, l'horloge grise et la page le dit.
       ratés += 1;
-      if (ratés >= 2) perdu.hidden = false;
+      if (ratés >= 2) { perdu.hidden = false; marquer(true); }
     }
   }
 

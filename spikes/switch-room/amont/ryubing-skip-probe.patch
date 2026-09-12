@@ -1,0 +1,55 @@
+diff --git a/src/Ryujinx.HLE/HOS/Services/SurfaceFlinger/BufferQueueProducer.cs b/src/Ryujinx.HLE/HOS/Services/SurfaceFlinger/BufferQueueProducer.cs
+index 47429097..797d616a 100644
+--- a/src/Ryujinx.HLE/HOS/Services/SurfaceFlinger/BufferQueueProducer.cs
++++ b/src/Ryujinx.HLE/HOS/Services/SurfaceFlinger/BufferQueueProducer.cs
+@@ -842,8 +842,21 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
+                         return Status.WouldBlock;
+                     }
+ 
++                    // The game is out of free buffers: it waits here instead of
++                    // producing a frame. Without these two lines a missing frame
++                    // looks the same whether the game was computing or waiting.
++                    if (_latencyProbe)
++                    {
++                        Console.Error.WriteLine($"NEL3AB_DEQWAIT t_ns={System.Diagnostics.Stopwatch.GetTimestamp()} phase=begin");
++                    }
++
+                     Core.WaitDequeueEvent();
+ 
++                    if (_latencyProbe)
++                    {
++                        Console.Error.WriteLine($"NEL3AB_DEQWAIT t_ns={System.Diagnostics.Stopwatch.GetTimestamp()} phase=end");
++                    }
++
+                     if (!Core.Active)
+                     {
+                         break;
+diff --git a/src/Ryujinx.HLE/HOS/Services/SurfaceFlinger/SurfaceFlinger.cs b/src/Ryujinx.HLE/HOS/Services/SurfaceFlinger/SurfaceFlinger.cs
+index 219c5c18..efb27545 100644
+--- a/src/Ryujinx.HLE/HOS/Services/SurfaceFlinger/SurfaceFlinger.cs
++++ b/src/Ryujinx.HLE/HOS/Services/SurfaceFlinger/SurfaceFlinger.cs
+@@ -404,9 +404,22 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
+ 
+                     PostFrameBuffer(layer, item);
+                 }
+-                else if (acquireStatus is not Status.NoBufferAvailaible and not Status.InvalidOperation)
++                else
+                 {
+-                    throw new InvalidOperationException();
++                    // Two different causes share this branch: an empty queue
++                    // (NoBufferAvailaible) and a frame still held by the
++                    // consumer (InvalidOperation, MaxAcquiredBufferCount).
++                    // They lead to opposite conclusions, so the probe tells
++                    // them apart and reports how many frames were queued.
++                    if (_latencyProbe)
++                    {
++                        Console.Error.WriteLine($"NEL3AB_SKIP t_ns={Stopwatch.GetTimestamp()} status={acquireStatus}({(int)acquireStatus}) queued={layer.Core.Queue.Count}");
++                    }
++
++                    if (acquireStatus is not Status.NoBufferAvailaible and not Status.InvalidOperation)
++                    {
++                        throw new InvalidOperationException();
++                    }
+                 }
+             }
+         }

@@ -1,0 +1,34 @@
+diff --git a/src/ARMeilleure/Translation/Translator.cs b/src/ARMeilleure/Translation/Translator.cs
+index 9a5e527a..b8a72599 100644
+--- a/src/ARMeilleure/Translation/Translator.cs
++++ b/src/ARMeilleure/Translation/Translator.cs
+@@ -212,12 +212,29 @@ namespace ARMeilleure.Translation
+ 
+ 
+ 
++        private static readonly bool _latencyProbe = Environment.GetEnvironmentVariable("NEL3AB_LATENCY_PROBE") == "1";
++
+         internal TranslatedFunction GetOrTranslate(ulong address, ExecutionMode mode)
+         {
+             if (!Functions.TryGetValue(address, out TranslatedFunction func))
+             {
++                // On-demand translation runs on the guest thread itself, so a slow
++                // one is a frame the game could not finish. Only translations over
++                // a millisecond are reported, to keep the log light.
++                long probeStart = _latencyProbe ? Stopwatch.GetTimestamp() : 0;
++
+                 func = Translate(address, mode, highCq: false);
+ 
++                if (_latencyProbe)
++                {
++                    long probeEnd = Stopwatch.GetTimestamp();
++
++                    if (probeEnd - probeStart > 1_000_000)
++                    {
++                        Console.Error.WriteLine($"NEL3AB_JIT t_ns={probeEnd} us={(probeEnd - probeStart) / 1000} addr={address:x}");
++                    }
++                }
++
+                 TranslatedFunction oldFunc = Functions.GetOrAdd(address, func.GuestSize, func);
+ 
+                 if (oldFunc != func)

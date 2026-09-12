@@ -1,0 +1,22 @@
+# Le plan de contrôle ouvre et ferme les salles, et RIEN D'AUTRE.
+#
+# `souhib` a déjà `NOPASSWD: ALL` sur cette machine, ce qui suffirait
+# techniquement. Ce serait pourtant une faute: le plan de contrôle est un
+# service joignable par tout le tailnet, et s'appuyer sur ce droit-là
+# reviendrait à offrir root au réseau à la première faille de FastAPI. Ces
+# lignes n'autorisent que ce que le plan de contrôle fait vraiment.
+#
+# Les instances sont nommées UNE PAR UNE plutôt qu'avec une étoile:
+# `nel3ab-worker@*` accepterait n'importe quel nom d'instance, y compris un nom
+# fabriqué par un appelant, et la limite de deux salles cesserait d'être une
+# limite. Ajouter une salle est donc une décision qui s'écrit ici.
+#
+# `is-active` et `show` ne demandent aucun droit et ne figurent pas ici.
+#
+#   sudo install -m 440 -o root -g root deploy/nel3ab-salles.sudoers \
+#       /etc/sudoers.d/nel3ab-salles
+#   sudo visudo -c
+souhib ALL=(root) NOPASSWD: /usr/bin/systemctl start nel3ab-worker@1, \
+                            /usr/bin/systemctl stop nel3ab-worker@1, \
+                            /usr/bin/systemctl start nel3ab-worker@2, \
+                            /usr/bin/systemctl stop nel3ab-worker@2

@@ -1,0 +1,60 @@
+# Une salle parmi plusieurs, lancée et arrêtée par le plan de contrôle.
+#
+# `%i` est le numéro de la salle, celui qui suit l'arobase:
+# `systemctl start nel3ab-worker@1` lance la salle 1.
+#
+# LES PORTS SE LISENT, ILS NE SE CALCULENT PAS. systemd ne sait pas faire
+# d'arithmétique, donc le numéro est inséré dans le port: `81%i0` donne 8110
+# pour la salle 1 et 8120 pour la salle 2, et `81%i1` donne leur port de
+# contrôle. Cela tient de la salle 1 à la salle 9, ce qui laisse de la marge
+# devant la limite de deux salles décidée le 12 septembre 2026.
+#
+# Le port 8100 reste celui de l'ancienne salle unique tant qu'elle existe: les
+# deux séries ne se croisent jamais.
+#
+# `Restart=on-failure` ET PAS `always`, contrairement à la salle unique. C'est
+# la ligne qui rend la fermeture possible: le worker s'arrête tout seul quand
+# plus personne ne joue depuis une demi-heure, et `always` le relancerait deux
+# secondes plus tard, indéfiniment. Un plantage, lui, rend un code d'erreur et
+# est toujours relevé.
+#
+#   sudo cp deploy/nel3ab-worker@.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   systemctl start nel3ab-worker@1
+#
+# Pas de `[Install]`: une salle ne démarre pas au boot. Elle est ouverte par
+# quelqu'un depuis le salon, et une salle que personne n'a demandée serait
+# exactement la dépense que ce chantier supprime.
+
+[Unit]
+Description=nel3ab salle %i (un émulateur, deux formats vidéo)
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+User=souhib
+WorkingDirectory=/home/souhib/nel3ab-retro/core
+ExecStart=/home/souhib/nel3ab-retro/core/target/release/nel3ab-worker
+Environment=HOME=/home/souhib
+Environment=RUST_LOG=info
+Restart=on-failure
+RestartSec=2
+# Voir l'unité de la salle unique: le worker reçoit SIGTERM seul et ferme
+# l'émulateur avant de sortir, capture et sauvegardes comprises.
+KillMode=mixed
+TimeoutStopSec=90
+
+Environment=NEL3AB_BIND=127.0.0.1:81%i0
+Environment=NEL3AB_CONTROL_BIND=127.0.0.1:81%i1
+# Un dossier de session PAR SALLE. Deux salles qui partageraient celui-ci
+# écraseraient leurs sauvegardes l'une l'autre; le worker refuse d'ailleurs de
+# démarrer sur un dossier déjà tenu, depuis le 12 septembre 2026.
+Environment=NEL3AB_SESSION_DIR=/home/souhib/.local/state/nel3ab/salles/%i
+# Un conteneur Dolphin par salle, pour la même raison: le nom par défaut est le
+# même pour tout le monde, et la deuxième salle gèlerait la première.
+Environment=NEL3AB_CONTAINER=nel3ab-dolphin-%i
+Environment="NEL3AB_ROM=/home/souhib/roms/gc/Super Smash Bros Melee.rvz"
+Environment="NEL3AB_ROM_DIR=/home/souhib/roms/gc:/home/souhib/roms/wii:/home/souhib/roms/switch"
+Environment=NEL3AB_SWITCH_CONFIG=/home/souhib/.config/nel3ab/switch.json
+Environment=NEL3AB_PLAYERS=4
+Environment=NEL3AB_INTERNAL_RES=2

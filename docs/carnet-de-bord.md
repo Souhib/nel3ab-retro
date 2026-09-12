@@ -13279,6 +13279,46 @@ de sortie non nul, donc essai rouge alors que la mesure était bonne. Un rapport
 faux dans ce sens-là est aussi dangereux que dans l'autre: on apprend à ignorer
 un essai qui crie pour rien.
 
+### Une salle devient une unité qu'on allume et qu'on éteint
+
+*12 septembre 2026.*
+
+**Le modèle d'unité.** Jusqu'ici une seule salle existait, permanente, décrite
+par une unité systemd unique. Les salles multiples demandent un **modèle**:
+`nel3ab-worker@1` et `nel3ab-worker@2` sont deux instances du même fichier, et
+le numéro après l'arobase est tout ce qui les distingue. systemd ne sait pas
+compter, alors le numéro est inséré dans le port plutôt que calculé: `81%i0`
+donne 8110 pour la salle 1 et 8120 pour la salle 2, avec leur port de contrôle
+juste à côté. Chaque salle reçoit aussi son dossier de session et son nom de
+conteneur Dolphin, sans quoi la deuxième salle écraserait les sauvegardes de la
+première et gèlerait son émulateur.
+
+**Le mot qui change tout: `on-failure` au lieu de `always`.** La salle unique se
+relève toujours, et c'est ce qu'il faut pour une salle permanente. Une salle
+qu'on ferme doit rester fermée; `always` la rouvrirait deux secondes plus tard.
+Un plantage, lui, rend un code d'erreur et reste relevé. Pas de section
+`[Install]` non plus: une salle ne démarre pas au boot, elle est ouverte par
+quelqu'un, et une salle que personne n'a demandée serait exactement la dépense
+que ce chantier supprime.
+
+Vérifié le jour même sur la vraie machine: la salle 1 démarre, sert sa page sur
+8110, dit « salle ouverte sans jeu », puis s'arrête et reste arrêtée.
+
+**Le droit d'allumer, et rien d'autre.** Le plan de contrôle devra démarrer et
+arrêter ces unités. Il tourne sous un compte qui possède `NOPASSWD: ALL` sur
+cette machine, ce qui suffirait techniquement et serait une faute: ce service
+est joignable par tout le tailnet, et s'appuyer sur ce droit-là reviendrait à
+offrir root au réseau à la première faille. Une règle dédiée n'autorise que
+`start` et `stop` sur ces deux instances, nommées une par une: une étoile
+accepterait n'importe quel nom d'instance, et la limite de deux salles cesserait
+d'être une limite.
+
+Sa portée réelle mérite d'être dite honnêtement: tant que le compte garde son
+`NOPASSWD: ALL` général, cette règle ne restreint rien. Elle ne devient une
+protection que le jour où ce droit général disparaît, ou si le plan de contrôle
+passe sous un compte à lui. C'est une décision qui appartient à l'humain, pas au
+programme.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une

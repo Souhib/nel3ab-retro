@@ -24,5 +24,10 @@ console.log(`  l'autre page : ${await other.evaluate(() => globalThis.nel3abTest
 console.log(`  cette page   : ${await mine.evaluate(() => globalThis.nel3abTest.seat())}`);
 console.log(`  panneau      : ${await mine.evaluate(() =>
   [...document.querySelectorAll("#ports [data-state]")].map((seat) => seat.dataset.state).join(" | "))}`);
-await (await mine.$("#ports")).screenshot({ path: "/tmp/claude-1000/-home-souhib-nel3ab-retro/0d1d7749-e76b-413d-af12-878c112fd66e/scratchpad/panel.png" });
+// La sortie sous `/tmp/nel3ab-*`, comme le reste du dépôt. Elle a porté un
+// chemin de scratchpad propre à une session: un dossier qui n'existe chez
+// personne d'autre, donc une capture qui échoue partout ailleurs.
+const sortie = process.argv[3] ?? "/tmp/nel3ab-panel.png";
+await (await mine.$("#ports")).screenshot({ path: sortie });
+console.log(`  capture     : ${sortie}`);
 await browser.close();

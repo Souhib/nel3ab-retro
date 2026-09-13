@@ -72,6 +72,61 @@ export async function enterRoom(page, timeout = 15000) {
   await page.waitForSelector("#screen", { timeout });
 }
 
+/** Mène un changement de jeu jusqu'au bout, préparation comprise.
+ *
+ * Presser une vignette de jeu n'allume plus rien. Depuis l'écran de
+ * préparation, ça OUVRE une préparation: la page envoie
+ * `["preparation",{"action":"begin","game":N,"save":S}]`, le salon la crée avec
+ * `ready: false`, et plus rien ne bouge. Le jeu démarre quand chaque personne
+ * s'est dite prête et que celle qui a commencé presse « Lancer le jeu ».
+ *
+ * Mesuré le 13 septembre 2026 contre la vraie salle: `#pickerConfirm` confirme
+ * le choix, « Je suis prêt » marque la page, `#launchPrepared` s'active alors
+ * (`allReady` vaut vrai dès qu'une page seule est prête), et le jeu part.
+ *
+ * ICI et pas recopié dans chaque pilote: trois d'entre eux s'arrêtaient au
+ * panneau des sauvegardes et concluaient que le jeu n'avait pas démarré. Une
+ * étape obligatoire écrite en trois endroits est une étape que l'un des trois
+ * oubliera, ce qui est exactement ce qui s'est produit.
+ *
+ * `encore` sert aux jeux SANS sauvegarde, qui n'ouvrent pas de panneau et
+ * partent sur une seconde pression. Cette branche n'a PAS été exercée: le seul
+ * jeu essayé ce jour-là a des sauvegardes.
+ */
+export async function launchPrepared(page, encore = null, timeout = 20000) {
+  const fin = Date.now() + timeout;
+  let confirme = false;
+  while (Date.now() < fin && !confirme) {
+    confirme = await page.evaluate(() => {
+      const node = document.getElementById("pickerConfirm");
+      if (!node) return false;
+      node.click();
+      return true;
+    });
+    if (!confirme) await new Promise((r) => setTimeout(r, 200));
+  }
+  if (!confirme && encore) await encore();
+  const presser = (label) =>
+    page.evaluate((wanted) => {
+      const node = [...document.querySelectorAll("button")].find(
+        (b) => b.textContent.trim() === wanted,
+      );
+      if (!node || node.disabled) return false;
+      node.click();
+      return true;
+    }, label);
+  await page.waitForFunction(() => document.getElementById("launchPrepared") !== null, { timeout });
+  await presser("Je suis prêt");
+  await page.waitForFunction(
+    () => {
+      const node = document.getElementById("launchPrepared");
+      return node !== null && !node.disabled;
+    },
+    { timeout },
+  );
+  return presser("Lancer le jeu");
+}
+
 /** L'autre porte: entrer pour regarder, sans prendre de manette.
  *
  * Une porte distincte et pas un réglage à changer une fois dedans, parce que

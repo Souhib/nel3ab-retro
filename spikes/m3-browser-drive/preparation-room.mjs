@@ -447,7 +447,13 @@ http://localhost:${door} {
     assert.deepEqual(await names(), ["Camille", "Benoit", null, null]);
     // La même autorisation retardée ne peut plus déloger Camille.
     const rejected = await alice.evaluate(async (expected) => {
-      const socket = new WebSocket(`${location.origin.replace('http', 'ws')}/input?identity=1&take=1&expected=${expected}`);
+      // Sous le préfixe de la salle: `location.origin` seul repart de la racine,
+      // donc vers le salon, qui ne porte aucune entrée de jeu. Cette page-ci est
+      // servie à la racine de sa salle jetable, si bien que le défaut y est
+      // LATENT plutôt qu'actif; `new URL(...)` est juste dans les deux cas.
+      // Corrigé le 13 septembre 2026 avec `flood.mjs`, NON exercé: ce pilote
+      // monte sa propre salle et n'a pas été relancé.
+      const socket = new WebSocket(new URL(`input?identity=1&take=1&expected=${expected}`, location.href).href.replace(/^http/, 'ws'));
       socket.binaryType = "arraybuffer";
       return await new Promise((done, fail) => {
         const timer = setTimeout(() => { socket.close(); fail(new Error("Pas de refus worker")); }, 5000);

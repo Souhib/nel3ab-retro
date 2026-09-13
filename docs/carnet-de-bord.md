@@ -14494,6 +14494,103 @@ elle manque. Les deux assertions ont été falsifiées une par une, en cassant l
 rendu et en vérifiant qu'elles mordent avec leur propre message. Une assertion
 qu'on n'a pas vue échouer ne prouve rien.
 
+### Cinq pilotes « non exercés », et la fausse alerte que j'ai levée
+
+L'entrée précédente laissait cinq pilotes corrigés mais jamais lancés, en
+écrivant de ne pas les croire verts. Les exercer a trouvé quatre défauts réels
+et une fausse alerte, la mienne, qu'il faut raconter en premier.
+
+**La fausse alerte.** J'ai conclu deux fois que changer de jeu ne marchait plus,
+et donc que de vrais joueurs étaient touchés. C'était faux. Deux causes se
+superposaient. La première: un pilote branché en direct sur le worker
+(`localhost:8110`) n'a aucun salon. Mesuré en comparant les CORPS et non les
+statuts, ce qui est toute la leçon: `8110/api/room` rend du `text/html`, la page
+monolithique en repli, et `8110/socket.io/` aussi, tandis que 8200 rend du
+`application/json` et une vraie poignée `0{"sid":...}`. Un HTTP 200 ne prouve
+pas qu'une route existe, exactement comme un code de sortie nul ne prouve pas
+qu'une barrière est verte.
+
+La seconde cause: presser une vignette de jeu n'allume plus rien. Depuis l'écran
+de préparation, cela OUVRE une préparation. La page envoie
+`["preparation",{"action":"begin","game":3,"save":0}]`, le salon crée une
+préparation avec `ready: false`, et plus rien ne bouge tant que personne n'a
+pressé « Je suis prêt » puis « Lancer le jeu ». Trois pilotes s'arrêtaient au
+choix de la sauvegarde et concluaient à une panne. Ils sont simplement
+ANTÉRIEURS à cet écran.
+
+Quatre hypothèses sont tombées avant celle-là: l'attente fixe avant le panneau,
+le drapeau « banc », la propriété de la salle, et l'adresse du proxy. Chacune
+paraissait tenir debout. Ce qui a tranché n'est aucune d'elles mais une trame
+lue à la source, en instrumentant `WebSocket.prototype.send` dans la page.
+
+**Le piège du préfixe, deux fois.** `new URL("/roms", url)` jette le préfixe de
+la salle: la barre de tête repart de la racine. Derrière le proxy, la page vit
+sous `/r/1/`, si bien que cette adresse frappe le salon, qui répond
+`{"detail":"Not Found"}` EN JSON. `.json()` réussit donc, le champ `roms` est
+indéfini, et le pilote meurt sur un TypeError sans jamais dire que son adresse
+était la mauvaise. Mesuré: `/r/1/roms` rend 19 jeux, `/roms` rend le 404 du
+salon. Corrigé dans `loading.mjs` et `games.mjs`.
+
+Le même piège existe dans les sockets: `location.origin + "/video"` perd le
+préfixe aussi. Mesuré contre la vraie salle: sans préfixe zéro image et une
+erreur, avec préfixe 350 images en sept secondes. Corrigé dans `flood`, et par
+la même occasion dans `sound`, `nap` et `preparation-room`, qui ne sont PAS
+exercés.
+
+La page, elle, a toujours eu raison: `front/src/lib/base.ts` calcule le préfixe
+et son essai épingle les deux écritures, avec et sans barre. Ce sont les pilotes
+qui devinaient.
+
+**Une seule définition de la séquence.** `launchPrepared()` vit maintenant dans
+`open.mjs`, avec `seedName` et `enterRoom`, parce que trois pilotes avaient
+besoin de la même étape obligatoire. C'est la leçon de `padmenu` reprise mot
+pour mot: une étape recopiée en trois endroits est une étape que l'un des trois
+oubliera.
+
+**Ce que les cinq ont donné.** `loading` passe, et sa mesure est redevenue
+juste: l'écran de chargement apparaît 13 ms après la demande, contre un « null
+ms » tant que sa fenêtre serrée était datée du clic sur la vignette au lieu du
+vrai départ. `games` passe avec ses DEUX assertions, dont celle qui compte, qu'un
+seul clic n'arrête la partie de personne. `sonde` rend 3659 images peintes au
+lieu d'une minute de zéros. `flood` mesure 8,1 puis 9,3 Kio par image, soit 1,2
+fois, pour un client qui envoie un octet toutes les deux millisecondes. `stir`
+fait bouger l'image, mesuré par un témoin qui regarde: écart de luminosité 9871
+au repos contre 20180 pendant la course, sachant que le repos n'est pas nul
+puisque le jeu s'anime seul sur son écran d'attente.
+
+**`polite` est le seul qui reste à quai, et pour trois raisons à la fois.** Il
+veut une page REFUSÉE qui continue de demander une place. Mesuré sur une salle
+pleine: `#enter` porte « salle pleine » et il est désactivé, donc le clic est
+absorbé et `#screen` n'arrive jamais; `enterRoom` expirait quinze secondes dans
+une aide, sans un mot sur la salle. Entrer par l'autre porte, « regarder »,
+donne `seat = null` et ZÉRO demande en douze secondes, parce qu'un spectateur
+n'ouvre pas la socket d'entrée. Et son test de précondition cherchait « aucune
+manette » dans la valeur de `seat()`, alors que cette chaîne est un libellé
+d'AFFICHAGE et que `seat()` rend un numéro ou `null`. Il refuse désormais en
+disant ce qu'il a vu, ce qui vaut mieux qu'une expiration muette.
+
+**Deux défauts étaient les miens.** Le premier: ma garde de vacuité sur `flood`
+affirmait « cette salle ne fait tourner aucun jeu » alors qu'un jeu tournait, la
+vraie cause étant l'adresse de la socket. Une garde doit rapporter ce qu'elle a
+VU, pas la cause qu'elle croit deviner, sinon elle envoie chercher la panne au
+mauvais endroit. Le second: `panel.mjs` et `_v.mjs` écrivaient leurs captures
+dans un chemin de scratchpad propre à une session, commité tel quel, donc un
+dossier qui n'existe chez personne d'autre. Remis sous `/tmp/nel3ab-*`.
+
+**Et une ligne de commande qui se mordait la queue.** `stir.mjs` lisait
+`process.argv[2]` comme adresse ET comme première touche à presser: donné une
+URL il essayait de la presser au clavier, donné `--race` il la prenait pour une
+adresse. L'argument d'adresse avait été greffé sur une liste positionnelle sans
+la décaler. Reconnue par sa FORME désormais, les deux écritures de l'en-tête
+tiennent, et une adresse morte fait bien échouer le pilote au lieu de le laisser
+retomber sur le défaut.
+
+**Les recettes.** `browser-loading` et `browser-games` pointaient vers
+`localhost:8110`, où ces pilotes ne PEUVENT pas réussir puisque changer de jeu
+passe par le salon. Elles exigent maintenant `NEL3AB_URL` et refusent en
+expliquant pourquoi. L'adresse du proxy n'est pas écrite dans le justfile: ce
+dépôt est public, et c'est la raison déjà donnée en tête d'`open.mjs`.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une

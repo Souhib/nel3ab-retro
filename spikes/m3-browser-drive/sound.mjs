@@ -17,7 +17,10 @@ await page.goto(url, { waitUntil: "domcontentloaded" });
 await enterRoom(page);
 
 const out = await page.evaluate(async (seconds) => {
-  const ws = new WebSocket(location.origin.replace(/^http/, "ws") + "/sound");
+  // Sous le préfixe de la salle: `location.origin` seul repart de la racine,
+  // donc vers le salon, qui n'envoie aucun son. Même défaut que `flood.mjs`,
+  // mesuré le 13 septembre 2026. NON exercé ici, faute de son à écouter.
+  const ws = new WebSocket(new URL("sound", location.href).href.replace(/^http/, "ws"));
   ws.binaryType = "arraybuffer";
   let bytes = 0, chunks = 0, peak = 0, loud = 0, first = null, last = null;
   await new Promise((done) => {

@@ -95,7 +95,12 @@ await stillAwakeWith("format réduit", async () => {
   const seen = await page.evaluate(
     () =>
       new Promise((done) => {
-        const socket = new WebSocket(`${location.origin.replace(/^http/, "ws")}/video?half=1`);
+        // Sous le préfixe de la salle, comme `flood.mjs`: l'origine seule vise le
+        // salon, qui n'envoie aucune image. NON exercé: ce pilote demande une
+        // salle qui s'endort, ce qui prend plusieurs minutes.
+        const socket = new WebSocket(
+          new URL("video?half=1", location.href).href.replace(/^http/, "ws"),
+        );
         socket.binaryType = "arraybuffer";
         let frames = 0;
         socket.onmessage = (event) => {

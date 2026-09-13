@@ -17,10 +17,17 @@ import { enterRoom, seedName } from "./open.mjs";
 // L'adresse en ARGUMENT: le port 8100 n'existe plus depuis que les salles
 // ont pris les leurs (8110, 8120, 8130). Un pilote qui l'écrit en dur se
 // connecte à rien et meurt sur ECONNREFUSED sans que sa recette le dise.
-const url = process.argv[2] ?? process.env.NEL3AB_URL ?? "http://localhost:8110/";
+// L'adresse et les TOUCHES se disputaient la même place. Ce pilote lit
+// `process.argv[2]` comme adresse ET comme première touche à presser: donné une
+// URL, il essayait de la presser au clavier; donné `--race`, il la prenait pour
+// une adresse. L'argument d'adresse a été greffé sur une liste positionnelle
+// sans la décaler. Les deux écritures de l'en-tête doivent continuer de marcher,
+// d'où la reconnaissance par la FORME plutôt que par la position.
+const adresse = (process.argv[2] ?? "").startsWith("http") ? process.argv[2] : null;
+const url = adresse ?? process.env.NEL3AB_URL ?? "http://localhost:8110/";
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-const args = process.argv.slice(2);
+const args = process.argv.slice(adresse ? 3 : 2);
 const racing = args[0] === "--race";
 const seconds = racing ? Number(args[1] ?? 60) : 0;
 

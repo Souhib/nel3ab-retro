@@ -14,10 +14,17 @@
 // L'empreinte est ce qui tranche: si au moment où l'écran de chargement part
 // elle vaut encore celle d'AVANT le changement, alors on découvre l'ancien jeu.
 import puppeteer from "puppeteer";
-import { enterRoom, seedName } from "./open.mjs";
+import { enterRoom, launchPrepared, seedName } from "./open.mjs";
 
 const url = process.argv[2] ?? "http://localhost:8110/";
-const roms = async () => (await fetch(new URL("/roms", url))).json();
+// `roms` et non `/roms`: la barre de tête repart de la RACINE et jette le
+// préfixe de la salle. Derrière le proxy, la page vit sous `/r/1/`, et
+// `/roms` y frappe donc le salon, qui répond `{"detail":"Not Found"}` en JSON.
+// `.json()` réussit, `before.roms` est indéfini, et le pilote meurt sur un
+// TypeError sans jamais dire que son adresse était la mauvaise. Mesuré le
+// 13 septembre 2026: `/r/1/roms` rend 19 jeux, `/roms` rend le 404 du salon.
+// Sans préfixe (le worker en direct), les deux formes donnent la même adresse.
+const roms = async () => (await fetch(new URL("roms", url))).json();
 
 const before = await roms();
 if (before.roms.length < 2) {
@@ -109,20 +116,15 @@ await press(`#item-game${target}`);
 // Le panneau de choix met un instant à s'ouvrir. Attendre une durée fixe rendait
 // ce pilote muet: il retombait sur la double pression, qui ne fait RIEN quand le
 // jeu a des sauvegardes, et il mesurait donc une salle où rien ne s'est passé.
-let picked = false;
-for (let attempt = 0; attempt < 30 && !picked; attempt++) {
-  await new Promise((r) => setTimeout(r, 200));
-  picked = await page.evaluate(() => {
-    const pick = document.querySelector('[id^="pick-"]');
-    if (!pick) return false;
-    pick.click();
-    return true;
-  });
-}
-if (!picked) {
-  await press(`#item-game${target}`);
-  console.log("  pas de panneau: double pression");
-}
+// La préparation menée jusqu'au bout, et c'est ce qui date `requestedAt`.
+//
+// Presser la vignette n'allume plus rien: ça ouvre une préparation, et le jeu
+// ne part qu'après « Je suis prêt » puis « Lancer le jeu ». La fenêtre serrée
+// ci-dessous mesure les premiers dixièmes de seconde APRÈS la demande; datée
+// du clic sur la vignette, elle échantillonnait l'écran de préparation et
+// rendait « écran de chargement affiché null ms », c'est-à-dire un FAIL sur
+// une page parfaitement saine. Mesuré le 13 septembre 2026.
+await launchPrepared(page, () => press(`#item-game${target}`));
 const requestedAt = Date.now() - started;
 // Les premiers dixièmes de seconde, serrés: c'est là que l'écran de chargement
 // doit apparaître, et c'est la seule fenêtre où un échantillonnage à 100 ms
@@ -145,7 +147,7 @@ const requestedAt = Date.now() - started;
       close.map((s) => `${s.t - zero}:${s.booting ? "O" : "."}${s.seat ?? "-"}`).join(" "),
   );
 }
-console.log(`  changement demandé (${picked ? "panneau" : "double pression"}) vers ${target}`);
+console.log(`  changement demandé (préparation lancée) vers ${target}`);
 
 await new Promise((r) => setTimeout(r, 45000));
 sampling = false;

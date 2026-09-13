@@ -8,10 +8,16 @@
 // else's game. A test that only checked "the game changed" would pass just as
 // well on a page that switched on the first click.
 import puppeteer from "puppeteer";
-import { enterRoom, seedName } from "./open.mjs";
+import { enterRoom, launchPrepared, seedName } from "./open.mjs";
 
 const url = process.argv[2] ?? "http://localhost:8110/";
-const roms = async () => (await fetch(new URL("/roms", url))).json();
+// `roms` et non `/roms`: la barre de tête repart de la RACINE et jette le
+// préfixe de la salle, si bien que derrière le proxy cette adresse frappe le
+// salon, qui répond `{"detail":"Not Found"}` en JSON. `.json()` réussit, le
+// champ `roms` est indéfini, et le pilote meurt sur un TypeError sans jamais
+// dire que son adresse était la mauvaise. Sans préfixe, les deux formes sont
+// identiques. Mesuré le 13 septembre 2026 sur `loading.mjs`, même défaut.
+const roms = async () => (await fetch(new URL("roms", url))).json();
 
 const before = await roms();
 if (before.roms.length < 2) {
@@ -104,11 +110,14 @@ if (!asked || afterOneClick.current !== before.current) {
 
 // Deuxième geste : cette fois ça part. Le panneau se confirme par un choix, un
 // jeu sans sauvegardes par une deuxième pression.
-if (state.panel) {
-  await page.evaluate(() => document.querySelector('[id^="pick-"]')?.click());
-} else {
-  await press(`#item-game${target}`);
-}
+// La préparation, jusqu'au bout. Confirmer une sauvegarde ne lance plus rien:
+// ça OUVRE une préparation, et le jeu ne part qu'après « Je suis prêt » puis
+// « Lancer le jeu ». Ce pilote s'arrêtait au panneau et concluait que le jeu
+// n'avait pas changé, sur une page parfaitement saine.
+//
+// L'assertion du PREMIER clic reste entière au-dessus: ce qui est épinglé ici
+// est qu'une seule pression n'arrête la partie de personne.
+await launchPrepared(page, () => press(`#item-game${target}`));
 await new Promise((r) => setTimeout(r, 1500));
 await browser.close();
 

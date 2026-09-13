@@ -662,11 +662,25 @@ browser-contraste:
 # une IMAGE à l'écran: le défaut du 31 août 2026 laissait tous les compteurs
 # cohérents et montrait l'ancien jeu figé cinq secondes et demie. Aucun essai
 # unitaire ne peut voir ça, et c'est exactement pourquoi ce fichier existe.
+# Demande NEL3AB_URL, et pointe le PROXY: changer de jeu passe par le salon,
+# que le proxy aiguille vers 8200. Branché sur le worker en direct, ce pilote
+# obtient la page, les manettes et l'image, envoie sa demande de préparation
+# dans le vide, et conclut que le jeu n'a pas démarré. Vérifié le 13 septembre
+# 2026: /r/1/roms rend la bibliothèque, /roms rend le 404 du salon.
+# L'adresse n'est pas écrite ici parce que ce dépôt est public (voir open.mjs).
 browser-loading:
-    cd spikes/m3-browser-drive && node loading.mjs http://localhost:8110/
+    @test -n "${NEL3AB_URL:-}" || { echo "NEL3AB_URL manquant: ce pilote change de JEU, ce qui passe par le salon."; echo "  Le worker seul (localhost:8110) sert la page mais pas /socket.io, donc la demande n arrive jamais."; echo "  Donner l adresse du proxy: NEL3AB_URL=https://<domaine>/r/<N>/ just browser-loading"; exit 1; }
+    cd spikes/m3-browser-drive && node loading.mjs "$NEL3AB_URL"
 
+# Demande NEL3AB_URL, et pointe le PROXY: changer de jeu passe par le salon,
+# que le proxy aiguille vers 8200. Branché sur le worker en direct, ce pilote
+# obtient la page, les manettes et l'image, envoie sa demande de préparation
+# dans le vide, et conclut que le jeu n'a pas démarré. Vérifié le 13 septembre
+# 2026: /r/1/roms rend la bibliothèque, /roms rend le 404 du salon.
+# L'adresse n'est pas écrite ici parce que ce dépôt est public (voir open.mjs).
 browser-games:
-    cd spikes/m3-browser-drive && node games.mjs http://localhost:8110/
+    @test -n "${NEL3AB_URL:-}" || { echo "NEL3AB_URL manquant: ce pilote change de JEU, ce qui passe par le salon."; echo "  Le worker seul (localhost:8110) sert la page mais pas /socket.io, donc la demande n arrive jamais."; echo "  Donner l adresse du proxy: NEL3AB_URL=https://<domaine>/r/<N>/ just browser-games"; exit 1; }
+    cd spikes/m3-browser-drive && node games.mjs "$NEL3AB_URL"
 
 # One benchmark run of the shipped chain: release worker under systemd, the real
 # Dolphin container, the real GPU, a real headless Chrome watching. RESTARTS THE

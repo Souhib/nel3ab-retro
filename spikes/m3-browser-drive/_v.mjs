@@ -1,6 +1,10 @@
+import { mkdirSync } from "node:fs";
 import puppeteer from "puppeteer";
 import { enterRoom, openRoom, ROOM_URL } from "./open.mjs";
-const OUT = "/tmp/claude-1000/-home-souhib-nel3ab-retro/0d1d7749-e76b-413d-af12-878c112fd66e/scratchpad";
+// Sous `/tmp/nel3ab-*`, comme le reste du dépôt: ce chemin a porté un scratchpad
+// propre à une session, donc un dossier absent pour tout autre lecteur.
+const OUT = process.env.NEL3AB_OUT ?? "/tmp/nel3ab-v";
+mkdirSync(OUT, { recursive: true });
 const tag = process.argv[2] ?? "v";
 const b = await puppeteer.launch({ headless: true, args: ["--no-sandbox"] });
 const p = await openRoom(b, ROOM_URL);

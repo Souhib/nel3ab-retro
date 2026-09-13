@@ -135,7 +135,7 @@ export const shellLabel = (shell: Shell): string =>
 export const LOBBIES = [
   { id: "classique", label: "classique", note: "la fiche, telle qu'elle était" },
   { id: "cables", label: "câbles", note: "quatre fils, un par manette" },
-  { id: "sol", label: "au sol", note: "la salle vue d'en haut" },
+  { id: "plan", label: "plan", note: "la salle vue d'en haut" },
 ] as const;
 
 export type LobbyLook = (typeof LOBBIES)[number]["id"];

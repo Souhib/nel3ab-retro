@@ -78,12 +78,34 @@ const SOURDE = "#aeb6c2";
  * Le câble TENDU est donc une barre qui prend la largeur qu'on lui donne, et la
  * boucle un tracé de largeur fixe qui ne s'étire pas.
  */
-function Cable({ colour, taken }: { colour: string; taken: boolean }) {
+function Cable({ colour, taken, port }: { colour: string; taken: boolean; port: number }) {
+  /* Le décalage par port. Sans lui les quatre câbles battent ensemble, et une
+     rangée qui bat au garde-à-vous se lit comme un chargement en cours plutôt
+     que comme quatre fils indépendants. */
+  const retard = `${(port - 1) * 320}ms`;
   if (taken) {
     return (
       <span className="flex min-w-0 flex-1 items-center" data-cable="tendu" aria-hidden="true">
         <span className="h-3 w-3 shrink-0 rounded-[2px]" style={{ backgroundColor: colour }} />
-        <span className="h-[4px] min-w-4 flex-1 rounded-full" style={{ backgroundColor: colour }} />
+        <span
+          className="relative h-[4px] min-w-4 flex-1 overflow-hidden rounded-full"
+          style={{ backgroundColor: colour }}
+        >
+          {/* La lueur qui parcourt un câble BRANCHÉ. Un calque de la largeur du
+            câble, dont seule la bande centrale est claire: le translater de
+            -100 % à +100 % la fait traverser quelle que soit la longueur du
+            câble, ce qu'un calque étroit translaté en pourcentage de LUI-MÊME
+            ne ferait pas — il ne parcourrait que quelques dizaines de pixels
+            sur une barre de 455. */}
+          <span
+            className="n3-cable-run absolute inset-0"
+            style={{
+              animationDelay: retard,
+              backgroundImage:
+                "linear-gradient(90deg, transparent 38%, rgba(255, 255, 255, 0.55) 50%, transparent 62%)",
+            }}
+          />
+        </span>
       </span>
     );
   }
@@ -93,7 +115,15 @@ function Cable({ colour, taken }: { colour: string; taken: boolean }) {
         className="h-3 w-3 shrink-0 rounded-[2px]"
         style={{ backgroundColor: colour, opacity: 0.75 }}
       />
-      <svg viewBox="0 0 44 34" className="block h-[26px] w-[44px] shrink-0" role="presentation">
+      {/* La boucle d'un câble LIBRE respire, et ne va nulle part: deux pixels de
+        va-et-vient, ce qui suffit à dire « au repos » sans attirer l'oeil sur
+        une place que personne ne tient. */}
+      <svg
+        viewBox="0 0 44 34"
+        className="n3-cable-slack block h-[26px] w-[44px] shrink-0"
+        style={{ animationDelay: retard }}
+        role="presentation"
+      >
         <path
           d="M 0 17 C 17 17, 21 5, 11 5 C 1 5, 1 29, 13 29 C 23 29, 21 17, 31 17"
           fill="none"
@@ -228,7 +258,7 @@ export function LobbyCables({
                   >
                     P{seat.port}
                   </span>
-                  <Cable colour={colour} taken={taken} />
+                  <Cable colour={colour} taken={taken} port={seat.port} />
                   <span
                     className={cn("w-[38%] shrink-0 truncate text-corps lg:w-[28%] lg:text-fort")}
                     style={{ color: taken ? ENCRE : SOURDE, opacity: taken ? 1 : 0.75 }}

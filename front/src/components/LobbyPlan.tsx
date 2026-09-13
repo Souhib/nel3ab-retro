@@ -169,7 +169,7 @@ function Cellule({ titre, children }: { titre: string; children: React.ReactNode
   );
 }
 
-export function LobbySol({
+export function LobbyPlan({
   room,
   free,
   failed = false,
@@ -207,7 +207,7 @@ export function LobbySol({
       <div className="mx-auto flex w-full max-w-[1120px] flex-col gap-5">
         {children}
 
-        <section id="room" data-look="sol" className="flex flex-col">
+        <section id="room" data-look="plan" className="flex flex-col">
           {/* LA PIÈCE. L'écran est collé au mur du haut, la porte troue le mur
               de gauche, les chaises regardent l'écran. */}
           <div className="relative flex flex-col gap-5 p-5 sm:p-7" style={{ border: mur }}>

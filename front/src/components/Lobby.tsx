@@ -16,7 +16,7 @@ import { cn } from "../lib/cn";
 import { PLAYER_COLOURS } from "../media/players";
 import { LOBBIES, type LobbyLook } from "../lib/theme";
 import { LobbyCables } from "./LobbyCables";
-import { LobbySol } from "./LobbySol";
+import { LobbyPlan } from "./LobbyPlan";
 
 /** Le salon est-il au-dessus de cette page ?
  *
@@ -87,9 +87,9 @@ export function Lobby({
      thèmes, puisque le fond, lui, est fixe. */
   const PEINTURE = {
     cables: { encre: "#eceff4", sourde: "#aeb6c2", marque: "#8fa4c4" },
-    sol: { encre: "#f0e9e0", sourde: "#9c9086", marque: "#9c9086" },
+    plan: { encre: "#f0e9e0", sourde: "#9c9086", marque: "#9c9086" },
   } as const;
-  const peinture = look === "cables" || look === "sol" ? PEINTURE[look] : null;
+  const peinture = look === "cables" || look === "plan" ? PEINTURE[look] : null;
   const peint = peinture !== null;
   const marque = peinture?.marque;
 
@@ -172,11 +172,11 @@ export function Lobby({
     </div>
   );
 
-  if (look === "sol") {
+  if (look === "plan") {
     return (
-      <LobbySol room={room} free={free} failed={failed} actions={commandes}>
+      <LobbyPlan room={room} free={free} failed={failed} actions={commandes}>
         {entete}
-      </LobbySol>
+      </LobbyPlan>
     );
   }
 

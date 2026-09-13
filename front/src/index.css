@@ -316,6 +316,47 @@ body {
   animation: n3-breathe 2.4s ease-in-out infinite;
 }
 
+/** Les câbles de la page d'entrée, et ce que leur mouvement DIT.
+ *
+ * Un câble branché transporte: une lueur le parcourt de la prise vers le nom.
+ * Un câble libre pend: sa boucle respire sans aller nulle part. Le mouvement
+ * porte donc la même information que la forme, il ne la décore pas — et quand
+ * il est coupé, la forme suffit encore.
+ *
+ * Décalées par port à l'appel, sinon les quatre battraient au garde-à-vous, ce
+ * qui se lirait comme un chargement plutôt que comme quatre fils.
+ *
+ * `transform` et `opacity` uniquement, comme la règle en tête de ce fichier le
+ * demande: le compositeur les traite sans repasser par la mise en page. La
+ * lueur est donc un calque qui TRAVERSE, pas un fond qu'on repeint.
+ */
+@keyframes n3-cable-run {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes n3-cable-slack {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(2px);
+  }
+}
+
+.n3-cable-run {
+  animation: n3-cable-run 3.2s linear infinite;
+}
+
+.n3-cable-slack {
+  animation: n3-cable-slack 3.6s ease-in-out infinite;
+}
+
 /* Quelqu'un qui a demandé moins d'animation en reçoit moins. Ce n'est pas une
    préférence esthétique, c'est un réglage d'accessibilité que le système
    transmet. */
@@ -343,8 +384,16 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .n3-enter,
   .n3-pop,
-  .n3-breathe {
+  .n3-breathe,
+  .n3-cable-run,
+  .n3-cable-slack {
     animation: none;
+  }
+
+  /* Arrêtée, la lueur resterait POSÉE sur le câble comme une tache claire, et
+     se lirait comme un défaut d'affichage. On l'efface au lieu de la figer. */
+  .n3-cable-run {
+    opacity: 0;
   }
 }
 

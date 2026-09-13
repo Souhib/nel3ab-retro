@@ -15400,6 +15400,61 @@ connaît aucune position. L'axe gauche-droite est l'ordre des ports, rien d'autr
 et les spectateurs rangés le long du mur sont une liste déguisée en espace.
 C'est la faiblesse assumée de l'angle, préférée à une géométrie inventée.
 
+**Les câbles bougent, et le mouvement DIT quelque chose.** Souhib a demandé une
+animation sur le dessin « câbles ». Un câble branché transporte: une lueur le
+parcourt de la prise vers le nom. Un câble libre pend: sa boucle respire sans
+aller nulle part. Le mouvement porte donc la même information que la forme —
+tendu contre enroulé — au lieu de s'ajouter à elle, et quand on le coupe, la
+forme suffit encore. Décalés de 320 ms par port: sans ce décalage les quatre
+battent ensemble, et une rangée qui bat au garde-à-vous se lit comme un
+chargement en cours plutôt que comme quatre fils indépendants.
+
+**La règle écrite du fichier a corrigé mon premier jet.** `index.css` dit en
+tête: uniquement `transform` et `opacity`, que le compositeur traite sans
+repasser par la mise en page. J'avais prévu d'animer `background-position`, qui
+est un repeint. La lueur est donc un calque de la largeur du câble, dont seule
+la bande centrale est claire, translaté de -100 % à +100 %: il traverse quelle
+que soit la longueur du câble, ce qu'un calque étroit translaté en pourcentage
+de LUI-MÊME ne ferait pas — il n'aurait parcouru que quelques dizaines de pixels
+sur une barre de 455.
+
+Note au passage: `n3-breathe`, plus ancienne, anime `box-shadow` et contredit
+donc cette règle. J'ai suivi la règle, pas l'exemple.
+
+**« Ça bouge dans le DOM » n'est pas « on le voit », et j'ai failli conclure trop
+vite.** La position de la lueur passe de 37 px à 231 px en 700 ms, lue dans la
+matrice de transformation: cela prouve que la propriété change, rien de plus.
+Sur un recadrage de 456×24 pixels du SEUL câble de P1, en double densité, une
+rafale de six images en donne **cinq distinctes** — cela prouve qu'un pixel a
+changé, toujours pas qu'un humain le remarque. La première image que j'ai
+regardée montrait un fil parfaitement uniforme, et j'ai bien failli écrire que
+l'animation était invisible. La seconde, prise 1,4 s plus tard sur un cycle de
+3,2 s, montre la bande claire en évidence: la première l'avait simplement
+attrapée hors cadre. La leçon tient en une phrase: **une image fixe d'une chose
+qui bouge ne tranche pas sa visibilité**; il en faut deux, et il faut les
+REGARDER, pas seulement compter les images distinctes.
+
+**Le jumeau négatif a testé une règle que j'avais écrite sans jamais
+l'éprouver.** En simulant « moins de mouvement »: une seule image distincte sur
+six, et l'opacité calculée de la lueur vaut 0. L'animation s'arrête donc
+vraiment, et la lueur s'efface au lieu de rester figée sur le fil, où elle se
+lirait comme une tache claire, c'est-à-dire comme un défaut d'affichage. Les
+deux classes sont nommées une par une dans le bloc `prefers-reduced-motion`,
+comme les trois qui y étaient déjà: ce bloc ne couvre que ce qu'on y inscrit.
+
+**Trois falsifications sur les essais.** Retirer la lueur du câble branché, coller
+la respiration AUSSI sur le câble branché, figer le décalage à zéro pour les
+quatre ports: chaque défaut fait rougir l'essai visé. Le premier en fait rougir
+deux, parce que l'essai du décalage interroge précisément l'élément que le
+premier supprime — c'est une dépendance réelle entre les deux, pas un hasard.
+
+**Renommée « plan » le soir même.** Souhib n'aimait pas « au sol ». Le récit
+ci-dessus garde le nom que la direction portait quand les juges l'ont notée,
+parce qu'un compte rendu daté ne se repeint pas; le dessin s'appelle `plan`
+partout ailleurs, identifiant compris. Conséquence assumée: `storedLobby` valide
+la valeur rangée dans le navigateur contre la liste, donc quiconque avait choisi
+`sol` retombe UNE fois sur « classique ».
+
 Page à 153638 o en brotli pour un budget de 300 000.
 
 ## 12. Glossaire complet

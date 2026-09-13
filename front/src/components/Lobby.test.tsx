@@ -97,7 +97,7 @@ it("donne à chaque place sa couleur, occupée ou libre", () => {
    L'essai porte donc sur les DEUX, pas sur celui qu'on vient d'écrire. */
 const IDS = ["#room", "#people", "#enter", "#watch", "#toRooms", "#lobbySeats"];
 
-const poserLook = (look: "classique" | "cables" | "sol", onLook = vi.fn()) =>
+const poserLook = (look: "classique" | "cables" | "plan", onLook = vi.fn()) =>
   render(
     <Lobby
       room={salle}
@@ -114,7 +114,7 @@ const poserLook = (look: "classique" | "cables" | "sol", onLook = vi.fn()) =>
     />,
   );
 
-it.each(["classique", "cables", "sol"] as const)("garde le contrat des pilotes en %s", (look) => {
+it.each(["classique", "cables", "plan"] as const)("garde le contrat des pilotes en %s", (look) => {
   poserLook(look);
   for (const id of IDS) expect(document.querySelector(id), id).not.toBeNull();
   expect(document.querySelectorAll("#lobbySeats [data-port]")).toHaveLength(4);
@@ -177,8 +177,8 @@ it("distingue un câble tendu d'un câble enroulé, sans compter sur la couleur"
    attendus sont maintenant écrits en toutes lettres. */
 it.each([
   ["classique", "câbles", "cables"],
-  ["cables", "au sol", "sol"],
-  ["sol", "classique", "classique"],
+  ["cables", "plan", "plan"],
+  ["plan", "classique", "classique"],
 ] as const)("depuis %s, la bascule annonce et appelle le suivant du cycle", (ou, libelle, vers) => {
   const onLook = vi.fn();
   poserLook(ou, onLook);
@@ -192,7 +192,7 @@ it.each([
    lui, trois bascules qui se renvoient entre deux entrées passeraient. */
 it("atteint les trois dessins en trois bascules", () => {
   const vus = new Set<string>();
-  let ou: "classique" | "cables" | "sol" = "classique";
+  let ou: "classique" | "cables" | "plan" = "classique";
   for (let tour = 0; tour < LOBBIES.length; tour += 1) {
     const onLook = vi.fn();
     const vue = poserLook(ou, onLook);
@@ -208,7 +208,7 @@ it("atteint les trois dessins en trois bascules", () => {
    Le dessin câbles rendait `actions` à deux points de rupture, donc deux
    `#enter` et deux `#watch`, dont un caché. `querySelector` rend le premier du
    balisage: un pilote pouvait cliquer celui qui ne se voyait pas. */
-it.each(["classique", "cables", "sol"] as const)("ne pose qu'un seul #enter en %s", (look) => {
+it.each(["classique", "cables", "plan"] as const)("ne pose qu'un seul #enter en %s", (look) => {
   poserLook(look);
   expect(document.querySelectorAll("#enter")).toHaveLength(1);
   expect(document.querySelectorAll("#watch")).toHaveLength(1);
@@ -253,7 +253,7 @@ const salleTroisEtats = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 } as any;
 
-const poserSol = () =>
+const poserPlan = () =>
   render(
     <Lobby
       room={salleTroisEtats}
@@ -261,7 +261,7 @@ const poserSol = () =>
       login={null}
       failed={false}
       salon
-      look="sol"
+      look="plan"
       onLook={vi.fn()}
       onEnter={vi.fn()}
       onWatch={vi.fn()}
@@ -270,8 +270,8 @@ const poserSol = () =>
     />,
   );
 
-it("au sol, la chaise dit plein, creux ou vide sans compter sur la couleur", () => {
-  poserSol();
+it("sur le plan, la chaise dit plein, creux ou vide sans compter sur la couleur", () => {
+  poserPlan();
   const pion = (port: number) =>
     document.querySelector(`[data-port="${port}"] [data-pion]`)?.getAttribute("data-pion") ?? null;
   expect(pion(1), "un nom annoncé: pion plein").toBe("plein");
@@ -281,8 +281,8 @@ it("au sol, la chaise dit plein, creux ou vide sans compter sur la couleur", () 
   expect(pion(4), "held nul: rien, on ne dessine pas une ignorance").toBeNull();
 });
 
-it("au sol, l'anneau ne change pas data-state, qui reste celui du nom", () => {
-  poserSol();
+it("sur le plan, l'anneau ne change pas data-state, qui reste celui du nom", () => {
+  poserPlan();
   const etat = (port: number) =>
     document.querySelector(`[data-port="${port}"]`)?.getAttribute("data-state");
   expect(etat(1)).toBe("busy");
@@ -291,8 +291,8 @@ it("au sol, l'anneau ne change pas data-state, qui reste celui du nom", () => {
   expect(etat(3)).toBe("free");
 });
 
-it("au sol, la porte et le mur du fond sont deux endroits", () => {
-  poserSol();
+it("sur le plan, la porte et le mur du fond sont deux endroits", () => {
+  poserPlan();
   const mur = document.querySelector("#people")?.textContent ?? "";
   // `seat_pending` dit « cette personne n'est pas un spectateur ».
   expect(mur).toContain("Nora");
@@ -306,7 +306,32 @@ it("au sol, la porte et le mur du fond sont deux endroits", () => {
    repli sur « classique », et il rendrait un vert en mesurant autre chose. Le
    dépôt s'applique déjà cette règle dans `debordement.mjs`, qui refuse de
    mesurer si le panneau des touches ne s'est pas ouvert. */
-it.each(["classique", "cables", "sol"] as const)("nomme le dessin rendu en %s", (look) => {
+it.each(["classique", "cables", "plan"] as const)("nomme le dessin rendu en %s", (look) => {
   poserLook(look);
   expect(document.querySelector("#room")?.getAttribute("data-look")).toBe(look);
+});
+
+/* Le mouvement porte la MÊME information que la forme, jamais une autre.
+   Un câble branché transporte, donc il reçoit la lueur; un câble libre pend,
+   donc il respire. Les jumeaux négatifs comptent autant que les positifs: sans
+   eux, appliquer les deux classes partout passerait l'essai. */
+it("anime le câble branché et la boucle libre, chacun le sien", () => {
+  poserLook("cables");
+  const prise = document.querySelector('[data-port="1"]');
+  const libre = document.querySelector('[data-port="2"]');
+  expect(prise?.querySelector(".n3-cable-run"), "un câble branché reçoit la lueur").not.toBeNull();
+  expect(prise?.querySelector(".n3-cable-slack"), "un câble branché ne respire pas").toBeNull();
+  expect(libre?.querySelector(".n3-cable-slack"), "une boucle libre respire").not.toBeNull();
+  expect(libre?.querySelector(".n3-cable-run"), "une boucle libre ne transporte rien").toBeNull();
+});
+
+it("décale les quatre câbles, pour qu'ils ne battent pas ensemble", () => {
+  poserLook("cables");
+  const retards = [1, 2, 3, 4].map((port) =>
+    document
+      .querySelector(`[data-port="${port}"] .n3-cable-run, [data-port="${port}"] .n3-cable-slack`)
+      ?.getAttribute("style"),
+  );
+  expect(retards.every(Boolean), `chaque place doit porter un retard: ${retards}`).toBe(true);
+  expect(new Set(retards.map((r) => /animation-delay:\s*([^;]+)/.exec(r ?? "")?.[1])).size).toBe(4);
 });

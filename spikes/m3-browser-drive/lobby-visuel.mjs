@@ -19,10 +19,10 @@ const attendre = (ms) => new Promise((r) => setTimeout(r, ms));
 // Les trois dessins, nommés comme `LOBBIES` les nomme. Si une entrée est
 // ajoutée là-bas sans l'être ici, ce pilote mesurera un dessin de moins sans
 // rien dire: c'est la limite connue, et elle est écrite plutôt que tue.
-const DESSINS = ["classique", "cables", "sol"];
+const DESSINS = ["classique", "cables", "plan"];
 
 // Deux largeurs, parce que ces dessins changent de forme au point de rupture:
-// « câbles » passe d'une rangée à une colonne, « au sol » replie ses chaises.
+// « câbles » passe d'une rangée à une colonne, « plan » replie ses chaises.
 // Une seule largeur ne verrait que la moitié des cas.
 const LARGEURS = [
   { width: 1440, height: 900 },

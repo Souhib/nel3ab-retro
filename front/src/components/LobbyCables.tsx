@@ -140,7 +140,20 @@ export function LobbyCables({
       <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-6">
         {children}
 
-        <section id="room" className="flex flex-col gap-6 lg:flex-row lg:items-start">
+        {/* Les deux colonnes finissent au MÊME trait.
+          Avec `items-start` la colonne de gauche mesurait 257 px contre 292 à la
+          baie, soit 35 px d'avance, mesurés le 13 septembre 2026 à 1440 px de
+          large. C'est ce décrochage qui faisait pencher le bloc à droite. Le
+          centrage ne l'aurait pas supprimé, il l'aurait coupé en deux fois 17 px;
+          raccourcir la baie aurait défait le poids donné aux lignes.
+          `items-stretch` ne touche pas à la baie, et ce n'est pas une intuition:
+          en basculant `align-items` sur la page vivante, la baie fait 292 px dans
+          les deux cas, la somme de ses lignes 232 px dans les deux cas, et son
+          vide intérieur 60 px dans les deux cas. Seule la gauche bouge, de 257 à
+          292 px. Ce vide vaut 60 px ici et 44 px à 430 px de large, contre environ
+          470 px avant que les lignes ne soient épaissies. Le mou tombe en bas de
+          la colonne de gauche, qui n'a pas de fond, et ne se voit pas. */}
+        <section id="room" className="flex flex-col gap-6 lg:flex-row lg:items-stretch">
           <div className="flex min-w-0 flex-col gap-6 lg:w-[34%]">
             <div className="flex flex-col gap-2">
               <h1 className="truncate text-affiche font-medium tracking-tight">

@@ -15231,6 +15231,60 @@ une limite: deux onglets d'un même navigateur partagent une identité, donc le
 salon compte une personne tenant deux manettes. Le remplissage de gauche à
 droite n'est donc observé que pour un présent.
 
+### Le bloc qui penchait à droite, et un nombre cité à la mauvaise largeur
+
+Souhib a signalé, sur le dessin « câbles » de la page d'entrée: « fix aussi le
+bloc qui penche à droite ».
+
+**Mesuré avant de toucher, et ce n'était pas ce que je croyais.** À 1440 px de
+large, la colonne de gauche faisait 257 px et la baie des quatre places 292:
+**35 px d'écart en bas**, avec `align-items: flex-start`, qui aligne les deux
+colonnes par le HAUT et les laisse finir où elles veulent. Rien ne penchait au
+sens propre; c'est le bord bas de la baie qui descendait plus bas que le texte
+d'à côté, et l'œil lit ce décrochage comme une inclinaison. J'avais d'abord
+décrit un écart plus grand que ça, de mémoire: la mesure l'a corrigé.
+
+**Deux corrections écartées, pour la même raison.** Centrer les colonnes
+n'aurait pas supprimé l'écart, il l'aurait coupé en deux fois 17 px, en haut et
+en bas — un défaut symétrique reste un défaut. Raccourcir la baie aurait défait
+le poids donné aux lignes quelques heures plus tôt, qui a ramené son vide
+intérieur d'environ 470 px à quelques dizaines. Reste `align-items: stretch`,
+qui demande aux deux colonnes de remplir la même hauteur.
+
+**Après:** 292 px et 292 px, **écart 0**. Le câble tendu de la place occupée
+traverse toujours la ligne, 455 px de large. Et la variante ne vaut qu'à partir
+de `lg`: à 430 px, la section est en `column`, donc la règle ne s'applique
+jamais — vérifié en lisant `flexDirection` sur la page, pas en le supposant.
+
+**Le vrai enseignement est ailleurs, et il est contre moi.** Le commentaire que
+j'avais écrit dans le code affirmait que le vide intérieur de la baie avait été
+« ramené de 470 à 44 px ». Mesuré ce jour-là à 1440 px, il vaut **60**. Plutôt
+que de corriger le texte pour qu'il colle au chiffre, j'ai cherché lequel des
+deux mentait: en basculant `align-items` entre `flex-start` et `stretch` sur la
+page VIVANTE, la baie fait 292 px dans les deux cas, la somme de ses lignes
+232 px dans les deux cas, et son vide 60 px dans les deux cas. L'alignement ne
+touche donc pas du tout à la baie; seule la gauche bouge, de 257 à 292 px.
+
+Le 44 n'était pas faux: c'était une vraie mesure, prise à 430 px de large, que
+j'avais recopiée dans un commentaire parlant de 1440. **Un nombre mesuré sans
+ses conditions n'est plus une mesure, c'est un souvenir.** La règle 1 demande la
+mesure et sa date; ce cas ajoute la largeur, la page et l'état exact où elle
+tient. Le commentaire porte maintenant les deux valeurs, la largeur de chacune,
+et l'expérience de bascule qui prouve que l'alignement n'en est pas la cause.
+
+**Un garde qui a servi deux fois dans la même heure.** La première tentative de
+mesure s'est arrêtée d'elle-même: quelqu'un était dans la salle 1. Le journal du
+salon montrait un navigateur à une adresse Tailscale interrogeant
+`/api/me/connection` toutes les trente secondes, et la table des places du
+worker — l'autorité, pas le cache du salon — tenait une vraie clé de personne.
+Un pilote sans tête à moi se serait présenté en `127.0.0.1`: c'était donc un
+humain, et la salle n'a pas été touchée. Le second garde a rattrapé autre chose:
+la salle 1 servait une page d'empreinte `9eb31ffe` alors que l'artefact venait
+d'être rebâti en `b972469b`. Elle tournait depuis 13 h 56, le binaire datait de
+13 h 58. Mesurer là aurait mesuré la disposition de la veille en croyant mesurer
+celle du jour. La mesure s'est faite dans une salle 2 ouverte pour ça, dont
+l'empreinte servie a été comparée à l'artefact AVANT d'y croire.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une

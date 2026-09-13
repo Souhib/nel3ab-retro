@@ -729,6 +729,15 @@ browser-debordement url="http://127.0.0.1:8110/":
 browser-layout:
     cd spikes/m3-browser-drive && node layout.mjs http://127.0.0.1:8110/
 
+# La colonne de droite se tire-t-elle entre ses bornes, et l'image suit-elle ?
+#
+# Contre un worker JETABLE ouvert sans jeu: aucun conteneur, aucune carte
+# graphique, aucune salle réelle touchée. Le worker de développement est
+# reconstruit d'abord, sinon il servirait la page d'hier.
+browser-colonne:
+    cd core && cargo build -p nel3ab-worker
+    cd spikes/m3-browser-drive && node colonne.mjs
+
 # Does the library show the names a person reads, and none of the file clutter?
 # Needs the worker RUNNING.
 browser-library:

@@ -2,9 +2,10 @@
  * The room: a picture, and a column of instruments beside it.
  *
  * The picture takes the height of the window and never causes the page to
- * scroll. Everything else lives in a fixed column on the right that scrolls
- * inside itself, so reading a number never moves the image and never asks
- * anybody to scroll away from the game they are playing.
+ * scroll. Everything else lives in a column on the right that scrolls inside
+ * itself, so reading a number never moves the image and never asks anybody to
+ * scroll away from the game they are playing. Its width is dragged between two
+ * bounds (`lib/column`), and the picture takes whatever is left.
  */
 import { typingIn } from "./lib/typing";
 import { useEffect, useRef, useState } from "react";
@@ -21,6 +22,7 @@ import { ControllerStatus } from "./components/ControllerStatus";
 import { Booting } from "./components/Booting";
 import { bootingStep } from "./lib/booting";
 import { Sidebar } from "./components/Sidebar";
+import { ColumnHandle } from "./components/ColumnHandle";
 import { Recovery } from "./components/Recovery";
 import { Asked as AskedBanner } from "./components/Swap";
 import { Channels } from "./components/Channels";
@@ -78,6 +80,7 @@ import {
 } from "./lib/theme";
 import { FITS, fitLabel, place, qualities, rememberFit, storedFit } from "./lib/fit";
 import { useBare } from "./lib/fullscreen";
+import { COLUMN, rememberColumn, storedColumn, widest } from "./lib/column";
 import { useBindings, useRoomReference } from "./lib/bindings";
 import { cn } from "./lib/cn";
 import { publishProfile } from "./lib/bindings";
@@ -414,6 +417,8 @@ function Room({
 }) {
   const coarse = useRef(looksLikeAPhone()).current;
   const { bare, setBare, fullscreen, toggleFullscreen } = useBare(coarse);
+  /** La largeur de la colonne, choisie entre deux bornes: voir `lib/column`. */
+  const [column, setColumn] = useState(storedColumn);
   const [volume, setVolume] = useState(START_VOLUME);
   const [deviceRate, setDeviceRate] = useState(false);
   const [lipsync, setLipsync] = useState(false);
@@ -1493,13 +1498,35 @@ function Room({
         },
         {
           id: "bare",
-          // Un nom, comme les treize autres. La phrase à l'impératif est le
+          // Un nom, comme les autres. La phrase à l'impératif est le
           // travail de l'aide, pas du titre.
           label: "colonne de droite",
           value: bare ? "repliée" : "visible",
           hint: "rend toute la largeur à l'image (Ctrl)",
           icon: <PanelIcon className="h-full w-full" />,
           onEnter: () => setBare(!bare),
+        },
+        {
+          id: "columnWidth",
+          label: "largeur de la colonne",
+          value: `${column} px`,
+          hint: `ou tirer son bord gauche · double-clic : ${COLUMN.normal} px`,
+          icon: <PanelIcon className="h-full w-full" />,
+          // La glissière du menu, parce que la poignée n'a pas de clavier:
+          // voir `ColumnHandle`. Au clavier et à la manette, c'est ici.
+          slide: {
+            value: column,
+            min: COLUMN.min,
+            // Relue à chaque rendu du menu: une fenêtre étroite ne permet pas
+            // la même largeur qu'un grand écran.
+            max: widest(window.innerWidth),
+            step: COLUMN.step,
+            say: (at) => `${at} px`,
+            onSet: (at) => {
+              setColumn(at);
+              rememberColumn(at);
+            },
+          },
         },
         {
           id: "fullscreen",
@@ -1736,10 +1763,15 @@ function Room({
         ) : null}
       </main>
 
+      {bare ? null : <ColumnHandle width={column} onWidth={setColumn} onSettle={rememberColumn} />}
       {bare ? null : (
         <aside
           id="side"
-          className="flex w-[19rem] shrink-0 flex-col gap-3 overflow-y-auto border-l border-rule bg-panel px-3 py-3"
+          /* La largeur choisie, et jamais plus de la moitié de la fenêtre:
+             une largeur retenue sur un grand écran ne doit pas écraser le jeu
+             sur un petit. */
+          style={{ width: column, maxWidth: "50vw" }}
+          className="flex shrink-0 flex-col gap-3 overflow-y-auto border-l border-rule bg-panel px-3 py-3"
         >
           <header className="flex flex-col gap-0.5">
             <span className="font-mono text-corps uppercase tracking-[0.3em] text-indigo">

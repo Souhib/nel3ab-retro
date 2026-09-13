@@ -37,6 +37,7 @@ export const SETTINGS: readonly Arranged[] = [
   { id: "fit", group: "écran" },
   { id: "half", group: "écran" },
   { id: "bare", group: "écran" },
+  { id: "columnWidth", group: "écran" },
   { id: "sound", group: "son" },
   { id: "volume", group: "son" },
   { id: "lipsync", group: "son" },

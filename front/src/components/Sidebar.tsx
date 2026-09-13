@@ -8,9 +8,10 @@
  * Trois crans désormais: 12 px pour les ÉTIQUETTES en capitales, 13 px pour le
  * COURANT, 15 px pour l'IDENTITÉ, c'est-à-dire qui tient quelle manette.
  *
- * Pourquoi pas plus gros: la colonne fait 304 px de large et défile (`w-[19rem]`,
- * `overflow-y-auto`). Tout grossir ne la déborderait pas, ça pousserait les
- * places sous la ligne de flottaison, ce qui est pire que du petit texte. Les
+ * Pourquoi pas plus gros: la colonne fait 304 px de large par défaut, 256 au
+ * moins (`lib/column`), et défile (`overflow-y-auto`). Tout grossir ne la
+ * déborderait pas, ça pousserait les places sous la ligne de flottaison, ce qui
+ * est pire que du petit texte. Les
  * étiquettes en capitales, espacées de 0,2em, montent donc d'un seul cran.
  */
 /**

@@ -15579,6 +15579,82 @@ L'essai vérifie désormais les deux, et rougit avec le défaut remis.
 à 16 px, pendant que `cn` gonflait le texte. Recopiés tels quels, ils ont servi à
 poser une borne fausse pour la largeur de la colonne: voir l'entrée suivante.
 
+### La colonne de droite se tire, et sa borne basse venait d'un relevé périmé
+
+**La demande.** Le 13 septembre 2026 au soir, Souhib demande de pouvoir réduire
+ou agrandir la colonne de droite, dans des limites. Elle faisait 304 px, fixes.
+
+**Ce qui est livré.** Une poignée sur le bord gauche de la colonne: on la tire,
+et un double-clic rend les 304 px d'origine. Une glissière dans le menu,
+« largeur de la colonne », par crans de 16 px. La largeur est retenue par le
+navigateur. Elle reste entre 256 et 480 px, et jamais plus de la moitié de la
+fenêtre, pour la raison mesurée le 18 août sur un téléphone: une colonne qui
+prend la moitié de l'écran écrase le jeu dans l'autre moitié.
+
+**Pas de flèches du clavier sur la poignée.** La boucle d'entrée donne les
+flèches au jeu dès que le focus n'est pas dans un champ de texte. Une poignée
+réglable aux flèches les partagerait avec le personnage, et un clic de souris
+laisse souvent le focus sur ce qu'on a cliqué. La poignée ne prend donc jamais
+le focus, un essai le vérifie, et le réglage au clavier ou à la manette passe
+par le menu, qui possède déjà ses flèches.
+
+**Pendant le glissement, la largeur vit dans l'état de la page.** L'écrire
+directement dans le style aurait évité un rendu. Mais la page se rend déjà à
+chaque pas, parce que l'écran mesure la place qu'on lui laisse, et ce rendu
+remettait l'ancienne largeur par-dessus. Elle n'est rangée qu'au lâcher.
+
+**Deux choses que seul un vrai navigateur a montrées.** Le nouveau pilote
+`just browser-colonne` lance un worker jetable et tire la poignée avec une vraie
+souris.
+
+La première: la prise était « recouverte ». Le pilote mesurait une salle sans
+jeu, et dans ce cas l'écran « Aucun jeu en cours » couvre toute la page, colonne
+comprise. Ce n'était pas un défaut de la poignée: la colonne ne sert que pendant
+une partie. Le pilote joue donc un faux jeu Switch, sans conteneur ni carte
+graphique, en mode « manette seule », le seul mode qui n'attend pas d'image et
+n'affiche donc pas l'écran de chargement. C'est la précondition du pilote qui
+l'a vu: avant de tirer, il demande ce que la souris toucherait à cet endroit.
+Elle avait elle-même un trou. Sans élément sous le point, `undefined !== null`
+l'aurait laissée passer; elle lit désormais `Boolean(...)`.
+
+La seconde est la plus utile. J'avais posé la borne basse à 272 px pour que
+« Souhib » tienne sous sa prise, en partant des 55 px relevés pour ce nom dans
+un commentaire de `Seats`. Ce relevé datait d'un texte affiché à 16 px, parce
+que `cn` effaçait alors la taille demandée. À la vraie taille, 13 px, ce nom
+mesure 44,5 px. Le jumeau du pilote a rougi: le nom tenait encore à 256 px. La
+borne reposait sur un calcul, pas sur une mesure.
+
+Mesure refaite en rétrécissant la colonne de 16 px en 16 px, dans Chromium, à
+1440 par 900. En mode « salle », rien ne sort de la colonne jusqu'à 256 px. À
+240 px, un nombre (« 20 ») en sort et la colonne se met à défiler de côté; à
+224 px le lien « les salles » suit, à 208 px la glissière du volume. Le mode
+« détails » tient jusqu'à 208 px. La borne est donc à 256 px, et le pilote la
+remesure à chaque passage, avec son jumeau à 240 px qui doit voir quelque chose
+sortir.
+
+La leçon dépasse la colonne: un nombre copié d'un commentaire garde l'état du
+code au jour où il a été relevé. Quand ce code a changé depuis, et ici il avait
+changé le jour même, le nombre est à remesurer avant de bâtir dessus.
+
+**Les chiffres du pilote.** Tirée de 96 px vers la gauche, la colonne passe de
+304 à 400 px et l'image rend exactement 96 px (1136 puis 1040). Les bornes
+tiennent à 480 et 256 px. Après un rechargement, la largeur choisie (336 px) est
+retrouvée; le double-clic rend 304 px et c'est retenu. Dans une fenêtre de
+800 px, 480 px retenus donnent une colonne de 400. À 1100 px de large avec
+480 px de colonne, les chiffres restent à droite de l'image.
+
+**Les essais peuvent échouer.** Sept défauts ont été réintroduits un par un
+dans la poignée et dans la lecture de la largeur retenue: sens du glissement
+inversé, bouton droit accepté, focus pris, simple clic rangé, moitié de fenêtre
+oubliée, second pointeur accepté, valeur rangée mal lue. Chacun rougit l'essai
+qui le vise.
+
+**Ce qui n'est pas prouvé.** La mesure porte sur une salle de test en manette
+seule, sans joueurs nommés: un état qui ajoute une ligne plus longue à la
+colonne n'a pas été vu. Rien n'a été essayé sur téléphone, où la colonne est
+repliée d'office. Sur un écran tactile, les commandes affichées par-dessus
+l'image pourraient passer devant la prise; ce n'est pas vérifié.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une

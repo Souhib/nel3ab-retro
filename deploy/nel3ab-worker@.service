@@ -9,8 +9,15 @@
 # contrôle. Cela tient de la salle 1 à la salle 9, ce qui laisse de la marge
 # devant la limite de deux salles décidée le 12 septembre 2026.
 #
-# Le port 8100 reste celui de l'ancienne salle unique tant qu'elle existe: les
-# deux séries ne se croisent jamais.
+# Le port 8100 était celui de l'ancienne salle unique, `nel3ab-worker.service`.
+# Cette unité a été supprimée du dépôt et de `/etc/systemd/system` le 13
+# septembre 2026: elle n'était ni activée ni active, mais elle restait
+# DÉMARRABLE, et comme elle ne fixait ni `NEL3AB_BIND` ni `NEL3AB_CONTAINER`,
+# la lancer levait un worker sur les défauts compilés 8100/8101, dans
+# `~/.local/state/nel3ab/session`, avec le conteneur `nel3ab-dolphin`. Une salle
+# que le proxy ne sert à personne, qui consomme le GPU et partage le verrou
+# Switch avec les vraies. Le port 8100 ne sert donc plus à rien, et les deux
+# séries ne se croisaient de toute façon jamais.
 #
 # `Restart=always` AVEC une exception, et pas `on-failure`. La distinction est
 # subtile et coûte une salle si on la rate.

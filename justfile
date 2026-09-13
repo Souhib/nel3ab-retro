@@ -28,7 +28,19 @@ default: local
 # Le MP4 demande ffmpeg et ffprobe, disponibles ici et absents de CI.
 # Depuis le 2026-09-06, la porte locale décode aussi sa piste audio : ffprobe
 # seul laissait passer les clips muets puisqu'il ne vérifiait que l'image.
-local: check gpu-test clip-audio-test switch-saves-test switch-capture-test
+#
+# `deploy-check` entre dans la porte le 13 septembre 2026, et ICI plutôt que
+# dans `check`: `check` est partagé avec la CI, qui n'a aucun
+# `/etc/systemd/system/nel3ab-*` et le déclarerait rouge pour rien. `local`, lui,
+# est déjà la porte de CETTE machine, comme le GPU, ffmpeg et la Switch.
+#
+# Il existait et personne ne le lançait. Le 13 septembre 2026 j'ai supprimé une
+# unité morte et corrigé `nel3ab-rebar.service` dans le dépôt sans le déployer:
+# la machine a gardé 37 minutes une référence vers un fichier disparu (09h53 à
+# 10h31, lu sur les mtime des deux copies), la porte est restée verte, et la
+# dérive a été retrouvée à la main. Un contrôle que rien n'appelle ne protège
+# de rien.
+local: check gpu-test clip-audio-test switch-saves-test switch-capture-test deploy-check
 
 # The control plane's own gate, which is its owner's: ruff, ty, pytest, driven by
 # poe exactly as LaTabdhir and Majlisna drive theirs.

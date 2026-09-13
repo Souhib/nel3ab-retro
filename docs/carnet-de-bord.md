@@ -15041,6 +15041,29 @@ le hall et non une page de salle. Il est mort dans `enterRoom` faute de bouton
 `#enter`, sans jamais atteindre sa socket, et ne prouvait donc rien. Une commande
 qui échoue avant d'atteindre ce qu'elle teste n'est pas un résultat négatif.
 
+**Et un contrôle qui existait, que personne ne lançait.** En retirant l'unité
+morte `nel3ab-worker.service`, j'ai corrigé dans le dépôt le `Before=` de
+`nel3ab-rebar.service` qui la nommait, et j'ai oublié de le déployer. La machine
+a donc gardé une référence vers un fichier disparu, et la porte est restée
+verte. Je l'ai retrouvée à la main, en comparant une par une les unités
+installées à leurs sources.
+
+Ce contrôle existait déjà, sous le nom de `deploy-check`, et il fait exactement
+ça dans les DEUX sens. Son en-tête raconte même ce qu'il a coûté d'apprendre: le
+30 août 2026, réinstaller une unité depuis le dépôt avait silencieusement ramené
+le répertoire de session dans `/tmp`, la vibration avait cessé de passer, et il
+avait fallu une demi-heure pour comprendre. Il n'était branché nulle part.
+
+Ce n'est donc pas un contrôle incapable d'échouer: falsifié le 13 septembre 2026
+en lui soumettant une vraie dérive, il devient rouge, nomme le fichier et
+imprime l'écart. C'est son CÂBLAGE qui manquait. Il entre dans `local`, la porte
+de cette machine, et pas dans `check`, partagé avec une CI qui n'a aucun
+`/etc/systemd/system/nel3ab-*` et le déclarerait rouge pour rien.
+
+La leçon dépasse le justfile: un contrôle que rien n'appelle ne protège de rien,
+et il est plus trompeur qu'une absence de contrôle, parce que sa seule présence
+dans le dépôt laisse croire que le cas est couvert.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une

@@ -9297,6 +9297,7 @@ de la page et les 78 du transport passent, et `just` est vert des deux côtés.
 | Une adresse v6 sans crochets | 404 muet, et le cas v4 essayé à la main marchait | Essayer une adresse dans les deux familles: celle qu'on saute est celle de la production |
 | Une socket acceptée puis jamais servie | Écran noir, son intact, et le vidage du cache sans effet | Un service qui sait ne pas pouvoir servir doit refuser, pas accepter en silence |
 | Une édition qui ne s'applique pas | Un remplacement de texte ne trouve pas sa cible (le formateur était passé avant), ne dit rien, et le test suivant échoue pour une **autre** raison — qui masque le no-op | Le même piège que `docker exec` sans `-i`, sous une autre forme : vérifier l'effet, pas l'absence d'erreur |
+| Un `git add` étouffé | Un seul chemin périmé dans la liste — un fichier qu'on vient de renommer — fait échouer l'`add` **en bloc** (`fatal: pathspec ... did not match any files`, code 128) et git n'indexe alors RIEN. Un `2>/dev/null \|\| true` en bout de ligne avale le message, et le commit suivant part avec un index vide. Ici il a été poussé sur `main` avec un message décrivant l'animation et le renommage: 0 insertion, 0 suppression | Le même piège que `docker exec` sans `-i`, sous une troisième forme: vérifier l'**effet** — ici `git diff --cached --stat` — et ne jamais faire taire le flux d'erreur d'une commande dont on va croire le succès |
 | Une relecture ne prouve pas ce qu'on croit | Relire les pixels écrits pour vérifier le rangement mémoire : **ça passe même avec un rangement faux**, parce que l'écriture et la lecture traversent la même déclaration. Un mensonge cohérent avec lui-même est invisible à un aller-retour à travers lui | Vérifier une déclaration contre **l'autre partie**, pas contre soi-même. Ici : comparer ce qu'on a déclaré à ce que la surface est vraiment |
 | **Troisième** test vert avec le bug remis | Déclarer un rangement *linéaire* pour une image tuilée : le pilote accepte, crée l'image, renvoie succès. Seuls les pixels auraient protesté, bien plus tard | Corrigé en **demandant à Vulkan** quel rangement l'image porte vraiment, au lieu de se fier à ce qu'on avait déclaré. Encore une fois : quand le pilote est l'autorité, l'interroger |
 | Poussé avec `just check` rouge | Vu l'échec, poussé quand même | Corrigé dans un commit dont le message le dit |
@@ -15441,6 +15442,27 @@ vraiment, et la lueur s'efface au lieu de rester figée sur le fil, où elle se
 lirait comme une tache claire, c'est-à-dire comme un défaut d'affichage. Les
 deux classes sont nommées une par une dans le bloc `prefers-reduced-motion`,
 comme les trois qui y étaient déjà: ce bloc ne couvre que ce qu'on y inscrit.
+
+**Et pour finir, un commit vide poussé sur `main`.** En validant ce travail,
+j'avais listé `LobbySol.tsx` dans le `git add` — le fichier que je venais de
+renommer, donc un chemin qui n'existait plus. `git add` échoue en bloc sur un
+chemin inconnu: il n'indexe rien du tout, pas même les dix autres fichiers
+valides de la liste. Mon `2>/dev/null || true` a fait taire le `fatal:` et le
+code 128, le commit est parti avec un index vide, et la poussée a annoncé un
+succès. Le commit portait un message décrivant l'animation et le renommage pour
+un contenu de 0 insertion et 0 suppression.
+
+Retrouvé en lisant `git status` APRÈS la poussée, où tous les fichiers étaient
+encore marqués modifiés. Réparé en amendant puis en poussant avec
+`--force-with-lease`, choix soumis à Souhib parce qu'il réécrit une histoire
+déjà publiée.
+
+C'est la troisième forme du même piège dans ce carnet, après `docker exec` sans
+`-i` et l'édition de texte qui ne trouve pas sa cible: une commande dont on
+étouffe l'échec, suivie d'une étape qui rapporte un succès. La parade ne change
+pas — vérifier l'effet, ici `git diff --cached --stat` avant de valider — et
+elle a une moitié plus simple encore: ne pas rediriger vers `/dev/null` le flux
+d'erreur d'une commande dont on s'apprête à croire le résultat.
 
 **Trois falsifications sur les essais.** Retirer la lueur du câble branché, coller
 la respiration AUSSI sur le câble branché, figer le décalage à zéro pour les

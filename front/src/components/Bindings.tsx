@@ -504,7 +504,7 @@ export function Bindings({
                     layout={layout}
                     disabled={busy || readOnly}
                   />
-                  <p className="text-[12px] leading-relaxed text-muted">
+                  <p className="text-corps leading-relaxed text-muted">
                     Le stick et la croix sont deux commandes différentes. Assigne séparément les
                     quatre directions du stick.
                     {looking === 1

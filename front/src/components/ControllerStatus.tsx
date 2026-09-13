@@ -33,7 +33,7 @@ export function ControllerStatus({
     <div
       id="controller-status"
       role="status"
-      className="absolute left-3 right-3 top-3 z-30 max-w-sm rounded-xl border border-rule bg-ink/95 p-3 text-xs shadow-lg"
+      className="absolute left-3 right-3 top-3 z-30 max-w-sm rounded-xl border border-rule bg-ink/95 p-3 text-corps shadow-lg"
     >
       <button
         type="button"

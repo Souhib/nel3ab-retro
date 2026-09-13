@@ -1555,7 +1555,7 @@ function Room({
             type="button"
             id="closingNotice"
             onClick={() => setClosingHidden(true)}
-            className="absolute inset-x-0 top-4 z-30 mx-auto max-w-[52ch] border border-alert/60 bg-panel px-4 py-3 text-center text-[13px] leading-relaxed text-bright"
+            className="absolute inset-x-0 top-4 z-30 mx-auto max-w-[52ch] border border-alert/60 bg-panel px-4 py-3 text-center text-corps leading-relaxed text-bright"
           >
             Personne n&apos;a joué depuis un moment: la salle ferme dans {closingSoon}
             {closingSoon > 1 ? " minutes" : " minute"}. Touche une manette pour rester.
@@ -1566,7 +1566,7 @@ function Room({
             id="reducedNotice"
             className="absolute inset-x-0 bottom-4 z-20 mx-auto flex max-w-[46ch] flex-col gap-2 border border-rule bg-panel px-4 py-3 text-center"
           >
-            <p className="text-[13px] leading-relaxed text-bright">
+            <p className="text-corps leading-relaxed text-bright">
               Ton lien ne suivait pas: l&apos;image est passée en format réduit.
             </p>
             <div className="flex justify-center gap-2">
@@ -1574,7 +1574,7 @@ function Room({
                 type="button"
                 id="keepReduced"
                 onClick={() => setReduced(false)}
-                className="border border-rule px-2 py-0.5 text-[11px] text-muted hover:border-rule-bright"
+                className="border border-rule px-2 py-0.5 text-note text-muted hover:border-rule-bright"
               >
                 d&apos;accord
               </button>
@@ -1587,7 +1587,7 @@ function Room({
                   setHalf(false);
                   setReduced(false);
                 }}
-                className="border border-indigo px-2 py-0.5 text-[11px] text-indigo"
+                className="border border-indigo px-2 py-0.5 text-note text-indigo"
               >
                 revenir en pleine taille
               </button>
@@ -1599,14 +1599,14 @@ function Room({
             id="padOnlyNotice"
             className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-ink px-6 text-center"
           >
-            <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-faint">
+            <span className="font-mono text-note uppercase tracking-[0.16em] text-faint">
               manette seule
             </span>
-            <p className="max-w-[42ch] text-[13px] leading-relaxed text-muted">
+            <p className="max-w-[42ch] text-corps leading-relaxed text-muted">
               Cet appareil ne décode ni l&apos;image ni le son. Il envoie les boutons et il vibre,
               c&apos;est tout.
             </p>
-            <p className="font-mono text-[12px] text-muted">
+            <p className="font-mono text-corps text-muted">
               aller-retour{" "}
               {shot?.input.roundTripMs === null || shot === null
                 ? "pas encore mesuré"
@@ -1633,7 +1633,7 @@ function Room({
             type="button"
             id="showTouch"
             onClick={() => setTouchPref("on")}
-            className="absolute bottom-3 left-3 z-30 rounded-full border border-rule bg-panel/70 px-4 py-2 text-[11px] uppercase tracking-[0.14em] text-faint"
+            className="absolute bottom-3 left-3 z-30 rounded-full border border-rule bg-panel/70 px-4 py-2 text-note uppercase tracking-[0.14em] text-faint"
           >
             manette
           </button>
@@ -1679,14 +1679,14 @@ function Room({
               type="button"
               id="unbare"
               onClick={() => setBare(false)}
-              className="border border-rule bg-panel px-2 py-1 text-[11px] text-muted"
+              className="border border-rule bg-panel px-2 py-1 text-note text-muted"
             >
               montrer (Ctrl)
             </button>
             <button
               type="button"
               onClick={toggleFullscreen}
-              className="border border-rule bg-panel px-2 py-1 text-[11px] text-muted"
+              className="border border-rule bg-panel px-2 py-1 text-note text-muted"
             >
               {fullscreen ? "fenêtre" : "plein écran"}
             </button>
@@ -1703,7 +1703,7 @@ function Room({
         ) : null}
 
         {learning ? (
-          <div className="flex items-center justify-between gap-4 border-t border-indigo/40 bg-indigo/10 px-4 py-2 text-[12px]">
+          <div className="flex items-center justify-between gap-4 border-t border-indigo/40 bg-indigo/10 px-4 py-2 text-corps">
             <span>
               apprentissage de la manette, appuie sur{" "}
               <strong className="text-indigo">{learning}</strong>
@@ -1712,7 +1712,7 @@ function Room({
               type="button"
               id="skipStep"
               onClick={() => session?.input.skipLessonStep()}
-              className="border border-indigo/50 px-2 py-1 text-[11px] text-indigo"
+              className="border border-indigo/50 px-2 py-1 text-note text-indigo"
             >
               passer
             </button>
@@ -1726,23 +1726,23 @@ function Room({
           className="flex w-[19rem] shrink-0 flex-col gap-3 overflow-y-auto border-l border-rule bg-panel px-3 py-3"
         >
           <header className="flex flex-col gap-0.5">
-            <span className="font-mono text-[12px] uppercase tracking-[0.3em] text-indigo">
+            <span className="font-mono text-corps uppercase tracking-[0.3em] text-indigo">
               nel3ab
             </span>
-            <h1 className="truncate text-[15px] font-medium">{room?.name ?? "salon"}</h1>
-            <p className="truncate text-[13px] text-muted">{room?.game?.name ?? "aucun jeu"}</p>
-            <p id="seat" className="text-[13px] text-faint">
+            <h1 className="truncate text-fort font-medium">{room?.name ?? "salon"}</h1>
+            <p className="truncate text-corps text-muted">{room?.game?.name ?? "aucun jeu"}</p>
+            <p id="seat" className="text-corps text-faint">
               {name}
               {port === null ? " · sans manette" : ` · manette ${port}`}
             </p>
           </header>
 
-          {boss ? <p className="text-[12px] text-muted">Chef : {boss.name}</p> : null}
+          {boss ? <p className="text-corps text-muted">Chef : {boss.name}</p> : null}
           {boss && login && boss.login !== login ? (
             <button
               id="recoverOwner"
               type="button"
-              className="border border-rule px-3 py-2 text-[12px] text-muted hover:text-indigo"
+              className="border border-rule px-3 py-2 text-corps text-muted hover:text-indigo"
               onClick={() => onRecover(null)}
             >
               chef absent ? reprendre le rôle
@@ -1783,7 +1783,7 @@ function Room({
                     : "les trente dernières secondes, en un fichier"
             }
             className={cn(
-              "flex items-center justify-between gap-2 border px-3 py-2 text-[13px] transition-colors",
+              "flex items-center justify-between gap-2 border px-3 py-2 text-corps transition-colors",
               clip.state.phase === "fait"
                 ? "border-good/60 text-good hover:bg-good/10"
                 : clip.state.phase === "raté"
@@ -1800,7 +1800,7 @@ function Room({
               {clipLabel(clip.state)}
             </span>
             {clip.state.phase === "fait" ? (
-              <span className="font-mono text-[11px]">{Math.round(clip.state.bytes / 1e6)} Mo</span>
+              <span className="font-mono text-note">{Math.round(clip.state.bytes / 1e6)} Mo</span>
             ) : null}
           </button>
 
@@ -1808,7 +1808,7 @@ function Room({
             type="button"
             id="openMenu"
             onClick={() => setMenu(true)}
-            className="border border-indigo/60 px-3 py-2 text-[13px] text-indigo transition-colors hover:bg-indigo/10"
+            className="border border-indigo/60 px-3 py-2 text-corps text-indigo transition-colors hover:bg-indigo/10"
           >
             menu (Échap)
           </button>

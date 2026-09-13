@@ -189,6 +189,34 @@
    * Ce qui décore plutôt que d'informer a ses propres jetons, `--rule` et
    * `--rule-bright`, et n'est pas concerné.
    */
+  /* L'échelle de texte. Sept paliers nommés, là où il y avait SEIZE tailles
+   * et deux vocabulaires (`text-[12px]` et `text-xs`).
+   *
+   * Recensé le 13 septembre 2026: 138 classes dans le TSX, 50 `font-size` dans
+   * ce fichier, 3 `text-xs`. Quinze composants sur vingt et un mélangeaient
+   * trois tailles ou plus, avec des écarts d'UN pixel: `App.tsx` employait 11,
+   * 12, 13 et 15 côte à côte. Un pas de 1 px n'est pas un palier, personne ne
+   * le perçoit comme voulu; c'est la trace de valeurs choisies à des moments
+   * différents.
+   *
+   * Chaque palier vaut au moins le MAXIMUM des valeurs qu'il absorbe, donc
+   * rien ne rétrécit: le constat dit que le texte est trop petit sur un écran
+   * regardé à deux mètres, et la page n'applique aucune mise à l'échelle
+   * globale (pas de `zoom`, pas de taille de base sur la racine, viewport à
+   * `initial-scale=1.0`), si bien qu'un 11 px y vaut bien 11 px.
+   *
+   * Ce que la barrière NE voit pas: aucun essai du front et aucun garde de
+   * `just check` ne surveille une taille de texte. Les filets sont
+   * `layout.mjs` (débordement aux quatre largeurs) et `contraste.mjs`, dont
+   * les seuils dépendent justement de la taille. Les deux étaient verts avant
+   * ce changement, et c'est à eux qu'il faut le comparer. */
+  --text-mini: 11px; /* était 9, 10 */
+  --text-note: 13px; /* était 11 */
+  --text-corps: 15px; /* était 12, 13 */
+  --text-fort: 17px; /* était 14, 15 */
+  --text-titre: 20px; /* était 17, 18 */
+  --text-large: 26px; /* était 22, 23, 24, 25 */
+  --text-affiche: 31px; /* était 27, 28, 29 */
   --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
@@ -458,21 +486,21 @@ body {
 .n3-eyebrow {
   display: block;
   color: var(--indigo);
-  font-size: 10px;
+  font-size: var(--text-mini);
   font-weight: 600;
   letter-spacing: 0.17em;
   text-transform: uppercase;
   margin-bottom: 7px;
 }
 .n3-bindings-header h2 {
-  font-size: 27px;
+  font-size: var(--text-affiche);
   font-weight: 550;
   letter-spacing: -0.035em;
   line-height: 1.2;
 }
 .n3-bindings-header p {
   color: var(--muted);
-  font-size: 13px;
+  font-size: var(--text-corps);
   margin-top: 8px;
 }
 .n3-close {
@@ -482,7 +510,7 @@ body {
   height: 38px;
   border: 1px solid var(--rule);
   border-radius: 50%;
-  font-size: 25px;
+  font-size: var(--text-large);
   line-height: 1;
   color: var(--muted);
 }
@@ -500,7 +528,7 @@ body {
 .n3-bindings-tabs button {
   border-bottom: 2px solid transparent;
   padding: 13px 0;
-  font-size: 13px;
+  font-size: var(--text-corps);
   color: var(--muted);
 }
 .n3-bindings-tabs button[aria-pressed="true"] {
@@ -508,7 +536,7 @@ body {
   border-bottom-color: var(--indigo);
 }
 .n3-bindings-local {
-  font-size: 11px;
+  font-size: var(--text-note);
   margin-left: auto;
   color: var(--faint);
 }
@@ -527,11 +555,11 @@ body {
   margin-bottom: 23px;
 }
 .n3-device-row strong {
-  font-size: 14px;
+  font-size: var(--text-fort);
   font-weight: 500;
 }
 .n3-device-row p {
-  font-size: 12px;
+  font-size: var(--text-corps);
   color: var(--muted);
   margin-top: 5px;
 }
@@ -549,7 +577,15 @@ body {
 }
 .n3-workbench {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 250px;
+  /* 290px et non 250: cette colonne était calibrée pour un corps à 12px.
+   * Le 13 septembre 2026, l'échelle de texte est passée à 15px et
+   * « Modifier cette commande », qui porte `white-space: nowrap`, a dépassé de
+   * 23px MESURÉS par `spikes/m3-browser-drive/debordement.mjs`. Le bouton
+   * s'affichait « Modifier cette comman », sans qu'aucun garde ne bronche.
+   *
+   * C'est le CONTENEUR qui suit le texte, pas l'inverse: rétrécir ce seul
+   * bouton réintroduirait l'exception que l'échelle commune vient de supprimer. */
+  grid-template-columns: minmax(0, 1fr) 290px;
   align-items: start;
   gap: 23px;
 }
@@ -558,7 +594,7 @@ body {
   align-items: center;
   gap: 10px;
   margin: 0 0 15px;
-  font-size: 11px;
+  font-size: var(--text-note);
   color: var(--muted);
 }
 .n3-reading-choice > span {
@@ -573,7 +609,7 @@ body {
      défilement, avec 1406 px de contenu dans 508 px de fenêtre. Ce qui grossit
      est donc absorbé, pas coupé. Deux crans quand même: allonger encore une
      liste de réglages qu'on parcourt déjà sur 898 px n'est pas gratuit. */
-  font-size: 12px;
+  font-size: var(--text-corps);
 }
 .n3-controller-pair {
   display: grid;
@@ -618,7 +654,7 @@ body {
   background: var(--ink);
 }
 .n3-command-editor h3 {
-  font-size: 29px;
+  font-size: var(--text-affiche);
   line-height: 1;
   font-weight: 550;
   letter-spacing: -0.02em;
@@ -628,29 +664,29 @@ body {
 }
 .n3-command-editor label,
 .n3-field-label {
-  font-size: 11px;
+  font-size: var(--text-note);
   color: var(--muted);
 }
 .n3-command-editor p {
-  font-size: 12px;
+  font-size: var(--text-corps);
   line-height: 1.6;
   color: var(--muted);
 }
 .n3-current-binding {
-  font-size: 13px;
+  font-size: var(--text-corps);
   line-height: 1.6;
   font-family: var(--font-mono);
 }
 .n3-command-editor .n3-editor-note {
   border-top: 1px solid var(--rule);
   padding-top: 12px;
-  font-size: 11px;
+  font-size: var(--text-note);
 }
 .n3-action {
   border: 1px solid var(--rule-bright);
   border-radius: 7px;
   padding: 9px 13px;
-  font-size: 12px;
+  font-size: var(--text-corps);
   line-height: 1.5;
   color: var(--text);
   white-space: nowrap;
@@ -681,7 +717,7 @@ body {
   border: 1px solid var(--rule-bright);
   border-radius: 7px;
   padding: 8px 10px;
-  font-size: 12px;
+  font-size: var(--text-corps);
 }
 .n3-device-row select {
   max-width: 100%;
@@ -694,13 +730,13 @@ body {
 .n3-diagnostics summary {
   color: var(--muted);
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--text-corps);
   padding: 4px 0;
 }
 .n3-diagnostics summary > span {
   float: right;
   color: var(--faint);
-  font-size: 11px;
+  font-size: var(--text-note);
 }
 .n3-mapping-list {
   display: grid;
@@ -715,7 +751,7 @@ body {
   text-align: left;
   padding: 10px;
   border-radius: 6px;
-  font-size: 12px;
+  font-size: var(--text-corps);
 }
 .n3-mapping-list button[aria-pressed="true"] {
   background: color-mix(in srgb, var(--indigo) 9%, var(--ink));
@@ -739,11 +775,11 @@ body {
   min-width: 200px;
 }
 .n3-capture-banner strong {
-  font-size: 14px;
+  font-size: var(--text-fort);
   font-weight: 500;
 }
 .n3-capture-banner p {
-  font-size: 12px;
+  font-size: var(--text-corps);
   color: var(--muted);
   line-height: 1.6;
   margin-top: 4px;
@@ -757,7 +793,7 @@ body {
 }
 .n3-bindings-tools > span {
   max-width: 570px;
-  font-size: 11px;
+  font-size: var(--text-note);
   color: var(--muted);
   line-height: 1.6;
 }
@@ -772,7 +808,7 @@ body {
 }
 .n3-bindings-footer > span {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-note);
   line-height: 1.6;
 }
 .n3-keyboard-wiring {
@@ -785,7 +821,7 @@ body {
 .n3-keyboard-test {
   gap: 18px;
   text-align: left;
-  font-size: 12px;
+  font-size: var(--text-corps);
   cursor: pointer;
 }
 .n3-keyboard-test:focus-visible {
@@ -816,7 +852,7 @@ body {
 .n3-key-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: var(--text-corps);
 }
 .n3-key-table th {
   color: var(--muted);
@@ -824,7 +860,7 @@ body {
   /* 12 px et non 10: l'en-tête d'un tableau était plus PETIT que le tableau
      lui-même, qui est à 13 px. Une colonne dont on ne lit pas le titre oblige
      à déduire ce qu'elle contient. */
-  font-size: 12px;
+  font-size: var(--text-corps);
   text-transform: uppercase;
   letter-spacing: 0.13em;
   font-weight: 500;
@@ -847,7 +883,7 @@ body {
   border-radius: 6px;
   padding: 8px 10px;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--text-corps);
 }
 .n3-binding-cell > span:last-child {
   color: var(--faint);
@@ -864,18 +900,18 @@ body {
   gap: 14px;
 }
 .n3-profiles h3 {
-  font-size: 24px;
+  font-size: var(--text-large);
   font-weight: 500;
   margin-bottom: 8px;
 }
 .n3-profiles p {
-  font-size: 12px;
+  font-size: var(--text-corps);
   line-height: 1.7;
   color: var(--muted);
 }
 .n3-profiles label {
   display: block;
-  font-size: 12px;
+  font-size: var(--text-corps);
   margin-bottom: 7px;
 }
 .n3-profiles form {
@@ -889,7 +925,7 @@ body {
   flex: 1;
 }
 .n3-bindings-notice {
-  font-size: 13px;
+  font-size: var(--text-corps);
   color: var(--text);
   margin-top: 20px;
 }
@@ -923,7 +959,7 @@ body {
     padding: 20px 18px 15px;
   }
   .n3-bindings-header h2 {
-    font-size: 23px;
+    font-size: var(--text-large);
   }
   .n3-bindings-tabs {
     padding-inline: 18px;
@@ -1083,7 +1119,7 @@ body {
     gap: 8px 12px;
   }
   .n3-workbench[data-busy="true"] .n3-command-editor h3 {
-    font-size: 22px;
+    font-size: var(--text-large);
   }
   .n3-workbench[data-busy="true"] .n3-eyebrow {
     flex: 1;
@@ -1135,12 +1171,12 @@ body {
   gap: 20px;
 }
 .n3-preparation h3 {
-  font-size: 22px;
+  font-size: var(--text-large);
   color: var(--text);
   margin: 4px 0;
 }
 .n3-preparation p {
-  font-size: 12px;
+  font-size: var(--text-corps);
   color: var(--muted);
   line-height: 1.6;
 }
@@ -1168,11 +1204,11 @@ body {
 }
 .n3-preparation-players span,
 .n3-preparation-players small {
-  font-size: 11px;
+  font-size: var(--text-note);
   color: var(--muted);
 }
 .n3-preparation-players strong {
-  font-size: 13px;
+  font-size: var(--text-corps);
   color: var(--text);
   min-height: 18px;
 }
@@ -1187,7 +1223,7 @@ body {
 .n3-preparation-choice label {
   display: grid;
   gap: 6px;
-  font-size: 12px;
+  font-size: var(--text-corps);
   flex: 1;
 }
 .n3-preparation select,
@@ -1197,7 +1233,7 @@ body {
   border: 1px solid var(--rule-bright);
   padding: 9px 12px;
   border-radius: 7px;
-  font-size: 13px;
+  font-size: var(--text-corps);
   min-width: 0;
 }
 .n3-preparation-profiles {
@@ -1207,7 +1243,7 @@ body {
   min-width: 0;
 }
 .n3-preparation-profiles legend {
-  font-size: 12px;
+  font-size: var(--text-corps);
   color: var(--muted);
 }
 .n3-game-action {
@@ -1219,11 +1255,11 @@ body {
 }
 .n3-game-action span {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-note);
 }
 .n3-game-action strong {
   color: var(--text);
-  font-size: 14px;
+  font-size: var(--text-fort);
 }
 .n3-preparation-error,
 .n3-preparation-watching {
@@ -1237,7 +1273,7 @@ body {
   border: 1px solid var(--rule-bright);
   border-radius: 12px;
   padding: 18px;
-  font-size: 13px;
+  font-size: var(--text-corps);
   max-width: 90vw;
 }
 .n3-preparation-error button {
@@ -1279,7 +1315,7 @@ body {
 
 .n3-preparation-saved summary {
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--text-corps);
   padding: 10px 0;
   color: var(--text);
 }
@@ -1309,7 +1345,7 @@ body {
 
 /* La même fiche se lit dans les trois menus et pendant la préparation. */
 .n3-game-card {
-  font-size: 12px;
+  font-size: var(--text-corps);
   line-height: 1.5;
   padding: 12px 0;
   border-block: 1px solid currentColor;
@@ -1376,7 +1412,7 @@ body {
   border-bottom: 1px solid #42536c;
 }
 .n3-switch-setup h2 {
-  font-size: 24px;
+  font-size: var(--text-large);
 }
 .n3-switch-body {
   overflow: auto;
@@ -1456,7 +1492,7 @@ body {
 }
 .n3-switch-heads {
   padding: 4px 0;
-  font-size: 12px;
+  font-size: var(--text-corps);
   color: #9bacc4;
 }
 .n3-switch-binding > div {
@@ -1522,7 +1558,7 @@ body {
   color: #edf4ff;
   touch-action: none;
   user-select: none;
-  font-size: 12px;
+  font-size: var(--text-corps);
 }
 /* Le puits d'un stick: il occupe les quatre cases qu'occupaient les quatre
    boutons de direction, en 2 sur 2, donc la grille ne bouge pas d'un pixel. */
@@ -1579,7 +1615,7 @@ body {
 .n3-switch-binding strong small {
   display: block;
   margin-top: 3px;
-  font-size: 12px;
+  font-size: var(--text-corps);
   font-weight: 400;
   color: #b6c5dc;
 }

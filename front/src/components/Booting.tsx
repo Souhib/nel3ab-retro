@@ -72,13 +72,13 @@ export function Booting({
       className="absolute inset-0 z-[60] flex flex-col items-center justify-center gap-6 bg-ink"
     >
       <div className="flex flex-col items-center gap-2">
-        <span className="font-mono text-[11px] uppercase tracking-[0.3em] text-faint">{label}</span>
-        <h2 className="max-w-[70vw] truncate text-center text-[22px] text-text">{game}</h2>
+        <span className="font-mono text-note uppercase tracking-[0.3em] text-faint">{label}</span>
+        <h2 className="max-w-[70vw] truncate text-center text-large text-text">{game}</h2>
         {/* Sur quelle sauvegarde on part. Le choix se fait juste avant, puis
             l'écran devient noir pour une dizaine de secondes: sans ce rappel, la
             seule façon de savoir ce qu'on a choisi est d'attendre le jeu et de
             regarder. */}
-        {save ? <p className="text-[12px] text-faint">sur « {save} »</p> : null}
+        {save ? <p className="text-corps text-faint">sur « {save} »</p> : null}
       </div>
 
       {/* Quatre prises qui s'allument l'une après l'autre. Ce n'est pas une
@@ -96,14 +96,14 @@ export function Booting({
         ))}
       </div>
 
-      <ol className="flex flex-col gap-1 text-[12px]">
+      <ol className="flex flex-col gap-1 text-corps">
         {STEPS.map((name, index) => (
           <li
             key={name}
             className={index <= reached ? "text-text" : "text-faint"}
             aria-current={index === reached ? "step" : undefined}
           >
-            <span className="font-mono text-[10px] text-faint">
+            <span className="font-mono text-mini text-faint">
               {index < reached ? "✓" : index === reached ? "·" : " "}{" "}
             </span>
             {SAID[name]}
@@ -118,7 +118,7 @@ export function Booting({
           page — ce qui rend sa place et relance l'attente pour la personne qui
           vient justement de lancer le jeu. */}
       {perdu ? (
-        <p className="max-w-[44ch] text-center text-[13px] text-muted">
+        <p className="max-w-[44ch] text-center text-corps text-muted">
           {stalled
             ? "La salle n’a pas rendu d’image. Le jeu n’a pas démarré."
             : "Le jeu met plus longtemps que d’habitude."}

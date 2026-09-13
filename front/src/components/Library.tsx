@@ -47,7 +47,7 @@ export function Library({
   };
 
   if (games.length === 0) {
-    return <p className="text-[12px] text-faint">aucun jeu dans la bibliothèque</p>;
+    return <p className="text-corps text-faint">aucun jeu dans la bibliothèque</p>;
   }
 
   return (
@@ -67,7 +67,7 @@ export function Library({
             disabled={isRunning || booting || !canChoose}
             onClick={() => click(game.index)}
             className={cn(
-              "flex items-center gap-2 border px-2.5 py-1.5 text-left text-[12px] transition-colors",
+              "flex items-center gap-2 border px-2.5 py-1.5 text-left text-corps transition-colors",
               isRunning && "border-indigo/50 bg-indigo/10 text-indigo",
               isArmed && "border-alert bg-alert/10 text-alert",
               !isRunning &&
@@ -76,14 +76,14 @@ export function Library({
               !canChoose && !isRunning && "opacity-40",
             )}
           >
-            <span className="font-mono text-[10px] text-faint">{isRunning ? "▶" : "·"}</span>
+            <span className="font-mono text-mini text-faint">{isRunning ? "▶" : "·"}</span>
             <span className="truncate">
               {isArmed ? `${game.name} — quitter la partie ?` : game.name}
             </span>
           </button>
         );
       })}
-      <p className="text-[11px] text-faint">
+      <p className="text-note text-faint">
         {booting
           ? "le jeu démarre, la page se reconnecte toute seule"
           : !canChoose

@@ -94,14 +94,14 @@ export function Home({
       <header className="flex items-center justify-between px-8 py-4">
         <span className="flex items-center gap-3">
           <span
-            className="flex h-10 w-10 items-center justify-center rounded-full text-[15px] font-semibold"
+            className="flex h-10 w-10 items-center justify-center rounded-full text-fort font-semibold"
             style={{ background: RED, color: "#fff" }}
           >
             {who.slice(0, 1).toUpperCase()}
           </span>
-          <span className="text-[14px]">{who}</span>
+          <span className="text-fort">{who}</span>
         </span>
-        <span className={cn("text-[12px]", DIM)}>{footer}</span>
+        <span className={cn("text-corps", DIM)}>{footer}</span>
       </header>
 
       {/* La file. Elle coulisse pour que la tuile choisie reste au même endroit,
@@ -159,7 +159,7 @@ export function Home({
                       {item.icon}
                     </span>
                     <span
-                      className="text-center text-[14px] leading-snug"
+                      className="text-center text-fort leading-snug"
                       style={{ color: item.disabled ? "#b4b4b4" : undefined }}
                     >
                       {item.label}
@@ -168,7 +168,7 @@ export function Home({
                 )}
                 {item.value ? (
                   <span
-                    className="absolute top-1.5 right-1.5 rounded-full px-2 py-[2px] font-mono text-[10px]"
+                    className="absolute top-1.5 right-1.5 rounded-full px-2 py-[2px] font-mono text-mini"
                     style={{ background: RED, color: "#fff" }}
                   >
                     {item.value}
@@ -183,25 +183,25 @@ export function Home({
       {/* Le nom de ce qu'on pointe, en grand, sous la file. */}
       <div className="flex min-h-[132px] flex-col items-center justify-center gap-1 px-8">
         {here?.group ? (
-          <p className={cn("text-[11px] uppercase tracking-[0.18em]", DIM)}>{here.group}</p>
+          <p className={cn("text-note uppercase tracking-[0.18em]", DIM)}>{here.group}</p>
         ) : null}
-        <p className="max-w-[80%] truncate text-center text-[22px]">{here?.label ?? ""}</p>
+        <p className="max-w-[80%] truncate text-center text-large">{here?.label ?? ""}</p>
         {here?.by ? (
-          <p className={cn("max-w-[70%] truncate text-center text-[13px]", DIM)}>{here.by}</p>
+          <p className={cn("max-w-[70%] truncate text-center text-corps", DIM)}>{here.by}</p>
         ) : null}
         {/* La phrase que l'éditeur a écrite sur le disque. `pre-line` parce que
             ces textes ont été mis en page sur deux lignes et que la coupure est
             la leur. */}
         {here?.note ? (
           <p
-            className="max-w-[60%] text-center text-[13px] opacity-60"
+            className="max-w-[60%] text-center text-corps opacity-60"
             style={{ whiteSpace: "pre-line" }}
           >
             {here.note}
           </p>
         ) : null}
         {here?.hint ? (
-          <p className={cn("max-w-[70%] truncate text-center text-[12px]", DIM)}>{here.hint}</p>
+          <p className={cn("max-w-[70%] truncate text-center text-corps", DIM)}>{here.hint}</p>
         ) : null}
       </div>
 
@@ -235,7 +235,7 @@ export function Home({
                   L'infobulle `title` faisait ce travail et ne l'a jamais fait pour
                   personne. */}
               <span
-                className="max-w-full truncate text-[11px]"
+                className="max-w-full truncate text-note"
                 style={{ color: index === ray ? "#f2f2f2" : "#9a9a9a" }}
               >
                 {choice.label}
@@ -244,7 +244,7 @@ export function Home({
           ))}
         </span>
 
-        <span className="flex items-center gap-5 text-[12px] opacity-70">
+        <span className="flex items-center gap-5 text-corps opacity-70">
           <Pip letter="A" what="choisir" />
           <span id="closeMenu" onClick={onClose} className="cursor-pointer">
             <Pip letter="B" what={idle ? "fermer" : "reprendre"} />
@@ -274,7 +274,7 @@ function Pip({ letter, what }: { letter: string; what: string }) {
   return (
     <span className="flex items-center gap-2">
       <span
-        className="flex h-5 w-5 items-center justify-center rounded-full border text-[11px]"
+        className="flex h-5 w-5 items-center justify-center rounded-full border text-note"
         style={{ borderColor: "#9a9a9a" }}
       >
         {letter}

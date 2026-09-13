@@ -137,14 +137,14 @@ export function Channels({
       }}
     >
       <header className="flex items-baseline justify-center gap-6 px-8 pt-6 pb-2">
-        <span className="text-[13px]" style={{ color: INK_SOFT }}>
+        <span className="text-corps" style={{ color: INK_SOFT }}>
           {category?.label ?? ""}
           {items[row]?.group ? <span> · {items[row].group}</span> : null}
         </span>
-        <span className="font-mono text-[28px] tracking-tight" style={{ color: "#6b757d" }}>
+        <span className="font-mono text-affiche tracking-tight" style={{ color: "#6b757d" }}>
           {clock}
         </span>
-        <span className="text-[13px]" style={{ color: INK_SOFT }}>
+        <span className="text-corps" style={{ color: INK_SOFT }}>
           {footer}
         </span>
       </header>
@@ -204,21 +204,21 @@ export function Channels({
                     sa valeur avec elle. INK_SOFT tient 5,85:1 sur le blanc de
                     cette coque, mesuré le 12 septembre 2026. */}
                 <span
-                  className="relative line-clamp-2 text-[14px] leading-tight"
+                  className="relative line-clamp-2 text-fort leading-tight"
                   style={{ color: item.disabled ? INK_SOFT : undefined }}
                 >
                   {item.label}
                 </span>
                 {item.by ? (
                   <span
-                    className="relative max-w-full truncate text-[11px]"
+                    className="relative max-w-full truncate text-note"
                     style={{ color: INK_SOFT }}
                   >
                     {item.by}
                   </span>
                 ) : null}
                 {item.value ? (
-                  <span className="relative font-mono text-[12px]" style={{ color: BLUE_INK }}>
+                  <span className="relative font-mono text-corps" style={{ color: BLUE_INK }}>
                     {item.value}
                   </span>
                 ) : null}
@@ -241,7 +241,7 @@ export function Channels({
           ))}
         </div>
         {items[row]?.hint ? (
-          <p className="mx-auto max-w-5xl pt-6 text-center text-[13px]" style={{ color: INK_SOFT }}>
+          <p className="mx-auto max-w-5xl pt-6 text-center text-corps" style={{ color: INK_SOFT }}>
             {items[row].hint}
           </p>
         ) : null}
@@ -263,7 +263,7 @@ export function Channels({
               id={`ray-${choice.id}`}
               data-selected={index === ray}
               onClick={() => shell.goTo(index)}
-              className="flex items-center gap-2 rounded-full px-5 py-2 text-[13px] transition-all duration-150"
+              className="flex items-center gap-2 rounded-full px-5 py-2 text-corps transition-all duration-150"
               style={{
                 background: CHANNEL,
                 border: `2px solid ${index === ray ? BLUE : EDGE}`,
@@ -320,7 +320,7 @@ function Round({
       id={id}
       onClick={onClick}
       className={cn(
-        "flex items-center justify-center rounded-full text-[12px] transition-transform duration-150 hover:scale-105",
+        "flex items-center justify-center rounded-full text-corps transition-transform duration-150 hover:scale-105",
         big ? "h-[74px] w-[92px]" : "h-14 w-14",
       )}
       style={{

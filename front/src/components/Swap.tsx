@@ -54,11 +54,11 @@ export function Asked({
       aria-live="assertive"
       className="absolute inset-x-0 top-8 z-40 mx-auto flex w-max max-w-[80%] items-center gap-4 border border-indigo bg-panel px-5 py-3"
     >
-      <span className="text-[14px]">
+      <span className="text-fort">
         <strong className="text-indigo">{from}</strong> demande ta manette {port}
       </span>
       <span
-        className="font-mono text-[13px] tabular-nums text-faint"
+        className="font-mono text-corps tabular-nums text-faint"
         title="sans réponse, il ne se passe rien"
       >
         {left} s
@@ -68,7 +68,7 @@ export function Asked({
           type="button"
           id="giveSeat"
           onClick={() => onAnswer(true)}
-          className="border border-indigo px-3 py-1 text-[12px] text-indigo hover:bg-indigo/10"
+          className="border border-indigo px-3 py-1 text-corps text-indigo hover:bg-indigo/10"
         >
           la lui passer
         </button>
@@ -76,7 +76,7 @@ export function Asked({
           type="button"
           id="keepSeat"
           onClick={() => onAnswer(false)}
-          className="border border-rule px-3 py-1 text-[12px] text-muted hover:border-rule-bright"
+          className="border border-rule px-3 py-1 text-corps text-muted hover:border-rule-bright"
         >
           garder
         </button>

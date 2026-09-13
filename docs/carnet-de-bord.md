@@ -14591,6 +14591,83 @@ passe par le salon. Elles exigent maintenant `NEL3AB_URL` et refusent en
 expliquant pourquoi. L'adresse du proxy n'est pas écrite dans le justfile: ce
 dépôt est public, et c'est la raison déjà donnée en tête d'`open.mjs`.
 
+### Seize tailles de texte, sept paliers, et le défaut qu'aucun garde n'a vu
+
+Le constat disait: aucune échelle de texte commune, seize tailles, deux
+vocabulaires, un corps à 11 px sur des écrans regardés à deux mètres. Recensé le
+13 septembre 2026 plutôt que repris sur parole: 138 classes `text-[Npx]` dans le
+TSX, 50 `font-size` dans `index.css`, 3 `text-xs`, soit 188 endroits. Quinze
+composants sur vingt et un mélangeaient trois tailles ou plus, avec des écarts
+d'UN pixel: `App.tsx` employait 11, 12, 13 et 15 côte à côte, `Lobby.tsx` en
+employait six. Un pas de 1 px n'est pas un palier, personne ne le perçoit comme
+voulu; c'est la trace de valeurs choisies à des moments différents.
+
+Première vérification, parce que la prémisse méritait d'être testée: la page
+n'applique AUCUNE mise à l'échelle globale. Pas de `zoom`, pas de taille de base
+sur la racine, viewport à `initial-scale=1.0`, et le seul `transform: scale()`
+du fichier est l'état initial d'une animation d'apparition. Un 11 px y vaut donc
+bien 11 px, et le constat tient.
+
+Deuxième vérification, avant de bâtir dessus: Tailwind 4.3.3 génère-t-il un
+utilitaire depuis un jeton `--text-*` dans `@theme inline`? Essayé avec un jeton
+jetable, construit, trouvé dans la page, puis l'arbre remis en l'état. Bâtir une
+échelle nommée sur une supposition de version aurait été une supposition de
+plus.
+
+Sept paliers: 11, 13, 15, 17, 20, 26, 31. La règle de construction est que
+chacun vaut au moins le MAXIMUM des valeurs qu'il absorbe, donc rien ne
+rétrécit: le reproche est que le texte est trop petit, pas trop grand.
+
+Les filets ont été mesurés AVANT, ce qui est tout l'intérêt: `layout` aux quatre
+largeurs et `contraste` sur les sept ambiances, verts tous les deux. Après, verts
+tous les deux également. `contraste` comptait double ici, puisqu'il choisit son
+seuil SELON la taille du texte, 3:1 pour le grand et 4,5:1 pour le normal:
+agrandir déplace des textes d'une classe à l'autre, et sans les chiffres d'avant
+on ne distingue pas une amélioration d'un relâchement de seuil.
+
+**Et pourtant la page était cassée.** Le bouton « Modifier cette commande »
+s'affichait « Modifier cette comman ». Aucun garde ne l'a vu: ni `layout`, qui
+regarde la colonne face à l'image; ni `contraste`, qui regarde des rapports de
+luminance; ni `just check`, où RIEN ne surveille une taille de texte, ni essai
+du front ni `audit-readouts`. Ce qui l'a vu est une capture d'écran, regardée à
+côté de celle d'avant.
+
+La cause est une leçon générale: `.n3-workbench` réservait `250px` à sa colonne
+de droite, un nombre calibré pour un corps à 12 px. Un conteneur en pixels fixes
+est toujours calibré pour une taille de texte donnée, et quand le texte grandit
+c'est le CONTENEUR qui doit suivre. Rétrécir ce seul bouton aurait réintroduit
+l'exception que l'échelle commune venait de supprimer.
+
+D'où `spikes/m3-browser-drive/debordement.mjs`, qui cherche tout élément dont
+`scrollWidth` ou `scrollHeight` dépasse sa boîte, le nomme et dit de combien. Il
+a mesuré 23 px sur ce bouton, ce qui a donné la largeur à choisir au lieu d'une
+estimation à l'oeil: 290 px. `capture-salle.mjs` disait déjà de ce panneau que
+« ce qui y grossit trop se coupe sans prévenir, et aucun essai ne le dirait, il
+faut donc le regarder ». Le regarder est devenu le mesurer.
+
+Deux corrections ont porté sur la sonde elle-même, et elles valent d'être dites.
+Son premier jet ne visitait qu'un onglet sur trois et rendait PASS: un vert
+partiel présenté comme un vert complet, exactement ce qu'elle existe pour
+empêcher. Elle visite maintenant Manette, Clavier et Profils. Et elle signalait
+un `h3` dépassant de 2 px en hauteur: c'est la boîte de ligne d'un titre en
+`line-height: 1`, dont l'encre dépasse sa ligne sans que rien ne soit rogné,
+vérifié en cherchant un ancêtre masquant qui n'existe pas. Un garde qui crie au
+loup à chaque passage est un garde qu'on apprend à ignorer, donc la règle est
+écrite: l'horizontal compte dès le premier pixel, le vertical à partir de trois.
+
+Une frayeur pour rien, notée parce qu'elle a failli coûter un élargissement
+inutile: le libellé le plus long du panneau n'est pas celui que j'avais sous les
+yeux mais « Proposer ce profil pour ce jeu », trente caractères. Il vit dans
+`.n3-profiles`, large de 610 px, et pas dans la colonne de 290. Dimensionner sur
+l'exemple visible plutôt que sur le pire cas aurait été une supposition; la
+chercher a pris une minute.
+
+Ce que ce travail NE couvre pas, et qui doit être écrit à côté du vert: la sonde
+a tourné dans une salle sans manette branchée et sans jeu en cours. Les états
+non visités sont la configuration guidée et l'écran de préparation, qui a ses
+propres surcharges de tailles. Et la barrière ne surveille toujours pas les
+tailles: seule cette sonde le fait, par sa recette `browser-debordement`.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une

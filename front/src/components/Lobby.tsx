@@ -44,16 +44,14 @@ export function Lobby({
     <div className="flex h-full items-center justify-center p-6">
       <div className="flex w-full max-w-md flex-col gap-5">
         <header className="flex flex-col gap-1">
-          <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-indigo">
-            nel3ab
-          </span>
+          <span className="font-mono text-mini uppercase tracking-[0.3em] text-indigo">nel3ab</span>
           <NameTag name={name} login={login} onRename={onRename} onForget={onForget} />
         </header>
 
         <section id="room" className="flex flex-col gap-3 border border-rule bg-panel p-4">
           <div className="flex items-baseline justify-between gap-3">
-            <h1 className="truncate text-[18px] font-medium tracking-tight">{room?.name ?? "…"}</h1>
-            <span className={cn("font-mono text-[11px]", free > 0 ? "text-good" : "text-alert")}>
+            <h1 className="truncate text-titre font-medium tracking-tight">{room?.name ?? "…"}</h1>
+            <span className={cn("font-mono text-note", free > 0 ? "text-good" : "text-alert")}>
               {seats.length === 0
                 ? ""
                 : free > 0
@@ -63,12 +61,12 @@ export function Lobby({
           </div>
 
           <div className="flex flex-col gap-0.5 border-t border-rule pt-3">
-            <span className="text-[10px] uppercase tracking-[0.2em] text-faint">au programme</span>
-            <span className="text-[14px]">{room?.game?.name ?? "aucun jeu chargé"}</span>
+            <span className="text-mini uppercase tracking-[0.2em] text-faint">au programme</span>
+            <span className="text-fort">{room?.game?.name ?? "aucun jeu chargé"}</span>
           </div>
 
           <div className="flex flex-col gap-1.5 border-t border-rule pt-3">
-            <span className="text-[10px] uppercase tracking-[0.2em] text-faint">
+            <span className="text-mini uppercase tracking-[0.2em] text-faint">
               {people.length === 0 ? "personne pour l'instant" : `${people.length} dans la salle`}
             </span>
             {people.length > 0 ? (
@@ -78,7 +76,7 @@ export function Lobby({
                     key={person.login ?? person.name}
                     title={person.login ?? "sans identité"}
                     className={cn(
-                      "border px-2 py-0.5 text-[11px]",
+                      "border px-2 py-0.5 text-note",
                       person.seat ? "border-indigo/50 text-indigo" : "border-rule text-muted",
                     )}
                   >
@@ -91,9 +89,9 @@ export function Lobby({
             <div className="grid grid-cols-4 gap-1.5">
               {seats.map((seat) => (
                 <div key={seat.port} className="flex flex-col gap-1 border border-rule px-2 py-1.5">
-                  <span className="font-mono text-[10px] text-faint">P{seat.port}</span>
+                  <span className="font-mono text-mini text-faint">P{seat.port}</span>
                   <span
-                    className={cn("truncate text-[12px]", seat.player ? "text-text" : "text-faint")}
+                    className={cn("truncate text-corps", seat.player ? "text-text" : "text-faint")}
                   >
                     {seat.player ?? "libre"}
                   </span>
@@ -109,7 +107,7 @@ export function Lobby({
             id="enter"
             onClick={onEnter}
             disabled={free === 0 && seats.length > 0}
-            className="border border-indigo bg-indigo/10 px-3 py-2.5 text-[13px] text-indigo transition-colors hover:bg-indigo/20 disabled:opacity-40"
+            className="border border-indigo bg-indigo/10 px-3 py-2.5 text-corps text-indigo transition-colors hover:bg-indigo/20 disabled:opacity-40"
           >
             {free === 0 && seats.length > 0 ? "salle pleine" : "entrer et jouer"}
           </button>
@@ -117,13 +115,13 @@ export function Lobby({
             type="button"
             id="watch"
             onClick={onWatch}
-            className="border border-rule px-3 py-2.5 text-[13px] text-muted transition-colors hover:border-indigo hover:text-indigo"
+            className="border border-rule px-3 py-2.5 text-corps text-muted transition-colors hover:border-indigo hover:text-indigo"
           >
             regarder
           </button>
         </div>
 
-        <p className="text-[11px] leading-relaxed text-faint">
+        <p className="text-note leading-relaxed text-faint">
           {failed
             ? "Le salon ne répond pas: tu peux jouer, mais les places n'afficheront pas de nom."
             : "Entrer prend une manette s'il en reste une, sinon tu regardes. Changer de jeu arrête la partie de tout le monde."}
@@ -171,15 +169,15 @@ function NameTag({
           maxLength={NAME_MAX}
           value={typing}
           onChange={(event) => setTyping(event.target.value)}
-          className="min-w-0 flex-1 border border-rule bg-panel px-2 py-1 text-[12px] outline-none focus:border-indigo"
+          className="min-w-0 flex-1 border border-rule bg-panel px-2 py-1 text-corps outline-none focus:border-indigo"
         />
-        <button type="submit" className="border border-indigo px-2 py-1 text-[11px] text-indigo">
+        <button type="submit" className="border border-indigo px-2 py-1 text-note text-indigo">
           garder
         </button>
         <button
           type="button"
           onClick={() => setTyping(null)}
-          className="px-1 text-[11px] text-faint hover:text-text"
+          className="px-1 text-note text-faint hover:text-text"
         >
           annuler
         </button>
@@ -188,7 +186,7 @@ function NameTag({
   }
 
   return (
-    <p className="text-[12px] text-muted">
+    <p className="text-corps text-muted">
       bonjour <span className="text-text">{name}</span>.{" "}
       <button
         type="button"

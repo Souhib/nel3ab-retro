@@ -87,7 +87,7 @@ export function Picker({ picking, costume }: { picking: Picking | null; costume:
         }}
         onClick={(event) => event.stopPropagation()}
       >
-        <p className="text-[13px]" style={{ color: costume.dim }}>
+        <p className="text-corps" style={{ color: costume.dim }}>
           {item.label}
         </p>
 
@@ -100,7 +100,7 @@ export function Picker({ picking, costume }: { picking: Picking | null; costume:
         ) : null}
 
         <div
-          className="flex items-center justify-between pt-1 text-[11px]"
+          className="flex items-center justify-between pt-1 text-note"
           style={{ color: costume.dim }}
         >
           <span>{item.slide ? "← → régler" : "↑ ↓ choisir"}</span>
@@ -164,7 +164,7 @@ function List({ picking, costume }: { picking: Picking; costume: Costume }) {
             // encore appliqué.
             onClick={() => picking.confirm(index)}
             className={cn(
-              "flex items-baseline justify-between gap-3 rounded-[5px] px-3 py-1.5 text-left text-[13px] transition-colors",
+              "flex items-baseline justify-between gap-3 rounded-[5px] px-3 py-1.5 text-left text-corps transition-colors",
             )}
             style={{
               background: here ? `color-mix(in srgb, ${costume.accent} 18%, transparent)` : "none",
@@ -177,7 +177,7 @@ function List({ picking, costume }: { picking: Picking; costume: Costume }) {
                 « remplir l'écran » à « rem... » retire l'information utile pour
                 garder l'accessoire. */}
             <span className="shrink-0">{choice.label}</span>
-            <span className="flex min-w-0 items-baseline gap-2 truncate text-[11px]">
+            <span className="flex min-w-0 items-baseline gap-2 truncate text-note">
               {choice.hint ? (
                 <span className="truncate" style={{ color: costume.dim }}>
                   {choice.hint}
@@ -215,7 +215,7 @@ function Slider({ picking, costume }: { picking: Picking; costume: Costume }) {
 
   return (
     <div className="flex flex-col gap-2">
-      <p className="font-mono text-[22px]" style={{ color: costume.accentInk }}>
+      <p className="font-mono text-large" style={{ color: costume.accentInk }}>
         {slide.say(picking.cursor)}
       </p>
       {/* La piste. `setPointerCapture` pour que le glissement suive la souris

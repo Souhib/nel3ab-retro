@@ -24,11 +24,9 @@ export function Entrance({ onName }: { onName: (name: string) => void }) {
         }}
       >
         <div className="flex flex-col gap-1">
-          <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-indigo">
-            nel3ab
-          </span>
-          <h1 className="text-[22px] font-medium tracking-tight">Qui joue&nbsp;?</h1>
-          <p className="text-[12px] text-muted">
+          <span className="font-mono text-mini uppercase tracking-[0.3em] text-indigo">nel3ab</span>
+          <h1 className="text-large font-medium tracking-tight">Qui joue&nbsp;?</h1>
+          <p className="text-corps text-muted">
             Quatre manettes, une machine, une image. Ton nom sert à ce qu'une place puisse dire qui
             l'occupe, et à rien d'autre.
           </p>
@@ -42,12 +40,12 @@ export function Entrance({ onName }: { onName: (name: string) => void }) {
             value={typed}
             onChange={(event) => setTyped(event.target.value)}
             placeholder="ton nom"
-            className="border border-rule bg-panel px-3 py-2 text-[14px] text-text outline-none placeholder:text-faint focus:border-indigo"
+            className="border border-rule bg-panel px-3 py-2 text-fort text-text outline-none placeholder:text-faint focus:border-indigo"
           />
           <button
             type="submit"
             disabled={!name}
-            className="border border-indigo bg-indigo/10 px-3 py-2 text-[13px] text-indigo transition-colors hover:bg-indigo/20 disabled:opacity-30"
+            className="border border-indigo bg-indigo/10 px-3 py-2 text-corps text-indigo transition-colors hover:bg-indigo/20 disabled:opacity-30"
           >
             entrer
           </button>

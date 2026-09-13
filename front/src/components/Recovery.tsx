@@ -73,7 +73,7 @@ export function Recovery({
       id="recovery"
       role="alert"
       aria-label="reprise de la salle"
-      className="fixed inset-x-3 top-6 z-[100] mx-auto flex max-w-lg flex-col gap-3 border border-indigo bg-panel p-5 text-[14px] text-text shadow-xl"
+      className="fixed inset-x-3 top-6 z-[100] mx-auto flex max-w-lg flex-col gap-3 border border-indigo bg-panel p-5 text-fort text-text shadow-xl"
     >
       <strong>
         {notice?.asking

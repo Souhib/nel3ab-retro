@@ -233,7 +233,7 @@ export function Xmb({
                 // Ce que ça coûte, dit plutôt que tu: quelqu'un qui ouvre ce menu
                 // pour la première fois doit se promener pour découvrir les
                 // quatre rayons. C'est le prix de la forme, assumé.
-                "whitespace-nowrap text-[11px] uppercase tracking-[0.2em] transition-opacity duration-200",
+                "whitespace-nowrap text-note uppercase tracking-[0.2em] transition-opacity duration-200",
                 index === ray ? "opacity-100" : "opacity-0",
               )}
             >
@@ -350,14 +350,14 @@ export function Xmb({
                   <span
                     className={cn(
                       "truncate",
-                      here ? "text-[17px] text-text" : "text-[14px] text-muted",
+                      here ? "text-titre text-text" : "text-fort text-muted",
                       item.disabled && "text-faint",
                     )}
                   >
                     {item.label}
                   </span>
                   {here && (item.hint ?? item.by) ? (
-                    <span className="truncate text-[12px] text-faint">
+                    <span className="truncate text-corps text-faint">
                       {item.by && item.hint ? `${item.by} · ${item.hint}` : (item.hint ?? item.by)}
                     </span>
                   ) : null}
@@ -365,7 +365,7 @@ export function Xmb({
                 {item.value ? (
                   <span
                     className={cn(
-                      "shrink-0 font-mono text-[13px]",
+                      "shrink-0 font-mono text-corps",
                       here ? "text-indigo" : "text-faint",
                     )}
                   >
@@ -378,7 +378,7 @@ export function Xmb({
         </div>
       </div>
 
-      <footer className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-4 px-8 py-5 text-[12px] text-faint">
+      <footer className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-4 px-8 py-5 text-corps text-faint">
         <span>{footer}</span>
         <span className="flex gap-4">
           <span>← → rayon</span>

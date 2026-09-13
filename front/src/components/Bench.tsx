@@ -27,7 +27,7 @@ import { cn } from "../lib/cn";
 /** Une étiquette de banc: petite, en majuscules, jamais en gras. */
 function Tag({ children }: { children: React.ReactNode }) {
   return (
-    <span className="text-[9px] uppercase tracking-[0.14em] text-faint whitespace-nowrap">
+    <span className="text-mini uppercase tracking-[0.14em] text-faint whitespace-nowrap">
       {children}
     </span>
   );
@@ -43,7 +43,7 @@ function Gauge({ mark, tag, digits }: { mark: string; tag: string; digits: numbe
       </span>
       <span className="flex min-w-0 flex-col leading-tight">
         <Tag>{tag}</Tag>
-        <span className="n3-value text-[13px] tabular-nums text-bright">{(0).toFixed(digits)}</span>
+        <span className="n3-value text-corps tabular-nums text-bright">{(0).toFixed(digits)}</span>
       </span>
     </div>
   );
@@ -71,9 +71,9 @@ export function Bench({
   return (
     <div className={cn("flex flex-col gap-3", className)} data-bench>
       <div className="min-w-0">
-        <h3 className="truncate text-[15px] font-semibold text-bright">{name}</h3>
+        <h3 className="truncate text-fort font-semibold text-bright">{name}</h3>
         {/* Le nom BRUT, celui qu'on recopie dans un rapport de panne. */}
-        <p className="truncate text-[11px] text-faint" title={id}>
+        <p className="truncate text-note text-faint" title={id}>
           {id || "aucune manette"}
         </p>
       </div>
@@ -87,14 +87,14 @@ export function Bench({
         ].map(([tag, value]) => (
           <span key={tag} className="flex flex-col leading-tight">
             <Tag>{tag}</Tag>
-            <span className="text-[13px] tabular-nums text-bright">{value}</span>
+            <span className="text-corps tabular-nums text-bright">{value}</span>
           </span>
         ))}
         <span className="flex flex-col leading-tight">
           <Tag>horodatage</Tag>
           {/* Le seul chiffre qui dit si la manette parle ENCORE. Figé, elle est
               muette même si tout le reste a l'air juste. */}
-          <span className="n3-value text-[13px] tabular-nums text-bright" data-gauge="stamp">
+          <span className="n3-value text-corps tabular-nums text-bright" data-gauge="stamp">
             0
           </span>
         </span>
@@ -107,7 +107,7 @@ export function Bench({
           ))}
         </div>
       ) : (
-        <p className="text-[11px] text-muted">cette manette n'annonce aucun bouton.</p>
+        <p className="text-note text-muted">cette manette n'annonce aucun bouton.</p>
       )}
 
       {plan.scopes.length > 0 || plan.lone.length > 0 ? (

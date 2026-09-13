@@ -28,8 +28,8 @@ export function PadMapView({
   return (
     <figure className={cn("n3-controller", className)}>
       <figcaption>
-        <span className="text-[13px] font-medium">{title}</span>
-        {note ? <span className="text-[11px] text-muted">{note}</span> : null}
+        <span className="text-corps font-medium">{title}</span>
+        {note ? <span className="text-note text-muted">{note}</span> : null}
       </figcaption>
       <svg
         viewBox={map.viewBox ?? "-2 -2 104 66"}

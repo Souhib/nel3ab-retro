@@ -80,7 +80,7 @@ export function Wiring({
           rawLabels={!identity?.standard}
         />
       </div>
-      <p className="text-[12px] leading-relaxed text-muted">
+      <p className="text-corps leading-relaxed text-muted">
         {held
           ? identity?.standard
             ? "Appuie pour tester. À droite, ton appui ; à gauche, la commande associée. Clique une commande à gauche pour la modifier."

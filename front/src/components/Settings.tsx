@@ -31,8 +31,8 @@ export function Toggle({
         className="mt-[3px] h-3 w-3 shrink-0 appearance-none border border-rule-bright bg-panel checked:border-indigo checked:bg-indigo"
       />
       <span className="flex flex-col">
-        <span className={cn("text-[12px]", on ? "text-text" : "text-muted")}>{label}</span>
-        <span className="text-[10px] leading-tight text-faint">{hint}</span>
+        <span className={cn("text-corps", on ? "text-text" : "text-muted")}>{label}</span>
+        <span className="text-mini leading-tight text-faint">{hint}</span>
       </span>
     </label>
   );
@@ -41,7 +41,7 @@ export function Toggle({
 export function Volume({ value, onChange }: { value: number; onChange: (value: number) => void }) {
   return (
     <div className="flex items-center gap-2 py-1">
-      <span className="text-[11px] uppercase tracking-[0.14em] text-faint">volume</span>
+      <span className="text-note uppercase tracking-[0.14em] text-faint">volume</span>
       <input
         id="volume"
         type="range"
@@ -51,7 +51,7 @@ export function Volume({ value, onChange }: { value: number; onChange: (value: n
         onChange={(event) => onChange(Number(event.target.value) / 100)}
         className="h-1 flex-1 cursor-pointer appearance-none bg-rule accent-indigo"
       />
-      <span className="w-8 text-right font-mono text-[12px] tabular-nums text-text">
+      <span className="w-8 text-right font-mono text-corps tabular-nums text-text">
         {Math.round(value * 100)}
       </span>
     </div>

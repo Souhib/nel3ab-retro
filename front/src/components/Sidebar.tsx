@@ -119,7 +119,7 @@ export function Sidebar({
             id="foldColumn"
             onClick={onFold}
             title="replier la colonne"
-            className="border border-rule px-2 py-1 text-[13px] text-faint transition-colors hover:border-rule-bright"
+            className="border border-rule px-2 py-1 text-corps text-faint transition-colors hover:border-rule-bright"
           >
             ✕
           </button>
@@ -131,7 +131,7 @@ export function Sidebar({
             id={`mode-${choice}`}
             onClick={() => onMode(choice)}
             className={cn(
-              "flex-1 border px-2 py-1 text-[12px] uppercase tracking-[0.14em] transition-colors",
+              "flex-1 border px-2 py-1 text-corps uppercase tracking-[0.14em] transition-colors",
               mode === choice
                 ? "border-indigo text-indigo"
                 : "border-rule text-faint hover:border-rule-bright",
@@ -145,7 +145,7 @@ export function Sidebar({
       {mode === "normal" ? (
         <>
           <section className="flex flex-col gap-2 border-t border-rule pt-2">
-            <span className="text-[12px] uppercase tracking-[0.2em] text-indigo/70">joueurs</span>
+            <span className="text-corps uppercase tracking-[0.2em] text-indigo/70">joueurs</span>
             {Array.from({ length: players }, (_, slot) => slot + 1).map((port) => {
               const held = busy[port - 1] ?? false;
               const isMine = port === mine;
@@ -162,10 +162,10 @@ export function Sidebar({
                       border: held ? "none" : "1px solid var(--rule-bright)",
                     }}
                   />
-                  <span className="font-mono text-[12px] text-faint">P{port}</span>
+                  <span className="font-mono text-corps text-faint">P{port}</span>
                   <span
                     className={cn(
-                      "truncate text-[15px]",
+                      "truncate text-fort",
                       isMine ? "text-indigo" : held ? "text-text" : "text-faint",
                     )}
                   >
@@ -190,14 +190,14 @@ export function Sidebar({
             aria-label="spectateurs"
             className="flex flex-col gap-2 border-t border-rule pt-2"
           >
-            <span className="text-[12px] uppercase tracking-[0.2em] text-indigo/70">
+            <span className="text-corps uppercase tracking-[0.2em] text-indigo/70">
               spectateurs · {watching.length}
             </span>
             {watching.length ? (
               watching.map((person) => (
                 <div
                   key={person.login ?? person.name}
-                  className="flex items-center gap-2 text-[13px] text-muted"
+                  className="flex items-center gap-2 text-corps text-muted"
                 >
                   <span
                     className="h-6 w-6 shrink-0 rounded-full border border-rule bg-panel text-center leading-6"
@@ -210,14 +210,14 @@ export function Sidebar({
                 </div>
               ))
             ) : (
-              <p className="text-[13px] text-faint">personne pour l'instant</p>
+              <p className="text-corps text-faint">personne pour l'instant</p>
             )}
           </section>
 
           {pending.length ? (
             <section
               aria-label="attributions en attente"
-              className="border-t border-rule pt-2 text-[13px] text-muted"
+              className="border-t border-rule pt-2 text-corps text-muted"
             >
               {pending.map((person) => (
                 <p key={person.login ?? person.name}>
@@ -237,7 +237,7 @@ export function Sidebar({
               type="button"
               id={iAmSeated ? "watchOnly" : "takePad"}
               onClick={iAmSeated ? onWatch : onPlay}
-              className="flex-1 border border-rule px-2 py-1 text-[13px] text-muted transition-colors hover:border-indigo hover:text-indigo"
+              className="flex-1 border border-rule px-2 py-1 text-corps text-muted transition-colors hover:border-indigo hover:text-indigo"
             >
               {iAmSeated ? "rendre la manette" : "prendre une manette"}
             </button>
@@ -245,7 +245,7 @@ export function Sidebar({
               type="button"
               id="leaveRoom"
               onClick={onLeave}
-              className="border border-rule px-2 py-1 text-[13px] text-faint transition-colors hover:border-indigo hover:text-indigo"
+              className="border border-rule px-2 py-1 text-corps text-faint transition-colors hover:border-indigo hover:text-indigo"
             >
               quitter
             </button>
@@ -259,14 +259,14 @@ export function Sidebar({
             <a
               href="/"
               id="backToLobby"
-              className="border border-rule px-2 py-1 text-[13px] text-faint transition-colors hover:border-indigo hover:text-indigo"
+              className="border border-rule px-2 py-1 text-corps text-faint transition-colors hover:border-indigo hover:text-indigo"
             >
               les salles
             </a>
           </section>
 
           <section className="flex flex-col gap-1 border-t border-rule pt-2">
-            <span className="text-[12px] uppercase tracking-[0.2em] text-indigo/70">son</span>
+            <span className="text-corps uppercase tracking-[0.2em] text-indigo/70">son</span>
             {shot?.sound.state === "running" ? (
               <Volume value={volume} onChange={onVolume} />
             ) : (
@@ -274,14 +274,14 @@ export function Sidebar({
                 type="button"
                 id="sound"
                 onClick={onSound}
-                className="border border-indigo/60 px-2 py-1.5 text-[13px] text-indigo hover:bg-indigo/10"
+                className="border border-indigo/60 px-2 py-1.5 text-corps text-indigo hover:bg-indigo/10"
               >
                 activer le son
               </button>
             )}
           </section>
 
-          <p className="border-t border-rule pt-2 text-[13px] leading-relaxed text-faint">
+          <p className="border-t border-rule pt-2 text-corps leading-relaxed text-faint">
             {heldCount === 0
               ? "personne ne tient de manette"
               : `${heldCount} manette${heldCount > 1 ? "s" : ""} tenue${heldCount > 1 ? "s" : ""}`}
@@ -289,7 +289,7 @@ export function Sidebar({
           </p>
 
           {idle ? null : (
-            <p id="saveReminder" className="text-[13px] leading-relaxed text-faint">
+            <p id="saveReminder" className="text-corps leading-relaxed text-faint">
               Pense à sauvegarder dans le jeu: une salle que tout le monde quitte ferme la partie.
             </p>
           )}
@@ -373,7 +373,7 @@ function Complain({ onComplain }: { onComplain: () => Promise<void> }) {
         }}
         disabled={held || pending}
         className={cn(
-          "border px-2 py-1 text-[12px] uppercase tracking-[0.14em] transition-colors",
+          "border px-2 py-1 text-corps uppercase tracking-[0.14em] transition-colors",
           said && "border-good text-good",
           held && !said && "border-rule text-faint",
           !held && "border-rule text-faint hover:border-alert hover:text-alert",
@@ -388,7 +388,7 @@ function Complain({ onComplain }: { onComplain: () => Promise<void> }) {
               : "signaler un problème"}
       </button>
       {error ? (
-        <p role="alert" className="text-xs text-alert">
+        <p role="alert" className="text-corps text-alert">
           {error}
         </p>
       ) : null}
@@ -410,7 +410,7 @@ function Complain({ onComplain }: { onComplain: () => Promise<void> }) {
 function Rough({ onTake, onKeep }: { onTake: () => void; onKeep: () => void }) {
   return (
     <div id="rough" className="flex flex-col gap-2 border border-alert/60 bg-panel p-2">
-      <p className="text-[13px] leading-relaxed text-muted">
+      <p className="text-corps leading-relaxed text-muted">
         Ton image saute depuis vingt secondes. Le format réduit demande environ 2,6 fois moins de
         débit.
       </p>
@@ -419,7 +419,7 @@ function Rough({ onTake, onKeep }: { onTake: () => void; onKeep: () => void }) {
           type="button"
           id="takeHalf"
           onClick={onTake}
-          className="flex-1 border border-alert px-2 py-1 text-[12px] uppercase tracking-[0.14em] text-alert transition-colors hover:bg-alert/10"
+          className="flex-1 border border-alert px-2 py-1 text-corps uppercase tracking-[0.14em] text-alert transition-colors hover:bg-alert/10"
         >
           passer en réduit
         </button>
@@ -427,7 +427,7 @@ function Rough({ onTake, onKeep }: { onTake: () => void; onKeep: () => void }) {
           type="button"
           id="keepFull"
           onClick={onKeep}
-          className="border border-rule px-2 py-1 text-[12px] uppercase tracking-[0.14em] text-faint transition-colors hover:border-rule-bright"
+          className="border border-rule px-2 py-1 text-corps uppercase tracking-[0.14em] text-faint transition-colors hover:border-rule-bright"
         >
           non merci
         </button>

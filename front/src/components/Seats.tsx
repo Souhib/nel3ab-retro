@@ -101,7 +101,7 @@ export function Seats({
               />
               <span
                 className={cn(
-                  "block truncate text-center text-[11px]",
+                  "block truncate text-center text-note",
                   isArmed
                     ? "text-alert"
                     : isMine
@@ -124,11 +124,11 @@ export function Seats({
         })}
       </div>
       {displaced ? (
-        <p id="displaced" className="text-[11px] text-alert">
+        <p id="displaced" className="text-note text-alert">
           quelqu'un a repris ta manette. Choisis une prise libre ou demande une manette.
         </p>
       ) : mine === null ? (
-        <p className="text-[11px] text-faint">
+        <p className="text-note text-faint">
           {armed === null
             ? "clique une prise libre, ou demande la sienne à quelqu'un"
             : "personne ne répond dessus: reclique pour la reprendre"}

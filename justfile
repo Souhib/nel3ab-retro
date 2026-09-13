@@ -615,6 +615,24 @@ browser-rates:
 browser-lipsync:
     cd spikes/m3-browser-drive && node lipsync.mjs http://localhost:8110/
 
+# Qu'est-ce qui est COUPÉ dans le panneau des touches ? Needs the worker RUNNING.
+#
+# Ce panneau est une boîte de hauteur fixe dont le contenu ne défile pas hors
+# préparation: ce qui y grossit trop se coupe sans prévenir. `capture-salle` le
+# disait déjà et s'en remettait à l'oeil, qui rate la moitié des cas.
+#
+# Le 13 septembre 2026, passer l'échelle de texte de 12 à 15 px a coupé
+# « Modifier cette commande » en « Modifier cette comman », et AUCUN garde n'a
+# bronché: ni `browser-layout` (qui regarde la colonne face à l'image), ni
+# `browser-contraste` (qui regarde des rapports de luminance), ni `just check`,
+# où rien ne surveille une taille de texte. Seule une capture l'a montré.
+#
+# Visite les TROIS onglets: le premier jet n'en voyait qu'un et rendait un vert
+# partiel. Ne signale pas les dépassements verticaux de 2 px, qui sont la boîte
+# de ligne d'un titre en `line-height: 1` et ne rognent rien.
+browser-debordement url="http://127.0.0.1:8110/":
+    cd spikes/m3-browser-drive && node debordement.mjs "{{url}}"
+
 # Do the numbers stay beside the picture, without scrolling, at the widths people
 # actually use? Needs the worker RUNNING.
 browser-layout:

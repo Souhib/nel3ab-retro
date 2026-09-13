@@ -16,7 +16,7 @@ export function Instruments({ shot }: { shot: Snapshot }) {
   const even = cadence.p05 === cadence.p95;
 
   return (
-    <div className="flex flex-col gap-3 text-[12px]">
+    <div className="flex flex-col gap-3 text-corps">
       <Panel title="image">
         <Readout label="arrivées" value={video.shown} />
         <Readout label="peintes" value={video.painted} />

@@ -27,12 +27,12 @@ export function Readout({
 }) {
   return (
     <div className="flex items-baseline justify-between gap-3 py-[3px]" title={hint}>
-      <span className="text-[11px] uppercase tracking-[0.14em] text-faint">{label}</span>
+      <span className="text-note uppercase tracking-[0.14em] text-faint">{label}</span>
       <span className="flex items-baseline gap-1">
         <span
           id={id}
           className={cn(
-            "font-mono text-[13px] tabular-nums",
+            "font-mono text-corps tabular-nums",
             tone === "good" && "text-good",
             tone === "alert" && "text-alert",
             tone === "faint" && "text-muted",
@@ -41,7 +41,7 @@ export function Readout({
         >
           {value}
         </span>
-        {unit ? <span className="font-mono text-[10px] text-faint">{unit}</span> : null}
+        {unit ? <span className="font-mono text-mini text-faint">{unit}</span> : null}
       </span>
     </div>
   );
@@ -51,7 +51,7 @@ export function Readout({
 export function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="border-t border-rule pt-2">
-      <h2 className="mb-1 text-[10px] uppercase tracking-[0.2em] text-indigo/70">{title}</h2>
+      <h2 className="mb-1 text-mini uppercase tracking-[0.2em] text-indigo/70">{title}</h2>
       {children}
     </section>
   );

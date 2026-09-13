@@ -37,7 +37,7 @@ export function ConnectionDiagnostic({
   }, []);
   const diagnosis = diagnose(video);
   return (
-    <details id="connection-diagnostic" className="border-t border-rule pt-2 text-xs">
+    <details id="connection-diagnostic" className="border-t border-rule pt-2 text-corps">
       <summary className="cursor-pointer">Ta connexion · {diagnosis.title.toLowerCase()}</summary>
       <div className="grid gap-2 pt-2">
         <p>{diagnosis.detail}</p>

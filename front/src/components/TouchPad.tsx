@@ -297,7 +297,7 @@ export function TouchPad({
             id="wakeSound"
             onClick={onSound}
             title="démarrer le son, et le tester par un bip"
-            className={`rounded-full border px-3 text-[11px] uppercase tracking-[0.14em] ${
+            className={`rounded-full border px-3 text-note uppercase tracking-[0.14em] ${
               soundOff ? "border-alert text-alert" : "border-rule text-faint"
             }`}
             style={{ height: "var(--n3-key)", touchAction: "none" }}
@@ -381,10 +381,10 @@ function Key({
       {...hold(name)}
       className={`${at} flex items-center justify-center border font-mono transition-colors ${
         shoulder
-          ? "rounded-[14px] text-[15px] tracking-[0.1em]"
+          ? "rounded-[14px] text-fort tracking-[0.1em]"
           : pill
-            ? "rounded-[10px] text-[13px]"
-            : "rounded-full text-[13px]"
+            ? "rounded-[10px] text-corps"
+            : "rounded-full text-corps"
       } ${
         tint === "a"
           ? "border-[#5ac26a]/70 bg-[#2f6b39]/70 text-[#d9f2de] active:bg-[#5ac26a]/70"
@@ -419,7 +419,7 @@ function Small({ id, label, onClick }: { id: string; label: string; onClick: () 
       type="button"
       id={id}
       onClick={onClick}
-      className="rounded-full border border-rule px-3 text-[11px] uppercase tracking-[0.14em] text-faint"
+      className="rounded-full border border-rule px-3 text-note uppercase tracking-[0.14em] text-faint"
       style={{ height: "var(--n3-key)", touchAction: "none" }}
     >
       {label}

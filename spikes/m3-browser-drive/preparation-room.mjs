@@ -448,11 +448,16 @@ http://localhost:${door} {
     // La même autorisation retardée ne peut plus déloger Camille.
     const rejected = await alice.evaluate(async (expected) => {
       // Sous le préfixe de la salle: `location.origin` seul repart de la racine,
-      // donc vers le salon, qui ne porte aucune entrée de jeu. Cette page-ci est
-      // servie à la racine de sa salle jetable, si bien que le défaut y est
-      // LATENT plutôt qu'actif; `new URL(...)` est juste dans les deux cas.
-      // Corrigé le 13 septembre 2026 avec `flood.mjs`, NON exercé: ce pilote
-      // monte sa propre salle et n'a pas été relancé.
+      // donc vers le salon, qui ne porte aucune entrée de jeu. Corrigé ici le
+      // 13 septembre 2026, en même temps que `flood.mjs`.
+      //
+      // Aucun passage de CE pilote ne peut le montrer, et ce n'est pas une
+      // dette: il monte sa propre salle jetable et sert ses pages à la RACINE
+      // (`http://localhost:${door}/`, son propre bloc Caddy plus haut). Là,
+      // `location.href` et `location.origin` désignent la même adresse, donc
+      // l'ancienne écriture et la nouvelle produisent le même résultat. Le
+      // défaut y est latent par construction; il ne devient réel que derrière
+      // un préfixe `/r/N/`, où d'autres pilotes l'exercent.
       const socket = new WebSocket(new URL(`input?identity=1&take=1&expected=${expected}`, location.href).href.replace(/^http/, 'ws'));
       socket.binaryType = "arraybuffer";
       return await new Promise((done, fail) => {

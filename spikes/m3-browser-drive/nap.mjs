@@ -130,8 +130,14 @@ await stillAwakeWith("format réduit", async () => {
     () =>
       new Promise((done) => {
         // Sous le préfixe de la salle, comme `flood.mjs`: l'origine seule vise le
-        // salon, qui n'envoie aucune image. NON exercé: ce pilote demande une
-        // salle qui s'endort, ce qui prend plusieurs minutes.
+        // salon, qui n'envoie aucune image.
+        //
+        // EXERCÉ, contrairement à ce que disait cette note. Elle a été écrite
+        // avant le premier passage complet, parce qu'atteindre cette ligne
+        // demande d'attendre le gel, soit plusieurs minutes. Le passage du
+        // 13 septembre 2026 y est arrivé: « format réduit » réveille la salle
+        // et 706 images sont reçues sur cette socket. Une réserve qui survit à
+        // l'essai qu'elle annonçait impossible est une réserve qui ment.
         const socket = new WebSocket(
           new URL("video?half=1", location.href).href.replace(/^http/, "ws"),
         );

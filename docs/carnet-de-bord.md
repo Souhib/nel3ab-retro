@@ -15005,6 +15005,42 @@ lecture plutôt que d'afficher quatre places libres sur un délai dépassé est 
 choix RAISONNÉ, écrit dans `sync()`. Ce n'est pas un défaut, et la carte du
 salon, elle, interroge le worker à chaque fois.
 
+**Et les trois « NON exercé » qui restaient, soldés un par un.** Ils portaient
+tous la même correction: une socket construite sur `location.href` plutôt que
+sur l'origine, sans quoi elle repart à la racine et frappe le salon au lieu de
+la salle. Les trois réponses sont différentes, et c'est l'intérêt de les avoir
+regardés séparément.
+
+`nap.mjs` MENTAIT. Sa réserve disait « ce pilote demande une salle qui s'endort,
+ce qui prend plusieurs minutes », et elle avait été écrite avant le premier
+passage complet. Ce passage a eu lieu le même jour: « format réduit » réveille
+la salle et 706 images arrivent sur cette socket. Une réserve qui survit à
+l'essai qu'elle annonçait impossible est une réserve qui ment, et il fallait la
+relire plutôt que la recopier.
+
+`preparation-room.mjs` ne peut pas l'exercer, et ce n'est pas une dette. Il
+monte sa propre salle jetable et sert ses pages à la RACINE, sur son propre bloc
+Caddy: là, `location.href` et `location.origin` désignent la même adresse, donc
+l'ancienne écriture et la nouvelle produisent le même résultat. Le lancer aurait
+coûté une compilation et un vrai Dolphin pour ne rien prouver de plus que la
+lecture. La note dit maintenant POURQUOI aucun passage ne pourrait le montrer,
+au lieu de se lire comme un essai qu'on aurait négligé.
+
+`sound.mjs` est exercé ET falsifié. Sur la salle 1 en train de jouer, à travers
+le proxy: 2000 morceaux, 3750 Kio en 20 secondes, 188 Kio/s pour 187 attendus,
+tous porteurs de signal. Le défaut remis en place, même salle et même minute:
+0 morceau, 0 Kio, amplitude 0. La falsification demandait de REMETTRE le défaut,
+parce que c'est la seule façon de discriminer: contre le worker en direct, sans
+préfixe, les deux écritures donnent la même adresse et passeraient toutes les
+deux. Sa recette `browser-sound` vise justement `localhost:8110`, donc elle ne
+surveille pas cette ligne-là, et c'est écrit à côté d'elle.
+
+Une faute de méthode de plus, la troisième de la soirée et toujours la même:
+mon premier témoin négatif pointait `sound.mjs` sur le salon en 8200, qui sert
+le hall et non une page de salle. Il est mort dans `enterRoom` faute de bouton
+`#enter`, sans jamais atteindre sa socket, et ne prouvait donc rien. Une commande
+qui échoue avant d'atteindre ce qu'elle teste n'est pas un résultat négatif.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une

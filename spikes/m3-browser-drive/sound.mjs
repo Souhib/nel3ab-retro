@@ -18,8 +18,19 @@ await enterRoom(page);
 
 const out = await page.evaluate(async (seconds) => {
   // Sous le préfixe de la salle: `location.origin` seul repart de la racine,
-  // donc vers le salon, qui n'envoie aucun son. Même défaut que `flood.mjs`,
-  // mesuré le 13 septembre 2026. NON exercé ici, faute de son à écouter.
+  // donc vers le salon, qui n'envoie aucun son. Même défaut que `flood.mjs`.
+  //
+  // EXERCÉ et FALSIFIÉ le 13 septembre 2026, sur la salle 1 en train de jouer,
+  // à travers le proxy: avec cette ligne, 2000 morceaux et 3750 Kio en 20 s,
+  // soit 188 Kio/s pour 187 attendus, tous porteurs de signal. Le défaut remis
+  // en place, `location.origin`, même salle et même minute: 0 morceau, 0 Kio,
+  // amplitude 0.
+  //
+  // La falsification demandait de REMETTRE le défaut, et c'est la seule façon
+  // ici: contre le worker en direct, sans préfixe, les deux écritures donnent
+  // la même adresse et passeraient toutes les deux. C'est aussi pourquoi la
+  // recette `browser-sound`, qui vise `localhost:8110`, ne peut pas surveiller
+  // cette ligne-là.
   const ws = new WebSocket(new URL("sound", location.href).href.replace(/^http/, "ws"));
   ws.binaryType = "arraybuffer";
   let bytes = 0, chunks = 0, peak = 0, loud = 0, first = null, last = null;

@@ -839,19 +839,50 @@ impl BrowserServer {
         let Ok(seats) = self.seats.lock() else {
             return false;
         };
-        if seats[seat.index()].is_none_or(|held| crate::control::receipt(held) != claim)
-            || seats.map(|held| held.map_or_else(|| "-".to_owned(), crate::control::receipt))
-                != choice.expected
-            || !self.may_decide(seat)
-            || choice.save > 1
-            || choice.pads.iter().any(|code| *code > 4)
+        // Le refus est NOMMÉ, et tracé.
+        //
+        // Ce bloc rendait `false` sans un mot. Le salon en déduit « Le worker
+        // n'a pas accepté le lancement », la préparation reste ouverte, et rien
+        // nulle part ne dit laquelle des cinq gardes a parlé. Le 13 septembre
+        // 2026, distinguer ces cas a demandé de lire le code faute d'une seule
+        // ligne ici, alors que la salle tournait sous les yeux.
+        let refus = if seats[seat.index()].is_none_or(|held| crate::control::receipt(held) != claim)
         {
+            Some("l'attribution de cette place n'est pas celle annoncée")
+        } else if seats.map(|held| held.map_or_else(|| "-".to_owned(), crate::control::receipt))
+            != choice.expected
+        {
+            Some("les quatre attributions ont changé depuis la vérification du salon")
+        } else if !self.may_decide(seat) {
+            Some("cette place n'a pas le droit de changer le jeu")
+        // TROIS emplacements, pas deux. Cette garde était restée à `> 1` quand
+        // tout le reste du chemin acceptait le personnel: l'analyseur de la
+        // ligne de contrôle, le plan de contrôle, `Slot::from_code` et
+        // `folder_for`, qui compose `joueur-<clé>` depuis le 12 septembre 2026.
+        } else if choice.save > 2 {
+            Some("cet emplacement de sauvegarde n'existe pas")
+        } else if choice.pads.iter().any(|code| *code > 4) {
+            Some("un appareil demandé n'existe pas")
+        } else {
+            None
+        };
+        if let Some(pourquoi) = refus {
+            tracing::warn!(
+                seat = seat.get(),
+                save = choice.save,
+                reason = pourquoi,
+                "lancement refusé"
+            );
             return false;
         }
         let Ok(mut pending) = self.prepared.lock() else {
             return false;
         };
         if pending.is_some() || self.stop_requested() {
+            tracing::warn!(
+                seat = seat.get(),
+                "lancement refusé: un lancement est déjà accepté, ou la salle se ferme"
+            );
             return false;
         }
         *pending = Some(choice);
@@ -1687,6 +1718,54 @@ mod tests {
         assert!(server.rom_wanted());
         assert_eq!(server.take_prepared_launch(), Some(choice));
         assert!(!server.rom_wanted());
+    }
+
+    /// Le TROISIÈME emplacement, celui de la personne qui lance.
+    ///
+    /// Toutes les autres gardes du chemin l'acceptent depuis le 12 septembre
+    /// 2026: l'analyseur de la ligne de contrôle (`save > 2`), le plan de
+    /// contrôle (deux fois `(0, 1, 2)`), [`Slot::from_code`], et `folder_for`,
+    /// qui compose déjà `joueur-<clé>`. Celle-ci était restée à DEUX.
+    ///
+    /// Elle refusait donc en silence: le worker répondait `no`, le salon
+    /// annonçait « Le worker n'a pas accepté le lancement », la préparation
+    /// restait ouverte, et personne ne voyait d'écran de chargement. Mesuré le
+    /// 13 septembre 2026 contre la vraie salle, après que la moitié salon du
+    /// même défaut eut été corrigée: une garde plus loin sur le même chemin
+    /// rendait la correction invisible.
+    #[test]
+    fn la_sauvegarde_personnelle_est_un_emplacement_comme_les_autres() {
+        let server = detached(vec![]);
+        *server.seats.lock().unwrap() = [Some(11), None, None, None];
+        let one = PlayerSlot::new(1).unwrap();
+        *server.owner.lock().unwrap() = Some(one);
+        server.acted.lock().unwrap()[0] = Some(Instant::now());
+        let personnelle = crate::control::PreparedLaunch {
+            game: 2,
+            save: 2,
+            pads: [0, 0, 0, 0],
+            expected: server.seat_receipts(),
+            person: "souhib".to_owned(),
+        };
+        assert!(
+            server.prepare_launch(one, &crate::control::receipt(11), personnelle.clone()),
+            "« ta sauvegarde » refusée, alors que toutes les autres gardes l'acceptent"
+        );
+        assert_eq!(server.take_prepared_launch(), Some(personnelle));
+
+        // Le jumeau négatif, sans lequel un plafond levé trop haut passerait:
+        // un quatrième emplacement n'existe pas.
+        let inconnu = crate::control::PreparedLaunch {
+            game: 2,
+            save: 3,
+            pads: [0, 0, 0, 0],
+            expected: server.seat_receipts(),
+            person: String::new(),
+        };
+        assert!(
+            !server.prepare_launch(one, &crate::control::receipt(11), inconnu),
+            "un emplacement qui n'existe pas a été accepté"
+        );
     }
 
     #[test]

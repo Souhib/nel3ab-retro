@@ -125,8 +125,19 @@ def main() -> int:
 
     # Deux Dolphin sur une seule carte, c'est jouable; deux Dolphin sur un seul
     # NOM de conteneur, non. Le garde-fou vérifie que le nôtre est bien à part.
-    if CONTAINER == "nel3ab-dolphin":
-        print("le nom de conteneur est celui de la salle: ça la tuerait", file=sys.stderr)
+    #
+    # Toute la FAMILLE des conteneurs de salle, et pas le seul `nel3ab-dolphin`.
+    # Depuis la bascule multi-salles, l'unité pose `NEL3AB_CONTAINER=nel3ab-
+    # dolphin-%i`: les salles vivantes s'appellent donc `nel3ab-dolphin-1`, `-2`,
+    # `-3`, et ce garde ne les voyait plus. Poser `NEL3AB_SPIKE_CONTAINER=
+    # nel3ab-dolphin-1` passait le contrôle et tuait la salle 1, ce qui est
+    # exactement l'accident que ce garde existe pour empêcher: code de sortie
+    # 137, et une partie relancée sous les doigts de quelqu'un.
+    if re.fullmatch(r"nel3ab-dolphin(-\d+)?", CONTAINER):
+        print(
+            f"« {CONTAINER} » est un conteneur de SALLE: le prendre la tuerait",
+            file=sys.stderr,
+        )
         return 64
 
     user = Path(tempfile.mkdtemp(prefix="nel3ab-chaud-"))

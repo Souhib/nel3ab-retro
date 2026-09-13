@@ -11,12 +11,34 @@
 import { execFileSync, execSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import puppeteer from "puppeteer";
-import { enterRoom, seedName } from "../spikes/m3-browser-drive/open.mjs";
+import { enterRoom, salleDe, seedName } from "../spikes/m3-browser-drive/open.mjs";
 
 const label = process.argv[2] ?? "baseline";
 const WARMUP_S = Number(process.env.BENCH_WARMUP ?? 45);
 const MEASURE_S = Number(process.env.BENCH_MEASURE ?? 90);
-const URL = process.env.BENCH_URL ?? "http://localhost:8100/";
+const URL = process.env.BENCH_URL ?? "http://localhost:8110/";
+
+// L'unité se DÉDUIT de l'adresse, comme dans les pilotes.
+//
+// Ce banc redémarrait `nel3ab-worker`, l'unité d'avant la bascule multi-salles,
+// et lisait son journal. Cette unité était encore installée, désactivée mais
+// démarrable, et ne fixait ni `NEL3AB_BIND` ni `NEL3AB_CONTAINER`: la démarrer
+// ne ratait donc pas, elle levait un worker sur les défauts compilés
+// `127.0.0.1:8100`, dans `~/.local/state/nel3ab/session`, avec le conteneur
+// `nel3ab-dolphin`. Le banc aurait mesuré une salle FANTÔME que le proxy ne
+// sert à personne, pendant qu'elle consommait le GPU et partageait
+// `NEL3AB_SWITCH_LOCK` avec les vraies.
+// Vérifié le 13 septembre 2026 en lisant cette unité avant de la supprimer
+// (elle est dans l'historique git) et `crates/worker/src/main.rs`, qui porte
+// encore ces valeurs par défaut. Elle a été retirée du dépôt ET de
+// `/etc/systemd/system` le même jour, pour qu'un banc mal pointé échoue
+// bruyamment au lieu de lever une salle que personne ne voit.
+const SALLE = salleDe(URL);
+if (SALLE === null) {
+  console.log(`RIEN MESURÉ — impossible de déduire le numéro de salle de « ${URL} ».`);
+  process.exit(1);
+}
+const UNITE = `nel3ab-worker@${SALLE}`;
 
 const sh = (cmd) => execSync(cmd, { encoding: "utf8" }).trim();
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -40,19 +62,19 @@ const environment = {
     dolphin: sh("docker image inspect nel3ab/dolphin:dev --format '{{.Id}}' | cut -c1-19"),
     binary_bytes: Number(sh("stat -c%s core/target/release/nel3ab-worker")),
   },
-  settings: sh("systemctl show nel3ab-worker -p Environment --value"),
+  settings: sh(`systemctl show ${UNITE} -p Environment --value`),
   workload: { warmup_s: WARMUP_S, measure_s: MEASURE_S, url: URL, viewers: 1 },
 };
 
 console.log(`banc « ${label} » · ${environment.git.sha}${environment.git.dirty ? " (modifié)" : ""}`);
 
 // ── a cold session, then a warm one ────────────────────────────────────────
-sh("sudo systemctl restart nel3ab-worker");
+sh(`sudo systemctl restart ${UNITE}`);
 const startedAt = new Date();
 for (let i = 0; i < 60; i++) {
   await wait(2000);
   try {
-    if (sh(`journalctl -u nel3ab-worker --since '${startedAt.toISOString()}' -o cat | grep -c '"streaming"'`) !== "0") break;
+    if (sh(`journalctl -u ${UNITE} --since '${startedAt.toISOString()}' -o cat | grep -c '"streaming"'`) !== "0") break;
   } catch { /* not yet */ }
 }
 const ready = new Date();
@@ -135,7 +157,7 @@ await browser.close();
 
 // ── what the server said during that window ────────────────────────────────
 const lines = sh(
-  `journalctl -u nel3ab-worker --since '${from.toISOString()}' -o cat | grep '"streaming"' || true`,
+  `journalctl -u ${UNITE} --since '${from.toISOString()}' -o cat | grep '"streaming"' || true`,
 )
   .split("\n")
   .filter(Boolean)

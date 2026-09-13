@@ -24,8 +24,37 @@ import re
 import subprocess
 import sys
 import time
+from urllib.parse import urlparse
 
-WORKER = "http://localhost:8100/"
+# L'adresse ET l'unité, déduites ensemble.
+#
+# Ce fichier visait `http://localhost:8100/` et `journalctl -u nel3ab-worker`,
+# deux choses mortes depuis la bascule multi-salles: plus rien n'écoute sur
+# 8100, et l'unité s'appelle `nel3ab-worker@N`. Les deux lectures de journal
+# rendaient donc le vide, `dolphin_pid()` et `presented()` rendaient `None`, et
+# l'essai se plantait sur sa propre hypothèse au lieu de décrire un défaut.
+#
+# La règle de déduction est celle de `spikes/m3-browser-drive/open.mjs`, écrite
+# une seconde fois parce qu'elle traverse une frontière de langage. Le port mort
+# 8100 est refusé explicitement: il donnerait la salle 0, qui n'existe pas.
+WORKER = os.environ.get("NEL3AB_URL", "http://localhost:8110/")
+
+
+def _salle(url: str) -> int | None:
+    """Le numéro de salle, lu dans le port `81N0` ou dans le chemin `/r/N/`."""
+    lu = urlparse(url)
+    par_port = re.fullmatch(r"81([1-9])0", str(lu.port or ""))
+    if par_port:
+        return int(par_port.group(1))
+    par_chemin = re.match(r"^/r/([1-9]\d*)/", lu.path or "")
+    return int(par_chemin.group(1)) if par_chemin else None
+
+
+SALLE = _salle(WORKER)
+if SALLE is None:
+    print(f"RIEN TESTÉ — impossible de déduire la salle de « {WORKER} ».", file=sys.stderr)
+    raise SystemExit(1)
+UNITE = f"nel3ab-worker@{SALLE}"
 SWITCH = re.compile(r"Switching to Extension (\d+) \(Wiimote 0")
 
 bad = 0
@@ -41,7 +70,7 @@ def check(ok: bool, what: str) -> None:
 def dolphin_pid() -> str | None:
     """L'identifiant du processus Dolphin, vu par le journal du worker."""
     out = subprocess.run(
-        ["journalctl", "-u", "nel3ab-worker", "-n", "400", "--no-pager", "-o", "cat"],
+        ["journalctl", "-u", UNITE, "-n", "400", "--no-pager", "-o", "cat"],
         capture_output=True, text=True, check=False,
     ).stdout
     last = None
@@ -62,7 +91,7 @@ def presented() -> str | None:
     worker, lui, l'écrit à chaque démarrage.
     """
     out = subprocess.run(
-        ["journalctl", "-u", "nel3ab-worker", "-n", "600", "--no-pager", "-o", "cat"],
+        ["journalctl", "-u", UNITE, "-n", "600", "--no-pager", "-o", "cat"],
         capture_output=True, text=True, check=False,
     ).stdout
     last = None

@@ -34,7 +34,11 @@
 Description=Open the full VRAM aperture (Resizable BAR) before anything uses the GPU
 DefaultDependencies=no
 After=systemd-udev-settle.service
-Before=docker.service nel3ab-worker.service basic.target
+# Les salles sont `After=docker.service`, donc être avant docker les précède
+# toutes: nommer une unité de worker ici serait redondant, et la seule qu'on
+# pouvait nommer était `nel3ab-worker.service`, morte depuis la bascule
+# multi-salles. Un gabarit ne s'ordonne de toute façon pas par son nom.
+Before=docker.service basic.target
 ConditionKernelCommandLine=pci=nocrs
 
 [Service]

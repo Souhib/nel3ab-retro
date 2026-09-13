@@ -14908,6 +14908,38 @@ de chargement, c'est-à-dire les dix secondes de noir que cette annonce existe
 pour éviter. Écrit en rouge d'abord, et les deux essais redeviennent rouges
 quand on remet `SAVES` à deux entrées.
 
+**Et sa seconde moitié, dans le worker, qui rendait la première invisible.**
+Le salon corrigé et redémarré, « ta sauvegarde » ne plantait plus — et ne
+marchait toujours pas. Le témoin ne recevait aucun écran de chargement, alors
+que le journal ne montrait plus aucune `IndexError`. Trois observables l'ont
+situé sans une seule hypothèse: le disque avait gardé le jeu du passage
+précédent, le salon n'avait écrit aucun changement, et la salle affichait encore
+`preparation: ouverte`. Or le salon n'a qu'un chemin qui laisse une préparation
+ouverte, celui où il annonce « Le worker n'a pas accepté le lancement ».
+
+Le worker refusait donc. Dans `prepare_launch`, une garde disait `choice.save >
+1`. Tout le reste du chemin acceptait pourtant l'emplacement personnel depuis le
+12 septembre 2026: l'analyseur de la ligne de contrôle, qui écrit `save > 2` et
+commente « Trois emplacements, dont le personnel »; le salon, deux fois;
+`Slot::from_code`, qui connaît `Person`; et `folder_for`, qui compose déjà
+`joueur-<clé>`. Une seule garde était restée à deux, à la toute fin du chemin,
+et elle refusait en SILENCE: le worker répond `no`, sans une ligne de journal.
+
+La leçon est là plutôt que dans la garde. Corriger la première moitié n'a rien
+changé pour la personne qui joue, et rien ne le disait: il a fallu lire le code
+faute d'une ligne de trace. Chaque refus de `prepare_launch` porte maintenant son
+motif — l'attribution qui ne correspond pas, les quatre places qui ont changé, la
+place qui n'a pas le droit de décider, l'emplacement qui n'existe pas, l'appareil
+inconnu — et part en `warn` avec la place et l'emplacement. Une heure de lecture
+pour un mot manquant.
+
+Vérifié en service, contre la vraie salle et le binaire recompilé: « ta
+sauvegarde » est proposée, le lancement part, le témoin SPECTATEUR reçoit
+l'écran de chargement et le voit nommer « ta sauvegarde », le worker retient
+`chosen-save = 2`, et la carte mémoire pointe vers
+`joueur-souhib-t-hotmail-fr`, le dossier composé depuis l'identité que seul le
+salon certifie. Zéro refus tracé, zéro `IndexError`.
+
 **L'essai qui devait l'empêcher ne pouvait pas échouer.** Sa docstring promet que
 « les libellés du salon et ceux de la page ne peuvent pas diverger ». Il bouclait
 sur `enumerate(SAVES)`, c'est-à-dire sur la liste du salon, et vérifiait que la
@@ -14927,6 +14959,30 @@ quand celui de `session/` datait du 5 septembre. `just saves` affichait donc un
 inventaire figé, et `just save-import` aurait posé un fichier là où aucun
 émulateur ne le lit. Ni l'un ni l'autre ne donnait d'erreur. Les trois recettes
 prennent maintenant un numéro de salle.
+
+**Trois autres restes de la bascule multi-salles, soldés le même jour.** Le banc
+`bench/run.mjs` redémarrait `nel3ab-worker`, l'unité d'avant, et lisait son
+journal: elle était encore installée, désactivée mais DÉMARRABLE, et ne fixe ni
+`NEL3AB_BIND` ni `NEL3AB_CONTAINER`. La démarrer ne ratait donc pas, elle levait
+un worker sur les défauts compilés `127.0.0.1:8100`, dans `session/`, avec le
+conteneur `nel3ab-dolphin`: le banc aurait mesuré une salle fantôme que le proxy
+ne sert à personne, pendant qu'elle consomme le GPU et partage le verrou Switch
+avec les vraies. L'unité est retirée du dépôt et de `/etc/systemd/system`, pour
+qu'un banc mal pointé échoue bruyamment plutôt que d'en lever une.
+
+`spikes/m5-manette-a-chaud/depuis-la-page.py` visait `localhost:8100` ET le
+journal de cette unité: ses deux lectures rendaient le vide, donc ses deux
+observables rendaient `None`, et l'essai se serait planté sur sa propre
+hypothèse. Il déduit maintenant sa salle de son adresse.
+
+Le plus sérieux des trois est un GARDE-FOU devenu aveugle.
+`extension-a-chaud.py` refuse de prendre le conteneur de la salle, parce que le
+prendre la tue — son commentaire raconte l'accident: code de sortie 137, et une
+partie relancée sous les doigts de quelqu'un. Il comparait à `nel3ab-dolphin`.
+Depuis la bascule, les salles s'appellent `nel3ab-dolphin-1`, `-2`, `-3`: le
+garde ne les voyait plus, et pointer la manip sur la salle 1 passait le contrôle.
+Il refuse maintenant toute la famille. Un garde de sécurité qui survit à un
+renommage sans être relu est un garde qui ne garde plus rien.
 
 **Deux fautes de méthode, les miennes, et elles se ressemblent.** J'ai sondé le
 port de contrôle avec une boucle qui attend un retour à la ligne et qui JETTE ce

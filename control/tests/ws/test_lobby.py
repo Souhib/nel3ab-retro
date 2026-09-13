@@ -1355,3 +1355,85 @@ async def test_une_preparation_s_ouvre_aussi_pour_un_jeu_gamecube(
 
                 await player.disconnect()
                 group.cancel_scope.cancel()
+
+
+async def test_a_new_name_reaches_every_socket_of_the_same_person(
+    served: tuple[str, RoomController],
+) -> None:
+    """Un pseudo changé sur un appareil ne laisse pas l'ancien sur l'autre.
+
+    Le 13 septembre 2026, le salon affichait « SouhibMarie-Alexandra » alors que
+    `people.json` disait « Souhib » depuis une heure. Le pseudo avait été rendu
+    sur un deuxième appareil, et seule la socket qui l'annonçait avait été mise à
+    jour. La présence garde la PREMIÈRE socket d'une personne: celle qui était
+    restée avec l'ancien nom. Assis, on lisait le nom de la place et tout
+    semblait juste; spectateur, on lisait la présence.
+
+    L'ordre d'arrivée est donc la condition de l'essai. Si l'appareil qui renomme
+    arrivait le premier, la présence montrerait son nom et l'essai serait vert
+    sans correctif.
+    """
+    url, rooms = served
+    headers = {"Tailscale-User-Login": "souhib@example.com", "Tailscale-User-Name": "Souhib"}
+    heard: list[dict] = []
+
+    stale = socketio.AsyncClient()
+    stale.on("room", heard.append)
+    await stale.connect(url, socketio_path="/socket.io", headers=headers)
+    await asyncio.sleep(0.2)
+    stale_sid = stale.get_sid("/")
+    assert stale_sid is not None
+    rooms.claim(2, stale_sid, "Souhib")
+
+    renaming = socketio.AsyncClient()
+    await renaming.connect(url, socketio_path="/socket.io", headers=headers)
+    await asyncio.sleep(0.2)
+
+    async with httpx.AsyncClient() as http:
+        answer = await http.put(f"{url}/api/me", json={"name": "Marie"}, headers=headers)
+    assert answer.status_code == 200, answer.text
+    await renaming.emit("rename", {"name": "Marie"})
+    await asyncio.sleep(0.3)
+
+    room = heard[-1]
+    assert [person["name"] for person in room["people"]] == ["Marie"], (
+        "la présence lit la première socket, qui n'avait pas renommé"
+    )
+    assert room["owner"]["name"] == "Marie"
+    assert rooms.seats()[1].player == "Marie", "la place suit son occupant sur l'autre appareil"
+
+    await renaming.disconnect()
+    await stale.disconnect()
+
+
+async def test_a_new_name_does_not_rename_somebody_else(
+    served: tuple[str, RoomController],
+) -> None:
+    """Le jumeau négatif: la même personne, et personne d'autre."""
+    url, rooms = served
+    souhib = {"Tailscale-User-Login": "souhib@example.com", "Tailscale-User-Name": "Souhib"}
+    vincent = {"Tailscale-User-Login": "vincent@example.com", "Tailscale-User-Name": "Vincent"}
+    heard: list[dict] = []
+
+    other = socketio.AsyncClient()
+    other.on("room", heard.append)
+    await other.connect(url, socketio_path="/socket.io", headers=vincent)
+    await asyncio.sleep(0.2)
+    other_sid = other.get_sid("/")
+    assert other_sid is not None
+    rooms.claim(3, other_sid, "Vincent")
+
+    renaming = socketio.AsyncClient()
+    await renaming.connect(url, socketio_path="/socket.io", headers=souhib)
+    async with httpx.AsyncClient() as http:
+        answer = await http.put(f"{url}/api/me", json={"name": "Marie"}, headers=souhib)
+    assert answer.status_code == 200, answer.text
+    await renaming.emit("rename", {"name": "Marie"})
+    await asyncio.sleep(0.3)
+
+    names = {person["login"]: person["name"] for person in heard[-1]["people"]}
+    assert names == {"vincent@example.com": "Vincent", "souhib@example.com": "Marie"}
+    assert rooms.seats()[2].player == "Vincent"
+
+    await renaming.disconnect()
+    await other.disconnect()

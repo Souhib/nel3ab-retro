@@ -68,11 +68,31 @@ class PeopleController:
     def arrived(self, sid: str, login: str | None, name: str, salle: int = 1) -> None:
         self._present[sid] = (login, name, salle)
 
-    def renamed(self, sid: str, name: str) -> None:
-        """Le nouveau pseudo, sur la socket qui vient d'en changer."""
-        if sid in self._present:
-            login, _, salle = self._present[sid]
-            self._present[sid] = (login, name, salle)
+    def renamed(self, sid: str, name: str) -> dict[str, tuple[int, str]]:
+        """Le nouveau pseudo, sur CHAQUE socket de la personne qui en change.
+
+        Pas seulement sur celle qui l'annonce. Le pseudo est rangé sous le login,
+        donc deux onglets ou deux appareils de la même adresse portent le même.
+        Le 13 septembre 2026, un pseudo rendu depuis un deuxième appareil laissait
+        l'ancien sur le premier, et `present` garde la PREMIÈRE socket d'une
+        personne: le salon a affiché « SouhibMarie-Alexandra » une heure après
+        que le fichier disait « Souhib ».
+
+        Sans login, la socket seule: deux anonymes ne sont pas une personne.
+
+        Rend les sockets dont le nom a changé, avec leur salle et l'ancien nom,
+        pour que l'appelant fasse suivre les places et le journal.
+        """
+        if sid not in self._present:
+            return {}
+        login = self._present[sid][0]
+        changed: dict[str, tuple[int, str]] = {}
+        for other, (who, was, salle) in self._present.items():
+            if (other == sid or (login is not None and who == login)) and was != name:
+                changed[other] = (salle, was)
+        for other, (salle, _) in changed.items():
+            self._present[other] = (self._present[other][0], name, salle)
+        return changed
 
     def live(self, salle: int | None = None) -> set[str]:
         """Les sockets encore là.

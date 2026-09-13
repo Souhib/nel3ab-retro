@@ -464,23 +464,38 @@ async def rename(sid: str, data: dict[str, Any]) -> None:
     pseudo jusqu'à la prochaine reconnexion.
     """
     session = await sio.get_session(sid)
-    rooms, people, journal, salle = await _pour(sid)
-    was = session["name"]
+    _, people, journal, salle = await _pour(sid)
     now = people.name_for(session["login"]) if session["login"] else _name(data.get("name"))
     if now is None:
         return
-    if now != was:
+    environ = sio.get_environ(sid)
+    touched = {salle}
+    # Toutes les sockets de la personne, et pas seulement celle qui annonce: voir
+    # `PeopleController.renamed`. Y compris quand CETTE socket avait déjà le bon
+    # nom, puisque c'est justement le cas d'un onglet ouvert après le changement.
+    for other, (ou, was) in people.renamed(sid, now).items():
+        try:
+            other_session = {**await sio.get_session(other), "name": now}
+        except KeyError:
+            # Partie pendant une attente de cette boucle: `disconnect` range sa
+            # présence et sa place, il n'y a plus rien à renommer.
+            continue
         # La place suit son occupant: elle est retenue sous un nom, et un nom qui
         # change sans que la place suive laisse une manette au nom d'un fantôme.
-        rooms.rename(sid, now)
-        people.renamed(sid, now)
-        session = {**session, "name": now}
-        await sio.save_session(sid, session)
+        other_rooms = _state(environ, ou)[0]
+        other_rooms.rename(other, now)
+        await sio.save_session(other, other_session)
         # Après la mise à jour, pour que la ligne porte le nom d'ARRIVÉE de la
         # suite du journal plutôt que celui qu'on vient d'abandonner: c'est ce
         # nom-là qu'on cherchera dans les lignes suivantes.
-        journal.write("pseudo", **_who(sid, session), avant=was, salle=_room_now(rooms, people))
-    await broadcast(rooms, people, journal, bool(session.get("banc")), salle=salle)
+        journal.write(
+            "pseudo", **_who(other, other_session), avant=was, salle=_room_now(other_rooms, people)
+        )
+        touched.add(ou)
+    for ou in sorted(touched):
+        await broadcast(
+            _state(environ, ou)[0], people, journal, bool(session.get("banc")), salle=ou
+        )
 
 
 def _measured(data: dict[str, Any], ceiling: int = VITALS_MAX) -> dict[str, Any] | None:

@@ -15479,6 +15479,56 @@ la valeur rangée dans le navigateur contre la liste, donc quiconque avait chois
 
 Page à 153638 o en brotli pour un budget de 300 000.
 
+### « SouhibMarie-Alexandra », ou le pseudo rendu sur un seul appareil
+
+**Le symptôme.** Le 13 septembre 2026 au soir, Souhib signale deux noms pour
+la même personne. Avec une manette, la colonne dit « Souhib (toi) ». En
+spectateur, elle dit « SouhibMarie-Alexandra ».
+
+**Ce n'était pas la page.** Elle affiche ce que le salon lui envoie, et le salon
+envoyait bien ce nom: `/api/room` le rendait pour `souhib.t@hotmail.fr`, comme
+présent et comme chef. Pourtant `people.json`, le fichier des pseudos, disait
+« Souhib ». Le journal de `nel3ab-control` a donné l'histoire. À 16:56, un
+`PUT /api/me` depuis lgf enregistre « SouhibMarie-Alexandra » (la sauvegarde
+`people.json.bak` le garde encore). À 17:59, un autre `PUT /api/me` depuis un
+autre appareil du tailnet remet « Souhib ».
+
+**La cause.** Le pseudo est rangé sous le login, mais la présence est tenue par
+socket: une entrée par onglet ou par appareil ouvert. Quand une page change de
+pseudo, elle l'annonce sur SA socket, et le salon ne mettait à jour que
+celle-là. L'onglet resté ouvert sur l'autre machine gardait l'ancien nom. Or la
+liste des présents garde la PREMIÈRE socket d'une personne, et c'était la
+périmée. Assis, on lit le nom de la place, qui était juste; spectateur, on lit
+la présence, qui ne l'était pas. D'où deux noms selon le rôle.
+
+Comment le nom collé est né n'est pas établi. L'hypothèse la plus simple est le
+champ « changer de pseudo », qui s'ouvre prérempli avec le nom actuel: taper
+« Marie-Alexandra » sans l'effacer donne exactement ce nom. Le défaut corrigé
+ici est l'autre moitié: un nom rendu doit l'être partout.
+
+**La correction.** `PeopleController.renamed` met à jour toutes les sockets du
+même login, et rend celles qui ont changé avec leur salle et leur ancien nom.
+Le gestionnaire `rename` fait suivre la place et la session de chacune, écrit
+une ligne de journal par socket, puis diffuse chaque salle touchée. Il le fait
+même quand la socket qui annonce avait déjà le bon nom, car c'est justement le
+cas d'un onglet ouvert après le changement. Sans login, rien ne change: deux
+anonymes ne sont pas une personne.
+
+**L'essai, et sa condition.** `test_a_new_name_reaches_every_socket_of_the_same_person`
+ouvre deux vraies sockets sous la même identité, sur un vrai serveur. La
+périmée arrive la première et tient une place; la seconde renomme. L'ordre est
+la condition de l'essai: dans l'autre sens, la présence montrerait la socket qui
+a renommé et l'essai serait vert sans correction. Rouge avant la correction pour
+la bonne raison (`['Souhib'] == ['Marie']`), vert après. Son jumeau négatif
+vérifie qu'une autre personne, et sa place, gardent leur nom.
+
+**Ce que la correction ne couvre pas.** Un appareil qui renomme par
+`PUT /api/me` SANS annoncer sur une socket laisse encore les autres sockets
+périmées jusqu'à leur reconnexion. La page annonce toujours après la route, donc
+ce cas ne vient pas d'elle. Et le salon qui tourne garde son état en mémoire
+tant qu'il n'est pas redémarré: sur la machine, recharger l'onglet périmé suffit
+à lui redonner le bon nom.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une

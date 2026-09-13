@@ -8,6 +8,7 @@ unit test and fails the moment it is served.
 
 import asyncio
 import json
+import re
 import shlex
 import socket
 from collections.abc import AsyncIterator
@@ -879,19 +880,41 @@ async def test_only_the_one_who_decides_can_announce(
     await watcher.disconnect()
 
 
-def test_the_two_save_names_say_the_same_thing_on_both_sides() -> None:
+def test_the_save_names_say_the_same_thing_on_both_sides() -> None:
     """Les libellés du salon et ceux de la page ne peuvent pas diverger.
 
     Ils existent en deux exemplaires, parce que le serveur refuse d'afficher un
     texte écrit par une page. Deux exemplaires qui divergent donneraient à celui
     qui lance et à ceux qui regardent deux versions du même écran, et rien ne le
     dirait: les deux écrans sont sur des machines différentes.
+
+    # Pourquoi cet essai lit les DEUX listes, et non plus une seule
+
+    Il bouclait sur `enumerate(SAVES)` et vérifiait que la page nommait chacune
+    pareil. Un emplacement que la PAGE connaît et que le salon ignore passait
+    donc sans un mot, et c'est arrivé: la page en proposait trois, le salon en
+    nommait deux, et cet essai est resté vert pendant que « ta sauvegarde »
+    levait une `IndexError` à chaque lancement. Un essai qui ne regarde que dans
+    un sens est un essai qui ne peut pas échouer pour la bonne raison.
+
+    Comparer les deux listes ENTIÈRES, dans l'ordre, ferme les deux sens à la
+    fois: un ajout d'un côté seul les rend inégales.
     """
     from nel3ab_control.api.ws.handlers import SAVES
 
     source = (Path(__file__).parents[3] / "front/src/lib/saves.ts").read_text(encoding="utf-8")
-    for code, label in enumerate(SAVES):
-        assert f'id: {code}, label: "{label}"' in source, f"la page ne nomme plus {code} ainsi"
+    # Le bloc `SLOTS` et lui seul. Le même fichier déclare aussi les APPAREILS
+    # d'un jeu Wii, sous la même forme `id: N, label: "..."`: une lecture qui
+    # balaie tout le fichier compare les emplacements à une liste qui contient
+    # « Wiimote seule », et échoue en accusant le salon d'un défaut qui n'est
+    # pas le sien.
+    debut = source.index("export const SLOTS")
+    bloc = source[debut : source.index("] as const;", debut)]
+    page = re.findall(r'\{ id: (\d+), label: "([^"]+)"', bloc)
+    assert page, "la page ne déclare plus ses emplacements sous la forme attendue"
+    assert [(str(code), label) for code, label in enumerate(SAVES)] == page, (
+        f"salon {list(SAVES)} contre page {[label for _, label in page]}"
+    )
 
 
 async def test_only_the_holder_may_answer(served: tuple[str, RoomController]) -> None:
@@ -1165,6 +1188,103 @@ async def test_old_page_and_reconnection_do_not_become_false_spectators(served, 
     finally:
         for page in [old, current, watcher]:
             await page.disconnect()
+
+
+async def test_lancer_sur_sa_propre_sauvegarde_annonce_le_bon_emplacement(
+    served: tuple[str, RoomController],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Le troisième emplacement doit s'annoncer comme les deux autres.
+
+    La page en propose trois (`front/src/lib/saves.ts`), le worker en connaît
+    trois (`Slot`), et la préparation en ACCEPTE trois. Le salon n'en nommait
+    que deux, et il indexe sa liste au moment de l'annonce: lancer « ta
+    sauvegarde » levait donc une `IndexError` APRÈS que le worker a pris
+    l'ordre. La partie démarrait, et personne d'autre ne recevait l'écran de
+    chargement, c'est-à-dire exactement les dix secondes de noir que cette
+    annonce existe pour éviter.
+
+    L'essai voisin ouvrait déjà une préparation sur l'emplacement 2, et s'y
+    arrêtait: le défaut vit au LANCEMENT, ce qui est pourquoi la barrière était
+    verte.
+    """
+    from nel3ab_control.api.ws import handlers
+
+    url, rooms = served
+    claim = "c" * 32 + "-1"
+    launches: list[str] = []
+
+    async def worker(stream: SocketStream) -> None:
+        async with stream:
+            line = b""
+            while b"\n" not in line:
+                line += await stream.receive(320)
+            command = line.decode().strip()
+            if command == "seats":
+                await stream.send((" ".join([claim, "-", "-", "-"]) + "\n").encode())
+            elif command.startswith("decides"):
+                await stream.send(b"yes\n")
+            elif command.startswith("launch"):
+                launches.append(command)
+                await stream.send(b"ok\n")
+            else:
+                await stream.send(b"ok\n")
+
+    async def catalog(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "current": None,
+                "roms": [{"name": "Super Smash Bros Melee", "console": "gc", "art": False}],
+            },
+        )
+
+    monkeypatch.setattr(handlers, "ROOM_EVERY", 0)
+    async with httpx.AsyncClient(transport=httpx.MockTransport(catalog)) as client:
+        monkeypatch.setattr(rooms, "_client", client)
+        async with await anyio.create_tcp_listener(
+            local_host="127.0.0.1", local_port=0
+        ) as listener:
+            port = listener.extra(SocketAttribute.local_address)[1]  # noqa: S610
+            rooms.settings.worker_control = f"127.0.0.1:{port}"
+            async with anyio.create_task_group() as group:
+                group.start_soon(listener.serve, worker)
+                player, watcher = socketio.AsyncClient(), socketio.AsyncClient()
+                booting: asyncio.Queue[dict] = asyncio.Queue()
+                watcher.on("booting", booting.put_nowait)
+                try:
+                    await player.connect(url, auth={"name": "Souhib"})
+                    await watcher.connect(url, auth={"name": "Vincent"})
+                    await player.call("seat", {"port": 1, "claim": claim})
+
+                    assert await player.call(
+                        "preparation", {"action": "begin", "game": 0, "save": 2}
+                    ) == {"ok": True}
+                    assert rooms.preparation is not None
+                    identifiant = rooms.preparation.id
+                    assert await player.call(
+                        "preparation",
+                        {"id": identifiant, "action": "choose", "pad": 0, "ready": True},
+                    ) == {"ok": True}
+                    assert await player.call(
+                        "preparation", {"id": identifiant, "action": "launch"}
+                    ) == {"ok": True}
+
+                    # Le worker a bien reçu l'emplacement 2.
+                    assert launches and launches[0].split()[4] == "2", launches
+
+                    # Et le JUMEAU, celui qui manquait: ceux qui regardent
+                    # reçoivent l'annonce, avec le nom de l'emplacement. Sans
+                    # cette moitié, un salon qui lance sans prévenir personne
+                    # satisferait l'assertion du dessus.
+                    async with asyncio.timeout(3):
+                        annonce = await booting.get()
+                    assert annonce["saveSlot"] == 2
+                    assert annonce["save"] == "ta sauvegarde"
+                finally:
+                    await player.disconnect()
+                    await watcher.disconnect()
+                    group.cancel_scope.cancel()
 
 
 async def test_une_preparation_s_ouvre_aussi_pour_un_jeu_gamecube(

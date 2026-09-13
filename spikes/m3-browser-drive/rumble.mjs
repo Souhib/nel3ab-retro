@@ -12,7 +12,7 @@ import { writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import puppeteer from "puppeteer";
-import { enterRoom, openRoom, seatOf, ROOM_URL } from "./open.mjs";
+import { enterRoom, openRoom, salleDe, seatOf, ROOM_URL } from "./open.mjs";
 
 const url = process.argv[2] ?? ROOM_URL;
 let bad = 0;
@@ -44,7 +44,14 @@ check((await felt()) === 0, "aucune secousse avant d'avoir joué");
 // écrive. Cette moitié-là se vérifie autrement, en regardant que le processus a
 // bien ouvert le tube en écriture, ce qui n'arrive que si `Pad::Rumble` est
 // appelé.
-const pipe = join(homedir(), ".local/state/nel3ab/session/rumble.fifo");
+// Sous la salle, pas sous l'ancien répertoire unique: `session/` existe encore
+// sur le disque mais plus aucun worker n'y écrit depuis la bascule.
+const numero = salleDe(url);
+if (numero === null) {
+  console.log(`RIEN TESTÉ — impossible de déduire le numéro de salle de « ${url} ».`);
+  process.exit(1);
+}
+const pipe = join(homedir(), `.local/state/nel3ab/salles/${numero}/rumble.fifo`);
 const shake = (pad, level) => writeFileSync(pipe, Buffer.from([pad, level]));
 
 shake(port - 1, 200);

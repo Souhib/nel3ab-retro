@@ -143,10 +143,18 @@ clip-test:
     cd spikes/m3-browser-drive && node clip.mjs
 
 # Ce que chaque jeu a comme sauvegardes, et ce qu'elles pèsent.
-saves:
+#
+# Le numéro de salle n'est pas décoratif: depuis la bascule multi-salles,
+# chaque salle a ses propres sauvegardes sous `salles/N`. Ces trois recettes
+# visaient `session/`, le répertoire unique d'avant, que plus aucun worker
+# n'alimente. Le 2026-09-13, `session/` n'avait pas bougé depuis la veille
+# quand `salles/1` était réécrit la nuit même: `just saves` montrait donc un
+# inventaire figé, et `just save-import` déposait un fichier là où aucun
+# émulateur ne le lit. Ni l'un ni l'autre ne donnait d'erreur.
+saves salle="1":
     #!/usr/bin/env bash
     set -euo pipefail
-    racine="${NEL3AB_SESSION_DIR:-$HOME/.local/state/nel3ab/session}"/saves
+    racine="${NEL3AB_SESSION_DIR:-$HOME/.local/state/nel3ab/salles/{{salle}}}"/saves
     [ -d "$racine" ] || { echo "aucune sauvegarde pour l'instant"; exit 0; }
     for jeu in "$racine"/*/; do
         echo "$(basename "$jeu")"
@@ -170,10 +178,10 @@ saves:
 # fichier de la ROM. L'ancien contenu de l'emplacement est écarté plutôt
 # qu'effacé: une sauvegarde qu'on remplace est une sauvegarde que quelqu'un
 # voudra peut-être revoir.
-save-import jeu emplacement fichier:
+save-import jeu emplacement fichier salle="1":
     #!/usr/bin/env bash
     set -euo pipefail
-    dossier="${NEL3AB_SESSION_DIR:-$HOME/.local/state/nel3ab/session}"/saves/{{jeu}}/{{emplacement}}
+    dossier="${NEL3AB_SESSION_DIR:-$HOME/.local/state/nel3ab/salles/{{salle}}}"/saves/{{jeu}}/{{emplacement}}
     case "{{emplacement}}" in
         neuve|debloquee) ;;
         *) echo "emplacement inconnu: {{emplacement}} (neuve ou debloquee)"; exit 1 ;;
@@ -192,10 +200,10 @@ save-import jeu emplacement fichier:
 #
 # « Neuve » cesse de l'être dès qu'on a joué une heure dessus. Sans ce geste, le
 # mot ment au bout d'une soirée.
-save-reset jeu emplacement:
+save-reset jeu emplacement salle="1":
     #!/usr/bin/env bash
     set -euo pipefail
-    dossier="${NEL3AB_SESSION_DIR:-$HOME/.local/state/nel3ab/session}"/saves/{{jeu}}/{{emplacement}}
+    dossier="${NEL3AB_SESSION_DIR:-$HOME/.local/state/nel3ab/salles/{{salle}}}"/saves/{{jeu}}/{{emplacement}}
     [ -d "$dossier" ] || { echo "rien à vider"; exit 0; }
     n=$(find "$dossier" -maxdepth 1 -name '*.gci' | wc -l)
     find "$dossier" -maxdepth 1 -name '*.gci' -delete
@@ -223,16 +231,25 @@ wii-save-import export dossier:
 # La page et la salle sont-elles d\'accord sur ce qui peut être transporté ? Le
 # demi-format n'existe pas pour toutes les tailles d'image, et c'est un vrai
 # encodeur devant un vrai jeu qui le dit.
-formats-test:
-    cd spikes/m3-browser-drive && node formats.mjs
+# REDÉMARRE la salle, deux fois, avec sudo. Il visait `nel3ab-worker` et
+# `~/.local/state/nel3ab/session/`, tous deux morts depuis la bascule
+# multi-salles: les deux gestes étaient sans effet et la mesure suivante ne
+# portait sur rien. Les deux se déduisent maintenant de l'adresse.
+formats-test url="http://127.0.0.1:8110/":
+    cd spikes/m3-browser-drive && node formats.mjs "{{url}}"
 
 # Les réglages de manette suivent-ils la personne ? Demande le worker ET le plan
 # de contrôle en marche, et une identité, donc le proxy devant.
 manettes-test:
     cd spikes/m3-browser-drive && node manettes.mjs
 
+# Demande NEL3AB_URL et pointe le PROXY: ce pilote lit le jeu en cours par
+# `/api/room`, une route du SALON. Le worker seul sert la page à cette
+# adresse, donc `JSON.parse` y recevait `<!doctype html>` et le pilote
+# mourait avant sa première assertion utile.
 saves-test:
-    cd spikes/m3-browser-drive && node saves.mjs
+    @test -n "${NEL3AB_URL:-}" || { echo "NEL3AB_URL manquant: ce pilote lit le jeu en cours par /api/room, que seul le salon sert."; echo "  Donner l adresse du proxy: NEL3AB_URL=https://<domaine>/r/<N>/ just saves-test"; exit 1; }
+    cd spikes/m3-browser-drive && node saves.mjs "$NEL3AB_URL"
 
 # Les plans de manette: chaque pièce sur son boîtier, et une image à regarder.
 #
@@ -321,10 +338,21 @@ switch-reaction screen="menu" trials="5" port="1":
 # `docker unpause`, et aucun test unitaire ne peut la voir. Il faut un vrai
 # conteneur, un vrai émulateur et une minute de patience: exactement la même
 # raison que `gpu-test`.
-# Le conteneur `nel3ab-dolphin` est INDISPENSABLE et absent de certaines
-# machines: le 13 septembre 2026 `docker inspect` y rendait « no such
-# object », donc ce pilote n'y a jamais pu être exercé. Il est écrit ici
-# pour que personne ne le croie vert.
+# Le conteneur et l'unité portent le NUMÉRO de la salle depuis la bascule
+# multi-salles: l'unité pose `NEL3AB_CONTAINER=nel3ab-dolphin-%i`, et le
+# worker ne retombe sur `nel3ab-dolphin` que si cette variable manque.
+#
+# Ce pilote cherchait l'ancien nom, et `journalctl -u nel3ab-worker`
+# l'ancienne unité, morte depuis que les salles sont trois. Le 13 septembre
+# 2026 j'ai vu `docker inspect nel3ab-dolphin` rendre « no such object » et
+# j'en ai conclu à tort que le conteneur manquait à la machine: il tournait,
+# sous le nom `nel3ab-dolphin-1`. Les deux noms se déduisent maintenant de
+# l'adresse, et le pilote REFUSE s'il n'y arrive pas.
+#
+# Les horloges en jeu, lues dans `crates/emulator/src/nap.rs`: le gel vient
+# après une minute de salle vide (`GRACE`), le jeu se ferme après trois
+# (`EMPTY_AFTER`), et la salle après trente (`CLOSE_AFTER`). La fenêtre
+# utile fait donc deux minutes, et ce pilote la traverse plusieurs fois.
 nap-test url="http://127.0.0.1:8110/":
     cd spikes/m3-browser-drive && node nap.mjs "{{url}}"
 
@@ -633,6 +661,21 @@ browser-lipsync:
 browser-polite:
     @test -n "${NEL3AB_URL:-}" || { echo "NEL3AB_URL manquant: l'annonce « seat » passe par le salon."; echo "  Donner l'adresse du proxy: NEL3AB_URL=https://<domaine>/r/<N>/ just browser-polite"; exit 1; }
     cd spikes/m3-browser-drive && node polite.mjs "$NEL3AB_URL"
+
+# Tout ce qui se juge en REGARDANT, en une commande. Needs the worker RUNNING.
+#
+# Ces quatre-là partagent une propriété que `just check` n'a pas: ils ouvrent un
+# vrai navigateur sur une vraie salle. `check` ne peut pas les accueillir, la CI
+# n'ayant ni salle ni GPU, et c'est la même raison que `gpu-test`.
+#
+# Ils existent parce que la barrière ne surveille NI les tailles de texte NI les
+# superpositions. Les deux défauts visuels du 13 septembre 2026 — un bouton
+# coupé en « Modifier cette comman », une entrée de menu imprimée en travers de
+# l'icône d'un rayon — ont été trouvés en regardant des captures, pas en lançant
+# `just check`, qui était verte les deux fois.
+#
+# En DÉPENDANCES et non par des `just` imbriqués, comme `check` lui-même.
+browser-visuel: browser-layout browser-contraste browser-debordement browser-superposition
 
 # La colonne se voit-elle à travers la bande des rayons ? Needs the worker RUNNING.
 #

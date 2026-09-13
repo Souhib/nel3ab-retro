@@ -586,7 +586,15 @@ async def disconnect(sid: str) -> None:
     await broadcast(rooms, people, journal, bool(session.get("banc")), salle=salle)
 
 
-#: Les deux emplacements de sauvegarde, nommés comme la page les nomme.
+#: Les TROIS emplacements de sauvegarde, nommés comme la page les nomme.
+#:
+#: Ils étaient deux, et la page en proposait trois depuis le 12 septembre 2026.
+#: La préparation acceptait pourtant l'emplacement 2, puis l'annonce indexait
+#: cette liste: lancer « ta sauvegarde » levait une `IndexError` APRÈS que le
+#: worker avait pris l'ordre. La partie démarrait, l'appel de la page expirait,
+#: et personne d'autre ne recevait l'écran de chargement — les dix secondes de
+#: noir que cette annonce existe précisément pour éviter. Mesuré le 13 septembre
+#: 2026 par l'essai `test_lancer_sur_sa_propre_sauvegarde_annonce_le_bon_emplacement`.
 #:
 #: Un deuxième exemplaire de deux chaînes, et il est assumé: l'alternative serait
 #: de laisser la page envoyer le texte à afficher, donc de laisser n'importe quel
@@ -597,7 +605,7 @@ async def disconnect(sid: str) -> None:
 #: `front/src/lib/saves.ts` et compare, parce que deux libellés qui se
 #: contredisent donneraient à celui qui lance et à ceux qui regardent deux
 #: versions différentes du même écran.
-SAVES = ("partie neuve", "tout débloqué")
+SAVES = ("partie neuve", "tout débloqué", "ta sauvegarde")
 
 
 @sio.event

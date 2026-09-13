@@ -12,12 +12,36 @@
 import { execFileSync } from "node:child_process";
 import puppeteer from "puppeteer";
 
-import { enterRoom, openRoom, ROOM_URL } from "./open.mjs";
+import { enterRoom, openRoom, ROOM_URL, salleDe } from "./open.mjs";
 
 // L'adresse en ARGUMENT, comme les autres pilotes. Elle était prise à
 // `ROOM_URL` sans qu'aucun argument ne puisse la changer, et la recette ne lui
 // en passait aucun: viser une autre salle demandait d'éditer le fichier.
 const url = process.argv[2] ?? ROOM_URL;
+
+/** Le numéro de la salle, lu dans l'adresse.
+ *
+ * Le conteneur et l'unité portent ce numéro depuis la bascule multi-salles:
+ * l'unité installée pose `NEL3AB_CONTAINER=nel3ab-dolphin-%i`, et le worker ne
+ * retombe sur `nel3ab-dolphin` que si cette variable manque. Ce pilote cherchait
+ * l'ancien nom, et `journalctl -u nel3ab-worker` l'ancienne unité, qui est
+ * « loaded inactive dead » depuis que les salles sont trois. Le 13 septembre
+ * 2026, `docker inspect nel3ab-dolphin` rendait « no such object » pendant que
+ * `nel3ab-dolphin-1` tournait.
+ *
+ * Déduit de l'adresse, comme le salon déduit l'adresse du numéro: `8110` donne
+ * 1, et le proxy `/r/1/` aussi. On REFUSE si on n'y arrive pas, plutôt que de
+ * viser une salle au hasard.
+ */
+const numero = salleDe(url);
+if (numero === null) {
+  console.log(`RIEN MESURÉ — impossible de déduire le numéro de salle de « ${url} ».`);
+  console.log("  Attendu: un port en 81N0, ou un chemin en /r/N/.");
+  process.exit(1);
+}
+const CONTENEUR = `nel3ab-dolphin-${numero}`;
+const UNITE = `nel3ab-worker@${numero}`;
+console.log(`  salle ${numero} · conteneur ${CONTENEUR} · unité ${UNITE}`);
 
 let bad = 0;
 const say = (ok, what) => {
@@ -26,14 +50,14 @@ const say = (ok, what) => {
 };
 
 const paused = () =>
-  execFileSync("docker", ["inspect", "nel3ab-dolphin", "--format", "{{.State.Paused}}"])
+  execFileSync("docker", ["inspect", CONTENEUR, "--format", "{{.State.Paused}}"])
     .toString()
     .trim() === "true";
 
 /** Les tranches de dix secondes écrites depuis `depuis`. */
 function tranches(depuis) {
   const raw = execFileSync("journalctl", [
-    "-u", "nel3ab-worker", "--since", depuis, "-o", "json", "--no-pager",
+    "-u", UNITE, "--since", depuis, "-o", "json", "--no-pager",
   ]).toString();
   return raw
     .split("\n")
@@ -65,7 +89,12 @@ const page = await openRoom(browser, url);
 await enterRoom(page);
 await new Promise((done) => setTimeout(done, 25000));
 const peintes = await page.evaluate(() => globalThis.nel3abTest?.counters?.().painted ?? 0);
-await browser.close();
+// La PAGE et non le navigateur. L'intention est de vider la salle pour qu'elle
+// regèle, pas de tuer l'instance: `stillAwakeWith` ouvre ensuite ses propres
+// pages avec `browser.newPage()`, et sur un navigateur fermé cela lève
+// `ConnectionClosedError`. Ce défaut était invisible tant que le pilote mourait
+// plus tôt sur un nom de conteneur périmé; corriger le nom l'a révélé.
+await page.close();
 
 say(peintes > 300, `elle se réveille et peint (${peintes} images)`);
 say(!paused(), "et elle reste éveillée tant qu'on regarde");
@@ -132,5 +161,6 @@ say(
 const cris = tranches(depuis).filter((m) => m.fields.message === "the emulator went quiet");
 say(cris.length === 0, `aucun cri au secours (${cris.map((m) => Math.round(m.fields.waited_ms))})`);
 
+await browser.close();
 console.log(bad === 0 ? "PASS — la sieste ne se fait plus passer pour une panne" : `ÉCHEC — ${bad}`);
 process.exit(bad === 0 ? 0 : 1);

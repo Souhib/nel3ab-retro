@@ -14779,6 +14779,16 @@ puisse la changer; il l'accepte désormais, mais il reste NON exercé et sa
 recette le dit: `docker inspect nel3ab-dolphin` rend « no such object » sur
 cette machine, donc le conteneur dont il a besoin n'y existe pas.
 
+**Cette dernière réserve était fausse, et elle est levée le 13 septembre 2026**
+(voir « Le pilote des sauvegardes se refusait l'accès à lui-même »). La commande
+a été tapée sans salle ouverte ET contre `nel3ab-dolphin`, le nom d'avant la
+bascule multi-salles. Le conteneur s'appelle `nel3ab-dolphin-N`: avec la salle 1
+ouverte, `docker ps` rend « Up 17 seconds ». Repointé sur les noms par salle,
+`nap` passe ses huit étapes. La leçon n'est pas sur ce pilote: une absence
+constatée par une commande est une absence de la COMMANDE tant que la commande
+n'a pas été vérifiée, et j'avais écrit une réserve dans une recette sur cette
+seule foi.
+
 **Et la sonde de débordement ne regardait qu'une largeur.** Le panneau des
 touches change pourtant de forme à ses points de rupture: une seule colonne sous
 900 px, plein écran sous 600. Tout le texte venant d'être agrandi, c'est
@@ -14794,6 +14804,150 @@ détectée, et `data-busy` ne devient vrai qu'une fois une leçon commencée. Y
 arriver demanderait de simuler une manette puis de déclencher une capture. Ses
 surcharges de tailles vivent d'ailleurs toutes sous `max-width: 900px`, donc
 elles ne s'appliquent pas à la largeur où le reste est mesuré.
+
+### Le pilote des sauvegardes se refusait l'accès à lui-même
+
+`saves.mjs` vérifie ce qu'aucun test unitaire ne peut voir: qu'un jeu écrit bien
+dans l'emplacement de sauvegarde choisi. Une erreur là ne donne pas une erreur,
+elle donne une partie qui écrase la mauvaise sauvegarde, ce qui se découvre une
+fois trop tard. Il ne tournait plus. Le remettre en marche a demandé de trouver
+SEPT causes distinctes, l'une derrière l'autre, chacune cachant la suivante. Et
+trois explications intermédiaires ont été démenties par la mesure avant la
+bonne, ce qui est la moitié intéressante de l'histoire.
+
+**Un.** Il mourait sur `JSON.parse` en recevant `<!doctype html>`. Il demande le
+jeu en cours par `/api/room`, qui est une route du SALON: le worker seul sert sa
+page à cette adresse et rend donc la page monolithique en repli. Falsifié dans
+la minute: le même pilote, la même salle, échoue en direct sur le worker et
+passe ses deux premières vérifications à travers le proxy. Sa recette exige
+maintenant `NEL3AB_URL`, comme `browser-loading` et `browser-games`.
+
+**Deux.** Il s'arrêtait ensuite sur sa propre garde: « la place 2 décide dans
+cette salle, le pilote tient la 1 ». Son commentaire annonce pourtant que « la
+règle du WORKER est celle qui compte », et le code lisait `room.owner.seat`, qui
+répond à une autre question. Le salon y publie la place de la DERNIÈRE session
+d'une personne: `describe()` construit un dictionnaire identité vers place en
+parcourant toutes ses sessions. Or ce pilote ouvre lui-même un second onglet,
+dans le même navigateur donc sous la même identité, pour regarder l'écran de
+chargement. Cet onglet prenait la place 2, le salon publiait 2, et le pilote se
+refusait l'accès à lui-même. Le worker, lui, interrogé directement sur son port
+de contrôle, répondait « yes » aux deux places. La garde demande désormais au
+worker, sur `81N1`, exactement comme le salon le fait.
+
+**Trois.** La garde levée, onze vérifications échouaient d'un coup. La bibliothèque
+a deux étages depuis les jeux Wii, et `#item-gameN` n'existe pas au premier
+niveau. Ce pilote ouvre bien l'étagère `#item-shelf-wii` plus bas dans le même
+fichier, et l'oubliait pour la GameCube. Tout ce qui suivait mesurait l'état
+d'un jeu jamais lancé.
+
+**Quatre.** L'écran de préparation ne s'ouvrait pas. La préparation compte les
+participants parmi les places TENUES, et « Lancer le jeu » ne s'active que
+lorsque tout le monde s'est dit prêt. Le témoin du pilote entrait par la porte
+joueur, prenait une manette, devenait participant et ne se déclarait jamais: le
+pilote bloquait son propre lancement. Il entre maintenant par la porte
+spectateur, `watchRoom`, qui existe pour ça et qui voit l'écran de chargement
+aussi bien.
+
+**Cinq.** Il expirait encore, et l'observation a renversé l'explication. Une
+sonde qui relève les identifiants présents à chaque étape montre que `#pick-1`
+OUVRE la préparation lui-même: le panneau se referme, `#pickerConfirm`
+disparaît, `#launchPrepared` apparaît, et le salon enregistre `game 3 save 1, 1
+participant`. L'aide partagée, elle, commence par chercher `#pickerConfirm`;
+appelée après une pression qui a déjà tout ouvert, elle traquait donc un bouton
+qui n'existait plus. Elle sort maintenant dès que la préparation est ouverte, ce
+qui ne change rien pour `games` et `loading`, qui rencontrent bien ce bouton.
+
+**Six, et je me suis trompé TROIS fois dessus.** Le pilote expirait toujours.
+J'ai d'abord écrit que l'écran de préparation s'était refermé pendant l'attente:
+faux, une sonde le montre présent vingt-cinq secondes après `#pick-1`, et le
+salon tient toujours la préparation ouverte. J'ai ensuite soupçonné le second
+onglet: faux aussi, une sonde qui reproduit le pilote À L'IDENTIQUE, témoin
+compris, voit `#launchPrepared` apparaître normalement. J'ai enfin soupçonné une
+course, l'appel à l'aide suivant la pression sans le temps de repos qui suit
+chaque autre pression de ce fichier. J'ai posé ce temps de repos: le pilote a
+échoué exactement pareil. Trois explications, trois démentis par la mesure, et
+aucune ligne de code du produit en cause.
+
+**Sept, et c'était la bonne, trouvée en instrumentant le VRAI pilote.** Une
+copie jetable du fichier, qui relève l'état du DOM et celui du salon de part et
+d'autre de l'échec, montre `launch=true` avant l'appel et `launch=true` après:
+l'élément que je croyais absent était là tout du long. Ce n'était donc pas la
+première attente qui expirait mais la SECONDE, celle qui veut voir « Lancer le
+jeu » cesser d'être grisé. L'aide presse « Je suis prêt » une fois et ne lit pas
+le résultat de sa pression. Ce bouton porte `disabled={working || occupied}`
+(`components/Preparation.tsx`), deux états qu'elle ne voit pas: une pression qui
+tombe dedans rend `false` en silence, personne ne s'est déclaré prêt, et le
+lancement reste grisé pour toujours. Elle presse maintenant jusqu'à ce que le
+lancement s'arme, et LÈVE une erreur nommée si rien ne s'arme, au lieu de
+continuer sur un bouton mort.
+
+**La leçon de méthode est dans mes sondes, pas dans le produit.** Toutes
+réussissaient là où le pilote échouait, et j'en ai conclu trois fois que la
+différence était ailleurs. Elle était dans ce que je ne comparais pas: une
+sonde pressait le bouton une demi-seconde plus tard, une autre entrait sous un
+pseudo différent donc sur un autre profil de touches. Quand une sonde et le
+pilote font « la même chose » avec des résultats opposés, la différence est
+dans ce qu'on n'a pas comparé, et la sortie est d'instrumenter le vrai
+programme plutôt que d'en écrire un qui lui ressemble.
+
+**Ce que le pilote prouve maintenant.** Dix-neuf vérifications vertes, dont la
+seule qui compte vraiment: le dossier de carte mémoire de la salle bascule
+réellement vers `/debloquee` quand on demande « tout débloqué », puis revient
+vers `/neuve` quand on relance sur une partie neuve. Le navigateur témoin voit
+l'écran de chargement avec le nom du jeu, et cet écran s'en va quand la salle
+repeint. Le jumeau qui rend l'ensemble falsifiable est le retour: sans lui, une
+page qui enverrait TOUJOURS « tout débloqué » passerait les trois premières.
+
+**Et un vrai défaut du salon, trouvé en chemin.** `SAVES` ne contenait que deux
+libellés quand la page en propose trois et que le worker connaît trois
+emplacements. La préparation ACCEPTE pourtant l'emplacement 2, puis l'annonce
+indexe cette liste: lancer « ta sauvegarde » levait `IndexError: tuple index out
+of range` à `handlers.py:790`, APRÈS que le worker avait pris l'ordre. La partie
+démarrait, l'appel de la page expirait, et personne d'autre ne recevait l'écran
+de chargement, c'est-à-dire les dix secondes de noir que cette annonce existe
+pour éviter. Écrit en rouge d'abord, et les deux essais redeviennent rouges
+quand on remet `SAVES` à deux entrées.
+
+**L'essai qui devait l'empêcher ne pouvait pas échouer.** Sa docstring promet que
+« les libellés du salon et ceux de la page ne peuvent pas diverger ». Il bouclait
+sur `enumerate(SAVES)`, c'est-à-dire sur la liste du salon, et vérifiait que la
+page nommait chacun pareil. Un emplacement connu de la PAGE et ignoré du salon
+passait donc sans un mot. Il compare maintenant les deux listes entières, dans
+l'ordre, ce qui ferme les deux sens. Première version de ce correctif fausse, au
+passage: l'expression régulière balayait tout le fichier et ramassait « Wiimote
+seule », qui appartient à la liste des APPAREILS. La lecture est bornée au bloc
+des emplacements.
+
+**Deux commandes qui déposaient dans le vide.** `just saves`, `just save-import`
+et `just save-reset` lisaient `~/.local/state/nel3ab/session/saves`, le
+répertoire unique d'avant la bascule multi-salles. Prouvé par les inodes plutôt
+que par les noms: `session/saves` et `salles/1/saves` sont deux stockages
+distincts, et le fichier de sauvegarde côté salle avait été réécrit la nuit même
+quand celui de `session/` datait du 5 septembre. `just saves` affichait donc un
+inventaire figé, et `just save-import` aurait posé un fichier là où aucun
+émulateur ne le lit. Ni l'un ni l'autre ne donnait d'erreur. Les trois recettes
+prennent maintenant un numéro de salle.
+
+**Deux fautes de méthode, les miennes, et elles se ressemblent.** J'ai sondé le
+port de contrôle avec une boucle qui attend un retour à la ligne et qui JETTE ce
+qu'elle a reçu quand le délai expire. Trois « TimeoutError » de suite, et j'ai
+failli conclure que le worker ne répondait pas à `seats`. Il répondait `- - -
+-`. La seconde: j'ai cherché une trace d'erreur avec `journalctl --user` alors
+que `nel3ab-control` est une unité SYSTÈME. La commande n'a rien cherché du
+tout, et son silence ne prouvait rien. Les deux sont la même faute que la veille
+avec `docker inspect`: une absence constatée par une commande est une absence de
+la COMMANDE tant que la commande n'a pas été vérifiée.
+
+**Et une fausse piste, dite pour que personne ne la reprenne.** `/api/room` et la
+liste du salon se contredisaient au même instant, l'une annonçant deux places
+tenues et l'autre quatre libres. Le champ `held` vient d'un cache, « the count
+the worker last reported », qui ne se rafraîchit que lorsqu'une page se
+connecte. Ces places fantômes n'existent donc que pour un appelant HTTP pendant
+qu'une salle est vide, et elles disparaissent avant qu'un humain les voie: la
+première personne qui entre voit une salle correcte, mesuré. Garder la dernière
+lecture plutôt que d'afficher quatre places libres sur un délai dépassé est un
+choix RAISONNÉ, écrit dans `sync()`. Ce n'est pas un défaut, et la carte du
+salon, elle, interroge le worker à chaque fois.
 
 ## 12. Glossaire complet
 

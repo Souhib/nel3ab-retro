@@ -6,11 +6,12 @@
 // qui écrase la mauvaise sauvegarde, ce qui ne se voit qu'une fois trop tard.
 import { execFileSync } from "node:child_process";
 import { existsSync, readlinkSync } from "node:fs";
+import { connect } from "node:net";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import puppeteer from "puppeteer";
 
-import { enterRoom, openRoom, ROOM_URL } from "./open.mjs";
+import { enterRoom, launchPrepared, openRoom, ROOM_URL, salleDe, watchRoom } from "./open.mjs";
 
 let bad = 0;
 const say = (ok, what) => {
@@ -18,7 +19,16 @@ const say = (ok, what) => {
   console.log(`  ${ok ? "ok  " : "RATÉ"}   ${what}`);
 };
 
-const SESSION = join(homedir(), ".local/state/nel3ab/session");
+// L'adresse en argument, et le répertoire d'état SOUS la salle: ce pilote
+// lisait les cartes mémoire dans `session/`, l'ancien répertoire unique, que
+// plus aucun worker n'alimente depuis la bascule multi-salles.
+const url = process.argv[2] ?? ROOM_URL;
+const numero = salleDe(url);
+if (numero === null) {
+  console.log(`RIEN TESTÉ — impossible de déduire le numéro de salle de « ${url} ».`);
+  process.exit(1);
+}
+const SESSION = join(homedir(), `.local/state/nel3ab/salles/${numero}`);
 const card = (region) => join(SESSION, "GC", region, "Card A");
 const pointedAt = (region) => (existsSync(card(region)) ? readlinkSync(card(region)) : null);
 
@@ -31,16 +41,51 @@ const kept = (name) => {
   }
 };
 
+/** « Cette place a-t-elle le droit de changer de jeu ? », demandé au WORKER.
+ *
+ * Le port de contrôle d'une salle est le second de sa paire, `81N1`, et le
+ * proxy ne le relaie pas: seul un programme de cette machine l'atteint. C'est
+ * ce qui fait la différence entre une règle et une convention d'affichage.
+ *
+ * `null` quand il ne répond pas, et ce n'est PAS « non ». Un worker muet est un
+ * worker qui redémarre, ce qu'il fait à chaque changement de jeu; confondre les
+ * deux ferait passer une salle absente pour une salle qui refuse.
+ */
+const peutDecider = (salle, place) =>
+  new Promise((resolve) => {
+    const socket = connect({ host: "127.0.0.1", port: 8100 + salle * 10 + 1 }, () =>
+      socket.write(`decides ${place}\n`),
+    );
+    const fin = (valeur) => {
+      socket.destroy();
+      resolve(valeur);
+    };
+    socket.setTimeout(2000);
+    socket.on("data", (bloc) => {
+      const dit = bloc.toString().trim();
+      fin(dit === "yes" ? true : dit === "no" ? false : null);
+    });
+    socket.on("timeout", () => fin(null));
+    socket.on("error", () => fin(null));
+  });
+
 const browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox"] });
-const page = await openRoom(browser, ROOM_URL);
+const page = await openRoom(browser, url);
 await enterRoom(page);
 await new Promise((r) => setTimeout(r, 5000));
 
 // Un DEUXIÈME navigateur, qui ne touche à rien. Il est là pour le défaut le
 // plus visible de tous: pendant un changement de jeu, seul celui qui cliquait
 // voyait l'écran de chargement. Les autres regardaient dix secondes de noir.
-const watcher = await openRoom(browser, ROOM_URL);
-await enterRoom(watcher);
+//
+// Par la porte SPECTATEUR, et c'est une correction du 13 septembre 2026. Il
+// entrait par la porte joueur et prenait donc une manette, ce qui en faisait un
+// PARTICIPANT de la préparation. « Lancer le jeu » ne s'active que lorsque tout
+// le monde s'est dit prêt; ce témoin ne se déclarait jamais, et le pilote
+// bloquait donc son propre lancement pendant vingt secondes avant d'expirer.
+// Un spectateur voit l'écran de chargement, qui est tout ce qu'on lui demande.
+const watcher = await openRoom(browser, url);
+await watchRoom(watcher);
 await new Promise((r) => setTimeout(r, 3000));
 
 const before = pointedAt("USA");
@@ -61,14 +106,22 @@ const room = JSON.parse(
 // essai qui rate parce qu'il ne pouvait pas tourner doit le DIRE: sinon c'est un
 // essai qu'on apprend à ignorer, et il en existe déjà un dans ce projet.
 // La règle du WORKER est celle qui compte, et elle est par PLACE, pas par
-// personne: c'est lui qui accepte ou refuse le changement de jeu. Comparer les
-// identités, comme le fait la page, dirait « tu peux » à un deuxième onglet de
-// la même personne, et le pilote enchaînerait des lignes rouges qui ne
-// décriraient aucun défaut.
+// personne: c'est lui qui accepte ou refuse le changement de jeu. Elle se
+// DEMANDE à lui, comme le salon le fait, et ne se relit pas dans la page.
+//
+// Ce bloc lisait `room.owner.seat`, qui répond à une AUTRE question. Le salon y
+// publie la place de la DERNIÈRE session d'une personne, et ce pilote ouvre
+// lui-même un second onglet, sous la même identité, pour regarder l'écran de
+// chargement. Cet onglet prenait la place 2, le salon publiait donc 2, et le
+// pilote se refusait l'accès à lui-même. Le 13 septembre 2026 il s'arrêtait
+// ainsi avant sa première assertion utile, en annonçant qu'une autre place
+// décidait: le worker, lui, répondait « yes » aux deux places.
 const mySeat = await page.evaluate(() => window.nel3abTest?.counters?.().port ?? null);
-if (room.owner?.seat && room.owner.seat !== mySeat) {
+const verdict = mySeat === null ? false : await peutDecider(numero, mySeat);
+if (verdict !== true) {
   console.log(
-    `  IGNORÉ — la place ${room.owner.seat} décide dans cette salle, le pilote tient la ${mySeat ?? "aucune"}`,
+    `  IGNORÉ — la salle ${numero} ne laisse pas la place ${mySeat ?? "aucune"} changer de jeu` +
+      ` (${verdict === null ? "worker muet" : "refus"})`,
   );
   await browser.close();
   process.exit(0);
@@ -95,8 +148,20 @@ const until = async (check) => {
 };
 await press("#openMenu");
 await new Promise((r) => setTimeout(r, 1200));
+// Les jeux sont rangés par CONSOLE: `#item-gameN` n'existe pas au premier
+// niveau du menu, il faut ouvrir l'étagère avant. Ce pilote le faisait déjà
+// pour la Wii, plus bas dans ce fichier, et l'oubliait ici. Le 13 septembre
+// 2026, ses onze vérifications suivantes échouaient donc toutes en aval d'un
+// jeu qui n'avait jamais été lancé, et aucune ne décrivait un défaut.
+await press("#item-shelf-gc");
+await new Promise((r) => setTimeout(r, 1000));
 // Le jeu d'abord: une pression ouvre le sélecteur de sauvegarde, elle ne lance
-// rien. C'est le panneau qui confirme, et il DIT sur quoi on part.
+// rien, et le panneau DIT sur quoi on part.
+//
+// Ce commentaire annonçait « c'est le panneau qui confirme », ce que la mesure
+// du 13 septembre 2026 dément: presser un emplacement ouvre la préparation à
+// lui seul, sans passer par un bouton de confirmation. C'est la préparation qui
+// confirme désormais, et elle a son propre écran.
 await press(`#item-game${other.index}`);
 await new Promise((r) => setTimeout(r, 1200));
 say(
@@ -113,6 +178,19 @@ say(
 // Les choix portent le code de l'emplacement: « 1 » est celui où tout est
 // débloqué, et ce nombre vient de `saves::Slot` côté worker.
 await press("#pick-1");
+// Le temps que la page RÉAGISSE, comme après chaque autre pression de ce
+// fichier. Sans cette pause, l'aide démarrait dans le même souffle que le clic:
+// `#pickerConfirm` était encore dans le DOM, elle le pressait une seconde fois,
+// et redemandait une préparation déjà ouverte. Mesuré le 13 septembre 2026 en
+// rejouant la séquence pas à pas: deux secondes après `#pick-1`, le panneau a
+// disparu et `#launchPrepared` est là, et il y est encore cinq secondes plus
+// tard. C'est une course que l'insertion de l'aide avait créée, pas un défaut
+// de la page.
+await new Promise((r) => setTimeout(r, 2000));
+// Et jusqu'au BOUT: choisir un emplacement n'allume rien non plus, ça ouvre une
+// préparation. Le jeu ne part qu'après « Je suis prêt » puis « Lancer le jeu »,
+// et cette séquence vit dans `open.mjs` pour n'être oubliée nulle part.
+await launchPrepared(page);
 // Attendre la CONDITION plutôt qu'une durée. L'écran de chargement s'efface dès
 // que le jeu peint, donc une pause fixe passe ou rate selon la vitesse du
 // démarrage, et un test qui rate au hasard est un test qu'on apprend à ignorer.
@@ -166,6 +244,8 @@ say(
 // « partie neuve » est la seule chose qui prouve que le choix voyage vraiment.
 await press("#openMenu");
 await new Promise((r) => setTimeout(r, 1200));
+await press("#item-shelf-gc");
+await new Promise((r) => setTimeout(r, 1000));
 // Et pour revenir: un jeu à cartes lui aussi, pour la même raison.
 const back =
   room.game?.console === "gc"
@@ -174,6 +254,8 @@ const back =
 await press(`#item-game${back}`);
 await new Promise((r) => setTimeout(r, 1200));
 await press("#pick-0");
+await new Promise((r) => setTimeout(r, 2000));
+await launchPrepared(page);
 say(
   await until(() => (document.getElementById("booting")?.textContent ?? "").includes("neuve")),
   "l'écran de chargement annonce la partie neuve",
@@ -200,24 +282,36 @@ if (wii) {
   await press(`#item-game${wii.index}`);
   await new Promise((r) => setTimeout(r, 1200));
   const panel = await page.evaluate(() => document.getElementById("picker")?.textContent ?? "");
-  say(panel.includes("tout débloqué"), `un jeu Wii a lui aussi ses deux emplacements (${wii.name})`);
-  // Et sa MANETTE, dans le même panneau. Une seule des deux, jamais les deux:
-  // elles lisent le même tuyau, et un jeu qui voit les deux compte deux manettes
-  // pour une personne. À deux joueurs, le premier occupe deux places et le
-  // second n'entre jamais — mesuré sur Mario Kart Wii le 31 août 2026.
+  say(panel.includes("tout débloqué"), `un jeu Wii a lui aussi ses emplacements (${wii.name})`);
+  // Et sa manette n'est PLUS ici, ce qui est le sens de l'assertion et non son
+  // contraire. Ce bloc exigeait « manette GameCube » ET « Wiimote » dans le même
+  // panneau, du temps où choisir une partie voulait dire choisir aussi son
+  // appareil. La manette est devenue un RÉGLAGE de personne, qui vit sur l'écran
+  // des touches et suit son propriétaire de salle en salle; `front/src/lib/
+  // saves.test.ts` épingle l'invariant à l'envers de l'ancienne attente, en
+  // refusant que le panneau prononce « manette », « Wiimote » ou « Nunchuk ».
+  // Le pilote contredisait donc un choix délibéré, et le 13 septembre 2026 il
+  // criait au défaut devant une page correcte.
   say(
-    panel.includes("manette GameCube") && panel.includes("Wiimote"),
-    "et le choix de la manette, au même endroit",
+    !/manette|Wiimote|Nunchuk/i.test(panel),
+    "et le panneau ne mêle plus la manette au choix de la partie",
   );
   const lignes = await page.evaluate(
     () => document.querySelectorAll('#picker [id^="pick-"]').length,
   );
-  say(lignes === 4, `quatre combinaisons proposées (${lignes})`);
+  // TROIS, et le nombre vient de `Slot` côté worker: partie neuve, tout
+  // débloqué, et celle de la personne. Le quatrième choix qu'attendait ce
+  // pilote était une COMBINAISON sauvegarde × manette, qui n'existe plus.
+  //
+  // Le troisième n'apparaît que si le salon sait qui demande, et c'est pour ça
+  // que ce pilote exige le proxy: sans identité la page n'en propose que deux,
+  // et l'assertion dirait « défaut » là où il n'y a qu'une absence d'identité.
+  say(lignes === 3, `les trois emplacements sont proposés (${lignes})`);
   await page.keyboard.press("Escape");
 } else {
   console.log("  (aucun jeu Wii dans la bibliothèque: rien à vérifier de ce côté)");
 }
 
 await browser.close();
-console.log(bad === 0 ? "PASS — chaque jeu a ses deux sauvegardes" : `ÉCHEC — ${bad}`);
+console.log(bad === 0 ? "PASS — le choix de sauvegarde voyage jusqu'au disque" : `ÉCHEC — ${bad}`);
 process.exit(bad === 0 ? 0 : 1);

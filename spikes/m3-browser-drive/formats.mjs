@@ -10,7 +10,34 @@
 import { execFileSync, execSync } from "node:child_process";
 import puppeteer from "puppeteer";
 
-import { enterRoom, openRoom, ROOM_URL } from "./open.mjs";
+import { enterRoom, openRoom, ROOM_URL, salleDe } from "./open.mjs";
+
+/** L'adresse de la salle, et le NUMÉRO qu'on en tire.
+ *
+ * Ce pilote écrivait son jeu choisi dans `~/.local/state/nel3ab/session/`, le
+ * répertoire d'avant la bascule multi-salles, et redémarrait `nel3ab-worker`,
+ * l'unité d'avant. Aucun worker ne lit ce répertoire et cette unité est morte:
+ * les deux gestes étaient sans effet, et le pilote mesurait ensuite un
+ * changement de format qui n'avait jamais eu lieu.
+ *
+ * Il le fait DEUX fois, à l'aller vers le jeu Wii puis au retour vers le jeu
+ * d'avant. Une première correction n'avait traité que la première paire, et
+ * l'assertion de comptage l'a refusée: corriger la moitié d'un pilote qui
+ * redémarre un service avec sudo est pire que ne rien corriger.
+ *
+ * Vérifié le 13 septembre 2026: `salles/1/chosen-rom` est daté du jour,
+ * `session/chosen-rom` de la veille, et Dolphin tourne avec
+ * `--user .../salles/1`. `[1-9]` et non `\d`: le port mort `8100` donnerait la
+ * salle zéro, donc un `systemctl restart nel3ab-worker@0`.
+ */
+const url = process.argv[2] ?? ROOM_URL;
+const numero = salleDe(url);
+if (numero === null) {
+  console.log(`RIEN MESURÉ — impossible de déduire le numéro de salle de « ${url} ».`);
+  process.exit(1);
+}
+const UNITE = `nel3ab-worker@${numero}`;
+const CHOIX = `~/.local/state/nel3ab/salles/${numero}/chosen-rom`;
 
 let bad = 0;
 const say = (ok, what) => {
@@ -83,16 +110,16 @@ if (said.half === false) {
 // Le pilote CHANGE le jeu de la salle par le fichier de choix, pas par
 // l'interface: ce qu'on éprouve ici est la traversée d'un redémarrage, pas le
 // droit de décider.
-const roms = JSON.parse(execFileSync("curl", ["-s", "http://127.0.0.1:8110/roms"]).toString());
+const roms = JSON.parse(execFileSync("curl", ["-s", `${url.replace(/\/$/, "")}/roms`]).toString());
 const wii = roms.roms.find((r) => r.console === "wii");
 const was = roms.roms[roms.current];
 if (wii && said.half === true) {
   const before = await page.evaluate(() => window.nel3abTest?.counters?.().painted ?? 0);
   execFileSync("bash", [
     "-c",
-    `printf '%s' ${JSON.stringify(wiiFile(wii.name))} > ~/.local/state/nel3ab/session/chosen-rom`,
+    `printf '%s' ${JSON.stringify(wiiFile(wii.name))} > ${CHOIX}`,
   ]);
-  execFileSync("sudo", ["-n", "systemctl", "restart", "nel3ab-worker"]);
+  execFileSync("sudo", ["-n", "systemctl", "restart", UNITE]);
   // Attendre la CONDITION, pas une durée: le temps de démarrage d'un jeu Wii
   // varie de trente à quarante-cinq secondes selon ce que le pilote graphique a
   // déjà compilé. Une pause fixe passe ou rate au hasard, et un essai qui rate
@@ -113,9 +140,9 @@ if (wii && said.half === true) {
   // La salle est rendue comme on l'a trouvée.
   execFileSync("bash", [
     "-c",
-    `printf '%s' ${JSON.stringify(wiiFile(was.name))} > ~/.local/state/nel3ab/session/chosen-rom`,
+    `printf '%s' ${JSON.stringify(wiiFile(was.name))} > ${CHOIX}`,
   ]);
-  execFileSync("sudo", ["-n", "systemctl", "restart", "nel3ab-worker"]);
+  execFileSync("sudo", ["-n", "systemctl", "restart", UNITE]);
 } else {
   console.log("  (pas de jeu Wii, ou pas de demi-format ici: rien à traverser)");
 }

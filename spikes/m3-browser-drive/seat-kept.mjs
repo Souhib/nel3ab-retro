@@ -5,10 +5,24 @@
 // switches tab loses their controller, which is the bug this replaced.
 import { execSync } from "node:child_process";
 import puppeteer from "puppeteer";
-import { enterRoom, seatOf, seedName } from "./open.mjs";
+import { enterRoom, salleDe, seatOf, seedName } from "./open.mjs";
 
 const url = process.argv[2] ?? "http://localhost:8110/";
 const away = Number(process.argv[3] ?? 25) * 1000;
+
+/** Le numéro de la salle, lu dans l'adresse, pour viser la BONNE unité.
+ *
+ * `journalctl -u nel3ab-worker` visait l'unité d'avant la bascule multi-salles,
+ * qui est « loaded inactive dead » depuis que les salles sont trois: ce pilote
+ * lisait donc un journal vide et comptait zéro plainte, quoi qu'il arrive.
+ * `[1-9]` et non `\d`: le port mort `8100` donnerait la salle zéro.
+ */
+const numero = salleDe(url);
+if (numero === null) {
+  console.log(`RIEN MESURÉ — impossible de déduire le numéro de salle de « ${url} ».`);
+  process.exit(1);
+}
+const UNITE = `nel3ab-worker@${numero}`;
 const since = new Date().toISOString();
 
 const browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox"] });
@@ -46,7 +60,7 @@ const afterwards = await seatOf(page);
 // The server's own account of it: a page that had been declared dead would have
 // been logged as such, and would have come back on a different port.
 const log = execSync(
-  `journalctl -u nel3ab-worker --since '${since}' -o cat | grep -c 'stopped answering' || true`,
+  `journalctl -u ${UNITE} --since '${since}' -o cat | grep -c 'stopped answering' || true`,
 ).toString().trim();
 
 console.log(`after coming back: "${afterwards}" · server declared ${log} controller(s) gone`);

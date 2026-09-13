@@ -35,6 +35,32 @@ export async function openRoom(browser, url = ROOM_URL, name = BENCH_NAME) {
   return page;
 }
 
+/** Le NUMÉRO de la salle que cette adresse désigne, ou `null`.
+ *
+ * Le conteneur, l'unité systemd et le répertoire d'état portent tous ce numéro
+ * depuis la bascule multi-salles: `nel3ab-dolphin-N`, `nel3ab-worker@N`,
+ * `~/.local/state/nel3ab/salles/N`. Plusieurs pilotes visaient encore les noms
+ * d'avant, qui existent toujours sur le disque ou dans systemd sans que rien
+ * ne les lise: leurs gestes étaient sans effet et leurs mesures portaient sur
+ * rien.
+ *
+ * ICI et pas recopié: la dérivation était sur le point d'être écrite une
+ * cinquième fois, et une règle écrite cinq fois est une règle dont quatre
+ * copies dérivent. C'est la leçon de `launchPrepared`, reprise.
+ *
+ * `[1-9]` et non `\d`: le port mort `8100` donnerait la salle ZÉRO, et un
+ * pilote irait alors redémarrer `nel3ab-worker@0`. On rend `null` pour que
+ * l'appelant REFUSE, au lieu de viser une salle au hasard.
+ */
+export function salleDe(url) {
+  const lu = new URL(url);
+  const parPort = /^81([1-9])0$/.exec(lu.port);
+  if (parPort) return Number(parPort[1]);
+  const parChemin = /^\/r\/([1-9]\d*)\//.exec(lu.pathname);
+  if (parChemin) return Number(parChemin[1]);
+  return null;
+}
+
 /** For a driver that makes its own page, or navigates it more than once. */
 export async function seedName(page, name = BENCH_NAME) {
   await page.evaluateOnNewDocument((chosen) => {
@@ -98,6 +124,17 @@ export async function launchPrepared(page, encore = null, timeout = 20000) {
   let confirme = false;
   while (Date.now() < fin && !confirme) {
     confirme = await page.evaluate(() => {
+      // La préparation est peut-être DÉJÀ ouverte, et il n'y a alors plus rien
+      // à confirmer. Selon le jeu, presser un emplacement l'ouvre directement:
+      // mesuré le 13 septembre 2026 sur Mario Kart Double Dash, où `#pick-1`
+      // referme le panneau et fait apparaître `#launchPrepared` d'un coup.
+      //
+      // Sans cette sortie, l'aide appelée juste après une telle pression
+      // pressait `#pickerConfirm` une seconde fois et redemandait une
+      // préparation déjà ouverte. Un appelant doit quand même laisser la page
+      // réagir avant de l'appeler: cette sortie ne rattrape pas une course, elle
+      // évite de confirmer ce qui est déjà confirmé.
+      if (document.getElementById("launchPrepared")) return true;
       const node = document.getElementById("pickerConfirm");
       if (!node) return false;
       node.click();
@@ -116,14 +153,40 @@ export async function launchPrepared(page, encore = null, timeout = 20000) {
       return true;
     }, label);
   await page.waitForFunction(() => document.getElementById("launchPrepared") !== null, { timeout });
-  await presser("Je suis prêt");
-  await page.waitForFunction(
-    () => {
+  // « Je suis prêt » JUSQU'À ce qu'il parte, et non une fois en espérant.
+  //
+  // Ce bouton porte `disabled={working || occupied}` (`components/Preparation.tsx`),
+  // deux états que cette aide ne voit pas: `working` dure le temps d'un
+  // aller-retour avec le salon, `occupied` vaut vrai pendant une capture ou une
+  // leçon de configuration. `presser` rend `false` quand il tombe sur l'un des
+  // deux, et personne ne lisait ce `false`: « Lancer le jeu » restait grisé et
+  // l'attente suivante expirait vingt secondes plus tard devant un écran sain.
+  // C'est ce qui bloquait `saves.mjs` le 13 septembre 2026, après quatre autres
+  // causes. LEQUEL des deux états n'a pas été établi, et c'est justement
+  // pourquoi on presse jusqu'à ce que la condition soit vraie plutôt que de
+  // parier sur une durée: pressé à la main une demi-seconde plus tard, au même
+  // endroit, le même bouton part et le lancement s'active aussitôt.
+  //
+  // La boucle est sans danger une fois prête: le bouton devient « Modifier ma
+  // configuration » et la correspondance exacte ne le trouve plus.
+  const finPret = Date.now() + timeout;
+  let arme = false;
+  while (Date.now() < finPret && !arme) {
+    await presser("Je suis prêt");
+    arme = await page.evaluate(() => {
       const node = document.getElementById("launchPrepared");
       return node !== null && !node.disabled;
-    },
-    { timeout },
-  );
+    });
+    if (!arme) await new Promise((r) => setTimeout(r, 200));
+  }
+  // Et on le DIT, au lieu de continuer sur un bouton grisé. Un pilote qui
+  // presse dans le vide et poursuit rapporte ensuite l'absence d'un jeu qui
+  // n'a jamais été demandé, ce qui ressemble à un défaut et n'en est pas un.
+  if (!arme) {
+    throw new Error(
+      "« Lancer le jeu » est resté grisé: personne ne s'est déclaré prêt dans cette préparation",
+    );
+  }
   return presser("Lancer le jeu");
 }
 

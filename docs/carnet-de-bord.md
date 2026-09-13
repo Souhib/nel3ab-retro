@@ -15182,6 +15182,55 @@ pilotes (`#room`, `#people`, `#enter`, `#watch`, `#toRooms`, `#lobbySeats`,
 `#lookSwitch`) sont présents dans LES DEUX dessins. Le câble tendu mesure 455 px
 à 1440 et 164 px à 430.
 
+### La jauge du salon était vide aux deux tiers, et j'avais corrigé l'autre écran
+
+Souhib avait signalé « la barre affichant le nombre de joueurs est presque vide,
+et à la fin les 4 barres ». J'ai corrigé la rangée `P1…P4` de la page d'entrée,
+qui souffrait d'un autre mal, et laissé intacte celle qu'il visait: la jauge
+d'occupation des dalles du SALON. Il a fallu qu'il le redise pour que je regarde
+au bon endroit. La leçon est sur la lecture d'une demande, pas sur le code: deux
+écrans portent une rangée de quatre, et j'ai choisi le mien sans vérifier.
+
+**Mesuré avant de toucher.** Piste de 247 px, quatre segments de 20 px, soit
+80 px occupés et 167 px de vide: **32 % de remplissage**, avec
+`justify-content: flex-end` qui les tassait à droite. La cause tient en une
+ligne: `width: clamp(13px, 1.5vw, 20px)` sur des segments logés dans un cadre
+qui, lui, s'étire sur toute la colonne. Les segments ne pouvaient donc jamais
+remplir la piste.
+
+**Corrigé sans défaire la décision voisine.** Les segments prennent `flex: 1`
+avec une largeur minimale, et `justify-content: flex-end` disparaît, devenu sans
+objet. Les COULEURS ne bougent pas: l'entrée « Une jauge dont les deux
+contraintes s'opposaient » les défend avec ses mesures — le cadre porte
+l'échelle à 3,32:1, les segments vides restent sombres à 3,08:1, les pleins
+prennent la couleur du canal entre 7,05 et 9,76:1. Ce sont des rapports couleur
+contre couleur, que la largeur ne change pas: la décision mesurée reste entière.
+
+**Après:** 92 % de remplissage à 1440, 86 % à 430. Vérifié aussi sur le cas qui
+porte l'information et pas seulement sur le cas facile: avec quelqu'un dans la
+salle, le premier segment rend `rgb(242, 225, 75)`, le jaune du canal 1, et les
+trois autres `rgb(43, 49, 58)`, la couleur vide mesurée.
+
+**Un refus, fondé sur la charge utile et non sur une citation.** Souhib voulait
+aussi le rouge, bleu, jaune, vert de la GameCube sur ces quatre segments. Ici
+c'est impossible sans mentir: `/api/salles` rend `gens`, une liste de pseudos
+SANS numéro de place, et `places`, un simple compte de manettes libres. Un
+segment vaut une PERSONNE présente, jamais un port. Le salon ne sait pas qui
+tient quelle manette, et l'afficher serait une information inventée. Chaque
+salle garde en revanche sa couleur de canal, qui est son identité.
+
+**Et un commentaire que son propre code démentait.** La feuille annonçait « un
+segment par personne présente » alors que la boucle en crée quatre, fixes,
+remplis ensuite selon le nombre de présents. Corrigé en même temps.
+
+Deux choses à retenir pour la prochaine fois. `accueil.html` est lu UNE SEULE
+FOIS, à l'import (`PAGE = Path(...).read_text()`): toute correction y est
+invisible tant que `nel3ab-control` n'a pas redémarré, et croire le contraire
+ferait chercher un défaut dans le code au lieu du service. Et la vérification a
+une limite: deux onglets d'un même navigateur partagent une identité, donc le
+salon compte une personne tenant deux manettes. Le remplissage de gauche à
+droite n'est donc observé que pour un présent.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une

@@ -145,9 +145,15 @@
   .antenne { font-family: var(--machine); font-size: 12px; letter-spacing: .1em;
     color: var(--legende); margin-top: .45em; }
 
-  /* La jauge: un segment par personne présente, quatre segments.
-     Elle dit COMBIEN de personnes sont là, jamais qui tient quelle
-     manette: la liste du salon ne porte pas les places. */
+  /* La jauge: QUATRE segments fixes, remplis de gauche à droite par le nombre
+     de personnes présentes. Le commentaire disait « un segment par personne
+     présente », ce que la boucle dément depuis toujours: elle en crée quatre,
+     occupés ou non. Un commentaire contredit par son propre code est un défaut.
+
+     Elle dit COMBIEN de personnes sont là, jamais qui tient quelle manette:
+     `/api/salles` rend `gens`, une liste de pseudos SANS numéro de place, et
+     `places`, un simple compte de manettes libres. Colorer par port ici serait
+     afficher une information que le salon ne possède pas. */
   /* Des segments PLEINS, jamais des cadres vides: quatre rectangles ajourés
      alignés à côté d'un texte en chasse fixe se lisaient comme du « tofu »,
      le carré qu'un navigateur dessine quand un glyphe manque. Une jauge qui
@@ -158,13 +164,24 @@
      peut pas les tenir toutes les deux face à des couleurs vives: mesuré,
      le vert ne tenait que 2,81:1 contre un vide assez clair. Le cadre porte
      donc l'échelle, et les segments vides redeviennent sombres. */
-  .jauge { display: flex; gap: 3px; justify-content: flex-end;
+  /* Les segments REMPLISSENT la piste, ils ne s'y tassent plus.
+     Ils portaient une largeur figée dans un cadre qui, lui, s'étire sur toute
+     la colonne: le rectangle était donc vide aux deux tiers, avec quatre petits
+     traits collés à droite, et c'est ce que Souhib a signalé le 13 septembre
+     2026. `justify-content: flex-end` n'avait plus d'objet une fois les
+     segments extensibles, donc il part avec la largeur fixe.
+
+     Les COULEURS ne bougent pas: le cadre garde `--trait` à 3,32:1 sur la
+     plaque, les segments vides `#2b313a` à 3,08:1, les pleins la couleur du
+     canal. Ces valeurs sont des rapports couleur contre couleur, que la largeur
+     ne change pas; la décision mesurée du carnet reste donc entière. */
+  .jauge { display: flex; gap: 3px;
            border: 2px solid var(--trait); padding: 3px; }
   /* Le segment VIDE doit se voir: mesuré, #2b313a ne tenait que 1,23:1 sur
      la plaque, donc l'échelle disparaissait et la jauge ne disait plus « sur
      combien ». Celui-ci tient 3,08:1, seuil du non textuel, sans redevenir
      un cadre ajouré. */
-  .jauge span { width: clamp(13px, 1.5vw, 20px); height: clamp(26px, 4vh, 50px);
+  .jauge span { flex: 1; min-width: 13px; height: clamp(26px, 4vh, 50px);
                 background: #2b313a; }
   .jauge span[data-plein="oui"] { background: var(--canal); }
   .jauge-mot { font-family: var(--machine); font-size: 12px; letter-spacing: .1em;

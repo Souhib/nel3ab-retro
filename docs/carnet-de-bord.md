@@ -14668,6 +14668,74 @@ non visités sont la configuration guidée et l'écran de préparation, qui a se
 propres surcharges de tailles. Et la barrière ne surveille toujours pas les
 tailles: seule cette sonde le fait, par sa recette `browser-debordement`.
 
+### La bande des rayons avale enfin ce qui passe derrière elle
+
+Le défaut attendait une décision, pas un correctif: l'entrée située un cran
+au-dessus de la sélection traversait la bande des rayons, et trancher entre
+« des entrées visibles au-dessus du curseur » et « aucun contact avec la bande »
+change le caractère du menu. Souhib a choisi que la bande avale ce qui passe
+derrière elle, ce qui est aussi ce que fait une vraie XMB.
+
+**Le défaut, mesuré et pas déduit.** Au septième rang d'une liste de quatorze,
+le texte « volume » croise l'ICÔNE du rayon sur 32×17 px. Le libellé, lui, n'est
+frôlé que sur 3 px. Trois versions de la sonde ont cherché la collision sur le
+libellé et conclu que tout allait bien: elles regardaient vingt pixels trop bas.
+Une capture d'écran, posée à côté de la même zone sans la colonne, l'a montré en
+une seconde là où trois mesures s'étaient trompées de cible.
+
+**Pourquoi un masque et pas un fond opaque.** `z-10` met bien la rangée devant,
+mais l'ordre de peinture n'est pas l'opacité: la rangée n'a aucun fond et ses
+boutons portent `bg-transparent`, donc l'entrée se voit dans les blancs entre
+les lettres. Le remède évident était un rectangle opaque. Mesuré avant de
+l'écrire: une capture de la bande pèse 42 657 octets avec le décor du menu
+contre 3 830 sans, donc le dégradé et l'onde y sont bien présents et un
+rectangle plat y aurait découpé une balafre. Le masque occulte sans rien
+peindre, et le décor reste entier.
+
+Les bornes sont des constantes et non des pourcentages: la fenêtre de colonne
+commence à `CROSS - 110px` et la bande à `CROSS - 34px`, toutes deux ancrées au
+croisement, si bien que la bande occupe toujours 76 à 148 px sous le haut de la
+fenêtre, quelle que soit la hauteur de l'écran.
+
+**Ce que ça coûte, dit plutôt que tu:** deux entrées étaient lisibles au-dessus
+du curseur, dont une qui collisionnait. Il en reste UNE. Compenser demanderait
+de remonter la fenêtre d'un rang, donc de déplacer trois constantes couplées,
+et ce n'était pas demandé.
+
+**Six critères pour une sonde, et cinq qui ne pouvaient pas échouer.** C'est la
+partie qui valait le détour, et elle mérite d'être écrite en entier:
+
+1. le libellé du rayon seul, alors que la collision est sur l'icône;
+2. « un élément opaque s'interpose entre l'entrée et le libellé », toujours vrai
+   puisque `elementsFromPoint` rend TOUS les ancêtres, dont `#menu` et son fond
+   de page. La sonde signalait le croisement et l'excusait dans la même sortie;
+3. un `find` sans garde: il ne trouvait pas la colonne, ne cachait rien, et
+   comparait donc deux fois la même image. Affirmer la précondition au lieu de
+   s'y brancher aurait suffi;
+4. une zone de capture tombant à côté du libellé, d'où deux captures identiques
+   sur une région morte;
+5. une extraction d'alpha rendant `NaN` sur `rgba(0, 0, 0, 0)`, donc une opacité
+   `null` et un `Math.max(0, null)` qui vaut 0: un PASS sur du néant.
+
+Le sixième tient: pour chaque encre de la colonne qui croise la bande, on évalue
+l'opacité effective du masque à sa position. Avec le masque, l'encre est à 0 et
+le pilote passe; le masque retiré à l'exécution, elle est à 1 et il échoue. Même
+code, deux couleurs, ce qu'aucun des cinq précédents n'a jamais montré.
+
+**La comparaison de pixels a été abandonnée, et c'est instructif.** Elle semblait
+le critère le plus honnête. Trois captures successives sans rien toucher donnent
+bien 0 pixel d'écart, à condition d'arrêter l'onde SVG, les transitions CSS et
+de forcer l'anticrénelage. Mais dès qu'on bascule la visibilité de la colonne
+pour obtenir un témoin, la composition change, et un élément masqué ne compose
+pas comme un élément nu: retirer le masque RÉDUISAIT l'écart mesuré, 566 contre
+794. Un observable dont le témoin perturbe la mesure ne peut pas servir de
+critère, quelle que soit la patience qu'on y met.
+
+**Ce que le pilote ne sait pas juger**, écrit dans son en-tête et dans sa
+recette: il vérifie le remède EN PLACE. Un remède qui occulterait par un fond
+opaque le ferait crier à tort. Un filet borné et dit tel quel vaut mieux qu'un
+vert dont on ignore la portée.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une

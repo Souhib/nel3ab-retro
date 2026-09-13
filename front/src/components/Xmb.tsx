@@ -128,6 +128,31 @@ export type XmbCategory = {
  * comme sur la console: la colonne a besoin de plus de place que la rangée. */
 const CROSS = 0.4;
 
+/** Le masque qui fait DISPARAÎTRE une entrée sous la bande des rayons.
+ *
+ * `z-10` met la rangée devant, mais l'ordre de peinture n'est pas l'opacité:
+ * elle n'a aucun fond et ses boutons portent `bg-transparent`, si bien qu'une
+ * entrée qui remonte se voit au travers. Mesuré le 13 septembre 2026 sur une
+ * vraie salle: au rang 7 sur 14, le texte « volume » croise l'ICÔNE du rayon
+ * sur 32×17 px. Trois sondes ont cherché la collision sur le LIBELLÉ, qu'il ne
+ * fait que frôler sur 3 px, et ont conclu que tout allait bien.
+ *
+ * Un masque et non un rectangle opaque, et c'est mesuré aussi: le fond du menu
+ * porte un dégradé et une onde animée qui passent exactement là. Une capture de
+ * la bande pèse 42 657 octets avec le décor contre 3 830 sans, donc un
+ * rectangle plat y découperait une balafre visible. Le masque occulte sans rien
+ * peindre, et le décor reste entier.
+ *
+ * Les bornes sont des CONSTANTES, pas des pourcentages: la fenêtre de colonne
+ * commence à `CROSS - 110px` et la bande à `CROSS - 34px`, toutes deux ancrées
+ * au croisement. La bande occupe donc 76 à 148 px sous le haut de la fenêtre,
+ * quelle que soit la hauteur de l'écran. Le fondu de douze pixels de chaque
+ * côté évite la coupe nette, qui se lit comme un défaut d'affichage.
+ */
+const BANDE =
+  "linear-gradient(to bottom, #000 0, #000 66px, transparent 78px," +
+  " transparent 146px, #000 158px, #000 100%)";
+
 /** Pas entre deux rayons et entre deux entrées, en pixels. */
 const ACROSS = 148;
 
@@ -294,6 +319,9 @@ export function Xmb({
           // l'écran et la dernière entrée percutait la légende du pied.
           top: `calc(${CROSS * 100}% - 110px)`,
           bottom: 72,
+          // La bande des rayons AVALE ce qui passe derrière elle.
+          maskImage: BANDE,
+          WebkitMaskImage: BANDE,
         }}
       >
         <div

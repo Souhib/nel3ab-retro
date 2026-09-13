@@ -615,6 +615,23 @@ browser-rates:
 browser-lipsync:
     cd spikes/m3-browser-drive && node lipsync.mjs http://localhost:8110/
 
+# La colonne se voit-elle à travers la bande des rayons ? Needs the worker RUNNING.
+#
+# Le XMB fait défiler la colonne sous un croisement fixe, et `z-10` met la
+# rangée devant. Mais l'ordre de peinture n'est pas l'opacité: la rangée n'a
+# aucun fond, si bien qu'une entrée qui remonte se voyait au travers. Le
+# 13 septembre 2026, « volume » croisait l'icône du rayon sur 32×17 px.
+#
+# Le critère est l'opacité EFFECTIVE du masque là où une encre de la colonne
+# croise la bande. Six critères ont été essayés avant, et cinq ne pouvaient pas
+# échouer; la comparaison de pixels a été abandonnée parce que basculer la
+# visibilité change la composition. Le détail est dans l'en-tête du pilote.
+#
+# Ce filet est BORNÉ: il juge le remède en place, un masque. Un remède par fond
+# opaque le ferait crier à tort.
+browser-superposition url="http://127.0.0.1:8110/":
+    cd spikes/m3-browser-drive && node superposition.mjs "{{url}}"
+
 # Qu'est-ce qui est COUPÉ dans le panneau des touches ? Needs the worker RUNNING.
 #
 # Ce panneau est une boîte de hauteur fixe dont le contenu ne défile pas hors

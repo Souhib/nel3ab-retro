@@ -11,6 +11,16 @@ const canaux = (hex: string): string =>
 
 const salle = {
   name: "lgf",
+  /* `library` et `media_url` sont OBLIGATOIRES dans le type `Room`, et
+     `useRoom` refuse une réponse dont la bibliothèque n'est pas un tableau
+     avant de la rendre: une salle définie en porte donc toujours une. Ce
+     montage les omettait, et un dessin qui lit `room.library.length` tombait
+     sur un objet que la production ne produit jamais. On complète le montage
+     plutôt que d'ajouter une garde au composant: la garde existe déjà, à la
+     frontière, et en poser une seconde ferait deux endroits qui répondent à la
+     même question. */
+  library: [],
+  media_url: "",
   seats: [
     { port: 1, player: "Souhib" },
     { port: 2, player: null },
@@ -87,7 +97,7 @@ it("donne à chaque place sa couleur, occupée ou libre", () => {
    L'essai porte donc sur les DEUX, pas sur celui qu'on vient d'écrire. */
 const IDS = ["#room", "#people", "#enter", "#watch", "#toRooms", "#lobbySeats"];
 
-const poserLook = (look: "classique" | "cables", onLook = vi.fn()) =>
+const poserLook = (look: "classique" | "cables" | "sol", onLook = vi.fn()) =>
   render(
     <Lobby
       room={salle}
@@ -104,7 +114,7 @@ const poserLook = (look: "classique" | "cables", onLook = vi.fn()) =>
     />,
   );
 
-it.each(["classique", "cables"] as const)("garde le contrat des pilotes en %s", (look) => {
+it.each(["classique", "cables", "sol"] as const)("garde le contrat des pilotes en %s", (look) => {
   poserLook(look);
   for (const id of IDS) expect(document.querySelector(id), id).not.toBeNull();
   expect(document.querySelectorAll("#lobbySeats [data-port]")).toHaveLength(4);
@@ -159,14 +169,49 @@ it("distingue un câble tendu d'un câble enroulé, sans compter sur la couleur"
   expect(libre?.querySelector("svg path"), "une place libre doit boucler").not.toBeNull();
 });
 
-it("annonce le dessin vers lequel la bascule emmène, pas celui où l'on est", () => {
+/* Le cycle, ÉPINGLÉ et non recalculé.
+   La version d'avant écrivait `LOBBIES.find((c) => c.id !== "classique")`, la
+   même expression que le composant. Elle est donc restée verte pendant que le
+   troisième dessin était inatteignable: les deux côtés se trompaient ensemble.
+   Un essai qui rejoue le calcul qu'il vérifie ne vérifie rien. Les trois
+   attendus sont maintenant écrits en toutes lettres. */
+it.each([
+  ["classique", "câbles", "cables"],
+  ["cables", "au sol", "sol"],
+  ["sol", "classique", "classique"],
+] as const)("depuis %s, la bascule annonce et appelle le suivant du cycle", (ou, libelle, vers) => {
   const onLook = vi.fn();
-  poserLook("classique", onLook);
+  poserLook(ou, onLook);
   const bouton = document.querySelector("#lookSwitch");
-  const autre = LOBBIES.find((c) => c.id !== "classique")!;
-  expect(bouton?.textContent).toBe(autre.label);
+  expect(bouton?.textContent).toBe(libelle);
   fireEvent.click(bouton!);
-  expect(onLook).toHaveBeenCalledWith(autre.id);
+  expect(onLook).toHaveBeenCalledWith(vers);
+});
+
+/* Le cycle passe par TOUS les dessins. Le jumeau de l'essai du dessus: sans
+   lui, trois bascules qui se renvoient entre deux entrées passeraient. */
+it("atteint les trois dessins en trois bascules", () => {
+  const vus = new Set<string>();
+  let ou: "classique" | "cables" | "sol" = "classique";
+  for (let tour = 0; tour < LOBBIES.length; tour += 1) {
+    const onLook = vi.fn();
+    const vue = poserLook(ou, onLook);
+    fireEvent.click(document.querySelector("#lookSwitch")!);
+    ou = onLook.mock.calls[0][0];
+    vus.add(ou);
+    vue.unmount();
+  }
+  expect([...vus].sort()).toEqual(LOBBIES.map((c) => c.id).sort());
+});
+
+/* UN SEUL bouton d'entrée dans le DOM.
+   Le dessin câbles rendait `actions` à deux points de rupture, donc deux
+   `#enter` et deux `#watch`, dont un caché. `querySelector` rend le premier du
+   balisage: un pilote pouvait cliquer celui qui ne se voyait pas. */
+it.each(["classique", "cables", "sol"] as const)("ne pose qu'un seul #enter en %s", (look) => {
+  poserLook(look);
+  expect(document.querySelectorAll("#enter")).toHaveLength(1);
+  expect(document.querySelectorAll("#watch")).toHaveLength(1);
 });
 
 it("ne montre aucune bascule quand personne ne peut changer de dessin", () => {
@@ -184,4 +229,84 @@ it("ne montre aucune bascule quand personne ne peut changer de dessin", () => {
     />,
   );
   expect(document.querySelector("#lookSwitch")).toBeNull();
+});
+
+/* Une salle qui porte les trois vérités d'un siège: un nom, une manette tenue
+   sans nom annoncé, et une place libre. La quatrième place a `held` NUL, ce qui
+   veut dire « worker ancien ou lecture ratée »: une ignorance, qui doit se
+   rendre exactement comme une place libre plutôt que d'inventer un état. */
+const salleTroisEtats = {
+  name: "lgf",
+  library: [],
+  media_url: "",
+  seats: [
+    { port: 1, player: "Souhib", held: true },
+    { port: 2, player: null, held: true },
+    { port: 3, player: null, held: false },
+    { port: 4, player: null, held: null },
+  ],
+  people: [
+    { name: "Souhib", login: null, seat: 1 },
+    { name: "Kim", login: null, seat: null, seat_pending: true },
+    { name: "Nora", login: null, seat: null, seat_pending: false },
+  ],
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+} as any;
+
+const poserSol = () =>
+  render(
+    <Lobby
+      room={salleTroisEtats}
+      name="Souhib"
+      login={null}
+      failed={false}
+      salon
+      look="sol"
+      onLook={vi.fn()}
+      onEnter={vi.fn()}
+      onWatch={vi.fn()}
+      onForget={vi.fn()}
+      onRename={vi.fn()}
+    />,
+  );
+
+it("au sol, la chaise dit plein, creux ou vide sans compter sur la couleur", () => {
+  poserSol();
+  const pion = (port: number) =>
+    document.querySelector(`[data-port="${port}"] [data-pion]`)?.getAttribute("data-pion") ?? null;
+  expect(pion(1), "un nom annoncé: pion plein").toBe("plein");
+  expect(pion(2), "tenue sans nom: anneau").toBe("anneau");
+  expect(pion(3), "libre: rien").toBeNull();
+  // Le jumeau qui porte le sens: `held` nul est une ignorance, pas un état.
+  expect(pion(4), "held nul: rien, on ne dessine pas une ignorance").toBeNull();
+});
+
+it("au sol, l'anneau ne change pas data-state, qui reste celui du nom", () => {
+  poserSol();
+  const etat = (port: number) =>
+    document.querySelector(`[data-port="${port}"]`)?.getAttribute("data-state");
+  expect(etat(1)).toBe("busy");
+  // Tenue sans nom: l'encre change, l'attribut lu par les pilotes ne bouge pas.
+  expect(etat(2)).toBe("free");
+  expect(etat(3)).toBe("free");
+});
+
+it("au sol, la porte et le mur du fond sont deux endroits", () => {
+  poserSol();
+  const mur = document.querySelector("#people")?.textContent ?? "";
+  // `seat_pending` dit « cette personne n'est pas un spectateur ».
+  expect(mur).toContain("Nora");
+  expect(mur).not.toContain("Kim");
+  expect(document.body.textContent).toContain("à la porte");
+});
+
+/* Le dessin se NOMME sur la page.
+   Sans cette marque, un pilote qui sème `nel3ab:lobby` puis mesure ne peut pas
+   vérifier qu'il regarde l'écran qu'il a demandé: une clé mal orthographiée, un
+   repli sur « classique », et il rendrait un vert en mesurant autre chose. Le
+   dépôt s'applique déjà cette règle dans `debordement.mjs`, qui refuse de
+   mesurer si le panneau des touches ne s'est pas ouvert. */
+it.each(["classique", "cables", "sol"] as const)("nomme le dessin rendu en %s", (look) => {
+  poserLook(look);
+  expect(document.querySelector("#room")?.getAttribute("data-look")).toBe(look);
 });

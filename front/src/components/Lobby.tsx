@@ -16,6 +16,7 @@ import { cn } from "../lib/cn";
 import { PLAYER_COLOURS } from "../media/players";
 import { LOBBIES, type LobbyLook } from "../lib/theme";
 import { LobbyCables } from "./LobbyCables";
+import { LobbySol } from "./LobbySol";
 
 /** Le salon est-il au-dessus de cette page ?
  *
@@ -69,15 +70,38 @@ export function Lobby({
      sont un contrat avec les pilotes de navigateur. Les écrire deux fois, une
      par dessin, serait deux endroits à tenir d'accord, et c'est exactement la
      faute que ce dépôt a déjà payée sur les quatre places. */
+  /* Les dessins PEINTS posent leur propre fond, donc l'encre d'accent du
+     classique n'y tient pas son contraste. Nommer la propriété plutôt que le
+     dessin évite d'ajouter une condition par dessin à chaque fois. */
+  /* Les dessins PEINTS posent leur propre fond, donc les encres du thème n'y
+     tiennent pas leur contraste: elles sont calibrées contre `--panel`, qui vaut
+     `#0e0e11` en sombre, et non contre l'ardoise `#2f3238` ni le sol `#191512`.
+     Mesuré le 13 septembre 2026 par `just browser-lobby`, le premier garde qui
+     ait jamais regardé cette page: sur l'ardoise, « changer de pseudo » tombait
+     à 3:1, « entrer et jouer » à 3,34:1 et la phrase d'explication à 3:1; sur le
+     sol, 4,24:1 et 4,47:1. Ces chiffres sont des MESURES dans un rendu, pas des
+     calculs sur des couleurs choisies — c'est toute la différence avec l'en-tête
+     du dessin câbles, écrit le matin même à partir d'un calcul.
+
+     Une encre FIXE par dessin peint est correcte et ne dépend d'aucun des sept
+     thèmes, puisque le fond, lui, est fixe. */
+  const PEINTURE = {
+    cables: { encre: "#eceff4", sourde: "#aeb6c2", marque: "#8fa4c4" },
+    sol: { encre: "#f0e9e0", sourde: "#9c9086", marque: "#9c9086" },
+  } as const;
+  const peinture = look === "cables" || look === "sol" ? PEINTURE[look] : null;
+  const peint = peinture !== null;
+  const marque = peinture?.marque;
+
   const entete = (
     <header className="flex flex-col gap-1">
       <div className="flex items-baseline justify-between gap-3">
         <span
           className={cn(
             "font-mono text-mini uppercase tracking-[0.3em]",
-            look === "cables" ? "" : "text-indigo",
+            peint ? "" : "text-indigo",
           )}
-          style={look === "cables" ? { color: "#8fa4c4" } : undefined}
+          style={peint ? { color: marque } : undefined}
         >
           nel3ab
         </span>
@@ -89,7 +113,7 @@ export function Lobby({
               href="/"
               className={cn(
                 "text-note underline transition-colors",
-                look === "cables" ? "opacity-70 hover:opacity-100" : "text-faint hover:text-indigo",
+                peint ? "opacity-70 hover:opacity-100" : "text-faint hover:text-indigo",
               )}
             >
               toutes les salles
@@ -97,7 +121,14 @@ export function Lobby({
           ) : null}
         </span>
       </div>
-      <NameTag name={name} login={login} onRename={onRename} onForget={onForget} />
+      <NameTag
+        name={name}
+        login={login}
+        onRename={onRename}
+        onForget={onForget}
+        encre={peinture?.encre}
+        sourde={peinture?.sourde}
+      />
     </header>
   );
 
@@ -109,7 +140,11 @@ export function Lobby({
           id="enter"
           onClick={onEnter}
           disabled={free === 0 && seats.length > 0}
-          className="border border-indigo bg-indigo/10 px-3 py-2.5 text-corps text-indigo transition-colors hover:bg-indigo/20 disabled:opacity-40"
+          className={cn(
+            "border px-3 py-2.5 text-corps transition-colors disabled:opacity-40",
+            peint ? "" : "border-indigo bg-indigo/10 text-indigo hover:bg-indigo/20",
+          )}
+          style={peinture ? { borderColor: peinture.sourde, color: peinture.encre } : undefined}
         >
           {free === 0 && seats.length > 0 ? "salle pleine" : "entrer et jouer"}
         </button>
@@ -117,18 +152,33 @@ export function Lobby({
           type="button"
           id="watch"
           onClick={onWatch}
-          className="border border-rule px-3 py-2.5 text-corps text-muted transition-colors hover:border-indigo hover:text-indigo"
+          className={cn(
+            "border px-3 py-2.5 text-corps transition-colors",
+            peint ? "" : "border-rule text-muted hover:border-indigo hover:text-indigo",
+          )}
+          style={peinture ? { borderColor: peinture.sourde, color: peinture.sourde } : undefined}
         >
           regarder
         </button>
       </div>
-      <p className="text-note leading-relaxed text-faint">
+      <p
+        className={cn("text-note leading-relaxed", peint ? "" : "text-faint")}
+        style={peinture ? { color: peinture.sourde } : undefined}
+      >
         {failed
           ? "Le salon ne répond pas: tu peux jouer, mais les places n'afficheront pas de nom."
           : "Entrer prend une manette s'il en reste une, sinon tu regardes. Changer de jeu arrête la partie de tout le monde."}
       </p>
     </div>
   );
+
+  if (look === "sol") {
+    return (
+      <LobbySol room={room} free={free} failed={failed} actions={commandes}>
+        {entete}
+      </LobbySol>
+    );
+  }
 
   if (look === "cables") {
     return (
@@ -143,7 +193,11 @@ export function Lobby({
       <div className="flex w-full max-w-md flex-col gap-5">
         {entete}
 
-        <section id="room" className="flex flex-col gap-3 border border-rule bg-panel p-4">
+        <section
+          id="room"
+          data-look="classique"
+          className="flex flex-col gap-3 border border-rule bg-panel p-4"
+        >
           <div className="flex items-baseline justify-between gap-3">
             <h1 className="truncate text-titre font-medium tracking-tight">{room?.name ?? "…"}</h1>
             <span className={cn("font-mono text-note", free > 0 ? "text-good" : "text-alert")}>
@@ -196,10 +250,14 @@ export function Lobby({
                       backgroundColor: taken ? `${colour}1f` : "transparent",
                     }}
                   >
-                    <span
-                      className="font-mono text-mini"
-                      style={{ color: colour, opacity: taken ? 1 : 0.7 }}
-                    >
+                    {/* L'encre PLEINE, jamais un alpha.
+                      `opacity: 0.7` faisait tomber « P1 » à 2,92:1 et « P2 » à
+                      3,12:1, mesurés le 13 septembre 2026, sur l'écran que ce
+                      dépôt regarde le plus souvent. Aucun garde ne l'avait vu
+                      parce qu'aucun garde ne regardait cette page. Le carnet
+                      écrivait déjà la règle pour les sept thèmes: on atténue en
+                      changeant d'encre, pas en baissant l'alpha. */}
+                    <span className="font-mono text-mini" style={{ color: colour }}>
                       P{seat.port}
                     </span>
                     <span className={cn("truncate text-corps", taken ? "text-text" : "text-faint")}>
@@ -226,7 +284,14 @@ export function Lobby({
  * celui où l'on est: un bouton dit ce qu'il FAIT.
  */
 function LookSwitch({ look, onLook }: { look: LobbyLook; onLook: (look: LobbyLook) => void }) {
-  const suivant = LOBBIES.find((choice) => choice.id !== look) ?? LOBBIES[0];
+  /* Un CYCLE, pas « la première autre ».
+     `LOBBIES.find((choice) => choice.id !== look)` marchait tant qu'il n'y avait
+     que deux dessins et rendait le troisième inatteignable: depuis `classique`
+     elle donnait `cables`, depuis `cables` elle redonnait `classique`, et `sol`
+     n'était jamais proposé. Un dessin qu'aucun chemin n'atteint est un dessin
+     mort. `findIndex` rend -1 sur une valeur inconnue, donc le modulo retombe
+     sur la première entrée. */
+  const suivant = LOBBIES[(LOBBIES.findIndex((choice) => choice.id === look) + 1) % LOBBIES.length];
   return (
     <button
       type="button"
@@ -253,11 +318,16 @@ function NameTag({
   login,
   onRename,
   onForget,
+  encre,
+  sourde,
 }: {
   name: string;
   login: string | null;
   onRename: (name: string) => void;
   onForget: () => void;
+  /** Les encres du dessin peint, absentes sur le classique qui suit son thème. */
+  encre?: string;
+  sourde?: string;
 }) {
   const [typing, setTyping] = useState<string | null>(null);
 
@@ -295,18 +365,30 @@ function NameTag({
   }
 
   return (
-    <p className="text-corps text-muted">
-      bonjour <span className="text-text">{name}</span>.{" "}
+    <p
+      className={cn("text-corps", sourde ? "" : "text-muted")}
+      style={sourde ? { color: sourde } : undefined}
+    >
+      bonjour{" "}
+      <span className={encre ? "" : "text-text"} style={encre ? { color: encre } : undefined}>
+        {name}
+      </span>
+      .{" "}
       <button
         type="button"
         id="rename"
         onClick={() => setTyping(name)}
-        className="text-faint underline hover:text-indigo"
+        className={cn("underline", sourde ? "" : "text-faint hover:text-indigo")}
+        style={sourde ? { color: encre } : undefined}
       >
         changer de pseudo
       </button>
       {login ? (
-        <span className="ml-1 text-faint" title="l'adresse que Tailscale garantit">
+        <span
+          className={cn("ml-1", sourde ? "" : "text-faint")}
+          style={sourde ? { color: sourde } : undefined}
+          title="l'adresse que Tailscale garantit"
+        >
           · {login}
         </span>
       ) : (
@@ -315,7 +397,8 @@ function NameTag({
           <button
             type="button"
             onClick={onForget}
-            className="text-faint underline hover:text-indigo"
+            className={cn("underline", sourde ? "" : "text-faint hover:text-indigo")}
+            style={sourde ? { color: encre } : undefined}
           >
             ce n'est pas toi ?
           </button>

@@ -687,7 +687,7 @@ browser-polite:
 # `just check`, qui était verte les deux fois.
 #
 # En DÉPENDANCES et non par des `just` imbriqués, comme `check` lui-même.
-browser-visuel: browser-layout browser-contraste browser-debordement browser-superposition
+browser-visuel: browser-layout browser-contraste browser-debordement browser-superposition browser-lobby
 
 # La colonne se voit-elle à travers la bande des rayons ? Needs the worker RUNNING.
 #
@@ -764,6 +764,19 @@ browser-steal:
 # N'ARRÊTE PAS la partie: il ouvre le menu, il ne lance rien.
 browser-contraste:
     cd spikes/m3-browser-drive && node contraste.mjs http://localhost:8110/
+
+# Le contraste et les coupures de la page d'ENTRÉE, ses trois dessins.
+#
+# Un pilote à part parce que `browser-contraste` et `browser-debordement`
+# entrent tous les deux dans la salle avant de mesurer: la page qu'on voit
+# AVANT d'entrer n'était vue par aucun garde. Les rapports écrits dans l'en-tête
+# du dessin « câbles » le 13 septembre 2026 étaient donc des calculs sur des
+# couleurs choisies, pas des mesures dans un rendu.
+#
+# N'ENTRE PAS dans la salle et ne lance rien: il lit la page d'accueil de la
+# salle, à trois dessins et deux largeurs.
+browser-lobby url="http://localhost:8110/":
+    cd spikes/m3-browser-drive && node lobby-visuel.mjs "{{url}}"
 
 # Ce que la page MONTRE pendant un changement de jeu.
 #

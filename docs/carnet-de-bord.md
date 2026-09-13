@@ -15285,6 +15285,123 @@ d'être rebâti en `b972469b`. Elle tournait depuis 13 h 56, le binaire datait d
 celle du jour. La mesure s'est faite dans une salle 2 ouverte pour ça, dont
 l'empreinte servie a été comparée à l'artefact AVANT d'y croire.
 
+### Un troisième dessin d'entrée, et le garde qui n'avait jamais regardé cette page
+
+Souhib garde les deux dessins de la page qu'on voit avant d'entrer dans une
+salle, et en demande un TROISIÈME: « un design différent unique qui fait pas ai
+slop », « différent de ce qu'on a déjà ».
+
+**Cinq directions, trois juges, et une moyenne qu'il fallait désobéir.** Douze
+agents: quatre lectures du dépôt pour établir le contrat, cinq directions
+chacune sous un angle IMPOSÉ différent — objet physique, artefact imprimé,
+typographie radicale, vue spatiale, angle libre — puis trois juges indépendants
+notant sur un seul critère chacun: l'originalité réelle, la vérité des données,
+la faisabilité ici.
+
+| direction | moyenne | originalité | vérité | faisable |
+|---|---|---|---|---|
+| au sol | 6,33 | **9** | 6 | **4** |
+| blocs | 7,0 | 7 | 7 | 7 |
+| bordereau | 7,0 | **4** | 8 | 9 |
+| constats | 6,83 | 6 | 6,5 | 8 |
+| une | 5,5 | 3 | 7,5 | 6 |
+
+La moyenne désignait `blocs` et `bordereau` à égalité. Je ne l'ai pas suivie, et
+la raison est dans la demande: Souhib réclamait l'unicité, pas le compromis.
+`bordereau` prend 4 en originalité, rangé par son juge dans la famille « filets
+fins, zéro arrondi, colonnes denses » que le brief rejette explicitement;
+`blocs` empruntait la carte mémoire, un objet dont le contenu réel vit ailleurs
+dans le produit, et affichait un « nom de sauvegarde » qui n'existe pas —
+`preparation.save` est un nombre. Une moyenne qui récompense un 4 sur le critère
+demandé est un mauvais arbitre. `au sol` a été retenue avec quatre greffes
+prises aux perdantes et aux juges.
+
+**Le troisième dessin était inatteignable, et son essai restait vert.**
+`LOBBIES.find((choice) => choice.id !== look)` répond « la première entrée
+différente de celle-ci ». Avec deux dessins c'est un cycle; avec trois, on va de
+`classique` à `cables` et de `cables` à `classique`, et le troisième n'est jamais
+proposé. L'essai de la bascule écrivait `LOBBIES.find((c) => c.id !== "classique")`,
+la MÊME expression que le composant: il rejouait le calcul qu'il vérifiait, donc
+il serait resté vert sur un dessin mort. Les trois attendus sont maintenant
+écrits en toutes lettres, et l'ancienne expression remise en place les fait
+rougir.
+
+**Deux boutons « entrer » dans le DOM.** Le dessin câbles rendait `actions` à
+deux points de rupture, `hidden lg:block` et `lg:hidden`: les deux copies
+existent, donc la page portait deux `#enter` et deux `#watch`, dont un caché.
+`querySelector` rend le premier du balisage, si bien qu'un pilote pouvait
+cliquer celui qu'on ne voit pas. Un essai compte maintenant les deux, sur les
+trois dessins.
+
+**Le garde qui manquait, et ce qu'il a trouvé en une exécution.** `contraste.mjs`
+et `debordement.mjs` appellent tous les deux `enterRoom(page)` juste après
+`goto`, puis ouvrent le menu: ils mesurent DANS la salle. La page d'avant
+l'entrée n'était donc vue par aucun garde, et ça valait pour ses trois dessins.
+Conséquence qu'il faut écrire franchement: les rapports de contraste inscrits le
+matin même dans l'en-tête du dessin câbles étaient des CALCULS sur des couleurs
+choisies, jamais des mesures dans un rendu.
+
+`just browser-lobby` s'arrête avant `enterRoom` et parcourt les trois dessins à
+1440 et 430. Première exécution: **32 soucis**, deux causes.
+
+La première: les blocs PARTAGÉS — l'en-tête, le nom, les deux boutons, la phrase
+d'explication — portaient les encres du thème, calibrées contre `--panel`
+(`#0e0e11` en sombre), sur des fonds PEINTS qui ne sont pas celui-là. Sur
+l'ardoise des câbles: « changer de pseudo » à 3:1, « entrer et jouer » à 3,34:1,
+la phrase à 3:1. Sur le sol: 4,24:1 et 4,47:1. Chaque dessin peint a maintenant
+ses encres, fixes, indépendantes des sept thèmes puisque son fond l'est aussi.
+
+La seconde: les numéros de place étaient atténués à l'ALPHA. `opacity: 0.7` sur
+le classique mettait « P1 » à **2,92:1** et « P2 » à 3,12:1 — sur l'écran que ce
+dépôt regarde le plus souvent. Le carnet écrivait déjà la règle pour les sept
+thèmes: on atténue en changeant d'encre, pas en baissant l'alpha. Le code la
+contredisait depuis le début, et aucun garde ne pouvait le dire.
+
+Sur les câbles, retirer l'alpha n'aurait pas suffi: l'en-tête du fichier donne
+lui-même le rouge à 4,22:1 sur la baie, sous le seuil de 4,5:1 du texte. La
+couleur du port ne peut pas porter du texte de 11 px sur ce fond. Sortie déjà
+écrite ici deux fois — pour la jauge du salon et pour le câble lui-même: quand
+deux exigences se disputent une propriété, on ajoute un élément. Le numéro prend
+une encre, la couleur reste sur le câble, à trois pixels de là.
+
+Après correction: **0 partout**, trois dessins, deux largeurs.
+
+**Le garde est falsifié dans les deux sens.** L'`opacity` remise fait ressortir
+« P1 » à 2,91:1; le `data-look` retiré fait REFUSER la mesure — « demandé
+« sol », la page rend « null » » — au lieu de rendre un vert obtenu en regardant
+trois fois le même écran. Ce `data-look` est né de ce besoin: sans lui, une clé
+mal orthographiée ou un repli silencieux sur `classique` aurait donné un PASS
+parfaitement faux.
+
+**Et le vide, une fois de plus, déplacé avant d'être supprimé.** Mesuré à
+1440 sur une pièce de 1120 px: la dalle s'arrêtait à 657 px et laissait **433 px
+de mur mort**, les chaises s'arrêtaient **218 px** avant le mur droit, et le
+cartouche empilait **383 px** d'air. J'ai étiré les chaises en `flex-1`: le
+chiffre est tombé à 30 px et le dessin s'est dégradé — quatre carrés de 84 px
+écartés de 230, qui ne se lisent plus comme quatre places dans une pièce. Le
+chiffre s'améliorait pendant que la lecture empirait.
+
+La bonne forme est un GROUPE centré: marges de 124 px de chaque côté, écarts de
+56, 56, 56 — la valeur de la fiche, au pixel. De l'air autour du mobilier se lit
+comme du sol; ce n'est pas le cas d'un bord droit mort. Et le cartouche n'a pas
+été rétréci mais RÉGLÉ: ses filets verticaux transforment l'air en structure,
+parce qu'un cartouche de plan est un bloc réglé. Rétrécir des cellules qui ne
+peignent rien n'aurait rien changé à l'œil.
+
+**Une sonde de plus qui ne pouvait pas trancher.** Pour savoir si l'annotation
+de bibliothèque tenait sur une ligne, j'avais calculé `hauteur / 14`, un diviseur
+inventé: 25 / 14 arrondit à 2, et j'ai failli écrire « deux lignes » alors que
+25 px pour une police de 11 px avec 8 px de marge basse font UNE ligne. Une
+sonde qui ne distingue pas une ligne haute de deux lignes basses ne vaut rien;
+c'est la capture qui a tranché.
+
+Ce que ce dessin ne prétend PAS, et c'est écrit dans son en-tête: le serveur ne
+connaît aucune position. L'axe gauche-droite est l'ordre des ports, rien d'autre,
+et les spectateurs rangés le long du mur sont une liste déguisée en espace.
+C'est la faiblesse assumée de l'angle, préférée à une géométrie inventée.
+
+Page à 153638 o en brotli pour un budget de 300 000.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une
@@ -15792,6 +15909,10 @@ gel.
 *Ce document est tenu à jour au fil du projet. Si une décision change, c'est ici
 qu'on explique pourquoi — pas seulement dans l'ADR.*
 
+
+**Cartouche** : sur un plan technique, le bloc réglé, en général en bas de la
+feuille, qui dit ce que la feuille représente — son titre, son échelle, sa date
+de relevé. Ici c'est la bande à quatre cellules sous la pièce.
 
 **SVG** : *Scalable Vector Graphics*. Un dessin décrit par des tracés et des
 formes. Le navigateur peut redimensionner et animer ses pièces sans charger une

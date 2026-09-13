@@ -153,7 +153,11 @@ export function LobbyCables({
           292 px. Ce vide vaut 60 px ici et 44 px à 430 px de large, contre environ
           470 px avant que les lignes ne soient épaissies. Le mou tombe en bas de
           la colonne de gauche, qui n'a pas de fond, et ne se voit pas. */}
-        <section id="room" className="flex flex-col gap-6 lg:flex-row lg:items-stretch">
+        <section
+          id="room"
+          data-look="cables"
+          className="flex flex-col gap-6 lg:flex-row lg:items-stretch"
+        >
           <div className="flex min-w-0 flex-col gap-6 lg:w-[34%]">
             <div className="flex flex-col gap-2">
               <h1 className="truncate text-affiche font-medium tracking-tight">
@@ -179,7 +183,11 @@ export function LobbyCables({
                 <span className="text-fort">{room?.game?.name ?? "aucun jeu chargé"}</span>
               </div>
             </div>
-            <div className="hidden lg:block">{actions}</div>
+            {/* UNE SEULE fois. Deux points de rupture qui rendent tous les
+              deux `actions` mettent deux `#enter` et deux `#watch` dans le DOM:
+              `querySelector` en choisit alors un au hasard du balisage, et le
+              pilote peut cliquer celui qui est caché. */}
+            <div>{actions}</div>
           </div>
 
           {/* La baie. Fond sombre parce que c'est là que vivent les couleurs, et
@@ -200,9 +208,23 @@ export function LobbyCables({
                   data-state={taken ? "busy" : "free"}
                   className="flex items-center gap-3 py-2.5 lg:py-4"
                 >
+                  {/* Le NUMÉRO est du texte, donc il prend une encre; la COULEUR
+                    du port vit sur le câble et son carré, juste à côté.
+                    Mesuré le 13 septembre 2026 par `just browser-lobby`: avec
+                    `opacity: 0.75`, « P1 » tombait à 2,91:1, « P2 » à 3,14:1 et
+                    « P4 » à 3,84:1 sur la baie, sous le seuil de 4,5:1. Et
+                    retirer l'alpha n'aurait pas suffi: l'en-tête de ce fichier
+                    donne lui-même le rouge à 4,22:1 sur la baie, donc la couleur
+                    du port ne peut pas porter du texte de 11 px ici.
+                    Deux exigences se disputaient une propriété — la couleur
+                    appartient au port, le texte doit se lire — et la sortie est
+                    celle que le carnet écrit déjà pour la jauge du salon et pour
+                    le câble lui-même: ajouter un élément plutôt que chercher la
+                    valeur qui contente les deux. La couleur n'est pas perdue,
+                    elle est à trois pixels de là. */}
                   <span
                     className="w-6 shrink-0 font-mono text-mini"
-                    style={{ color: colour, opacity: taken ? 1 : 0.75 }}
+                    style={{ color: taken ? ENCRE : SOURDE }}
                   >
                     P{seat.port}
                   </span>
@@ -218,8 +240,6 @@ export function LobbyCables({
             })}
           </div>
         </section>
-
-        <div className="flex flex-col gap-3 lg:hidden">{actions}</div>
       </div>
 
       <p id="people" className="mx-auto w-full max-w-[1180px] text-note" style={{ color: SOURDE }}>

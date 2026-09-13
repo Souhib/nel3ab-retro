@@ -122,14 +122,20 @@ export const shellLabel = (shell: Shell): string =>
  * change la page d'AVANT, celle qu'on voit en arrivant et qu'on quitte en
  * entrant, et elle seule.
  *
- * Deux dessins et pas sept, parce qu'ils ne se valent pas: `classique` est la
- * fiche actuelle, que Souhib a demandé de garder telle quelle, et `cables` est
- * la proposition du 13 septembre 2026. Ajouter une entrée ici est une décision,
- * pas une variante de couleur.
+ * Trois dessins et pas sept, parce qu'ils ne se valent pas: `classique` est la
+ * fiche actuelle, que Souhib a demandé de garder telle quelle, `cables` et `sol`
+ * sont les propositions du 13 septembre 2026. Ajouter une entrée ici est une
+ * décision, pas une variante de couleur.
+ *
+ * L'ordre compte: la bascule est un CYCLE qui suit ce tableau. Tant qu'elle
+ * cherchait « la première entrée différente de celle-ci », une troisième était
+ * inatteignable — depuis `classique` on allait à `cables`, et depuis `cables` on
+ * revenait à `classique`.
  */
 export const LOBBIES = [
   { id: "classique", label: "classique", note: "la fiche, telle qu'elle était" },
   { id: "cables", label: "câbles", note: "quatre fils, un par manette" },
+  { id: "sol", label: "au sol", note: "la salle vue d'en haut" },
 ] as const;
 
 export type LobbyLook = (typeof LOBBIES)[number]["id"];

@@ -15529,6 +15529,56 @@ ce cas ne vient pas d'elle. Et le salon qui tourne garde son état en mémoire
 tant qu'il n'est pas redémarré: sur la machine, recharger l'onglet périmé suffit
 à lui redonner le bon nom.
 
+### Un nom coupé en « Sou… », et l'outil qui effaçait la taille du texte
+
+**Le symptôme.** Le 13 septembre 2026, Souhib signale son pseudo coupé dans la
+colonne de droite, sous sa prise, capture à l'appui: « Sou… ».
+
+**La première cause n'était ni la police ni la taille choisie.** La page fusionne
+ses classes avec `cn`, qui s'appuie sur `tailwind-merge`. Cet outil ne garde
+qu'une classe par groupe (une taille, une couleur), pour qu'une classe ajoutée
+remplace la précédente au lieu de la contredire. Mais il ne connaît que les
+classes standard. Devant `text-note`, l'un de nos sept paliers de texte, il ne
+peut pas deviner qu'il s'agit d'une taille, et il le range avec les couleurs.
+`cn("text-note", "text-faint")` rendait donc `text-faint` seul: la taille
+disparaissait sans bruit, et le texte retombait sur les 16 px hérités du
+document. Le nom sous une prise demandait 13 px et en calculait 16.
+
+L'étendue a été relevée avant de corriger: 19 appels `cn()` sur 45 mêlaient un
+palier et une couleur (neuf dans `Lobby.tsx`, trois dans `Sidebar.tsx`, deux
+dans `Xmb.tsx`, un dans `App`, `Library`, `Readout`, `Seats` et `Settings`). Tous
+s'affichaient un cran au-dessus de ce que leur code demandait. La correction
+déclare les sept paliers comme des tailles auprès de l'outil. Cette liste doit
+suivre les jetons `--text-*` d'`index.css`: un palier ajouté là-bas et oublié
+ici redeviendrait silencieusement une couleur.
+
+**La seconde cause était la couronne du chef.** Elle partageait le cadre qui
+tronque le nom. Dans une cellule de 65 px, « Souhib » en occupait 55 et la
+couronne 16. La sortir du cadre n'aurait pas suffi: elle aurait continué
+d'occuper la cellule, et le nom aurait été coupé dans un cadre plus étroit.
+Elle quitte donc le flux et se pose sur la prise, qu'elle marque. Changer de
+police n'était pas la réponse non plus: 3 px d'écart sur ce nom entre les deux
+familles, quand la couronne en coûtait 16.
+
+**Les essais.** Pour `cn`: le palier survit à une couleur, dans les deux ordres;
+et les jumeaux, deux paliers se fondent toujours en un, deux couleurs aussi.
+Sans ces jumeaux, une correction qui laisserait tout passer serait verte. Pour
+`Seats`, l'essai porte sur la structure et non sur des pixels, puisque les essais
+de composants tournent sans mise en page: la couronne est dans la prise, jamais
+dans le cadre qui tronque.
+
+**Un de ces essais ne pouvait pas échouer.** Avant de valider, chaque défaut a
+été remis à la main. L'essai de la couronne a rougi, celui du palier suivi
+d'une couleur aussi. Mais « le palier quel que soit l'ordre » est resté vert
+avec `cn` redevenu aveugle aux paliers. Il posait la couleur puis le palier et
+ne vérifiait que le palier; or la fusion par défaut garde la DERNIÈRE classe,
+qui était justement celle-là. Dans cet ordre, c'est la couleur qui disparaît.
+L'essai vérifie désormais les deux, et rougit avec le défaut remis.
+
+**Ce que ce relevé a coûté le soir même.** Les 55 px de « Souhib » ont été mesurés
+à 16 px, pendant que `cn` gonflait le texte. Recopiés tels quels, ils ont servi à
+poser une borne fausse pour la largeur de la colonne: voir l'entrée suivante.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une

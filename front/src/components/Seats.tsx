@@ -91,7 +91,7 @@ export function Seats({
                       : "prendre cette manette"
               }
               className={cn(
-                "cursor-pointer border-0 bg-transparent p-0 leading-none",
+                "relative cursor-pointer border-0 bg-transparent p-0 leading-none",
                 isMine && "cursor-default",
               )}
             >
@@ -99,6 +99,28 @@ export function Seats({
                 port={port}
                 state={isMine ? "mine" : isArmed ? "arming" : held ? "busy" : "free"}
               />
+              {/* La couronne HORS du flux, posée sur la prise.
+                Dans la cellule elle coûtait sa place au nom: 65 px utiles,
+                « Souhib » en occupe 55 en sans-serif et 58 en chasse fixe, et
+                la couronne 16. Le nom se coupait donc en « Sou… » dès qu'on
+                était chef — mesuré le 13 septembre 2026, et signalé par Souhib
+                sur sa propre partie.
+
+                La sortir du cadre qui tronque n'aurait PAS suffi: elle aurait
+                continué d'occuper la cellule et le nom aurait été coupé dans un
+                cadre plus étroit. Il faut qu'elle quitte le flux.
+
+                Changer de police n'était pas la réponse non plus: entre les
+                deux familles l'écart est de 3 px sur ce nom, quand la couronne
+                en coûte 16.
+
+                Elle reste DANS le bouton `#portN`, ce que `Seats.test.tsx`
+                épingle: c'est la prise qu'elle marque, pas le nom. */}
+              {(held || isMine) && name && port === ownerSeat ? (
+                <span className="pointer-events-none absolute -top-1 right-0 z-10">
+                  <Crown />
+                </span>
+              ) : null}
               <span
                 className={cn(
                   "block truncate text-center text-note",
@@ -111,13 +133,7 @@ export function Seats({
                         : "text-faint",
                 )}
               >
-                {(held || isMine) && name ? (
-                  <>
-                    {port === ownerSeat ? <Crown /> : null} {name}
-                  </>
-                ) : (
-                  "\u00a0"
-                )}
+                {(held || isMine) && name ? name : "\u00a0"}
               </span>
             </button>
           );

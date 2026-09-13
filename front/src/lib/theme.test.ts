@@ -1,10 +1,13 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
+  LOBBIES,
   SHELLS,
   THEMES,
   rememberPadOnly,
   showsTouchPad,
   storedPadOnly,
+  rememberLobby,
+  storedLobby,
   storedShell,
   storedTheme,
   storedTouch,
@@ -80,4 +83,23 @@ describe("la manette seule", () => {
     rememberPadOnly(false);
     expect(storedPadOnly()).toBe(false);
   });
+});
+
+/* Le même contrat que les coquilles, et pour la même raison: une valeur retenue
+   qui ne serait plus dans la liste afficherait un dessin qui n'existe pas. Le
+   jumeau négatif est le stockage corrompu, seul cas qui distingue une lecture
+   prudente d'un simple `getItem`. */
+it("ne retient jamais un dessin d'entrée inconnu", () => {
+  localStorage.setItem("nel3ab:lobby", "cables");
+  expect(storedLobby()).toBe("cables");
+  localStorage.setItem("nel3ab:lobby", "regie-secrete");
+  expect(storedLobby()).toBe("classique");
+  expect(LOBBIES.some((choice) => choice.id === storedLobby())).toBe(true);
+});
+
+it("garde le dessin choisi d'une visite à l'autre", () => {
+  rememberLobby("cables");
+  expect(storedLobby()).toBe("cables");
+  rememberLobby("classique");
+  expect(storedLobby()).toBe("classique");
 });

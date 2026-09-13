@@ -217,7 +217,20 @@
   --text-titre: 20px; /* était 17, 18 */
   --text-large: 26px; /* était 22, 23, 24, 25 */
   --text-affiche: 31px; /* était 27, 28, 29 */
-  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+  /* `"DejaVu Sans Mono"` avant le générique, et ce n'est pas décoratif.
+   *
+   * Mesuré dans Chrome sur cette machine le 13 septembre 2026: « MMMMiiii0000 »
+   * en 64px fait 455 px en `ui-monospace` et 455 px en `ui-sans-serif`, contre
+   * 462 px en `monospace`. Autrement dit `ui-monospace` retombait sur une
+   * PROPORTIONNELLE, et la chaîne de replis n'atteignait jamais le générique.
+   * Le mot-marque, « 4 manettes libres » et les libellés P1 à P4 étaient donc
+   * écrits dans une police qui joue la voix machine sans en être une.
+   *
+   * C'est la récidive du défaut consigné au carnet sous « la règle polices du
+   * système supposait un système riche »: cette machine n'a que DejaVu Sans,
+   * DejaVu Serif et DejaVu Sans Mono. Le salon porte déjà ce garde-fou dans son
+   * jeton `--machine`; le front ne l'avait pas. */
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, "DejaVu Sans Mono", monospace;
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 

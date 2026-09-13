@@ -15064,6 +15064,124 @@ La leçon dépasse le justfile: un contrôle que rien n'appelle ne protège de r
 et il est plus trompeur qu'une absence de contrôle, parce que sa seule présence
 dans le dépôt laisse croire que le cas est couvert.
 
+### Un second écran d'entrée, et quatre sondes qui ne pouvaient pas échouer
+
+Souhib a demandé trois choses sur la page qu'on voit avant d'entrer dans une
+salle: un retour vers la liste des salles, les quatre places en rouge, bleu,
+jaune et vert « comme la GameCube », et un second dessin de cette page, unique,
+« qui ne fasse pas AI slop », à côté de l'actuel qu'il garde.
+
+**Le premier travail a été de trouver l'écran.** Les captures étaient sur son
+Mac, donc illisibles depuis la machine. Plutôt que de les redemander, la salle a
+été photographiée ici. Trois écrans se ressemblent de nom: le menu XMB dans la
+salle, la colonne de droite pendant une partie, et la page d'avant-entrée. Les
+deux premières captures ont montré les mauvais écrans, et c'est le texte collé
+dans la demande qui a tranché: `components/Lobby.tsx`.
+
+**Les deux corrections, mesurées.** Le retour au salon n'apparaît que derrière le
+proxy: servie en direct par le worker, cette même page EST la racine, et un
+retour y rechargerait la salle qu'on quitte. Le jumeau d'essai vérifie les deux
+sens. Les quatre couleurs existaient déjà dans `media/players.ts`, fixes et hors
+thème; cet écran ne s'en servait pas. Elles tiennent 5,05:1 pour le rouge,
+5,43:1 pour le bleu, 10,23:1 pour le jaune et 6,93:1 pour le vert sur le fond
+actuel, calculés ici. Une place LIBRE garde sa couleur: c'est justement quand la
+salle est vide qu'on veut voir laquelle est laquelle.
+
+**L'exploration des directions, et ce qu'elle a vraiment rapporté.** Quatre
+directions, quatre juges adversariaux. Les quatre propositions ont été écartées,
+et c'est un résultat, pas un échec:
+
+- « La façade moulée » reproduisait pour la QUATRIÈME fois la face avant
+  d'appareil. Le carnet l'avait déjà tuée par expérience (onze directions, six
+  juges, trois agents indépendants), et le juge l'a rejetée en citant cette
+  entrée. Le skeuomorphisme de façade est bien le réflexe par défaut de ce genre
+  de projet.
+- « La coque et l'étiquette » a été disqualifiée par ses propres chiffres.
+  Recalculés ici: elle annonçait 3,30 / 3,55 / 6,68 / 4,53 / 1,78 là où les
+  vraies valeurs sont 3,48 / 3,74 / 7,05 / 4,77 / 1,92, et le 1,78 attribué au
+  bleu était celui du ROUGE. Des mesures inventées dans un dépôt dont la
+  première règle est que la raison se mesure.
+- « Panneau de quai » rejouait le vocabulaire du salon, vérifié à la main:
+  `accueil.html` écrit déjà « plaque » et porte déjà `border-left: 6px solid
+  var(--canal)`.
+- Et « coque » est déjà le mot du dépôt pour les habillages Wii, Switch et PS3,
+  employé cinq fois dans `Channels.tsx` et `Home.tsx`.
+
+Ce qui a survécu est une seule idée, endossée par TOUS les juges et retrouvée
+indépendamment par deux directions: le CÂBLE comme porteur d'état. Vérifié avant
+de la prendre: rien n'en dessine dans ce dépôt. Un câble tendu part du port vers
+un nom, un câble libre reste enroulé contre sa prise. L'état de la salle se lit
+dans la géométrie avant de se lire dans un mot, et la forme porte l'information
+même pour qui ne distingue pas le rouge du vert.
+
+**Le fond, choisi en montrant ses échecs.** `#2f3238` est le seul fond de valeur
+moyenne où les quatre couleurs passent 3:1 et les deux encres 4,5:1. `#3b3f46`
+fait tomber le rouge à 2,67 et le bleu à 2,87; `#464b52` à 2,22 et 2,39. Les
+câbles vivent donc dans une baie sombre `#1b1e23` et le texte sur l'ardoise:
+c'est la sortie que le carnet avait déjà écrite pour la jauge du salon, ajouter
+un élément plutôt que chercher la valeur qui contente deux exigences opposées.
+
+**Une voix machine qui n'en était pas une.** `--font-mono` valait
+`ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace`, et aucune de ces
+polices n'existe sur cette machine, qui n'a que DejaVu. Mesuré dans Chrome:
+« MMMMiiii0000 » en 64px faisait 455 px en `ui-monospace` comme en
+`ui-sans-serif`, contre 462 px en `monospace`. Le mot-marque et les libellés
+P1 à P4 étaient donc écrits dans une proportionnelle qui jouait la voix machine.
+Le salon portait déjà le garde-fou `"DejaVu Sans Mono"` dans son jeton
+`--machine`; le front ne l'avait pas. Après correction: 462 px, identique au
+générique. Aucune police n'a été embarquée: les quatre `.woff2` du salon
+coûteraient 35 924 octets en data-URI, et le garde-fou a suffi.
+
+**Quatre sondes à moi qui ne pouvaient pas échouer, dans la même journée.** C'est
+le vrai enseignement de cette séance, et il est désagréable.
+
+1. Une boucle TCP qui attendait un retour à la ligne et JETAIT les octets reçus
+   au délai: trois « TimeoutError » de suite m'ont presque fait conclure que le
+   worker ne répondait pas à `seats`. Il répondait `- - - -`.
+2. `journalctl --user` sur une unité SYSTÈME: la commande n'a rien cherché, et
+   son silence ne prouvait rien.
+3. Un essai de couleurs qui balayait toute la boîte d'une place. Le libellé
+   « P1 » porte lui aussi la couleur du joueur, donc l'essai restait vert en
+   peignant le câble en gris. Il prouvait que le NUMÉRO était coloré.
+4. Une sonde de vide qui mesurait `body *`, alors que le conteneur porte
+   `min-h-full` et occupe la fenêtre par construction: elle rendait « zéro vide »
+   pour n'importe quelle mise en page, y compris les deux que je venais de
+   rejeter.
+
+Les deux essais ont été resserrés puis FALSIFIÉS un par un, en cassant le
+composant: la couleur retirée du câble rougit l'un, une place prise qui boucle
+rougit l'autre. La quatrième sonde n'a pas été rejouée, elle a été abandonnée au
+profit de l'image.
+
+**Et `tsc --noEmit` ne vérifie rien ici.** `tsconfig.json` n'a aucun `include`,
+seulement des `references`: `--listFilesOnly` rend zéro fichier. Sur un état
+cassé, `npx tsc --noEmit` sortait à 0 pendant que `npm run typecheck`, c'est-à-
+dire `tsc -b`, trouvait cinq erreurs. Tous mes contrôles de types de la séance
+portaient sur un ensemble vide. Le carnet l'avait DÉJÀ écrit, plus haut, sous
+« La salle prévient à l'écran »: « les deux ne vérifient pas le même périmètre,
+et c'est la construction qui a raison ». J'ai refait la faute faute d'avoir lu
+l'entrée. La barrière, elle, n'a jamais été dupe: elle appelle `npm run
+typecheck`.
+
+**Trois tours pour cesser de déplacer le vide.** Le reproche d'origine était
+« la barre est presque vide ». Premier jet: une baie étirée par `flex-1` et
+`justify-center` qui centrait quatre lignes fines dans 470 px de noir, et une
+colonne creusée par `justify-between`. Deuxième: baie réparée, 44 px de marge
+mesurés, mais le contenu tassé dans le tiers supérieur d'une page de 900. Le
+vide avait changé de place, pas disparu. Troisième: composition centrée
+verticalement et bornée à 1180 px. La leçon tient en une phrase: quand une
+correction déplace un défaut au lieu de le supprimer, c'est qu'on a mesuré trop
+localement.
+
+**Ce qui est livré.** Deux dessins, `classique` et `câbles`, choisis par un
+petit bouton sur la page elle-même — il n'y a aucun menu avant d'entrer. Le
+choix est retenu comme les coquilles, avec le même contrat d'essai: une valeur
+inconnue retombe sur le défaut. Vérifié en service: la bascule cliquée pour de
+vrai, le choix survit à un rechargement, et les sept identifiants lus par les
+pilotes (`#room`, `#people`, `#enter`, `#watch`, `#toRooms`, `#lobbySeats`,
+`#lookSwitch`) sont présents dans LES DEUX dessins. Le câble tendu mesure 455 px
+à 1440 et 164 px à 430.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une

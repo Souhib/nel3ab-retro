@@ -13,6 +13,20 @@ import { useState } from "react";
 import type { Room } from "../client";
 import { NAME_MAX } from "../lib/name";
 import { cn } from "../lib/cn";
+import { PLAYER_COLOURS } from "../media/players";
+import { LOBBIES, type LobbyLook } from "../lib/theme";
+import { LobbyCables } from "./LobbyCables";
+
+/** Le salon est-il au-dessus de cette page ?
+ *
+ * Derrière le proxy, une salle est servie sous `/r/N/` et la racine porte la
+ * liste des salles. Servie EN DIRECT par le worker, la même page est déjà la
+ * racine: un retour y rechargerait la salle qu'on voulait quitter. On ne montre
+ * donc le retour que lorsqu'il mène quelque part, plutôt que d'afficher un
+ * bouton qui ment. C'est la même règle que partout ici: pas de commande qui
+ * ressemble à une commande sans en être une.
+ */
+export const salonAuDessus = (chemin: string): boolean => /^\/r\/[1-9]\d*\//.test(chemin);
 
 export function Lobby({
   room,
@@ -23,6 +37,9 @@ export function Lobby({
   onWatch,
   onForget,
   onRename,
+  salon = typeof window === "undefined" ? false : salonAuDessus(window.location.pathname),
+  look = "classique",
+  onLook,
 }: {
   room: Room | undefined;
   name: string;
@@ -35,18 +52,96 @@ export function Lobby({
   onWatch: () => void;
   onForget: () => void;
   onRename: (name: string) => void;
+  /** Vrai quand un salon existe au-dessus. Passé explicitement par les essais,
+   * lu sur l'adresse autrement. */
+  salon?: boolean;
+  /** Lequel des deux dessins. Le classique tant que rien n'est choisi. */
+  look?: LobbyLook;
+  /** Changer de dessin. Absent dans les essais qui n'en testent qu'un. */
+  onLook?: (look: LobbyLook) => void;
 }) {
   const seats = room?.seats ?? [];
   const people = room?.people ?? [];
   const free = seats.filter((seat) => !seat.player).length;
 
+  /* L'en-tête et les commandes sont PARTAGÉS par les deux dessins.
+     Les identifiants `#toRooms`, `#rename`, `#newName`, `#enter` et `#watch`
+     sont un contrat avec les pilotes de navigateur. Les écrire deux fois, une
+     par dessin, serait deux endroits à tenir d'accord, et c'est exactement la
+     faute que ce dépôt a déjà payée sur les quatre places. */
+  const entete = (
+    <header className="flex flex-col gap-1">
+      <div className="flex items-baseline justify-between gap-3">
+        <span
+          className={cn(
+            "font-mono text-mini uppercase tracking-[0.3em]",
+            look === "cables" ? "" : "text-indigo",
+          )}
+          style={look === "cables" ? { color: "#8fa4c4" } : undefined}
+        >
+          nel3ab
+        </span>
+        <span className="flex items-baseline gap-3">
+          {onLook ? <LookSwitch look={look} onLook={onLook} /> : null}
+          {salon ? (
+            <a
+              id="toRooms"
+              href="/"
+              className={cn(
+                "text-note underline transition-colors",
+                look === "cables" ? "opacity-70 hover:opacity-100" : "text-faint hover:text-indigo",
+              )}
+            >
+              toutes les salles
+            </a>
+          ) : null}
+        </span>
+      </div>
+      <NameTag name={name} login={login} onRename={onRename} onForget={onForget} />
+    </header>
+  );
+
+  const commandes = (
+    <div className="flex flex-col gap-3">
+      <div className="grid grid-cols-[2fr_1fr] gap-2">
+        <button
+          type="button"
+          id="enter"
+          onClick={onEnter}
+          disabled={free === 0 && seats.length > 0}
+          className="border border-indigo bg-indigo/10 px-3 py-2.5 text-corps text-indigo transition-colors hover:bg-indigo/20 disabled:opacity-40"
+        >
+          {free === 0 && seats.length > 0 ? "salle pleine" : "entrer et jouer"}
+        </button>
+        <button
+          type="button"
+          id="watch"
+          onClick={onWatch}
+          className="border border-rule px-3 py-2.5 text-corps text-muted transition-colors hover:border-indigo hover:text-indigo"
+        >
+          regarder
+        </button>
+      </div>
+      <p className="text-note leading-relaxed text-faint">
+        {failed
+          ? "Le salon ne répond pas: tu peux jouer, mais les places n'afficheront pas de nom."
+          : "Entrer prend une manette s'il en reste une, sinon tu regardes. Changer de jeu arrête la partie de tout le monde."}
+      </p>
+    </div>
+  );
+
+  if (look === "cables") {
+    return (
+      <LobbyCables room={room} free={free} actions={commandes}>
+        {entete}
+      </LobbyCables>
+    );
+  }
+
   return (
     <div className="flex h-full items-center justify-center p-6">
       <div className="flex w-full max-w-md flex-col gap-5">
-        <header className="flex flex-col gap-1">
-          <span className="font-mono text-mini uppercase tracking-[0.3em] text-indigo">nel3ab</span>
-          <NameTag name={name} login={login} onRename={onRename} onForget={onForget} />
-        </header>
+        {entete}
 
         <section id="room" className="flex flex-col gap-3 border border-rule bg-panel p-4">
           <div className="flex items-baseline justify-between gap-3">
@@ -86,48 +181,62 @@ export function Lobby({
                 ))}
               </ul>
             ) : null}
-            <div className="grid grid-cols-4 gap-1.5">
-              {seats.map((seat) => (
-                <div key={seat.port} className="flex flex-col gap-1 border border-rule px-2 py-1.5">
-                  <span className="font-mono text-mini text-faint">P{seat.port}</span>
-                  <span
-                    className={cn("truncate text-corps", seat.player ? "text-text" : "text-faint")}
+            <div id="lobbySeats" className="grid grid-cols-4 gap-px border border-rule">
+              {seats.map((seat) => {
+                const colour = PLAYER_COLOURS[seat.port - 1] ?? PLAYER_COLOURS[0];
+                const taken = Boolean(seat.player);
+                return (
+                  <div
+                    key={seat.port}
+                    data-port={seat.port}
+                    data-state={taken ? "busy" : "free"}
+                    className="flex min-w-0 flex-col gap-1 px-2 py-2"
+                    style={{
+                      borderTop: `3px solid ${colour}`,
+                      backgroundColor: taken ? `${colour}1f` : "transparent",
+                    }}
                   >
-                    {seat.player ?? "libre"}
-                  </span>
-                </div>
-              ))}
+                    <span
+                      className="font-mono text-mini"
+                      style={{ color: colour, opacity: taken ? 1 : 0.7 }}
+                    >
+                      P{seat.port}
+                    </span>
+                    <span className={cn("truncate text-corps", taken ? "text-text" : "text-faint")}>
+                      {seat.player ?? "libre"}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </section>
 
-        <div className="grid grid-cols-[2fr_1fr] gap-2">
-          <button
-            type="button"
-            id="enter"
-            onClick={onEnter}
-            disabled={free === 0 && seats.length > 0}
-            className="border border-indigo bg-indigo/10 px-3 py-2.5 text-corps text-indigo transition-colors hover:bg-indigo/20 disabled:opacity-40"
-          >
-            {free === 0 && seats.length > 0 ? "salle pleine" : "entrer et jouer"}
-          </button>
-          <button
-            type="button"
-            id="watch"
-            onClick={onWatch}
-            className="border border-rule px-3 py-2.5 text-corps text-muted transition-colors hover:border-indigo hover:text-indigo"
-          >
-            regarder
-          </button>
-        </div>
-
-        <p className="text-note leading-relaxed text-faint">
-          {failed
-            ? "Le salon ne répond pas: tu peux jouer, mais les places n'afficheront pas de nom."
-            : "Entrer prend une manette s'il en reste une, sinon tu regardes. Changer de jeu arrête la partie de tout le monde."}
-        </p>
+        {commandes}
       </div>
     </div>
+  );
+}
+
+/** Le petit bouton qui change de dessin.
+ *
+ * Sur la PAGE et pas dans un menu: il n'y a aucun menu avant d'entrer, et un
+ * réglage qu'on ne peut atteindre qu'après être entré ne sert à rien pour
+ * choisir l'écran d'entrée. Il annonce le dessin vers lequel il emmène, pas
+ * celui où l'on est: un bouton dit ce qu'il FAIT.
+ */
+function LookSwitch({ look, onLook }: { look: LobbyLook; onLook: (look: LobbyLook) => void }) {
+  const suivant = LOBBIES.find((choice) => choice.id !== look) ?? LOBBIES[0];
+  return (
+    <button
+      type="button"
+      id="lookSwitch"
+      onClick={() => onLook(suivant.id)}
+      title={suivant.note}
+      className="text-note underline opacity-60 transition-opacity hover:opacity-100"
+    >
+      {suivant.label}
+    </button>
   );
 }
 

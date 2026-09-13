@@ -114,6 +114,48 @@ export function rememberShell(shell: Shell): void {
 export const shellLabel = (shell: Shell): string =>
   SHELLS.find((found) => found.id === shell)?.label ?? shell;
 
+/**
+ * L'écran d'entrée: lequel des deux dessins.
+ *
+ * Ce n'est ni un thème ni un tableau de bord. Un thème change les couleurs de
+ * toute la salle; un tableau de bord change le MENU une fois dedans. Ceci
+ * change la page d'AVANT, celle qu'on voit en arrivant et qu'on quitte en
+ * entrant, et elle seule.
+ *
+ * Deux dessins et pas sept, parce qu'ils ne se valent pas: `classique` est la
+ * fiche actuelle, que Souhib a demandé de garder telle quelle, et `cables` est
+ * la proposition du 13 septembre 2026. Ajouter une entrée ici est une décision,
+ * pas une variante de couleur.
+ */
+export const LOBBIES = [
+  { id: "classique", label: "classique", note: "la fiche, telle qu'elle était" },
+  { id: "cables", label: "câbles", note: "quatre fils, un par manette" },
+] as const;
+
+export type LobbyLook = (typeof LOBBIES)[number]["id"];
+
+const LOBBY = "nel3ab:lobby";
+
+export function storedLobby(): LobbyLook {
+  try {
+    const found = localStorage.getItem(LOBBY);
+    return LOBBIES.some((choice) => choice.id === found) ? (found as LobbyLook) : "classique";
+  } catch {
+    return "classique";
+  }
+}
+
+export function rememberLobby(look: LobbyLook): void {
+  try {
+    localStorage.setItem(LOBBY, look);
+  } catch {
+    /* navigation privée: le choix vaut pour cet onglet */
+  }
+}
+
+export const lobbyLabel = (look: LobbyLook): string =>
+  LOBBIES.find((found) => found.id === look)?.label ?? look;
+
 /** Faut-il montrer la manette à l'écran ?
  *
  * Trois états et pas deux. « Auto » regarde l'appareil: un écran tactile sans

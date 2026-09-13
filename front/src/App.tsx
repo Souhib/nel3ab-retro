@@ -58,6 +58,7 @@ import {
   THEMES,
   applyTheme,
   rememberMode,
+  rememberLobby,
   rememberShell,
   rememberTheme,
   shellLabel,
@@ -67,6 +68,7 @@ import {
   rememberTouch,
   showsTouchPad,
   storedPadOnly,
+  storedLobby,
   storedShell,
   storedTheme,
   storedTouch,
@@ -236,6 +238,18 @@ function Named({
       setRecoveryError(error instanceof Error ? error.message : "Le salon ne répond pas.");
     }
   };
+  /* Le dessin de l'écran d'ENTRÉE, retenu comme la coquille et pour la même
+     raison: quelqu'un qui a choisi son écran ne veut pas le rechoisir à chaque
+     visite.
+     ICI, dans le composant qui rend `<Lobby>`, et pas plus bas avec les
+     réglages de la salle. Mes deux insertions y avaient atterri parce que ce
+     fichier porte plusieurs `useState(storedX)` et que j'ai remplacé la
+     première occurrence en supposant l'état et son effet voisins: l'état s'est
+     posé dans un composant, son usage dans un autre, et rien ne pouvait
+     marcher. */
+  const [look, setLook] = useState(storedLobby);
+  useEffect(() => rememberLobby(look), [look]);
+
   return (
     <>
       {entered === null ? (
@@ -244,6 +258,8 @@ function Named({
           name={name}
           login={login}
           failed={isError}
+          look={look}
+          onLook={setLook}
           onEnter={onEnter}
           onWatch={onWatch}
           onForget={onForget}

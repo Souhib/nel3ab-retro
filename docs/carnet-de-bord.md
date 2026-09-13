@@ -15655,6 +15655,51 @@ colonne n'a pas été vu. Rien n'a été essayé sur téléphone, où la colonne
 repliée d'office. Sur un écran tactile, les commandes affichées par-dessus
 l'image pourraient passer devant la prise; ce n'est pas vérifié.
 
+### Un essai vert ici et rouge en CI: il mesurait la durée de marche de la machine
+
+**Le symptôme.** Le 13 septembre 2026, la poussée des trois commits précédents
+passe la porte locale complète, puis échoue en CI sur un seul essai du salon:
+`test_la_liste_dit_depuis_quand_une_salle_tourne`, avec `None == 300`. Sur lgf,
+les 266 essais passent. Aucun des trois commits ne touchait ce fichier.
+
+**La cause.** Pour dire depuis quand une salle tourne, le salon demande à
+systemd l'instant où l'unité a démarré, compté sur l'horloge MONOTONE de la
+machine: des microsecondes depuis son démarrage. L'essai remplace systemd par un
+faux, qui fabriquait cet instant avec la vraie horloge: « maintenant moins 300
+secondes ». Sur une machine allumée depuis des jours, le résultat est positif.
+Sur un runner de CI, une machine virtuelle qui vient de démarrer, « maintenant »
+vaut moins de 300 secondes: l'instant fabriqué devient négatif, et le salon le
+lit, à juste titre, comme une unité jamais démarrée. L'essai testait donc aussi
+la durée de marche de la machine qui l'exécute.
+
+Ce n'est pas un défaut du salon: un vrai systemd ne rend jamais un instant
+antérieur au démarrage de la machine. C'est le faux qui fabriquait une situation
+impossible.
+
+**La preuve, avant de corriger.** Le faux a été rejoué avec l'horloge d'une
+machine démarrée depuis deux minutes: l'essai rougit sur lgf avec exactement
+le message de la CI.
+
+**La correction.** Le contrôleur des salles reçoit son horloge, `time.monotonic`
+par défaut, donc rien ne change en service. L'essai en donne une figée au faux
+ET au contrôleur. Figer `time.monotonic` pour tout le processus était la
+tentation; elle aurait aussi figé la boucle d'asyncio, qui mesure le temps avec
+la même horloge. Deux défauts ont été remis un par un: le faux qui relit
+l'horloge d'une machine jeune, et le contrôleur qui ignore celle qu'on lui
+passe. Chacun rougit l'essai.
+
+**Ce qui n'est pas établi.** Les trois poussées d'avant, dans l'après-midi,
+avaient aussi échoué à la même étape de la CI. Leurs journaux ne se lisent plus
+et leurs annotations ne disent que « code de sortie 1 ». Rien ne permet donc
+d'affirmer que c'était ce même essai. À l'inverse, l'essai existe depuis le
+12 septembre au soir (`5bc5625`), et deux runs du 13 septembre l'ont passé,
+à 14:09 et 15:45. Leurs runners tournaient sans doute depuis plus de cinq
+minutes, ce qui n'est pas mesuré: c'est justement ce qui rend ce genre de
+défaut intermittent.
+
+**La leçon.** Une horloge réelle dans un faux est une dépendance cachée à la
+machine. « Vert ici » disait « vert sur une machine allumée depuis longtemps ».
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une

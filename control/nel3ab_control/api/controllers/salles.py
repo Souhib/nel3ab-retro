@@ -132,6 +132,7 @@ class SallesController:
         lancer: Lanceur = par_le_systeme,
         client: httpx.AsyncClient | None = None,
         lire_places: LecteurPlaces | None = None,
+        horloge: Callable[[], float] = time.monotonic,
     ) -> None:
         self._settings = settings
         self._lancer = lancer
@@ -145,6 +146,14 @@ class SallesController:
         #: cette machine, qui écoute pour de vrai, et un essai ne doit jamais
         #: dépendre de lui.
         self._lire_places = lire_places
+        #: L'horloge MONOTONE qui mesure l'ancienneté d'une salle. Passée plutôt
+        #: que lue en dur, pour qu'un essai donne la même au faux systemd. Le
+        #: 13 septembre 2026, le faux calculait son horodatage sur la vraie
+        #: horloge: sur un runner démarré depuis moins de cinq minutes, il
+        #: devenait négatif, et l'essai échouait en CI tout en passant ici.
+        #: Figer `time.monotonic` pour tout le processus aurait aussi figé la
+        #: boucle d'asyncio, qui mesure le temps avec elle.
+        self._horloge = horloge
 
     async def etat(
         self,
@@ -244,7 +253,7 @@ class SallesController:
         # une absence déguisée en mesure.
         if demarree <= 0:
             return None
-        age = time.monotonic() - demarree / 1_000_000
+        age = self._horloge() - demarree / 1_000_000
         return int(age) if age >= 0 else None
 
     async def _places(self, numero: int) -> int | None:

@@ -1,7 +1,7 @@
 """Ouvrir et fermer des salles, sans systemd."""
 
 import time
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
 import httpx
@@ -24,12 +24,16 @@ class FauxSysteme:
         allumees: Sequence[int] = (),
         refuse: bool = False,
         depuis: Mapping[int, float] | None = None,
+        horloge: Callable[[], float] = time.monotonic,
     ) -> None:
         self.allumees = set(allumees)
         self.refuse = refuse
         #: Depuis combien de SECONDES chaque salle tourne. Absente d'ici, une
         #: salle répond comme une unité qui n'a jamais démarré.
         self.depuis = dict(depuis or {})
+        #: La MÊME horloge que celle du contrôleur, jamais la vraie. Voir
+        #: `HORLOGE`.
+        self.horloge = horloge
         self.commandes: list[list[str]] = []
 
     async def __call__(self, commande: Sequence[str]) -> tuple[int, str]:
@@ -43,7 +47,7 @@ class FauxSysteme:
             age = self.depuis.get(numero)
             if age is None:
                 return 0, "0"
-            return 0, str(int((time.monotonic() - age) * 1_000_000))
+            return 0, str(int((self.horloge() - age) * 1_000_000))
         if self.refuse:
             return 1, "Unit not found."
         if "start" in commande:
@@ -244,6 +248,17 @@ async def test_sans_registre_la_liste_ne_dit_personne(reglages: Settings) -> Non
     assert [s.gens for s in await salles.etat()] == [[], [], []]
 
 
+#: Une horloge monotone figée, partagée par le faux systemd et le contrôleur.
+#:
+#: Le faux calculait son horodatage sur la VRAIE horloge monotone, qui compte
+#: depuis le démarrage de la machine. Une salle « ouverte depuis 300 s » sur
+#: un runner démarré depuis deux minutes donnait un horodatage négatif, lu
+#: comme une unité jamais démarrée: `None == 300` en CI le 13 septembre 2026,
+#: vert sur une machine allumée depuis des jours. Une heure de marche suffit à
+#: rendre le calcul possible; la valeur exacte ne compte pas.
+HORLOGE = lambda: 3600.0  # noqa: E731
+
+
 #: Un reçu de place tel que le worker les écrit: 32 hexa, un tiret, un compteur.
 TENUE = "a" * 32 + "-1"
 
@@ -263,8 +278,8 @@ class FauxWorker:
 async def test_la_liste_dit_depuis_quand_une_salle_tourne(reglages: Settings) -> None:
     """Une carte qui ne dit pas depuis quand la salle tourne oblige à entrer pour
     savoir si on arrive au milieu d'une partie commencée il y a deux heures."""
-    systeme = FauxSysteme(allumees=[1], depuis={1: 300.0})
-    salles = SallesController(reglages, systeme)
+    systeme = FauxSysteme(allumees=[1], depuis={1: 300.0}, horloge=HORLOGE)
+    salles = SallesController(reglages, systeme, horloge=HORLOGE)
 
     etat = await salles.etat()
 
@@ -274,8 +289,8 @@ async def test_la_liste_dit_depuis_quand_une_salle_tourne(reglages: Settings) ->
 async def test_une_salle_eteinte_n_a_pas_d_anciennete(reglages: Settings) -> None:
     """Le jumeau négatif: une salle qui ne tourne pas ne tourne DEPUIS rien, et
     elle ne doit pas non plus coûter une question à systemd."""
-    systeme = FauxSysteme(allumees=[1], depuis={1: 300.0})
-    salles = SallesController(reglages, systeme)
+    systeme = FauxSysteme(allumees=[1], depuis={1: 300.0}, horloge=HORLOGE)
+    salles = SallesController(reglages, systeme, horloge=HORLOGE)
 
     etat = await salles.etat()
 

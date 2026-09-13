@@ -1,55 +1,90 @@
-// A refused page must keep asking — politely, and not too often. Counted in the
-// page itself: the server's log cannot tell my attempts from anybody else's.
+// Une page qui tient une manette réannonce-t-elle sa place, sans marteler ?
+//
+// # Ce que ce pilote mesurait avant, et pourquoi c'était faux
+//
+// Il affirmait qu'une page REFUSÉE continue de demander une place, « poliment,
+// et pas trop souvent », en comptant `nel3abTest.counters().attempts`. Deux
+// erreurs, trouvées le 13 septembre 2026.
+//
+// La première: `attempts` vaut `shot.input.sent` (`media/session.ts`), c'est-à-
+// dire les TRAMES D'ENTRÉE envoyées. Une page qui tient une manette en envoie
+// des centaines — `padmenu` en compte 154 en quelques secondes — et une page
+// sans manette en envoie zéro. La fourchette « 2 à 6 en 12 s » ne pouvait être
+// satisfaite que par accident.
+//
+// La seconde: le scénario n'existe pas. `media/input.ts` définit `refused`
+// comme « vrai quand cette page regarde sans manette, PAR CHOIX ». Sur une
+// salle pleine la porte joueur est désactivée et `#screen` n'arrive jamais;
+// entrer par « regarder » donne `seat = null` et zéro demande en douze
+// secondes. Aucune page ne redemande après un rejet, parce que rien ne rejette.
+//
+// # Ce qu'il mesure maintenant
+//
+// L'invariant voisin, réel et utile: une page qui TIENT une place la réannonce
+// au salon environ une fois par seconde (`lib/room.ts`, `setInterval(announce,
+// 1000)` émettant `seat`). C'est ce qui garde la carte des places fraîche quand
+// une page part sans prévenir. Trop rare, le salon garde un fantôme; trop
+// fréquent, on martèle. L'intention d'origine est préservée, l'observable est
+// changé pour celui qui existe.
+//
+// Les trames sont lues À LA SOURCE, en instrumentant `WebSocket.prototype.send`
+// avant le chargement: le journal du salon ne distingue pas mes annonces de
+// celles des autres pages.
+//
+// Il faut le PROXY: `seat` part vers le salon, que le worker ne porte pas.
+//
+//   NEL3AB_URL=https://<domaine>/r/<N>/ node polite.mjs
 import puppeteer from "puppeteer";
 import { enterRoom, seedName } from "./open.mjs";
 
-// L'adresse en ARGUMENT: le port 8100 n'existe plus depuis que les salles
-// ont pris les leurs (8110, 8120, 8130). Un pilote qui l'écrit en dur se
-// connecte à rien et meurt sur ECONNREFUSED sans que sa recette le dise.
 const url = process.argv[2] ?? process.env.NEL3AB_URL ?? "http://localhost:8110/";
+const FENETRE = 12;
+const attendre = (ms) => new Promise((r) => setTimeout(r, ms));
 const browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox"] });
 const page = await browser.newPage();
-await seedName(page);
-await page.goto(url, { waitUntil: "domcontentloaded" });
-
-// La porte du JOUEUR, et son état, AVANT de la pousser.
-//
-// Sur une salle pleine, `#enter` porte « salle pleine » et il est DÉSACTIVÉ:
-// le clic est absorbé, `#screen` n'arrive jamais, et `enterRoom` expirait au
-// bout de quinze secondes dans une aide, sans dire un mot de la salle. Un
-// pilote qui meurt dans un helper n'apprend rien à personne.
-await page.waitForSelector("#enter", { timeout: 15000 });
-const porte = await page.evaluate(() => {
-  const node = document.getElementById("enter");
-  return { texte: node.textContent.trim(), fermee: node.disabled };
+await seedName(page, "polite");
+await page.evaluateOnNewDocument(() => {
+  globalThis.__places = 0;
+  const brut = WebSocket.prototype.send;
+  WebSocket.prototype.send = function (donnee) {
+    try {
+      if (typeof donnee === "string" && donnee.includes('"seat"')) globalThis.__places += 1;
+    } catch { /* une trame binaire n'est pas la nôtre */ }
+    return brut.call(this, donnee);
+  };
 });
-if (porte.fermee) {
-  console.log(`RIEN TESTÉ — la porte joueur est fermée (« ${porte.texte} »).`);
-  console.log("  Ce pilote veut une page REFUSÉE qui continue de demander une place.");
-  console.log("  Mesuré le 13 septembre 2026 sur une salle pleine: entrer par");
-  console.log("  « regarder » donne seat=null et 0 demande en 12 s, parce qu'un");
-  console.log("  spectateur n'ouvre pas la socket d'entrée. Le scénario d'origine");
-  console.log("  n'est donc pas reproductible par cette porte-ci.");
+await page.goto(url, { waitUntil: "domcontentloaded" });
+await enterRoom(page);
+await attendre(3000);
+
+// La précondition est AFFIRMÉE, pas contournée: sans place tenue, il n'y a rien
+// à réannoncer et le pilote ne prouverait rien.
+const place = await page.evaluate(() => globalThis.nel3abTest?.seat?.() ?? null);
+if (place === null) {
+  console.log("RIEN TESTÉ — cette page n'a pas obtenu de manette, il n'y a pas de place à réannoncer.");
   await browser.close();
   process.exit(1);
 }
-await enterRoom(page);
-await new Promise((r) => setTimeout(r, 2000));
-const start = await page.evaluate(() => globalThis.nel3abTest.counters().attempts);
-const seat = await page.evaluate(() => globalThis.nel3abTest.seat());
-await new Promise((r) => setTimeout(r, 12000));
-const asks = (await page.evaluate(() => globalThis.nel3abTest.counters().attempts)) - start;
-await browser.close();
-// `seat()` rend un NUMÉRO de place, ou `null`. « aucune manette » est une
-// chaîne d'AFFICHAGE (`Bench.tsx`, et la traduction du port 0 épinglée par
-// `media/input.test.ts`), que cette fonction n'a jamais rendue. Le test la
-// cherchait dans une valeur numérique, donc il refusait toujours.
-if (seat !== null) {
-  console.log(`place ${seat} obtenue — la salle n'était pas pleine, rien n'a été testé`);
+// Le salon doit être joignable, sinon aucune trame ne part et le compte serait
+// nul pour une raison qui n'est pas celle qu'on croit mesurer.
+const salon = await page.evaluate(() => Boolean(globalThis.nel3abTest?.room?.()));
+if (!salon) {
+  console.log("RIEN TESTÉ — la page n'est pas reliée au salon: viser le PROXY, pas le worker.");
+  await browser.close();
   process.exit(1);
 }
-console.log(`"${seat}" · ${asks} demandes en 12 s`);
-console.log(asks >= 2 && asks <= 6
-  ? "PASS — elle redemande toutes les trois secondes, sans marteler"
-  : `FAIL — ${asks} demandes: ${asks < 2 ? "elle a renoncé" : "elle martèle"}`);
-process.exit(asks >= 2 && asks <= 6 ? 0 : 1);
+
+const avant = await page.evaluate(() => globalThis.__places);
+await attendre(FENETRE * 1000);
+const apres = await page.evaluate(() => globalThis.__places);
+await browser.close();
+
+const annonces = apres - avant;
+const cadence = annonces / FENETRE;
+console.log(`  place ${place} · ${annonces} annonces en ${FENETRE} s (${cadence.toFixed(2)}/s)`);
+// Une par seconde, avec de la marge pour l'ordonnancement du navigateur.
+const ok = annonces >= FENETRE * 0.5 && annonces <= FENETRE * 2;
+console.log(ok
+  ? "PASS — elle réannonce sa place environ une fois par seconde"
+  : `FAIL — ${annonces} annonces: ${annonces < FENETRE * 0.5 ? "trop rare, le salon gardera un fantôme" : "elle martèle"}`);
+process.exit(ok ? 0 : 1);

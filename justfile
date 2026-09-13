@@ -321,8 +321,12 @@ switch-reaction screen="menu" trials="5" port="1":
 # `docker unpause`, et aucun test unitaire ne peut la voir. Il faut un vrai
 # conteneur, un vrai émulateur et une minute de patience: exactement la même
 # raison que `gpu-test`.
-nap-test:
-    cd spikes/m3-browser-drive && node nap.mjs
+# Le conteneur `nel3ab-dolphin` est INDISPENSABLE et absent de certaines
+# machines: le 13 septembre 2026 `docker inspect` y rendait « no such
+# object », donc ce pilote n'y a jamais pu être exercé. Il est écrit ici
+# pour que personne ne le croie vert.
+nap-test url="http://127.0.0.1:8110/":
+    cd spikes/m3-browser-drive && node nap.mjs "{{url}}"
 
 # Is the committed page the one these sources produce?
 #
@@ -614,6 +618,21 @@ browser-rates:
 # seconds later? Needs the worker RUNNING.
 browser-lipsync:
     cd spikes/m3-browser-drive && node lipsync.mjs http://localhost:8110/
+
+# Une page qui tient une manette réannonce-t-elle sa place, sans marteler ?
+#
+# Demande NEL3AB_URL et pointe le PROXY: l'annonce `seat` part vers le salon,
+# que le worker ne porte pas. Branché en direct sur le worker, ce pilote refuse
+# au lieu de passer à vide.
+#
+# Il mesurait autre chose avant le 13 septembre 2026: il comptait
+# `counters().attempts`, qui vaut les TRAMES D'ENTRÉE envoyées, en croyant y
+# lire des demandes de place. Et son scénario, « une page refusée redemande »,
+# n'existe pas: le code appelle `refused` une page qui regarde PAR CHOIX, et
+# rien ne rejette personne. Le détail est dans l'en-tête du pilote.
+browser-polite:
+    @test -n "${NEL3AB_URL:-}" || { echo "NEL3AB_URL manquant: l'annonce « seat » passe par le salon."; echo "  Donner l'adresse du proxy: NEL3AB_URL=https://<domaine>/r/<N>/ just browser-polite"; exit 1; }
+    cd spikes/m3-browser-drive && node polite.mjs "$NEL3AB_URL"
 
 # La colonne se voit-elle à travers la bande des rayons ? Needs the worker RUNNING.
 #

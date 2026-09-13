@@ -14736,6 +14736,65 @@ recette: il vérifie le remède EN PLACE. Un remède qui occulterait par un fond
 opaque le ferait crier à tort. Un filet borné et dit tel quel vaut mieux qu'un
 vert dont on ignore la portée.
 
+### Un pilote qui mesurait la mauvaise chose depuis le premier jour
+
+`polite.mjs` affirmait qu'une page REFUSÉE continue de demander une place,
+« poliment, et pas trop souvent », et attendait deux à six demandes en douze
+secondes. Deux erreurs, et la seconde est plus grave que la première.
+
+La première: il comptait `nel3abTest.counters().attempts`, qui vaut
+`shot.input.sent` (`media/session.ts`), c'est-à-dire les TRAMES D'ENTRÉE
+envoyées. Une page qui tient une manette en envoie des centaines — `padmenu` en
+compte cent cinquante-quatre en quelques secondes — et une page sans manette en
+envoie zéro. La fourchette « deux à six » ne pouvait être atteinte que par
+accident, et ce depuis l'écriture du fichier.
+
+La seconde: le scénario n'existe pas. `media/input.ts` définit `refused` comme
+« vrai quand cette page regarde sans manette, PAR CHOIX ». Sur une salle pleine,
+la porte joueur porte « salle pleine » et elle est désactivée, si bien que le
+clic est absorbé et que `#screen` n'arrive jamais; entrer par « regarder » donne
+`seat = null` et zéro demande en douze secondes, parce qu'un spectateur n'ouvre
+pas la socket d'entrée. Personne ne redemande après un rejet, parce que rien ne
+rejette.
+
+Plutôt que de le supprimer, il a été repointé sur l'invariant voisin qui existe
+vraiment: une page qui TIENT une place la réannonce au salon environ une fois
+par seconde (`lib/room.ts`, `setInterval(announce, 1000)` émettant `seat`).
+C'est ce qui garde la carte des places fraîche quand une page part sans
+prévenir; trop rare, le salon garde un fantôme, trop fréquent, on martèle.
+L'intention d'origine est conservée, l'observable est changé pour celui qui
+existe. Les trames sont lues à la source, en instrumentant
+`WebSocket.prototype.send`, parce que le journal du salon ne distingue pas nos
+annonces de celles des autres pages.
+
+Il montre les deux couleurs: douze annonces en douze secondes à travers le
+proxy, zéro sur le worker en direct, où l'annonce ne peut pas partir. Cette
+falsification démontre aussi que sa recette a raison d'exiger le proxy.
+
+**Trois autres dettes de la même soirée, réglées ou dites.** La correction de
+préfixe sur la socket `/sound`, livrée sans preuve, est maintenant vérifiée sous
+proxy: 188 Kio par seconde pour 187 attendus, deux mille morceaux tous porteurs
+de signal. `nap.mjs` prenait son adresse à `ROOM_URL` sans qu'aucun argument ne
+puisse la changer; il l'accepte désormais, mais il reste NON exercé et sa
+recette le dit: `docker inspect nel3ab-dolphin` rend « no such object » sur
+cette machine, donc le conteneur dont il a besoin n'y existe pas.
+
+**Et la sonde de débordement ne regardait qu'une largeur.** Le panneau des
+touches change pourtant de forme à ses points de rupture: une seule colonne sous
+900 px, plein écran sous 600. Tout le texte venant d'être agrandi, c'est
+exactement là que les libellés risquaient de ne plus tenir. Elle balaie
+maintenant quatre largeurs, et surtout elle IMPRIME ce qu'elle a mesuré à
+chacune: 1920 donne un panneau de 1120 px, 1440 aussi, 1100 donne 1060, et 600
+donne 600. Sans cette ligne, un `setViewport` sans effet aurait rendu un PASS
+identique à celui d'un balayage réel, et rien n'aurait distingué les deux.
+
+Ce qui reste NON couvert, écrit à côté du vert: l'état de configuration guidée.
+Son bouton est `disabled={!identity || busy}`, donc il exige une manette
+détectée, et `data-busy` ne devient vrai qu'une fois une leçon commencée. Y
+arriver demanderait de simuler une manette puis de déclencher une capture. Ses
+surcharges de tailles vivent d'ailleurs toutes sous `max-width: 900px`, donc
+elles ne s'appliquent pas à la largeur où le reste est mesuré.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une

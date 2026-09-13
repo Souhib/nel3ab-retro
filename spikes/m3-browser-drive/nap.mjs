@@ -14,6 +14,11 @@ import puppeteer from "puppeteer";
 
 import { enterRoom, openRoom, ROOM_URL } from "./open.mjs";
 
+// L'adresse en ARGUMENT, comme les autres pilotes. Elle était prise à
+// `ROOM_URL` sans qu'aucun argument ne puisse la changer, et la recette ne lui
+// en passait aucun: viser une autre salle demandait d'éditer le fichier.
+const url = process.argv[2] ?? ROOM_URL;
+
 let bad = 0;
 const say = (ok, what) => {
   if (!ok) bad++;
@@ -56,7 +61,7 @@ const depuis = new Date(Date.now() - 5000).toISOString().slice(11, 19);
 
 // 2. La réveiller en la regardant.
 const browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox"] });
-const page = await openRoom(browser, ROOM_URL);
+const page = await openRoom(browser, url);
 await enterRoom(page);
 await new Promise((done) => setTimeout(done, 25000));
 const peintes = await page.evaluate(() => globalThis.nel3abTest?.counters?.().painted ?? 0);
@@ -91,7 +96,7 @@ async function stillAwakeWith(what, open) {
 
 await stillAwakeWith("format réduit", async () => {
   const page = await browser.newPage();
-  await page.goto(ROOM_URL, { waitUntil: "domcontentloaded" });
+  await page.goto(url, { waitUntil: "domcontentloaded" });
   const seen = await page.evaluate(
     () =>
       new Promise((done) => {

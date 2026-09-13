@@ -20,7 +20,20 @@ const url = process.argv[2] ?? process.env.NEL3AB_URL ?? "http://localhost:8110/
 const attendre = (ms) => new Promise((r) => setTimeout(r, ms));
 const browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox"] });
 const page = await browser.newPage();
-await page.setViewport({ width: 1440, height: 900 });
+// Plusieurs LARGEURS, et c'est le trou que ce pilote avait.
+//
+// Il ne mesurait qu'à 1440 px. Or le panneau change de forme aux points de
+// rupture: `.n3-workbench` passe à une seule colonne sous 900 px, et
+// `.n3-bindings` devient plein écran sous 600 px. Tout le texte ayant été
+// agrandi le 13 septembre 2026, c'est justement là que les libellés risquent de
+// ne plus tenir, et une seule largeur ne pouvait pas le voir.
+const LARGEURS = [
+  { width: 1920, height: 1080 },
+  { width: 1440, height: 900 },
+  { width: 1100, height: 800 },
+  { width: 600, height: 900 },
+];
+await page.setViewport(LARGEURS[1]);
 await seedName(page, "debordement");
 await page.goto(url, { waitUntil: "domcontentloaded" });
 await enterRoom(page);
@@ -84,17 +97,31 @@ const onglets = await page.evaluate(() =>
   [...document.querySelectorAll(".n3-bindings-tabs button")].map((b) => b.textContent.trim()),
 );
 const coupes = [];
-for (const nom of onglets.length > 0 ? onglets : ["(onglet unique)"]) {
-  if (onglets.length > 0) {
-    await page.evaluate((voulu) => {
-      const node = [...document.querySelectorAll(".n3-bindings-tabs button")].find(
-        (b) => b.textContent.trim() === voulu,
-      );
-      node?.click();
-    }, nom);
-    await attendre(1200);
+for (const taille of LARGEURS) {
+  await page.setViewport(taille);
+  // Un changement de largeur reflue la page: on lui laisse le temps.
+  await attendre(900);
+  // Ce qui a VRAIMENT été mesuré, et pas seulement ce qui a été demandé. Sans
+  // cette ligne, un `setViewport` sans effet rendrait un PASS identique à un
+  // balayage réel, et rien ne distinguerait les deux.
+  const vue = await page.evaluate(() => {
+    const p = document.getElementById("bindingsPanel");
+    const r = p?.getBoundingClientRect();
+    return { ecran: window.innerWidth, panneau: r ? Math.round(r.width) : null };
+  });
+  console.log(`  à ${vue.ecran}px : le panneau mesure ${vue.panneau ?? "?"}px`);
+  for (const nom of onglets.length > 0 ? onglets : ["(onglet unique)"]) {
+    if (onglets.length > 0) {
+      await page.evaluate((voulu) => {
+        const node = [...document.querySelectorAll(".n3-bindings-tabs button")].find(
+          (b) => b.textContent.trim() === voulu,
+        );
+        node?.click();
+      }, nom);
+      await attendre(1000);
+    }
+    for (const c of await mesurer()) coupes.push({ ...c, onglet: `${taille.width}px · ${nom}` });
   }
-  for (const c of await mesurer()) coupes.push({ ...c, onglet: nom });
 }
 
 for (const c of coupes) {
@@ -105,7 +132,7 @@ for (const c of coupes) {
 }
 console.log(
   coupes.length === 0
-    ? `PASS — rien n'est coupé, sur ${onglets.length || 1} onglet(s): ${onglets.join(", ")}`
+    ? `PASS — rien n'est coupé, sur ${LARGEURS.length} largeur(s) × ${onglets.length || 1} onglet(s)`
     : `FAIL — ${coupes.length} élément(s) coupé(s)`,
 );
 await browser.close();

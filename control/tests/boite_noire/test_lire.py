@@ -78,6 +78,42 @@ def test_une_page_sans_cadence_ou_hors_jeu_ne_fait_pas_de_tranche() -> None:
     assert tranches([], pages) == []
 
 
+def test_une_tranche_garde_le_pire_ecart_recu_et_le_pire_aller_retour() -> None:
+    """Un arrêt du jeu tombe sur toutes les pages, une liaison qui hoquette sur une:
+    le pire des pages montre les deux."""
+    pages = [
+        {
+            **_page(1, 60, "a"),
+            "vu": {"jeuHz": 60, "arrivées": [16, 18, 104], "manette": {"allerRetour": 21}},
+        },
+        {
+            **_page(2, 60, "b"),
+            "vu": {"jeuHz": 60, "arrivées": [16, 17, 22], "manette": {"allerRetour": 48}},
+        },
+    ]
+
+    (tranche,) = tranches([], pages)
+
+    assert tranche["arrivee_max"] == 104
+    assert tranche["aller_retour"] == 48
+
+
+def test_une_page_d_avant_le_14_septembre_n_invente_ni_ecart_ni_aller_retour() -> None:
+    """Le jumeau: les lignes écrites avant ces champs, ou sans manette mesurée."""
+    pages = [
+        _page(1, 60, "a"),
+        {
+            **_page(2, 60, "b"),
+            "vu": {"jeuHz": 60, "arrivées": [16, 18], "manette": {"allerRetour": None}},
+        },
+    ]
+
+    (tranche,) = tranches([], pages)
+
+    assert "arrivee_max" not in tranche
+    assert "aller_retour" not in tranche
+
+
 def test_le_chargement_saute_les_lignes_cassees(tmp_path: Path) -> None:
     fichier = tmp_path / "2026-09-14.jsonl"
     fichier.write_text(

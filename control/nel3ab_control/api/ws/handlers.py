@@ -168,6 +168,13 @@ def _room_now(rooms: RoomController, people: PeopleController) -> dict[str, Any]
 #: balayage de deux jours n'y peut rien puisqu'il est journalier.
 VITALS_MAX = 2048
 
+#: Ce que l'APPAREIL dit à l'arrivée a le droit de peser, même mesure.
+#:
+#: 512. Un téléphone Android en écrit environ 250 (essai `device.test.ts`, le
+#: 14 septembre 2026), un identifiant de navigateur étant coupé à 160 caractères
+#: par la page. Il n'est écrit qu'une fois par socket, sur la ligne `arrivée`.
+DEVICE_MAX = 512
+
 #: Ce qu'un SIGNALEMENT a le droit de peser, en octets.
 #:
 #: Seize kilo-octets, huit fois la borne d'un relevé, parce qu'un signalement
@@ -302,6 +309,10 @@ async def connect(sid: str, environ: dict[str, Any], auth: object) -> None:
         # est cassée se ressemblent exactement dans le journal, puisque ni l'une
         # ni l'autre n'envoie de relevé.
         "manette": bool((auth or {}).get("manette")),
+        # L'appareil, gardé pour la ligne d'arrivée seulement. Un appareil qui n'a pas
+        # la forme ou la taille d'un appareil est laissé de côté sans refuser la page:
+        # jouer ne dépend pas de ce que le journal sait de la machine.
+        "appareil": _measured((auth or {}).get("appareil"), DEVICE_MAX),
         "since": monotonic(),
         #: La salle de cette socket, pour toute sa vie. Voir `_pour`.
         "salle": salle,
@@ -311,7 +322,12 @@ async def connect(sid: str, environ: dict[str, Any], auth: object) -> None:
         await sio.save_session(sid, session)
         people.arrived(sid, login, name, salle)
         await sio.enter_room(sid, piece(salle))
-        journal.write("arrivée", **_who(sid, session), salle=_room_now(rooms, people))
+        journal.write(
+            "arrivée",
+            **_who(sid, session),
+            salle=_room_now(rooms, people),
+            **({"appareil": session["appareil"]} if session["appareil"] else {}),
+        )
         await broadcast(rooms, people, journal, bool(session.get("banc")), salle=salle)
         admitted = True
     except Exception as error:
@@ -498,7 +514,7 @@ async def rename(sid: str, data: dict[str, Any]) -> None:
         )
 
 
-def _measured(data: dict[str, Any], ceiling: int = VITALS_MAX) -> dict[str, Any] | None:
+def _measured(data: object, ceiling: int = VITALS_MAX) -> dict[str, Any] | None:
     """Un relevé, ou rien s'il n'a pas la tête d'un relevé.
 
     Ce qui arrive d'une page n'est pas un relevé parce qu'on l'espère. On garde

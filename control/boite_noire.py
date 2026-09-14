@@ -35,6 +35,8 @@ def _ligne(entree: dict[str, Any]) -> str:
     fil = entree.get("fil")
     morceaux.append(f"{fil['nom'][:16]:16} {fil['cpu_pct']:5.1f} %" if fil else " " * 24)
     for cle, forme in (
+        ("arrivee_max", "reçue {:4.0f} ms"),
+        ("aller_retour", "manette {:3.0f} ms"),
         ("moteur_pct", "moteur {:5.0f} %"),
         ("gpu_pct", "gpu {:3.0f} %"),
         ("horloge", "{:>8}"),

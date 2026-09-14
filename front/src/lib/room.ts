@@ -15,6 +15,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { io, type Socket } from "socket.io-client";
 import { readRoom, type Room } from "../client";
+import { device } from "./device";
 import type { Trail, Vitals } from "./vitals";
 import { onBench, VISIT } from "./visit";
 import { under } from "./base";
@@ -200,7 +201,16 @@ export function useLobby(
       // sert trois et il est le même pour toutes: sans ce numéro, il
       // répondrait les places, les noms et le jeu de la salle 1 à tout le
       // monde, ce qui est exactement la panne du 12 septembre 2026.
-      auth: { name, visite: VISIT, banc: onBench(), manette: padOnly, salle: salle() },
+      // L'APPAREIL aussi, lu à chaque ouverture de la socket: le salon l'écrit sur la
+      // ligne d'arrivée seulement, que la visite relie aux relevés. Voir `lib/device`.
+      auth: {
+        name,
+        visite: VISIT,
+        banc: onBench(),
+        manette: padOnly,
+        salle: salle(),
+        appareil: device(window),
+      },
       transports: ["websocket"],
       // A room whose control plane is not running still plays; it just has no
       // names beside the seats. Backing off to ten seconds keeps that case from

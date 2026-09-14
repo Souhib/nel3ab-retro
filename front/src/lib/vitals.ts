@@ -122,9 +122,37 @@ export type Vitals = {
     cadence: number;
     sortie: number;
   };
+  /** L'écart entre deux images REÇUES, en millisecondes: p50, p95, max.
+   *
+   * Sur les six cents dernières, soit dix secondes à 60 images par seconde. Le
+   * 14 septembre 2026, la boîte noire a montré qu'une lecture du debugfs arrêtait
+   * le jeu cent millisecondes: ce trou-là se lit ici, chez chaque joueur, et il
+   * se distingue d'une liaison qui hoquette parce qu'il tombe au même instant sur
+   * toutes les pages. */
+  arrivées: [number, number, number];
   /** La manette: la place tenue, et les trames envoyées sur la fenêtre. */
-  manette: { place: number | null; envoyées: number };
+  manette: {
+    place: number | null;
+    envoyées: number;
+    /** L'aller-retour d'une trame jusqu'à la salle, médiane des trente
+     * derniers. Nul veut dire « pas encore mesuré », jamais « zéro ». */
+    allerRetour: number | null;
+    /** Le nom que le navigateur donne à la manette qui joue, coupé à
+     * `PAD_NAME_MAX`. Nul sans manette: clavier ou écran tactile. */
+    modèle: string | null;
+  };
+  /** L'onglet: visible à l'instant du relevé, et combien de millisecondes de la
+   * fenêtre il a passé caché. Absent de la trace fine, qui ne le mesure pas. */
+  page?: { visible: boolean; cachéeMs: number };
 };
+
+/** Combien de caractères du nom d'une manette on garde.
+ *
+ * Soixante-quatre. Chrome écrit « Xbox 360 Controller (XInput STANDARD GAMEPAD) »,
+ * 46 caractères, et Firefox y ajoute les identifiants USB. La borne tient le
+ * relevé loin de celle du salon (`VITALS_MAX`, deux kilo-octets) quel que soit
+ * le nom qu'un pilote invente. */
+export const PAD_NAME_MAX = 64;
 
 /**
  * Un écart qui ne peut pas être négatif.
@@ -145,12 +173,18 @@ function since(now: number, before: number): number {
  * `before` nul veut dire que c'est le premier: les écarts valent alors les
  * totaux depuis l'ouverture de la page, ce qui est exact.
  */
-export function vitals(now: Snapshot, before: Snapshot | null, elapsedMs: number): Vitals {
+export function vitals(
+  now: Snapshot,
+  before: Snapshot | null,
+  elapsedMs: number,
+  page?: { visible: boolean; cachéeMs: number },
+): Vitals {
   const was = before?.video;
   const wasSound = before?.sound;
   const wasInput = before?.input;
   const { video, sound, input } = now;
   return {
+    ...(page ? { page } : {}),
     s: Math.round(elapsedMs / 100) / 10,
     vues: since(video.shown, was?.shown ?? 0),
     peintes: since(video.painted, was?.painted ?? 0),
@@ -177,11 +211,67 @@ export function vitals(now: Snapshot, before: Snapshot | null, elapsedMs: number
       cadence: sound.sampleRate,
       sortie: Math.round(sound.output),
     },
+    arrivées: [
+      Math.round(video.gapMs.p50),
+      Math.round(video.gapMs.p95),
+      Math.round(video.gapMs.max),
+    ],
     manette: {
       place: input.port,
       envoyées: since(input.sent, wasInput?.sent ?? 0),
+      allerRetour: input.roundTripMs,
+      modèle: input.padId === null ? null : input.padId.slice(0, PAD_NAME_MAX),
     },
   };
+}
+
+/**
+ * Combien de temps l'onglet est resté caché.
+ *
+ * # Pourquoi c'est une mesure et pas un détail
+ *
+ * Un onglet caché voit ses minuteurs ralentis et ne peint plus. Ses relevés
+ * disent alors « zéro image peinte » exactement comme une page dont la vidéo est
+ * cassée. Savoir qu'il était caché sépare les deux sans demander à personne.
+ *
+ * Nourri par l'événement `visibilitychange` et lu toutes les dix secondes: rien
+ * sur le chemin des images.
+ */
+export class HiddenTime {
+  private since: number | null;
+  private total = 0;
+
+  /** `hidden` est l'état au départ, `at` l'instant de la page en millisecondes. */
+  constructor(hidden: boolean, at: number) {
+    this.since = hidden ? at : null;
+  }
+
+  /** L'onglet vient d'être caché ou montré. Un état répété ne compte pas deux fois. */
+  change(hidden: boolean, at: number): void {
+    if (hidden && this.since === null) this.since = at;
+    if (!hidden && this.since !== null) {
+      this.total += Math.max(0, at - this.since);
+      this.since = null;
+    }
+  }
+
+  /** Le temps caché depuis la lecture précédente, et on repart de zéro.
+   *
+   * Un onglet encore caché compte jusqu'à `at`, puis repart de `at`: sinon une
+   * page cachée depuis une heure n'aurait rien écrit, puis tout d'un coup. */
+  take(at: number): number {
+    const hiddenMs = this.peek(at);
+    this.total = 0;
+    if (this.since !== null) this.since = at;
+    return hiddenMs;
+  }
+
+  /** Le même chiffre, sans repartir de zéro: pour un signalement, qui ne doit pas
+   * voler sa fenêtre au relevé suivant. */
+  peek(at: number): number {
+    const running = this.since === null ? 0 : Math.max(0, at - this.since);
+    return Math.round(this.total + running);
+  }
 }
 
 /**

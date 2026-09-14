@@ -15908,8 +15908,68 @@ service arrêté. Un zéro dans une analyse se vérifie avant d'être cru.
 Switch : Dolphin n'a pas été mesuré, ni une soirée entière. Arrêter ou redémarrer
 le service pendant une capture la laisse incomplète, avec les codes -15 et -13
 dans `capture.json` : le banc l'a fait en changeant de phase. Les données des
-joueurs côté page (aller-retour d'une entrée, file du décodeur, modèle de manette)
-ne sont pas encore relevées.
+joueurs côté page sont venues juste après, dans l'entrée suivante.
+
+### Ce que chaque page ajoute à la boîte noire
+
+**La demande.** Souhib : « N'hésite pas à tout stocker même je pense si c'est
+possible les data / details des users lorsqu'ils jouent ». La machine était
+relevée ; ce que chaque joueur vivait de son côté ne l'était qu'à moitié. Les
+pages envoyaient déjà au salon, toutes les dix secondes, les images reçues,
+peintes et jetées, la gigue, la file du décodeur et le son.
+
+**Ce qui s'ajoute à chaque relevé de page.**
+
+- L'écart entre deux images reçues, en p50, p95 et maximum sur les six cents
+  dernières. C'est ce qui relie une page à la boîte noire : un arrêt du jeu de
+  cent millisecondes tombe au même instant sur toutes les pages, une liaison qui
+  hoquette sur une seule.
+- L'aller-retour de la manette jusqu'à la salle, médiane des trente derniers.
+  Il était affiché dans le panneau et n'était écrit nulle part.
+- Le nom de la manette qui joue, coupé à 64 caractères.
+- L'état de l'onglet et le temps passé caché pendant la fenêtre. Un onglet caché
+  ne peint plus, et son relevé ressemblait jusqu'ici à celui d'une vidéo cassée.
+
+La file du décodeur, prévue dans la liste, y était déjà sous le nom `encours`.
+
+**Ce qui part une seule fois, à l'arrivée.** L'appareil : taille de l'écran et de
+la fenêtre, densité, cœurs, mémoire, écran tactile, débit estimé et identifiant du
+navigateur. Il ne change pas pendant une visite, et la visite relie l'arrivée à
+tous les relevés qui suivent. Le salon l'écrit sur la ligne `arrivée` s'il est un
+objet de moins de 512 octets ; sinon il le laisse de côté sans refuser la page.
+Rien qui désigne la personne plutôt que sa machine : ni adresse, ni langue, ni
+fuseau. Le débit estimé ne dit pas le type de liaison : une fibre et une bonne 4G
+disent toutes deux « 4g ». Firefox et Safari ne donnent ni la mémoire ni le débit,
+qui valent alors nul et non zéro.
+
+**Ce que ça coûte.** Mesuré le 14 septembre 2026 sous Node 24 : un relevé se
+calcule en 0,19 microseconde, une fois toutes les dix secondes, hors du chemin des
+images. La partie `vu` passe de 363 à 499 octets avec une manette nommée, soit
+136 octets de plus. Une ligne `mesures` du 13 septembre pesait 774 octets ; elle
+en pèsera environ 910. Le journal de cette soirée à quatre faisait 1,9 Mo, il en
+ferait environ 2,2. Le chiffre de temps vient d'une boucle sous Node et pas d'un
+navigateur de téléphone, qui peut être dix fois plus lent : cela reste sous la
+microseconde toutes les dix secondes.
+
+**Relu par la boîte noire.** `just boite-noire` affiche par tranche de dix
+secondes le pire écart reçu et le pire aller-retour des pages. Le pire et pas la
+médiane : un arrêt du jeu se voit sur toutes les pages, un joueur mal relié sur
+une seule, et le pire montre les deux.
+
+**Les essais.** Chaque défaut a été remis un par un et fait rougir son essai :
+- le temps caché qui ne repart pas de zéro, ou qui recompte un onglet encore caché ;
+- un état répété compté deux fois ;
+- un nom de manette ou de navigateur non coupé ;
+- un zéro à la place d'un nul, pour l'aller-retour comme pour la mémoire ;
+- un onglet « visible » inventé dans la trace fine, qui ne le mesure pas ;
+- un écart non arrondi ;
+- une arrivée sans son appareil, et un appareil sans borne.
+
+**Ce qui n'est pas prouvé.** Le câblage dans la page (l'écoute de
+`visibilitychange`, le relevé qui remet le temps caché à zéro et le signalement qui
+ne le fait pas) est vérifié par les types et à la lecture, pas dans un navigateur.
+La première vraie soirée dira si les lignes arrivent comme prévu. Les pages déjà
+ouvertes gardent l'ancienne version jusqu'à leur rechargement.
 
 ## 12. Glossaire complet
 

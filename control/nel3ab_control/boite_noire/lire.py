@@ -102,6 +102,15 @@ def tranches(
         seau = seaux[cle(quand)]
         seau["cadence"].append(cadence)
         seau["visites"].append(ligne.get("visite"))
+        # Ce que les pages écrivent depuis le 14 septembre 2026. Les lignes d'avant
+        # n'ont ni l'un ni l'autre, et leur tranche n'en invente pas.
+        vu = ligne.get("vu") or {}
+        if (aller := _nombre((vu.get("manette") or {}).get("allerRetour"))) is not None:
+            seau["aller_retour"].append(aller)
+        arrivees = vu.get("arrivées")
+        pire = _nombre(arrivees[2]) if isinstance(arrivees, list) and len(arrivees) == 3 else None
+        if pire is not None:
+            seau["arrivee_max"].append(pire)
 
     resultat: list[dict[str, Any]] = []
     for quand in sorted(seaux):
@@ -124,6 +133,10 @@ def tranches(
             ("tctl", seau["tctl"], max),
             ("mhz", seau["mhz"], mean),
             ("boite_noire_pct", seau["boite_noire"], mean),
+            # Le PIRE des pages: un arrêt du jeu tombe sur toutes à la fois, une
+            # liaison qui hoquette sur une seule, et le pire montre les deux.
+            ("arrivee_max", seau["arrivee_max"], max),
+            ("aller_retour", seau["aller_retour"], max),
         ):
             if valeurs:
                 entree[nom] = round(calcul(valeurs), 1)

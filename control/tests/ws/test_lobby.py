@@ -638,6 +638,63 @@ async def test_an_ordinary_page_carries_no_pad_only_mark(
     assert "manette" not in arrival
 
 
+async def test_an_arrival_says_which_device_the_page_runs_on(
+    served: tuple[str, RoomController], tmp_path: Path
+) -> None:
+    """« Ça saccade chez moi »: sur quoi ? L'appareil part avec l'arrivée.
+
+    Une seule fois par socket. Le répéter sur chaque relevé coûterait deux cents
+    octets toutes les dix secondes pour dire la même chose, et la visite relie
+    déjà l'arrivée aux relevés.
+    """
+    url, _rooms = served
+    appareil = {"écran": "412x915", "cœurs": 8, "réseau": "4g"}
+
+    page = socketio.AsyncClient()
+    await page.connect(
+        url, socketio_path="/socket.io", auth={"visite": "eeee5555", "appareil": appareil}
+    )
+    await page.emit("mesures", {"vues": 600, "peintes": 600})
+    await asyncio.sleep(0.3)
+    await page.disconnect()
+    await asyncio.sleep(0.2)
+
+    written = sorted((tmp_path / "sessions").glob("*.jsonl"))[0]
+    lines = [json.loads(line) for line in written.read_text(encoding="utf-8").splitlines()]
+    mine = [line for line in lines if line["visite"] == "eeee5555"]
+
+    assert [line["quoi"] for line in mine] == ["arrivée", "mesures", "départ"]
+    assert mine[0]["appareil"] == appareil
+    assert [line["quoi"] for line in mine if "appareil" in line] == ["arrivée"]
+
+
+async def test_a_device_that_is_not_one_is_left_out_and_the_page_still_enters(
+    served: tuple[str, RoomController], tmp_path: Path
+) -> None:
+    """Le jumeau, en deux formes: pas un objet, et un objet trop gros.
+
+    Refuser la page pour ça serait priver quelqu'un de jeu à cause du journal.
+    """
+    url, _rooms = served
+
+    for visite, appareil in (("ffff6666", "un téléphone"), ("gggg7777", {"x": "y" * 1024})):
+        page = socketio.AsyncClient()
+        await page.connect(
+            url, socketio_path="/socket.io", auth={"visite": visite, "appareil": appareil}
+        )
+        assert page.connected
+        await asyncio.sleep(0.2)
+        await page.disconnect()
+    await asyncio.sleep(0.2)
+
+    written = sorted((tmp_path / "sessions").glob("*.jsonl"))[0]
+    lines = [json.loads(line) for line in written.read_text(encoding="utf-8").splitlines()]
+    arrivals = [line for line in lines if line["quoi"] == "arrivée"]
+
+    assert [line["visite"] for line in arrivals] == ["ffff6666", "gggg7777"]
+    assert all("appareil" not in line for line in arrivals)
+
+
 async def test_a_game_change_is_announced_to_everybody_else(
     served: tuple[str, RoomController],
 ) -> None:

@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from "vitest";
 import type { Snapshot } from "../media/session";
-import { Struggling, Trailing, vitals, worthWriting } from "./vitals";
+import { HiddenTime, PAD_NAME_MAX, Struggling, Trailing, vitals, worthWriting } from "./vitals";
 
 /** Un instantané complet, dont chaque test ne change que ce qui l'intéresse. */
 function snap(video: Partial<Snapshot["video"]> = {}, rest: Partial<Snapshot> = {}): Snapshot {
@@ -155,6 +155,108 @@ describe("le relevé d'une fenêtre", () => {
     // celle du navigateur est décalée. Une séance saine s'écrivait
     // « horaire -15268 ms », ce qui n'a jamais voulu dire quoi que ce soit.
     expect(vitals(snap({ addedMs: 0 }), null, 10_000).horaire).toBe(0);
+  });
+});
+
+describe("ce que la boîte noire lit dans un relevé", () => {
+  const pad = (input: Partial<Snapshot["input"]>) =>
+    snap({}, { input: { ...snap().input, ...input } });
+
+  it("dit l'écart entre deux images reçues, arrondi", () => {
+    const sample = vitals(snap({ gapMs: { p50: 16.4, p95: 18.6, max: 104.7 } }), null, 10_000);
+
+    expect(sample.arrivées).toEqual([16, 19, 105]);
+  });
+
+  it("dit l'aller-retour de la manette et le nom de celle qui joue", () => {
+    const xbox = "Xbox 360 Controller (XInput STANDARD GAMEPAD)";
+    const sample = vitals(pad({ roundTripMs: 23, padId: xbox }), null, 10_000);
+
+    expect(sample.manette.allerRetour).toBe(23);
+    expect(sample.manette.modèle).toBe(xbox);
+  });
+
+  it("dit nul, et pas zéro, sans mesure ni manette", () => {
+    // Le jumeau: un zéro annoncerait une liaison parfaite et une manette sans
+    // nom là où il n'y a ni mesure ni manette.
+    const sample = vitals(pad({ roundTripMs: null, padId: null }), null, 10_000);
+
+    expect(sample.manette.allerRetour).toBeNull();
+    expect(sample.manette.modèle).toBeNull();
+  });
+
+  it("coupe un nom de manette trop long, et le relevé tient dans la borne du salon", () => {
+    const sample = vitals(pad({ padId: "x".repeat(500) }), null, 10_000, {
+      visible: false,
+      cachéeMs: 10_000,
+    });
+
+    expect(sample.manette.modèle).toHaveLength(PAD_NAME_MAX);
+    // `VITALS_MAX` côté salon: deux kilo-octets, en caractères une fois remis en JSON.
+    expect(JSON.stringify(sample).length).toBeLessThan(2048);
+  });
+
+  it("porte l'état de l'onglet quand la page le donne", () => {
+    const sample = vitals(snap(), null, 10_000, { visible: false, cachéeMs: 4000 });
+
+    expect(sample.page).toEqual({ visible: false, cachéeMs: 4000 });
+  });
+
+  it("n'invente pas d'onglet quand on ne le donne pas", () => {
+    // La trace fine ne mesure pas l'onglet: un `visible: true` par défaut y
+    // mentirait sur une page qui était peut-être cachée.
+    expect("page" in vitals(snap(), null, 10_000)).toBe(false);
+  });
+});
+
+describe("le temps caché de l'onglet", () => {
+  it("compte le temps entre caché et montré", () => {
+    const hidden = new HiddenTime(false, 0);
+    hidden.change(true, 1000);
+    hidden.change(false, 4000);
+
+    expect(hidden.take(10_000)).toBe(3000);
+  });
+
+  it("repart de zéro après une lecture", () => {
+    const hidden = new HiddenTime(false, 0);
+    hidden.change(true, 1000);
+    hidden.change(false, 4000);
+    hidden.take(10_000);
+
+    expect(hidden.take(20_000)).toBe(0);
+  });
+
+  it("ne compte rien pour un onglet resté visible", () => {
+    expect(new HiddenTime(false, 0).take(10_000)).toBe(0);
+  });
+
+  it("compte un onglet encore caché jusqu'à la lecture, sans le recompter ensuite", () => {
+    const hidden = new HiddenTime(true, 0);
+
+    expect(hidden.take(10_000)).toBe(10_000);
+    expect(hidden.take(20_000)).toBe(10_000);
+    hidden.change(false, 25_000);
+    expect(hidden.take(30_000)).toBe(5000);
+  });
+
+  it("ne compte pas deux fois un état répété", () => {
+    const hidden = new HiddenTime(false, 0);
+    hidden.change(true, 1000);
+    hidden.change(true, 5000);
+    hidden.change(false, 6000);
+    hidden.change(false, 9000);
+
+    expect(hidden.take(10_000)).toBe(5000);
+  });
+
+  it("laisse un signalement lire sans voler la fenêtre du relevé suivant", () => {
+    const hidden = new HiddenTime(false, 0);
+    hidden.change(true, 0);
+    hidden.change(false, 2000);
+
+    expect(hidden.peek(3000)).toBe(2000);
+    expect(hidden.take(10_000)).toBe(2000);
   });
 });
 

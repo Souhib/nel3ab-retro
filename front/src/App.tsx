@@ -94,6 +94,7 @@ import {
   type Booting as Told,
 } from "./lib/room";
 import {
+  HiddenTime,
   Struggling,
   Trailing,
   TRAIL_EVERY,
@@ -632,10 +633,26 @@ function Room({
    * fois. La page voit la dégradation avant la personne qui la subit. */
   const rough = useRef(new Struggling());
   const [suggestHalf, setSuggestHalf] = useState(false);
-  const sample = () => {
+  /** Le temps que l'onglet a passé caché. Un onglet caché ne peint plus, et son
+   * relevé ressemble sinon à celui d'une vidéo cassée. */
+  const hidden = useRef(new HiddenTime(document.visibilityState === "hidden", performance.now()));
+  useEffect(() => {
+    const changed = () =>
+      hidden.current.change(document.visibilityState === "hidden", performance.now());
+    document.addEventListener("visibilitychange", changed);
+    return () => document.removeEventListener("visibilitychange", changed);
+  }, []);
+  /** `take` remet le temps caché à zéro: vrai pour le relevé de dix secondes,
+   * faux pour un signalement, qui ne doit pas voler sa fenêtre au relevé. */
+  const sample = (take = false) => {
     const now = seen.current;
     if (!now) return null;
-    return vitals(now, previous.current, performance.now() - opened.current);
+    const at = performance.now();
+    const cachéeMs = take ? hidden.current.take(at) : hidden.current.peek(at);
+    return vitals(now, previous.current, at - opened.current, {
+      visible: document.visibilityState === "visible",
+      cachéeMs,
+    });
   };
   useEffect(() => {
     /* UN seul minuteur pour les deux cadences. La trace bat à la seconde, et un
@@ -650,7 +667,7 @@ function Room({
       ticks += 1;
       if (ticks < TICKS_PER_VITALS) return;
       ticks = 0;
-      const taken = sample();
+      const taken = sample(true);
       if (!taken) return;
       previous.current = now;
       opened.current = performance.now();

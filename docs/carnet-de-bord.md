@@ -15700,6 +15700,115 @@ défaut intermittent.
 **La leçon.** Une horloge réelle dans un faux est une dépendance cachée à la
 machine. « Vert ici » disait « vert sur une machine allumée depuis longtemps ».
 
+### Mario Tennis à quatre ralentit en cours de partie : l'allocateur de mémoire vidéo du noyau
+
+**Le symptôme.** Le 14 septembre 2026 vers minuit, quatre joueurs sur Mario Tennis
+Aces trouvent le jeu « extrêmement lent ». Les mesures que chaque page envoie au
+salon montrent 60 images par seconde pendant les dix premières minutes, puis des
+creux : autour de 50 vers 00:20, 39 à 44 entre 00:33 et 00:37. Les quatre pages
+voient la même cadence au même instant, donc la lenteur vient de la source et non
+du réseau d'un joueur.
+
+**Ce qui a été écarté, mesure par mesure.** Aucun bridage du conteneur (pas de
+quota, compteur cgroup à zéro). Lien PCIe du GPU à pleine largeur. Régulateur du
+processeur en `performance`. Mes propres essais de la soirée étaient finis une
+heure plus tôt. Le GPU tournait à 700 MHz sur 2765 : le pilote `amdgpu` choisit
+seul le profil d'énergie VIDEO dès qu'un encodeur vidéo tourne. Forcer le GPU au
+maximum, en alternant toutes les cinq secondes pour neutraliser la scène, ne
+donne que 42,1 images par seconde contre 40,2 : cinq pour cent, pas la cause.
+
+**Où part le temps.** Le fil de rendu de Ryujinx, `GUI.RenderLoop`, calcule à 93 %
+d'un cœur sans jamais attendre un cœur libre : c'est le goulot. `perf`, l'outil
+d'échantillonnage du noyau, y trouve 15 % du temps dans une seule fonction,
+`list_insert_sorted`, du module `drm_buddy`. C'est l'allocateur qui découpe la
+mémoire vidéo en blocs de tailles puissances de deux. On y arrive depuis
+`amdgpu_gem_create_ioctl` : le fil de rendu crée des objets GPU pendant qu'il
+dessine. Un relevé des créations en donne 600 à 1 000 par seconde, toutes de
+4 Kio. Chaque création range un bloc dans une liste triée, parcourue du début,
+donc le coût grandit avec le nombre de blocs libres.
+
+**L'expérience qui a tranché.** Le jeu a été relancé dans une sonde isolée, sur une
+copie de la sauvegarde, avec quatre manettes et le même match en écran partagé.
+Les menus ont été rejoués par un script pour arriver au même endroit. Trois
+essais :
+
+| essai | images/s | `list_insert_sorted` | blocs VRAM libres |
+|---|---|---|---|
+| premier passage, menus à la main | 51 | 16,3 % | 6 457 |
+| `RADV_PERFTEST=nosam` | 56 | 2,0 % | 2 898 |
+| témoin, sans l'option | 57 | 3,0 % | 3 240 |
+
+L'option `nosam` de RADV, le pilote Vulkan de Mesa, devait éloigner ces petits
+objets de la mémoire vidéo visible par le processeur. Elle ne change rien : le
+témoin sans elle fait aussi bien. Sans ce troisième essai, j'aurais attribué à
+`nosam` un gain qui venait de l'état de la mémoire. Les objets gardent d'ailleurs
+la même préférence de placement avec ou sans l'option. L'option est écartée, et
+le passage de variable ajouté à l'adaptateur de sonde est retiré.
+
+Ce qui varie avec la cadence, c'est le nombre de blocs libres, c'est-à-dire la
+fragmentation de la mémoire vidéo. Elle grandit pendant une partie : la salle
+tenait 11 273 objets GPU au bout de 45 minutes, la sonde 5 400 au bout de
+quelques minutes. D'où un jeu fluide au début et de plus en plus lent ensuite.
+
+**La correction existe, dans un noyau plus récent.** Le paquet du noyau 7.0.0-31,
+candidat officiel pour Ubuntu 24.04, a été téléchargé sans être installé. Son
+`drm_buddy` n'a plus `list_insert_sorted` et utilise un arbre rouge-noir, une
+structure où l'insertion coûte le logarithme du nombre de blocs au lieu de ce
+nombre. Le 6.8 actuel a encore la liste. Pour le 6.17, le module n'est pas dans
+le paquet examiné : non vérifié.
+
+**Les pièges de la soirée.** Le chemin d'un socket Unix est limité à 108 octets :
+une sonde lancée depuis un dossier profond échoue avec « path must be shorter
+than SUN_LEN ». Un `docker exec` n'écrit pas dans un socket réservé à
+l'utilisateur 1000 : il faut l'écrire depuis la machine. Et une page restée
+ouverte renvoie l'état de sa manette des centaines de fois par seconde, ce qui
+efface un appui unique envoyé à côté : l'appui doit être tenu.
+
+**Ce qui n'est pas prouvé.** Le nombre de blocs libres dans la salle pendant la
+partie n'a pas été relevé. Le lien entre fragmentation et cadence tient sur trois
+essais, pas sur une courbe. Et le gain du noyau 7.0 n'est pas mesuré.
+
+**Installé, pas encore mesuré.** Souhib a donné son accord, et le paquet
+`linux-generic-hwe-24.04` a installé le noyau 7.0.0-31 le 14 septembre 2026. GRUB
+le démarre en premier, le 6.8.0-139 reste disponible : son menu est caché, il
+s'ouvre en tenant Maj ou Échap au démarrage. Le banc de mesure a été rangé hors de
+`/tmp`, que le redémarrage vide, pour refaire le même match à l'identique. Les relevés
+bruts, les enregistrements `perf` et les captures sont rangés dans
+`~/.local/state/nel3ab/diagnostics/2026-09-14-lenteur-tennis/`, hors du dépôt.
+
+**Mesuré sur 7.0, le 14 septembre 2026 après le redémarrage.** Le même banc a
+tourné sur la même copie de sauvegarde, avec les mêmes menus rejoués et la même
+attente avant la mesure. Le match à quatre en écran partagé tient 59 images par
+seconde en médiane, de 57 à 61, sans trou de plus de 33 ms, stable sur une
+minute. Le témoin du 6.8 faisait 57 dans le même état. Toute la famille
+d'allocation de la mémoire vidéo (`drm_buddy`, TTM, `amdgpu_bo`) pèse 1,79 % du
+fil de rendu, contre 3 % pour `list_insert_sorted` seule sur le témoin du 6.8,
+et 16,3 % quand la mémoire était très fragmentée. Ryujinx crée toujours autant
+d'objets GPU, environ 1 100 par seconde, et son fil de rendu reste à 91 % : le
+noyau n'a retiré que le coût qui grandissait.
+
+Le gain immédiat est donc petit, deux images par seconde, parce que ce banc part
+d'une mémoire peu fragmentée. Ce que le 7.0 change, c'est que ce coût ne dépend
+plus de la fragmentation. À vide, son allocateur montre environ 360 000 petits
+blocs libres, parce qu'il sépare la mémoire déjà effacée du reste. Avec la liste
+du 6.8, ce serait catastrophique ; avec l'arbre, cela ne coûte presque rien. Les
+nombres de blocs des deux noyaux ne se comparent donc pas.
+
+Trois pièges de cette mesure. Un enregistrement `perf` fait sous 6.8 ne se relit
+plus sous 7.0 : `perf` résout les symboles du noyau avec celui qui tourne, et
+rend 0 % pour des fonctions qui prenaient 16 % ; les chiffres du 6.8 sont ceux
+relevés avant le redémarrage. Le pilote de fréquence du processeur a changé avec
+le noyau, d'`acpi-cpufreq` à `amd-pstate-epp`, en préférence `performance` ;
+pendant la mesure les cœurs tournaient à 3 850-3 910 MHz, contre 3 840 sous 6.8,
+ce qui ne suffit pas à expliquer l'écart mais reste une différence entre les
+deux essais. Et le 7.0 signale au démarrage que la sortie audio HDMI du GPU
+n'est pas opérationnelle ; les salles ne l'utilisent pas, leur son passe par
+PulseAudio dans les conteneurs.
+
+Ce qui reste à prouver : qu'une vraie soirée à quatre ne ralentit plus au bout
+de trois quarts d'heure. Le banc ne sait pas fragmenter la mémoire comme une
+soirée entière de parties.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une
@@ -16232,3 +16341,20 @@ web. Elles fixent notamment des seuils de contraste entre un texte et son fond.
 contraste d'au moins 4,5:1 pour du texte courant, 3:1 pour du gros texte et pour
 les éléments qui ne sont pas du texte. Un rapport se lit « 4,5 contre 1 » : plus
 il est grand, plus le texte se détache de son fond.
+
+**drm_buddy** : l'allocateur du noyau qui découpe la mémoire vidéo en blocs dont
+la taille est une puissance de deux. Sur le noyau 6.8, il range chaque bloc libre
+dans une liste triée qu'il parcourt depuis le début.
+
+**Fragmentation** : l'état d'une mémoire découpée en nombreux petits blocs libres
+séparés. Plus il y en a, plus chaque rangement dans une liste triée coûte cher.
+
+**perf** : l'outil du noyau Linux qui échantillonne où un programme passe son
+temps, fonction par fonction, noyau compris.
+
+**amd-pstate-epp** : le pilote de fréquence des processeurs AMD récents sur
+Linux. Il laisse le processeur choisir sa fréquence selon une préférence
+d'énergie, au lieu de lui imposer des paliers.
+
+**EPP** : *Energy Performance Preference*, la préférence d'énergie donnée à ce
+pilote : `performance` privilégie la vitesse, `power` l'économie.

@@ -448,6 +448,9 @@ async def test_what_the_browser_measures_is_written_but_never_believed(
     # L'identité reste celle du proxy, et la tentative est visible sans être crue.
     assert measured["login"] == "kitaru@example.com"
     assert measured["vu"]["login"] == "quelqu-un-d-autre"
+    # Le numéro de la salle, pour la boîte noire: c'est lui qui dit quel émulateur
+    # profiler quand la cadence de ces pages chute et que plusieurs salles tournent.
+    assert measured["salle"]["numéro"] == 1
 
 
 async def test_a_measurement_too_big_to_be_one_is_dropped(

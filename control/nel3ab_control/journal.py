@@ -57,11 +57,11 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 #: Combien de jours on garde.
 #:
-#: Deux. Le besoin est « quelqu'un se plaint, je regarde le lendemain au plus
-#: tard », dit tel quel le 17 août 2026. Sept jours ne servaient qu'à garder ce
-#: que personne ne relirait, et un journal qu'on ne relit pas est un fichier qui
-#: grossit.
-KEEPS_DAYS = 2
+#: Sept. Deux jours jusqu'au 14 septembre 2026, parce que le besoin était « quelqu'un
+#: se plaint, je regarde le lendemain au plus tard » (17 août 2026). La boîte noire
+#: garde maintenant une semaine de relevés de la machine, et une mesure de page
+#: disparue ne se recolle plus au relevé du même instant: les deux durent pareil.
+KEEPS_DAYS = 7
 
 #: Le seul enregistreur de ce service, et il ne sert qu'à une chose: dire que la
 #: trace est perdue. Un journal muet qui se croit complet est pire que pas de

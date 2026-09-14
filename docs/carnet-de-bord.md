@@ -15809,6 +15809,108 @@ Ce qui reste à prouver : qu'une vraie soirée à quatre ne ralentit plus au bou
 de trois quarts d'heure. Le banc ne sait pas fragmenter la mémoire comme une
 soirée entière de parties.
 
+### Une boîte noire pour les parties, et les lectures qui arrêtaient l'image
+
+**Pourquoi.** Retrouver la cause du ralentissement de Mario Tennis a pris une nuit
+de sondes, et le banc ne savait pas refaire la mémoire vidéo fragmentée d'une vraie
+soirée. Souhib a demandé le 14 septembre 2026 un moyen d'avoir les données sans
+refaire la soirée, et a proposé une base de séries temporelles. Sa réponse à la
+question posée : une boîte noire, gardée une semaine, qui stocke tout ce qui
+pourrait servir, sans jamais gêner une partie.
+
+**Ce qui a été choisi, et ce qui a été écarté.** Une base comme Prometheus, avec
+Grafana pour les courbes, ajoute deux services à faire tourner et à protéger. Elle
+stocke des compteurs choisis d'avance. Or la réponse du 13 septembre tenait dans
+une fonction du noyau, `list_insert_sorted`, qu'aucun compteur préparé n'aurait
+contenue. La boîte noire écrit donc des fichiers JSONL, un par jour, à côté du
+journal des sessions du salon, et `just boite-noire` les relit par tranches de
+dix secondes. L'ADR la décrit en D21.
+
+**Ce qu'elle garde.** Toutes les deux secondes pendant une partie, et toutes les
+soixante au repos : temps et fréquence de chaque cœur, pression sur le processeur,
+la mémoire et le disque, températures, charge et horloge du GPU, les fils de
+l'émulateur avec leur part de processeur et leurs attentes, ses objets GPU, les
+débits disque et réseau, et ce que la boîte noire a coûté elle-même. Elle lit aussi
+le journal du salon, où chaque page écrit sa cadence toutes les dix secondes. Quand
+la médiane d'une salle reste sous 50 images par seconde pendant trente secondes,
+elle capture : dix secondes de profil `perf` des fils les plus occupés, résumé en
+texte tout de suite, le nombre d'objets GPU créés, le journal du worker, les
+mesures des pages et une image de l'écran pour une salle Switch. Elle capture
+aussi toutes les dix minutes de partie, pour avoir un profil normal à comparer.
+
+**Ce qu'elle coûte.** Le service tourne en ordonnancement `idle`, qui ne lui donne
+un cœur que si personne d'autre n'en veut. Il est plafonné à la moitié d'un cœur
+et à 512 Mio. Mesuré : 0,1 % d'un cœur au repos, 0,5 à 1 % en partie. Un relevé
+prend 16 à 18 ms de ce processus à part, et pas du temps de jeu. Il pèse environ
+4,2 ko, soit 7,5 Mo par heure de partie. Avec les captures, j'estime une soirée
+de quatre heures à 100-220 Mo et la semaine à 0,7-1,5 Go. L'écran d'une chute pèse
+à lui seul 1,8 Mo en PNG, au plus une fois toutes les cinq minutes par salle.
+
+**Le premier banc l'a prise en faute.** Je ne voulais pas croire le « ne gêne pas »
+sur parole. Le même match à quatre a tourné une minute par phase, en comptant les
+écarts entre images reçues par une page :
+
+| phase | trous de plus de 33 ms | pire écart |
+|---|---|---|
+| service arrêté | 0 | 24,2 ms |
+| réglages de départ | 2 | 105,3 ms |
+| allocateur lu toutes les 2 s | 48 | 97,3 ms |
+| chute simulée | 2 | 100,7 ms |
+| service arrêté, de nouveau | 0 | 24,7 ms |
+
+Chaque trou tombait sur une lecture des fichiers `amdgpu_vram_mm` ou
+`amdgpu_gem_info` du debugfs. Lire ces fichiers exécute du code du pilote, qui
+prend un verrou dont le fil de rendu a besoin : l'image s'arrête une centaine de
+millisecondes. Les relevés de deux secondes, `perf record`, `perf stat` et le
+résumé du profil n'ont fait aucun trou. La leçon générale : la priorité `idle`
+protège le temps de processeur des autres, pas les verrous du noyau.
+
+**Ce qui a changé.** L'allocateur ne se lit plus qu'en l'absence de partie, et une
+capture ne copie plus rien du debugfs, sauf si le réglage
+`NEL3AB_BOITE_NOIRE_DEBUGFS_EN_PARTIE` le demande pour une enquête qui accepte ces
+trous. Le banc a montré trois autres défauts. Une capture périodique partait au
+démarrage même du service, et une chute arrivée pendant cette capture a été sautée
+au lieu d'être prise : une chute attend maintenant jusqu'à soixante secondes, et une
+capture périodique seule se saute. L'écran en JPEG rendait le code 1 dans les quatre
+captures ; il passe en PNG, et seulement pour une chute. Le profil ne nommait pas
+les fonctions du noyau, parce que `kptr_restrict = 1` cache leurs adresses : le
+service reçoit la capacité `CAP_SYSLOG`.
+
+**Le second banc.** Mêmes réglages de départ, avec une capture périodique toutes
+les vingt secondes pour être sûr d'en avoir dans la minute mesurée :
+
+| phase | images/s | trous de plus de 33 ms | pire écart |
+|---|---|---|---|
+| service arrêté | 57 | 0 | 22,6 ms |
+| trois captures périodiques | 57 | 0 | 25,2 ms |
+| chute réelle, écran compris | 57 | 0 | 24,1 ms |
+| service arrêté, de nouveau | 57 | 0 | 25,1 ms |
+
+La capture de la chute contient l'écran du match et un profil où `drm_buddy`
+apparaît par son nom, `__force_merge` à 1,77 %. Aucun avertissement de `perf`.
+
+**Les pièges.** Trois essais de la boîte noire passaient sur des formats que j'avais
+imaginés, et ont échoué sur les vrais fichiers de la machine. La carte donne son
+niveau actif sous la forme `S: 0Mhz *`, que l'expression ne lisait pas. Le capteur
+de puissance s'appelle `power1_average` et donnait une clé `power1_average_w`. Et
+le suivi du journal du salon ratait un fichier remplacé par un fichier plus long,
+parce qu'il ne regardait que la taille ; il compare maintenant l'inode, et l'essai
+redevient rouge quand on retire cette comparaison. Les échantillons de la machine
+sont désormais rangés dans `control/tests/boite_noire/echantillons/`.
+Un profilage du service a trouvé 59 % de son temps passé à relire le nom des 380
+processus de la machine à chaque relevé ; il garde maintenant le rôle de chaque
+processus et ne relit les noms que toutes les trente secondes. Enfin, mon premier
+script d'analyse du banc cherchait les relevés à l'heure UTC alors qu'ils sont
+écrits à l'heure de Paris : il affichait « relevés 0 », ce qui ressemblait à un
+service arrêté. Un zéro dans une analyse se vérifie avant d'être cru.
+
+**Ce qui n'est pas prouvé.** Le banc dure une minute par phase, sur un seul jeu
+Switch : Dolphin n'a pas été mesuré, ni une soirée entière. Arrêter ou redémarrer
+le service pendant une capture la laisse incomplète, avec les codes -15 et -13
+dans `capture.json` : le banc l'a fait en changeant de phase. Les données des
+joueurs côté page (aller-retour d'une entrée, file du décodeur, modèle de manette)
+ne sont pas encore relevées.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une
@@ -16358,3 +16460,34 @@ d'énergie, au lieu de lui imposer des paliers.
 
 **EPP** : *Energy Performance Preference*, la préférence d'énergie donnée à ce
 pilote : `performance` privilégie la vitesse, `power` l'économie.
+
+**Boîte noire** : ici, le service qui relève la machine pendant chaque partie et
+garde sept jours de relevés, pour qu'une plainte trouve ses données déjà écrites.
+
+**debugfs** : un système de fichiers du noyau réservé au diagnostic, monté sous
+`/sys/kernel/debug`. Ses fichiers ne sont pas des données stockées : les lire
+exécute du code du pilote, qui peut prendre ses verrous.
+
+**Verrou** : ce qu'un morceau de code prend pour être seul à modifier une
+structure. Un autre qui en a besoin attend qu'il soit rendu.
+
+**JSONL** : *JSON Lines*, un fichier texte dont chaque ligne est un objet JSON
+complet. Une ligne cassée n'empêche pas de lire les autres.
+
+**Base de séries temporelles** : une base de données faite pour des mesures
+datées, comme Prometheus, souvent affichée par Grafana. Écartée ici au profit de
+fichiers JSONL.
+
+**Capacité Linux** : un morceau des droits de root donné seul à un programme, par
+exemple `CAP_PERFMON` pour profiler sans être root.
+
+**kptr_restrict** : le réglage du noyau qui cache les adresses de ses fonctions
+aux programmes ordinaires. Sans ces adresses, `perf` ne sait plus nommer les
+fonctions du noyau.
+
+**cgroup** : *control group*, le groupe de processus auquel le noyau applique des
+limites de processeur et de mémoire. Docker en crée un par conteneur, ce qui permet
+de retrouver le conteneur d'un processus.
+
+**grim** : un petit programme qui enregistre l'image d'un écran Wayland dans un
+fichier.

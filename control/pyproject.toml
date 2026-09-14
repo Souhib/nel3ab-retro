@@ -45,6 +45,8 @@ ignore = ["S104"]   # binding 0.0.0.0 is the deployment's decision, not this fil
 # qu'il fait. Un enregistreur y serait une couche entre la question et sa
 # réponse, et il n'a pas de service à qui rapporter.
 "sessions.py" = ["T201"]
+# `boite_noire.py` aussi: c'est la relecture de la boîte noire, un outil de terminal.
+"boite_noire.py" = ["T201"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

@@ -75,11 +75,12 @@ class Settings(BaseSettings):
         ),
     )
     journal_days: int = Field(
-        default=2,
+        default=7,
         description=(
-            "Combien de jours de séances on garde. Deux: le besoin est de "
-            "regarder au plus tard le lendemain d'une plainte, et un journal "
-            "qu'on ne relit pas est un fichier qui grossit."
+            "Combien de jours de séances on garde. Sept depuis le 14 septembre "
+            "2026, au lieu de deux: la boîte noire garde une semaine de relevés, "
+            "et une mesure de page qui a disparu ne se recolle plus au relevé de "
+            "la machine du même instant. Une soirée à quatre pèse environ 4 Mo."
         ),
     )
     journal_zone: str = Field(
@@ -88,6 +89,67 @@ class Settings(BaseSettings):
             "Sur quelle horloge le journal écrit ses heures. Celle des joueurs "
             "et pas celle de la machine, qui tourne en UTC: une plainte parle "
             "de « 16 h 43 », et un journal qui répond 14:43 ne se relit pas."
+        ),
+    )
+    boite_noire_dir: Path = Field(
+        default=Path.home() / ".local/state/nel3ab/boite-noire",
+        description=(
+            "Où la boîte noire range ses relevés (un JSONL par jour) et ses captures "
+            "(un dossier daté par capture). Hors du dépôt et hors de /tmp, pour la "
+            "même raison que le journal des séances."
+        ),
+    )
+    boite_noire_jours: int = Field(
+        default=7,
+        description=(
+            "Combien de jours de relevés et de captures on garde. Une semaine, fixée "
+            "par Souhib le 14 septembre 2026: il revient le soir même ou le lendemain."
+        ),
+    )
+    boite_noire_pas_partie_s: float = Field(
+        default=2.0,
+        description=(
+            "Le pas entre deux relevés pendant qu'un émulateur tourne. Un relevé "
+            "coûtait 15 ms de processeur le 14 septembre 2026, soit 0,75 % d'un cœur "
+            "à ce pas, à la priorité la plus basse."
+        ),
+    )
+    boite_noire_pas_repos_s: float = Field(
+        default=60.0,
+        description="Le pas entre deux relevés quand aucun émulateur ne tourne.",
+    )
+    boite_noire_allocateur_s: float = Field(
+        default=60.0,
+        description=(
+            "Tous les combien lire l'allocateur de la mémoire vidéo et les objets GPU. "
+            "Pas à chaque relevé: lire `amdgpu_vram_mm` prenait 35 ms dans le noyau."
+        ),
+    )
+    boite_noire_seuil_images: float = Field(
+        default=50.0,
+        description=(
+            "Sous quelle médiane d'images par seconde des pages une salle chute et "
+            "déclenche une capture. Mario Tennis tombait à 40 le 13 septembre 2026."
+        ),
+    )
+    boite_noire_capture_s: int = Field(
+        default=10,
+        description="Combien de secondes dure le profil d'une capture.",
+    )
+    boite_noire_periode_profil_s: float = Field(
+        default=600.0,
+        description=(
+            "Tous les combien de secondes de partie prendre une capture périodique, "
+            "celle qui dit à quoi ressemble une partie qui va BIEN."
+        ),
+    )
+    boite_noire_debugfs_en_partie: bool = Field(
+        default=False,
+        description=(
+            "Lire l'allocateur de la mémoire vidéo et les objets GPU pendant une partie, "
+            "relevés et captures compris. Non par défaut: mesuré le 14 septembre 2026 sur "
+            "Mario Tennis à quatre, chaque lecture de `amdgpu_vram_mm` et `amdgpu_gem_info` "
+            "coupait l'image une centaine de millisecondes. Hors partie, ils se lisent."
         ),
     )
     salles_dir: Path = Field(

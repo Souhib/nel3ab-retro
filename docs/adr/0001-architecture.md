@@ -617,6 +617,59 @@ in 36 seconds. A killed worker's paused orphan was reclaimed in a single restart
 `just resilience-test <rom>` repeats these scenarios without stopping the live
 room. These observations do not prove recovery from a wedged kernel or GPU.
 
+### D21: A black box records every game, and never touches one, 2026-09-14
+
+On 2026-09-13 Mario Tennis fell from 60 to 40 frames per second after 45 minutes
+of play. Finding the cause took a night of probes, and a rerun of the evening
+could not reproduce the fragmented video memory that caused it. The data had to
+exist before the complaint.
+
+`nel3ab-boite-noire.service` samples the machine every two seconds while an
+emulator runs, and every sixty at rest. A sample holds CPU time and frequency per
+core, pressure stall figures, sensors, GPU load and clock, the emulator's
+threads, their CPU share and wait counts, its GPU objects, disk and network
+rates, and the service's own cost. It is written as one JSON line, one file per
+day, next to the salon's session journal. It also follows that journal: when
+the median page cadence of a room stays under 50 frames per second for thirty
+seconds, it captures. It also captures every ten minutes of play, so a slow
+capture can be compared with a normal one. A capture is a ten-second `perf`
+profile of the busiest emulator threads, summarised to text at once, the count
+of GPU object creations, the worker journal, the page measures, and for a slow
+Switch room a screenshot. Seven days are kept, like the session journal.
+
+Rejected: a time-series database with a dashboard, such as Prometheus and
+Grafana. It would add two services to run and secure, and store counters that
+are only read after a complaint. The questions asked after a complaint were not
+known in advance. On 2026-09-13 the answer lay in one kernel function, which no
+prepared metric would have contained. Plain files read by `just boite-noire`,
+and by an agent, answer those questions without a query language.
+
+The service runs as the user with three capabilities, not as root:
+DAC_READ_SEARCH, PERFMON and SYSLOG. SYSLOG is needed because
+`kptr_restrict = 1` otherwise hides kernel symbols from the profile. It is
+scheduled `idle` for CPU and I/O, capped at 50% of a core and 512 MiB. Measured
+on 2026-09-14: 0.1% of a core at rest and 0.5 to 1% in play. A sample takes 16
+to 18 ms of that idle process, 4.2 kB every two seconds, about 7.5 MB per hour of
+play. With captures, a four-hour evening is estimated at 100 to 220 MB, and a
+week at 0.7 to 1.5 GB.
+
+The idle scheduling did not make it harmless. An impact bench on a real
+four-player match found that each read of the `amdgpu` debugfs files
+`amdgpu_vram_mm` and `amdgpu_gem_info` stops the game's picture for about 100 ms.
+The reads take a kernel lock that the render thread needs. Reading the allocator
+every two seconds made 48 gaps over 33 ms in one minute, against none with the
+service stopped. Sampling, `perf record`, `perf stat` and the profile summary
+made none. So the allocator is read only when no emulator runs, and captures
+copy nothing from debugfs, unless `NEL3AB_BOITE_NOIRE_DEBUGFS_EN_PARTIE` is set
+for an investigation that accepts the gaps.
+
+Verified on 2026-09-14 on the same match with these defaults: 57 frames per
+second and no gap over 33 ms in every one-minute phase, with the service stopped,
+with a periodic capture every twenty seconds, and during a real slowdown capture
+with its screenshot. The largest interval was 25.2 ms, against 22.6 ms with the
+service stopped. The bench does not prove the absence of subtler effects on a
+longer evening, or on Dolphin, which was not measured.
+
 
 ## Consequences
 

@@ -1,0 +1,61 @@
+# La boîte noire des parties: relevés de la machine et captures quand ça ralentit.
+#
+#   sudo cp deploy/nel3ab-boite-noire.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now nel3ab-boite-noire
+#   journalctl -u nel3ab-boite-noire -f
+#   just boite-noire                       relire la soirée
+#
+# Pourquoi elle existe: le 13 septembre 2026, Mario Tennis à quatre est passé de
+# 60 à 40 images par seconde, et il a fallu une nuit de sondes pour reconstruire
+# ce qu'un relevé aurait montré. Voir `control/nel3ab_control/boite_noire/`.
+
+[Unit]
+Description=nel3ab boîte noire (relevés de la machine pendant les parties)
+After=nel3ab-control.service
+
+[Service]
+User=souhib
+WorkingDirectory=/home/souhib/nel3ab-retro/control
+# L'interpréteur du projet, directement: `uv run` vérifierait l'environnement à
+# chaque démarrage et prendrait un verrou que la porte de qualité prend aussi.
+ExecStart=/home/souhib/nel3ab-retro/control/.venv/bin/python -m nel3ab_control.boite_noire
+Environment=HOME=/home/souhib
+
+# Trois capacités, et pas root. Vérifié le 14 septembre 2026 avec `setpriv` sur
+# cette machine, en tant que souhib:
+# - CAP_DAC_READ_SEARCH lit `/sys/kernel/debug/dri/0/amdgpu_vram_mm` (dossier
+#   0700 root) et `config.v2.json` des conteneurs (fichier 0600 root);
+# - CAP_PERFMON lance `perf record` et le point de trace `amdgpu_bo_create`, que
+#   `kernel.perf_event_paranoid = 4` refuse sinon;
+# - CAP_SYSLOG laisse lire les adresses de `/proc/kallsyms`, que
+#   `kernel.kptr_restrict = 1` met à zéro sinon. Sans elle, le premier banc a écrit
+#   « kernel samples can't be resolved »: le profil ne savait plus nommer
+#   `drm_buddy`, qui est justement ce qu'on cherchait le 13 septembre.
+# Sans elles, la boîte noire tourne encore, mais sans allocateur ni profil.
+AmbientCapabilities=CAP_DAC_READ_SEARCH CAP_PERFMON CAP_SYSLOG
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH CAP_PERFMON CAP_SYSLOG
+NoNewPrivileges=yes
+
+# Ne jamais prendre de temps à une partie. `idle` ne donne un cœur que quand
+# personne d'autre n'en veut; le plafond borne quand même un défaut de boucle.
+# Le coût réel se lit dans chaque relevé, champ `boite_noire`.
+CPUSchedulingPolicy=idle
+Nice=19
+IOSchedulingClass=idle
+CPUQuota=50%
+MemoryMax=512M
+
+# Elle lit la machine et n'écrit que chez elle.
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/souhib/.local/state/nel3ab/boite-noire
+PrivateTmp=yes
+
+# Un arrêt demandé n'est pas une panne (voir nel3ab-control.service).
+SuccessExitStatus=143 SIGTERM
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -250,6 +250,7 @@ Markdown alone does not update the site.
 | `just gpu-test` | the tests only this machine can run (no GPU on CI) |
 | `just front-build` | rebuilds the page into the worker's source tree, and stamps it |
 | `just browser-watch` | what the page renders over a minute, without restarting anything |
+| `just boite-noire` | reads the black box: machine and page cadence per ten seconds, then the day's captures |
 | `just end-to-end` | the whole chain against a real Dolphin and ROM |
 | `just fix` | auto-format, auto-fix lints |
 | `just audit` | advisories + licences (blocking) |

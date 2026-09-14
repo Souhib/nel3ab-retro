@@ -1,0 +1,6 @@
+processor	: 0
+cpu MHz		: 4102.978
+processor	: 1
+cpu MHz		: 3278.959
+processor	: 2
+cpu MHz		: 1723.944

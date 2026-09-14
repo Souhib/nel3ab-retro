@@ -401,6 +401,15 @@ readouts-check:
 sessions *args:
     cd control && uv run python sessions.py {{args}}
 
+# Relire la boîte noire: la machine et les pages sur la même tranche de dix
+# secondes, puis les captures prises quand la cadence chutait.
+#
+#   just boite-noire                          aujourd'hui
+#   just boite-noire 2026-09-14               ce jour-là
+#   just boite-noire 2026-09-14 00:15-00:40   seulement cette plage
+boite-noire *args:
+    cd control && uv run python boite_noire.py {{args}}
+
 # Shared code-quality checks. GPU, audio clip, Switch adapter, docs and dependency
 # checks have separate recipes; this one is called by CI's quality job.
 # L'ordre compte, et il a coûté trois commits rouges.

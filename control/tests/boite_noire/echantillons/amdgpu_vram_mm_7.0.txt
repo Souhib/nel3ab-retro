@@ -1,0 +1,29 @@
+  use_type: 1
+  use_tt: 0
+  size: 8573157376
+  usage: 16523264
+  vis usage:16523264
+default_page_size: 4KiB
+chunk_size: 4KiB, total: 8176MiB, free: 8160MiB, clear_free: 895MiB
+order-20 free:        0 KiB, blocks: 0
+order-19 free:        0 KiB, blocks: 0
+order-18 free:        0 KiB, blocks: 0
+order-17 free:        0 KiB, blocks: 0
+order-16 free:        0 KiB, blocks: 0
+order-15 free:        0 KiB, blocks: 0
+order-14 free:        0 KiB, blocks: 0
+order-13 free:       64 MiB, blocks: 2
+order-12 free:       64 MiB, blocks: 4
+order-11 free:       80 MiB, blocks: 10
+order-10 free:      100 MiB, blocks: 25
+order- 9 free:       74 MiB, blocks: 37
+order- 8 free:       62 MiB, blocks: 62
+order- 7 free:       48 MiB, blocks: 97
+order- 6 free:       34 MiB, blocks: 137
+order- 5 free:       27 MiB, blocks: 219
+order- 4 free:     3820 MiB, blocks: 61131
+order- 3 free:     1894 MiB, blocks: 60616
+order- 2 free:      958 MiB, blocks: 61328
+order- 1 free:      467 MiB, blocks: 59847
+order- 0 free:      465 MiB, blocks: 119136
+reserved:

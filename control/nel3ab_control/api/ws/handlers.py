@@ -537,8 +537,15 @@ async def mesures(sid: str, data: dict[str, Any]) -> None:
     if kept is None:
         return
     session = await sio.get_session(sid)
-    rooms, people, journal, _salle = await _pour(sid)
-    journal.write("mesures", **_who(sid, session), vu=kept, salle=_room_now(rooms, people))
+    rooms, people, journal, salle = await _pour(sid)
+    # Le numéro de la salle, pour la boîte noire: c'est lui qui dit quel émulateur
+    # profiler quand la cadence de ces pages chute et que plusieurs salles tournent.
+    journal.write(
+        "mesures",
+        **_who(sid, session),
+        vu=kept,
+        salle={**_room_now(rooms, people), "numéro": salle},
+    )
 
 
 @sio.event

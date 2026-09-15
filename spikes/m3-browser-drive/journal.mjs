@@ -27,6 +27,8 @@ import { enterRoom, openRoom, seatOf, ROOM_URL } from "./open.mjs";
 const url = process.argv[2] ?? ROOM_URL;
 const FOLDER = join(homedir(), ".local/state/nel3ab/sessions");
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+/** Combien de temps l'onglet reste derrière une autre page, en millisecondes. */
+const HIDDEN_MS = 6000;
 let bad = 0;
 const check = (ok, what) => {
   console.log(`  ${ok ? "ok  " : "RATÉ"}   ${what}`);
@@ -72,6 +74,23 @@ await page.click("#mode-normal");
 await wait(400);
 // Plus long qu'une fenêtre de relevé, sinon il n'y en a aucun à vérifier. Un
 // pilote qui regarde trop tôt trouve un journal correct et une moitié vide.
+await wait(12_000);
+// ── L'onglet caché, comme une personne le cache: une seconde page passe devant.
+// C'est le câblage que les essais unitaires ne voient pas: l'écoute de
+// `visibilitychange` dans la page, et le relevé qui remet le temps caché à zéro.
+const other = await browser.newPage();
+await other.goto("about:blank");
+await other.bringToFront();
+await wait(1000);
+const hiddenNow = await page.evaluate(() => document.hidden);
+const hiddenAt = Date.now();
+await wait(HIDDEN_MS);
+await page.bringToFront();
+const hiddenFor = Date.now() - hiddenAt + 1000;
+await wait(500);
+const shownAgain = await page.evaluate(() => !document.hidden);
+await other.close();
+// Plus d'une fenêtre encore, pour que celle qui contient le retour soit écrite.
 await wait(12_000);
 await page.click("#complain");
 await wait(1000);
@@ -127,6 +146,58 @@ check(
   measured.every((line) => Math.abs(line.vu?.horaire ?? 9e9) < 1000),
   `le retard ajouté est un retard (${measured[0]?.vu?.horaire} ms)`,
 );
+
+// ── Ce que chaque relevé ajoute depuis le 14 septembre 2026.
+check(
+  measured.length > 0 &&
+    measured.every(
+      (line) =>
+        Array.isArray(line.vu?.arrivées) &&
+        line.vu.arrivées.length === 3 &&
+        line.vu.arrivées[0] > 0 &&
+        line.vu.arrivées[2] >= line.vu.arrivées[0],
+    ),
+  `chaque relevé dit l'écart entre images reçues (${JSON.stringify(measured[0]?.vu?.arrivées)} ms)`,
+);
+check(
+  measured.length > 0 &&
+    measured.every(
+      (line) =>
+        line.vu?.manette &&
+        (line.vu.manette.allerRetour === null || typeof line.vu.manette.allerRetour === "number") &&
+        "modèle" in line.vu.manette,
+    ),
+  `et l'aller-retour et le nom de la manette, nuls sans mesure ni manette (${measured
+    .map((line) => line.vu?.manette?.allerRetour)
+    .join(", ")} ms; « ${measured[0]?.vu?.manette?.modèle} »)`,
+);
+check(hiddenNow, "la seconde page cache bien la salle (précondition)");
+check(shownAgain, "et la salle redevient visible au retour (précondition)");
+const hiddenWritten = measured.reduce((sum, line) => sum + (line.vu?.page?.cachéeMs ?? 0), 0);
+check(
+  measured.every((line) => typeof line.vu?.page?.visible === "boolean"),
+  "chaque relevé dit si l'onglet était visible",
+);
+check(
+  measured[0]?.vu?.page?.cachéeMs === 0,
+  `le relevé d'AVANT la seconde page ne compte aucun temps caché (${measured[0]?.vu?.page?.cachéeMs} ms)`,
+);
+check(
+  Math.abs(hiddenWritten - hiddenFor) < 1500,
+  `les relevés comptent le temps caché une fois, ni plus ni moins (${hiddenWritten} ms écrits pour ${hiddenFor} ms)`,
+);
+const arrived = mine.find((line) => line.quoi === "arrivée");
+check(
+  /^\d+x\d+$/.test(arrived?.appareil?.écran ?? "") &&
+    arrived?.appareil?.cœurs > 0 &&
+    /Chrome/.test(arrived?.appareil?.navigateur ?? ""),
+  `l'arrivée dit l'appareil (${JSON.stringify(arrived?.appareil)})`,
+);
+check(
+  mine.filter((line) => "appareil" in line).length === 1,
+  "et lui seul le dit: ni les relevés ni le départ ne le répètent",
+);
+
 const complained = mine.filter((line) => line.quoi === "plainte");
 check(complained.length === 1, "le bouton pose exactement un repère");
 const fine = complained[0]?.vu?.fin;
@@ -142,7 +213,10 @@ check(
   (fine?.lignes ?? []).every((row) => row[0] <= 0 && row[0] >= -120),
   "chaque seconde est datée AVANT le signalement, et pas au-delà de deux minutes",
 );
-check(said?.includes("noté"), `le bouton dit qu'il a compris (« ${said} »)`);
+// « signalement enregistré » depuis le 9 septembre 2026 (`Sidebar.tsx`): le bouton
+// ne dit plus « noté » avant que le salon ait répondu. Ce pilote attendait encore
+// l'ancien mot et rougissait depuis, sans que personne ne l'ait relancé.
+check(said?.includes("enregistré"), `le bouton dit qu'il a compris (« ${said} »)`);
 // L'identité du proxy: c'est ce qui manquait le jour où on m'a demandé de
 // retrouver quelqu'un. Un `null` ici veut dire qu'on est passé à côté du proxy.
 check(

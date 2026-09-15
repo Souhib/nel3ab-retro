@@ -15965,11 +15965,24 @@ une seule, et le pire montre les deux.
 - un écart non arrondi ;
 - une arrivée sans son appareil, et un appareil sans borne.
 
-**Ce qui n'est pas prouvé.** Le câblage dans la page (l'écoute de
-`visibilitychange`, le relevé qui remet le temps caché à zéro et le signalement qui
-ne le fait pas) est vérifié par les types et à la lecture, pas dans un navigateur.
-La première vraie soirée dira si les lignes arrivent comme prévu. Les pages déjà
-ouvertes gardent l'ancienne version jusqu'à leur rechargement.
+**Vérifié dans un navigateur, le même jour.** `spikes/m3-browser-drive/journal.mjs`
+ouvre la salle par le vrai proxy, sur Melee lancé pour l'occasion, puis relit le
+journal du salon. Il vérifie maintenant les nouveaux champs. Une seconde page passe
+devant la salle pendant six secondes, comme une personne ouvre un autre onglet, et
+le pilote vérifie d'abord que la salle est bien cachée puis de nouveau visible.
+Résultat : 7 016 ms de temps caché écrits pour 7 004 ms mesurés par le pilote, 0 ms
+dans le relevé d'avant, l'écart reçu à [17, 17, 53] ms, l'aller-retour à 1 ms depuis
+la machine elle-même, et l'appareil sur la seule ligne d'arrivée. C'est Chrome sans
+écran, et pas le Chrome de quelqu'un : l'extension qui aurait piloté un vrai
+navigateur n'était pas connectée. Aucun défaut n'a été remis dans la page construite
+pour voir ce pilote rougir.
+
+**Un pilote rouge depuis cinq jours.** Le même pilote attendait que le bouton de
+signalement dise « noté ». Il dit « signalement enregistré » depuis le 9 septembre
+2026, et personne n'avait relancé le pilote depuis. L'attente est corrigée. Un
+pilote qu'aucune porte n'appelle vieillit en silence.
+
+Les pages déjà ouvertes gardent l'ancienne version jusqu'à leur rechargement.
 
 ## 12. Glossaire complet
 

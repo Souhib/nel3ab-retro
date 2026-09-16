@@ -175,7 +175,15 @@ def test_une_chute_des_pages_declenche_une_capture_de_sa_salle(tmp_path: Path) -
         (
             "chute",
             1,
-            {"salle": 1, "mediane": 40.0, "mesures": 3, "pages": 1, "jeu": "Mario Tennis Aces"},
+            {
+                "salle": 1,
+                "mediane": 40.0,
+                "mesures": 3,
+                "pages": 1,
+                "jeu": "Mario Tennis Aces",
+                "cause": "cadence",
+                "gel_ms": None,
+            },
         )
     ]
     assert "capture" in [ligne["quoi"] for ligne in _lignes(reglages)]

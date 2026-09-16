@@ -13,6 +13,17 @@ Une mesure seule ne suffit pas: une page qui recharge ou un onglet mis en arriè
 plan en envoient une mauvaise. Après une chute, la même salle se tait cinq
 minutes, sinon une soirée lente remplirait le disque de profils identiques.
 
+# La seconde règle: le GEL
+
+Le 16 septembre 2026, deux joueurs ont signalé des mini-freezes et la boîte noire
+n'a rien capturé. Leurs pages perdaient une seconde d'images toutes les deux
+minutes et demie, mais la MÉDIANE de la cadence restait à 60: un trou d'une
+seconde sur dix ne la déplace pas. La règle du dessus ne voit que ce qui dure.
+
+Une seule mesure suffit ici, parce qu'un trou d'une demi-seconde ne s'invente pas:
+la page mesure l'écart entre deux images REÇUES, et une page en arrière-plan
+continue d'en recevoir. La pause de cinq minutes borne le reste.
+
 Les pilotes d'essai (`banc`) et les pages sans jeu sont ignorés: le premier
 remplirait la boîte de ses propres essais, le second mesure un menu.
 """
@@ -28,13 +39,23 @@ from typing import Any
 
 @dataclass(frozen=True)
 class Chute:
-    """Une salle dont la cadence est restée sous le seuil."""
+    """Une salle qui va mal: cadence tombée, ou image gelée un instant.
+
+    Les deux voyagent dans le même objet parce que la suite est la même, une
+    capture. `cause` dit laquelle des deux règles a parlé, et c'est ce qu'on lit
+    dans le journal en ouvrant le dossier de la capture.
+    """
 
     salle: int | None
     mediane: float
     mesures: int
     pages: int
     jeu: str
+    cause: str = "cadence"
+    #: Le pire écart entre deux images reçues sur la fenêtre, en millisecondes.
+    #: Nul quand la cause est la cadence, ou quand aucune page ne le mesure (les
+    #: lignes d'avant le 14 septembre 2026 ne portent pas ce champ).
+    gel_ms: float | None = None
 
 
 @dataclass(frozen=True)
@@ -43,6 +64,8 @@ class _Mesure:
     visite: str
     cadence: float
     jeu: str
+    #: Le pire écart entre deux images reçues, tel que la page le rapporte.
+    gel_ms: float = 0.0
 
 
 class Declencheur:
@@ -54,8 +77,10 @@ class Declencheur:
         fenetre: timedelta = timedelta(seconds=30),
         pause: timedelta = timedelta(minutes=5),
         minimum: int = 3,
+        seuil_gel_ms: float = 500.0,
     ) -> None:
         self._seuil = seuil
+        self._seuil_gel = seuil_gel_ms
         self._fenetre = fenetre
         self._pause = pause
         self._minimum = minimum
@@ -81,8 +106,11 @@ class Declencheur:
         numero = salle.get("numéro")
         if isinstance(numero, bool) or not isinstance(numero, int):
             numero = None
+        arrivees = vu.get("arrivées")
+        pire = arrivees[2] if isinstance(arrivees, list) and len(arrivees) == 3 else None
+        gel = float(pire) if isinstance(pire, int | float) and not isinstance(pire, bool) else 0.0
         self._mesures.setdefault(numero, deque()).append(
-            _Mesure(quand, str(ligne.get("visite") or ""), float(cadence), str(salle["jeu"]))
+            _Mesure(quand, str(ligne.get("visite") or ""), float(cadence), str(salle["jeu"]), gel)
         )
 
     def evaluer(self, maintenant: datetime) -> list[Chute]:
@@ -92,10 +120,17 @@ class Declencheur:
         for numero, mesures in self._mesures.items():
             while mesures and mesures[0].quand < limite:
                 mesures.popleft()
-            if len(mesures) < self._minimum:
+            if not mesures:
                 continue
             valeur = median(mesure.cadence for mesure in mesures)
-            if valeur >= self._seuil:
+            pire = max(mesure.gel_ms for mesure in mesures)
+            # La cadence d'abord: quand les deux règles parlent, « le jeu tourne
+            # à 40 images par seconde » explique mieux qu'un trou isolé.
+            if len(mesures) >= self._minimum and valeur < self._seuil:
+                cause, gel = "cadence", None
+            elif pire >= self._seuil_gel:
+                cause, gel = "gel", pire
+            else:
                 continue
             derniere = self._derniere.get(numero)
             if derniere is not None and maintenant - derniere < self._pause:
@@ -108,6 +143,8 @@ class Declencheur:
                     mesures=len(mesures),
                     pages=len({mesure.visite for mesure in mesures}),
                     jeu=mesures[-1].jeu,
+                    cause=cause,
+                    gel_ms=gel,
                 )
             )
         return chutes

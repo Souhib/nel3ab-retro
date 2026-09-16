@@ -15984,6 +15984,110 @@ pilote qu'aucune porte n'appelle vieillit en silence.
 
 Les pages déjà ouvertes gardent l'ancienne version jusqu'à leur rechargement.
 
+### Des mini-freezes qu'aucune règle ne voyait
+
+**Le signalement.** Le 16 septembre 2026 à 21 h, Souhib et Tomy jouent à Mario
+Tennis et signalent des mini-freezes pendant la partie. C'est le premier
+signalement depuis que la boîte noire existe, et le premier auquel on répond sans
+rien redémarrer ni rejouer la soirée.
+
+**Ce que la boîte noire a répondu en trois minutes.** La cadence des pages reste à
+60 images par seconde, mais l'écart entre deux images REÇUES monte à 0,7 - 1,2 s
+toutes les deux minutes et demie. Les files des pages se vident (26 à 35 fois par
+fenêtre), aucune image n'est jetée, la gigue reste à 7-8 ms, la manette à 1-7 ms,
+et aucune socket ne se rouvre. Le worker lui-même ne compte que 470 à 550 images
+au lieu de 600 sur ces fenêtres, et sa capture d'écran reste à 2-7 ms d'âge. Les
+images n'existent donc pas: ce n'est ni le réseau, ni le navigateur, ni notre
+encodage. À 21:04, les deux joueurs ont le même trou à la même seconde, 1 168 et
+1 176 ms, ce qui écarte leurs liaisons.
+
+**Où le temps part.** Deux secondes avant chaque trou, les trois fils `ResLoad` de
+Ryujinx montent ensemble et le fil de rendu tombe; le flux sortant descend vers
+950 ko/s. Puis le fil de rendu bondit à 91 % et le flux monte à 3 300 - 4 500 ko/s:
+le jeu rattrape. Ryujinx écrit d'ailleurs « GPU processing thread is too slow »
+juste avant un autre trou, et son cache de shaders, 18,7 Mo, est encore écrit en
+pleine partie: le jeu compilait de nouveaux shaders pendant qu'ils jouaient. Cela
+s'atténuait d'ailleurs tout seul: 2 196 images perdues entre 20:40 et 20:50, 739
+entre 20:50 et 21:00, 585 ensuite.
+
+**Le défaut de la boîte noire, et il est plus intéressant que la panne.** Aucune
+capture n'a été déclenchée. Le déclencheur ne regarde que la MÉDIANE de la cadence
+sur trente secondes, et un trou d'une seconde sur dix ne déplace pas une médiane.
+La règle voyait ce qui dure et pas ce qui coupe. Une seconde règle a donc été
+ajoutée: un écart de plus de 500 ms entre deux images reçues déclenche une
+capture, à lui seul, sans attendre trois mesures. Les fenêtres saines de cette
+soirée tenaient sous 100 ms, ce qui laisse un facteur cinq; et la pause de cinq
+minutes par salle borne le disque comme pour l'autre règle. Quand les deux règles
+parlent, la cadence l'emporte, parce que « le jeu tourne à 40 images par seconde »
+explique mieux qu'un trou isolé.
+
+Ce que cet ajout doit à l'étape précédente: le champ `arrivées` n'existe dans les
+relevés des pages que depuis le 14 septembre 2026. Sans lui, ce signalement se
+serait encore terminé par « rejoue-moi une soirée ».
+
+**Le GPU bridé, et l'idée qui semblait évidente.** Pendant tout ce temps,
+`amdgpu` tient la carte à 700-785 MHz sur 2765 possibles, parce qu'il choisit seul
+le profil vidéo dès qu'un encodeur tourne (mesuré le 13 septembre 2026). Elle ne
+monte à 1340 MHz que pendant le rattrapage, donc trop tard. D'où l'idée de la
+débrider pendant les parties. Elle a été essayée le soir même, et l'entrée
+suivante raconte ce qu'elle a donné.
+
+### Le débridage du GPU fabriquait les gels
+
+**L'idée.** Le 16 septembre 2026 au soir, Souhib et alex rejouent exprès pour
+essayer. La carte tourne à 700-785 MHz sur 2765 pendant les parties: débrider
+devrait raccourcir les à-coups. Une unité systemd a été écrite pour le faire tant
+qu'une salle tourne.
+
+**Premier piège: `high` ne débride rien.** `power_dpm_force_performance_level=high`
+est bien appliqué, mais l'horloge reste à 755 MHz, la carte à 24 W et 55 °C. Le
+profil vidéo du pilote l'emporte. Le réglage qui force vraiment les horloges est
+`profile_peak`: l'horloge passe alors à 2765 MHz, la consommation à 99 W, le
+ventilateur à 1 450 tr/min. Une unité qui écrivait `high` aurait donc pu rester en
+place des mois en ne faisant rien, et personne ne l'aurait su.
+
+**Deuxième piège: je me suis pollué moi-même.** La première comparaison a été faite
+pendant que mon propre enregistreur `perf` tournait, et j'ai lancé un `perf report`
+en plein milieu. Les gels de cette fenêtre-là sont en partie les miens. Mesurer une
+machine en la chargeant n'est pas mesurer la machine.
+
+**Troisième piège: deux phases successives ne prouvent rien ici.** Le cache de
+shaders se remplit pendant la soirée, donc la seconde phase part avec un avantage.
+La mesure a donc été refaite en ALTERNANT, quatre phases de trois minutes.
+
+**Le résultat, et il est l'inverse de l'idée.**
+
+| phase | gels | pire écart | images jetées (alex) |
+|---|---|---|---|
+| débridé 1 | 5 | 1 174 ms | 94 |
+| auto 1 | 0 | 102 ms | 14 |
+| débridé 2 | 4 | 1 166 ms | 74 |
+| auto 2 | 0 | 106 ms | 21 |
+
+Neuf coupures d'image d'environ 1,17 s en débridé, zéro en automatique, deux fois
+de suite. L'alternance élimine la dérive de la soirée. Forcer les horloges au
+maximum coûte 100 W contre 24 ET fabrique des gels. L'unité est retirée du dépôt
+et de la machine le soir même, et la raison est écrite dans l'unité de la salle
+pour que personne ne la réinvente.
+
+**Ce qui n'est pas expliqué.** POURQUOI un GPU plus rapide gèle. L'hypothèse la
+plus simple est que forcer les horloges perturbe le moteur d'encodage vidéo, qui
+partage la carte avec le rendu, mais rien ne l'établit. Ce qui est établi est le
+lien, mesuré deux fois dans les deux sens.
+
+**Ce que la boîte noire a fait pendant ce temps, toute seule.** Trois captures de
+gel, déclenchées par la règle écrite une heure plus tôt: 1 422 ms, 723 ms et
+1 504 ms, chacune avec l'image de l'écran, le profil et le journal du worker. La
+règle de cadence n'en aurait vu aucune.
+
+**Et une chose qui n'est pas la machine.** Les deux joueurs ne vivent pas la même
+soirée. Sur dix minutes, Souhib, en local, ne jette aucune image; alex, par
+internet en IPv6 direct (23 à 56 ms de latence), en jette 4 689 et voit sa file se
+vider 1 906 fois. Sa page a monté son tampon à 15 images et s'ajoute 180 ms de
+retard pour lisser. Les gels, eux, les touchent tous les deux à la même seconde à
+10 ms près: c'est ce qui sépare un problème de machine d'un problème de liaison.
+Le format réduit est la piste pour alex, et elle n'a pas été essayée.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une

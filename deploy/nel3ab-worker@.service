@@ -44,6 +44,11 @@
 Description=nel3ab salle %i (un émulateur, deux formats vidéo)
 After=network-online.target docker.service
 Wants=network-online.target
+# Pas de débridage du GPU ici, et c'est une MESURE, pas un oubli. Le
+# 16 septembre 2026, quatre phases alternées de trois minutes sur une vraie
+# partie: neuf coupures d'image d'environ 1,17 s en `profile_peak`, zéro en
+# `auto`, deux fois de suite, pour 100 W contre 24. Voir le carnet,
+# « Le débridage du GPU fabriquait les gels ».
 
 [Service]
 User=souhib

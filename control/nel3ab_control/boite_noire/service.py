@@ -192,7 +192,10 @@ def main() -> None:  # pragma: no cover - la boucle réelle, prouvée par son un
         ),
         Journal(releves, reglages.boite_noire_jours, reglages.journal_zone),
         Suiveur(reglages.journal_dir, zone),
-        Declencheur(seuil=reglages.boite_noire_seuil_images),
+        Declencheur(
+            seuil=reglages.boite_noire_seuil_images,
+            seuil_gel_ms=reglages.boite_noire_seuil_gel_ms,
+        ),
         ThreadPoolExecutor(max_workers=1, thread_name_prefix="capture"),
     )
     arret = threading.Event()

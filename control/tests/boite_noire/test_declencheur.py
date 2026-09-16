@@ -23,6 +23,7 @@ def _mesure(
     salle: int | None = 1,
     jeu: str | None = "Mario Tennis Aces",
     banc: bool = False,
+    gel_ms: float | None = None,
 ) -> dict[str, Any]:
     etat: dict[str, Any] = {"jeu": jeu, "présents": 4, "places": {}}
     if salle is not None:
@@ -32,7 +33,7 @@ def _mesure(
         "quoi": "mesures",
         "visite": visite,
         "banc": banc,
-        "vu": {"jeuHz": cadence},
+        "vu": {"jeuHz": cadence, **({"arrivées": [16, 22, gel_ms]} if gel_ms is not None else {})},
         "salle": etat,
     }
 
@@ -129,6 +130,76 @@ def _ecrire(fichier: Path, texte: str | bytes) -> None:
     donnees = texte.encode("utf-8") if isinstance(texte, str) else texte
     with fichier.open("ab") as ouvert:
         ouvert.write(donnees)
+
+
+def test_une_seconde_sans_image_est_une_chute_meme_a_soixante_images_par_seconde() -> None:
+    """Le défaut du 16 septembre 2026: deux joueurs signalent des mini-freezes, la
+    médiane reste à 60, et rien n'est capturé. Un trou d'une seconde sur dix ne
+    déplace pas une médiane."""
+    declencheur = _declencheur(
+        _mesure(0, 60, gel_ms=26), _mesure(10, 60, gel_ms=1176), _mesure(20, 60, gel_ms=31)
+    )
+
+    assert declencheur.evaluer(DEBUT + timedelta(seconds=25)) == [
+        Chute(
+            salle=1,
+            mediane=60.0,
+            mesures=3,
+            pages=1,
+            jeu="Mario Tennis Aces",
+            cause="gel",
+            gel_ms=1176.0,
+        )
+    ]
+
+
+def test_un_ecart_ordinaire_entre_deux_images_n_est_pas_un_gel() -> None:
+    """Le jumeau. Les fenêtres saines du 16 septembre tenaient sous 100 ms; un seuil
+    qui rougirait devant 90 ms capturerait toute la soirée."""
+    declencheur = _declencheur(
+        _mesure(0, 60, gel_ms=90), _mesure(10, 60, gel_ms=122), _mesure(20, 60, gel_ms=499)
+    )
+
+    assert declencheur.evaluer(DEBUT + timedelta(seconds=25)) == []
+
+
+def test_un_gel_suffit_a_lui_seul_sans_attendre_trois_mesures() -> None:
+    """Une page qui vient d'arriver et qui gèle doit être capturée tout de suite: la
+    règle des trois mesures protège une MÉDIANE, pas un trou mesuré."""
+    declencheur = _declencheur(_mesure(0, 60, gel_ms=760))
+
+    (chute,) = declencheur.evaluer(DEBUT + timedelta(seconds=5))
+    assert (chute.cause, chute.gel_ms, chute.mesures) == ("gel", 760.0, 1)
+
+
+def test_une_cadence_tombee_l_emporte_sur_un_gel() -> None:
+    """Quand les deux règles parlent, « le jeu tourne à 40 » explique mieux qu'un trou."""
+    declencheur = _declencheur(
+        _mesure(0, 40, gel_ms=900), _mesure(10, 38, gel_ms=900), _mesure(20, 42, gel_ms=900)
+    )
+
+    (chute,) = declencheur.evaluer(DEBUT + timedelta(seconds=25))
+    assert (chute.cause, chute.gel_ms, chute.mediane) == ("cadence", None, 40.0)
+
+
+def test_un_gel_signale_fait_taire_la_salle_cinq_minutes_lui_aussi() -> None:
+    """Sinon une soirée qui gèle toutes les deux minutes remplit le disque."""
+    declencheur = _declencheur(_mesure(0, 60, gel_ms=800))
+    assert len(declencheur.evaluer(DEBUT + timedelta(seconds=5))) == 1
+
+    declencheur.lire(_mesure(60, 60, gel_ms=800))
+    assert declencheur.evaluer(DEBUT + timedelta(seconds=65)) == []
+
+    declencheur.lire(_mesure(400, 60, gel_ms=800))
+    assert len(declencheur.evaluer(DEBUT + timedelta(seconds=405))) == 1
+
+
+def test_une_page_d_avant_le_14_septembre_ne_gele_jamais() -> None:
+    """Le jumeau des lignes anciennes: sans le champ `arrivées`, il n'y a rien à lire,
+    et un zéro ne doit pas se lire comme un gel."""
+    declencheur = _declencheur(_mesure(0, 60), _mesure(10, 60), _mesure(20, 60))
+
+    assert declencheur.evaluer(DEBUT + timedelta(seconds=25)) == []
 
 
 def test_le_suiveur_part_de_la_fin_et_rend_seulement_les_ajouts(tmp_path: Path) -> None:

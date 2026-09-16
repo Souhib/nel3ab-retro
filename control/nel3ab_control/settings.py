@@ -132,6 +132,17 @@ class Settings(BaseSettings):
             "déclenche une capture. Mario Tennis tombait à 40 le 13 septembre 2026."
         ),
     )
+    boite_noire_seuil_gel_ms: float = Field(
+        default=500.0,
+        description=(
+            "À partir de quel écart entre deux images reçues, en millisecondes, une "
+            "salle est capturée. Le 16 septembre 2026, deux joueurs ont signalé des "
+            "mini-freezes que la règle de cadence n'a pas vus: leurs pages perdaient "
+            "0,7 à 1,2 s d'images toutes les deux minutes et demie, sans que la "
+            "médiane bouge de 60 images par seconde. Les fenêtres saines de cette "
+            "soirée-là tenaient sous 100 ms, ce qui laisse un facteur cinq."
+        ),
+    )
     boite_noire_capture_s: int = Field(
         default=10,
         description="Combien de secondes dure le profil d'une capture.",

@@ -7,7 +7,16 @@
  */
 import { describe, expect, it } from "vitest";
 import type { Snapshot } from "../media/session";
-import { HiddenTime, PAD_NAME_MAX, Struggling, Trailing, vitals, worthWriting } from "./vitals";
+import {
+  HiddenTime,
+  MUCH_ROUGHER_DROPS,
+  PAD_NAME_MAX,
+  QUIET_WINDOWS,
+  Struggling,
+  Trailing,
+  vitals,
+  worthWriting,
+} from "./vitals";
 
 /** Un instantané complet, dont chaque test ne change que ce qui l'intéresse. */
 function snap(video: Partial<Snapshot["video"]> = {}, rest: Partial<Snapshot> = {}): Snapshot {
@@ -412,5 +421,56 @@ describe("proposer le format réduit", () => {
     watching.settled();
     watching.saw(over({ skipped: 42 }));
     expect(watching.saw(over({ skipped: 56 }))).toBe(false);
+  });
+
+  it("revient à la charge quand la liaison s'effondre, longtemps après", () => {
+    // Le 16 septembre 2026: un joueur prend le réduit, revient au plein trois
+    // minutes plus tard, et sa liaison s'écroule quinze minutes durant (63 images
+    // jetées par fenêtre contre 4 avant) sans que la page ne dise plus rien.
+    const watching = new Struggling();
+    watching.settled();
+    let repropose = false;
+    for (let fenetre = 0; fenetre < QUIET_WINDOWS + 2; fenetre++) {
+      repropose = watching.saw(over({ skipped: MUCH_ROUGHER_DROPS }));
+    }
+
+    expect(repropose).toBe(true);
+  });
+
+  it("ne revient pas avant cinq minutes de silence", () => {
+    // Le jumeau du temps: une proposition refusée qui revient tout de suite est
+    // une proposition qu'on apprend à fermer sans la lire.
+    const watching = new Struggling();
+    watching.settled();
+    let repropose = false;
+    for (let fenetre = 0; fenetre < 4; fenetre++) {
+      repropose = watching.saw(over({ skipped: MUCH_ROUGHER_DROPS }));
+    }
+
+    expect(repropose).toBe(false);
+  });
+
+  it("ne revient pas pour une soirée seulement moyenne", () => {
+    // Le jumeau du seuil: dix fois le seuil ordinaire, sinon le retour se
+    // déclencherait sur ce que la personne vient justement d'accepter de vivre.
+    const watching = new Struggling();
+    watching.settled();
+    let repropose = false;
+    for (let fenetre = 0; fenetre < QUIET_WINDOWS + 5; fenetre++) {
+      repropose = watching.saw(over({ skipped: MUCH_ROUGHER_DROPS - 1 }));
+    }
+
+    expect(repropose).toBe(false);
+  });
+
+  it("ne dit rien à qui est déjà en réduit, même effondré", () => {
+    const watching = new Struggling();
+    watching.settled();
+    let repropose = false;
+    for (let fenetre = 0; fenetre < QUIET_WINDOWS + 5; fenetre++) {
+      repropose = watching.saw(over({ skipped: MUCH_ROUGHER_DROPS * 10, half: true }));
+    }
+
+    expect(repropose).toBe(false);
   });
 });

@@ -638,6 +638,53 @@ async def test_an_ordinary_page_carries_no_pad_only_mark(
     assert "manette" not in arrival
 
 
+async def test_the_page_says_when_it_offered_the_reduced_format(
+    served: tuple[str, RoomController], tmp_path: Path
+) -> None:
+    """Le format effectif est déjà dans chaque relevé; la PROPOSITION ne l'était pas.
+
+    Le 16 septembre 2026, un joueur a joué quinze minutes sur une liaison
+    effondrée, et rien ne disait si sa page lui avait proposé le format réduit.
+    """
+    url, _rooms = served
+
+    page = socketio.AsyncClient()
+    await page.connect(url, socketio_path="/socket.io", auth={"visite": "hhhh8888"})
+    await page.emit("qualite", {"quoi": "proposé"})
+    await asyncio.sleep(0.3)
+    await page.disconnect()
+    await asyncio.sleep(0.2)
+
+    written = sorted((tmp_path / "sessions").glob("*.jsonl"))[0]
+    lines = [json.loads(line) for line in written.read_text(encoding="utf-8").splitlines()]
+    (dite,) = [line for line in lines if line["quoi"] == "qualité"]
+
+    assert dite["choix"] == "proposé"
+    assert dite["visite"] == "hhhh8888"
+    # La ligne dit AUSSI à quoi ressemblait la salle: une proposition de format
+    # réduit ne se lit pas sans savoir quel jeu tournait.
+    assert dite["salle"]["jeu"] == "Super Smash Bros Melee"
+
+
+async def test_a_word_the_page_invented_is_not_written(
+    served: tuple[str, RoomController], tmp_path: Path
+) -> None:
+    """Le jumeau: une page ne choisit pas le texte du journal."""
+    url, _rooms = served
+
+    page = socketio.AsyncClient()
+    await page.connect(url, socketio_path="/socket.io", auth={"visite": "iiii9999"})
+    await page.emit("qualite", {"quoi": "tout casser"})
+    await asyncio.sleep(0.3)
+    await page.disconnect()
+    await asyncio.sleep(0.2)
+
+    written = sorted((tmp_path / "sessions").glob("*.jsonl"))[0]
+    lines = [json.loads(line) for line in written.read_text(encoding="utf-8").splitlines()]
+
+    assert [line for line in lines if line["quoi"] == "qualité"] == []
+
+
 async def test_an_arrival_says_which_device_the_page_runs_on(
     served: tuple[str, RoomController], tmp_path: Path
 ) -> None:

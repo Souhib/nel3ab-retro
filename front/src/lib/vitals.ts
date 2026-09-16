@@ -421,6 +421,26 @@ export const ROUGH_STARVES = 2;
  */
 export const ROUGH_IN_A_ROW = 2;
 
+/** À partir de quand on REVIENT à la charge après un refus.
+ *
+ * Le 16 septembre 2026, un joueur a pris le format réduit, est revenu au plein
+ * trois minutes plus tard, et sa liaison s'est effondrée pendant les quinze
+ * minutes suivantes: 63 images jetées par fenêtre de dix secondes, contre 4
+ * avant. La page ne lui a plus rien proposé, parce qu'elle ne propose qu'une
+ * fois par séance.
+ *
+ * Le seuil du retour est donc DIX fois celui de la première proposition, pour
+ * qu'il ne se déclenche jamais sur une soirée simplement moyenne.
+ */
+export const MUCH_ROUGHER_DROPS = ROUGH_DROPS * 10;
+
+/** Et le silence minimum entre deux propositions, en fenêtres de dix secondes.
+ *
+ * Trente, soit cinq minutes. Une proposition refusée qui revient trop vite est
+ * une proposition qu'on apprend à fermer sans lire.
+ */
+export const QUIET_WINDOWS = 30;
+
 /** Cette fenêtre s'est-elle mal passée ? */
 export function rough(sample: Vitals): boolean {
   return sample.jetées >= ROUGH_DROPS || sample.affamées >= ROUGH_STARVES;
@@ -448,17 +468,32 @@ export function rough(sample: Vitals): boolean {
 export class Struggling {
   private inARow = 0;
   private refused = false;
+  /** Fenêtres écoulées depuis qu'on a réglé la question. */
+  private since = 0;
 
   /** Le relevé d'une fenêtre. Rend vrai quand il faut proposer. */
   saw(sample: Vitals): boolean {
-    if (this.refused || sample.demi) return false;
+    if (sample.demi) return false;
+    if (this.refused) {
+      this.since += 1;
+      // Le retour: seulement quand c'est BEAUCOUP pire qu'au premier tour, et
+      // pas avant cinq minutes de silence.
+      const bien_pire = sample.jetées >= MUCH_ROUGHER_DROPS;
+      this.inARow = bien_pire ? this.inARow + 1 : 0;
+      if (this.since < QUIET_WINDOWS || this.inARow < ROUGH_IN_A_ROW) return false;
+      this.refused = false;
+      this.inARow = 0;
+      return true;
+    }
     this.inARow = rough(sample) ? this.inARow + 1 : 0;
     return this.inARow >= ROUGH_IN_A_ROW;
   }
 
-  /** La personne a dit non, ou a basculé. On n'en reparle plus. */
+  /** La personne a dit non, ou a basculé. On se tait, et on ne revient qu'en cas
+   * d'effondrement (`MUCH_ROUGHER_DROPS`) après `QUIET_WINDOWS` fenêtres. */
   settled(): void {
     this.refused = true;
     this.inARow = 0;
+    this.since = 0;
   }
 }

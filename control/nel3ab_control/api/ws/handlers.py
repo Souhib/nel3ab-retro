@@ -206,6 +206,14 @@ VITALS_EVERY = 5.0
 #: accepte. Un signalement pèse jusqu'à seize kilo-octets.
 COMPLAINT_EVERY = 20.0
 
+#: Ce qu'une page a le droit de dire sur la qualité, et à quel rythme.
+#:
+#: Trois mots et cinq secondes. La page ne propose le format réduit qu'après deux
+#: mauvaises fenêtres, soit vingt secondes au plus tôt; ce garde est là pour qu'une
+#: page modifiée ne puisse pas écrire une ligne par image.
+QUALITY_EVERY = 5.0
+QUALITY_WORDS = ("proposé", "accepté", "refusé")
+
 #: Le temps minimum entre deux messages de salle d'une même page, en secondes.
 #:
 #: Prendre une manette, la demander, répondre, changer de pseudo: tous des gestes
@@ -602,6 +610,28 @@ async def plainte(sid: str, data: dict[str, Any]) -> dict[str, Any]:
         "ok": journal.dropped == lost,
         "error": "Le journal n'a pas pu enregistrer le signalement.",
     }
+
+
+@sio.event
+@not_too_often(QUALITY_EVERY)
+async def qualite(sid: str, data: dict[str, Any]) -> None:
+    """« La page a proposé le format réduit », « on l'a pris », « on l'a refusé ».
+
+    Le format EFFECTIF est déjà dans chaque relevé (`demi`). Ce qui manquait est la
+    PROPOSITION: le 16 septembre 2026, un joueur a joué quinze minutes sur une
+    liaison effondrée, et rien ne disait si sa page lui avait proposé quoi que ce
+    soit. Sans cette ligne, on ne peut pas savoir si la fonction sert à quelqu'un.
+
+    Trois mots connus, et rien d'autre: une page ne choisit pas le texte du journal.
+    """
+    quoi = data.get("quoi") if isinstance(data, dict) else None
+    if quoi not in QUALITY_WORDS:
+        return
+    session = await sio.get_session(sid)
+    rooms, people, journal, _salle = await _pour(sid)
+    # `choix` et pas `quoi`: le journal prend déjà `quoi` comme nom d'événement, et
+    # deux valeurs pour le même paramètre ne passent pas.
+    journal.write("qualité", **_who(sid, session), choix=quoi, salle=_room_now(rooms, people))
 
 
 @sio.event

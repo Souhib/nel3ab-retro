@@ -414,6 +414,9 @@ function Room({
     /** Un signalement emporte en plus les deux dernières minutes à la seconde:
      * la question devant un « ça saccade » est toujours « et juste avant ? ». */
     complain: (sample: Vitals & { fin: Trail }) => Promise<void>;
+    /** La proposition de format réduit, et sa réponse. Sans elle, le journal ne
+     * dit pas si une mauvaise soirée a été proposée à quelqu'un. */
+    quality: (what: "proposé" | "accepté" | "refusé") => void;
   };
 }) {
   const coarse = useRef(looksLikeAPhone()).current;
@@ -672,7 +675,10 @@ function Room({
       previous.current = now;
       opened.current = performance.now();
       if (worthWriting(taken)) sending.current.vitals(taken);
-      if (rough.current.saw(taken)) setSuggestHalf(true);
+      if (rough.current.saw(taken)) {
+        setSuggestHalf(true);
+        sending.current.quality("proposé");
+      }
     }, TRAIL_EVERY);
     return () => window.clearInterval(timer);
   }, []);
@@ -1902,10 +1908,12 @@ function Room({
               setHalf(true);
               rough.current.settled();
               setSuggestHalf(false);
+              sending.current.quality("accepté");
             }}
             onKeepFull={() => {
               rough.current.settled();
               setSuggestHalf(false);
+              sending.current.quality("refusé");
             }}
             onFold={coarse ? () => setBare(true) : undefined}
             onComplain={async () => {

@@ -121,6 +121,13 @@ export type Lobby = {
    * heure approximative, et il faut la retrouver. Ce bouton pose un repère à
    * l'instant exact, avec ce que la page voyait à ce moment-là. */
   complain: (sample: Vitals & { fin: Trail }) => Promise<void>;
+  /** Ce que la page a PROPOSÉ, et ce que la personne en a fait.
+   *
+   * Le 16 septembre 2026, un joueur a joué quinze minutes sur une liaison
+   * effondrée sans que rien ne dise si la page lui avait proposé le format
+   * réduit, ni s'il avait refusé. Le relevé porte déjà `demi`, donc le format
+   * EFFECTIF est connu; ce qui manquait est la proposition elle-même. */
+  quality: (what: "proposé" | "accepté" | "refusé") => void;
 };
 
 /** Ce que le salon dit quand la salle change de jeu: des noms, déjà traduits. */
@@ -285,5 +292,7 @@ export function useLobby(
     complain: async (sample: Vitals & { fin: Trail }) => {
       await request("plainte", sample);
     },
+    quality: (what: "proposé" | "accepté" | "refusé") =>
+      socket.current?.emit("qualite", { quoi: what }),
   };
 }

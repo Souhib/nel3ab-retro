@@ -10,18 +10,21 @@ est sautée, puisque la suivante viendra.
 
 import logging
 import signal
+import subprocess  # lancer le perf roulant est le travail de ce module
 import threading
 import time
 from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import asdict
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Any, Protocol
 
 from nel3ab_control.boite_noire.capture import Capteur
 from nel3ab_control.boite_noire.conservation import balayer_captures
 from nel3ab_control.boite_noire.declencheur import Chute, Declencheur, Suiveur
 from nel3ab_control.boite_noire.releve import Racines, Releveur
+from nel3ab_control.boite_noire.roulant import Roulant
 from nel3ab_control.journal import Journal, _zone
 from nel3ab_control.settings import Settings
 
@@ -46,7 +49,12 @@ class _Soumission(Protocol):
 
 class _Capture(Protocol):
     def capturer(
-        self, raison: str, moteur: dict[str, Any], quand: datetime, details: dict[str, Any]
+        self,
+        raison: str,
+        moteur: dict[str, Any],
+        quand: datetime,
+        details: dict[str, Any],
+        avant: Any = None,
     ) -> Any: ...
 
 
@@ -64,6 +72,7 @@ class BoiteNoire:
         executeur: _Soumission,
         horloge: Callable[[], float] = time.monotonic,
         murale: Callable[[], datetime] | None = None,
+        roulant: Roulant | None = None,
     ) -> None:
         self._reglages = reglages
         self._releveur = releveur
@@ -72,6 +81,7 @@ class BoiteNoire:
         self._suiveur = suiveur
         self._declencheur = declencheur
         self._executeur = executeur
+        self._roulant = roulant
         self._horloge = horloge
         zone = _zone(reglages.journal_zone)
         self._murale = murale or (lambda: datetime.now(tz=zone))
@@ -105,6 +115,14 @@ class BoiteNoire:
         for lue in self._suiveur.nouvelles(maintenant):
             self._declencheur.lire(lue)
         moteurs = [moteur for moteur in ligne.get("moteurs") or [] if isinstance(moteur, dict)]
+        # Le `perf` roulant suit la partie en cours et s'arrête avec elle: une
+        # machine au repos n'a rien à profiler, et un `perf` oublié écrit un jour.
+        if self._roulant is not None:
+            premier = self._moteur_de(None, moteurs)
+            if premier is None:
+                self._roulant.arreter()
+            else:
+                self._roulant.suivre(premier)
         self._reprendre(maintenant)
         for chute in self._declencheur.evaluer(maintenant):
             self._demander("chute", self._moteur_de(chute.salle, moteurs), maintenant, chute)
@@ -164,13 +182,33 @@ class BoiteNoire:
             else:
                 self._journal.write("capture sautée", when=quand, raison=raison, chute=details)
             return False
+        # Le tampon ne part QU'avec une chute: une capture périodique décrit une
+        # machine qui va bien, et les secondes qui la précèdent aussi.
+        avant = self._roulant.vider if (chute is not None and self._roulant is not None) else None
         self._en_cours = self._executeur.submit(
-            self._capteur.capturer, raison, moteur, quand, details
+            self._capteur.capturer, raison, moteur, quand, details, avant
         )
         self._journal.write(
             "capture", when=quand, raison=raison, salle=moteur.get("salle"), chute=details
         )
         return True
+
+
+def _lancer_roulant(argv: list[str]) -> "subprocess.Popen[bytes]":
+    """Le `perf` roulant, détaché de la sortie du service.
+
+    Sa sortie va dans un FICHIER et pas au néant. Le 17 septembre 2026, ce `perf`
+    est mort à chaque démarrage et son silence a coûté une heure: un enregistreur
+    qu'on croit armé est pire que pas d'enregistreur.
+    """
+    trace = Path(argv[argv.index("-o") + 1]).with_name("roulant.log")
+    trace.parent.mkdir(parents=True, exist_ok=True)
+    # En AJOUT: en écrasement, le message du `perf` qui vient de mourir est effacé
+    # par celui qui le remplace, et le fichier est vide quand on vient le lire.
+    sortie = trace.open("a", encoding="utf-8")
+    return subprocess.Popen(  # noqa: S603 - programme fixe, arguments en tableau, pas de shell
+        argv, stdout=sortie, stderr=subprocess.STDOUT
+    )
 
 
 def main() -> None:  # pragma: no cover - la boucle réelle, prouvée par son unité en service
@@ -197,6 +235,9 @@ def main() -> None:  # pragma: no cover - la boucle réelle, prouvée par son un
             seuil_gel_ms=reglages.boite_noire_seuil_gel_ms,
         ),
         ThreadPoolExecutor(max_workers=1, thread_name_prefix="capture"),
+        roulant=Roulant(reglages.boite_noire_dir / "roulant", lanceur=_lancer_roulant)
+        if reglages.boite_noire_roulant
+        else None,
     )
     arret = threading.Event()
     signal.signal(signal.SIGTERM, lambda *_: arret.set())

@@ -154,6 +154,15 @@ class Settings(BaseSettings):
             "celle qui dit à quoi ressemble une partie qui va BIEN."
         ),
     )
+    boite_noire_roulant: bool = Field(
+        default=True,
+        description=(
+            "Garder un `perf` en tampon circulaire pendant les parties, qu'une chute "
+            "vide pour obtenir le profil des secondes qui la PRÉCÈDENT. Sans lui, une "
+            "capture ne montre qu'une machine déjà repartie: c'est ce qu'ont donné les "
+            "trois premières captures de gel, le 16 septembre 2026."
+        ),
+    )
     boite_noire_debugfs_en_partie: bool = Field(
         default=False,
         description=(

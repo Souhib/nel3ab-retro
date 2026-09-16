@@ -107,7 +107,10 @@ def test_la_capture_garde_l_allocateur_le_worker_les_pages_et_l_ecran(tmp_path: 
     assert journal[journal.index("-u") + 1] == "nel3ab-worker@1"
     pages = (dossier / "pages.jsonl").read_text().splitlines()
     assert [json.loads(ligne)["n"] for ligne in pages] == ["récente"]
-    (ecran,) = [argv for argv in lanceur.commandes if argv[0] == "docker"]
+    (emulateur,) = [argv for argv in lanceur.commandes if argv[:2] == ["docker", "logs"]]
+    assert emulateur[-1] == "nel3ab-switch-room-switch-kjwatM"
+    assert (dossier / "emulateur.log").exists()
+    (ecran,) = [argv for argv in lanceur.commandes if argv[:2] == ["docker", "exec"]]
     assert ecran[2] == "nel3ab-switch-room-switch-kjwatM"
     assert ecran[-1].endswith("nice -n 19 grim -t png -l 1 -")
     assert (dossier / "ecran.png").exists()
@@ -135,7 +138,10 @@ def test_dolphin_n_a_pas_d_ecran_et_une_salle_inconnue_lit_tous_les_workers(tmp_
     dossier = _capteur(tmp_path, lanceur).capturer("periodique", dolphin, QUAND, {})
 
     assert dossier.name == "2026-09-14T00-36-28-periodique"
-    assert not any(argv[0] == "docker" for argv in lanceur.commandes)
+    assert not any(argv[:2] == ["docker", "exec"] for argv in lanceur.commandes)
+    # Mais son journal de conteneur est pris: Dolphin aussi se plaint de lui-même.
+    (emulateur,) = [argv for argv in lanceur.commandes if argv[:2] == ["docker", "logs"]]
+    assert emulateur[-1] == "nel3ab-dolphin-2"
     (journal,) = [argv for argv in lanceur.commandes if argv[0] == "journalctl"]
     assert journal[journal.index("-u") + 1] == "nel3ab-worker@*"
 
@@ -183,5 +189,8 @@ def test_une_capture_periodique_ne_prend_pas_l_ecran(tmp_path: Path) -> None:
     lanceur = FauxLanceur()
     dossier = _capteur(tmp_path, lanceur).capturer("periodique", RYUJINX, QUAND, {})
 
-    assert not any(argv[0] == "docker" for argv in lanceur.commandes)
+    assert not any(argv[:2] == ["docker", "exec"] for argv in lanceur.commandes)
     assert not (dossier / "ecran.png").exists()
+    # Le journal de l'émulateur, lui, est pris à chaque capture: c'est là que
+    # Ryujinx écrit « GPU processing thread is too slow ».
+    assert (dossier / "emulateur.log").exists()

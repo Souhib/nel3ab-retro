@@ -111,6 +111,12 @@ def video(half, stopped=STOP, progress=None):
     process.stdin.close()
     packets = Packets()
     report_at = 0.0
+    # Les écarts entre deux images REÇUES du compositeur, sur la fenêtre de
+    # rapport. Le 16 septembre 2026, un gel d'une seconde a été vu par les pages
+    # sans qu'on puisse dire si le compositeur avait cessé de produire ou si la
+    # capture avait cessé de lire. Ces trois chiffres tranchent.
+    gaps = []
+    last_frame = None
     fd = os.open(fifo, os.O_RDONLY | os.O_NONBLOCK)
     try:
         with os.fdopen(fd, "rb", buffering=0) as source, connect() as target:
@@ -134,14 +140,24 @@ def video(half, stopped=STOP, progress=None):
                         raise RuntimeError(
                             f"capture timestamp is not monotonic: age {age_ms:.1f} ms"
                         )
+                    if last_frame is not None:
+                        gaps.append((captured - last_frame) / 1000)
+                    last_frame = captured
                     send(target, b"H" if half else b"F", payload, captured)
                     progress.saw()
                     if now >= report_at:
                         report_at = now + 5
-                        print(
-                            json.dumps({"half": half, "capture_age_ms": round(age_ms, 2)}),
-                            flush=True,
-                        )
+                        ordered = sorted(gaps)
+                        report = {"half": half, "capture_age_ms": round(age_ms, 2)}
+                        if ordered:
+                            report["frames"] = len(ordered) + 1
+                            report["gap_ms"] = [
+                                round(ordered[len(ordered) // 2], 1),
+                                round(ordered[int(len(ordered) * 0.95)], 1),
+                                round(ordered[-1], 1),
+                            ]
+                        gaps = []
+                        print(json.dumps(report), flush=True)
     finally:
         stop_process(process)
 

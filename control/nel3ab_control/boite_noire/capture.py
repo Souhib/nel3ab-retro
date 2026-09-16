@@ -39,6 +39,20 @@ from typing import Any
 
 from nel3ab_control.boite_noire.releve import Racines
 
+#: Ce qu'on compte pendant une capture, côté noyau.
+#:
+#: Les créations d'objets GPU disent la charge que Ryujinx met à l'allocateur;
+#: les travaux soumis à l'ordonnanceur du GPU et les appels de soumission disent
+#: si la carte reçoit encore du travail pendant un gel. Le 16 septembre 2026, un
+#: gel a été mesuré sans aucun reset GPU dans le noyau: ces deux compteurs sont
+#: ce qui reste pour savoir si la file du GPU s'arrête ou si personne ne la
+#: remplit.
+TRACES = (
+    "amdgpu:amdgpu_bo_create",
+    "amdgpu:amdgpu_sched_run_job",
+    "amdgpu:amdgpu_cs_ioctl",
+)
+
 #: Lance une commande, écrit sa sortie dans un fichier, et rend son code de sortie.
 Lanceur = Callable[[Sequence[str], Path, float], int]
 
@@ -96,7 +110,12 @@ class Capteur:
         self._debugfs = debugfs
 
     def capturer(
-        self, raison: str, moteur: dict[str, Any], quand: datetime, details: dict[str, Any]
+        self,
+        raison: str,
+        moteur: dict[str, Any],
+        quand: datetime,
+        details: dict[str, Any],
+        avant: Callable[[Path], Any] | None = None,
     ) -> Path:
         salle = moteur.get("salle")
         nom = (
@@ -104,6 +123,12 @@ class Capteur:
         )
         dossier = self._dossier / nom
         dossier.mkdir(parents=True, exist_ok=True)
+        # Le tampon du `perf` roulant D'ABORD, avant tout le reste: il contient les
+        # secondes qui PRÉCÈDENT, c'est-à-dire le gel lui-même. Tout ce qui suit
+        # décrit une machine déjà repartie, ce qui était le défaut des captures du
+        # 16 septembre 2026.
+        if avant is not None:
+            avant(dossier)
         codes: dict[str, int] = {}
 
         # Les fils les plus occupés du dernier relevé, pas des noms écrits en dur:
@@ -112,7 +137,7 @@ class Capteur:
         pendant: dict[str, tuple[list[str], Path]] = {
             "allocations": (
                 [
-                    *("perf", "stat", "-e", "amdgpu:amdgpu_bo_create"),
+                    *("perf", "stat", "-e", ",".join(TRACES)),
                     *("-p", str(moteur["pid"]), "--", "sleep", str(self._secondes)),
                 ],
                 dossier / "allocations.txt",
@@ -152,6 +177,17 @@ class Capteur:
             except OSError:
                 codes[source] = -1
 
+        # Ce que l'ÉMULATEUR dit de lui-même. Le 16 septembre 2026, Ryujinx
+        # écrivait « GPU processing thread is too slow » juste avant un gel, et
+        # personne ne lisait ce journal. Les lignes des manettes sont écartées:
+        # elles représentent 436 lignes sur 450 et noieraient le reste.
+        conteneur = moteur.get("conteneur")
+        if conteneur:
+            codes["emulateur"] = self._lanceur(
+                ["docker", "logs", "--since", "3m", "--timestamps", str(conteneur)],
+                dossier / "emulateur.log",
+                self._secondes,
+            )
         unite = f"nel3ab-worker@{salle}" if salle else "nel3ab-worker@*"
         codes["worker"] = self._lanceur(
             [

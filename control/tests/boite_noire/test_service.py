@@ -39,11 +39,20 @@ class FauxReleveur:
 class FauxCapteur:
     def __init__(self) -> None:
         self.captures: list[tuple[str, int | None, dict[str, Any]]] = []
+        #: Ce que la capture a reçu comme vidage du tampon roulant, capture par
+        #: capture: `None` quand il n'y en a pas.
+        self.avants: list[Any] = []
 
     def capturer(
-        self, raison: str, moteur: dict[str, Any], quand: datetime, details: dict[str, Any]
+        self,
+        raison: str,
+        moteur: dict[str, Any],
+        quand: datetime,
+        details: dict[str, Any],
+        avant: Any = None,
     ) -> None:
         self.captures.append((raison, moteur.get("salle"), details))
+        self.avants.append(avant)
 
 
 class Executeur:
@@ -83,6 +92,7 @@ def _boite(
     releveur: FauxReleveur,
     capteur: FauxCapteur,
     executeur: Executeur | None = None,
+    roulant: Any = None,
 ) -> tuple[BoiteNoire, Temps, Settings]:
     reglages = Settings(
         journal_dir=tmp_path / "sessions",
@@ -102,6 +112,7 @@ def _boite(
         executeur or Executeur(),
         horloge=temps.monotone,
         murale=temps.murale,
+        roulant=roulant,
     )
     return boite, temps, reglages
 
@@ -342,3 +353,58 @@ def test_une_chute_qui_attend_trop_longtemps_est_abandonnee(tmp_path: Path) -> N
 
     assert capteur.captures == []
     assert "capture abandonnée" in [ligne["quoi"] for ligne in _lignes(reglages)]
+
+
+class FauxRoulant:
+    """Le `perf` roulant, réduit à ce que le service lui demande."""
+
+    def __init__(self) -> None:
+        self.suivis: list[int | None] = []
+        self.arrets = 0
+        self.vidages: list[Path] = []
+
+    def suivre(self, moteur: dict[str, Any]) -> None:
+        self.suivis.append(moteur.get("pid"))
+
+    def arreter(self) -> None:
+        self.arrets += 1
+
+    def vider(self, vers: Path) -> Path | None:
+        self.vidages.append(vers)
+        return vers / "avant.perf.data"
+
+
+def test_le_roulant_suit_la_partie_et_s_arrete_au_repos(tmp_path: Path) -> None:
+    """Une machine au repos n'a rien à profiler, et un `perf` oublié écrit un jour."""
+    roulant = FauxRoulant()
+    boite, _, _ = _boite(tmp_path, FauxReleveur([RYUJINX]), FauxCapteur(), roulant=roulant)
+    boite.tour()
+    assert roulant.suivis == [RYUJINX["pid"]]
+
+    vide, _, _ = _boite(tmp_path / "vide", FauxReleveur([]), FauxCapteur(), roulant=roulant)
+    vide.tour()
+
+    assert roulant.arrets >= 1
+
+
+def test_une_chute_emporte_le_tampon_et_pas_une_capture_periodique(tmp_path: Path) -> None:
+    """Le profil d'AVANT n'a de sens que pour un gel: les secondes qui précèdent une
+    capture périodique décrivent une machine qui va bien."""
+    roulant = FauxRoulant()
+    capteur = FauxCapteur()
+    boite, temps, reglages = _boite(tmp_path, FauxReleveur([RYUJINX]), capteur, roulant=roulant)
+    boite.tour()  # aucune capture: la périodique ne part pas au démarrage
+    journal = reglages.journal_dir / "2026-09-14.jsonl"
+    for seconde in (10, 20, 30):
+        temps.secondes = seconde
+        with journal.open("a", encoding="utf-8") as ouvert:
+            ouvert.write(_mesure(temps, 40))
+    temps.secondes = 32
+    boite.tour()
+    # Puis une périodique, une fois la période écoulée et la chute passée.
+    temps.secondes = 700
+    boite.tour()
+
+    assert [capture[0] for capture in capteur.captures] == ["chute", "periodique"]
+    assert capteur.avants[0] == roulant.vider
+    assert capteur.avants[1] is None

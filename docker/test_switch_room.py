@@ -314,6 +314,25 @@ class SaveSlots(unittest.TestCase):
             self.assertNotIn(("docker", "rm", "other-container"), commands)
 
 
+class CpuPinning(unittest.TestCase):
+    def test_no_pinning_unless_the_room_asks_for_it(self):
+        # Le défaut est la machine entière: une salle bridée sur trop peu de
+        # cœurs irait PLUS mal, et rien n'est mesuré à ce jour.
+        self.assertEqual(module.cpu_pinning({}), [])
+        self.assertEqual(module.cpu_pinning({"cpuset": None}), [])
+
+    def test_the_asked_cores_reach_docker(self):
+        self.assertEqual(module.cpu_pinning({"cpuset": "0-3,6-9"}), ["--cpuset-cpus", "0-3,6-9"])
+        self.assertEqual(module.cpu_pinning({"cpuset": " 0-3 "}), ["--cpuset-cpus", "0-3"])
+
+    def test_a_cpuset_that_is_not_one_names_the_mistake(self):
+        # Sans ce refus, `true` ou une liste deviendraient un conteneur lancé
+        # sans épinglage, et la mesure comparerait deux fois la même chose.
+        for bad in (True, 3, [0, 1], "", "   "):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                module.cpu_pinning({"cpuset": bad})
+
+
 class EngineEnvironment(unittest.TestCase):
     def test_the_room_rate_reaches_the_engine_and_sixty_is_the_default(self):
         self.assertIn("SWITCH_REFRESH_HZ=60", module.engine_environment({}))

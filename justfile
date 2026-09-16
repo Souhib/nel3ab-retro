@@ -136,6 +136,16 @@ deploy-check:
             echo "  installée sans copie au dépôt: $(basename "$installe")"; faux=1
         fi
     done
+    # Le FANTÔME: une unité que systemd a encore en mémoire alors que son fichier
+    # a disparu du disque. Le 16 septembre 2026, une unité supprimée pendant
+    # qu'elle tournait est restée active, et les deux boucles du dessus, qui
+    # partent de fichiers, ne pouvaient pas la voir.
+    for charge in $(systemctl list-units --all --no-legend 'nel3ab-*.service' | awk '{print $1}' | sed 's/^●[[:space:]]*//'); do
+        fragment=$(systemctl show "$charge" -p FragmentPath --value 2>/dev/null || true)
+        if [ -z "$fragment" ] || [ ! -e "$fragment" ]; then
+            echo "  chargée par systemd sans fichier sur le disque: $charge"; faux=1
+        fi
+    done
     if [ "$faux" -eq 0 ]; then echo "les unités installées sont celles du dépôt"; else exit 1; fi
 
 # Vérifie les pistes du MP4 et décode réellement son audio, sans Dolphin ni salle.

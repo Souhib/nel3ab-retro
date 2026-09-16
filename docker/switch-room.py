@@ -192,6 +192,27 @@ def pad_command(image: str, pads: Path, helper: str, label: str) -> list[str]:
     ]
 
 
+def cpu_pinning(config: dict) -> list[str]:
+    """Les cœurs réservés à l'émulateur, ou rien du tout.
+
+    POURQUOI ce n'est pas allumé par défaut. Le 16 septembre 2026, le fil de rendu
+    de Ryujinx tenait 90 % d'un cœur pendant que l'encodeur et la capture se
+    partageaient la même machine, et les gels d'une seconde n'ont toujours pas
+    d'explication. Épingler sépare les deux, mais rien ne prouve encore que ça
+    aide, et une salle bridée sur trop peu de cœurs irait plus mal. Le réglage
+    existe donc pour être MESURÉ, en phases alternées, avant d'être un défaut.
+
+    `cpuset` est la liste que Docker attend, par exemple "0-3,6-9" sur un six
+    cœurs avec jumeaux logiques. Absent, l'émulateur voit toute la machine.
+    """
+    cpuset = config.get("cpuset")
+    if cpuset is None:
+        return []
+    if not isinstance(cpuset, str) or not cpuset.strip():
+        raise ValueError(f"cpuset doit être une liste de cœurs comme \"0-3,6-9\", pas {cpuset!r}")
+    return ["--cpuset-cpus", cpuset.strip()]
+
+
 def engine_environment(config: dict) -> list[str]:
     """Engine container environment, checked before any container starts.
 
@@ -284,6 +305,7 @@ def serve(config: dict, rom: Path, slot: Path, pads: Path) -> None:
         ]
         args.extend(updates)
         args.extend(cache_mounts(slot))
+        args.extend(cpu_pinning(config))
         for device in devices:
             args.extend(["--device", device])
         args.extend(

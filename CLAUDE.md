@@ -86,6 +86,15 @@ machine".
   precondition instead of branching on it.
 - **Coverage is a signal, never confidence.** It measures "executed by a test",
   not "reached by the app".
+- **A live measurement on a drifting machine ALTERNATES.** Two successive phases
+  never prove anything there: whatever runs second inherits a warmer cache, a
+  fuller shader store, a calmer scene. On 2026-09-16 that mistake was made twice
+  in one evening, once in each direction, before four alternating phases of three
+  minutes settled the question. Alternate, or say plainly that the result is a
+  trend and not a comparison.
+- **Do not measure a machine while loading it.** The same evening, a comparison
+  ran with the profiler still recording and a `perf report` started in the middle
+  of it; the freezes of that window were partly mine.
 - A test that cannot fail is worse than no test: it advertises coverage that does
   not exist.
 

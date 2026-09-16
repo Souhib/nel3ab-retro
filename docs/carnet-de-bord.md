@@ -16088,6 +16088,99 @@ retard pour lisser. Les gels, eux, les touchent tous les deux à la même second
 10 ms près: c'est ce qui sépare un problème de machine d'un problème de liaison.
 Le format réduit est la piste pour alex, et elle n'a pas été essayée.
 
+### Rendre la boîte noire capable de dire POURQUOI
+
+Le 16 septembre au soir, la boîte noire savait enfin QUAND une salle gèle. Elle ne
+savait toujours pas pourquoi: ses captures démarrent une fois le trou passé. La
+nuit qui suit a servi à construire l'outil qui manquait, et à mesurer quatre
+pistes. Souhib jouait exprès pour ça: « on ne joue pas pour jouer mais pour faire
+des tests ».
+
+**Le profil d'AVANT.** `perf record --overwrite --switch-output=signal` tourne
+maintenant pendant toute la partie sans rien écrire, et une chute lui envoie
+`SIGUSR2`: il vide alors son tampon, qui contient les secondes précédentes.
+Vérifié en service la nuit même: la capture de 01:01:12 contient `avant.perf.data`
+avec 3 669 échantillons couvrant **37,5 secondes avant le déclenchement**, fils
+nommés. Quatre pièges ont été payés pour y arriver, et ils se ressemblent tous.
+
+1. **Sa sortie d'erreur partait au néant.** `perf` refusait de démarrer et ne le
+   disait à personne; le service se croyait armé. Une heure perdue. Elle va
+   maintenant dans `roulant.log`, en AJOUT: en écrasement, le message du mourant
+   est effacé par celui qui le remplace, et le fichier est vide quand on l'ouvre.
+2. **Le tampon était trop grand pour les droits du service.** Un processus sans
+   `CAP_IPC_LOCK` ne verrouille que `perf_event_mlock_kb`, soit **516 Kio** ici.
+   Huit mégaoctets donnaient « Permission error mapping pages », vingt-huit fois
+   par minute. Le tampon fait donc 128 pages, 512 Kio, et couvre 37 secondes.
+3. **Il suivait les trois fils les plus occupés.** Leur COMPOSITION change à chaque
+   relevé, donc l'enregistreur repartait dix-sept fois par minute: son tampon avait
+   toujours deux secondes d'âge, et chaque arrêt laissait un vidage de 250 Ko
+   derrière lui. Il suit maintenant le PROCESSUS. Au passage, l'hypothèse que
+   j'avais écrite d'abord — « les fils meurent » — était fausse: mesuré, Ryujinx
+   garde ses 84 fils sans en perdre un seul en dix secondes.
+4. **Un `perf` mort n'était pas récolté**, donc un zombie par tour de boucle.
+
+**Ce que les captures contiennent en plus.** Le journal du conteneur de
+l'émulateur, filtré des 436 lignes de manettes par minute (`emulateur.log`, vérifié
+en service): c'est là que Ryujinx écrit « GPU processing thread is too slow ». Et
+deux compteurs noyau de plus à côté des créations d'objets GPU, les travaux soumis
+à l'ordonnanceur du GPU et les appels de soumission: le 16 septembre, un gel a été
+mesuré sans aucun reset GPU dans le noyau, et ces deux-là sont ce qui reste pour
+savoir si la file du GPU s'arrête ou si personne ne la remplit.
+
+**Côté capture d'écran**, l'adaptateur rapporte désormais l'écart entre deux images
+reçues du compositeur (médiane, p95, maximum) toutes les cinq secondes. C'est ce
+qui départagera « l'émulateur n'a pas produit » de « on n'a pas capturé ». Pas
+encore vu en service: il faut une salle relancée.
+
+**Deux réglages préparés et NON mesurés.** Ryujinx passe de `backend_threading:
+Auto` à `On` dans le modèle et dans les treize sauvegardes existantes; c'est le
+remède classique aux à-coups de compilation de shaders, et il ne sera vrai que
+mesuré en phases alternées. Et le conteneur du jeu accepte un `cpuset`, éteint par
+défaut: le fil de rendu tient 90 % d'un cœur pendant que l'encodeur travaille à
+côté, mais une salle bridée sur trop peu de cœurs irait plus mal.
+
+**Le format réduit, mesuré chez quelqu'un.** alex a basculé quatre fois pendant la
+soirée du 16, ce qui donne une alternance exploitable:
+
+| bloc | images jetées par relevé | gigue médiane |
+|---|---|---|
+| plein, 23:08-23:11 | 4,4 | 39 ms |
+| réduit, 23:11-23:14 | 6,6 | 26 ms |
+| plein, 23:14-23:30 | 62,7 | 144 ms |
+| réduit, 23:30-23:55 | 8,6 | 32 ms |
+
+Sa liaison s'est dégradée en cours de soirée, donc ces quatre blocs ne prouvent pas
+à eux seuls le gain du format réduit; ils montrent que le pire quart d'heure était
+en plein format et qu'il s'est arrêté avec la bascule.
+
+**Et un défaut de conception trouvé par la simulation.** En rejouant la règle de la
+page sur ses relevés, la proposition de format réduit aurait parlé dès 23:09:02,
+trois minutes avant qu'il ne bascule à la main. Puis il est revenu au plein à
+23:14:55, et **la page ne lui a plus jamais rien proposé**: elle ne propose qu'une
+fois par séance. Elle revient maintenant à la charge quand la liaison s'effondre,
+à dix fois le seuil ordinaire et après cinq minutes de silence. Et le salon écrit
+désormais la proposition, l'acceptation et le refus: le format effectif était déjà
+dans chaque relevé, mais rien ne disait si la page avait proposé quoi que ce soit.
+
+**La fragmentation, enfin regardée sur une soirée.** En partie, la mémoire vidéo
+utilisée monte de 363 à 995 Mio et la mémoire système partagée de 76 à 257, sans
+emballement. Au repos, le nombre de blocs libres est stable d'un bout à l'autre de
+la soirée. Sur le noyau 7.0, rien ne dérive: la panne du 13 septembre ne revient
+pas sous cette forme. Les blocs libres ne se relèvent qu'au repos, puisque les lire
+en partie coûte cent millisecondes d'image.
+
+**Deux gardes de méthode.** CLAUDE.md dit maintenant qu'une mesure en direct sur
+une machine qui dérive s'ALTERNE, et qu'on ne mesure pas une machine en la
+chargeant: les deux erreurs ont été commises la veille, dans la même soirée. Et
+`deploy-check` signale une unité encore chargée par systemd dont le fichier a
+disparu, ce qui est exactement le fantôme du GPU débridé.
+
+**Ce qui n'est pas prouvé.** Que l'un de ces réglages réduise les gels: ni
+`backend_threading`, ni l'épinglage de cœurs, ni le format réduit chez alex n'ont
+de mesure alternée. Et l'outil qui dira pourquoi une salle gèle existe désormais,
+mais il n'a pas encore vu un VRAI gel: celui de cette nuit a été provoqué à la
+main, en écrivant des relevés dans le journal du salon.
+
 ## 12. Glossaire complet
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une

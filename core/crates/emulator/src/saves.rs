@@ -1047,15 +1047,12 @@ mod tests {
             let login = vecteur["login"].as_str().ok_or("login absent")?;
             let empreinte = vecteur["empreinte"].as_str().ok_or("empreinte absente")?;
             let fait = folder_for(Slot::Person, Some(login));
-            match vecteur["dossier"].as_str() {
-                Some(attendu) => {
-                    assert_eq!(fait, attendu, "{login:?}");
-                    assert!(fait.ends_with(&format!("-{empreinte}")), "{login:?}");
-                }
-                None => {
-                    sans_dossier += 1;
-                    assert_eq!(fait, Slot::Fresh.folder(), "{login:?}");
-                }
+            if let Some(attendu) = vecteur["dossier"].as_str() {
+                assert_eq!(fait, attendu, "{login:?}");
+                assert!(fait.ends_with(&format!("-{empreinte}")), "{login:?}");
+            } else {
+                sans_dossier += 1;
+                assert_eq!(fait, Slot::Fresh.folder(), "{login:?}");
             }
         }
         // Le jumeau: le fichier couvre aussi le cas sans dossier personnel.

@@ -25526,7 +25526,8 @@ l'interface finale, et chacun fait échouer l'essai qui le vise :
 - le journal : une demande acceptée sans fin écrite, une prise perdue après
   un lancement comptée « remplacée », une première fois tirée de n'importe
   quelle salle, une page de banc écrite au nom de son pilote, une ligne
-  coupée par un arrêt qui emporte la suivante ;
+  coupée par un arrêt qui emporte la suivante, une salle fermée dont les
+  places restent ouvertes ;
 - le carnet : une lecture sans garde d'identité, une durée qui additionne
   les onglets, un jeu joué chez un autre compté comme sa propre sauvegarde,
   un lien suivi pendant la mesure, les versions d'un autre comptées comme

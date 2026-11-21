@@ -1,7 +1,9 @@
 """Des en-têtes de jeux fabriqués ici, octet par octet, et rien d'autre.
 
-Aucun vrai jeu, aucune vraie ROM, aucune clé: chaque fonction écrit les
+Aucun vrai jeu, aucune vraie ROM, aucune vraie clé: chaque fonction écrit les
 quelques octets qu'un format place à un endroit connu, et des zéros ailleurs.
+Les en-têtes NCA de la Switch sont chiffrés avec une clé que chaque essai tire
+au hasard, et qui disparaît avec lui.
 Le module ne dépend PAS du code qu'il sert à tester. Un décalage faux dans
 l'identifiant ne peut donc pas être recopié ici sans qu'on le voie: les deux
 côtés écrivent la même règle chacun de leur côté.
@@ -16,6 +18,8 @@ import struct
 import zlib
 from collections.abc import Callable
 from dataclasses import dataclass, field
+
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 #: Le logo Nintendo que la console de démarrage de la Game Boy compare, 48 octets.
 LOGO_GB = bytes.fromhex(
@@ -377,3 +381,123 @@ def sept_zip(fichiers: list[tuple[str, bytes]]) -> bytes:
     debut = le64(len(paquets)) + le64(len(tete)) + le32(zlib.crc32(tete))
     signature = b"7z\xbc\xaf\x27\x1c\x00\x04" + le32(zlib.crc32(debut)) + debut
     return signature + paquets + tete
+
+
+# ── Switch: des NCA chiffrés ICI, avec une clé tirée au hasard par l'essai ──
+#
+# Le chiffrement est écrit ici, avec `cryptography` directement, sans le module
+# testé. La règle de Nintendo vient de switchbrew (page NCA): AES-128-XTS sur
+# des secteurs de 0x200 octets, numéro de secteur en GROS-BOUTISTE sur 16
+# octets. Un module qui l'écrirait en petit-boutiste ne relirait pas ces octets.
+
+TYPE_PROGRAM = 0
+TYPE_META = 1
+TYPE_CONTROL = 2
+TYPE_PUBLIC_DATA = 5
+
+
+def chiffrer_entete(clair: bytes, cle: bytes) -> bytes:
+    """Les octets d'un en-tête NCA3, chiffrés comme la console les écrit."""
+    chiffre = b""
+    for secteur in range(len(clair) // 0x200):
+        ajustement = secteur.to_bytes(16, "big")
+        chiffreur = Cipher(algorithms.AES(cle), modes.XTS(ajustement)).encryptor()
+        chiffre += chiffreur.update(clair[secteur * 0x200 : (secteur + 1) * 0x200])
+        chiffre += chiffreur.finalize()
+    return chiffre
+
+
+def entete_nca(
+    type_contenu: int,
+    titre: int,
+    taille: int,
+    *,
+    magie: bytes = b"NCA3",
+    generation: int = 0x11,
+) -> bytes:
+    """Un en-tête NCA en clair: magie à 0x200, type à 0x205, taille à 0x208, titre à 0x210."""
+    tampon = bytearray(0xC00)
+    poser(tampon, 0x200, magie)
+    tampon[0x205] = type_contenu
+    tampon[0x206] = 2
+    poser(tampon, 0x208, le64(taille))
+    poser(tampon, 0x210, le64(titre))
+    tampon[0x220] = generation
+    return bytes(tampon)
+
+
+def nca(
+    cle: bytes,
+    type_contenu: int,
+    titre: int,
+    *,
+    taille: int = 0xE00,
+    annonce: int | None = None,
+    magie: bytes = b"NCA3",
+    generation: int = 0x11,
+) -> bytes:
+    """Une partie NCA entière: l'en-tête chiffré, puis des zéros jusqu'à `taille`.
+
+    `annonce` est la taille écrite dans l'en-tête, la vraie par défaut. Une
+    `taille` sous 0xC00 coupe l'en-tête lui-même.
+    """
+    ecrite = taille if annonce is None else annonce
+    clair = entete_nca(type_contenu, titre, ecrite, magie=magie, generation=generation)
+    return (chiffrer_entete(clair, cle) + b"\0" * max(taille - 0xC00, 0))[:taille]
+
+
+def pfs0_avec(fichiers: list[tuple[str, bytes]]) -> bytes:
+    """Un NSP: table PFS0 de 24 octets par entrée, noms, puis les données bout à bout."""
+    chaines = b""
+    debuts = []
+    for nom, _ in fichiers:
+        debuts.append(len(chaines))
+        chaines += nom.encode() + b"\0"
+    chaines = chaines.ljust((len(chaines) + 0x1F) & ~0x1F, b"\0")
+    table = b""
+    position = 0
+    for (_, donnees), debut in zip(fichiers, debuts, strict=True):
+        table += le64(position) + le64(len(donnees)) + le32(debut) + le32(0)
+        position += len(donnees)
+    tete = b"PFS0" + le32(len(fichiers)) + le32(len(chaines)) + le32(0)
+    return tete + table + chaines + b"".join(d for _, d in fichiers)
+
+
+def hfs0_avec(fichiers: list[tuple[str, bytes]]) -> bytes:
+    """Une partition HFS0: 0x40 octets par entrée, noms, puis les données."""
+    chaines = b""
+    debuts = []
+    for nom, _ in fichiers:
+        debuts.append(len(chaines))
+        chaines += nom.encode() + b"\0"
+    table = b""
+    position = 0
+    for (_, donnees), debut in zip(fichiers, debuts, strict=True):
+        table += le64(position) + le64(len(donnees)) + le32(debut) + le32(0x200)
+        table += b"\0" * 8 + b"\0" * 0x20
+        position += len(donnees)
+    tete = b"HFS0" + le32(len(fichiers)) + le32(len(chaines)) + le32(0)
+    return tete + table + chaines + b"".join(d for _, d in fichiers)
+
+
+def xci_avec(secure: list[tuple[str, bytes]], *, zone_cle: bool = False) -> bytes:
+    """Une carte: « HEAD » à 0x100, racine HFS0 à 0xF000, puis update, normal, secure."""
+    base = 0x1000 if zone_cle else 0
+    tampon = bytearray(base + 0x200)
+    poser(tampon, base + 0x100, b"HEAD")
+    racine = hfs0_avec(
+        [("update", hfs0_avec([])), ("normal", hfs0_avec([])), ("secure", hfs0_avec(secure))]
+    )
+    poser(tampon, base + 0x130, le64(0xF000))
+    poser(tampon, base + 0x138, le64(len(racine)))
+    poser(tampon, base + 0xF000, racine)
+    return bytes(tampon)
+
+
+def prod_keys(cle: bytes) -> str:
+    """Un `prod.keys` d'essai: la ligne de la clé d'en-tête entre deux autres."""
+    return (
+        f"aes_kek_generation_source = {'00' * 16}\n"
+        f"header_key = {cle.hex()}\n"
+        f"master_key_00 = {'11' * 16}\n"
+    )

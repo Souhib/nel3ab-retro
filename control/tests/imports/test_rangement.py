@@ -17,10 +17,14 @@ from nel3ab_control.imports.rangement import (
     Bibliotheque,
     Refus,
     cle_sauvegarde,
+    ecrire_fiche,
+    fiche_switch,
     lier_sans_remplacer,
     nettoyer,
     nom_canonique,
+    retirer_si_meme,
 )
+from nel3ab_control.imports.switch_nca import Contenu, Illisible, Incertain, Lecture, SansCle
 from nel3ab_control.imports.traitement import VISIBLE, decider
 from tests.imports import fabrique as f
 
@@ -138,6 +142,49 @@ def test_chaque_console_a_sa_decision(
     rom_dir, _ = bibliotheque
 
     assert decider(trouve, rom_dir).etat == etat
+
+
+JEU = 0x0100ABCDEF012000
+
+
+@pytest.mark.parametrize(
+    ("lecture", "etat"),
+    [
+        (Contenu("jeu", JEU, JEU, 0x11, ()), "range"),
+        (Contenu("mise-a-jour", JEU | 0x800, JEU, 0x11, ()), "mise-a-jour"),
+        (Contenu("contenu-additionnel", JEU + 0x1001, JEU, 0x11, ()), "contenu-additionnel"),
+        (Illisible("clé fausse"), "refuse"),
+        (Incertain("deux jeux"), "a-confirmer"),
+        (SansCle("pas de fichier"), "a-confirmer"),
+        (None, "a-confirmer"),
+    ],
+)
+def test_une_switch_lue_dans_ses_en_tetes_a_sa_decision(
+    bibliotheque: tuple[str, Path], lecture: Lecture | None, etat: str
+) -> None:
+    rom_dir, racine = bibliotheque
+
+    decision = decider(lu("switch", "nsp"), rom_dir, lecture)
+
+    assert decision.etat == etat
+    assert decision.dossier == (racine / "switch" if etat == "range" else None)
+
+
+def test_un_nsz_reste_pas_jouable_meme_lu(bibliotheque: tuple[str, Path]) -> None:
+    rom_dir, _ = bibliotheque
+
+    assert decider(lu("switch", "nsz"), rom_dir, Contenu("jeu", JEU, JEU, 0, ())).etat == (
+        "pas-jouable"
+    )
+
+
+def test_sans_dossier_switch_un_jeu_lu_attend_une_confirmation(tmp_path: Path) -> None:
+    (tmp_path / "gc").mkdir()
+
+    decision = decider(lu("switch", "xci"), str(tmp_path / "gc"), Contenu("jeu", JEU, JEU, 0, ()))
+
+    assert decision.etat == "a-confirmer"
+    assert "« switch »" in decision.message
 
 
 def test_un_jeu_range_dit_quand_il_apparaitra(bibliotheque: tuple[str, Path]) -> None:
@@ -277,6 +324,67 @@ def test_le_deuxieme_disque_du_meme_jeu_n_est_pas_un_doublon(
     assert ranger(bibliotheque, disque2, "Tales (Disque 2).iso", jeu=("GTOE8P", "2")) == (
         "gc/Tales (Disque 2).iso"
     )
+
+
+def test_si_le_jeu_ne_se_lie_pas_sa_fiche_neuve_est_retiree(
+    bibliotheque: tuple[str, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Un jeu apparu entre le contrôle et le lien: la fiche écrite pour lui part aussi."""
+    rom_dir, racine = bibliotheque
+    source = racine.parent / "quarantaine-fichier"
+    source.write_bytes(b"un jeu switch")
+
+    def apparu(source: int, dossier: int, nom: str) -> None:
+        raise Refus("doublon", f"un fichier « {nom} » est apparu pendant le rangement")
+
+    monkeypatch.setattr(rangement, "lier_sans_remplacer", apparu)
+    fd = os.open(source, os.O_RDONLY)
+    try:
+        with pytest.raises(Refus, match="apparu"):
+            Bibliotheque(dossiers(rom_dir), racine.parent / "verrou").ranger(
+                fd,
+                racine / "switch",
+                "Jeu.nsp",
+                sha256=hashlib.sha256(b"un jeu switch").hexdigest(),
+                jeu=None,
+                fiche=fiche_switch("Jeu", JEU),
+            )
+    finally:
+        os.close(fd)
+
+    assert not list((racine / "switch").iterdir())
+
+
+def test_retirer_une_fiche_ne_retire_que_celle_qu_on_a_ecrite(tmp_path: Path) -> None:
+    """Le jumeau: un fichier qui a pris la place de notre fiche reste où il est.
+
+    La fiche reste ouverte pendant le remplacement. Fermée, son numéro d'inode
+    serait libre, et le fichier suivant le reçoit souvent: la première version
+    de ce module comparait un numéro gardé après fermeture, et cet essai a
+    retiré la fiche de quelqu'un d'autre.
+    """
+    fiche = tmp_path / "Jeu.nsp.nel3ab.json"
+    dossier = os.open(tmp_path, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        ecrite = ecrire_fiche(dossier, fiche.name, fiche_switch("Jeu", JEU))
+        try:
+            fiche.unlink()
+            fiche.write_text("la fiche de quelqu'un")
+            retirer_si_meme(dossier, fiche.name, ecrite)
+        finally:
+            os.close(ecrite)
+        assert fiche.read_text() == "la fiche de quelqu'un"
+
+        fiche.unlink()
+        ecrite = ecrire_fiche(dossier, fiche.name, fiche_switch("Jeu", JEU))
+        try:
+            retirer_si_meme(dossier, fiche.name, ecrite)
+        finally:
+            os.close(ecrite)
+        assert not fiche.exists()
+    finally:
+        os.close(dossier)
+    assert not list(tmp_path.iterdir()), "aucun fichier provisoire ne reste"
 
 
 def test_lier_ne_remplace_jamais_un_fichier_existant(tmp_path: Path) -> None:

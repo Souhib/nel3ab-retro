@@ -78,7 +78,11 @@ hors du dépôt. Le catalogue n'accepte un NSP ou XCI qu'avec un fichier voisin
 {"console":"switch","name":"Mario Tennis Aces","title":"0100BDE00862A000"}
 ```
 
-Cette inscription suit une vérification du jeu lancé. Une extension NSP seule
+Écrite à la main, cette inscription suit une vérification du jeu lancé. Le
+dépôt de jeux du salon l'écrit aussi, depuis le 21 novembre 2026, après avoir
+lu l'identifiant dans l'en-tête NCA déchiffré avec la clé de la console ; sa
+fiche porte alors un champ `inscription` qui le dit, et ne suit aucun
+lancement d'essai ([Déposer un jeu](importer.md#la-switch)). Une extension NSP seule
 peut désigner une mise à jour. Les sauvegardes sont rangées par identifiant de
 jeu, jamais par position dans le menu. Ajouter une inscription n'installe ni
 firmware ni mise à jour. Les procédures et les versions modifiées de Ryubing et

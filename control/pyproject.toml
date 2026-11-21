@@ -9,6 +9,15 @@ dependencies = [
     "pydantic-settings>=2.7",
     "python-socketio[asyncio]>=5.12",
     "httpx>=0.28",
+    # AES-XTS, pour lire l'identifiant de titre d'un jeu Switch déposé: il est
+    # écrit dans l'en-tête NCA, chiffré avec la clé d'en-tête de la console
+    # (imports/switch_nca.py). La bibliothèque standard n'a pas d'AES, et en
+    # écrire un ici serait du code de chiffrement maison. `cryptography` est la
+    # bibliothèque de référence de Python (PyCA, Apache-2.0 ou BSD), déjà
+    # utilisée par docker/switch-dlc.py pour le même calcul, vérifié le
+    # 11 septembre 2026 sur de vrais contenus. Ce qu'elle coûte: une roue
+    # binaire de quelques Mio et `cffi`. 44 et plus pour une API XTS stable.
+    "cryptography>=44",
 ]
 
 [dependency-groups]

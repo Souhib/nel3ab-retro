@@ -91,6 +91,13 @@ Environment='NEL3AB_ORIGINS=["https://nel3ab.app","https://lgf.tail3bd01c.ts.net
 # console. Sans cette ligne, le salon ne connaîtrait que gc et wii, le défaut
 # du worker, et la liste des deux services pourrait diverger sans bruit.
 Environment="NEL3AB_ROM_DIR=/home/souhib/roms/gc:/home/souhib/roms/wii:/home/souhib/roms/switch:/home/souhib/roms/switch2"
+# Le `prod.keys` privé du moteur Switch, le même que lit docker/switch-dlc.py.
+# Le dépôt de jeux n'en lit que la ligne `header_key`, pour déchiffrer l'en-tête
+# NCA d'un NSP ou d'un XCI et y lire son identifiant de titre: un jeu de base
+# est alors rangé avec sa fiche, sans inscription à la main. Sans cette ligne,
+# chaque jeu Switch déposé reste « à confirmer ». C'est un chemin, pas une clé:
+# la clé ne quitte pas ce fichier, et le salon ne l'écrit nulle part.
+Environment=NEL3AB_SWITCH_KEYS=/home/souhib/.local/share/nel3ab/switch/template/system/prod.keys
 # Nothing about pads here on purpose: the worker reports how many the room has,
 # in `/roms`, because it is what tells Dolphin which ports hold a controller.
 # This file used to carry a second copy of that number, which had to agree with

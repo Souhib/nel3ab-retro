@@ -163,7 +163,8 @@ impl ArtSource {
 pub enum Registration {
     /// Son extension Dolphin, puis `dolphin-tool header`. Voir le module.
     DolphinHeader,
-    /// Une fiche `<fichier>.nel3ab.json` écrite à la main. Voir [`crate::switch`].
+    /// Une fiche `<fichier>.nel3ab.json` à côté du jeu, écrite à la main ou par
+    /// l'import du salon. Voir [`crate::switch`].
     Sidecar,
     /// Aucune: le balayage n'inscrit rien sous cette console.
     None,

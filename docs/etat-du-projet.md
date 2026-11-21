@@ -22,13 +22,17 @@ entrée « 21 novembre : un carnet de jeu par personne » ; décision :
 
 **Au 21 novembre, sur une branche non installée : déposer un jeu depuis une page.**
 La page `/importer` du salon reçoit des fichiers par morceaux reprenables,
-reconnaît la console dans leurs octets, sans Docker ni clé, et range GameCube
-et Wii sans jamais écraser un fichier. La Switch attend une inscription à la
-main, la Xbox 360 et les consoles rétro restent en quarantaine avec la raison.
-Réservé à l'administrateur et aux adresses de `NEL3AB_IMPORTEURS`. Rien n'est
-installé, et aucun envoi n'a traversé le vrai réseau. Mode d'emploi :
-[Déposer un jeu](importer.md). Récit : [carnet](carnet-de-bord.md), entrée
-« 21 novembre : déposer un jeu et le laisser se ranger ».
+reconnaît la console dans leurs octets, sans Docker, et range GameCube et Wii
+sans jamais écraser un fichier. Un jeu Switch (NSP, XCI) est rangé avec sa fiche
+quand le salon a la clé d'en-tête de la console (`NEL3AB_SWITCH_KEYS`) : son
+identifiant de titre est lu dans l'en-tête NCA déchiffré, et les six jeux
+Switch de la bibliothèque donnent les titres de leurs fiches. Les mises à jour
+et contenus additionnels Switch, la Xbox 360 et les consoles rétro restent en
+quarantaine avec la raison. Réservé à l'administrateur et aux adresses de
+`NEL3AB_IMPORTEURS`. Rien n'est installé, et aucun envoi n'a traversé le vrai
+réseau. Mode d'emploi : [Déposer un jeu](importer.md). Récit :
+[carnet](carnet-de-bord.md), entrées « 21 novembre : déposer un jeu et le
+laisser se ranger » et « 21 novembre : la Switch se range aussi ».
 
 **Au 21 novembre, sur une branche non installée : un manifeste des consoles et une clé par jeu.**
 `consoles/consoles.json` décrit chaque console et chaque moteur ; le salon,

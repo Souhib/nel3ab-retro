@@ -118,6 +118,10 @@ def settings(tmp_path: Path) -> Settings:
         # chez la salle qui tourne pour de vrai, et listerait les jeux de la
         # machine.
         salles_dir=tmp_path / "salles",
+        # Et aucune clé Switch: un essai qui hériterait de NEL3AB_SWITCH_KEYS lirait
+        # la vraie clé de la machine. Ceux qui en ont besoin en tirent une au
+        # hasard, dans leur dossier jetable.
+        switch_keys=None,
     )
 
 

@@ -48,6 +48,8 @@ EtatElement = Literal[
     "range",
     "pas-jouable",
     "a-confirmer",
+    "mise-a-jour",
+    "contenu-additionnel",
     "inconnu",
     "doublon",
     "refuse",

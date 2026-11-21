@@ -1,5 +1,9 @@
 //! Registered Switch games. An NSP may be an update, so its extension alone
-//! never adds it to the room. Registration records the title verified at boot.
+//! never adds it to the room.
+//!
+//! Registration records the base title: verified at boot for a hand-written
+//! file, or read from the decrypted NCA header by the lobby's import
+//! (`control/nel3ab_control/imports/switch_nca.py`).
 use std::{
     io::{Cursor, Read},
     path::Path,
@@ -174,6 +178,45 @@ mod tests {
                 expected,
                 "{extension}, {console}"
             );
+        }
+    }
+
+    /// La fiche que l'import du salon écrit (`rangement.fiche_switch`). Un essai
+    /// Python compare ce que le salon produit à ce même fichier, octet pour
+    /// octet: changer le format d'un côté fait échouer l'un des deux essais.
+    #[test]
+    fn the_lobby_import_sidecar_registers_its_game_and_an_update_title_does_not() {
+        const FICHE: &str = include_str!("../../../../consoles/fiche-switch.json");
+        // Sans ce titre écrit tel quel, le jumeau plus bas remplacerait rien et
+        // passerait pour une mauvaise raison.
+        assert!(FICHE.contains(r#""title": "0100ABCDEF012000""#));
+        let dir = tempfile::tempdir().unwrap();
+        for extension in ["nsp", "xci"] {
+            let path = dir
+                .path()
+                .join(format!("Super Essai Kart Écarlate.{extension}"));
+            std::fs::write(&path, b"import fixture").unwrap();
+            let mut sidecar = path.as_os_str().to_os_string();
+            sidecar.push(".nel3ab.json");
+            std::fs::write(&sidecar, FICHE).unwrap();
+            assert_eq!(
+                registered(&path),
+                Some(Game {
+                    console: Console::Switch,
+                    name: "Super Essai Kart Écarlate".to_owned(),
+                    title: "0100abcdef012000".to_owned(),
+                    maker: String::new(),
+                    about: String::new(),
+                }),
+                "{extension}"
+            );
+            // Le jumeau: la même fiche, avec le titre de la mise à jour du jeu.
+            std::fs::write(
+                &sidecar,
+                FICHE.replace("0100ABCDEF012000", "0100ABCDEF012800"),
+            )
+            .unwrap();
+            assert_eq!(registered(&path), None, "{extension}");
         }
     }
 

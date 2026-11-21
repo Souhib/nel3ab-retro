@@ -6,19 +6,38 @@ et leurs limites. Le [carnet](carnet-de-bord.md#11-septembre-ce-que-le-mois-a-ap
 conserve leur déroulement ; l'[ADR](adr/0001-architecture.md) conserve les règles
 qui en résultent. Les anciens plans M1 à M3 sont des archives de conception.
 
-**Au 21 novembre à 2 h 45 : tout est dans `main`, le worker est construit, le salon attend son redémarrage.**
-Le travail du 21 novembre (portes du salon, manifeste des consoles et clé de
-jeu, dépôt de jeux avec rangement automatique des jeux Switch de base, carnet
-de jeu, Bobine dans la salle et dans les pages du salon) est fusionné dans
-`main`. `just check` et les contrôles propres à la machine (GPU, son des
-clips, sauvegardes et capture Switch, copie chiffrée) passent. Le worker de
-production est reconstruit : la prochaine salle ouverte l'utilisera. Le
-salon et la boîte noire tournent encore l'ancien code tant que l'unité
-`deploy/nel3ab-control.service` n'est pas installée et ces deux services
-redémarrés ; `just deploy-check` le signale. À faire par Souhib :
-`sudo cp deploy/nel3ab-control.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl restart nel3ab-control nel3ab-boite-noire`.
+**Au 21 novembre à midi : une adresse, des clés de dépôt, le laboratoire Switch 2 rangé.**
+Tout est dans `main`. Trois changements s'ajoutent à ceux de la nuit :
+
+- `nel3ab.app` est la seule adresse. Les anciennes portes `.ts.net:8443` et
+  `:8444` renvoient vers elle, chemin compris ; leur origine n'est plus admise
+  à écrire au salon. Récit : entrée « 21 novembre : une seule adresse ».
+- L'administrateur donne ou reprend, depuis la page `/importer`, le droit de
+  déposer des jeux, parmi les comptes du tailnet et les personnes déjà venues.
+  Mode d'emploi : [Déposer un jeu](importer.md). Récit : entrée « 21 novembre :
+  donner la clé du quai depuis la page ».
+- Le laboratoire Switch 2 (273 Go) est archivé puis supprimé ; tout ce qui a
+  été fait pour la Switch 2 est raconté dans une partie à part du carnet,
+  [La Switch 2, de bout en bout](carnet-switch2.md). Le NUP de Mario Tennis
+  Fever est gardé hors des salles, dans `~/roms/hors-salle/switch2/`.
+
+**Rien de cela ne tourne encore.** Le salon, la boîte noire et Caddy tournent
+l'ancien code et l'ancienne configuration tant que Souhib n'a pas lancé, depuis
+`/home/souhib/nel3ab-retro` :
+`sudo bash deploy/mettre-en-service.sh`. Le script valide le Caddyfile avant
+de copier quoi que ce soit, installe les unités, redémarre les trois services,
+règle les anciennes portes, essaie les pages, puis lance `just deploy-check`.
+Le worker de production, lui, est déjà reconstruit depuis la nuit.
+
+**Xbox 360 : l'émulateur est choisi, pas essayé.** Une recherche du
+21 novembre retient Xenia Edge (Linux natif, Wayland, mode portable), avec
+Xenia Canary en secours. Les deux paquets sont téléchargés et vérifiés contre
+l'empreinte publiée, mais leur premier lancement sur la carte graphique a été
+refusé par le contrôle automatique des actions de l'assistant ; il attend
+Souhib. Aucun jeu Xbox 360 n'a été essayé.
+
 Les paragraphes ci-dessous disent « non installé » : ils datent d'avant la
-fusion.
+fusion de la nuit.
 
 **Au 21 novembre, sur une branche non installée : un carnet de jeu par personne.**
 Le salon tient un journal des parties : un fichier par personne, jamais

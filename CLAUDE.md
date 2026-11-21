@@ -14,11 +14,14 @@ resuming work: delivered features, evidence, replaced approaches and remaining
 questions. Check the working tree as well as commits; an installed change may
 still be uncommitted. Do not infer deployment or remote CI status from either.
 
-For Zelda performance, read the current hand-off at the top of
+The Switch 2 engine work was set aside on 2026-11-20; the console stays in the
+rooms as experimental. To resume it, start with
+[`docs/carnet-switch2.md`](docs/carnet-switch2.md): what is installed, every
+candidate and its result, and how to rebuild from the archive, since the lab
+folders were deleted on 2026-11-21. Then read the hand-off at the top of
 [`docs/plan-60fps-switch2-2026-11-08.md`](docs/plan-60fps-switch2-2026-11-08.md).
-It separates the installed engine, qualified private candidates, rejected
-experiments and the exact next action. Its filename retains the former target;
-the current request is at least 40 constant game frames per second.
+Its last target was at least 40 constant game frames per second; confirm it
+with the owner before any new engine work.
 
 [`docs/carnet-de-bord.md`](docs/carnet-de-bord.md) is the same story told for a
 human: how the project was built, what fought back, and what every acronym means.
@@ -361,6 +364,12 @@ machine".
   truncated identity, so a personal save could land in the wrong folder.
   Derive the bound from the longest legal message, and refuse a message that
   reaches the bound without its terminator.
+- **Archive a lab by inventory before deleting it, not by file extension.**
+  On 2026-11-21, an extension filter kept every report but dropped four
+  Dockerfiles, and their images were removed in the same hour. Only the
+  Docker build cache still held their steps, without order or base image.
+  Keep every file that describes a recipe, and delete a built product only
+  after its recipe is in the archive.
 - **A wrapper's own exit codes must not overlap the tool it wraps.** On
   2026-11-21, the backup script's "NAS missing" code 3 was restic's "file
   unreadable" code 3, and the journal named the wrong cause. Pick codes the

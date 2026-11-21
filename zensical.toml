@@ -31,6 +31,7 @@ nav = [
   { "Accueil" = "index.md" },
   { "État du projet" = "etat-du-projet.md" },
   { "Carnet de bord" = "carnet-de-bord.md" },
+  { "Carnet : la Switch 2" = "carnet-switch2.md" },
   { "Touches et manettes" = "ecran-manettes.md" },
   { "Switch dans la salle" = "switch-room.md" },
   { "Copie des sauvegardes" = "abri.md" },

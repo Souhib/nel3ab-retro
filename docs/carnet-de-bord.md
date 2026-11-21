@@ -25959,7 +25959,224 @@ eux-mêmes avec un espace libre simulé.
 processeur) fait dépendre l'essai de la machine. Le fixer dans les réglages
 d'essai, et simuler la mesure dans l'essai qui vise le seuil.
 
+### 21 novembre : le laboratoire Switch 2 est rangé, puis supprimé
+
+**La demande.** Souhib a demandé de retirer les restes du laboratoire et les
+dossiers de travail. Il a aussi demandé de garder par écrit tout ce qui a été
+fait pour la Switch 2, au cas où on y reviendrait. Ce récit est maintenant une
+partie à lui seul : [La Switch 2, de bout en bout](carnet-switch2.md).
+
+**Ce qui a été gardé avant de supprimer.** Les 35 arbres de sources du
+laboratoire avaient tous des modifications locales, posées sur des commits que
+les dépôts amont connaissent. Chacun a donné un correctif (`git diff` de
+l'arbre entier, fichiers non suivis compris, sans toucher son index). Les deux
+miroirs complets de Lichii et d'Eglantine ont été mis en paquets Git. Les
+preuves textuelles et chaque fichier du laboratoire que le dépôt cite sont
+partis dans une archive qui garde leur chemin d'origine. Trois contrôles ont
+précédé la suppression :
+
+- les deux paquets se clonent ;
+- les 35 correctifs s'appliquent sans échec sur les commits restaurés depuis
+  ces paquets ;
+- l'archive des preuves se compare au disque octet par octet (49 240
+  fichiers, aucune différence).
+
+L'archive (1,6 Go) est sous `~/.local/share/nel3ab/archives/`, et une copie
+chiffrée est sur le NAS sous l'étiquette restic `switch2-labo`, que
+l'entretien de la nuit ne touche pas.
+
+**Un jeu n'était pas un reste.** Le NUP de Mario Tennis Fever n'existait que
+dans le laboratoire. Il est rangé dans `~/roms/hors-salle/switch2/`, hors des
+dossiers que lisent les salles : rien n'entre en salle sans la décision de
+Souhib. La copie de Zelda du laboratoire faisait doublon avec celle du
+catalogue.
+
+**Ce qui est parti.** `~/.local/share/nel3ab/nx2-lab` (184 Go), les
+408 dossiers `test-switch2-*` rangés au milieu des vraies sauvegardes
+(89 Go), six images Docker du laboratoire, et les cinq dossiers de travail des
+agents, tous fusionnés dans `main`. Le disque passe de 792 à 563 Go
+utilisés. Les deux images dont la salle Switch 2 se sert restent, comme les
+moteurs installés. Les autres images de la machine appartiennent à d'autres
+services : aucun nettoyage global n'a été lancé.
+
+**Le piège.** Le filtre de l'archive gardait les fichiers par extension
+(`.json`, `.log`, `.py`...). Les Dockerfile des images de compilation n'en ont
+pas, et ces images ont été retirées dans la même heure. Leurs étapes ont été
+reconstituées depuis le cache de construction de Docker, qui garde le texte de
+chaque commande `RUN` mais ni leur ordre ni l'image de base.
+
+**Leçon.** Avant de supprimer un laboratoire, choisir ce qu'on garde par
+inventaire des fichiers qui décrivent une recette, pas par extension. Et ne
+retirer un produit (une image, un exécutable) qu'après avoir vérifié que sa
+recette est dans l'archive.
+
+### 21 novembre : donner la clé du quai depuis la page
+
+**La demande.** Souhib voulait choisir lui-même, depuis l'interface, qui peut
+déposer des jeux, parmi les personnes qui ont accès à l'application.
+
+**D'où vient la liste.** tailscaled, le service Tailscale de lgf, connaît
+chaque compte dont un appareil peut joindre la machine. Sa socket locale rend
+ce statut : les comptes à part, les appareils avec le numéro de leur compte.
+Un appareil marqué `ShareeNode` n'est là que parce que lgf a été partagée
+avec son propriétaire : c'est un invité. La page montre donc chaque compte du
+tailnet, chaque personne déjà venue (qui a un pseudo), et chaque personne qui
+a déjà un droit, même sortie du tailnet depuis. Les appareils étiquetés n'ont
+pas de propriétaire humain : ils ne sont pas listés.
+
+**Trois sources de droit, une seule modifiable.** L'administrateur et les
+adresses de `NEL3AB_IMPORTEURS` gardent leur droit, que la page montre sans
+bouton : il ne vient pas du fichier, donc le retirer d'ici ne changerait rien,
+et le salon répond 409 plutôt que « fait ». Les clés données depuis la page
+sont écrites dans `importeurs.json`, en 600, avant la réponse.
+
+**Un fichier illisible n'est jamais écrasé.** Le fichier des pseudos fait
+l'autre choix et repart de zéro, parce qu'un pseudo perdu se retape. Un droit
+écrasé en silence, lui, ne se voit pas. Si le fichier des droits ne se lit
+plus, personne n'y est admis, la page le dit, et le salon refuse d'y écrire
+jusqu'à sa réparation.
+
+**À l'écran.** Un trousseau en deux colonnes, « Ont la clé » et « Sans clé ».
+Chaque personne porte une fiche d'une des quatre couleurs de prise, toujours
+la même pour une adresse. Avec la clé, la fiche est enfoncée et pleine ; sans,
+elle pend, creuse. Donner la clé : Bobine tamponne, un tampon « CLÉ » tombe,
+la ligne glisse dans l'autre colonne. Reprendre : Bobine tire. Seuls
+`transform` et `opacity` bougent, et rien ne bouge en mouvement réduit.
+
+**Ce qui le prouve.** 37 essais nouveaux : le registre, la lecture du statut
+par une vraie socket Unix, les routes. Sept défauts ont été réintroduits un à
+un ; chacun fait échouer au moins un essai, par exemple un droit donné qui ne
+compte pas, une écriture qui touche la mémoire avant le disque, ou un invité
+compté comme membre. Un essai sous Node vérifie les fonctions de la page, et
+une capture sur données inventées, au bureau et sur téléphone, montre le
+geste sans erreur et sans défilement horizontal. Le vrai tailscaled n'a pas
+été interrogé par les essais ; il l'a été une fois, en lecture, pour relever
+la forme de son statut.
+
+### 21 novembre : une seule adresse
+
+**La demande.** Souhib veut que tout passe par `nel3ab.app`, et accepte de
+laisser l'ancienne adresse si la retirer coûte trop, tant que tout se fait
+depuis la nouvelle.
+
+**Ce qui existait.** tailscaled servait encore deux portes sous le nom
+`.ts.net`. Sur `:8443`, la racine menait à l'ancien port 8100, où plus rien
+n'écoute depuis les salles multiples, et `/api` menait au salon. Sur `:8444`,
+il servait le site de documentation, que `nel3ab.app/docs` sert aussi. Les
+deux portes étaient donc soit cassées, soit en double.
+
+**Le choix.** Les retirer tout à fait aurait laissé les anciens liens échouer
+sans dire où la salle était partie. Elles renvoient donc vers `nel3ab.app`,
+chemin compris : un ancien lien vers `/carnet-de-bord/` arrive sur
+`nel3ab.app/docs/carnet-de-bord/`. tailscaled termine toujours la connexion
+chiffrée, puis relaie vers deux petits sites Caddy qui n'écoutent que sur la
+boucle locale et ne font que rediriger. La redirection est temporaire (302) :
+un navigateur garde une redirection définitive (301) pour toujours, et revenir
+en arrière demanderait de vider le cache de chacun. L'origine `.ts.net` sort
+aussi de la liste des pages admises à écrire au salon, puisqu'aucune page n'est
+plus servie depuis elle. Deux essais lisaient cette liste dans l'unité livrée
+et exigeaient les deux portes : ils sont tombés rouges au premier passage,
+comme il fallait. Ils exigent maintenant la seule porte `nel3ab.app`, et que
+l'origine `.ts.net:8443` soit refusée en écriture comme sur la socket.
+
+**Le prix.** Cette porte ne demandait aucun entretien, et elle servait de
+secours si le renouvellement du certificat de `nel3ab.app` cassait. Le
+Caddyfile dit la commande qui la rouvre le temps d'une panne.
+
+**Un autre projet dans le même fichier.** Le Caddyfile installé portait une
+ligne que le dépôt n'avait pas : l'import d'un autre projet de la machine,
+ajouté le matin même. Installer la copie du dépôt l'aurait retiré. La ligne
+est recopiée dans le dépôt, et `just deploy-check` compare toujours les deux.
+
+**Ce qui le vérifie.** `caddy validate` accepte le nouveau fichier, et
+`just deploy-check` contrôle maintenant que les deux portes ne font que
+renvoyer vers ces sites. Il signalait aussi un trou : il ne regardait que les
+fichiers Python du salon pour dire s'il tournait avec un code périmé, alors que
+le salon assemble ses pages (HTML, modules, feuilles, polices) une fois, à son
+démarrage. Une page changée seule ne le faisait pas rougir ; il les compte
+maintenant, avec le manifeste des consoles. La mise en service demande les
+droits d'administration ; `deploy/mettre-en-service.sh` la fait en une
+commande et finit par `just deploy-check`.
+
+### 21 novembre : quel émulateur pour la Xbox 360
+
+**La question.** Souhib veut la Xbox 360 dans les salles, et a autorisé des
+essais et des recherches sur d'autres émulateurs que Xenia Canary.
+
+**Ce que la recherche a trouvé.** Elle a lu les dépôts, les pages de
+publication et le code source de chaque candidat, sans rien télécharger.
+
+| Projet | Ce que c'est | Pour une salle |
+|---|---|---|
+| Xenia Edge | fork de Canary, qui le fusionne régulièrement | paquet Linux natif présenté comme mûr ; fenêtre Wayland native ; mode portable qui marche en AppImage ; compilé sur Ubuntu 22.04 |
+| Xenia Canary | l'émulateur de référence | paquet Linux « extrêmement expérimental » selon sa propre documentation ; X11 seulement, donc Xwayland sous Sway ; mode portable cassé en AppImage |
+| Cœur libretro de Xenia Edge | Edge dans RetroArch | possible plus tard si RetroArch entre dans les salles |
+| XenonRecomp, ReXGlue | recompilation statique, un portage par jeu | pas un émulateur : écartés |
+| XeniOS, Xenia d'origine | fork pour Apple ; projet arrêté | sans objet |
+
+Les deux Xenia lisent quatre manettes par SDL3, avec branchement à chaud, et
+SDL3 sait trouver des manettes virtuelles sans udev dans un conteneur, ce qui
+reste à vérifier ici. Leurs données vont dans un dossier qu'on choisit
+(`--storage_root`), avec un sous-dossier par profil de joueur : on peut donc
+monter un dossier par personne, comme pour les autres consoles.
+
+**Le choix.** Xenia Edge, figé sur une version précise, avec Canary installé
+à côté pour les jeux qui échouent sur Edge.
+
+**Les risques déjà connus.**
+
+- Un nouveau paquet sort à chaque modification, sans signature : il faut
+  figer une version et noter son empreinte.
+- Sans profil de joueur, les deux affichent une fenêtre qui se verrait dans
+  l'image diffusée. Il faudra créer quatre profils une fois, à la main.
+- Edge active par défaut le jeu en réseau local entre instances. Les salles
+  tournent sans réseau, mais c'est à fixer avant d'en ouvrir une.
+- Un arrêt brutal à la fermeture d'un titre est signalé sous Linux.
+
+**Ce qui a été fait.** Les deux paquets du 20 et du 21 novembre (Edge
+`01ca7a5`, Canary `a4ef31c`) sont téléchargés et contrôlés contre l'empreinte
+SHA-256 que GitHub publie, puis dépaquetés sans être exécutés. Un essai sans
+jeu était prêt : 25 secondes sous un Sway sans écran, dans l'image de la salle
+Switch, sans réseau ni droits, avec la seule carte graphique. Le contrôle
+automatique des actions de l'assistant a refusé ce lancement ; il attend
+Souhib. Rien n'est donc prouvé sur cette machine : ni que la carte est
+trouvée, ni qu'une image s'affiche, ni qu'une manette est lue. Aucun jeu Xbox
+360 libre et vérifié n'existe pour aller plus loin : le premier vrai essai
+demandera une copie d'un jeu de Souhib.
+
 ## 12. Glossaire complet
+
+**AppImage** : format qui range un programme Linux et ses bibliothèques en un
+seul fichier exécutable.
+
+**Paquet Git (bundle)** : fichier unique qui contient un dépôt Git entier,
+branches et étiquettes comprises ; `git clone` le relit.
+
+**Eden, Eglantine, Lichii, Superbuild, Orchid** : émulateurs Switch 2 de la
+même famille, issus du projet Eden ; leur programme s'appelle `eden-cli`.
+
+**ELF** : *Executable and Linkable Format*, le format des programmes et des
+bibliothèques sous Linux ; son empreinte identifie un moteur compilé.
+
+**FPS** : *frames per second*, images par seconde calculées par le jeu.
+
+**Mesa** : ensemble libre de pilotes graphiques pour Linux, dont RADV.
+
+**NAND** : mémoire persistante de la console émulée, où vivent les
+sauvegardes Switch 2.
+
+**Pipeline graphique** : programme complet que la carte exécute pour un type
+de dessin, compilé par le pilote la première fois qu'il sert.
+
+**Retour de présentation** : une image remise à l'affichage, comptée au retour
+de l'appel Vulkan ; ce n'est pas un affichage physique.
+
+**Triplet de moteur** : image Docker, moteur et révision qu'une salle Switch 2
+lance ; `engines_by_title` en choisit un par jeu.
+
+**ShareeNode** : marque que tailscaled pose sur un appareil présent seulement
+parce que la machine a été partagée avec son propriétaire, c'est-à-dire un
+invité.
 
 **Faux partage** : échanges inutiles entre les caches de plusieurs cœurs lorsque
 des champs indépendants occupent une même ligne de cache.

@@ -1595,3 +1595,39 @@ it to `registered`.
 game's display name comes from the file name, since the NACP title needs
 key-area or title-key decryption; the key generation is reported, not compared
 with the keys the room holds.
+
+## One address, and import rights given from the page, 2026-11-21
+
+The owner asked that everything go through `nel3ab.app`, and that he choose
+from the interface who may upload games. The logbook entries « 21 novembre :
+donner la clé du quai depuis la page » and « 21 novembre : une seule adresse »
+tell the tests and the measurements.
+
+**The `.ts.net` doors only redirect.** tailscaled still terminates TLS on
+`:8443` and `:8444`, but proxies them to two loopback-only Caddy sites that
+answer 302 to `https://nel3ab.app{uri}` and `https://nel3ab.app/docs{uri}`.
+The path follows, so a deep link lands in place. The `.ts.net` origin leaves
+`NEL3AB_ORIGINS`: no page is served from it, so it has no reason to write.
+Rejected: switching the doors off, because old links would then fail without
+saying where the room went; a 301, because browsers keep it forever and
+undoing it would need every visitor's cache cleared. Cost: the door that
+needed no upkeep is no longer a fallback if the certificate renewal breaks;
+the Caddyfile states the one command that reopens it.
+
+**Three sources of the right to upload, one editable.** The administrator and
+`NEL3AB_IMPORTEURS` keep theirs. The page adds and removes only the addresses
+it named, stored in `NEL3AB_IMPORTEURS_FILE` (mode 600, written before the
+answer, read once at start). The page shows the first two without a button,
+and the API answers 409 rather than pretending to remove a right that comes
+from elsewhere. An unreadable file grants nothing and is never overwritten:
+writes answer 503 until it is repaired by hand. Rejected: making the file
+replace the environment list, because a typo in the page would then lock out
+a right the owner wrote on purpose; replacing an unreadable file as the
+nickname store does, because a right lost in silence does not show.
+
+**The list comes from tailscaled and from the lobby.** tailscaled's local
+status names every account with a device that can reach this machine;
+`ShareeNode` marks guests of a share, and tagged devices are left out. The
+nickname store adds everyone who already came. The list shows addresses, so
+only the administrator may read it (401 or 403 otherwise), and the global
+origin guard covers its writes.

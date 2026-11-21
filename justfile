@@ -49,6 +49,12 @@ local: check gpu-test clip-audio-test switch-saves-test switch-capture-test abri
 abri-test:
     tools/test_abri.sh
 
+# La planche de Bobine: chaque pose et chaque scène, rejouables à la main, sans
+# salle ni salon. Sa configuration Vite n'a AUCUN mandataire vers les ports de
+# la salle, contrairement à `npm run dev`: une planche ne touche rien de vivant.
+planche port="5391":
+    cd front && npx vite --config vite.planche.config.ts --port {{port}}
+
 # The control plane's own gate, which is its owner's: ruff, ty, pytest, driven by
 # poe exactly as LaTabdhir and Majlisna drive theirs.
 control:

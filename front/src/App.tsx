@@ -7,6 +7,8 @@
  * scroll away from the game they are playing. Its width is dragged between two
  * bounds (`lib/column`), and the picture takes whatever is left.
  */
+import { Bobine } from "./bobine/Bobine";
+import { Console } from "./bobine/Console";
 import { MUTE_SETTLES_MS, muteNews, type MuteNews } from "./lib/sourdine";
 import { typingIn } from "./lib/typing";
 import { under } from "./lib/base";
@@ -1721,6 +1723,9 @@ function Room({
             onClick={() => setClosingHidden(true)}
             className="absolute inset-x-0 top-4 z-30 mx-auto max-w-[52ch] border border-alert/60 bg-panel px-4 py-3 text-center text-corps leading-relaxed text-bright"
           >
+            <span className="float-left -mt-1 mr-3" aria-hidden="true">
+              <Bobine pose="dort" taille={44} />
+            </span>
             Personne n&apos;a joué depuis un moment: la salle ferme dans {closingSoon}
             {closingSoon > 1 ? " minutes" : " minute"}. Touche une manette pour rester.
           </button>
@@ -2087,6 +2092,13 @@ function Room({
           className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-4 bg-ink"
           id="idle-room"
         >
+          {/* La console vide, et Bobine qui attend à côté. */}
+          <div className="n3-chargement" aria-hidden="true">
+            <div className="n3-chargement-bob">
+              <Bobine pose="repos" taille={64} />
+            </div>
+            <Console support="cartouche" diode="eteinte" avale={false} />
+          </div>
           <h2>Aucun jeu en cours</h2>
           <button type="button" className="n3-action primary" onClick={() => setMenu(true)}>
             Choisir un jeu
@@ -2115,6 +2127,7 @@ function Room({
         <Booting
           label="connexion à la salle"
           game={room?.game?.name ?? "la salle"}
+          console={room?.game?.console}
           step={bootingStep(shot.video)}
           onMenu={() => setMenu(true)}
         />
@@ -2155,6 +2168,7 @@ function Room({
       {booting ? (
         <Booting
           game={booting.game}
+          console={room?.library.find((one) => one.name === booting.game)?.console}
           save={booting.save}
           stalled={booting.stalled ?? false}
           onMenu={() => setMenu(true)}

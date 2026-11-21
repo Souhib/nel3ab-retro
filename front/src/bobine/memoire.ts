@@ -1,0 +1,52 @@
+/**
+ * Les personnes que ce navigateur a déjà vues se brancher dans cette salle.
+ *
+ * C'est une commodité locale, pas une vérité: un autre appareil a sa propre
+ * mémoire, et une fenêtre privée n'en a aucune. Le pire cas est donc une scène
+ * de branchement jouée une fois de trop, jamais une information perdue. Une
+ * mémoire tenue par le salon, partagée par tous, la remplacera quand le journal
+ * des parties existera.
+ *
+ * Le stockage peut manquer ou lever une exception (fenêtre privée, données
+ * bloquées, capture d'aperçu): chaque accès est protégé, et sans stockage la
+ * mémoire vit le temps de la page.
+ */
+
+const LIMITE = 200;
+
+export type Memoire = {
+  vus: () => ReadonlySet<string>;
+  retiens: (nom: string) => void;
+};
+
+export function memoireDesVus(salle: string, stockage: Storage | null = lire()): Memoire {
+  const cle = `n3-bobine-vus:${salle}`;
+  let noms: string[] = [];
+  try {
+    const brut = stockage?.getItem(cle);
+    const lu: unknown = brut ? JSON.parse(brut) : [];
+    if (Array.isArray(lu)) noms = lu.filter((n): n is string => typeof n === "string");
+  } catch {
+    noms = [];
+  }
+  return {
+    vus: () => new Set(noms),
+    retiens: (nom) => {
+      if (noms.includes(nom)) return;
+      noms = [...noms, nom].slice(-LIMITE);
+      try {
+        stockage?.setItem(cle, JSON.stringify(noms));
+      } catch {
+        // Sans stockage, la mémoire reste celle de la page.
+      }
+    },
+  };
+}
+
+function lire(): Storage | null {
+  try {
+    return typeof window === "undefined" ? null : window.localStorage;
+  } catch {
+    return null;
+  }
+}

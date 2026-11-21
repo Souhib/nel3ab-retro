@@ -6,6 +6,8 @@
  * Le dessin conserve l'occupation pour prendre ou demander la bonne manette.
  */
 import { useEffect, useState } from "react";
+import { Branchement, useBranchements } from "../bobine/Branchement";
+import { salle } from "../lib/base";
 import { cn } from "../lib/cn";
 import { Crown } from "./Crown";
 import { MicBadge } from "./MicBadge";
@@ -39,6 +41,16 @@ export function Seats({
 }) {
   const ports = Array.from({ length: players }, (_, slot) => slot + 1);
   const [armed, setArmed] = useState<number | null>(null);
+  const [rangee, setRangee] = useState<HTMLDivElement | null>(null);
+  // Une prise est « tenue » pour la scène dès qu'elle l'est pour le dessin:
+  // la mienne comprise, parce que se voir brancher fait partie de l'accueil.
+  const { fiches, scene, branche, fini } = useBranchements(
+    {
+      tenues: ports.map((port) => port === mine || (busy[port - 1] ?? false)),
+      noms: names,
+    },
+    String(salle()),
+  );
 
   useEffect(() => {
     if (armed === null) return;
@@ -69,41 +81,52 @@ export function Seats({
       {/* `id` et `data-state` sont lus par les pilotes de navigateur. Une classe
           ou un attribut `title` disait la même chose jusqu'au jour où un style
           change sous eux, ce qui est arrivé. */}
-      <div id="ports" className="grid grid-cols-4 gap-1.5">
-        {ports.map((port) => {
-          const isMine = port === mine;
-          const held = busy[port - 1] ?? false;
-          const isArmed = port === armed;
-          const name = names.get(port);
-          return (
-            <button
-              key={port}
-              type="button"
-              id={`port${port}`}
-              data-state={isMine ? "mine" : held ? "busy" : "free"}
-              data-armed={isArmed}
-              aria-label={`Manette ${port}${name ? ` · ${name}` : ""}${isArmed ? " · reprendre ?" : ""}`}
-              disabled={isMine}
-              onClick={() => click(port)}
-              title={
-                isMine
-                  ? "c'est la tienne"
-                  : names.has(port)
-                    ? `demander sa manette à ${names.get(port)}`
-                    : held
-                      ? "personne ne répond sur cette prise: reclique pour la reprendre"
-                      : "prendre cette manette"
-              }
-              className={cn(
-                "relative cursor-pointer border-0 bg-transparent p-0 leading-none",
-                isMine && "cursor-default",
-              )}
-            >
-              <Socket
-                port={port}
-                state={isMine ? "mine" : isArmed ? "arming" : held ? "busy" : "free"}
-              />
-              {/* La couronne HORS du flux, posée sur la prise.
+      <div className="relative">
+        {scene ? (
+          <Branchement
+            key={`${scene.port}:${scene.nom}`}
+            scene={scene}
+            conteneur={rangee}
+            branche={branche}
+            fini={fini}
+          />
+        ) : null}
+        <div id="ports" ref={setRangee} className="grid grid-cols-4 gap-1.5">
+          {ports.map((port) => {
+            const isMine = port === mine;
+            const held = busy[port - 1] ?? false;
+            const isArmed = port === armed;
+            const name = names.get(port);
+            return (
+              <button
+                key={port}
+                type="button"
+                id={`port${port}`}
+                data-state={isMine ? "mine" : held ? "busy" : "free"}
+                data-armed={isArmed}
+                aria-label={`Manette ${port}${name ? ` · ${name}` : ""}${isArmed ? " · reprendre ?" : ""}`}
+                disabled={isMine}
+                onClick={() => click(port)}
+                title={
+                  isMine
+                    ? "c'est la tienne"
+                    : names.has(port)
+                      ? `demander sa manette à ${names.get(port)}`
+                      : held
+                        ? "personne ne répond sur cette prise: reclique pour la reprendre"
+                        : "prendre cette manette"
+                }
+                className={cn(
+                  "relative cursor-pointer border-0 bg-transparent p-0 leading-none",
+                  isMine && "cursor-default",
+                )}
+              >
+                <Socket
+                  port={port}
+                  state={isMine ? "mine" : isArmed ? "arming" : held ? "busy" : "free"}
+                  fiche={fiches.get(port)}
+                />
+                {/* La couronne HORS du flux, posée sur la prise.
                 Dans la cellule elle coûtait sa place au nom: 65 px utiles,
                 « Souhib » en occupe 55 en sans-serif et 58 en chasse fixe, et
                 la couronne 16. Le nom se coupait donc en « Sou… » dès qu'on
@@ -120,35 +143,36 @@ export function Seats({
 
                 Elle reste DANS le bouton `#portN`, ce que `Seats.test.tsx`
                 épingle: c'est la prise qu'elle marque, pas le nom. */}
-              {(held || isMine) && name && port === ownerSeat ? (
-                <span className="pointer-events-none absolute -top-1 right-0 z-10">
-                  <Crown />
-                </span>
-              ) : null}
-              {/* Le micro, barré quand la voix de cette place n'est pas captée.
+                {(held || isMine) && name && port === ownerSeat && fiches.get(port) !== "cachee" ? (
+                  <span className="pointer-events-none absolute -top-1 right-0 z-10">
+                    <Crown />
+                  </span>
+                ) : null}
+                {/* Le micro, barré quand la voix de cette place n'est pas captée.
                   Hors du flux comme la couronne, pour ne pas couper le nom. */}
-              {held || isMine ? (
-                <span className="pointer-events-none absolute -top-1 left-0 z-10">
-                  <MicBadge open={mics[port - 1] ?? false} />
+                {held || isMine ? (
+                  <span className="pointer-events-none absolute -top-1 left-0 z-10">
+                    <MicBadge open={mics[port - 1] ?? false} />
+                  </span>
+                ) : null}
+                <span
+                  className={cn(
+                    "block truncate text-center text-note",
+                    isArmed
+                      ? "text-alert"
+                      : isMine
+                        ? "text-indigo"
+                        : held
+                          ? "text-text"
+                          : "text-faint",
+                  )}
+                >
+                  {(held || isMine) && name && fiches.get(port) !== "cachee" ? name : "\u00a0"}
                 </span>
-              ) : null}
-              <span
-                className={cn(
-                  "block truncate text-center text-note",
-                  isArmed
-                    ? "text-alert"
-                    : isMine
-                      ? "text-indigo"
-                      : held
-                        ? "text-text"
-                        : "text-faint",
-                )}
-              >
-                {(held || isMine) && name ? name : "\u00a0"}
-              </span>
-            </button>
-          );
-        })}
+              </button>
+            );
+          })}
+        </div>
       </div>
       {displaced ? (
         <p id="displaced" className="text-note text-alert">

@@ -11,7 +11,8 @@
  * services ne dit où il en est et qu'une barre inventée est un mensonge poli.
  */
 import { useEffect, useState } from "react";
-import { Socket } from "./Socket";
+import { Chargement } from "../bobine/Chargement";
+import { supportDe } from "../bobine/support";
 import { STEPS, type Step } from "../lib/booting";
 
 /* Le type et la liste vivent avec la fonction qui les CALCULE, pas avec l'écran
@@ -31,10 +32,13 @@ export function Booting({
   step,
   label = "chargement",
   stalled = false,
+  console: code,
   onMenu,
   onGiveUp,
 }: {
   game: string;
+  /** Le code de la console du jeu attendu, pour le geste de Bobine. */
+  console?: string | null;
   save?: string;
   step: Step;
   /** Ce qu'on attend. « chargement » pour un changement de jeu, autre chose
@@ -81,20 +85,11 @@ export function Booting({
         {save ? <p className="text-corps text-faint">sur « {save} »</p> : null}
       </div>
 
-      {/* Quatre prises qui s'allument l'une après l'autre. Ce n'est pas une
-          barre de progression: c'est une animation d'attente, et elle ne
-          prétend pas savoir combien de temps il reste. */}
-      <div className="flex gap-3">
-        {[1, 2, 3, 4].map((port) => (
-          <span
-            key={port}
-            className="w-12 animate-pulse"
-            style={{ animationDelay: `${port * 180}ms`, animationDuration: "1.4s" }}
-          >
-            <Socket port={port} state="busy" />
-          </span>
-        ))}
-      </div>
+      {/* Bobine prépare le jeu, l'insère quand l'émulateur démarre vraiment, et
+          souffle dedans si rien ne vient. Ce n'est pas une barre de
+          progression: les gestes suivent les étapes que la page connaît, pas
+          une horloge, et ne prétendent pas savoir combien de temps il reste. */}
+      <Chargement support={supportDe(code)} etape={step} perdu={perdu} />
 
       <ol className="flex flex-col gap-1 text-corps">
         {STEPS.map((name, index) => (

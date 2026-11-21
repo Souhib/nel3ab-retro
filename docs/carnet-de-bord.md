@@ -24897,6 +24897,63 @@ puis supprimé. Leçon : une consigne de lecture seule ne retient pas un
 outil qui écrit dans le dossier courant. Lancer ces outils depuis le
 dossier temporaire, et relire `git status` après chaque audit.
 
+### 21 novembre : Bobine, le machiniste de la salle
+
+**La demande.** Souhib a aimé l'identité proposée le 20 novembre, « quatre
+prises, une antenne », mais la trouvait encore convenue. Son exemple : quand
+quelqu'un entre pour la première fois dans une salle comme joueur, voir un
+personnage venir brancher sa manette sur le bon port.
+
+**Le personnage.** Souhib proposait le logo de Claude. Ce logo appartient à
+Anthropic, et le dépôt est public : le reprendre comme mascotte prêterait au
+projet une marque qui n'est pas la sienne. Bobine est donc un personnage
+original : une bobine de câble debout, deux flasques en bois, le fil enroulé
+au milieu, deux yeux, et l'antenne du projet sur la tête. Un personnage fait
+de câble a une raison d'être celui qui branche les manettes.
+
+**Ce qu'il joue, et quand.** Chaque scène correspond à un changement d'état
+que toute la salle voit, jamais à une décoration permanente :
+
+- une première arrivée à une prise : Bobine arrive par la droite en traînant
+  le fil du joueur, dans sa couleur, enfonce la fiche dans la bonne prise,
+  salue et repart (2,75 s). Le nom n'apparaît qu'au moment où la fiche touche
+  le fond ;
+- un retour, ou une prise tenue sans nom connu : la fiche claque seule dans
+  la prise, sans scène. Rejouer la scène à chaque retour la rendrait vite
+  pénible ;
+- un départ : l'ancienne fiche saute hors de la prise ;
+- un changement de jeu : il essuie le disque (GameCube, Wii), souffle dans la
+  cartouche (consoles rétro à venir) ou tient la carte (Switch), puis
+  l'insère dans une console dessinée quand l'émulateur démarre vraiment. Si
+  rien ne vient, il souffle dans la cartouche ou sort sa loupe, et la diode
+  de la console clignote en orange ;
+- une salle sans jeu : la console vide, et Bobine qui attend à côté ;
+- l'avertissement de fermeture : Bobine s'endort ;
+- un spectateur qui arrive se laisse tomber sur un canapé, au-dessus de la
+  liste des spectateurs.
+
+**Les règles tenues.** Seules les propriétés `transform` et `opacity` sont
+animées, pour que rien ne recalcule la mise en page à côté de l'image du jeu.
+React ne fait que changer un attribut ; le navigateur joue l'animation. La
+rangée des prises ne bouge pas d'un pixel pendant une scène, et un clic sur
+une prise reste possible. Ouvrir la page sur une salle pleine ne joue aucune
+scène : une arrivée est une différence entre deux états reçus, et le premier
+état n'en a pas. Avec la réduction des animations demandée par le système,
+la fiche se branche directement, sans personnage en mouvement.
+
+**Ce qui n'est pas parfait.** Savoir si quelqu'un vient pour la « première
+fois » repose pour l'instant sur la mémoire du navigateur. Un autre appareil,
+ou une fenêtre privée, rejoue donc la scène une fois de plus. Le journal des
+parties tenu par le salon donnera une réponse commune à tous.
+
+**Les tests.** Cinq essais pilotent la vraie rangée de prises avec une horloge
+simulée : la fiche reste cachée jusqu'au moment prévu, puis le nom apparaît ;
+un retour claque sans scène ; une salle pleine à l'ouverture ne joue rien ;
+une prise libérée laisse sauter sa fiche ; sans mouvement permis, la prise se
+branche directement. Deux défauts réintroduits (une fiche jamais cachée, un
+premier état compté comme des arrivées) font chacun échouer l'essai qui les
+vise. `just planche` sert toutes les poses et les scènes, sans salle ni salon.
+
 ## 12. Glossaire complet
 
 **Faux partage** : échanges inutiles entre les caches de plusieurs cœurs lorsque
@@ -25895,3 +25952,10 @@ puis on anime seulement un déplacement, qui coûte peu au navigateur.
 **Tube nommé (FIFO)** : fichier spécial qui relie deux processus. Le lire
 bloque tant que personne n'écrit dedans, d'où le danger pour un programme
 qui parcourt des dossiers en ouvrant tout ce qu'il trouve.
+
+**Bobine** : le personnage de la salle, une bobine de câble avec une antenne.
+Il joue les changements d'état visibles par tous : une arrivée, un changement
+de jeu, une fermeture.
+
+**Planche** : page de travail qui montre toutes les poses et toutes les
+scènes d'un personnage, pour les regarder et les comparer hors de la salle.

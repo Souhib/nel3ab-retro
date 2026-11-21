@@ -28,6 +28,7 @@
  * colonne qui porte à la fois l'état de la salle et sept boutons de réglage ne
  * porte bien ni l'un ni l'autre.
  */
+import { Canape } from "../bobine/Canape";
 import { useEffect, useState } from "react";
 import type { Person } from "../client";
 import { cn } from "../lib/cn";
@@ -194,6 +195,7 @@ export function Sidebar({
             <span className="text-corps uppercase tracking-[0.2em] text-indigo/70">
               spectateurs · {watching.length}
             </span>
+            {watching.length ? <Canape noms={watching.map((person) => person.name)} /> : null}
             {watching.length ? (
               watching.map((person) => (
                 <div

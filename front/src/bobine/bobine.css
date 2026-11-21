@@ -1,0 +1,835 @@
+/*
+ * Bobine: couleurs, dessin et gestes.
+ *
+ * Trois règles tenues partout ici, et pourquoi:
+ * - seules `transform` et `opacity` bougent. Le navigateur les anime sans
+ *   recalculer la mise en page ni repeindre, donc une animation ne prend rien
+ *   au décodage de l'image du jeu qui tourne à côté;
+ * - chaque partie déclare `transform-box: fill-box` et son pivot. Sans cela, un
+ *   bras tourne autour du coin du dessin au lieu de l'épaule;
+ * - `prefers-reduced-motion` arrête tout en bas de ce fichier. Bobine reste
+ *   dessiné, immobile, dans la pose finale de la scène.
+ */
+
+:root {
+  --bob-bois: #c99a5b;
+  --bob-trait: #1d1712;
+  --bob-cable: #3b3f49;
+  --bob-blanc: #f6f0e6;
+  --bob-joue: #e2846f;
+  --bob-led: #63d28f;
+  --bob-fiche-couleur: var(--bob-cable);
+  /* Bras, jambes et antenne: assez clairs pour se voir sur le fond le plus
+     sombre, assez foncés pour se voir sur le crème du thème famicom. */
+  --bob-membre: #9a7446;
+}
+/* Les thèmes monochromes gardent leur promesse: une seule encre. */
+:root[data-theme="phosphore"] {
+  --bob-membre: #2f8f4e;
+  --bob-bois: #2f8f4e;
+  --bob-trait: #031a0b;
+  --bob-cable: #145c2c;
+  --bob-blanc: #b8f5c6;
+  --bob-joue: #2f8f4e;
+  --bob-led: #b8f5c6;
+}
+:root[data-theme="ambre"] {
+  --bob-membre: #b5761f;
+  --bob-bois: #b5761f;
+  --bob-trait: #1c1004;
+  --bob-cable: #6b4310;
+  --bob-blanc: #ffd79a;
+  --bob-joue: #b5761f;
+  --bob-led: #ffd79a;
+}
+:root[data-theme="gameboy"] {
+  --bob-membre: #306230;
+  --bob-bois: #8bac0f;
+  --bob-trait: #0f380f;
+  --bob-cable: #306230;
+  --bob-blanc: #9bbc0f;
+  --bob-joue: #8bac0f;
+  --bob-led: #0f380f;
+}
+
+.bob {
+  display: block;
+  overflow: visible;
+}
+.bob * {
+  transform-box: fill-box;
+}
+.bob path,
+.bob .bob-jambe ellipse {
+  stroke: var(--bob-trait);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.bob-antenne path {
+  fill: none;
+  stroke: var(--bob-membre);
+  stroke-width: 2.2;
+}
+.bob-led {
+  fill: var(--bob-led);
+  stroke: var(--bob-trait);
+  stroke-width: 1.4;
+}
+.bob-bois {
+  fill: var(--bob-bois);
+  stroke: var(--bob-trait);
+  stroke-width: 1.6;
+}
+.bob-trou {
+  fill: var(--bob-trait);
+}
+.bob-enroule {
+  fill: var(--bob-cable);
+  stroke: var(--bob-trait);
+  stroke-width: 1.6;
+}
+.bob-spires path {
+  fill: none;
+  stroke: var(--bob-trait);
+  stroke-width: 1;
+  opacity: 0.28;
+}
+.bob-blanc {
+  fill: var(--bob-blanc);
+  stroke: var(--bob-trait);
+  stroke-width: 1.2;
+}
+.bob-pupilles circle {
+  fill: var(--bob-trait);
+}
+.bob-joue {
+  fill: var(--bob-joue);
+}
+.bob-bouche {
+  fill: none;
+  stroke-width: 1.7;
+}
+.bob-bouche-o {
+  fill: var(--bob-trait);
+  opacity: 0;
+}
+.bob-jambe path {
+  fill: none;
+  stroke: var(--bob-membre);
+  stroke-width: 3.2;
+}
+.bob-jambe ellipse {
+  fill: var(--bob-bois);
+  stroke-width: 1.4;
+}
+.bob-bras path {
+  fill: none;
+  stroke: var(--bob-membre);
+  stroke-width: 2.8;
+}
+.bob-bras circle {
+  fill: var(--bob-bois);
+  stroke: var(--bob-trait);
+  stroke-width: 1.4;
+}
+.bob-fiche {
+  fill: var(--bob-fiche-couleur);
+  stroke: var(--bob-trait);
+  stroke-width: 1.4;
+}
+.bob-broches {
+  fill: none;
+  stroke-width: 1.4;
+}
+.bob-cartouche {
+  fill: #8e8a85;
+  stroke: var(--bob-trait);
+  stroke-width: 1.4;
+}
+.bob-etiquette {
+  fill: var(--bob-cable);
+}
+.bob-disque {
+  fill: #d9dde4;
+  stroke: var(--bob-trait);
+  stroke-width: 1.3;
+}
+.bob-trou-disque {
+  fill: var(--bob-trait);
+}
+.bob-carte {
+  fill: #e94b3c;
+  stroke: var(--bob-trait);
+  stroke-width: 1.3;
+}
+.bob-verre {
+  fill: #cfe8f2;
+  stroke: var(--bob-trait);
+  stroke-width: 2;
+}
+.bob-manche {
+  stroke-width: 2.6;
+}
+.bob-encre {
+  fill: #b9372d;
+  stroke: var(--bob-trait);
+  stroke-width: 1.2;
+}
+.bob-zzz text {
+  font: 700 7px var(--font-mono, monospace);
+  fill: var(--bob-blanc);
+  stroke: var(--bob-trait);
+  stroke-width: 0.6;
+  paint-order: stroke;
+  opacity: 0;
+}
+.bob-souffle circle {
+  fill: var(--bob-blanc);
+  stroke: var(--bob-trait);
+  stroke-width: 0.6;
+  opacity: 0;
+}
+
+/* Pivots: l'épaule, la hanche, la base de l'antenne, le centre des yeux. */
+.bob-bras-d {
+  transform-origin: 0% 60%;
+}
+.bob-bras-g {
+  transform-origin: 100% 0%;
+}
+.bob-jambe {
+  transform-origin: 50% 0%;
+}
+.bob-antenne {
+  transform-origin: 10% 100%;
+}
+.bob-yeux {
+  transform-origin: 50% 50%;
+}
+.bob-tout {
+  transform-origin: 50% 100%;
+}
+
+/* ── Au repos: il respire, cligne, et sa diode bat doucement. ─────────── */
+.bob .bob-yeux {
+  animation: bob-cligne 4.6s infinite;
+}
+.bob .bob-led {
+  animation: bob-diode 2.4s ease-in-out infinite;
+}
+.bob[data-pose="repos"] .bob-tout {
+  animation: bob-respire 3.2s ease-in-out infinite;
+}
+
+/* ── Marche: les jambes se croisent, le corps sautille, l'antenne suit. ── */
+.bob[data-pose="marche"] .bob-jambe-g,
+.bob[data-pose="porte"] .bob-jambe-g {
+  animation: bob-pas 0.36s ease-in-out infinite alternate;
+}
+.bob[data-pose="marche"] .bob-jambe-d,
+.bob[data-pose="porte"] .bob-jambe-d {
+  animation: bob-pas 0.36s ease-in-out infinite alternate-reverse;
+}
+.bob[data-pose="marche"] .bob-tout,
+.bob[data-pose="porte"] .bob-tout {
+  animation: bob-sautille 0.18s ease-in-out infinite alternate;
+}
+.bob[data-pose="marche"] .bob-antenne,
+.bob[data-pose="porte"] .bob-antenne {
+  animation: bob-ressort 0.36s ease-in-out infinite alternate;
+}
+/* Il porte quelque chose au-dessus de la tête: bras droit levé. */
+.bob[data-pose="porte"] .bob-bras-d {
+  transform: rotate(-28deg);
+}
+.bob[data-pose="porte"] .bob-pupilles {
+  transform: translate(0.8px, -0.8px);
+}
+
+/* ── Pousse: il se penche et enfonce, puis se redresse. ─────────────── */
+.bob[data-pose="pousse"] .bob-tout {
+  animation: bob-enfonce 0.42s cubic-bezier(0.3, 0, 0.2, 1) both;
+}
+.bob[data-pose="pousse"] .bob-bras-d {
+  animation: bob-bras-enfonce 0.42s cubic-bezier(0.3, 0, 0.2, 1) both;
+}
+.bob[data-pose="pousse"] .bob-pupilles {
+  transform: translate(0.6px, 1.2px);
+}
+
+/* ── Salue: petit saut, bras qui s'agite, diode à fond. ─────────────── */
+.bob[data-pose="salue"] .bob-tout {
+  animation: bob-saut 0.5s cubic-bezier(0.2, 0.7, 0.3, 1.4) both;
+}
+.bob[data-pose="salue"] .bob-bras-d {
+  animation: bob-agite 0.22s ease-in-out 4 alternate;
+}
+.bob[data-pose="salue"] .bob-bouche {
+  d: path("M27.5 43.4 q4.5 4.6 9 0");
+}
+
+/* ── Dort: yeux fermés, tête qui pique du nez, des z qui montent. ────── */
+.bob[data-pose="dort"] .bob-yeux {
+  animation: none;
+  transform: scaleY(0.12);
+}
+.bob[data-pose="dort"] .bob-tout {
+  animation: bob-pique 3.4s ease-in-out infinite;
+}
+.bob[data-pose="dort"] .bob-led {
+  animation: bob-diode 5s ease-in-out infinite;
+}
+.bob[data-pose="dort"] .bob-zzz text:nth-child(1) {
+  animation: bob-z 2.6s ease-out infinite;
+}
+.bob[data-pose="dort"] .bob-zzz text:nth-child(2) {
+  animation: bob-z 2.6s ease-out 1.3s infinite;
+}
+
+/* ── Souffle dans la cartouche: joues gonflées, bouche ronde, air. ───── */
+.bob[data-pose="souffle"] .bob-bouche {
+  opacity: 0;
+}
+.bob[data-pose="souffle"] .bob-bouche-o {
+  opacity: 1;
+  animation: bob-bouche-o 0.9s ease-in-out infinite;
+}
+.bob[data-pose="souffle"] .bob-joue {
+  transform-origin: 50% 50%;
+  animation: bob-joues 0.9s ease-in-out infinite;
+}
+.bob[data-pose="souffle"] .bob-souffle circle {
+  animation: bob-air 0.9s ease-out infinite;
+}
+.bob[data-pose="souffle"] .bob-souffle circle:nth-child(2) {
+  animation-delay: 0.12s;
+}
+.bob[data-pose="souffle"] .bob-souffle circle:nth-child(3) {
+  animation-delay: 0.24s;
+}
+.bob[data-pose="souffle"] .bob-bras-d {
+  transform: rotate(18deg) translate(-6px, 10px);
+}
+
+/* ── Essuie le disque: le bras décrit de petits cercles. ────────────── */
+.bob[data-pose="essuie"] .bob-bras-d {
+  animation: bob-essuie 0.7s linear infinite;
+}
+.bob[data-pose="essuie"] .bob-pupilles {
+  transform: translate(1.2px, -0.4px);
+}
+
+/* ── Loupe: il se penche sur un fichier et le scrute. ───────────────── */
+.bob[data-pose="loupe"] .bob-tout {
+  animation: bob-scrute 1.6s ease-in-out infinite;
+}
+.bob[data-pose="loupe"] .bob-pupilles {
+  animation: bob-regarde 1.6s ease-in-out infinite;
+}
+
+/* ── Tire: il recule en tirant sur un fil (la prise de la télé). ────── */
+.bob[data-pose="tire"] .bob-tout {
+  animation: bob-tire 0.6s cubic-bezier(0.5, 0, 0.3, 1) both;
+}
+.bob[data-pose="tire"] .bob-bras-d {
+  transform: rotate(40deg);
+}
+
+@keyframes bob-respire {
+  0%,
+  100% {
+    transform: translateY(0) scaleY(1);
+  }
+  50% {
+    transform: translateY(-0.6px) scaleY(1.012);
+  }
+}
+@keyframes bob-cligne {
+  0%,
+  92%,
+  100% {
+    transform: scaleY(1);
+  }
+  95% {
+    transform: scaleY(0.1);
+  }
+}
+@keyframes bob-diode {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+@keyframes bob-pas {
+  from {
+    transform: rotate(-20deg);
+  }
+  to {
+    transform: rotate(20deg);
+  }
+}
+@keyframes bob-sautille {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-1.6px);
+  }
+}
+@keyframes bob-ressort {
+  from {
+    transform: rotate(-7deg);
+  }
+  to {
+    transform: rotate(9deg);
+  }
+}
+@keyframes bob-enfonce {
+  0% {
+    transform: translateY(0) scale(1, 1);
+  }
+  55% {
+    transform: translateY(3px) scale(1.05, 0.93);
+  }
+  100% {
+    transform: translateY(0) scale(1, 1);
+  }
+}
+@keyframes bob-bras-enfonce {
+  0% {
+    transform: rotate(-28deg);
+  }
+  55% {
+    transform: rotate(32deg);
+  }
+  100% {
+    transform: rotate(20deg);
+  }
+}
+@keyframes bob-saut {
+  0% {
+    transform: translateY(0) scale(1, 1);
+  }
+  20% {
+    transform: translateY(1px) scale(1.06, 0.92);
+  }
+  55% {
+    transform: translateY(-7px) scale(0.96, 1.05);
+  }
+  100% {
+    transform: translateY(0) scale(1, 1);
+  }
+}
+@keyframes bob-agite {
+  from {
+    transform: rotate(-38deg);
+  }
+  to {
+    transform: rotate(-4deg);
+  }
+}
+@keyframes bob-pique {
+  0%,
+  70%,
+  100% {
+    transform: rotate(0deg) translateY(0);
+  }
+  80% {
+    transform: rotate(-6deg) translateY(1px);
+  }
+  86% {
+    transform: rotate(1deg) translateY(0);
+  }
+}
+@keyframes bob-z {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.6);
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(5px, -9px) scale(1.2);
+  }
+}
+@keyframes bob-bouche-o {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.7, 1.15);
+  }
+}
+@keyframes bob-joues {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.7, 1.9);
+  }
+}
+@keyframes bob-air {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0);
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(9px, 1px);
+  }
+}
+@keyframes bob-essuie {
+  0% {
+    transform: rotate(0deg) translate(0, 0);
+  }
+  25% {
+    transform: rotate(-10deg) translate(1px, -1px);
+  }
+  50% {
+    transform: rotate(0deg) translate(2px, 0);
+  }
+  75% {
+    transform: rotate(10deg) translate(1px, 1px);
+  }
+  100% {
+    transform: rotate(0deg) translate(0, 0);
+  }
+}
+@keyframes bob-scrute {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(5deg) translateY(1px);
+  }
+}
+@keyframes bob-regarde {
+  0%,
+  100% {
+    transform: translate(-1px, 0);
+  }
+  50% {
+    transform: translate(1.4px, 0.4px);
+  }
+}
+@keyframes bob-tire {
+  0% {
+    transform: translateX(0) rotate(0);
+  }
+  60% {
+    transform: translateX(4px) rotate(9deg);
+  }
+  100% {
+    transform: translateX(2px) rotate(4deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bob *,
+  .bob .bob-tout {
+    animation: none !important;
+  }
+}
+
+/* ── La scène du branchement (Branchement.tsx). ─────────────────────── */
+.n3-scene {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 20;
+}
+.n3-bob-porteur {
+  position: absolute;
+  left: 0;
+  top: -46px;
+  will-change: transform;
+}
+.n3-bob-gauche .bob {
+  transform: scaleX(-1);
+}
+.n3-scene[data-etape="repart"] .n3-bob-porteur {
+  animation: n3-efface 0.8s ease-in 0.45s both;
+}
+.n3-fil {
+  position: absolute;
+  left: 0;
+  top: -25px;
+  height: 14px;
+  overflow: visible;
+  transform-origin: 100% 50%;
+}
+.n3-fil path {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+.n3-fiche-tombe {
+  position: absolute;
+  top: -30px;
+  width: 20px;
+  height: 16px;
+  animation: n3-fiche-tombe 250ms cubic-bezier(0.55, 0, 0.9, 0.5) forwards;
+}
+.n3-etincelle {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  overflow: visible;
+  animation: n3-etincelle 320ms ease-out forwards;
+}
+.n3-etincelle path {
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+/* La fiche d'une prise (Socket.tsx): claquement à l'arrivée, saut au départ. */
+.n3-fiche-claque {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: n3-fiche-claque 380ms cubic-bezier(0.3, 0.7, 0.4, 1.5) both;
+}
+.n3-fiche-saute {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: n3-fiche-saute 400ms cubic-bezier(0.3, 0, 0.6, 1) forwards;
+}
+
+@keyframes n3-fiche-tombe {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(var(--bouche, 40px));
+  }
+}
+@keyframes n3-etincelle {
+  from {
+    transform: scale(0.4);
+    opacity: 1;
+  }
+  to {
+    transform: scale(1.25);
+    opacity: 0;
+  }
+}
+@keyframes n3-fiche-claque {
+  0% {
+    transform: translateY(-38%) scale(0.94, 1.06);
+  }
+  60% {
+    transform: translateY(4%) scale(1.05, 0.93);
+  }
+  100% {
+    transform: translateY(0) scale(1, 1);
+  }
+}
+@keyframes n3-fiche-saute {
+  0% {
+    transform: translateY(0) rotate(0);
+    opacity: 1;
+  }
+  45% {
+    transform: translateY(-55%) rotate(-6deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-80%) rotate(10deg);
+    opacity: 0;
+  }
+}
+@keyframes n3-efface {
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .n3-scene {
+    display: none;
+  }
+  .n3-fiche-claque,
+  .n3-fiche-saute {
+    animation: none;
+  }
+  .n3-fiche-saute {
+    opacity: 0;
+  }
+}
+
+/* ── La console et le chargement (Console.tsx, Chargement.tsx). ─────── */
+.n3-chargement {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+}
+.n3-chargement-bob {
+  margin-bottom: 2px;
+}
+.n3-console {
+  display: block;
+  width: 150px;
+  height: auto;
+  overflow: visible;
+}
+.n3-console-boitier {
+  fill: #2a2a33;
+  stroke: #4a4a58;
+  stroke-width: 1.5;
+}
+:root[data-theme="instrument-clair"] .n3-console-boitier,
+:root[data-theme="famicom"] .n3-console-boitier {
+  fill: #e6e0d4;
+  stroke: #5b5348;
+}
+.n3-console-fente {
+  fill: #07070b;
+}
+.n3-console-diode {
+  fill: #3a3a44;
+  stroke: #07070b;
+  stroke-width: 1;
+}
+.n3-console-diode[data-diode="allumee"] {
+  fill: #63d28f;
+}
+.n3-console-diode[data-diode="coince"] {
+  fill: #e0913a;
+  animation: bob-diode 0.8s steps(2, jump-none) infinite;
+}
+.n3-media path,
+.n3-media circle {
+  stroke: #1d1712;
+  stroke-width: 1.3;
+}
+.n3-media-cartouche path {
+  fill: #8e8a85;
+}
+.n3-media-etiquette {
+  fill: #4a86d9;
+}
+.n3-media-carte path {
+  fill: #e94b3c;
+}
+.n3-media-disque circle {
+  fill: #d9dde4;
+}
+.n3-media-disque .n3-media-trou {
+  fill: #07070b;
+}
+/* Avant l'insertion, le jeu est dans les mains de Bobine: on cache celui de
+   la console. Pendant, il glisse dans la fente et disparaît. */
+.n3-console .n3-media {
+  opacity: 0;
+}
+.n3-console[data-avale="true"] .n3-media {
+  transform-box: fill-box;
+  animation: n3-avale-haut 520ms cubic-bezier(0.5, 0, 0.75, 0.4) both;
+}
+.n3-console[data-avale="true"] .n3-media-disque {
+  animation-name: n3-avale-cote;
+}
+@keyframes n3-avale-haut {
+  0% {
+    opacity: 1;
+    transform: translateY(-6px);
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+}
+@keyframes n3-avale-cote {
+  0% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+  75% {
+    opacity: 1;
+    transform: translateX(40px) scale(0.92, 0.35);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(48px) scale(0.9, 0.1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .n3-console[data-avale="true"] .n3-media,
+  .n3-console-diode[data-diode="coince"] {
+    animation: none;
+  }
+}
+
+/* ── Le canapé des spectateurs (Canape.tsx). ─────────────────────────── */
+.n3-canape {
+  display: block;
+  width: 100%;
+  max-width: 220px;
+  height: auto;
+  overflow: visible;
+}
+.n3-canape-dossier,
+.n3-canape-accoudoir {
+  fill: #3b3350;
+  stroke: #1d1712;
+  stroke-width: 1.2;
+}
+.n3-canape-assise {
+  fill: #4a4064;
+  stroke: #1d1712;
+  stroke-width: 1.2;
+}
+.n3-canape-pied {
+  stroke: #1d1712;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+}
+.n3-tete circle {
+  fill: var(--panel, #16161c);
+  stroke: var(--muted, #8a8a98);
+  stroke-width: 1.2;
+}
+.n3-tete text {
+  font: 600 9px var(--font-mono, monospace);
+  fill: var(--text, #e8e8ee);
+}
+.n3-canape-debout {
+  font: 600 9px var(--font-mono, monospace);
+  fill: var(--muted, #8a8a98);
+}
+.n3-tete-arrive {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: n3-tombe-canape 520ms cubic-bezier(0.3, 0.6, 0.4, 1.3) both;
+}
+@keyframes n3-tombe-canape {
+  0% {
+    transform: translateY(-16px);
+    opacity: 0;
+  }
+  55% {
+    transform: translateY(2px) scale(1.06, 0.9);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0) scale(1, 1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .n3-tete-arrive {
+    animation: none;
+  }
+}

@@ -21,14 +21,32 @@
  * couleurs-là, alors ce sont celles qu'un joueur reconnaît. Les faire changer
  * avec l'ambiance reviendrait à repeindre le joueur 1 en vert.
  */
+import type { Fiche } from "../bobine/Branchement";
 import { ARMING_COLOUR, PLAYER_COLOURS } from "../media/players";
 
 export type SocketState = "free" | "busy" | "mine" | "arming";
 
-export function Socket({ port, state }: { port: number; state: SocketState }) {
+/**
+ * `fiche` raconte un changement, par-dessus l'état:
+ * - « cachee »: la prise est tenue mais Bobine n'a pas encore enfoncé la fiche.
+ *   Elle se dessine libre le temps de la scène;
+ * - « claque »: la fiche vient d'entrer, elle rebondit une fois;
+ * - « saute »: la prise vient de se libérer, l'ancienne fiche s'en échappe.
+ */
+export function Socket({
+  port,
+  state,
+  fiche,
+}: {
+  port: number;
+  state: SocketState;
+  fiche?: Fiche;
+}) {
   const armed = state === "arming";
-  const colour = armed ? ARMING_COLOUR : (PLAYER_COLOURS[port - 1] ?? PLAYER_COLOURS[0]);
-  const plugged = state !== "free";
+  const portColour = PLAYER_COLOURS[port - 1] ?? PLAYER_COLOURS[0];
+  const colour = armed ? ARMING_COLOUR : portColour;
+  const plugged = state !== "free" && fiche !== "cachee";
+  const escaping = state === "free" && fiche === "saute";
   /** Seul l'armement change le boîtier: c'est le seul état qui annonce que le
    * prochain clic va faire quelque chose à quelqu'un. */
   const warn = armed;
@@ -52,10 +70,10 @@ export function Socket({ port, state }: { port: number; state: SocketState }) {
         strokeWidth="1.5"
       />
       {plugged ? (
-        <>
+        <g className={fiche === "claque" ? "n3-fiche-claque" : undefined}>
           <path d="M 16 48 L 16 35 A 20 20 0 0 1 56 35 L 56 48 Z" fill={colour} />
           <rect x="24" y="40" width="24" height="3" rx="1.5" fill="#07070b" opacity="0.45" />
-        </>
+        </g>
       ) : (
         <>
           <circle cx="27" cy="36" r="2.6" fill="#8a8a98" />
@@ -63,6 +81,11 @@ export function Socket({ port, state }: { port: number; state: SocketState }) {
           <circle cx="45" cy="36" r="2.6" fill="#8a8a98" />
         </>
       )}
+      {escaping ? (
+        <g className="n3-fiche-saute">
+          <path d="M 16 48 L 16 35 A 20 20 0 0 1 56 35 L 56 48 Z" fill={portColour} />
+        </g>
+      ) : null}
       <text
         x="36"
         y="78"

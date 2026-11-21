@@ -48,6 +48,10 @@ class PeopleController:
         #: salle 2 diffusait. Relevé par l'audit du 20 novembre 2026.
         self._owner: dict[int, str] = {}
 
+    def connus(self) -> dict[str, str]:
+        """Chaque adresse qui a choisi un pseudo, avec ce pseudo. Une copie."""
+        return dict(self._names)
+
     def name_for(self, login: str | None, display: str = "") -> str:
         """Le pseudo choisi, ou celui qu'on propose faute de mieux."""
         if login is None:

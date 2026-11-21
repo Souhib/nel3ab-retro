@@ -58,6 +58,11 @@ def isolate_personal_state(
     monkeypatch.setenv("NEL3AB_PERSONAL_SAVE_ROOT", str(racine / "personal-saves"))
     monkeypatch.setenv("NEL3AB_SWITCH_CONFIG", str(racine / "switch.json"))
     monkeypatch.setenv("NEL3AB_SWITCH2_CONFIG", str(racine / "switch2.json"))
+    # Et les droits de dépôt et la quarantaine: un essai qui nomme un importeur
+    # dans le vrai fichier donnerait ce droit pour de bon, et un envoi d'essai
+    # poserait ses morceaux dans la vraie quarantaine.
+    monkeypatch.setenv("NEL3AB_IMPORTEURS_FILE", str(racine / "importeurs.json"))
+    monkeypatch.setenv("NEL3AB_IMPORTS_DIR", str(racine / "imports"))
 
 
 @pytest.fixture(autouse=True)
@@ -76,6 +81,13 @@ def isolate_tailscaled(monkeypatch: pytest.MonkeyPatch) -> None:
         return None
 
     monkeypatch.setattr(identity, "whois", nobody)
+
+    # Ni la liste des personnes du tailnet: la page de dépôt de l'administrateur
+    # la demande à tailscaled, et un essai la lirait sur la machine des parties.
+    async def injoignable(_socket: str = "") -> None:
+        return None
+
+    monkeypatch.setattr(identity, "tailnet", injoignable)
 
 
 @pytest.fixture
@@ -111,6 +123,7 @@ def settings(tmp_path: Path) -> Settings:
         # deux lignes, un essai d'import écrirait sous ~/.local/state et
         # rangerait un faux jeu dans la VRAIE bibliothèque de la machine.
         imports_dir=tmp_path / "imports",
+        importeurs_file=tmp_path / "importeurs.json",
         rom_dir=f"{tmp_path / 'roms' / 'gc'}:{tmp_path / 'roms' / 'wii'}",
         # Et les dossiers des salles: ouvrir une salle y pose le marqueur « sans
         # jeu », et le salon y lit la bibliothèque que les workers écrivent

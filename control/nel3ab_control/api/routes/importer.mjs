@@ -553,6 +553,203 @@ function resultat(element) {
   return ligne;
 }
 
+// ── Le trousseau: qui a la clé du quai (administrateur seulement) ─────────
+
+const CLES = "/api/importeurs";
+
+/** Une des quatre couleurs de prise, tirée de l'adresse: toujours la même. */
+export function priseDe(login) {
+  let h = 0;
+  for (const c of login) h = (h * 31 + c.codePointAt(0)) >>> 0;
+  return (h % 4) + 1;
+}
+
+/** Le nom qu'on montre: le pseudo du salon, puis celui du fournisseur, puis l'adresse. */
+export function nomDe(personne) {
+  return personne.pseudo || personne.nom || personne.login.split("@")[0];
+}
+
+/** Les petites étiquettes sous le nom, dans l'ordre où on les lit. */
+export function pucesDe(personne) {
+  const puces = [];
+  if (personne.droit === "configuration") puces.push(["CONFIGURATION", false]);
+  if (personne.sources.includes("tailnet")) {
+    puces.push([personne.partage ? "INVITÉ PAR PARTAGE" : "TAILNET", false]);
+  }
+  if (personne.sources.includes("salon")) puces.push(["DÉJÀ VENU", false]);
+  if (personne.en_ligne) puces.push(["EN LIGNE", true]);
+  if (personne.appareils > 1) puces.push([`${personne.appareils} APPAREILS`, false]);
+  if (personne.sources.length === 0 && personne.droit === "nomme") {
+    puces.push(["PLUS SUR LE TAILNET", false]);
+  }
+  return puces;
+}
+
+/** Le rang d'une ligne dans sa colonne: même ordre que le serveur. */
+export function rangDe(personne) {
+  const ordre = { administrateur: 0, configuration: 1, nomme: 2, aucun: 3 };
+  return `${ordre[personne.droit]}${nomDe(personne).toLocaleLowerCase("fr")}`;
+}
+
+const reduit = () =>
+  typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/**
+ * Déplace des lignes en les faisant glisser de leur ancienne place à la
+ * nouvelle (premier, dernier, inverse, joue). Seul `transform` bouge.
+ */
+function glisser(lignes, deplacer) {
+  const avant = new Map(lignes.map((li) => [li, li.getBoundingClientRect()]));
+  deplacer();
+  if (reduit()) return;
+  for (const li of lignes) {
+    const a = avant.get(li);
+    const b = li.getBoundingClientRect();
+    const dx = a.left - b.left;
+    const dy = a.top - b.top;
+    if (dx === 0 && dy === 0) continue;
+    li.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "none" }], {
+      duration: 420,
+      easing: "cubic-bezier(.2, .7, .3, 1)",
+    });
+  }
+}
+
+class Trousseau {
+  constructor(racine) {
+    this.racine = racine;
+    this.avec = racine.querySelector("#avec-cle");
+    this.sans = racine.querySelector("#sans-cle");
+    this.avis = racine.querySelector("#cles-avis");
+    this.dit = racine.querySelector("#cles-dit");
+    this.bobine = racine.querySelector("#cles-bobine svg");
+    this.modele = document.getElementById("modele-personne");
+    this.lignes = new Map();
+    this.ecrire = true;
+    this.minuteur = 0;
+  }
+
+  async ouvrir() {
+    const reponse = await fetch(CLES, { cache: "no-store" });
+    if (!reponse.ok) return;
+    const liste = await lireJson(reponse);
+    this.ecrire = liste.registre_lisible !== false;
+    const avis = [];
+    if (liste.tailnet === false) {
+      avis.push(
+        "tailscaled n'a pas répondu: la liste ne montre que les personnes déjà venues et celles qui ont la clé.",
+      );
+    }
+    if (!this.ecrire) {
+      avis.push(
+        "Le fichier des droits ne se lit pas, donc rien n'y sera écrit. Répare-le ou retire-le, puis redémarre le salon.",
+      );
+    }
+    this.avis.textContent = avis.join(" ");
+    this.avis.dataset.alerte = this.ecrire ? "non" : "oui";
+    this.avis.hidden = avis.length === 0;
+    for (const personne of liste.personnes ?? []) this.poser(personne);
+    this.racine.hidden = false;
+  }
+
+  poser(personne) {
+    const li = this.modele.content.firstElementChild.cloneNode(true);
+    li.style.setProperty("--prise", `var(--joueur-${priseDe(personne.login)})`);
+    li.querySelector('[data-ici="bouton"]').addEventListener("click", () => this.basculer(li));
+    this.lignes.set(personne.login, li);
+    this.remplir(li, personne);
+    this.colonneDe(personne).append(li);
+  }
+
+  colonneDe(personne) {
+    return personne.droit === "aucun" ? this.sans : this.avec;
+  }
+
+  remplir(li, personne) {
+    li.personne = personne;
+    li.dataset.rang = rangDe(personne);
+    li.dataset.cle = personne.droit === "aucun" ? "non" : "oui";
+    li.querySelector('[data-ici="nom"]').textContent = nomDe(personne);
+    li.querySelector('[data-ici="adresse"]').textContent = personne.login;
+    const puces = li.querySelector('[data-ici="puces"]');
+    puces.replaceChildren(
+      ...pucesDe(personne).map(([mot, vert]) => {
+        const span = document.createElement("span");
+        span.className = "puce";
+        span.textContent = mot;
+        if (vert) span.dataset.enLigne = "oui";
+        return span;
+      }),
+    );
+    const tampon = li.querySelector('[data-ici="tampon"]');
+    const bouton = li.querySelector('[data-ici="bouton"]');
+    const mots = { administrateur: "ADMIN", configuration: "FIXÉ", nomme: "CLÉ" };
+    tampon.textContent = mots[personne.droit] ?? "";
+    tampon.hidden = personne.droit === "aucun";
+    const modifiable = personne.droit === "nomme" || personne.droit === "aucun";
+    bouton.hidden = !modifiable;
+    bouton.disabled = !this.ecrire;
+    bouton.textContent = personne.droit === "nomme" ? "reprendre la clé" : "donner la clé";
+    bouton.setAttribute(
+      "aria-label",
+      `${bouton.textContent} à ${nomDe(personne)} (${personne.login})`,
+    );
+  }
+
+  /** Bobine joue une pose, puis revient au repos. */
+  jouer(pose, duree) {
+    if (!this.bobine) return;
+    clearTimeout(this.minuteur);
+    this.bobine.setAttribute("data-pose", pose);
+    this.minuteur = setTimeout(() => this.bobine.setAttribute("data-pose", "repos"), duree);
+  }
+
+  async basculer(li) {
+    const avant = li.personne;
+    const donner = avant.droit === "aucun";
+    const bouton = li.querySelector('[data-ici="bouton"]');
+    bouton.disabled = true;
+    this.dire("");
+    let reponse;
+    try {
+      reponse = await fetch(`${CLES}/${encodeURIComponent(avant.login)}`, {
+        method: donner ? "PUT" : "DELETE",
+      });
+    } catch {
+      reponse = null;
+    }
+    if (!reponse?.ok) {
+      const detail = reponse ? (await lireJson(reponse)).detail : null;
+      this.dire(`Rien n'a changé: ${detail ?? "le salon n'a pas répondu"}.`, true);
+      bouton.disabled = !this.ecrire;
+      return;
+    }
+    const apres = await lireJson(reponse);
+    this.jouer(donner ? "pousse" : "tire", donner ? 900 : 700);
+    if (donner) setTimeout(() => this.jouer("salue", 1000), 420);
+    this.remplir(li, apres);
+    const cible = this.colonneDe(apres);
+    const toutes = [...this.avec.children, ...this.sans.children];
+    glisser(toutes, () => {
+      const suivante = [...cible.children].find(
+        (autre) => autre !== li && autre.dataset.rang > li.dataset.rang,
+      );
+      cible.insertBefore(li, suivante ?? null);
+    });
+    this.dire(
+      donner
+        ? `${nomDe(apres)} peut maintenant déposer des jeux.`
+        : `${nomDe(apres)} ne peut plus déposer de jeux.`,
+    );
+    li.querySelector('[data-ici="bouton"]').focus({ preventScroll: true });
+  }
+
+  dire(texte, alerte = false) {
+    this.dit.textContent = texte;
+    this.dit.dataset.alerte = alerte ? "oui" : "non";
+  }
+}
+
 const fantomes = new Map();
 
 async function demarrerPage() {
@@ -569,6 +766,10 @@ async function demarrerPage() {
     zone.hidden = true;
     refus.hidden = false;
     return;
+  }
+  // La liste ne s'ouvre que pour l'administrateur; l'API la refuse à tout autre.
+  if (droits.administrateur) {
+    new Trousseau(document.getElementById("cles")).ouvrir().catch(() => {});
   }
 
   const deposer = (fichiers) => {

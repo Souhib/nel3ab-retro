@@ -7,16 +7,51 @@ déposer un jeu et le laisser se ranger ».
 
 ## Qui peut déposer
 
-L'administrateur du salon (`NEL3AB_ADMIN`), et les adresses écrites dans
-`NEL3AB_IMPORTEURS`, une liste JSON vide par défaut :
+Trois sources donnent ce droit :
+
+- l'administrateur du salon (`NEL3AB_ADMIN`) ;
+- les personnes à qui l'administrateur a donné la clé depuis la page ;
+- les adresses écrites à la main dans `NEL3AB_IMPORTEURS`, une liste JSON vide
+  par défaut.
+
+### Depuis la page
+
+L'administrateur voit, sous la zone de dépôt, la section « Qui peut déposer ».
+Elle liste les personnes qui ont accès au salon :
+
+- chaque compte que tailscaled connaît depuis lgf, membre du tailnet ou invité
+  par un partage de la machine ;
+- chaque personne déjà venue, c'est-à-dire qui a un pseudo ;
+- chaque personne qui a déjà un droit, même sortie du tailnet depuis.
+
+Un bouton par personne donne la clé ou la reprend. Le changement est écrit dans
+`~/.local/state/nel3ab/importeurs.json` (réglage `NEL3AB_IMPORTEURS_FILE`, en
+600) avant la réponse, et vaut tout de suite, sans redémarrer le salon. Un envoi
+en cours d'une personne dont on reprend la clé est refusé au morceau suivant.
+
+L'administrateur et les adresses de `NEL3AB_IMPORTEURS` gardent leur droit :
+la page les montre avec un tampon, sans bouton. Leur droit vient d'ailleurs que
+du fichier, donc la page ne peut pas le retirer.
+
+Si tailscaled ne répond pas, la page le dit et ne montre que les personnes déjà
+venues et celles qui ont un droit. Si le fichier des droits ne se lit plus
+(JSON tronqué), personne n'y est admis, la page le dit, et le salon refuse d'y
+écrire tant qu'il n'est pas réparé ou retiré à la main, puis le salon
+redémarré. L'écraser perdrait les autres noms sans bruit.
+
+### Dans la configuration
 
 ```ini
 Environment='NEL3AB_IMPORTEURS=["ami@example.com"]'
 ```
 
+### Pour les autres
+
 Les autres voient la page avec une phrase qui explique le refus, et l'accueil
 ne leur montre pas le lien. Les routes refusent elles-mêmes : 401 sans
-identité, 403 pour une adresse non admise.
+identité, 403 pour une adresse non admise. La liste des personnes
+(`/api/importeurs`) répond 403 à tout autre que l'administrateur, même à une
+personne qui a la clé : elle montre des adresses.
 
 ## Déposer
 
@@ -30,8 +65,8 @@ identité, 403 pour une adresse non admise.
 Pause, reprise et abandon sont sur chaque carte. Un envoi coupé, ou une page
 fermée, reprend où le serveur en était : il suffit de redéposer le même fichier.
 
-La page n'est servie que par le domaine `nel3ab.app`. Sur la porte
-`.ts.net:8443`, la racine mène encore à l'ancien port 8100.
+La page est servie par `nel3ab.app`. Depuis le 21 novembre 2026, l'ancienne
+porte `.ts.net:8443` renvoie vers ce nom, chemin compris.
 
 ## Ce qui arrive à chaque console
 
@@ -118,7 +153,8 @@ plus, et n'est pas touché. Rien n'est effacé automatiquement.
 | Variable | Défaut | Rôle |
 |---|---|---|
 | `NEL3AB_ROM_DIR` | `~/roms/gc:~/roms/wii` | les dossiers de jeux, la même liste que le worker ; un jeu va dans celui qui porte le nom de sa console |
-| `NEL3AB_IMPORTEURS` | `[]` | qui peut déposer, en plus de l'administrateur |
+| `NEL3AB_IMPORTEURS` | `[]` | qui peut déposer, en plus de l'administrateur, sans que la page puisse le retirer |
+| `NEL3AB_IMPORTEURS_FILE` | `~/.local/state/nel3ab/importeurs.json` | les clés données depuis la page |
 | `NEL3AB_IMPORTS_DIR` | `~/.local/state/nel3ab/imports` | la quarantaine, sur le même disque que les jeux |
 | `NEL3AB_IMPORTS_MARGE` | 100 Gio | l'espace qui doit rester libre sur le disque après un envoi |
 | `NEL3AB_IMPORTS_MAX` | 48 Gio | la taille la plus grande d'un envoi |

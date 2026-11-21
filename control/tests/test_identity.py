@@ -1,6 +1,15 @@
 """Ce que le service croit, et ce qu'il refuse de croire."""
 
+import asyncio
+import json
+from pathlib import Path
+
+import pytest
+
 from nel3ab_control.identity import from_headers, suggested_name
+from nel3ab_control.identity import (
+    tailnet as TAILNET,  # noqa: N812 - la vraie, avant la fixture qui la remplace
+)
 
 REAL = (b"tailscale-user-login", b"souhib@example.com")
 NAME = (b"tailscale-user-name", b"Souhib Trabelsi")
@@ -137,3 +146,95 @@ def test_an_address_of_the_sixth_kind_is_bracketed() -> None:
 
     assert _with_port("fd7a:115c:a1e0::1") == "[fd7a:115c:a1e0::1]:0"
     assert _with_port("100.64.0.7") == "100.64.0.7:0"
+
+
+# ── Les personnes du tailnet, pour la page de dépôt de l'administrateur ──────
+
+#: Un statut de tailscaled réduit à ce que `membres` lit, dans la forme mesurée
+#: le 21 novembre 2026 sur lgf: comptes par numéro en texte, appareils portant
+#: le numéro de leur compte en entier, invités marqués `ShareeNode`.
+STATUT = {
+    "Self": {"UserID": 1, "Online": True},
+    "Peer": {
+        "cle-a": {"UserID": 2, "Online": False},
+        "cle-b": {"UserID": 3, "Online": False, "ShareeNode": True},
+        "cle-c": {"UserID": 3, "Online": True, "ShareeNode": True},
+        "cle-d": {"UserID": 9, "Online": True, "Tags": ["tag:serveur"]},
+        "cle-e": {"UserID": 4, "Online": True, "ShareeNode": True},
+        "cle-f": {"UserID": 4, "Online": False},
+    },
+    "User": {
+        "1": {"ID": 1, "LoginName": "Souhib@Example.com", "DisplayName": "Souhib T"},
+        "2": {"ID": 2, "LoginName": "vincent@example.com", "DisplayName": "Vincent"},
+        "3": {"ID": 3, "LoginName": "alice@github", "DisplayName": ""},
+        "4": {"ID": 4, "LoginName": "bob@passkey", "DisplayName": "Bob"},
+        "9": {"ID": 9, "LoginName": "tagged-devices", "DisplayName": "Tagged Devices"},
+        "7": {"ID": 7, "LoginName": "sans-appareil@example.com", "DisplayName": "Personne"},
+    },
+}
+
+
+def test_les_membres_sont_ranges_par_adresse_sans_les_etiquetes_ni_les_absents() -> None:
+    from nel3ab_control.identity import Membre, membres
+
+    assert membres(STATUT) == [
+        Membre("alice@github", "", appareils=2, en_ligne=True, partage=True),
+        # Un appareil invité et un appareil du tailnet: pas « par partage ».
+        Membre("bob@passkey", "Bob", appareils=2, en_ligne=True, partage=False),
+        Membre("souhib@example.com", "Souhib T", appareils=1, en_ligne=True, partage=False),
+        Membre("vincent@example.com", "Vincent", appareils=1, en_ligne=False, partage=False),
+    ]
+
+
+@pytest.mark.parametrize(
+    "statut",
+    [{}, {"User": []}, {"User": {"1": "souhib"}}, {"User": STATUT["User"], "Peer": {}}],
+)
+def test_un_statut_inattendu_donne_une_liste_vide(statut: dict) -> None:
+    from nel3ab_control.identity import membres
+
+    assert membres({**statut, "Self": None}) == []
+
+
+async def _servir(socket: Path, statut_http: int, corps: bytes) -> asyncio.Server:
+    async def repondre(lecteur: asyncio.StreamReader, ecrivain: asyncio.StreamWriter) -> None:
+        await lecteur.readuntil(b"\r\n\r\n")
+        tete = (
+            f"HTTP/1.1 {statut_http} X\r\nContent-Length: {len(corps)}\r\nConnection: close\r\n\r\n"
+        )
+        ecrivain.write(tete.encode() + corps)
+        await ecrivain.drain()
+        ecrivain.close()
+
+    return await asyncio.start_unix_server(repondre, path=str(socket))
+
+
+async def test_le_tailnet_se_lit_par_la_socket_de_tailscaled(tmp_path: Path) -> None:
+    """Par une vraie socket Unix, pas par un double de fonction: c'est ce chemin
+    qui parle à tailscaled, et la fixture commune le remplace partout ailleurs."""
+    socket = tmp_path / "tailscaled.sock"
+    async with await _servir(socket, 200, json.dumps(STATUT).encode()):
+        trouves = await TAILNET(str(socket))
+
+    assert trouves is not None
+    assert [un.login for un in trouves] == [
+        "alice@github",
+        "bob@passkey",
+        "souhib@example.com",
+        "vincent@example.com",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("statut_http", "corps"), [(500, b"{}"), (200, b"pas du json"), (200, b"[]")]
+)
+async def test_un_tailscaled_qui_refuse_donne_rien_et_pas_une_liste_vide(
+    tmp_path: Path, statut_http: int, corps: bytes
+) -> None:
+    socket = tmp_path / "tailscaled.sock"
+    async with await _servir(socket, statut_http, corps):
+        assert await TAILNET(str(socket)) is None
+
+
+async def test_sans_tailscaled_la_liste_est_rien(tmp_path: Path) -> None:
+    assert await TAILNET(str(tmp_path / "absent.sock")) is None

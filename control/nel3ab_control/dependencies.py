@@ -9,13 +9,14 @@ from nel3ab_control.api.controllers.bindings import (
     BindingsController,
     RoomBindingsController,
 )
+from nel3ab_control.api.controllers.importeurs import ImporteursController
 from nel3ab_control.api.controllers.imports import ImportsController
 from nel3ab_control.api.controllers.people import PeopleController
 from nel3ab_control.api.controllers.rooms import RoomController
 from nel3ab_control.api.controllers.salles import SalleInconnue, SallesController
 from nel3ab_control.api.controllers.salons import Salons
 from nel3ab_control.identity import caller_of
-from nel3ab_control.imports.droits import peut_importer
+from nel3ab_control.imports.droits import Registre, peut_importer
 from nel3ab_control.parties import Parties
 from nel3ab_control.settings import Settings
 
@@ -170,6 +171,16 @@ def get_imports(request: Request) -> ImportsController:
     return request.app.state.imports
 
 
+def get_registre(request: Request) -> Registre:
+    """Les importeurs nommés depuis la page de dépôt."""
+    return request.app.state.registre
+
+
+def get_importeurs(request: Request) -> ImporteursController:
+    """La liste des personnes et de leur droit de déposer, pour l'administrateur."""
+    return request.app.state.importeurs
+
+
 SettingsDep = Annotated[Settings, Depends(get_settings)]
 PeopleDep = Annotated[PeopleController, Depends(get_people)]
 BindingsDep = Annotated[BindingsController, Depends(get_bindings)]
@@ -181,9 +192,11 @@ SallesDep = Annotated[SallesController, Depends(get_salles)]
 SalonsDep = Annotated[Salons, Depends(get_salons)]
 PartiesDep = Annotated[Parties, Depends(get_parties)]
 ImportsDep = Annotated[ImportsController, Depends(get_imports)]
+RegistreDep = Annotated[Registre, Depends(get_registre)]
+ImporteursDep = Annotated[ImporteursController, Depends(get_importeurs)]
 
 
-async def exiger_importeur(caller: CallerDep, settings: SettingsDep) -> str:
+async def exiger_importeur(caller: CallerDep, settings: SettingsDep, registre: RegistreDep) -> str:
     """L'adresse de qui dépose un jeu, ou un refus.
 
     401 sans identité, 403 pour une identité qui n'est pas admise. Posée sur
@@ -196,7 +209,7 @@ async def exiger_importeur(caller: CallerDep, settings: SettingsDep) -> str:
             detail="aucune identité: ce salon n'est pas derrière son proxy",
         )
     login = caller[0]
-    if not peut_importer(login, settings):
+    if not peut_importer(login, settings, registre):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="déposer un jeu est réservé à l'administrateur et aux importeurs nommés",
@@ -205,3 +218,27 @@ async def exiger_importeur(caller: CallerDep, settings: SettingsDep) -> str:
 
 
 ImporteurDep = Annotated[str, Depends(exiger_importeur)]
+
+
+async def exiger_admin(caller: CallerDep, settings: SettingsDep) -> str:
+    """L'adresse de l'administrateur qui appelle, ou un refus.
+
+    401 sans identité, 403 pour toute autre identité. Posée sur chaque route de
+    la liste des personnes: elle montre des adresses, que seules les pages de
+    l'administrateur voient.
+    """
+    if caller is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="aucune identité: ce salon n'est pas derrière son proxy",
+        )
+    login = caller[0].strip().lower()
+    if not settings.is_admin(login):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="la liste des personnes est réservée à l'administrateur",
+        )
+    return login
+
+
+AdminDep = Annotated[str, Depends(exiger_admin)]

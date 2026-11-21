@@ -62,7 +62,12 @@ def test_personal_state_is_isolated() -> None:
     """Le garde de `conftest`: les réglages par défaut ne visent pas le vrai dossier."""
     reglages = Settings()
     vrai = Path.home() / ".local/state/nel3ab"
-    for dossier in (reglages.parties_dir, reglages.personal_save_root):
+    for dossier in (
+        reglages.parties_dir,
+        reglages.personal_save_root,
+        reglages.importeurs_file,
+        reglages.imports_dir,
+    ):
         assert not dossier.is_relative_to(vrai), dossier
     assert not reglages.switch_config.is_relative_to(Path.home() / ".config/nel3ab")
 

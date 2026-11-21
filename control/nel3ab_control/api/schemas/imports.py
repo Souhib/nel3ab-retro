@@ -63,3 +63,34 @@ class Droits(BaseModel):
     """Ce que la page d'accueil a besoin de savoir pour montrer le lien."""
 
     peut_importer: bool
+    #: Vrai pour l'administrateur seul: la page de dépôt lui montre alors la
+    #: liste des personnes. L'API la refuse à tout autre, ce drapeau ne garde rien.
+    administrateur: bool = False
+
+
+class PersonneVue(BaseModel):
+    """Une personne qui a accès au salon, et son droit de déposer."""
+
+    login: str
+    #: Le nom que donne le fournisseur d'identité, vide s'il n'en donne pas.
+    nom: str
+    #: Le pseudo choisi dans le salon, absent pour qui n'est jamais venu.
+    pseudo: str | None
+    #: Où on l'a vue: « tailnet » (tailscaled la connaît), « salon » (elle a un pseudo).
+    sources: list[Literal["tailnet", "salon"]]
+    appareils: int
+    en_ligne: bool
+    #: Vrai quand elle n'arrive que par un partage de la machine.
+    partage: bool
+    droit: Literal["administrateur", "configuration", "nomme", "aucun"]
+
+
+class Personnes(BaseModel):
+    """La liste de l'administrateur."""
+
+    personnes: list[PersonneVue]
+    #: Faux quand tailscaled n'a pas répondu: la liste ne montre alors que les
+    #: personnes déjà venues et les droits, et la page le dit.
+    tailnet: bool
+    #: Faux quand le fichier des importeurs ne se lit pas: rien ne s'y écrit.
+    registre_lisible: bool

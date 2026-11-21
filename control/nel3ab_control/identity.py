@@ -24,6 +24,7 @@ la décision de quelqu'un d'autre, et cette séparation est délibérée.
 """
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import Any
 
 LOGIN_HEADER = "tailscale-user-login"
@@ -150,3 +151,79 @@ async def caller_of(scope: Mapping[str, Any]) -> tuple[str, str] | None:
         return direct
     client = scope.get("client")
     return await whois(str(client[0])) if client else None
+
+
+@dataclass(frozen=True)
+class Membre:
+    """Une personne que tailscaled connaît, telle que la page de dépôt la montre.
+
+    `partage` dit par où elle arrive: vrai quand tous ses appareils ne sont là
+    que parce que la machine leur a été partagée (`ShareeNode`), faux pour un
+    membre du tailnet lui-même.
+    """
+
+    login: str
+    nom: str
+    appareils: int
+    en_ligne: bool
+    partage: bool
+
+
+#: Le compte sous lequel tailscaled range les appareils étiquetés. Ce n'est pas
+#: une personne: personne ne se connecte avec, donc personne à qui donner un droit.
+ETIQUETES = "tagged-devices"
+
+
+def membres(statut: Mapping[str, Any]) -> list[Membre]:
+    """Les personnes du statut de tailscaled, une fois chacune, sans les étiquetés.
+
+    Le statut range les comptes à part (`User`, par numéro) et les appareils
+    ailleurs (`Self` et `Peer`, qui portent le numéro de leur compte). Un compte
+    sans aucun appareil visible n'a rien à faire ici: il ne peut pas joindre le
+    salon. Une forme inattendue donne une liste vide plutôt qu'une erreur, comme
+    `whois`: la page doit rester utilisable sans tailscaled.
+    """
+    comptes = statut.get("User")
+    if not isinstance(comptes, Mapping):
+        return []
+    appareils = [statut.get("Self"), *(dict(statut.get("Peer") or {}).values())]
+    par_compte: dict[str, list[Mapping[str, Any]]] = {}
+    for appareil in appareils:
+        if isinstance(appareil, Mapping) and "UserID" in appareil:
+            par_compte.setdefault(str(appareil["UserID"]), []).append(appareil)
+    trouves: dict[str, Membre] = {}
+    for numero, compte in comptes.items():
+        if not isinstance(compte, Mapping):
+            continue
+        login = str(compte.get("LoginName") or "").strip().lower()
+        siens = par_compte.get(str(numero), [])
+        if not login or login == ETIQUETES or not siens:
+            continue
+        trouves[login] = Membre(
+            login=login,
+            nom=str(compte.get("DisplayName") or "").strip(),
+            appareils=len(siens),
+            en_ligne=any(bool(un.get("Online")) for un in siens),
+            partage=all(bool(un.get("ShareeNode")) for un in siens),
+        )
+    return sorted(trouves.values(), key=lambda membre: membre.login)
+
+
+async def tailnet(socket: str = TAILSCALED) -> list[Membre] | None:
+    """Les personnes que tailscaled voit depuis cette machine, ou rien sur échec.
+
+    `None` et pas une liste vide: la page doit pouvoir dire « tailnet
+    injoignable » plutôt que « personne n'a accès », qui serait faux.
+    """
+    import httpx
+
+    try:
+        transport = httpx.AsyncHTTPTransport(uds=socket)
+        async with httpx.AsyncClient(transport=transport, timeout=2.0) as client:
+            answer = await client.get("http://local-tailscaled.sock/localapi/v0/status")
+        if answer.status_code != 200:
+            return None
+        statut = answer.json()
+    except (OSError, ValueError, httpx.HTTPError):
+        return None
+    return membres(statut) if isinstance(statut, Mapping) else None

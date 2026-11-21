@@ -267,6 +267,14 @@ class Settings(BaseSettings):
             "l'administrateur ne le fait sans qu'on l'ait écrit ici."
         ),
     )
+    importeurs_file: Path = Field(
+        default=Path.home() / ".local/state/nel3ab/importeurs.json",
+        description=(
+            "Les adresses que l'administrateur a nommées depuis la page de dépôt. "
+            "Elles s'ajoutent à `importeurs`, qui reste la liste écrite à la main "
+            "et que la page ne peut pas retirer. Absent veut dire personne."
+        ),
+    )
     imports_dir: Path = Field(
         default=Path.home() / ".local/state/nel3ab/imports",
         description=(

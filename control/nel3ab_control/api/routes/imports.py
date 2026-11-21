@@ -10,7 +10,8 @@ changer l'empreinte de la page compilée dans le worker, pour rien.
 # Qui peut appeler
 
 Toutes, sauf `/droits`, exigent une identité (401 sans elle) admise à importer
-(403 sinon): l'administrateur, ou une adresse de `NEL3AB_IMPORTEURS`. Elles le
+(403 sinon): l'administrateur, une adresse de `NEL3AB_IMPORTEURS`, ou une
+adresse que l'administrateur a nommée depuis la page (`imports/droits.py`). Elles le
 vérifient elles-mêmes, en plus de toute garde posée sur l'application entière.
 """
 
@@ -18,21 +19,33 @@ from fastapi import APIRouter, Query, Request, Response, status
 
 from nel3ab_control.api.controllers.imports import longueur_annoncee
 from nel3ab_control.api.schemas.imports import DemandeEnvoi, Droits, EnvoiVu
-from nel3ab_control.dependencies import CallerDep, ImporteurDep, ImportsDep, SettingsDep
+from nel3ab_control.dependencies import (
+    CallerDep,
+    ImporteurDep,
+    ImportsDep,
+    RegistreDep,
+    SettingsDep,
+)
 from nel3ab_control.imports.droits import peut_importer
 
 router = APIRouter(prefix="/api/imports", tags=["imports"], include_in_schema=False)
 
 
 @router.get("/droits", response_model=Droits)
-async def read_import_rights(caller: CallerDep, settings: SettingsDep) -> Droits:
+async def read_import_rights(
+    caller: CallerDep, settings: SettingsDep, registre: RegistreDep
+) -> Droits:
     """Si cette personne peut déposer un jeu, pour que l'accueil montre le lien.
 
     Sans identité, la réponse est « non » plutôt qu'un 401: l'accueil la pose à
     tout le monde, et un refus rouge dans la console de chaque visiteur ne dit
     rien de plus qu'un lien absent.
     """
-    return Droits(peut_importer=peut_importer(caller[0] if caller else None, settings))
+    login = caller[0] if caller else None
+    return Droits(
+        peut_importer=peut_importer(login, settings, registre),
+        administrateur=bool(login) and settings.is_admin(login.strip().lower()),
+    )
 
 
 @router.get("", response_model=list[EnvoiVu])

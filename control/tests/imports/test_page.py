@@ -36,7 +36,10 @@ async def test_la_page_de_depot_est_servie_garnie(client: httpx.AsyncClient) -> 
     assert reponse.headers["content-type"].startswith("text/html")
     page = reponse.text
     assert "Déposer un jeu" in page
-    assert page.count('class="bob"') == 4, "la zone, puis loupe, tampon et repos dans le modèle"
+    assert page.count('class="bob"') == 5, (
+        "la zone, puis loupe, tampon et repos dans le modèle, puis le trousseau"
+    )
+    assert 'id="cles"' in page and 'id="modele-personne"' in page
     assert 'data-pose="loupe"' in page
     assert 'data-pose="salue"' in page
     assert "<!--BOBINE" not in page
@@ -50,7 +53,8 @@ async def test_la_page_ne_demande_rien_a_un_autre_site(client: httpx.AsyncClient
 
     assert not re.findall(r"""(?:src|href|action)\s*=\s*["'](?!/|#|data:)""", page)
     assert not re.findall(r"url\(\s*['\"]?(?!data:)", page)
-    assert not re.findall(r"""fetch\(\s*["'`](?!/|\$\{API)""", page)
+    assert not re.findall(r"""fetch\(\s*["'`](?!/|\$\{API|\$\{CLES)""", page)
+    assert 'const CLES = "/api/importeurs";' in page
     assert "https://" not in page.split("<script", 1)[1]
 
 
@@ -186,3 +190,75 @@ def test_ce_que_la_page_ne_peut_pas_lire_elle_le_laisse_au_serveur(tmp_path: Pat
         assert identifier(f.lecteur(octets), len(octets)).console is not None, (
             "le jumeau: le serveur, lui, sait"
         )
+
+
+TROUSSEAU = Path(__file__).with_name("trousseau_module.mjs")
+
+
+@AVEC_NODE
+def test_le_trousseau_nomme_range_et_colore_chaque_personne_toujours_pareil() -> None:
+    """Les fonctions pures du trousseau, exécutées sous Node comme dans la page."""
+    personnes = [
+        {
+            "login": "alice@github",
+            "nom": "Alice A",
+            "pseudo": None,
+            "sources": ["tailnet"],
+            "appareils": 2,
+            "en_ligne": True,
+            "partage": True,
+            "droit": "aucun",
+        },
+        {
+            "login": "vincent@example.com",
+            "nom": "Vincent L",
+            "pseudo": "Vince",
+            "sources": ["tailnet", "salon"],
+            "appareils": 1,
+            "en_ligne": False,
+            "partage": False,
+            "droit": "nomme",
+        },
+        {
+            "login": "parti@example.com",
+            "nom": "",
+            "pseudo": None,
+            "sources": [],
+            "appareils": 0,
+            "en_ligne": False,
+            "partage": False,
+            "droit": "nomme",
+        },
+        {
+            "login": "config@example.com",
+            "nom": "",
+            "pseudo": None,
+            "sources": [],
+            "appareils": 0,
+            "en_ligne": False,
+            "partage": False,
+            "droit": "configuration",
+        },
+    ]
+    assert NODE is not None
+    sortie = subprocess.run(  # noqa: S603 - node et un fichier du dépôt, aucun texte du dehors
+        [NODE, str(TROUSSEAU)],
+        input=json.dumps(personnes),
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    rendus = json.loads(sortie.stdout)
+
+    assert [r["nom"] for r in rendus] == ["Alice A", "Vince", "parti", "config"]
+    assert rendus[0]["puces"] == [
+        ["INVITÉ PAR PARTAGE", False],
+        ["EN LIGNE", True],
+        ["2 APPAREILS", False],
+    ]
+    assert rendus[1]["puces"] == [["TAILNET", False], ["DÉJÀ VENU", False]]
+    assert rendus[2]["puces"] == [["PLUS SUR LE TAILNET", False]]
+    assert rendus[3]["puces"] == [["CONFIGURATION", False]]
+    assert all(r["prise"] in (1, 2, 3, 4) for r in rendus)
+    assert rendus[0]["prise"] == rendus[0]["prise_encore"], "la même adresse, la même couleur"
+    assert sorted(rendus, key=lambda r: r["rang"])[0]["nom"] == "config", "la configuration d'abord"

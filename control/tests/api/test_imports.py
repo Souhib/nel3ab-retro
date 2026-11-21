@@ -101,16 +101,17 @@ async def test_une_adresse_listee_parmi_les_importeurs_peut_importer(
 async def test_les_droits_disent_non_sans_identite_et_sans_refus(
     client: httpx.AsyncClient, app: FastAPI
 ) -> None:
-    assert (await client.get("/api/imports/droits")).json() == {"peut_importer": False}
-    assert (await client.get("/api/imports/droits", headers=VINCENT)).json() == {
-        "peut_importer": False
-    }
+    non = {"peut_importer": False, "administrateur": False}
+    assert (await client.get("/api/imports/droits")).json() == non
+    assert (await client.get("/api/imports/droits", headers=VINCENT)).json() == non
     assert (await client.get("/api/imports/droits", headers=SOUHIB)).json() == {
-        "peut_importer": True
+        "peut_importer": True,
+        "administrateur": True,
     }
     app.state.settings.importeurs = ["vincent@example.com"]
     assert (await client.get("/api/imports/droits", headers=VINCENT)).json() == {
-        "peut_importer": True
+        "peut_importer": True,
+        "administrateur": False,
     }
 
 

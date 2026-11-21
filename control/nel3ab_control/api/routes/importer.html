@@ -158,6 +158,66 @@
     100% { transform: scale(1) rotate(-4deg); }
   }
 
+  /* ── Le trousseau: qui a la clé du quai ───────────────────────────
+     Une personne par crochet. Sa fiche, à gauche, prend une des quatre
+     couleurs de prise (tirée de son adresse, donc toujours la même). Avec la
+     clé, la fiche est enfoncée dans le quai et pleine; sans, elle pend,
+     creuse. Donner la clé: Bobine tamponne, la fiche s'enfonce, la ligne
+     passe de l'autre côté. Reprendre: Bobine tire, la fiche ressort. */
+  .cles { display: flex; flex-direction: column; gap: 1rem;
+          border-top: 2px solid var(--trait); padding-top: 1.2rem; }
+  .cles-tete { display: grid; grid-template-columns: auto 1fr; gap: 1.2rem; align-items: center; }
+  .cles-bobine svg { width: 64px; height: auto; }
+  .cles h2 { margin: 0; font-weight: 700; font-size: clamp(22px, 2.6vw, 32px); line-height: 1.1; }
+  .cles-sous { margin: .3rem 0 0; color: var(--legende); font-size: clamp(14px, 1.4vw, 17px);
+               max-width: 64ch; }
+  .cles-avis { margin: 0; padding: .7rem 1rem; border-left: 6px solid var(--joueur-3);
+               background: var(--creux); font-size: 16px; }
+  .cles-avis[data-alerte="oui"] { border-left-color: var(--alerte); }
+  .trousseau { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; align-items: start; }
+  .crochets h3 { margin: 0 0 .5rem; font-family: var(--machine); font-weight: 400; font-size: 13px;
+                 letter-spacing: .2em; text-transform: uppercase; color: var(--legende); }
+  .crochets ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column;
+                 gap: .5rem; min-height: 3rem; }
+  .crochets ul:empty::before { content: attr(data-vide); color: var(--trait); font-size: 15px; }
+  .personne {
+    --prise: var(--joueur-1);
+    display: grid; grid-template-columns: 22px 1fr auto; gap: .9rem; align-items: center;
+    padding: .65rem .9rem .65rem 0; background: var(--plaque); position: relative;
+  }
+  /* La fiche: un tenon qui dépasse du bord gauche. Creuse sans clé. */
+  .personne-fiche { justify-self: start; width: 22px; height: 30px; position: relative;
+                    transform: translateX(-6px); transition: transform .32s;
+                    transition-timing-function: cubic-bezier(.3, .7, .4, 1.4); }
+  .personne-fiche::before { content: ""; position: absolute; inset: 0;
+                            border: 3px solid var(--prise); border-left: 0; }
+  .personne-fiche::after { content: ""; position: absolute; inset: 0; background: var(--prise);
+                           opacity: 0; transition: opacity .25s ease-out; }
+  .personne[data-cle="oui"] .personne-fiche { transform: translateX(0); }
+  .personne[data-cle="oui"] .personne-fiche::after { opacity: 1; }
+  .personne-corps { min-width: 0; }
+  .personne-corps p { margin: 0; }
+  .personne-nom { font-weight: 700; font-size: 17px; overflow-wrap: anywhere; }
+  .personne-adresse { font-family: var(--machine); font-size: 13px; color: var(--legende);
+                      overflow-wrap: anywhere; }
+  .personne-puces { display: flex; gap: .35rem; flex-wrap: wrap; margin-top: .25rem !important; }
+  .puce { font-family: var(--machine); font-size: 11px; letter-spacing: .12em;
+          border: 1px solid var(--trait); color: var(--legende); padding: 0 5px; }
+  .puce[data-en-ligne="oui"] { border-color: var(--joueur-4); color: var(--joueur-4); }
+  .personne-geste { display: flex; align-items: center; gap: .6rem; }
+  .personne button {
+    font: 600 15px var(--titre); min-height: 40px; padding: .3rem .9rem; white-space: nowrap;
+    background: transparent; color: var(--craie); border: 2px solid var(--trait);
+    border-radius: 0; cursor: pointer;
+  }
+  .personne button:hover:not(:disabled) { border-color: var(--craie); }
+  .personne button:focus-visible { outline: 3px solid var(--craie); outline-offset: 2px; }
+  .personne button:disabled { opacity: .5; cursor: progress; }
+  .personne[data-cle="non"] button { border-color: var(--prise); }
+  .personne .tampon { min-width: 0; font-size: 12px; padding: .15rem .45rem; --encre: var(--prise); }
+  .personne-dit { margin: 0; min-height: 1.5em; font-size: 16px; }
+  .personne-dit[data-alerte="oui"] { color: var(--alerte); }
+
   .pied { margin: 0; color: var(--legende); font-size: 15px; border-top: 2px solid var(--trait);
           padding-top: .8rem; }
 
@@ -168,6 +228,11 @@
     .carte-bobine { display: none; }
     .carte-tete { flex-direction: column; }
     .resultat { grid-template-columns: 1fr; }
+    .trousseau { grid-template-columns: 1fr; }
+    .cles-tete { grid-template-columns: 1fr; }
+    .cles-bobine { display: none; }
+    .personne { grid-template-columns: 22px 1fr; }
+    .personne-geste { grid-column: 2; }
   }
   /* Rien ici n'a besoin de bouger pour être compris: la jauge garde sa
      longueur, le tampon sa place, Bobine sa pose finale. */
@@ -210,6 +275,30 @@
 
     <section class="cartes" id="cartes" aria-live="polite"></section>
 
+    <section class="cles" id="cles" hidden aria-labelledby="cles-titre">
+      <div class="cles-tete">
+        <span class="cles-bobine" id="cles-bobine"><!--BOBINE:tampon:repos--></span>
+        <div>
+          <h2 id="cles-titre">Qui peut déposer</h2>
+          <p class="cles-sous">Les personnes qui ont accès au salon, d'après le tailnet et
+            les pseudos déjà choisis. Donne la clé du quai à qui doit pouvoir déposer des
+            jeux; tu peux la reprendre quand tu veux.</p>
+        </div>
+      </div>
+      <p class="cles-avis" id="cles-avis" hidden></p>
+      <div class="trousseau">
+        <div class="crochets">
+          <h3>Ont la clé</h3>
+          <ul id="avec-cle" data-vide="Personne d'autre que toi."></ul>
+        </div>
+        <div class="crochets">
+          <h3>Sans clé</h3>
+          <ul id="sans-cle" data-vide="Tout le monde a la clé."></ul>
+        </div>
+      </div>
+      <p class="personne-dit" id="cles-dit" role="status" aria-live="polite"></p>
+    </section>
+
     <p class="pied">
       Un envoi coupé reprend où il s'était arrêté: redépose le même fichier,
       même après avoir fermé la page. Un jeu rangé est visible à la prochaine
@@ -239,6 +328,21 @@
         <div class="resultats" data-ici="resultats"></div>
       </div>
     </article>
+  </template>
+
+  <template id="modele-personne">
+    <li class="personne" data-cle="non">
+      <span class="personne-fiche" aria-hidden="true"></span>
+      <div class="personne-corps">
+        <p class="personne-nom" data-ici="nom"></p>
+        <p class="personne-adresse" data-ici="adresse"></p>
+        <p class="personne-puces" data-ici="puces"></p>
+      </div>
+      <div class="personne-geste">
+        <span class="tampon" data-ici="tampon" hidden></span>
+        <button type="button" data-ici="bouton" hidden></button>
+      </div>
+    </li>
   </template>
 
 <script type="module">

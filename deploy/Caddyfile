@@ -177,12 +177,19 @@ nel3ab.app {
 # pour toujours, et revenir en arrière demanderait de vider le cache de chacun.
 # Le chemin suit, donc un ancien lien profond (`/carnet-de-bord/`) arrive au
 # bon endroit.
-http://127.0.0.1:8098 {
+#
+# L'adresse de site est `http://:PORT`, pour TOUT nom d'hôte, et `bind` garde
+# la boucle locale. tailscaled relaie avec le nom d'origine
+# (`lgf.<tailnet>.ts.net:8443`): écrits `http://127.0.0.1:8098`, ces sites ne
+# répondaient qu'à ce nom-là, et Caddy rendait une page vide en 200 à tout
+# le reste. Le 21 novembre 2026, un essai direct sur 127.0.0.1 passait pendant
+# que la vraie porte rendait cette page vide.
+http://:8098 {
 	bind 127.0.0.1
 	redir https://nel3ab.app{uri} 302
 }
 
-http://127.0.0.1:8097 {
+http://:8097 {
 	bind 127.0.0.1
 	redir https://nel3ab.app/docs{uri} 302
 }

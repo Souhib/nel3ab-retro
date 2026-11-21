@@ -212,6 +212,13 @@ deploy-check:
             print(f"  la porte .ts.net:{port} ne renvoie pas seulement vers {cible}: {trouve}")
     ' || echo "  tailscale serve illisible")
         if [ -n "$portes" ]; then echo "$portes"; faux=1; fi
+        # Et par la VRAIE porte, avec le nom que tailscaled relaie: un essai sur
+        # 127.0.0.1 passait le 21 novembre 2026 pendant que la porte rendait une
+        # page vide.
+        if ! bash deploy/anciennes-portes.sh >/dev/null; then
+            bash deploy/anciennes-portes.sh | grep -v '^   ok' || true
+            faux=1
+        fi
     fi
     # Les fichiers d'unité peuvent être identiques et le salon quand même ne pas
     # démarrer: le 21 novembre 2026, un ajout d'un autre projet lançait le salon

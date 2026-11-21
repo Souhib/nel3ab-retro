@@ -55,14 +55,16 @@ tailscale serve --bg --https=8444 http://127.0.0.1:8097 >/dev/null
 
 echo "6. Ce qui répond"
 for essai in 1 2 3 4 5 6 7 8 9 10; do
-    curl -fsS -o /dev/null http://127.0.0.1:8200/importer && break
+    curl -fs -o /dev/null http://127.0.0.1:8200/importer && break
     sleep 1
 done
 for chemin in / /importer /profil /api/imports/droits; do
     printf '   salon %-22s %s\n' "$chemin" "$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:8200$chemin")"
 done
-printf '   ancienne porte 8443    %s\n' "$(curl -s -o /dev/null -w '%{http_code} -> %{redirect_url}' http://127.0.0.1:8098/r/1/)"
-printf '   ancienne porte 8444    %s\n' "$(curl -s -o /dev/null -w '%{http_code} -> %{redirect_url}' http://127.0.0.1:8097/carnet-de-bord/)"
+# Par la vraie porte de tailscaled, avec le nom qu'il relaie: un essai direct
+# sur 127.0.0.1 passait le 21 novembre 2026 pendant que la porte rendait une
+# page vide.
+sudo -u "$proprietaire" bash deploy/anciennes-portes.sh || true
 
 echo "7. Le dépôt et la machine disent la même chose"
 sudo -u "$proprietaire" env PATH="/home/$proprietaire/.cargo/bin:$PATH" just deploy-check

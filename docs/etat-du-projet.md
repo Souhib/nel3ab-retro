@@ -25,10 +25,12 @@ Tout est dans `main`. Trois changements s'ajoutent à ceux de la nuit :
 Leur redémarrage a d'abord échoué cinquante secondes : l'environnement Python
 que lance réellement le salon, posé par le projet Souverain, n'avait pas la
 dépendance du matin (entrée « 21 novembre : le salon tombé cinquante
-secondes, faute d'une dépendance »). Il reste Caddy et les anciennes portes :
-tant que Souhib n'a pas lancé, depuis `/home/souhib/nel3ab-retro`,
-`sudo bash deploy/mettre-en-service.sh`, `.ts.net:8443` et `:8444` ne
-renvoient pas encore vers `nel3ab.app`. Le script valide le Caddyfile avant
+secondes, faute d'une dépendance »). Caddy et les anciennes portes ont été mis en
+service à 12 h 48 UTC, mais les deux portes rendaient une page vide (entrée
+« 21 novembre : une seule adresse », paragraphe « Le piège »). La correction
+du Caddyfile attend un nouveau passage de
+`sudo bash deploy/mettre-en-service.sh` ; `just deploy-check` le dit tant
+qu'elle n'est pas installée. Le script valide le Caddyfile avant
 de copier quoi que ce soit, installe les unités, vérifie que le salon
 s'importe avec l'interpréteur que systemd lancera, redémarre les trois
 services, règle les anciennes portes, essaie les pages, puis lance

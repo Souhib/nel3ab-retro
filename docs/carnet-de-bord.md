@@ -26098,6 +26098,24 @@ maintenant, avec le manifeste des consoles. La mise en service demande les
 droits d'administration ; `deploy/mettre-en-service.sh` la fait en une
 commande et finit par `just deploy-check`.
 
+**Le piège, trouvé après la mise en service.** Le script a tout passé, et
+`just deploy-check` aussi. Pourtant, par la vraie adresse
+`lgf.<tailnet>.ts.net:8443`, la porte rendait une page vide en 200, sans
+redirection. tailscaled relaie la requête avec le nom d'origine. Les deux
+sites Caddy étaient écrits `http://127.0.0.1:8098` : ils ne répondaient qu'au
+nom `127.0.0.1`, et Caddy rend une réponse vide à un nom qu'aucun site ne
+porte. Les essais du script appelaient `127.0.0.1` directement, donc avec le
+seul nom qui marchait. Un Caddy jetable sur un port libre a reproduit les
+deux cas avec le nom relayé : l'ancienne écriture rend 200 vide, la nouvelle
+(`http://:8098`, toujours liée à la boucle locale) rend la 302. Le contrôle
+`deploy/anciennes-portes.sh` passe maintenant par la vraie porte, avec le nom
+du tailnet ; `just deploy-check` et le script de mise en service le lancent.
+Il était rouge sur la configuration fautive avant la correction.
+
+**Leçon.** Un essai de redirection doit passer par le même chemin que le
+visiteur, nom d'hôte compris. Un appel direct au service derrière le
+mandataire prouve le service, pas la porte.
+
 ### 21 novembre : quel émulateur pour la Xbox 360
 
 **La question.** Souhib veut la Xbox 360 dans les salles, et a autorisé des

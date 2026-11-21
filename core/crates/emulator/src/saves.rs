@@ -1024,6 +1024,45 @@ mod tests {
         );
     }
 
+    /// Les vecteurs que le salon relit aussi (`control/tests/test_personnes.py`).
+    ///
+    /// Le salon recalcule ce nom en Python pour montrer à chacun ses
+    /// sauvegardes. Un calcul recopié peut diverger sans bruit: le profil
+    /// paraîtrait vide. Les deux essais lisent donc le même fichier, et changer
+    /// l'un des deux calculs fait échouer l'un des deux.
+    #[test]
+    fn les_vecteurs_partages_avec_le_salon_tiennent() -> Result<(), Box<dyn std::error::Error>> {
+        let fichier: serde_json::Value =
+            serde_json::from_str(include_str!("../person-key-vectors.json"))?;
+        let vecteurs = fichier["vecteurs"].as_array().ok_or("vecteurs absents")?;
+        // Une boucle sur une liste lue commence par affirmer que la liste
+        // n'est pas vide: sinon elle passe sans rien vérifier.
+        assert!(
+            vecteurs.len() >= 10,
+            "{} vecteurs seulement",
+            vecteurs.len()
+        );
+        let mut sans_dossier = 0;
+        for vecteur in vecteurs {
+            let login = vecteur["login"].as_str().ok_or("login absent")?;
+            let empreinte = vecteur["empreinte"].as_str().ok_or("empreinte absente")?;
+            let fait = folder_for(Slot::Person, Some(login));
+            match vecteur["dossier"].as_str() {
+                Some(attendu) => {
+                    assert_eq!(fait, attendu, "{login:?}");
+                    assert!(fait.ends_with(&format!("-{empreinte}")), "{login:?}");
+                }
+                None => {
+                    sans_dossier += 1;
+                    assert_eq!(fait, Slot::Fresh.folder(), "{login:?}");
+                }
+            }
+        }
+        // Le jumeau: le fichier couvre aussi le cas sans dossier personnel.
+        assert!(sans_dossier >= 1);
+        Ok(())
+    }
+
     /// Le jumeau: sans personne, on retombe sur la partie neuve plutôt que
     /// d'écrire dans un dossier à moitié nommé.
     #[test]

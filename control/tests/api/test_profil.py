@@ -1,0 +1,429 @@
+"""Le carnet de jeu: quatre lectures, à son nom et au sien seul.
+
+Les lignes du journal sont écrites avec leur heure, par le vrai `Parties`, puis
+relues par les routes: c'est le chemin du salon. Les sauvegardes sont de vrais
+dossiers jetables, aux noms que le worker leur donne.
+"""
+
+import json
+import os
+import re
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+
+import httpx
+import pytest
+from fastapi import FastAPI
+
+from nel3ab_control.catalogue import NAME
+from nel3ab_control.parties import JeuJoue, Parties
+from nel3ab_control.personnes import dossier_personnel, empreinte
+from nel3ab_control.settings import Settings
+from tests.conftest import SOUHIB, VINCENT
+
+ALICE = {"Tailscale-User-Login": "alice@example.com", "Tailscale-User-Name": "Alice"}
+BENOIT = {"Tailscale-User-Login": "benoit@example.com", "Tailscale-User-Name": "Benoit"}
+ROUTES = ["/api/me/profil", "/api/me/jeux", "/api/me/parties", "/api/me/sauvegardes"]
+MARIO = {"cle": "Mario Kart Double Dash.rvz", "console": "gc", "titre": "Mario Kart Double Dash"}
+TENNIS = {"cle": "Mario Tennis Aces.nsp", "console": "switch", "titre": "Mario Tennis Aces"}
+#: Une soirée passée: les places « en cours » commencent maintenant, donc après elle.
+SOIR = datetime(2026, 11, 14, 20, 0, tzinfo=UTC)
+
+
+def place(
+    parties: Parties,
+    login: str,
+    ident: str,
+    debut: datetime,
+    secondes: float | None,
+    jeu: dict | None = MARIO,
+    lance: tuple[str, str] | None = None,
+    sauvegarde: str = "lanceur",
+    salle: int = 1,
+) -> None:
+    """Une place au journal, telle que la tablée l'écrit. Sans fin si `secondes` est rien."""
+    parties.ecrire(
+        login,
+        "place_debut",
+        quand=debut,
+        id=ident,
+        salle=salle,
+        place=1,
+        jeu=jeu,
+        lance={"empreinte": empreinte(lance[0]), "pseudo": lance[1]} if lance else None,
+        sauvegarde=sauvegarde,
+    )
+    if secondes is not None:
+        parties.ecrire(
+            login,
+            "place_fin",
+            quand=debut + timedelta(seconds=secondes),
+            id=ident,
+            salle=salle,
+            secondes=secondes,
+            raison="deconnectee",
+        )
+
+
+@pytest.fixture
+def parties(app: FastAPI) -> Parties:
+    return app.state.parties
+
+
+async def test_sans_identite_chaque_lecture_refuse(client: httpx.AsyncClient) -> None:
+    for route in ROUTES:
+        reponse = await client.get(route)
+        assert reponse.status_code == 401, route
+
+
+async def test_avec_identite_chaque_lecture_repond(client: httpx.AsyncClient) -> None:
+    """Le jumeau: un carnet vide est un carnet, pas une erreur."""
+    for route in ROUTES:
+        reponse = await client.get(route, headers=ALICE)
+        assert reponse.status_code == 200, (route, reponse.text)
+    profil = (await client.get("/api/me/profil", headers=ALICE)).json()
+    assert profil["pseudo"] == "Alice"
+    assert (profil["jeux"], profil["parties"], profil["secondes"]) == (0, 0, 0)
+    assert profil["depuis"] is None
+
+
+def test_aucune_lecture_ne_prend_d_adresse_en_parametre(app: FastAPI) -> None:
+    """Personne ne peut demander le carnet d'un autre: il n'y a rien à demander."""
+    chemins = app.openapi()["paths"]
+    for route in ROUTES:
+        parametres = chemins[route]["get"].get("parameters", [])
+        noms = {parametre["name"] for parametre in parametres}
+        assert noms <= {"avant", "limite"}, (route, noms)
+    assert "/profil" not in chemins
+
+
+async def test_un_parametre_d_adresse_glisse_dans_la_demande_est_ignore(
+    client: httpx.AsyncClient, parties: Parties
+) -> None:
+    place(parties, "benoit@example.com", "b" * 16, SOIR, 600)
+    for nom in ("login", "qui", "salle"):
+        reponse = await client.get(f"/api/me/jeux?{nom}=benoit@example.com", headers=ALICE)
+        assert reponse.status_code == 200
+        assert reponse.json() == []
+    # Le jumeau: Benoît, lui, voit son jeu.
+    assert len((await client.get("/api/me/jeux", headers=BENOIT)).json()) == 1
+
+
+async def test_deux_adresses_au_meme_nom_lisible_et_au_meme_pseudo_ne_se_voient_pas(
+    client: httpx.AsyncClient, app: FastAPI, parties: Parties, settings: Settings
+) -> None:
+    plus = {"Tailscale-User-Login": "alex+test@example.com", "Tailscale-User-Name": "Alex"}
+    tiret = {"Tailscale-User-Login": "alex-test@example.com", "Tailscale-User-Name": "Alex"}
+    place(parties, "alex+test@example.com", "1" * 16, SOIR, 600)
+    place(parties, "alex-test@example.com", "2" * 16, SOIR, 60, jeu=TENNIS)
+    sauvegarde(settings, "alex+test@example.com", "mario-kart-double-dash-rvz")
+
+    vu_plus = (await client.get("/api/me/jeux", headers=plus)).json()
+    vu_tiret = (await client.get("/api/me/jeux", headers=tiret)).json()
+    assert [jeu["titre"] for jeu in vu_plus] == ["Mario Kart Double Dash"]
+    assert [jeu["titre"] for jeu in vu_tiret] == ["Mario Tennis Aces"]
+    assert len((await client.get("/api/me/sauvegardes", headers=plus)).json()) == 1
+    assert (await client.get("/api/me/sauvegardes", headers=tiret)).json() == []
+
+
+async def test_joue_chez_quelqu_un_n_est_pas_une_sauvegarde_a_soi(
+    client: httpx.AsyncClient, parties: Parties, settings: Settings
+) -> None:
+    """Décision du 21 novembre 2026: la sauvegarde est à qui a lancé."""
+    benoit = ("benoit@example.com", "Benoît")
+    parties.ecrire(
+        "benoit@example.com",
+        "lancement",
+        quand=SOIR,
+        salle=1,
+        jeu=MARIO,
+        emplacement="reprendre",
+        sauvegarde="lanceur",
+    )
+    place(parties, "benoit@example.com", "b" * 16, SOIR, 3600, lance=benoit)
+    place(parties, "alice@example.com", "a" * 16, SOIR, 3000, lance=benoit)
+    sauvegarde(settings, "benoit@example.com", "mario-kart-double-dash-rvz")
+
+    alice = (await client.get("/api/me/jeux", headers=ALICE)).json()
+    assert len(alice) == 1
+    assert alice[0]["chez"] == [{"pseudo": "Benoît", "parties": 1, "secondes": 3000}]
+    assert alice[0]["sauvegarde"] is None
+    assert alice[0]["lancements"] == 0
+    partie = (await client.get("/api/me/parties", headers=ALICE)).json()["parties"][0]
+    assert (partie["sauvegarde"], partie["lance_par"]) == ("du_lanceur", "Benoît")
+    assert (await client.get("/api/me/sauvegardes", headers=ALICE)).json() == []
+
+    # Le jumeau: chez Benoît, c'est sa sauvegarde, et elle est sur sa carte.
+    lui = (await client.get("/api/me/jeux", headers=BENOIT)).json()
+    assert lui[0]["chez"] == []
+    assert lui[0]["lancements"] == 1
+    assert lui[0]["sauvegarde"]["octets"] == len(b"progression")
+    sienne = (await client.get("/api/me/parties", headers=BENOIT)).json()["parties"][0]
+    assert (sienne["sauvegarde"], sienne["lance_par"]) == ("mienne", None)
+
+
+async def test_tout_debloque_est_commun_meme_lance_par_un_autre(
+    client: httpx.AsyncClient, parties: Parties
+) -> None:
+    place(
+        parties,
+        "alice@example.com",
+        "a" * 16,
+        SOIR,
+        900,
+        lance=("benoit@example.com", "Benoît"),
+        sauvegarde="commune",
+    )
+    jeu = (await client.get("/api/me/jeux", headers=ALICE)).json()[0]
+    assert jeu["chez"] == []
+    assert jeu["communes"] == 1
+    partie = (await client.get("/api/me/parties", headers=ALICE)).json()["parties"][0]
+    assert (partie["sauvegarde"], partie["lance_par"]) == ("commune", "Benoît")
+
+
+async def test_les_places_de_suite_font_une_partie_et_deux_onglets_ne_comptent_pas_double(
+    client: httpx.AsyncClient, parties: Parties
+) -> None:
+    alice = "alice@example.com"
+    # Une reconnexion de trente secondes: la même partie.
+    place(parties, alice, "1" * 16, SOIR, 600)
+    place(parties, alice, "2" * 16, SOIR + timedelta(seconds=630), 300)
+    # Un deuxième onglet ouvert pendant la place 2: rien de plus.
+    place(parties, alice, "3" * 16, SOIR + timedelta(seconds=700), 100)
+    # Dix minutes plus tard: une autre partie.
+    place(parties, alice, "4" * 16, SOIR + timedelta(seconds=1530), 60)
+
+    reponse = (await client.get("/api/me/parties", headers=ALICE)).json()["parties"]
+    assert [(partie["id"], partie["secondes"]) for partie in reponse] == [
+        ("4" * 16, 60),
+        ("1" * 16, 900),
+    ]
+    profil = (await client.get("/api/me/profil", headers=ALICE)).json()
+    assert (profil["parties"], profil["secondes"], profil["jeux"]) == (2, 960, 1)
+
+
+async def test_un_autre_jeu_entre_deux_places_coupe_la_partie(
+    client: httpx.AsyncClient, parties: Parties
+) -> None:
+    alice = "alice@example.com"
+    place(parties, alice, "1" * 16, SOIR, 600)
+    place(parties, alice, "2" * 16, SOIR + timedelta(seconds=610), 10, jeu=TENNIS)
+    place(parties, alice, "3" * 16, SOIR + timedelta(seconds=630), 60)
+    reponse = (await client.get("/api/me/parties", headers=ALICE)).json()["parties"]
+    assert [partie["titre"] for partie in reponse] == [
+        "Mario Kart Double Dash",
+        "Mario Tennis Aces",
+        "Mario Kart Double Dash",
+    ]
+
+
+async def test_le_menu_n_est_pas_une_partie(client: httpx.AsyncClient, parties: Parties) -> None:
+    place(parties, "alice@example.com", "1" * 16, SOIR, 600, jeu=None)
+    assert (await client.get("/api/me/parties", headers=ALICE)).json()["parties"] == []
+    profil = (await client.get("/api/me/profil", headers=ALICE)).json()
+    assert profil["jeux"] == 0
+    # La ligne compte quand même pour « depuis quand »: c'est une visite.
+    assert profil["depuis"] is not None
+
+
+async def test_une_fin_jamais_vue_reste_inconnue_et_une_place_ouverte_est_en_cours(
+    client: httpx.AsyncClient, app: FastAPI, parties: Parties
+) -> None:
+    place(parties, "alice@example.com", "1" * 16, SOIR, None)
+    partie = (await client.get("/api/me/parties", headers=ALICE)).json()["parties"][0]
+    assert (partie["complete"], partie["secondes"], partie["fin"], partie["en_cours"]) == (
+        False,
+        0,
+        None,
+        False,
+    )
+    assert (await client.get("/api/me/profil", headers=ALICE)).json()["inconnues"] == 1
+
+    # Le jumeau: une place tenue en ce moment dans une salle est en cours, avec
+    # son temps déjà écoulé, et la place d'avant reste inconnue.
+    rooms = app.state.salons.pour(1)
+    rooms.tablee.jeu(JeuJoue(cle=MARIO["cle"], console="gc", titre=MARIO["titre"]))
+    rooms.claim(2, "sid-alice", "Alice", login="alice@example.com")
+    recentes = (await client.get("/api/me/parties", headers=ALICE)).json()["parties"]
+    assert [(partie["en_cours"], partie["complete"]) for partie in recentes] == [
+        (True, True),
+        (False, False),
+    ]
+    assert recentes[0]["fin"] is None
+    jeux = (await client.get("/api/me/jeux", headers=ALICE)).json()
+    assert [jeu["en_cours"] for jeu in jeux] == [True]
+    assert (await client.get("/api/me/profil", headers=ALICE)).json()["inconnues"] == 1
+
+
+async def test_les_parties_se_lisent_par_pages(client: httpx.AsyncClient, parties: Parties) -> None:
+    for rang in range(5):
+        debut = SOIR + timedelta(hours=rang)
+        place(parties, "alice@example.com", f"{rang:016x}", debut, 60)
+    vues: list[str] = []
+    avant = None
+    pages = 0
+    while True:
+        adresse = "/api/me/parties?limite=2" + (f"&avant={avant}" if avant else "")
+        page = (await client.get(adresse, headers=ALICE)).json()
+        vues.extend(partie["id"] for partie in page["parties"])
+        pages += 1
+        avant = page["suivant"]
+        if avant is None:
+            break
+    assert pages == 3
+    assert vues == [f"{rang:016x}" for rang in reversed(range(5))]
+
+
+@pytest.mark.parametrize(
+    ("requete", "attendu"),
+    [
+        ("limite=0", 422),
+        ("limite=101", 422),
+        ("limite=1", 200),
+        ("limite=100", 200),
+        ("avant=pas-un-curseur", 422),
+        (f"avant={'f' * 16}", 422),
+    ],
+)
+async def test_les_bornes_de_la_pagination(
+    client: httpx.AsyncClient, parties: Parties, requete: str, attendu: int
+) -> None:
+    place(parties, "alice@example.com", "1" * 16, SOIR, 60)
+    reponse = await client.get(f"/api/me/parties?{requete}", headers=ALICE)
+    assert reponse.status_code == attendu, reponse.text
+
+
+def sauvegarde(settings: Settings, login: str, jeu: str) -> Path:
+    """Une sauvegarde Dolphin personnelle, au nom que le worker lui donne."""
+    nom = dossier_personnel(login)
+    assert nom is not None
+    dossier = settings.personal_save_root / jeu / nom
+    dossier.mkdir(parents=True)
+    (dossier / "01-GM4E-MarioKart.gci").write_bytes(b"progression")
+    return dossier
+
+
+def switch(settings: Settings, login: str, titre: str, famille: str = "switch") -> Path:
+    racine = settings.personal_save_root.parent / f"etat-{famille}"
+    config = settings.switch_config if famille == "switch" else settings.switch2_config
+    config.write_text(json.dumps({"state": str(racine)}))
+    nom = dossier_personnel(login)
+    assert nom is not None
+    return racine / titre / nom
+
+
+async def test_les_sauvegardes_viennent_du_disque_sans_rien_ouvrir(
+    client: httpx.AsyncClient, settings: Settings
+) -> None:
+    alice = "alice@example.com"
+    gc = sauvegarde(settings, alice, "mario-kart-double-dash-rvz")
+    os.utime(gc / "01-GM4E-MarioKart.gci", (1_763_000_000, 1_763_000_000))
+    historique = gc.parent / "history"
+    historique.mkdir()
+    for suffixe in ("1763000000000000001", "1763000000000000002"):
+        (historique / f"{gc.name}-{suffixe}").mkdir()
+    # Ni la version d'un autre, ni un nom qui n'en est pas une.
+    (historique / f"{dossier_personnel('benoit@example.com')}-1").mkdir()
+    (historique / f"{gc.name}-copie").mkdir()
+    # Un ancien emplacement d'avant l'empreinte n'appartient à personne.
+    (gc.parent / "joueur-alice-example-com").mkdir()
+    (settings.salles_dir / "1").mkdir(parents=True)
+    (settings.salles_dir / "1" / NAME).write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "scanned_ms": 1,
+                "roms": [
+                    {
+                        "name": "Mario Kart: Double Dash!!",
+                        "maker": None,
+                        "about": None,
+                        "art": False,
+                        "console": "gc",
+                        "key": "Mario Kart Double Dash.rvz",
+                    }
+                ],
+            }
+        )
+    )
+
+    tennis = switch(settings, alice, "0100bde00862a000")
+    partie = tennis / "data/bis/user/save/0000000000000001/0"
+    partie.mkdir(parents=True)
+    (partie / "save.dat").write_bytes(b"x" * 1000)
+    # Un tube nommé DANS la partie: un lecteur qui l'ouvrirait attendrait pour toujours.
+    os.mkfifo(tennis / "data/bis/user/flux.h264")
+    os.mkfifo(tennis / "full.h264")
+    # Un lien vers un gros fichier hors de la partie n'est pas suivi.
+    gros = settings.personal_save_root.parent / "gros"
+    gros.write_bytes(b"y" * 5000)
+    (tennis / "data/bis/user/lien").symlink_to(gros)
+    # Le système émulé, hors du sous-arbre sauvegardé, ne compte pas.
+    (tennis / "data/system").mkdir(parents=True)
+    (tennis / "data/system/firmware.bin").write_bytes(b"z" * 9000)
+    for copie in ("20260913T191500", "20260913T201500"):
+        (tennis / "backups" / copie).mkdir(parents=True)
+
+    vues = (await client.get("/api/me/sauvegardes", headers=ALICE)).json()
+    par_titre = {vue["titre"]: vue for vue in vues}
+    assert set(par_titre) == {"Mario Kart: Double Dash!!", "0100BDE00862A000"}
+    mario = par_titre["Mario Kart: Double Dash!!"]
+    assert (mario["relie"], mario["console"]["code"]) == (True, "gc")
+    assert mario["sauvegarde"]["versions"] == 2
+    assert mario["sauvegarde"]["octets"] == len(b"progression")
+    assert mario["sauvegarde"]["derniere_ecriture"].startswith("2025-11-13")
+    switch_vue = par_titre["0100BDE00862A000"]
+    assert (switch_vue["relie"], switch_vue["console"]["code"]) == (False, "switch")
+    assert switch_vue["sauvegarde"]["octets"] == 1000
+    assert switch_vue["sauvegarde"]["copies"] == 2
+
+
+async def test_rien_ne_sort_qui_dise_une_adresse_un_chemin_ou_un_dossier(
+    client: httpx.AsyncClient, parties: Parties, settings: Settings
+) -> None:
+    place(parties, "alice@example.com", "a" * 16, SOIR, 600, lance=("benoit@example.com", "Benoît"))
+    sauvegarde(settings, "alice@example.com", "mario-kart-double-dash-rvz")
+    tout = ""
+    for route in ROUTES:
+        tout += (await client.get(route, headers=ALICE)).text
+    assert "@" not in tout
+    assert str(settings.personal_save_root.parent) not in tout
+    assert "joueur-" not in tout
+    assert empreinte("benoit@example.com") not in tout
+    assert empreinte("alice@example.com") not in tout
+    assert not re.search(r"[0-9a-f]{64}", tout)
+
+
+async def test_le_carnet_est_servi_sans_identite_et_sans_rien_demander_ailleurs(
+    client: httpx.AsyncClient,
+) -> None:
+    reponse = await client.get("/profil", headers={})
+    assert reponse.status_code == 200
+    assert reponse.headers["content-type"].startswith("text/html")
+    page = reponse.text
+    assert "<!--BOBINE" not in page
+    assert "/*__BOBINE__*/" not in page
+    assert "/*__POLICES__*/" not in page
+    assert "@font-face" in page
+    assert 'class="bob"' in page
+    # Aucune requête vers une autre machine: ni police, ni image, ni script.
+    assert not re.search(r"""(src|href)=["']?(https?:)?//""", page)
+    assert "url(http" not in page
+    # Il demande ses données au salon, et à lui seul.
+    for route in ("/api/me/profil", "/api/me/jeux", "/api/me/sauvegardes", "/api/me/parties"):
+        assert route in page
+
+
+async def test_l_accueil_mene_au_carnet_les_visiteurs_identifies(client: httpx.AsyncClient) -> None:
+    page = (await client.get("/")).text
+    assert 'href="/profil"' in page
+    assert 'fetch("/api/me"' in page
+
+
+async def test_deux_personnes_deux_carnets_par_les_entetes_du_proxy(
+    client: httpx.AsyncClient, parties: Parties
+) -> None:
+    """Avec les identités communes des essais, pour le pseudo choisi par le salon."""
+    place(parties, "souhib@example.com", "1" * 16, SOIR, 120)
+    assert (await client.get("/api/me/profil", headers=SOUHIB)).json()["parties"] == 1
+    assert (await client.get("/api/me/profil", headers=VINCENT)).json()["parties"] == 0

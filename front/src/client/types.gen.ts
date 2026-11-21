@@ -118,6 +118,26 @@ export type CatalogueGame = {
 };
 
 /**
+ * Chez
+ *
+ * Un lanceur chez qui la personne a joué, dans SA sauvegarde.
+ */
+export type Chez = {
+    /**
+     * Pseudo
+     */
+    pseudo: string;
+    /**
+     * Parties
+     */
+    parties: number;
+    /**
+     * Secondes
+     */
+    secondes: number;
+};
+
+/**
  * Connection
  *
  * Une observation de trajet, jamais une mesure de qualité.
@@ -127,6 +147,79 @@ export type Connection = {
      * Kind
      */
     kind?: 'direct' | 'relay' | 'unknown';
+};
+
+/**
+ * ConsoleVue
+ *
+ * Une console, telle que le manifeste la décrit (ADR D22).
+ */
+export type ConsoleVue = {
+    /**
+     * Code
+     *
+     * Son code, « gc », « switch »… ou « ? » si inconnue.
+     */
+    code: string;
+    /**
+     * Label
+     *
+     * Son nom à l'écran.
+     */
+    label: string;
+    /**
+     * Media
+     *
+     * Ce qu'on glisse dedans. Rien pour une console inconnue.
+     */
+    media?: 'disc' | 'cartridge' | 'card' | null;
+    /**
+     * Experimental
+     */
+    experimental?: boolean;
+    /**
+     * Rang
+     *
+     * Sa place dans le manifeste. La page en tire la couleur de sa bande: une console ajoutée au manifeste a sa couleur sans toucher la page.
+     */
+    rang?: number | null;
+};
+
+/**
+ * Dernier
+ */
+export type Dernier = {
+    /**
+     * Titre
+     */
+    titre: string;
+    console: ConsoleVue;
+    /**
+     * Quand
+     */
+    quand: string;
+};
+
+/**
+ * Emplacement
+ *
+ * Une sauvegarde personnelle trouvée sur le disque: une carte mémoire.
+ */
+export type Emplacement = {
+    /**
+     * Titre
+     *
+     * Le titre du jeu, ou ce que le disque en dit quand il n'est pas relié.
+     */
+    titre: string;
+    console: ConsoleVue;
+    /**
+     * Relie
+     *
+     * Vrai quand le salon a reconnu le jeu dans le catalogue.
+     */
+    relie: boolean;
+    sauvegarde: ResumeSauvegarde;
 };
 
 /**
@@ -249,6 +342,61 @@ export type Identity = {
 };
 
 /**
+ * JeuProfil
+ *
+ * Un jeu joué: une tranche sur l'étagère.
+ */
+export type JeuProfil = {
+    /**
+     * Titre
+     */
+    titre: string;
+    console: ConsoleVue;
+    /**
+     * Premiere Fois
+     */
+    premiere_fois: string;
+    /**
+     * Derniere Fois
+     */
+    derniere_fois: string;
+    /**
+     * Secondes
+     */
+    secondes: number;
+    /**
+     * Parties
+     */
+    parties: number;
+    /**
+     * Lancements
+     *
+     * Combien de fois cette personne l'a lancé.
+     */
+    lancements: number;
+    /**
+     * En Cours
+     */
+    en_cours?: boolean;
+    /**
+     * Chez
+     *
+     * Les lanceurs chez qui elle a joué à ce jeu, dans leur sauvegarde.
+     */
+    chez?: Array<Chez>;
+    /**
+     * Communes
+     *
+     * Les parties jouées sur « tout débloqué ».
+     */
+    communes: number;
+    /**
+     * Sa sauvegarde personnelle de ce jeu. Rien quand elle n'existe pas, ou quand le salon ne sait pas la relier au jeu (Switch: le catalogue ne publie pas encore l'identifiant du titre).
+     */
+    sauvegarde?: ResumeSauvegarde | null;
+};
+
+/**
  * Me
  *
  * Qui le service croit avoir en face.
@@ -285,6 +433,22 @@ export type Me = {
 };
 
 /**
+ * PageParties
+ */
+export type PageParties = {
+    /**
+     * Parties
+     */
+    parties: Array<Partie>;
+    /**
+     * Suivant
+     *
+     * Le curseur de la page suivante, ou rien à la fin.
+     */
+    suivant: string | null;
+};
+
+/**
  * Participant
  */
 export type Participant = {
@@ -308,6 +472,66 @@ export type Participant = {
      * Ready
      */
     ready?: boolean;
+};
+
+/**
+ * Partie
+ *
+ * Une partie: des places tenues de suite, au même jeu, dans la même salle.
+ *
+ * Une reconnexion de moins de deux minutes ne fait pas une nouvelle partie, et
+ * deux onglets de la même personne ne comptent pas double.
+ */
+export type Partie = {
+    /**
+     * Id
+     *
+     * Un jeton opaque, celui de la première place de la partie.
+     */
+    id: string;
+    /**
+     * Salle
+     */
+    salle: number;
+    /**
+     * Titre
+     */
+    titre: string;
+    console: ConsoleVue;
+    /**
+     * Debut
+     */
+    debut: string;
+    /**
+     * Fin
+     *
+     * Rien tant qu'elle dure, ou si la fin n'a pas été vue.
+     */
+    fin: string | null;
+    /**
+     * Secondes
+     */
+    secondes: number;
+    /**
+     * Complete
+     *
+     * Faux quand une de ses places n'a pas de fin connue.
+     */
+    complete: boolean;
+    /**
+     * En Cours
+     */
+    en_cours?: boolean;
+    /**
+     * Sauvegarde
+     */
+    sauvegarde: 'mienne' | 'du_lanceur' | 'commune' | 'neuve' | 'inconnue';
+    /**
+     * Lance Par
+     *
+     * Le pseudo de qui a lancé, quand ce n'est pas la personne elle-même.
+     */
+    lance_par?: string | null;
 };
 
 /**
@@ -387,6 +611,85 @@ export type Preparation = {
      * Players
      */
     players: Array<Participant>;
+};
+
+/**
+ * Profil
+ *
+ * La première page du carnet.
+ */
+export type Profil = {
+    /**
+     * Pseudo
+     */
+    pseudo: string;
+    /**
+     * Depuis
+     *
+     * La première ligne du journal des parties de cette personne. Le journal commence le 21 novembre 2026: ce qui précède n'est pas noté.
+     */
+    depuis: string | null;
+    /**
+     * Jeux
+     *
+     * Combien de jeux différents joués, menu exclu.
+     */
+    jeux: number;
+    /**
+     * Parties
+     */
+    parties: number;
+    /**
+     * Secondes
+     *
+     * Le temps de jeu connu, parties en cours comprises.
+     */
+    secondes: number;
+    /**
+     * Inconnues
+     *
+     * Les parties dont la fin n'a pas été vue: leur durée n'est pas comptée.
+     */
+    inconnues: number;
+    /**
+     * Sauvegardes
+     *
+     * Combien de sauvegardes personnelles existent.
+     */
+    sauvegardes: number;
+    dernier?: Dernier | null;
+};
+
+/**
+ * ResumeSauvegarde
+ *
+ * Une sauvegarde personnelle, d'après ses fichiers. Rien n'y est ouvert.
+ */
+export type ResumeSauvegarde = {
+    /**
+     * Derniere Ecriture
+     *
+     * Le fichier le plus récemment écrit. Rien pour un dossier encore vide.
+     */
+    derniere_ecriture: string | null;
+    /**
+     * Octets
+     *
+     * La taille des fichiers de la partie elle-même.
+     */
+    octets: number;
+    /**
+     * Versions
+     *
+     * Les parties précédentes gardées à chaque « partie neuve ».
+     */
+    versions: number;
+    /**
+     * Copies
+     *
+     * Les copies automatiques que l'adaptateur Switch fait à chaque partie.
+     */
+    copies: number;
 };
 
 /**
@@ -669,6 +972,94 @@ export type KeepBindingsResponses = {
 };
 
 export type KeepBindingsResponse = KeepBindingsResponses[keyof KeepBindingsResponses];
+
+export type ReadMyProfileData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/me/profil';
+};
+
+export type ReadMyProfileResponses = {
+    /**
+     * Successful Response
+     */
+    200: Profil;
+};
+
+export type ReadMyProfileResponse = ReadMyProfileResponses[keyof ReadMyProfileResponses];
+
+export type ReadMyGamesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/me/jeux';
+};
+
+export type ReadMyGamesResponses = {
+    /**
+     * Response Read My Games
+     *
+     * Successful Response
+     */
+    200: Array<JeuProfil>;
+};
+
+export type ReadMyGamesResponse = ReadMyGamesResponses[keyof ReadMyGamesResponses];
+
+export type ReadMyPlaysData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Avant
+         *
+         * L'`id` de la dernière partie de la page précédente.
+         */
+        avant?: string | null;
+        /**
+         * Limite
+         */
+        limite?: number;
+    };
+    url: '/api/me/parties';
+};
+
+export type ReadMyPlaysErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ReadMyPlaysError = ReadMyPlaysErrors[keyof ReadMyPlaysErrors];
+
+export type ReadMyPlaysResponses = {
+    /**
+     * Successful Response
+     */
+    200: PageParties;
+};
+
+export type ReadMyPlaysResponse = ReadMyPlaysResponses[keyof ReadMyPlaysResponses];
+
+export type ReadMySavesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/me/sauvegardes';
+};
+
+export type ReadMySavesResponses = {
+    /**
+     * Response Read My Saves
+     *
+     * Successful Response
+     */
+    200: Array<Emplacement>;
+};
+
+export type ReadMySavesResponse = ReadMySavesResponses[keyof ReadMySavesResponses];
 
 export type ReadRoomData = {
     body?: never;

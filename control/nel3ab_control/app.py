@@ -18,6 +18,7 @@ from nel3ab_control.api.controllers.salons import Salons
 from nel3ab_control.api.routes import accueil as accueil_routes
 from nel3ab_control.api.routes import catalogue as catalogue_routes
 from nel3ab_control.api.routes import me as me_routes
+from nel3ab_control.api.routes import profil as profil_routes
 from nel3ab_control.api.routes import rooms as rooms_routes
 from nel3ab_control.api.routes import salles as salles_routes
 from nel3ab_control.api.ws import socketio_app
@@ -102,6 +103,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     allow_origins(app.state.settings.origins)
     app.include_router(accueil_routes.router)
     app.include_router(me_routes.router)
+    app.include_router(profil_routes.router)
+    app.include_router(profil_routes.page)
     app.include_router(rooms_routes.router)
     app.include_router(salles_routes.router)
     app.include_router(catalogue_routes.router)

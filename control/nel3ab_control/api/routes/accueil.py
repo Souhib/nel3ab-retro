@@ -38,8 +38,12 @@ POLICES = (
 )
 
 
-def _faces() -> str:
-    """Les règles `@font-face`, avec chaque fichier encodé dans la page."""
+def polices() -> str:
+    """Les règles `@font-face`, avec chaque fichier encodé dans la page.
+
+    Publique parce que le carnet de jeu (`profil.py`) les embarque aussi: deux
+    pages du salon, une seule façon de servir leurs caractères.
+    """
     dossier = Path(__file__).parent / "polices"
     regles = []
     for nom, graisse, fichier in POLICES:
@@ -56,7 +60,7 @@ def _faces() -> str:
 PAGE = (
     (Path(__file__).parent / "accueil.html")
     .read_text(encoding="utf-8")
-    .replace("/*__POLICES__*/", _faces())
+    .replace("/*__POLICES__*/", polices())
 )
 
 

@@ -3,7 +3,7 @@
 from typing import Annotated
 
 import httpx
-from fastapi import Depends, Request
+from fastapi import Depends, HTTPException, Request, status
 
 from nel3ab_control.api.controllers.bindings import (
     BindingsController,
@@ -19,6 +19,67 @@ from nel3ab_control.settings import Settings
 def get_settings(request: Request) -> Settings:
     """The settings this app was built with."""
     return request.app.state.settings
+
+
+#: Les méthodes qui changent quelque chose. La garde d'origine ne porte que sur
+#: elles: une lecture venue d'une page étrangère arrive, mais le navigateur ne
+#: lui rend pas la réponse, puisque le salon n'envoie aucun en-tête qui lève la
+#: règle de même origine.
+WRITES = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+
+#: Ce que `Sec-Fetch-Site` peut dire d'une écriture légitime. `same-origin`
+#: pour une page du salon, `none` pour un geste de la personne elle-même sans
+#: page derrière. `same-site` n'en fait pas partie: un autre sous-domaine du même
+#: domaine n'est pas une page du salon.
+SITES = ("same-origin", "none")
+
+
+async def same_origin(request: Request) -> None:
+    """Refuse une écriture qui ne vient pas d'une page du salon.
+
+    # Pourquoi c'est nécessaire
+
+    Le salon reconnaît les gens par leur adresse dans le réseau privé, sans
+    cookie ni jeton. Une page étrangère ouverte dans le navigateur d'un membre
+    peut donc écrire au salon, et l'écriture arrive avec l'identité du membre.
+    Le navigateur protège les lectures, pas les écritures dites simples: un
+    `POST` sans corps part sans aucune vérification préalable. Relevé par
+    l'audit du 20 novembre 2026, et reproduit le lendemain par
+    `tests/api/test_writes.py`.
+
+    # Ce qui est vérifié
+
+    `Origin`, que tout navigateur joint à une écriture, doit être UNE des
+    origines des réglages, les mêmes que celles de la socket du salon. Absente,
+    en double ou différente, la demande est refusée: deux valeurs sur une
+    garde, c'est choisir laquelle croire, et c'est la faille.
+
+    `Sec-Fetch-Site`, quand le navigateur l'écrit, doit dire `same-origin` ou
+    `none`. Une page ne peut écrire aucun de ces deux en-têtes elle-même.
+
+    # Ce que ça ne fait pas
+
+    Arrêter un programme de la machine. Il écrit les en-têtes qu'il veut, y
+    compris celui de l'identité: voir le carnet, entrée du 21 novembre 2026.
+
+    Posée sur l'APPLICATION, pas sur chaque route: une route ajoutée demain
+    l'hérite sans que personne y pense. `test_no_writing_route_can_forget_the_origin_guard`
+    vérifie qu'elle est bien dans l'arbre de chaque écriture.
+    """
+    if request.method not in WRITES:
+        return
+    origins = request.headers.getlist("origin")
+    if len(origins) != 1 or origins[0] not in get_settings(request).origins:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="cette demande ne vient pas d'une page du salon",
+        )
+    sites = request.headers.getlist("sec-fetch-site")
+    if sites and (len(sites) != 1 or sites[0] not in SITES):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="cette demande part d'un autre site que le salon",
+        )
 
 
 def get_client(request: Request) -> httpx.AsyncClient:

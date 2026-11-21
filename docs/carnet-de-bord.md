@@ -24967,6 +24967,69 @@ ceux de l'outil qu'il enveloppe, sinon le journal ment sur la cause.
 Souhib ne l'a pas recopié ailleurs. Le NAS peut effacer la copie, puisque le
 partage est public. Les ROM ne sont pas copiées.
 
+### 21 novembre : fermer les portes du salon
+
+**Pourquoi.** L'audit du 20 novembre a relevé des routes du salon qui
+écrivent sans vérifier d'où vient la demande ni qui la fait. Le salon
+reconnaît les gens par leur adresse dans le réseau privé, le tailnet, sans
+mot de passe ni cookie. C'est simple pour les amis, et c'est aussi ce qui rend
+ces oublis dangereux : une demande qui arrive depuis l'appareil d'un membre
+porte son identité, quel que soit le site qui l'a fait partir. Le dépôt est
+public, donc cette entrée décrit les défauts et leurs corrections, pas la
+façon de s'en servir. Le détail reste dans le rapport local de l'audit.
+
+**L'origine des écritures.** Un navigateur joint à chaque écriture (`POST`,
+`PUT`, `DELETE`) un en-tête `Origin` : le site d'où vient la page qui écrit.
+Une page ne peut pas le changer. Avant, seule la socket du salon le
+vérifiait, par sa bibliothèque socket.io. Les routes HTTP ne le regardaient
+pas. Une page d'un autre site, ouverte par un membre, pouvait donc faire
+écrire le salon au nom de ce membre. Ce défaut a un nom, la falsification de
+requête intersite, ou CSRF. Le navigateur empêche cette page de lire la
+réponse, mais il n'empêche pas certaines écritures simples de partir.
+
+La correction est une seule dépendance FastAPI, `same_origin`, posée sur
+l'application entière. Elle laisse passer les lectures. Pour une écriture,
+elle exige un seul `Origin`, égal à l'une des origines des réglages : les
+mêmes que pour la socket. Quand le navigateur écrit aussi `Sec-Fetch-Site`,
+elle exige `same-origin` ou `none`. Sinon, la réponse est un refus 403.
+
+Option écartée : poser la garde route par route. Elle se lirait mieux dans
+chaque route, mais une route ajoutée demain pourrait l'oublier. Posée sur
+l'application, une nouvelle route en hérite. Un essai parcourt les routes que
+l'application sert vraiment et échoue si une écriture n'a pas la garde.
+
+**Les essais, rouges d'abord.** `tests/api/test_writes.py` envoie chaque
+écriture de l'application avec une origine étrangère, sans origine, avec deux
+origines, et avec deux voisines de la vraie (même nom sur un autre port, même
+nom sans chiffrement). Sur le code d'avant, les cinq écritures répondaient
+200 ou 201, et le faux systemd recevait l'ordre d'allumer une salle. Les
+jumeaux : la page elle-même écrit toujours, avec ou sans `Sec-Fetch-Site`, et
+les deux portes déployées, lues dans l'unité systemd, passent. Les lectures
+ne demandent pas d'origine. L'essai qui parcourt les routes a été éprouvé en
+retirant la garde de l'application : il nomme alors les cinq écritures.
+
+**Piège.** Le premier jet de cet essai parcourait `app.routes`. Avec FastAPI
+0.141.1, installé ici, un routeur inclus y reste un seul élément, sans chemin
+ni méthode. La liste des écritures était vide, et les boucles passaient sans
+rien vérifier. L'assertion de précondition (« au moins cinq écritures
+trouvées ») l'a montré au premier passage. L'essai lit maintenant les routes
+effectives par `iter_route_contexts`. Leçon : une boucle d'assertions sur une
+liste calculée commence par affirmer que la liste n'est pas vide.
+
+**Un autre piège, évité de peu.** L'application d'essai commune gardait le
+vrai lanceur de salles, qui passe par `sudo systemctl`, et le vrai dossier
+des salles. Aucun essai n'appelait encore `/api/salles`, donc rien ne s'était
+produit. Le premier essai d'écriture l'aurait fait sur la machine qui héberge
+les vraies parties. Le faux systemd vit maintenant dans
+`tests/faux_systeme.py`, et l'application d'essai s'en sert.
+
+**Ce qui change à l'usage.** Un programme qui écrit au salon sans navigateur
+(`curl`, un pilote Node) est refusé s'il n'envoie pas une origine admise. Le
+développement local par Vite doit ajouter son origine à `NEL3AB_ORIGINS`,
+comme il le fallait déjà pour la socket. Le pilote
+`spikes/m3-browser-drive/reconciliation.mjs` ouvre et ferme une salle par ce
+chemin : il ne passe plus tel quel.
+
 ## 12. Glossaire complet
 
 **Faux partage** : échanges inutiles entre les caches de plusieurs cœurs lorsque
@@ -25983,3 +26046,22 @@ lgf dans `/mnt/nas`.
 **NFS, montage « hard »** : NFS est le protocole qui rend le NAS visible
 comme un dossier. Un montage « hard » fait attendre un programme quand le
 NAS ne répond plus, au lieu de lui renvoyer une erreur.
+
+**Origine (`Origin`)** : le schéma, le nom et le port d'un site, par exemple
+`https://nel3ab.app`. Le navigateur l'écrit lui-même dans l'en-tête `Origin`
+d'une écriture, et une page ne peut pas le changer. Deux adresses qui
+diffèrent par le port ou par `http`/`https` sont deux origines.
+
+**Sec-Fetch-Site** : en-tête écrit par le navigateur, qui dit d'où part une
+demande : `same-origin` (la même origine), `same-site` (un autre sous-domaine
+du même domaine), `cross-site` (un autre site) ou `none` (un geste de la
+personne elle-même, sans page derrière).
+
+**CSRF** : *Cross-Site Request Forgery*, falsification de requête intersite.
+Une page d'un autre site fait partir une demande depuis le navigateur d'un
+visiteur, et la demande arrive avec l'identité de ce visiteur.
+
+**Dépendance (FastAPI)** : fonction que FastAPI exécute avant une route,
+pour lui fournir quelque chose ou refuser la demande. Posée sur
+l'application, elle s'exécute avant chaque route, y compris celles ajoutées
+plus tard.

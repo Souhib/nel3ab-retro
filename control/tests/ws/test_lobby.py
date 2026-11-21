@@ -27,6 +27,7 @@ from nel3ab_control.api.controllers.rooms import RoomController
 from nel3ab_control.api.schemas.error import WorkerUnreachable
 from nel3ab_control.app import create_app
 from nel3ab_control.settings import Settings
+from tests.conftest import PAGE
 
 LIBRARY = {"current": 0, "roms": ["Super Smash Bros Melee"]}
 
@@ -1621,7 +1622,7 @@ async def test_a_new_name_reaches_every_socket_of_the_same_person(
     await asyncio.sleep(0.2)
 
     async with httpx.AsyncClient() as http:
-        answer = await http.put(f"{url}/api/me", json={"name": "Marie"}, headers=headers)
+        answer = await http.put(f"{url}/api/me", json={"name": "Marie"}, headers=PAGE | headers)
     assert answer.status_code == 200, answer.text
     await renaming.emit("rename", {"name": "Marie"})
     await asyncio.sleep(0.3)
@@ -1657,7 +1658,7 @@ async def test_a_new_name_does_not_rename_somebody_else(
     renaming = socketio.AsyncClient()
     await renaming.connect(url, socketio_path="/socket.io", headers=souhib)
     async with httpx.AsyncClient() as http:
-        answer = await http.put(f"{url}/api/me", json={"name": "Marie"}, headers=souhib)
+        answer = await http.put(f"{url}/api/me", json={"name": "Marie"}, headers=PAGE | souhib)
     assert answer.status_code == 200, answer.text
     await renaming.emit("rename", {"name": "Marie"})
     await asyncio.sleep(0.3)

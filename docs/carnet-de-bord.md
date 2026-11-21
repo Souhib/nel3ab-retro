@@ -26549,7 +26549,9 @@ Souhib a demandé de tout faire le soir même :
   repos, elle ne relevait la machine qu'une fois par minute. Elle regarde
   maintenant toutes les deux secondes si un émulateur a démarré, sans relevé
   complet : 0,56 ms de processeur par regard, mesuré sur cette machine avec
-  503 processus, soit 0,03 % d'un cœur ;
+  503 processus. J'en avais déduit 0,03 % d'un cœur ; le service redémarré a
+  pris en réalité 70 ms en une minute de repos, relevé compris, soit 0,12 %.
+  Le regard n'est pas seul à coûter : chaque réveil du service aussi ;
 - **les journaux de la salle Xbox 360 disaient « Switch ».** Les lignes de
   l'adaptateur portent maintenant la console en champ, et un libellé neutre.
   Aucun outil ne lisait leur texte, seulement leurs champs.

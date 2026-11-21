@@ -155,8 +155,10 @@ class Settings(BaseSettings):
             "de démarrer, pour prendre le premier relevé sans attendre le pas du "
             "repos. Le 21 novembre 2026, les deux parties de Sonic ont été vues 36 et "
             "42 s après leur lancement: chargement et premiers gels sans relevé. "
-            "Regarder coûte 0,56 ms de processeur (503 processus, même jour), soit "
-            "0,03 % d'un cœur toutes les deux secondes."
+            "Regarder coûte 0,56 ms de processeur (503 processus, même jour). Le "
+            "service entier au repos, veille comprise, a pris 70 ms de processeur "
+            "en 60 s une fois redémarré, soit 0,12 % d'un cœur (relevé par minute "
+            "compris; précision de 10 ms)."
         ),
     )
     boite_noire_allocateur_s: float = Field(

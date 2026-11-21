@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>nel3ab — déposer un jeu</title>
+<style>
+  /* ─────────────────────────────────────────────────────────────────────
+     LE QUAI DE CHARGEMENT. Même régie que l'accueil: graphite de studio,
+     les deux polices embarquées, aucune requête vers un autre site.
+
+     Chaque fichier déposé reçoit une carte, et la carte prend la couleur
+     d'une des quatre prises de la salle, dans l'ordre: une file d'envois
+     se lit comme quatre câbles de couleur, jamais comme une liste grise.
+
+     Seuls `transform` et `opacity` bougent, comme dans la feuille de
+     Bobine: la jauge s'allonge par `scaleX`, le tampon tombe par `scale`.
+     ───────────────────────────────────────────────────────────────── */
+  /*__POLICES__*/
+  /*__BOBINE__*/
+
+  :root {
+    --fond: #15171b;
+    --plaque: #1e2126;
+    --creux: #101216;
+    --craie: #eef0f2;
+    --legende: #9aa2ab;
+    --trait: #6b727b;
+    --alerte: #ff8f6b;
+    /* Les quatre prises de la salle, celles de `front/src/media/players.ts`. */
+    --joueur-1: #d9534f;
+    --joueur-2: #4a86d9;
+    --joueur-3: #d9b64a;
+    --joueur-4: #4aab5c;
+    --titre: "Anybody", "Helvetica Neue", Arial, sans-serif;
+    --machine: "Departure", ui-monospace, "DejaVu Sans Mono", monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh;
+    background: var(--fond); color: var(--craie);
+    font: 400 18px/1.5 var(--titre);
+    padding: clamp(1rem, 2.5vh, 2rem) clamp(1rem, 3vw, 3rem);
+  }
+  .page { width: 100%; max-width: 1100px; margin-inline: auto;
+          display: flex; flex-direction: column; gap: clamp(1rem, 2vh, 1.6rem); }
+  [hidden] { display: none !important; }
+
+  .rail { display: flex; align-items: baseline; gap: 1.5rem; flex-wrap: wrap;
+          border-bottom: 2px solid var(--trait); padding-bottom: .7rem; }
+  .marque { font-family: var(--machine); font-size: clamp(15px, 1.5vw, 19px);
+            letter-spacing: .34em; text-transform: uppercase; color: inherit;
+            text-decoration: none; }
+  .rail-fait { font-family: var(--machine); font-size: clamp(13px, 1.2vw, 16px);
+               color: var(--legende); letter-spacing: .12em; }
+
+  h1 { font-weight: 700; font-size: clamp(30px, 4vw, 52px); line-height: 1.05;
+       letter-spacing: -.01em; margin: 0; }
+  .chapeau { margin: 0; max-width: 60ch; color: var(--legende);
+             font-size: clamp(15px, 1.5vw, 19px); }
+
+  /* ── La zone de dépôt ───────────────────────────────────────────── */
+  .depot {
+    position: relative; display: grid; align-items: center; gap: .3rem 1.6rem;
+    grid-template-columns: auto 1fr; grid-template-rows: auto auto auto;
+    padding: clamp(1.2rem, 3vh, 2.2rem) clamp(1rem, 3vw, 2.4rem);
+    background: var(--plaque); border: 2px dashed var(--trait); cursor: pointer;
+  }
+  /* Le survol s'ÉCLAIRE par un voile dont seule l'opacité change. */
+  .depot::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+                  background: rgba(238, 240, 242, .06); opacity: 0;
+                  transition: opacity .15s ease-out; }
+  .depot[data-survol="oui"]::after, .depot:hover::after { opacity: 1; }
+  .depot:focus-within { outline: 3px solid var(--craie); outline-offset: 3px; }
+  .depot input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+  .depot-bobine { grid-row: 1 / 4; }
+  .depot-bobine svg { width: 72px; height: auto; }
+  .depot-mot { font-weight: 700; font-size: clamp(22px, 2.6vw, 34px); line-height: 1.1; }
+  .depot-sous { color: var(--legende); font-size: clamp(14px, 1.4vw, 17px); }
+  .prises { display: flex; gap: 6px; margin-top: .4rem; }
+  .prises span { width: 26px; height: 10px; background: var(--c); }
+
+  .refus { margin: 0; padding: 1rem 1.2rem; border-left: 6px solid var(--alerte);
+           background: var(--creux); }
+
+  /* ── Une carte par fichier ──────────────────────────────────────── */
+  .cartes { display: flex; flex-direction: column; gap: .7rem; }
+  .carte {
+    --joueur: var(--joueur-1);
+    display: grid; grid-template-columns: 64px 1fr; gap: 1.2rem; align-items: start;
+    padding: 1rem clamp(.9rem, 2vw, 1.5rem); background: var(--plaque);
+    border-left: 6px solid var(--joueur);
+    animation: entre .28s cubic-bezier(.2, .7, .3, 1) both;
+    transition: opacity .25s ease-in, transform .25s ease-in;
+  }
+  .carte[data-part="oui"] { opacity: 0; transform: translateX(24px); }
+  @keyframes entre { from { opacity: 0; transform: translateY(10px); } }
+  .carte-bobine svg { width: 56px; height: auto; }
+  .carte-corps { min-width: 0; display: flex; flex-direction: column; gap: .35rem; }
+  .carte-tete { display: flex; gap: 1rem; align-items: baseline; justify-content: space-between; }
+  .carte-nom { margin: 0; font-weight: 700; font-size: clamp(17px, 1.8vw, 22px);
+               overflow-wrap: anywhere; }
+  .carte-boutons { display: flex; gap: .5rem; flex-shrink: 0; }
+  .carte-boutons button {
+    font: 600 15px var(--titre); min-height: 40px; padding: .3rem 1rem;
+    background: transparent; color: var(--craie); border: 2px solid var(--trait);
+    border-radius: 0; cursor: pointer;
+  }
+  .carte-boutons button:hover { border-color: var(--craie); }
+  .carte-boutons button:focus-visible { outline: 3px solid var(--craie); outline-offset: 2px; }
+  .estimation { margin: 0; color: var(--legende); font-size: 16px; }
+  .etiquette { font-family: var(--machine); font-size: 12px; letter-spacing: .16em;
+               color: var(--fond); background: var(--legende); padding: 1px 6px;
+               margin-right: .4rem; }
+  .carte-titre:not(:empty)::before { content: "« "; }
+  .carte-titre:not(:empty)::after { content: " »"; }
+
+  /* La piste porte l'échelle, la barre la progression, en `scaleX`. */
+  .piste { height: 12px; border: 2px solid var(--trait); padding: 2px; }
+  .barre { display: block; height: 100%; background: var(--joueur);
+           transform: scaleX(0); transform-origin: left center;
+           transition: transform .3s linear; }
+  .mesures { margin: 0; display: flex; gap: 1rem; flex-wrap: wrap;
+             font-size: 15px; color: var(--legende); font-variant-numeric: tabular-nums; }
+  .etat { margin: 0; font-size: 16px; }
+  .etat:empty { display: none; }
+  .etat[data-alerte="oui"] { color: var(--alerte); }
+
+  /* ── Le verdict du serveur ──────────────────────────────────────── */
+  .resultats { display: flex; flex-direction: column; gap: .6rem; }
+  .resultats:empty { display: none; }
+  .resultat { display: grid; grid-template-columns: auto 1fr; gap: 1rem; align-items: start;
+              padding-top: .5rem; border-top: 1px solid #2b313a; }
+  .resultat p { margin: 0; }
+  .resultat-etat { font-weight: 600; overflow-wrap: anywhere; }
+  .resultat-mot { color: var(--craie); font-size: 16px; }
+  .resultat-preuve { color: var(--legende); font-size: 13px; overflow-wrap: anywhere; }
+  /* Le tampon: la console reconnue par le SERVEUR, posée de biais.
+     Sa couleur dit l'issue: vert rangé, jaune à confirmer, bleu reconnu
+     mais pas jouable, rouge pour le reste. Les quatre prises, encore. */
+  .tampon {
+    --encre: var(--joueur-1);
+    display: inline-block; min-width: 7.5rem; text-align: center; justify-self: start;
+    font: 700 14px var(--titre); letter-spacing: .12em; text-transform: uppercase;
+    color: var(--encre); border: 3px solid var(--encre); padding: .25rem .6rem;
+    transform: rotate(-4deg);
+    animation: tamponne .42s cubic-bezier(.3, .6, .4, 1.3) both;
+  }
+  .resultat[data-etat="range"] .tampon { --encre: var(--joueur-4); }
+  .resultat[data-etat="a-confirmer"] .tampon { --encre: var(--joueur-3); }
+  .resultat[data-etat="pas-jouable"] .tampon { --encre: var(--joueur-2); }
+  @keyframes tamponne {
+    0% { opacity: 0; transform: scale(1.7) rotate(-9deg); }
+    60% { opacity: 1; transform: scale(.94) rotate(-4deg); }
+    100% { transform: scale(1) rotate(-4deg); }
+  }
+
+  .pied { margin: 0; color: var(--legende); font-size: 15px; border-top: 2px solid var(--trait);
+          padding-top: .8rem; }
+
+  @media (max-width: 620px) {
+    .depot { grid-template-columns: 1fr; }
+    .depot-bobine { grid-row: auto; }
+    .carte { grid-template-columns: 1fr; }
+    .carte-bobine { display: none; }
+    .carte-tete { flex-direction: column; }
+    .resultat { grid-template-columns: 1fr; }
+  }
+  /* Rien ici n'a besoin de bouger pour être compris: la jauge garde sa
+     longueur, le tampon sa place, Bobine sa pose finale. */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+  <main class="page">
+    <div class="rail">
+      <a class="marque" href="/">nel3ab</a>
+      <span class="rail-fait">DEPOT DE JEUX</span>
+    </div>
+
+    <h1>Déposer un jeu</h1>
+    <p class="chapeau">
+      Lâche un ou plusieurs fichiers de jeu, ou une archive. La page estime la
+      console en lisant le début du fichier. Le serveur relit ensuite le fichier
+      entier, reconnaît la console, puis range le jeu dans la bibliothèque.
+    </p>
+
+    <label class="depot" id="depot" for="fichiers" data-survol="non">
+      <span class="depot-bobine"><!--BOBINE:loupe:repos--></span>
+      <span class="depot-mot">Lâche tes fichiers ici</span>
+      <span class="depot-sous">ou clique pour les choisir. GameCube et Wii sont rangés tout de suite;
+        Switch, Xbox 360 et les autres consoles restent de côté, avec la raison.</span>
+      <span class="prises" aria-hidden="true">
+        <span style="--c: var(--joueur-1)"></span><span style="--c: var(--joueur-2)"></span>
+        <span style="--c: var(--joueur-3)"></span><span style="--c: var(--joueur-4)"></span>
+      </span>
+      <input type="file" id="fichiers" multiple>
+    </label>
+
+    <p class="refus" id="refus" hidden>
+      Déposer un jeu est réservé à l'administrateur du salon et aux personnes
+      qu'il a nommées. Demande-lui de t'ajouter, ou envoie-lui le fichier.
+    </p>
+
+    <section class="cartes" id="cartes" aria-live="polite"></section>
+
+    <p class="pied">
+      Un envoi coupé reprend où il s'était arrêté: redépose le même fichier,
+      même après avoir fermé la page. Un jeu rangé est visible à la prochaine
+      ouverture de salle ou au prochain changement de jeu.
+    </p>
+  </main>
+
+  <template id="modele-carte">
+    <article class="carte">
+      <div class="carte-bobine">
+        <span data-tenue="loupe"><!--BOBINE:loupe:loupe--></span>
+        <span data-tenue="tampon" hidden><!--BOBINE:tampon:salue--></span>
+        <span data-tenue="aucune" hidden><!--BOBINE:aucune:dort--></span>
+      </div>
+      <div class="carte-corps">
+        <div class="carte-tete">
+          <p class="carte-nom" data-ici="nom"></p>
+          <div class="carte-boutons">
+            <button type="button" data-ici="pause" hidden>pause</button>
+            <button type="button" data-ici="annuler" hidden>annuler</button>
+          </div>
+        </div>
+        <p class="estimation" data-ici="estimation"><span class="etiquette">ESTIMATION</span><span data-ici="nature"></span> <span class="carte-titre" data-ici="titre"></span></p>
+        <div class="piste"><span class="barre" data-ici="barre"></span></div>
+        <p class="mesures"><span data-ici="compte"></span><span data-ici="debit"></span></p>
+        <p class="etat" data-ici="etat" role="status"></p>
+        <div class="resultats" data-ici="resultats"></div>
+      </div>
+    </article>
+  </template>
+
+<script type="module">
+/*__SCRIPT__*/
+</script>
+</body>
+</html>

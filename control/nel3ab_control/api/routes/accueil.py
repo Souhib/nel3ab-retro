@@ -38,7 +38,7 @@ POLICES = (
 )
 
 
-def _faces() -> str:
+def faces() -> str:
     """Les règles `@font-face`, avec chaque fichier encodé dans la page."""
     dossier = Path(__file__).parent / "polices"
     regles = []
@@ -56,7 +56,7 @@ def _faces() -> str:
 PAGE = (
     (Path(__file__).parent / "accueil.html")
     .read_text(encoding="utf-8")
-    .replace("/*__POLICES__*/", _faces())
+    .replace("/*__POLICES__*/", faces())
 )
 
 

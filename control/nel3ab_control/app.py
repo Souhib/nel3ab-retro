@@ -18,6 +18,7 @@ from nel3ab_control.api.controllers.salles import SallesController
 from nel3ab_control.api.controllers.salons import Salons
 from nel3ab_control.api.routes import accueil as accueil_routes
 from nel3ab_control.api.routes import catalogue as catalogue_routes
+from nel3ab_control.api.routes import importer as importer_routes
 from nel3ab_control.api.routes import imports as imports_routes
 from nel3ab_control.api.routes import me as me_routes
 from nel3ab_control.api.routes import rooms as rooms_routes
@@ -103,6 +104,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings or Settings()
     allow_origins(app.state.settings.origins)
     app.include_router(accueil_routes.router)
+    app.include_router(importer_routes.router)
     app.include_router(imports_routes.router)
     app.include_router(me_routes.router)
     app.include_router(rooms_routes.router)

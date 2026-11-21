@@ -1,0 +1,46 @@
+{
+  "date": "2026-11-21",
+  "quoi": "Xenia Edge et Xenia Canary sans jeu, 25 s chacun, sous Sway sans écran, dans nel3ab/switch-prototype:2026-09-08-recovery, sans réseau, sans droits, avec la seule carte graphique",
+  "lance_par": "Souhib, avec spikes/xbox360/lancer.sh (le lancement par l'assistant a été refusé par son contrôle automatique)",
+  "paquets": {
+    "edge": {
+      "tag": "01ca7a5",
+      "commit": "01ca7a5bafe654818940b0d9914a95a8bcd72615",
+      "fichier": "xenia_edge_linux.AppImage",
+      "sha256": "dca227664da9d2ea127c0751f857c2651b31a19f51cc54ac06259b38988899e8",
+      "source": "https://github.com/has207/xenia-edge/releases/download/01ca7a5/xenia_edge_linux.AppImage"
+    },
+    "canary": {
+      "tag": "a4ef31c",
+      "fichier": "xenia_canary_linux.AppImage",
+      "sha256": "bc08dee608b04cf8225cd71223eaddd19e0e15b364062f6d46c490208f6dbc24",
+      "source": "https://github.com/xenia-canary/xenia-canary/releases/download/a4ef31c/xenia_canary_linux.AppImage"
+    }
+  },
+  "resultats": {
+    "edge": {
+      "vivant_a_25_s": true,
+      "fenetre": "xdg_shell (Wayland natif), 1280x720, plus une fenêtre de dialogue 685x159",
+      "carte_graphique": "non journalisée sans jeu: non prouvée",
+      "capture_sha256": "3926c97e3b9a2470fd7dfd79df7c1a96c0083ca2ff9f286d9afedf1cbfc29457",
+      "ecran": "interface wxWidgets, liste de jeux vide, fenêtre modale « No Profiles Found »",
+      "profils": "Found 0 Profiles"
+    },
+    "canary": {
+      "vivant_a_25_s": true,
+      "fenetre": "xwayland, classe Xenia_canary, 1280x720",
+      "carte_graphique": "AMD Radeon RX 6650 XT (RADV NAVI23), API 1.4.318 (1.3 utilisée); llvmpipe listé en second et non choisi",
+      "presentation": "swapchain 1280x695, format 44, mode de présentation 0",
+      "capture_sha256": "b0b346d8c46c8ad85f82b96928ec50c261ba28070dab35ca30ea2653c93be79e",
+      "ecran": "fond noir, menus, panneau ImGui « No Profiles Found »"
+    }
+  },
+  "manettes": "non essayées: aucun périphérique d'entrée passé au conteneur; SDL3 n'a pas trouvé /dev/input et passe en scrutation (« Unable to add inotify watch, falling back to polling »)",
+  "non_prouve": [
+    "une image de jeu",
+    "la carte choisie par Edge",
+    "la lecture d'une manette virtuelle 045E:028E",
+    "le son (--apu=nop)",
+    "l'arrêt propre d'un titre"
+  ]
+}

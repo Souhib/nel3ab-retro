@@ -26153,14 +26153,30 @@ monter un dossier par personne, comme pour les autres consoles.
 
 **Ce qui a été fait.** Les deux paquets du 20 et du 21 novembre (Edge
 `01ca7a5`, Canary `a4ef31c`) sont téléchargés et contrôlés contre l'empreinte
-SHA-256 que GitHub publie, puis dépaquetés sans être exécutés. Un essai sans
-jeu était prêt : 25 secondes sous un Sway sans écran, dans l'image de la salle
-Switch, sans réseau ni droits, avec la seule carte graphique. Le contrôle
-automatique des actions de l'assistant a refusé ce lancement ; il attend
-Souhib. Rien n'est donc prouvé sur cette machine : ni que la carte est
-trouvée, ni qu'une image s'affiche, ni qu'une manette est lue. Aucun jeu Xbox
-360 libre et vérifié n'existe pour aller plus loin : le premier vrai essai
-demandera une copie d'un jeu de Souhib.
+SHA-256 que GitHub publie, puis dépaquetés sans être exécutés. Le contrôle
+automatique des actions de l'assistant a refusé de lancer l'essai ; Souhib
+l'a lancé lui-même (`spikes/xbox360/lancer.sh`) : 25 secondes chacun sous un
+Sway sans écran, dans l'image de la salle Switch, sans réseau ni droits, avec
+la seule carte graphique.
+
+**Ce que l'essai sans jeu a montré**
+(`spikes/xbox360/essai-sans-jeu-2026-11-21.json`).
+
+- Les deux démarrent, restent en vie et s'affichent.
+- Edge ouvre une vraie fenêtre Wayland, sans Xwayland. Canary passe par
+  Xwayland, comme son code le laissait prévoir.
+- Canary choisit la Radeon RX 6650 XT par RADV, et pas le rendu logiciel
+  llvmpipe listé en second, puis crée sa surface d'affichage.
+- Edge ne journalise pas sa carte sans jeu : ce point reste à prouver.
+- Les deux affichent la fenêtre « aucun profil » annoncée par la recherche.
+  Elle se verrait dans l'image diffusée : préparer les profils est donc la
+  première tâche de l'adaptateur.
+
+**Ce qui n'est pas prouvé.** Une image de jeu, la carte choisie par Edge, le
+son (coupé pour l'essai), une manette virtuelle lue (aucune n'était passée au
+conteneur, et SDL n'y trouvait pas `/dev/input`), l'arrêt propre d'un titre.
+Aucun jeu Xbox 360 libre et vérifié n'existe pour aller plus loin : le premier
+vrai essai demandera une copie d'un jeu de Souhib.
 
 ### 21 novembre : le salon tombé cinquante secondes, faute d'une dépendance
 

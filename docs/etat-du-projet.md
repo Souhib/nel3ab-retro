@@ -37,12 +37,13 @@ services, règle les anciennes portes, essaie les pages, puis lance
 `just deploy-check`.
 Le worker de production, lui, est déjà reconstruit depuis la nuit.
 
-**Xbox 360 : l'émulateur est choisi, pas essayé.** Une recherche du
-21 novembre retient Xenia Edge (Linux natif, Wayland, mode portable), avec
-Xenia Canary en secours. Les deux paquets sont téléchargés et vérifiés contre
-l'empreinte publiée, mais leur premier lancement sur la carte graphique a été
-refusé par le contrôle automatique des actions de l'assistant ; il attend
-Souhib. Aucun jeu Xbox 360 n'a été essayé.
+**Xbox 360 : l'émulateur est choisi et démarre ici, sans jeu.** Une recherche
+du 21 novembre retient Xenia Edge (Linux natif, Wayland, mode portable), avec
+Xenia Canary en secours. Les deux paquets, vérifiés contre l'empreinte
+publiée, démarrent sous le Sway sans écran de la salle : Edge en Wayland
+natif, Canary par Xwayland sur la Radeon. Tous deux affichent d'abord une
+fenêtre « aucun profil ». Aucun jeu, aucune manette et aucun son n'ont été
+essayés. Essai : `spikes/xbox360/`.
 
 Les paragraphes ci-dessous disent « non installé » : ils datent d'avant la
 fusion de la nuit.

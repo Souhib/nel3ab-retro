@@ -26144,6 +26144,48 @@ trouvée, ni qu'une image s'affiche, ni qu'une manette est lue. Aucun jeu Xbox
 360 libre et vérifié n'existe pour aller plus loin : le premier vrai essai
 demandera une copie d'un jeu de Souhib.
 
+### 21 novembre : le salon tombé cinquante secondes, faute d'une dépendance
+
+**Le symptôme.** Souhib installe l'unité du salon et redémarre le salon et la
+boîte noire. La boîte noire repart ; le salon échoue dix-huit démarrages de
+suite, de 12 h 25 min 49 s à 12 h 26 min 39 s, heure UTC. Aucune salle n'était
+ouverte.
+
+**La cause.** L'unité du dépôt lance le salon par `uv run`, dans le `.venv` du
+dépôt, où la dépendance ajoutée le matin (`cryptography`, pour lire l'en-tête
+des jeux Switch) était bien installée. Mais un autre projet de la machine,
+Souverain, pose depuis le 11 novembre un ajout à cette unité
+(`nel3ab-control.service.d/90-souverain.conf`). Cet ajout remplace la commande
+par son propre environnement Python, qui importe le salon depuis le dépôt et
+ajoute ses propres mesures. Cet environnement, figé le 11 novembre, n'avait
+pas `cryptography`. `just deploy-check` comparait les fichiers d'unité, pas la
+commande effective : il ne pouvait pas le voir. Le « l'application s'importe »
+vérifié dans la nuit l'avait été avec le mauvais interpréteur.
+
+**La réparation.** Les trois paquets manquants, aux versions exactes du
+verrou du dépôt (`cryptography` 50.0.2, `cffi` 2.1.1, `pycparser` 3.12), ont
+été ajoutés à cet environnement. Le redémarrage automatique de systemd a
+repris le salon à 12 h 26 min 39 s. Les pages répondent depuis, par
+`nel3ab.app` aussi.
+
+**Ce qui l'empêche de revenir.** `deploy/salon-importable.sh` lit la commande
+que systemd lance vraiment, ajouts compris, et importe le salon et la boîte
+noire avec cet interpréteur. `just deploy-check` le lance, et
+`deploy/mettre-en-service.sh` le lance avant tout redémarrage : refusé, rien
+ne redémarre. Trois essais lui donnent leur propre commande. Un environnement
+vide doit être refusé ; un interpréteur absent aussi ; celui des essais passe.
+Le premier passage du jumeau a appris une chose : la boîte noire ne lit que la
+bibliothèque standard, et s'importe même dans un environnement vide.
+
+**Ce qui reste.** La prochaine réinstallation de Souverain doit embarquer ces
+trois paquets : son installation redémarre le salon elle-même, sans passer par
+ce contrôle.
+
+**Leçon.** Une nouvelle dépendance doit atteindre l'interpréteur que le
+service lance vraiment. Lire la commande effective (`systemctl show -p
+ExecStart`), pas le fichier d'unité du dépôt, et importer l'application avec
+avant de redémarrer.
+
 ## 12. Glossaire complet
 
 **AppImage** : format qui range un programme Linux et ses bibliothèques en un

@@ -213,6 +213,11 @@ deploy-check:
     ' || echo "  tailscale serve illisible")
         if [ -n "$portes" ]; then echo "$portes"; faux=1; fi
     fi
+    # Les fichiers d'unité peuvent être identiques et le salon quand même ne pas
+    # démarrer: le 21 novembre 2026, un ajout d'un autre projet lançait le salon
+    # dans son propre environnement Python, où manquait une dépendance du matin.
+    # On importe donc le salon avec l'interpréteur que systemd lance vraiment.
+    if ! bash deploy/salon-importable.sh; then faux=1; fi
     if [ "$faux" -eq 0 ]; then echo "les unités installées sont celles du dépôt, et tournent avec son code"; else exit 1; fi
 
 # Vérifie les pistes du MP4 et décode réellement son audio, sans Dolphin ni salle.

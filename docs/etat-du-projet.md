@@ -21,12 +21,18 @@ Tout est dans `main`. Trois changements s'ajoutent à ceux de la nuit :
   [La Switch 2, de bout en bout](carnet-switch2.md). Le NUP de Mario Tennis
   Fever est gardé hors des salles, dans `~/roms/hors-salle/switch2/`.
 
-**Rien de cela ne tourne encore.** Le salon, la boîte noire et Caddy tournent
-l'ancien code et l'ancienne configuration tant que Souhib n'a pas lancé, depuis
-`/home/souhib/nel3ab-retro` :
-`sudo bash deploy/mettre-en-service.sh`. Le script valide le Caddyfile avant
-de copier quoi que ce soit, installe les unités, redémarre les trois services,
-règle les anciennes portes, essaie les pages, puis lance `just deploy-check`.
+**Le salon et la boîte noire tournent le nouveau code depuis 12 h 26 UTC.**
+Leur redémarrage a d'abord échoué cinquante secondes : l'environnement Python
+que lance réellement le salon, posé par le projet Souverain, n'avait pas la
+dépendance du matin (entrée « 21 novembre : le salon tombé cinquante
+secondes, faute d'une dépendance »). Il reste Caddy et les anciennes portes :
+tant que Souhib n'a pas lancé, depuis `/home/souhib/nel3ab-retro`,
+`sudo bash deploy/mettre-en-service.sh`, `.ts.net:8443` et `:8444` ne
+renvoient pas encore vers `nel3ab.app`. Le script valide le Caddyfile avant
+de copier quoi que ce soit, installe les unités, vérifie que le salon
+s'importe avec l'interpréteur que systemd lancera, redémarre les trois
+services, règle les anciennes portes, essaie les pages, puis lance
+`just deploy-check`.
 Le worker de production, lui, est déjà reconstruit depuis la nuit.
 
 **Xbox 360 : l'émulateur est choisi, pas essayé.** Une recherche du

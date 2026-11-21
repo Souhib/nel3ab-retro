@@ -364,6 +364,14 @@ machine".
   truncated identity, so a personal save could land in the wrong folder.
   Derive the bound from the longest legal message, and refuse a message that
   reaches the bound without its terminator.
+- **A new dependency must reach the interpreter the service actually runs.**
+  On 2026-11-21, `cryptography` was in the repository's `.venv`, but a drop-in
+  from another project (`nel3ab-control.service.d/90-souverain.conf`) ran the
+  lobby in its own environment, frozen on 2026-11-11. The unit files matched,
+  `deploy-check` passed, and the lobby failed eighteen starts. Read the
+  effective `ExecStart` and import the app with it before restarting:
+  `deploy/salon-importable.sh` does, in `deploy-check` and before every restart
+  in `deploy/mettre-en-service.sh`.
 - **Archive a lab by inventory before deleting it, not by file extension.**
   On 2026-11-21, an extension filter kept every report but dropped four
   Dockerfiles, and their images were removed in the same hour. Only the

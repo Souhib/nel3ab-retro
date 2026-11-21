@@ -3,16 +3,18 @@
 from typing import Annotated
 
 import httpx
-from fastapi import Depends, Request
+from fastapi import Depends, HTTPException, Request, status
 
 from nel3ab_control.api.controllers.bindings import (
     BindingsController,
     RoomBindingsController,
 )
+from nel3ab_control.api.controllers.imports import ImportsController
 from nel3ab_control.api.controllers.people import PeopleController
 from nel3ab_control.api.controllers.rooms import RoomController
 from nel3ab_control.api.controllers.salles import SalleInconnue, SallesController
 from nel3ab_control.identity import caller_of
+from nel3ab_control.imports.droits import peut_importer
 from nel3ab_control.settings import Settings
 
 
@@ -90,6 +92,11 @@ async def get_caller(request: Request) -> tuple[str, str] | None:
     return await caller_of(request.scope)
 
 
+def get_imports(request: Request) -> ImportsController:
+    """Les envois de jeux en cours, et la quarantaine."""
+    return request.app.state.imports
+
+
 SettingsDep = Annotated[Settings, Depends(get_settings)]
 PeopleDep = Annotated[PeopleController, Depends(get_people)]
 BindingsDep = Annotated[BindingsController, Depends(get_bindings)]
@@ -98,3 +105,28 @@ CallerDep = Annotated[tuple[str, str] | None, Depends(get_caller)]
 ClientDep = Annotated[httpx.AsyncClient, Depends(get_client)]
 RoomsDep = Annotated[RoomController, Depends(get_rooms)]
 SallesDep = Annotated[SallesController, Depends(get_salles)]
+ImportsDep = Annotated[ImportsController, Depends(get_imports)]
+
+
+async def exiger_importeur(caller: CallerDep, settings: SettingsDep) -> str:
+    """L'adresse de qui dépose un jeu, ou un refus.
+
+    401 sans identité, 403 pour une identité qui n'est pas admise. Posée sur
+    chaque route d'import elle-même, et pas laissée à une garde d'application:
+    une garde globale qu'on retire un jour ne doit pas ouvrir la bibliothèque.
+    """
+    if caller is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="aucune identité: ce salon n'est pas derrière son proxy",
+        )
+    login = caller[0]
+    if not peut_importer(login, settings):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="déposer un jeu est réservé à l'administrateur et aux importeurs nommés",
+        )
+    return login.strip().lower()
+
+
+ImporteurDep = Annotated[str, Depends(exiger_importeur)]

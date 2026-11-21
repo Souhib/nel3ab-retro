@@ -60,6 +60,11 @@ def settings(tmp_path: Path) -> Settings:
         # vrai dossier effacerait la soirée qu'on voulait relire, et le premier
         # jet de ce fichier l'a fait.
         journal_dir=tmp_path / "sessions",
+        # La quarantaine et les dossiers de jeux, jetables eux aussi. Sans ces
+        # deux lignes, un essai d'import écrirait sous ~/.local/state et
+        # rangerait un faux jeu dans la VRAIE bibliothèque de la machine.
+        imports_dir=tmp_path / "imports",
+        rom_dir=f"{tmp_path / 'roms' / 'gc'}:{tmp_path / 'roms' / 'wii'}",
     )
 
 

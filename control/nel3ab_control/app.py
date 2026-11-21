@@ -12,10 +12,12 @@ from nel3ab_control.api.controllers.bindings import (
     BindingsController,
     RoomBindingsController,
 )
+from nel3ab_control.api.controllers.imports import ImportsController
 from nel3ab_control.api.controllers.people import PeopleController
 from nel3ab_control.api.controllers.salles import SallesController
 from nel3ab_control.api.controllers.salons import Salons
 from nel3ab_control.api.routes import accueil as accueil_routes
+from nel3ab_control.api.routes import imports as imports_routes
 from nel3ab_control.api.routes import me as me_routes
 from nel3ab_control.api.routes import rooms as rooms_routes
 from nel3ab_control.api.routes import salles as salles_routes
@@ -46,6 +48,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.people = PeopleController(settings.state_file)
         app.state.bindings = BindingsController(settings.bindings_file)
         app.state.room_bindings = RoomBindingsController(settings.room_bindings_file)
+        # Les envois de jeux. Rien n'est lu ni créé ici: la quarantaine s'ouvre
+        # au premier envoi, pour qu'un salon qui démarre n'écrive rien sur le disque.
+        app.state.imports = ImportsController(settings)
         # Le journal balaie AVANT de servir: un service rallumé après trois
         # semaines d'arrêt ne doit pas garder trois semaines de séances au
         # prétexte qu'aucun jour n'a tourné pendant qu'il dormait.
@@ -56,6 +61,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         try:
             async with anyio.create_task_group() as group:
                 group.start_soon(follow_seats, app.state)
+                app.state.imports.demarrer(group)
                 try:
                     yield
                 finally:
@@ -91,6 +97,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings or Settings()
     allow_origins(app.state.settings.origins)
     app.include_router(accueil_routes.router)
+    app.include_router(imports_routes.router)
     app.include_router(me_routes.router)
     app.include_router(rooms_routes.router)
     app.include_router(salles_routes.router)

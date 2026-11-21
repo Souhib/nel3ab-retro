@@ -23,8 +23,10 @@ from nel3ab_control.api.controllers.rooms import RoomController
 from nel3ab_control.api.controllers.salles import SALLES
 from nel3ab_control.api.schemas.error import SeatTaken
 from nel3ab_control.api.schemas.player import NAME_MAX
+from nel3ab_control.api.schemas.room import GameGuide
 from nel3ab_control.api.ws.server import broadcast, piece, sio
 from nel3ab_control.connection import read_connection
+from nel3ab_control.consoles import CONSOLES
 from nel3ab_control.identity import caller_of
 from nel3ab_control.journal import Journal
 from nel3ab_control.worker import may_decide
@@ -94,9 +96,7 @@ def _salle_demandee(auth: dict[str, Any]) -> int:
     return salle if salle in SALLES else 1
 
 
-def _state(
-    environ: dict[str, Any], salle: int = 1
-) -> tuple[RoomController, PeopleController, Journal]:
+def _state(environ: dict[str, Any], salle: int) -> tuple[RoomController, PeopleController, Journal]:
     """Les contrôleurs, tirés de la portée ASGI que l'application y a mise.
 
     Par la portée plutôt que par une dépendance, parce qu'un gestionnaire
@@ -104,6 +104,10 @@ def _state(
     ça crée, à la façon dont l'application est montée, est la raison pour
     laquelle le salon a un essai d'intégration contre un vrai serveur plutôt
     qu'un test unitaire avec une fausse session.
+
+    La salle est OBLIGATOIRE. Elle valait 1 par défaut, et la reprise du rôle de
+    chef l'oubliait: une page de la salle 2 qui demandait ce rôle agissait sur la
+    salle 1 (audit du 20 novembre 2026, `tests/ws/test_two_rooms.py`).
     """
     app = environ["asgi.scope"]["app"]
     return app.state.salons.pour(salle), app.state.people, app.state.journal
@@ -344,7 +348,7 @@ async def connect(sid: str, environ: dict[str, Any], auth: object) -> None:
             salle=_room_now(rooms, people),
             **({"appareil": session["appareil"]} if session["appareil"] else {}),
         )
-        await broadcast(rooms, people, journal, bool(session.get("banc")), salle=salle)
+        await broadcast(rooms, people, journal, bool(session.get("banc")))
         admitted = True
     except Exception as error:
         # Socket.IO ne nettoie sa propre connexion que pour ce refus nommé.
@@ -374,7 +378,7 @@ async def seat(sid: str, data: dict[str, Any]) -> None:
     nombre levait une `TypeError` que personne ne rattrapait.
     """
     session = await sio.get_session(sid)
-    rooms, people, journal, salle = await _pour(sid)
+    rooms, people, journal, _salle = await _pour(sid)
     receipt = data.get("claim")
     if receipt is not None and (not isinstance(receipt, str) or len(receipt) > 53):
         return
@@ -412,7 +416,7 @@ async def seat(sid: str, data: dict[str, Any]) -> None:
                 raison="attribution absente" if receipt is None else "attribution non confirmée",
                 salle=_room_now(rooms, people),
             )
-            await broadcast(rooms, people, journal, bool(session.get("banc")), salle=salle)
+            await broadcast(rooms, people, journal, bool(session.get("banc")))
             return
     journal.write(
         "place",
@@ -420,7 +424,7 @@ async def seat(sid: str, data: dict[str, Any]) -> None:
         place=port,
         salle=_room_now(rooms, people),
     )
-    await broadcast(rooms, people, journal, bool(session.get("banc")), salle=salle)
+    await broadcast(rooms, people, journal, bool(session.get("banc")))
 
 
 @sio.event
@@ -455,7 +459,7 @@ async def answer(sid: str, data: dict[str, Any]) -> None:
     de l'afficher à son nom pendant que l'autre s'y branche, et les deux pages
     se contrediraient le temps d'un aller-retour.
     """
-    rooms, people, journal, salle = await _pour(sid)
+    rooms, people, journal, _salle = await _pour(sid)
     port = _port(data)
     if port is None:
         return
@@ -482,7 +486,7 @@ async def answer(sid: str, data: dict[str, Any]) -> None:
         salle=_room_now(rooms, people),
     )
     await sio.emit("answered", {"ok": agreed, "port": port, "from": session["name"]}, to=asker)
-    await broadcast(rooms, people, journal, bool(session.get("banc")), salle=salle)
+    await broadcast(rooms, people, journal, bool(session.get("banc")))
 
 
 @sio.event
@@ -525,9 +529,7 @@ async def rename(sid: str, data: dict[str, Any]) -> None:
         )
         touched.add(ou)
     for ou in sorted(touched):
-        await broadcast(
-            _state(environ, ou)[0], people, journal, bool(session.get("banc")), salle=ou
-        )
+        await broadcast(_state(environ, ou)[0], people, journal, bool(session.get("banc")))
 
 
 def _measured(data: object, ceiling: int = VITALS_MAX) -> dict[str, Any] | None:
@@ -665,7 +667,7 @@ async def son(sid: str, data: dict[str, Any]) -> None:
 async def disconnect(sid: str) -> None:
     """Une page part. SES manettes retournent à la salle, pas celles du même nom
     sur une autre machine."""
-    rooms, people, journal, salle = await _pour(sid)
+    rooms, people, journal, _salle = await _pour(sid)
     session = await sio.get_session(sid)
     people.left(sid)
     rooms.release(sid)
@@ -678,7 +680,7 @@ async def disconnect(sid: str) -> None:
         secondes=round(monotonic() - float(session.get("since") or monotonic()), 1),
         salle=_room_now(rooms, people),
     )
-    await broadcast(rooms, people, journal, bool(session.get("banc")), salle=salle)
+    await broadcast(rooms, people, journal, bool(session.get("banc")))
 
 
 #: Les TROIS emplacements de sauvegarde, nommés comme la page les nomme.
@@ -740,7 +742,7 @@ async def booting(sid: str, data: dict[str, Any]) -> None:
     if verdict is False:
         return
     if verdict is None:
-        boss = people.owner()
+        boss = people.owner(salle)
         if boss is not None and session.get("login") != boss[0]:
             return
     try:
@@ -770,6 +772,17 @@ async def booting(sid: str, data: dict[str, Any]) -> None:
         room=piece(salle),
         skip_sid=sid,
     )
+
+
+def allowed_devices(console: str, guide: GameGuide | None) -> list[int]:
+    """Les appareils qu'une préparation propose, d'après le manifeste.
+
+    Le guide d'un jeu restreint une console qui offre plusieurs appareils, la
+    Wii aujourd'hui. Il ne change rien à une console qui n'en a qu'un : une
+    Switch présente toujours la manette Pro, une GameCube sa manette.
+    """
+    devices = list(CONSOLES.devices(console))
+    return list(guide.allowed) if guide and len(devices) > 1 else devices
 
 
 @sio.event
@@ -809,12 +822,28 @@ async def preparation(sid: str, data: object = None) -> dict[str, str | bool]:
                 if await may_decide(rooms.settings.worker_control, seat.port) is not True:
                     raise ValueError("Cette manette ne peut pas changer le jeu maintenant.")
                 index = data.get("game")
+                key = data.get("key")
                 save = data.get("save", 0)
                 # Trois emplacements depuis le 12 septembre 2026: la partie neuve,
                 # celle où tout est débloqué, et celle de la personne qui lance.
-                if type(index) is not int or type(save) is not int or save not in (0, 1, 2):
+                if type(save) is not int or save not in (0, 1, 2):
                     raise ValueError("Le jeu ou la sauvegarde est invalide.")
-                game = next((g for g in room.library if g.index == index), None)
+                # Le jeu par sa CLÉ depuis le 21 novembre 2026 (ADR D23): le nom
+                # de fichier désigne encore ce jeu si la liste a changé depuis
+                # que la page l'a lue. La position reste comprise pour une page
+                # ouverte avant la mise à jour, qui ne sait pas l'envoyer.
+                if key is not None:
+                    if not isinstance(key, str):
+                        raise ValueError("Le jeu ou la sauvegarde est invalide.")
+                    game = next((g for g in room.library if g.key == key), None)
+                    if game is None:
+                        raise ValueError(
+                            "Ce jeu n'est plus dans la bibliothèque de la salle. Rouvre le menu."
+                        )
+                elif type(index) is int:
+                    game = next((g for g in room.library if g.index == index), None)
+                else:
+                    raise ValueError("Le jeu ou la sauvegarde est invalide.")
                 # La GameCube passe par ici depuis le 12 septembre 2026. Elle se
                 # lançait en deux pressions, sans passer par le salon, et ce
                 # raccourci coûtait l'identité: seul le salon certifie qui
@@ -824,34 +853,35 @@ async def preparation(sid: str, data: object = None) -> dict[str, str | bool]:
                 # Un disque dont la console est INCONNUE reste dehors: on ne
                 # sait pas quel appareil lui présenter, et une préparation qui
                 # propose une manette au hasard déciderait à la place du joueur.
-                if game is None or game.console not in ("gc", "wii", "switch", "switch2"):
+                # Les consoles préparables sont celles que le manifeste dit
+                # jouables (ADR D22): une console décrite sans adaptateur, comme
+                # la Xbox 360, reste dehors avec le disque muet.
+                if game is None or game.console not in CONSOLES.preparable():
                     raise ValueError(
                         "Cette préparation demande de savoir de quelle console est le disque."
                     )
-                if save == 1 and not await rooms.unlocked_available(index):
+                if save == 1 and not await rooms.unlocked_available(game.index):
                     raise ValueError(
                         "Aucune sauvegarde tout débloqué importée n'est disponible pour ce jeu."
                     )
                 if rooms.preparation is not None:
                     raise ValueError("Une préparation est déjà ouverte.")
+                solo = CONSOLES.solo(game.console)
                 rooms.preparation = Preparation(
-                    game=index,
+                    game=game.index,
+                    key=game.key,
                     save=save,
                     starter=seat.claim,
-                    # Les appareils qu'on peut présenter au jeu. Une GameCube
-                    # n'en a qu'un: la préparation lui sert à choisir la
-                    # sauvegarde et à confirmer, pas à choisir une manette.
-                    allowed=[4]
-                    if game.console in ("switch", "switch2")
-                    else [0]
-                    if game.console == "gc"
-                    else game.guide.allowed
-                    if game.guide
-                    else [1, 0, 2, 3],
+                    # Les appareils qu'on peut présenter au jeu, lus dans le
+                    # manifeste. Une GameCube n'en a qu'un: la préparation lui
+                    # sert à choisir la sauvegarde et à confirmer, pas à choisir
+                    # une manette. Le guide d'un jeu ne peut que RESTREINDRE une
+                    # console qui en a plusieurs, la Wii aujourd'hui.
+                    allowed=allowed_devices(game.console, game.guide),
                     players=[
                         Participant(port=s.port, name=s.player, claim=s.claim)
                         for s in room.seats
-                        if s.claim and (game.console != "switch2" or s.claim == seat.claim)
+                        if s.claim and (not solo or s.claim == seat.claim)
                     ],
                 )
             else:
@@ -871,7 +901,14 @@ async def preparation(sid: str, data: object = None) -> dict[str, str | bool]:
                         raise ValueError("Seule la personne qui prépare peut annuler le lancement.")
                     rooms.preparation = None
                 elif action == "launch":
-                    if pending.save == 1 and not await rooms.unlocked_available(pending.game):
+                    # Le jeu tel que la bibliothèque le porte MAINTENANT: par sa
+                    # clé, sa position a pu changer depuis le début.
+                    game = next((g for g in room.library if pending.names(g)), None)
+                    if game is None:
+                        raise ValueError(
+                            "Ce jeu n'est plus dans la bibliothèque de la salle. Rouvre le menu."
+                        )
+                    if pending.save == 1 and not await rooms.unlocked_available(game.index):
                         raise ValueError(
                             "La sauvegarde tout débloqué n'est plus disponible. "
                             "Choisis un autre emplacement."
@@ -881,20 +918,22 @@ async def preparation(sid: str, data: object = None) -> dict[str, str | bool]:
                     # pas de ce que la page raconte: c'est elle qui décide dans
                     # quel dossier la partie sera écrite. Vide quand aucun proxy
                     # n'est devant, et le worker retombe alors sur la partie neuve.
+                    # La clé part au worker, qui la résout contre SA bibliothèque.
+                    # Un worker qui n'en publie pas encore reçoit la position.
                     if not await launch_prepared(
                         rooms.settings.worker_control,
                         seat.port,
                         seat.claim,
-                        pending.game,
+                        game.index,
                         pending.save,
                         pads,
                         [s.claim or "-" for s in room.seats],
                         session["login"] or "",
+                        key=game.key,
                     ):
                         raise ValueError(
                             "Le worker n'a pas accepté le lancement. La préparation reste ouverte."
                         )
-                    game = room.library[pending.game]
                     journal.write(
                         "changement",
                         **_who(sid, session),
@@ -909,7 +948,7 @@ async def preparation(sid: str, data: object = None) -> dict[str, str | bool]:
                             "save": SAVES[pending.save],
                             "saveSlot": pending.save,
                             "pads": {p.claim: p.pad for p in pending.players},
-                            **({"soloStarter": sid} if game.console == "switch2" else {}),
+                            **({"soloStarter": sid} if CONSOLES.solo(game.console) else {}),
                         },
                         room=piece(salle),
                     )
@@ -918,7 +957,7 @@ async def preparation(sid: str, data: object = None) -> dict[str, str | bool]:
                     raise ValueError("Cette action de préparation est inconnue.")
         except ValueError as error:
             return {"error": str(error)}
-        await broadcast(rooms, people, journal, bool(session.get("banc")), salle=salle)
+        await broadcast(rooms, people, journal, bool(session.get("banc")))
     return {"ok": True}
 
 
@@ -943,7 +982,7 @@ async def close_game(sid: str, data: object = None) -> dict[str, str | bool]:
         if observed is None:
             return {"error": "Le jeu ne répond pas. Réessaie dans un instant."}
         rooms.observe_seats(observed)
-        boss = people.owner()
+        boss = people.owner(salle)
         seat = rooms.seat_of(sid)
         allowed = (
             session.get("login") == boss[0]
@@ -959,5 +998,5 @@ async def close_game(sid: str, data: object = None) -> dict[str, str | bool]:
             return {"error": "La fermeture n'a pas été acceptée. Réessaie."}
         rooms.preparation = None
         journal.write("fermeture", **_who(sid, session), jeu=running.name)
-        await broadcast(rooms, people, journal, salle=salle)
+        await broadcast(rooms, people, journal)
         return {"ok": True}

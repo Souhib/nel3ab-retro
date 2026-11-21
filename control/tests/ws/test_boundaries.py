@@ -42,7 +42,7 @@ async def lobby(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         # Le second argument est la salle. Ce double l'accepte et l'ignore: ces
         # essais montent une seule salle, et la variante à un argument aurait
         # laissé croire que le numéro ne circule pas.
-        monkeypatch.setattr(handlers, "_state", lambda _environ, _salle=1: (rooms, people, journal))
+        monkeypatch.setattr(handlers, "_state", lambda _environ, _salle: (rooms, people, journal))
         monkeypatch.setattr(handlers, "caller_of", AsyncMock(return_value=None))
         monkeypatch.setattr(handlers.sio, "save_session", save)
         monkeypatch.setattr(
@@ -123,6 +123,96 @@ async def test_ready_then_launch_does_not_share_the_repeated_click_quota(
     assert lobby.rooms.preparation is None
 
 
+async def prepared_by(lobby, monkeypatch: pytest.MonkeyPatch, library: list) -> AsyncMock:
+    """Une place assise qui décide, une bibliothèque donnée, et un worker factice
+    qui accepte tout lancement en retenant ce qu'on lui a envoyé."""
+    from nel3ab_control import worker
+
+    await handlers.connect("good", {"asgi.scope": {}}, {"name": "Alice"})
+    claim = "a" * 32 + "-1"
+    lobby.rooms.observe_seats([claim, None, None, None])
+    lobby.rooms.claim(1, "good", "Alice", claim)
+    monkeypatch.setattr(lobby.rooms, "synchronise", AsyncMock())
+    monkeypatch.setattr(lobby.rooms, "library", AsyncMock(return_value=(library, None)))
+    monkeypatch.setattr(handlers, "may_decide", AsyncMock(return_value=True))
+    launched = AsyncMock(return_value=True)
+    monkeypatch.setattr(worker, "launch_prepared", launched)
+    clock = iter(range(100, 10_000, 10))
+    monkeypatch.setattr(handlers, "monotonic", lambda: float(next(clock)))
+    return launched
+
+
+async def test_a_key_launches_its_game_after_a_file_sorts_before_it(
+    lobby, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Le défaut de la position (ADR D23). La préparation commence sur Zelda, à
+    la position 0. Avant le lancement, la bibliothèque gagne un jeu qui se range
+    devant: Zelda est maintenant à la position 1, et c'est elle qui doit partir.
+    L'ancien code envoyait la position retenue au début, donc le jeu voisin."""
+    from nel3ab_control.api.schemas.room import Game
+
+    zelda = Game(index=0, key="Zelda.rvz", name="Zelda", console="wii")
+    launched = await prepared_by(lobby, monkeypatch, [zelda])
+    begin = {"action": "begin", "key": "Zelda.rvz", "game": 0}
+    assert await handlers.preparation("good", begin) == {"ok": True}
+    identity = lobby.rooms.preparation.id
+
+    animal = Game(index=0, key="Animal.rvz", name="Animal", console="gc")
+    moved = Game(index=1, key="Zelda.rvz", name="Zelda", console="wii")
+    monkeypatch.setattr(lobby.rooms, "library", AsyncMock(return_value=([animal, moved], None)))
+    ready = {"action": "choose", "id": identity, "pad": 1, "ready": True}
+    assert await handlers.preparation("good", ready) == {"ok": True}
+    assert await handlers.preparation("good", {"action": "launch", "id": identity}) == {"ok": True}
+
+    launched.assert_awaited_once()
+    sent = launched.await_args
+    assert sent is not None
+    assert sent.kwargs["key"] == "Zelda.rvz"
+    assert sent.args[3] == 1, "la position de Zelda maintenant"
+    booting = [c for c in lobby.emit.await_args_list if c.args[0] == "booting"]
+    assert booting[-1].args[1]["game"] == "Zelda"
+
+
+async def test_a_key_the_library_does_not_hold_is_refused_by_name(
+    lobby, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from nel3ab_control.api.schemas.room import Game
+
+    zelda = Game(index=0, key="Zelda.rvz", name="Zelda", console="wii")
+    await prepared_by(lobby, monkeypatch, [zelda])
+    for key in ("Absent.rvz", "../Zelda.rvz", "zelda.rvz", 7):
+        said = await handlers.preparation("good", {"action": "begin", "key": key})
+        assert said.get("error"), key
+        assert lobby.rooms.preparation is None
+    said = await handlers.preparation("good", {"action": "begin", "key": "Absent.rvz"})
+    assert "plus dans la bibliothèque" in said["error"]
+
+
+async def test_a_page_from_before_the_key_still_prepares_by_position(
+    lobby, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Une page ouverte avant la mise à jour envoie une position: elle reste
+    comprise, et la clé que le worker publie prend le relais pour le lancement."""
+    from nel3ab_control.api.schemas.room import Game
+
+    zelda = Game(index=0, key="Zelda.rvz", name="Zelda", console="wii")
+    await prepared_by(lobby, monkeypatch, [zelda])
+    assert await handlers.preparation("good", {"action": "begin", "game": 0}) == {"ok": True}
+    assert lobby.rooms.preparation.key == "Zelda.rvz"
+
+
+async def test_a_described_console_that_cannot_run_is_not_prepared(
+    lobby, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from nel3ab_control.api.schemas.room import Game
+
+    halo = Game(index=0, key="Halo 3.iso", name="Halo 3", console="x360")
+    await prepared_by(lobby, monkeypatch, [halo])
+    said = await handlers.preparation("good", {"action": "begin", "key": "Halo 3.iso"})
+    assert "de quelle console" in said["error"]
+    assert lobby.rooms.preparation is None
+
+
 async def test_a_failed_initial_broadcast_removes_the_arrival(
     lobby, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -133,7 +223,7 @@ async def test_a_failed_initial_broadcast_removes_the_arrival(
         await handlers.connect("failed", {"asgi.scope": {}}, {"name": "Fantôme"})
     failing.assert_awaited_once()
     assert lobby.people.live() == set()
-    assert lobby.people.owner() is None
+    assert lobby.people.owner(1) is None
     # La pièce de la SALLE 1: la diffusion est cloisonnée par salle depuis le
     # 12 septembre 2026, et une socket ne quitte que la sienne.
     lobby.leave.assert_awaited_once_with("failed", handlers.piece(1))
@@ -246,7 +336,7 @@ async def test_report_acknowledges_the_journal_and_names_a_refusal(lobby, monkey
     assert refused["ok"] is False
     assert "rapprochée" in refused["error"]
     lobby.session.pop("last_plainte")
-    journal = handlers._state({})[2]
+    journal = handlers._state({}, 1)[2]
 
     def lose(*args, **kwargs):
         journal._dropped += 1

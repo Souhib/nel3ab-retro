@@ -6,7 +6,7 @@ from typing import Any
 from nel3ab_control.api.controllers.people import PeopleController
 from nel3ab_control.api.controllers.recovery import EXPIRES_AFTER, Recovery
 from nel3ab_control.api.controllers.rooms import RoomController
-from nel3ab_control.api.ws.handlers import ROOM_EVERY, _state, _who, too_soon
+from nel3ab_control.api.ws.handlers import ROOM_EVERY, _pour, _who, too_soon
 from nel3ab_control.api.ws.server import broadcast, sio
 from nel3ab_control.worker import read_seats
 
@@ -15,7 +15,7 @@ def current(request: Recovery, rooms: RoomController, people: PeopleController) 
     if request.asker not in people.live():
         return False
     if request.port is None:
-        boss = people.owner()
+        boss = people.owner(rooms.numero)
         return boss is not None and boss[0] == request.expected
     return rooms.seats()[request.port - 1].claim == request.expected
 
@@ -48,7 +48,10 @@ async def expire(rooms: RoomController, people: PeopleController) -> None:
 
 @sio.event
 async def recover(sid: str, data: object) -> dict[str, Any]:
-    rooms, people, journal = _state(sio.get_environ(sid))
+    # La salle de CETTE socket, comme les autres gestionnaires. Ce gestionnaire
+    # prenait la salle 1 quelle que soit la page: une reprise demandée dans la
+    # salle 2 visait le chef de la salle 1 (audit du 20 novembre 2026).
+    rooms, people, journal, _salle = await _pour(sid)
     if not isinstance(data, dict) or sid not in people.live():
         return {"ok": False, "error": "La demande n'est pas valide."}
     # Une demande à la fois, sans tâche différée qui pourrait agir après une
@@ -73,7 +76,7 @@ async def recover(sid: str, data: object) -> dict[str, Any]:
                 if port is not None and (type(port) is not int or not 1 <= port <= 4):
                     raise ValueError("Cette manette n'existe pas.")
                 if port is None:
-                    boss = people.owner()
+                    boss = people.owner(rooms.numero)
                     if boss is None or boss[0] is None or not session.get("login"):
                         raise ValueError(
                             "Une identité est nécessaire pour reprendre le rôle de chef."
@@ -81,7 +84,7 @@ async def recover(sid: str, data: object) -> dict[str, Any]:
                     expected, target = boss
                     if expected == session["login"]:
                         raise ValueError("Tu es déjà le chef de la salle.")
-                    targets = people.sessions()[expected]
+                    targets = people.sessions(rooms.numero)[expected]
                 else:
                     observed = await read_seats(rooms.settings.worker_control)
                     if observed is None:
@@ -131,7 +134,7 @@ async def recover(sid: str, data: object) -> dict[str, Any]:
                     request.finish(sid, now)
                     if request.port is None:
                         if request.login is None or not people.transfer_owner(
-                            request.expected, request.login
+                            rooms.numero, request.expected, request.login
                         ):
                             raise ValueError("Le chef a changé. Réessaie.")
                         rooms.told_owner = -1

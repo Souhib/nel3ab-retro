@@ -277,8 +277,16 @@ pub(super) fn input_thread(
         let payload = match message {
             tungstenite::Message::Binary(bytes) => bytes,
             tungstenite::Message::Close(_) => break,
+            // Un seul texte est compris: un jeu demandé par sa clé. Voir
+            // `choose_by_key`, qui dit pourquoi le reste est ignoré.
+            tungstenite::Message::Text(text) => {
+                if choose_by_key(&mut socket, text.as_str(), shared, seat) {
+                    continue;
+                }
+                break;
+            }
             // Pong is the answer to our own ping and has already counted as
-            // proof of life above; text is not something this endpoint speaks.
+            // proof of life above.
             _ => continue,
         };
         // Neuf octets sont un aller-retour: la page mesure sa propre latence, et
@@ -398,13 +406,106 @@ pub(super) fn obey(payload: &[u8], shared: &Shared, seat: PlayerSlot) -> bool {
             }
             tracing::info!(port = seat.get(), index, "a player asked for another game");
             if let Ok(mut wanted) = shared.wants_rom.lock() {
-                *wanted = Some(index);
+                *wanted = Some(usize::from(index));
             }
             true
         }
         Err(error) => {
             tracing::warn!(%error, "a client sent a command we do not know");
             false
+        }
+    }
+}
+
+/// Ce qu'une demande de jeu par sa clé devient.
+#[derive(Debug, PartialEq, Eq)]
+pub(super) enum KeyRequest {
+    /// Ce texte n'est pas une demande de jeu. Il est ignoré, comme tout texte
+    /// l'était sur cette socket avant le 21 novembre 2026.
+    NotOurs,
+    /// Le jeu à cette position de la bibliothèque, accordé à cette place.
+    Granted(usize),
+    /// Refusé, pour la raison écrite. La raison part aussi vers la page.
+    Refused(&'static str),
+}
+
+/// Le texte qu'une page envoie pour lancer un jeu: `{"jeu":"<clé>"}`.
+///
+/// Une fonction pure, pour que chaque refus se vérifie sans socket. L'ordre des
+/// gardes est celui du chemin `SwitchRom`, plus deux: une clé qui n'est pas un
+/// nom de fichier, puis une clé que ce catalogue ne porte pas. La règle du
+/// propriétaire vient en dernier, et c'est la même fonction que pour la
+/// position (`decides`).
+pub(super) fn judge(
+    text: &str,
+    keys: &[Option<String>],
+    may_decide: impl FnOnce() -> bool,
+) -> KeyRequest {
+    let Ok(serde_json::Value::Object(said)) = serde_json::from_str::<serde_json::Value>(text)
+    else {
+        return KeyRequest::NotOurs;
+    };
+    if said.len() != 1 {
+        return KeyRequest::NotOurs;
+    }
+    let Some(asked) = said.get("jeu") else {
+        return KeyRequest::NotOurs;
+    };
+    let Some(key) = asked
+        .as_str()
+        .and_then(|raw| nel3ab_protocol::GameKey::new(raw).ok())
+    else {
+        return KeyRequest::Refused("clé invalide");
+    };
+    let Some(index) = super::position_of(keys, &key) else {
+        return KeyRequest::Refused("absent de cette bibliothèque");
+    };
+    if !may_decide() {
+        return KeyRequest::Refused("cette place ne décide pas du jeu");
+    }
+    KeyRequest::Granted(index)
+}
+
+/// Un jeu demandé par sa clé, sur la socket de manette (ADR D23).
+///
+/// Rend `false` seulement quand la socket est partie. Un texte qui n'est pas une
+/// demande de jeu reste ignoré, comme avant: rien d'autre ne parle texte ici, et
+/// fermer pour cela changerait la règle d'une socket qui a déjà des pages
+/// ouvertes. Une demande bien formée mais refusée reçoit son refus nommé, et la
+/// connexion reste ouverte, comme pour une position refusée: refuser l'ordre
+/// n'est pas refuser le joueur.
+///
+/// Le refus est envoyé en texte, `jeu refusé: <raison>`. Une page plus ancienne
+/// ignore tout texte qu'elle ne connaît pas, donc rien ne casse chez elle.
+pub(super) fn choose_by_key(
+    socket: &mut tungstenite::WebSocket<TcpStream>,
+    text: &str,
+    shared: &Shared,
+    seat: PlayerSlot,
+) -> bool {
+    match judge(text, &shared.keys, || {
+        decides(&shared.owner, &shared.acted, seat)
+    }) {
+        KeyRequest::NotOurs => {
+            tracing::debug!(port = seat.get(), "un texte que cette socket ne parle pas");
+            true
+        }
+        KeyRequest::Granted(index) => {
+            tracing::info!(
+                port = seat.get(),
+                index,
+                "a player asked for another game by key"
+            );
+            if let Ok(mut wanted) = shared.wants_rom.lock() {
+                *wanted = Some(index);
+            }
+            true
+        }
+        KeyRequest::Refused(reason) => {
+            tracing::info!(port = seat.get(), reason, "jeu demandé par clé, refusé");
+            socket
+                .send(tungstenite::Message::text(format!("jeu refusé: {reason}")))
+                .is_ok()
         }
     }
 }

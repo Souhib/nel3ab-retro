@@ -112,6 +112,10 @@ struct Settings {
     /// n'a d'intérêt que s'il survit, puisque changer de jeu redémarre le worker.
     art_dir: PathBuf,
     session_dir: PathBuf,
+    /// Où écrire la bibliothèque pour le salon, qui la lit sans salle ouverte
+    /// (ADR D24). Par défaut DANS le répertoire de session, jamais à côté: un
+    /// essai qui donne un répertoire jetable n'écrit donc rien hors de lui.
+    library_file: PathBuf,
     personal_save_root: PathBuf,
     /// Le fichier qui tient LA place de la Switch, pour toute la machine.
     ///
@@ -150,7 +154,14 @@ impl Settings {
     fn from_environment() -> Result<Self> {
         let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_owned());
         let repo = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../..");
+        let session_dir = env_path("NEL3AB_SESSION_DIR").unwrap_or_else(|| {
+            env_path("HOME")
+                .unwrap_or_else(|| PathBuf::from("."))
+                .join(".local/state/nel3ab/session")
+        });
         Ok(Self {
+            library_file: env_path("NEL3AB_CATALOGUE")
+                .unwrap_or_else(|| session_dir.join("catalogue.json")),
             personal_save_root: env_path("NEL3AB_PERSONAL_SAVE_ROOT").unwrap_or_else(|| {
                 env_path("NEL3AB_SESSION_DIR")
                     .unwrap_or_else(|| PathBuf::from(&home).join(".local/state/nel3ab/session"))
@@ -188,11 +199,7 @@ impl Settings {
             // Le dossier d'état est le même que celui des pseudos et du journal
             // des séances, pour la même raison: ce qui appartient aux joueurs
             // doit leur survivre.
-            session_dir: env_path("NEL3AB_SESSION_DIR").unwrap_or_else(|| {
-                env_path("HOME")
-                    .unwrap_or_else(|| PathBuf::from("."))
-                    .join(".local/state/nel3ab/session")
-            }),
+            session_dir,
             // Loopback, not every interface, and this is a security decision
             // rather than a default left in place.
             //
@@ -844,16 +851,20 @@ fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Re
     // et pas plus bas, parce que les sauvegardes en dépendent et qu'elles
     // doivent être en place avant que Dolphin ne démarre.
     let discs = nel3ab_emulator::discs(&library, &settings.dolphin_tool, &settings.art_dir);
-    let hybrid_state = env_path("NEL3AB_SWITCH_CONFIG")
-        .and_then(|path| nel3ab_emulator::unlocked::state_root(&path));
-    let nx2_state = env_path("NEL3AB_SWITCH2_CONFIG")
-        .and_then(|path| nel3ab_emulator::unlocked::state_root(&path));
+    // La racine d'état de chaque adaptateur, lue dans la configuration que son
+    // entrée du manifeste nomme (`config_env`). Une seule règle pour toutes les
+    // consoles servies par un adaptateur, à la place d'une variable par Switch.
+    let adapter_state = |console: nel3ab_emulator::Console| {
+        console
+            .adapter()
+            .and_then(|adapter| env_path(adapter.config_env))
+            .and_then(|path| nel3ab_emulator::unlocked::state_root(&path))
+    };
     let save_directories = nel3ab_emulator::unlocked::directories(
         &library,
         &discs,
         &settings.session_dir,
-        hybrid_state.as_deref(),
-        nx2_state.as_deref(),
+        &adapter_state,
     );
     let mut idle = nel3ab_emulator::playback::Playback::read(&settings.session_dir)?
         == nel3ab_emulator::playback::Playback::Idle;
@@ -925,6 +936,23 @@ fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Re
     );
 
     let consoles: Vec<_> = discs.iter().map(|disc| disc.console).collect();
+    // La bibliothèque pour le salon, qui peut la lister sans salle ouverte et
+    // sans refaire le nettoyage des titres (ADR D24). Écrite à chaque balayage,
+    // donc à chaque démarrage; un échec se dit et n'arrête pas la salle, qui
+    // n'en a pas besoin pour jouer.
+    let scanned_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |since| since.as_millis());
+    if let Err(error) = nel3ab_emulator::write_library_file(
+        &settings.library_file,
+        &nel3ab_emulator::library_file(&library, &art, &consoles, scanned_ms),
+    ) {
+        tracing::warn!(
+            path = %settings.library_file.display(),
+            %error,
+            "la bibliothèque n'a pas pu être écrite pour le salon"
+        );
+    }
     tracing::info!(
         wii = consoles
             .iter()
@@ -936,7 +964,9 @@ fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Re
 
     let owner: OwnerSeat = Arc::new(Mutex::new(None));
 
-    let switch = disc.console.is_switch();
+    // Les capacités de la console, qu'un seul booléen `is_switch()` portait
+    // toutes les cinq jusqu'au 21 novembre 2026 (ADR D22).
+    let input = disc.console.input_frame();
     let players = PlayerSlot::new(settings.players.get().min(disc.console.player_limit()))?;
     let server = Arc::new(BrowserServer::start_with_input(
         settings.bind,
@@ -947,10 +977,9 @@ fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Re
             .collect(),
         players,
         &owner,
-        if switch {
-            nel3ab_transport::browser::InputKind::Switch
-        } else {
-            nel3ab_transport::browser::InputKind::Dolphin
+        match input {
+            nel3ab_emulator::InputFrame::Pro => nel3ab_transport::browser::InputKind::Switch,
+            nel3ab_emulator::InputFrame::Dolphin => nel3ab_transport::browser::InputKind::Dolphin,
         },
     )?);
     anyhow::ensure!(
@@ -958,7 +987,11 @@ fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Re
             .set_save_catalogue(move || nel3ab_emulator::unlocked::availability(&save_directories)),
         "complete-save catalogue is unavailable"
     );
-    server.set_devices(if switch { [4; 4] } else { pads.codes() });
+    server.set_devices(
+        input
+            .device()
+            .map_or_else(|| pads.codes(), |device| [device; 4]),
+    );
     tracing::info!(address = %server.address(), "open this in a browser");
 
     // APRÈS le serveur, et c'est le point: le plan de contrôle demande sur ce
@@ -1005,37 +1038,61 @@ fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Re
             &settings.session_dir,
         ));
     }
-    if switch {
+    if !disc.console.playable() {
+        // Une console décrite mais sans adaptateur (Xbox 360 au 21 novembre
+        // 2026). Rien ne devrait l'inscrire au catalogue; si quelque chose le
+        // fait, la salle reste sur son menu plutôt que de chercher un script
+        // qui n'existe pas et de boucler sur ses redémarrages.
+        tracing::warn!(
+            console = disc.console.code(),
+            "cette console n'est pas encore jouable: la salle reste sur son menu"
+        );
+        nel3ab_emulator::playback::Playback::Idle.store(&settings.session_dir)?;
+        server.half_offered(false);
+        return Ok(servir_sans_jeu(
+            &server,
+            stopping,
+            &library,
+            &settings.session_dir,
+        ));
+    }
+    if let Some(adapter) = disc.console.adapter() {
         // Une seule salle à la fois joue à la Switch. La règle vit ICI, au
         // démarrage du jeu, et pas dans le salon: une page demande son jeu au
         // worker directement, par la socket de manette, et le salon n'est pas
         // sur ce chemin-là. Voir `lock::take_switch`.
-        let Some(_place_switch) = nel3ab_emulator::lock::take_switch(&settings.switch_lock)
-            .with_context(|| format!("prendre {}", settings.switch_lock.display()))?
-        else {
-            tracing::info!(
-                place = %settings.switch_lock.display(),
-                "une autre salle joue déjà à la Switch: cette salle reste sur son menu"
-            );
-            // Retenu AVANT d'attendre: sans cela, le worker relancerait le même
-            // jeu refusé au prochain démarrage, et la salle bouclerait.
-            nel3ab_emulator::playback::Playback::Idle.store(&settings.session_dir)?;
-            server.half_offered(false);
-            return Ok(servir_sans_jeu(
-                &server,
-                stopping,
-                &library,
-                &settings.session_dir,
-            ));
+        //
+        // Le verrou vient du GROUPE de la console, plus du fait qu'elle passe
+        // par un adaptateur: une console servie par un adaptateur sans groupe
+        // ne doit pas attendre qu'une Switch se libère (ADR D22).
+        let _place = match disc.console.lock_group() {
+            None => None,
+            Some(nel3ab_emulator::LockGroup::Switch) => {
+                let Some(held) = nel3ab_emulator::lock::take_switch(&settings.switch_lock)
+                    .with_context(|| format!("prendre {}", settings.switch_lock.display()))?
+                else {
+                    tracing::info!(
+                        place = %settings.switch_lock.display(),
+                        "une autre salle joue déjà à la Switch: cette salle reste sur son menu"
+                    );
+                    // Retenu AVANT d'attendre: sans cela, le worker relancerait
+                    // le même jeu refusé au prochain démarrage, et la salle
+                    // bouclerait.
+                    nel3ab_emulator::playback::Playback::Idle.store(&settings.session_dir)?;
+                    server.half_offered(false);
+                    return Ok(servir_sans_jeu(
+                        &server,
+                        stopping,
+                        &library,
+                        &settings.session_dir,
+                    ));
+                };
+                Some(held)
+            }
         };
         let personal_folder = saves::folder_for(slot, person.as_deref());
         let _personal_save = if personal_folder.starts_with("joueur-") {
-            let root = if disc.console == nel3ab_emulator::Console::Switch2 {
-                nx2_state.as_ref()
-            } else {
-                hybrid_state.as_ref()
-            }
-            .context("adapter save state is unavailable")?;
+            let root = adapter_state(disc.console).context("adapter save state is unavailable")?;
             let directory = root
                 .join(disc.title.as_deref().context("registered title missing")?)
                 .join(&personal_folder);
@@ -1062,13 +1119,13 @@ fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Re
         let ingress =
             nel3ab_transport::ingress::Ingress::bind(runtime.path(), Arc::clone(&server))?;
         server.half_offered(true);
-        let (adapter, filename) = if disc.console == nel3ab_emulator::Console::Switch2 {
-            ("NEL3AB_SWITCH2_ADAPTER", "../../../docker/switch2-room.py")
-        } else {
-            ("NEL3AB_SWITCH_ADAPTER", "../../../docker/switch-room.py")
-        };
-        let script = std::env::var_os(adapter).map_or_else(
-            || PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(filename),
+        // Le script et sa variable viennent de la console, donc du manifeste.
+        let script = std::env::var_os(adapter.script_env).map_or_else(
+            || {
+                PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                    .join("../../..")
+                    .join(adapter.script)
+            },
             PathBuf::from,
         );
         let mut engine = nel3ab_emulator::external::External::start(
@@ -2035,13 +2092,13 @@ fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Re
 /// would restart the room on the same game with no explanation.
 fn remember_choice(
     library: &[Rom],
-    index: u8,
+    index: usize,
     slot: saves::Slot,
     person: &str,
     pads: nel3ab_emulator::PadSetup,
     session_dir: &std::path::Path,
 ) -> bool {
-    let Some(game) = library.get(index as usize) else {
+    let Some(game) = library.get(index) else {
         tracing::warn!(index, games = library.len(), "no such game");
         return false;
     };
@@ -2083,12 +2140,13 @@ fn remember_choice(
 
 /// Le même ordre et la même écriture au repos ou pendant une partie.
 fn remember_request(server: &BrowserServer, library: &[Rom], session_dir: &Path) -> bool {
-    if let Some(choice) = server.take_prepared_launch()
-        && (choice.save != saves::Slot::Unlocked.code()
-            || server.unlocked_save_available(usize::from(choice.game)))
+    // La position vient du serveur, qui a résolu la clé contre CETTE
+    // bibliothèque en acceptant le lancement (ADR D23).
+    if let Some((game, choice)) = server.take_prepared_launch()
+        && (choice.save != saves::Slot::Unlocked.code() || server.unlocked_save_available(game))
         && remember_choice(
             library,
-            choice.game,
+            game,
             saves::Slot::from_code(choice.save),
             &choice.person,
             nel3ab_emulator::PadSetup::new(choice.pads.map(nel3ab_emulator::PadKind::from_code)),
@@ -2099,7 +2157,7 @@ fn remember_request(server: &BrowserServer, library: &[Rom], session_dir: &Path)
     }
     if let Some(index) = server.take_rom_request()
         && (server.save_wanted() != saves::Slot::Unlocked.code()
-            || server.unlocked_save_available(usize::from(index)))
+            || server.unlocked_save_available(index))
         && remember_choice(
             library,
             index,

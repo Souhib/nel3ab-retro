@@ -26,7 +26,7 @@
  */
 import { cn } from "../lib/cn";
 import { under } from "../lib/base";
-import { isSwitchConsole } from "../lib/consoles";
+import { smoothArt } from "../lib/consoles";
 
 /** Le cadre hérité des bannières GameCube, partagé par les menus. */
 const NATIVE = { width: 96, height: 32 };
@@ -71,7 +71,7 @@ export function Art({
             width: "100%",
             height: "100%",
             objectFit: "contain",
-            imageRendering: isSwitchConsole(console) ? "auto" : "pixelated",
+            imageRendering: smoothArt(console) ? "auto" : "pixelated",
           }}
         />
       ) : (

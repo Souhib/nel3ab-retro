@@ -251,13 +251,16 @@ SWITCH2_GUIDES = {
 }
 
 
+#: Les guides de chaque console, par son code du manifeste (consoles/consoles.json).
+#: Une console sans table n'a pas de guide, ce qui est permis: un test vérifie
+#: seulement qu'aucune table ne vise une console que le manifeste ne connaît pas.
+GUIDES_BY_CONSOLE: dict[str, dict] = {
+    "gc": GC_GUIDES,
+    "wii": GUIDES,
+    "switch": SWITCH_GUIDES,
+    "switch2": SWITCH2_GUIDES,
+}
+
+
 def guide_for(name: str, console: str) -> dict | None:
-    if console == "switch2":
-        return SWITCH2_GUIDES.get(name.casefold())
-    if console == "switch":
-        return SWITCH_GUIDES.get(name.casefold())
-    if console == "gc":
-        return GC_GUIDES.get(name.casefold())
-    if console == "wii":
-        return GUIDES.get(name.casefold())
-    return None
+    return GUIDES_BY_CONSOLE.get(console, {}).get(name.casefold())

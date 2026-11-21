@@ -24967,6 +24967,236 @@ ceux de l'outil qu'il enveloppe, sinon le journal ment sur la cause.
 Souhib ne l'a pas recopié ailleurs. Le NAS peut effacer la copie, puisque le
 partage est public. Les ROM ne sont pas copiées.
 
+
+
+### 21 novembre : fermer les portes du salon
+
+**Pourquoi.** L'audit du 20 novembre a relevé des routes du salon qui
+écrivent sans vérifier d'où vient la demande ni qui la fait. Le salon
+reconnaît les gens par leur adresse dans le réseau privé, le tailnet, sans
+mot de passe ni cookie. C'est simple pour les amis, et c'est aussi ce qui rend
+ces oublis dangereux : une demande qui arrive depuis l'appareil d'un membre
+porte son identité, quel que soit le site qui l'a fait partir. Le dépôt est
+public, donc cette entrée décrit les défauts et leurs corrections, pas la
+façon de s'en servir. Le détail reste dans le rapport local de l'audit.
+
+**L'origine des écritures.** Un navigateur joint à chaque écriture (`POST`,
+`PUT`, `DELETE`) un en-tête `Origin` : le site d'où vient la page qui écrit.
+Une page ne peut pas le changer. Avant, seule la socket du salon le
+vérifiait, par sa bibliothèque socket.io. Les routes HTTP ne le regardaient
+pas. Une page d'un autre site, ouverte par un membre, pouvait donc faire
+écrire le salon au nom de ce membre. Ce défaut a un nom, la falsification de
+requête intersite, ou CSRF. Le navigateur empêche cette page de lire la
+réponse, mais il n'empêche pas certaines écritures simples de partir.
+
+La correction est une seule dépendance FastAPI, `same_origin`, posée sur
+l'application entière. Elle laisse passer les lectures. Pour une écriture,
+elle exige un seul `Origin`, égal à l'une des origines des réglages : les
+mêmes que pour la socket. Quand le navigateur écrit aussi `Sec-Fetch-Site`,
+elle exige `same-origin` ou `none`. Sinon, la réponse est un refus 403.
+
+Option écartée : poser la garde route par route. Elle se lirait mieux dans
+chaque route, mais une route ajoutée demain pourrait l'oublier. Posée sur
+l'application, une nouvelle route en hérite. Un essai parcourt les routes que
+l'application sert vraiment et échoue si une écriture n'a pas la garde.
+
+**Les essais, rouges d'abord.** `tests/api/test_writes.py` envoie chaque
+écriture de l'application avec une origine étrangère, sans origine, avec deux
+origines, et avec deux voisines de la vraie (même nom sur un autre port, même
+nom sans chiffrement). Sur le code d'avant, les cinq écritures répondaient
+200 ou 201, et le faux systemd recevait l'ordre d'allumer une salle. Les
+jumeaux : la page elle-même écrit toujours, avec ou sans `Sec-Fetch-Site`, et
+les deux portes déployées, lues dans l'unité systemd, passent. Les lectures
+ne demandent pas d'origine. L'essai qui parcourt les routes a été éprouvé en
+retirant la garde de l'application : il nomme alors les cinq écritures.
+
+**Piège.** Le premier jet de cet essai parcourait `app.routes`. Avec FastAPI
+0.141.1, installé ici, un routeur inclus y reste un seul élément, sans chemin
+ni méthode. La liste des écritures était vide, et les boucles passaient sans
+rien vérifier. L'assertion de précondition (« au moins cinq écritures
+trouvées ») l'a montré au premier passage. L'essai lit maintenant les routes
+effectives par `iter_route_contexts`. Leçon : une boucle d'assertions sur une
+liste calculée commence par affirmer que la liste n'est pas vide.
+
+**Un autre piège, évité de peu.** L'application d'essai commune gardait le
+vrai lanceur de salles, qui passe par `sudo systemctl`, et le vrai dossier
+des salles. Aucun essai n'appelait encore `/api/salles`, donc rien ne s'était
+produit. Le premier essai d'écriture l'aurait fait sur la machine qui héberge
+les vraies parties. Le faux systemd vit maintenant dans
+`tests/faux_systeme.py`, et l'application d'essai s'en sert.
+
+**Ce qui change à l'usage.** Un programme qui écrit au salon sans navigateur
+(`curl`, un pilote Node) est refusé s'il n'envoie pas une origine admise. Le
+développement local par Vite doit ajouter son origine à `NEL3AB_ORIGINS`,
+comme il le fallait déjà pour la socket. Le pilote
+`spikes/m3-browser-drive/reconciliation.mjs` ouvre et ferme une salle par ce
+chemin : il ne passe plus tel quel.
+
+**Chaque salle parle d'elle-même.** Le salon sert les trois salles. Il
+tient leurs présents dans une seule liste, où chaque ligne porte son numéro
+de salle. La page dit sa salle par l'en-tête `X-Nel3ab-Salle`, et la
+dépendance choisissait bien le contrôleur de cette salle. Mais trois chemins
+retombaient sur la salle 1 sans le dire :
+
+- la lecture de la salle (`GET /api/room`) et la préparation d'un jeu
+  appelaient `describe(people)` sans numéro, qui valait alors 1. Une page de
+  la salle 2 recevait donc les présents et le chef de la salle 1 ;
+- la reprise du rôle de chef prenait toujours le contrôleur de la salle 1.
+  Une demande faite dans la salle 2 visait le chef de la salle 1, qui
+  recevait l'avertissement ;
+- le chef retenu, celui qui a repris le rôle, était une seule valeur pour
+  toutes les salles. Décrire la salle 2 la remplaçait, et une reprise
+  confirmée dans la salle 1 était perdue dès que la salle d'à côté diffusait.
+
+La correction passe par les types plutôt que par des vérifications en plus.
+Le contrôleur d'une salle porte son numéro dès sa création, et `describe`
+le lit lui-même : un appelant ne peut plus l'oublier. Le registre refuse
+qu'on pose le contrôleur d'une salle à la place d'une autre. Le chef retenu
+devient une valeur par salle. Le numéro de salle devient obligatoire là où
+il valait 1 ou « toutes » par défaut. Le vérificateur de types a alors
+désigné lui-même chaque appel qui l'oubliait. Il y en avait quatre :
+fermer le jeu, annoncer un changement de jeu, et deux dans la reprise.
+
+**Les essais.** Deux essais d'API mettent des gens différents dans les
+salles 1 et 2 et lisent chacune. Sur le code d'avant, la salle 2 répondait
+« Souhib », qui était dans la salle 1, et la salle 3 aussi. Un essai contre
+un vrai serveur ouvre des pages dans deux salles. Il fait demander le rôle de
+chef depuis la salle 2 : sur le code d'avant, Alice, seule dans la salle 1,
+recevait la demande. L'ordre d'arrivée des pages est la condition de cet
+essai. Dans un autre ordre, le chef commun aurait été celui de la salle 2, et
+l'essai serait passé sans correctif. Les jumeaux : la salle 1 voit toujours
+les siens (par l'en-tête, par le paramètre, et sans rien dire), et le chef de
+la salle 2 reçoit bien la demande. Chaque défaut a ensuite été réintroduit
+derrière la nouvelle interface (un chef commun, une description forcée sur
+la salle 1, une reprise sur la salle 1) : chacun fait échouer son essai.
+
+**Les essais, eux aussi, retombaient sur une vraie salle.** Le registre
+déduit l'adresse d'un worker de son numéro. Une page d'essai qui annonçait la
+salle 2 aurait donc fait interroger le vrai worker de la salle 2. Les
+applications d'essai posent maintenant un contrôleur jetable pour chacune
+des trois salles avant la première page.
+
+**Qui ouvre et qui ferme une salle.** Fermer une salle arrête son worker,
+donc la partie de tous ceux qui y jouent. La route ne demandait rien, et son
+commentaire le disait : « sans condition de propriétaire pour l'instant ».
+Ouvrir une salle ne demandait rien non plus. La règle est maintenant :
+
+- ouvrir demande une identité, n'importe laquelle. Un emplacement libre
+  n'est la partie de personne, mais le salon doit savoir qui allume un
+  émulateur sur la carte graphique commune ;
+- fermer demande d'être le chef de CETTE salle, ou l'administrateur de la
+  machine (`NEL3AB_ADMIN`). Le chef est celui que le salon tient pour la
+  salle, celui que la page affiche, jamais un nom envoyé dans la demande ;
+- sans identité, la réponse est 401. Avec l'identité de quelqu'un d'autre,
+  c'est 403.
+
+Une salle où personne n'est connecté n'a pas de chef. Elle se ferme seule
+au bout d'une demi-heure, et avant cela seul l'administrateur peut la fermer.
+L'option « tout le monde peut fermer une salle vide » a été écartée : un chef
+qui recharge sa page laisse sa salle vide une seconde. La page d'accueil ne
+propose pas de bouton de fermeture, donc rien ne change pour les amis. La
+comparaison avec l'adresse de l'administrateur était écrite trois fois. Elle
+vit maintenant à un seul endroit, `Settings.is_admin`.
+
+Les essais (`tests/api/test_salles_routes.py`), sur le code d'avant :
+ouvrir sans identité rendait 201, et fermer sans identité, par quelqu'un qui
+n'est pas le chef, par le chef d'une autre salle ou sur une salle vide
+rendait 200. Les jumeaux : n'importe quelle identité ouvre une salle libre,
+le chef ferme la sienne, l'administrateur ferme une salle où il n'est pas, et
+une salle qui n'existe pas reste inconnue (404). Le systemd est celui de
+papier, et chaque essai vérifie qu'aucun ordre ne lui est parvenu quand la
+demande est refusée.
+
+**Tailscaled, lui aussi, était interrogé par les essais.** Sans l'en-tête du
+proxy, le salon demande l'identité à tailscaled par sa socket locale. Les
+essais qui voulaient « personne » passaient donc par le vrai tailscaled de la
+machine. Leur verdict en dépendait, même s'il répondait « inconnu » pour
+l'adresse de la boucle locale. Un remplaçant commun répond maintenant
+« personne » à tous les essais, et ceux de `test_identity.py` posent leurs
+propres doubles par-dessus.
+
+**Les adresses ne sortent plus.** L'état de la salle part vers toutes ses
+pages, invités partagés compris. Il portait l'adresse de connexion Tailscale
+de chaque présent et du chef, et cette adresse est souvent un courriel.
+`GET /api/room` la rendait aussi, à qui le demandait. La page ne s'en servait
+que pour deux choses : une clé de liste stable, et reconnaître le chef ou
+elle-même en comparant deux adresses.
+
+Chaque personne porte maintenant un repère, `id` : seize caractères tirés
+d'un HMAC-SHA256 de son adresse, sous un secret propre à la machine. Le repère
+est le même sur tous ses appareils et dans toutes les salles, donc la page
+reconnaît le chef dans la liste comme avant. Il ne dit rien de l'adresse. Un
+champ `moi` dit à chaque page laquelle des personnes elle est. Le salon le
+calcule pour chaque page qui reçoit l'état, et pour chaque lecture de
+`GET /api/room` d'après l'identité de qui demande. Sans identité, `moi` n'est
+jamais vrai. La liste des salles ne montrait que des pseudos, mais elle
+retombait sur l'adresse quand un pseudo était vide. Ce repli est retiré.
+
+Pourquoi un HMAC et pas une simple empreinte SHA-256 de l'adresse :
+l'empreinte se recalcule. Quiconque devine une adresse pourrait vérifier si
+elle est dans la salle. Avec un secret, il faut le secret. Le secret
+(`reperes.secret`, 32 octets) naît au premier repère demandé, à côté des
+pseudos dans le dossier d'état du salon, jamais dans le dépôt, lisible par
+son seul propriétaire. Un secret absent ou abîmé est remplacé : les repères
+changent alors une fois, ce qui coûte un rechargement de page. Seize
+caractères hexadécimaux font 64 bits. Une collision entre les quelques
+personnes d'un salon est improbable au point d'être négligeable.
+
+Ce que ça coûte : l'état part maintenant en une copie par page au lieu d'une
+seule pour la salle, puisque `moi` change d'une page à l'autre. Mesuré le
+21 novembre sur lgf, sur une salle inventée de 60 jeux et 8 présents
+(15 Ko de JSON) : 71 µs par page pour la copie et sa mise à plat, soit
+0,57 ms par diffusion à 8 pages. L'encodage Socket.IO se fait lui aussi une
+fois par page, et il n'a pas été mesuré à part. Une diffusion suit un geste
+ou un changement de places, jamais une image.
+
+Côté page, la couronne du chef compare des repères au lieu d'adresses, et
+« puis-je fermer le jeu », « le chef est-il ailleurs » lisent `moi`.
+L'infobulle d'un présent montrait son adresse, elle dit maintenant « identité
+vérifiée » ou « sans identité ». Le pilote `owner.mjs` lit `moi` lui aussi.
+
+**Les essais.** Contre un vrai serveur, deux pages identifiées par des
+courriels entrent dans la salle 2, et l'essai cherche tout ce qui ressemble
+à un courriel dans TOUT ce qu'elles reçoivent. Sur le code d'avant, il en
+trouvait (`benoit@example.com`). Il fait de même pour `GET /api/room`, avec
+et sans identité, et pour la liste des salles avec un pseudo vide. Un autre
+essai ouvre trois pages, deux identifiées et une anonyme, et vérifie que
+chacune se voit elle seule, et que l'anonyme ne se voit nulle part. Sur le
+code d'avant, `moi` n'existait pas. Les jumeaux : les pseudos et le chef sont
+toujours là, le repère est le même pour deux appareils de la même personne et
+différent pour deux personnes. Deux mutants ont été essayés. Une empreinte
+sans secret fait échouer l'essai « le repère ne se recalcule pas depuis
+l'adresse ». Une même copie envoyée à toutes les pages fait échouer l'essai
+de `moi`. Côté page, un essai vérifie qu'un chef sans identité ne couronne
+pas un anonyme : sans la garde, deux repères nuls sont égaux. Retirer la
+garde le fait échouer.
+
+**Ce qui reste : l'identité se forge depuis la machine elle-même.** Le salon
+croit l'en-tête d'identité de Tailscale dès qu'il le reçoit une seule fois.
+Sans lui, il demande à tailscaled qui se cache derrière l'adresse du pair,
+et il croit l'adresse que le proxy local annonce. Les deux chemins supposent
+que seul un proxy de confiance parle au salon. C'est vrai depuis le réseau :
+le salon n'écoute que sur la boucle locale, Caddy retire l'en-tête, et
+`tailscale serve` écrase ce que le client envoie. Ce n'est pas vrai depuis la
+machine elle-même. Un programme qui tourne sur lgf peut écrire ce que le
+proxy écrit normalement, et se présenter comme n'importe quel membre, y
+compris l'administrateur. L'audit relève deux conteneurs tiers en réseau hôte,
+qui partagent donc cette boucle locale. La garde d'origine n'y change rien :
+un programme écrit aussi l'en-tête `Origin` qu'il veut.
+
+La topologie ne change pas aujourd'hui, et c'est un choix de périmètre, pas
+une solution. Les pistes, pour plus tard : faire écouter le salon sur une
+socket Unix que seuls les proxys peuvent ouvrir, ou faire joindre par chaque
+proxy un secret que le salon vérifie. Aucune n'a été essayée. La seconde
+bute sur `tailscale serve`, dont on n'a pas vérifié qu'il sait ajouter un
+en-tête. Le risque grandit avec ce qui sera réservé à l'administrateur, par
+exemple un envoi de fichiers : il faudra le régler avant.
+
+Un dernier reste, plus petit : faute de nom affiché par le fournisseur
+d'identité, le pseudo proposé est la partie de l'adresse avant l'arobase. Ce
+n'est pas une adresse entière, mais c'en est un morceau, visible des autres
+tant que la personne n'a pas choisi son pseudo.
+
 ### 21 novembre : Bobine, le machiniste de la salle
 
 **La demande.** Souhib a aimé l'identité proposée le 20 novembre, « quatre
@@ -25016,6 +25246,13 @@ fois » repose pour l'instant sur la mémoire du navigateur. Un autre appareil,
 ou une fenêtre privée, rejoue donc la scène une fois de plus. Le journal des
 parties tenu par le salon donnera une réponse commune à tous.
 
+**Le geste suit le manifeste.** Le support d'une console (disque, cartouche
+ou carte) est lu dans le champ `media` de `consoles/consoles.json`, comme le
+reste de sa description. À la fusion, la Switch et la Switch 2 y passent de
+« cartridge » à « card » : leurs jeux sont des cartes, et Bobine les tient
+comme telles. Une console absente du manifeste prend la cartouche, le support
+des consoles rétro.
+
 **Les tests.** Cinq essais pilotent la vraie rangée de prises avec une horloge
 simulée : la fiche reste cachée jusqu'au moment prévu, puis le nom apparaît ;
 un retour claque sans scène ; une salle pleine à l'ouverture ne joue rien ;
@@ -25023,6 +25260,158 @@ une prise libérée laisse sauter sa fiche ; sans mouvement permis, la prise se
 branche directement. Deux défauts réintroduits (une fiche jamais cachée, un
 premier état compté comme des arrivées) font chacun échouer l'essai qui les
 vise. `just planche` sert toutes les poses et les scènes, sans salle ni salon.
+
+
+
+### 21 novembre : un seul fichier pour décrire les consoles, et une clé pour chaque jeu
+
+**Le point de départ.** L'audit de la veille comptait 28 endroits dans
+15 fichiers à toucher pour ajouter une console. La liste des consoles était
+recopiée au moins sept fois : dans le worker en Rust, dans le salon et la
+boîte noire en Python, dans la page. Et une seule petite fonction du worker,
+`is_switch()`, répondait « oui » pour les deux Switch et décidait à elle seule
+de cinq choses : le format des trames de manette, l'appareil annoncé à la
+page, le passage par un adaptateur externe, le verrou « une seule Switch sur
+la machine » et l'endroit où chercher la jaquette. Une console rétro ajoutée
+en élargissant cette fonction aurait pris le verrou de la Switch sans que
+personne ne l'écrive. Ce travail a été fait sur une branche, dans un dossier
+de travail séparé : rien n'est installé, aucune salle n'a été relancée.
+
+**Le manifeste.** Un manifeste est un fichier qui décrit, une fois pour
+toutes, ce que plusieurs programmes doivent savoir. Celui-ci s'appelle
+`consoles/consoles.json`, à la racine du dépôt. Il est écrit en JSON, un
+format de texte que les trois langages du projet lisent sans rien installer.
+Pour chaque moteur, c'est-à-dire chaque émulateur : son nom, le nom que la
+boîte noire écrit dans ses relevés, et le nom que le noyau donne à son
+processus. Pour chaque console : son code (`gc`, `wii`, `switch`, `switch2`),
+son nom, une note, le nombre de joueurs, son moteur, sa forme (Dolphin dans le
+worker, ou un adaptateur externe avec son script et ses variables), le format
+de ses trames de manette, les appareils qu'une préparation propose, son groupe
+de verrou, la source de sa jaquette, son support (disque ou cartouche), son
+dossier, la façon dont un fichier devient un de ses jeux, ses extensions, et
+deux drapeaux : expérimentale, jouable. JSON n'accepte pas de commentaire,
+alors chaque valeur qui demande une raison la porte dans un champ `why`.
+
+**Qui le lit.** Le salon et la boîte noire le lisent par un petit module,
+`nel3ab_control/consoles.py`, qui le vérifie au démarrage. Ils en tirent les
+moteurs que la boîte noire reconnaît, les rôles dont elle capture l'écran,
+les consoles qu'une préparation accepte, les appareils proposés, la
+préparation à un seul joueur et la marque « Switch » de la liste des salles.
+La page l'importe directement, et le fichier entre dans son empreinte : le
+modifier sans reconstruire la page fait rougir la porte. Le worker garde sa
+liste de consoles en Rust, et chaque décision y devient une capacité nommée :
+le format de trame, l'adaptateur, le groupe de verrou, la source de jaquette,
+plus l'inscription, les extensions, le dossier et le drapeau « jouable ». Un
+essai relit le manifeste et nomme chaque écart, dans les deux sens.
+
+**Pourquoi le worker ne génère pas sa liste depuis le fichier.** C'était
+l'autre option : un script de compilation qui écrit le code Rust à partir du
+JSON. Elle a été écartée. Les noms des consoles servent dans quatre parties
+du worker, leur documentation aurait déménagé dans le JSON, et un code généré
+se relit mal. Surtout, des fonctions écrites en dur ne peuvent pas échouer
+pendant une partie : un manifeste faux arrête la porte de qualité, pas une
+salle. Le prix : une capacité que le worker utilise s'écrit à deux endroits,
+et l'essai dit lequel des deux a bougé.
+
+**La preuve que chaque garde peut échouer.** Une fausse console a été ajoutée
+au seul manifeste, puis chaque couche a été lancée. Le worker a nommé la
+console sans équivalent dans sa liste. La page a refusé une console sans
+icône. Le salon a vu que l'unité systemd des salles ne balaie pas son dossier
+et ne configure pas son adaptateur. Le manifeste a été remis à l'identique,
+vérifié octet par octet. Trois autres défauts ont été réintroduits un par un.
+La liste des moteurs de la boîte noire, réécrite à la main sans `eden-cli`,
+refait l'oubli du 7 novembre et fait échouer deux essais. L'ancien nom du plan
+du salon affiche « CONSOLE NON LUE » pour une Switch, et l'essai le refuse.
+Une empreinte de page qui ne compte pas le manifeste reste verte quand on le
+modifie ; avec lui, elle rougit.
+
+**La Xbox 360.** Souhib l'a demandée à l'étude. Elle est décrite dans le
+manifeste : moteur Xenia, adaptateur externe, trame de manette comme la
+Switch, quatre joueurs, disque, dossier `xbox360`, fichiers `.iso` et
+`.xex`. Elle n'est pas jouable. Aucun adaptateur n'existe : son script et ses
+variables sont réservés, et rien ne les lit. Le worker refuse de lancer une
+console non jouable et reste sur son menu, le salon ne la prépare pas, la
+page la grise. Aucun fichier n'entre au catalogue sous son nom : son `.iso`
+passerait sinon par la porte de Dolphin, qui partage l'extension. Les jeux
+GOD (Games on Demand, le format des jeux téléchargés sur la console) sont un
+fichier d'en-tête sans extension à côté d'un dossier `<même nom>.data` ; le
+balayage devra les reconnaître à ce dossier voisin, pas à une extension. Rien
+de cela n'est lu ni essayé. Le nom de processus de Xenia n'a jamais été
+relevé ici. Le manifeste refuse justement une console jouable dont le moteur
+n'a aucun processus connu, pour que l'oubli du 7 novembre ne revienne pas.
+
+**Une clé pour chaque jeu.** Un jeu était désigné sur le fil par sa position
+dans une liste triée par nom, sur un octet. Un fichier qui se range avant lui
+décale tous les suivants : une page qui tient l'ancienne liste lance alors le
+jeu voisin. Ce n'est pas arrivé, parce que le worker ne lit sa bibliothèque
+qu'une fois par démarrage, mais l'import en cours d'étude ajoutera des
+fichiers pendant que les salles tournent. Chaque jeu du catalogue porte
+maintenant une clé : son nom de fichier. C'est déjà ce que la salle retient
+de son dernier jeu, et ce qui range les sauvegardes GameCube et Wii. Le
+worker compare la clé aux noms que son propre balayage a trouvés, et ne s'en
+sert jamais comme d'un chemin : `../x` ou `/etc/shadow` ne désignent rien, et
+ne passent même pas la vérification d'entrée.
+
+**Par où passe la clé.** La page lance presque tous ses jeux par la
+préparation du salon : elle y envoie maintenant la clé, et le salon la
+retrouve dans la liste au début comme au lancement. Vers le worker, la clé
+voyage sur la ligne de contrôle privée, écrite en hexadécimal, c'est-à-dire
+octet par octet en chiffres de 0 à f : un nom de jeu contient des espaces, et
+cette ligne se découpe aux espaces. Pour un disque dont la console est
+inconnue, la page envoie la clé directement au worker, sur la socket de
+manette, dans un message texte `{"jeu":"<clé>"}`. Les messages binaires de
+cette socket se reconnaissent à leur longueur, et une clé n'en a pas de fixe ;
+les messages texte, eux, étaient ignorés, donc un ancien worker ignore
+celui-ci sans rien casser. Un refus revient en texte, avec sa raison, et la
+manette reste à qui la tient. Les anciennes formes restent comprises le temps
+que la page, le salon et le worker redémarrent tous : ils ne le font pas en
+même temps.
+
+**Un défaut trouvé en mesurant.** Pour savoir quelle place une clé de
+255 octets demande sur la ligne de contrôle, la ligne la plus longue possible
+a été construite et mesurée, au lieu d'être recomptée à la main. Elle faisait
+déjà 358 octets avant la clé, pour une borne de lecture de 320. Le compte
+écrit dans le code datait d'avant le 12 septembre, jour où le nom de qui lance
+a été ajouté en fin de ligne. Une ligne trop longue était coupée dans ce
+dernier champ, restait lisible, et le worker rangeait la partie sous un nom
+tronqué. Aucune soirée ne l'a montré, parce que les attributions réelles sont
+bien plus courtes que leur maximum. La borne vaut maintenant la longueur
+mesurée avec une clé, 866 octets, et une ligne qui l'atteint sans son retour
+à la ligne est refusée. Rétablir l'ancienne borne fait arriver au worker un
+nom de 27 caractères au lieu de 64, et l'essai le dit. Leçon : une borne se
+mesure sur la forme la plus longue, et se remesure chaque fois qu'un champ
+s'ajoute ; un commentaire qui donne un total ne se met pas à jour tout seul.
+
+**Le catalogue sans salle.** Les pages d'import et de profil devront lister
+les jeux même quand aucune salle ne tourne. Le salon ne doit ni refaire en
+Python le nettoyage des titres écrit en Rust, ni lancer le conteneur qui lit
+la console d'un disque. À chaque démarrage, le worker écrit donc
+`catalogue.json` dans son répertoire de session : la même liste que la page
+reçoit, avec l'heure du balayage. Il l'écrit d'abord sous un nom temporaire
+dans le même dossier, puis le renomme. Un renommage dans un même disque
+remplace le nom d'un coup, donc un lecteur voit l'ancien fichier ou le
+nouveau, jamais la moitié d'un. Le salon lit le fichier de chaque salle et
+garde le plus récent. Un fichier faux est écarté en entier, et le suivant
+prend sa place : une liste à moitié lue cacherait des jeux sans le dire. La
+route `/api/catalogue` le sert, et dit clairement quand aucune salle n'en a
+encore écrit. Limite : la liste a l'âge du dernier démarrage d'une salle. Un
+fichier ajouté depuis n'y est pas, et l'import devra demander une relecture.
+
+**Ce qui reste écrit à la main.** Le comportement propre à Dolphin pour la
+Wii (sa mémoire interne, ses Wiimote), les règles des identifiants de titre
+Switch, les dossiers de jeux par défaut quand la variable manque (les garder
+évite qu'un worker de développement prenne le vrai verrou Switch de la
+machine), les processus qui entourent une partie, les guides des jeux et les
+icônes. Les trois derniers sont comparés au manifeste par un essai. Le détail
+est dans l'ADR, décisions D22, D23 et D24.
+
+**Ce qui n'est pas prouvé.** Rien n'a tourné dans une vraie salle : ni une
+préparation lancée par sa clé, ni un `catalogue.json` écrit par un vrai
+worker. Les essais exercent le vrai port de contrôle, la vraie socket de
+manette et la vraie route du salon, avec des bibliothèques de test. Les
+recettes qui demandent la machine (`just gpu-test`, les salles Switch) n'ont
+pas été lancées, parce que ce travail ne touche ni l'encodage ni les
+adaptateurs.
 
 ## 12. Glossaire complet
 
@@ -26041,9 +26430,72 @@ lgf dans `/mnt/nas`.
 comme un dossier. Un montage « hard » fait attendre un programme quand le
 NAS ne répond plus, au lieu de lui renvoyer une erreur.
 
+
+
+**Origine (`Origin`)** : le schéma, le nom et le port d'un site, par exemple
+`https://nel3ab.app`. Le navigateur l'écrit lui-même dans l'en-tête `Origin`
+d'une écriture, et une page ne peut pas le changer. Deux adresses qui
+diffèrent par le port ou par `http`/`https` sont deux origines.
+
+**Sec-Fetch-Site** : en-tête écrit par le navigateur, qui dit d'où part une
+demande : `same-origin` (la même origine), `same-site` (un autre sous-domaine
+du même domaine), `cross-site` (un autre site) ou `none` (un geste de la
+personne elle-même, sans page derrière).
+
+**CSRF** : *Cross-Site Request Forgery*, falsification de requête intersite.
+Une page d'un autre site fait partir une demande depuis le navigateur d'un
+visiteur, et la demande arrive avec l'identité de ce visiteur.
+
+**Dépendance (FastAPI)** : fonction que FastAPI exécute avant une route,
+pour lui fournir quelque chose ou refuser la demande. Posée sur
+l'application, elle s'exécute avant chaque route, y compris celles ajoutées
+plus tard.
+
+**HMAC** : *Hash-based Message Authentication Code*. Une empreinte calculée
+sur un message ET un secret. Sans le secret, on ne peut ni la recalculer ni
+vérifier qu'elle correspond à un message deviné. HMAC-SHA256 utilise SHA-256
+pour la calculer.
+
+**Repère (de personne)** : ce que l'état de la salle montre à la place de
+l'adresse d'un présent : seize caractères tirés d'un HMAC de son adresse. Le
+même pour la même personne partout, et sans rien dire de l'adresse.
+
+**Boucle locale (loopback)** : l'adresse `127.0.0.1`, qui ne mène qu'à la
+machine elle-même. Un service qui n'écoute que là n'est joignable que par
+les programmes de cette machine, proxys compris.
+
 **Bobine** : le personnage de la salle, une bobine de câble avec une antenne.
 Il joue les changements d'état visibles par tous : une arrivée, un changement
 de jeu, une fermeture.
 
 **Planche** : page de travail qui montre toutes les poses et toutes les
 scènes d'un personnage, pour les regarder et les comparer hors de la salle.
+
+
+
+**Manifeste des consoles** : le fichier `consoles/consoles.json`, qui décrit
+une fois chaque console et chaque moteur. Le salon, la boîte noire et la
+page le lisent ; le worker est vérifié contre lui par un essai.
+
+**Capacité d'une console** : une décision nommée que le worker prend pour une
+console, comme son format de trame ou son groupe de verrou. Elle remplace une
+question unique, « est-ce une Switch ? », qui en cachait cinq.
+
+**Groupe de verrou** : les consoles qui partagent une seule place sur la
+machine. Les deux Switch en forment un : une seule salle à la fois peut
+faire tourner l'une ou l'autre.
+
+**Clé d'un jeu** : son nom de fichier, qui le désigne sur le fil. Elle reste
+juste quand la liste change, au contraire d'une position dans la liste.
+
+**Hexadécimal** : l'écriture des nombres en base seize, avec les chiffres 0 à
+9 puis a à f. Un octet s'y écrit en deux caractères, sans espace.
+
+**Renommage atomique** : remplacer un fichier en donnant son nom à un autre
+fichier déjà écrit, sur le même disque. Le système fait l'échange d'un coup :
+un lecteur voit l'ancien ou le nouveau, jamais un mélange.
+
+**Xenia** : un émulateur de Xbox 360, à code ouvert. Il n'est pas installé ici.
+
+**GOD (Games on Demand)** : le format des jeux Xbox 360 téléchargés sur la
+console : un fichier d'en-tête sans extension et un dossier de données à côté.

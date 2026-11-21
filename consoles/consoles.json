@@ -1,0 +1,162 @@
+{
+  "version": 1,
+  "why": "La seule description des consoles de la salle (ADR D22). Le worker, le salon et la page la lisent ou sont vérifiés contre elle par un test de chaque couche. JSON n'a pas de commentaire : chaque valeur qui demande une raison la porte dans le champ « why » de son entrée.",
+  "engines": [
+    {
+      "name": "dolphin",
+      "role": "dolphin",
+      "processes": ["dolphin-emu-nog"],
+      "why": "Le nom court que le noyau donne à dolphin-emu-nogui (quinze caractères au plus). Le rôle « dolphin » est celui que la boîte noire écrit depuis le 14 septembre 2026, pour la GameCube comme pour la Wii."
+    },
+    {
+      "name": "ryubing",
+      "role": "switch",
+      "processes": ["Ryujinx"],
+      "why": "Ryubing garde le nom de processus de Ryujinx. Le rôle « switch » est celui des relevés existants."
+    },
+    {
+      "name": "eden",
+      "role": "switch2",
+      "processes": ["eden-cli"],
+      "why": "Oublié dans la boîte noire le 7 novembre 2026 : Zelda a été vu au repos et l'allocateur a été lu pendant la partie. Le rôle « switch2 » est celui des relevés et du réglage boite_noire_roulant_sauf."
+    },
+    {
+      "name": "xenia",
+      "role": "x360",
+      "processes": [],
+      "why": "Aucun adaptateur ne lance encore Xenia ici, donc aucun nom de processus n'a été relevé. À relire dans /proc/<pid>/comm le jour où l'adaptateur existe, avant de rendre la console jouable : un test refuse une console jouable dont le moteur n'a aucun processus."
+    }
+  ],
+  "consoles": [
+    {
+      "code": "gc",
+      "label": "GameCube",
+      "note": "carte mémoire, deux sauvegardes par jeu",
+      "players": 4,
+      "engine": "dolphin",
+      "form": { "kind": "internal" },
+      "input": "dolphin",
+      "devices": [0],
+      "lock": null,
+      "art": "banner",
+      "media": "disc",
+      "folder": "gc",
+      "registration": "dolphin-header",
+      "extensions": ["rvz", "iso", "gcm", "ciso", "gcz"],
+      "experimental": false,
+      "playable": true,
+      "why": {
+        "devices": "Une GameCube n'a qu'une manette : la préparation lui sert à choisir la sauvegarde, pas un appareil.",
+        "extensions": "Les mêmes que la Wii : le balayage ne sait pas laquelle des deux avant que dolphin-tool ait lu le disque (emulator::disc)."
+      }
+    },
+    {
+      "code": "wii",
+      "label": "Wii",
+      "note": "sauvegarde dans la console, deux par jeu",
+      "players": 4,
+      "engine": "dolphin",
+      "form": { "kind": "internal" },
+      "input": "dolphin",
+      "devices": [1, 0, 2, 3],
+      "lock": null,
+      "art": "wii-save",
+      "media": "disc",
+      "folder": "wii",
+      "registration": "dolphin-header",
+      "extensions": ["rvz", "iso", "gcm", "ciso", "gcz"],
+      "experimental": false,
+      "playable": true,
+      "why": {
+        "devices": "Wiimote et Nunchuk, manette GameCube, guitare, Wiimote seule. Le guide d'un jeu peut en retenir moins (game_controls.py).",
+        "art": "L'image d'un disque Wii est enfouie dans une archive dans une archive ; celle de sa sauvegarde est posée à plat, donc un jeu jamais lancé n'en a pas."
+      }
+    },
+    {
+      "code": "switch",
+      "label": "Switch",
+      "note": "manettes Pro et sauvegardes séparées par jeu",
+      "players": 4,
+      "engine": "ryubing",
+      "form": {
+        "kind": "external",
+        "script": "docker/switch-room.py",
+        "script_env": "NEL3AB_SWITCH_ADAPTER",
+        "config_env": "NEL3AB_SWITCH_CONFIG"
+      },
+      "input": "pro",
+      "devices": [4],
+      "lock": "switch",
+      "art": "sidecar",
+      "media": "card",
+      "folder": "switch",
+      "registration": "sidecar",
+      "extensions": ["xci", "nsp"],
+      "experimental": false,
+      "playable": true,
+      "why": {
+        "lock": "Une seule salle à la fois joue à un jeu de la famille Switch, décidé le 12 septembre 2026 : Ryubing coûte bien plus cher que Dolphin. Le verrou est un fichier tenu par le worker (lock::take_switch).",
+        "registration": "Un NSP peut être une mise à jour : son extension ne suffit jamais, il faut une fiche <fichier>.nel3ab.json écrite à la main (emulator::switch)."
+      }
+    },
+    {
+      "code": "switch2",
+      "label": "Switch 2",
+      "note": "un joueur et des spectateurs ; ralentissements et objets manquants possibles",
+      "players": 1,
+      "engine": "eden",
+      "form": {
+        "kind": "external",
+        "script": "docker/switch2-room.py",
+        "script_env": "NEL3AB_SWITCH2_ADAPTER",
+        "config_env": "NEL3AB_SWITCH2_CONFIG"
+      },
+      "input": "pro",
+      "devices": [4],
+      "lock": "switch",
+      "art": "sidecar",
+      "media": "card",
+      "folder": "switch2",
+      "registration": "sidecar",
+      "extensions": ["nup"],
+      "experimental": true,
+      "playable": true,
+      "why": {
+        "players": "L'intégration du 7 novembre 2026 n'a validé qu'un joueur et des spectateurs. C'est une limite de notre adaptateur, pas de la console.",
+        "lock": "Le même verrou que la Switch : les deux moteurs ne tiennent pas ensemble sur la carte graphique.",
+        "experimental": "Souhib l'a gardée dans la salle le 21 novembre 2026, marquée expérimentale."
+      }
+    },
+    {
+      "code": "x360",
+      "label": "Xbox 360",
+      "note": "décrite, pas encore jouable : aucun adaptateur Xenia",
+      "players": 4,
+      "engine": "xenia",
+      "form": {
+        "kind": "external",
+        "script": "docker/xbox360-room.py",
+        "script_env": "NEL3AB_XBOX360_ADAPTER",
+        "config_env": "NEL3AB_XBOX360_CONFIG"
+      },
+      "input": "pro",
+      "devices": [4],
+      "lock": null,
+      "art": "sidecar",
+      "media": "disc",
+      "folder": "xbox360",
+      "registration": "none",
+      "extensions": ["iso", "xex"],
+      "containers": ["god"],
+      "experimental": true,
+      "playable": false,
+      "why": {
+        "playable": "Demandée le 21 novembre 2026. L'adaptateur n'existe pas : script et variables sont réservés, rien ne les lit. Le worker refuse de lancer une console non jouable, et le salon ne la prépare pas.",
+        "registration": "Aucune : le balayage n'inscrit rien pour cette console tant qu'elle n'est pas jouable. Son .iso entrerait sinon par la porte de Dolphin, qui partage l'extension.",
+        "containers": "GOD (Games on Demand) : un fichier d'en-tête sans extension, à côté d'un dossier <même nom>.data. Xenia ouvre le fichier d'en-tête (wiki Xenia, Quickstart). Le balayage devra le reconnaître à ce dossier voisin, pas à une extension. Rien de cela n'est lu ni vérifié ici.",
+        "lock": "Aucun verrou décidé : il dépendra du coût mesuré de Xenia sur la carte. Rien ne peut le lancer d'ici là.",
+        "input": "Une manette de type Xbox 360 sur le chemin Pro existant, comme les quatre manettes virtuelles de la salle Switch. Non essayé."
+      }
+    }
+  ]
+}

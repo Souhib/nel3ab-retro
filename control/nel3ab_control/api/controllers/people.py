@@ -17,6 +17,7 @@ from pathlib import Path
 from anyio import Lock, to_thread
 
 from nel3ab_control.identity import suggested_name
+from nel3ab_control.reperes import FICHIER, Reperes
 
 
 class PeopleController:
@@ -28,6 +29,9 @@ class PeopleController:
         # unique seul laisserait encore deux instantanés se remplacer à rebours.
         self._writing = Lock()
         self._names: dict[str, str] = _read(store)
+        #: Ce que les pages voient à la place des adresses. Son secret est rangé
+        #: à côté des pseudos: un essai qui isole les pseudos isole aussi lui.
+        self._reperes = Reperes(store.parent / FICHIER)
         #: Une entrée par socket, pas par personne: la même personne peut ouvrir
         #: deux onglets, et fermer l'un ne la fait pas disparaître de l'autre.
         #: On garde le nom RÉSOLU à la connexion, et pas seulement l'adresse: le
@@ -38,7 +42,11 @@ class PeopleController:
         #: tournant ensemble se seraient montré mutuellement leurs joueurs, et
         #: le chef de l'une aurait pu être désigné par la présence d'un autre.
         self._present: dict[str, tuple[str | None, str, int]] = {}
-        self._owner: str | None = None
+        #: Le chef retenu, PAR SALLE. C'était une seule valeur pour toutes: décrire
+        #: la salle 2 la remplaçait par le premier présent de la salle 2, et une
+        #: reprise de chef confirmée dans la salle 1 était perdue dès que la
+        #: salle 2 diffusait. Relevé par l'audit du 20 novembre 2026.
+        self._owner: dict[int, str] = {}
 
     def name_for(self, login: str | None, display: str = "") -> str:
         """Le pseudo choisi, ou celui qu'on propose faute de mieux."""
@@ -106,36 +114,57 @@ class PeopleController:
         return {sid for sid, (_, _, ou) in self._present.items() if ou == salle}
 
     def left(self, sid: str) -> None:
-        self._present.pop(sid, None)
-        self.owner()
+        gone = self._present.pop(sid, None)
+        if gone is not None:
+            # Réélu tout de suite dans SA salle: un chef parti ne doit pas
+            # rester retenu, sinon il reprendrait le rôle en revenant.
+            self.owner(gone[2])
 
-    def owner(self, salle: int | None = None) -> tuple[str, str] | None:
-        """Le chef choisi, sinon la première identité encore connectée.
+    def login_of(self, sid: str) -> str | None:
+        """L'adresse sous laquelle cette socket est arrivée, ou rien."""
+        found = self._present.get(sid)
+        return found[0] if found else None
+
+    def repere(self, login: str | None) -> str | None:
+        """Ce que les pages voient de cette adresse. Voir `nel3ab_control.reperes`."""
+        return self._reperes.de(login)
+
+    def owner(self, salle: int) -> tuple[str, str] | None:
+        """Le chef choisi dans cette salle, sinon sa première identité encore connectée.
 
         Le 6 septembre, un onglet spectateur oublié gardait ce rôle indéfiniment.
         Une reprise confirmée change désormais la personne choisie. L'ancien
         chef ne repasse pas devant en ouvrant un autre onglet. Sans identité,
         la règle du worker reste celle de la manette tenue.
+
+        La salle est OBLIGATOIRE. Elle valait « toutes » par défaut, et quatre
+        appelants l'oubliaient: le chef d'une salle pouvait alors être désigné
+        par une autre.
         """
         ici = self._dans(salle)
+        retenu = self._owner.get(salle)
         for login, name in ici:
-            if login is not None and login == self._owner:
+            if login is not None and login == retenu:
                 return login, name
         for login, name in ici:
             if login is not None:
-                self._owner = login
+                self._owner[salle] = login
                 return login, name
-        self._owner = None
+        self._owner.pop(salle, None)
         return None
 
-    def transfer_owner(self, expected: str, wanted: str) -> bool:
-        """Une réponse ancienne ne remplace ni un nouveau chef ni un absent."""
-        current = self.owner()
+    def transfer_owner(self, salle: int, expected: str, wanted: str) -> bool:
+        """Une réponse ancienne ne remplace ni un nouveau chef ni un absent.
+
+        Ni quelqu'un d'une autre salle: le successeur doit être présent dans
+        celle dont on transmet le rôle.
+        """
+        current = self.owner(salle)
         if current is None or current[0] != expected:
             return False
-        if not any(login == wanted for login, _ in self._dans(None)):
+        if not any(login == wanted for login, _ in self._dans(salle)):
             return False
-        self._owner = wanted
+        self._owner[salle] = wanted
         return True
 
     def sessions(self, salle: int | None = None) -> dict[str, list[str]]:
@@ -166,13 +195,9 @@ class PeopleController:
             seen.setdefault(login or name or f"anonyme:{sid}", (login, name))
         return list(seen.values())
 
-    def _dans(self, salle: int | None) -> list[tuple[str | None, str]]:
-        """Les présents d'une salle, ou de toutes quand aucune n'est nommée."""
-        return [
-            (login, name)
-            for login, name, ou in self._present.values()
-            if salle is None or ou == salle
-        ]
+    def _dans(self, salle: int) -> list[tuple[str | None, str]]:
+        """Les présents d'une salle."""
+        return [(login, name) for login, name, ou in self._present.values() if ou == salle]
 
 
 def _read(store: Path) -> dict[str, str]:

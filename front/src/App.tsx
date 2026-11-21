@@ -110,7 +110,7 @@ import {
 import type { Session, Snapshot } from "./media/session";
 import { clipLabel } from "./lib/clip";
 import { SwitchBindings } from "./components/SwitchBindings";
-import { CONSOLES, isSwitchConsole } from "./lib/consoles";
+import { CONSOLES, launchable, preparable, usesProInput } from "./lib/consoles";
 import {
   PADS,
   launchPicks,
@@ -852,9 +852,13 @@ function Room({
    * trois minutes, ce que la page ne peut pas savoir: elle ne voit pas les
    * manettes des autres. */
   const mine = shot?.input.deciding ?? false;
-  /** Le propriétaire est là, mais il ne joue plus. */
-  const canClose = boss ? login !== null && boss.login === login : mine;
-  const away = mine && boss !== null && (login === null || boss.login !== login);
+  /** Le propriétaire est là, mais il ne joue plus.
+   *
+   * `boss.moi` et plus une comparaison d'adresses: l'état de la salle ne porte
+   * plus l'adresse de personne, et le salon calcule `moi` pour CETTE page. Il
+   * n'est jamais vrai sans identité, comme l'était `login !== null`. */
+  const canClose = boss ? boss.moi === true : mine;
+  const away = mine && boss !== null && boss.moi !== true;
   const whyNotChoose =
     port === null
       ? "prends une manette pour changer de jeu"
@@ -972,8 +976,12 @@ function Room({
      côté: ce qu'on a écarté est cette préparation-là, pas toutes les suivantes. */
   const setupId = pendingSetup?.id ?? null;
   useEffect(() => setSetupHidden(false), [setupId]);
-  const setupGame = room?.library.find((game) => game.index === pendingSetup?.game);
-  const configuringSwitch = isSwitchConsole(setupGame?.console ?? room?.game?.console);
+  // Par sa clé quand le salon la connaît: la position a pu changer depuis le
+  // début de la préparation (ADR D23).
+  const setupGame = room?.library.find((game) =>
+    pendingSetup?.key ? game.key === pendingSetup.key : game.index === pendingSetup?.game,
+  );
+  const configuringSwitch = usesProInput(setupGame?.console ?? room?.game?.console);
   useEffect(() => {
     session?.input.blockGameplay(configuring, configuringSwitch ? "switch" : "dolphin");
     return () => session?.input.blockGameplay(false);
@@ -1047,7 +1055,7 @@ function Room({
       // personnes le préparent ensemble avant que quoi que ce soit s'arrête.
       setSetupChoice(wanted);
       void tell
-        .prepare({ action: "begin", game: game.index, save: ranWith ?? 0 })
+        .prepare({ action: "begin", game: game.index, key: game.key, save: ranWith ?? 0 })
         .then(() => setMenu(false))
         .catch((error) =>
           setPreparationError(
@@ -1170,7 +1178,8 @@ function Room({
               // Un disque dont la console est INCONNUE n'a pas de choix: l'outil n'a
               // pas répondu, donc on ne sait pas où sa partie ira, et proposer un
               // choix qui ne décide peut-être rien est pire que ne pas le proposer.
-              const saves = ["gc", "wii", "switch", "switch2"].includes(game.console ?? "");
+              // Les consoles que le manifeste dit jouables (ADR D22).
+              const saves = preparable(game.console);
               const running = game.index === room?.game?.index;
               /** Lancer, une fois la sauvegarde décidée quand il y en a une. */
               const launch = (slot: Slot | null) => {
@@ -1180,16 +1189,15 @@ function Room({
                 // « ta sauvegarde » retombait donc en silence sur la partie
                 // neuve. Un disque de console inconnue garde l'ancien chemin,
                 // faute de savoir quel appareil lui présenter.
-                if (
-                  game.console === "gc" ||
-                  game.console === "wii" ||
-                  isSwitchConsole(game.console)
-                ) {
+                if (preparable(game.console)) {
                   setPreparationError("");
                   void tell
                     .prepare({
                       action: "begin",
+                      // La clé désigne ce jeu même si la liste a changé; la
+                      // position reste pour un salon d'avant (ADR D23).
                       game: game.index,
+                      key: game.key,
                       save: slot ?? 0,
                     })
                     .then(() => setMenu(false))
@@ -1208,7 +1216,12 @@ function Room({
                 // retient, et c'est le changement de jeu qui agit. Elle vient du
                 // réglage, pas du panneau.
                 session?.input.choosePad(storedPad());
-                if (!session?.input.chooseGame(game.index)) return;
+                // Par sa clé quand la salle la publie, sinon par sa position:
+                // un worker d'avant le 21 novembre 2026 ne connaît que celle-ci.
+                const sent = game.key
+                  ? session?.input.chooseGameByKey(game.key)
+                  : session?.input.chooseGame(game.index);
+                if (!sent || !session) return;
                 // La vidéo doit savoir qu'un redémarrage arrive: sans ça elle ne peut
                 // pas distinguer les images de l'ancien jeu de celles du nouveau.
                 session.video.expectRestart();
@@ -1256,7 +1269,11 @@ function Room({
                 // le jeu lancé, donc la griser était juste.
                 //
                 // Elle reste grisée pour qui ne décide pas du jeu.
-                disabled: !mine || (saves && (unlockedSaves === null || checkingIdentity)),
+                // Une console décrite mais pas encore jouable reste grisée.
+                disabled:
+                  !mine ||
+                  !launchable(game.console) ||
+                  (saves && (unlockedSaves === null || checkingIdentity)),
                 // Une seule décision ici, la sauvegarde, et la MÊME pour les deux
                 // consoles. La manette se choisit sous « manettes »: voir
                 // `launchPicks`, qui dit pourquoi les deux moitiés du choix vivent
@@ -1309,7 +1326,7 @@ function Room({
       // Ce qui reste ici est ce qui n'existe nulle part ailleurs: le clip, le
       // passage en spectateur, et la sortie.
       items: ([] as XmbItem[]).concat([
-        ...(boss && login && boss.login !== login
+        ...(boss && login && boss.moi !== true
           ? [
               {
                 id: "recover-owner",
@@ -1807,7 +1824,7 @@ function Room({
             manette
           </button>
         ) : null}
-        {session && onTouch && isSwitchConsole(room?.game?.console) ? (
+        {session && onTouch && usesProInput(room?.game?.console) ? (
           <SwitchTouchPad
             source={session.input.switch}
             onMenu={() => setMenu(true)}
@@ -1912,7 +1929,7 @@ function Room({
           </header>
 
           {boss ? <p className="text-corps text-muted">Chef : {boss.name}</p> : null}
-          {boss && login && boss.login !== login ? (
+          {boss && login && boss.moi !== true ? (
             <button
               id="recoverOwner"
               type="button"
@@ -2249,10 +2266,7 @@ function Room({
           ) : null}
         </div>
       ) : null}
-      {configuring &&
-      shot &&
-      session &&
-      isSwitchConsole(setupGame?.console ?? room?.game?.console) ? (
+      {configuring && shot && session && usesProInput(setupGame?.console ?? room?.game?.console) ? (
         <SwitchBindings
           source={session.input.switch}
           input={session.input}

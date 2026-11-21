@@ -401,16 +401,17 @@ pub fn gather(
     roms.iter()
         .enumerate()
         .map(|(at, rom)| {
-            if discs.get(at).is_some_and(|disc| disc.console.is_switch()) {
-                return crate::switch::art(&rom.path);
-            }
-            let wii = discs
+            // La source vient de la console, donc du manifeste (ADR D22). Un
+            // disque sans réponse garde la bannière, comme avant.
+            let source = discs
                 .get(at)
-                .is_some_and(|disc| disc.console == crate::disc::Console::Wii);
-            let found = if wii {
-                from_a_wii_save(rom, saves)
-            } else {
-                art_of(rom, tool, cache)
+                .map_or(crate::disc::ArtSource::Banner, |disc| {
+                    disc.console.art_source()
+                });
+            let found = match source {
+                crate::disc::ArtSource::Sidecar => return crate::switch::art(&rom.path),
+                crate::disc::ArtSource::WiiSave => from_a_wii_save(rom, saves),
+                crate::disc::ArtSource::Banner => art_of(rom, tool, cache),
             };
             match found {
                 Ok(art) => Some(art),

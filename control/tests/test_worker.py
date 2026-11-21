@@ -145,3 +145,61 @@ def test_four_free_seats_are_a_valid_snapshot() -> None:
     from nel3ab_control.worker import seat_receipts
 
     assert seat_receipts(b"- - - -\n") == [None, None, None, None]
+
+
+async def heard_launch(key: str | None = None) -> tuple[bool, list[bytes]]:
+    """Ce qu'un vrai port de contrôle entend d'un lancement, et la réponse rendue."""
+    from nel3ab_control.worker import launch_prepared
+
+    heard: list[bytes] = []
+
+    async def listener(stream: SocketStream) -> None:
+        async with stream:
+            heard.append(await stream.receive(2048))
+            await stream.send(b"ok\n")
+
+    claim = "a" * 32 + "-1"
+    async with await anyio.create_tcp_listener(local_host="127.0.0.1", local_port=0) as server:
+        port = server.extra(SocketAttribute.local_address)[1]  # noqa: S610
+        async with anyio.create_task_group() as group:
+            group.start_soon(server.serve, listener)
+            await anyio.sleep(0.05)
+            said = await launch_prepared(
+                f"127.0.0.1:{port}",
+                1,
+                claim,
+                0,
+                0,
+                [0, 0, 0, 0],
+                [claim, "-", "-", "-"],
+                key=key,
+            )
+            await anyio.sleep(0.05)
+            group.cancel_scope.cancel()
+    return said, heard
+
+
+async def test_a_launch_by_key_sends_the_file_name_in_hexadecimal() -> None:
+    """La clé part entière, espaces et accents compris, sans couper la ligne."""
+    key = "Mario Kart (Rev 1) é.rvz"
+    said, heard = await heard_launch(key=key)
+    assert said is True
+    fields = heard[0].decode().split()
+    assert fields[3] == "k" + key.encode().hex()
+    assert bytes.fromhex(fields[3][1:]).decode() == key
+    assert len(fields) == 14
+
+
+async def test_without_a_key_the_position_still_goes_for_an_older_worker() -> None:
+    said, heard = await heard_launch()
+    assert said is True
+    assert heard[0].decode().split()[3] == "0"
+
+
+@pytest.mark.parametrize(
+    "key", ["", ".", "..", "../x", "/etc/shadow", "gc/Melee.rvz", "a\nb", "é" * 128]
+)
+async def test_a_path_like_key_never_reaches_the_worker(key: str) -> None:
+    said, heard = await heard_launch(key=key)
+    assert said is False
+    assert heard == [], "une clé qui ressemble à un chemin est partie vers le worker"

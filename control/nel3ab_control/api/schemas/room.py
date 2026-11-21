@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 
 from nel3ab_control.api.controllers.preparation import Preparation
 from nel3ab_control.api.schemas.player import Person
+from nel3ab_control.consoles import CONSOLES
 
 
 class GameGuide(BaseModel):
@@ -23,7 +24,18 @@ class Game(BaseModel):
     guide: GameGuide | None = None
 
     index: int = Field(
-        description="Its position in the worker's library, which is how it is asked for."
+        description=(
+            "Its position in the worker's library. Valid only for the library it "
+            "came with: a file that sorts earlier moves every position after it."
+        )
+    )
+    key: str | None = Field(
+        default=None,
+        description=(
+            "La clé du jeu: son nom de fichier, ce qu'une page envoie pour le lancer "
+            "(ADR D23). Elle désigne encore ce jeu quand la liste a changé. Nulle "
+            "pour un worker d'avant le 21 novembre 2026, qui ne la publiait pas."
+        ),
     )
     name: str = Field(description="What to call it on screen.")
     maker: str | None = Field(
@@ -43,12 +55,13 @@ class Game(BaseModel):
     console: str = Field(
         default="?",
         description=(
-            "Quelle console ce disque demande, lue sur le disque: « gc », « wii », "
-            "ou « ? » quand le disque n'a pas répondu. La page s'en sert pour ne "
-            "pas proposer un choix qui ne déciderait rien: un jeu Wii n'a pas de "
-            "carte mémoire, donc pas deux emplacements de sauvegarde. « ? » n'est "
-            "pas « gc »: proposer un choix qui ne fait rien est pire que ne pas "
-            "le proposer."
+            "Quelle console ce disque demande, lue sur le disque ou sur sa fiche: "
+            + ", ".join(f"« {one.code} »" for one in CONSOLES.consoles)
+            + " (consoles/consoles.json), ou « ? » quand le disque n'a pas répondu. "
+            "La page s'en sert pour ne pas proposer un choix qui ne déciderait rien: "
+            "un jeu Wii n'a pas de carte mémoire, donc pas deux emplacements de "
+            "sauvegarde. « ? » n'est pas « gc »: proposer un choix qui ne fait rien "
+            "est pire que ne pas le proposer."
         ),
     )
     art: bool = Field(
@@ -115,3 +128,21 @@ class Room(BaseModel):
             "means the page's own origin."
         )
     )
+
+    def vue_par(self, repere: str | None) -> "Room":
+        """La même salle, telle que la voit la personne de ce repère.
+
+        Seul `moi` change d'une page à l'autre. Le reste est décrit une fois,
+        puis recopié: décrire la salle pour chaque page redemanderait la
+        bibliothèque au worker autant de fois qu'il y a de pages.
+        """
+
+        def marque(person: Person) -> Person:
+            return person.model_copy(update={"moi": repere is not None and person.id == repere})
+
+        return self.model_copy(
+            update={
+                "owner": marque(self.owner) if self.owner else None,
+                "people": [marque(person) for person in self.people],
+            }
+        )

@@ -34,7 +34,7 @@ async def read_me(caller: CallerDep, people: PeopleDep, settings: SettingsDep) -
         login=login,
         name=people.name_for(login, display),
         display=display,
-        publishes=login == settings.admin.strip().lower(),
+        publishes=settings.is_admin(login),
     )
 
 

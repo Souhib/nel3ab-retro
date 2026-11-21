@@ -37,13 +37,18 @@ from pathlib import Path
 from typing import Any
 
 from nel3ab_control.boite_noire import lecture
+from nel3ab_control.consoles import CONSOLES
 
 #: Les moteurs, par le nom court que le noyau donne à leur processus (quinze
 #: caractères au plus: `dolphin-emu-nogui` devient `dolphin-emu-nog`).
 #: Eden is the Switch 2 adapter's process name. Missing it marked a real game
 #: idle and allowed debugfs reads during Zelda on 2026-11-07. Those reads can
 #: stall rendering; this list also governs their exclusion, not just metrics.
-MOTEURS = {"Ryujinx": "switch", "dolphin-emu-nog": "dolphin", "eden-cli": "switch2"}
+#:
+#: Lus dans le manifeste des consoles depuis le 21 novembre 2026 (ADR D22): une
+#: console jouable dont le moteur n'a aucun nom de processus y est refusée, donc
+#: l'oubli du 7 novembre ne peut plus se reproduire en silence.
+MOTEURS = CONSOLES.processes()
 
 #: Ce qui entoure une partie et peut lui prendre du processeur ou de la mémoire
 #: vidéo: le worker, les deux enregistreurs de la capture Switch, le compositeur

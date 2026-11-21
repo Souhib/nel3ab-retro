@@ -713,6 +713,7 @@ mod tests {
             players: four(),
             wants_rom: Arc::new(Mutex::new(None)),
             catalogue: Arc::new(Mutex::new("[]".into())),
+            keys: Arc::from(Vec::new()),
             art: no_art(),
             owner: nobody(),
         }

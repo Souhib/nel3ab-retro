@@ -170,3 +170,39 @@ describe("ce qu'on branche au bout de sa Wiimote", () => {
     expect(spied.sent).toHaveLength(0);
   });
 });
+
+describe("un jeu demandé par sa clé", () => {
+  /** Un flux d'entrée qui tient une place, et ce que sa socket a reçu. */
+  const wired = (port: number | null = 1) => {
+    const sent: (string | Uint8Array)[] = [];
+    const stream = Object.create(InputStream.prototype) as InputStream;
+    Object.assign(stream, {
+      socket: { readyState: 1, send: (what: string | Uint8Array) => sent.push(what) },
+      port,
+      pad: 0,
+    });
+    return { stream, sent };
+  };
+
+  it("part en texte, avec le nom de fichier entier, et pas en position", () => {
+    const { stream, sent } = wired();
+
+    expect(stream.chooseGameByKey("Mario Party 4 (Europe) (Rev 2).rvz")).toBe(true);
+
+    expect(sent).toEqual(['{"jeu":"Mario Party 4 (Europe) (Rev 2).rvz"}']);
+    // Le jumeau: l'ancienne commande reste deux octets, pour un worker d'avant.
+    expect(stream.chooseGame(3)).toBe(true);
+    expect([...(sent[1] as Uint8Array)]).toEqual([1, 3]);
+  });
+
+  it("n'envoie ni une clé vide ni un chemin, et rien sans place", () => {
+    const { stream, sent } = wired();
+    expect(stream.chooseGameByKey("")).toBe(false);
+    expect(stream.chooseGameByKey("../Zelda.rvz")).toBe(false);
+    expect(sent).toHaveLength(0);
+
+    const seatless = wired(null);
+    expect(seatless.stream.chooseGameByKey("Zelda.rvz")).toBe(false);
+    expect(seatless.sent).toHaveLength(0);
+  });
+});

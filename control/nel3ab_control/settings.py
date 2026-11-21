@@ -282,3 +282,17 @@ class Settings(BaseSettings):
             "navigateur de se déclarer propriétaire."
         ),
     )
+
+    def is_admin(self, login: str) -> bool:
+        """Cette adresse est-elle celle de `admin` ?
+
+        Une seule lecture de la règle, pour les trois routes qui la posent:
+        publier la référence de la salle, le dire à la page, fermer une salle.
+        Trois copies d'une comparaison finissent par ne plus dire la même chose.
+
+        Mise en minuscules des DEUX côtés: l'identité arrive normalisée, la
+        configuration est écrite à la main. Une adresse d'administrateur vide ne
+        correspond à personne, puisque les deux chemins d'identité refusent une
+        adresse vide.
+        """
+        return login == self.admin.strip().lower()

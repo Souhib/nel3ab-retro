@@ -16,9 +16,15 @@ router = APIRouter(prefix="/api", tags=["room"])
 
 
 @router.get("/room", response_model=Room)
-async def read_room(rooms: RoomsDep, people: PeopleDep) -> Room:
-    """What is loaded, what else could be, who claims which pad, and who is here."""
-    return await rooms.describe(people)
+async def read_room(rooms: RoomsDep, people: PeopleDep, caller: CallerDep) -> Room:
+    """What is loaded, what else could be, who claims which pad, and who is here.
+
+    Les présents portent un repère et pas leur adresse; `moi` dit lequel est
+    celui qui demande. L'identité ne sert qu'à ça: la lecture reste ouverte à
+    qui n'en a pas, et personne n'y est alors « moi ».
+    """
+    room = await rooms.describe(people)
+    return room.vue_par(people.repere(caller[0]) if caller else None)
 
 
 @router.get("/room/bindings", response_model=Bindings)
@@ -64,11 +70,11 @@ async def publish_room_bindings(
             detail="aucune identité: cette salle n'est pas derrière son proxy",
         )
     login, _ = caller
-    # Mise en minuscules des DEUX côtés. L'identité arrive déjà normalisée
-    # (`identity.from_headers` et `whois` font `.strip().lower()`), la
-    # configuration non: une adresse écrite avec une majuscule dans l'unité
-    # systemd ne correspondrait alors jamais, et la personne se verrait refuser
-    # sa propre salle sans comprendre.
+    # Mise en minuscules des DEUX côtés, dans `Settings.is_admin`. L'identité
+    # arrive déjà normalisée (`identity.from_headers` et `whois` font
+    # `.strip().lower()`), la configuration non: une adresse écrite avec une
+    # majuscule dans l'unité systemd ne correspondrait alors jamais, et la
+    # personne se verrait refuser sa propre salle sans comprendre.
     #
     # Pas de garde sur une adresse VIDE ici, et c'est délibéré: les deux chemins
     # d'identité refusent déjà une adresse vide, donc `caller` ne peut pas en
@@ -76,7 +82,7 @@ async def publish_room_bindings(
     # personne, ce qui EST le défaut voulu. Ajouter la garde quand même donnerait
     # une ligne qui ne peut pas s'exécuter, c'est-à-dire une protection qu'on
     # croit avoir.
-    if login != settings.admin.strip().lower():
+    if not settings.is_admin(login):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="seule la personne qui tient la salle publie sa configuration",

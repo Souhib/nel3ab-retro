@@ -1,6 +1,6 @@
 import tailwind from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
+import { defineConfig, searchForWorkspaceRoot } from "vite";
 import { viteSingleFile } from "vite-plugin-singlefile";
 
 /**
@@ -35,6 +35,10 @@ export default defineConfig({
     assetsInlineLimit: 1024 * 1024,
   },
   server: {
+    // Le manifeste des consoles vit à la racine du dépôt, hors de `front/`, et
+    // la page l'importe (ADR D22). Sans cette entrée, le serveur de
+    // développement refuserait de le servir; la construction, elle, le lit.
+    fs: { allow: [searchForWorkspaceRoot(process.cwd()), "../consoles"] },
     proxy: {
       // The control plane: the room, the seats and the lobby.
       "/api": { target: "http://127.0.0.1:8200", changeOrigin: false },

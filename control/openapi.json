@@ -158,7 +158,7 @@
           "room"
         ],
         "summary": "Read Room",
-        "description": "What is loaded, what else could be, who claims which pad, and who is here.",
+        "description": "What is loaded, what else could be, who claims which pad, and who is here.\n\nLes présents portent un repère et pas leur adresse; `moi` dit lequel est\ncelui qui demande. L'identité ne sert qu'à ça: la lecture reste ouverte à\nqui n'en a pas, et personne n'y est alors « moi ».",
         "operationId": "read_room",
         "responses": {
           "200": {
@@ -242,7 +242,7 @@
           "salles"
         ],
         "summary": "Read Salles",
-        "description": "Toutes les salles, ouvertes ou non, et qui s'y trouve.\n\nSans identité: la liste est ce que le salon montre à qui arrive, et exiger\nde savoir qui demande la rendrait invisible à celui qui vient jouer. Savoir\nQUI est là n'est pas savoir qui demande: la première est publique dans le\ntailnet, la seconde serait une condition d'entrée.\n\nLes deux dépendances sont assemblées ICI, et pas dans le contrôleur des\nsalles: celui-ci interroge systemd et les salles, et ce qu'il sait doit\nsurvivre à un worker mort. Le pseudo l'emporte sur l'adresse, parce que\nc'est un nom que ses amis reconnaissent et pas un identifiant.",
+        "description": "Toutes les salles, ouvertes ou non, et qui s'y trouve.\n\nSans identité: la liste est ce que le salon montre à qui arrive, et exiger\nde savoir qui demande la rendrait invisible à celui qui vient jouer. Savoir\nQUI est là n'est pas savoir qui demande: la première est publique dans le\ntailnet, la seconde serait une condition d'entrée.\n\nLes deux dépendances sont assemblées ICI, et pas dans le contrôleur des\nsalles: celui-ci interroge systemd et les salles, et ce qu'il sait doit\nsurvivre à un worker mort. Seul le pseudo sort, jamais l'adresse: il y avait\nun repli sur l'adresse quand le pseudo était vide, et une adresse est souvent\nun courriel. Un pseudo vide n'arrive pas par une page; s'il arrivait, la\nliste dirait « quelqu'un » plutôt que l'adresse.",
         "operationId": "read_salles",
         "responses": {
           "200": {
@@ -266,7 +266,7 @@
           "salles"
         ],
         "summary": "Open Salle",
-        "description": "Ouvre le premier emplacement libre, ou refuse quand il n'y en a plus.",
+        "description": "Ouvre le premier emplacement libre, ou refuse quand il n'y en a plus.\n\nDemande une identité, n'importe laquelle. Ouvrir un emplacement libre ne\ndécide rien de la partie de quelqu'un d'autre, mais allume un émulateur sur\nla carte graphique commune: le salon doit savoir qui l'a demandé. Avant le\n21 novembre 2026, une page étrangère ouverte chez un membre pouvait le faire.",
         "operationId": "open_salle",
         "responses": {
           "201": {
@@ -288,7 +288,7 @@
           "salles"
         ],
         "summary": "Close Salle",
-        "description": "Ferme une salle, et le jeu qui tourne avec.\n\nSans condition de propriétaire pour l'instant: la salle se ferme d'elle-même\naprès une demi-heure sans personne, et ce bouton-ci sert à rendre la place\ntout de suite plutôt qu'à prendre une décision sur la partie de quelqu'un.",
+        "description": "Ferme une salle, et le jeu qui tourne avec.\n\nRéservé au chef de CETTE salle et à l'administrateur. Fermer arrête la\npartie de tous ceux qui y jouent: c'est la décision du chef, comme changer\nde jeu, et pas celle de quiconque passe par la liste. L'administrateur le\npeut aussi, sans y être, pour rendre la place quand une salle reste\nbloquée. Une salle où personne n'est connecté n'a pas de chef: seul\nl'administrateur la ferme avant la fermeture automatique d'une demi-heure.\n\nLe chef est celui que le salon tient pour cette salle, le même que la page\naffiche: pas un nom envoyé par la demande.",
         "operationId": "close_salle",
         "parameters": [
           {
@@ -321,6 +321,31 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/catalogue": {
+      "get": {
+        "tags": [
+          "catalogue"
+        ],
+        "summary": "Read Catalogue",
+        "description": "Les jeux de la machine, lus dans le fichier qu'une salle a écrit (ADR D24).\n\nNi worker ni Docker ici : le salon lit ce qu'une salle a déjà balayé, avec\nses clés et ses titres nettoyés. Sans identité, comme la liste des salles :\nelle ne dit que ce que chaque page de salle publie déjà à `/roms`.",
+        "operationId": "read_catalogue",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Catalogue"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucune salle n'a écrit sa liste."
           }
         }
       }
@@ -359,6 +384,92 @@
         "title": "Bindings",
         "description": "Ce que quelqu'un a réglé sur ses manettes et son clavier.\n\nLe contenu est OPAQUE au service, et c'est délibéré. La forme d'un profil\nappartient à la page: elle sait ce qu'un axe, un repos et un signe veulent\ndire, et elle est la seule à s'en servir. La décrire ici en donnerait une\ndeuxième version à tenir d'accord avec la première, et il faudrait publier le\nservice pour ajouter un champ à une manette.\n\nCe qui est vérifié est ce qui protège le disque: un objet, sous un plafond\n(voir `BindingsController.CEILING`)."
       },
+      "Catalogue": {
+        "properties": {
+          "scanned_ms": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Scanned Ms",
+            "description": "Quand le balayage a eu lieu, en millisecondes depuis 1970."
+          },
+          "room": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Room",
+            "description": "Le numéro de la salle qui l'a écrite."
+          },
+          "games": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogueGame"
+            },
+            "type": "array",
+            "title": "Games"
+          }
+        },
+        "type": "object",
+        "required": [
+          "scanned_ms",
+          "room",
+          "games"
+        ],
+        "title": "Catalogue",
+        "description": "La bibliothèque la plus fraîche que les salles ont écrite."
+      },
+      "CatalogueGame": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key",
+            "description": "Son nom de fichier, ce qui le désigne (ADR D23)."
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Son titre, nettoyé par le worker."
+          },
+          "console": {
+            "type": "string",
+            "title": "Console",
+            "description": "Le code de sa console, ou « ? »."
+          },
+          "art": {
+            "type": "boolean",
+            "title": "Art",
+            "description": "Vrai quand une salle peut servir son image."
+          },
+          "maker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maker"
+          },
+          "about": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "About"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "name",
+          "console",
+          "art"
+        ],
+        "title": "CatalogueGame",
+        "description": "Un jeu de la bibliothèque, tel que le worker l'a décrit."
+      },
       "Connection": {
         "properties": {
           "kind": {
@@ -391,7 +502,19 @@
           "index": {
             "type": "integer",
             "title": "Index",
-            "description": "Its position in the worker's library, which is how it is asked for."
+            "description": "Its position in the worker's library. Valid only for the library it came with: a file that sorts earlier moves every position after it."
+          },
+          "key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key",
+            "description": "La clé du jeu: son nom de fichier, ce qu'une page envoie pour le lancer (ADR D23). Elle désigne encore ce jeu quand la liste a changé. Nulle pour un worker d'avant le 21 novembre 2026, qui ne la publiait pas."
           },
           "name": {
             "type": "string",
@@ -425,7 +548,7 @@
           "console": {
             "type": "string",
             "title": "Console",
-            "description": "Quelle console ce disque demande, lue sur le disque: « gc », « wii », ou « ? » quand le disque n'a pas répondu. La page s'en sert pour ne pas proposer un choix qui ne déciderait rien: un jeu Wii n'a pas de carte mémoire, donc pas deux emplacements de sauvegarde. « ? » n'est pas « gc »: proposer un choix qui ne fait rien est pire que ne pas le proposer.",
+            "description": "Quelle console ce disque demande, lue sur le disque ou sur sa fiche: « gc », « wii », « switch », « switch2 », « x360 » (consoles/consoles.json), ou « ? » quand le disque n'a pas répondu. La page s'en sert pour ne pas proposer un choix qui ne déciderait rien: un jeu Wii n'a pas de carte mémoire, donc pas deux emplacements de sauvegarde. « ? » n'est pas « gc »: proposer un choix qui ne fait rien est pire que ne pas le proposer.",
             "default": "?"
           },
           "art": {
@@ -635,7 +758,7 @@
             "type": "string",
             "title": "Name"
           },
-          "login": {
+          "id": {
             "anyOf": [
               {
                 "type": "string"
@@ -644,7 +767,14 @@
                 "type": "null"
               }
             ],
-            "title": "Login"
+            "title": "Id",
+            "description": "Un repère opaque et stable de la personne, le même sur tous ses appareils et dans toutes les salles. Ne dit rien de son adresse. Nul sans identité: deux anonymes ne sont pas la même personne."
+          },
+          "moi": {
+            "type": "boolean",
+            "title": "Moi",
+            "description": "Vrai quand cette personne est celle qui reçoit cet état. Calculé pour chaque page, donc jamais vrai pour une page sans identité.",
+            "default": false
           },
           "seat": {
             "anyOf": [
@@ -670,7 +800,7 @@
           "name"
         ],
         "title": "Person",
-        "description": "Quelqu'un dans la salle, qu'il tienne une manette ou non."
+        "description": "Quelqu'un dans la salle, qu'il tienne une manette ou non.\n\nSans son adresse, et c'est délibéré: cet état part vers toutes les pages de\nla salle, invités compris, et une adresse est souvent un courriel. Le\nrepère et `moi` font ce que l'adresse faisait pour la page. Voir\n`nel3ab_control.reperes`."
       },
       "Preparation": {
         "properties": {
@@ -680,7 +810,20 @@
           },
           "game": {
             "type": "integer",
-            "title": "Game"
+            "title": "Game",
+            "description": "La position du jeu quand la préparation a commencé. Pour l'affichage."
+          },
+          "key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key",
+            "description": "La clé du jeu, son nom de fichier, qui le désigne même si la liste a changé depuis (ADR D23). Nulle quand le worker n'en publiait pas."
           },
           "save": {
             "type": "integer",

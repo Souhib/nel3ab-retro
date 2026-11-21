@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 
 import anyio
 import httpx
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.routing import APIRoute
 
 from nel3ab_control.api.controllers.bindings import (
@@ -17,12 +17,14 @@ from nel3ab_control.api.controllers.people import PeopleController
 from nel3ab_control.api.controllers.salles import SallesController
 from nel3ab_control.api.controllers.salons import Salons
 from nel3ab_control.api.routes import accueil as accueil_routes
+from nel3ab_control.api.routes import catalogue as catalogue_routes
 from nel3ab_control.api.routes import imports as imports_routes
 from nel3ab_control.api.routes import me as me_routes
 from nel3ab_control.api.routes import rooms as rooms_routes
 from nel3ab_control.api.routes import salles as salles_routes
 from nel3ab_control.api.ws import socketio_app
 from nel3ab_control.api.ws.server import allow_origins, follow_seats
+from nel3ab_control.dependencies import same_origin
 from nel3ab_control.journal import Journal
 from nel3ab_control.settings import Settings
 from nel3ab_control.worker import read_seats
@@ -93,6 +95,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         summary="Who is here, which game, which pad.",
         lifespan=lifespan,
         generate_unique_id_function=operation_id,
+        # Sur l'application entière et pas route par route: une écriture
+        # ajoutée demain hérite de la garde sans que personne y pense. La garde
+        # laisse passer les lectures. Voir `same_origin`.
+        dependencies=[Depends(same_origin)],
     )
     app.state.settings = settings or Settings()
     allow_origins(app.state.settings.origins)
@@ -101,6 +107,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(me_routes.router)
     app.include_router(rooms_routes.router)
     app.include_router(salles_routes.router)
+    app.include_router(catalogue_routes.router)
     app.mount("/socket.io", socketio_app)
     return app
 

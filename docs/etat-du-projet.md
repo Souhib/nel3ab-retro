@@ -6,6 +6,16 @@ et leurs limites. Le [carnet](carnet-de-bord.md#11-septembre-ce-que-le-mois-a-ap
 conserve leur déroulement ; l'[ADR](adr/0001-architecture.md) conserve les règles
 qui en résultent. Les anciens plans M1 à M3 sont des archives de conception.
 
+**Au 21 novembre, sur une branche non installée : déposer un jeu depuis une page.**
+La page `/importer` du salon reçoit des fichiers par morceaux reprenables,
+reconnaît la console dans leurs octets, sans Docker ni clé, et range GameCube
+et Wii sans jamais écraser un fichier. La Switch attend une inscription à la
+main, la Xbox 360 et les consoles rétro restent en quarantaine avec la raison.
+Réservé à l'administrateur et aux adresses de `NEL3AB_IMPORTEURS`. Rien n'est
+installé, et aucun envoi n'a traversé le vrai réseau. Mode d'emploi :
+[Déposer un jeu](importer.md). Récit : [carnet](carnet-de-bord.md), entrée
+« 21 novembre : déposer un jeu et le laisser se ranger ».
+
 **Au 21 novembre, sur une branche non installée : un manifeste des consoles et une clé par jeu.**
 `consoles/consoles.json` décrit chaque console et chaque moteur ; le salon,
 la boîte noire et la page le lisent, et un essai compare le worker au

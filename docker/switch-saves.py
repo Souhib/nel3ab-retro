@@ -13,6 +13,7 @@ import hashlib
 import importlib.util
 import json
 import re
+import runpy
 import shutil
 import sys
 import time
@@ -112,7 +113,17 @@ def chosen(rule: Files | Tree, archive: zipfile.ZipFile) -> dict[PurePosixPath, 
     return picked
 
 
-def import_save(slot: Path, title: str, archive: Path, source: str = "", note: str = "") -> None:
+def import_save(
+    slot: Path,
+    title: str,
+    archive: Path,
+    source: str = "",
+    note: str = "",
+    *,
+    unlocked: bool = False,
+) -> None:
+    if unlocked and slot.name != "debloquee":
+        raise ValueError("An unlocked import belongs in the shared debloquee slot")
     rule = RULES.get(title.lower())
     if rule is None:
         raise ValueError("No save for this game was checked yet; see RULES")
@@ -133,6 +144,7 @@ def import_save(slot: Path, title: str, archive: Path, source: str = "", note: s
         raise ValueError("Save exceeds the import limit")
     container = account_container(slot, title.lower())
     adapter.backup(slot)
+    (slot / "unlocked.json").unlink(missing_ok=True)
     pending = slot / "import.pending"
     if pending.exists():
         shutil.rmtree(pending)
@@ -161,6 +173,17 @@ def import_save(slot: Path, title: str, archive: Path, source: str = "", note: s
             indent=2,
         )
     )
+    if unlocked:
+        marker = runpy.run_path(str(Path(__file__).resolve().parents[1] / "tools/save-unlocked.py"))
+        marker["mark"](
+            slot,
+            [
+                str((container / bank / inner).relative_to(slot))
+                for bank in ("0", "1")
+                for inner in data
+            ],
+            source or str(archive.resolve()),
+        )
 
 
 def restore(slot: Path, name: str) -> None:
@@ -171,6 +194,7 @@ def restore(slot: Path, name: str) -> None:
         raise ValueError("Unknown backup")
     target = slot / "data/bis/user"
     adapter.backup(slot)
+    (slot / "unlocked.json").unlink(missing_ok=True)
     pending = slot / "data/bis/user.restore"
     if pending.exists():
         raise ValueError("A previous restore needs inspection")
@@ -201,6 +225,11 @@ def main():
     parser.add_argument("value", nargs="?")
     parser.add_argument("--source", default="", help="where the imported archive came from")
     parser.add_argument("--note", default="", help="what its author says it contains")
+    parser.add_argument(
+        "--unlocked",
+        action="store_true",
+        help="attest that this import provides the advertised unlocks",
+    )
     args = parser.parse_args()
     if len(args.title) != 16 or any(c not in "0123456789abcdefABCDEF" for c in args.title):
         parser.error("Invalid title identifier")
@@ -229,7 +258,14 @@ def main():
         elif args.action == "restore" and args.value:
             restore(slot, args.value)
         elif args.action == "import" and args.value:
-            import_save(slot, args.title, Path(args.value), args.source, args.note)
+            import_save(
+                slot,
+                args.title,
+                Path(args.value),
+                args.source,
+                args.note,
+                unlocked=args.unlocked,
+            )
         else:
             parser.error("Missing backup or archive")
 

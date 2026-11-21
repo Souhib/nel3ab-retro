@@ -48,6 +48,8 @@ pub enum Console {
     Wii,
     /// Registered Switch application, launched by the separate Ryubing adapter.
     Switch,
+    /// Registered Switch 2 application, launched by its experimental adapter.
+    Switch2,
     /// Le disque n'a pas répondu. Voir le module: ce n'est pas « GameCube ».
     Unknown,
 }
@@ -60,8 +62,24 @@ impl Console {
             Self::GameCube => "gc",
             Self::Wii => "wii",
             Self::Switch => "switch",
+            Self::Switch2 => "switch2",
             Self::Unknown => "?",
         }
+    }
+
+    /// Both external adapters consume the same Pro Controller input frames.
+    #[must_use]
+    pub const fn is_switch(self) -> bool {
+        matches!(self, Self::Switch | Self::Switch2)
+    }
+
+    /// The validated room limit, bounded again by the operator's configuration.
+    ///
+    /// The initial Switch 2 integration validates one player and spectators.
+    /// This is a limit of our adapter, not a claim about the physical console.
+    #[must_use]
+    pub const fn player_limit(self) -> u8 {
+        if matches!(self, Self::Switch2) { 1 } else { 4 }
     }
 
     /// Ce que le disque a répondu, tel que `dolphin-tool header` l'écrit.
@@ -154,7 +172,7 @@ pub fn consoles(roms: &[Rom], tool: &Path, cache: &Path) -> Vec<Console> {
 fn disc_of(rom: &Rom, tool: &Path, cache: &Path) -> Disc {
     if let Some(game) = crate::switch::registered(&rom.path) {
         return Disc {
-            console: Console::Switch,
+            console: game.console,
             title: Some(game.title),
         };
     }
@@ -292,5 +310,37 @@ mod tests {
         // version de l'outil qui en ajoute ne doit pas changer le verdict.
         let richer = format!("{GAMECUBE}Disc Number: 0\nApploader Date: 2004/03/03\n");
         assert_eq!(Console::from_header(&richer), Console::GameCube);
+    }
+
+    #[test]
+    fn registered_switch2_reaches_the_catalogue_without_a_dolphin_header()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let dir = tempfile::tempdir()?;
+        let path = dir.path().join("zelda.nup");
+        std::fs::write(&path, b"NUP registration fixture")?;
+        std::fs::write(
+            dir.path().join("unregistered.nup"),
+            b"not a registered game",
+        )?;
+        assert!(crate::library::scan(dir.path()).is_empty());
+        std::fs::write(
+            dir.path().join("zelda.nup.nel3ab.json"),
+            r#"{"console":"switch2","name":"Ocarina of Time","title":"0400486024DEC000"}"#,
+        )?;
+        let library = crate::library::scan(dir.path());
+        assert_eq!(library.len(), 1);
+        let discs = super::discs(&library, Path::new("/unavailable/dolphin-tool"), dir.path());
+        assert_eq!(discs[0].console, Console::Switch2);
+        assert_eq!(discs[0].title.as_deref(), Some("0400486024dec000"));
+        let catalogue: serde_json::Value = serde_json::from_str(&crate::library::catalogue_json(
+            &library,
+            &[],
+            &[discs[0].console],
+            Some(0),
+            1,
+        ))?;
+        assert_eq!(catalogue["roms"][0]["console"], "switch2");
+        assert_eq!(catalogue["players"], 1);
+        Ok(())
     }
 }

@@ -1,11 +1,13 @@
-//! Deux sauvegardes par jeu, et celle qu'on choisit au démarrage.
+//! Sauvegardes personnelles et import partagé, choisis au démarrage.
 //!
-//! # Pourquoi deux
+//! # Les choix
 //!
-//! Une partie propre pour découvrir un jeu, et une où tout est déjà débloqué
-//! pour une soirée à quatre où personne n'a envie de gagner trois coupes avant
-//! de jouer au circuit qu'il voulait. Les deux vivent côte à côte et ne se
-//! marchent pas dessus.
+//! Pour un compte identifié, « partie neuve » et « reprendre » utilisent le
+//! même dossier personnel. Le nouveau départ conserve l'ancienne progression
+//! dans un historique, une seule fois par demande (voir [`crate::personal`]).
+//! L'import « tout débloqué » reste partagé et n'est proposé qu'avec ses preuves
+//! de disponibilité (voir [`crate::unlocked`]). Sans compte, la partie neuve
+//! conserve l'ancien emplacement partagé.
 //!
 //! # Comment, sans rien demander à Dolphin
 //!
@@ -73,7 +75,7 @@ impl Slot {
         match self {
             Self::Fresh => "partie neuve",
             Self::Unlocked => "tout débloqué",
-            Self::Person => "ta sauvegarde",
+            Self::Person => "reprendre",
         }
     }
 
@@ -146,7 +148,16 @@ pub fn key(rom_file: &str) -> String {
 /// contenant `..` ou une barre oblique donnerait un dossier ailleurs.
 #[must_use]
 pub fn person_key(login: &str) -> String {
-    key(login)
+    use sha2::{Digest as _, Sha256};
+    let readable = key(login);
+    if readable == NO_NAME {
+        return readable;
+    }
+    // 24 readable bytes + '-' + the full 64-byte digest keeps even the folder
+    // and its lock/history suffixes well below Linux's 255-byte name limit.
+    // The readable prefix carries no uniqueness guarantee; the digest does.
+    let prefix: String = readable.chars().take(24).collect();
+    format!("{prefix}-{:x}", Sha256::digest(login.trim().as_bytes()))
 }
 
 /// Le nom du dossier d'un emplacement, la personne comprise.
@@ -164,7 +175,7 @@ pub fn folder_for(slot: Slot, person: Option<&str>) -> String {
         // `person_key` ne rend jamais rien de vide: il retombe sur `NO_NAME`,
         // qui n'appartient à personne. Deux identités illisibles y auraient
         // partagé un dossier, donc elles retombent sur la partie neuve.
-        (Slot::Person, Some(login)) if person_key(login) != NO_NAME => {
+        (Slot::Fresh | Slot::Person, Some(login)) if person_key(login) != NO_NAME => {
             format!("{}-{}", Slot::Person.folder(), person_key(login))
         }
         (Slot::Person, _) => Slot::Fresh.folder().to_owned(),
@@ -324,48 +335,133 @@ fn rescue(from: &Path, slot: &Path) -> Result<(), std::io::Error> {
 /// Rend les titres retirés, pour que l'appelant puisse le DIRE. Effacer quelque
 /// chose dans un arbre de sauvegardes sans une ligne de journal serait le genre
 /// de silence qu'on regrette.
+///
+/// # Mort pour Dolphin, pas seulement pour la machine
+///
+/// Un lien qui mène HORS du dossier de la salle est mort lui aussi, même si sa
+/// cible existe: le conteneur de Dolphin ne monte que le dossier de sa salle.
+/// Le 24 septembre 2026, quatre liens menaient encore à `nel3ab/session`, le
+/// dossier d'avant les salles multiples; vivants ici, ils ont tué Mario Kart Wii
+/// au démarrage. [`repoint_nand`] les ramène dans la salle quand la même
+/// sauvegarde y est; ce qui reste dehors est retiré ici. La cible, elle, n'est
+/// jamais touchée: retirer un lien n'efface pas ce qu'il désigne.
 #[must_use]
 pub fn sweep_nand(session_dir: &Path) -> Vec<String> {
-    let titles = session_dir.join("Wii").join("title");
     let mut swept = Vec::new();
-    let Ok(highs) = std::fs::read_dir(&titles) else {
-        return swept;
+    for (title, low, data) in nand_entries(session_dir) {
+        // `symlink_metadata` ne SUIT pas le lien, `inside_room` le suit. Il faut
+        // les deux: le premier dit « c'est un lien », le second dit « il mène
+        // dans la salle ». N'utiliser que le second confondrait un lien mort avec
+        // un titre qui n'a pas encore de sauvegarde.
+        let Ok(kind) = std::fs::symlink_metadata(&data) else {
+            continue;
+        };
+        // La première condition n'est pas couverte par un essai: un vrai dossier
+        // de la salle passe déjà par la seconde. Elle n'est pas décorative pour
+        // autant: la résolution peut échouer sur un dossier qui existe (droits
+        // refusés, montage parti), et sans « c'est un lien », ce dossier-là
+        // serait effacé. Une garde qu'on ne peut pas mettre en scène reste une
+        // garde, tant qu'on dit laquelle.
+        if !kind.is_symlink() || inside_room(session_dir, &data) {
+            continue;
+        }
+        if std::fs::remove_dir_all(&low).is_ok() {
+            swept.push(title);
+        }
+    }
+    swept
+}
+
+/// Ramène dans la salle les liens de la NAND qui en sortent, quand la même
+/// sauvegarde s'y trouve.
+///
+/// « La même »: le chemin qui suit le dernier `saves/` de l'ancienne cible, sous
+/// le `saves/` de la salle. C'est la forme exacte que le passage aux salles
+/// multiples a laissée. Rend les titres ramenés, pour que l'appelant le dise.
+///
+/// Le nouveau lien est créé à côté puis renommé par-dessus l'ancien: le
+/// remplacement est d'un seul geste, et une panne au milieu ne laisse pas une
+/// entrée sans lien.
+#[must_use]
+pub fn repoint_nand(session_dir: &Path) -> Vec<String> {
+    let mut repointed = Vec::new();
+    for (title, _low, data) in nand_entries(session_dir) {
+        let Ok(kind) = std::fs::symlink_metadata(&data) else {
+            continue;
+        };
+        if !kind.is_symlink() || inside_room(session_dir, &data) {
+            continue;
+        }
+        let Some(slot) = std::fs::read_link(&data)
+            .ok()
+            .and_then(|at| after_saves(&at))
+        else {
+            continue;
+        };
+        let here = session_dir.join("saves").join(slot);
+        if !here.is_dir() || !inside_room(session_dir, &here) {
+            continue;
+        }
+        let fresh = data.with_file_name("data.nel3ab-nouveau");
+        let _ = std::fs::remove_file(&fresh);
+        if std::os::unix::fs::symlink(&here, &fresh).is_ok()
+            && std::fs::rename(&fresh, &data).is_ok()
+        {
+            repointed.push(title);
+        } else {
+            let _ = std::fs::remove_file(&fresh);
+        }
+    }
+    repointed
+}
+
+/// Chaque entrée de la NAND: son titre, son dossier, et son `data`.
+fn nand_entries(session_dir: &Path) -> Vec<(String, PathBuf, PathBuf)> {
+    let mut entries = Vec::new();
+    let Ok(highs) = std::fs::read_dir(session_dir.join("Wii").join("title")) else {
+        return entries;
     };
     for high in highs.flatten() {
         let Ok(lows) = std::fs::read_dir(high.path()) else {
             continue;
         };
         for low in lows.flatten() {
-            let data = low.path().join("data");
-            // `symlink_metadata` ne SUIT pas le lien, `metadata` le suit. Il faut
-            // les deux: le premier dit « c'est un lien », le second dit « il ne
-            // mène nulle part ». N'utiliser que le second confondrait un lien
-            // mort avec un titre qui n'a pas encore de sauvegarde.
-            let Ok(kind) = std::fs::symlink_metadata(&data) else {
-                continue;
-            };
-            // Deux conditions, et la seconde suffit à tous les cas qu'un essai
-            // sait fabriquer: un vrai dossier se lit, donc `metadata` réussit,
-            // donc on passe. La première n'est donc PAS couverte, et je préfère
-            // le dire que de la laisser croire vérifiée.
-            //
-            // Elle n'est pas décorative pour autant: `metadata` peut échouer sur
-            // un dossier qui existe — droits refusés, montage parti — et sans
-            // « c'est un lien », ce dossier-là serait effacé. Une garde qu'on ne
-            // peut pas mettre en scène reste une garde, tant qu'on dit laquelle.
-            if !kind.is_symlink() || std::fs::metadata(&data).is_ok() {
-                continue;
-            }
-            if std::fs::remove_dir_all(low.path()).is_ok() {
-                swept.push(format!(
+            entries.push((
+                format!(
                     "{}{}",
                     high.file_name().to_string_lossy(),
                     low.file_name().to_string_lossy()
-                ));
-            }
+                ),
+                low.path(),
+                low.path().join("data"),
+            ));
         }
     }
-    swept
+    entries
+}
+
+/// Ce chemin mène-t-il, liens suivis, à l'intérieur du dossier de la salle ?
+/// Faux aussi quand il ne mène nulle part: mort pour la machine, mort pour Dolphin.
+fn inside_room(session_dir: &Path, path: &Path) -> bool {
+    match (
+        std::fs::canonicalize(session_dir),
+        std::fs::canonicalize(path),
+    ) {
+        (Ok(room), Ok(at)) => at.starts_with(room),
+        _ => false,
+    }
+}
+
+/// Ce qui suit le dernier `saves` d'un chemin, s'il y a quelque chose et rien
+/// qui remonte.
+fn after_saves(target: &Path) -> Option<PathBuf> {
+    let parts: Vec<_> = target.components().collect();
+    let at = parts.iter().rposition(|part| part.as_os_str() == "saves")?;
+    let rest: PathBuf = parts.get(at + 1..)?.iter().collect();
+    let climbs = rest
+        .components()
+        .any(|part| !matches!(part, std::path::Component::Normal(_)));
+    (!rest.as_os_str().is_empty() && !climbs).then_some(rest)
 }
 
 fn link(session_dir: &Path, slot: &Path, at: &Path) -> Result<(), EmulatorError> {
@@ -523,6 +619,94 @@ mod tests {
                 .join("data")
                 .is_dir()
         );
+    }
+
+    /// Le défaut du 24 septembre 2026. Les liens de la NAND de la salle 1 menaient
+    /// encore à `nel3ab/session`, le dossier d'avant les salles multiples. Vivants
+    /// pour la machine, donc gardés par le ménage; morts pour Dolphin, dont le
+    /// conteneur ne monte que le dossier de SA salle. Mario Kart Wii mourait au
+    /// démarrage sur le lien de Mario Strikers Charged.
+    fn a_link_leaving_the_room(session: &Path, outside: &Path, copy_inside: bool) -> PathBuf {
+        let slot = std::path::Path::new("mario-strikers-charged").join("neuve");
+        let away = outside.join("saves").join(&slot);
+        std::fs::create_dir_all(&away).unwrap();
+        std::fs::write(away.join("save.bin"), b"hors de la salle").unwrap();
+        if copy_inside {
+            let here = session.join("saves").join(&slot);
+            std::fs::create_dir_all(&here).unwrap();
+            std::fs::write(here.join("save.bin"), b"dans la salle").unwrap();
+        }
+        let held = session
+            .join("Wii")
+            .join("title")
+            .join("00010000")
+            .join("52345145");
+        std::fs::create_dir_all(held.join("content")).unwrap();
+        std::os::unix::fs::symlink(&away, held.join("data")).unwrap();
+        held.join("data")
+    }
+
+    #[test]
+    fn a_link_leaving_the_room_is_pointed_at_the_same_save_inside_it() {
+        let session = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        let data = a_link_leaving_the_room(session.path(), outside.path(), true);
+
+        let repointed = repoint_nand(session.path());
+
+        assert_eq!(repointed, vec!["0001000052345145".to_owned()]);
+        assert_eq!(
+            std::fs::read(data.join("save.bin")).unwrap(),
+            b"dans la salle",
+            "le lien mène maintenant à la copie de la salle"
+        );
+        // Rien n'est effacé dehors: repointer un lien ne touche pas sa cible.
+        assert!(
+            outside
+                .path()
+                .join("saves/mario-strikers-charged/neuve/save.bin")
+                .exists()
+        );
+        // Et le ménage qui suit n'a plus rien à retirer.
+        assert!(sweep_nand(session.path()).is_empty());
+    }
+
+    #[test]
+    fn a_link_leaving_the_room_with_no_copy_inside_is_dead_for_dolphin() {
+        let session = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        let data = a_link_leaving_the_room(session.path(), outside.path(), false);
+
+        assert!(repoint_nand(session.path()).is_empty());
+        let swept = sweep_nand(session.path());
+
+        assert_eq!(swept, vec!["0001000052345145".to_owned()]);
+        assert!(
+            std::fs::symlink_metadata(&data).is_err(),
+            "l'entrée de NAND est partie"
+        );
+        // La sauvegarde elle-même est intacte, là où elle était.
+        assert_eq!(
+            std::fs::read(
+                outside
+                    .path()
+                    .join("saves/mario-strikers-charged/neuve/save.bin")
+            )
+            .unwrap(),
+            b"hors de la salle"
+        );
+    }
+
+    #[test]
+    fn a_link_inside_the_room_is_neither_repointed_nor_swept() {
+        let session = tempfile::tempdir().unwrap();
+        let titles = a_nand_with(session.path(), &[("0001000053535145", "vivant")]);
+        let data = titles.join("00010000").join("53535145").join("data");
+        let before = std::fs::read_link(&data).unwrap();
+
+        assert!(repoint_nand(session.path()).is_empty());
+        assert!(sweep_nand(session.path()).is_empty());
+        assert_eq!(std::fs::read_link(&data).unwrap(), before);
     }
 
     /// Une salle qui n'a jamais lancé de jeu Wii n'a pas de NAND du tout.
@@ -819,12 +1003,24 @@ mod tests {
     fn la_sauvegarde_d_une_personne_porte_son_nom() {
         assert_eq!(
             folder_for(Slot::Person, Some("souhib@example.com")),
-            "joueur-souhib-example-com"
+            "joueur-souhib-example-com-b2bc049f29d07e45c04b3aa21b12a5614796b19f59b68528367019150f8f2e8c"
         );
         assert_ne!(
             folder_for(Slot::Person, Some("souhib@example.com")),
             folder_for(Slot::Person, Some("vincent@example.com")),
             "deux personnes joueraient sur la même sauvegarde"
+        );
+    }
+
+    #[test]
+    fn distinct_logins_cannot_collide_when_their_readable_names_match() {
+        assert_ne!(
+            person_key("alex+test@example.com"),
+            person_key("alex-test@example.com")
+        );
+        assert_eq!(
+            folder_for(Slot::Fresh, Some("alex@example.com")),
+            folder_for(Slot::Person, Some("alex@example.com"))
         );
     }
 
@@ -848,13 +1044,16 @@ mod tests {
         );
     }
 
-    /// Les deux autres emplacements ignorent la personne: ils sont à la salle.
+    /// L'import débloqué reste partagé ; une partie neuve authentifiée est personnelle.
     #[test]
-    fn les_emplacements_de_la_salle_ne_dependent_de_personne() {
+    fn import_partage_et_nouvelle_partie_personnelle() {
         assert_eq!(
             folder_for(Slot::Unlocked, Some("souhib@example.com")),
             Slot::Unlocked.folder()
         );
-        assert_eq!(folder_for(Slot::Fresh, Some("qui-que-ce-soit")), "neuve");
+        assert_eq!(
+            folder_for(Slot::Fresh, Some("qui-que-ce-soit")),
+            folder_for(Slot::Person, Some("qui-que-ce-soit"))
+        );
     }
 }

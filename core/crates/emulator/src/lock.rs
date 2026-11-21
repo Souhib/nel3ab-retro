@@ -99,6 +99,20 @@ mod tests {
 
     use super::*;
 
+    #[test]
+    fn rust_and_python_adapters_observe_the_same_kernel_lock() -> io::Result<()> {
+        let root = tempfile::tempdir()?;
+        let held = take(root.path())?;
+        assert!(held.is_some());
+        let probe = || {
+            std::process::Command::new("python3").args(["-c", "import fcntl,sys\nf=open(sys.argv[1],'a')\ntry: fcntl.flock(f,fcntl.LOCK_EX|fcntl.LOCK_NB)\nexcept BlockingIOError: sys.exit(23)\n"]).arg(root.path().join(LOCK)).status()
+        };
+        assert_eq!(probe()?.code(), Some(23));
+        drop(held);
+        assert_eq!(probe()?.code(), Some(0));
+        Ok(())
+    }
+
     /// Deux salles sur le même dossier: la seconde doit être refusée.
     #[test]
     fn un_second_worker_sur_le_meme_dossier_est_refuse() -> io::Result<()> {

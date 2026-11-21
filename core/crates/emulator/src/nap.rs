@@ -166,6 +166,11 @@ impl Idle {
     /// demandé ou une fermeture déjà en route suspendent la règle: la boucle
     /// d'images a déjà du travail, et lui en ajouter ferait deux ordres pour
     /// une seule salle.
+    ///
+    /// `playing` dit si un jeu tourne. Il ne change pas la règle d'inactivité,
+    /// qui ferme aussi un salon sans jeu: la seule chose qu'il réserve au jeu
+    /// est la règle « salle désertée », parce qu'un salon vide n'est pas un
+    /// abandon, c'est son état normal.
     pub fn saw(
         &mut self,
         busy: Busy,
@@ -179,11 +184,9 @@ impl Idle {
             self.warned = false;
             self.closed = false;
         }
-        // Une salle sans jeu n'a rien à fermer, et le dire ici plutôt que chez
-        // l'appelant garde la règle entière au même endroit. Le worker installé
-        // est relancé par systemd dès qu'il s'arrête: fermer une salle vide ne
-        // libérerait rien et rouvrirait la même salle deux secondes plus tard.
-        if !playing || busy.wanted {
+        // Un jeu demandé suspend la règle: la boucle d'images a déjà l'ordre à
+        // servir, et lui en ajouter ferait deux ordres pour une seule salle.
+        if busy.wanted {
             self.closing_in = 0;
             return None;
         }
@@ -191,7 +194,11 @@ impl Idle {
         // il n'y a personne à prévenir et rien à attendre. Une salle vide est
         // aussi une salle inactive, donc l'ordre décide laquelle des deux
         // ferme, et la plus courte doit gagner.
-        if busy.quiet() {
+        //
+        // Ne vaut que pour un jeu. Un salon est vide par nature: le fermer dès
+        // qu'il est vide serait le fermer dès que la dernière page se ferme. Le
+        // salon, lui, se ferme par la seule inactivité, plus bas.
+        if playing && busy.quiet() {
             let depuis = *self.empty_since.get_or_insert(now);
             if now.saturating_duration_since(depuis) >= limits.empty {
                 return (!std::mem::replace(&mut self.closed, true)).then_some(Step::Close);
@@ -717,26 +724,43 @@ mod tests {
         );
     }
 
-    /// Une salle ouverte SANS jeu n'a rien à fermer.
+    /// Un salon sans jeu se ferme aussi, par la seule inactivité.
     ///
-    /// Le worker installé est relancé par systemd dès qu'il s'arrête. Fermer une
-    /// salle vide ne libérerait donc rien et provoquerait un redémarrage toutes
-    /// les demi-heures, éternellement. Ce qui coûte, c'est l'émulateur.
+    /// Il ne libère pas de GPU, mais il tient un worker et une place sur la
+    /// machine, et la règle d'inactivité doit le fermer comme elle ferme un jeu.
+    /// Le worker sort alors avec le code qui empêche systemd de le relancer.
     #[test]
-    fn une_salle_sans_jeu_en_cours_ne_se_ferme_jamais() {
+    fn une_salle_sans_jeu_se_ferme_apres_trente_minutes_sans_geste() {
+        let start = Instant::now();
+        let mut idle = Idle::new();
+        let vu = |idle: &mut Idle, s: u64| {
+            idle.saw(watching(1), false, start, at(start, s), Limits::default())
+        };
+
+        assert_eq!(vu(&mut idle, 25 * 60 - 1), None);
+        assert_eq!(vu(&mut idle, 25 * 60), Some(Step::Warn));
+        assert_eq!(vu(&mut idle, 30 * 60), Some(Step::Close));
+    }
+
+    /// Le jumeau: un salon vide ne se ferme PAS par la règle « salle désertée ».
+    ///
+    /// Sans cette distinction, un salon se fermerait trois minutes après la
+    /// dernière page, ce qui est justement son état normal entre deux visites.
+    #[test]
+    fn un_salon_vide_ne_se_ferme_pas_en_trois_minutes() {
         let start = Instant::now();
         let mut idle = Idle::new();
 
         assert_eq!(
             idle.saw(
-                watching(1),
+                Busy::default(),
                 false,
                 start,
-                at(start, 60 * 60),
-                Limits::default(),
+                at(start, 5 * 60),
+                Limits::default()
             ),
             None,
-            "une salle sans jeu s'est fermée pour rien"
+            "un salon vide s'est fermé par la règle des salles désertées"
         );
     }
 
@@ -883,9 +907,10 @@ mod tests {
         );
     }
 
-    /// Le second jumeau: une salle sans jeu n'annonce rien du tout.
+    /// Le second jumeau: un salon sans jeu annonce lui aussi son compte à
+    /// rebours, parce qu'il va se fermer comme un jeu.
     #[test]
-    fn une_salle_sans_jeu_n_annonce_aucune_fermeture() {
+    fn un_salon_sans_jeu_annonce_sa_fermeture() {
         let start = Instant::now();
         let mut idle = Idle::new();
 
@@ -897,6 +922,6 @@ mod tests {
             Limits::default(),
         );
 
-        assert_eq!(idle.closing_in(), 0);
+        assert_eq!(idle.closing_in(), 1);
     }
 }

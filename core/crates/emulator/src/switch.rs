@@ -5,9 +5,13 @@ use std::{
     path::Path,
 };
 
+use crate::disc::Console;
+
 /// Validated local registration beside a game: `<file>.nel3ab.json`.
 #[derive(Debug, PartialEq, Eq)]
 pub struct Game {
+    /// The registered family selects its adapter and its room input limit.
+    pub console: Console,
     /// Display name, independent from the archive's name.
     pub name: String,
     /// Base application identifier. Save slots use this, never catalogue indices.
@@ -22,7 +26,7 @@ pub struct Game {
 #[must_use]
 pub fn registered(path: &Path) -> Option<Game> {
     let extension = path.extension()?.to_str()?.to_ascii_lowercase();
-    if !["xci", "nsp"].contains(&extension.as_str()) {
+    if !["xci", "nsp", "nup"].contains(&extension.as_str()) {
         return None;
     }
     let mut sidecar = path.as_os_str().to_os_string();
@@ -39,8 +43,12 @@ pub fn registered(path: &Path) -> Option<Game> {
     let value: serde_json::Value = serde_json::from_slice(&bytes).ok()?;
     let name = value.get("name")?.as_str()?.trim();
     let title = value.get("title")?.as_str()?;
-    if value.get("console")?.as_str()? != "switch"
-        || name.is_empty()
+    let console = match (value.get("console")?.as_str()?, extension.as_str()) {
+        ("switch", "xci" | "nsp") => Console::Switch,
+        ("switch2", "nup") if title.starts_with("0400") => Console::Switch2,
+        _ => return None,
+    };
+    if name.is_empty()
         || name.len() > 200
         || title.len() != 16
         || !title.bytes().all(|c| c.is_ascii_hexdigit())
@@ -49,6 +57,7 @@ pub fn registered(path: &Path) -> Option<Game> {
         return None;
     }
     Some(Game {
+        console,
         name: name.to_owned(),
         title: title.to_ascii_lowercase(),
         maker: text(&value, "maker", 128),
@@ -120,6 +129,36 @@ mod tests {
             )
             .unwrap();
             assert_eq!(registered(&path).is_some(), title == "0100BDE00862A000");
+        }
+    }
+
+    #[test]
+    fn switch2_requires_its_own_family_container_and_base_title() {
+        let dir = tempfile::tempdir().unwrap();
+        for (extension, console, title, expected) in [
+            ("nup", "switch2", "0400486024DEC000", Some(Console::Switch2)),
+            ("NUP", "switch2", "0400486024DEC000", Some(Console::Switch2)),
+            ("nup", "switch", "0400486024DEC000", None),
+            ("xci", "switch2", "0400486024DEC000", None),
+            ("nsp", "switch2", "0400486024DEC000", None),
+            ("nup", "switch2", "0100BDE00862A000", None),
+            ("nup", "switch2", "0400486024DEC800", None),
+            ("nup", "switch2", "../../etc/shadow!", None),
+        ] {
+            let path = dir.path().join(format!("game.{extension}"));
+            std::fs::write(&path, b"registration fixture").unwrap();
+            let mut sidecar = path.as_os_str().to_os_string();
+            sidecar.push(".nel3ab.json");
+            std::fs::write(
+                sidecar,
+                format!(r#"{{"console":"{console}","name":"Ocarina of Time","title":"{title}"}}"#),
+            )
+            .unwrap();
+            assert_eq!(
+                registered(&path).map(|game| game.console),
+                expected,
+                "{extension}, {console}, {title}"
+            );
         }
     }
 }

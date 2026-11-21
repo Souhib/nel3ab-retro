@@ -66,6 +66,7 @@ pub mod library;
 pub mod lifecycle;
 pub mod lock;
 pub mod nap;
+pub mod personal;
 pub mod pipe;
 pub mod playback;
 pub mod process;
@@ -73,6 +74,7 @@ pub mod rumble;
 pub mod saves;
 pub mod slots;
 mod sound;
+pub mod unlocked;
 pub mod wire;
 
 pub use config::{Extension, PadKind};

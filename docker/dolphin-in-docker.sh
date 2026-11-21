@@ -45,7 +45,12 @@ container="${NEL3AB_CONTAINER:-nel3ab-dolphin}"
 old=$(timeout 5s docker container ls -aq --filter "name=^/${container}$")
 if [ -n "$old" ]; then
   mounts=$(timeout 5s docker inspect --format '{{range .Mounts}}{{println .Source}}{{end}}' "$old")
-  if ! printf '%s\n' "$mounts" | rg -Fx -- "$user_dir" >/dev/null; then
+  # `grep` et pas `rg`: ripgrep n'est pas installé sur la machine, et cette
+  # branche ne s'exécute que quand un conteneur survit à son jeu. Le 24 septembre
+  # 2026, c'est arrivé pour la première fois: `rg` introuvable a fait échouer la
+  # vérification, le script a refusé le conteneur de SA PROPRE salle, et le
+  # worker a redémarré toutes les deux secondes pendant cinquante minutes.
+  if ! printf '%s\n' "$mounts" | grep -Fxq -- "$user_dir"; then
     echo "dolphin-in-docker: refusing foreign container $container (different session directory)" >&2
     exit 65
   fi
@@ -77,6 +82,22 @@ fi
 # C'est exactement ce qui est arrivé au premier essai.
 if [ -n "${NEL3AB_RUMBLE_PIPE:-}" ]; then
   frame_socket_env+=(-e NEL3AB_RUMBLE_PIPE)
+fi
+
+personal_mount_args=()
+if [ -f "$user_dir/personal-save-mount" ]; then
+  mapfile -t personal_mount < "$user_dir/personal-save-mount"
+  if [ "${#personal_mount[@]}" -ne 2 ]; then
+    echo "dolphin-in-docker: invalid personal save mount" >&2; exit 64
+  fi
+  personal_source="${personal_mount[0]}"
+  personal_target="${personal_mount[1]}"
+  # The worker writes this file from the authenticated identity. Its target
+  # stays under the room's existing save mount; only this account is exposed.
+  if [[ "$personal_source" != /* || ! -d "$personal_source" || -L "$personal_source" || "$personal_target" != "$user_dir"/saves/*/joueur-* || "$personal_target" == *'/../'* ]]; then
+    echo "dolphin-in-docker: personal save mount leaves the session" >&2; exit 64
+  fi
+  personal_mount_args=(-v "$personal_source:$personal_target")
 fi
 
 # --shm-size is NOT optional: Docker defaults /dev/shm to 64 MiB and Dolphin's
@@ -126,6 +147,7 @@ exec docker run --rm \
   --group-add "$(getent group render | cut -d: -f3)" \
   -e HOME="$user_dir" \
   -v "$user_dir:$user_dir" \
+  "${personal_mount_args[@]}" \
   -v "$(dirname "$game"):$(dirname "$game"):ro" \
   "${NEL3AB_DOLPHIN_IMAGE:-nel3ab/dolphin:dev}" \
   "$@"

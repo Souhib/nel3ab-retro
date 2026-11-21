@@ -401,10 +401,7 @@ pub fn gather(
     roms.iter()
         .enumerate()
         .map(|(at, rom)| {
-            if discs
-                .get(at)
-                .is_some_and(|disc| disc.console == crate::disc::Console::Switch)
-            {
+            if discs.get(at).is_some_and(|disc| disc.console.is_switch()) {
                 return crate::switch::art(&rom.path);
             }
             let wii = discs

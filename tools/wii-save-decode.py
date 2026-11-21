@@ -37,6 +37,7 @@ Ce texte décrivait déjà la correction alors que le code, lui, lisait toujours
 0x4B. Une explication écrite n'est pas une garantie, d'où la vérification
 mécanique qui suit.
 """
+import runpy
 import struct
 import sys
 from pathlib import Path
@@ -80,6 +81,8 @@ def decrypt(blob: bytes, iv: bytes) -> bytes:
 raw = Path(sys.argv[1]).read_bytes()
 out = Path(sys.argv[2])
 out.mkdir(parents=True, exist_ok=True)
+(out / "unlocked.json").unlink(missing_ok=True)
+written = []
 
 title, banner_size = struct.unpack_from(">QI", decrypt(raw[:0x20], SD_IV), 0)
 print(f"  titre    : {title:016x}")
@@ -104,6 +107,7 @@ print(f"  bannière : {banner_size} octets annoncés")
 banner = decrypt(raw[: 0x20 + banner_size], SD_IV)[0x20 : 0x20 + banner_size]
 if banner[:4] == b"WIBN":
     (out / "banner.bin").write_bytes(banner)
+    written.append("banner.bin")
     print(f"  banner.bin {len(banner)} octets")
 else:
     print("  pas de bannière lisible: le jeu écrira la sienne au premier lancement")
@@ -135,5 +139,10 @@ for _ in range(count):
     where = out / name
     where.parent.mkdir(parents=True, exist_ok=True)
     where.write_bytes(decrypt(raw[at : at + rounded], iv)[:length])
+    written.append(name)
     print(f"    {name:<16} {length} octets")
     at += rounded
+
+if "--unlocked" in sys.argv[3:]:
+    marker = runpy.run_path(str(Path(__file__).with_name("save-unlocked.py")))
+    marker["mark"](out, written, str(Path(sys.argv[1]).resolve()))

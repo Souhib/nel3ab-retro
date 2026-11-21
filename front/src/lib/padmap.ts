@@ -805,7 +805,7 @@ export const XBOX: PadMap = {
  * La manette qu'on tient, quand on n'en sait rien du tout: le dernier recours.
  *
  * Le navigateur ne dit pas à quoi ressemble une manette. Quand il dit son nom
- * et la disposition standard, on dessine sa vraie coque — `DUALSHOCK` pour une
+ * et la disposition standard, on dessine sa vraie coque : `DUALSHOCK` pour une
  * PlayStation, `XBOX` pour une Xbox. Cette coque générique sert sinon, et elle
  * le dit : grise, sans marque ni lettre, les indices bruts du navigateur écrits
  * dessus. Un adaptateur GameCube n'annonce aucune disposition, et pour lui aucun

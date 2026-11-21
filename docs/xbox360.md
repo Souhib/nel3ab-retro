@@ -92,12 +92,16 @@ entrée « 21 novembre au soir : l'image de Sonic se fige, le jeu continue ».
 
 Premier essai, 21 novembre 2026 : profil chargé sans fenêtre d'avertissement,
 manette et son entendus par Souhib, 59,5 images par seconde côté jeu ; image
-figée au bout de 40 secondes et barre de menus visible, sous Wayland. Le
-passage à X11 n'a pas encore été joué. L'essai suivant doit montrer :
-- aucune ligne `capture_quiet` pendant toute la partie ;
-- pas de barre de menus sur les captures ;
-- la cadence du jeu, et ce que Xwayland coûte en fluidité ;
-- l'arrêt propre de la salle (`window_closed` dans `lifecycle.json`).
+figée au bout de 40 secondes et barre de menus visible, sous Wayland.
+
+Second essai, sous X11, le même soir (12 minutes 30 relues) : aucune ligne
+`capture_quiet`, 60 images par seconde reçues en médiane, plein écran sans
+menus sur les 26 captures, 59,0 images par seconde côté jeu sans fenêtre sous
+45, sauvegarde écrite. Les rares trous d'une seconde suivent des
+ralentissements du jeu lui-même, à des transitions ; leur cause n'est pas
+établie. Une seule partie, un seul joueur : ce n'est pas encore une soirée.
+Reste à relire l'arrêt propre de la salle (`window_closed` dans
+`lifecycle.json`).
 
 Les sauvegardes d'un joueur 2 à 4 n'ont jamais été essayées. Les gâchettes
 arrivent tout ou rien, comme pour la Switch : un jeu de course qui dose

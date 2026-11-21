@@ -1695,4 +1695,7 @@ screen: a compositor-forced state makes wxGTK's `ShowFullScreen(true)` return
 before it hides the menu bar. Rejected for now: building Edge with the race
 fixed, which would make this project the maintainer of an emulator build; a
 watchdog that resizes the window, which the experiment showed yields one
-frame. Not proven until a long game under X11 shows no `capture_quiet`.
+frame. Measured the same evening: 12.5 minutes under X11 with no
+`capture_quiet`, a median of 60 delivered frames a second, a 1280x720
+immediate-mode swapchain with no menu bar, and Xwayland at 4 CPU seconds in
+14 minutes. One game, one player.

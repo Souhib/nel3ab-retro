@@ -26471,6 +26471,32 @@ l'image ne se fige plus, si les menus ont disparu, et ce que Xwayland coûte en
 fluidité. Le défaut lui-même reste dans Xenia Edge ; le signaler à ses auteurs
 est une décision de Souhib.
 
+**Le second essai, sous X11.** Souhib relance Sonic à 20 h 59 min 57 s UTC
+et joue une douzaine de minutes, jusque dans les niveaux de la ville. Relu à
+21 h 12 :
+
+- la capture de la salle n'a jamais manqué d'image : aucune ligne
+  `capture_quiet`, aucun redémarrage, 60 images par seconde en médiane sur
+  150 fenêtres de 5 secondes. La page, côté boîte noire, a reçu sa dernière
+  image il y a 41 ms en médiane, contre 35,6 secondes pendant le gel du
+  premier essai ;
+- Xenia a créé une image de présentation de 1280 x 720 en mode 0 (immédiat) :
+  le plein écran couvre tout, sans barre de menus, sur les 26 captures PNG ;
+  `grim.log` est vide ;
+- le jeu tient 59,0 images par seconde en moyenne, sans fenêtre sous 45. Les
+  huit trous de plus d'une demi-seconde dans la capture tombent tous sur une
+  seconde où le jeu lui-même ralentit (1 à 35 images), souvent à une
+  transition : à 21 h 09 min 17 s, il crée des fils et ouvre une nouvelle
+  musique. Leur cause n'est pas établie ;
+- la sauvegarde `SonicNextSaveData.bin` est écrite dans le profil Joueur 1 de
+  l'emplacement personnel de Souhib ;
+- le fil principal du jeu occupe un cœur à 96 % en médiane, Xenia 155 %, la
+  carte 19 % ; Xwayland a pris 4 secondes de processeur en 14 minutes. Le
+  processeur est monté à 86 °C en médiane, 89,9 °C au plus.
+
+Le contournement tient donc sur cet essai. L'arrêt propre de la salle sous X11
+reste à relire à la fin de la partie.
+
 ## 12. Glossaire complet
 
 **AppImage** : format qui range un programme Linux et ses bibliothèques en un

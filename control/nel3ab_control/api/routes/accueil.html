@@ -235,6 +235,12 @@
   button#ouvrir:disabled { cursor: not-allowed; background: transparent;
                            color: var(--legende); border-color: var(--trait); }
   .mot, .perdu { font-size: clamp(14px, 1.4vw, 18px); color: var(--legende); }
+  /* Le lien vers le dépôt de jeux. Caché tant que le salon n'a pas dit que
+     cette personne peut importer: l'API reste la seule garde, ce lien évite
+     seulement de montrer une porte fermée à tout le monde. */
+  a.importer { margin-left: auto; color: var(--craie); font-size: clamp(14px, 1.4vw, 18px);
+               text-underline-offset: .2em; }
+  a.importer[hidden] { display: none; }
   .mot[data-refus="oui"], .perdu { color: var(--alerte); }
   .perdu[hidden] { display: none; }
 
@@ -275,6 +281,7 @@
       <button id="ouvrir" type="button">ouvrir une salle</button>
       <span class="mot" id="mot"></span>
       <span class="perdu" id="perdu" hidden>la liste ne se met plus à jour</span>
+      <a class="importer" id="importer" href="/importer" hidden>déposer un jeu</a>
     </div>
   </main>
 
@@ -587,6 +594,13 @@
 
   relire();
   setInterval(relire, 5000);
+
+  // Le lien de dépôt n'apparaît que pour qui peut importer. Un échec le
+  // laisse caché: c'est un raccourci, pas une information.
+  fetch("/api/imports/droits", { cache: "no-store" })
+    .then(reponse => (reponse.ok ? reponse.json() : {}))
+    .then(droits => { document.getElementById("importer").hidden = !droits.peut_importer; })
+    .catch(() => {});
 </script>
 </body>
 </html>

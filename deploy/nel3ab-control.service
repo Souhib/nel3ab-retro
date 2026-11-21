@@ -86,6 +86,11 @@ Environment=NEL3AB_ADMIN=souhib.t@hotmail.fr
 # Guillemets simples autour de tout: systemd retire les guillemets doubles d'une
 # valeur non protégée, et le JSON arrivait au service sans les siens.
 Environment='NEL3AB_ORIGINS=["https://nel3ab.app","https://lgf.tail3bd01c.ts.net:8443"]'
+# Les dossiers de jeux, la MÊME liste que `nel3ab-worker@.service`. Le dépôt
+# de jeux (/importer) range un jeu dans le dossier qui porte le nom de sa
+# console. Sans cette ligne, le salon ne connaîtrait que gc et wii, le défaut
+# du worker, et la liste des deux services pourrait diverger sans bruit.
+Environment="NEL3AB_ROM_DIR=/home/souhib/roms/gc:/home/souhib/roms/wii:/home/souhib/roms/switch:/home/souhib/roms/switch2"
 # Nothing about pads here on purpose: the worker reports how many the room has,
 # in `/roms`, because it is what tells Dolphin which ports hold a controller.
 # This file used to carry a second copy of that number, which had to agree with

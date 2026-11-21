@@ -34,6 +34,7 @@ nav = [
   { "Touches et manettes" = "ecran-manettes.md" },
   { "Switch dans la salle" = "switch-room.md" },
   { "Copie des sauvegardes" = "abri.md" },
+  { "Déposer un jeu" = "importer.md" },
   { "Étude Switch" = "etude-switch-2026-09-07.md" },
   { "Essais Switch 2" = "etude-switch2-2026-11-07.md" },
   { "Zelda : reprise vers 40 FPS" = "plan-60fps-switch2-2026-11-08.md" },

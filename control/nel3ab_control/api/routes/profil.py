@@ -19,7 +19,7 @@ from fastapi.responses import HTMLResponse
 from nel3ab_control.api.controllers.profil import Carnet
 from nel3ab_control.api.controllers.salons import Salons
 from nel3ab_control.api.routes import bobine
-from nel3ab_control.api.routes.accueil import polices
+from nel3ab_control.api.routes.accueil import faces
 from nel3ab_control.api.schemas.profil import Emplacement, JeuProfil, PageParties, Profil
 from nel3ab_control.catalogue import freshest
 from nel3ab_control.dependencies import CallerDep, PartiesDep, PeopleDep, SalonsDep, SettingsDep
@@ -146,7 +146,7 @@ async def read_my_saves(
 PAGE = bobine.garnir(
     (Path(__file__).parent / "profil.html")
     .read_text(encoding="utf-8")
-    .replace("/*__POLICES__*/", polices())
+    .replace("/*__POLICES__*/", faces())
 )
 
 

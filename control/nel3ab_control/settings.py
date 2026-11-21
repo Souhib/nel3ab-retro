@@ -248,6 +248,61 @@ class Settings(BaseSettings):
             "d'ailleurs de démarrer sur un dossier déjà tenu."
         ),
     )
+    rom_dir: str = Field(
+        default=f"{Path.home() / 'roms/gc'}:{Path.home() / 'roms/wii'}",
+        description=(
+            "Les dossiers de jeux, séparés par deux-points, sous la MÊME forme que "
+            "`NEL3AB_ROM_DIR` du worker: c'est la même liste, lue par deux services. "
+            "L'import y range un jeu dans le dossier dont le NOM est celui de sa "
+            "console (`gc`, `wii`, `switch`, `switch2`, `xbox360`). Le défaut est "
+            "celui du worker, GameCube et Wii seulement."
+        ),
+    )
+    importeurs: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Les adresses, en plus de l'administrateur, qui ont le droit de déposer "
+            "un jeu. En JSON, comme les origines. Vide par défaut: déposer écrit "
+            "dans la bibliothèque de tout le monde, donc personne d'autre que "
+            "l'administrateur ne le fait sans qu'on l'ait écrit ici."
+        ),
+    )
+    imports_dir: Path = Field(
+        default=Path.home() / ".local/state/nel3ab/imports",
+        description=(
+            "La quarantaine: où un envoi arrive, morceau par morceau, et où reste un "
+            "fichier qu'on ne range pas. Sur le MÊME disque que les jeux, pour que "
+            "le rangement soit un simple lien et pas une copie de 20 Gio. Créée au "
+            "premier envoi, jamais au démarrage."
+        ),
+    )
+    imports_marge: int = Field(
+        default=100 * 1024**3,
+        ge=0,
+        description=(
+            "Combien d'octets doivent rester libres sur le disque après un envoi. "
+            "Les jeux partagent le disque du système: le remplir arrêterait Docker, "
+            "les journaux et l'écriture des sauvegardes. Cent Gio est un CHOIX, "
+            "proposé par l'audit du 20 novembre 2026, pas une mesure."
+        ),
+    )
+    imports_max: int = Field(
+        default=48 * 1024**3,
+        gt=0,
+        description=(
+            "La taille la plus grande d'un envoi. Le plus gros fichier de la "
+            "bibliothèque pesait 23,9 Gio le 20 novembre 2026 (Switch 2): le double "
+            "laisse passer une archive qui le contient."
+        ),
+    )
+    imports_total: int = Field(
+        default=128 * 1024**3,
+        gt=0,
+        description=(
+            "Ce que la quarantaine peut tenir en tout, envois en cours compris. "
+            "Chaque envoi réserve sa taille annoncée dès sa création."
+        ),
+    )
     worker_control: str = Field(
         default="127.0.0.1:8101",
         description=(

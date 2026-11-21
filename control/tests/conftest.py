@@ -107,6 +107,11 @@ def settings(tmp_path: Path) -> Settings:
         personal_save_root=tmp_path / "personal-saves",
         switch_config=tmp_path / "switch.json",
         switch2_config=tmp_path / "switch2.json",
+        # La quarantaine et les dossiers de jeux, jetables eux aussi. Sans ces
+        # deux lignes, un essai d'import écrirait sous ~/.local/state et
+        # rangerait un faux jeu dans la VRAIE bibliothèque de la machine.
+        imports_dir=tmp_path / "imports",
+        rom_dir=f"{tmp_path / 'roms' / 'gc'}:{tmp_path / 'roms' / 'wii'}",
         # Et les dossiers des salles: ouvrir une salle y pose le marqueur « sans
         # jeu », et le salon y lit la bibliothèque que les workers écrivent
         # (ADR D24). Pointé sur le vrai dossier, un essai poserait le marqueur

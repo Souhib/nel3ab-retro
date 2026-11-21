@@ -24967,6 +24967,8 @@ ceux de l'outil qu'il enveloppe, sinon le journal ment sur la cause.
 Souhib ne l'a pas recopié ailleurs. Le NAS peut effacer la copie, puisque le
 partage est public. Les ROM ne sont pas copiées.
 
+
+
 ### 21 novembre : fermer les portes du salon
 
 **Pourquoi.** L'audit du 20 novembre a relevé des routes du salon qui
@@ -25260,6 +25262,8 @@ une prise libérée laisse sauter sa fiche ; sans mouvement permis, la prise se
 branche directement. Deux défauts réintroduits (une fiche jamais cachée, un
 premier état compté comme des arrivées) font chacun échouer l'essai qui les
 vise. `just planche` sert toutes les poses et les scènes, sans salle ni salon.
+
+
 
 ### 21 novembre : un seul fichier pour décrire les consoles, et une clé pour chaque jeu
 
@@ -25580,6 +25584,159 @@ une autre salle, et la lecture sûre (`/proc/locks`) n'est pas écrite.
   cartes à leur jeu.
 - Un geste « oublier mon historique », puisque le journal ne s'efface plus
   de lui-même.
+
+### 21 novembre : déposer un jeu et le laisser se ranger
+
+**La demande.** Souhib veut lâcher des fichiers de jeu sur une page, voir la
+console reconnue, et que le jeu se range tout seul. Jusqu'ici, un jeu entrait à
+la main : extraire l'archive, convertir, choisir le dossier, écrire une fiche
+pour la Switch, puis attendre qu'une salle redémarre.
+
+**Où le mettre.** L'audit du 20 novembre proposait un service séparé, bridé
+comme la boîte noire, qui remplirait aussi les caches de jaquettes avec
+`dolphin-tool`. Son vérificateur a relevé deux défauts. `dolphin-tool` ne
+tourne que par Docker, et un service qui parle à Docker a, en pratique, les
+droits de root : la bride ne bornerait plus rien. Et sur la porte `.ts.net:8443`,
+`tailscale serve` envoie tout `/api` au salon, donc un service à part n'y
+recevrait rien. L'import vit donc dans le salon, et n'appelle ni Docker ni
+`dolphin-tool`. La console se lit dans les octets, par du Python pur.
+
+**Reconnaître un fichier.** Le module `imports/identifier.py` lit des mots
+connus à des endroits connus, et jamais le nom du fichier : il ne le reçoit
+même pas. Un disque GameCube porte `0xC2339F3D` à `0x1C`, un disque Wii
+`0x5D1C9EA3` à `0x18`. Un RVZ dit sa console à `0x48`. Un GCZ ne la dit
+qu'une fois son premier bloc décompressé, ce que le serveur peut faire puisqu'il
+a le fichier entier. Une image Xbox 360 cache son système de fichiers au
+secteur 32 d'une partition qui commence à `0xFD90000` ou à `0x2080000`. Sont
+aussi reconnus, sans être jouables : NES, Nintendo 64 dans ses trois ordres
+d'octets, Game Boy et Color, GBA, DS, Mega Drive, PlayStation 1 et 2 (par le
+fichier `SYSTEM.CNF` du disque), CHD et les fiches CUE. Chaque format a un
+essai qui lui ressemble sans l'être : bon logo et somme fausse, magie présente
+au mauvais endroit, texte nommé `.iso`. Aucune longueur tronquée de 0 à 1 280
+octets et aucun tirage au hasard ne fait lever l'identifiant.
+
+Les en-têtes d'essai sont fabriqués octet par octet par le test lui-même, dans
+`tests/imports/fabrique.py`, sans importer le code testé. Aucun vrai jeu,
+aucune clé. Une erreur de décalage dans l'identifiant ne peut donc pas se
+recopier dans l'essai qui le vérifie.
+
+**Envoyer par morceaux.** Un jeu pèse jusqu'à 24 Gio, et une seule requête ne
+survit ni à une coupure Wi-Fi ni à un rechargement. La page annonce le fichier
+(nom, taille, empreinte rapide), puis l'envoie en morceaux bruts de 16 Mio, le
+serveur en acceptant 32 au plus. Pas 64 : la taille « 65MB » de Caddy compte en
+mégaoctets décimaux, soit moins qu'un morceau de 64 Mio, comme le vérificateur
+l'avait relevé. Chaque morceau dit à quel décalage il commence. Un décalage faux
+est refusé avec le vrai, et la page repart de là. Le serveur exige un
+`Content-Length` exact et le vérifie avant de lire un octet. Le corps passe sur
+le disque par blocs d'un Mio, sans jamais être tenu en entier en mémoire.
+L'empreinte complète se calcule au fil des morceaux, et seulement après un
+redémarrage du salon elle est relue sur le disque.
+
+L'empreinte rapide est ce qui fait marcher la reprise : le SHA-256 des 4
+premiers Mio, des 4 derniers et de la taille. Redéposer le même fichier après
+avoir fermé la page la retrouve, et le salon répond « déjà en cours » avec le
+décalage où reprendre. La page la calcule en JavaScript, le serveur en Python.
+Un essai exécute le vrai module de la page sous Node sur des fichiers de 1 octet
+à 9 Mio, autour de chaque frontière, et exige les mêmes octets. Réintroduire un
+ordre d'octets inversé pour la taille le fait échouer.
+
+**La quarantaine.** Un envoi vit dans un dossier dont le serveur tire le nom au
+hasard, et son contenu s'appelle toujours `fichier`. Le nom annoncé par le
+navigateur ne sert qu'à l'affichage. Tout s'ouvre avec `O_NOFOLLOW`, par rapport
+au dossier parent déjà ouvert : un lien symbolique planté à la place du fichier
+fait échouer l'ouverture. Un lien dur passe cette garde, puisque c'est un
+fichier ordinaire. L'envoi retient donc l'inode du fichier qu'il a créé, et
+refuse d'écrire dans un autre ou dans un fichier qui porte deux noms. Les deux
+cas ont leur essai, et le fichier visé reste intact. Chaque envoi réserve sa
+taille dès l'annonce, contre un plafond par envoi (48 Gio) et un plafond total
+(128 Gio). Chaque morceau vérifie qu'il restera 100 Gio libres sur le disque,
+qui est aussi celui du système. Ces trois nombres sont des choix, réglables,
+pas des mesures.
+
+**Ranger.** Le nom définitif vient du titre écrit dans le disque, nettoyé :
+plus de barre oblique, plus de caractère de contrôle, plus de point au début.
+Pas du nom qu'avait le fichier : deux personnes qui envoient le même jeu sous
+deux noms tombent ainsi sur le même nom, donc sur le refus d'un doublon. Ce
+nom porte les sauvegardes pour toujours, et c'est pourquoi le rangement refuse
+un nom déjà pris dans n'importe quel dossier, un nom dont la clé de sauvegarde
+est déjà prise (« Jeu.iso » contre « jeu.iso »), le même fichier octet pour
+octet ailleurs, et le même jeu dans le même dossier. Il consulte aussi le
+catalogue que les salles écrivent à leur démarrage, qui couvre un dossier que
+le worker balaie et que le salon ignorerait. Puis il LIE le fichier ouvert à sa
+place : un lien échoue si le nom existe, là où un renommage l'écraserait.
+Entre deux disques, il copie dans un fichier provisoire, le force sur le disque,
+puis le lie de la même façon.
+
+Ce qui se range, et quand, vient du manifeste des consoles livré le même jour :
+GameCube et Wii en ISO, RVZ, GCZ ou CISO vont dans le dossier `gc` ou `wii` de
+`NEL3AB_ROM_DIR`. Le WBFS et le WIA restent de côté, parce que la salle ne liste
+pas ces extensions. Une image NKit attend une décision. La Switch attend aussi :
+son identifiant de titre est écrit dans un en-tête chiffré avec la clé de la
+console, que le salon ne lit pas. La page le dit, et propose le titre que porte
+le nom du ticket, sans le croire. La Xbox 360, décrite non jouable au manifeste,
+et les consoles rétro restent en quarantaine avec « reconnu, pas encore
+jouable ». Un jeu rangé est visible à la prochaine ouverture de salle ou au
+prochain changement de jeu : le worker ne lit sa bibliothèque qu'à son
+démarrage.
+
+**Les archives.** Un .zip s'ouvre avec la bibliothèque standard. Un .7z ou un
+.rar passe par `lsar` et `unar`, installés sur la machine. Toute l'archive est
+refusée si une seule entrée est un lien, un chemin absolu, un chemin qui
+remonte, une entrée chiffrée, s'il y a plus de 64 entrées ou si le total
+dépasse le budget. Chaque entrée sort vers un nom choisi par le serveur, en
+comptant les octets. La machine n'a pas `7z` : l'essai écrit une archive 7z à
+la main, sans compression, que les vrais `lsar` et `unar` lisent comme une
+autre.
+
+**La page.** `/importer`, servie par le salon, sans React et sans aucune
+requête vers un autre site. Chaque fichier déposé a sa carte, à la couleur d'une
+des quatre prises : l'estimation de la page, marquée comme telle, la jauge, le
+débit, le temps restant, pause, reprise et abandon. Bobine tient sa loupe
+pendant l'envoi, puis le tampon quand le serveur a reconnu la console. Seuls
+`transform` et `opacity` bougent, et rien ne bouge sous « mouvement réduit ».
+L'accueil ne montre le lien qu'à qui peut importer : l'administrateur, et les
+adresses écrites dans `NEL3AB_IMPORTEURS`. Les routes refusent elles-mêmes les
+autres, 401 sans identité et 403 sinon, en plus de la garde d'origine posée sur
+tout le salon.
+
+Un pilote de navigateur a déposé des fichiers dans un salon jetable, sur un
+port libre et avec tout son état dans un dossier temporaire. Un jeu GameCube
+est rangé, un texte nommé `.iso` reste « inconnu », un NSP reste « à
+confirmer ». Sous un réseau bridé à 3 Mo/s, la pause arrête bien l'avancée du
+serveur. Après un rechargement en plein envoi, la carte dit « arrêté à 47 % »,
+et redéposer le fichier reprend au décalage du serveur. Le fichier rangé a la
+même empreinte que l'original.
+
+**Les preuves rouges.** Trois gardes ont été retirées une à une. Sans le
+nettoyage des noms, un disque dont le titre est `../../piege` sort du dossier
+de la console, et l'essai échoue. La première version de cet essai remontait de
+trois dossiers : le défaut réintroduit a vraiment écrit `piege.iso` hors du
+dossier jetable de l'essai, dans celui de pytest. Le titre ne remonte plus que
+de deux crans, pour qu'une évasion tombe dans le dossier de l'essai, où elle se
+voit. Sans le refus de remplacer, un lien qui efface d'abord le fichier existant
+fait échouer les deux essais d'écrasement, sur le même disque et entre deux
+disques. Sans le contrôle du nom dans les autres dossiers, c'est la clé de
+sauvegarde qui refuse, et l'essai échoue sur son message.
+
+**Pièges.** `zipfile` efface le drapeau « chiffré » qu'on lui demande d'écrire :
+l'essai pose ce bit à la main. Le traitement de fin prenait un verrou que son
+appelant tenait déjà, quand aucun groupe de tâches n'était là pour le lancer à
+part. Une image PlayStation brute fabriquée sans synchronisation au secteur 0
+n'était pas reconnue : c'était l'essai qui était faux, une vraie image en porte
+une à chaque secteur.
+
+**Ce qui n'est pas prouvé.** Rien n'est installé : le salon en service n'a pas
+redémarré, et l'unité du dépôt gagne `NEL3AB_ROM_DIR`, ce que `just
+deploy-check` signalera jusqu'à son installation. Aucun envoi n'a traversé le
+vrai réseau : les limites de `tailscale serve` sur la porte 8443 restent
+inconnues, et la page n'y est d'ailleurs pas servie, puisque `/` y mène encore
+à l'ancien port 8100. Aucun vrai .rar n'a été extrait, faute d'outil pour en
+fabriquer un. Le NUP n'est connu que par un exemplaire. Un jeu modifié peut
+garder le code de jeu de son original, et le refus « même jeu dans le
+même dossier » l'arrêterait : non vérifié sur la bibliothèque réelle. Une
+extraction d'archive tourne dans le salon, sans la priorité basse de `lsar` et
+`unar`. Enfin, rien n'efface un envoi abandonné : la quarantaine garde tout
+jusqu'à ce qu'on le retire depuis la page.
 
 ## 12. Glossaire complet
 
@@ -26598,6 +26755,8 @@ lgf dans `/mnt/nas`.
 comme un dossier. Un montage « hard » fait attendre un programme quand le
 NAS ne répond plus, au lieu de lui renvoyer une erreur.
 
+
+
 **Origine (`Origin`)** : le schéma, le nom et le port d'un site, par exemple
 `https://nel3ab.app`. Le navigateur l'écrit lui-même dans l'en-tête `Origin`
 d'une écriture, et une page ne peut pas le changer. Deux adresses qui
@@ -26636,6 +26795,8 @@ de jeu, une fermeture.
 
 **Planche** : page de travail qui montre toutes les poses et toutes les
 scènes d'un personnage, pour les regarder et les comparer hors de la salle.
+
+
 
 **Manifeste des consoles** : le fichier `consoles/consoles.json`, qui décrit
 une fois chaque console et chaque moteur. Le salon, la boîte noire et la
@@ -26689,3 +26850,52 @@ protège de rien.
 **Calage des contours** : l'ajustement des lettres sur la grille des pixels,
 qui les rend nettes en petit. Mal fait, il peut effacer un détail fin, comme
 un accent.
+
+**Empreinte rapide** : SHA-256 des 4 premiers Mio d'un fichier, de ses 4
+derniers et de sa taille. Elle sert à retrouver un envoi après un rechargement
+et à repérer un doublon probable sans relire tout un jeu. Elle ne prouve pas
+que deux fichiers sont identiques : seule l'empreinte complète le fait.
+
+**Envoi par morceaux** : un fichier envoyé en plusieurs requêtes, chacune
+portant une tranche et son décalage. Une coupure ne fait perdre que la tranche
+en cours, et l'envoi reprend où le serveur en est.
+
+**Décalage** : la position, en octets depuis le début du fichier, où commence
+un morceau. Le serveur refuse un morceau qui ne commence pas exactement là où
+il en est, et rend le bon décalage.
+
+**Content-Length** : en-tête HTTP qui annonce la taille exacte du corps d'une
+requête. Le salon l'exige pour un morceau, et le vérifie avant d'en lire le
+premier octet.
+
+**O_NOFOLLOW** : option d'ouverture d'un fichier sous Linux. Si le nom désigne
+un lien symbolique, l'ouverture échoue au lieu de suivre le lien vers un autre
+endroit.
+
+**Lien dur** : un deuxième nom pour le même fichier sur le disque. Contrairement
+au lien symbolique, rien ne le distingue du premier nom : `O_NOFOLLOW` ne
+l'arrête pas, le numéro d'inode et le nombre de noms, si.
+
+**Inode** : le numéro qui désigne un fichier sur un disque, indépendamment de
+son nom. Deux noms du même inode sont le même fichier.
+
+**NKit** : format qui réduit une image de disque GameCube ou Wii en retirant ce
+qui la remplissait. Dolphin le lance avec un avertissement, et certains jeux ne
+fonctionnent pas.
+
+**WBFS, WIA** : deux autres formats d'image de disque Wii (et GameCube pour
+WIA). Dolphin les lit, la salle ne liste pas encore leurs extensions.
+
+**XISO, XDVDFS** : XDVDFS est le système de fichiers des disques Xbox. Une XISO
+en est l'image ; sa marque « MICROSOFT*XBOX*MEDIA » se trouve au secteur 32
+de la partition de jeu.
+
+**STFS** : format des paquets de la Xbox 360 (« CON », « LIVE », « PIRS »),
+qui sert aux jeux téléchargés, aux mises à jour et aux sauvegardes.
+
+**Ticket (Switch)** : fichier `.tik` d'un NSP, dont le nom commence par
+l'identifiant du titre. Le nom n'est pas chiffré, donc pas prouvé : l'import
+s'en sert comme d'une proposition.
+
+**lsar, unar** : deux programmes libres qui listent et extraient la plupart
+des formats d'archive, dont 7z et rar.

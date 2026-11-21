@@ -159,6 +159,38 @@ def fiche_switch(nom: str, titre: int) -> Fiche:
     return Fiche(f"{titre:016x}", octets)
 
 
+def nom_xbox360(annonce: str, titre: str) -> str:
+    """Le nom d'un disque Xbox 360, sans extension: le nom annoncé, sans ses étiquettes.
+
+    Un disque Xbox 360 ne porte pas son nom en clair à un endroit sûr: il est
+    dans les ressources du `default.xex`, souvent compressées. Le nom du fichier
+    sert donc, débarrassé de ce que les copies y ajoutent: « Sonic the Hedgehog
+    (USA, Europe) (En,Ja,Fr,De,Es,It).iso » devient « Sonic the Hedgehog ».
+    """
+    return nettoyer(ETIQUETTES.sub(" ", repli(annonce)).replace("_", " ")) or titre
+
+
+def fiche_xbox360(nom: str, titre: str) -> Fiche:
+    """La fiche que `emulator::switch::registered` accepte pour un disque Xbox 360.
+
+    Le titre est celui de l'en-tête d'exécution du `default.xex` du disque, en
+    8 chiffres. Le même texte est dans `consoles/fiche-xbox360.json`, qu'un essai
+    Rust passe au vrai `registered`.
+    """
+    if not re.fullmatch(r"[0-9A-Fa-f]{8}", titre):
+        raise ValueError(f"un titre Xbox 360 a 8 chiffres hexadécimaux, pas {titre!r}")
+    contenu = {
+        "console": "x360",
+        "name": nom,
+        "title": titre.upper(),
+        "inscription": "import: titre lu dans le default.xex du disque, sans lancement d'essai",
+    }
+    octets = (json.dumps(contenu, ensure_ascii=False, indent=2) + "\n").encode()
+    if len(octets) > FICHE_MAX:
+        raise ValueError(f"une fiche dépasse {FICHE_MAX} octets")
+    return Fiche(titre.lower(), octets)
+
+
 def cle_sauvegarde(nom: str) -> str:
     """La même clé que `emulator::saves::key`, recopiée et essayée sur ses exemples."""
     sortie: list[str] = []

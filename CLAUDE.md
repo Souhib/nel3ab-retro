@@ -378,6 +378,12 @@ machine".
   Docker build cache still held their steps, without order or base image.
   Keep every file that describes a recipe, and delete a built product only
   after its recipe is in the archive.
+- **A console's identifier shape belongs to the console, in one place.** On
+  2026-11-21, making the Xbox 360 playable met the Switch's 16-digit title rule
+  copied into the worker, the unlocked-save module, the adapter and the lobby.
+  Sonic's title has 8 digits. `Console::valid_title` now holds each family's
+  shape; a new console adds its arm there and its negative twins (a Switch
+  title refused for it, its title refused for the Switch).
 - **A wrapper's own exit codes must not overlap the tool it wraps.** On
   2026-11-21, the backup script's "NAS missing" code 3 was restic's "file
   unreadable" code 3, and the journal named the wrong cause. Pick codes the

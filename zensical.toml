@@ -34,6 +34,7 @@ nav = [
   { "Carnet : la Switch 2" = "carnet-switch2.md" },
   { "Touches et manettes" = "ecran-manettes.md" },
   { "Switch dans la salle" = "switch-room.md" },
+  { "Xbox 360 dans la salle" = "xbox360.md" },
   { "Copie des sauvegardes" = "abri.md" },
   { "Déposer un jeu" = "importer.md" },
   { "Étude Switch" = "etude-switch-2026-09-07.md" },

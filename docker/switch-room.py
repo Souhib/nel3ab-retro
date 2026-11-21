@@ -159,8 +159,16 @@ def cache_mounts(slot: Path) -> list[str]:
     ]
 
 
-def pad_command(image: str, pads: Path, helper: str, label: str) -> list[str]:
-    """Use the same confinement for the live helper and its real rumble test."""
+def pad_command(
+    image: str, pads: Path, helper: str, label: str, layout: str = "switch"
+) -> list[str]:
+    """Use the same confinement for the live helper and its real rumble test.
+
+    `layout` chooses where the page's X and Y land: a Switch adapter swaps
+    them for Ryubing's profile, an Xbox 360 adapter keeps them in place.
+    """
+    if layout not in ("switch", "xbox"):
+        raise ValueError(f"unknown pad layout {layout!r}")
     uid, gid = str(os.getuid()), str(os.getgid())
     return [
         "docker",
@@ -190,6 +198,8 @@ def pad_command(image: str, pads: Path, helper: str, label: str) -> list[str]:
         f"HOST_UID={uid}",
         "-e",
         f"NEL3AB_PAD_LABEL={label}",
+        "-e",
+        f"NEL3AB_PAD_LAYOUT={layout}",
         image,
         "python3",
         "/probe/pads.py",
@@ -252,6 +262,8 @@ class EngineLaunch(NamedTuple):
     mounts: list[str]
     command: list[str]
     controllers: int
+    #: Where the page's X and Y land on the virtual pads (see `pad_command`).
+    pad_layout: str = "switch"
 
 
 def ryubing_launch(config: dict, rom: Path, slot: Path) -> EngineLaunch:
@@ -314,7 +326,7 @@ def serve(
     selector.register(sys.stdin, selectors.EVENT_READ)
     try:
         run(
-            *pad_command(image, pads, helper, f"nel3ab {token}"),
+            *pad_command(image, pads, helper, f"nel3ab {token}", launch.pad_layout),
             stdout=subprocess.DEVNULL,
         )
         started_helper = True

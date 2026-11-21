@@ -45,8 +45,8 @@ def test_the_manifest_describes_the_four_consoles_and_the_xbox_360() -> None:
     x360 = CONSOLES.console("x360")
     assert x360 is not None
     assert (x360.engine, x360.form, x360.input, x360.players) == ("xenia", "external", "pro", 4)
-    assert (x360.media, x360.folder, x360.extensions) == ("disc", "xbox360", ("iso", "xex"))
-    assert x360.experimental and not x360.playable
+    assert (x360.media, x360.folder, x360.extensions) == ("disc", "xbox360", ("iso",))
+    assert x360.experimental and x360.playable
     assert CONSOLES.console("?") is None, "« ? » est un disque muet, pas une console"
 
 
@@ -57,6 +57,7 @@ def test_the_black_box_knows_the_same_processes_as_before() -> None:
         "Ryujinx": "switch",
         "dolphin-emu-nog": "dolphin",
         "eden-cli": "switch2",
+        "xenia_edge": "x360",
     }
     assert CONSOLES.processes() == releve.MOTEURS
 
@@ -78,8 +79,7 @@ def test_only_adapter_consoles_have_a_screen_to_grab() -> None:
 
 
 def test_a_preparation_accepts_exactly_the_playable_consoles() -> None:
-    assert CONSOLES.preparable() == {"gc", "wii", "switch", "switch2"}
-    assert "x360" not in CONSOLES.preparable()
+    assert CONSOLES.preparable() == {"gc", "wii", "switch", "switch2", "x360"}
     assert "?" not in CONSOLES.preparable()
 
 
@@ -151,8 +151,8 @@ def test_the_room_unit_configures_every_playable_adapter() -> None:
     for console in CONSOLES.consoles:
         if console.playable and console.form == "external":
             assert console.config_env in environment, console.code
-    # Le jumeau: l'adaptateur réservé de la Xbox 360 n'est configuré nulle part.
-    assert "NEL3AB_XBOX360_CONFIG" not in environment
+    # Rendue jouable le 21 novembre 2026: son adaptateur a sa configuration.
+    assert "NEL3AB_XBOX360_CONFIG" in environment
 
 
 def test_a_console_added_to_the_manifest_reaches_every_derived_list(tmp_path: Path) -> None:
@@ -186,7 +186,7 @@ def test_a_console_added_to_the_manifest_reaches_every_derived_list(tmp_path: Pa
         (lambda brut: brut["engines"][2].update(processes=["eden-cli-trop-long"]), "15"),
         # La leçon du 7 novembre: une console jouable sans processus connu.
         (lambda brut: brut["engines"][2].update(processes=[]), "aucun processus"),
-        (lambda brut: brut["consoles"][4].update(playable=True), "aucun processus"),
+        (lambda brut: brut["engines"][3].update(processes=[]), "aucun processus"),
     ],
 )
 def test_a_manifest_that_no_layer_could_serve_is_refused(

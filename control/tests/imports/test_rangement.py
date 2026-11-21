@@ -129,7 +129,11 @@ def lu(console: str | None, format_: str, *drapeaux: str, **details: str) -> Ide
         (lu("switch", "xci"), "a-confirmer"),
         (lu("switch", "nsz", "compresse"), "pas-jouable"),
         (lu("switch2", "nup", "a-verifier"), "a-confirmer"),
-        (lu("x360", "xiso"), "pas-jouable"),
+        # Jouable depuis le 21 novembre 2026: un disque sans titre lisible
+        # attend sa fiche; un exécutable seul ou un paquet n'est pas un disque.
+        (lu("x360", "xiso"), "a-confirmer"),
+        (lu("x360", "xex"), "pas-jouable"),
+        (lu("x360", "god", "plusieurs-fichiers"), "pas-jouable"),
         (lu("nes", "ines"), "pas-jouable"),
         (lu("ps1", "bin"), "pas-jouable"),
         (lu(None, "chd"), "inconnu"),
@@ -212,23 +216,27 @@ def test_jouable_dossier_et_formats_viennent_du_manifeste() -> None:
 
     assert x360 is not None
     assert gc is not None
-    assert (x360.jouable, x360.dossier) == (False, "xbox360")
+    assert (x360.jouable, x360.dossier, x360.inscription) == (True, "xbox360", "sidecar")
     # `gcm` est au manifeste, mais l'identifiant le lit comme un `iso`.
     assert gc.formats == {"iso", "rvz", "gcz", "ciso"}
     assert gc.inscription == "dolphin-header"
 
 
-def test_une_console_rendue_jouable_au_manifeste_le_devient_pour_l_import() -> None:
-    """Le jumeau: changer le manifeste suffit, sans toucher à ce module."""
+def test_une_console_retiree_au_manifeste_l_est_aussi_pour_l_import() -> None:
+    """Le jumeau: changer le manifeste suffit, sans toucher à ce module.
+
+    Jusqu'au 21 novembre 2026, l'exemple rendait la Xbox 360 jouable; elle
+    l'est devenue, et l'essai la retire à la place.
+    """
     entrees = tuple(
-        dataclasses.replace(entree, playable=True) if entree.code == "x360" else entree
+        dataclasses.replace(entree, playable=False) if entree.code == "x360" else entree
         for entree in manifeste.CONSOLES.consoles
     )
     modifie = dataclasses.replace(manifeste.CONSOLES, consoles=entrees)
 
     x360 = destinations.console("x360", modifie)
     assert x360 is not None
-    assert x360.jouable
+    assert not x360.jouable
 
 
 def test_une_console_reconnue_hors_du_manifeste_n_a_ni_dossier_ni_moteur() -> None:
@@ -457,3 +465,30 @@ def test_entre_deux_disques_un_fichier_existant_n_est_pas_remplace_non_plus(
 
     assert (dossier / "Jeu.iso").read_bytes() == b"le jeu de quelqu'un"
     assert sorted(p.name for p in dossier.iterdir()) == ["Jeu.iso"]
+
+
+# ── Xbox 360 ───────────────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    ("annonce", "nom"),
+    [
+        ("Sonic the Hedgehog (USA, Europe) (En,Ja,Fr,De,Es,It).iso", "Sonic the Hedgehog"),
+        ("Halo_3 [Disc 1].iso", "Halo 3"),
+        ("(USA).iso", "534507D6"),
+    ],
+)
+def test_le_nom_d_un_disque_xbox_360_perd_ses_etiquettes(annonce: str, nom: str) -> None:
+    from nel3ab_control.imports.rangement import nom_xbox360
+
+    assert nom_xbox360(annonce, "534507D6") == nom
+
+
+def test_une_fiche_xbox_360_refuse_un_titre_d_une_autre_forme() -> None:
+    from nel3ab_control.imports.rangement import fiche_xbox360
+
+    assert fiche_xbox360("Sonic", "534507d6").titre == "534507d6"
+    with pytest.raises(ValueError, match="8 chiffres"):
+        fiche_xbox360("Sonic", "0100ABCDEF012000")
+    with pytest.raises(ValueError, match="8 chiffres"):
+        fiche_xbox360("Sonic", "")

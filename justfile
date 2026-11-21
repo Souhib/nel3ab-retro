@@ -40,7 +40,7 @@ default: local
 # 10h31, lu sur les mtime des deux copies), la porte est restée verte, et la
 # dérive a été retrouvée à la main. Un contrôle que rien n'appelle ne protège
 # de rien.
-local: check gpu-test clip-audio-test switch-saves-test switch-capture-test abri-test deploy-check
+local: check gpu-test clip-audio-test switch-saves-test switch-capture-test xbox360-test abri-test deploy-check
 
 # La copie chiffrée des sauvegardes sur le NAS (docs/abri.md), éprouvée contre un
 # faux dossier personnel et un dépôt jetable: restauration à l'identique,
@@ -1247,6 +1247,22 @@ network-room-test rom:
 # Les pilotes qui arrêtent la capture restent explicites et décrits dans son README.
 switch-capture-test:
     python3 -m unittest discover -s spikes/switch-room -p 'test_*.py'
+
+# La salle Xbox 360 sans émulateur ni carte: profils chiffrés comme Xenia,
+# plan de lancement, lanceur du conteneur avec un faux Xenia, lecteur de
+# cadence. Ce qui reste à prouver se voit au premier lancement réel (profil
+# chargé, plein écran, manettes, son) dans le journal de l'emplacement.
+xbox360-test:
+    python3 -m unittest discover -s docker -p 'test_xbox360_*.py'
+    python3 -m unittest discover -s spikes/xbox360 -p 'test_*.py'
+    cd control && uv run ruff check --config pyproject.toml ../docker/xbox360-room.py ../docker/test_xbox360_room.py ../spikes/xbox360/horodate.py ../spikes/xbox360/releve.py ../spikes/xbox360/test_releve.py ../spikes/xbox360/test_xenia_sh.py
+    cd control && uv run ruff format --check --config pyproject.toml ../docker/xbox360-room.py ../docker/test_xbox360_room.py ../spikes/xbox360/horodate.py ../spikes/xbox360/releve.py ../spikes/xbox360/test_releve.py ../spikes/xbox360/test_xenia_sh.py
+
+# Relit une partie Xbox 360 jouée: images par seconde du jeu, par fenêtre de
+# 5 s, depuis le journal horodaté que xenia.sh écrit dans l'emplacement.
+# Exemple: just xbox360-releve ~/.local/state/nel3ab/xbox360/534507d6/neuve
+xbox360-releve emplacement:
+    python3 spikes/xbox360/releve.py {{quote(emplacement)}}/xenia-horodate.log
 
 # Commandes, profils et vibrations de quatre périphériques virtuels jetables.
 # Un retour de vibration refusé doit laisser les boutons répondre. Aucun émulateur

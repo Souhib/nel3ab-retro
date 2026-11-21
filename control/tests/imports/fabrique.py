@@ -202,16 +202,30 @@ def stfs(magie: bytes, *, titre_id: int, type_contenu: int, nom: str) -> bytes:
     return bytes(tampon)
 
 
-def xdvdfs(executable: str) -> dict[int, bytes]:
+def xdvdfs(executable: str, titre_id: int | None = None, voisins: int = 0) -> dict[int, bytes]:
     """Le volume XDVDFS d'une partition de jeu: secteur 32 et répertoire racine.
 
     Rend des morceaux RELATIFS au début de la partition, que l'appelant pose au
-    décalage qu'il veut (0, 0xFD90000 ou 0x2080000).
+    décalage qu'il veut (0, 0xFD90000 ou 0x2080000). Avec `titre_id`, un XEX
+    l'annonce au secteur 40. `voisins` place l'exécutable au bout d'une chaîne
+    d'entrées par la droite, comme dans un vrai répertoire trié.
     """
     volume = b"MICROSOFT*XBOX*MEDIA" + le32(33) + le32(0x800)
-    nom = executable.encode()
-    entree = struct.pack("<HHIIBB", 0, 0, 40, 0x1000, 0x20, len(nom)) + nom
-    return {0x10000: volume, 33 * 0x800: entree}
+
+    def entree(nom: bytes, droite: int, secteur: int) -> bytes:
+        brut = struct.pack("<HHIIBB", 0, droite, secteur, 0x1000, 0x20, len(nom)) + nom
+        return brut + b"\xff" * (-len(brut) % 4)
+
+    table = b""
+    for rang in range(voisins):
+        autre = f"media{rang}.bin".encode()
+        longueur = len(entree(autre, 0, 50))
+        table += entree(autre, (len(table) + longueur) // 4, 50 + rang)
+    table += entree(executable.encode(), 0, 40)
+    morceaux = {0x10000: volume, 33 * 0x800: table}
+    if titre_id is not None:
+        morceaux[40 * 0x800] = xex(titre_id)
+    return morceaux
 
 
 def nes(*, nes2: bool = False) -> bytes:

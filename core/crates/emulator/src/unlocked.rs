@@ -120,7 +120,7 @@ pub fn directories(
                 ));
             }
             let title = disc.title.as_deref()?;
-            if title.len() != 16 || !title.bytes().all(|c| c.is_ascii_hexdigit()) {
+            if !disc.console.valid_title(title) {
                 return None;
             }
             Some(

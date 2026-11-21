@@ -1208,7 +1208,8 @@ body {
   --pad-ink: #eef0f5;
   --pad-seam: #6b7080;
 }
-[data-padmap="xbox"] {
+[data-padmap="xbox"],
+[data-padmap="xbox360"] {
   --pad-shell-top: #41444c;
   --pad-shell-bottom: #16181c;
   --pad-inner: #000c;

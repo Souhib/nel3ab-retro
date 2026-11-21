@@ -204,8 +204,20 @@ async def test_a_page_from_before_the_key_still_prepares_by_position(
 async def test_a_described_console_that_cannot_run_is_not_prepared(
     lobby, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    # La Xbox 360 servait d'exemple jusqu'au 21 novembre 2026, jour où elle est
+    # devenue jouable: le manifeste lu par le salon la retire ici.
+    import dataclasses
+
     from nel3ab_control.api.schemas.room import Game
 
+    sans_x360 = dataclasses.replace(
+        handlers.CONSOLES,
+        consoles=tuple(
+            dataclasses.replace(one, playable=False) if one.code == "x360" else one
+            for one in handlers.CONSOLES.consoles
+        ),
+    )
+    monkeypatch.setattr(handlers, "CONSOLES", sans_x360)
     halo = Game(index=0, key="Halo 3.iso", name="Halo 3", console="x360")
     await prepared_by(lobby, monkeypatch, [halo])
     said = await handlers.preparation("good", {"action": "begin", "key": "Halo 3.iso"})

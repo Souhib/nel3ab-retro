@@ -1131,9 +1131,7 @@ fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Re
         let mut engine = nel3ab_emulator::external::External::start(
             &script,
             &rom,
-            disc.title
-                .as_deref()
-                .context("registered Switch title missing")?,
+            disc.title.as_deref().context("registered title missing")?,
             &saves::folder_for(slot, person.as_deref()),
             runtime.path(),
         )?;

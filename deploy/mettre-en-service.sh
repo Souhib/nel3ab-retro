@@ -36,6 +36,10 @@ echo "2. Unités et Caddyfile installés"
 cp /etc/caddy/Caddyfile "/etc/caddy/Caddyfile.avant-$jour"
 install -m 644 deploy/Caddyfile /etc/caddy/Caddyfile
 install -m 644 deploy/nel3ab-control.service /etc/systemd/system/nel3ab-control.service
+# L'unité des salles: une salle déjà ouverte garde l'ancienne jusqu'à sa
+# fermeture, la suivante démarre avec celle-ci (dossier et réglage Xbox 360
+# depuis le 21 novembre 2026).
+install -m 644 deploy/nel3ab-worker@.service /etc/systemd/system/nel3ab-worker@.service
 systemctl daemon-reload
 
 echo "3. Le salon s'importe avec l'interpréteur que systemd va lancer"

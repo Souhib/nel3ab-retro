@@ -56,8 +56,8 @@ pub fn registered(path: &Path) -> Option<Game> {
     let name = value.get("name")?.as_str()?.trim();
     let title = value.get("title")?.as_str()?;
     // La console nommée par la fiche doit être inscrite par fiche ET porter
-    // cette extension: un `.xci` déclaré Switch 2 reste refusé, comme une fiche
-    // qui nommerait une console décrite mais non inscrite (Xbox 360).
+    // cette extension: un `.xci` déclaré Switch 2 reste refusé, comme un `.iso`
+    // déclaré GameCube, que Dolphin lit par son en-tête.
     let console = Console::from_code(value.get("console")?.as_str()?)
         .filter(by_sidecar)
         .filter(|console| console.extensions().contains(&extension.as_str()))?;
@@ -66,12 +66,7 @@ pub fn registered(path: &Path) -> Option<Game> {
     if console == Console::Switch2 && !title.starts_with("0400") {
         return None;
     }
-    if name.is_empty()
-        || name.len() > 200
-        || title.len() != 16
-        || !title.bytes().all(|c| c.is_ascii_hexdigit())
-        || !title.ends_with("000")
-    {
+    if name.is_empty() || name.len() > 200 || !console.valid_title(title) {
         return None;
     }
     Some(Game {
@@ -150,19 +145,23 @@ mod tests {
         }
     }
 
-    /// Une console décrite par le manifeste mais inscrite par aucune fiche ne
-    /// passe pas par cette porte, même avec une fiche bien formée. Sans ce
-    /// refus, un `.iso` déclaré Xbox 360 quitterait le chemin Dolphin.
+    /// Une fiche ne vaut que pour une console inscrite par fiche, avec une
+    /// extension qu'elle porte et un titre de sa forme. Sans ces refus, un
+    /// `.iso` GameCube suivi d'une fiche quitterait le chemin Dolphin.
     #[test]
-    fn a_console_the_manifest_does_not_register_by_sidecar_is_refused() {
+    fn a_sidecar_needs_its_console_its_extension_and_its_title_shape() {
         let dir = tempfile::tempdir().unwrap();
-        for (extension, console, expected) in [
-            ("iso", "x360", None),
-            ("xex", "x360", None),
-            ("xci", "x360", None),
-            ("iso", "gc", None),
-            // Le jumeau: la même fiche, pour une console inscrite par fiche.
-            ("xci", "switch", Some(Console::Switch)),
+        for (extension, console, title, expected) in [
+            // La Xbox 360 s'inscrit par fiche depuis le 21 novembre 2026: un
+            // disque entier, et un titre de 8 chiffres.
+            ("iso", "x360", "534507D6", Some(Console::Xbox360)),
+            ("iso", "x360", "0100BDE00862A000", None),
+            ("iso", "x360", "534507G6", None),
+            ("xex", "x360", "534507D6", None),
+            ("xci", "x360", "534507D6", None),
+            ("iso", "gc", "534507D6", None),
+            ("xci", "switch", "534507D6", None),
+            ("xci", "switch", "0100BDE00862A000", Some(Console::Switch)),
         ] {
             let path = dir.path().join(format!("game.{extension}"));
             std::fs::write(&path, b"registration fixture").unwrap();
@@ -170,15 +169,38 @@ mod tests {
             sidecar.push(".nel3ab.json");
             std::fs::write(
                 sidecar,
-                format!(r#"{{"console":"{console}","name":"Halo 3","title":"0100BDE00862A000"}}"#),
+                format!(r#"{{"console":"{console}","name":"Halo 3","title":"{title}"}}"#),
             )
             .unwrap();
             assert_eq!(
                 registered(&path).map(|game| game.console),
                 expected,
-                "{extension}, {console}"
+                "{extension}, {console}, {title}"
             );
         }
+    }
+
+    /// La fiche qu'écrit l'import d'un disque Xbox 360 (`rangement.fiche_xbox360`),
+    /// comparée octet pour octet par un essai Python à ce même fichier.
+    #[test]
+    fn the_lobby_import_sidecar_registers_an_xbox_360_disc() {
+        const FICHE: &str = include_str!("../../../../consoles/fiche-xbox360.json");
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("Sonic the Hedgehog.iso");
+        std::fs::write(&path, b"disc fixture").unwrap();
+        std::fs::write(dir.path().join("Sonic the Hedgehog.iso.nel3ab.json"), FICHE).unwrap();
+        let game = registered(&path);
+        assert_eq!(game.as_ref().map(|g| g.console), Some(Console::Xbox360));
+        assert_eq!(game.as_ref().map(|g| g.title.as_str()), Some("534507d6"));
+        assert_eq!(
+            game.as_ref().map(|g| g.name.as_str()),
+            Some("Sonic the Hedgehog")
+        );
+        // Le jumeau: la même fiche à côté d'un `.xex` n'inscrit rien.
+        let xex = dir.path().join("default.xex");
+        std::fs::write(&xex, b"xex fixture").unwrap();
+        std::fs::write(dir.path().join("default.xex.nel3ab.json"), FICHE).unwrap();
+        assert_eq!(registered(&xex), None);
     }
 
     /// La fiche que l'import du salon écrit (`rangement.fiche_switch`). Un essai

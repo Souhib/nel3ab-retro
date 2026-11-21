@@ -232,6 +232,29 @@ def test_une_image_xiso_est_reconnue_a_chacun_des_decalages(partition: int) -> N
     assert (trouve.console, trouve.format) == ("x360", "xiso")
 
 
+@pytest.mark.parametrize("voisins", [0, 3])
+def test_une_image_xiso_donne_le_titre_de_son_executable(voisins: int) -> None:
+    # Sans titre, la salle ne peut ni inscrire le jeu ni ranger ses sauvegardes.
+    # L'exécutable est cherché dans l'arbre du répertoire, pas seulement à la
+    # première entrée: un vrai disque range d'autres fichiers avant lui.
+    fichier = f.Clairseme(taille=0xFD90000 + 0x200000)
+    for decalage, octets in f.xdvdfs("default.xex", 0x534507D6, voisins).items():
+        fichier.poser(0xFD90000 + decalage, octets)
+
+    trouve = identifier(fichier.lire, fichier.taille)
+    assert (trouve.console, trouve.format, trouve.identifiant) == ("x360", "xiso", "534507D6")
+
+
+def test_une_image_xiso_sans_xex_lisible_n_invente_pas_de_titre() -> None:
+    # Le jumeau: le nom est à la racine, mais pas d'en-tête XEX2 à son secteur.
+    fichier = f.Clairseme(taille=0x200000)
+    for decalage, octets in f.xdvdfs("default.xex").items():
+        fichier.poser(decalage, octets)
+
+    trouve = identifier(fichier.lire, fichier.taille)
+    assert (trouve.console, trouve.format, trouve.identifiant) == ("x360", "xiso", "")
+
+
 def test_une_image_xbox_d_origine_n_est_pas_une_xbox_360() -> None:
     fichier = f.Clairseme(taille=0x200000)
     for decalage, octets in f.xdvdfs("default.xbe").items():

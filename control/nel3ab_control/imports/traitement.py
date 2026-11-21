@@ -33,8 +33,10 @@ from nel3ab_control.imports.rangement import (
     Inscrit,
     Refus,
     fiche_switch,
+    fiche_xbox360,
     nom_canonique,
     nom_switch,
+    nom_xbox360,
 )
 from nel3ab_control.imports.switch_nca import (
     CleEntete,
@@ -110,6 +112,8 @@ def decider(
     if trouvee.inscription == "sidecar":
         if trouvee.code == "switch":
             return _switch(trouve, rom_dir, switch, inscrits or {})
+        if trouvee.code == "x360":
+            return _xbox360(trouve, rom_dir)
         return Decision(
             "a-confirmer",
             f"{trouvee.libelle}: l'identifiant de titre et le nom s'inscrivent à la main "
@@ -142,6 +146,35 @@ def decider(
         return Decision(
             "a-confirmer",
             f"Le salon ne connaît pas de dossier « {trouvee.dossier} » où ranger ce jeu "
+            "(réglage NEL3AB_ROM_DIR du salon).",
+        )
+    return Decision("range", VISIBLE, dossier)
+
+
+def _xbox360(trouve: Identification, rom_dir: str) -> Decision:
+    """Un disque entier dont le titre se lit: le ranger avec sa fiche."""
+    if trouve.format != "xiso":
+        pourquoi = {
+            "xex": "Un default.xex seul n'a pas le reste de son jeu",
+            "god": "Un jeu Games on Demand tient en plusieurs fichiers, que l'envoi ne garde pas "
+            "ensemble",
+            "stfs": "Un paquet Xbox Live (démo, extension, jeu Arcade) n'est pas un disque",
+        }.get(trouve.format, f"Le format {trouve.format} n'est pas un disque")
+        return Decision(
+            "pas-jouable",
+            f"{pourquoi}: la salle Xbox 360 lance une image de disque entière (ISO).",
+        )
+    if "a-verifier" in trouve.drapeaux or not trouve.identifiant:
+        return Decision(
+            "a-confirmer",
+            "Disque Xbox 360 reconnu, mais le titre de son default.xex ne se lit pas. "
+            "L'inscription <fichier>.nel3ab.json s'écrit donc à la main.",
+        )
+    dossier = destination("x360", rom_dir)
+    if dossier is None or not dossier.is_dir():
+        return Decision(
+            "a-confirmer",
+            "Le salon ne connaît pas de dossier « xbox360 » où ranger ce jeu "
             "(réglage NEL3AB_ROM_DIR du salon).",
         )
     return Decision("range", VISIBLE, dossier)
@@ -304,6 +337,10 @@ def _placer(
     if isinstance(switch, Contenu):
         nom = element.titre + EXTENSIONS[trouve.format]
         fiche = fiche_switch(element.titre, switch.titre)
+    elif trouve.console == "x360":
+        titre = nom_xbox360(element.nom, trouve.identifiant)
+        nom = titre + EXTENSIONS[trouve.format]
+        fiche = fiche_xbox360(titre, trouve.identifiant)
     else:
         nom = nom_canonique(
             trouve.titre,

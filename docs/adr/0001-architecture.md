@@ -731,7 +731,9 @@ greys it. Its adapter script and variables are reserved and read by nothing. Its
 engine has no process name yet: none has been observed, and the manifest refuses
 a playable console without one. GOD (Games on Demand) containers are described
 as an extensionless header file next to a `<name>.data` directory, which Xenia
-opens directly; the scan does not read them.
+opens directly; the scan does not read them. Superseded the same day: see
+« Xbox 360 room, 2026-11-21 » below, where it becomes playable, registered by
+sidecar, with `iso` only.
 
 Still written by hand, with their reason: Dolphin's own per-console behaviour in
 the worker (Wii NAND against GameCube card, Wiimote devices), the Switch title
@@ -1631,3 +1633,49 @@ status names every account with a device that can reach this machine;
 nickname store adds everyone who already came. The list shows addresses, so
 only the administrator may read it (401 or 403 otherwise), and the global
 origin guard covers its writes.
+
+## Xbox 360 room, 2026-11-21
+
+The owner asked to play the Xbox 360 and to test it himself, with every
+capture and measurement needed to improve it. The logbook entry « 21 novembre :
+la Xbox 360 devient jouable » tells the research and the tests;
+`docs/xbox360.md` is the operating note.
+
+**An adapter of the Switch room, not a new room.** `docker/xbox360-room.py`
+hands an `EngineLaunch` to the shared `serve()`: same image (by digest), Sway,
+capture, PulseAudio sink, four virtual Xbox 360 pads, stop order. Xenia Edge
+`01ca7a5` is installed outside the repository, unpacked without execution and
+its AppImage checked against the published hash. Rejected: a dedicated image,
+because the Switch image already ran Sonic to its intro on the Radeon, and a
+new image would have to repeat the pad-helper proof the rules require.
+
+**Registered by sidecar, with the title of the disc's `default.xex`.** The
+importer walks the XDVDFS directory tree to the executable and reads the
+title from its execution header (8 hex digits). `Console::valid_title` gives
+each family its own title shape; the 16-digit Switch rule had been written in
+four places. Only whole discs (`iso`) are registered: a lone `default.xex`
+lacks its game, and Games on Demand packages span several files the upload
+does not keep together. A game left in quarantine before its console became
+playable is re-examined in place (`imports/reexaminer.py`).
+
+**Four profiles written before the first launch.** Without a signed-in
+profile Xenia shows a modal « No Profiles Found » over the picture and delays
+full screen; no option removes it. The adapter writes four offline `Account`
+files encrypted exactly as Xenia's `EncryptAccountFile` (HMAC-SHA1, RC4) and
+signs them into the four slots. The key is a console key published in
+Xenia's code; it stays out of the repository in a 0600 file the configuration
+names, like the Switch keys. Rejected: shipping the key in the repository,
+which is public; asking players to click « Create profile », which the stream
+cannot do.
+
+**X stays left and Y stays top.** The pad helper gains a layout chosen by the
+adapter. The Switch keeps its swap for Ryubing's profile; the Xbox 360 sends
+the page's X as BTN_X, which Xenia's SDL mapping (pinned by
+`--mappings_file`) reads as the left button.
+
+**Measured by design.** Xenia prints no frame rate, but prefixes every log
+line with the count of frames the game presented. `--guest_scheduler_stats`
+adds one line per second; `spikes/xbox360/xenia.sh` timestamps every line,
+and `just xbox360-releve` turns them into frames per second per window. A
+screenshot every 30 s lands in the save slot. The black box knows Xenia by
+its kernel name, `xenia_edge`. No lock yet: it waits for the measured cost.

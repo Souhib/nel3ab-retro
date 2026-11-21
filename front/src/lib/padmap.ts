@@ -1068,6 +1068,45 @@ export const SWITCH_PRO_PAD: PadMap = switchPro(
 );
 
 /**
+ * La manette Xbox 360 d'une salle Xbox 360: le dessin de la Xbox, avec les
+ * noms de boutons de la trame Pro que la page envoie (ceux de la Switch).
+ *
+ * La trame range ses boutons par POSITION: le bas s'appelle A, la droite B, la
+ * gauche X, le haut Y, comme sur une manette Xbox. Une salle Xbox 360 n'a donc
+ * qu'à dessiner une Xbox et à nommer ses pièces avec la trame. Le bouton Guide
+ * n'y est pas: la trame ne le transporte pas, et Xenia ouvrirait son menu.
+ */
+const XBOX_TO_FRAME: Record<string, string> = {
+  b0: "A",
+  b1: "B",
+  b2: "X",
+  b3: "Y",
+  b4: "L",
+  b5: "R",
+  b6: "ZL",
+  b7: "ZR",
+  b8: "MINUS",
+  b9: "PLUS",
+  b10: "LS",
+  b11: "RS",
+  b12: "UP",
+  b13: "DOWN",
+  b14: "LEFT",
+  b15: "RIGHT",
+};
+const XBOX_360_PARTS: Part[] = [];
+for (const part of XBOX.parts) {
+  const key = XBOX_TO_FRAME[part.key];
+  if (key) XBOX_360_PARTS.push(Object.assign({}, part, { key }));
+}
+export const XBOX_360: PadMap = {
+  ...XBOX,
+  id: "xbox360",
+  name: "manette Xbox 360",
+  parts: XBOX_360_PARTS,
+};
+
+/**
  * La Wiimote et son Nunchuk, quand la salle présente une Wii.
  *
  * # Les mêmes clés que la GameCube, et c'est le point
@@ -1433,6 +1472,7 @@ export const MAPS: Record<string, PadMap> = {
   [XBOX.id]: XBOX,
   [SWITCH_PRO_PAD.id]: SWITCH_PRO_PAD,
   [SWITCH_PRO.id]: SWITCH_PRO,
+  [XBOX_360.id]: XBOX_360,
   [WIIMOTE.id]: WIIMOTE,
   [GUITAR.id]: GUITAR,
 };

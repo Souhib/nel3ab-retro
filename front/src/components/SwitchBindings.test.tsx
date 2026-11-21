@@ -128,3 +128,35 @@ it("lights the pressed button and tilts both sticks on the shared Pro drawing", 
     "translate(0.00 3.89)",
   );
 });
+
+it("an Xbox 360 room draws an Xbox 360 pad and lights A at the bottom", () => {
+  let frame: FrameRequestCallback | undefined;
+  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+    frame = callback;
+    return 1;
+  });
+  const input = new InputStream((p) => p, vi.fn(), vi.fn());
+  vi.spyOn(input, "attribution").mockReturnValue("claim-1");
+  vi.spyOn(input, "switchActive").mockReturnValue(true);
+  const { container } = render(
+    <SwitchBindings
+      input={input}
+      source={input.switch}
+      pending={null}
+      game={{ index: 0, key: "Sonic.iso", name: "Sonic", console: "x360" } as never}
+      send={vi.fn()}
+      close={vi.fn()}
+    />,
+  );
+  expect(container.querySelector('[data-padmap="xbox360"]')).not.toBeNull();
+  expect(container.querySelector('[data-padmap="switch-pro"]')).toBeNull();
+  expect(screen.getByText("LT · gâchette gauche")).toBeInTheDocument();
+  input.switch.reading = { buttons: 1 << SWITCH_BUTTONS.indexOf("A"), lx: 0, ly: 0, rx: 0, ry: 0 };
+  frame?.(0);
+  const a = container.querySelector('[data-padmap="xbox360"] [data-part="A"]');
+  expect(a).toHaveAttribute("data-lit", "oui");
+  // A est le bouton du BAS sur une Xbox: au-dessous de Y sur le dessin.
+  const y = container.querySelector('[data-padmap="xbox360"] [data-part="Y"]');
+  const at = (part: Element | null) => Number(part?.querySelector("circle")?.getAttribute("cy"));
+  expect(at(a)).toBeGreaterThan(at(y));
+});

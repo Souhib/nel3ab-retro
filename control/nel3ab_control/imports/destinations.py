@@ -57,6 +57,7 @@ EXTENSIONS = {
     "nsp": ".nsp",
     "xci": ".xci",
     "nup": ".nup",
+    "xiso": ".iso",
 }
 
 #: Reconnues par l'identifiant, absentes du manifeste: un nom, rien d'autre.

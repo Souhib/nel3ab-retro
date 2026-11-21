@@ -36,6 +36,23 @@ BUTTONS = {
     "rs": e.BTN_THUMBR,
     "home": e.BTN_MODE,
 }
+# An Xbox 360 room reads these pads as what they are: Xenia's SDL mapping puts
+# the left X on BTN_X (0x133) and the top Y on BTN_Y (0x134), and the page's
+# X and Y are already the left and top buttons. Swapping them as for Ryubing
+# would send X as Y. The layout is chosen by the adapter (`pad_command`).
+LAYOUTS = {
+    "switch": BUTTONS,
+    "xbox": {**BUTTONS, "x": e.BTN_X, "y": e.BTN_Y},
+}
+
+
+def layout(environ=os.environ) -> dict:
+    name = environ.get("NEL3AB_PAD_LAYOUT", "switch")
+    if name not in LAYOUTS:
+        raise ValueError(f"unknown pad layout {name!r}")
+    return LAYOUTS[name]
+
+
 AXES = {
     "lx": e.ABS_X,
     "ly": e.ABS_Y,
@@ -49,6 +66,9 @@ AXES = {
 
 
 def main():
+    # Both layouts declare the same key codes, permuted: SDL numbers buttons by
+    # code, so the device stays the same Xbox 360 pad whichever room uses it.
+    buttons = layout()
     caps = {e.EV_KEY: list(BUTTONS.values()), e.EV_FF: [e.FF_RUMBLE]}
     caps[e.EV_ABS] = [
         (
@@ -86,8 +106,7 @@ def main():
         matches = [
             p
             for p in Path("/sys/class/input").glob("event*")
-            if (p / "device/name").read_text().strip()
-            == f"{label} P{i + 1}"
+            if (p / "device/name").read_text().strip() == f"{label} P{i + 1}"
         ]
         if len(matches) != 1:
             raise RuntimeError(f"expected one private P{i + 1}, found {len(matches)}")
@@ -154,7 +173,7 @@ def main():
                             raise ValueError("player must be 1..4")
                         desired = empty()
                         for name in command.get("buttons", []):
-                            desired[e.EV_KEY, BUTTONS[name]] = 1
+                            desired[e.EV_KEY, buttons[name]] = 1
                         for name, value in command.get("axes", {}).items():
                             if not isinstance(value, int):
                                 raise ValueError("axis must be an integer")
@@ -172,9 +191,7 @@ def main():
                                 if name in ("dx", "dy")
                                 else -32768
                             )
-                            desired[e.EV_ABS, AXES[name]] = max(
-                                minimum, min(maximum, value)
-                            )
+                            desired[e.EV_ABS, AXES[name]] = max(minimum, min(maximum, value))
                         apply(i, desired)
                         active[i] = True
                         last[i] = time.monotonic()
@@ -209,9 +226,7 @@ def main():
                                 flush=True,
                             )
                             magnitude = (
-                                max(effects[i].get(event.code, (0, 0)))
-                                if event.value
-                                else 0
+                                max(effects[i].get(event.code, (0, 0))) if event.value else 0
                             )
                             delivered = send_rumble(
                                 sock,

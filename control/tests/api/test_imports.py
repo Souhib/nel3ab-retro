@@ -18,7 +18,7 @@ from fastapi import FastAPI
 
 from nel3ab_control import identity
 from nel3ab_control.api.controllers.imports import ImportsController
-from nel3ab_control.imports.rangement import fiche_switch
+from nel3ab_control.imports.rangement import fiche_switch, fiche_xbox360
 from tests.conftest import SOUHIB, VINCENT
 from tests.imports import fabrique as f
 from tests.imports.protocole import GC, MIO, annoncer, empreinte, envoyer, finir, quarantaine
@@ -641,6 +641,7 @@ async def test_sans_cle_un_jeu_switch_attend_une_confirmation_et_n_est_pas_range
 
 #: Un jeu inventé, sa mise à jour et un contenu additionnel.
 JEU_SWITCH = 0x0100ABCDEF012000
+FICHE_XBOX360 = Path(__file__).resolve().parents[3] / "consoles" / "fiche-xbox360.json"
 
 
 @pytest.fixture
@@ -849,19 +850,68 @@ async def test_un_fichier_de_cles_regle_mais_absent_garde_l_ancien_chemin(
     assert not list((roms / "switch").iterdir())
 
 
-async def test_un_jeu_xbox_360_est_reconnu_mais_pas_range(
+async def test_un_default_xex_seul_n_est_pas_range(
     client: httpx.AsyncClient, imports: ImportsController, roms: Path
 ) -> None:
+    # Un exécutable sans le reste de son disque: Xenia ne lancerait rien.
     xex = f.xex(0x4D5307E6)
     ident = (await annoncer(client, xex, nom="default.xex")).json()["id"]
     await envoyer(client, ident, xex)
 
     fini = await finir(client, imports, ident)
 
-    assert (fini["elements"][0]["console_libelle"], fini["elements"][0]["libelle"]) == (
+    [element] = fini["elements"]
+    assert (element["console_libelle"], element["libelle"]) == (
         "Xbox 360",
         "reconnu, pas encore jouable",
     )
+    assert "default.xex seul" in element["message"]
+
+
+def disque_xbox360(titre_id: int | None) -> bytes:
+    """Une petite image XDVDFS à la partition 0, son default.xex au secteur 40."""
+    tampon = bytearray(42 * 0x800)
+    for decalage, octets in f.xdvdfs("default.xex", titre_id, voisins=2).items():
+        tampon[decalage : decalage + len(octets)] = octets
+    return bytes(tampon)
+
+
+async def test_un_disque_xbox_360_est_range_avec_sa_fiche(
+    app: FastAPI, client: httpx.AsyncClient, imports: ImportsController, roms: Path
+) -> None:
+    (roms / "xbox360").mkdir()
+    app.state.settings.rom_dir += f":{roms / 'xbox360'}"
+    disque = disque_xbox360(0x534507D6)
+
+    fini = await deposer(client, imports, disque, "Sonic the Hedgehog (USA, Europe) (En,Ja,Fr).iso")
+
+    [element] = fini["elements"]
+    assert (element["etat"], element["destination"], element["identifiant"]) == (
+        "range",
+        "xbox360/Sonic the Hedgehog.iso",
+        "534507D6",
+    )
+    jeu = roms / "xbox360" / "Sonic the Hedgehog.iso"
+    fiche = roms / "xbox360" / "Sonic the Hedgehog.iso.nel3ab.json"
+    assert jeu.read_bytes() == disque
+    assert fiche.read_bytes() == fiche_xbox360("Sonic the Hedgehog", "534507D6").octets
+    assert fiche.read_bytes() == FICHE_XBOX360.read_bytes()
+    assert not trouves(quarantaine(app), "fichier"), "rangé, il a quitté la quarantaine"
+
+
+async def test_un_disque_xbox_360_sans_titre_lisible_attend_une_fiche_a_la_main(
+    app: FastAPI, client: httpx.AsyncClient, imports: ImportsController, roms: Path
+) -> None:
+    # Le jumeau: même disque, mais pas d'en-tête XEX2 au secteur de default.xex.
+    (roms / "xbox360").mkdir()
+    app.state.settings.rom_dir += f":{roms / 'xbox360'}"
+
+    fini = await deposer(client, imports, disque_xbox360(None), "Sonic.iso")
+
+    [element] = fini["elements"]
+    assert element["etat"] == "a-confirmer"
+    assert "ne se lit pas" in element["message"]
+    assert not list((roms / "xbox360").iterdir())
 
 
 async def test_la_liste_rend_les_envois_de_la_personne(
@@ -945,3 +995,27 @@ async def test_une_page_d_un_autre_site_ne_peut_pas_annoncer_un_envoi(
 
     assert reponse.status_code == 403
     assert not quarantaine(app).exists()
+
+
+async def test_un_disque_reste_en_quarantaine_se_reexamine_avec_les_regles_du_jour(
+    app: FastAPI, client: httpx.AsyncClient, imports: ImportsController, roms: Path
+) -> None:
+    """Sonic attendait en quarantaine quand la Xbox 360 est devenue jouable."""
+    from nel3ab_control.imports.reexaminer import reexaminer
+
+    disque = disque_xbox360(0x534507D6)
+    fini = await deposer(client, imports, disque, "Sonic the Hedgehog (USA).iso")
+    assert fini["elements"][0]["etat"] == "a-confirmer", "pas encore de dossier xbox360"
+    (roms / "xbox360").mkdir()
+    app.state.settings.rom_dir += f":{roms / 'xbox360'}"
+    [envoi] = [e for e in imports.quarantaine.charger() if e.id == fini["id"]]
+
+    refait = reexaminer(imports.quarantaine, envoi, imports.regles())
+
+    [element] = refait.elements
+    assert (element.etat, element.destination) == ("range", "xbox360/Sonic the Hedgehog.iso")
+    assert (roms / "xbox360" / "Sonic the Hedgehog.iso").read_bytes() == disque
+    assert (roms / "xbox360" / "Sonic the Hedgehog.iso.nel3ab.json").is_file()
+    # Le jumeau: une fois rangé, il a quitté la quarantaine et ne se réexamine plus.
+    with pytest.raises(ValueError, match="plus en quarantaine"):
+        reexaminer(imports.quarantaine, refait, imports.regles())

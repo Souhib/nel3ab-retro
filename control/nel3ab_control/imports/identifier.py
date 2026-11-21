@@ -342,19 +342,26 @@ def _nup(lu: _Lecture) -> Identification | None:
 # ── Xbox et Xbox 360 ───────────────────────────────────────────────────────
 
 
+def _titre_xex(lu: _Lecture, debut: int) -> str:
+    """L'identifiant de titre d'un exécutable XEX2 commençant à `debut`, ou "".
+
+    Il est dans l'en-tête optionnel d'exécution (clé 0x00040006), à 0x0C de
+    la structure qu'il désigne; la structure est relative au début du XEX.
+    """
+    nombre = lu.entier(debut + 0x14, ">I") or 0
+    for rang in range(min(nombre, 64)):
+        cle = lu.entier(debut + 0x18 + rang * 8, ">I")
+        if cle == 0x00040006:
+            valeur = lu.entier(debut + 0x18 + rang * 8 + 4, ">I") or 0
+            titre = lu.entier(debut + valeur + 0x0C, ">I")
+            return f"{titre:08X}" if titre else ""
+    return ""
+
+
 def _xex(lu: _Lecture) -> Identification | None:
     if not lu.egal(0, b"XEX2"):
         return None
-    nombre = lu.entier(0x14, ">I") or 0
-    identifiant = ""
-    for rang in range(min(nombre, 64)):
-        cle = lu.entier(0x18 + rang * 8, ">I")
-        if cle == 0x00040006:
-            valeur = lu.entier(0x18 + rang * 8 + 4, ">I") or 0
-            titre = lu.entier(valeur + 0x0C, ">I")
-            identifiant = f"{titre:08X}" if titre else ""
-            break
-    return Identification("x360", "xex", identifiant=identifiant, preuve="« XEX2 » à 0")
+    return Identification("x360", "xex", identifiant=_titre_xex(lu, 0), preuve="« XEX2 » à 0")
 
 
 def _stfs(lu: _Lecture) -> Identification | None:
@@ -379,6 +386,32 @@ def _stfs(lu: _Lecture) -> Identification | None:
     )
 
 
+def _entree_xdvdfs(lu: _Lecture, table: int, taille: int, nom: bytes) -> int | None:
+    """Le secteur de `nom` dans un répertoire XDVDFS, ou None.
+
+    Un répertoire est un arbre binaire d'entrées: deux sauts (gauche, droite)
+    comptés en mots de 4 octets depuis le début de la table, le secteur, la
+    taille, les attributs, puis le nom. Les fins de secteur sont remplies de
+    0xFF. Le parcours est borné et ne revisite rien: une image abîmée ne le
+    fait pas tourner.
+    """
+    vues: set[int] = set()
+    pile = [0]
+    while pile and len(vues) < 1024:
+        relatif = pile.pop()
+        if relatif in vues or relatif + 14 > taille:
+            continue
+        vues.add(relatif)
+        entete = lu.octets(table + relatif, 14)
+        if len(entete) < 14 or entete[:4] == b"\xff\xff\xff\xff":
+            continue
+        gauche, droite, secteur, _taille, _attributs, longueur = struct.unpack("<HHIIBB", entete)
+        if lu.octets(table + relatif + 14, longueur).lower() == nom:
+            return secteur
+        pile.extend(saut * 4 for saut in (gauche, droite) if saut)
+    return None
+
+
 def _xiso(lu: _Lecture) -> Identification | None:
     for base, nom_disque in PARTITIONS_XBOX:
         if not lu.egal(base + 0x10000, b"MICROSOFT*XBOX*MEDIA"):
@@ -388,7 +421,19 @@ def _xiso(lu: _Lecture) -> Identification | None:
         racine = lu.octets(base + secteur * 0x800, taille).lower()
         preuve = f"« MICROSOFT*XBOX*MEDIA » au secteur 32 de la partition à {base:#x}"
         if b"default.xex" in racine:
-            return Identification("x360", "xiso", preuve=f"{preuve}, default.xex à la racine")
+            # Le titre du disque est celui de son exécutable: sans lui, la salle
+            # ne saurait ni inscrire le jeu ni ranger ses sauvegardes.
+            trouve = _entree_xdvdfs(lu, base + secteur * 0x800, taille, b"default.xex")
+            titre = ""
+            if trouve is not None and lu.egal(base + trouve * 0x800, b"XEX2"):
+                titre = _titre_xex(lu, base + trouve * 0x800)
+            return Identification(
+                "x360",
+                "xiso",
+                identifiant=titre,
+                preuve=f"{preuve}, default.xex à la racine"
+                + (f", titre {titre} dans son en-tête" if titre else ", titre illisible"),
+            )
         if b"default.xbe" in racine:
             return Identification("xbox", "xiso", preuve=f"{preuve}, default.xbe à la racine")
         if nom_disque in ("XGD2", "XGD3"):

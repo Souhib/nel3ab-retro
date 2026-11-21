@@ -120,7 +120,7 @@ def test_un_profil_rate_n_est_pas_resume_et_la_capture_continue(tmp_path: Path) 
     assert (dossier / "worker.log").exists()
 
 
-@pytest.mark.parametrize("engine", ["switch", "switch2"])
+@pytest.mark.parametrize("engine", ["switch", "switch2", "x360"])
 def test_la_capture_garde_l_allocateur_le_worker_les_pages_et_l_ecran(
     tmp_path: Path, engine: str
 ) -> None:
@@ -211,7 +211,7 @@ def test_par_defaut_la_capture_ne_touche_pas_au_debugfs(tmp_path: Path) -> None:
     assert "amdgpu_vram_mm" not in meta["codes"]
 
 
-@pytest.mark.parametrize("engine", ["switch", "switch2"])
+@pytest.mark.parametrize("engine", ["switch", "switch2", "x360"])
 def test_une_capture_periodique_ne_prend_pas_l_ecran(tmp_path: Path, engine: str) -> None:
     """`grim` tourne dans le conteneur du jeu: seulement quand il y a une chute à montrer."""
     lanceur = FauxLanceur()

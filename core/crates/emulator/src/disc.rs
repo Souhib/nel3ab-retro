@@ -57,8 +57,8 @@ pub enum Console {
     Switch,
     /// Registered Switch 2 application, launched by its experimental adapter.
     Switch2,
-    /// Décrite et pas jouable: aucun adaptateur Xenia n'existe encore, et rien
-    /// n'inscrit un jeu sous cette console. Voir [`Console::playable`].
+    /// Inscrite par fiche (titre de 8 chiffres hexadécimaux lu dans le
+    /// `default.xex` du disque), lancée par l'adaptateur Xenia Edge, expérimentale.
     Xbox360,
     /// Le disque n'a pas répondu. Voir le module: ce n'est pas « GameCube ».
     Unknown,
@@ -240,7 +240,6 @@ impl Console {
                 script_env: "NEL3AB_SWITCH2_ADAPTER",
                 config_env: "NEL3AB_SWITCH2_CONFIG",
             }),
-            // Réservé et lu par personne: `playable` arrête la salle avant.
             Self::Xbox360 => Some(Adapter {
                 script: "docker/xbox360-room.py",
                 script_env: "NEL3AB_XBOX360_ADAPTER",
@@ -274,8 +273,8 @@ impl Console {
     pub const fn registration(self) -> Registration {
         match self {
             Self::GameCube | Self::Wii => Registration::DolphinHeader,
-            Self::Switch | Self::Switch2 => Registration::Sidecar,
-            Self::Xbox360 | Self::Unknown => Registration::None,
+            Self::Switch | Self::Switch2 | Self::Xbox360 => Registration::Sidecar,
+            Self::Unknown => Registration::None,
         }
     }
 
@@ -286,7 +285,9 @@ impl Console {
             Self::GameCube | Self::Wii => &crate::library::PLAYABLE,
             Self::Switch => &["xci", "nsp"],
             Self::Switch2 => &["nup"],
-            Self::Xbox360 => &["iso", "xex"],
+            // Un disque entier seulement: un `default.xex` seul n'a pas le reste
+            // de son jeu, et Xenia ne lancerait rien.
+            Self::Xbox360 => &["iso"],
             Self::Unknown => &[],
         }
     }
@@ -310,10 +311,36 @@ impl Console {
     /// Faux quand la salle doit refuser de lancer un jeu de cette console.
     ///
     /// Un disque inconnu reste jouable: Dolphin le lance depuis toujours, par le
-    /// chemin en deux pressions de la page.
+    /// chemin en deux pressions de la page. Toutes les consoles décrites le sont
+    /// depuis le 21 novembre 2026, Xbox 360 comprise; la capacité reste pour la
+    /// prochaine console décrite avant d'avoir son adaptateur.
     #[must_use]
     pub const fn playable(self) -> bool {
-        !matches!(self, Self::Xbox360)
+        matches!(
+            self,
+            Self::GameCube
+                | Self::Wii
+                | Self::Switch
+                | Self::Switch2
+                | Self::Xbox360
+                | Self::Unknown
+        )
+    }
+
+    /// Vrai pour un identifiant de titre que cette console peut porter.
+    ///
+    /// Une Switch écrit 16 chiffres hexadécimaux, dont les trois derniers à zéro
+    /// pour un jeu de base (une mise à jour finit par 800). Une Xbox 360 en écrit
+    /// 8, lus dans l'en-tête d'exécution de son `default.xex`. Les consoles de
+    /// Dolphin n'en ont pas: le disque répond lui-même.
+    #[must_use]
+    pub fn valid_title(self, title: &str) -> bool {
+        let hex = title.bytes().all(|c| c.is_ascii_hexdigit());
+        match self {
+            Self::Switch | Self::Switch2 => hex && title.len() == 16 && title.ends_with("000"),
+            Self::Xbox360 => hex && title.len() == 8,
+            Self::GameCube | Self::Wii | Self::Unknown => false,
+        }
     }
 
     /// Vrai pour une console que la page doit dire expérimentale.
@@ -742,8 +769,27 @@ mod tests {
         assert_eq!(Console::Unknown.input_frame(), InputFrame::Dolphin);
         assert_eq!(Console::Unknown.adapter(), None);
         assert!(Console::Unknown.playable());
-        assert!(!Console::Xbox360.playable());
+        assert!(Console::Xbox360.playable());
         assert_eq!(Console::from_code("?"), None);
+    }
+
+    /// Chaque console a la forme de titre de sa propre famille. Le worker
+    /// exigeait 16 chiffres pour tout adaptateur: un titre Xbox 360 (8 chiffres,
+    /// celui de Sonic est 534507D6) aurait été refusé, et un titre Switch accepté
+    /// pour une Xbox 360.
+    #[test]
+    fn each_console_accepts_only_its_own_title_shape() {
+        assert!(Console::Xbox360.valid_title("534507D6"));
+        assert!(Console::Xbox360.valid_title("534507d6"));
+        assert!(!Console::Xbox360.valid_title("0100BDE00862A000"));
+        assert!(!Console::Xbox360.valid_title("534507G6"));
+        assert!(!Console::Xbox360.valid_title("534507D"));
+        assert!(Console::Switch.valid_title("0100BDE00862A000"));
+        assert!(!Console::Switch.valid_title("0100BDE00862A800"));
+        assert!(!Console::Switch.valid_title("534507D6"));
+        assert!(Console::Switch2.valid_title("0400486024DEC000"));
+        assert!(!Console::GameCube.valid_title("534507D6"));
+        assert!(!Console::Unknown.valid_title("0100BDE00862A000"));
     }
 
     #[test]

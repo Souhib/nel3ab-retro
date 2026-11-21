@@ -45,16 +45,15 @@ services, règle les anciennes portes, essaie les pages, puis lance
 `just deploy-check`.
 Le worker de production, lui, est déjà reconstruit depuis la nuit.
 
-**Xbox 360 : l'émulateur est choisi, et un premier jeu démarre ici.** Une
-recherche du 21 novembre retient Xenia Edge (Linux natif, Wayland, mode
-portable), avec Xenia Canary en secours. Les deux paquets, vérifiés contre
-l'empreinte publiée, démarrent sous le Sway sans écran de la salle. Avec le
-disque de Sonic the Hedgehog de Souhib, déposé par la page et resté en
-quarantaine, Edge choisit la Radeon, affiche l'écran titre à 30 secondes puis
-la séquence d'introduction. Une fenêtre « aucun profil » et la barre de menus
-de Xenia couvrent l'image : l'adaptateur devra les retirer. Aucune cadence,
-aucune partie, aucune manette et aucun son n'ont été essayés. Essais :
-`spikes/xbox360/`. Il n'y a pas encore d'adaptateur de salle.
+**Xbox 360 : jouable, expérimentale, pas encore jouée.** Depuis le
+21 novembre au soir, une salle lance Xenia Edge sous le Sway de la salle
+Switch, avec quatre profils écrits d'avance, les manettes virtuelles, le son et
+des mesures (journal horodaté, captures toutes les 30 s, cadence relue par
+`just xbox360-releve`). Sonic the Hedgehog est rangé dans `~/roms/xbox360`.
+Mode d'emploi : [La Xbox 360 dans la salle](xbox360.md). Récit : entrée
+« 21 novembre : la Xbox 360 devient jouable ». La mise en service
+(`sudo bash deploy/mettre-en-service.sh`) installe la nouvelle unité des
+salles et relance le salon ; aucune partie n'a encore été jouée.
 
 Les paragraphes ci-dessous disent « non installé » : ils datent d'avant la
 fusion de la nuit.

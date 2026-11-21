@@ -53,13 +53,15 @@ it("sépare les sens de l'ancien isSwitchConsole", () => {
     true,
     false,
   ]);
-  // La préparation: les quatre consoles jouables, pas la Xbox 360 ni « ? ».
-  expect(CONSOLE_CODES.filter(preparable)).toEqual(["gc", "wii", "switch", "switch2"]);
+  // La préparation: les cinq consoles jouables depuis le 21 novembre 2026, pas « ? ».
+  expect(CONSOLE_CODES.filter(preparable)).toEqual(["gc", "wii", "switch", "switch2", "x360"]);
   expect(preparable("?")).toBe(false);
 });
 
 it("grise une console décrite mais pas jouable, et pas un disque muet", () => {
-  expect(launchable("x360")).toBe(false);
+  // La Xbox 360 servait d'exemple jusqu'au 21 novembre 2026; le cas reste,
+  // lu sur une console que le manifeste ne décrit pas comme jouable.
+  expect(launchable("x360")).toBe(true);
   // Le jumeau: « ? » garde son chemin en deux pressions, le worker décide.
   expect(launchable("?")).toBe(true);
   expect(launchable("gc")).toBe(true);

@@ -12,9 +12,9 @@ import {
   type SwitchAxis,
   type SwitchTarget,
 } from "../media/switch";
-import { labels, physical, keyName } from "../lib/switch-labels";
+import { labels as switchLabels, physical, keyName, xboxLabels } from "../lib/switch-labels";
 import { slotLabel, type Slot } from "../lib/saves";
-import { SWITCH_PRO } from "../lib/padmap";
+import { SWITCH_PRO, XBOX_360 } from "../lib/padmap";
 import { PadMapView } from "./PadMap";
 
 export function SwitchBindings({
@@ -116,6 +116,10 @@ export function SwitchBindings({
   }, [ready, source]);
   const device = source.device();
   const guide = game?.guide;
+  // Une salle Xbox 360 parle la même trame que la Switch, avec ses propres
+  // lettres et sa propre manette: A en bas, LB et LT, Back et Start.
+  const xbox = game?.console === "x360";
+  const labels = xbox ? xboxLabels : switchLabels;
   const binding = (target: SwitchTarget) => {
     const value = SWITCH_BUTTONS.includes(target as SwitchButton)
       ? device?.buttons[target as SwitchButton]
@@ -200,7 +204,11 @@ export function SwitchBindings({
           </p>
           <div className="n3-switch-preview">
             <div ref={pad} className="n3-switch-pad">
-              <PadMapView map={SWITCH_PRO} title="Ce que la Switch reçoit" note="manette Pro" />
+              <PadMapView
+                map={xbox ? XBOX_360 : SWITCH_PRO}
+                title={xbox ? "Ce que la Xbox 360 reçoit" : "Ce que la Switch reçoit"}
+                note={xbox ? "manette Xbox 360" : "manette Pro"}
+              />
             </div>
             <div
               tabIndex={0}

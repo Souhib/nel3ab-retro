@@ -54,3 +54,14 @@ export const keyName = (code: string | undefined) =>
         Backspace: "Retour arrière",
       }[code] ?? code.replace(/^Key|^Digit/, ""))
     : "Non assigné";
+
+/** Les mêmes commandes, nommées comme sur la manette d'une salle Xbox 360. */
+export const xboxLabels: Record<SwitchTarget, string> = {
+  ...labels,
+  L: "LB · bouton d'épaule gauche",
+  R: "RB · bouton d'épaule droit",
+  ZL: "LT · gâchette gauche",
+  ZR: "RT · gâchette droite",
+  PLUS: "Start",
+  MINUS: "Back",
+};

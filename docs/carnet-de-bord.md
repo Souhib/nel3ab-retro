@@ -26333,6 +26333,71 @@ reconstruit avec cette page à 15 h 44 UTC, alors qu'aucune salle n'était
 ouverte : la prochaine salle les montrera. Aucun joueur ne les a encore vus
 avec sa propre manette.
 
+### 21 novembre : la Xbox 360 devient jouable
+
+**La demande.** Après l'essai de Sonic, Souhib veut jouer lui-même et que
+tout soit enregistré : captures, journaux, mesures, pour voir ensuite ce qui
+peut être amélioré. La Xbox 360 n'avait pas de salle.
+
+**Deux recherches avant d'écrire.** Une a relu comment la salle Switch est
+branchée de bout en bout ; l'autre a lu le code de Xenia Edge à la version
+installée, sans le lancer. Ce qu'elles ont appris décide de tout le reste :
+
+- Xenia passe en plein écran sans menus ni barre d'outils par une option ;
+- la fenêtre « No Profiles Found » n'a pas d'option : elle disparaît
+  seulement si un profil existe sur le disque. Un profil est un petit fichier
+  `Account` chiffré par Xenia avec une clé de la console ;
+- Xenia n'affiche pas d'images par seconde, mais chaque ligne de son journal
+  commence par le nombre d'images que le jeu a présentées (« f:0002566 »), et
+  une option ajoute une ligne par seconde ;
+- son son sort par SDL, donc par le PulseAudio que la salle Switch a déjà ;
+- ses manettes passent par SDL, et les quatre manettes virtuelles de la salle
+  Switch se présentent déjà comme des manettes Xbox 360.
+
+**La salle.** Un adaptateur de vingt lignes utiles, sur le modèle de celui de
+la Switch 2 : il écrit quatre profils (« Joueur 1 » à « Joueur 4 »), puis
+lance Xenia par un petit lanceur dans le conteneur. Ce lanceur donne à SDL les
+manettes dans l'ordre des places, horodate chaque ligne du journal de Xenia,
+et prend une capture d'écran toutes les 30 secondes. Tout reste dans
+l'emplacement de la partie (`docs/xbox360.md`).
+
+**La clé reste dehors.** Le chiffrement des profils suit celui de Xenia ligne
+à ligne (une empreinte HMAC, puis RC4). Sa clé est publiée dans le code de
+Xenia, mais c'est une clé de la console : elle est copiée dans un fichier
+local lisible seulement par son propriétaire, comme les clés de la Switch, et
+jamais dans le dépôt, qui est public.
+
+**X à gauche, Y en haut.** La salle Switch échange X et Y sur ses manettes
+virtuelles, parce que le profil de Ryubing les attend ainsi (Mario Party,
+11 septembre). Recopié tel quel, l'échange aurait envoyé le X de la page comme
+un Y dans un jeu Xbox 360. L'aide des manettes reçoit maintenant sa
+disposition de l'adaptateur. La page dessine une manette Xbox 360 dans le
+configurateur d'une salle Xbox 360, avec LB, LT, Back et Start.
+
+**Ce qui a résisté : une règle de la Switch écrite à quatre endroits.** Le
+worker, le module des sauvegardes débloquées, l'adaptateur et le salon
+exigeaient un titre de 16 chiffres, la forme de la Switch. Celui de Sonic en a
+8. Chaque console a maintenant sa forme de titre, à un seul endroit du worker.
+La page de dépôt, elle, ne lisait pas le titre d'un disque Xbox 360 : elle
+parcourt maintenant l'arbre du répertoire du disque jusqu'à son
+`default.xex`, et lit `534507D6` sur le vrai Sonic, le même titre que le
+journal de Xenia.
+
+**Sonic sans renvoi.** Le disque attendait en quarantaine depuis 15 h 25.
+Plutôt que dix-huit minutes de transfert, un réexamen refait le traitement
+sur le même fichier avec les règles du jour : il est rangé dans
+`~/roms/xbox360` avec sa fiche.
+
+**Ce qui n'est pas prouvé.** Rien de ceci n'a encore tourné dans une salle :
+l'assistant ne lance pas d'émulateur sur la carte, et la mise en service
+demande les droits d'administration. Les essais prouvent les profils
+(aller-retour du chiffrement, jumeau d'une clé fausse), le plan de lancement,
+la disposition des boutons, le lanceur avec un faux Xenia, la lecture du
+titre, le rangement et la cadence relue sur un faux journal. Que Xenia
+déchiffre ces profils, que l'image soit en plein écran, que la manette et le
+son marchent, et la cadence réelle de Sonic : c'est le premier essai de
+Souhib qui le dira, et `just xbox360-releve` qui le relira.
+
 ## 12. Glossaire complet
 
 **AppImage** : format qui range un programme Linux et ses bibliothèques en un
@@ -26348,6 +26413,15 @@ même famille, issus du projet Eden ; leur programme s'appelle `eden-cli`.
 bibliothèques sous Linux ; son empreinte identifie un moteur compilé.
 
 **FPS** : *frames per second*, images par seconde calculées par le jeu.
+
+**XEX** : le format des programmes Xbox 360. Le `default.xex` d'un disque
+porte, dans son en-tête d'exécution, l'identifiant de titre du jeu.
+
+**XDVDFS** : le système de fichiers des disques Xbox et Xbox 360. Chaque
+répertoire y est un arbre binaire d'entrées, rangées par nom.
+
+**XUID** : l'identifiant d'un profil de joueur Xbox, 16 chiffres
+hexadécimaux. Xenia range un profil dans un dossier qui porte ce nom.
 
 **Wikimedia Commons** : la banque d'images libres de Wikipédia. Chaque fichier
 y porte sa licence ; les photos de manettes y ont servi de mesure, sans être

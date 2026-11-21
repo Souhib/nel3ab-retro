@@ -11,6 +11,8 @@ from datetime import UTC
 from pathlib import Path
 from unittest.mock import Mock
 
+import pytest
+
 from nel3ab_control.boite_noire.declencheur import Declencheur, Suiveur
 from nel3ab_control.boite_noire.releve import Racines, Releveur
 from nel3ab_control.boite_noire.service import BoiteNoire
@@ -207,10 +209,20 @@ def test_un_processus_etranger_n_entre_pas_dans_le_releve(tmp_path: Path) -> Non
     assert set(second["entourage"]) == {"nel3ab-worker"}
 
 
-def test_eden_is_an_active_game_and_never_reads_the_gpu_allocator(tmp_path: Path) -> None:
-    """A real scanner must protect an Eden game, not only a mocked engine list."""
+@pytest.mark.parametrize(
+    ("comm", "role"),
+    [
+        ("eden-cli", "switch2"),
+        # Xenia Edge, registered on 2026-11-21 when the Xbox 360 became playable.
+        ("xenia_edge", "x360"),
+    ],
+)
+def test_an_adapter_engine_is_an_active_game_and_never_reads_the_gpu_allocator(
+    tmp_path: Path, comm: str, role: str
+) -> None:
+    """A real scanner must protect an Eden or Xenia game, not only a mocked engine list."""
     machine = Machine(tmp_path / "machine")
-    _ecrire(machine.r.proc / str(RYUJINX) / "comm", "eden-cli\n")
+    _ecrire(machine.r.proc / str(RYUJINX) / "comm", f"{comm}\n")
     clock = Horloge()
     reader = Releveur(machine.r, horloge=clock, soi=SOI, tics_par_seconde=100)
     assert reader.moteur_en_cours()
@@ -235,7 +247,7 @@ def test_eden_is_an_active_game_and_never_reads_the_gpu_allocator(tmp_path: Path
     log = next((settings.boite_noire_dir / "releves").glob("*.jsonl"))
     line = json.loads(log.read_text().splitlines()[0])
     assert "allocateur_vram" not in line
-    assert line["moteurs"][0]["moteur"] == "switch2"
+    assert line["moteurs"][0]["moteur"] == role
     assert line["moteurs"][0]["salle"] == 1
     # The negative twin: a shell left in the same container is not a game.
     _ecrire(machine.r.proc / str(RYUJINX) / "comm", "bash\n")

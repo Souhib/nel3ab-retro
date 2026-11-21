@@ -95,7 +95,7 @@ Environment='NEL3AB_ORIGINS=["https://nel3ab.app"]'
 # de jeux (/importer) range un jeu dans le dossier qui porte le nom de sa
 # console. Sans cette ligne, le salon ne connaîtrait que gc et wii, le défaut
 # du worker, et la liste des deux services pourrait diverger sans bruit.
-Environment="NEL3AB_ROM_DIR=/home/souhib/roms/gc:/home/souhib/roms/wii:/home/souhib/roms/switch:/home/souhib/roms/switch2"
+Environment="NEL3AB_ROM_DIR=/home/souhib/roms/gc:/home/souhib/roms/wii:/home/souhib/roms/switch:/home/souhib/roms/switch2:/home/souhib/roms/xbox360"
 # Le `prod.keys` privé du moteur Switch, le même que lit docker/switch-dlc.py.
 # Le dépôt de jeux n'en lit que la ligne `header_key`, pour déchiffrer l'en-tête
 # NCA d'un NSP ou d'un XCI et y lire son identifiant de titre: un jeu de base

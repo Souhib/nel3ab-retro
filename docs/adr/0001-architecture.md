@@ -1323,3 +1323,42 @@ direct persistent writes. There is no exit-time copy back to lose on a crash.
 Switch adapters already use shared title storage. Their personal slots use the
 same identity key and one-shot new-game action. Legacy migration retains source
 directories and requires a unique match to a known authenticated identity.
+
+## Lobby doors, 2026-11-21
+
+Four decisions close the control-plane findings of the 2026-11-20 audit. The
+logbook entry « 21 novembre : fermer les portes du salon » tells the tests and
+what each one showed on the previous code.
+
+**Writes carry the page's origin.** One FastAPI dependency, `same_origin`, is
+attached to the application rather than to each route, so a route added later
+inherits it. It lets reads through. A write needs exactly one `Origin` listed
+in `NEL3AB_ORIGINS`, the same list the lobby socket uses, and, when the browser
+sends `Sec-Fetch-Site`, the value `same-origin` or `none`. Rejected: a guard per
+route, because a later route can forget it. A test walks the effective routes
+and fails on a write without the guard. Consequence: a non-browser client that
+writes must send a listed origin, and local Vite development must add its own.
+
+**Closing a room is the chief's decision.** Opening needs any identity. Closing
+needs the chief of that room or `NEL3AB_ADMIN`: 401 without identity, 403
+otherwise. An empty room has no chief; only the administrator closes it before
+the automatic close. Rejected: letting anybody close an empty room, because a
+chief reloading a page leaves it empty for a moment.
+
+**A room controller carries its number.** `describe` reads presence under the
+controller's own number, `Salons.poser` refuses a controller born for another
+room, and the retained chief is kept per room. The room number became a
+required parameter where it defaulted to room 1 or to every room.
+
+**Public payloads carry an opaque mark, never a login.** `Person.login` is
+replaced by `id`, the first 16 hex characters of HMAC-SHA256(login) under a
+32-byte machine secret stored beside the nicknames, and `moi`, computed for each
+receiving socket and each `GET /api/room` request. Rejected: a bare SHA-256 of
+the login, which anyone can recompute from a guessed address. Cost: one copy of
+the room state per page, measured at 71 µs per page on a synthetic 60-game room.
+
+**Remaining, D14:** identity still trusts whatever reaches the loopback port,
+header or forwarded address. A local process can claim any identity,
+including the administrator's. The topology is unchanged on purpose; a Unix
+socket reachable only by the proxies, or a proxy-held secret, are candidates
+that have not been tried.

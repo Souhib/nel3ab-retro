@@ -398,10 +398,12 @@ class RoomController:
             game=running,
             library=library,
             seats=seats,
+            # Un repère, jamais l'adresse: cet état part vers toutes les pages.
+            # `moi` reste faux ici; `Room.vue_par` le pose pour chaque page.
             owner=(
                 Person(
                     name=boss[1],
-                    login=boss[0],
+                    id=people.repere(boss[0]) if people else None,
                     seat=held.get(boss[0] or boss[1]),
                     seat_pending=pending.get(boss[0] or boss[1], True),
                 )
@@ -411,7 +413,7 @@ class RoomController:
             people=[
                 Person(
                     name=name,
-                    login=login,
+                    id=people.repere(login) if people else None,
                     seat=held.get(login or name),
                     seat_pending=pending.get(login or name, True),
                 )

@@ -27,7 +27,7 @@ const salle = {
     { port: 3, player: null },
     { port: 4, player: null },
   ],
-  people: [{ name: "Souhib", login: null, seat: 1 }],
+  people: [{ name: "Souhib", id: null, seat: 1 }],
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 } as any;
 
@@ -246,9 +246,9 @@ const salleTroisEtats = {
     { port: 4, player: null, held: null },
   ],
   people: [
-    { name: "Souhib", login: null, seat: 1 },
-    { name: "Kim", login: null, seat: null, seat_pending: true },
-    { name: "Nora", login: null, seat: null, seat_pending: false },
+    { name: "Souhib", id: null, seat: 1 },
+    { name: "Kim", id: null, seat: null, seat_pending: true },
+    { name: "Nora", id: null, seat: null, seat_pending: false },
   ],
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 } as any;

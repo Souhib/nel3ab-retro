@@ -197,7 +197,7 @@ export function Sidebar({
             {watching.length ? (
               watching.map((person) => (
                 <div
-                  key={person.login ?? person.name}
+                  key={person.id ?? person.name}
                   className="flex items-center gap-2 text-corps text-muted"
                 >
                   <span
@@ -207,7 +207,7 @@ export function Sidebar({
                     {person.name.slice(0, 1).toUpperCase()}
                   </span>
                   <span className="truncate">{person.name}</span>
-                  {owner?.login && owner.login === person.login ? <Crown /> : null}
+                  {owner?.id && owner.id === person.id ? <Crown /> : null}
                 </div>
               ))
             ) : (
@@ -221,8 +221,8 @@ export function Sidebar({
               className="border-t border-rule pt-2 text-corps text-muted"
             >
               {pending.map((person) => (
-                <p key={person.login ?? person.name}>
-                  {person.name} {owner?.login && owner.login === person.login ? <Crown /> : null}
+                <p key={person.id ?? person.name}>
+                  {person.name} {owner?.id && owner.id === person.id ? <Crown /> : null}
                   {" · manette à confirmer"}
                 </p>
               ))}

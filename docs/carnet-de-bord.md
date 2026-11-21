@@ -25113,6 +25113,88 @@ l'adresse de la boucle locale. Un remplaçant commun répond maintenant
 « personne » à tous les essais, et ceux de `test_identity.py` posent leurs
 propres doubles par-dessus.
 
+**Les adresses ne sortent plus.** L'état de la salle part vers toutes ses
+pages, invités partagés compris. Il portait l'adresse de connexion Tailscale
+de chaque présent et du chef, et cette adresse est souvent un courriel.
+`GET /api/room` la rendait aussi, à qui le demandait. La page ne s'en servait
+que pour deux choses : une clé de liste stable, et reconnaître le chef ou
+elle-même en comparant deux adresses.
+
+Chaque personne porte maintenant un repère, `id` : seize caractères tirés
+d'un HMAC-SHA256 de son adresse, sous un secret propre à la machine. Le repère
+est le même sur tous ses appareils et dans toutes les salles, donc la page
+reconnaît le chef dans la liste comme avant. Il ne dit rien de l'adresse. Un
+champ `moi` dit à chaque page laquelle des personnes elle est. Le salon le
+calcule pour chaque page qui reçoit l'état, et pour chaque lecture de
+`GET /api/room` d'après l'identité de qui demande. Sans identité, `moi` n'est
+jamais vrai. La liste des salles ne montrait que des pseudos, mais elle
+retombait sur l'adresse quand un pseudo était vide. Ce repli est retiré.
+
+Pourquoi un HMAC et pas une simple empreinte SHA-256 de l'adresse :
+l'empreinte se recalcule. Quiconque devine une adresse pourrait vérifier si
+elle est dans la salle. Avec un secret, il faut le secret. Le secret
+(`reperes.secret`, 32 octets) naît au premier repère demandé, à côté des
+pseudos dans le dossier d'état du salon, jamais dans le dépôt, lisible par
+son seul propriétaire. Un secret absent ou abîmé est remplacé : les repères
+changent alors une fois, ce qui coûte un rechargement de page. Seize
+caractères hexadécimaux font 64 bits. Une collision entre les quelques
+personnes d'un salon est improbable au point d'être négligeable.
+
+Ce que ça coûte : l'état part maintenant en une copie par page au lieu d'une
+seule pour la salle, puisque `moi` change d'une page à l'autre. Mesuré le
+21 novembre sur lgf, sur une salle inventée de 60 jeux et 8 présents
+(15 Ko de JSON) : 71 µs par page pour la copie et sa mise à plat, soit
+0,57 ms par diffusion à 8 pages. L'encodage Socket.IO se fait lui aussi une
+fois par page, et il n'a pas été mesuré à part. Une diffusion suit un geste
+ou un changement de places, jamais une image.
+
+Côté page, la couronne du chef compare des repères au lieu d'adresses, et
+« puis-je fermer le jeu », « le chef est-il ailleurs » lisent `moi`.
+L'infobulle d'un présent montrait son adresse, elle dit maintenant « identité
+vérifiée » ou « sans identité ». Le pilote `owner.mjs` lit `moi` lui aussi.
+
+**Les essais.** Contre un vrai serveur, deux pages identifiées par des
+courriels entrent dans la salle 2, et l'essai cherche tout ce qui ressemble
+à un courriel dans TOUT ce qu'elles reçoivent. Sur le code d'avant, il en
+trouvait (`benoit@example.com`). Il fait de même pour `GET /api/room`, avec
+et sans identité, et pour la liste des salles avec un pseudo vide. Un autre
+essai ouvre trois pages, deux identifiées et une anonyme, et vérifie que
+chacune se voit elle seule, et que l'anonyme ne se voit nulle part. Sur le
+code d'avant, `moi` n'existait pas. Les jumeaux : les pseudos et le chef sont
+toujours là, le repère est le même pour deux appareils de la même personne et
+différent pour deux personnes. Deux mutants ont été essayés. Une empreinte
+sans secret fait échouer l'essai « le repère ne se recalcule pas depuis
+l'adresse ». Une même copie envoyée à toutes les pages fait échouer l'essai
+de `moi`. Côté page, un essai vérifie qu'un chef sans identité ne couronne
+pas un anonyme : sans la garde, deux repères nuls sont égaux. Retirer la
+garde le fait échouer.
+
+**Ce qui reste : l'identité se forge depuis la machine elle-même.** Le salon
+croit l'en-tête d'identité de Tailscale dès qu'il le reçoit une seule fois.
+Sans lui, il demande à tailscaled qui se cache derrière l'adresse du pair,
+et il croit l'adresse que le proxy local annonce. Les deux chemins supposent
+que seul un proxy de confiance parle au salon. C'est vrai depuis le réseau :
+le salon n'écoute que sur la boucle locale, Caddy retire l'en-tête, et
+`tailscale serve` écrase ce que le client envoie. Ce n'est pas vrai depuis la
+machine elle-même. Un programme qui tourne sur lgf peut écrire ce que le
+proxy écrit normalement, et se présenter comme n'importe quel membre, y
+compris l'administrateur. L'audit relève deux conteneurs tiers en réseau hôte,
+qui partagent donc cette boucle locale. La garde d'origine n'y change rien :
+un programme écrit aussi l'en-tête `Origin` qu'il veut.
+
+La topologie ne change pas aujourd'hui, et c'est un choix de périmètre, pas
+une solution. Les pistes, pour plus tard : faire écouter le salon sur une
+socket Unix que seuls les proxys peuvent ouvrir, ou faire joindre par chaque
+proxy un secret que le salon vérifie. Aucune n'a été essayée. La seconde
+bute sur `tailscale serve`, dont on n'a pas vérifié qu'il sait ajouter un
+en-tête. Le risque grandit avec ce qui sera réservé à l'administrateur, par
+exemple un envoi de fichiers : il faudra le régler avant.
+
+Un dernier reste, plus petit : faute de nom affiché par le fournisseur
+d'identité, le pseudo proposé est la partie de l'adresse avant l'arobase. Ce
+n'est pas une adresse entière, mais c'en est un morceau, visible des autres
+tant que la personne n'a pas choisi son pseudo.
+
 ## 12. Glossaire complet
 
 **Faux partage** : échanges inutiles entre les caches de plusieurs cœurs lorsque
@@ -26148,3 +26230,16 @@ visiteur, et la demande arrive avec l'identité de ce visiteur.
 pour lui fournir quelque chose ou refuser la demande. Posée sur
 l'application, elle s'exécute avant chaque route, y compris celles ajoutées
 plus tard.
+
+**HMAC** : *Hash-based Message Authentication Code*. Une empreinte calculée
+sur un message ET un secret. Sans le secret, on ne peut ni la recalculer ni
+vérifier qu'elle correspond à un message deviné. HMAC-SHA256 utilise SHA-256
+pour la calculer.
+
+**Repère (de personne)** : ce que l'état de la salle montre à la place de
+l'adresse d'un présent : seize caractères tirés d'un HMAC de son adresse. Le
+même pour la même personne partout, et sans rien dire de l'adresse.
+
+**Boucle locale (loopback)** : l'adresse `127.0.0.1`, qui ne mène qu'à la
+machine elle-même. Un service qui n'écoute que là n'est joignable que par
+les programmes de cette machine, proxys compris.

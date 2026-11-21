@@ -87,6 +87,10 @@ export const keepBindings = <ThrowOnError extends boolean = false>(options: Opti
  * Read Room
  *
  * What is loaded, what else could be, who claims which pad, and who is here.
+ *
+ * Les présents portent un repère et pas leur adresse; `moi` dit lequel est
+ * celui qui demande. L'identité ne sert qu'à ça: la lecture reste ouverte à
+ * qui n'en a pas, et personne n'y est alors « moi ».
  */
 export const readRoom = <ThrowOnError extends boolean = false>(options?: Options<ReadRoomData, ThrowOnError>): RequestResult<ReadRoomResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ReadRoomResponses, unknown, ThrowOnError>({ url: '/api/room', ...options });
 
@@ -144,8 +148,10 @@ export const publishRoomBindings = <ThrowOnError extends boolean = false>(option
  *
  * Les deux dépendances sont assemblées ICI, et pas dans le contrôleur des
  * salles: celui-ci interroge systemd et les salles, et ce qu'il sait doit
- * survivre à un worker mort. Le pseudo l'emporte sur l'adresse, parce que
- * c'est un nom que ses amis reconnaissent et pas un identifiant.
+ * survivre à un worker mort. Seul le pseudo sort, jamais l'adresse: il y avait
+ * un repli sur l'adresse quand le pseudo était vide, et une adresse est souvent
+ * un courriel. Un pseudo vide n'arrive pas par une page; s'il arrivait, la
+ * liste dirait « quelqu'un » plutôt que l'adresse.
  */
 export const readSalles = <ThrowOnError extends boolean = false>(options?: Options<ReadSallesData, ThrowOnError>): RequestResult<ReadSallesResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ReadSallesResponses, unknown, ThrowOnError>({ url: '/api/salles', ...options });
 

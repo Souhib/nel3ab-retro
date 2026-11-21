@@ -222,8 +222,8 @@ export function Lobby({
               <ul id="people" className="flex flex-wrap gap-1.5 pb-1">
                 {people.map((person) => (
                   <li
-                    key={person.login ?? person.name}
-                    title={person.login ?? "sans identité"}
+                    key={person.id ?? person.name}
+                    title={person.id ? "identité vérifiée" : "sans identité"}
                     className={cn(
                       "border px-2 py-0.5 text-note",
                       person.seat ? "border-indigo/50 text-indigo" : "border-rule text-muted",

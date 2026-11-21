@@ -19,11 +19,13 @@ async def read_salles(salles: SallesDep, people: PeopleDep) -> list[Salle]:
 
     Les deux dépendances sont assemblées ICI, et pas dans le contrôleur des
     salles: celui-ci interroge systemd et les salles, et ce qu'il sait doit
-    survivre à un worker mort. Le pseudo l'emporte sur l'adresse, parce que
-    c'est un nom que ses amis reconnaissent et pas un identifiant.
+    survivre à un worker mort. Seul le pseudo sort, jamais l'adresse: il y avait
+    un repli sur l'adresse quand le pseudo était vide, et une adresse est souvent
+    un courriel. Un pseudo vide n'arrive pas par une page; s'il arrivait, la
+    liste dirait « quelqu'un » plutôt que l'adresse.
     """
     return await salles.etat(
-        lambda numero: [name or login or "" for login, name in people.present(numero)],
+        lambda numero: [name or "quelqu'un" for _login, name in people.present(numero)],
     )
 
 

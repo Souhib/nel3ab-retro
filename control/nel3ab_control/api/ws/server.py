@@ -131,4 +131,18 @@ async def broadcast(
         # pilote d'essai reste du bruit d'essai: sans ce drapeau, une soirée de
         # mise au point noie les vraies sous douze lignes qui ne disent rien.
         journal.write("propriétaire", pseudo=now[0], place=seat or None, banc=banc)
-    await sio.emit("room", room.model_dump(), room=piece(salle))
+    # Une copie PAR PAGE, et plus une seule pour la pièce entière: `moi` dit à
+    # chaque page laquelle des personnes elle est, depuis que l'état ne porte
+    # plus d'adresse (audit du 20 novembre 2026). Les destinataires sont les
+    # présents de cette salle, ceux-là mêmes que `connect` fait entrer dans sa
+    # pièce Socket.IO, et dans le même ordre.
+    #
+    # Le coût, mesuré le 21 novembre 2026 sur lgf, sur une salle inventée de 60
+    # jeux et 8 présents (15 Ko de JSON): 71 µs par page pour la copie et sa mise
+    # à plat, soit 0,57 ms par diffusion à 8 pages. S'y ajoute l'encodage
+    # Socket.IO, fait une fois par page au lieu d'une fois en tout, non mesuré à
+    # part. Une diffusion suit un geste humain ou un changement de places, pas
+    # une image.
+    for sid in sorted(people.live(salle)):
+        vue = room.vue_par(people.repere(people.login_of(sid)))
+        await sio.emit("room", vue.model_dump(), to=sid)

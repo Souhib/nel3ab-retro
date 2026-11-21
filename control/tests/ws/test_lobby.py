@@ -204,8 +204,11 @@ async def test_the_lobby_knows_who_it_is_from_the_proxy(
     names = {person["name"] for person in people}
     assert "Souhib" in names
     assert "Imposteur" not in names
-    logins = {person["login"] for person in people}
-    assert "souhib@example.com" in logins
+    # Reconnu, donc porteur d'un repère; l'anonyme qui regarde n'en a pas.
+    # L'adresse elle-même ne sort plus: voir `tests/ws/test_two_rooms.py`.
+    marks = {person["name"]: person["id"] for person in people}
+    assert marks["Souhib"] is not None
+    assert marks["quelqu'un"] is None
 
     await known.disconnect()
     await watcher.disconnect()
@@ -239,12 +242,12 @@ async def test_the_first_identified_arrival_owns_the_room(
         headers={"Tailscale-User-Login": "vincent@example.com", "Tailscale-User-Name": "Vincent"},
     )
     await asyncio.sleep(0.3)
-    assert heard[-1]["owner"]["login"] == "souhib@example.com"
+    assert heard[-1]["owner"]["name"] == "Souhib"
 
     # Le propriétaire s'en va: la salle ne reste pas sans personne pour décider.
     await first.disconnect()
     await asyncio.sleep(0.3)
-    assert heard[-1]["owner"]["login"] == "vincent@example.com"
+    assert heard[-1]["owner"]["name"] == "Vincent"
 
     await second.disconnect()
     await asyncio.sleep(0.3)
@@ -1663,8 +1666,9 @@ async def test_a_new_name_does_not_rename_somebody_else(
     await renaming.emit("rename", {"name": "Marie"})
     await asyncio.sleep(0.3)
 
-    names = {person["login"]: person["name"] for person in heard[-1]["people"]}
-    assert names == {"vincent@example.com": "Vincent", "souhib@example.com": "Marie"}
+    # `heard` est la page de Vincent: il s'y voit lui-même (`moi`), sous son nom.
+    names = {person["moi"]: person["name"] for person in heard[-1]["people"]}
+    assert names == {True: "Vincent", False: "Marie"}
     assert rooms.seats()[2].player == "Vincent"
 
     await renaming.disconnect()

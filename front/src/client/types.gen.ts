@@ -244,6 +244,11 @@ export type Participant = {
  * Person
  *
  * Quelqu'un dans la salle, qu'il tienne une manette ou non.
+ *
+ * Sans son adresse, et c'est délibéré: cet état part vers toutes les pages de
+ * la salle, invités compris, et une adresse est souvent un courriel. Le
+ * repère et `moi` font ce que l'adresse faisait pour la page. Voir
+ * `nel3ab_control.reperes`.
  */
 export type Person = {
     /**
@@ -251,9 +256,17 @@ export type Person = {
      */
     name: string;
     /**
-     * Login
+     * Id
+     *
+     * Un repère opaque et stable de la personne, le même sur tous ses appareils et dans toutes les salles. Ne dit rien de son adresse. Nul sans identité: deux anonymes ne sont pas la même personne.
      */
-    login?: string | null;
+    id?: string | null;
+    /**
+     * Moi
+     *
+     * Vrai quand cette personne est celle qui reçoit cet état. Calculé pour chaque page, donc jamais vrai pour une page sans identité.
+     */
+    moi?: boolean;
     /**
      * Seat
      *

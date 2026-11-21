@@ -144,10 +144,10 @@ describe("les personnes dans la salle", () => {
   it("liste les spectateurs et indique le chef même sans manette", () => {
     show({
       people: [
-        { name: "Souhib", login: "one", seat: null, seat_pending: false },
-        { name: "Yassine", login: "two", seat: 2 },
+        { name: "Souhib", id: "one", seat: null, seat_pending: false },
+        { name: "Yassine", id: "two", seat: 2 },
       ],
-      owner: { name: "Souhib", login: "one", seat: null },
+      owner: { name: "Souhib", id: "one", seat: null },
       names: new Map([[2, "Yassine"]]),
       busy: [false, true, false, false],
     });
@@ -156,7 +156,21 @@ describe("les personnes dans la salle", () => {
     expect(screen.queryByText(/occupée|occupé/)).not.toBeInTheDocument();
   });
   it("le droit administrateur n'invente pas un chef sur une place libre", () => {
-    show({ owner: { name: "Souhib", login: "one", seat: 2 }, busy: [false, false, false, false] });
+    show({ owner: { name: "Souhib", id: "one", seat: 2 }, busy: [false, false, false, false] });
+    expect(screen.queryByLabelText("chef de la salle")).not.toBeInTheDocument();
+  });
+  // Le chef se reconnaît par son repère depuis que l'état ne porte plus
+  // d'adresse. Deux repères nuls ne désignent pas la même personne: sans la
+  // garde, `null === null` couronnerait chaque anonyme.
+  it("ne couronne ni un autre repère ni un anonyme", () => {
+    show({
+      people: [
+        { name: "Kim", id: null, seat: null, seat_pending: false },
+        { name: "Nora", id: "two", seat: null, seat_pending: false },
+      ],
+      owner: { name: "Kim", id: null, seat: null },
+    });
+    expect(screen.getByLabelText("spectateurs")).toHaveTextContent("Kim");
     expect(screen.queryByLabelText("chef de la salle")).not.toBeInTheDocument();
   });
 });
@@ -164,8 +178,8 @@ describe("les personnes dans la salle", () => {
 it("ne présente pas un joueur sans attribution confirmée comme un spectateur ou une place vide", () => {
   show({
     people: [
-      { name: "Alice", login: "alice", seat: null, seat_pending: true },
-      { name: "Benoit", login: "benoit", seat: null, seat_pending: false },
+      { name: "Alice", id: "alice", seat: null, seat_pending: true },
+      { name: "Benoit", id: "benoit", seat: null, seat_pending: false },
     ],
     busy: [true, false, false, false],
   });

@@ -17,6 +17,7 @@ from pathlib import Path
 from anyio import Lock, to_thread
 
 from nel3ab_control.identity import suggested_name
+from nel3ab_control.reperes import FICHIER, Reperes
 
 
 class PeopleController:
@@ -28,6 +29,9 @@ class PeopleController:
         # unique seul laisserait encore deux instantanés se remplacer à rebours.
         self._writing = Lock()
         self._names: dict[str, str] = _read(store)
+        #: Ce que les pages voient à la place des adresses. Son secret est rangé
+        #: à côté des pseudos: un essai qui isole les pseudos isole aussi lui.
+        self._reperes = Reperes(store.parent / FICHIER)
         #: Une entrée par socket, pas par personne: la même personne peut ouvrir
         #: deux onglets, et fermer l'un ne la fait pas disparaître de l'autre.
         #: On garde le nom RÉSOLU à la connexion, et pas seulement l'adresse: le
@@ -120,6 +124,10 @@ class PeopleController:
         """L'adresse sous laquelle cette socket est arrivée, ou rien."""
         found = self._present.get(sid)
         return found[0] if found else None
+
+    def repere(self, login: str | None) -> str | None:
+        """Ce que les pages voient de cette adresse. Voir `nel3ab_control.reperes`."""
+        return self._reperes.de(login)
 
     def owner(self, salle: int) -> tuple[str, str] | None:
         """Le chef choisi dans cette salle, sinon sa première identité encore connectée.

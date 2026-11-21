@@ -16,9 +16,15 @@ router = APIRouter(prefix="/api", tags=["room"])
 
 
 @router.get("/room", response_model=Room)
-async def read_room(rooms: RoomsDep, people: PeopleDep) -> Room:
-    """What is loaded, what else could be, who claims which pad, and who is here."""
-    return await rooms.describe(people)
+async def read_room(rooms: RoomsDep, people: PeopleDep, caller: CallerDep) -> Room:
+    """What is loaded, what else could be, who claims which pad, and who is here.
+
+    Les présents portent un repère et pas leur adresse; `moi` dit lequel est
+    celui qui demande. L'identité ne sert qu'à ça: la lecture reste ouverte à
+    qui n'en a pas, et personne n'y est alors « moi ».
+    """
+    room = await rooms.describe(people)
+    return room.vue_par(people.repere(caller[0]) if caller else None)
 
 
 @router.get("/room/bindings", response_model=Bindings)

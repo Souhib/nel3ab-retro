@@ -1,0 +1,20 @@
+# La même copie, suivie de la rétention et d'une relecture d'un seizième des
+# données envoyées. Lancé chaque nuit par nel3ab-abri-entretien.timer.
+
+[Unit]
+Description=nel3ab abri, copie puis rétention et relecture
+After=network-online.target remote-fs.target
+Wants=network-online.target
+RequiresMountsFor=/mnt/nas
+
+[Service]
+Type=oneshot
+User=souhib
+Environment=HOME=/home/souhib
+Environment=NEL3AB_ABRI_ELAGUER=oui
+Environment=NEL3AB_ABRI_VERIFIER=oui
+ExecStart=/home/souhib/nel3ab-retro/tools/abri.sh
+Environment=GOMAXPROCS=2
+Nice=19
+IOSchedulingClass=idle
+TimeoutStartSec=4h

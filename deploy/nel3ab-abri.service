@@ -1,0 +1,32 @@
+# Une copie chiffrée des sauvegardes de jeu sur le NAS, lancée chaque heure par
+# nel3ab-abri.timer. Le pourquoi et le contenu sont en tête de tools/abri.sh.
+#
+#   sudo cp deploy/nel3ab-abri*.service deploy/nel3ab-abri*.timer /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now nel3ab-abri.timer nel3ab-abri-entretien.timer
+#
+# Restaurer: docs/abri.md.
+
+[Unit]
+Description=nel3ab abri (copie chiffrée des sauvegardes sur le NAS)
+After=network-online.target remote-fs.target
+Wants=network-online.target
+# Déclenche le montage automatique du NAS avant le script, qui refuse de
+# partir si le dossier du dépôt n'est pas visible.
+RequiresMountsFor=/mnt/nas
+
+[Service]
+Type=oneshot
+User=souhib
+Environment=HOME=/home/souhib
+ExecStart=/home/souhib/nel3ab-retro/tools/abri.sh
+# Une partie peut tourner pendant la copie. Deux fils pour restic, la priorité
+# processeur la plus basse et les entrées-sorties en dernier: la copie attend,
+# pas les joueurs.
+Environment=GOMAXPROCS=2
+Nice=19
+IOSchedulingClass=idle
+# Le montage NFS est « hard »: un NAS injoignable bloque les lectures au lieu de
+# les faire échouer. Le passage est abandonné au bout de deux heures, et le
+# suivant repart.
+TimeoutStartSec=2h

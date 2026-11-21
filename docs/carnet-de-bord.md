@@ -24897,6 +24897,76 @@ puis supprimé. Leçon : une consigne de lecture seule ne retient pas un
 outil qui écrit dans le dossier courant. Lancer ces outils depuis le
 dossier temporaire, et relire `git status` après chaque audit.
 
+### 21 novembre : les sauvegardes sortent de la machine
+
+**Les décisions de Souhib.** Le 21 novembre, Souhib répond à la liste de
+l'audit :
+
+- oui à une copie chiffrée des sauvegardes sur le NAS ;
+- oui au découpage du travail en commits poussés, et le dépôt reste public ;
+- la Switch 2 reste dans la salle, marquée « expérimentale » ;
+- quand on joue à plusieurs, la sauvegarde appartient à celui qui a lancé la
+  partie, sauf « tout débloqué », qui reste commune. C'est déjà la règle du
+  10 novembre, et elle ne change pas ;
+- une console de plus à étudier : la Xbox 360.
+
+Il demande aussi une interface moins convenue, avec des animations propres
+au projet, comme une manette qu'on vient brancher sur le bon port quand
+quelqu'un entre pour la première fois dans une salle.
+
+**Deux mois de travail entrent dans Git.** Les 111 chemins modifiés ou non
+suivis depuis le 16 septembre deviennent dix commits par thème : encodeur,
+transport, sauvegardes, adaptateur Switch 2, page, salon, outils, mesures
+Switch 2 et documentation. Avant de pousser, deux vérifications. `just check`
+passe sur l'arbre tel qu'il tourne. Les ajouts ne contiennent ni secret, ni
+adresse de joueur : les seules adresses présentes sont des exemples
+(`example.com`, `example.test`). Le dossier `.playwright-mcp/`, des traces du
+navigateur piloté, est ignoré au lieu d'être publié.
+
+**La copie sur le NAS.** Le partage du NAS s'appelle « Public » : une copie
+lisible y serait lisible par toute la maison. Deux options ont été pesées.
+Une archive tar chiffrée par gpg se restaure avec des outils présents
+partout, mais elle recopie tout à chaque passage. Or les emplacements Switch
+pèsent neuf gigaoctets, dont l'essentiel est fait de fichiers système
+identiques. restic chiffre, ne renvoie pas un morceau déjà envoyé, et sait
+relire ses propres données. Il a été retenu, et installé depuis les paquets
+d'Ubuntu (version 0.16.4).
+
+Mesures du premier passage réel, le 21 novembre peu avant 1 heure :
+8,8 Gio lus en 45 secondes, 1,97 Gio de données uniques, 1,49 Gio stockés
+après compression. Le passage suivant a pris moins d'une seconde et 1,7 s
+de processeur : un seul fichier avait changé. Une restauration réelle depuis
+le NAS (sauvegardes personnelles, pseudos, emplacement « tout débloqué » de
+la Switch 2) est identique à l'original, aux caches exclus près.
+
+La copie tourne chaque heure, sous la priorité la plus basse et avec deux
+fils seulement, pour ne pas prendre de temps aux joueurs. Chaque nuit, elle
+applique la rétention et relit un seizième des données envoyées. Chaque
+passage écrit son issue dans un petit fichier, pour qu'une panne silencieuse
+puisse se voir. Le mode d'emploi, et surtout la restauration, sont dans
+[Copie des sauvegardes](abri.md).
+
+**Le test.** `just abri-test` déplace le dossier personnel vers un dossier
+jetable et lance le vrai script, avec ses vraies sources et ses vraies
+exclusions. Il exige une restauration à l'identique et un tube nommé restauré
+comme un tube. Il garde lisible une version précédente. Chaque refus a son
+jumeau : mot de passe absent ou trop ouvert, NAS non monté, sauvegarde
+illisible, mauvais mot de passe, paquet abîmé. Trois défauts réintroduits un
+par un (exclusion des caches retirée, contrôle du NAS retiré, contrôle des
+droits du mot de passe retiré) font chacun échouer le test au bon endroit.
+
+**Piège.** Le premier passage réel s'est marqué en échec avec le code 3,
+après avoir pourtant écrit son instantané. Un enregistrement de profileur
+de septembre appartenait à root et ne se lisait pas. Le code 3 du script,
+« NAS absent », se confondait avec le code 3 de restic, « fichier illisible ».
+Les enregistrements de profileur sont maintenant exclus. Les codes du
+script passent à 20, 21 et 22. Leçon : un code de sortie maison doit éviter
+ceux de l'outil qu'il enveloppe, sinon le journal ment sur la cause.
+
+**Ce qui reste ouvert.** Le mot de passe n'existe que sur lgf tant que
+Souhib ne l'a pas recopié ailleurs. Le NAS peut effacer la copie, puisque le
+partage est public. Les ROM ne sont pas copiées.
+
 ## 12. Glossaire complet
 
 **Faux partage** : échanges inutiles entre les caches de plusieurs cœurs lorsque
@@ -25895,3 +25965,21 @@ puis on anime seulement un déplacement, qui coûte peu au navigateur.
 **Tube nommé (FIFO)** : fichier spécial qui relie deux processus. Le lire
 bloque tant que personne n'écrit dedans, d'où le danger pour un programme
 qui parcourt des dossiers en ouvrant tout ce qu'il trouve.
+
+**restic** : programme de sauvegarde. Il découpe les fichiers en morceaux,
+ne stocke qu'une fois un morceau déjà vu, chiffre tout ce qu'il écrit, et
+garde une liste d'instantanés datés qu'on peut restaurer un par un.
+
+**Instantané** : état complet des dossiers sauvegardés à un instant donné.
+Restaurer un instantané rend les fichiers tels qu'ils étaient à cette heure.
+
+**Déduplication** : fait de ne stocker qu'une fois un contenu présent à
+plusieurs endroits. Les emplacements Switch partagent leurs fichiers système,
+donc neuf gigaoctets en occupent moins de deux.
+
+**NAS** : disque réseau de la maison (*Network Attached Storage*), monté sur
+lgf dans `/mnt/nas`.
+
+**NFS, montage « hard »** : NFS est le protocole qui rend le NAS visible
+comme un dossier. Un montage « hard » fait attendre un programme quand le
+NAS ne répond plus, au lieu de lui renvoyer une erreur.

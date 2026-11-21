@@ -373,7 +373,7 @@ binary, at the boundary.
 ### 7. A task is not done until CI is green — and CI cannot see the GPU
 
 Run **`just`** (which is `check` + `gpu-test` + `clip-audio-test` +
-`switch-saves-test` + `switch-capture-test`) locally, then watch the run. A
+`switch-saves-test` + `switch-capture-test` + `abri-test` + `deploy-check`) locally, then watch the run. A
 failing early step means the later gates were **skipped, not passed**.
 
 The local gate also runs `switch-saves-test` and `switch-capture-test`. The adapter
@@ -568,7 +568,8 @@ Markdown alone does not update the site.
 
 | | |
 |---|---|
-| **`just`** | **the gate before a commit: `check` + `gpu-test` + `clip-audio-test` + `switch-saves-test` + `switch-capture-test`** |
+| **`just`** | **the gate before a commit: `check` + `gpu-test` + `clip-audio-test` + `switch-saves-test` + `switch-capture-test` + `abri-test` + `deploy-check`** |
+| `just abri-test` | the encrypted NAS copy of the saves, restored from a throwaway repository (needs restic) |
 | `just check` | Rust + Python + page: the shared code-quality recipe used by CI |
 | `just docs` | strict documentation build; also refreshes the site served by Caddy |
 | `just gpu-test` | the tests only this machine can run (no GPU on CI) |

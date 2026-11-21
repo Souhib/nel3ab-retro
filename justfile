@@ -40,7 +40,14 @@ default: local
 # 10h31, lu sur les mtime des deux copies), la porte est restée verte, et la
 # dérive a été retrouvée à la main. Un contrôle que rien n'appelle ne protège
 # de rien.
-local: check gpu-test clip-audio-test switch-saves-test switch-capture-test deploy-check
+local: check gpu-test clip-audio-test switch-saves-test switch-capture-test abri-test deploy-check
+
+# La copie chiffrée des sauvegardes sur le NAS (docs/abri.md), éprouvée contre un
+# faux dossier personnel et un dépôt jetable: restauration à l'identique,
+# exclusions, tubes nommés, et un refus pour chaque façon de mal tourner.
+# Demande restic, installé sur lgf et absent de la CI.
+abri-test:
+    tools/test_abri.sh
 
 # The control plane's own gate, which is its owner's: ruff, ty, pytest, driven by
 # poe exactly as LaTabdhir and Majlisna drive theirs.
@@ -102,9 +109,9 @@ deploy-check:
     #!/usr/bin/env bash
     set -euo pipefail
     faux=0
-    for unit in deploy/*.service deploy/Caddyfile deploy/*.sudoers; do
+    for unit in deploy/*.service deploy/*.timer deploy/Caddyfile deploy/*.sudoers; do
         case "$unit" in
-            *.service) installe="/etc/systemd/system/$(basename "$unit")" ;;
+            *.service|*.timer) installe="/etc/systemd/system/$(basename "$unit")" ;;
             *Caddyfile) installe="/etc/caddy/Caddyfile" ;;
             *.sudoers) installe="/etc/sudoers.d/$(basename "$unit" .sudoers)" ;;
         esac
@@ -130,7 +137,7 @@ deploy-check:
     # L'autre sens: une unité posée à la main sur la machine, sans copie ici.
     # Le 12 septembre 2026, nel3ab-cpu-performance tournait depuis la veille et
     # aucune boucle ne la voyait, parce que celle du dessus part du dépôt.
-    for installe in /etc/systemd/system/nel3ab-*.service; do
+    for installe in /etc/systemd/system/nel3ab-*.service /etc/systemd/system/nel3ab-*.timer; do
         [ -e "$installe" ] || continue
         if [ ! -f "deploy/$(basename "$installe")" ]; then
             echo "  installée sans copie au dépôt: $(basename "$installe")"; faux=1

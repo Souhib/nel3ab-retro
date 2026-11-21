@@ -1,10 +1,18 @@
-# État du projet au 20 novembre 2026
+# État du projet au 21 novembre 2026
 
 Ce point de reprise conserve le travail commencé en septembre et les
 livraisons datées jusqu'au 10 novembre. Il indique où retrouver les décisions, les expériences
 et leurs limites. Le [carnet](carnet-de-bord.md#11-septembre-ce-que-le-mois-a-appris)
 conserve leur déroulement ; l'[ADR](adr/0001-architecture.md) conserve les règles
 qui en résultent. Les anciens plans M1 à M3 sont des archives de conception.
+
+**Au 21 novembre : les sauvegardes ont une copie chiffrée hors de la machine.**
+Chaque heure, `nel3ab-abri.timer` copie les sauvegardes, les pseudos et la
+configuration vers le NAS avec restic. Une restauration réelle depuis le NAS
+est identique à l'original. Le travail du 16 septembre au 20 novembre est
+dans Git, en dix commits poussés. La Switch 2 reste dans la salle comme
+console expérimentale. Mode d'emploi : [Copie des sauvegardes](abri.md).
+Récit : [carnet](carnet-de-bord.md), entrée « 21 novembre ».
 
 **Au 20 novembre : le moteur Switch 2 est mis de côté, un audit fixe l'ordre des chantiers.**
 À la demande de Souhib, le travail de performance sur le moteur Switch 2

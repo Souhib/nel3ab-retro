@@ -1,0 +1,10 @@
+# Chaque nuit à 4 h 30, l'heure où la boîte noire voit le moins de parties.
+[Unit]
+Description=nel3ab abri, entretien de la nuit
+
+[Timer]
+OnCalendar=*-*-* 04:30
+Persistent=true
+
+[Install]
+WantedBy=timers.target

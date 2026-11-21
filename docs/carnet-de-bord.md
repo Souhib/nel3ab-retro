@@ -25738,6 +25738,39 @@ extraction d'archive tourne dans le salon, sans la priorité basse de `lsar` et
 `unar`. Enfin, rien n'efface un envoi abandonné : la quarantaine garde tout
 jusqu'à ce qu'on le retire depuis la page.
 
+### 21 novembre : les accents qui disparaissaient sous 17 pixels
+
+**Le symptôme.** Sur les captures des pages du salon (import, profil), on
+lisait « tout debloque », « precedente » ou « Ecrite » en petite taille, alors
+que « Première » s'affichait bien en grand.
+
+**Ce qui a été écarté.** Les accents sont bien dans nos sous-ensembles de la
+police Anybody : 201 caractères, dont « é », « è », « ê », « à ». Ils y sont
+sous forme de glyphes composés, la lettre plus un accent posé par-dessus.
+Remplacer ces glyphes composés par des dessins simples n'a rien changé à la
+capture : la composition n'était pas en cause.
+
+**La cause.** Le bas de l'accent aigu ne dépasse le haut du « e » que de
+30 unités sur 2000. La police ne contient pas de consignes de rendu. En
+dessous de 17 pixels, le lissage de Chrome sous Linux, à l'échelle 1, aligne
+cet accent sur la ligne du « e », où il se confond avec la lettre.
+
+**La correction.** `tools/polices-accents.py` remonte l'aigu, le grave et le
+circonflexe de 70 unités et les élargit de 24 unités de chaque côté, dans nos
+trois sous-ensembles. La capture de contrôle, de 12 à 16 pixels, montre
+maintenant tous les accents. La licence OFL d'Anybody permet de modifier la
+police et ne réserve pas son nom. Le script refuse un fichier déjà corrigé.
+
+**Ce qui n'est pas prouvé.** Le contrôle a été fait dans Chrome sous Linux.
+Un vrai téléphone (écran à l'échelle 2 ou 3) n'a pas été essayé, mais il
+dessine ces tailles avec deux à trois fois plus de pixels. Aucun essai
+automatique ne protège la correction : il faudrait la bibliothèque
+fontTools dans les dépendances du salon, pour un seul contrôle.
+
+**Leçon.** Une capture réduite peut aussi effacer un accent. Avant de
+chercher la cause dans la police, regarder la capture à sa taille réelle,
+puis comparer avec et sans la correction, sur la même page.
+
 ## 12. Glossaire complet
 
 **Faux partage** : échanges inutiles entre les caches de plusieurs cœurs lorsque

@@ -1,5 +1,39 @@
 # Jouer à la Switch dans la salle
 
+**Complément installé le 10 novembre 2026.** Pour un compte connecté,
+« partie neuve » crée sa partie personnelle et conserve la précédente dans
+l'historique. « Reprendre » rouvre cette progression dans n'importe quelle salle.
+L'identité du compte décide du dossier, jamais le pseudo.
+« Tout débloqué » reste un emplacement partagé ; il n'apparaît que si un reçu
+d'import et les fichiers qu'il nomme sont présents. La même règle couvre
+GameCube, Wii, Switch et Switch 2. Un dossier `debloquee` rempli en jouant
+ne devient pas automatiquement un import complet.
+
+La progression Zelda de Souhib a été copiée dans son compte après fermeture,
+avec ses fichiers vérifiés et l'original conservé. Pour la continuer, choisir
+« reprendre ». Un clic sur « partie neuve » crée désormais un nouveau départ.
+Neuf imports existants sont déclarés disponibles ; Zelda et les jeux dont
+l'import complet n'est pas établi gardent seulement les choix ordinaires.
+Pour Dolphin, les parties personnelles suivent le compte entre salles ;
+l'import partagé reste celui qui est installé dans la salle choisie.
+
+L'import Switch qualifié prend l'option `--unlocked` de
+`docker/switch-saves.py … import`. L'import Wii qualifié prend le dernier
+argument `true` de `just wii-save-import export dossier true`. L'import
+GameCube vers `debloquee` écrit son reçu avec `just save-import`.
+Un import manuel déjà vérifié peut être déclaré avec
+`python3 tools/save-unlocked.py dossier/debloquee fichier-relatif --source provenance`.
+Cette déclaration décrit un contenu vérifié ; elle ne déduit pas les objectifs
+de chaque jeu à partir de ses octets. Les empreintes au moment de l'import
+servent à sa provenance ; le jeu peut ensuite mettre ses records à jour.
+
+
+Pour Zelda Switch 2, une copie préchauffée du cache est comparée au cache
+actuel sur quatre passages alternés le 10 novembre. Aucun gain répété n'est
+retenu ; elle n'est pas installée. Les 30 images/s régulières et les freezes
+de nouveaux décors restent à résoudre. Le [plan courant](plan-60fps-switch2-2026-11-08.md)
+précise les mesures et les prochaines vérifications.
+
 État au **11 septembre 2026**. Les choix et leurs expériences restent dans
 l'[étude Switch](etude-switch-2026-09-07.md) ; les travaux communs à la salle
 sont indexés dans l'[état du projet](etat-du-projet.md).

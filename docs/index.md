@@ -1,7 +1,9 @@
 # Nel3ab Retro
 
 Des salles de jeu rétro auto-hébergées. Une personne ouvre un navigateur, rejoint
-une salle, et joue à un jeu GameCube, Wii ou Switch avec jusqu'à trois amis. Tout tourne sur
+une salle, et joue à un jeu GameCube, Wii ou Switch avec jusqu'à trois amis.
+Zelda Switch 2 est aussi proposé à titre expérimental, avec un joueur et des
+spectateurs. Tout tourne sur
 notre serveur : l'émulation, le rendu 3D, l'encodage vidéo. Le navigateur ne fait
 que recevoir une vidéo et renvoyer les touches.
 
@@ -16,9 +18,13 @@ options ont été écartées et pourquoi. Chaque acronyme y est défini, et un
 glossaire ferme le document.
 
 Pour reprendre le développement, commencer par
-**[l'état du projet au 9 septembre](etat-du-projet.md)**. Il relie les fonctions
+**[l'état du projet au 11 novembre](etat-du-projet.md)**. Il relie les fonctions
 livrées, les pistes écartées, les mesures et le travail restant. Il distingue
 aussi ce qui est dans Git de ce qui vit encore dans l'arbre de travail.
+
+Pour Zelda, la [consigne de reprise vers 40 images/s](plan-60fps-switch2-2026-11-08.md)
+donne directement le prochain essai, les pistes et les preuves conservées.
+Elle distingue le moteur installé des candidats privés et des anciens essais.
 
 Trois chapitres se lisent seuls si le reste est trop long :
 
@@ -43,6 +49,10 @@ Ce n'est plus le tableau de bord du déploiement actuel.
 | [Touches et manettes](ecran-manettes.md) | invariants du configurateur, clavier et profils | français |
 | [Switch dans la salle](switch-room.md) | jeux inscrits, sauvegardes, exploitation et limites | français |
 | [Étude Switch](etude-switch-2026-09-07.md) | moteurs comparés, essais et mesures successives | français |
+| [Essais Switch 2](etude-switch2-2026-11-07.md) | versions Linux, préparation et observations du 7 novembre | français |
+| [Reprise Zelda vers 40 images/s](plan-60fps-switch2-2026-11-08.md) | prochaine expérience, hypothèses, résultats écartés et fichiers privés à conserver | français |
+| [Étude transport](etude-transport-2026-09-22.md) | ce que font Moonlight, Sunshine et les navigateurs, et ce qui vaut d'être emprunté | français |
+| [Plan d'exécution](plan-execution-2026-09-23.md) | liaisons faibles, gels et mesure : les étapes, leurs dépendances et ce qui les déclare finies | français |
 | [Audit du 6 septembre](audit-2026-09-06.md) | relecture de l'audit initial et suivi des corrections | français |
 | [Plans M1](m1-working-plan.md), [M2](m2-working-plan.md), [M3](m3-working-plan.md) | archives des premiers travaux et mesures brutes | anglais |
 
@@ -52,13 +62,15 @@ motif. Leurs diagnostics et commandes ne décrivent pas tous l'état actuel.
 
 ## État du projet
 
-Au 9 septembre, une salle commune accueille Dolphin pour GameCube/Wii et un
-adaptateur Ryubing pour Switch. Les noms suivent les places vérifiées, le chef
+Au 7 novembre, trois salles accueillent Dolphin pour GameCube/Wii,
+Ryubing pour Switch et Eglantine pour Zelda Switch 2 expérimental.
+Une seule salle peut utiliser la Switch ou la Switch 2 à la fois.
+Les noms suivent les places vérifiées, le chef
 est indiqué, les spectateurs sont listés et les joueurs préparent leurs manettes
 avant un lancement Wii ou Switch. Les clips contiennent le son.
 
 L'identité et l'accès viennent de Tailscale ; le domaine `nel3ab.app` reste
-privé. Il n'existe pas encore d'orchestration de plusieurs salles ni de jeton
+privé. Les salles se créent depuis la liste d'accueil ; il n'existe pas de jeton
 utilisateur signé pour ouvrir le worker à Internet. Les mouvements Switch,
 le gel de Zen sous Windows et certaines mesures de réseau restent ouverts,
 avec leurs limites dans l'état de reprise.

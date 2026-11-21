@@ -7033,6 +7033,115 @@ tombe. C'est exactement le défaut qu'aucun code de sortie ne signale.
 Le vrai clip mesuré: H.264, 1280x896, 35,0 secondes, et un deuxième aussitôt
 demandé refusé avec trente secondes à attendre.
 
+#### 2026-09-21 : quarante-cinq secondes, et cinq secondes entre deux clips
+
+Les deux nombres ont changé, et pas pour la même raison.
+
+Le clip couvre maintenant quarante-cinq secondes au lieu de trente, à la demande
+de Souhib, qui veut des moments plus longs à partager. L'anneau suit: il garde
+cinquante-cinq secondes (quarante-cinq plus un GOP de dix), et le plafond en
+octets monte à 320 Mio, parce que cinquante-cinq secondes au pire mesuré de
+43,2 Mb/s font 297 Mo. La borne en octets du son monte de 7,68 à 10,56 Mo, dans
+la même proportion.
+
+L'attente entre deux clips tombe de trente à cinq secondes. La raison d'avant
+était qu'un clip couvrait trente secondes, donc deux clips plus rapprochés se
+recouvraient et le second n'apportait rien. Cette raison disparaît exprès: on
+veut pouvoir garder plusieurs moments proches, comme le font les outils du genre
+« Medal ». Cinq secondes, c'est juste ce qu'il faut pour que le ffmpeg du clip
+précédent finisse et que le navigateur télécharge le fichier, sans empêcher de
+reprendre presque aussitôt. La limite reste côté serveur, et le compte à rebours
+vient toujours du `Retry-After`.
+
+Ce qui manquait encore pour ressembler tout à fait à « Medal » était le micro du
+joueur. Il est en place le même jour.
+
+#### 2026-09-21 : le micro des joueurs, enregistré et mêlé au clip
+
+Record only, pas de chat en direct: la voix de chaque joueur monte au worker,
+qui la date et la garde dans un anneau parallèle au son du jeu, puis la mélange
+au son au moment de l'export. Les trois choix qui ont figé la forme, posés à
+Souhib: **record only** (personne ne s'entend en live, donc pas d'écho ni de
+latence à combattre), **une seule piste** mélangée (le plus partageable, comme
+Medal), et **tous les micros activés** (quatre voix peuvent se retrouver dans le
+même clip).
+
+La pièce qui a demandé le plus de réflexion est l'horloge. Le micro arrive SANS
+horodatage, et l'horloge du navigateur ne parle pas à celle du worker. Le worker
+date donc la voix lui-même: l'anneau retient une ancre, « tel instant de capture
+correspondait à tel instant du mur », posée à chaque image ou morceau de son
+reçus, et prolonge l'horloge de capture depuis cette ancre quand un micro
+arrive. L'erreur est bornée par l'intervalle entre deux images, une trame, ce
+qui est plus petit qu'une syllabe. C'est la seule façon de dater une voix sans
+faire traverser au navigateur une horloge qu'il ne possède pas.
+
+Côté navigateur, la réduction en mono et la conversion en i16 vivent dans un
+AudioWorklet, chargé d'un blob puisque la page est servie d'un seul fichier.
+`ScriptProcessorNode` était le chemin facile mais il est déprécié depuis 2015;
+AudioWorklet est le chemin moderne, et le code du worklet est construit à partir
+de la même fonction pure que les tests, pour ne pas avoir deux implémentations
+de la même réduction.
+
+Ce choix a été renversé le 22 septembre 2026. Sur la vraie salle, le micro
+restait coincé sur « demandé » sans jamais s'ouvrir: le worklet chargé d'un blob
+ne se charge pas (« a dependency or cross-origin script failed to load »), même
+avec un worklet minimal. La page étant servie d'un seul fichier, il n'y a pas
+d'autre adresse à donner au worklet. `ScriptProcessorNode` se crée sans module
+et fonctionne partout; son coût est une conversion de 4096 échantillons quatre
+fois par seconde sur le fil principal, c'est-à-dire rien. La réduction reste la
+même fonction pure, partagée avec les tests.
+
+Le mélange est une somme saturée: le micro mono est posé au centre, ajouté aux
+deux canaux, et la somme sature au lieu de déborder. Un débordement silencieux
+transformerait une voix forte en craquement.
+
+Le lendemain, trois ajouts autour du micro. **Choisir son micro**: chaque page
+liste les `audioinput` et passe son choix à `getUserMedia`; changer de micro en
+cours d'enregistrement repart sur le nouveau. **Montrer qui est capté**: le
+micro est associé à la place par le reçu que la page tient de sa socket de
+manette, et un octet de plus dans le message de salle diffuse un masque, une
+place par bit. À côté de chaque prise, un petit micro plein dit « cette voix
+sera captée », un micro barré dit le contraire. C'est le consentement rendu
+visible, et le reçu n'est pas pris sur parole: il doit désigner un siège que la
+salle tient.
+
+Et une salle ouverte sans jeu se ferme désormais par la seule inactivité, comme
+une salle qui joue. La règle « salle désertée » reste réservée au jeu, sinon un
+salon se fermerait trois minutes après la dernière page, ce qui est justement
+son état normal. Le garde `!playing` qui l'empêchait datait du temps où systemd
+relançait toujours le worker; le code de sortie qui dit « ne me relance pas »
+existait déjà, et le garde n'avait plus de raison. Le salon de la veille, ouvert
+dix-neuf heures, était ce cas: un salon sans jeu que rien ne fermait.
+
+#### Deux défauts du clip, trouvés l'un après l'autre le 22 septembre
+
+Le clip rendait « raté » une fois sur six, et sans motif dans le journal. En
+refusant, l'anneau disait « pas de clé assez vieille » alors que le jeu tournait
+depuis un quart d'heure. La cause: le GOP n'est pas dix secondes mais DOUZE.
+L'encodeur est réglé pour soixante images par seconde (`gop_size = fps * 10`),
+mais un jeu PAL en produit cinquante, donc six cents images durent douze
+secondes. L'anneau gardait cinquante-cinq secondes, soit quarante-cinq plus dix
+de marge; avec un GOP de douze, il y avait une fenêtre de deux secondes toutes
+les douze où la clé assez vieille venait d'être oubliée et la suivante n'était
+pas encore assez vieille. Relevé sur la vraie salle: trois refus sur vingt
+clips, espacés de trente-cinq à cinquante-sept secondes. L'anneau garde
+maintenant une minute, ce qui laisse une marge de quinze secondes et supprime la
+fenêtre.
+
+Et une fois le clip rendu, le micro des joueurs n'y était pas. Le micro
+s'ouvrait, la salle le voyait, et l'anneau ne recevait AUCUN octet. La cause
+était dans le navigateur: le `AudioContext` du micro était créé APRÈS
+l'autorisation, donc hors du geste qui l'aurait réveillé, et un contexte
+suspendu n'appelle jamais `onaudioprocess`: le fil tournait à vide. Il fallait
+aussi le forcer à 48 kHz, le rythme que le worker suppose, faute de quoi un
+micro au rythme du périphérique (44,1 kHz sur beaucoup de machines) sortait de
+l'octave. Vérifié en décodant un vrai clip: la note de 440 Hz du micro de test
+ressort au décodage.
+
+*Remplacé le 23 septembre 2026:* forcer 48 kHz faisait refuser le micro par
+Firefox sur un casque à 44,1 kHz. La page garde désormais la cadence du
+navigateur et la convertit elle-même; voir « Le micro relu avant son commit ».
+
 ---
 
 ### 7.65 La salle dormait sous des gens qui étaient là
@@ -16181,7 +16290,8830 @@ de mesure alternée. Et l'outil qui dira pourquoi une salle gèle existe désorm
 mais il n'a pas encore vu un VRAI gel: celui de cette nuit a été provoqué à la
 main, en écrivant des relevés dans le journal du salon.
 
+### Comment font les autres, et ce qui vaut la peine d'être copié
+
+**La question.** Le 22 septembre 2026, trois joueurs sur Mario Power Tennis. Deux
+n'ont aucune image jetée en vingt minutes; le troisième, Hyde, en jette 433 et
+voit son image se figer 8,9 secondes. La machine ne bronche pas. Souhib demande
+comment s'y prennent les gros, puis une étude approfondie: lire notre code, lire
+celui des outils ouverts, et dire ce qui vaut d'être emprunté. Le résultat est
+dans [l'étude du 22 septembre](etude-transport-2026-09-22.md); voici ce qu'elle a
+appris qui compte.
+
+**Twitch ne résout pas notre problème.** Un émetteur, des millions de spectateurs
+passifs, des segments HTTP mis en cache, deux à vingt secondes de latence.
+L'adaptation y est faite par le lecteur et le serveur ne sait même pas qui
+souffre. Notre métier est celui de Moonlight, Parsec et consorts: quelques
+personnes, interactif, cinquante millisecondes.
+
+**La surprise: Moonlight et Sunshine n'ont AUCUN contrôle de congestion.** Le
+débit est fixé au début de la session et plus jamais touché. Leur commentaire
+explique pourquoi: l'adaptation dynamique « rebondissait entre le minimum et le
+maximum sans jamais se stabiliser ». Ce qui nous sépare d'eux n'est donc pas
+l'adaptation, c'est **un transport qui ne bloque pas et de la redondance**: ils
+sont en UDP avec 20 % de Reed-Solomon sur l'image et 50 % sur le son.
+
+**Trois chiffres de chez nous que l'étude a sortis.** Notre débit varie d'un
+facteur dix-sept selon la scène, parce que l'encodeur est à qualité constante.
+Une image pèse 6,4 Kio en médiane et jusqu'à 60 Kio, alors que la file d'un
+spectateur fait DEUX images: une seule pointe la remplit, et c'est ce qui casse
+la chaîne de Hyde. Et le son, en PCM brut, coûte 1,6 Mbit/s à chacun, soit 44 %
+du trafic de Hyde en format réduit, contre 96 kbit/s chez Moonlight.
+
+**Ce que les sources ont tué.** Le rafraîchissement progressif est absent de notre
+encodeur, et dormant chez Sunshine. L'invalidation de références, qui évite une
+image clé après une perte, n'existe que pour NVENC; le chemin FFmpeg, qui est le
+nôtre, retombe sur une IDR. La bibliothèque réseau de Valve est injoignable depuis
+un navigateur, et sa version publique n'a ni contrôle de congestion, ni FEC, ni
+échéance par message, alors que sa documentation promet les trois. Une FEC sur
+notre TCP actuel ne servirait à rien, puisque TCP retransmet déjà.
+
+**Ce que la spécification tranche.** Un script ne peut pas créer une trame encodée
+dans WebRTC: notre H.264 déjà encodé ne peut donc pas y entrer sans être réencodé
+dans le navigateur. D9 avait raison sans pouvoir le démontrer, et c'est maintenant
+citable. Nuance apportée par une seconde passe: Chrome prototype derrière un
+drapeau l'API qui lèverait exactement cette interdiction, et une transformation de
+réception s'exécute AVANT le tampon de gigue du navigateur, ce qui ouvre une voie
+hybride, non mesurée, pour garder notre maîtrise de l'affichage tout en héritant
+de la reprise sur perte.
+
+**Ce qui est disponible chez NOS joueurs.** Les lignes d'arrivée du salon disent
+qu'ils sont tous en Firefox 156. Vérifié: WebTransport y est depuis la 114 et le
+décodage Opus depuis la 130. Les deux emprunts principaux sont donc à leur portée.
+
+**Le piège qui aurait coûté une soirée.** WebTransport sait retomber sur HTTP/2,
+où « la livraison non fiable n'existe pas, puisque HTTP/2 retransmet ». Sans
+exiger explicitement le non fiable, on retombe en silence sur le transport qu'on
+voulait quitter. Et un datagramme trop grand disparaît sans lever d'erreur.
+
+**L'ordre retenu**, du moins risqué au plus lourd: redémarrer le salon pour que
+les propositions de format réduit soient enfin enregistrées; plafonner la taille
+d'une image et adapter la file par spectateur, deux réglages mesurables en une
+soirée; passer le son en Opus, le seul emprunt qui abaisse le plancher; puis
+WebTransport, d'abord pour les manettes. Les couches temporelles en dernier: elles
+sont faisables et prouvées par le code de Chromium, mais aucune couche FFmpeg ne
+les expose, donc elles coûtent un quatrième module `unsafe` et une entrée d'ADR.
+
+**Ce qui n'est pas prouvé.** Rien de tout cela n'est mesuré. L'étude lit du code
+et pose des expériences; elle ne conclut pas à leur place.
+
+### Le micro relu avant son commit: dix défauts, et un essai qui ne pouvait pas les voir
+
+Le micro des clips était écrit mais pas commité. Une relecture du 23 septembre y a
+trouvé dix défauts, listés dans le plan d'exécution. Tous sont corrigés dans le même
+changement, et chacun a son essai. Chaque essai a été vu rouge en remettant le
+défaut à la main, puis vert une fois corrigé.
+
+**Pourquoi l'essai existant passait.** Il donnait à chaque morceau de voix une date
+parfaite, espacée d'exactement 10 ms. Or le navigateur ne livre pas la voix ainsi:
+son fil de capture rendait 4096 échantillons d'un coup, soit 85 ms, découpés en
+huit morceaux envoyés ENSEMBLE. Le worker les datait à leur arrivée, donc tous à
+la même date, et le rendu du clip les posait les uns sur les autres. Il restait
+environ 20 ms de voix sur 85. L'essai ne rejouait jamais une rafale, il ne pouvait
+pas voir ça. Le nouvel essai envoie huit morceaux à la même date et compte les
+échantillons muets du clip.
+
+**Ce qui a changé côté worker.**
+
+- Les morceaux d'une même socket sont posés bout à bout: chacun commence là où le
+  précédent finit. Si cette suite s'écarte de plus d'un quart de seconde de l'heure
+  d'arrivée, dans un sens ou dans l'autre, la page s'est tue ou a pris du retard,
+  et on repart de l'arrivée. Le jumeau de l'essai vérifie qu'un vrai silence de
+  deux secondes reste un trou, au lieu d'être comblé en tirant la voix en arrière.
+- Chaque micro a sa propre file, et les voix sont ADDITIONNÉES au rendu, avec
+  saturation. Avant, une seule file servait à tous, et la dernière voix écrasait
+  l'autre. L'addition se fait sur 32 bits, pour que quatre voix fortes saturent au
+  lieu de déborder en craquement.
+- Une file ne garde pas plus d'une minute d'octets, et l'ensemble pas plus de
+  quatre. La borne par voix empêche un micro bavard de chasser les trois autres.
+- Le badge « micro ouvert » d'un siège compte les sockets au lieu de garder un
+  seul bit. Avec un bit, la fin d'une ancienne socket éteignait le badge d'une
+  nouvelle.
+- La socket donne son reçu entier, et le worker compare le reçu entier. Avant, il
+  ne regardait que le numéro de réclamation, qui se devine. Le siège est relu à
+  chaque réveil, donc le badge suit un changement de siège.
+- Une page silencieuse depuis quinze secondes est oubliée, comme pour les
+  manettes. Avant, un portable mis en veille gardait son fil et son badge pour
+  toujours.
+
+**Ce qui a changé côté page.**
+
+- La page ne force plus 48 kHz. Elle garde la cadence du navigateur et la
+  convertit elle-même par interpolation linéaire (on calcule chaque échantillon
+  voulu entre ses deux voisins). L'état de la conversion passe d'un tampon au
+  suivant, sinon chaque frontière ferait un clic. L'essai à 44,1 kHz compte les
+  morceaux envoyés: sans conversion, il en part 21 au lieu de 23, et le worker
+  jouerait la voix 9 % trop vite.
+- Le fil de capture rend 1024 échantillons au lieu de 4096: des rafales de 21 ms,
+  plus proches de ce que l'horloge du worker constate.
+- La socket se rouvre quand elle tombe, après 0,5 s puis 1, 2, 4 et 5 s au plus.
+  Avant, un redémarrage du worker coupait la voix pour la soirée, pendant que le
+  bouton disait « micro ouvert ».
+- Couper le micro pendant la demande d'autorisation rend la piste dès qu'elle
+  arrive. Avant, l'autorisation accordée après coup rouvrait le micro d'une page
+  qui avait quitté la salle.
+- Prendre un siège après avoir ouvert le micro rouvre la socket avec le nouveau
+  reçu.
+
+**Deux pièges de la vérification.** Le premier essai de rafale couvrait 56 s de
+voix sur un clip de 60: les 4 dernières secondes étaient muettes par construction,
+et l'essai accusait le code. Et l'essai de conversion ne voyait pas l'absence de
+conversion, puisque le faux contexte audio tournait à 48 kHz, où convertir ne
+change rien. Il a fallu un essai à 44,1 kHz pour qu'il puisse échouer.
+
+**Un outil perdu en route.** `glslang-tools`, qui compile le shader de l'encodeur,
+avait disparu de la machine le 20 septembre, dans l'installation ratée du SDK
+Vulkan. Le binaire déjà construit continuait de marcher, et rien ne l'avait
+signalé avant que `clippy` doive recompiler l'encodeur. Réinstallé.
+
+**Ce qui n'est pas prouvé.** Les essais sont unitaires. Aucun clip n'a encore été
+enregistré avec deux micros réels, et le décalage entre la voix et l'image n'est
+pas mesuré. La datation reste celle de l'arrivée, corrigée seulement à l'intérieur
+d'une rafale: la voix arrive toujours après ce qu'elle commente, du temps de la
+capture et du transit.
+
+### Phase 0: remettre la mesure d'aplomb, et un banc qui perd pour de vrai
+
+Le plan du 23 septembre commence par la mesure, parce que rien d'autre ne se
+compare honnêtement tant qu'elle boite. Trois des cinq points sont faits le jour
+même; les deux autres demandent une vraie soirée.
+
+**Un service plus vieux que son code.** Le salon tournait depuis le 14 septembre
+et ignorait l'événement « qualité » ajouté le 16. `deploy-check` comparait des
+fichiers entre eux, jamais un fichier à ce qui tourne. Il compare maintenant
+l'heure de démarrage de chaque service actif à la plus récente modification du
+code qu'il exécute: les sources Python pour le salon et la boîte noire, le
+binaire pour une salle. L'heure de modification plutôt que celle du dernier
+commit, parce que le code installé n'est pas toujours commité. La garde a rougi
+deux fois pour de vrai: sur un fichier dont on avait avancé l'heure, puis sur le
+salon et la boîte noire après le changement suivant, qu'un redémarrage a verdis.
+Le salon, lui, avait déjà été relancé le matin par les mises à jour automatiques
+de la machine: le défaut du 14 était réglé par hasard, et rien ne l'aurait dit.
+
+**Un gel de page n'est pas un gel de salle.** Le 22 septembre à 23:25, la boîte
+noire avait pris une capture complète, profil de l'émulateur compris, pour un gel
+de 8,9 s qui ne touchait que la page de Hyde: les deux autres pages recevaient
+leurs images à 19 et 29 ms près au même instant. Le déclencheur donne désormais
+une portée. « Salle » quand deux pages gèlent dans la même fenêtre, ou quand il
+n'y en a qu'une, puisque rien ne permet alors de dire que la salle allait bien.
+« Page » quand une seule gèle pendant que les autres reçoivent. Une capture de
+page garde les journaux et les relevés des pages, sans profil ni tampon roulant.
+L'essai rejoue les vrais relevés de 23:25 et rend « page »; son jumeau ajoute une
+seconde page gelée et rend « salle ».
+
+**Le banc de liaison.** `throttle.mjs` plafonnait un débit dans un relais TCP.
+Un relais TCP ne peut pas perdre un paquet: la perte y devient un retard. Or le
+cas de Hyde est de la perte. `just banc-liaison <Mbit/s> <perte %> <gigue ms>`
+crée un espace réseau (une pile réseau isolée du noyau, avec ses propres
+interfaces), le relie à la machine par une paire virtuelle, et pose `tc netem`
+(l'outil du noyau qui perd, retarde et plafonne des paquets) sur les deux bouts de
+cette paire, et nulle part ailleurs. Une page Chrome sans écran regarde la salle
+à travers, et le journal du worker dit combien de chaînes il a cassées.
+
+Quatre pièges avant le premier chiffre juste:
+
+- Chrome lancé DANS l'espace du banc échouait en `ERR_NETWORK_CHANGED`, et le
+  pare-feu de la machine refusait sa connexion entrante. Plutôt que d'ouvrir le
+  pare-feu, le banc garde Chrome côté machine et le fait SORTIR vers l'espace du
+  banc; un relais l'y reçoit et le renvoie vers la salle par une socket Unix.
+- L'adresse du banc n'est pas un « contexte sûr » pour le navigateur, et
+  WebCodecs (l'interface de décodage vidéo du navigateur) n'existe que dans un
+  contexte sûr. La page ne décodait rien, et le premier essai a rendu une ligne
+  de zéros qui avait l'air d'une mesure parfaite. Le pilote refuse maintenant une
+  fenêtre sans image.
+- Mon relais détruisait les deux bouts dès que l'un se fermait, et jetait ce qui
+  était encore en route. Sous gigue, la page arrivait tronquée de 33 Ko et
+  n'affichait jamais son bouton d'entrée: trois profils sur quatre « échouaient »
+  pour une raison qui n'avait rien à voir avec la liaison.
+- Le compte des chaînes cassées lisait le journal du worker depuis le lancement
+  de la page, connexion comprise. Une chaîne cassée au démarrage, et ses 599
+  images d'attente de clé, s'ajoutaient à une fenêtre qui recevait 59,9 images
+  par seconde. Il ne compte plus que ce qui tombe dans la fenêtre mesurée.
+
+**Ce que le banc a dit, et qui corrige le plan.** Le plan attendait que 1 % de
+perte casse des chaînes. Sans délai, ce n'est pas le cas: TCP répare une perte
+en moins d'un aller-retour, et un aller-retour proche de zéro ne laisse pas la
+file du worker se remplir (pire écart 238 ms, zéro chaîne cassée). Avec 20 ms de
+gigue, en alternant, 20 ms seules donnent zéro chaîne cassée et 20 ms avec 1 % de
+perte en donnent deux. C'est la formule classique du débit de TCP, qui baisse
+comme l'inverse de l'aller-retour multiplié par la racine de la perte: environ
+3 Mbit/s à 1 % et 40 ms. La perte fait mal PARCE QU'il y a un aller-retour.
+
+**Pourquoi la ligne de base n'est qu'une tendance.** Le jeu tournait sur son écran
+de démonstration, et le débit du flux suivait l'écran: 0,8 Mbit/s sur le menu,
+jusqu'à 25 Mbit/s pendant l'échange. Une vraie partie de Hyde tenait 6,4 Kio par
+image en médiane; la démonstration en tient 63. Les profils étroits mesurent
+donc surtout un débit trop faible pour ce contenu. Et la page est passée d'elle-
+même au format réduit pendant le profil « Hyde », ce qui est une bonne nouvelle
+pour la page et une mauvaise pour la comparaison. Une référence demandera un
+contenu stable.
+
+**Un piège de terminal.** `pkill -f "http.server 18999"` a tué le shell qui le
+lançait, parce que sa propre ligne de commande contenait le motif. Tuer par
+numéro de processus.
+
+### Phase 1: une file qui grandit, et un plafond que l'encodeur refuse
+
+**La file par spectateur.** Le worker garde au plus deux images en attente pour
+chaque spectateur. Quand sa liaison hoquette plus longtemps que ces deux images,
+la suivante est refusée, et une image refusée casse la chaîne: tout ce qui suit
+jusqu'à la prochaine image-clé est inutilisable, donc l'écran gèle. La file
+s'adapte maintenant, spectateur par spectateur. Elle double après chaque image
+refusée, jusqu'à huit (133 ms), et rend une place après chaque période de vingt
+secondes sans refus. Un spectateur dont la liaison suit ne dépasse jamais deux,
+et ne gagne donc aucune latence: c'est l'essai jumeau.
+
+Un détail de construction qui a compté. Un canal de Rust ne dit pas combien
+d'éléments il contient. Il fallait donc compter à côté, et la première idée,
+faire décompter le fil qui envoie les images, aurait menti: plusieurs essais
+vident la file eux-mêmes. Chaque image en file porte maintenant un jeton qui rend
+sa place quand l'image est détruite, par n'importe qui. En cassant ce jeton,
+cinq essais rougissent, dont trois qui passent par de vraies sockets.
+
+**Ce que le banc en dit.** Deux binaires, A avec la file fixe à deux et B avec la
+file adaptative, échangés entre quatre phases A B A B, sur 1 % de perte et 20 ms
+de gigue. Aux mêmes 4,9 Mbit/s de flux, B manque 597 images au lieu de 1116 et
+1198, et en reçoit 50 et 43 par seconde au lieu de 32 et 37. Le pire écart, lui,
+ne tranche pas. Deux paires seulement: une tendance, à confirmer en soirée.
+
+**Un défaut du banc lui-même.** Relancé à chaque phase, le jeu reste d'abord sur
+son menu, à 0,5 Mbit/s, où aucune file ne déborde. La première mesure de chaque
+phase n'a donc rien mesuré, et seules les secondes se comparent. Le banc écrit
+maintenant le débit du flux pendant sa fenêtre, pour que ce cas se voie au lieu
+de passer pour une liaison sans défaut. Une vraie référence demandera une scène
+rejouée à l'identique: `dolphin-emu-nogui` sait rejouer un enregistrement de
+manettes (`--movie`), qu'il faudrait capturer pendant une vraie partie.
+
+**Le plafond de taille d'image, tué en une minute.** Le plan voulait plafonner la
+taille d'une image avec `max_frame_size`. Le pilote de la carte l'annonce, mais
+FFmpeg refuse de l'utiliser en qualité constante: « Max frame size is invalid in
+CQP rate control mode ». Or la qualité constante est un choix mesuré le 16 août,
+contre deux modes à débit cible qui dégradaient l'image de tout le monde. Le
+plafond est donc hors de portée sans rouvrir cette décision.
+
+**Deux étapes du plan qui n'en étaient pas.** Le choix entre qualité constante et
+débit cible avait déjà été mesuré le 16 août, et le commentaire du shim le dit;
+mon étude du 22 septembre l'avait manqué. Et basculer tout seul vers le format
+réduit revient sur un choix écrit dans le code de la page, qui ne bascule jamais
+sans qu'on le lui demande. Ces deux-là attendent une décision, pas du code.
+
+### Un banc qui rejoue un clip, et une file qui ne tient pas sa promesse
+
+**Pourquoi rejouer un clip.** L'après-midi du 23 septembre, la moitié des
+fenêtres du banc sont tombées sur le menu d'un jeu à 0,5 Mbit/s, où rien ne
+casse. Le banc lance maintenant son propre worker, sur des ports et des dossiers
+jetables, qui remplace Dolphin par un clip lu en boucle: `ffmpeg` décode le clip
+en images brutes, le worker les copie dans les surfaces de l'encodeur et les
+encode avec le même encodeur qu'une salle. Les mêmes images à chaque passage,
+donc des mesures qui se comparent: 2,4 Mbit/s dans chacune des vingt fenêtres
+qui ont suivi.
+
+Rejouer le flux déjà encodé aurait été plus simple, et faux sur le point qui
+compte ici: après une chaîne cassée, une salle fabrique une image-clé à la
+demande, alors qu'un fichier encodé n'en a qu'aux endroits où il en a.
+
+Il a fallu une fonction de plus dans le shim C de l'encodeur, qui copie une
+image de la mémoire vers une surface. Elle vit dans le module déjà autorisé à
+parler au pilote, et l'essai qui la couvre compare une image unie et une image de
+bruit: si la copie n'écrivait rien, les deux sortiraient de la même taille.
+Neutraliser la copie rend l'essai rouge.
+
+Deux pièges du montage. Le ménage de départ du banc, qui efface les restes d'un
+passage interrompu, tuait le worker qu'on venait de lancer. Et deux passages
+enchaînés échouaient une fois sur trois, parce que la suppression d'une
+interface réseau virtuelle se termine après la commande qui la demande.
+
+Et un garde a mordu comme il le devait. La boucle du banc écrivait sa ligne de
+débit sous le même nom que celle d'une salle, « streaming », avec moins de
+champs. L'essai de contrat du salon, qui vérifie que chaque mesure publiée par
+le worker sait être lue, lit la première ligne de ce nom dans le code: il a
+trouvé celle du banc et rougi. La ligne du banc s'appelle maintenant « banc:
+débit ».
+
+**Ce que le clip a dit de la file adaptative.** Sur l'écran de démonstration,
+une file qui grandit jusqu'à huit images semblait manquer moitié moins d'images.
+Sur le clip, dans un ordre équilibré A B B A pour que chaque version passe autant
+de fois en premier qu'en second, la file de deux a cassé 0, 0, 0, 1, 0 et 1
+chaîne, la file jusqu'à huit 2, 3, 2 et 6. Quand la liaison ne peut durablement
+pas porter le flux, une file plus longue retarde la rupture sans l'éviter, et
+entasse des images qui arriveront en retard. La politique reste dans le code,
+éprouvée, mais son maximum vaut deux en service.
+
+Un premier essai sur le clip, à 2,4 Mbit/s et 1 % de perte, avait donné A devant
+B trois fois sur trois, alors qu'aucune image n'était refusée et que les deux
+versions se comportaient donc à l'identique. Rejoué dans l'ordre inverse, c'est
+B qui passait devant: la position dans la paire et le hasard des pertes, pas le
+code. C'est la règle d'alternance du projet, vérifiée à nos dépens une fois de
+plus.
+
+**Où s'entasse vraiment le retard.** Avec une file de deux, la page ne recevait
+que 35 images sur 50, sans qu'aucune soit jetée. Le retard s'accumulait dans les
+tampons TCP (la mémoire où le système garde les octets pas encore acquittés)
+entre le worker et la page. En service, le tampon d'envoi du proxy vers le
+joueur joue ce rôle, et le système l'agrandit tout seul jusqu'à plusieurs
+mégaoctets, soit plusieurs secondes sur une liaison lente. C'est probablement
+une part du retard que Hyde voyait, et une piste à part entière.
+
+**Le son en Opus, rédigé et pas décidé.** D10 gardait le son brut, 1,5 Mbit/s par
+personne, et fixait sa condition de réouverture: une liaison où ce débit pèse.
+C'est arrivé le 22 septembre, où le son faisait 44 % du trafic de Hyde en format
+réduit. La proposition d'amendement passe par l'encodeur Opus que la
+bibliothèque vidéo du système contient déjà, sans dépendance ni module
+`unsafe` de plus, et garde le son brut comme repli. Elle corrige aussi le plan:
+Opus sait masquer un paquet perdu, mais l'interface de décodage du navigateur
+n'offre aucun moyen de le lui demander, et sur TCP un morceau arrive en retard,
+jamais perdu. Le gain est en octets, pas en masquage. Elle attend d'être
+acceptée.
+
+### Ce que le son coûte à l'image, mesuré, et une sourdine qui ferme vraiment
+
+**La question.** La proposition de passer le son en Opus reposait sur un
+raisonnement: le son brut, 1,5 Mbit/s, prend sa part d'une liaison étroite. Le
+raisonnement contenait même une erreur, corrigée avant la mesure: le son a sa
+propre socket, il ne bloque pas l'image dans la même connexion, il partage
+seulement la liaison. Il fallait le mesurer avant d'écrire une ligne d'Opus.
+
+**Le banc.** Le worker du banc rejoue maintenant aussi le son du clip, par la
+socket du son comme dans une salle, et `NEL3AB_BANC_SON=0` le coupe. Premier
+passage: « aucun trou de son », et pour cause, la page n'avait jamais demandé le
+son. Elle ne le démarre qu'au premier geste après l'entrée, comme pour une
+personne, et le pilote n'en faisait aucun. Le banc écrit maintenant les secondes
+de son jouées, pour que ce cas se voie.
+
+**Le résultat.** À 3 Mbit/s, 1 % de perte et 20 ms, sur le même clip, dans un
+ordre équilibré: avec le son, 18 à 27 images reçues par seconde, 2 à 5 chaînes
+cassées par minute et une quarantaine de trous de son; sans le son, 38 à 42
+images par seconde et aucune chaîne cassée. Sur une liaison qui ne peut pas
+porter les deux, le son brut divise l'image par deux. Opus en porterait environ
+un quinzième.
+
+**La sourdine.** Jusqu'ici, un volume à zéro jouait le son en silence: les
+1,5 Mbit/s arrivaient quand même. Le relevé de la soirée du 22 le montre: une
+page a passé 206 fenêtres de dix secondes à volume nul en recevant tout son son.
+À zéro, la page ferme maintenant la socket du son, et la rouvre quand le volume
+remonte; le menu affiche « sourdine ». L'essai jumeau vérifie qu'un volume qui
+change sans passer par zéro ne touche pas à la socket.
+
+C'est aussi ce qui fait d'une vraie soirée une mesure: une personne sur une
+liaison faible qui coupe et remet le son compare sa propre image avec et sans le
+son. `just soiree <date>` relit le journal des séances et imprime cette
+comparaison, en ne comptant « en sourdine » que les fenêtres à volume nul ET sans
+aucun morceau de son reçu, la preuve que la socket était fermée.
+
+Le relevé ne dit la sourdine qu'à dix secondes près, et le worker, qui voit la
+socket s'ouvrir et se fermer à la milliseconde, ne sait pas à qui elle est. La
+page envoie donc au salon « coupé » ou « remis », une fois que le volume est resté
+deux secondes du même côté de zéro, pour qu'une glissière traversée n'écrive pas
+trois lignes. Le salon n'accepte que ces deux mots, une fois par seconde au plus,
+et écrit la ligne avec la personne et la salle.
+
+### La salle qui redémarrait toutes les deux secondes, le 24 septembre
+
+« Ça affiche une erreur quand j'ouvre une salle. » Trois défauts, enchaînés.
+
+**Le premier: des liens de sauvegarde vers un dossier qui n'existe plus pour
+Dolphin.** Les sauvegardes Wii de la salle 1 sont des liens. Quatre d'entre eux
+pointaient encore vers `nel3ab/session`, le dossier de l'époque où il n'y avait
+qu'une salle. Le passage à plusieurs salles a recopié les sauvegardes, mais pas
+refait ces liens. Le conteneur de Dolphin ne voit que le dossier de sa salle:
+pour lui, ces liens ne menaient nulle part. Au lancement de Mario Kart Wii,
+Dolphin parcourt toutes les sauvegardes Wii, tombe sur le premier lien mort
+(celui de Mario Strikers Charged) et s'arrête sur une exception. Le défaut
+touchait donc n'importe quel jeu Wii de la salle 1, pas seulement celui-là.
+
+**Le deuxième: un conteneur qui survit à son jeu.** Sans image depuis trente
+secondes, le worker a tué Dolphin et s'est arrêté. Le programme `docker` qu'il
+avait lancé est mort; le conteneur, lui, tournait encore cinquante minutes plus
+tard. C'est la règle déjà écrite pour la Switch: un client Docker arrêté ne
+prouve pas que le conteneur l'est.
+
+**Le troisième: un outil absent, dans une branche qui ne s'était jamais
+exécutée.** Au redémarrage, le script qui lance Dolphin retire l'ancien
+conteneur, après avoir vérifié qu'il appartient bien à cette salle. Cette
+vérification appelait `rg`, qui n'est pas installé sur la machine. Elle échouait
+donc toujours, le script refusait le conteneur de sa propre salle, et le worker
+redémarrait toutes les deux secondes, sans jamais ouvrir la salle. La branche
+n'avait jamais servi: un conteneur ne survit à son jeu que dans ce cas précis.
+Elle utilise maintenant `grep`, vérifiée sur les trois cas (sa salle reconnue,
+une autre salle refusée, un simple préfixe refusé).
+
+**La réparation.** Les quatre sauvegardes étaient identiques à l'ancien et au
+nouvel emplacement: aucune donnée à choisir. Les liens pointent maintenant vers
+le dossier de la salle, l'ancien conteneur a été retiré, et Mario Kart Wii a
+démarré et produit ses images. Les salles 2 et 3 n'avaient aucun lien de ce
+genre.
+
+**Ce qui reste à faire.** Le ménage des sauvegardes au démarrage d'un jeu devrait
+repérer lui-même un lien qui sort du dossier de la salle, au lieu de laisser
+Dolphin le découvrir en plantant. Et un worker qui redémarre en boucle devrait
+finir par s'arrêter et le dire, au lieu de tourner cinquante minutes sans que la
+page affiche autre chose qu'une salle fermée.
+
+### Ce que la soirée du 24 au 25 septembre a montré, et ce qu'elle a corrigé
+
+Une soirée annoncée « sans lag », relue le lendemain avec `just soiree`. Côté
+réseau, c'était vrai: aucun worker n'a cassé la chaîne d'aucun spectateur. Mais
+les relevés des pages ont montré quatre choses que personne n'avait vues.
+
+**Un écran qui ralentit, et une proposition à côté de la plaque.** À 00:36:58,
+le navigateur d'Ariaplup est passé de 110 à 21 rafraîchissements par seconde,
+sur un ordinateur fixe; la cause n'est pas connue (une première version de cette
+entrée parlait d'économie d'énergie, sans preuve). Les 60 images arrivaient toutes, à
+22 ms près; la page ne pouvait en peindre que 21 et jetait les 39 autres, 390
+par fenêtre de dix secondes. Or la règle qui propose le format réduit comptait
+les images jetées comme un signe de liaison faible: elle lui proposait un remède
+qui n'y pouvait rien. Elle retranche maintenant ce que l'écran oblige à jeter
+(la différence entre la cadence du jeu et celle de l'écran, sur la durée de la
+fenêtre) et ne compte que l'excédent. Les mêmes 390 images jetées sur un écran
+à 110 Hz restent un signal: c'est l'essai jumeau. *Remplacé le 25 septembre au
+matin: la règle ne compte plus du tout les images jetées, voir « La proposition
+de format réduit recalée sur ce que les joueurs sentent ».*
+
+**Une proposition répétée à chaque fenêtre.** Trois pages ont écrit « proposé »
+53, 54 et 16 fois. La bannière ne s'affichait qu'une fois, mais tant que
+personne ne répondait, chaque mauvaise fenêtre la redemandait, et le journal
+comptait 54 propositions là où il n'y en avait qu'une. La page se tait
+maintenant jusqu'à la réponse. Un essai existant lisait la DERNIÈRE fenêtre de
+sa boucle pour dire « la page revient à la charge »: il a été réécrit en « au
+moins une fois », ce qui rend aussi ses trois jumeaux plus stricts.
+
+**Un « gel » de 35,6 s qui était un démarrage.** La boîte noire a capturé, pour
+la première fois avec sa nouvelle portée, un gel « salle »: deux pages sans image
+en même temps. Il suivait de 53 s le lancement de Smash Ultimate, dont la
+capture a attendu 30 s son premier paquet avant que sa garde ne la relance.
+C'est arrivé une seule fois sur les lancements Switch depuis le 16 septembre. La
+capture avait raison d'être prise; le rapport dit maintenant qu'elle suit un
+changement de jeu, pour qu'on ne la lise pas comme un gel en pleine partie.
+
+**Une salle Switch muette sur ses spectateurs.** Les images de la Switch passent
+par la même livraison que celles de Dolphin, et les chaînes cassées y sont
+comptées. Mais seule la boucle de Dolphin les écrivait: une soirée entière sur
+Smash Ultimate n'aurait rien laissé si quelqu'un avait décroché. La boucle de
+la Switch écrit maintenant le même rapport.
+
+**Et la réparation de la veille, rendue automatique.** Le ménage des sauvegardes
+Wii ne retirait que les liens morts POUR LA MACHINE. Un lien vers l'ancien
+dossier unique est vivant pour elle et mort pour Dolphin, dont le conteneur ne
+voit que la salle. Au démarrage d'un jeu, un lien qui sort de la salle est
+maintenant ramené à la même sauvegarde dans la salle quand elle s'y trouve, et
+retiré sinon; la sauvegarde elle-même n'est jamais touchée. Le remplacement se
+fait d'un seul geste: le nouveau lien est créé à côté, puis renommé par-dessus
+l'ancien.
+
+**Ce que la soirée n'a pas dit.** Personne n'a coupé le son, et Hyde n'était
+pas là: la comparaison réelle « avec et sans le son », qui doit trancher la
+proposition d'Opus, reste à faire. Le banc, lui, a déjà répondu.
+
+### La proposition de format réduit recalée sur ce que les joueurs sentent
+
+« Des fois c'est proposé, mais on ne ressent ni lag ni bug, donc on la laisse sur
+le côté. Moi ça m'arrive souvent. » La règle se trompait de signal, et les
+soirées du 22 et du 25 septembre le montrent.
+
+**Ce qui ne séparait personne.** Elle comptait les images jetées par la page et
+les fois où sa file s'était vidée: dix jetées ou deux files vides par fenêtre de
+dix secondes, deux fenêtres de suite. Souhib, qui ne sentait rien, jetait 9
+images et vidait sa file 5 fois par fenêtre en médiane; Hyde, qui gelait, 1 et 3.
+Rejouée sur la soirée du 25, l'ancienne règle proposait le format réduit 37 fois
+à Souhib, 28 fois à Ariaplup, 11 à Nicolas, qui ne sentaient rien.
+
+**Ce que les joueurs sentent: l'image qui s'arrête.** Le 22, Hyde a eu 4 s puis
+8,9 s sans image, sa cadence tombant à 30 puis 16 images par seconde. La règle
+compte maintenant une fenêtre comme mauvaise quand l'image s'est arrêtée au
+moins 500 ms, ou quand il arrive moins de 90 % de la cadence du jeu.
+
+**Et ce qui ressemblait à un gel sans en être un.** Presque toutes les fenêtres
+mauvaises des joueurs qui ne sentaient rien suivaient de moins d'une minute un
+changement de jeu, ou l'arrivée de la page: un jeu qui démarre n'envoie pas
+d'image. Même les 4 s de Hyde à 23:23 étaient un démarrage, Souhib venait de
+changer de jeu. La page sait quand la salle charge un jeu; rien ne compte pendant
+ce chargement, ni pendant les trente secondes qui le suivent, ni pendant les
+trente premières secondes de la page. On ne pouvait pas prendre la réouverture de
+la socket vidéo comme signal: elle ne se produit pas à un changement de jeu.
+
+**Le résultat, rejoué sur les mêmes soirées:** aucune proposition pour ceux qui
+ne sentaient rien, une seule pour Hyde, à 23:25:13, sur son vrai gel. Chaque
+morceau de la règle a son essai, construit sur une fenêtre réelle (celle de
+Souhib à 00:02:03, celles de Hyde à 23:25), et chacun rougit quand on le retire.
+
+**Et l'écran lent, dit sans cause.** Le diagnostic de la page, dans le panneau
+« Ta connexion », dit maintenant « Affichage plus lent que le jeu », avec les deux
+chiffres: combien d'images le navigateur affiche, combien le jeu en envoie. Il ne
+devine pas pourquoi, et ne propose pas le format réduit, qui n'y changerait rien.
+Une vraie gêne de réception reste prioritaire sur lui.
+
+### La carte graphique tombée du bus, le 2 octobre
+
+« J'ai essayé de lancer un jeu, ça n'a pas fonctionné. » Le 4 octobre vers 17:38,
+la salle 1 a tenté Mario Kart Double Dash, et redémarré 137 fois en deux heures
+et demie. Chaque fois, Dolphin démarrait dans son conteneur et mourait aussitôt,
+sans écrire une seule ligne, pas même sa bannière; le worker attendait 120 s sa
+première image, abandonnait, et systemd recommençait.
+
+La cause n'était ni dans nel3ab ni dans Docker. Le noyau répète depuis le 2
+octobre à 01:15, heure de Paris, « amdgpu: device lost from bus! »: la carte ne
+répond plus sur le bus PCI. `lspci` lit tout son espace de configuration comme
+des uns (« Unknown header type 7f »), ce qu'un logiciel ne peut pas réparer. Rien
+ne s'est passé juste avant: aucun jeu, aucun conteneur, seulement les tâches
+cron habituelles. La carte est tombée au repos, une soixantaine d'heures avant
+que quelqu'un essaie de jouer.
+
+Deux leçons, à traiter:
+
+- **Une salle sans carte graphique boucle en silence.** 137 redémarrages et une
+  page qui ne dit rien. Le worker devrait reconnaître une carte absente et
+  l'écrire, et le salon le dire, au lieu de relancer pour rien.
+- **Personne ne regardait.** La carte était perdue depuis deux jours et demi.
+  Une vérification de santé de la carte, dans `deploy-check` ou la boîte noire,
+  l'aurait signalé dès la première heure.
+
+La cause de la chute n'est pas établie. Le noyau 7.0 tourne depuis le 14
+septembre; les gestions d'énergie au repos du bus PCI sont des suspects connus
+sur ces cartes, mais rien ne le montre ici. Si elle revient, il faudra regarder
+de ce côté avant de conclure.
+
+### La page blanche et les cookies, le 16 octobre
+
+Souhib crée une salle depuis le salon. L'adresse devient `/r/1/`, puis la page
+reste blanche dans Zen ou Firefox, même après rechargement. La salle tourne
+pourtant sans erreur. Un navigateur Chromium neuf montre son écran d'entrée.
+Cette différence ne suffit pas à accuser le navigateur.
+
+Le journal de Caddy donne l'indice aux trois heures des essais : 19:12:08,
+19:12:13 et 19:12:32 UTC. Le worker coupe la connexion avant la fin de sa
+réponse. Une requête avec un cookie artificiel reproduit le défaut : avec
+2 500 ou 4 000 caractères, seuls 128 000 des 156 900 octets de la page
+compressée arrivent. Avec zéro ou 1 024 caractères, elle arrive entière.
+Ces tailles décrivent cette sonde, pas la taille des cookies de Souhib, dont
+le contenu n'a pas été lu.
+
+Un cookie est une petite donnée que le navigateur joint aux requêtes vers un
+site. Le serveur regardait les premiers octets sans les retirer, puis en lisait
+au plus 2 048 avant de répondre. Il restait donc des octets dans sa file de
+réception. Fermer une connexion dans cet état provoque une rupture, et Caddy
+abandonne la page en cours de transfert. Le navigateur n'a alors pas de page
+complète à exécuter. Recharger renvoie les mêmes cookies et reproduit la panne.
+
+Le correctif attend la ligne vide qui termine les en-têtes HTTP, les indications
+placées avant le contenu d'une requête. Il les consomme entièrement avant de
+répondre. La reconnaissance des connexions de jeu lit aussi tous les en-têtes :
+un cookie long pouvait cacher leur demande de connexion ou leur origine.
+La lecture reste bornée à 64 Kio et cinq secondes. Ce sont des limites choisies
+pour contenir la mémoire et le temps d'une requête inachevée, pas des mesures
+de navigateurs. Les messages de jeu ne passent pas par cette lecture.
+
+Trois nouveaux essais échouent sur l'ancien code, dont deux avec la même
+rupture de connexion. Ils couvrent la page, son cache, les réponses ordinaires,
+les connexions de jeu et le refus d'une origine étrangère derrière un cookie
+long. D'autres vérifient un envoi fragmenté, les limites et la conservation des
+octets qui suivent les en-têtes. Les 101 essais du module navigateur passent
+avec la correction. Réintroduire les deux lectures tronquées fait de nouveau
+échouer les trois essais concernés, puis leur restauration les remet au vert.
+
+Le worker corrigé est installé dans la salle 1 à 19:29 UTC, alors qu'elle est
+vide et sans jeu. Firefox 153.0.3 reproduit la page blanche avant le remplacement
+avec un cookie artificiel de 3 000 caractères. Après, Firefox et Chrome reçoivent
+le fichier complet, montrent l'entrée, prennent la place 1 et envoient des
+commandes. L'empreinte du fichier reçu correspond à celle du fichier construit.
+Les requêtes portant jusqu'à 12 000 caractères de cookie passent aussi. Aucun
+jeu n'est lancé dans cet essai. Firefox signale encore la fermeture de la
+connexion vidéo lors de l'entrée dans cette salle sans jeu ; cela ne bloque ni
+la page ni la manette et ne constitue pas une vérification de la vidéo en partie.
+
+La vérification générale rencontre deux obstacles distincts. Le test GPU de
+conversion d'une image reçue par dma-buf échoue une fois, puis les 81 tests GPU
+passent sans changement de leur code ou de leurs seuils. Ce défaut intermittent
+était déjà consigné dans l'état du projet. Le formateur Python refuse ensuite
+une ligne existante de l'adaptateur Switch ; seule sa forme de guillemets change.
+Les contrôles de code, les 389 essais du salon, les 620 essais de la page,
+l'export audio, les 21 essais de sauvegardes Switch, les 29 essais de capture
+et la documentation stricte passent. Le contrôle de déploiement reste rouge :
+le Caddy installé importe `/home/souhib/souverain-docs/Caddyfile`, contrairement
+à sa copie dans ce dépôt. Cet ajout préexistant reste intact. Une porte complète
+verte et une CI distante verte ne sont donc pas revendiquées.
+
+La leçon : un navigateur neuf a souvent moins de cookies. Son succès ne prouve
+pas que la même adresse fonctionne pour une personne qui utilise déjà le site.
+
+### Les premiers jeux Switch 2, le 7 novembre
+
+Les nouvelles versions d'émulateurs se succèdent depuis quelques jours.
+Souhib demande d'en essayer quatre avec ses jeux, puis d'intégrer celle qui
+permet une partie satisfaisante. Lichii 95, Lichii 93, Eglantine du 7 novembre
+et Superbuild v11 sont téléchargés depuis leurs dépôts. Chaque paquet est
+identifié par son empreinte SHA-256, une somme calculée sur tous ses octets.
+Le laboratoire possède ses propres fichiers, son affichage et son serveur sonore.
+
+Le premier piège est le temps de préparation. Un écran noir ne dit pas si
+l'émulateur a échoué ou s'il traduit encore les petits programmes graphiques,
+appelés shaders. Superbuild finit par montrer le titre après plusieurs minutes.
+Il faut distinguer ce premier lancement de ceux qui réutilisent son cache.
+Il faut aussi vérifier la scène affichée avant d'attribuer une cadence au jeu.
+
+Le deuxième piège est la portée de l'isolation. Eglantine traverse les films
+d'introduction, puis le pilote perd le périphérique Vulkan à la première scène
+3D. Le noyau redémarre le processeur graphique à 14:00:16 UTC. Le conteneur
+protège les dossiers des autres applications ; il ne possède pas un autre GPU.
+Les salles habituelles étaient fermées, et l'accueil répond toujours après
+l'incident. Le chemin qui provoque ce redémarrage ne doit pas être livré tel quel.
+
+Un contournement de Superbuild permet ensuite de déplacer Link dans sa maison,
+d'ouvrir la porte et de sortir vers la forêt. Il désactive les dessins faits
+avec des mesh shaders, des programmes qui construisent des morceaux de géométrie
+sur le GPU. Certains objets peuvent donc manquer. Des fichiers de progression
+sont créés, mais leur existence ne suffit pas à prouver une reprise correcte.
+Une sauvegarde manuelle sur le balcon de la maison devient le point de départ
+commun. Les quatre moteurs la reprennent après un arrêt complet. Le premier
+tour alterne les versions pendant le même mouvement de caméra. Le second
+recommence cet ordre. La 95 passe de 13,6 à 19,6 images calculées par seconde :
+un autre projet chargeait encore la machine au premier tour. C'est une raison
+concrète de conserver les deux passages et leur charge, pas de choisir le nombre
+qui arrange le classement. Superbuild montre aussi des aplats bleus dans la
+forêt, un défaut qu'un tableau de cadences n'aurait pas dit.
+
+Le raccordement se prépare en réutilisant l'arrêt et la capture de la Switch
+existante. Le lancement de l'émulateur devient un jeu d'arguments distinct.
+La Switch 2 reçoit un autre dossier de sauvegarde et des caches séparés par
+version. Une seule manette lui sera exposée ; les autres personnes pourront
+regarder sans devoir confirmer une configuration de joueur. Ce code en cours
+ne signifie pas que le moteur est choisi ou que la console est installée.
+
+Le test avec deux personnes trouve un piège dans cette restriction. La création
+de la préparation garde bien un seul joueur, mais l'actualisation du salon
+rajoute ensuite toutes les manettes occupées. Filtrer seulement au premier clic
+ne tenait donc pas la règle. La synchronisation applique maintenant aussi le
+mode solo. En retirant volontairement cette correction, le test échoue de
+nouveau parce que deux joueurs reviennent. Les préparations GameCube et Switch
+gardent leurs deux participants dans les mêmes essais.
+Les films changent le choix du moteur. Un enregistrement de cent secondes
+prend le son et une image toutes les cinq secondes. Le fichier sonore original
+du jeu sert de référence : chercher le même signal permet de connaître sa
+position sans croire l'horloge de l'émulateur. Les captures sont comparées aux
+images du film original. Les trois moteurs Lichii et Superbuild finissent
+l'extrait avec environ trente-six secondes d'avance sonore. Les dix points
+acceptés d'Eglantine restent proches de l'image, dans une incertitude estimée
+d'une demi-seconde. Cela ne prouve pas une précision de quarante millisecondes.
+Trois images tardives ne trouvent pas de correspondance assez bonne et sont
+écartées. Le premier calcul conservait quand même le meilleur score : une
+valeur maximale peut rester une mauvaise correspondance. La fin du film reste
+donc non mesurée par cette méthode.
+
+Eglantine est retenu. Les deux tours lui donnent environ vingt-deux images
+réellement calculées par seconde dans la forêt de Kokiri. Une salle séparée
+vérifie ensuite le trajet complet : un joueur, deux spectateurs, les noms,
+l'image et le son. Le spectateur ne quitte pas le titre quand il appuie sur A.
+Le joueur le fait, puis déplace Link, tourne la caméra, entre dans sa maison
+et ressort. X fait sauter Link ; une séquence voisine avec Y le laisse au sol.
+C'est une preuve dans le jeu, au-delà d'un test qui reconnaîtrait seulement
+le même code de bouton que notre programme.
+
+Une nouvelle sauvegarde manuelle est écrite à 15:54 UTC. Le menu ferme le
+moteur sans arrêt forcé en 3,7 secondes, puis archive sa mémoire persistante.
+Une autre salle temporaire retrouve la position enregistrée. Elle ferme aussi
+le jeu, prend la place 3 dans le salon et relance Zelda : le lanceur devient
+le seul joueur en place 1, les autres pages restent spectatrices. Une dernière
+annonce de l'ancien worker à quatre places effaçait sa demande de place 1.
+Le lecteur la conserve maintenant jusqu'à l'annonce du nouveau worker solo.
+Retirer volontairement cette correction fait échouer deux essais de connexion.
+
+Deux pièges du raccordement méritent leur trace. Le registre du salon
+recalculait les ports habituels malgré les réglages privés du premier pilote.
+Le jeu de test affichait une image, mais son salon contactait l'adresse
+installée et échouait. Le pilote injecte désormais son registre avant le
+démarrage, interdit les actions sur les services installés et exige le vrai
+nom et le vrai jeu dans la réponse du salon. Autre défaut : le moteur ignore
+un dossier de sauvegarde configuré si ce dossier n'existe pas encore. Une
+nouvelle partie peut donc écrire ailleurs que là où l'archive lit. L'adaptateur
+crée maintenant chaque dossier avant son lancement. Le test redevient rouge
+quand cette création est retirée.
+
+Le moteur épinglé, son cache et sa configuration privée sont installés hors
+du laboratoire. Le catalogue habituel reçoit Zelda dans « Switch 2,
+expérimental », avec une seule place de jeu. Aucune progression d'essai n'y
+est copiée. Le contournement graphique reste visible dans le menu et la fiche :
+des objets manquent, et vingt-deux images par seconde restent un ralentissement.
+Mario Tennis Fever est extrait mais n'est pas inscrit sans essai du jeu.
+L'[étude Switch 2](etude-switch2-2026-11-07.md) conserve les versions, les
+mesures, les parcours et les limites. Une partie entière sans défaut reste
+à démontrer.
+
+Le dernier parcours de sauvegarde alterne encore les quatre moteurs, avec
+la même copie près de la porte. Chacun écrit une sauvegarde manuelle différente
+de la référence, s'arrête complètement, puis retrouve ce fichier et sa position.
+Les confirmations à l'écran sont relues, pas seulement les dates des fichiers.
+Ce parcours fonctionnel accompagne une partie des contrôles de code ; ses
+durées ne sont pas utilisées comme comparaison de performance.
+
+La porte locale complète passe, essais GPU et déploiement compris. Les
+contrôles de manettes passent à nouveau après les modifications du lecteur.
+L'audit des dépendances et la construction stricte de la documentation passent.
+La page installée est identique à l'artefact construit et répond aussi avec
+seize kilo-octets de cookies. Le catalogue servi contient Zelda Switch 2.
+Le site documentaire est reconstruit et son étude se charge à l'adresse
+habituelle. Aucun commit ni envoi n'est demandé ; une nouvelle CI distante
+verte n'est donc pas revendiquée.
+
+### Zelda ralenti et premier essai de Tennis Fever, le 7 novembre au soir
+
+Souhib retrouve des films presque corrects, puis des saccades quand la carte
+se charge. Sa session confirme un intervalle de 3,6 secondes entre deux
+présentations du jeu. La capture reste généralement récente de quelques
+millisecondes. La rupture naît donc avant le transport vers son navigateur.
+Les journaux et la progression sont conservés avant l'arrêt demandé pour
+les nouveaux essais. Le moteur se ferme sans arrêt forcé en 3,8 secondes.
+
+La lecture des relevés trouve aussi un défaut de notre observateur. Sa liste
+reconnaît Dolphin et Ryujinx, mais pas `eden-cli`, le processus d'Eglantine.
+Il déclare donc le serveur au repos pendant Zelda, espace ses relevés d'une
+minute et lit l'allocateur de mémoire graphique. Or ces lectures de debugfs,
+les fichiers de diagnostic du noyau, avaient déjà provoqué de petites pauses
+en septembre. Elles ne doivent pas accompagner une partie. Le moteur est
+ajouté à la détection, avec son rôle Switch 2. Un test utilise le vrai lecteur
+sur de faux fichiers système, puis la vraie boucle du service. Il échoue
+d'abord parce que le jeu n'est pas détecté ; après correction il exige un
+relevé en partie sans lecture de l'allocateur. Son jumeau remplace le moteur
+par un shell et exige le retour au repos et aux lectures permises. Cette
+correction enlève une source possible de pauses ; elle ne démontre pas la
+cause de tous les gels observés.
+
+L'autre moitié du suivi gardait une capture d'écran en cas de chute seulement
+pour le rôle Switch. Le rôle Switch 2 reçoit maintenant aussi cette image.
+Le test échoue avant la correction faute de commande de capture, puis passe
+pour les deux moteurs. Les captures périodiques gardent leur jumeau négatif :
+elles ne prennent aucun écran. Réintroduire l'ancienne condition fait échouer
+de nouveau le cas Switch 2.
+
+Tennis Fever atteint son tutoriel, son catalogue de modes et un match libre
+sur gazon. La commande du navigateur déplace Mario, sert et frappe. Le premier
+match contre Boo va jusqu'à son résultat. Sur les fenêtres complètes de
+l'observation, 3 600 images du jeu couvrent 81 secondes, soit environ 44
+images par seconde, avec une image au-delà de 100 millisecondes. Ce passage
+comprend les animations entre les points et leur résultat ; il ne mesure pas
+seulement les échanges. Le test ne lance ni compilation ni profileur pendant
+ce passage. Il ne suffit pourtant pas à valider le jeu : Mario et sa raquette
+disparaissent par moments. À 17:43:08 UTC, le moteur finit par sortir avec le
+code 139, une erreur d'accès mémoire. Le noyau situe la faute dans son fil
+GPU ; il ne rapporte pas un manque de mémoire ou un redémarrage du pilote.
+Les journaux et les images sont conservés. Un nouvel essai réactive ensuite
+les dessins de maillage dans une copie privée du même moteur, sans changer
+le réglage Zelda installé.
+Cet essai montre encore Mario absent sur une image d'échange et se termine
+aussi par le code 139 à 17:50:00 UTC. Réactiver le maillage ne suffit donc
+ni pour les disparitions ni pour la stabilité observée. Le jeu n'est pas
+ajouté au catalogue habituel. Les réglages de tailles de tampons proposés
+dans un rapport amont restent des essais incomplets sur une autre carte ;
+ils ne sont pas appliqués globalement à nos jeux.
+
+Pour Zelda, une piste des notes du moteur consiste à désactiver la
+synchronisation réactive. Ce réglage surveille les lectures de mémoire du
+processeur dans les pages utilisées par le GPU. Il peut prendre du temps,
+mais le désactiver doit aussi préserver ce que le jeu lit. Quatre phases
+alternées de 90 secondes reprennent la même sauvegarde et les mêmes mouvements
+de caméra : activé, désactivé, activé, désactivé. Chaque résultat conserve
+1 200 images dans des fenêtres complètes. Les valeurs sont 22,54, 22,47,
+22,66 et 22,57 images par seconde. Cette piste ne donne donc aucun gain de
+cadence observé pour Zelda. Le réglage actuel est conservé. Une seule image
+de 169 ms dans le premier passage ne prouve pas que l'autre réglage résout
+les gels. Les quatre arrêts se terminent normalement. L'expérience prend
+environ onze minutes avec les démarrages et ne décrit que ce passage déjà
+chargé, pas toutes les zones nouvelles de la partie.
+
+Le mode portable est ensuite essayé sur un seul passage de même durée. Il
+retrouve 22,74 images par seconde après sa préparation. Ce passage vient
+après les autres et peut préparer d'autres programmes graphiques ; il ne
+classe donc pas les deux modes de console. Il ne donne pas de raison de
+changer le mode TV installé. Le conteneur Zelda stocke aussi ses 372 587
+fichiers sans compression NUP. Cela écarte une décompression à cet étage,
+pas celle des textures à l'intérieur des fichiers. La cause précise de
+chaque gros gel reste à isoler. Les cinq essais quittent normalement et les
+empreintes des deux fichiers de progression de Souhib restent identiques
+après le laboratoire.
+
+Les services corrigés sont relancés et la salle est remise au catalogue.
+La porte locale complète passe, dont 395 essais du salon, 623 du navigateur
+et 81 du GPU. L'audit et la documentation stricte passent aussi. La page
+habituelle charge toujours avec un cookie de seize kilo-octets, le catalogue
+contient Zelda et l'étude mise à jour est servie. Aucun conteneur ni producteur
+du laboratoire ne reste actif. Les réglages du moteur Zelda restent ceux du
+début de la soirée : les essais n'ont pas établi de gain justifiant un
+changement. Aucun commit ni envoi n'est créé, donc aucun nouveau résultat de
+CI distante n'est revendiqué.
+
+### Un petit gain avec le paquet PGO, le 8 novembre
+
+Souhib demande des améliorations logicielles sans entretenir une copie
+modifiée des émulateurs. Eglantine publie justement deux paquets du même code :
+un standard et un optimisé à partir de profils d'exécution. Cette méthode
+s'appelle PGO. Elle change la compilation, pas les réglages graphiques ni le
+code que nous devons maintenir.
+
+Les deux paquets alternent sur la même sauvegarde de Kokiri, pendant quatre
+phases de 90 secondes. Les caches partent de la même copie et restent ensuite
+séparés. Aucun autre essai ni compilation ne tourne pendant la mesure. Le
+standard donne 22,84 puis 22,51 images calculées par seconde. PGO donne 23,94
+puis 23,97. Les fenêtres retenues contiennent 2 400 images par paquet ; leur
+cadence regroupée augmente de 5,7 %. Le processeur chauffe progressivement
+de 65 à 87 °C, mais le gain apparaît dans les deux tours. Tous les arrêts
+Eglantine sont normaux. Cela justifie de vérifier le son et les sauvegardes
+avec PGO ; cela ne transforme pas vingt-quatre images par seconde en trente.
+
+Deux lancements de Lichii 117 PGO, intercalés entre ces tours sans mesure de
+cadence, restent noirs avant le menu. Le second utilise un cache vierge et
+retrouve le blocage. Les deux arrêts doivent être forcés après la demande de
+fermeture. Le laboratoire poursuit avec les réglages de lancement par défaut
+de cette version, en gardant le contournement graphique de la Radeon. Une
+nouvelle publication n'est donc pas encore une amélioration démontrée sur
+notre serveur.
+
+Les réglages par défaut de Lichii, puis leur reprise sans les deux correctifs
+Zelda, retrouvent le blocage. Le paquet standard de la même version échoue
+aussi. Le contournement qui omet certains dessins reste actif sur ces essais :
+ils ne condamnent pas la version sur une autre configuration. Nous ne
+retenons pas Lichii pour la salle et ne prétendons pas avoir vérifié sa vitesse
+avec Dynamic FPS.
+
+Un lancement intermédiaire apprend aussi à se méfier d'une configuration
+seulement écrite. Le fichier demandait de désactiver deux correctifs ; le
+journal disait qu'ils étaient encore appliqués. Ce lecteur exige un marqueur
+`default=false` à côté de chaque valeur pour remplacer son défaut. Le lancement
+est invalidé, puis refait avec la preuve du refus des deux correctifs dans le
+journal. Cette reprise reste bloquée. Environ deux minutes sont perdues sur
+la première désactivation, mais son résultat ne devient pas une fausse preuve
+contre ces correctifs. L'[étude](etude-switch2-2026-11-07.md) conserve les
+conditions et les mesures de cette reprise.
+
+Le son du paquet PGO reste proche de l'image sur les neuf points reconnus
+du nouvel enregistrement. Les dix autres points sont refusés ; l'incertitude
+reste une demi-seconde. La sauvegarde manuelle est confirmée à l'écran et sa
+position revient après redémarrage. Mais cette dernière fermeture quitte avec
+le code 139. Le parcours n'est donc pas déclaré réussi. Nous comparons cet
+arrêt avec celui du paquet standard avant de retenir PGO.
+
+Le standard et PGO reprennent ensuite chacun une copie identique de la
+sauvegarde et du cache, puis s'arrêtent normalement. Le plantage ne se
+reproduit pas et sa cause reste inconnue. Le choix est de garder le paquet
+standard installé : 1,28 image supplémentaire par seconde sur ce passage ne
+justifie pas de remplacer le moteur avec cette incertitude. Aucune progression
+du laboratoire n'est importée et les empreintes des fichiers de progression
+habituels restent identiques. Les conteneurs de jeu et de manettes du
+laboratoire sont supprimés.
+
+Une autre correction porte sur ce que prouvent les images. Le pilote nommait
+deux captures « house » et « resumed-house ». L'image de reprise affiche
+pourtant « Kokiri Forest ». L'écriture et la reprise de position sont bien
+observées, mais le nom du fichier ne démontrait aucun changement de zone.
+Cette partie des anciens comptes rendus de ce pilote doit être relue avec
+cette limite. Une vérification de transition doit lire le lieu dans le jeu,
+pas le nom choisi par son auteur pour la capture.
+
+La porte locale complète `just` et l'audit des dépendances passent après ces
+essais. La boîte noire est relancée. La salle conserve son paquet et sa
+progression habituels ; seuls les résultats et leur explication sont ajoutés
+au dépôt. Aucun commit ni envoi ne déclenche de nouvelle CI distante.
+
+### Une horloge de journal en retard, le 8 novembre après 02:00 UTC
+
+La comparaison suivante oppose le paquet installé à la branche expérimentale
+d'Eglantine. Un compteur de journal paraît indiquer des dizaines de gels sur
+le second passage du paquet installé. Mais son dernier message a environ sept
+secondes de retard au début de la mesure. La fenêtre retenue commence donc
+pendant la préparation de la scène, avant la période que nous voulons comparer.
+
+La borne de début est recalculée depuis l'heure du conteneur et celle de la
+phase observée. Le test de l'ancien calcul retrouve la fenêtre indue ; le
+calcul corrigé la refuse. Les données originales sont conservées à côté de
+la correction. Les quatre phases de la première comparaison PGO sont relues
+aussi : leurs fenêtres étaient déjà assez loin du début et leurs chiffres
+ne changent pas. Le résultat de cette nouvelle comparaison devient 23,0 contre
+23,9 images calculées par seconde, soit 4,1 % de gain sur le même passage de
+Kokiri. Les quatre arrêts sont normaux. Le paquet expérimental confirme ensuite
+une sauvegarde manuelle et retrouve sa position après un arrêt complet. Les
+deux fermetures de ce parcours sont normales. Le son reste proche de l'image
+sur dix points reconnus de la cinématique ; neuf autres sont refusés et
+l'incertitude reste une demi-seconde. Cette dernière fermeture porte à cinq
+les arrêts normaux observés du nouveau paquet. Cela ne prouve pas que le
+plantage rare de l'ancien PGO a disparu.
+
+### Deux matchs avec Orchid, le 8 novembre après 02:00 UTC
+
+Orchid publie un profil de réglages pour Tennis Fever. Il choisit notamment
+une synchronisation graphique dite « Balanced », qui règle quand les tâches
+graphiques attendent leur achèvement. Le profil est recopié dans une
+configuration privée, avec la génération d'images désactivée. Le contournement
+qui supprime certains dessins est entièrement retiré pour ce jeu. Aucun code
+de l'émulateur n'est modifié.
+
+Le même NUP et la même mise à jour que le 7 novembre atteignent le court en
+gazon. Mario joue contre Harmonie, puis Kamek, en sept points contre
+l'ordinateur. Les services, les coups et les déplacements sont commandés.
+Les deux adversaires gagnent 7–0, ce qui fournit deux écrans de résultat à
+relire. Le jeu passe du premier résultat au second match sans le plantage
+observé avec Eglantine. Les personnages restent visibles sur les captures
+récentes et les scènes de victoire. Une pose précoce de Mario est pourtant
+partiellement dessinée ; des glyphes de boutons et certaines lettres sont
+incomplets. Une partie entière sans défaut reste donc à démontrer.
+
+La portion mesurée du premier match, avec des attentes entre points, atteint
+45,5 images calculées par seconde sur 6 000 présentations. Elle n'est pas une
+comparaison de moteurs et ne représente pas uniquement des échanges actifs.
+Un intervalle de 110 millisecondes est retenu ; la préparation de la scène,
+hors de cette mesure, avait aussi produit un intervalle de 795 millisecondes.
+Vingt secondes de son stéréo sont enregistrées et contiennent bien un signal.
+Ce contrôle ne mesure pas le décalage des frappes avec leur son.
+
+Orchid ferme normalement, redémarre et rejoint son menu. Sa deuxième
+fermeture est normale aussi. Ces observations en font un candidat pour
+Tennis, sans valider d'autres courts, des joueurs supplémentaires ni la
+chaîne du navigateur. L'adaptateur installé impose encore les réglages
+Eglantine à toute la Switch 2. Nous conservons donc la salle habituelle
+pendant ces essais, sans remplacer son moteur ni publier Tennis au catalogue.
+La progression habituelle conserve ses empreintes et les producteurs du
+laboratoire sont supprimés. L'[étude](etude-switch2-2026-11-07.md) conserve les
+versions, les résultats et leurs limites.
+
+La porte locale complète `just` et l'audit passent après cette suite aussi.
+La boîte noire est relancée après la fin des mesures. Aucun paquet installé,
+profil de lancement habituel ou fichier de progression de la salle ne change.
+Les observations restent des essais du laboratoire. Aucun commit ni envoi
+ne crée une nouvelle exécution de CI distante.
+
+### Charger Kokiri avec Orchid, le 8 novembre après 11:20 UTC
+
+Souhib rappelle que les films de Zelda fonctionnaient déjà bien : les
+saccades apparaissaient surtout en se déplaçant. Les essais Orchid précédents
+portaient seulement sur Tennis. Nous lançons donc le même Zelda avec une
+copie de la sauvegarde de Kokiri. Ce raccourci rejoint directement le passage
+à jouer, sans prendre la cinématique pour une preuve de fonctionnement.
+
+Trois lancements occupent environ treize minutes au total, démarrages et
+fermetures compris. Le premier garde la protection qui supprime certains
+objets 3D ; le deuxième reprend aussi les variables de lancement Eglantine ;
+le troisième enlève toutes ces variables, y compris la protection. Le cache
+du pilote est déplacé avant chaque relancement. Le paquet Orchid reste le
+standard 0.9.0 publié par ses auteurs, sans changement de son code.
+
+Les cœurs et la carte apparaissent, mais le monde reste noir ou flou et Link
+n'est pas correctement dessiné. Nous envoyons les commandes de déplacement,
+puis celles de caméra au troisième essai. Deux minutes après l'apparition
+de l'interface, le défaut reste présent. Le journal explique que des petits
+programmes graphiques de la console sont refusés pendant leur traduction,
+puis que les dessins correspondants sont ignorés. Retirer la protection ne
+supprime pas ces refus. L'attente supplémentaire ne corrige pas le défaut
+observé.
+
+Nous ne publions aucune vitesse de jeu pour ce monde manquant. Ce parcours
+montre une limite de compatibilité sur notre configuration ; il ne permet
+pas de décider qu'un processeur ou une carte plus rapide résoudrait Zelda.
+Le premier arrêt doit être forcé après la fermeture de sa fenêtre. Les deux
+autres arrêts sont normaux. Les succès de Tennis ne valident donc pas Zelda
+avec le même paquet. L'[étude](etude-switch2-2026-11-07.md) conserve les
+conditions. Le rapport `orchid-zelda-2026-11-08.json` donne les refus
+graphiques et les résultats des arrêts.
+
+Un dernier contrôle reprend le même fichier et la même sauvegarde avec
+Eglantine standard. Link et la forêt sont visibles ; les commandes déplacent
+le personnage du balcon vers l'échelle et tournent la caméra. L'arrêt est
+normal. Ce contrôle vérifie le parcours de test, sans comparer des vitesses
+sur un monde que l'autre moteur ne dessine pas. La capture nommée
+`ground-walk` montre encore Link sur l'échelle : nous retenons ce que montre
+l'image, pas le nom choisi avant de l'avoir vue. Les conteneurs et manettes
+du laboratoire sont supprimés. La boîte noire reprend son service, et les
+empreintes de progression habituelles restent identiques à celles du départ.
+
+La porte locale complète `just` et l'audit passent après ce contrôle. Aucun
+changement du code des émulateurs ni remplacement du moteur installé n'est
+nécessaire pour établir ce résultat. Aucun commit ni envoi n'est créé.
+
+### Où passe le temps de Zelda, le 8 novembre après 12:25 UTC
+
+Souhib accepte maintenant de modifier un émulateur si cela peut améliorer
+la fluidité. Nous commençons par mesurer son travail actuel. Eglantine contient
+déjà des chronomètres par étape. Ils tournent sur le processeur, dans le fil
+appelé « GPU » qui prépare les commandes pour la carte graphique. Le nom de
+ce fil ne transforme pas son relevé en une mesure du calcul de la carte.
+
+Sept fenêtres complètes, soit 70 secondes sur le balcon de Kokiri avec des
+mouvements de caméra, placent le traitement des méthodes graphiques à 232
+millisecondes par seconde. Les macros prennent 126 millisecondes et la liaison
+des tampons 126 autres. Une macro est ici un petit programme qui produit des
+commandes graphiques ; un tampon est une zone de mémoire utilisée par le
+dessin. Le traitement des commandes en amont ajoute 103 millisecondes.
+Les attentes dans une étape restent dans son chronomètre. On ne peut donc
+pas transformer directement ces parts en un gain de vitesse promis.
+
+La lecture des relevés machine qualifie ensuite ce premier profil : la charge
+était déjà de 12 à 18 et le processeur proche de 96 °C. La comparaison suivante
+retrouve des tests de navigateurs d'un autre projet, lancés par sa CI. Nous ne
+retenons donc pas ces parts comme le profil d'une machine calme. Il faut
+refaire le relevé avant de choisir une correction sur cette base.
+
+Le système relève aussi une consommation moyenne de 79 % d'un processeur
+logique pour ce fil, sur les secondes complètes de la phase. Nous distinguons
+ce profilage des comparaisons de vitesse : l'instrumentation ajoute elle-même
+du travail. Ensuite, Link descend depuis le balcon, lâche l'échelle, s'en
+éloigne et marche sur le sol de Kokiri. La capture montre ses pieds au sol.
+L'arrêt du moteur est normal. Les données sont conservées dans le rapport
+`split-2026-11-08.json` et l'[étude](etude-switch2-2026-11-07.md).
+
+Le lancement habituel force `SPLIT=0`, qui garde le traitement sur un seul fil.
+Nous essayons séparément les modes 1 et 2. Le journal confirme l'activation
+du second fil, et le déplacement des macros vers le premier dans le mode 2.
+Tous deux affichent Link et Kokiri, répondent à la caméra et déplacent Link
+sur l'échelle. Les fermetures sont normales. Cela valide ce court parcours
+fonctionnel avec le parallélisme ; cela ne mesure pas son gain de vitesse.
+
+Le premier passage de vitesse sans instrumentation ne fournit aucune fenêtre
+complète de 600 présentations dans sa période observée. Nous refusons sa
+mesure au lieu d'élargir les bornes vers la préparation. La charge est alors
+de 18 à 24 et le processeur proche de 96 °C. Les processus viennent d'un
+runner de tests Secret Hitler, qui lance de nombreux navigateurs. Le jeu de
+laboratoire est arrêté pendant cette charge et la boîte noire reprend son
+service. Il reste à refaire le profil et la comparaison alternée sur une
+machine calme avant de choisir un mode ou un correctif.
+
+Souhib demande de laisser finir cette CI. Quand ses processus ont quitté le
+serveur, nous reprenons le profil, sans autre travail de test. Huit fenêtres
+couvrent cette fois 80 secondes. Le traitement des méthodes prend 270
+millisecondes par seconde, les macros 151, la liaison des tampons 150 et les
+commandes en amont 133. Le fil de préparation graphique consomme en moyenne
+94 % d'un processeur logique. La charge du jeu va de 2,9 à 3,9, sans processus
+de CI observé. Le processeur reste chaud, entre 93 et 95 °C sur son relevé
+principal. Nous décrivons donc le comportement réel de ce serveur à chaud,
+pas une machine maintenue à température constante. Ce second profil donne
+une priorité au traitement graphique côté processeur. Il ne promet pas un
+gain précis sur Zelda et ne classe pas les machines.
+
+Nous comparons ensuite les trois modes sans instrumentation, dans l'ordre
+0, 1, 2, 0, 2, 1, 0. Chaque passage dure 90 secondes après la même préparation
+de caméra, avec la même sauvegarde et les mêmes réglages. Les caches partent
+de copies dont les 1 860 fichiers ont les mêmes empreintes ; ils évoluent
+ensuite séparément. Aucun processus de CI n'est observé dans les relevés.
+Les sept passages prennent environ 26 minutes, démarrages et lectures des
+captures compris. Aucun code d'émulateur n'est changé.
+
+La référence donne 21,31, puis 20,13, puis 20,53 images par seconde. Le mode 1
+donne 20,45 et 20,78 ; le mode 2 donne 20,63 et 20,86. Les cadences regroupées
+sont respectivement 20,64, 20,61 et 20,72. Les fenêtres complètes contiennent
+9 000 présentations sur 436 secondes. L'écart du mode 2 est de 0,35 %, bien
+plus petit que la variation entre les passages de référence. Le parallélisme
+est bien activé dans les journaux, mais il ne donne aucun gain net observé
+ici. Les sept fermetures sont normales. Nous gardons le mode 0 installé.
+Un gain publié sur un autre jeu ne suffisait donc pas à choisir ce réglage
+pour Zelda sur notre serveur.
+
+Les intervalles de plus de 100 millisecondes ne disparaissent pas. Les premières
+fenêtres de plusieurs passages sont plus lentes et les nombres de fenêtres
+retenues diffèrent. Nous conservons ces observations sans en faire un
+classement des gels. Elles décrivent la caméra dans Kokiri, pas toutes les
+premières visites de nouvelles zones.
+
+Le processeur reste entre 96 et 96,4 °C sur son capteur principal pendant les
+comparaisons. La [fiche AMD](https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen/ryzen-3000-series/amd-ryzen-5-3600.html)
+annonce 95 °C comme température maximale pour ce modèle. Ce constat ajoute le
+refroidissement aux points à contrôler. Il ne mesure pas un gain récupérable
+et ne prouve pas à lui seul une baisse de fréquence causée par la chaleur.
+Nous ne changeons ni les fréquences, ni la ventilation, ni la puissance
+pendant les essais. Le rapport conserve les conditions et cette limite.
+
+Un dernier profil du mode 2 apporte une piste plus précise. Le fil avant
+passe 56 % de son temps à attendre le second, mais consomme encore 93 % d'un
+processeur logique. Le fil arrière en consomme 91 % et passe environ 15 % de
+son temps à attendre du travail. Le code de l'attente avant relit un indicateur
+en boucle, avec une pause processeur puis un abandon de son tour d'exécution.
+C'est une attente active : elle continue de prendre du temps processeur,
+même si le travail utile doit être terminé par un autre fil.
+
+La prochaine correction à étudier peut donc viser cette coordination, dans
+`GpuSplit::Drain`. Une notification qui laisse dormir le fil est une piste,
+à condition de préserver l'ordre des commandes, les soumissions différées
+et le réveil à l'arrêt. Ajouter un sommeil au hasard ne prouverait pas ces
+conditions. Le profil arrière garde aussi un coût de liaison des tampons
+à préciser. Nous n'avons encore ni compilé cette correction, ni mesuré un
+gain grâce à elle. Le profil localise un travail à faire ; il ne prouve pas
+que ce travail suffira pour 60 images par seconde.
+
+La suite du même jour, racontée ci-dessous et dans le
+[plan détaillé](plan-60fps-switch2-2026-11-08.md), compile cette piste et la
+compare en jeu. Elle économise du temps CPU sans améliorer la cadence.
+
+Le dernier moteur ferme normalement. Les conteneurs et les manettes privées
+sont supprimés, la boîte noire reprend son service et les quatre empreintes
+de progression habituelles restent identiques. La configuration installée
+est conservée. La porte locale complète et l'audit passent pendant cette
+tâche, sans changement du code de l'application ou des émulateurs. Les
+données et le récit sont conservés sans commit ni envoi.
+
+
+### Modifier l'attente et préparer un objectif à 60, le 8 novembre après 14:00 UTC
+
+Souhib demande cette fois un correctif local de l'émulateur, des essais
+comparables et un plan concret vers 60 images par seconde. Nous conservons
+une copie privée du code d'Eglantine à la même révision que le moteur installé.
+Le [plan](plan-60fps-switch2-2026-11-08.md) part du résultat mesuré : 48,44
+millisecondes par image dans Kokiri, contre 16,67 nécessaires à 60 images.
+Cela demande presque trois fois le débit actuel. Nous ne répartissons pas
+cet écart en pourcentages de gains promis : les attentes entre étapes
+empêchent de déduire ces gains du seul profil.
+
+Le système utilise déjà son mode de performance. Il expose les températures
+du processeur, mais aucun nombre de tours par minute pour son ventilateur.
+Le ventilateur graphique à l'arrêt au repos appartient à un autre composant,
+en mode automatique. Nous ne le présentons donc pas comme une panne du
+refroidissement CPU. Le contrôle du radiateur et de son ventilateur reste
+physique ou dans le micrologiciel de la carte mère. Aucun réglage de puissance,
+de fréquence ou de ventilation n'est changé pendant ce diagnostic.
+
+Le premier test du correctif mesure le CPU pris par une attente de 250
+millisecondes. La boucle qui abandonne son tour puis recommence en consomme
+249,9. L'attente sur notification en consomme environ 0,015 au premier essai
+isolé. Ce résultat décrit ce test, pas encore la vitesse du jeu. Nous
+réintroduisons ensuite la boucle : le test échoue. Une seconde variante
+prend le numéro de progression trop tard et perd une notification : elle
+se bloque et dépasse son délai externe. La version correcte vérifie la
+progression avant de s'endormir et attend encore la fin de la soumission
+même si toutes les commandes sont déjà consommées.
+
+Les contrôles mémoire AddressSanitizer et UndefinedBehaviorSanitizer passent
+sur le test isolé. ThreadSanitizer, qui cherche les accès concurrents
+incorrects, refuse de démarrer avec une erreur d'adressage mémoire sur cette
+machine. Nous n'en tirons donc aucune validation des accès concurrents.
+Les essais de notifications et d'ordre restent nécessaires, ainsi que
+l'exécution réelle dans le jeu.
+
+La compilation locale révèle deux contraintes du code actuel : le minimum
+annoncé pour la bibliothèque de formatage accepte une version système dont
+l'interface ne suffit plus, et une option de stockage propre aux fils
+n'est pas reconnue par Clang 18. Nous prenons la bibliothèque prévue par
+le projet et GCC 13, puis gardons les mêmes options pour les deux binaires.
+Les effets graphiques supplémentaires ReShade restent désactivés dans ces
+deux compilations. L'image de laboratoire utilise une révision de paquet Mesa
+plus récente que celle de la salle. La comparaison devra donc opposer les
+deux binaires locaux entre eux ; elle ne pourra pas attribuer leur différence
+avec le paquet officiel au seul correctif d'attente.
+
+
+Le premier passage compilé affiche correctement Link et Kokiri, mais son
+arrêt est forcé. La faute vient de notre propre limite de durée : le programme
+`timeout`, placé devant le superviseur, transmet le signal à tout le groupe
+de processus. Il ferme aussi Sway, qui fournit l'affichage, avant que le jeu
+ait fini sa fermeture. Le superviseur tue alors le jeu, sans avoir reçu la
+demande d'arrêt normale. Ce passage n'entre pas dans la comparaison retenue.
+
+Un test sans jeu reproduit le problème : un enfant représentant l'affichage
+meurt avec le signal destiné au superviseur. L'option `--foreground` de
+`timeout` conserve cet enfant pendant que le superviseur traite l'arrêt ;
+`--preserve-status` conserve le code de sortie du superviseur. Le jumeau
+négatif meurt et la version corrigée reste vivante jusqu'à sa fermeture
+ordonnée. Nous réinitialisons la copie privée de référence puis reprenons
+le premier passage. Une limite de durée doit encadrer le propriétaire des
+processus sans détruire son ordre d'arrêt. Cette erreur de laboratoire ne
+constitue pas un défaut observé dans le correctif d'émulateur.
+
+
+Quatre passages alternent ensuite la résolution normale et des dimensions
+divisées par deux. Les captures confirment le même monde, avec un dessin
+moins fin dans le second cas. Les cadences regroupées restent 21,68 et
+21,63 images par seconde. Chaque condition retient 2 400 présentations sur
+environ 111 secondes de fenêtres complètes. Les quatre fermetures sont
+normales. Réduire le nombre de pixels ne débloque donc pas cette scène.
+Les calculs et copies du GPU qui ne changent pas avec la résolution restent
+à distinguer du travail CPU. La température reste entre 94,9 et 96,6 °C.
+
+Le premier lancement du mode à deux fils, toujours sans notre correctif,
+s'arrête pendant le chargement. Vulkan annonce une allocation impossible,
+`VK_ERROR_OUT_OF_DEVICE_MEMORY`, après des lectures de pages graphiques
+non accessibles. Nous gardons le journal et l'arrêt 134, sans inventer une
+mesure de FPS pour ce lancement. La même version charge correctement au
+contrôle suivant et termine son parcours à 21,3 images par seconde, avec
+une fermeture normale. Le suivi du second démarrage atteint environ 5,2 Gio
+de mémoire vidéo occupée. Il ne donne pas le maximum du démarrage qui a
+échoué et ne permet pas de choisir entre un manque de mémoire, une demande
+incorrecte et une erreur de synchronisation. Cette incertitude compte dans
+la validation du moteur, même si elle précède la version corrigée.
+
+La relecture des huit fenêtres du profil précédent précise aussi la charge
+de coordination : environ 17 365 passages par seconde dans la zone d'attente,
+avec 32,3 microsecondes en moyenne. La zone ne distingue pas l'attente de
+vidage de celle d'espace disponible. Laisser dormir le CPU pendant ce temps
+n'enlève pas le travail attendu. Le plan ajoute donc un comptage par origine
+avant de chercher à regrouper les lectures ou à attendre une dépendance plus
+précise. Le code réutilise déjà certaines pages graphiques : il faut découvrir
+pourquoi d'autres exigent encore une nouvelle lecture, plutôt que proposer
+une seconde fois un mécanisme qui existe.
+
+
+Un autre piège révèle un test passant devant un mauvais exécutable. Le nouveau
+test de notification réussit, mais les compteurs CPU du premier binaire
+étiqueté « corrigé » restent presque identiques. La liste de compilation
+montre six opérations et aucune compilation du fichier GPU modifié. Nous
+avions préparé ces sources pendant la construction de la référence, puis
+les avions copiées en conservant leur date. Le constructeur Ninja voit donc
+des dates plus anciennes que ses fichiers objets et les réutilise. La version
+et les tests changent, mais pas le code d'attente de l'émulateur.
+
+Nous écartons ce passage et arrêtons le jeu. Les sources changées reçoivent
+une date actuelle. Cette fois 63 opérations reconstruisent les dépendances
+GPU. La lecture du code machine confirme que l'ancienne boucle de `Drain`
+a disparu. Un message à l'activation du mode à deux fils permet au pilote
+de refuser un exécutable sans le nouveau code. Le premier journal faussement
+étiqueté ne satisfait pas ce contrôle. Les 239 tests passent à nouveau,
+avec les quatre tests réseau toujours ignorés dans ce conteneur sans interface.
+Deux nouvelles copies d'un même cache déjà utilisé, 3 613 fichiers identiques,
+servent à recommencer les tours alternés. La règle est ajoutée à `AGENTS.md` :
+une empreinte de binaire différente ne prouve pas que la fonction modifiée
+a été reconstruite, car une simple métadonnée de version suffit à la changer.
+
+Le contrôle du refroidissement progresse aussi. Le pilote standard du noyau
+`nct6775` reconnaît la puce NCT6798 de cette carte ASUS, sans identifiant forcé
+ni changement des commandes de ventilation. Il expose deux vitesses non nulles,
+environ 1 129 et 1 259 tours par minute sur les canaux 2 et 3 au premier relevé.
+Les consignes de ces canaux sont déjà proches de leur maximum. Les étiquettes
+ne désignent pas physiquement le connecteur CPU : il reste à confirmer cette
+correspondance et le modèle de refroidisseur. Ces relevés remplacent donc
+l'absence initiale de vitesses lisibles, sans prouver qu'un ventilateur tourne
+à sa vitesse nominale ni que le contact du radiateur est correct.
+
+
+La comparaison réellement corrigée termine quatre phases alternées de
+90 secondes : 21,13 puis 21,43 images par seconde pour l'original, 20,61
+puis 20,82 pour le correctif. Les cadences regroupées sont 21,28 et 20,71,
+soit une baisse observée de 2,65 %. Le coût CPU du fil avant passe en revanche
+de 80,46 à 36,86 % d'un processeur logique. Le fil arrière reste chargé.
+Nous retenons donc une économie de CPU sur ce chemin, sans retenir ce
+correctif pour accélérer la salle. Il reste expérimental. Les huit phases
+retenues, résolution et code, ont des fermetures normales. La dernière
+fermeture vient de la limite de durée après la mesure et une marche hors
+comparaison, pas d'une preuve de vitesse supplémentaire.
+
+Un profil séparé de 15 secondes, une fois les FPS mesurés, permet d'identifier
+les appelants. Environ la moitié des cycles utilisateur échantillonnés du
+fil avant se trouvent dans `Drain`. Parmi ces cycles dans l'attente,
+près de 79 % viennent de `FrontDmaRead`, la lecture des arguments des macros,
+et 19 % du traitement des sémaphores. Ces proportions comptent la période
+de chaque échantillon, pas seulement leur nombre. Les sémaphores signalent
+qu'un travail dont dépend un autre est terminé. La cible suivante devient
+précise : conserver ou préparer une copie valide des arguments quand c'est
+possible, et limiter l'attente à leur dépendance. Le code possède déjà une
+copie des pages de commandes écrites par le GPU ; nous proposons d'étudier
+son adaptation à ces arguments. Les écritures depuis les dessins doivent
+elles aussi invalider une ancienne copie. Les chiffres du profil ne sont
+pas des gains de FPS promis.
+
+Le contrôle fonctionnel fait ensuite descendre Link de l'échelle et marcher
+sur le sol de Kokiri. Ses pieds sont visibles au sol. Le jeu confirme une
+nouvelle sauvegarde ; son fichier manuel change d'empreinte. Après arrêt
+complet et nouveau lancement, la même zone et la position au sol sont
+retrouvées, et cette empreinte reste identique. Les deux fermetures sont
+normales. Un signal stéréo de huit secondes est enregistré. Cela ne prouve
+pas une nouvelle zone ni une synchronisation précise du son.
+
+Un relevé séparé des cycles et du temps CPU pendant 15 secondes donne
+environ 3,48 GHz pour le fil avant et 3,74 pour le fil arrière lorsqu'ils
+sont exécutés. Le boost et le mode de performance étaient déjà activés.
+Ces moyennes ne comparent pas une machine froide à une machine chaude.
+Nous ne prétendons donc pas avoir quantifié un gain de refroidissement.
+Le modèle du refroidisseur reste inconnu.
+
+Le premier contrôle de cinématique ne reconnaît que trois points en fin
+de film, sur dix secondes. Nous gardons cette limite et recommençons plus
+tôt. Un démarrage de vingt secondes prévu d'après une attente précédente
+arrive en fait trop tôt : l'image appelée « titre » est encore noire,
+et l'image appelée « cinématique » montre le menu. Le lecteur de référence
+rejette ce contenu. Nous ne comptons pas cette capture comme une preuve de
+son synchronisé. Le nouveau pilote reconnaît à la fois le logo et le texte
+« New Game ». Il accepte un titre de nuit gardé à part pour le contrôle,
+mais rejette l'écran de chargement et une image de partie. Les corrélations
+positives dépassent 0,94, les négatives restent sous 0,20 ; le seuil de 0,85
+laisse une marge à l'éclairage tout en gardant ces scènes distinctes.
+Au nouvel essai le titre arrive vers 40 secondes. L'enregistrement commence
+ensuite dès la cinématique, au lieu de dépendre d'une durée de démarrage
+supposée. La règle de scène vérifiée est renforcée dans `AGENTS.md`.
+
+
+La capture déclenchée sur le vrai titre reconnaît finalement douze points
+son/image sur environ 85 secondes. Les écarts vont de −0,10 à +0,01 seconde,
+avec une incertitude de 0,5 seconde. Nous ne voyons pas de dérive importante
+sur cette portion et ne revendiquons pas une précision à 40 millisecondes.
+Les points rejetés restent dans le rapport. Les huit phases de caméra
+représentent environ 12,2 minutes d'observation cumulée ; leurs fenêtres
+complètes retiennent 9 600 présentations sur 450 secondes. Les démarrages,
+reconstructions et contrôles fonctionnels viennent en plus. Le moteur
+habituel n'est pas remplacé. Les conteneurs et les manettes du laboratoire
+sont supprimés, la boîte noire est relancée et les quatre empreintes de
+progression habituelles restent identiques à celles du départ. Le rapport
+`spikes/switch2-room/drain-2026-11-08.json`, le patch et le plan conservent
+l'expérience et ses limites, sans commit ni envoi.
+
+### Réduire les lectures synchrones, second prototype du 8 novembre
+
+Le premier prototype économise du CPU pendant l'attente, sans accélérer
+Kokiri. Souhib autorise l'étape suivante : compter les lectures d'arguments
+des macros, puis essayer une copie réutilisable et comparer en alternance.
+Nous repartons de la même révision dans un nouveau laboratoire privé.
+Le prototype d'attente précédent reste conservé à part.
+
+Le code existant copie déjà certaines pages écrites par un calcul ou une
+copie GPU. Une page écrite par un dessin prend un chemin plus prudent.
+Attendre seulement les calculs et les copies ne suffirait donc pas pour
+les arguments : un dessin encore dans la file pourrait les réécrire.
+La première sonde garde les attentes existantes. Elle compte les lectures,
+les téléchargements et les données répétées, sans enregistrer les octets
+du jeu dans les rapports. Son coût reste hors des comparaisons de FPS.
+
+Cinq fenêtres complètes de la sonde couvrent 50,02 secondes de caméra.
+Elles comptent 845 091 lectures, environ 16 895 par seconde, toutes de
+24 octets. Aucune ne trouve sa plage marquée écrite par le GPU, et aucune
+ne demande de téléchargement par le cache de tampons. Le temps cumulé
+dans l'attente atteint 16,50 secondes sur ces 50,02 secondes. Cette durée
+inclut la coordination des fils ; ce n'est pas le temps physique du GPU.
+La petite histoire de valeurs ne suit que 4 096 adresses et manque la
+majorité des lectures. Elle ne permet pas de conclure que les arguments
+restent généralement identiques.
+
+La cible change donc : lire les arguments CPU à jour après les commandes
+qui les précèdent, sans réclamer aussi la mise au repos du gestionnaire
+graphique. Les pages écrites par le GPU utilisent les copies existantes
+seulement si leur version et leur plage sont valides. Un cas inconnu
+conserve le vidage de file et le téléchargement d'origine. Les tests
+provoquent une première écriture GPU encore dans la file, une réécriture
+CPU partielle et une écriture depuis un dessin. Aucun résultat de vitesse
+n'est encore attribué à ce second prototype.
+
+Les contrôles fonctionnels se font pendant une CI d'un autre projet,
+sans comparaison de vitesse. Le premier parcours revient sur l'échelle.
+Une capture appelée « position de marche » ne prouve donc pas une marche
+au sol. Un second parcours montre Link debout sur les racines, puis une
+sauvegarde manuelle. Après fermeture complète et redémarrage sans remettre
+le point de départ du laboratoire, Link revient au même endroit. Le fichier
+manuel garde l'empreinte écrite. Les trois fermetures sont normales.
+Un extrait de huit secondes contient un signal stéréo ; il ne mesure pas
+la synchronisation précise entre son et image.
+
+La CI se termine sans intervention. Le premier témoin, option coupée,
+échoue ensuite au chargement 3D avec une erreur d'allocation Vulkan, après
+des lectures non mappées et un format graphique invalide. Le même type
+d'échec existait dans le témoin amont de l'expérience précédente. Sa cause
+reste inconnue. Aucun FPS n'est retenu pour ce démarrage. Les deux états
+reçoivent de nouveau une copie identique des caches avant la série. Le
+témoin suivant charge Link et la forêt ; sa comparaison commence ensuite.
+
+Les quatre phases de caméra ferment normalement. Le témoin donne 22,19
+puis 22,08 images/s ; le prototype 22,25 puis 22,64. Les moyennes regroupées
+sont 22,13 et 22,51, un écart observé de 1,70 %. Le premier passage activé
+perd une fenêtre complète dans le journal encore tamponné au relevé de fin.
+Nous gardons les bornes prudentes et publions les durées inégales : 108,43
+secondes de fenêtres retenues pour le témoin, 79,96 pour le prototype.
+Ces deux passages par version ne prouvent pas une amélioration importante.
+La charge du fil avant reste proche de 80 % d'un processeur logique.
+
+Un profil séparé de quinze secondes, après le dernier passage, montre
+pourquoi éviter la mise au repos ne suffit pas. Le fil avant passe encore
+51,5 % de ses cycles échantillonnés dans l'attente de commandes exécutées.
+Le fil arrière doit toujours les préparer. La liaison des tampons figure
+dans 21,2 % de ses cycles et leur synchronisation dans 16,1 %. Un tampon
+est une zone de mémoire contenant des données pour la carte. Synchroniser
+consiste à lui transmettre les changements avant leur utilisation.
+Ces parts contiennent des appels communs ; elles ne s'additionnent pas.
+Elles ne mesurent pas non plus le temps physique du GPU.
+
+La suite du plan compte les écritures touchant les arguments avant leur
+exécution, les octets réellement modifiés face aux octets transférés, et
+les causes d'invalidation. Des horodatages pris sur le GPU doivent encore
+séparer calcul, dessin et copies. Le coût de chaque mesure devra rester
+hors des comparaisons de cadence. Les objets omis et les changements de
+zone restent à traiter avant de valider une partie complète à 60.
+
+Le prototype n'est pas installé. Ses tests et son code restent disponibles
+pour une prochaine expérience, avec le petit gain observé et ses limites.
+Le moteur standard et son mode 0 sont conservés. Les conteneurs et
+manettes du laboratoire sont supprimés, la boîte noire est relancée et
+les quatre empreintes de progression ainsi que la configuration habituelles
+restent identiques. La porte locale complète et l'audit passent ; aucune
+nouvelle CI distante n'est revendiquée sans commit ni envoi.
+
+### Compter les transferts et les parcours de mémoire, troisième prototype du 8 novembre
+
+Souhib demande de continuer après le faible gain du second prototype.
+Nous repartons du code amont figé, dans un nouveau laboratoire, avec le
+mode 0 utilisé par la salle. Les deux changements d'attente précédents
+restent séparés. Le profil a désigné la liaison des tampons et leur
+synchronisation ; il faut maintenant distinguer les données transférées
+du coût de recherche des données à transférer.
+
+La sonde compte les demandes de synchronisation, les demandes sans
+téléversement, les pages marquées modifiées et les octets effectivement
+envoyés par ce chemin. Elle distingue paramètres, stockage, sommets et
+indices. Un échantillon borné compare aussi les octets à ceux d'un précédent
+envoi. Ce relevé partiel ne représente pas toutes les écritures CPU et ne
+sert jamais à décider si une copie peut être réutilisée.
+
+Les durées GPU demanderont des horodatages pris sur la carte. La
+[documentation Vulkan](https://docs.vulkan.org/samples/latest/samples/api/timestamp_queries/README.html)
+précise que des opérations peuvent se recouvrir et que le point de lecture
+du compteur compte. Les durées par catégorie ne devront donc pas être
+additionnées comme des opérations forcément successives. Cette sonde
+reste séparée des comparaisons de FPS et son coût doit être explicite.
+
+
+Le diagnostic retient quatre fenêtres complètes, soit 40,11 secondes de
+caméra. Il observe environ 139 000 demandes de synchronisation par seconde,
+mais 74,43 Mio/s réellement transférés. Les sommets et les indices ne
+transfèrent rien dans ces fenêtres ; 99,76 % des demandes de stockage et
+94,16 % des demandes de paramètres ne transfèrent rien non plus. Les banques
+de constantes forcées expliquent 62,84 Mio/s. La fraction modifiée des octets
+échantillonnés ne permet pas de supprimer une banque complète : la sonde
+ne regarde qu'une copie sur seize, et seulement son début.
+
+Une première agrégation avait conservé un groupe dont les deux dernières
+lignes étaient encore dans le tampon du journal. Les catégories n'avaient
+alors pas la même durée. Le rapport final exige toutes les catégories
+observées et écarte ce groupe incomplet. Une ligne complète ne prouve pas
+qu'une fenêtre composée de plusieurs lignes est complète.
+
+Le troisième prototype maintient un résumé des pages modifiées et des pages
+qui doivent retrouver leur surveillance. Il évite le parcours détaillé
+seulement quand les deux états sont absents de la plage. La seconde
+condition est nécessaire : une écriture retardée peut encore devoir réarmer
+la surveillance, même quand aucun octet ne part immédiatement vers le GPU.
+Le résumé prend huit octets par gestionnaire de quatre Mio. Les tests
+réintroduisent l'oubli de chaque mise à jour et l'omission des pages non
+surveillées ; les défauts font bien échouer les assertions.
+
+Les deux suites complètes comptent chacune 241 tests réussis et quatre
+tests réseau ignorés dans le conteneur sans réseau. Les cinq mutations
+volontaires échouent. Les contrôles mémoire de la conversion des horodatages
+passent ; ils ne couvrent pas les appels réels au pilote.
+
+Six captures Vulkan réelles terminent sans événement abandonné, avec
+3 008 à 3 136 intervalles chacune. Les dessins et les calculs y occupent
+bien davantage de temps que les copies de tampons. Mais plusieurs milliers
+de requêtes de mesure sont ajoutées aux commandes : l'enveloppe observée
+atteint 90 à 101 ms, et les intervalles se recouvrent. Ce résultat oriente
+la prochaine sonde, sans donner le budget exact d'une image normale.
+Il faudra moins de points de mesure et une comparaison de leur coût avant
+de conclure que le GPU interdit les 60 images/s.
+
+Pendant la compilation, Souhib lance une vraie partie. Le laboratoire attend.
+Après son accord explicite, la commande normale de fermeture du worker
+arrête le jeu et son aide de manettes ; le laboratoire peut reprendre.
+La sauvegarde normale peut donc évoluer sous l'action du joueur : une
+comparaison avec les empreintes d'avant sa partie ne doit pas attribuer
+cette évolution aux tests privés.
+
+
+Les quatre phases alternées de caméra durent chacune environ 91,5 secondes.
+Le témoin donne 22,42 puis 22,32 images/s ; le prototype 21,45 puis 21,23.
+Les fenêtres complètes regroupées donnent 22,37 contre 21,34, soit 4,61 % de
+moins. Le résumé ne suffit pas : sa mise à jour coûte du travail, sa
+prudence conserve beaucoup de recherches et les sondes inactives gardent
+leurs branchements. La comparaison ne sépare pas ces causes possibles.
+Cette version reste écartée de l'installation. Le fil CPU qui prépare les
+commandes graphiques reste vers 85 à 86 % d'un processeur logique.
+La machine atteint ici 83,25 à 94,50 °C selon les capteurs relevés ; ce n'est
+pas un essai contrôlé du refroidissement. Les quatre arrêts sont normaux.
+Le plan décrit maintenant les versions précises des plages mémoire, les
+envois forcés de paramètres et les grandes passes GPU à étudier ensuite.
+Le premier palier à 30 images/s reste à obtenir en jouant, avant 45 puis 60.
+
+
+La vérification fonctionnelle descend de l'échelle puis marche sur les
+racines au pied de l'arbre. L'écran confirme la sauvegarde et le fichier
+manuel change. Après arrêt complet, le moteur reprend au même endroit et
+le fichier manuel garde son empreinte. Les deux arrêts sont normaux.
+Huit secondes de son contiennent un signal dans les deux canaux ; cela
+ne mesure pas la synchronisation précise avec l'image. Aucun changement
+de zone n'est validé dans ce troisième essai.
+
+Le laboratoire retire son jeu, ses quatre manettes virtuelles et leur aide,
+puis relance la boîte noire. Les huit fichiers de progression présents après
+la vraie partie de Souhib sont identiques avant et après les tests privés.
+Les quatre fichiers de la première référence restent eux aussi présents et
+identiques. La configuration et le moteur installés restent inchangés.
+La porte locale complète et l'audit passent. Aucun commit, envoi ou nouvelle
+CI distante n'est créé. Le rapport numérique et le correctif restent
+consultables pour préparer la suite sans faire passer ce recul pour un gain.
+
+
+### Sonde GPU par soumission, reprise du 8 novembre après 23:25 UTC
+
+Souhib demande de réaliser l'étape suivante. La sonde précédente ajoutait
+plusieurs milliers d'horodatages par image et ne donnait pas encore le coût
+normal du travail graphique. Nous repartons donc une nouvelle fois du code
+amont figé, sans le résumé mémoire qui avait ralenti le jeu.
+
+La nouvelle sonde entoure les deux tampons de commandes de chaque soumission
+existante : celui des transferts et celui de l'exécution principale. Une
+soumission remet au pilote un lot de commandes déjà préparé. La sonde ne
+crée ni lot supplémentaire ni attente forcée par image. Elle observe aussi
+les identifiants des programmes de calcul et en chronomètre un seul à la
+fois, en alternant le programme choisi entre captures. Un identifiant permet
+de revenir au programme concerné sans publier son code ni les données du jeu.
+Une image sur soixante est échantillonnée par défaut.
+
+Le stockage est borné. Une capture saturée, encore ouverte ou dont un compteur
+n'est pas disponible est refusée. Des tests réintroduisent chacun de ces
+oublis et une sélection qui resterait bloquée sur le premier programme.
+Les deux suites du moteur comptent 241 tests réussis et quatre ignorés sans
+réseau. La comparaison de coût utilisera le même exécutable, avec la sonde
+coupée puis activée, sur quatre phases alternées et des caches identiques
+au départ. Elle précède toute conclusion sur le budget GPU d'une image.
+
+La [documentation Vulkan](https://docs.vulkan.org/refpages/latest/refpages/source/vkCmdWriteTimestamp.html)
+précise qu'un horodatage impose une dépendance sur une partie des commandes
+précédentes. Même moins nombreux, ces points doivent donc être évalués.
+Les intervalles peuvent se recouvrir ; leur somme n'est pas une durée
+exclusive du matériel.
+
+
+Le premier couple donne 22,06 images/s sans sonde et 22,43 avec. Le second
+renverse cette impression : 22,67 sans, 21,10 avec. Les fenêtres complètes
+regroupées donnent 22,36 contre 21,75, soit un écart de −2,74 %. Sept images
+dépassent 100 ms dans le dernier passage activé, aucune dans les trois autres.
+La sonde reste donc un outil de diagnostic, sans certification de transparence.
+Les quatre arrêts sont normaux. Le témoin désactivé contient encore les
+branchements et la recherche d'identifiant compilés ; cette comparaison mesure
+l'activation de la sonde, pas son coût compilé total face à l'amont intact.
+
+Les 64 captures entièrement comprises dans les phases activées donnent des
+médianes d'environ 0,80 ms pour les transferts et 24,87 ms pour l'exécution
+principale. L'union de leurs intervalles couvre 25,68 ms ; l'enveloppe est
+plus large, avec des trous entre soumissions. Ces nombres instrumentés ne
+sont pas des durées exclusives et ne prouvent pas un plafond matériel normal.
+En revanche, ils ne désignent pas les copies seules comme premier coût à
+attaquer. Les captures contiennent environ 150 à 160 soumissions par image,
+un autre travail à expliquer côté préparation et synchronisation.
+
+Le balayage plus fréquent dure 40,46 secondes et atteint sa limite de
+128 captures. Il observe 77 programmes et n'en chronomètre que 73. Réunir
+les passages révèle deux identifiants encore manquants, dont l'un apparaît
+dans 164 captures. Faire tourner un indice sur une liste qui change ne
+garantit donc pas la couverture, même avec plus de captures que de programmes.
+Le contrôle explicite sauve ici le diagnostic : nous ciblons le programme
+fréquent manquant avant de classer les coûts. La règle est ajoutée au guide
+pour ne pas refaire cette erreur. La fréquence plus forte du balayage n'a
+pas reçu la comparaison de coût du réglage une image sur soixante.
+
+
+Le contrôle ciblé refuse d'abord la vue sauvegardée au sol : le programme
+n'y apparaît pas. La sauvegarde a bien repris, mais elle ne prouve pas que
+la vue contient le même travail graphique. Le retour au balcon fournit
+sept mesures du programme fréquent manquant : 0,039 ms de médiane et
+0,064 ms au maximum. Il ne change pas le classement. Un programme rare,
+rencontré dans trois captures, reste non chronométré. Le plus long programme
+invité effectivement mesuré reste voisin de 1,97 ms dans la série de caméra.
+Sa fonction est inconnue dans le catalogue, et sa fenêtre peut aussi contenir
+des dépendances sur des commandes précédentes. Les conversions et calculs
+internes du moteur ne sont pas nommés par cette liste de programmes invités.
+
+La suite doit donc étudier les nombreux petits lots et leurs synchronisations,
+avec la liaison des ressources déjà signalée côté CPU. Une sonde de quelques
+pour cent de coût ne démontre pas un budget matériel exact, et supprimer une
+barrière nécessaire ne serait pas un gain correct. La cadence à 60 reste
+à obtenir avec un monde complet, puis à valider en jouant. Cette reprise
+commencée le 8 novembre se termine le 9. Le correctif, les instructions et
+le rapport numérique sont conservés ; aucune optimisation de cadence n'est
+installée sur cette base.
+
+Le dernier exécutable vérifie la marche au sol, le signal des deux canaux
+sonores, l'écriture manuelle et la reprise au même endroit, avec empreinte
+inchangée du fichier sauvegardé. Le contrôle ne prouve ni changement de zone
+ni synchronisation précise du son. Les deux suites du moteur passent chacune
+241 tests et ignorent quatre essais réseau ; les quatre mutations sont refusées.
+La porte locale complète et l'audit passent. Les conteneurs privés, leurs
+processus et leurs quatre appareils de manette sont retirés. La boîte noire
+est relancée. Les huit progressions normales et la configuration installée
+restent identiques. Aucun commit ou envoi n'est fait et aucun nouveau résultat
+de CI distante n'est revendiqué.
+
+
+### 9 novembre : objectif actif de 30 images/s constantes
+
+Souhib demande de poursuivre toutes les pistes raisonnables jusqu'à une
+partie à 30 images/s constantes, et d'arrêter si un blocage réel empêche
+la suite. La cible porte sur le jeu et les déplacements, pas seulement
+sur le film d'introduction. Les sauvegardes de laboratoire restent privées.
+Une moyenne élevée ne prouve pas une cadence régulière : le budget d'une
+image à 30 Hz est de 33,33 ms, et les gels restent à compter.
+
+Avant d'écrire le regroupement des lots, la relecture des sources confirme
+que le regroupement existant est réservé au fil arrière du mode séparé.
+Le rendre actif dans le mode 0 exige aussi de conserver les soumissions
+avant les lectures CPU et les retours de listes ; retirer seulement la
+condition de fil pourrait faire attendre des commandes encore non soumises.
+Les barrières et les fences nécessaires ne doivent pas disparaître.
+
+La recherche amont trouve la version candidate 0.1.0-rc3 du 8 novembre,
+révision `78743f30c`. Elle modifie notamment les accès mémoire des shaders
+natifs et les listes d'opérations de synchronisation. Ses deux paquets Linux
+sont téléchargés depuis la publication officielle et leurs empreintes sont
+comparées aux empreintes de cette publication. Le premier passage avec le
+paquet optimisé donne 24,24 images/s en jeu, contre 21,88 au premier témoin
+installé. Les quatre passages alternés terminés donnent 22,50 images/s pour
+le moteur installé et 23,68 pour le nouveau paquet optimisé, soit un écart
+observé de +5,26 %. Un intervalle dépasse 100 ms dans ce dernier. Ce gain
+ne suffit pas à atteindre 30 images/s régulières. Il compare des paquets
+complets et ne désigne pas une modification source comme cause. Les caches
+partent de la même copie, puis évoluent séparément. Le rapport public est
+`spikes/switch2-room/rc3-2026-11-09.json`.
+
+La compilation locale s'arrête ensuite avant tout code nouveau : GitHub répond
+504 au téléchargement de l'empreinte de SDL, la bibliothèque de fenêtre, de son
+et de manettes. L'interface officielle de publication fournit cette empreinte.
+Les deux constructions locales réutilisent la même archive déjà extraite de
+SDL 3.4.14, sans changer sa version. Cette adaptation de téléchargement est
+commune au témoin et au prototype ; elle n'est pas un gain d'émulation.
+
+Le second démarrage du témoin installé quitte réellement avec le code 134
+avant la scène attendue. Le message final est `VK_ERROR_OUT_OF_DEVICE_MEMORY`.
+Docker ne signale pas de manque de mémoire du conteneur et le noyau ne
+redémarre pas le GPU. C'est la signature déjà rencontrée avec cet ancien
+moteur ; sa cause n'est pas prouvée ici. Le lancement reste exclu des FPS.
+L'état terminal du conteneur est vérifié avant de le supprimer et de refaire
+le passage, sans confondre l'échec de la capture avec une preuve d'arrêt.
+
+
+Le témoin local et le prototype compilent ensuite. Les deux configurations du
+prototype passent chacune 242 tests ; quatre tests réseau restent ignorés dans
+le conteneur sans réseau. Cinq défauts réintroduits font échouer les tests :
+fil non propriétaire autorisé, mode séparé autorisé, échéance franchie,
+lecture avant soumission et retour de liste sur le mauvais fil. Les unités
+Vulkan modifiées sont effectivement recompilées.
+
+Le démarrage du prototype produit le marqueur d'une copie réellement différée.
+Le garde de préparation exigeait aussi qu'une copie reste en attente jusqu'au
+retour d'une liste. Il refuse donc le passage bien que le jeu affiche Link dans
+Kokiri : une fence précédente peut déjà avoir soumis toutes les copies.
+L'état vivant du conteneur est vérifié, sans relancer la partie. Ce second
+marqueur devient une donnée de couverture à relever, pas une condition de
+présence du correctif. Le retour de liste reste couvert par les tests ; son
+exercice dans le jeu n'est pas prétendu tant que ce marqueur n'est pas observé.
+Il apparaît finalement à la seconde 94 du même processus, après le premier
+marqueur à la seconde 63. Les deux chemins sont donc exercés avant le relevé
+complet. Exiger ces deux événements dès la première image prête était prématuré.
+
+
+Les quatre passages alternés terminés donnent 21,14 images/s au témoin local
+et 22,05 au prototype, soit +4,33 % observés. Le premier témoin comporte vingt
+intervalles de plus de 100 ms ; le prototype en comporte un sur ses deux
+passages. Les caches partent de la même copie puis évoluent séparément. Ce
+petit écart ne prouve pas un gain reproductible en régime chaud, et 30 images/s
+ne sont pas atteintes. Link descend réellement l'échelle et marche au sol ;
+les quatre processus s'arrêtent normalement. Le son, la sauvegarde et un
+changement de zone ne sont pas validés pour ce prototype. Il reste dans le
+laboratoire. Le rapport est `spikes/switch2-room/copy-batch-2026-11-09.json`.
+
+Une préparation de deux copies de cache, durant 1,25 seconde, croise le dernier
+passage. Elle reste avant toutes les fenêtres complètes de présentation
+retenues, même avec deux secondes de marge. Le relevé brut et les bornes sont
+conservés. Cette préparation aurait dû attendre la fin du passage. Elle ne
+sert pas de preuve qu'une copie serait transparente aux mesures.
+
+Un autre détail du laboratoire est corrigé après cette série : le filtre de
+journal était écrit dans `Debugging`, alors que le moteur lit `Miscellaneous`.
+Le journal réel restait donc à `*:Info`, comme le prouve sa ligne du pilote
+Vulkan. Les quatre configurations étaient identiques sur ce point. Les essais
+suivants doivent vérifier le filtre réellement appliqué, et pas seulement
+la présence de la valeur dans le fichier.
+
+La piste suivante conserve le paquet officiel rc3 optimisé et change seulement
+son environnement privé. Mesa 26.2.6, publié le 28 octobre, est disponible pour
+Ubuntu 24.04 dans le dépôt Kisak. Ses notes mentionnent des corrections de
+synchronisation et d'allocation, mais leur effet sur Zelda reste à mesurer.
+Le conteneur préparé installe Mesa 26.2.6 et libdrm 2.4.134. Il ne modifie aucun
+paquet du serveur. Deux copies privées identiques du cache chaud sont préparées
+avant cette nouvelle série. Les sources primaires sont les
+[notes de Mesa 26.2](https://docs.mesa3d.org/relnotes/26.2.0.html) et
+[de Mesa 26.2.6](https://docs.mesa3d.org/relnotes/26.2.6.html).
+
+
+Les quatre passages alternés du pilote donnent 23,86 images/s avec Mesa 25.2.8
+et 23,50 avec Mesa 26.2.6, soit environ −1,5 % observés. C'est un petit écart,
+pas une preuve de régression causale, et aucun palier de 30 images/s n'est atteint.
+Le fichier de pilote réellement chargé diffère, alors que l'exécutable du jeu
+reste identique. Les quatre processus s'arrêtent normalement. Le rapport est
+`spikes/switch2-room/mesa-2026-11-09.json`. Le pilote récent reste privé : aucun
+paquet graphique de l'hôte n'a changé.
+
+Avant d'alourdir nos modifications, une nouvelle consultation des publications
+trouve [Lichii 125](https://github.com/zortos293/Lichii/releases/tag/build-125),
+publié le 9 novembre à 00:09 UTC, et
+[Superbuild v31](https://github.com/callme-sy/Lichii-Superbuild/releases/tag/v31),
+publié à 00:54, tous deux fondés sur `cbb512ee`. Leurs nouveautés concernent
+notamment la mémorisation des textures et des défauts de chargement de Zelda.
+[Orchid 0.9.1](https://github.com/MythosOfs/Orchid/releases/tag/v0.9.1), publié
+le 8 novembre à 16:35, modifie aussi la synchronisation et les copies mémoire.
+Leurs paquets optimisés Linux sont téléchargés, leurs empreintes comparées aux
+publications officielles, puis ils sont extraits dans des conteneurs isolés.
+Les états sont préparés hors des fenêtres de mesure, avec caches de shaders
+neufs et sauvegardes privées.
+
+Les notes de Superbuild se contredisent sur le correctif 874 : elles l'annoncent
+présent puis le disent absent. Le code de l'étiquette v31 contient bien le
+traitement des libérations de valeur constante. La
+[proposition amont](https://github.com/zortos293/Lichii/pull/874) reste ouverte
+et son chiffre publié concerne Windows, un autre CPU et un autre GPU. Il ne
+prouve pas un gain ici. La comparaison des sources montre aussi qu'Eglantine
+emploie déjà un chemin antérieur à cette régression ; copier la modification
+sans vérifier son contexte serait une erreur. La priorité devient l'essai de
+ces versions récentes avant la compilation d'un correctif local plus lourd.
+
+
+Superbuild v31 atteint effectivement Kokiri avec Mesa 26.2.6 et le contournement
+`NO_MESH=1`. Son premier passage en mode 0, avec cache neuf, donne 21,16 images/s.
+Le passage suivant en mode 2 donne 23,33 images/s. Deux phases successives avec
+un cache qui s'enrichit ne prouvent pas l'effet du mode : ce sont des essais
+préliminaires, pas une comparaison causale. Dans les deux cas, Link descend
+l'échelle puis marche au sol, et les processus s'arrêtent normalement. Aucune
+nouvelle zone, sauvegarde ou mesure sonore n'est validée pour cette version.
+Le rapport `spikes/switch2-room/upstream-2026-11-09.json` garde les empreintes,
+les fenêtres et les limites. Aucun palier de 30 images/s n'est atteint.
+
+Lichii 125 atteint ensuite lui aussi Kokiri en mode 2 avec cette configuration
+plus récente et un cache neuf. Ce constat débloque un essai que la version 117
+n'avait pas permis ici. Il ne prouve pas quelle modification en est responsable,
+car le moteur et le pilote ont changé. Sa mesure de jeu est en cours.
+
+
+Lichii 125 termine son premier relevé en mode 2 à 22,82 images/s, avec zéro
+intervalle de plus de 100 ms dans les fenêtres retenues. Link descend l'échelle
+et marche au sol ; l'arrêt est normal. Cela n'atteint pas 30 images/s et ne
+constitue pas une comparaison alternée entre moteurs.
+
+Orchid 0.9.1 échoue encore au contrôle visuel du jeu : cœurs et carte visibles,
+monde sombre ou flou et personnage absent, puis écran noir hors des éléments
+d'interface après déplacement. Le journal conserve 111 rejets de programmes
+graphiques, dont 48 comparaisons entières étendues et 29 origines de textures
+non reconnues. Le détecteur des cœurs et de la carte avait déclaré l'image
+prête ; la relecture humaine refuse donc les FPS jouables. L'arrêt est normal.
+Le chargement d'une cinématique n'est toujours pas une preuve de jeu correct.
+
+Le profil portable du paquet officiel rc3 est ensuite essayé avec le pilote
+25.2.8, toujours dans un état privé. Le jeu demande réellement 1920 × 1080,
+contre 2560 × 1440 au témoin docké, sans forçage de recadrage ni changement de
+vitesse. L'ancien rc3 ne journalise pas un booléen `docked` comme les nouvelles
+branches ; le contrôle utilise donc les dimensions demandées par le jeu et
+leur témoin négatif, pas un message absent. Ce premier essai donne 23,04 images/s,
+avec marche au sol et arrêt normal. Ce n'est pas une comparaison alternée
+contre le mode docké et cela ne valide pas 30 images/s. Le rapport est
+`spikes/switch2-room/handheld-2026-11-09.json`.
+
+La piste suivante vérifie le placement des fils sur les cœurs du Ryzen 5 3600.
+Le laboratoire prépare quatre phases alternées dans le même processus :
+placement initial, fil graphique sur le processeur logique 0 avec les autres
+fils exclus des deux voisins SMT 0 et 6, retour au placement initial, puis
+placement dédié. Les masques réels du noyau seront vérifiés au début et à la
+fin des phases. Aucun autre processus du serveur n'est déplacé. Une limite
+externe de 600 secondes couvre le démarrage et les quatre phases ; le processus
+est arrêté ensuite et le placement initial rétabli avant sa fermeture.
+
+
+Les quatre phases de placement CPU donnent 23,32 images/s avec le placement
+initial et 20,22 avec le fil graphique fixé au processeur logique 0. L'écart
+observé est −13,29 %. Les intervalles de plus de 100 ms passent de zéro à
+dix-huit dans les fenêtres retenues. Le retour au placement initial entre les
+deux phases dédiées retrouve sa cadence. Les masques réels du noyau sont
+vérifiés avant et après chaque phase, et les huit images montrent Link dans
+Kokiri. Le placement initial est rétabli avant l'unique arrêt, normal. Aucun
+autre processus n'est déplacé. Cette politique précise est écartée ; elle ne
+prouve pas que toutes les politiques de placement seraient mauvaises. Le
+rapport est `spikes/switch2-room/affinity-2026-11-09.json`.
+
+À ce point, la configuration installée et les huit fichiers de progression
+normaux sont identiques à leur état du début de cette reprise. Aucun des
+réglages rapides essayé n'atteint 30 images/s. La suite prépare une construction
+spécifique au Ryzen 5 3600 : compilateur Clang 23, profil PGO officiel,
+optimisation entre fichiers LTO et cible CPU Zen 2. Elle repart de rc3 sans
+le prototype de copies, pour distinguer les expériences. Le changement commun
+de téléchargement SDL est conservé. Les outils de compilation restent dans
+un conteneur privé. Il n'y a pas encore de résultat pour cette construction.
+La porte locale complète du projet est lancée pendant qu'aucun émulateur ne
+monopolise le GPU ; aucun résultat de CI distante n'est revendiqué.
+
+
+La construction spécifique au Ryzen termine ses 1 839 étapes. Les commandes
+réelles contiennent la cible Zen 2, le profil officiel et ThinLTO ; les objets
+Vulkan contrôlés sont neufs et le processus lancé porte l'empreinte du paquet
+préparé. Les 239 tests du moteur passent, quatre tests réseau sont ignorés sans
+réseau. Ce sont trois tests de moins que dans le prototype précédent parce que
+son nouvel en-tête et ses trois cas ont été retirés avec le correctif.
+
+Le premier passage donne 23,07 images/s sur l'ensemble des fenêtres retenues.
+La première fenêtre comporte treize intervalles de plus de 100 ms ; les deux
+suivantes sont autour de 24,41 images/s. Elles ne remplacent pas le résultat
+d'ensemble et ne prouvent pas un gain contre un autre paquet. Link descend
+l'échelle et marche au sol ; l'arrêt est normal. Le palier de 30 images/s reste
+non atteint. Le rapport est `spikes/switch2-room/native-lto-2026-11-09.json`.
+
+Ce binaire conserve des symboles pour un nouveau relevé CPU, séparé des mesures
+de cadence. Le jeu est fermé avant d'analyser ce relevé. La première capture
+compte 5 341 échantillons et aucune perte, mais la lecture initiale des cartes
+mémoire dépasse le délai de l'outil. Une part importante des adresses n'est
+donc pas rattachée à une fonction : zéro perte ne prouve pas une bonne
+symbolisation. Le relevé incomplet est conservé. La collecte suivante laisse
+les compteurs désactivés jusqu'à l'accusé de l'outil après sa préparation,
+avec un délai de lecture adapté. Son protocole activer, désactiver, arrêter
+est exercé sur un processus temporaire avant d'être utilisé sur le jeu.
+
+La porte locale complète `just`, l'audit et la documentation stricte passent
+sur le dépôt. Ces passages ne sont pas une CI distante et ne remplacent pas
+les essais du nouveau moteur. Aucun commit ni envoi n'est effectué.
+
+Les deux relevés CPU suivants attendent l'accusé de préparation du profileur
+avant de commencer à compter. Ils terminent sans expiration de lecture des
+cartes mémoire et sans échantillon perdu : 5 454 puis 2 728 échantillons, avec
+des arrêts normaux et Link visible avant et après les mouvements. Le premier
+relevé incomplet est conservé, mais ne sert plus à attribuer les coûts.
+
+Une boucle de copie vectorielle représente environ 12 % des cycles échantillonnés
+sur les deux fils CPU observés, celui nommé GPU et le travailleur Vulkan.
+Ce pourcentage ne mesure ni la durée physique du GPU ni la part du chemin qui
+limite chaque image. L'essentiel de ses appelants manque encore. Passer de
+8 192 à 65 528 octets de pile capturée ne les retrouve pas : augmenter ce
+réglage seul ne règle donc pas l'attribution. Aucun correctif n'est choisi sur
+la base d'un appelant supposé. Les piles brutes restent dans le laboratoire ;
+`spikes/switch2-room/cpu-profile-2026-11-09.json` conserve les agrégats.
+
+Un contrôle relève aussi des fréquences graphiques basses sur cette scène,
+sans prouver qu'elles limitent le jeu. L'essai suivant alterne quatre phases
+automatique/performance sur la même partie, sans profileur. Il utilise seulement
+les états prévus par le pilote AMD, conserve le plafond de 150 W et prépare
+une restauration indépendante du processus de mesure. Il ne change pas les
+tables de fréquence, la tension ou les ventilateurs.
+
+Les quatre phases terminent à 23,90, 23,95, 21,84 et 23,78 images/s : les
+modes automatique et performance donnent respectivement 22,82 et 23,87 au
+total retenu. Une seule fenêtre complète est retenue par phase. Le premier
+couple est presque égal ; le recul du second passage automatique pèse sur
+l'écart global de 4,58 %. Ce résultat ne prouve donc pas un gain répétable.
+Les huit images montrent toujours Link au même balcon de Kokiri. Le plafond
+reste à 150 W, le mode automatique est restauré et la boîte noire redémarre.
+La fermeture demandée quitte cependant avec le code 139, sans arrêt forcé ni
+épuisement mémoire déclaré par Docker. Le journal montre la demande de fermeture
+avant cette sortie. Sa cause n'est attribuée ni au réglage GPU ni au compilateur.
+Le rapport est `spikes/switch2-room/dpm-2026-11-09.json` ; rien n'est installé.
+
+La lecture des adresses de retour dans les piles brutes, confrontée aux règles
+de déroulement du binaire et aux appels machine, rattache ensuite une part des
+copies à l'envoi des tampons vers le GPU. Ces adresses ne sont pas recherchées
+au hasard dans la pile. Le premier prototype fait réutiliser à ces envois le
+stock de tampons qui privilégie la mémoire système, au lieu de l'anneau qui
+privilégie la mémoire graphique. Il conserve le retrait des tampons selon leur
+dernier travail GPU. Cette hypothèse attend encore sa preuve en jeu et son
+comparatif ; le choix réel de mémoire sera journalisé, pas déduit du seul nom
+de l'option.
+
+Le premier prototype obtient bien deux types de mémoire différents sur le
+pilote réel : le tampon habituel est local au GPU, les nouveaux tampons sont
+visibles et cohérents pour le CPU sans être locaux au GPU. Ses 239 tests
+passent avec le chemin désactivé et activé, quatre tests réseau restent ignorés.
+Le contrôle donne 22,47 images/s, avec marche au sol et arrêt normal. Ce pilote
+isolé n'est pas une comparaison alternée et ne valide aucun gain causal.
+Surtout, il change aussi le nombre de tampons distincts : son résultat ne
+suffit pas à juger le placement mémoire seul. Un second prototype prépare un
+anneau en mémoire système indépendant de celui des accès directs du GPU.
+Il réutilise le même algorithme de retrait et d'attente des régions occupées.
+`spikes/switch2-room/host-upload-pool-2026-11-09.json` conserve le premier essai.
+
+La relecture de l'anneau trouve un défaut indépendant du placement mémoire.
+Après un tour complet, le code remet le curseur au début avant de vérifier
+si le GPU utilise encore cette région. La première demande échoue, mais laisse
+ce curseur modifié. La demande suivante peut alors accepter les mêmes octets
+encore occupés. Un test du calcul extrait, sans GPU, reproduit ce défaut avec
+sept réservations, un refus puis une nouvelle demande : cette dernière est
+acceptée à tort. Le correctif vérifie la région avant de modifier les curseurs.
+Le test passe ensuite ; réintroduire l'ancien ordre dans le véritable fichier
+utilisé par le moteur le fait échouer de nouveau au même endroit.
+
+Un second test suit les octets réservés par deux anneaux indépendants avec des
+tailles variables et des fins de travaux simulées. Toute réservation acceptée
+doit porter sur des octets libres. Il exige aussi des réservations acceptées,
+des refus et des tours complets, pour ne pas réussir en refusant tout.
+Ces tests prouvent ce défaut de calcul, sans l'attribuer aux saccades de Zelda
+ni revendiquer un gain de cadence. Le contrôle en jeu du nouvel anneau reste
+à faire ; un simple compteur de tours n'y vaudra pas preuve de réutilisation.
+
+Les trois nouveaux tests passent ensuite dans les deux configurations, soit
+242 tests réussis et quatre tests réseau ignorés. Le nouvel anneau obtient bien
+128 Mio de mémoire système, distincts des 128 Mio de l'anneau habituel, local
+au GPU. Le journal confirme une réutilisation après la fin du travail, avant
+l'arrivée dans Kokiri. Ce marqueur ne mesure pas la part de ses allocations
+pendant toute la partie.
+
+Les quatre passages alternés activé/désactivé/activé/désactivé donnent 22,41,
+24,00, 21,96 et 22,83 images/s. Au total retenu : 22,14 avec l'anneau en mémoire
+système, 23,29 avec le chemin habituel, soit −4,92 % observés. Les fenêtres
+initiales lentes restent incluses et le cache privé évolue entre les passages.
+Les images vérifiées montrent Link, le monde, la descente d'échelle et la marche
+au sol ; les quatre arrêts sont normaux. Cette variante est écartée pour les
+performances. Le correctif de curseur est présent dans les deux variantes :
+ce comparatif ne mesure donc pas son effet. La configuration installée et les
+huit fichiers `progress.sav` sont inchangés. Le rapport est
+`spikes/switch2-room/host-ring-2026-11-09.json`. La suite cherchera combien
+de transferts renvoient les mêmes données, sans supprimer de copie pendant
+le diagnostic et sans assimiler ses temps aux FPS normaux.
+
+La sonde suivante conserve toutes les copies et compare leurs données sources
+octet par octet. Elle cible les transferts de 64 à 128 Kio et garde au plus
+512 instantanés, soit 64 Mio de données retenues. Les 244 tests passent avec
+la sonde désactivée et activée ; trois défauts réintroduits sont détectés :
+ne comparer que le début, confondre deux adresses et dépasser la mémoire prévue.
+La compilation vérifie le fichier qui instancie réellement le modèle du cache,
+`vk_buffer_cache_base.cpp`, plutôt que le seul fichier voisin au nom similaire.
+
+Pendant les mouvements de caméra dans Kokiri, 34 instantanés de compteurs
+bornent une période entièrement incluse dans les 30,65 secondes observées.
+Les 46 410 transferts comparés portent sur 3 221 635 072 octets, tous identiques
+à leur précédent instantané source. Cette catégorie couvre 80,74 % des octets
+de tous les transferts de la période retenue. Toutes ses sources admissibles
+sont observées et aucune remise à zéro du stock n'intervient. Ces nombres ne
+prouvent ni que la destination GPU est restée identique, ni que chaque copie
+peut disparaître. La sonde ajoute des lectures et ne fournit pas une mesure
+de FPS normale. Le jeu montre Link et le monde avant et après les mouvements,
+puis s'arrête normalement. Le rapport est
+`spikes/switch2-room/upload-payload-2026-11-09.json`.
+
+Le contrôle désactivé quitte d'abord au chargement avec le code 134 et
+`VK_ERROR_OUT_OF_DEVICE_MEMORY`, sans épuisement mémoire déclaré par Docker.
+Il n'atteint pas un état de jeu accepté et reste exclu. Le contrôle repris avec
+le même exécutable atteint ensuite Kokiri sans marqueur de la sonde et s'arrête
+normalement. Le premier échec reste conservé ; il n'est pas attribué à une
+option de performance.
+
+La lecture du code trouve une raison à ces répétitions. Un contournement
+réenvoie chaque image les banques de constantes natives de 64 Kio, parce que
+le suivi ordinaire peut manquer certaines écritures. Une banque regroupe ici
+des valeurs lues par les programmes graphiques. Supprimer ce contournement
+pourrait laisser une ancienne valeur à l'écran. Le prototype suivant compare
+donc toutes les pages couvertes, y compris leurs bords, avant cette seule
+invalidation forcée. Des données nouvelles, modifiées, non observables ou trop
+grandes gardent le réenvoi. Des données identiques évitent seulement de créer
+cet état sale artificiel. Les écritures déjà signalées et la synchronisation
+ordinaire restent en place. Le stock appartient à chaque cache du moteur,
+pour qu'une nouvelle partie n'hérite pas des instantanés de l'ancienne.
+Le premier contrôle donne ensuite 22,36 images/s avec cette comparaison et
+23,87 avec elle désactivée, dans le même exécutable. Ces deux passages
+successifs constituent une tendance, pas une comparaison alternée. Ils ne
+montrent aucun gain à installer. Link et la marche sont visibles, les deux
+arrêts sont normaux. La protection conserve le réenvoi si une page a déjà été
+écrite par le GPU ; elle ne désactive jamais le suivi ordinaire des écritures.
+
+Un relevé séparé explique pourquoi ce prototype ne supprime aucun réenvoi
+pendant les déplacements. Sur 98 048 décisions, toutes les pages sont
+comparées mais aucune décision ne réutilise le résultat. Le stock complet est
+vidé 573 fois, dont 571 par des effacements GPU. Ce premier choix conservateur
+oubliait aussi les banques sans rapport avec la destination de l'effacement.
+La garde sur les pages écrites par le GPU ne bloque aucun cas dans cette
+période. Ces compteurs ne prouvent pas encore quelles destinations sont
+disjointes ; ils désignent la portée de l'invalidation comme prochain test.
+Les 384 instantanés retenus sont entièrement compris dans 30,63 secondes de
+mouvements observés. La sonde ne sert pas à comparer les FPS.
+
+Le premier relevé avait été lancé trop tard dans la durée maximale du jeu et
+s'était terminé avant sa capture finale. Il est conservé comme exclu, sans
+résultat accepté. Le pilote vérifie désormais qu'il reste au moins une minute
+avant de commencer les trente secondes de mouvement et leur capture. Ce seuil
+vient de la phase mesurée à 30,63 secondes et de moins de dix secondes pour
+la capture et la fermeture, le 9 novembre. Une scène prête ne garantit pas
+qu'il reste assez de temps pour la mesurer.
+
+La version suivante n'oublie que les instantanés dont les pages recouvrent la
+destination écrite. Le test échoue avec l'ancien vidage global et passe avec
+les intersections. Trois autres défauts réintroduits sont détectés : confondre
+la fin exclue avec une adresse incluse, conserver une banque recouverte et
+ignorer le bord de page situé avant son adresse. Les 248 tests passent avec
+la comparaison activée puis désactivée, quatre tests réseau restent ignorés.
+L'objet qui instancie le code est reconstruit et le paquet privé est figé.
+Son résultat en jeu reste à mesurer ; une CI démarre avant ce lancement et
+retarde la mesure sans être interrompue.
+
+Le relevé de la version ciblée retient ensuite 387 instantanés pendant
+30,65 secondes de mouvements. Il compte 98 816 décisions, dont 75 118 évitent
+l'invalidation forcée, soit 76,02 %. Les 582 opérations d'invalidation
+conservent des banques et n'en recouvrent aucune dans cette période.
+Un vidage pour capacité reste présent. Ce sont des invalidations évitées,
+pas une mesure des octets réellement transférés : les écritures signalées
+normalement peuvent encore provoquer un envoi. Le monde et Link sont visibles
+avant et après, l'arrêt est normal.
+
+Les quatre passages alternés, avec les compteurs désactivés, donnent 24,10,
+22,15, 24,35 et 22,98 images/s, dans l'ordre activé, désactivé, activé,
+désactivé. Le cumul donne 24,23 contre 22,48, soit +7,79 % observés.
+Les fenêtres complètes retenues couvrent 99,06 secondes activées et
+133,48 désactivées : cette différence compte. Quinze intervalles dépassent
+100 ms dans le premier témoin, aucun dans les autres passages retenus.
+Une vérification secondaire, choisie après lecture des résultats, ne garde que
+les fenêtres commençant au moins trente secondes après le début de la caméra.
+Elle donne 24,50 contre 23,46, soit +4,41 %. Elle ne remplace pas le résultat
+principal et ne prouve pas un gain universel. Les quatre marches et arrêts
+sont normaux ; les captures sont lues. Les 30 images/s ne sont pas atteintes.
+
+Deux essais de témoin restent exclus. Le premier quitte 134 au chargement avec
+une erreur de mémoire Vulkan, sans état de jeu accepté. La reprise termine
+normalement, mais une nouvelle CI apparaît dans neuf des quinze observations
+de la phase ; toute sa cadence est rejetée. Le témoin est repris après sa
+sortie. Le rapport `spikes/switch2-room/native-bank-2026-11-09.json` conserve
+les exclusions, les compteurs et les quatre passages acceptés.
+
+La variante reste privée. Il manque la recherche de clignotements sur des
+images consécutives, une nouvelle zone, le son et la sauvegarde puis reprise.
+Comparer la source juste avant un envoi ne prouve pas encore qu'une écriture
+concurrente du jeu ne peut pas séparer cet instantané des octets effectivement
+envoyés. Le suivi normal des écritures et la garde GPU restent nécessaires ;
+le gain de cadence ne remplace pas cette preuve. La prochaine piste examine
+le regroupement déjà prévu des soumissions GPU dans le mode parallèle,
+sans modifier le moteur installé.
+
+Le réglage de regroupement existant est ensuite essayé en mode parallèle 2,
+avec les banques optimisées : 8 ms donne 23,51 images/s, puis le témoin à
+500 microsecondes donne 22,01. Les dernières fenêtres tournent autour de
+25 images/s dans les deux cas. Ce sont deux passages successifs, avec
+chargements initiaux et couverture inégale, pas une comparaison alternée.
+Les déplacements et arrêts sont normaux. Un premier témoin reste noir avant
+toute activation observée du regroupement ; son relevé de fils d'exécution
+ne désigne pas une cause, et il est exclu. La reprise atteint la scène.
+Le réglage installé reste inchangé. Le rapport est
+`spikes/switch2-room/fence-window-2026-11-09.json`.
+
+### 9 novembre à partir de 11 heures : reprendre les avancées des autres moteurs
+
+Souhib demande de rechercher les améliorations des autres émulateurs et de
+porter notre travail sur une base plus récente quand cela se justifie.
+La vérification des dépôts trouve douze commits Lichii depuis la base de
+build 125. La révision `986a2b684` du 9 novembre à 10:54 UTC ajoute un profil
+plus précis. Elle contient aussi les attentes de sémaphores sans vidage complet,
+la réutilisation de petits uniformes et de descripteurs du
+[changement #949](https://github.com/zortos293/Lichii/commit/a4f62873277556960b5edc4c000f8ad482e5fac6).
+Un descripteur indique ici à un programme graphique quelle image ou quel
+tampon lire. La réutilisation vise les dessins dont ces ressources n'ont pas
+changé. Les vérifications amont relisent les données et comparent le résultat ;
+elles ne sont pas des témoins de cadence sans coût.
+
+La nouvelle quotidienne d'Eglantine du 9 novembre pointe toujours sur
+`78743f30c`, notre base déjà étudiée. Une date de publication plus récente ne
+constitue donc pas une nouvelle base de code. Orchid 0.9.2 apporte des
+changements pour d'autres jeux et pour les dates de soumission GPU ; aucune
+correction du monde absent dans notre essai Zelda n'est encore démontrée.
+Le changement de fil d'horloge Lichii concerne surtout Windows : Linux
+bloquait déjà cette attente dans le système. Son compte rendu Windows ne
+mesure d'ailleurs pas de gain de FPS dans Zelda. Il ne prédit pas un gain
+sur notre serveur.
+
+La nouvelle copie Lichii reste distincte de notre copie Eglantine et de ses
+binaires figés. Sa première compilation reprend le même compilateur Clang 23,
+le même profil PGO et ThinLTO. Le code C++ reste amont ; seule l'adresse de
+téléchargement de la dépendance SDL est épinglée comme précédemment.
+Lichii a déjà modifié les envois des grandes banques. Il faut mesurer ce
+nouveau chemin avant de déplacer notre comparaison d'instantanés. Le défaut
+de curseur découvert plus tôt subsiste dans son anneau ; son correctif devra
+être porté seul, sans le second anneau en mémoire système écarté.
+
+La lecture d'autres moteurs précise les méthodes à reprendre. Ryubing associe
+des générations aux plages mémoire modifiées et évite d'écraser des données
+plus récentes du GPU. Dolphin attend de la place réellement libérée avant de
+déplacer le curseur d'un anneau. PCSX2 conserve ses commandes et ressources
+jusqu'à leur barrière d'achèvement et relance un lot quand une allocation le
+nécessite. Ces mécanismes ne se copient pas indépendamment de leurs règles
+de suivi mémoire. Ils orientent les tests et les points de synchronisation,
+sans promettre une hausse de cadence. Les révisions et fichiers consultés
+sont conservés dans le laboratoire ; le plan lie les sources exactes.
+
+Une relecture de la nouvelle base Lichii trouve aussi un conflit potentiel
+entre deux améliorations récentes. Un sémaphore est un compteur sur lequel
+un autre travail attend. Certains de ces compteurs ont une valeur miroir
+réservée au GPU. Le chemin accéléré peut lire la mémoire ordinaire alors que
+le chemin de référence lit ce miroir. Un test isolé utilisant les vrais
+en-têtes et les corps de fonctions extraits reproduit la divergence sur des
+valeurs synthétiques ; il ne reproduit pas encore un défaut dans Zelda.
+Une première correction séquentielle ne prouve pas tous les entrelacements
+de fils d'exécution. La compilation de référence et la préparation d'une
+correction restent séparées. Une version récente doit aussi préserver les
+résultats du jeu, pas seulement réduire une attente.
+
+La compilation de la référence Lichii termine avec 1 086 tests réussis et
+quatre tests réseau ignorés sans réseau. Son premier contrôle en mode 0
+affiche bien Kokiri, mais ne vérifie aucun uniforme conservé ni descripteur
+rejoué. Le code exige que le dessin soit traité par le fil GPUBack. Zéro
+désaccord avec zéro cas vérifié ne valide donc rien. Le mode 1 permet ce
+traitement en arrière tout en gardant les macros sur ce même fil ; il
+n'active pas le raccourci d'acquire dont la composition reste douteuse.
+
+Ce second contrôle observe 592 différences d'octets sur 334 475 vérifications
+d'uniformes dans une fenêtre complète de mouvements. Le diagnostic reprend
+le chemin habituel, donc cette mesure n'attribue pas encore un défaut visuel
+précis. Elle invalide néanmoins l'hypothèse selon laquelle une chaîne de
+dessins sans notification garantit des données inchangées. Les 120 832
+comparaisons de descripteurs de la période concordent. Un vrai test du cache
+reproduit le cas : une page est déjà marquée modifiée, le jeu passe un octet
+de 1 à 9 sans nouvelle notification, et l'allocation liée conserve l'ancien
+octet. Il échoue avant correction et si celle-ci est retirée.
+
+La correction compare les octets au snapshot réellement envoyé avant de
+reprendre l'ancienne allocation. S'ils diffèrent, le chemin existant lit et
+envoie les nouvelles données. Les 18 tests ciblés passent, avec 80 303
+assertions ; la mutation qui supprime seulement cette validation échoue.
+Le correctif de curseur est porté séparément, sans changer le type de mémoire
+ni ajouter le second anneau. La construction combinée réussit ensuite
+1 091 tests, quatre restent ignorés sans réseau. Les objets instanciant les
+deux corrections sont reconstruits et le binaire exécuté est identifié.
+
+L'ancien vérificateur d'uniformes est conservé tel quel. Il force le chemin
+de référence et compte les différences qu'une réutilisation aveugle aurait
+manquées ; remettre son compteur à zéro ne prouverait pas notre correction.
+Le contrôle suivant, sans ce vérificateur, exerce 338 432 reprises dans la
+fonction corrigée et compare 118 784 descripteurs sans différence. La preuve
+des octets repose aussi sur le test réel, sa mutation et le code reconstruit ;
+ce compteur de reprises n'est pas un deuxième oracle indépendant de données
+GPU. Les scènes avant et après sont lues et l'arrêt est normal.
+
+Les essais sans sondes donnent ensuite 20,42 images/s en mode 1 et 19,93
+en mode 0, avec marche au sol et arrêts normaux. Ce sont deux passages
+successifs, pas une comparaison alternée des modes ni des versions. Ils
+n'atteignent pas 30 images/s et ne justifient pas de remplacer le moteur
+installé. Le portage et les résultats restent conservés dans
+`spikes/switch2-room/upstream-refresh-2026-11-09.json` et le
+fichier `spikes/switch2-room/amont/lichii-986a2b-correctness.md`.
+
+Le pilote reçoit aussi une correction de contrôle. Certains drapeaux Lichii,
+dont `EDEN_NX2_NO_MESH`, sont actifs dès qu'ils existent : `=0` reste actif.
+Le pilote omettait déjà la variable pour `unset` ; il le fait maintenant
+aussi pour `0`. Le test échoue avec l'ancien filtrage, passe après correction
+et échoue par réintroduction. Les cas `1` et `unset` ainsi que la valeur zéro
+des réglages scalaires sont contrôlés. Les anciennes comparaisons gardent
+`NO_MESH=1` dans les deux conditions. Le contrôle précédent sans surcharge,
+qui utilisait explicitement `unset`, n'est pas requalifié en échec. Le piège
+renforce les consignes du dépôt. Les captures, les clés et les données des jeux
+restent privées.
+
+### 9 novembre à partir de 12:50 : distinguer les valeurs des compteurs GPU
+
+La comparaison des forks retrouve un changement précis encore absent de
+notre base Lichii : la [proposition #874](https://github.com/zortos293/Lichii/pull/874).
+Le cache de requêtes retenait derrière une clôture GPU tous les rapports
+portant un drapeau de clôture. Certains publient pourtant une constante,
+appelée *payload*, et ne lisent aucun résultat du GPU. En précision basse
+avec les clôtures par défaut, cette attente peut donc bloquer inutilement
+le travail qui attend la constante. Les vrais compteurs GPU et les modes
+plus stricts doivent conserver leur attente. Le correctif traite aussi la
+durée de vie de la requête ; retirer seulement un drapeau risquerait de
+libérer deux fois la même ressource.
+
+Une nouvelle copie isolée reprend notre base `986a2b684` et ses deux
+corrections de fiabilité. Le test utilise le vrai cache de requêtes, le vrai
+gestionnaire de clôtures et une mémoire invitée mappée. La fin du travail
+matériel est simulée explicitement. Avant le port, cinq préconditions passent,
+puis la mémoire contient encore 100 au lieu de 5 : l'attente est reproduite.
+Le correctif amont exact passe neuf tests et 571 assertions. Ils couvrent
+les modes de précision, les vrais compteurs, les trois sorties de nettoyage,
+les miroirs et les horodatages. Cinq réintroductions volontaires de défauts
+compilent, puis échouent sur la publication, la garde de compteur, les
+libérations absente et double, et le miroir. Un rasterizer nul qui exécutait
+simplement le callback immédiatement aurait caché le défaut initial ; il
+ne sert donc pas de gestionnaire de clôtures dans cette preuve.
+
+Cette preuve ne mesure pas la cadence et ne simule pas toutes les courses
+de fils d'exécution. Le mode 1 reste retenu pour éviter le raccourci d'acquire
+non qualifié. La compilation complète et la preuve d'activation en jeu
+précèdent tout chiffre de FPS. Un marqueur de journal ne s'active que sur
+demande et après une publication éligible effective ; il sera absent des
+mesures de cadence.
+
+La construction complète passe ensuite 1 100 tests et 71 893 627 assertions ;
+quatre tests réseau sont ignorés dans le conteneur sans réseau. Le binaire
+identifié exécute effectivement le callback éligible. Kokiri, les mouvements
+de caméra et la marche au sol sont lus dans les captures ; l'arrêt est normal.
+Ces contrôles ne prouvent pas un changement de zone ni une reprise de sauvegarde.
+
+Les quatre passages sans sondes alternent ensuite corrigé, témoin, corrigé,
+témoin : 21,32, 20,21, 20,62 puis 19,93 images/s. Chaque départ restaure les
+mêmes 3 504 fichiers de données privées et de cache, puis la même progression
+Kokiri. Les fenêtres entières retenues couvrent 85,38 secondes et 1 800 images
+pour le correctif, contre 119,586 secondes et 2 400 images pour le témoin.
+Le regroupement donne 21,08 contre 20,07 images/s, soit +5,05 % observés.
+La couverture inégale, les états du système et les personnages du monde
+restent des limites. Aucune image retenue ne dépasse 100 ms ; les quatre
+marches et arrêts sont normaux. Aucun compilateur, profileur ou travail CI
+n'est observé dans les échantillons de ces phases. Le réglage de suppression
+de certains shaders déjà utilisé reste commun aux deux conditions : la
+fidélité complète du monde n'est pas certifiée par cet essai.
+
+Le gain reste petit et ne démontre pas 30 images/s. Le moteur de la salle
+n'est pas remplacé. Les preuves et les exclusions de portée sont conservées
+dans `spikes/switch2-room/payload-release-2026-11-09.json` et les patches
+séparés de `spikes/switch2-room/amont/lichii-payload-release-874.md`.
+
+Une vérification amont à 12:47 trouve aussi le commit `0b83798bf`, publié
+à 12:05. Ce changement de lectures asynchrones modifie 26 fichiers, dont
+le cache de requêtes. Il vise à laisser le fil graphique poursuivre son
+travail pendant que le fil lecteur attend sa copie, et à préparer plus tôt
+les copies de pages souvent relues. Sa portée dépasse un simple réglage.
+Il reste à composer et qualifier séparément, sans déplacer la base d'une
+comparaison déjà préparée. Eglantine reste sur `78743f30c` à cette vérification.
+La copie amont séparée compile ensuite et passe 1 123 tests ; quatre tests
+réseau sont ignorés. Cela valide sa construction locale, sans corriger la
+réutilisation aveugle d'uniformes encore présente et sans mesurer sa cadence.
+Le test de composition doit relier les vrais propriétaires des requêtes,
+clôtures et téléchargements. Les nouvelles opérations de lecture possèdent
+des versions vides dans l'interface de test : les laisser en place ferait
+passer les anciens tests sans exercer la nouvelle synchronisation.
+
+La composition trouve ensuite un défaut que les deux ensembles de tests
+séparés auraient manqué. Le port naïf de #874 inscrit encore une publication
+immédiate dans la liste des rapports différés. À la même adresse, son
+nettoyage peut retirer la protection d'un rapport plus ancien dont les
+données GPU ont été réécrites. La fixture relie cette fois les vrais caches
+de requêtes et de tampons au gestionnaire de clôtures. Une copie anticipée
+et des écritures retardées reproduisent une lecture finale de 73 au lieu
+de 5. Ces nombres viennent du test, pas d'une capture du jeu.
+
+La correction exclut aussi ces publications immédiates de l'inscription
+différée. Le premier ensemble passe 63 cas, mais les trois tests d'anneau
+restent alors exclus par un mauvais nom de filtre. Ils étaient compilés,
+pas exécutés. Le filtre est corrigé avant de les compter. Le contrôle étendu
+passe ensuite 68 cas et 1 043 498 assertions. Il exerce aussi les vrais
+appels de fin de lecture avant les miroirs et horodatages, et le nettoyage
+sur rapport invalidé ou non synchronisé. Les mutations et la construction
+complète du candidat restent nécessaires ; aucune occurrence en jeu de ce
+défaut synthétique n'est affirmée.
+
+Les quatre mutations compilent puis échouent sur les assertions attendues :
+l'inscription immédiate rétablie, la validation d'octets retirée, la fin de
+lecture supprimée et le nettoyage de rapport supprimé. La construction
+complète passe ensuite 1 140 tests et 71 906 299 assertions ; quatre tests
+réseau sont ignorés sans réseau. Les fichiers publics reconstruisent
+exactement les onze fichiers C++ et de tests du candidat, avec le marqueur
+séparé. Le binaire exécuté et le pilote graphique réellement chargé sont
+identifiés avant les essais.
+
+Le premier diagnostic en jeu trouve 93 643 téléchargements comparés sans
+différence, mais ne montre aucun rapport de descripteurs. Il est refusé
+comme qualification complète. Le filtre Vulkan avait gardé seulement les
+avertissements alors que ce rapport sort au niveau information. L'absence
+du message ne prouvait donc pas l'absence du chemin. Cette erreur coûte un
+passage de diagnostic supplémentaire ; aucun changement C++ ne la corrige.
+La reprise dure 91,87 secondes et vérifie 102 313 téléchargements et
+204 800 descripteurs sur les intervalles complets de mouvement, sans
+désaccord ni octet attendu manquant. Les 22 986 octets réécrits exclus ne
+sont pas déclarés comparés. Les 677 517 reprises d'uniformes attestent
+l'exécution de la fonction corrigée, avec les limites de preuve déjà notées.
+Les compteurs de téléchargements sont cumulatifs : leurs différences sont
+prises entre deux rapports, sans additionner plusieurs fois les mêmes
+opérations. Les captures et les arrêts sont vérifiés.
+
+Un premier essai sans sondes donne 25,06 images/s. La comparaison alternée
+restaure ensuite les mêmes 3 511 fichiers privés et le même point Kokiri
+avant chaque départ. Nouvelle base et témoin donnent successivement 24,85,
+19,46, 23,22 et 19,81 images/s. Les fenêtres complètes totalisent 3 000
+présentations en 124,11 secondes contre 1 800 en 91,3998 secondes, soit
+24,17 contre 19,69 images/s. L'écart observé est +22,74 %, avec couverture
+inégale et variation entre passages. Aucun gel retenu ne dépasse 100 ms ;
+les marches et arrêts sont normaux et aucune compilation, analyse de profil
+ou tâche CI n'est observée dans les échantillons de ces phases.
+
+Une capture montre pourtant le bonnet de Link dressé et étiré. Une ancienne
+capture a déjà un bonnet long vers l'arrière, mais pas la même pointe
+verticale parmi les six images comparées. Les poses et cadrages diffèrent :
+ni cause ni régression ne sont établies. La cadence et la fidélité restent
+deux questions distinctes. Le gain ne démontre pas 30 images/s ; le moteur
+installé est conservé. Le rapport est `spikes/switch2-room/readback-2026-11-09.json`.
+Le prochain profil vise le coût CPU de ce nouveau binaire, sans les sondes
+GPU, dans une exécution distincte des mesures de cadence.
+
+Cette exécution enregistre ensuite tous les fils du nouveau processus,
+pendant 24,46 secondes de caméra. Le démarrage effectif de l'enregistrement
+est confirmé après le chargement des informations de modules. Les 12 419
+échantillons ne signalent aucune perte ni expiration de ce chargement.
+Les six cœurs invités rassemblent environ 66,5 % des cycles échantillonnés,
+le fil GPUBack 18,4 %, l'avant 8,6 % et le travailleur Vulkan 4,6 %.
+Ce sont des cycles CPU exécutés, pas les temps d'attente ni le temps GPU.
+La dispersion des adresses du code invité rend aussi trompeur un classement
+limité à la première fonction. Les piles et les passages par le noyau restent
+à analyser avant de désigner le prochain correctif. Les captures sont lues,
+l'arrêt est normal et les données brutes restent privées. Le rapport agrégé
+est `spikes/switch2-room/readback-cpu-profile-2026-11-09.json`.
+
+La relecture précise une limite majeure : 75,26 % des cycles échantillonnés
+n'ont pas de chaîne DWARF exploitable, dont 89,83 % sur GPUBack. DWARF est
+le format qui aide les outils à reconstruire les appels depuis la pile.
+Les fonctions du CLI au point échantillonné sont bien identifiées ; cela
+ne nomme pas leurs appelants perdus. La présence des fichiers exécutables
+exacts ne répare pas cette lacune. Les fonctions internes non nommées de
+libc et du pilote ne sont donc pas rebaptisées copies mémoire ou compilation
+de shaders. La consigne du dépôt est renforcée sur cette différence entre
+échantillons conservés et piles utilisables.
+
+Une piste reste suffisamment établie pour un essai : 177 piles passent par
+l'attente inactive des cœurs invités, dont 156 par `sched_yield`. Cet appel
+demande au noyau de laisser passer un autre fil. Le code Linux Switch 2
+attend activement jusqu'à 100 microsecondes avant de dormir sur une condition.
+Le réglage existant `EDEN_NX2_IDLE_SPIN_US=0` saute cette boucle, mais garde
+le verrou, le prédicat et la notification de réveil. Il ne supprime pas
+toute l'attente du jeu. Ces piles expliquent au moins 1,37 % des cycles,
+sans attribuer à cette boucle tous les cycles noyau des cœurs invités.
+
+Quatre processus neufs comparent 0/100/0/100 microsecondes avec le même
+binaire et les mêmes fichiers privés restaurés. Le réglage mis en cache
+et son octet d'initialisation sont lus avant chaque phase par le débogueur,
+puis celui-ci est détaché. Les 62 fils observés reprennent dans chaque cas.
+L'attachement dure environ 0,4 seconde et précède la préparation de caméra.
+Aucun débogueur ni profileur ne reste pendant les fenêtres mesurées.
+
+Les passages donnent 25,82/25,02/25,65/24,57 images/s. Les six fenêtres
+complètes de chaque condition totalisent 3 600 présentations, en 139,8684
+secondes à zéro contre 145,1916 à cent. Le regroupement donne 25,74 contre
+24,79 images/s, soit +3,81 % observés. Les six cœurs invités utilisent
+environ 242 à 248 % d'un cœur dans les observations à zéro, contre 307 à
+309 % à cent. Ces compteurs CPU couvrent une autre période que les fenêtres
+de présentation et ne prouvent pas le chemin critique. Aucun gel retenu
+ne dépasse 100 ms ; les déplacements et arrêts sont normaux. Le bonnet
+allongé apparaît dans les deux conditions. Le réglage zéro reste une piste
+du laboratoire, sans installation ni démonstration de 30 images/s.
+Le rapport est `spikes/switch2-room/idle-spin-2026-11-09.json`.
+
+La capture suivante doit garder des piles plus longues sur les fils
+graphiques pour tenter de retrouver leurs appelants. Les symboles du pilote
+RADV sont récupérés auprès d'Ubuntu et leur Build-ID est vérifié. Ce numéro
+relie des symboles à une version exacte du binaire. Les symboles de la libc
+chargée restent indisponibles aux emplacements vérifiés ; aucune version
+approximative ne leur est substituée. Le système n'est pas mis à jour pour
+cette recherche.
+
+Une seconde capture garde 65 528 octets de pile par échantillon, au lieu
+de 8 192, sur les trois fils graphiques seulement. Elle dure 24,45 secondes
+et conserve 3 577 échantillons, mais signale la perte d'un bloc de données.
+Cette perte interdit d'en faire une distribution complète ou une mesure de
+cadence. Parmi les données conservées, les chaînes restent manquantes pour
+environ 90 % des cycles de GPUBack et 86 % de GPU. La pile plus grande ne
+résout donc pas leur attribution. Les images sont lues, le jeu s'arrête
+normalement en 3,51 secondes et les huit progressions restent inchangées.
+
+L'amont Lichii avance ensuite à `0ab7736`, publié à 13 h 55 UTC. Les deux
+changements depuis `0b83798` ajoutent des sites de diagnostic par image et
+un nouveau cache de shaders. Le corps final utilise ce cache sans interrupteur
+pour revenir à l'ancien. Sa migration lit les versions 54, 53 et 52, et non
+50 à 54 comme le suggère le message du changement. Elle n'alimente pas les
+enregistrements de programmes au premier démarrage : une session de peuplement
+puis un redémarrage doivent être distingués. Sur cette machine, les files de
+compilation pourraient aussi concurrencer les fils du jeu pendant les ratés
+de cache. Aucun gain de cadence stable n'est encore attribué à cette version.
+
+Une nouvelle copie de travail reçoit cette révision et les mêmes correctifs
+de données uniformes, de curseur et de libération de rapports. Les deux patches
+s'appliquent sans conflit ; les fixtures de régression restent identiques.
+Le compilateur, son profil d'optimisation et la bibliothèque SDL restent les
+mêmes. La compilation vise aussi les nouvelles suites `shader_jobs_tests`
+et `shader_translation_tests`. Le moteur installé et les caches témoins sont
+conservés. L'essai prévu distingue migration, redémarrage chaud et exploration
+d'une autre zone avant de juger les à-coups de compilation.
+
+Cette construction termine en 381,7 secondes. Les 1 160 tests généraux
+passent, quatre tests réseau restent ignorés ; les nouvelles suites ajoutent
+18 tests de tâches de compilation et quatre de traduction, tous réussis.
+Le premier lancement reprend exactement les 3 511 fichiers du témoin privé.
+Le journal confirme une migration depuis le format 54 et atteint l'écran
+Kokiri en 67,7 secondes dans cette seule exécution. Ce délai, avec les sondes
+actives et sans alternance, ne compare pas les chargements. Les lectures et
+descripteurs sont ensuite vérifiés pendant les mouvements de caméra.
+
+Le diagnostic retient 92 193 téléchargements et environ 299 955 Kio, sans
+divergence ni octet GPU attendu manquant. Les 16 850 octets réécrits exclus
+restent séparés. Les 194 560 descripteurs vérifiés ne divergent pas ;
+683 075 reprises d'uniformes attestent le code corrigé sans être un oracle
+indépendant. Les images sont lues et l'arrêt est normal en 3,10 secondes.
+Le journal confirme aussi l'utilisation de la fonction Vulkan qui conserve
+des pipelines compilés pour le pilote : 980 sont écrits. Les 823 programmes
+abaissés n'avaient aucun enregistrement au premier lancement, comme prévu.
+
+Le premier redémarrage à chaud échoue toutefois au contrôle de disponibilité :
+l'image est entièrement noire, encore après 125 secondes. Aucune cadence
+n'est acceptée. Les piles montrent les fils graphiques, les travailleurs
+de shaders et les six cœurs invités au repos ; cela ne prouve pas un blocage
+du cache. L'arrêt reste normal, en 1,70 seconde. La comparaison alternée est
+différée pour isoler cette panne. La nouvelle révision reste non qualifiée.
+Le rapport est `spikes/switch2-room/cache-v2-2026-11-09.json`.
+
+Un essai retire seulement le fichier binaire du pilote dans la même copie
+chaude, en gardant le cache V2 des programmes et toutes les autres options.
+Il atteint Kokiri en 67,98 secondes puis donne 25,99 images/s sur 1 800
+présentations, avec marche au sol et arrêt normal en 3,60 secondes. Aucun
+intervalle retenu ne dépasse 100 ms. Les six images sont lues ; le journal
+compte 823 programmes repris et 153 nouveaux, sans programme périmé.
+Ce succès isolé oriente vers la réutilisation des binaires du pilote ou
+son effet sur le timing. Il ne prouve ni corruption ni gain causal de FPS.
+La création de nouveaux binaires reste active ; supprimer ce fichier à
+chaque lancement n'est pas une correction installée.
+
+La recherche CPU reprend séparément sur le candidat `0b83798` corrigé.
+Un correctif Linux publié le 6 novembre décrit une incohérence possible
+entre l'instruction précise et les registres capturés sur AMD. Le nouvel
+enregistrement impose donc un événement non précis. Son attribut réel est
+lu dans le fichier : zéro, contre deux dans l'ancien enregistrement.
+Les 1 801 échantillons ne contiennent aucune perte, mais les chaînes restent
+largement manquantes. Le changement d'événement ne suffit donc pas à réparer
+le déroulage ; aucune autre variante du profileur n'est choisie sur cette
+seule hypothèse.
+
+Les règles de reconstruction de l'exécutable exact permettent néanmoins
+de retrouver le premier retour de trois fonctions ciblées. Les 283 adresses
+prévues sont valides ; un contrôle décalé de huit octets n'en trouve aucune
+dans le code du CLI. Ce n'est pas une reconstruction de toutes les chaînes.
+Les 115 échantillons de `WaitFor` viennent tous de `DmaPusher::Step`, par
+`WaitForWriters`. Ils représentent 24,31 % des cycles du fil GPU dans ce
+profil à attente inactive de 100 microsecondes, pas un budget de FPS
+récupérable ni une mesure de la configuration à zéro.
+
+L'amont fusionne justement à 16 h 03 le changement `1a5e995` : il remplace
+cette attente de tous les écrivains par celle des écrivains placés avant
+la dernière synchronisation hôte. Il renvoie aussi vers le fil arrière
+les macros dont le code lit la mémoire. Un port sélectif reprend ces douze
+fichiers sur `0b83798` avec les correctifs précédents, sans le cache V2.
+Seule la liste de tests CMake demande une fusion manuelle. Le mode 1 est
+conservé ; le raccourci d'acquire du mode 2 reste hors qualification.
+
+Un contrôle sans GPU utilise les vrais champs et méthodes `NoteWriter` et
+`NoteSync`, ainsi que les corps extraits des anciens et nouveaux helpers.
+Il remplace l'attente elle-même par un enregistreur de position. L'ancien
+helper échoue, le nouveau passe huit cas, puis les mutants qui n'attendent
+rien ou attendent toute la synchronisation échouent sur les assertions
+prévues. Les quatre compilations et liens réussissent. Ce contrôle prouve
+la sélection de position, pas les réveils asynchrones ; la suite complète
+et son vrai fil arrière restent nécessaires. Un marqueur optionnel doit
+ensuite prouver l'appel réel dans le jeu avant les mesures sans sondes.
+
+La construction termine en 317,7 secondes puis passe 1 145 tests et
+71 899 449 assertions. Quatre tests réseau restent ignorés. Les deux
+marqueurs apparaissent une fois dans le jeu réellement lancé. Le diagnostic
+vérifie 101 614 téléchargements et 208 896 descripteurs sans divergence
+ni octet GPU attendu manquant. Les 32 259 octets réécrits exclus restent
+séparés ; les 680 781 reprises d'uniformes ne sont pas un oracle indépendant.
+Les trois images sont lues et l'arrêt est normal en 3,50 secondes.
+
+Quatre passages alternés, avec attente inactive à zéro et toutes les sondes
+absentes, donnent 26,94/26,26/26,97/26,12 images/s. Les mêmes 3 511 fichiers
+privés sont restaurés avant chaque processus. Chaque condition couvre
+3 600 présentations : 133,5558 secondes pour le port, 137,4636 pour le témoin.
+Le regroupement donne 26,96 contre 26,19 images/s, soit +2,93 % observés.
+Les quatre marches et arrêts sont normaux, les vingt-quatre images sont lues
+et aucun intervalle retenu ne dépasse 100 ms. Aucune CI, compilation ou sonde
+CPU n'est observée dans ces relevés. Les durées de préparation diffèrent ;
+ce petit gain reste propre à cette série, sans prouver 30 images/s constantes
+ni une partie complète. Le défaut de bonnet reste une limite de fidélité.
+Le rapport est `spikes/switch2-room/macro-back-2026-11-09.json`.
+
+Le changement amont #1059 compare ensuite les petits tampons directement
+quand leurs octets occupent un même morceau de mémoire hôte. Les autres
+plages sont toujours rassemblées avant comparaison. Le port garde notre
+validation des reprises inchangée : elle continue à copier avant de vérifier.
+Quand une allocation est nécessaire, la copie conservée reçoit les octets
+avant l'allocation et alimente ensuite le tampon envoyé. Deux lectures
+indépendantes de la mémoire du jeu pourraient diverger si le jeu écrit
+entre les deux ; ce nouvel ordre conserve la même copie de référence.
+Il ne rend pas la lecture atomique face à une écriture simultanée.
+
+Le test rouge de l'ancien helper échoue sur les compteurs des nouveaux
+chemins, pas sur des octets incorrects de l'ancien code. Le nouveau helper
+passe 60 tests ciblés et 85 275 assertions, avec la vraie fixture de cache
+de tampons. Un faux allocateur modifie les données invitées après leur
+capture : copier le jeu à nouveau après l'allocation échoue sur les octets
+attendus. Supprimer notre garde de reprise échoue aussi sur les données
+périmées. Ces variantes compilent et se lient toutes avant d'échouer.
+Les trous et plages non contiguës sont testés dans une mémoire synthétique,
+sans revendiquer toutes les règles du gestionnaire réel ou un remapping concurrent.
+
+Les trois fichiers du port et ses tests sont séparés du marqueur optionnel.
+Leur réapplication reconstruit exactement les sources finales. La construction
+complète termine en 68,44 secondes et passe 1 148 tests, avec quatre tests
+réseau ignorés. Dans le jeu réellement lancé, le chemin direct et le chemin
+rassemblé se signalent chacun une fois. Le diagnostic de 91,88 secondes
+vérifie 97 774 téléchargements et 210 944 descripteurs sans divergence ni
+octet GPU attendu manquant. Les 22 360 octets réécrits exclus restent à part,
+et les 681 431 reprises d'uniformes ne forment pas un oracle indépendant.
+Les images sont lues et l'arrêt est normal en 3,50 secondes.
+La comparaison alternée sans sondes donne 26,60/26,65/27,25/26,94 images/s.
+Chaque condition couvre 3 600 présentations, en 133,7208 secondes pour le
+port contre 134,3508 pour le témoin. Le total donne 26,92 contre 26,80
+images/s, +0,47 % observés. Les deux couples évoluent en sens opposés :
+aucun gain utile et répété n'est retenu. Les quatre marches et arrêts sont
+normaux, les vingt-quatre images sont lues et aucun intervalle retenu ne
+dépasse 100 ms. Le coût du marqueur compilé mais désactivé reste non mesuré ;
+ce résultat n'établit pas que l'algorithme ne peut jamais aider ailleurs.
+Le port, ses preuves et sa comparaison ont pris environ 41 minutes. Il reste
+un prototype documenté ; le candidat #1056 reste la référence pour la suite.
+Le rapport est `spikes/switch2-room/uniform-span-2026-11-09.json`.
+
+Le mode 2, qui avance aussi les macros sur le premier fil, gardait un obstacle
+de correction : il pouvait accepter une acquisition de sémaphore en lisant
+le mot brut, alors que le miroir conservé par les publications contenait une
+autre valeur. Un sémaphore sert ici à attendre qu'un autre travail ait publié
+la valeur attendue. Nous ajoutons une politique privée, `Reference`, choisie
+une seule fois au démarrage. Elle conserve l'attente du fil arrière puis
+la lecture du miroir, pour la première acquisition et ses reprises.
+Elle ne promet donc pas de supprimer le coût de ces attentes.
+
+Les premiers tests du lecteur de commandes et ceux des callbacks passaient
+séparément. Cela ne prouvait pas leur composition. Le nouveau test relie
+le vrai lecteur, la file et son fil arrière aux vraies requêtes, publications,
+clôtures et rapports de lecture, sur les mêmes mots mémoire. Une publication
+laisse 100 dans le mot brut et 5 dans son miroir : attendre au moins 10 doit
+encore bloquer. L'ancienne politique échoue sur cette assertion ; `Reference`
+la respecte, y compris par une seconde adresse du même mot, puis reprend
+après la publication de 20. Un deuxième cas consomme réellement la commande
+d'un compteur avant l'achèvement de son travail graphique. Consommer la file
+ne doit pas publier trop tôt le résultat 73. Le test vérifie l'attente, puis
+la publication et le retrait du rapport après l'achèvement contrôlé.
+
+Les deux cas passent 107 assertions. Quatre défauts réintroduits compilent
+et se lient, puis échouent sur les assertions attendues : garde retirée,
+lecture brute, rapport jamais terminé et clôture signalée trop tôt.
+L’exécutable de preuve passe 1 148 tests avec quatre exclusions réseau ;
+les 86 cas exécutés sous `Reference` conservent aussi les contrôles
+de propriété des registres et des macros de #1056. Le matériel hôte et ses
+instants d'achèvement restent simulés dans cette preuve. Elle ne valide pas
+le fil de clôtures Vulkan réel, toute la concurrence du mode 2 ou un gain
+de cadence. La construction fraîche et le contrôle en jeu restent nécessaires.
+Les patches fonctionnel et d'activation sont séparés ; leur réapplication
+reconstruit exactement les trois fichiers testés. La construction complète
+termine en 46,03 secondes après 12,41 secondes de préparation. Ses 1 148 tests
+passent, avec quatre exclusions réseau ; les 86 cas ciblés sous `Reference`
+passent aussi sur cet exécutable reconstruit. Aucun changement installé.
+
+Le contrôle réel de 91,59 secondes atteint Kokiri et vérifie 111 405
+téléchargements, 395 309 Kio et 230 400 descripteurs sans divergence ni
+octet GPU attendu manquant. Les 32 337 octets réécrits exclus restent à
+part. Le fil arrière exécute bien une macro lisant la mémoire ; les fenêtres
+complètes comptent 5 995 791 acquisitions drainées et aucune acceptation
+rapide. Les 16 832 contrôles de registres dans la phase observée ne suffisent
+pourtant pas à valider le mode : seize avertissements signalent des
+différences de mémoire miroir des registres pendant le chargement.
+Le résumé « zéro différence » ne compte que les registres ordinaires.
+Les avertissements du miroir sont plafonnés à seize pour tout le processus :
+leur absence ensuite ne prouve pas que le jeu n'en produit plus.
+Nous refusons donc cette variante avant les mesures de cadence. Les trois
+images sont lues et l'arrêt est normal en 2,80 secondes. La configuration,
+les huit progressions et la politique GPU sont inchangées, les quatre
+manettes privées disparaissent et la boîte noire reprend. Une nouvelle
+copie isolée conserve le défaut pour le reproduire sans GPU et distinguer
+une vraie divergence d'une erreur du contrôle lui-même.
+Rapport : `spikes/switch2-room/reference-acquire-2026-11-09.json`.
+
+La vérification amont de 18 h 07 trouve trois nouveaux changements :
+FSR 3.1 pour Ocarina, ses réglages de caméra, puis une copie de textures
+évitable quand plusieurs images recouvrent toutes les couches de la destination.
+Les contextes des trois patches existent sur notre base sans cache V2.
+FSR est un autre rendu, activé explicitement, sans génération d'images ;
+les transitions vers le rendu natif demandent encore un contrôle visuel.
+Pour les textures, le saut de copie déjà décrit à Kokiri existe dans notre
+base ; le nouveau cumul de couches est mesuré en amont sur Mario Kart World,
+pas encore observé dans notre passage Zelda. Aucun gain local n'en est déduit.
+Nous conservons ces options séparées du défaut de synchronisation trouvé.
+Le relevé est `spikes/switch2-room/upstream-refresh-1807-2026-11-09.json`.
+
+Le test ciblé trouve ensuite une erreur dans le vérificateur lui-même.
+Il tient compte des écritures encore en attente pour les registres ordinaires,
+mais compare leur miroir avant ces écritures. Il peut ainsi signaler une
+différence légitime puis remplacer la bonne valeur du premier fil par
+l'ancienne. Le test traverse la vraie file arrière, laisse une écriture
+en attente, déclenche le contrôle par 4 096 appels de macro, puis fait
+relire le registre par une autre macro. L'ancien code produit zéro au lieu
+de `0x1234`. Ce n'est donc pas seulement un mauvais message de diagnostic.
+Cela explique un mécanisme compatible avec les avertissements observés,
+sans prouver qu'il les explique tous.
+
+Le correctif calcule le miroir attendu comme le ferait la consommation
+des écritures, sans forcer cette consommation. Ses tests conservent aussi
+les modes qui ne doivent pas modifier le miroir. Le résumé conserve son
+préfixe et ajoute deux totaux non plafonnés, pour le miroir et son contrôle.
+Un test séparé injecte de vraies différences sur le fil arrière et lit le
+vrai journal : une erreur ordinaire, 21 erreurs de miroir et une erreur
+de contrôle restent comptées malgré les seize avertissements. Il exige
+un nombre positif de contrôles, au lieu d'inférer l'exécution d'une option.
+Les cinq défauts réintroduits compilent et se lient avant de faire échouer
+les assertions attendues, y compris un vérificateur entièrement supprimé.
+
+La suite normale passe 1 149 tests avec quatre exclusions réseau.
+Les 87 régressions sous `Reference` et vérification passent ; le test du
+journal, explicitement exclu de la suite par défaut, passe ses 17 assertions
+dans un processus séparé. Aucun en-tête ni contrat binaire ne change.
+Le contrôle corrigé sert aussi à récupérer une macro qui écrit hors de
+son ensemble prévu : le correctif n'est pas déclaré sans effet partout
+quand les sondes sont absentes. Ce chemin garde ses régressions existantes,
+sans nouvelle injection complète d'une macro échappée. La reconstruction
+et le nouveau diagnostic en jeu restent les portes suivantes.
+
+La reconstruction complète termine en 37,68 secondes, puis passe à son tour
+1 149 tests, les 87 régressions et le test séparé du journal. Le nouveau
+diagnostic de 91,61 secondes atteint Kokiri : 117 940 téléchargements,
+427 875 Kio et 239 616 descripteurs sont vérifiés sans divergence ni octet
+GPU attendu manquant. Les 37 618 octets réécrits exclus restent à part.
+Les 346 résumés, dès le chargement, gardent les trois totaux à zéro ;
+17 472 contrôles appartiennent entièrement à la phase observée. Les fenêtres
+complètes comptent 6 013 785 acquisitions drainées et aucune acceptation
+rapide. Les trois images sont lues et l'arrêt est normal en 3,10 secondes.
+Cela autorise une comparaison bornée sans sondes, pas une certification
+du mode 2 pour toute une partie. Aucun FPS n'est encore attribué au candidat.
+Le rapport est `spikes/switch2-room/front-shadow-verify-2026-11-09.json`.
+
+Les quatre passages sans sondes alternent ensuite les modes 2 et 1 sur
+le même exécutable, avec la politique `Reference` dans les deux. Le même
+état de 3 511 fichiers est restauré avant chaque lancement. Les résultats
+donnent 29,84/26,18/29,76/26,32 images/s. Le total donne 29,80 contre
+26,24, soit +13,57 % observés ; les deux couples vont dans le même sens.
+Le mode 2 couvre 4 800 présentations en 161,088 secondes, le mode 1
+3 000 en 114,3456 secondes. Cette couverture inégale et les durées de
+préparation différentes limitent le pourcentage causal ; la tendance se
+répète sur ce passage, sans valoir pour toute une partie.
+Les quatre marches et arrêts sont normaux. Les vingt-quatre images sont
+lues, les quinze relevés par passage ne montrent ni CI, ni compilateur,
+ni profileur, et aucun intervalle retenu ne dépasse 100 ms. Le bonnet
+vertical déjà vu dans l'ancien témoin apparaît dans les deux modes.
+La limite de fidélité `NO_MESH=1` reste la même.
+
+Ce résultat n'atteint pas 30 images/s constantes : la moyenne reste juste
+en dessous et la pire image du mode 2 prend 66,34 ms. Nous conservons
+ce candidat isolé comme nouvelle base expérimentale. Le son, les zones
+et une sauvegarde reprise restent à qualifier ; aucune version installée
+n'est remplacée. Les manettes privées disparaissent, la boîte noire reprend,
+la politique GPU revient au mode automatique à 150 W, et la configuration
+ainsi que les huit progressions restent identiques.
+
+La proposition suivante était de vérifier moins souvent une acquisition
+encore bloquée, en conservant une vraie lecture avant toute acceptation.
+La lecture des appels fait écarter la version naïve avant de la coder.
+L'ordonnanceur vérifie l'attente, puis l'exécution de la liste la vérifie
+encore : réarmer le délai après un succès pourrait bloquer ce second appel
+et faire tourner l'ordonnanceur sans progrès. Même en ne mémorisant que
+les échecs, une valeur temporaire écrite par le CPU, sans notification,
+pourrait disparaître pendant le délai. Aucun test exécuté ni gain de
+cadence n'est revendiqué pour cette proposition.
+
+Un relevé séparé garde seulement le profil par zones, sans vérification
+des registres, des téléchargements ou des descripteurs. La caméra tourne
+91,40 secondes, avec huit fenêtres complètes d'environ dix secondes par fil.
+Le fil arrière occupe 841,27 ms de CPU par seconde, le premier fil
+517,51 ms et le fil Vulkan 243,92 ms. Ces fils travaillent en parallèle :
+leurs temps ne s'ajoutent pas pour former le budget d'une image.
+Les zones mesurent, elles, le temps écoulé. La préparation des tampons
+occupe 183,78 ms par seconde sur le fil arrière ; son compteur représente
+des stages graphiques, pas autant de copies de petits tampons.
+Sur le premier fil, les acquisitions attendent le fil arrière pendant
+602,91 ms par seconde dans ce relevé instrumenté. Cela ne promet pas un
+gain de même taille dans les FPS sans sondes.
+
+La première lecture des logs avait aussi classé des sous-totaux comme
+des zones indépendantes, parce que leur texte avait la même forme.
+Le sous-total des attentes GPU répétait ainsi 45,47 ms déjà comptées.
+Le lecteur utilise désormais les noms de zones du code épinglé ; chaque
+fil retrouve environ 1 000 ms de zones par seconde. La mauvaise lecture
+reste conservée comme contre-exemple. Les trois images sont lues, l'arrêt
+est normal en 3,60 secondes, et la configuration ainsi que les huit
+progressions restent inchangées après retrait des manettes privées.
+Rapport : `spikes/switch2-room/reference-cost-2026-11-09.json`.
+
+Ce résultat justifie de réexaminer #1059 sur la nouvelle base en mode 2,
+sans prédire son gain. Les trois fichiers du port restent exactement ceux
+testés auparavant. Le port ne touche ni la reprise d'un uniforme déjà
+conservé, ni les banques de 64 Kio, ni tous les autres tampons compris
+dans cette zone. Sa nouvelle construction et sa qualification restent
+séparées de la comparaison terminée.
+
+La construction combinée termine en 45,65 secondes et passe 1 152 tests,
+les 87 régressions ciblées et le test séparé du journal. Le diagnostic
+de 91,56 secondes observe les deux chemins du port, chacun signalé une
+fois. Il vérifie 111 689 téléchargements, 403 363 Kio et 247 808
+descripteurs sans divergence ni octet GPU attendu manquant ; les 27 308
+octets réécrits exclus restent à part. Les trois totaux de registres restent
+à zéro, dont 17 984 contrôles dans la phase observée. Les trois images
+sont lues et l'arrêt est normal en 3,00 secondes. Ces activations ne
+mesurent pas la fréquence du chemin direct. La comparaison sans sondes
+contre la base corrigée en mode 2 reste à faire.
+Rapport : `spikes/switch2-room/uniform-span-mode2-2026-11-09.json`.
+
+Les quatre passages alternés donnent ensuite 30,63/29,71/30,65/30,38
+images/s pour le port, le témoin, le port puis le témoin, tous en mode 2.
+Le total donne 30,64 contre 30,04, soit +1,99 % observés. Les couples
+vont dans le même sens, à +3,11 % puis +0,88 %. Le port couvre 3 600
+présentations en 117,501 secondes et le témoin 4 800 en 159,7884 secondes.
+Les préparations diffèrent, environ 95/105/81/82 secondes avant mesure.
+Trois lancements du troisième passage sont exclus avant toute mesure,
+car nous avons trop prolongé leur préparation. La première borne privée
+de 100 secondes rejette aussi un retour d'image validé à 107,8 secondes ;
+elle passe à 120 secondes avant la dernière paire, sans conserver de FPS
+des lancements refusés. Cette préparation variable et la couverture inégale
+limitent le pourcentage causal, même si les deux couples vont dans le même sens.
+
+Les vingt-quatre images sont réellement lues, les quatre marches et arrêts
+sont normaux et les soixante relevés ne montrent ni CI, ni compilation,
+ni profilage. Aucun intervalle retenu ne dépasse 100 ms. Les maxima restent
+55,38 ms avec le port et 58,49 ms pour le témoin : ce n'est pas une preuve
+de 30 images/s constantes. Nous retenons ce petit gain comme nouvelle base
+isolée. Les manettes privées disparaissent, la boîte noire reprend et la
+configuration ainsi que les huit progressions restent identiques. Le moteur
+installé, la réserve `NO_MESH=1` et les qualifications encore manquantes
+de son, de zones et de sauvegarde ne changent pas.
+
+La revue suivante vérifie aussi les conditions réellement appliquées.
+Le journal prouve l'application de « FPS Unlock » et « Max Resolution »
+intégrés au moteur. Le premier remplace le correctif « Dynamic FPS by Dark »
+et propose un pas de temps dynamique ; cela ne prouve pas encore la vitesse
+observable de toute la logique. La génération d'images reste désactivée.
+Le compteur de vitesse de l'émulateur suit l'horloge hôte en multicœur et
+ne suffit donc pas à prouver seul cette vitesse du jeu.
+
+Le producteur des statistiques est l'appel de présentation invité TIPC 229,
+avant ses attentes et la composition, pas le rafraîchissement de l'écran hôte.
+Il compte des demandes de présentation, sans prouver des contenus tous
+visuellement distincts. Un défaut du calcul est reproduit sur son vrai bloc :
+le premier groupe contient 599 intervalles, les suivants 600, mais le diviseur
+reste 599. Les FPS historiques de cette convention sont sous-estimés
+d'environ 0,17 %. Nous conservons leurs valeurs et documentons cette limite
+commune, au lieu d'en faire un gain de performance. La correction du compteur
+et une sonde séparée de régularité sont en cours ; elles doivent donner les
+nombres d'intervalles et leur durée exacte avant toute nouvelle conclusion.
+
+### 9 novembre : mesurer la régularité séparément du débit
+
+Le compteur corrigé passe cinq tests, soit 2 453 assertions, et cinq défauts
+volontaires sont détectés. Le vrai bloc de production extrait avait d'abord
+reproduit la mauvaise division. La construction complète reconstruit aussi
+le fichier qui contient le service : 1 157 tests passent, quatre tests réseau
+restent ignorés. Les 87 régressions et les 17 assertions du journal passent
+séparément. La nouvelle sonde est désactivée par défaut et ne change ni
+le rythme du jeu, ni ses commandes graphiques.
+
+Le diagnostic réel utilise ensuite une seule sonde de distribution,
+sans profilage GPU ni vérificateurs supplémentaires. La distribution décrit
+les délais entre demandes de présentation du jeu. Son horloge monotone
+mesure des durées sans dépendre des corrections de l'heure civile. Nous
+vérifions que le service et le conducteur partagent cette même horloge,
+avec les mêmes réglages de temps du conteneur. Seules les fenêtres entières
+comprises entre le début et la fin réels de la phase sont retenues.
+
+Quatre fenêtres de caméra à Kokiri couvrent 2 400 intervalles en 79,137
+secondes. Parmi eux, 728 dépassent 33,333333 ms, soit 30,33 %, aucun ne
+dépasse 100 ms et le maximum vaut 58,10 ms. Les percentiles 95 par fenêtre
+vont de 39,21 à 48,71 ms ; les percentiles 99 vont de 47,13 à 54,45 ms.
+Un percentile 99 signifie que 99 % des intervalles de cette fenêtre
+ne dépassent pas cette durée. Nous ne faisons pas la moyenne des percentiles
+pour inventer celui de la série complète. Les sommes exactes donnent ici
+30,33 présentations/s, un débit instrumenté isolé, pas un gain.
+
+Dans ces mêmes fenêtres, la moyenne de clôture du service est affichée
+à zéro microseconde, avec un maximum de 23 microsecondes. La composition
+coûte en moyenne 22 à 23 microsecondes et le régulateur n'attend pas.
+Les moyennes sont tronquées : zéro ne signifie pas absence de coût.
+Ces chiffres ne mesurent pas non plus les attentes de toute la carte
+graphique. Ils orientent la recherche vers le travail précédant ce service.
+
+Les six images sont réellement lues : le terrain apparaît, la caméra
+tourne et Link descend l'échelle puis marche au sol. Cette marche est
+un contrôle fonctionnel court, hors des fenêtres de caméra ; elle ne
+qualifie pas encore la distribution pendant un long déplacement ou un
+changement de zone. L'arrêt est normal en 3,60 secondes. Les manettes
+privées disparaissent, la boîte noire reprend et la configuration ainsi
+que les huit progressions sont identiques. Les réserves sur `NO_MESH=1`,
+le son et les sauvegardes restent ouvertes. Rapport et patch :
+`spikes/switch2-room/present-pacing-2026-11-09.json`.
+
+### 9 novembre, 20 h 21 : reprendre les idées, vérifier leurs conditions
+
+La nouvelle revue conserve les révisions exactes de Dolphin, PCSX2 et
+Ryubing déjà lues. Dolphin attend que le GPU ait fini avant de réutiliser
+une région de transfert. PCSX2 sépare la remise des commandes au pilote
+de l'attente de leur résultat. Ryubing suit les plages modifiées et le
+numéro de synchronisation qui les protège. Ces idées aident à chercher
+une attente ou une copie trop large. Elles ne permettent pas de supprimer
+la dépendance qui protège la donnée. Notre essai de mémoire système,
+inspiré du premier cas, avait d'ailleurs été plus lent et reste écarté.
+
+Lichii est maintenant à `cb5c5c7c`, Eglantine reste à `78743f30c` et
+Orchid à 0.9.2. Superbuild v37 vient de paraître à 19 h 55 ; sa branche
+annonce déjà une future v38, ce qui ne prouve pas une nouvelle publication.
+Deux propositions Lichii encore ouvertes concernent directement Zelda.
+La [#1095](https://github.com/zortos293/Lichii/pull/1095) réduit les appels
+pour écrire les registres graphiques. Nous préparons son port sur la base
+privée, avec les correctifs de miroir et de lecture conservés. L'amont
+compte moins d'instructions sur son essai, pas un gain de FPS établi ici.
+Notre compilateur optimise aussi différemment du sien.
+
+La [#1094](https://github.com/zortos293/Lichii/pull/1094) réduit des copies
+aux mots réellement écrits et corrige une longueur d'effacement. Sa seconde
+partie retire une attente en supposant que certains en-têtes de commandes
+ne sont pas écrits par le GPU. Son auteur décrit le cas qui invaliderait
+cette supposition ; le contrôle utilisé pendant son expérience n'est pas
+inclus. Cette partie n'est donc pas portée telle quelle. Une observation
+sur Zelda ne prouve pas à elle seule l'invariant du moteur.
+
+Nous vérifions aussi le code derrière les annonces. Le port FSR 4 officiel
+Lichii utilise maintenant le pilote AMD Windows et retire le chargement
+d'une bibliothèque Linux. Le texte Superbuild v37 décrit encore l'ancien
+montage. Nous ne retenons pas cette annonce comme une solution pour notre
+serveur Linux. Le port FSR 3.1 reste une variante de rendu à qualifier,
+sans génération d'images. Les nouveautés Orchid pour Xenoblade et Wonder
+ne démontrent pas encore un gain dans Zelda. Rapport et sources :
+`spikes/switch2-room/upstream-refresh-2021-2026-11-09.json`.
+
+### 9 novembre : remettre les maillages, puis refuser un mauvais parcours
+
+La lecture des propositions #569 et #841 de Lichii révèle un chemin déjà
+présent dans notre base. Il traduit les dessins de maillage en programmes
+de calcul GPU ordinaires, puis dessine leurs résultats. Il peut contourner
+le défaut du pilote mesh natif sans supprimer ces dessins comme le fait
+`NO_MESH`. Nous l'essayons avec ce dernier flag absent, le pilote habituel
+et la base dont le compteur est déjà qualifié. Le journal prouve que
+l'extension native est désactivée et que des groupes sont réellement dessinés.
+Les images montrent le retour des fleurs et du feuillage.
+
+Le compteur cumulé du lancement atteint 272 000 dessins et 17 714 341
+groupes ; il comprend la préparation, pas seulement la période mesurée.
+Le journal du noyau lu depuis avant les deux lancements ne contient
+aucun nouveau message GPU, DRM, réinitialisation ou dépassement de délai.
+Le premier lancement avait été arrêté avant mesure parce que le vérificateur
+de journal refusait encore le canal d'information Vulkan demandé. Les deux
+appels privés sont corrigés et ce lancement reste exclu.
+
+La phase suivante ne prouve cependant pas la promenade espérée. Link
+rejoint bien le sol, puis les inversions du stick, relatives à la caméra,
+font dériver le trajet vers un obstacle et finalement une échelle. L'image
+montre les commandes « Let Go » et « Jump » : son nom de fichier ne peut
+donc pas en faire une image de marche. Les six fenêtres complètes couvrent
+3 600 intervalles ; 415 dépassent 33,333333 ms, huit dépassent 100 ms
+et le maximum atteint 1,677 seconde. Les captures répétées perturbent aussi
+la mesure. Ces valeurs décrivent uniquement cette phase mixte et ne sont
+ni un gain de FPS, ni une comparaison avec la caméra précédente.
+
+L'arrêt est normal en 3,61 secondes. Les manettes privées disparaissent,
+la boîte noire reprend et la configuration ainsi que les huit progressions
+restent identiques. Nous retenons le chemin de calcul comme candidat de
+rendu, sans certifier tout le monde ni une longue marche. Le prochain
+parcours doit d'abord prouver deux cycles courts qui reviennent à la même
+position, sans collision ni accrochage. Rapport :
+`spikes/switch2-room/mesh-fallback-2026-11-09.json`.
+
+### 9 novembre : porter les écritures de registres sans changer leur sens
+
+Le port ciblé #1095 déplace les petites fonctions d'écriture dans leur
+déclaration pour que le compilateur puisse les intégrer aux appelants.
+Il évite aussi un détour de répartition pour les registres qui portent
+simplement un état. Il conserve le miroir, les indicateurs de modification,
+les dessins différés et le transfert de propriété entre fils. Les tests
+comparent le vrai moteur accéléré au moteur lent et réintroduisent six
+défauts pour prouver leurs contrôles. Le nouveau chemin a une activation
+diagnostique séparée ; un vérificateur qui force l'ancien chemin ne pourrait
+pas, à lui seul, prouver son exécution.
+
+La construction complète passe ensuite 1 159 tests, avec quatre tests
+réseau ignorés, puis les 87 régressions et les contrôles séparés du journal
+et du compteur. Six processus vérifient le marqueur : présent avec le flag
+exactement à 1, absent avec le flag absent, à 0 ou à 10, ainsi qu'avec
+le chemin lent ou le vérificateur forcés. Les fichiers réellement compilés
+sont contrôlés, pas seulement l'empreinte du programme. Un premier appel
+aux tests avait été lancé trop tôt, avant la fin de l'édition des liens :
+le programme était absent, aucun test n'a tourné. Le conducteur exige
+désormais la preuve de fin de cette construction avant le premier test.
+
+Le diagnostic réel combiné avec les maillages reste nécessaire avant
+de comparer la cadence. Aucune accélération n'est encore attribuée à ce
+port : notre compilation optimisait déjà différemment de celle de l'auteur.
+Les patches et les preuves sont conservés dans
+`spikes/switch2-room/state-write-2026-11-09.json`.
+
+La revue du conducteur trouve ensuite un piège avant lancement : son mode
+hérité exige le profilage GPU, mais le constructeur du moteur désactive
+justement la répartition rapide quand ce profilage est actif. Un tel essai
+ne pourrait pas prouver la nouvelle branche. Le conducteur doit laisser
+le profilage et le vérificateur qui force le chemin lent absents, puis
+exiger le vrai marqueur et les vérifications mémoire indépendantes.
+Les compteurs de réutilisation qui dépendent du profilage sont séparés
+de ces preuves. Le relevé historique à 208 ms de méthodes par seconde
+est conservé, avec cette limite supplémentaire : il décrit le chemin lent
+instrumenté, pas le coût récupérable dans le jeu sans profilage.
+
+Le diagnostic corrigé dure ensuite 91,85 secondes. Il prouve l'exécution
+de la nouvelle branche et des deux chemins de lecture Span, sans profileur,
+sans vérificateur qui force le chemin lent et sans `NO_MESH`. Les fenêtres
+complètes comparent 103 003 téléchargements représentant 356 521 Kio,
+avec zéro divergence et zéro octet modifié sans téléchargement. Les
+38 499 octets réécrits exclus par l'oracle restent hors de cette preuve.
+Les 205 824 descripteurs vérifiés ne divergent pas. Les 14 784 contrôles
+de registres dans la phase et les 301 résumés depuis le début gardent
+les trois totaux à zéro. Les maillages sont réellement dessinés.
+
+Les compteurs de réutilisation et d'acquisition liés au profilage sont
+indisponibles dans ce mode, pas validés à zéro. Les trois images sont lues,
+l'arrêt est normal en 3,50 secondes et le noyau ne rapporte aucun nouvel
+incident GPU dans ce contrôle. La configuration et les huit progressions
+restent identiques après nettoyage. Le candidat peut maintenant être
+comparé au témoin sur le même état de caches figé, sans sondes. Cela ne
+qualifie pas encore une longue marche, le son, une zone ou une sauvegarde
+reprise, et aucun gain de cadence n'est encore retenu.
+
+### 9 novembre, 21 h 03 : une publication ne remplace pas une comparaison
+
+L'API de publication confirme maintenant Superbuild v38, publié à
+21 h 00 min 48 s. Le constat de 20 h 21, où seule sa branche l'annonçait,
+est donc remplacé. Cette version regroupe #1094 et #1095 encore ouvertes ;
+notre port #1095 correspond toujours au même code source. Nous gardons
+les deux exécutables figés pour isoler son effet. La nouvelle publication
+ne démontre pas un gain sur notre machine et ne résout pas, à elle seule,
+la question de l'attente retirée par #1094.
+
+Une CI commence avant notre série de quatre passages. Le contrôle refuse
+le lancement avant même la création des manettes privées. Aucune mesure
+n'est donc mélangée à cette charge. Nous attendons sa fin naturelle,
+comme Souhib l'avait demandé, sans interrompre son processus. Sources
+et point de reprise :
+`spikes/switch2-room/upstream-refresh-2103-2026-11-09.json`.
+
+### 9 novembre : le port de registres ne donne pas un gain stable ici
+
+Les quatre passages alternés avec maillages dessinés donnent
+30,17 / 29,59 / 29,45 / 29,47 présentations par seconde, dans l'ordre
+port, témoin, port, témoin. Le total vaut 29,806 contre 29,519,
+soit +0,97 % observé. Les deux couples ne se répètent pas : +1,97 %,
+puis -0,06 %. Nous ne retenons donc pas #1095 comme accélération prouvée
+sur ce serveur. Une proposition utile ailleurs peut ne rien apporter
+à notre compilation et à notre scène.
+
+Le port couvre 3 600 présentations en 120,7812 secondes, le témoin
+4 200 en 142,2834 secondes. Les préparations prennent environ
+100,75 / 103,75 / 86,42 / 87,49 secondes. La première pause entre phases
+inclut une nouvelle CI ; les autres pauses sont plus courtes. Ces écarts
+limitent la comparaison. Les deux versions ont le compteur corrigé,
+le même fichier de configuration et le même état de 3 977 fichiers,
+avec toutes les sondes absentes. Les anciens résultats sous `NO_MESH=1`
+ne sont pas des témoins de cette nouvelle série.
+
+Les douze images sont lues, les soixante contrôles de charge passent
+et les quatre arrêts sont normaux. Aucun intervalle retenu ne dépasse
+100 ms, mais les maxima restent 55,53 ms avec le port et 66,63 ms
+avec le témoin. Cela ne démontre pas 30 images/s constantes. Le journal
+du noyau ne montre aucun nouvel incident GPU. Configuration, huit
+progressions, manettes privées et boîte noire sont contrôlées après arrêt.
+
+Le fil GPUBack occupe environ 82 à 83 % d'un processeur logique dans
+ces relevés, tandis que la charge GPU varie. La température CPU monte
+au fil de la série. Ces observations ne prouvent ni une cause thermique,
+ni une limite matérielle définitive. Nous conservons la base avec compteur
+corrigé et maillages par calcul comme référence privée. Le prochain essai
+regarde la pleine résolution imposée au jeu, avec son compromis visuel
+annoncé. Rapport : `spikes/switch2-room/state-write-2026-11-09.json`.
+
+### 9 novembre : vérifier les pixels avant de mesurer la résolution dynamique
+
+Désactiver « Max Resolution » ne garantit pas que le jeu dessine moins
+au moment qui nous intéresse. Une image allouée peut garder sa taille
+pendant que le dessin utilise une zone plus petite. Deux contrôles privés,
+d'environ 61 secondes de caméra chacun après arrivée observée dans Kokiri,
+examinent donc les commandes graphiques. Le même exécutable et le même
+pilote sont utilisés ; FPS Unlock reste appliqué. Seules les trois clefs
+de configuration qui désactivent Max Resolution changent.
+
+Sur trois images échantillonnées par variante, 232 groupes de programmes
+avec test de profondeur sont communs. Un groupe principal compte 1 307
+dessins à 2 560 × 1 440 avec le correctif et 1 305 à 1 920 × 1 080 sans
+lui. La cible couleur, la profondeur, le rectangle de projection et les
+rectangles qui limitent le dessin concordent. Un deuxième groupe retrouve
+la même réduction. Certaines sorties restent à 2 560 × 1 440. Cela établit
+une réduction réelle des pixels 3D dans ces échantillons, sans donner
+la distribution de résolution de toutes les images. C'est un compromis
+de qualité, dont le gain de vitesse reste à mesurer.
+
+Les traces détaillées peuvent ralentir le jeu : aucune cadence issue
+de ces deux contrôles n'est retenue. La trace spéciale du reconstructeur
+s'est déclenchée avant l'arrivée en jeu ; elle ne prouve rien sur le passage
+mesuré. L'anticrénelage du jeu reste sélectionné. Le bouton ZL atteint
+bien le jeu, mais le petit aller-retour essayé ne prouve pas un retour
+à la même position et caméra. Nous annulons sa répétition plutôt que
+de présenter ce mouvement comme un parcours reproductible. Les deux
+arrêts sont normaux ; aucun nouvel incident GPU n'apparaît dans le noyau.
+Les manettes privées sont retirées, la boîte noire redémarre et les huit
+progressions ainsi que la configuration installée restent identiques.
+Rapport : `spikes/switch2-room/max-resolution-2026-11-09.json`.
+
+Un autre piège a précédé ces contrôles : le garde de charge refusait
+une CI entièrement exécutée chez GitHub, sans travail sur ce serveur.
+Nous vérifions la révision exacte de ses fichiers, les machines réellement
+attribuées aux huit tâches existantes et le routage de la dernière tâche
+qui attend ses dépendances. Le garde accepte seulement cette exécution,
+cette révision et cette tentative, après une nouvelle lecture des tâches.
+Une file inconnue, incomplète ou susceptible d'utiliser un runner local
+reste bloquante. Les tests refusent les variantes locales et les preuves
+périmées. Aucune CI n'est modifiée ni interrompue. La leçon est de contrôler
+le lieu réel du travail, puis ses dépendances, plutôt que d'assimiler
+toute activité GitHub à une charge de notre machine.
+
+### 9 novembre : le 1080p ne suffit pas à régulariser les images
+
+Quatre passages alternent la résolution dynamique puis la pleine résolution
+imposée, deux fois. Ils donnent 30,73 / 29,60 / 29,28 / 29,38 présentations
+par seconde. Le total vaut 30,090 contre 29,507 : +1,98 % observé. Le premier
+couple est à +3,79 %, le second à -0,33 %. L'avantage ne se répète donc pas.
+Nous ne retenons pas cette baisse de qualité comme accélération stable.
+
+Surtout, le compteur d'intervalles montre 1 354 intervalles sur 4 200 au-delà
+de 33,333333 ms avec la résolution dynamique, soit 32,24 %, contre 1 407
+sur 4 200, soit 33,50 %, en pleine résolution. Aucun intervalle retenu
+ne dépasse 100 ms ; les maxima sont 76,32 et 61,36 ms. Les 99es percentiles
+par fenêtre restent entre 45,44 et 50,76 ms avec la résolution dynamique,
+entre 47,34 et 52,52 ms avec le témoin. Ce sont les bornes des quantiles
+de chaque fenêtre, pas un quantile global. Une moyenne supérieure à 30
+ne fait pas disparaître ces écarts entre images.
+
+Chaque passage dure environ 91 secondes, mais seules les fenêtres complètes
+sont retenues : 139,5835 secondes par variante dynamique contre 142,3412
+pour le témoin, chacune couvrant 4 200 intervalles au total. Le compteur
+est actif de façon identique dans les quatre phases, les autres traces
+et profileurs sont absents. Cette comparaison reste instrumentée. Le même
+état de 3 979 fichiers est restauré avant chaque lancement, avec le point
+de sauvegarde original. Il hérite d'un cache utilisé en pleine résolution,
+puis des ajouts de l'essai dynamique ; cela ne prouve pas que tous les
+programmes possibles soient déjà compilés. Aucun fichier de cache nouveau
+n'apparaît après les phases, mais cinq sont modifiés à chaque fois :
+ce relevé ne certifie pas l'absence de compilation.
+
+Les douze images sont lues, les soixante contrôles de charge passent,
+les quatre arrêts sont normaux et le noyau n'enregistre aucun nouvel incident
+GPU. Après retrait des manettes privées, la boîte noire tourne, la carte
+retrouve son mode automatique à 150 W et les huit progressions habituelles
+restent identiques. Nous gardons la pleine résolution comme référence
+privée et passons à un contrôle séparé de « No sharpening », une option
+déjà présente qui remplace une partie de l'anticrénelage du jeu. La baisse
+de résolution n'a donc pas réglé les saccades ; elle ne démontre pas
+pour autant une limite matérielle définitive. Rapport :
+`spikes/switch2-room/max-resolution-2026-11-09.json`.
+
+### 9 novembre : contrôler l'anticrénelage, puis lire les limites des autres forks
+
+L'option « No sharpening », déjà présente dans Lichii, remplace une partie
+de l'anticrénelage par une copie de l'image après correction des couleurs.
+Le premier contrôle prouve que cette copie réussit en 2 560 × 1 440.
+Le code exige la même taille en entrée et en sortie avant de l'accepter ;
+le journal imprime la taille de sortie, pas deux mesures indépendantes.
+Le message n'apparaît qu'une fois : il prouve l'exécution du chemin,
+pas son utilisation à chaque image. Le calcul intermédiaire lourd reste
+présent, sans modification de programme graphique.
+
+Après arrivée observée à Kokiri, environ 61 secondes de caméra donnent
+deux fenêtres complètes : 1 200 intervalles en 37,3120 secondes, soit
+32,16 présentations/s. Parmi eux, 261 dépassent 33,333333 ms, soit 21,75 % ;
+le maximum atteint 52,72 ms et aucun intervalle retenu ne dépasse 100 ms.
+Les 99es percentiles des deux fenêtres valent 45,17 et 43,72 ms. Ce contrôle
+isolé, avec des journaux plus détaillés, ne se compare pas directement
+à la série précédente. Les trois images montrent le terrain, le feuillage,
+Link et l'interface, mais ne qualifient ni l'anticrénelage en mouvement
+ni l'équivalence visuelle. L'arrêt et le nettoyage sont normaux.
+La prochaine série alterne cette option et le réglage du jeu avec les mêmes
+journaux et le même état initial. Rapport :
+`spikes/switch2-room/no-sharpening-2026-11-09.json`.
+
+La recherche dans les autres forks trouve aussi deux modifications du
+[fork BC-250](https://github.com/lethevimlet/oot-bc250), figé à la révision
+`68495dc4100a16420dba79fa5b253bb9c58398d8`. La première limite les étapes GPU
+attendues avant les calculs qui remplacent les maillages. Mais son commentaire
+écarte les écritures des programmes de sommets et de géométrie parce
+qu'elles seraient inhabituelles. Cela ne prouve pas qu'elles soient absentes.
+Nous refusons ce port tel quel : une synchronisation doit couvrir les
+producteurs réellement possibles, y compris les images écrites avant lecture.
+Un futur suivi des ressources pourrait permettre une réduction prouvée.
+
+La seconde évite les préparations d'un dessin sans groupe à calculer.
+Elle pourrait être utile ailleurs ; notre diagnostic compte toutefois
+174 000 dessins de maillage et aucun vide sur l'ensemble de l'exécution.
+Il n'y a donc pas de gain local établi à poursuivre sur cette occurrence.
+Cela ne dit rien des autres scènes. Nous ne reprenons ni les réglages propres
+à la mémoire partagée du BC-250 ni l'abandon de dessins en compilation.
+Le fichier d'aide et les sources récupérés par le navigateur ne montraient
+pas la même modification : lire les fichiers et les correctifs à une révision
+immuable a permis de lever cette ambiguïté avant toute décision.
+Rapport : `spikes/switch2-room/bc250-review-2026-11-09.json`.
+
+### 9 novembre, après 23 heures : l'anticrénelage donne un gain, la régularité reste à obtenir
+
+Les quatre phases NoSharpening / jeu / NoSharpening / jeu donnent
+31,49 / 30,16 / 32,64 / 29,32 présentations par seconde. Chaque variante
+couvre 4 800 intervalles complets. Le total atteint 32,056 contre 29,730,
+soit +7,82 % observé, avec +4,44 % puis +11,34 % par couple. L'avantage
+existe dans les deux couples, mais son ampleur varie. Nous conservons
+cette option comme candidate privée, sans l'installer : elle change le
+traitement des contours et son résultat ne vaut que pour ce passage.
+
+Les dépassements de 33,333333 ms diminuent de 1 554 à 1 114 sur 4 800,
+soit de 32,38 % à 23,21 %. Un intervalle dépasse pourtant 100 ms dans
+chaque variante ; les maxima atteignent 144,74 ms avec NoSharpening et
+142,38 ms avec le jeu. Les 99es percentiles des fenêtres vont de 42,62
+à 47,40 ms avec l'option, de 47,13 à 51,12 ms avec le témoin. Ce résultat
+améliore le débit sans établir 30 images/s régulières.
+
+L'exécutable, le pilote, la pleine résolution, la vitesse, les maillages
+par calcul, les journaux et le compteur d'intervalles restent identiques.
+Le même état de 3 979 fichiers est restauré avant chaque lancement.
+Les journaux prouvent la copie dans les variantes NoSharpening et son
+absence dans les témoins. Douze images sont lues, soixante contrôles de
+charge passent et quatre arrêts normaux précèdent le nettoyage complet.
+Aucun nouvel incident GPU n'apparaît dans le noyau. Aucun fichier de cache
+nouveau n'apparaît ; six fichiers changent dans le premier passage, cinq
+dans chacun des suivants. Cela ne prouve toujours pas l'absence de compilation.
+Les horloges du jeu, la marche, les zones, le son et la reprise ne sont
+pas qualifiés par ces seuls mouvements de caméra.
+
+Les compteurs de fil déjà capturés indiquent aussi que GPUBack, le fil CPU
+qui prépare les commandes graphiques, utilise environ89–90 % d'un processeur
+logique avec NoSharpening, contre82–83 % dans les témoins. Il produit aussi
+plus d'images. Le relevé GPU médian vaut67–70 % avec l'option,68–73 % sans.
+Ces occupations ne sont pas des durées par image et ne prouvent pas une
+limite matérielle. La température CPU augmente au fil de la série ; son
+rôle causal n'est pas établi. Aucun nouveau profilage n'est lancé pour
+obtenir ces nombres : ils viennent des soixante relevés conservés.
+
+La comparaison des configurations trouve aussi un petit piège : le fichier
+sauvé par l'émulateur change la valeur de l'option et l'indicateur
+« valeur par défaut ». Ce second champ est calculé à l'enregistrement :
+le réglage du jeu vaut justement la valeur initiale, zéro. Le code de
+lecture confirme qu'il recharge alors zéro. La différence brute des deux
+clefs est conservée, avec la preuve qu'un seul réglage effectif change.
+Nous n'effaçons pas cette différence pour obtenir artificiellement des
+fichiers plus semblables. La prochaine expérience impose seulement un
+plafond de présentation à 30, en gardant l'événement de rafraîchissement
+à 60 et la vitesse à 100 %. Elle vérifiera la régularité obtenue, sans
+présenter ce plafond comme une accélération du calcul. Rapport :
+`spikes/switch2-room/no-sharpening-2026-11-09.json`.
+
+### 9 novembre : le plafond à 30 ne supprime pas les écarts
+
+Le contrôle suivant garde NoSharpening et la pleine résolution, puis règle
+le plafond de présentation sur 30. Le journal natif confirme ce plafond,
+un événement de rafraîchissement à 60 Hz et le même mot de présentation
+`0x1003c`. La vitesse reste à 100 %. Le code attend dans le fil invité
+du service graphique ; ni l'horloge du jeu ni l'intervalle demandé par
+le jeu ne sont remplacés. La vitesse normale des mouvements et du son
+reste cependant à vérifier en jouant.
+
+Sur environ 91 secondes de caméra, quatre fenêtres complètes couvrent
+2 400 intervalles en 80,1182 secondes : 29,956 présentations/s et une
+moyenne de 33,383 ms. Les médianes de fenêtre sont proches de 33,23
+à 33,27 ms. Les 95es percentiles restent entre 41,08 et 42,66 ms, les
+99es entre 44,22 et 47,62 ms. Le maximum vaut 56,94 ms et aucun intervalle
+retenu ne dépasse 100 ms. Le plafond fonctionne, mais ces quantiles ne
+montrent pas une cadence régulière.
+
+Le seuil strict de 33,333333 ms compte 1 061 dépassements, soit 44,21 %.
+Autour d'un plafond fixé précisément à cette période, quelques microsecondes
+de retard suffisent à le dépasser. Ce pourcentage seul ne se compare donc
+pas à celui d'une variante sans plafond explicite. Les écarts des quantiles,
+eux, restent de plusieurs millisecondes. Nous conservons les mesures sans
+adoucir le seuil pour fabriquer un résultat plus flatteur.
+
+Les trois images et les quinze contrôles de charge sont vérifiés, l'arrêt
+est normal et le noyau ne montre aucun nouvel incident GPU. Le nettoyage
+rétablit la boîte noire et le mode automatique de la carte ; la configuration
+et les huit progressions habituelles restent identiques. Les fichiers
+sauvés ne diffèrent du témoin NoSharpening que par le plafond et son
+indicateur dérivé « valeur par défaut ». Les journaux ont le même filtre.
+Le rapport privé avait conservé une ancienne phrase affirmant le contraire ;
+la copie publique corrige cette limite après comparaison des fichiers réels.
+
+La durée moyenne passée dans l'attente de présentation vaut environ
+26,32 ms dans ces fenêtres. Ce temps de service ne mesure pas le travail
+GPU. La prochaine sonde distingue le délai demandé, le réveil réellement
+obtenu et les autres durées. Elle utilise les outils natifs de temporisation,
+séparément de toute comparaison de vitesse. Rapport :
+`spikes/switch2-room/present-30-2026-11-09.json`.
+
+### 9 novembre : les réveils du minuteur ne désignent pas encore le retard de présentation
+
+La sonde HostTiming mesure le fil qui traite les échéances de tous les
+événements du jeu. Elle ajoute des tableaux, des tris et un journal par
+seconde ; son coût n'est pas supposé nul. La trace DKB reste absente :
+sa lecture du code montre qu'elle ajoute aussi des mesures GPU et des
+lectures de commandes indirectes, même si son nom pouvait laisser penser
+à une simple ligne de temporisation. Nous ne l'utilisons pas pour ce contrôle.
+
+Les journaux du minuteur ne donnent pas leurs bornes natives exactes.
+Le début du journal est encadré entre le lancement et la première réception
+horodatée par Docker. Deux anciens messages et le message courant
+encadrent chaque fenêtre ; nous retenons seulement celles dont toute
+l'enveloppe reste dans les bornes monotoniques de la caméra. L'incertitude
+sur l'origine vaut 640,66 ms. La dérive observée entre les deux lectures
+d'horloge vaut 1 833 ns ; une marge extérieure de 10 ms est conservée,
+sans prétendre exclure mathématiquement un saut transitoire non observé.
+Les tests refusent des messages non monotones, des prédécesseurs absents
+et une fenêtre débordant de la phase.
+
+Cette sélection garde 88 fenêtres, soit 409 959 attentes et 482 003 événements.
+Leurs 99es percentiles de retard de réveil vont de 79 à 340 microsecondes,
+avec un maximum de 2 924 microsecondes. Les retards des événements ont
+des 99es percentiles entre 88 et 577 microsecondes, maximum 2 926.
+Ce sont des bornes de statistiques individuelles, pas des quantiles globaux.
+Le fil consomme entre 3,9 et 4,8 % d'un processeur logique. Ces chiffres
+ne mesurent pas le délai entre le traitement d'un événement et la reprise
+effective du fil invité de présentation.
+
+Dans la même phase, quatre fenêtres de présentation donnent 2 400 intervalles
+en 80,0395 secondes, soit 29,985 présentations/s. Leurs 99es percentiles
+restent entre 44,53 et 46,14 ms, maximum 51,90 ms. Aucun intervalle retenu
+ne dépasse 100 ms. Les réveils globaux observés ne suffisent donc pas
+à désigner l'origine de ces écarts. Nous ne changeons ni l'horloge ni
+l'attente du système sur cette seule base. L'arrêt et le nettoyage sont
+normaux, sans nouvel incident GPU ni modification des progressions normales.
+La suite prépare des mesures propres au service de présentation et aux
+retours de présentation Vulkan, en conservant leur portée distincte.
+Rapport : `spikes/switch2-room/host-timing-2026-11-09.json`.
+
+### 9 novembre, revue suivante : préserver les pointeurs lors des évictions
+
+La vérification suivante trouve une nouvelle correction Lichii fusionnée
+à 22 h 52, [#1143](https://github.com/zortos293/Lichii/pull/1143).
+Quand un programme graphique retiré du cache revient, sa traduction peut
+oublier qu'une case contient un pointeur si cette case est momentanément
+vide. La correction conserve les cases reconnues dans la traduction
+précédente. Notre base possède aussi ce mécanisme d'éviction : le sujet
+peut donc concerner les parties longues et les changements de zone.
+Aucune occurrence locale n'est pourtant établie dans nos essais courts,
+et aucun gain de vitesse n'est mesuré par cette correction amont.
+
+Le correctif ne s'applique pas directement : quatre contextes ont changé,
+notamment autour du nouveau cache que nous avions écarté. Nous conservons
+la source exacte pour un port ciblé, sans reprendre toute la branche.
+Le stockage est limité à 8 192 entrées et peut perdre les plus anciennes ;
+les premiers enregistrements de disque faits avec une case vide ne sont
+pas couverts non plus. Ce n'est donc pas une garantie de correction de
+tous les pointeurs. Eglantine reste à rc3 dans cette vérification.
+Rapport : `spikes/switch2-room/upstream-refresh-2318-2026-11-09.json`.
+
+### 9 novembre : séparer les mesures du service et de la présentation Vulkan
+
+Les réveils globaux ne désignent pas encore le retard. Nous préparons
+donc deux sondes sur une nouvelle copie privée des sources, en conservant
+le binaire de référence. La première active seulement les quatre points
+de mesure du service de présentation. Elle reprend les délais demandés
+et observés après reprise du fil invité, à raison d'une trace par seconde,
+avec des bornes monotoniques explicites. Elle n'active pas le commutateur
+DKB général, ses requêtes GPU ni ses lectures de commandes.
+
+La seconde mesure les intervalles après les retours acceptés de
+`vkQueuePresentKHR`, l'appel qui remet une image au système de fenêtres.
+Cette interface s'appelle WSI. Un retour accepté ne prouve ni l'affichage
+physique à cet instant ni un contenu distinct de l'image précédente.
+Nous comptons séparément le succès et l'état « utilisable mais sous-optimal ».
+Les autres retours et les recréations interrompent la série pour ne pas
+relier artificiellement deux intervalles autour d'une erreur.
+
+Chaque fenêtre contient 600 intervalles, donc la première exige 601 retours.
+Un tableau fixe évite les allocations par image ; le tri et le journal
+se font après libération du verrou de soumission. Leur coût reste à mesurer.
+Les tests utilisent le vrai corps du producteur avec une file Vulkan
+simulée pour vérifier l'ordre, puis des versions volontairement cassées.
+Cela ne remplace pas l'exécution réelle. Une construction complète doit
+recompiler tous les utilisateurs de la classe modifiée, puis prouver
+l'activation des deux sondes avant toute nouvelle conclusion de cadence.
+Aucune politique d'attente ni fréquence n'est changée par cette étape.
+Plan de preuve : `spikes/switch2-room/service-wsi-probe-2026-11-09.json`.
+
+### 9 novembre : les doubles CPU ne voient pas les macros de la vraie compilation
+
+Les sondes ciblées modifient sept fichiers par rapport à la référence
+privée. Les trente entrées héritées des corrections précédentes ne sont
+pas de nouvelles modifications de cette étape. Quatre cas CPU passent
+646 assertions ; les vrais corps du producteur Vulkan et des quatre
+points de service sont aussi compilés avec une file et un noyau simulés.
+Treize versions volontairement cassées compilent, puis échouent sur leurs
+assertions : oubli de relevé, code de retour mal classé, horloge trop tôt,
+journal sous verrou, compte perdu pendant exception et erreurs de quantile.
+L'ancien code échoue parce que le nouvel outil y manque, ce qui ne prouve
+pas un ancien défaut de cadence.
+
+La première compilation complète trouve ensuite un conflit avec X11,
+l'interface de fenêtres disponible dans le vrai fichier Vulkan : une macro
+nommée `Success` remplace l'énumérateur du nouveau compteur par zéro.
+Les doubles CPU n'incluaient pas cette macro. Nous renommons seulement
+l'énumérateur en `AcceptedSuccess`. Le nouveau test définit la macro avant
+l'inclusion, vérifie qu'elle garde sa valeur, puis exerce le compteur.
+Aucune suppression globale de macro ne masque le conflit.
+
+Les preuves CPU et les treize mutations sont régénérées sur les sources
+corrigées. Le premier manifeste et le journal de compilation rouge sont
+conservés comme remplacés, sans prétendre que les contrôles suivants ont
+passé. La construction complète reprend ; elle doit encore qualifier le
+binaire et ses classes reconstruites avant tout lancement. Le correctif
+s'applique sans erreur à la référence source figée. La portée des horloges,
+les erreurs et les limites de présentation restent explicites dans
+`spikes/switch2-room/service-wsi-probe-2026-11-09.json`.
+
+### 9 novembre : la construction complète des sondes passe, l'activation reste à prouver
+
+La construction reprise se termine normalement en 66,99 secondes.
+Les vrais fichiers Vulkan, le présentateur, le moteur de rendu et le service
+qui inclut le code VI2 sont reconstruits après les en-têtes modifiés.
+Le paquet produit porte le SHA256 `d4480279…854fe4`. Les 1 161 tests passent,
+avec quatre tests réseau ignorés ; 87 régressions de propriété et de lecture,
+les 17 assertions cachées sur le miroir, les cinq tests du compteur de
+présentation et les quatre nouveaux tests WSI passent aussi.
+
+La relecture retrouve cependant un manque préventif dans le pilote de
+qualification : il ne refusait pas explicitement un build encore incomplet
+avant de lancer ses tests. Les données actuelles prouvent bien le bon ordre :
+le build réussi précède les tests et utilise les dernières sources figées.
+Nous ajoutons le garde au vrai préambule et huit cas négatifs le vérifient.
+La version volontairement privée du garde est détectée. Les tests du moteur
+déjà exécutés ne sont pas relancés pour cette seule vérification de métadonnées.
+
+Aucun gain de cadence n'est annoncé par ces outils. Le prochain passage
+doit encore montrer les deux marqueurs dans le vrai processus, produire
+plus de 600 retours Vulkan pour former une fenêtre, et conserver toutes
+ses bornes dans la phase observée. Le compteur global de présentation,
+la trace limitée du service et le compteur WSI seront les seuls relevés
+supplémentaires ; les autres profileurs restent absents. Rapport :
+`spikes/switch2-room/service-wsi-probe-2026-11-09.json`.
+
+### 9 novembre, 23 h 54 : les deux cadences restent irrégulières
+
+Les deux nouveaux marqueurs apparaissent une fois dans le vrai processus,
+avec le bon exécutable et le bon pilote. Le nom « Kokiri Forest » est visible
+à l'arrivée. Les 91,37 secondes de caméra donnent trois fenêtres complètes
+de chaque côté : 1 800 intervalles en 59,9975 secondes au service VI2,
+et 1 800 en 60,0002 secondes aux retours Vulkan. Les moyennes sont donc
+30,0012 et 29,9999 par seconde. Les 99es percentiles restent pourtant
+45,01–46,31 ms côté service et 46,19–46,69 ms côté Vulkan. Les maxima
+atteignent 51,64 et 49,68 ms ; aucun intervalle retenu ne dépasse 100 ms.
+Les fenêtres n'ont pas exactement les mêmes ancrages ; elles ne représentent
+pas des paires d'images identifiées.
+
+La trace limitée du service donne 90 observations entièrement bornées.
+Sur les 82 qui demandent un sommeil positif, le dépassement entre durée
+demandée et réelle va de 0,016 à 0,574 ms. Ces valeurs sont arrondies et
+échantillonnées, sans quantile de tous les réveils. Elles ne désignent pas
+un retard général de dix millisecondes dans ce sommeil. Les 88 fenêtres
+conservatrices du rappel de rafraîchissement ne comptent aucun rappel
+en retard d'une période complète ; leur maximum vaut 2,233 ms.
+
+Les trois images et les quinze contrôles locaux sont lus, l'arrêt est
+normal et le nettoyage est complet. Les 336 messages au format historique
+DKB proviennent seulement du service, avec leur origine explicite ; le
+commutateur DKB global reste absent. L'analyse a aussi corrigé la lecture
+du suffixe coloré du journal, en retirant seulement sa mise en forme.
+Les données brutes et les treize cas négatifs restent conservés.
+Rapport : `spikes/switch2-room/service-wsi-runtime-2026-11-09.json`.
+
+### 10 novembre : essayer le plafond déjà présent côté Vulkan
+
+Le code propose aussi une cadence à 30 dans le présentateur Vulkan.
+Elle attend avant de remettre l'image au système de fenêtres, alors que
+le plafond précédent régule la réponse au jeu. Le prochain contrôle change
+seulement ce réglage, en conservant le plafond de service à 30, la fréquence
+à 60, la vitesse à 100 %, la pleine résolution et NoSharpening. Il utilise
+le même binaire, le même état initial et les trois mêmes sondes. La présence
+de ce chemin et de retours Vulkan réels permettra de vérifier l'effet ;
+aucun nouveau correctif C++ ni gain n'est encore revendiqué pour ce réglage.
+
+### 10 novembre, 00 h 41 : qualifier les nouvelles CI hébergées avant le prochain jeu
+
+Après la reprise demandée par Souhib, le garde refuse le lancement avant
+même les manettes : deux nouvelles CI Souverain viennent de démarrer.
+La nouvelle tentative n'est pas couverte par la preuve de la veille.
+Nous lisons les machines réellement attribuées et les trois workflows
+à la révision exacte. Leurs empreintes sont identiques aux fichiers déjà
+examinés : toutes les tâches existantes tournent chez GitHub, le scan
+historique a une seule tâche hébergée, et la dernière tâche de CI attendue
+utilise explicitement une machine GitHub. Aucun suivi automatique susceptible
+de démarrer sur ce serveur n'est présent dans ces fichiers.
+
+Le garde n'accepte que ces deux numéros d'exécution, cette révision et cette
+tentative après une nouvelle lecture des tâches. Les cas inconnus, locaux,
+incomplets ou dupliqués restent refusés. Les anciens tests et les nouveaux
+cas négatifs passent, puis le relevé frais de toute la flotte est clair.
+Aucune CI n'est annulée, relancée ou modifiée. Le prochain essai peut ainsi
+reprendre sans confondre activité GitHub et charge de notre machine.
+Preuve : `spikes/switch2-room/ci-hosted-placement-2026-11-10.json`.
+
+### 10 novembre : le premier contrôle de cadence Vulkan resserre les intervalles
+
+Le réglage à30 côté Vulkan donne trois fenêtres complètes,1 800 retours
+en60,0262secondes, soit29,9869retours/s. Les95espercentiles des trois
+fenêtres valent33,493 /33,497 /33,468ms. Leurs99espercentiles sont
+36,408 /33,687 /33,622ms, maximum43,88ms, sans intervalle au-delà de100ms.
+La cadence des demandesVI2 reste moins régulière : leurs99espercentiles
+vont de44,64 à45,56ms. Ce premier relevé montre une sortie Vulkan plus
+régulière dans cette capture ; les moyennes seules ne le montraient pas.
+
+La lecture de la configuration et le cheminCLI confirment qu'un seul réglage
+effectif change. Le clientSDL lit le fichier global fourni, sans charger
+un profil par jeu sur ce chemin. La présentation asynchrone et la limitation
+de vitesse restent actives. Le codeLinux appelle alors l'attente à30 après
+une acquisition d'image valide ; aucun marqueur dédié de cette attente
+n'est ajouté. La preuve associe donc configuration, chemin de code et
+vrais retoursVulkan. Elle n'est pas une mesure d'affichage physique.
+
+Les trois images et les quinze contrôles locaux passent, l'arrêt est normal,
+le noyau ne relève aucun nouvel incidentGPU et le nettoyage laisse la
+configuration ainsi que les huit progressions habituelles identiques.
+Les deux diagnostics préliminaires restent des essais successifs, séparés
+d'une longue pause ; ils ne constituent pas une comparaison alternée.
+Nous préparons quatre nouveaux passages1/0/1/0 avec le même état initial,
+le même exécutable et les mêmes sondes. Aucun des deux diagnostics n'entre
+dans leurs totaux. Les affinités et priorités des fils seront lues avant
+la première mesure, sans les changer. Rapport :
+`spikes/switch2-room/host-pacing-2026-11-10.json`.
+
+### 10 novembre, après 01 heure : le plafond Vulkan améliore deux fois la régularité
+
+Les quatre nouveaux passages sont terminés. Nous avons alterné le plafond
+natif Vulkan à 30 et le mode automatique, puis répété le couple, en restaurant
+le même état initial avant chaque lancement. Aucun des diagnostics qui avaient
+servi à choisir cette piste n'entre dans les résultats. Chaque passage fournit
+1 800 intervalles Vulkan entièrement compris dans la phase de caméra.
+
+Les 99es percentiles des fenêtres vont de 33,58 à 36,30 millisecondes avec
+le plafond, contre 46,06 à 48,00 en automatique. L'amélioration se répète
+dans les deux couples. Les maxima restent à 43,52 et 43,17 millisecondes
+avec le réglage, contre 61,33 et 50,16 sans lui. Aucun intervalle retenu
+ne dépasse 100 millisecondes. Il reste donc des images en retard par rapport
+au budget de 33,33 millisecondes ; nous n'annonçons pas 30 images/s constantes.
+Ces valeurs sont des plages de percentiles par fenêtre, pas un percentile
+global reconstitué à partir de résumés.
+
+Le débit moyen est proche de 30 dans les quatre passages. Ce réglage organise
+mieux la sortie ; il n'établit pas un gain de vitesse de calcul. Les demandes
+du jeu au service graphique restent moins régulières. Un retour Vulkan
+n'indique toujours ni l'instant d'affichage physique ni un contenu nouveau.
+Le pourcentage strict au-delà de 33,33 millisecondes est conservé, mais il ne
+suffit pas à classer deux réglages qui plafonnent justement autour de ce seuil.
+
+Les douze images sont lues et les soixante contrôles locaux ne détectent
+aucune interférence. Les quatre arrêts sont normaux. La lecture des masques
+CPU avant le premier passage montre quels processeurs les fils peuvent
+utiliser, sans prouver où ils ont effectivement tourné ni leur réserver
+un cœur. Aucune priorité n'est modifiée. Le nettoyage confirme les huit
+progressions et la configuration habituelles inchangées.
+
+Nous retenons ce réglage pour les prochains essais privés. Il reste à
+effectuer un vrai trajet au sol, changer de zone, contrôler la vitesse et
+le son, puis sauvegarder et reprendre. Avant une longue partie, nous
+préparons aussi le port séparé du correctif amont #1143 : un pipeline
+graphique supprimé du cache puis reconstruit peut oublier qu'un emplacement
+contenait un pointeur. Le correctif conserve cette information. Il protège
+la justesse du rendu après éviction ; il ne promet pas de FPS supplémentaires.
+Le cache V2 et la version habituelle restent inchangés. Rapport :
+`spikes/switch2-room/host-pacing-confirmation-2026-11-10.json`.
+
+### 10 novembre : préserver les pointeurs après éviction, sans changer de cache
+
+Le correctif [Lichii #1143](https://github.com/zortos293/Lichii/pull/1143)
+est porté dans une nouvelle copie de la référence privée. Eglantine propose
+une autre solution sur une branche : garder tous les pipelines Switch 2.
+Nous conservons ici la politique actuelle, qui limite la mémoire du pilote,
+et retenons seulement les informations nécessaires à une reconstruction.
+Les sept fichiers changés ne reprennent ni le cache V2 ni son nouveau système
+de compilation. Le constructeur et le budget de travaux de notre base restent
+identiques.
+
+Les tests amont vérifient le petit conteneur de classifications. Ils pourraient
+passer même si le vrai cache n'enregistrait ni ne reprenait ces informations.
+Le contrôle ajouté exécute donc les corps réels des fonctions d'éviction et
+de recherche, extraits des sources, avec des remplaçants explicites pour le
+pilote et la construction des pipelines. La classification utilise les vraies
+méthodes de l'environnement de programme graphique. L'ancien producteur
+compile, puis échoue sur l'historique perdu. Le port passe cinq cas et
+85 assertions. Cinq versions volontairement cassées échouent après compilation,
+en retirant l'enregistrement, la bonne clé, la restauration ou un étage.
+Un ensemble d'étages non contigus vérifie aussi la correspondance des indices.
+
+Ce contrôle ne reproduit pas une corruption d'image réelle et ne compile pas
+de programme Vulkan. La limite amont de 8 192 historiques reste présente :
+une entrée peut être oubliée lorsque ce nombre est atteint. Un ancien cache
+disque qui a déjà enregistré un pointeur nul n'acquiert pas une information
+qui lui manque. Enfin, une traduction échouée consomme encore son historique.
+Ces limites interdisent de présenter ce port comme une correction universelle.
+
+La construction complète de cette nouvelle copie est lancée. Il faudra
+vérifier les objets recompilés, tous les tests et le code du binaire avant
+une partie. La version habituelle et la référence privée précédente restent
+figées. Le patch et ses preuves sont conservés dans
+`spikes/switch2-room/amont/lichii-1143-on-service-wsi.patch` et
+`spikes/switch2-room/eviction-pointer-retention-2026-11-10.json`.
+
+La construction complète passe ensuite. Le nouveau client privé `65defb74…`
+réussit 1 164 tests ; quatre tests réseau restent ignorés dans l'environnement
+isolé. Les suites de correction des lectures, de cadence et des retours Vulkan
+passent aussi. Les 1 418 objets internes sont postérieurs au gel des sources.
+Le désassemblage du binaire montre les opérations de conservation dans
+l'éviction et les six chemins de restauration. Cette preuve confirme le code
+compilé, sans inventer une occurrence de corruption en jeu. Le parcours
+fonctionnel reste la prochaine étape.
+
+### 10 novembre : la sauvegarde reprend, la marche continue reste à mesurer
+
+Trois sessions privées utilisent le nouveau client. Link descend réellement
+de l'échelle et atteint le sol. Une conversation avec Saria interrompt ensuite
+le trajet ; elle prend une grande part de la première session. Une pièce
+meublée est visitée, puis le retour extérieur est observé dans la seconde.
+Le nom affiché reste « Kokiri Forest ». Nous attestons un intérieur physique,
+sans lui attribuer un nom absent de l'écran ni annoncer une nouvelle zone.
+
+La première reprise restaure automatiquement la progression après le dialogue.
+Nous créons alors une sauvegarde manuelle. La liste du jeu affiche l'entrée
+de 01 h 51 sans mention Autosave, distincte de celle de 01 h 44. Après un
+arrêt complet et un troisième lancement, cette entrée est sélectionnée
+explicitement. Link revient au point attendu près de Saria avec trois cœurs,
+puis un déplacement de contrôle est observé. Les trois arrêts sont normaux
+et les sauvegardes habituelles restent inchangées.
+
+Le journal des commandes empêche toutefois une conclusion trop large :
+la plus longue entrée de marche dure six secondes, entre menus, dialogues,
+observations et obstacles. Aucune fenêtre complète de 600 intervalles n'est
+entièrement en marche. Ces visites valident des fonctions, pas une cadence
+pendant un déplacement continu. Le prochain pilote part de la sauvegarde
+après le dialogue et réserve 90 secondes à cet exercice précis.
+
+Les journaux montrent aussi 237 puis 171 évictions de pipelines. Le correctif
+est donc construit dans un moteur dont l'éviction réelle reste active.
+Aucun avertissement de pointeur conservé n'apparaît : cela ne prouve ni une
+corruption évitée dans ces scènes ni l'absence du code, vérifié séparément.
+Le son, les cinématiques, la vitesse absolue et les images réellement nouvelles
+restent à qualifier. Rapport :
+`spikes/switch2-room/functional-qualification-2026-11-10.json`.
+
+### 10 novembre : lire la version publiée de Fritchii, pas sa branche par défaut
+
+La recherche reprend aussi le fork Fritchii. Sa version v5.5 est publiée le
+9 novembre à 13 h 20, alors que sa branche par défaut pointe encore vers
+le 6 novembre. Nous lisons donc la révision exacte de la version publiée,
+`4012e527…`, puis les changements ciblés. Aucun binaire Windows n'est installé
+et aucun gain annoncé sur une autre machine n'est repris comme mesure locale.
+
+La préparation de programmes graphiques enregistrés sur une carte NVIDIA
+inclut une conversion pour certaines fonctions absentes d'AMD. Il faut encore
+vérifier si ce cas existe avec notre pilote RADV et notre format de cache.
+Le nouveau réglage des instants d'affichage nécessite, lui, une lecture de
+la fréquence de l'écran qui renvoie une absence sur Linux dans cette version.
+Le recopier tel quel ne l'activerait donc pas sur notre serveur.
+
+Un autre changement ajoute des bornes aux écritures de décodage de textures,
+absentes de notre base. C'est une piste de justesse sur AMD, sans incident
+correspondant reproduit ici. Enfin, le compteur de fin d'image utilisé pour
+réutiliser des textures ne modifie pas l'horloge du monde du jeu ; il dépend
+d'un ensemble de changements de cache que notre base n'a pas. Nous gardons
+ces pistes pour une revue séparée, sans remplacer la qualification en cours
+par un changement complet de moteur. Sources et limites :
+`spikes/switch2-room/fritchii-review-2026-11-10.json`.
+
+### 10 novembre : un passage réellement en marche approche une sortie régulière à 30
+
+Le nouveau pilote part de la sauvegarde manuelle créée après le dialogue.
+Quatre petits déplacements préparatoires montrent Link avancer par rapport
+au chemin, au lampadaire et à l'échelle. Il reste sur un passage dégagé au sol.
+Le pilote maintient ensuite les commandes pendant 90,002 secondes, avec
+60 changements de direction. Il ne remet pas le stick au repos entre eux.
+Une seule capture intermédiaire est prise pendant que l'envoi continue.
+Les images avant, pendant et après montrent des déplacements cohérents,
+sans échelle, dialogue ni butée visibles. Cela reste une observation ponctuelle
+de petites traversées latérales, pas une longue route ni une observation de
+chaque image.
+
+Trois fenêtres Vulkan complètes couvrent 60,00003 secondes à 30,00 retours/s.
+Leurs 99es percentiles valent 34,218, 33,479 et 33,883 millisecondes ;
+le maximum est 34,576 millisecondes. Aucun intervalle retenu ne dépasse
+100 millisecondes. La fenêtre recouvrant la capture de 365 millisecondes
+reste publiée et marquée. Les deux autres couvrent 40 secondes, avec un
+maximum de 34,513 millisecondes. Nous ne choisissons pas silencieusement
+les fenêtres qui donnent le meilleur résultat et ne fabriquons pas un
+percentile global à partir de leurs résumés.
+
+Le service VI2 fournit séparément quatre fenêtres couvrant 80 secondes,
+avec une moyenne voisine de 30 et un maximum de 48,90 millisecondes.
+Ses fenêtres et celles de Vulkan n'ont pas les mêmes bornes. Les retours
+Vulkan réguliers ne prouvent toujours ni l'instant d'affichage physique
+ni une image au contenu nouveau à chaque appel. Le point sauvegardé et
+les caches hérités diffèrent aussi de la série de caméra alternée :
+ce passage ne mesure pas un gain causal par rapport à cette série.
+
+Les 62 contrôles locaux ne détectent pas d'interférence, dont quinze dans
+la phase. L'arrêt normal prend 3,71 secondes. Le noyau ne signale aucun
+nouvel incident GPU et le nettoyage est conforme. Ce résultat est prometteur
+pour jouer à 30 sur ce terrain. Il reste à vérifier les cinématiques, le son,
+la vitesse du monde et le trajet complet jusqu'au navigateur. Rapport :
+`spikes/switch2-room/continuous-walk-2026-11-10.json`.
+
+### 10 novembre : la cinématique garde son rythme dans la portion observée
+
+Une nouvelle copie de données sert au contrôle cinéma. Les quinze fichiers
+de la NAND du point de marche restent identiques. Nous observons réellement
+le menu New Game puis le plan animé de tapisserie, avant l'enregistrement.
+Pendant cent secondes, un lecteur récupère le son stéréo à 48 kHz et vingt
+captures sont prises. Aucune recherche de correspondance ne tourne pendant
+le jeu. Le lecteur peut s'arrêter même si sa pipe reste ouverte et muette ;
+un test le vérifie avant cette session. Le processus audio et le lecteur
+sont ensuite réellement absents du conteneur avant l'arrêt normal du jeu.
+
+Après nettoyage, les images et le son sont comparés indépendamment aux
+références privées déjà extraites. Douze paires sont retenues, sept sont
+rejetées et la première image manque de son centré pour être appariée.
+Les résultats rejetés restent dans le rapport. Les points acceptés couvrent
+les secondes 53 à 143 de la source, soit 90,053 secondes de temps réel.
+Le son avance de 90,053 secondes et la vidéo de 90 secondes. Les bornes
+conservatrices, environ 0,986 à 1,014 seconde de source par seconde réelle,
+sont compatibles avec une vitesse normale et excluent un demi-temps sur
+cette portion. Elles ne sont pas un intervalle de confiance statistique.
+
+L'écart entre les positions source du son et de l'image va de 0,067 à
+0,151 seconde. Nous conservons une incertitude de 0,5 seconde, sans annoncer
+une précision de quelques dizaines de millisecondes. L'origine estimée du
+son à partir des réceptions varie de 30 millisecondes ; ce n'est pas une
+horloge de haut-parleur. Le contrôle n'observe ni la fin du film ni toutes
+les cinématiques et ne valide pas la vitesse du monde en trois dimensions.
+
+Une garde demandait d'abord le marqueur de copie NoSharpening alors que
+le titre et la vidéo ne l'avaient pas encore exercé. L'exception reste
+explicitement limitée au cinéma et enregistre cette absence. La vraie garde
+de jeu 3D continue de refuser un journal dont le marqueur a été retiré.
+Le marqueur apparaît plus tard dans la session, sans être antidaté comme
+preuve de la vérification initiale. Les autres contrôles de binaire, pilote,
+horloge et configuration restent actifs. Rapport :
+`spikes/switch2-room/cinema-qualification-2026-11-10.json`.
+
+La prochaine étape passe par la salle navigateur isolée. L'adaptateur habituel
+impose encore le mode 0 et la suppression des maillages ; il ne reproduit donc
+pas notre profil en pointant seulement sur le nouveau binaire. Un paquet
+privé doit appliquer les réglages qualifiés au lancement, préserver les
+manettes et le stockage de l'adaptateur, puis vérifier le véritable exécutable
+et ses paramètres dans la salle. Aucun changement du moteur habituel n'est
+installé à ce stade.
+
+### 10 novembre : préparer la même configuration dans une salle navigateur
+
+Le paquet navigateur reste distinct du moteur privé déjà qualifié. Son
+lanceur vérifie l'empreinte du vrai client avant de l'exécuter. Il applique
+trente valeurs explicites du profil, retire l'ancienne suppression des
+maillages et conserve les manettes, le stockage et l'identité fournis par
+l'adaptateur. Onze cas CPU passent, dont les refus de mauvais binaire,
+d'arguments inattendus et de configuration privée incomplète. Aucun de ces
+tests ne lance un jeu.
+
+La vérification réelle devra lire l'environnement du processus après son
+lancement. Les métadonnées Docker gardent les variables initiales de
+l'adaptateur, avant leur remplacement par le lanceur ; elles ne suffisent
+donc pas à prouver le profil utilisé. Le contrôleur vérifiera aussi
+141 valeurs effectives, le pilote chargé, le code de copie et les maillages
+réellement dessinés, puis les producteurs de capture et de son.
+
+Le pilote conserve les contrôles de page servie, de jeu annoncé, de place
+du joueur, de spectateur et de refus d'un deuxième joueur. Après la preuve
+du refus, cette page sera fermée. Les deux autres navigateurs décodent sur
+ce serveur, ce qui ajoute une charge absente lorsque les amis jouent depuis
+leurs propres machines. Cette limite restera explicite dans les résultats.
+Le signal audio reçu et la durée programmée par WebAudio seront comptés
+séparément, sans les présenter comme une mesure de synchronisation physique.
+
+Un surveillant ne peut arrêter que le pilote privé identifié par son numéro
+de processus et son instant de démarrage. Une nouvelle CI, une charge de
+compilation ou la limite de temps déclenche sa fermeture normale. Un nettoyage
+qui reste incomplet est un échec explicite. Le plan est maintenant figé,
+le worker est construit et aucune salle n'est encore lancée. Preuve :
+`spikes/switch2-room/browser-preparation-2026-11-10.json`.
+
+### 10 novembre : une dépendance des manettes bloque la première salle
+
+La première salle privée ne démarre aucun émulateur. Son helper, le petit
+programme qui crée les manettes virtuelles, échoue en important `evdev`,
+la bibliothèque Python utilisée pour parler aux périphériques Linux.
+L'adaptateur attend dix secondes leurs fichiers de description, puis échoue.
+La page attend ensuite des images pendant 120 secondes. Ce délai ne mesure
+aucun chargement de carte ni travail graphique de Zelda.
+
+L'image exécutait correctement le client natif dans nos essais précédents.
+Cela ne qualifiait pas le programme des manettes lancé par l'adaptateur,
+dans son propre environnement Python. Les tests du lanceur et des réglages
+ne couvraient pas non plus cette commande. Le prochain essai doit donc
+d'abord créer quatre manettes avec les droits réels de la salle, lire leur
+état depuis un consommateur autorisé, puis vérifier leur disparition.
+La correction reste dans une image privée dérivée ; le pilote graphique
+et le client qualifiés doivent conserver leurs empreintes.
+
+La fermeture retire les conteneurs, les producteurs de capture et les
+manettes. La configuration habituelle, les huit progressions et la copie
+du point manuel à 01:51 restent identiques. Le rapport final du surveillant
+manque, car la fermeture après exception l'a terminé avant son écriture.
+Son absence reste une limite explicite, à corriger avant une nouvelle salle.
+Le premier essai est conservé, sans preuve de cadence, de son, de spectateur
+ou de déplacement dans le navigateur. Rapport :
+`spikes/switch2-room/browser-attempt-01-2026-11-10.json`.
+
+Le contrôle suivant corrige ce préalable sans lancer Zelda. Le Python choisi
+est celui d'un environnement privé sous `/opt/buildtools`, pas celui où
+une première copie du module l'avait déposé. La nouvelle image ajoute
+seize fichiers `evdev`, soit 157 627 octets, dans ce seul environnement.
+Ses couches précédentes, ses paramètres, RADV et la bibliothèque C++ restent
+identiques. L'ancien import échoue et le nouvel import passe.
+
+La vraie commande du helper crée quatre manettes avec ses deux capacités
+Linux habituelles. Un consommateur distinct reçoit seulement leurs quatre
+périphériques et vérifie boutons, axes distincts, gâchettes, refus d'un joueur
+invalide et retour au repos explicite ou après expiration. L'arrêt rend zéro
+et retire les périphériques et la socket. Les programmes de capture et de son
+s'importent ou démarrent avec leur option d'aide ; cela ne prouve pas encore
+un enregistrement réel. Le surveillant conserve maintenant chaque relevé
+et son rapport final lors d'une sortie normale ou d'une exception du pilote.
+Le défaut réintroduit et un enfant qui refuse de finir sont bien rejetés.
+Ces preuves permettent un nouvel essai de salle, sans changement du moteur
+habituel : `spikes/switch2-room/browser-image-fix-2026-11-10.json`.
+
+### 10 novembre : la salle fonctionne, la mesure de marche reste incomplète
+
+La deuxième salle privée démarre le moteur et transmet son écran titre.
+Le catalogue annonce le bon jeu, le joueur obtient la première place,
+le spectateur reste sans manette et la demande d'une deuxième place reçoit
+un refus avec fermeture effective de sa connexion. Le navigateur ouvre
+ensuite la sauvegarde de Kokiri à 01:51. Le signal sonore reçu contient
+des échantillons non nuls et WebAudio programme leur lecture. Cela ne
+mesure pas leur sortie physique ni le décalage son/image.
+
+Le premier contrôle des paramètres refuse huit indicateurs de valeur par
+défaut des manettes. Le code réel lit et écrit le même défaut : première
+manette connectée, sept autres déconnectées. Les valeurs, les boutons,
+les axes et les chemins de stockage restent identiques. Le refus brut est
+conservé ; les autres contrôles réels passent sur le processus attendu.
+
+Quatre déplacements courts depuis le clavier du navigateur sont observés
+au sol. Le passage prolongé commence et sa capture intermédiaire montre
+encore Link en mouvement. Le programme externe qui envoie les commandes
+quitte ensuite avec le code 143, sans rapport final ni journal des dernières
+directions. La cause du signal n'est pas établie. Le moteur continue,
+et le surveillant ne demande aucun arrêt dans ses 75 relevés. Une commande
+distincte remet les touches au repos avant la fermeture normale de la salle.
+Nous ne qualifions donc pas les 90 secondes et n'en tirons aucun chiffre
+de cadence. Le nettoyage confirme les processus absents, les sauvegardes
+intactes et aucun redémarrage du processeur graphique. La suite corrige
+le programme de mesure hors jeu, avec journal progressif et remise au repos
+sur signal : `spikes/switch2-room/browser-attempt-02-2026-11-10.json`.
+
+### 10 novembre : le passage complet tient presque 30, avec un à-coup conservé
+
+Le contrôleur corrigé termine les 90 secondes depuis le clavier du navigateur.
+Il enregistre 257 changements de direction et relâche toutes les touches.
+Les captures avant, pendant et après montrent de petites traversées au sol,
+sans dialogue ni échelle. Le vrai processus conserve ses 141 réglages,
+son pilote graphique et son identité. Le joueur et le spectateur restent
+connectés, avec un seul producteur par flux.
+
+Les quatre fenêtres Vulkan entièrement comprises dans le passage couvrent
+80,505 secondes : 2 400 intervalles, soit 29,8117 retours/s. La première
+contient un intervalle de 113,149 ms. Elle reste dans le calcul. Ses
+99 % d'intervalles les plus courts tiennent dans 44,502 ms ; les trois
+autres fenêtres donnent respectivement 34,135, 33,883 et 34,357 ms.
+La sonde du service du jeu couvre séparément 80,473 secondes à 29,8235/s,
+avec un maximum de 120,747 ms. Chaque étage compte un intervalle au-delà
+de 100 ms. Nous ne combinons pas ces percentiles de fenêtre en un
+percentile global. Le résultat ne vaut donc pas 30 constantes.
+
+Le navigateur peint 2 685 images supplémentaires et reçoit 9 004 paquets
+audio pendant la période observée. WebAudio programme 90,03 secondes,
+sans nouvelle coupure comptée. Ces compteurs ne prouvent ni autant de
+contenus distincts ni une synchronisation physique du son et de l'image.
+Les deux clients Chromium décodent ici sur le serveur : leurs douze
+processus consomment ensemble 150,36 secondes de CPU sur 90,30 secondes
+réelles, soit environ 1,67 cœur occupé. Ce coût n'existe pas ici lorsque
+les clients jouent depuis leurs propres machines. Il ne suffit pas à lui
+attribuer l'à-coup : aucun essai alterné n'isole encore son effet.
+
+La capture intermédiaire dure 109 ms et recouvre la deuxième fenêtre,
+pas la première où se trouve le grand intervalle. Les trois fenêtres
+suivantes ne remplacent donc pas la première dans la conclusion.
+Le moteur, les producteurs, les manettes et le contrôleur détaché ferment
+normalement ; les sauvegardes restent intactes. L'analyse indépendante
+retrouve les mêmes sommes dans les journaux bruts. La prochaine étape
+porte sur un trajet plus varié et ses chargements, car ce petit sentier
+déjà visité ne qualifie pas le symptôme initial. Rapport :
+`spikes/switch2-room/browser-attempt-03-2026-11-10.json`.
+
+### 10 novembre : visiter un intérieur, puis préparer Zelda séparément
+
+Le parcours suivant quitte le petit sentier et atteint le porche d'une
+autre maison, puis son intérieur. Les images lues montrent des poteries,
+des lanternes et une niche au fond. Aucun nom de lieu n'est affiché et
+aucune durée de chargement n'est établie. Les observations ne capturent
+pas d'écran noir, ce qui n'exclut pas un chargement de ressources entre
+elles. Le retour extérieur reste non prouvé, car la caméra finit près
+du mur au seuil. Les 13,55 secondes d'appuis directionnels sont réparties
+sur 154,16 secondes d'observations ; aucune fenêtre n'est acceptée comme
+marche continue. La salle ferme normalement à 437,96 secondes, sans
+changer les sauvegardes habituelles. Rapport :
+`spikes/switch2-room/browser-attempt-04-2026-11-10.json`.
+
+Pour rendre le candidat utilisable, remplacer le moteur global serait trop
+large : Mario Tennis partage cette console et n'a pas passé ces essais.
+L'adaptateur accepte désormais une table `engines_by_title`, qui choisit
+le triplet image Docker, moteur et révision pour un titre exact. Le stockage
+et les réglages de la salle restent hérités. Les entrées incomplètes ou
+qui tentent de déplacer les sauvegardes sont refusées. Le même choix
+alimente le lancement du moteur et celui du helper des manettes.
+
+Le test du vrai point d'entrée échoue d'abord : Zelda reçoit encore l'image
+globale. Il passe après raccordement, avec un titre témoin qui conserve le
+moteur précédent et son cache. Désactiver volontairement la sélection fait
+échouer le test à nouveau. La porte locale complète passe ensuite, dont
+les tests GPU, audio, sauvegardes et capture. Aucun résultat de CI distante
+n'est déduit de cette exécution locale.
+
+Le paquet qualifié est copié à part, sans partager ses fichiers modifiables
+avec le laboratoire. Le client, le lanceur et sa politique gardent leurs
+empreintes. La configuration candidate conserve le triplet global et ajoute
+seulement Zelda ; elle reste inactive avant une vérification de salle via
+ce nouveau choix. Une copie de la NAND précédera son activation : remettre
+l'ancien binaire ne prouve pas qu'il lira des sauvegardes écrites par le
+nouveau. Le profil vise 30 images/s et conserve ses à-coups mesurés ; il
+ne promet pas 30 constantes.
+
+### 10 novembre : activer le candidat Zelda après le contrôle du vrai routage
+
+Le dernier essai isolé utilise la configuration préparée pour l'installation.
+Seule sa racine de sauvegardes devient temporaire. Le titre Zelda sélectionne
+bien la nouvelle image pour le moteur et le helper, le paquet copié en lecture
+seule et le cache de sa révision. Les 141 réglages passent avant et après
+90 secondes de commandes navigateur. Le contrôleur finit normalement,
+relâche les touches et garde le même processus de jeu.
+
+Les trois fenêtres Vulkan complètes couvrent 61,422 secondes à 29,3054
+retours/s. Leurs p99 sont 45,694, 48,382 et 41,062 ms ; le maximum atteint
+65,824 ms, sans intervalle au-delà de 100 ms. Toutes restent dans le résultat,
+y compris celle de la capture intermédiaire. Le service du jeu donne
+29,3245/s sur ses fenêtres propres. Cette cadence est moins régulière que
+la fin du passage précédent, sans comparaison alternée permettant d'en
+attribuer la différence au routage ou au paquet copié. Le son reçu et
+programmé progresse encore de 90,03 secondes, sans nouvelle coupure comptée.
+Ce résultat reste un profil proche de 30, pas 30 constantes. Rapport :
+`spikes/switch2-room/browser-attempt-05-2026-11-10.json`.
+
+Après le nettoyage, les deux emplacements Zelda sont verrouillés et leurs
+NAND copiées séparément, soit 22 fichiers. Les huit progressions gardent
+leurs empreintes. Le jeu du catalogue est comparé octet par octet à celui
+des essais : les 25,62 Go sont identiques, en 32,2 secondes de comparaison
+hors jeu. Les 4 284 fichiers de caches préparés sont copiés pour la nouvelle
+révision ; ils ne constituent pas un cache exhaustif de toute la carte.
+
+La configuration est remplacée atomiquement et ne change que le choix du
+moteur pour Zelda. Les autres titres conservent le triplet global. Aucun
+service ni salle n'est redémarré : le prochain lancement lit cette sélection.
+L'ancienne configuration et les NAND antérieures restent disponibles pour
+un retour arrière, avec conservation nécessaire de toute progression écrite
+ensuite. La porte locale complète, les documents et l'audit passent. Aucun
+commit ni résultat de CI distante n'est annoncé. La suite reste le diagnostic
+des à-coups et des chargements, dont la cause n'est pas attribuée au matériel.
+Preuve : `spikes/switch2-room/title-profile-installation-2026-11-10.json`.
+
+### 10 novembre : préparer des programmes avant les nouvelles visites
+
+La suite examine le préchauffage de Fritchii 5.5, c'est-à-dire compiler des
+programmes avant la partie pour éviter de le faire au premier passage.
+Son chemin complet par recettes ajoute une infrastructure absente de notre
+base. Il saute aussi RADV par défaut ; forcer son option ne prouverait pas
+la réutilisation du cache sur ce pilote. Les propositions amont #895 et #896
+restent ouvertes et dépendent maintenant d'un autre cache, déjà écarté
+dans un essai précédent. Nous ne les réimportons pas en bloc. L'audit
+fige les sources et distingue ces chemins :
+`spikes/switch2-room/precompile-review-2026-11-10.json`.
+
+Une voie existante est plus petite : notre client possède une commande
+`--build-warm` qui extrait des programmes de calcul du jeu avant son démarrage.
+Le même exécutable qualifié l'exécute dans un conteneur sans carte graphique,
+manette, réseau ni clé montée. Le jeu et le moteur restent en lecture seule,
+la sortie reste privée. Le plafond de deux CPU, la priorité basse, quatre
+Gio de mémoire et les cinq minutes autorisées isolent cet outil ; ils ne
+définissent pas une exigence de vitesse. Le conteneur termine avec le code
+zéro après 6,51 secondes observées, dont 4,3 annoncées par l'outil.
+
+Le fichier contient 4 794 enregistrements distincts de calcul, soit 69,48 Mo.
+Le contrôle structurel lit le format v54 jusqu'à sa fin, et rejette des
+copies tronquées, de mauvaise version ou de mauvais type de programme.
+Ce contrôle Python ne remplace pas le lecteur C++ réel. L'extraction parcourt
+2 916 archives, mais rapporte aussi 18 conversions ignorées et 17 456 erreurs
+de membres. Le niveau de journalisation ne détaille pas leurs causes : nous
+ne les appelons ni fichiers corrompus ni shaders manquants. Le résumé final
+omet justement ces erreurs, donc la sortie complète reste une preuve à lire.
+
+Le fichier n'est pas un ensemble de pipelines Vulkan déjà compilés. Sa lecture
+par le vrai pilote reste à essayer dans un état privé avec l'option dédiée.
+Le marqueur de fin ne suffira pas : le code peut l'écrire même si des
+compilations échouent. Le prochain contrôle devra garder les nombres construits,
+échoués et non atteints. Le profil installé, les caches et les progressions
+restent inchangés ; aucun gain de cadence n'est encore attribué à cette
+préparation. Rapport :
+`spikes/switch2-room/warm-compute-preparation-2026-11-10.json`.
+
+### 10 novembre : vérifier les droits du lancement, pas seulement ses octets
+
+Le premier contrôle du consommateur GPU s'arrête avant le vrai client.
+Le script privé `run-cli.sh` a été copié sans son droit d'exécution :
+le superviseur reçoit l'erreur 13 au lancement. Les empreintes de contenu
+ne détectent pas cette différence de droits. Le lanceur Python et le client
+natif ont, eux, leur droit d'exécution.
+
+Le conteneur ferme et disparaît en 6,73 secondes, sans précache commencé.
+Aucun nombre de pipeline n'est inventé à partir de cette absence. Le pilote
+de contrôle termine son nettoyage avec zéro, mais le conteneur sort avec un
+et le résultat d'acceptation reste faux : cette distinction doit être lue.
+Le cache, le profil installé et les progressions restent identiques.
+La reprise corrige seulement ce droit dans une nouvelle copie, puis vérifie
+la vraie commande sous le même utilisateur et les mêmes montages, sans GPU,
+avant de relancer. Rapport :
+`spikes/switch2-room/warm-gpu-attempt-01-2026-11-10.json`.
+
+### 10 novembre : la boîte noire observe aussi nos préparations
+
+Le deuxième contrôle atteint le vrai précache. Le client charge les 4 794
+entrées et programme 4 679 travaux de calcul, les 115 autres étant déjà
+présents. Il ajoute 783 pipelines graphiques enregistrés. L'exécutable,
+RADV, l'environnement et les 142 champs du contrôle privé sont vérifiés.
+Cela prouve l'entrée dans le consommateur, sans compter encore ses succès.
+
+À 41,60 secondes, la garde voit trois processus `perf` externes et demande
+l'arrêt de notre seul conteneur. Le superviseur ne trouve pas de fenêtre
+à fermer pendant cette préparation ; après 30,69 secondes, il force la fin.
+Le contrôle se termine donc avec le code 137, sans bilan construit/échoué/non
+atteint. Ce code résulte de cet arrêt forcé et ne prouve pas une panne GPU.
+Le noyau ne relève aucun nouveau reset. Les milliers de fichiers de cache
+ajoutés restent des traces d'un travail interrompu, pas un cache qualifié
+par une fermeture normale.
+
+La lecture hors jeu retrouve l'origine d'une capture : notre boîte noire
+a reconnu le processus et profilé ses fils `VkShaderPrecach`. Son rapport
+nomme exactement le conteneur et le numéro du processus de cet essai.
+Cette observation automatique déclenche donc notre propre garde contre
+les profils concurrents. Les profils sont déjà terminés lors du diagnostic ;
+aucun travail inconnu n'est interrompu. Le prochain contrôle suspendra
+temporairement ce seul observateur après vérification du repos, puis le
+restaurera dans tous les chemins de sortie. Il repartira du cache d'origine,
+en conservant l'essai interrompu séparément. Rapport :
+`spikes/switch2-room/warm-gpu-attempt-02-2026-11-10.json`.
+
+### 10 novembre : le pilote termine la préparation, avec un échec conservé
+
+Le troisième contrôle repart du cache d'origine et suspend la boîte noire
+juste avant le lancement. Ses gardes ne voient aucune charge étrangère.
+Le consommateur charge les 4 794 entrées, écarte les 115 déjà présentes
+et programme 4 679 calculs, avec 783 pipelines graphiques enregistrés.
+Sur ces 5 462 travaux, 5 461 réussissent et un échoue ; aucun n'est laissé
+de côté. Le bilan natif annonce 144,7 secondes.
+
+Ce total mélange les deux classes. Même si les 783 graphiques avaient tous
+réussi, au moins 4 678 travaux de calcul auraient donc réussi. C'est la
+borne que nous retenons, sans inventer leur compte exact. Le marqueur de
+fin existe malgré l'échec, ce qui confirme qu'il ne prouve pas une couverture
+parfaite. Les erreurs de lecture de l'extraction initiale restent aussi des
+limites de couverture.
+
+La fenêtre reconnaît la demande de fermeture et le client rend zéro après
+9,90 secondes, sans arrêt forcé. Le contrôle et son nettoyage finissent
+en 160,20 secondes. L'observateur est restauré après une pause enregistrée
+de 160,22 secondes ; les progressions et le profil installé restent identiques.
+Le fichier de cache Vulkan mesure alors 128 277 636 octets, contre
+17 041 996 au départ. Ce fichier provient cette fois d'une fermeture normale.
+Il reste privé. Sa taille accrue prouve un artefact écrit, pas des succès
+de cache du pilote lors d'un prochain dessin ni un gain de FPS.
+
+Le prochain contrôle redémarrera une copie, avec les dates exactes du fichier
+préparé et le même pilote. Il vérifiera sa lecture et la reconnaissance
+du marqueur, puis une comparaison en jeu pourra opposer les caches en
+gardant le précache désactivé dans les deux branches. Rien de ce cache
+préparé n'est copié dans la salle habituelle avant cette comparaison.
+Rapport : `spikes/switch2-room/warm-gpu-attempt-03-2026-11-10.json`.
+
+### 10 novembre : qualifier aussi la vibration dans l'image retenue
+
+Le helper de manettes tourne dans une image différente pour Zelda. Le test
+complet des quatre périphériques employait jusque-là une image fixée dans
+son code. Il accepte désormais `NEL3AB_TEST_SWITCH_IMAGE`, en conservant
+son défaut. Son rapport vérifie l'identifiant réel de l'image du helper
+et du lecteur du noyau, pas seulement le nom demandé.
+
+Avec l'image retenue, les quatre navigateurs commandent leurs périphériques.
+Les seize boutons, les axes fractionnaires et la vibration passent. Refuser
+une vibration laisse les boutons fonctionner, puis la vibration récupère.
+La configuration au repos, le rechargement des profils et la libération
+au départ du spectateur ou du navigateur passent aussi. La porte des
+commandes et le contrôle renforcé des images sont verts ; conteneurs,
+périphériques et pont privés disparaissent. Cela qualifie le helper,
+sans changer la capacité de Zelda, qui reste à un joueur. Rapport :
+`spikes/switch2-room/qualified-image-controls-2026-11-10.json`.
+
+### 10 novembre : le second démarrage reconnaît les fichiers préparés
+
+Une nouvelle copie conserve les empreintes et les dates exactes du cache
+préparé, avec la NAND d'origine. Le binaire et le pilote restent les mêmes.
+Au démarrage, le client lit le cache Vulkan attendu et reconnaît le marqueur
+de calcul. Il ne reprogramme aucun calcul. Un travail graphique est encore
+tenté et échoue ; il reste explicitement dans le bilan.
+
+Le contrôle finit en 15,35 secondes, avec arrêt normal et observateur restauré.
+La source du cache préparé et les progressions habituelles sont intactes.
+Le journal annonce la lecture avant l'appel de création Vulkan : l'absence
+de rejet observé et la poursuite normale ne mesurent pas les succès internes
+du cache RADV. Le marqueur évite une nouvelle tentative, y compris après
+l'échec conservé au premier contrôle. Cette reconnaissance ne prouve donc
+ni couverture parfaite ni gain en partie. La comparaison suivante gardera
+le précache désactivé des deux côtés et alternera cache d'origine et cache
+préparé. Rapport :
+`spikes/switch2-room/warm-gpu-reuse-01-2026-11-10.json`.
+
+### 10 novembre : les freezes observés pendant une vraie partie
+
+Souhib retrouve une vitesse de jeu satisfaisante, avec des freezes fréquents
+pendant les déplacements, y compris dans une zone déjà visitée. Les cinématiques
+lui paraissent fluides. Nous conservons les journaux pendant sa partie sans
+lancer de capture ni de nouveau profilage, puis son journal complet après
+fermeture normale. Une pause entre deux retours Vulkan atteint 1,565 seconde.
+La scène exacte de cette fenêtre n'est pas capturée : ce nombre ne doit pas
+devenir une mesure de marche.
+
+Les compteurs montrent aussi 95 nouveaux programmes graphiques et 1 346,6 ms
+cumulées d'attente des dessins entre deux bilans espacés de 10,060 secondes.
+Ce cumul n'est pas un gel unique. Les compilations en arrière-plan atteignent
+463,7 ms de temps écoulé, qui peut comprendre de la contention du processeur.
+Les journaux confirment donc des attentes utiles à examiner, sans expliquer
+tous les freezes. Le profilage automatique et un travail Python extérieur
+sont présents dans la session : elle n'est pas un essai isolé.
+
+La comparaison privée des caches s'arrête après A1 et B1 pour laisser jouer
+Souhib. Aucun bilan de cadence de cette demi-série n'est accepté. Le changement
+du lancement personnel décrit ci-dessous demandera de qualifier à nouveau
+le pilote avant de reprendre une série complète.
+
+### 10 novembre : une option de sauvegarde doit correspondre à un import réel
+
+Le menu proposait « tout débloqué » pour tous les jeux. Zelda Switch 2 possède
+bien un dossier `debloquee`, mais aucune preuve d'import complet. Le jeu y avait
+simplement écrit une partie ordinaire. Le nom d'un dossier et la présence d'un
+fichier ne suffisent donc pas à qualifier sa progression.
+
+La nouvelle lecture utilise un reçu `unlocked.json`, écrit lors de l'import
+déclaré complet. Il nomme sa source et ses fichiers. Le serveur vérifie encore
+que tous les fichiers existent et sont non vides. Un reçu seul, une partie
+ordinaire, un fichier manquant, un lien symbolique ou une version inconnue ne
+donnent pas l'option. Cette vérification fonctionne pour GameCube, Wii, Switch
+et Switch 2, à partir de leurs vrais emplacements. Elle ne décode pas les
+objectifs de chaque jeu : la qualification de l'import reste explicite.
+
+Le menu lit ce catalogue à son ouverture. Le salon le vérifie de nouveau avant
+de préparer puis lancer un import. Le worker refuse aussi un ancien ordre dont
+les fichiers ont disparu. Les essais commencent rouges avec le menu universel
+et un lecteur qui refuse tout. Leurs jumeaux distinguent ensuite un import réel
+d'un simple dossier et vérifient son retrait. Une salle privée avec quatre
+fausses ROM vérifie les menus sans exécuter ces fichiers comme des jeux.
+
+### 10 novembre : une nouvelle partie appartient au compte qui la crée
+
+Souhib confirme que « partie neuve » retrouve sa progression. Les journaux
+retrouvent son lancement du 7 novembre dans cet emplacement partagé. Aucune
+partie personnelle Zelda n'existait encore. Après son arrêt, treize fichiers
+de sa mémoire émulée sont copiés vers son compte, avec copie de secours et
+contrôle des empreintes. L'original partagé reste intact.
+
+Le comportement demandé devient précis : « partie neuve » crée la partie
+personnelle du compte, « reprendre » la rouvre, « tout débloqué » reste partagé.
+Un nouveau départ conserve la précédente progression dans un historique.
+Un marqueur consommé une seule fois distingue ce geste d'un simple redémarrage
+du worker. Sans cela, le redémarrage aurait effacé la partie à chaque lancement.
+
+Un test reproduit aussi deux identités distinctes donnant le même nom de
+dossier après remplacement de leur ponctuation. La clé reçoit désormais une
+empreinte SHA-256 complète de l'identité authentifiée. Le pseudo ne décide pas
+du dossier. La migration des anciens emplacements part des identités connues
+et conserve ses sources : un nom de dossier ne permet pas à lui seul de
+reconstruire une adresse avec certitude.
+
+La Switch et la Switch 2 possèdent déjà un état commun aux salles. Pour Dolphin,
+la progression personnelle reçoit aussi un stockage commun. Le conteneur monte
+seulement le dossier du compte choisi à l'emplacement habituel de sa salle.
+Les liens restent ainsi visibles dans le conteneur, et Dolphin écrit directement
+dans le stockage persistant. Un verrou interdit deux écritures simultanées sur
+la même partie personnelle ; deux comptes gardent des verrous et fichiers
+différents. Les tests passent ensuite avec deux identités dont les noms
+nettoyés se ressemblent et le même pseudo affiché. Les demandes de nouvelle
+partie contiennent le jeu et l'identité concernés. Un marqueur abîmé ou destiné
+à un autre compte refuse le départ avant de déplacer une progression.
+
+
+### 10 novembre : éprouver la migration et la salle installée
+
+Trois parties personnelles existantes reçoivent leurs nouveaux emplacements.
+Les 370 fichiers persistants sont identiques à leurs sources, qui restent
+conservées, avec des copies de secours. Une première copie de dossier rencontre
+un tube de capture vidéo. Ce tube transporte des images en cours de partie ;
+ce n'est pas un fichier de sauvegarde. La deuxième migration distingue les
+données persistantes des journaux, verrous et tubes de capture. Elle ne copie
+pas toute la progression partagée vers chaque compte.
+
+Neuf imports déjà documentés reçoivent ensuite leur reçu, sans changer leur
+contenu : un GameCube, quatre Wii et quatre Switch. Le jeu peut modifier ses
+records après l'import. L'empreinte enregistrée est donc une preuve de
+provenance, pas une obligation de garder des octets figés. Zelda, Tennis Fever
+et les imports seulement partiels ne reçoivent aucune promesse de tout débloquer.
+
+Le vrai lanceur Docker est aussi exercé avec deux comptes et trois salles,
+par un petit programme de lecture et d'écriture à la place de Dolphin. Le compte
+A reprend sa modification dans une autre salle ; B conserve son propre contenu.
+Le premier essai rangeait ses fausses ROM à côté des comptes. Le montage du
+dossier des jeux y exposait les deux sauvegardes : l'essai échoue correctement.
+L'essai suivant sépare les jeux et les comptes, comme l'installation. Il prouve
+les montages et leurs écritures, pas la lecture d'une carte mémoire dans un jeu.
+
+Un autre piège apparaît au refus d'un lancement : le catalogue annonçait encore
+le jeu choisi alors que le worker attendait au menu. Le test HTTP reproduit cet
+état, puis vérifie que le refus publie « aucun jeu » en conservant la bibliothèque.
+Une demande persistante « tout débloqué » est également relue au redémarrage.
+Si ses fichiers manquent, une salle privée revient au menu sans lancer de jeu.
+Le navigateur attend enfin la nouvelle réponse du catalogue à chaque ouverture
+du menu : il ne laisse pas choisir une option encore en cours de vérification.
+
+Le binaire optimisé et l'unité des salles sont installés après les contrôles du
+code, du GPU, des sauvegardes et de la capture. Le salon et la boîte noire sont
+redémarrés pour prendre leurs sources actuelles. Une ouverture temporaire de la
+salle installée vérifie les vingt jeux, neuf imports disponibles, Zelda sans
+option « tout débloqué », la page construite et le chemin personnel commun.
+Aucun émulateur n'est lancé. La salle est refermée après le contrôle. Cette
+qualification ne mesure pas les freezes et ne constitue pas un résultat de CI
+distante : aucun commit ni envoi n'est effectué.
+
+Rapport et empreintes des preuves :
+`spikes/switch2-room/saves-accounts-and-freezes-2026-11-10.json`.
+
+
+### 10 novembre : repartir du cache appris pendant la vraie partie
+
+La nouvelle référence est copiée après la fermeture de la partie de Souhib,
+avec les verrous des trois salles et de la Switch pris pendant la copie.
+Ses 4 865 fichiers occupent environ 134 Mo. Reprendre l'ancien témoin aurait
+retiré du cache les programmes appris pendant cette partie. La variante est
+préparée depuis cette copie exacte, sans modifier le cache de production.
+
+Le précache natif programme 783 travaux graphiques et 4 627 travaux de calcul.
+Il termine en 144,3 secondes : 5 409 travaux réussissent, un échoue, aucun ne
+reste non atteint. La borne garantit au moins 4 626 réussites de calcul ; les
+classes ne sont pas comptées séparément dans le bilan. Les erreurs de lecture
+du premier extracteur restent une limite. L'option de précache est activée
+seulement dans cette copie de préparation, puis reste désactivée dans les deux
+conditions comparées en jeu.
+
+Le nouveau contrôle des 757 fichiers persistants, configurations, moteur et
+page vérifie leur conservation avant et après. La salle privée doit aussi
+servir la page actuelle et annoncer ses vrais joueur et spectateur. Le premier
+écran nommé « chargé » montre encore une confirmation Load/Cancel. Il est
+refusé et conservé comme contre-exemple, puis la vraie scène est observée avant
+les mouvements. Les quatre passages alternés repartent du même point manuel
+de Kokiri et de leur cache fixé. Les deux anciens passages restent exclus.
+Cette préparation n'établit encore aucun gain de fluidité ni couverture de
+nouveaux décors.
+
+Rapport de préparation :
+`spikes/switch2-room/current-cache-preparation-2026-11-10.json`.
+
+
+### 10 novembre : le menu visible peut encore ignorer une touche
+
+Le second passage piloté à la main atteint sa limite de 450 secondes avant
+la mesure. Son arrêt est normal, ses fichiers de production sont inchangés,
+mais il ne fournit aucun résultat de cadence. Cette série est écartée de la
+comparaison. La durée de préparation doit devenir prévisible sans confondre
+une attente fixe et un jeu prêt.
+
+Un lecteur d'images reconnaît alors cinq états du point de sauvegarde privé :
+menu principal, liste, confirmation, arrivée au sol et vue avant marche.
+Il ne lit que le rectangle du jeu, sans utiliser les textes de notre page.
+Les images noires, l'introduction et une autre vue au sol sont refusées. Les
+premiers contrôles passent, mais le premier essai réel trouve un contre-exemple :
+le menu apparaît encore flou et sombre pendant son fondu. Le lecteur le reconnaît,
+l'appui demandé de 180 ms ne fait pas avancer le jeu, puis le contrôle de la
+liste refuse la suite. Aucune phase de mesure n'est lancée.
+
+Cette image devient un nouveau cas négatif. La dispersion des niveaux de gris
+du petit rectangle « Continue » vaut 14,34, contre 32,92 et 39,31 sur deux menus
+complètement visibles. Le seuil de 25 distingue ces images de ce point précis.
+Il n'est pas un lecteur général de tous les menus. Deux reconnaissances
+consécutives sont aussi requises avant une commande. Le résultat de cette
+commande doit lui-même être observé. Les treize cas positifs et négatifs passent,
+et la réintroduction de l'ancien lecteur reproduit le refus attendu sur le
+fondu. La qualification réelle du nouveau pilote reste à terminer.
+
+
+### 10 novembre : le cache préchauffé ne donne pas de gain répété
+
+La deuxième qualification automatique atteint bien le point prévu et les
+mouvements au sol. Son image de caméra finale obtient toutefois un score de
+0,615, sous le seuil de 0,65 prévu. La lecture réelle des captures montre une
+bonne scène, simplement décalée. Ce contrôle d'image était trop précis pour
+cette vue mobile. Il est remplacé par la lecture des huit captures avant chaque
+mesure, tandis que les menus et le chargement gardent leurs contrôles automatiques.
+Aucune mesure des essais arrêtés avant leur phase n'entre dans le résultat.
+
+La série suivante termine ses quatre phases alternées, avec 90 secondes de
+commandes navigateur chacune. Le cache est remis depuis sa référence fixée à
+chaque lancement. Le moteur exact, les 141 réglages, le joueur et le spectateur
+sont contrôlés avant et après. Les arrêts sont normaux, sans processus survivant
+ni remise à zéro du GPU. Les 757 fichiers protégés et les 4 865 fichiers du
+cache de production gardent leurs empreintes.
+
+| Passage | Cache | Retours Vulkan/s | Plus grand intervalle retenu | Couverture des fenêtres complètes |
+|---|---|---:|---:|---:|
+| A1 | actuel | 28,51 | 56,68 ms | 84,18 s |
+| B1 | préchauffé | 29,17 | 69,27 ms | 82,27 s |
+| A2 | actuel | 29,48 | 51,77 ms | 61,06 s |
+| B2 | préchauffé | 28,27 | 60,51 ms | 63,66 s |
+
+Le premier couple gagne environ 2,32 %, le second perd 4,09 %. Le gain ne se
+répète pas. Les positions et la caméra varient un peu au départ, ce qui limite
+encore une attribution précise au cache. Les p99 de fenêtre restent entre
+40,02 et 50,50 ms. Le p99 est la limite sous laquelle restent 99 % des intervalles
+de cette fenêtre ; ce n'est pas une moyenne entre fenêtres. Les 14 fenêtres
+complètes retiennent 8 400 intervalles et environ 291 secondes sur les 360
+secondes demandées. Elles incluent la capture de milieu de phase lorsqu'elle
+les recouvre. Aucun de leurs intervalles ne dépasse 100 ms. Cela ne certifie
+ni les bords non couverts, ni les nouveaux décors, ni l'ensemble du jeu.
+
+Le navigateur ne compte aucune nouvelle coupure de son ou reprise du décodeur
+pendant ces phases. Ses deux clients locaux consomment environ 1,6 processeur
+logique. Ce coût ne prouve pas une limite du processeur. Les compteurs Vulkan
+ne prouvent pas non plus que chaque image contient un nouveau calcul du jeu
+ou qu'elle est déjà affichée physiquement. Aucun cache de la variante n'est
+installé et les 30 images/s régulières restent non atteintes.
+
+Le rapprochement des temps du journal avec ses horloges Vulkan place les trois
+constructions lentes relevées environ 35 à 48 secondes avant les phases. Le
+rapprochement est estimé, et ne remplace pas un compteur de toutes les constructions.
+Ces événements n'expliquent pas les irrégularités du passage déjà chargé. Un
+profil CPU/GPU séparé doit donc retrouver le travail courant qui dépasse le
+budget d'une image, sans laisser le profileur fausser une comparaison de cadence.
+
+Pour les freezes lors d'autres passages, la lecture du code trouve une distinction
+utile. Le précache temporaire construit ses programmes puis les détruit : il
+remplit le cache du pilote graphique. Le chargement normal peut garder les objets
+prêts à dessiner. Les quatre journaux indiquent 783 programmes enregistrés laissés
+de côté au départ, dont 64 admis en préparation de fond. Une option existante,
+`EDEN_NX2_PRELOAD_ALL_PIPELINES=1`, les précharge tous et empêche leur éviction
+après inactivité. Son nom est présent dans le binaire exact. Ce n'est encore
+qu'une piste : son effet réel, sa mémoire et les nouveaux trajets doivent être
+qualifiés avant installation. Elle ne résout pas par déduction la cadence du
+terrain déjà chargé.
+
+Rapports : `spikes/switch2-room/current-cache-preparation-2026-11-10.json` et
+`spikes/switch2-room/current-cache-comparison-2026-11-10.json`.
+
+### 10 novembre : le processeur attend aussi entre ses propres fils
+
+La comparaison du cache n'a pas trouvé de gain répété. Nous observons ensuite
+le travail du processeur pendant un nouveau passage privé au sol, avec le moteur
+exact installé, les mêmes 141 réglages et le même cache de départ. Les images
+du jeu sont lues avant et après le passage. Le relevé couvre 24,12 secondes
+au milieu des commandes, avec un outil de mesure arrêté avant toute analyse.
+Il sert à chercher une cause, pas à annoncer une meilleure cadence.
+
+Le fichier contient 6 430 échantillons de cycles du processeur, dont 6 009
+dans les bornes confirmées par le démarrage et l'arrêt du relevé. Un cycle
+est une unité de travail de l'horloge CPU. Son poids échantillonné ne donne
+pas directement la durée exclusive d'une image, car les fils se chevauchent.
+
+| Fil du moteur | Occupation d'un processeur logique pendant le relevé | Ce que les instructions échantillonnées indiquent |
+|---|---:|---|
+| GPU, le fil graphique avant | 47,70 % | 38,78 % de ses cycles dans l'attente du fil arrière |
+| GPUBack, le fil graphique arrière | 74,95 % | Traitement des commandes, liaisons des ressources et verrous répartis entre plusieurs fonctions |
+| VulkanWorker, le fil qui appelle le pilote graphique | 25,72 % | Plusieurs petits coûts de liaison et de mise à jour du pilote |
+
+Ces trois fils s'exécutent sur le processeur central. Leur nom ne mesure pas
+l'occupation physique de la carte graphique. L'attente avant représente
+4,39 % des cycles échantillonnés de tout l'émulateur. Enlever cette attente
+sans respecter les dépendances laisserait lire un travail non terminé.
+Ce pourcentage n'est donc pas un gain promis. Les coûts du pilote ne révèlent
+pas non plus une fonction unique expliquant tous les à-coups.
+
+Le serveur contient un Ryzen 5 3600, soit six cœurs physiques et douze
+processeurs logiques. Les deux navigateurs locaux du banc consommaient environ
+1,6 processeur logique pendant les comparaisons précédentes. Les vrais joueurs
+décodent sur leur propre ordinateur. Cette charge du banc mérite un essai
+séparé, en conservant la capture, l'encodage et les commandes. Elle n'établit
+pas encore la cause d'une perte de cadence. Le temps physique du GPU avec
+ce moteur exact reste également inconnu.
+
+La qualité du relevé demande plusieurs réserves. Le lecteur de `perf` avertit
+qu'une description facultative des événements est invalide et donne une durée
+globale nulle. Nous ne retenons pas cette durée. Un lecteur indépendant parcourt
+les enregistrements bruts, vérifie leurs limites et retrouve exactement les
+6 430 identités, adresses, horodatages et poids décodés, sans perte annoncée.
+Ses cas négatifs refusent les enregistrements tronqués et les mauvaises tailles.
+Ce contrôle valide les échantillons conservés, sans réparer leurs piles d'appels.
+Celles-ci restent vides pour environ 88,79 % des cycles du fil avant et
+84,07 % de ceux du fil arrière. Nous ne pouvons donc pas reconstruire tous
+leurs appelants. La carte des fonctions traduites du jeu n'a pas été conservée
+avant fermeture du conteneur ; ces fonctions restent en grande partie inconnues.
+
+Les bibliothèques réellement chargées sont copiées avant le déplacement. Le
+service officiel Ubuntu fournit les données de débogage du pilote RADV dont
+l'identifiant correspond exactement. Il ne retrouve pas celles de cette
+version de la bibliothèque système `libc`. Un premier passage d'`addr2line`,
+l'outil qui cherche une fonction depuis une adresse, donne alors le nom exporté
+le plus proche pour des instructions internes sans nom. Cela attribuait à tort
+du travail au service de noms. Cette attribution est retirée et conservée comme
+analyse refusée. Les 15,19 % de cycles arrière concernés restent inconnus.
+Un nom plausible sans données de débogage ni limite de fonction prouvée
+n'identifie pas le travail effectué.
+
+Les compteurs d'attente du système augmentent entre les deux relevés de fils.
+L'option générale de leur collecte n'a pas été enregistrée au même instant.
+Sa valeur désactivée lue plus tard ne prouve donc ni des compteurs toujours
+inactifs ni une absence d'attente pendant la mesure. Nous conservons les valeurs
+brutes, sans attribuer un gel précis à l'ordonnanceur du processeur.
+
+La revue des changements amont est refaite après fermeture du jeu. Lichii
+ajoute un [correctif du décodage sonore](https://github.com/zortos293/Lichii/commit/314e1d94699dba67b69e5af93ec618b87c1163eb)
+pour les craquements de l'ocarina. Un autre changement propose des textures de
+remplacement lorsque certains fichiers d'une copie sont endommagés. Il modifie
+ce que le jeu reçoit ; nous ne l'adoptons pas comme remède aux freezes sans
+preuve de ce défaut dans notre copie. Le troisième propose les réglages du
+développeur dans l'interface Qt, que notre lanceur sans interface n'utilise pas.
+Ces changements ne démontrent pas une accélération du jeu. Les branches
+par défaut d'Eglantine et Fritchii sont nommées `nx2` ; leurs versions restent
+celles déjà examinées. Une recherche initiale sur `main` échouait et ne pouvait
+pas établir leur état courant.
+
+Les prochaines expériences doivent distinguer la charge des décodeurs locaux,
+la conservation des programmes graphiques prêts et le temps physique du GPU.
+Les 757 fichiers protégés et les 4 865 fichiers du cache de production gardent
+leurs empreintes ; les dates du cache restent identiques. Le jeu privé ferme
+normalement, ses processus et manettes disparaissent, et l'observateur système
+reprend. Aucun nouveau correctif de vitesse n'est installé. Les 30 images/s
+régulières restent non atteintes, sans limite matérielle démontrée.
+
+Rapport et empreintes des preuves :
+`spikes/switch2-room/hot-cpu-profile-2026-11-10.json`.
+
+### 10 novembre : le préchargement complet prend bien un autre chemin
+
+L'option de préchargement trouvée dans le code passe maintenant par un premier
+essai privé. Le binaire reste identique. Une copie indépendante de sa politique
+de lancement ajoute seulement `EDEN_NX2_PRELOAD_ALL_PIPELINES=1`. Les 141 réglages
+effectifs, l'image du conteneur, le cache appris pendant la partie de Souhib
+et la copie de sauvegarde privée restent ceux des contrôles précédents.
+
+Le moteur met 2 525 programmes en préparation au démarrage, contre 1 742 dans
+les témoins. Le message des 783 programmes écartés n'apparaît plus. Cela prouve
+que l'option atteint son chemin de préchargement. Ce compteur n'atteste pas
+que les 2 525 objets ont tous été construits avec succès ni utilisés par le jeu.
+Les essais négatifs refusent un drapeau absent ou nul, l'ancien compteur et
+le retour du message de programmes écartés.
+
+Les images avant et après le passage montrent Link au sol dans Kokiri, près
+de l'échelle et de la pente déjà utilisées. Les 90 secondes de commandes
+terminent normalement. Le navigateur reçoit un signal sonore non nul et
+programme environ 90,02 secondes de son, sans nouvelle coupure comptée dans
+cette phase. Cela ne remplace pas une écoute complète ni un contrôle précis
+du décalage son/image. Le journal conserve aussi des erreurs déjà observées
+de périphérique sonore, de services et de lecture mémoire ; nous ne le
+présentons pas comme un journal entièrement corrigé.
+
+La mémoire résidente relevée atteint 11,63 Gio pour le processus entier.
+Résidente signifie présente en mémoire physique à cet instant. Cette valeur
+inclut ses données partagées ; ce n'est pas le prix des 783 programmes ajoutés.
+La grande réservation d'adresses virtuelles du processus ne mesure pas sa
+consommation physique. Un témoin avec les mêmes relevés devra établir le
+surcoût réel avant toute installation.
+
+Le lancement dure environ quatre minutes et demie, préparation et lecture des
+images comprises. Aucun nouveau lieu nommé, combat, sauvegarde reprise ni
+longue période d'inactivité des programmes n'est qualifié. Le helper de planche
+d'images avait conservé l'assertion de chemin de la série précédente. Seule
+cette assertion est adaptée pour lire les captures ; les scripts gelés du
+jeu ne changent pas pendant l'essai. Le contrôle d'activation lit une copie
+explicite du journal vivant, car l'adaptateur n'écrit son journal final qu'à
+l'arrêt. Ce journal final confirme indépendamment le compteur de 2 525.
+
+Le jeu ferme normalement, sans redémarrage GPU observé. Ses processus et
+manettes disparaissent, l'observateur reprend, et les 757 fichiers protégés
+ainsi que les empreintes et dates du cache de production restent identiques.
+Ce passage unique est un contrôle de fonctionnement, sans gain de cadence
+ou de freezes mesuré. L'option reste désactivée dans la salle habituelle.
+La suite doit comparer les gels sur des trajets répétés, avec quatre phases
+alternées et le coût mémoire de chaque variante.
+
+Rapport : `spikes/switch2-room/preload-all-activation-2026-11-10.json`.
+
+### 10 novembre : le cache ne contient pas encore tous les dessins du trajet
+
+Nous cherchons un trajet qui exerce davantage que les petits allers-retours
+du banc précédent. Depuis la copie de sauvegarde habituelle, trois secondes
+et demie vers l'avant puis un mouvement vers la droite font entrer Link dans
+une pièce meublée. Un cœur ramassé déclenche ensuite deux pages de texte.
+Les mouvements envoyés pendant ce message ne prouvent aucun déplacement.
+Plus loin, une table bloque aussi une tentative de traversée. Les images
+de retour montrent enfin le soleil, la végétation et les poteaux du seuil.
+Le trajet entre réellement dans un intérieur puis revient dehors, sans
+annoncer un nouveau lieu nommé ni une longue marche continue.
+
+La session dure environ six minutes et cinquante secondes entre le départ
+et l'arrêt du moteur, préparation et observations comprises. Une fenêtre
+de 600 retours Vulkan contient un intervalle de 470,41 ms. Le journal relève
+aussi 430,6 ms d'attente cumulée de programmes graphiques encore en construction.
+Cette fois, le texte « dernières 10 secondes » est trompeur : la fonction
+ne publie ses compteurs qu'à la prochaine construction. Les deux publications
+encadrant ce total sont séparées d'environ 60,21 secondes. Le compteur et la
+fenêtre du gel se recouvrent, sans identifier une cause unique. Les premiers
+retraits de programmes commencent plus tard, après environ 366 secondes ;
+ils ne peuvent pas expliquer ce gel antérieur.
+
+Il faut ensuite vérifier ce que le préchargement peut réellement préparer.
+Une clé décrit le programme graphique et les réglages d'un dessin. Le moteur
+en calcule une empreinte avec CityHash. Chercher cette empreinte comme une
+suite d'octets dans le fichier ne suffit pas : le fichier conserve la clé
+dont l'empreinte est calculée, et non nécessairement l'empreinte elle-même.
+
+Un petit outil CPU lit le fichier sans lancer de jeu. Son aide C++ compile
+contre les vrais en-têtes du moteur et fournit les tailles ainsi que le
+calcul d'empreinte. Elle demande les tailles aux types réels, au lieu de
+les recopier en Python. Le lecteur atteint exactement la fin des deux fichiers.
+Il retrouve 2 352 clés graphiques et 173 clés de calcul au départ, puis
+2 358 clés graphiques et les mêmes 173 clés de calcul après le trajet.
+Les cinq constructions lentes nommées dans le journal ont leur clé dans le
+fichier final, et aucune dans le fichier de départ. Leurs durées de construction
+sur le fil graphique vont de 4,5 à 25,7 ms ; ces durées ne comprennent pas
+tout le travail ultérieur des tâches de compilation ni leur attente.
+
+Les tests exposent trois erreurs possibles du lecteur. Refuser l'étape de
+maillage numéro 8 rejette un vrai enregistrement de ce jeu. Mélanger les
+identités entières avec leurs textes laisse passer un doublon dans la liste
+des clés récemment utilisées. Calculer l'empreinte sur toute la structure,
+plutôt que sur la portion définie par le moteur, perd les cinq identités
+réellement nommées par le journal. Les erreurs sont réintroduites pour montrer
+que leurs contrôles deviennent rouges. Les cas tronqués, mauvais numéro de
+version, étape invalide et mauvaise plage de code sont également refusés.
+
+Ce résultat précise la prochaine expérience. Précharger le fichier initial
+ne peut pas construire directement ces clés absentes. Son effet indirect sur
+les travaux de fond et la conservation de programmes après plusieurs minutes
+restent à examiner. Nous préparons d'abord une copie du cache réellement
+appris sur le trajet. Elle ajoute six clés graphiques, toutes marquées comme
+utilisées récemment. Les cinq constructions lentes font partie de ces six.
+La copie compte 4 867 fichiers et ajoute environ 405 Kio sur disque au cache
+initial. Cela ne mesure ni son coût en mémoire vive ni son effet sur les gels.
+
+La comparaison suivante devra alterner quatre passages du même trajet entre
+le cache initial et cette copie, sans changer le moteur, les 141 réglages ni
+le drapeau de préchargement. La scène et les interactions doivent être
+qualifiées avant de compter des gels. Le démarrage devrait mettre 1 748
+travaux en préparation si toutes les nouvelles clés sont admissibles ; ce
+nombre doit encore être observé sur le moteur réel.
+
+La nouvelle recommandation amont de dessins asynchrones bornés est aussi
+relue. Elle peut abandonner un dessin quand sa construction dépasse le budget,
+y compris lorsque ce dessin produit une ressource persistante. Nous ne
+l'adoptons pas comme preuve d'un monde complet à 30 images/s. Une recommandation
+générale de l'interface graphique ne remplace pas cette vérification.
+
+Le moteur privé ferme normalement. Le drapeau hérité de phase mesurée reste
+faux, puisqu'aucune phase de performance n'a été programmée. Ses processus,
+sa capture et ses manettes disparaissent, et l'observateur reprend. Les 757
+fichiers protégés et le cache de production gardent leurs empreintes et dates.
+Aucun cache appris ni nouveau réglage n'est installé. Les 30 images/s régulières
+restent non atteintes ; le coût des navigateurs locaux et le temps physique
+du GPU doivent encore être distingués.
+
+Rapport : `spikes/switch2-room/route-cache-coverage-2026-11-10.json`.
+
+### 10 novembre : un cache chargé ne prouve pas un trajet identique
+
+La copie apprise est réellement consommée : le moteur annonce 1 748 travaux
+au démarrage, contre 1 742 avec le cache précédent. Ce nombre décrit la file
+de préparation, pas la réussite ni l'emploi de tous les programmes. Un premier
+contrôle échoue pourtant avant les mouvements : le terrain est déjà visible,
+mais le premier compteur de maillage n'a pas encore été publié. Il arrive
+ensuite, à environ 69 secondes du démarrage. Le pilote attend désormais
+l'activité native observée, avec des cas vides, nuls et malformés refusés.
+Cette attente prépare la mesure ; elle ne fixe pas son début par un délai.
+
+Deux erreurs de pilote coûtent ensuite une série. Une étiquette `A1` copiée
+dans le lanceur B1 demande au contrôle de sauvegarde le mauvais dossier privé.
+Le contrôle refuse avant le lancement du worker et de l'émulateur. Le témoin
+déjà terminé reste écarté. Le lanceur corrigé tire son étiquette de son propre
+dossier. Un test exécute les quatre vrais débuts de lanceurs jusqu'à la copie
+et à la vérification des caches, puis s'arrête avant les réservations de ports.
+Réintroduire l'étiquette erronée fait de nouveau échouer B1.
+
+Pendant une répétition privée, une assertion de budget échoue aussi dans
+Python, mais la ligne suivante du terminal envoie quand même une commande.
+Une nouvelle ligne ne lie pas son exécution au succès de la précédente.
+Les commandes dépendantes passent ensuite dans le même contrôleur vérifié.
+L'incident ne touche que la partie privée ; aucune sauvegarde personnelle
+ni configuration installée n'est modifiée.
+
+La série corrigée révèle une limite plus importante que ces erreurs techniques.
+Deux phases de 150 secondes ferment normalement. Leurs images montrent
+pourtant des trajets différents : le témoin entre dans une pièce meublée,
+la variante reste contre le seuil. Les mêmes touches pendant les mêmes
+durées n'ont pas produit le même passage. Nous arrêtons les deux phases
+restantes et ne calculons aucun gain comparatif de cache. Une image nommée
+« intérieur » reste une image à lire, même après le succès du pilote.
+
+### 10 novembre : libérer les cœurs ne régularise pas le ciblage de Saria
+
+Lecture corrigée par l'audit suivant : Jellyfin utilisait aussi le GPU pendant
+ces quatre phases. Les chiffres ci-dessous restent des observations sous
+charge partagée ; leur conclusion comparative est retirée. L'entrée suivante
+explique la découverte et le nouveau contrôle.
+
+Le serveur a six cœurs physiques. Le moteur en choisit un pour chacun de
+ses deux fils graphiques et limite les six fils qui exécutent le jeu aux
+quatre autres. Un processeur logique est un des deux contextes d'exécution
+que chaque cœur physique présente à Linux ; douze contextes ne valent donc
+pas douze cœurs indépendants. Les autres tâches ne sont pas exclues de ces
+cœurs par ce seul réglage.
+
+Nous testons les contraintes elles-mêmes, dans quatre nouvelles salles
+privées successives. Le témoin conserve les masques qui disent à Linux sur
+quels processeurs un fil peut tourner. La variante autorise les huit fils
+sur les douze processeurs logiques après leur initialisation. Le même moteur,
+les 141 réglages, la sauvegarde et le cache appris restent identiques.
+Le contrôle relit les masques réellement appliqués avant et après les mesures.
+Un faux changement qui ne modifie rien est refusé. Retirer cette relecture
+fait échouer le test, et un échec partiel restaure les masques déjà modifiés.
+
+Chaque phase dure 90 secondes avec un ciblage de Saria et de petits
+déplacements latéraux au sol. Les images de départ, du milieu et de fin
+sont lues après chaque arrêt. Elles montrent les deux personnages sur le
+sentier, avec une rotation de caméra qui varie entre les passages. Elles
+ne prouvent pas une longue traversée libre pendant toutes les 90 secondes.
+
+| Passage | Contraintes | Retours Vulkan/s | p99 de chaque fenêtre, en ms | Maximum, en ms | Secondes couvertes |
+| --- | --- | --- | --- | --- | --- |
+| A1 | conservées | 13,18 | 109,09 | 122,56 | 45,53 |
+| B1 | libérées | 15,39 | 117,34 ; 105,18 | 133,99 | 77,99 |
+| A2 | conservées | 19,17 | 106,55 ; 111,04 | 142,58 | 62,61 |
+| B2 | libérées | 16,12 | 120,98 | 156,90 | 37,23 |
+
+Les comptes ne retiennent que les fenêtres complètes de 600 intervalles
+entièrement comprises dans la phase. Leur couverture partielle apparaît
+dans la dernière colonne. Les p99 sont ceux de chaque fenêtre, pas un
+percentile global reconstruit. Un retour Vulkan accepté ne prouve pas une
+image de jeu unique ni son affichage physique chez le joueur.
+
+Le premier couple gagne environ 16,76 %, le second perd environ 15,91 %.
+Les maxima empirent avec la variante dans les deux couples. Aucun avantage
+répété ne justifie une installation. La variation de caméra interdit aussi
+de conclure à une pénalité générale de cette option. Cette scène ciblée est
+nettement plus lente que le petit trajet ouvert mesuré auparavant ; le moteur
+est resté identique. Le flou visible autour des personnages ne prouve pas
+que son calcul explique cette baisse.
+
+Les demandes du jeu et les retours Vulkan ralentissent ensemble. Les
+échantillons du service trouvent l'attente avant l'appel de présentation,
+tandis que cet appel et sa limite de cadence prennent très peu de temps.
+Ce sont des échantillons espacés, pas le temps de chaque image. Ils ne
+départagent pas le calcul du jeu, une synchronisation antérieure et le travail
+physique du GPU. La prochaine mesure doit séparer ces coûts sur ce moteur
+exact, ainsi que la charge des décodeurs locaux, avant toute conclusion
+matérielle. Dans les quatre sessions, la page du joueur reçoit un signal sonore
+non nul et son compteur de lecture avance d'environ 90 secondes sans trou ajouté ; ce
+n'est pas une mesure physique du décalage entre son et image.
+
+Une autre piste est écartée en lisant le code. `FRAMES_AHEAD=2` ne sélectionne
+pas deux images d'avance : le moteur reconnaît la valeur commençant par `1`
+et traite les autres valeurs explicites comme zéro. Le réglage installé
+reste `1`. Une variable d'environnement au nom plausible n'est pas une
+preuve d'activation de la fonction imaginée.
+
+Les quatre moteurs ferment normalement. Leurs captures, lecteurs audio et
+manettes disparaissent, et l'observateur reprend. Les 757 fichiers protégés,
+les 4 865 fichiers du cache de production et les 4 867 fichiers de la copie
+apprise gardent leurs empreintes ; les deux caches gardent aussi leurs dates.
+Aucun nouveau réglage de performance ni cache privé n'est installé. Les
+30 images régulières restent non atteintes. Rapport et 133 empreintes de preuve :
+`spikes/switch2-room/cpu-affinity-comparison-2026-11-10.json`.
+
+### 10 novembre : le GPU travaillait aussi pour Jellyfin
+
+La reprise découvre un processus FFmpeg de Jellyfin qui lit, transforme et
+réencode une vidéo sur le même GPU que Zelda. Le contrôle de charge cherchait
+les émulateurs, les compilateurs et les profileurs. Il acceptait FFmpeg et
+ne regardait pas qui détenait la carte graphique. La fin d'une tâche de CI
+ne suffisait donc pas à rendre cette machine disponible pour une comparaison.
+
+Nous conservons une copie privée des journaux de Jellyfin. Ils portent un
+décalage horaire explicite de `+01:00` ; il faut convertir leurs heures en UTC
+avant de les rapprocher des phases. Un transcodage va de 12:09:44 à 12:20:41 UTC.
+Il recouvre les deux premières phases entières et environ 75 secondes de la
+troisième. Un autre commence à 12:21:43 UTC et recouvre toute la quatrième.
+Les six fenêtres complètes retenues croisent ce travail extérieur. Le processus
+encore vivant ouvre le même périphérique et ses compteurs de calcul, décodage
+et encodage avancent. Cela ne mesure pas sa charge à chaque instant des phases
+passées et ne prouve pas qu'il explique toutes les pauses.
+
+La conclusion sur les contraintes CPU est retirée. Les fichiers de mesure
+et les images restent conservés, mais ils ne qualifient plus un changement
+de réglage. Les débits faibles autour de Saria ne prouvent pas non plus le
+coût propre de cette scène. Le profil installé reste conservé, faute de
+comparaison isolée. Nous ne coupons pas la lecture vidéo pour recommencer.
+
+Un nouvel outil regarde les fichiers de périphérique ouverts par les processus.
+Pendant une phase, il lit leurs métadonnées et retrouve l'identité PCI du GPU
+dans sysfs, l'arbre de fichiers Linux qui décrit les périphériques. Il ne lit
+ni les fichiers de l'allocateur ni les statistiques détaillées du pilote.
+Les processus de la salle privée sont admis avec leur numéro et leur date
+de naissance ; un numéro réutilisé ne suffit pas. Un client extérieur bloque
+l'essai, même s'il est momentanément au repos. Le même contrôle entre dans
+les quatre pilotes de surveillance. Il ne peut arrêter que son propre pilote,
+jamais le lecteur vidéo extérieur. Une tâche qui ouvre et referme le GPU
+entre deux lectures reste une limite de cette surveillance périodique.
+
+Les statistiques détaillées restent disponibles séparément pour le diagnostic,
+hors mesure de cadence. Elles viennent de fdinfo, les fichiers Linux qui
+décrivent les descripteurs d'un processus. Le noyau identifie les descripteurs
+partagés : additionner leurs compteurs compterait plusieurs fois le même
+travail. La lecture détaillée les regroupe. Les compteurs peuvent aussi
+temporairement baisser avant de rattraper leur valeur précédente ; une baisse
+ne prouve pas une remise à zéro du GPU. Ces règles viennent de la
+[documentation du noyau](https://docs.kernel.org/gpu/drm-usage-stats.html).
+
+Les tests lisent de vrais fichiers temporaires qui simulent les processus et
+les périphériques, sans ouvrir le GPU. Ils opposent une salle privée au client
+extérieur, le bon périphérique à un autre, et une identité complète au même
+numéro réutilisé. Une lecture refusée ne devient pas un inventaire vide.
+Le test retrouve aussi la salle quand le contrôle tourne avec les privilèges
+administrateur : son dossier personnel dépend du propriétaire des métadonnées,
+pas du dossier `/root` du lecteur. L'ancienne règle laisse passer FFmpeg ;
+les nouveaux pilotes refusent ce cas à partir des fichiers simulés.
+
+Le vrai contrôle de lancement refuse ensuite le transcodage présent avant
+tout worker, navigateur ou émulateur. L'observateur reste actif. Cinq lectures
+isolées du nouvel outil prennent environ 116 à 122 ms de CPU chacune, hors
+coût de démarrage de Python. Cela ne qualifie pas leur effet sur une partie :
+il faudra encore le mesurer avec le jeu. Le processus vidéo initial termine
+ensuite, mais un autre reprend la carte. Vérifier la fin d'un seul numéro de
+processus ne prouve pas que le GPU est libre.
+
+`just switch-saves-test` comprend maintenant les tests et le contrôle de style
+de cet outil. Le rapport conserve les heures converties et les preuves privées,
+sans publier les titres ni les commandes de lecture vidéo :
+`spikes/switch2-room/external-gpu-interference-2026-11-10.json`.
+
+### 10 novembre : la comparaison reprend avec le contrôle GPU
+
+Un premier lancement surveillé ferme normalement avant la phase mesurée :
+le nouveau contrôle signale un changement d'identité. Son message ne conserve
+pas le numéro concerné. Le code révèle toutefois une erreur reproductible :
+la comparaison inclut le nom du processus, alors que ce nom peut changer
+sans nouveau démarrage. Le test reproduit ce refus, puis accepte le changement
+de nom après correction. Son contre-exemple change la date de naissance et
+doit toujours être refusé. Les deux modes de lecture sont exercés. La tentative
+sans mesure reste exclue.
+
+Quatre phases neuves reprennent après la fin des transcodages. Aucun client
+GPU extérieur n'est relevé au lancement ni pendant les sessions. Le contrôle
+retrouve le vrai processus natif dans chaque observation de phase. Une activité
+entièrement comprise entre deux lectures reste invisible.
+
+| Passage | Contraintes CPU | Retours Vulkan/s | p99 de chaque fenêtre, en ms | Maximum, en ms |
+| --- | --- | --- | --- | --- |
+| A1 | conservées | 27,37 | 55,33 ; 49,26 ; 46,33 | 80,84 |
+| B1 | libérées | 22,70 | 62,04 ; 54,75 | 87,54 |
+| A2 | conservées | 24,87 | 52,15 ; 52,43 ; 55,33 | 64,17 |
+| B2 | libérées | 22,83 | 57,20 ; 55,75 | 93,67 |
+
+Les dix fenêtres de 600 intervalles couvrent 243,59 secondes sur 360,01 secondes
+mesurées. Aucun de leurs intervalles ne dépasse 100 ms, sans conclusion pour
+les portions non couvertes. La capture du milieu reste dans les comptes.
+Les p99 appartiennent à chaque fenêtre, pas à une distribution globale.
+L'expérience prend six minutes de mesure, sur environ seize minutes et
+quarante-neuf secondes avec préparation et revue.
+
+Libérer les masques diminue le débit d'environ 17,06 %, puis 8,20 %, et augmente
+les maxima dans les deux couples. Le placement installé est conservé pour ce
+parcours. La caméra varie ; ce résultat ne donne pas une pénalité universelle
+ni une limite matérielle. Les 30 régulières restent non atteintes. Les deux
+clients locaux consomment environ 1,21 à 1,36 processeur logique. Le contrôle
+des descripteurs prend aussi du CPU. Son effet complet et celui des décodeurs
+doivent être distingués avant d'attribuer une limite à la machine.
+
+Les quatre pages reçoivent un signal sonore non nul et leurs compteurs de
+lecture avancent d'environ 90 secondes sans trou ajouté. Cela ne mesure pas
+le décalage physique entre son et image. Les moteurs ferment normalement,
+sans capture ni manette laissées derrière eux. Les progressions, les deux
+caches et les 757 fichiers protégés restent identiques. Le contrôle local
+complet `just` passe après les mesures. Aucun réglage n'est installé. Les
+entrées de contrôle sont archivées avec leurs empreintes pour conserver le
+code réellement essayé quand l'outil changera.
+Rapport : `spikes/switch2-room/cpu-affinity-guarded-2026-11-10.json`.
+
+### 10 novembre : regarder les parties réutilisables des programmes graphiques
+
+La revue amont atteint Lichii `093e264c`. Deux changements corrigent la
+compilation sous Windows ou macOS. La protection de mémoire engagée interroge
+Windows et ne fournit pas cette limite sous Linux. Le retrait des alias GPU
+est un candidat de stabilité : plusieurs adresses GPU peuvent atteindre une
+même zone mémoire, et aucune ne doit continuer à l'atteindre quand elle est
+détruite. Ce changement n'est ni construit ni installé ici. Aucun gain de
+cadence ne lui est attribué.
+
+Une autre piste prépare des parties réutilisables de programmes graphiques,
+puis optimise le résultat en fond. Le code
+[de DXVK](https://github.com/doitsujin/dxvk/blob/2231570b2fffff759239f7c2f2ca41a2232db99e/src/dxvk/dxvk_graphics.cpp),
+qui traduit Direct3D vers Vulkan, et
+[la description d'ANGLE](https://chromium.googlesource.com/angle/angle/+/refs/heads/main/src/libANGLE/renderer/vulkan/doc/PipelineCreation.md),
+qui traduit OpenGL vers d'autres interfaces graphiques, donnent des exemples.
+Le [projet d'extension Vulkan](https://docs.vulkan.org/features/latest/features/proposals/VK_EXT_graphics_pipeline_library.html)
+prévoit aussi un compromis de vitesse avant optimisation. Ce chemin n'est
+pas branché dans le code Lichii inspecté. Le projet distinct
+[ScarletNX le propose encore sans code fusionné](https://github.com/scarletnx/ScarletNX/issues/1382).
+
+Le catalogue du trajet apporte une limite concrète. Cinq des six nouvelles
+clés partagent une combinaison de programmes invités avec le fichier initial,
+mais leurs environnements sérialisés diffèrent. Le fragment de la clé dont
+la construction côté pilote prenait environ 435 ms est absent au départ.
+Réutiliser les seules empreintes invitées serait donc incorrect. Les paramètres
+de traduction et la durée de vie des anciens objets doivent entrer dans le
+prototype. Le pilote de l'hôte n'a pas la même empreinte que celui du conteneur
+qualifié : une capacité du premier ne prouve pas celle du second. Aucun gain
+n'est encore mesuré pour cette piste.
+Rapport : `spikes/switch2-room/pipeline-reuse-review-2026-11-10.json`.
+
+### 10 novembre : retirer la lecture locale sans arrêter les flux
+
+Le serveur fait tourner le jeu, mais aussi les deux navigateurs du banc.
+Ceux-ci décompressent les images et jouent le son sur la même machine.
+Un joueur distant demande ces lectures à son propre appareil. Avant
+d'attribuer une limite au processeur ou au GPU, il faut distinguer cette
+charge ajoutée par notre expérience.
+
+La variante utilise le mode « manette seule » de la page et reçoit les
+paquets vidéo et sonores dans deux lecteurs privés qui ne les décompressent
+pas. Cela conserve deux abonnements vidéo, deux abonnements sonores et les
+vraies commandes du navigateur. Arrêter les flux aurait aussi changé le
+travail du serveur. Les identités des processus de capture, d'encodage et
+de lecture du son natif sont vérifiées avant et après. Le moteur, ses
+141 réglages, le cache privé appris, la sauvegarde et les masques CPU restent
+les mêmes. Les deux conditions rechargent leurs pages et font le même geste
+sans commande de jeu pour autoriser le son.
+
+La mise au point retrouve trois attentes erronées dans le pilote. Le
+spectateur n'ouvre volontairement aucune connexion de manette. Son entrée
+dans la page ne suffit pas non plus à demander le son : il faut un geste
+après le montage de la salle. Enfin, l'objet audio exposé aux pilotes ne
+contient pas tous les champs de l'objet interne de l'application. Ces essais
+s'arrêtent avant mesure et restent conservés comme tels. Un autre test fait
+échouer le compteur de connexions en fermant une socket avant son ouverture.
+Le compteur corrigé ne retire plus une connexion vivante dans ce cas.
+Le test échoue avec l'ancien code et passe avec la correction privée.
+
+Pour observer le jeu sans remettre un décodeur dans la variante légère,
+le pilote conserve un groupe d'images comprimées à trois instants. Il les
+décode après l'arrêt du passage. Le lecteur vérifie le nombre d'images
+obtenues et l'absence de réordonnancement, puis retient la dernière. Ses
+jumeaux refusent notamment un flux qui réordonne les images, un groupe
+incomplet, un paquet tronqué ou une vieille image entretenue par de simples
+en-têtes. Le temps conservé est celui de la dernière image, pas celui d'un
+en-tête reçu ensuite. Les six vues de chaque passage terminé sont réellement
+lues. Elles montrent Link au sol près de Saria, avec des pas et des rotations
+de caméra. Trois instants ne prouvent pas une marche libre pendant toute
+la période. Un contexte audio silencieux peut aussi rester ouvert dans la
+variante ; ce qui est vérifié est l'absence de lecture du son du jeu.
+
+Le contrôle fonctionnel de 15 secondes passe, avec 42 changements de direction.
+Deux passages de 90 secondes terminent ensuite normalement, avec
+257 changements chacun. Chromium consomme environ 142,80 % puis 56,39 % d'un
+processeur logique. Aucun de ses processus n'entre ou ne sort pendant ces
+comptes. Ce sont la lecture vidéo, la lecture sonore et l'affichage local
+ensemble, pas le coût isolé d'un seul décodeur. Les paquets sonores reçus
+contiennent bien un signal non nul dans les deux conditions.
+
+Les fenêtres complètes donnent 25,51 puis 28,79 retours Vulkan par seconde.
+Elles couvrent 70,57 puis 62,53 secondes des passages de 90 secondes. Les
+maxima sont 86,86 et 97,28 ms ; les centiles 99 de fenêtre restent entre
+46,10 et 56,53 ms. Aucun intervalle ne dépasse 100 ms dans ces seules
+fenêtres. Cela ne décrit pas les portions non couvertes ni les chargements
+d'autres décors. Même dans le passage léger, les 30 régulières ne sont pas
+atteintes. Ces comptes ne prouvent pas non plus que chaque présentation
+porte une image différente du jeu.
+
+La comparaison ne reçoit aucun pourcentage de gain. La caméra diffère
+nettement entre les deux passages. Le constat est consigné avant lecture
+des cadences, pour éviter de choisir ses critères après le résultat.
+L'alternance prévue n'est pas terminée. Une notification de CI exécutée sur
+ce serveur diffère d'abord le troisième lancement. Après sa fin, une nouvelle
+préparation commence, puis le contrôle trouve un propriétaire GPU extérieur.
+Elle s'arrête avant toute mesure. Des processus Jellyfin sont ensuite
+identifiés sur ce GPU par leur exécutable, leur parent et leur identité.
+Le premier processus extérieur avait déjà quitté avant cette recherche de
+parent : son nom seul ne permet pas de lui attribuer cette filiation.
+Le quatrième passage ne démarre pas.
+
+Une première tentative avait aussi dépassé les huit secondes allouées au
+contrôle GPU, avant mesure. L'étape exacte reste inconnue. Une trace privée
+date désormais le début et la fin de ses requêtes Docker ; le délai reste
+inchangé et les lectures détaillées du pilote graphique restent absentes.
+La mise au point, les passages et les contrôles occupent environ quarante
+minutes. Le rapport ne transforme ni ces interruptions ni l'absence de
+répétition en résultat de performance. Tous les conteneurs privés ferment,
+l'observateur habituel reprend et les 757 fichiers protégés restent identiques.
+Le cache habituel de 4 865 fichiers et la graine privée de 4 867 fichiers
+conservent aussi leurs empreintes et dates. Aucun moteur ni cache nouveau
+n'est installé. Le temps physique du GPU et les freezes des nouveaux lieux
+restent à examiner quand le GPU est libre. Rapport :
+`spikes/switch2-room/local-media-work-2026-11-10.json`.
+
+### 10 novembre : reconstruire une sonde sur la version réellement jouée
+
+Le GPU reste occupé par un transcodage extérieur. Nous utilisons cette attente
+pour préparer la mesure qui manque, sans lancer une partie sous cette charge.
+L'ancien relevé GPU appartenait à Eglantine, avec les maillages supprimés et
+sans le même mode de séparation des fils CPU. Ses quelque 25 ms ne sont pas
+le budget graphique du Zelda actuellement servi.
+
+Le premier contrôle retrouve les sources de `65defb74`, le binaire installé.
+Leur copie conserve les 5 213 fichiers et leurs empreintes avant modification.
+Il faut garder les changements locaux de cette base : repartir du seul
+identifiant Git aurait perdu les correctifs déjà retenus. Les sources et
+le binaire d'origine restent inchangés.
+
+La nouvelle sonde date les débuts et fins des tampons de transferts et
+d'exécution dans les soumissions existantes. Une soumission remet au pilote
+un lot de commandes préparées. Aucun lot supplémentaire, chronométrage par
+dessin ou attente explicite du GPU n'entre dans les images. Les horodatages
+imposent toutefois des dépendances d'exécution. La
+[documentation Khronos](https://docs.vulkan.org/samples/latest/samples/api/timestamp_queries/README.html)
+explique pourquoi ils restent approximatifs et doivent recevoir leur propre
+comparaison de coût. Des intervalles peuvent se recouvrir ; leur somme
+n'est pas un temps exclusif d'occupation du matériel.
+
+La sonde attend deux faits distincts avant lecture ou réutilisation : le
+worker a exécuté le marqueur qui ferme l'enregistrement, puis le GPU a
+terminé le tick de soumission concerné. Un tick est ici le numéro croissant
+d'un lot remis au GPU. Les résultats doivent aussi se déclarer disponibles.
+À la fermeture, le worker rejoint et le dernier tick soumis terminé
+précèdent la destruction des compteurs. Cette attente ne se produit qu'à
+l'arrêt. Le stockage reste borné ; une saturation invalide la mesure sans
+supprimer les commandes du jeu.
+
+Les fichiers ajoutent des bornes monotones prises avant la préparation
+des horodatages et après la disponibilité des résultats. Le lecteur retient
+seulement les captures entièrement comprises dans la phase observée.
+Il sépare les sommes d'intervalles, leur union et leur enveloppe. L'union
+retire les doubles comptes des recouvrements ; l'enveloppe peut encore
+contenir des trous. Le lecteur refuse pour l'instant les compteurs autres
+que 64 bits ou qui rebouclent, plutôt que de leur inventer un ordre.
+
+Les tests détectent une lecture avant la fermeture CPU, une lecture avant
+la fin GPU, un statut d'échec ignoré et un compteur indisponible accepté.
+Ils compilent le vrai fichier de la sonde contre des doubles CPU de Vulkan.
+Les quatre mutations échouent et la version correcte passe. Ce n'est pas
+une preuve de fonctionnement du pilote. Le lecteur de fichiers reçoit aussi
+ses jumeaux : capture hors phase, dépassement, mauvais compte, recouvrement
+et disponibilité. Un premier test rappelle que « disponible » veut dire
+une valeur non nulle, pas nécessairement un. Il échoue avant la correction
+et les cinq tests passent ensuite.
+
+La compilation complète passe deux fois, en environ 233 puis 63 secondes,
+avec une limite de trois processeurs logiques pour ménager les autres tâches.
+La deuxième construction vérifie aussi le répertoire temporaire explicite
+utilisé par les tests. Tous les fichiers modifiés reçoivent des dates fraîches,
+et les objets du rasteriseur, du planificateur et de la sonde sont réellement
+recompilés. Le candidat porte l'empreinte `be3c43fb`. La suite native passe
+environ 39 secondes : 1 255 cas sont recensés, dont quatre ignorés sans réseau.
+Les paquets privés, sonde coupée et sonde active, conservent le même binaire.
+
+Le GPU paraît libre à un contrôle, puis un nouveau client apparaît avant le
+lancement prévu. L'admission refuse donc l'essai avant le worker et le jeu.
+Aucun fichier GPU réel ni marqueur d'activation n'est accepté, et l'arrêt
+natif du candidat reste à exercer. Les 757 fichiers protégés, les sources
+d'origine et le moteur installé restent identiques. Ce travail prépare un
+diagnostic ; il n'améliore pas encore les FPS. Il reste à vérifier l'activation
+et l'arrêt en privé, puis le coût de la sonde par alternance, avant d'utiliser
+ses temps pour choisir une optimisation. Le correctif de dix fichiers et
+52 pièces de preuve immuables sont référencés dans
+`spikes/switch2-room/submission-gpu-65def-2026-11-10.json`.
+
+La reprise suivante retrouve encore le même processus de transcodage Jellyfin,
+avec le même numéro et le même instant de création, détenant la carte graphique.
+Ce blocage extérieur est présent sur trois reprises consécutives. Les tests
+CPU et les préparatifs sont terminés ; poursuivre les mesures en jeu sous
+cette charge ne produirait pas les preuves demandées. Les essais s'arrêtent
+donc en état bloqué, conformément à la demande de Souhib d'arrêter en cas
+de blocage. Jellyfin reste intact. La prochaine reprise doit constater le GPU
+libre, revérifier la machine et repartir d'une copie privée propre. Les
+30 images régulières restent à obtenir et à vérifier.
+
+### 10 novembre, 18 h 55 : un client GPU n'est pas une mesure de saturation
+
+Souhib demande pourquoi Jellyfin empêcherait de continuer si la carte
+graphique n'est pas utilisée à cent pour cent. La formulation précédente
+était trop large : notre contrôle refuse tout client extérieur pour protéger
+une comparaison, même si ce client n'effectue aucun calcul à cet instant.
+Il ne mesure donc ni une saturation ni le coût de Jellyfin. Cela n'impose
+pas d'arrêter le service pour jouer ou pour vérifier le fonctionnement.
+Un diagnostic sous charge partagée reste possible, avec sa limite annoncée.
+Une activité moyenne faible ne suffit pas non plus à exclure des pointes
+brèves ou un travail concurrent sur un moteur particulier de la carte.
+
+Le nouveau contrôle ne retrouve ni client GPU ni processus FFmpeg. Jellyfin
+reste pourtant démarré : le transcodage a terminé naturellement. Sans jeu
+lancé, 21 lectures espacées d'une seconde, de 18:55:16 à 18:55:36 UTC,
+donnent zéro pour les indicateurs d'activité GPU et mémoire. Ce relevé
+ne décrit pas la charge pendant un transcodage et ne prouve aucun effet
+de Jellyfin sur les freezes. Aucun émulateur n'est lancé, aucun garde-fou
+n'est modifié et l'objectif de cadence n'est pas déclaré atteint.
+
+### 10 novembre, après 19 heures : retrouver la session, puis contrôler la sonde en jeu
+
+Les erreurs « Bad Request » interrompent la conversation après le lancement
+fonctionnel, pas le jeu. La reprise relit la session locale et ses preuves.
+Le candidat privé `be3c43fb` a réellement terminé 15 secondes de commandes
+dans une salle isolée. Les 141 réglages attendus sont présents. Neuf captures
+de compteurs GPU existent ; sept ont toutes leurs bornes dans la phase.
+Les deux autres restent exclues. Le joueur et le spectateur reçoivent les
+mêmes images encodées. Les vues décodées montrent Link au sol près de Saria,
+avec des changements de position et de caméra. Le moteur ferme sa fenêtre
+et sort normalement. Aucun processus de la salle ni manette ne reste présent.
+Les fichiers protégés sont inchangés. Cette réussite qualifie l'activation
+et cet arrêt, pas le coût des horodatages ni 30 images régulières.
+Le rapport de préparation garde son état daté. Son complément est
+`spikes/switch2-room/submission-gpu-runtime-2026-11-10.json`.
+
+Un nouveau témoin termine ensuite 90 secondes de commandes alternées.
+Ses images révèlent un problème de comparaison déjà rencontré : le ciblage
+fait tourner la caméra autour de Saria. Rester dans la même zone ne garde
+pas le même travail graphique. Ce passage reste une observation fonctionnelle,
+sans pourcentage de coût attribué à la sonde. La calibration repart donc
+sur quatre vues fixes alternées, avec la même sauvegarde et le même cache.
+Elle conserve le même binaire et la même configuration de sonde manuelle.
+Seule la demande d'enregistrement des horodatages change. Ce choix mesure
+le coût de l'enregistrement ; les branches et allocations de la sonde
+inactive restent dans le témoin. Les flux reçus restent identiques et leur
+décodage est fait après les périodes mesurées. Cette scène fixe ne qualifiera
+pas la régularité des déplacements ni les chargements de nouveaux décors.
+
+### 10 novembre : quatre vues fixes ne tiennent toujours pas 30
+
+La calibration termine ses quatre passages de 90 secondes. Chaque lancement
+repart du même cache et de la même sauvegarde. Les quatorze fenêtres complètes
+couvrent 292,35 des 360,01 secondes. Leurs débits sont 28,92 / 28,51 / 28,54 /
+28,98 retours Vulkan par seconde. Les p99 de fenêtre vont de 42,35 à 48,23 ms,
+avec des maxima de 49,28 à 55,88 ms. Aucun intervalle retenu ne dépasse
+100 ms. Les images avant, au milieu et après gardent bien la même caméra.
+Les animations de repos et les particules changent encore. Les trous entre
+fenêtres restent publiés : ces nombres ne couvrent pas toute la partie.
+
+Activer les horodatages donne −1,40 %, puis +1,52 %. Leur effet se confond
+avec la variation observée. Cela ne certifie pas leur transparence ni
+le budget sans instrumentation. Les passages actifs conservent 87 captures
+dont toutes les bornes sont dans leurs phases ; trois autres sont exclues.
+Les témoins désarmés n'en produisent aucune. L'union médiane des intervalles
+GPU vaut 22,25 puis 19,92 ms. Leur enveloppe vaut 38,63 puis 30,53 ms.
+L'enveloppe contient les trous ; l'union reste un chronométrage de commandes
+qui peut comprendre des attentes. Aucune ne mesure une occupation exclusive
+de la carte. Elles ne prouvent donc pas une limite matérielle.
+
+Le premier lecteur hors jeu attendait à tort que le fichier de demande
+soit encore présent. Le vrai moteur le supprime quand il arme la sonde.
+Le contrôle échoue sur le premier passage actif. La correction vérifie
+la demande consommée et les véritables captures complètes, avec le témoin
+sans captures. Le lecteur initial et ses empreintes restent conservés ;
+la correction ne modifie aucun fichier exécuté pendant les mesures.
+
+Les quatre arrêts sont normaux. Aucun client GPU extérieur n'est relevé
+par la surveillance périodique. Les 757 fichiers protégés et les deux
+caches de départ restent identiques. Même cette scène fixe ne donne pas
+30 régulières. Les petites soumissions et leurs trous motivent maintenant
+un essai du réglage existant de regroupement : deux millisecondes au lieu
+de la demi-milliseconde actuelle. Ce réglage conserve les attentes avant
+lecture et le vidage des commandes avant repos et arrêt. Son effet reste
+une hypothèse à éprouver. Le profil installé n'est pas modifié.
+Le rapport complet est
+`spikes/switch2-room/submission-gpu-calibration-2026-11-10.json`.
+
+### 10 novembre : le délai de deux millisecondes fonctionne, sans gain encore établi
+
+Le réglage privé de regroupement des soumissions passe un contrôle de quinze
+secondes près de Saria. Le processus reçoit réellement 2 000 microsecondes,
+contre 500 auparavant. Le binaire et les 141 autres réglages restent identiques.
+Quarante-deux changements de direction sont demandés. Les images montrent
+le déplacement et la rotation de la caméra. Sept captures GPU restent
+entièrement dans la phase. Le jeu ferme sa fenêtre et sort normalement.
+Les fichiers protégés restent inchangés. Ce passage court ne contient pas
+une comparaison alternée ni une preuve de gain ; le réglage reste privé.
+La demande suivante de Souhib donne priorité à une nouvelle revue des moteurs.
+Rapport : `spikes/switch2-room/fence-deferral-functional-2026-11-10.json`.
+
+### 10 novembre, revue du soir : reprendre les nouveaux correctifs ciblés
+
+La revue retrouve dix-neuf nouveaux commits Lichii après `093e264c`.
+Deux correspondent directement au travail que nos captures invitent à examiner.
+Le [correctif 1245](https://github.com/zortos293/Lichii/pull/1245) regroupe les
+copies consécutives qui ne se dépendent pas. Il conserve leur ordre et ajoute
+les transferts aux destinataires de la barrière finale. Une barrière indique
+au GPU quelles écritures doivent être visibles avant le travail suivant.
+Le [correctif 1246](https://github.com/zortos293/Lichii/pull/1246) place la
+barrière d'un calcul dans la commande du calcul, sans supprimer cette barrière.
+Les nombres publiés comptent des commandes évitables ; ils ne mesurent pas
+encore un gain chez nous.
+
+Les autres moteurs bougent aussi. [Fritchii 5.7](https://github.com/Frizti/Fritchii/releases/tag/fritchii-v5.7)
+est publié à 19 h 21 UTC. Il ajoute notamment des changements de lectures GPU,
+de préparation du code CPU et de chargement. Ses paquets sont pour Windows.
+Ses sources utiles restent à distinguer des chemins déjà présents chez nous.
+La branche par défaut reste à `f66ea633`, tandis que la publication pointe
+vers `52317bf` : lire seulement la branche par défaut aurait raté cette sortie.
+[Superbuild v50](https://github.com/callme-sy/Lichii-Superbuild/releases/tag/v50)
+fournit des paquets Linux avec un ensemble plus large, dont les corrections
+de mémoire réutilisée. Cet ensemble ne donne pas l'effet propre de chaque
+changement. [Orchid 0.9.4](https://github.com/MythosOfs/Orchid/releases/tag/v0.9.4)
+annonce surtout des progrès pour Wonder et Orbitals. Cela ne qualifie pas Zelda.
+La révision principale Eglantine reste `78743f30c2`. La proposition de
+bibliothèques de programmes graphiques de Scarlet reste une question ouverte,
+pas un correctif prêt à reprendre.
+
+La [proposition 1225](https://github.com/zortos293/Lichii/pull/1225) prépare aussi
+les blocs de code CPU avant leur premier usage sur chaque cœur émulé.
+Le compilateur à la volée, ou JIT, traduit ce code au cours de la partie.
+Cette piste concerne donc une autre compilation que les programmes du GPU.
+Son auteur rapporte un essai Linux sur Zelda, mais nous n'avons encore
+ni repris son code ni reproduit ses chiffres. Les règles d'invalidation du
+code et son coût mémoire restent à vérifier. La mémoire GPU libérée et réutilisée
+fait l'objet du correctif 1236, une piste distincte de stabilité aux transitions.
+
+Les deux premiers correctifs sont maintenant portés dans une nouvelle copie
+de nos sources exactes. Le vieux code n'a pas toutes les fonctions du code
+amont : le second correctif demande donc une adaptation, pas une copie aveugle.
+Les deux masques de synchronisation corrigés restent actifs dans le témoin.
+Le regroupement des copies et celui des commandes de calcul partagent un
+commutateur privé, désactivé sauf avec la valeur exacte `1`. Le témoin de ce
+binaire ne sera pas appelé « amont intact ». Les marqueurs de la sonde
+prouveront la sélection et l'enregistrement des branches, pas chaque commande
+physiquement exécutée par le GPU.
+
+La compilation complète dure 230 secondes, avec au plus trois processeurs
+logiques, et recompile bien les trois fichiers Vulkan modifiés. La suite
+native donne 1 251 réussites et quatre cas réseau ignorés. Les tests CPU
+incluent le vrai fichier de regroupement. Ils détectent douze mutations
+compilées des dépendances, des recouvrements, de la capacité et des masques.
+Un premier mutant échouait seulement à compiler à cause d'un paramètre
+inutilisé ; il n'est pas compté avant de produire l'échec fonctionnel attendu.
+
+Lavapipe, un pilote qui exécute Vulkan sur le CPU, compare ensuite 600 copies
+individuelles et groupées à un modèle CPU sur 16 384 octets. Les octets sont
+identiques. Une couche de validation est extraite dans le laboratoire,
+sans installation système. Elle signale le chevauchement forcé, mais reste
+silencieuse quand le test retire le destinataire `TRANSFER` de la barrière,
+même avec deux formes de copie et dans une ou deux soumissions. Le test
+refuse donc de déclarer cette synchronisation qualifiée. Ni l'absence de
+message ni les bons octets ne doivent effacer ce témoin manquant. La durée
+de vie des lots dans le véritable planificateur reste aussi hors de ce test.
+
+Le nouveau binaire privé porte l'empreinte `d7df6092`. Son activation en jeu
+et sa fermeture restent à exercer avant une comparaison. Aucun paquet
+installé n'est remplacé. La revue et ses preuves sont dans
+`spikes/switch2-room/upstream-evening-review-2026-11-10.json` ; le correctif
+est dans `spikes/switch2-room/amont/command-batching-2026-11-10.patch`.
+
+### 10 novembre : le candidat de regroupement atteint le jeu et ferme normalement
+
+Le premier lancement du nouveau binaire atteint Kokiri, puis s'arrête avant
+la phase mesurée. Un contrôleur de placement CPU compare encore son exécutable
+à l'empreinte du binaire précédent. Le refus fait son travail, mais la copie
+du contrôleur a oublié une identité. Le jeu ferme normalement. Ce passage
+n'entre dans aucune comparaison. Le démarrage qui copiait les sauvegardes
+avait passé ses tests ; cela ne couvrait pas ce contrôle plus tardif.
+
+La tentative suivante repart de copies propres. Elle réintroduit le vieux
+contrôle contre le nouveau processus et exige son refus avant toute action.
+Le contrôle corrigé passe ensuite. Pour les helpers partagés, l'identité
+attendue vient maintenant du même manifeste de paquet figé que les autres
+pièces. La règle du dépôt le demande aussi, afin qu'un prochain binaire
+ne dépende pas de la correction de littéraux dispersés.
+
+Le candidat `d7df6092` termine alors quinze secondes de déplacements près
+de Saria. Le bon exécutable et les 141 réglages sont lus avant et après.
+Les marqueurs confirment la sélection et l'enregistrement de lots de copies
+et de commandes de calcul regroupées. Sept captures GPU sont entièrement
+dans la phase ; deux sont exclues. Le joueur et le spectateur reçoivent
+les mêmes images. Les images décodées montrent bien le monde et le déplacement,
+avec une caméra qui tourne. La fenêtre se ferme et le moteur sort normalement.
+Les 757 fichiers protégés restent identiques. Cela ne mesure pas encore
+un gain de cadence ou les chargements de nouvelles zones.
+
+La comparaison suivante alterne quatre vues fixes. Elle garde le même
+binaire, les mêmes réglages et les mêmes flux ; seule l'activation des deux
+regroupements change. Les horodatages de la sonde restent désarmés dans les
+deux conditions. Le témoin conserve les deux corrections de visibilité des
+transferts et les branches inactives ; il n'est pas l'amont intact ni le
+binaire installé. Rapport fonctionnel :
+`spikes/switch2-room/command-batching-functional-2026-11-10.json`.
+
+### 10 novembre : le regroupement amont ne donne pas de gain répété ici
+
+Les quatre nouvelles salles terminent leur phase fixe de 90 secondes.
+Le temps mesuré total est six minutes ; les salles ont occupé environ
+13,7 minutes depuis leur démarrage jusqu'à leur fermeture, chargement
+et contrôles compris. Les images gardent la même caméra et la même position
+près de Saria. Les quatorze fenêtres complètes couvrent 294,29 des 360,01
+secondes de phase. Les débits sont 28,34 / 29,03 / 28,88 / 27,97 retours
+Vulkan par seconde. Activer les deux regroupements donne +2,43 %, puis
+−3,14 %. Le changement de signe ne permet pas de retenir un gain répété.
+Les p99 de fenêtre restent entre 42,09 et 46,53 ms, avec des maxima de
+50,35 à 55,30 ms. Aucun intervalle retenu ne dépasse 100 ms ; les parties
+non couvertes par ces fenêtres restent publiées.
+
+Le même binaire est utilisé partout. Ses deux corrections de visibilité
+pour les transferts restent actives, y compris dans le témoin ; ce témoin
+n'est donc ni l'amont intact ni le moteur installé. Les marqueurs montrent
+la sélection et l'enregistrement des branches. Ils ne comptent pas chaque
+commande GPU exécutée pendant la phase. La sonde d'horodatage est désarmée
+dans les deux conditions. Les mêmes flux vidéo et sonores sont reçus sans
+lecture locale. Les quatre arrêts sont normaux, aucun client GPU extérieur
+n'est relevé et les 757 fichiers protégés restent identiques. Les deux
+caches de départ gardent aussi tous leurs octets et leurs dates.
+
+Cette expérience écarte une installation pour un gain de cadence non démontré.
+Elle ne prouve pas que chaque correctif est sans intérêt dans toute scène,
+ni que le matériel est la seule limite. Le port reste disponible en privé,
+avec ses tests et son défaut de témoin dans la validation Vulkan logicielle.
+Les chargements de nouveaux lieux, les compilations du code CPU et les
+problèmes de mémoire réutilisée restent des pistes distinctes. La préparation
+CPU proposée par le correctif 1225 n'est pas encore portée ou mesurée ici.
+Les 30 régulières restent non atteintes. Le rapport complet est
+`spikes/switch2-room/command-batching-comparison-2026-11-10.json`.
+
+### 10 novembre : préparer le code CPU demande aussi de protéger sa lecture
+
+La revue du soir retrouve la proposition Lichii 1225, publiée le même jour.
+Elle conserve une liste des portions de programme rencontrées dans le jeu.
+Au lancement suivant, le compilateur JIT peut les traduire sur chaque cœur
+émulé pendant ses temps libres. JIT signifie compilation au moment où le
+programme en a besoin ; la préparer peut éviter une attente au premier usage.
+Cette liste ne contient pas le code exécutable du processeur du serveur.
+Le gain annoncé par son auteur concerne surtout le chargement de Zelda sur
+une autre machine. Il ne prouve aucun gain de cadence sur la nôtre.
+
+Le correctif est récupéré à une révision précise, puis appliqué à une copie
+indépendante des 5 219 fichiers de notre référence. Dix-huit fichiers changent.
+La compilation et le lancement restent suspendus à sa revue : le budget de
+travail est contrôlé entre groupes de 64 portions plutôt qu'entre portions,
+et la lecture des instructions utilise un cache de page dont une invalidation
+concurrente doit être examinée. Une invalidation demande d'oublier du code
+ancien après sa modification. Oublier la traduction tout en gardant l'ancienne
+page ferait ensuite retraduire la mauvaise instruction.
+
+Les tests terminent ensuite leur vérification sur les corps exacts des fonctions,
+avec des doubles explicites pour la mémoire, le compilateur et l'horloge.
+La copie de page rend une ancienne instruction malgré l'invalidation JIT
+consommée dans le double. Les appels de modification de mémoire examinés
+diffusent cette invalidation sans verrou commun avec le lecteur. Le mécanisme
+existe déjà dans notre référence ; le préchauffage lui ajoute des lectures
+pendant qu'aucun programme invité ne tourne sur ce cœur. Nous ne prouvons
+ni sa survenue dans Zelda ni une mauvaise exécution par le vrai compilateur.
+
+L'autre test donne à chaque compilation une milliseconde fictive. La boucle
+d'origine en exécute 64 pour une tranche annoncée de 2 ms. Un contrôle entre
+blocs l'arrête à deux. Les 64 ms sont une démonstration synthétique, pas une
+latence mesurée sur le serveur ; un seul bloc pourrait encore dépasser le budget.
+Pour chacun des deux cas, l'original échoue, une variante corrigée passe, puis
+réintroduire l'original fait échouer le test à nouveau. Une simple purge du
+code traduit n'aurait pas couvert la page qui fournit ses instructions.
+
+Les variantes corrigées restent des démonstrateurs. Le cache de page réel doit
+encore couvrir les invalidations complètes, les changements de mémoire et leur
+durée de vie. La décision est de garder ce candidat hors du jeu tant que cette
+cohérence n'est pas qualifiée. Aucun gain, plafond matériel, compilation complète
+ou paquet installé n'est déclaré. La revue et les preuves sont conservées dans
+`spikes/switch2-room/jit-warmup-review-2026-11-10.json`.
+
+### 10 novembre : viser quarante commence par retirer les anciens plafonds en privé
+
+Souhib demande désormais au moins quarante images par seconde constantes.
+Cela laisse 25 millisecondes par image. Les comparaisons précédentes visaient
+trente et leur profil imposait deux attentes à cette cadence : une dans le
+service qui présente les images du jeu, l'autre dans Vulkan. Leur moyenne sous
+trente ne mesure donc pas directement ce que donnerait le moteur sans ces limites.
+
+La nouvelle préparation conserve l'exécutable déjà contrôlé et ne change que
+ces deux plafonds, relevés à soixante dans une copie privée. Le temps du jeu reste
+à sa vitesse normale, son horloge à soixante événements par seconde et la qualité
+visuelle reste identique. Le contrôle lit aussi l'intervalle demandé par le jeu :
+à soixante événements par seconde, demander une image tous les deux événements
+le limiterait encore à trente malgré le réglage de l'émulateur. Les tests refusent
+ce cas ainsi qu'une accélération du temps qui donnerait un chiffre trompeur.
+
+Un premier passage sur la même scène fixe est préparé avec les mêmes fichiers
+de sauvegarde et de cache. Les abonnements vidéo et son restent ouverts, sans
+le coût de leur lecture locale. Il doit établir une observation de cadence,
+pas une amélioration causale ni une limite de la machine. Il ne suffit pas non
+plus à qualifier les déplacements, les nouveaux lieux ou la lecture au navigateur.
+
+### 10 novembre : relever les plafonds ne donne pas quarante images
+
+Le passage privé termine ses 90 secondes et ferme normalement. Le processus
+confirme les limites à soixante, la vitesse normale et un intervalle natif de un
+à soixante événements par seconde. Les fenêtres complètes couvrent 61,30 secondes
+et donnent 29,37 présentations par seconde. Leurs p99, les durées sous lesquelles
+se placent 99 % des intervalles d'une fenêtre, valent 42,27 à 43,38 ms ; le plus
+long intervalle retenu atteint 52,12 ms. Aucun ne dépasse cent millisecondes.
+Les 28,70 secondes sans fenêtre complète restent hors de ces chiffres.
+
+Les images réellement reçues avant, au milieu et après montrent la même caméra
+près de Saria dans Kokiri. Les sauvegardes, la configuration installée et les
+caches sources restent intacts. Ce passage isolé ne mesure pas un gain causal
+et n'établit aucune limite matérielle. Il montre que retirer les anciens plafonds
+ne suffit pas à cet essai. Il ne qualifie pas non plus la lecture locale ou les
+nouveaux lieux. La suite vérifie la réduction de résolution du vrai chemin natif,
+avant de lui attribuer un bénéfice.
+
+### 10 novembre : comparer une résolution réduite et vérifier la vraie taille des images
+
+La lecture du moteur confirme un chemin de réduction des cibles natives de Zelda.
+Une échelle de 0,5 peut créer une image hôte de 1 280 × 720 pour une cible invitée
+de 2 560 × 1 440. Cela ne réduit pas forcément tous les calculs ou toutes les
+images, et cela baisse la netteté. Le remplacement NoSharpening transmet l'état
+de réduction lors de sa copie ; sa ligne de journal décrit toutefois la taille
+invitée. Elle ne suffirait pas à prouver la taille réellement employée sur le GPU.
+
+Quatre passages neufs sont donc prévus dans l'ordre réduit, normal, réduit,
+normal. Les deux limites restent à soixante et le temps du jeu à sa vitesse
+normale. Les abonnements vidéo et son restent identiques. Un petit serveur de
+diagnostic local est présent dans les deux conditions. Après la fin de chaque
+mesure, il demande une capture des cibles GPU : le fichier de description doit
+nommer une passe identifiée, sa taille et les fichiers d'image réellement écrits.
+Le coût de cette capture ne doit pas entrer dans les quatre phases mesurées.
+
+Un premier client de diagnostic construit son programme comme du texte échappé
+dans un autre programme. Son contrôle de compilation refuse une chaîne coupée
+par un retour à la ligne. Le client devient un fichier source séparé, transmis
+directement au processus privé. Ses tests exercent une réponse fragmentée, une
+fermeture avant son terminateur, une erreur du serveur, un mauvais identifiant
+et une réponse trop grande. Réintroduire l'ancien texte redonne l'erreur de
+compilation. Aucun de ces contrôles n'avait encore envoyé de demande au jeu.
+
+### 10 novembre : le lecteur de configuration doit aussi passer les quatre amorçages
+
+Le premier passage réduit termine normalement. Sa capture GPU confirme une
+cible de 1 280 × 720, avec les bons octets décompressés et une image lisible.
+Il donne 28,58 présentations par seconde sur 62,99 secondes retenues, maximum
+68,10 ms. Cette observation ne remplit pas l'objectif de quarante et ne mesure
+pas encore l'effet propre de la résolution.
+
+Le témoin normal charge ensuite le jeu, puis son contrôle de configuration
+l'arrête avant la mesure. Le lecteur ouvre encore le fichier commun du premier
+cas, alors que ce témoin possède son propre paquet. Les tests du validateur
+avaient reçu le bon contenu en argument ; ils ne vérifiaient pas quel fichier
+son appelant ouvrait. Le garde refuse heureusement cette incohérence. L'arrêt
+natif est normal et les fichiers installés restent intacts.
+
+La correction lit le fichier du passage. Son test utilise les véritables
+fichiers créés par les quatre amorçages et les instructions de lecture extraites
+de la fonction réelle. L'ancien lecteur échoue sur les deux témoins B, le
+lecteur corrigé accepte les quatre, puis réintroduire l'ancien choix fait
+échouer B de nouveau. Les enregistrements de montage y sont des doubles ;
+les vrais processus doivent encore les confirmer. Une nouvelle série repart
+du cache et de la sauvegarde propres. Le premier passage reste une preuve
+fonctionnelle, sans comparaison rétrospective avec une série incomplète.
+Rapport : `spikes/switch2-room/goal40-resolution-restart-2026-11-10.json`.
+
+### 10 novembre : le premier test du lecteur oubliait la politique
+
+Le second témoin réel refuse encore la préparation : le fichier du candidat
+est désormais bien choisi, mais la politique attendue vient toujours du dossier
+commun. Le processus charge correctement la résolution normale, tandis que le
+contrôle attend la résolution réduite. L'ancien test de lecture ne pouvait pas
+voir ce défaut : il extrayait seulement le choix du candidat, son empreinte et
+le contrôle de ses montages. Les premières instructions qui lisent la politique
+et le paquet restaient hors de son périmètre.
+
+La deuxième série est conservée comme incomplète, sans comparaison de cadence.
+Le témoin ferme normalement avant toute phase. La troisième préparation étend
+le test aux lecteurs de politique, de candidat et de paquet, ainsi qu'à
+l'identité de l'exécutable qui en dépend. Les fichiers communs de politique et
+de candidat doivent ensuite disparaître de cette préparation. Un ancien lecteur
+ne pourra ainsi plus sembler juste pour A seulement parce que sa copie commune
+contient les mêmes valeurs. Les montages et processus réels restent un contrôle
+supplémentaire après ces tests sur fichiers.
+
+### 10 novembre : préparer une autre piste sur les lectures du processeur invité
+
+La revue trouve aussi la proposition Lichii 1244. Le moteur sait déjà préparer
+certaines lectures de données GPU sans attendre leur copie immédiatement.
+Cette proposition permet au fil qui exécute les commandes GPU de servir la
+demande à une prochaine frontière sûre, plutôt que de laisser le lecteur
+attendre la fin d'un gros paquet. Elle conserve également un retour rapide
+quand aucune demande n'attend. Ce mécanisme est distinct du préchauffage du code
+CPU qui reste non qualifié. Aucun gain local n'est encore établi.
+
+La proposition dépend du correctif 1058 : lorsque les fils GPU s'arrêtent, les
+lecteurs qui attendent leur réponse doivent être libérés et les actions en attente
+ne doivent plus s'exécuter sur des données détruites. La copie de notre référence
+n'a pas encore ce correctif. Deux différences de code sont donc récupérées à des
+révisions précises. Une copie indépendante des 5 219 fichiers source et du dossier
+de construction conserve leur contenu, leurs dates et leurs permissions.
+Le contrôle d'application du premier correctif passe, sans modifier la copie.
+Aucun nouveau binaire, essai GPU ou gain n'est déclaré à cette préparation.
+
+La qualification prévue doit exercer les vraies files concurrentes, une demande
+pendant l'arrêt, une demande retardée au travers d'un redémarrage et les sorties
+sans aucun travail. Ces tests doivent pouvoir détecter le retrait du réveil ou
+du numéro de génération qui distingue deux démarrages. La comparaison de
+résolution reste indépendante de ce futur port.
+Rapport : `spikes/switch2-room/readtick-preparation-2026-11-10.json`.
+
+### 10 novembre : une vraie partie arrive pendant le témoin
+
+La troisième préparation corrige les lecteurs complets et supprime leurs
+fichiers natifs communs. Ses 201 entrées sont gelées, puis les vrais processus
+A et B passent tous leurs contrôles. Le premier réduit termine 90 secondes :
+27,91 présentations par seconde sur 64,50 secondes de fenêtres complètes,
+maximum 68,11 ms. La capture faite après la phase copie et décode réellement
+la cible tonemappée à 1 280 × 720. Les images montrent la même caméra près de Saria.
+Le témoin normal charge bien sa propre politique à la résolution normale.
+
+Une autre salle Zelda démarre alors sur la machine. Le garde relève son moteur,
+son compositeur et son encodeur sur le même GPU vers la 69e seconde du témoin.
+Il arrête notre salle privée. Le témoin est exclu et les deux autres phases
+ne démarrent pas : une mesure sans charge extérieure ne peut pas être comparée
+à une phase interrompue par une vraie partie. Aucun effet causal de la résolution
+ou plafond matériel n'est déduit de cette série.
+
+Notre émulateur ferme normalement. Le contrôleur attend toutefois la fin de
+ses 90 secondes avant de constater que sa page a disparu ; ses relâchements de
+touches ne sont pas confirmés. Le superviseur vérifie sa disparition avant
+qu'il ait fini et n'écrit donc pas son compte rendu habituel. L'audit suivant
+constate la disparition réelle de tous nos PID et conteneurs, avec l'observateur
+rétabli. Il est conservé séparément et ne remplace pas un succès de phase.
+Les quatre manettes encore présentes portent le nom de la salle installée.
+Elles ne sont pas des restes de notre essai et restent en place. Une prochaine
+version du superviseur devra interrompre puis attendre son contrôleur identifié,
+avant de vérifier la fermeture de son propre jeu.
+
+Pendant cette partie, le port source 1058 et 1244 est terminé dans une copie
+indépendante. Huit fichiers changent et vingt unités CPU sont produites, avec
+leurs mutants ; rien n'est encore compilé ou exécuté. Le dossier de construction
+contient toujours l'ancien exécutable. Les compteurs préparés distinguent les
+lectures demandées, leurs callbacks achevés et ceux servis par le nouveau point
+sûr ; ils ne mesurent pas des fins de travail GPU. La compilation et les essais
+attendent une machine libre, sans arrêter ni modifier la partie en cours.
+
+### 11 novembre : vingt cas CPU passent avant la construction complète
+
+La partie installée s'arrête. Un nouveau contrôle retrouve un GPU sans client,
+aucun émulateur et une file de CI libre. Les vingt unités préparées du port
+composé sont alors compilées et exécutées en 27,85 secondes, à faible priorité.
+Le contrôleur surveille le retour éventuel d'une partie et peut arrêter son
+propre groupe de compilation. Aucune interférence n'est relevée pendant cet essai.
+
+Les deux positifs réussissent. Les dix-huit négatifs attendus, dont le témoin
+sans correction d'arrêt, échouent à leurs propriétés nommées. Une erreur de
+compilation ou un processus tué au délai extérieur ne compterait pas comme
+une mutation détectée. Les positifs réussissent de nouveau après ces cas.
+Le contrat des deux instantanés de compteurs refuse aussi huit mauvais cas,
+dont un enregistrement hors phase et un delta de lectures servi nul.
+
+Ces tests emploient les corps source réels et de vrais fils et verrous du
+processeur, avec des doubles explicites pour le moteur et le rasteriseur.
+Ils ne prouvent ni la compatibilité des en-têtes de la plateforme ni la fraîcheur
+des données Vulkan, ni un gain dans Zelda. La construction complète commence
+ensuite dans le même environnement que le témoin, limitée à trois CPU et sans
+accès GPU. Le contrôleur arrêtera uniquement son conteneur marqué si un jeu
+réapparaît. La qualification de l'exécutable et les essais en jeu restent à faire.
+
+### 11 novembre : arrêter les entrées avant de fermer leur page
+
+L'interruption du témoin révèle un défaut de notre banc. Le garde ferme le
+navigateur, mais son contrôleur d'entrées détaché continue. À la fin prévue,
+ce contrôleur essaie de relâcher les touches dans une page déjà fermée.
+Le nouvel arrêt signale d'abord le vrai contrôleur, attend sa sortie et son
+récépissé, puis autorise la fermeture de la page. Son identité associe le
+numéro de processus et son instant de création. Un descripteur Linux ouvert
+sur ce processus permet de lui envoyer le signal sans viser un numéro réutilisé.
+Le nom visible du processus peut changer sans perdre cette identité.
+
+Seize petits cas CPU donnent les résultats attendus : treize acceptés et trois
+contrôles volontairement rouges. Le défaut original et sa réintroduction
+ferment trop tôt. Le cas corrigé attend les trois relâchements simulés et la
+récupération du fils. Les contrôles refusent une identité périmée et un fils
+étranger avant tout signal. Une capture bloquée force seulement notre propre
+contrôleur à sortir ; ce nettoyage ne qualifie jamais une phase interrompue.
+Deux demandes concurrentes conservent le premier récépissé au lieu de l'écraser.
+
+Les vrais corps du contrôleur et du superviseur sont exercés avec des doubles
+explicites de clavier, de capture et de navigateur. Ces tests ne prouvent donc
+ni les relâchements reçus par une vraie page ni l'état des manettes Linux.
+Un arrêt privé réel reste nécessaire avant les prochaines mesures. L'audit
+ne réclame plus la disparition des quatre manettes d'une salle étrangère :
+il suit uniquement les identités et les noms enregistrés pour notre essai.
+La série interrompue reste figée et invalide ; le correctif est préparé pour
+la suivante. Rapport : `spikes/switch2-room/phase-stop-2026-11-11.json`.
+
+### 11 novembre : le port complet compile et passe les tests natifs CPU
+
+La construction complète termine en 525,12 secondes dans le même environnement
+que le témoin. Les six unités modifiées sont bien recompilées et les deux
+exécutables sont reliés à neuf. Le marqueur du port est présent dans le nouveau
+binaire privé `c686c1ff` ; sa présence seule ne prouve pas encore son activation
+dans une partie. Aucun jeu extérieur n'apparaît pendant cette construction.
+
+Les quinze cas natifs ciblés passent en 6,10 secondes. Ils exercent les vraies
+files du moteur, son arrêt et ses fils concurrents. La suite complète recense
+ensuite 1 257 cas en 39,15 secondes, avec quatre cas ignorés parce que le réseau
+est coupé et aucun échec. Les conteneurs de test disparaissent. Aucun de ces
+tests n'accède au GPU : les vraies lectures Vulkan et le rendu restent à
+qualifier. La prochaine étape observe les compteurs pendant une phase privée,
+contrôle les images, les entrées et l'arrêt, puis compare ce port au témoin en
+alternance à résolution identique. Aucun gain ni remplacement installé n'est
+annoncé à ce stade.
+
+### 11 novembre : un inventaire neuf peut encore oublier une nouvelle progression
+
+La préparation relit les 757 chemins déjà protégés et les retrouve identiques.
+Son premier contrôle dynamique détecte aussi les nouveaux fichiers, mais
+seulement sous les anciens dossiers choisis. La revue retrouve pourtant une
+progression créée par la dernière partie réelle, ainsi que des shaders ajoutés
+au cache installé. Ces dossiers ne sont pas des enfants des anciennes racines.
+Le premier inventaire neuf est donc conservé comme incomplet, sans essai de jeu.
+
+La protection suivante prend le dossier entier du titre Switch 2 installé,
+avec ses profils voisins et son cache, au lieu de déduire tout son périmètre
+d'une ancienne liste de fichiers. Elle conserve les autres progressions déjà
+protégées. Ce contrôle lit les fichiers avant et après les essais ; il ne doit
+pas charger le processeur et le disque pendant la mesure. Aucune progression
+ni aucun cache installé n'est restauré. Le nouvel inventaire et les tests de
+création, modification et suppression restent privés, avec les chemins des
+comptes. Une égalité de 757 anciennes empreintes n'aurait pas prouvé la
+préservation du nouvel état.
+
+### 11 novembre : les amorçages de copie ne couvrent pas les auxiliaires lancés ensuite
+
+Le candidat complet charge le checkpoint près de Saria. La revue lit l'image,
+le processus porte la bonne empreinte et 141 champs effectifs correspondent.
+Le nouveau point de traitement sert de vraies lectures pendant ce chargement.
+Cela ne donne encore ni cadence comparable ni qualification complète des lectures.
+
+Le pilote s'arrête avant la phase : son test négatif d'affinité appelle un
+script absent. Il refuse correctement cette mauvaise cause d'échec, mais sa
+dépendance n'avait pas été testée. Le garde de surveillance a aussi quitté
+dès le départ : le pilote F1 lui a donné le chemin de B1, dont la métadonnée
+n'existe pas. Les cinq amorçages réels allaient jusqu'aux copies de sauvegarde
+et de cache. Ils ne passaient pas par ces appels ultérieurs. Les contrôles du
+lecteur et les vérifications de syntaxe passaient donc malgré ces deux défauts.
+
+Le jeu ferme avec une sortie zéro, sans fermeture forcée, mais le compte rendu
+normal manque parce que son garde est mort. Un audit manuel séparé retrouve
+les onze PID observés disparus et aucun Chrome, émulateur, conteneur privé ou
+pad restant. L'observateur est actif, les 8 652 fichiers installés gardent leurs
+chemins et leurs empreintes, et les 4 882 fichiers sources du cache appris et
+du checkpoint restent identiques. Cet audit prouve le nettoyage observé après
+coup ; il ne recrée pas une surveillance pendant le chargement ni un succès de phase.
+
+La première préparation reste figée. La suivante doit dériver chaque chemin
+du vrai passage, tester les appels des auxiliaires et attendre un récépissé du
+garde avant de démarrer le worker. Aucun essai alterné ni entrée tenue n'a
+commencé. Aucun gain de cadence ou blocage matériel n'est déduit de cet arrêt.
+
+### 11 novembre : une branche principale immobile cachait quatre nouvelles préversions
+
+La vérification de Lichii et de Superbuild retrouve les mêmes révisions.
+Fritchii garde aussi sa branche principale, mais cela ne décrit pas toutes ses
+publications. La liste complète retrouve quatre nouvelles préversions, de 5.8
+à 5.8.3, entre 23 h 52 et 0 h 38. Une préversion est une publication encore
+marquée pour essais. Le point d'entrée qui cherche la dernière version stable
+ne la renvoie pas. Les tags pointent vers une autre branche, `oot-gather-fix`.
+
+La comparaison épinglée depuis 5.7 contient 19 commits et 73 fichiers. Outre la
+gestion des données et des sauvegardes, elle ajoute des copies de textures par
+blocs de seize octets et annonce le retrait d'un contrôle interne lors de la
+compilation du code invité. La lecture de nos en-têtes retrouve pourtant ce
+contrôle déjà désactivé dans le profil courant : ajouter de nouveau son option
+ne change rien. Ce port précis est donc écarté sans compilation supplémentaire.
+Il reste distinct du préchauffage spéculatif précédemment refusé. Les copies
+de textures restent une piste source, sans effet local mesuré.
+Une autre option évite des protections mémoire sur les pages souvent réécrites,
+mais son commentaire accepte qu'une écriture atteigne le GPU une image plus tard.
+Ce compromis ne prouve pas la même cohérence et son port direct reste écarté.
+
+Deux autres pistes mémorisent des traductions d'adresses et repoussent certaines
+décisions de dessin au fil graphique arrière. Elles demandent de vérifier les
+changements de mémoire et les vraies instructions de la macro. Huit exemples
+reconnus ne suffiraient pas à prouver le comportement pour toutes leurs entrées.
+Aucun de ces changements n'est compilé ou activé ici. La validation du candidat
+1058 et 1244 reste l'étape en cours. Les sources et limites sont conservées dans
+`spikes/switch2-room/upstream-2026-11-11.json` ; les
+[notes 5.8](https://github.com/Frizti/Fritchii/releases/tag/fritchii-v5.8)
+et [5.8.3](https://github.com/Frizti/Fritchii/releases/tag/fritchii-v5.8.3)
+restent les annonces amont, pas des mesures sur notre machine.
+
+### 11 novembre : voir le fichier d'une manette ne donne pas le droit de la lire
+
+La deuxième préparation exerce les vrais lancements des auxiliaires. Le garde
+attend son premier relevé sain avant les processus dépendants. Ses neuf cas
+de constructeur et les cinq chaînes d'appels passent, avec les défauts originaux
+réintroduits. Les vrais processus de la salle confirment ensuite ses réglages
+et le checkpoint, dont l'image porte « Kokiri Forest ».
+
+Deux instantanés pris dans la phase montrent 17 152 actions de lecture servies
+par le nouveau chemin. Le dernier des dix-sept résumés du contrôle recense
+173 756 copies de données GPU comparées à une copie synchrone, soit 580 073 KiB.
+Toutes ses classes de divergence restent à zéro. Ces comptes sont cumulatifs,
+chargement compris ; ils ne donnent pas le total après la dernière émission.
+Des octets réécrits sont exclus et restent visibles dans le rapport. Le contrôle
+ajoute aussi des copies et des attentes : sa cadence ne mesure pas celle du
+candidat sans vérificateur.
+
+Le lecteur des manettes échoue pourtant. Le helper peut créer les contrôleurs
+via son périphérique dédié. Son montage rend visibles leurs fichiers dans
+`/dev/input`, mais Docker ne lui donne pas le droit d'ouvrir ces autres
+périphériques. La commande de lecture est refusée. La direction reste envoyée
+jusqu'à la fin normale du contrôleur ; les images montrent ensuite Link près
+d'un panneau et d'une échelle. Elles ne prouvent ni l'état tenu dans le noyau Linux ni le
+relâchement avant fermeture. La phase reste donc incomplète, sans résultat de FPS.
+
+Le moteur ferme normalement, le garde termine sans alerte, les ressources
+privées disparaissent et les 8 652 fichiers installés sont identiques. Le
+lecteur suivant réutilise l'observateur isolé déjà employé par les tests de
+manettes : seuls nos quatre fichiers de périphérique lui sont accordés, en
+lecture seule, sans accès GPU ni nouvelle permission du helper installé.
+Il doit d'abord passer sur quatre contrôleurs jetables sans jeu, puis refaire
+la vraie interruption du navigateur. Rapport :
+`spikes/switch2-room/readtick-runtime-partial-2026-11-11.json`.
+
+### 11 novembre : le début du chargeur doit passer aussi, avant ses appels utiles
+
+L'observateur séparé passe quatorze contrôles sur de vraies manettes jetables :
+refus original, repos, axe tenu, retour au repos, mauvaises identités et
+nettoyage après erreur, délai dépassé ou signal. Le helper installé conserve
+ses permissions. Cela qualifie ce lecteur, pas encore le relâchement d'une
+vraie page avant fermeture.
+
+Le troisième démarrage bute sur une autre frontière omise. Le chargeur vérifie
+au début que son dossier porte le nom de la deuxième préparation. Les copies
+avaient changé les chemins absolus, pas cette expression de nom. Le test
+précédent commençait au bloc des appels utiles, après cette instruction.
+Le vrai programme quitte donc avant ses premières commandes. Le moteur est
+arrêté normalement, sans phase mesurée, avec le garde actif et les données
+installées identiques.
+
+La correction dérive le dossier autorisé du fichier du chargeur lui-même.
+Dix-huit contrôles passent, dont les cinq départs ordinaires jusqu'à leur
+premier marqueur propre et les cinq entrées en mode validation. L'ancien début
+échoue, puis réintroduire son contrôle échoue de nouveau. Un autre dossier ou
+un rôle inconnu est refusé. Le vrai outil d'admission exécute désormais cette
+entrée avant de démarrer une salle. Les processus jetables de ces tests sont
+arrêtés et attendus, sans navigateur ni jeu.
+
+La quatrième préparation conserve les sources du lecteur de manettes déjà
+qualifiées et les politiques du moteur. Les preuves précédentes gardent leurs
+vrais dossiers d'origine ; elles ne deviennent pas des essais de cette nouvelle
+salle. Le prochain démarrage doit encore exercer l'interruption réelle.
+Rapport : `spikes/switch2-room/readtick-loader-entry-2026-11-11.json`.
+
+### 11 novembre : déplacer une configuration change aussi son empreinte
+
+Le quatrième départ est refusé avant le worker et l'émulateur : le chargeur
+initial garde une ancienne empreinte du fichier de configuration. Ce fichier
+contient le chemin du paquet privé. Le déplacer dans une nouvelle préparation
+change donc ses octets, même si ses réglages d'émulation restent identiques.
+Une comparaison du code après substitution des chemins ne vérifiait pas cette
+valeur couplée. L'observateur est rétabli ; le relevé au départ suivant retrouve
+les 8 652 fichiers installés identiques.
+
+La cinquième préparation place désormais chemin, empreinte, rôle et révision
+de configuration dans le manifeste du paquet sélectionné. Le vrai programme
+les contrôle avant de créer le dossier de la salle. Les dix-sept contrôles
+refusent les fichiers déplacés ou modifiés et le retour de l'ancienne valeur.
+Les cinq débuts ordinaires passent ensuite par les vraies copies de sauvegarde
+et de cache, avec les vrais fichiers sélectionnés, sans ouvrir de port ni jeu.
+Le début du chargeur est aussi exercé dans chacun des cinq passages.
+
+Le contrôle d'avant démarrage appelle ces entrées réelles. Il ne dépend plus
+d'une empreinte recopiée dans le programme. Le moteur et ses politiques ne
+changent pas, et les sources du lecteur des manettes restent celles déjà
+qualifiées sur les vrais périphériques. L'essai fonctionnel complet reste
+nécessaire. Rapport : `spikes/switch2-room/readtick-config-identity-2026-11-11.json`.
+
+### 11 novembre : le lecteur complet doit suivre le même paquet que le constructeur
+
+Le cinquième départ franchit le constructeur et charge le checkpoint. Le
+contrôle des réglages s'arrête ensuite sur la même catégorie d'erreur : ses
+cinq copies gardent une ancienne empreinte littérale. Le test du constructeur
+ne couvrait pas ce lecteur ultérieur. Ses anciens résultats ne pouvaient pas
+être repris après déplacement de fichiers contenant des chemins absolus.
+
+Le jeu ferme normalement avec un code zéro. Le garde ne signale pas de charge
+concurrente, les processus et manettes privés disparaissent et les 8 652
+fichiers installés restent identiques. Aucune phase de mesure ne commence.
+Les cinq lecteurs de la préparation suivante doivent vérifier le chemin,
+l'empreinte et le rôle à partir du même paquet, avant toute commande Docker.
+Leur corps complet est rejoué avec les fichiers actuels et des réponses
+simulées explicites pour Docker, les processus et le journal. Ces réponses
+simulées prouvent les refus du lecteur, pas le comportement du GPU.
+
+La règle devient plus précise : après déplacement d'une préparation, rejouer
+tous ses lecteurs avec ses données actuelles. Une égalité du code après
+substitution de chemins ne suffit pas pour les valeurs dérivées de ces données.
+Les essais précédents restent conservés avec leur échec ; aucun gain de
+cadence n'en est déduit.
+
+La sixième préparation passe ensuite cinquante cas de ce lecteur complet,
+vingt contrôles du pilote, douze du chargeur et cinq copies de départ. Le
+contrôle de gel refuse aussi les preuves absentes ou modifiées. Les lectures
+simulées ne sont pas rebaptisées comme des essais de jeu.
+
+Deux nouveaux départs réels s'arrêtent avant phase. Le premier passe les 141
+réglages et les deux images, mais mon reçu visuel omet le chemin de la salle.
+Le vrai garde le refuse. Le reçu corrigé passe ce même garde ; retirer de nouveau
+le champ le fait échouer. Le second départ voit la manette reconnectée
+dans la page, mais le salon annonce encore brièvement une place sans nom.
+Le contrôle prend cet état transitoire pour un résultat final et refuse la suite.
+L'attente de la confirmation réelle du serveur est donc corrigée séparément.
+Onze contrôles avec réponses simulées passent : la place provisoirement sans
+nom devient prête, tandis qu'un mauvais jeu, nom ou rôle ne peut pas autoriser
+la suite. Une absence de réponse et une place toujours en attente atteignent
+la borne virtuelle de quinze secondes. Cette horloge simulée prouve la décision
+du contrôleur, pas un délai du réseau réel.
+
+Les deux fermetures natives sont normales, leurs ressources disparaissent et
+les fichiers installés restent identiques. Les sorties de chaque tentative sont
+archivées avant la suivante ; les entrées du paquet gardent leurs chemins et
+leurs octets. Déplacer encore tout le banc aurait changé les configurations
+sans aider à corriger ces deux défauts. Aucun résultat FPS n'est retenu.
+
+### 11 novembre : choisir la prochaine piste sans reprendre un gain annoncé
+
+La revue des nouvelles préversions Fritchii distingue deux idées. La première
+déplace un petit programme graphique conditionnel vers le fil graphique. Or le
+programme observé dans notre ancien diagnostic y passe déjà. Sa reconnaissance
+ne couvre que huit exemples et sa clé mémorisée peut survivre à un changement
+de programme lié au même emplacement. Cette lecture du code suffit à refuser
+un port direct ; elle ne prouve pas que ce défaut s'est produit dans Zelda.
+
+La proposition Lichii 1216 évite plutôt de reconstruire tout l'état de dessin
+après certaines commandes. Notre base effectue encore ces reconstructions.
+C'est une piste mieux reliée au travail observé, après la comparaison en cours.
+Éviter une reconstruction ne doit supprimer ni écriture mémoire, ni condition
+de dessin, ni signal de fin. Ces effets et leur ordre restent à vérifier avant
+un port accepté. Les anciens temps instrumentés ont été pris avec un autre
+exécutable et un mode qui change le traitement des commandes : ils ne donnent
+ni économie actuelle ni promesse d'atteindre 40 images par seconde.
+
+Rapport : `spikes/switch2-room/upstream-2026-11-11.json`.
+
+### 11 novembre : les lectures et le relâchement sont enfin exercés ensemble
+
+Le troisième départ de la sixième préparation passe le reçu visuel et l'annonce
+des rôles par le salon. Les deux images montrent Link devant Saria, au même
+checkpoint. Les 141 réglages effectifs correspondent au paquet choisi.
+
+Deux relevés entièrement internes à la phase constatent 17 685 lectures servies
+par le nouveau point de traitement. Ces compteurs sont indépendants : leur
+différence ne décrit ni un instant cohérent unique ni une fin de travail du GPU.
+Les huit résumés cumulés du vérificateur ne signalent aucune divergence dans
+leurs copies comparées. Le dernier recense 73 251 copies et 246 339 KiB,
+chargement inclus. Les plages modifiées ou réécrites sont exclues, et le dernier
+résumé n'est pas un total final obtenu à l'arrêt. Le vérificateur ajoute des
+copies et attentes synchrones ; ce passage ne mesure pas le coût normal.
+
+Après la direction tenue, le lecteur voit l'axe horizontal du joueur un à
+32 767 dans le noyau Linux. Le contrôleur reçoit ensuite le signal d'arrêt,
+confirme ses relâchements et se termine. Une nouvelle lecture voit les quatre
+manettes au repos avant la demande de fermeture de page. La phase dure
+46,46 secondes et porte l'interruption attendue. Les images avant et au milieu
+restent devant Saria ; celles d'après montrent le déplacement près du panneau
+et de l'échelle. Aucun changement de zone nommée n'est revendiqué.
+
+Le jeu ferme normalement sans arrêt forcé ni erreur GPU observée. Les processus,
+conteneurs et manettes privés disparaissent, l'observateur revient et les
+8 652 fichiers installés gardent leurs octets. Ce contrôle fonctionnel borné
+autorise la comparaison suivante ; il ne couvre pas tous les jeux ni tous les
+cas de durée de vie mémoire. Les 40 images par seconde constantes restent à
+atteindre. Rapport : `spikes/switch2-room/readtick-functional-2026-11-11.json`.
+
+### 11 novembre : quatre passages propres, une petite avance qui reste loin de 40
+
+Après le contrôle fonctionnel, quatre nouvelles salles privées alternent le
+témoin et le candidat composé 1058 et 1244. Chacune repart du même cache appris
+et du même checkpoint. Les plafonds sont à 60, la vitesse du jeu reste normale
+et la résolution ne change pas. Les politiques ne diffèrent que par l'identité
+de l'exécutable. Les deux relevés de compteurs supplémentaires du candidat
+restent compris dans son coût. Le vérificateur de copies du contrôle précédent
+est désactivé.
+
+| Ordre | Version | Retours de présentation/s | Durée retenue | Plus grand intervalle retenu |
+|---|---|---:|---:|---:|
+| A1 | Témoin | 28,44 | 84,38 s | 52,92 ms |
+| B1 | Candidat | 29,01 | 82,73 s | 51,93 ms |
+| A2 | Témoin | 27,64 | 65,11 s | 63,77 ms |
+| B2 | Candidat | 28,51 | 63,13 s | 52,60 ms |
+
+Chaque phase dure environ 90 secondes. Les quatorze fenêtres complètes de
+600 retours couvrent ensemble 295,35 des 360,01 secondes commandées. Aucun
+intervalle retenu ne dépasse 100 ms ; cette observation ne couvre pas les
+parties laissées hors de ces fenêtres. Les retours Vulkan ne sont ni un compte
+d'images invitées uniques ni une mesure de l'affichage physique. Les deux pages
+reçoivent la vidéo et le son sans les décoder localement : ce passage allégé
+ne remplace pas une qualification au navigateur pendant des déplacements.
+
+Le candidat est devant le témoin de 2,0 % puis 3,1 % dans les deux alternances.
+Cette petite avance observée ne prouve pas seule une cause isolée. Le p99,
+le temps en dessous duquel tombent 99 % des intervalles d'une fenêtre, ne baisse
+pas uniformément dans la première paire. Les lectures du nouveau chemin sont
+effectivement servies sans vérificateur, avec 855 puis 867 actions observées
+entre les deux relevés internes. Cela établit l'activation dans les conditions
+mesurées, pas une explication de chaque intervalle.
+
+Les images avant, au milieu et après montrent Link au même point devant Saria.
+Les quatre arrêts sont normaux, sans client graphique étranger observé ni
+erreur GPU relevée. Les contrôles périodiques restent espacés d'environ
+6,6 secondes et consomment du processeur ; un travail entièrement entre deux
+lectures peut leur échapper et leur surcoût en jeu n'a pas été isolé. Les
+8 652 fichiers protégés restent identiques. Les 5 121 fichiers du cache installé
+et les 4 867 du cache source privé gardent leurs octets et leurs dates. Les
+170 entrées figées gardent aussi leurs octets et permissions après les essais.
+
+Ce candidat reste privé. Il ne suffit pas pour les 40 images par seconde
+constantes et aucune impossibilité matérielle n'est démontrée. La proposition
+Lichii 1216 devient la prochaine piste source, en commençant par les commandes
+d'état dont les effets sont les plus petits à vérifier. Aucun gain de cette
+piste n'est encore mesuré. Rapport :
+`spikes/switch2-room/goal40-readtick-comparison-2026-11-11.json`.
+
+### 11 novembre : plus de dessins réutilisés ne promet pas plus d'images par seconde
+
+La révision de la proposition Lichii 1216 est vérifiée à nouveau. Elle conserve
+les trois commits de 974 et leur ajoute des règles pour les pas de lecture des
+sommets et les appels de petits programmes graphiques par la file. Le port
+complet est préparé sur une copie vérifiée des 5 218 fichiers du candidat
+précédent. Les quatorze exécutions des corps réels du rasterizer donnent les
+résultats attendus : positifs, dix défauts volontaires, puis réintroduction et
+retour au positif. Les objets Vulkan sont remplacés explicitement par des
+doubles CPU. Cela ne compile pas encore la vraie unité graphique et ne prouve
+aucun résultat du GPU. Les nouveaux tests natifs et leurs contre-épreuves
+restent à exécuter.
+
+L'auteur de 974 apporte une réserve qui change la priorité. Sur ses trois vues
+de Zelda, davantage de dessins utilisent l'état déjà préparé, mais la cadence
+ne progresse pas de façon mesurable. Les préparations complètes évitées étaient
+déjà peu coûteuses. Nos anciens chiffres instrumentés ne permettent pas de
+contredire cette réserve : leur mode changeait le traitement rapide des commandes.
+Le prochain relevé doit donc regarder notre version normale avant d'investir
+dans une compilation et une comparaison. C'est un choix de mesure, pas une
+preuve que 1216 serait sans effet chez nous.
+
+Une autre proposition Eglantine augmente un cache de 64 à 4 096 réponses pour
+éviter de reparcourir des pages mémoire. Notre fonction utilise déjà une
+recherche dans une liste de plages contiguës préparées lors des changements
+d'adresses. Son correctif ne s'applique donc pas directement et son gain annoncé
+n'est pas repris comme une prévision locale.
+
+Le protocole de profilage est d'abord exercé sur un petit processus CPU privé.
+Il confirme le démarrage et l'arrêt par accusés de réception. Le premier contrôle
+retrouve 149 échantillons bruts, mais ne fixe pas leur domaine d'horloge. Cette
+tentative reste valable pour le format et la concordance des lecteurs, pas pour
+borner une phase. Le contrôle corrigé fixe explicitement la même horloge que le
+contrôleur : 154 des 159 échantillons sont dans les 1,51 seconde entre les
+accusés de réception ; les cinq antérieurs sont exclus. Tous les enregistrements
+ont une taille valide et aucun échantillon perdu n'est signalé. Les piles d'appels
+et la synthèse des cartes mémoire sont désactivées ; les cartes et bibliothèques
+du vrai processus devront être conservées séparément pour nommer ses adresses.
+Ce relevé identifie des fonctions exécutées, pas leurs appelants.
+
+Deux erreurs de permissions sont corrigées avant ce résultat. Le fichier écrit
+par le collecteur privilégié appartient d'abord à root. Après transfert à
+l'utilisateur, un décodeur lancé comme root le refuse à son tour ; le décodeur
+doit le lire sous son vrai propriétaire. La deuxième tentative écrivait aussi
+son champ de succès avant ce dernier contrôle. Son processus échoue et ce champ
+est explicitement refusé par l'audit. Le succès n'est maintenant publié qu'après
+la concordance entre les deux lectures. Aucun jeu ni réglage installé n'a changé.
+Rapport : `spikes/switch2-room/fastdraw1216-preparation-2026-11-11.json`.
+
+### 11 novembre : nommer les fonctions du profil normal avec les bons symboles
+
+Une nouvelle salle privée reprend le candidat précédent avec ses réglages
+normaux. Le mode `GPU_PROFILE`, qui change le traitement rapide des commandes,
+et le vérificateur des copies sont absents. Le banc vérifie les 141 réglages
+effectifs, conserve les cartes mémoire et 205 fichiers exécutables, puis
+collecte 25,02 secondes d'échantillons. Les accusés de réception délimitent la
+collecte dans une horloge explicitement commune. Le profiler est autorisé
+uniquement pour son numéro de processus et son instant de création, liés au
+plan figé et au véritable exécutable. Trente contrôles CPU couvrent cette
+admission, et dix autres couvrent le contrôleur d'arrêt avec les opérations
+système explicitement simulées. Il réutilise le descripteur de processus
+conservé par le noyau déjà exercé par les arrêts précédents. Ici, le collecteur
+termine normalement par ses accusés de réception. Un autre profiler reste refusé.
+
+Les deux lecteurs indépendants concordent sur 12 649 enregistrements de type
+échantillon. Après les bornes temporelles, le mode utilisateur, le processus
+et les identités de threads, 11 924 restent retenus. Aucun échantillon perdu
+n'est signalé. Cela ne produit pas de piles d'appels : chaque adresse indique
+le code observé, sans nommer les fonctions qui l'ont appelé. Les changements
+de carte mémoire observés sont exclus de l'attribution. Les captures avant,
+au milieu et après gardent Link devant Saria, sans commande de déplacement.
+
+Les seuls noms exportés par les bibliothèques laissent d'abord une grande
+partie du travail inconnue. Les fichiers de débogage du pilote Vulkan et de la
+libc sont alors récupérés auprès des services officiels Ubuntu. La libc de
+l'image est une ancienne révision absente des miroirs courants ; le fichier
+exact reste disponible dans les archives de Launchpad. Le paquet est extrait
+dans le dossier privé, sans installation. Chaque fichier doit porter le même
+identifiant de compilation que la bibliothèque conservée. Les bornes des
+fonctions communes sont comparées avant de nommer de nouvelles adresses.
+
+La libc conserve deux versions d'un même nom public. Le premier contrôle
+comparait `memcpy` sans version à une seule de ses deux entrées et refuse la
+paire. Les deux côtés sont maintenant regroupés par nom sans suffixe de version,
+tout en conservant toutes les adresses et tailles. Les 2 734 bornes communes
+passent, y compris les deux versions de `memcpy`. Une version absente ou une
+adresse ou taille erronée reste refusée. Les noms ne sont jamais choisis par
+proximité : une adresse située entre deux fonctions reste inconnue. Les
+12 contre-épreuves de cette variante passent et les anciennes analyses sont
+conservées séparément.
+
+| Fil observé | Part des cycles échantillonnés dont la fonction est résolue |
+|---|---:|
+| GPU, le fil graphique principal | 93,86 % |
+| GPUBack, le fil graphique arrière | 99,67 % |
+| VulkanWorker, l'envoi des commandes au pilote | 99,65 % |
+
+Le code invité traduit à la volée reste largement sans nom : aucun fichier
+associant ses adresses aux blocs traduits n'était présent. Dans le fil arrière,
+17,96 % des cycles retenus se trouvent dans les routines de copie mémoire.
+Le fil principal présente notamment des cycles dans l'attente de la file
+arrière. Ces poids décrivent des cycles échantillonnés, pas un temps mural
+disponible pour une optimisation. Surtout, les copies n'ont pas encore
+d'appelants identifiés. Les attribuer à une préparation de dessin précise
+répéterait l'erreur que ce nouveau profil devait éviter.
+
+Le jeu ferme normalement, le profiler termine et est attendu, les conteneurs
+et manettes privés disparaissent, et l'observateur habituel revient. Les fichiers
+installés restent identiques. Les 198 entrées figées gardent leurs octets et
+leurs permissions après le relevé. Le prochain diagnostic doit localiser
+l'origine des copies avant de choisir le changement suivant. Le port 1216
+reste préparé avec ses quatorze cas CPU, sans compilation native ni gain FPS
+revendiqué. Les 40 constantes restent non atteintes et aucune impossibilité
+matérielle n'est démontrée. Rapport :
+`spikes/switch2-room/goal40-current-profile-2026-11-11.json`.
+
+### 11 novembre : les copies viennent de lectures de mémoire invitée
+
+Le profil précédent disait où le processeur passait du temps, mais pas qui
+avait demandé les copies. Réduire au hasard les paramètres de dessin aurait
+laissé cette question ouverte. Le diagnostic suivant conserve donc le même
+candidat et le même checkpoint. Il demande seulement l'adresse à laquelle
+chaque copie doit revenir.
+
+Sur notre processeur, l'instruction `CALL` dépose cette adresse sur la pile,
+une zone de mémoire qui garde notamment les retours des fonctions. Le registre
+`RSP` indique le sommet de cette pile. Une fonction peut ensuite le déplacer
+pour son propre travail. Lire simplement le premier mot ne donne donc pas
+toujours un retour. L'examen de la véritable routine de copie conserve ici
+351 positions d'instruction où ce sommet reste à sa place, avec les entrées
+voisines connues. Neuf contrôles comprennent les vrais octets modifiés dans
+des copies indépendantes, leur refus, puis le retour à l'original accepté.
+Les conditions restent explicites : entrée conforme à la convention d'appel,
+emplacement de retour intact et données du même contexte utilisateur.
+Un saut terminal peut conserver le retour d'un appel plus ancien ; cette
+méthode ne promet pas une pile complète d'appelants.
+
+Un petit programme assembleur fournit d'abord une adresse de retour connue.
+Les 145 échantillons de sa fonction de copie retrouvent cette adresse. Le
+lecteur passe aussi 22 cas de format, dont les données tronquées, les registres
+absents et une mauvaise horloge. La première tentative réelle avait refusé
+le fichier avant attribution : avec cette option, `perf` ajoute un événement
+de suivi et place l'identifiant d'événement au début des échantillons. Le
+lecteur doit utiliser les vrais attributs et leurs identités, pas la disposition
+du profil précédent. Cette qualification reste distincte d'un jeu.
+
+Une nouvelle salle privée vérifie ensuite ses 141 réglages, conserve les
+bibliothèques et collecte 25,02 secondes. Les deux lectures du fichier concordent
+sur 12 588 échantillons ; les bornes temporelles et le contexte en retiennent
+11 776. Aucun échantillon perdu n'est signalé. Parmi les 371 pris dans la routine
+de copie qualifiée, 370 donnent une adresse de retour résolue, répartie entre
+49 sites. Le dernier reste inconnu. Les registres de position du code et du
+sommet de pile, ainsi que huit octets de pile, viennent du même échantillon.
+Les positions non autorisées, les cartes mémoire changées et les contextes
+incomplets ne donnent pas d'appelant.
+
+Sur le fil graphique arrière, 257 échantillons reviennent de deux endroits
+de `ReadBlockUnsafe`. Cette fonction lit des blocs de mémoire invitée. Leurs
+poids représentent ensemble 12,00 % des cycles échantillonnés de ce fil pendant
+ce relevé. Les deux adresses suivent bien des instructions `CALL` vers `memcpy`
+dans le véritable exécutable. Ce contrôle évite de rebaptiser un mot de pile
+plausible en appel prouvé. Il ne donne pas la taille de chaque lecture, leur
+nombre total ou la fonction qui a demandé le bloc à ce lecteur commun.
+
+Le dépouillement rencontre aussi une limite absente du petit programme CPU :
+298 960 notifications `MMAP2`, qui décrivent des cartes mémoire. Parcourir toute
+cette liste pour chaque échantillon rend l'analyse trop lente. Le premier
+analyseur hors ligne est arrêté par son descripteur de processus vérifié. Les
+données brutes et ses sources figées restent intactes. Une variante réunit les
+plages par processus et obtient 44 intervalles. Un calcul indépendant, qui
+compte les débuts et fins de toutes les plages, retrouve exactement la même
+union. Quatre cas supplémentaires conservent les trous, les frontières et les
+identités de processus. Le garde exclut donc les mêmes adresses pendant toute
+la phase, sans inventer la durée de vie d'une carte mémoire. Ce grand nombre
+d'événements ajoute un coût au relevé ; ses pourcentages ne sont pas comparés
+aux 17,96 % du premier comme une amélioration.
+
+La lecture du code réduit maintenant les pistes. L'envoi de tampons au GPU,
+les petits paramètres de calcul et la relecture de paramètres graphiques
+conservés utilisent ce lecteur. Le dernier cas relit encore les octets dans
+un tampon temporaire avant de vérifier qu'ils sont identiques. Le correctif
+1059 déjà présent évite une autre copie ; il ne couvre pas toutes ces voies.
+Les instantanés de carte mémoire, eux, copient des métadonnées et n'appellent
+pas cette fonction. La suite doit distinguer ces demandeurs avant de changer
+la règle qui autorise à garder des octets antérieurs.
+
+Les captures avant, pendant et après gardent Link devant Saria, sans déplacement
+commandé. Le collecteur interrompt volontairement sa phase avant les 35 secondes
+du pilote de navigateur. Son relevé est complet, pas une partie complète de cette
+durée. L'émulateur ferme normalement, le profiler a disparu, les ressources
+privées sont retirées et l'observateur habituel revient. Les fichiers installés
+et les 223 entrées figées restent identiques. Aucun gain FPS ni plafond matériel
+n'est démontré. Les 40 constantes restent à atteindre. Rapport :
+`spikes/switch2-room/goal40-copy-returns-2026-11-11.json`.
+
+La veille amont retrouve enfin Fritchii 5.8.4, publiée à 02:20 UTC. Elle corrige
+notamment le profil utilisateur de destination des sauvegardes et présente
+certains réglages plus clairement. Ses neuf fichiers de différence nette avec
+5.8.3 ne touchent pas le moteur graphique : une tentative mémoire ajoutée
+entre les deux versions a été annulée avant la publication. Aucun nouveau port
+de performances n'en est déduit ici.
+
+### 11 novembre : retrouver les demandeurs des copies et préparer le choix mémoire
+
+Le diagnostic suivant prolonge les deux sites de retour déjà trouvés, sans
+reconstruire arbitrairement toute la pile. L'exécutable conserve un cadre fixe
+à ces endroits : le retour du lecteur mémoire se trouve 112 octets après le
+sommet observé dans la copie. Un registre conservé contient la taille de son
+segment courant. Le chemin rapide qui quitte la fonction par un saut terminal
+ne suit pas cette règle et reste exclu. Treize contrôles sur de vrais octets
+modifiés couvrent notamment un cadre déplacé, un registre écrasé, un appel
+inattendu et une réécriture de l'information source.
+
+Cette dernière information évite de remonter encore plusieurs fonctions.
+`std::source_location` garde le fichier, la fonction, la ligne et la colonne
+du code qui demande une lecture. Le moteur la transmet jusqu'au lecteur commun
+pour pouvoir décrire une zone absente de la mémoire. Son pointeur reste dans
+un emplacement fixe du cadre ciblé. Le collecteur conserve maintenant 128 octets
+de pile et les registres nécessaires dans le même échantillon. Sur le petit
+programme assembleur, les 164 contextes retrouvent le retour immédiat, le retour
+précédent, la taille connue et le mot source attendu.
+
+Le pointeur source vise un objet constant du véritable exécutable. Ses deux
+pointeurs de texte sont corrigés par le chargeur quand le programme démarre.
+Le lecteur utilise donc les relocations, les instructions de correction
+d'adresses du fichier, au lieu de lire les pointeurs bruts comme des adresses
+déjà chargées. Un petit programme C++, compilé dans la même image de compilation,
+rend les quatre champs de deux objets distincts. Ils concordent tous avec le
+décodeur ; les contre-épreuves modifient chaque champ et les types de relocation.
+Le fichier d'en-tête exact est conservé par empreinte. Une carte modifiée,
+accessible en écriture, une autre identité de fichier ou un contexte incomplet
+ne donne pas d'emplacement source accepté. Les 30 méthodes de test comprennent
+aussi des contextes synthétiques sur les vrais objets et cartes conservés ;
+elles ne sont pas rebaptisées observations de jeu.
+
+La salle privée termine ensuite 25,02 secondes de collecte. Les deux lectures
+du fichier concordent sur 12 740 échantillons, dont 11 860 sont retenus. Aucun
+échantillon perdu n'est signalé. Les 320 observations des cadres ciblés donnent
+toutes un demandeur : 319 viennent de `MappedUploadMemory`, qui copie les
+tampons à envoyer vers Vulkan, et une de la préparation d'un petit paramètre
+graphique. Les retours ancestraux suivent aussi de vrais appels au lecteur
+dans l'exécutable ; ils confirment l'emplacement source décodé séparément.
+Dans 295 observations du premier groupe, la taille du segment est 64 Kio.
+Une longue copie peut être échantillonnée plusieurs fois. Ces valeurs ne
+comptent donc ni les copies terminées ni un volume total.
+
+Ce groupe représente 14,58 % des cycles échantillonnés du fil graphique arrière
+dans ce relevé instrumenté. Le nombre ne se compare pas comme un gain aux
+profils précédents. Les petits paramètres de calcul et les paramètres graphiques
+conservés restaient des pistes raisonnables avant cette observation ; ce sont
+maintenant les envois de tampons qui guident l'expérience suivante.
+
+Une deuxième difficulté hors ligne complète la leçon du profil précédent.
+Le contrôle des cartes mémoire passait ses cas synthétiques avec cinq zones,
+mais les véritables instantanés en contiennent plus de 26 000. Le constructeur
+recalculait l'ensemble des identités de droite pour chaque zone de gauche.
+La version figée effectue ainsi 30 évaluations sur dix entrées dans le petit
+cas qui réintroduit le défaut. La correction construit cet index une seule fois.
+Elle effectue 53 088 évaluations pour les 53 088 véritables entrées et retrouve
+les mêmes 26 297 zones stables qu'une intersection indépendante triée. Ses neuf
+contrôles de contexte repassent. L'ancien analyseur est arrêté par son descripteur
+vérifié ; les données brutes et ses sources figées sont conservées séparément.
+Il s'agit d'un coût de dépouillement, pas d'une accélération du jeu.
+
+Le code révèle enfin où regarder la destination des copies. Les petits envois
+peuvent utiliser un tampon circulaire de 128 Mio découpé en seize régions.
+Sa politique d'allocation préfère la mémoire du GPU. Cela ne prouve pas ce que
+le pilote choisit réellement sur notre carte. Le gestionnaire mémoire VMA
+traite aussi les écritures séquentielles comme une raison de défavoriser une
+mémoire cachée par le CPU. Ajouter simplement cette préférence pourrait donc
+ne rien changer. Un outil séparé est en préparation pour relever les propriétés
+effectives et comparer la politique actuelle à une mémoire hôte explicitement
+cachée et cohérente. Il devra refuser un type incompatible, conserver les mêmes
+copies et distinguer son coût isolé d'un gain dans le jeu. Aucune de ces
+politiques n'est encore portée dans un nouveau moteur.
+
+La première compilation de cet outil et son contrôle CPU du véritable sélecteur
+VMA terminent en 7,00 secondes. Le contrôle refuse aussi une préférence de cache
+qui n'est pas une exigence. La revue retrouve toutefois une autre différence
+à corriger avant tout accès GPU : le moteur demande une instance Vulkan 1.3,
+alors que la carte annonce 1.4.318. Le premier outil confondait ces versions.
+Il compilait aussi avec les en-têtes système, alors que le moteur utilise ses
+en-têtes Vulkan 1.4.345 conservés dans le cache de compilation. Un refus avant
+allocation aurait donc pu être attribué à tort au choix mémoire. La variante
+proposée distingue la version de l'instance, celle du matériel et celle donnée
+au gestionnaire mémoire. Ce dernier documente que sa version ne doit dépasser
+aucune des deux premières. Le moteur courant lui transmet la version matérielle ;
+l'outil séparé doit prendre leur minimum et déclarer cette différence.
+
+Les bibliothèques de l'hôte diffèrent également de celles du relevé. Pour garder
+le même code de copie et le même pilote, 204 fichiers conservés du processus
+précédent sont copiés dans un dossier indépendant. Le petit exécutable désigne
+explicitement leur chargeur. Un départ qui attend avant tout appel Vulkan
+confirme les véritables fichiers chargés pour le chargeur, la libc et le
+chargeur Vulkan. Aucun descripteur GPU n'est ouvert ; fermer l'entrée refuse
+bien la poursuite. Ce contrôle CPU ne prouve encore aucun type mémoire ni débit.
+
+Les images distinctes sont lues et gardent le même checkpoint. Le mouvement
+de tête au milieu est une animation au repos ; aucun déplacement n'est commandé.
+L'arrêt est normal, le profiler a disparu, les conteneurs et manettes privés
+sont retirés et l'observateur habituel est rétabli. Les fichiers installés et
+les 249 entrées figées restent identiques. La phase du navigateur est volontairement
+interrompue après le relevé, avant ses 35 secondes complètes. Les 40 constantes
+restent à atteindre et aucune limite matérielle n'est démontrée. Rapport :
+`spikes/switch2-room/goal40-upload-callers-2026-11-11.json`.
+
+### 11 novembre : deux mémoires différentes et un contrôle qui acceptait les copies absentes
+
+La variante corrigée de l'outil compile avec les en-têtes Vulkan du moteur.
+Ses douze contrôles de versions passent ; la compilation avec les anciens
+en-têtes système échoue bien au contrôle nommé pour cette différence. Une
+description réelle de la carte confirme Vulkan 1.4.318 côté matériel et
+1.3.275 côté chargeur. L'instance demandée reste 1.3. Les bibliothèques réellement
+chargées dans le même processus correspondent aux empreintes conservées pour
+le chargeur, la libc, le chargeur Vulkan et RADV, le pilote Vulkan AMD.
+L'outil borne sa version d'allocateur à 1.3. Cette différence déclarée avec
+le moteur courant empêche de présenter l'expérience comme une copie de tout
+son état interne.
+
+Les deux premières exécutions ne chronomètrent rien. Elles allouent le même
+tampon que celui proposé par le moteur, puis relisent quatre blocs de 64 Kio
+par le GPU. La politique actuelle choisit le type mémoire 3 : local au GPU,
+visible et cohérent pour le CPU, sans cache CPU. La politique proposée choisit
+le type 5 : mémoire hôte cachée et cohérente. Chaque départ atteint son point
+de contrôle, vérifie le pilote réellement chargé, puis reçoit une fin d'entrée
+avant toute boucle chronométrée. Les deux corruptions volontaires suivantes
+sont bien refusées par la comparaison des octets lus par le GPU.
+
+Ce contrôle ne suffisait pourtant pas à accepter la mesure. Le préchauffage
+avait déjà rempli la destination avec les octets que la boucle devait recopier.
+Une variante retire seulement le `memcpy` chronométré, en gardant préchauffage,
+compteur, minuterie et comparaisons. Elle termine encore avec un résultat vert
+sur le vrai GPU. Ses compteurs de copies et de débit sont faux par construction.
+Ils restent dans la preuve du défaut et sont exclus de toute mesure publiée.
+
+La correction change les quatre blocs source après la première validation et
+avant la minuterie. Les mêmes positions servent au contrôle GPU final. Au
+moins un tour complet du tampon circulaire doit terminer dans les bornes déjà
+choisies ; l'outil ne prolonge pas sa fenêtre pour y parvenir. Les vraies copies
+passent avec les deux politiques. Leur suppression échoue maintenant après
+la boucle, au contrôle des octets, dans les deux cas. Ce défaut réintroduit
+prouve le rôle du contrôle final. Il ne prouve pas chaque copie comptée ou
+chaque octet du tampon : quatre blocs sont vérifiés, et le parcours de la boucle
+reste lié au code compilé et à son compteur.
+
+La comparaison alterne alors les politiques dans l'ordre A1, B1, A2, B2.
+Chaque passage déclare 65 536 copies de 64 Kio, soit 4 Gio. Le temps comprend
+les copies, la fin des écritures et l'appel de vidage du cache ; ce dernier
+coûte ici environ une microseconde sur ces mémoires cohérentes.
+
+| Passage | Placement choisi par l'outil | Temps copies et fin des écritures | Débit avec appel de vidage |
+|---|---|---:|---:|
+| A1 | type 3, sans cache CPU | 2,2320 s | 1,792 Gio/s |
+| B1 | type 5, cache CPU | 0,6095 s | 6,562 Gio/s |
+| A2 | type 3, sans cache CPU | 2,2297 s | 1,794 Gio/s |
+| B2 | type 5, cache CPU | 0,6205 s | 6,447 Gio/s |
+
+L'avantage observé est de 3,66 puis 3,59 dans les deux paires. C'est une tendance
+instrumentée sur la machine partagée. Les 28 conteneurs permanents restent
+actifs et leur silence CPU n'est pas établi. Le garde conserve leurs identités
+et refuse les nouveaux processus concurrents connus, les files CI actives ou
+en attente non qualifiées et les clients GPU étrangers. Il utilise les métadonnées
+de descripteurs, sans compteurs du pilote. Ses propres observations ont un coût
+qui peut peser différemment sur ces passages courts. Aucune activité entièrement
+créée et terminée entre deux observations ne peut être exclue par ce suivi.
+Ces limites accompagnent les chiffres ; ils ne deviennent ni un débit isolé
+de la mémoire ni un facteur d'accélération de Zelda.
+
+Le premier garde préparé refusait aussi tous les conteneurs, y compris les
+services permanents qui n'utilisaient pas le GPU. Le remplacer par une liste
+de noms autorisés aurait ignoré un nouveau processus sous le même nom. Le
+contrôle conserve donc les identités complètes des conteneurs, l'instant de
+démarrage et l'identité de leur processus initial, puis examine tous les
+processus hôte et propriétaires de descripteurs GPU. Cela permet de garder
+les services en place sans affirmer qu'ils ne consomment aucun CPU. Les
+contrôles du garde et de ses arrêts passent, dont sept cas de processus réels
+jetables avec opérations GPU explicitement simulées.
+
+Cette tendance justifie maintenant de préparer un candidat privé pour les
+envois CPU sous RADV. Le profil précédent ne prouvait pas que chaque envoi
+utilisait le tampon circulaire : les grandes demandes ou une région occupée
+peuvent prendre une autre allocation. Le port doit donc examiner les deux
+usages d'envoi concernés et confirmer les propriétés réellement choisies.
+Une mémoire accessible plus vite par le CPU peut aussi être moins favorable
+aux lectures du GPU. Seule la comparaison dans le jeu pourra dire le résultat
+global. Aucun nouveau moteur n'est encore installé ou compilé pour cette
+politique ; les 40 constantes restent à atteindre.
+
+Toutes les validations et les quatre passages ferment leurs ressources. Les
+bibliothèques sont vérifiées dans les cartes du processus avant les actions
+dépendantes, le processus est attendu et le garde retrouve les ressources GPU
+libérées. L'observateur habituel revient à son état actif dans les sorties
+traitées, sans arrêt d'un autre service. Rapport :
+`spikes/switch2-room/upload-memory-probe-2026-11-11.json`.
+
+### 11 novembre : le candidat mémoire passe ses contrôles CPU, la compilation native commence
+
+Le port part d'une copie indépendante des 5 218 entrées du candidat précédent.
+Il conserve leurs octets, permissions et liens avant modification. Quatre
+fichiers changent et trois sont ajoutés. Le choix automatique concerne seulement
+RADV et les deux usages d'envoi. L'allocateur interroge les restrictions du
+véritable tampon avant de demander une mémoire cachée et cohérente. L'absence
+d'un type compatible conserve explicitement l'ancienne politique ; une erreur
+d'allocation ou de périphérique reste une erreur.
+
+Le premier essai de compilation sur l'hôte échoue parce que les en-têtes X11
+n'y sont pas installés. Ce n'est pas une contre-épreuve acceptée. Le même
+contrôle s'exécute ensuite dans l'image de compilation native, avec ses vrais
+en-têtes de plateforme. Les 18 exécutions donnent les résultats attendus :
+la politique corrigée passe et les défauts réintroduits sont refusés pour leur
+raison précise. Les recherches de types Vulkan sont des doubles CPU déclarés ;
+ces tests ne prouvent aucune allocation GPU.
+
+La compilation complète commence alors dans un répertoire indépendant. Les
+entrées modifiées reçoivent une date récente pour éviter la réutilisation
+d'anciens objets. Il reste à vérifier la traduction complète de l'allocateur,
+les tests natifs, les propriétés réellement choisies, puis la comparaison
+alternée en jeu. Aucun moteur installé ne change et aucun gain FPS n'est encore
+attribué à ce candidat. Rapport :
+`spikes/switch2-room/uploadhost-preparation-2026-11-11.json`.
+
+La compilation complète termine ensuite en 179,05 secondes. Le journal confirme
+la reconstruction de l'unité de traduction de l'allocateur et du nouveau test.
+Le véritable exécutable contient le marqueur prévu ; son empreinte commence par
+`13158042`. Le test natif ciblé passe. La suite native complète termine en
+39,07 secondes : 1 258 cas, quatre ignorés sans réseau, aucun échec. Une nouvelle
+lecture des 5 218 entrées de départ confirme que la base conserve octets et
+permissions. Le contrôle des allocations et le bénéfice en jeu restent à établir.
+
+### 11 novembre : les deux chemins d'envoi choisissent réellement la mémoire cachée
+
+La salle privée du nouveau candidat termine 90 secondes fonctionnelles sur le
+checkpoint devant Saria. Le diagnostic observe deux allocations réussies :
+le tampon circulaire de 128 Mio plus 64 Kio et un tampon d'envoi de 16 Mio.
+Les deux choisissent le type 5, avec visibilité CPU, cache CPU et cohérence.
+Leur pointeur de mappage persistant est présent. Ce sont les propriétés rendues
+par le véritable allocateur du jeu, avec le nouvel exécutable ; aucune option
+d'environnement ne sélectionne cette politique.
+
+Les captures avant, pendant et après montrent le même emplacement. Chaque
+image du spectateur est identique octet pour octet à celle du joueur au même
+instant ; les trois images distinctes sont lues. Les petites animations de
+tête, de feuillage et de fées ne sont pas un déplacement commandé. Aucune
+anomalie de rendu évidente n'est observée. Ce contrôle visuel ne remplace pas
+une comparaison de chaque octet graphique avec une référence.
+
+Le moteur s'arrête normalement. Les ressources privées disparaissent,
+l'observateur reprend son état actif, les fichiers installés sont préservés et
+les 183 entrées figées restent identiques. La comparaison peut maintenant
+alterner les deux moteurs sans le détail des allocations. Cette phase
+fonctionnelle ne démontre encore aucun gain FPS. Les vérifications locales
+`just`, `just docs` et `just audit` passent aussi, sans affirmation de CI distante.
+Rapport : `spikes/switch2-room/uploadhost-functional-2026-11-11.json`.
+
+### 11 novembre : le garde global échoue après une phase qui a fini
+
+Les deux premiers passages de la comparaison mémoire terminent normalement.
+Le troisième finit aussi ses 90 secondes, libère ses ressources et conserve
+les fichiers installés. Pourtant, son contrôle global reste rouge. Son message
+générique parle d'un client GPU étranger ou d'un inventaire illisible. Le détail
+ne désigne aucun client étranger : la lecture de `/proc` échoue parce que le
+processus du navigateur privé a déjà disparu.
+
+Les horloges conservées permettent de placer l'événement. L'appel complet de
+l'observateur commence 1,406 seconde après la fin chronométrée et termine
+1,694 seconde après elle. Le processus manquant est celui du navigateur privé,
+avec la même identité avant et après les 90 secondes. Sa disparition est donc
+un défaut d'inventaire de fin de séance ; ce message ne prouve pas une charge
+étrangère pendant la mesure.
+
+Un second détail explique pourquoi notre reçu de fermeture ne suffit pas.
+Puppeteer, la bibliothèque qui commande le navigateur, installe par défaut
+son propre traitement de SIGTERM. Le pilote reçoit ce signal après la phase.
+La fermeture automatique peut ainsi précéder le reçu de notre fermeture
+explicite. Les sources et l'ordre observé concordent avec ce mécanisme, sans
+trace séparée de son appel interne.
+
+La quatrième phase reste suspendue. Le fichier brut garde son contrôle global
+échoué. Un audit distinct est préparé pour vérifier la seule fenêtre mesurée,
+avec refus des observations qui la chevauchent ou manquent de bornes. Aucun
+résultat de performance ne devient valide par la seule présence du reçu de
+fin de phase. Les captures du troisième passage sont décodées à titre de
+diagnostic : même checkpoint, animations au repos et aucune transition de
+zone commandée. Rapport :
+`spikes/switch2-room/uploadhost-postphase-review-2026-11-11.json`.
+
+L'audit termine ensuite ses 19 exécutions CPU. Une première variante négative
+ne reproduisait pas le défaut voulu : après avoir remplacé le début du scan
+par son horodatage final, un second garde correct refusait encore le
+chevauchement. Son échec est conservé. La variante négative suivante applique
+la même confusion entre point et intervalle aux deux contrôles. Elle laisse
+passer le chevauchement ; le véritable lecteur corrigé le refuse, ainsi que
+l'égalité exacte à la borne. Les autres jumeaux refusent les bornes absentes,
+les identités changées, l'inventaire inconnu et un arrêt natif forcé.
+
+Appliqué aux fichiers réels épinglés, le lecteur distingue alors deux résultats :
+le contrôle global demeure échoué, mais les 14 scans couvrant les 90 secondes
+sont propres et l'unique défaut connu est entièrement après leur fin. Cette
+admissibilité limitée est enregistrée séparément. Les fichiers bruts restent
+identiques. Le quatrième lancement doit lire cette preuve explicitement ; il
+ne peut pas prendre un ancien contrôle global rouge pour un succès complet.
+
+### 11 novembre : les copies plus rapides donnent une petite avance observée dans le jeu
+
+Les quatre fenêtres de mesure sont maintenant analysées. Le dernier passage
+termine avec son garde de concurrence propre. Le troisième conserve son
+contrôle global rouge ; son exception temporelle est lue explicitement par
+le quatrième lancement et par l'analyse. Les 14 contrôles CPU de ces
+consommateurs prouvent notamment que l'exception ne peut pas accepter un échec
+du premier passage, et que le superviseur détaché relance bien le lecteur
+qualifié. Les sources figées et les fichiers bruts ne changent pas.
+
+| Passage | Placement des envois | Retours de présentation par seconde | Fenêtres complètes retenues |
+|---|---|---:|---:|
+| A1 | politique du témoin | 29,011 | 4 |
+| B1 | mémoire hôte cachée et cohérente | 30,654 | 3 |
+| A2 | politique du témoin | 29,314 | 3 |
+| B2 | mémoire hôte cachée et cohérente | 30,474 | 3 |
+
+L'avance observée est de 5,66 % puis 3,96 %. Elle est bien plus petite que le
+facteur 3,6 de l'outil de copie. Ce facteur concernait une partie du travail ;
+il ne prédisait pas la cadence globale. Les marqueurs du vrai moteur confirment
+les deux usages de mémoire dans les deux passages du candidat. Le détail des
+allocations, le vérificateur de copies et le profiler sont absents de leurs
+environnements réels.
+
+Les treize fenêtres de 600 retours couvrent 261,92 secondes des 360,01 commandées.
+Les fenêtres incomplètes restent exclues. Le p99 baisse dans la première paire ;
+les valeurs se recouvrent dans la seconde et ne prouvent pas une amélioration
+uniforme. Les plus longs intervalles retenus passent de 62,60 à 53,58 ms dans
+la première paire et de 52,31 à 48,54 ms dans la seconde. Ces nombres ne décrivent
+que les fenêtres retenues, pas chaque instant des quatre phases.
+
+Cette avance reste une tendance sur la machine partagée. Le silence CPU des
+services permanents n'est pas établi. L'examen du défaut de surveillance puis
+le nouveau départ laissent 21 minutes et 10 secondes entre la fin de la mesure
+A2 et le début de B2. La température, les caches et les animations au repos
+peuvent donc encore peser. Le même checkpoint, les mêmes réglages effectifs,
+les mêmes abonnements et l'alternance ne suppriment pas ces limites.
+
+Les captures des deux rôles conservent le checkpoint devant Saria. Les
+8 652 fichiers protégés, les 5 121 fichiers du cache installé et les 4 867 de
+la graine privée restent identiques. Les 184 entrées figées gardent leurs
+octets et permissions. Les processus natifs s'arrêtent normalement, les
+ressources privées disparaissent et l'observateur reprend son état actif.
+
+Les 40 constantes restent à atteindre. Les retours de présentation Vulkan
+ne sont pas un compte d'images uniques du jeu vues dans un navigateur. Le
+candidat reste privé, sans installation ni plafond matériel déduit. La suite
+prépare un profil du coût restant dans ce moteur et un arrêt du navigateur
+qui garde l'observateur jusqu'à la fin de la phase, puis l'attend avant de
+fermer le navigateur. Rapport :
+`spikes/switch2-room/uploadhost-comparison-2026-11-11.json`.
+
+### 11 novembre : une vraie fermeture de Chrome avant le nouveau relevé
+
+Le pilote du relevé suivant reprend son arrêt ordonné. Il garde ses propres
+traitements de SIGTERM et SIGINT, puis attend la neutralisation de la phase,
+la fin de l'observateur et enfin la fermeture du navigateur. Les traitements
+automatiques correspondants de Puppeteer sont désactivés pour laisser notre
+pilote conduire cet ordre.
+
+La contre-épreuve lance un véritable Chrome, avec une connexion locale de
+commande et des périphériques graphiques masqués. Les premiers départs
+s'arrêtent avant Chrome : la création d'un espace utilisateur est refusée,
+puis le nouvel utilisateur système ne peut pas traverser les dossiers de
+l'utilisateur hôte. Un troisième départ révèle aussi un appel de bibliothèque
+incorrect : le chemin de Chrome est asynchrone et doit être attendu. Ces échecs
+sont conservés et ne comptent pas comme des contre-épreuves de fermeture.
+
+La variante suivante réussit ses huit cas avec Node 24 et Chrome 151. Elle
+reproduit la fermeture prématurée d'origine, puis celle du défaut réintroduit,
+pour les deux signaux. Les cas corrigés gardent Chrome vivant jusqu'aux
+autorisations de fin de phase et de fin d'observation, puis constatent sa vraie
+déconnexion et la disparition des processus observés. Ces deux autorisations
+sont des doubles explicites. L'essai CPU, exécuté sous un contrôleur privilégié,
+prouve ce cycle de vie ; il ne prouve pas les permissions du pilote de production
+ou l'état des manettes dans un jeu. Rapport :
+`spikes/switch2-room/chrome-lifecycle-2026-11-11.json`.
+
+### 11 novembre : ce qui reste dans le candidat mémoire
+
+Le nouveau candidat mémoire termine ensuite un relevé normal de 25,02 secondes,
+sur le même checkpoint devant Saria. Les 12 874 échantillons bruts donnent
+11 956 observations retenues, sans perte signalée. La lecture indépendante du
+fichier brut concorde avec `perf`. Les identifiants de compilation et les bornes
+des fonctions communes correspondent aux bibliothèques réellement copiées.
+Les noms restent inconnus lorsque cette preuve manque.
+
+La résolution couvre 99,51 % des cycles échantillonnés du fil GPUBack, 93,65 %
+de ceux du fil GPU et 99,64 % de VulkanWorker. La couverture de tout le processus
+reste partielle, notamment pour le code produit à la volée. Chaque pourcentage
+suivant a pour dénominateur les seuls cycles échantillonnés de GPUBack.
+
+| Fonction où se trouve l'instruction observée | Poids |
+|---|---:|
+| `GpuSplit::BackLoop` | 11,37 % |
+| copie mémoire, alias `memcpy` et `memmove` | 7,80 % |
+| `SpinRecursiveMutex::lock` | 5,41 % |
+
+Les poids n'indiquent ni l'appelant ni un temps qui disparaîtrait en supprimant
+une fonction. Dans le verrou, 97 des 108 adresses observées lisent et testent
+l'état après l'instruction `PAUSE`, qui accompagne l'attente active. L'objet
+verrouillé et son détenteur restent inconnus. Dans `BackLoop`, 41 observations
+tombent sur un appel de traitement de méthode, 22 sur le décodage d'une entrée
+et 20 sur une lecture après `PAUSE`. Le temps du code appelé n'est pas inclus
+dans le seul poids de l'instruction d'appel.
+
+Quatre captures distinctes sont lues, car l'image du spectateur avant le relevé
+diffère de celle du joueur. Les deux paires suivantes sont identiques octet
+pour octet. Toutes conservent le checkpoint et ses animations au repos. Le
+profiler puis le moteur s'arrêtent normalement. Le reçu de l'observateur
+précède la fermeture explicite de Chrome de 11,63 ms. Son garde reste propre,
+les fichiers installés sont préservés et les 203 entrées figées restent intactes.
+Ce relevé instrumenté ne mesure pas un nouveau gain de FPS. Rapport :
+`spikes/switch2-room/uploadhost-leaf-profile-2026-11-11.json`.
+
+### 11 novembre : tester le partage des lignes de cache
+
+Une piste amont plus petite que le port 1216 vise deux champs de `GpuSplit`.
+Une ligne de cache regroupe ici 64 octets. Lorsque deux fils modifient ou lisent
+des champs distincts dans cette même ligne, les échanges entre cœurs peuvent
+coûter même si les champs ne désignent pas la même donnée. C'est le faux partage.
+Sa condition apparaît dans notre disposition actuelle, sans compteur local
+établissant encore son coût.
+
+Le [correctif amont 807](https://github.com/SerkiGohan/Eglantine-mkw60/commit/175ff00ffc0a83ae79651ccfd4c54713283ca8c2)
+aligne le curseur écrit par le fil avant et le pointeur du moteur arrière sur
+128 octets. Ce nombre est la proposition amont, pas la taille de ligne mesurée
+sur notre machine. La copie privée conserve toute la logique de la file et
+des verrous. Un marqueur de démarrage permet de vérifier l'exécution du port.
+
+Les six compilations CPU demandent le layout du véritable en-tête à Clang 23.
+La base et chacun des alignements retirés compilent, puis échouent précisément
+à la séparation attendue. La proposition et son rétablissement final passent.
+Le curseur passe de l'offset 32 à 128, le pointeur arrière de 8 368 à 8 576.
+La taille passe de 9 344 à 9 472 octets, soit un coût de 128 octets par instance ;
+l'alignement de la classe reste 128. Aucun de ces chiffres n'est déduit d'une
+structure copiée ou inventée pour le test.
+
+La compilation complète du candidat `cfec5c81` termine en 345,58 secondes,
+avec reconstruction de son unité de traduction. Les 16 tests natifs ciblés
+passent ; la suite complète termine en 39,10 secondes, avec 1 258 cas,
+quatre cas réseau ignorés et aucun échec. Le contrôle réel et la comparaison
+alternée restent à faire. Le gain rapporté en amont sur un autre jeu ne devient
+pas un gain Zelda, et les 40 constantes restent à atteindre. L'entrée suivante
+donne maintenant le résultat de cet essai. Rapport :
+`spikes/switch2-room/cachepad807-preparation-2026-11-11.json`.
+
+### 11 novembre : le port 807 ne gagne pas dans les deux paires
+
+Le nouveau moteur démarre réellement avec les champs séparés, sans changer
+les règles de la file ou de ses verrous. Son marqueur normal confirme la version
+du port et sa disposition mémoire. Les deux usages d'envoi gardent la politique
+hôte cachée et cohérente. Le contrôle fonctionnel de 90 secondes termine
+normalement ; les images avant, pendant et après gardent le checkpoint devant
+Saria pour le joueur comme pour le spectateur.
+
+Nous comparons ensuite le candidat mémoire seul et le même candidat avec les
+deux alignements. Quatre passages de 90 secondes alternent les deux moteurs,
+avec les mêmes plafonds à 60, une résolution 1x et une vitesse à 100 %. Le jeu
+reste immobile. Deux abonnements vidéo et deux abonnements audio reçoivent
+les données sans les décoder pendant la phase. Aucun profiler ou vérificateur
+de lecture ne tourne ; la sonde GPU compilée reste dormante.
+
+| Passage | Moteur | Retours de présentation par seconde |
+|---|---|---:|
+| A1 | candidat mémoire seul | 30,191 |
+| B1 | candidat mémoire et alignements | 31,096 |
+| A2 | candidat mémoire seul | 31,220 |
+| B2 | candidat mémoire et alignements | 30,599 |
+
+Le premier changement de +3,00 % devient −1,99 % dans la seconde paire. Les
+quinze fenêtres complètes couvrent 292,69 secondes des 360,01 commandées.
+Leurs quantiles restent individuels. Le plus long intervalle augmente de
+51,50 à 53,61 ms dans la première paire, puis diminue de 53,09 à 46,73 ms
+dans la seconde. Cela ne donne pas un gain répétable. Ces retours acceptés
+par Vulkan ne comptent pas les images uniques du jeu ou de la page.
+
+Les captures sont décodées après chaque arrêt et lues avant d'admettre le
+passage suivant. Elles gardent les mêmes positions et la même carte, avec
+les animations au repos. Les quatre contrôles globaux passent sans exception,
+notamment le contrôle du navigateur corrigé. Aucun client GPU étranger n'est
+observé. Les intervalles entre scans restent aveugles, le silence CPU des
+services permanents n'est pas établi et 9 minutes et 10 secondes séparent B1
+d'A2. L'alternance ne supprime pas ces limites de comparaison.
+
+Nous écartons donc ce port de la prochaine base. L'essai prend six minutes
+de mesure et les préparations portent son déroulement sur environ vingt-quatre
+minutes entre le début d'A1 et la fin de B2. Il ne prouve pas que le faux
+partage ne coûte jamais, ni que le matériel ne peut pas atteindre 40 images
+par seconde. Les 189 entrées figées et leurs permissions, les 8 652 fichiers
+protégés, le cache installé et la graine privée sont préservés. Le moteur
+installé ne change pas.
+
+La suite reprend le candidat mémoire seul. Elle doit qualifier le coût
+de la sonde qui horodate les commandes GPU, en alternant son état dormant
+et son armement périodique. Cette sonde aidera à distinguer le travail remis
+à la carte des attentes côté processeur, avec ses propres limites : les
+intervalles peuvent se chevaucher et inclure de l'attente. Rapports :
+`spikes/switch2-room/cachepad807-functional-2026-11-11.json` et
+`spikes/switch2-room/cachepad807-comparison-2026-11-11.json`.
+
+### 11 novembre : une nouvelle version ne remplace pas la lecture du diff
+
+À 10 h 21 UTC, l'API de GitHub indique sept nouveaux commits dans la branche
+principale de Lichii depuis la dernière revue. La recherche web affichait encore
+Fritchii 5.6, alors que l'API confirme la publication 5.8.4 déjà examinée. Nous
+conservons les réponses directes et leurs empreintes. La revue borne sa recherche
+aux vingt demandes récemment mises à jour par dépôt, puis lit les changements
+sélectionnés. Cela ne recense pas toutes les branches.
+
+Le [1095](https://github.com/zortos293/Lichii/pull/1095), maintenant intégré,
+vise l'écriture des registres ordinaires de l'émulateur. Le traitement actuel
+appelle plusieurs petites fonctions pour écrire une valeur, suivre sa copie
+de contrôle et marquer les états à recalculer. Le port permet au compilateur
+de réunir ces opérations et ajoute un chemin direct depuis le premier appel.
+Ses quatre fichiers sont lus ; ce code n'est pas présent dans notre candidat
+mémoire. Il correspond à un appel observé dans notre profil, sans que ce lien
+garantisse un gain. Nous le retenons comme prochain port à qualifier après
+le coût de la sonde GPU. Les corrections locales du vérificateur devront rester
+couvertes, et une baisse du nombre d'instructions ne remplacera pas l'essai en jeu.
+La lecture de notre exécutable précise aussi la comparaison : le compilateur
+a déjà réuni le suivi de copie de contrôle dans `CallMethodFast`, mais le chemin
+des registres ordinaires rejoint encore `ProcessDirtyRegisters` par un saut
+vers cette autre fonction. Le coût de trois appels décrit avec le compilateur
+Windows amont ne doit donc pas être recopié comme notre coût mesuré.
+Un essai d'application sans écriture confirme les trois fichiers principaux,
+mais refuse le contexte d'initialisation dans `video_core.cpp`, enrichi chez
+nous. Les quatre fichiers restent identiques, permissions et dates comprises.
+Le port devra adapter cet emplacement en préservant les initialisations locales.
+
+Le [1333](https://github.com/zortos293/Lichii/pull/1333) réduit un tampon qui
+pouvait atteindre un gibioctet après un changement récent. Notre version garde
+déjà l'ancienne limite pour les pointeurs concernés : la régression décrite
+n'y est pas présente. Nous ne portons pas sa correction comme une optimisation
+de notre scène. Le [1336](https://github.com/zortos293/Lichii/pull/1336) propose
+de laisser au GPU des listes qu'il a écrites, au lieu de les relire sur le CPU.
+Sa partie dessin exige les mesh shaders désactivés ici. Le chemin de calcul
+pourrait rester pertinent, mais la lecture de ses branchements et de certains
+gardes ne constitue pas encore une revue complète des 28 fichiers.
+
+Le nouveau port pour Mario Kart inclut les mêmes alignements que notre essai
+807 terminé ; son autre changement vise la cadence de ce jeu, pas celle de
+Zelda. Une autre proposition sépare les réservations atomiques des processeurs
+invités, mais son auteur ne mesure encore aucun jeu. Nous conservons ces pistes
+avec leur révision et leurs limites. Aucun paquet publié n'est installé par
+cette revue. Rapport :
+`spikes/switch2-room/upstream-refresh-1021-2026-11-11.json`.
+
+### 11 novembre : le test de la sonde doit atteindre la demande d'activation
+
+Le nouveau banc garde exactement le même moteur dans les quatre passages.
+Seule une demande écrite après le début de B1 et B2 arme périodiquement la sonde
+GPU. Avant de lancer le jeu, dix-sept commandes CPU doivent vérifier le choix
+de chaque passage, son paquet et les bornes des horodatages.
+
+Les seize premières passent. La dernière extrait la véritable fonction qui
+écrit la demande pour l'exécuter sur des fichiers jetables. Elle oublie de lui
+fournir `assert`, la fonction qui vérifie les conditions, et s'arrête avant
+d'exercer son choix. Ce n'est donc pas une contre-épreuve d'activation réussie.
+L'échec et son source sont conservés, et aucun jeu n'est lancé.
+
+La correction fournit cette dépendance explicitement, sans changer le pilote.
+Le premier programme chargé de vérifier la correction utilise l'option `--eval`
+de Node. Dans ce contexte, le nom est déjà disponible et le défaut réintroduit
+ne se reproduit pas. Ce contrôle est refusé. Une véritable exécution par fichier
+module retrouve ensuite l'erreur initiale, passe après correction, retrouve
+l'erreur réintroduite, puis passe de nouveau. Les treize contrôles de la fonction
+ainsi exercée passent aussi : cinq sélections, quatre activations volontairement
+fausses rejetées pour la bonne raison et quatre témoins corrigés.
+
+Ces essais prouvent le montage CPU et les demandes écrites, pas la consommation
+de ces demandes par le moteur ou les horodatages de la carte. Le premier ensemble
+de résultats est archivé avant la reprise complète des dix-sept commandes.
+Cette reprise passe, puis les trois refus d'arguments du lanceur passent dans
+l'image réelle sous l'identité utilisée en production. Ces derniers n'exécutent
+pas l'émulateur. Les 243 entrées du banc et leurs permissions sont figées.
+L'activation réelle de la sonde et son coût restent à mesurer. Rapport :
+`spikes/switch2-room/submission-cost-preparation-2026-11-11.json`.
+
+### 11 novembre : horodater les commandes sans en déduire un plafond
+
+Les quatre nouveaux passages utilisent le même candidat mémoire, les mêmes
+réglages effectifs et le même environnement natif. Les témoins gardent la sonde
+dormante. Les deux autres passages écrivent une demande après le début de leur
+phase ; le moteur la consomme et reste armé pour une capture toutes les soixante
+images. Les deux rôles reçoivent toujours les données brutes, sans décodage local
+pendant ces quatre phases de 90 secondes devant Saria.
+
+| Passage | Sonde | Retours de présentation par seconde |
+|---|---|---:|
+| A1 | dormante | 30,561 |
+| B1 | armée périodiquement | 30,954 |
+| A2 | dormante | 30,263 |
+| B2 | armée périodiquement | 30,365 |
+
+Les changements observés sont +1,29 % puis +0,34 %. Ils ne mesurent pas un
+gain du moteur. Quatorze fenêtres complètes couvrent 275,27 secondes des
+360,01 commandées ; leurs quantiles restent individuels. Le plus long intervalle
+passe de 51,53 à 48,86 ms dans la première paire, puis de 58,62 à 60,89 ms
+dans la seconde. Aucun ralentissement moyen n'apparaît dans cette série, mais
+elle ne prouve pas que la sonde est toujours transparente. Son armement ajoute
+des mesures et des écritures de fichiers tout en retirant la recherche de sa
+demande à chaque image. Nous observons l'effet net de ces changements.
+
+Les témoins ne produisent aucune capture GPU. Les passages armés donnent 47
+puis 46 captures complètes, dont le début, la clôture et la disponibilité des
+résultats restent dans les bornes de la phase. Les compteurs sont disponibles,
+sans débordement, sur 64 bits. Deux captures hors fenêtre restent conservées
+et exclues. Ce sont 93 observations périodiques, pas toutes les images ou tous
+les programmes graphiques du jeu.
+
+L'union des intervalles horodatés a une médiane de 25,25 ms dans B1 et de
+25,31 ms dans B2. Leur enveloppe, qui contient aussi les trous entre intervalles,
+a une médiane de 35,90 puis 30,79 ms. Chaque médiane est calculée dans son propre
+passage, sans moyenne de quantiles. Pour tenir 40 images par seconde, une image
+dispose de 25 ms. La proximité de ces valeurs interdit d'écarter le travail
+graphique du diagnostic ; elle n'établit pas un plafond physique. Les intervalles
+entre horodatages peuvent inclure des attentes et ne mesurent pas l'occupation
+exclusive de la carte.
+
+Les quatre contrôles globaux passent, les moteurs s'arrêtent normalement et
+les captures lues gardent les mêmes positions avec les animations au repos.
+Environ trois minutes séparent les phases successives. Les services permanents
+restent présents et les scans ne voient pas un travail GPU entièrement créé
+entre deux observations. Les 243 entrées figées et leurs permissions, les
+8 652 fichiers protégés, le cache installé et la graine privée restent intacts.
+L'essai dure six minutes de mesure et environ seize minutes entre le début
+d'A1 et la fin de B2. Aucun moteur installé n'est changé.
+
+La suite reste le port isolé du 1095, qui vise un appel effectivement observé
+sur le fil arrière. Ce choix ne désigne pas le CPU comme seule limite et ne
+promet pas 40 constantes. Il conserve les nouvelles mesures GPU comme repère
+instrumenté, avec leurs limites. Rapport :
+`spikes/switch2-room/submission-cost-comparison-2026-11-11.json`.
+
+### 11 novembre : préparer le port 1095 sur le candidat mémoire seul
+
+La copie indépendante conserve les 5 221 fichiers de base et ne modifie que
+les quatre fichiers visés par le port. L'initialisation locale des reprises
+d'uniformes reste en place à côté de la nouvelle lecture du réglage de
+vérification. Les fonctions locales qui comparent les états et traitent les
+écritures en attente gardent exactement leurs octets, comme leur fichier de
+tests natifs. Le port 807 écarté n'entre pas dans cette nouvelle base.
+
+Le candidat écrit un message la première fois que chaque moteur entre dans
+sa nouvelle branche d'écriture directe. Ce message suit la libération du
+travail avant, comme l'écriture qu'il observe. Il ne choisit pas le chemin et
+ne compte pas les écritures : un appel dont la valeur est inchangée peut aussi
+l'émettre. Plusieurs moteurs peuvent donc donner plusieurs messages. Le test
+du booléen et le message restent dans le coût du candidat qui sera comparé.
+
+Le petit contrôle CPU extrait automatiquement les véritables fonctions de la
+base et du candidat. Il remplace leurs dépendances par des doubles nommés,
+par exemple pour observer l'ordre d'un dessin différé. Il ne reconstruit pas
+une autre implémentation de leur logique. Les 256 combinaisons d'états et les
+six routes gardées passent ; onze défauts volontaires sont ensuite rejetés,
+réparés, réintroduits puis rejetés de nouveau. Les 46 exécutions passent dans
+l'image Clang native en 20,38 secondes. L'en-tête réel du réglage passe aussi
+ses contrôles de lecture et de rafraîchissement.
+
+La base est sémantiquement correcte : aucun défaut ne lui est inventé pour
+justifier cette optimisation. Les contre-épreuves endommagent les gardes du
+candidat, le traitement de la copie de contrôle des registres, le dessin en
+attente, les indicateurs à recalculer, l'ordre ou le saut des valeurs inchangées.
+Ces programmes ne prouvent ni les gestionnaires réels des commandes, ni les
+vérificateurs, ni les queues du véritable moteur. Les tests natifs existants
+devront les exercer après la compilation complète. Il faudra ensuite lire le
+code produit, observer le marqueur réel, vérifier l'image et alterner les moteurs.
+Aucun gain de cadence n'est déduit de ces essais CPU. Rapport :
+`spikes/switch2-room/statewrite1095-preparation-2026-11-11.json`.
+
+### 11 novembre : compiler les sources ne termine pas le build
+
+Le contrôle des tests natifs révèle d'abord une erreur du script. Le filtre
+des écritures rapides sélectionne six cas dans le véritable fichier C++, et
+non les trois initialement attendus : trois autres vérifient les envois de
+constantes et les limites de la file. Le garde est corrigé avant le lancement.
+Ses quatorze contrôles reproduisent le refus des six bons cas, passent après
+correction, retrouvent le refus réintroduit et rejettent aussi les sélections
+vides, incomplètes ou étrangères. Le programme de jeu n'a pas de défaut ajouté
+pour faire passer ce test de sélection.
+
+La nouvelle compilation garde les commandes du témoin et leur profil identiques.
+Un petit module conserve ses informations de version sans monter ni modifier
+les métadonnées Git partagées. Le fichier de version généré doit rester identique
+octet pour octet. Les sources sont montées en lecture seule et seuls les
+répertoires de travail déclarés peuvent recevoir des écritures.
+
+Les fichiers C++ modifiés compilent, puis le regroupement final des morceaux
+échoue après 229,82 secondes : le cache de ThinLTO, l'optimisation appliquée à
+cette étape, est resté sous le répertoire parent en lecture seule. Les petits
+contrôles CPU n'avaient pas exercé cette commande complète. Ce premier build
+reste échoué et les tests natifs sont sautés à cette étape. Le conteneur et
+ses processus sont vérifiés disparus ; les 5 221 sources et permissions, ainsi
+que les 8 652 fichiers protégés, restent identiques.
+
+Le montage du cache devient explicitement accessible en écriture, sans ouvrir
+les sources. Quatre petits programmes distincts sont réellement compilés et
+liés avec les mêmes outils : l'ancien montage échoue pour la bonne erreur,
+la correction passe, le montage réintroduit échoue et la correction finale
+passe. Leurs contenus diffèrent pour qu'un résultat déjà présent dans le cache
+ne puisse pas masquer le défaut. Le build partiel est conservé, puis une copie
+neuve du témoin termine ses cent étapes, compilation et liens en 172,26 secondes.
+Ces durées décrivent les opérations observées sur la machine, avec leurs caches.
+
+Le candidat `37a7fbc0` passe ensuite les six cas d'écriture dans les quatre
+combinaisons des réglages de saut des valeurs inchangées et de vérification.
+Les contrôles de copie de contrôle en attente, de diagnostic après la limite
+d'avertissements et de dépendances de la file passent aussi. Cela fait
+40 exécutions ciblées. La suite complète conserve ses 1 258 cas sélectionnés,
+dont 1 254 exécutés et les quatre mêmes cas réseau ignorés, sans échec. Le
+diagnostic caché est sélectionné explicitement et ne disparaît pas dans cette
+suite par défaut. Ces essais exécutent les vraies classes avec un moteur
+graphique nul ; ils ne remplacent pas l'image du jeu ou la mesure GPU.
+
+### 11 novembre : le message de preuve change aussi le code compilé
+
+Avant de lancer la comparaison, nous lisons les instructions du candidat.
+Le compilateur a changé la forme de l'appel observé dans le profil : la base
+intégrait `CallMethod` dans sa boucle et appelait `CallMethodFast`. Le candidat
+appelle désormais `CallMethod`, qui atteint 1 551 octets et appelle à son tour
+le traitement des registres. La taille seule ne mesure pas une durée, mais
+ce changement demande de vérifier le prix du diagnostic.
+
+Une copie de contrôle retire seulement le bloc qui écrit le premier message.
+Elle garde le même en-tête, le booléen inutilisé et donc la même disposition
+mémoire, les mêmes commandes de compilation et le même profil. La seule unité
+modifiée et l'exécutable sont reconstruits en 16,39 secondes. `CallMethod`
+redescend à 270 octets et finit par un saut vers le traitement des registres,
+au lieu d'un appel qui doit ensuite revenir. La boucle l'appelle encore dans
+les deux versions portées. Ce contrôle établit un effet du diagnostic sur le
+code produit ; il ne mesure pas son coût en jeu et n'établit aucun gain FPS.
+
+La version qualifiée et ce contrôle restent intacts. Une troisième copie
+prépare le message dans une fonction séparée, avec la macro portable existante
+qui interdit au compilateur de l'intégrer dans l'appelant. Le test du booléen
+reste dans la branche réelle, et son coût ainsi que l'appel au premier passage
+feront partie du candidat mesuré. Il faudra relire son code produit, garder
+ses contrôles CPU et natifs, puis observer le marqueur dans un vrai jeu avant
+de comparer la cadence. Rapport :
+`spikes/switch2-room/statewrite1095-preparation-2026-11-11.json`.
+
+### 11 novembre : retrouver le premier essai du même correctif
+
+La relecture des anciennes comparaisons retrouve le 1095 déjà testé le
+9 novembre, au même head `52d46375`. Le résultat de 29,806 contre 29,519
+présentations par seconde n'avait pas donné de gain répétable : +1,97 % dans
+un couple, puis −0,06 % dans l'autre. La reprise avait manqué cette entrée.
+La fusion du 11 novembre est une nouvelle intégration dans la branche amont,
+pas une nouvelle version de cette optimisation.
+
+Ce premier résultat reste valable pour sa version et sa scène. Nous vérifions
+aussi ses deux véritables exécutables, aux empreintes conservées. La fonction
+mesure 151 octets dans l'ancienne base et 1 599 dans l'ancien candidat ; ce
+dernier avait déjà remplacé l'appel intégré dans la boucle par un appel à
+`CallMethod`, puis un appel au traitement des registres. Son diagnostic
+optionnel reste présent dans le code compilé même lorsqu'il n'écrit rien.
+Cela ne permet pas d'attribuer son résultat FPS au diagnostic.
+
+La nouvelle question reste bornée : la base mémoire a changé, et la variante
+au message isolé n'a pas encore été comparée. Ce sont les deux raisons du
+nouvel essai ; la seule présence du correctif dans une fusion récente n'en
+était pas une. Les anciens chiffres restent conservés et aucun gain n'est
+déduit des tailles de fonctions. Rapports :
+`spikes/switch2-room/state-write-2026-11-09.json` et
+`spikes/switch2-room/statewrite1095-preparation-2026-11-11.json`.
+
+### 11 novembre : le message reste séparé dans le vrai exécutable
+
+La copie au message isolé produit `32d0a6fd`. Son code natif confirme une
+fonction principale de 349 octets, contre 1 551 avec le message intégré.
+Le diagnostic occupe une fonction distincte de 115 octets. Le booléen est
+toujours testé au passage réel ; le premier passage le fixe puis appelle
+le message, et les suivants passent directement au traitement des registres.
+Ce traitement retrouve son saut final, mais la boucle arrière appelle encore
+la fonction principale. Nous ne prétendons donc pas avoir supprimé tous les
+appels ni mesuré une accélération à partir de la taille du code.
+
+Les mêmes options, le profil de compilation, les métadonnées et la disposition
+mémoire sont conservés. Les 46 exécutions de corps extraits passent en
+20,27 secondes, avec le vrai petit en-tête de réglage et un service de
+journalisation explicitement simulé. Elles vérifient les arguments et le
+premier passage ; elles ne prouvent pas l'affichage du message dans le jeu.
+Les vrais tests sont ensuite liés à nouveau ; l'exécutable du jeu reste
+identique à celui que nous venons de relire. Les 40 exécutions ciblées et les
+1 254 cas de la suite native passent, avec les quatre mêmes tests réseau
+ignorés. La suite complète dure 38,83 secondes. Les huit conteneurs de test
+ont disparu et les 8 652 fichiers protégés restent identiques. L'observation
+en jeu et les quatre passages alternés restent nécessaires avant de retenir
+cette version. Rapport :
+`spikes/switch2-room/statewrite1095-preparation-2026-11-11.json`.
+
+### 11 novembre : vérifier la copie du banc avant le premier jeu
+
+La première exécution du nouveau banc s'arrête au dix-huitième contrôle.
+La fixture d'affinité appelle du même nom sa table des anciens exécutables
+et sa fonction simulant une modification interdite. Le premier cas remplace
+la table par la fonction ; le cas suivant échoue avant de vérifier son moteur.
+Renommer seulement la fonction rétablit les 33 cas. L'ancienne version échoue,
+la correction passe, puis la faute réintroduite échoue et la correction repasse.
+L'affinité d'aucun processus réel ne change dans ces essais.
+
+Les vingt commandes passent ensuite, mais le contrôle final des dépendances
+trouve le fichier de reconnaissance d'écran absent. La copie avait gardé les
+scripts du chargeur et oublié ses données. Le processus échoue correctement,
+mais son compte rendu avait déjà écrit `passed=true`. Ce drapeau est retiré
+tant que les dépendances, l'inventaire protégé et les graines de cache ne sont
+pas tous vérifiés. Quatre exécutions du vrai contrôleur, avec commandes et
+dépendance explicitement simulées, reproduisent le faux succès, le corrigent,
+le réintroduisent puis vérifient à nouveau la correction.
+
+Le fichier manquant est repris octet pour octet dans le précédent banc figé.
+Les cinq vrais points d'entrée le refusent lorsqu'il manque, passent lorsqu'il
+est présent et reproduisent ce refus après son retrait temporaire. Le véritable
+lecteur reconnaît les cinq images de référence et refuse une image noire.
+Ces deux tentatives restent archivées. Aucun jeu n'a démarré avant ces contrôles.
+La préparation native reste valable ; c'est la copie du banc qui doit encore
+terminer sa qualification complète.
+
+### 11 novembre : les nouveautés de midi ne remplacent pas la comparaison en cours
+
+La vérification directe des dépôts à 12 h 23 trouve de nouveaux commits
+Lichii et Eglantine ; Fritchii reste en 5.8.4. Lichii a notamment intégré le
+1329. Nous lisons ses trois fichiers et suivons ses appelants dans notre base.
+Après un envoi lié à un point d'attente, le chemin peut demander un second
+envoi alors que les commandes ont déjà été prises. Fermer cette nouvelle
+liste invalide aussi des réglages que l'émulateur devra rétablir. Le correctif
+cherche à éviter ce travail, sans supprimer les envois explicites qui portent
+un signal ou une attente. Le nombre de cas concernés ici reste à mesurer.
+
+C'est la prochaine qualification après le 1095, pas un changement ajouté au
+milieu de sa comparaison. Le correctif de regroupement 1245 n'est pas présent
+dans le planificateur actuel ; adapter le 1329 ne doit pas le réintroduire
+par erreur. Le 1331 est aussi intégré, mais touche les réservations entre
+cœurs invités, pas le verrou du fil GPU arrière que nous avons observé.
+
+La proposition 1336 a réellement évolué. Elle conserve maintenant des copies
+identifiées des mots et analyse symboliquement un petit programme de calcul.
+Des chemins qui ignorent un échec de résolution et la réutilisation de ses
+petites tables restent à vérifier. La branche d'intégration 1161 est trop
+large pour sa réponse API sauvegardée : 110 fichiers annoncés, 100 reçus,
+avec quatorze patches absents. Nous ne présentons pas cette lecture comme une
+revue complète. Enfin, les seize nouveaux commits d'Eglantine s'annulent dans
+le diff net sauvegardé après les réversions. Aucun nouveau moteur n'est
+installé et aucun gain FPS ne suit de ces seuls changements. Rapport :
+`spikes/switch2-room/upstream-refresh-1223-2026-11-11.json`.
+
+### 11 novembre : le vrai journal porte aussi sa couleur
+
+Le premier salon privé du nouveau candidat atteint le checkpoint attendu.
+L'image montre Link sur le chemin et Saria à gauche. Le moteur écrit bien
+son marqueur au premier passage réel dans le traitement modifié. Pourtant,
+le lecteur le refuse : il compte une occurrence et ne reconnaît aucune ligne.
+
+Le journal termine la couleur de la ligne par une séquence de contrôle juste
+après le nombre hexadécimal. Le lecteur attendait à cet endroit un espace ou
+la fin du texte. Les fixtures en texte sans couleur avaient caché ce cas.
+La phase chronométrée n'a pas commencé. Le salon s'arrête normalement, les
+dix identités de processus observées ont disparu, l'observateur est rétabli
+et les 8 652 fichiers protégés restent identiques. Les 276 entrées figées et
+leurs permissions sont aussi préservées.
+
+Cet essai reste en échec. Une nouvelle copie du banc accepte seulement les
+séquences de couleur attendues après le nombre, sans supprimer d'autres
+séquences de contrôle ni assouplir la version ou l'adresse. Les 31 contrôles
+passent : vraie ligne refusée par l'ancienne version, correction acceptée,
+faute réintroduite refusée puis correction acceptée de nouveau. Les codes
+incomplets, les nombres invalides et les autres séquences restent refusés.
+Les vingt commandes complètes et les trois vérifications du lanceur passent
+ensuite dans cette copie. Le figement repère encore vingt références de preuves
+historiques qui ont reçu le nouveau nom de banc sans que leurs fichiers aient
+été copiés. Elles doivent garder leurs chemins d'origine et leurs empreintes,
+pas être réécrites comme des entrées actuelles. Les 28 empreintes externes sont
+vérifiées après cette correction ; les références erronées réintroduites
+échouent de nouveau. Le véritable figement passe avant le nouveau salon.
+Le binaire et ses sources ne changent pas. Aucun
+résultat FPS ne vient du premier démarrage. Rapport :
+`spikes/switch2-room/statewrite1095-preparation-2026-11-11.json`.
+
+Le nouvel essai termine ensuite les 90 secondes demandées. Le marqueur réel
+est accepté. Les quatre images distinctes du début, du milieu et de la fin
+gardent Link face à Saria ; les deux premières paires joueur/spectateur sont
+identiques octet pour octet, et les deux images finales différentes sont lues
+séparément. Le moteur s'arrête normalement, les douze identités de processus
+observées ont disparu et l'observateur est rétabli. Les 8 652 fichiers protégés
+et les 279 entrées figées, permissions comprises, restent identiques. Cet essai
+qualifie le fonctionnement du candidat, pas son gain. Les quatre passages
+alternés restent nécessaires. Le premier témoin termine ensuite normalement,
+avec ses trois images distinctes lues et trois paires de rôles identiques.
+Les 280 entrées figées pour la comparaison et les fichiers protégés restent
+intacts. Les trois passages suivants n'ont pas encore de résultat ; aucun
+gain ne se déduit de ce seul témoin.
+
+### 11 novembre : le 1095 reste sans gain répétable sur la base mémoire
+
+Les trois passages restants terminent normalement. Avec la base mémoire,
+le premier témoin donne 30,938 retours de présentation par seconde, contre
+30,472 pour le candidat. La deuxième paire donne 30,512 puis 30,874.
+Le changement vaut donc −1,51 % puis +1,19 %. Il change de sens ; nous ne
+retenons pas le port dans la prochaine base privée.
+
+Les quinze fenêtres complètes couvrent 293,06 des 360,01 secondes commandées.
+Chaque fenêtre compte 600 retours de la fonction de présentation graphique ;
+ce ne sont pas des images uniques du jeu ou des images affichées au navigateur.
+Les fenêtres qui croisent une borne de phase restent exclues. Les moyennes
+regroupées donnent 30,754 pour le témoin et 30,672 pour le candidat, mais ce
+−0,27 % ne doit pas masquer les deux signes opposés. Les plus longs intervalles
+baissent dans ces deux paires courtes, tandis que les quantiles ne progressent
+pas uniformément. Aucun de ces nombres ne prouve 40 images/s constantes.
+
+Les quatre contrôles globaux restent propres, sans exception héritée pour le
+second témoin. Nous lisons les trois images distinctes de chaque passage ;
+leurs paires joueur/spectateur sont identiques octet pour octet. Les 141 réglages
+effectifs et l'environnement natif sont identiques entre les quatre passages.
+Les candidats portent leur vrai marqueur et les témoins aucun. La sonde GPU
+reste dormante, le décodage est fait après les arrêts, les 280 entrées figées
+et les 8 652 fichiers protégés sont préservés. Le cache installé et la graine
+privée gardent leurs contenus et leurs dates. Les services permanents restent
+présents ; les pauses entre phases vont de 192 à 315 secondes.
+
+Le résultat du même head testé le 9 novembre reste conservé. Cette nouvelle
+comparaison change la base et le diagnostic ; elle ne mesure pas isolément
+le coût FPS du message intégré contre le message séparé. La taille du code
+avait bien changé, sans fournir ici de gain répétable. La prochaine expérience
+reprend seulement la base mémoire pour le 1329, qui cherche à éviter un envoi
+de commandes déjà prises par un envoi précédent. Aucun moteur installé n'est
+remplacé et aucun plafond matériel n'est démontré. Rapport :
+`spikes/switch2-room/statewrite1095-coldlog-comparison-2026-11-11.json`.
+
+### 11 novembre : compter le travail préparé avant de décider un envoi
+
+Le port isolé du 1329 change trois fichiers de la base mémoire retenue.
+Un numéro avance quand une commande entre dans la file de préparation.
+Après un envoi ou une attente explicite, un second numéro garde la valeur
+atteinte, y compris les commandes de fin ajoutées pendant cet envoi.
+Comparer les deux permet de reconnaître un appel devenu inutile. Cette
+égalité signifie que le travail a été confié au fil d'envoi ; elle ne prouve
+pas que la carte graphique a fini de l'exécuter.
+
+Un effacement différé demande une garde supplémentaire : il peut attendre
+sans être encore entré dans la file. Le port conserve donc cette information
+dans le prédicat. Les envois explicites qui portent un signal ou une attente
+ne passent pas par le nouveau raccourci. Le premier saut réel écrit un message
+depuis une fonction séparée ; son test booléen et son coût restent dans le
+candidat. Aucun réglage ne choisit entre les deux comportements.
+
+Les 90 exécutions CPU passent en 40,47 secondes : dix-huit cas positifs et
+dix-huit défauts volontaires, chacun refusé, corrigé, réintroduit puis corrigé
+à nouveau. Elles exécutent les vrais corps de préparation et de clôture,
+les reprises de blocs pleins, les attentes et les clôtures de requêtes.
+Les appels Vulkan, l'horloge et le fil d'envoi sont explicitement simulés.
+Elles ne prouvent ni l'exclusion réelle des fils Linux ni le rendu GPU.
+La lecture du code conserve cette limite : le diagnostic de propriétaire
+présent dans cette source ne fonctionne que sous Windows.
+
+Le binaire natif `17ebf0c6` compile ensuite en 226,28 secondes avec les mêmes
+commandes, le même profil et les mêmes métadonnées. C'est une durée de build,
+pas une mesure du jeu. Les deux unités modifiées sont réellement reconstruites.
+Le garde produit compare les deux numéros et l'effacement différé ; le message
+reste dans une fonction séparée de 99 octets. Les envois et attentes explicites
+sont encore présents. Notre collecteur de symboles a d'abord refusé le nom
+d'une constante locale ressemblant à celui de sa fonction ; il sélectionne
+maintenant les vrais symboles de code, et le cas ambigu reste archivé.
+Les sept exécutions natives passent ensuite : 37 cas ciblés sur la soumission,
+les attentes, les requêtes et les dépendances, puis 1 254 cas complets, avec
+les quatre mêmes cas réseau ignorés. La suite complète dure 38,89 secondes.
+Les sept conteneurs ont disparu et les 8 652 fichiers protégés restent intacts.
+Le premier saut normal en jeu, les images et la comparaison de cadence restent
+à vérifier. Le banc est ensuite lié au même binaire et aux reçus terminaux.
+Ses 22 commandes et ses trois vérifications du lanceur dans l'image réelle
+passent. Les références historiques conservent leurs chemins d'origine,
+les cinq préparations de salon sont exercées et les 280 entrées sont figées
+avant le premier jeu. Rapport :
+`spikes/switch2-room/emptyflush1329-preparation-2026-11-11.json`.
+
+Le premier salon privé termine ensuite 90 secondes sans déplacement.
+Le vrai moteur émet une fois le message du premier envoi évité. Cela prouve
+que le nouveau chemin est atteint dans ce jeu, sans compter ses passages
+pendant la mesure. Nous lisons les images avant, au milieu et après : Link
+reste devant Saria, avec la même porte, le même pont et la même carte.
+Pour chacun de ces trois instants, les fichiers d'image du joueur et du
+spectateur sont identiques octet par octet. Le décodage a lieu après l'arrêt,
+pour ne pas charger la machine pendant l'essai.
+
+Le moteur s'arrête normalement, les douze identités de processus privées
+ont disparu et les 8 652 fichiers protégés restent intacts. Les 280 entrées
+figées et leurs permissions n'ont pas changé. Le reçu fonctionnel porte
+ensuite la comparaison à 281 entrées. La suite alternera deux passages de
+la référence et deux du candidat, chacun de 90 secondes au même emplacement.
+Aucun de ces quatre passages n'est encore lancé. Le contrôle fonctionnel
+ne prouve aucun gain de cadence, ni les 40 images/s constantes recherchées.
+
+Le premier témoin démarre ensuite au même emplacement, mais le garde
+l'interrompt après 10,06 secondes. Un processus `ffmpeg` extérieur à l'essai
+vient d'ouvrir cinq descripteurs sur la même carte graphique. Il a déjà
+disparu au contrôle indépendant suivant ; nous ne lui attribuons donc pas
+un service d'origine. Le manque d'une capture dans le pilote de navigateur
+est une conséquence de cet arrêt, pas une raison de garder la mesure.
+
+Les commandes reviennent au repos et le moteur s'arrête normalement.
+Les douze identités privées ont disparu ; les fichiers protégés et les
+281 entrées figées restent intacts. Nous conservons les 24 sorties de cette
+tentative dans une archive vérifiée, sans les compter comme un passage
+complet. Une nouvelle admission pourra créer un salon et une graine propres
+avec les mêmes entrées figées. Le contrôle fonctionnel précédent reste
+valide ; cette interruption ne donne ni comparaison FPS ni plafond matériel.
+
+### 11 novembre : retrouver la progression après une partie neuve
+
+Souhib reprend la salle pour un essai et ne retrouve pas ses sauvegardes Zelda.
+Le journal nomme bien son compte, mais le choix reçu à 14 h 21 est « partie
+neuve ». Le worker a donc conservé sa précédente progression dans l'historique
+avant de créer un dossier vide. Les quatorze fichiers de cet historique,
+profil du jeu compris, sont identiques à l'inventaire protégé avant son essai
+et à la copie conservée lors de la migration. Ils contiennent trois fichiers
+de progression ; leur présence ne dit pas à elle seule combien d'entrées le
+jeu affichera.
+
+Nous préparons une copie vérifiée avant de demander l'arrêt de la partie.
+Souhib autorise ensuite sa fermeture et le retrait de la nouvelle sauvegarde.
+Le service s'arrête normalement, ses conteneurs disparaissent et leurs
+identités de processus ne vivent plus. Les verrous du salon, de la Switch,
+du compte et de l'adaptateur restent pris pendant la remise en place.
+Les fichiers retrouvés reviennent dans le dossier personnel actif, avec
+les mêmes empreintes ; le dossier créé pour l'essai en sort. Les autres comptes
+et la source historique sont préservés. La salle reste fermée et son choix
+retenu devient « reprendre ». Ce contrôle prouve les fichiers et leur chemin,
+pas encore leur affichage dans un nouveau lancement de Zelda.
+
+Souhib précise que l'option manquait dans le menu Nel3ab. La page servie est
+bien l'artefact construit et la lecture actuelle du compte reconnaît Souhib.
+Cela ne permet pas de reconstruire la réponse reçue par son ancien onglet.
+Un nouveau cas navigateur démontre toutefois un chemin précis : si la première
+lecture ne renvoie pas d'identité, cette absence reste mémorisée et ouvrir le
+menu ne la redemande pas. Le test échoue sur cette absence de requête.
+Le menu corrigé relit le compte quand il manque, attend cette lecture avant
+un choix de sauvegarde, puis propose « reprendre ». Un pseudo seul reste
+anonyme ; un compte déjà reconnu ne provoque pas de nouvelle requête à chaque
+ouverture. Le premier passage navigateur corrigé vérifie les quatre consoles.
+
+La première réintroduction de l'ancien code retire aussi une fonction que
+les nouveaux tests importent. La compilation s'arrête avant le navigateur ;
+ce n'est pas la régression recherchée. Cette tentative reste conservée comme
+échec de préparation. La contre-épreuve garde cette fonction et retire
+seulement son appel depuis le menu : elle retrouve bien l'échec nommé dans
+le navigateur. Le code corrigé est ensuite remis, reconstruit et vérifié
+de nouveau. Les huit conditions des quatre consoles passent. La porte locale
+complète `just` passe en 52,69 secondes, GPU, son, sauvegardes et capture
+compris. Une dernière écriture des étapes du test évite deux nouveaux
+avertissements de style ; les 628 tests de la page repassent, ainsi que
+l'audit des dépendances.
+
+Le worker optimisé est reconstruit puis éprouvé dans la salle installée,
+ouverte sans jeu. La première lecture de contrôle cherchait un nom de fichier
+dans le catalogue public, qui ne publie que des noms de jeux : elle est refusée
+avant toute validation, et la salle se referme. Le contrôle suivant compare
+le vrai nom enregistré. Il trouve vingt jeux, Zelda sans promesse de tout
+débloquer, le compte correspondant au dossier remis et la nouvelle page
+identique à son artefact. Aucun émulateur n'est lancé. La salle est refermée
+et les quatorze fichiers sont encore identiques. Aucune CI distante n'est
+déduite de ces contrôles et aucun commit n'est créé. Le retour de Souhib,
+parfois très fluide puis sujet à des freezes, reste une observation de jeu,
+pas une comparaison contrôlée. Rapport :
+`spikes/switch2-room/save-recovery-2026-11-11.json`.
+
+### 11 novembre : laisser une reprise qui distingue les pistes des résultats
+
+Souhib demande de conserver les prochaines étapes avant de prolonger la pause.
+Le carnet garde l'histoire ; le début du
+[plan Zelda](plan-60fps-switch2-2026-11-08.md) devient une consigne de reprise
+directe. Le nom du fichier conserve l'ancien objectif de 60 images/s, mais le
+titre et la navigation portent la demande actuelle de 40 constantes.
+L'état du projet et l'accueil renvoient à cette consigne.
+
+Le prochain essai reste la comparaison alternée du 1329, après une nouvelle
+préparation protégeant l'état réel. La relecture retrouve les 281 entrées figées
+et leurs permissions intactes. En revanche, l'inventaire protégé compte
+maintenant 8 678 fichiers au lieu de 8 652, avec 26 chemins ajoutés et neuf
+contenus différents. La vraie partie, la restauration et le changement de page
+doivent entrer dans la revue de reprise ; on ne remet pas la production en
+arrière pour satisfaire un ancien inventaire. Les quatre passages de comparaison
+restent à faire, sans transformer l'essai fonctionnel réussi en gain mesuré.
+
+Les pistes 1331, 1336, les sous-parties du 1161 et les freezes de la vraie partie
+reçoivent leurs prérequis et leurs limites. Le 1336 possède douze sources
+conservées mais aucun nouveau contre-exemple exécuté : les problèmes de durée
+de vie des marqueurs et d'échec de lecture restent des cas à construire.
+Les résultats négatifs du 807 et du 1095 restent visibles pour éviter de les
+refaire sous un nouveau nom. Un ancien état privé de reprise est archivé avant
+sa consolidation, avec ses empreintes. Les sources privées, exécutables et
+preuves volumineuses restent sur cette machine, en dehors de Git ; la note dit
+où les retrouver et qu'il faudra les conserver si la machine est déplacée.
+Aucun essai, moteur ou fichier de sauvegarde n'est modifié pour cette note.
+
+### 12 novembre : un audit indépendant avant de reprendre les essais
+
+Souhib confie la suite à un autre assistant. Sa consigne : ne rien croire sur
+parole, chercher les failles, et ne conclure que sur des essais et des données.
+Avant toute nouvelle optimisation, dix-huit lecteurs indépendants relisent donc,
+chacun de son côté, le carnet, le plan, les conversations de travail des jours
+précédents, les quelque 150 rapports de `spikes/switch2-room/`, le source du
+moteur, la chaîne de la salle, l'état de la machine et ce que les projets
+publics savent de ce jeu. Aucun ne lance de jeu. Chacun doit citer le fichier
+brut derrière chaque fait.
+
+L'audit confirme le soin pris depuis le 7 novembre : alternance, gardes,
+preuves d'exécutable. Il trouve aussi plusieurs choses que ces précautions ne
+pouvaient pas montrer. Les entrées suivantes les décrivent une par une. Ce sont
+des lectures de données déjà présentes sur la machine, pas encore des essais
+contrôlés ; ceux-ci viennent ensuite.
+
+### 12 novembre : la partie du 11 partageait la carte graphique avec Jellyfin
+
+Le retour de Souhib du 11 novembre, « très fluide puis des freezes », servait de
+référence à l'objectif. Les relevés de la boîte noire et les journaux de
+Jellyfin montrent que cette partie n'a pas mesuré le moteur seul. Jellyfin est
+le serveur de films de la même machine. Quand un lecteur ne sait pas afficher un
+format, Jellyfin le convertit à la volée : c'est un transcodage. Ce jour-là,
+deux transcodages ont utilisé la même carte graphique que le jeu, de 15:11:15 à
+15:30:59 puis de 15:32:10 à 16:07:29, heure de Paris. La partie a duré de 15:21
+à 15:49.
+
+Entre les deux transcodages, pendant 70 secondes, la page reçoit 300 images par
+dix secondes et le moteur tient 30 images par seconde sur 68 échantillons sur
+68. Deux secondes après le départ du second, la cadence tombe à 14,6 images par
+seconde pendant 209 secondes, sur la même vue immobile. La carte passe de 65 %
+d'occupation vers 1,3 GHz à 99 % à 2,75 GHz. Les deux parties sans transcodage,
+le 10 novembre au matin et dans la nuit du 10 au 11, ont une médiane de 29,4 et
+29,6 images par seconde.
+
+Le transcodage en cause incruste des sous-titres dans l'image. Ces sous-titres
+sont au format PGS : des images, pas du texte. Jellyfin passe alors par Vulkan
+(la bibliothèque libplacebo et un filtre de superposition) en plus du décodage
+et de l'encodage matériels, à environ 2,5 fois la vitesse de lecture. Depuis le
+7 novembre, 46 transcodages de cette forme ont occupé la carte pendant 7,9
+heures.
+
+Trois leçons. La garde des clients du GPU ne protégeait que les essais privés,
+pas la salle. Ce transcodage avait été vu quatre minutes avant la plainte, sans
+que le lien soit fait avec elle. Et une partie des comparaisons privées des 10
+et 11 novembre est bornée en horloge monotone : on ne peut plus vérifier si
+elles ont recouvert ces transcodages. La concordance est à la seconde près,
+mais ce n'est pas une preuve. L'essai contrôlé est décrit plus bas.
+
+### 12 novembre : le banc à vue fixe ne pouvait pas voir les gels
+
+C'est l'entrée la plus utile de l'audit : elle décrit un essai qui ne pouvait
+pas échouer. Toutes les comparaisons alternées depuis le 9 novembre mesurent 90
+secondes devant Saria, sans bouger, avec un cache de pipelines déjà appris.
+Elles rapportent zéro intervalle de plus de 100 ms sur vingt phases. Les vraies
+parties du 10 novembre en comptent 64 et 68, en dix et dix-huit minutes. Cinq
+jours de mesures à plus ou moins 3 % ont donc porté sur le débit d'une vue
+calme, pas sur ce dont le joueur se plaint.
+
+Les journaux des vraies parties permettaient pourtant d'attribuer ces gels. Le
+moteur écrit une ligne par compilation de pipeline, avec sa durée, et une ligne
+de présentation datée par seconde. Un pipeline est le programme complet que la
+carte exécute pour un type de dessin ; le pilote doit le compiler la première
+fois qu'il sert. En joignant les deux séries de lignes, onze gels de 340 à
+1 785 ms contiennent chacun une compilation dont la durée vaut 0,84 à 1,14 fois
+celle du gel. Exemple : gel de 1 412,8 ms, compilation de 1 392,6 ms. Le moteur
+installé retient le dessin jusqu'à la fin de la compilation ; il a ainsi retenu
+6,8 secondes de dessin par partie. C'est une concordance de durée et d'instant,
+pas encore une preuve par intervention.
+
+Trois autres sortes de gel sortent des mêmes journaux. Un gel de 1,3 à 2,0 s
+marque l'entrée dans la première scène en trois dimensions, même avec un cache
+appris ; sa cause n'est pas identifiée. Le moteur détruit aussi un pipeline qui
+n'a pas servi depuis 9 000 images, soit cinq minutes : c'est l'éviction. Le 11
+novembre, 830 pipelines sont détruits pendant que le joueur ne bouge pas, puis
+349 sont reconstruits quand il repart. Enfin deux gels vus par la page de
+Souhib, de 8,3 et 3,5 secondes, n'existent pas côté serveur. Son lien montre
+une gigue de 82 à 93 ms et sa page passe en format réduit la majorité du
+temps. Une partie du ressenti ne vient donc pas du moteur.
+
+Suite : l'essai par intervention est décrit dans l'entrée « les gels viennent
+bien de la première compilation » plus bas. Il confirme la compilation, nuance
+l'éviction, et montre que le gel d'entrée de scène tombe sous l'écran de
+chargement.
+
+### 12 novembre : la borne du fil limitant n'avait jamais été calculée
+
+Les documents répétaient qu'aucun plafond matériel n'était démontré. Les
+profils existants suffisaient pourtant à en calculer un. Devant Saria, le fil
+du moteur qui exécute les commandes graphiques du jeu, nommé GPUBack, occupe
+88,6 à 89,3 % d'un processeur logique à 27,8 images par seconde. Il dépense
+donc environ 32 ms de processeur par image. Un fil ne peut pas dépasser 100 % :
+sans réduire ce travail, la borne est d'environ 31 images par seconde.
+Atteindre 40 demande 22 % de travail en moins par image sur ce fil. Atteindre
+60 en demande 48 %.
+
+Cette borne change la lecture des essais passés. Deux phases du même
+exécutable diffèrent de 1 à 3,7 % sur l'ancien banc. Les portages de
+correctifs amont (807, 1095, 1245, 1246, 1329) cherchaient des écarts de 3 %
+sur deux paires. Ils étaient sous le bruit, et loin de l'ordre de grandeur
+nécessaire. Les gains nets mesurés depuis le début restent la relecture
+(+22,7 %), le découpage en deux fils (+13,6 %), l'épinglage des fils (+14,7 %),
+le retrait du filtre de netteté (+7,8 %), la compilation guidée par profil
+(+5,7 %) et le placement mémoire des envois (+4,8 à 5,7 %, non installé).
+
+Le jeu lui-même ne se limite pas à 30. Il demande 60 Hz, tient 60 dans une
+scène légère et 39 sur une vue qui dessine 2 400 groupes de maillage au lieu
+de 4 700. Le plafond installé à 30 n'a donc aucune marge sur les vues lourdes :
+la vue de Saria, sans plafond, tourne entre 29,4 et 31.
+
+Suite : l'entrée « le moteur installé est tenu par le fil GPUBack » plus bas
+met cette borne à l'épreuve. Elle ramène le besoin pour 40 à 19 à 23 %, et
+montre que deux autres fils satureraient avant 60.
+
+### 12 novembre : trois constats sur la machine elle-même
+
+Le noyau l'écrit à chaque démarrage et aucun document ne le relevait : la carte
+graphique est branchée sur le second emplacement long de la carte mère. Cet
+emplacement passe par le chipset, la puce qui regroupe les ports secondaires,
+en PCIe 3.0 sur quatre lignes. La carte dispose de 31,5 Gb/s au lieu des 126
+qu'elle sait utiliser, et partage ce lien avec l'USB, le SATA et le réseau.
+L'emplacement relié directement au processeur est vide. Le coût pour ce jeu
+n'est pas mesuré ; une mesure publique sur une carte voisine donne 7 % en
+moyenne. Déplacer la carte est un geste physique que seul Souhib peut faire.
+
+Le processeur chauffe. Pendant le jeu, sa température interne, nommée Tctl,
+vaut 86,8 °C en médiane et atteint 94,1 °C. Hors jeu, elle touche 97 °C pendant
+les compilations. À charge égale, la fréquence perd 1,4 % entre 75 et 90 °C,
+puis 6,7 % à 95 °C. C'est l'ordre de grandeur des écarts que les comparaisons
+cherchaient à trancher, et plusieurs séries ont tourné collées à 96 °C. Au
+repos, 54 à 63 °C pour 3 % de charge font penser à un refroidisseur faible ou
+mal monté. Cela reste à vérifier à la main.
+
+La boîte noire, enfin, est réglée pour des jeux à 60 images par seconde. Son
+seuil de chute vaut 50 Hz. Sur Zelda plafonné à 30, la règle se déclenche donc
+toutes les cinq minutes : six captures « chute » et trois périodiques en 28
+minutes, chacune avec dix secondes de profilage. Le coût de cet observateur
+n'est pas mesuré pour ce moteur.
+
+### 12 novembre : un instrument de mesure plus simple, relu avant de servir
+
+Le banc de comparaison laissé le 11 novembre demande une copie figée, un
+inventaire de 8 678 fichiers et une revue avant chaque essai. Il mesure bien,
+mais chaque question lui coûte des heures. Pour les essais qui suivent, un
+instrument plus léger est construit à part, hors du dépôt, dans
+`~/.local/share/nel3ab/nx2-lab/2026-11-12-probe/` : `nx2probe.py`. Un passage
+lance le moteur seul dans un conteneur privé, rejoue le chargement jusqu'à
+Saria à la manette, vérifie la scène sur une vraie capture, relève la machine
+une fois par seconde, puis démonte tout et relance la boîte noire. Il ne lance
+ni worker, ni capture, ni navigateur : ses valeurs absolues ne sont pas celles
+d'une salle.
+
+Sa mesure principale n'est plus la cadence. C'est le temps de processeur du
+fil GPUBack par image, lu dans les compteurs du noyau. C'est la grandeur que la
+borne désigne, et elle est bien moins bruitée. Pour chiffrer ce bruit, on
+compare des lancements identiques : c'est une comparaison A/A. Moteur installé
+sans plafond, quatre lancements : 31,98 images par seconde à 0,29 % près, et
+28,72 ms par image à 0,18 % près. Quatre lancements alternés y tranchent un
+écart de 0,7 % sur le coût par image. La référence privée plus rapide (ELF
+13158042), sept lancements : 32,95 images par seconde à 2,0 % près, et 25,21 ms
+à 0,60 % près. Son débit forme deux groupes qu'aucune grandeur relevée
+n'explique ; on n'y conclut rien sous 5 à 7 % de débit. Dans un même processus,
+deux moitiés d'un segment diffèrent de 0,6 % au plus. Changer un réglage
+pendant que le jeu tourne est donc la comparaison la plus fine, quand elle est
+possible.
+
+Avant de servir, l'instrument a été relu par deux lecteurs chargés de le
+casser. Ils ont trouvé dix défauts réels. Chacun a été reproduit par un essai
+qui échoue, puis corrigé. Les plus instructifs :
+
+- le verdict de réussite ignorait la présence d'un autre client du GPU, soit
+  précisément l'incident Jellyfin ;
+- un réglage mal orthographié donnait deux bras identiques et un passage
+  « réussi », parce que le moteur garde sans rien dire une clé inconnue ;
+- le temps de processeur par image pouvait manquer sans que le verdict le dise ;
+- le script livré avait été modifié après le dernier passage, donc aucune
+  preuve ne portait sur lui ;
+- si le superviseur mourait, rien ne relançait la boîte noire.
+
+Chaque passage garde maintenant la copie du script qui l'a lancé, et une unité
+systemd rend la machine même après un arrêt brutal. Limites connues : pas
+d'intervalle image par image en mode normal, seulement les fenêtres de 600
+présentations du moteur ; une seule scène reconnue automatiquement ; une
+température tenue au départ (sous 60 °C) mais pas pendant la mesure (79 à
+85 °C).
+
+### 12 novembre : l'essai contrôlé confirme Jellyfin et désigne l'incrustation des sous-titres
+
+L'audit n'avait qu'une concordance d'horaires. L'essai la remplace par une
+intervention. Le moteur installé tourne seul devant Saria, plafonné à 30. Dans
+un même processus, on alterne 90 secondes sans rien et 90 secondes avec un
+transcodage lancé à la main. Ce transcodage rejoue la commande exacte que
+Jellyfin a écrite dans son journal du 11 novembre à 15:32:10. Il tourne dans un
+conteneur jetable tiré de la même image, sans réseau, avec le film en lecture
+seule. Le vrai Jellyfin n'est ni arrêté ni modifié. Quatre passages, treize
+transcodages, de 02:17 à 03:38 UTC.
+
+| Forme du transcodage | Images par seconde du jeu | Perte |
+|---|---|---|
+| Aucun | 30,00 | |
+| Commande du 11 novembre : sous-titres PGS incrustés par Vulkan, vitesse libre | 12,91 et 12,69 | 57 % |
+| La même, tenue à la vitesse de lecture | 22,35 et 22,33 | 25 % |
+| Tout logiciel, sans la carte | 26,99 et 26,96 | 10 % |
+| Décodage et encodage matériels seuls, sans incrustation, vitesse libre | 28,97 et 29,71 | 1 à 3 % |
+| Les mêmes, tenus à la vitesse de lecture | 30,00 et 29,93 | 0 |
+
+Sans plafond, la première forme fait passer le jeu de 31,48 à 12,47 images par
+seconde, soit 60 % de perte.
+
+Ce qui coûte est l'incrustation, pas la vidéo. La première et la cinquième
+ligne ont le même décodage, le même encodeur et le même débit. Seuls les
+filtres Vulkan qui posent les sous-titres sur l'image changent. La cinquième
+forme décode et encode 4,8 fois plus d'images par seconde que la première, et
+coûte 18 à 57 fois moins. Sous la première, la carte est à 99 % et le fil
+GPUBack ne prend plus que 39 % d'un processeur logique, contre 86 à 91 % seul :
+il attend la carte.
+
+La boîte noire du 11 novembre confirme le même ordre de grandeur dans la vraie
+salle. Au départ du second transcodage, la part de GPUBack tombe de 62 à 32 %
+d'un processeur logique. Jellyfin met déjà son transcodage en pause quand il a
+180 secondes d'avance. Cela donne des rafales de 5 à 6 secondes, toutes les 10
+secondes environ. La carte est disputée dans la moitié des relevés. Le joueur
+alterne donc entre 13 et 30 images par seconde. Ce bridage ne protège pas le
+jeu, et tenir le transcodage à la vitesse de lecture coûte encore 25 %.
+
+Deux relecteurs ont refait chaque chiffre depuis les fichiers bruts, avec leurs
+propres scripts. Tout retombe. Quatre affirmations sortent affaiblies :
+
+- la perte de la cinquième ligne est écrêtée par le plafond. Le fait solide est
+  que GPUBack coûte 5 % de processeur en plus par image. La cause n'est pas
+  isolée : ce transcodage écrit aussi 3,2 Go en 100 secondes et lit le film sur
+  le réseau ;
+- la dernière ligne repose sur un seul segment propre ;
+- la forme logicielle est une commande reconstruite, absente des journaux de
+  Jellyfin. Elle a été mesurée sur une machine déjà à 92 °C. Le processeur y
+  monte à 95 °C et le film ne tient plus la vitesse de lecture (0,86 fois) ;
+- les trois gels de plus de 400 ms vus sous transcodage sont un seul et même
+  pipeline, reconstruit une fois par passage après l'éviction du moteur. Ce
+  n'est pas un coût répété du transcodage.
+
+Ce qui n'est pas prouvé : l'effet dans une salle complète. La salle encode
+aussi sa vidéo sur la carte, et la cinquième forme occupe l'encodeur à 98 %.
+Une seule scène et un seul film ont servi.
+
+Ce que cela change. Le remède est du côté de Jellyfin : ne plus faire incruster
+les sous-titres PGS par le serveur. Un fichier de sous-titres en texte posé à
+côté du film suffit, ou une piste texte. Il ne faut pas couper l'accélération
+matérielle : le chemin logiciel coûte 10 % et fait chauffer le processeur. La
+décision appartient à Souhib ; rien n'a été changé dans Jellyfin. Du côté du
+moteur, deux lectures. Linux n'a pas de réglage pour partager le temps d'une
+carte graphique entre groupes de processus. Et le moteur ne demande aucune
+priorité pour sa file Vulkan. Cette seconde piste n'est pas encore essayée.
+
+Rapport complet et verdicts des relecteurs :
+`~/.local/share/nel3ab/nx2-lab/2026-11-12-probe/experiments/a-jellyfin/REPORT.md`.
+
+### 12 novembre : les gels viennent bien de la première compilation, mais trois mesures de l'essai ne pouvaient pas voir ce qu'elles cherchaient
+
+L'audit avait une concordance de durées entre gels et compilations. L'essai
+intervient : même trajet, même moteur, mêmes réglages de production, et seul le
+cache change. Le trajet dure 65 secondes autour de Saria et se rejoue à la
+manette : un tour de caméra, deux boucles de marche, un retour de caméra. Douze
+passages, de 03:40 à 05:14 UTC.
+
+Avec le cache appris, le moteur ne construit aucun pipeline et aucun intervalle
+ne dépasse 100 ms, sur huit segments et quatre lancements. Avec un cache vide,
+comme pour un joueur qui découvre la zone, le premier passage construit 205 et
+235 pipelines. Les relecteurs y comptent 23 et 31 intervalles de plus de
+100 ms, jusqu'à 0,56 seconde, et 5,5 à 6,4 secondes de dessin retenu. Les
+compilations lentes forment un petit ensemble stable : treize pipelines
+identiques prennent 294 à 429 ms dans les trois lancements à cache vide. La
+durée de compilation est donc une propriété du pipeline. Le mécanisme est
+établi par intervention.
+
+Le retour après 340 secondes d'immobilité est plus doux que l'audit ne le
+laissait penser. Le moteur détruit 374 et 378 pipelines pendant la pause et en
+reconstruit 201 et 200 au retour. L'intervalle le plus long vaut 169 ms. Mais
+une seconde perd 350 ms, et les huit premières secondes tournent à 20 à 27
+images. Chaque reconstruction coûte environ 8 ms. Un changement de zone après
+une pause, qui regroupe les reconstructions dans une seule image, n'a pas été
+essayé. Dire que l'éviction n'explique pas les longs gels ne vaut donc que
+pour ce trajet.
+
+Le préchargement (`EDEN_NX2_PRELOAD_ALL_PIPELINES=1`) construit les 2 531
+pipelines du cache au démarrage et coupe l'éviction. Rien n'est alors détruit
+ni reconstruit, et le retour de pause n'a plus d'intervalle de plus de 100 ms.
+Ce dernier point repose sur un seul lancement long : c'est une tendance.
+
+Les deux modes qui sautent un dessin au lieu d'attendre sa compilation cassent
+l'image. À cache vide, la surbrillance du choix « Continue » manque sur
+l'écran titre pendant 111 secondes, quatre lancements sur quatre.
+L'instrument a refusé ces départs. Leur effet sur les gels en jeu n'est donc
+pas mesuré.
+
+Trois mesures de l'essai étaient trop grosses pour ce qu'elles affirmaient. Ce
+sont les relecteurs qui l'ont vu.
+
+- **Le coût du préchargement au démarrage.** L'essai chronométrait jusqu'au sol
+  reconnu, sur des captures prises une fois par seconde, avec 2,1 secondes
+  d'écart entre deux lancements identiques. Il concluait « aucun coût ». La
+  première image présentée arrive à 13,47 à 13,61 secondes sans préchargement,
+  et à 14,36 et 14,39 secondes avec. Le préchargement coûte donc 0,8 seconde et
+  8,5 secondes de processeur. C'est peu, mais une mesure dont le pas dépasse
+  l'effet ne peut pas conclure à son absence.
+- **Le compteur de dessins retenus du moteur.** Il ne compte pas l'attente
+  d'un pipeline du chemin qui émule les maillages. Le gel le plus long de
+  l'essai, 1,78 seconde, affiche « 0,0 ms retenu ». Les totaux de dessin
+  retenu sous-estiment donc les gels.
+- **Le gel de 1,5 seconde à l'entrée de la scène.** Il tombe sous l'écran noir
+  du chargement, 5 à 7 secondes avant la première image de la scène. Le joueur
+  voit un chargement, pas une image figée. La partie visible est ailleurs : la
+  première seconde de la scène affichée ne montre que 12 images.
+
+L'attribution annoncée, 88,7 % du temps perdu, est une lecture haute. Avec un
+critère strict, 58 à 63 %. Le contrôle inverse est plus net : les 41
+compilations de plus de 100 ms tombent toutes dans une seconde qui perd au
+moins 113 ms, et aucune des 274 secondes calmes n'en contient.
+
+Ce qui n'est pas prouvé : que les gels vus dans la salle sont ceux-là. Le cache
+de production est différent et déjà appris, et le moteur tournait seul. Le gel
+de 1,8 seconde n'apparaît qu'une fois.
+
+Rien n'est installé. Le réglage candidat garde le mode qui attend et ajoute le
+préchargement. Il lui manque un second lancement long, un essai sur une copie
+du cache de production et une lecture de la mémoire après vingt minutes. Le
+remède durable reste un cache qui connaît déjà le contenu. Rapport :
+`~/.local/share/nel3ab/nx2-lab/2026-11-12-probe/experiments/b-gels/REPORT.md`.
+
+### 12 novembre : le moteur installé est tenu par le fil GPUBack, et aucun réglage essayé n'atteint 40
+
+La borne de l'audit était un calcul sur des profils. L'essai la met à
+l'épreuve. Dans un même processus, sans plafond, on alterne des segments de 60
+secondes : une base, un traitement, une base. La fréquence obtenue est lue dans
+les compteurs APERF et MPERF, pas dans la demande. Dix passages, de 05:16 à
+07:07 UTC.
+
+Le résultat central : ralentir le seul cœur de GPUBack coûte un cinquième du
+débit. Un plafond posé sur ce cœur donne 33,2 % de fréquence en moins. C'est un
+palier du matériel, exactement deux tiers de celle des autres cœurs. Le débit
+perd 19,2 % et 19,9 %, alors que les dix autres processeurs logiques gardent
+leur fréquence. GPUBack reste entre 90,6 et 93,1 % d'un processeur logique
+dans tous les segments.
+
+L'élasticité dit de combien le débit bouge quand la fréquence bouge de 1 %.
+Quand tous les cœurs ralentissent, elle vaut 0,58 à 0,72. Elle n'atteint jamais
+1. Une valeur de 0,91 est écartée : une mise à jour automatique du système a
+tourné pendant tout son segment. « Un seul cœur » était trop fort. Un cinquième
+de la sensibilité est sur les autres cœurs. Et quand seul le cœur de GPUBack
+ralentit, le fil voisin qui prépare les commandes coûte 12 % de plus par
+image : une part du temps de processeur compté est de l'attente entre fils.
+
+Les réglages essayés, chacun contre ses bases voisines :
+
+| Réglage | Effet mesuré | Force |
+|---|---|---|
+| Cœur réservé à GPUBack (51 autres fils du moteur écartés, sans droits d'administrateur) | Coût par image -1,8 à -3,7 %, débit +0,9 à +2,3 % | Prouvé sur le coût |
+| Horloge de la carte forcée au niveau haut | Débit +1,1 % deux fois, 17 W de plus | Tendance |
+| Demi-résolution interne, sur la référence privée | Débit +5 à +9 % selon le témoin, 34,76 images par seconde au mieux | Gain prouvé, taille non établie |
+| Aucun dessin de maillage (diagnostic, image fausse) | Coût de GPUBack -4 à -5 % | Ordre de grandeur |
+| Chaleur, de 71 à 93 °C | Fréquence -2,5 % (4,5 MHz par degré), débit 0 à 2 % | Fréquence prouvée, débit calculé |
+
+Deux de ces essais avaient déjà eu lieu le 9 novembre, sur l'ancien banc.
+L'horloge forcée n'y montrait rien sur des phases de 25 secondes. La résolution
+n'y changeait rien sur le moteur installé (+3,79 % puis -0,33 %). Les deux
+résultats restent valables. Le nouveau porte sur la référence privée, dont la
+carte est occupée à 90 %, et sur des segments alternés plus longs. Il dit que
+la référence est tenue par la carte et le processeur ensemble, pas par l'un
+puis l'autre.
+
+La référence privée a deux états. Le temps que GPUBack passe dans le noyau vaut
+2,3 à 2,6 ms par image, ou 3,0 à 3,3 ms. Le passage de l'un à l'autre est un
+saut de quatre secondes, sans retour, de cause inconnue. Il explique les deux
+groupes de débit relevés lors de la construction de l'instrument. Toute
+comparaison sur cet exécutable en hérite. Encadrer un traitement par deux bases
+ne protège pas d'un saut.
+
+Le budget pour la suite. Tenir 40 demande 22 à 23 ms de GPUBack par image au
+lieu de 28,7, soit 19 à 23 % de moins. Tenir 60 en demande 46 à 52 % de moins,
+et GPUBack n'est plus le seul obstacle. Le fil qui prépare les commandes coûte
+15,7 à 16,0 ms par image, soit 94 à 96 % d'un processeur à 60. Le fil de calcul
+le plus chargé coûte 17,1 ms, soit 103 %. Sur ce processeur, 60 n'est donc pas
+une affaire de réglage. En vitesse de cœur, par extrapolation hors de la plage
+mesurée, 40 demande 1,4 fois plus si tous les cœurs accélèrent, et 1,5 à 1,6
+fois si seul celui de GPUBack accélère.
+
+Ce que cela change. Les réglages de la machine pèsent 1 à 4 % chacun, et ils
+n'ont pas été combinés. Les 20 % qui manquent pour 40 sont dans le travail de
+GPUBack lui-même. La référence privée montre que 9 % de ce coût peuvent être
+retirés par le chemin d'envoi des tampons. Rapport :
+`~/.local/share/nel3ab/nx2-lab/2026-11-12-probe/experiments/c-bornes/REPORT.md`.
+
+### 12 novembre : la machine n'était pas au repos, et l'instrument ne le voyait pas
+
+C'est le piège de cette série. L'instrument surveille les clients de la carte
+graphique. Il ne surveille pas le processeur pris par d'autres programmes. Les
+relecteurs ont croisé les segments avec le journal du système. Ils ont trouvé :
+
+- quatre services lancés par des minuteries, toutes les 2 et 5 minutes, et des
+  tâches planifiées toutes les 3, 5, 10 et 20 minutes. Chaque départ prend 1 à
+  2,3 processeurs logiques pendant 1 à 3 secondes ;
+- la mise à jour automatique du système, de 06:06:53 à 06:08:08 UTC, pendant
+  tout un segment ;
+- un rafraîchissement de la bibliothèque de Jellyfin à 07:02:06, jusqu'à 5,2
+  processeurs pendant trois secondes, dans le témoin de l'essai des maillages ;
+- 26 secondes de charge sans auteur dans une base de la référence.
+
+Sous le plafond de 30, chaque rafale coûte une à deux images dans sa seconde.
+Ces charges produisaient les valeurs extrêmes de plusieurs fourchettes :
+l'élasticité de 0,91, le haut du gain du cœur réservé, et le bruit de la
+méthode, annoncé à 1,01 % alors qu'il vaut 0,5 % sans le segment touché. Aucune
+conclusion principale ne tombe, parce que les traitements alternaient dans un
+même processus. Les petits effets, eux, ont dû être resserrés.
+
+Cinq exécuteurs d'intégration continue écoutent aussi sur cette machine.
+Aucun travail n'a tourné pendant les essais. Les relecteurs le disent : c'est
+de la chance, pas une garde. Un travail à onze processus tournait vingt minutes
+après la fin.
+
+La session qui pilotait les essais a commis la même faute. À 05:28:30 UTC, elle
+a écrit deux rapports pendant un segment mesuré, à la seconde où la charge
+extérieure monte à 102 % d'un processeur. La règle « ne pas mesurer une machine
+en la chargeant » vaut aussi pour celui qui attend les résultats.
+
+Un second piège, plus petit. Les agents d'essai devaient livrer un fichier de
+rapport, et leur outil d'écriture le refuse. Ils ont rendu le texte et signalé
+le manque sans contourner le refus. Les trois rapports sont écrits après coup
+par `render_report.py`, qui recopie leur compte rendu depuis le journal du
+workflow et y ajoute les verdicts.
+
+Leçons pour la série suivante. Relever la charge hors moteur de chaque segment
+et écarter un segment au-dessus du niveau habituel, 9 à 15 % d'un processeur
+logique. Vérifier la file d'intégration continue avant chaque passage et
+pendant. Ne rien lancer depuis la session pilote tant qu'un passage tourne. Et
+ne pas compter sur des bases voisines pour annuler un changement d'état.
+
+### 12 novembre : Souhib tranche sur Jellyfin et sur l'emplacement de la carte
+
+Trois réponses de Souhib changent la suite.
+
+Il ne veut pas dégrader Jellyfin pour ceux qui s'en servent. Une perte n'est
+acceptable que si elle est minime et aide vraiment la salle. L'essai contrôlé
+désignait l'incrustation des sous-titres côté serveur ; la retirer n'est donc
+plus le premier remède. La piste devient celle du moteur : demander une
+priorité haute pour sa file Vulkan. Les chiffres de l'essai laissent une
+place : le transcodage tenu à la vitesse de lecture prend 36 % du temps de
+calcul de la carte, et le jeu plafonné à 30 n'occupe pas toute la carte quand
+son horloge monte. Le critère a donc deux parts. Le jeu doit tenir 30, et le
+transcodage doit rester au moins à la vitesse de lecture, sinon le film
+saccade. Rien de cela n'est encore mesuré.
+
+Il avait déjà essayé l'emplacement relié au processeur. La machine n'avait
+alors plus de réseau. La cause n'est pas établie. Un seul fait relevé : depuis
+le 5 octobre, la règle réseau de la machine reconnaît la carte réseau par son
+adresse matérielle, pas par son nom. Sous Linux, le nom d'une interface dépend
+de sa place sur le bus, et déplacer une carte peut le changer. Si la panne
+venait de là, elle ne se reproduirait pas. C'est une hypothèse, pas un
+diagnostic. Le déplacement n'est plus proposé sans accès physique de secours.
+
+Il autorise enfin l'essai de la version amont Lichii build 160. La garde de
+sécurité de la session avait refusé de télécharger et de lancer ce binaire
+sans son accord. L'essai tournera dans le conteneur privé, après la série en
+cours.
+
+Suite : la priorité haute est essayée le 14 novembre et fait tomber le jeu ;
+build 160 n'a pas pu être lancé. Voir les entrées du 14 novembre.
+
+### 12 novembre : le préchargement retire les accrocs du retour de pause, sans coût visible en mémoire sur vingt minutes
+
+Premier essai de la série 2 : 23 passages, de 07:47 à 11:38 UTC. Deux bras. Le
+bras N est la production. Le bras P ajoute le préchargement. Les chiffres qui
+suivent sont ceux de l'agent d'essai. Leur relecture n'a pas eu lieu le jour
+même : la série s'est arrêtée après cet essai, faute de crédits de calcul.
+Elle reprend le 14 novembre.
+
+Le retour après 340 secondes d'immobilité est maintenant répété. Avec le
+préchargement, aucun intervalle ne dépasse 100 ms sur deux retours valides
+(90,4 et 89,7 ms au plus). Sans lui, chaque retour en compte deux, sur trois
+retours (117 à 193 ms), et sa pire seconde perd 362 ms. Les deux séances
+donnent le même résultat.
+
+Le coût est mesuré sur une copie du cache de la salle, 5 132 fichiers. Sans
+préchargement, le moteur met 1 979 pipelines en file et en laisse 784 de côté.
+Avec, il en construit 2 763. La première image arrive 0,70 seconde plus tard
+(15,64 secondes au lieu de 14,94), pour 8,5 secondes de processeur en plus. La
+mémoire du moteur à la scène prête monte de 50 Mio.
+
+Sur vingt minutes, treize trajets et une pause, le bras P ne montre aucun
+intervalle de plus de 100 ms. Le bras N en montre trois, dont deux au retour de
+pause. Le risque connu du préchargement était la mémoire, puisqu'il coupe
+l'éviction. Il ne se voit pas ici : +625 Mio avec, +710 Mio sans. C'est une
+tendance, avec un seul lancement par bras et une seule zone. Les deux bras
+grossissent d'environ 7 Mo par minute, même immobiles. La cause n'est pas
+cherchée.
+
+Trois résultats ferment ou bornent une piste.
+
+- **Changement de zone après une pause.** En production, entrer dans la maison
+  de Link après cinq minutes reconstruit 104 pipelines sans accroc : 37,6 ms
+  au plus. La pièce est légère. Dehors, 31 reconstructions dans la même
+  seconde coûtent 0,4 seconde. Le bras P manque : les entrées fixes à la
+  manette n'ont pas atteint l'échelle, deux fois sur deux.
+- **Priorité des fils de compilation.** Le moteur les lance en priorité basse.
+  Les remettre en priorité normale ne raccourcit pas les compilations lentes :
+  -2,2 % en moyenne, quand deux lancements identiques diffèrent de 15 %. Le
+  moteur seul n'occupe que 4,6 processeurs sur 12 ; ces fils trouvent toujours
+  un processeur libre. Piste abandonnée tant que la machine n'est pas saturée.
+- **Le gel de 1,8 seconde.** Il se reproduit à cache vide, avec les deux mêmes
+  pipelines qu'en série 1. Ce n'est donc pas un accident. Le préchargement ne
+  peut rien pour lui : il ne construit que ce que le cache connaît déjà.
+
+Deux pièges reviennent. À 08:01 UTC, un téléchargement automatique de film,
+puis sa copie vers le serveur de fichiers, ont pris plus d'un processeur
+pendant 32 secondes au milieu d'un passage. Le passage est refait, et une
+garde de machine calme précède maintenant chaque lancement. Elle a retenu un
+départ pendant un travail d'intégration continue. Second piège : l'instrument
+a signalé comme client étranger de la carte le programme qu'il lance lui-même
+pour classer ses captures. Les sept alertes du même genre en série 1 tombaient
+aussi sur des captures. Le verdict de l'instrument est gardé tel quel.
+
+Rien n'est installé. Le réglage candidat reste : garder le mode qui attend, et
+ajouter `EDEN_NX2_PRELOAD_ALL_PIPELINES=1`. Ce qui manque avant de l'installer :
+un essai dans une salle complète, une séance de plus d'une heure à travers
+plusieurs lieux, et la relecture de cet essai. Rapport :
+`~/.local/share/nel3ab/nx2-lab/2026-11-12-probe/experiments/d-stabilite/REPORT.md`.
+
+Suite : la relecture du 14 novembre affaiblit quatre de ces affirmations. Voir
+l'entrée suivante.
+
+### 14 novembre : la relecture resserre ce que le préchargement prouve
+
+La série 2 reprend le 14 novembre. Pour consommer moins, un seul relecteur
+reprend chaque essai. Il refait les chiffres depuis les fichiers bruts et
+cherche ce qui peut fausser la conclusion. Pour l'essai du préchargement, six
+affirmations sur dix tiennent, quatre sont affaiblies, aucune n'est réfutée.
+
+Ce qui tient. Au retour d'une pause de cinq minutes devant Saria, la
+production montre un intervalle de 134 à 193 ms et une seconde qui perd 320 à
+390 ms, quatre retours sur quatre. Avec le préchargement, rien de tel sur
+trois retours. L'accroc tombe à la seconde des reconstructions, sans charge
+extérieure. Le coût au démarrage est confirmé : 0,7 seconde avant la première
+image et 8,5 secondes de processeur, avec le cache de la salle.
+
+Ce qui ne tient pas comme je l'avais écrit le 12.
+
+- **« Aucun intervalle de plus de 100 ms en vingt minutes. »** Le moteur écrit
+  deux séries d'intervalles, et l'agent d'essai n'en citait qu'une. L'autre en
+  compte trois dans le bras avec préchargement, de 104 à 112 ms, sans
+  reconstruction ni charge extérieure à ces instants. Ce trajet frôle donc
+  100 ms tout seul, dans les deux bras. Le seuil de 100 ms sépare mal les
+  bras. Il faut juger au-dessus de 130 ms.
+- **« La mémoire ne grossit pas. »** Dans cet essai, le bras avec préchargement
+  n'a construit aucun pipeline après le démarrage. Le risque connu est que la
+  mémoire grossisse à chaque lieu nouveau, puisque plus rien n'est détruit. Il
+  n'a donc pas été mis à l'épreuve. L'écart final de 113 Mio vient surtout du
+  saut de mémoire de la production au retour de pause.
+- **« Changement de zone. »** La maison de Link est une pièce de la même carte
+  du jeu : aucun écran de chargement, même mini-carte. Et 70 reconstructions
+  sur 88 arrivent avant d'y entrer. Le bras avec préchargement manque.
+
+Trois précisions servent pour la suite.
+
+- L'éviction ne dépend pas de l'immobilité. Tout pipeline inutilisé depuis
+  9 000 images est détruit, même pendant la marche. L'essai n'a mesuré que le
+  cas « immobile, puis même trajet ».
+- Le gain dépend de la marge. Là où GPUBack coûte 16 à 21 ms par image, 104
+  reconstructions passent sans accroc. Devant Saria, à 28 ms par image, 31 à
+  44 reconstructions dans la même seconde coûtent 320 à 390 ms.
+- Les fils de compilation n'attendent presque jamais un processeur : 20 à
+  30 ms d'attente pour 11 à 15 secondes de calcul. Le gel de 1,8 seconde est
+  du temps de compilation pur. Changer leur priorité ne pouvait rien donner.
+
+Le relecteur relève aussi une faute de ma part. Pendant un passage de vingt
+minutes du 12 novembre, la session qui pilote a lu un fichier réseau et écrit
+deux pages de documentation. Cette charge est petite, et comptée dans le
+« hors moteur » du segment (19,9 %). Mais la règle était de ne rien faire
+pendant une mesure.
+
+Le préchargement reste un candidat, pas un réglage à installer. Il lui manque
+un essai alterné dans une salle complète, et une séance longue à travers
+plusieurs lieux avec la mémoire relevée.
+
+### 14 novembre : la priorité haute de la carte fait tomber le jeu au lieu de le protéger
+
+C'était le remède qui respectait la demande de Souhib sur Jellyfin : donner au
+moteur une priorité haute sur la carte graphique, sans toucher au film. Dix
+passages, de 13:17 à 14:55 UTC.
+
+**Ce qu'est cette priorité.** Vulkan permet à un programme de demander une
+priorité pour ses files de travaux. Le pilote range alors ces travaux sur un
+anneau plus prioritaire de la carte. Au-dessus du niveau normal, le noyau
+exige une capacité Linux, `CAP_SYS_NICE`.
+
+**Mise en œuvre, sans toucher au moteur.** Une couche Vulkan ajoute la demande
+de priorité. Le moteur installé n'est pas modifié. Docker ne donne aucune
+capacité à un utilisateur ordinaire. Le conteneur privé part donc en
+administrateur avec la capacité, puis redescend aussitôt. La salle, telle
+qu'elle est lancée aujourd'hui, retire toutes les capacités : elle ne pourrait
+pas obtenir cette priorité sans changer son lancement.
+
+**Preuve que la priorité est active.** L'anneau haut reçoit 76 722 travaux en
+45 secondes, l'anneau normal aucun. Avec la même couche en priorité normale,
+c'est l'inverse. Sans la capacité, le noyau refuse la demande.
+
+| Configuration | Jeu, film à vitesse libre | Jeu, film au temps réel | Film à vitesse libre |
+|---|---|---|---|
+| Jeu normal, film normal | 12,5 et 12,6 images/s | 22,7 et 23,1 | 2,12 et 2,15 fois la lecture |
+| Jeu en priorité haute | jeu perdu, 2 fois sur 2 | jeu figé | le film meurt après 149 images |
+| Film en priorité basse | 18,5 et 18,8 | 24,4 et 24,7 | 1,83 et 1,84 fois la lecture |
+
+En priorité haute, le jeu est perdu deux fois sur deux, une seconde après le
+départ du transcodage. Le noyau écrit des fautes de page de la carte, puis
+l'appareil graphique est perdu. La première fois, le moteur s'arrête. La
+seconde, il reste figé sur une image abîmée pendant 4 minutes 40, ce qui est
+pire pour une salle qu'un arrêt net. Les deux essais ont provoqué sept remises
+à zéro d'anneau de la carte, toutes réussies. Seul, le jeu en priorité haute
+tourne normalement. La cause n'est pas établie. La piste est fermée sur ce
+noyau et cette carte.
+
+Mettre le film en priorité basse aide en partie, sans aucune capacité. Le jeu
+remonte de 12,5 à 18,7 images par seconde, soit 35 % de ce qu'il perdait. Le
+film garde 1,83 fois la vitesse de lecture au lieu de 2,13, et reste à 1,00
+fois au temps réel. Le jeu ne tient pas 30. Trois choses manquent avant d'en
+faire un réglage : un témoin avec la couche chargée sans priorité basse, la
+mesure du film seul en priorité basse, et un essai dans le vrai Jellyfin.
+C'est aussi une reconfiguration de Jellyfin, donc une décision de Souhib.
+
+Bilan sur les deux critères du 12 novembre : aucune configuration essayée ne
+tient à la fois 30 images par seconde et un film au moins à la vitesse de
+lecture. La seule qui tient 30 reste celle de la série 1 : que le serveur
+n'incruste plus les sous-titres image (29 à 30 images par seconde).
+
+Le relecteur trouve un fait à part dans le journal du noyau. Le 7 novembre à
+14:00, le moteur a déjà bloqué la carte en priorité normale, sans aucun
+transcodage. La remise à zéro de l'anneau a échoué et la carte entière a été
+remise à zéro. C'est un cas en 31 jours, avec une autre signature. Le taux de
+base de cette panne n'est donc pas nul sur cette machine.
+
+Rapport :
+`~/.local/share/nel3ab/nx2-lab/2026-11-12-probe/experiments/e-priorite/REPORT.md`.
+
+### 14 novembre : Lichii build 160 n'a pas pu être lancé
+
+L'essai est bloqué. Le système de permissions de la session a refusé deux fois
+le lancement du binaire téléchargé, dans le conteneur privé, malgré l'accord
+de Souhib du 12 novembre. L'agent n'a rien contourné. Aucun passage n'a
+tourné : il n'existe aucun chiffre sur build 160, ni en bien ni en mal.
+
+L'archive officielle est téléchargée et son empreinte est celle attendue. Rien
+du paquet n'a été exécuté. Le reste vient de la lecture du paquet et des
+sources, clonées en lecture seule. Ce sont des lectures, pas des mesures.
+
+- **Éviction.** L'amont ne détruit plus aucun pipeline tant que leur nombre
+  reste sous un seuil lié à la mémoire vive : 54 770 sur cette machine. Le
+  cache privé en compte 2 531. Par lecture, build 160 ne reconstruirait donc
+  rien au retour de pause. Ce serait l'équivalent amont du préchargement.
+- **Mesure.** Le binaire officiel n'a pas les lignes de journal que le
+  laboratoire avait ajoutées et que l'instrument lit. Il range ses données
+  dans un dossier `lichii`, et refuse de démarrer s'il trouve l'ancien dossier
+  `eden` que l'instrument prépare. Il faut une variante de l'instrument.
+- **Politique d'attente.** La production tourne avec
+  `EDEN_NX2_REFERENCE_ACQUIRE=1`, une retouche du laboratoire absente de
+  l'amont. Un binaire officiel ne peut pas reproduire la production.
+- **Variables mortes.** Treize des 23 variables d'environnement de la
+  production ne sont lues par aucun des deux moteurs. Elles ne font rien.
+
+Le relecteur ajoute la limite la plus utile. Même lancé, le binaire officiel
+n'aurait pas répondu à la question du coût. Quatre choses changent à la fois
+entre lui et le moteur installé : 85 commits, les options de compilation (le
+moteur installé est compilé pour ce processeur, l'officiel est générique), un
+correctif de jeu actif par défaut, et la politique d'attente. Pour comparer
+proprement, il faut compiler ici le commit de build 160 avec les retouches du
+laboratoire, comme le moteur installé l'a été. Cela sort de l'accord donné le
+12 novembre, qui excluait toute compilation de source téléchargée.
+
+Rapport :
+`~/.local/share/nel3ab/nx2-lab/2026-11-12-probe/experiments/f-build160/REPORT.md`.
+
+### 14 novembre : la boîte noire coûte par son profileur roulant, et ses alertes sont fausses pour un jeu à 30
+
+Treize passages, neuf du 12 novembre et quatre du 14. Le moteur tourne seul,
+sans worker ni encodage.
+
+**Le cœur réservé.** Dans la forme essayée, seuls les autres fils du moteur
+quittent le cœur de GPUBack. Le coût de GPUBack baisse de 1,9 à 2,5 %. Quand
+le jeu a de la marge, la cadence ne bouge pas : il tient déjà 30,00. Pendant
+un transcodage sans incrustation, la réserve rend 1 à 1,5 % et le jeu reste
+entre 29,2 et 29,6. Le relecteur précise la limite : les autres programmes de
+la machine restent sur ce cœur, pour environ 20 % d'un processeur pendant un
+transcodage. Une réserve qui les écarte aussi n'a jamais été mesurée.
+
+**Le profileur roulant.** La boîte noire garde `perf` en marche pendant toute
+la partie, pour emporter le profil des secondes qui précèdent une chute. C'est
+lui qui coûte : 2,5 à 3,0 % du coût de GPUBack, soit 0,74 à 0,85 ms par image,
+sur cinq encadrements et deux jours. Tant que le jeu a de la marge, aucune
+image n'est perdue. Quand la marge manque, il en retire : 3,6 à 3,7 % sans
+plafond, 3,6 à 4,3 % pendant un transcodage, soit 1,0 à 1,3 image par seconde.
+C'est plus que ce que rend le cœur réservé. Les relevés toutes les deux
+secondes et les captures ne coûtent presque rien : une capture fait perdre
+environ deux images, six à huit quand le moteur n'a plus de marge.
+
+**Les alertes de cadence sont fausses.** La règle compare la cadence à 50,
+seuil choisi pour les jeux à 60. Zelda est plafonné à 30. La boîte noire prend
+donc une capture « chute » toutes les cinq minutes, avec une médiane de 30,0.
+Le 11 novembre, six captures de cadence sur sept sont de ce genre. Le tort est
+réel : la seule vraie chute du jour, le transcodage Jellyfin qui a fait tomber
+le jeu à 15 ou 17 images par seconde de 15:32:33 à 15:36:53, n'a pas été
+saisie comme telle. La boîte noire venait de parler à tort et se taisait pour
+cinq minutes. Le rejeu des mesures réelles dans la vraie règle le confirme :
+au seuil 27, plus aucune fausse alerte, et la chute du 11 est prise à 15:33:14
+avec une médiane de 16.
+
+Un piège d'arrondi est à connaître avant de choisir le seuil. La page envoie
+une cadence arrondie à l'entier, et la règle demande une médiane strictement
+sous le seuil. Un seuil de 27 ne parle donc qu'à 26 ou moins.
+
+**Les alertes de gel aussi, en partie.** J'ai relu les quatre captures de gel
+des 10 et 11 novembre. Celle de 109 secondes, le 11 à 01:02, n'est pas un gel
+du jeu. La page du joueur était cachée : elle le dit elle-même dans ses
+mesures. Pendant ce temps le serveur a produit 146 à 154 images par tranche de
+cinq secondes, avec 65 ms au plus entre deux images. Les trois autres (12,6,
+15,3 et 13,4 secondes) sont la première capture de chaque partie. Le moteur
+met 14 à 15 secondes à donner sa première image. C'est très probablement le
+démarrage ; je ne l'ai pas vérifié capture par capture.
+
+**Une surprise : le moteur installé a deux états.** Dans cinq passages sur
+treize, le temps noyau de GPUBack monte d'un coup de 28 à 35 %, en quatre à
+huit secondes, et ne redescend pas. GPUBack coûte alors 4 % de plus et passe
+de 87 à 90 % d'un processeur. Le jeu demande le même nombre de dessins avant
+et après : ce n'est pas la scène. Avec la boîte noire en plus, le jeu ne tient
+plus 30 même sans autre charge : 29,4 à 29,6. L'entrée suivante cherche ce
+qui change.
+
+Rien n'est installé. Deux changements sont à décider. Lier le seuil de chute
+au plafond du jeu. Couper ou alléger le profileur roulant pour ce jeu, au prix
+du profil des secondes d'avant une chute. Le cœur réservé seul ne suffit pas à
+tenir 30 sous charge. Rapport :
+`~/.local/share/nel3ab/nx2-lab/2026-11-12-probe/experiments/g-marge/REPORT.md`.
+
+### 14 novembre : le saut de coût de GPUBack est fait de changements de protection de la mémoire
+
+L'essai précédent laissait une question : que fait le noyau pour GPUBack, et
+qu'est-ce qui grossit quand le moteur passe dans son état coûteux ? Cette
+partie est faite par la session qui pilote, sans relecteur.
+
+**D'abord sans rien mesurer.** La boîte noire rejouée avait gardé treize
+tampons du profileur, avec les chaînes d'appel du noyau. J'ai classé chaque
+échantillon de GPUBack par appel système. Le résultat est net. À l'état bas,
+la moitié du temps noyau de GPUBack est dans `mprotect`, l'appel qui change
+les droits d'accès d'une plage de mémoire : 5,2 à 6,3 % de son temps
+utilisateur, sur neuf tampons. Les appels à la carte graphique n'en font
+qu'un dixième. À l'état coûteux, `mprotect` monte à 8,6 à 9,5 %, sur quatre
+tampons de trois passages. Tout le reste du noyau ne bouge pas. Ce qui grossit
+le plus est la découpe des zones de mémoire : quatre fois plus.
+
+**Pourquoi le moteur change des protections.** Le cache graphique garde une
+copie de certaines pages de la mémoire du jeu. Pour savoir quand le jeu les
+modifie, le moteur leur retire leurs droits. Quand le jeu écrit dedans, le
+processeur lève une faute. Le moteur rouvre alors la page et marque sa copie
+périmée. À l'image suivante, GPUBack recopie la page et la referme.
+
+**Ensuite une trace.** Un passage privé de douze minutes, vue fixe, relève
+deux secondes d'appels `mprotect` chaque minute. Le moteur en fait 408 à 437
+par image : 178 à 190 par GPUBack, qui referme, et 230 à 247 par les fils du
+processeur émulé, qui rouvrent. Ce sont toujours les mêmes pages : 431 à 442
+pages distinctes en deux secondes, chacune rouverte une image sur deux, et
+toutes refermées. Le va-et-vient ne s'arrête jamais. Le processus compte
+26 000 zones de mémoire.
+
+**Ce que la trace ne dit pas.** Le saut n'est pas venu pendant ces douze
+minutes. Je ne sais donc toujours pas ce qui le déclenche. En relisant les 48
+passages assez longs des deux séries, je le trouve dans huit : entre 3 et
+8 minutes et demie après le lancement, et jamais de retour à l'état bas.
+
+**Le lien avec la boîte noire.** Quand un profileur suit un programme, le
+noyau prépare un événement à chaque changement de protection. Sur ce moteur,
+cela fait 430 événements par image. C'est une part du coût mesuré de la boîte
+noire : 0,7 à 1,1 % du temps de GPUBack à l'état bas, 1,5 à 1,9 % à l'état
+coûteux.
+
+Deux leçons. La première : un fil qui parle à la carte graphique peut passer
+son temps noyau ailleurs. Je supposais des envois de commandes ; le profil dit
+des protections de mémoire. La seconde : un profil gardé par un essai peut
+répondre à la question suivante sans relancer la machine. Les treize tampons
+existaient depuis deux jours.
+
+Ce n'est pas un gain mesuré. C'est une cible pour une retouche du moteur : ne
+plus refermer une page que le jeu réécrit à chaque image. La borne haute se
+lit dans les profils : 5 à 9 % du temps de GPUBack, plus les fautes d'écriture
+côté jeu, non mesurées. Atteindre 40 images par seconde demande 19 à 23 %.
+Cette piste seule n'y suffit donc pas. Rapport :
+`~/.local/share/nel3ab/nx2-lab/2026-11-12-probe/experiments/h-mprotect/REPORT.md`.
+
+Suite : la retouche proposée ici (ne plus refermer ces pages) a été essayée
+puis écartée, entrées « 14 novembre : la retouche du moteur sur les
+protections de mémoire ne gagne rien » et « 18 novembre : le second agent
+s'est arrêté en route ». L'état coûteux est repris à l'entrée « 18 novembre :
+l'état coûteux n'est pas le choix automatique des petits tampons ».
+
+### 14 novembre : le réglage qui commande ces protections est déjà le bon
+
+Un réglage du moteur, `use_reactive_flushing`, décide quels droits une page
+perd quand le cache graphique en garde une copie. La production le tient
+activé. Il avait été comparé le 7 novembre, sans gain de cadence. Je le
+reprends quand même, pour trois raisons : le moteur n'est plus le même
+binaire, la mesure est dix fois plus fine (le coût de GPUBack par image au
+lieu de la cadence), et la trace donne un mécanisme à vérifier. La reprise est
+bornée à quatre lancements alternés : production, désactivé, désactivé,
+production.
+
+Désactivé, il coûte. La cadence sans plafond baisse de 1,2 % (31,4 contre 31,8
+images par seconde) et GPUBack coûte 2,4 % de plus (29,30 à 29,46 ms par image
+contre 28,51 à 28,82). Les étendues ne se recouvrent pas. La trace explique
+l'écart : le moteur fait 535 à 554 changements de protection par image au lieu
+de 378 à 427. Il referme toujours autant de pages, et il en ajoute pour ses
+pièges de lecture, le mécanisme qui remplace ce réglage.
+
+La piste est fermée, cette fois avec son coût chiffré. Le réglage de la
+production est le bon, et le va-et-vient des pages ne se règle pas par un
+réglage. Deux lancements par bras, une scène, moteur seul. Rapport :
+`~/.local/share/nel3ab/nx2-lab/2026-11-12-probe/experiments/i-reactive/REPORT.md`.
+
+### 14 novembre : Souhib tranche sur la boîte noire, le moteur et Jellyfin
+
+Quatre réponses de Souhib, le soir du 14 novembre.
+
+- **Boîte noire : oui.** Lier le seuil de chute au plafond du jeu, et couper
+  le profileur roulant pour Zelda. Fait le soir même, entrée suivante.
+- **Retouche du moteur : oui.** Il autorise la compilation d'un candidat privé
+  qui ne referme plus les pages que le jeu réécrit sans arrêt. Il ajoute
+  qu'il autorise la compilation de n'importe quelle version de l'émulateur.
+  L'accord couvre donc aussi une compilation du commit de build 160 avec les
+  retouches du laboratoire, que l'accord du 12 excluait.
+- **Jellyfin : ne pas y toucher pour l'instant.** Aucun des trois choix du
+  bilan n'est retenu. En revanche, regarder s'il sert pendant les essais.
+- **Rien n'entre dans la salle sans sa décision.** Cela ne change pas.
+
+Pour la demande sur Jellyfin, un petit outil en lecture seule relève, à chaque
+repère de mesure, le temps de processeur du conteneur Jellyfin et les
+transcodages en cours. Il a montré tout de suite une chose : quelqu'un
+regardait Jellyfin en lecture directe pendant mes essais de l'après-midi. Une
+lecture directe n'occupe pas la carte graphique, et la charge hors moteur de
+ces segments est restée à son niveau habituel (11 à 15 % d'un processeur).
+Jellyfin n'écrit dans son journal que la fin d'une lecture, pas son début : on
+ne peut donc le voir qu'après coup, ou par sa charge.
+
+### 14 novembre : la boîte noire suit le plafond du jeu et ne profile plus Zelda en continu
+
+Deux changements dans le code de la boîte noire, avec leurs essais écrits
+d'abord.
+
+**Le seuil suit le plafond.** Une table donne les jeux plafonnés sous 60
+images par seconde et leur plafond : Zelda, 30. Un jeu de cette table chute
+sous 0,9 fois son plafond, soit 27. Les autres gardent le seuil de 50. La
+cadence se juge maintenant sur les mesures du jeu en cours : quand une salle
+passe de Zelda à un jeu à 60, les 30 encore dans la fenêtre ne font plus
+chuter le nouveau jeu.
+
+**Le profileur roulant ne suit plus le moteur Switch 2.** Les autres moteurs
+le gardent. À deux salles, il suit le moteur qui n'est pas exclu. Une capture
+de Zelda part donc sans le profil des secondes d'avant ; elle garde son profil
+de dix secondes, l'image et les journaux.
+
+**Les essais échouent d'abord pour la bonne raison.** J'ai ajouté les
+réglages et les paramètres sans le comportement, pour que le rouge vienne des
+assertions et pas d'une erreur de construction. Neuf essais échouent alors,
+chacun sur sa ligne : le jeu à 30 qui chute, la vraie chute du 11 novembre
+masquée, le profileur lancé sur Zelda. Leurs trois jumeaux passent déjà : un
+jeu sans plafond à 30 chute toujours, l'ancien réglage rate bien la chute du
+11, et le profileur suit toujours Dolphin. Après la correction, les 133 essais
+de la boîte noire passent, et la porte de qualité Python aussi (411 essais).
+
+**Le rejeu sur les vraies mesures.** Les mesures réelles des pages, rejouées
+dans le déclencheur que le service construit :
+
+| Jour | Ancien réglage | Nouveau réglage |
+|---|---|---|
+| 10 novembre | 2 chutes de cadence à médiane 30, 1 gel | 0 chute de cadence, 3 gels |
+| 11 novembre | 7 chutes de cadence dont 6 à médiane 30, 3 gels | 2 chutes de cadence, 6 gels |
+
+Les deux chutes de cadence du 11 sont réelles : une médiane de 25 à 15:28, et
+le transcodage Jellyfin, pris à 15:33:14 avec une médiane de 16. Les gels en
+plus sont réels aussi : 1,5 seconde à 00:57, 3,5 secondes à 15:43. L'ancien
+réglage les couvrait de ses fausses alertes.
+
+**La vérification sur un vrai moteur.** Un essai avec des doubles ne prouve
+pas que le vrai relevé nomme bien le moteur. J'ai donc lancé un moteur privé,
+puis la boucle du service contre lui. Avec le réglage par défaut, cinq relevés
+voient le moteur comme `switch2` et aucun profileur n'est lancé. Avec la liste
+d'exclusion vidée, le profileur est lancé. Le service est redémarré à 18:26
+UTC, sans partie en cours.
+
+**Ce qui reste faux, et que je n'ai pas touché.** La première mesure d'une
+partie porte un écart de 12 à 15 secondes : c'est le démarrage du moteur. La
+règle de gel le prend pour un gel, puis la salle se tait cinq minutes. Le 11
+novembre, deux vrais gels de 1,9 et 8,3 secondes sont tombés dans ce silence,
+à 15:24 et 15:25, et n'ont pas été capturés. De même, un onglet caché compte
+comme un gel de 109 secondes. Ces deux défauts sortent de ce que Souhib a
+approuvé. Ils sont à lui proposer.
+
+### 14 novembre : la retouche du moteur sur les protections de mémoire ne gagne rien
+
+L'idée venait de l'essai H. Le moteur referme sans arrêt les mêmes pages de
+mémoire, et le jeu les rouvre en y écrivant : 430 changements de protection par
+image. Je supposais que le moteur recopiait de toute façon ces pages vers la
+carte à chaque usage. Cesser de les refermer n'aurait alors rien coûté.
+
+Un agent a écrit la retouche derrière un interrupteur, dans un candidat privé
+(`9b70df2e`), puis l'a mesurée avec et sans, dans le même binaire. C'est
+l'essai J, trois heures.
+
+**L'hypothèse était fausse.** Le moteur ne recopie une page que lorsque le jeu
+l'a écrite : 250 fois par image. Mais il vérifie bien plus souvent qu'elle est
+à jour : 9 700 vérifications par image, qui couvrent 20 000 fois une de ces
+pages. C'est la protection qui rend ces vérifications gratuites. Une page
+laissée ouverte doit être recopiée à chaque vérification.
+
+| Variante | Images par seconde, sans plafond | Coût de GPUBack par image |
+|---|---|---|
+| Candidat, interrupteur éteint | 31,3 à 31,8 | 28,89 à 29,21 ms |
+| Candidat, interrupteur allumé, avec garde | 31,7 à 31,9 | 28,70 à 28,95 ms |
+| Candidat, interrupteur allumé, sans garde | 12,9 à 13,1 | 72,2 à 73,5 ms |
+
+La garde limite le nombre de recopies par page. Sans elle, la règle fait
+21 000 recopies par image et divise la cadence par 2,4. Avec elle, la règle
+ne tient plus qu'une cinquantaine de pages ouvertes et le gain tombe à 0,6 %,
+au seuil du bruit.
+
+L'agent a aussi établi d'où vient le va-et-vient : du cache de tampons, pour
+96 % des appels. Les textures et les shaders n'y sont pour presque rien.
+
+Ce que cela ferme : toute variante qui laisse des pages ouvertes. Ce que cela
+ne ferme pas : une méthode qui garderait les pages fermées et ferait passer
+les écritures du jeu par une file. Elle est plus lourde, et son gain ne
+dépasserait pas 4 à 5 % du coût de GPUBack. Ce plafond est déduit de l'essai
+H, pas mesuré. Rapport :
+`~/.local/share/nel3ab/nx2-lab/2026-11-12-probe/experiments/j-pages/REPORT.md`.
+
+### 18 novembre : le second agent s'est arrêté en route, et ses mesures confirment le rejet
+
+Un second agent devait qualifier le candidat sans rien croire du premier.
+Il s'est arrêté le 14 à 22:49 UTC, pendant son onzième passage, sans rendre de
+compte rendu. La machine a redémarré le 17 novembre, sur un noyau plus récent
+(7.0.0-43 au lieu de 7.0.0-38). Je n'ai repris que le 18.
+
+**Ce qui a tenu.** L'instrument fixe un délai à chaque passage. Le passage
+abandonné a donc été coupé seul, à 23:07, et la boîte noire remise en marche.
+Le moteur privé a tourné dix-sept minutes sans personne pour le surveiller,
+mais il n'est rien resté derrière lui. Les dix passages complets, les notes de
+travail et les scripts de l'agent étaient sur le disque.
+
+**Ce que j'ai refait.** J'ai recalculé la cadence et le coût de chaque segment
+depuis les fichiers bruts : ils concordent avec les journaux de l'agent à
+0,05 ms près. Le rapport de l'essai K est donc de ma main, et il dit ce que je
+n'ai pas revérifié.
+
+**Le verdict.** Le candidat n'est pas qualifié. Le moteur installé
+(`65defb74`) reste le bon.
+
+- En alternance stricte sous le plafond de 30, le candidat coûte 29,07 à
+  29,44 ms par image à GPUBack, le moteur installé 28,89 à 29,21. Soit 0,8 %
+  de plus, avec des étendues qui se recouvrent.
+- Sans plafond, à état égal, il ne fait jamais mieux.
+- L'agent a écrit un essai unitaire qui montre un défaut de justesse : une
+  page tenue ouverte par la règle, puis écrite par la carte graphique, n'est
+  plus recopiée vers la mémoire du jeu. Le défaut ne s'est pas produit dans la
+  scène mesurée. Il reste un défaut.
+- Les images tardives que l'auteur voyait sous plafond ne sont pas
+  confirmées : le moteur installé en montre autant.
+
+**La trouvaille.** Deux lancements sur cinq, un de chaque moteur, étaient dans
+l'état coûteux dès le début de la scène. C'est la première trace des
+changements de protection prise dans cet état. L'entrée suivante la reprend.
+
+**Les leçons.** Un agent peut disparaître au milieu d'un passage : c'est le
+délai de l'instrument, et pas l'agent, qui garantit la remise en état. Et un
+agent qui écrit ses notes et ses sorties au fil de l'eau laisse un travail
+récupérable ; son compte rendu final, lui, peut ne jamais arriver. Enfin, le
+redémarrage change la base : les chiffres d'avant le 17 novembre ne se
+comparent plus directement à ceux d'après. Rapport :
+`~/.local/share/nel3ab/nx2-lab/2026-11-12-probe/experiments/k-qualif/REPORT.md`.
+
+### 18 novembre : l'état coûteux n'est pas le choix automatique des petits tampons
+
+L'essai K avait laissé deux traces de l'état coûteux. Je les ai relues
+(essai L). Dans cet état, le fil graphique GPUBack rouvre et referme lui-même
+26 pages voisines, 3 à 5 fois chacune par image, à 8 microsecondes d'écart.
+Cela fait environ 180 changements de protection en plus par image. À l'état
+bas, ces mêmes allers-retours existent, mais dix fois moins.
+
+**Une première explication, réfutée par la mesure.** Le moteur lie les petits
+blocs de paramètres des dessins (les tampons uniformes) de deux façons : en
+les copiant directement, ou en passant par son cache protégé. Il choisit à
+chaque image, d'après une statistique des 18 dernières. J'ai cru que ce choix
+basculait tout seul. J'ai donc compilé un moteur de diagnostic (`ff4c88bd`),
+identique à l'installé sauf deux ajouts : il note chaque bascule, et un
+interrupteur force le choix. Quatre lancements alternés :
+
+| Petits tampons uniformes | Images par seconde, sans plafond | Coût de GPUBack par image | Changements de protection par image |
+|---|---|---|---|
+| Toujours copiés | 32,0 à 32,3 | 28,6 à 28,8 ms | 414 à 436 |
+| Toujours par le cache | 21,4 à 21,6 | 38,6 à 38,9 ms | 2 043 (une trace) |
+
+Forcer le cache coûte un tiers de la cadence : ce n'est pas l'état coûteux,
+qui coûte 3 à 4 %. Et le compteur du moteur montre que le choix ne peut pas
+rester du côté du cache dans cette scène : il faudrait 98 % de liaisons déjà
+à jour, il y en a 91,6 % quand le cache est forcé et 15,6 % sinon.
+
+**Ce que la mesure a quand même appris.** Le jeu lie 14 300 tampons uniformes
+par image dans cette scène. 11 500 sont copiés, 2 150 passent par le cache
+parce qu'ils dépassent 4 Kio, et 20 de ceux-là doivent être renvoyés à la
+carte à chaque image. Ce sont eux qui font les allers-retours de l'état bas.
+L'état coûteux a la même signature, en plus grand. Une seconde version de
+diagnostic (`0c11bbad`) compte ces envois par emplacement et par taille, pour
+désigner les tampons en cause le jour où l'état coûteux se présente.
+
+**Le piège du jour.** Mon script de passage lisait le journal du moteur dans
+un fichier que l'instrument n'écrit qu'à l'arrêt. Le premier lancement s'est
+donc arrêté avant toute mesure. Le script lit maintenant le journal du
+conteneur. Leçon : essayer chaque lecteur sur un passage vivant, pas sur un
+passage fini.
+
+**Ce qui a freiné.** L'état coûteux arrive au hasard. La boucle qui relance
+des passages courts pour le saisir a buté sur l'intégration continue d'un
+autre projet, qui enchaînait les travaux sur la machine cet après-midi-là.
+Elle attend maintenant la fin d'un travail, ou le refroidissement du
+processeur, et réessaie toutes les deux minutes.
+
+**La chasse n'a rien pris.** Huit lancements courts, de 14:12 à 16:20 UTC :
+tous dans l'état bas. Avec les lancements du début d'après-midi, cela fait
+onze lancements où l'état coûteux pouvait paraître, et aucun où il a paru. Le
+14 novembre, il avait paru deux fois sur cinq. Le noyau a changé entre les
+deux jours, l'heure et la charge voisine aussi : onze lancements sans le voir
+ne prouvent pas qu'il a disparu. Je n'y passe pas plus de temps. L'amont dit
+avoir retiré cet aller-retour (demande 1436, entrée suivante) : la mesure
+d'une version récente répondra plus vite qu'une chasse au hasard.
+
+Ces lancements laissent un chiffre utile : dix segments propres du moteur de
+diagnostic, entre 28,41 et 28,57 ms de GPUBack par image, soit 32,0 à 32,3
+images par seconde sans plafond. C'est la référence de l'état bas sur le
+nouveau noyau.
+
+Rapport et scripts :
+`~/.local/share/nel3ab/nx2-lab/2026-11-12-probe/experiments/l-etat-couteux/`.
+
+### 18 novembre : faut-il écrire notre propre émulateur ? La veille dit de rattraper l'amont
+
+Souhib a posé trois questions : réécrire un émulateur à nous, regarder ce que
+les projets ont fait depuis notre dernier passage, et regrouper les consoles
+derrière une « fabrique ». Deux recherches en lecture seule y répondent : une
+veille des projets, et une carte de la façon dont chaque émulateur est
+branché dans ce dépôt.
+
+**Réécrire ne change pas notre problème.** Nos mesures disent où part le
+temps : un seul fil, GPUBack, 28,6 à 28,8 ms par image. Le processeur émulé a
+de la marge et la carte graphique n'est pas la limite à 30. Le moteur que
+nous compilons déjà fait 835 000 lignes ; le cache de tampons, où sont les
+pertes mesurées, en fait 7 000. Une réécriture referait les 99 % qui ne nous
+limitent pas. La veille le confirme par les faits : deux émulateurs Switch 2
+écrits de zéro existent depuis juin 2025, et aucun ne lance un jeu du
+commerce. C'est aussi la décision D1 de l'ADR, prise pour Dolphin avec les
+mêmes raisons.
+
+**Ce qui a changé en amont, et qui compte.** Lichii a publié quatre versions
+depuis celle que nous avions regardée (builds 177, 228, 316 et 341) et
+fusionné 447 demandes depuis le 11 novembre. Plusieurs visent exactement
+notre limite, et leurs auteurs mesurent sur le même jeu que nous :
+
+- la demande 1436 décrit mot pour mot l'aller-retour que je venais d'isoler
+  dans l'état coûteux (les données écrites par le fil graphique faisaient
+  rouvrir puis refermer leurs pages), et le retire ;
+- la 1441 allège les 14 000 liaisons de tampons uniformes ;
+- la 1518 sort les changements de protection d'un verrou que GPUBack
+  attendait avant chaque dessin ;
+- la 1471, un portage des « pages chaudes », a été refusée par l'amont pour
+  des défauts de justesse, dont celui que notre essai K a trouvé de son côté.
+
+Aucun de ces gains n'est mesuré ici. Les annonces viennent d'autres machines
+(cartes Nvidia, Steam Deck, processeurs plus rapides), et plusieurs disent
+elles-mêmes « pas encore mesuré ». Notre moteur installé part d'un commit du
+9 novembre : il n'a rien de tout cela.
+
+**Deux autres faits de la veille.** Personne ne traduit les commandes
+graphiques sur plus de deux fils ; le seul essai de préparation en parallèle
+est en pause, pour un gain net estimé à moins d'une milliseconde. Et une
+grosse demande ouverte chez Lichii (la 1944) contourne toute la traduction
+en rejouant directement les appels graphiques du jeu ; elle n'est pas
+fusionnée et Zelda s'y affiche mal. Enfin, Nintendo a fait retirer plusieurs
+dépôts en novembre, dont Citron. Aucun avis ne nomme Lichii, mais l'amont
+peut disparaître.
+
+**Ce que « avoir la main » veut dire.** Nous l'avons déjà : nous compilons le
+moteur nous-mêmes, pour ce processeur, avec nos retouches. Ce que nous avons
+et que l'amont n'a pas, c'est l'instrument de mesure et cette machine (carte
+AMD, pilote RADV), que l'amont teste peu. La suite logique est donc de
+rattraper l'amont, de le mesurer ici en alternance contre le moteur
+installé, et de garder nos retouches en une pile courte par-dessus.
+
+**La fabrique de consoles est une bonne idée, côté salle.** La carte du dépôt
+montre trois émulateurs (Dolphin, Ryubing, `eden-cli`), aucune interface
+commune, et la liste des consoles écrite à cinq endroits. Ajouter un
+émulateur de la famille Switch demande de toucher quinze à seize fichiers.
+Onze défauts datés sont venus d'un point d'intégration oublié, de l'absence
+d'`eden-cli` dans la boîte noire au seuil de cadence qui ignorait le plafond
+de 30. Une amorce existe : `EngineLaunch` dans `docker/switch-room.py`.
+L'étude Switch de septembre prévoyait déjà cette extraction (étape 3) ; elle
+n'a pas été faite. La fabrique ne rend pas un jeu plus rapide : elle rend
+l'ajout d'une console sûr. Elle ne fusionne pas les émulateurs entre eux.
+
+Rien n'est décidé : c'est un avis rendu à Souhib le 18 novembre. Comptes
+rendus et sources brutes :
+`~/.local/share/nel3ab/nx2-lab/2026-11-18-veille/` (`VEILLE.md`,
+`CARTE-MOTEURS.md`, `brut/`).
+
+### 18 novembre : l'amont récent, compilé ici, donne 10 % d'images en plus, pas 40
+
+C'est la première mesure sur cette machine de ce que l'amont a fait depuis
+notre base du 9 novembre. Rien n'est installé : la salle garde le moteur
+`65defb74`.
+
+**Ce qui est comparé.** Deux versions de Lichii, compilées ici avec la
+recette exacte du moteur installé : le build 341, publié le 17 novembre (600
+commits après notre base), et la tête de la branche `nx2` du 18 (97 commits
+que le build 341 n'a pas). Je ne leur ai ajouté que ce que l'instrument
+exige, soit 13 fichiers : le dossier de données, les lignes de cadence qu'il
+lit, et la politique d'attente de la production derrière sa variable. Les
+autres retouches du laboratoire ne sont pas portées.
+
+**Ce qui a résisté.** L'amont a renommé ses options de compilation et sa
+cible ; le script de compilation ne convenait plus et un second le remplace.
+Le report automatique de nos retouches a échoué sur deux fichiers que
+l'amont a réécrits. Le script de portage remplace maintenant des ancres
+exactes et s'arrête si l'une a bougé. Le premier lancement de contrôle a
+été déclaré incomplet par l'instrument : avec un seul segment de 30
+secondes, aucune fenêtre de 600 images ne tenait après le signal « prêt ».
+Leçon : un segment de mesure fait au moins 60 secondes.
+
+**Série 1, même politique d'attente que la production.** Ordre : installé,
+build 341, `nx2`, `nx2`, build 341, installé. Deux segments de 90 secondes
+par lancement, vue fixe devant Saria, sans plafond, douze segments retenus.
+L'amont coûte 3,8 % de moins à GPUBack (27,5 ms par image contre 28,6),
+étendues disjointes. La cadence ne suit pas : 32,4 images par seconde contre
+31,8, et les étendues se touchent. GPUBack travaille moins mais attend plus.
+Le processeur émulé coûte un quart de moins, le fil avant un cinquième de
+plus.
+
+**Série 2, la politique d'attente de l'amont.** Quand le jeu demande
+d'attendre un compteur, la production fait d'abord finir tout le travail
+graphique en file (une vidange), puis lit le compteur. L'amont passe sans
+vidange quand le compteur, ou une écriture encore en file, satisfait déjà
+l'attente. Le laboratoire avait refusé ce raccourci le 9 novembre, faute de
+preuve de justesse. Ordre : installé, build 341, `nx2`, puis `nx2` avec la
+politique de la production deux fois, puis l'ordre inverse. Quatorze
+segments retenus sur seize.
+
+| Moteur, politique | GPUBack, ms par image | Images par seconde | GPUBack occupé |
+|---|---|---|---|
+| Installé, production | 29,15 à 29,77 | 30,96 à 31,61 | 92 % |
+| `nx2`, production | 27,48 à 27,56 | 32,25 à 32,35 | 89 % |
+| Build 341, amont | 27,06 à 27,31 | 34,29 à 34,58 | 94 % |
+| `nx2`, amont | 27,06 à 27,66 | 34,21 à 34,85 | 94 à 95 % |
+
+La politique de l'amont donne 6,8 % d'images en plus sur le même binaire.
+Contre le moteur installé du même soir, l'amont complet donne 10 % de plus.
+Les étendues ne se touchent pas. Le build 341 et la tête de `nx2` se
+confondent : les demandes 2116 à 2161 ne se voient pas dans cette scène.
+
+**La justesse du raccourci, comptée par les vérificateurs de l'amont.**
+L'amont a ajouté depuis le 9 novembre deux vérificateurs. Le premier
+vidange quand même après chaque décision et relit le compteur : sur 528 058
+attentes passées sans vidange (build 341) et 543 655 (`nx2`), aucune n'est
+passée à tort et aucune n'est retenue à tort. Le second fait comparer par
+GPUBack ce que le fil avant a prédit : 1 219 284 signaux comparés, zéro
+écart. Une réserve demeure. Dans 3 % des passages, le jeu continue sur la
+foi d'une écriture en file qui n'arrive en mémoire qu'une fois le travail de
+la carte graphique terminé. La production aurait attendu. L'amont tient ce
+cas pour normal. Aucun compteur ne dit ce que le jeu fait de cette avance.
+L'image finale des six lancements est correcte, et leurs journaux ont les
+mêmes avertissements que les autres.
+
+**L'état coûteux est revenu, sur le moteur installé seulement.** Les deux
+lancements du moteur installé de la série 2 y sont tombés (572 et 614
+changements de protection par image, contre 417 et 438 dans la série 1). Les onze lancements de l'amont
+sont restés dans l'état bas. Ce n'est pas une preuve : deux sur quatre
+contre zéro sur onze laisse environ une chance sur dix-sept au hasard, et
+onze lancements de l'après-midi sur l'ancienne base ne l'avaient pas vu non
+plus. La demande 1436, qui dit retirer cet aller-retour, est dans le build
+341.
+
+**Où en est l'objectif de 40.** Pas atteint. Avec la politique de l'amont,
+GPUBack coûte 27,1 ms par image et il est occupé 94 % du temps. Pour 40
+images par seconde il faut 23,4 à 25,0 ms : il manque 8 à 14 %. Le gain
+utile pour la salle est ailleurs : sous le plafond de 30, la marge passe de
+3 à 6 % (moteur installé, selon son état) à 15 %.
+
+**Ce qui n'est pas prouvé.** Une seule vue fixe, moteur seul, cache chaud.
+La tenue de l'amont n'est pas éprouvée. Les 3 % de passages anticipés ne
+sont pas qualifiés. Aucun des 600 commits n'est isolé : je ne sais pas
+lequel retire un quart du coût du processeur émulé.
+
+La suite, sous le plafond de la salle et sur la tenue, est dans l'entrée
+« 18 novembre au soir » plus bas.
+
+Rapport :
+`~/.local/share/nel3ab/nx2-lab/2026-11-12-probe/experiments/m-amont341/REPORT.md`.
+
+### 18 novembre : NSP-Box n'est pas un émulateur
+
+Souhib a proposé d'essayer NSP-Box (`github.com/smarkyie/NSP-Box`) à la place
+de l'émulateur Switch 2. Lecture du dépôt, dix minutes, rien d'exécuté.
+
+C'est un outil Windows qui range un jeu Switch 2 déjà extrait dans un
+fichier NSP ou NUP. Son propre texte dit qu'il n'est ni un émulateur ni un
+convertisseur universel, et qu'il ne peut pas ajouter la Switch 2 à un
+émulateur qui ne l'a pas. Il n'a pas de version Linux. Il ne change que
+l'emballage des fichiers du jeu : le code du jeu et ses commandes graphiques
+restent les mêmes, donc ni l'image ni la cadence n'en dépendent. Notre copie
+de Zelda est déjà un fichier NUP, que le moteur lit directement.
+
+Un jeu Switch 2 ne tourne pas non plus dans un émulateur Switch 1, même
+rangé dans un NSP : le fichier change, le programme dedans reste un
+programme Switch 2. Le source du moteur qui le fait tourner dit ce qu'il
+demande et qu'une Switch 1 n'a pas. Ses métadonnées ont un autre format
+(zone de signature de 0x300 octets au lieu de 0x200). Il appelle des
+fonctions du noyau propres à la Switch 2 (l'appel 0x80). Il dimensionne sa
+mémoire sur plus que les 8 Gio d'une Switch 1 et utilise six cœurs. Il
+parle à la carte graphique par une interface nouvelle. Dans le build 341,
+361 fichiers source sur 3 753 portent du code propre à la Switch 2. Non
+essayé dans Ryubing : c'est une lecture, pas une mesure. Le Zelda de la
+salle porte un identifiant Switch 2 (`0400…`).
+
+Les émulateurs que cet outil sait retoucher (Selevet, Eglantine, « AMD
+Experimental », PokeDinner) sont des variantes de la même famille que notre
+moteur. La seule dont une trace publique est trouvée, « AMD Experimental »
+d'Eglantine, corrige des plantages du pilote AMD sous Windows et date des
+builds 77 à 99 ; l'amont en est au 341. Ce n'est pas une piste pour cette
+machine. Selevet et PokeDinner ne sont pas retrouvés par une recherche
+simple.
+
+### 18 novembre au soir : sous le plafond de la salle, l'amont ne change pas la cadence, il libère du processeur
+
+L'entrée précédente sur l'essai M laissait deux questions : que vaut
+l'amont sous le plafond de 30 images par seconde de la salle, et tient-il
+ailleurs que dans une vue fixe ? Deux séries y répondent en partie, de
+19:53 à 21:36 UTC, toujours moteur seul, sans navigateur ni encodage vidéo.
+
+**Sous le plafond de 30.** Vue fixe, cache chaud, ordre installé, amont,
+amont, installé, deux segments de 90 s par lancement. Les huit segments
+sont retenus.
+
+| Moteur | Images par seconde | GPUBack, ms par image | GPUBack occupé | Processeur par image |
+|---|---|---|---|---|
+| Installé | 30,00 | 28,49 à 29,18 | 85,5 à 87,5 % | 138 ms |
+| Build 341, politique de l'amont | 30,00 | 27,20 à 27,84 | 81,6 à 83,5 % | 115 ms |
+
+Les deux tiennent le plafond. Dans cette vue, le joueur ne verrait aucune
+différence. Le gain est dans la réserve : le fil qui borne la cadence est
+occupé 82 % du temps au lieu de 86 %, et le moteur consomme 17 % de
+processeur en moins par image, soit 3,4 cœurs au lieu de 4,1 à 30 images
+par seconde. « Processeur par image » additionne trois groupes de fils :
+GPUBack, le fil avant et les six cœurs émulés. Dans une salle, ces cœurs
+libérés reviennent au navigateur et à l'encodage. Ce n'est pas mesuré.
+
+**La tenue, un lancement par moteur.** Ce n'est pas une alternance : ce qui
+suit est une tendance.
+
+- Cache vide, premier trajet de 90 s : l'amont rend 29,1 images par seconde
+  avec un seul intervalle de plus de 100 ms, le moteur installé 26,7 avec
+  treize. Les dessins attendent un programme graphique pas encore construit
+  pendant 0,2 s au total chez l'amont, 6,5 s chez l'installé. L'amont occupe
+  11,7 Gio de mémoire, l'installé 16,0 Gio. Chiffres corrigés le 19
+  novembre : j'avais écrit 12,2 et 16,7 en lisant des millions de Kio pour
+  des Gio.
+- Dix minutes à chaud : aucun intervalle de plus de 100 ms dans un segment,
+  pour aucun des deux. La mémoire ne dérive pas pendant 340 s à l'arrêt.
+- Retour après ces 340 s : le moteur installé a détruit 387 programmes
+  graphiques inutilisés pendant l'arrêt et en reconstruit 192 au retour,
+  dont 137 sur le fil graphique (1,1 s). L'amont n'en détruit aucun. Il
+  annonce au chargement qu'il ne détruit qu'au-delà de 54 770 programmes
+  construits. C'est le défaut que le préchargement du 12 novembre visait ;
+  l'amont l'a retiré à la source.
+
+**Ce qui n'est pas prouvé, et une réserve sur l'amont.** Trois intervalles
+isolés de 430 à 456 ms apparaissent chez l'amont : deux à froid dans les
+segments, un à chaud entre deux segments. Son journal n'écrit rien pendant
+ces intervalles et les constructions annoncées autour durent 2 à 13 ms. À
+chaud, le moteur installé ne dépasse pas 91 ms dans un segment, et 189 ms
+entre deux segments. Avec un lancement par moteur, on ne peut pas dire si
+ces gels sont propres à l'amont. Ils comptent : la demande est la stabilité
+d'abord. La réponse est dans l'entrée « Nuit du 18 au 19 novembre » plus
+bas : ils sont propres à l'amont.
+
+**Trois pièges de la soirée.**
+
+- Les deux moteurs ont reçu les mêmes entrées de manette et n'ont pas fini
+  au même endroit : Link dans l'herbe derrière un tronc pour l'amont, sur
+  les dalles près de Saria pour l'installé (captures lues). Les cadences
+  par trajet (29,5 contre 29,3) ne sont donc pas attribuables au moteur.
+  Seuls les comptes tirés des journaux le sont. La règle « les mêmes
+  entrées ne prouvent pas le même trajet » s'applique encore.
+- Le tableau de tenue a affiché −0,01 image par seconde pour un segment.
+  L'instrument avait lu une ligne du journal en cours d'écriture : son
+  horodatage était coupé à quatre chiffres. Le résultat que l'instrument
+  calcule à l'arrêt, sur le journal complet, donne 29,31. La leçon : un
+  relevé pris pendant l'écriture d'un journal peut lire une ligne
+  incomplète ; le recalcul doit rejeter un horodatage qui recule.
+- Le scénario de changement de zone s'est arrêté avant toute mesure, sur les
+  deux moteurs : Link n'atteint pas l'échelle de sa maison. La garde par
+  image de référence a fait son travail (corrélation 0,19 contre un seuil de
+  0,6). Le même arrêt avait déjà eu lieu deux fois sur quatre le 12
+  novembre. L'arrêt n'était donc pas un défaut de l'amont, ce que seul le
+  lancement jumeau sur le moteur installé a montré. Deux corrections ont
+  suivi, et les deux ont échoué sur les deux moteurs. Link finit à 255
+  pixels à droite de l'échelle et un pas de côté de 0,12 s en rattrape 16.
+  J'ai d'abord triplé ce pas, en supposant le déplacement proportionnel à
+  la durée de l'appui : c'est faux, Link pivote, la caméra le suit et la
+  poussée suivante l'envoie contre un rocher. J'ai ensuite gardé le petit
+  pas avec 24 essais : l'échelle n'est jamais prise. Bilan : six lancements,
+  aucune mesure du changement de zone. Les entrées sont pourtant celles du
+  12 novembre au centième de seconde près, où deux lancements sur quatre
+  réussissaient ; la cause du changement n'est pas établie. La leçon : un
+  trajet à l'aveugle se recalibre à la vue, pas par un calcul sur deux
+  captures.
+
+Rapport : parties 7 et 8 de
+`~/.local/share/nel3ab/nx2-lab/2026-11-12-probe/experiments/m-amont341/REPORT.md`.
+
+### Nuit du 18 au 19 novembre : les gels de l'amont suivent sa règle de rétention des images, et une marge les retire dans tout ce qui a été mesuré
+
+L'entrée précédente laissait une réserve : trois gels d'une demi-seconde
+chez l'amont, sans savoir s'ils lui étaient propres. La demande étant la
+stabilité d'abord, c'était la question à régler avant tout essai en salle.
+La nuit y a répondu en quatorze heures de mesures, moteur seul, de 20:46 à
+10:35 UTC. Rien n'est installé.
+
+**Les gels sont propres à l'amont.** Trois séances de dix minutes par
+moteur, en alternance : l'amont gèle 5 trajets à chaud sur 12, le moteur
+installé aucun sur 12 (pire intervalle 91 ms). Sur toute la nuit, l'amont
+avec ses réglages par défaut gèle 41 trajets sur 152. Un gel est une seule
+image qui dure 0,46 à 0,61 s. Un trajet est une boucle de 65 s : tour de
+caméra, deux boucles de marche, retour de caméra.
+
+**Une première lecture, fausse.** Les huit premiers gels tombaient dans la
+seconde où la mémoire de la carte graphique atteignait son plafond de
+8 176 Mio, et où environ 192 Mio partaient dans la mémoire du PC. J'ai écrit
+« la carte est pleine ». Deux mesures l'ont défait. D'abord l'amont a un
+réglage qui lui fait traiter la carte comme si elle n'avait que 7 424 Mio :
+la carte garde alors 700 Mio libres et le gel reste (3 trajets sur 8).
+Ensuite, relevé trajet par trajet, le niveau de mémoire vidéo juste avant
+l'instant du gel est le même pour les trajets gelés et les autres (médianes
+de 7 820 et 7 773 Mio). Un trajet relevé à 7 118 Mio gèle, un autre relevé
+à 8 107 ne gèle pas.
+
+**Ce que le moteur dit de lui-même.** L'amont possède une trace de
+saccades : pour chaque image lente, elle écrit le temps passé dans chaque
+opération. Elle montre une série de cinq créations d'images de texture qui
+revient jusqu'à quatre fois par trajet, aux mêmes instants. La plupart du
+temps cette série coûte une image de 62 à 118 ms. Parfois l'allocation de
+mémoire de la quatrième image dure 17 à 23 ms au lieu de moins de 5 : c'est
+le gel. Les 34 gels tracés de la nuit ont tous cette allocation lente, et
+aucune des 625 autres occurrences ne l'a. À ce moment, 190 à 290 Mio
+apparaissent dans la mémoire du PC. Un relevé de l'état des fils toutes les
+30 ms montre ensuite que le moteur attend la carte graphique pendant
+0,45 à 0,51 s (fonction du noyau `drm_syncobj_array_wait_timeout`). Ce que
+font la carte et son pilote pendant cette attente n'est pas mesuré : il
+faudrait une trace du noyau, donc un compte administrateur.
+
+**Le suspect : la règle de rétention.** L'amont occupe 450 Mio de mémoire
+vidéo de plus que le moteur installé sur le même trajet. Son code contient
+une règle absente du nôtre : garder les images de texture récemment
+utilisées tant que l'occupation reste sous une « limite de rétention ». Son
+journal annonce cette limite à 8 117 Mio pour un budget de 8 146. Il
+remplit donc la carte à 30 Mio près avant de libérer une image récente.
+
+**Une retouche de laboratoire pour l'éprouver.** J'ai ajouté une variable
+au build 341 : elle retire un nombre de Mio à cette limite. Sans la
+variable, rien ne change. Le test est rouge d'abord : avec une fonction
+volontairement fausse il échoue sur le calcul attendu (8 117 moins 1 024
+donne 7 093), avec la bonne il passe. Le journal de chaque lancement écrit
+la marge appliquée et la limite qui en résulte. Rétention coupée, l'amont
+retombe à la mémoire vidéo du moteur installé (6 664 à 6 767 Mio en
+médiane contre 6 612 à 6 840) : la règle explique bien les 450 Mio.
+
+**Quatre séries pour savoir si la marge retire le gel, et un détour.** Les
+deux bras utilisent le même binaire, avec ou sans une marge de 1 024 Mio,
+en alternance.
+
+- Série 1 : 0 gel partout, témoin compris. Rien à en tirer.
+- Série 2 : témoin 2 gels sur 16 trajets, marge 0 sur 16.
+- Série 3, huit trajets par lancement : 0 gel partout.
+
+À ce stade la marge comptait 48 trajets sans gel, mais son témoin presque
+autant. Et un écart sautait aux yeux : le binaire d'origine gelait 11
+trajets sur 40 le soir, le binaire retouché sans variable 2 sur 48 la nuit.
+Les deux compilations ne diffèrent que par les trois fichiers de la
+retouche. J'ai donc alterné les deux binaires, sans variable : 11 gels sur
+24 pour l'un, 10 sur 24 pour l'autre. Le binaire n'y est pour rien. C'est la
+fréquence du gel qui change selon la période : 27 % des trajets le soir,
+5 % de 03:00 à 07:15, 44 % de 07:16 à 08:53. Les 48 trajets sans gel de la
+marge avaient tous tourné pendant la période calme. Ils ne prouvaient rien.
+
+- Série 4, lancée aussitôt, pendant que le gel était fréquent : témoin 7
+  gels sur 24 trajets, marge 0 sur 24. Un lancement avec marge sans aucun
+  gel est encadré par deux témoins qui gèlent 3 et 6 fois.
+
+| Compté par | Témoin | Marge de 1 024 Mio | Probabilité d'un tel écart par hasard |
+|---|---|---|---|
+| Trajet | 9 gelés sur 64 | 0 sur 72 | 0,0008 |
+| Lancement avec au moins un gel | 4 sur 11 | 0 sur 12 | 0,037 |
+| Recréation de la série d'images | 9 lentes sur 162 | 0 sur 251 | 0,0002 |
+
+Avec la marge, le maximum de mémoire vidéo relevé reste entre 7 087 et
+7 518 Mio (7 817 à 8 160 pour le témoin) et rien ne part dans la mémoire du
+PC. Le moteur recrée alors la série d'images à chaque occasion (3,9 fois
+par trajet au lieu de 3,0) : quelques images de 65 à 117 ms en plus, du
+même ordre que celles du moteur installé. La cadence en trajet ne sépare
+pas les deux bras.
+
+**Ce que cela vaut.** Aucun contre-exemple en 72 trajets et 251
+recréations, sur sept heures. Ce n'est pas une preuve au sens strict : les
+gels viennent par périodes, donc les trajets ne sont pas des tirages
+indépendants, et le compte le plus prudent, par lancement, laisse 4 chances
+sur 100 au hasard. Rien n'est mesuré hors de ce trajet, ni en salle
+complète, ni avec une autre taille de marge.
+
+**Ce qui reste sans explication.** Pourquoi la fréquence du gel change
+selon la période. J'ai écarté, mesures à l'appui : le binaire, Jellyfin
+(0,0 à 0,5 % d'un cœur pendant la période la plus touchée), un autre client
+de la carte (aucun relevé pendant un trajet), la mémoire libre du PC et la
+température du processeur. Une piste non établie : avec les mêmes entrées
+de manette, Link ne finit pas au même endroit d'un lancement à l'autre, et
+les quatre lancements où il finit à gauche de Saria n'ont aucun gel sur 24
+trajets. C'est un classement à l'œil sur une capture par lancement.
+
+**Les pièges de la nuit, et ce qu'ils apprennent.**
+
+- Une coïncidence constante n'est pas une lecture. « La carte est pleine »
+  tenait à huit cas sur huit, et une heure d'essai l'a défaite.
+- Quand un témoin se tait, vérifier d'abord que le défaut existe encore. Le
+  témoin ne gelait presque plus depuis quatre heures et je comptais les
+  trajets sans gel de la marge comme des points pour elle. Il faut relancer
+  le bras connu pour montrer le défaut avant de croire le bras traité.
+- Deux périodes successives ne comparent rien, même pour deux binaires. La
+  règle d'alternance du projet vaut aussi pour « c'est sûrement la
+  compilation ».
+- Un témoin n'en était pas un. Dans un lancement, un client étranger a pris
+  de la mémoire vidéo pendant une seconde ; le moteur a alors baissé seul sa
+  limite de rétention de 8 117 à 7 376 Mio jusqu'à la fin. Ce lancement n'a
+  aucun gel. Un réglage se vérifie sur toute la durée du passage, pas
+  seulement dans la ligne écrite au démarrage.
+- Mon tableau comptait « non gelé » le dernier trajet d'un lancement quand
+  le moteur s'arrêtait avant d'écrire sa fenêtre de mesure. Seize trajets
+  étaient dans ce cas, dont deux gelés. Un trajet non lu se compte à part.
+- Le même tableau ne regardait que la seconde 54 du trajet, là où tombaient
+  tous les premiers gels. Deux gels sur 34 tombent ailleurs. Un compteur
+  réglé sur les cas déjà vus ne voit que ceux-là.
+- Le premier essai de rétention a tourné sous une charge extérieure
+  périodique (un service de la machine, quelques secondes toutes les 90 s).
+  Le contrôle de départ lit la machine à un instant et l'a laissée passer.
+
+**Où cela laisse le projet.** Le moteur installé reste le bon choix pour la
+salle : il n'a pas ce gel. L'amont par défaut ne peut pas y entrer. L'amont
+avec la marge devient un candidat : il garde le gain de l'entrée du 18
+novembre (processeur libéré, programmes graphiques conservés pendant une
+pause) et n'a montré aucun gel. La suite est un essai en salle complète de
+ce candidat, sur décision de Souhib. L'objectif de 40 images par seconde
+n'est pas touché par cette nuit : aucun des deux moteurs ne l'atteint.
+
+Rapport : parties 10 à 13 de
+`~/.local/share/nel3ab/nx2-lab/2026-11-12-probe/experiments/m-amont341/REPORT.md`.
+
+### 20 novembre : on laisse le moteur Switch 2, et on audite tout le reste
+
+**La décision.** Souhib a demandé de laisser le moteur Switch 2 de côté.
+Rien n'est installé de nouveau : la salle garde Lichii `65defb74` plafonné
+à 30. Juste avant, il avait demandé si 40 ou 60 images par seconde étaient
+atteignables. La réponse donnée s'appuyait sur les mesures déjà faites.
+Le jeu est tenu par un seul fil du moteur, GPUBack, donc par la vitesse
+d'un cœur du processeur. L'amont compilé ici fait 34,5 images par seconde
+sans plafond, sur une seule vue. Pour 40, il manque 8 à 14 % du coût de
+ce fil. Pour 60, il faudrait en retirer la moitié, et deux autres fils
+satureraient. Avis donné : 40 est plausible en suivant l'amont ou avec un
+processeur plus rapide par cœur, pas avec nos retouches, qui rapportaient
+2 à 3 % chacune ; 60 n'est pas réaliste sur cette machine.
+
+**Les nouvelles demandes.** Une « fabrique » pour ajouter un émulateur sans
+peine. Une page où l'on dépose les fichiers d'un jeu, qui reconnaît la
+console et range le jeu. Une page profil avec les jeux joués et les
+sauvegardes de chacun. Une interface plus personnelle, avec des animations,
+et pour chaque page un avant et un après.
+
+**Comment l'audit a été fait.** Cinq auditeurs ont lu le dépôt en lecture
+seule, un par volet : fabrique, import, profil, interface, solidité. Cinq
+vérificateurs ont ensuite rouvert dans le code les affirmations dont
+dépendent les recommandations. Sur 79 affirmations rouvertes, 57 sont
+confirmées, 21 corrigées, aucune n'est fausse, une reste invérifiable. Les
+corrections portent surtout sur des comptes et sur la taille des travaux,
+jugée trop petite plusieurs fois. Les captures de l'interface viennent d'un
+aperçu isolé de la page, avec des données inventées : aucune salle n'a été
+ouverte. Les résultats bruts, les captures et la page de restitution sont
+dans `~/.local/share/nel3ab/audit-2026-11-20/`.
+
+**Ce qui a été trouvé, par ordre de risque.**
+
+- Les sauvegardes des joueurs n'ont aucune copie hors de la machine. Un NAS
+  est pourtant déjà monté sur `/mnt/nas`. Son partage est public sur le
+  réseau local : la copie devra être chiffrée.
+- Deux mois de travail installé sont hors de Git : 85 fichiers modifiés et
+  26 chemins non suivis le 20 novembre, dont le module des sauvegardes personnelles
+  que le binaire en service contient déjà. La production tourne directement
+  depuis cet arbre de travail.
+- Plusieurs routes du salon qui écrivent ne vérifient ni l'identité ni
+  l'origine de la demande. Le compte du salon a de fait les droits
+  d'administrateur de la machine. Le détail est dans le rapport local, pas
+  ici, parce que ce dépôt est public.
+- Une page de la salle 2 peut recevoir les présents de la salle 1, et le
+  chef retenu est une seule valeur pour toutes les salles. Un vérificateur
+  l'a reproduit en mémoire, pas sur la vraie salle.
+- Ajouter une console sur adaptateur externe touche 28 endroits dans
+  15 fichiers. La liste des consoles est recopiée au moins sept fois, et un
+  seul booléen, `is_switch()`, décide de cinq choses différentes, dont le
+  verrou « une seule Switch sur la machine ».
+- La page de salle et l'accueil ont deux identités visuelles qui ne se
+  parlent pas. Plusieurs défauts se voient dans les captures : dialogue des
+  touches Switch collé en haut à gauche, préparation à deux bords gauches,
+  et un mouvement réduit qui ne coupe pas toutes les animations.
+
+**Le défaut commun aux trois nouveautés.** Un jeu n'a pas d'identité stable.
+Il est désigné sur le fil par sa position, sur un octet, dans une liste
+lue une fois au démarrage. Ses sauvegardes GameCube et Wii sont rangées par
+son nom de fichier. Un import qui ajoute un jeu pendant une partie
+décalerait les positions. Un import qui renomme un fichier détacherait la
+progression de chacun. Un profil ne peut pas lister proprement des parties
+rangées ainsi. C'est donc la première pièce à poser.
+
+**L'ordre proposé, en attente des décisions de Souhib.** Mettre à l'abri
+(copie des sauvegardes, travail remis dans Git sur son accord), fermer les
+portes du salon, poser le socle (clé de jeu stable, catalogue relu sans
+redémarrer, liste unique des consoles), puis l'import, le profil, la
+refonte page par page, et enfin un pilote RetroArch sur une seule console à
+cartouche. RetroArch est un programme qui fait tourner des « cœurs »
+d'émulation libretro ; il entre dans la forme d'adaptateur déjà utilisée par
+la Switch. Rien n'en a été essayé.
+
+**Ce que les vérificateurs ont changé dans les propositions.** Un service
+d'envoi qui appelle Docker a l'équivalent des droits root : l'isolation par
+systemd n'y servirait à rien, d'où une identification des fichiers en Rust,
+sans conteneur. Une copie de sauvegarde qui tient un verrou fait démarrer
+une salle sans jeu : copier seulement quand aucune salle n'est ouverte. Des
+emplacements Switch contiennent des tubes nommés : tout lecteur qui les
+ouvre se bloque, donc un téléchargement de sauvegarde doit refuser les
+fichiers non réguliers. Côté interface, deux propositions revenaient sur
+des décisions consignées : la fiche « classique » du salon, gardée à la
+demande de Souhib, et le contour autour de sa propre prise, retiré parce
+qu'il grisait les autres. Elles sont présentées comme des choix à faire,
+pas comme des acquis.
+
+**Ce qui n'est pas prouvé.** Les efforts sont des estimations de lecture,
+pas des mesures. Rien n'a été construit ni essayé : ni RetroArch, ni un
+envoi de fichier, ni une animation dans la vraie salle. Les contrastes
+cités pour les libellés de la colonne sont calculés, pas mesurés dans le
+rendu. Le chevauchement de la manette tactile en paysage est exagéré par
+la capture : avec une vraie image, il reste de quelques pixels.
+
+**Piège.** L'auditeur de l'interface avait pour consigne de ne rien écrire
+dans le dépôt. En lançant Vite en arrière-plan, il a pourtant laissé un
+fichier `vite.pid` dans `spikes/m3-browser-drive/`. Le fichier a été vérifié
+(créé à la seconde du lancement de l'audit, non suivi, processus terminé)
+puis supprimé. Leçon : une consigne de lecture seule ne retient pas un
+outil qui écrit dans le dossier courant. Lancer ces outils depuis le
+dossier temporaire, et relire `git status` après chaque audit.
+
 ## 12. Glossaire complet
+
+**Faux partage** : échanges inutiles entre les caches de plusieurs cœurs lorsque
+des champs indépendants occupent une même ligne de cache.
+
+**PAUSE** : instruction du processeur qui accompagne une boucle d'attente active.
+Elle ne signifie pas que le jeu est en pause ou que le fil dort.
+
+**SIGINT** : signal qui demande une interruption, souvent envoyé par Ctrl+C.
+
+**Puppeteer** : bibliothèque JavaScript qui commande un navigateur pour les
+essais, notamment son lancement, ses pages et sa fermeture. Ses propres
+traitements de signaux doivent être distingués de ceux de notre pilote.
+
+**source_location** : information C++ qui conserve le fichier, la fonction,
+la ligne et la colonne du code ayant demandé une opération. Elle décrit le
+point où elle est créée, pas automatiquement tous les appels traversés ensuite.
+
+**Relocation, RELA** : information qui indique au chargeur comment corriger une
+adresse quand un programme est placé en mémoire. Le format RELA conserve
+explicitement la valeur à ajouter à l'adresse de chargement.
+
+**HOST_CACHED** : propriété Vulkan d'une mémoire accessible au processeur central
+et cachée par celui-ci. Elle concerne le cache du CPU, pas celui du GPU.
+
+**HOST_COHERENT** : propriété Vulkan qui évite une opération explicite de vidage
+du cache pour rendre ces écritures visibles. Elle ne remplace pas les règles
+de synchronisation entre CPU et GPU.
+
+**Pile d'appels et adresse de retour** : une fonction appelée garde l'endroit
+où le programme doit continuer après elle. Sur notre processeur, l'instruction
+`CALL` place cette adresse sur la pile. Une lecture de pile ne reconstitue pas
+automatiquement toutes les fonctions traversées.
+
+**RSP** : registre du processeur x86-64 qui indique le sommet de pile courant.
+Une fonction peut le déplacer ; sa valeur seule ne donne pas toujours la
+position de son adresse de retour.
+
+**MMAP2** : type d'enregistrement de `perf` décrivant une carte mémoire d'un
+processus. Plusieurs notifications peuvent couvrir les mêmes adresses ; leur
+nombre ne compte pas des images ou des copies effectuées par le jeu.
+
+**PID, Process Identifier** : le numéro qu'un système attribue à un processus.
+Il peut être réutilisé après sa sortie. L'associer à son instant de création
+permet de distinguer deux processus qui ont porté le même numéro.
+
+**GPU, Graphics Processing Unit** : le processeur graphique. Il exécute les
+commandes de rendu et de calcul que le processeur central lui envoie.
+
+**DXVK** : traducteur des interfaces graphiques Direct3D vers Vulkan, utilisé
+notamment pour faire fonctionner des jeux Windows sous Linux.
+
+**ANGLE** : *Almost Native Graphics Layer Engine*, une couche qui traduit
+OpenGL ES vers différentes interfaces graphiques du système hôte.
+
+**Alias mémoire GPU** : autre adresse GPU qui atteint la même zone mémoire.
+Libérer cette zone demande de retirer aussi ses autres adresses d'accès.
+
+**PCI** : famille de bus et d'identifiants de périphériques. Ici, l'adresse
+complète distingue la carte graphique visée des autres périphériques.
+
+**sysfs** : arborescence Linux, généralement sous `/sys`, qui expose les
+périphériques et leurs relations. Lire leur identité ne demande pas un relevé
+des allocations du pilote graphique.
+
+**fdinfo** : fichiers Linux qui décrivent les descripteurs ouverts d'un
+processus. Pour un GPU, ils peuvent aussi exposer des compteurs de travail.
+
+**Gio** : gibioctet, soit 1 073 741 824 octets. Ici, la mémoire résidente
+du processus inclut les pages qu'il partage avec d'autres processus.
+
+**Kio** : kibioctet, soit 1 024 octets. Une taille de cache sur disque ne
+mesure pas la mémoire vive occupée par ses programmes construits.
+
+**CityHash** : fonction d'empreinte employée ici par le moteur pour identifier
+ses clés graphiques. Ce rôle ne demande pas une preuve cryptographique.
+
+**SHA-256** : fonction qui calcule une empreinte de 256 bits à partir d'octets.
+Ici, l'empreinte complète distingue les identités dont les noms nettoyés sont
+identiques. Elle ne remplace pas l'authentification du compte par le salon.
+
+**evdev** : interface Linux des événements de périphériques d'entrée, et nom
+de la bibliothèque Python utilisée ici pour créer les manettes virtuelles.
+
+**WSI** : *Window System Integration*, l’interface Vulkan qui remet les images
+au système de fenêtres. Le retour d’un appel ne date pas leur affichage physique.
+
+**DRM** : *Direct Rendering Manager*, la partie du noyau Linux qui gère
+notamment l'accès aux cartes graphiques.
+
+**TIPC** : le format compact d'appels de service utilisé ici par le jeu.
+L'appel 229 remet une demande de présentation au service graphique émulé.
+
+**FSR** : *FidelityFX Super Resolution*, les techniques AMD de reconstruction
+d'image. La variante 3.1 envisagée ici utilise les images précédentes pour
+reconstruire le rendu courant, sans ajouter d'images intermédiaires.
+
+**DWARF** : format de données de débogage qui permet notamment de reconstruire
+les appels depuis la pile d'un programme. Un échantillon conservé ne garantit
+pas que cette reconstruction réussisse.
+
+**Build-ID** : identifiant inscrit dans un binaire compilé. Il permet de
+retrouver les symboles de cette version précise, sans lui substituer ceux
+d'une autre construction.
+
+**Attente active** : boucle qui vérifie une condition avant de dormir. Elle
+peut réduire le délai de réveil, mais occupe le processeur et sollicite ici
+l'ordonnanceur par `sched_yield`, l'appel qui cède le processeur à un autre fil.
+
+**Payload de sémaphore** : une valeur constante qu'une commande publie pour
+débloquer un autre travail. Elle ne provient pas de la mesure d'un compteur GPU.
+
+**Clôture GPU** : un repère qui devient terminé quand la carte graphique a
+achevé le travail placé avant lui. Attendre ce repère protège les résultats
+et les ressources que ce travail utilise.
+
+**Callback** : une fonction conservée pour être appelée quand un événement
+arrive. Ici, elle publie un rapport puis permet de libérer sa requête.
+
+**Rasterizer** : la partie d'un moteur qui transforme les commandes graphiques
+en dessins et les transmet au GPU. Une version nulle peut servir aux tests
+sans carte graphique, avec les limites des opérations qu'elle remplace.
+
+**Sémaphore / acquire** : un compteur de synchronisation et l'opération qui
+attend qu'il atteigne une condition. Sa valeur peut être écrite par un autre
+travail. Accepter une ancienne valeur peut laisser lire un résultat incomplet.
+
+**Génération de suivi mémoire** : un numéro qui change quand l'état suivi avance.
+Un cache peut éviter une recherche répétée si le numéro et la plage n'ont pas
+changé, à condition que toutes les écritures pertinentes soient suivies.
+
+**Symbolisation** : le rattachement d'une adresse de programme au nom de sa
+fonction, pour savoir quel travail un échantillon de mesure représente.
+
+**ThinLTO** : une variante de LTO qui échange des résumés entre les fichiers
+compilés et répartit l'optimisation finale entre plusieurs tâches.
+
+
+**SMT** : la capacité d'un cœur physique à exécuter deux fils. Linux les présente
+comme deux processeurs logiques ; ici 0 et 6 partagent le même cœur physique.
+
+**Affinité CPU** : le masque des processeurs logiques sur lesquels un fil peut
+s'exécuter. Le modifier pour un fil ne réserve pas ce cœur aux autres applications.
+
+
+**Soumission GPU** : un lot de commandes préparées que le moteur remet au pilote
+pour exécution sur la carte graphique.
+
+**Barrière GPU** : une contrainte qui impose que certaines opérations précédentes
+soient terminées ou visibles avant que les suivantes utilisent leurs résultats.
+Une barrière trop large peut attendre du travail sans lien avec la donnée lue.
+
+**Programme invité** : un programme du jeu, traduit par l'émulateur. Le moteur
+emploie aussi ses propres programmes pour convertir ou déplacer des images.
+
+**Bornes du pipeline, TOP et BOTTOM** : des points de mesure placés au début et
+à la fin du chemin de traitement graphique. Ils donnent des intervalles
+approximatifs, qui peuvent contenir l'attente de travaux précédents.
+
+**Bit** : une valeur qui vaut zéro ou un. Un bit de résumé indique ici si un
+ensemble de pages peut encore demander une opération.
+
+**Page mémoire** : un bloc de mémoire que le système peut surveiller ensemble.
+Dans ce suivi du moteur, une page représente quatre Kio, soit 4 096 octets.
+
+**Tampon mémoire** : une zone qui regroupe des données destinées à une opération,
+comme les positions des sommets ou les paramètres d'un dessin.
+
+**Banque de constantes** : un ensemble de paramètres donné à un programme
+graphique. Son nom ne garantit pas que son contenu reste inchangé entre dessins.
+
+**Horodatage GPU** : une lecture du compteur de temps de la carte graphique,
+placée dans ses commandes. Le pilote indique combien de nanosecondes vaut
+un pas du compteur et quels bits sont valides.
+
+**CPU** : le processeur central. Un processeur logique est une place d’exécution que le système expose ; plusieurs places peuvent partager un même cœur physique.
+
+**GCC** : une famille de compilateurs, les programmes qui transforment le code source en instructions exécutables par la machine.
+
+**Clang** : un autre compilateur pour les langages C et C++. Deux compilateurs peuvent accepter des options différentes et produire des performances différentes.
+
+**Ninja** : le constructeur utilisé pour Eglantine. Il détermine quels fichiers recompiler à partir des dépendances et des dates des fichiers.
+
+**Fichier objet** : un morceau de programme déjà compilé. Plusieurs fichiers objets sont assemblés pour obtenir l’exécutable final.
+
+**AddressSanitizer** : un contrôle ajouté à un programme de test pour détecter certains accès à une mémoire interdite ou déjà libérée.
+
+**UndefinedBehaviorSanitizer** : un contrôle qui signale certaines opérations dont le langage ne définit pas le résultat. Il ne prouve pas l’absence de tous ces défauts.
+
+**ThreadSanitizer** : un contrôle des accès concurrents à la mémoire. Il cherche les accès non synchronisés entre fils ; dans cet essai, il ne démarre pas sur la machine.
+
+**APERF et MPERF** : deux compteurs d’activité du processeur utilisés pour étudier sa fréquence effective pendant une période. Ils ne désignent pas à eux seuls le fil qui limite le jeu.
+
+**LTO** : une optimisation appliquée lorsque les morceaux compilés du programme sont assemblés. Elle permet au compilateur de travailler au-delà des limites d’un seul fichier.
+
+
+**PGO** : *Profile-Guided Optimization*, optimisation à la compilation à partir
+de profils d'exécution qui indiquent les opérations fréquentes d'un programme.
+
+**Mesh shader** : un programme exécuté par le processeur graphique qui construit
+et organise des morceaux de géométrie avant leur dessin. Le désactiver peut
+éviter un défaut du pilote en faisant disparaître les objets concernés.
+
+**NUP** : *NX Package*, un conteneur utilisé par ces émulateurs pour regrouper
+les fichiers d'un jeu Switch 2, ses mises à jour et ses métadonnées.
+
+**RADV** : le pilote Vulkan libre des cartes AMD sous Linux, fourni par Mesa.
+
+**Cookie** : une donnée conservée par le navigateur et jointe aux requêtes vers
+un site. Plusieurs cookies peuvent rendre leurs en-têtes longs de plusieurs
+kilo-octets, même quand le site ne les utilise pas.
+
+**HTTP** : *Hypertext Transfer Protocol*, le protocole des requêtes et réponses
+du web. Les en-têtes décrivent la demande ou la réponse avant son contenu.
+
+**UTC** : *Coordinated Universal Time*, le temps universel coordonné. Les heures
+de l'incident du 16 octobre sont données dans ce fuseau.
 
 **GOP** : *Group of Pictures*, groupe d'images. La suite d'images qui va d'une
 image clé à la suivante. Un décodeur ne peut pas commencer au milieu d'un GOP :
@@ -16208,6 +25140,8 @@ joue du silence.
 **AudioOut** : le service de la Switch par lequel un jeu envoie lui-même ses
 tampons de son, à la place du moteur de rendu audio. Le jeu y tient sa propre
 file : il fournit un tampon quand un précédent lui est rendu.
+
+**CQP** : *Constant Quantization Parameter*, qualité constante. L'encodeur garde la même finesse de quantification sur chaque image, et le débit suit la scène. C'est le mode de nel3ab depuis la mesure du 16 août 2026.
 
 **CBR** : *Constant Bit Rate*, débit constant visé par l'encodeur. Le contrôle
 adapte la quantité de détail conservée pour tenir ce débit ; sa régularité réelle
@@ -16256,6 +25190,10 @@ copie dans un autre dossier du même disque ne le peut pas.
 **JIT** : *just-in-time*, traduction du code de la console en code de la machine au moment où il s'exécute pour la première fois.
 
 **PPTC** : *Profiled Persistent Translation Cache*. Ryubing note les fonctions du jeu souvent exécutées et les traduit dès le démarrage suivant, au lieu de les traduire en pleine partie.
+
+**MME** : moteur de macros graphiques de la console. Ces petits programmes
+lisent des arguments et produisent des commandes de dessin. Attendre leurs
+données peut bloquer la préparation de l'image suivante.
 
 **DLC** : *downloadable content*, contenu additionnel acheté à part d'un jeu. Sur Switch, un NSP à son propre titre, dérivé de celui du jeu.
 
@@ -16356,6 +25294,8 @@ n'est pas verte.
 **Clippy** — l'analyseur de code de Rust. Configuré ici en mode strict : tout
 avertissement est une erreur.
 
+**Contexte sûr** : ce que le navigateur considère comme protégé: une page en `https`, ou servie par `localhost`. Plusieurs interfaces, dont WebCodecs, n'y existent que là. Une adresse privée en `http` n'en est pas un.
+
 **Cliquet** — un mécanisme qui ne tourne que dans un sens. Ici, Dolphin
 agrandit son pool de descripteurs quand il en manque et ne le réduit jamais :
 une fuite plutôt qu'un pic.
@@ -16390,6 +25330,8 @@ s'y connecter : Tailscale vérifie cette permission séparément.
 
 **DPB** — *Decoded Picture Buffer*. Le tampon où un codec garde les images de
 référence servant à compresser les suivantes.
+
+**Espace réseau** : *network namespace*. Une pile réseau à part dans le même noyau, avec ses propres interfaces, adresses et règles. Le banc de liaison y enferme sa dégradation, pour que rien ne touche les vraies interfaces de la machine.
 
 **Exp-Golomb** — un codage de nombres à longueur variable utilisé par H.264 : les
 petites valeurs prennent peu de bits.
@@ -16498,6 +25440,8 @@ tranche d'image en est une.
 partage une seule adresse publique entre toutes les machines de la maison. Il
 empêche deux machines de s'appeler directement, et c'est la moitié de ce que
 WebRTC sert à contourner. Sur un tailnet, le problème ne se pose pas.
+
+**netem** : *network emulator*, le module du noyau Linux que pilote `tc`. Il perd, retarde, fait varier le délai et plafonne le débit des paquets qui sortent d'une interface. Avec de la gigue et sans débit, il réordonne aussi les paquets.
 
 **NV12** — format d'image : luminance pleine résolution, couleur au quart. Ce que
 mangent les encodeurs.
@@ -16761,3 +25705,193 @@ de retrouver le conteneur d'un processus.
 
 **grim** : un petit programme qui enregistre l'image d'un écran Wayland dans un
 fichier.
+
+**Lavapipe** : pilote qui exécute les commandes Vulkan sur le processeur. Il permet des contrôles fonctionnels sans utiliser la carte graphique. Ses durées ne mesurent pas celles du GPU du serveur.
+
+**Jellyfin** : le serveur de films et de séries installé sur la même machine que
+les salles. Il utilise la même carte graphique pour ses transcodages.
+
+**Transcodage** : conversion d'une vidéo à la volée dans un format que le lecteur
+sait afficher. Sur lgf, Jellyfin le fait avec la carte graphique.
+
+**PGS** : le format de sous-titres des disques Blu-ray. Ce sont des images, pas du
+texte. Un lecteur qui ne sait pas les afficher oblige le serveur à les incruster
+dans la vidéo, donc à la transcoder.
+
+**libplacebo** : une bibliothèque de traitement d'image sur carte graphique.
+ffmpeg, l'outil de conversion de Jellyfin, l'utilise à travers Vulkan.
+
+**GPUBack** : le fil du moteur Lichii qui exécute les commandes graphiques du jeu
+et les traduit en appels Vulkan. Devant Saria, c'est lui qui borne la cadence.
+
+**Éviction** : destruction par le moteur d'un pipeline qui n'a pas servi depuis
+un certain temps, pour libérer de la mémoire. S'il ressert, il faut le
+reconstruire.
+
+**Tctl** : la température de contrôle d'un processeur AMD, lue par le noyau.
+C'est elle qui déclenche la baisse de fréquence quand le processeur chauffe.
+
+**Chipset** : la puce de la carte mère qui regroupe les ports secondaires (USB,
+SATA, emplacements d'extension supplémentaires). Un périphérique branché
+derrière elle partage un lien plus étroit vers le processeur.
+
+**A/A** : comparaison de deux passages identiques. Elle ne cherche pas un gain :
+elle mesure le bruit, en dessous duquel aucun écart ne prouve rien.
+
+**ABBA** : ordre de quatre passages, A puis B puis B puis A. Chaque bras passe
+une fois tôt et une fois tard, ce qui annule une dérive régulière de la machine.
+
+**Élasticité** : de combien une grandeur bouge quand une autre bouge de 1 %.
+Une élasticité de 0,7 entre fréquence et débit veut dire que 10 % de fréquence
+en moins coûtent 7 % d'images par seconde.
+
+**Préchargement** : ici, la construction de tous les pipelines du cache au
+démarrage du moteur, au lieu d'attendre que le jeu en ait besoin.
+
+**Minuterie systemd** : un réglage qui fait lancer un service par systemd à
+intervalles réguliers. Sur lgf, plusieurs partent toutes les deux ou cinq
+minutes et prennent du processeur pendant quelques secondes.
+
+**Workflow** : ici, un script qui lance plusieurs agents l'un après l'autre ou
+en parallèle, et garde leur compte rendu dans un journal.
+
+**Relecteur** : ici, un agent qui reprend les fichiers bruts d'un essai, refait
+les chiffres et cherche ce qui peut fausser la conclusion. Son verdict fait foi
+sur le texte de l'essai.
+
+**Encadrement** : comparaison d'un segment de mesure à la moyenne de ses deux
+voisins, pris juste avant et juste après. Cela annule une dérive lente de la
+machine.
+
+**Anneau de la carte graphique** : file d'attente matérielle où le noyau dépose
+les travaux destinés à la carte. Une carte en a plusieurs, de priorités
+différentes. À ne pas confondre avec l'anneau du tampon circulaire, défini plus
+haut.
+
+**Priorité globale Vulkan** : niveau de priorité qu'un programme demande pour
+ses files de travaux sur la carte (extension `VK_KHR_global_priority`). Il y en
+a quatre : basse, normale, haute, temps réel. Au-dessus de normale, le noyau
+exige la capacité `CAP_SYS_NICE`.
+
+**Couche Vulkan** : petit module que Vulkan charge entre un programme et le
+pilote. Il peut lire ou modifier les appels sans toucher au programme.
+
+**Profileur roulant** : le `perf` que la boîte noire garde en marche pendant
+toute une partie. Il écrit dans un tampon qui s'écrase lui-même, pour emporter
+les secondes qui précèdent une chute.
+
+**mprotect** : appel système Linux qui change les droits d'accès (lecture,
+écriture) d'une plage de mémoire.
+
+**Zone de mémoire** : pour le noyau, une plage d'adresses d'un programme qui a
+partout les mêmes droits. Changer les droits d'une page au milieu d'une zone la
+découpe en trois.
+
+**Faute de page** : signal que le processeur envoie quand un programme touche
+une page de mémoire sans en avoir le droit. Le moteur s'en sert pour savoir que
+le jeu a écrit dans une page dont le cache graphique garde une copie.
+
+**Point de trace** : endroit du noyau où l'on peut brancher un relevé. Ici,
+l'entrée de l'appel `mprotect`, pour noter chaque appel et ses arguments.
+
+**Cache de tampons** : la partie du moteur qui garde sur la carte graphique une
+copie des blocs de données du jeu (sommets, paramètres des dessins). Elle
+protège les pages copiées pour savoir quand le jeu les modifie.
+
+**Interrupteur** : ici, une variable d'environnement lue par le moteur à son
+démarrage, qui allume ou éteint une retouche. Il permet de comparer avec et
+sans la retouche dans le même binaire.
+
+**Alternance stricte** : comparaison où les deux variantes se suivent dans la
+même séance, dans un ordre qui annule la dérive de la machine (A, B, B, A).
+
+**Défaut de justesse** : cas où le moteur ferait un calcul faux, par exemple
+dessiner avec une donnée périmée. À distinguer d'un défaut de vitesse.
+
+**Tampon uniforme** : petit bloc de paramètres qu'un jeu fournit à la carte
+graphique pour un dessin (position, couleurs, matrices). Un jeu en lie des
+milliers par image.
+
+**Amont** : le projet d'origine dont nous compilons le code, ici Lichii. Le
+« rattraper », c'est repartir de sa version récente au lieu de la nôtre.
+
+**Demande de fusion** (PR, *pull request*) : proposition de modification
+envoyée à un projet, avec sa description. Fusionnée, elle fait partie du
+code ; ouverte ou refusée, non.
+
+**Fabrique** : ici, un contrat unique que chaque émulateur remplirait
+(lancement, manettes, sauvegardes, capture, observation), pour qu'ajouter une
+console soit une déclaration et non une série de retouches dispersées.
+
+**État bas, état coûteux** : les deux régimes du moteur Lichii vus depuis le
+14 novembre. Dans le second, GPUBack change la protection des mêmes pages
+de mémoire plusieurs fois par image, et chaque image coûte 3 à 4 % de plus.
+Dans toutes les mesures, un lancement reste dans le même régime du début à
+la fin.
+
+**Fil avant** : le fil du moteur Lichii qui lit les commandes graphiques du
+jeu et les met en file pour GPUBack.
+
+**Politique d'attente** : la règle que suit le fil avant quand le jeu
+demande d'attendre un compteur (un *acquire*). La production vidange
+toujours avant de lire le compteur. L'amont passe sans vidange quand il
+peut déjà dire que l'attente est satisfaite.
+
+**Vérificateur** : un mode de diagnostic du moteur qui refait une décision
+par le chemin sûr et compte les désaccords. Il ralentit le jeu ; il ne sert
+qu'à vérifier.
+
+**Vidange** (*drain*) : le fil avant attend que GPUBack ait exécuté tout le
+travail graphique déjà mis en file.
+
+**Limite de rétention** : dans le moteur Lichii récent, le niveau
+d'occupation de la mémoire vidéo sous lequel il garde les images de
+texture utilisées récemment au lieu de les libérer. Il la fixe à quelques
+dizaines de Mio sous le budget que le pilote lui annonce.
+
+**Marge de rétention** : retouche de laboratoire du 19 novembre. Une
+variable retire un nombre de Mio à la limite de rétention, pour que la
+carte garde de la place libre.
+
+**Témoin** : dans une comparaison, le bras qui ne reçoit pas le changement
+étudié. Il doit montrer le défaut ; s'il se tait, l'autre bras ne prouve
+rien.
+
+**Trace de saccades** : diagnostic du moteur Lichii récent. Pour chaque
+image lente, il écrit le temps passé dans chaque opération graphique.
+
+**Probabilité de Fisher** : calcul exact qui répond à la question « si les
+deux bras avaient le même taux de défaut, quelle chance aurait-on de voir
+un partage aussi inégal ? ». Il suppose des essais indépendants.
+
+**Budget de mémoire vidéo** : la quantité de mémoire de la carte que le
+pilote graphique annonce à un programme comme utilisable par lui. Elle
+baisse quand un autre programme en occupe.
+
+**Manifeste des consoles** : fichier unique, proposé le 20 novembre, qui
+décrirait chaque console et son moteur (nombre de joueurs, format des
+manettes, verrou, extensions, signature). Toutes les couches du projet le
+liraient au lieu de recopier la liste.
+
+**RetroArch, libretro, cœur** : libretro est une interface commune à de
+nombreux émulateurs. Chaque émulateur adapté à cette interface s'appelle un
+« cœur ». RetroArch est le programme qui charge un cœur et lui fournit
+image, son et manettes.
+
+**Condensat** : empreinte calculée sur le contenu d'un fichier, comme
+SHA-1 ou SHA-256. Deux copies identiques ont le même condensat, quel que
+soit leur nom : c'est ce qui permet de reconnaître un doublon.
+
+**Quarantaine** : dossier où un fichier reçu attend d'être identifié et
+vérifié avant d'entrer dans la bibliothèque des jeux.
+
+**FLIP** : technique d'animation en quatre temps (*First, Last, Invert,
+Play*). On mesure un élément avant et après un changement de mise en page,
+puis on anime seulement un déplacement, qui coûte peu au navigateur.
+
+**View Transitions** : fonction des navigateurs qui anime le passage d'un
+état de la page à un autre, ou d'une page à une autre de la même origine.
+
+**Tube nommé (FIFO)** : fichier spécial qui relie deux processus. Le lire
+bloque tant que personne n'écrit dedans, d'où le danger pour un programme
+qui parcourt des dossiers en ouvrant tout ce qu'il trouve.

@@ -1060,3 +1060,266 @@ while exercising inputs. Its previous extra DAC_OVERRIDE capability hid the
 production permission failure. Recreating devices did not make the running SDL
 session reopen them; a game restart was required for that incident. Seamless
 recovery from a destroyed helper is not claimed.
+
+## Switch 2 experimental adapter, 2026-11-07
+
+Keep the worker's catalogue, authoritative seats, Pro Controller frames and
+media transport. The Eden-family adapter supplies a separate launch plan to
+the existing Switch container lifecycle. Capture stops and the actual emulator
+exits before its NAND is backed up. Switch 2 progression has its own state root;
+shader caches are also separated by engine revision. No Rust FFI is added.
+
+Register a verified base application explicitly as `switch2` beside its NUP.
+The prototype exposes one kernel controller and one worker seat. Spectators
+remain supported. This limit describes the integration validated here, not the
+physical console's capabilities. Only the starter confirms preparation. The
+lobby identifies its connection in the launch announcement, so a starter on
+seat three can politely request seat one after the worker restarts. Other
+connections switch to watching. No occupied seat is taken during this handover.
+
+On this server, the first Eglantine 3D launch lost the Vulkan device and the
+kernel reset the GPU at 14:00 UTC. `EDEN_NX2_NO_MESH=1` avoids that path while
+omitting objects. The public console label and game guide must retain that
+experimental limitation. The private container does not isolate GPU resets.
+
+Two alternating rounds on the same Ocarina of Time save place Eglantine's
+2026-11-07 build at about 22 actual game presentations per second on the
+Ryzen 5 3600 and RX 6650 XT. Select it for the experimental Zelda entry.
+Ten accepted introduction samples keep sound and picture within the estimated
+0.5-second measurement uncertainty; the other three builds reach about
+36 seconds of sound lead in their observed excerpt. Rejected late image
+matches give no evidence about the end of the film.
+
+The isolated room verifies browser movement, camera, native X jumping,
+spectator input refusal, entry into and exit from Link's house, and manual
+save recovery after complete shutdown. A starter on seat three becomes the
+only player on restart. These observations do not approve a full playthrough,
+motion controls, all zones or additional games. The dated study records the
+protocol, limits and private-data locations.
+
+Follow-up on the first user session: D21's observer must recognise the actual
+`eden-cli` kernel process name, not only Ryujinx and Dolphin. Otherwise its
+idle path permits GPU allocator reads during play and misses game metrics.
+The real scanner is exercised through the service with fake system files,
+including the idle negative twin. Freeze screenshots accept both Switch
+families; periodic captures still omit screenshots. No GPU performance gain
+is attributed to this observer correction without an alternating comparison.
+
+Follow-up on 2026-11-08: the official PGO package of the same Eglantine revision
+raises pooled Kokiri presentations from 22.68 to 23.96 per second over two
+alternating rounds. One shutdown after save recovery exits 139; identical
+standard and PGO recovery controls then exit normally. Its cause is unproven.
+Keep the installed standard package while that uncertainty remains. Lichii 117
+standard and PGO do not reach the menu with this server's `NO_MESH=1` setup;
+these trials do not judge it on other configurations. The dated study retains
+the evidence, including the invalidated request to disable built-in patches.
+
+The later requested trials on 2026-11-08 evaluate Eglantine experimental
+`eab2c2246d` PGO and Orchid 0.9.0. The former reaches 23.90 presentations/s
+against 22.97 for the installed standard over alternating Kokiri rounds;
+five observed exits are normal. This does not establish that the earlier
+rare shutdown crash is fixed. Orchid finishes two seven-point CPU matches
+with normal exits and restart, using its own recommended Tennis settings
+and no mesh-skip override. Its native trial does not validate browser-room
+integration, additional players or other courts. Keep the installed engine
+and catalogue: the current adapter still imposes Eglantine settings on every
+Switch 2 title, so a global replacement is not a verified per-game selection.
+
+The later Zelda-specific Orchid trial on 2026-11-08 loads a copied Kokiri save
+rather than judging the introductory movie. Three launches reach hearts and
+the map, but fail to render the world and avatar correctly, including a launch
+without any `EDEN_NX2_*` overrides. Native graphics shader translation rejects
+operations and skips draws. No playable cadence is accepted for this missing
+world. Orchid's Tennis results do not validate Zelda or justify a global
+engine replacement. The dated study retains the configurations and exit results.
+A functional control with the installed Eglantine renders the same file and
+checkpoint, shows avatar and camera movement, and exits normally. This does
+not add a cadence comparison or validate a new zone transition.
+
+The later Zelda profiling and parallelism trial on 2026-11-08 waits for an
+unrelated browser CI job to end before measuring. Seven unprofiled Kokiri
+phases alternate modes 0, 1 and 2. Pooled rates are 20.64, 20.61 and 20.72
+actual presentations/s; the observed differences are smaller than the
+baseline's variation. All seven exits are normal. Keep `SPLIT=0`: this scene
+does not demonstrate a material gain from the existing parallel modes.
+The separate native profile puts the CPU-side graphics thread at 94% of one
+logical CPU, with method processing, macros and stage buffer binding its main
+timed costs. CPU temperatures near 96 C remain a measured constraint, not proof
+of thermal throttling or a quantified hardware upgrade benefit. The dated
+study retains the raw-window evidence and the missing full-world/zone coverage.
+
+A separate split-mode2 profile records about 56% elapsed time in the front's
+drain wait while that thread consumes about 93% of a logical CPU. The drain
+path polls with pause/yield rather than a blocking notification. Treat its
+coordination cost as a source-level investigation target, not a demonstrated
+FPS fix. Any replacement must preserve ordered writes, deferred submission
+completion and shutdown wakeups. No emulator source change is installed by
+this profiling trial.
+
+
+On 2026-11-08 the user authorizes a source-level experiment for Eglantine's
+GPU split drain. Keep the pinned upstream checkout, builds, saves and input
+devices isolated from the installed room. Compare unmodified and modified
+binaries built with identical options and runtime dependencies, rather than
+attributing a local-build versus official-package difference to the patch.
+The progress wait must retain command completion, deferred submission and
+front-before-back shutdown ownership. This extends D1 with a bounded local
+emulator investigation; it does not authorize a new emulator or an untested
+production replacement. The [60 FPS plan](../plan-60fps-switch2-2026-11-08.md)
+separates measured bottlenecks from hypotheses and future acceptance checks.
+
+
+The source experiment on 2026-11-08 compiles and verifies the actual changed
+GPU object after detecting and excluding a stale-object candidate. Runtime
+activation and targeted disassembly now supplement executable hashes.
+Four matched-cache phases alternate original and notification-based waits:
+21.28 versus 20.71 native presentations/s, with front-thread CPU falling
+from 80.46% to 36.86% of one logical CPU. Keep the prototype isolated and the
+installed standard engine in split mode 0. A separate resolution alternation
+returns 21.68 versus 21.63 presentations/s, giving no pixel-count gain here.
+The CPU sample points primarily to FrontDmaRead among drain callers; investigate
+valid argument snapshots and precise dependencies before removing waits.
+Save/write/restart and ground movement succeed in the private patched run.
+Known mesh omissions, an unreproduced unmodified Vulkan allocation failure,
+and unproven thermal causality remain explicit limits. The dated plan records
+milestones and acceptance evidence for 30, 45 and 60 native frames/s; none is a
+promised gain from this patch.
+
+The next authorized source experiment on 2026-11-08 targets MME argument
+reads. Its separate diagnostic records 845,091 reads over 50.02 seconds,
+with no buffer download required and no read page marked GPU-written in
+that scene. Preserve command ordering, including queued draw writes, but
+investigate waiting for consumed entries without also claiming scheduler
+idleness for CPU-owned arguments. Reuse existing versioned GPU copies only
+when current; unknown data keeps the original drain/flush fallback.
+Expose the extracted existing copy-validity state to negative tests.
+Compare one identical local executable with the experiment disabled and
+enabled; do not label that disabled control an untouched upstream package.
+An unrelated CI starting before the comparison delays performance phases
+without being interrupted. No production engine change is authorized by
+the diagnostic alone.
+
+The four retained phases complete normally: the disabled control pools at
+22.13 native presentations/s and the enabled variant at 22.51, an observed
+1.70% difference over two phases per condition. Retained window coverage is
+unequal and front CPU remains about 80% of one logical CPU. Keep the patch
+isolated and the installed standard in mode 0. The separate post-phase CPU
+sample still attributes 51.5% of front user cycles to waiting for consumed
+commands. Back-thread buffer binding and synchronization remain measured
+targets, with overlapping call-stack shares rather than additive FPS gains.
+Track precise dependencies before removing another barrier; measure physical
+GPU work before treating this as a CPU-only limit. An option-disabled boot
+also failed before gameplay with the prior Vulkan allocation-error pattern;
+the four normal retained runs do not prove that failure fixed. Private ground
+save/reload succeeds, but full-world rendering, new zones and precise AV timing
+remain unvalidated. Production config and four progress files are unchanged.
+
+
+On 2026-11-08 the third isolated source prototype measures buffer synchronization
+requests separately from real upload traffic: roughly 139,000 requests/s and
+74.43 MiB/s over four complete multi-row diagnostic windows. A conservative
+CPU-dirty/untracked-page summary skips some clean manager scans while retaining
+tracking rearm and cached-write semantics. Five targeted mutants fail and both
+full test configurations pass 241 tests, with four network tests skipped.
+Four matched-cache mode-0 phases alternate pristine local upstream and the
+complete candidate, diagnostics disabled: 22.37 versus 21.34 presentations/s,
+an observed 4.61% regression. Do not install the candidate. This comparison
+includes summary maintenance and dormant diagnostic branches; it does not
+causally isolate the regression to one of them. Six complete Vulkan timestamp
+captures validate the diagnostic path, but overlapping intervals and thousands
+of added timestamp commands prohibit treating these as an unperturbed per-frame
+GPU budget. Prefer fewer pass-level timestamps with an overhead alternation
+before declaring either CPU or hardware the sole limit. Keep the installed
+standard in mode 0 and retain known mesh omissions as a separate acceptance
+failure. The dated plan and report record the next concrete changes and their
+required evidence. The user's own game was stopped through the normal worker
+lifecycle only after their explicit confirmation, independently of lab saves.
+
+
+On 2026-11-09 the coarse GPU study begun at 23:25 UTC on November 8 completes.
+Keep it isolated and disabled in production. It reuses existing upload/execution
+submissions and rotates one guest compute program, sampling one frame in 60.
+Four same-binary alternating phases pool at 22.36 presents/s disabled and 21.75
+enabled, a 2.74% observed regression whose sign differs between repetitions.
+Seven long frames occur in the last enabled phase; do not certify transparency
+or attribute every long frame to the probe. The disabled binary retains dormant
+branches and native-key lookup, so this is activation overhead only. 64 complete
+camera captures show median upload 0.80 ms, execution 24.87 ms and 155 submission
+segments. TOP/BOTTOM intervals overlap, contain pipeline effects, and do not
+establish an exclusive uninstrumented GPU budget. Count observed and timed
+programs explicitly: 128 survey captures missed a frequent program despite 77
+observed programs. A forced target is absent in the saved ground view and the
+negative assertion rejects that run; seven actual balcony samples later measure
+it at 0.039 ms median. One rare original-scene program remains unmeasured. Guest
+program windows are not exclusive shader costs and do not identify internal
+emulator compute passes. Investigate small submission/dependency and binding
+costs without dropping GPU writes, CPU readback waits, presentation or shutdown
+flushes. No 60 FPS claim or new speed patch follows from this diagnostic alone.
+The final engine passes 241 tests in each flag configuration with four network
+skips; four deliberate mutants fail. Private ground save/resume and stereo
+signal pass; no zone or precise AV check is claimed. All eight production
+progress files and installed config remain unchanged, own devices/containers
+are removed and the system observer is restored. No commit, push or remote CI.
+
+## Per-title Switch 2 engine selection, 2026-11-10
+
+The qualified Zelda candidate keeps the existing room adapter and capture.
+An optional `engines_by_title` table selects exactly `image`, `engine` and
+`revision` for a validated base title. `main` resolves one copied configuration
+before both `launch` and `serve`, so the helper image, engine image, executable
+mount and revision cache agree. Other titles keep the global engine triple.
+Every configured entry must be complete and valid; state, controllers and
+display settings cannot be overridden through it.
+
+Reason: the existing global Switch 2 configuration also serves Mario Tennis,
+which has not qualified this Zelda profile. The real-entrypoint filesystem
+test first receives the old image for Zelda, passes after selection, and fails
+again when selection is deliberately disabled. It also proves the unconfigured
+title retains its engine and cache while both use the original state root.
+
+This is selection infrastructure, not approval of constant 30 FPS. The private
+browser trial completes 90 seconds of requested movement but its complete WSI
+windows contain one 113.149 ms interval. A separate visit reaches an unnamed
+interior without proving new-map loading performance. Keep the candidate's
+exact profile and diagnostics until a changed configuration is qualified.
+Preserve a pre-activation NAND copy: restoring an old engine does not establish
+save-format compatibility. No remote CI result is inferred from the local gate.
+
+The following isolated real-room trial exercises the actual per-title routing
+and installed package before activation. Both helper and engine use the pinned
+image, the selected revision cache and the private save root; 141 settings pass
+before and after 90 seconds of browser-origin inputs. Complete WSI windows
+average 29.3054/s, maximum 65.824 ms, without proving constant 30. After cleanup,
+22 NAND files from two slots are backed up and eight progression hashes remain
+unchanged. Only Zelda's engine triple is activated atomically for future starts;
+the legacy global triple remains and no live room is restarted. Evidence:
+`spikes/switch2-room/title-profile-installation-2026-11-10.json`.
+
+### 10 November 2026: imported saves and account ownership
+
+Complete-save availability is filesystem evidence, queried through the worker's
+read-only `/saves` route in catalogue order. A directory named `debloquee` is not
+evidence: Zelda created ordinary progression there. `unlocked.json` records an
+explicitly qualified import and its payload paths. The reader requires every
+payload to remain a nonempty regular file inside the slot. It rejects malformed
+receipts, unknown versions and symbolic links. It does not infer completion flags
+for arbitrary game formats. The import tools write the receipt; ordinary play
+never does. The lobby rechecks availability before preparation and launch, and
+the worker rechecks before acting on an unlocked choice.
+
+For an authenticated account, codes 0 and 2 use the same personal slot. Code 0
+requests a new game once, moving previous progress into history; code 2 resumes
+without resetting it. Code 1 remains the shared imported save. Anonymous launch
+keeps the existing shared fresh slot. Only the lobby's authenticated login names
+a personal slot. A readable prefix plus the full SHA-256 identity digest replaces
+the lossy name alone: two distinct logins with matching cleaned punctuation were
+shown to collide in a failing test on 10 November.
+
+Personal Dolphin storage is common to the numbered rooms, with a lock for each
+game and identity. The Docker helper mounts only the selected account's payload
+onto its ordinary path below the room's existing `saves` directory. This retains
+the invariant that card/NAND links remain visible inside the container, and keeps
+direct persistent writes. There is no exit-time copy back to lose on a crash.
+Switch adapters already use shared title storage. Their personal slots use the
+same identity key and one-shot new-game action. Legacy migration retains source
+directories and requires a unique match to a known authenticated identity.

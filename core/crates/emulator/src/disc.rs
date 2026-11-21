@@ -774,6 +774,9 @@ mod tests {
         ))?;
         assert_eq!(catalogue["roms"][0]["console"], "switch2");
         assert_eq!(catalogue["players"], 1);
+        // Le titre inscrit voyage, en minuscules comme les dossiers de
+        // sauvegarde qui portent son nom.
+        assert_eq!(catalogue["roms"][0]["title_id"], "0400486024dec000");
         Ok(())
     }
 }

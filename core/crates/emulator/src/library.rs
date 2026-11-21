@@ -353,6 +353,22 @@ fn push_entries(
         // jeu, et ce qui le désigne encore quand la liste a changé (ADR D23).
         out.push_str(",\"key\":");
         quote(out, &rom.file);
+        // L'identifiant du titre, pour un jeu inscrit par son fichier voisin
+        // (Switch, Switch 2). Ses sauvegardes sont rangées sous ce nom, et le
+        // profil d'un joueur ne peut relier une sauvegarde à son jeu qu'avec
+        // lui. Relu ici plutôt que porté par `Rom`: il ne sert qu'à décrire.
+        out.push_str(",\"title_id\":");
+        let console = consoles
+            .get(index)
+            .copied()
+            .unwrap_or(crate::disc::Console::Unknown);
+        match (console.registration() == crate::disc::Registration::Sidecar)
+            .then(|| crate::switch::registered(&rom.path))
+            .flatten()
+        {
+            Some(game) => quote(out, &game.title.to_ascii_lowercase()),
+            None => out.push_str("null"),
+        }
         out.push('}');
     }
     out.push(']');
@@ -535,12 +551,12 @@ mod tests {
 
         assert_eq!(
             catalogue_json(&roms, &[], &[], Some(1), 4),
-            r#"{"players":4,"current":1,"roms":[{"name":"Melee","maker":null,"about":null,"art":false,"console":"?","key":"Melee.rvz"},{"name":"Mario Kart","maker":null,"about":null,"art":false,"console":"?","key":"Mario Kart.rvz"}]}"#
+            r#"{"players":4,"current":1,"roms":[{"name":"Melee","maker":null,"about":null,"art":false,"console":"?","key":"Melee.rvz","title_id":null},{"name":"Mario Kart","maker":null,"about":null,"art":false,"console":"?","key":"Mario Kart.rvz","title_id":null}]}"#
         );
         // Nothing running is `null` rather than a number standing in for it.
         assert_eq!(
             catalogue_json(&roms, &[], &[], None, 4),
-            r#"{"players":4,"current":null,"roms":[{"name":"Melee","maker":null,"about":null,"art":false,"console":"?","key":"Melee.rvz"},{"name":"Mario Kart","maker":null,"about":null,"art":false,"console":"?","key":"Mario Kart.rvz"}]}"#
+            r#"{"players":4,"current":null,"roms":[{"name":"Melee","maker":null,"about":null,"art":false,"console":"?","key":"Melee.rvz","title_id":null},{"name":"Mario Kart","maker":null,"about":null,"art":false,"console":"?","key":"Mario Kart.rvz","title_id":null}]}"#
         );
         assert_eq!(
             catalogue_json(&[], &[], &[], None, 1),
@@ -563,7 +579,7 @@ mod tests {
 
         assert_eq!(
             json,
-            r#"{"players":2,"current":0,"roms":[{"name":"Zelda \"Ocarina\" \\ tab\u0009here","maker":null,"about":null,"art":false,"console":"?","key":"z.rvz"}]}"#
+            r#"{"players":2,"current":0,"roms":[{"name":"Zelda \"Ocarina\" \\ tab\u0009here","maker":null,"about":null,"art":false,"console":"?","key":"z.rvz","title_id":null}]}"#
         );
     }
 
@@ -587,7 +603,7 @@ mod tests {
 
         assert_eq!(
             json,
-            r#"{"players":4,"current":null,"roms":[{"name":"Melee","maker":"Nintendo","about":"ready to do \u000abattle!","art":true,"console":"?","key":"m.rvz"}]}"#
+            r#"{"players":4,"current":null,"roms":[{"name":"Melee","maker":"Nintendo","about":"ready to do \u000abattle!","art":true,"console":"?","key":"m.rvz","title_id":null}]}"#
         );
     }
 
@@ -759,7 +775,7 @@ mod tests {
 
         assert_eq!(
             file,
-            r#"{"version":1,"scanned_ms":1763700000123,"roms":[{"name":"Melee","maker":null,"about":null,"art":false,"console":"gc","key":"Melee.rvz"}]}"#
+            r#"{"version":1,"scanned_ms":1763700000123,"roms":[{"name":"Melee","maker":null,"about":null,"art":false,"console":"gc","key":"Melee.rvz","title_id":null}]}"#
         );
         let room: serde_json::Value = serde_json::from_str(&room).unwrap();
         let file: serde_json::Value = serde_json::from_str(&file).unwrap();

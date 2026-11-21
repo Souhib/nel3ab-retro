@@ -25771,6 +25771,18 @@ fontTools dans les dépendances du salon, pour un seul contrôle.
 chercher la cause dans la police, regarder la capture à sa taille réelle,
 puis comparer avec et sans la correction, sur la même page.
 
+### 21 novembre : une sauvegarde Switch porte le nom de son jeu
+
+Dans le premier état du carnet de jeu, une carte mémoire Switch affichait
+« 0100BDE00862A000 » au lieu de « Mario Tennis Aces ». Les emplacements
+Switch sont rangés sous l'identifiant du titre, et le catalogue publié par
+les salles ne le donnait pas. Chaque entrée du catalogue porte maintenant
+`title_id` : l'identifiant inscrit dans le fichier voisin du jeu, en
+minuscules comme les dossiers, ou rien pour un jeu GameCube ou Wii. Le
+profil relie la sauvegarde par lui. Un identifiant mal formé ne relie rien
+et ne fait pas sortir le jeu du catalogue. Un essai couvre le cas relié et
+trois jumeaux ; sans la recherche par identifiant, le cas relié échoue.
+
 ## 12. Glossaire complet
 
 **Faux partage** : échanges inutiles entre les caches de plusieurs cœurs lorsque

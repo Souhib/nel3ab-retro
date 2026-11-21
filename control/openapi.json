@@ -597,6 +597,18 @@
               }
             ],
             "title": "About"
+          },
+          "title_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title Id",
+            "description": "L'identifiant du titre d'un jeu inscrit (Switch), seize chiffres hexadécimaux en minuscules: le nom de ses dossiers de sauvegarde."
           }
         },
         "type": "object",

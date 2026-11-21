@@ -245,14 +245,19 @@ class Catalogue:
 
     #: Clé de dossier Dolphin -> (titre, console), pour GameCube et Wii.
     dolphin: dict[str, tuple[str, str]]
+    #: Identifiant de titre -> (titre, console), pour les jeux inscrits.
+    inscrits: dict[str, tuple[str, str]]
 
     @staticmethod
     def de(jeux: Iterable[JeuJoue]) -> "Catalogue":
         dolphin: dict[str, tuple[str, str]] = {}
+        inscrits: dict[str, tuple[str, str]] = {}
         for jeu in jeux:
             if jeu.cle and jeu.console in ("gc", "wii"):
                 dolphin[cle(jeu.cle)] = (jeu.titre, jeu.console)
-        return Catalogue(dolphin=dolphin)
+            if jeu.titre_id:
+                inscrits[jeu.titre_id] = (jeu.titre, jeu.console)
+        return Catalogue(dolphin=dolphin, inscrits=inscrits)
 
 
 def resume(mesure: Mesure) -> ResumeSauvegarde:
@@ -274,12 +279,14 @@ def emplacement(trouvee: Trouvee, mesure: Mesure, catalogue: Catalogue) -> Empla
             relie=relie is not None,
             sauvegarde=resume(mesure),
         )
+    # Un emplacement Switch porte l'identifiant du titre; le catalogue le
+    # publie pour chaque jeu inscrit. Sans lui (worker plus ancien, jeu retiré
+    # de la bibliothèque), la carte garde l'identifiant, dite « pas relié ».
+    inscrit = catalogue.inscrits.get(trouvee.jeu.lower())
     return Emplacement(
-        # Le catalogue ne publie pas encore l'identifiant d'un titre Switch:
-        # la carte porte celui du dossier, que la page dit « pas relié ».
-        titre=trouvee.jeu.upper(),
-        console=console_vue(trouvee.famille),
-        relie=False,
+        titre=inscrit[0] if inscrit else trouvee.jeu.upper(),
+        console=console_vue(inscrit[1] if inscrit else trouvee.famille),
+        relie=inscrit is not None,
         sauvegarde=resume(mesure),
     )
 

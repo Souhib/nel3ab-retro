@@ -56,7 +56,10 @@ def _assembler(
     )
     catalogue = freshest(settings.salles_dir)
     jeux = (
-        [JeuJoue(cle=jeu.key, console=jeu.console, titre=jeu.name) for jeu in catalogue.games]
+        [
+            JeuJoue(cle=jeu.key, console=jeu.console, titre=jeu.name, titre_id=jeu.title_id)
+            for jeu in catalogue.games
+        ]
         if catalogue
         else []
     )

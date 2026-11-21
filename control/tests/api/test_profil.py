@@ -427,3 +427,51 @@ async def test_deux_personnes_deux_carnets_par_les_entetes_du_proxy(
     place(parties, "souhib@example.com", "1" * 16, SOIR, 120)
     assert (await client.get("/api/me/profil", headers=SOUHIB)).json()["parties"] == 1
     assert (await client.get("/api/me/profil", headers=VINCENT)).json()["parties"] == 0
+
+
+@pytest.mark.parametrize(
+    ("title_id", "relie"),
+    [
+        ("0100bde00862a000", True),
+        # Les jumeaux: un identifiant mal formé ne relie rien, et ne fait pas
+        # tomber le jeu du catalogue.
+        ("0100BDE00862A000", False),
+        ("../0100bde00862a0", False),
+        (None, False),
+    ],
+)
+async def test_une_sauvegarde_switch_porte_le_nom_du_jeu_que_le_catalogue_publie(
+    client: httpx.AsyncClient, settings: Settings, title_id: str | None, relie: bool
+) -> None:
+    alice = "alice@example.com"
+    (settings.salles_dir / "1").mkdir(parents=True)
+    (settings.salles_dir / "1" / NAME).write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "scanned_ms": 1,
+                "roms": [
+                    {
+                        "name": "Mario Tennis Aces",
+                        "maker": None,
+                        "about": None,
+                        "art": True,
+                        "console": "switch",
+                        "key": "Mario Tennis Aces.xci",
+                        "title_id": title_id,
+                    }
+                ],
+            }
+        )
+    )
+    partie = switch(settings, alice, "0100bde00862a000") / "data/bis/user/save/1/0"
+    partie.mkdir(parents=True)
+    (partie / "save.dat").write_bytes(b"x" * 10)
+
+    vues = (await client.get("/api/me/sauvegardes", headers=ALICE)).json()
+    assert len(vues) == 1
+    assert vues[0]["relie"] is relie
+    assert vues[0]["titre"] == ("Mario Tennis Aces" if relie else "0100BDE00862A000")
+    assert vues[0]["console"]["code"] == "switch"
+    catalogue = (await client.get("/api/catalogue")).json()
+    assert [jeu["key"] for jeu in catalogue["games"]] == ["Mario Tennis Aces.xci"]

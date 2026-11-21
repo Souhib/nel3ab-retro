@@ -126,6 +126,9 @@ class JeuJoue:
     cle: str | None
     console: str
     titre: str
+    #: L'identifiant du titre, pour un jeu inscrit (Switch). Lu dans le
+    #: catalogue pour relier une sauvegarde; jamais écrit dans le journal.
+    titre_id: str | None = None
 
     def identite(self) -> str:
         """Ce qui regroupe les parties d'un même jeu: sa clé, sinon son titre.

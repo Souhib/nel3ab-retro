@@ -94,9 +94,7 @@ def _salle_demandee(auth: dict[str, Any]) -> int:
     return salle if salle in SALLES else 1
 
 
-def _state(
-    environ: dict[str, Any], salle: int = 1
-) -> tuple[RoomController, PeopleController, Journal]:
+def _state(environ: dict[str, Any], salle: int) -> tuple[RoomController, PeopleController, Journal]:
     """Les contrôleurs, tirés de la portée ASGI que l'application y a mise.
 
     Par la portée plutôt que par une dépendance, parce qu'un gestionnaire
@@ -104,6 +102,10 @@ def _state(
     ça crée, à la façon dont l'application est montée, est la raison pour
     laquelle le salon a un essai d'intégration contre un vrai serveur plutôt
     qu'un test unitaire avec une fausse session.
+
+    La salle est OBLIGATOIRE. Elle valait 1 par défaut, et la reprise du rôle de
+    chef l'oubliait: une page de la salle 2 qui demandait ce rôle agissait sur la
+    salle 1 (audit du 20 novembre 2026, `tests/ws/test_two_rooms.py`).
     """
     app = environ["asgi.scope"]["app"]
     return app.state.salons.pour(salle), app.state.people, app.state.journal
@@ -344,7 +346,7 @@ async def connect(sid: str, environ: dict[str, Any], auth: object) -> None:
             salle=_room_now(rooms, people),
             **({"appareil": session["appareil"]} if session["appareil"] else {}),
         )
-        await broadcast(rooms, people, journal, bool(session.get("banc")), salle=salle)
+        await broadcast(rooms, people, journal, bool(session.get("banc")))
         admitted = True
     except Exception as error:
         # Socket.IO ne nettoie sa propre connexion que pour ce refus nommé.
@@ -374,7 +376,7 @@ async def seat(sid: str, data: dict[str, Any]) -> None:
     nombre levait une `TypeError` que personne ne rattrapait.
     """
     session = await sio.get_session(sid)
-    rooms, people, journal, salle = await _pour(sid)
+    rooms, people, journal, _salle = await _pour(sid)
     receipt = data.get("claim")
     if receipt is not None and (not isinstance(receipt, str) or len(receipt) > 53):
         return
@@ -412,7 +414,7 @@ async def seat(sid: str, data: dict[str, Any]) -> None:
                 raison="attribution absente" if receipt is None else "attribution non confirmée",
                 salle=_room_now(rooms, people),
             )
-            await broadcast(rooms, people, journal, bool(session.get("banc")), salle=salle)
+            await broadcast(rooms, people, journal, bool(session.get("banc")))
             return
     journal.write(
         "place",
@@ -420,7 +422,7 @@ async def seat(sid: str, data: dict[str, Any]) -> None:
         place=port,
         salle=_room_now(rooms, people),
     )
-    await broadcast(rooms, people, journal, bool(session.get("banc")), salle=salle)
+    await broadcast(rooms, people, journal, bool(session.get("banc")))
 
 
 @sio.event
@@ -455,7 +457,7 @@ async def answer(sid: str, data: dict[str, Any]) -> None:
     de l'afficher à son nom pendant que l'autre s'y branche, et les deux pages
     se contrediraient le temps d'un aller-retour.
     """
-    rooms, people, journal, salle = await _pour(sid)
+    rooms, people, journal, _salle = await _pour(sid)
     port = _port(data)
     if port is None:
         return
@@ -482,7 +484,7 @@ async def answer(sid: str, data: dict[str, Any]) -> None:
         salle=_room_now(rooms, people),
     )
     await sio.emit("answered", {"ok": agreed, "port": port, "from": session["name"]}, to=asker)
-    await broadcast(rooms, people, journal, bool(session.get("banc")), salle=salle)
+    await broadcast(rooms, people, journal, bool(session.get("banc")))
 
 
 @sio.event
@@ -525,9 +527,7 @@ async def rename(sid: str, data: dict[str, Any]) -> None:
         )
         touched.add(ou)
     for ou in sorted(touched):
-        await broadcast(
-            _state(environ, ou)[0], people, journal, bool(session.get("banc")), salle=ou
-        )
+        await broadcast(_state(environ, ou)[0], people, journal, bool(session.get("banc")))
 
 
 def _measured(data: object, ceiling: int = VITALS_MAX) -> dict[str, Any] | None:
@@ -665,7 +665,7 @@ async def son(sid: str, data: dict[str, Any]) -> None:
 async def disconnect(sid: str) -> None:
     """Une page part. SES manettes retournent à la salle, pas celles du même nom
     sur une autre machine."""
-    rooms, people, journal, salle = await _pour(sid)
+    rooms, people, journal, _salle = await _pour(sid)
     session = await sio.get_session(sid)
     people.left(sid)
     rooms.release(sid)
@@ -678,7 +678,7 @@ async def disconnect(sid: str) -> None:
         secondes=round(monotonic() - float(session.get("since") or monotonic()), 1),
         salle=_room_now(rooms, people),
     )
-    await broadcast(rooms, people, journal, bool(session.get("banc")), salle=salle)
+    await broadcast(rooms, people, journal, bool(session.get("banc")))
 
 
 #: Les TROIS emplacements de sauvegarde, nommés comme la page les nomme.
@@ -740,7 +740,7 @@ async def booting(sid: str, data: dict[str, Any]) -> None:
     if verdict is False:
         return
     if verdict is None:
-        boss = people.owner()
+        boss = people.owner(salle)
         if boss is not None and session.get("login") != boss[0]:
             return
     try:
@@ -918,7 +918,7 @@ async def preparation(sid: str, data: object = None) -> dict[str, str | bool]:
                     raise ValueError("Cette action de préparation est inconnue.")
         except ValueError as error:
             return {"error": str(error)}
-        await broadcast(rooms, people, journal, bool(session.get("banc")), salle=salle)
+        await broadcast(rooms, people, journal, bool(session.get("banc")))
     return {"ok": True}
 
 
@@ -943,7 +943,7 @@ async def close_game(sid: str, data: object = None) -> dict[str, str | bool]:
         if observed is None:
             return {"error": "Le jeu ne répond pas. Réessaie dans un instant."}
         rooms.observe_seats(observed)
-        boss = people.owner()
+        boss = people.owner(salle)
         seat = rooms.seat_of(sid)
         allowed = (
             session.get("login") == boss[0]
@@ -959,5 +959,5 @@ async def close_game(sid: str, data: object = None) -> dict[str, str | bool]:
             return {"error": "La fermeture n'a pas été acceptée. Réessaie."}
         rooms.preparation = None
         journal.write("fermeture", **_who(sid, session), jeu=running.name)
-        await broadcast(rooms, people, journal, salle=salle)
+        await broadcast(rooms, people, journal)
         return {"ok": True}

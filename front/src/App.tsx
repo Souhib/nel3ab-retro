@@ -852,9 +852,13 @@ function Room({
    * trois minutes, ce que la page ne peut pas savoir: elle ne voit pas les
    * manettes des autres. */
   const mine = shot?.input.deciding ?? false;
-  /** Le propriétaire est là, mais il ne joue plus. */
-  const canClose = boss ? login !== null && boss.login === login : mine;
-  const away = mine && boss !== null && (login === null || boss.login !== login);
+  /** Le propriétaire est là, mais il ne joue plus.
+   *
+   * `boss.moi` et plus une comparaison d'adresses: l'état de la salle ne porte
+   * plus l'adresse de personne, et le salon calcule `moi` pour CETTE page. Il
+   * n'est jamais vrai sans identité, comme l'était `login !== null`. */
+  const canClose = boss ? boss.moi === true : mine;
+  const away = mine && boss !== null && boss.moi !== true;
   const whyNotChoose =
     port === null
       ? "prends une manette pour changer de jeu"
@@ -1309,7 +1313,7 @@ function Room({
       // Ce qui reste ici est ce qui n'existe nulle part ailleurs: le clip, le
       // passage en spectateur, et la sortie.
       items: ([] as XmbItem[]).concat([
-        ...(boss && login && boss.login !== login
+        ...(boss && login && boss.moi !== true
           ? [
               {
                 id: "recover-owner",
@@ -1912,7 +1916,7 @@ function Room({
           </header>
 
           {boss ? <p className="text-corps text-muted">Chef : {boss.name}</p> : null}
-          {boss && login && boss.login !== login ? (
+          {boss && login && boss.moi !== true ? (
             <button
               id="recoverOwner"
               type="button"

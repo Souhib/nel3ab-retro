@@ -115,3 +115,21 @@ class Room(BaseModel):
             "means the page's own origin."
         )
     )
+
+    def vue_par(self, repere: str | None) -> "Room":
+        """La même salle, telle que la voit la personne de ce repère.
+
+        Seul `moi` change d'une page à l'autre. Le reste est décrit une fois,
+        puis recopié: décrire la salle pour chaque page redemanderait la
+        bibliothèque au worker autant de fois qu'il y a de pages.
+        """
+
+        def marque(person: Person) -> Person:
+            return person.model_copy(update={"moi": repere is not None and person.id == repere})
+
+        return self.model_copy(
+            update={
+                "owner": marque(self.owner) if self.owner else None,
+                "people": [marque(person) for person in self.people],
+            }
+        )

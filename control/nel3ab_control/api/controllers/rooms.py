@@ -42,9 +42,18 @@ class RoomController:
     anyway. When a second room appears, this is what changes.
     """
 
-    def __init__(self, settings: Settings, client: httpx.AsyncClient) -> None:
+    def __init__(self, settings: Settings, client: httpx.AsyncClient, numero: int = 1) -> None:
         self._settings = settings
         self._client = client
+        #: Le numéro de LA salle que ce contrôleur décrit, fixé à la naissance.
+        #:
+        #: Tenu ici plutôt que passé à `describe`: le 20 novembre 2026, l'audit a
+        #: trouvé `describe(people)` appelé sans numéro, qui valait alors 1. Le
+        #: contrôleur de la salle 2 décrivait donc les présents et le chef de la
+        #: salle 1. Un numéro que le contrôleur porte ne peut plus être oublié par
+        #: un appelant, et `Salons.poser` refuse un contrôleur posé ailleurs que
+        #: dans sa salle.
+        self.numero = numero
         #: Port -> la SESSION qui l'a annoncé, pas le nom de qui la tient.
         #:
         #: Par session, parce qu'un nom n'est pas unique: la même personne peut
@@ -350,14 +359,15 @@ class RoomController:
             return session in self._watching and receipt is None
         return self.seat_of(session) == port and self._receipts.get(session) == receipt
 
-    async def describe(self, people: PeopleController | None = None, salle: int = 1) -> Room:
+    async def describe(self, people: PeopleController | None = None) -> Room:
         """Toute la salle, telle qu'une page a besoin de la dessiner.
 
-        `salle` dit DE QUELLE salle on parle, parce que les présents sont tenus
-        ensemble pour toutes: sans lui, les joueurs d'une salle apparaîtraient
-        dans la liste d'une autre, et son chef pourrait être désigné par
-        quelqu'un qui n'y est même pas.
+        Les présents sont tenus ensemble pour toutes les salles, donc ils sont lus
+        sous le numéro de CE contrôleur: sans lui, les joueurs d'une salle
+        apparaîtraient dans la liste d'une autre, et son chef pourrait être
+        désigné par quelqu'un qui n'y est même pas.
         """
+        salle = self.numero
         library, running = await self.library()
         seats = self.seats()
         present = people.present(salle) if people else []
@@ -388,10 +398,12 @@ class RoomController:
             game=running,
             library=library,
             seats=seats,
+            # Un repère, jamais l'adresse: cet état part vers toutes les pages.
+            # `moi` reste faux ici; `Room.vue_par` le pose pour chaque page.
             owner=(
                 Person(
                     name=boss[1],
-                    login=boss[0],
+                    id=people.repere(boss[0]) if people else None,
                     seat=held.get(boss[0] or boss[1]),
                     seat_pending=pending.get(boss[0] or boss[1], True),
                 )
@@ -401,7 +413,7 @@ class RoomController:
             people=[
                 Person(
                     name=name,
-                    login=login,
+                    id=people.repere(login) if people else None,
                     seat=held.get(login or name),
                     seat_pending=pending.get(login or name, True),
                 )

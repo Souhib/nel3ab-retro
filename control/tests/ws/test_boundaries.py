@@ -42,7 +42,7 @@ async def lobby(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         # Le second argument est la salle. Ce double l'accepte et l'ignore: ces
         # essais montent une seule salle, et la variante à un argument aurait
         # laissé croire que le numéro ne circule pas.
-        monkeypatch.setattr(handlers, "_state", lambda _environ, _salle=1: (rooms, people, journal))
+        monkeypatch.setattr(handlers, "_state", lambda _environ, _salle: (rooms, people, journal))
         monkeypatch.setattr(handlers, "caller_of", AsyncMock(return_value=None))
         monkeypatch.setattr(handlers.sio, "save_session", save)
         monkeypatch.setattr(
@@ -133,7 +133,7 @@ async def test_a_failed_initial_broadcast_removes_the_arrival(
         await handlers.connect("failed", {"asgi.scope": {}}, {"name": "Fantôme"})
     failing.assert_awaited_once()
     assert lobby.people.live() == set()
-    assert lobby.people.owner() is None
+    assert lobby.people.owner(1) is None
     # La pièce de la SALLE 1: la diffusion est cloisonnée par salle depuis le
     # 12 septembre 2026, et une socket ne quitte que la sienne.
     lobby.leave.assert_awaited_once_with("failed", handlers.piece(1))
@@ -246,7 +246,7 @@ async def test_report_acknowledges_the_journal_and_names_a_refusal(lobby, monkey
     assert refused["ok"] is False
     assert "rapprochée" in refused["error"]
     lobby.session.pop("last_plainte")
-    journal = handlers._state({})[2]
+    journal = handlers._state({}, 1)[2]
 
     def lose(*args, **kwargs):
         journal._dropped += 1

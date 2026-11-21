@@ -158,7 +158,7 @@
           "room"
         ],
         "summary": "Read Room",
-        "description": "What is loaded, what else could be, who claims which pad, and who is here.",
+        "description": "What is loaded, what else could be, who claims which pad, and who is here.\n\nLes présents portent un repère et pas leur adresse; `moi` dit lequel est\ncelui qui demande. L'identité ne sert qu'à ça: la lecture reste ouverte à\nqui n'en a pas, et personne n'y est alors « moi ».",
         "operationId": "read_room",
         "responses": {
           "200": {
@@ -242,7 +242,7 @@
           "salles"
         ],
         "summary": "Read Salles",
-        "description": "Toutes les salles, ouvertes ou non, et qui s'y trouve.\n\nSans identité: la liste est ce que le salon montre à qui arrive, et exiger\nde savoir qui demande la rendrait invisible à celui qui vient jouer. Savoir\nQUI est là n'est pas savoir qui demande: la première est publique dans le\ntailnet, la seconde serait une condition d'entrée.\n\nLes deux dépendances sont assemblées ICI, et pas dans le contrôleur des\nsalles: celui-ci interroge systemd et les salles, et ce qu'il sait doit\nsurvivre à un worker mort. Le pseudo l'emporte sur l'adresse, parce que\nc'est un nom que ses amis reconnaissent et pas un identifiant.",
+        "description": "Toutes les salles, ouvertes ou non, et qui s'y trouve.\n\nSans identité: la liste est ce que le salon montre à qui arrive, et exiger\nde savoir qui demande la rendrait invisible à celui qui vient jouer. Savoir\nQUI est là n'est pas savoir qui demande: la première est publique dans le\ntailnet, la seconde serait une condition d'entrée.\n\nLes deux dépendances sont assemblées ICI, et pas dans le contrôleur des\nsalles: celui-ci interroge systemd et les salles, et ce qu'il sait doit\nsurvivre à un worker mort. Seul le pseudo sort, jamais l'adresse: il y avait\nun repli sur l'adresse quand le pseudo était vide, et une adresse est souvent\nun courriel. Un pseudo vide n'arrive pas par une page; s'il arrivait, la\nliste dirait « quelqu'un » plutôt que l'adresse.",
         "operationId": "read_salles",
         "responses": {
           "200": {
@@ -266,7 +266,7 @@
           "salles"
         ],
         "summary": "Open Salle",
-        "description": "Ouvre le premier emplacement libre, ou refuse quand il n'y en a plus.",
+        "description": "Ouvre le premier emplacement libre, ou refuse quand il n'y en a plus.\n\nDemande une identité, n'importe laquelle. Ouvrir un emplacement libre ne\ndécide rien de la partie de quelqu'un d'autre, mais allume un émulateur sur\nla carte graphique commune: le salon doit savoir qui l'a demandé. Avant le\n21 novembre 2026, une page étrangère ouverte chez un membre pouvait le faire.",
         "operationId": "open_salle",
         "responses": {
           "201": {
@@ -288,7 +288,7 @@
           "salles"
         ],
         "summary": "Close Salle",
-        "description": "Ferme une salle, et le jeu qui tourne avec.\n\nSans condition de propriétaire pour l'instant: la salle se ferme d'elle-même\naprès une demi-heure sans personne, et ce bouton-ci sert à rendre la place\ntout de suite plutôt qu'à prendre une décision sur la partie de quelqu'un.",
+        "description": "Ferme une salle, et le jeu qui tourne avec.\n\nRéservé au chef de CETTE salle et à l'administrateur. Fermer arrête la\npartie de tous ceux qui y jouent: c'est la décision du chef, comme changer\nde jeu, et pas celle de quiconque passe par la liste. L'administrateur le\npeut aussi, sans y être, pour rendre la place quand une salle reste\nbloquée. Une salle où personne n'est connecté n'a pas de chef: seul\nl'administrateur la ferme avant la fermeture automatique d'une demi-heure.\n\nLe chef est celui que le salon tient pour cette salle, le même que la page\naffiche: pas un nom envoyé par la demande.",
         "operationId": "close_salle",
         "parameters": [
           {
@@ -635,7 +635,7 @@
             "type": "string",
             "title": "Name"
           },
-          "login": {
+          "id": {
             "anyOf": [
               {
                 "type": "string"
@@ -644,7 +644,14 @@
                 "type": "null"
               }
             ],
-            "title": "Login"
+            "title": "Id",
+            "description": "Un repère opaque et stable de la personne, le même sur tous ses appareils et dans toutes les salles. Ne dit rien de son adresse. Nul sans identité: deux anonymes ne sont pas la même personne."
+          },
+          "moi": {
+            "type": "boolean",
+            "title": "Moi",
+            "description": "Vrai quand cette personne est celle qui reçoit cet état. Calculé pour chaque page, donc jamais vrai pour une page sans identité.",
+            "default": false
           },
           "seat": {
             "anyOf": [
@@ -670,7 +677,7 @@
           "name"
         ],
         "title": "Person",
-        "description": "Quelqu'un dans la salle, qu'il tienne une manette ou non."
+        "description": "Quelqu'un dans la salle, qu'il tienne une manette ou non.\n\nSans son adresse, et c'est délibéré: cet état part vers toutes les pages de\nla salle, invités compris, et une adresse est souvent un courriel. Le\nrepère et `moi` font ce que l'adresse faisait pour la page. Voir\n`nel3ab_control.reperes`."
       },
       "Preparation": {
         "properties": {

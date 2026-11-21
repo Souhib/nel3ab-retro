@@ -24897,6 +24897,304 @@ puis supprimé. Leçon : une consigne de lecture seule ne retient pas un
 outil qui écrit dans le dossier courant. Lancer ces outils depuis le
 dossier temporaire, et relire `git status` après chaque audit.
 
+### 21 novembre : les sauvegardes sortent de la machine
+
+**Les décisions de Souhib.** Le 21 novembre, Souhib répond à la liste de
+l'audit :
+
+- oui à une copie chiffrée des sauvegardes sur le NAS ;
+- oui au découpage du travail en commits poussés, et le dépôt reste public ;
+- la Switch 2 reste dans la salle, marquée « expérimentale » ;
+- quand on joue à plusieurs, la sauvegarde appartient à celui qui a lancé la
+  partie, sauf « tout débloqué », qui reste commune. C'est déjà la règle du
+  10 novembre, et elle ne change pas ;
+- une console de plus à étudier : la Xbox 360.
+
+Il demande aussi une interface moins convenue, avec des animations propres
+au projet, comme une manette qu'on vient brancher sur le bon port quand
+quelqu'un entre pour la première fois dans une salle.
+
+**Deux mois de travail entrent dans Git.** Les 111 chemins modifiés ou non
+suivis depuis le 16 septembre deviennent dix commits par thème : encodeur,
+transport, sauvegardes, adaptateur Switch 2, page, salon, outils, mesures
+Switch 2 et documentation. Avant de pousser, deux vérifications. `just check`
+passe sur l'arbre tel qu'il tourne. Les ajouts ne contiennent ni secret, ni
+adresse de joueur : les seules adresses présentes sont des exemples
+(`example.com`, `example.test`). Le dossier `.playwright-mcp/`, des traces du
+navigateur piloté, est ignoré au lieu d'être publié.
+
+**La copie sur le NAS.** Le partage du NAS s'appelle « Public » : une copie
+lisible y serait lisible par toute la maison. Deux options ont été pesées.
+Une archive tar chiffrée par gpg se restaure avec des outils présents
+partout, mais elle recopie tout à chaque passage. Or les emplacements Switch
+pèsent neuf gigaoctets, dont l'essentiel est fait de fichiers système
+identiques. restic chiffre, ne renvoie pas un morceau déjà envoyé, et sait
+relire ses propres données. Il a été retenu, et installé depuis les paquets
+d'Ubuntu (version 0.16.4).
+
+Mesures du premier passage réel, le 21 novembre peu avant 1 heure :
+8,8 Gio lus en 45 secondes, 1,97 Gio de données uniques, 1,49 Gio stockés
+après compression. Le passage suivant a pris moins d'une seconde et 1,7 s
+de processeur : un seul fichier avait changé. Une restauration réelle depuis
+le NAS (sauvegardes personnelles, pseudos, emplacement « tout débloqué » de
+la Switch 2) est identique à l'original, aux caches exclus près.
+
+La copie tourne chaque heure, sous la priorité la plus basse et avec deux
+fils seulement, pour ne pas prendre de temps aux joueurs. Chaque nuit, elle
+applique la rétention et relit un seizième des données envoyées. Chaque
+passage écrit son issue dans un petit fichier, pour qu'une panne silencieuse
+puisse se voir. Le mode d'emploi, et surtout la restauration, sont dans
+[Copie des sauvegardes](abri.md).
+
+**Le test.** `just abri-test` déplace le dossier personnel vers un dossier
+jetable et lance le vrai script, avec ses vraies sources et ses vraies
+exclusions. Il exige une restauration à l'identique et un tube nommé restauré
+comme un tube. Il garde lisible une version précédente. Chaque refus a son
+jumeau : mot de passe absent ou trop ouvert, NAS non monté, sauvegarde
+illisible, mauvais mot de passe, paquet abîmé. Trois défauts réintroduits un
+par un (exclusion des caches retirée, contrôle du NAS retiré, contrôle des
+droits du mot de passe retiré) font chacun échouer le test au bon endroit.
+
+**Piège.** Le premier passage réel s'est marqué en échec avec le code 3,
+après avoir pourtant écrit son instantané. Un enregistrement de profileur
+de septembre appartenait à root et ne se lisait pas. Le code 3 du script,
+« NAS absent », se confondait avec le code 3 de restic, « fichier illisible ».
+Les enregistrements de profileur sont maintenant exclus. Les codes du
+script passent à 20, 21 et 22. Leçon : un code de sortie maison doit éviter
+ceux de l'outil qu'il enveloppe, sinon le journal ment sur la cause.
+
+**Ce qui reste ouvert.** Le mot de passe n'existe que sur lgf tant que
+Souhib ne l'a pas recopié ailleurs. Le NAS peut effacer la copie, puisque le
+partage est public. Les ROM ne sont pas copiées.
+
+### 21 novembre : fermer les portes du salon
+
+**Pourquoi.** L'audit du 20 novembre a relevé des routes du salon qui
+écrivent sans vérifier d'où vient la demande ni qui la fait. Le salon
+reconnaît les gens par leur adresse dans le réseau privé, le tailnet, sans
+mot de passe ni cookie. C'est simple pour les amis, et c'est aussi ce qui rend
+ces oublis dangereux : une demande qui arrive depuis l'appareil d'un membre
+porte son identité, quel que soit le site qui l'a fait partir. Le dépôt est
+public, donc cette entrée décrit les défauts et leurs corrections, pas la
+façon de s'en servir. Le détail reste dans le rapport local de l'audit.
+
+**L'origine des écritures.** Un navigateur joint à chaque écriture (`POST`,
+`PUT`, `DELETE`) un en-tête `Origin` : le site d'où vient la page qui écrit.
+Une page ne peut pas le changer. Avant, seule la socket du salon le
+vérifiait, par sa bibliothèque socket.io. Les routes HTTP ne le regardaient
+pas. Une page d'un autre site, ouverte par un membre, pouvait donc faire
+écrire le salon au nom de ce membre. Ce défaut a un nom, la falsification de
+requête intersite, ou CSRF. Le navigateur empêche cette page de lire la
+réponse, mais il n'empêche pas certaines écritures simples de partir.
+
+La correction est une seule dépendance FastAPI, `same_origin`, posée sur
+l'application entière. Elle laisse passer les lectures. Pour une écriture,
+elle exige un seul `Origin`, égal à l'une des origines des réglages : les
+mêmes que pour la socket. Quand le navigateur écrit aussi `Sec-Fetch-Site`,
+elle exige `same-origin` ou `none`. Sinon, la réponse est un refus 403.
+
+Option écartée : poser la garde route par route. Elle se lirait mieux dans
+chaque route, mais une route ajoutée demain pourrait l'oublier. Posée sur
+l'application, une nouvelle route en hérite. Un essai parcourt les routes que
+l'application sert vraiment et échoue si une écriture n'a pas la garde.
+
+**Les essais, rouges d'abord.** `tests/api/test_writes.py` envoie chaque
+écriture de l'application avec une origine étrangère, sans origine, avec deux
+origines, et avec deux voisines de la vraie (même nom sur un autre port, même
+nom sans chiffrement). Sur le code d'avant, les cinq écritures répondaient
+200 ou 201, et le faux systemd recevait l'ordre d'allumer une salle. Les
+jumeaux : la page elle-même écrit toujours, avec ou sans `Sec-Fetch-Site`, et
+les deux portes déployées, lues dans l'unité systemd, passent. Les lectures
+ne demandent pas d'origine. L'essai qui parcourt les routes a été éprouvé en
+retirant la garde de l'application : il nomme alors les cinq écritures.
+
+**Piège.** Le premier jet de cet essai parcourait `app.routes`. Avec FastAPI
+0.141.1, installé ici, un routeur inclus y reste un seul élément, sans chemin
+ni méthode. La liste des écritures était vide, et les boucles passaient sans
+rien vérifier. L'assertion de précondition (« au moins cinq écritures
+trouvées ») l'a montré au premier passage. L'essai lit maintenant les routes
+effectives par `iter_route_contexts`. Leçon : une boucle d'assertions sur une
+liste calculée commence par affirmer que la liste n'est pas vide.
+
+**Un autre piège, évité de peu.** L'application d'essai commune gardait le
+vrai lanceur de salles, qui passe par `sudo systemctl`, et le vrai dossier
+des salles. Aucun essai n'appelait encore `/api/salles`, donc rien ne s'était
+produit. Le premier essai d'écriture l'aurait fait sur la machine qui héberge
+les vraies parties. Le faux systemd vit maintenant dans
+`tests/faux_systeme.py`, et l'application d'essai s'en sert.
+
+**Ce qui change à l'usage.** Un programme qui écrit au salon sans navigateur
+(`curl`, un pilote Node) est refusé s'il n'envoie pas une origine admise. Le
+développement local par Vite doit ajouter son origine à `NEL3AB_ORIGINS`,
+comme il le fallait déjà pour la socket. Le pilote
+`spikes/m3-browser-drive/reconciliation.mjs` ouvre et ferme une salle par ce
+chemin : il ne passe plus tel quel.
+
+**Chaque salle parle d'elle-même.** Le salon sert les trois salles. Il
+tient leurs présents dans une seule liste, où chaque ligne porte son numéro
+de salle. La page dit sa salle par l'en-tête `X-Nel3ab-Salle`, et la
+dépendance choisissait bien le contrôleur de cette salle. Mais trois chemins
+retombaient sur la salle 1 sans le dire :
+
+- la lecture de la salle (`GET /api/room`) et la préparation d'un jeu
+  appelaient `describe(people)` sans numéro, qui valait alors 1. Une page de
+  la salle 2 recevait donc les présents et le chef de la salle 1 ;
+- la reprise du rôle de chef prenait toujours le contrôleur de la salle 1.
+  Une demande faite dans la salle 2 visait le chef de la salle 1, qui
+  recevait l'avertissement ;
+- le chef retenu, celui qui a repris le rôle, était une seule valeur pour
+  toutes les salles. Décrire la salle 2 la remplaçait, et une reprise
+  confirmée dans la salle 1 était perdue dès que la salle d'à côté diffusait.
+
+La correction passe par les types plutôt que par des vérifications en plus.
+Le contrôleur d'une salle porte son numéro dès sa création, et `describe`
+le lit lui-même : un appelant ne peut plus l'oublier. Le registre refuse
+qu'on pose le contrôleur d'une salle à la place d'une autre. Le chef retenu
+devient une valeur par salle. Le numéro de salle devient obligatoire là où
+il valait 1 ou « toutes » par défaut. Le vérificateur de types a alors
+désigné lui-même chaque appel qui l'oubliait. Il y en avait quatre :
+fermer le jeu, annoncer un changement de jeu, et deux dans la reprise.
+
+**Les essais.** Deux essais d'API mettent des gens différents dans les
+salles 1 et 2 et lisent chacune. Sur le code d'avant, la salle 2 répondait
+« Souhib », qui était dans la salle 1, et la salle 3 aussi. Un essai contre
+un vrai serveur ouvre des pages dans deux salles. Il fait demander le rôle de
+chef depuis la salle 2 : sur le code d'avant, Alice, seule dans la salle 1,
+recevait la demande. L'ordre d'arrivée des pages est la condition de cet
+essai. Dans un autre ordre, le chef commun aurait été celui de la salle 2, et
+l'essai serait passé sans correctif. Les jumeaux : la salle 1 voit toujours
+les siens (par l'en-tête, par le paramètre, et sans rien dire), et le chef de
+la salle 2 reçoit bien la demande. Chaque défaut a ensuite été réintroduit
+derrière la nouvelle interface (un chef commun, une description forcée sur
+la salle 1, une reprise sur la salle 1) : chacun fait échouer son essai.
+
+**Les essais, eux aussi, retombaient sur une vraie salle.** Le registre
+déduit l'adresse d'un worker de son numéro. Une page d'essai qui annonçait la
+salle 2 aurait donc fait interroger le vrai worker de la salle 2. Les
+applications d'essai posent maintenant un contrôleur jetable pour chacune
+des trois salles avant la première page.
+
+**Qui ouvre et qui ferme une salle.** Fermer une salle arrête son worker,
+donc la partie de tous ceux qui y jouent. La route ne demandait rien, et son
+commentaire le disait : « sans condition de propriétaire pour l'instant ».
+Ouvrir une salle ne demandait rien non plus. La règle est maintenant :
+
+- ouvrir demande une identité, n'importe laquelle. Un emplacement libre
+  n'est la partie de personne, mais le salon doit savoir qui allume un
+  émulateur sur la carte graphique commune ;
+- fermer demande d'être le chef de CETTE salle, ou l'administrateur de la
+  machine (`NEL3AB_ADMIN`). Le chef est celui que le salon tient pour la
+  salle, celui que la page affiche, jamais un nom envoyé dans la demande ;
+- sans identité, la réponse est 401. Avec l'identité de quelqu'un d'autre,
+  c'est 403.
+
+Une salle où personne n'est connecté n'a pas de chef. Elle se ferme seule
+au bout d'une demi-heure, et avant cela seul l'administrateur peut la fermer.
+L'option « tout le monde peut fermer une salle vide » a été écartée : un chef
+qui recharge sa page laisse sa salle vide une seconde. La page d'accueil ne
+propose pas de bouton de fermeture, donc rien ne change pour les amis. La
+comparaison avec l'adresse de l'administrateur était écrite trois fois. Elle
+vit maintenant à un seul endroit, `Settings.is_admin`.
+
+Les essais (`tests/api/test_salles_routes.py`), sur le code d'avant :
+ouvrir sans identité rendait 201, et fermer sans identité, par quelqu'un qui
+n'est pas le chef, par le chef d'une autre salle ou sur une salle vide
+rendait 200. Les jumeaux : n'importe quelle identité ouvre une salle libre,
+le chef ferme la sienne, l'administrateur ferme une salle où il n'est pas, et
+une salle qui n'existe pas reste inconnue (404). Le systemd est celui de
+papier, et chaque essai vérifie qu'aucun ordre ne lui est parvenu quand la
+demande est refusée.
+
+**Tailscaled, lui aussi, était interrogé par les essais.** Sans l'en-tête du
+proxy, le salon demande l'identité à tailscaled par sa socket locale. Les
+essais qui voulaient « personne » passaient donc par le vrai tailscaled de la
+machine. Leur verdict en dépendait, même s'il répondait « inconnu » pour
+l'adresse de la boucle locale. Un remplaçant commun répond maintenant
+« personne » à tous les essais, et ceux de `test_identity.py` posent leurs
+propres doubles par-dessus.
+
+**Les adresses ne sortent plus.** L'état de la salle part vers toutes ses
+pages, invités partagés compris. Il portait l'adresse de connexion Tailscale
+de chaque présent et du chef, et cette adresse est souvent un courriel.
+`GET /api/room` la rendait aussi, à qui le demandait. La page ne s'en servait
+que pour deux choses : une clé de liste stable, et reconnaître le chef ou
+elle-même en comparant deux adresses.
+
+Chaque personne porte maintenant un repère, `id` : seize caractères tirés
+d'un HMAC-SHA256 de son adresse, sous un secret propre à la machine. Le repère
+est le même sur tous ses appareils et dans toutes les salles, donc la page
+reconnaît le chef dans la liste comme avant. Il ne dit rien de l'adresse. Un
+champ `moi` dit à chaque page laquelle des personnes elle est. Le salon le
+calcule pour chaque page qui reçoit l'état, et pour chaque lecture de
+`GET /api/room` d'après l'identité de qui demande. Sans identité, `moi` n'est
+jamais vrai. La liste des salles ne montrait que des pseudos, mais elle
+retombait sur l'adresse quand un pseudo était vide. Ce repli est retiré.
+
+Pourquoi un HMAC et pas une simple empreinte SHA-256 de l'adresse :
+l'empreinte se recalcule. Quiconque devine une adresse pourrait vérifier si
+elle est dans la salle. Avec un secret, il faut le secret. Le secret
+(`reperes.secret`, 32 octets) naît au premier repère demandé, à côté des
+pseudos dans le dossier d'état du salon, jamais dans le dépôt, lisible par
+son seul propriétaire. Un secret absent ou abîmé est remplacé : les repères
+changent alors une fois, ce qui coûte un rechargement de page. Seize
+caractères hexadécimaux font 64 bits. Une collision entre les quelques
+personnes d'un salon est improbable au point d'être négligeable.
+
+Ce que ça coûte : l'état part maintenant en une copie par page au lieu d'une
+seule pour la salle, puisque `moi` change d'une page à l'autre. Mesuré le
+21 novembre sur lgf, sur une salle inventée de 60 jeux et 8 présents
+(15 Ko de JSON) : 71 µs par page pour la copie et sa mise à plat, soit
+0,57 ms par diffusion à 8 pages. L'encodage Socket.IO se fait lui aussi une
+fois par page, et il n'a pas été mesuré à part. Une diffusion suit un geste
+ou un changement de places, jamais une image.
+
+Côté page, la couronne du chef compare des repères au lieu d'adresses, et
+« puis-je fermer le jeu », « le chef est-il ailleurs » lisent `moi`.
+L'infobulle d'un présent montrait son adresse, elle dit maintenant « identité
+vérifiée » ou « sans identité ». Le pilote `owner.mjs` lit `moi` lui aussi.
+
+**Les essais.** Contre un vrai serveur, deux pages identifiées par des
+courriels entrent dans la salle 2, et l'essai cherche tout ce qui ressemble
+à un courriel dans TOUT ce qu'elles reçoivent. Sur le code d'avant, il en
+trouvait (`benoit@example.com`). Il fait de même pour `GET /api/room`, avec
+et sans identité, et pour la liste des salles avec un pseudo vide. Un autre
+essai ouvre trois pages, deux identifiées et une anonyme, et vérifie que
+chacune se voit elle seule, et que l'anonyme ne se voit nulle part. Sur le
+code d'avant, `moi` n'existait pas. Les jumeaux : les pseudos et le chef sont
+toujours là, le repère est le même pour deux appareils de la même personne et
+différent pour deux personnes. Deux mutants ont été essayés. Une empreinte
+sans secret fait échouer l'essai « le repère ne se recalcule pas depuis
+l'adresse ». Une même copie envoyée à toutes les pages fait échouer l'essai
+de `moi`. Côté page, un essai vérifie qu'un chef sans identité ne couronne
+pas un anonyme : sans la garde, deux repères nuls sont égaux. Retirer la
+garde le fait échouer.
+
+**Ce qui reste : l'identité se forge depuis la machine elle-même.** Le salon
+croit l'en-tête d'identité de Tailscale dès qu'il le reçoit une seule fois.
+Sans lui, il demande à tailscaled qui se cache derrière l'adresse du pair,
+et il croit l'adresse que le proxy local annonce. Les deux chemins supposent
+que seul un proxy de confiance parle au salon. C'est vrai depuis le réseau :
+le salon n'écoute que sur la boucle locale, Caddy retire l'en-tête, et
+`tailscale serve` écrase ce que le client envoie. Ce n'est pas vrai depuis la
+machine elle-même. Un programme qui tourne sur lgf peut écrire ce que le
+proxy écrit normalement, et se présenter comme n'importe quel membre, y
+compris l'administrateur. L'audit relève deux conteneurs tiers en réseau hôte,
+qui partagent donc cette boucle locale. La garde d'origine n'y change rien :
+un programme écrit aussi l'en-tête `Origin` qu'il veut.
+
+La topologie ne change pas aujourd'hui, et c'est un choix de périmètre, pas
+une solution. Les pistes, pour plus tard : faire écouter le salon sur une
+socket Unix que seuls les proxys peuvent ouvrir, ou faire joindre par chaque
+proxy un secret que le salon vérifie. Aucune n'a été essayée. La seconde
+bute sur `tailscale serve`, dont on n'a pas vérifié qu'il sait ajouter un
+en-tête. Le risque grandit avec ce qui sera réservé à l'administrateur, par
+exemple un envoi de fichiers : il faudra le régler avant.
+
+Un dernier reste, plus petit : faute de nom affiché par le fournisseur
+d'identité, le pseudo proposé est la partie de l'adresse avant l'arobase. Ce
+n'est pas une adresse entière, mais c'en est un morceau, visible des autres
+tant que la personne n'a pas choisi son pseudo.
+
 ### 21 novembre : Bobine, le machiniste de la salle
 
 **La demande.** Souhib a aimé l'identité proposée le 20 novembre, « quatre
@@ -25952,6 +26250,56 @@ puis on anime seulement un déplacement, qui coûte peu au navigateur.
 **Tube nommé (FIFO)** : fichier spécial qui relie deux processus. Le lire
 bloque tant que personne n'écrit dedans, d'où le danger pour un programme
 qui parcourt des dossiers en ouvrant tout ce qu'il trouve.
+
+**restic** : programme de sauvegarde. Il découpe les fichiers en morceaux,
+ne stocke qu'une fois un morceau déjà vu, chiffre tout ce qu'il écrit, et
+garde une liste d'instantanés datés qu'on peut restaurer un par un.
+
+**Instantané** : état complet des dossiers sauvegardés à un instant donné.
+Restaurer un instantané rend les fichiers tels qu'ils étaient à cette heure.
+
+**Déduplication** : fait de ne stocker qu'une fois un contenu présent à
+plusieurs endroits. Les emplacements Switch partagent leurs fichiers système,
+donc neuf gigaoctets en occupent moins de deux.
+
+**NAS** : disque réseau de la maison (*Network Attached Storage*), monté sur
+lgf dans `/mnt/nas`.
+
+**NFS, montage « hard »** : NFS est le protocole qui rend le NAS visible
+comme un dossier. Un montage « hard » fait attendre un programme quand le
+NAS ne répond plus, au lieu de lui renvoyer une erreur.
+
+**Origine (`Origin`)** : le schéma, le nom et le port d'un site, par exemple
+`https://nel3ab.app`. Le navigateur l'écrit lui-même dans l'en-tête `Origin`
+d'une écriture, et une page ne peut pas le changer. Deux adresses qui
+diffèrent par le port ou par `http`/`https` sont deux origines.
+
+**Sec-Fetch-Site** : en-tête écrit par le navigateur, qui dit d'où part une
+demande : `same-origin` (la même origine), `same-site` (un autre sous-domaine
+du même domaine), `cross-site` (un autre site) ou `none` (un geste de la
+personne elle-même, sans page derrière).
+
+**CSRF** : *Cross-Site Request Forgery*, falsification de requête intersite.
+Une page d'un autre site fait partir une demande depuis le navigateur d'un
+visiteur, et la demande arrive avec l'identité de ce visiteur.
+
+**Dépendance (FastAPI)** : fonction que FastAPI exécute avant une route,
+pour lui fournir quelque chose ou refuser la demande. Posée sur
+l'application, elle s'exécute avant chaque route, y compris celles ajoutées
+plus tard.
+
+**HMAC** : *Hash-based Message Authentication Code*. Une empreinte calculée
+sur un message ET un secret. Sans le secret, on ne peut ni la recalculer ni
+vérifier qu'elle correspond à un message deviné. HMAC-SHA256 utilise SHA-256
+pour la calculer.
+
+**Repère (de personne)** : ce que l'état de la salle montre à la place de
+l'adresse d'un présent : seize caractères tirés d'un HMAC de son adresse. Le
+même pour la même personne partout, et sans rien dire de l'adresse.
+
+**Boucle locale (loopback)** : l'adresse `127.0.0.1`, qui ne mène qu'à la
+machine elle-même. Un service qui n'écoute que là n'est joignable que par
+les programmes de cette machine, proxys compris.
 
 **Bobine** : le personnage de la salle, une bobine de câble avec une antenne.
 Il joue les changements d'état visibles par tous : une arrivée, un changement

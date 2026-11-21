@@ -1,0 +1,11 @@
+# Chaque heure: une partie perdue avec le disque coûte au plus une heure de jeu.
+[Unit]
+Description=nel3ab abri, chaque heure
+
+[Timer]
+OnCalendar=hourly
+RandomizedDelaySec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

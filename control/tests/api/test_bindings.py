@@ -13,7 +13,7 @@ from asgi_lifespan import LifespanManager
 
 from nel3ab_control.app import create_app
 from nel3ab_control.settings import Settings
-from tests.conftest import SOUHIB, VINCENT
+from tests.conftest import PAGE, SOUHIB, VINCENT
 
 PROFILE = {
     "setups": {},
@@ -258,7 +258,7 @@ async def test_the_admin_address_is_read_without_regard_for_case(
         httpx.AsyncClient(transport=transport, base_url="http://test") as bare,
         LifespanManager(app),
     ):
-        allowed = await bare.put("/api/room/bindings", json=REFERENCE, headers=SOUHIB)
+        allowed = await bare.put("/api/room/bindings", json=REFERENCE, headers=PAGE | SOUHIB)
 
     assert allowed.status_code == 200
 

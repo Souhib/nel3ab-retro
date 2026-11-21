@@ -38,7 +38,7 @@ class Salons:
         if numero not in SALLES:
             raise SalleInconnue(numero)
         if numero not in self._par_numero:
-            self._par_numero[numero] = RoomController(self._reglages(numero), self._client)
+            self._par_numero[numero] = RoomController(self._reglages(numero), self._client, numero)
         return self._par_numero[numero]
 
     def poser(self, numero: int, controleur: RoomController) -> None:
@@ -49,9 +49,17 @@ class Salons:
         contrôleur à côté du registre, le salon en fabriquait un autre, et les
         deux regardaient des salles différentes sans que rien ne le dise. C'est
         exactement la panne qu'on vient de corriger, en plus discret.
+
+        Refuse un contrôleur né pour une autre salle. Il décrirait les présents
+        de son propre numéro sous celui-ci, c'est-à-dire les gens d'une autre
+        salle, sans que rien ne le montre.
         """
         if numero not in SALLES:
             raise SalleInconnue(numero)
+        if controleur.numero != numero:
+            raise ValueError(
+                f"ce contrôleur décrit la salle {controleur.numero}, pas la salle {numero}"
+            )
         self._par_numero[numero] = controleur
 
     def _reglages(self, numero: int) -> Settings:

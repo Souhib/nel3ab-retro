@@ -87,6 +87,10 @@ export const keepBindings = <ThrowOnError extends boolean = false>(options: Opti
  * Read Room
  *
  * What is loaded, what else could be, who claims which pad, and who is here.
+ *
+ * Les présents portent un repère et pas leur adresse; `moi` dit lequel est
+ * celui qui demande. L'identité ne sert qu'à ça: la lecture reste ouverte à
+ * qui n'en a pas, et personne n'y est alors « moi ».
  */
 export const readRoom = <ThrowOnError extends boolean = false>(options?: Options<ReadRoomData, ThrowOnError>): RequestResult<ReadRoomResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ReadRoomResponses, unknown, ThrowOnError>({ url: '/api/room', ...options });
 
@@ -144,8 +148,10 @@ export const publishRoomBindings = <ThrowOnError extends boolean = false>(option
  *
  * Les deux dépendances sont assemblées ICI, et pas dans le contrôleur des
  * salles: celui-ci interroge systemd et les salles, et ce qu'il sait doit
- * survivre à un worker mort. Le pseudo l'emporte sur l'adresse, parce que
- * c'est un nom que ses amis reconnaissent et pas un identifiant.
+ * survivre à un worker mort. Seul le pseudo sort, jamais l'adresse: il y avait
+ * un repli sur l'adresse quand le pseudo était vide, et une adresse est souvent
+ * un courriel. Un pseudo vide n'arrive pas par une page; s'il arrivait, la
+ * liste dirait « quelqu'un » plutôt que l'adresse.
  */
 export const readSalles = <ThrowOnError extends boolean = false>(options?: Options<ReadSallesData, ThrowOnError>): RequestResult<ReadSallesResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ReadSallesResponses, unknown, ThrowOnError>({ url: '/api/salles', ...options });
 
@@ -153,6 +159,11 @@ export const readSalles = <ThrowOnError extends boolean = false>(options?: Optio
  * Open Salle
  *
  * Ouvre le premier emplacement libre, ou refuse quand il n'y en a plus.
+ *
+ * Demande une identité, n'importe laquelle. Ouvrir un emplacement libre ne
+ * décide rien de la partie de quelqu'un d'autre, mais allume un émulateur sur
+ * la carte graphique commune: le salon doit savoir qui l'a demandé. Avant le
+ * 21 novembre 2026, une page étrangère ouverte chez un membre pouvait le faire.
  */
 export const openSalle = <ThrowOnError extends boolean = false>(options?: Options<OpenSalleData, ThrowOnError>): RequestResult<OpenSalleResponses, unknown, ThrowOnError> => (options?.client ?? client).post<OpenSalleResponses, unknown, ThrowOnError>({ url: '/api/salles', ...options });
 
@@ -161,8 +172,14 @@ export const openSalle = <ThrowOnError extends boolean = false>(options?: Option
  *
  * Ferme une salle, et le jeu qui tourne avec.
  *
- * Sans condition de propriétaire pour l'instant: la salle se ferme d'elle-même
- * après une demi-heure sans personne, et ce bouton-ci sert à rendre la place
- * tout de suite plutôt qu'à prendre une décision sur la partie de quelqu'un.
+ * Réservé au chef de CETTE salle et à l'administrateur. Fermer arrête la
+ * partie de tous ceux qui y jouent: c'est la décision du chef, comme changer
+ * de jeu, et pas celle de quiconque passe par la liste. L'administrateur le
+ * peut aussi, sans y être, pour rendre la place quand une salle reste
+ * bloquée. Une salle où personne n'est connecté n'a pas de chef: seul
+ * l'administrateur la ferme avant la fermeture automatique d'une demi-heure.
+ *
+ * Le chef est celui que le salon tient pour cette salle, le même que la page
+ * affiche: pas un nom envoyé par la demande.
  */
 export const closeSalle = <ThrowOnError extends boolean = false>(options: Options<CloseSalleData, ThrowOnError>): RequestResult<CloseSalleResponses, CloseSalleErrors, ThrowOnError> => (options.client ?? client).delete<CloseSalleResponses, CloseSalleErrors, ThrowOnError>({ url: '/api/salles/{numero}', ...options });

@@ -1,10 +1,30 @@
-# État du projet au 20 novembre 2026
+# État du projet au 21 novembre 2026
 
 Ce point de reprise conserve le travail commencé en septembre et les
 livraisons datées jusqu'au 10 novembre. Il indique où retrouver les décisions, les expériences
 et leurs limites. Le [carnet](carnet-de-bord.md#11-septembre-ce-que-le-mois-a-appris)
 conserve leur déroulement ; l'[ADR](adr/0001-architecture.md) conserve les règles
 qui en résultent. Les anciens plans M1 à M3 sont des archives de conception.
+
+**Au 21 novembre : les sauvegardes ont une copie chiffrée hors de la machine.**
+Chaque heure, `nel3ab-abri.timer` copie les sauvegardes, les pseudos et la
+configuration vers le NAS avec restic. Une restauration réelle depuis le NAS
+est identique à l'original. Le travail du 16 septembre au 20 novembre est
+dans Git, en dix commits poussés. La Switch 2 reste dans la salle comme
+console expérimentale. Mode d'emploi : [Copie des sauvegardes](abri.md).
+Récit : [carnet](carnet-de-bord.md), entrée « 21 novembre ».
+
+**Au 21 novembre : les portes du salon sont fermées dans le code, pas encore en service.**
+Les quatre constats de l'audit sur le salon sont corrigés et commités, chacun
+avec un essai rouge d'abord. Une écriture exige l'origine d'une page du salon.
+Ouvrir une salle demande une identité, la fermer demande d'en être le chef ou
+l'administrateur. Chaque salle décrit ses propres présents et garde son
+propre chef. L'état public montre un repère opaque à la place de l'adresse de
+chacun. Rien n'est installé : le salon en service n'a pas été redémarré. Reste
+ouvert : un programme de la machine peut encore se présenter comme n'importe
+qui, y compris l'administrateur. Récit : [carnet](carnet-de-bord.md), entrée
+« 21 novembre : fermer les portes du salon » ; décisions :
+[ADR](adr/0001-architecture.md), « Lobby doors, 2026-11-21 ».
 
 **Au 20 novembre : le moteur Switch 2 est mis de côté, un audit fixe l'ordre des chantiers.**
 À la demande de Souhib, le travail de performance sur le moteur Switch 2
@@ -1707,7 +1727,11 @@ La connexion au réseau privé reste nécessaire. L'identité vient de Tailscale
 par le proxy ou sa consultation locale ; le worker ne reçoit pas un compte
 utilisateur signé. Il autorise les commandes selon les places et le rôle
 annoncé par le salon. L'administrateur qui publie la référence de touches et le
-chef qui choisit la partie sont deux rôles distincts.
+chef qui choisit la partie sont deux rôles distincts. Depuis le 21 novembre
+2026, l'administrateur et le chef d'une salle sont aussi les seuls à pouvoir
+la fermer, et une écriture au salon exige l'origine d'une de ses pages. Cette
+identité se forge encore depuis la machine elle-même : voir le carnet, entrée
+« 21 novembre : fermer les portes du salon ».
 
 ## Jeux Switch effectivement essayés
 

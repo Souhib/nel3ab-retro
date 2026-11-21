@@ -83,10 +83,30 @@ class Me(BaseModel):
 
 
 class Person(BaseModel):
-    """Quelqu'un dans la salle, qu'il tienne une manette ou non."""
+    """Quelqu'un dans la salle, qu'il tienne une manette ou non.
+
+    Sans son adresse, et c'est délibéré: cet état part vers toutes les pages de
+    la salle, invités compris, et une adresse est souvent un courriel. Le
+    repère et `moi` font ce que l'adresse faisait pour la page. Voir
+    `nel3ab_control.reperes`.
+    """
 
     name: str
-    login: str | None = None
+    id: str | None = Field(
+        default=None,
+        description=(
+            "Un repère opaque et stable de la personne, le même sur tous ses "
+            "appareils et dans toutes les salles. Ne dit rien de son adresse. "
+            "Nul sans identité: deux anonymes ne sont pas la même personne."
+        ),
+    )
+    moi: bool = Field(
+        default=False,
+        description=(
+            "Vrai quand cette personne est celle qui reçoit cet état. Calculé pour "
+            "chaque page, donc jamais vrai pour une page sans identité."
+        ),
+    )
     seat: int | None = Field(default=None, description="La manette qu'il tient, s'il en tient une.")
     seat_pending: bool = Field(
         default=True,

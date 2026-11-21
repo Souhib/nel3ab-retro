@@ -2,6 +2,7 @@
 
 import httpx
 import pytest
+from fastapi import FastAPI
 
 from nel3ab_control.api.controllers.rooms import RoomController
 from nel3ab_control.api.schemas.error import NoSuchSeat, SeatTaken, WorkerUnreachable
@@ -309,3 +310,46 @@ async def test_a_seat_held_by_somebody_still_here_is_left_alone() -> None:
 
     assert rooms.holder_of(1) == "sid-souhib"
     assert rooms.holder_of(2) == "sid-yassine"
+
+
+async def test_a_page_of_one_room_is_told_about_that_room_only(
+    client: httpx.AsyncClient, app: FastAPI
+) -> None:
+    """Le défaut relevé par l'audit du 20 novembre 2026.
+
+    La dépendance choisissait bien le contrôleur de la salle annoncée par la
+    page, mais la route décrivait les présents et le chef de la salle 1. Une page
+    de la salle 2 voyait donc qui jouait dans la salle 1, et pas qui était avec
+    elle.
+    """
+    people = app.state.people
+    people.arrived("sid-souhib", "souhib@example.com", "Souhib", 1)
+    people.arrived("sid-vincent", "vincent@example.com", "Vincent", 2)
+    people.arrived("sid-yassine", "yassine@example.com", "Yassine", 2)
+
+    two = (await client.get("/api/room", headers={"X-Nel3ab-Salle": "2"})).json()
+
+    assert [person["name"] for person in two["people"]] == ["Vincent", "Yassine"]
+    assert two["owner"]["name"] == "Vincent"
+
+
+async def test_room_one_still_sees_its_own_people(client: httpx.AsyncClient, app: FastAPI) -> None:
+    """Le jumeau: une route qui rendrait toujours la salle 2, ou personne,
+    passerait l'essai du dessus. Le paramètre `?salle=` dit la même chose que
+    l'en-tête, et l'absence des deux veut dire la salle 1."""
+    people = app.state.people
+    people.arrived("sid-souhib", "souhib@example.com", "Souhib", 1)
+    people.arrived("sid-vincent", "vincent@example.com", "Vincent", 2)
+
+    answers = {
+        "en-tête": await client.get("/api/room", headers={"X-Nel3ab-Salle": "1"}),
+        "paramètre": await client.get("/api/room", params={"salle": "1"}),
+        "rien": await client.get("/api/room"),
+    }
+    for asked, answer in answers.items():
+        one = answer.json()
+        assert [person["name"] for person in one["people"]] == ["Souhib"], asked
+        assert one["owner"]["name"] == "Souhib", asked
+    three = (await client.get("/api/room", params={"salle": "3"})).json()
+    assert three["people"] == []
+    assert three["owner"] is None

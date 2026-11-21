@@ -348,3 +348,32 @@ class Clairseme:
 def lecteur(octets: bytes) -> Callable[[int, int], bytes]:
     """Lit dans un fichier tenu en mémoire, comme `os.pread` lirait sur disque."""
     return lambda decalage, longueur: octets[decalage : decalage + max(longueur, 0)]
+
+
+def _nombre_7z(valeur: int) -> bytes:
+    """Un NUMBER du format 7z: un octet sous 0x80, sinon 0xFF et huit octets."""
+    return bytes([valeur]) if valeur < 0x80 else b"\xff" + le64(valeur)
+
+
+def sept_zip(fichiers: list[tuple[str, bytes]]) -> bytes:
+    """Une archive 7z sans compression (méthode « Copy »), un dossier par fichier.
+
+    Écrite à la main parce que la machine n'a pas `7z`: `lsar` et `unar` la
+    lisent comme une vraie, ce qui fait passer l'essai par ces outils réels.
+    """
+    paquets = b"".join(donnees for _, donnees in fichiers)
+    n = len(fichiers)
+    tete = b"\x01\x04"
+    tete += b"\x06" + _nombre_7z(0) + _nombre_7z(n)
+    tete += b"\x09" + b"".join(_nombre_7z(len(d)) for _, d in fichiers) + b"\x00"
+    tete += b"\x07\x0b" + _nombre_7z(n) + b"\x00"
+    tete += (_nombre_7z(1) + b"\x01\x00") * n
+    tete += b"\x0c" + b"".join(_nombre_7z(len(d)) for _, d in fichiers) + b"\x00"
+    tete += b"\x08\x0a\x01" + b"".join(le32(zlib.crc32(d)) for _, d in fichiers) + b"\x00"
+    tete += b"\x00"
+    noms = b"\x00" + b"".join(nom.encode("utf-16-le") + b"\0\0" for nom, _ in fichiers)
+    tete += b"\x05" + _nombre_7z(n) + b"\x11" + _nombre_7z(len(noms)) + noms + b"\x00"
+    tete += b"\x00"
+    debut = le64(len(paquets)) + le64(len(tete)) + le32(zlib.crc32(tete))
+    signature = b"7z\xbc\xaf\x27\x1c\x00\x04" + le32(zlib.crc32(debut)) + debut
+    return signature + paquets + tete

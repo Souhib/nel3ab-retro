@@ -7,6 +7,7 @@ it("montre les noms connus et aucun nom inventé sous les prises", () => {
     <Seats
       players={4}
       busy={[true, true, false, false]}
+      mics={[true, false, false, false]}
       names={new Map([[1, "Souhib"]])}
       mine={1}
       displaced={false}
@@ -25,6 +26,7 @@ it("place la couronne sur la place du chef, même si ce n'est pas le premier jou
   const props = {
     players: 4,
     busy: [true, true, false, false],
+    mics: [true, false, false, false],
     names: new Map([
       [1, "Souhib"],
       [2, "Yassine"],
@@ -53,6 +55,7 @@ it("garde la couronne hors du cadre qui tronque le nom", () => {
     <Seats
       players={4}
       busy={[true, true, false, false]}
+      mics={[true, false, false, false]}
       names={
         new Map([
           [1, "Souhib"],

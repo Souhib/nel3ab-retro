@@ -1,4 +1,5 @@
 import { MAX_BACKLOG, type VideoStats } from "../media/video";
+import { SHORT_RATE } from "./vitals";
 
 export type Diagnosis = { title: string; detail: string; reduce: boolean };
 
@@ -34,6 +35,19 @@ export function diagnose(video: VideoStats): Diagnosis {
           : "La marge vidéo ne suffit plus. Essaie le format réduit, rapproche-toi du Wi-Fi ou utilise un câble.",
       reduce: !video.half && !video.halfDenied,
     };
+  // Après la réception: une liaison qui rame explique plus qu'un écran lent.
+  // Le constat, pas la cause: le 25 septembre 2026, un ordinateur fixe est passé
+  // de 110 à 21 Hz sans qu'on sache pourquoi. Pas de format réduit non plus: la
+  // page recevait déjà tout.
+  if (video.refreshHz > 0 && video.sourceHz > 0 && video.refreshHz < SHORT_RATE * video.sourceHz) {
+    const shown = Math.round(video.refreshHz);
+    const sent = Math.round(video.sourceHz);
+    return {
+      title: "Affichage plus lent que le jeu",
+      detail: `Ton navigateur n’affiche que ${shown} images par seconde, et le jeu en envoie ${sent} : les autres sont sautées à l’affichage.`,
+      reduce: false,
+    };
+  }
   return {
     title: "Aucune surcharge détectée",
     detail:

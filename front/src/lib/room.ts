@@ -11,6 +11,7 @@
  * The worker stays the authority on who really holds a pad (ADR D12). What is
  * here is what each page SAID, which is the only thing that can carry a name.
  */
+import type { MuteNews } from "./sourdine";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { io, type Socket } from "socket.io-client";
@@ -128,6 +129,8 @@ export type Lobby = {
    * réduit, ni s'il avait refusé. Le relevé porte déjà `demi`, donc le format
    * EFFECTIF est connu; ce qui manquait est la proposition elle-même. */
   quality: (what: "proposé" | "accepté" | "refusé") => void;
+  /** La sourdine, qui ferme la socket du son: coupée ou remise. */
+  sound: (what: MuteNews) => void;
 };
 
 /** Ce que le salon dit quand la salle change de jeu: des noms, déjà traduits. */
@@ -136,6 +139,8 @@ export type Booting = {
   save: string;
   saveSlot?: 0 | 1;
   pads?: Record<string, number>;
+  /** Choisi par le salon pour cette connexion lors d'un lancement solo. */
+  solo?: boolean;
 };
 
 /** Une demande reçue: qui, et pour quelle place. */
@@ -232,7 +237,12 @@ export function useLobby(
     // seraient reconstruites à chaque rendu, ce qui rouvrirait la socket.
     lobby.on("asked", (asked: Asked) => heard.current.asked(asked));
     lobby.on("answered", (answered: Answered) => heard.current.answered(answered));
-    lobby.on("booting", (told: Booting) => heard.current.booting(told));
+    lobby.on("booting", (told: Booting & { soloStarter?: string }) => {
+      heard.current.booting({
+        ...told,
+        ...(told.soloStarter === undefined ? {} : { solo: told.soloStarter === lobby.id }),
+      });
+    });
     lobby.on("recovery", (notice: RecoveryNotice) => heard.current.recovery?.(notice));
     lobby.on("disconnect", () => heard.current.recovery?.(null));
     // Réaffirmer seulement la place actuelle, sans rejouer des annonces
@@ -294,5 +304,6 @@ export function useLobby(
     },
     quality: (what: "proposé" | "accepté" | "refusé") =>
       socket.current?.emit("qualite", { quoi: what }),
+    sound: (what: MuteNews) => socket.current?.emit("son", { quoi: what }),
   };
 }

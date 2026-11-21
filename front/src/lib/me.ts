@@ -16,24 +16,39 @@ import { readMe, renameMe, type Me } from "../client";
 
 export const ME_KEY = ["me"] as const;
 
+async function readIdentity(): Promise<Me | null> {
+  try {
+    const answer = (await readMe({ throwOnError: true })).data;
+    // The worker serves HTML for unknown paths, including /api/me without a lobby.
+    return typeof answer?.name === "string" ? answer : null;
+  } catch {
+    return null;
+  }
+}
+
 export function useMe() {
   return useQuery({
     queryKey: ME_KEY,
-    queryFn: async (): Promise<Me | null> => {
-      try {
-        const answer = (await readMe({ throwOnError: true })).data;
-        // Vérifié plutôt que cru: le worker répond la PAGE à tout chemin qu'il
-        // ne connaît pas, donc une salle servie sans plan de contrôle rend du
-        // HTML avec un code 200. Sans ce test, la page croirait avoir une
-        // identité vide au lieu de savoir qu'elle n'en a pas.
-        return typeof answer?.name === "string" ? answer : null;
-      } catch {
-        return null;
-      }
-    },
+    queryFn: readIdentity,
     staleTime: Infinity,
     refetchOnWindowFocus: false,
   });
+}
+
+/** Retry a missing identity when opening the save menu, before it offers a new game.
+ * A nickname does not establish an account. A verified account needs no extra request.
+ * On 2026-11-11 the browser regression observes one request per opening while
+ * unidentified, none for an identified account, and no periodic polling. */
+export function useMenuIdentity(open: boolean): boolean {
+  const client = useQueryClient();
+  const known = client.getQueryData<Me | null>(ME_KEY)?.login;
+  return useQuery({
+    queryKey: ME_KEY,
+    queryFn: readIdentity,
+    enabled: open && !known,
+    staleTime: 0,
+    refetchOnWindowFocus: false,
+  }).isFetching;
 }
 
 /** Change son pseudo, et prévient le salon pour que la salle le voie tout de

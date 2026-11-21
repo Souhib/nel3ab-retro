@@ -8,6 +8,7 @@ import type { InputSource } from "./input-source";
  * twice a second — the rate a person reads numbers at, not the rate they change.
  */
 import { InputStream, type InputState } from "./input";
+import { MicStream, type MicState } from "./mic";
 import { SoundStream, type SoundStats } from "./sound";
 import { VideoStream, type VideoStats } from "./video";
 import { socketUnder } from "../lib/base";
@@ -16,6 +17,8 @@ export type Snapshot = {
   video: VideoStats;
   sound: SoundStats;
   input: InputState;
+  /** Où en est le micro de cette page: éteint, demandé, ouvert, refusé. */
+  mic: MicState;
   /** How far the sound is behind the picture, in milliseconds. */
   soundGapMs: number | null;
   /** Compensation réellement ajoutée à l'image, distincte de l'écart restant. */
@@ -40,6 +43,7 @@ export class Session {
   readonly video: VideoStream;
   readonly sound: SoundStream;
   readonly input: InputStream;
+  readonly mic: MicStream;
 
   private listeners = new Set<() => void>();
   private snapshot: Snapshot;
@@ -72,6 +76,7 @@ export class Session {
     this.video = new VideoStream(canvas, socketUrl);
     this.sound = new SoundStream(socketUrl, volume, deviceRate);
     this.input = new InputStream(socketUrl, onSeat, () => this.refresh(), watching, inputSource);
+    this.mic = new MicStream(socketUrl, () => this.input.attribution());
     this.snapshot = this.read();
   }
 
@@ -88,6 +93,7 @@ export class Session {
     if (this.ticker !== null) window.clearInterval(this.ticker);
     this.video.stop();
     this.sound.stop();
+    this.mic.stop();
     this.input.stop();
   }
 
@@ -138,6 +144,7 @@ export class Session {
       video,
       sound: this.sound.stats(),
       input: this.input.state(),
+      mic: this.mic.status(),
       soundGapMs: this.sound.gapAgainst(this.video.presentationOffsetMs()),
       soundSyncMs: this.video.compensationMs(),
       padOnly: this.padOnly,
@@ -188,6 +195,7 @@ export function exposeNothingYet(): void {
       sourceHz: 0,
       gapP50: 0,
       gapP95: 0,
+      gapMax: 0,
       heldP95: 0,
       pictureW: 0,
       pictureH: 0,
@@ -273,6 +281,10 @@ export function exposeForTests(session: Session): void {
         sourceHz: shot.video.sourceHz,
         gapP50: shot.video.gapMs.p50,
         gapP95: shot.video.gapMs.p95,
+        // Le pire écart entre deux images reçues: celui que la page envoie au
+        // salon comme troisième « arrivées », lisible aussi d'un banc qui ne
+        // passe pas par le salon.
+        gapMax: shot.video.gapMs.max,
         heldP95: shot.video.heldRefreshes.p95,
         pictureW: shot.video.picture.width,
         pictureH: shot.video.picture.height,

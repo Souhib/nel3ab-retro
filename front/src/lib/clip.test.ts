@@ -48,11 +48,11 @@ describe("demander un clip", () => {
 
   it("dit pourquoi quand la salle n'a rien à couper", async () => {
     const state = await askForClip(
-      answers(409, { attendre: 0, pourquoi: "pas encore trente secondes" }),
+      answers(409, { attendre: 0, pourquoi: "pas encore quarante-cinq secondes" }),
       () => "blob:faux",
     );
 
-    expect(state).toEqual({ phase: "raté", why: "pas encore trente secondes" });
+    expect(state).toEqual({ phase: "raté", why: "pas encore quarante-cinq secondes" });
   });
 
   it("ne prend pas une panne pour une attente", async () => {

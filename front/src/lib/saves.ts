@@ -17,7 +17,11 @@ export type Slot = 0 | 1 | 2;
 export const SLOTS: readonly { id: Slot; label: string; note: string }[] = [
   { id: 0, label: "partie neuve", note: "rien de débloqué, comme à la sortie du jeu" },
   { id: 1, label: "tout débloqué", note: "personnages, circuits, coupes, modes" },
-  { id: 2, label: "ta sauvegarde", note: "la tienne, dans cette salle comme dans une autre" },
+  {
+    id: 2,
+    label: "reprendre",
+    note: "ta partie personnelle, dans cette salle comme dans une autre",
+  },
 ] as const;
 
 /** L'emplacement personnel, qui n'existe que si le salon sait qui tu es.
@@ -102,17 +106,38 @@ export function padLabel(pad: Pad): string {
  * et un essai les compare l'une à l'autre plutôt qu'à une liste écrite à la
  * main, qui serait la même erreur recopiée.
  */
-export function launchPicks(personal = false): { id: string; label: string; hint: string }[] {
-  return SLOTS.filter((choice) => personal || choice.id !== PERSONAL).map((choice) => ({
+export function launchPicks(
+  personal = false,
+  unlocked = false,
+): { id: string; label: string; hint: string }[] {
+  return SLOTS.filter(
+    (choice) => (personal || choice.id !== PERSONAL) && (unlocked || choice.id !== 1),
+  ).map((choice) => ({
     id: String(choice.id),
     label: choice.label,
-    hint: choice.note,
+    hint:
+      choice.id === 0 && personal
+        ? "nouvelle partie pour ton compte ; la précédente reste conservée"
+        : choice.note,
   }));
 }
 
 /** L'emplacement qu'un identifiant de `launchPicks` désigne, ou rien. */
-export function slotFromPick(id: string): Slot | null {
-  return SLOTS.find((choice) => String(choice.id) === id)?.id ?? null;
+export function slotFromPick(id: string, unlocked = false): Slot | null {
+  return (
+    SLOTS.find((choice) => String(choice.id) === id && (unlocked || choice.id !== 1))?.id ?? null
+  );
+}
+
+/** No receipt or an old worker means no promise of an unlocked save. */
+export async function readUnlocked(url: string | URL): Promise<readonly boolean[]> {
+  const response = await fetch(url, { cache: "no-store" });
+  if (!response.ok) throw new Error("Les sauvegardes disponibles ne répondent pas.");
+  const value: unknown = await response.json();
+  if (!Array.isArray(value) || !value.every((item) => typeof item === "boolean")) {
+    throw new Error("Ce n'est pas un catalogue de sauvegardes.");
+  }
+  return value as boolean[];
 }
 
 /** Ce qu'on affiche pour un emplacement. */

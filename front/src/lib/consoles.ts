@@ -15,6 +15,11 @@ export const CONSOLES: readonly { code: string; label: string; note: string }[] 
   { code: "gc", label: "GameCube", note: "carte mémoire, deux sauvegardes par jeu" },
   { code: "wii", label: "Wii", note: "sauvegarde dans la console, deux par jeu" },
   { code: "switch", label: "Switch", note: "manettes Pro et sauvegardes séparées par jeu" },
+  {
+    code: "switch2",
+    label: "Switch 2 — expérimental",
+    note: "un joueur et des spectateurs ; ralentissements et objets manquants possibles",
+  },
   // Un disque dont l'outil n'a pas su dire la console. Il a quand même son
   // dossier: le cacher ferait disparaître un jeu de la salle sans rien dire, et
   // un jeu qu'on ne voit plus est pire qu'un jeu mal rangé.
@@ -24,4 +29,9 @@ export const CONSOLES: readonly { code: string; label: string; note: string }[] 
 /** Le nom d'une console, ou son code faute de mieux. */
 export function consoleLabel(code: string): string {
   return CONSOLES.find((one) => one.code === code)?.label ?? code;
+}
+
+/** Les deux adaptateurs reçoivent les mêmes commandes de manette Pro. */
+export function isSwitchConsole(code: string | undefined): boolean {
+  return code === "switch" || code === "switch2";
 }

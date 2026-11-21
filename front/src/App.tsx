@@ -7,7 +7,9 @@
  * scroll away from the game they are playing. Its width is dragged between two
  * bounds (`lib/column`), and the picture takes whatever is left.
  */
+import { MUTE_SETTLES_MS, muteNews, type MuteNews } from "./lib/sourdine";
 import { typingIn } from "./lib/typing";
+import { under } from "./lib/base";
 import { useEffect, useRef, useState } from "react";
 import type { Room as RoomState } from "./client";
 import { SetupProfiles } from "./components/SetupProfiles";
@@ -85,7 +87,7 @@ import { useBindings, useRoomReference } from "./lib/bindings";
 import { cn } from "./lib/cn";
 import { publishProfile } from "./lib/bindings";
 import { arrange } from "./lib/settings";
-import { useMe, useRename } from "./lib/me";
+import { useMe, useMenuIdentity, useRename } from "./lib/me";
 import {
   useLobby,
   useRoom,
@@ -106,10 +108,11 @@ import {
 import type { Session, Snapshot } from "./media/session";
 import { clipLabel } from "./lib/clip";
 import { SwitchBindings } from "./components/SwitchBindings";
-import { CONSOLES } from "./lib/consoles";
+import { CONSOLES, isSwitchConsole } from "./lib/consoles";
 import {
   PADS,
   launchPicks,
+  readUnlocked,
   padLabel,
   rememberPad,
   slotFromPick,
@@ -417,6 +420,8 @@ function Room({
     /** La proposition de format réduit, et sa réponse. Sans elle, le journal ne
      * dit pas si une mauvaise soirée a été proposée à quelqu'un. */
     quality: (what: "proposé" | "accepté" | "refusé") => void;
+    /** La sourdine, coupée ou remise, pour le journal du salon. */
+    sound: (what: MuteNews) => void;
   };
 }) {
   const coarse = useRef(looksLikeAPhone()).current;
@@ -464,6 +469,25 @@ function Room({
    * s'il y en avait une, et s'alarmait en conséquence. */
   const playing = room === undefined ? null : room.game !== null;
   const [menu, setMenu] = useState(idle);
+  const checkingIdentity = useMenuIdentity(menu);
+  const [unlockedSaves, setUnlockedSaves] = useState<readonly boolean[] | null>(null);
+  useEffect(() => {
+    if (!menu) {
+      setUnlockedSaves(null);
+      return;
+    }
+    let current = true;
+    void readUnlocked(under("/saves"))
+      .then((available) => {
+        if (current) setUnlockedSaves(available);
+      })
+      .catch(() => {
+        if (current) setUnlockedSaves([]);
+      });
+    return () => {
+      current = false;
+    };
+  }, [menu]);
   /** Le jeu ARMÉ, pour ceux qui n'ont pas de choix de sauvegarde.
    *
    * Un jeu de carte mémoire se confirme par son panneau de sauvegarde. Un jeu
@@ -675,6 +699,8 @@ function Room({
       previous.current = now;
       opened.current = performance.now();
       if (worthWriting(taken)) sending.current.vitals(taken);
+      // Un jeu qui démarre n'envoie pas d'image, et ce n'est pas un gel.
+      if (bootingNow.current !== null) rough.current.hold();
       if (rough.current.saw(taken)) {
         setSuggestHalf(true);
         sending.current.quality("proposé");
@@ -716,6 +742,17 @@ function Room({
   }, [session]);
 
   useEffect(() => session?.sound.setVolume(volume), [session, volume]);
+  // La sourdine, dite au salon une fois le volume stable (voir `lib/sourdine`).
+  const muted = volume <= 0;
+  const toldMuted = useRef<boolean | null>(null);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const news = muteNews(toldMuted.current, muted);
+      toldMuted.current = muted;
+      if (news) sending.current.sound(news);
+    }, MUTE_SETTLES_MS);
+    return () => window.clearTimeout(timer);
+  }, [muted]);
   useEffect(() => session?.sound.setDeviceRate(deviceRate), [session, deviceRate]);
   useEffect(() => session?.setLipsync(lipsync), [session, lipsync]);
   // Échap ouvre le menu, comme sur une console. Les écrans qui se ferment avec
@@ -835,6 +872,8 @@ function Room({
       // exactement comme celui qui a cliqué: l'écran s'efface quand la salle
       // repeint, et c'est la même règle pour tout le monde.
       (told) => {
+        if (told.solo === true) session?.input.prepareSoloPlayer();
+        else if (told.solo === false) session?.input.watchOnly();
         if (told.saveSlot === 0 || told.saveSlot === 1) setRanWith(told.saveSlot);
         const chosen = told.pads?.[session?.input.attribution() ?? ""];
         if (chosen !== undefined && [0, 1, 2, 3].includes(chosen)) {
@@ -932,7 +971,7 @@ function Room({
   const setupId = pendingSetup?.id ?? null;
   useEffect(() => setSetupHidden(false), [setupId]);
   const setupGame = room?.library.find((game) => game.index === pendingSetup?.game);
-  const configuringSwitch = (setupGame?.console ?? room?.game?.console) === "switch";
+  const configuringSwitch = isSwitchConsole(setupGame?.console ?? room?.game?.console);
   useEffect(() => {
     session?.input.blockGameplay(configuring, configuringSwitch ? "switch" : "dolphin");
     return () => session?.input.blockGameplay(false);
@@ -956,6 +995,40 @@ function Room({
       return;
     }
     clip.ask();
+  };
+
+  /** Le micro, pour mêler sa voix aux clips. Record only: rien n'est rejoué. */
+  const [micDevice, setMicDevice] = useState<string>("");
+  const [micDevices, setMicDevices] = useState<{ id: string; label: string }[]>([]);
+  const refreshMics = () => {
+    void session?.mic.devices().then(setMicDevices);
+  };
+  useEffect(() => {
+    refreshMics();
+    // Les noms ne se révèlent qu'APRÈS l'autorisation du micro; on ne relance
+    // pas la liste ici, seulement quand le micro s'ouvre.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session]);
+  const toggleMic = () => {
+    const mic = session?.mic;
+    if (!mic) return;
+    // L'état VIVANT, pas l'instantané: celui-ci peut être en retard d'une
+    // demi-seconde, et décider « couper » sur un état périmé ne coupe rien.
+    if (mic.status() === "on") {
+      mic.stop();
+      session?.refresh();
+      return;
+    }
+    void mic.start(micDevice === "" ? null : micDevice).then((ok) => {
+      if (ok) refreshMics();
+      session?.refresh();
+    });
+  };
+  const pickMic = (id: string) => {
+    setMicDevice(id);
+    if (session?.mic.status() === "on") {
+      void session?.mic.start(id === "" ? null : id).then(() => session?.refresh());
+    }
   };
 
   const switchPad = (wanted: Pad) => {
@@ -1095,7 +1168,7 @@ function Room({
               // Un disque dont la console est INCONNUE n'a pas de choix: l'outil n'a
               // pas répondu, donc on ne sait pas où sa partie ira, et proposer un
               // choix qui ne décide peut-être rien est pire que ne pas le proposer.
-              const saves = ["gc", "wii", "switch"].includes(game.console ?? "");
+              const saves = ["gc", "wii", "switch", "switch2"].includes(game.console ?? "");
               const running = game.index === room?.game?.index;
               /** Lancer, une fois la sauvegarde décidée quand il y en a une. */
               const launch = (slot: Slot | null) => {
@@ -1105,10 +1178,18 @@ function Room({
                 // « ta sauvegarde » retombait donc en silence sur la partie
                 // neuve. Un disque de console inconnue garde l'ancien chemin,
                 // faute de savoir quel appareil lui présenter.
-                if (game.console === "gc" || game.console === "wii" || game.console === "switch") {
+                if (
+                  game.console === "gc" ||
+                  game.console === "wii" ||
+                  isSwitchConsole(game.console)
+                ) {
                   setPreparationError("");
                   void tell
-                    .prepare({ action: "begin", game: game.index, save: slot ?? 0 })
+                    .prepare({
+                      action: "begin",
+                      game: game.index,
+                      save: slot ?? 0,
+                    })
                     .then(() => setMenu(false))
                     .catch((error: unknown) =>
                       setPreparationError(
@@ -1158,7 +1239,11 @@ function Room({
                         ? "encore une fois pour lancer, ailleurs pour annuler"
                         : "entrée deux fois: ce disque n'a pas dit de quelle console il est",
                 icon: <GameIcon className="h-full w-full" />,
-                game: { index: game.index, art: game.art ?? false, console: game.console },
+                game: {
+                  index: game.index,
+                  art: game.art ?? false,
+                  console: game.console,
+                },
                 details: <GameCard game={game} />,
                 by: game.maker ?? undefined,
                 note: game.about ?? undefined,
@@ -1169,7 +1254,7 @@ function Room({
                 // le jeu lancé, donc la griser était juste.
                 //
                 // Elle reste grisée pour qui ne décide pas du jeu.
-                disabled: !mine,
+                disabled: !mine || (saves && (unlockedSaves === null || checkingIdentity)),
                 // Une seule décision ici, la sauvegarde, et la MÊME pour les deux
                 // consoles. La manette se choisit sous « manettes »: voir
                 // `launchPicks`, qui dit pourquoi les deux moitiés du choix vivent
@@ -1178,7 +1263,9 @@ function Room({
                 // tu es: le worker ne peut pas nommer un dossier d'après quelqu'un
                 // qu'il ne connaît pas, et la proposer sans identité ferait cliquer
                 // sur un choix qui retombe en silence sur la partie neuve.
-                picks: saves ? launchPicks(login !== null) : undefined,
+                picks: saves
+                  ? launchPicks(login !== null, unlockedSaves?.[game.index] === true)
+                  : undefined,
                 // Sans emplacements il n'y a pas de panneau, donc plus rien ne
                 // confirme. On remet l'armement à deux pressions, qui est ce que cette
                 // entrée faisait avant que le choix de sauvegarde existe: ce qu'on
@@ -1198,7 +1285,8 @@ function Room({
                 // retomber sur « partie neuve »: c'est ce repli silencieux qui a fait
                 // démarrer tous les jeux Wii sur la mauvaise sauvegarde.
                 onPick: (id: string) => {
-                  const slot = slotFromPick(id);
+                  if (unlockedSaves === null) return;
+                  const slot = slotFromPick(id, unlockedSaves[game.index] === true);
                   if (slot !== null) launch(slot);
                 },
               };
@@ -1323,7 +1411,11 @@ function Room({
             : `${sizes.full || "pleine taille"}. Réduis si l'image saccade.`,
           icon: <ScreenIcon className="h-full w-full" />,
           picks: [
-            { id: "full", label: "pleine taille", hint: sizes.full || "toute l'image" },
+            {
+              id: "full",
+              label: "pleine taille",
+              hint: sizes.full || "toute l'image",
+            },
             {
               id: "half",
               label: "réduit",
@@ -1402,8 +1494,11 @@ function Room({
         {
           id: "volume",
           label: "volume",
-          value: `${Math.round(volume * 100)}`,
-          hint: "A pour ouvrir la glissière",
+          // À zéro, le son n'est pas joué en silence: il n'est plus envoyé du
+          // tout (`SoundStream.setMuted`). Le dire, pour qu'une liaison faible
+          // sache qu'elle vient de gagner 1,5 Mbit/s.
+          value: volume <= 0 ? "sourdine" : `${Math.round(volume * 100)}`,
+          hint: volume <= 0 ? "le son n'est plus envoyé" : "A pour ouvrir la glissière",
           icon: <VolumeIcon className="h-full w-full" />,
           // En pour-cent et non en fraction: la glissière avance par crans
           // entiers, et un cran de 0,05 sur une valeur de 0 à 1 se lit mal quand
@@ -1442,7 +1537,10 @@ function Room({
           value: shellLabel(shell),
           hint: "A pour voir les consoles",
           icon: <LayoutIcon className="h-full w-full" />,
-          picks: SHELLS.map((choice) => ({ id: choice.id, label: choice.label })),
+          picks: SHELLS.map((choice) => ({
+            id: choice.id,
+            label: choice.label,
+          })),
           picked: shell,
           onPick: (id) => {
             const found = SHELLS.find((choice) => choice.id === id);
@@ -1704,7 +1802,7 @@ function Room({
             manette
           </button>
         ) : null}
-        {session && onTouch && room?.game?.console === "switch" ? (
+        {session && onTouch && isSwitchConsole(room?.game?.console) ? (
           <SwitchTouchPad
             source={session.input.switch}
             onMenu={() => setMenu(true)}
@@ -1824,6 +1922,7 @@ function Room({
               ownerSeat={boss?.seat}
               players={shot?.input.players ?? 4}
               busy={occupied}
+              mics={shot?.input.mics ?? []}
               names={names}
               mine={port}
               displaced={shot?.input.displaced ?? false}
@@ -1833,10 +1932,10 @@ function Room({
           </Panel>
 
           {/* Le clip, à portée sans ouvrir le menu.
-              Trente secondes ne se demandent pas après coup: on appuie pendant
-              que ça se passe, et poser un menu plein écran par-dessus le jeu
-              qu'on voulait garder est le mauvais moment. C'est ce qui l'a fait
-              descendre du menu vers ici.
+              Quarante-cinq secondes ne se demandent pas après coup: on appuie
+              pendant que ça se passe, et poser un menu plein écran par-dessus le
+              jeu qu'on voulait garder est le mauvais moment. C'est ce qui l'a
+              fait descendre du menu vers ici.
               Un seul bouton pour deux gestes — demander, puis enregistrer —
               parce que c'est une seule chose du point de vue de la personne. */}
           <button
@@ -1848,10 +1947,10 @@ function Room({
               clip.state.phase === "fait"
                 ? "l'enregistrer, puis le partager"
                 : clip.state.phase === "attendre"
-                  ? "un clip couvre trente secondes, donc deux clips plus rapprochés se recouvrent"
+                  ? "deux clips ne peuvent pas se suivre d'aussi près"
                   : clip.state.phase === "raté"
                     ? clip.state.why
-                    : "les trente dernières secondes, en un fichier"
+                    : "les quarante-cinq dernières secondes, en un fichier"
             }
             className={cn(
               "flex items-center justify-between gap-2 border px-3 py-2 text-corps transition-colors",
@@ -1874,6 +1973,58 @@ function Room({
               <span className="font-mono text-note">{Math.round(clip.state.bytes / 1e6)} Mo</span>
             ) : null}
           </button>
+
+          {/* Le micro, pour que les clips portent aussi la voix. Record only:
+              rien n'est rejoué, la voix part seulement vers le worker et
+              revient mêlée au son au prochain clip. */}
+          <button
+            type="button"
+            id="mic"
+            onClick={toggleMic}
+            title={
+              shot?.mic === "on"
+                ? "couper le micro"
+                : shot?.mic === "refused"
+                  ? "le micro a été refusé par le navigateur"
+                  : "enregistrer ta voix dans les clips"
+            }
+            className={cn(
+              "flex items-center gap-2 border px-3 py-2 text-corps transition-colors",
+              shot?.mic === "on"
+                ? "border-good/60 text-good hover:bg-good/10"
+                : shot?.mic === "refused"
+                  ? "border-alert/60 text-alert"
+                  : "border-rule text-muted hover:border-rule-bright hover:text-text",
+            )}
+          >
+            <span className="flex h-4 w-4 [&>svg]:h-full [&>svg]:w-full">
+              <WaveIcon className="h-full w-full" />
+            </span>
+            {shot?.mic === "on"
+              ? "micro ouvert"
+              : shot?.mic === "asking"
+                ? "micro…"
+                : shot?.mic === "refused"
+                  ? "micro refusé"
+                  : "micro"}
+          </button>
+
+          {micDevices.length > 0 ? (
+            <select
+              id="micDevice"
+              value={micDevice}
+              onChange={(event) => pickMic(event.target.value)}
+              title="choisir le micro"
+              className="border border-rule bg-transparent px-2 py-2 text-note text-corps"
+            >
+              <option value="">micro par défaut</option>
+              {micDevices.map((device) => (
+                <option key={device.id} value={device.id}>
+                  {device.label}
+                </option>
+              ))}
+            </select>
+          ) : null}
 
           <button
             type="button"
@@ -2087,7 +2238,7 @@ function Room({
       {configuring &&
       shot &&
       session &&
-      (setupGame?.console ?? room?.game?.console) === "switch" ? (
+      isSwitchConsole(setupGame?.console ?? room?.game?.console) ? (
         <SwitchBindings
           source={session.input.switch}
           input={session.input}

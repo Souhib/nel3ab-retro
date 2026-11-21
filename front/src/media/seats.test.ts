@@ -15,7 +15,7 @@ class FakeSocket {
   send() {}
   close() {}
   room(port: number, busy = [1, 0, 0, 0]) {
-    this.onmessage({ data: new Uint8Array([4, port, 1, 0, ...busy]).buffer });
+    this.onmessage({ data: new Uint8Array([4, port, 1, 0, ...busy, 0]).buffer });
   }
 }
 let stream: InputStream;
@@ -88,6 +88,42 @@ it("demande sa place précédente après une coupure, sans la prendre de force",
   expect(sockets.length).toBeGreaterThan(1);
   expect(sockets.at(-1)?.url).toContain("prefer=2");
   expect(sockets.at(-1)?.url).not.toContain("take=");
+});
+
+it("le lanceur solo passe de la place 3 à la place 1 après le redémarrage", () => {
+  sockets[0].room(3, [1, 0, 1, 0]);
+  stream.prepareSoloPlayer();
+  expect(sockets).toHaveLength(1);
+  expect(stream.state().port).toBe(3);
+  // Une dernière annonce de l'ancien worker ne doit pas annuler le choix.
+  sockets[0].room(3, [1, 1, 1, 0]);
+  sockets[0].onclose!();
+  vi.advanceTimersByTime(1000);
+  expect(sockets).toHaveLength(2);
+  expect(sockets[1].url).toContain("prefer=1");
+  expect(sockets[1].url).not.toContain("take=");
+});
+
+it("le choix de regarder annule la place prévue pour le lancement solo", () => {
+  sockets[0].room(3, [0, 0, 1, 0]);
+  stream.prepareSoloPlayer();
+  stream.watchOnly();
+  vi.advanceTimersByTime(5000);
+  expect(sockets).toHaveLength(1);
+  expect(stream.state().port).toBeNull();
+});
+
+it("un refus de l'ancien worker n'annule pas la reprise solo", () => {
+  sockets[0].room(3, [1, 0, 1, 0]);
+  stream.prepareSoloPlayer();
+  sockets[0].onclose!();
+  vi.advanceTimersByTime(1000);
+  sockets[1].room(0, [1, 0, 0, 0]);
+  sockets[1].onclose!();
+  vi.advanceTimersByTime(3000);
+  expect(sockets).toHaveLength(3);
+  expect(sockets[2].url).toContain("prefer=1");
+  expect(sockets[2].url).not.toContain("take=");
 });
 
 it("une reprise retardée vise une attribution et ne se rejoue pas à la reconnexion", () => {

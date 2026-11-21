@@ -83,6 +83,8 @@ export type InputState = {
   players: number;
   /** Which of them are held, this one included. */
   busy: boolean[];
+  /** Quelles places ont un micro ouvert, dites par le worker. */
+  mics: boolean[];
   /** Cette page a-t-elle le droit de changer le jeu, en ce moment ?
    *
    * C'est le WORKER qui le dit, parce que c'est lui qui accepte ou refuse. Il
@@ -148,7 +150,7 @@ export type InputState = {
  * beside these seats and nothing more, which is why it can be down while the
  * game carries on.
  */
-const ROOM_MESSAGE_BYTES = 4 + 4;
+const ROOM_MESSAGE_BYTES = 4 + 4 + 1;
 
 export type RoomMessage = {
   players: number;
@@ -157,6 +159,8 @@ export type RoomMessage = {
   deciding: boolean;
   closingIn: number;
   busy: boolean[];
+  /** Quelles places ont un micro ouvert. */
+  mics: boolean[];
 };
 
 /** Une secousse: quelle manette, et à quelle force de zéro à un. */
@@ -239,13 +243,17 @@ export function readRoomMessage(bytes: Uint8Array): RoomMessage | null {
   const seat = bytes[1] ?? 0;
   // A room says how many pads it has, and a seat outside that is not a seat.
   if (players < 1 || players > 4 || seat > players) return null;
+  // Le huitième octet (index 8) est un masque: un bit par place qui a un micro
+  // ouvert. `mics` reste aligné sur `busy`, place par place.
+  const mics = bytes[8] ?? 0;
   return {
     players,
     port: seat === 0 ? null : seat,
     deciding: (bytes[2] ?? 0) !== 0,
     /** Dans combien de minutes la salle ferme, zéro quand il n'y a rien à dire. */
     closingIn: bytes[3] ?? 0,
-    busy: [...bytes.slice(4)].map((held) => held !== 0),
+    busy: [...bytes.slice(4, 8)].map((held) => held !== 0),
+    mics: Array.from({ length: players }, (_, place) => (mics & (1 << place)) !== 0),
   };
 }
 
@@ -273,6 +281,7 @@ export class InputStream {
   private device: 0 | 1 | 2 | 3 | undefined;
   private receipt: string | null = null;
   private preferredPort: number | null = null;
+  private soloOnReconnect = false;
   private everHeld = false;
   /** Les allers-retours mesurés, en millisecondes. Trente échantillons, soit
    * une demi-minute: assez pour que la médiane ne suive pas un hoquet, assez
@@ -310,6 +319,7 @@ export class InputStream {
   private readonly menuPad = new MenuPad();
   private players = 4;
   private busy: boolean[] = [false, false, false, false];
+  private mics: boolean[] = [false, false, false, false];
   private sent = 0;
   private held = new Set<string>();
   private profile: PadProfile | null = null;
@@ -439,6 +449,7 @@ export class InputStream {
   };
 
   stop(): void {
+    this.soloOnReconnect = false;
     if (this.animation !== null) cancelAnimationFrame(this.animation);
     this.animation = null;
     if (this.retry !== null) window.clearTimeout(this.retry);
@@ -490,6 +501,7 @@ export class InputStream {
       pressed: this.pressedNames(),
       players: this.players,
       busy: this.busy,
+      mics: this.mics,
       deciding: this.deciding,
       closingIn: this.closingIn,
       pads: this.pads,
@@ -523,7 +535,17 @@ export class InputStream {
     this.displaced = false;
     this.watching = false;
     this.silentUntil = 0;
+    this.soloOnReconnect = false;
     this.connect(port, expected);
+  }
+
+  /** Le lancement solo garde l'ancienne place jusqu'au redémarrage du worker.
+   * La prochaine connexion demande la place 1 sans la prendre à quelqu'un. */
+  prepareSoloPlayer(): void {
+    this.soloOnReconnect = true;
+    this.watching = false;
+    this.displaced = false;
+    if (this.socket === null && this.retry === null) this.connect();
   }
 
   /** Rend la manette et n'en redemande plus: regarder, sans jouer.
@@ -533,6 +555,7 @@ export class InputStream {
    * redemandé, parce que c'est elle qui a décidé de regarder.
    */
   watchOnly(): void {
+    this.soloOnReconnect = false;
     if (this.watching) return;
     this.watching = true;
     this.preferredPort = null;
@@ -553,6 +576,7 @@ export class InputStream {
    * visait.
    */
   play(): void {
+    this.soloOnReconnect = false;
     this.watching = false;
     this.preferredPort = null;
     this.displaced = false;
@@ -675,6 +699,7 @@ export class InputStream {
    * la trouverait occupée.
    */
   yieldSeat(silenceMs = 6000): void {
+    this.soloOnReconnect = false;
     this.silentUntil = Date.now() + silenceMs;
     this.preferredPort = null;
     this.releaseLocalSeat();
@@ -939,6 +964,9 @@ export class InputStream {
     this.refused = false;
     this.receipt = null;
     if (!this.fixedSource) this.source = null;
+    if (this.soloOnReconnect) {
+      this.preferredPort = 1;
+    }
     const socket = new WebSocket(
       this.url(
         `/input?identity=1${take === null ? (this.preferredPort === null ? "" : `&prefer=${this.preferredPort}`) : `&take=${take}`}${expected === undefined ? "" : `&expected=${encodeURIComponent(expected)}`}`,
@@ -996,6 +1024,7 @@ export class InputStream {
       this.players = told.players;
       const previousPort = this.port;
       this.port = told.port;
+      if (told.players === 1 && this.port === 1) this.soloOnReconnect = false;
       if (this.port !== null) this.preferredPort = this.port;
       // Le worker remet ses extensions au démarrage. Chaque nouvelle prise
       // réaffirme celle de cette page, sans réécrire le choix global de salle.
@@ -1006,12 +1035,13 @@ export class InputStream {
       this.refused = this.port === null;
       // Displaced, rather than merely without: this page held a pad and the
       // worker has just told it that it does not.
-      if (this.port === null) this.displaced = this.everHeld;
+      if (this.port === null) this.displaced = this.everHeld && !this.soloOnReconnect;
       else {
         this.everHeld = true;
         this.displaced = false;
       }
       this.busy = told.busy;
+      this.mics = told.mics;
       this.deciding = told.deciding;
       this.closingIn = told.closingIn;
       if (changed) this.onSeat(this.port, this.receipt);

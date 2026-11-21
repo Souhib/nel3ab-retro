@@ -2,42 +2,55 @@ import { describe, expect, it } from "vitest";
 
 import { InputStream, askEcho, readEcho, readRoomMessage, readShake } from "./input";
 
-/** `[players, mine, deciding, fermeture, busy1..busy4]`, ce qu'écrit le worker.
+/** `[players, mine, deciding, fermeture, busy1..busy4, mics]`, ce qu'écrit le
+ * worker.
  *
- * Le quatrième octet dit dans combien de minutes la salle ferme, zéro quand
- * il n'y a rien à annoncer. */
+ * Le quatrième octet dit dans combien de minutes la salle ferme, zéro quand il
+ * n'y a rien à annoncer. Le neuvième est un masque: un bit par place qui a un
+ * micro ouvert. */
 const message = (...bytes: number[]) => new Uint8Array(bytes);
 
 describe("le message de salle", () => {
   it("dit combien de manettes, laquelle est la mienne, et lesquelles sont prises", () => {
-    expect(readRoomMessage(message(4, 2, 1, 0, 1, 1, 0, 0))).toEqual({
+    expect(readRoomMessage(message(4, 2, 1, 0, 1, 1, 0, 0, 0))).toEqual({
       players: 4,
       port: 2,
       deciding: true,
       closingIn: 0,
       busy: [true, true, false, false],
+      mics: [false, false, false, false],
     });
+  });
+
+  it("dit quelles places ont un micro ouvert", () => {
+    // Le bit 0 est la place 1, le bit 2 la place 3: `0b101` = places 1 et 3.
+    expect(readRoomMessage(message(4, 1, 1, 0, 1, 0, 1, 0, 0b101))?.mics).toEqual([
+      true,
+      false,
+      true,
+      false,
+    ]);
   });
 
   // Le jumeau: le troisième octet est la seule chose qui dise à la page si elle
   // a le droit de lancer un jeu. S'il était ignoré, tout le monde déciderait de
   // tout, et le salon n'aurait plus de propriétaire du tout.
   it("dit aussi quand ce n'est pas à moi de décider", () => {
-    expect(readRoomMessage(message(4, 2, 0, 0, 1, 1, 0, 0))?.deciding).toBe(false);
+    expect(readRoomMessage(message(4, 2, 0, 0, 1, 1, 0, 0, 0))?.deciding).toBe(false);
   });
 
   it("porte le compte à rebours de fermeture, quand il y en a un", () => {
-    expect(readRoomMessage(message(4, 2, 1, 5, 1, 1, 0, 0))?.closingIn).toBe(5);
+    expect(readRoomMessage(message(4, 2, 1, 5, 1, 1, 0, 0, 0))?.closingIn).toBe(5);
   });
 
   // Le jumeau: sans ce zéro, une salle tranquille annoncerait une fermeture
   // imminente à tout le monde, et le message cesserait d'être cru.
   it("n'annonce rien quand la salle est tranquille", () => {
-    expect(readRoomMessage(message(4, 2, 1, 0, 1, 1, 0, 0))?.closingIn).toBe(0);
+    expect(readRoomMessage(message(4, 2, 1, 0, 1, 1, 0, 0, 0))?.closingIn).toBe(0);
   });
 
   it("traduit le port 0 par « aucune manette », pas par « la manette 0 »", () => {
-    expect(readRoomMessage(message(4, 0, 1, 0, 1, 1, 1, 1))?.port).toBeNull();
+    expect(readRoomMessage(message(4, 0, 1, 0, 1, 1, 1, 1, 0))?.port).toBeNull();
   });
 
   // Le jumeau négatif, et la raison d'être du fichier : la première version de
@@ -46,14 +59,14 @@ describe("le message de salle", () => {
   it("refuse un message qui n'a pas la bonne longueur", () => {
     expect(readRoomMessage(message(2))).toBeNull();
     expect(readRoomMessage(message(4, 1, 1, 0, 0, 0))).toBeNull();
-    expect(readRoomMessage(message(4, 1, 1, 0, 0, 0, 0, 0, 0))).toBeNull();
+    expect(readRoomMessage(message(4, 1, 1, 0, 0, 0, 0, 0))).toBeNull();
   });
 
   it("refuse une salle ou une place impossibles", () => {
-    expect(readRoomMessage(message(0, 0, 1, 0, 0, 0, 0, 0))).toBeNull();
-    expect(readRoomMessage(message(5, 1, 1, 0, 0, 0, 0, 0))).toBeNull();
+    expect(readRoomMessage(message(0, 0, 1, 0, 0, 0, 0, 0, 0))).toBeNull();
+    expect(readRoomMessage(message(5, 1, 1, 0, 0, 0, 0, 0, 0))).toBeNull();
     // Une place au-delà de ce que la salle annonce.
-    expect(readRoomMessage(message(2, 3, 1, 0, 0, 0, 0, 0))).toBeNull();
+    expect(readRoomMessage(message(2, 3, 1, 0, 0, 0, 0, 0, 0))).toBeNull();
   });
 });
 

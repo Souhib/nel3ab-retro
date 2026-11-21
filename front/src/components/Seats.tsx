@@ -8,6 +8,7 @@
 import { useEffect, useState } from "react";
 import { cn } from "../lib/cn";
 import { Crown } from "./Crown";
+import { MicBadge } from "./MicBadge";
 import { Socket } from "./Socket";
 
 /** Combien de temps l'armement se souvient de lui-même. */
@@ -17,6 +18,7 @@ export function Seats({
   ownerSeat,
   players,
   busy,
+  mics,
   names,
   mine,
   displaced,
@@ -26,6 +28,8 @@ export function Seats({
   ownerSeat?: number | null;
   players: number;
   busy: boolean[];
+  /** Quelles places ont un micro ouvert, une par place. */
+  mics: boolean[];
   names: Map<number, string>;
   mine: number | null;
   displaced: boolean;
@@ -119,6 +123,13 @@ export function Seats({
               {(held || isMine) && name && port === ownerSeat ? (
                 <span className="pointer-events-none absolute -top-1 right-0 z-10">
                   <Crown />
+                </span>
+              ) : null}
+              {/* Le micro, barré quand la voix de cette place n'est pas captée.
+                  Hors du flux comme la couronne, pour ne pas couper le nom. */}
+              {held || isMine ? (
+                <span className="pointer-events-none absolute -top-1 left-0 z-10">
+                  <MicBadge open={mics[port - 1] ?? false} />
                 </span>
               ) : null}
               <span

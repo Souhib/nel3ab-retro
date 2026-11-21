@@ -112,6 +112,7 @@ struct Settings {
     /// n'a d'intérêt que s'il survit, puisque changer de jeu redémarre le worker.
     art_dir: PathBuf,
     session_dir: PathBuf,
+    personal_save_root: PathBuf,
     /// Le fichier qui tient LA place de la Switch, pour toute la machine.
     ///
     /// Partagé par toutes les salles, contrairement au répertoire de session.
@@ -135,6 +136,11 @@ struct Settings {
     /// A room for friends says so; a room for one should look like one console
     /// with one controller in it.
     players: PlayerSlot,
+    /// Un clip à rejouer à la place de Dolphin, pour le banc de liaison.
+    ///
+    /// Jamais posé par une salle: seul `just banc-liaison` le donne, à un worker
+    /// qu'il lance lui-même sur des ports et un dossier jetables.
+    banc_clip: Option<PathBuf>,
 }
 
 impl Settings {
@@ -145,6 +151,11 @@ impl Settings {
         let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_owned());
         let repo = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../..");
         Ok(Self {
+            personal_save_root: env_path("NEL3AB_PERSONAL_SAVE_ROOT").unwrap_or_else(|| {
+                env_path("NEL3AB_SESSION_DIR")
+                    .unwrap_or_else(|| PathBuf::from(&home).join(".local/state/nel3ab/session"))
+                    .join("personal-saves")
+            }),
             switch_lock: env_path("NEL3AB_SWITCH_LOCK")
                 .unwrap_or_else(|| PathBuf::from(&home).join(".local/state/nel3ab/switch.lock")),
             rom: env_path("NEL3AB_ROM")
@@ -219,6 +230,7 @@ impl Settings {
                 .parse()
                 .context("NEL3AB_CONTROL_BIND is not a socket address")?,
             players: players_from_environment()?,
+            banc_clip: env_path("NEL3AB_BANC_CLIP"),
         })
     }
 }
@@ -540,6 +552,221 @@ fn watch_idle(
     })
 }
 
+/// Chaque spectateur, un par un, et seulement ceux qui souffrent.
+///
+/// # Pourquoi une ligne par personne
+///
+/// La ligne du dessus est une somme, et une somme dit « la salle va
+/// bien » tant que la MOYENNE va bien. Le 2026-09-04 quelqu'un a
+/// rapporté un ami qui ramait pendant qu'elle affichait zéro image
+/// jetée: c'était vrai, et ça ne parlait pas de lui.
+///
+/// # Pourquoi un ÉCART et pas un cumul
+///
+/// Un cumul ne dit jamais si ça se passe maintenant. Celui qui a
+/// souffert une fois il y a une heure garderait son nombre pour la
+/// soirée, et on chercherait une panne éteinte.
+///
+/// # Pourquoi seulement ceux qui souffrent
+///
+/// Une ligne par spectateur toutes les dix secondes noierait le
+/// journal d'un « tout va bien » que la ligne du dessus dit déjà.
+/// Les DEUX flux. Le demi-format est celui des liaisons les plus
+/// étroites, donc de ceux qui ont le plus de chances de souffrir; ne
+/// relever que le grand format laissait justement ceux-là invisibles.
+fn report_viewers(
+    server: &BrowserServer,
+    before: &mut std::collections::HashMap<u64, (u64, u64, u64)>,
+) {
+    let everyone = server
+        .viewer_health()
+        .into_iter()
+        .map(|one| ("plein", one))
+        .chain(
+            server
+                .half_viewer_health()
+                .into_iter()
+                .map(|one| ("demi", one)),
+        );
+    for (stream, one) in everyone {
+        let before = before.get(&one.tag).copied().unwrap_or((0, 0, 0));
+        let lost = one.dropped.saturating_sub(before.0);
+        let breaks = one.breaks.saturating_sub(before.1);
+        let missed = one.starved.saturating_sub(before.2);
+        if lost > 0 || breaks > 0 || missed > 0 || one.resyncing {
+            tracing::warn!(
+                viewer = one.tag,
+                stream,
+                dropped_now = lost,
+                breaks_now = breaks,
+                // Ce qu'il a vraiment manqué: `dropped` ne compte que le
+                // refus initial, et un gel d'une seconde à soixante
+                // images se lirait « une image jetée » sans celui-ci.
+                missed_now = missed,
+                // Les cumuls aussi: « il en a perdu trois » se lit
+                // autrement selon qu'il est là depuis dix secondes ou
+                // depuis deux heures.
+                dropped = one.dropped,
+                missed = one.starved,
+                delivered = one.delivered,
+                waiting_for_key = one.resyncing,
+                // La file qu'il a maintenant: deux pour une liaison qui
+                // suit, jusqu'à huit après des chaînes cassées.
+                depth = one.depth,
+                "ce spectateur ne suit pas"
+            );
+        }
+    }
+    *before = server
+        .viewer_health()
+        .into_iter()
+        .chain(server.half_viewer_health())
+        .map(|one| (one.tag, (one.dropped, one.breaks, one.starved)))
+        .collect();
+}
+
+/// Le fil qui envoie le son du clip, ou rien quand le banc le coupe.
+fn rejouer_le_son(
+    server: &Arc<BrowserServer>,
+    stopping: &Arc<std::sync::atomic::AtomicBool>,
+    clip: &Path,
+    with_sound: bool,
+) -> Result<std::thread::JoinHandle<()>> {
+    let sound = if with_sound {
+        Some(nel3ab_encoder::replay::ClipSound::open(clip, CHUNK_BYTES)?)
+    } else {
+        None
+    };
+    let server = Arc::clone(server);
+    let stopping = Arc::clone(stopping);
+    let started = Instant::now();
+    Ok(std::thread::spawn(move || {
+        let Some(mut sound) = sound else { return };
+        let mut chunk = Vec::new();
+        while !stopping.load(std::sync::atomic::Ordering::Relaxed) {
+            match sound.next_into(&mut chunk) {
+                Ok(true) => {
+                    let at = u64::try_from(started.elapsed().as_micros()).unwrap_or(u64::MAX);
+                    let _heard = server.send_sound(at, &chunk);
+                }
+                Ok(false) | Err(_) => break,
+            }
+        }
+    }))
+}
+
+/// Rejoue un clip à la place de Dolphin, pour le banc de liaison.
+///
+/// Le banc comparait des fenêtres prises sur l'écran de démonstration d'un jeu,
+/// dont le débit changeait d'une minute à l'autre: deux sur trois ne mesuraient
+/// rien (carnet, 23 septembre 2026). Ici les images viennent d'un clip lu en
+/// boucle, donc chaque passage envoie les mêmes images, et elles traversent le
+/// MÊME encodeur qu'une salle: une image-clé demandée après une chaîne cassée
+/// part à l'image suivante, comme en partie.
+///
+/// Le son du clip part aussi, par la socket du son comme dans une salle, sauf si
+/// `NEL3AB_BANC_SON=0`: c'est ce qui mesure ce que le son coûte à l'image
+/// (proposition d'amendement de D10). Ce qui manque, et c'est dit: pas de
+/// manette, pas de demi-format, et aucune conversion par le shader. Le banc mesure
+/// la liaison, pas la salle.
+fn servir_un_clip(
+    settings: &Settings,
+    stopping: &Arc<std::sync::atomic::AtomicBool>,
+    clip: &Path,
+) -> Result<bool> {
+    let owner: OwnerSeat = Arc::new(Mutex::new(None));
+    let server = Arc::new(BrowserServer::start_with_input(
+        settings.bind,
+        PAGE,
+        "[]".into(),
+        Arc::from(Vec::new()),
+        settings.players,
+        &owner,
+        nel3ab_transport::browser::InputKind::Dolphin,
+    )?);
+    server.half_offered(false);
+    let _idle_watch = watch_idle(&server, stopping, true)?;
+    let mut source = nel3ab_encoder::replay::Clip::open(clip)
+        .with_context(|| format!("rejouer {}", clip.display()))?;
+    let (width, height) = source.size();
+    let mut encoder = Encoder::open(&settings.render_node, width, height, QP, 60, 3)?;
+    let with_sound = std::env::var("NEL3AB_BANC_SON").map_or(true, |value| value != "0");
+    let sounding = rejouer_le_son(&server, stopping, clip, with_sound)?;
+    tracing::info!(
+        address = %server.address(),
+        clip = %clip.display(),
+        width,
+        height,
+        with_sound,
+        "banc: un clip rejoué à la place de Dolphin"
+    );
+
+    let started = Instant::now();
+    let mut picture = Vec::new();
+    let mut produced = 0_u64;
+    let mut coded_bytes = 0_u64;
+    let mut reported_bytes = 0_u64;
+    let mut reported_dropped = 0_u64;
+    let mut reported = Instant::now();
+    let mut frame_bytes = Timings::new(2048);
+    let mut health_before = std::collections::HashMap::new();
+    while !stopping.load(std::sync::atomic::Ordering::Relaxed) && !server.stop_requested() {
+        // Lu même sans public: c'est `ffmpeg` qui donne le rythme du clip.
+        if !source.next_into(&mut picture)? {
+            bail!("le décodeur du clip s'est arrêté");
+        }
+        if server.watchers() > 0 {
+            let slot = u32::try_from(produced % 3).unwrap_or(0);
+            encoder.upload(slot, &picture)?;
+            if server.take_joined() || server.take_key_frame_request() {
+                encoder.force_key_frame();
+            }
+            if let Some(coded) = encoder.encode(slot)? {
+                coded_bytes += coded.len() as u64;
+                #[expect(
+                    clippy::cast_precision_loss,
+                    reason = "an access unit is tens of kilobytes; f64 is exact for \
+                              every value this can hold"
+                )]
+                frame_bytes.record(coded.len() as f64);
+                let _delivered = server.send(&Packet {
+                    captured_micros: u64::try_from(started.elapsed().as_micros())
+                        .unwrap_or(u64::MAX),
+                    annex_b: coded,
+                });
+            }
+            produced += 1;
+        }
+        if reported.elapsed() >= Duration::from_secs(10) {
+            let bytes = frame_bytes.summary();
+            // Les mêmes champs que la ligne « streaming » d'une salle, sous un
+            // autre nom: le lecteur des séances et son contrat lisent la ligne
+            // de la salle, et deux lignes du même nom qui ne portent pas les
+            // mêmes champs ont cassé ce contrat le jour où celle-ci est née.
+            tracing::info!(
+                produced,
+                watchers = server.watchers(),
+                dropped = server.dropped(),
+                dropped_now = server.dropped() - reported_dropped,
+                frame_bytes_p50 = bytes.p50,
+                frame_bytes_p95 = bytes.p95,
+                frame_bytes_max = bytes.max,
+                megabits_per_second = megabits(coded_bytes - reported_bytes, reported.elapsed()),
+                "banc: débit"
+            );
+            report_viewers(&server, &mut health_before);
+            reported = Instant::now();
+            reported_bytes = coded_bytes;
+            reported_dropped = server.dropped();
+            frame_bytes.clear();
+        }
+    }
+    // Le fil du son voit le même drapeau, ou la fin de son `ffmpeg`.
+    stopping.store(true, std::sync::atomic::Ordering::Relaxed);
+    let _ = sounding.join();
+    Ok(server.room_closing())
+}
+
 /// Sert le menu jusqu'à ce qu'on demande un jeu ou qu'on ferme la salle.
 ///
 /// Rend vrai quand c'est la SALLE qui se ferme, pas le jeu: l'appelant doit
@@ -554,6 +781,9 @@ fn servir_sans_jeu(
     library: &[Rom],
     session_dir: &Path,
 ) -> bool {
+    if !server.mark_idle() {
+        tracing::error!("could not publish that the room has no running game");
+    }
     // `stop_requested` compte ici autant que dans la boucle d'images: une salle
     // ouverte sans jeu tient quand même un worker et une place sur la machine.
     while !stopping.load(std::sync::atomic::Ordering::Relaxed)
@@ -592,6 +822,9 @@ fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Re
             settings.session_dir.display()
         );
     };
+    if let Some(clip) = &settings.banc_clip {
+        return servir_un_clip(settings, stopping, clip);
+    }
     nel3ab_emulator::lifecycle::prepare(&settings.dolphin, &settings.session_dir)?;
     if stopping.load(std::sync::atomic::Ordering::Relaxed) {
         // Arrêté avant d'avoir ouvert quoi que ce soit: aucune salle à fermer.
@@ -611,14 +844,38 @@ fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Re
     // et pas plus bas, parce que les sauvegardes en dépendent et qu'elles
     // doivent être en place avant que Dolphin ne démarre.
     let discs = nel3ab_emulator::discs(&library, &settings.dolphin_tool, &settings.art_dir);
-    let idle = nel3ab_emulator::playback::Playback::read(&settings.session_dir)?
+    let hybrid_state = env_path("NEL3AB_SWITCH_CONFIG")
+        .and_then(|path| nel3ab_emulator::unlocked::state_root(&path));
+    let nx2_state = env_path("NEL3AB_SWITCH2_CONFIG")
+        .and_then(|path| nel3ab_emulator::unlocked::state_root(&path));
+    let save_directories = nel3ab_emulator::unlocked::directories(
+        &library,
+        &discs,
+        &settings.session_dir,
+        hybrid_state.as_deref(),
+        nx2_state.as_deref(),
+    );
+    let mut idle = nel3ab_emulator::playback::Playback::read(&settings.session_dir)?
         == nel3ab_emulator::playback::Playback::Idle;
     let rom = chosen_rom(settings, &library);
+    let rom_file = rom
+        .file_name()
+        .context("ROM filename missing")?
+        .to_string_lossy();
     // Les sauvegardes AVANT que Dolphin ne démarre: il ouvre son dossier de
     // carte au lancement, et le déplacer après coup ne serait plus vu.
     let slot = chosen_slot(&settings.session_dir);
     // Qui a lancé, pour l'emplacement personnel. Voir `chosen_person`.
     let person = chosen_person(&settings.session_dir);
+    let requested = library.iter().position(|game| game.path == rom);
+    let unlocked = requested
+        .and_then(|index| save_directories.get(index))
+        .and_then(|path| path.as_deref());
+    if !idle && !nel3ab_emulator::unlocked::allows_start(slot, unlocked) {
+        tracing::warn!("refusing a persisted unlocked launch without its save payload");
+        nel3ab_emulator::playback::Playback::Idle.store(&settings.session_dir)?;
+        idle = true;
+    }
     let current = (!idle)
         .then(|| library.iter().position(|game| game.path == rom))
         .flatten();
@@ -679,15 +936,16 @@ fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Re
 
     let owner: OwnerSeat = Arc::new(Mutex::new(None));
 
-    let switch = disc.console == nel3ab_emulator::Console::Switch;
+    let switch = disc.console.is_switch();
+    let players = PlayerSlot::new(settings.players.get().min(disc.console.player_limit()))?;
     let server = Arc::new(BrowserServer::start_with_input(
         settings.bind,
         PAGE,
-        catalogue_json(&library, &art, &consoles, current, settings.players.get()).into(),
+        catalogue_json(&library, &art, &consoles, current, players.get()).into(),
         art.iter()
             .map(|found| found.as_ref().map(|art| Arc::from(art.png.as_slice())))
             .collect(),
-        settings.players,
+        players,
         &owner,
         if switch {
             nel3ab_transport::browser::InputKind::Switch
@@ -695,6 +953,11 @@ fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Re
             nel3ab_transport::browser::InputKind::Dolphin
         },
     )?);
+    anyhow::ensure!(
+        server
+            .set_save_catalogue(move || nel3ab_emulator::unlocked::availability(&save_directories)),
+        "complete-save catalogue is unavailable"
+    );
     server.set_devices(if switch { [4; 4] } else { pads.codes() });
     tracing::info!(address = %server.address(), "open this in a browser");
 
@@ -726,7 +989,8 @@ fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Re
     // Le garde qu'il rend arrête le fil à la sortie de cette fonction, quelle
     // qu'elle soit: une salle qui change de jeu sort par un `return` que le
     // ramasseur de fils du chemin Dolphin ne voit pas.
-    // `!idle`: une salle ouverte sans jeu n'a rien à fermer. Voir `nap::Idle`.
+    // `!idle` n'éteint pas la fermeture d'un salon: la règle d'inactivité vaut
+    // pour les deux, seul le délai « salle désertée » est réservé au jeu.
     let _idle_watch = watch_idle(&server, stopping, !idle)?;
 
     if idle {
@@ -764,6 +1028,32 @@ fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Re
                 &settings.session_dir,
             ));
         };
+        let personal_folder = saves::folder_for(slot, person.as_deref());
+        let _personal_save = if personal_folder.starts_with("joueur-") {
+            let root = if disc.console == nel3ab_emulator::Console::Switch2 {
+                nx2_state.as_ref()
+            } else {
+                hybrid_state.as_ref()
+            }
+            .context("adapter save state is unavailable")?;
+            let directory = root
+                .join(disc.title.as_deref().context("registered title missing")?)
+                .join(&personal_folder);
+            let Some(held) =
+                nel3ab_emulator::personal::begin(&directory, &settings.session_dir, &rom_file)?
+            else {
+                nel3ab_emulator::playback::Playback::Idle.store(&settings.session_dir)?;
+                return Ok(servir_sans_jeu(
+                    &server,
+                    stopping,
+                    &library,
+                    &settings.session_dir,
+                ));
+            };
+            Some(held)
+        } else {
+            None
+        };
         // Private ingress owns no emulator. The adapter closes capture before
         // Ryubing, and only then flushes/backups the selected persistent slot.
         let runtime = tempfile::Builder::new()
@@ -772,8 +1062,13 @@ fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Re
         let ingress =
             nel3ab_transport::ingress::Ingress::bind(runtime.path(), Arc::clone(&server))?;
         server.half_offered(true);
-        let script = std::env::var_os("NEL3AB_SWITCH_ADAPTER").map_or_else(
-            || PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../docker/switch-room.py"),
+        let (adapter, filename) = if disc.console == nel3ab_emulator::Console::Switch2 {
+            ("NEL3AB_SWITCH2_ADAPTER", "../../../docker/switch2-room.py")
+        } else {
+            ("NEL3AB_SWITCH_ADAPTER", "../../../docker/switch-room.py")
+        };
+        let script = std::env::var_os(adapter).map_or_else(
+            || PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(filename),
             PathBuf::from,
         );
         let mut engine = nel3ab_emulator::external::External::start(
@@ -789,9 +1084,15 @@ fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Re
         // so one grep reads both consoles. Only this one number: the rest of
         // the Dolphin report is the encoder's, and the Switch encodes elsewhere.
         let mut reported = Instant::now();
+        // Les chaînes cassées de chaque spectateur, comme pour Dolphin. Les images
+        // de la Switch passent par la même livraison et y sont comptées, mais la
+        // salle ne les écrivait pas: le 25 septembre 2026, une soirée entière sur
+        // Smash Ultimate n'a laissé aucune trace de qui suivait ou non.
+        let mut health_before = std::collections::HashMap::new();
         while !stopping.load(std::sync::atomic::Ordering::Relaxed) {
             if reported.elapsed() >= Duration::from_secs(10) {
                 reported = Instant::now();
+                report_viewers(&server, &mut health_before);
                 let pressed = ingress.reaction();
                 tracing::info!(
                     input_to_frame_samples = pressed.samples,
@@ -821,6 +1122,39 @@ fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Re
         tracing::info!(%status, "Switch adapter stopped");
         return Ok(server.room_closing());
     }
+    nel3ab_emulator::personal::clear_mount(&settings.session_dir)?;
+    let personal_folder = saves::folder_for(slot, person.as_deref());
+    let _personal_save = if personal_folder.starts_with("joueur-") {
+        let file = rom
+            .file_name()
+            .context("ROM filename missing")?
+            .to_string_lossy();
+        let directory = settings
+            .personal_save_root
+            .join(saves::key(&file))
+            .join(personal_folder);
+        let Some(held) =
+            nel3ab_emulator::personal::begin(&directory, &settings.session_dir, &rom_file)?
+        else {
+            nel3ab_emulator::playback::Playback::Idle.store(&settings.session_dir)?;
+            return Ok(servir_sans_jeu(
+                &server,
+                stopping,
+                &library,
+                &settings.session_dir,
+            ));
+        };
+        let local = saves::slot_dir(
+            &settings.session_dir.join(SAVES),
+            &file,
+            slot,
+            person.as_deref(),
+        );
+        nel3ab_emulator::personal::mount(&settings.session_dir, &local, &held)?;
+        Some(held)
+    } else {
+        None
+    };
     prepare_saves(&settings.session_dir, &rom, &disc, slot, person.as_deref());
 
     // La NAND est balayée AVANT de démarrer l'émulateur.
@@ -834,10 +1168,19 @@ fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Re
     // Ici et pas au moment de poser un lien: ce qu'on retire est ce que le jeu
     // qu'on lance ne mentionne PAS, donc l'endroit qui pose un lien ne peut pas
     // le voir.
+    // D'abord ramener dans la salle ce qui en sort et y a sa copie: le
+    // 24 septembre 2026, quatre liens menaient encore au dossier d'avant les
+    // salles multiples, invisible depuis le conteneur de Dolphin.
+    for title in nel3ab_emulator::saves::repoint_nand(&settings.session_dir) {
+        tracing::warn!(
+            title = %title,
+            "une sauvegarde de la NAND menait hors de la salle: ramenée à sa copie de la salle"
+        );
+    }
     for title in nel3ab_emulator::saves::sweep_nand(&settings.session_dir) {
         tracing::warn!(
             title = %title,
-            "une sauvegarde de la NAND ne pointait sur rien: entrée retirée"
+            "une sauvegarde de la NAND ne pointait sur rien, ou hors de la salle: entrée retirée"
         );
     }
 
@@ -1642,70 +1985,7 @@ fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Re
                 "streaming"
             );
 
-            // Chaque spectateur, un par un, et seulement ceux qui souffrent.
-            //
-            // # Pourquoi une ligne par personne
-            //
-            // La ligne du dessus est une somme, et une somme dit « la salle va
-            // bien » tant que la MOYENNE va bien. Le 2026-09-04 quelqu'un a
-            // rapporté un ami qui ramait pendant qu'elle affichait zéro image
-            // jetée: c'était vrai, et ça ne parlait pas de lui.
-            //
-            // # Pourquoi un ÉCART et pas un cumul
-            //
-            // Un cumul ne dit jamais si ça se passe maintenant. Celui qui a
-            // souffert une fois il y a une heure garderait son nombre pour la
-            // soirée, et on chercherait une panne éteinte.
-            //
-            // # Pourquoi seulement ceux qui souffrent
-            //
-            // Une ligne par spectateur toutes les dix secondes noierait le
-            // journal d'un « tout va bien » que la ligne du dessus dit déjà.
-            // Les DEUX flux. Le demi-format est celui des liaisons les plus
-            // étroites, donc de ceux qui ont le plus de chances de souffrir; ne
-            // relever que le grand format laissait justement ceux-là invisibles.
-            let everyone = server
-                .viewer_health()
-                .into_iter()
-                .map(|one| ("plein", one))
-                .chain(
-                    server
-                        .half_viewer_health()
-                        .into_iter()
-                        .map(|one| ("demi", one)),
-                );
-            for (stream, one) in everyone {
-                let before = health_before.get(&one.tag).copied().unwrap_or((0, 0, 0));
-                let lost = one.dropped.saturating_sub(before.0);
-                let breaks = one.breaks.saturating_sub(before.1);
-                let missed = one.starved.saturating_sub(before.2);
-                if lost > 0 || breaks > 0 || missed > 0 || one.resyncing {
-                    tracing::warn!(
-                        viewer = one.tag,
-                        stream,
-                        dropped_now = lost,
-                        breaks_now = breaks,
-                        // Ce qu'il a vraiment manqué: `dropped` ne compte que le
-                        // refus initial, et un gel d'une seconde à soixante
-                        // images se lirait « une image jetée » sans celui-ci.
-                        missed_now = missed,
-                        // Les cumuls aussi: « il en a perdu trois » se lit
-                        // autrement selon qu'il est là depuis dix secondes ou
-                        // depuis deux heures.
-                        dropped = one.dropped,
-                        missed = one.starved,
-                        delivered = one.delivered,
-                        waiting_for_key = one.resyncing,
-                        "ce spectateur ne suit pas"
-                    );
-                }
-            }
-            health_before = server
-                .viewer_health()
-                .into_iter()
-                .chain(server.half_viewer_health())
-                .map(|one| (one.tag, (one.dropped, one.breaks, one.starved)))
-                .collect();
+            report_viewers(&server, &mut health_before);
 
             reported = Instant::now();
             reported_bytes = coded_bytes;
@@ -1789,6 +2069,10 @@ fn remember_choice(
     if let Err(error) = std::fs::write(session_dir.join(SAVE_PERSON), person) {
         tracing::warn!(%error, "qui lance n'a pas pu être retenu");
     }
+    if let Err(error) = nel3ab_emulator::personal::request(session_dir, slot, person, &game.file) {
+        tracing::error!(%error, "la nouvelle partie personnelle n'a pas pu être retenue");
+        return false;
+    }
     if let Err(error) = nel3ab_emulator::playback::Playback::Playing.store(session_dir) {
         tracing::error!(%error, "lancement annulé : la salle ne peut pas quitter le repos");
         return false;
@@ -1800,6 +2084,8 @@ fn remember_choice(
 /// Le même ordre et la même écriture au repos ou pendant une partie.
 fn remember_request(server: &BrowserServer, library: &[Rom], session_dir: &Path) -> bool {
     if let Some(choice) = server.take_prepared_launch()
+        && (choice.save != saves::Slot::Unlocked.code()
+            || server.unlocked_save_available(usize::from(choice.game)))
         && remember_choice(
             library,
             choice.game,
@@ -1812,6 +2098,8 @@ fn remember_request(server: &BrowserServer, library: &[Rom], session_dir: &Path)
         return true;
     }
     if let Some(index) = server.take_rom_request()
+        && (server.save_wanted() != saves::Slot::Unlocked.code()
+            || server.unlocked_save_available(usize::from(index)))
         && remember_choice(
             library,
             index,

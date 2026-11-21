@@ -10,15 +10,41 @@
  * Ce fichier existe pour que les deux moitiés du choix ne puissent plus
  * diverger sans que quelque chose devienne rouge.
  */
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { PERSONAL, SLOTS, launchPicks, slotFromPick } from "./saves";
+import { PERSONAL, SLOTS, launchPicks, readUnlocked, slotFromPick } from "./saves";
+
+afterEach(() => vi.unstubAllGlobals());
+
+it("lit un catalogue booléen frais et refuse une ancienne page HTML ou des codes de sauvegarde", async () => {
+  const fetcher = vi.fn().mockResolvedValue(new Response("[false,true]"));
+  vi.stubGlobal("fetch", fetcher);
+  expect(await readUnlocked("/saves")).toEqual([false, true]);
+  expect(fetcher).toHaveBeenCalledWith("/saves", { cache: "no-store" });
+  for (const body of ["<html>old worker</html>", "[0,1]", '{"available":true}', "[true,null]"]) {
+    fetcher.mockResolvedValue(new Response(body));
+    await expect(readUnlocked("/saves")).rejects.toThrow();
+  }
+  fetcher.mockResolvedValue(new Response("[]", { status: 503 }));
+  await expect(readUnlocked("/saves")).rejects.toThrow();
+});
 
 describe("le panneau de lancement", () => {
+  it("ne propose tout débloqué que si le worker trouve un import disponible", () => {
+    expect(launchPicks(true, false).map((pick) => pick.id)).toEqual(["0", "2"]);
+    expect(launchPicks(false, false).map((pick) => pick.id)).toEqual(["0"]);
+    expect(launchPicks(true, true).map((pick) => pick.id)).toEqual(["0", "1", "2"]);
+    expect(launchPicks(false, true).map((pick) => pick.id)).toEqual(["0", "1"]);
+    expect(slotFromPick("1", false)).toBeNull();
+    expect(slotFromPick("1", true)).toBe(1);
+    expect(slotFromPick("0", false)).toBe(0);
+    expect(slotFromPick("2", false)).toBe(PERSONAL);
+  });
+
   it("propose une entrée par emplacement, et rien de plus", () => {
     // Comparé à SLOTS plutôt qu'à une liste écrite ici: une liste recopiée à la
     // main serait la même erreur, écrite deux fois.
-    expect(launchPicks(true)).toHaveLength(SLOTS.length);
+    expect(launchPicks(true, true)).toHaveLength(SLOTS.length);
   });
 
   it("ne propose la sauvegarde personnelle que si le salon sait qui tu es", () => {
@@ -40,13 +66,13 @@ describe("le panneau de lancement", () => {
   it("relit chacun de ses identifiants comme l'emplacement qu'il désigne", () => {
     // LE défaut, épinglé: « tout débloqué » doit rendre 1, pas 0. Un lecteur qui
     // se tromperait rendrait ici l'emplacement d'à côté.
-    for (const pick of launchPicks(true)) {
+    for (const pick of launchPicks(true, true)) {
       const wanted = SLOTS.find((choice) => choice.label === pick.label);
-      expect(slotFromPick(pick.id), pick.label).toBe(wanted?.id);
+      expect(slotFromPick(pick.id, true), pick.label).toBe(wanted?.id);
     }
     // Et les deux entrées ne désignent pas le même emplacement, sinon un lecteur
     // qui rendrait toujours zéro passerait la boucle sur un panneau à une entrée.
-    const seen = new Set(launchPicks(true).map((pick) => slotFromPick(pick.id)));
+    const seen = new Set(launchPicks(true, true).map((pick) => slotFromPick(pick.id, true)));
     expect(seen.size).toBe(SLOTS.length);
   });
 

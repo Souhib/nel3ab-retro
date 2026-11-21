@@ -22,18 +22,21 @@ export function ConsoleIcon({ console, className }: IconProps & { console: strin
       return <WandIcon className={className} />;
     case "switch":
       return <SwitchIcon className={className} />;
+    case "switch2":
+      return <SwitchIcon className={className} second />;
     default:
       return <GameIcon className={className} />;
   }
 }
 
 /** Deux commandes détachables et leur écran, lisibles à la taille d'un dossier. */
-export function SwitchIcon({ className }: IconProps) {
+export function SwitchIcon({ className, second = false }: IconProps & { second?: boolean }) {
   return (
     <svg viewBox={box} className={className} fill="none" stroke="currentColor" strokeWidth="2">
       <rect x="3" y="12" width="42" height="25" rx="7" />
       <path d="M13 12v25M35 12v25" />
       <rect x="17" y="16" width="14" height="17" rx="1" strokeWidth="1.5" />
+      {second && <path d="M21 22c0-4 6-4 6 0 0 2-6 4-6 7h6" strokeWidth="1.5" />}
       <circle cx="8" cy="20" r="2" fill="currentColor" stroke="none" />
       <path d="M6 29h4M8 27v4M38 20h4M40 18v4" strokeLinecap="round" />
       <circle cx="40" cy="29" r="2" fill="currentColor" stroke="none" />

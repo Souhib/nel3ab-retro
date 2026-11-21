@@ -497,6 +497,7 @@ dependencies = [
  "proptest",
  "rstest",
  "serde_json",
+ "sha2",
  "signal-hook",
  "tempfile",
  "thiserror",

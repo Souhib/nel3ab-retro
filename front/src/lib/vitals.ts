@@ -396,22 +396,41 @@ export class Trailing {
   }
 }
 
-/** À partir de combien d'images jetées sur une fenêtre la liaison rame.
+/** À partir de quel trou dans l'arrivée des images une fenêtre est mauvaise.
  *
- * Dix sur dix secondes, soit une par seconde. Les séances saines mesurées le
- * 18 août 2026 en jettent zéro, et une séance bridée à un trentième de
- * processeur en jetait quatorze par fenêtre. Le seuil sépare donc les deux avec
- * de la marge des deux côtés.
+ * Ce que les joueurs sentent, c'est l'image qui s'arrête. Relevé sur les soirées
+ * du 22 et du 25 septembre 2026: Hyde, qui gelait vraiment, a eu 4 puis 8,9 s
+ * sans image; les pages qui ne sentaient rien restaient sous 250 ms, hors
+ * démarrage d'un jeu. Cinq cents millisecondes se voient; un écart de 130 ms
+ * sur une page à 60 images par seconde ne se voit pas.
  */
-export const ROUGH_DROPS = 10;
+export const FREEZE_MS = 500;
 
-/** Ou à partir de combien de fois la file s'est vidée.
+/** Ou à partir de quelle part de la cadence du jeu les images arrivent trop peu.
  *
- * Deux. Une file vide veut dire qu'il n'arrivait plus d'images du tout, ce qui
- * est plus grave qu'une image jetée: la première dit que la liaison a lâché, la
- * seconde qu'il en arrivait trop à la fois.
+ * Quatre-vingt-dix pour cent: Hyde recevait 43,9 images par seconde pour un jeu
+ * à 60 juste avant de geler. Les pages saines tiennent la cadence à une image
+ * près.
+ *
+ * Ce que la règle ne compte PLUS: les images jetées et les files vides. Elles ne
+ * séparaient personne. Le 25 septembre, Souhib, qui ne sentait rien, jetait 9
+ * images et vidait sa file 5 fois par fenêtre en médiane; Hyde, qui gelait, 1 et
+ * 3. L'ancienne règle (10 jetées ou 2 files vides) lui a proposé le format
+ * réduit 37 fois dans la soirée, et le 25 un écran passé de 110 à 21 Hz en a
+ * fait jeter 390 par fenêtre à une page dont la liaison allait bien.
  */
-export const ROUGH_STARVES = 2;
+export const SHORT_RATE = 0.9;
+
+/** Combien de fenêtres ne comptent pas: au début de la page, et après un
+ * changement de jeu.
+ *
+ * Trois, soit trente secondes. Le 25 septembre, presque toutes les mauvaises
+ * fenêtres des joueurs qui ne sentaient rien suivaient un changement de jeu de
+ * moins d'une minute: un démarrage n'envoie pas d'image, et ce n'est pas un gel.
+ * Le démarrage lui-même ne compte pas non plus (`Struggling.hold`), et ces trois
+ * fenêtres couvrent ce qui le suit.
+ */
+export const GRACE_WINDOWS = 3;
 
 /** Combien de fenêtres mauvaises d'affilée avant d'en parler.
  *
@@ -421,18 +440,16 @@ export const ROUGH_STARVES = 2;
  */
 export const ROUGH_IN_A_ROW = 2;
 
-/** À partir de quand on REVIENT à la charge après un refus.
+/** À partir de quand on REVIENT à la charge après un refus: un gel de deux
+ * secondes, quatre fois le seuil ordinaire.
  *
  * Le 16 septembre 2026, un joueur a pris le format réduit, est revenu au plein
  * trois minutes plus tard, et sa liaison s'est effondrée pendant les quinze
- * minutes suivantes: 63 images jetées par fenêtre de dix secondes, contre 4
- * avant. La page ne lui a plus rien proposé, parce qu'elle ne propose qu'une
- * fois par séance.
- *
- * Le seuil du retour est donc DIX fois celui de la première proposition, pour
- * qu'il ne se déclenche jamais sur une soirée simplement moyenne.
+ * minutes suivantes. La page ne lui a plus rien proposé, parce qu'elle ne
+ * proposait qu'une fois par séance. Le retour exige bien pire que la première
+ * fois, pour ne jamais revenir sur ce que la personne a accepté de vivre.
  */
-export const MUCH_ROUGHER_DROPS = ROUGH_DROPS * 10;
+export const COLLAPSE_MS = 2000;
 
 /** Et le silence minimum entre deux propositions, en fenêtres de dix secondes.
  *
@@ -441,9 +458,24 @@ export const MUCH_ROUGHER_DROPS = ROUGH_DROPS * 10;
  */
 export const QUIET_WINDOWS = 30;
 
-/** Cette fenêtre s'est-elle mal passée ? */
+/** Combien d'images l'écran oblige à jeter sur une fenêtre, liaison parfaite ou non.
+ *
+ * La page peint au plus une image par rafraîchissement. Un écran qui rafraîchit
+ * moins vite que le jeu en fait donc tomber la différence, chaque seconde, sans
+ * que la liaison y soit pour rien. Le 25 septembre 2026 à 00:37, le navigateur
+ * d'une page est passé de 110 à 21 Hz, sur un ordinateur fixe; la cause n'est pas
+ * connue. Les 60 images arrivaient; la page en jetait 390 par fenêtre.
+ */
+export function forcedDrops(sample: Vitals): number {
+  if (sample.écranHz <= 0 || sample.jeuHz <= sample.écranHz) return 0;
+  return Math.round((sample.jeuHz - sample.écranHz) * sample.s);
+}
+
+/** Cette fenêtre s'est-elle mal passée: l'image s'est-elle arrêtée, ou n'est-elle
+ * pas arrivée assez vite ? */
 export function rough(sample: Vitals): boolean {
-  return sample.jetées >= ROUGH_DROPS || sample.affamées >= ROUGH_STARVES;
+  const rate = sample.vues / Math.max(sample.s, 1);
+  return sample.arrivées[2] >= FREEZE_MS || (sample.jeuHz > 0 && rate < SHORT_RATE * sample.jeuHz);
 }
 
 /**
@@ -453,8 +485,7 @@ export function rough(sample: Vitals): boolean {
  *
  * Un ami a trouvé le bouton tout seul, après une soirée entière, et son image
  * s'est améliorée tout de suite. La page voyait la dégradation avant lui: elle
- * comptait les images jetées et les fois où la file s'est vidée pendant qu'il
- * cherchait.
+ * voyait les images s'arrêter pendant qu'il cherchait.
  *
  * # Ce qu'elle ne fait pas
  *
@@ -468,30 +499,51 @@ export function rough(sample: Vitals): boolean {
 export class Struggling {
   private inARow = 0;
   private refused = false;
+  /** Une proposition est à l'écran et attend sa réponse.
+   *
+   * Sans lui, chaque mauvaise fenêtre la redemandait: le 25 septembre 2026, trois
+   * pages ont écrit « proposé » 53, 54 et 16 fois pour une seule bannière. */
+  private proposed = false;
   /** Fenêtres écoulées depuis qu'on a réglé la question. */
   private since = 0;
+  /** Fenêtres qui ne comptent pas encore: le début de la page, un démarrage. */
+  private held = GRACE_WINDOWS;
+
+  /** Un jeu démarre: cette fenêtre et les `GRACE_WINDOWS` suivantes ne comptent
+   * pas. À appeler à chaque fenêtre tant que la salle charge. */
+  hold(): void {
+    this.held = GRACE_WINDOWS + 1;
+    this.inARow = 0;
+  }
 
   /** Le relevé d'une fenêtre. Rend vrai quand il faut proposer. */
   saw(sample: Vitals): boolean {
-    if (sample.demi) return false;
+    if (this.held > 0) {
+      this.held -= 1;
+      return false;
+    }
+    if (sample.demi || this.proposed) return false;
     if (this.refused) {
       this.since += 1;
       // Le retour: seulement quand c'est BEAUCOUP pire qu'au premier tour, et
       // pas avant cinq minutes de silence.
-      const bien_pire = sample.jetées >= MUCH_ROUGHER_DROPS;
+      const bien_pire = sample.arrivées[2] >= COLLAPSE_MS;
       this.inARow = bien_pire ? this.inARow + 1 : 0;
       if (this.since < QUIET_WINDOWS || this.inARow < ROUGH_IN_A_ROW) return false;
       this.refused = false;
       this.inARow = 0;
+      this.proposed = true;
       return true;
     }
     this.inARow = rough(sample) ? this.inARow + 1 : 0;
-    return this.inARow >= ROUGH_IN_A_ROW;
+    this.proposed = this.inARow >= ROUGH_IN_A_ROW;
+    return this.proposed;
   }
 
   /** La personne a dit non, ou a basculé. On se tait, et on ne revient qu'en cas
-   * d'effondrement (`MUCH_ROUGHER_DROPS`) après `QUIET_WINDOWS` fenêtres. */
+   * d'effondrement (`COLLAPSE_MS`) après `QUIET_WINDOWS` fenêtres. */
   settled(): void {
+    this.proposed = false;
     this.refused = true;
     this.inARow = 0;
     this.since = 0;

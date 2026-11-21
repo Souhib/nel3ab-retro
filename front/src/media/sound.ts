@@ -160,6 +160,7 @@ export class SoundStream {
   constructor(url: (path: string) => string, volume: number, deviceRate: boolean) {
     this.url = url;
     this.volume = volume;
+    this.muted = volume <= 0;
     this.deviceRate = deviceRate;
   }
 
@@ -304,6 +305,7 @@ export class SoundStream {
 
   setVolume(volume: number): void {
     this.volume = volume;
+    this.setMuted(volume <= 0);
     // A ramp rather than a jump: changing a gain instantly puts a step in the
     // waveform, which is heard as a click.
     if (this.gain !== null && this.context !== null) {
@@ -350,22 +352,46 @@ export class SoundStream {
   }
 
   private idle = false;
+  /** Volume à zéro: la sourdine. Lu à la construction, puis suivi par `setVolume`. */
+  private muted = false;
 
   /** Garde l’autorisation audio, mais ne demande aucun son dans une salle au repos. */
   setIdle(idle: boolean): void {
     if (idle === this.idle) return;
     this.idle = idle;
+    this.reopen();
+  }
+
+  /** La sourdine FERME le flux au lieu de le jouer à volume nul.
+   *
+   * Le 23 septembre 2026, un volume à zéro laissait arriver 1,5 Mbit/s de son que
+   * personne n'entendait, sur les liaisons qui en ont le moins les moyens. Le
+   * son a sa propre socket: la fermer ne touche pas à l'image. Le contexte audio,
+   * lui, reste ouvert, pour que remonter le volume ne redemande pas le geste qui
+   * l'a autorisé. */
+  private setMuted(muted: boolean): void {
+    if (muted === this.muted) return;
+    this.muted = muted;
+    this.reopen();
+  }
+
+  /** Ferme la socket, et la rouvre si le son est voulu: ni repos, ni sourdine. */
+  private reopen(): void {
     this.socket?.close();
     this.socket = null;
     this.playAt = 0;
     this.scheduledOffset = null;
     this.lags.clear();
     this.scheduledOffset = null;
-    if (!idle && this.context !== null) this.connect();
+    if (this.wanted() && this.context !== null) this.connect();
+  }
+
+  private wanted(): boolean {
+    return !this.idle && !this.muted;
   }
 
   private connect(): void {
-    if (this.idle || this.context === null) return;
+    if (!this.wanted() || this.context === null) return;
     const socket = new WebSocket(this.url("/sound"));
     socket.binaryType = "arraybuffer";
     this.socket = socket;

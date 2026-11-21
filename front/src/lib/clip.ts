@@ -17,7 +17,7 @@ import { under } from "./base";
 /** Où en est la demande. */
 export type ClipState =
   | { phase: "prêt" }
-  /** Le worker emballe. Une trentaine de secondes de vidéo passent par ffmpeg. */
+  /** Le worker emballe. Une quarantaine de secondes de vidéo passent par ffmpeg. */
   | { phase: "en cours" }
   /** Trop tôt: voilà ce qu'il reste à patienter, en secondes. */
   | { phase: "attendre"; seconds: number }
@@ -101,6 +101,6 @@ export function clipLabel(state: ClipState): string {
     case "raté":
       return "raté";
     default:
-      return "clip des 30 s";
+      return "clip des 45 s";
   }
 }

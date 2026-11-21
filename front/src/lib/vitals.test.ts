@@ -9,7 +9,8 @@ import { describe, expect, it } from "vitest";
 import type { Snapshot } from "../media/session";
 import {
   HiddenTime,
-  MUCH_ROUGHER_DROPS,
+  COLLAPSE_MS,
+  GRACE_WINDOWS,
   PAD_NAME_MAX,
   QUIET_WINDOWS,
   Struggling,
@@ -80,6 +81,7 @@ function snap(video: Partial<Snapshot["video"]> = {}, rest: Partial<Snapshot> = 
       displaced: false,
       players: 4,
       busy: [true, false, false, false],
+      mics: [false, false, false, false],
       deciding: false,
       closingIn: 0,
       capturing: null,
@@ -95,6 +97,7 @@ function snap(video: Partial<Snapshot["video"]> = {}, rest: Partial<Snapshot> = 
     },
     soundGapMs: null,
     soundSyncMs: 0,
+    mic: "off",
     padOnly: false,
   };
 }
@@ -373,102 +376,168 @@ describe("la trace des deux dernières minutes", () => {
 });
 
 describe("proposer le format réduit", () => {
+  /** Une fenêtre de dix secondes, telle que la page l'envoie. */
   const over = (video: Partial<Snapshot["video"]>) =>
     vitals(snap({ shown: 600, painted: 600, ...video }), null, 10_000);
+  /** Une fenêtre où l'image s'est arrêtée: 900 ms sans image reçue. */
+  const freeze = over({ gapMs: { p50: 17, p95: 20, max: 900 } });
+  /** Une fenêtre où il n'arrive que 45 images par seconde pour un jeu à 60. */
+  const slow = over({ shown: 450 });
+  /** Une page qui a passé son démarrage: les premières fenêtres ne comptent pas. */
+  const settledIn = () => {
+    const watching = new Struggling();
+    for (let fenetre = 0; fenetre < GRACE_WINDOWS; fenetre++) watching.saw(over({}));
+    return watching;
+  };
 
   it("ne dit rien sur une fenêtre saine", () => {
-    const watching = new Struggling();
+    const watching = settledIn();
     expect(watching.saw(over({}))).toBe(false);
     expect(watching.saw(over({}))).toBe(false);
+  });
+
+  it("ne dit rien à Souhib, qui ne sentait rien le 25 septembre", () => {
+    // Sa fenêtre réelle de 00:02:03: 12 images jetées, 6 files vides, un écart
+    // de 133 ms au pire, 60 images par seconde. L'ancienne règle la trouvait
+    // mauvaise, et lui a proposé le format réduit 37 fois dans la soirée.
+    const watching = settledIn();
+    const souhib = over({
+      shown: 607,
+      painted: 589,
+      skipped: 12,
+      starved: 6,
+      gapMs: { p50: 15, p95: 35, max: 133 },
+    });
+    for (let fenetre = 0; fenetre < 10; fenetre++) expect(watching.saw(souhib)).toBe(false);
+  });
+
+  it("propose à Hyde quand son image s'arrête vraiment", () => {
+    // Le 22 septembre à 23:25: 43,9 images par seconde, puis 8,9 s sans image.
+    const watching = settledIn();
+    expect(watching.saw(over({ shown: 439, gapMs: { p50: 17, p95: 34, max: 65 } }))).toBe(false);
+    expect(watching.saw(over({ shown: 163, gapMs: { p50: 17, p95: 43, max: 8954 } }))).toBe(true);
   });
 
   it("attend deux fenêtres mauvaises d'affilée", () => {
-    // Une seule mauvaise fenêtre arrive à tout le monde, et une page qui
-    // propose de baisser la qualité au premier hoquet est une page qu'on
-    // apprend à ignorer.
-    const watching = new Struggling();
-    expect(watching.saw(over({ skipped: 14 }))).toBe(false);
-    expect(watching.saw(over({ skipped: 28 }))).toBe(true);
+    // Un gel isolé arrive à tout le monde: le 22 septembre, Souhib a eu 4,7 s
+    // sans image à 22:04 et rien ensuite.
+    const watching = settledIn();
+    expect(watching.saw(freeze)).toBe(false);
+    expect(watching.saw(freeze)).toBe(true);
   });
 
   it("repart de zéro quand une bonne fenêtre s'intercale", () => {
-    const watching = new Struggling();
-    expect(watching.saw(over({ skipped: 14 }))).toBe(false);
+    const watching = settledIn();
+    expect(watching.saw(freeze)).toBe(false);
     expect(watching.saw(over({}))).toBe(false);
-    expect(watching.saw(over({ skipped: 28 }))).toBe(false);
+    expect(watching.saw(slow)).toBe(false);
   });
 
-  it("compte une file vide plus vite que des images jetées", () => {
-    // Les deux ne disent pas la même chose: une file vide veut dire qu'il
-    // n'arrivait plus rien, une image jetée qu'il en arrivait trop à la fois.
+  it("des images jetées ou des files vides seules ne disent rien de la liaison", () => {
+    // Elles ne séparent personne: Souhib, qui ne sentait rien, en avait plus que
+    // Hyde, qui gelait.
+    const watching = settledIn();
+    for (let fenetre = 0; fenetre < 5; fenetre++) {
+      expect(watching.saw(over({ skipped: 200, starved: 40 }))).toBe(false);
+    }
+  });
+
+  it("ne compte rien pendant qu'un jeu démarre, ni juste après", () => {
+    // Le 25 septembre, presque toutes les mauvaises fenêtres des joueurs qui ne
+    // sentaient rien suivaient un changement de jeu de moins d'une minute.
+    const watching = settledIn();
+    for (let fenetre = 0; fenetre < 4; fenetre++) {
+      watching.hold();
+      expect(watching.saw(freeze)).toBe(false);
+    }
+    for (let fenetre = 0; fenetre < GRACE_WINDOWS; fenetre++) {
+      expect(watching.saw(freeze)).toBe(false);
+    }
+    // Le jumeau: passé le démarrage, un vrai gel compte de nouveau.
+    expect(watching.saw(freeze)).toBe(false);
+    expect(watching.saw(freeze)).toBe(true);
+  });
+
+  it("ne compte rien pendant les premières fenêtres de la page", () => {
     const watching = new Struggling();
-    watching.saw(over({ starved: 2 }));
-    expect(watching.saw(over({ starved: 4 }))).toBe(true);
+    for (let fenetre = 0; fenetre < GRACE_WINDOWS; fenetre++) {
+      expect(watching.saw(freeze)).toBe(false);
+    }
+    expect(watching.saw(freeze)).toBe(false);
+    expect(watching.saw(freeze)).toBe(true);
   });
 
   it("ne propose rien à qui est déjà en format réduit", () => {
-    const watching = new Struggling();
-    watching.saw(over({ skipped: 14, half: true }));
-    expect(watching.saw(over({ skipped: 28, half: true }))).toBe(false);
+    const watching = settledIn();
+    watching.saw(over({ half: true, gapMs: { p50: 17, p95: 20, max: 900 } }));
+    expect(watching.saw(over({ half: true, gapMs: { p50: 17, p95: 20, max: 900 } }))).toBe(false);
+  });
+
+  it("une proposition restée sans réponse n'est pas répétée à chaque fenêtre", () => {
+    // Le 25 septembre 2026, trois pages ont écrit « proposé » 53, 54 et 16 fois:
+    // la bannière restait affichée, et chaque mauvaise fenêtre la redemandait.
+    const watching = settledIn();
+    watching.saw(freeze);
+    expect(watching.saw(freeze)).toBe(true);
+    for (let fenetre = 0; fenetre < QUIET_WINDOWS + 5; fenetre++) {
+      expect(watching.saw(freeze)).toBe(false);
+    }
   });
 
   it("n'en reparle plus une fois la question réglée", () => {
-    // Le jumeau qui compte: une proposition qu'on décline et qui revient est
-    // une proposition qu'on finit par ne plus lire.
-    const watching = new Struggling();
-    watching.saw(over({ skipped: 14 }));
-    expect(watching.saw(over({ skipped: 28 }))).toBe(true);
+    const watching = settledIn();
+    watching.saw(freeze);
+    expect(watching.saw(freeze)).toBe(true);
     watching.settled();
-    watching.saw(over({ skipped: 42 }));
-    expect(watching.saw(over({ skipped: 56 }))).toBe(false);
+    watching.saw(freeze);
+    expect(watching.saw(freeze)).toBe(false);
   });
 
   it("revient à la charge quand la liaison s'effondre, longtemps après", () => {
-    // Le 16 septembre 2026: un joueur prend le réduit, revient au plein trois
-    // minutes plus tard, et sa liaison s'écroule quinze minutes durant (63 images
-    // jetées par fenêtre contre 4 avant) sans que la page ne dise plus rien.
-    const watching = new Struggling();
+    // Le 16 septembre 2026: un joueur prend le réduit, revient au plein, et sa
+    // liaison s'écroule quinze minutes durant sans que la page ne dise plus rien.
+    const watching = settledIn();
     watching.settled();
     let repropose = false;
     for (let fenetre = 0; fenetre < QUIET_WINDOWS + 2; fenetre++) {
-      repropose = watching.saw(over({ skipped: MUCH_ROUGHER_DROPS }));
+      repropose ||= watching.saw(over({ gapMs: { p50: 17, p95: 40, max: COLLAPSE_MS } }));
     }
 
     expect(repropose).toBe(true);
   });
 
   it("ne revient pas avant cinq minutes de silence", () => {
-    // Le jumeau du temps: une proposition refusée qui revient tout de suite est
-    // une proposition qu'on apprend à fermer sans la lire.
-    const watching = new Struggling();
+    const watching = settledIn();
     watching.settled();
     let repropose = false;
     for (let fenetre = 0; fenetre < 4; fenetre++) {
-      repropose = watching.saw(over({ skipped: MUCH_ROUGHER_DROPS }));
+      repropose ||= watching.saw(over({ gapMs: { p50: 17, p95: 40, max: COLLAPSE_MS } }));
     }
 
     expect(repropose).toBe(false);
   });
 
-  it("ne revient pas pour une soirée seulement moyenne", () => {
-    // Le jumeau du seuil: dix fois le seuil ordinaire, sinon le retour se
-    // déclencherait sur ce que la personne vient justement d'accepter de vivre.
-    const watching = new Struggling();
+  it("ne revient pas pour un gel seulement ordinaire", () => {
+    // Le jumeau du seuil: un gel de 900 ms est ce que la personne a accepté de
+    // vivre en refusant; il faut bien pire pour revenir.
+    const watching = settledIn();
     watching.settled();
     let repropose = false;
     for (let fenetre = 0; fenetre < QUIET_WINDOWS + 5; fenetre++) {
-      repropose = watching.saw(over({ skipped: MUCH_ROUGHER_DROPS - 1 }));
+      repropose ||= watching.saw(freeze);
     }
 
     expect(repropose).toBe(false);
   });
 
   it("ne dit rien à qui est déjà en réduit, même effondré", () => {
-    const watching = new Struggling();
+    const watching = settledIn();
     watching.settled();
     let repropose = false;
     for (let fenetre = 0; fenetre < QUIET_WINDOWS + 5; fenetre++) {
-      repropose = watching.saw(over({ skipped: MUCH_ROUGHER_DROPS * 10, half: true }));
+      repropose ||= watching.saw(
+        over({ half: true, gapMs: { p50: 17, p95: 40, max: COLLAPSE_MS * 2 } }),
+      );
     }
 
     expect(repropose).toBe(false);

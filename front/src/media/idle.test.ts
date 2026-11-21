@@ -93,3 +93,51 @@ it("le son reprend avec son contexte autorisé et ignore une ancienne reconnexio
   sound.stop();
   expect(context.close).toHaveBeenCalledOnce();
 });
+
+it("la sourdine ferme la socket du son, et le volume remonté la rouvre une fois", () => {
+  // Le 23 septembre 2026, un volume à zéro laissait passer 1,5 Mbit/s de son que
+  // personne n'entendait, sur les liaisons qui en avaient le moins les moyens.
+  const sound = new SoundStream((path) => path, 0.5, false);
+  Object.assign(sound, { context: { close: vi.fn() } });
+  sound.setIdle(true);
+  sound.setIdle(false);
+  expect(sockets).toHaveLength(1);
+
+  sound.setVolume(0);
+  expect(sockets[0]!.close).toHaveBeenCalled();
+  // La socket fermée exprès ne se rouvre pas toute seule.
+  sockets[0]!.onclose!();
+  vi.advanceTimersByTime(2000);
+  expect(sockets).toHaveLength(1);
+  // Ni en sortant du repos pendant la sourdine.
+  sound.setIdle(true);
+  sound.setIdle(false);
+  expect(sockets).toHaveLength(1);
+
+  sound.setVolume(0.4);
+  expect(sockets).toHaveLength(2);
+  sound.stop();
+});
+
+it("changer le volume sans passer par zéro ne touche pas à la socket", () => {
+  const sound = new SoundStream((path) => path, 0.5, false);
+  Object.assign(sound, { context: { close: vi.fn() } });
+  sound.setIdle(true);
+  sound.setIdle(false);
+  sound.setVolume(0.2);
+  sound.setVolume(0.9);
+  expect(sockets).toHaveLength(1);
+  expect(sockets[0]!.close).not.toHaveBeenCalled();
+  sound.stop();
+});
+
+it("une page ouverte en sourdine ne demande aucun son", () => {
+  const sound = new SoundStream((path) => path, 0, false);
+  Object.assign(sound, { context: { close: vi.fn() } });
+  sound.setIdle(true);
+  sound.setIdle(false);
+  expect(sockets).toHaveLength(0);
+  sound.setVolume(0.3);
+  expect(sockets).toHaveLength(1);
+  sound.stop();
+});

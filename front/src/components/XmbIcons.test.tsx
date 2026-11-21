@@ -10,4 +10,5 @@ it("donne à chaque console sa silhouette et laisse une console inconnue génér
   expect(drawn("switch")).not.toBe(drawn("wii"));
   expect(drawn("?")).toBe(renderToStaticMarkup(<GameIcon />));
   expect(drawn("switch")).not.toBe(drawn("?"));
+  expect(new Set(["gc", "wii", "switch", "switch2", "?"].map(drawn)).size).toBe(5);
 });

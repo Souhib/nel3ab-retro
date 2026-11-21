@@ -15,6 +15,8 @@ from pathlib import Path
 from fastapi import APIRouter
 from fastapi.responses import HTMLResponse
 
+from nel3ab_control.api.routes import bobine
+
 router = APIRouter(tags=["accueil"])
 
 #: La page, lue une fois au démarrage. Elle ne dépend de personne: tout ce
@@ -57,7 +59,7 @@ def faces() -> str:
     return "\n".join(regles)
 
 
-PAGE = (
+PAGE = bobine.garnir(
     (Path(__file__).parent / "accueil.html")
     .read_text(encoding="utf-8")
     .replace("/*__POLICES__*/", faces())

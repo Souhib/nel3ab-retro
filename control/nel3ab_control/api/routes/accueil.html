@@ -259,6 +259,19 @@
   }
   /* Une animation n'est jamais nécessaire à la compréhension de cette
      page. L'horloge, elle, reste: c'est une valeur, pas un mouvement. */
+  /* Bobine, à côté du bouton qui ouvre une salle. Il salue en arrivant, tend
+     la fiche quand on approche du bouton, et l'enfonce au clic. */
+  /*__BOBINE__*/
+  .bobine-accueil { display: inline-flex; align-items: flex-end; height: 64px; }
+  .bobine-accueil svg { width: 49px; height: 64px; }
+  /* Une case de jauge qui se remplit: la fiche claque dans la prise. */
+  .jauge span[data-claque="oui"] { animation: claque 380ms cubic-bezier(.3,.7,.4,1.5) both; }
+  @keyframes claque {
+    0% { transform: translateY(-40%) scaleY(1.08); }
+    60% { transform: translateY(5%) scaleY(.92); }
+    100% { transform: none; }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; transition: none !important; }
   }
@@ -278,6 +291,7 @@
     <div class="salles" id="salles" aria-live="polite"></div>
 
     <div class="ouvrir">
+      <span class="bobine-accueil" id="bobine" aria-hidden="true"><!--BOBINE:fiche:salue--></span>
       <button id="ouvrir" type="button">ouvrir une salle</button>
       <span class="mot" id="mot"></span>
       <span class="perdu" id="perdu" hidden>la liste ne se met plus à jour</span>
@@ -512,7 +526,17 @@
     antenne.hidden = depuis == null;
 
     const cases = noeud.querySelectorAll(".jauge span");
-    cases.forEach((c, i) => { c.dataset.plein = i < gens.length ? "oui" : "non"; });
+    cases.forEach((c, i) => {
+      const plein = i < gens.length ? "oui" : "non";
+      // Une case qui se remplit SOUS les yeux claque; une page qui s'ouvre sur
+      // une salle pleine ne montre rien bouger. `data-plein` absent veut dire
+      // « premier dessin ».
+      if (c.dataset.plein === "non" && plein === "oui") {
+        c.dataset.claque = "oui";
+        setTimeout(() => { c.dataset.claque = "non"; }, 400);
+      }
+      c.dataset.plein = plein;
+    });
     const mot = noeud.querySelector(".jauge-mot");
     // Elle se NOMME, sinon quatre traits ne disent rien. Et elle compte des
     // personnes, pas des manettes: le salon ne sait pas qui tient quoi.
@@ -584,6 +608,21 @@
     bouton.disabled = false;
     relire();
   });
+
+  // Bobine: il salue une fois, puis attend; il tend la fiche quand on approche
+  // du bouton, et l'enfonce au clic. Rien qu'un attribut qui change: la
+  // feuille fait le reste, et l'arrête sous prefers-reduced-motion.
+  {
+    const dessin = document.querySelector("#bobine svg");
+    const bouton = document.getElementById("ouvrir");
+    const pose = (p) => { if (dessin) dessin.dataset.pose = p; };
+    setTimeout(() => pose("repos"), 1200);
+    bouton.addEventListener("pointerenter", () => { if (!bouton.disabled) pose("porte"); });
+    bouton.addEventListener("pointerleave", () => pose("repos"));
+    bouton.addEventListener("focus", () => pose("porte"));
+    bouton.addEventListener("blur", () => pose("repos"));
+    bouton.addEventListener("click", () => pose("pousse"));
+  }
 
   // Le lien vers le carnet n'apparaît que pour une personne identifiée. Un
   // échec ne montre rien: c'est un raccourci, pas une information.

@@ -146,7 +146,41 @@ deploy-check:
             echo "  chargée par systemd sans fichier sur le disque: $charge"; faux=1
         fi
     done
-    if [ "$faux" -eq 0 ]; then echo "les unités installées sont celles du dépôt"; else exit 1; fi
+    # Le PÉRIMÉ: une unité qui tourne depuis AVANT la dernière modification du
+    # code qu'elle exécute. Le 22 septembre 2026, le salon tournait depuis le 14 et
+    # ignorait l'événement « qualité » ajouté le 16: une semaine de propositions de
+    # format réduit perdues sans un signal. Les trois boucles du dessus comparent
+    # des fichiers entre eux; celle-ci compare un fichier à ce qui tourne.
+    #
+    # L'heure de modification plutôt que celle du dernier commit: le code installé
+    # peut ne pas être commité, et git ne réécrit un fichier que si son contenu
+    # change, donc un changement de branche sans effet sur le code ne rougit pas.
+    # Caddy n'est pas suivi: `systemctl reload` recharge sa configuration sans
+    # changer l'heure de démarrage, et la première boucle compare déjà le fichier.
+    perime() {
+        local unite="$1" code="$2"
+        [ "$(systemctl show "$unite" -p ActiveState --value)" = active ] || return 0
+        local depuis
+        depuis=$(date -d "$(systemctl show "$unite" -p ActiveEnterTimestamp --value)" +%s)
+        if [ "$code" -gt "$depuis" ]; then
+            echo "  tourne avec un code plus ancien que le dépôt: $unite (démarrée $(date -d "@$depuis" '+%F %T'), code du $(date -d "@$code" '+%F %T'))"
+            faux=1
+        fi
+    }
+    # Les sources seules: le service écrit lui-même ses `.pyc` en tournant, et les
+    # compter le déclarerait périmé par son propre démarrage.
+    controle=$(find control/nel3ab_control control/pyproject.toml control/uv.lock \
+        \( -name '*.py' -o -name pyproject.toml -o -name uv.lock \) -printf '%T@\n' \
+        | cut -d. -f1 | sort -n | tail -1)
+    perime nel3ab-control.service "$controle"
+    perime nel3ab-boite-noire.service "$controle"
+    worker=core/target/release/nel3ab-worker
+    if [ -e "$worker" ]; then
+        for salle in $(systemctl list-units --no-legend --state=active 'nel3ab-worker@*.service' | awk '{print $1}' | sed 's/^●[[:space:]]*//'); do
+            perime "$salle" "$(stat -c %Y "$worker")"
+        done
+    fi
+    if [ "$faux" -eq 0 ]; then echo "les unités installées sont celles du dépôt, et tournent avec son code"; else exit 1; fi
 
 # Vérifie les pistes du MP4 et décode réellement son audio, sans Dolphin ni salle.
 clip-audio-test:
@@ -215,7 +249,11 @@ save-import jeu emplacement fichier salle="1":
         mkdir -p "$vieux" && mv "$dossier"/*.gci "$vieux"/
         echo "  ancien contenu écarté dans $(basename "$vieux")"
     fi
+    rm -f "$dossier/unlocked.json"
     cp "{{fichier}}" "$dossier/"
+    if [ "{{emplacement}}" = debloquee ]; then
+        python3 tools/save-unlocked.py "$dossier" "$(basename "{{fichier}}")" --source "{{fichier}}"
+    fi
     echo "  posé: $(basename "{{fichier}}") dans {{jeu}}/{{emplacement}}"
 
 # Remet un emplacement à neuf, pour de vrai.
@@ -247,8 +285,8 @@ save-reset jeu emplacement salle="1":
 # ne colle pas à ce qu'on trouve dans les fichiers.
 #
 # `just saves` dit quels emplacements existent.
-wii-save-import export dossier:
-    python3 tools/wii-save-decode.py {{export}} {{dossier}}
+wii-save-import export dossier unlocked="false":
+    python3 tools/wii-save-decode.py {{export}} {{dossier}} {{if unlocked == "true" { "--unlocked" } else { "" }}}
 
 # La page et la salle sont-elles d\'accord sur ce qui peut être transporté ? Le
 # demi-format n'existe pas pour toutes les tailles d'image, et c'est un vrai
@@ -533,6 +571,215 @@ browser-bindings:
 # navigateur, qui est la moitié qu'un changement de page peut dégrader.
 browser-watch seconds="60":
     cd spikes/m3-browser-drive && node watch.mjs http://localhost:8110/ {{seconds}}
+
+# Ce qu'une soirée de jeu a montré, personne par personne: images, gels, format,
+# trous de son, sourdine contre son, propositions de format réduit, captures de
+# la boîte noire et chaînes cassées. Ne lance rien, relit ce que la machine garde.
+soiree jour depuis="":
+    python3 tools/soiree.py {{jour}} {{ if depuis == "" { "" } else { "--depuis " + depuis } }}
+
+# Une page derrière une liaison dégradée: débit, perte et gigue, pour de vrai.
+#
+# `just banc-liaison 6 1 20` mesure le profil « Hyde »: 6 Mbit/s, 1 % de perte,
+# 20 ms de gigue. `0` veut dire « pas de limite » pour le débit.
+#
+# Deux sources d'images:
+#
+# - un CLIP (`just banc-liaison 0 1 20 1 60 /chemin/clip.mp4`): le banc lance son
+#   propre worker, sur des ports et des dossiers jetables, qui rejoue le clip en
+#   boucle à travers le vrai encodeur. Les mêmes images à chaque passage, donc
+#   des mesures qui se comparent. Aucune salle n'est touchée. C'est la source à
+#   préférer pour comparer deux versions;
+# - une SALLE ouverte avec un jeu, et PERSONNE dedans: le banc est un spectateur
+#   de plus. `node spikes/m3-browser-drive/lancer-jeu.mjs https://nel3ab.app/r/1/`
+#   lance un jeu. Le 23 septembre 2026, l'écran de démonstration allait de 0,8 à
+#   25 Mbit/s selon la minute: une fenêtre sur deux n'a rien mesuré.
+#
+# # Pourquoi un espace réseau et pas `throttle.mjs`
+#
+# Un relais TCP en espace utilisateur ne peut pas perdre un paquet: la perte y
+# devient un retard, et le blocage en tête de ligne qu'elle provoque dans TCP,
+# qui est le cas de Hyde, n'apparaît jamais. `tc netem` perd dans le noyau.
+#
+# Il ne touche QUE la paire virtuelle `n3b-h`/`n3b-n` créée ici, jamais `lo` ni
+# une interface de la machine: une perte posée sur `lo` frapperait le salon, le
+# proxy et chaque salle en même temps.
+#
+# Le navigateur reste côté machine et vise l'espace du banc, où un relais le
+# renvoie vers la salle par une socket Unix (voir `relais-banc.mjs`). Dans
+# l'autre sens, le pare-feu de la machine refusait la connexion, et Chrome lancé
+# dans l'espace du banc échouait en `ERR_NETWORK_CHANGED`.
+#
+# # Les réglages qui ne sont pas mesurés
+#
+# - La file de netem tient cent millisecondes au débit demandé, au moins
+#   cinquante paquets. Une box réelle en tient souvent plus; c'est un choix, pas
+#   une mesure de la liaison de Hyde.
+# - La gigue suit une loi normale. Avec un débit, netem garde l'ordre des
+#   paquets; le sens montant reçoit donc un débit large, 100 Mbit/s, pour que sa
+#   gigue ne les réordonne pas non plus.
+# - Les deux relais ajoutent des tampons entre le worker et la liaison, comme
+#   le proxy en service, mais pas forcément de la même taille.
+banc-liaison mbit perte gigue salle="1" seconds="60" clip="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # Un démarrage sur quatre environ échouait en deux secondes, sans dire où, le
+    # 23 septembre 2026. La prochaine fois, il le dira.
+    trap 'echo "banc-liaison: échec à la ligne $LINENO: $BASH_COMMAND" >&2' ERR
+    salle={{salle}}; port="81${salle}0"; relais=18110
+    clip="{{clip}}"
+    if [ -n "$clip" ]; then
+        # Le worker du banc: rien d'une vraie salle, ni ses ports, ni son
+        # dossier, ni son adresse de contrôle (CLAUDE.md, règle 7).
+        [ -f "$clip" ] || { echo "pas de clip: $clip"; exit 1; }
+        jetable=$(mktemp -d)
+        mkdir -p "$jetable/session" "$jetable/roms" "$jetable/art"
+        read -r port controle < <(python3 -c 'import socket
+    ports = []
+    for _ in range(2):
+        s = socket.socket(); s.bind(("127.0.0.1", 0)); ports.append(s)
+    print(*(s.getsockname()[1] for s in ports))')
+        journal_banc="$jetable/worker.log"
+        sg render -c "echo \$\$ > '$jetable/pid'; exec env NEL3AB_BANC_SON='${NEL3AB_BANC_SON:-1}' NEL3AB_BANC_CLIP='$clip' NEL3AB_BIND=127.0.0.1:$port NEL3AB_CONTROL_BIND=127.0.0.1:$controle \
+            NEL3AB_SESSION_DIR='$jetable/session' NEL3AB_ROM_DIR='$jetable/roms' NEL3AB_ART_DIR='$jetable/art' \
+            NEL3AB_SWITCH_LOCK='$jetable/switch.lock' '$PWD/core/target/release/nel3ab-worker'" \
+            > "$journal_banc" 2>&1 &
+        worker_pid=$!
+        for _ in $(seq 50); do
+            grep -q "banc: un clip rejoué" "$journal_banc" 2>/dev/null && break
+            kill -0 "$worker_pid" 2>/dev/null || { cat "$journal_banc"; exit 1; }
+            sleep 0.2
+        done
+        grep -q "banc: un clip rejoué" "$journal_banc" || { echo "le worker du banc n'a pas démarré"; cat "$journal_banc"; exit 1; }
+    else
+    etat=$(curl -s -m3 http://127.0.0.1:8200/api/salles)
+    python3 - "$etat" "$salle" <<'VERIF'
+    import json, sys
+    salles = {s["numero"]: s for s in json.loads(sys.argv[1])}
+    s = salles.get(int(sys.argv[2]))
+    if not s or not s["ouverte"] or not s["jeu"]:
+        sys.exit(f"la salle {sys.argv[2]} n'est pas ouverte avec un jeu")
+    if s["gens"]:
+        sys.exit(f"la salle {sys.argv[2]} a du monde: {len(s['gens'])} page(s). Le banc attend qu'elle soit vide.")
+    VERIF
+    fi
+    ns=n3banc; hote=n3b-h; banc=n3b-n
+    passage=$(mktemp -u "${XDG_RUNTIME_DIR:-/tmp}/n3banc.XXXXXX")
+    # Le réseau seul, pour effacer les restes d'un passage interrompu au début
+    # du suivant. Le worker du banc n'en fait pas partie: au premier essai, ce
+    # ménage de départ tuait le worker qu'on venait de lancer.
+    nettoyer_reseau() {
+        for pid in ${relais_pids:-}; do sudo -n kill "$pid" 2>/dev/null || kill "$pid" 2>/dev/null || true; done
+        sudo -n ip netns pids "$ns" 2>/dev/null | xargs -r sudo -n kill 2>/dev/null || true
+        sudo -n ip netns del "$ns" 2>/dev/null || true
+        sudo -n ip link del "$hote" 2>/dev/null || true
+        # La suppression d'une paire virtuelle se termine APRÈS la commande: deux
+        # passages enchaînés échouaient une fois sur trois en recréant `n3b-h`.
+        for _ in $(seq 20); do ip link show "$hote" >/dev/null 2>&1 || break; sleep 0.1; done
+        rm -f "$passage"
+    }
+    nettoyer() {
+        if [ -n "${worker_pid:-}" ]; then
+            # `sg` passe par un shell qui se remplace par le worker (`exec`), et
+            # ce shell a écrit son numéro: c'est celui du worker.
+            if [ -s "$jetable/pid" ]; then kill "$(cat "$jetable/pid")" 2>/dev/null || true; fi
+            wait "$worker_pid" 2>/dev/null || true
+        fi
+        for pid in ${relais_pids:-}; do sudo -n kill "$pid" 2>/dev/null || kill "$pid" 2>/dev/null || true; done
+        sudo -n ip netns pids "$ns" 2>/dev/null | xargs -r sudo -n kill 2>/dev/null || true
+        sudo -n ip netns del "$ns" 2>/dev/null || true
+        sudo -n ip link del "$hote" 2>/dev/null || true
+        rm -f "$passage"
+        if [ -n "${jetable:-}" ]; then rm -rf "$jetable"; fi
+    }
+    trap nettoyer EXIT
+    nettoyer_reseau
+    sudo -n ip netns add "$ns"
+    sudo -n ip link add "$hote" type veth peer name "$banc"
+    sudo -n ip link set "$banc" netns "$ns"
+    sudo -n ip addr add 10.203.0.1/30 dev "$hote"
+    sudo -n ip link set "$hote" up
+    sudo -n ip -n "$ns" addr add 10.203.0.2/30 dev "$banc"
+    sudo -n ip -n "$ns" link set "$banc" up
+    # Le sens descendant, celui de l'image, sort de l'espace du banc vers le
+    # navigateur: débit, perte et gigue.
+    descendant=(netem)
+    if [ "{{mbit}}" != 0 ]; then
+        paquets=$(python3 -c "print(max(50, int({{mbit}} * 1e6 / 8 * 0.1 / 1514)))")
+        descendant+=(rate "{{mbit}}mbit" limit "$paquets")
+    elif [ "{{gigue}}" != 0 ]; then
+        # Sans débit, la gigue de netem RÉORDONNE les paquets, et TCP retransmet
+        # pour rien: 600 Ko mettaient 3,8 s sous 20 ms de gigue, contre 0,01 s
+        # sans. Un débit large garde l'ordre sans rien plafonner.
+        descendant+=(rate 1000mbit)
+    fi
+    [ "{{perte}}" != 0 ] && descendant+=(loss "{{perte}}%")
+    [ "{{gigue}}" != 0 ] && descendant+=(delay "{{gigue}}ms" "{{gigue}}ms" distribution normal)
+    sudo -n ip netns exec "$ns" tc qdisc add dev "$banc" root "${descendant[@]}"
+    # Le sens montant, celui des accusés TCP et des manettes: la même perte et
+    # la même gigue, sans plafond qui compte.
+    montant=(netem rate 100mbit)
+    [ "{{perte}}" != 0 ] && montant+=(loss "{{perte}}%")
+    [ "{{gigue}}" != 0 ] && montant+=(delay "{{gigue}}ms" "{{gigue}}ms" distribution normal)
+    sudo -n tc qdisc add dev "$hote" root "${montant[@]}"
+    echo "descendant: ${descendant[*]}"
+    echo "montant:    ${montant[*]}"
+    cd spikes/m3-browser-drive
+    node relais-banc.mjs "unix:$passage" "127.0.0.1:$port" & relais_pids="$!"
+    sleep 0.5
+    sudo -n ip netns exec "$ns" "$(command -v node)" relais-banc.mjs "10.203.0.2:$relais" "unix:$passage" &
+    relais_pids="$relais_pids $!"
+    sleep 0.5
+    debut=$(date -u '+%F %T')
+    mesure=$(node banc-liaison.mjs "http://10.203.0.2:${relais}/" {{seconds}})
+    if [ -n "$clip" ]; then
+        worker=$(cat "$journal_banc")
+        # Gardé pour relecture: le dossier jetable disparaît avec le banc.
+        cp "$journal_banc" "${XDG_RUNTIME_DIR:-/tmp}/banc-liaison-dernier-worker.log"
+    else
+        worker=$(journalctl -u "nel3ab-worker@${salle}" --since "$debut" --utc -o cat --no-pager)
+    fi
+    python3 - "$mesure" "$worker" <<'RESUME'
+    import json, sys
+    page = json.loads(sys.argv[1].strip().splitlines()[-1])
+    cumul = {"chaines_cassees": 0, "images_manquees": 0, "images_jetees": 0, "file_max": 0,
+             "abandons": 0}
+    debits = []
+    # Seulement les relevés émis PENDANT la fenêtre de la page. Le premier essai
+    # comptait aussi la connexion: une chaîne cassée au démarrage et ses 599
+    # images d'attente de clé s'ajoutaient à une fenêtre à 59,9 images/s. Un
+    # relevé couvre les dix secondes qui le précèdent, donc le premier retenu
+    # peut encore en déborder un peu.
+    debut = page.pop("debut").replace("Z", "+00:00")
+    for ligne in sys.argv[2].splitlines():
+        try:
+            lu = json.loads(ligne)
+        except ValueError:
+            continue
+        champs = lu.get("fields", {})
+        if lu.get("timestamp", "").replace("Z", "+00:00") < debut:
+            continue
+        # Le débit du flux pendant la fenêtre. Il suit la scène, de 0,8 à
+        # 25 Mbit/s sur une démonstration: deux mesures ne se comparent qu'avec lui.
+        # « streaming » dans une salle, « banc: débit » dans le worker du banc.
+        if champs.get("message") in ("streaming", "banc: débit") and "megabits_per_second" in champs:
+            debits.append(champs["megabits_per_second"])
+        # Une écriture bloquée plus de deux secondes: le worker coupe la socket et
+        # la page se reconnecte. Pire qu'une chaîne cassée, et le banc ne la
+        # comptait pas: une file de deux « ne cassait rien » à 3 Mbit/s tout en
+        # ne livrant que 35 images sur 50 (23 septembre 2026).
+        if champs.get("message") == "the viewer's connection gave up":
+            cumul["abandons"] += 1
+        if champs.get("message") != "ce spectateur ne suit pas":
+            continue
+        cumul["chaines_cassees"] += champs.get("breaks_now", 0)
+        cumul["images_manquees"] += champs.get("missed_now", 0)
+        cumul["images_jetees"] += champs.get("dropped_now", 0)
+        cumul["file_max"] = max(cumul["file_max"], champs.get("depth", 0))
+    # La moyenne des relevés « streaming », un toutes les dix secondes.
+    cumul["flux_mbit_s"] = round(sum(debits) / len(debits), 1) if debits else None
+    print(json.dumps({**page, **cumul}, ensure_ascii=False))
+    RESUME
 
 # Does the page survive being switched away from? Needs the worker RUNNING.
 # Opens a second tab to push the first one into the background, which is how a
@@ -970,8 +1217,12 @@ switch-controls-test:
 # and add-on listing from NSP files built with a test key.
 switch-saves-test:
     python3 -m unittest discover -s docker -p 'test_switch_*.py'
-    cd control && uv run ruff check --config pyproject.toml ../docker/switch-room.py ../docker/switch-saves.py ../docker/switch-dlc.py ../docker/test_switch_room.py ../docker/test_switch_dlc.py
-    cd control && uv run ruff format --check --config pyproject.toml ../docker/switch-room.py ../docker/switch-saves.py ../docker/switch-dlc.py ../docker/test_switch_room.py ../docker/test_switch_dlc.py
+    python3 -m unittest discover -s docker -p 'test_personal_*.py'
+    python3 -m unittest discover -s spikes/switch2-room -p 'test_*.py'
+    cd control && uv run ruff check --config pyproject.toml ../docker/switch-room.py ../docker/switch2-room.py ../docker/switch-saves.py ../docker/switch-dlc.py ../docker/test_switch_room.py ../docker/test_switch_2_room.py ../docker/test_switch_dlc.py ../docker/test_switch_unlocked.py ../docker/test_personal_saves.py ../tools/save-unlocked.py
+    cd control && uv run ruff format --check --config pyproject.toml ../docker/switch-room.py ../docker/switch2-room.py ../docker/switch-saves.py ../docker/switch-dlc.py ../docker/test_switch_room.py ../docker/test_switch_2_room.py ../docker/test_switch_dlc.py ../docker/test_switch_unlocked.py ../docker/test_personal_saves.py ../tools/save-unlocked.py
+    cd control && uv run ruff check --config pyproject.toml ../spikes/switch2-room/lobby.py ../spikes/switch2-room/measure.py ../spikes/switch2-room/test_measure.py ../spikes/switch2-room/gpu_clients.py ../spikes/switch2-room/test_gpu_clients.py
+    cd control && uv run ruff format --check --config pyproject.toml ../spikes/switch2-room/lobby.py ../spikes/switch2-room/measure.py ../spikes/switch2-room/test_measure.py ../spikes/switch2-room/gpu_clients.py ../spikes/switch2-room/test_gpu_clients.py
 
 # Four isolated browsers and real GC/Wii/Switch engines. Requires the private
 # NEL3AB_TEST_SWITCH_CONFIG; optional NEL3AB_TEST_SWITCH_SAVE tests unlocked saves.
@@ -980,7 +1231,17 @@ switch-room-test rom:
     cargo build --manifest-path core/Cargo.toml -p nel3ab-worker
     node spikes/m3-browser-drive/switch-room.mjs '{{rom}}'
 
+# Registered user-supplied NUP, private config and disposable state only.
+switch2-room-test rom:
+    cargo build --manifest-path core/Cargo.toml -p nel3ab-worker
+    node spikes/switch2-room/room.mjs {{quote(rom)}}
+
 # Catalogue local et trois menus, sans émulateur lancé ni salle installée touchée.
 catalogue-test:
     cargo build --manifest-path core/Cargo.toml -p nel3ab-worker
     node spikes/m3-browser-drive/catalogue.mjs
+
+# Four console menus, real receipt reader, synthetic saves, no emulator started.
+save-options-test:
+    cargo build --manifest-path core/Cargo.toml -p nel3ab-worker
+    node spikes/m3-browser-drive/save-options.mjs

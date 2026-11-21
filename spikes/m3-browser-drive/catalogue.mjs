@@ -34,6 +34,7 @@ const worker = spawn(join(repo, "core/target/debug/nel3ab-worker"), [], {
     NEL3AB_BIND: `127.0.0.1:${port}`, NEL3AB_CONTROL_BIND: `127.0.0.1:${control}`,
     NEL3AB_WORKER_CONTROL: `127.0.0.1:${control}`,
     NEL3AB_SESSION_DIR: join(root, "session"), NEL3AB_ART_DIR: join(root, "art"),
+    NEL3AB_PERSONAL_SAVE_ROOT: join(root, "personal-saves"),
     NEL3AB_DOLPHIN_TOOL: join(repo, "docker/dolphin-tool-in-docker.sh"),
   }, stdio: ["ignore", "pipe", "pipe"],
 });

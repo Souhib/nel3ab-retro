@@ -71,11 +71,14 @@ Environment=NEL3AB_CONTROL_BIND=127.0.0.1:81%i1
 # écraseraient leurs sauvegardes l'une l'autre; le worker refuse d'ailleurs de
 # démarrer sur un dossier déjà tenu, depuis le 12 septembre 2026.
 Environment=NEL3AB_SESSION_DIR=/home/souhib/.local/state/nel3ab/salles/%i
+# One account's progression follows it across numbered rooms. The Docker
+# helper mounts only the selected account at its ordinary in-session save path.
+Environment=NEL3AB_PERSONAL_SAVE_ROOT=/home/souhib/.local/state/nel3ab/personal-saves
 # Un conteneur Dolphin par salle, pour la même raison: le nom par défaut est le
 # même pour tout le monde, et la deuxième salle gèlerait la première.
 Environment=NEL3AB_CONTAINER=nel3ab-dolphin-%i
 Environment="NEL3AB_ROM=/home/souhib/roms/gc/Super Smash Bros Melee.rvz"
-Environment="NEL3AB_ROM_DIR=/home/souhib/roms/gc:/home/souhib/roms/wii:/home/souhib/roms/switch"
+Environment="NEL3AB_ROM_DIR=/home/souhib/roms/gc:/home/souhib/roms/wii:/home/souhib/roms/switch:/home/souhib/roms/switch2"
 # LA place de la Switch, partagée par TOUTES les salles de la machine.
 #
 # Une seule salle à la fois peut faire tourner un jeu Switch: Ryubing coûte bien
@@ -89,5 +92,6 @@ Environment="NEL3AB_ROM_DIR=/home/souhib/roms/gc:/home/souhib/roms/wii:/home/sou
 # savoir, ce qui est exactement ce que la règle empêche.
 Environment=NEL3AB_SWITCH_LOCK=/home/souhib/.local/state/nel3ab/switch.lock
 Environment=NEL3AB_SWITCH_CONFIG=/home/souhib/.config/nel3ab/switch.json
+Environment=NEL3AB_SWITCH2_CONFIG=/home/souhib/.config/nel3ab/switch2.json
 Environment=NEL3AB_PLAYERS=4
 Environment=NEL3AB_INTERNAL_RES=2

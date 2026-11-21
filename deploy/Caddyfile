@@ -45,6 +45,8 @@ nel3ab.app {
 
 	# La documentation, sous un préfixe. `handle_path` retire le `/docs` avant de
 	# chercher le fichier, ce que le site attend: ses liens sont relatifs.
+	import /home/souhib/souverain-docs/Caddyfile
+
 	handle_path /docs/* {
 		root * /home/souhib/nel3ab-retro/site
 		file_server
@@ -157,3 +159,7 @@ nel3ab.app {
 		}
 	}
 }
+
+import /etc/caddy/secret-hitler.caddy
+
+import /etc/caddy/skull.caddy

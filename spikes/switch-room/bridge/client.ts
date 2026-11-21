@@ -118,7 +118,7 @@ element("clip").onclick = async () => {
   try {
     const result = await askForClip();
     if (result.phase !== "fait") {
-      notice("Le clip n’est pas encore disponible. Attends trente secondes de jeu puis réessaie.");
+      notice("Le clip n’est pas encore disponible. Attends quarante-cinq secondes de jeu puis réessaie.");
       return;
     }
     const link = document.createElement("a");

@@ -12,9 +12,11 @@ const require=createRequire(new URL('../m3-browser-drive/package.json',import.me
 const {default:puppeteer}=await import(require.resolve('puppeteer'));
 const here=dirname(fileURLToPath(import.meta.url));
 const root=await mkdtemp(resolve(tmpdir(),'nel3ab-switch-controls-'));
-const image='nel3ab/switch-prototype:2026-09-08-recovery';
+// Qualify derived helper images too: the native-only image lacked evdev on 2026-11-10.
+const image=process.env.NEL3AB_TEST_SWITCH_IMAGE??'nel3ab/switch-prototype:2026-09-08-recovery';
 const helper=`nel3ab-switch-controls-${process.pid}`,observer=`${helper}-observer`;
 const docker=(...args)=>execFileSync('docker',args,{encoding:'utf8',stdio:['ignore','pipe','pipe']}).trim();
+const imageId=docker('image','inspect','--format','{{.Id}}',image);
 const until=async(predicate,message,timeout=10000)=>{const start=Date.now();while(Date.now()-start<timeout){if(await predicate())return;await new Promise(r=>setTimeout(r,25));}throw Error(message);};
 let bridge;const browsers=[];const created=[];const errors=[];let log='';
 const readState=async()=>JSON.parse(await readFile(resolve(root,'observed.json'),'utf8'));
@@ -28,9 +30,11 @@ try {
   'import importlib.util,json,pathlib,sys; spec=importlib.util.spec_from_file_location("switch_room",sys.argv[1]); module=importlib.util.module_from_spec(spec); spec.loader.exec_module(module); print(json.dumps(module.pad_command(sys.argv[2],pathlib.Path(sys.argv[3]),sys.argv[4],"nel3ab Switch controls test")))',
   resolve(here,'../../docker/switch-room.py'),image,root,helper],{encoding:'utf8'}));
  assert.equal(command[0],'docker');docker(...command.slice(1));created.push(helper);
+ const helperImage=docker('inspect','--format','{{.Image}}',helper);assert.equal(helperImage,imageId);
  await until(async()=>{try{await readFile(resolve(root,'devices.json'));return true;}catch{return false;}},'test pads did not start');
  const paths=JSON.parse(await readFile(resolve(root,'devices.json'),'utf8'));assert.equal(paths.length,4);
  docker('run','-d','--name',observer,'--user',String(process.getuid()),'--network','none','--cap-drop','ALL','--security-opt','no-new-privileges',...paths.flatMap(path=>['--device',path]),'-v',`${root}:/run-data`,'-v',`${here}:/probe:ro`,image,'python3','/probe/observe-pads.py');created.push(observer);
+ const observerImage=docker('inspect','--format','{{.Image}}',observer);assert.equal(observerImage,imageId);
  bridge=spawn(resolve(here,'bridge/target/debug/nel3ab-switch-prototype'),[root,'0'],{stdio:['ignore','pipe','pipe']});bridge.stderr.on('data',b=>log+=b);bridge.stdout.on('data',b=>log+=b);
  await until(async()=>{try{await readFile(resolve(root,'bridge.json'));return true;}catch{return false;}},'isolated bridge did not bind');
  const {url}=JSON.parse(await readFile(resolve(root,'bridge.json'),'utf8'));assert.match(url,/^http:\/\/127\.0\.0\.1:\d+$/);
@@ -107,7 +111,7 @@ try {
  await page.keyboard.down('v');await until(async()=>(await readState())[1].keys.includes(311),'reloaded profile did not work');
  await page.close();await until(async()=>(await readState()).every(neutral),'closed browser kept a button down');
  assert.deepEqual(errors,[]);
- const result={fourPlayers:true,rumbleAllPlayers:true,rumbleFailureKeepsInput:true,rumbleRecovery:true,buttons:16,fractionalAxes:true,configurationNeutral:true,namedProfiles:true,reload:true,spectatorRelease:true,disconnectRelease:true,mobileOverflow:false,pageErrors:errors,html:hash(await readFile(resolve(here,'bridge/page.html'))),root};
+ const result={image,imageId,helperImage,observerImage,fourPlayers:true,rumbleAllPlayers:true,rumbleFailureKeepsInput:true,rumbleRecovery:true,buttons:16,fractionalAxes:true,configurationNeutral:true,namedProfiles:true,reload:true,spectatorRelease:true,disconnectRelease:true,mobileOverflow:false,pageErrors:errors,html:hash(await readFile(resolve(here,'bridge/page.html'))),root};
  await writeFile(resolve(root,'result.json'),JSON.stringify(result,null,2));console.log(JSON.stringify(result));
 } finally {
  for(const b of browsers)await b.close();bridge?.kill('SIGTERM');

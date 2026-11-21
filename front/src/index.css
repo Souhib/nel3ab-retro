@@ -410,76 +410,178 @@ body {
   --n3-stick: clamp(44px, 15vmin, 68px);
 }
 
-/* Les manettes ont leur matière dans le configurateur. La teinte d'une touche
-   la situe; seul l'aplat d'accent indique un appui. Aucun effet ne couvre le jeu. */
+/* Les manettes du configurateur sont des OBJETS : elles gardent leurs couleurs
+   d'objet sur toutes les ambiances. Seul l'appui prend l'accent de la page,
+   avec un anneau, un halo et un léger enfoncement, pour ne pas reposer sur la
+   couleur seule. Les matières de chaque manette sont plus bas, par plan. */
 [data-padmap] {
-  --pad-shell-top: color-mix(in srgb, var(--panel) 91%, var(--text));
-  --pad-shell-bottom: var(--panel);
-  --pad-cap-top: color-mix(in srgb, var(--panel) 96%, var(--text));
-  --pad-cap-bottom: var(--ink);
+  --pad-shell-top: #4b5161;
+  --pad-shell-bottom: #1c2028;
+  --pad-sheen: 0.32;
+  --pad-inner: #000a;
+  --pad-plate: #15181e;
+  --pad-well: #0b0d11;
+  --pad-cap: #2a2e37;
+  --pad-ink: #eef0f5;
+  --pad-seam: #0007;
+  --pad-deco: #2a2e37;
+  --pad-led: #8f98aa;
+  --pad-wire: #d4d6de;
   overflow: visible;
 }
+/* Le contour fin suit l'ambiance : clair sur une page sombre, sombre sur une
+   page claire. Sans lui, une manette noire se fond dans une carte sombre et
+   une manette blanche dans une carte claire, quel que soit le reste du dessin. */
 .n3-shell {
-  fill: var(--shell-fill, var(--panel));
-  stroke: var(--faint);
-  stroke-width: 0.55;
-  filter: drop-shadow(0 1.8px 1.2px #0003);
-}
-.n3-recess {
-  fill: var(--ink);
-  stroke: var(--faint);
-  stroke-width: 0.3;
-}
-.n3-wire,
-.n3-slots {
-  fill: none;
-  stroke: var(--faint);
+  fill: var(--shell-fill, var(--pad-shell-bottom));
+  stroke: color-mix(in srgb, var(--text) 62%, var(--ink));
   stroke-width: 0.45;
+}
+.n3-sheen,
+.n3-inner,
+.n3-rim,
+.n3-art,
+.n3-gloss,
+.n3-dish,
+.n3-stick-shadow,
+.n3-leader {
+  pointer-events: none;
+}
+.n3-inner {
+  fill: none;
+  stroke: var(--pad-inner);
+  stroke-width: 3.4;
+}
+.n3-rim {
+  fill: none;
+  stroke-width: 0.5;
+}
+.n3-art[data-tone="plaque"] {
+  fill: var(--pad-plate);
+}
+.n3-art[data-tone="grain"] {
+  fill: var(--grain-fill);
+}
+.n3-art[data-tone="creux"] {
+  fill: var(--pad-well);
+}
+.n3-art[data-tone="logement"],
+.n3-well {
+  fill: var(--pad-well);
+  stroke: var(--pad-well);
+  stroke-width: 0.8;
+  stroke-linejoin: round;
+}
+.n3-art[data-tone="reflet"] {
+  fill: #fff;
+  fill-opacity: 0.16;
+}
+.n3-art[data-tone="ombre"] {
+  fill: #000;
+  fill-opacity: 0.22;
+}
+.n3-art[data-tone="trait"] {
+  fill: none;
+  stroke: var(--pad-seam);
+  stroke-width: 0.35;
   stroke-linecap: round;
 }
-.n3-cap {
-  fill: var(--cap-fill, var(--ink));
-  stroke: var(--muted);
-  stroke-width: 0.55;
+.n3-art[data-tone="bouton"] {
+  fill: var(--pad-cap);
+  stroke: #0008;
+  stroke-width: 0.25;
 }
-[data-part][style] .n3-cap {
-  stroke: color-mix(in srgb, var(--part-tint) 22%, var(--muted));
+.n3-art[data-tone="voyant"] {
+  fill: var(--pad-led);
+}
+.n3-art[data-tone="lumiere"] {
+  fill: none;
+  stroke: var(--pad-led);
+  stroke-width: 0.7;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 0.8px var(--pad-led));
+}
+.n3-art[data-tone="bord"] {
+  fill: none;
+  stroke: var(--pad-plate);
+  stroke-width: 1.1;
+}
+.n3-art[data-tone="points"] {
+  fill: none;
+  stroke: var(--pad-seam);
+  stroke-width: 0.6;
+  stroke-linecap: round;
+}
+.n3-wire {
+  fill: none;
+  stroke: var(--pad-wire);
+  stroke-width: 1.1;
+  stroke-linecap: round;
 }
 .n3-gate {
-  fill: var(--ink);
-  stroke: var(--faint);
-  stroke-width: 0.55;
+  fill: var(--pad-well);
+  stroke: #ffffff26;
+  stroke-width: 0.3;
+}
+.n3-stick-shadow {
+  fill: #000;
+  fill-opacity: 0.45;
+}
+.n3-cap {
+  fill: var(--part-tint);
+  stroke: #0009;
+  stroke-width: 0.25;
 }
 .n3-stick-grip {
   fill: none;
-  stroke: var(--faint);
-  stroke-width: 0.3;
-  stroke-dasharray: 0.5 0.65;
+  stroke: #0007;
+  stroke-width: 0.35;
 }
 .n3-glyph {
   fill: none;
-  stroke: var(--text);
-  stroke-width: 0.65;
+  stroke: var(--part-ink);
+  stroke-width: 0.6;
   stroke-linecap: round;
   stroke-linejoin: round;
   pointer-events: none;
 }
 [data-padmap] text {
-  fill: var(--text);
+  fill: var(--part-ink);
   font-family: var(--font-chrome);
-  font-weight: 600;
+  font-weight: 700;
   pointer-events: none;
 }
-[data-padmap] [data-lit="oui"] .n3-cap {
-  fill: var(--indigo);
-  stroke: var(--indigo);
+[data-padmap] text.n3-callout {
+  fill: var(--text);
+  font-weight: 600;
 }
-[data-padmap] [data-lit="oui"] text {
-  fill: var(--ink);
+.n3-leader {
+  fill: none;
+  stroke: var(--faint);
+  stroke-width: 0.3;
+}
+/* La couleur de l'appui est celle de l'accent, sauf sur une coque qui la porte
+   déjà : sur la GameCube violette, un bouton indigo ne se voyait pas. Aucune
+   teinte ne tranche à la fois sur ce violet et sur sa croix gris clair ; son
+   appui y a donc un anneau sombre, qui se voit là où l'aplat ne se voit pas. */
+[data-padmap] [data-lit="oui"] .n3-cap {
+  fill: var(--pad-lit, var(--indigo));
+  stroke: var(--pad-lit-ring, var(--text));
+  stroke-width: 0.6;
+  filter: drop-shadow(0 0 1.2px var(--pad-lit, var(--indigo)));
+}
+[data-padmap] [data-lit="oui"] text:not(.n3-callout) {
+  fill: var(--pad-lit-ink, var(--ink));
 }
 [data-padmap] [data-lit="oui"] .n3-glyph,
 [data-padmap] [data-lit="oui"] .n3-stick-grip {
-  stroke: var(--ink);
+  stroke: var(--pad-lit-ink, var(--ink));
+}
+[data-padmap] [data-flush] .n3-cap {
+  stroke: none;
+}
+[data-padmap] [data-lit="oui"]:not([data-stick], [data-flush]) > .n3-stick-body {
+  transform: translate(0, 0.35px);
 }
 [data-padmap] [role="button"] {
   cursor: pointer;
@@ -488,7 +590,7 @@ body {
 [data-padmap] [role="button"]:hover .n3-cap,
 [data-padmap] [role="button"]:focus-visible .n3-cap {
   stroke: var(--indigo);
-  stroke-width: 1;
+  stroke-width: 0.8;
 }
 .n3-selection,
 .n3-wanted {
@@ -1081,68 +1183,84 @@ body {
   }
 }
 
-/* Les matières identifient la coque, les inscriptions gardent un fond sombre.
-   L'appui ajoute un anneau et un déplacement, sans reposer sur la couleur seule. */
-[data-padmap="gamecube"] {
-  --pad-shell-top: #685da5;
-  --pad-shell-bottom: #302847;
-}
-[data-padmap="dualshock"],
-[data-padmap="wiimote"] {
-  --pad-shell-top: #edf0f4;
-  --pad-shell-bottom: #a9b3c1;
-}
-[data-padmap="xbox"],
-[data-padmap="standard"] {
-  --pad-shell-top: #454d5b;
-  --pad-shell-bottom: #202630;
+/* Les matières, manette par manette, relevées sur des photos. */
+[data-padmap="wiimote"],
+[data-padmap="wiimote-only"] {
+  --pad-shell-top: #fdfdfe;
+  --pad-shell-bottom: #c8cdd7;
+  --pad-inner: #6a7282aa;
+  --pad-sheen: 0.5;
+  --pad-well: #a3a9b6;
+  --pad-cap: #f3f4f7;
+  --pad-ink: #545b6a;
+  --pad-seam: #b4bac6;
+  --pad-led: #aab1bf;
+  --pad-wire: #e9ebf0;
 }
 [data-padmap="guitar"] {
-  --pad-shell-top: #b5bfc9;
-  --pad-shell-bottom: #525e71;
+  --pad-shell-top: #fbfbfc;
+  --pad-shell-bottom: #c3c8d2;
+  --pad-inner: #2a2f3a88;
+  --pad-sheen: 0.45;
+  --pad-plate: #1b1c21;
+  --pad-well: #121317;
+  --pad-cap: #2a2c33;
+  --pad-ink: #eef0f5;
+  --pad-seam: #6b7080;
 }
-[data-padmap] {
-  --pad-cap-top: #353c48;
-  --pad-cap-bottom: #151a23;
+[data-padmap="xbox"] {
+  --pad-shell-top: #41444c;
+  --pad-shell-bottom: #16181c;
+  --pad-inner: #000c;
+  --pad-sheen: 0.2;
+  --pad-well: #07080a;
+  --pad-cap: #24262c;
+  --pad-ink: #c9ccd4;
 }
-.n3-shell {
-  stroke: #a1a6bc;
-  stroke-width: 0.45;
-  filter: drop-shadow(0 2px 1.6px #0007);
+[data-padmap="dualshock"] {
+  --pad-shell-top: #fdfdfe;
+  --pad-shell-bottom: #c7ccd6;
+  --pad-inner: #5d6577aa;
+  --pad-sheen: 0.5;
+  --pad-plate: #17181d;
+  --pad-well: #0c0d10;
+  --pad-cap: #34363e;
+  --pad-ink: #d9dce4;
+  --pad-seam: #8c93a3;
+  --pad-led: #6f7fff;
 }
-.n3-cap {
-  filter: drop-shadow(0 0.6px 0.35px #0009);
+[data-padmap="switch-pro"],
+[data-padmap="switch-pro-pad"] {
+  --pad-shell-top: #3f434b;
+  --pad-shell-bottom: #15171b;
+  --pad-inner: #000c;
+  --pad-sheen: 0.24;
+  --pad-plate: #1b1d22;
+  --pad-well: #08090b;
+  --pad-cap: #1f2126;
+  --pad-ink: #c9cdd6;
+  --pad-seam: #000a;
 }
-[data-part][style] .n3-cap {
-  fill: color-mix(in srgb, var(--part-tint) 40%, #161c27);
-  stroke: #b7bcc8;
-  stroke-width: 0.4;
+[data-padmap="standard"] {
+  --pad-shell-top: #7b818d;
+  --pad-shell-bottom: #3c414b;
+  --pad-inner: #10131acc;
+  --pad-sheen: 0.28;
+  --pad-well: #15171c;
+  --pad-cap: #2c2f36;
+  --pad-ink: #e9ebf0;
 }
-[data-padmap] text {
-  fill: #f5f6fa;
-}
-.n3-glyph {
-  stroke: #f5f6fa;
-}
-.n3-gate {
-  fill: #161b25;
-  stroke: #abb2bf;
-}
-.n3-stick-grip {
-  stroke: #acb3c1;
-  stroke-width: 0.45;
-}
-.n3-recess {
-  fill: #191e29;
-  stroke: #a1a6bc;
-}
-.n3-slots {
-  stroke: #7f879e;
-}
-[data-padmap] [data-lit="oui"] .n3-cap {
-  fill: var(--indigo);
-  stroke: var(--text);
-  stroke-width: 1;
+[data-padmap="gamecube"] {
+  --pad-lit: #c8ff4d;
+  --pad-lit-ink: #1a2600;
+  --pad-lit-ring: #14200a;
+  --pad-shell-top: #6d64d2;
+  --pad-shell-bottom: #2b247c;
+  --pad-inner: #110a40cc;
+  --pad-well: #1b1550;
+  --pad-cap: #cfcdd9;
+  --pad-ink: #2a2840;
+  --pad-sheen: 0.26;
 }
 .n3-inline-capture {
   color: var(--text) !important;
@@ -1509,26 +1627,8 @@ body {
   gap: 12px;
   flex-wrap: wrap;
 }
-.n3-switch-preview svg {
+.n3-switch-pad {
   width: min(420px, 100%);
-  height: auto;
-}
-.n3-switch-preview circle {
-  fill: #172438;
-  stroke: #9bacc4;
-  stroke-width: 1.6;
-}
-.n3-switch-preview text {
-  fill: #e5eef8;
-  font: 12px system-ui;
-  text-anchor: middle;
-}
-.n3-switch-preview [data-lit="true"] circle {
-  fill: #80e0cc;
-  stroke: #d3fff3;
-}
-.n3-switch-preview [data-lit="true"] text {
-  fill: #0c2925;
 }
 .n3-switch-keytest {
   padding: 15px;

@@ -4,7 +4,14 @@ import { InputStream } from "../media/input";
 import { Wiring } from "./Wiring";
 import { identify } from "../media/families";
 import { standardProfile } from "../media/pad";
-import { DUALSHOCK, GAMECUBE, physicalMap, STANDARD_PAD, XBOX } from "../lib/padmap";
+import {
+  DUALSHOCK,
+  GAMECUBE,
+  physicalMap,
+  STANDARD_PAD,
+  SWITCH_PRO_PAD,
+  XBOX,
+} from "../lib/padmap";
 import { paintWiring } from "../lib/wiring";
 import { PadMapView } from "./PadMap";
 
@@ -49,6 +56,11 @@ it("une famille reconnue ne suffit pas sans disposition standard du navigateur",
   expect(physicalMap(identify("Xbox Wireless Controller", "standard"))).toBe(XBOX);
   expect(physicalMap(identify("DualSense Wireless Controller", ""))).toBe(STANDARD_PAD);
   expect(physicalMap(null)).toBe(STANDARD_PAD);
+  // La manette Pro a son propre dessin depuis le 21 novembre 2026, et la même
+  // condition : sans disposition standard, ses indices ne disent pas sa forme.
+  const pro = "Pro Controller (STANDARD GAMEPAD Vendor: 057e Product: 2009)";
+  expect(physicalMap(identify(pro, "standard"))).toBe(SWITCH_PRO_PAD);
+  expect(physicalMap(identify(pro, ""))).toBe(STANDARD_PAD);
 });
 
 it("montre aussi le troisième port du même adaptateur, sans lire un autre modèle", () => {

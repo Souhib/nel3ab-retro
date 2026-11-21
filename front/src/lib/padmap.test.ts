@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 
 import { CONTROLS } from "../media/pad";
-import { EMULATED, GAMECUBE, GUITAR, MAPS, PHYSICAL, type PadMap } from "./padmap";
+import { EMULATED, GAMECUBE, GUITAR, MAPS, mirrorX, PHYSICAL, type PadMap } from "./padmap";
 
 /** La boîte d'une pièce, dans le repère du plan. */
 const box = (part: PadMap["parts"][number]) => {
@@ -159,5 +159,21 @@ describe("les plans de la manette tenue", () => {
         expect(set.has(key), `il manque ${key}`).toBe(true);
       }
     }
+  });
+});
+
+describe("le miroir d'un tracé", () => {
+  it("retourne les abscisses autour de 50 et garde les ordonnées", () => {
+    // Les deux moitiés des manettes symétriques (gâchettes, plaque de la
+    // DualSense, poignées de la Pro) viennent d'un seul tracé et de son miroir.
+    expect(mirrorX("M 10 5 L 20 6 C 30 7, 40 8, 45 9 Q 1 2, 3 4 Z")).toBe(
+      "M 90 5 L 80 6 C 70 7, 60 8, 55 9 Q 99 2, 97 4 Z",
+    );
+  });
+
+  it("refuse un arc, dont les nombres ne vont pas par paires", () => {
+    // Un arc porte deux rayons, un angle et deux drapeaux avant son point :
+    // les retourner deux par deux ferait un tracé faux sans erreur.
+    expect(() => mirrorX("M 0 0 A 1 1 0 0 1 2 2")).toThrow(/mirrorX/);
   });
 });

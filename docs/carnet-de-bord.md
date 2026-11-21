@@ -26223,6 +26223,95 @@ service lance vraiment. Lire la commande effective (`systemctl show -p
 ExecStart`), pas le fichier d'unité du dépôt, et importer l'application avec
 avant de redémarrer.
 
+### 21 novembre : des manettes qui ressemblent aux vraies
+
+**La demande.** Souhib trouve les manettes du configurateur « très moches »,
+sans ressemblance avec les vraies, et les veut plus réalistes.
+
+**Pourquoi elles ne ressemblaient à rien.** Les dessins de septembre étaient
+tracés à main levée, sans modèle sous les yeux : une silhouette approximative,
+quatre rectangles pour une croix, des pastilles pour les gâchettes. La
+DualSense avait des boutons empilés sur le haut, la manette Pro de la salle
+Switch était un ruban arrondi avec des cercles.
+
+**La méthode.** Chaque manette est maintenant relevée sur une photo vue de
+dessus, prise sur Wikimedia Commons, puis redessinée en tracés. Deux façons
+de relever :
+
+- quand le fond est uni, un programme sépare la manette du fond et rend sa
+  silhouette en points. Sur la GameCube, les trous de ce masque sont
+  exactement les boutons et les sticks : leurs places et leurs tailles sont
+  mesurées, pas estimées ;
+- quand le fond est chargé, une grille chiffrée est posée sur la photo, et on
+  lit les points dessus. Le granit sous la manette Xbox a mis en échec deux
+  extractions automatiques (par seuil de clarté, puis par texture) : la
+  manette noire et les taches noires du granit se confondaient.
+
+Une photo n'est jamais prise exactement à la verticale : sur la DualSense, le
+centre des sticks et celui de la silhouette différaient de deux unités sur
+cent. Les manettes symétriques sont donc relevées sur leur moitié gauche, puis
+retournées. Les outils et les mesures sont dans `spikes/manettes-relevees/` ;
+les photos n'entrent pas dans le dépôt, et le dessin ne porte aucun logo.
+
+**Le rendu.** Un seul composant dessine toutes les manettes, avec la même
+lumière, en haut à gauche : un dégradé de la coque, un reflet, les bords
+assombris, un liseré, une ombre portée. Chaque touche a sa vraie couleur, est
+posée dans un logement sombre et reçoit un reflet bombé. Les sticks ont leur
+garde (octogonale sur la GameCube), et des anneaux ou un creux strié. Les
+gâchettes dépassent derrière la coque. La croix est une seule pièce dont
+chaque branche s'allume.
+
+**Deux manettes ne se voient pas de dessus.** Vu d'en haut, le Nunchuk cache
+C et Z sur sa face avant : il est dessiné de profil, d'après une photo de
+côté. La gâchette B de la Wiimote est dessous : elle dépasse du bord droit à
+la hauteur de A. Le vibrato de la guitare dépasse du corps ; « secouer »
+devient deux arcs de mouvement à côté de la Wiimote.
+
+**Ce qui a résisté.**
+
+- **L'appui indigo disparaissait sur la GameCube**, violette. Aucune couleur
+  ne pouvait trancher à 3:1 à la fois sur ce violet et sur la croix gris clair
+  : il aurait fallu une clarté relative au moins égale à 0,34 pour le violet,
+  et au plus égale à 0,17 pour le gris. Chaque manette déclare donc sa
+  couleur d'appui, et celle de la GameCube (vert acide) a en plus un anneau
+  sombre, qui se voit là où l'aplat ne se voit pas.
+- **L'aperçu des dessins redessinait le SVG à la main** et ne ressemblait plus
+  à ce que voit un joueur : les touches y étaient noires. Il monte maintenant
+  le vrai composant, et la vérification de géométrie mesure ce qui est
+  affiché.
+- **Le banc de contraste lisait mal ses propres couleurs.** Un contour calculé
+  par `color-mix` est rendu `color(srgb 0,6 …)`, avec des valeurs de 0 à 1 ;
+  le banc prenait les trois premiers nombres pour des octets et voyait du
+  presque noir (1,05:1). Il passe maintenant chaque couleur par un canevas,
+  comme le pilote du configurateur le faisait déjà.
+
+**Ce qui est mesuré, et ce qui ne l'est plus.** Une touche noire sur une coque
+noire est ce que montre la vraie manette Xbox : son bord n'est plus mesuré.
+Deux contrastes restent exigés, à 3:1 : la silhouette contre la page (un
+contour fin qui suit l'ambiance, clair sur une page sombre et sombre sur une
+page claire), et chaque touche appuyée contre son logement ou la coque
+autour. Les inscriptions gardent leur seuil de 4,5:1 sur les sept ambiances,
+au repos et appuyées ; « viser » et « secouer », écrites à côté de leur pièce,
+sont mesurées sur le fond de la carte. La vérification de géométrie connaît
+deux nouveaux cas : une gâchette derrière la coque doit en dépasser, le
+vibrato doit toucher la coque et en dépasser. Chacun a été vu échouer, une
+gâchette cachée puis un vibrato posé à plat, avant d'être accepté.
+
+**Le prix.** La page passe de 164 600 à 171 472 octets en brotli (budget
+300 000).
+
+**La manette Pro a deux usages.** Le configurateur de la salle Switch la
+dessine avec les noms de boutons Switch. Une manette Nintendo tenue en main,
+reconnue en disposition standard, a maintenant son propre dessin au lieu de
+la manette générique, avec la même condition que PlayStation et Xbox : sans
+disposition standard, ses indices ne disent pas sa forme.
+
+**Ce qui n'est pas prouvé.** Ces dessins ont été vérifiés sur l'aperçu et sur
+le configurateur réel servi par Vite. Le worker de production a été
+reconstruit avec cette page à 15 h 44 UTC, alors qu'aucune salle n'était
+ouverte : la prochaine salle les montrera. Aucun joueur ne les a encore vus
+avec sa propre manette.
+
 ## 12. Glossaire complet
 
 **AppImage** : format qui range un programme Linux et ses bibliothèques en un
@@ -26238,6 +26327,14 @@ même famille, issus du projet Eden ; leur programme s'appelle `eden-cli`.
 bibliothèques sous Linux ; son empreinte identifie un moteur compilé.
 
 **FPS** : *frames per second*, images par seconde calculées par le jeu.
+
+**Wikimedia Commons** : la banque d'images libres de Wikipédia. Chaque fichier
+y porte sa licence ; les photos de manettes y ont servi de mesure, sans être
+copiées dans la page.
+
+**Clarté relative** : la mesure de la lumière d'une couleur que les règles de
+contraste WCAG utilisent, de 0 pour le noir à 1 pour le blanc. Un contraste de
+3:1 entre deux couleurs se calcule à partir de leurs deux clartés.
 
 **Mesa** : ensemble libre de pilotes graphiques pour Linux, dont RADV.
 

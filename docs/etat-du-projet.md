@@ -7,7 +7,7 @@ conserve leur déroulement ; l'[ADR](adr/0001-architecture.md) conserve les règ
 qui en résultent. Les anciens plans M1 à M3 sont des archives de conception.
 
 **Au 21 novembre à midi : une adresse, des clés de dépôt, le laboratoire Switch 2 rangé.**
-Tout est dans `main`. Trois changements s'ajoutent à ceux de la nuit :
+Tout est dans `main`. Quatre changements s'ajoutent à ceux de la nuit :
 
 - `nel3ab.app` est la seule adresse. Les anciennes portes `.ts.net:8443` et
   `:8444` renvoient vers elle, chemin compris ; leur origine n'est plus admise
@@ -16,6 +16,13 @@ Tout est dans `main`. Trois changements s'ajoutent à ceux de la nuit :
   déposer des jeux, parmi les comptes du tailnet et les personnes déjà venues.
   Mode d'emploi : [Déposer un jeu](importer.md). Récit : entrée « 21 novembre :
   donner la clé du quai depuis la page ».
+- Les manettes du configurateur sont redessinées d'après des photos vues de
+  dessus : GameCube, Wiimote et Nunchuk (de profil), guitare, DualSense, Xbox,
+  manette Pro (salle Switch et manette Nintendo tenue en main), et une manette
+  générique. Vérifiées sur l'aperçu et sur le configurateur servi par Vite ;
+  le worker de production est reconstruit avec elles depuis 15 h 44 UTC, la
+  prochaine salle ouverte les montre.
+  Récit : entrée « 21 novembre : des manettes qui ressemblent aux vraies ».
 - Le laboratoire Switch 2 (273 Go) est archivé puis supprimé ; tout ce qui a
   été fait pour la Switch 2 est raconté dans une partie à part du carnet,
   [La Switch 2, de bout en bout](carnet-switch2.md). Le NUP de Mario Tennis

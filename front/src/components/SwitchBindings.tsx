@@ -14,25 +14,9 @@ import {
 } from "../media/switch";
 import { labels, physical, keyName } from "../lib/switch-labels";
 import { slotLabel, type Slot } from "../lib/saves";
+import { SWITCH_PRO } from "../lib/padmap";
+import { PadMapView } from "./PadMap";
 
-const spots: [SwitchButton, number, number, string][] = [
-  ["A", 350, 132, "A"],
-  ["B", 322, 160, "B"],
-  ["X", 322, 104, "X"],
-  ["Y", 294, 132, "Y"],
-  ["L", 96, 44, "L"],
-  ["R", 320, 44, "R"],
-  ["ZL", 96, 18, "ZL"],
-  ["ZR", 320, 18, "ZR"],
-  ["MINUS", 173, 100, "−"],
-  ["PLUS", 243, 100, "+"],
-  ["LS", 99, 117, "L3"],
-  ["RS", 264, 200, "R3"],
-  ["UP", 155, 166, "▲"],
-  ["DOWN", 155, 210, "▼"],
-  ["LEFT", 133, 188, "◀"],
-  ["RIGHT", 177, 188, "▶"],
-];
 export function SwitchBindings({
   source,
   input,
@@ -59,7 +43,7 @@ export function SwitchBindings({
   const [chosen, setChosen] = useState(active ?? "");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
-  const svg = useRef<SVGSVGElement>(null);
+  const pad = useRef<HTMLDivElement>(null);
   const file = useRef<HTMLInputElement>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const me = pending?.players.find((p) => p.claim === input.attribution());
@@ -93,18 +77,28 @@ export function SwitchBindings({
     let frame = 0;
     const paint = () => {
       if (!input.switchActive()) source.poll(new Set(), navigator.getGamepads?.() ?? []);
-      for (const [button, x, y] of spots) {
-        const element = svg.current?.querySelector(`[data-button="${button}"]`);
-        element?.setAttribute(
-          "data-lit",
-          String(Boolean(source.reading.buttons & (1 << SWITCH_BUTTONS.indexOf(button)))),
-        );
-        const axis = button === "LS" ? "l" : button === "RS" ? "r" : null;
-        if (axis)
-          element?.setAttribute(
-            "transform",
-            `translate(${x + source.reading[`${axis}x`] * 10} ${y - source.reading[`${axis}y`] * 10})`,
+      // Le même dessin que les autres manettes : la boucle ne pose que l'état
+      // allumé et l'inclinaison des sticks, React ne repeint jamais.
+      for (const button of SWITCH_BUTTONS) {
+        pad.current
+          ?.querySelector(`[data-part="${button}"]`)
+          ?.setAttribute(
+            "data-lit",
+            source.reading.buttons & (1 << SWITCH_BUTTONS.indexOf(button)) ? "oui" : "non",
           );
+      }
+      for (const [stick, axis] of [
+        ["LS", "l"],
+        ["RS", "r"],
+      ] as const) {
+        const body = pad.current?.querySelector<SVGGElement>(
+          `[data-part="${stick}"] .n3-stick-body`,
+        );
+        const travel = Number(body?.dataset.drive ?? 0);
+        body?.setAttribute(
+          "transform",
+          `translate(${(source.reading[`${axis}x`] * travel).toFixed(2)} ${(-source.reading[`${axis}y`] * travel).toFixed(2)})`,
+        );
       }
       frame = requestAnimationFrame(paint);
     };
@@ -205,35 +199,9 @@ export function SwitchBindings({
               : "Clavier disponible. Branche une manette et appuie sur un bouton pour la détecter."}
           </p>
           <div className="n3-switch-preview">
-            <svg
-              ref={svg}
-              viewBox="0 0 420 290"
-              role="img"
-              aria-label="Commandes interprétées pour la manette Pro"
-            >
-              <defs>
-                <linearGradient id="n3-switch-case" x2=".2" y2="1">
-                  <stop stopColor="#536580" />
-                  <stop offset=".45" stopColor="#2d3c54" />
-                  <stop offset="1" stopColor="#1b273a" />
-                </linearGradient>
-              </defs>
-              <path
-                d="M82 56Q48 57 36 93L13 230Q5 271 39 276Q56 279 76 253L114 222Q153 238 208 238Q262 238 301 222L341 258Q361 279 379 275Q415 269 406 231L382 95Q372 57 338 56Z"
-                fill="url(#n3-switch-case)"
-                stroke="#8b9cb4"
-                strokeWidth="2"
-              />
-              <text x="210" y="157">
-                nel3ab
-              </text>
-              {spots.map(([button, x, y, label]) => (
-                <g key={button} data-button={button} transform={`translate(${x} ${y})`}>
-                  <circle r={button === "LS" || button === "RS" ? 22 : 16} />
-                  <text dy="5">{label}</text>
-                </g>
-              ))}
-            </svg>
+            <div ref={pad} className="n3-switch-pad">
+              <PadMapView map={SWITCH_PRO} title="Ce que la Switch reçoit" note="manette Pro" />
+            </div>
             <div
               tabIndex={0}
               className="n3-switch-keytest"

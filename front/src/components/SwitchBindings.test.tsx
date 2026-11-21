@@ -3,6 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { SwitchBindings } from "./SwitchBindings";
 import { InputStream } from "../media/input";
 import type { Preparation } from "../client";
+import { SWITCH_BUTTONS } from "../media/switch";
 beforeEach(() => {
   localStorage.clear();
   vi.stubGlobal("requestAnimationFrame", () => 1);
@@ -98,4 +99,32 @@ it("starts on the default profile and loads it back after a change", () => {
   input.switch.profile.keys.A = "KeyM";
   fireEvent.click(screen.getByText("Charger"));
   expect(input.switch.profile.keys.A).toBe("KeyX");
+});
+
+it("lights the pressed button and tilts both sticks on the shared Pro drawing", () => {
+  // The paint loop runs outside React: hold its frame and run it by hand.
+  let frame: FrameRequestCallback | undefined;
+  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+    frame = callback;
+    return 1;
+  });
+  const { input, container } = show();
+  vi.spyOn(input, "switchActive").mockReturnValue(true);
+  input.switch.reading = { buttons: 1 << SWITCH_BUTTONS.indexOf("B"), lx: 1, ly: 0, rx: 0, ry: -1 };
+  frame?.(0);
+  expect(container.querySelector('[data-padmap="switch-pro"] [data-part="B"]')).toHaveAttribute(
+    "data-lit",
+    "oui",
+  );
+  // The negative twin: the button beside it stays dark.
+  expect(container.querySelector('[data-part="A"]')).toHaveAttribute("data-lit", "non");
+  // Right on the left stick, down on the right one: a downward push draws downward.
+  expect(container.querySelector('[data-part="LS"] .n3-stick-body')).toHaveAttribute(
+    "transform",
+    "translate(3.89 0.00)",
+  );
+  expect(container.querySelector('[data-part="RS"] .n3-stick-body')).toHaveAttribute(
+    "transform",
+    "translate(0.00 3.89)",
+  );
 });

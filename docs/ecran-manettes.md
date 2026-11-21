@@ -132,6 +132,8 @@ du jeu. Le coût est celui de quelques tracés et styles dans la page embarquée
 Le budget de poids de `front/stamp.mjs` reste inchangé.
 
 La famille choisit une coque physique seulement si `mapping === "standard"`.
+Depuis le 21 novembre 2026, cela vaut aussi pour la famille Nintendo, qui a
+la manette Pro.
 Un nom de PlayStation envoyé par un adaptateur ne garantit pas ses indices.
 Sans cette garantie, le dessin générique porte les indices bruts et le diagnostic
 reste accessible. La note disait déjà que la coque changeait par famille, mais
@@ -143,6 +145,39 @@ leurs entrées pour la capture et pour l'écran. Auparavant le troisième port
 répondait à la leçon tout en laissant les schémas éteints, qui ne lisaient que le
 premier. Le diagnostic du modèle n'est pas un instrument permettant de distinguer
 deux mains appuyant simultanément sur deux ports du même adaptateur.
+
+## Les dessins relevés du 21 novembre 2026
+
+Les manettes sont maintenant relevées sur des photos vues de dessus et rendues
+en volume par `PadMapView`. Le carnet raconte pourquoi et comment (entrée
+« 21 novembre : des manettes qui ressemblent aux vraies ») ; les outils de
+relevé sont dans `spikes/manettes-relevees/`. Ce qui n'est pas lisible dans le
+code :
+
+- **Un plan ne déclare que des formes et des couleurs de matière.** Le volume
+  (dégradés, reflet, bords assombris, logements, reflets bombés, ombre) est le
+  même pour toutes, dans le composant. Une manette nouvelle ne touche pas au
+  composant.
+- **Trois sortes de pièces sortent de la coque, et seulement elles.** Une
+  gâchette `under` est dessinée derrière et doit en dépasser ; une pièce
+  `hangs` (le vibrato) est posée dessus et doit à la fois la toucher et en
+  dépasser ; une branche `flush` (croix, barre de grattage) n'a pas de
+  logement à elle. `padmap-qc.mjs` vérifie les trois dans un vrai navigateur.
+- **La couleur d'appui est déclarée par manette** (`--pad-lit`, son encre et
+  son anneau). L'accent de la page sert par défaut ; la GameCube violette a la
+  sienne, avec un anneau sombre, parce qu'aucune teinte ne tranchait à la fois
+  sur son violet et sur sa croix grise.
+- **Le contour fin de la coque suit l'ambiance.** C'est lui qui sépare une
+  manette noire d'une carte sombre, ou une manette blanche d'une carte claire.
+- **Ce qui n'est plus mesuré** : le bord d'une touche noire sur une coque
+  noire, qui est ce que montre la vraie manette. Ce qui l'est, à 3:1 : la
+  silhouette contre la page, et chaque touche appuyée contre son logement ou
+  la coque (`just banc-visuel`).
+- **La manette Pro sert deux fois.** `SWITCH_PRO` parle en boutons Switch pour
+  le configurateur de la salle Switch ; `SWITCH_PRO_PAD` parle en indices pour
+  une manette Nintendo tenue en main, en disposition standard seulement.
+- **La manette standard reprend la forme de la Xbox**, grise, sans lettres ni
+  marque : c'est la disposition que la norme du navigateur décrit.
 
 ## Apprendre sans agir dans le jeu
 
@@ -186,9 +221,11 @@ préparation, pour ne pas faire tester un appareil différent de celui confirmé
 
 | Fichier | Responsabilité |
 |---|---|
-| `front/src/lib/padmap.ts` | Plans en données, Wiimote seule et choix de famille |
+| `front/src/lib/padmap.ts` | Plans relevés sur photos, Wiimote seule, manette Pro et choix de famille |
 | `front/src/lib/wiring.ts` | Lecture brute, repères verticaux et `paintWiring` |
-| `front/src/components/PadMap.tsx` | Tracés, libellés, sélection et balisage animé |
+| `front/src/components/PadMap.tsx` | Volume commun à toutes les manettes, libellés, sélection et balisage animé |
+| `front/src/components/SwitchBindings.tsx` | Configurateur Switch ; il dessine la manette Pro avec `PadMapView` |
+| `spikes/manettes-relevees/` | Outils et mesures des relevés sur photos |
 | `front/src/components/Wiring.tsx` | Assemblage et abonnement à l'animation |
 | `front/src/components/Bindings.tsx` | Dialogue, capture, profils et portée des actions |
 | `front/src/media/lesson.ts` | Capture, étapes, repos et collecte des ports du modèle |
@@ -217,9 +254,15 @@ manette simulée, sans socket de jeu ni écriture au salon. Il teste les gestes
 et photographie ordinateur, téléphone et apprentissage.
 
 `just banc-visuel` monte également les vrais composants et vérifie son lot de
-contrastes. Il doit sortir en erreur si un texte ou un trait échoue.
-Sa mesure historique compare les traits au fond de l'aperçu ; elle n'équivaut
-pas à une vérification de chaque fond coloré d'une pièce.
+contrastes. Il doit sortir en erreur si un texte ou un trait échoue. Depuis le
+21 novembre 2026, il mesure la silhouette de chaque manette contre la page et
+chaque touche appuyée contre son logement ou la coque, et non plus le bord des
+touches au repos.
+
+`just padmap-visuel` monte toutes les manettes dans l'aperçu (le vrai
+composant) et vérifie leur géométrie dans un navigateur. Pour regarder une
+seule manette de près, touches tenues : Vite sur 5297 dans `front/`, puis
+`node padmap-carte.mjs <id> <sortie> "?sim"` dans `spikes/m3-browser-drive`.
 
 `just browser-contraste` et `just browser-bindings` ciblent le worker vivant :
 ils ne voient pas les changements avant un déploiement. Un résultat contre

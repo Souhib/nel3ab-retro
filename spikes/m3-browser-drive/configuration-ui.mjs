@@ -60,6 +60,11 @@ try {
       return 0.2126 * r + 0.7152 * g + 0.0722 * b;
     };
     const ratios = [];
+    // Une inscription écrite À CÔTÉ de sa pièce (« viser », « secouer ») se lit
+    // sur le fond de la carte, pas sur la pièce.
+    const ground = document.createElement("div");
+    ground.style.background = "var(--ink)";
+    document.body.append(ground);
     for (const theme of ["instrument-sombre", "instrument-clair", "phosphore", "ambre", "indigo", "famicom", "gameboy"]) {
       document.documentElement.dataset.theme = theme;
       for (const piece of document.querySelectorAll("[data-part]")) {
@@ -67,7 +72,8 @@ try {
         for (const lit of ["non", "oui"]) {
           piece.dataset.lit = lit;
           for (const text of piece.querySelectorAll("text, .n3-glyph")) {
-            const a = luminance(getComputedStyle(cap).fill);
+            const callout = text.classList.contains("n3-callout");
+            const a = luminance(callout ? getComputedStyle(ground).backgroundColor : getComputedStyle(cap).fill);
             const glyph = text.classList.contains("n3-glyph");
             const b = luminance(getComputedStyle(text)[glyph ? "stroke" : "fill"]);
             ratios.push({ theme, part: piece.dataset.part, lit, ratio: (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05), need: glyph ? 3 : 4.5 });
@@ -77,6 +83,7 @@ try {
       }
     }
     document.documentElement.dataset.theme = "instrument-sombre";
+    ground.remove();
     return ratios;
   });
   assert.ok(contrast.length > 100, "la mesure doit lire les vrais boutons");

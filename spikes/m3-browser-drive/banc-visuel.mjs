@@ -56,12 +56,27 @@ const bad = await page.evaluate(() => {
   return out;
 });
 // Et le TRAIT des schémas: un contour est un élément d'interface non textuel,
-// donc 3:1 chez WCAG. Le trait était le liseré d'une pièce remplie, où il
-// n'avait rien à porter; devenu le dessin lui-même, il doit se voir.
+// donc 3:1 chez WCAG. Depuis le 21 novembre 2026 les manettes sont dessinées
+// en volume, avec leurs vraies couleurs: une touche noire sur une coque noire
+// est ce que la vraie manette montre, et ce n'est plus mesuré. Deux choses
+// restent indispensables et le sont: la SILHOUETTE de la manette contre la
+// page, et une touche APPUYÉE contre son logement (ou contre la page, pour une
+// gâchette qui dépasse derrière la coque).
 const thin = await page.evaluate(() => {
-  const lum = (c) => {
-    const [r, g, b] = c.match(/\d+(\.\d+)?/g).slice(0, 3).map((v) => {
-      const s = Number(v) / 255;
+  // Toute couleur CSS ramenée à ses trois octets par un canevas: `color-mix`
+  // rend `color(srgb 0.6 …)`, que lire les trois premiers nombres prendrait
+  // pour du presque noir.
+  const context = document.createElement("canvas").getContext("2d", { willReadFrequently: true });
+  const rgb = (color) => {
+    context.clearRect(0, 0, 1, 1);
+    context.fillStyle = "#000";
+    context.fillStyle = color;
+    context.fillRect(0, 0, 1, 1);
+    return [...context.getImageData(0, 0, 1, 1).data].slice(0, 3);
+  };
+  const lum = (color) => {
+    const [r, g, b] = rgb(color).map((v) => {
+      const s = v / 255;
       return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
     });
     return 0.2126 * r + 0.7152 * g + 0.0722 * b;
@@ -73,16 +88,33 @@ const thin = await page.evaluate(() => {
   const ground = getComputedStyle(document.body).backgroundColor;
   const out = [];
   for (const svg of document.querySelectorAll("svg[data-padmap]")) {
-    for (const cls of ["n3-shell", "n3-gate"]) {
-      const el = svg.querySelector(`.${cls}`);
-      if (!el) continue;
-      const got = ratio(getComputedStyle(el).stroke, ground);
-      if (got < 3) out.push({ map: svg.dataset.padmap, what: cls, got: got.toFixed(2) });
-    }
-    const part = svg.querySelector('g[data-part] circle:not(.n3-gate), g[data-part] rect');
-    if (part) {
-      const got = ratio(getComputedStyle(part).stroke, ground);
-      if (got < 3) out.push({ map: svg.dataset.padmap, what: "pièce", got: got.toFixed(2) });
+    const shell = svg.querySelector(".n3-shell");
+    const got = ratio(getComputedStyle(shell).stroke, ground);
+    if (!(got >= 3)) out.push({ map: svg.dataset.padmap, what: "silhouette", got: got.toFixed(2) });
+    // Le milieu du dégradé de la coque, là où la plupart des touches sont posées.
+    const style = getComputedStyle(svg);
+    const [top, bottom] = ["--pad-shell-top", "--pad-shell-bottom"].map((name) => rgb(style.getPropertyValue(name)));
+    const middle = `rgb(${top.map((v, i) => Math.round((v + bottom[i]) / 2)).join(",")})`;
+    for (const part of svg.querySelectorAll("[data-part]")) {
+      part.setAttribute("data-lit", "oui");
+      const capStyle = getComputedStyle(part.querySelector(".n3-cap"));
+      const cap = capStyle.fill;
+      // L'aplat OU l'anneau d'appui: l'un des deux doit trancher sur le fond.
+      const both = (behind) => Math.max(ratio(cap, behind), ratio(capStyle.stroke, behind));
+      // Une touche appuyée doit se détacher de son logement OU de la coque
+      // autour: sur une manette blanche, le logement n'est qu'un fin liseré
+      // gris et c'est la coque qui fait le fond. Une gâchette derrière la
+      // coque se détache sur la page.
+      // Une branche de croix n'a pas de logement à elle: son fond est la base
+      // de la croix, de la couleur des touches.
+      const well = part.querySelector(".n3-well, .n3-gate");
+      const lit = part.dataset.under
+        ? both(ground)
+        : part.dataset.flush
+          ? both(style.getPropertyValue("--pad-cap"))
+          : Math.max(well ? both(getComputedStyle(well).fill) : 0, both(middle));
+      part.setAttribute("data-lit", "non");
+      if (!(lit >= 3)) out.push({ map: svg.dataset.padmap, what: `${part.dataset.part} appuyée`, got: lit.toFixed(2) });
     }
   }
   return out;

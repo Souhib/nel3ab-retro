@@ -1,4 +1,5 @@
 // Screenshot of the pad-map preview page, for iterating on the diagrams.
+// `?sim` in PADMAP_URL holds a few buttons and tilts the sticks; `?lit` lights all.
 import puppeteer from "puppeteer";
 
 const URL = process.env.PADMAP_URL ?? "http://localhost:5199/padmap-preview.html";
@@ -9,7 +10,6 @@ const page = await browser.newPage();
 await page.setViewport({ width: 1480, height: 1200, deviceScaleFactor: 1.5 });
 await page.goto(URL, { waitUntil: "networkidle0" });
 await page.waitForSelector("svg[data-padmap]", { timeout: 10000 });
-await page.evaluate(() => { document.getElementById("padmap-sim")?.click(); });
 await page.evaluate(() => document.fonts.ready);
 await new Promise((r) => setTimeout(r, 500));
 await page.screenshot({ path: OUT, fullPage: true });

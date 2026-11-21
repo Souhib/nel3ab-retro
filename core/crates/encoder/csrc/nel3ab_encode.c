@@ -239,6 +239,28 @@ long n3_encoder_encode(n3_encoder *encoder, uint32_t slot, const uint8_t **data)
   return encoder->packet->size;
 }
 
+int n3_encoder_upload(n3_encoder *encoder, uint32_t slot, const uint8_t *nv12, size_t len) {
+  if (!encoder || !nv12 || slot >= encoder->slot_count) return N3_ERR_RANGE;
+  AVFrame *surface = encoder->slots[slot];
+  size_t width = (size_t)surface->width;
+  size_t height = (size_t)surface->height;
+  if (len != width * height * 3 / 2) return N3_ERR_RANGE;
+  AVFrame *picture = av_frame_alloc();
+  if (!picture) return N3_ERR_ALLOC;
+  picture->format = AV_PIX_FMT_NV12;
+  picture->width = surface->width;
+  picture->height = surface->height;
+  /* Borrowed, not copied: libavutil only reads the planes during the transfer,
+     and `picture` is freed before we return, so it never outlives `nv12`. */
+  picture->data[0] = (uint8_t *)nv12;
+  picture->linesize[0] = surface->width;
+  picture->data[1] = (uint8_t *)nv12 + width * height;
+  picture->linesize[1] = surface->width;
+  int status = av_hwframe_transfer_data(surface, picture, 0);
+  av_frame_free(&picture);
+  return status < 0 ? N3_ERR_UPLOAD : N3_OK;
+}
+
 void n3_encoder_force_key(n3_encoder *encoder) {
   if (encoder) encoder->force_key = 1;
 }

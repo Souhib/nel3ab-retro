@@ -83,6 +83,7 @@ enum {
   N3_ERR_ENCODE = -6,      /* send_frame or receive_packet failed */
   N3_ERR_RANGE = -7,       /* a slot index outside the pool */
   N3_ERR_ALLOC = -8,
+  N3_ERR_UPLOAD = -9,      /* a CPU picture would not copy into the surface */
 };
 
 /// Opens an encoder on a DRM render node.
@@ -110,6 +111,15 @@ int n3_encoder_export(n3_encoder *encoder, uint32_t slot, n3_surface *out);
 /// encoder, valid until the next call to this function. Zero means the encoder
 /// accepted the frame but has not produced a packet yet.
 long n3_encoder_encode(n3_encoder *encoder, uint32_t slot, const uint8_t **data);
+
+/// Copies one NV12 picture from CPU memory into the surface of `slot`.
+///
+/// For the link bench only (`encoder::replay`): the live path writes the
+/// surface from a Vulkan shader and never calls this. `nv12` holds `width *
+/// height` luma bytes then `width * height / 2` interleaved chroma bytes, rows
+/// packed without padding, and `len` must be exactly that. The shim does not
+/// retain the pointer.
+int n3_encoder_upload(n3_encoder *encoder, uint32_t slot, const uint8_t *nv12, size_t len);
 
 /// Makes the next encoded frame an IDR.
 ///

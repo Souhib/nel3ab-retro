@@ -19,6 +19,41 @@ pub enum EncoderError {
     /// The worker was asked to stop before the producer connected.
     #[error("waiting for emulator cancelled")]
     Cancelled,
+    /// Le clip rejoué par le banc n'a pas pu être lu.
+    #[error("replaying a clip failed while {what}")]
+    Replay {
+        /// Ce qu'on faisait.
+        what: &'static str,
+        /// L'erreur du système.
+        #[source]
+        source: std::io::Error,
+    },
+
+    /// `ffprobe` n'a pas rendu une taille lisible.
+    #[error("ffprobe did not give a picture size: {output:?}")]
+    ReplayProbe {
+        /// Ce qu'il a écrit.
+        output: String,
+    },
+
+    /// Le décodeur s'est arrêté au milieu d'une image.
+    #[error("the replayed clip stopped inside a picture: {got} of {expected} bytes")]
+    ReplayTruncated {
+        /// Octets reçus.
+        got: usize,
+        /// Octets d'une image.
+        expected: usize,
+    },
+
+    /// Une image CPU qui n'a pas la taille de la surface.
+    #[error("an NV12 picture must be {expected} bytes for this encoder, got {got}")]
+    UploadSize {
+        /// La taille d'une image de l'encodeur.
+        expected: usize,
+        /// Celle reçue.
+        got: usize,
+    },
+
     /// The frame socket could not be created.
     #[error("binding the frame socket {path} failed")]
     Bind {

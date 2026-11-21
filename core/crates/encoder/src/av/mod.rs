@@ -50,6 +50,7 @@ const fn describe(code: c_int) -> &'static str {
         -6 => "send_frame or receive_packet failed",
         -7 => "a slot index outside the pool",
         -8 => "allocation failed",
+        -9 => "a CPU picture would not copy into the surface",
         _ => "an unrecognised failure",
     }
 }
@@ -222,6 +223,38 @@ impl Encoder {
             buffers: vec![buffer],
             planes,
         })
+    }
+
+    /// Copies one NV12 picture from memory into the surface of `slot`.
+    ///
+    /// For the link bench, which replays a recorded clip through this same
+    /// encoder so that a forced key frame behaves exactly as in a room. The
+    /// live path never calls it: there a Vulkan shader writes the surface.
+    ///
+    /// # Errors
+    /// [`EncoderError::UploadSize`] when `nv12` is not one whole picture of the
+    /// encoder's size, checked here so the shim is never handed a short buffer;
+    /// [`EncoderError::Av`] if the copy fails.
+    pub fn upload(&mut self, slot: u32, nv12: &[u8]) -> Result<(), EncoderError> {
+        let expected = crate::replay::nv12_len(self.width, self.height);
+        if nv12.len() != expected {
+            return Err(EncoderError::UploadSize {
+                expected,
+                got: nv12.len(),
+            });
+        }
+        // SAFETY: `handle` is a live encoder from `open`. `nv12` is a live slice
+        // of exactly `len` bytes for the duration of the call, which is all the
+        // shim reads: it wraps the pointer in a frame it frees before returning
+        // and does not retain it. The length is checked above against the size
+        // the encoder was opened with, and the shim checks it again.
+        let status = unsafe {
+            sys::n3_encoder_upload(self.handle.as_ptr(), slot, nv12.as_ptr(), nv12.len())
+        };
+        if status != sys::N3_OK {
+            return fail("n3_encoder_upload", status);
+        }
+        Ok(())
     }
 
     /// Makes the next encoded frame an IDR.
@@ -533,6 +566,62 @@ mod tests {
             kinds.contains(&5),
             "the first frame is not an IDR: {kinds:?}"
         );
+    }
+
+    /// Une image copiée depuis la mémoire est bien celle qui est encodée.
+    ///
+    /// Une copie qui ne ferait rien laisserait la surface telle quelle, et
+    /// l'encodeur rendrait deux images de même taille. Une image unie et une
+    /// image de bruit ne se compriment pas du tout pareil: c'est ce qui prouve
+    /// que les pixels sont arrivés.
+    #[test]
+    #[cfg(feature = "gpu-tests")]
+    fn a_picture_uploaded_from_memory_is_what_gets_encoded() {
+        let Ok(mut encoder) = Encoder::open(DEFAULT_RENDER_NODE, 640, 480, 26, 60, 3) else {
+            panic!("no encoder on {DEFAULT_RENDER_NODE}: run this where the GPU is");
+        };
+        let size = crate::replay::nv12_len(640, 480);
+        let flat = vec![128_u8; size];
+        let mut state = 0x2545_f491_u32;
+        let noise: Vec<u8> = (0..size)
+            .map(|_| {
+                state ^= state << 13;
+                state ^= state >> 17;
+                state ^= state << 5;
+                state.to_le_bytes()[0]
+            })
+            .collect();
+
+        encoder.upload(0, &flat).unwrap();
+        encoder.force_key_frame();
+        let flat_bytes = encoder.encode(0).unwrap().unwrap().len();
+        encoder.upload(1, &noise).unwrap();
+        encoder.force_key_frame();
+        let noise_bytes = encoder.encode(1).unwrap().unwrap().len();
+
+        assert!(
+            noise_bytes > flat_bytes * 20,
+            "bruit {noise_bytes} octets contre uni {flat_bytes}: la copie n'a rien écrit"
+        );
+    }
+
+    /// Le jumeau: une image qui n'a pas la taille de l'encodeur ne traverse pas
+    /// la frontière, dans aucun sens.
+    #[test]
+    #[cfg(feature = "gpu-tests")]
+    fn a_picture_of_the_wrong_size_is_refused_before_the_shim() {
+        let Ok(mut encoder) = Encoder::open(DEFAULT_RENDER_NODE, 640, 480, 26, 60, 3) else {
+            panic!("no encoder on {DEFAULT_RENDER_NODE}: run this where the GPU is");
+        };
+        let size = crate::replay::nv12_len(640, 480);
+        for wrong in [0, size - 1, size + 1] {
+            let error = encoder.upload(0, &vec![0; wrong]).unwrap_err();
+            assert!(
+                matches!(error, EncoderError::UploadSize { expected, got } if expected == size && got == wrong),
+                "{error:?}"
+            );
+        }
+        encoder.upload(0, &vec![0; size]).unwrap();
     }
 
     /// The NAL unit types in an Annex B stream, in order.

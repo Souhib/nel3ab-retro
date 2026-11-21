@@ -19,6 +19,7 @@ pub mod error;
 pub mod frame_source;
 pub mod h264;
 pub mod protocol;
+pub mod replay;
 
 #[cfg(feature = "vaapi")]
 #[allow(unsafe_code, reason = "the libva FFI is rule 2's FFI exception")]

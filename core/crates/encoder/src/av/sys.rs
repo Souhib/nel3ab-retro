@@ -114,6 +114,14 @@ unsafe extern "C" {
     /// Makes the next encoded frame an IDR.
     pub fn n3_encoder_force_key(encoder: *mut N3Encoder);
 
+    /// Copies one NV12 picture from memory into a slot; returns a code.
+    pub fn n3_encoder_upload(
+        encoder: *mut N3Encoder,
+        slot: u32,
+        nv12: *const u8,
+        len: usize,
+    ) -> c_int;
+
     /// Frees the encoder and its pool.
     pub fn n3_encoder_close(encoder: *mut N3Encoder);
 

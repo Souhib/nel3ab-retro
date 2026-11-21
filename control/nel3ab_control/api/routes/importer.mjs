@@ -350,8 +350,11 @@ class Carte {
       if (detail.etat === "envoi") return this.envoyer();
       return this.suivre();
     }
+    // Refusé dès l'annonce: rien n'existe sur le serveur, « retirer » ne fait
+    // qu'enlever la carte.
     this.pose("rate");
-    this.boutons();
+    this.boutons({ annuler: true });
+    this.ici("annuler").textContent = "retirer";
     if (reponse.status === 409 && detail.raison === "deja-la") {
       this.etat = "fini";
       this.ici("barre").style.transform = "scaleX(1)";

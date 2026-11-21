@@ -49,5 +49,75 @@ class Releve(unittest.TestCase):
         )
 
 
+def capture(seconde: int, champs: str) -> str:
+    """Une ligne du journal du worker, comme `journalctl -o short-iso-precise` l'écrit."""
+    return f"2026-11-21T20:00:{seconde:02d}.500000+00:00 hote nel3ab-worker[42]: {champs}"
+
+
+def cinq_secondes(seconde: int, images: int = 300, pire: float = 32.3) -> str:
+    return capture(
+        seconde,
+        f'{{"half": false, "capture_age_ms": 3.8, "frames": {images}, '
+        f'"gap_ms": [16.1, 16.2, {pire}]}}',
+    )
+
+
+class ImageEtJeu(unittest.TestCase):
+    """Ce que la salle a reçu, rapproché du compteur du jeu (21 novembre 2026)."""
+
+    def test_a_picture_that_stops_while_the_game_runs_is_named(self):
+        # Le premier essai de Sonic: le jeu à 60, la capture silencieuse.
+        jeu = journal([60] * 40)
+        vues = releve.captures(
+            [cinq_secondes(5), cinq_secondes(10), capture(14, '{"capture_quiet": "full"}')]
+        )
+        rapport = releve.image_et_jeu(jeu, vues)
+        self.assertIn("IMAGE FIGÉE PENDANT QUE LE JEU TOURNAIT: 1 fois", rapport)
+        self.assertIn("silences de la capture: 1", rapport)
+
+    def test_a_silence_while_the_game_itself_stopped_is_not_a_frozen_picture(self):
+        # Le jumeau: un chargement où le jeu ne présente plus rien. L'image
+        # s'arrête avec lui; l'affichage n'y est pour rien.
+        jeu = journal([60] * 10 + [0] * 10 + [60] * 10)
+        vues = releve.captures([cinq_secondes(5), capture(15, '{"capture_quiet": "full"}')])
+        rapport = releve.image_et_jeu(jeu, vues)
+        self.assertIn("image figée pendant que le jeu tournait: jamais", rapport)
+        self.assertIn("silences de la capture: 1", rapport)
+
+    def test_a_gap_is_put_on_the_game_only_when_the_game_slowed(self):
+        # Seconde 8 lente côté jeu: le trou de la tranche qui finit à 10 lui
+        # revient. Le trou de la tranche qui finit à 20 tombe sur un jeu à 60.
+        jeu = journal([60] * 7 + [6] + [60] * 20)
+        vues = releve.captures(
+            [cinq_secondes(10, 250, 1075.5), cinq_secondes(15), cinq_secondes(20, 270, 640.0)]
+        )
+        rapport = releve.image_et_jeu(jeu, vues)
+        self.assertIn("trous de plus de 500 ms dans l'image reçue: 2, dont 1 pendant", rapport)
+
+    def test_only_capture_lines_are_read(self):
+        lignes = [
+            capture(1, '{"timestamp": "x", "level": "INFO", "fields": {"message": "salle"}}'),
+            capture(2, "{pas du json}"),
+            "-- Boot 0123 --",
+            cinq_secondes(3, 301),
+            capture(4, '{"capture_child_forced": 1973}'),
+        ]
+        vues = releve.captures(lignes)
+        self.assertEqual(
+            [(v.images, v.silence, v.relance) for v in vues],
+            [(301, False, False), (None, False, True)],
+        )
+
+    def test_no_capture_line_is_said_not_read_as_fine(self):
+        self.assertIn("aucune ligne de capture", releve.image_et_jeu(journal([60] * 5), []))
+
+    def test_the_bounds_cover_the_whole_game_in_unix_seconds(self):
+        lignes = journal([60] * 3)
+        debut, fin = releve.bornes(lignes)
+        self.assertEqual(debut, 1795291200)
+        self.assertEqual(fin, 1795291203)
+        self.assertIsNone(releve.bornes(["pas d'heure ici"]))
+
+
 if __name__ == "__main__":
     unittest.main()

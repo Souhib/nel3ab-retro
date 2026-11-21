@@ -398,6 +398,16 @@ machine".
   "every window full screen" told wxWidgets it already was, so Xenia's own
   request, the one that hides its menu bar, returned early. Before forcing a
   window state from outside, check what the application does on entering it.
+- **A fallback must not travel as a measurement.** The page's `jeuHz` falls
+  back to the display's rate when it has fewer than thirty frame gaps, and
+  the black box printed it as « pages 250 img/s » while Sonic's picture was
+  frozen (2026-11-21). A zero worst gap from a page that received one image
+  read as « reçue 0 ms ». Report an unmeasured value as absent, and count
+  events (images received per second) where a rate is claimed.
+- **A failed action must not start the cooldown of a successful one.** The
+  same night, a black box drop on the first, unmeasured sample of a game was
+  logged « capture impossible » yet silenced the trigger for five minutes;
+  the real freeze four seconds later was captured at the sixth minute.
 - **A wrapper's own exit codes must not overlap the tool it wraps.** On
   2026-11-21, the backup script's "NAS missing" code 3 was restic's "file
   unreadable" code 3, and the journal named the wrong cause. Pick codes the

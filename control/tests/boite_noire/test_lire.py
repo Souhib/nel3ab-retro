@@ -114,6 +114,42 @@ def test_une_page_d_avant_le_14_septembre_n_invente_ni_ecart_ni_aller_retour() -
     assert "aller_retour" not in tranche
 
 
+def _vue(secondes: float, vu: dict) -> dict:
+    return {
+        "quand": (T0 + timedelta(seconds=secondes)).isoformat(),
+        "quoi": "mesures",
+        "visite": "a",
+        "banc": False,
+        "vu": vu,
+    }
+
+
+def test_les_pages_comptent_les_images_recues_et_pas_le_pas_de_sway() -> None:
+    # Sonic, 21 novembre 2026: 601 images en dix secondes, un jeuHz de 62.
+    (tranche,) = tranches([], [_vue(1, {"s": 10, "vues": 601, "jeuHz": 62})])
+    assert tranche["pages"]["mediane"] == 60.1
+
+
+def test_le_gel_de_sonic_se_lit_dans_la_colonne_des_pages() -> None:
+    # Les deux mesures réelles du gel: une image en dix secondes, un jeuHz qui
+    # retombe sur les 250 Hz de l'écran, des écarts à zéro faute de deux images,
+    # puis l'écart de 35,6 s quand l'image suivante arrive.
+    pages = [
+        _vue(1, {"s": 10, "vues": 1, "jeuHz": 250, "écranHz": 250, "arrivées": [0, 0, 0]}),
+        _vue(15, {"s": 10, "vues": 1, "jeuHz": 250, "arrivées": [35599, 35599, 35599]}),
+    ]
+    premiere, seconde = tranches([], pages)
+    assert premiere["pages"]["mediane"] == 0.1
+    assert "arrivee_max" not in premiere
+    assert seconde["arrivee_max"] == 35599
+
+
+def test_une_ligne_sans_compte_garde_sa_cadence_d_avant() -> None:
+    (tranche,) = tranches([], [_vue(1, {"jeuHz": 60, "arrivées": [16, 18, 40]})])
+    assert tranche["pages"]["mediane"] == 60
+    assert tranche["arrivee_max"] == 40
+
+
 def test_le_chargement_saute_les_lignes_cassees(tmp_path: Path) -> None:
     fichier = tmp_path / "2026-09-14.jsonl"
     fichier.write_text(

@@ -54,20 +54,24 @@ Pour relire la cadence du jeu (images présentées par seconde, fenêtres de 5 s
 compilations de shaders, erreurs) :
 
 ```
-just xbox360-releve ~/.local/state/nel3ab/xbox360/534507d6/<emplacement>
+just xbox360-releve ~/.local/state/nel3ab/xbox360/534507d6/<emplacement> [salle]
 ```
+
+Le compteur du jeu seul ne dit pas ce que les joueurs voient : le
+21 novembre 2026, il donnait 59,5 images par seconde pendant que leur image
+était figée. Le relevé lit donc aussi, dans le journal du worker de la salle
+(la salle 1 par défaut) et entre la première et la dernière ligne de la
+partie, ce que la capture a reçu de Sway. Il dit combien d'images la salle a
+reçues, combien de silences de la capture il y a eu, si les trous de plus
+d'une demi-seconde suivent un ralentissement du jeu lui-même, et, en
+majuscules, si l'image s'est arrêtée pendant que le jeu tournait. Une partie
+relancée dans le même emplacement range la précédente dans `history/`, à côté
+de l'emplacement : le relevé s'y applique de la même façon.
 
 La machine (processeur, carte, mémoire, Xenia par son nom `xenia_edge`) est
 relevée par la boîte noire, comme pour les autres consoles : `just boite-noire`.
-
-Ce relevé compte les images que le **jeu** produit, pas celles que la salle
-**envoie**. Le 21 novembre 2026, il donnait 59,5 images par seconde pendant
-que l'image des joueurs était figée. L'image envoyée se lit dans le journal de
-la salle : une ligne `capture_quiet` veut dire que Sway ne reçoit plus rien.
-
-```
-journalctl -u nel3ab-worker@1 --since '<heure du lancement>' | grep -E 'capture_quiet|"frames"'
-```
+Ses heures sont celles de Paris, une heure de plus que l'UTC des journaux des
+salles en hiver.
 
 ## Réglages de Xenia que la salle impose
 

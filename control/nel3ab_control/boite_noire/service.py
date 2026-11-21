@@ -90,7 +90,7 @@ class BoiteNoire:
         # d'abord. Le premier banc, le 14 septembre 2026, en déclenchait une à chaque
         # redémarrage, et elle a fait sauter la capture d'une vraie chute.
         self._dernier_profil = horloge()
-        self._attente: tuple[Chute, dict[str, Any], datetime] | None = None
+        self._attente: tuple[Chute, dict[str, Any] | None, datetime] | None = None
         self._jour_balaye: str | None = None
         self._en_cours: Future[Any] | None = None
 
@@ -130,9 +130,27 @@ class BoiteNoire:
                 self._roulant.arreter()
             else:
                 self._roulant.suivre(premier)
-        self._reprendre(maintenant)
+        self._reprendre(maintenant, moteurs)
         for chute in self._declencheur.evaluer(maintenant):
-            self._demander("chute", self._moteur_de(chute.salle, moteurs), maintenant, chute)
+            moteur = self._moteur_de(chute.salle, moteurs)
+            if moteur is None and self._tourne(chute.salle, moteurs):
+                # Le moteur de la salle est là mais pas encore mesuré: le premier
+                # relevé d'une partie n'a pas d'écarts. Le 21 novembre 2026, une
+                # chute est tombée sur ce relevé; notée « impossible », elle a quand
+                # même fait taire le déclencheur cinq minutes, et le gel de l'image
+                # survenu quatre secondes plus tard n'a été capturé qu'à la sixième
+                # minute. Elle attend donc le relevé suivant, comme une chute qui
+                # arrive pendant une autre capture.
+                self._attente = (chute, None, maintenant)
+                self._journal.write(
+                    "capture différée",
+                    when=maintenant,
+                    raison="chute",
+                    chute=asdict(chute),
+                    pourquoi="moteur pas encore mesuré",
+                )
+                continue
+            self._demander("chute", moteur, maintenant, chute)
         periode = self._reglages.boite_noire_periode_profil_s
         if moteurs and self._attente is None and t - self._dernier_profil >= periode:
             moteur = self._moteur_de(None, moteurs)
@@ -153,18 +171,28 @@ class BoiteNoire:
     def _occupe(self) -> bool:
         return self._en_cours is not None and not self._en_cours.done()
 
-    def _reprendre(self, maintenant: datetime) -> None:
-        """Lance la chute mise en attente, si la capture précédente est finie."""
+    def _reprendre(self, maintenant: datetime, moteurs: list[dict[str, Any]]) -> None:
+        """Lance la chute mise en attente, quand la capture précédente est finie et
+        que le moteur de sa salle est mesuré."""
         if self._attente is None or self._occupe():
             return
         chute, moteur, quand = self._attente
-        self._attente = None
         if maintenant - quand > ATTENTE_MAX:
+            self._attente = None
             self._journal.write(
                 "capture abandonnée", when=maintenant, raison="chute", chute=asdict(chute)
             )
             return
+        if moteur is None:
+            moteur = self._moteur_de(chute.salle, moteurs)
+            if moteur is None:
+                return
+        self._attente = None
         self._demander("chute", moteur, maintenant, chute)
+
+    def _tourne(self, salle: int | None, moteurs: list[dict[str, Any]]) -> bool:
+        """Vrai si un moteur de cette salle tourne, mesuré ou pas encore."""
+        return any(salle is None or moteur.get("salle") == salle for moteur in moteurs)
 
     def _moteur_de(self, salle: int | None, moteurs: list[dict[str, Any]]) -> dict[str, Any] | None:
         """Le moteur de cette salle, ou le premier qui a des fils mesurés."""

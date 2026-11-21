@@ -1259,10 +1259,22 @@ xbox360-test:
     cd control && uv run ruff format --check --config pyproject.toml ../docker/xbox360-room.py ../docker/test_xbox360_room.py ../spikes/xbox360/horodate.py ../spikes/xbox360/releve.py ../spikes/xbox360/test_releve.py ../spikes/xbox360/test_xenia_sh.py
 
 # Relit une partie Xbox 360 jouée: images par seconde du jeu, par fenêtre de
-# 5 s, depuis le journal horodaté que xenia.sh écrit dans l'emplacement.
+# 5 s, depuis le journal horodaté que xenia.sh écrit dans l'emplacement, puis
+# ce que la capture de la salle a reçu pendant la même partie (journal du
+# worker de la salle). Le 21 novembre 2026, le compteur du jeu seul donnait
+# 59,5 images/s pendant que l'image des joueurs était figée.
 # Exemple: just xbox360-releve ~/.local/state/nel3ab/xbox360/534507d6/neuve
-xbox360-releve emplacement:
-    python3 spikes/xbox360/releve.py {{quote(emplacement)}}/xenia-horodate.log
+# Une partie précédente est dans history/, à côté de l'emplacement.
+xbox360-releve emplacement salle="1":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    journal={{quote(emplacement)}}/xenia-horodate.log
+    read -r debut fin < <(python3 spikes/xbox360/releve.py --bornes "$journal")
+    capture=$(mktemp)
+    trap 'rm -f "$capture"' EXIT
+    journalctl -u nel3ab-worker@{{salle}} --since "@$debut" --until "@$fin" \
+        -o short-iso-precise --no-pager > "$capture"
+    python3 spikes/xbox360/releve.py "$journal" --capture "$capture"
 
 # Commandes, profils et vibrations de quatre périphériques virtuels jetables.
 # Un retour de vibration refusé doit laisser les boutons répondre. Aucun émulateur

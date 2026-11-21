@@ -357,6 +357,55 @@ def test_une_chute_qui_attend_trop_longtemps_est_abandonnee(tmp_path: Path) -> N
     assert "capture abandonnée" in [ligne["quoi"] for ligne in _lignes(reglages)]
 
 
+def test_une_chute_au_premier_releve_d_une_partie_attend_ses_fils(tmp_path: Path) -> None:
+    """Le 21 novembre 2026: la chute tombée sur ce relevé était perdue, et taisait le
+    déclencheur cinq minutes pendant que l'image de Sonic restait figée."""
+    capteur = FauxCapteur()
+    releveur = FauxReleveur([{**RYUJINX, "fils": []}])
+    boite, temps, reglages = _boite(tmp_path, releveur, capteur)
+    boite.tour()
+    _ecrire_chute(reglages, temps, 10)
+    temps.secondes = 32
+    boite.tour()
+    assert capteur.captures == []
+    differees = [ligne for ligne in _lignes(reglages) if ligne["quoi"] == "capture différée"]
+    assert [ligne["pourquoi"] for ligne in differees] == ["moteur pas encore mesuré"]
+    assert "capture impossible" not in [ligne["quoi"] for ligne in _lignes(reglages)]
+
+    releveur.moteurs = [RYUJINX]
+    temps.secondes = 34
+    boite.tour()
+    assert [(raison, salle) for raison, salle, _ in capteur.captures] == [("chute", 1)]
+
+
+def test_un_moteur_jamais_mesure_fait_abandonner_la_chute(tmp_path: Path) -> None:
+    capteur = FauxCapteur()
+    boite, temps, reglages = _boite(tmp_path, FauxReleveur([{**RYUJINX, "fils": []}]), capteur)
+    boite.tour()
+    _ecrire_chute(reglages, temps, 10)
+    temps.secondes = 32
+    boite.tour()
+    temps.secondes = 100
+    boite.tour()
+
+    assert capteur.captures == []
+    assert "capture abandonnée" in [ligne["quoi"] for ligne in _lignes(reglages)]
+
+
+def test_un_moteur_d_une_autre_salle_ne_fait_pas_attendre_la_chute(tmp_path: Path) -> None:
+    capteur = FauxCapteur()
+    autre_salle = {**RYUJINX, "pid": 1, "salle": 2, "fils": []}
+    boite, temps, reglages = _boite(tmp_path, FauxReleveur([autre_salle]), capteur)
+    boite.tour()
+    _ecrire_chute(reglages, temps, 10)
+    temps.secondes = 32
+    boite.tour()
+
+    quoi = [ligne["quoi"] for ligne in _lignes(reglages)]
+    assert "capture impossible" in quoi
+    assert "capture différée" not in quoi
+
+
 class FauxRoulant:
     """Le `perf` roulant, réduit à ce que le service lui demande."""
 

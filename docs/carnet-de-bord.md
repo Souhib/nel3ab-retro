@@ -26497,6 +26497,42 @@ et joue une douzaine de minutes, jusque dans les niveaux de la ville. Relu à
 Le contournement tient donc sur cet essai. L'arrêt propre de la salle sous X11
 reste à relire à la fin de la partie.
 
+**Les mesures qui ont trompé ce soir-là.** En relisant les deux essais, quatre
+défauts de mesure sont apparus :
+
+- `just xbox360-releve` ne lisait que le compteur du jeu, et disait « aucune
+  fenêtre sous 25 images par seconde » pendant le gel. Il lit maintenant aussi
+  la capture de la salle dans le journal du worker, et nomme le cas : sur le
+  premier essai, « image figée pendant que le jeu tournait : 37 fois, la
+  première à 20 h 38 min 08 s » ; sur le second, « jamais », et ses huit trous
+  tombent tous sur un ralentissement du jeu ;
+- la colonne « pages » de la boîte noire n'était pas un compte d'images :
+  c'était l'inverse de l'écart médian entre deux images reçues. Elle donnait
+  62 pour un jeu à 60, parce que Sway compose toutes les 16 ms (wlroots 0.17
+  arrondit 1/60 de seconde à la milliseconde inférieure), et 250 pendant le
+  gel, parce qu'une page qui a moins de trente écarts se rabat sur la cadence
+  de son écran. Elle compte maintenant les images arrivées par seconde : 60
+  en jeu, 0 pendant le gel ;
+- une tranche du gel affichait « reçue 0 ms » : une page qui a reçu moins de
+  deux images n'a pas d'écart, et écrivait zéro. Zéro n'est plus lu comme un
+  écart ;
+- le déclencheur de la boîte noire a vu une chute à 21 h 38 min 01 s, heure de
+  Paris, sur le chargement du début de partie. Le moteur n'était pas encore
+  mesuré : la capture a été notée « impossible », mais la pause de cinq
+  minutes a commencé quand même. Le gel, quatre secondes plus tard, n'a été
+  capturé qu'à 21 h 43. Une chute attend maintenant que le moteur de sa salle
+  soit mesuré, au plus une minute, comme une chute qui tombe pendant une autre
+  capture.
+
+La boîte noire écrit l'heure de Paris et les journaux des salles l'UTC ; sa
+lecture le dit désormais en tête.
+
+Restent, sans correction ce soir : pendant le gel, la page n'envoyait une
+mesure que toutes les 30 à 40 secondes au lieu de 10 ; elle se rabat sur la
+cadence de son écran quand elle manque d'écarts ; et la règle de cadence du
+déclencheur, qui lit cette valeur, ne peut pas voir un gel (la règle du gel le
+voit). Ces trois-là demandent de changer la page.
+
 ## 12. Glossaire complet
 
 **AppImage** : format qui range un programme Linux et ses bibliothèques en un

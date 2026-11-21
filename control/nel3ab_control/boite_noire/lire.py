@@ -46,6 +46,23 @@ def _nombre(valeur: object) -> float | None:
     return float(valeur)
 
 
+def _recues_par_seconde(vu: dict[str, Any]) -> float | None:
+    """Les images arrivées à la page par seconde, ou `jeuHz` pour les lignes sans ce compte.
+
+    `jeuHz` n'est pas un compte: c'est l'inverse de l'écart MÉDIAN entre deux
+    images reçues. Il donne le pas de Sway (62 pour un jeu à 60, les sorties
+    sans écran de wlroots 0.17 composant toutes les 16 ms), et, quand la page
+    a moins de trente écarts, la cadence de son ÉCRAN: le 21 novembre 2026,
+    pendant le gel de Sonic, il valait 250 alors que la page recevait
+    0,1 image par seconde.
+    """
+    vues, duree = _nombre(vu.get("vues")), _nombre(vu.get("s"))
+    if vues is not None and duree is not None and duree > 0:
+        return vues / duree
+    ancienne = _nombre(vu.get("jeuHz"))
+    return ancienne if ancienne is not None and ancienne > 0 else None
+
+
 def tranches(
     releves: list[dict[str, Any]],
     pages: list[dict[str, Any]],
@@ -96,8 +113,8 @@ def tranches(
         quand = _instant(ligne)
         if ligne.get("quoi") != "mesures" or ligne.get("banc") or quand is None:
             continue
-        cadence = _nombre((ligne.get("vu") or {}).get("jeuHz"))
-        if cadence is None or cadence <= 0:
+        cadence = _recues_par_seconde(ligne.get("vu") or {})
+        if cadence is None:
             continue
         seau = seaux[cle(quand)]
         seau["cadence"].append(cadence)
@@ -109,7 +126,10 @@ def tranches(
             seau["aller_retour"].append(aller)
         arrivees = vu.get("arrivées")
         pire = _nombre(arrivees[2]) if isinstance(arrivees, list) and len(arrivees) == 3 else None
-        if pire is not None:
+        # Zéro n'est pas un écart: c'est ce qu'écrit une page qui a reçu moins de
+        # deux images dans sa fenêtre. Le 21 novembre 2026, une tranche du gel de
+        # Sonic affichait ainsi « reçue 0 ms ».
+        if pire is not None and pire > 0:
             seau["arrivee_max"].append(pire)
 
     resultat: list[dict[str, Any]] = []

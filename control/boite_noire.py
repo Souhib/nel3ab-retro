@@ -63,6 +63,10 @@ def main(arguments: list[str]) -> None:
     releves = charger(reglages.boite_noire_dir / "releves" / f"{jour.isoformat()}.jsonl")
     pages = charger(reglages.journal_dir / f"{jour.isoformat()}.jsonl")
     lignes = tranches(releves, pages, debut=debut, fin=fin)
+    # L'heure est celle des joueurs, pas l'UTC des journaux des salles: le
+    # 21 novembre 2026, l'écart d'une heure a fait chercher une partie au mauvais
+    # endroit. « pages » compte les images arrivées, médiane et minimum des pages.
+    print(f"{jour.isoformat()}, heure de {reglages.journal_zone}; pages: images reçues par seconde")
     if not lignes:
         garde = reglages.boite_noire_jours
         print(f"rien d'écrit le {jour.isoformat()}: la boîte noire garde {garde} jours")

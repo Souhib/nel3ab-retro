@@ -60,6 +60,53 @@ describe("differences", () => {
     });
   });
 
+  it("le salon décide d'une première fois, même contre la mémoire du navigateur", () => {
+    const avant = occ([false, false, false, false]);
+    const apres: Occupation = {
+      ...occ([false, true, false, false], [[2, "Ami"]]),
+      premieres: new Map([[2, true]]),
+    };
+    // Ce navigateur a déjà vu Ami, mais le salon dit qu'Ami vient pour la
+    // première fois dans cette salle: c'est le salon qui a raison.
+    expect(differences(avant, apres, new Set(["Ami"])).arrivees).toEqual([
+      { port: 2, nom: "Ami", facon: "premiere" },
+    ]);
+  });
+
+  it("le salon dit un retour, même à un navigateur qui ne connaît personne", () => {
+    const avant = occ([false, false, false, false]);
+    const apres: Occupation = {
+      ...occ([false, true, false, false], [[2, "Ami"]]),
+      premieres: new Map([[2, false]]),
+    };
+    expect(differences(avant, apres, new Set()).arrivees).toEqual([
+      { port: 2, nom: "Ami", facon: "retour" },
+    ]);
+  });
+
+  it("sans réponse du salon pour cette prise, la mémoire décide comme avant", () => {
+    const avant = occ([false, false, false, false]);
+    // Le salon répond pour la prise 1, pas pour la 2.
+    const apres: Occupation = {
+      ...occ(
+        [true, true, false, false],
+        [
+          [1, "Bo"],
+          [2, "Ami"],
+        ],
+      ),
+      premieres: new Map([[1, false]]),
+    };
+    expect(differences(avant, apres, new Set(["Ami"])).arrivees).toEqual([
+      { port: 1, nom: "Bo", facon: "retour" },
+      { port: 2, nom: "Ami", facon: "retour" },
+    ]);
+    expect(differences(avant, apres, new Set()).arrivees).toEqual([
+      { port: 1, nom: "Bo", facon: "retour" },
+      { port: 2, nom: "Ami", facon: "premiere" },
+    ]);
+  });
+
   it("un nom qui apparaît sur une prise déjà tenue n'est pas une arrivée", () => {
     // Le salon nomme parfois la prise un état après l'avoir comptée tenue.
     const avant = occ([true, false]);

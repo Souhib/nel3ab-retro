@@ -2,8 +2,10 @@
  * La scène du branchement: Bobine apporte la fiche d'un nouveau joueur et
  * l'enfonce dans la bonne prise.
  *
- * Elle se joue une fois par personne et par salle (voir `memoire.ts`), au-dessus
- * de la rangée de prises, sans toucher à leur disposition: tout est posé en
+ * Elle se joue une fois par personne et par salle, au-dessus de la rangée de
+ * prises. Le salon dit qui vient pour la première fois (`Seat.premiere`, lu dans
+ * le journal des parties); sans réponse de sa part, la mémoire de ce navigateur
+ * décide (`memoire.ts`). Elle se joue sans toucher à leur disposition: tout est posé en
  * position absolue et seules `transform` et `opacity` bougent. La rangée ne
  * bouge pas d'un pixel, et un clic sur une prise pendant la scène marche.
  *

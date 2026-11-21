@@ -920,6 +920,15 @@ function Room({
       seat.player && occupied[seat.port - 1] ? [[seat.port, seat.player] as const] : [],
     ),
   );
+  /** Ce que le salon sait des prises tenues: première fois dans cette salle ou
+   * non. La même réponse pour toutes les pages, donc la même scène partout. */
+  const premieres = new Map(
+    (room?.seats ?? []).flatMap((seat) =>
+      typeof seat.premiere === "boolean" && occupied[seat.port - 1]
+        ? [[seat.port, seat.premiere] as const]
+        : [],
+    ),
+  );
 
   /* Les rayons du menu.
    *
@@ -1946,6 +1955,7 @@ function Room({
               busy={occupied}
               mics={shot?.input.mics ?? []}
               names={names}
+              premieres={premieres}
               mine={port}
               displaced={shot?.input.displaced ?? false}
               onTake={(chosen) => session?.input.take(chosen)}

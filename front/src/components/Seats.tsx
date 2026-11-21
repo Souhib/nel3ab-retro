@@ -22,6 +22,7 @@ export function Seats({
   busy,
   mics,
   names,
+  premieres,
   mine,
   displaced,
   onTake,
@@ -33,6 +34,9 @@ export function Seats({
   /** Quelles places ont un micro ouvert, une par place. */
   mics: boolean[];
   names: Map<number, string>;
+  /** Ce que le salon dit des prises tenues: première fois dans la salle ou non.
+   * Une prise absente veut dire que le salon ne sait pas. */
+  premieres?: ReadonlyMap<number, boolean>;
   mine: number | null;
   displaced: boolean;
   onTake: (port: number) => void;
@@ -48,6 +52,7 @@ export function Seats({
     {
       tenues: ports.map((port) => port === mine || (busy[port - 1] ?? false)),
       noms: names,
+      premieres,
     },
     String(salle()),
   );

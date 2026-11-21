@@ -3,9 +3,11 @@
  *
  * C'est une commodité locale, pas une vérité: un autre appareil a sa propre
  * mémoire, et une fenêtre privée n'en a aucune. Le pire cas est donc une scène
- * de branchement jouée une fois de trop, jamais une information perdue. Une
- * mémoire tenue par le salon, partagée par tous, la remplacera quand le journal
- * des parties existera.
+ * de branchement jouée une fois de trop, jamais une information perdue. Depuis
+ * le 21 novembre 2026, le salon dit lui-même qui vient pour la première fois,
+ * d'après le journal des parties (`Seat.premiere`). Cette mémoire ne décide plus
+ * que quand le salon ne sait pas: une personne sans identité, ou un salon plus
+ * ancien que la page.
  *
  * Le stockage peut manquer ou lever une exception (fenêtre privée, données
  * bloquées, capture d'aperçu): chaque accès est protégé, et sans stockage la

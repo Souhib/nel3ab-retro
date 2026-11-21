@@ -34,3 +34,7 @@ node_modules/
 # de navigateur pilotée. Ce sont des traces de travail, pas des preuves: un
 # résultat qui compte est recopié dans `spikes/` avec sa date.
 .playwright-mcp/
+
+# Les dossiers de travail que Claude Code crée pour ses agents, un par
+# chantier. Ce sont des copies de travail du dépôt, pas du contenu à suivre.
+.claude/worktrees/

@@ -6,6 +6,20 @@ et leurs limites. Le [carnet](carnet-de-bord.md#11-septembre-ce-que-le-mois-a-ap
 conserve leur déroulement ; l'[ADR](adr/0001-architecture.md) conserve les règles
 qui en résultent. Les anciens plans M1 à M3 sont des archives de conception.
 
+**Au 21 novembre à 2 h 45 : tout est dans `main`, le worker est construit, le salon attend son redémarrage.**
+Le travail du 21 novembre (portes du salon, manifeste des consoles et clé de
+jeu, dépôt de jeux avec rangement automatique des jeux Switch de base, carnet
+de jeu, Bobine dans la salle et dans les pages du salon) est fusionné dans
+`main`. `just check` et les contrôles propres à la machine (GPU, son des
+clips, sauvegardes et capture Switch, copie chiffrée) passent. Le worker de
+production est reconstruit : la prochaine salle ouverte l'utilisera. Le
+salon et la boîte noire tournent encore l'ancien code tant que l'unité
+`deploy/nel3ab-control.service` n'est pas installée et ces deux services
+redémarrés ; `just deploy-check` le signale. À faire par Souhib :
+`sudo cp deploy/nel3ab-control.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl restart nel3ab-control nel3ab-boite-noire`.
+Les paragraphes ci-dessous disent « non installé » : ils datent d'avant la
+fusion.
+
 **Au 21 novembre, sur une branche non installée : un carnet de jeu par personne.**
 Le salon tient un journal des parties : un fichier par personne, jamais
 balayé, qui note le début et la fin de chaque place tenue et chaque

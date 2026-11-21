@@ -23,6 +23,7 @@ import httpx
 from fastapi import HTTPException, status
 
 from nel3ab_control.api.schemas.salle import Salle
+from nel3ab_control.consoles import CONSOLES
 from nel3ab_control.settings import Settings
 
 #: Les emplacements que cette machine accepte de tenir.
@@ -216,7 +217,9 @@ class SallesController:
         if not isinstance(courant, int) or not 0 <= courant < len(jeux):
             return None, False
         joue = jeux[courant]
-        return joue.get("name"), joue.get("console") in ("switch", "switch2")
+        # « Joue à la Switch » veut dire « tient la place Switch de la machine »:
+        # le groupe de verrou du manifeste, et non la liste de ses consoles.
+        return joue.get("name"), CONSOLES.lock(str(joue.get("console"))) == "switch"
 
     async def _depuis(self, numero: int) -> int | None:
         """Depuis combien de secondes cette salle tourne, demandé à systemd.

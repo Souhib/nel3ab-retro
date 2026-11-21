@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CloseSalleData, CloseSalleErrors, CloseSalleResponses, KeepBindingsData, KeepBindingsErrors, KeepBindingsResponses, OpenSalleData, OpenSalleResponses, PublishRoomBindingsData, PublishRoomBindingsErrors, PublishRoomBindingsResponses, ReadBindingsData, ReadBindingsResponses, ReadMeData, ReadMeResponses, ReadMyConnectionData, ReadMyConnectionResponses, ReadRoomBindingsData, ReadRoomBindingsResponses, ReadRoomData, ReadRoomResponses, ReadSallesData, ReadSallesResponses, RenameMeData, RenameMeErrors, RenameMeResponses } from './types.gen';
+import type { CloseSalleData, CloseSalleErrors, CloseSalleResponses, KeepBindingsData, KeepBindingsErrors, KeepBindingsResponses, OpenSalleData, OpenSalleResponses, PublishRoomBindingsData, PublishRoomBindingsErrors, PublishRoomBindingsResponses, ReadBindingsData, ReadBindingsResponses, ReadCatalogueData, ReadCatalogueErrors, ReadCatalogueResponses, ReadMeData, ReadMeResponses, ReadMyConnectionData, ReadMyConnectionResponses, ReadRoomBindingsData, ReadRoomBindingsResponses, ReadRoomData, ReadRoomResponses, ReadSallesData, ReadSallesResponses, RenameMeData, RenameMeErrors, RenameMeResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -183,3 +183,14 @@ export const openSalle = <ThrowOnError extends boolean = false>(options?: Option
  * affiche: pas un nom envoyé par la demande.
  */
 export const closeSalle = <ThrowOnError extends boolean = false>(options: Options<CloseSalleData, ThrowOnError>): RequestResult<CloseSalleResponses, CloseSalleErrors, ThrowOnError> => (options.client ?? client).delete<CloseSalleResponses, CloseSalleErrors, ThrowOnError>({ url: '/api/salles/{numero}', ...options });
+
+/**
+ * Read Catalogue
+ *
+ * Les jeux de la machine, lus dans le fichier qu'une salle a écrit (ADR D24).
+ *
+ * Ni worker ni Docker ici : le salon lit ce qu'une salle a déjà balayé, avec
+ * ses clés et ses titres nettoyés. Sans identité, comme la liste des salles :
+ * elle ne dit que ce que chaque page de salle publie déjà à `/roms`.
+ */
+export const readCatalogue = <ThrowOnError extends boolean = false>(options?: Options<ReadCatalogueData, ThrowOnError>): RequestResult<ReadCatalogueResponses, ReadCatalogueErrors, ThrowOnError> => (options?.client ?? client).get<ReadCatalogueResponses, ReadCatalogueErrors, ThrowOnError>({ url: '/api/catalogue', ...options });

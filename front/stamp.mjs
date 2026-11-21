@@ -54,8 +54,20 @@ const STAMP = join(ROOT, "..", "core", "crates", "worker", "src", "page", "SOURC
  */
 const WEIGHT_MAX = 300_000;
 
-/** Everything the page is built from, in a fixed order. */
-const INPUTS = ["src", "index.html", "package-lock.json", "vite.config.ts", "tsconfig.app.json"];
+/** Everything the page is built from, in a fixed order.
+ *
+ * Le manifeste des consoles en fait partie depuis le 21 novembre 2026: la page
+ * l'importe hors de `front/` (ADR D22). Sans lui ici, changer une console dans
+ * le fichier laisserait la page compilée avec l'ancienne liste, et l'empreinte
+ * resterait verte. */
+const INPUTS = [
+  "src",
+  "index.html",
+  "package-lock.json",
+  "vite.config.ts",
+  "tsconfig.app.json",
+  "../consoles/consoles.json",
+];
 
 /** Ce qui ne part JAMAIS dans la page, et n'a donc rien à faire dans l'empreinte.
  *

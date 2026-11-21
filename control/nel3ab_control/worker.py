@@ -120,6 +120,38 @@ async def may_decide(address: str, seat: int) -> bool | None:
     return False if said == b"no" else None
 
 
+#: La plus longue clé qu'un nom de fichier Linux permet, en octets (`NAME_MAX`).
+KEY_MAX_BYTES = 255
+
+
+def valid_key(key: str) -> bool:
+    """Ce qu'un nom de fichier dans une bibliothèque peut être, et rien d'un chemin.
+
+    Les mêmes règles que `GameKey::new` côté worker. Le salon ne joint jamais une
+    clé à un dossier, mais il ne doit pas non plus envoyer au worker ce que le
+    worker refusera: le refus y serait un « no » sans raison lisible ici.
+    """
+    return (
+        bool(key)
+        and len(key.encode()) <= KEY_MAX_BYTES
+        and key not in (".", "..")
+        and "/" not in key
+        and not any(ord(letter) < 0x20 or 0x7F <= ord(letter) <= 0x9F for letter in key)
+    )
+
+
+def game_field(game: int, key: str | None) -> str | None:
+    """Le jeu tel que la ligne de lancement l'écrit, ou rien s'il est invalide.
+
+    La clé en hexadécimal, après un `k`: un nom de jeu porte des espaces, et la
+    ligne se découpe aux espaces. Sans clé, la position, pour un worker qui n'en
+    publie pas encore.
+    """
+    if key is not None:
+        return "k" + key.encode().hex() if valid_key(key) else None
+    return str(game) if 0 <= game <= 255 else None
+
+
 async def launch_prepared(
     address: str,
     seat: int,
@@ -129,6 +161,8 @@ async def launch_prepared(
     pads: list[int],
     expected: list[str],
     person: str = "",
+    *,
+    key: str | None = None,
 ) -> bool:
     """Un ordre complet, avec un accusé de réception du worker.
 
@@ -136,10 +170,15 @@ async def launch_prepared(
     personnel. Vide veut dire personne, et le worker retombe alors sur la partie
     neuve. Elle part d'ICI et de nulle part ailleurs: le salon est le seul à la
     tenir du proxy, donc le seul à pouvoir la certifier.
+
+    `key` désigne le jeu par son nom de fichier (ADR D23). Quand elle est donnée,
+    c'est elle qui part, et le worker la résout contre sa propre bibliothèque:
+    `game` n'est alors plus envoyé.
     """
+    field = game_field(game, key)
     if (
         seat not in range(1, 5)
-        or not 0 <= game <= 255
+        or field is None
         or save not in (0, 1, 2)
         # Un espace couperait la ligne en deux et décalerait tout ce qui suit.
         or len(person) > 64
@@ -158,7 +197,7 @@ async def launch_prepared(
             async with await anyio.connect_tcp(host or "127.0.0.1", int(port)) as stream:
                 await stream.send(
                     (
-                        f"launch {seat} {claim} {game} {save} "
+                        f"launch {seat} {claim} {field} {save} "
                         + " ".join(map(str, pads))
                         + " "
                         + " ".join(expected)

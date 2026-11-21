@@ -54,6 +54,70 @@ export type Bindings = {
 };
 
 /**
+ * Catalogue
+ *
+ * La bibliothèque la plus fraîche que les salles ont écrite.
+ */
+export type Catalogue = {
+    /**
+     * Scanned Ms
+     *
+     * Quand le balayage a eu lieu, en millisecondes depuis 1970.
+     */
+    scanned_ms: number;
+    /**
+     * Room
+     *
+     * Le numéro de la salle qui l'a écrite.
+     */
+    room: number;
+    /**
+     * Games
+     */
+    games: Array<CatalogueGame>;
+};
+
+/**
+ * CatalogueGame
+ *
+ * Un jeu de la bibliothèque, tel que le worker l'a décrit.
+ */
+export type CatalogueGame = {
+    /**
+     * Key
+     *
+     * Son nom de fichier, ce qui le désigne (ADR D23).
+     */
+    key: string;
+    /**
+     * Name
+     *
+     * Son titre, nettoyé par le worker.
+     */
+    name: string;
+    /**
+     * Console
+     *
+     * Le code de sa console, ou « ? ».
+     */
+    console: string;
+    /**
+     * Art
+     *
+     * Vrai quand une salle peut servir son image.
+     */
+    art: boolean;
+    /**
+     * Maker
+     */
+    maker?: string | null;
+    /**
+     * About
+     */
+    about?: string | null;
+};
+
+/**
  * Connection
  *
  * Une observation de trajet, jamais une mesure de qualité.
@@ -75,9 +139,15 @@ export type Game = {
     /**
      * Index
      *
-     * Its position in the worker's library, which is how it is asked for.
+     * Its position in the worker's library. Valid only for the library it came with: a file that sorts earlier moves every position after it.
      */
     index: number;
+    /**
+     * Key
+     *
+     * La clé du jeu: son nom de fichier, ce qu'une page envoie pour le lancer (ADR D23). Elle désigne encore ce jeu quand la liste a changé. Nulle pour un worker d'avant le 21 novembre 2026, qui ne la publiait pas.
+     */
+    key?: string | null;
     /**
      * Name
      *
@@ -99,7 +169,7 @@ export type Game = {
     /**
      * Console
      *
-     * Quelle console ce disque demande, lue sur le disque: « gc », « wii », ou « ? » quand le disque n'a pas répondu. La page s'en sert pour ne pas proposer un choix qui ne déciderait rien: un jeu Wii n'a pas de carte mémoire, donc pas deux emplacements de sauvegarde. « ? » n'est pas « gc »: proposer un choix qui ne fait rien est pire que ne pas le proposer.
+     * Quelle console ce disque demande, lue sur le disque ou sur sa fiche: « gc », « wii », « switch », « switch2 », « x360 » (consoles/consoles.json), ou « ? » quand le disque n'a pas répondu. La page s'en sert pour ne pas proposer un choix qui ne déciderait rien: un jeu Wii n'a pas de carte mémoire, donc pas deux emplacements de sauvegarde. « ? » n'est pas « gc »: proposer un choix qui ne fait rien est pire que ne pas le proposer.
      */
     console?: string;
     /**
@@ -291,8 +361,16 @@ export type Preparation = {
     id?: string;
     /**
      * Game
+     *
+     * La position du jeu quand la préparation a commencé. Pour l'affichage.
      */
     game: number;
+    /**
+     * Key
+     *
+     * La clé du jeu, son nom de fichier, qui le désigne même si la liste a changé depuis (ADR D23). Nulle quand le worker n'en publiait pas.
+     */
+    key?: string | null;
     /**
      * Save
      */
@@ -706,3 +784,26 @@ export type CloseSalleResponses = {
 };
 
 export type CloseSalleResponse = CloseSalleResponses[keyof CloseSalleResponses];
+
+export type ReadCatalogueData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/catalogue';
+};
+
+export type ReadCatalogueErrors = {
+    /**
+     * Aucune salle n'a écrit sa liste.
+     */
+    404: unknown;
+};
+
+export type ReadCatalogueResponses = {
+    /**
+     * Successful Response
+     */
+    200: Catalogue;
+};
+
+export type ReadCatalogueResponse = ReadCatalogueResponses[keyof ReadCatalogueResponses];

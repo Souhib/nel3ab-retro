@@ -28,6 +28,21 @@ class NoSuchSeat(HTTPException):
         )
 
 
+class NoCatalogue(HTTPException):
+    """Aucune salle n'a encore écrit sa bibliothèque.
+
+    Distinct d'une bibliothèque vide: celle-là a été lue, et elle n'a aucun jeu.
+    Les confondre dirait « pas de jeux » à quelqu'un dont les salles n'ont
+    simplement jamais démarré.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="aucune salle n'a encore écrit sa bibliothèque",
+        )
+
+
 class SeatTaken(HTTPException):
     """Somebody else claims that pad."""
 

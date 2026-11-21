@@ -18,6 +18,9 @@ async def test_the_room_reports_the_game_the_worker_is_running(client: httpx.Asy
     assert room["name"] == "Salon d'essai"
     assert room["game"] == {
         "index": 1,
+        # Le faux worker a la forme d'avant le 21 novembre 2026, sans clé: la
+        # page retombe alors sur la position.
+        "key": None,
         "guide": None,
         "name": "Super Smash Bros Melee",
         "maker": "Nintendo/HAL Laboratory,Inc.",

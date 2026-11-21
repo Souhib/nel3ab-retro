@@ -5,7 +5,7 @@ use std::{
     path::Path,
 };
 
-use crate::disc::Console;
+use crate::disc::{Console, Registration};
 
 /// Validated local registration beside a game: `<file>.nel3ab.json`.
 #[derive(Debug, PartialEq, Eq)]
@@ -26,7 +26,15 @@ pub struct Game {
 #[must_use]
 pub fn registered(path: &Path) -> Option<Game> {
     let extension = path.extension()?.to_str()?.to_ascii_lowercase();
-    if !["xci", "nsp", "nup"].contains(&extension.as_str()) {
+    // Les extensions des consoles inscrites par fiche, lues dans leurs
+    // capacités et donc dans le manifeste (ADR D22). Regardées AVANT d'ouvrir
+    // la fiche: un disque Dolphin ne paie pas la lecture d'un fichier voisin.
+    let by_sidecar = |console: &Console| console.registration() == Registration::Sidecar;
+    if !Console::KNOWN
+        .iter()
+        .filter(|console| by_sidecar(console))
+        .any(|console| console.extensions().contains(&extension.as_str()))
+    {
         return None;
     }
     let mut sidecar = path.as_os_str().to_os_string();
@@ -43,11 +51,17 @@ pub fn registered(path: &Path) -> Option<Game> {
     let value: serde_json::Value = serde_json::from_slice(&bytes).ok()?;
     let name = value.get("name")?.as_str()?.trim();
     let title = value.get("title")?.as_str()?;
-    let console = match (value.get("console")?.as_str()?, extension.as_str()) {
-        ("switch", "xci" | "nsp") => Console::Switch,
-        ("switch2", "nup") if title.starts_with("0400") => Console::Switch2,
-        _ => return None,
-    };
+    // La console nommée par la fiche doit être inscrite par fiche ET porter
+    // cette extension: un `.xci` déclaré Switch 2 reste refusé, comme une fiche
+    // qui nommerait une console décrite mais non inscrite (Xbox 360).
+    let console = Console::from_code(value.get("console")?.as_str()?)
+        .filter(by_sidecar)
+        .filter(|console| console.extensions().contains(&extension.as_str()))?;
+    // La famille de titres de la Switch 2: une règle de l'identifiant de titre,
+    // pas une description de la console, donc écrite ici.
+    if console == Console::Switch2 && !title.starts_with("0400") {
+        return None;
+    }
     if name.is_empty()
         || name.len() > 200
         || title.len() != 16
@@ -129,6 +143,37 @@ mod tests {
             )
             .unwrap();
             assert_eq!(registered(&path).is_some(), title == "0100BDE00862A000");
+        }
+    }
+
+    /// Une console décrite par le manifeste mais inscrite par aucune fiche ne
+    /// passe pas par cette porte, même avec une fiche bien formée. Sans ce
+    /// refus, un `.iso` déclaré Xbox 360 quitterait le chemin Dolphin.
+    #[test]
+    fn a_console_the_manifest_does_not_register_by_sidecar_is_refused() {
+        let dir = tempfile::tempdir().unwrap();
+        for (extension, console, expected) in [
+            ("iso", "x360", None),
+            ("xex", "x360", None),
+            ("xci", "x360", None),
+            ("iso", "gc", None),
+            // Le jumeau: la même fiche, pour une console inscrite par fiche.
+            ("xci", "switch", Some(Console::Switch)),
+        ] {
+            let path = dir.path().join(format!("game.{extension}"));
+            std::fs::write(&path, b"registration fixture").unwrap();
+            let mut sidecar = path.as_os_str().to_os_string();
+            sidecar.push(".nel3ab.json");
+            std::fs::write(
+                sidecar,
+                format!(r#"{{"console":"{console}","name":"Halo 3","title":"0100BDE00862A000"}}"#),
+            )
+            .unwrap();
+            assert_eq!(
+                registered(&path).map(|game| game.console),
+                expected,
+                "{extension}, {console}"
+            );
         }
     }
 

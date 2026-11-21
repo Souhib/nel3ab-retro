@@ -77,7 +77,7 @@ def main(arguments: list[str]) -> None:
         print(f"\ncaptures du {jour.isoformat()}:")
     for capture in trouvees:
         chute = capture.get("details") or {}
-        mediane = f", médiane {chute['mediane']} img/s" if "mediane" in chute else ""
+        mediane = f", médiane {chute['mediane']} img/s" if chute.get("mediane") is not None else ""
         echecs = [cle for cle, code in (capture.get("codes") or {}).items() if code != 0]
         print(
             f"  {capture['dossier']}  {capture.get('raison', '?')}{mediane}"

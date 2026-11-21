@@ -18,6 +18,7 @@ import {
   vitals,
   worthWriting,
 } from "./vitals";
+import { sourceRate } from "../media/video";
 
 /** Un instantané complet, dont chaque test ne change que ce qui l'intéresse. */
 function snap(video: Partial<Snapshot["video"]> = {}, rest: Partial<Snapshot> = {}): Snapshot {
@@ -49,6 +50,7 @@ function snap(video: Partial<Snapshot["video"]> = {}, rest: Partial<Snapshot> = 
       half: false,
       halfDenied: false,
       sourceHz: 60,
+      sinceArrivalMs: 16,
       refreshHz: 240,
       backlog: 2,
       addedMs: 0,
@@ -281,6 +283,43 @@ describe("ce qui mérite d'être écrit", () => {
     // Un onglet en arrière-plan produit six relevés vides par minute, qui
     // noieraient les vrais dans un journal gardé deux jours.
     expect(worthWriting(vitals(snap(), null, 10_000))).toBe(false);
+  });
+
+  it("écrit la fenêtre vide d'un jeu qui tourne et dont l'image ne vient plus", () => {
+    // Le gel de Sonic, 21 novembre 2026: plus une image depuis 12 secondes.
+    const gelee = vitals(snap({ sinceArrivalMs: 12_000 }), null, 10_000, undefined, true);
+    expect(gelee.attente).toBe(12_000);
+    expect(worthWriting(gelee)).toBe(true);
+  });
+
+  it("ne compte pas l'attente sans jeu: un onglet ouvert sur une salle au repos se tait", () => {
+    const auRepos = vitals(snap({ sinceArrivalMs: 12_000 }), null, 10_000, undefined, false);
+    expect(auRepos.attente).toBe(0);
+    expect(worthWriting(auRepos)).toBe(false);
+  });
+
+  it("ne compte pas l'attente avant la première image", () => {
+    const neuve = vitals(snap({ sinceArrivalMs: null }), null, 10_000, undefined, true);
+    expect(neuve.attente).toBe(0);
+    expect(worthWriting(neuve)).toBe(false);
+  });
+
+  it("n'écrit pas une attente plus courte qu'un gel", () => {
+    const juste = vitals(snap({ sinceArrivalMs: 499 }), null, 10_000, undefined, true);
+    expect(worthWriting(juste)).toBe(false);
+  });
+});
+
+describe("la cadence de la source", () => {
+  it("n'est pas dite avec moins de trente écarts", () => {
+    // Elle se rabattait sur l'écran: 250 images par seconde pendant un gel.
+    expect(sourceRate(29, 4)).toBe(0);
+    expect(sourceRate(0, 0)).toBe(0);
+  });
+
+  it("se lit sur l'écart médian quand il y en a assez", () => {
+    expect(sourceRate(30, 16)).toBe(62.5);
+    expect(sourceRate(600, 20)).toBe(50);
   });
 });
 

@@ -239,7 +239,7 @@ impl Ingress {
                         let reaction = Arc::clone(&pictured);
                         thread::spawn(move || {
                             if let Err(error) = receive(stream, &output, &reaction, &stop) {
-                                tracing::info!(%error, "Switch capture connection ended");
+                                tracing::info!(%error, "capture connection ended");
                             }
                         });
                     }

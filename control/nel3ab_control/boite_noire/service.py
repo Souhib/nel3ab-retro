@@ -168,6 +168,10 @@ class BoiteNoire:
         pas = self._reglages
         return pas.boite_noire_pas_partie_s if moteurs else pas.boite_noire_pas_repos_s
 
+    def moteur_en_cours(self) -> bool:
+        """Un émulateur tourne-t-il? Ce que la veille regarde au repos."""
+        return self._releveur.moteur_en_cours()
+
     def _occupe(self) -> bool:
         return self._en_cours is not None and not self._en_cours.done()
 
@@ -239,6 +243,36 @@ class BoiteNoire:
         return True
 
 
+class _Arret(Protocol):
+    def wait(self, timeout: float | None = None) -> bool: ...
+
+
+def attendre(
+    arret: _Arret,
+    pas: float,
+    veille: float,
+    reveil: Callable[[], bool],
+    horloge: Callable[[], float] = time.monotonic,
+) -> bool:
+    """Attend `pas` secondes, moins si `reveil` dit qu'un émulateur a démarré.
+
+    Rend vrai quand le service doit s'arrêter. `reveil` n'est appelé qu'entre deux
+    veilles, jamais à la fin du pas: pendant une partie, où le pas (deux secondes)
+    ne dépasse pas la veille, il ne coûte donc rien de plus.
+    """
+    fin = horloge() + pas
+    while True:
+        reste = fin - horloge()
+        if reste <= 0:
+            return False
+        if arret.wait(min(veille, reste)):
+            return True
+        if horloge() >= fin:
+            return False
+        if reveil():
+            return False
+
+
 def _lancer_roulant(argv: list[str]) -> "subprocess.Popen[bytes]":
     """Le `perf` roulant, détaché de la sortie du service.
 
@@ -300,7 +334,8 @@ def main() -> None:  # pragma: no cover - la boucle réelle, prouvée par son un
     signal.signal(signal.SIGINT, lambda *_: arret.set())
     erreurs: dict[str, int] = {}
     pas = 0.0
-    while not arret.wait(pas):
+    veille = reglages.boite_noire_veille_s
+    while not attendre(arret, pas, veille, boite.moteur_en_cours):
         try:
             pas = boite.tour()
         # Toute exception, et c'est voulu: une boîte noire qui s'arrête ne voit plus rien.

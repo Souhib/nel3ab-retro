@@ -408,6 +408,12 @@ machine".
   same night, a black box drop on the first, unmeasured sample of a game was
   logged « capture impossible » yet silenced the trigger for five minutes;
   the real freeze four seconds later was captured at the sixth minute.
+- **A new room starts from its sibling's measured settings, not from code
+  defaults.** The Xbox 360 room was written with `refresh_hz: 60` on
+  2026-11-21, although the Switch rooms had run at 120 since 2026-09-10,
+  when 60 Hz was measured to drop a frame twice a second (wlroots' headless
+  output waits whole milliseconds: 16 ms, not 16.67). Diff a new room's
+  configuration against an existing one and justify every difference.
 - **A wrapper's own exit codes must not overlap the tool it wraps.** On
   2026-11-21, the backup script's "NAS missing" code 3 was restic's "file
   unreadable" code 3, and the journal named the wrong cause. Pick codes the

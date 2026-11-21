@@ -130,6 +130,13 @@ export type Vitals = {
    * se distingue d'une liaison qui hoquette parce qu'il tombe au même instant sur
    * toutes les pages. */
   arrivées: [number, number, number];
+  /** Depuis combien de millisecondes la dernière image est arrivée, mesuré
+   * seulement pendant qu'un jeu tourne; zéro sinon.
+   *
+   * Les `arrivées` ne comptent qu'entre deux images reçues. Le 21 novembre 2026,
+   * pendant le gel de Sonic, une fenêtre sans image disait donc [0, 0, 0], et
+   * elle n'était même pas envoyée. Ce chiffre dit le gel pendant qu'il dure. */
+  attente: number;
   /** La manette: la place tenue, et les trames envoyées sur la fenêtre. */
   manette: {
     place: number | null;
@@ -178,6 +185,7 @@ export function vitals(
   before: Snapshot | null,
   elapsedMs: number,
   page?: { visible: boolean; cachéeMs: number },
+  enJeu = false,
 ): Vitals {
   const was = before?.video;
   const wasSound = before?.sound;
@@ -216,6 +224,7 @@ export function vitals(
       Math.round(video.gapMs.p95),
       Math.round(video.gapMs.max),
     ],
+    attente: enJeu && video.sinceArrivalMs !== null ? Math.round(video.sinceArrivalMs) : 0,
     manette: {
       place: input.port,
       envoyées: since(input.sent, wasInput?.sent ?? 0),
@@ -284,9 +293,15 @@ export class HiddenTime {
  * Le seuil est « au moins une image ». Ce n'est pas un filtre sur ce qui va MAL:
  * une fenêtre parfaitement saine reste écrite, parce que savoir que tout allait
  * bien à 21 h 12 est la moitié de ce qui permet de dater un problème.
+ *
+ * Une fenêtre sans image s'écrit quand même si un jeu tourne et que la page
+ * attend son image depuis plus d'un gel (`FREEZE_MS`). Le 21 novembre 2026,
+ * l'image de Sonic est restée figée vingt minutes; la page, qui ne recevait
+ * qu'une image toutes les trente-cinq secondes, n'a écrit qu'une fenêtre sur
+ * trois ou quatre, et rien ne disait le gel entre elles.
  */
 export function worthWriting(sample: Vitals): boolean {
-  return sample.vues > 0 || sample.peintes > 0;
+  return sample.vues > 0 || sample.peintes > 0 || sample.attente >= FREEZE_MS;
 }
 
 /** La trace fine des deux dernières minutes, telle qu'elle part avec un

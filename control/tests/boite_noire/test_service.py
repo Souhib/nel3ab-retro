@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from nel3ab_control.boite_noire.declencheur import Chute, Declencheur, Suiveur
-from nel3ab_control.boite_noire.service import BoiteNoire, declencheur_depuis
+from nel3ab_control.boite_noire.service import BoiteNoire, attendre, declencheur_depuis
 from nel3ab_control.journal import Journal
 from nel3ab_control.settings import Settings
 
@@ -597,3 +597,60 @@ def test_le_declencheur_du_service_connait_le_plafond_de_zelda(tmp_path: Path) -
     assert trois_mesures(zelda, 30) == []
     assert [chute.mediane for chute in trois_mesures(zelda, 16)] == [16.0]
     assert [chute.mediane for chute in trois_mesures("Mario Tennis Aces", 30)] == [30.0]
+
+
+class FauxArret:
+    """Un `threading.Event` sur une horloge factice: attendre fait avancer le temps."""
+
+    def __init__(self, temps: Temps, arret_a: float | None = None) -> None:
+        self.temps = temps
+        self.arret_a = arret_a
+        self.attentes: list[float] = []
+
+    def wait(self, timeout: float | None = None) -> bool:
+        secondes = timeout or 0.0
+        self.attentes.append(secondes)
+        if self.arret_a is not None and self.temps.secondes + secondes >= self.arret_a:
+            self.temps.secondes = self.arret_a
+            return True
+        self.temps.secondes += secondes
+        return False
+
+
+def test_au_repos_un_emulateur_qui_demarre_reveille_la_boite_avant_la_minute() -> None:
+    """Le 21 novembre 2026, Sonic a été vu 36 puis 42 secondes après son lancement."""
+    temps = Temps()
+    arret = FauxArret(temps)
+    demarre = iter([False, False, True])
+    assert attendre(arret, 60, 2, lambda: next(demarre), temps.monotone) is False
+    assert temps.secondes == 6
+
+
+def test_au_repos_sans_emulateur_le_pas_entier_passe() -> None:
+    temps = Temps()
+    arret = FauxArret(temps)
+    regards: list[float] = []
+
+    def reveil() -> bool:
+        regards.append(temps.secondes)
+        return False
+
+    assert attendre(arret, 60, 2, reveil, temps.monotone) is False
+    assert temps.secondes == 60
+    # Pas de regard à la fin du pas: le tour qui suit relève de toute façon.
+    assert len(regards) == 29
+
+
+def test_pendant_une_partie_la_veille_ne_regarde_jamais() -> None:
+    temps = Temps()
+    arret = FauxArret(temps)
+    regards: list[float] = []
+    assert attendre(arret, 2, 2, lambda: regards.append(1) or False, temps.monotone) is False
+    assert regards == []
+    assert arret.attentes == [2]
+
+
+def test_l_arret_du_service_interrompt_la_veille() -> None:
+    temps = Temps()
+    arret = FauxArret(temps, arret_a=5)
+    assert attendre(arret, 60, 2, lambda: False, temps.monotone) is True

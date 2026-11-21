@@ -1150,11 +1150,12 @@ fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Re
                 report_viewers(&server, &mut health_before);
                 let pressed = ingress.reaction();
                 tracing::info!(
+                    console = ?disc.console,
                     input_to_frame_samples = pressed.samples,
                     input_to_frame_p50_ms = pressed.p50,
                     input_to_frame_p95_ms = pressed.p95,
                     input_to_frame_max_ms = pressed.max,
-                    "Switch: de la commande aux manettes à l'image suivante"
+                    "de la commande aux manettes à l'image suivante"
                 );
             }
             if server.stop_requested() {
@@ -1167,14 +1168,18 @@ fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Re
             if let Some(status) = engine.status()? {
                 // A broken adapter must not create an unbounded restart loop.
                 // Keep the room available so its owner can choose/retry a game.
-                tracing::error!(%status, "Switch stopped unexpectedly; leaving the room idle");
+                tracing::error!(
+                    console = ?disc.console,
+                    %status,
+                    "the emulator stopped unexpectedly; leaving the room idle"
+                );
                 nel3ab_emulator::playback::Playback::Idle.store(&settings.session_dir)?;
                 break;
             }
             std::thread::sleep(Duration::from_millis(100));
         }
         let status = engine.shutdown()?;
-        tracing::info!(%status, "Switch adapter stopped");
+        tracing::info!(console = ?disc.console, %status, "room adapter stopped");
         return Ok(server.room_closing());
     }
     nel3ab_emulator::personal::clear_mount(&settings.session_dir)?;

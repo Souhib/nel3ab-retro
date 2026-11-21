@@ -30,10 +30,17 @@ export function Instruments({ shot }: { shot: Snapshot }) {
         <Readout label="écran" value={video.refreshHz.toFixed(0)} unit="Hz" tone="faint" />
         <Readout
           label="source"
-          value={video.sourceHz.toFixed(0)}
+          value={video.sourceHz > 0 ? video.sourceHz.toFixed(0) : "—"}
           unit="Hz"
           tone="faint"
-          hint="Lu sur les instants de capture, donc c'est la cadence du JEU. Un jeu PAL donne 50, et une liaison lente ne la fait pas baisser."
+          hint="Lu sur les instants de capture, donc c'est la cadence du JEU. Un jeu PAL donne 50, et une liaison lente ne la fait pas baisser. Un tiret tant qu'il n'y a pas trente images pour la mesurer."
+        />
+        <Readout
+          label="dernière image"
+          value={video.sinceArrivalMs === null ? "—" : video.sinceArrivalMs.toFixed(0)}
+          unit="ms"
+          tone={video.sinceArrivalMs !== null && video.sinceArrivalMs > 500 ? "alert" : "faint"}
+          hint="Depuis combien de temps la dernière image est arrivée. Au-delà d'une demi-seconde pendant une partie, l'image est figée: le 21 novembre 2026, Sonic continuait de tourner pendant que plus rien n'arrivait ici."
         />
         <Readout
           label="latence ajoutée"

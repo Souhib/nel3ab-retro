@@ -82,7 +82,9 @@ class Chute:
     """
 
     salle: int | None
-    mediane: float
+    #: La médiane des cadences mesurées, nulle quand aucune page n'en mesurait:
+    #: une page figée ne dit plus de cadence (voir `_cadence`).
+    mediane: float | None
     mesures: int
     pages: int
     jeu: str
@@ -101,10 +103,33 @@ class Chute:
 class _Mesure:
     quand: datetime
     visite: str
-    cadence: float
+    cadence: float | None
     jeu: str
-    #: Le pire écart entre deux images reçues, tel que la page le rapporte.
+    #: Le pire écart entre deux images reçues, ou l'attente de la suivante quand
+    #: elle est plus longue, tel que la page le rapporte.
     gel_ms: float = 0.0
+
+
+def _nombre(valeur: object) -> float | None:
+    if isinstance(valeur, bool) or not isinstance(valeur, int | float):
+        return None
+    return float(valeur)
+
+
+def _cadence(vu: dict[str, Any]) -> float | None:
+    """La cadence de la source que la page a mesurée, ou None.
+
+    Depuis le 21 novembre 2026, une page qui n'a pas assez d'écarts écrit zéro au
+    lieu de la cadence de son écran: pendant le gel de Sonic, elle annonçait 250.
+    Zéro veut donc dire « pas mesuré », et la mesure garde quand même son gel.
+    """
+    cadence = _nombre(vu.get("jeuHz"))
+    return cadence if cadence is not None and cadence > 0 else None
+
+
+def _mediane(mesures: list[_Mesure]) -> float | None:
+    cadences = [m.cadence for m in mesures if m.cadence is not None]
+    return round(median(cadences), 1) if cadences else None
 
 
 class Declencheur:
@@ -137,9 +162,7 @@ class Declencheur:
         vu, salle = ligne.get("vu"), ligne.get("salle")
         if not isinstance(vu, dict) or not isinstance(salle, dict) or not salle.get("jeu"):
             return
-        cadence = vu.get("jeuHz")
-        if isinstance(cadence, bool) or not isinstance(cadence, int | float) or cadence <= 0:
-            return
+        cadence = _cadence(vu)
         try:
             quand = datetime.fromisoformat(str(ligne.get("quand")))
         except ValueError:
@@ -150,10 +173,14 @@ class Declencheur:
         if isinstance(numero, bool) or not isinstance(numero, int):
             numero = None
         arrivees = vu.get("arrivées")
-        pire = arrivees[2] if isinstance(arrivees, list) and len(arrivees) == 3 else None
-        gel = float(pire) if isinstance(pire, int | float) and not isinstance(pire, bool) else 0.0
+        pire = _nombre(arrivees[2]) if isinstance(arrivees, list) and len(arrivees) == 3 else None
+        # L'attente de l'image suivante dit le gel PENDANT qu'il dure; les
+        # arrivées ne le disent qu'une fois l'image revenue.
+        gel = max(pire or 0.0, _nombre(vu.get("attente")) or 0.0)
+        if cadence is None and gel <= 0:
+            return
         self._mesures.setdefault(numero, deque()).append(
-            _Mesure(quand, str(ligne.get("visite") or ""), float(cadence), str(salle["jeu"]), gel)
+            _Mesure(quand, str(ligne.get("visite") or ""), cadence, str(salle["jeu"]), gel)
         )
 
     def evaluer(self, maintenant: datetime) -> list[Chute]:
@@ -166,14 +193,18 @@ class Declencheur:
             if not mesures:
                 continue
             jeu = mesures[-1].jeu
-            du_jeu = [mesure for mesure in mesures if mesure.jeu == jeu]
-            cadence = median(mesure.cadence for mesure in du_jeu)
+            du_jeu = [m for m in mesures if m.jeu == jeu and m.cadence is not None]
+            cadence = median(m.cadence for m in du_jeu if m.cadence is not None) if du_jeu else None
             pire = max(mesure.gel_ms for mesure in mesures)
             # La cadence d'abord: quand les deux règles parlent, « le jeu tourne
             # à 40 images par seconde » explique mieux qu'un trou isolé.
             page: str | None = None
             jugees: list[_Mesure] = list(mesures)
-            if len(du_jeu) >= self._minimum and cadence < self._seuil_de(jeu):
+            if (
+                cadence is not None
+                and len(du_jeu) >= self._minimum
+                and cadence < self._seuil_de(jeu)
+            ):
                 cause, gel, portee = "cadence", None, "salle"
                 jugees = du_jeu
             elif pire >= self._seuil_gel:
@@ -191,7 +222,7 @@ class Declencheur:
             chutes.append(
                 Chute(
                     salle=numero,
-                    mediane=round(median(mesure.cadence for mesure in jugees), 1),
+                    mediane=_mediane(jugees),
                     mesures=len(jugees),
                     pages=len({mesure.visite for mesure in jugees}),
                     jeu=jeu,

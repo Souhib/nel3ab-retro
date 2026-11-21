@@ -650,6 +650,10 @@ function Room({
      même piège que l'observateur de taille dans `Screen`. */
   const seen = useRef(shot);
   seen.current = shot;
+  /** Un jeu tourne et ne démarre plus: c'est seulement là qu'attendre une image
+   * est un gel. Une salle sans jeu, ou un jeu qui charge, n'en envoie pas. */
+  const inGame = useRef(false);
+  inGame.current = playing === true && booting === null;
   const sending = useRef(tell);
   sending.current = tell;
   const previous = useRef<Snapshot | null>(null);
@@ -678,10 +682,13 @@ function Room({
     if (!now) return null;
     const at = performance.now();
     const cachéeMs = take ? hidden.current.take(at) : hidden.current.peek(at);
-    return vitals(now, previous.current, at - opened.current, {
-      visible: document.visibilityState === "visible",
-      cachéeMs,
-    });
+    return vitals(
+      now,
+      previous.current,
+      at - opened.current,
+      { visible: document.visibilityState === "visible", cachéeMs },
+      inGame.current,
+    );
   };
   useEffect(() => {
     /* UN seul minuteur pour les deux cadences. La trace bat à la seconde, et un

@@ -147,6 +147,18 @@ class Settings(BaseSettings):
         default=60.0,
         description="Le pas entre deux relevés quand aucun émulateur ne tourne.",
     )
+    boite_noire_veille_s: float = Field(
+        default=2.0,
+        gt=0,
+        description=(
+            "Au repos, tous les combien de secondes regarder si un émulateur vient "
+            "de démarrer, pour prendre le premier relevé sans attendre le pas du "
+            "repos. Le 21 novembre 2026, les deux parties de Sonic ont été vues 36 et "
+            "42 s après leur lancement: chargement et premiers gels sans relevé. "
+            "Regarder coûte 0,56 ms de processeur (503 processus, même jour), soit "
+            "0,03 % d'un cœur toutes les deux secondes."
+        ),
+    )
     boite_noire_allocateur_s: float = Field(
         default=60.0,
         description=(

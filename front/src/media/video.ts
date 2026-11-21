@@ -95,6 +95,17 @@ const PROBE_WINDOW = 900;
 /** La fenêtre d'allure, en millisecondes: deux secondes quel que soit le rythme de rendu. */
 const PACE_WINDOW_MS = 2000;
 
+/** Combien d'écarts entre instants de capture il faut pour dire la cadence de la source. */
+const SOURCE_GAPS_NEEDED = 30;
+
+/** La cadence de la source, ou zéro quand trop peu d'écarts la mesurent.
+ *
+ * Jamais la cadence de l'écran à la place: un chiffre de repli publié comme
+ * une mesure a fait lire 250 images par seconde pendant un gel. */
+export function sourceRate(gaps: number, medianGapMs: number): number {
+  return gaps < SOURCE_GAPS_NEEDED || medianGapMs <= 0 ? 0 : 1000 / medianGapMs;
+}
+
 export type VideoStats = {
   painted: number;
   shown: number;
@@ -151,8 +162,18 @@ export type VideoStats = {
   /** La salle a refusé le demi-format pour l'image de ce jeu. */
   halfDenied: boolean;
   /** À quelle cadence la SOURCE produit, lue sur les instants de capture. Un jeu
-   * PAL donne 50; une liaison lente ne la fait pas baisser. */
+   * PAL donne 50; une liaison lente ne la fait pas baisser.
+   *
+   * Zéro tant qu'il n'y a pas trente écarts pour la mesurer. L'horaire, lui,
+   * se rabat sur la cadence de l'écran; ce chiffre-ci ne le fait plus: le
+   * 21 novembre 2026, pendant le gel de Sonic, il annonçait 250 images par
+   * seconde (l'écran) à une page qui en recevait 0,1. */
   sourceHz: number;
+  /** Depuis combien de millisecondes la dernière image est arrivée, ou `null`
+   * avant la première. Un gel se lit ici pendant qu'il dure: les écarts de
+   * `gapMs` ne comptent qu'entre deux images reçues, donc rien tant que la
+   * suivante n'est pas là. */
+  sinceArrivalMs: number | null;
   refreshHz: number;
   backlog: number;
   fastestLag: number | null;
@@ -467,7 +488,8 @@ export class VideoStream {
       picture: this.decoded,
       half: this.half,
       halfDenied: this.deniedHalf,
-      sourceHz: 1000 / this.sourcePeriodMs(),
+      sourceHz: sourceRate(this.sourceGaps.length, this.sourceGaps.at(0.5)),
+      sinceArrivalMs: this.lastArrival === null ? null : performance.now() - this.lastArrival,
       refreshHz: 1000 / this.refreshPeriod(),
       backlog: this.decoder?.decodeQueueSize ?? 0,
       fastestLag: this.lags.fastest(),
@@ -486,7 +508,9 @@ export class VideoStream {
    * l'ancienne hypothèse et reste la bonne au démarrage.
    */
   private sourcePeriodMs(): number {
-    return this.sourceGaps.length < 30 ? this.refreshPeriod() : this.sourceGaps.at(0.5);
+    return this.sourceGaps.length < SOURCE_GAPS_NEEDED
+      ? this.refreshPeriod()
+      : this.sourceGaps.at(0.5);
   }
 
   /** La gigue de la liaison: de combien la plus lente des images ordinaires est

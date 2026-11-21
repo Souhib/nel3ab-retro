@@ -144,6 +144,15 @@ def test_le_gel_de_sonic_se_lit_dans_la_colonne_des_pages() -> None:
     assert seconde["arrivee_max"] == 35599
 
 
+def test_l_attente_d_une_page_figee_est_son_pire_ecart() -> None:
+    # Une page d'après le 21 novembre 2026: aucune image dans sa fenêtre, mais
+    # elle attend la suivante depuis douze secondes.
+    vu = {"s": 10, "vues": 0, "jeuHz": 0, "arrivées": [0, 0, 0], "attente": 12_000}
+    (tranche,) = tranches([], [_vue(1, vu)])
+    assert tranche["pages"]["mediane"] == 0.0
+    assert tranche["arrivee_max"] == 12_000
+
+
 def test_une_ligne_sans_compte_garde_sa_cadence_d_avant() -> None:
     (tranche,) = tranches([], [_vue(1, {"jeuHz": 60, "arrivées": [16, 18, 40]})])
     assert tranche["pages"]["mediane"] == 60

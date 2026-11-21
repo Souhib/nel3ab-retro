@@ -407,6 +407,7 @@ def test_la_vraie_chute_du_11_novembre_est_prise_et_rien_avant_elle() -> None:
     assert PREMIERE_LENTE < rang <= PREMIERE_LENTE + 2
     assert chute.cause == "cadence"
     assert chute.jeu == ZELDA
+    assert chute.mediane is not None
     assert chute.mediane <= 17.0
 
 
@@ -461,3 +462,36 @@ def test_apres_un_changement_de_jeu_trois_mesures_lentes_du_nouveau_suffisent() 
     assert declencheur.evaluer(DEBUT + timedelta(seconds=25)) == [
         Chute(salle=1, mediane=40.0, mesures=3, pages=1, jeu="Mario Tennis Aces")
     ]
+
+
+def _figee(secondes: float, attente: float, arrivees: list[float] | None = None) -> dict[str, Any]:
+    """Une fenêtre de page figée, telle que la page l'écrit depuis le 21 novembre 2026."""
+    ligne = _mesure(secondes, 0)
+    ligne["vu"] = {"jeuHz": 0, "vues": 0, "arrivées": arrivees or [0, 0, 0], "attente": attente}
+    return ligne
+
+
+def test_une_page_qui_attend_son_image_gele_sans_dire_de_cadence() -> None:
+    """Le gel de Sonic: plus une image, et plus de cadence mesurée."""
+    declencheur = _declencheur(_figee(0, 12_000))
+    (chute,) = declencheur.evaluer(DEBUT + timedelta(seconds=5))
+    assert chute.cause == "gel"
+    assert chute.gel_ms == 12_000
+    assert chute.mediane is None
+
+
+def test_une_page_sans_cadence_ni_attente_ne_compte_pas() -> None:
+    """Le jumeau: zéro partout est une page qui ne mesure rien, pas un gel."""
+    declencheur = _declencheur(_figee(0, 0), _figee(10, 0), _figee(20, 0))
+    assert declencheur.evaluer(DEBUT + timedelta(seconds=25)) == []
+
+
+def test_une_page_figee_ne_fait_pas_tomber_la_mediane_des_autres() -> None:
+    """La médiane ne lit que des cadences mesurées: zéro n'en est pas une."""
+    # Trois pages à 55 et trois à 300 ms d'attente sans cadence: comptés comme
+    # des zéros, ces trois-là feraient une médiane de 27,5 et une fausse chute.
+    declencheur = _declencheur(
+        *(_mesure(s, 55, visite="a") for s in (0, 10, 20)),
+        *(_figee(s, 300, [16, 17, 20]) for s in (1, 11, 21)),
+    )
+    assert declencheur.evaluer(DEBUT + timedelta(seconds=25)) == []

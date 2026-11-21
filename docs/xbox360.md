@@ -28,7 +28,7 @@ cd control && NEL3AB_ROM_DIR=<celui de l'unité du salon> \
 | Quoi | Où |
 |---|---|
 | Xenia Edge, dépaqueté sans exécution | `~/.local/share/nel3ab/xenia/edge-01ca7a5/` (provenance à côté) |
-| Configuration de la salle | `~/.config/nel3ab/xbox360.json` (`NEL3AB_XBOX360_CONFIG`) |
+| Configuration de la salle | `~/.config/nel3ab/xbox360.json` (`NEL3AB_XBOX360_CONFIG`), Sway à `refresh_hz: 120` comme les salles Switch depuis le 21 novembre 2026 |
 | Clé des profils, hors dépôt | `~/.config/nel3ab/xenia-profils.cle` (0600) |
 | Image du conteneur | celle de la salle Switch, par son empreinte |
 | Parties | `~/.local/state/nel3ab/xbox360/<titre>/<emplacement>/` |

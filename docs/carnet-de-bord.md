@@ -12579,7 +12579,8 @@ gain n'était pas prévu. À « 60 Hz », les images arrivaient en réalité tou
 16,24 ms et non 16,67, et une manquait deux fois par seconde : la sortie de Sway
 tourne un peu plus vite que le jeu, et les deux se décalent. Mon hypothèse est
 une minuterie arrondie à la milliseconde, 16 ms au lieu de 16,67 ; les chiffres
-la soutiennent, mais je ne l'ai pas lue dans le code de wlroots. À 120 Hz, chaque
+la soutiennent, mais je ne l'ai pas lue dans le code de wlroots (lue depuis, le
+21 novembre : voir « Les mesures qui ont trompé ce soir-là »). À 120 Hz, chaque
 image du jeu trouve une composition dans les 8 ms, et l'espacement devient
 régulier à 0,27 ms près. Pour la page du joueur, qui absorbe les irrégularités
 avec sa réserve, c'est moins d'à-coups à rattraper.
@@ -26527,11 +26528,43 @@ défauts de mesure sont apparus :
 La boîte noire écrit l'heure de Paris et les journaux des salles l'UTC ; sa
 lecture le dit désormais en tête.
 
-Restent, sans correction ce soir : pendant le gel, la page n'envoyait une
-mesure que toutes les 30 à 40 secondes au lieu de 10 ; elle se rabat sur la
-cadence de son écran quand elle manque d'écarts ; et la règle de cadence du
-déclencheur, qui lit cette valeur, ne peut pas voir un gel (la règle du gel le
-voit). Ces trois-là demandent de changer la page.
+Restaient trois défauts qui demandaient de changer la page, et deux autres.
+Souhib a demandé de tout faire le soir même :
+
+- **la page se taisait pendant un gel.** Elle n'écrivait une fenêtre que si au
+  moins une image était arrivée, pour ne pas noyer le journal sous les onglets
+  ouverts sans regarder. Une image figée produit justement des fenêtres vides :
+  pendant le gel, une seule sur trois ou quatre partait. La page écrit
+  maintenant aussi `attente`, le temps écoulé depuis la dernière image, mais
+  seulement quand un jeu tourne et ne démarre plus. Une fenêtre vide s'écrit
+  quand cette attente dépasse un gel (500 ms). Un onglet ouvert sur une salle
+  au repos se tait toujours ;
+- **la cadence de la source ne se rabat plus sur l'écran.** Faute de trente
+  écarts, elle vaut zéro, qui veut dire « pas mesuré ». L'horaire de la page,
+  lui, garde son repli ;
+- **le déclencheur garde le gel d'une page qui ne dit plus de cadence.** Il
+  prend comme gel le plus long de l'écart et de l'attente, et sa médiane ne lit
+  que des cadences mesurées : compter ces zéros aurait fait de fausses chutes ;
+- **la boîte noire voyait chaque partie avec 36 à 42 secondes de retard.** Au
+  repos, elle ne relevait la machine qu'une fois par minute. Elle regarde
+  maintenant toutes les deux secondes si un émulateur a démarré, sans relevé
+  complet : 0,56 ms de processeur par regard, mesuré sur cette machine avec
+  503 processus, soit 0,03 % d'un cœur ;
+- **les journaux de la salle Xbox 360 disaient « Switch ».** Les lignes de
+  l'adaptateur portent maintenant la console en champ, et un libellé neutre.
+  Aucun outil ne lisait leur texte, seulement leurs champs.
+
+**Une erreur à moi, trouvée en chemin.** La salle Xbox 360 composait à 60 Hz.
+Le 10 septembre, l'espacement irrégulier des images à « 60 Hz » avait été
+mesuré, et les salles Switch réglées à 120 Hz. En écrivant la configuration de
+la Xbox 360, j'ai mis la valeur par défaut au lieu de reprendre la valeur
+mesurée de la salle voisine. Le code de wlroots 0.17.4, la bibliothèque de
+Sway installée dans l'image, confirme maintenant l'hypothèse du 10 septembre :
+une sortie sans écran attend `1000000 / rafraîchissement` millisecondes,
+division entière, donc 16 ms à 60 Hz (62,5 compositions par seconde) et 8 ms à
+120 Hz. La salle Xbox 360 passe à `refresh_hz: 120`, l'ancienne configuration
+gardée à côté. Ce n'est pas encore mesuré sur Sonic : la prochaine partie et
+son relevé le diront.
 
 ## 12. Glossaire complet
 

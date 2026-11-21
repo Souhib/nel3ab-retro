@@ -128,8 +128,10 @@ def tranches(
         pire = _nombre(arrivees[2]) if isinstance(arrivees, list) and len(arrivees) == 3 else None
         # Zéro n'est pas un écart: c'est ce qu'écrit une page qui a reçu moins de
         # deux images dans sa fenêtre. Le 21 novembre 2026, une tranche du gel de
-        # Sonic affichait ainsi « reçue 0 ms ».
-        if pire is not None and pire > 0:
+        # Sonic affichait ainsi « reçue 0 ms ». L'attente de l'image suivante,
+        # écrite par les pages depuis ce jour, dit le gel pendant qu'il dure.
+        pire = max(pire or 0.0, _nombre(vu.get("attente")) or 0.0)
+        if pire > 0:
             seau["arrivee_max"].append(pire)
 
     resultat: list[dict[str, Any]] = []

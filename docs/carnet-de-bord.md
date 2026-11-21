@@ -26398,6 +26398,79 @@ déchiffre ces profils, que l'image soit en plein écran, que la manette et le
 son marchent, et la cadence réelle de Sonic : c'est le premier essai de
 Souhib qui le dira, et `just xbox360-releve` qui le relira.
 
+### 21 novembre au soir : l'image de Sonic se fige, le jeu continue
+
+**Le premier essai.** À 20 h 37 UTC, Souhib lance Sonic. Le profil est
+chargé sans fenêtre d'avertissement, la manette et le son marchent, l'image
+est fluide. Au bout de 40 secondes, l'image se fige ; le son continue. Quitter
+la salle et y revenir montre la même image. Et la barre de menus de Xenia
+(« File », « Profile », « View »…) reste en haut de l'écran.
+
+**Ce que disent les mesures.** Le journal horodaté de Xenia donne 59,5 images
+par seconde en moyenne sur 206 secondes, sans une seule fenêtre de 5 secondes
+sous 54. Le jeu ne s'est donc pas arrêté : à 20 h 38 min 20 s il ouvre la
+vidéo de l'écran titre, à 20 h 38 min 46 s il lit la sauvegarde. Mais la
+capture de la salle ne reçoit plus d'image depuis 20 h 38 min 05,5 s ; elle
+redémarre toutes les 35 secondes et n'obtient chaque fois qu'une seule image.
+Trois captures d'écran prises une seconde d'écart dans le conteneur sont
+identiques à l'octet près. En trois secondes, Sway n'a pas consommé un seul
+tic de processeur : personne ne lui envoie d'image. Le fil de l'interface de
+Xenia dort, le fil qui exécute le jeu tourne.
+
+**L'essai qui a départagé.** Sortir la fenêtre du plein écran puis l'y
+remettre, par `swaymsg`, a affiché une seule image nouvelle, l'écran réel du
+jeu à ce moment (le menu principal, sur « Extras »), puis l'image s'est figée
+de nouveau. Xenia calcule donc toujours ses images ; il ne les montre plus que
+lorsque la fenêtre le lui demande.
+
+**La cause, lue dans le code de Xenia Edge.** Sous Wayland, Xenia ne laisse
+pas le fil du jeu présenter lui-même : chaque image passe par une demande au
+fil de l'interface (`presenter.cc`). Cette demande pose un drapeau, et la
+suivante n'est envoyée que si le drapeau est retombé. Côté fenêtre
+(`window_wx.cc`), la demande est confiée à la boucle de GLib, et son numéro
+est rangé dans une variable ordinaire que les deux fils écrivent sans verrou.
+Si le fil de l'interface exécute la demande avant que le fil du jeu ait rangé
+son numéro, le numéro d'une demande déjà servie reste dans la variable. Toutes
+les demandes suivantes s'arrêtent sur ce numéro, et plus rien ne s'affiche.
+C'est une situation de concurrence : rare à chaque image, presque sûre à
+60 images par seconde pendant des minutes. Elle est tombée pendant une rafale
+de compilations de shaders, quand beaucoup de fils se disputent le processeur.
+Elle explique aussi l'image unique après le redimensionnement : la fenêtre a
+peint une fois, mais la variable bloquée l'est restée. Le même code est encore
+dans la dernière version d'Edge, publiée le matin même.
+
+**La barre de menus.** La salle impose le plein écran à toute fenêtre dès son
+ouverture, une règle de Sway écrite pour la Switch. wxWidgets, la bibliothèque
+de fenêtres de Xenia, apprend alors du compositeur qu'il est déjà en plein
+écran. Quand Xenia demande le plein écran, c'est cette demande qui cache les
+menus, et wxWidgets la juge inutile (`ShowFullScreen` s'arrête si l'état est
+déjà le bon). Les menus restent.
+
+**Les captures manquantes.** Aucune des captures promises toutes les 30
+secondes n'existait : le `grim` de l'image ne sait pas écrire de JPEG, et le
+lanceur jetait son message d'erreur. Une erreur jetée a caché une fonction
+absente pendant toute la partie.
+
+**Ce qui change.** La salle Xbox 360 fait passer Xenia par X11, à travers
+Xwayland que Sway démarre avec lui. Sous X11, le code lu laisse le fil du jeu
+présenter ses images lui-même, sans la demande fragile. La règle du plein
+écran n'est plus écrite pour cette salle : Xenia demande le plein écran
+lui-même, et ses menus doivent disparaître. Les notifications de succès à
+l'écran sont coupées, parce qu'une notification repasse chaque image par le
+fil de l'interface. Les captures sont en PNG, et les erreurs de `grim` vont
+dans `captures/grim.log`. La salle Switch garde exactement sa configuration ;
+un test le fige.
+
+**Ce qui est prouvé, et ce qui ne l'est pas.** Dans un conteneur jetable de
+l'image de la salle, Sway démarre Xwayland, le superviseur trouve l'écran
+`:0` et un vrai serveur X répond ; sans l'option, rien ne change. Les tests du
+lanceur échouent contre l'ancien lanceur, chacun pour sa raison. La cause du
+gel repose sur la lecture du code et sur l'essai de redimensionnement, pas
+encore sur un essai réussi : il faut une partie longue sous X11 pour savoir si
+l'image ne se fige plus, si les menus ont disparu, et ce que Xwayland coûte en
+fluidité. Le défaut lui-même reste dans Xenia Edge ; le signaler à ses auteurs
+est une décision de Souhib.
+
 ## 12. Glossaire complet
 
 **AppImage** : format qui range un programme Linux et ses bibliothèques en un
@@ -27642,3 +27715,17 @@ petit-boutiste le dernier. Le numéro 1 s'écrit `00…01` dans le premier cas e
 **cryptography, cffi** : `cryptography` est la bibliothèque de chiffrement de
 référence en Python ; elle s'appuie sur `cffi`, qui lui permet d'appeler du code
 compilé.
+
+**Fil d'exécution** : une suite d'instructions qu'un programme déroule en
+parallèle d'autres dans le même processus. Xenia en a un pour l'interface, un
+pour le processeur graphique, plusieurs pour le jeu.
+
+**Situation de concurrence** : un défaut qui dépend de l'ordre dans lequel deux
+fils d'exécution touchent la même donnée. Il ne se montre que si l'ordre tombe
+mal, donc rarement, et presque sûrement quand l'opération se répète assez.
+
+**wxWidgets** : la bibliothèque de fenêtres, menus et boutons de Xenia Edge.
+Sous Linux, elle s'appuie sur GTK.
+
+**Xwayland** : un serveur X11 qui tourne comme une fenêtre d'un affichage
+Wayland, pour les programmes qui parlent X11.

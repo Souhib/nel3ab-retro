@@ -1679,3 +1679,20 @@ adds one line per second; `spikes/xbox360/xenia.sh` timestamps every line,
 and `just xbox360-releve` turns them into frames per second per window. A
 screenshot every 30 s lands in the save slot. The black box knows Xenia by
 its kernel name, `xenia_edge`. No lock yet: it waits for the measured cost.
+
+**Amended the same evening: X11 through Xwayland, full screen by Xenia.** The
+first game kept 59.5 game frames a second while the picture stopped after
+40 seconds; one resize showed one new frame. Under Wayland, Xenia Edge routes
+every frame through a UI-thread paint request (`presenter.cc`), and
+`WxWindow::RequestPaintImpl` stores the GLib idle-source id in a plain field
+both threads write: if the UI thread runs the request before the GPU thread
+stores the id, the stale id blocks every later request. The code is unchanged
+at Edge's head of 2026-11-21. Under X11 the GPU thread presents by itself
+unless an ImGui drawer is on screen, so the Xbox 360 room starts Sway with
+`xwayland force` (`NEL3AB_SWAY_X11=1`), runs Xenia with `GDK_BACKEND=x11`, and
+turns achievement notifications off. Sway no longer forces that window full
+screen: a compositor-forced state makes wxGTK's `ShowFullScreen(true)` return
+before it hides the menu bar. Rejected for now: building Edge with the race
+fixed, which would make this project the maintainer of an emulator build; a
+watchdog that resizes the window, which the experiment showed yields one
+frame. Not proven until a long game under X11 shows no `capture_quiet`.

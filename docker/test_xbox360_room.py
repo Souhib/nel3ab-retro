@@ -130,6 +130,16 @@ class Launch(unittest.TestCase):
         self.assertIn(f"{module.TOOLS}:/xbox360:ro", plan.mounts)
         self.assertIn("NEL3AB_CAPTURES_S=30", plan.environment)
 
+    def test_xenia_draws_through_xwayland_without_on_screen_notifications(self):
+        # En Wayland, l'image s'est figée à 40 s pendant que le jeu tournait
+        # (21 novembre 2026). Les deux réglages vont ensemble: une notification
+        # remettrait chaque image sur le chemin de l'interface.
+        plan = module.launch(self.config, self.rom, self.slot)
+        position = plan.environment.index("NEL3AB_SWAY_X11=1")
+        self.assertEqual(plan.environment[position - 1], "-e")
+        self.assertIn("--show_achievement_notification=false", plan.command)
+        self.assertNotIn("--show_achievement_notification=true", plan.command)
+
     def test_a_bad_game_engine_or_capture_interval_stops_before_any_container(self):
         with self.assertRaises(ValueError):
             module.launch(self.config, self.rom.with_suffix(".xex"), self.slot)

@@ -384,6 +384,20 @@ machine".
   Sonic's title has 8 digits. `Console::valid_title` now holds each family's
   shape; a new console adds its arm there and its negative twins (a Switch
   title refused for it, its title refused for the Switch).
+- **A game's frame counter does not prove the picture players see.** On
+  2026-11-21, Xenia's log gave Sonic 59.5 game frames a second while the room
+  had sent no new picture for minutes: the emulator had stopped presenting,
+  not the game. Read the compositor side too (`capture_quiet` and the capture
+  `frames` in the room's journal) before calling a run fluid.
+- **A helper's error goes to the save slot, never to /dev/null.** The same
+  day, every screenshot of a three-minute game was missing: the image's
+  `grim` cannot write JPEG, and its message was discarded. Keep the stderr of
+  every periodic helper next to its output, and test that a failing helper
+  leaves its reason.
+- **A compositor rule can cancel an application's own transition.** Sway's
+  "every window full screen" told wxWidgets it already was, so Xenia's own
+  request, the one that hides its menu bar, returned early. Before forcing a
+  window state from outside, check what the application does on entering it.
 - **A wrapper's own exit codes must not overlap the tool it wraps.** On
   2026-11-21, the backup script's "NAS missing" code 3 was restic's "file
   unreadable" code 3, and the journal named the wrong cause. Pick codes the

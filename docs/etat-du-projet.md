@@ -45,7 +45,7 @@ services, règle les anciennes portes, essaie les pages, puis lance
 `just deploy-check`.
 Le worker de production, lui, est déjà reconstruit depuis la nuit.
 
-**Xbox 360 : jouable, expérimentale, pas encore jouée.** Depuis le
+**Xbox 360 : jouable, expérimentale, un premier essai figé.** Depuis le
 21 novembre au soir, une salle lance Xenia Edge sous le Sway de la salle
 Switch, avec quatre profils écrits d'avance, les manettes virtuelles, le son et
 des mesures (journal horodaté, captures toutes les 30 s, cadence relue par
@@ -53,7 +53,12 @@ des mesures (journal horodaté, captures toutes les 30 s, cadence relue par
 Mode d'emploi : [La Xbox 360 dans la salle](xbox360.md). Récit : entrée
 « 21 novembre : la Xbox 360 devient jouable ». La mise en service
 (`sudo bash deploy/mettre-en-service.sh`) installe la nouvelle unité des
-salles et relance le salon ; aucune partie n'a encore été jouée.
+salles et relance le salon ; elle a tourné à 20 h 36 UTC. Premier essai à
+20 h 37 : profil, manette et son bons, mais image figée au bout de 40 secondes
+alors que le jeu continuait, et barre de menus visible. Correction le soir
+même : Xenia passe par X11 (Xwayland) et se met lui-même en plein écran. Elle
+n'a pas encore été jouée ; récit dans l'entrée « 21 novembre au soir : l'image
+de Sonic se fige, le jeu continue ».
 
 Les paragraphes ci-dessous disent « non installé » : ils datent d'avant la
 fusion de la nuit.

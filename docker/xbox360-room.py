@@ -142,6 +142,9 @@ def launch(config: dict, rom: Path, slot: Path) -> room.EngineLaunch:
         *room.engine_environment(config),
         "-e",
         f"NEL3AB_CAPTURES_S={captures}",
+        # Xwayland, et pas de plein écran imposé par Sway: voir supervise.py.
+        "-e",
+        "NEL3AB_SWAY_X11=1",
     ]
     command = [
         "bash",
@@ -156,6 +159,9 @@ def launch(config: dict, rom: Path, slot: Path) -> room.EngineLaunch:
         # Sans menus ni barre d'outils, et sans le menu du bouton Guide par-dessus le jeu.
         "--fullscreen=true",
         "--guide_button=false",
+        # Une notification à l'écran repasse chaque image par le fil de
+        # l'interface, le chemin qui a figé l'image en Wayland le 21 novembre.
+        "--show_achievement_notification=false",
         "--disable_game_window_mouse=true",
         "--keyboard_passthrough=true",
         "--mappings_file=/xbox360/manettes.txt",

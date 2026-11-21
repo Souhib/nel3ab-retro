@@ -65,7 +65,22 @@ def refresh_hz(environ):
     return int(text)
 
 
-def sway_config(width=1280, height=720, refresh_hz=60):
+def x11_wanted(environ):
+    """Whether the engine draws through Xwayland, off unless NEL3AB_SWAY_X11 is "1".
+
+    Xenia Edge (01ca7a5, and its head of 2026-11-21) asks for every Wayland
+    frame through a paint request whose bookkeeping two threads share without
+    a lock. On 2026-11-21 Sonic kept running at 60 frames a second while the
+    picture stopped after 40 seconds; a window resize showed one new frame and
+    stopped again. Under X11 its GPU thread presents by itself.
+    """
+    text = environ.get("NEL3AB_SWAY_X11", "0")
+    if text not in ("0", "1"):
+        raise ValueError(f"NEL3AB_SWAY_X11 must be 0 or 1, not {text!r}")
+    return text == "1"
+
+
+def sway_config(width=1280, height=720, refresh_hz=60, x11=False):
     """The compositor's configuration. Pure, so its one load-bearing line can be pinned.
 
     The refresh rate is written. Without it, wlroots gives a headless output a
@@ -75,15 +90,37 @@ def sway_config(width=1280, height=720, refresh_hz=60):
     explicit 60 Hz held 58.9 (452 of 470 at one period), at the same moment on
     the same machine. Measured 2026-09-09 from the /video stream, as the page
     reads it. The recorder's `-B 60` only declares a rate; this line imposes it.
+
+    With `x11`, Xwayland starts with Sway and no window is forced full screen.
+    A window made full screen by the compositor tells wxWidgets it already is,
+    so Xenia's own request returns early and its menu bar stays on the picture
+    (seen on 2026-11-21). Xenia's `--fullscreen=true` makes the request itself.
     """
     return (
         f"output HEADLESS-1 mode {width}x{height}@{refresh_hz}Hz\n"
         "default_border none\n"
         "focus_follows_mouse no\n"
-        'for_window [app_id=".*"] fullscreen enable\n'
-        "seat seat0 hide_cursor 1\n"
-        "xwayland disable\n"
+        + ("" if x11 else 'for_window [app_id=".*"] fullscreen enable\n')
+        + "seat seat0 hide_cursor 1\n"
+        + f"xwayland {'force' if x11 else 'disable'}\n"
     )
+
+
+# X11's fixed socket folder, inside the room's own container; only listed here.
+def x_display(directory=Path("/tmp/.X11-unix")):  # noqa: S108
+    """The display Sway's Xwayland listens on, as ":N", or None until it listens.
+
+    Two sockets would leave the choice to chance: the room's container starts
+    with an empty /tmp, so a second one is a defect worth stopping for.
+    """
+    sockets = sorted(
+        path.name
+        for path in directory.glob("X*")
+        if path.name[1:].isdigit() and path.is_socket()
+    )
+    if len(sockets) > 1:
+        raise RuntimeError(f"several X displays in {directory}: {', '.join(sockets)}")
+    return f":{sockets[0][1:]}" if sockets else None
 
 
 def main():
@@ -94,7 +131,8 @@ def main():
     display_file = Path("/run-data/display.json")
     display_file.unlink(missing_ok=True)
     config = runtime / "sway.conf"
-    config.write_text(sway_config(refresh_hz=refresh_hz(os.environ)))
+    x11 = x11_wanted(os.environ)
+    config.write_text(sway_config(refresh_hz=refresh_hz(os.environ), x11=x11))
     # Profiling belongs to the game, not the compositor.
     compositor_env = {k: v for k, v in os.environ.items() if not k.startswith("MANGOHUD")}
     with Path("/run-data/sway.log").open("w") as log:
@@ -107,14 +145,21 @@ def main():
             while True:
                 sockets = list(runtime.glob("sway-ipc.*.sock"))
                 displays = [p for p in runtime.glob("wayland-*") if p.is_socket()]
+                x_screen = x_display() if x11 else None
                 if compositor.poll() is not None:
                     raise RuntimeError("Sway stopped before opening its display; see sway.log")
-                if len(sockets) == len(displays) == 1:
+                if len(sockets) == len(displays) == 1 and (x_screen or not x11):
                     break
                 if time.monotonic() > deadline:
-                    raise RuntimeError("Sway did not open its private display in 15 seconds")
+                    raise RuntimeError(
+                        "Sway did not open its private display"
+                        + (" and its Xwayland" if x11 else "")
+                        + " in 15 seconds"
+                    )
                 time.sleep(0.05)
             env = dict(os.environ, SWAYSOCK=str(sockets[0]), WAYLAND_DISPLAY=displays[0].name)
+            if x11:
+                env["DISPLAY"] = x_screen
 
             def ipc(command):
                 result = subprocess.run(

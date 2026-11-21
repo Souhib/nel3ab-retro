@@ -3,6 +3,7 @@
 # All subprocess arguments below are fixed test programs and a fresh tempdir.
 # ruff: noqa: S603
 
+import socket
 import subprocess
 import sys
 import tempfile
@@ -10,7 +11,7 @@ import threading
 import unittest
 from pathlib import Path
 
-from supervise import refresh_hz, sway_config, wait_game
+from supervise import refresh_hz, sway_config, wait_game, x11_wanted, x_display
 
 
 class Shutdown(unittest.TestCase):
@@ -94,3 +95,67 @@ class SwayConfig(unittest.TestCase):
         for bad in ("0", "29", "241", "abc", "59.94", ""):
             with self.subTest(bad=bad), self.assertRaises(ValueError):
                 refresh_hz({"SWITCH_REFRESH_HZ": bad})
+
+    def test_the_switch_room_keeps_its_exact_configuration(self):
+        # The Xbox 360 option must not reach the Switch room, which shares this
+        # file: same lines, same order, no Xwayland, every window full screen.
+        self.assertFalse(x11_wanted({}))
+        self.assertEqual(
+            sway_config(),
+            "output HEADLESS-1 mode 1280x720@60Hz\n"
+            "default_border none\n"
+            "focus_follows_mouse no\n"
+            'for_window [app_id=".*"] fullscreen enable\n'
+            "seat seat0 hide_cursor 1\n"
+            "xwayland disable\n",
+        )
+
+    def test_an_x11_engine_gets_xwayland_and_makes_itself_full_screen(self):
+        # Forced full screen made wxWidgets ignore Xenia's own request, which is
+        # the one that hides its menu bar (2026-11-21).
+        config = sway_config(x11=x11_wanted({"NEL3AB_SWAY_X11": "1"}))
+        self.assertIn("xwayland force\n", config)
+        self.assertNotIn("xwayland disable", config)
+        self.assertNotIn("fullscreen", config)
+        self.assertIn("output HEADLESS-1 mode 1280x720@60Hz\n", config)
+
+    def test_an_unclear_x11_choice_is_refused(self):
+        self.assertFalse(x11_wanted({"NEL3AB_SWAY_X11": "0"}))
+        for bad in ("", "yes", "true", "2", " 1"):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                x11_wanted({"NEL3AB_SWAY_X11": bad})
+
+
+class XDisplay(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.directory = Path(self.temporary.name)
+        self.open = []
+
+    def tearDown(self):
+        for listener in self.open:
+            listener.close()
+        self.temporary.cleanup()
+
+    def listen(self, name):
+        listener = socket.socket(socket.AF_UNIX)
+        listener.bind(str(self.directory / name))
+        self.open.append(listener)
+
+    def test_no_socket_yet_means_no_display(self):
+        self.assertIsNone(x_display(self.directory))
+
+    def test_the_one_x_socket_names_the_display(self):
+        self.listen("X1")
+        self.assertEqual(x_display(self.directory), ":1")
+
+    def test_a_lock_file_or_a_stray_name_is_not_a_display(self):
+        (self.directory / "X0").write_text("not a socket")
+        self.listen("Xlock")
+        self.assertIsNone(x_display(self.directory))
+
+    def test_two_displays_stop_the_room(self):
+        self.listen("X0")
+        self.listen("X1")
+        with self.assertRaises(RuntimeError):
+            x_display(self.directory)

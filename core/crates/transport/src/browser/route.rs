@@ -10,7 +10,6 @@ use std::net::TcpStream;
 
 use nel3ab_protocol::PlayerSlot;
 
-use super::CLASSIFY_TIMEOUT;
 use super::page::Packing;
 
 /// The port named by `take=N` in a request line, if any is.
@@ -18,6 +17,30 @@ pub(super) fn take_from(request: &str) -> Option<PlayerSlot> {
     let rest = request.split("take=").nth(1)?;
     let digits: String = rest.chars().take_while(char::is_ascii_digit).collect();
     PlayerSlot::new(digits.parse().ok()?).ok()
+}
+
+/// Le reçu de place nommé par `seat=` dans une requête, rendu ENTIER.
+///
+/// La page tient son reçu de la socket de manette, et le rend tel quel en ouvrant
+/// son micro. On le garde entier, époque comprise, pour le vérifier comme la
+/// manette le fait: n'en lire que le numéro faisait correspondre le reçu d'une
+/// autre époque à la place qui porte aujourd'hui le même numéro. On n'accepte que
+/// sa forme exacte, trente-deux chiffres hexadécimaux, un tiret et un numéro: une
+/// page qui enverrait autre chose n'a simplement pas de place, et son micro
+/// n'apparaît sur aucune prise.
+pub(super) fn mic_receipt(request: &str) -> Option<String> {
+    let path = request.lines().next()?.split_whitespace().nth(1)?;
+    let (_, query) = path.split_once('?')?;
+    let receipt = query
+        .split('&')
+        .find_map(|part| part.strip_prefix("seat="))?;
+    let (epoch, claim) = receipt.split_once('-')?;
+    let well_formed = epoch.len() == 32
+        && epoch.bytes().all(|byte| byte.is_ascii_hexdigit())
+        && !claim.is_empty()
+        && claim.len() <= 20
+        && claim.bytes().all(|byte| byte.is_ascii_digit());
+    well_formed.then(|| receipt.to_owned())
 }
 
 /// What a connection turned out to be.
@@ -46,10 +69,22 @@ pub(super) enum Route {
         prefer: Option<PlayerSlot>,
         expected: Option<String>,
     },
+    /// Le micro d'un joueur, en montant. Comme le son, mais dans l'autre sens.
+    ///
+    /// Des octets de voix, pas une manette: aucune place n'est prise, aucun
+    /// siège n'est donné. La route est une simple poignée de main comme `/sound`,
+    /// vérifiée même origine avec les autres. `seat` est la place que cette page
+    /// croit tenir, dite par son reçu entier, pour que la salle puisse montrer qui a
+    /// un micro ouvert.
+    Mic {
+        receipt: Option<String>,
+    },
     /// The room's library, as JSON. A plain `GET`, because listing what is
     /// there changes nothing — and because a page that can be fetched can be
     /// looked at with `curl` when it misbehaves.
     Roms,
+    /// Complete imported saves, rechecked against their files on every request.
+    Saves,
     /// Quels flux cette salle sait produire.
     ///
     /// Le demi-format n'existe pas pour toutes les tailles d'image: l'encodeur
@@ -119,17 +154,10 @@ pub(super) fn same_origin(head: &str) -> bool {
 /// Reads the request head **without consuming it**, so tungstenite can do the
 /// handshake itself afterwards.
 pub(super) fn classify(stream: &TcpStream) -> Option<Route> {
-    let mut head = [0_u8; 1024];
-    // A short peek is enough: the request line and the Upgrade header are both
-    // in the first kilobyte of anything a browser sends.
-    //
-    // NAMED, because it does not stay here: the deadline is set on the SOCKET,
-    // so every route inherits it and has to say what it wants instead.
-    if stream.set_read_timeout(Some(CLASSIFY_TIMEOUT)).is_err() {
-        return None;
-    }
-    let read = stream.peek(&mut head).ok()?;
-    let text = String::from_utf8_lossy(&head[..read]).to_lowercase();
+    // Les cookies peuvent précéder Upgrade ou Origin. Lire seulement le premier
+    // kilo-octet confondait une socket avec une page et pouvait manquer l'origine.
+    let head = super::head::peek(stream).ok()?;
+    let text = String::from_utf8_lossy(&head).to_lowercase();
     if !text.contains("upgrade: websocket") {
         // Before the catch-all, or both would be served the HTML page.
         if text.starts_with("get /formats") {
@@ -137,6 +165,9 @@ pub(super) fn classify(stream: &TcpStream) -> Option<Route> {
         }
         if text.starts_with("get /roms") {
             return Some(Route::Roms);
+        }
+        if text.starts_with("get /saves ") {
+            return Some(Route::Saves);
         }
         // Le clip: la seule route qui CHANGE quelque chose sans être une
         // poignée de main. L'origine est donc vérifiée ici aussi, et pas
@@ -172,6 +203,11 @@ pub(super) fn classify(stream: &TcpStream) -> Option<Route> {
     }
     if text.starts_with("get /sound") {
         return Some(Route::Sound);
+    }
+    if text.starts_with("get /mic") {
+        return Some(Route::Mic {
+            receipt: mic_receipt(&text),
+        });
     }
     if text.starts_with("get /input") {
         // `/input?take=3` asks for THAT port, occupied or not. Only a person can
@@ -239,7 +275,65 @@ mod tests {
     use std::net::TcpListener;
     use std::time::Duration;
 
+    use super::super::CLASSIFY_TIMEOUT;
     use super::*;
+
+    #[test]
+    fn routing_reads_headers_after_large_cookies() {
+        for (tail, want) in [
+            ("Accept-Encoding: br\r\n", "brotli"),
+            ("Upgrade: websocket\r\nOrigin: https://x\r\n", "video"),
+            (
+                "Upgrade: websocket\r\nOrigin: https://elsewhere.example\r\n",
+                "refused",
+            ),
+        ] {
+            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let mut client = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+            let request = format!(
+                "GET /video HTTP/1.1\r\nHost: x\r\nCookie: test={}\r\n{tail}\r\n",
+                "x".repeat(4096)
+            );
+            client.write_all(request.as_bytes()).unwrap();
+            let (stream, _) = listener.accept().unwrap();
+            let got = match classify(&stream) {
+                Some(Route::Page {
+                    packing: Packing::Brotli,
+                }) => "brotli",
+                Some(Route::Video { half: false }) => "video",
+                None => "refused",
+                _ => "wrong route",
+            };
+            assert_eq!(got, want);
+        }
+    }
+
+    #[test]
+    fn routing_waits_for_fragmented_headers() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let mut client = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let (stream, _) = listener.accept().unwrap();
+        let (sent, received) = std::sync::mpsc::channel();
+        let server = std::thread::spawn(move || sent.send(classify(&stream)).unwrap());
+        client
+            .write_all(b"GET /video HTTP/1.1\r\nHost: x\r\n")
+            .unwrap();
+        assert!(
+            matches!(
+                received.recv_timeout(Duration::from_millis(30)),
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout)
+            ),
+            "a partial request must not be classified as a page"
+        );
+        client
+            .write_all(b"Upgrade: websocket\r\nOrigin: https://x\r\n\r\n")
+            .unwrap();
+        assert!(matches!(
+            received.recv_timeout(CLASSIFY_TIMEOUT).unwrap(),
+            Some(Route::Video { half: false })
+        ));
+        server.join().unwrap();
+    }
 
     /// Routing is decided by peeking, so the bytes must still be there for the
     /// handshake afterwards. Checked by reading them after classifying.
@@ -290,6 +384,10 @@ mod tests {
                 &b"GET /video?half=1 HTTP/1.1\r\nUpgrade: websocket\r\n\r\n"[..],
                 "video-half",
             ),
+            (
+                &b"GET /mic HTTP/1.1\r\nUpgrade: websocket\r\n\r\n"[..],
+                "mic",
+            ),
             // Les jumeaux négatifs. Chacun donnerait le demi-format si la
             // lecture était approximative, et aucun ne le demande.
             (
@@ -337,8 +435,10 @@ mod tests {
                 }
             }
             Some(Route::Sound) => "sound",
+            Some(Route::Mic { .. }) => "mic",
             Some(Route::Input { .. }) => "input",
             Some(Route::Roms) => "roms",
+            Some(Route::Saves) => "saves",
             Some(Route::Formats) => "formats",
             Some(Route::Art(_)) => "art",
             Some(Route::Clip) => "clip",
@@ -479,6 +579,7 @@ mod tests {
             let (stream, _) = listener.accept().unwrap();
             let got = match classify(&stream) {
                 Some(Route::Roms) => "roms".to_owned(),
+                Some(Route::Saves) => "saves".to_owned(),
                 Some(Route::Formats) => "formats".to_owned(),
                 Some(Route::Art(index)) => format!("art{index}"),
                 Some(Route::Page { .. }) => "page".to_owned(),
@@ -521,5 +622,28 @@ mod tests {
 
         assert_eq!(seen(head("GET /clip").as_bytes()), "page");
         assert_eq!(seen(head("POST /clipboard").as_bytes()), "clip");
+    }
+
+    #[test]
+    fn a_microphone_request_keeps_its_whole_receipt() {
+        let epoch = format!("{:032x}", 0xabc_u128);
+        let asked = format!("get /mic?seat={epoch}-12 http/1.1\r\n\r\n");
+        assert_eq!(super::mic_receipt(&asked), Some(format!("{epoch}-12")));
+    }
+
+    #[test]
+    fn a_microphone_request_without_a_real_receipt_names_no_seat() {
+        // Le jumeau: un numéro seul, une époque tronquée, des lettres dans le
+        // numéro, ou rien du tout.
+        for query in [
+            "?seat=x-1",
+            "?seat=12",
+            "?seat=abc-12",
+            "",
+            "?seat=0123456789abcdef0123456789abcdef-1a",
+        ] {
+            let asked = format!("get /mic{query} http/1.1\r\n\r\n");
+            assert_eq!(super::mic_receipt(&asked), None, "{query} a été accepté");
+        }
     }
 }

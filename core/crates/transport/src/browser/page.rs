@@ -6,7 +6,7 @@
 //! politique de sécurité, qui peut nommer le script par son empreinte pour la
 //! même raison; et la revalidation, qui rend une visite suivante gratuite.
 
-use std::io::{Read as _, Write as _};
+use std::io::Write as _;
 use std::net::TcpStream;
 
 use super::HARDENING;
@@ -24,8 +24,9 @@ pub(super) fn serve_bytes(mut stream: TcpStream, body: &[u8], content_type: &str
          Content-Length: {}\r\nCache-Control: max-age=300\r\nConnection: close\r\n\r\n",
         body.len()
     );
-    let mut sink = [0_u8; 2048];
-    let _ = stream.read(&mut sink);
+    if super::head::consume(&mut stream).is_err() {
+        return;
+    }
     let _ = stream.write_all(head.as_bytes());
     let _ = stream.write_all(body);
     let _ = stream.flush();
@@ -37,8 +38,9 @@ pub(super) fn serve_bytes(mut stream: TcpStream, body: &[u8], content_type: &str
 /// draws its fallback. Served the HTML instead, the browser would report a
 /// broken image only after decoding a page.
 pub(super) fn serve_missing(mut stream: TcpStream) {
-    let mut sink = [0_u8; 2048];
-    let _ = stream.read(&mut sink);
+    if super::head::consume(&mut stream).is_err() {
+        return;
+    }
     let _ = stream
         .write_all(b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
     let _ = stream.flush();
@@ -50,8 +52,9 @@ pub(super) fn serve_missing(mut stream: TcpStream) {
 /// une valeur par défaut avant ça serait répondre faux la moitié du temps, et
 /// une page qui agit sur cette réponse en garderait la conséquence.
 pub(super) fn serve_unready(mut stream: TcpStream) {
-    let mut sink = [0_u8; 2048];
-    let _ = stream.read(&mut sink);
+    if super::head::consume(&mut stream).is_err() {
+        return;
+    }
     let _ = stream.write_all(
         b"HTTP/1.1 503 Service Unavailable\r\nContent-Length: 0\r\n\
           Cache-Control: no-store\r\nConnection: close\r\n\r\n",
@@ -201,9 +204,10 @@ pub(super) fn serve_page(mut stream: TcpStream, page: &str, packing: Packing) {
 
     // Déjà à jour chez le client: on ne renvoie rien du tout. Lu sur l'entête
     // qu'on a déjà en main, en minuscules, d'où la comparaison en minuscules.
-    let mut head = [0_u8; 2048];
-    let read = stream.read(&mut head).unwrap_or(0);
-    let request = String::from_utf8_lossy(&head[..read]).to_lowercase();
+    let Ok(head) = super::head::consume(&mut stream) else {
+        return;
+    };
+    let request = String::from_utf8_lossy(&head).to_lowercase();
     if request.contains(&tag.to_lowercase()) {
         let response = format!(
             "HTTP/1.1 304 Not Modified\r\nETag: {tag}\r\n\
@@ -255,8 +259,9 @@ pub(super) fn serve_body(mut stream: TcpStream, body: &str, content_type: &str) 
     );
     // The request is still unread because `classify` only peeked; draining it
     // keeps the client from seeing a reset before it has read the response.
-    let mut sink = [0_u8; 2048];
-    let _ = stream.read(&mut sink);
+    if super::head::consume(&mut stream).is_err() {
+        return;
+    }
     let _ = stream.write_all(response.as_bytes());
     let _ = stream.flush();
 }
@@ -267,7 +272,67 @@ pub(super) fn serve_body(mut stream: TcpStream, body: &str, content_type: &str) 
     reason = "a panic IS the failure signal in a test"
 )]
 mod tests {
+    use std::io::Read as _;
+
     use super::*;
+
+    fn response(request: &str, serve: impl FnOnce(TcpStream) + Send + 'static) -> String {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("listen");
+        let mut client =
+            TcpStream::connect(listener.local_addr().expect("address")).expect("connect");
+        client
+            .set_read_timeout(Some(super::super::CLASSIFY_TIMEOUT))
+            .expect("timeout");
+        client.write_all(request.as_bytes()).expect("request");
+        let server = std::thread::spawn(move || {
+            let (stream, _) = listener.accept().expect("accept");
+            serve(stream);
+        });
+        let mut bytes = Vec::new();
+        let read = client.read_to_end(&mut bytes);
+        server.join().expect("server");
+        read.expect("the complete response must arrive without a connection reset");
+        String::from_utf8(bytes).expect("text response")
+    }
+
+    /// Le 16 octobre 2026, les cookies du navigateur faisaient couper la page
+    /// par le proxy. Une requête courte seule ne peut pas montrer ce défaut.
+    #[test]
+    fn http_responses_drain_large_cookie_headers() {
+        for size in [0, 4096] {
+            let request = format!(
+                "GET / HTTP/1.1\r\nHost: x\r\nCookie: test={}\r\n\r\n",
+                "x".repeat(size)
+            );
+            let page = response(&request, |stream| {
+                serve_page(stream, "page entière", Packing::Raw);
+            });
+            assert!(page.starts_with("HTTP/1.1 200 OK\r\n"));
+            assert!(page.ends_with("\r\n\r\npage entière"));
+            let body = response(&request, |stream| {
+                serve_body(stream, "[]", "application/json");
+            });
+            assert!(body.ends_with("\r\n\r\n[]"));
+            let bytes = response(&request, |stream| {
+                serve_bytes(stream, b"picture", "image/png");
+            });
+            assert!(bytes.ends_with("\r\n\r\npicture"));
+            assert!(response(&request, serve_missing).starts_with("HTTP/1.1 404 "));
+            assert!(response(&request, serve_unready).starts_with("HTTP/1.1 503 "));
+        }
+    }
+
+    #[test]
+    fn revalidation_reads_the_tag_after_large_cookies() {
+        for (tag, status) in [(page_tag("page"), "304"), (page_tag("old page"), "200")] {
+            let request = format!(
+                "GET / HTTP/1.1\r\nHost: x\r\nCookie: test={}\r\nIf-None-Match: \"{tag:x}\"\r\n\r\n",
+                "x".repeat(4096)
+            );
+            let reply = response(&request, |stream| serve_page(stream, "page", Packing::Raw));
+            assert!(reply.starts_with(&format!("HTTP/1.1 {status} ")), "{reply}");
+        }
+    }
 
     /// La CSP nommait `'unsafe-inline'`, ce qui autorise n'importe quel script
     /// en ligne et retire à la règle presque tout son intérêt. L'empreinte est

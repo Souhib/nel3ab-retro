@@ -19,11 +19,13 @@ use std::time::Duration;
 
 use nel3ab_protocol::PlayerSlot;
 
-use super::{BrowserServer, Framed, PORTS, Packet, Viewer};
+use super::{BrowserServer, PORTS, Packet, Queued, Viewer};
 
 /// Builds a server with no accept loop, for tests that only exercise policy.
-pub(in crate::browser) fn detached(viewers: Vec<SyncSender<Framed>>) -> BrowserServer {
+pub(in crate::browser) fn detached(viewers: Vec<SyncSender<Queued>>) -> BrowserServer {
     BrowserServer {
+        catalogue: Arc::new(Mutex::new("{}".into())),
+        save_catalogue: Arc::new(Mutex::new(None)),
         prepared: Mutex::new(None),
         closing: std::sync::atomic::AtomicBool::new(false),
         room_closing: std::sync::atomic::AtomicBool::new(false),
@@ -145,7 +147,7 @@ pub(in crate::browser) fn hold(
     let told = socket.read().unwrap().into_data();
     assert_eq!(
         told.len(),
-        4 + PORTS,
+        4 + PORTS + 1,
         "the room is announced in one message"
     );
     (socket, told[1])

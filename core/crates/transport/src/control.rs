@@ -407,6 +407,15 @@ mod tests {
                 address,
                 &format!("launch 1 {claim} 2 1 0 1 2 3 {} -\n", receipts.join(" "))
             ),
+            Some("no".into())
+        );
+        assert!(server.take_prepared_launch().is_none());
+        assert!(server.set_save_catalogue(|| vec![false, false, true]));
+        assert_eq!(
+            ask(
+                address,
+                &format!("launch 1 {claim} 2 1 0 1 2 3 {} -\n", receipts.join(" "))
+            ),
             Some("ok".into())
         );
         assert_eq!(

@@ -39,7 +39,7 @@
 //! latency problem and hides it — the player would see a smooth stream of
 //! increasingly old pictures. Dropping is visible and recoverable.
 
-use std::io::{Read as _, Write as _};
+use std::io::Write as _;
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::sync::mpsc::TrySendError;
 use std::sync::{Arc, Condvar, Mutex};
@@ -54,6 +54,7 @@ pub use controller::{ControllerFrame, InputKind};
 
 #[cfg(test)]
 mod harness;
+mod head;
 mod pad;
 mod page;
 mod route;
@@ -62,7 +63,9 @@ mod stream;
 use pad::input_thread;
 use page::{Packing, serve_body, serve_bytes, serve_missing, serve_page, serve_unready};
 use route::{Route, classify};
-use stream::{Viewer, carries_key_frame, deliver, sound_thread, video_thread};
+use stream::{
+    MicSeats, Queued, Viewer, carries_key_frame, deliver, mic_thread, sound_thread, video_thread,
+};
 
 pub use stream::ViewerHealth;
 
@@ -83,6 +86,7 @@ fn health_of(viewers: &Viewers) -> Vec<stream::ViewerHealth> {
                     breaks: one.breaks,
                     starved: one.starved,
                     resyncing: one.resyncing,
+                    depth: one.depth.current(),
                 })
                 .collect()
         },
@@ -95,6 +99,29 @@ fn health_of(viewers: &Viewers) -> Vec<stream::ViewerHealth> {
 /// took longer than the gap between frames, which happens routinely. Twenty
 /// would let a slow client accumulate a third of a second of stale pictures.
 const OUTGOING_DEPTH: usize = 2;
+
+/// Jusqu'où la file d'UN spectateur peut grandir après des chaînes cassées.
+///
+/// DEUX, donc la file ne grandit pas: la politique de `stream::Depth` existe et
+/// est éprouvée, mais le banc ne l'a pas validée.
+///
+/// Le 23 septembre 2026, avec huit, deux mesures se sont contredites. Sur
+/// l'écran de démonstration d'un jeu, dont le débit changeait d'une minute à
+/// l'autre, huit semblait manquer moitié moins d'images. Sur un clip rejoué, les
+/// mêmes images à chaque passage, 3 Mbit/s, 1 % de perte et 20 ms de gigue, dans
+/// un ordre équilibré A B B A: une file de deux a cassé 0, 0, 0, 1, 0 et 1 fois,
+/// une file jusqu'à huit 2, 3, 2 et 6 fois. Quand la liaison ne suit pas
+/// durablement, une file plus longue retarde la chaîne cassée sans l'éviter, et
+/// entasse des images en retard. La file visait les hoquets courts; le banc ne
+/// sait pas encore en produire. À rouvrir avec une mesure qui en contient.
+const MAX_DEPTH: usize = OUTGOING_DEPTH;
+
+/// Combien de temps sans image refusée avant que la file rende une place.
+///
+/// Vingt secondes: assez pour qu'une liaison qui tousse toutes les dix secondes
+/// garde sa marge, assez court pour que huit places redescendent à deux en
+/// deux minutes quand elle va mieux.
+const CALM_FOR: Duration = Duration::from_secs(20);
 
 /// The four ports a room can hold.
 const PORTS: usize = 4;
@@ -126,8 +153,29 @@ type Rumbles = Arc<Mutex<[u8; PORTS]>>;
 /// when they differ.
 type Seats = Arc<Mutex<[Option<u64>; PORTS]>>;
 
+/// Combien de micros sont ouverts sur chaque place.
+///
+/// Un compte par place, voir [`MicSeats`]; ce que la salle diffuse reste un bit
+/// par place, « au moins un micro ouvert ici ».
+type Mics = Arc<MicSeats>;
+
 /// The latest pad state per port.
 type Pads = Arc<Mutex<[Option<ControllerFrame>; PORTS]>>;
+#[derive(Clone)]
+struct SaveCatalogueSource(Arc<dyn Fn() -> Vec<bool> + Send + Sync>);
+
+impl std::fmt::Debug for SaveCatalogueSource {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("SaveCatalogueSource")
+    }
+}
+type SaveCatalogue = Arc<Mutex<Option<SaveCatalogueSource>>>;
+type Catalogue = Arc<Mutex<Arc<str>>>;
+
+fn read_save_catalogue(source: &SaveCatalogue) -> Vec<bool> {
+    let reader = source.lock().ok().and_then(|held| held.clone());
+    reader.map_or_else(Vec::new, |read| (read.0)())
+}
 
 /// Quand chaque place a TOUCHÉ à quelque chose pour la dernière fois.
 ///
@@ -247,6 +295,8 @@ const HALF_NO: u8 = 2;
 /// A running server: one page, one video channel, one input channel.
 #[derive(Debug)]
 pub struct BrowserServer {
+    catalogue: Catalogue,
+    save_catalogue: SaveCatalogue,
     /// One queue per listener, the sound's answer to `viewers`. Separate lists
     /// because the two streams are independent: a page may watch without
     /// hearing, and losing one must not disturb the other.
@@ -460,6 +510,8 @@ impl BrowserServer {
         let (listener, bound) = Self::bound_listener(address)?;
 
         let clips = Arc::new(Mutex::new(crate::clip::Clips::new()));
+        let catalogue = Arc::new(Mutex::new(catalogue));
+        let save_catalogue: SaveCatalogue = Arc::new(Mutex::new(None));
         let viewers: Viewers = Arc::new(Mutex::new(Vec::new()));
         let listeners: Viewers = Arc::new(Mutex::new(Vec::new()));
         let incoming: Pads = Arc::new(Mutex::new([None; PORTS]));
@@ -484,11 +536,14 @@ impl BrowserServer {
         let half_ready = Arc::new(std::sync::atomic::AtomicU8::new(HALF_UNKNOWN));
         let half_granted_key = Arc::new(Mutex::new(Self::key_frame_epoch()));
         let seats: Seats = Arc::new(Mutex::new([None; PORTS]));
+        let mics: Mics = Arc::new(MicSeats::default());
 
         let accept = std::thread::Builder::new()
             .name("browser-accept".to_owned())
             .spawn({
                 let clips = Arc::clone(&clips);
+                let catalogue = Arc::clone(&catalogue);
+                let save_catalogue = Arc::clone(&save_catalogue);
                 let half_ready = Arc::clone(&half_ready);
                 let joined = Arc::clone(&joined);
                 let wants_key = Arc::clone(&wants_key);
@@ -513,11 +568,13 @@ impl BrowserServer {
                 let half_wants_key = Arc::clone(&half_wants_key);
                 let half_granted_key = Arc::clone(&half_granted_key);
                 let closing_in = Arc::clone(&closing_in);
+                let mics = Arc::clone(&mics);
                 move || {
                     accept_loop(
                         &listener,
                         page,
                         &Shared {
+                            save_catalogue,
                             clips: Arc::clone(&clips),
                             viewers,
                             listeners,
@@ -530,6 +587,7 @@ impl BrowserServer {
                             wants_key,
                             granted_key,
                             seats,
+                            mics,
                             rumbles,
                             players,
                             devices,
@@ -554,6 +612,8 @@ impl BrowserServer {
 
         tracing::info!(%bound, "browser server listening");
         Ok(Self {
+            catalogue,
+            save_catalogue,
             owner: Arc::clone(owner),
             clips,
             seats,
@@ -586,6 +646,40 @@ impl BrowserServer {
             room_closing: std::sync::atomic::AtomicBool::new(false),
             _accept: accept,
         })
+    }
+
+    /// Install a read-only source. It is queried by the menu and at launch,
+    /// never by video, audio or controller frames. Missing evidence hides the choice.
+    pub fn set_save_catalogue(
+        &self,
+        source: impl Fn() -> Vec<bool> + Send + Sync + 'static,
+    ) -> bool {
+        self.save_catalogue.lock().is_ok_and(|mut held| {
+            *held = Some(SaveCatalogueSource(Arc::new(source)));
+            true
+        })
+    }
+
+    /// Recheck the payload before accepting a stale unlocked-save choice.
+    #[must_use]
+    pub fn unlocked_save_available(&self, index: usize) -> bool {
+        read_save_catalogue(&self.save_catalogue)
+            .get(index)
+            .copied()
+            .unwrap_or(false)
+    }
+
+    /// Publish that a refused start left this worker serving its menu.
+    pub fn mark_idle(&self) -> bool {
+        let Ok(mut held) = self.catalogue.lock() else {
+            return false;
+        };
+        let Ok(serde_json::Value::Object(mut catalogue)) = serde_json::from_str(&held) else {
+            return false;
+        };
+        catalogue.insert("current".into(), serde_json::Value::Null);
+        *held = serde_json::Value::Object(catalogue).to_string().into();
+        true
     }
 
     /// The address actually bound, which matters when port 0 was asked for.
@@ -686,13 +780,15 @@ impl BrowserServer {
         let message = Framed::from(message);
 
         let mut delivered = false;
-        listeners.retain(|listener| match listener.pipe.try_send(message.clone()) {
-            Ok(()) => {
-                delivered = true;
-                true
+        listeners.retain(|listener| {
+            match listener.pipe.try_send(Queued::untracked(message.clone())) {
+                Ok(()) => {
+                    delivered = true;
+                    true
+                }
+                Err(TrySendError::Full(_)) => true,
+                Err(TrySendError::Disconnected(_)) => false,
             }
-            Err(TrySendError::Full(_)) => true,
-            Err(TrySendError::Disconnected(_)) => false,
         });
         delivered
     }
@@ -861,6 +957,8 @@ impl BrowserServer {
         // `folder_for`, qui compose `joueur-<clé>` depuis le 12 septembre 2026.
         } else if choice.save > 2 {
             Some("cet emplacement de sauvegarde n'existe pas")
+        } else if choice.save == 1 && !self.unlocked_save_available(usize::from(choice.game)) {
+            Some("aucun import tout débloqué disponible pour ce jeu")
         } else if choice.pads.iter().any(|code| *code > 4) {
             Some("un appareil demandé n'existe pas")
         } else {
@@ -1174,6 +1272,7 @@ impl BrowserServer {
 /// What the connection threads share with the server.
 #[derive(Clone)]
 struct Shared {
+    save_catalogue: SaveCatalogue,
     /// Les dernières secondes, gardées pour qu'on puisse les revoir.
     ///
     /// Nourri par [`BrowserServer::send`], donc par le flux GRAND format et lui
@@ -1193,6 +1292,7 @@ struct Shared {
     /// When a key frame was last granted to anybody. See [`ask_for_key_frame`].
     granted_key: Arc<Mutex<Instant>>,
     seats: Seats,
+    mics: Mics,
     devices: Arc<Mutex<[u8; PORTS]>>,
     rumbles: Rumbles,
     players: PlayerSlot,
@@ -1211,7 +1311,7 @@ struct Shared {
     /// Rendered by the worker rather than here: what a game is called and where
     /// it lives is the emulator's business, and the transport's job is to hand
     /// bytes to a browser without an opinion about them.
-    catalogue: Arc<str>,
+    catalogue: Catalogue,
     /// Le second flux: ses spectateurs, et ce qu'ils demandent. Voir le champ
     /// du même nom sur [`BrowserServer`] pour pourquoi rien n'est partagé.
     half_viewers: Viewers,
@@ -1313,8 +1413,9 @@ fn accept_loop(listener: &TcpListener, page: &'static str, shared: &Shared) {
 /// Trois refus, et ils ne disent pas la même chose. **429** avec le temps qui
 /// reste: le précédent est trop récent, et le nombre est ce qui permet au bouton
 /// de compter à rebours honnêtement plutôt que de deviner. **409**: la salle
-/// vient de démarrer et n'a pas encore trente secondes derrière une image-clé.
-/// **500**: l'emballage a échoué, et le message dit lequel des trois cas.
+/// vient de démarrer et n'a pas encore quarante-cinq secondes derrière une
+/// image-clé. **500**: l'emballage a échoué, et le message dit lequel des trois
+/// cas.
 fn serve_clip(mut stream: TcpStream, shared: &Shared) {
     // La requête est LUE avant qu'on réponde, comme les autres routes de ce
     // serveur le font déjà.
@@ -1326,8 +1427,9 @@ fn serve_clip(mut stream: TcpStream, shared: &Shared) {
     // « Failed to fetch » côté navigateur pendant que le worker écrit dans son
     // journal « un clip est parti », ce qui est le pire des deux mondes.
     // Retrouvé le 30 août 2026, en local, sur un clip de 1,2 Mo.
-    let mut sink = [0_u8; 2048];
-    let _ = stream.read(&mut sink);
+    if head::consume(&mut stream).is_err() {
+        return;
+    }
 
     let Ok(mut ring) = shared.clips.lock() else {
         serve_refusal(stream, 500, 0, "la salle n'a pas pu lire son anneau");
@@ -1345,7 +1447,7 @@ fn serve_clip(mut stream: TcpStream, shared: &Shared) {
                 stream,
                 429,
                 seconds,
-                "un clip couvre au moins trente secondes, donc deux clips plus rapprochés se recouvrent",
+                "deux clips ne peuvent pas se suivre d'aussi près",
             );
             return;
         }
@@ -1354,7 +1456,7 @@ fn serve_clip(mut stream: TcpStream, shared: &Shared) {
                 stream,
                 409,
                 0,
-                "la salle n'a pas encore trente secondes de jeu derrière une image-clé",
+                "la salle n'a pas encore quarante-cinq secondes de jeu derrière une image-clé",
             );
             return;
         }
@@ -1458,13 +1560,26 @@ fn serve_connection(stream: TcpStream, page: &'static str, shared: &Shared) {
             &shared.half_granted_key,
         ),
         Some(Route::Sound) => sound_thread(stream, &shared.listeners),
+        Some(Route::Mic { receipt }) => mic_thread(stream, shared, receipt.as_deref()),
         Some(Route::Input {
             take,
             identity,
             prefer,
             expected,
         }) => input_thread(stream, shared, take, identity, prefer, expected.as_deref()),
-        Some(Route::Roms) => serve_body(stream, &shared.catalogue, "application/json"),
+        Some(Route::Roms) => {
+            let catalogue = shared.catalogue.lock().ok().map(|held| Arc::clone(&held));
+            if let Some(catalogue) = catalogue {
+                serve_body(stream, &catalogue, "application/json");
+            } else {
+                serve_unready(stream);
+            }
+        }
+        Some(Route::Saves) => serve_body(
+            stream,
+            &serde_json::json!(read_save_catalogue(&shared.save_catalogue)).to_string(),
+            "application/json",
+        ),
         Some(Route::Formats) => {
             match shared.half_ready.load(std::sync::atomic::Ordering::Relaxed) {
                 HALF_YES => serve_body(stream, "{\"half\":true}", "application/json"),
@@ -1553,6 +1668,61 @@ mod tests {
 
     use super::harness::*;
     use super::*;
+
+    #[test]
+    fn the_save_catalogue_is_read_again_and_unrelated_routes_stay_pages() {
+        let server = BrowserServer::start(
+            "127.0.0.1:0".parse().unwrap(),
+            "page",
+            r#"{"current":1,"roms":[{"name":"A"},{"name":"B"}]}"#.into(),
+            no_art(),
+            four(),
+            &nobody(),
+        )
+        .unwrap();
+        let ask = |path: &str| {
+            let mut stream = TcpStream::connect(server.address()).unwrap();
+            stream
+                .write_all(format!("GET {path} HTTP/1.1\r\nHost: x\r\n\r\n").as_bytes())
+                .unwrap();
+            stream
+                .set_read_timeout(Some(Duration::from_secs(2)))
+                .unwrap();
+            let mut response = String::new();
+            stream.read_to_string(&mut response).unwrap();
+            response
+        };
+        assert!(ask("/saves").ends_with("[]"));
+        let present = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let read = Arc::clone(&present);
+        assert!(server.set_save_catalogue(move || vec![
+            false,
+            read.load(std::sync::atomic::Ordering::Relaxed)
+        ]));
+        assert!(ask("/saves").ends_with("[false,false]"));
+        present.store(true, std::sync::atomic::Ordering::Relaxed);
+        let response = ask("/saves");
+        assert!(response.contains("application/json"));
+        assert!(response.contains("Cache-Control: no-store"));
+        assert!(response.ends_with("[false,true]"));
+        assert!(server.unlocked_save_available(1));
+        assert!(!server.unlocked_save_available(0));
+        assert!(!server.unlocked_save_available(2));
+        present.store(false, std::sync::atomic::Ordering::Relaxed);
+        assert!(!server.unlocked_save_available(1));
+        assert!(ask("/saves").ends_with("[false,false]"));
+        assert!(ask("/saves-other").contains("text/html"));
+        let before = ask("/roms");
+        let before: serde_json::Value =
+            serde_json::from_str(before.split_once("\r\n\r\n").unwrap().1).unwrap();
+        assert_eq!(before["current"], 1);
+        assert!(server.mark_idle());
+        let after = ask("/roms");
+        let after: serde_json::Value =
+            serde_json::from_str(after.split_once("\r\n\r\n").unwrap().1).unwrap();
+        assert!(after["current"].is_null());
+        assert_eq!(after["roms"], before["roms"]);
+    }
 
     #[test]
     fn closing_wakes_the_room_and_refuses_a_stale_occupation() {
@@ -1713,6 +1883,8 @@ mod tests {
         stale.expected[1] = crate::control::receipt(9);
         assert!(!server.prepare_launch(one, &crate::control::receipt(11), stale));
         assert!(server.take_prepared_launch().is_none());
+        assert!(!server.prepare_launch(one, &crate::control::receipt(11), choice.clone()));
+        assert!(server.set_save_catalogue(|| vec![false, false, true]));
         assert!(server.prepare_launch(one, &crate::control::receipt(11), choice.clone()));
         assert!(!server.prepare_launch(one, &crate::control::receipt(11), choice.clone()));
         assert!(server.rom_wanted());
@@ -1819,7 +1991,7 @@ mod tests {
     /// du format vit dans le navigateur.
     #[test]
     fn a_room_without_the_small_stream_drops_those_waiting_for_it() {
-        let (half, half_held) = sync_channel::<Framed>(OUTGOING_DEPTH);
+        let (half, half_held) = sync_channel::<Queued>(OUTGOING_DEPTH);
         let server = detached(vec![]);
         server.half_viewers.lock().unwrap().push(Viewer::new(half));
 
@@ -1840,7 +2012,7 @@ mod tests {
     /// monde, sur tous les jeux.
     #[test]
     fn a_room_that_has_the_small_stream_keeps_its_viewers() {
-        let (half, half_held) = sync_channel::<Framed>(OUTGOING_DEPTH);
+        let (half, half_held) = sync_channel::<Queued>(OUTGOING_DEPTH);
         let server = detached(vec![]);
         server.half_viewers.lock().unwrap().push(Viewer::new(half));
 
@@ -1925,8 +2097,8 @@ mod tests {
     /// n'arriverait qu'à celui qui vient de changer de format.
     #[test]
     fn a_frame_of_one_stream_never_reaches_a_viewer_of_the_other() {
-        let (full, full_held) = sync_channel::<Framed>(OUTGOING_DEPTH);
-        let (half, half_held) = sync_channel::<Framed>(OUTGOING_DEPTH);
+        let (full, full_held) = sync_channel::<Queued>(OUTGOING_DEPTH);
+        let (half, half_held) = sync_channel::<Queued>(OUTGOING_DEPTH);
         let server = detached(vec![full]);
         server.half_viewers.lock().unwrap().push(Viewer::new(half));
 
@@ -1956,7 +2128,7 @@ mod tests {
     /// rien pendant que l'autre flux en fabrique une pour personne.
     #[test]
     fn a_key_frame_asked_for_on_one_stream_is_not_owed_on_the_other() {
-        let (full, full_held) = sync_channel::<Framed>(OUTGOING_DEPTH);
+        let (full, full_held) = sync_channel::<Queued>(OUTGOING_DEPTH);
         let server = detached(vec![full]);
 
         // La file du grand format déborde sur une image ordinaire, ce qui casse
@@ -2029,8 +2201,8 @@ mod tests {
     /// moitiés comptent, donc le test remplit un flux et vérifie l'autre.
     #[test]
     fn a_stream_that_falls_behind_does_not_stain_the_other_stream() {
-        let (full, _full_held) = sync_channel::<Framed>(OUTGOING_DEPTH);
-        let (half, _half_held) = sync_channel::<Framed>(OUTGOING_DEPTH);
+        let (full, _full_held) = sync_channel::<Queued>(OUTGOING_DEPTH);
+        let (half, _half_held) = sync_channel::<Queued>(OUTGOING_DEPTH);
         let server = detached(vec![full]);
         server.half_viewers.lock().unwrap().push(Viewer::new(half));
 
@@ -2054,8 +2226,8 @@ mod tests {
     /// Le jumeau: dans l'autre sens.
     #[test]
     fn a_full_stream_that_falls_behind_does_not_stain_the_reduced_one() {
-        let (full, _full_held) = sync_channel::<Framed>(OUTGOING_DEPTH);
-        let (half, _half_held) = sync_channel::<Framed>(OUTGOING_DEPTH);
+        let (full, _full_held) = sync_channel::<Queued>(OUTGOING_DEPTH);
+        let (half, _half_held) = sync_channel::<Queued>(OUTGOING_DEPTH);
         let server = detached(vec![full]);
         server.half_viewers.lock().unwrap().push(Viewer::new(half));
 
@@ -2075,7 +2247,7 @@ mod tests {
     /// mécanisme. C'est la propriété qui compte pour tous les autres.
     #[test]
     fn a_viewer_that_keeps_up_receives_every_frame() {
-        let (sender, held) = sync_channel::<Framed>(OUTGOING_DEPTH);
+        let (sender, held) = sync_channel::<Queued>(OUTGOING_DEPTH);
         let server = detached(vec![sender]);
 
         for _ in 0..20 {
@@ -2089,7 +2261,7 @@ mod tests {
     /// emulator — the chain keeps its own cadence whatever the network does.
     #[test]
     fn frames_are_dropped_rather_than_queued_when_the_client_is_behind() {
-        let (sender, held) = sync_channel::<Framed>(OUTGOING_DEPTH);
+        let (sender, held) = sync_channel::<Queued>(OUTGOING_DEPTH);
         let server = detached(vec![sender]);
 
         for _ in 0..OUTGOING_DEPTH {
@@ -2115,8 +2287,8 @@ mod tests {
     /// war that dropped the stream twenty times in twenty-four seconds.
     #[test]
     fn a_stalled_viewer_does_not_cost_another_viewer_its_frames() {
-        let (slow, _slow_held) = sync_channel::<Framed>(OUTGOING_DEPTH);
-        let (fast, fast_held) = sync_channel::<Framed>(OUTGOING_DEPTH);
+        let (slow, _slow_held) = sync_channel::<Queued>(OUTGOING_DEPTH);
+        let (fast, fast_held) = sync_channel::<Queued>(OUTGOING_DEPTH);
         let server = detached(vec![slow, fast]);
 
         // The fast one is drained every frame; the slow one never is.
@@ -2454,7 +2626,7 @@ mod tests {
         while std::time::Instant::now() < deadline && update.is_none() {
             match first.read() {
                 Ok(tungstenite::Message::Binary(bytes))
-                    if bytes.len() == 4 + PORTS && bytes[5] == 1 =>
+                    if bytes.len() == 4 + PORTS + 1 && bytes[5] == 1 =>
                 {
                     update = Some(bytes);
                 }
@@ -2962,14 +3134,14 @@ mod tests {
     /// do and did not, for as long as the sending thread cloned the `Vec`.
     #[test]
     fn every_viewer_is_handed_the_same_buffer() {
-        let (first, first_held) = sync_channel::<Framed>(OUTGOING_DEPTH);
-        let (second, second_held) = sync_channel::<Framed>(OUTGOING_DEPTH);
+        let (first, first_held) = sync_channel::<Queued>(OUTGOING_DEPTH);
+        let (second, second_held) = sync_channel::<Queued>(OUTGOING_DEPTH);
         let server = detached(vec![first, second]);
         assert!(server.send(&frame()));
 
         let one = first_held.try_recv().unwrap();
         let two = second_held.try_recv().unwrap();
-        assert_eq!(one, two, "the two viewers were sent different bytes");
+        assert_eq!(*one, *two, "the two viewers were sent different bytes");
         assert_eq!(
             one.as_ptr(),
             two.as_ptr(),
@@ -2981,7 +3153,7 @@ mod tests {
     /// across a session's reconnections.
     #[test]
     fn a_departed_viewer_is_forgotten() {
-        let (sender, held) = sync_channel::<Framed>(OUTGOING_DEPTH);
+        let (sender, held) = sync_channel::<Queued>(OUTGOING_DEPTH);
         let server = detached(vec![sender]);
         assert!(server.send(&frame()));
 
@@ -3094,7 +3266,7 @@ mod tests {
     #[test]
     fn clips_keep_the_sound_even_when_nobody_listens() {
         let server = harness::detached(Vec::new());
-        for tick in 0..3101_u64 {
+        for tick in 0..6000_u64 {
             let at = tick * 10_000;
             assert!(!server.send_sound(at, &[7; 1920]));
             if tick % 2 == 0 {
@@ -3108,7 +3280,7 @@ mod tests {
         let pcm = cut
             .pcm()
             .expect("les clips gardent le son sans dépendre des haut-parleurs des pages");
-        assert!(pcm.len() >= 30 * 48000 * 4);
-        assert!(pcm[..30 * 48000 * 4].iter().all(|byte| *byte == 7));
+        assert!(pcm.len() >= 45 * 48000 * 4);
+        assert!(pcm[..45 * 48000 * 4].iter().all(|byte| *byte == 7));
     }
 }

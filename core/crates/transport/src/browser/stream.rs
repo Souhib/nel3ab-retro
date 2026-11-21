@@ -11,14 +11,116 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use super::{
-    Framed, KEEP_ALIVE, KEY_FRAME_EVERY, KEY_FRAME_PLEASE, OUTGOING_DEPTH, Packet, Viewers,
-    WRITE_TIMEOUT, socket_limits,
+    CALM_FOR, Framed, GONE_AFTER, KEEP_ALIVE, KEY_FRAME_EVERY, KEY_FRAME_PLEASE, MAX_DEPTH,
+    OUTGOING_DEPTH, PORTS, Packet, Shared, Viewers, WRITE_TIMEOUT, socket_limits,
 };
+
+/// Une image en file pour un spectateur, qui rend sa place en disparaissant.
+///
+/// La file d'un spectateur a une capacité fixe, [`MAX_DEPTH`], et une limite qui
+/// bouge, [`Depth`]. Un canal ne dit pas combien d'éléments il tient, donc on
+/// compte à côté. Le compte monte quand une image entre et descend quand elle
+/// est DÉTRUITE: par le fil qui l'envoie, par un essai qui vide la file, ou
+/// parce qu'un envoi raté la rend. Un compte décrémenté seulement par le fil
+/// vidéo aurait menti dès qu'un autre chemin vide la file.
+#[derive(Debug)]
+pub(super) struct Queued {
+    frame: Framed,
+    slot: Option<Arc<std::sync::atomic::AtomicUsize>>,
+}
+
+impl Queued {
+    /// Une image comptée dans la file de son spectateur.
+    fn tracked(frame: Framed, slot: &Arc<std::sync::atomic::AtomicUsize>) -> Self {
+        slot.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        Self {
+            frame,
+            slot: Some(Arc::clone(slot)),
+        }
+    }
+
+    /// Un morceau hors compte: le son garde sa file fixe.
+    pub(super) const fn untracked(frame: Framed) -> Self {
+        Self { frame, slot: None }
+    }
+
+    /// Ce qui part sur la socket. Une copie de `Bytes` est un compteur de plus.
+    pub(super) fn frame(&self) -> Framed {
+        self.frame.clone()
+    }
+}
+
+impl std::ops::Deref for Queued {
+    type Target = Framed;
+
+    fn deref(&self) -> &Framed {
+        &self.frame
+    }
+}
+
+impl Drop for Queued {
+    fn drop(&mut self) {
+        if let Some(slot) = &self.slot {
+            slot.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
+        }
+    }
+}
+
+/// Combien d'images un spectateur peut avoir en attente, à cet instant.
+///
+/// Deux au départ, comme tout le monde. Chaque image refusée double la limite,
+/// jusqu'à [`MAX_DEPTH`]; chaque période [`CALM_FOR`] sans refus rend une place,
+/// jusqu'à revenir à deux. La page fait déjà la même chose avec sa marge
+/// d'affichage: elle grandit quand l'image manque et se rend quand tout va bien.
+#[derive(Debug, Clone, Copy)]
+pub(super) struct Depth {
+    now: usize,
+    most: usize,
+    calm_since: Option<Instant>,
+}
+
+impl Depth {
+    /// Une file de deux, qui peut grandir jusqu'à `most`.
+    pub(super) const fn new(most: usize) -> Self {
+        Self {
+            now: OUTGOING_DEPTH,
+            most,
+            calm_since: None,
+        }
+    }
+
+    /// La limite à `at`, après avoir rendu une place si le calme a assez duré.
+    pub(super) fn allowed(&mut self, at: Instant) -> usize {
+        if let Some(since) = self.calm_since
+            && self.now > OUTGOING_DEPTH
+            && at.saturating_duration_since(since) >= CALM_FOR
+        {
+            self.now -= 1;
+            self.calm_since = Some(at);
+        }
+        self.now
+    }
+
+    /// Une image vient d'être refusée: la file était trop courte.
+    pub(super) fn widen(&mut self, at: Instant) {
+        self.now = self.now.saturating_mul(2).min(self.most);
+        self.calm_since = Some(at);
+    }
+
+    /// La limite telle qu'elle est, sans la faire avancer.
+    pub(super) const fn current(self) -> usize {
+        self.now
+    }
+}
 
 /// One connected viewer: its queue, and whether its stream is currently broken.
 #[derive(Debug)]
 pub(super) struct Viewer {
-    pub(super) pipe: SyncSender<Framed>,
+    pub(super) pipe: SyncSender<Queued>,
+    /// Combien d'images attendent dans `pipe`, tenu par [`Queued`].
+    pub(super) queued: Arc<std::sync::atomic::AtomicUsize>,
+    /// Combien peuvent y attendre en ce moment.
+    pub(super) depth: Depth,
     /// Vrai depuis qu'une image lui a été refusée, jusqu'à la prochaine
     /// image-clé.
     ///
@@ -65,9 +167,11 @@ static NEXT_TAG: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::ne
 
 impl Viewer {
     /// Un spectateur neuf, avec son numéro.
-    pub(super) fn new(pipe: SyncSender<Framed>) -> Self {
+    pub(super) fn new(pipe: SyncSender<Queued>) -> Self {
         Self {
             pipe,
+            queued: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+            depth: Depth::new(MAX_DEPTH),
             resyncing: false,
             tag: NEXT_TAG.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
             dropped: 0,
@@ -96,6 +200,9 @@ pub struct ViewerHealth {
     pub starved: u64,
     /// Attend-il une image-clé en ce moment ?
     pub resyncing: bool,
+    /// Combien d'images sa file peut tenir en ce moment: deux pour une liaison
+    /// qui suit, jusqu'à [`MAX_DEPTH`] après des chaînes cassées.
+    pub depth: usize,
 }
 
 /// Hands one access unit to every viewer of one stream.
@@ -130,6 +237,7 @@ pub(super) fn deliver(
     let message = Framed::from(message);
 
     let key = carries_key_frame(packet.annex_b);
+    let now = Instant::now();
     let mut delivered = false;
     let mut broke = false;
     viewers.retain_mut(|viewer| {
@@ -147,7 +255,22 @@ pub(super) fn deliver(
             }
             viewer.resyncing = false;
         }
-        match viewer.pipe.try_send(message.clone()) {
+        // La limite du spectateur d'abord, puis la capacité du canal. Refusée
+        // ou pas, l'image rend sa place en disparaissant (voir `Queued`).
+        let sent = if viewer.queued.load(std::sync::atomic::Ordering::Relaxed)
+            >= viewer.depth.allowed(now)
+        {
+            Err(TrySendError::Full(()))
+        } else {
+            viewer
+                .pipe
+                .try_send(Queued::tracked(message.clone(), &viewer.queued))
+                .map_err(|refused| match refused {
+                    TrySendError::Full(_) => TrySendError::Full(()),
+                    TrySendError::Disconnected(_) => TrySendError::Disconnected(()),
+                })
+        };
+        match sent {
             Ok(()) => {
                 viewer.delivered += 1;
                 delivered = true;
@@ -155,7 +278,7 @@ pub(super) fn deliver(
             }
             // This viewer is behind. Its own frames are lost; the others are
             // untouched, which is the whole point of a queue each.
-            Err(TrySendError::Full(_)) => {
+            Err(TrySendError::Full(())) => {
                 dropped.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 // Une clé jetée casse la chaîne comme n'importe quelle image, et
                 // l'exception qui vivait ici rendait des blocs à l'écran.
@@ -171,6 +294,8 @@ pub(super) fn deliver(
                 // 62 ko contre 9 ko pour une image ordinaire, donc la file d'un
                 // spectateur lent déborde de préférence sur elle.
                 viewer.dropped += 1;
+                // La file était trop courte pour cette liaison: elle grandit.
+                viewer.depth.widen(now);
                 // Une chaîne DÉJÀ cassée ne se casse pas deux fois: sans ça, un
                 // spectateur qui rate tout un groupe compterait autant de gels
                 // que d'images, et le nombre ne dirait plus rien.
@@ -183,7 +308,7 @@ pub(super) fn deliver(
             }
             // Its thread has gone. Forgetting it here is what keeps the list
             // from growing across a session's reconnections.
-            Err(TrySendError::Disconnected(_)) => false,
+            Err(TrySendError::Disconnected(())) => false,
         }
     });
     // Demandée ICI plutôt que par le navigateur, qui ne découvre la casse
@@ -291,7 +416,9 @@ pub(super) fn video_thread(
         return;
     };
 
-    let (sender, frames) = sync_channel::<Framed>(OUTGOING_DEPTH);
+    // La capacité la plus grande qu'une file puisse prendre: la limite de ce
+    // spectateur, qui part de deux, vit dans `Viewer::depth`.
+    let (sender, frames) = sync_channel::<Queued>(MAX_DEPTH);
     match viewers.lock() {
         Ok(mut viewers) => viewers.push(Viewer::new(sender)),
         Err(_) => return,
@@ -300,8 +427,10 @@ pub(super) fn video_thread(
     tracing::info!("a browser is watching");
 
     loop {
+        // L'image rend sa place dès qu'elle sort de la file, comme le faisait
+        // le canal fixe: celle qu'on écrit n'est pas comptée dans la file.
         let outgoing = match frames.recv_timeout(KEEP_ALIVE) {
-            Ok(message) => message,
+            Ok(message) => message.frame(),
             // Nothing for half a second: say "still here" and nothing else.
             Err(RecvTimeoutError::Timeout) => Framed::new(),
             Err(RecvTimeoutError::Disconnected) => break,
@@ -350,7 +479,7 @@ pub(super) fn sound_thread(stream: TcpStream, listeners: &Viewers) {
         return;
     };
 
-    let (sender, chunks) = sync_channel::<Framed>(OUTGOING_DEPTH);
+    let (sender, chunks) = sync_channel::<Queued>(OUTGOING_DEPTH);
     match listeners.lock() {
         Ok(mut listeners) => listeners.push(Viewer::new(sender)),
         Err(_) => return,
@@ -359,7 +488,7 @@ pub(super) fn sound_thread(stream: TcpStream, listeners: &Viewers) {
 
     loop {
         let outgoing = match chunks.recv_timeout(KEEP_ALIVE) {
-            Ok(chunk) => chunk,
+            Ok(chunk) => chunk.frame(),
             Err(RecvTimeoutError::Timeout) => Framed::new(),
             Err(RecvTimeoutError::Disconnected) => break,
         };
@@ -381,6 +510,162 @@ pub(super) fn sound_thread(stream: TcpStream, listeners: &Viewers) {
     let _ = socket.close(None);
 }
 
+/// Combien de micros sont ouverts sur chaque place.
+///
+/// Un COMPTE par place et pas un bit. `pickMic` ferme puis rouvre le micro: si la
+/// nouvelle socket était acceptée avant que l'ancienne ait lu sa fermeture, le bit
+/// posé par la nouvelle était effacé par la fin de l'ancienne, et la place montrait
+/// un micro barré pendant qu'on enregistrait (revue du 23 septembre 2026). Ce que
+/// la salle diffuse reste un bit par place: « au moins un micro ouvert ici ».
+#[derive(Debug, Default)]
+pub(super) struct MicSeats([std::sync::atomic::AtomicU8; PORTS]);
+
+impl MicSeats {
+    /// Un micro de plus sur la place `port`, comptée à partir de un.
+    pub(super) fn open(&self, port: usize) {
+        if let Some(count) = port.checked_sub(1).and_then(|at| self.0.get(at)) {
+            let _ = count.fetch_update(
+                std::sync::atomic::Ordering::Relaxed,
+                std::sync::atomic::Ordering::Relaxed,
+                |now| Some(now.saturating_add(1)),
+            );
+        }
+    }
+
+    /// Un micro de moins sur la place `port`.
+    pub(super) fn close(&self, port: usize) {
+        if let Some(count) = port.checked_sub(1).and_then(|at| self.0.get(at)) {
+            let _ = count.fetch_update(
+                std::sync::atomic::Ordering::Relaxed,
+                std::sync::atomic::Ordering::Relaxed,
+                |now| Some(now.saturating_sub(1)),
+            );
+        }
+    }
+
+    /// Un bit par place qui a au moins un micro ouvert, tel que la salle le diffuse.
+    pub(super) fn bits(&self) -> u8 {
+        self.0.iter().enumerate().fold(0, |bits, (at, count)| {
+            if count.load(std::sync::atomic::Ordering::Relaxed) > 0 {
+                bits | (1 << at)
+            } else {
+                bits
+            }
+        })
+    }
+}
+
+/// La place que désigne ce reçu, comptée à partir de un, ou rien.
+///
+/// Le reçu ENTIER, époque comprise, comme la manette le vérifie. Ne comparer que le
+/// numéro faisait correspondre un reçu d'une autre époque du worker à la place qui
+/// porte aujourd'hui le même numéro.
+fn port_of(seats: [Option<u64>; PORTS], receipt: &str) -> Option<usize> {
+    seats
+        .iter()
+        .position(|held| held.is_some_and(|claim| crate::control::receipt(claim) == receipt))
+        .map(|at| at + 1)
+}
+
+/// Le prochain numéro de socket de micro, pour que chaque voix ait sa file.
+static NEXT_MIC: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+
+/// Combien de temps au plus la boucle du micro dort avant de se réveiller.
+///
+/// Elle doit se réveiller pour deux raisons: voir si la page s'est tue trop
+/// longtemps, et relire la place que désigne son reçu, qui peut changer en cours
+/// de partie.
+const MIC_WAKE: Duration = Duration::from_secs(1);
+
+/// Recueille la voix d'un joueur et la range dans l'anneau des clips.
+///
+/// Le contraire exact de [`sound_thread`]: le son part, le micro arrive. Rien
+/// n'est rejoué à personne: ce qui est reçu est posé sur l'horloge de capture et
+/// rangé, pour être mélangé au son au prochain clip. Aucune place n'est prise.
+///
+/// `receipt` est le reçu de place que la page tient de sa socket de manette. S'il
+/// désigne une place de la salle, la salle montre à tous qu'un micro y est ouvert.
+pub(super) fn mic_thread(stream: TcpStream, shared: &Shared, receipt: Option<&str>) {
+    mic_loop(stream, shared, receipt, GONE_AFTER);
+}
+
+/// La boucle de [`mic_thread`], avec le délai de silence en paramètre pour que les
+/// essais n'aient pas à attendre quinze secondes.
+fn mic_loop(stream: TcpStream, shared: &Shared, receipt: Option<&str>, gone_after: Duration) {
+    let wake = gone_after.min(MIC_WAKE) / 2;
+    let _ = stream.set_nodelay(true);
+    let _ = stream.set_read_timeout(Some(wake));
+    let Ok(mut socket) = tungstenite::accept_with_config(stream, Some(socket_limits())) else {
+        return;
+    };
+    let source = NEXT_MIC.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let mut timeline = crate::clip::MicTimeline::default();
+    // La place comptée en ce moment. Relue régulièrement: un joueur qui change de
+    // place garde le même micro, et le badge doit le suivre.
+    let mut port: Option<usize> = None;
+    let mut resolved: Option<Instant> = None;
+    let mut heard_from = Instant::now();
+    tracing::info!("a browser opened a microphone");
+    loop {
+        if resolved.is_none_or(|at| at.elapsed() >= wake) {
+            let now = receipt.and_then(|receipt| {
+                shared
+                    .seats
+                    .lock()
+                    .ok()
+                    .and_then(|seats| port_of(*seats, receipt))
+            });
+            if now != port {
+                if let Some(old) = port {
+                    shared.mics.close(old);
+                }
+                if let Some(new) = now {
+                    shared.mics.open(new);
+                }
+                tracing::info!(port = now, "the microphone's seat changed");
+                port = now;
+            }
+            resolved = Some(Instant::now());
+        }
+        let payload = match socket.read() {
+            Ok(tungstenite::Message::Binary(bytes)) => bytes,
+            Ok(tungstenite::Message::Close(_)) => break,
+            Ok(_) => {
+                heard_from = Instant::now();
+                continue;
+            }
+            Err(tungstenite::Error::Io(error))
+                if matches!(
+                    error.kind(),
+                    std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut
+                ) =>
+            {
+                // Une page qui parle envoie un morceau toutes les 10 ms. Un silence
+                // aussi long veut dire qu'elle est partie sans fermer: portable en
+                // veille, Wi-Fi coupé. Sans cette sortie, son fil et son badge
+                // restaient pour toujours (revue du 23 septembre 2026).
+                if heard_from.elapsed() >= gone_after {
+                    tracing::info!("a microphone page went silent, forgetting it");
+                    break;
+                }
+                continue;
+            }
+            Err(_) => break,
+        };
+        heard_from = Instant::now();
+        let Ok(mut clips) = shared.clips.lock() else {
+            break;
+        };
+        let at = timeline.place(clips.now(), payload.len());
+        clips.keep_mic(source, at, &payload);
+    }
+    if let Some(port) = port {
+        shared.mics.close(port);
+    }
+    tracing::info!("the browser closed its microphone");
+    let _ = socket.close(None);
+}
+
 #[cfg(test)]
 #[expect(
     clippy::unwrap_used,
@@ -392,6 +677,46 @@ mod tests {
     use super::super::harness::*;
     use super::super::{PORTS, Shared};
     use super::*;
+
+    /// L'état partagé d'une salle vide, pour les essais qui ouvrent de vraies sockets.
+    fn test_shared() -> Shared {
+        Shared {
+            save_catalogue: Arc::new(Mutex::new(None)),
+            input_kind: crate::browser::InputKind::Dolphin,
+            devices: Arc::new(Mutex::new([0; PORTS])),
+            clips: Arc::new(Mutex::new(crate::clip::Clips::new())),
+            closing_in: Arc::new(std::sync::atomic::AtomicU8::new(0)),
+            wants_save: Arc::new(Mutex::new(0)),
+            wants_pad: Arc::new(Mutex::new(0_u8)),
+            acted: Arc::new(Mutex::new([None; PORTS])),
+            wants_extension: Arc::new(Mutex::new([None; PORTS])),
+            viewers: Arc::new(Mutex::new(Vec::new())),
+            half_viewers: Arc::new(Mutex::new(Vec::new())),
+            half_joined: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            half_wants_key: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            half_ready: Arc::new(std::sync::atomic::AtomicU8::new(
+                crate::browser::HALF_UNKNOWN,
+            )),
+            half_granted_key: Arc::new(Mutex::new(Instant::now())),
+            listeners: Arc::new(Mutex::new(Vec::new())),
+            inputs: Arc::new(Mutex::new([None; PORTS])),
+            rumbles: Arc::new(Mutex::new([0; PORTS])),
+            arrived: Arc::new(Condvar::new()),
+            received: Arc::new(std::sync::atomic::AtomicU64::new(0)),
+            joined: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            wants_key: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            granted_key: Arc::new(Mutex::new(
+                Instant::now().checked_sub(KEY_FRAME_EVERY).unwrap(),
+            )),
+            seats: Arc::new(Mutex::new([None; PORTS])),
+            mics: Arc::new(MicSeats::default()),
+            players: four(),
+            wants_rom: Arc::new(Mutex::new(None)),
+            catalogue: Arc::new(Mutex::new("[]".into())),
+            art: no_art(),
+            owner: nobody(),
+        }
+    }
 
     #[test]
     fn a_key_frame_is_recognised_by_its_nal_type_and_nothing_else() {
@@ -421,8 +746,8 @@ mod tests {
     /// affichait zéro image jetée: c'était vrai, et ça ne parlait pas de lui.
     #[test]
     fn each_viewer_carries_its_own_count() {
-        let (fast, fast_held) = sync_channel::<Framed>(OUTGOING_DEPTH);
-        let (slow, _slow_held) = sync_channel::<Framed>(OUTGOING_DEPTH);
+        let (fast, fast_held) = sync_channel::<Queued>(OUTGOING_DEPTH);
+        let (slow, _slow_held) = sync_channel::<Queued>(OUTGOING_DEPTH);
         let server = detached(vec![fast, slow]);
 
         // Le lent ne vide jamais sa file; le rapide, si.
@@ -453,7 +778,7 @@ mod tests {
     /// fois son image s'est figée ».
     #[test]
     fn a_broken_chain_counts_one_break_not_many() {
-        let (slow, _held) = sync_channel::<Framed>(OUTGOING_DEPTH);
+        let (slow, _held) = sync_channel::<Queued>(OUTGOING_DEPTH);
         let server = detached(vec![slow]);
 
         for _ in 0..OUTGOING_DEPTH + 5 {
@@ -482,7 +807,7 @@ mod tests {
     /// celle du navigateur.
     #[test]
     fn a_stuck_viewer_does_not_force_a_key_frame_every_frame() {
-        let (sender, _held) = sync_channel::<Framed>(OUTGOING_DEPTH);
+        let (sender, _held) = sync_channel::<Queued>(OUTGOING_DEPTH);
         let server = detached(vec![sender]);
 
         for _ in 0..OUTGOING_DEPTH {
@@ -511,7 +836,7 @@ mod tests {
     /// « son image s'est figée dix fois » pour une seule seconde d'attente.
     #[test]
     fn a_key_refused_during_a_break_does_not_count_a_second_break() {
-        let (sender, _held) = sync_channel::<Framed>(OUTGOING_DEPTH);
+        let (sender, _held) = sync_channel::<Queued>(OUTGOING_DEPTH);
         let server = detached(vec![sender]);
 
         for _ in 0..OUTGOING_DEPTH {
@@ -540,7 +865,7 @@ mod tests {
     /// abîme tout ce qui suit.
     #[test]
     fn a_dropped_key_frame_breaks_the_chain_like_any_other() {
-        let (sender, held) = sync_channel::<Framed>(OUTGOING_DEPTH);
+        let (sender, held) = sync_channel::<Queued>(OUTGOING_DEPTH);
         let server = detached(vec![sender]);
 
         for _ in 0..OUTGOING_DEPTH {
@@ -569,7 +894,7 @@ mod tests {
     /// 2026-08-16 sur un lien étroit avec `slowlink.mjs`.
     #[test]
     fn a_viewer_whose_stream_broke_is_left_alone_until_the_next_key_frame() {
-        let (sender, held) = sync_channel::<Framed>(OUTGOING_DEPTH);
+        let (sender, held) = sync_channel::<Queued>(OUTGOING_DEPTH);
         let server = detached(vec![sender]);
 
         // On remplit sa file, puis une image de plus: celle-là est perdue, et
@@ -598,40 +923,7 @@ mod tests {
 
     #[test]
     fn key_frames_are_granted_no_faster_than_the_limit() {
-        let shared = Shared {
-            input_kind: crate::browser::InputKind::Dolphin,
-            devices: Arc::new(Mutex::new([0; PORTS])),
-            clips: Arc::new(Mutex::new(crate::clip::Clips::new())),
-            closing_in: Arc::new(std::sync::atomic::AtomicU8::new(0)),
-            wants_save: Arc::new(Mutex::new(0)),
-            wants_pad: Arc::new(Mutex::new(0_u8)),
-            acted: Arc::new(Mutex::new([None; PORTS])),
-            wants_extension: Arc::new(Mutex::new([None; PORTS])),
-            viewers: Arc::new(Mutex::new(Vec::new())),
-            half_viewers: Arc::new(Mutex::new(Vec::new())),
-            half_joined: Arc::new(std::sync::atomic::AtomicBool::new(false)),
-            half_wants_key: Arc::new(std::sync::atomic::AtomicBool::new(false)),
-            half_ready: Arc::new(std::sync::atomic::AtomicU8::new(
-                crate::browser::HALF_UNKNOWN,
-            )),
-            half_granted_key: Arc::new(Mutex::new(Instant::now())),
-            listeners: Arc::new(Mutex::new(Vec::new())),
-            inputs: Arc::new(Mutex::new([None; PORTS])),
-            rumbles: Arc::new(Mutex::new([0; PORTS])),
-            arrived: Arc::new(Condvar::new()),
-            received: Arc::new(std::sync::atomic::AtomicU64::new(0)),
-            joined: Arc::new(std::sync::atomic::AtomicBool::new(false)),
-            wants_key: Arc::new(std::sync::atomic::AtomicBool::new(false)),
-            granted_key: Arc::new(Mutex::new(
-                Instant::now().checked_sub(KEY_FRAME_EVERY).unwrap(),
-            )),
-            seats: Arc::new(Mutex::new([None; PORTS])),
-            players: four(),
-            wants_rom: Arc::new(Mutex::new(None)),
-            catalogue: "[]".into(),
-            art: no_art(),
-            owner: nobody(),
-        };
+        let shared = test_shared();
 
         for _ in 0..1000 {
             ask_for_key_frame(&shared.wants_key, &shared.granted_key);
@@ -649,6 +941,231 @@ mod tests {
             !shared.wants_key.load(std::sync::atomic::Ordering::Relaxed),
             "two thousand requests bought two key frames instead of one"
         );
+    }
+
+    #[test]
+    fn two_microphones_on_one_seat_keep_its_badge_until_both_close() {
+        // Le défaut de la revue: un seul bit par place, que la fin d'une ancienne
+        // socket effaçait alors qu'une nouvelle venait de le poser.
+        let seats = MicSeats::default();
+        seats.open(2);
+        seats.open(2);
+        seats.close(2);
+        assert_eq!(
+            seats.bits(),
+            0b0010,
+            "une socket fermée a éteint le badge de l'autre"
+        );
+        seats.close(2);
+        assert_eq!(seats.bits(), 0);
+        seats.close(2);
+        assert_eq!(
+            seats.bits(),
+            0,
+            "une fermeture de trop ne doit pas déborder"
+        );
+    }
+
+    #[test]
+    fn a_receipt_names_its_seat_only_with_its_epoch() {
+        let mut seats = [None; PORTS];
+        seats[2] = Some(7);
+        let receipt = crate::control::receipt(7);
+
+        assert_eq!(port_of(seats, &receipt), Some(3));
+        // Le jumeau: le même numéro sous une autre époque ne désigne rien.
+        let stale = format!("{:032x}-7", 1_u128);
+        assert_eq!(port_of(seats, &stale), None);
+        assert_eq!(port_of(seats, "7"), None);
+    }
+
+    #[test]
+    fn a_microphone_page_that_goes_silent_is_forgotten() {
+        use tungstenite::client::IntoClientRequest as _;
+
+        let shared = test_shared();
+        shared.seats.lock().unwrap()[0] = Some(41);
+        let receipt = crate::control::receipt(41);
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        std::thread::scope(|scope| {
+            let server = scope.spawn(|| {
+                let (stream, _) = listener.accept().unwrap();
+                mic_loop(stream, &shared, Some(&receipt), Duration::from_millis(300));
+            });
+            let stream = TcpStream::connect(address).unwrap();
+            let (_page, _) = tungstenite::client(
+                format!("ws://{address}/mic")
+                    .as_str()
+                    .into_client_request()
+                    .unwrap(),
+                stream,
+            )
+            .unwrap();
+
+            assert!(
+                eventually(|| shared.mics.bits() == 0b0001),
+                "le badge ne s'est jamais allumé"
+            );
+            // La page ne dit plus rien et ne ferme rien: elle doit être oubliée.
+            assert!(
+                eventually(|| server.is_finished()),
+                "une page muette a gardé son fil"
+            );
+            assert_eq!(shared.mics.bits(), 0, "une page partie a gardé son badge");
+        });
+    }
+
+    #[test]
+    fn a_speaking_page_stays_and_its_badge_follows_its_seat() {
+        use tungstenite::client::IntoClientRequest as _;
+
+        let shared = test_shared();
+        shared.seats.lock().unwrap()[0] = Some(42);
+        let receipt = crate::control::receipt(42);
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        std::thread::scope(|scope| {
+            let server = scope.spawn(|| {
+                let (stream, _) = listener.accept().unwrap();
+                mic_loop(stream, &shared, Some(&receipt), Duration::from_millis(300));
+            });
+            let stream = TcpStream::connect(address).unwrap();
+            let (mut page, _) = tungstenite::client(
+                format!("ws://{address}/mic")
+                    .as_str()
+                    .into_client_request()
+                    .unwrap(),
+                stream,
+            )
+            .unwrap();
+            assert!(eventually(|| shared.mics.bits() == 0b0001));
+
+            // Le joueur passe de la place 1 à la place 3 en gardant son micro.
+            {
+                let mut seats = shared.seats.lock().unwrap();
+                seats[0] = None;
+                seats[2] = Some(42);
+            }
+            for _ in 0..8 {
+                page.send(tungstenite::Message::binary(vec![0_u8; 960]))
+                    .unwrap();
+                std::thread::sleep(Duration::from_millis(100));
+            }
+
+            assert!(!server.is_finished(), "une page qui parle a été oubliée");
+            assert_eq!(
+                shared.mics.bits(),
+                0b0100,
+                "le badge n'a pas suivi la place"
+            );
+            page.close(None).unwrap();
+            let _ = page.flush();
+            assert!(eventually(|| server.is_finished()));
+            assert_eq!(shared.mics.bits(), 0);
+        });
+    }
+
+    /// Combien d'images attendent dans une file qu'on ne vide pas.
+    fn waiting(held: &std::sync::mpsc::Receiver<Queued>) -> usize {
+        std::iter::from_fn(|| held.try_recv().ok()).count()
+    }
+
+    #[test]
+    fn a_queue_that_refused_a_frame_doubles_up_to_eight() {
+        let at = Instant::now();
+        let mut depth = Depth::new(8);
+        assert_eq!(depth.allowed(at), 2);
+        depth.widen(at);
+        assert_eq!(depth.allowed(at), 4);
+        depth.widen(at);
+        assert_eq!(depth.allowed(at), 8);
+        // Le jumeau: la borne tient, quel que soit le nombre de refus.
+        depth.widen(at);
+        depth.widen(at);
+        assert_eq!(depth.allowed(at), 8);
+    }
+
+    #[test]
+    fn a_calm_queue_gives_back_one_place_per_calm_period_down_to_two() {
+        let at = Instant::now();
+        let mut depth = Depth::new(8);
+        depth.widen(at);
+        depth.widen(at);
+        // Juste avant la fin du calme, rien ne bouge.
+        assert_eq!(
+            depth.allowed(at + CALM_FOR.checked_sub(Duration::from_millis(1)).unwrap()),
+            8
+        );
+        assert_eq!(depth.allowed(at + CALM_FOR), 7);
+        // Une place par période, pas une par appel.
+        assert_eq!(depth.allowed(at + CALM_FOR), 7);
+        let mut later = at + CALM_FOR;
+        for _ in 0..20 {
+            later += CALM_FOR;
+            depth.allowed(later);
+        }
+        assert_eq!(depth.allowed(later), OUTGOING_DEPTH, "jamais sous deux");
+    }
+
+    #[test]
+    fn a_queue_that_never_refused_stays_at_two() {
+        let at = Instant::now();
+        let mut depth = Depth::new(8);
+        assert_eq!(depth.allowed(at + Duration::from_hours(1)), OUTGOING_DEPTH);
+    }
+
+    /// Le jumeau qui porte la latence: la file a une capacité de huit, mais un
+    /// spectateur qui suit n'en reçoit que deux. Sans la limite par spectateur, le
+    /// canal en accepterait huit, soit 133 ms de retard pour tout le monde.
+    #[test]
+    fn a_viewer_that_keeps_up_never_waits_behind_more_than_two_frames() {
+        let (sender, held) = sync_channel::<Queued>(MAX_DEPTH);
+        let server = detached(vec![sender]);
+        for _ in 0..OUTGOING_DEPTH {
+            assert!(server.send(&delta()));
+        }
+        assert_eq!(server.viewer_health()[0].breaks, 0);
+        let _ = server.send(&delta());
+
+        assert_eq!(waiting(&held), OUTGOING_DEPTH);
+        assert_eq!(server.viewer_health()[0].breaks, 1);
+    }
+
+    /// En service, la file ne grandit pas (voir `MAX_DEPTH`): après une chaîne
+    /// cassée, la même liaison tient toujours deux images, pas une de plus.
+    #[test]
+    fn in_service_a_broken_chain_does_not_lengthen_the_queue() {
+        let (sender, held) = sync_channel::<Queued>(8);
+        let server = detached(vec![sender]);
+        for _ in 0..=OUTGOING_DEPTH {
+            let _ = server.send(&delta());
+        }
+        let health = server.viewer_health()[0];
+        assert_eq!(
+            (health.breaks, health.depth),
+            (1, OUTGOING_DEPTH),
+            "{health:?}"
+        );
+        // La file est toujours pleine de ses deux images: la clé aussi est
+        // refusée, et la limite n'a pas bougé.
+        assert!(!server.send(&frame()));
+        assert_eq!(server.viewer_health()[0].depth, OUTGOING_DEPTH);
+
+        assert_eq!(waiting(&held), OUTGOING_DEPTH);
+    }
+
+    /// Une image sortie de la file rend sa place, quel que soit celui qui la sort.
+    #[test]
+    fn a_frame_taken_out_of_the_queue_gives_its_place_back() {
+        let (sender, held) = sync_channel::<Queued>(MAX_DEPTH);
+        let server = detached(vec![sender]);
+        for _ in 0..100 {
+            assert!(server.send(&delta()));
+            assert!(server.send(&delta()));
+            assert_eq!(waiting(&held), 2);
+        }
+        assert_eq!(server.viewer_health()[0].breaks, 0);
     }
 }
 

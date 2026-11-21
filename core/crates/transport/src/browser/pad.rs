@@ -36,6 +36,7 @@ pub(super) fn claim_a_port(
             seats,
             false,
             shared.closing_in.load(std::sync::atomic::Ordering::Relaxed),
+            shared.mics.bits(),
         )));
         return None;
     };
@@ -45,6 +46,7 @@ pub(super) fn claim_a_port(
         seats,
         decides(&shared.owner, &shared.acted, seat),
         shared.closing_in.load(std::sync::atomic::Ordering::Relaxed),
+        shared.mics.bits(),
     );
     if socket
         .send(tungstenite::Message::binary(told.clone()))
@@ -152,6 +154,12 @@ fn announce_format(
             .is_ok()
 }
 
+/// Receives pad frames until the client goes away.
+#[expect(
+    clippy::too_many_lines,
+    reason = "la boucle de manette tient la place, la vibration, la salle et la \
+              réponse au remplacement ; la couper déplacerait l'ordre sans le réduire"
+)]
 pub(super) fn input_thread(
     stream: TcpStream,
     shared: &Shared,
@@ -213,6 +221,7 @@ pub(super) fn input_thread(
                 seats,
                 false,
                 shared.closing_in.load(std::sync::atomic::Ordering::Relaxed),
+                shared.mics.bits(),
             )));
             break;
         }
@@ -479,6 +488,7 @@ pub(super) fn send_room(
         seats,
         decides(&shared.owner, &shared.acted, seat),
         shared.closing_in.load(std::sync::atomic::Ordering::Relaxed),
+        shared.mics.bits(),
     );
     if current == told {
         return Ok(told);
@@ -542,13 +552,17 @@ pub(super) fn room_message(
     // le reçoit d'emblée. Un message d'avertissement séparé aurait raté celle
     // qui se connecte après l'annonce.
     closing_in: u8,
+    // Les places qui ont un micro ouvert, un bit par place. Diffusé pour que
+    // chacun voie qui sera capté dans le prochain clip, avant d'y figurer.
+    mics: u8,
 ) -> Vec<u8> {
-    let mut message = Vec::with_capacity(4 + PORTS);
+    let mut message = Vec::with_capacity(4 + PORTS + 1);
     message.push(players.get());
     message.push(mine.map_or(0, PlayerSlot::get));
     message.push(u8::from(may_decide));
     message.push(closing_in);
     message.extend(occupancy(seats).into_iter().map(u8::from));
+    message.push(mics);
     message
 }
 

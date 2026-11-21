@@ -671,6 +671,157 @@ service stopped. The bench does not prove the absence of subtler effects on a
 longer evening, or on Dolphin, which was not measured.
 
 
+### D22: One console manifest, read or checked by every layer, 2026-11-21
+
+The audit of 2026-11-20 counted 28 places in 15 files to touch for one more
+console, and the console list copied at least seven times. One boolean,
+`Console::is_switch()`, carried five decisions: the input frame, the device
+shown to the page, the external adapter path, the machine lock and the cover
+art source. A retro console added by extending it would have taken the Switch
+lock and been refused while another room played a Switch game.
+
+`consoles/consoles.json`, at the repository root, is now the description of
+each console. It lists engines (name, the role the black box records, kernel
+process names of at most 15 characters) and consoles: code, label, short note,
+player limit, engine, form (internal, or external with its default script, the
+variable that replaces it and the variable naming its private configuration),
+input frame (`dolphin` or `pro`), devices offered by a preparation, lock group,
+art source (`banner`, `wii-save`, `sidecar`), media kind, folder, registration
+(`dolphin-header`, `sidecar`, `none`), extensions, experimental and playable
+flags. JSON has no comments, so each entry carries a `why` object for the values
+that need a reason (rule 1).
+
+Who reads it:
+
+- the control plane, through `nel3ab_control.consoles`, which validates the file
+  at import and derives the black box's engine processes and screen-capture
+  roles, the preparable consoles, the devices offered, the one-player
+  preparation and the Switch lock flag shown on the lobby list;
+- the page, which imports it through Vite; the file is an input of the page
+  stamp (D13), so editing it without `just front-build` turns `just check` red;
+- the worker keeps its `Console` enum and `const fn` capabilities:
+  `input_frame()`, `adapter()`, `lock_group()`, `art_source()`, plus
+  `registration()`, `extensions()`, `folder()`, `playable()` and
+  `experimental()`. A test reads the manifest and names every disagreement in
+  both directions, field by field. Switch registration (`switch::registered`)
+  and art gathering now ask these capabilities, and the lock follows the lock
+  group rather than the adapter path.
+
+Rejected: generating the enum in `build.rs`. Its variants are named across four
+crates, its documentation would move into JSON, and a generated `match` reads
+worse than a written one. `const fn` capabilities cannot fail at run time, so a
+bad manifest stops the gate instead of a room (rule 6). The cost is two places
+to edit for a capability Rust uses; the test names the field that differs.
+Rejected: TOML, which has comments but needs a new Rust dependency to audit.
+
+The guards that run in each layer: the Rust test above; Python tests that pin
+today's black box processes, require every playable console's engine to have a
+process (the `eden-cli` omission of 2026-11-07), and compare the worker unit's
+`NEL3AB_ROM_DIR` folders and adapter configuration variables with the manifest;
+page tests that require a distinct icon and a lobby label for every manifest
+console. Adding a fake console to the manifest alone was shown to turn all
+three red on 2026-11-21.
+
+The Xbox 360 entry (`x360`, engine `xenia`, external, Pro frame, four players,
+disc, folder `xbox360`, `iso` and `xex`) is described and not playable. Its
+registration is `none`, so no scan files a game under it: its `.iso` would
+otherwise leave the Dolphin path. A worker refuses to start a console that is
+not playable and stays on its menu; the lobby does not prepare it; the page
+greys it. Its adapter script and variables are reserved and read by nothing. Its
+engine has no process name yet: none has been observed, and the manifest refuses
+a playable console without one. GOD (Games on Demand) containers are described
+as an extensionless header file next to a `<name>.data` directory, which Xenia
+opens directly; the scan does not read them.
+
+Still written by hand, with their reason: Dolphin's own per-console behaviour in
+the worker (Wii NAND against GameCube card, Wiimote devices), the Switch title
+rules (16 hex digits, base `000`, Switch 2 family `0400`), the default ROM
+folders when `NEL3AB_ROM_DIR` is unset (gc and wii only: deriving them would
+make a development worker on this machine take the real Switch lock), the
+black box's companion processes (`nel3ab-worker`, Sway, the recorders), the
+`boite_noire_roulant_sauf` setting (checked against the manifest roles), the
+guide tables (checked to name manifest consoles), the page's Wii-specific
+device screens, and the icons (checked to be one per console).
+
+
+### D23: A game is named by its file name, 2026-11-21
+
+A page asked for a game by its position in a list sorted by name, on one byte.
+A file that sorts earlier moves every later position, so a page or the lobby
+holding the old list would start the neighbour. Positions stay valid today only
+because the worker scans once per process and the seat receipts carry a process
+generation; an import adding files while rooms run would break both.
+
+Every catalogue entry served at `/roms` now has a `key`: the file name, which is
+already what a room remembers its choice by and what Dolphin saves are keyed on,
+and which the scan keeps unique. A key is resolved by EQUALITY against the names
+the worker's own scan found, never joined to a path. `nel3ab_protocol::GameKey`
+also refuses what a path needs (separators, `.`, `..`, empty, control
+characters, more than 255 bytes), so `../x` cannot even be held.
+
+Two routes carry it. On the input socket, a text frame `{"jeu":"<key>"}`. Binary
+messages are told apart by length, and a key has none fixed; text frames were
+ignored, so an older worker ignores this one and an older page never sends it.
+It goes through the same owner rule as `SwitchRom`. A refusal is named back as a
+text frame, `jeu refusé: <raison>` (invalid key, absent from this library, this
+seat does not decide), and the connection stays open, as for a refused position.
+Other text stays ignored. Through the lobby, the page sends `key` with its
+preparation; the lobby finds the game by key in the library it just read, keeps
+the key, and finds the game again by key at launch. The private control line
+carries `k` followed by the key's UTF-8 bytes in hexadecimal, because the line
+is split on spaces and file names contain them. The worker's browser server
+reads the keys from the catalogue it serves and resolves them to a position in
+its own library when it accepts the launch. The two-byte `SwitchRom`, the
+numeric game field on the control line and the lobby's `game` index stay
+accepted for a page, lobby or worker that has not restarted yet. Art is still
+served by position, from the same process that served the list.
+
+Rejected: a library generation sent with each position. It detects a changed
+list and refuses, where a key finds the game. Rejected: a content hash, which
+would cost a full read of files up to 24 GiB and names nothing a person can read.
+Rejected: the displayed title, which is not unique and changes with the cleaning
+rules.
+
+Found while measuring the control line on 2026-11-21: its read bound of 320
+bytes had been too small since the launcher's identity was added on 2026-09-12.
+The longest legal line was 358 bytes. A longer line was cut inside its last
+field, still parsed, and named a truncated identity, hence the wrong personal
+save folder. Real seat receipts are shorter than their maximum, which hid it.
+The bound is now the measured maximum with a key, 866 bytes, and a line that
+reaches the bound without its newline is refused. Both halves were shown to fail
+their regression test when reintroduced.
+
+
+### D24: The library is a file the lobby can read without a room, 2026-11-21
+
+The lobby needs the list of games (key, console, title, art available) for the
+import and profile pages, including when no room runs. Asking a worker needs a
+running room. Scanning in Python would copy the title cleaning written in Rust,
+and asking a disc its console means starting the `dolphin-tool` container, which
+the lobby must not do.
+
+At each scan, which is each start, the worker writes `catalogue.json`:
+`version`, `scanned_ms` (Unix milliseconds) and `roms`, whose entries are the
+`/roms` entries written by the same function. It writes a temporary file in the
+same directory, flushes it, then renames it over the old one, so a reader sees
+the old file or the new one. The path is `NEL3AB_CATALOGUE`, by default inside
+the room's own session directory, `salles/<N>/catalogue.json`. Inside and not
+next to it: a test that gives the worker a temporary session directory writes
+nothing outside it, and no unit file changes. A failed write is logged and does
+not stop the room.
+
+The lobby reads `salles_dir/<N>/catalogue.json` for each numbered room and keeps
+the freshest by `scanned_ms`. A file that is unreadable, of an unknown version,
+or with one malformed entry, a path-like key or a repeated key is set aside
+whole, and the next freshest is used: half a list would hide games without
+saying so. `GET /api/catalogue` serves it, and answers a named 404 when no room
+has ever written one. A test proves the route asks no worker.
+
+Limits: the file is as fresh as the last room start. A file added to `~/roms`
+since then is not listed until a room starts again; the import will need a
+rescan at rest. Art itself is still served by a room.
+
+
 ## Consequences
 
 - AV1 encoding is unavailable (needs RDNA3+). Target H.264/HEVC.

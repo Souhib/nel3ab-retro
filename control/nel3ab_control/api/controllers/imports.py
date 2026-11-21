@@ -363,6 +363,14 @@ class ImportsController:
         return await to_thread.run_sync(ecrire)
 
     def regles(self) -> Regles:
+        """Ce que le traitement doit savoir, catalogue des salles compris (ADR D24).
+
+        Le catalogue le plus frais donne les noms de jeux et les titres Switch
+        déjà inscrits, y compris dans un dossier que le salon ne connaît pas.
+        Sans salle, il ne donne rien.
+        """
+        lu = catalogue.freshest(self.settings.salles_dir)
+        jeux = lu.games if lu else []
         return Regles(
             rom_dir=self.settings.rom_dir,
             verrou=self.settings.imports_dir / "rangement.lock",
@@ -370,16 +378,12 @@ class ImportsController:
             marge=self.settings.imports_marge,
             espace_libre=self.espace_libre,
             outils=self.outils(),
-            connus=self.connus(),
+            connus=frozenset(jeu.key for jeu in jeux),
+            titres_connus={jeu.title_id: jeu.key for jeu in jeux if jeu.title_id},
             # Relue à chaque envoi terminé: quelques Kio, et un fichier de clés
             # posé ou corrigé sert sans redémarrer le salon.
             cle_switch=switch_nca.charger_cle(self.settings.switch_keys),
         )
-
-    def connus(self) -> frozenset[str]:
-        """Les noms du catalogue le plus frais des salles, ou rien sans salle."""
-        lu = catalogue.freshest(self.settings.salles_dir)
-        return frozenset(jeu.key for jeu in lu.games) if lu else frozenset()
 
     async def finir(self, ident: str, login: str) -> EnvoiVu:
         """Lance la vérification, une seule fois, et rend l'état tout de suite."""

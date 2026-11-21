@@ -1583,7 +1583,8 @@ Program NCA stays « à confirmer ». The CNMT body, which states the type itsel
 needs another key and is not read.
 
 **A base title is registered once.** A title already registered by a sidecar
-lying beside its game is refused as a duplicate: saves are keyed by title. The
+lying beside its game, or listed with a game in the rooms' catalogue (D24), is
+refused as a duplicate: saves are keyed by title. The
 sidecar is written before the game, under a provisional name, then linked
 without replacement; it is removed if the game link fails, compared by an
 inode still held open. `consoles/fiche-switch.json` is the contract: the Python

@@ -19,8 +19,9 @@ doivent tomber sur le même nom, donc sur le refus d'un doublon.
 - le même jeu (code et numéro de disque) déjà dans le même dossier, sous un
   autre format ou une autre révision;
 - pour la Switch, le même identifiant de titre déjà inscrit par la fiche d'un
-  autre fichier: la salle range ses sauvegardes par ce titre, donc deux
-  fichiers du même jeu partageraient la progression de chacun.
+  autre fichier, ou au catalogue des salles: la salle range ses sauvegardes
+  par ce titre, donc deux fichiers du même jeu partageraient la progression de
+  chacun.
 
 Ces contrôles se font sous un verrou, puis le fichier est LIÉ à sa place:
 `link` échoue si le nom existe, là où `rename` l'écraserait. Si un fichier
@@ -45,7 +46,7 @@ import json
 import os
 import re
 import unicodedata
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
@@ -204,13 +205,20 @@ class Bibliotheque:
     """Les dossiers de jeux, et la seule porte par laquelle un import y entre."""
 
     def __init__(
-        self, dossiers: list[Path], verrou: Path, connus: frozenset[str] = frozenset()
+        self,
+        dossiers: list[Path],
+        verrou: Path,
+        connus: frozenset[str] = frozenset(),
+        titres_connus: Mapping[str, str] | None = None,
     ) -> None:
         self.dossiers = dossiers
         self.verrou = verrou
         #: Les noms du catalogue que les salles écrivent (ADR D24). Ils couvrent
         #: aussi un dossier que le worker balaie et que le salon ne connaît pas.
         self.connus = connus
+        #: Du même catalogue: l'identifiant de titre de chaque jeu Switch inscrit,
+        #: en minuscules, et le nom du fichier qu'il désigne.
+        self.titres_connus = titres_connus or {}
 
     def existants(self) -> Iterator[Existant]:
         """Chaque fichier ordinaire de chaque dossier, sans suivre de lien."""
@@ -301,6 +309,12 @@ class Bibliotheque:
                 "doublon",
                 f"le même jeu (titre {fiche.titre.upper()}) est déjà inscrit: "
                 f"« {deja.jeu.montre} »",
+            )
+        if fiche is not None and (cle_connue := self.titres_connus.get(fiche.titre)):
+            raise Refus(
+                "doublon",
+                f"le même jeu (titre {fiche.titre.upper()}) est au catalogue des salles: "
+                f"« {cle_connue} »",
             )
         cle = cle_sauvegarde(nom)
         for connu in self.connus:

@@ -873,11 +873,13 @@ async def test_la_liste_rend_les_envois_de_la_personne(
     assert [envoi["id"] for envoi in liste] == [ident]
 
 
-def ecrire_catalogue(app: FastAPI, cle: str) -> None:
+def ecrire_catalogue(
+    app: FastAPI, cle: str, console: str = "gc", title_id: str | None = None
+) -> None:
     """Le catalogue qu'une salle écrit à son démarrage (ADR D24), avec un seul jeu."""
     salle = app.state.settings.salles_dir / "1"
     salle.mkdir(parents=True)
-    jeu = {"key": cle, "name": "Un jeu", "console": "gc", "art": False}
+    jeu = {"key": cle, "name": "Un jeu", "console": console, "art": False, "title_id": title_id}
     (salle / "catalogue.json").write_text(
         json.dumps({"version": 1, "scanned_ms": 1, "roms": [jeu]}), encoding="utf-8"
     )
@@ -907,6 +909,27 @@ async def test_un_catalogue_qui_ne_nomme_pas_ce_jeu_ne_bloque_rien(
     await envoyer(client, ident, GC)
 
     assert (await finir(client, imports, ident))["elements"][0]["etat"] == "range"
+
+
+@pytest.mark.parametrize(("titre", "etat"), [("0100abcdef012000", "doublon"), (None, "range")])
+async def test_un_titre_switch_deja_au_catalogue_des_salles_est_un_doublon(
+    client: httpx.AsyncClient,
+    app: FastAPI,
+    imports: ImportsController,
+    roms: Path,
+    cle_switch: bytes,
+    titre: str | None,
+    etat: str,
+) -> None:
+    """Le catalogue voit un dossier que le salon ignore; le jumeau n'y porte aucun titre."""
+    ecrire_catalogue(app, "Ailleurs.nsp", console="switch", title_id=titre)
+
+    fini = await deposer(client, imports, nsp_switch(cle_switch), "Super Essai Kart.nsp")
+
+    [element] = fini["elements"]
+    assert element["etat"] == etat
+    assert ("« Ailleurs.nsp »" in element["message"]) == (etat == "doublon")
+    assert bool(list((roms / "switch").iterdir())) == (etat == "range")
 
 
 async def test_une_page_d_un_autre_site_ne_peut_pas_annoncer_un_envoi(

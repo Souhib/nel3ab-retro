@@ -14,7 +14,7 @@ import hashlib
 import os
 import zipfile
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from nel3ab_control.imports import archives
@@ -77,6 +77,8 @@ class Regles:
     cle_switch: CleEntete | SansCle
     #: Les noms de jeux du catalogue des salles, refusés comme noms nouveaux.
     connus: frozenset[str] = frozenset()
+    #: Du même catalogue: titre Switch inscrit, en minuscules, et son fichier.
+    titres_connus: Mapping[str, str] = field(default_factory=dict)
 
 
 def decider(
@@ -282,7 +284,9 @@ def _placer(
 ) -> None:
     """Décide, et range quand il le faut. Remplit `etat`, `message`, `destination`."""
     _remplir(element, trouve)
-    bibliotheque = Bibliotheque(dossiers(regles.rom_dir), regles.verrou, regles.connus)
+    bibliotheque = Bibliotheque(
+        dossiers(regles.rom_dir), regles.verrou, regles.connus, regles.titres_connus
+    )
     switch = None
     inscrits: dict[str, Inscrit] = {}
     if trouve.console == "switch" and trouve.format in ("nsp", "xci"):

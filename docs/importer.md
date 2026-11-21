@@ -59,8 +59,8 @@ changement de jeu : une salle lit sa bibliothèque à son démarrage.
 Le rangement refuse un nom déjà pris, un nom qui partagerait les sauvegardes
 d'un autre jeu (« Jeu.iso » et « jeu.iso »), le même fichier déjà rangé, le
 même jeu, même code et même disque, déjà dans le même dossier, et un jeu Switch
-dont l'identifiant de titre est déjà inscrit par la fiche d'un autre fichier. Il
-ne remplace jamais un fichier existant.
+dont l'identifiant de titre est déjà inscrit par la fiche d'un autre fichier ou
+au catalogue des salles. Il ne remplace jamais un fichier existant.
 
 ## La Switch
 

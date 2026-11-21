@@ -25859,7 +25859,9 @@ son nom sans rien remplacer. Un jeu sans fiche n'est pas listé et une fiche
 sans jeu n'inscrit rien : un lecteur ne voit jamais un jeu à moitié inscrit. Si
 le jeu ne se lie pas, la fiche neuve est retirée. Un titre déjà inscrit par la
 fiche d'un autre fichier est refusé comme doublon, puisque les deux fichiers
-partageraient les sauvegardes de chacun. Seule compte une fiche posée à côté de
+partageraient les sauvegardes de chacun. Le catalogue des salles est aussi
+consulté : il porte maintenant le titre de chaque jeu Switch, et couvre un
+dossier que le worker balaie et que le salon ignore. Seule compte une fiche posée à côté de
 son jeu : une fiche orpheline n'inscrit rien pour le worker, et ne bloque pas
 un dépôt. Une fiche orpheline qui porte le nom voulu n'est jamais remplacée.
 
@@ -25906,7 +25908,8 @@ mauvaise raison.
 **Les preuves rouges.** Le numéro de secteur écrit en petit-boutiste fait
 échouer 24 essais, 17 du module et 7 du protocole complet. Sans le contrôle de
 taille, l'essai de la taille fausse échoue. Sans le refus du même titre, l'essai
-du doublon échoue. Sans le retrait de la fiche, l'essai du lien raté échoue.
+du doublon échoue, et sans la lecture des titres du catalogue, celui du titre
+au catalogue. Sans le retrait de la fiche, l'essai du lien raté échoue.
 Une clé affichée dans l'objet qui la porte fait échouer l'essai qui la cherche
 dans les règles. Une fiche partagée qui écrit `family` au lieu de `console` fait
 échouer l'essai Rust et l'essai Python.
@@ -25931,8 +25934,11 @@ rangé par l'import n'a jamais été lancé : un jeu qui demande une génératio
 clé plus récente que celles de la machine serait inscrit et ne démarrerait
 pas. La génération est montrée dans les détails, pas comparée. Le nom tiré du
 fichier peut être pauvre, et une fiche écrite ne porte ni image, ni éditeur,
-ni présentation. Le refus du même titre ne regarde que les dossiers de
-`NEL3AB_ROM_DIR`. Enfin, aucun contrôle automatique des avis de sécurité ne
+ni présentation. Le refus du même titre regarde les fiches des dossiers de
+`NEL3AB_ROM_DIR` et les titres du catalogue que les salles écrivent à leur
+démarrage, qui a gagné l'identifiant des jeux Switch le même jour : un jeu
+inscrit depuis le dernier démarrage d'une salle, dans un dossier que le salon
+ignore, lui échappe. Enfin, aucun contrôle automatique des avis de sécurité ne
 couvre les dépendances Python : CI n'audite que celles de Rust.
 
 ## 12. Glossaire complet

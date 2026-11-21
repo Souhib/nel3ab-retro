@@ -26110,7 +26110,10 @@ deux cas avec le nom relayé : l'ancienne écriture rend 200 vide, la nouvelle
 (`http://:8098`, toujours liée à la boucle locale) rend la 302. Le contrôle
 `deploy/anciennes-portes.sh` passe maintenant par la vraie porte, avec le nom
 du tailnet ; `just deploy-check` et le script de mise en service le lancent.
-Il était rouge sur la configuration fautive avant la correction.
+Il était rouge sur la configuration fautive avant la correction. Souhib a
+relancé la mise en service à 14 h 20 UTC : les deux vraies portes rendent
+maintenant la 302 vers `nel3ab.app`, chemin compris, et `just deploy-check`
+passe avec ce contrôle.
 
 **Leçon.** Un essai de redirection doit passer par le même chemin que le
 visiteur, nom d'hôte compris. Un appel direct au service derrière le

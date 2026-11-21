@@ -28,9 +28,10 @@ dépendance du matin (entrée « 21 novembre : le salon tombé cinquante
 secondes, faute d'une dépendance »). Caddy et les anciennes portes ont été mis en
 service à 12 h 48 UTC, mais les deux portes rendaient une page vide (entrée
 « 21 novembre : une seule adresse », paragraphe « Le piège »). La correction
-du Caddyfile attend un nouveau passage de
-`sudo bash deploy/mettre-en-service.sh` ; `just deploy-check` le dit tant
-qu'elle n'est pas installée. Le script valide le Caddyfile avant
+du Caddyfile est installée depuis 14 h 20 UTC : les deux vraies portes
+`.ts.net` renvoient vers `nel3ab.app`, et `just deploy-check`, qui les essaie
+par leur nom, passe. La mise en service se refait avec
+`sudo bash deploy/mettre-en-service.sh`. Le script valide le Caddyfile avant
 de copier quoi que ce soit, installe les unités, vérifie que le salon
 s'importe avec l'interpréteur que systemd lancera, redémarre les trois
 services, règle les anciennes portes, essaie les pages, puis lance

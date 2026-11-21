@@ -127,9 +127,14 @@ class Existant:
 class Bibliotheque:
     """Les dossiers de jeux, et la seule porte par laquelle un import y entre."""
 
-    def __init__(self, dossiers: list[Path], verrou: Path) -> None:
+    def __init__(
+        self, dossiers: list[Path], verrou: Path, connus: frozenset[str] = frozenset()
+    ) -> None:
         self.dossiers = dossiers
         self.verrou = verrou
+        #: Les noms du catalogue que les salles écrivent (ADR D24). Ils couvrent
+        #: aussi un dossier que le worker balaie et que le salon ne connaît pas.
+        self.connus = connus
 
     def existants(self) -> Iterator[Existant]:
         """Chaque fichier ordinaire de chaque dossier, sans suivre de lien."""
@@ -179,6 +184,15 @@ class Bibliotheque:
         self, destination: Path, nom: str, taille: int, sha256: str, jeu: tuple[str, str] | None
     ) -> None:
         cle = cle_sauvegarde(nom)
+        for connu in self.connus:
+            if connu == nom:
+                raise Refus("doublon", f"« {connu} » est déjà au catalogue des salles")
+            if cle_sauvegarde(connu) == cle:
+                raise Refus(
+                    "doublon",
+                    f"« {connu} », au catalogue des salles, partagerait ses sauvegardes avec ce "
+                    f"jeu (même clé « {cle} »)",
+                )
         for existant in self.existants():
             if existant.nom == nom:
                 raise Refus("doublon", f"« {existant.montre} » porte déjà ce nom")

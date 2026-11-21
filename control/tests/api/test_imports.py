@@ -7,6 +7,7 @@ salon, pour qu'une erreur de ce code ne puisse pas se recopier dans l'essai.
 """
 
 import hashlib
+import json
 import os
 from collections.abc import AsyncIterator
 from pathlib import Path
@@ -19,7 +20,7 @@ from nel3ab_control import identity
 from nel3ab_control.api.controllers.imports import ImportsController
 from tests.conftest import SOUHIB, VINCENT
 from tests.imports import fabrique as f
-from tests.imports.protocole import GC, MIO, annoncer, envoyer, finir, quarantaine
+from tests.imports.protocole import GC, MIO, annoncer, empreinte, envoyer, finir, quarantaine
 
 
 @pytest.fixture(autouse=True)
@@ -656,3 +657,53 @@ async def test_la_liste_rend_les_envois_de_la_personne(
     liste = (await client.get("/api/imports", headers=SOUHIB)).json()
 
     assert [envoi["id"] for envoi in liste] == [ident]
+
+
+def ecrire_catalogue(app: FastAPI, cle: str) -> None:
+    """Le catalogue qu'une salle écrit à son démarrage (ADR D24), avec un seul jeu."""
+    salle = app.state.settings.salles_dir / "1"
+    salle.mkdir(parents=True)
+    jeu = {"key": cle, "name": "Un jeu", "console": "gc", "art": False}
+    (salle / "catalogue.json").write_text(
+        json.dumps({"version": 1, "scanned_ms": 1, "roms": [jeu]}), encoding="utf-8"
+    )
+
+
+async def test_un_nom_deja_au_catalogue_des_salles_est_refuse(
+    client: httpx.AsyncClient, app: FastAPI, imports: ImportsController, roms: Path
+) -> None:
+    """Le catalogue couvre aussi un dossier que le worker balaie et que le salon ignore."""
+    ecrire_catalogue(app, "Super Essai Melee.iso")
+    ident = (await annoncer(client, GC)).json()["id"]
+    await envoyer(client, ident, GC)
+
+    fini = await finir(client, imports, ident)
+
+    assert fini["elements"][0]["etat"] == "doublon"
+    assert "catalogue des salles" in fini["elements"][0]["message"]
+    assert not list((roms / "gc").iterdir())
+
+
+async def test_un_catalogue_qui_ne_nomme_pas_ce_jeu_ne_bloque_rien(
+    client: httpx.AsyncClient, app: FastAPI, imports: ImportsController, roms: Path
+) -> None:
+    """Le jumeau du précédent."""
+    ecrire_catalogue(app, "Autre jeu.iso")
+    ident = (await annoncer(client, GC)).json()["id"]
+    await envoyer(client, ident, GC)
+
+    assert (await finir(client, imports, ident))["elements"][0]["etat"] == "range"
+
+
+async def test_une_page_d_un_autre_site_ne_peut_pas_annoncer_un_envoi(
+    client: httpx.AsyncClient, app: FastAPI, roms: Path
+) -> None:
+    """La garde d'origine de l'application couvre aussi l'import."""
+    reponse = await client.post(
+        "/api/imports",
+        json={"nom": "jeu.iso", "taille": len(GC), "empreinte_rapide": empreinte(GC)},
+        headers={**SOUHIB, "Origin": "https://ailleurs.example"},
+    )
+
+    assert reponse.status_code == 403
+    assert not quarantaine(app).exists()

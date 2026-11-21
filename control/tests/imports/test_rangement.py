@@ -1,5 +1,6 @@
 """Ranger sans jamais rien remplacer, sous un nom qui ne bougera plus."""
 
+import dataclasses
 import errno
 import hashlib
 import os
@@ -8,7 +9,8 @@ from typing import Any
 
 import pytest
 
-from nel3ab_control.imports import rangement
+from nel3ab_control import consoles as manifeste
+from nel3ab_control.imports import destinations, rangement
 from nel3ab_control.imports.destinations import destination, dossiers
 from nel3ab_control.imports.identifier import Identification
 from nel3ab_control.imports.rangement import (
@@ -154,6 +156,40 @@ def test_sans_dossier_pour_sa_console_un_jeu_attend_une_confirmation(tmp_path: P
 
     assert decision.etat == "a-confirmer"
     assert "« gc »" in decision.message
+
+
+def test_jouable_dossier_et_formats_viennent_du_manifeste() -> None:
+    """L'import ne tient pas sa propre table: il lit `consoles/consoles.json`."""
+    x360 = destinations.console("x360")
+    gc = destinations.console("gc")
+
+    assert x360 is not None
+    assert gc is not None
+    assert (x360.jouable, x360.dossier) == (False, "xbox360")
+    # `gcm` est au manifeste, mais l'identifiant le lit comme un `iso`.
+    assert gc.formats == {"iso", "rvz", "gcz", "ciso"}
+    assert gc.inscription == "dolphin-header"
+
+
+def test_une_console_rendue_jouable_au_manifeste_le_devient_pour_l_import() -> None:
+    """Le jumeau: changer le manifeste suffit, sans toucher à ce module."""
+    entrees = tuple(
+        dataclasses.replace(entree, playable=True) if entree.code == "x360" else entree
+        for entree in manifeste.CONSOLES.consoles
+    )
+    modifie = dataclasses.replace(manifeste.CONSOLES, consoles=entrees)
+
+    x360 = destinations.console("x360", modifie)
+    assert x360 is not None
+    assert x360.jouable
+
+
+def test_une_console_reconnue_hors_du_manifeste_n_a_ni_dossier_ni_moteur() -> None:
+    nes = destinations.console("nes")
+
+    assert nes is not None
+    assert (nes.libelle, nes.dossier, nes.jouable) == ("NES", None, False)
+    assert destinations.console("?") is None
 
 
 def test_le_dossier_vient_du_nom_et_pas_de_la_position(tmp_path: Path) -> None:

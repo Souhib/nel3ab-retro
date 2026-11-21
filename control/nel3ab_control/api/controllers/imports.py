@@ -35,6 +35,7 @@ from anyio.abc import TaskGroup
 from fastapi import HTTPException, status
 from starlette.requests import ClientDisconnect
 
+from nel3ab_control import catalogue
 from nel3ab_control.api.schemas.imports import (
     MORCEAU_MAX,
     DemandeEnvoi,
@@ -169,8 +170,8 @@ class ImportsController:
         return self._verrous.setdefault(ident, anyio.Lock())
 
     def _peut_voir(self, envoi: Envoi, login: str) -> bool:
-        administrateur = self.settings.admin.strip().lower()
-        return envoi.par == login or (bool(administrateur) and login == administrateur)
+        """Son auteur, et l'administrateur, qui range la bibliothèque de tous."""
+        return envoi.par == login or self.settings.is_admin(login)
 
     async def _a(self, ident: str, login: str) -> Envoi:
         """L'envoi, s'il existe ET si cette personne peut le voir. Sinon 404."""
@@ -366,7 +367,13 @@ class ImportsController:
             marge=self.settings.imports_marge,
             espace_libre=self.espace_libre,
             outils=self.outils(),
+            connus=self.connus(),
         )
+
+    def connus(self) -> frozenset[str]:
+        """Les noms du catalogue le plus frais des salles, ou rien sans salle."""
+        lu = catalogue.freshest(self.settings.salles_dir)
+        return frozenset(jeu.key for jeu in lu.games) if lu else frozenset()
 
     async def finir(self, ident: str, login: str) -> EnvoiVu:
         """Lance la vérification, une seule fois, et rend l'état tout de suite."""

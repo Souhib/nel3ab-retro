@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from nel3ab_control.imports import archives
-from nel3ab_control.imports.destinations import CONSOLES, destination, dossiers
+from nel3ab_control.imports.destinations import console, destination, dossiers
 from nel3ab_control.imports.empreinte import empreinte_rapide, lecteur_fd
 from nel3ab_control.imports.identifier import Identification, identifier
 from nel3ab_control.imports.quarantaine import (
@@ -56,60 +56,67 @@ class Regles:
     marge: int
     espace_libre: Callable[[Path], int]
     outils: archives.Outils | None
+    #: Les noms de jeux du catalogue des salles, refusés comme noms nouveaux.
+    connus: frozenset[str] = frozenset()
 
 
 def decider(trouve: Identification, rom_dir: str) -> Decision:
-    """Ranger, garder en quarantaine, ou demander: d'après les octets seulement."""
-    console = CONSOLES.get(trouve.console or "")
-    if console is None:
+    """Ranger, garder en quarantaine, ou demander: d'après les octets seulement.
+
+    Ce qui décide vient du manifeste des consoles: « jouable », la façon dont
+    un jeu s'inscrit, les formats listés et le nom du dossier.
+    """
+    trouvee = console(trouve.console)
+    if trouvee is None:
         if trouve.format == "inconnu":
             return Decision("inconnu", "Aucune console reconnue dans ses octets.")
         return Decision(
             "inconnu", f"Format {trouve.format} reconnu, mais pas la console qu'il contient."
         )
-    if console.code in ("gc", "wii"):
-        if trouve.format not in console.formats:
-            return Decision(
-                "pas-jouable",
-                f"Dolphin lit le format {trouve.format.upper()}, mais la salle ne le liste pas "
-                "encore. Convertis-le en RVZ avec Dolphin, puis renvoie-le.",
-            )
-        if "nkit" in trouve.drapeaux:
-            return Decision(
-                "a-confirmer",
-                "Image NKit: Dolphin la lance avec un avertissement, et certains jeux s'y "
-                "arrêtent. Il manque une image complète, en ISO ou en RVZ.",
-            )
-        if "a-verifier" in trouve.drapeaux:
-            return Decision(
-                "a-confirmer",
-                "Le format annonce une console et le disque en porte une autre. Il manque une "
-                "image dont les deux s'accordent.",
-            )
-        dossier = destination(console.code, rom_dir)
-        if dossier is None or not dossier.is_dir():
-            return Decision(
-                "a-confirmer",
-                f"Le salon ne connaît pas de dossier « {console.dossier} » où ranger ce jeu "
-                "(réglage NEL3AB_ROM_DIR du salon).",
-            )
-        return Decision("range", VISIBLE, dossier)
-    if console.code == "switch":
-        return _switch(trouve)
-    if console.code == "switch2":
+    if not trouvee.jouable:
+        manque = "d'adaptateur" if trouvee.dossier else "d'émulateur pour elle"
+        return Decision(
+            "pas-jouable",
+            f"{trouvee.libelle} reconnue, pas encore jouable: la salle n'a pas {manque}.",
+        )
+    if trouvee.inscription == "sidecar":
+        if trouvee.code == "switch":
+            return _switch(trouve)
         return Decision(
             "a-confirmer",
-            "Switch 2: l'identifiant de titre, qui commence par 0400, et le nom s'inscrivent "
-            "à la main tant que ce moteur est expérimental.",
+            f"{trouvee.libelle}: l'identifiant de titre et le nom s'inscrivent à la main "
+            "(<fichier>.nel3ab.json), tant que ce moteur est expérimental.",
         )
-    if console.code == "x360":
+    if trouvee.inscription != "dolphin-header":
         return Decision(
-            "pas-jouable", "Xbox 360 reconnue, pas encore jouable: la salle n'a pas d'adaptateur."
+            "a-confirmer", f"La salle ne sait pas encore inscrire un jeu {trouvee.libelle}."
         )
-    return Decision(
-        "pas-jouable",
-        f"{console.libelle} reconnue, pas encore jouable: la salle n'a pas d'émulateur pour elle.",
-    )
+    if trouve.format not in trouvee.formats:
+        return Decision(
+            "pas-jouable",
+            f"Dolphin lit le format {trouve.format.upper()}, mais la salle ne le liste pas "
+            "encore. Convertis-le en RVZ avec Dolphin, puis renvoie-le.",
+        )
+    if "nkit" in trouve.drapeaux:
+        return Decision(
+            "a-confirmer",
+            "Image NKit: Dolphin la lance avec un avertissement, et certains jeux s'y "
+            "arrêtent. Il manque une image complète, en ISO ou en RVZ.",
+        )
+    if "a-verifier" in trouve.drapeaux:
+        return Decision(
+            "a-confirmer",
+            "Le format annonce une console et le disque en porte une autre. Il manque une "
+            "image dont les deux s'accordent.",
+        )
+    dossier = destination(trouvee.code, rom_dir)
+    if dossier is None or not dossier.is_dir():
+        return Decision(
+            "a-confirmer",
+            f"Le salon ne connaît pas de dossier « {trouvee.dossier} » où ranger ce jeu "
+            "(réglage NEL3AB_ROM_DIR du salon).",
+        )
+    return Decision("range", VISIBLE, dossier)
 
 
 def _switch(trouve: Identification) -> Decision:
@@ -190,7 +197,7 @@ def _placer(
         if trouve.console in ("gc", "wii") and trouve.identifiant
         else None
     )
-    bibliotheque = Bibliotheque(dossiers(regles.rom_dir), regles.verrou)
+    bibliotheque = Bibliotheque(dossiers(regles.rom_dir), regles.verrou, regles.connus)
     try:
         element.destination = bibliotheque.ranger(
             fd, decision.dossier, nom, sha256=element.sha256, jeu=jeu

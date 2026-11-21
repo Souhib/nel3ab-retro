@@ -64,11 +64,11 @@ async def publish_room_bindings(
             detail="aucune identité: cette salle n'est pas derrière son proxy",
         )
     login, _ = caller
-    # Mise en minuscules des DEUX côtés. L'identité arrive déjà normalisée
-    # (`identity.from_headers` et `whois` font `.strip().lower()`), la
-    # configuration non: une adresse écrite avec une majuscule dans l'unité
-    # systemd ne correspondrait alors jamais, et la personne se verrait refuser
-    # sa propre salle sans comprendre.
+    # Mise en minuscules des DEUX côtés, dans `Settings.is_admin`. L'identité
+    # arrive déjà normalisée (`identity.from_headers` et `whois` font
+    # `.strip().lower()`), la configuration non: une adresse écrite avec une
+    # majuscule dans l'unité systemd ne correspondrait alors jamais, et la
+    # personne se verrait refuser sa propre salle sans comprendre.
     #
     # Pas de garde sur une adresse VIDE ici, et c'est délibéré: les deux chemins
     # d'identité refusent déjà une adresse vide, donc `caller` ne peut pas en
@@ -76,7 +76,7 @@ async def publish_room_bindings(
     # personne, ce qui EST le défaut voulu. Ajouter la garde quand même donnerait
     # une ligne qui ne peut pas s'exécuter, c'est-à-dire une protection qu'on
     # croit avoir.
-    if login != settings.admin.strip().lower():
+    if not settings.is_admin(login):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="seule la personne qui tient la salle publie sa configuration",

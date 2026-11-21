@@ -39,6 +39,24 @@ def isolate_worker_control(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("NEL3AB_WORKER_CONTROL", "127.0.0.1:1")
 
 
+@pytest.fixture(autouse=True)
+def isolate_tailscaled(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Un test ne demande jamais au VRAI tailscaled qui est derrière une adresse.
+
+    Sans l'en-tête du proxy, l'identité se demande à tailscaled par sa socket
+    locale. Les essais qui veulent « personne » passaient donc par le tailscaled
+    de la machine qui héberge les parties, et leur verdict dépendait de lui. Ici,
+    personne n'est reconnu sans l'en-tête; `test_identity.py` pose ses propres
+    doubles par-dessus.
+    """
+    from nel3ab_control import identity
+
+    async def nobody(_address: str) -> None:
+        return None
+
+    monkeypatch.setattr(identity, "whois", nobody)
+
+
 @pytest.fixture
 def settings(tmp_path: Path) -> Settings:
     # Les pseudos vont dans un dossier jetable: un test qui écrit dans le vrai

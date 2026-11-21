@@ -25074,6 +25074,45 @@ salle 2 aurait donc fait interroger le vrai worker de la salle 2. Les
 applications d'essai posent maintenant un contrôleur jetable pour chacune
 des trois salles avant la première page.
 
+**Qui ouvre et qui ferme une salle.** Fermer une salle arrête son worker,
+donc la partie de tous ceux qui y jouent. La route ne demandait rien, et son
+commentaire le disait : « sans condition de propriétaire pour l'instant ».
+Ouvrir une salle ne demandait rien non plus. La règle est maintenant :
+
+- ouvrir demande une identité, n'importe laquelle. Un emplacement libre
+  n'est la partie de personne, mais le salon doit savoir qui allume un
+  émulateur sur la carte graphique commune ;
+- fermer demande d'être le chef de CETTE salle, ou l'administrateur de la
+  machine (`NEL3AB_ADMIN`). Le chef est celui que le salon tient pour la
+  salle, celui que la page affiche, jamais un nom envoyé dans la demande ;
+- sans identité, la réponse est 401. Avec l'identité de quelqu'un d'autre,
+  c'est 403.
+
+Une salle où personne n'est connecté n'a pas de chef. Elle se ferme seule
+au bout d'une demi-heure, et avant cela seul l'administrateur peut la fermer.
+L'option « tout le monde peut fermer une salle vide » a été écartée : un chef
+qui recharge sa page laisse sa salle vide une seconde. La page d'accueil ne
+propose pas de bouton de fermeture, donc rien ne change pour les amis. La
+comparaison avec l'adresse de l'administrateur était écrite trois fois. Elle
+vit maintenant à un seul endroit, `Settings.is_admin`.
+
+Les essais (`tests/api/test_salles_routes.py`), sur le code d'avant :
+ouvrir sans identité rendait 201, et fermer sans identité, par quelqu'un qui
+n'est pas le chef, par le chef d'une autre salle ou sur une salle vide
+rendait 200. Les jumeaux : n'importe quelle identité ouvre une salle libre,
+le chef ferme la sienne, l'administrateur ferme une salle où il n'est pas, et
+une salle qui n'existe pas reste inconnue (404). Le systemd est celui de
+papier, et chaque essai vérifie qu'aucun ordre ne lui est parvenu quand la
+demande est refusée.
+
+**Tailscaled, lui aussi, était interrogé par les essais.** Sans l'en-tête du
+proxy, le salon demande l'identité à tailscaled par sa socket locale. Les
+essais qui voulaient « personne » passaient donc par le vrai tailscaled de la
+machine. Leur verdict en dépendait, même s'il répondait « inconnu » pour
+l'adresse de la boucle locale. Un remplaçant commun répond maintenant
+« personne » à tous les essais, et ceux de `test_identity.py` posent leurs
+propres doubles par-dessus.
+
 ## 12. Glossaire complet
 
 **Faux partage** : échanges inutiles entre les caches de plusieurs cœurs lorsque

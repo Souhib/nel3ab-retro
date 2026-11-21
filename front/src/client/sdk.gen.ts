@@ -153,6 +153,11 @@ export const readSalles = <ThrowOnError extends boolean = false>(options?: Optio
  * Open Salle
  *
  * Ouvre le premier emplacement libre, ou refuse quand il n'y en a plus.
+ *
+ * Demande une identité, n'importe laquelle. Ouvrir un emplacement libre ne
+ * décide rien de la partie de quelqu'un d'autre, mais allume un émulateur sur
+ * la carte graphique commune: le salon doit savoir qui l'a demandé. Avant le
+ * 21 novembre 2026, une page étrangère ouverte chez un membre pouvait le faire.
  */
 export const openSalle = <ThrowOnError extends boolean = false>(options?: Options<OpenSalleData, ThrowOnError>): RequestResult<OpenSalleResponses, unknown, ThrowOnError> => (options?.client ?? client).post<OpenSalleResponses, unknown, ThrowOnError>({ url: '/api/salles', ...options });
 
@@ -161,8 +166,14 @@ export const openSalle = <ThrowOnError extends boolean = false>(options?: Option
  *
  * Ferme une salle, et le jeu qui tourne avec.
  *
- * Sans condition de propriétaire pour l'instant: la salle se ferme d'elle-même
- * après une demi-heure sans personne, et ce bouton-ci sert à rendre la place
- * tout de suite plutôt qu'à prendre une décision sur la partie de quelqu'un.
+ * Réservé au chef de CETTE salle et à l'administrateur. Fermer arrête la
+ * partie de tous ceux qui y jouent: c'est la décision du chef, comme changer
+ * de jeu, et pas celle de quiconque passe par la liste. L'administrateur le
+ * peut aussi, sans y être, pour rendre la place quand une salle reste
+ * bloquée. Une salle où personne n'est connecté n'a pas de chef: seul
+ * l'administrateur la ferme avant la fermeture automatique d'une demi-heure.
+ *
+ * Le chef est celui que le salon tient pour cette salle, le même que la page
+ * affiche: pas un nom envoyé par la demande.
  */
 export const closeSalle = <ThrowOnError extends boolean = false>(options: Options<CloseSalleData, ThrowOnError>): RequestResult<CloseSalleResponses, CloseSalleErrors, ThrowOnError> => (options.client ?? client).delete<CloseSalleResponses, CloseSalleErrors, ThrowOnError>({ url: '/api/salles/{numero}', ...options });

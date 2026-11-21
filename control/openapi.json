@@ -266,7 +266,7 @@
           "salles"
         ],
         "summary": "Open Salle",
-        "description": "Ouvre le premier emplacement libre, ou refuse quand il n'y en a plus.",
+        "description": "Ouvre le premier emplacement libre, ou refuse quand il n'y en a plus.\n\nDemande une identité, n'importe laquelle. Ouvrir un emplacement libre ne\ndécide rien de la partie de quelqu'un d'autre, mais allume un émulateur sur\nla carte graphique commune: le salon doit savoir qui l'a demandé. Avant le\n21 novembre 2026, une page étrangère ouverte chez un membre pouvait le faire.",
         "operationId": "open_salle",
         "responses": {
           "201": {
@@ -288,7 +288,7 @@
           "salles"
         ],
         "summary": "Close Salle",
-        "description": "Ferme une salle, et le jeu qui tourne avec.\n\nSans condition de propriétaire pour l'instant: la salle se ferme d'elle-même\naprès une demi-heure sans personne, et ce bouton-ci sert à rendre la place\ntout de suite plutôt qu'à prendre une décision sur la partie de quelqu'un.",
+        "description": "Ferme une salle, et le jeu qui tourne avec.\n\nRéservé au chef de CETTE salle et à l'administrateur. Fermer arrête la\npartie de tous ceux qui y jouent: c'est la décision du chef, comme changer\nde jeu, et pas celle de quiconque passe par la liste. L'administrateur le\npeut aussi, sans y être, pour rendre la place quand une salle reste\nbloquée. Une salle où personne n'est connecté n'a pas de chef: seul\nl'administrateur la ferme avant la fermeture automatique d'une demi-heure.\n\nLe chef est celui que le salon tient pour cette salle, le même que la page\naffiche: pas un nom envoyé par la demande.",
         "operationId": "close_salle",
         "parameters": [
           {

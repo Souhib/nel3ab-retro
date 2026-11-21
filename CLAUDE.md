@@ -355,6 +355,16 @@ machine".
   prevalidation and before timing; reintroduce the skipped-copy mutant and require
   its rejection after the timed loop for every accepted memory policy. Keep the
   mutant's byte counters and rates excluded even when the old validator says pass.
+- **Measure a read bound on the longest legal message.** On 2026-11-21, the
+  control port still read 320 bytes while a legal launch line, once it carried
+  the launcher's identity, reached 358. The cut line still parsed and named a
+  truncated identity, so a personal save could land in the wrong folder.
+  Derive the bound from the longest legal message, and refuse a message that
+  reaches the bound without its terminator.
+- **A wrapper's own exit codes must not overlap the tool it wraps.** On
+  2026-11-21, the backup script's "NAS missing" code 3 was restic's "file
+  unreadable" code 3, and the journal named the wrong cause. Pick codes the
+  wrapped tool does not use.
 - A test that cannot fail is worse than no test: it advertises coverage that does
   not exist.
 
@@ -402,6 +412,11 @@ Two halves, and neither covers the other:
   matters most.
 
 Tests must never inherit the live worker control address or persistent state.
+Every new setting whose default is a production path (a state, save or journal
+directory) gets an override in the autouse fixture of `control/tests/conftest.py`
+in the same change. On 2026-11-21, a socket test built its own `Settings`
+without naming the new play-journal folder and wrote five test identities into
+the real `~/.local/state/nel3ab/parties`.
 Worker fixtures also override `NEL3AB_PERSONAL_SAVE_ROOT`: since 2026-11-10,
 personal Dolphin saves can live outside the numbered room. Test new-game and
 resume with two authenticated identities whose cleaned names collide, and the

@@ -90,39 +90,44 @@ pub fn state_root(config: &Path) -> Option<PathBuf> {
 }
 
 /// Resolve each console's real save storage without starting an emulator.
+///
+/// `state` gives the state root of a console served by an adapter: the binary
+/// reads it from the configuration its manifest entry names (`config_env`).
+/// It replaces two parameters named after the two Switch consoles, so a third
+/// adapter is one line in the manifest rather than one more parameter here.
 #[must_use]
 pub fn directories(
     roms: &[crate::Rom],
     discs: &[crate::Disc],
     session: &Path,
-    switch: Option<&Path>,
-    switch2: Option<&Path>,
+    state: &dyn Fn(crate::Console) -> Option<PathBuf>,
 ) -> Vec<Option<PathBuf>> {
     roms.iter()
         .enumerate()
         .map(|(index, rom)| {
             let disc = discs.get(index)?;
-            match disc.console {
-                crate::Console::GameCube | crate::Console::Wii => Some(crate::saves::slot_dir(
+            // Une console qu'on ne lance pas n'a pas de partie importée à
+            // proposer, et un disque muet ne sait pas où la sienne irait.
+            if !disc.console.playable() || disc.console == crate::Console::Unknown {
+                return None;
+            }
+            if disc.console.adapter().is_none() {
+                return Some(crate::saves::slot_dir(
                     &session.join("saves"),
                     &rom.file,
                     crate::saves::Slot::Unlocked,
                     None,
-                )),
-                crate::Console::Switch | crate::Console::Switch2 => {
-                    let title = disc.title.as_deref()?;
-                    if title.len() != 16 || !title.bytes().all(|c| c.is_ascii_hexdigit()) {
-                        return None;
-                    }
-                    let root = if disc.console == crate::Console::Switch {
-                        switch?
-                    } else {
-                        switch2?
-                    };
-                    Some(root.join(title.to_ascii_lowercase()).join("debloquee"))
-                }
-                crate::Console::Unknown => None,
+                ));
             }
+            let title = disc.title.as_deref()?;
+            if title.len() != 16 || !title.bytes().all(|c| c.is_ascii_hexdigit()) {
+                return None;
+            }
+            Some(
+                state(disc.console)?
+                    .join(title.to_ascii_lowercase())
+                    .join("debloquee"),
+            )
         })
         .collect()
 }
@@ -278,6 +283,7 @@ mod tests {
             crate::Console::Switch,
             crate::Console::Switch2,
             crate::Console::Unknown,
+            crate::Console::Xbox360,
         ];
         let roms: Vec<_> = consoles
             .iter()
@@ -295,13 +301,15 @@ mod tests {
                 title: Some("0400486024dec000".into()),
             })
             .collect();
-        let paths = directories(
-            &roms,
-            &discs,
-            root.path(),
-            Some(&root.path().join("hybrid")),
-            Some(&root.path().join("nx2")),
-        );
+        // Une racine pour chaque adaptateur, Xbox 360 compris: elle ne doit
+        // rien ouvrir pour une console qu'on ne lance pas.
+        let roots = |console: crate::Console| match console {
+            crate::Console::Switch => Some(root.path().join("hybrid")),
+            crate::Console::Switch2 => Some(root.path().join("nx2")),
+            crate::Console::Xbox360 => Some(root.path().join("x360")),
+            _ => None,
+        };
+        let paths = directories(&roms, &discs, root.path(), &roots);
         assert_eq!(
             paths[0],
             Some(root.path().join("saves/game0-iso/debloquee"))
@@ -319,7 +327,11 @@ mod tests {
             Some(root.path().join("nx2/0400486024dec000/debloquee"))
         );
         assert!(paths[4].is_none());
-        assert!(directories(&roms, &discs, root.path(), None, None)[2].is_none());
+        assert!(
+            paths[5].is_none(),
+            "une console non jouable n'a pas d'import"
+        );
+        assert!(directories(&roms, &discs, root.path(), &|_| None)[2].is_none());
         Ok(())
     }
 

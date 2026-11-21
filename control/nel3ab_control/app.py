@@ -16,6 +16,7 @@ from nel3ab_control.api.controllers.people import PeopleController
 from nel3ab_control.api.controllers.salles import SallesController
 from nel3ab_control.api.controllers.salons import Salons
 from nel3ab_control.api.routes import accueil as accueil_routes
+from nel3ab_control.api.routes import catalogue as catalogue_routes
 from nel3ab_control.api.routes import me as me_routes
 from nel3ab_control.api.routes import rooms as rooms_routes
 from nel3ab_control.api.routes import salles as salles_routes
@@ -94,6 +95,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(me_routes.router)
     app.include_router(rooms_routes.router)
     app.include_router(salles_routes.router)
+    app.include_router(catalogue_routes.router)
     app.mount("/socket.io", socketio_app)
     return app
 

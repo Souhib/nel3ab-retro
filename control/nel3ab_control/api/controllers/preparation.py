@@ -1,8 +1,19 @@
 """Préparer un jeu ensemble, sans modifier le jeu qui tourne encore."""
 
 from secrets import token_hex
+from typing import Protocol
 
 from pydantic import BaseModel, Field
+
+
+class GameLike(Protocol):
+    """Ce qu'il faut d'un jeu pour le reconnaître: sa position et sa clé."""
+
+    @property
+    def index(self) -> int: ...
+
+    @property
+    def key(self) -> str | None: ...
 
 
 class Participant(BaseModel):
@@ -15,11 +26,26 @@ class Participant(BaseModel):
 
 class Preparation(BaseModel):
     id: str = Field(default_factory=lambda: token_hex(8))
-    game: int
+    game: int = Field(
+        description="La position du jeu quand la préparation a commencé. Pour l'affichage."
+    )
+    key: str | None = Field(
+        default=None,
+        description=(
+            "La clé du jeu, son nom de fichier, qui le désigne même si la liste a "
+            "changé depuis (ADR D23). Nulle quand le worker n'en publiait pas."
+        ),
+    )
     save: int
     starter: str
     allowed: list[int]
     players: list[Participant]
+
+    def names(self, game: "GameLike") -> bool:
+        """Ce jeu est-il celui qu'on prépare ? Par sa clé quand on la connaît."""
+        if self.key is not None:
+            return game.key == self.key
+        return game.index == self.game
 
     def synchronise(self, seats: list[tuple[int, str, str | None]], *, solo: bool = False) -> bool:
         """Une nouvelle attribution doit confirmer son propre choix."""

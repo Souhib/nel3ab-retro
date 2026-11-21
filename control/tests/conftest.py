@@ -60,6 +60,10 @@ def settings(tmp_path: Path) -> Settings:
         # vrai dossier effacerait la soirée qu'on voulait relire, et le premier
         # jet de ce fichier l'a fait.
         journal_dir=tmp_path / "sessions",
+        # Les répertoires des salles aussi: le salon y lit la bibliothèque que
+        # les workers écrivent (ADR D24). Le vrai dossier ferait lister à un
+        # essai les jeux de la machine, et dépendre son résultat de la soirée.
+        salles_dir=tmp_path / "salles",
     )
 
 

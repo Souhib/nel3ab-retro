@@ -67,6 +67,7 @@
  */
 import type { Person, Room, Seat } from "../client";
 import { cn } from "../lib/cn";
+import { consoleName } from "../lib/consoles";
 import { PLAYER_COLOURS } from "../media/players";
 
 /** Le sol, la dalle, et les trois encres. Mesures dans l'en-tête. */
@@ -90,11 +91,12 @@ const NOMMES = 12;
  * « ? » n'est pas « gc »: le type le dit lui-même, et ce dépôt a déjà vu un
  * glyphe seul se lire comme une panne. On écrit donc la phrase entière.
  */
-function consoleLue(code: string | undefined): string | null {
+export function consoleLue(code: string | undefined): string | null {
   if (!code) return null;
-  if (code === "gc") return "GAMECUBE";
-  if (code === "wii") return "WII";
-  return "CONSOLE NON LUE";
+  // Le nom vient du manifeste des consoles. Cette fonction en tenait une copie
+  // de deux noms, et affichait « CONSOLE NON LUE » pour une Switch, que le
+  // disque avait pourtant bien dite (audit du 20 novembre 2026).
+  return consoleName(code)?.toUpperCase() ?? "CONSOLE NON LUE";
 }
 
 /** Une chaise vue d'en haut.

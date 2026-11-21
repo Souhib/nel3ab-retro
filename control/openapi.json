@@ -324,6 +324,31 @@
           }
         }
       }
+    },
+    "/api/catalogue": {
+      "get": {
+        "tags": [
+          "catalogue"
+        ],
+        "summary": "Read Catalogue",
+        "description": "Les jeux de la machine, lus dans le fichier qu'une salle a écrit (ADR D24).\n\nNi worker ni Docker ici : le salon lit ce qu'une salle a déjà balayé, avec\nses clés et ses titres nettoyés. Sans identité, comme la liste des salles :\nelle ne dit que ce que chaque page de salle publie déjà à `/roms`.",
+        "operationId": "read_catalogue",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Catalogue"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucune salle n'a écrit sa liste."
+          }
+        }
+      }
     }
   },
   "components": {
@@ -359,6 +384,92 @@
         "title": "Bindings",
         "description": "Ce que quelqu'un a réglé sur ses manettes et son clavier.\n\nLe contenu est OPAQUE au service, et c'est délibéré. La forme d'un profil\nappartient à la page: elle sait ce qu'un axe, un repos et un signe veulent\ndire, et elle est la seule à s'en servir. La décrire ici en donnerait une\ndeuxième version à tenir d'accord avec la première, et il faudrait publier le\nservice pour ajouter un champ à une manette.\n\nCe qui est vérifié est ce qui protège le disque: un objet, sous un plafond\n(voir `BindingsController.CEILING`)."
       },
+      "Catalogue": {
+        "properties": {
+          "scanned_ms": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Scanned Ms",
+            "description": "Quand le balayage a eu lieu, en millisecondes depuis 1970."
+          },
+          "room": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Room",
+            "description": "Le numéro de la salle qui l'a écrite."
+          },
+          "games": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogueGame"
+            },
+            "type": "array",
+            "title": "Games"
+          }
+        },
+        "type": "object",
+        "required": [
+          "scanned_ms",
+          "room",
+          "games"
+        ],
+        "title": "Catalogue",
+        "description": "La bibliothèque la plus fraîche que les salles ont écrite."
+      },
+      "CatalogueGame": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key",
+            "description": "Son nom de fichier, ce qui le désigne (ADR D23)."
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Son titre, nettoyé par le worker."
+          },
+          "console": {
+            "type": "string",
+            "title": "Console",
+            "description": "Le code de sa console, ou « ? »."
+          },
+          "art": {
+            "type": "boolean",
+            "title": "Art",
+            "description": "Vrai quand une salle peut servir son image."
+          },
+          "maker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maker"
+          },
+          "about": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "About"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "name",
+          "console",
+          "art"
+        ],
+        "title": "CatalogueGame",
+        "description": "Un jeu de la bibliothèque, tel que le worker l'a décrit."
+      },
       "Connection": {
         "properties": {
           "kind": {
@@ -391,7 +502,19 @@
           "index": {
             "type": "integer",
             "title": "Index",
-            "description": "Its position in the worker's library, which is how it is asked for."
+            "description": "Its position in the worker's library. Valid only for the library it came with: a file that sorts earlier moves every position after it."
+          },
+          "key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key",
+            "description": "La clé du jeu: son nom de fichier, ce qu'une page envoie pour le lancer (ADR D23). Elle désigne encore ce jeu quand la liste a changé. Nulle pour un worker d'avant le 21 novembre 2026, qui ne la publiait pas."
           },
           "name": {
             "type": "string",
@@ -425,7 +548,7 @@
           "console": {
             "type": "string",
             "title": "Console",
-            "description": "Quelle console ce disque demande, lue sur le disque: « gc », « wii », ou « ? » quand le disque n'a pas répondu. La page s'en sert pour ne pas proposer un choix qui ne déciderait rien: un jeu Wii n'a pas de carte mémoire, donc pas deux emplacements de sauvegarde. « ? » n'est pas « gc »: proposer un choix qui ne fait rien est pire que ne pas le proposer.",
+            "description": "Quelle console ce disque demande, lue sur le disque ou sur sa fiche: « gc », « wii », « switch », « switch2 », « x360 » (consoles/consoles.json), ou « ? » quand le disque n'a pas répondu. La page s'en sert pour ne pas proposer un choix qui ne déciderait rien: un jeu Wii n'a pas de carte mémoire, donc pas deux emplacements de sauvegarde. « ? » n'est pas « gc »: proposer un choix qui ne fait rien est pire que ne pas le proposer.",
             "default": "?"
           },
           "art": {
@@ -680,7 +803,20 @@
           },
           "game": {
             "type": "integer",
-            "title": "Game"
+            "title": "Game",
+            "description": "La position du jeu quand la préparation a commencé. Pour l'affichage."
+          },
+          "key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key",
+            "description": "La clé du jeu, son nom de fichier, qui le désigne même si la liste a changé depuis (ADR D23). Nulle quand le worker n'en publiait pas."
           },
           "save": {
             "type": "integer",

@@ -601,6 +601,23 @@ export class InputStream {
     return true;
   }
 
+  /** Boots the game this key names: its file name in the worker's library.
+   *
+   * A text frame, `{"jeu":"<key>"}`, on the same socket and under the same
+   * owner rule as `chooseGame` (ADR D23). The worker compares the key with the
+   * names its own scan found and never joins it to a path, so it still cannot
+   * ask for anything outside the library. Unlike a position, it keeps naming
+   * the same game when a file that sorts before it is added.
+   *
+   * A refusal comes back as a text the page does not act on yet.
+   */
+  chooseGameByKey(key: string): boolean {
+    if (this.port === null || this.socket?.readyState !== WebSocket.OPEN) return false;
+    if (key === "" || key.includes("/")) return false;
+    this.socket.send(JSON.stringify({ jeu: key }));
+    return true;
+  }
+
   /**
    * Dit sur quelle sauvegarde le prochain jeu doit démarrer.
    *

@@ -24,9 +24,24 @@ export function ConsoleIcon({ console, className }: IconProps & { console: strin
       return <SwitchIcon className={className} />;
     case "switch2":
       return <SwitchIcon className={className} second />;
+    case "x360":
+      return <RingIcon className={className} />;
     default:
       return <GameIcon className={className} />;
   }
+}
+
+/** Une console couchée et son bouton rond, partagé en quatre: la Xbox 360 sans
+ * son logo, qui n'est pas à nous. */
+export function RingIcon({ className }: IconProps) {
+  return (
+    <svg viewBox={box} className={className} fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="5" y="15" width="38" height="18" rx="5" />
+      <circle cx="35" cy="24" r="4.5" />
+      <path d="M35 19.5v9M30.5 24h9" strokeWidth="1.5" />
+      <path d="M10 24h14" strokeLinecap="round" />
+    </svg>
+  );
 }
 
 /** Deux commandes détachables et leur écran, lisibles à la taille d'un dossier. */

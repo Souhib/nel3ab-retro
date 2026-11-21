@@ -19,6 +19,7 @@ from nel3ab_control.api.controllers.recovery import Recovery
 from nel3ab_control.api.schemas.error import NoSuchSeat, SeatTaken, WorkerUnreachable
 from nel3ab_control.api.schemas.player import Person
 from nel3ab_control.api.schemas.room import Game, Room, Seat
+from nel3ab_control.consoles import CONSOLES
 from nel3ab_control.game_controls import guide_for
 from nel3ab_control.settings import Settings
 from nel3ab_control.worker import read_seats
@@ -377,8 +378,7 @@ class RoomController:
         if self.preparation and not self.preparation.synchronise(
             [(seat.port, seat.claim, seat.player) for seat in seats if seat.claim is not None],
             solo=any(
-                game.index == self.preparation.game and game.console == "switch2"
-                for game in library
+                self.preparation.names(game) and CONSOLES.solo(game.console) for game in library
             ),
         ):
             self.preparation = None
@@ -422,8 +422,12 @@ def _game(index: int, entry: object) -> Game:
     if isinstance(entry, str):
         return Game(index=index, name=entry)
     if isinstance(entry, dict):
+        key = entry.get("key")
         return Game(
             index=index,
+            # Un texte ou rien: un worker d'avant le 21 novembre 2026 n'en
+            # publie pas, et la page retombe alors sur la position.
+            key=key if isinstance(key, str) and key else None,
             name=str(entry.get("name", "")),
             guide=guide_for(str(entry.get("name", "")), str(entry.get("console", "?"))),
             maker=entry.get("maker"),

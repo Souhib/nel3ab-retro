@@ -38,7 +38,12 @@ async def room(tmp_path, monkeypatch):
         rooms.observe_seats(observed)
         rooms.claim(2, "lu", "Lu", receipt)
         monkeypatch.setattr(recovery, "monotonic", lambda: clock[0])
-        monkeypatch.setattr(recovery, "_state", lambda _: (rooms, people, journal))
+        # La salle de la socket, comme le vrai `_pour`: ces essais n'en montent
+        # qu'une. Deux salles à la fois sont éprouvées contre un vrai serveur
+        # dans `test_two_rooms.py`.
+        monkeypatch.setattr(
+            recovery, "_pour", AsyncMock(return_value=(rooms, people, journal, rooms.numero))
+        )
         monkeypatch.setattr(recovery.sio, "get_environ", lambda _: {})
 
         async def save(sid, value):
@@ -79,11 +84,11 @@ async def test_a_silent_spectator_does_not_keep_the_crown_forever(room):
     assert targets == ["souhib", "lu", "lu-phone"]
     answer = await recovery.recover("souhib", {"action": "finish", "id": request})
     assert not answer["ok"]
-    assert room.people.owner() == ("lu", "Lu")
+    assert room.people.owner(1) == ("lu", "Lu")
     room.clock[0] += 20
     answer = await recovery.recover("souhib", {"action": "finish", "id": request})
     assert answer["ok"]
-    assert room.people.owner() == ("souhib", "Souhib")
+    assert room.people.owner(1) == ("souhib", "Souhib")
     assert room.rooms.told_owner == -1
     room.broadcast.assert_awaited_once()
 
@@ -94,7 +99,7 @@ async def test_another_person_cannot_answer_confirm_or_cancel(room, action):
     room.clock[0] += 20
     answer = await recovery.recover("other", {"action": action, "id": request, "ok": True})
     assert not answer["ok"]
-    assert room.people.owner() == ("lu", "Lu")
+    assert room.people.owner(1) == ("lu", "Lu")
     assert room.rooms.recovery is not None
     assert not room.rooms.recovery.accepted
 
@@ -106,7 +111,7 @@ async def test_another_device_of_the_chief_can_refuse_and_is_not_spammed(room):
     room.clock[0] += 20
     assert not (await recovery.recover("souhib", {"action": "finish", "id": request}))["ok"]
     assert not (await recovery.recover("souhib", {"action": "begin"}))["ok"]
-    assert room.people.owner() == ("lu", "Lu")
+    assert room.people.owner(1) == ("lu", "Lu")
     room.clock[0] += 40
     assert (await recovery.recover("souhib", {"action": "begin"}))["ok"]
 
@@ -114,9 +119,9 @@ async def test_another_device_of_the_chief_can_refuse_and_is_not_spammed(room):
 async def test_a_granted_request_can_be_confirmed_immediately(room):
     request = await begin(room)
     assert (await recovery.recover("lu", {"action": "answer", "id": request, "ok": True}))["ok"]
-    assert room.people.owner() == ("lu", "Lu")
+    assert room.people.owner(1) == ("lu", "Lu")
     assert (await recovery.recover("souhib", {"action": "finish", "id": request}))["ok"]
-    assert room.people.owner() == ("souhib", "Souhib")
+    assert room.people.owner(1) == ("souhib", "Souhib")
 
 
 @pytest.mark.parametrize("change", ["left", "owner", "expired"])
@@ -125,13 +130,13 @@ async def test_a_request_does_not_outlive_its_people_or_deadline(room, change):
     if change == "left":
         room.people.left("souhib")
     elif change == "owner":
-        assert room.people.transfer_owner("lu", "other")
+        assert room.people.transfer_owner(1, "lu", "other")
     else:
         room.clock[0] += 60
     await recovery.expire(room.rooms, room.people)
     assert room.rooms.recovery is None
     assert not (await recovery.recover("souhib", {"action": "finish", "id": request}))["ok"]
-    assert room.people.owner() != ("souhib", "Souhib")
+    assert room.people.owner(1) != ("souhib", "Souhib")
 
 
 async def test_one_request_cannot_replace_another(room):
@@ -171,7 +176,7 @@ async def test_the_pad_recovery_returns_the_exact_attribution_without_renaming_i
     assert answer == {"ok": True, "port": 2, "claim": room.observed[1]}
     # Seule la nouvelle socket worker pourra remplacer ce nom.
     assert room.rooms.seats()[1].player == "Lu"
-    assert room.people.owner() == ("lu", "Lu")
+    assert room.people.owner(1) == ("lu", "Lu")
 
 
 @pytest.mark.parametrize("changed", [None, "b" * 32 + "-2"])

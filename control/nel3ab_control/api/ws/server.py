@@ -92,7 +92,7 @@ async def follow_seats(state) -> None:
                 _, running = await rooms.library()
                 current = running.index if running else None
                 if changed or current != known_game.get(salle):
-                    await broadcast(rooms, state.people, state.journal, salle=salle)
+                    await broadcast(rooms, state.people, state.journal)
                 known_game[salle] = current
         except Exception:
             logging.getLogger(__name__).exception("la lecture des places n'a pas abouti")
@@ -103,7 +103,6 @@ async def broadcast(
     people: PeopleController,
     journal: Journal,
     banc: bool = False,
-    salle: int = 1,
 ) -> None:
     """Dit à tout le monde à quoi la salle ressemble maintenant.
 
@@ -111,8 +110,13 @@ async def broadcast(
     worker n'a pas besoin de savoir que quelqu'un a changé de pseudo, et lui
     ouvrir une socket à chaque événement du salon serait le défaut qu'on vient de
     corriger dans l'autre sens.
+
+    La salle est celle du contrôleur, et plus un paramètre à côté de lui: les
+    deux pouvaient se contredire, et un appel qui oubliait le paramètre diffusait
+    la salle 1.
     """
-    room = await rooms.describe(people, salle=salle)
+    salle = rooms.numero
+    room = await rooms.describe(people)
     seat = room.owner.seat if room.owner and room.owner.seat else 0
     if seat != rooms.told_owner and await tell_owner(rooms.settings.worker_control, seat):
         rooms.told_owner = seat

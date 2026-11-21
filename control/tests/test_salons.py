@@ -54,7 +54,7 @@ def test_un_controleur_pose_est_celui_qu_on_retrouve(salons: Salons) -> None:
     le salon en fabrique un autre, et les deux regardent des salles
     différentes sans que rien ne le dise."""
     depuis_le_registre = salons.pour(3)
-    autre = RoomController(Settings(), httpx.AsyncClient())
+    autre = RoomController(Settings(), httpx.AsyncClient(), 3)
 
     salons.poser(3, autre)
 
@@ -64,4 +64,21 @@ def test_un_controleur_pose_est_celui_qu_on_retrouve(salons: Salons) -> None:
 
 def test_on_ne_pose_rien_dans_une_salle_qui_n_existe_pas(salons: Salons) -> None:
     with pytest.raises(SalleInconnue):
-        salons.poser(9, RoomController(Settings(), httpx.AsyncClient()))
+        salons.poser(9, RoomController(Settings(), httpx.AsyncClient(), 9))
+
+
+def test_chaque_controleur_connait_sa_salle(salons: Salons) -> None:
+    """Le contrôleur porte son numéro: c'est sous lui qu'il lit les présents.
+
+    Le 20 novembre 2026, `describe` prenait la salle 1 quand on ne la lui disait
+    pas, et la route de lecture de la salle ne la disait pas.
+    """
+    assert [salons.pour(numero).numero for numero in (1, 2, 3)] == [1, 2, 3]
+
+
+def test_on_ne_pose_pas_le_controleur_d_une_salle_dans_une_autre(salons: Salons) -> None:
+    """Il décrirait les présents de SON numéro sous celui-ci, donc les gens
+    d'une autre salle, sans que rien ne le montre."""
+    with pytest.raises(ValueError, match="salle 1"):
+        salons.poser(2, RoomController(Settings(), httpx.AsyncClient()))
+    assert salons.eveilles() == []

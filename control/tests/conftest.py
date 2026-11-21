@@ -125,6 +125,12 @@ async def app(
         # serait observé par l'essai pendant que le salon en utilise un autre.
         built.state.rooms = RoomController(settings, built.state.client)
         built.state.salons.poser(1, built.state.rooms)
+        # Les deux autres salles aussi, sur le même faux worker. Sans ça, une
+        # page qui annonce la salle 2 ferait fabriquer au registre un contrôleur
+        # pointé sur les VRAIS ports de la salle 2 (8120 et 8121), puisque le
+        # registre déduit l'adresse du numéro.
+        for numero in (2, 3):
+            built.state.salons.poser(numero, RoomController(settings, built.state.client, numero))
         yield built
 
 

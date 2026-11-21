@@ -25030,6 +25030,50 @@ comme il le fallait déjà pour la socket. Le pilote
 `spikes/m3-browser-drive/reconciliation.mjs` ouvre et ferme une salle par ce
 chemin : il ne passe plus tel quel.
 
+**Chaque salle parle d'elle-même.** Le salon sert les trois salles. Il
+tient leurs présents dans une seule liste, où chaque ligne porte son numéro
+de salle. La page dit sa salle par l'en-tête `X-Nel3ab-Salle`, et la
+dépendance choisissait bien le contrôleur de cette salle. Mais trois chemins
+retombaient sur la salle 1 sans le dire :
+
+- la lecture de la salle (`GET /api/room`) et la préparation d'un jeu
+  appelaient `describe(people)` sans numéro, qui valait alors 1. Une page de
+  la salle 2 recevait donc les présents et le chef de la salle 1 ;
+- la reprise du rôle de chef prenait toujours le contrôleur de la salle 1.
+  Une demande faite dans la salle 2 visait le chef de la salle 1, qui
+  recevait l'avertissement ;
+- le chef retenu, celui qui a repris le rôle, était une seule valeur pour
+  toutes les salles. Décrire la salle 2 la remplaçait, et une reprise
+  confirmée dans la salle 1 était perdue dès que la salle d'à côté diffusait.
+
+La correction passe par les types plutôt que par des vérifications en plus.
+Le contrôleur d'une salle porte son numéro dès sa création, et `describe`
+le lit lui-même : un appelant ne peut plus l'oublier. Le registre refuse
+qu'on pose le contrôleur d'une salle à la place d'une autre. Le chef retenu
+devient une valeur par salle. Le numéro de salle devient obligatoire là où
+il valait 1 ou « toutes » par défaut. Le vérificateur de types a alors
+désigné lui-même chaque appel qui l'oubliait. Il y en avait quatre :
+fermer le jeu, annoncer un changement de jeu, et deux dans la reprise.
+
+**Les essais.** Deux essais d'API mettent des gens différents dans les
+salles 1 et 2 et lisent chacune. Sur le code d'avant, la salle 2 répondait
+« Souhib », qui était dans la salle 1, et la salle 3 aussi. Un essai contre
+un vrai serveur ouvre des pages dans deux salles. Il fait demander le rôle de
+chef depuis la salle 2 : sur le code d'avant, Alice, seule dans la salle 1,
+recevait la demande. L'ordre d'arrivée des pages est la condition de cet
+essai. Dans un autre ordre, le chef commun aurait été celui de la salle 2, et
+l'essai serait passé sans correctif. Les jumeaux : la salle 1 voit toujours
+les siens (par l'en-tête, par le paramètre, et sans rien dire), et le chef de
+la salle 2 reçoit bien la demande. Chaque défaut a ensuite été réintroduit
+derrière la nouvelle interface (un chef commun, une description forcée sur
+la salle 1, une reprise sur la salle 1) : chacun fait échouer son essai.
+
+**Les essais, eux aussi, retombaient sur une vraie salle.** Le registre
+déduit l'adresse d'un worker de son numéro. Une page d'essai qui annonçait la
+salle 2 aurait donc fait interroger le vrai worker de la salle 2. Les
+applications d'essai posent maintenant un contrôleur jetable pour chacune
+des trois salles avant la première page.
+
 ## 12. Glossaire complet
 
 **Faux partage** : échanges inutiles entre les caches de plusieurs cœurs lorsque

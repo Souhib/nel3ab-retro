@@ -5,9 +5,16 @@
 # Pour un domaine à nous, il faut terminer le TLS soi-même, et c'est tout ce que
 # ce fichier fait: le même routage que `tailscale serve`, sous un autre nom.
 #
-# Le nom `.ts.net` continue de vivre sur son port 8443, servi par tailscaled.
-# Deux portes, deux mécanismes, et celle qui ne demande aucun entretien reste en
-# place: si le renouvellement du certificat casse ici, la salle reste joignable.
+# Depuis le 21 novembre 2026, tout passe par `nel3ab.app`. Les anciennes portes
+# `.ts.net:8443` (le salon) et `.ts.net:8444` (la documentation), servies par
+# tailscaled, ne servent plus rien elles-mêmes: elles renvoient vers ce nom, par
+# les deux petits sites en bas de ce fichier. Souhib l'a demandé pour n'avoir
+# qu'une adresse. La racine de 8443 menait d'ailleurs encore à l'ancien port
+# 8100, où plus rien n'écoute depuis les salles multiples.
+#
+# Le prix: la porte qui ne demandait aucun entretien ne sert plus de secours si
+# le renouvellement du certificat casse ici. Pour la rouvrir le temps d'une
+# panne: `tailscale serve --bg --https=8443 http://127.0.0.1:8200`.
 
 {
 	# Pas de port d'administration: rien à joindre, rien à défendre.
@@ -160,6 +167,30 @@ nel3ab.app {
 	}
 }
 
+# Les anciennes adresses `.ts.net`, renvoyées vers le nom de domaine.
+#
+# tailscaled termine encore le TLS de `lgf.<tailnet>.ts.net:8443` et `:8444`, et
+# relaie vers ces deux ports. Ils n'écoutent que sur la boucle locale: rien
+# d'autre que tailscaled ne peut les joindre, et ils ne font que rediriger.
+#
+# Une redirection TEMPORAIRE (302), pas définitive: un navigateur garde une 301
+# pour toujours, et revenir en arrière demanderait de vider le cache de chacun.
+# Le chemin suit, donc un ancien lien profond (`/carnet-de-bord/`) arrive au
+# bon endroit.
+http://127.0.0.1:8098 {
+	bind 127.0.0.1
+	redir https://nel3ab.app{uri} 302
+}
+
+http://127.0.0.1:8097 {
+	bind 127.0.0.1
+	redir https://nel3ab.app/docs{uri} 302
+}
+
 import /etc/caddy/secret-hitler.caddy
 
 import /etc/caddy/skull.caddy
+
+# Un autre projet de la machine, ajouté directement dans /etc/caddy le
+# 21 novembre 2026. Recopié ici pour qu'installer ce fichier ne le retire pas.
+import /etc/caddy/canal-live.caddy

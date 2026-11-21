@@ -1152,10 +1152,14 @@ async def test_a_foreign_origin_cannot_open_the_lobby(served: tuple[str, RoomCon
     await page.disconnect()
 
 
-async def test_both_deployed_doors_share_names_but_foreign_origins_are_refused(
+async def test_the_deployed_door_shares_names_but_other_origins_are_refused(
     served: tuple[str, RoomController],
 ) -> None:
-    """Lit la valeur livrée à systemd, pas une liste recopiée dans le test."""
+    """Lit la valeur livrée à systemd, pas une liste recopiée dans le test.
+
+    Depuis le 21 novembre 2026, l'ancienne porte `.ts.net:8443` renvoie vers
+    `nel3ab.app` et n'est plus une origine admise: elle rejoint les refusées.
+    """
     from nel3ab_control.api.ws.server import allow_origins
 
     unit = Path(__file__).parents[3] / "deploy/nel3ab-control.service"
@@ -1165,12 +1169,15 @@ async def test_both_deployed_doors_share_names_but_foreign_origins_are_refused(
     url, _rooms = served
     clients: list[socketio.AsyncClient] = []
     try:
-        for origin in ["https://nel3ab.app", "https://lgf.tail3bd01c.ts.net:8443"]:
-            page = socketio.AsyncClient()
-            clients.append(page)
-            await page.connect(url, auth={"name": "Ami"}, headers={"Origin": origin})
-            assert page.connected
-        for origin in ["https://evil.example", "https://lgf.tail3bd01c.ts.net:8444"]:
+        page = socketio.AsyncClient()
+        clients.append(page)
+        await page.connect(url, auth={"name": "Ami"}, headers={"Origin": "https://nel3ab.app"})
+        assert page.connected
+        for origin in [
+            "https://evil.example",
+            "https://lgf.tail3bd01c.ts.net:8443",
+            "https://lgf.tail3bd01c.ts.net:8444",
+        ]:
             stranger = socketio.AsyncClient()
             with pytest.raises(SocketConnectionError):
                 await stranger.connect(url, headers={"Origin": origin})

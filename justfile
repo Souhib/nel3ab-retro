@@ -181,9 +181,13 @@ deploy-check:
         fi
     }
     # Les sources seules: le service écrit lui-même ses `.pyc` en tournant, et les
-    # compter le déclarerait périmé par son propre démarrage.
-    controle=$(find control/nel3ab_control control/pyproject.toml control/uv.lock \
-        \( -name '*.py' -o -name pyproject.toml -o -name uv.lock \) -printf '%T@\n' \
+    # compter le déclarerait périmé par son propre démarrage. Les pages du salon
+    # (HTML, modules, feuilles, dessins, polices) et le manifeste des consoles
+    # comptent aussi: le salon les assemble UNE fois, à son démarrage. Le
+    # 21 novembre 2026, une page de dépôt changée seule ne rougissait rien.
+    controle=$(find control/nel3ab_control control/pyproject.toml control/uv.lock consoles/consoles.json \
+        \( -name '*.py' -o -name pyproject.toml -o -name uv.lock -o -name '*.html' -o -name '*.mjs' \
+           -o -name '*.css' -o -name '*.svg' -o -name '*.woff2' -o -name consoles.json \) -printf '%T@\n' \
         | cut -d. -f1 | sort -n | tail -1)
     perime nel3ab-control.service "$controle"
     perime nel3ab-boite-noire.service "$controle"
@@ -192,6 +196,22 @@ deploy-check:
         for salle in $(systemctl list-units --no-legend --state=active 'nel3ab-worker@*.service' | awk '{print $1}' | sed 's/^●[[:space:]]*//'); do
             perime "$salle" "$(stat -c %Y "$worker")"
         done
+    fi
+    # Les anciennes portes `.ts.net` ne font que renvoyer vers nel3ab.app, par
+    # les deux sites de boucle locale du Caddyfile. Une porte qui servirait de
+    # nouveau une page à côté du nom de domaine est ce que le 21 novembre 2026 a
+    # retiré: deux adresses, dont une sans les gardes de l'autre.
+    if command -v tailscale >/dev/null; then
+        portes=$(tailscale serve status --json 2>/dev/null | python3 -c '
+    import json, sys
+    attendu = {"8443": "http://127.0.0.1:8098", "8444": "http://127.0.0.1:8097"}
+    web = (json.load(sys.stdin) or {}).get("Web") or {}
+    for port, cible in attendu.items():
+        trouve = [v.get("Handlers") for k, v in web.items() if k.endswith(":" + port)]
+        if trouve != [{"/": {"Proxy": cible}}]:
+            print(f"  la porte .ts.net:{port} ne renvoie pas seulement vers {cible}: {trouve}")
+    ' || echo "  tailscale serve illisible")
+        if [ -n "$portes" ]; then echo "$portes"; faux=1; fi
     fi
     if [ "$faux" -eq 0 ]; then echo "les unités installées sont celles du dépôt, et tournent avec son code"; else exit 1; fi
 

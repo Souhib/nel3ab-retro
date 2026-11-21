@@ -5,13 +5,16 @@
 #   sudo systemctl start nel3ab-control     # `enable` too, to survive a reboot
 #   journalctl -u nel3ab-control -f
 #
-# It must be reachable at the SAME origin as the worker, because the worker
+# It must be reachable at the SAME origin as the workers, because a worker
 # refuses a WebSocket whose `Origin` is not its own `Host`, and because the page
-# talks to both. One hostname, two backends, split on the path:
+# talks to both. One hostname, `nel3ab.app`, split on the path by Caddy
+# (`deploy/Caddyfile`): `/r/<n>/` to room n, everything else to this service.
 #
-#   tailscale serve --bg --https 8443 --set-path /api      http://127.0.0.1:8200/api
-#   tailscale serve --bg --https 8443 --set-path /socket.io http://127.0.0.1:8200/socket.io
-#   tailscale serve --bg --https 8443 /                     http://127.0.0.1:8100
+# The former `.ts.net:8443` door only redirects to `nel3ab.app` since
+# 2026-11-21 (see the Caddyfile):
+#
+#   tailscale serve --bg --https=8443 http://127.0.0.1:8098
+#   tailscale serve --bg --https=8444 http://127.0.0.1:8097
 #
 # Restarting this does not interrupt a game: the page keeps its picture, its
 # sound and its pad, and loses only the names beside the seats until it comes
@@ -79,13 +82,15 @@ Environment=NEL3AB_ADMIN=souhib.t@hotmail.fr
 # Les origines admises au salon, en JSON. Jamais vide: vide veut dire « tout le
 # monde » pour python-socketio, et n'importe quel site ouvert dans le navigateur
 # d'un membre du tailnet parlait alors à la salle en son nom (5 septembre 2026).
-# Les deux portes de la salle sont actives. Le 6 septembre 2026, la porte
-# `.ts.net:8443` donnait bien la manette mais refusait le salon en 403 : un ami
-# jouait sans nom sous sa place. Admettre exactement ces deux origines garde
-# les sites étrangers exclus. Le port 8444 ne sert que la documentation.
+# Une seule porte depuis le 21 novembre 2026: `nel3ab.app`. L'ancienne porte
+# `.ts.net:8443` ne sert plus de page, elle renvoie vers ce nom; son origine
+# n'a donc plus de raison d'écrire au salon, et elle est retirée. (Le
+# 6 septembre 2026, quand elle servait encore la salle, l'oublier ici avait
+# donné une manette sans nom à un ami.) Pour rouvrir cette porte en secours, la
+# remettre ici en même temps.
 # Guillemets simples autour de tout: systemd retire les guillemets doubles d'une
 # valeur non protégée, et le JSON arrivait au service sans les siens.
-Environment='NEL3AB_ORIGINS=["https://nel3ab.app","https://lgf.tail3bd01c.ts.net:8443"]'
+Environment='NEL3AB_ORIGINS=["https://nel3ab.app"]'
 # Les dossiers de jeux, la MÊME liste que `nel3ab-worker@.service`. Le dépôt
 # de jeux (/importer) range un jeu dans le dossier qui porte le nom de sa
 # console. Sans cette ligne, le salon ne connaîtrait que gc et wii, le défaut

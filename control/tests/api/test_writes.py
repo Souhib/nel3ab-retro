@@ -157,27 +157,33 @@ async def test_the_page_itself_still_writes(bare: httpx.AsyncClient, site: str |
     assert answer.json()["name"] == "Moi"
 
 
-async def test_both_deployed_doors_may_write(bare: httpx.AsyncClient, app: FastAPI) -> None:
+async def test_the_one_deployed_door_may_write_and_the_old_one_may_not(
+    bare: httpx.AsyncClient, app: FastAPI
+) -> None:
     """Les origines viennent des réglages, les mêmes que celles de la socket.
 
-    Lit la valeur livrée à systemd, pas une liste recopiée dans le test. Sans
-    ça, la seconde porte (le nom `.ts.net`) serait refusée en écriture le jour
-    où quelqu'un la change d'un côté seulement.
+    Lit la valeur livrée à systemd, pas une liste recopiée dans le test. Depuis
+    le 21 novembre 2026, `nel3ab.app` est la seule porte: l'ancienne porte
+    `.ts.net:8443` ne sert plus de page, elle renvoie vers ce nom
+    (`deploy/Caddyfile`), et son origine ne doit plus pouvoir écrire.
     """
     unit = Path(__file__).parents[3] / "deploy/nel3ab-control.service"
     lines = [line for line in unit.read_text().splitlines() if line.startswith("Environment=")]
     environment = dict(shlex.split(line.partition("=")[2])[0].split("=", 1) for line in lines)
     deployed = json.loads(environment["NEL3AB_ORIGINS"])
     app.state.settings.origins = deployed
-    assert len(deployed) == 2, deployed
+    assert deployed == ["https://nel3ab.app"], deployed
 
-    for origin in deployed:
+    for origin, attendu in [
+        ("https://nel3ab.app", 200),
+        ("https://lgf.tail3bd01c.ts.net:8443", 403),
+    ]:
         answer = await bare.put(
             "/api/me",
             headers={"Origin": origin, "Sec-Fetch-Site": "same-origin", **SOUHIB},
             json={"name": "Moi"},
         )
-        assert answer.status_code == 200, origin
+        assert answer.status_code == attendu, origin
 
 
 async def test_reading_does_not_ask_for_an_origin(bare: httpx.AsyncClient) -> None:

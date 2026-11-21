@@ -17,6 +17,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import NamedTuple
 
 TOOLS = Path(__file__).resolve().parents[1] / "spikes/switch-room"
 
@@ -117,7 +118,7 @@ def update_mount(config: dict, slot: Path) -> list[str]:
 
 
 def cache_mounts(slot: Path) -> list[str]:
-    """One shader and driver cache per game, shared by its two slots.
+    """One shader and driver cache per game, shared by all its save slots.
 
     A cache holds no progression: it only saves the work of preparing a shader
     or translating a function, which is the same in both slots. Kept apart,
@@ -145,7 +146,10 @@ def cache_mounts(slot: Path) -> list[str]:
             pending.mkdir(parents=True)
         pending.rename(shared)
     # Docker would create a missing mount point as root inside the slot.
-    for inside in (slot / "data/games" / title / "cache", slot / "home/.cache/mesa_shader_cache"):
+    for inside in (
+        slot / "data/games" / title / "cache",
+        slot / "home/.cache/mesa_shader_cache",
+    ):
         inside.mkdir(parents=True, exist_ok=True)
     return [
         "-v",
@@ -209,7 +213,7 @@ def cpu_pinning(config: dict) -> list[str]:
     if cpuset is None:
         return []
     if not isinstance(cpuset, str) or not cpuset.strip():
-        raise ValueError(f"cpuset doit être une liste de cœurs comme \"0-3,6-9\", pas {cpuset!r}")
+        raise ValueError(f'cpuset doit être une liste de cœurs comme "0-3,6-9", pas {cpuset!r}')
     return ["--cpuset-cpus", cpuset.strip()]
 
 
@@ -241,15 +245,66 @@ def engine_environment(config: dict) -> list[str]:
     ]
 
 
-def serve(config: dict, rom: Path, slot: Path, pads: Path) -> None:
+class EngineLaunch(NamedTuple):
+    """Only the engine-specific arguments; the room owns the shared lifecycle."""
+
+    environment: list[str]
+    mounts: list[str]
+    command: list[str]
+    controllers: int
+
+
+def ryubing_launch(config: dict, rom: Path, slot: Path) -> EngineLaunch:
+    profile = slot / "data/profiles/controller/nel3ab.json"
+    profile.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(TOOLS / "ryubing-pro-controller.json", profile)
+    command = [
+        "/emulator/publish/Ryujinx",
+        "--no-gui",
+        "--root-data-dir",
+        "/run-data/data",
+        "--fullscreen",
+        "--memory-manager-mode",
+        "HostMapped",
+        "--graphics-backend",
+        "Vulkan",
+        "--ignore-controller-applet",
+    ]
+    for seat in range(1, 5):
+        command.extend(
+            [
+                f"--input-id-{seat}",
+                f"{seat - 1}-00000003-045e-0000-8e02-000014010000",
+                f"--input-profile-{seat}",
+                "nel3ab",
+            ]
+        )
+    command.append(f"/game/input{rom.suffix}")
+    return EngineLaunch(
+        engine_environment(config),
+        [*update_mount(config, slot), *cache_mounts(slot)],
+        command,
+        4,
+    )
+
+
+def serve(
+    config: dict,
+    rom: Path,
+    slot: Path,
+    pads: Path,
+    launch: EngineLaunch | None = None,
+    snapshot=backup,
+) -> None:
     # Instance names follow the private runtime, so integration rooms cannot
     # stop the production room. Docker refuses duplicates instead of stealing.
     token = pads.name
     engine = f"nel3ab-switch-{token}"
     helper = f"{engine}-pads"
     image = config["image"]
-    environment = engine_environment(config)
-    updates = update_mount(config, slot)
+    launch = launch if launch is not None else ryubing_launch(config, rom, slot)
+    if launch.controllers not in (1, 4):
+        raise ValueError("A room must launch one or four controllers")
     uid, gid = str(os.getuid()), str(os.getgid())
     # Helper has no DAC override: share this one directory with the host group.
     pads.chmod(0o770)
@@ -269,9 +324,8 @@ def serve(config: dict, rom: Path, slot: Path, pads: Path) -> None:
                 raise RuntimeError("Virtual controllers did not start")
             time.sleep(0.05)
         devices = json.loads((pads / "devices.json").read_text())
-        profile = slot / "data/profiles/controller/nel3ab.json"
-        profile.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(TOOLS / "ryubing-pro-controller.json", profile)
+        if len(devices) != 4:
+            raise RuntimeError("Virtual controller helper did not create four devices")
         args = [
             "docker",
             "run",
@@ -291,7 +345,7 @@ def serve(config: dict, rom: Path, slot: Path, pads: Path) -> None:
             str(os.stat("/dev/dri/renderD128").st_gid),
             "--device=/dev/dri/renderD128",
             "--shm-size=8g",
-            *environment,
+            *launch.environment,
             "-v",
             f"{Path(config['engine']).resolve()}:/emulator:ro",
             "-v",
@@ -303,38 +357,18 @@ def serve(config: dict, rom: Path, slot: Path, pads: Path) -> None:
             "-v",
             f"{rom}:/game/input{rom.suffix}:ro",
         ]
-        args.extend(updates)
-        args.extend(cache_mounts(slot))
+        args.extend(launch.mounts)
         args.extend(cpu_pinning(config))
-        for device in devices:
+        for device in devices[: launch.controllers]:
             args.extend(["--device", device])
         args.extend(
             [
                 image,
                 "bash",
                 "/probe/runtime.sh",
-                "/emulator/publish/Ryujinx",
-                "--no-gui",
-                "--root-data-dir",
-                "/run-data/data",
-                "--fullscreen",
-                "--memory-manager-mode",
-                "HostMapped",
-                "--graphics-backend",
-                "Vulkan",
-                "--ignore-controller-applet",
+                *launch.command,
             ]
         )
-        for seat in range(1, 5):
-            args.extend(
-                [
-                    f"--input-id-{seat}",
-                    f"{seat - 1}-00000003-045e-0000-8e02-000014010000",
-                    f"--input-profile-{seat}",
-                    "nel3ab",
-                ]
-            )
-        args.append(f"/game/input{rom.suffix}")
         # Avoid accepting yesterday's display as the new compositor's readiness.
         (slot / "display.json").unlink(missing_ok=True)
         run(*args, stdout=subprocess.DEVNULL)
@@ -375,7 +409,7 @@ def serve(config: dict, rom: Path, slot: Path, pads: Path) -> None:
         selector.close()
         try:
             if started_engine:
-                stop_engine(engine, slot, capture)
+                stop_engine(engine, slot, capture, snapshot)
         finally:
             # A failed capture wait or a save-copy error must not retain inputs.
             if started_helper:
@@ -400,7 +434,7 @@ def serve(config: dict, rom: Path, slot: Path, pads: Path) -> None:
                     run("docker", "rm", helper, stdout=subprocess.DEVNULL)
 
 
-def stop_engine(engine: str, slot: Path, capture) -> None:
+def stop_engine(engine: str, slot: Path, capture, snapshot=backup) -> None:
     try:
         subprocess.run(  # noqa: S603 -- generated private container name, fixed command
             [
@@ -430,7 +464,7 @@ def stop_engine(engine: str, slot: Path, capture) -> None:
                 text=True,
             ).stdout
             (slot / "exit.json").write_text(status)
-            backup(slot)
+            snapshot(slot)
             with (slot / "emulator.log").open("w") as log:
                 run("docker", "logs", engine, stdout=log, stderr=subprocess.STDOUT)
         finally:

@@ -96,7 +96,7 @@
       "playable": true,
       "why": {
         "lock": "Une seule salle à la fois joue à un jeu de la famille Switch, décidé le 12 septembre 2026 : Ryubing coûte bien plus cher que Dolphin. Le verrou est un fichier tenu par le worker (lock::take_switch).",
-        "registration": "Un NSP peut être une mise à jour : son extension ne suffit jamais, il faut une fiche <fichier>.nel3ab.json écrite à la main (emulator::switch)."
+        "registration": "Un NSP peut être une mise à jour : son extension ne suffit jamais, il faut une fiche <fichier>.nel3ab.json (emulator::switch). Elle s'écrit à la main après un lancement d'essai, ou par l'import du salon après lecture de l'en-tête NCA, chiffré avec la clé de la console."
       }
     },
     {

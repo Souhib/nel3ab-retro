@@ -17,18 +17,33 @@ doivent tomber sur le même nom, donc sur le refus d'un doublon.
   les deux jeux partageraient leurs sauvegardes;
 - le même fichier, octet pour octet, déjà rangé n'importe où;
 - le même jeu (code et numéro de disque) déjà dans le même dossier, sous un
-  autre format ou une autre révision.
+  autre format ou une autre révision;
+- pour la Switch, le même identifiant de titre déjà inscrit par la fiche d'un
+  autre fichier: la salle range ses sauvegardes par ce titre, donc deux
+  fichiers du même jeu partageraient la progression de chacun.
 
 Ces contrôles se font sous un verrou, puis le fichier est LIÉ à sa place:
 `link` échoue si le nom existe, là où `rename` l'écraserait. Si un fichier
 apparaît entre le contrôle et le lien, rien n'est remplacé.
+
+# La fiche d'un jeu Switch
+
+Un jeu Switch n'entre au catalogue qu'avec sa fiche `<fichier>.nel3ab.json`
+(`emulator::switch::registered`). Elle est écrite AVANT le jeu, sous un nom
+provisoire, forcée sur le disque, puis liée à son nom sans remplacement. Un
+lecteur voit donc soit rien, soit la fiche entière. Un jeu sans fiche ne serait
+pas listé; une fiche sans jeu n'inscrit rien. Si le lien du jeu échoue, la fiche
+qu'on vient de créer est retirée, et seulement elle: elle reste ouverte jusque-là,
+et son inode, que personne d'autre ne peut recevoir tant qu'elle l'est, le prouve.
 """
 
 import contextlib
 import errno
 import fcntl
 import hashlib
+import json
 import os
+import re
 import unicodedata
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -49,6 +64,17 @@ INTERDITS = frozenset('/\\:*?"<>|')
 
 #: Le préfixe des fichiers provisoires d'une copie entre deux disques.
 PROVISOIRE = ".nel3ab-import-"
+
+#: Ce qu'on ajoute au nom d'un jeu pour nommer sa fiche, et sa taille la plus
+#: grande: celles que lit `emulator::switch::registered`.
+FICHE = ".nel3ab.json"
+FICHE_MAX = 4096
+
+#: Ce qu'une copie de jeu Switch ajoute à son nom: identifiant entre crochets,
+#: version, région, taille. Retiré du nom affiché.
+ETIQUETTES = re.compile(r"\[[^\]]*\]|\([^)]*\)")
+
+TITRE = re.compile(r"^[0-9a-fA-F]{16}$")
 
 
 class Refus(Exception):  # noqa: N818 - c'est un verdict, pas une panne
@@ -91,6 +117,47 @@ def nom_canonique(titre: str, annonce: str, identifiant: str, disque: str, forma
     return base + EXTENSIONS[format_]
 
 
+def nom_switch(annonce: str, titre: int) -> str:
+    """Le nom d'un jeu Switch, sans extension: le nom annoncé, sans ses étiquettes.
+
+    Le titre du jeu est écrit dans sa partie Control, chiffrée avec une autre
+    clé que celle d'en-tête: il n'est pas lu. Le nom du fichier est donc la
+    seule source, débarrassée de ce que les copies y ajoutent:
+    « Mario Kart 8 Deluxe [0100152000022000][v0] (7.03 GB).nsp » devient
+    « Mario Kart 8 Deluxe ». Sans rien d'autre, l'identifiant sert de nom.
+    """
+    return nettoyer(ETIQUETTES.sub(" ", repli(annonce)).replace("_", " ")) or f"{titre:016X}"
+
+
+@dataclass(frozen=True)
+class Fiche:
+    """L'inscription d'un jeu Switch: son titre, et les octets écrits à côté de lui."""
+
+    #: L'identifiant de titre en minuscules, comme le worker le garde.
+    titre: str
+    octets: bytes
+
+
+def fiche_switch(nom: str, titre: int) -> Fiche:
+    """La fiche que `emulator::switch::registered` accepte pour ce jeu.
+
+    Le champ `inscription` dit d'où elle vient: les fiches écrites à la main
+    suivent un lancement d'essai, celle-ci la lecture de l'en-tête NCA. Le
+    worker ne le lit pas. Le même texte est dans `consoles/fiche-switch.json`,
+    qu'un essai Rust passe au vrai `registered`.
+    """
+    contenu = {
+        "console": "switch",
+        "name": nom,
+        "title": f"{titre:016X}",
+        "inscription": "import: titre lu dans l'en-tête NCA, sans lancement d'essai",
+    }
+    octets = (json.dumps(contenu, ensure_ascii=False, indent=2) + "\n").encode()
+    if len(octets) > FICHE_MAX:
+        raise ValueError(f"une fiche dépasse {FICHE_MAX} octets")
+    return Fiche(f"{titre:016x}", octets)
+
+
 def cle_sauvegarde(nom: str) -> str:
     """La même clé que `emulator::saves::key`, recopiée et essayée sur ses exemples."""
     sortie: list[str] = []
@@ -124,6 +191,15 @@ class Existant:
         return f"{self.dossier.name}/{self.nom}"
 
 
+@dataclass(frozen=True)
+class Inscrit:
+    """Un jeu que la fiche voisine inscrit sous un identifiant de titre."""
+
+    jeu: Existant
+    #: Le nom que la fiche lui donne, ou rien.
+    nom: str
+
+
 class Bibliotheque:
     """Les dossiers de jeux, et la seule porte par laquelle un import y entre."""
 
@@ -150,6 +226,37 @@ class Bibliotheque:
 
     def _ouvrir(self, existant: Existant) -> int:
         return os.open(existant.dossier / existant.nom, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+
+    def inscrits(self) -> dict[str, Inscrit]:
+        """Chaque identifiant de titre qu'une fiche inscrit, en minuscules.
+
+        Seule compte une fiche posée à côté de son jeu: une fiche orpheline
+        n'inscrit rien pour le worker, et ne doit pas bloquer un import. Une
+        fiche illisible ou trop grosse est ignorée, comme le worker l'ignore.
+        """
+        tous = list(self.existants())
+        presents = {(e.dossier, e.nom): e for e in tous}
+        trouves: dict[str, Inscrit] = {}
+        for existant in tous:
+            if not existant.nom.endswith(FICHE) or existant.taille > FICHE_MAX:
+                continue
+            jeu = presents.get((existant.dossier, existant.nom.removesuffix(FICHE)))
+            if jeu is None:
+                continue
+            try:
+                fd = self._ouvrir(existant)
+                try:
+                    valeur = json.loads(os.read(fd, FICHE_MAX + 1))
+                finally:
+                    os.close(fd)
+            except (OSError, ValueError):
+                continue
+            titre = valeur.get("title") if isinstance(valeur, dict) else None
+            if not isinstance(titre, str) or not TITRE.match(titre):
+                continue
+            nom = valeur.get("name")
+            trouves.setdefault(titre.lower(), Inscrit(jeu, nom if isinstance(nom, str) else ""))
+        return trouves
 
     def deja_la(self, taille: int, empreinte: str) -> Existant | None:
         """Un fichier de même taille ET de même empreinte rapide, ou rien.
@@ -181,8 +288,20 @@ class Bibliotheque:
             os.close(fd)
 
     def _controler(
-        self, destination: Path, nom: str, taille: int, sha256: str, jeu: tuple[str, str] | None
+        self,
+        destination: Path,
+        nom: str,
+        taille: int,
+        sha256: str,
+        jeu: tuple[str, str] | None,
+        fiche: Fiche | None,
     ) -> None:
+        if fiche is not None and (deja := self.inscrits().get(fiche.titre)):
+            raise Refus(
+                "doublon",
+                f"le même jeu (titre {fiche.titre.upper()}) est déjà inscrit: "
+                f"« {deja.jeu.montre} »",
+            )
         cle = cle_sauvegarde(nom)
         for connu in self.connus:
             if connu == nom:
@@ -231,26 +350,82 @@ class Bibliotheque:
         *,
         sha256: str,
         jeu: tuple[str, str] | None,
+        fiche: Fiche | None = None,
     ) -> str:
         """Lie le fichier ouvert `source` sous `destination/nom`, ou refuse.
 
         Rend `dossier/nom`. Le fichier de quarantaine n'est PAS retiré ici:
         c'est à l'appelant de le faire une fois ce retour reçu, et seulement
-        alors, pour qu'un échec laisse toujours une copie quelque part.
+        alors, pour qu'un échec laisse toujours une copie quelque part. Avec
+        une `fiche`, elle est écrite à côté du jeu, avant lui.
         """
         taille = os.fstat(source).st_size
         with self._verrouillee():
-            self._controler(destination, nom, taille, sha256, jeu)
+            self._controler(destination, nom, taille, sha256, jeu, fiche)
             # Lisible comme les autres jeux: la quarantaine crée en 0600, dans
             # un dossier en 0700 qui suffit à la protéger.
             os.fchmod(source, 0o644)
             dossier = os.open(destination, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
             try:
-                lier_sans_remplacer(source, dossier, nom)
+                ecrite = None if fiche is None else ecrire_fiche(dossier, nom + FICHE, fiche)
+                try:
+                    lier_sans_remplacer(source, dossier, nom)
+                except BaseException:
+                    if ecrite is not None:
+                        retirer_si_meme(dossier, nom + FICHE, ecrite)
+                    raise
+                finally:
+                    if ecrite is not None:
+                        os.close(ecrite)
                 os.fsync(dossier)
             finally:
                 os.close(dossier)
         return f"{destination.name}/{nom}"
+
+
+def ecrire_fiche(dossier: int, nom: str, fiche: Fiche) -> int:
+    """Écrit la fiche sous `nom` dans `dossier`, entière ou pas du tout, sans écraser.
+
+    Rend le fichier écrit, OUVERT: c'est à l'appelant de le fermer. Tant qu'il
+    l'est, son inode ne peut servir à aucun autre fichier, et `retirer_si_meme`
+    peut comparer sans se tromper. Fermé, le numéro serait libre: un fichier
+    créé juste après peut le recevoir, ce que l'essai a montré sur ce disque.
+    """
+    provisoire = f"{PROVISOIRE}{os.getpid()}-{os.urandom(4).hex()}"
+    fd = os.open(
+        provisoire,
+        os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
+        0o644,
+        dir_fd=dossier,
+    )
+    try:
+        os.fchmod(fd, 0o644)
+        vue = memoryview(fiche.octets)
+        while vue:
+            vue = vue[os.write(fd, vue) :]
+        os.fsync(fd)
+        try:
+            os.link(provisoire, nom, src_dir_fd=dossier, dst_dir_fd=dossier, follow_symlinks=False)
+        except FileExistsError as erreur:
+            raise Refus(
+                "doublon", f"une fiche « {nom} » existe déjà, sans son jeu: rien n'a été remplacé"
+            ) from erreur
+    except BaseException:
+        os.close(fd)
+        raise
+    finally:
+        with contextlib.suppress(FileNotFoundError):
+            os.unlink(provisoire, dir_fd=dossier)
+    return fd
+
+
+def retirer_si_meme(dossier: int, nom: str, ouvert: int) -> None:
+    """Retire `nom` de `dossier` s'il désigne encore le fichier `ouvert`, et rien d'autre."""
+    attendu = os.fstat(ouvert)
+    with contextlib.suppress(FileNotFoundError):
+        etat = os.stat(nom, dir_fd=dossier, follow_symlinks=False)
+        if (etat.st_dev, etat.st_ino) == (attendu.st_dev, attendu.st_ino):
+            os.unlink(nom, dir_fd=dossier)
 
 
 def lier_sans_remplacer(source: int, dossier: int, nom: str) -> None:

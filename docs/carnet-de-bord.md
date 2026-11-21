@@ -25501,7 +25501,8 @@ GameCube et Wii en ISO, RVZ, GCZ ou CISO vont dans le dossier `gc` ou `wii` de
 pas ces extensions. Une image NKit attend une décision. La Switch attend aussi :
 son identifiant de titre est écrit dans un en-tête chiffré avec la clé de la
 console, que le salon ne lit pas. La page le dit, et propose le titre que porte
-le nom du ticket, sans le croire. La Xbox 360, décrite non jouable au manifeste,
+le nom du ticket, sans le croire. (Remplacé le même jour : le salon lit
+maintenant cette clé, voir « 21 novembre : la Switch se range aussi ».) La Xbox 360, décrite non jouable au manifeste,
 et les consoles rétro restent en quarantaine avec « reconnu, pas encore
 jouable ». Un jeu rangé est visible à la prochaine ouverture de salle ou au
 prochain changement de jeu : le worker ne lit sa bibliothèque qu'à son
@@ -25565,6 +25566,157 @@ même dossier » l'arrêterait : non vérifié sur la bibliothèque réelle. Une
 extraction d'archive tourne dans le salon, sans la priorité basse de `lsar` et
 `unar`. Enfin, rien n'efface un envoi abandonné : la quarantaine garde tout
 jusqu'à ce qu'on le retire depuis la page.
+
+### 21 novembre : la Switch se range aussi
+
+**Le problème.** Chaque NSP ou XCI déposé restait « à confirmer ». Un jeu
+Switch n'entre dans la salle que par sa fiche `<fichier>.nel3ab.json`, posée à
+côté de lui. Le worker y lit le nom de la console, un nom de jeu et
+l'identifiant de titre, ce numéro de seize chiffres hexadécimaux qui désigne un
+jeu chez Nintendo et sous lequel la salle range ses sauvegardes. Il refuse une
+fiche dont le titre ne finit pas par `000`, parce qu'un titre en `800` est une
+mise à jour. Cet identifiant est écrit dans l'en-tête de chaque NCA, le
+conteneur interne des contenus Switch, et cet en-tête est chiffré avec la clé
+d'en-tête de la console. Le nom du ticket le propose aussi, mais un nom se
+réécrit sans rien chiffrer.
+
+**La clé était déjà sur la machine.** Le moteur Switch a besoin des clés de la
+console de Souhib, rangées dans un `prod.keys` privé. Depuis le 11 septembre,
+`docker/switch-dlc.py` y lit la clé d'en-tête pour vérifier les contenus
+additionnels. Le salon reçoit maintenant le chemin de ce fichier par un
+réglage, `NEL3AB_SWITCH_KEYS`, sans valeur par défaut : un salon de
+développement ou un essai ne lit pas la vraie clé sans qu'on l'ait écrit. Il
+n'en lit qu'une ligne, `header_key`, à chaque envoi terminé. Il la garde en
+mémoire, ne l'écrit nulle part, et aucun message d'erreur ne cite une valeur
+lue : il dit ce qui manque. L'objet qui la porte ne s'affiche pas, pour qu'un
+journal ou une trace d'erreur qui écrirait les règles de l'import n'emporte pas
+la clé avec elles.
+
+**Pourquoi dans le salon.** Le salon est joignable par le proxy, et c'est la
+question qui a été pesée. Il tourne sous le compte de Souhib, qui peut déjà
+lire ce fichier : un code qui s'exécuterait dans le salon le lirait de toute
+façon. Garder la ligne en mémoire n'ouvre donc aucun accès nouveau. Ce qui
+compte est qu'elle ne sorte jamais par une réponse ou un journal, et c'est ce
+que les essais vérifient. Un service séparé qui tiendrait la clé ajouterait une
+pièce sans retirer un accès ; Docker restait exclu pour la raison donnée le
+matin, puisqu'un client Docker équivaut à root. Le module qui reconnaît les
+consoles, lui, ne lit toujours aucune clé : le déchiffrement vit dans un module
+à part, `imports/switch_nca.py`.
+
+**Le calcul.** Le chiffrement est l'AES-XTS sur des secteurs de 512 octets
+(0x200). Chaque secteur est chiffré avec la même clé et une valeur
+d'ajustement, son numéro. La Switch écrit ce numéro en gros-boutiste sur seize
+octets, à l'inverse du standard. Seuls les 0xC00 premiers octets de chaque NCA
+sont déchiffrés : l'en-tête et ses quatre en-têtes de section. La bibliothèque
+standard de Python n'a pas d'AES, et en écrire un serait du chiffrement maison.
+Le salon gagne donc une dépendance, `cryptography`, la bibliothèque de référence
+de Python, que `switch-dlc.py` utilisait déjà depuis le Python du système. Elle
+apporte `cffi` et `pycparser`.
+
+**Deux contrôles contre une mauvaise clé.** Une mauvaise clé donne des octets au
+hasard. La marque « NCA3 » (ou « NCA2 », une version plus ancienne) à 0x200 ne
+passerait par hasard qu'une fois sur quatre milliards. La taille que l'en-tête
+annonce à 0x208 doit, en plus, être exactement celle de la partie dans le
+conteneur. Un fichier dont une seule partie échoue est refusé en entier.
+
+**Jeu, mise à jour ou contenu additionnel.** La partie Meta, aussi appelée CNMT,
+décrit un contenu et porte son identifiant propre. Un jeu a ses treize bits du
+bas à zéro ; sa mise à jour est le même nombre plus 0x800 ; un contenu
+additionnel est le jeu plus 0x1000, puis son numéro, qui commence à 1. La
+partie Program d'une mise à jour porte au contraire l'identifiant du jeu : elle
+seule ne distingue pas un jeu de sa mise à jour, d'où l'exigence d'une partie
+Meta. Une carte qui porte son jeu et sa mise à jour est le jeu. Plusieurs jeux
+dans un fichier, aucune partie Meta, un jeu sans sa partie Program, un titre du
+système ou de la famille Switch 2 restent « à confirmer », avec la raison. Le
+type écrit à l'intérieur du CNMT le dirait directement, mais il faut une autre
+clé pour le lire, et il n'est pas lu.
+
+**Ranger.** Le nom du jeu vient du nom du fichier, sans ce qui est entre
+crochets ou entre parenthèses, où les copies écrivent l'identifiant, la version
+ou la taille. Le titre écrit dans le jeu est dans sa partie Control, chiffrée
+avec une autre clé, et n'est pas lu non plus. La fiche porte la console, le
+nom, le titre en majuscules, et un champ `inscription` qui dit qu'elle vient de
+l'import, sans lancement d'essai ; le worker ne lit pas ce champ. Elle est
+écrite avant le jeu, sous un nom provisoire, forcée sur le disque, puis liée à
+son nom sans rien remplacer. Un jeu sans fiche n'est pas listé et une fiche
+sans jeu n'inscrit rien : un lecteur ne voit jamais un jeu à moitié inscrit. Si
+le jeu ne se lie pas, la fiche neuve est retirée. Un titre déjà inscrit par la
+fiche d'un autre fichier est refusé comme doublon, puisque les deux fichiers
+partageraient les sauvegardes de chacun. Seule compte une fiche posée à côté de
+son jeu : une fiche orpheline n'inscrit rien pour le worker, et ne bloque pas
+un dépôt. Une fiche orpheline qui porte le nom voulu n'est jamais remplacée.
+
+Une mise à jour et un contenu additionnel ont maintenant leur propre état,
+« mise à jour, gardée de côté » et « contenu additionnel, gardé de côté ». Le
+message nomme le jeu quand il est déjà dans la bibliothèque, et rappelle où la
+salle Switch les lit : son dossier privé `updates`, jeu par jeu, et
+`switch-dlc.py` pour un contenu additionnel. Cette passe ne les installe pas.
+Sans fichier de clés, ou sans ligne `header_key`, rien ne change : « à
+confirmer », avec la raison. Le NSZ et le XCZ restent « pas encore jouables »,
+le NUP de la Switch 2 reste « à confirmer ».
+
+**Un essai qui a trouvé un défaut.** La première version retirait la fiche
+neuve en comparant son numéro d'inode, relevé puis gardé après avoir fermé le
+fichier. L'essai jumeau remplace cette fiche par un autre fichier avant le
+retrait. Le nouveau fichier a reçu tout de suite le même numéro, libéré à la
+fermeture, et le retrait a effacé le fichier de quelqu'un d'autre. La fiche
+reste maintenant ouverte jusqu'au lien du jeu : tant qu'elle l'est, son inode
+ne peut servir à aucun autre fichier. Leçon : un numéro d'inode ne prouve qu'on
+parle du même fichier que tant qu'on le tient ouvert. La quarantaine du matin
+garde le numéro d'inode de son fichier entre deux ouvertures, et jusque dans
+son état écrit sur le disque : la même limite y vaut, et n'est pas corrigée ici.
+
+**Les essais.** Aucune vraie clé, aucun vrai jeu. Chaque essai tire au hasard
+une clé jetable de 32 octets. La fabrique d'en-têtes chiffre elle-même, avec
+`cryptography` et sans le code testé, des NSP et des XCI écrits octet par
+octet : jeu, mise à jour, contenu additionnel, carte avec sa mise à jour, carte
+à deux jeux, carte avec et sans sa zone de clé devant l'en-tête. Sont refusés :
+une autre clé, une autre marque, une taille annoncée fausse d'un octet, une
+partie plus courte que son en-tête, une carte sans partition « secure ».
+Aucune coupure du fichier, de 0 octet au dernier, ne donne un jeu ni ne fait
+lever le module. Un fichier de clés absent, sans `header_key`, avec 63
+chiffres, avec deux lignes, ou trop gros, donne une raison qui ne contient
+aucune valeur du fichier.
+
+La fiche est un contrat entre deux langages. Le fichier partagé
+`consoles/fiche-switch.json` est comparé octet pour octet à ce que le salon
+écrit, et un essai Rust le passe au vrai `registered` du worker, pour un NSP et
+pour un XCI. Son jumeau, la même fiche avec le titre de la mise à jour, est
+refusé. L'essai vérifie d'abord que ce titre est bien écrit dans la fiche :
+sinon le remplacement ne changerait rien et le jumeau passerait pour une
+mauvaise raison.
+
+**Les preuves rouges.** Le numéro de secteur écrit en petit-boutiste fait
+échouer 24 essais, 17 du module et 7 du protocole complet. Sans le contrôle de
+taille, l'essai de la taille fausse échoue. Sans le refus du même titre, l'essai
+du doublon échoue. Sans le retrait de la fiche, l'essai du lien raté échoue.
+Une clé affichée dans l'objet qui la porte fait échouer l'essai qui la cherche
+dans les règles. Une fiche partagée qui écrit `family` au lieu de `console` fait
+échouer l'essai Rust et l'essai Python.
+
+**Sur la vraie bibliothèque.** Le module a lu, en lecture seule et avec le vrai
+`prod.keys`, les six jeux Switch de `~/roms/switch` : quatre NSP et deux XCI.
+Les six donnent le titre écrit dans leur fiche, posée à la main en septembre
+après un lancement d'essai : six accords, aucun désaccord, aucun fichier non
+lu. Chacun de leurs 26 NCA porte la bonne marque et annonce la taille exacte de
+sa partie : le contrôle de taille ne refuse pas de vrais fichiers. Les quatre
+tickets des NSP proposent le même titre. Redéposé, chacun serait refusé comme
+doublon, et le nom choisi serait celui qu'il porte déjà. Avec une clé tirée au
+hasard, les six sont refusés. Rien n'a été écrit hors d'un dossier temporaire,
+et aucune clé n'a été affichée.
+
+**Ce qui n'est pas prouvé.** Rien n'est installé : le salon en service n'a pas
+redémarré, et son unité gagne `NEL3AB_SWITCH_KEYS`, ce que `just deploy-check`
+signalera jusqu'à son installation. Aucun envoi n'a traversé le vrai réseau.
+Aucune vraie mise à jour, aucun vrai contenu additionnel n'a été lu par ce
+module : la vérification réelle n'a porté que sur des jeux de base. Un jeu
+rangé par l'import n'a jamais été lancé : un jeu qui demande une génération de
+clé plus récente que celles de la machine serait inscrit et ne démarrerait
+pas. La génération est montrée dans les détails, pas comparée. Le nom tiré du
+fichier peut être pauvre, et une fiche écrite ne porte ni image, ni éditeur,
+ni présentation. Le refus du même titre ne regarde que les dossiers de
+`NEL3AB_ROM_DIR`. Enfin, aucun contrôle automatique des avis de sécurité ne
+couvre les dépendances Python : CI n'audite que celles de Rust.
 
 ## 12. Glossaire complet
 
@@ -26701,3 +26853,37 @@ s'en sert comme d'une proposition.
 
 **lsar, unar** : deux programmes libres qui listent et extraient la plupart
 des formats d'archive, dont 7z et rar.
+
+**Identifiant de titre (Switch)** : le numéro de seize chiffres hexadécimaux
+qui désigne un contenu Switch. Un jeu finit par `000`, sa mise à jour par
+`800`, un contenu additionnel porte le jeu plus 0x1000 et son numéro. La salle
+range les sauvegardes Switch sous ce numéro.
+
+**Clé d'en-tête** : la clé de 32 octets avec laquelle la console chiffre
+l'en-tête de chaque NCA. Elle vient des clés de la console de Souhib, dans le
+`prod.keys` privé du moteur Switch, et ne doit jamais quitter ce fichier.
+
+**prod.keys** : le fichier texte qui tient les clés d'une console Switch, une
+par ligne, sous la forme `nom = valeur`. Le salon n'en lit que la ligne
+`header_key`.
+
+**CNMT** : *Content Meta*, la partie Meta d'un contenu Switch. Elle décrit ce
+contenu, jeu, mise à jour ou contenu additionnel, et son en-tête porte son
+propre identifiant de titre.
+
+**PFS0, HFS0** : les deux tables de fichiers des conteneurs Switch. Un NSP est
+une table PFS0 ; un XCI range ses partitions, dont « secure », dans des tables
+HFS0.
+
+**Valeur d'ajustement (tweak)** : en AES-XTS, le nombre propre à chaque secteur
+qui fait qu'un même contenu chiffré à deux endroits donne deux résultats. Pour
+la Switch, c'est le numéro du secteur.
+
+**Gros-boutiste, petit-boutiste** : deux façons d'écrire un nombre sur
+plusieurs octets. Gros-boutiste met l'octet de plus fort poids en premier,
+petit-boutiste le dernier. Le numéro 1 s'écrit `00…01` dans le premier cas et
+`01…00` dans le second.
+
+**cryptography, cffi** : `cryptography` est la bibliothèque de chiffrement de
+référence en Python ; elle s'appuie sur `cffi`, qui lui permet d'appeler du code
+compilé.

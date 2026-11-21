@@ -1513,3 +1513,44 @@ header or forwarded address. A local process can claim any identity,
 including the administrator's. The topology is unchanged on purpose; a Unix
 socket reachable only by the proxies, or a proxy-held secret, are candidates
 that have not been tried.
+
+## Switch titles read by the game import, 2026-11-21
+
+The import (`/importer`) registers a Switch base game by writing its
+`<file>.nel3ab.json` sidecar. The logbook entry « 21 novembre : la Switch se
+range aussi » tells the tests and the check against the real library.
+
+**The lobby reads one line of the console's keys.** The title identifier sits
+in each NCA header, encrypted with the console's header key. The lobby takes
+the path of the private `prod.keys` from `NEL3AB_SWITCH_KEYS`, with no default,
+and reads only its `header_key` line, each time an upload is finished. The key
+stays in memory, inside an object whose representation omits it, and no
+message quotes a value read from the file. Weighed: the lobby is reachable
+through the proxy, but it already runs as the account that owns `prod.keys`.
+Code running inside the lobby could read the file anyway, so holding the line
+adds no access; what must not happen is the key leaving through a response or
+a log. Rejected: a separate process holding the key, because it would add a
+second service for no access the lobby lacks; Docker, for the reason the import
+already gave (a Docker client is root in practice).
+
+**Two checks prove the key and the bytes.** AES-128-XTS over 0x200-byte
+sectors, sector number big-endian, decrypts only the first 0xC00 bytes of each
+NCA. Every NCA must show « NCA3 » or « NCA2 » and announce the exact size of its
+container entry, or the whole file is refused. The Meta NCA's identifier then
+decides: base game (low 13 bits zero), update (plus 0x800), add-on (plus 0x1000
+and an index). Anything else, several games in one file, or a base without its
+Program NCA stays « à confirmer ». The CNMT body, which states the type itself,
+needs another key and is not read.
+
+**A base title is registered once.** A title already registered by a sidecar
+lying beside its game is refused as a duplicate: saves are keyed by title. The
+sidecar is written before the game, under a provisional name, then linked
+without replacement; it is removed if the game link fails, compared by an
+inode still held open. `consoles/fiche-switch.json` is the contract: the Python
+test compares the lobby's output to it, and an `emulator::switch` test passes
+it to `registered`.
+
+**Not done:** updates and add-ons stay in quarantine with their own state; the
+game's display name comes from the file name, since the NACP title needs
+key-area or title-key decryption; the key generation is reported, not compared
+with the keys the room holds.

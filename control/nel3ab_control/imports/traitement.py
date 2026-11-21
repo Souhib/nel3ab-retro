@@ -13,12 +13,12 @@ import contextlib
 import hashlib
 import os
 import zipfile
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
 from nel3ab_control.imports import archives
-from nel3ab_control.imports.destinations import console, destination, dossiers
+from nel3ab_control.imports.destinations import EXTENSIONS, console, destination, dossiers
 from nel3ab_control.imports.empreinte import empreinte_rapide, lecteur_fd
 from nel3ab_control.imports.identifier import Identification, identifier
 from nel3ab_control.imports.quarantaine import (
@@ -28,7 +28,23 @@ from nel3ab_control.imports.quarantaine import (
     EtatElement,
     Quarantaine,
 )
-from nel3ab_control.imports.rangement import Bibliotheque, Refus, nom_canonique
+from nel3ab_control.imports.rangement import (
+    Bibliotheque,
+    Inscrit,
+    Refus,
+    fiche_switch,
+    nom_canonique,
+    nom_switch,
+)
+from nel3ab_control.imports.switch_nca import (
+    CleEntete,
+    Contenu,
+    Illisible,
+    Incertain,
+    Lecture,
+    SansCle,
+    lire_contenu,
+)
 
 #: Ce que la page dit d'un jeu rangé. Le worker lit sa bibliothèque une seule
 #: fois, à son démarrage (`scan_libraries`, main.rs), et un changement de jeu
@@ -56,15 +72,25 @@ class Regles:
     marge: int
     espace_libre: Callable[[Path], int]
     outils: archives.Outils | None
+    #: La clé d'en-tête de la Switch, ou pourquoi on ne l'a pas. Sans elle, un
+    #: NSP ou un XCI reste « à confirmer ».
+    cle_switch: CleEntete | SansCle
     #: Les noms de jeux du catalogue des salles, refusés comme noms nouveaux.
     connus: frozenset[str] = frozenset()
 
 
-def decider(trouve: Identification, rom_dir: str) -> Decision:
+def decider(
+    trouve: Identification,
+    rom_dir: str,
+    switch: Lecture | None = None,
+    inscrits: Mapping[str, Inscrit] | None = None,
+) -> Decision:
     """Ranger, garder en quarantaine, ou demander: d'après les octets seulement.
 
     Ce qui décide vient du manifeste des consoles: « jouable », la façon dont
-    un jeu s'inscrit, les formats listés et le nom du dossier.
+    un jeu s'inscrit, les formats listés et le nom du dossier. Pour un NSP ou
+    un XCI, `switch` est ce que les en-têtes NCA ont dit, et `inscrits` les
+    titres que la bibliothèque inscrit déjà, pour nommer le jeu d'une mise à jour.
     """
     trouvee = console(trouve.console)
     if trouvee is None:
@@ -81,7 +107,7 @@ def decider(trouve: Identification, rom_dir: str) -> Decision:
         )
     if trouvee.inscription == "sidecar":
         if trouvee.code == "switch":
-            return _switch(trouve)
+            return _switch(trouve, rom_dir, switch, inscrits or {})
         return Decision(
             "a-confirmer",
             f"{trouvee.libelle}: l'identifiant de titre et le nom s'inscrivent à la main "
@@ -119,13 +145,71 @@ def decider(trouve: Identification, rom_dir: str) -> Decision:
     return Decision("range", VISIBLE, dossier)
 
 
-def _switch(trouve: Identification) -> Decision:
+def _switch(
+    trouve: Identification, rom_dir: str, lu: Lecture | None, inscrits: Mapping[str, Inscrit]
+) -> Decision:
     if trouve.format in ("nsz", "xcz"):
         return Decision(
             "pas-jouable",
             f"Le {trouve.format.upper()} est un format compressé que la salle ne lit pas encore. "
             "Décompresse-le en NSP ou en XCI, puis renvoie-le.",
         )
+    if lu is None or isinstance(lu, SansCle):
+        raison = lu.raison if lu is not None else "les en-têtes NCA n'ont pas été lus"
+        return _switch_sans_cle(trouve, raison)
+    if isinstance(lu, Illisible):
+        return Decision(
+            "refuse",
+            f"Les en-têtes NCA ne se lisent pas: {lu.raison}. Rien n'est inscrit, et le "
+            "fichier reste en quarantaine.",
+        )
+    if isinstance(lu, Incertain):
+        return Decision(
+            "a-confirmer",
+            f"Les en-têtes NCA se lisent, mais {lu.raison}. L'inscription "
+            "<fichier>.nel3ab.json s'écrit donc à la main.",
+        )
+    return _switch_lu(lu, rom_dir, inscrits)
+
+
+def _switch_lu(lu: Contenu, rom_dir: str, inscrits: Mapping[str, Inscrit]) -> Decision:
+    """Un contenu dont les en-têtes ont été lus: le ranger, ou dire à quel jeu il va."""
+    base = f"{lu.base:016X}"
+    titre = f"{lu.titre:016X}"
+    inscrit = inscrits.get(base.lower())
+    jeu = (
+        f"de « {inscrit.nom or inscrit.jeu.nom} » ({base})"
+        if inscrit
+        else f"du jeu {base}, absent de la bibliothèque"
+    )
+    if lu.sorte == "mise-a-jour":
+        return Decision(
+            "mise-a-jour",
+            f"Mise à jour {jeu}, titre {titre}: pas un jeu. La salle Switch lit une mise à "
+            "jour dans son dossier privé des mises à jour, choisie pour chaque jeu dans ses "
+            "deux emplacements (voir « Switch dans la salle »). Cet import ne l'installe "
+            "pas: elle reste en quarantaine.",
+        )
+    if lu.sorte == "contenu-additionnel":
+        return Decision(
+            "contenu-additionnel",
+            f"Contenu additionnel {jeu}, titre {titre}: pas un jeu. Il se range dans un "
+            "dossier du dossier privé des mises à jour, puis switch-dlc.py l'inscrit pour son "
+            "jeu, salle fermée (voir « Switch dans la salle »). Cet import ne l'installe "
+            "pas: il reste en quarantaine.",
+        )
+    dossier = destination("switch", rom_dir)
+    if dossier is None or not dossier.is_dir():
+        return Decision(
+            "a-confirmer",
+            "Le salon ne connaît pas de dossier « switch » où ranger ce jeu "
+            "(réglage NEL3AB_ROM_DIR du salon).",
+        )
+    return Decision("range", VISIBLE, dossier)
+
+
+def _switch_sans_cle(trouve: Identification, raison: str) -> Decision:
+    """Sans clé d'en-tête: ce que dit le nom du ticket, présenté comme une proposition."""
     contenu = trouve.details.get("contenu")
     propose = trouve.details.get("titre_propose")
     if contenu == "mise-a-jour":
@@ -142,7 +226,7 @@ def _switch(trouve: Identification) -> Decision:
         )
     manque = (
         "Il manque l'identifiant de titre vérifié. Il est écrit dans l'en-tête NCA, chiffré avec "
-        "la clé d'en-tête de la console, que le salon ne lit pas. L'inscription "
+        f"la clé d'en-tête de la console, et le salon ne l'a pas: {raison}. L'inscription "
         "<fichier>.nel3ab.json s'écrit donc à la main."
     )
     if propose:
@@ -170,6 +254,24 @@ def _remplir(element: Element, trouve: Identification) -> None:
     element.details = dict(trouve.details)
 
 
+def _remplir_switch(element: Element, lu: Contenu, inscrits: Mapping[str, Inscrit]) -> None:
+    """Ce que les en-têtes NCA ont prouvé, par-dessus la proposition du ticket."""
+    element.identifiant = f"{lu.titre:016X}"
+    element.details["contenu"] = lu.sorte
+    element.details["titre_verifie"] = f"{lu.titre:016X}"
+    element.details["jeu_de_base"] = f"{lu.base:016X}"
+    element.details["generation_cle"] = str(lu.generation)
+    element.preuve += (
+        f", puis {len(lu.parties)} en-têtes NCA déchiffrés: partie Meta du titre {lu.titre:016X}"
+    )
+    if lu.sorte == "jeu":
+        # Le nom du fichier, et pas un titre lu: celui du jeu est dans sa
+        # partie Control, chiffrée avec une autre clé (voir `nom_switch`).
+        element.titre = nom_switch(element.nom, lu.titre)
+    elif inscrit := inscrits.get(f"{lu.base:016x}"):
+        element.titre = inscrit.nom or inscrit.jeu.nom
+
+
 def _placer(
     quarantaine: Quarantaine,
     envoi: Envoi,
@@ -180,27 +282,40 @@ def _placer(
 ) -> None:
     """Décide, et range quand il le faut. Remplit `etat`, `message`, `destination`."""
     _remplir(element, trouve)
-    decision = decider(trouve, regles.rom_dir)
+    bibliotheque = Bibliotheque(dossiers(regles.rom_dir), regles.verrou, regles.connus)
+    switch = None
+    inscrits: dict[str, Inscrit] = {}
+    if trouve.console == "switch" and trouve.format in ("nsp", "xci"):
+        taille = os.fstat(fd).st_size
+        switch = lire_contenu(lecteur_fd(fd), taille, trouve.format, regles.cle_switch)
+        if isinstance(switch, Contenu):
+            inscrits = bibliotheque.inscrits()
+            _remplir_switch(element, switch, inscrits)
+    decision = decider(trouve, regles.rom_dir, switch, inscrits)
     element.etat = decision.etat
     element.message = decision.message
     if decision.etat != "range" or decision.dossier is None:
         return
-    nom = nom_canonique(
-        trouve.titre,
-        element.nom,
-        trouve.identifiant,
-        trouve.details.get("disque", ""),
-        trouve.format,
-    )
+    fiche = None
+    if isinstance(switch, Contenu):
+        nom = element.titre + EXTENSIONS[trouve.format]
+        fiche = fiche_switch(element.titre, switch.titre)
+    else:
+        nom = nom_canonique(
+            trouve.titre,
+            element.nom,
+            trouve.identifiant,
+            trouve.details.get("disque", ""),
+            trouve.format,
+        )
     jeu = (
         (trouve.identifiant, trouve.details.get("disque", ""))
         if trouve.console in ("gc", "wii") and trouve.identifiant
         else None
     )
-    bibliotheque = Bibliotheque(dossiers(regles.rom_dir), regles.verrou, regles.connus)
     try:
         element.destination = bibliotheque.ranger(
-            fd, decision.dossier, nom, sha256=element.sha256, jeu=jeu
+            fd, decision.dossier, nom, sha256=element.sha256, jeu=jeu, fiche=fiche
         )
     except Refus as refus:
         element.etat = "doublon" if refus.etat == "doublon" else "refuse"

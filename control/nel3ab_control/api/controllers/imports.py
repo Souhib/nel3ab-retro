@@ -42,6 +42,7 @@ from nel3ab_control.api.schemas.imports import (
     ElementVu,
     EnvoiVu,
 )
+from nel3ab_control.imports import switch_nca
 from nel3ab_control.imports.archives import Outils
 from nel3ab_control.imports.destinations import dossiers, libelle
 from nel3ab_control.imports.quarantaine import (
@@ -68,6 +69,8 @@ LIBELLES_ELEMENT = {
     "range": "rangé",
     "pas-jouable": "reconnu, pas encore jouable",
     "a-confirmer": "à confirmer",
+    "mise-a-jour": "mise à jour, gardée de côté",
+    "contenu-additionnel": "contenu additionnel, gardé de côté",
     "inconnu": "inconnu, gardé en quarantaine",
     "doublon": "déjà dans la bibliothèque",
     "refuse": "refusé",
@@ -368,6 +371,9 @@ class ImportsController:
             espace_libre=self.espace_libre,
             outils=self.outils(),
             connus=self.connus(),
+            # Relue à chaque envoi terminé: quelques Kio, et un fichier de clés
+            # posé ou corrigé sert sans redémarrer le salon.
+            cle_switch=switch_nca.charger_cle(self.settings.switch_keys),
         )
 
     def connus(self) -> frozenset[str]:

@@ -21,8 +21,9 @@ plus court en fin de fichier, et l'identifiant ne lit que ce qu'il cherche.
 # Ce que ce module ne fait jamais
 
 Il ne lance aucun programme, aucun conteneur, et ne lit aucune clé. Un fichier
-venu d'un navigateur n'a pas à toucher Docker, qui équivaut à root, ni les clés
-privées de la Switch. Ce qui ne se lit pas sans eux reste « à vérifier ».
+venu d'un navigateur n'a pas à toucher Docker, qui équivaut à root. Ce qui ne
+se lit pas sans clé reste « à vérifier » ici: le titre chiffré d'un jeu Switch
+se lit à part, dans `switch_nca.py`, avec la seule clé d'en-tête de la console.
 
 Il ne lève pas non plus sur des octets abîmés: un en-tête tronqué, une table
 qui pointe hors du fichier ou des octets au hasard donnent « inconnu ».

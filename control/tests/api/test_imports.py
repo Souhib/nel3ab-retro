@@ -18,6 +18,7 @@ from fastapi import FastAPI
 
 from nel3ab_control import identity
 from nel3ab_control.api.controllers.imports import ImportsController
+from nel3ab_control.imports.rangement import fiche_switch
 from tests.conftest import SOUHIB, VINCENT
 from tests.imports import fabrique as f
 from tests.imports.protocole import GC, MIO, annoncer, empreinte, envoyer, finir, quarantaine
@@ -612,7 +613,7 @@ async def test_une_empreinte_annoncee_fausse_fait_refuser_le_fichier(
     assert not list((roms / "gc").iterdir())
 
 
-async def test_un_jeu_switch_attend_une_confirmation_et_n_est_pas_range(
+async def test_sans_cle_un_jeu_switch_attend_une_confirmation_et_n_est_pas_range(
     client: httpx.AsyncClient, app: FastAPI, imports: ImportsController, roms: Path
 ) -> None:
     app.state.settings.rom_dir += f":{roms / 'switch'}"
@@ -630,7 +631,220 @@ async def test_un_jeu_switch_attend_une_confirmation_et_n_est_pas_range(
         "à confirmer",
     )
     assert "clé d'en-tête" in element["message"]
+    assert "NEL3AB_SWITCH_KEYS" in element["message"]
     assert "0100bde00862a000" in element["message"]
+    assert not list((roms / "switch").iterdir())
+
+
+# ── La Switch, avec une clé d'en-tête tirée au hasard ──────────────────────
+
+#: Un jeu inventé, sa mise à jour et un contenu additionnel.
+JEU_SWITCH = 0x0100ABCDEF012000
+
+
+@pytest.fixture
+def cle_switch(app: FastAPI, roms: Path, tmp_path: Path) -> bytes:
+    """Une clé jetable, écrite comme un `prod.keys`, et le dossier `switch`."""
+    cle = os.urandom(32)
+    (tmp_path / "prod.keys").write_text(f.prod_keys(cle))
+    app.state.settings.switch_keys = tmp_path / "prod.keys"
+    app.state.settings.rom_dir += f":{roms / 'switch'}"
+    (roms / "switch").mkdir()
+    return cle
+
+
+def nsp_switch(cle: bytes, programme: int = JEU_SWITCH, meta: int = JEU_SWITCH) -> bytes:
+    return f.pfs0_avec(
+        [
+            ("aa.nca", f.nca(cle, f.TYPE_PROGRAM, programme)),
+            ("bb.cnmt.nca", f.nca(cle, f.TYPE_META, meta)),
+            (f"{meta:016x}0000000000000004.tik", b"ticket"),
+        ]
+    )
+
+
+async def deposer(
+    client: httpx.AsyncClient, imports: ImportsController, octets: bytes, nom: str
+) -> dict:
+    ident = (await annoncer(client, octets, nom=nom)).json()["id"]
+    await envoyer(client, ident, octets, morceau=0x4000)
+    return await finir(client, imports, ident)
+
+
+def inscrire(dossier: Path, nom: str, titre: str, octets: bytes = b"jeu deja la") -> None:
+    """Un jeu déjà dans la bibliothèque, avec sa fiche écrite à la main."""
+    (dossier / nom).write_bytes(octets)
+    (dossier / f"{nom}.nel3ab.json").write_text(
+        json.dumps({"console": "switch", "name": nom.rsplit(".", 1)[0], "title": titre})
+    )
+
+
+async def test_un_jeu_switch_lu_avec_la_cle_est_range_avec_sa_fiche(
+    client: httpx.AsyncClient,
+    app: FastAPI,
+    imports: ImportsController,
+    roms: Path,
+    cle_switch: bytes,
+) -> None:
+    nsp = nsp_switch(cle_switch)
+
+    fini = await deposer(client, imports, nsp, "Super Essai Kart [0100ABCDEF012000][v0].nsp")
+
+    [element] = fini["elements"]
+    assert (element["etat"], element["destination"], element["identifiant"]) == (
+        "range",
+        "switch/Super Essai Kart.nsp",
+        "0100ABCDEF012000",
+    )
+    assert element["titre"] == "Super Essai Kart"
+    assert element["details"]["contenu"] == "jeu"
+    jeu = roms / "switch" / "Super Essai Kart.nsp"
+    fiche = roms / "switch" / "Super Essai Kart.nsp.nel3ab.json"
+    assert jeu.read_bytes() == nsp
+    assert fiche.read_bytes() == fiche_switch("Super Essai Kart", JEU_SWITCH).octets
+    assert json.loads(fiche.read_text())["title"] == "0100ABCDEF012000"
+    assert fiche.stat().st_mode & 0o777 == 0o644
+    assert sorted(p.name for p in (roms / "switch").iterdir()) == [jeu.name, fiche.name]
+    assert not trouves(quarantaine(app), "fichier"), "rangé, il a quitté la quarantaine"
+    assert cle_switch.hex() not in json.dumps(fini)
+
+
+async def test_une_carte_switch_lue_avec_la_cle_est_rangee_en_xci(
+    client: httpx.AsyncClient, imports: ImportsController, roms: Path, cle_switch: bytes
+) -> None:
+    carte = f.xci_avec(
+        [
+            ("aa.nca", f.nca(cle_switch, f.TYPE_PROGRAM, JEU_SWITCH)),
+            ("bb.cnmt.nca", f.nca(cle_switch, f.TYPE_META, JEU_SWITCH)),
+        ],
+        zone_cle=True,
+    )
+
+    fini = await deposer(client, imports, carte, "Essai Tennis.xci")
+
+    assert fini["elements"][0]["destination"] == "switch/Essai Tennis.xci"
+    assert (roms / "switch" / "Essai Tennis.xci.nel3ab.json").is_file()
+
+
+async def test_le_meme_titre_deja_inscrit_est_un_doublon(
+    client: httpx.AsyncClient, imports: ImportsController, roms: Path, cle_switch: bytes
+) -> None:
+    """La salle range les sauvegardes Switch par titre: deux fichiers les partageraient."""
+    inscrire(roms / "switch", "Ancien nom.nsp", "0100abcdef012000")
+    avant = sorted((roms / "switch").iterdir())
+
+    fini = await deposer(client, imports, nsp_switch(cle_switch), "Super Essai Kart.nsp")
+
+    [element] = fini["elements"]
+    assert element["etat"] == "doublon"
+    assert "0100ABCDEF012000" in element["message"]
+    assert "switch/Ancien nom.nsp" in element["message"]
+    assert sorted((roms / "switch").iterdir()) == avant
+
+
+async def test_une_fiche_orpheline_du_meme_titre_n_inscrit_rien_et_ne_bloque_pas(
+    client: httpx.AsyncClient, imports: ImportsController, roms: Path, cle_switch: bytes
+) -> None:
+    """Le jumeau du doublon: une fiche sans son jeu n'inscrit rien pour le worker."""
+    (roms / "switch" / "Parti.nsp.nel3ab.json").write_text(
+        json.dumps({"console": "switch", "name": "Parti", "title": "0100ABCDEF012000"})
+    )
+
+    fini = await deposer(client, imports, nsp_switch(cle_switch), "Super Essai Kart.nsp")
+
+    assert fini["elements"][0]["etat"] == "range"
+
+
+async def test_une_fiche_orpheline_du_meme_nom_n_est_jamais_remplacee(
+    client: httpx.AsyncClient, imports: ImportsController, roms: Path, cle_switch: bytes
+) -> None:
+    orpheline = roms / "switch" / "Super Essai Kart.nsp.nel3ab.json"
+    orpheline.write_text("la fiche de quelqu'un")
+
+    fini = await deposer(client, imports, nsp_switch(cle_switch), "Super Essai Kart.nsp")
+
+    [element] = fini["elements"]
+    assert element["etat"] == "doublon"
+    assert "rien n'a été remplacé" in element["message"]
+    assert orpheline.read_text() == "la fiche de quelqu'un"
+    assert sorted(p.name for p in (roms / "switch").iterdir()) == [orpheline.name]
+
+
+async def test_une_mise_a_jour_reste_de_cote_et_nomme_son_jeu(
+    client: httpx.AsyncClient, imports: ImportsController, roms: Path, cle_switch: bytes
+) -> None:
+    inscrire(roms / "switch", "Super Essai Kart.nsp", "0100ABCDEF012000")
+    avant = sorted((roms / "switch").iterdir())
+    maj = nsp_switch(cle_switch, programme=JEU_SWITCH, meta=JEU_SWITCH | 0x800)
+
+    fini = await deposer(client, imports, maj, "Super Essai Kart [v65536].nsp")
+
+    [element] = fini["elements"]
+    assert (element["etat"], element["libelle"], element["titre"]) == (
+        "mise-a-jour",
+        "mise à jour, gardée de côté",
+        "Super Essai Kart",
+    )
+    assert "Mise à jour de « Super Essai Kart » (0100ABCDEF012000)" in element["message"]
+    assert "0100ABCDEF012800" in element["message"]
+    assert sorted((roms / "switch").iterdir()) == avant
+
+
+async def test_un_contenu_additionnel_reste_de_cote_meme_sans_son_jeu(
+    client: httpx.AsyncClient, imports: ImportsController, roms: Path, cle_switch: bytes
+) -> None:
+    ajout = f.pfs0_avec(
+        [
+            ("dd.nca", f.nca(cle_switch, f.TYPE_PUBLIC_DATA, JEU_SWITCH + 0x1001)),
+            ("ee.cnmt.nca", f.nca(cle_switch, f.TYPE_META, JEU_SWITCH + 0x1001)),
+        ]
+    )
+
+    fini = await deposer(client, imports, ajout, "Super Essai Kart DLC.nsp")
+
+    [element] = fini["elements"]
+    assert (element["etat"], element["libelle"]) == (
+        "contenu-additionnel",
+        "contenu additionnel, gardé de côté",
+    )
+    assert "absent de la bibliothèque" in element["message"]
+    assert not list((roms / "switch").iterdir())
+
+
+async def test_avec_une_autre_cle_le_jeu_est_refuse_et_rien_n_est_inscrit(
+    client: httpx.AsyncClient,
+    app: FastAPI,
+    imports: ImportsController,
+    roms: Path,
+    cle_switch: bytes,
+) -> None:
+    nsp = nsp_switch(os.urandom(32))
+
+    fini = await deposer(client, imports, nsp, "Super Essai Kart.nsp")
+
+    [element] = fini["elements"]
+    assert element["etat"] == "refuse"
+    assert "clé d'en-tête fausse" in element["message"]
+    assert not list((roms / "switch").iterdir())
+    assert trouves(quarantaine(app), "fichier"), "le fichier reste en quarantaine"
+    etats = "".join(p.read_text() for p in quarantaine(app).rglob("etat.json"))
+    assert cle_switch.hex() not in etats + json.dumps(fini)
+
+
+async def test_un_fichier_de_cles_regle_mais_absent_garde_l_ancien_chemin(
+    client: httpx.AsyncClient,
+    app: FastAPI,
+    imports: ImportsController,
+    roms: Path,
+    cle_switch: bytes,
+) -> None:
+    app.state.settings.switch_keys = roms / "absent.keys"
+
+    fini = await deposer(client, imports, nsp_switch(cle_switch), "Super Essai Kart.nsp")
+
+    [element] = fini["elements"]
+    assert element["etat"] == "a-confirmer"
+    assert "ne se lit pas" in element["message"]
     assert not list((roms / "switch").iterdir())
 
 

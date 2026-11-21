@@ -40,7 +40,11 @@ La page n'est servie que par le domaine `nel3ab.app`. Sur la porte
 | GameCube, Wii (ISO, RVZ, GCZ, CISO) | rangé dans le dossier `gc` ou `wii`, sous le titre écrit dans le disque |
 | GameCube, Wii (WBFS, WIA) | gardé de côté : la salle ne liste pas ces formats, à convertir en RVZ |
 | Image NKit | à confirmer : Dolphin la lit mal |
-| Switch (NSP, XCI) | à confirmer : l'identifiant de titre demande la clé de la console, que le salon ne lit pas. L'inscription `<fichier>.nel3ab.json` s'écrit à la main ([Switch dans la salle](switch-room.md)) |
+| Jeu Switch (NSP, XCI) | rangé dans le dossier `switch` avec sa fiche `<fichier>.nel3ab.json`, quand le salon a la clé d'en-tête de la console (voir [La Switch](#la-switch)) |
+| Jeu Switch, sans clé réglée | à confirmer : la fiche s'écrit à la main ([Switch dans la salle](switch-room.md)) |
+| Mise à jour Switch | mise à jour, gardée de côté : la salle Switch la lit dans son dossier privé, jeu par jeu |
+| Contenu additionnel Switch | contenu additionnel, gardé de côté : `switch-dlc.py` l'inscrit pour son jeu |
+| Switch illisible avec la clé | refusé : clé fausse, ou fichier abîmé |
 | Switch (NSZ, XCZ) | gardé de côté : format compressé, à décompresser |
 | Switch 2 (NUP) | à confirmer : inscription à la main |
 | Xbox 360 (XEX, STFS, XISO) | reconnu, pas encore jouable |
@@ -53,9 +57,55 @@ Un jeu rangé apparaît à la prochaine ouverture de salle ou au prochain
 changement de jeu : une salle lit sa bibliothèque à son démarrage.
 
 Le rangement refuse un nom déjà pris, un nom qui partagerait les sauvegardes
-d'un autre jeu (« Jeu.iso » et « jeu.iso »), le même fichier déjà rangé, et le
-même jeu, même code et même disque, déjà dans le même dossier. Il ne remplace
-jamais un fichier existant.
+d'un autre jeu (« Jeu.iso » et « jeu.iso »), le même fichier déjà rangé, le
+même jeu, même code et même disque, déjà dans le même dossier, et un jeu Switch
+dont l'identifiant de titre est déjà inscrit par la fiche d'un autre fichier. Il
+ne remplace jamais un fichier existant.
+
+## La Switch
+
+Un jeu Switch n'entre dans la salle qu'avec une fiche `<fichier>.nel3ab.json`
+qui porte son identifiant de titre. Cet identifiant est écrit dans l'en-tête de
+chaque NCA du jeu, chiffré avec la clé d'en-tête de la console. Le salon lit
+cette clé dans le `prod.keys` désigné par `NEL3AB_SWITCH_KEYS`, et n'en lit que
+la ligne `header_key`. Il ne l'écrit nulle part et ne la montre jamais.
+
+Pour un NSP, ou la partition « secure » d'un XCI, l'import déchiffre les 0xC00
+premiers octets de chaque NCA. Chaque en-tête doit porter la marque « NCA3 » ou
+« NCA2 » et annoncer la taille exacte de sa partie : sinon le fichier est
+refusé, puisqu'une mauvaise clé ou un fichier abîmé donne des octets au hasard.
+La partie Meta dit ensuite ce qu'est le fichier :
+
+- un identifiant qui finit par `000` : un jeu. Il est rangé, et sa fiche est
+  écrite à côté de lui, avant lui ;
+- le même plus `0x800` : sa mise à jour, gardée de côté ;
+- le même plus `0x1000` et un numéro : un contenu additionnel, gardé de côté ;
+- plusieurs jeux dans un fichier, aucune partie Meta, un jeu sans sa partie
+  Program, un titre du système ou de la Switch 2 : à confirmer.
+
+Le nom du jeu vient du nom du fichier, sans ce qui est entre crochets ou entre
+parenthèses : « Mario Kart 8 Deluxe [0100152000022000][v0].nsp » devient
+« Mario Kart 8 Deluxe.nsp ». Le titre écrit dans le jeu est dans sa partie
+Control, chiffrée avec une autre clé, et n'est pas lu. La fiche écrite est :
+
+```json
+{
+  "console": "switch",
+  "name": "Mario Kart 8 Deluxe",
+  "title": "0100152000022000",
+  "inscription": "import: titre lu dans l'en-tête NCA, sans lancement d'essai"
+}
+```
+
+Le champ `inscription` la distingue des fiches écrites à la main après un
+lancement d'essai ; le worker ne le lit pas. Rien n'est ajouté pour l'image,
+l'éditeur ou la présentation : ils s'ajoutent à la main, comme avant.
+
+Une mise à jour ou un contenu additionnel n'est pas installé par cette page.
+La salle Switch les lit dans son dossier privé `updates`, choisis jeu par jeu
+dans les deux emplacements de sauvegarde ; un contenu additionnel s'y inscrit
+avec `docker/switch-dlc.py`, salle fermée. Le message de la carte nomme le jeu
+quand il est déjà dans la bibliothèque. La Switch 2 (NUP) reste à confirmer.
 
 ## La quarantaine
 
@@ -73,6 +123,7 @@ plus, et n'est pas touché. Rien n'est effacé automatiquement.
 | `NEL3AB_IMPORTS_MARGE` | 100 Gio | l'espace qui doit rester libre sur le disque après un envoi |
 | `NEL3AB_IMPORTS_MAX` | 48 Gio | la taille la plus grande d'un envoi |
 | `NEL3AB_IMPORTS_TOTAL` | 128 Gio | ce que la quarantaine peut tenir en tout |
+| `NEL3AB_SWITCH_KEYS` | aucun | le `prod.keys` de la console, pour lire le titre d'un jeu Switch ; sans lui, la Switch reste à confirmer |
 
 Les tailles s'écrivent en octets. La marge et les plafonds sont des choix, pas
 des mesures. Un changement demande de redémarrer `nel3ab-control`.

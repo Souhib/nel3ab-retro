@@ -137,7 +137,8 @@
   .resultat-preuve { color: var(--legende); font-size: 13px; overflow-wrap: anywhere; }
   /* Le tampon: la console reconnue par le SERVEUR, posée de biais.
      Sa couleur dit l'issue: vert rangé, jaune à confirmer, bleu reconnu
-     mais pas jouable, rouge pour le reste. Les quatre prises, encore. */
+     mais gardé de côté (pas jouable, mise à jour, contenu additionnel),
+     rouge pour le reste. Les quatre prises, encore. */
   .tampon {
     --encre: var(--joueur-1);
     display: inline-block; min-width: 7.5rem; text-align: center; justify-self: start;
@@ -148,7 +149,9 @@
   }
   .resultat[data-etat="range"] .tampon { --encre: var(--joueur-4); }
   .resultat[data-etat="a-confirmer"] .tampon { --encre: var(--joueur-3); }
-  .resultat[data-etat="pas-jouable"] .tampon { --encre: var(--joueur-2); }
+  .resultat[data-etat="pas-jouable"] .tampon,
+  .resultat[data-etat="mise-a-jour"] .tampon,
+  .resultat[data-etat="contenu-additionnel"] .tampon { --encre: var(--joueur-2); }
   @keyframes tamponne {
     0% { opacity: 0; transform: scale(1.7) rotate(-9deg); }
     60% { opacity: 1; transform: scale(.94) rotate(-4deg); }
@@ -190,8 +193,9 @@
     <label class="depot" id="depot" for="fichiers" data-survol="non">
       <span class="depot-bobine"><!--BOBINE:loupe:repos--></span>
       <span class="depot-mot">Lâche tes fichiers ici</span>
-      <span class="depot-sous">ou clique pour les choisir. GameCube et Wii sont rangés tout de suite;
-        Switch, Xbox 360 et les autres consoles restent de côté, avec la raison.</span>
+      <span class="depot-sous">ou clique pour les choisir. GameCube, Wii et jeux Switch sont rangés
+        tout de suite; mises à jour, contenus additionnels et autres consoles restent de côté,
+        avec la raison.</span>
       <span class="prises" aria-hidden="true">
         <span style="--c: var(--joueur-1)"></span><span style="--c: var(--joueur-2)"></span>
         <span style="--c: var(--joueur-3)"></span><span style="--c: var(--joueur-4)"></span>

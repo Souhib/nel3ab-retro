@@ -274,6 +274,17 @@ class Settings(BaseSettings):
             "Chaque envoi réserve sa taille annoncée dès sa création."
         ),
     )
+    switch_keys: Path | None = Field(
+        default=None,
+        description=(
+            "Le `prod.keys` de la console, dont l'import lit la seule ligne "
+            "`header_key` pour déchiffrer l'en-tête NCA d'un jeu Switch et y lire "
+            "son identifiant de titre. Sans lui, un NSP ou un XCI reste « à "
+            "confirmer » et s'inscrit à la main. Aucun défaut, exprès: un salon de "
+            "développement, ou un essai, ne lit jamais la vraie clé de la machine "
+            "sans qu'on l'ait écrit."
+        ),
+    )
     worker_control: str = Field(
         default="127.0.0.1:8101",
         description=(

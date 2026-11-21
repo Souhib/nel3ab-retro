@@ -1,0 +1,191 @@
+{
+  "date": "2026-11-08",
+  "engine": "Orchid 0.9.0 standard",
+  "source_commit": "e420cf2bea784f7247246973c104cd67392aa2b9",
+  "game_copy": {
+    "source_private_state": "/home/souhib/.local/state/nel3ab/test-switch2-FjPkEQ/state/0400d4201c6ea000/neuve/home/.local/share/eden/nand",
+    "game": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-07/games/MarioTennisFever.nup",
+    "same_file_as_previous_test": true,
+    "game_bytes": 16048109438,
+    "title": "0400d4201c6ea000",
+    "frame_generation": false
+  },
+  "profile": "Official recommended Tennis profile copied to private config: low accuracy, Balanced fences, reactive flushing off, async presentation on, BC3, conservative VRAM, FifoRelaxed, ScaleForce, FXAA; frame generation off. No mesh-skip environment variable.",
+  "matches": [
+    {
+      "opponent": "Rosalina",
+      "cpu": "Intermediate",
+      "court": "Stadium Court (Grass)",
+      "mode": "Quick Play, singles, seven points, personal rackets",
+      "score": [
+        0,
+        7
+      ],
+      "result_verified_on_screen": true,
+      "result_picture": "first-finish-00.png"
+    },
+    {
+      "opponent": "Kamek",
+      "cpu": "Intermediate",
+      "court": "Stadium Court (Grass)",
+      "mode": "Quick Play, singles, seven points, personal rackets",
+      "score": [
+        0,
+        7
+      ],
+      "result_verified_on_screen": true,
+      "result_picture": "second-last-points-00.png"
+    }
+  ],
+  "cadence": {
+    "scope": "Observed first match from initial control segment through score 0-5, including long waits between points. Not continuous rallies, not a cross-engine benchmark. Shader-preparation windows before observation are excluded.",
+    "source_origin_upper_bound_unix": 1794104609.8595178,
+    "measurement": {
+      "requested_seconds": [
+        357.42199087142944,
+        507.8639671802521
+      ],
+      "covered_seconds": 131.9724,
+      "game_presentations": 6000,
+      "game_fps": 45.46405157442011,
+      "window_fps_median": 46.114133542703044,
+      "maximum_frame_ms": 110.064,
+      "frames_over_100_ms": 1,
+      "windows": [
+        {
+          "start": 363.50617,
+          "end": 377.55637,
+          "mean_us": 23417,
+          "maximum_us": 110064,
+          "freezes": 1
+        },
+        {
+          "start": 377.5352,
+          "end": 390.467,
+          "mean_us": 21553,
+          "maximum_us": 54544,
+          "freezes": 0
+        },
+        {
+          "start": 390.447723,
+          "end": 402.430323,
+          "mean_us": 19971,
+          "maximum_us": 71445,
+          "freezes": 0
+        },
+        {
+          "start": 402.410006,
+          "end": 416.147606,
+          "mean_us": 22896,
+          "maximum_us": 68447,
+          "freezes": 0
+        },
+        {
+          "start": 416.126061,
+          "end": 429.288261,
+          "mean_us": 21937,
+          "maximum_us": 42918,
+          "freezes": 0
+        },
+        {
+          "start": 429.26757399999997,
+          "end": 442.315774,
+          "mean_us": 21747,
+          "maximum_us": 28858,
+          "freezes": 0
+        },
+        {
+          "start": 442.294608,
+          "end": 455.202408,
+          "mean_us": 21513,
+          "maximum_us": 26542,
+          "freezes": 0
+        },
+        {
+          "start": 455.182624,
+          "end": 468.157024,
+          "mean_us": 21624,
+          "maximum_us": 29909,
+          "freezes": 0
+        },
+        {
+          "start": 468.132175,
+          "end": 481.095775,
+          "mean_us": 21606,
+          "maximum_us": 26155,
+          "freezes": 0
+        },
+        {
+          "start": 481.074485,
+          "end": 495.288485,
+          "mean_us": 23690,
+          "maximum_us": 96543,
+          "freezes": 0
+        }
+      ]
+    },
+    "bounds_method": "Start upper bound: wall observation start minus Docker start. End lower bound: wall observation end minus the minimum Docker log timestamp-minus-native-timestamp, which bounds the native logger origin from above."
+  },
+  "audio": {
+    "start_wall_unix": 1794105281.180362,
+    "end_wall_unix": 1794105301.1836145,
+    "bytes": 3841024,
+    "rate": 48000,
+    "channels": 2,
+    "sample_format": "s16le",
+    "producer_stopped": true,
+    "decoded_stereo_frames": 960256,
+    "seconds": 20.005333333333333,
+    "channels_signal": [
+      {
+        "channel": 0,
+        "rms_sample_units": 1802.1463129362967,
+        "peak_sample_units": 15640
+      },
+      {
+        "channel": 1,
+        "rms_sample_units": 1762.7903197413589,
+        "peak_sample_units": 14310
+      }
+    ],
+    "stereo_differs": true,
+    "scope": "Non-silent PCM from private game monitor. This is not an audiovisual synchronization measurement."
+  },
+  "shutdown": {
+    "exit_code": 0,
+    "stop_requested": true,
+    "window_closed": true,
+    "forced": false,
+    "stop_seconds": 1.5028600543737411
+  },
+  "visual_limitations": "Some command glyphs/letters incomplete; one early Mario pose rendered partially. Later snapshots show both players, including result scenes. Does not prove all animation poses or other courts.",
+  "limits": [
+    "One human controller versus CPU only",
+    "No browser-room integration validated for Orchid",
+    "Two short matches, not a full evening",
+    "No proof of exact audiovisual alignment",
+    "Existing main room engine not changed"
+  ],
+  "release": {
+    "name": "orchid-standard",
+    "repository": "MythosOfs/Orchid",
+    "tag": "v0.9.0",
+    "source_commit": "e420cf2bea784f7247246973c104cd67392aa2b9",
+    "published": "2026-11-06T22:50:42Z",
+    "asset": "orchid-v0.9.0-linux-x86_64.AppImage",
+    "url": "https://github.com/MythosOfs/Orchid/releases/download/v0.9.0/orchid-v0.9.0-linux-x86_64.AppImage",
+    "size": 109713912,
+    "digest": "sha256:40414fb06092ce91e7106e5d863d7d556735a97417b46a752caf3455d1bfbc11"
+  },
+  "restart": {
+    "main_menu_reached_and_visually_checked": true,
+    "shutdown": {
+      "exit_code": 0,
+      "stop_requested": true,
+      "window_closed": true,
+      "forced": false,
+      "stop_seconds": 0.7022232702001929
+    }
+  },
+  "mesh_skip_absent_in_container_environment": true
+}

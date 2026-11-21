@@ -1,0 +1,465 @@
+diff --git a/src/tests/CMakeLists.txt b/src/tests/CMakeLists.txt
+--- a/src/tests/CMakeLists.txt
++++ b/src/tests/CMakeLists.txt
+@@ -14,6 +14,7 @@
+     video_core/nx2_stutter_trace.cpp
+     video_core/host_mip_limits.cpp
+     video_core/gpu_timestamp.cpp
++    video_core/submission_gpu.cpp
+     video_core/semaphore_waiters.cpp
+     core/nx2_streamplay.cpp
+     core/nx2_video_ready.cpp
+diff --git a/src/tests/video_core/submission_gpu.cpp b/src/tests/video_core/submission_gpu.cpp
+new file mode 100644
+--- /dev/null
++++ b/src/tests/video_core/submission_gpu.cpp
+@@ -0,0 +1,34 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++#include <catch2/catch_test_macros.hpp>
++#include <array>
++#include <limits>
++#include "video_core/submission_gpu_budget.h"
++#include "video_core/gpu_timestamp_sample.h"
++TEST_CASE("Submission GPU budget rejects incomplete and exhausted captures", "[submission_gpu]") {
++    VideoCommon::SubmissionGpuBudget<2> budget;
++    REQUIRE_FALSE(budget.Complete());
++    const auto first=budget.Begin(); REQUIRE(first); REQUIRE(*first==0);
++    REQUIRE_FALSE(budget.Complete()); REQUIRE(budget.End(*first)); REQUIRE(budget.Complete());
++    const auto second=budget.Begin(); REQUIRE(second); REQUIRE(*second==1);
++    REQUIRE_FALSE(budget.Complete()); REQUIRE(budget.End(*second)); REQUIRE(budget.Complete());
++    REQUIRE_FALSE(budget.Begin()); REQUIRE(budget.Overflow()); REQUIRE(budget.Count()==2);
++    REQUIRE_FALSE(budget.Complete());
++    budget={}; REQUIRE_FALSE(budget.Overflow()); REQUIRE(budget.Count()==0);
++    const auto again=budget.Begin(); REQUIRE(again); REQUIRE(budget.End(*again));
++    REQUIRE_FALSE(budget.End(*again)); REQUIRE_FALSE(budget.Complete());
++    budget={}; REQUIRE_FALSE(budget.End(0)); REQUIRE_FALSE(budget.Complete());
++}
++TEST_CASE("Submission timestamps require available results and valid counter parameters", "[submission_gpu]") {
++    using VideoCommon::GpuTimestampNanoseconds;
++    REQUIRE(GpuTimestampNanoseconds(10,30,true,true,64,10)==200.0);
++    REQUIRE(GpuTimestampNanoseconds(0xfffffffe,1,true,true,32,1)==3.0);
++    REQUIRE(GpuTimestampNanoseconds(~u64{0}-1,1,true,true,64,1)==3.0);
++    REQUIRE_FALSE(GpuTimestampNanoseconds(10,30,false,true,64,1));
++    REQUIRE_FALSE(GpuTimestampNanoseconds(10,30,true,false,64,1));
++    REQUIRE_FALSE(GpuTimestampNanoseconds(10,30,true,true,0,1));
++    REQUIRE_FALSE(GpuTimestampNanoseconds(10,30,true,true,65,1));
++    REQUIRE_FALSE(GpuTimestampNanoseconds(10,30,true,true,64,0));
++    REQUIRE_FALSE(GpuTimestampNanoseconds(10,30,true,true,64,-1));
++    REQUIRE_FALSE(GpuTimestampNanoseconds(10,30,true,true,64,std::numeric_limits<double>::infinity()));
++    REQUIRE_FALSE(GpuTimestampNanoseconds(10,30,true,true,64,std::numeric_limits<double>::quiet_NaN()));
++}
+diff --git a/src/video_core/CMakeLists.txt b/src/video_core/CMakeLists.txt
+--- a/src/video_core/CMakeLists.txt
++++ b/src/video_core/CMakeLists.txt
+@@ -189,6 +189,10 @@
+     renderer_vulkan/vk_buffer_cache_base.cpp
+     renderer_vulkan/vk_buffer_cache.cpp
+     renderer_vulkan/vk_buffer_cache.h
++    renderer_vulkan/vk_submission_gpu.cpp
++    renderer_vulkan/vk_submission_gpu.h
++    submission_gpu_budget.h
++    gpu_timestamp_sample.h
+     renderer_vulkan/vk_command_pool.cpp
+     renderer_vulkan/vk_command_pool.h
+     renderer_vulkan/vk_compute_pass.cpp
+diff --git a/src/video_core/gpu_timestamp_sample.h b/src/video_core/gpu_timestamp_sample.h
+new file mode 100644
+--- /dev/null
++++ b/src/video_core/gpu_timestamp_sample.h
+@@ -0,0 +1,17 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++#pragma once
++
++#include <cmath>
++#include <optional>
++#include "common/common_types.h"
++
++namespace VideoCommon {
++inline std::optional<double> GpuTimestampNanoseconds(u64 begin, u64 end, bool begin_available,
++                                                    bool end_available, u32 valid_bits,
++                                                    double period_ns) {
++    if (!begin_available || !end_available || valid_bits == 0 || valid_bits > 64 ||
++        !std::isfinite(period_ns) || period_ns <= 0) return std::nullopt;
++    const u64 mask = valid_bits == 64 ? ~u64{0} : (u64{1} << valid_bits) - 1;
++    return static_cast<double>((end - begin) & mask) * period_ns;
++}
++} // namespace VideoCommon
+diff --git a/src/video_core/renderer_vulkan/vk_rasterizer.cpp b/src/video_core/renderer_vulkan/vk_rasterizer.cpp
+--- a/src/video_core/renderer_vulkan/vk_rasterizer.cpp
++++ b/src/video_core/renderer_vulkan/vk_rasterizer.cpp
+@@ -3137,6 +3137,7 @@
+ }
+ 
+ void RasterizerVulkan::TickFrame() {
++    scheduler.TickSubmissionGpu();
+     if (VideoCore::Nx2Debug::HasRequests()) {
+         if (auto capture = VideoCore::Nx2Debug::TakeCapture()) {
+             frame_dump.Arm(std::move(capture->directory), capture->sampled, capture->buffers,
+diff --git a/src/video_core/renderer_vulkan/vk_scheduler.cpp b/src/video_core/renderer_vulkan/vk_scheduler.cpp
+--- a/src/video_core/renderer_vulkan/vk_scheduler.cpp
++++ b/src/video_core/renderer_vulkan/vk_scheduler.cpp
+@@ -30,6 +30,7 @@
+ #include "video_core/renderer_vulkan/vk_graphics_pipeline.h"
+ #include "video_core/renderer_vulkan/vk_master_semaphore.h"
+ #include "video_core/renderer_vulkan/vk_scheduler.h"
++#include "video_core/renderer_vulkan/vk_submission_gpu.h"
+ #include "video_core/renderer_vulkan/vk_state_tracker.h"
+ #include "video_core/renderer_vulkan/vk_texture_cache.h"
+ #include "video_core/vulkan_common/vulkan_device.h"
+@@ -147,18 +148,36 @@
+         }
+     }
+ 
++    if (const char* flag = std::getenv("EDEN_NX2_SUBMISSION_GPU");
++        flag != nullptr && std::string_view{flag} == "1") {
++        try {
++            submission_gpu = std::make_unique<SubmissionGpuTrace>(device, *this);
++        } catch (const std::exception& error) {
++            LOG_WARNING(Render_Vulkan, "Submission GPU timing unavailable: {}", error.what());
++        }
++    }
+     AcquireNewChunk();
+     AllocateWorkerCommandBuffer();
+     worker_thread = std::jthread([this](std::stop_token token) { WorkerThread(token); });
+ }
+ 
++void Scheduler::TickSubmissionGpu() {
++    if (submission_gpu) submission_gpu->Tick();
++}
++
+ Scheduler::~Scheduler() {
+-    if (trace_query_pool) {
++    if (trace_query_pool || submission_gpu) {
+         WaitWorker();
+         worker_thread.request_stop();
+         worker_thread.join();
+         if (trace_gpu_tick != 0) {
+             master_semaphore->Wait(trace_gpu_tick);
++        }
++        // The worker is joined above: no later command can reference the new
++        // query pool. Retain it until every submitted tick has completed, too.
++        // This shutdown-only wait never enters a sampled frame.
++        if (submission_gpu && master_semaphore->CurrentTick() > 0) {
++            master_semaphore->Wait(master_semaphore->CurrentTick() - 1);
+         }
+     }
+ }
+@@ -589,6 +608,7 @@
+     if (trace_query_pool && !trace_gpu_failed) {
+         TraceGpuSubmission();
+     }
++    if (submission_gpu) submission_gpu->BeginSubmit(current_cmdbuf, current_upload_cmdbuf);
+ }
+ 
+ void Scheduler::TraceShader(u64 hash, u32 stage) {
+@@ -806,6 +826,7 @@
+             .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+         };
+         upload_cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, WRITE_BARRIER);
++        if (submission_gpu) submission_gpu->EndSubmit(cmdbuf, upload_cmdbuf);
+         upload_cmdbuf.End();
+         if (trace_gpu_recording) {
+             cmdbuf.WriteTimestamp(VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, *trace_query_pool,
+diff --git a/src/video_core/renderer_vulkan/vk_scheduler.h b/src/video_core/renderer_vulkan/vk_scheduler.h
+--- a/src/video_core/renderer_vulkan/vk_scheduler.h
++++ b/src/video_core/renderer_vulkan/vk_scheduler.h
+@@ -38,6 +38,7 @@
+ 
+ class CommandPool;
+ class Device;
++class SubmissionGpuTrace;
+ class Framebuffer;
+ class GraphicsPipeline;
+ class StateTracker;
+@@ -79,6 +80,7 @@
+     /// safe to touch worker resources.
+     void WaitWorker();
+ 
++    void TickSubmissionGpu();
+     void MarkFrameEnd(u64 frame);
+     void TraceGraphicsPipeline(const std::array<u64, 6>& hashes);
+     void TraceComputePipeline(u64 hash);
+@@ -526,6 +528,7 @@
+     std::mutex queue_mutex;
+     std::condition_variable_any event_cv;
+     bool worker_waiting{}; ///< The worker is waiting for work (guarded by queue_mutex)
++    std::unique_ptr<SubmissionGpuTrace> submission_gpu;
+     std::jthread worker_thread;
+ 
+     std::chrono::steady_clock::duration frame_interval{};
+diff --git a/src/video_core/renderer_vulkan/vk_submission_gpu.cpp b/src/video_core/renderer_vulkan/vk_submission_gpu.cpp
+new file mode 100644
+--- /dev/null
++++ b/src/video_core/renderer_vulkan/vk_submission_gpu.cpp
+@@ -0,0 +1,181 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++#include "video_core/renderer_vulkan/vk_submission_gpu.h"
++
++#include <array>
++#include <chrono>
++#include <charconv>
++#include <cmath>
++#include <cstring>
++#include <cstdlib>
++#include <fstream>
++#include <iomanip>
++#include <string_view>
++#include <utility>
++#include "common/logging.h"
++#include "video_core/gpu_timestamp_sample.h"
++#include "video_core/renderer_vulkan/vk_master_semaphore.h"
++#include "video_core/renderer_vulkan/vk_scheduler.h"
++#include "video_core/vulkan_common/vulkan_device.h"
++
++namespace Vulkan {
++namespace {
++double WallTime() {
++    return std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count();
++}
++u64 MonotonicNs() {
++    return static_cast<u64>(std::chrono::duration_cast<std::chrono::nanoseconds>(
++        std::chrono::steady_clock::now().time_since_epoch()).count());
++}
++}
++
++SubmissionGpuTrace::SubmissionGpuTrace(const Device& device_, Scheduler& scheduler_,
++                                     std::filesystem::path output_directory)
++    : device{device_}, scheduler{scheduler_}, directory{"/tmp/nel3ab-submission-gpu"} {
++    if (!output_directory.empty()) {
++        directory = std::move(output_directory);
++    } else if (const char* home = std::getenv("HOME")) {
++        directory = std::filesystem::path{home} / "submission-gpu";
++    }
++    if (const char* value = std::getenv("EDEN_NX2_SUBMISSION_GPU_PERIOD")) {
++        u32 parsed{};
++        const auto [end, error] = std::from_chars(value, value + std::strlen(value), parsed);
++        // 2026-11-08: one-in60 sampling had measurable cost. The allowed1-6000
++        // range permits a separate sparse/cost diagnostic, never a transparency claim.
++        if (error != std::errc{} || end != value + std::strlen(value) || parsed == 0 || parsed > 6000) {
++            LOG_ERROR(HW_GPU, "Submission GPU timing unavailable: invalid period");
++            return;
++        }
++        period_frames = parsed;
++    }
++    if (const char* value = std::getenv("EDEN_NX2_SUBMISSION_GPU_MANUAL")) {
++        armed = std::string_view{value} != "1";
++    }
++    period_ns = device.GetPhysical().GetProperties().limits.timestampPeriod;
++    valid_bits = device.GetPhysical().GetQueueFamilyProperties().at(device.GetGraphicsFamily()).timestampValidBits;
++    if (!std::isfinite(period_ns) || period_ns <= 0 || valid_bits == 0 || valid_bits > 64 ||
++        !device.IsHostQueryResetSupported()) {
++        LOG_ERROR(HW_GPU, "Submission GPU timing unavailable: period={} bits={} reset={}",
++                  period_ns, valid_bits, device.IsHostQueryResetSupported());
++        return;
++    }
++    pool = device.GetLogical().CreateQueryPool({
++        .sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO, .pNext = nullptr, .flags = 0,
++        .queryType = VK_QUERY_TYPE_TIMESTAMP, .queryCount = MaxIntervals * 2,
++        .pipelineStatistics = 0,
++    });
++    events.reserve(MaxIntervals);
++    std::filesystem::create_directories(directory);
++    supported = true;
++    LOG_INFO(HW_GPU, "Submission GPU timing ready: version=2 period_ns={} valid_bits={} interval={} max_intervals={}",
++             period_ns, valid_bits, period_frames, MaxIntervals);
++}
++
++u32 SubmissionGpuTrace::Begin(vk::CommandBuffer command, const char* category) {
++    const auto id = budget.Begin();
++    if (!id) return InvalidId;
++    events.push_back({category});
++    command.WriteTimestamp(VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, *pool, *id * 2);
++    return *id;
++}
++void SubmissionGpuTrace::End(vk::CommandBuffer command, u32 id) {
++    if (id != InvalidId && budget.End(id)) {
++        command.WriteTimestamp(VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, *pool, id * 2 + 1);
++    }
++}
++void SubmissionGpuTrace::BeginSubmit(vk::CommandBuffer execution, vk::CommandBuffer upload) {
++    if (!worker_active) return;
++    execution_id = Begin(execution, "execution");
++    upload_id = Begin(upload, "upload");
++}
++void SubmissionGpuTrace::EndSubmit(vk::CommandBuffer execution, vk::CommandBuffer upload) {
++    if (!worker_active) return;
++    End(execution, execution_id);
++    End(upload, upload_id);
++    execution_id = upload_id = InvalidId;
++}
++
++void SubmissionGpuTrace::WriteResults() {
++    using Sample = std::array<u64, 2>;
++    static_assert(sizeof(Sample) == 2 * sizeof(u64));
++    const u32 count = static_cast<u32>(events.size()) * 2;
++    std::vector<Sample> samples(count);
++    VkResult result = VK_SUCCESS;
++    if (count) {
++        result = device.GetLogical().GetQueryResults(*pool, 0, count,
++            samples.size() * sizeof(Sample), samples.data(), sizeof(Sample),
++            VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WITH_AVAILABILITY_BIT);
++    }
++    const u64 ready_ns = MonotonicNs();
++    bool complete = budget.Complete() && result == VK_SUCCESS;
++    const auto file = directory / ("capture-" + std::to_string(sequence++) + ".csv");
++    std::ofstream out(file);
++    out << std::setprecision(17);
++    out << "category,begin,end,begin_available,end_available,period_ns,valid_bits\n";
++    for (u32 i = 0; i < events.size(); ++i) {
++        const auto& a = samples[i * 2];
++        const auto& b = samples[i * 2 + 1];
++        complete &= VideoCommon::GpuTimestampNanoseconds(a[0], b[0], a[1] != 0,
++            b[1] != 0, valid_bits, period_ns).has_value();
++        out << events[i].category << ',' << a[0] << ',' << b[0] << ',' << a[1] << ',' << b[1]
++            << ',' << period_ns << ',' << valid_bits << '\n';
++    }
++    out.close();
++    complete &= out.good();
++    std::ofstream meta(file.string() + ".meta");
++    meta << std::setprecision(17);
++    meta << "format_version=2\ncomplete=" << complete << "\noverflow=" << budget.Overflow()
++         << "\nevents=" << events.size() << "\nframe=" << capture_frame
++         << "\nend_tick=" << end_tick << "\nstart_unix=" << start_unix
++         << "\nend_unix=" << end_unix << "\nbegin_monotonic_ns=" << begin_ns
++         << "\nrecording_closed_monotonic_ns=" << closed_ns
++         << "\nresults_ready_monotonic_ns=" << ready_ns << '\n';
++    LOG_INFO(HW_GPU, "Submission GPU capture: frame={} events={} queries={} complete={}",
++             capture_frame, events.size(), count, complete);
++}
++
++void SubmissionGpuTrace::Tick() {
++    if (!supported) return;
++    ++frame;
++    if (recording) {
++        closed_ns = MonotonicNs();
++        end_unix = WallTime();
++        scheduler.RecordWithUploadBuffer([this](vk::CommandBuffer execution, vk::CommandBuffer upload) {
++            EndSubmit(execution, upload);
++            worker_active = false;
++            recording_done.store(true, std::memory_order_release);
++        });
++        end_tick = scheduler.CurrentTick();
++        recording = false;
++        pending = true;
++    }
++    if (pending) {
++        if (!recording_done.load(std::memory_order_acquire)) return;
++        scheduler.GetMasterSemaphore().Refresh();
++        if (!scheduler.IsFree(end_tick)) return;
++        WriteResults();
++        pending = false;
++    }
++    if (!armed) {
++        const auto request = directory / "arm";
++        if (!std::filesystem::exists(request)) return;
++        std::filesystem::remove(request);
++        armed = true;
++        frame = 0;
++    }
++    // 2026-11-08: one-in60 was not transparent. At most128 captures bounds a
++    // private run; previous pending work skips sampling instead of waiting for it.
++    if (frame % period_frames != 0 || sequence >= 128) return;
++    budget = {};
++    events.clear();
++    capture_frame = frame;
++    begin_ns = MonotonicNs();
++    start_unix = WallTime();
++    device.GetLogical().ResetQueryPool(*pool, 0, MaxIntervals * 2);
++    recording_done.store(false, std::memory_order_relaxed);
++    scheduler.RecordWithUploadBuffer([this](vk::CommandBuffer execution, vk::CommandBuffer upload) {
++        worker_active = true;
++        BeginSubmit(execution, upload);
++    });
++    recording = true;
++}
++} // namespace Vulkan
+diff --git a/src/video_core/renderer_vulkan/vk_submission_gpu.h b/src/video_core/renderer_vulkan/vk_submission_gpu.h
+new file mode 100644
+--- /dev/null
++++ b/src/video_core/renderer_vulkan/vk_submission_gpu.h
+@@ -0,0 +1,47 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++#pragma once
++
++#include <atomic>
++#include <filesystem>
++#include <vector>
++#include "video_core/submission_gpu_budget.h"
++#include "video_core/vulkan_common/vulkan_wrapper.h"
++
++namespace Vulkan {
++class Device;
++class Scheduler;
++
++/// Optional timestamps around existing submissions, with no per-draw queries.
++class SubmissionGpuTrace {
++public:
++    static constexpr u32 InvalidId = ~u32{0};
++    SubmissionGpuTrace(const Device& device, Scheduler& scheduler,
++                       std::filesystem::path output_directory = {});
++    void Tick(); // Recording owner; in split mode this is GPUBack.
++    void BeginSubmit(vk::CommandBuffer execution, vk::CommandBuffer upload);
++    void EndSubmit(vk::CommandBuffer execution, vk::CommandBuffer upload);
++
++private:
++    // 2026-11-08: about150-160 existing submissions per sampled image, two
++    // intervals each. 1024 intervals bounds allocation and rejects excess;
++    // game commands are never dropped when this diagnostic fills its pool.
++    static constexpr u32 MaxIntervals = 1024;
++    struct Event { const char* category; };
++    u32 Begin(vk::CommandBuffer command, const char* category);
++    void End(vk::CommandBuffer command, u32 id);
++    void WriteResults();
++
++    const Device& device;
++    Scheduler& scheduler;
++    vk::QueryPool pool;
++    std::filesystem::path directory;
++    VideoCommon::SubmissionGpuBudget<MaxIntervals> budget;
++    std::vector<Event> events;
++    std::atomic<bool> recording_done{true};
++    double period_ns{}, start_unix{}, end_unix{};
++    u64 begin_ns{}, closed_ns{}, frame{}, capture_frame{}, end_tick{};
++    u32 valid_bits{}, period_frames{60}, sequence{};
++    u32 execution_id{InvalidId}, upload_id{InvalidId};
++    bool supported{}, recording{}, pending{}, worker_active{}, armed{true};
++};
++} // namespace Vulkan
+diff --git a/src/video_core/submission_gpu_budget.h b/src/video_core/submission_gpu_budget.h
+new file mode 100644
+--- /dev/null
++++ b/src/video_core/submission_gpu_budget.h
+@@ -0,0 +1,33 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++#pragma once
++#include <algorithm>
++#include <array>
++#include <optional>
++#include <span>
++#include "common/common_types.h"
++namespace VideoCommon {
++template <size_t Capacity>
++class SubmissionGpuBudget {
++public:
++    std::optional<u32> Begin() {
++        if (count == Capacity) { overflow = true; return std::nullopt; }
++        ended[count] = false;
++        return static_cast<u32>(count++);
++    }
++    bool End(u32 id) {
++        if (id >= count || ended[id]) { invalid_end = true; return false; }
++        ended[id] = true;
++        return true;
++    }
++    bool Complete() const {
++        return count != 0 && !overflow && !invalid_end &&
++               std::all_of(ended.begin(), ended.begin() + count, [](bool v) { return v; });
++    }
++    size_t Count() const { return count; }
++    bool Overflow() const { return overflow; }
++private:
++    std::array<bool, Capacity> ended{};
++    size_t count{};
++    bool overflow{}, invalid_end{};
++};
++} // namespace VideoCommon

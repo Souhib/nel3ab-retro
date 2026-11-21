@@ -1,0 +1,318 @@
+{
+  "date": "2026-11-09",
+  "diagnostic_only": true,
+  "not_a_cadence_comparison": true,
+  "cli_sha256": "fb25654b137eb46bd126963cba799c835b5c9f574c2832fd10ac0ef8b9dce3d8",
+  "scope": "Only CPU threads named GPU and VulkanWorker; shares are sampled CPU cycles, not physical GPU time or the frame critical path. Separate from FPS phases.",
+  "capture": {
+    "sample_hz": 199,
+    "call_graph": "dwarf8192",
+    "recording_started_unix": 1794209798.911432,
+    "recording_finished_unix": 1794209823.4202394,
+    "mapping_timeout_seen": false,
+    "shutdown": {
+      "exit_code": 0,
+      "stop_requested": true,
+      "window_closed": true,
+      "forced": false,
+      "stop_seconds": 2.6040186011232436
+    }
+  },
+  "sample_count": 5454,
+  "lost_samples": 0,
+  "total_sampled_period": 104550020728,
+  "groups": [
+    {
+      "thread": "GPU",
+      "dso": "eden-cli",
+      "status": "resolved",
+      "percent": 45.61685545149517,
+      "period": 47692431830,
+      "samples": 2461
+    },
+    {
+      "thread": "VulkanWorker",
+      "dso": "libvulkan_radeon.so",
+      "status": "unresolved",
+      "percent": 12.564637889623969,
+      "period": 13136331518,
+      "samples": 684
+    },
+    {
+      "thread": "GPU",
+      "dso": "libc.so.6",
+      "status": "unresolved",
+      "percent": 12.543228395064197,
+      "period": 13113947887,
+      "samples": 674
+    },
+    {
+      "thread": "VulkanWorker",
+      "dso": "[kernel.kallsyms]",
+      "status": "resolved",
+      "percent": 11.777363636334831,
+      "period": 12313236123,
+      "samples": 658
+    },
+    {
+      "thread": "GPU",
+      "dso": "[kernel.kallsyms]",
+      "status": "resolved",
+      "percent": 9.82742720131123,
+      "period": 10274577176,
+      "samples": 568
+    },
+    {
+      "thread": "GPU",
+      "dso": "[JIT] tid 3567942",
+      "status": "unresolved",
+      "percent": 3.8708752268244697,
+      "period": 4047000852,
+      "samples": 202
+    },
+    {
+      "thread": "GPU",
+      "dso": "libc.so.6",
+      "status": "resolved",
+      "percent": 1.6602202562119037,
+      "period": 1735760622,
+      "samples": 87
+    },
+    {
+      "thread": "VulkanWorker",
+      "dso": "eden-cli",
+      "status": "resolved",
+      "percent": 0.8859013786421447,
+      "period": 926210075,
+      "samples": 49
+    },
+    {
+      "thread": "VulkanWorker",
+      "dso": "libc.so.6",
+      "status": "unresolved",
+      "percent": 0.299208861769476,
+      "period": 312822927,
+      "samples": 17
+    },
+    {
+      "thread": "VulkanWorker",
+      "dso": "libc.so.6",
+      "status": "resolved",
+      "percent": 0.2135921470364608,
+      "period": 223310634,
+      "samples": 12
+    },
+    {
+      "thread": "GPU",
+      "dso": "libstdc++.so.6.0.33",
+      "status": "resolved",
+      "percent": 0.18251445353266768,
+      "period": 190818899,
+      "samples": 10
+    },
+    {
+      "thread": "GPU",
+      "dso": "libvulkan_radeon.so",
+      "status": "unresolved",
+      "percent": 0.16706763593517018,
+      "period": 174669248,
+      "samples": 9
+    },
+    {
+      "thread": "VulkanWorker",
+      "dso": "libvulkan_radeon.so",
+      "status": "resolved",
+      "percent": 0.08770205339179184,
+      "period": 91692515,
+      "samples": 5
+    },
+    {
+      "thread": "VulkanWorker",
+      "dso": "libgcc_s.so.1",
+      "status": "resolved",
+      "percent": 0.06689065531793875,
+      "period": 69934194,
+      "samples": 4
+    },
+    {
+      "thread": "VulkanWorker",
+      "dso": "libstdc++.so.6.0.33",
+      "status": "resolved",
+      "percent": 0.06344955413503245,
+      "period": 66336522,
+      "samples": 4
+    },
+    {
+      "thread": "GPU",
+      "dso": "[vdso]",
+      "status": "unresolved",
+      "percent": 0.053068789096031944,
+      "period": 55483430,
+      "samples": 3
+    },
+    {
+      "thread": "VulkanWorker",
+      "dso": "[vdso]",
+      "status": "unresolved",
+      "percent": 0.03833082740773419,
+      "period": 40074888,
+      "samples": 2
+    },
+    {
+      "thread": "VulkanWorker",
+      "dso": "libdrm_amdgpu.so.1.125.0",
+      "status": "unresolved",
+      "percent": 0.024179425144035156,
+      "period": 25279594,
+      "samples": 1
+    },
+    {
+      "thread": "VulkanWorker",
+      "dso": "ld-linux-x86-64.so.2",
+      "status": "resolved",
+      "percent": 0.019913023311744167,
+      "period": 20819070,
+      "samples": 2
+    },
+    {
+      "thread": "GPU",
+      "dso": "libdrm.so.2.125.0",
+      "status": "resolved",
+      "percent": 0.019107222419373446,
+      "period": 19976605,
+      "samples": 1
+    },
+    {
+      "thread": "GPU",
+      "dso": "[vdso]",
+      "status": "resolved",
+      "percent": 0.0184659159946293,
+      "period": 19306119,
+      "samples": 1
+    }
+  ],
+  "top_named_native_functions": [
+    {
+      "thread": "GPU",
+      "symbol": "[.] Tegra::Engines::Maxwell3D::CallMethod(Core::System&, unsigned int, unsigned int, bool)",
+      "percent": 3.279202252785229,
+      "samples": 175
+    },
+    {
+      "thread": "GPU",
+      "symbol": "[.] Tegra::DmaPusher::ProcessCommands(std::span<Tegra::CommandHeader const, 18446744073709551615ul>, unsigned long)",
+      "percent": 3.106366159839715,
+      "samples": 170
+    },
+    {
+      "thread": "GPU",
+      "symbol": "[.] Tegra::MacroEngine::Execute(Core::System&, Tegra::Engines::Maxwell3D&, unsigned int, std::span<unsigned int const, 18446744073709551615ul>)",
+      "percent": 1.6112691286620133,
+      "samples": 85
+    },
+    {
+      "thread": "GPU",
+      "symbol": "[.] Tegra::MacroEngine::Execute(Core::System&, Tegra::Engines::Maxwell3D&, unsigned int, std::span<unsigned int const, 18446744073709551615ul>)::$_1::operator()(unsigned int, unsigned int) const",
+      "percent": 1.4573713141234568,
+      "samples": 79
+    },
+    {
+      "thread": "GPU",
+      "symbol": "[.] Vulkan::GraphicsPipeline::MakeConfigureSpecFunc<Vulkan::(anonymous namespace)::SimpleStorageSpec>()::{lambda(Vulkan::GraphicsPipeline*, bool)#1}::__invoke(Vulkan::GraphicsPipeline*, bool)",
+      "percent": 1.3468036535959242,
+      "samples": 73
+    },
+    {
+      "thread": "GPU",
+      "symbol": "[.] VideoCommon::BufferCache<Vulkan::BufferCacheParams>::UpdateVertexBuffer(unsigned int)",
+      "percent": 1.3099812486533589,
+      "samples": 71
+    },
+    {
+      "thread": "GPU",
+      "symbol": "[.] VideoCommon::BufferCache<Vulkan::BufferCacheParams>::WriteMemory(unsigned long, unsigned long, bool)",
+      "percent": 1.2879881521050367,
+      "samples": 69
+    },
+    {
+      "thread": "GPU",
+      "symbol": "[.] Tegra::DmaPusher::CallMethod(unsigned int)",
+      "percent": 1.2400624600285541,
+      "samples": 67
+    },
+    {
+      "thread": "GPU",
+      "symbol": "[.] VideoCommon::BufferCache<Vulkan::BufferCacheParams>::BindHostGraphicsUniformBuffer(unsigned long, unsigned int, unsigned int, bool)",
+      "percent": 1.230609515943816,
+      "samples": 64
+    },
+    {
+      "thread": "GPU",
+      "symbol": "[.] Tegra::MemoryManager::ReadBlockUnsafe(unsigned long, void*, unsigned long) const",
+      "percent": 1.1125746230373335,
+      "samples": 62
+    },
+    {
+      "thread": "GPU",
+      "symbol": "[.] Tegra::MemoryManager::FlushCaching()",
+      "percent": 1.039435889570281,
+      "samples": 57
+    },
+    {
+      "thread": "GPU",
+      "symbol": "[.] Tegra::Engines::Upload::State::ProcessData(unsigned int, bool)",
+      "percent": 0.9297383952977766,
+      "samples": 51
+    },
+    {
+      "thread": "GPU",
+      "symbol": "[.] Tegra::DmaPusher::Step()",
+      "percent": 0.903797652473288,
+      "samples": 49
+    },
+    {
+      "thread": "GPU",
+      "symbol": "[.] Tegra::Engines::KeplerCompute::ProcessNativeMethod(Core::System&, unsigned int, unsigned int, bool)",
+      "percent": 0.8610205590891042,
+      "samples": 47
+    },
+    {
+      "thread": "GPU",
+      "symbol": "[.] VideoCommon::BufferCache<Vulkan::BufferCacheParams>::BindHostGraphicsStorageBuffers(unsigned long)::{lambda(unsigned int)#1}::operator()(unsigned int) const",
+      "percent": 0.7916278650515315,
+      "samples": 43
+    }
+  ],
+  "deep_capture": {
+    "sample_hz": 99,
+    "call_graph": "dwarf65528",
+    "recording_started_unix": 1794210249.2071633,
+    "recording_finished_unix": 1794210273.6204293,
+    "mapping_timeout_seen": false,
+    "shutdown": {
+      "exit_code": 0,
+      "stop_requested": true,
+      "window_closed": true,
+      "forced": false,
+      "stop_seconds": 2.7043637773022056
+    }
+  },
+  "deep_lost_samples": 0,
+  "deep_sample_count": 2728,
+  "deep_hot_vector_copy_percent_of_two_threads": 12.332451019775243,
+  "limits": [
+    "No initial mapping timeout in either controlled capture. The first incomplete capture remains excluded from cost attribution.",
+    "Most hot vector-copy samples lack their caller, including with 65528-byte user stack. Merely enlarging the captured stack did not fix attribution.",
+    "Driver and libc private symbols remain unresolved; module attribution alone is not function attribution.",
+    "World and avatar inspected before and after each capture; each own game stopped normally.",
+    "No source optimization chosen from unresolved callers. Raw stacks remain private."
+  ],
+  "next": "Four alternating GPU auto/high policy phases without profiler, then recover hot-copy callers if needed.",
+  "followup": {
+    "direct_stack_returns_checked_against_elf_unwind_and_call_instructions": true,
+    "mapped_buffer_upload_named_as_caller": true,
+    "selected_return_chain_percent_of_sampled_period": 7.351870113853826,
+    "caveat": "Selectedfixedunwindrowsintheexactnativebinary;notafullresolvedcallgraph.Allothercopycallersremainunattributed.",
+    "next": "Hostuploadpoolpilot22.474FPS;independenthostringprototypebeingbuilt."
+  }
+}

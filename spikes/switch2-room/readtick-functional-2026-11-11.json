@@ -1,0 +1,154 @@
+{
+  "date_utc": "2026-11-11",
+  "status": "Private functional qualification passed; uncapped performance comparison still pending",
+  "cohort": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v6",
+  "root": "/home/souhib/.local/state/nel3ab/test-switch2-ZNqThy",
+  "elf_sha256": "c686c1ff5811dd4aeba3f92d8da7717724dab9f1f3978e7c73897899769852d4",
+  "duration_seconds": 46.462518785,
+  "readtick": {
+    "delta": {
+      "hook_calls": 22447,
+      "hook_callbacks": 17685,
+      "hook_read_flush_callbacks": 17685,
+      "read_requests": 26624,
+      "read_flush_callbacks": 26625
+    },
+    "outer_interval_ns": [
+      2383160297539593,
+      2383204546990593
+    ],
+    "inner_interval_ns": [
+      2383160297539883,
+      2383204546990493
+    ],
+    "scope": "Each independent counter delta was sampled within the phase; not a coherent tuple, GPU completion, performance gain or proof of the entire phase."
+  },
+  "readcheck": {
+    "rows": [
+      {
+        "checked": 1,
+        "compared_KiB": 4,
+        "mismatched": 0,
+        "reading_thread": 0,
+        "gpu_side_write": 0,
+        "host_gpu": 0,
+        "uncovered": 0,
+        "rewritten_not_compared": 0
+      },
+      {
+        "checked": 4980,
+        "compared_KiB": 18240,
+        "mismatched": 0,
+        "reading_thread": 0,
+        "gpu_side_write": 0,
+        "host_gpu": 0,
+        "uncovered": 0,
+        "rewritten_not_compared": 7941
+      },
+      {
+        "checked": 15691,
+        "compared_KiB": 52673,
+        "mismatched": 0,
+        "reading_thread": 0,
+        "gpu_side_write": 0,
+        "host_gpu": 0,
+        "uncovered": 0,
+        "rewritten_not_compared": 19105
+      },
+      {
+        "checked": 27318,
+        "compared_KiB": 90767,
+        "mismatched": 0,
+        "reading_thread": 0,
+        "gpu_side_write": 0,
+        "host_gpu": 0,
+        "uncovered": 0,
+        "rewritten_not_compared": 30854
+      },
+      {
+        "checked": 39036,
+        "compared_KiB": 130208,
+        "mismatched": 0,
+        "reading_thread": 0,
+        "gpu_side_write": 0,
+        "host_gpu": 0,
+        "uncovered": 0,
+        "rewritten_not_compared": 38597
+      },
+      {
+        "checked": 50962,
+        "compared_KiB": 171038,
+        "mismatched": 0,
+        "reading_thread": 0,
+        "gpu_side_write": 0,
+        "host_gpu": 0,
+        "uncovered": 0,
+        "rewritten_not_compared": 45601
+      },
+      {
+        "checked": 62741,
+        "compared_KiB": 210050,
+        "mismatched": 0,
+        "reading_thread": 0,
+        "gpu_side_write": 0,
+        "host_gpu": 0,
+        "uncovered": 0,
+        "rewritten_not_compared": 51435
+      },
+      {
+        "checked": 73251,
+        "compared_KiB": 246339,
+        "mismatched": 0,
+        "reading_thread": 0,
+        "gpu_side_write": 0,
+        "host_gpu": 0,
+        "uncovered": 0,
+        "rewritten_not_compared": 58059
+      }
+    ],
+    "scope": "Functional cumulative logged checks only. Excludes modified/CPU-written/rewritten ranges; no exact phase count. Extra synchronous copies/waits alter scheduling; no performance qualification and no complete proof of the new hook or shutdown."
+  },
+  "kernel_held_lx": 32767,
+  "kernel_all_four_neutral_before_page_close": true,
+  "intentional_SIGTERM": true,
+  "native_normal_stop": true,
+  "forced_cleanup": false,
+  "installed_8652_files_unchanged": true,
+  "observer_restored": true,
+  "gpu_errors": [],
+  "image_scope": "4 unique images actually viewed from 6 retained captures; before/middle counterpart pairs byte-identical. After movement reaches sign/ladder area, no named zone transition claimed.",
+  "constant40_achieved": false,
+  "performance_result": false,
+  "production_change": false,
+  "limits": [
+    "READ_CHECK performs extra synchronous copies and waits; cannot measure candidate performance here.",
+    "Independent counter deltas sampled strictly inside phase; not a coherent tuple or GPU-completion proof.",
+    "Cumulative verifier summaries include loading, exclude rewritten/modified ranges, and are not a final getter or exact phase count.",
+    "This bounded private test does not qualify every mapping, lifetime, invalidation or game path."
+  ],
+  "proof_files_sha256": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v6/functional-accepted.json": "4afef7b975d46d0731774cba2f5a7702c6a78a96e01cecc7aadceb4861b83daa",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v6/root-functional-review.json": "ae814d6401e9152c495b087d9c426e90b50782979b1b02d84096a51009041488",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v6/v6-preparation-report.json": "f91938e311f80234e3979fbcdba8365c72ae929e96ec284ba1697d990323fc3c",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v6/media-server-gate-report.json": "ef39f4e53c9a52c83c2bc839207dcedced11062d7539ba108a3645e7d8eb660f",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v6/F1/active-room.json": "6c393570d6fc88febb5349dec394011913a2f3da02f97e33d25bafb98be8d40c",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v6/F1/cleanup.json": "e95e0242ef064db346f9c485625272a2d37820f6eb99bfc195827018705f8faf",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v6/F1/prephase-review.json": "0984cd8cefaa7265030231e64854f815e0f8b7d509c608fe825f10370bf9567c",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v6/F1/postphase-review.json": "47eb6901b959096ce9b509321fd8d072718b46b759336e06b3ec981010caa99d",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v6/F1/root-stop-watch-result.json": "d3a1f531e062f5ec9c0a807f1cbe73adb37195ed2bba5e54caf038549af25f16",
+    "/home/souhib/.local/state/nel3ab/test-switch2-ZNqThy/native-runtime-before-proof.json": "e5fbd9bf67d229665ba3378d50f58baa22913d27d9f41525278e99ac71dd414f",
+    "/home/souhib/.local/state/nel3ab/test-switch2-ZNqThy/kernel-held.json": "795cdbcbefa3cf432f900818c9aeed5bab840c9df7f50bd1360f97d7bfd0beb9",
+    "/home/souhib/.local/state/nel3ab/test-switch2-ZNqThy/kernel-neutral.json": "16d690d0d0e29adb9f435b6f368006324109ffb4dee9d2e78420766597fe3fa2",
+    "/home/souhib/.local/state/nel3ab/test-switch2-ZNqThy/phase-exit.json": "5f0c6806ad9f599b53028a275575181d76c5a41722a9bd16dafacd1332615c89",
+    "/home/souhib/.local/state/nel3ab/test-switch2-ZNqThy/phase-stop-complete.json": "4ea76c30056298de2758c7b6da53ef181ab6b935309137e37231e77674d570ee",
+    "/home/souhib/.local/state/nel3ab/test-switch2-ZNqThy/driver-close-request.json": "594541f48a02fabaed9390395cbe168f706a176c6498d247eae8b2094c4ffc13",
+    "/home/souhib/.local/state/nel3ab/test-switch2-ZNqThy/browser-close-begin.json": "9cdec16b1d693ff636227529f88ae91e76331efe1d620c3190b8f1d01a93a578",
+    "/home/souhib/.local/state/nel3ab/test-switch2-ZNqThy/browser-phase-result.json": "0977f52e896de4f666490218d3358cfcb3a11d8962d11ed7ebf29619e16645e3",
+    "/home/souhib/.local/state/nel3ab/test-switch2-ZNqThy/readtick-qualified.json": "2ca2a780a254317514df22035e293631185b689775e3ab5e89631b4169d4137c",
+    "/home/souhib/.local/state/nel3ab/test-switch2-ZNqThy/encoded/before-decoded.json": "ae340d4766e45133c10583560d03bcd0486d0b367de91be922fd40519869cfba",
+    "/home/souhib/.local/state/nel3ab/test-switch2-ZNqThy/encoded/middle-decoded.json": "0d52855f0d7025afa178a3aa63ca447cded11093ad108e483d5850cca341d129",
+    "/home/souhib/.local/state/nel3ab/test-switch2-ZNqThy/encoded/after-decoded.json": "cc10fa833665a6899ab1fcbf262ba05a644cdbf31f30e28d4f511b230688d27e",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v6/archive/functional-plan.json": "da7e6fbc5af883ab8a68c7023f5d1d4cf35418814b09d43ba7fff5dc7bd2c5be"
+  },
+  "comparison_plan_sha256": "85a8fdd8259b6fd2464011dae8adb477b0432bb1d82935b91fbfe192abb162b4"
+}

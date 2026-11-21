@@ -1,0 +1,986 @@
+diff --git a/src/tests/CMakeLists.txt b/src/tests/CMakeLists.txt
+index dff876503..094ae77bf 100644
+--- a/src/tests/CMakeLists.txt
++++ b/src/tests/CMakeLists.txt
+@@ -30,6 +30,7 @@ add_executable(tests
+     core/internal_network/network.cpp
+     video_core/frame_dump_schedule.cpp
+     video_core/memory_tracker.cpp
++    video_core/cpu_upload_summary.cpp
+     video_core/spirv_storage_alignment.cpp
+     video_core/pipeline_optimization.cpp
+     video_core/spirv_atomic_retry.cpp
+diff --git a/src/video_core/CMakeLists.txt b/src/video_core/CMakeLists.txt
+index c0648802e..157e7e23f 100644
+--- a/src/video_core/CMakeLists.txt
++++ b/src/video_core/CMakeLists.txt
+@@ -14,6 +14,10 @@ if(LIBVA_FOUND)
+ endif()
+ 
+ add_library(video_core STATIC
++    buffer_cache/nx2_buffer_stats.h
++    gpu_timestamp_sample.h
++    renderer_vulkan/vk_gpu_timing.h
++    renderer_vulkan/vk_gpu_timing.cpp
+     buffer_cache/buffer_base.h
+     buffer_cache/buffer_cache_base.h
+     buffer_cache/buffer_cache.cpp
+diff --git a/src/video_core/buffer_cache/buffer_cache.h b/src/video_core/buffer_cache/buffer_cache.h
+index 3c5248e21..236628098 100644
+--- a/src/video_core/buffer_cache/buffer_cache.h
++++ b/src/video_core/buffer_cache/buffer_cache.h
+@@ -21,6 +21,7 @@
+ #include "video_core/guest_memory.h"
+ #include "video_core/host1x/gpu_device_memory_manager.h"
+ #include "video_core/nx2.h"
++#include "video_core/buffer_cache/nx2_buffer_stats.h"
+ #include "video_core/nx2_profile.h"
+ #include "video_core/texture_cache/util.h"
+ 
+@@ -36,6 +37,7 @@ BufferCache<P>::BufferCache(Tegra::MaxwellDeviceMemoryManager& device_memory_, R
+     VideoCommon::ResetUniformStreamReuse<Runtime>();
+     // Ensure the first slot is used for the null buffer
+     void(slot_buffers.insert(runtime, NullBufferParams{}));
++    LOG_INFO(HW_GPU, "Buffer lab diagnostic: stats={} fast_clean={}", Nx2BufferStats::Enabled(), BufferFastCleanEnabled());
+     gpu_modified_ranges.Clear();
+     inline_buffer_id = NULL_BUFFER_ID;
+ #ifdef YUZU_LEGACY
+@@ -102,6 +104,7 @@ void BufferCache<P>::RunGarbageCollector(bool aggressive_gc) {
+ 
+ template <class P>
+ void BufferCache<P>::TickFrame() {
++    if (Nx2BufferStats::Enabled()) Nx2BufferStats::Get().Report();
+     // Homebrew console apps don't create or bind any channels, so this will be nullptr.
+     if (!channel_state) {
+         return;
+@@ -972,6 +975,7 @@ bool BufferCache<P>::IsRegionCpuModified(DAddr addr, size_t size) {
+ 
+ template <class P>
+ void BufferCache<P>::BindHostIndexBuffer() {
++    const BufferStatsUse stats_use{BufferUse::Index};
+     Buffer& buffer = slot_buffers[channel_state->index_buffer.buffer_id];
+     TouchBuffer(buffer, channel_state->index_buffer.buffer_id);
+     const u32 offset = buffer.Offset(channel_state->index_buffer.device_addr);
+@@ -1067,6 +1071,7 @@ void BufferCache<P>::RefreshRepackedVertexBuffers() {
+ 
+ template <class P>
+ void BufferCache<P>::BindHostVertexBuffers() {
++    const BufferStatsUse stats_use{BufferUse::Vertex};
+     RefreshRepackedVertexBuffers();
+ 
+ #ifdef __ANDROID__
+@@ -1160,6 +1165,7 @@ void BufferCache<P>::BindHostVertexBuffers() {
+ 
+ template <class P>
+ void BufferCache<P>::BindHostDrawIndirectBuffers() {
++    const BufferStatsUse stats_use{BufferUse::Indirect};
+     const auto bind_buffer = [this](const Binding& binding) {
+         Buffer& buffer = slot_buffers[binding.buffer_id];
+         TouchBuffer(buffer, binding.buffer_id);
+@@ -1189,6 +1195,7 @@ void BufferCache<P>::BindHostGraphicsUniformBuffers(size_t stage) {
+ 
+ template <class P>
+ void BufferCache<P>::BindHostGraphicsUniformBuffer(size_t stage, u32 index, u32 binding_index, bool needs_bind) {
++    const BufferStatsUse stats_use{BufferUse::Uniform};
+     ++channel_state->uniform_cache_shots[0];
+     // Bank 24 (root table 0, NVN2's push constants) is read from bank 17, which such games do not
+     // bind: stream the table's current words as that buffer.
+@@ -1255,6 +1262,7 @@ void BufferCache<P>::BindHostGraphicsUniformBuffer(size_t stage, u32 index, u32
+         if (mapped_size != 0) {
+             const u64 marked = (std::min<u64>)(mapped_size, size);
+             memory_tracker.MarkRegionAsCpuModified(device_addr, marked);
++            Nx2BufferStats::Add(Nx2BufferStats::ForcedBankBytes, marked);
+             // EDEN_NX2_BANK_STATS: how much this costs, per 100k re-uploads.
+             static std::atomic<u64> uploads{0};
+             static std::atomic<u64> marked_bytes{0};
+@@ -1408,6 +1416,7 @@ bool BufferCache<P>::BindMultiRangeStorage(const Binding& binding, bool is_writt
+ 
+ template <class P>
+ void BufferCache<P>::BindHostGraphicsStorageBuffers(size_t stage) {
++    const BufferStatsUse stats_use{BufferUse::Storage};
+     u32 binding_index = 0;
+     ForEachEnabledBit(channel_state->enabled_storage_buffers[stage], [&](u32 index) {
+         const Binding& binding = channel_state->storage_buffers[stage][index];
+@@ -1499,6 +1508,7 @@ void BufferCache<P>::BindHostTransformFeedbackBuffers() {
+ 
+ template <class P>
+ void BufferCache<P>::BindHostComputeUniformBuffers() {
++    const BufferStatsUse stats_use{BufferUse::ComputeUniform};
+     if constexpr (HAS_PERSISTENT_UNIFORM_BUFFER_BINDINGS) {
+         // Mark all uniform buffers as dirty
+         channel_state->dirty_uniform_buffers.fill(~u32{0});
+@@ -1554,6 +1564,7 @@ void BufferCache<P>::BindHostComputeUniformBuffers() {
+ 
+ template <class P>
+ void BufferCache<P>::BindHostComputeStorageBuffers() {
++    const BufferStatsUse stats_use{BufferUse::ComputeStorage};
+     u32 binding_index = 0;
+     ForEachEnabledBit(channel_state->enabled_compute_storage_buffers, [&](u32 index) {
+         const Binding& binding = channel_state->compute_storage_buffers[index];
+@@ -2289,6 +2300,8 @@ void BufferCache<P>::TouchBuffer(Buffer& buffer, BufferId buffer_id) noexcept {
+ 
+ template <class P>
+ bool BufferCache<P>::SynchronizeBuffer(Buffer& buffer, DAddr device_addr, u32 size) {
++    Nx2BufferStats::Add(Nx2BufferStats::SyncCalls);
++    Nx2BufferStats::Add(Nx2BufferStats::RequestedBytes, size);
+ #ifdef __ANDROID__
+     const bool use_optimized_vertex_buffers = Settings::values.use_optimized_vertex_buffers.GetValue();
+ #else
+@@ -2312,6 +2325,7 @@ bool BufferCache<P>::SynchronizeBuffer(Buffer& buffer, DAddr device_addr, u32 si
+             largest_copy = (std::max)(largest_copy, range_size);
+         };
+         memory_tracker.ForEachUploadRange(device_addr, size, [&](u64 device_addr_out, u64 range_size) {
++            Nx2BufferStats::Add(Nx2BufferStats::DirtyPageBytes, range_size);
+             DAddr upload_start = device_addr_out;
+             gpu_modified_ranges.ForEachInRange(device_addr_out, range_size, [&](DAddr gpu_start, DAddr gpu_end) {
+                 add_upload(upload_start, gpu_start);
+@@ -2320,6 +2334,7 @@ bool BufferCache<P>::SynchronizeBuffer(Buffer& buffer, DAddr device_addr, u32 si
+             add_upload(upload_start, device_addr_out + range_size);
+         });
+         if (total_size_bytes == 0) {
++            Nx2BufferStats::Add(Nx2BufferStats::EmptySyncs);
+             return true;
+         }
+         const std::span<BufferCopy> copies_span(upload_copies.data(), upload_copies.size());
+@@ -2337,6 +2352,7 @@ bool BufferCache<P>::SynchronizeBuffer(Buffer& buffer, DAddr device_addr, u32 si
+         u64 largest_copy = 0;
+         DAddr buffer_start = buffer.CpuAddr();
+         memory_tracker.ForEachUploadRange(device_addr, size, [&](u64 device_addr_out, u64 range_size) {
++            Nx2BufferStats::Add(Nx2BufferStats::DirtyPageBytes, range_size);
+             copies.push_back(BufferCopy{
+                 .src_offset = total_size_bytes,
+                 .dst_offset = device_addr_out - buffer_start,
+@@ -2346,6 +2362,7 @@ bool BufferCache<P>::SynchronizeBuffer(Buffer& buffer, DAddr device_addr, u32 si
+             largest_copy = (std::max)(largest_copy, range_size);
+         });
+         if (total_size_bytes == 0) {
++            Nx2BufferStats::Add(Nx2BufferStats::EmptySyncs);
+             return true;
+         }
+         const std::span<BufferCopy> copies_span(copies.data(), copies.size());
+@@ -2357,6 +2374,9 @@ bool BufferCache<P>::SynchronizeBuffer(Buffer& buffer, DAddr device_addr, u32 si
+ template <class P>
+ void BufferCache<P>::UploadMemory(Buffer& buffer, u64 total_size_bytes, u64 largest_copy,
+                                   std::span<BufferCopy> copies) {
++    Nx2BufferStats::Add(Nx2BufferStats::UploadCalls);
++    Nx2BufferStats::Add(Nx2BufferStats::UploadBytes, total_size_bytes);
++    Nx2BufferStats::Add(Nx2BufferStats::UploadRanges, copies.size());
+     if constexpr (USE_MEMORY_MAPS_FOR_UPLOADS) {
+         MappedUploadMemory(buffer, total_size_bytes, copies);
+     } else {
+@@ -2401,6 +2421,7 @@ void BufferCache<P>::MappedUploadMemory([[maybe_unused]] Buffer& buffer,
+             u8* const src_pointer = staging_pointer.data() + copy.src_offset;
+             const DAddr device_addr = buffer.CpuAddr() + copy.dst_offset;
+             device_memory.ReadBlockUnsafe(device_addr, src_pointer, copy.size);
++            if (Nx2BufferStats::Enabled()) Nx2BufferStats::Get().Sample(device_addr, std::span<const u8>{src_pointer,static_cast<size_t>(copy.size)});
+             // Large uploads are mostly geometry the host GPU now has its own copy of: TickFrame
+             // marks their guest memory cold (see TextureCache::RefreshContents).
+             if (copy.size >= 256_KiB) {
+diff --git a/src/video_core/buffer_cache/memory_tracker_base.h b/src/video_core/buffer_cache/memory_tracker_base.h
+index 2a09a580c..7e598e972 100644
+--- a/src/video_core/buffer_cache/memory_tracker_base.h
++++ b/src/video_core/buffer_cache/memory_tracker_base.h
+@@ -17,6 +17,7 @@
+ #include "common/alignment.h"
+ #include "common/common_types.h"
+ #include "video_core/buffer_cache/word_manager.h"
++#include "video_core/buffer_cache/nx2_buffer_stats.h"
+ 
+ namespace VideoCommon {
+ 
+@@ -72,6 +73,8 @@ public:
+ 
+     /// Mark region as CPU modified, notifying the device_tracker about this change
+     void MarkRegionAsCpuModified(VAddr dirty_cpu_addr, u64 query_size) {
++        Nx2BufferStats::Add(Nx2BufferStats::ReportedCpuWrites);
++        Nx2BufferStats::Add(Nx2BufferStats::ReportedCpuBytes, query_size);
+         IteratePages<true>(dirty_cpu_addr, query_size, [](Manager* manager, u64 offset, size_t size) {
+             manager->ChangeRegionState(Type::CPU, true, manager->cpu_addr + offset, size);
+         });
+@@ -115,6 +118,7 @@ public:
+     /// Mark region as modified from the CPU
+     /// but don't mark it as modified until FlusHCachedWrites is called.
+     void CachedCpuWrite(VAddr dirty_cpu_addr, u64 query_size) {
++        Nx2BufferStats::Add(Nx2BufferStats::CachedWriteBytes, query_size);
+         IteratePages<true>(dirty_cpu_addr, query_size, [this](Manager* manager, u64 offset, size_t size) {
+             const VAddr cpu_address = manager->cpu_addr + offset;
+             manager->ChangeRegionState(Type::CachedCPU, true, cpu_address, size);
+@@ -130,6 +134,7 @@ public:
+     }
+ 
+     void FlushCachedWrites() noexcept {
++        Nx2BufferStats::Add(Nx2BufferStats::FlushCachedCalls);
+         for (auto id : cached_pages) {
+             top_tier[id]->FlushCachedWrites();
+         }
+diff --git a/src/video_core/buffer_cache/word_manager.h b/src/video_core/buffer_cache/word_manager.h
+index 8879fff79..f6404e440 100644
+--- a/src/video_core/buffer_cache/word_manager.h
++++ b/src/video_core/buffer_cache/word_manager.h
+@@ -17,6 +17,7 @@
+ #include "common/common_funcs.h"
+ #include "common/common_types.h"
+ #include "common/div_ceil.h"
++#include "video_core/buffer_cache/nx2_buffer_stats.h"
+ #include "video_core/host1x/gpu_device_memory_manager.h"
+ 
+ namespace VideoCommon {
+@@ -48,6 +49,7 @@ struct WordManager {
+         u64 const last_word = (~u64{0} << shift) >> shift;
+         heap[num_words * size_t(Type::CPU) + num_words - 1] = last_word;
+         heap[num_words * size_t(Type::Untracked) + num_words - 1] = last_word;
++        for (size_t i = 0; i < num_words; ++i) RefreshCpuUploadSummary(i);
+     }
+     explicit WordManager() = default;
+ 
+@@ -137,6 +139,8 @@ struct WordManager {
+                 if (type == Type::CPU || type == Type::CachedCPU)
+                     untracked_words[index] &= ~mask;
+             }
++            if (type == Type::CPU || type == Type::CachedCPU || type == Type::Untracked)
++                RefreshCpuUploadSummary(index);
+         });
+         if (!ranges.empty()) {
+             ApplyCollectedRanges(ranges, (!enable) ? 1 : -1);
+@@ -157,6 +161,18 @@ struct WordManager {
+         std::span<u64> untracked_words = Span(Type::Untracked);
+         std::span<u64> cached_words = Span(Type::CachedCPU);
+         size_t const offset = query_cpu_range - cpu_addr;
++        if (type == Type::CPU && BufferFastCleanEnabled()) {
++            Nx2BufferStats::Add(Nx2BufferStats::SummaryChecks);
++            if (!CpuUploadMayBeNeeded(offset, size)) {
++                Nx2BufferStats::Add(Nx2BufferStats::SummarySkips);
++                static thread_local bool announced{};
++                if (!announced) {
++                    announced = true;
++                    LOG_INFO(HW_GPU, "Buffer clean summary: first clean range skipped");
++                }
++                return;
++            }
++        }
+         bool pending = false;
+         size_t pending_offset{};
+         size_t pending_pointer{};
+@@ -183,6 +199,8 @@ struct WordManager {
+                     untracked_words[index] &= ~mask;
+                 if (type == Type::CPU)
+                     cached_words[index] &= ~word;
++                if (type == Type::CPU || type == Type::CachedCPU || type == Type::Untracked)
++                    RefreshCpuUploadSummary(index);
+             }
+             const size_t base_offset = index * PAGES_PER_WORD;
+             IteratePages(word, [&](size_t pages_offset, size_t pages_size) {
+@@ -259,6 +277,7 @@ struct WordManager {
+             untracked_words[word_index] |= cached_bits;
+             cpu_words[word_index] |= cached_bits;
+             cached_words[word_index] = 0;
++            RefreshCpuUploadSummary(word_index);
+         }
+         if (!ranges.empty()) {
+             ApplyCollectedRanges(ranges, -1);
+@@ -316,6 +335,31 @@ struct WordManager {
+         });
+     }
+ 
++    // A false result proves both CPU dirty bits and pending page-tracking changes absent.
++    // One bit summarizes 64 device pages (256 KiB). A coarse true result uses the old walk.
++    [[nodiscard]] bool CpuUploadMayBeNeeded(u64 offset, s64 size) const noexcept {
++        if (size < 0) return true;
++        if (size == 0 || offset >= size_bytes) return false;
++        const u64 end = offset + std::min<u64>(static_cast<u64>(size), size_bytes - offset);
++        const u64 first = offset / BYTES_PER_WORD;
++        const u64 last = (end - 1) / BYTES_PER_WORD;
++        for (u64 group = first / 64; group <= last / 64; ++group) {
++            const u64 lo = group == first / 64 ? first % 64 : 0;
++            const u64 hi = group == last / 64 ? last % 64 : 63;
++            const u64 mask = (~u64{0} << lo) & (~u64{0} >> (63 - hi));
++            if ((cpu_upload_summary[group] & mask) != 0) return true;
++        }
++        return false;
++    }
++
++private:
++    void RefreshCpuUploadSummary(size_t index) noexcept {
++        const u64 mask = u64{1} << (index % 64);
++        const bool needed = (Span(Type::CPU)[index] | Span(Type::Untracked)[index]) != 0;
++        auto& word = cpu_upload_summary[index / 64];
++        word = needed ? (word | mask) : (word & ~mask);
++    }
++
+     std::span<u64> Span(Type type) noexcept {
+         return std::span<u64>(heap.data() + num_words * size_t(type), num_words);
+     }
+@@ -325,6 +369,10 @@ struct WordManager {
+     }
+ 
+     std::array<u64, size_t(Type::Max) * num_words> heap = {};
++    // Eight bytes per real 4 MiB manager; at most 128 KiB over the 36-bit address space.
++    // Updated with the bitmaps under their existing owner/lock, including cached-write flushes.
++    std::array<u64, (num_words + 63) / 64> cpu_upload_summary{};
++public:
+     DeviceTracker* tracker = nullptr;
+     VAddr cpu_addr = 0;
+ };
+diff --git a/src/video_core/renderer_vulkan/vk_rasterizer.cpp b/src/video_core/renderer_vulkan/vk_rasterizer.cpp
+index f9697a8e9..d63fdd146 100644
+--- a/src/video_core/renderer_vulkan/vk_rasterizer.cpp
++++ b/src/video_core/renderer_vulkan/vk_rasterizer.cpp
+@@ -1695,6 +1695,7 @@ void RasterizerVulkan::FlushCommands() {
+ }
+ 
+ void RasterizerVulkan::TickFrame() {
++    scheduler.TickGpuTiming();
+     draw_counter = 0;
+     // Debug server requests (docs/nx2/debug-mcp.md), taken between frames on the owning thread.
+     if (VideoCore::Nx2Debug::HasRequests()) {
+diff --git a/src/video_core/renderer_vulkan/vk_scheduler.cpp b/src/video_core/renderer_vulkan/vk_scheduler.cpp
+index d78bf0a5f..55f176cd7 100644
+--- a/src/video_core/renderer_vulkan/vk_scheduler.cpp
++++ b/src/video_core/renderer_vulkan/vk_scheduler.cpp
+@@ -23,6 +23,7 @@
+ #include "video_core/renderer_vulkan/vk_graphics_pipeline.h"
+ #include "video_core/renderer_vulkan/vk_master_semaphore.h"
+ #include "video_core/renderer_vulkan/vk_scheduler.h"
++#include "video_core/renderer_vulkan/vk_gpu_timing.h"
+ #include "video_core/renderer_vulkan/vk_state_tracker.h"
+ #include "video_core/renderer_vulkan/vk_texture_cache.h"
+ #include "video_core/vulkan_common/vulkan_device.h"
+@@ -53,10 +54,17 @@ Scheduler::Scheduler(const Device& device_, StateTracker& state_tracker_)
+     AcquireNewChunk();
+     AllocateWorkerCommandBuffer();
+     worker_thread = std::jthread([this](std::stop_token token) { WorkerThread(token); });
++    if (const char* value = std::getenv("EDEN_NX2_GPU_TIMINGS"); value && value[0] == '1') {
++        gpu_timing = std::make_unique<GpuTimingTrace>(device, *this);
++    }
+ }
+ 
+ Scheduler::~Scheduler() = default;
+ 
++void Scheduler::TickGpuTiming() {
++    if (gpu_timing) gpu_timing->Tick();
++}
++
+ u64 Scheduler::Flush(VkSemaphore signal_semaphore, VkSemaphore wait_semaphore) {
+     if (VideoCommon::GpuSplit::check_owner) [[unlikely]] {
+         VideoCommon::GpuSplit::CheckOwner("Scheduler::Flush");
+diff --git a/src/video_core/renderer_vulkan/vk_scheduler.h b/src/video_core/renderer_vulkan/vk_scheduler.h
+index dbf37ac59..dccd89a1e 100644
+--- a/src/video_core/renderer_vulkan/vk_scheduler.h
++++ b/src/video_core/renderer_vulkan/vk_scheduler.h
+@@ -35,6 +35,7 @@ class Device;
+ class Framebuffer;
+ class GraphicsPipeline;
+ class StateTracker;
++class GpuTimingTrace;
+ 
+ struct QueryCacheParams;
+ 
+@@ -44,6 +45,7 @@ class Scheduler {
+ public:
+     explicit Scheduler(const Device& device, StateTracker& state_tracker);
+     ~Scheduler();
++    void TickGpuTiming();
+ 
+     /// Sends the current execution context to the GPU.
+     u64 Flush(VkSemaphore signal_semaphore = {}, VkSemaphore wait_semaphore = {});
+@@ -356,6 +358,7 @@ private:
+     bool compute_writes_pending{};
+     bool graphics_pipeline_missing{};
+     std::unique_ptr<CommandPool> command_pool;
++    std::unique_ptr<GpuTimingTrace> gpu_timing;
+ 
+     VideoCommon::QueryCacheBase<QueryCacheParams>* query_cache = nullptr;
+ 
+diff --git a/src/video_core/vulkan_common/vulkan_wrapper.cpp b/src/video_core/vulkan_common/vulkan_wrapper.cpp
+index d0bca8812..49aa08ac6 100644
+--- a/src/video_core/vulkan_common/vulkan_wrapper.cpp
++++ b/src/video_core/vulkan_common/vulkan_wrapper.cpp
+@@ -167,6 +167,7 @@ void Load(VkDevice device, DeviceDispatch& dld) noexcept {
+     X(vkCmdSetColorBlendEnableEXT);
+     X(vkCmdSetColorBlendEquationEXT);
+     X(vkCmdResetQueryPool);
++    X(vkCmdWriteTimestamp);
+     X(vkCmdResolveImage);
+     X(vkCreateBuffer);
+     X(vkCreateBufferView);
+diff --git a/src/video_core/vulkan_common/vulkan_wrapper.h b/src/video_core/vulkan_common/vulkan_wrapper.h
+index f49e9518b..e496832e6 100644
+--- a/src/video_core/vulkan_common/vulkan_wrapper.h
++++ b/src/video_core/vulkan_common/vulkan_wrapper.h
+@@ -244,6 +244,7 @@ struct DeviceDispatch : InstanceDispatch {
+     PFN_vkCmdPushConstants vkCmdPushConstants{};
+     PFN_vkCmdPushDescriptorSetWithTemplateKHR vkCmdPushDescriptorSetWithTemplateKHR{};
+     PFN_vkCmdResetQueryPool vkCmdResetQueryPool{};
++    PFN_vkCmdWriteTimestamp vkCmdWriteTimestamp{};
+     PFN_vkCmdResolveImage vkCmdResolveImage{};
+     PFN_vkCmdSetBlendConstants vkCmdSetBlendConstants{};
+     PFN_vkCmdSetCullModeEXT vkCmdSetCullModeEXT{};
+@@ -1235,6 +1236,27 @@ private:
+     const InstanceDispatch* dld = nullptr;
+ };
+ 
++// Only the scheduler worker installs this diagnostic hook. It is null in normal runs.
++struct GpuTimingHook {
++    void* context;
++    u32 (*begin)(void*, VkCommandBuffer, const DeviceDispatch&, const char*) noexcept;
++    void (*end)(void*, VkCommandBuffer, const DeviceDispatch&, u32) noexcept;
++};
++inline thread_local GpuTimingHook* gpu_timing_hook{};
++struct ScopedCommandTiming {
++    ScopedCommandTiming(VkCommandBuffer command_, const DeviceDispatch& dispatch_, const char* tag)
++        : command{command_}, dispatch{dispatch_}, hook{gpu_timing_hook} {
++        if (hook) id = hook->begin(hook->context, command, dispatch, tag);
++    }
++    ~ScopedCommandTiming() {
++        if (hook && id != ~u32{0}) hook->end(hook->context, command, dispatch, id);
++    }
++    VkCommandBuffer command;
++    const DeviceDispatch& dispatch;
++    GpuTimingHook* hook;
++    u32 id{~u32{0}};
++};
++
+ class CommandBuffer {
+ public:
+     CommandBuffer() noexcept = default;
+@@ -1310,31 +1332,37 @@ public:
+ 
+     void Draw(u32 vertex_count, u32 instance_count, u32 first_vertex,
+               u32 first_instance) const noexcept {
++        const ScopedCommandTiming timing{handle, *dld, "draw"};
+         dld->vkCmdDraw(handle, vertex_count, instance_count, first_vertex, first_instance);
+     }
+ 
+     void DrawIndexed(u32 index_count, u32 instance_count, u32 first_index, u32 vertex_offset,
+                      u32 first_instance) const noexcept {
++        const ScopedCommandTiming timing{handle, *dld, "draw"};
+         dld->vkCmdDrawIndexed(handle, index_count, instance_count, first_index, vertex_offset,
+                               first_instance);
+     }
+ 
+     void DrawIndirect(VkBuffer src_buffer, VkDeviceSize src_offset, u32 draw_count,
+                       u32 stride) const noexcept {
++        const ScopedCommandTiming timing{handle, *dld, "draw"};
+         dld->vkCmdDrawIndirect(handle, src_buffer, src_offset, draw_count, stride);
+     }
+ 
+     void DrawIndexedIndirect(VkBuffer src_buffer, VkDeviceSize src_offset, u32 draw_count,
+                              u32 stride) const noexcept {
++        const ScopedCommandTiming timing{handle, *dld, "draw"};
+         dld->vkCmdDrawIndexedIndirect(handle, src_buffer, src_offset, draw_count, stride);
+     }
+ 
+     void DrawMeshTasksEXT(u32 group_count_x, u32 group_count_y, u32 group_count_z) const noexcept {
++        const ScopedCommandTiming timing{handle, *dld, "draw"};
+         dld->vkCmdDrawMeshTasksEXT(handle, group_count_x, group_count_y, group_count_z);
+     }
+ 
+     void DrawIndirectCount(VkBuffer src_buffer, VkDeviceSize src_offset, VkBuffer count_buffer,
+                            VkDeviceSize count_offset, u32 draw_count, u32 stride) const noexcept {
++        const ScopedCommandTiming timing{handle, *dld, "draw"};
+         dld->vkCmdDrawIndirectCount(handle, src_buffer, src_offset, count_buffer, count_offset,
+                                     draw_count, stride);
+     }
+@@ -1342,6 +1370,7 @@ public:
+     void DrawIndexedIndirectCount(VkBuffer src_buffer, VkDeviceSize src_offset,
+                                   VkBuffer count_buffer, VkDeviceSize count_offset, u32 draw_count,
+                                   u32 stride) const noexcept {
++        const ScopedCommandTiming timing{handle, *dld, "draw"};
+         dld->vkCmdDrawIndexedIndirectCount(handle, src_buffer, src_offset, count_buffer,
+                                            count_offset, draw_count, stride);
+     }
+@@ -1349,6 +1378,7 @@ public:
+     void DrawIndirectByteCountEXT(u32 instance_count, u32 first_instance, VkBuffer counter_buffer,
+                                   VkDeviceSize counter_buffer_offset, u32 counter_offset,
+                                   u32 stride) {
++        const ScopedCommandTiming timing{handle, *dld, "draw"};
+         dld->vkCmdDrawIndirectByteCountEXT(handle, instance_count, first_instance, counter_buffer,
+                                            counter_buffer_offset, counter_offset, stride);
+     }
+@@ -1361,27 +1391,32 @@ public:
+ 
+     void ClearColorImage(VkImage image, VkImageLayout layout, VkClearColorValue color,
+                          Span<VkImageSubresourceRange> ranges) {
++        const ScopedCommandTiming timing{handle, *dld, "image_operation"};
+         dld->vkCmdClearColorImage(handle, image, layout, &color, ranges.size(), ranges.data());
+     }
+ 
+     void BlitImage(VkImage src_image, VkImageLayout src_layout, VkImage dst_image,
+                    VkImageLayout dst_layout, Span<VkImageBlit> regions,
+                    VkFilter filter) const noexcept {
++        const ScopedCommandTiming timing{handle, *dld, "image_operation"};
+         dld->vkCmdBlitImage(handle, src_image, src_layout, dst_image, dst_layout, regions.size(),
+                             regions.data(), filter);
+     }
+ 
+     void ResolveImage(VkImage src_image, VkImageLayout src_layout, VkImage dst_image,
+                       VkImageLayout dst_layout, Span<VkImageResolve> regions) {
++        const ScopedCommandTiming timing{handle, *dld, "image_operation"};
+         dld->vkCmdResolveImage(handle, src_image, src_layout, dst_image, dst_layout, regions.size(),
+                                regions.data());
+     }
+ 
+     void Dispatch(u32 x, u32 y, u32 z) const noexcept {
++        const ScopedCommandTiming timing{handle, *dld, "compute"};
+         dld->vkCmdDispatch(handle, x, y, z);
+     }
+ 
+     void DispatchIndirect(VkBuffer indirect_buffer, VkDeviceSize offset) const noexcept {
++        const ScopedCommandTiming timing{handle, *dld, "compute"};
+         dld->vkCmdDispatchIndirect(handle, indirect_buffer, offset);
+     }
+ 
+@@ -1498,23 +1533,27 @@ public:
+ 
+     void CopyBufferToImage(VkBuffer src_buffer, VkImage dst_image, VkImageLayout dst_image_layout,
+                            Span<VkBufferImageCopy> regions) const noexcept {
++        const ScopedCommandTiming timing{handle, *dld, "image_operation"};
+         dld->vkCmdCopyBufferToImage(handle, src_buffer, dst_image, dst_image_layout, regions.size(),
+                                     regions.data());
+     }
+ 
+     void CopyBuffer(VkBuffer src_buffer, VkBuffer dst_buffer,
+                     Span<VkBufferCopy> regions) const noexcept {
++        const ScopedCommandTiming timing{handle, *dld, "buffer_copy"};
+         dld->vkCmdCopyBuffer(handle, src_buffer, dst_buffer, regions.size(), regions.data());
+     }
+ 
+     void CopyImage(VkImage src_image, VkImageLayout src_layout, VkImage dst_image,
+                    VkImageLayout dst_layout, Span<VkImageCopy> regions) const noexcept {
++        const ScopedCommandTiming timing{handle, *dld, "image_operation"};
+         dld->vkCmdCopyImage(handle, src_image, src_layout, dst_image, dst_layout, regions.size(),
+                             regions.data());
+     }
+ 
+     void CopyImageToBuffer(VkImage src_image, VkImageLayout src_layout, VkBuffer dst_buffer,
+                            Span<VkBufferImageCopy> regions) const noexcept {
++        const ScopedCommandTiming timing{handle, *dld, "image_operation"};
+         dld->vkCmdCopyImageToBuffer(handle, src_image, src_layout, dst_buffer, regions.size(),
+                                     regions.data());
+     }
+@@ -1528,6 +1567,7 @@ public:
+ 
+     void FillBuffer(VkBuffer dst_buffer, VkDeviceSize dst_offset, VkDeviceSize size,
+                     u32 data) const noexcept {
++        const ScopedCommandTiming timing{handle, *dld, "fill"};
+         dld->vkCmdFillBuffer(handle, dst_buffer, dst_offset, size, data);
+     }
+ 
+diff --git a/src/tests/video_core/cpu_upload_summary.cpp b/src/tests/video_core/cpu_upload_summary.cpp
+new file mode 100644
+index 000000000..77faa8e0f
+--- /dev/null
++++ b/src/tests/video_core/cpu_upload_summary.cpp
+@@ -0,0 +1,109 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++#include <limits>
++#include <random>
++#include <catch2/catch_test_macros.hpp>
++#include "video_core/buffer_cache/word_manager.h"
++#include "video_core/gpu_timestamp_sample.h"
++
++namespace {
++struct Tracker {
++    void UpdatePagesCachedBatch(std::span<const std::pair<VAddr, size_t>> ranges, int) {
++        updates += ranges.size();
++    }
++    void UpdatePagesCachedCount(VAddr, size_t, int) { ++updates; }
++    size_t updates{};
++};
++constexpr u64 Page = VideoCommon::BYTES_PER_PAGE;
++constexpr u64 Word = VideoCommon::BYTES_PER_WORD;
++constexpr u64 Size = 128 * Word; // Exercises summary bits on both sides of word 64.
++using Manager = VideoCommon::WordManager<Tracker, 128, Size>;
++using Type = VideoCommon::Type;
++void Clear(Manager& manager, u64 address, u64 size) {
++    manager.ForEachModifiedRange(Type::CPU, true, address, size, [](u64, u64) {});
++}
++}
++
++TEST_CASE("Clean upload summary retains CPU writes and tracking changes", "[buffer_clean]") {
++    Tracker tracker;
++    Manager manager(0, tracker);
++    REQUIRE(manager.CpuUploadMayBeNeeded(0, Size));
++    Clear(manager, 0, Size);
++    REQUIRE_FALSE(manager.CpuUploadMayBeNeeded(0, Size));
++    manager.ChangeRegionState(Type::CPU, true, 63 * Word + Page, 1);
++    REQUIRE(manager.CpuUploadMayBeNeeded(63 * Word + Page, 1));
++    REQUIRE(manager.CpuUploadMayBeNeeded(63 * Word, 2 * Word));
++    REQUIRE_FALSE(manager.CpuUploadMayBeNeeded(64 * Word, Word));
++    Clear(manager, 63 * Word, Word);
++    REQUIRE_FALSE(manager.CpuUploadMayBeNeeded(0, Size));
++    manager.ChangeRegionState(Type::CPU, true, 64 * Word + Page, 1);
++    REQUIRE(manager.CpuUploadMayBeNeeded(63 * Word, 2 * Word));
++    REQUIRE(manager.CpuUploadMayBeNeeded(64 * Word + Page, Page));
++    Clear(manager, 64 * Word, Word);
++
++    manager.ChangeRegionState(Type::CachedCPU, true, Page, 1);
++    REQUIRE_FALSE(manager.IsRegionModified(Type::CPU, Page, 1));
++    REQUIRE(manager.IsRegionModified(Type::Untracked, Page, 1));
++    REQUIRE(manager.CpuUploadMayBeNeeded(Page, 1));
++    const auto updates_before = tracker.updates;
++    size_t uploads{};
++    manager.ForEachModifiedRange(Type::CPU, true, Page, Page,
++                                 [&](u64, u64) { ++uploads; });
++    REQUIRE(uploads == 0);
++    REQUIRE(tracker.updates > updates_before);
++    REQUIRE_FALSE(manager.CpuUploadMayBeNeeded(Page, Page));
++    // The delayed write is still pending even after tracking was rearmed without an upload.
++    manager.FlushCachedWrites();
++    REQUIRE(manager.IsRegionModified(Type::CPU, Page, 1));
++    REQUIRE(manager.CpuUploadMayBeNeeded(Page, 1));
++    Clear(manager, 0, Size);
++    REQUIRE_FALSE(manager.CpuUploadMayBeNeeded(0, Size));
++    manager.ChangeRegionState(Type::GPU, true, Page, Page);
++    REQUIRE_FALSE(manager.CpuUploadMayBeNeeded(Page, Page));
++    manager.ChangeRegionState(Type::CPU, true, Page, 1);
++    REQUIRE(manager.CpuUploadMayBeNeeded(Page, 1));
++    REQUIRE_FALSE(manager.CpuUploadMayBeNeeded(0, 0));
++    REQUIRE_FALSE(manager.CpuUploadMayBeNeeded(Size, 4));
++    REQUIRE(manager.CpuUploadMayBeNeeded(0, -1)); // Unknown ranges keep the original walk.
++}
++
++TEST_CASE("Clean upload summary never hides a dirty or untracked page", "[buffer_clean]") {
++    Tracker tracker;
++    Manager manager(0, tracker);
++    std::minstd_rand random{20261108};
++    for (size_t i = 0; i < 10000; ++i) {
++        const u64 offset = (random() % (Size / Page)) * Page;
++        const u64 size = std::min<u64>((1 + random() % 256) * Page, Size - offset);
++        switch (random() % 7) {
++        case 0: manager.ChangeRegionState(Type::CPU, true, offset, size); break;
++        case 1: manager.ChangeRegionState(Type::CPU, false, offset, size); break;
++        case 2: manager.ChangeRegionState(Type::CachedCPU, true, offset, size); break;
++        case 3: manager.FlushCachedWrites(); break;
++        case 4: Clear(manager, offset, size); break;
++        case 5: manager.ChangeRegionState(Type::GPU, true, offset, size); break;
++        case 6: manager.ChangeRegionState(Type::GPU, false, offset, size); break;
++        }
++        const bool dirty = manager.IsRegionModified(Type::CPU, offset, size) ||
++                           manager.IsRegionModified(Type::Untracked, offset, size);
++        REQUIRE((manager.CpuUploadMayBeNeeded(offset, size) || !dirty));
++    }
++    Clear(manager, 0, Size);
++    REQUIRE_FALSE(manager.CpuUploadMayBeNeeded(0, Size));
++}
++
++TEST_CASE("GPU timestamp conversion refuses unavailable or invalid samples", "[gpu_time]") {
++    using VideoCommon::GpuTimestampNanoseconds;
++    REQUIRE(GpuTimestampNanoseconds(10, 30, true, true, 64, 2.5) == 50.0);
++    REQUIRE(GpuTimestampNanoseconds(10, 10, true, true, 64, 1) == 0.0);
++    REQUIRE(GpuTimestampNanoseconds(0xfffffff0, 0x10, true, true, 32, 1) == 32.0);
++    REQUIRE(GpuTimestampNanoseconds(~u64{0} - 7, 8, true, true, 64, 1) == 16.0);
++    REQUIRE_FALSE(GpuTimestampNanoseconds(10, 30, false, true, 64, 1));
++    REQUIRE_FALSE(GpuTimestampNanoseconds(10, 30, true, false, 64, 1));
++    REQUIRE_FALSE(GpuTimestampNanoseconds(10, 30, true, true, 0, 1));
++    REQUIRE_FALSE(GpuTimestampNanoseconds(10, 30, true, true, 65, 1));
++    REQUIRE_FALSE(GpuTimestampNanoseconds(10, 30, true, true, 64, 0));
++    REQUIRE_FALSE(GpuTimestampNanoseconds(10, 30, true, true, 64, -1));
++    REQUIRE_FALSE(GpuTimestampNanoseconds(10, 30, true, true, 64,
++                                        std::numeric_limits<double>::quiet_NaN()));
++    REQUIRE_FALSE(GpuTimestampNanoseconds(10, 30, true, true, 64,
++                                        std::numeric_limits<double>::infinity()));
++}
+diff --git a/src/video_core/buffer_cache/nx2_buffer_stats.h b/src/video_core/buffer_cache/nx2_buffer_stats.h
+new file mode 100644
+index 000000000..7aaab6a58
+--- /dev/null
++++ b/src/video_core/buffer_cache/nx2_buffer_stats.h
+@@ -0,0 +1,107 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++#pragma once
++
++#include <algorithm>
++#include <array>
++#include <atomic>
++#include <chrono>
++#include <cstdlib>
++#include <cstring>
++#include <span>
++#include <unordered_map>
++#include <vector>
++#include "common/common_types.h"
++#include "common/logging.h"
++
++namespace VideoCommon {
++
++enum class BufferUse : size_t { Other, Uniform, Storage, Vertex, Index, Indirect,
++                               ComputeUniform, ComputeStorage, Count };
++inline thread_local BufferUse buffer_stats_use{BufferUse::Other};
++inline bool BufferFastCleanEnabled() {
++    static const bool enabled = [] {
++        const char* value = std::getenv("EDEN_NX2_BUFFER_FAST_CLEAN");
++        return value != nullptr && value[0] == '1';
++    }();
++    return enabled;
++}
++
++struct Nx2BufferStats {
++    enum Counter : size_t { SyncCalls, EmptySyncs, RequestedBytes, DirtyPageBytes,
++        UploadCalls, UploadBytes, UploadRanges, ReportedCpuWrites, ReportedCpuBytes,
++        ForcedBankBytes, CachedWriteBytes, FlushCachedCalls, Samples, ComparableBytes,
++        DifferentBytes, EqualSamples, HistoryMisses, HistoryFull, SummaryChecks, SummarySkips, Count };
++    static bool Enabled() {
++        static const bool enabled = [] {
++            const char* value = std::getenv("EDEN_NX2_BUFFER_STATS");
++            return value != nullptr && value[0] == '1';
++        }();
++        return enabled;
++    }
++    static Nx2BufferStats& Get() { static Nx2BufferStats stats; return stats; }
++    static void Add(Counter counter, u64 value = 1) {
++        if (Enabled()) Get().counts[static_cast<size_t>(buffer_stats_use)][counter]
++            .fetch_add(value, std::memory_order_relaxed);
++    }
++    // GPU owner only. Diagnostic sampling compares CPU upload bytes, never validates a cache.
++    void Sample(u64 address, std::span<const u8> bytes) {
++        if ((++upload_serial & 15) != 0 || bytes.empty()) return;
++        // 2026-11-08: at most 4096 samples of 4096 bytes (16 MiB of byte payload).
++        // The deterministic 1/16 sample is partial evidence; misses/full history are reported.
++        bytes = bytes.first(std::min<size_t>(bytes.size(), 4096));
++        Add(Samples);
++        auto it = history.find(address);
++        if (it == history.end() || it->second.size() != bytes.size()) {
++            Add(HistoryMisses);
++            if (it == history.end() && history.size() >= 4096) { Add(HistoryFull); return; }
++            history[address] = std::vector<u8>(bytes.begin(), bytes.end());
++            return;
++        }
++        u64 different{};
++        for (size_t i = 0; i < bytes.size(); ++i) different += bytes[i] != it->second[i];
++        Add(ComparableBytes, bytes.size());
++        Add(DifferentBytes, different);
++        Add(EqualSamples, different == 0);
++        std::memcpy(it->second.data(), bytes.data(), bytes.size());
++    }
++    void Report() {
++        if (!Enabled()) return;
++        const u64 now = std::chrono::duration_cast<std::chrono::nanoseconds>(
++            std::chrono::steady_clock::now().time_since_epoch()).count();
++        if (window_start == 0) { window_start = now; return; }
++        if (now - window_start < 10'000'000'000ULL) return;
++        static constexpr std::array names{"other","uniform","storage","vertex","index",
++                                          "indirect","compute_uniform","compute_storage"};
++        for (size_t use = 0; use < names.size(); ++use) {
++            std::array<u64, Count> values{};
++            for (size_t i = 0; i < Count; ++i)
++                values[i] = counts[use][i].exchange(0, std::memory_order_relaxed);
++            if (std::all_of(values.begin(), values.end(), [](u64 value) { return value == 0; }))
++                continue;
++            LOG_INFO(HW_GPU, "buffer stats: seconds={} use={} calls={} empty={} requested={} "
++                "dirty_page={} upload_calls={} uploaded={} ranges={} cpu_calls={} cpu_bytes={} "
++                "forced_bank={} cached_bytes={} flush_cached={} samples={} comparable={} "
++                "different={} equal_samples={} history_misses={} history_full={} summary_checks={} summary_skips={}",
++                double(now-window_start)/1e9, names[use], values[SyncCalls], values[EmptySyncs],
++                values[RequestedBytes], values[DirtyPageBytes], values[UploadCalls],
++                values[UploadBytes], values[UploadRanges], values[ReportedCpuWrites],
++                values[ReportedCpuBytes], values[ForcedBankBytes], values[CachedWriteBytes],
++                values[FlushCachedCalls], values[Samples], values[ComparableBytes],
++                values[DifferentBytes], values[EqualSamples], values[HistoryMisses],
++                values[HistoryFull], values[SummaryChecks], values[SummarySkips]);
++        }
++        window_start = now;
++    }
++    std::array<std::array<std::atomic<u64>, Count>, static_cast<size_t>(BufferUse::Count)> counts{};
++    std::unordered_map<u64,std::vector<u8>> history;
++    u64 upload_serial{}, window_start{};
++};
++
++struct BufferStatsUse {
++    explicit BufferStatsUse(BufferUse use) : previous{buffer_stats_use} {
++        if (Nx2BufferStats::Enabled()) buffer_stats_use = use;
++    }
++    ~BufferStatsUse() { if (Nx2BufferStats::Enabled()) buffer_stats_use = previous; }
++    BufferUse previous;
++};
++} // namespace VideoCommon
+diff --git a/src/video_core/gpu_timestamp_sample.h b/src/video_core/gpu_timestamp_sample.h
+new file mode 100644
+index 000000000..d4d0b0fa1
+--- /dev/null
++++ b/src/video_core/gpu_timestamp_sample.h
+@@ -0,0 +1,17 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++#pragma once
++
++#include <cmath>
++#include <optional>
++#include "common/common_types.h"
++
++namespace VideoCommon {
++inline std::optional<double> GpuTimestampNanoseconds(u64 begin, u64 end, bool begin_available,
++                                                    bool end_available, u32 valid_bits,
++                                                    double period_ns) {
++    if (!begin_available || !end_available || valid_bits == 0 || valid_bits > 64 ||
++        !std::isfinite(period_ns) || period_ns <= 0) return std::nullopt;
++    const u64 mask = valid_bits == 64 ? ~u64{0} : (u64{1} << valid_bits) - 1;
++    return static_cast<double>((end - begin) & mask) * period_ns;
++}
++} // namespace VideoCommon
+diff --git a/src/video_core/renderer_vulkan/vk_gpu_timing.cpp b/src/video_core/renderer_vulkan/vk_gpu_timing.cpp
+new file mode 100644
+index 000000000..ba36a4c45
+--- /dev/null
++++ b/src/video_core/renderer_vulkan/vk_gpu_timing.cpp
+@@ -0,0 +1,115 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++#include "video_core/renderer_vulkan/vk_gpu_timing.h"
++
++#include <array>
++#include <cstdlib>
++#include <iomanip>
++#include <fstream>
++#include "common/logging.h"
++#include "video_core/gpu_timestamp_sample.h"
++#include "video_core/renderer_vulkan/vk_scheduler.h"
++#include "video_core/vulkan_common/vulkan_device.h"
++
++namespace Vulkan {
++GpuTimingTrace::GpuTimingTrace(const Device& device_, Scheduler& scheduler_)
++    : device{device_}, scheduler{scheduler_}, hook{this, Begin, End},
++      directory{"/tmp/nel3ab-gpu-timing"} {
++    if (const char* home = std::getenv("HOME")) directory = std::filesystem::path{home} / "gpu-timing";
++    if (const char* path = std::getenv("EDEN_NX2_GPU_TIMING_DIR")) directory = path;
++    period_ns = device.GetPhysical().GetProperties().limits.timestampPeriod;
++    const auto queues = device.GetPhysical().GetQueueFamilyProperties();
++    valid_bits = queues.at(device.GetGraphicsFamily()).timestampValidBits;
++    if (period_ns <= 0 || valid_bits == 0 || valid_bits > 64 ||
++        !device.IsHostQueryResetSupported()) {
++        LOG_ERROR(HW_GPU, "GPU timing unavailable: period={} bits={} host_reset={}",
++                  period_ns, valid_bits, device.IsHostQueryResetSupported());
++        return;
++    }
++    pool = device.GetLogical().CreateQueryPool({
++        .sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
++        .pNext = nullptr, .flags = 0, .queryType = VK_QUERY_TYPE_TIMESTAMP,
++        .queryCount = MaxEvents * 2, .pipelineStatistics = 0});
++    events.reserve(MaxEvents);
++    std::filesystem::create_directories(directory);
++    supported = true;
++    LOG_INFO(HW_GPU, "GPU timing lab ready: period_ns={} valid_bits={} max_events={}",
++             period_ns, valid_bits, MaxEvents);
++}
++
++u32 GpuTimingTrace::Begin(void* context, VkCommandBuffer command,
++                           const vk::DeviceDispatch& dispatch, const char* category) noexcept {
++    auto& self = *static_cast<GpuTimingTrace*>(context);
++    if (self.events.size() >= MaxEvents) { ++self.dropped; return ~u32{0}; }
++    const u32 id = static_cast<u32>(self.events.size());
++    self.events.push_back({category, false});
++    dispatch.vkCmdWriteTimestamp(command, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, *self.pool, id * 2);
++    return id;
++}
++
++void GpuTimingTrace::End(void* context, VkCommandBuffer command,
++                         const vk::DeviceDispatch& dispatch, u32 id) noexcept {
++    auto& self = *static_cast<GpuTimingTrace*>(context);
++    dispatch.vkCmdWriteTimestamp(command, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
++                                 *self.pool, id * 2 + 1);
++    self.events[id].ended = true;
++}
++
++void GpuTimingTrace::WriteResults() {
++    using Sample = std::array<u64, 2>; // timestamp, availability, stride 16 bytes
++    static_assert(sizeof(Sample) == 2 * sizeof(u64));
++    const u32 count = static_cast<u32>(events.size()) * 2;
++    std::vector<Sample> samples(count);
++    VkResult result = VK_SUCCESS;
++    if (count != 0) result = device.GetLogical().GetQueryResults(*pool, 0, count,
++        samples.size() * sizeof(Sample), samples.data(), sizeof(Sample),
++        VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WITH_AVAILABILITY_BIT);
++    const auto filename = directory / ("capture-" + std::to_string(sequence++) + ".csv");
++    std::ofstream out(filename);
++    out << std::setprecision(17);
++    out << "category,begin,end,begin_available,end_available,period_ns,valid_bits\n";
++    bool complete = count != 0 && result == VK_SUCCESS && dropped == 0;
++    for (u32 i = 0; i < events.size(); ++i) {
++        const auto& a = samples[i * 2]; const auto& b = samples[i * 2 + 1];
++        complete &= events[i].ended && VideoCommon::GpuTimestampNanoseconds(
++            a[0], b[0], a[1] != 0, b[1] != 0, valid_bits, period_ns).has_value();
++        out << events[i].category << ',' << a[0] << ',' << b[0] << ',' << a[1] << ',' << b[1]
++            << ',' << period_ns << ',' << valid_bits << '\n';
++    }
++    out.close();
++    complete &= out.good();
++    std::ofstream meta(filename.string() + ".meta");
++    meta << "complete=" << complete << "\ndropped=" << dropped << "\nevents=" << events.size()
++         << "\nframe=" << capture_frame << "\nend_tick=" << end_tick << "\n";
++    LOG_INFO(HW_GPU, "GPU timing capture: frame={} events={} dropped={} complete={} file={}",
++             capture_frame, events.size(), dropped, complete, filename.string());
++}
++
++void GpuTimingTrace::Tick() {
++    if (!supported) return;
++    ++frame;
++    if (recording) {
++        scheduler.Record([this](vk::CommandBuffer) {
++            vk::gpu_timing_hook = nullptr;
++            recording_done.store(true, std::memory_order_release);
++        });
++        end_tick = scheduler.CurrentTick();
++        recording = false;
++        pending = true;
++    }
++    if (pending) {
++        // The worker publishes the metadata, and the whole submit must be complete before
++        // results are read or the pool reused. No GPU wait or new submit is introduced here.
++        if (!recording_done.load(std::memory_order_acquire) || !scheduler.IsFree(end_tick)) return;
++        WriteResults();
++        pending = false;
++    }
++    const auto request = directory / "request";
++    if (!std::filesystem::exists(request)) return;
++    std::filesystem::remove(request);
++    events.clear(); dropped = 0; capture_frame = frame;
++    device.GetLogical().ResetQueryPool(*pool, 0, MaxEvents * 2);
++    recording_done.store(false, std::memory_order_relaxed);
++    scheduler.Record([this](vk::CommandBuffer) { vk::gpu_timing_hook = &hook; });
++    recording = true;
++}
++} // namespace Vulkan
+diff --git a/src/video_core/renderer_vulkan/vk_gpu_timing.h b/src/video_core/renderer_vulkan/vk_gpu_timing.h
+new file mode 100644
+index 000000000..9bb9b8867
+--- /dev/null
++++ b/src/video_core/renderer_vulkan/vk_gpu_timing.h
+@@ -0,0 +1,40 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++#pragma once
++
++#include <atomic>
++#include <filesystem>
++#include <vector>
++#include "common/common_types.h"
++#include "video_core/vulkan_common/vulkan_wrapper.h"
++
++namespace Vulkan {
++class Device;
++class Scheduler;
++
++class GpuTimingTrace {
++public:
++    GpuTimingTrace(const Device& device, Scheduler& scheduler);
++    void Tick();
++
++private:
++    struct Event { const char* category; bool ended{}; };
++    // 2026-11-08: 16384 command intervals, twice the existing 8192 draw-probe budget.
++    // A full pool drops diagnostic events, never the game's command; incomplete captures fail.
++    static constexpr u32 MaxEvents = 16384;
++    static u32 Begin(void*, VkCommandBuffer, const vk::DeviceDispatch&, const char*) noexcept;
++    static void End(void*, VkCommandBuffer, const vk::DeviceDispatch&, u32) noexcept;
++    void WriteResults();
++
++    const Device& device;
++    Scheduler& scheduler;
++    vk::QueryPool pool;
++    vk::GpuTimingHook hook;
++    std::filesystem::path directory;
++    std::vector<Event> events;
++    std::atomic<bool> recording_done{true};
++    double period_ns{};
++    u32 valid_bits{}, dropped{}, sequence{};
++    u64 end_tick{}, frame{}, capture_frame{};
++    bool supported{}, recording{}, pending{};
++};
++} // namespace Vulkan

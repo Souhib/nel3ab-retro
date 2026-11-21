@@ -1,0 +1,255 @@
+{
+  "run": "lichii-present30-diagnostic",
+  "present_limit_activation": {
+    "entries": [
+      [
+        "1",
+        "60",
+        "30",
+        "0x1003c"
+      ]
+    ],
+    "expected_word_from_uncapped_reference": "0x1003c",
+    "reference_run": "lichii-aa-pacing-on1",
+    "config_present_limit": 30,
+    "timer_vsync_hz": 60,
+    "speed_percent": 100,
+    "scope": "Existing present pacing sleeps guest service thread; no game-clock or swap-word override."
+  },
+  "strict_threshold_interpretation": "Integer intervals >33333333ns retained unchanged. A cap around33.333ms can increase this fraction through tiny scheduling jitter; inspect quantile amplitudes, not only strict fraction.",
+  "scope": "Single Present30 diagnostic with NoSharpening1 +MaxResolutionON, not a causal FPS comparison",
+  "activation": {
+    "successful_copy_marker_count": 1,
+    "output_dimensions": [
+      2560,
+      1440
+    ],
+    "source_equals_output_dimensions": "Source KeplerCompute::BypassOotNetwork rejects mismatch before successful copy marker; marker prints output dimensions, not two independent measurements.",
+    "source_anchors": "kepler_compute.cpp1091-1104 and1142-1147",
+    "native_mode": 1,
+    "max_resolution": "ON",
+    "heavy_dispatch_source_unchanged": true
+  },
+  "clock": {
+    "host_time_namespace": "time:[4026531834]",
+    "emulator_time_namespace": "time:[4026531834]",
+    "timens_offsets": "monotonic           0         0\nboottime            0         0\n",
+    "libstdcpp_path": "/usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33",
+    "libstdcpp_sha256": "1fd75fe70354a416d75aef22bcae68c47bd25d20e2d0568c30b1a9838cf62f11",
+    "host_before_ns": 2283537438836639,
+    "container_monotonic_ns": 2283537511172670,
+    "host_after_ns": 2283537517722563,
+    "mapping": "Exact mapped libstdc++ disassembly in pacing-steady-clock-proof.json uses CLOCK_MONOTONIC; no libc++ substitution."
+  },
+  "marker_count": 1,
+  "copy_failed_count": 0,
+  "unexpected_images_count": 0,
+  "camera_seconds": 91.33939767,
+  "preparation_seconds": 96.04087114334106,
+  "complete_windows": [
+    {
+      "intervals": 600,
+      "sum_ns": 20062412546,
+      "p50_ns": 33264986,
+      "p95_ns": 42662545,
+      "p99_ns": 47623046,
+      "max_ns": 56942959,
+      "over30": 263,
+      "over100": 0,
+      "begin_ns": 2283558697378499,
+      "end_ns": 2283578759791045,
+      "legacy_same_window": {
+        "mean_frame_us": 33436,
+        "max_frame_us": 56942,
+        "over100": 0,
+        "mean_fence_us": 0,
+        "max_fence_us": 13,
+        "mean_composite_us": 21,
+        "mean_pacing_us": 26571,
+        "ran_ahead": 198
+      }
+    },
+    {
+      "intervals": 600,
+      "sum_ns": 20020090483,
+      "p50_ns": 33230933,
+      "p95_ns": 41734473,
+      "p99_ns": 46574889,
+      "max_ns": 50759643,
+      "over30": 257,
+      "over100": 0,
+      "begin_ns": 2283578759791045,
+      "end_ns": 2283598779881528,
+      "legacy_same_window": {
+        "mean_frame_us": 33366,
+        "max_frame_us": 50759,
+        "over100": 0,
+        "mean_fence_us": 0,
+        "max_fence_us": 11,
+        "mean_composite_us": 22,
+        "mean_pacing_us": 26104,
+        "ran_ahead": 209
+      }
+    },
+    {
+      "intervals": 600,
+      "sum_ns": 20044377240,
+      "p50_ns": 33260519,
+      "p95_ns": 41121002,
+      "p99_ns": 44216572,
+      "max_ns": 50623407,
+      "over30": 268,
+      "over100": 0,
+      "begin_ns": 2283598779881528,
+      "end_ns": 2283618824258768,
+      "legacy_same_window": {
+        "mean_frame_us": 33406,
+        "max_frame_us": 50623,
+        "over100": 0,
+        "mean_fence_us": 0,
+        "max_fence_us": 2,
+        "mean_composite_us": 21,
+        "mean_pacing_us": 26669,
+        "ran_ahead": 203
+      }
+    },
+    {
+      "intervals": 600,
+      "sum_ns": 19991313744,
+      "p50_ns": 33266990,
+      "p95_ns": 41083071,
+      "p99_ns": 46976833,
+      "max_ns": 50394568,
+      "over30": 273,
+      "over100": 0,
+      "begin_ns": 2283618824258768,
+      "end_ns": 2283638815572512,
+      "legacy_same_window": {
+        "mean_frame_us": 33318,
+        "max_frame_us": 50394,
+        "over100": 0,
+        "mean_fence_us": 0,
+        "max_fence_us": 2,
+        "mean_composite_us": 21,
+        "mean_pacing_us": 25917,
+        "ran_ahead": 224
+      }
+    }
+  ],
+  "intervals": 2400,
+  "sum_ns": 80118194013,
+  "covered_seconds": 80.118194013,
+  "interval_rate_per_second": 29.955742632074,
+  "over30": 1061,
+  "over30_percent": 44.208333333333336,
+  "over100": 0,
+  "max_ms": 56.942959,
+  "p50_window_ms": [
+    33.264986,
+    33.230933,
+    33.260519,
+    33.26699
+  ],
+  "mean_interval_ms_exact": 33.38258083875,
+  "window_mean_interval_ms": [
+    33.43735424333333,
+    33.366817471666664,
+    33.407295399999995,
+    33.318856239999995
+  ],
+  "p95_window_ms": [
+    42.662545,
+    41.734473,
+    41.121002,
+    41.083071
+  ],
+  "p99_window_ms": [
+    47.623046,
+    46.574889,
+    44.216572,
+    46.976833
+  ],
+  "legacy_means_us": {
+    "mean_fence_us": 0.0,
+    "mean_composite_us": 21.25,
+    "mean_pacing_us": 26315.25
+  },
+  "samples_clear": 15,
+  "visual_review": {
+    "images": [
+      "ready.png",
+      "phase-before.png",
+      "phase-after.png"
+    ],
+    "all_individually_read": true,
+    "scene": "Kokiri Forest original platform; Link, foliage, terrain, houses and HUD visible before and after camera. No black frame or gross missing geometry seen.",
+    "limits": "Three static1280x720 composite screenshots do not qualify temporal anti-aliasing, visual equivalence or full game quality; no walking."
+  },
+  "mesh_log_count": 242,
+  "lifecycle": {
+    "exit_code": 0,
+    "stop_requested": true,
+    "window_closed": true,
+    "forced": false,
+    "stop_seconds": 3.304067701101303
+  },
+  "cleanup": {
+    "at": 1794265700.4830492,
+    "own_game_absent": true,
+    "own_helper_removed": true,
+    "old_devices_absent": [
+      "/dev/input/event8",
+      "/dev/input/event9",
+      "/dev/input/event10",
+      "/dev/input/event11"
+    ],
+    "matching_names_remaining": [],
+    "observer": "active",
+    "production_config_unchanged": true,
+    "eight_progressions_unchanged": true,
+    "gpu_policies": {
+      "/sys/class/drm/card0/device/power_dpm_force_performance_level": "auto"
+    },
+    "gpu_power_caps_micro_watts": [
+      150000000
+    ]
+  },
+  "kernel_matches": [],
+  "limits": [
+    "Single cap30 diagnostic, no alternating pacing comparison. Raw private report inherited an inaccurate different-Info-filter note: actual INIs prove identical filter to AA comparison.",
+    "Successful copy marker is once-only: proves actual path reached, not per-frame completeness. Source/output equality guarded by exact source before marker; dimensions printed for output only.",
+    "No raw shader edits or dispatch removals, frozen1e26 source/executable unchanged.",
+    "No averaged/global quantiles; per600-interval nearest-rank windows only.",
+    "Not constant30 or full-world, free ground route, audio, save/resume, zone-transition qualification."
+  ],
+  "policy": {
+    "arm": "on",
+    "maxres_applied": true,
+    "maxres_skipped": false,
+    "fps_unlock_applied": true,
+    "stats_marker_once": true,
+    "settings": {
+      "fps_limit": "30",
+      "nx2_frame_rate_limit": "60",
+      "speed_limit": "100",
+      "frame_gen": "false",
+      "oot_anti_aliasing": "1"
+    },
+    "only_present_stats": true
+  },
+  "date": "2026-11-09",
+  "ini_diff_against_aa1": {
+    "Renderer::fps_limit\\default": [
+      "true",
+      "false"
+    ],
+    "Renderer::fps_limit": [
+      "0",
+      "30"
+    ]
+  },
+  "logger_matches_aa_comparison": true,
+  "private_report_sha256": "ff7e12df75cfe33c2a29c8febe04a1160580d8a65e29a3d3a4810e8ba94509da",
+  "root_raw_log_arithmetic_audit": "Matches all exact sums, counts, rate, maxima and budget counts.",
+  "decision": "Cap30 demonstrably active with unchanged60Hz vblank, normal configured speed100 and native swap word; p99still44.22–47.62ms. No constant30 claim, no production change. Investigate actual wake lateness and service sleep with separate native HostTiming/DKB diagnostics."
+}

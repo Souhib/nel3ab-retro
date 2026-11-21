@@ -1,0 +1,80 @@
+{
+  "date": "2026-11-09",
+  "build": {
+    "version": "rc3-handheld",
+    "runtime_image": "nel3ab/eglantine-drain-build:2026-11-08",
+    "sha256": "e140f33fc92b589067424556b92df37c72ddada2de71423856f49159630b1be1",
+    "mode": 0,
+    "docked": "0",
+    "NO_MESH": "1",
+    "list_return_marker_seen_at_ready": false,
+    "single_list_us": "0",
+    "scope": "Whole official package comparison for official engines; paired GCC builds for the local copy-batch prototype"
+  },
+  "runtime": {
+    "exe_sha256": "e140f33fc92b589067424556b92df37c72ddada2de71423856f49159630b1be1",
+    "mapped_radv_path": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+    "mapped_radv_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+    "packages": "libdrm-amdgpu1:amd64\t2.4.125-1ubuntu0.1~24.04.2\nlibdrm2:amd64\t2.4.125-1ubuntu0.1~24.04.2\nmesa-vulkan-drivers:amd64\t25.2.8-0ubuntu0.24.04.4\n",
+    "actual_log_filter_verified": true
+  },
+  "handheld_activation": {
+    "native_composite_lines": [
+      "\u0000\u001b[0;37m[  12.117813] Service <Info> ./core/hle/service/nx2_gsv.h:2044:Composite: nx2:vi2 composite image 1 layout 2560x1440, drawn area 0x437077f, crop 1920x1080\u001b[0m"
+    ],
+    "actual_guest_draw_area": [
+      1920,
+      1080
+    ],
+    "docked_negative_control_draw_area": [
+      2560,
+      1440
+    ],
+    "no_crop_environment_override": true,
+    "requested_System_use_docked_mode": 0,
+    "scope": "Oldrc3 doesnotlog explicitdockedbool. Actualguestpresentdrawnareais1920x1080vsdocked2560x1440; sourceuses nativepresentword fordrawnarea. Thisisrender-intent evidencealongwithactualConfig, notjusta filevalue."
+  },
+  "measurement": {
+    "requested_seconds": [
+      241.59849772453308,
+      327.814601
+    ],
+    "covered_seconds": 52.077,
+    "game_presentations": 1200,
+    "game_fps": 23.042802004723775,
+    "window_fps_median": 23.073638628045693,
+    "maximum_frame_ms": 91.095,
+    "frames_over_100_ms": 0,
+    "windows": [
+      {
+        "start": 250.827218,
+        "end": 277.817618,
+        "mean_us": 44984,
+        "maximum_us": 91095,
+        "freezes": 0
+      },
+      {
+        "start": 277.77668800000004,
+        "end": 302.863288,
+        "mean_us": 41811,
+        "maximum_us": 69147,
+        "freezes": 0
+      }
+    ]
+  },
+  "shutdown": {
+    "exit_code": 0,
+    "stop_requested": true,
+    "window_closed": true,
+    "forced": false,
+    "stop_seconds": 3.1046335748396814
+  },
+  "visual_review": {
+    "world_and_avatar_visible": true,
+    "scene": "Actualreadyimage reviewed, Link and Kokiri Forest visible in handheld profile",
+    "after_phase_world_and_avatar_visible": true,
+    "actual_ladder_descent_and_ground_walk_reviewed": true,
+    "zone_change_proven": false
+  },
+  "limits": "Singlehandheldscreen, not an alternatingdockedcomparison. Nativeguestdrawarea verified1920x1080vs2560x1440docked, no cropenvorclock/speed/framegenpatch. Scene/Link/ladder+groundwalkreviewed, normalstop.23.043FPSisbelow30. Nozone/save/audioqualification. No installation."
+}

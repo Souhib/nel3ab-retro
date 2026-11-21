@@ -1,0 +1,271 @@
+--- a/src/video_core/buffer_cache/uniform_stream_reuse.h
++++ b/src/video_core/buffer_cache/uniform_stream_reuse.h
+@@ -31,13 +31,24 @@
+     { runtime.CurrentTick() } -> std::convertible_to<u64>;
+ };
+ 
++[[nodiscard]] inline bool UniformStreamReuseSwitch() {
++    const char* const value = std::getenv("EDEN_NX2_UBOREUSE");
++    return value == nullptr || value[0] != '0';
++}
++
+ /// EDEN_NX2_UBOREUSE=0 turns the reuse off (every small uniform buffer is copied, as before).
++/// A plain flag: checked for every uniform buffer of every draw, where a function's static is
++/// checked for its initialization on every call (MSVC reads a thread-local for it).
++inline bool g_uniform_stream_reuse = UniformStreamReuseSwitch();
++
++/// Called by VideoCore::CreateGPU: static initialization runs before the frontend loads
++/// nx2_switches.txt, so a switch set only there takes effect from that point on.
++inline void ReadUniformStreamReuseSwitch() {
++    g_uniform_stream_reuse = UniformStreamReuseSwitch();
++}
++
+ [[nodiscard]] inline bool UniformStreamReuseEnabled() noexcept {
+-    static const bool enabled = [] {
+-        const char* const value = std::getenv("EDEN_NX2_UBOREUSE");
+-        return value == nullptr || value[0] != '0';
+-    }();
+-    return enabled;
++    return g_uniform_stream_reuse;
+ }
+ 
+ template <class Ref>
+@@ -98,25 +109,33 @@
+     }
+     Reuse& reuse = UniformStreamReuseState<typename Runtime::StreamUniformRef>();
+     typename Reuse::Slot& slot = reuse.slots[stage][index];
+-    u8* const scratch = reuse.scratch.data();
+-    device_memory.ReadBlockUnsafe(device_addr, scratch, size);
+-
+-    const bool same_bytes =
+-        slot.size == size && std::memcmp(slot.bytes.data(), scratch, size) == 0;
++    // Guest memory in one piece of host memory (most of these buffers lie within a page) is
++    // compared where it is; other ranges are gathered into scratch first.
++    const u8* guest = nullptr;
++    if constexpr (requires { device_memory.GetSpan(device_addr, size_t{size}); }) {
++        guest = device_memory.GetSpan(device_addr, size_t{size});
++    }
++    if (guest == nullptr) {
++        device_memory.ReadBlockUnsafe(device_addr, reuse.scratch.data(), size);
++        guest = reuse.scratch.data();
++    }
++    const bool same_bytes = slot.size == size && std::memcmp(slot.bytes.data(), guest, size) == 0;
+     slot.device_addr = device_addr;
+     if (same_bytes && slot.tick == runtime.CurrentTick()) {
+         runtime.RebindStreamUniform(slot.ref, size);
+         return true;
+     }
++    if (!same_bytes) {
++        // The slot takes the bytes first and the stream gets the slot's: the guest may write its
++        // memory meanwhile, and the slot must hold what its allocation holds.
++        slot.size = size;
++        std::memcpy(slot.bytes.data(), guest, size);
++    }
+     const std::span<u8> span = runtime.BindMappedUniformBuffer(stage, binding_index, size);
+-    std::memcpy(span.data(), scratch, size);
++    std::memcpy(span.data(), slot.bytes.data(), size);
+     slot.ref = runtime.LastStreamUniformRef();
+     // After the allocation: the tick the stream region is tagged with is the one current now.
+     slot.tick = runtime.CurrentTick();
+-    if (!same_bytes) {
+-        slot.size = size;
+-        std::memcpy(slot.bytes.data(), scratch, size);
+-    }
+     return true;
+ }
+ 
+--- a/src/video_core/video_core.cpp
++++ b/src/video_core/video_core.cpp
+@@ -11,6 +11,7 @@
+ #include "core/core.h"
+ #include "core/frontend/emu_window.h"
+ #include "core/frontend/graphics_context.h"
++#include "video_core/buffer_cache/uniform_stream_reuse.h"
+ #include "video_core/host1x/gpu_device_memory_manager.h"
+ #include "video_core/host1x/host1x.h"
+ #include "video_core/nx2_async_readback.h"
+@@ -58,6 +59,7 @@
+     Tegra::Nx2CmdPageDiag::ReadSwitch();
+     VideoCommon::Nx2DownloadTrace::ReadSwitch();
+     VideoCore::AsyncReadback::ReadSwitch();
++    VideoCommon::ReadUniformStreamReuseSwitch();
+ 
+     const auto nvdec_value = Settings::values.nvdec_emulation.GetValue();
+     const bool use_nvdec = nvdec_value != Settings::NvdecEmulation::Off;
+--- a/src/tests/video_core/uniform_stream_reuse.cpp
++++ b/src/tests/video_core/uniform_stream_reuse.cpp
+@@ -5,6 +5,7 @@
+ #include <cstdio>
+ #include <cstdlib>
+ #include <cstring>
++#include <functional>
+ #include <span>
+ #include <vector>
+ #include <catch2/catch_test_macros.hpp>
+@@ -19,9 +20,21 @@
+ 
+ struct Memory {
+     std::array<u8, 8192> bytes{};
++    u32 gathered{}; ///< Reads through ReadBlockUnsafe
++    u32 in_place{}; ///< Ranges GetSpan handed out
+     void ReadBlockUnsafe(u64 address, void* destination, u32 size) {
+         Check(address + size <= bytes.size(), "read outside guest memory");
+         std::memcpy(destination, bytes.data() + address, size);
++        ++gathered;
++    }
++    /// As the device memory manager: a range in one piece of host memory, here one that doesn't
++    /// cross a 4 KiB page (as if the pages after it were mapped elsewhere).
++    u8* GetSpan(u64 address, size_t size) {
++        if (address / 4096 != (address + size - 1) / 4096) {
++            return nullptr;
++        }
++        ++in_place;
++        return bytes.data() + address;
+     }
+ };
+ 
+@@ -32,6 +45,7 @@
+     std::vector<std::vector<u8>> allocations;
+     StreamUniformRef last{}, bound{};
+     u64 tick{1};
++    std::function<void()> on_allocate;
+     u64 CurrentTick() const {
+         return tick;
+     }
+@@ -39,6 +53,9 @@
+         return last;
+     }
+     std::span<u8> BindMappedUniformBuffer(size_t, u32, u32 size) {
++        if (on_allocate) {
++            on_allocate();
++        }
+         allocations.emplace_back(size);
+         last = bound = StreamUniformRef{allocations.size() - 1};
+         return allocations.back();
+@@ -113,4 +130,125 @@
+         bind(stage, slot, address, size);
+         bind(stage, slot, address, size);
+     }
+-}
++    Check(memory.gathered > 1000 && memory.in_place > 1000,
++          "the reads did not take both the gathered and the in-place path");
++}
++
++TEST_CASE("Uniform span uses direct comparisons and gathers noncontiguous pages",
++          "[video_core][uniform_span]") {
++    Memory memory;
++    Runtime runtime;
++    VideoCommon::ResetUniformStreamReuse<Runtime>();
++    auto bind = [&](u64 address, u32 size) {
++        REQUIRE(VideoCommon::BindSmallUniformReusing(runtime, memory, 0, 0, 0, address, size));
++        CheckBound(runtime, memory, address, size);
++    };
++    bind(32, 64);
++    REQUIRE(memory.in_place == 1);
++    REQUIRE(memory.gathered == 0);
++    bind(32, 64);
++    REQUIRE(memory.in_place == 2);
++    REQUIRE(runtime.allocations.size() == 1);
++    memory.bytes[35] = 9;
++    bind(32, 64);
++    REQUIRE(runtime.allocations.size() == 2);
++    REQUIRE(memory.gathered == 0);
++    const auto direct = memory.in_place;
++    bind(4090, 32);
++    REQUIRE(memory.in_place == direct);
++    REQUIRE(memory.gathered == 1);
++    memory.bytes[4100] = 7;
++    bind(4090, 32);
++    REQUIRE(memory.gathered == 2);
++    REQUIRE(runtime.allocations.size() == 4);
++}
++
++TEST_CASE("Uniform span allocation takes the slot snapshot before guest mutation",
++          "[video_core][uniform_span][uniform_span_snapshot]") {
++    Memory memory;
++    Runtime runtime;
++    VideoCommon::ResetUniformStreamReuse<Runtime>();
++    memory.bytes.fill(1);
++    REQUIRE(VideoCommon::BindSmallUniformReusing(runtime, memory, 0, 0, 0, 32, 64));
++    u8 snapshot = 1;
++    SECTION("changed bytes") {
++        memory.bytes.fill(2);
++        snapshot = 2;
++    }
++    SECTION("same bytes in a new tick") {
++        runtime.NextTick();
++    }
++    u32 mutations = 0;
++    runtime.on_allocate = [&] {
++        ++mutations;
++        memory.bytes.fill(3);
++    };
++    REQUIRE(VideoCommon::BindSmallUniformReusing(runtime, memory, 0, 0, 0, 32, 64));
++    REQUIRE(mutations == 1);
++    REQUIRE(memory.in_place == 2);
++    const auto& slot = VideoCommon::UniformStreamReuseState<Runtime::StreamUniformRef>().slots[0][0];
++    REQUIRE(slot.size == 64);
++    const auto& bound = runtime.allocations.at(runtime.bound.allocation);
++    REQUIRE(std::all_of(bound.begin(), bound.end(), [snapshot](u8 b) { return b == snapshot; }));
++    REQUIRE(std::memcmp(bound.data(), slot.bytes.data(), 64) == 0);
++    REQUIRE(memory.bytes[32] == 3);
++    runtime.on_allocate = {};
++    const auto allocations = runtime.allocations.size();
++    REQUIRE(VideoCommon::BindSmallUniformReusing(runtime, memory, 0, 0, 0, 32, 64));
++    REQUIRE(runtime.allocations.size() == allocations + 1);
++    CheckBound(runtime, memory, 32, 64);
++}
++
++namespace {
++struct GatherOnlyMemory {
++    std::array<u8, 8192> bytes{};
++    std::array<bool, 2> mapped{true, true};
++    u32 gathered{};
++    void ReadBlockUnsafe(u64 address, void* destination, u32 size) {
++        REQUIRE(address + size <= bytes.size());
++        ++gathered;
++        auto* output = static_cast<u8*>(destination);
++        for (u32 i = 0; i < size; ++i) {
++            output[i] = mapped[(address + i) / 4096] ? bytes[address + i] : 0;
++        }
++    }
++};
++struct SparseMemory : GatherOnlyMemory {
++    u32 direct{}, refused{};
++    u8* GetSpan(u64 address, size_t size) {
++        REQUIRE(size != 0);
++        REQUIRE(address + size <= bytes.size());
++        if (!mapped[address / 4096] || address / 4096 != (address + size - 1) / 4096) {
++            ++refused;
++            return nullptr;
++        }
++        ++direct;
++        return bytes.data() + address;
++    }
++};
++} // namespace
++
++TEST_CASE("Uniform span preserves gather-only and unmapped zero fill fallbacks",
++          "[video_core][uniform_span]") {
++    Runtime runtime;
++    VideoCommon::ResetUniformStreamReuse<Runtime>();
++    GatherOnlyMemory gather;
++    gather.bytes.fill(4);
++    REQUIRE(VideoCommon::BindSmallUniformReusing(runtime, gather, 0, 0, 0, 0, 64));
++    REQUIRE(gather.gathered == 1);
++    REQUIRE(runtime.allocations.at(runtime.bound.allocation) == std::vector<u8>(64, 4));
++    SparseMemory sparse;
++    sparse.bytes.fill(5);
++    sparse.mapped[1] = false;
++    REQUIRE(VideoCommon::BindSmallUniformReusing(runtime, sparse, 0, 0, 0, 4096, 64));
++    REQUIRE(sparse.refused == 1);
++    REQUIRE(sparse.direct == 0);
++    REQUIRE(sparse.gathered == 1);
++    REQUIRE(runtime.allocations.at(runtime.bound.allocation) == std::vector<u8>(64, 0));
++    REQUIRE(VideoCommon::BindSmallUniformReusing(runtime, sparse, 0, 0, 0, 4090, 12));
++    REQUIRE(sparse.refused == 2);
++    REQUIRE(sparse.gathered == 2);
++    std::vector<u8> expected(12, 0);
++    std::fill_n(expected.begin(), 6, u8{5});
++    REQUIRE(runtime.allocations.at(runtime.bound.allocation) == expected);
++}

@@ -1,0 +1,314 @@
+{
+  "date_utc": "2026-11-11",
+  "status": "Actual current c686 normal-path25s leaf diagnostic complete; no FPS gain measured. Next: identify origins of backend memory copies before native1216 build.",
+  "cohort": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-leaf-profile-20261111",
+  "root": "/home/souhib/.local/state/nel3ab/test-switch2-0zMBL6",
+  "ELF_sha256": "c686c1ff5811dd4aeba3f92d8da7717724dab9f1f3978e7c73897899769852d4",
+  "duration_seconds": 25.018939167,
+  "GPU_PROFILE_absent": true,
+  "READ_CHECK_absent": true,
+  "raw_samples": 12649,
+  "retained_samples": 11924,
+  "initial_resolved_samples": 4611,
+  "resolved_with_exact_debug": 6033,
+  "lost_samples": 0,
+  "raw_and_independent_decoder_agree": true,
+  "callchains_collected": false,
+  "explicit_CLOCK_MONOTONIC": true,
+  "excluded_samples": {
+    "outside_ACK": 119,
+    "not_USER": 606
+  },
+  "global_sampled_cycle_resolution_fraction": 0.4640754032290423,
+  "graphics_threads": [
+    {
+      "name": "GPUBack",
+      "tid": 3483277,
+      "start_ticks": "238754448",
+      "samples": 2143,
+      "sampled_cycle_resolution_fraction": 0.9967338991607785,
+      "top_leaves": [
+        {
+          "leaf": "/usr/lib/x86_64-linux-gnu/libc.so.6::__memcpy_avx_unaligned_erms|__memmove_avx_unaligned_erms",
+          "samples": 389,
+          "sampled_cycle_percent_in_thread": 17.957965583353214
+        },
+        {
+          "leaf": "/emulator/usr/libexec/eden-cli::VideoCommon::GpuSplit::BackLoop(std::stop_token)",
+          "samples": 211,
+          "sampled_cycle_percent_in_thread": 10.155464520170943
+        },
+        {
+          "leaf": "/emulator/usr/libexec/eden-cli::Common::SpinRecursiveMutex::lock()",
+          "samples": 87,
+          "sampled_cycle_percent_in_thread": 4.02562710104949
+        },
+        {
+          "leaf": "/emulator/usr/libexec/eden-cli::Vulkan::GraphicsPipeline::MakeConfigureSpecFunc<Vulkan::(anonymous namespace)::SimpleStorageSpec>()::{lambda(Vulkan::GraphicsPipeline*, bool)#1}::__invoke(Vulkan::GraphicsPipeline*, bool)",
+          "samples": 61,
+          "sampled_cycle_percent_in_thread": 2.8380483846350226
+        },
+        {
+          "leaf": "/usr/lib/x86_64-linux-gnu/libc.so.6::__GI___pthread_mutex_lock|___pthread_mutex_lock|__pthread_mutex_lock@GLIBC_2.2.5|pthread_mutex_lock@@GLIBC_2.2.5",
+          "samples": 57,
+          "sampled_cycle_percent_in_thread": 2.6919728223323713
+        },
+        {
+          "leaf": "/emulator/usr/libexec/eden-cli::Vulkan::RasterizerVulkan::Draw(bool, unsigned int)",
+          "samples": 51,
+          "sampled_cycle_percent_in_thread": 2.3531905564426063
+        },
+        {
+          "leaf": "/usr/lib/x86_64-linux-gnu/libc.so.6::__memcmp_avx2_movbe",
+          "samples": 46,
+          "sampled_cycle_percent_in_thread": 2.1463016453756407
+        },
+        {
+          "leaf": "/emulator/usr/libexec/eden-cli::VideoCommon::BufferCache<Vulkan::BufferCacheParams>::BindHostGraphicsUniformBuffer(unsigned long, unsigned int, unsigned int, bool)",
+          "samples": 43,
+          "sampled_cycle_percent_in_thread": 1.9905338252196254
+        },
+        {
+          "leaf": "/emulator/usr/libexec/eden-cli::Tegra::MemoryManager::GpuToCpuAddress(unsigned long) const",
+          "samples": 38,
+          "sampled_cycle_percent_in_thread": 1.7502636738128485
+        },
+        {
+          "leaf": "/emulator/usr/libexec/eden-cli::Vulkan::PushImageDescriptors(VideoCommon::TextureCache<Vulkan::TextureCacheParams>&, Vulkan::UpdateDescriptorQueue&, Shader::Info const&, Vulkan::RescalingPushConstant&, Common::SlotId const*&, VideoCommon::ImageViewInOut const*&)",
+          "samples": 34,
+          "sampled_cycle_percent_in_thread": 1.566279506921546
+        },
+        {
+          "leaf": "/emulator/usr/libexec/eden-cli::Tegra::Engines::Maxwell3D::ProcessDirtyRegisters(unsigned int, unsigned int)",
+          "samples": 35,
+          "sampled_cycle_percent_in_thread": 1.565408129833799
+        },
+        {
+          "leaf": "/emulator/usr/libexec/eden-cli::VideoCommon::BufferCache<Vulkan::BufferCacheParams>::BindHostGeometryBuffers(bool)",
+          "samples": 30,
+          "sampled_cycle_percent_in_thread": 1.4087163937598635
+        }
+      ]
+    },
+    {
+      "name": "GPU",
+      "tid": 3483066,
+      "start_ticks": "238754108",
+      "samples": 1255,
+      "sampled_cycle_resolution_fraction": 0.9386126079349432,
+      "top_leaves": [
+        {
+          "leaf": "/emulator/usr/libexec/eden-cli::VideoCommon::GpuSplit::Drain(VideoCommon::DrainSite)",
+          "samples": 415,
+          "sampled_cycle_percent_in_thread": 33.06990074665098
+        },
+        {
+          "leaf": "/emulator/usr/libexec/eden-cli::Tegra::TuringMacroJit::Thunks<Tegra::Engines::Maxwell3D::FrontRunMacro(Core::System&, VideoCommon::GpuSplit&, Tegra::Engines::Maxwell3D::FrontState&)::$_0, Tegra::Engines::Maxwell3D::FrontRunMacro(Core::System&, VideoCommon::GpuSplit&, Tegra::Engines::Maxwell3D::FrontState&)::$_1>::CallEmit(Tegra::TuringMacroJit::State*, unsigned int, unsigned int)",
+          "samples": 136,
+          "sampled_cycle_percent_in_thread": 10.778743262591618
+        },
+        {
+          "leaf": "/emulator/usr/libexec/eden-cli::Tegra::Engines::Maxwell3D::FrontCallMethod(Core::System&, VideoCommon::GpuSplit&, unsigned int, unsigned int, bool)",
+          "samples": 123,
+          "sampled_cycle_percent_in_thread": 9.694301815538513
+        },
+        {
+          "leaf": "/emulator/usr/libexec/eden-cli::Tegra::DmaPusher::ProcessCommands(std::span<Tegra::CommandHeader const, 18446744073709551615ul>, unsigned long)",
+          "samples": 113,
+          "sampled_cycle_percent_in_thread": 8.945785789135174
+        },
+        {
+          "leaf": "/emulator/usr/libexec/eden-cli::Tegra::DmaPusher::CallMethod(unsigned int)",
+          "samples": 94,
+          "sampled_cycle_percent_in_thread": 7.536501184736574
+        },
+        {
+          "leaf": "UNKNOWN:copy_missing_or_identity_changed",
+          "samples": 78,
+          "sampled_cycle_percent_in_thread": 6.13873920650568
+        },
+        {
+          "leaf": "/usr/lib/x86_64-linux-gnu/libc.so.6::__memcpy_avx_unaligned|__memmove_avx_unaligned",
+          "samples": 46,
+          "sampled_cycle_percent_in_thread": 3.758808584416763
+        },
+        {
+          "leaf": "/emulator/usr/libexec/eden-cli::Tegra::Engines::Maxwell3D::FrontRunOnBack(Core::System&, VideoCommon::GpuSplit&, Tegra::Engines::Maxwell3D::FrontState&, Tegra::MacroEngine const&, unsigned int)",
+          "samples": 41,
+          "sampled_cycle_percent_in_thread": 3.3332446128231754
+        },
+        {
+          "leaf": "/emulator/usr/libexec/eden-cli::Tegra::DmaPusher::Step()",
+          "samples": 29,
+          "sampled_cycle_percent_in_thread": 2.3295894217610758
+        },
+        {
+          "leaf": "/emulator/usr/libexec/eden-cli::Tegra::Engines::Maxwell3D::FrontCallMultiMethod(Core::System&, VideoCommon::GpuSplit&, unsigned int, unsigned int const*, unsigned int, unsigned int)",
+          "samples": 24,
+          "sampled_cycle_percent_in_thread": 1.9420417878383769
+        },
+        {
+          "leaf": "/emulator/usr/libexec/eden-cli::Tegra::Engines::Maxwell3D::FrontNoteWrites(VideoCommon::GpuSplit&, Tegra::Engines::Maxwell3D::FrontState const&, unsigned int, unsigned int)",
+          "samples": 24,
+          "sampled_cycle_percent_in_thread": 1.8793115691768703
+        },
+        {
+          "leaf": "/usr/lib/x86_64-linux-gnu/libc.so.6::__memcpy_avx_unaligned_erms|__memmove_avx_unaligned_erms",
+          "samples": 21,
+          "sampled_cycle_percent_in_thread": 1.6465289903179754
+        }
+      ]
+    },
+    {
+      "name": "VulkanWorker",
+      "tid": 3483027,
+      "start_ticks": "238754106",
+      "samples": 712,
+      "sampled_cycle_resolution_fraction": 0.9964733186095476,
+      "top_leaves": [
+        {
+          "leaf": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so::radv_CmdBindPipeline",
+          "samples": 58,
+          "sampled_cycle_percent_in_thread": 9.931149052187218
+        },
+        {
+          "leaf": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so::radv_cmd_update_descriptor_set_with_template",
+          "samples": 37,
+          "sampled_cycle_percent_in_thread": 5.355834768683424
+        },
+        {
+          "leaf": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so::radv_UpdateDescriptorSetWithTemplate",
+          "samples": 30,
+          "sampled_cycle_percent_in_thread": 3.7898055669684045
+        },
+        {
+          "leaf": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so::radv_bind_shader",
+          "samples": 25,
+          "sampled_cycle_percent_in_thread": 3.1729519876344363
+        },
+        {
+          "leaf": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so::radv_cmd_buffer_flush_dynamic_state",
+          "samples": 19,
+          "sampled_cycle_percent_in_thread": 2.940807703315818
+        },
+        {
+          "leaf": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so::radv_init_push_descriptor_set",
+          "samples": 19,
+          "sampled_cycle_percent_in_thread": 2.8936696257238905
+        },
+        {
+          "leaf": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so::radv_emit_all_graphics_states",
+          "samples": 17,
+          "sampled_cycle_percent_in_thread": 2.702660675324314
+        },
+        {
+          "leaf": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so::radv_CmdPushDescriptorSetWithTemplate2KHR",
+          "samples": 19,
+          "sampled_cycle_percent_in_thread": 2.4952700950729376
+        },
+        {
+          "leaf": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so::ac_set_buf_desc_word3",
+          "samples": 16,
+          "sampled_cycle_percent_in_thread": 2.2629255243098463
+        },
+        {
+          "leaf": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so::ac_build_raw_buffer_descriptor",
+          "samples": 14,
+          "sampled_cycle_percent_in_thread": 2.0601995075239703
+        },
+        {
+          "leaf": "/usr/lib/x86_64-linux-gnu/libc.so.6::__memcpy_avx_unaligned_erms|__memmove_avx_unaligned_erms",
+          "samples": 15,
+          "sampled_cycle_percent_in_thread": 1.9306233850074888
+        },
+        {
+          "leaf": "/emulator/usr/libexec/eden-cli::Vulkan::Scheduler::TypedCommand<Vulkan::Scheduler::Record<Vulkan::GraphicsPipeline::ConfigureDraw(Vulkan::RescalingPushConstant const&, Vulkan::RenderAreaPushConstant const&)::$_3>(Vulkan::GraphicsPipeline::ConfigureDraw(Vulkan::RescalingPushConstant const&, Vulkan::RenderAreaPushConstant const&)::$_3&&) requires std::is_invocable_v<Vulkan::GraphicsPipeline::ConfigureDraw(Vulkan::RescalingPushConstant const&, Vulkan::RenderAreaPushConstant const&)::$_3, Vulkan::vk::CommandBuffer>::{lambda(Vulkan::vk::CommandBuffer, Vulkan::vk::CommandBuffer)#1}>::Execute(Vulkan::vk::CommandBuffer, Vulkan::vk::CommandBuffer) const",
+          "samples": 13,
+          "sampled_cycle_percent_in_thread": 1.8399073302546252
+        }
+      ]
+    }
+  ],
+  "debug_modules": [
+    {
+      "module": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+      "actual": "/home/souhib/.local/state/nel3ab/test-switch2-0zMBL6/profile/sysroot/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+      "actual_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+      "build_id": "b9b8a62af688c09b054fc2a3411bcf690cf98df3",
+      "debug": "/home/souhib/.local/state/nel3ab/test-switch2-0zMBL6/profile/debug-symbols/b9b8a62af688c09b054fc2a3411bcf690cf98df3.debug",
+      "debug_sha256": "98f0b556e24ae62cc6a928973e3c72a63d1a188e4ba7afd95b13f7669f2fd9f1",
+      "fetch_url": "https://debuginfod.ubuntu.com/buildid/b9b8a62af688c09b054fc2a3411bcf690cf98df3/debuginfo",
+      "shared_function_bounds_verified": 4,
+      "debug_function_entries": 8824
+    },
+    {
+      "module": "/usr/lib/x86_64-linux-gnu/libc.so.6",
+      "actual": "/home/souhib/.local/state/nel3ab/test-switch2-0zMBL6/profile/sysroot/usr/lib/x86_64-linux-gnu/libc.so.6",
+      "actual_sha256": "8db37cf3f2169f59a0f07ef1fea308c35656668c64c8ff294e1860f4121eb161",
+      "build_id": "328820b908de8ea1ef79afa8995e302e819163d7",
+      "debug": "/home/souhib/.local/state/nel3ab/test-switch2-0zMBL6/profile/debug-symbols/libc-package/usr/lib/debug/.build-id/32/8820b908de8ea1ef79afa8995e302e819163d7.debug",
+      "debug_sha256": "d97a03cdc9bf03db34c5abf6a5291070a235affaaa12f7b090e5d93efb808dbd",
+      "package": "/home/souhib/.local/state/nel3ab/test-switch2-0zMBL6/profile/debug-symbols/libc6-dbg_2.39-0ubuntu8.8_amd64.deb",
+      "package_sha256": "8c33c3ca6dfc2b2f0056656d38372f793beecb592280d321d31a5f12d9aec8d9",
+      "fetch_url": "https://launchpadlibrarian.net/870509000/libc6-dbg_2.39-0ubuntu8.8_amd64.deb",
+      "shared_function_bounds_verified": 2734,
+      "debug_function_entries": 6940
+    }
+  ],
+  "debug_packages_installed": false,
+  "frozen_inputs_and_modes_after_capture": 198,
+  "copy_files_before": 205,
+  "normal_cleanup": {
+    "native_normal_stop": true,
+    "forced_cleanup": false,
+    "production_snapshot_unchanged": true,
+    "observer": "active",
+    "watchdog_reason": null,
+    "kernel_gpu_error_lines": [],
+    "owned_containers_absent": true,
+    "virtual_pads_absent": true
+  },
+  "owned_profiler_original_identity_gone": true,
+  "visual_review": "Three unique before/middle/after images read; six captures paired byte-identical, same Saria checkpoint; no movement or new named zone.",
+  "performance_result": false,
+  "constant40_achieved": false,
+  "hardware_impossibility_established": false,
+  "production_change": false,
+  "limits": [
+    "cycles:u leaf addresses and sampled cycle weights, not caller stacks or wall time.",
+    "Backend memcpy/memmove cycles do not identify their caller, payload, number of copies or avoidable bytes.",
+    "Guest JIT code without a retained mapping file remains unnamed. No nearest-library function labels.",
+    "Static scene, decoder-free clients, profiling observer present; no game-FPS comparison.",
+    "Endpoint identities/maps and observed runtime mapping events constrain attribution; no complete proof against changes entirely between observations."
+  ],
+  "proof_files_sha256": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-leaf-profile-20261111/plan.json": "a270ca6df5c01bdb45fe956d6170e4af0e3b661314d58ecf5896a52bbc0d5815",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-leaf-profile-20261111/profile-preparation.json": "ae971c0ef775164c396cdcb47920df203f19c4aea50e5c714d546d71c13c26fb",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-leaf-profile-20261111/collector-contract.json": "9b8ce4a766cf6815f04c123f4e97cb1b3ce6c68752f22b369528ec262ad6a592",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-leaf-profile-20261111/stop-owned-profiler-tests.json": "f985fd33a66453f449b4abf8560879c4587406ad78097d18a6c68df0059dada2",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-leaf-profile-20261111/profile-analyzer-tests.json": "5e7a01a9849c573a0f9422a9565138963c7743927976bebe19ec844890d63c00",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-leaf-profile-20261111/F1/cleanup.json": "fd10e56a933c5645bf26df62b481b6fe8ecab2266bbd525d1429fe31479a614d",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-leaf-profile-20261111/F1/prephase-review.json": "ee689114d2ecfb40309ad6401cc0f0a06e1e6f8c51787565f181ba73487aaf8f",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-leaf-profile-20261111/F1/postphase-review.json": "b493ca26c6c0975a1538cbf267ce407ee7a5e6e4d51974369501d04f85dc2e95",
+    "/home/souhib/.local/state/nel3ab/test-switch2-0zMBL6/owned-profiler.json": "32a321a380ecc737a88166e6a767f47ce031d145b5757d9aa9cd1d76fdf73da4",
+    "/home/souhib/.local/state/nel3ab/test-switch2-0zMBL6/profile/result.json": "337fcf2ed0b73a446b54a045fabebb3820544303f0c790f6042daae140c6b2eb",
+    "/home/souhib/.local/state/nel3ab/test-switch2-0zMBL6/profile/prepared.json": "4ba47d72e5d64b44a64446505279e68ef8d53896919814c458744f5da5544e26",
+    "/home/souhib/.local/state/nel3ab/test-switch2-0zMBL6/profile/after.json": "60991fa23d2e371a2b6fff32fdd04bca6d7f7584010b5027543c85e5499fe789",
+    "/home/souhib/.local/state/nel3ab/test-switch2-0zMBL6/profile/perf.data": "bdafb7851b94e563313ad636707daea6c819d887e573f41229b064a2994af0a2",
+    "/home/souhib/.local/state/nel3ab/test-switch2-0zMBL6/profile/leaf-analysis.json": "71077a5b7566f9f974f923d5338c6d00a502ef3f7d33b5301b368efa4d1194d4",
+    "/home/souhib/.local/state/nel3ab/test-switch2-0zMBL6/profile/leaf-analysis-with-debug.json": "f34abcb49ea5b6c52d5c0295c7cd8670080f442d2afe28fec0430dfafefa0f24",
+    "/home/souhib/.local/state/nel3ab/test-switch2-0zMBL6/profile/leaf-analysis-with-all-debug.json": "7250196a99e20c0fa9981c2b10611519033b5dc94aa188011fbf3c5f91c3b645",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/leaf-profile-preparation-20261111/debug-resolve.py": "23a3dbb32630d21eac54ef2cff8c2ebd07beeab79825adc195a3899efdaac3e1",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/leaf-profile-preparation-20261111/debug-resolve-libc.py": "d35be901609fdf241c60b6f775eeb1a7b31c9fe72a32f5210952ab1170a43dbc",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/leaf-profile-preparation-20261111/debug-resolve-tests.json": "1fbbc2579e2949d94cfda2cf2c91620e59aca1bfa04b6a752a1f96bc9fca814f",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/leaf-profile-preparation-20261111/debug-resolve-libc-tests.json": "b66fabf53672b7e93cf50d73f8e44894a2c06367e243045c0a22819be515dec8",
+    "/home/souhib/.local/state/nel3ab/test-switch2-0zMBL6/profile/debug-symbols/b9b8a62af688c09b054fc2a3411bcf690cf98df3.debug": "98f0b556e24ae62cc6a928973e3c72a63d1a188e4ba7afd95b13f7669f2fd9f1",
+    "/home/souhib/.local/state/nel3ab/test-switch2-0zMBL6/profile/debug-symbols/libc-package/usr/lib/debug/.build-id/32/8820b908de8ea1ef79afa8995e302e819163d7.debug": "d97a03cdc9bf03db34c5abf6a5291070a235affaaa12f7b090e5d93efb808dbd",
+    "/home/souhib/.local/state/nel3ab/test-switch2-0zMBL6/profile/copy-function-stack-audit.json": "bf339669e53252a1b860ee89ac8ed6ad69e4d3f3bcc8e838a7dcb54dee85ac0e",
+    "/home/souhib/.local/state/nel3ab/test-switch2-0zMBL6/profile/debug-symbols/libc-debug-selected.json": "cb266c6f1d4d8141d4310d4e85e4fe97ea19b2550c07aa8c10c2ef3653fa462b",
+    "/home/souhib/.local/state/nel3ab/test-switch2-0zMBL6/profile/debug-symbols/libc-launchpad-fetch.json": "852777edbea0d000fbf48c076b0280aa82c1da0ff7ff0cfd625ed31bd3a7abe9",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/leaf-profile-preparation-20261111/test-debug-resolve-libc.py": "cbec9c18b94d7141c3002f235e14c998f20918cf1ef974559db1a955e23a6b72"
+  },
+  "at_unix": 1794370839.3974824,
+  "next_diagnostic_preparation": "Preserved disassembly of hot libc copy range:360 instructions, no observed stack-register references/call/push/pop, return present. Screening only, not a complete CFG/ABI proof. No sampled return addresses captured yet."
+}

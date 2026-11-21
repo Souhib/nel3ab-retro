@@ -1,0 +1,54 @@
+[
+  {
+    "name": "superbuild-v11",
+    "repository": "callme-sy/Lichii-Superbuild",
+    "tag": "v11",
+    "release": "https://github.com/callme-sy/Lichii-Superbuild/releases/tag/v11",
+    "published": "2026-11-07T12:27:36Z",
+    "asset": "Lichii-v11-linux-x64.AppImage",
+    "url": "https://github.com/callme-sy/Lichii-Superbuild/releases/download/v11/Lichii-v11-linux-x64.AppImage",
+    "size": 111417848,
+    "digest": "sha256:0462dce5e08b292738d377b40052d073cc55777f287d6cc3948e8c10d4d04826",
+    "target_commitish": "superbuild",
+    "source_commit": "6f19da61a7116c019df3ed44ffe32dd5630c71c3"
+  },
+  {
+    "name": "eglantine-20261107",
+    "repository": "Djihads80/Eglantine",
+    "tag": "daily-20261107",
+    "release": "https://github.com/Djihads80/Eglantine/releases/tag/daily-20261107",
+    "published": "2026-11-07T10:43:58Z",
+    "asset": "eglantine-linux-x86_64.AppImage",
+    "url": "https://github.com/Djihads80/Eglantine/releases/download/daily-20261107/eglantine-linux-x86_64.AppImage",
+    "size": 109668856,
+    "digest": "sha256:293f1f69b6d6e0c3df68e3f0e0e244510487f4e96340e23d75e197a4f0d7176b",
+    "target_commitish": "216d3e294367abd4742d7ebd736ef25a8db6f365",
+    "source_commit": "216d3e294367abd4742d7ebd736ef25a8db6f365"
+  },
+  {
+    "name": "lichii-95",
+    "repository": "zortos293/Lichii",
+    "tag": "build-94",
+    "release": "https://github.com/zortos293/Lichii/releases/tag/build-94",
+    "published": "2026-11-07T10:02:18Z",
+    "asset": "lichii-linux-x86_64.AppImage",
+    "url": "https://github.com/zortos293/Lichii/releases/download/build-94/lichii-linux-x86_64.AppImage",
+    "size": 111389176,
+    "digest": "sha256:90be7d77c941f009dd805931bd562ae64e0d799171d0efcfe63ac1a28d7787fa",
+    "target_commitish": "222877d4f7c8945b2f31a87b76d09f0a92e4f1b8",
+    "source_commit": "222877d4f7c8945b2f31a87b76d09f0a92e4f1b8"
+  },
+  {
+    "name": "lichii-93",
+    "repository": "zortos293/Lichii",
+    "tag": "build-93",
+    "release": "https://github.com/zortos293/Lichii/releases/tag/build-93",
+    "published": "2026-11-06T21:04:53Z",
+    "asset": "lichii-linux-x86_64.AppImage",
+    "url": "https://github.com/zortos293/Lichii/releases/download/build-93/lichii-linux-x86_64.AppImage",
+    "size": 111340024,
+    "digest": "sha256:9c664d82f81027750aa3755f043290b0e2b10aa777e9ccfe3b433def2becd6ee",
+    "target_commitish": "nx2",
+    "source_commit": "09b78bd2dfdd279cc81caed2a794ed85062725c9"
+  }
+]

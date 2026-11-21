@@ -1,0 +1,589 @@
+{
+  "created_unix": 1794352121.953749,
+  "experiment": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uncapped-20261110",
+  "order": [
+    "A1"
+  ],
+  "planned_order": [
+    "A1"
+  ],
+  "comparative_claim_allowed": false,
+  "status": "Single uncapped diagnostic completed",
+  "factor": "Private diagnostic: fps_limit60/frame_pacing_mode2, same be3 ELF,60Hz guest timing,speed100,MaxResolution/NoSharpening. No comparison or real40FPS claim.",
+  "results": {
+    "A1": {
+      "probe": {
+        "active": false,
+        "captures": [],
+        "outside_phase": [],
+        "capture_files": 0,
+        "scope": "Same compiled manual-enabled probe in both conditions; capture activation overhead only. Intervals overlap and are not exclusive occupancy."
+      },
+      "label": "A1",
+      "room": "/home/souhib/.local/state/nel3ab/test-switch2-coSdua",
+      "phase_seconds": 90.001037342,
+      "bounds_ns": [
+        2369944995914084,
+        2370034996951426
+      ],
+      "direction_transitions": 0,
+      "midpoint_capture_seconds": 0.0040828,
+      "wsi": {
+        "complete_windows": 3,
+        "intervals": 1800,
+        "covered_seconds": 61.296687151,
+        "rate_per_second": 29.36537166463546,
+        "p99_each_ms": [
+          43.383422,
+          42.273249,
+          43.181834
+        ],
+        "max_ms": 52.124681,
+        "over_100_ms": 0,
+        "over_33_333333_ms": 760,
+        "uncovered_seconds": 28.704350191,
+        "windows": [
+          {
+            "intervals": 600,
+            "sum_ns": 20667444711,
+            "begin_ns": 2369953413247174,
+            "end_ns": 2369974080691885,
+            "p50_ns": 33132270,
+            "p95_ns": 40768806,
+            "p99_ns": 43383422,
+            "max_ns": 52124681,
+            "over30": 283,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 4801,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20276038526,
+            "begin_ns": 2369974080691885,
+            "end_ns": 2369994356730411,
+            "p50_ns": 32458435,
+            "p95_ns": 40106193,
+            "p99_ns": 42273249,
+            "max_ns": 45917957,
+            "over30": 232,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 5401,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": true
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20353203914,
+            "begin_ns": 2369994356730411,
+            "end_ns": 2370014709934325,
+            "p50_ns": 32675844,
+            "p95_ns": 40523196,
+            "p99_ns": 43181834,
+            "max_ns": 48517855,
+            "over30": 245,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 6001,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          }
+        ]
+      },
+      "vi2": {
+        "complete_windows": 3,
+        "intervals": 1800,
+        "covered_seconds": 61.297977681,
+        "rate_per_second": 29.364753424123652,
+        "p99_each_ms": [
+          43.631768,
+          43.043884,
+          44.248565
+        ],
+        "max_ms": 50.420344,
+        "over_100_ms": 0,
+        "over_33_333333_ms": 763,
+        "uncovered_seconds": 28.703059661,
+        "windows": [
+          {
+            "intervals": 600,
+            "sum_ns": 20671068188,
+            "p50_ns": 33126979,
+            "p95_ns": 41621857,
+            "p99_ns": 43631768,
+            "max_ns": 50420344,
+            "over30": 287,
+            "over100": 0,
+            "begin_ns": 2369953350630700,
+            "end_ns": 2369974021698888,
+            "legacy_same_window": {
+              "mean_frame_us": 34451,
+              "max_frame_us": 50420,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 6,
+              "mean_composite_us": 25,
+              "mean_pacing_us": 0,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20266517784,
+            "p50_ns": 32551009,
+            "p95_ns": 40358005,
+            "p99_ns": 43043884,
+            "max_ns": 46826171,
+            "over30": 234,
+            "over100": 0,
+            "begin_ns": 2369974021698888,
+            "end_ns": 2369994288216672,
+            "legacy_same_window": {
+              "mean_frame_us": 33777,
+              "max_frame_us": 46826,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 6,
+              "mean_composite_us": 25,
+              "mean_pacing_us": 0,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20360391709,
+            "p50_ns": 32546911,
+            "p95_ns": 41127981,
+            "p99_ns": 44248565,
+            "max_ns": 46432141,
+            "over30": 242,
+            "over100": 0,
+            "begin_ns": 2369994288216672,
+            "end_ns": 2370014648608381,
+            "legacy_same_window": {
+              "mean_frame_us": 33933,
+              "max_frame_us": 46432,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 3,
+              "mean_composite_us": 27,
+              "mean_pacing_us": 0,
+              "ran_ahead": 600
+            }
+          }
+        ]
+      },
+      "media_mode": "B",
+      "browser_deltas": {
+        "player": {
+          "painted": 0,
+          "shown": 0,
+          "stalls": 0,
+          "restarts": 0,
+          "undecoded": 0,
+          "soundPlayed": 0,
+          "soundGaps": 0,
+          "attempts": 23962,
+          "received_pictures": 2659,
+          "decoder_calls": 0,
+          "decoder_output": 0
+        },
+        "spectator": {
+          "painted": 0,
+          "shown": 0,
+          "stalls": 0,
+          "restarts": 0,
+          "undecoded": 0,
+          "soundPlayed": 0,
+          "soundGaps": 0,
+          "attempts": 0,
+          "received_pictures": 2659,
+          "decoder_calls": 0,
+          "decoder_output": 0
+        }
+      },
+      "signal_deltas": {
+        "player": {
+          "packets": 9019,
+          "samples": 8658240,
+          "nonzero": 8642357,
+          "invalid": 0
+        },
+        "spectator": {
+          "packets": 9019,
+          "samples": 8658240,
+          "nonzero": 8642357,
+          "invalid": 0
+        }
+      },
+      "local_browser_CPU": {
+        "percent_one_logical_CPU": 52.08352649005509,
+        "entered_pid_start": [],
+        "exited_pid_start": [],
+        "endpoint_seconds": 90.086065906
+      },
+      "affinity_before": {
+        "3018312": {
+          "name": "CPUCore_0",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "3018313": {
+          "name": "CPUCore_1",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "3018314": {
+          "name": "CPUCore_2",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "3018315": {
+          "name": "CPUCore_3",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "3018316": {
+          "name": "CPUCore_4",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "3018317": {
+          "name": "CPUCore_5",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "3018318": {
+          "name": "GPU",
+          "cpus": [
+            1,
+            7
+          ]
+        },
+        "3018552": {
+          "name": "GPUBack",
+          "cpus": [
+            2,
+            8
+          ]
+        }
+      },
+      "affinity_after": {
+        "3018312": {
+          "name": "CPUCore_0",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "3018313": {
+          "name": "CPUCore_1",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "3018314": {
+          "name": "CPUCore_2",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "3018315": {
+          "name": "CPUCore_3",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "3018316": {
+          "name": "CPUCore_4",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "3018317": {
+          "name": "CPUCore_5",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "3018318": {
+          "name": "GPU",
+          "cpus": [
+            1,
+            7
+          ]
+        },
+        "3018552": {
+          "name": "GPUBack",
+          "cpus": [
+            2,
+            8
+          ]
+        }
+      },
+      "gpu_observations": {
+        "phase_observations": 14,
+        "all_room_observations": 32,
+        "foreign_clients_observed": false,
+        "driver_stats_read": false,
+        "first_phase_observation_offset_s": 0.318741308,
+        "last_phase_observation_to_end_s": 5.138254305,
+        "maximum_observed_gap_s": 6.544362417,
+        "scan_CPU_each_ms": [
+          180.280464,
+          170.679556,
+          173.199046,
+          174.942934,
+          172.049107,
+          174.748278,
+          190.931643,
+          175.95396,
+          175.857357,
+          182.483739,
+          176.435006,
+          175.77255,
+          174.244621,
+          186.245495
+        ],
+        "scope": "Periodic presence observations; work entirely between scans remains unobserved. CPU time excludes Python/sudo startup and ownership analysis; not in-game overhead qualification."
+      },
+      "memory_endpoints": {
+        "before": {
+          "VmHWM": "11462172 kB",
+          "VmRSS": "11462172 kB",
+          "RssAnon": "3092728 kB",
+          "RssFile": "116416 kB",
+          "RssShmem": "8253028 kB"
+        },
+        "after": {
+          "VmHWM": "11917192 kB",
+          "VmRSS": "11917192 kB",
+          "RssAnon": "3118308 kB",
+          "RssFile": "116416 kB",
+          "RssShmem": "8682468 kB"
+        }
+      },
+      "visual_review": {
+        "root": "/home/souhib/.local/state/nel3ab/test-switch2-coSdua",
+        "scene_valid": true,
+        "all_images_actually_read": true,
+        "at_unix": 1794352119.470689,
+        "images": [
+          "encoded/player-before.png",
+          "encoded/player-middle.png",
+          "encoded/player-after.png"
+        ],
+        "spectator_same_encoded_bytes_verified": true,
+        "observation": "Same fixed ground position and Kokiri/Saria camera at before, middle, after. Hearts, map and talk prompt visible; ambient particles and idle animation change. No blocking menu, loading or gross missing image in these samples; not every intervening image qualified."
+      },
+      "native_normal_cleanup": true
+    }
+  },
+  "pairs": [],
+  "protected_files": 757,
+  "production_cache_preserved": {
+    "files": 4865,
+    "bytes": 133711023,
+    "all_hashes_and_mtimes_match": true
+  },
+  "learned_seed_preserved": {
+    "files": 4867,
+    "bytes": 134125560,
+    "all_hashes_and_mtimes_match": true
+  },
+  "production_change": false,
+  "proof_files_sha256": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uncapped-20261110/plan.json": "418bd8860b0a9e5d7a918f69fc3d1d544b415adff31ac6524f0aed2ec97318af",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uncapped-20261110/analyze-goal40.py": "6e804405c571356c98350931527ef65724ee564dc13167df0328710b206abdb8",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uncapped-20261110/arm.json": "b1367163b9d85a9daf95267333944f31ec64aa9c37839041f290c44a8796d65b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uncapped-20261110/decode-captures.py": "c91a90d8b0f1f76bba7d59a4f1442b68e86d56260b41c0a177c77afbb38337be",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/service-wsi-windows.py": "c04e337513851cf72422d7c930fed50f616bfb0b8acd8d8a70c9da3173cc5620",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/pacing-analyze.py": "0463818f15088a63dfc86046cc6f01a0e77917efc126003168e210a62017abbb",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uncapped-20261110/A1/cleanup.json": "a5df46a95e71195a846d2c859a9ee5936b541608c206fa2fb4998c2d7f20e0fa",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uncapped-20261110/A1/postphase-review.json": "370812746a4b3bcabe02a39151fd7daac02b2c82cdec5081e3b95e2b1623ed90",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uncapped-20261110/A1/prephase-review.json": "415ca8dc6401f2e8131a8d73c13186ef64fc6373a2d20b7fc62cab189a0da5b9",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uncapped-20261110/A1/active-room.json": "2abe535921e4c79807bd42f242bdad69cc771335a1f4711aa8823cebf5a1f0bd",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/state/0400486024dec000/neuve/emulator.log": "5b757cbd9c85dc8dc237963fc67db47890ca1a8dfd8363dcd6b9f6e6164cb578",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/affinity-apply.json": "6cbb7cda91d2df294678381f1f1d0f457b2a04afe4ca9e1dd053af80350787dc",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/affinity-verify.json": "83f6b188c96b0f0eb649bf50847f57223a8e91e54dff10b1458c00063660a8e9",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/native-runtime-before-proof.json": "d8001df75424bf2d634912b551bf11fa72ce31e0f997118c7f4f6f9d958d323f",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/native-runtime-proof.json": "2d65f6e1189c4002e38a1d2fd5a1a6960326c2d0df938e25297d7b030bbad2f6",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/native-boot-before.json": "10e8ed2b4c384f9e80191047c253ae0d3f3e8f680128cf59aafe1d7b66fe27dc",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/native-boot-after.json": "10e8ed2b4c384f9e80191047c253ae0d3f3e8f680128cf59aafe1d7b66fe27dc",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/native-memory-affinity-before.json": "7fe5f8094392b04f1bbce4299f14aa32297426f245c4c0ea6c9d2586674195af",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/native-memory-affinity-after.json": "2e35a11707a8b2035a400ad9836ef6c45bb2a1d71d09990202411ccad4d810de",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/browser-phase-result.json": "2eadb6311147c0e86acfe70bec20d0ea6c3380d7dea641dfc90d1680da595b92",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/phase-clock.json": "70615f05fa5ad41899ba8f27da9931e9a72ae7d3e51f280276d2c1b22b21a779",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/phase-events.jsonl": "91d9d6cabd24fba342276b9484c7ff9c9849f86f641c2fdbb928457328f4a8d8",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/phase-exit.json": "32710c0bd1d95809956e704a054eee4351b5827b08107fa27d302a33575ba368",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/browser-before.json": "fd4eb6e7dcb1f073415f2edf8748a5c85c1ba1787fcf214f3a2de5631387cc63",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/browser-after.json": "7e5fe6108d28afae0ebf7f46038804f0025572dc16c13ba583cc577758e9baf9",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/browser-cpu-before.json": "89c33d3a1217c6038a7964427dd766ca85717b43eb811c12cce67a0aab289d0c",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/browser-cpu-after.json": "b5b4b3846d9fb3836b18fcd5724655ea87830f62107cc5474c629dc6a67b8c01",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/qualification-watchdog.json": "56bada3247489cc91db5676e2b1416e36d85535aa99c01440de427d4316d1ea1",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/seed-copy-proof.json": "99b2579bf41f484ddc64d967d7112d31032e6e3c55ad435b9fce18bde0e1d3e5",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/loaded-check.png": "acd80b8c3d96b159c858223c1e2ff43ebfafc0cebb49f6806bc35a710cdc79c9",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/media-preparation.json": "99a60c6c30c01c0ed65beab45d3d578850bb91d8509a27c6f43d48b237af6430",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/gpu-observation-commands.jsonl": "9221838ed85342661372c56dc0477c2cf917144cba5aa71fbe55c0b0d9a39e15",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/encoded/after-decoded.json": "f1877958b698ff8751f7cfed48d57c17943704c1d335e4d7707a0841489ca5e4",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/encoded/player-after.h264.json": "6217238bc6cfd4b31e4ce7ca21b8da2a0ab2aeadb546cf143e046537607ebee6",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/encoded/spectator-after.h264.json": "8a30400805f45f8d94d398b0d4ef659fbc7a25c8ec66e8279ebfb73f4c473cbf",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/encoded/player-middle.h264": "011b0bc748eadab897ca01a7c04754550a6bd8c2c39306f9581cbc716a0ef25a",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/encoded/player-after.png": "f8b96d90dd981dd4de4fdc7760ea27a1bb46960d5abb392f055f0a78550e6d8b",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/encoded/player-middle.h264.json": "f274b988797126b9a52e566c88249ce4a15a8ccc74cdd35085b853f91d49c66d",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/encoded/spectator-prepared.h264.json": "127ec0ccf094b0fba4f7b71953fe796717e76cb2b200a7ae6bc1a4ecd4d9279e",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/encoded/player-before.h264.json": "91a1cb6025a0241a4a4635988ef80656aa0478bd1b95f3cbe4aca5c66ab035d8",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/encoded/spectator-prepared.png": "96becbc9f59c106ec162eace618016037cf4894d09b0f0789602e2707f91bd32",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/encoded/player-after.h264": "5f178b3b0a22cf695dddfc412d58df947db027271c7909fe2b96b8edda49cb40",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/encoded/spectator-before.h264.json": "2b3a9acd1b819c5c313372dd98d776dc48aa8d37e38842201d631ac40228bc3c",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/encoded/spectator-middle.png": "20115e83b02c32bbeb5ad2ebe936fd4074a9a0411c73a0a7a68beabf82bc7676",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/encoded/spectator-prepared.h264": "04b4761436ba90762799189cd98212a4b1a0bdd54cab13f610701c074f24d15c",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/encoded/player-prepared.h264.json": "4d5e5811f07208fa274337c039dead549e88c5f0fc945671d68bb0c43b968c41",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/encoded/spectator-before.h264": "2a954fc24a46f27e2b7ee30bbc8319bae01392a727a55f49b94a6b8bfc9993ab",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/encoded/spectator-before.png": "1e0894c280b67c63905235068bcaeb9538b25dac0c39613932b211dd50823822",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/encoded/player-prepared.h264": "44de75926e871feb8426284d252b00a103321315e2a4e8b9fa555cbd1f4172fe",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/encoded/spectator-middle.h264.json": "5925c525aa9f8123657248001a5ee07b747406046a848279364f3e40f3242e1b",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/encoded/player-before.png": "1e0894c280b67c63905235068bcaeb9538b25dac0c39613932b211dd50823822",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/encoded/player-prepared.png": "0c9647158660d6421e7b9e300241c16748ec88e719f6e37f016d27edc48f593f",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/encoded/spectator-after.h264": "5f178b3b0a22cf695dddfc412d58df947db027271c7909fe2b96b8edda49cb40",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/encoded/spectator-middle.h264": "011b0bc748eadab897ca01a7c04754550a6bd8c2c39306f9581cbc716a0ef25a",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/encoded/prepared-decoded.json": "071c211f43f326210943e0bc2af6e1048ad44ecc353783d42427ff1e371b4561",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/encoded/player-middle.png": "20115e83b02c32bbeb5ad2ebe936fd4074a9a0411c73a0a7a68beabf82bc7676",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/encoded/spectator-after.png": "f8b96d90dd981dd4de4fdc7760ea27a1bb46960d5abb392f055f0a78550e6d8b",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/encoded/before-decoded.json": "19fecc1343385fa17cee71702cb3524903005da0e063d6081bebf3304be24afa",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/encoded/middle-decoded.json": "9154329e8e1d83506d2f611c9b0a8509042d916ffb713a499315453cc6ebce1c",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/encoded/player-before.h264": "2a954fc24a46f27e2b7ee30bbc8319bae01392a727a55f49b94a6b8bfc9993ab",
+    "/home/souhib/.local/state/nel3ab/test-switch2-coSdua/submission-probe-arm.json": "e72b475a4035732048a21b52a9e12e8580eb34d060f183336131d15f74d364e1",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uncapped-20261110/target40-runtime-tests.json": "5eadfcd5ab7399600a714b5173e24690c6f7c16f8cd1fb4b8a6cbd42b7acaf61",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uncapped-20261110/preparation-result.json": "3b78c17921c40520abea0ab1db74a6887b3cba93dfa13b88406a10104c1e1ec8"
+  },
+  "limits": [
+    "Single diagnostic; no causal gain or hardware ceiling inferred.",
+    "Only full native windows inside observed phase; native accepted returns are not unique game frames.",
+    "Local decoding/playback disabled: lower-load condition, not final browser-play validation.",
+    "Both independent30Hz caps changed; gameplay speed and guest refresh unchanged.",
+    "Only full600-return windows inside explicit phase bounds; partial coverage. Quantiles remain per window.",
+    "Camera/position drift limits attribution even with all four alternating phases; repeated-sign changes alone do not prove causality.",
+    "Native WSI accepted returns are not unique guest frames or physical scanout. Nonzero PCM/scheduled playback is not physical AV sync.",
+    "Target lock on Saria changes camera and its depth-of-field appearance; camera/position drift remains a comparison limit.",
+    "B may retain a silent running AudioContext; zero app game PCM played is the qualified condition."
+  ],
+  "date_utc": "2026-11-10",
+  "objective": "At least40FPS constant at normal game speed",
+  "constant40_achieved": false,
+  "conclusion": "No30Hz limiter remains in validated guest/host settings; retained WSI windows still29.3654/s, p99~42-43ms,max52.1247ms. Single lower-load static diagnostic, not causal comparison or hardware ceiling. Next: qualify native0.5x resolution with alternating fresh-seed trials.",
+  "actual_timing": {
+    "native_swap": [
+      "1",
+      "60",
+      "60",
+      "0x1003c"
+    ],
+    "renderer": {
+      "fps_limit": "60",
+      "frame_pacing_mode": "2",
+      "nx2_frame_rate_limit": "60",
+      "resolution_setup": "3",
+      "frame_gen": "false"
+    },
+    "speed": "100"
+  }
+}

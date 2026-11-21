@@ -1,0 +1,163 @@
+{
+  "date_utc": "2026-11-11",
+  "scope": "Diagnostic de sites de retour, candidat normal c686, même checkpoint sans déplacement. Pas de comparaison FPS, plafond matériel, pile complète, compte de copies ou volume copié. Les notifications de cartes mémoire rendent ce relevé plus instrumenté que le profil précédent.",
+  "cohort": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-return-profile-20261111",
+  "root": "/home/souhib/.local/state/nel3ab/test-switch2-ID4ZXl",
+  "candidate_elf_sha256": "c686c1ff5811dd4aeba3f92d8da7717724dab9f1f3978e7c73897899769852d4",
+  "profile_seconds": 25.0180144,
+  "perf_data_sha256": "e7b370954b740b0957f5999c495bc3c9be7204bfd2f7acb66c3f23baef5709f3",
+  "raw_samples": 12588,
+  "retained_samples": 11776,
+  "excluded_samples": {
+    "outside_ACK": 241,
+    "not_USER": 571
+  },
+  "lost_samples": 0,
+  "independent_decoder_agrees": true,
+  "copy_samples": 371,
+  "resolved_copy_return_samples": 370,
+  "return_site_count": 49,
+  "excluded_copy_returns": {
+    "return_owner_unresolved": 1
+  },
+  "raw_MMAP2_records": 298960,
+  "exact_remap_union_ranges": 44,
+  "GPUBack": {
+    "samples": 2144,
+    "sampled_cycle_weight": 73815698118,
+    "resolved_copy_return_samples": 304,
+    "dominant_function": "Core::DeviceMemoryManager<Tegra::MaxwellDeviceTraits>::ReadBlockUnsafe",
+    "two_sites": [
+      {
+        "return_elf_vaddr": 9962847,
+        "samples": 247,
+        "period": 8524375205
+      },
+      {
+        "return_elf_vaddr": 9963391,
+        "samples": 10,
+        "period": 335880066
+      }
+    ],
+    "two_sites_sample_count": 257,
+    "two_sites_percent_GPUBack_sampled_cycles": 12.003212726967925,
+    "two_sites_percent_resolved_copy_return_cycle_weight": 84.76243756990573,
+    "calls_checked_in_actual_ELF": "Both return PCs immediately follow CALL memcpy@plt in the same proven function range. Earlier callers and original copy lengths remain unknown."
+  },
+  "qualification": {
+    "CPU_known_return_samples": 145,
+    "payload_tests": 22,
+    "allowed_libc_instruction_starts": 351,
+    "exact_remap_union_independent_sweep": true,
+    "remap_unit_tests": 4,
+    "frozen_inputs_unchanged": 223,
+    "copy_instruction_CFG_cases": 9,
+    "copy_instruction_CFG_negative_controls": 7
+  },
+  "cleanup": {
+    "native_normal_stop": true,
+    "forced_cleanup": false,
+    "production_snapshot_unchanged": true,
+    "observer": "active",
+    "watchdog_reason": null,
+    "kernel_gpu_error_lines": [],
+    "owned_containers_absent": true,
+    "virtual_pads_absent": true
+  },
+  "profiler_original_identity_gone": true,
+  "scene_review": {
+    "same_checkpoint": true,
+    "all_distinct_images_read": true,
+    "no_movement_command": true,
+    "full_35s_browser_phase_completed": false,
+    "intentional_profile_stop": true
+  },
+  "offline_first_analyzer": {
+    "exit_code": 143,
+    "stopped_by_root": true,
+    "reason": "Quadratic scan of298960MMAP2 records; exact address union qualified independently before derived offline analyzer, raw and frozen sources unchanged.",
+    "identity_checked_pidfd_stop": true
+  },
+  "upstream": {
+    "Fritchii_tag": "fritchii-v5.8.4",
+    "published_at": "2026-11-11T02:20:30Z",
+    "head": "4f5c53149b7e17d1c24445f68d79a83a3b2a17f9",
+    "source": "https://github.com/Frizti/Fritchii/releases/tag/fritchii-v5.8.4",
+    "net_changed_files_since_583": 9,
+    "net_video_core_changes": false,
+    "EXP47": "added then reverted within comparison; not a retained performance fix"
+  },
+  "next_step": "Trace the measured ReadBlockUnsafe sites to the callers requesting these reads; qualify any elision against memory writes before a controlled alternating comparison. Port1216 remains prepared but unbuilt.40constant not achieved.",
+  "proof_sha256": {
+    "/home/souhib/.local/state/nel3ab/test-switch2-ID4ZXl/profile/result.json": "e24ce46e5b80073159a301e005f5dca73fb882bc02440882cc4a08d2ef9b8962",
+    "/home/souhib/.local/state/nel3ab/test-switch2-ID4ZXl/profile/return-analysis.json": "7471058d8ac383ccca2bf94b420df6fbf2e4dd38df36eafd8ae771fdbcd62bc9",
+    "/home/souhib/.local/state/nel3ab/test-switch2-ID4ZXl/profile/prepared.json": "8d7f08c9632a8455b0472321c80b1e5e4e7893e565392c0476036d8e444fac5a",
+    "/home/souhib/.local/state/nel3ab/test-switch2-ID4ZXl/profile/after.json": "4d2c83eae2a716afe0dfdb23a5ccc34158598c10a44056884682d7122b2d5237",
+    "/home/souhib/.local/state/nel3ab/test-switch2-ID4ZXl/profile/readblock-return-sites.json": "6d398edf2bdd89f2a50f7bdd55fd19d54a84de02f20fb148be2c296e6b9e9345",
+    "/home/souhib/.local/state/nel3ab/test-switch2-ID4ZXl/profile/readblock-return-sites.asm": "19048c52945c82281eb99ce5aac2aadf6bd5f95698495f0792833f42a1e6715f",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-return-profile-20261111/F1/postphase-review.json": "50746a016e1be8882146df8877fa1f93c61a798368359f1e8cfb2088605bc077",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-return-profile-20261111/collector-contract.json": "0a73ce6f4a31641599ed6d59c3b3b9553199d491b80674ae093d059a74e59a11",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-return-profile-20261111/profile-preparation.json": "f2bdc220099a40fda2deec820e551a6da57ae6a29f1e1458214e49df0fefa342",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-return-profile-20261111/plan.json": "3005e30ccd68c8e00b4e5ff3b25649875556e3673a57871b2bf04e824a96e57d",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/return-profile-preparation-20261111/remap-qualification.json": "228c3d7229b6bca78a19d1c650d9deb8cfa00cf849f4f2999c94e22bd5fa5f16",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/return-profile-preparation-20261111/payload-qualification.json": "1da6c0cf741ba3a8eb1c4db64423978ceff8bca7d226cdf4767ef43aab5f2a89",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/return-profile-preparation-20261111/copy-stack-tests.json": "92e723a9e0c3a472ca32767096e51cebaa8c98d53dcbebc80b95418c95f10209",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/return-profile-preparation-20261111/copy-stack-proof.json": "b0654c034760d2be3115e7d12f0d006205bea68b491956cf4e14fc41057fc074"
+  },
+  "source_callers_to_attribute": [
+    {
+      "hypothesis": "Vulkan mapped upload staging",
+      "relative_source": "src/video_core/buffer_cache/buffer_cache.h",
+      "line": 3823,
+      "file_sha256": "1f1f575ff1ad91a81f5f54f947b800705ef2714cf3d4c0978859c8383e1d236f",
+      "runtime_category_proven": false
+    },
+    {
+      "hypothesis": "Compute uniform stream",
+      "relative_source": "src/video_core/buffer_cache/buffer_cache.h",
+      "line": 2846,
+      "file_sha256": "1f1f575ff1ad91a81f5f54f947b800705ef2714cf3d4c0978859c8383e1d236f",
+      "runtime_category_proven": false
+    },
+    {
+      "hypothesis": "Kept graphics uniform scratch read",
+      "relative_source": "src/video_core/buffer_cache/uniform_stream_reuse.h",
+      "line": 186,
+      "file_sha256": "777bb107846452640d267148832369966f2791a779027046838b65a0baa7b766",
+      "runtime_category_proven": false
+    },
+    {
+      "hypothesis": "Existing1059directsmalluniformcomparison",
+      "relative_source": "src/video_core/buffer_cache/uniform_stream_reuse.h",
+      "line": 138,
+      "file_sha256": "777bb107846452640d267148832369966f2791a779027046838b65a0baa7b766",
+      "runtime_category_proven": false
+    },
+    {
+      "hypothesis": "Vulkan enables mapped uploads",
+      "relative_source": "src/video_core/renderer_vulkan/vk_buffer_cache.h",
+      "line": 369,
+      "file_sha256": "b121a193823892cafece774c292d92c970800eac1b52bdcafd3a8aab57fb1363",
+      "runtime_category_proven": false
+    },
+    {
+      "hypothesis": "Guest device reader",
+      "relative_source": "src/core/device_memory_manager.inc",
+      "line": 561,
+      "file_sha256": "5be85babe8eac3b1a6992270bb7ecdf41136d91e5d3f5e5be4c9ecf9e3e45eb3",
+      "runtime_category_proven": false
+    },
+    {
+      "hypothesis": "Mapping snapshot metadata only",
+      "relative_source": "src/video_core/memory_manager.cpp",
+      "line": 761,
+      "file_sha256": "1087acea36e25199f1585e4300c59c4a59e3020862dda95d5bac9ed936b2a588",
+      "runtime_category_proven": false
+    }
+  ],
+  "copy_return_invariant_limits": [
+    "Exact matching libc and authorized instruction-start IP, coherent sample user IP/SP/eight stack bytes, valid ABI entry and intact return slot required.",
+    "Tail calls/inlining prevent inferring ancestors from a return address.",
+    "No original RDX size or total copied bytes inferred from a sample mid-copy."
+  ]
+}

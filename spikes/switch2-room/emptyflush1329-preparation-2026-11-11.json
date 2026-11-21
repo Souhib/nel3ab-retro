@@ -1,0 +1,192 @@
+{
+  "date_utc": "2026-11-11",
+  "status": "real_F1_passed_first_A1_interrupted_by_foreign_GPU_client_comparison_pending",
+  "base_ELF": "13158042b7dae7041bc4ae255381dbbed90b1d7eb9f3ba04ea1b5be02d36f6a1",
+  "candidate_ELF": "17ebf0c6f6e6b3c7c8937b2d8a7e8010a4d58526f4579cacceac92546acb1ef7",
+  "source_files": 5221,
+  "changed_files": [
+    {
+      "path": "src/video_core/renderer_vulkan/vk_scheduler.h",
+      "sha256": "c2b3c039342e43e53468805fd4887214f31112a41c54624b0d0acf97e540ca45",
+      "mode": "0o664",
+      "mtime_ns": 1794403260014546124
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/vk_scheduler.cpp",
+      "sha256": "4edca1a824a357fea896a86d0f47e06d9476a463888904c8c1e139cffe732af0",
+      "mode": "0o664",
+      "mtime_ns": 1794403260015147021
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/vk_rasterizer.cpp",
+      "sha256": "bad3930d621ce395a1098f53a93381bb5ceea30ace2254e293bc734d992844b4",
+      "mode": "0o664",
+      "mtime_ns": 1794403260017147024
+    }
+  ],
+  "upstream_head": "d92ecf4f1d43b26cd80db0d5f60a7f68a0a70f15",
+  "upstream_merge": "8e5259aa7b93dc4ea89f7976ebe27efadb441e47",
+  "no1095_807_1245_imported": true,
+  "normal_marker": "Nx2EmptyFlush1329 exercised: version=1",
+  "marker_scope": "First actual skipped FlushCommands per Scheduler, not startup-only constructor. Multiple schedulers allowed. Not skip frequency or in-phase count. Bool/helper/profile-check costs belong to candidate.",
+  "CPU_gate": {
+    "passed": true,
+    "at_unix": 1794404286.5699465,
+    "CPU_stage_sha256": "c8103af7ea4bc6ef44a808e2cd3f698afc4393f03757d34cf63b030bdf5d802a",
+    "fixture_report_sha256": "875f3aa2d1a5a957fec6dff0e90e04b25f77c1c0d2a60be3dc546a523434c0c2",
+    "body_executions": 90,
+    "positive_cases": 18,
+    "mutants": 18,
+    "expected_reds": 36,
+    "actual_compile_source_variants": 19,
+    "owned_container_confirmed_absent_by_healthy_inventory": true,
+    "protected_files_unchanged": 8652,
+    "seconds": 40.47112150909379,
+    "scope": "CPU extracted bodies/doubles only. Actual native platform compile/tests, runtime activation and FPS unqualified."
+  },
+  "native_build": {
+    "seconds": 226.28007587278262,
+    "ELF_sha256": "17ebf0c6f6e6b3c7c8937b2d8a7e8010a4d58526f4579cacceac92546acb1ef7",
+    "tests_sha256": "284d19b2a1330d6c4a0b8b29db9d30515932851f1f689c12d9b0cef2dd98df72",
+    "actual_changed_TUs_rebuilt": {
+      "src/video_core/CMakeFiles/video_core.dir/renderer_vulkan/vk_scheduler.cpp.o": {
+        "previous": {
+          "mtime_ns": 1794381873151113355,
+          "sha256": "d86771e1670b9e5e6020afc1386019058d3aa48ccc74bb89749cfdfad09b1241"
+        },
+        "mtime_ns": 1794404356466830085,
+        "sha256": "561a7b07d787a8e27f9a585a6aabc69c7e0c4403da5d623a4ce43f0c609ff444"
+      },
+      "src/video_core/CMakeFiles/video_core.dir/renderer_vulkan/vk_rasterizer.cpp.o": {
+        "previous": {
+          "mtime_ns": 1794381883103113236,
+          "sha256": "91daa620864919e3e11bbbd0be549cdfc64a8cf8e48e9a2eb2e387e91f774bbc"
+        },
+        "mtime_ns": 1794404366542770021,
+        "sha256": "54f95f7a031f91535ee5c6b63da2be8312cf6f7e41a3b17b2f7c93fec5b84971"
+      }
+    },
+    "compiler_commands_metadata_PGO_equal": true,
+    "elapsed_build_is_not_benchmark": true
+  },
+  "native_code_review": {
+    "accepted": true,
+    "serial_offsets": [
+      56,
+      64
+    ],
+    "deferred_clear_pointer_offset": 872,
+    "first_hit_bool_offset": 72,
+    "FlushCommands_bytes": 356,
+    "logger_bytes": 99,
+    "explicit_Flush_Finish_unconditionally_submit": true,
+    "snapshot_after_submit_and_wait": true
+  },
+  "ownership_scope": "Static producer/lifecycle routes reviewed; actual Linux race proof remains incomplete. Windows-only CheckOwner or deterministic CPU doubles are not Linux ownership evidence.",
+  "native_tests_passed": true,
+  "normal_runtime_first_skip_proven": true,
+  "performance_gain_proven": false,
+  "goal40_achieved": false,
+  "installed_engine_changed": false,
+  "remaining": [
+    "Strict alternating90s A1/B1/A2/B2 cadence comparison against1315",
+    "If repeatable gain, qualify movement, other zones, frame regularity and audiovisual/input behavior;40constantFPS unproven"
+  ],
+  "proof_sha256": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/emptyflush1329-preparation-20261111/prepared.json": "e9c561f70ce9b50851b789f2cdab77acc269db9f3726009c711400ba9fbfd67e",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/emptyflush1329-preparation-20261111/handoff.json": "6e2bf96a47fa9bed373a79b06d48ed25b8f9213be5f2fb117115fd268458b372",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/emptyflush1329-preparation-20261111/candidate.patch": "88116133e280f7913874bbb598dc35dbdf19c84b07a27fb2685afc2c964738cd",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/emptyflush1329-preparation-20261111/base-source.json": "8bd268d0b53a5c2a4201a47ced75459e5395a89e609cd4350e63abccd7515e03",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/emptyflush1329-preparation-20261111/native-stage-inputs.json": "6428d796d377fb9f1afb27fd93b3de65d7913b263338ec6aacdb1614c4b3b82a",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/emptyflush1329-preparation-20261111/review.txt": "e07e24105467114d89ac90d59ccb9284c0a0dfae014b2af547d9f270e3247531",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/emptyflush1329-preparation-20261111/history-and-scope.json": "b6a5f01b2452e7abad00144b84114bb4230fef9d8a9ed9c0bdd3b03dc3408546",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/emptyflush1329-preparation-20261111/root-cpu-01/result.json": "c8103af7ea4bc6ef44a808e2cd3f698afc4393f03757d34cf63b030bdf5d802a",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/emptyflush1329-preparation-20261111/root-cpu-01/root-acceptance.json": "2307aa60edfee27788b5dcea98f30b8f089a3e4ff8942eccec5a13e7291cf373",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/emptyflush1329-preparation-20261111/fixtures/results-root01/report.json": "875f3aa2d1a5a957fec6dff0e90e04b25f77c1c0d2a60be3dc546a523434c0c2",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/emptyflush1329-preparation-20261111/root-build-01/result.json": "140158315adb159d4b9c6413a031c08d9d26ec348c27d99df5d366d0acb788eb",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/emptyflush1329-preparation-20261111/root-build-01/configuration-proof.json": "1da54cfc97c9e1973f7070c7000c64fc059dc5088d145a214f03a1bdb33b1550",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/emptyflush1329-preparation-20261111/root-build-01/root-acceptance.json": "72533a605d4f99276ecc88831917daa80ca0fc78c19aa37818bc5666fe06a4ac",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/emptyflush1329-preparation-20261111/native-code-review/review.json": "235d0a6109110ad0b5ae2b4ad1597027627872e9e89b29ec598920da89738277",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/emptyflush1329-preparation-20261111/native-code-review/functions.json": "c52abe9bbbf936b5152fb41de353b0684aeee8ad575d7641226ca107b6be0f03",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/emptyflush1329-preparation-20261111/native-tests-result.json": "684a6b020b83cff94caea2c360a1e9ab309fce3c93d1a6759baf13b8617a9295",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/emptyflush1329-preparation-20261111/root-native-tests-01/root-acceptance.json": "f4eb807b5de272190e41232cbe03c0d17c5488cfa7a7dc8984390a7aed6c1d60",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-emptyflush1329-ab-20261111/package-binding.json": "b2c416e0d94db9350832409b637d41f2088f2ebcc8aafaa5c1a4fe460ff8c071",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-emptyflush1329-ab-20261111/emptyflush-preparation-report.json": "c5e651cc905518623982e1162c334ad207ebbb70ffed09ee61c029f6cfefa42e",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-emptyflush1329-ab-20261111/gate-results/result.json": "5adb379b62741f50bac2bb11273b1a794c8348ab83e18e848e5571b3a435827b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-emptyflush1329-ab-20261111/container-launch-gate.json": "d1626abdde3348cd59cf0439e9ae310f098f67fcf7a5d9e2a060283c8159debd",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-emptyflush1329-ab-20261111/functional-accepted.json": "a0acc90deb26eb04da4b01cef33f0c40d2ec492d78db9683905bb0c796781ed9",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-emptyflush1329-ab-20261111/F1/prephase-review.json": "c4ac01d8de834ea8b68132cb857a22afc762a0802a79acc8d26d8bf717457394",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-emptyflush1329-ab-20261111/F1/postphase-review.json": "2a41b1d271e26b7638835615a16c4343c72d9407e37ef52f6217199da0fc5ed9",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-emptyflush1329-ab-20261111/F1/cleanup.json": "8efe0f6a46e88305bcf1097d3dac246fd48e76f4aa33983cff2c11532bd2707e",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-emptyflush1329-ab-20261111/F1/auto-result.json": "f7cb3f3e526e7c4d4007df8e9fcc913a213d25ab167ab7dd02d3ad9fdcf4f2d1",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-emptyflush1329-ab-20261111/plan.json": "bc650cfa393d12c6aac6d91384e4880b4dadebdfc972167c4a220de020822db0",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-emptyflush1329-ab-20261111/archive/functional-plan.json": "40a30a38e6348033764a49d43e116289378dd4fb82ffbee0bed1281dbbd0676a",
+    "/home/souhib/.local/state/nel3ab/test-switch2-kz64TX/native-runtime-before-proof.json": "12dc1c44679d7bcdd87fad18d62c55c8091e58928a61d1851a7878a56d9d8b98",
+    "/home/souhib/.local/state/nel3ab/test-switch2-kz64TX/native-runtime-proof.json": "c3200c9f775e837ebb2db6564f228a896e41168ad3cb2a176de2d13324854f1d",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-emptyflush1329-ab-20261111/archive/A1-interrupted-20261111-1411/rejected-review.json": "130485ce803313d614b64b91272da7d1ec7e81b72532f57a9bd7878c7f5d0fd5",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-emptyflush1329-ab-20261111/archive/A1-interrupted-20261111-1411/cleanup.json": "03c35d897302a2f74e3138fd02e488369b8b9355c7ed5b061b9560f84f66671d",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-emptyflush1329-ab-20261111/archive/A1-interrupted-20261111-1411/prephase-review.json": "dd58b14aa2c4371a53b258e7c653ce1a370f28e845e0b7814cf419e143c86d26",
+    "/home/souhib/.local/state/nel3ab/test-switch2-QyygN0/qualification-watchdog.json": "5dbd5f88fb0a6ee0ffc510dfbc7cfa17cdd1be86228c178b38cafd84adbe383d",
+    "/home/souhib/.local/state/nel3ab/test-switch2-QyygN0/browser-phase-result.json": "6dc37236ea12ce3d8826b20b11e44b91b1376e758295c1387163b3f10df76256",
+    "/home/souhib/.local/state/nel3ab/test-switch2-QyygN0/phase-exit.json": "79c753b9f91bcc456c7d1b31a7498790b6a162ed1b7d74942ebffc9e28582a46"
+  },
+  "native_tests": {
+    "passed": true,
+    "at_unix": 1794405045.7830255,
+    "ELF_sha256": "17ebf0c6f6e6b3c7c8937b2d8a7e8010a4d58526f4579cacceac92546acb1ef7",
+    "tests_sha256": "284d19b2a1330d6c4a0b8b29db9d30515932851f1f689c12d9b0cef2dd98df72",
+    "native_result_sha256": "684a6b020b83cff94caea2c360a1e9ab309fce3c93d1a6759baf13b8617a9295",
+    "targeted_case_executions": 37,
+    "full_executed": 1254,
+    "network_skips": 4,
+    "full_seconds": 38.892712242901325,
+    "owned_containers_absent": [
+      "nel3ab-emptyflush1329-48cf6354858e",
+      "nel3ab-emptyflush1329-83b5422ab6d4",
+      "nel3ab-emptyflush1329-5bb2e386d7b5",
+      "nel3ab-emptyflush1329-2fbc8a8ba143",
+      "nel3ab-emptyflush1329-0bb1f5980580",
+      "nel3ab-emptyflush1329-1d46fd68cc50",
+      "nel3ab-emptyflush1329-ba2f584ddb34"
+    ],
+    "healthy_docker_inventory_count": 57,
+    "protected_files_unchanged": 8652,
+    "scope": "Native code/build and7targeted/full Linux invocations accepted. No Vulkan game/actual firstskip or performance proof."
+  },
+  "bank": {
+    "path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-emptyflush1329-ab-20261111",
+    "CPU_commands_completed": 22,
+    "actual_wrapper_UID_gates_passed": 3,
+    "frozen_inputs": 281,
+    "protected_files": 8652,
+    "runtime_unqualified": false,
+    "frozen_functional_inputs": 280
+  },
+  "functional_test": {
+    "passed": true,
+    "phase_seconds": 90.003279678,
+    "actual_first_skip_markers": 1,
+    "prephase_images_reviewed": 3,
+    "postphase_distinct_images_reviewed": 3,
+    "postphase_byte_identical_player_spectator_pairs": 3,
+    "native_normal_shutdown": true,
+    "own_process_identities_confirmed_gone": 12,
+    "protected_files_unchanged": 8652,
+    "frozen_functional_inputs_preserved": 280,
+    "scope": "Normal first actual skip, same stationary Saria checkpoint and decoded role pictures reviewed after shutdown. No cadence comparison, skip frequency or unique frame-rate claim."
+  },
+  "comparison_attempt": {
+    "completed_phases": 0,
+    "first_A1_excluded": true,
+    "reason": "Foreign ffmpeg process opened five GPU descriptors during A1; no origin attribution available after process exit.",
+    "observed_phase_seconds": 10.062963965,
+    "neutral_delivered": true,
+    "native_normal_shutdown": true,
+    "own_process_identities_confirmed_gone": 12,
+    "protected_files_unchanged": 8652,
+    "frozen_inputs_preserved": 281,
+    "archived_output_files": 24,
+    "ready_for_fresh_A1_through_existing_admission": true,
+    "scope": "Failed comparison phase is excluded; real F1 remains accepted. No FPS comparison or hardware ceiling established."
+  }
+}

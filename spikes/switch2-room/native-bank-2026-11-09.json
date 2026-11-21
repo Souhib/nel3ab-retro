@@ -1,0 +1,625 @@
+{
+  "date": "2026-11-09",
+  "upstream_revision": "78743f30c251f66bd77e6eea6c28d8632d642d6f",
+  "target": "30 actual regular gameplay presentations per second",
+  "installed": false,
+  "initial_prototype": {
+    "cli_sha256": "dee71a4da21b837a926352d541c0814936385643efdbb36a040f8edec3d7dca1",
+    "runs": {
+      "native-bank-pilot": {
+        "measurement": {
+          "requested_seconds": [
+            168.15948734283447,
+            255.369555
+          ],
+          "covered_seconds": 53.666399999999996,
+          "game_presentations": 1200,
+          "game_fps": 22.36035955458164,
+          "window_fps_median": 22.41811705798527,
+          "maximum_frame_ms": 99.732,
+          "frames_over_100_ms": 0,
+          "windows": [
+            {
+              "start": 179.002274,
+              "end": 207.197474,
+              "mean_us": 46992,
+              "maximum_us": 99732,
+              "freezes": 0
+            },
+            {
+              "start": 207.11547099999999,
+              "end": 232.586671,
+              "mean_us": 42452,
+              "maximum_us": 72155,
+              "freezes": 0
+            }
+          ]
+        },
+        "shutdown": {
+          "exit_code": 0,
+          "stop_requested": true,
+          "window_closed": true,
+          "forced": false,
+          "stop_seconds": 3.3054390512406826
+        },
+        "runtime": {
+          "exe_sha256": "dee71a4da21b837a926352d541c0814936385643efdbb36a040f8edec3d7dca1",
+          "mapped_radv_path": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+          "mapped_radv_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+          "packages": "libdrm-amdgpu1:amd64\t2.4.125-1ubuntu0.1~24.04.2\nlibdrm2:amd64\t2.4.125-1ubuntu0.1~24.04.2\nmesa-vulkan-drivers:amd64\t25.2.8-0ubuntu0.24.04.4\n",
+          "actual_log_filter_verified": true
+        }
+      },
+      "native-bank-control1": {
+        "measurement": {
+          "requested_seconds": [
+            154.73580536842346,
+            243.880811
+          ],
+          "covered_seconds": 50.278800000000004,
+          "game_presentations": 1200,
+          "game_fps": 23.86691806487028,
+          "window_fps_median": 23.86744569681307,
+          "maximum_frame_ms": 73.404,
+          "frames_over_100_ms": 0,
+          "windows": [
+            {
+              "start": 182.308913,
+              "end": 207.566513,
+              "mean_us": 42096,
+              "maximum_us": 73404,
+              "freezes": 0
+            },
+            {
+              "start": 207.48389400000002,
+              "end": 232.505094,
+              "mean_us": 41702,
+              "maximum_us": 70155,
+              "freezes": 0
+            }
+          ]
+        },
+        "shutdown": {
+          "exit_code": 0,
+          "stop_requested": true,
+          "window_closed": true,
+          "forced": false,
+          "stop_seconds": 3.6055351248942316
+        },
+        "runtime": {
+          "exe_sha256": "dee71a4da21b837a926352d541c0814936385643efdbb36a040f8edec3d7dca1",
+          "mapped_radv_path": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+          "mapped_radv_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+          "packages": "libdrm-amdgpu1:amd64\t2.4.125-1ubuntu0.1~24.04.2\nlibdrm2:amd64\t2.4.125-1ubuntu0.1~24.04.2\nmesa-vulkan-drivers:amd64\t25.2.8-0ubuntu0.24.04.4\n",
+          "actual_log_filter_verified": true
+        }
+      }
+    },
+    "interpretation": "Two successive phases, not an alternating comparison. No useful gain established."
+  },
+  "decision_diagnostic": {
+    "diagnostic_only": true,
+    "not_a_cadence_comparison": true,
+    "wall_start": 1794217806.4054422,
+    "wall_end": 1794217837.03737,
+    "wall_seconds": 30.6319276150316,
+    "native_epoch_bounds": [
+      1794217681.6742153,
+      1794217681.919984
+    ],
+    "bounded_snapshots": 384,
+    "first": {
+      "native": 124.790714,
+      "docker_logged_at": 1794217807.613011,
+      "counts": {
+        "calls": 240128,
+        "unchanged": 2581,
+        "gpu_written": 0,
+        "compared": 240128,
+        "resets": 4081,
+        "nonempty": 1730,
+        "create": 1782,
+        "remove": 832,
+        "clear": 1467,
+        "discard": 0,
+        "repack": 0,
+        "keys": 75
+      }
+    },
+    "last": {
+      "native": 154.997597,
+      "docker_logged_at": 1794217836.972818,
+      "counts": {
+        "calls": 338176,
+        "unchanged": 2581,
+        "gpu_written": 0,
+        "compared": 338176,
+        "resets": 4654,
+        "nonempty": 2303,
+        "create": 1784,
+        "remove": 832,
+        "clear": 2038,
+        "discard": 0,
+        "repack": 0,
+        "keys": 74
+      }
+    },
+    "delta": {
+      "calls": 98048,
+      "unchanged": 0,
+      "gpu_written": 0,
+      "compared": 98048,
+      "resets": 573,
+      "nonempty": 573,
+      "create": 2,
+      "remove": 0,
+      "clear": 571,
+      "discard": 0,
+      "repack": 0
+    },
+    "effective_skip_fraction": 0.0,
+    "gpu_guard_fraction": 0.0,
+    "shutdown": {
+      "exit_code": 0,
+      "stop_requested": true,
+      "window_closed": true,
+      "forced": false,
+      "stop_seconds": 3.0045788171701133
+    },
+    "scope": "Fullyboundedcounterintervalsduringactualworld/camera. Onlyeligiblecontiguousbankcomparisoncalls.Resetcounterscoverexplicitresourceevents,notcapacityevictions.Keysisagaugeexcludedfromcounterdelta.NoFPSclaim."
+  },
+  "range_refinement": {
+    "build": {
+      "cli_sha256": "0f4bf07feacd635683f15a6a6bb4827758d807fa31651b3dd550f135556171fd",
+      "header_sha256": "78f2e00fd07e34fe750af33d42cd45c09965bb43fae704eb32d2af5a35ff8b81",
+      "header_mtime": 1794218167.7026653,
+      "object_mtime": 1794218296.8954637,
+      "tests": [
+        {
+          "bank_compare": "0",
+          "exit": 0,
+          "started": 1794218704.5924006,
+          "finished": 1794218715.0769994
+        },
+        {
+          "bank_compare": "1",
+          "exit": 0,
+          "started": 1794218715.0770555,
+          "finished": 1794218725.7112088
+        }
+      ],
+      "range_mutants": {
+        "inclusive_end": {
+          "exit": 2,
+          "expected_exit": 2
+        },
+        "no_erase": {
+          "exit": 4,
+          "expected_exit": 4
+        },
+        "bank_start": {
+          "exit": 2,
+          "expected_exit": 2
+        }
+      }
+    },
+    "result": "Observed improvement in two alternating repetitions. Still below 30 real regular FPS. Keep prototype isolated; no installed engine change.",
+    "decision_diagnostic": {
+      "diagnostic_only": true,
+      "not_a_cadence_comparison": true,
+      "wall_start": 1794219413.3777666,
+      "wall_end": 1794219444.0249944,
+      "wall_seconds": 30.64722663536668,
+      "native_epoch_bounds": [
+        1794219319.474216,
+        1794219319.7271638
+      ],
+      "bounded_snapshots": 387,
+      "first": {
+        "native": 93.91154,
+        "docker_logged_at": 1794219413.827183,
+        "counts": {
+          "calls": 122880,
+          "unchanged": 95496,
+          "gpu_written": 0,
+          "compared": 122880,
+          "resets": 0,
+          "nonempty": 0,
+          "create": 1940,
+          "remove": 896,
+          "clear": 748,
+          "discard": 0,
+          "repack": 0,
+          "range_calls": 3584,
+          "range_removed": 178,
+          "range_preserved": 3569,
+          "capacity": 2,
+          "keys": 270
+        }
+      },
+      "last": {
+        "native": 123.722683,
+        "docker_logged_at": 1794219443.495543,
+        "counts": {
+          "calls": 221696,
+          "unchanged": 170614,
+          "gpu_written": 0,
+          "compared": 221696,
+          "resets": 0,
+          "nonempty": 0,
+          "create": 1941,
+          "remove": 896,
+          "clear": 1329,
+          "discard": 0,
+          "repack": 0,
+          "range_calls": 4166,
+          "range_removed": 178,
+          "range_preserved": 4151,
+          "capacity": 3,
+          "keys": 428
+        }
+      },
+      "delta": {
+        "calls": 98816,
+        "unchanged": 75118,
+        "gpu_written": 0,
+        "compared": 98816,
+        "resets": 0,
+        "nonempty": 0,
+        "create": 1,
+        "remove": 0,
+        "clear": 581,
+        "discard": 0,
+        "repack": 0,
+        "range_calls": 582,
+        "range_removed": 0,
+        "range_preserved": 582,
+        "capacity": 1
+      },
+      "effective_skip_fraction": 0.7601805375647669,
+      "gpu_guard_fraction": 0.0,
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 2.9042982403188944
+      },
+      "scope": "Fullyboundedcounterintervalsduringactualworld/camera. Onlyeligiblecontiguousbankcomparisoncalls.Resetcounterscoverexplicitresourceevents,notcapacityevictions.Keysisagaugeexcludedfromcounterdelta.NoFPSclaim."
+    },
+    "runs": [
+      {
+        "label": "native-bank-ranges-on1",
+        "enabled": true,
+        "measurement": {
+          "requested_seconds": [
+            110.45927200317382,
+            195.118079
+          ],
+          "covered_seconds": 49.790400000000005,
+          "game_presentations": 1200,
+          "game_fps": 24.10103152414923,
+          "window_fps_median": 24.112452103618654,
+          "maximum_frame_ms": 85.903,
+          "frames_over_100_ms": 0,
+          "windows": [
+            {
+              "start": 127.94106900000001,
+              "end": 153.378069,
+              "mean_us": 42395,
+              "maximum_us": 85903,
+              "freezes": 0
+            },
+            {
+              "start": 153.372413,
+              "end": 177.725813,
+              "mean_us": 40589,
+              "maximum_us": 70526,
+              "freezes": 0
+            }
+          ]
+        },
+        "shutdown": {
+          "exit_code": 0,
+          "stop_requested": true,
+          "window_closed": true,
+          "forced": false,
+          "stop_seconds": 2.90388409094885
+        },
+        "visual_review": {
+          "world_and_avatar_visible": true,
+          "reviewed_at": 1794219564.2538462,
+          "scene": "Link and Kokiri world visible from balcony.",
+          "range_invalidation_active": true,
+          "statistics_absent": true,
+          "phase_before_and_after_world_visible": true,
+          "ladder_visible": true,
+          "ground_walk_visible": true,
+          "movement_images_reviewed_at": 1794219726.4125981,
+          "full_world_rendering_qualified": false
+        },
+        "runtime": {
+          "exe_sha256": "0f4bf07feacd635683f15a6a6bb4827758d807fa31651b3dd550f135556171fd",
+          "mapped_radv_path": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+          "mapped_radv_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+          "packages": "libdrm-amdgpu1:amd64\t2.4.125-1ubuntu0.1~24.04.2\nlibdrm2:amd64\t2.4.125-1ubuntu0.1~24.04.2\nmesa-vulkan-drivers:amd64\t25.2.8-0ubuntu0.24.04.4\n",
+          "actual_log_filter_verified": true
+        },
+        "phase_source_start": 110.35927200317383
+      },
+      {
+        "label": "native-bank-ranges-off1-retry2",
+        "enabled": false,
+        "measurement": {
+          "requested_seconds": [
+            121.60071048736572,
+            211.184663
+          ],
+          "covered_seconds": 81.2616,
+          "game_presentations": 1800,
+          "game_fps": 22.150683717770754,
+          "window_fps_median": 23.51945058563432,
+          "maximum_frame_ms": 149.863,
+          "frames_over_100_ms": 15,
+          "windows": [
+            {
+              "start": 125.777444,
+              "end": 156.120644,
+              "mean_us": 50572,
+              "maximum_us": 120510,
+              "freezes": 14
+            },
+            {
+              "start": 156.040353,
+              "end": 181.551153,
+              "mean_us": 42518,
+              "maximum_us": 149863,
+              "freezes": 1
+            },
+            {
+              "start": 181.50922,
+              "end": 206.91682,
+              "mean_us": 42346,
+              "maximum_us": 67424,
+              "freezes": 0
+            }
+          ]
+        },
+        "shutdown": {
+          "exit_code": 0,
+          "stop_requested": true,
+          "window_closed": true,
+          "forced": false,
+          "stop_seconds": 3.6049224748276174
+        },
+        "visual_review": {
+          "world_and_avatar_visible": true,
+          "reviewed_at": 1794220250.5119915,
+          "scene": "Link and Kokiri world visible from balcony.",
+          "disabled_bank_markers_absent": true,
+          "statistics_absent": true,
+          "phase_before_and_after_world_visible": true,
+          "ladder_visible": true,
+          "ground_walk_visible": true,
+          "movement_images_reviewed_at": 1794220422.8886604
+        },
+        "runtime": {
+          "exe_sha256": "0f4bf07feacd635683f15a6a6bb4827758d807fa31651b3dd550f135556171fd",
+          "mapped_radv_path": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+          "mapped_radv_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+          "packages": "libdrm-amdgpu1:amd64\t2.4.125-1ubuntu0.1~24.04.2\nlibdrm2:amd64\t2.4.125-1ubuntu0.1~24.04.2\nmesa-vulkan-drivers:amd64\t25.2.8-0ubuntu0.24.04.4\n",
+          "actual_log_filter_verified": true
+        },
+        "phase_source_start": 121.50071048736572
+      },
+      {
+        "label": "native-bank-ranges-on2",
+        "enabled": true,
+        "measurement": {
+          "requested_seconds": [
+            128.5893729686737,
+            215.778688
+          ],
+          "covered_seconds": 49.2732,
+          "game_presentations": 1200,
+          "game_fps": 24.35400988772801,
+          "window_fps_median": 24.354015102300743,
+          "maximum_frame_ms": 70.027,
+          "frames_over_100_ms": 0,
+          "windows": [
+            {
+              "start": 156.756676,
+              "end": 181.404676,
+              "mean_us": 41080,
+              "maximum_us": 70027,
+              "freezes": 0
+            },
+            {
+              "start": 181.363973,
+              "end": 205.989173,
+              "mean_us": 41042,
+              "maximum_us": 68519,
+              "freezes": 0
+            }
+          ]
+        },
+        "shutdown": {
+          "exit_code": 0,
+          "stop_requested": true,
+          "window_closed": true,
+          "forced": false,
+          "stop_seconds": 3.0037979749031365
+        },
+        "visual_review": {
+          "world_and_avatar_visible": true,
+          "reviewed_at": 1794220536.869254,
+          "scene": "Link and Kokiri world visible from balcony.",
+          "range_invalidation_active": true,
+          "statistics_absent": true,
+          "phase_before_and_after_world_visible": true,
+          "ladder_visible": true,
+          "ground_walk_visible": true,
+          "movement_images_reviewed_at": 1794220720.9246902
+        },
+        "runtime": {
+          "exe_sha256": "0f4bf07feacd635683f15a6a6bb4827758d807fa31651b3dd550f135556171fd",
+          "mapped_radv_path": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+          "mapped_radv_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+          "packages": "libdrm-amdgpu1:amd64\t2.4.125-1ubuntu0.1~24.04.2\nlibdrm2:amd64\t2.4.125-1ubuntu0.1~24.04.2\nmesa-vulkan-drivers:amd64\t25.2.8-0ubuntu0.24.04.4\n",
+          "actual_log_filter_verified": true
+        },
+        "phase_source_start": 128.4893729686737
+      },
+      {
+        "label": "native-bank-ranges-off2",
+        "enabled": false,
+        "measurement": {
+          "requested_seconds": [
+            107.41898140907287,
+            193.40749
+          ],
+          "covered_seconds": 52.2144,
+          "game_presentations": 1200,
+          "game_fps": 22.9821658393087,
+          "window_fps_median": 22.985499323692146,
+          "maximum_frame_ms": 83.086,
+          "frames_over_100_ms": 0,
+          "windows": [
+            {
+              "start": 134.07376499999998,
+              "end": 160.495365,
+              "mean_us": 44036,
+              "maximum_us": 83086,
+              "freezes": 0
+            },
+            {
+              "start": 160.4995,
+              "end": 186.2923,
+              "mean_us": 42988,
+              "maximum_us": 74564,
+              "freezes": 0
+            }
+          ]
+        },
+        "shutdown": {
+          "exit_code": 0,
+          "stop_requested": true,
+          "window_closed": true,
+          "forced": false,
+          "stop_seconds": 2.903805620968342
+        },
+        "visual_review": {
+          "world_and_avatar_visible": true,
+          "reviewed_at": 1794220813.750993,
+          "scene": "Link and Kokiri world visible from balcony.",
+          "disabled_bank_markers_absent": true,
+          "statistics_absent": true,
+          "phase_before_and_after_world_visible": true,
+          "ladder_visible": true,
+          "ground_walk_visible": true,
+          "movement_images_reviewed_at": 1794221026.2387462
+        },
+        "runtime": {
+          "exe_sha256": "0f4bf07feacd635683f15a6a6bb4827758d807fa31651b3dd550f135556171fd",
+          "mapped_radv_path": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+          "mapped_radv_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+          "packages": "libdrm-amdgpu1:amd64\t2.4.125-1ubuntu0.1~24.04.2\nlibdrm2:amd64\t2.4.125-1ubuntu0.1~24.04.2\nmesa-vulkan-drivers:amd64\t25.2.8-0ubuntu0.24.04.4\n",
+          "actual_log_filter_verified": true
+        },
+        "phase_source_start": 107.31898140907288
+      }
+    ],
+    "pooled_enabled": {
+      "presentations": 2400,
+      "covered_seconds": 99.06360000000001,
+      "fps": 24.226860320036824,
+      "frames_over_100_ms": 0,
+      "maximum_frame_ms": 85.903
+    },
+    "pooled_disabled": {
+      "presentations": 3000,
+      "covered_seconds": 133.476,
+      "fps": 22.475950732715994,
+      "frames_over_100_ms": 15,
+      "maximum_frame_ms": 149.863
+    },
+    "observed_percent": 7.790146935907849,
+    "post_hoc_sensitivity": {
+      "on": {
+        "windows": 2,
+        "fps": 24.500496135046735,
+        "scope": "Post hoc sensitivity: only whole windows beginning >=30 seconds after camera phase source_start; does not replace primary result."
+      },
+      "off": {
+        "windows": 3,
+        "fps": 23.46463097957013,
+        "scope": "Post hoc sensitivity: only whole windows beginning >=30 seconds after camera phase source_start; does not replace primary result."
+      },
+      "observed_percent": 4.414581061933154
+    },
+    "excluded_boot": {
+      "state": {
+        "Status": "exited",
+        "Running": false,
+        "Paused": false,
+        "Restarting": false,
+        "OOMKilled": false,
+        "Dead": false,
+        "Pid": 0,
+        "ExitCode": 134,
+        "Error": "",
+        "StartedAt": "2026-11-09T10:22:06.789368665Z",
+        "FinishedAt": "2026-11-09T10:23:06.455633491Z"
+      },
+      "failure_lines": [
+        "  what():  VK_ERROR_OUT_OF_DEVICE_MEMORY"
+      ],
+      "bank_compare": "0",
+      "world_readiness_accepted": false,
+      "no_cadence_measurement": true,
+      "at": 1794219845.3529232
+    },
+    "excluded_CI_phase": {
+      "label": "native-bank-ranges-off1-retry",
+      "reason": "CI appeared during camera phase: 9 of15 low-rate samples. Entire cadence phase excluded; functional images and normal stop retained.",
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.5043318807147443
+      }
+    },
+    "limitations": [
+      "Unequal whole-window coverage and evolving private pipeline cache. One disabled round includes initial long frames.",
+      "Post hoc later-window sensitivity retains positive direction but cannot establish universal speedup or 30 FPS.",
+      "Counters quantify avoided artificial invalidations, not total physical transfer bytes avoided.",
+      "No burst-frame flashing qualification, new zone, audio or save/reload acceptance on this variant. Known NO_MESH omissions remain.",
+      "Source snapshot precedes upload; exact correspondence with destination contents under concurrent guest writes is not yet established."
+    ]
+  },
+  "excluded_diagnostic": {
+    "reason": "Diagnostic started too late for original300s game deadline;finalcapturefailedafteractualcontainerexit.Noacceptedphase/result.",
+    "state": {
+      "Status": "exited",
+      "Running": false,
+      "Paused": false,
+      "Restarting": false,
+      "OOMKilled": false,
+      "Dead": false,
+      "Pid": 0,
+      "ExitCode": 0,
+      "Error": "",
+      "StartedAt": "2026-11-09T09:40:17.582261528Z",
+      "FinishedAt": "2026-11-09T09:45:20.693786156Z"
+    },
+    "lifecycle": {
+      "exit_code": 0,
+      "stop_requested": true,
+      "window_closed": true,
+      "forced": false,
+      "stop_seconds": 2.9041830860078335
+    },
+    "at": 1794217681.159661
+  }
+}

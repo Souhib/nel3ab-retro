@@ -1,0 +1,278 @@
+{
+  "date_utc": "2026-11-10",
+  "private_report_sha256": "4ab9b862ad22dfd5fe8f9ed60fe94a57ba0df2c015d51dab69cc8dae53d1dfee",
+  "scope": "Private functional checks on65defb74 withthree pacing probes, no FPScomparison or long-walk performance claim",
+  "runs": {
+    "lichii-eviction-route1": {
+      "seconds_to_stop_request": 508.4256818294525,
+      "lifecycle": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.4059353061020374
+      },
+      "runtime": {
+        "exe_sha256": "65defb74a8cc81ae85d42c5c0e9bb9bc8a796d976f12278cb0a4fcf940834d08",
+        "mapped_radv_path": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+        "mapped_radv_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+        "packages": "libdrm-amdgpu1:amd64\t2.4.125-1ubuntu0.1~24.04.2\nlibdrm2:amd64\t2.4.125-1ubuntu0.1~24.04.2\nmesa-vulkan-drivers:amd64\t25.2.8-0ubuntu0.24.04.4\n",
+        "diagnostic_vulkan_info": true,
+        "actual_log_filter_verified": true
+      },
+      "watcher_samples": 84,
+      "interference": false,
+      "probe_marker_counts": {
+        "vi2": 1,
+        "service": 1,
+        "wsi": 1
+      },
+      "events_sha256": "1589ee69a56f29b1eab3109f1824c9993916ceaf1fe50cac6090d45dfb04c6a7",
+      "observed_marks": [
+        {
+          "kind": "mark",
+          "name": "ground-qualified",
+          "monotonic_ns": 2292884422728144,
+          "description": "Feet on terrain below ladder; no ladder prompt; ladder behind Link"
+        },
+        {
+          "kind": "mark",
+          "name": "dialogue-saria",
+          "monotonic_ns": 2292925426820684,
+          "description": "Automatic Saria conversation interrupted movement; excluded from sustained walking"
+        },
+        {
+          "kind": "mark",
+          "name": "gameplay-resumed",
+          "monotonic_ns": 2293092735692131,
+          "description": "Saria dialogue ended; A Talk prompt, normal HUD and free movement restored"
+        },
+        {
+          "kind": "mark",
+          "name": "threshold-interior",
+          "monotonic_ns": 2293141298475869,
+          "description": "Crossed visible doorway; furnished enclosed room now visible, no new location title observed"
+        }
+      ],
+      "longest_left_stick_command_seconds": 5.02163852,
+      "qualified_sustained_walking_windows600": 0,
+      "evictions": [
+        {
+          "prefix_seconds": 344.200234,
+          "evicted": 17,
+          "remaining": 1783
+        },
+        {
+          "prefix_seconds": 364.460068,
+          "evicted": 134,
+          "remaining": 1653
+        },
+        {
+          "prefix_seconds": 384.448743,
+          "evicted": 4,
+          "remaining": 1651
+        },
+        {
+          "prefix_seconds": 424.446162,
+          "evicted": 39,
+          "remaining": 1612
+        },
+        {
+          "prefix_seconds": 445.539465,
+          "evicted": 13,
+          "remaining": 1615
+        },
+        {
+          "prefix_seconds": 466.417944,
+          "evicted": 16,
+          "remaining": 1599
+        },
+        {
+          "prefix_seconds": 487.271541,
+          "evicted": 10,
+          "remaining": 1597
+        },
+        {
+          "prefix_seconds": 507.27409,
+          "evicted": 4,
+          "remaining": 1593
+        }
+      ],
+      "evicted_total": 237,
+      "warn_kept_pointer_lines": 0,
+      "console_sha256": "6c128e2fd53ef6166f9805af8bb61cc0a8a580c2c1b9a40165dc15f71303ffa2"
+    },
+    "lichii-eviction-route2-resume": {
+      "seconds_to_stop_request": 431.32984948158264,
+      "lifecycle": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.1056018620729446
+      },
+      "runtime": {
+        "exe_sha256": "65defb74a8cc81ae85d42c5c0e9bb9bc8a796d976f12278cb0a4fcf940834d08",
+        "mapped_radv_path": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+        "mapped_radv_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+        "packages": "libdrm-amdgpu1:amd64\t2.4.125-1ubuntu0.1~24.04.2\nlibdrm2:amd64\t2.4.125-1ubuntu0.1~24.04.2\nmesa-vulkan-drivers:amd64\t25.2.8-0ubuntu0.24.04.4\n",
+        "diagnostic_vulkan_info": true,
+        "actual_log_filter_verified": true
+      },
+      "watcher_samples": 71,
+      "interference": false,
+      "probe_marker_counts": {
+        "vi2": 1,
+        "service": 1,
+        "wsi": 1
+      },
+      "events_sha256": "db17d8c1939438b44a5827f697720e28bc213a0273b69beae642fe1fb693080a",
+      "observed_marks": [
+        {
+          "kind": "mark",
+          "name": "actual-resume",
+          "monotonic_ns": 2293395940540994,
+          "description": "Kokiri ground beside Saria after dialogue, not original ladder platform and not final interior position"
+        },
+        {
+          "kind": "mark",
+          "name": "manual-save-confirmed",
+          "monotonic_ns": 2293523094816893,
+          "description": "Load list shows01:51 manual save with no Autosave badge above01:44 Autosave;3hearts, Kokiri"
+        },
+        {
+          "kind": "mark",
+          "name": "interior-route2",
+          "monotonic_ns": 2293708779783857,
+          "description": "Enclosed room and furnishings visible again after threshold"
+        },
+        {
+          "kind": "mark",
+          "name": "exterior-return-qualified",
+          "monotonic_ns": 2293748194388482,
+          "description": "Visible village/PNJ and ground outside doorway after enclosed room; no named zone transition"
+        }
+      ],
+      "longest_left_stick_command_seconds": 6.005700158,
+      "qualified_sustained_walking_windows600": 0,
+      "evictions": [
+        {
+          "prefix_seconds": 341.528242,
+          "evicted": 17,
+          "remaining": 1866
+        },
+        {
+          "prefix_seconds": 361.564069,
+          "evicted": 144,
+          "remaining": 1722
+        },
+        {
+          "prefix_seconds": 381.557935,
+          "evicted": 9,
+          "remaining": 1715
+        },
+        {
+          "prefix_seconds": 421.564602,
+          "evicted": 1,
+          "remaining": 1714
+        }
+      ],
+      "evicted_total": 171,
+      "warn_kept_pointer_lines": 0,
+      "console_sha256": "42a553cf5be497f011a76b8573155ba44d5f01bf24290507018016ab097aa2b4"
+    },
+    "lichii-eviction-route3-manual-resume": {
+      "seconds_to_stop_request": 203.88477540016174,
+      "lifecycle": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.604327078908682
+      },
+      "runtime": {
+        "exe_sha256": "65defb74a8cc81ae85d42c5c0e9bb9bc8a796d976f12278cb0a4fcf940834d08",
+        "mapped_radv_path": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+        "mapped_radv_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+        "packages": "libdrm-amdgpu1:amd64\t2.4.125-1ubuntu0.1~24.04.2\nlibdrm2:amd64\t2.4.125-1ubuntu0.1~24.04.2\nmesa-vulkan-drivers:amd64\t25.2.8-0ubuntu0.24.04.4\n",
+        "diagnostic_vulkan_info": true,
+        "actual_log_filter_verified": true
+      },
+      "watcher_samples": 33,
+      "interference": false,
+      "probe_marker_counts": {
+        "vi2": 1,
+        "service": 1,
+        "wsi": 1
+      },
+      "events_sha256": "a6b4618adc3f62df4044cb441197a1d9d20714e95ba1dbf1d3371d4dd1c7190e",
+      "observed_marks": [
+        {
+          "kind": "mark",
+          "name": "manual-load-requested",
+          "monotonic_ns": 2293910097689007,
+          "description": "Explicit01:51 manual row selected; Load confirmation chosen, no Autosave selection"
+        },
+        {
+          "kind": "mark",
+          "name": "manual-state-restored",
+          "monotonic_ns": 2293944956988988,
+          "description": "After explicit Load01:51: Kokiri ground next to Saria,3hearts and completed story dialogue; same visible checkpoint"
+        }
+      ],
+      "longest_left_stick_command_seconds": 2.019278895,
+      "qualified_sustained_walking_windows600": 0,
+      "evictions": [],
+      "evicted_total": 0,
+      "warn_kept_pointer_lines": 0,
+      "console_sha256": "eeb7c6805ccc488a6309fce399a4b88f17bab61461aa4427fd78fd550f53acf0"
+    }
+  },
+  "proven": [
+    "Ladder descent to real ground",
+    "Short manual movement in Kokiri; Saria dialogue completed",
+    "Physical furnished room entered, exterior return observed inroute2",
+    "Manual01:51save visiblydistinct fromAutosave; entrypersistedthroughactualstop/restart and was explicitlyselected/loaded; samevisiblelocation/3hearts, controlsfunctional",
+    "Actual pipeline evictions after9000-age-frame eligibility:237 onroute1,171 onroute2; codecompiledretention proven separately",
+    "All3sessions normalexit0, no concurrentCPUinterference; threeprobeactivationmarkers exactlyonceeach"
+  ],
+  "not_proven": [
+    "No90scontinuous walking period: longest left-stickcommand6.006s, withobservation/menu/dialogue/collisiongaps. No600intervalwindowwhollywalking.",
+    "No new named zone; roomsremaininKokiriForest, physicallydifferentinterior/exterior demonstrated only.",
+    "No localnull-retentionevent or GPUcorruption reproduced: noWarnKeptPointer lines. Evictioncounts alone do not prove a key was retranslated withbad pointers.",
+    "No absolute simulation-speed, audio/video sync, cinema60, distinctpicture/scanout or constant30FPSqualification.",
+    "No benchmark causalcomparison; menu/dialogue/observation periods mustnotbe presentedaswalking."
+  ],
+  "cleanup": {
+    "at": 1794276006.2111511,
+    "own_game_absent": true,
+    "own_helper_removed": true,
+    "old_devices_absent": [
+      "/dev/input/event8",
+      "/dev/input/event9",
+      "/dev/input/event10",
+      "/dev/input/event11"
+    ],
+    "matching_names_remaining": [],
+    "observer": "active",
+    "production_config_unchanged": true,
+    "eight_progressions_unchanged": true,
+    "gpu_policies": {
+      "/sys/class/drm/card0/device/power_dpm_force_performance_level": "auto"
+    },
+    "gpu_power_caps_micro_watts": [
+      150000000
+    ]
+  },
+  "independent_root_review": {
+    "raw_console_and_event_hashes_checked": true,
+    "raw_eviction_totals_checked": [
+      237,
+      171,
+      0
+    ],
+    "manual_load_list_selected_entry_restored_scene_and_interior_exterior_images_read": true,
+    "no_pure_walking_fps_or_quantile_claim": true
+  },
+  "next": "Preparededicated90scontinuousobservedgroundmovement from01:51manual checkpoint; no launchbeforeparentgreen"
+}

@@ -1,0 +1,256 @@
+{
+  "date": "2026-11-08",
+  "scope": "Two alternating rounds on the same Kokiri balcony save, same graphics and camera sweeps, frame generation off. No claim about a full playthrough or new-zone stalls. Bounds corrected before comparison; old report windows rechecked.",
+  "pooled_game_fps": {
+    "eglantine-standard": 22.966199495891924,
+    "eglantine-exp-pgo": 23.900002390000243
+  },
+  "improvement_percent": 4.0659879065988,
+  "phases": [
+    {
+      "version": "eglantine-standard",
+      "round": 1,
+      "measurement": {
+        "requested_seconds": [
+          77.3686990737915,
+          166.434264
+        ],
+        "covered_seconds": 51.682199999999995,
+        "game_presentations": 1200,
+        "game_fps": 23.218825823978083,
+        "window_fps_median": 23.21897048129156,
+        "maximum_frame_ms": 80.371,
+        "frames_over_100_ms": 0,
+        "windows": [
+          {
+            "start": 104.00962800000002,
+            "end": 129.915228,
+            "mean_us": 43176,
+            "maximum_us": 80371,
+            "freezes": 0
+          },
+          {
+            "start": 129.872933,
+            "end": 155.649533,
+            "mean_us": 42961,
+            "maximum_us": 74404,
+            "freezes": 0
+          }
+        ]
+      },
+      "bounds": {
+        "method": "Conservative lower bound from original phase metadata mtime minus measured duration minus Docker StartedAt; upper bound is a logger event read before the end.",
+        "phase_metadata_original_mtime_ns": 1794103664908904010,
+        "wall_start_upper_bound_unix": 1794103574.479036,
+        "container_started_at": "2026-11-08T02:04:57.110337973Z",
+        "source_start": 77.3686990737915,
+        "source_end": 166.434264,
+        "old_source_start": 76.751132
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 2.6033327342011034
+      }
+    },
+    {
+      "version": "eglantine-exp-pgo",
+      "round": 1,
+      "measurement": {
+        "requested_seconds": [
+          85.57671165466309,
+          170.905041
+        ],
+        "covered_seconds": 50.187,
+        "game_presentations": 1200,
+        "game_fps": 23.9105744515512,
+        "window_fps_median": 23.91059687386799,
+        "maximum_frame_ms": 77.866,
+        "frames_over_100_ms": 0,
+        "windows": [
+          {
+            "start": 110.869439,
+            "end": 135.938639,
+            "mean_us": 41782,
+            "maximum_us": 72576,
+            "freezes": 0
+          },
+          {
+            "start": 135.94463100000002,
+            "end": 161.062431,
+            "mean_us": 41863,
+            "maximum_us": 77866,
+            "freezes": 0
+          }
+        ]
+      },
+      "bounds": {
+        "method": "Conservative lower bound from original phase metadata mtime minus measured duration minus Docker StartedAt; upper bound is a logger event read before the end.",
+        "phase_metadata_original_mtime_ns": 1794103844308547907,
+        "wall_start_upper_bound_unix": 1794103754.0096986,
+        "container_started_at": "2026-11-08T02:07:48.432987602Z",
+        "source_start": 85.57671165466309,
+        "source_end": 170.905041,
+        "old_source_start": 83.394813
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.904853507876396
+      }
+    },
+    {
+      "version": "eglantine-standard",
+      "round": 2,
+      "measurement": {
+        "requested_seconds": [
+          77.77542448043823,
+          161.646545
+        ],
+        "covered_seconds": 52.819199999999995,
+        "game_presentations": 1200,
+        "game_fps": 22.71901126862959,
+        "window_fps_median": 22.719234590225437,
+        "maximum_frame_ms": 170.757,
+        "frames_over_100_ms": 1,
+        "windows": [
+          {
+            "start": 105.98473100000001,
+            "end": 132.477131,
+            "mean_us": 44154,
+            "maximum_us": 76466,
+            "freezes": 0
+          },
+          {
+            "start": 132.433956,
+            "end": 158.760756,
+            "mean_us": 43878,
+            "maximum_us": 170757,
+            "freezes": 1
+          }
+        ]
+      },
+      "bounds": {
+        "method": "Conservative lower bound from original phase metadata mtime minus measured duration minus Docker StartedAt; upper bound is a logger event read before the end.",
+        "phase_metadata_original_mtime_ns": 1794104017414098092,
+        "wall_start_upper_bound_unix": 1794103926.8979354,
+        "container_started_at": "2026-11-08T02:10:49.12251122Z",
+        "source_start": 77.77542448043823,
+        "source_end": 161.646545,
+        "old_source_start": 70.75896399999999
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.304182071238756
+      }
+    },
+    {
+      "version": "eglantine-exp-pgo",
+      "round": 2,
+      "measurement": {
+        "requested_seconds": [
+          75.21851468086243,
+          159.711602
+        ],
+        "covered_seconds": 50.2314,
+        "game_presentations": 1200,
+        "game_fps": 23.889439673192467,
+        "window_fps_median": 23.890315845950113,
+        "maximum_frame_ms": 85.545,
+        "frames_over_100_ms": 0,
+        "windows": [
+          {
+            "start": 102.587103,
+            "end": 127.550703,
+            "mean_us": 41606,
+            "maximum_us": 85545,
+            "freezes": 0
+          },
+          {
+            "start": 127.466531,
+            "end": 152.734331,
+            "mean_us": 42113,
+            "maximum_us": 75911,
+            "freezes": 0
+          }
+        ]
+      },
+      "bounds": {
+        "method": "Conservative lower bound from original phase metadata mtime minus measured duration minus Docker StartedAt; upper bound is a logger event read before the end.",
+        "phase_metadata_original_mtime_ns": 1794104187223906884,
+        "wall_start_upper_bound_unix": 1794104096.8813846,
+        "container_started_at": "2026-11-08T02:13:41.662870121Z",
+        "source_start": 75.21851468086243,
+        "source_end": 159.711602,
+        "old_source_start": 72.54853999999999
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.104227051138878
+      }
+    }
+  ],
+  "previous_pgo_report_recheck": [
+    {
+      "phase": "compare-1-eglantine-pgo",
+      "prior_windows_remain_valid": true
+    },
+    {
+      "phase": "compare-1-eglantine-standard",
+      "prior_windows_remain_valid": true
+    },
+    {
+      "phase": "compare-2-eglantine-pgo",
+      "prior_windows_remain_valid": true
+    },
+    {
+      "phase": "compare-2-eglantine-standard",
+      "prior_windows_remain_valid": true
+    }
+  ],
+  "releases": [
+    {
+      "name": "eglantine-exp-pgo",
+      "repository": "Djihads80/Eglantine",
+      "tag": "branch-nx2-experimental-efb9fb18",
+      "source_commit": "eab2c2246df988c0086c3f53297804f1d8590d5d",
+      "published": "2026-11-07T23:34:33Z",
+      "asset": "eglantine-linux-x86_64-pgo.AppImage",
+      "url": "https://github.com/Djihads80/Eglantine/releases/download/branch-nx2-experimental-efb9fb18/eglantine-linux-x86_64-pgo.AppImage",
+      "size": 139131384,
+      "digest": "sha256:5106367e26c1656ee5d2998dc9a8eb2aafe1db47dec6bc2172a676bdccc46505"
+    },
+    {
+      "name": "eglantine-exp-standard",
+      "repository": "Djihads80/Eglantine",
+      "tag": "branch-nx2-experimental-efb9fb18",
+      "source_commit": "eab2c2246df988c0086c3f53297804f1d8590d5d",
+      "published": "2026-11-07T23:34:33Z",
+      "asset": "eglantine-linux-x86_64.AppImage",
+      "url": "https://github.com/Djihads80/Eglantine/releases/download/branch-nx2-experimental-efb9fb18/eglantine-linux-x86_64.AppImage",
+      "size": 109677048,
+      "digest": "sha256:0b84307be8c4a52f4c4cce866784642718daaec73c103d9d078d3f9b42b6dd92"
+    },
+    {
+      "name": "orchid-standard",
+      "repository": "MythosOfs/Orchid",
+      "tag": "v0.9.0",
+      "source_commit": "e420cf2bea784f7247246973c104cd67392aa2b9",
+      "published": "2026-11-06T22:50:42Z",
+      "asset": "orchid-v0.9.0-linux-x86_64.AppImage",
+      "url": "https://github.com/MythosOfs/Orchid/releases/download/v0.9.0/orchid-v0.9.0-linux-x86_64.AppImage",
+      "size": 109713912,
+      "digest": "sha256:40414fb06092ce91e7106e5d863d7d556735a97417b46a752caf3455d1bfbc11"
+    }
+  ]
+}

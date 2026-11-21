@@ -1,0 +1,88 @@
+{
+  "date": "2026-11-09",
+  "prototype": "existing host Upload pool for BufferCache staging, defaultoff",
+  "build": {
+    "cli_sha256": "f7f9eb6f39feab4737febf5905089630dc962a255a03ececda134e572ce75b1f",
+    "build_started_unix": 1794211134.6596994,
+    "rebuilt_objects": {
+      "renderer_vulkan/vk_staging_buffer_pool.cpp": 1794211182.3140202,
+      "renderer_vulkan/vk_buffer_cache.cpp": 1794211170.1519985,
+      "vulkan_common/vulkan_memory_allocator.cpp": 1794211188.6870315
+    },
+    "tests_flags": [
+      "0",
+      "1"
+    ],
+    "tests_pass": true,
+    "source_patch_sha256": "718ab4a7a0faf80409d6deb8ff7af628c70364022b25eaf0e79013d400d16d1f"
+  },
+  "tests": {
+    "each_flag_passed": 239,
+    "network_skipped": 4,
+    "flags": [
+      "0",
+      "1"
+    ]
+  },
+  "runtime": {
+    "exe_sha256": "f7f9eb6f39feab4737febf5905089630dc962a255a03ececda134e572ce75b1f",
+    "mapped_radv_path": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+    "mapped_radv_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+    "packages": "libdrm-amdgpu1:amd64\t2.4.125-1ubuntu0.1~24.04.2\nlibdrm2:amd64\t2.4.125-1ubuntu0.1~24.04.2\nmesa-vulkan-drivers:amd64\t25.2.8-0ubuntu0.24.04.4\n",
+    "actual_log_filter_verified": true
+  },
+  "memory_proof": {
+    "original_ring_memory_type": 3,
+    "original_ring_property_flags": "0x7",
+    "host_upload_memory_type": 2,
+    "host_upload_property_flags": "0x6",
+    "device_local_removed": true,
+    "captured_at": 1794211587.9829068
+  },
+  "measurement": {
+    "requested_seconds": [
+      113.36462936401367,
+      198.027053
+    ],
+    "covered_seconds": 53.3946,
+    "game_presentations": 1200,
+    "game_fps": 22.474182782528572,
+    "window_fps_median": 22.500873986931722,
+    "maximum_frame_ms": 92.697,
+    "frames_over_100_ms": 0,
+    "windows": [
+      {
+        "start": 126.951501,
+        "end": 154.568301,
+        "mean_us": 46028,
+        "maximum_us": 92697,
+        "freezes": 0
+      },
+      {
+        "start": 154.52603,
+        "end": 180.30383,
+        "mean_us": 42963,
+        "maximum_us": 77861,
+        "freezes": 0
+      }
+    ]
+  },
+  "shutdown": {
+    "exit_code": 0,
+    "stop_requested": true,
+    "window_closed": true,
+    "forced": false,
+    "stop_seconds": 2.9041978479363024
+  },
+  "visual_review": {
+    "world_and_avatar_visible": true,
+    "reviewed_at": 1794211587.9505568,
+    "location_text": "Kokiri Forest",
+    "observation": "Link visible on balcony; world rendered.",
+    "after_phase_world_and_avatar_visible": true,
+    "actual_ladder_descent_and_ground_walk_reviewed": true,
+    "zone_change_proven": false
+  },
+  "limits": "Singlepilot,notalternatingcomparison;22.474FPS,nogaincausalclaim,no30. Sourcechangesstagingmemoryandallocationtopology;doesnotruleoutanindependenthostring. Nozone/save/audioqualification. No installation.",
+  "next": "Independenthostuploadring,usingunchangedretirementalgorithm,separatedfromdirectuniform/indexstream."
+}

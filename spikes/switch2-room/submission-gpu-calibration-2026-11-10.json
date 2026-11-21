@@ -1,0 +1,4009 @@
+{
+  "created_unix": 1794340291.248144,
+  "experiment": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/submission65-overhead-static-20261110",
+  "order": [
+    "A1",
+    "B1",
+    "A2",
+    "B2"
+  ],
+  "planned_order": [
+    "A1",
+    "B1",
+    "A2",
+    "B2"
+  ],
+  "comparative_claim_allowed": true,
+  "status": "Four phases completed",
+  "factor": "Same ELF be3c43fb and identical enabled manual policy; A leaves capture unarmed, B arms timestamp capture after phase begins. All clients receive raw media without local decode/playback.",
+  "results": {
+    "A1": {
+      "probe": {
+        "active": false,
+        "captures": [],
+        "outside_phase": [],
+        "capture_files": 0,
+        "scope": "Same compiled manual-enabled probe in both conditions; capture activation overhead only. Intervals overlap and are not exclusive occupancy."
+      },
+      "label": "A1",
+      "room": "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS",
+      "phase_seconds": 90.004953104,
+      "bounds_ns": [
+        2357376779583161,
+        2357466784536265
+      ],
+      "direction_transitions": 0,
+      "midpoint_capture_seconds": 0.003074128,
+      "wsi": {
+        "complete_windows": 4,
+        "intervals": 2400,
+        "covered_seconds": 82.995882426,
+        "rate_per_second": 28.91709720828458,
+        "p99_each_ms": [
+          43.80396,
+          42.648933,
+          43.353856,
+          42.34835
+        ],
+        "max_ms": 55.877154,
+        "over_100_ms": 0,
+        "over_33_333333_ms": 1535,
+        "uncovered_seconds": 7.009070678,
+        "windows": [
+          {
+            "intervals": 600,
+            "sum_ns": 20942287205,
+            "begin_ns": 2357380794805501,
+            "end_ns": 2357401737092706,
+            "p50_ns": 33441818,
+            "p95_ns": 40569341,
+            "p99_ns": 43803960,
+            "max_ns": 45137923,
+            "over30": 411,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 3601,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20588937399,
+            "begin_ns": 2357401737092706,
+            "end_ns": 2357422326030105,
+            "p50_ns": 33363981,
+            "p95_ns": 39366785,
+            "p99_ns": 42648933,
+            "max_ns": 46203403,
+            "over30": 361,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 4201,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": true
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20854858451,
+            "begin_ns": 2357422326030105,
+            "end_ns": 2357443180888556,
+            "p50_ns": 33428823,
+            "p95_ns": 40496705,
+            "p99_ns": 43353856,
+            "max_ns": 55877154,
+            "over30": 393,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 4801,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20609799371,
+            "begin_ns": 2357443180888556,
+            "end_ns": 2357463790687927,
+            "p50_ns": 33365013,
+            "p95_ns": 39253772,
+            "p99_ns": 42348350,
+            "max_ns": 45843517,
+            "over30": 370,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 5401,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          }
+        ]
+      },
+      "vi2": {
+        "complete_windows": 4,
+        "intervals": 2400,
+        "covered_seconds": 82.996301752,
+        "rate_per_second": 28.91695110911573,
+        "p99_each_ms": [
+          44.444633,
+          43.659038,
+          43.900762,
+          42.915904
+        ],
+        "max_ms": 52.599042,
+        "over_100_ms": 0,
+        "over_33_333333_ms": 1250,
+        "uncovered_seconds": 7.008651352,
+        "windows": [
+          {
+            "intervals": 600,
+            "sum_ns": 20943051880,
+            "p50_ns": 33791804,
+            "p95_ns": 41713769,
+            "p99_ns": 44444633,
+            "max_ns": 49810681,
+            "over30": 344,
+            "over100": 0,
+            "begin_ns": 2357380723570742,
+            "end_ns": 2357401666622622,
+            "legacy_same_window": {
+              "mean_frame_us": 34904,
+              "max_frame_us": 49810,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 9,
+              "mean_composite_us": 25,
+              "mean_pacing_us": 277,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20587867440,
+            "p50_ns": 33205574,
+            "p95_ns": 40560053,
+            "p99_ns": 43659038,
+            "max_ns": 49665238,
+            "over30": 288,
+            "over100": 0,
+            "begin_ns": 2357401666622622,
+            "end_ns": 2357422254490062,
+            "legacy_same_window": {
+              "mean_frame_us": 34312,
+              "max_frame_us": 49665,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 13,
+              "mean_composite_us": 25,
+              "mean_pacing_us": 290,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20846215795,
+            "p50_ns": 33665738,
+            "p95_ns": 41242163,
+            "p99_ns": 43900762,
+            "max_ns": 50255275,
+            "over30": 330,
+            "over100": 0,
+            "begin_ns": 2357422254490062,
+            "end_ns": 2357443100705857,
+            "legacy_same_window": {
+              "mean_frame_us": 34743,
+              "max_frame_us": 50255,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 9,
+              "mean_composite_us": 25,
+              "mean_pacing_us": 324,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20619166637,
+            "p50_ns": 33249988,
+            "p95_ns": 40140797,
+            "p99_ns": 42915904,
+            "max_ns": 52599042,
+            "over30": 288,
+            "over100": 0,
+            "begin_ns": 2357443100705857,
+            "end_ns": 2357463719872494,
+            "legacy_same_window": {
+              "mean_frame_us": 34364,
+              "max_frame_us": 52599,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 9,
+              "mean_composite_us": 25,
+              "mean_pacing_us": 520,
+              "ran_ahead": 600
+            }
+          }
+        ]
+      },
+      "media_mode": "B",
+      "browser_deltas": {
+        "player": {
+          "painted": 0,
+          "shown": 0,
+          "stalls": 0,
+          "restarts": 0,
+          "undecoded": 0,
+          "soundPlayed": 0,
+          "soundGaps": 0,
+          "attempts": 23961,
+          "received_pictures": 2617,
+          "decoder_calls": 0,
+          "decoder_output": 0
+        },
+        "spectator": {
+          "painted": 0,
+          "shown": 0,
+          "stalls": 0,
+          "restarts": 0,
+          "undecoded": 0,
+          "soundPlayed": 0,
+          "soundGaps": 0,
+          "attempts": 0,
+          "received_pictures": 2618,
+          "decoder_calls": 0,
+          "decoder_output": 0
+        }
+      },
+      "signal_deltas": {
+        "player": {
+          "packets": 9018,
+          "samples": 8657280,
+          "nonzero": 8641237,
+          "invalid": 0
+        },
+        "spectator": {
+          "packets": 9019,
+          "samples": 8658240,
+          "nonzero": 8642197,
+          "invalid": 0
+        }
+      },
+      "local_browser_CPU": {
+        "percent_one_logical_CPU": 52.108627051750894,
+        "entered_pid_start": [],
+        "exited_pid_start": [],
+        "endpoint_seconds": 90.081053092
+      },
+      "affinity_before": {
+        "2720653": {
+          "name": "CPUCore_0",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2720654": {
+          "name": "CPUCore_1",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2720655": {
+          "name": "CPUCore_2",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2720656": {
+          "name": "CPUCore_3",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2720657": {
+          "name": "CPUCore_4",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2720658": {
+          "name": "CPUCore_5",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2720659": {
+          "name": "GPU",
+          "cpus": [
+            1,
+            7
+          ]
+        },
+        "2720870": {
+          "name": "GPUBack",
+          "cpus": [
+            2,
+            8
+          ]
+        }
+      },
+      "affinity_after": {
+        "2720653": {
+          "name": "CPUCore_0",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2720654": {
+          "name": "CPUCore_1",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2720655": {
+          "name": "CPUCore_2",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2720656": {
+          "name": "CPUCore_3",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2720657": {
+          "name": "CPUCore_4",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2720658": {
+          "name": "CPUCore_5",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2720659": {
+          "name": "GPU",
+          "cpus": [
+            1,
+            7
+          ]
+        },
+        "2720870": {
+          "name": "GPUBack",
+          "cpus": [
+            2,
+            8
+          ]
+        }
+      },
+      "gpu_observations": {
+        "phase_observations": 14,
+        "all_room_observations": 33,
+        "foreign_clients_observed": false,
+        "driver_stats_read": false,
+        "first_phase_observation_offset_s": 1.764668782,
+        "last_phase_observation_to_end_s": 3.72015806,
+        "maximum_observed_gap_s": 6.541393525,
+        "scan_CPU_each_ms": [
+          173.631674,
+          170.625515,
+          186.668258,
+          173.923992,
+          176.396961,
+          175.939583,
+          173.469719,
+          173.157024,
+          174.305716,
+          168.56068,
+          171.605041,
+          182.199765,
+          174.478863,
+          179.2276
+        ],
+        "scope": "Periodic presence observations; work entirely between scans remains unobserved. CPU time excludes Python/sudo startup and ownership analysis; not in-game overhead qualification."
+      },
+      "memory_endpoints": {
+        "before": {
+          "VmHWM": "11293392 kB",
+          "VmRSS": "11293392 kB",
+          "RssAnon": "3067000 kB",
+          "RssFile": "116244 kB",
+          "RssShmem": "8110148 kB"
+        },
+        "after": {
+          "VmHWM": "12010364 kB",
+          "VmRSS": "12010364 kB",
+          "RssAnon": "3118568 kB",
+          "RssFile": "116244 kB",
+          "RssShmem": "8775552 kB"
+        }
+      },
+      "visual_review": {
+        "root": "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS",
+        "scene_valid": true,
+        "all_images_actually_read": true,
+        "images": [
+          "encoded/player-before.png",
+          "encoded/player-middle.png",
+          "encoded/player-after.png"
+        ],
+        "spectator_same_encoded_bytes_verified": true,
+        "observation": "Same fixed Kokiri camera and ground position near Saria at all three observed instants. Hearts and map visible; ambient particles/idle animations vary. No blocking menu, dialogue, loading or different scene observed. Sparse snapshots do not prove every intermediate picture.",
+        "at": 1794339564.500183
+      },
+      "native_normal_cleanup": true
+    },
+    "B1": {
+      "probe": {
+        "active": true,
+        "captures": [
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-0.csv",
+            "frame": 0,
+            "submissions": 75,
+            "intervals": 150,
+            "host_bounds_ns": [
+              2357645032494707,
+              2357645104502657
+            ],
+            "GPU_span_ms": 37.79102,
+            "GPU_interval_union_ms": 22.24708,
+            "execution_interval_sum_ms": 21.80604,
+            "upload_interval_sum_ms": 0.44104,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-1.csv",
+            "frame": 60,
+            "submissions": 55,
+            "intervals": 110,
+            "host_bounds_ns": [
+              2357647119947537,
+              2357647191546650
+            ],
+            "GPU_span_ms": 37.74557,
+            "GPU_interval_union_ms": 23.20352,
+            "execution_interval_sum_ms": 22.88608,
+            "upload_interval_sum_ms": 0.31744,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-10.csv",
+            "frame": 600,
+            "submissions": 78,
+            "intervals": 156,
+            "host_bounds_ns": [
+              2357666082486913,
+              2357666157723963
+            ],
+            "GPU_span_ms": 42.48882,
+            "GPU_interval_union_ms": 23.674,
+            "execution_interval_sum_ms": 23.20384,
+            "upload_interval_sum_ms": 0.47016,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-11.csv",
+            "frame": 660,
+            "submissions": 57,
+            "intervals": 114,
+            "host_bounds_ns": [
+              2357668337235747,
+              2357668417598735
+            ],
+            "GPU_span_ms": 46.68259,
+            "GPU_interval_union_ms": 27.36952,
+            "execution_interval_sum_ms": 26.96344,
+            "upload_interval_sum_ms": 0.40608,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-12.csv",
+            "frame": 720,
+            "submissions": 77,
+            "intervals": 154,
+            "host_bounds_ns": [
+              2357670485659731,
+              2357670557643947
+            ],
+            "GPU_span_ms": 39.56422,
+            "GPU_interval_union_ms": 22.21596,
+            "execution_interval_sum_ms": 21.75148,
+            "upload_interval_sum_ms": 0.46448,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-13.csv",
+            "frame": 780,
+            "submissions": 53,
+            "intervals": 106,
+            "host_bounds_ns": [
+              2357672564363867,
+              2357672629781332
+            ],
+            "GPU_span_ms": 31.8757,
+            "GPU_interval_union_ms": 20.28316,
+            "execution_interval_sum_ms": 19.97932,
+            "upload_interval_sum_ms": 0.30384,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-14.csv",
+            "frame": 840,
+            "submissions": 80,
+            "intervals": 160,
+            "host_bounds_ns": [
+              2357674759478438,
+              2357674835360188
+            ],
+            "GPU_span_ms": 38.63354,
+            "GPU_interval_union_ms": 23.56228,
+            "execution_interval_sum_ms": 23.07592,
+            "upload_interval_sum_ms": 0.48636,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-15.csv",
+            "frame": 900,
+            "submissions": 52,
+            "intervals": 104,
+            "host_bounds_ns": [
+              2357676840664051,
+              2357676909504599
+            ],
+            "GPU_span_ms": 34.98373,
+            "GPU_interval_union_ms": 21.86684,
+            "execution_interval_sum_ms": 21.56516,
+            "upload_interval_sum_ms": 0.30168,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-16.csv",
+            "frame": 960,
+            "submissions": 71,
+            "intervals": 142,
+            "host_bounds_ns": [
+              2357678914897389,
+              2357678987484767
+            ],
+            "GPU_span_ms": 38.04992,
+            "GPU_interval_union_ms": 23.17636,
+            "execution_interval_sum_ms": 22.7534,
+            "upload_interval_sum_ms": 0.42296,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-17.csv",
+            "frame": 1020,
+            "submissions": 56,
+            "intervals": 112,
+            "host_bounds_ns": [
+              2357681021893090,
+              2357681094358279
+            ],
+            "GPU_span_ms": 40.09443,
+            "GPU_interval_union_ms": 24.15968,
+            "execution_interval_sum_ms": 23.79944,
+            "upload_interval_sum_ms": 0.36024,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-18.csv",
+            "frame": 1080,
+            "submissions": 78,
+            "intervals": 156,
+            "host_bounds_ns": [
+              2357683097880069,
+              2357683178124364
+            ],
+            "GPU_span_ms": 41.92008,
+            "GPU_interval_union_ms": 24.86228,
+            "execution_interval_sum_ms": 24.38032,
+            "upload_interval_sum_ms": 0.48196,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-19.csv",
+            "frame": 1140,
+            "submissions": 53,
+            "intervals": 106,
+            "host_bounds_ns": [
+              2357685190539190,
+              2357685255351299
+            ],
+            "GPU_span_ms": 30.55188,
+            "GPU_interval_union_ms": 21.674,
+            "execution_interval_sum_ms": 21.37312,
+            "upload_interval_sum_ms": 0.30088,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-2.csv",
+            "frame": 120,
+            "submissions": 68,
+            "intervals": 136,
+            "host_bounds_ns": [
+              2357649238598816,
+              2357649314687724
+            ],
+            "GPU_span_ms": 39.96513,
+            "GPU_interval_union_ms": 24.1894,
+            "execution_interval_sum_ms": 23.77024,
+            "upload_interval_sum_ms": 0.41916,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-20.csv",
+            "frame": 1200,
+            "submissions": 77,
+            "intervals": 154,
+            "host_bounds_ns": [
+              2357687234829947,
+              2357687308709028
+            ],
+            "GPU_span_ms": 41.07254,
+            "GPU_interval_union_ms": 24.35604,
+            "execution_interval_sum_ms": 23.88092,
+            "upload_interval_sum_ms": 0.47512,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-21.csv",
+            "frame": 1260,
+            "submissions": 56,
+            "intervals": 112,
+            "host_bounds_ns": [
+              2357689308888808,
+              2357689383867242
+            ],
+            "GPU_span_ms": 39.27097,
+            "GPU_interval_union_ms": 21.82352,
+            "execution_interval_sum_ms": 21.48684,
+            "upload_interval_sum_ms": 0.33668,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-22.csv",
+            "frame": 1320,
+            "submissions": 70,
+            "intervals": 140,
+            "host_bounds_ns": [
+              2357691435602838,
+              2357691508500007
+            ],
+            "GPU_span_ms": 37.97886,
+            "GPU_interval_union_ms": 21.885,
+            "execution_interval_sum_ms": 21.47024,
+            "upload_interval_sum_ms": 0.41476,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-23.csv",
+            "frame": 1380,
+            "submissions": 57,
+            "intervals": 114,
+            "host_bounds_ns": [
+              2357693548339492,
+              2357693614858924
+            ],
+            "GPU_span_ms": 36.28541,
+            "GPU_interval_union_ms": 21.90372,
+            "execution_interval_sum_ms": 21.55872,
+            "upload_interval_sum_ms": 0.345,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-24.csv",
+            "frame": 1440,
+            "submissions": 77,
+            "intervals": 154,
+            "host_bounds_ns": [
+              2357695633528958,
+              2357695710280780
+            ],
+            "GPU_span_ms": 38.91644,
+            "GPU_interval_union_ms": 21.61528,
+            "execution_interval_sum_ms": 21.17868,
+            "upload_interval_sum_ms": 0.4366,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-25.csv",
+            "frame": 1500,
+            "submissions": 55,
+            "intervals": 110,
+            "host_bounds_ns": [
+              2357697679884699,
+              2357697746796789
+            ],
+            "GPU_span_ms": 31.35965,
+            "GPU_interval_union_ms": 20.03276,
+            "execution_interval_sum_ms": 19.71972,
+            "upload_interval_sum_ms": 0.31304,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-26.csv",
+            "frame": 1560,
+            "submissions": 76,
+            "intervals": 152,
+            "host_bounds_ns": [
+              2357699741508699,
+              2357699819600726
+            ],
+            "GPU_span_ms": 39.20839,
+            "GPU_interval_union_ms": 21.19816,
+            "execution_interval_sum_ms": 20.7672,
+            "upload_interval_sum_ms": 0.43096,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-27.csv",
+            "frame": 1620,
+            "submissions": 54,
+            "intervals": 108,
+            "host_bounds_ns": [
+              2357701832352495,
+              2357701903831844
+            ],
+            "GPU_span_ms": 31.74207,
+            "GPU_interval_union_ms": 20.90508,
+            "execution_interval_sum_ms": 20.58824,
+            "upload_interval_sum_ms": 0.31684,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-28.csv",
+            "frame": 1680,
+            "submissions": 79,
+            "intervals": 158,
+            "host_bounds_ns": [
+              2357703899041349,
+              2357703975777562
+            ],
+            "GPU_span_ms": 44.66364,
+            "GPU_interval_union_ms": 24.98404,
+            "execution_interval_sum_ms": 24.50268,
+            "upload_interval_sum_ms": 0.48136,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-29.csv",
+            "frame": 1740,
+            "submissions": 56,
+            "intervals": 112,
+            "host_bounds_ns": [
+              2357706050499538,
+              2357706121820229
+            ],
+            "GPU_span_ms": 38.11681,
+            "GPU_interval_union_ms": 22.52488,
+            "execution_interval_sum_ms": 22.1788,
+            "upload_interval_sum_ms": 0.34608,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-3.csv",
+            "frame": 180,
+            "submissions": 58,
+            "intervals": 116,
+            "host_bounds_ns": [
+              2357651305129309,
+              2357651377146247
+            ],
+            "GPU_span_ms": 41.13643,
+            "GPU_interval_union_ms": 23.79088,
+            "execution_interval_sum_ms": 23.43388,
+            "upload_interval_sum_ms": 0.357,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-30.csv",
+            "frame": 1800,
+            "submissions": 76,
+            "intervals": 152,
+            "host_bounds_ns": [
+              2357708141053621,
+              2357708222428697
+            ],
+            "GPU_span_ms": 42.11017,
+            "GPU_interval_union_ms": 24.21756,
+            "execution_interval_sum_ms": 23.75832,
+            "upload_interval_sum_ms": 0.45924,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-31.csv",
+            "frame": 1860,
+            "submissions": 53,
+            "intervals": 106,
+            "host_bounds_ns": [
+              2357710223190931,
+              2357710297546366
+            ],
+            "GPU_span_ms": 34.77229,
+            "GPU_interval_union_ms": 22.06308,
+            "execution_interval_sum_ms": 21.74188,
+            "upload_interval_sum_ms": 0.3212,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-32.csv",
+            "frame": 1920,
+            "submissions": 76,
+            "intervals": 152,
+            "host_bounds_ns": [
+              2357712349613846,
+              2357712435340668
+            ],
+            "GPU_span_ms": 46.1288,
+            "GPU_interval_union_ms": 27.78404,
+            "execution_interval_sum_ms": 27.28944,
+            "upload_interval_sum_ms": 0.4946,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-33.csv",
+            "frame": 1980,
+            "submissions": 53,
+            "intervals": 106,
+            "host_bounds_ns": [
+              2357714492221419,
+              2357714558934084
+            ],
+            "GPU_span_ms": 34.11043,
+            "GPU_interval_union_ms": 22.0266,
+            "execution_interval_sum_ms": 21.70588,
+            "upload_interval_sum_ms": 0.32072,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-34.csv",
+            "frame": 2040,
+            "submissions": 78,
+            "intervals": 156,
+            "host_bounds_ns": [
+              2357716571719317,
+              2357716642644757
+            ],
+            "GPU_span_ms": 40.97367,
+            "GPU_interval_union_ms": 24.96472,
+            "execution_interval_sum_ms": 24.48408,
+            "upload_interval_sum_ms": 0.48064,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-35.csv",
+            "frame": 2100,
+            "submissions": 54,
+            "intervals": 108,
+            "host_bounds_ns": [
+              2357718690461791,
+              2357718760610884
+            ],
+            "GPU_span_ms": 34.11811,
+            "GPU_interval_union_ms": 22.4264,
+            "execution_interval_sum_ms": 22.10612,
+            "upload_interval_sum_ms": 0.32028,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-36.csv",
+            "frame": 2160,
+            "submissions": 75,
+            "intervals": 150,
+            "host_bounds_ns": [
+              2357720864764735,
+              2357720947441614
+            ],
+            "GPU_span_ms": 41.91117,
+            "GPU_interval_union_ms": 25.38576,
+            "execution_interval_sum_ms": 24.91172,
+            "upload_interval_sum_ms": 0.47404,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-37.csv",
+            "frame": 2220,
+            "submissions": 56,
+            "intervals": 112,
+            "host_bounds_ns": [
+              2357722958597200,
+              2357723024320840
+            ],
+            "GPU_span_ms": 33.24191,
+            "GPU_interval_union_ms": 19.84264,
+            "execution_interval_sum_ms": 19.52716,
+            "upload_interval_sum_ms": 0.31548,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-38.csv",
+            "frame": 2280,
+            "submissions": 79,
+            "intervals": 158,
+            "host_bounds_ns": [
+              2357725015450440,
+              2357725094822348
+            ],
+            "GPU_span_ms": 48.27351,
+            "GPU_interval_union_ms": 25.02612,
+            "execution_interval_sum_ms": 24.55276,
+            "upload_interval_sum_ms": 0.47336,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-39.csv",
+            "frame": 2340,
+            "submissions": 59,
+            "intervals": 118,
+            "host_bounds_ns": [
+              2357727118918895,
+              2357727184686006
+            ],
+            "GPU_span_ms": 33.23163,
+            "GPU_interval_union_ms": 20.59132,
+            "execution_interval_sum_ms": 20.24868,
+            "upload_interval_sum_ms": 0.34264,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-4.csv",
+            "frame": 240,
+            "submissions": 77,
+            "intervals": 154,
+            "host_bounds_ns": [
+              2357653389554569,
+              2357653465729098
+            ],
+            "GPU_span_ms": 41.34977,
+            "GPU_interval_union_ms": 25.5184,
+            "execution_interval_sum_ms": 25.00672,
+            "upload_interval_sum_ms": 0.51168,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-40.csv",
+            "frame": 2400,
+            "submissions": 78,
+            "intervals": 156,
+            "host_bounds_ns": [
+              2357729198792810,
+              2357729269910320
+            ],
+            "GPU_span_ms": 40.42831,
+            "GPU_interval_union_ms": 21.4044,
+            "execution_interval_sum_ms": 20.95304,
+            "upload_interval_sum_ms": 0.45136,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-41.csv",
+            "frame": 2460,
+            "submissions": 53,
+            "intervals": 106,
+            "host_bounds_ns": [
+              2357731317277651,
+              2357731379455978
+            ],
+            "GPU_span_ms": 30.96714,
+            "GPU_interval_union_ms": 19.70872,
+            "execution_interval_sum_ms": 19.4046,
+            "upload_interval_sum_ms": 0.30412,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-42.csv",
+            "frame": 2520,
+            "submissions": 78,
+            "intervals": 156,
+            "host_bounds_ns": [
+              2357733449393850,
+              2357733520112461
+            ],
+            "GPU_span_ms": 39.98711,
+            "GPU_interval_union_ms": 22.31284,
+            "execution_interval_sum_ms": 21.85724,
+            "upload_interval_sum_ms": 0.4556,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-5.csv",
+            "frame": 300,
+            "submissions": 64,
+            "intervals": 128,
+            "host_bounds_ns": [
+              2357655710382008,
+              2357655789694043
+            ],
+            "GPU_span_ms": 43.26799,
+            "GPU_interval_union_ms": 24.51236,
+            "execution_interval_sum_ms": 24.1166,
+            "upload_interval_sum_ms": 0.39576,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-6.csv",
+            "frame": 360,
+            "submissions": 76,
+            "intervals": 152,
+            "host_bounds_ns": [
+              2357657899783267,
+              2357657975424976
+            ],
+            "GPU_span_ms": 37.83813,
+            "GPU_interval_union_ms": 20.23812,
+            "execution_interval_sum_ms": 19.81352,
+            "upload_interval_sum_ms": 0.4246,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-7.csv",
+            "frame": 420,
+            "submissions": 55,
+            "intervals": 110,
+            "host_bounds_ns": [
+              2357659965155288,
+              2357660039049397
+            ],
+            "GPU_span_ms": 33.18442,
+            "GPU_interval_union_ms": 21.87392,
+            "execution_interval_sum_ms": 21.53088,
+            "upload_interval_sum_ms": 0.34304,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-8.csv",
+            "frame": 480,
+            "submissions": 70,
+            "intervals": 140,
+            "host_bounds_ns": [
+              2357662043264768,
+              2357662115660987
+            ],
+            "GPU_span_ms": 38.11848,
+            "GPU_interval_union_ms": 21.49612,
+            "execution_interval_sum_ms": 21.08184,
+            "upload_interval_sum_ms": 0.41428,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-9.csv",
+            "frame": 540,
+            "submissions": 53,
+            "intervals": 106,
+            "host_bounds_ns": [
+              2357664059370248,
+              2357664122292801
+            ],
+            "GPU_span_ms": 32.47773,
+            "GPU_interval_union_ms": 19.76876,
+            "execution_interval_sum_ms": 19.45728,
+            "upload_interval_sum_ms": 0.31148,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          }
+        ],
+        "outside_phase": [
+          "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-43.csv",
+          "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-44.csv"
+        ],
+        "capture_files": 45,
+        "scope": "Same compiled manual-enabled probe in both conditions; capture activation overhead only. Intervals overlap and are not exclusive occupancy."
+      },
+      "label": "B1",
+      "room": "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y",
+      "phase_seconds": 90.004126619,
+      "bounds_ns": [
+        2357645012282923,
+        2357735016409542
+      ],
+      "direction_transitions": 0,
+      "midpoint_capture_seconds": 0.002938033,
+      "wsi": {
+        "complete_windows": 4,
+        "intervals": 2400,
+        "covered_seconds": 84.174044256,
+        "rate_per_second": 28.512352248406145,
+        "p99_each_ms": [
+          48.230987,
+          43.165392,
+          42.763509,
+          44.305782
+        ],
+        "max_ms": 54.730573,
+        "over_100_ms": 0,
+        "over_33_333333_ms": 1574,
+        "uncovered_seconds": 5.830082363,
+        "windows": [
+          {
+            "intervals": 600,
+            "sum_ns": 21240541412,
+            "begin_ns": 2357648653596218,
+            "end_ns": 2357669894137630,
+            "p50_ns": 33457317,
+            "p95_ns": 43303903,
+            "p99_ns": 48230987,
+            "max_ns": 52198061,
+            "over30": 405,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 3001,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20942515840,
+            "begin_ns": 2357669894137630,
+            "end_ns": 2357690836653470,
+            "p50_ns": 33426098,
+            "p95_ns": 40856110,
+            "p99_ns": 43165392,
+            "max_ns": 54730573,
+            "over30": 400,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 3601,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": true
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20874530049,
+            "begin_ns": 2357690836653470,
+            "end_ns": 2357711711183519,
+            "p50_ns": 33398186,
+            "p95_ns": 40724793,
+            "p99_ns": 42763509,
+            "max_ns": 46828686,
+            "over30": 368,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 4201,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 21116456955,
+            "begin_ns": 2357711711183519,
+            "end_ns": 2357732827640474,
+            "p50_ns": 33480079,
+            "p95_ns": 41985419,
+            "p99_ns": 44305782,
+            "max_ns": 48029890,
+            "over30": 401,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 4801,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          }
+        ]
+      },
+      "vi2": {
+        "complete_windows": 4,
+        "intervals": 2400,
+        "covered_seconds": 84.174090433,
+        "rate_per_second": 28.512336606836595,
+        "p99_each_ms": [
+          48.448315,
+          44.102491,
+          43.177595,
+          45.340634
+        ],
+        "max_ms": 54.909217,
+        "over_100_ms": 0,
+        "over_33_333333_ms": 1305,
+        "uncovered_seconds": 5.830036186,
+        "windows": [
+          {
+            "intervals": 600,
+            "sum_ns": 21242977804,
+            "p50_ns": 34121443,
+            "p95_ns": 43604205,
+            "p99_ns": 48448315,
+            "max_ns": 53991396,
+            "over30": 340,
+            "over100": 0,
+            "begin_ns": 2357648586421245,
+            "end_ns": 2357669829399049,
+            "legacy_same_window": {
+              "mean_frame_us": 35404,
+              "max_frame_us": 53991,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 108,
+              "mean_composite_us": 26,
+              "mean_pacing_us": 220,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20941724616,
+            "p50_ns": 33512010,
+            "p95_ns": 41669316,
+            "p99_ns": 44102491,
+            "max_ns": 54909217,
+            "over30": 320,
+            "over100": 0,
+            "begin_ns": 2357669829399049,
+            "end_ns": 2357690771123665,
+            "legacy_same_window": {
+              "mean_frame_us": 34902,
+              "max_frame_us": 54909,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 3,
+              "mean_composite_us": 27,
+              "mean_pacing_us": 179,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20868839321,
+            "p50_ns": 33435546,
+            "p95_ns": 41086752,
+            "p99_ns": 43177595,
+            "max_ns": 47531555,
+            "over30": 310,
+            "over100": 0,
+            "begin_ns": 2357690771123665,
+            "end_ns": 2357711639962986,
+            "legacy_same_window": {
+              "mean_frame_us": 34780,
+              "max_frame_us": 47531,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 3,
+              "mean_composite_us": 26,
+              "mean_pacing_us": 177,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 21120548692,
+            "p50_ns": 33889227,
+            "p95_ns": 42595984,
+            "p99_ns": 45340634,
+            "max_ns": 48804303,
+            "over30": 335,
+            "over100": 0,
+            "begin_ns": 2357711639962986,
+            "end_ns": 2357732760511678,
+            "legacy_same_window": {
+              "mean_frame_us": 35200,
+              "max_frame_us": 48804,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 2,
+              "mean_composite_us": 26,
+              "mean_pacing_us": 98,
+              "ran_ahead": 600
+            }
+          }
+        ]
+      },
+      "media_mode": "B",
+      "browser_deltas": {
+        "player": {
+          "painted": 0,
+          "shown": 0,
+          "stalls": 0,
+          "restarts": 0,
+          "undecoded": 0,
+          "soundPlayed": 0,
+          "soundGaps": 0,
+          "attempts": 23962,
+          "received_pictures": 2591,
+          "decoder_calls": 0,
+          "decoder_output": 0
+        },
+        "spectator": {
+          "painted": 0,
+          "shown": 0,
+          "stalls": 0,
+          "restarts": 0,
+          "undecoded": 0,
+          "soundPlayed": 0,
+          "soundGaps": 0,
+          "attempts": 0,
+          "received_pictures": 2591,
+          "decoder_calls": 0,
+          "decoder_output": 0
+        }
+      },
+      "signal_deltas": {
+        "player": {
+          "packets": 9018,
+          "samples": 8657280,
+          "nonzero": 8641726,
+          "invalid": 0
+        },
+        "spectator": {
+          "packets": 9018,
+          "samples": 8657280,
+          "nonzero": 8641726,
+          "invalid": 0
+        }
+      },
+      "local_browser_CPU": {
+        "percent_one_logical_CPU": 52.05309264879196,
+        "entered_pid_start": [],
+        "exited_pid_start": [],
+        "endpoint_seconds": 90.081102993
+      },
+      "affinity_before": {
+        "2734797": {
+          "name": "CPUCore_0",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2734798": {
+          "name": "CPUCore_1",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2734799": {
+          "name": "CPUCore_2",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2734800": {
+          "name": "CPUCore_3",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2734801": {
+          "name": "CPUCore_4",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2734802": {
+          "name": "CPUCore_5",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2734803": {
+          "name": "GPU",
+          "cpus": [
+            1,
+            7
+          ]
+        },
+        "2735028": {
+          "name": "GPUBack",
+          "cpus": [
+            2,
+            8
+          ]
+        }
+      },
+      "affinity_after": {
+        "2734797": {
+          "name": "CPUCore_0",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2734798": {
+          "name": "CPUCore_1",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2734799": {
+          "name": "CPUCore_2",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2734800": {
+          "name": "CPUCore_3",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2734801": {
+          "name": "CPUCore_4",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2734802": {
+          "name": "CPUCore_5",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2734803": {
+          "name": "GPU",
+          "cpus": [
+            1,
+            7
+          ]
+        },
+        "2735028": {
+          "name": "GPUBack",
+          "cpus": [
+            2,
+            8
+          ]
+        }
+      },
+      "gpu_observations": {
+        "phase_observations": 14,
+        "all_room_observations": 30,
+        "foreign_clients_observed": false,
+        "driver_stats_read": false,
+        "first_phase_observation_offset_s": 2.281148176,
+        "last_phase_observation_to_end_s": 3.102427735,
+        "maximum_observed_gap_s": 6.544031759,
+        "scan_CPU_each_ms": [
+          187.737664,
+          178.298838,
+          182.470654,
+          176.233625,
+          186.069997,
+          190.50745,
+          171.757327,
+          175.823766,
+          173.422173,
+          176.585848,
+          183.090146,
+          174.04576,
+          174.938045,
+          179.681842
+        ],
+        "scope": "Periodic presence observations; work entirely between scans remains unobserved. CPU time excludes Python/sudo startup and ownership analysis; not in-game overhead qualification."
+      },
+      "memory_endpoints": {
+        "before": {
+          "VmHWM": "11679976 kB",
+          "VmRSS": "11679976 kB",
+          "RssAnon": "3047572 kB",
+          "RssFile": "113528 kB",
+          "RssShmem": "8518876 kB"
+        },
+        "after": {
+          "VmHWM": "12061300 kB",
+          "VmRSS": "12061300 kB",
+          "RssAnon": "3142392 kB",
+          "RssFile": "113528 kB",
+          "RssShmem": "8805380 kB"
+        }
+      },
+      "visual_review": {
+        "root": "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y",
+        "scene_valid": true,
+        "all_images_actually_read": true,
+        "images": [
+          "encoded/player-before.png",
+          "encoded/player-middle.png",
+          "encoded/player-after.png"
+        ],
+        "spectator_same_encoded_bytes_verified": true,
+        "observation": "Same fixed Kokiri camera and ground position near Saria at all three observed instants. Hearts and map visible; ambient particles/idle animations vary. No blocking menu, dialogue, loading or different scene observed. Sparse snapshots do not prove every intermediate picture.",
+        "at": 1794339809.026069
+      },
+      "native_normal_cleanup": true
+    },
+    "A2": {
+      "probe": {
+        "active": false,
+        "captures": [],
+        "outside_phase": [],
+        "capture_files": 0,
+        "scope": "Same compiled manual-enabled probe in both conditions; capture activation overhead only. Intervals overlap and are not exclusive occupancy."
+      },
+      "label": "A2",
+      "room": "/home/souhib/.local/state/nel3ab/test-switch2-S5z167",
+      "phase_seconds": 90.001220761,
+      "bounds_ns": [
+        2357874093951636,
+        2357964095172397
+      ],
+      "direction_transitions": 0,
+      "midpoint_capture_seconds": 0.002120328,
+      "wsi": {
+        "complete_windows": 3,
+        "intervals": 1800,
+        "covered_seconds": 63.061157991,
+        "rate_per_second": 28.543719420073025,
+        "p99_each_ms": [
+          42.890577,
+          46.458843,
+          45.032746
+        ],
+        "max_ms": 54.626668,
+        "over_100_ms": 0,
+        "over_33_333333_ms": 1237,
+        "uncovered_seconds": 26.94006277,
+        "windows": [
+          {
+            "intervals": 600,
+            "sum_ns": 20924561337,
+            "begin_ns": 2357892794773704,
+            "end_ns": 2357913719335041,
+            "p50_ns": 33505387,
+            "p95_ns": 40338980,
+            "p99_ns": 42890577,
+            "max_ns": 46879742,
+            "over30": 425,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 3001,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 21097776184,
+            "begin_ns": 2357913719335041,
+            "end_ns": 2357934817111225,
+            "p50_ns": 33434705,
+            "p95_ns": 42155979,
+            "p99_ns": 46458843,
+            "max_ns": 54626668,
+            "over30": 399,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 3601,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": true
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 21038820470,
+            "begin_ns": 2357934817111225,
+            "end_ns": 2357955855931695,
+            "p50_ns": 33554780,
+            "p95_ns": 41323767,
+            "p99_ns": 45032746,
+            "max_ns": 47065692,
+            "over30": 413,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 4201,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          }
+        ]
+      },
+      "vi2": {
+        "complete_windows": 3,
+        "intervals": 1800,
+        "covered_seconds": 63.062696418,
+        "rate_per_second": 28.543023090370514,
+        "p99_each_ms": [
+          44.021269,
+          46.949733,
+          45.126863
+        ],
+        "max_ms": 54.337886,
+        "over_100_ms": 0,
+        "over_33_333333_ms": 1052,
+        "uncovered_seconds": 26.938524343,
+        "windows": [
+          {
+            "intervals": 600,
+            "sum_ns": 20922088417,
+            "p50_ns": 33807173,
+            "p95_ns": 41127559,
+            "p99_ns": 44021269,
+            "max_ns": 53007450,
+            "over30": 350,
+            "over100": 0,
+            "begin_ns": 2357892731868503,
+            "end_ns": 2357913653956920,
+            "legacy_same_window": {
+              "mean_frame_us": 34869,
+              "max_frame_us": 53007,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 15,
+              "mean_composite_us": 26,
+              "mean_pacing_us": 84,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 21097859911,
+            "p50_ns": 33755015,
+            "p95_ns": 42514181,
+            "p99_ns": 46949733,
+            "max_ns": 54337886,
+            "over30": 348,
+            "over100": 0,
+            "begin_ns": 2357913653956920,
+            "end_ns": 2357934751816831,
+            "legacy_same_window": {
+              "mean_frame_us": 35162,
+              "max_frame_us": 54337,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 17,
+              "mean_composite_us": 26,
+              "mean_pacing_us": 137,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 21042748090,
+            "p50_ns": 33881533,
+            "p95_ns": 42201995,
+            "p99_ns": 45126863,
+            "max_ns": 48846843,
+            "over30": 354,
+            "over100": 0,
+            "begin_ns": 2357934751816831,
+            "end_ns": 2357955794564921,
+            "legacy_same_window": {
+              "mean_frame_us": 35070,
+              "max_frame_us": 48846,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 41,
+              "mean_composite_us": 26,
+              "mean_pacing_us": 128,
+              "ran_ahead": 600
+            }
+          }
+        ]
+      },
+      "media_mode": "B",
+      "browser_deltas": {
+        "player": {
+          "painted": 0,
+          "shown": 0,
+          "stalls": 0,
+          "restarts": 0,
+          "undecoded": 0,
+          "soundPlayed": 0,
+          "soundGaps": 0,
+          "attempts": 23991,
+          "received_pictures": 2595,
+          "decoder_calls": 0,
+          "decoder_output": 0
+        },
+        "spectator": {
+          "painted": 0,
+          "shown": 0,
+          "stalls": 0,
+          "restarts": 0,
+          "undecoded": 0,
+          "soundPlayed": 0,
+          "soundGaps": 0,
+          "attempts": 0,
+          "received_pictures": 2595,
+          "decoder_calls": 0,
+          "decoder_output": 0
+        }
+      },
+      "signal_deltas": {
+        "player": {
+          "packets": 9017,
+          "samples": 8656320,
+          "nonzero": 8640394,
+          "invalid": 0
+        },
+        "spectator": {
+          "packets": 9017,
+          "samples": 8656320,
+          "nonzero": 8640394,
+          "invalid": 0
+        }
+      },
+      "local_browser_CPU": {
+        "percent_one_logical_CPU": 51.710705311815715,
+        "entered_pid_start": [],
+        "exited_pid_start": [],
+        "endpoint_seconds": 90.078059696
+      },
+      "affinity_before": {
+        "2748034": {
+          "name": "CPUCore_0",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2748035": {
+          "name": "CPUCore_1",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2748036": {
+          "name": "CPUCore_2",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2748037": {
+          "name": "CPUCore_3",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2748038": {
+          "name": "CPUCore_4",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2748039": {
+          "name": "CPUCore_5",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2748040": {
+          "name": "GPU",
+          "cpus": [
+            1,
+            7
+          ]
+        },
+        "2748235": {
+          "name": "GPUBack",
+          "cpus": [
+            2,
+            8
+          ]
+        }
+      },
+      "affinity_after": {
+        "2748034": {
+          "name": "CPUCore_0",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2748035": {
+          "name": "CPUCore_1",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2748036": {
+          "name": "CPUCore_2",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2748037": {
+          "name": "CPUCore_3",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2748038": {
+          "name": "CPUCore_4",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2748039": {
+          "name": "CPUCore_5",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2748040": {
+          "name": "GPU",
+          "cpus": [
+            1,
+            7
+          ]
+        },
+        "2748235": {
+          "name": "GPUBack",
+          "cpus": [
+            2,
+            8
+          ]
+        }
+      },
+      "gpu_observations": {
+        "phase_observations": 14,
+        "all_room_observations": 28,
+        "foreign_clients_observed": false,
+        "driver_stats_read": false,
+        "first_phase_observation_offset_s": 4.245292684,
+        "last_phase_observation_to_end_s": 1.115484144,
+        "maximum_observed_gap_s": 6.531299217,
+        "scan_CPU_each_ms": [
+          179.313142,
+          176.938173,
+          180.521621,
+          175.368271,
+          176.129218,
+          174.708425,
+          187.820699,
+          185.599414,
+          180.912542,
+          180.019167,
+          172.437073,
+          179.680761,
+          193.819314,
+          187.737514
+        ],
+        "scope": "Periodic presence observations; work entirely between scans remains unobserved. CPU time excludes Python/sudo startup and ownership analysis; not in-game overhead qualification."
+      },
+      "memory_endpoints": {
+        "before": {
+          "VmHWM": "11604204 kB",
+          "VmRSS": "11604204 kB",
+          "RssAnon": "3051956 kB",
+          "RssFile": "115952 kB",
+          "RssShmem": "8436296 kB"
+        },
+        "after": {
+          "VmHWM": "12043716 kB",
+          "VmRSS": "12043716 kB",
+          "RssAnon": "3113220 kB",
+          "RssFile": "115952 kB",
+          "RssShmem": "8814544 kB"
+        }
+      },
+      "visual_review": {
+        "root": "/home/souhib/.local/state/nel3ab/test-switch2-S5z167",
+        "scene_valid": true,
+        "all_images_actually_read": true,
+        "images": [
+          "encoded/player-before.png",
+          "encoded/player-middle.png",
+          "encoded/player-after.png"
+        ],
+        "spectator_same_encoded_bytes_verified": true,
+        "observation": "Same fixed Kokiri camera and ground position near Saria at all three observed instants. Hearts and map visible; ambient particles/idle animations vary. No blocking menu, dialogue, loading or different scene observed. Sparse snapshots do not prove every intermediate picture.",
+        "at": 1794340030.0718195
+      },
+      "native_normal_cleanup": true
+    },
+    "B2": {
+      "probe": {
+        "active": true,
+        "captures": [
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-0.csv",
+            "frame": 0,
+            "submissions": 53,
+            "intervals": 106,
+            "host_bounds_ns": [
+              2358102942508355,
+              2358103007358095
+            ],
+            "GPU_span_ms": 29.14816,
+            "GPU_interval_union_ms": 18.55032,
+            "execution_interval_sum_ms": 18.23008,
+            "upload_interval_sum_ms": 0.32024,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-1.csv",
+            "frame": 60,
+            "submissions": 54,
+            "intervals": 108,
+            "host_bounds_ns": [
+              2358104968580653,
+              2358105041793846
+            ],
+            "GPU_span_ms": 37.49232,
+            "GPU_interval_union_ms": 24.05832,
+            "execution_interval_sum_ms": 23.69112,
+            "upload_interval_sum_ms": 0.3672,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-10.csv",
+            "frame": 600,
+            "submissions": 54,
+            "intervals": 108,
+            "host_bounds_ns": [
+              2358123827713791,
+              2358123893815891
+            ],
+            "GPU_span_ms": 32.43965,
+            "GPU_interval_union_ms": 18.5352,
+            "execution_interval_sum_ms": 18.2132,
+            "upload_interval_sum_ms": 0.322,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-11.csv",
+            "frame": 660,
+            "submissions": 51,
+            "intervals": 102,
+            "host_bounds_ns": [
+              2358125916272376,
+              2358125985980111
+            ],
+            "GPU_span_ms": 27.59903,
+            "GPU_interval_union_ms": 19.25552,
+            "execution_interval_sum_ms": 18.95588,
+            "upload_interval_sum_ms": 0.29964,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-12.csv",
+            "frame": 720,
+            "submissions": 51,
+            "intervals": 102,
+            "host_bounds_ns": [
+              2358127911482226,
+              2358127974424247
+            ],
+            "GPU_span_ms": 30.47923,
+            "GPU_interval_union_ms": 18.60608,
+            "execution_interval_sum_ms": 18.2964,
+            "upload_interval_sum_ms": 0.30968,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-13.csv",
+            "frame": 780,
+            "submissions": 53,
+            "intervals": 106,
+            "host_bounds_ns": [
+              2358129925477464,
+              2358129991412070
+            ],
+            "GPU_span_ms": 29.00919,
+            "GPU_interval_union_ms": 19.65916,
+            "execution_interval_sum_ms": 19.36136,
+            "upload_interval_sum_ms": 0.2978,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-14.csv",
+            "frame": 840,
+            "submissions": 57,
+            "intervals": 114,
+            "host_bounds_ns": [
+              2358131972551339,
+              2358132042557104
+            ],
+            "GPU_span_ms": 37.73718,
+            "GPU_interval_union_ms": 22.51468,
+            "execution_interval_sum_ms": 22.15336,
+            "upload_interval_sum_ms": 0.36132,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-15.csv",
+            "frame": 900,
+            "submissions": 52,
+            "intervals": 104,
+            "host_bounds_ns": [
+              2358134028699571,
+              2358134092817959
+            ],
+            "GPU_span_ms": 29.25819,
+            "GPU_interval_union_ms": 20.39296,
+            "execution_interval_sum_ms": 20.0772,
+            "upload_interval_sum_ms": 0.31576,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-16.csv",
+            "frame": 960,
+            "submissions": 54,
+            "intervals": 108,
+            "host_bounds_ns": [
+              2358136115397224,
+              2358136178339585
+            ],
+            "GPU_span_ms": 30.05231,
+            "GPU_interval_union_ms": 18.85928,
+            "execution_interval_sum_ms": 18.52672,
+            "upload_interval_sum_ms": 0.33256,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-17.csv",
+            "frame": 1020,
+            "submissions": 55,
+            "intervals": 110,
+            "host_bounds_ns": [
+              2358138176023849,
+              2358138242757764
+            ],
+            "GPU_span_ms": 29.45333,
+            "GPU_interval_union_ms": 21.90792,
+            "execution_interval_sum_ms": 21.57104,
+            "upload_interval_sum_ms": 0.33688,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-18.csv",
+            "frame": 1080,
+            "submissions": 53,
+            "intervals": 106,
+            "host_bounds_ns": [
+              2358140244491866,
+              2358140308524243
+            ],
+            "GPU_span_ms": 31.03564,
+            "GPU_interval_union_ms": 18.69464,
+            "execution_interval_sum_ms": 18.36512,
+            "upload_interval_sum_ms": 0.32952,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-19.csv",
+            "frame": 1140,
+            "submissions": 53,
+            "intervals": 106,
+            "host_bounds_ns": [
+              2358142318693112,
+              2358142386119346
+            ],
+            "GPU_span_ms": 29.47464,
+            "GPU_interval_union_ms": 20.5344,
+            "execution_interval_sum_ms": 20.22304,
+            "upload_interval_sum_ms": 0.31136,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-2.csv",
+            "frame": 120,
+            "submissions": 52,
+            "intervals": 104,
+            "host_bounds_ns": [
+              2358107061453131,
+              2358107133045573
+            ],
+            "GPU_span_ms": 36.61874,
+            "GPU_interval_union_ms": 22.57712,
+            "execution_interval_sum_ms": 22.23316,
+            "upload_interval_sum_ms": 0.34396,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-20.csv",
+            "frame": 1200,
+            "submissions": 55,
+            "intervals": 110,
+            "host_bounds_ns": [
+              2358144450714177,
+              2358144520541126
+            ],
+            "GPU_span_ms": 31.19569,
+            "GPU_interval_union_ms": 19.70188,
+            "execution_interval_sum_ms": 19.37128,
+            "upload_interval_sum_ms": 0.3306,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-21.csv",
+            "frame": 1260,
+            "submissions": 56,
+            "intervals": 112,
+            "host_bounds_ns": [
+              2358146540308105,
+              2358146605288670
+            ],
+            "GPU_span_ms": 30.57841,
+            "GPU_interval_union_ms": 21.498,
+            "execution_interval_sum_ms": 21.16064,
+            "upload_interval_sum_ms": 0.33736,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-22.csv",
+            "frame": 1320,
+            "submissions": 54,
+            "intervals": 108,
+            "host_bounds_ns": [
+              2358148658322238,
+              2358148721062931
+            ],
+            "GPU_span_ms": 27.86355,
+            "GPU_interval_union_ms": 19.79764,
+            "execution_interval_sum_ms": 19.4734,
+            "upload_interval_sum_ms": 0.32424,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-23.csv",
+            "frame": 1380,
+            "submissions": 52,
+            "intervals": 104,
+            "host_bounds_ns": [
+              2358150797030821,
+              2358150860615097
+            ],
+            "GPU_span_ms": 29.22134,
+            "GPU_interval_union_ms": 18.40896,
+            "execution_interval_sum_ms": 18.103,
+            "upload_interval_sum_ms": 0.30596,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-24.csv",
+            "frame": 1440,
+            "submissions": 55,
+            "intervals": 110,
+            "host_bounds_ns": [
+              2358152851512927,
+              2358152915769805
+            ],
+            "GPU_span_ms": 31.05361,
+            "GPU_interval_union_ms": 17.94892,
+            "execution_interval_sum_ms": 17.62984,
+            "upload_interval_sum_ms": 0.31908,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-25.csv",
+            "frame": 1500,
+            "submissions": 53,
+            "intervals": 106,
+            "host_bounds_ns": [
+              2358154893763913,
+              2358154958570673
+            ],
+            "GPU_span_ms": 29.65527,
+            "GPU_interval_union_ms": 20.03188,
+            "execution_interval_sum_ms": 19.72564,
+            "upload_interval_sum_ms": 0.30624,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-26.csv",
+            "frame": 1560,
+            "submissions": 53,
+            "intervals": 106,
+            "host_bounds_ns": [
+              2358156923127418,
+              2358156987542523
+            ],
+            "GPU_span_ms": 31.01376,
+            "GPU_interval_union_ms": 17.9678,
+            "execution_interval_sum_ms": 17.65612,
+            "upload_interval_sum_ms": 0.31168,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-27.csv",
+            "frame": 1620,
+            "submissions": 51,
+            "intervals": 102,
+            "host_bounds_ns": [
+              2358159022296783,
+              2358159087717755
+            ],
+            "GPU_span_ms": 30.04591,
+            "GPU_interval_union_ms": 19.8984,
+            "execution_interval_sum_ms": 19.602,
+            "upload_interval_sum_ms": 0.2964,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-28.csv",
+            "frame": 1680,
+            "submissions": 54,
+            "intervals": 108,
+            "host_bounds_ns": [
+              2358161047760921,
+              2358161113564571
+            ],
+            "GPU_span_ms": 31.58362,
+            "GPU_interval_union_ms": 18.50576,
+            "execution_interval_sum_ms": 18.18396,
+            "upload_interval_sum_ms": 0.3218,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-29.csv",
+            "frame": 1740,
+            "submissions": 52,
+            "intervals": 104,
+            "host_bounds_ns": [
+              2358163101946701,
+              2358163166096919
+            ],
+            "GPU_span_ms": 30.29767,
+            "GPU_interval_union_ms": 20.29944,
+            "execution_interval_sum_ms": 19.9906,
+            "upload_interval_sum_ms": 0.30884,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-3.csv",
+            "frame": 180,
+            "submissions": 51,
+            "intervals": 102,
+            "host_bounds_ns": [
+              2358109191332577,
+              2358109256357446
+            ],
+            "GPU_span_ms": 28.90143,
+            "GPU_interval_union_ms": 21.04208,
+            "execution_interval_sum_ms": 20.73824,
+            "upload_interval_sum_ms": 0.30384,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-30.csv",
+            "frame": 1800,
+            "submissions": 55,
+            "intervals": 110,
+            "host_bounds_ns": [
+              2358165165926949,
+              2358165229895245
+            ],
+            "GPU_span_ms": 30.25197,
+            "GPU_interval_union_ms": 18.01292,
+            "execution_interval_sum_ms": 17.69588,
+            "upload_interval_sum_ms": 0.31704,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-31.csv",
+            "frame": 1860,
+            "submissions": 55,
+            "intervals": 110,
+            "host_bounds_ns": [
+              2358167232600230,
+              2358167298044085
+            ],
+            "GPU_span_ms": 29.08009,
+            "GPU_interval_union_ms": 20.82736,
+            "execution_interval_sum_ms": 20.50368,
+            "upload_interval_sum_ms": 0.32368,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-32.csv",
+            "frame": 1920,
+            "submissions": 53,
+            "intervals": 106,
+            "host_bounds_ns": [
+              2358169276301789,
+              2358169341238722
+            ],
+            "GPU_span_ms": 31.43559,
+            "GPU_interval_union_ms": 18.9878,
+            "execution_interval_sum_ms": 18.67088,
+            "upload_interval_sum_ms": 0.31692,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-33.csv",
+            "frame": 1980,
+            "submissions": 54,
+            "intervals": 108,
+            "host_bounds_ns": [
+              2358171377284075,
+              2358171441516507
+            ],
+            "GPU_span_ms": 28.8032,
+            "GPU_interval_union_ms": 20.04768,
+            "execution_interval_sum_ms": 19.73856,
+            "upload_interval_sum_ms": 0.30912,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-34.csv",
+            "frame": 2040,
+            "submissions": 53,
+            "intervals": 106,
+            "host_bounds_ns": [
+              2358173431492468,
+              2358173494374376
+            ],
+            "GPU_span_ms": 30.72702,
+            "GPU_interval_union_ms": 19.05144,
+            "execution_interval_sum_ms": 18.73428,
+            "upload_interval_sum_ms": 0.31716,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-35.csv",
+            "frame": 2100,
+            "submissions": 55,
+            "intervals": 110,
+            "host_bounds_ns": [
+              2358175512702034,
+              2358175578300659
+            ],
+            "GPU_span_ms": 30.92798,
+            "GPU_interval_union_ms": 21.5888,
+            "execution_interval_sum_ms": 21.25148,
+            "upload_interval_sum_ms": 0.33732,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-36.csv",
+            "frame": 2160,
+            "submissions": 53,
+            "intervals": 106,
+            "host_bounds_ns": [
+              2358177565948121,
+              2358177634602430
+            ],
+            "GPU_span_ms": 34.56636,
+            "GPU_interval_union_ms": 21.4682,
+            "execution_interval_sum_ms": 21.14416,
+            "upload_interval_sum_ms": 0.32404,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-37.csv",
+            "frame": 2220,
+            "submissions": 54,
+            "intervals": 108,
+            "host_bounds_ns": [
+              2358179644659510,
+              2358179710584508
+            ],
+            "GPU_span_ms": 33.2693,
+            "GPU_interval_union_ms": 22.74316,
+            "execution_interval_sum_ms": 22.4094,
+            "upload_interval_sum_ms": 0.33376,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-38.csv",
+            "frame": 2280,
+            "submissions": 54,
+            "intervals": 108,
+            "host_bounds_ns": [
+              2358181774534459,
+              2358181839124853
+            ],
+            "GPU_span_ms": 30.21709,
+            "GPU_interval_union_ms": 19.93316,
+            "execution_interval_sum_ms": 19.60812,
+            "upload_interval_sum_ms": 0.32504,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-39.csv",
+            "frame": 2340,
+            "submissions": 55,
+            "intervals": 110,
+            "host_bounds_ns": [
+              2358183912924476,
+              2358183988027074
+            ],
+            "GPU_span_ms": 36.31402,
+            "GPU_interval_union_ms": 22.18868,
+            "execution_interval_sum_ms": 21.83984,
+            "upload_interval_sum_ms": 0.34884,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-4.csv",
+            "frame": 240,
+            "submissions": 53,
+            "intervals": 106,
+            "host_bounds_ns": [
+              2358111212573971,
+              2358111274294480
+            ],
+            "GPU_span_ms": 29.45167,
+            "GPU_interval_union_ms": 18.39076,
+            "execution_interval_sum_ms": 18.0772,
+            "upload_interval_sum_ms": 0.31356,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-40.csv",
+            "frame": 2400,
+            "submissions": 53,
+            "intervals": 106,
+            "host_bounds_ns": [
+              2358186006632974,
+              2358186075175493
+            ],
+            "GPU_span_ms": 32.86211,
+            "GPU_interval_union_ms": 18.60316,
+            "execution_interval_sum_ms": 18.29176,
+            "upload_interval_sum_ms": 0.3114,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-41.csv",
+            "frame": 2460,
+            "submissions": 54,
+            "intervals": 108,
+            "host_bounds_ns": [
+              2358188067856610,
+              2358188133816534
+            ],
+            "GPU_span_ms": 31.82426,
+            "GPU_interval_union_ms": 18.99128,
+            "execution_interval_sum_ms": 18.66664,
+            "upload_interval_sum_ms": 0.32464,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-42.csv",
+            "frame": 2520,
+            "submissions": 56,
+            "intervals": 112,
+            "host_bounds_ns": [
+              2358190122753255,
+              2358190199879099
+            ],
+            "GPU_span_ms": 38.06064,
+            "GPU_interval_union_ms": 21.48976,
+            "execution_interval_sum_ms": 21.13372,
+            "upload_interval_sum_ms": 0.35604,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-43.csv",
+            "frame": 2580,
+            "submissions": 56,
+            "intervals": 112,
+            "host_bounds_ns": [
+              2358192217365449,
+              2358192288842625
+            ],
+            "GPU_span_ms": 37.04336,
+            "GPU_interval_union_ms": 23.7458,
+            "execution_interval_sum_ms": 23.38228,
+            "upload_interval_sum_ms": 0.36352,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-5.csv",
+            "frame": 300,
+            "submissions": 52,
+            "intervals": 104,
+            "host_bounds_ns": [
+              2358113397561609,
+              2358113463339460
+            ],
+            "GPU_span_ms": 29.66897,
+            "GPU_interval_union_ms": 20.78404,
+            "execution_interval_sum_ms": 20.48296,
+            "upload_interval_sum_ms": 0.30108,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-6.csv",
+            "frame": 360,
+            "submissions": 55,
+            "intervals": 110,
+            "host_bounds_ns": [
+              2358115499227006,
+              2358115570499527
+            ],
+            "GPU_span_ms": 32.64152,
+            "GPU_interval_union_ms": 21.96752,
+            "execution_interval_sum_ms": 21.62656,
+            "upload_interval_sum_ms": 0.34096,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-7.csv",
+            "frame": 420,
+            "submissions": 56,
+            "intervals": 112,
+            "host_bounds_ns": [
+              2358117698818746,
+              2358117768131740
+            ],
+            "GPU_span_ms": 31.42734,
+            "GPU_interval_union_ms": 20.58872,
+            "execution_interval_sum_ms": 20.26808,
+            "upload_interval_sum_ms": 0.32064,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-8.csv",
+            "frame": 480,
+            "submissions": 51,
+            "intervals": 102,
+            "host_bounds_ns": [
+              2358119804316022,
+              2358119867367188
+            ],
+            "GPU_span_ms": 30.0117,
+            "GPU_interval_union_ms": 17.92212,
+            "execution_interval_sum_ms": 17.61616,
+            "upload_interval_sum_ms": 0.30596,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          },
+          {
+            "path": "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-9.csv",
+            "frame": 540,
+            "submissions": 52,
+            "intervals": 104,
+            "host_bounds_ns": [
+              2358121809658024,
+              2358121872313687
+            ],
+            "GPU_span_ms": 29.36134,
+            "GPU_interval_union_ms": 19.26232,
+            "execution_interval_sum_ms": 18.96752,
+            "upload_interval_sum_ms": 0.2948,
+            "period_ns": 10.0,
+            "valid_bits": 64,
+            "scope": "Same queue timestamp intervals may overlap; span includes gaps. No exclusive GPU occupancy or normal frame budget claim."
+          }
+        ],
+        "outside_phase": [
+          "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-44.csv"
+        ],
+        "capture_files": 45,
+        "scope": "Same compiled manual-enabled probe in both conditions; capture activation overhead only. Intervals overlap and are not exclusive occupancy."
+      },
+      "label": "B2",
+      "room": "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky",
+      "phase_seconds": 90.003082664,
+      "bounds_ns": [
+        2358102930071138,
+        2358192933153802
+      ],
+      "direction_transitions": 0,
+      "midpoint_capture_seconds": 0.00189251,
+      "wsi": {
+        "complete_windows": 3,
+        "intervals": 1800,
+        "covered_seconds": 62.118542158,
+        "rate_per_second": 28.976855178308224,
+        "p99_each_ms": [
+          43.649982,
+          43.811766,
+          42.469157
+        ],
+        "max_ms": 49.284986,
+        "over_100_ms": 0,
+        "over_33_333333_ms": 1099,
+        "uncovered_seconds": 27.884540506,
+        "windows": [
+          {
+            "intervals": 600,
+            "sum_ns": 20630845053,
+            "begin_ns": 2358113286403939,
+            "end_ns": 2358133917248992,
+            "p50_ns": 33359334,
+            "p95_ns": 40119398,
+            "p99_ns": 43649982,
+            "max_ns": 49284986,
+            "over30": 353,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 3001,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20869522107,
+            "begin_ns": 2358133917248992,
+            "end_ns": 2358154786771099,
+            "p50_ns": 33393888,
+            "p95_ns": 40503879,
+            "p99_ns": 43811766,
+            "max_ns": 46639481,
+            "over30": 388,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 3601,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": true
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20618174998,
+            "begin_ns": 2358154786771099,
+            "end_ns": 2358175404946097,
+            "p50_ns": 33368350,
+            "p95_ns": 39894796,
+            "p99_ns": 42469157,
+            "max_ns": 43496755,
+            "over30": 358,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 4201,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          }
+        ]
+      },
+      "vi2": {
+        "complete_windows": 3,
+        "intervals": 1800,
+        "covered_seconds": 62.114584543,
+        "rate_per_second": 28.978701431286492,
+        "p99_each_ms": [
+          43.796207,
+          45.079785,
+          44.297357
+        ],
+        "max_ms": 53.442867,
+        "over_100_ms": 0,
+        "over_33_333333_ms": 875,
+        "uncovered_seconds": 27.888498121,
+        "windows": [
+          {
+            "intervals": 600,
+            "sum_ns": 20630842358,
+            "p50_ns": 33092743,
+            "p95_ns": 41226385,
+            "p99_ns": 43796207,
+            "max_ns": 53442867,
+            "over30": 284,
+            "over100": 0,
+            "begin_ns": 2358113221071974,
+            "end_ns": 2358133851914332,
+            "legacy_same_window": {
+              "mean_frame_us": 34384,
+              "max_frame_us": 53442,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 4,
+              "mean_composite_us": 25,
+              "mean_pacing_us": 2751,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20863309620,
+            "p50_ns": 33310662,
+            "p95_ns": 41769343,
+            "p99_ns": 45079785,
+            "max_ns": 50984123,
+            "over30": 299,
+            "over100": 0,
+            "begin_ns": 2358133851914332,
+            "end_ns": 2358154715223952,
+            "legacy_same_window": {
+              "mean_frame_us": 34771,
+              "max_frame_us": 50984,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 2,
+              "mean_composite_us": 26,
+              "mean_pacing_us": 585,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20620432565,
+            "p50_ns": 33178615,
+            "p95_ns": 40949746,
+            "p99_ns": 44297357,
+            "max_ns": 48280791,
+            "over30": 292,
+            "over100": 0,
+            "begin_ns": 2358154715223952,
+            "end_ns": 2358175335656517,
+            "legacy_same_window": {
+              "mean_frame_us": 34366,
+              "max_frame_us": 48280,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 12,
+              "mean_composite_us": 28,
+              "mean_pacing_us": 307,
+              "ran_ahead": 600
+            }
+          }
+        ]
+      },
+      "media_mode": "B",
+      "browser_deltas": {
+        "player": {
+          "painted": 0,
+          "shown": 0,
+          "stalls": 0,
+          "restarts": 0,
+          "undecoded": 0,
+          "soundPlayed": 0,
+          "soundGaps": 0,
+          "attempts": 23960,
+          "received_pictures": 2620,
+          "decoder_calls": 0,
+          "decoder_output": 0
+        },
+        "spectator": {
+          "painted": 0,
+          "shown": 0,
+          "stalls": 0,
+          "restarts": 0,
+          "undecoded": 0,
+          "soundPlayed": 0,
+          "soundGaps": 0,
+          "attempts": 0,
+          "received_pictures": 2620,
+          "decoder_calls": 0,
+          "decoder_output": 0
+        }
+      },
+      "signal_deltas": {
+        "player": {
+          "packets": 9017,
+          "samples": 8656320,
+          "nonzero": 8640333,
+          "invalid": 0
+        },
+        "spectator": {
+          "packets": 9018,
+          "samples": 8657280,
+          "nonzero": 8641291,
+          "invalid": 0
+        }
+      },
+      "local_browser_CPU": {
+        "percent_one_logical_CPU": 52.040366570213436,
+        "entered_pid_start": [],
+        "exited_pid_start": [],
+        "endpoint_seconds": 90.083915794
+      },
+      "affinity_before": {
+        "2760256": {
+          "name": "CPUCore_0",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2760257": {
+          "name": "CPUCore_1",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2760258": {
+          "name": "CPUCore_2",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2760259": {
+          "name": "CPUCore_3",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2760260": {
+          "name": "CPUCore_4",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2760261": {
+          "name": "CPUCore_5",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2760262": {
+          "name": "GPU",
+          "cpus": [
+            1,
+            7
+          ]
+        },
+        "2760486": {
+          "name": "GPUBack",
+          "cpus": [
+            2,
+            8
+          ]
+        }
+      },
+      "affinity_after": {
+        "2760256": {
+          "name": "CPUCore_0",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2760257": {
+          "name": "CPUCore_1",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2760258": {
+          "name": "CPUCore_2",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2760259": {
+          "name": "CPUCore_3",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2760260": {
+          "name": "CPUCore_4",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2760261": {
+          "name": "CPUCore_5",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2760262": {
+          "name": "GPU",
+          "cpus": [
+            1,
+            7
+          ]
+        },
+        "2760486": {
+          "name": "GPUBack",
+          "cpus": [
+            2,
+            8
+          ]
+        }
+      },
+      "gpu_observations": {
+        "phase_observations": 14,
+        "all_room_observations": 29,
+        "foreign_clients_observed": false,
+        "driver_stats_read": false,
+        "first_phase_observation_offset_s": 3.030387524,
+        "last_phase_observation_to_end_s": 2.332208837,
+        "maximum_observed_gap_s": 6.525087449,
+        "scan_CPU_each_ms": [
+          183.815707,
+          187.99679,
+          186.526932,
+          172.193245,
+          184.332166,
+          185.578825,
+          175.002986,
+          189.965685,
+          174.587206,
+          185.758181,
+          182.813928,
+          177.289738,
+          171.648163,
+          175.808216
+        ],
+        "scope": "Periodic presence observations; work entirely between scans remains unobserved. CPU time excludes Python/sudo startup and ownership analysis; not in-game overhead qualification."
+      },
+      "memory_endpoints": {
+        "before": {
+          "VmHWM": "11401660 kB",
+          "VmRSS": "11401660 kB",
+          "RssAnon": "3068196 kB",
+          "RssFile": "116116 kB",
+          "RssShmem": "8217348 kB"
+        },
+        "after": {
+          "VmHWM": "11983852 kB",
+          "VmRSS": "11983852 kB",
+          "RssAnon": "3097724 kB",
+          "RssFile": "116172 kB",
+          "RssShmem": "8769956 kB"
+        }
+      },
+      "visual_review": {
+        "root": "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky",
+        "scene_valid": true,
+        "all_images_actually_read": true,
+        "images": [
+          "encoded/player-before.png",
+          "encoded/player-middle.png",
+          "encoded/player-after.png"
+        ],
+        "spectator_same_encoded_bytes_verified": true,
+        "observation": "Same fixed Kokiri camera and ground position near Saria at all three observed instants. Hearts and map visible; ambient particles/idle animations vary. No blocking menu, dialogue, loading or different scene observed. Sparse snapshots do not prove every intermediate picture.",
+        "at": 1794340258.0328088
+      },
+      "native_normal_cleanup": true
+    }
+  },
+  "pairs": [
+    {
+      "pair": 1,
+      "rate_delta_percent": -1.3996735459411158,
+      "A_max_ms": 55.877154,
+      "B_max_ms": 54.730573,
+      "A_p99_each_ms": [
+        43.80396,
+        42.648933,
+        43.353856,
+        42.34835
+      ],
+      "B_p99_each_ms": [
+        48.230987,
+        43.165392,
+        42.763509,
+        44.305782
+      ]
+    },
+    {
+      "pair": 2,
+      "rate_delta_percent": 1.5174468045345169,
+      "A_max_ms": 54.626668,
+      "B_max_ms": 49.284986,
+      "A_p99_each_ms": [
+        42.890577,
+        46.458843,
+        45.032746
+      ],
+      "B_p99_each_ms": [
+        43.649982,
+        43.811766,
+        42.469157
+      ]
+    }
+  ],
+  "protected_files": 757,
+  "production_cache_preserved": {
+    "files": 4865,
+    "bytes": 133711023,
+    "all_hashes_and_mtimes_match": true
+  },
+  "learned_seed_preserved": {
+    "files": 4867,
+    "bytes": 134125560,
+    "all_hashes_and_mtimes_match": true
+  },
+  "production_change": false,
+  "proof_files_sha256": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/submission65-overhead-static-20261110/plan.json": "fba44fc0ebf11956ea868aa6c633842204ccc639e215a4f3d976f1aa4dc0268d",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/submission65-overhead-static-20261110/analyze-cohort-v2.py": "2c634e1f5c482a33c5d42dfdd624b4802fc1f3a1dee306189f8bcf91e40ca42d",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/submission65-overhead-static-20261110/arm.json": "41a317e27d3da61e14899c7ceb6e029d2f8f667a7d8ab95091aaca390d12b41c",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/submission65-overhead-static-20261110/decode-captures.py": "c91a90d8b0f1f76bba7d59a4f1442b68e86d56260b41c0a177c77afbb38337be",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/service-wsi-windows.py": "c04e337513851cf72422d7c930fed50f616bfb0b8acd8d8a70c9da3173cc5620",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/pacing-analyze.py": "0463818f15088a63dfc86046cc6f01a0e77917efc126003168e210a62017abbb",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/submission65-overhead-static-20261110/A1/cleanup.json": "7f3bb0fb27a6dbd7e75b41f6be4e5fdccb51ea00fc5dbce1efe5030fb46ecd33",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/submission65-overhead-static-20261110/A1/postphase-review.json": "96955dca6aa5881932a98fe9248ab131426f2fa4e767f0e19da88c56a46186ba",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/submission65-overhead-static-20261110/A1/prephase-review.json": "1710450559e984d832826b64f121cb788111d930a8bc0abc3f31d17fe3c75bc7",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/submission65-overhead-static-20261110/A1/active-room.json": "6b543b107080087963fe7250501f217746c68d221c3e0aed41595b6a095d7647",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/state/0400486024dec000/neuve/emulator.log": "b6e54646cef210ab7fe99a364514d032c5cb1d953c4ec1fe1c124d9c5e47d550",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/affinity-apply.json": "96790ec8c599944b9740db150ef10df1b130e28881b0d62a0c0d51e75257da97",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/affinity-verify.json": "c403b2de89bb1881cc6c6abb3c55f4f167ab9e467a916cd471e53326a9cb70dc",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/native-runtime-before-proof.json": "6474c6c3cf2698d33d563fa8d5a6d30fc84db46ef1904d70da798fb253ae8459",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/native-runtime-proof.json": "32d534c75aa56186e47bcf4420f0beef2eb53230f588ab595f18e222642c7ba3",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/native-boot-before.json": "10e8ed2b4c384f9e80191047c253ae0d3f3e8f680128cf59aafe1d7b66fe27dc",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/native-boot-after.json": "10e8ed2b4c384f9e80191047c253ae0d3f3e8f680128cf59aafe1d7b66fe27dc",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/native-memory-affinity-before.json": "1af84a2d953910a7a1ff7e9852ac85d2348646f2d416e991226100507155c622",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/native-memory-affinity-after.json": "ac844701f1c6426b62b0711c85b5b464a435812bef3fc5ba9eb67d515d9396ab",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/browser-phase-result.json": "17e53bfcd8e8277e86e548d3358c19cd79bd5aed40fda02a758fdcbda6392bd5",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/phase-clock.json": "10ba07357abb95cfba37dddbfe3a9f1bc847210652cce028e13732eb4faf70b8",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/phase-events.jsonl": "89c3c409ac0b934690eceb758f2198ba1e23f28fafb02c6ecc668bbafbdfc50a",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/phase-exit.json": "f099cbb7d846e4c430a3bfcd18a4f691519f63d9a0b5f003687431f5e315ce57",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/browser-before.json": "9854119ad3793515cda1f29921165f26d92b59f81d79330d57bf92f7c86d5e19",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/browser-after.json": "9a45caf54f197dc16f40a2d587299dfc5c76762ca1f2a960c1bf6cda8b8b99ee",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/browser-cpu-before.json": "ce02371197a348afeea59703da35cb5a839eb333c2ace249598a72a0f70c8664",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/browser-cpu-after.json": "63014906c20de54b73eedf5fa890553914a67e86a5d53add537507bb763cc06b",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/qualification-watchdog.json": "11960cd54819d28e2f7e9f0a4d3d84cd6960cc92b168870d85505605a5c45c43",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/seed-copy-proof.json": "0e848d732c373dc41dbf13eb35d63fd4f92c015c83498c45acc88a411e32d782",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/loaded-check.png": "290bb36184167df9a3cb4c390e3777fd5a097d04ea1d8d46cbb8bbed88924731",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/media-preparation.json": "daf77b462787a344bb12d6c1407a587c9e31e24f7a0518455aa6468f6f7f1258",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/gpu-observation-commands.jsonl": "0b4747f119f6c2b357596fe5336840b1776497debcfc8bd9931605d63a508986",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/encoded/after-decoded.json": "ccc5883454d4090a860d8b5b8745a56712cefadb5714b153cc573eb8fff7d1d9",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/encoded/player-after.h264.json": "11c947a991f5fe051aa5fadfbbe6a5c830af6d4d2de4940b69b31e270e7189fb",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/encoded/spectator-after.h264.json": "35bc29d128bfc57454f219c3f971a950e79ebbf4d6d772846d999cf14b77507f",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/encoded/player-middle.h264": "b7e0b79a8c1a70f749b619f0bc774b98a8d0c2e17a726fb59201ca93da837534",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/encoded/player-after.png": "804985bc2f530628345a208fa6fdbf88ac6fba04c46ff392c1d633a3612346b8",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/encoded/player-middle.h264.json": "01c5805585cfa31e35f54a15f23ea2aaae2b8b2270d4a6f3a6f214494cf9a319",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/encoded/spectator-prepared.h264.json": "63a0795df8b5479d1d73faab253372cb2e397f7af1f72fff29d2bc0b28508270",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/encoded/player-before.h264.json": "c1e3bc7d47da73c059964274b9cf810000ed2fa3a53e036b8032db1e924aa394",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/encoded/spectator-prepared.png": "3e8756ac0f6c4b7a7777d9586cce78cc2c8388417f53939d5d90dc999fbe9137",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/encoded/player-after.h264": "a6b4b305d22c15e8a31d03f542bedab6613d6e02f288b72617715f0fb44edb00",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/encoded/spectator-before.h264.json": "c561551a83cd302b14c376522ddadaff185adeedb4f9d9bfc26dda38dc9186bd",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/encoded/spectator-middle.png": "f1176fd63ce73bceee71ed6f73b5ceb007f9ad62b3ef8d3d27ccda8fd9574f9d",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/encoded/spectator-prepared.h264": "893747679cc3297b024129dcc621ccfc3180c926562ede9946767639074f551e",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/encoded/player-prepared.h264.json": "fec815a7bc0f7941b46f12ee265a2b5bff8e2877fa8fe1f975d1df4be2f60b7d",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/encoded/spectator-before.h264": "a2cd239d981e0ae0b3b668e7428d4675dfc7d1e0228d15bef99bdd9d48db7235",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/encoded/spectator-before.png": "9b13fcd69817e14fec79d80c6af83a7fd76414355050b3b138ab86f21f05a819",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/encoded/player-prepared.h264": "e7d056f7d555b43eb4a6372e554888b103dd790794cfc15989d64f3e9b5f7fcc",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/encoded/spectator-middle.h264.json": "ea2ba5a87e5bc85738531673dafec59866b7169c4bb829b82b3e9d79affdeade",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/encoded/player-before.png": "9b13fcd69817e14fec79d80c6af83a7fd76414355050b3b138ab86f21f05a819",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/encoded/player-prepared.png": "eb437192816ff5484fe90eaf618a8bc48cba18628449e4e45a9eeb6c37d33969",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/encoded/spectator-after.h264": "a6b4b305d22c15e8a31d03f542bedab6613d6e02f288b72617715f0fb44edb00",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/encoded/spectator-middle.h264": "b7e0b79a8c1a70f749b619f0bc774b98a8d0c2e17a726fb59201ca93da837534",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/encoded/prepared-decoded.json": "04e537088374e63e16132b1ebf40f49e0089e313a409e8d8cb7c4dc17ff2f6a6",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/encoded/player-middle.png": "f1176fd63ce73bceee71ed6f73b5ceb007f9ad62b3ef8d3d27ccda8fd9574f9d",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/encoded/spectator-after.png": "804985bc2f530628345a208fa6fdbf88ac6fba04c46ff392c1d633a3612346b8",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/encoded/before-decoded.json": "f9141033c3ea869fb9d9195dadbe650f7c38f51e7873e637acbc168743ddd329",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/encoded/middle-decoded.json": "df08254e461913a9f4a6abe44effdb7de7905c381a48a13b9cd5ad038376eea8",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/encoded/player-before.h264": "a2cd239d981e0ae0b3b668e7428d4675dfc7d1e0228d15bef99bdd9d48db7235",
+    "/home/souhib/.local/state/nel3ab/test-switch2-8EwGYS/submission-probe-arm.json": "deb9ecba7fea3d406a2b5d0a83fb3cb023ff385139a1bae671ff06ce3fd9dbd2",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/submission65-overhead-static-20261110/B1/cleanup.json": "fe1e24e9ee48221f27b9a2f9b6090225244e559767f830766b151f65cdf77c80",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/submission65-overhead-static-20261110/B1/postphase-review.json": "445bac74ffb644711f02d0709347a9d622eab93bb5f41b1b5778a019430f0328",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/submission65-overhead-static-20261110/B1/prephase-review.json": "cc9e97537edd2e894d8ab36fd1fb094c71353918e9d5622b5c86f8a1e416ce2b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/submission65-overhead-static-20261110/B1/active-room.json": "5a3434e82bd25ad7e29dd566d73a7101255a7c5b0770c4440c6c898d61f411e0",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/emulator.log": "14a567e1a5c071f1f1db87c91243a265fa6d63f56280ba759d163c48a9695534",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/affinity-apply.json": "1a8c5f3e293678e10925db7b9953491f892150cd37cee9d702b091a7c37015bf",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/affinity-verify.json": "4d5422e10de8835beea6f7c93c39dd35e0def5d9515f7f8c0c38a9a53b44977b",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/native-runtime-before-proof.json": "aa648bdbe38a9589b190eaacfb3903f47aad3380be6cca65d4d688c4d5252b1e",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/native-runtime-proof.json": "655e357fc821e6330b0cd5eca16895d231c754829913c64af341dc84d5a8e04a",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/native-boot-before.json": "a5bf7ec328b73694bdf6abbd843eb7d3552b12fd51ba60ceaf2c8e8919321c10",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/native-boot-after.json": "a5bf7ec328b73694bdf6abbd843eb7d3552b12fd51ba60ceaf2c8e8919321c10",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/native-memory-affinity-before.json": "1023195576e9973f09fff4e1c9e5b525bba7cb3ef38d2fea193d9e8e3237b20a",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/native-memory-affinity-after.json": "15e1eea7599dd4ca6f35bc17378b4894f35be84e93d3db4a9f0232e739f2dab8",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/browser-phase-result.json": "c64d26d5e3c88bd58dcad8bbc0d450b7d14ec29d925a2448f66d9057c6dfa9ce",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/phase-clock.json": "beb3705d3bb716738a1bffd44b7d0a73e8e7c4748ba43bff96d765b420f99e71",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/phase-events.jsonl": "c67256616b66ea68918e798daf17a7cc7601177638506aaa00e092ae0f1c2693",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/phase-exit.json": "4f729a0fff133d995606989e7e55d5c16ab028ec1b94763bce2e820f34eab894",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/browser-before.json": "c28c0fe9833337baf2b5957d58986693d054bc1c098d9f58e2fdfd87324a8c6e",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/browser-after.json": "4746f7f249d22f22d7ffd0006255e9bc65474f1ecbb927a4399323eeaa7cf861",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/browser-cpu-before.json": "91db05a17609cead0c47f97802f7df997c7e3b9cbaf532ef14e11ba83ddd1761",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/browser-cpu-after.json": "63fcbd486706904a1364a0a89aba6b42cf048a63b19848ca3af79e39759b4ac0",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/qualification-watchdog.json": "1d39aebbb014ece1f019b89ab289678b414a5e98c6173bb0ed7203d767c9745d",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/seed-copy-proof.json": "d7ba7112ded95b6dfb9ff35cd5784d5af1b5f845acc4a6923a5820ef0084d5b2",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/loaded-check.png": "59d7e1e0d1e6571a7911d0b001434f7b6308868a38a05b352cfb61089474a3cc",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/media-preparation.json": "efe29e2160db2ef1cc0dd1da8f67c935fcea3cb32ae24e2f2704e25a75ee8f9a",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/gpu-observation-commands.jsonl": "1e8efbf6dd9d0fe9b0995b67f35c44ea657277b47a0b6955b33fb4a043c8d5fd",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/encoded/after-decoded.json": "d817fa2901034500c5c6cfeb06515b2d74b4f7cc5841cb4181ba04b70fd7f7f8",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/encoded/player-after.h264.json": "2740c501f7e3a636a30631d1b78ed7b9ac4838e71662523955e4c63d7d2378f0",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/encoded/spectator-after.h264.json": "7f4e069d206ba1e0a086684844882ef3e8efbac73870a91fd8b3406d30197ecd",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/encoded/player-middle.h264": "a894bafd42e6b15d7c68c0be405eef43e108471890bd20ce6d8cfafbc4287c61",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/encoded/player-after.png": "47c28181b59da0fb09fc2827c4b29ab4d8ec7a710526e6ec78148c8288e9d9ca",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/encoded/player-middle.h264.json": "bc772691d2668f820d8a0ebc91668c56eca28b8d4403bea83bbe26b92e2f1615",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/encoded/spectator-prepared.h264.json": "36165f51446ceeea34d96fd6a0dab3d4335cdc35dea3ecc21457f99bd129a8fb",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/encoded/player-before.h264.json": "b8903ba2432a32ee340966983574b3b6e29b0b8825eecd119a30c841963e251d",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/encoded/spectator-prepared.png": "e2d16855e3550380b1a98784303e702d079ee18926b491887845c00a1cf0a378",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/encoded/player-after.h264": "0e2ddf89a78a83890acf27244a9d4da8a0748c063de0a6afba5c90e740117db7",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/encoded/spectator-before.h264.json": "e0dae5d482ac117f9d0f3490ee16cff8ce5f8e779fde7b2e74bf4061e7be8638",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/encoded/spectator-middle.png": "ad739c52512813791e1013b4b251ab0ef51d05c2b9aae9c7806e8dd68e3573a1",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/encoded/spectator-prepared.h264": "bf0b9bb31592c0d6b219323e086cbd354d238ba7fa07fbcd4418fee0c93ef6f8",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/encoded/player-prepared.h264.json": "0ad9175b4aba0cd0f478923329cb4d32e64225f966a55ca75f3b0a55281c8c8c",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/encoded/spectator-before.h264": "c6410b50959ba931c9dd913b417b33be0df506c63c86f74a1fea5701af607409",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/encoded/spectator-before.png": "379632fdb946310d9ea834047c2b8a46c5bad1cd742abbabe9d76f63a110bee6",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/encoded/player-prepared.h264": "99ccae4055e0119203eee53d2d2651114868ad6cd472a5a3e84431c487986609",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/encoded/spectator-middle.h264.json": "9b3eb8c5fc2235b0a2e74b2a1f104446dbe97031f4143e421b512d2ab6e6b8e9",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/encoded/player-before.png": "379632fdb946310d9ea834047c2b8a46c5bad1cd742abbabe9d76f63a110bee6",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/encoded/player-prepared.png": "eae02605e161f25f9ecb241a133ab54762bce850d103960f9c01d502ae574024",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/encoded/spectator-after.h264": "0e2ddf89a78a83890acf27244a9d4da8a0748c063de0a6afba5c90e740117db7",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/encoded/spectator-middle.h264": "a894bafd42e6b15d7c68c0be405eef43e108471890bd20ce6d8cfafbc4287c61",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/encoded/prepared-decoded.json": "283bc08c53eaf5d1fe2c5674e99b2dab2ae9b4fe382e7de74deea4e3c68e9eeb",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/encoded/player-middle.png": "ad739c52512813791e1013b4b251ab0ef51d05c2b9aae9c7806e8dd68e3573a1",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/encoded/spectator-after.png": "47c28181b59da0fb09fc2827c4b29ab4d8ec7a710526e6ec78148c8288e9d9ca",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/encoded/before-decoded.json": "b0946f4906b52323aa28d9f9b1da1b382c2d4556139b5eb4ed2e3ba9a86a6262",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/encoded/middle-decoded.json": "01062bda675fb5dd3c86ec746c1ae065b61fa61d5d6ac1ef3460d97988179397",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/encoded/player-before.h264": "c6410b50959ba931c9dd913b417b33be0df506c63c86f74a1fea5701af607409",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-18.csv.meta": "cddb986c603d93547f9a8b847dce7282423afef40fb29336451071e54abe9f10",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-7.csv.meta": "5c6758489ef7c5c54d3e8b2b1a1cc21a7089f5e49c9f195174a8904e1ac10f4a",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-28.csv.meta": "d2e2798cc362abd6eea0cb2ea4eed554303d0d3b81a0e8a2087e6e6ef1e97bd1",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-1.csv": "dd4b98d4d30b5a7fd2c8cfa9f19c8cc109b0dedffe4685329e33122b18fcffd8",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-34.csv": "108505a2fda6ca4fd4596850a0aa26be81aa71994693eb87928c7be364e5149d",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-30.csv.meta": "bfce0f9c2b1fa14ecc657d7b141057ea3a3d63cd979d5df797c6412e7d5c6a66",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-24.csv": "69a5176fb7c654a65b7435946c8f79fc56f5f76a1f65429d3d91136cda830d77",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-12.csv.meta": "b0af3474b0155d2d63c600f3c7966fb3dd7a869cec06239b845ee5984e51934c",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-41.csv.meta": "1204bced929fd793d58e0ccf916f9aca65adb3e3d985e347d99af4a27d514afd",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-0.csv": "cdd694e7c09330218c3fe763dc50cc9edf88f6afa12d209da3e880d0555e23d0",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-17.csv": "7ebcaf32ed9bf3bb61ba3f988a7832eb079c9b0575e46bb7eb4a01411235aef9",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-16.csv.meta": "0ec6d0fa5004801027131c59c07d9741188f6b98b045d7cd574099712adfae82",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-2.csv": "982dd359919e29555ae5a17efc73261f3f33c2d6359aade258862c324bc402db",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-19.csv.meta": "de03eaf0ec200ce16843a5641b5071cc4f821cc20cd251586c1912363d522b1d",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-25.csv": "a96b291692090d28f7bc1a8a28fb4dde2be7e786dda16d9c5abe132e79abcc2c",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-33.csv.meta": "493c02584301c4f317fcee81fb0a87e8d63c260b81dd4d5bc717332b6723ed38",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-23.csv.meta": "ead4a7cbf987c694adb3cc8e493deefa38d76d00b529f7c679ef49afcb2cdd0d",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-14.csv": "c1d64551e915fe73305f5a726ef858c78efe33efd055527a610afca047d5736a",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-17.csv.meta": "93f85ec66931cfe87073b7d69ac8a440094dc58daeff3cd8524263256b12f6fe",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-34.csv.meta": "ed1a3772498e546d0c6173ce8d108e603a87e4c272fbf33ee617721735a13bd0",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-5.csv.meta": "a66556b9898ebce9b6b6a443112278d375fda58e2129d0f112f157c8fd1f6824",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-22.csv": "c6f3b4a3cda56a1e5b8fe9c1be3485e914043c50cd723eb8b1f44772396c2621",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-4.csv": "bc184e624a0ce2686943845b588c2ba0629ded6c3d7b9e5e8d76c8840b4a221e",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-29.csv.meta": "49db209d831432d99249d7877b7195eb9cb6231fcdca651887d16dc76edcec21",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-42.csv.meta": "86ca5d41771d0139b6628bb76fe3b99eb6a39d97193474183772f9bc0041889c",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-41.csv": "3562285ebbb7b623d7217c3366fec0cbc9b50a9b96db51dcc3f6d5b972a1a716",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-13.csv": "3c8ce43a8653d36f5dae650eab4ac5825926036386da471f9870f518f8374691",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-11.csv": "dbca3424d3da6eda5c35ed9a01ac2682b8d7e2b41920acf3fe5113a37b032c12",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-3.csv": "90af24aebf9d0256dc5c5f5cc90fcf7cb5d3c9825b7ad288020f6eb44d8aad50",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-21.csv": "729b47d508e10243bba160143a38bbe739eec4a1c6f991432657e7b14b81c058",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-3.csv.meta": "aa2fbd5c5d5ee122343a38b5cf3b8968a3c0c11ed8b067c071d2f7eb39d6e08a",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-27.csv.meta": "a5b6fc7639416352e1010ade89d1d22bbf665e2b04a7e657567de352be5bf78d",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-20.csv": "ca02c44293d4053d83e2aee2934eb0491217e334c4de70519c79347fa61dd0c9",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-27.csv": "004580883c33d1d5e724be01f516446301d5a7322c440c69729005a4b7ee6eed",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-40.csv.meta": "db84a663a7c541982becadaf532681dadc9f9318cdfa2b120da29e0a7ffe817f",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-42.csv": "b51519bbf7c7aeee0cba52f0e1e7f45b8722919ca887955d474cf4ffd068c699",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-36.csv.meta": "f2983d7953ffb9fddf2804f72a379fbb2479dcb7f710e6af6b595268aaaa06ce",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-39.csv.meta": "95b5a7109e868d334f77ec446b310b1086d61ee725fa6ba0d347b5f5d8f4fde0",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-38.csv": "cbee205120cad2f5890f09aa9f562a3569b33f4fc634343accbef61aea66d07c",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-9.csv.meta": "864f6a51a58de75bcde678355a4eee6790542b4c4f4a6a99ca7733818801cb0d",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-23.csv": "7d87200bd3e5254c16f055f903549c760d554835a2ab08c761c17e4c6a2f42d6",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-44.csv": "6710612317b6ee41e3627349d46b7c69de5dbf756657b2549e61e8a4abe631ed",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-28.csv": "0d5171f07848b51bb4e03446f4691079f21c5f676e3b3dedfcec21a63ef80298",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-32.csv": "b9787edaf8dfb7bd6eb6ff91bb7380955739f73b678d8085588920ddb29116ba",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-9.csv": "543f8f1b269e852f7d05528e529891294c586c1a5ae4fffa0e18dc1139064563",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-6.csv": "3e8c6299bd0a1f52e693fb7798f4801a741659bfdb5c2749c70f5cfa3f2312ba",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-38.csv.meta": "e829a402bdfb48e5adea89afce653e1ad471cd9e5b1c0797d4c0ced84d19b602",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-36.csv": "55962b6500ef18a20c7757c1545e8539a1c7a1bc79c7181f81b7a7eebf3664d0",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-29.csv": "9bcade35bd484f387c96759a2918897950d041194de60c7bb3661260af9fb029",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-22.csv.meta": "1ac179b35ca62fe67b00905f6a04ba5f2b83c985a880191eaf8013270a9387cd",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-25.csv.meta": "1910bf717450f82b2797c196acc247e3caeaf2a5fb422aad24dab4fd3df20d1f",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-10.csv": "793a1bd6b1adb525257f296170d68fb82ff09361a521ab87023f380091a00a41",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-6.csv.meta": "a812161e3d6584c9096cbc724c8ac19a7e0cb35a415060edffba3415aa0718c7",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-39.csv": "76577bd73a49a9124cc2b9bf7e15b536ec36b262e4cb68dce3fcf96bdbcd090b",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-13.csv.meta": "9e45ff0028d1ceefe7cf4d632bea7911531ea4d02ea6fbcf2ee3e3900482fb0a",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-35.csv.meta": "6d30761082f9d44fe21084c8c7c4ded7f9efdadf28f1a53976ca7042a459168a",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-43.csv": "4a5d4039a6606841f0c2b76e644988fb707b1e4f5c147bdd84f37961fa7bb91a",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-16.csv": "c7eb803dba8a63ca30b7ad71f072ab04a4534422bb41cc233b5565f4c864be8b",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-43.csv.meta": "da5cce4f619e1d522375e945f445ef730afddc6f7da921179c62c2ec26ed0a95",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-26.csv": "13de83b974c1985bf699679192fd5be2d4b2b96912de309d72a199c8b73f2142",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-4.csv.meta": "a0f0efc2a85c6dd07278381a35c105a167b027dabf9949b611507a715885dc64",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-0.csv.meta": "9c8acf991f5e62c16983dd192464c64ef993790a072029d3981855a3ba1f33d7",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-37.csv.meta": "3e059f23790901c23655795b2c92afe44bea86ce34588b7d4704d21f881cab6b",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-8.csv": "3335c092a954f0580e64fa6561f249bbcdfa6ddac3d2b3dd6a9b418569bbb0da",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-32.csv.meta": "37387f83f6e5d67385973af2c557f5e49da6428b6f6ce9448313400b2ec6788d",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-14.csv.meta": "9225be8826f68257b44a580d4b12c30066ed8839a1e7e0ccfc35f1c19b493eb3",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-44.csv.meta": "b7b58b21acfb615d17aa2e211cd3bf75652c43b0e5c335f6815253320e6c454c",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-8.csv.meta": "a126996471b2bb247907812c69973ffa39272e88f09684c886835e54450cc254",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-11.csv.meta": "8f16f788d78c6613f4ea73cd1ee55233a83d91728f62de24276131e6b0463eb2",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-20.csv.meta": "8cdf983ec7e1f301d8907e3bc97fdf11817bffe9bfdbc9c3e0cdbc07558e7e56",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-18.csv": "b28bda57170ec33ea919289f18d952f7d2c0396c6307e352f6acf5f9c82a9f90",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-40.csv": "d35f895930727bc8b267a7a00caddeb1556f434ba1a7020acef68cdaf03ad337",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-31.csv": "cf94dc94e4cffa56b81a9dc334dabbc9dc8f38bfbcadfca3b04b5ab00c25fdb0",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-2.csv.meta": "14cfaac3721061ac4c4cfa26aa5bda6cad31369e3d5da2336175ce3607a3abe9",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-7.csv": "b2df9ee8f101cdd53cc66532cd07852a312b95c2fd1595fdaffeec137af17680",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-12.csv": "a04ae428cdf57c9bf4caccce14024fdf94ca835487c64effdccb0aecd9ce1eef",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-19.csv": "365bc27d1274d58148b021a1e063f118ae5c149d0417eb20a986dfd3f4a58a66",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-30.csv": "153ea393c0f58fda75e5938f602d05b3701bf03ba7c4e7f3362dfaebc9365cd1",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-33.csv": "3f40207581b4362eab853c3b8d794c5aa64f06bdd1a73836f0845112c01afa13",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-15.csv": "d0602fba7762315fd4145ae3731e5a83547a7a9478513d42484b10186e34b850",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-10.csv.meta": "5f781dec78a305c8f987489ebfe6bec8b6cd8454536620222081824a4ff0ec04",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-37.csv": "90dfd65cc33f68d6edd019c7fa01517bf8e2ec33d2313862088b12377b800bf5",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-21.csv.meta": "72802231e73825fcae5d595de7133ee18f5b50dc20068e5b7108a4a6ba3be40b",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-35.csv": "7fae3a8915b612abffcf447deb81a4e956c09c98598d04e59e80477806bb9662",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-1.csv.meta": "6f961a9e5a2471abb7dc66b01740c5dc81e9356a51be0a3ba58dd064b60c5ebf",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-26.csv.meta": "2003b6da967f12748c872f77183790dbe408d04d6f5e57d01909bdd272f477d0",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-5.csv": "fde48eb9d2e9c60ee5020d8b141b876b40db505bad3052d531397b6306cec5dd",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-31.csv.meta": "448d4de4bafb69f3ee4c1438c7ceb43dd2723dfbe8e08dc224daef345c6a2ed0",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-15.csv.meta": "fecb9b1951cc76a6921d9972d5f9d0d8cfa4269b8b28b8b453c6609fad1e6ad8",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/state/0400486024dec000/neuve/home/submission-gpu/capture-24.csv.meta": "b89370c5a81849585ea59b5e7d088589ff2bf266f0f21e5de2661c96bc86aee6",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Lu810y/submission-probe-arm.json": "a65aeb752e937ebb9147350cb5e2b97ce9e358c43fd5ef18d7bcfc27482039b1",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/submission65-overhead-static-20261110/A2/cleanup.json": "b89ff159c5149505f14f893ee53b6d4e07c3c6e4f6f2ae4b810b1568fe102c16",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/submission65-overhead-static-20261110/A2/postphase-review.json": "c0d255fed74d0d86828e6443a6ddbfb319897ddb7c2d8476d96640b57715b549",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/submission65-overhead-static-20261110/A2/prephase-review.json": "250ba5554f42d9420a6df4e98f0c49aaeb906b262ca9129ef4d942a4f48b44b7",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/submission65-overhead-static-20261110/A2/active-room.json": "536eb18cfddc0635bd111d24d89e34977b28045cf410a7741ae5f1311a0dfcb9",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/state/0400486024dec000/neuve/emulator.log": "5c17fef0b1f0a4dda76af65eb5e93edaf5b3965571bb95ce2b76d87574598194",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/affinity-apply.json": "440f6ba17b33a0d47f89987f450b1668beb1808ee6f6ebd3de5edc4715035350",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/affinity-verify.json": "18c7d0dcb506c09bbb8df8e3c32c744125b3aa00cb487e4fa867c75140530727",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/native-runtime-before-proof.json": "c8bee74d92d40656175f52d435e75cafae3a8e9c1a1749b31d1b10e4c53882a1",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/native-runtime-proof.json": "d6d47a6378390d9f8f7402fdff6be55a741f1c7bafe43e37deff0d6893799deb",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/native-boot-before.json": "d02eba0e9ee3d85337b368c0c79ab68456ae5242ddbe15b5aae39e7b241043d7",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/native-boot-after.json": "d02eba0e9ee3d85337b368c0c79ab68456ae5242ddbe15b5aae39e7b241043d7",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/native-memory-affinity-before.json": "b6e856776d76577a37cc226a7efce10508c45c16bcc8570a0e11f1de5853d8de",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/native-memory-affinity-after.json": "2be5de63a4148c131b3d3879327abc673495cf754224457a2e3ac8f0b060c816",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/browser-phase-result.json": "5a70286524461539aa75d83df64ad71e5f2d70ece0ae547543031d69f8d779b0",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/phase-clock.json": "bb779175f1c4af3ecb304c35c240a47d445454b50cdf012771f5c8c46bf522d4",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/phase-events.jsonl": "84c9e3338a0bff09a14e2f02743e689f99d926bd9579b892e82c650ea45b8d8c",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/phase-exit.json": "5541cee7db1abf1ca4ce4181abd3ca26b270cc7002b4dde791a8a11289bccab1",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/browser-before.json": "e20c576ff3695eb96729739ee8a61841733c5e9f37e0f409615b311dd2f88c2a",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/browser-after.json": "06ba489af644376d62a46e8914adc091b72569b5347fb12e51ae2a82e7de8cf3",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/browser-cpu-before.json": "ecbb6d93080cbe29039a889c920a52a3056893cdf3f5dd45e3cd32b3cbd654be",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/browser-cpu-after.json": "383f9d99418c6a016c186007e164b02ec1816c9281441708ded9e4ca4f69acf6",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/qualification-watchdog.json": "11d46b2b9efe56ed9965ef5787f0955a0c2b4075b4d50dadd7e98168774fdee6",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/seed-copy-proof.json": "d0c478006295df6efb075ce6fe82c96f565bd120d337c45d1a81253126c7d15b",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/loaded-check.png": "1ada9013b138bd9858408d64d019a18d57e12f3c7ae366c7d2942212ae86dbca",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/media-preparation.json": "61c9bc1dc41515efedbaf526f1fa938f6eef036c0663bb52c34d9d5d54e57ffa",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/gpu-observation-commands.jsonl": "4121a95394b6da49515d7cb7ee8178b01652d34f31060d6639cdaca6b46c2f04",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/encoded/after-decoded.json": "1a6e39926a5d667c90d857489654cb450faf107894310f6c66227cb334022249",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/encoded/player-after.h264.json": "027acd955bd62ea8e63071f7c0bc3742941f4df6c3215d8e30ce34fd62682901",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/encoded/spectator-after.h264.json": "06322abb47ec4438bebf6d7207788740619a228b82f6e4b897a7aeaca6a20540",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/encoded/player-middle.h264": "4414edd106a64c87074b4c669707e7573e7dd0f77bb5b852fc12f8e25b7bb6fa",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/encoded/player-after.png": "6eafb242efdbc570bb731befbf645ef0e130bd87b03ebf888c5d705c48cb0786",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/encoded/player-middle.h264.json": "65619234c446c36f6504386850bcaddf509f35fa188ad6fef77f989e290a5b2d",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/encoded/spectator-prepared.h264.json": "bd6ec476bd924bac953f0622b562df283b5a09469583f1cb569d41380fce02dd",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/encoded/player-before.h264.json": "2bbe6f66fc0db4786159ddbd77a898f4a297e27cf0279274369e62a402bbaebc",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/encoded/spectator-prepared.png": "2022e8231c44e668e70e45f9ca00fda2dc6dbcd42c8f7dd727816dcc55d04616",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/encoded/player-after.h264": "35d2199e8ffd1a32a813f026beb4b60e8defef233489bdc0e0be2d275565fa23",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/encoded/spectator-before.h264.json": "074fdf01cedb795e8fed0be2583d94176fd22de763522f8e309a31ba3eb6f3c0",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/encoded/spectator-middle.png": "a67273122d643686d98890a112048091680d400490e10799e052839922a4ffa2",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/encoded/spectator-prepared.h264": "5719124b67b056f04a9bac52dff4ba1b5707cf209c33c55a88fe2009b510753b",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/encoded/player-prepared.h264.json": "21e05bc0e6976ac006bda5c8505485e4d16bd55e6a4fdebf70deb23363832892",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/encoded/spectator-before.h264": "cc9b1d4a0c3d2e604da22ddb8cdf34c885cbc927da55dad813734658be2b8a6b",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/encoded/spectator-before.png": "e8dd7363916d633b8ca071c3d58c46f0d1e98f98558acefb6fdaf0cd6865ccc1",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/encoded/player-prepared.h264": "f939b066b6582935fe3257cbe9dc0d7d43bbbe416991e9fb842f71dc0b3600fb",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/encoded/spectator-middle.h264.json": "7d85e17de0a3fe7a21b025da07fbf008c02220a06d323259b2fb3a2eee3e2745",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/encoded/player-before.png": "e8dd7363916d633b8ca071c3d58c46f0d1e98f98558acefb6fdaf0cd6865ccc1",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/encoded/player-prepared.png": "c5a9fd48db19abc223e6fc9dadc7b12793fdb4608e959ea5628c535064c4f749",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/encoded/spectator-after.h264": "35d2199e8ffd1a32a813f026beb4b60e8defef233489bdc0e0be2d275565fa23",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/encoded/spectator-middle.h264": "4414edd106a64c87074b4c669707e7573e7dd0f77bb5b852fc12f8e25b7bb6fa",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/encoded/prepared-decoded.json": "59d9aa7e81c6716a5412914a934cfe9dbd6297aa4907fed569ebb77772b27b3d",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/encoded/player-middle.png": "a67273122d643686d98890a112048091680d400490e10799e052839922a4ffa2",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/encoded/spectator-after.png": "6eafb242efdbc570bb731befbf645ef0e130bd87b03ebf888c5d705c48cb0786",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/encoded/before-decoded.json": "e17fd0fbedee7ff2735d8526775929d12ada62be1fea49580383865a6c38ccbc",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/encoded/middle-decoded.json": "fe66ab68643ac3362a34e828a7f3b00e6c92ba0a2006594384da3988939f298a",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/encoded/player-before.h264": "cc9b1d4a0c3d2e604da22ddb8cdf34c885cbc927da55dad813734658be2b8a6b",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S5z167/submission-probe-arm.json": "5f1d2760abfdc7c08d79619af134687943af1c162f090b5698af293e5c825eb4",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/submission65-overhead-static-20261110/B2/cleanup.json": "c9b9dcacbc1175c75053685838308176e54c2f574a4e74d9dbe45aae9481fb4c",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/submission65-overhead-static-20261110/B2/postphase-review.json": "e42e78cda0f723165fe48eca788baa676717a57460a3362b00676c0aac6dcc59",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/submission65-overhead-static-20261110/B2/prephase-review.json": "6b4d1bc9495e514e6e9f144ebeb6a2c68a4c6d5ed0817c0391117822823731e1",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/submission65-overhead-static-20261110/B2/active-room.json": "fee86e39379dbcea5c571c34688f1f19cb5a6d4d5644fc014de8e51bea4032fe",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/emulator.log": "2f0ed3797d831e14ec09367f24b0c3cb906141ba4b5e510109aec880bbccb7db",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/affinity-apply.json": "b82e09866befc08f2f34522866fc02dfdda93e0cd1cfadc3c850695422d77c4c",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/affinity-verify.json": "c130eee1967ee806d4cc32022a90f2a8591f249467322977f02794d4836f7cbc",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/native-runtime-before-proof.json": "6bf8f176bb7c625e28f5f0479a3cbbba63cb5e4fcec6c943c79913aa0963b491",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/native-runtime-proof.json": "81692f83e1c9c922085e2b149c7d1baa2af0f45f68ca05295fa225db0a10ee2c",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/native-boot-before.json": "a04bb0593e59633b58edf463353e178531305b12c66b18e08515ae31f71b2873",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/native-boot-after.json": "a04bb0593e59633b58edf463353e178531305b12c66b18e08515ae31f71b2873",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/native-memory-affinity-before.json": "03ba7856df625fb85915180a9d12c95dd7eaadf8d7efe8fdfe5d055630bd57a9",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/native-memory-affinity-after.json": "53dbd083c4a2dfbb6406325615c28f7c122e4fd8574f31c60047923406fc621e",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/browser-phase-result.json": "4e4c3b4325fbe37967c1153db15ac215ce3aca5983dcb075d7089f37d6bd1c73",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/phase-clock.json": "fc574b3ce220543040b4114395d4be1dc499f50435b540bf5c22f772c635200d",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/phase-events.jsonl": "6f3de48443ebc98eddf678e14e4dbe6ecf919fe5bfcafca86a778a64345b2a43",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/phase-exit.json": "38bad9c1fb167b1e4bd505d0dc4fed2ef192c9b1985709e23d91c16655dfcb11",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/browser-before.json": "1de527cc7d4495a13339250298cacf4eb73211275b98f23a1f02231353b64721",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/browser-after.json": "b713c0be8dbd6b87f62639cc42e9a5e7133287e08aab3f7dec58bf30f0ea1516",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/browser-cpu-before.json": "8ae6290387edf5f7c4edfe8285d776312e90de3cad5209dd913941ffe039e1c7",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/browser-cpu-after.json": "ef5a18edd9d089f820f6ac135eba68c07f0d33440d68740e554592d11173f20d",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/qualification-watchdog.json": "09fd5a4bb5b4f20b415dc595fbbdb0af85fe81eda1ce6a971968716d0760389d",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/seed-copy-proof.json": "562489bee1479e6171f0cf5f8811f87f62abe33cf4f5fb19794aafb86a2ea575",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/loaded-check.png": "dfdad1c48988fb32cd26c3187126c498bab4b32418d1bc82a1a9251d0010c411",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/media-preparation.json": "ad0aea8087a075de6dba4cabfb597ebcb9480bb39241ecf3ac50e71e4d73f5f3",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/gpu-observation-commands.jsonl": "8b2f4ed025f9d96838f4f8e89cf98bc047040d8e6e18f95a2c973f21bfea5bba",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/encoded/after-decoded.json": "bdb0e0db8afc80837532a61cde9eabf791f04f5ac9712610eb58ebfd530a1d08",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/encoded/player-after.h264.json": "21bd795f83a9cfb5044d40b9d3a9282c8d92f28e8d2766321ecabf24f1f84bf0",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/encoded/spectator-after.h264.json": "57b8c5834691b7ba98df195ef878e83570ac46770b3336ef782de3720d12b1ec",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/encoded/player-middle.h264": "56f7684795135ce4357d74042c1b29e593e48b5505af696c85ba2fd2c3ac77cc",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/encoded/player-after.png": "a8781690ff05a8d4df54efad6f7c20cd1bcb023925dbcda274de192f7359a874",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/encoded/player-middle.h264.json": "368bfd8a822fa5ace0be0e219f1c3b0bc2c251df6a72af2ec1178ca81afc07ec",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/encoded/spectator-prepared.h264.json": "3837e1134e4101d9d6600bfe503b50e7dfc4709a36aa48b94bc85aa101073e15",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/encoded/player-before.h264.json": "b69acec6f7abf00a5ef7c814c01f795dacc7041d3eda3b20ffafaa22c32de14a",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/encoded/spectator-prepared.png": "cb34f4471d42dfb4c37fd627d446f34d3528c977be9d256df7233115086c0dd4",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/encoded/player-after.h264": "f764c699dbf82ede4457f23f117d4af1c5c5e521732b7284d77dfdcac65a2d54",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/encoded/spectator-before.h264.json": "72f56ee37997eba7556e838ff2eef6d4fb77205acb06c5801b4f71d6393d1825",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/encoded/spectator-middle.png": "ddea1ac73aa4f42883bf104792e509851baded39f948345ca798d128957da4e3",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/encoded/spectator-prepared.h264": "4956e0050650ab14e2675f113aacfcfbd9e8466d409548a9a656d64cd824a770",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/encoded/player-prepared.h264.json": "c364ed523173d1ccd2bfe235baf0925c5d214ccba5154b6ae2526b4ad4e9605f",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/encoded/spectator-before.h264": "6bfb74c7612a0b183918fff798f8d590ef496ae3759d93cf61c373b6aff76e4f",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/encoded/spectator-before.png": "7df345a8ec814479a6b13ef9fa3bd6803ec629c0bc9dca3fc5e6bd7549d76ba3",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/encoded/player-prepared.h264": "70d803ca3558d9ac7e7b674b91df2f79be59afc908429292de3c504f386f1b37",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/encoded/spectator-middle.h264.json": "a0248f45fc24ac64805f0e64c32bc8dbf1680292d8b15d8be06a493ea18774ea",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/encoded/player-before.png": "7df345a8ec814479a6b13ef9fa3bd6803ec629c0bc9dca3fc5e6bd7549d76ba3",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/encoded/player-prepared.png": "bc7dfa5110eebf054de1fce29f07d3b8d800f98fd0dd5d8c7ee768371a25a60a",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/encoded/spectator-after.h264": "f764c699dbf82ede4457f23f117d4af1c5c5e521732b7284d77dfdcac65a2d54",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/encoded/spectator-middle.h264": "56f7684795135ce4357d74042c1b29e593e48b5505af696c85ba2fd2c3ac77cc",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/encoded/prepared-decoded.json": "100666b40f726007192f38159c819ec9fb3ca6d4b93139e4377f719d42a6da43",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/encoded/player-middle.png": "ddea1ac73aa4f42883bf104792e509851baded39f948345ca798d128957da4e3",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/encoded/spectator-after.png": "a8781690ff05a8d4df54efad6f7c20cd1bcb023925dbcda274de192f7359a874",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/encoded/before-decoded.json": "55c7e8e5a2a786cc7ce4f3a87ea79f6f854e518cafbb03054d45e841b460c549",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/encoded/middle-decoded.json": "783c4c77eaa9af9b8bc4b40fafc8f9d33bad7e996e1c0253684070f480a86083",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/encoded/player-before.h264": "6bfb74c7612a0b183918fff798f8d590ef496ae3759d93cf61c373b6aff76e4f",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-18.csv.meta": "89cf79bdce0c496ccd66147d0428a50742eb5c01342c72409e9cde7c6e547cb0",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-7.csv.meta": "b3bb9f867520da5e19087233d887367ff1b626ff12bb576c9e2c1b75b458122c",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-28.csv.meta": "e5a4e9ce878d3a9f3ac8e929ce27608488bf2b1dcf0f422b27e1c6c11568610c",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-1.csv": "7f1d20822942a2b181228e5a89e68f6a260cf831f47ac9298fdec8198bea38f8",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-34.csv": "f9e1663385d48d7e422273e195c3d9426f7b73c8ad3d59bea66bd5fd7f4c3fa3",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-30.csv.meta": "0429eb112e0638a32c285ed0ebd2e3f5ee28ac81f19c053988057fb6a029abbf",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-24.csv": "82abbb38f1b2119305e81d64cd31c92379252f89f5aab3d9936a6b0c2b9e88d4",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-12.csv.meta": "ede8c11e7e9e73b418cb068e19857518ab95bba9105a7a2e42094595722bd5d7",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-41.csv.meta": "cabec8a1423d2d02cfbe41c5b8fbe2bbf782db658a9e8a6898a202047927b6dd",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-0.csv": "3cd5fe39b07551ff2cbd8c81d41e8a7fc48c5b40f74ebcb6b89653d996451f08",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-17.csv": "70422cce4b631d9cff13fee5c6c85e64ddbf7a9481f3436e230d2b6558c4affe",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-16.csv.meta": "fafcadf581fa6d4187c9a33ae4fd5841f5d04aab5c3c1a3a663900df565307e6",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-2.csv": "8d06341c0c9c957c9f82536ad3cb4fb6c440b60c5645f83772ca0b453ec5d1a3",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-19.csv.meta": "54289d67f800528a6d0924b88907c9629f7257d54f1ebd72ded21f953fae9986",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-25.csv": "2d103c648a3d9cded3a73b621878d4a596a18f4ce6503fc0ea88b5efcfa2b5d3",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-33.csv.meta": "62978144c08ff2a9273f33b6d06f2ce241668fb513d31b0da36be2e6632eb951",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-23.csv.meta": "de11ddf6173fbcc9c254f75e1f5069aaab1b8f5bd2d07c98f9a513f30cee7139",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-14.csv": "fefcc902208caf8d7b8dbfb5924ac081b5c60d93e7b14000abb4f3823ac395e1",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-17.csv.meta": "479fe2ec06557fce25b140f9628a25bdc0877e961c740fa11d1160c1c7cae2c2",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-34.csv.meta": "e4963560ea9f858dac46214be692a330a3da9555dafe8f04f7e6d977d8a1aa24",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-5.csv.meta": "4550c1164b07708d2ae9edf8d0f5270545ccedfde3a103679bc1d0235f8280f9",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-22.csv": "dc7818568d96281acaa0f784d295904a0a586d21ce721d84edd3657b50075340",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-4.csv": "9c5c961d6bc1022bcf338796c2c17ab5e5171b8495fad6763a0f207fd4381131",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-29.csv.meta": "318e65f1f7aeb187532b454cafbf44d80f9f32d4dc9c308d17dfa80da0ebaa94",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-42.csv.meta": "678b0658dbe70b13c21fd915b1102b7bb3f71a03a3272690af89a7a81db3dff0",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-41.csv": "dae40de4df52557504ccd0a62d0a3c4a45f73bce5e36ef38b284ba996aba34db",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-13.csv": "edb96a64d3c55a876ff7c0aadc3e2f3a046f9008cbb754f47101cffd015b4257",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-11.csv": "98084fd32233f84b7066b4e1d8a21b4dc609d2d445a2732ca003961fbc4cc2f6",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-3.csv": "bbc83e7595b42b8bb7b6978922b770188d4b6e5f39742b52a6beadef81c429cc",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-21.csv": "6a4db45391e71870d6a3486b3442a0d3caff22580d47ca32086c75f4078378d0",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-3.csv.meta": "45475606e8db3892bf5539eb3a2596b0fe0d61632049fcd7db3a11b62bbde913",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-27.csv.meta": "9bbc6b0325c1fd98266e5b1e640dd7ea70802041a3d74ae62aff6da1aaf825e3",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-20.csv": "a99815edf90e1f54fa427db4d1a4cd10238cae0e54f2a55e9219c4c5ca7ee050",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-27.csv": "86311b1a6330ea7a71ba54e24d59e80901759fc06d77c1d4f5da07b3cb62edb4",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-40.csv.meta": "1b5914907d80ed1454d1dcf670383b2818b037062dce476d042d0cab3a713d39",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-42.csv": "f4f529d0532ef1740f566f78adfa49ffb2d0a872827d9e2a2cace53ca5d18049",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-36.csv.meta": "c60ec848516b2aef1c58cad385896da91d9ffc688d67fe76bf8083310a13ad7a",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-39.csv.meta": "304cafa15725513adfacb024b82863fd40871b7798a1475f60bda4ae93dcbbaf",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-38.csv": "623d93844c97eeeaadeb06f74c9cb4bcbd9a737bc0bab76e5d3ba4120e7188e6",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-9.csv.meta": "bd15f60ea55cf270edf3bfa07d26eff1b75658420eec4b52cceadc1a43aede09",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-23.csv": "0fac7d6e6f4c192255b199c1848bfe3e2443837eef68f651b1443aad597a7425",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-44.csv": "07784fbfbe03f5eb6d8b9f633f0687ea4a0f8e979b5ea849009fa31fcb179fbf",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-28.csv": "334787f84e084cb8cdeeb55bc41f03a822b6e811a0d576d2f5201570027f6748",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-32.csv": "6ee6d9c5c8fa5c15083717b33fa1e8f4725615b1ee7fc649503602baa2a7f06e",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-9.csv": "d6729b582b5a026046c35ad216b5551e819d0e49a32f61c55b3d7923b89b1189",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-6.csv": "aeec0178929e3f1d6d4f6ddbf2f86b4c77afc7ed29a99919be1dd4b458e82e23",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-38.csv.meta": "4c065b515633b15255844e87f736b135b7dac18509a679fba1eeb495953bc600",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-36.csv": "76067173220394ccf4810bc5fe7f4ff24880c77cb618175e39501cde36995caa",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-29.csv": "5faa300cfe09e2258963a5ac5bcf6fb468bb8b835025a0d94ed709c447795654",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-22.csv.meta": "f477514d97120b961b3527a5e532ef975671bd8b9b21cc404222537cdff00160",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-25.csv.meta": "89dc7b74d9ad27dd262563f20d91d38c401cd4f1871b0e68e512cfc1edca0aa4",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-10.csv": "45972f78d8ca609b98096d331a245dbb7a79cda65ee2a5a8a4af96994e99cd78",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-6.csv.meta": "90cbf38b0760e0bf5cc65949a197bcbd3b1d8a899b44db89af0e8cdf659348b7",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-39.csv": "e3471f4a5453a2275645964cbc2fe714155ac652ac6421ccd371532d84fc0d3c",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-13.csv.meta": "297fd55a1bf0df70ade2dcdda6d4e58dc26b6c51476345165df1084c9e34f62e",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-35.csv.meta": "462d50fb18cf67f928940777c219f60401c43f7ac6a7823baec4fc860f7837b3",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-43.csv": "99ed24ecc2f4d98c63b648584d1e7bea6099794bc6c94597e8b35a2b6ab3d3e5",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-16.csv": "41b83b19b6b114dab89166bc14804d9d341092d979d0d255a90f744c92031e0e",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-43.csv.meta": "e366b871ea05010b670b57c48a35c84f58507f6b4c9335335e9d5024551789b3",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-26.csv": "17b73f10c64d0a28e84ff62d6fdc3da07a2e0aacd5dd75c415e3de9c456e814c",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-4.csv.meta": "49e3d7d32ee6e44a9539ab7b8d4f5060987dfe4eb18631f2e24329b20c5894c2",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-0.csv.meta": "8e79c931a4a9b0abdb68979976ce7a656f6c28a88a931c0aab1592a413b5b648",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-37.csv.meta": "f1538dfa3908195fc5281e439e8a597bf103c9f7fbeb506a565b940e1feede3c",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-8.csv": "d9cd6c64b9b5c888dd4dc71e93091a3eb6cb7c8196261159fe4bab024d56be0f",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-32.csv.meta": "8f24d9366520c0ab81fef98f2a5e489ce19e0f4d6a2ad629f405c3cc76bb888f",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-14.csv.meta": "522d796affb26aeb04c0ee6f8e0e19b68e5a617162b8b2b216eb14fa01e7230c",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-44.csv.meta": "8a567766bb3b393341c767147a9ee4c1c57fefa3f7de588b3d3ed720d156b913",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-8.csv.meta": "295e37adaf3ca4d48acbd89c002b9aeb5d8a3e84615970953df1b9d7074cf0ac",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-11.csv.meta": "1fd27b34f04cc9383c77cbae670282f5112610529b12c3e63f5391cf6f6f1cee",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-20.csv.meta": "320521f14240028db1ddb91d20f520301d389079627a8218fb0ac02e24e82304",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-18.csv": "72f1377ebecaf7808d90466f07d2bceaa8d0e2c33028d625924328165c9d8b37",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-40.csv": "1d2de4d8ddabaf6f4b6374677daf8b2dca04c9d3711f7629685a99a3471fd1a5",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-31.csv": "3963602f739595c4952ad26f8476dc018dbacc723e106b6ab45a2ef9c0365b3d",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-2.csv.meta": "dc3ec1d6c9c07f7f7aad9a1f33ff11420d1e0c7a09273bb597542ec3e3c5eb19",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-7.csv": "46c5ee0691ad261f2ed1ea307615dcb0788a8f598e2da07f15fec665aee02024",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-12.csv": "54ae0711ba0923850d151856da42c53e26d587fca432e74384812583031212ae",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-19.csv": "c6dfa9f2f71862c25b7c049275972eb0580aef76dfff49021876541e0a59b889",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-30.csv": "ea32f43e56398e24fe0f7212c71101f08065001b2d19b2628b1cc3e4e32388b9",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-33.csv": "43b24be8a3129402b8634bfd7267bbe6e009d976da2458d180a974ee6400b4c2",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-15.csv": "e037b31beb2465034e61413abdcfd5a47d13b076f384b599f0d89b50db24e155",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-10.csv.meta": "4c3251ea001ad80f53265a59c7e5d8c61eb428d147e5fe771ed351942b78ac36",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-37.csv": "69d31082da934298149d600b0bf2a7fb5c616e2e9b2d26a20ccd71e8df69ebd9",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-21.csv.meta": "7a7d10523388f76d5adfc31a2d4b41e6cf5db83d8a9943479db4dbde1973d0e6",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-35.csv": "760c87e5316b67015c6c8851f95b897d30dcccf7072628f59d26da1a8977900b",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-1.csv.meta": "fb1a37729e0df8bccacdd13c0319558f3ad0524aa5c99c12741ff432705e0bb2",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-26.csv.meta": "4feddc9e7a93819659f9dc828cdbaf30d3c30e8ab20c7c66a4f75982baaaac5c",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-5.csv": "5d40b04aed93aab1a7a5fb8cc2e3bc1513708ff03294d098cf8d98abaf24a097",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-31.csv.meta": "3dd6b478ec97ecabe4aa7ab3724d444773d48fd9a8a29484402796c8ccb23be9",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-15.csv.meta": "555211fdd8db06b19f61c03b24dc2f09d1c07bbe075de5bc809834c00f455959",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/state/0400486024dec000/neuve/home/submission-gpu/capture-24.csv.meta": "f7a4f1bebd81fbc4bfe60e158a0202823a49fa00a76e86a342a82c7040b897d8",
+    "/home/souhib/.local/state/nel3ab/test-switch2-3ao3ky/submission-probe-arm.json": "4d246f5bd600638b7de70c1e8f422a50cd45dba23ad6ebf577221a88c982bfae",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/submission65-overhead-static-20261110/analysis-correction.json": "ab9034e164b71c076f7a076513568cbb47539c37e6fb0efb0e0291c6f4e23aee"
+  },
+  "limits": [
+    "Activation overhead only; dormant probe branches, allocation and native-key lookup remain in A. This is not pristine upstream or the installed executable.",
+    "No exclusive GPU occupancy claim from interval unions/spans; timestamps can perturb ordering.",
+    "Same input durations can drift camera/position; each scene must be read before accepting comparison.",
+    "GPU observer polls every6s, cannot exclude work entirely between polls. No GPU fdinfo counters read.",
+    "Two raw video/audio subscribers preserve encoding/subscriptions; results do not qualify browser playback or all locations.",
+    "Only full600-return windows inside explicit phase bounds; partial coverage. Quantiles remain per window.",
+    "Native WSI accepted returns are not unique guest frames or physical scanout. Nonzero PCM/scheduled playback is not physical AV sync.",
+    "B may retain a silent running AudioContext; zero app game PCM played is the qualified condition.",
+    "All reviewed static views retain the same camera and position; particles, idle animations and wall-time startup phase still vary. No movement or new-zone qualification."
+  ],
+  "constant30_achieved": false,
+  "scope": "Static Kokiri camera calibration only; same manual-enabled ELF, capture unarmed/armed A/B/A/B. Not a movement or new-zone performance comparison.",
+  "conclusion": "Capture activation delta changes sign (-1.40%, +1.52%); overhead unresolved against variation. No systematic cadence regression demonstrated, no transparency or uninstrumented GPU-budget claim.",
+  "analysis_correction": {
+    "at": 1794340288.7120085,
+    "old_script": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/submission65-overhead-static-20261110/analyze-cohort.py",
+    "old_sha256": "2af158851b75752e9cb423e99fd7a75e556953e37dde42267ec9d77da7db2af6",
+    "red_evidence": "Initial offline analysis passed A1, failed B1 at assertion that the manual request must remain. Actual native OnFrame removes the request upon activation.",
+    "new_script": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/submission65-overhead-static-20261110/analyze-cohort-v2.py",
+    "new_sha256": "2c634e1f5c482a33c5d42dfdd624b4802fc1f3a1dee306189f8bcf91e40ca42d",
+    "scope": "Offline reader correction only; every pretrial frozen input and original analysis script retained unchanged. Active/native execution proved with available bounded captures; inactive twin must produce none."
+  },
+  "probe_summary": {
+    "B1": {
+      "complete_captures": 43,
+      "excluded_outside_phase": 2,
+      "GPU_span_ms": {
+        "minimum": 30.55188,
+        "median": 38.63354,
+        "p95": 46.1288,
+        "maximum": 48.27351
+      },
+      "GPU_interval_union_ms": {
+        "minimum": 19.70872,
+        "median": 22.24708,
+        "p95": 25.5184,
+        "maximum": 27.78404
+      },
+      "execution_interval_sum_ms": {
+        "minimum": 19.4046,
+        "median": 21.80604,
+        "p95": 25.00672,
+        "maximum": 27.28944
+      },
+      "upload_interval_sum_ms": {
+        "minimum": 0.30088,
+        "median": 0.41428,
+        "p95": 0.48636,
+        "maximum": 0.51168
+      },
+      "submissions": {
+        "minimum": 52,
+        "median": 68,
+        "p95": 79,
+        "maximum": 80
+      }
+    },
+    "B2": {
+      "complete_captures": 44,
+      "excluded_outside_phase": 1,
+      "GPU_span_ms": {
+        "minimum": 27.59903,
+        "median": 30.528820000000003,
+        "p95": 37.49232,
+        "maximum": 38.06064
+      },
+      "GPU_interval_union_ms": {
+        "minimum": 17.92212,
+        "median": 19.915779999999998,
+        "p95": 22.74316,
+        "maximum": 24.05832
+      },
+      "execution_interval_sum_ms": {
+        "minimum": 17.61616,
+        "median": 19.60506,
+        "p95": 22.4094,
+        "maximum": 23.69112
+      },
+      "upload_interval_sum_ms": {
+        "minimum": 0.2948,
+        "median": 0.32044,
+        "p95": 0.36132,
+        "maximum": 0.3672
+      },
+      "submissions": {
+        "minimum": 51,
+        "median": 53.5,
+        "p95": 56,
+        "maximum": 57
+      }
+    }
+  },
+  "next_hypothesis": {
+    "parameter": "EDEN_NX2_FENCE_FLUSH_US",
+    "control": "500",
+    "candidate": "2000",
+    "reason": "Many sampled submissions and time outside timestamp intervals suggest testing the existing bounded deferral setting. This is a hypothesis, not a causal diagnosis from GPU union/span.",
+    "safety_scope": "Retain existing WaitSubmitted/idle-hook/deferred-flush ownership and every wait. Change only the interval read by existing code in a private copied package; actual settings/ELF and lifecycle still required.",
+    "acceptance": "First functional scene and normal stop; alternate before any improvement claim. Native WSI alone does not establish browser/scanout/new-zone30fps."
+  }
+}

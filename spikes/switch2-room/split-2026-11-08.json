@@ -1,0 +1,2947 @@
+{
+  "date": "2026-11-08",
+  "source_commit": "216d3e294367abd4742d7ebd736ef25a8db6f365",
+  "engine": "Eglantine standard daily-20261107",
+  "private_lab": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-08-split",
+  "frame_generation": false,
+  "production_changed": false,
+  "profile": {
+    "scope": "Profiled stationary Kokiri camera sweeps; not an unprofiled FPS comparison",
+    "window_seconds": 70.212895,
+    "windows": [
+      {
+        "start": 102.104848,
+        "end": 112.120285,
+        "zones_ms_per_second": {
+          "other": 0.3,
+          "idle": 69.2,
+          "pending sleep": 7.4,
+          "resume pending": 13.1,
+          "push": 109.5,
+          "tick": 3.4,
+          "macro": 115.7,
+          "draw": 24.1,
+          "clear": 11.0,
+          "compute": 22.9,
+          "flush work": 32.8,
+          "pipeline lookup": 9.5,
+          "configure": 14.0,
+          "sync descriptors": 1.3,
+          "read handles": 21.8,
+          "fill image views": 22.3,
+          "update buffers": 35.8,
+          "descriptor acquire": 1.1,
+          "bind stage buffers": 116.7,
+          "push descriptors": 9.4,
+          "render targets": 6.6,
+          "configure draw": 4.9,
+          "dynamic state": 15.5,
+          "draw record": 1.4,
+          "texture upload": 92.6,
+          "fence": 24.8,
+          "fence skipped": 3.6,
+          "method": 209.2
+        }
+      },
+      {
+        "start": 112.120285,
+        "end": 122.153373,
+        "zones_ms_per_second": {
+          "other": 0.3,
+          "idle": 87.7,
+          "pending sleep": 8.7,
+          "resume pending": 19.1,
+          "push": 111.7,
+          "tick": 2.3,
+          "macro": 127.5,
+          "draw": 24.8,
+          "clear": 9.5,
+          "compute": 27.6,
+          "flush work": 33.7,
+          "pipeline lookup": 9.9,
+          "configure": 14.1,
+          "sync descriptors": 1.1,
+          "read handles": 21.7,
+          "fill image views": 19.0,
+          "update buffers": 39.2,
+          "descriptor acquire": 1.2,
+          "bind stage buffers": 122.9,
+          "push descriptors": 9.5,
+          "render targets": 7.6,
+          "configure draw": 5.0,
+          "dynamic state": 15.8,
+          "draw record": 1.4,
+          "texture upload": 14.9,
+          "fence": 26.6,
+          "fence skipped": 3.7,
+          "method": 233.2
+        }
+      },
+      {
+        "start": 122.153373,
+        "end": 132.191749,
+        "zones_ms_per_second": {
+          "other": 0.3,
+          "idle": 81.6,
+          "pending sleep": 8.6,
+          "resume pending": 27.0,
+          "push": 101.1,
+          "tick": 2.7,
+          "macro": 122.5,
+          "draw": 23.7,
+          "clear": 9.5,
+          "compute": 25.7,
+          "flush work": 29.9,
+          "pipeline lookup": 9.6,
+          "configure": 13.5,
+          "sync descriptors": 1.0,
+          "read handles": 19.5,
+          "fill image views": 17.9,
+          "update buffers": 37.1,
+          "descriptor acquire": 1.1,
+          "bind stage buffers": 125.1,
+          "push descriptors": 9.0,
+          "render targets": 6.8,
+          "configure draw": 4.5,
+          "dynamic state": 15.8,
+          "draw record": 1.3,
+          "texture upload": 49.8,
+          "fence": 24.3,
+          "fence skipped": 5.0,
+          "method": 226.2
+        }
+      },
+      {
+        "start": 132.191749,
+        "end": 142.226487,
+        "zones_ms_per_second": {
+          "other": 0.3,
+          "idle": 76.4,
+          "pending sleep": 7.2,
+          "resume pending": 34.6,
+          "push": 105.4,
+          "tick": 2.4,
+          "macro": 124.2,
+          "draw": 24.9,
+          "clear": 8.2,
+          "compute": 29.1,
+          "flush work": 31.3,
+          "pipeline lookup": 9.9,
+          "configure": 13.2,
+          "sync descriptors": 1.0,
+          "read handles": 19.1,
+          "fill image views": 18.6,
+          "update buffers": 36.8,
+          "descriptor acquire": 1.2,
+          "bind stage buffers": 125.1,
+          "push descriptors": 8.5,
+          "render targets": 6.4,
+          "configure draw": 4.7,
+          "dynamic state": 15.9,
+          "draw record": 1.3,
+          "texture upload": 31.9,
+          "fence": 26.4,
+          "fence skipped": 5.3,
+          "method": 230.8
+        }
+      },
+      {
+        "start": 142.226487,
+        "end": 152.238253,
+        "zones_ms_per_second": {
+          "other": 0.4,
+          "idle": 77.6,
+          "pending sleep": 8.4,
+          "resume pending": 29.2,
+          "push": 102.8,
+          "tick": 2.5,
+          "macro": 125.6,
+          "draw": 23.9,
+          "clear": 7.8,
+          "compute": 31.2,
+          "flush work": 37.9,
+          "pipeline lookup": 10.0,
+          "configure": 12.9,
+          "sync descriptors": 1.0,
+          "read handles": 19.1,
+          "fill image views": 16.5,
+          "update buffers": 39.5,
+          "descriptor acquire": 1.3,
+          "bind stage buffers": 127.8,
+          "push descriptors": 8.6,
+          "render targets": 6.9,
+          "configure draw": 4.9,
+          "dynamic state": 17.5,
+          "draw record": 1.4,
+          "texture upload": 11.3,
+          "fence": 33.0,
+          "fence skipped": 4.8,
+          "method": 236.3
+        }
+      },
+      {
+        "start": 152.238253,
+        "end": 162.238462,
+        "zones_ms_per_second": {
+          "other": 0.3,
+          "idle": 52.5,
+          "pending sleep": 7.1,
+          "resume pending": 37.1,
+          "push": 100.2,
+          "tick": 1.2,
+          "macro": 137.5,
+          "draw": 24.3,
+          "clear": 7.1,
+          "compute": 30.6,
+          "flush work": 31.2,
+          "pipeline lookup": 10.9,
+          "configure": 14.2,
+          "sync descriptors": 1.1,
+          "read handles": 20.2,
+          "fill image views": 14.8,
+          "update buffers": 39.5,
+          "descriptor acquire": 1.2,
+          "bind stage buffers": 138.6,
+          "push descriptors": 9.0,
+          "render targets": 6.9,
+          "configure draw": 4.8,
+          "dynamic state": 16.8,
+          "draw record": 1.3,
+          "texture upload": 2.0,
+          "fence": 31.1,
+          "fence skipped": 6.6,
+          "method": 252.0
+        }
+      },
+      {
+        "start": 162.238462,
+        "end": 172.317743,
+        "zones_ms_per_second": {
+          "other": 0.3,
+          "idle": 83.4,
+          "pending sleep": 11.1,
+          "resume pending": 42.5,
+          "push": 90.9,
+          "tick": 1.2,
+          "macro": 127.0,
+          "draw": 24.5,
+          "clear": 7.6,
+          "compute": 31.1,
+          "flush work": 34.7,
+          "pipeline lookup": 10.8,
+          "configure": 13.1,
+          "sync descriptors": 1.0,
+          "read handles": 18.9,
+          "fill image views": 14.7,
+          "update buffers": 39.7,
+          "descriptor acquire": 1.0,
+          "bind stage buffers": 129.0,
+          "push descriptors": 9.0,
+          "render targets": 6.8,
+          "configure draw": 4.5,
+          "dynamic state": 18.7,
+          "draw record": 1.4,
+          "texture upload": 1.3,
+          "fence": 33.6,
+          "fence skipped": 5.2,
+          "method": 236.9
+        }
+      }
+    ],
+    "zones_ms_per_second": {
+      "other": 0.31425915567218815,
+      "idle": 75.50310483993003,
+      "pending sleep": 8.359754771541608,
+      "resume pending": 28.95184788919472,
+      "push": 103.0774277203639,
+      "tick": 2.2423285295386264,
+      "macro": 125.71188717684979,
+      "draw": 24.314561763903914,
+      "clear": 8.671190112585444,
+      "compute": 28.315354448780386,
+      "flush work": 33.071697782864526,
+      "pipeline lookup": 10.085935231697826,
+      "configure": 13.570906123440714,
+      "sync descriptors": 1.0713253712156436,
+      "read handles": 20.04181322106146,
+      "fill image views": 17.68433899784363,
+      "update buffers": 38.22904995442789,
+      "descriptor acquire": 1.1569870904767565,
+      "bind stage buffers": 126.45504056911486,
+      "push descriptors": 9.000009163558916,
+      "render targets": 6.857121776562553,
+      "configure draw": 4.756853609297837,
+      "dynamic state": 16.57263540835341,
+      "draw record": 1.3571683762647873,
+      "texture upload": 29.099757010446567,
+      "fence": 28.54420427900032,
+      "fence skipped": 4.885485886887302,
+      "method": 232.0835562513126
+    },
+    "thread_cpu_percent_one_core": {
+      "eden-cli": 3.3994444444444443,
+      "KWorkerTaskMana": 0.0,
+      "libusb_event": 0.0,
+      "ScanGCAdapter": 0.0,
+      "cemuhookWorker": 0.0,
+      "libusb": 0.0,
+      "JoyconScanThrea": 0.022222222222222223,
+      "wl_cursor_surfa": 0.044444444444444446,
+      "SDLTimer": 0.022222222222222223,
+      "HostTiming": 4.810222222222222,
+      "eden-cl:disk$0": 0.0,
+      "eden-cl:disk$1": 0.0,
+      "eden-cl:disk$2": 0.0,
+      "eden-cl:disk$3": 0.0,
+      "VulkanWorker": 19.584555555555557,
+      "VulkanPresent": 0.2776666666666667,
+      "TextureDecoder": 0.0,
+      "VkPipelineBuild": 0.0,
+      "VkPipelineSeria": 0.0,
+      "GPUFencingThrea": 3.7991111111111113,
+      "AudioManager": 0.0,
+      "PulseMainloop": 0.9775555555555555,
+      "PulseHotplug": 0.5,
+      "DSP_OpusDecoder": 0.0,
+      "audio": 1.3442222222222222,
+      "FS": 0.03333333333333333,
+      "ldn": 0.0,
+      "nvservices": 0.0,
+      "bsdsocket": 0.0,
+      "vi": 0.0,
+      "bsdsocket:selec": 0.0,
+      "bsdsocket:1": 0.0,
+      "bsdsocket:2": 0.0,
+      "CPUCore_0": 26.583111111111112,
+      "CPUCore_1": 27.316,
+      "CPUCore_2": 24.038777777777778,
+      "CPUCore_3": 23.483777777777778,
+      "CPUCore_4": 22.717333333333332,
+      "CPUCore_5": 22.028111111111112,
+      "GPU": 79.40522222222222,
+      "TimeWorker": 0.0,
+      "VSyncThread": 0.07777777777777778,
+      "am:EventObserve": 0.0,
+      "nx2:ColdHint": 0.011111111111111112,
+      "SDLAudioP15": 0.9331111111111111,
+      "DSP_AudioRender": 5.1433333333333335,
+      "AudioRenderSyst": 1.5441111111111112,
+      "DeviceMemory:Co": 0.0
+    },
+    "cpu_sampling_window_unix": [
+      1794140866.9432976,
+      1794140957.4493248
+    ],
+    "qualification": "Preliminary loaded-host profile: load 12-18 and CPU around 96 C. Unrelated CI browser jobs found during following trial. Repeat on quiet host before selecting an optimization.",
+    "host_load_range": [
+      12.4404296875,
+      18.2666015625
+    ]
+  },
+  "profile_movement": {
+    "reviewed_at": 1794141091.3528624,
+    "world_and_avatar_visible": true,
+    "movement_observed": "From balcony onto ladder, let go, walk away and sideways on forest ground; forest-side.png verifies Link standing on ground beside the ladder",
+    "scope": "Profiled movement observation, not a comparative FPS measurement"
+  },
+  "profile_shutdown": {
+    "exit_code": 139,
+    "stop_requested": true,
+    "window_closed": true,
+    "forced": false,
+    "stop_seconds": 3.4099177760072052
+  },
+  "benchmark_plan": {
+    "order": [
+      0,
+      1,
+      2,
+      0,
+      2,
+      1,
+      0
+    ],
+    "phase_seconds": 90,
+    "initial_cache_files_identical": true,
+    "checkpoint": "kokiri",
+    "profile_enabled": false,
+    "gpu_accuracy": "Low",
+    "no_mesh": true,
+    "reactive_flushing": true,
+    "frame_generation": false,
+    "scope": "Stationary Kokiri balcony with identical camera inputs; functional avatar movement checked separately; does not measure first visits to every zone"
+  },
+  "comparisons": [
+    {
+      "label": "quiet-1-mode0",
+      "mode": 0,
+      "measurement": {
+        "requested_seconds": [
+          95.35553226470947,
+          183.916832
+        ],
+        "covered_seconds": 56.3064,
+        "game_presentations": 1200,
+        "game_fps": 21.31196453689101,
+        "window_fps_median": 21.337936019175203,
+        "maximum_frame_ms": 95.435,
+        "frames_over_100_ms": 0,
+        "windows": [
+          {
+            "start": 108.74334999999999,
+            "end": 137.87875,
+            "mean_us": 48559,
+            "maximum_us": 95435,
+            "freezes": 0
+          },
+          {
+            "start": 137.83383600000002,
+            "end": 165.004836,
+            "mean_us": 45285,
+            "maximum_us": 77177,
+            "freezes": 0
+          }
+        ]
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.10372682986781
+      },
+      "activation": {
+        "mode": 0,
+        "profiler_absent": true,
+        "activation_lines": []
+      },
+      "machine": {
+        "load_1_minute_range": [
+          3.44677734375,
+          4.5859375
+        ],
+        "cpu_tctl_celsius_range": [
+          95.875,
+          96.375
+        ],
+        "gpu_busy_median_percent": 72,
+        "vram_used_gib_range": [
+          4.9679107666015625,
+          5.467906951904297
+        ],
+        "all_ci_samples_empty": true,
+        "cpu_frequency_sample_mean_ghz": null,
+        "frequency_scope": "All logical CPUs sampled, not a measured frequency of a particular emulator thread"
+      },
+      "phase_bounds": {
+        "source_start": 95.25553226470947,
+        "source_end": 183.916832,
+        "wall_start_unix": 1794143133.9386253,
+        "container_started_at": "2026-11-08T13:03:58.683093922Z",
+        "wall_seconds": 90.74669699929655
+      },
+      "scene_review": {
+        "reviewed_at": 1794143119.1727643,
+        "world_and_avatar_visible": true,
+        "scene": "Kokiri balcony, same starting position and forest view",
+        "picture": "ready.png",
+        "end_picture": "phase-after.png",
+        "end_world_and_avatar_visible": true
+      }
+    },
+    {
+      "label": "quiet-2-mode1",
+      "mode": 1,
+      "measurement": {
+        "requested_seconds": [
+          101.44290122985839,
+          184.851608
+        ],
+        "covered_seconds": 58.6896,
+        "game_presentations": 1200,
+        "game_fps": 20.446552711212888,
+        "window_fps_median": 20.51804674076745,
+        "maximum_frame_ms": 117.979,
+        "frames_over_100_ms": 10,
+        "windows": [
+          {
+            "start": 109.452033,
+            "end": 140.529033,
+            "mean_us": 51795,
+            "maximum_us": 117979,
+            "freezes": 10
+          },
+          {
+            "start": 140.48344100000003,
+            "end": 168.096041,
+            "mean_us": 46021,
+            "maximum_us": 79931,
+            "freezes": 0
+          }
+        ]
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.203957404009998
+      },
+      "activation": {
+        "mode": 1,
+        "profiler_absent": true,
+        "activation_lines": [
+          "\u0000\u001b[0;37m[   3.870676] HW.GPU <Info> video_core/gpu_split.cpp:146:MaybeStart: GPU thread split: engine methods run on a second thread\u001b[0m"
+        ]
+      },
+      "machine": {
+        "load_1_minute_range": [
+          4.22265625,
+          5.07958984375
+        ],
+        "cpu_tctl_celsius_range": [
+          95.875,
+          96.125
+        ],
+        "gpu_busy_median_percent": 81,
+        "vram_used_gib_range": [
+          5.015708923339844,
+          5.668827056884766
+        ],
+        "all_ci_samples_empty": true,
+        "cpu_frequency_sample_mean_ghz": 3.5481440166666665,
+        "frequency_scope": "All logical CPUs sampled, not a measured frequency of a particular emulator thread"
+      },
+      "phase_bounds": {
+        "source_start": 101.3429012298584,
+        "source_end": 184.851608,
+        "wall_start_unix": 1794143330.1493163,
+        "container_started_at": "2026-11-08T13:07:08.806415932Z",
+        "wall_seconds": 90.65363967325538
+      },
+      "scene_review": {
+        "reviewed_at": 1794143315.2864134,
+        "world_and_avatar_visible": true,
+        "scene": "Kokiri balcony, same starting position and forest view",
+        "picture": "ready.png",
+        "end_picture": "phase-after.png",
+        "end_world_and_avatar_visible": true
+      }
+    },
+    {
+      "label": "quiet-3-mode2",
+      "mode": 2,
+      "measurement": {
+        "requested_seconds": [
+          132.99104557037353,
+          221.181018
+        ],
+        "covered_seconds": 87.2688,
+        "game_presentations": 1800,
+        "game_fps": 20.625928166767505,
+        "window_fps_median": 22.101401228837908,
+        "maximum_frame_ms": 114.861,
+        "frames_over_100_ms": 33,
+        "windows": [
+          {
+            "start": 134.00161,
+            "end": 167.03701,
+            "mean_us": 55059,
+            "maximum_us": 114861,
+            "freezes": 33
+          },
+          {
+            "start": 166.992249,
+            "end": 194.139849,
+            "mean_us": 45246,
+            "maximum_us": 84296,
+            "freezes": 0
+          },
+          {
+            "start": 194.095218,
+            "end": 221.181018,
+            "mean_us": 45143,
+            "maximum_us": 84801,
+            "freezes": 0
+          }
+        ]
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.405405094847083
+      },
+      "activation": {
+        "mode": 2,
+        "profiler_absent": true,
+        "activation_lines": [
+          "\u0000\u001b[0;37m[   3.882406] HW.GPU <Info> video_core/gpu_split.cpp:146:MaybeStart: GPU thread split: engine methods run on a second thread, macros on the first\u001b[0m"
+        ]
+      },
+      "machine": {
+        "load_1_minute_range": [
+          5.1162109375,
+          5.98388671875
+        ],
+        "cpu_tctl_celsius_range": [
+          95.875,
+          96.125
+        ],
+        "gpu_busy_median_percent": 68,
+        "vram_used_gib_range": [
+          4.991107940673828,
+          5.570262908935547
+        ],
+        "all_ci_samples_empty": true,
+        "cpu_frequency_sample_mean_ghz": 3.5224462333333335,
+        "frequency_scope": "All logical CPUs sampled, not a measured frequency of a particular emulator thread"
+      },
+      "phase_bounds": {
+        "source_start": 132.89104557037354,
+        "source_end": 221.181018,
+        "wall_start_unix": 1794143557.8963115,
+        "container_started_at": "2026-11-08T13:10:25.005266726Z",
+        "wall_seconds": 90.81028905929998
+      },
+      "scene_review": {
+        "reviewed_at": 1794143543.1031427,
+        "world_and_avatar_visible": true,
+        "scene": "Kokiri balcony, same starting position and forest view",
+        "picture": "ready.png",
+        "end_picture": "phase-after.png",
+        "end_world_and_avatar_visible": true
+      }
+    },
+    {
+      "label": "quiet-4-mode0",
+      "mode": 0,
+      "measurement": {
+        "requested_seconds": [
+          158.38760194778442,
+          242.549934
+        ],
+        "covered_seconds": 59.6136,
+        "game_presentations": 1200,
+        "game_fps": 20.12963484842385,
+        "window_fps_median": 20.258491797981883,
+        "maximum_frame_ms": 186.73,
+        "frames_over_100_ms": 27,
+        "windows": [
+          {
+            "start": 162.458722,
+            "end": 194.642722,
+            "mean_us": 53640,
+            "maximum_us": 124035,
+            "freezes": 26
+          },
+          {
+            "start": 194.59752,
+            "end": 222.02712,
+            "mean_us": 45716,
+            "maximum_us": 186730,
+            "freezes": 1
+          }
+        ]
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.1035445081070065
+      },
+      "activation": {
+        "mode": 0,
+        "profiler_absent": true,
+        "activation_lines": []
+      },
+      "machine": {
+        "load_1_minute_range": [
+          3.29052734375,
+          4.18359375
+        ],
+        "cpu_tctl_celsius_range": [
+          96.0,
+          96.25
+        ],
+        "gpu_busy_median_percent": 66,
+        "vram_used_gib_range": [
+          4.6973876953125,
+          5.617809295654297
+        ],
+        "all_ci_samples_empty": true,
+        "cpu_frequency_sample_mean_ghz": 3.4650752277777777,
+        "frequency_scope": "All logical CPUs sampled, not a measured frequency of a particular emulator thread"
+      },
+      "phase_bounds": {
+        "source_start": 158.28760194778442,
+        "source_end": 242.549934,
+        "wall_start_unix": 1794143811.401943,
+        "container_started_at": "2026-11-08T13:14:13.114341812Z",
+        "wall_seconds": 90.7200275324285
+      },
+      "scene_review": {
+        "reviewed_at": 1794143796.5512488,
+        "world_and_avatar_visible": true,
+        "scene": "Kokiri balcony, same starting position and forest view",
+        "picture": "ready.png",
+        "end_picture": "phase-after.png",
+        "end_world_and_avatar_visible": true
+      }
+    },
+    {
+      "label": "quiet-5-mode2",
+      "mode": 2,
+      "measurement": {
+        "requested_seconds": [
+          155.21483001708984,
+          241.375933
+        ],
+        "covered_seconds": 57.54,
+        "game_presentations": 1200,
+        "game_fps": 20.855057351407716,
+        "window_fps_median": 20.912176819250703,
+        "maximum_frame_ms": 226.448,
+        "frames_over_100_ms": 3,
+        "windows": [
+          {
+            "start": 166.025448,
+            "end": 196.299048,
+            "mean_us": 50456,
+            "maximum_us": 226448,
+            "freezes": 3
+          },
+          {
+            "start": 196.254484,
+            "end": 223.520884,
+            "mean_us": 45444,
+            "maximum_us": 80252,
+            "freezes": 0
+          }
+        ]
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.203702772036195
+      },
+      "activation": {
+        "mode": 2,
+        "profiler_absent": true,
+        "activation_lines": [
+          "\u0000\u001b[0;37m[   3.948867] HW.GPU <Info> video_core/gpu_split.cpp:146:MaybeStart: GPU thread split: engine methods run on a second thread, macros on the first\u001b[0m"
+        ]
+      },
+      "machine": {
+        "load_1_minute_range": [
+          4.35791015625,
+          5.8310546875
+        ],
+        "cpu_tctl_celsius_range": [
+          95.75,
+          96.0
+        ],
+        "gpu_busy_median_percent": 62,
+        "vram_used_gib_range": [
+          4.871131896972656,
+          5.596019744873047
+        ],
+        "all_ci_samples_empty": true,
+        "cpu_frequency_sample_mean_ghz": 3.468409361111111,
+        "frequency_scope": "All logical CPUs sampled, not a measured frequency of a particular emulator thread"
+      },
+      "phase_bounds": {
+        "source_start": 155.11483001708984,
+        "source_end": 241.375933,
+        "wall_start_unix": 1794144061.393815,
+        "container_started_at": "2026-11-08T13:18:26.278985095Z",
+        "wall_seconds": 90.75425544893369
+      },
+      "scene_review": {
+        "reviewed_at": 1794144046.545502,
+        "world_and_avatar_visible": true,
+        "scene": "Kokiri balcony, same starting position and forest view",
+        "picture": "ready.png",
+        "end_picture": "phase-after.png",
+        "end_world_and_avatar_visible": true
+      }
+    },
+    {
+      "label": "quiet-6-mode1",
+      "mode": 1,
+      "measurement": {
+        "requested_seconds": [
+          122.27087173461913,
+          209.384521
+        ],
+        "covered_seconds": 57.7518,
+        "game_presentations": 1200,
+        "game_fps": 20.778573135382793,
+        "window_fps_median": 20.7883088795281,
+        "maximum_frame_ms": 100.095,
+        "frames_over_100_ms": 1,
+        "windows": [
+          {
+            "start": 140.884912,
+            "end": 170.385712,
+            "mean_us": 49168,
+            "maximum_us": 100095,
+            "freezes": 1
+          },
+          {
+            "start": 170.388828,
+            "end": 198.639828,
+            "mean_us": 47085,
+            "maximum_us": 81436,
+            "freezes": 0
+          }
+        ]
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.30547973793
+      },
+      "activation": {
+        "mode": 1,
+        "profiler_absent": true,
+        "activation_lines": [
+          "\u0000\u001b[0;37m[   3.933889] HW.GPU <Info> video_core/gpu_split.cpp:146:MaybeStart: GPU thread split: engine methods run on a second thread\u001b[0m"
+        ]
+      },
+      "machine": {
+        "load_1_minute_range": [
+          3.666015625,
+          4.89599609375
+        ],
+        "cpu_tctl_celsius_range": [
+          95.75,
+          95.875
+        ],
+        "gpu_busy_median_percent": 72,
+        "vram_used_gib_range": [
+          4.923137664794922,
+          5.355445861816406
+        ],
+        "all_ci_samples_empty": true,
+        "cpu_frequency_sample_mean_ghz": 3.4478616666666664,
+        "frequency_scope": "All logical CPUs sampled, not a measured frequency of a particular emulator thread"
+      },
+      "phase_bounds": {
+        "source_start": 122.17087173461914,
+        "source_end": 209.384521,
+        "wall_start_unix": 1794144278.6276498,
+        "container_started_at": "2026-11-08T13:22:36.456778341Z",
+        "wall_seconds": 90.66571588395163
+      },
+      "scene_review": {
+        "reviewed_at": 1794144263.7954996,
+        "world_and_avatar_visible": true,
+        "scene": "Kokiri balcony, same starting position and forest view",
+        "picture": "ready.png",
+        "end_picture": "phase-after.png",
+        "end_world_and_avatar_visible": true
+      }
+    },
+    {
+      "label": "quiet-7-mode0",
+      "mode": 0,
+      "measurement": {
+        "requested_seconds": [
+          130.03218398094177,
+          212.507307
+        ],
+        "covered_seconds": 58.462199999999996,
+        "game_presentations": 1200,
+        "game_fps": 20.526083520633847,
+        "window_fps_median": 20.619918855581616,
+        "maximum_frame_ms": 117.257,
+        "frames_over_100_ms": 7,
+        "windows": [
+          {
+            "start": 138.09427,
+            "end": 169.29727,
+            "mean_us": 52005,
+            "maximum_us": 117257,
+            "freezes": 7
+          },
+          {
+            "start": 169.252648,
+            "end": 196.511848,
+            "mean_us": 45432,
+            "maximum_us": 75967,
+            "freezes": 0
+          }
+        ]
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.504031006246805
+      },
+      "activation": {
+        "mode": 0,
+        "profiler_absent": true,
+        "activation_lines": []
+      },
+      "machine": {
+        "load_1_minute_range": [
+          3.2939453125,
+          4.9482421875
+        ],
+        "cpu_tctl_celsius_range": [
+          96.0,
+          96.375
+        ],
+        "gpu_busy_median_percent": 67,
+        "vram_used_gib_range": [
+          4.912078857421875,
+          5.5860137939453125
+        ],
+        "all_ci_samples_empty": true,
+        "cpu_frequency_sample_mean_ghz": 3.474821772222222,
+        "frequency_scope": "All logical CPUs sampled, not a measured frequency of a particular emulator thread"
+      },
+      "phase_bounds": {
+        "source_start": 129.93218398094177,
+        "source_end": 212.507307,
+        "wall_start_unix": 1794144503.585831,
+        "container_started_at": "2026-11-08T13:26:13.65364723Z",
+        "wall_seconds": 90.76596073294058
+      },
+      "scene_review": {
+        "reviewed_at": 1794144488.7430315,
+        "world_and_avatar_visible": true,
+        "scene": "Kokiri balcony, same starting position and forest view",
+        "picture": "ready.png",
+        "end_picture": "phase-after.png",
+        "end_world_and_avatar_visible": true
+      }
+    }
+  ],
+  "limits": [
+    "Native CPU-side graphics-thread profile includes waits inside timed zones; zone time is not physical GPU execution time.",
+    "Profiled samples do not establish unprofiled game FPS.",
+    "Stationary camera comparison is separate from functional walking and from unseen zone streaming.",
+    "NO_MESH remains enabled for all compared modes; known omissions remain."
+  ],
+  "invalid_setup_launch": {
+    "label": "profile-mode0",
+    "emulator_started": false,
+    "reason": "Copied run-cli.sh lacked its executable bit; fixed in private lab before every valid trial.",
+    "measurement_accepted": false
+  },
+  "invalid_cadence_trials": [
+    {
+      "label": "bench-1-mode0",
+      "reason": "No complete native 600-present window within strict phase bounds; load 18-24 and CPU around 96 C; no FPS accepted.",
+      "frame_generation": false,
+      "shutdown_exit_code": 0
+    }
+  ],
+  "loaded_host_functional_trials": [
+    {
+      "mode": 1,
+      "label": "bench-2-mode1",
+      "activation": {
+        "mode": 1,
+        "profiler_absent": true,
+        "activation_lines": [
+          "\u0000\u001b[0;37m[   6.772510] HW.GPU <Info> video_core/gpu_split.cpp:146:MaybeStart: GPU thread split: engine methods run on a second thread\u001b[0m"
+        ]
+      },
+      "review": {
+        "reviewed_at": 1794141769.4249022,
+        "world_and_avatar_visible": true,
+        "movement_observed": true,
+        "fps_accepted": false,
+        "scope": "Graphics and controller response under unrelated CI load; no performance comparison accepted"
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 4.317565882112831
+      }
+    },
+    {
+      "mode": 2,
+      "label": "functional-mode2-loaded-host",
+      "activation": {
+        "mode": 2,
+        "profiler_absent": true,
+        "activation_lines": [
+          "\u0000\u001b[0;37m[   6.487930] HW.GPU <Info> video_core/gpu_split.cpp:146:MaybeStart: GPU thread split: engine methods run on a second thread, macros on the first\u001b[0m"
+        ]
+      },
+      "review": {
+        "reviewed_at": 1794141769.425171,
+        "world_and_avatar_visible": true,
+        "movement_observed": true,
+        "fps_accepted": false,
+        "scope": "Graphics and controller response under unrelated CI load; no performance comparison accepted"
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 4.014403452165425
+      }
+    }
+  ],
+  "comparison_status": "Complete: no material FPS gain from SPLIT1/2 on this observed Kokiri scene. Installed SPLIT0 retained; no emulator code or production configuration changed.",
+  "quiet_profile": {
+    "scope": "Native CPU-side graphics-thread profile on Kokiri balcony with camera sweeps; elapsed zones include waits; not a comparative FPS measurement",
+    "window_seconds": 80.13215,
+    "windows": [
+      {
+        "start": 151.88567,
+        "end": 161.906072,
+        "zones_ms_per_second": {
+          "other": 0.2,
+          "idle": 6.1,
+          "pending sleep": 0.5,
+          "resume pending": 4.6,
+          "push": 137.7,
+          "tick": 0.7,
+          "macro": 142.3,
+          "draw": 29.1,
+          "clear": 9.5,
+          "compute": 24.6,
+          "flush work": 24.9,
+          "pipeline lookup": 9.5,
+          "configure": 17.0,
+          "sync descriptors": 1.4,
+          "read handles": 22.9,
+          "fill image views": 21.0,
+          "update buffers": 34.7,
+          "descriptor acquire": 1.4,
+          "bind stage buffers": 137.7,
+          "push descriptors": 9.7,
+          "render targets": 6.7,
+          "configure draw": 4.2,
+          "dynamic state": 13.3,
+          "draw record": 1.5,
+          "texture upload": 64.2,
+          "fence": 23.8,
+          "fence skipped": 3.0,
+          "method": 248.1
+        }
+      },
+      {
+        "start": 161.906072,
+        "end": 171.930979,
+        "zones_ms_per_second": {
+          "other": 0.1,
+          "idle": 0.1,
+          "pending sleep": 0.2,
+          "resume pending": 7.3,
+          "push": 137.2,
+          "tick": 0.0,
+          "macro": 148.1,
+          "draw": 27.8,
+          "clear": 8.0,
+          "compute": 29.1,
+          "flush work": 25.2,
+          "pipeline lookup": 10.1,
+          "configure": 16.7,
+          "sync descriptors": 1.3,
+          "read handles": 21.0,
+          "fill image views": 18.7,
+          "update buffers": 36.6,
+          "descriptor acquire": 1.3,
+          "bind stage buffers": 143.5,
+          "push descriptors": 9.4,
+          "render targets": 6.7,
+          "configure draw": 4.2,
+          "dynamic state": 13.9,
+          "draw record": 1.4,
+          "texture upload": 37.2,
+          "fence": 26.9,
+          "fence skipped": 5.3,
+          "method": 262.6
+        }
+      },
+      {
+        "start": 171.930979,
+        "end": 181.951956,
+        "zones_ms_per_second": {
+          "other": 0.2,
+          "idle": 3.9,
+          "pending sleep": 0.3,
+          "resume pending": 4.1,
+          "push": 132.2,
+          "tick": 0.1,
+          "macro": 143.7,
+          "draw": 25.7,
+          "clear": 8.4,
+          "compute": 31.0,
+          "flush work": 22.9,
+          "pipeline lookup": 10.1,
+          "configure": 15.7,
+          "sync descriptors": 1.2,
+          "read handles": 19.0,
+          "fill image views": 17.3,
+          "update buffers": 34.8,
+          "descriptor acquire": 1.2,
+          "bind stage buffers": 143.3,
+          "push descriptors": 8.7,
+          "render targets": 6.2,
+          "configure draw": 4.1,
+          "dynamic state": 13.5,
+          "draw record": 1.3,
+          "texture upload": 58.2,
+          "fence": 27.5,
+          "fence skipped": 7.7,
+          "method": 257.8
+        }
+      },
+      {
+        "start": 181.951956,
+        "end": 191.958552,
+        "zones_ms_per_second": {
+          "other": 0.1,
+          "idle": 0.1,
+          "pending sleep": 0.0,
+          "resume pending": 7.9,
+          "push": 131.5,
+          "tick": 0.0,
+          "macro": 151.9,
+          "draw": 26.0,
+          "clear": 7.3,
+          "compute": 34.5,
+          "flush work": 23.1,
+          "pipeline lookup": 10.6,
+          "configure": 16.2,
+          "sync descriptors": 1.3,
+          "read handles": 19.6,
+          "fill image views": 15.7,
+          "update buffers": 36.9,
+          "descriptor acquire": 1.2,
+          "bind stage buffers": 151.3,
+          "push descriptors": 9.0,
+          "render targets": 6.5,
+          "configure draw": 4.3,
+          "dynamic state": 14.2,
+          "draw record": 1.3,
+          "texture upload": 15.7,
+          "fence": 30.2,
+          "fence skipped": 9.5,
+          "method": 274.0
+        }
+      },
+      {
+        "start": 191.958552,
+        "end": 201.975522,
+        "zones_ms_per_second": {
+          "other": 0.2,
+          "idle": 0.1,
+          "pending sleep": 0.0,
+          "resume pending": 10.7,
+          "push": 131.1,
+          "tick": 0.0,
+          "macro": 154.8,
+          "draw": 26.3,
+          "clear": 6.8,
+          "compute": 34.7,
+          "flush work": 23.7,
+          "pipeline lookup": 10.9,
+          "configure": 16.5,
+          "sync descriptors": 1.3,
+          "read handles": 20.1,
+          "fill image views": 13.6,
+          "update buffers": 37.3,
+          "descriptor acquire": 1.3,
+          "bind stage buffers": 156.1,
+          "push descriptors": 9.3,
+          "render targets": 6.6,
+          "configure draw": 4.2,
+          "dynamic state": 14.3,
+          "draw record": 1.3,
+          "texture upload": 0.0,
+          "fence": 30.5,
+          "fence skipped": 9.7,
+          "method": 278.6
+        }
+      },
+      {
+        "start": 201.975522,
+        "end": 211.988116,
+        "zones_ms_per_second": {
+          "other": 0.2,
+          "idle": 0.1,
+          "pending sleep": 0.0,
+          "resume pending": 12.5,
+          "push": 127.9,
+          "tick": 0.0,
+          "macro": 154.9,
+          "draw": 26.2,
+          "clear": 6.7,
+          "compute": 35.4,
+          "flush work": 23.6,
+          "pipeline lookup": 10.8,
+          "configure": 16.4,
+          "sync descriptors": 1.3,
+          "read handles": 20.0,
+          "fill image views": 14.0,
+          "update buffers": 36.9,
+          "descriptor acquire": 1.3,
+          "bind stage buffers": 155.9,
+          "push descriptors": 9.3,
+          "render targets": 6.5,
+          "configure draw": 4.0,
+          "dynamic state": 14.0,
+          "draw record": 1.3,
+          "fence": 30.7,
+          "fence skipped": 10.1,
+          "method": 279.9
+        }
+      },
+      {
+        "start": 211.988116,
+        "end": 222.00715,
+        "zones_ms_per_second": {
+          "other": 0.2,
+          "idle": 2.0,
+          "pending sleep": 0.2,
+          "resume pending": 13.1,
+          "push": 130.4,
+          "tick": 0.0,
+          "macro": 154.3,
+          "draw": 26.6,
+          "clear": 6.7,
+          "compute": 34.5,
+          "flush work": 23.5,
+          "pipeline lookup": 10.8,
+          "configure": 16.5,
+          "sync descriptors": 1.3,
+          "read handles": 20.0,
+          "fill image views": 13.6,
+          "update buffers": 37.2,
+          "descriptor acquire": 1.2,
+          "bind stage buffers": 155.8,
+          "push descriptors": 9.3,
+          "render targets": 6.5,
+          "configure draw": 4.1,
+          "dynamic state": 14.3,
+          "draw record": 1.4,
+          "texture upload": 0.0,
+          "fence": 30.4,
+          "fence skipped": 9.1,
+          "method": 277.0
+        }
+      },
+      {
+        "start": 222.00715,
+        "end": 232.01782,
+        "zones_ms_per_second": {
+          "other": 0.2,
+          "idle": 0.1,
+          "pending sleep": 0.0,
+          "resume pending": 10.0,
+          "push": 132.3,
+          "tick": 0.0,
+          "macro": 154.5,
+          "draw": 25.9,
+          "clear": 6.7,
+          "compute": 35.3,
+          "flush work": 23.9,
+          "pipeline lookup": 10.8,
+          "configure": 16.4,
+          "sync descriptors": 1.3,
+          "read handles": 19.9,
+          "fill image views": 13.5,
+          "update buffers": 37.1,
+          "descriptor acquire": 1.3,
+          "bind stage buffers": 155.2,
+          "push descriptors": 9.3,
+          "render targets": 6.5,
+          "configure draw": 4.1,
+          "dynamic state": 14.3,
+          "draw record": 1.3,
+          "fence": 31.3,
+          "fence skipped": 10.0,
+          "method": 278.9
+        }
+      }
+    ],
+    "zones_ms_per_second": {
+      "other": 0.1750019149617226,
+      "idle": 1.5630618197564887,
+      "pending sleep": 0.1500681349495801,
+      "resume pending": 8.77436626622398,
+      "push": 132.53851722935178,
+      "tick": 0.10003948602402396,
+      "macro": 150.56093573428393,
+      "draw": 26.70033998713375,
+      "clear": 7.512792620689697,
+      "compute": 32.38615889502528,
+      "flush work": 23.850228984246648,
+      "pipeline lookup": 10.44985010885144,
+      "configure": 16.425050003026247,
+      "sync descriptors": 1.2999992824353273,
+      "read handles": 20.312746973592994,
+      "fill image views": 15.925825996182553,
+      "update buffers": 36.43724221801112,
+      "descriptor acquire": 1.2750085265402216,
+      "bind stage buffers": 149.84773766334737,
+      "push descriptors": 9.250033619464846,
+      "render targets": 6.525014500422115,
+      "configure draw": 4.14999600909248,
+      "dynamic state": 13.974892234889492,
+      "draw record": 1.3500232990129433,
+      "texture upload": 21.92079917236714,
+      "fence": 28.911597380077787,
+      "fence skipped": 8.049067893473469,
+      "method": 269.6086236622878
+    },
+    "threads": [
+      {
+        "tid": 2076627,
+        "name": "GPU",
+        "mean_cpu_percent_one_logical_cpu": 94.1,
+        "samples": 90
+      },
+      {
+        "tid": 2076622,
+        "name": "CPUCore_1",
+        "mean_cpu_percent_one_logical_cpu": 37.13333333333333,
+        "samples": 90
+      },
+      {
+        "tid": 2076621,
+        "name": "CPUCore_0",
+        "mean_cpu_percent_one_logical_cpu": 36.21111111111111,
+        "samples": 90
+      },
+      {
+        "tid": 2076624,
+        "name": "CPUCore_3",
+        "mean_cpu_percent_one_logical_cpu": 34.87777777777778,
+        "samples": 90
+      },
+      {
+        "tid": 2076623,
+        "name": "CPUCore_2",
+        "mean_cpu_percent_one_logical_cpu": 34.111111111111114,
+        "samples": 90
+      },
+      {
+        "tid": 2076625,
+        "name": "CPUCore_4",
+        "mean_cpu_percent_one_logical_cpu": 32.888888888888886,
+        "samples": 90
+      },
+      {
+        "tid": 2076626,
+        "name": "CPUCore_5",
+        "mean_cpu_percent_one_logical_cpu": 32.62222222222222,
+        "samples": 90
+      },
+      {
+        "tid": 2076588,
+        "name": "VulkanWorker",
+        "mean_cpu_percent_one_logical_cpu": 20.944444444444443,
+        "samples": 90
+      },
+      {
+        "tid": 2076603,
+        "name": "GPUFencingThrea",
+        "mean_cpu_percent_one_logical_cpu": 4.5777777777777775,
+        "samples": 90
+      },
+      {
+        "tid": 2076542,
+        "name": "HostTiming",
+        "mean_cpu_percent_one_logical_cpu": 4.366666666666666,
+        "samples": 90
+      },
+      {
+        "tid": 2077032,
+        "name": "DSP_AudioRender",
+        "mean_cpu_percent_one_logical_cpu": 3.488888888888889,
+        "samples": 90
+      },
+      {
+        "tid": 2076390,
+        "name": "eden-cli",
+        "mean_cpu_percent_one_logical_cpu": 1.1,
+        "samples": 90
+      },
+      {
+        "tid": 2076612,
+        "name": "audio",
+        "mean_cpu_percent_one_logical_cpu": 1.011111111111111,
+        "samples": 90
+      },
+      {
+        "tid": 2077033,
+        "name": "AudioRenderSyst",
+        "mean_cpu_percent_one_logical_cpu": 0.8888888888888888,
+        "samples": 90
+      },
+      {
+        "tid": 2076606,
+        "name": "PulseMainloop",
+        "mean_cpu_percent_one_logical_cpu": 0.6,
+        "samples": 90
+      },
+      {
+        "tid": 2077031,
+        "name": "SDLAudioP15",
+        "mean_cpu_percent_one_logical_cpu": 0.5555555555555556,
+        "samples": 90
+      },
+      {
+        "tid": 2076608,
+        "name": "PulseHotplug",
+        "mean_cpu_percent_one_logical_cpu": 0.34444444444444444,
+        "samples": 90
+      },
+      {
+        "tid": 2076589,
+        "name": "VulkanPresent",
+        "mean_cpu_percent_one_logical_cpu": 0.3333333333333333,
+        "samples": 90
+      },
+      {
+        "tid": 2076432,
+        "name": "wl_cursor_surfa",
+        "mean_cpu_percent_one_logical_cpu": 0.06666666666666667,
+        "samples": 90
+      },
+      {
+        "tid": 2076724,
+        "name": "VSyncThread",
+        "mean_cpu_percent_one_logical_cpu": 0.05555555555555555,
+        "samples": 90
+      },
+      {
+        "tid": 2076613,
+        "name": "FS",
+        "mean_cpu_percent_one_logical_cpu": 0.03333333333333333,
+        "samples": 90
+      },
+      {
+        "tid": 2076431,
+        "name": "JoyconScanThrea",
+        "mean_cpu_percent_one_logical_cpu": 0.011111111111111112,
+        "samples": 90
+      },
+      {
+        "tid": 2076751,
+        "name": "nx2:ColdHint",
+        "mean_cpu_percent_one_logical_cpu": 0.011111111111111112,
+        "samples": 90
+      },
+      {
+        "tid": 2076406,
+        "name": "KWorkerTaskMana",
+        "mean_cpu_percent_one_logical_cpu": 0.0,
+        "samples": 90
+      },
+      {
+        "tid": 2076413,
+        "name": "libusb_event",
+        "mean_cpu_percent_one_logical_cpu": 0.0,
+        "samples": 90
+      },
+      {
+        "tid": 2076426,
+        "name": "ScanGCAdapter",
+        "mean_cpu_percent_one_logical_cpu": 0.0,
+        "samples": 90
+      },
+      {
+        "tid": 2076427,
+        "name": "cemuhookWorker",
+        "mean_cpu_percent_one_logical_cpu": 0.0,
+        "samples": 90
+      },
+      {
+        "tid": 2076428,
+        "name": "libusb",
+        "mean_cpu_percent_one_logical_cpu": 0.0,
+        "samples": 90
+      },
+      {
+        "tid": 2076433,
+        "name": "SDLTimer",
+        "mean_cpu_percent_one_logical_cpu": 0.0,
+        "samples": 90
+      },
+      {
+        "tid": 2076583,
+        "name": "eden-cl:disk$0",
+        "mean_cpu_percent_one_logical_cpu": 0.0,
+        "samples": 90
+      },
+      {
+        "tid": 2076584,
+        "name": "eden-cl:disk$0",
+        "mean_cpu_percent_one_logical_cpu": 0.0,
+        "samples": 90
+      },
+      {
+        "tid": 2076585,
+        "name": "eden-cl:disk$1",
+        "mean_cpu_percent_one_logical_cpu": 0.0,
+        "samples": 90
+      },
+      {
+        "tid": 2076586,
+        "name": "eden-cl:disk$2",
+        "mean_cpu_percent_one_logical_cpu": 0.0,
+        "samples": 90
+      },
+      {
+        "tid": 2076587,
+        "name": "eden-cl:disk$3",
+        "mean_cpu_percent_one_logical_cpu": 0.0,
+        "samples": 90
+      },
+      {
+        "tid": 2076590,
+        "name": "TextureDecoder",
+        "mean_cpu_percent_one_logical_cpu": 0.0,
+        "samples": 90
+      },
+      {
+        "tid": 2076591,
+        "name": "VkPipelineBuild",
+        "mean_cpu_percent_one_logical_cpu": 0.0,
+        "samples": 90
+      },
+      {
+        "tid": 2076592,
+        "name": "VkPipelineBuild",
+        "mean_cpu_percent_one_logical_cpu": 0.0,
+        "samples": 90
+      },
+      {
+        "tid": 2076593,
+        "name": "VkPipelineBuild",
+        "mean_cpu_percent_one_logical_cpu": 0.0,
+        "samples": 90
+      },
+      {
+        "tid": 2076594,
+        "name": "VkPipelineBuild",
+        "mean_cpu_percent_one_logical_cpu": 0.0,
+        "samples": 90
+      },
+      {
+        "tid": 2076595,
+        "name": "VkPipelineBuild",
+        "mean_cpu_percent_one_logical_cpu": 0.0,
+        "samples": 90
+      },
+      {
+        "tid": 2076596,
+        "name": "VkPipelineBuild",
+        "mean_cpu_percent_one_logical_cpu": 0.0,
+        "samples": 90
+      },
+      {
+        "tid": 2076597,
+        "name": "VkPipelineBuild",
+        "mean_cpu_percent_one_logical_cpu": 0.0,
+        "samples": 90
+      },
+      {
+        "tid": 2076598,
+        "name": "VkPipelineBuild",
+        "mean_cpu_percent_one_logical_cpu": 0.0,
+        "samples": 90
+      },
+      {
+        "tid": 2076599,
+        "name": "VkPipelineBuild",
+        "mean_cpu_percent_one_logical_cpu": 0.0,
+        "samples": 90
+      },
+      {
+        "tid": 2076600,
+        "name": "VkPipelineBuild",
+        "mean_cpu_percent_one_logical_cpu": 0.0,
+        "samples": 90
+      },
+      {
+        "tid": 2076601,
+        "name": "VkPipelineBuild",
+        "mean_cpu_percent_one_logical_cpu": 0.0,
+        "samples": 90
+      },
+      {
+        "tid": 2076602,
+        "name": "VkPipelineSeria",
+        "mean_cpu_percent_one_logical_cpu": 0.0,
+        "samples": 90
+      },
+      {
+        "tid": 2076604,
+        "name": "AudioManager",
+        "mean_cpu_percent_one_logical_cpu": 0.0,
+        "samples": 90
+      },
+      {
+        "tid": 2076611,
+        "name": "DSP_OpusDecoder",
+        "mean_cpu_percent_one_logical_cpu": 0.0,
+        "samples": 90
+      },
+      {
+        "tid": 2076614,
+        "name": "ldn",
+        "mean_cpu_percent_one_logical_cpu": 0.0,
+        "samples": 90
+      },
+      {
+        "tid": 2076615,
+        "name": "nvservices",
+        "mean_cpu_percent_one_logical_cpu": 0.0,
+        "samples": 90
+      },
+      {
+        "tid": 2076616,
+        "name": "bsdsocket",
+        "mean_cpu_percent_one_logical_cpu": 0.0,
+        "samples": 90
+      },
+      {
+        "tid": 2076617,
+        "name": "vi",
+        "mean_cpu_percent_one_logical_cpu": 0.0,
+        "samples": 90
+      },
+      {
+        "tid": 2076618,
+        "name": "bsdsocket:selec",
+        "mean_cpu_percent_one_logical_cpu": 0.0,
+        "samples": 90
+      },
+      {
+        "tid": 2076619,
+        "name": "bsdsocket:1",
+        "mean_cpu_percent_one_logical_cpu": 0.0,
+        "samples": 90
+      },
+      {
+        "tid": 2076620,
+        "name": "bsdsocket:2",
+        "mean_cpu_percent_one_logical_cpu": 0.0,
+        "samples": 90
+      },
+      {
+        "tid": 2076628,
+        "name": "TimeWorker",
+        "mean_cpu_percent_one_logical_cpu": 0.0,
+        "samples": 90
+      },
+      {
+        "tid": 2076729,
+        "name": "am:EventObserve",
+        "mean_cpu_percent_one_logical_cpu": 0.0,
+        "samples": 90
+      },
+      {
+        "tid": 2077355,
+        "name": "DeviceMemory:Co",
+        "mean_cpu_percent_one_logical_cpu": 0.0,
+        "samples": 90
+      }
+    ],
+    "cpu_sampling_window_unix": [
+      1794142908.8644285,
+      1794142999.6962988
+    ],
+    "all_ci_worker_samples_empty": true,
+    "host_load_1_minute_range": [
+      2.91162109375,
+      3.86328125
+    ],
+    "cpu_tctl_celsius_range": [
+      92.625,
+      95.25
+    ],
+    "run": "profile-mode0-quiet"
+  },
+  "ci_finished": {
+    "checked_at": 1794142751.9169385,
+    "run_id": 42480398123,
+    "conclusion": "failure",
+    "ci_worker_pids": []
+  },
+  "pooled": {
+    "0": {
+      "game_fps": 20.644308880149467,
+      "game_presentations": 3600,
+      "covered_seconds": 174.38219999999998,
+      "phase_fps": [
+        21.31196453689101,
+        20.12963484842385,
+        20.526083520633847
+      ],
+      "maximum_frame_ms": 186.73,
+      "frames_over_100_ms": 34,
+      "phases": 3,
+      "difference_from_mode0_percent": 0.0
+    },
+    "1": {
+      "game_fps": 20.611225904188718,
+      "game_presentations": 2400,
+      "covered_seconds": 116.4414,
+      "phase_fps": [
+        20.446552711212888,
+        20.778573135382793
+      ],
+      "maximum_frame_ms": 117.979,
+      "frames_over_100_ms": 11,
+      "phases": 2,
+      "difference_from_mode0_percent": -0.16025228140507108
+    },
+    "2": {
+      "game_fps": 20.716973001640785,
+      "game_presentations": 3000,
+      "covered_seconds": 144.8088,
+      "phase_fps": [
+        20.625928166767505,
+        20.855057351407716
+      ],
+      "maximum_frame_ms": 226.448,
+      "frames_over_100_ms": 36,
+      "phases": 2,
+      "difference_from_mode0_percent": 0.35198137129786033
+    }
+  },
+  "thermal_context": {
+    "amd_max_operating_temperature_c": 95,
+    "source": "https://www.amd.com/en/support/downloads/drivers.html/processors/ryzen/ryzen-3000-series/amd-ryzen-5-3600.html",
+    "observed_tctl_c_range": [
+      95.75,
+      96.375
+    ],
+    "qualification": "Near the stated maximum; does not prove thermal throttling or quantify recoverable FPS. No cooling or CPU frequency controls changed."
+  },
+  "split2_profile": {
+    "run": "profile-mode2-quiet",
+    "front": {
+      "scope": "Native CPU-side graphics-thread profile on Kokiri balcony with camera sweeps; elapsed zones include waits; not a comparative FPS measurement",
+      "window_seconds": 80.15256099999999,
+      "windows": [
+        {
+          "start": 132.405542,
+          "end": 142.429758,
+          "zones_ms_per_second": {
+            "other": 0.4,
+            "idle": 59.6,
+            "pending sleep": 5.0,
+            "resume pending": 7.7,
+            "push": 261.5,
+            "macro": 104.7,
+            "split drain": 561.1
+          }
+        },
+        {
+          "start": 142.429758,
+          "end": 152.455549,
+          "zones_ms_per_second": {
+            "other": 0.4,
+            "idle": 61.8,
+            "pending sleep": 5.0,
+            "resume pending": 25.4,
+            "push": 244.5,
+            "macro": 109.5,
+            "split drain": 553.4
+          }
+        },
+        {
+          "start": 152.455549,
+          "end": 162.470885,
+          "zones_ms_per_second": {
+            "other": 0.4,
+            "idle": 25.6,
+            "pending sleep": 2.4,
+            "resume pending": 44.2,
+            "push": 250.2,
+            "macro": 117.7,
+            "split drain": 559.4
+          }
+        },
+        {
+          "start": 162.470885,
+          "end": 172.490048,
+          "zones_ms_per_second": {
+            "other": 0.4,
+            "idle": 15.4,
+            "pending sleep": 1.3,
+            "resume pending": 75.1,
+            "push": 231.9,
+            "macro": 120.2,
+            "split drain": 555.8
+          }
+        },
+        {
+          "start": 172.490048,
+          "end": 182.492571,
+          "zones_ms_per_second": {
+            "other": 0.4,
+            "idle": 15.1,
+            "pending sleep": 1.5,
+            "resume pending": 65.2,
+            "push": 226.6,
+            "macro": 115.6,
+            "split drain": 575.5
+          }
+        },
+        {
+          "start": 182.492571,
+          "end": 192.520909,
+          "zones_ms_per_second": {
+            "other": 0.4,
+            "idle": 9.2,
+            "pending sleep": 1.1,
+            "resume pending": 88.2,
+            "push": 219.3,
+            "macro": 120.6,
+            "split drain": 561.2
+          }
+        },
+        {
+          "start": 192.520909,
+          "end": 202.542026,
+          "zones_ms_per_second": {
+            "other": 0.3,
+            "idle": 7.5,
+            "pending sleep": 0.6,
+            "resume pending": 71.6,
+            "push": 236.9,
+            "macro": 121.5,
+            "split drain": 561.6
+          }
+        },
+        {
+          "start": 202.542026,
+          "end": 212.558103,
+          "zones_ms_per_second": {
+            "other": 0.4,
+            "idle": 5.7,
+            "pending sleep": 0.5,
+            "resume pending": 86.1,
+            "push": 221.3,
+            "macro": 121.7,
+            "split drain": 564.4
+          }
+        }
+      ],
+      "zones_ms_per_second": {
+        "other": 0.38749744627623317,
+        "idle": 24.993258699494334,
+        "pending sleep": 2.1754441296017974,
+        "resume pending": 57.93350339984769,
+        "push": 236.52726508638946,
+        "macro": 116.43669723167051,
+        "split drain": 561.5463556916167
+      },
+      "threads": [
+        {
+          "tid": 2132838,
+          "name": "GPU",
+          "mean_cpu_percent_one_logical_cpu": 92.91111111111111,
+          "samples": 90
+        },
+        {
+          "tid": 2133020,
+          "name": "GPUBack",
+          "mean_cpu_percent_one_logical_cpu": 90.96666666666667,
+          "samples": 90
+        },
+        {
+          "tid": 2132833,
+          "name": "CPUCore_1",
+          "mean_cpu_percent_one_logical_cpu": 41.666666666666664,
+          "samples": 90
+        },
+        {
+          "tid": 2132832,
+          "name": "CPUCore_0",
+          "mean_cpu_percent_one_logical_cpu": 40.833333333333336,
+          "samples": 90
+        },
+        {
+          "tid": 2132835,
+          "name": "CPUCore_3",
+          "mean_cpu_percent_one_logical_cpu": 39.37777777777778,
+          "samples": 90
+        },
+        {
+          "tid": 2132834,
+          "name": "CPUCore_2",
+          "mean_cpu_percent_one_logical_cpu": 38.31111111111111,
+          "samples": 90
+        },
+        {
+          "tid": 2132836,
+          "name": "CPUCore_4",
+          "mean_cpu_percent_one_logical_cpu": 37.266666666666666,
+          "samples": 90
+        },
+        {
+          "tid": 2132837,
+          "name": "CPUCore_5",
+          "mean_cpu_percent_one_logical_cpu": 36.86666666666667,
+          "samples": 90
+        },
+        {
+          "tid": 2132800,
+          "name": "VulkanWorker",
+          "mean_cpu_percent_one_logical_cpu": 18.866666666666667,
+          "samples": 90
+        },
+        {
+          "tid": 2132788,
+          "name": "HostTiming",
+          "mean_cpu_percent_one_logical_cpu": 4.666666666666667,
+          "samples": 90
+        },
+        {
+          "tid": 2132815,
+          "name": "GPUFencingThrea",
+          "mean_cpu_percent_one_logical_cpu": 4.2555555555555555,
+          "samples": 90
+        },
+        {
+          "tid": 2133302,
+          "name": "DSP_AudioRender",
+          "mean_cpu_percent_one_logical_cpu": 3.8555555555555556,
+          "samples": 90
+        },
+        {
+          "tid": 2132656,
+          "name": "eden-cli",
+          "mean_cpu_percent_one_logical_cpu": 1.2555555555555555,
+          "samples": 90
+        },
+        {
+          "tid": 2132823,
+          "name": "audio",
+          "mean_cpu_percent_one_logical_cpu": 1.0555555555555556,
+          "samples": 90
+        },
+        {
+          "tid": 2133303,
+          "name": "AudioRenderSyst",
+          "mean_cpu_percent_one_logical_cpu": 0.9888888888888889,
+          "samples": 90
+        },
+        {
+          "tid": 2132818,
+          "name": "PulseMainloop",
+          "mean_cpu_percent_one_logical_cpu": 0.6555555555555556,
+          "samples": 90
+        },
+        {
+          "tid": 2133301,
+          "name": "SDLAudioP15",
+          "mean_cpu_percent_one_logical_cpu": 0.6111111111111112,
+          "samples": 90
+        },
+        {
+          "tid": 2132801,
+          "name": "VulkanPresent",
+          "mean_cpu_percent_one_logical_cpu": 0.37777777777777777,
+          "samples": 90
+        },
+        {
+          "tid": 2132819,
+          "name": "PulseHotplug",
+          "mean_cpu_percent_one_logical_cpu": 0.37777777777777777,
+          "samples": 90
+        },
+        {
+          "tid": 2132697,
+          "name": "wl_cursor_surfa",
+          "mean_cpu_percent_one_logical_cpu": 0.07777777777777778,
+          "samples": 90
+        },
+        {
+          "tid": 2132998,
+          "name": "VSyncThread",
+          "mean_cpu_percent_one_logical_cpu": 0.06666666666666667,
+          "samples": 90
+        },
+        {
+          "tid": 2132698,
+          "name": "SDLTimer",
+          "mean_cpu_percent_one_logical_cpu": 0.022222222222222223,
+          "samples": 90
+        },
+        {
+          "tid": 2132824,
+          "name": "FS",
+          "mean_cpu_percent_one_logical_cpu": 0.022222222222222223,
+          "samples": 90
+        },
+        {
+          "tid": 2132696,
+          "name": "JoyconScanThrea",
+          "mean_cpu_percent_one_logical_cpu": 0.011111111111111112,
+          "samples": 90
+        },
+        {
+          "tid": 2133019,
+          "name": "nx2:ColdHint",
+          "mean_cpu_percent_one_logical_cpu": 0.011111111111111112,
+          "samples": 90
+        },
+        {
+          "tid": 2133631,
+          "name": "DeviceMemory:Co",
+          "mean_cpu_percent_one_logical_cpu": 0.011111111111111112,
+          "samples": 90
+        },
+        {
+          "tid": 2132658,
+          "name": "KWorkerTaskMana",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132665,
+          "name": "libusb_event",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132667,
+          "name": "ScanGCAdapter",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132668,
+          "name": "cemuhookWorker",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132674,
+          "name": "libusb",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132795,
+          "name": "eden-cl:disk$0",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132796,
+          "name": "eden-cl:disk$0",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132797,
+          "name": "eden-cl:disk$1",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132798,
+          "name": "eden-cl:disk$2",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132799,
+          "name": "eden-cl:disk$3",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132802,
+          "name": "TextureDecoder",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132803,
+          "name": "VkPipelineBuild",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132804,
+          "name": "VkPipelineBuild",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132805,
+          "name": "VkPipelineBuild",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132806,
+          "name": "VkPipelineBuild",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132807,
+          "name": "VkPipelineBuild",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132808,
+          "name": "VkPipelineBuild",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132809,
+          "name": "VkPipelineBuild",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132810,
+          "name": "VkPipelineBuild",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132811,
+          "name": "VkPipelineBuild",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132812,
+          "name": "VkPipelineBuild",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132813,
+          "name": "VkPipelineBuild",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132814,
+          "name": "VkPipelineSeria",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132816,
+          "name": "AudioManager",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132822,
+          "name": "DSP_OpusDecoder",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132825,
+          "name": "ldn",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132826,
+          "name": "nvservices",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132827,
+          "name": "bsdsocket",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132828,
+          "name": "vi",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132829,
+          "name": "bsdsocket:selec",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132830,
+          "name": "bsdsocket:1",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132831,
+          "name": "bsdsocket:2",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132839,
+          "name": "TimeWorker",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132999,
+          "name": "am:EventObserve",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        }
+      ],
+      "cpu_sampling_window_unix": [
+        1794144726.5177543,
+        1794144817.1527863
+      ],
+      "all_ci_worker_samples_empty": true,
+      "host_load_1_minute_range": [
+        4.798828125,
+        6.19287109375
+      ],
+      "cpu_tctl_celsius_range": [
+        95.875,
+        96.0
+      ]
+    },
+    "back": {
+      "scope": "Native CPU-side graphics-thread profile on Kokiri balcony with camera sweeps; elapsed zones include waits; not a comparative FPS measurement",
+      "window_seconds": 80.0223,
+      "windows": [
+        {
+          "start": 134.317764,
+          "end": 144.318378,
+          "zones_ms_per_second": {
+            "other": 153.2,
+            "draw": 30.5,
+            "clear": 10.8,
+            "compute": 27.6,
+            "flush work": 23.4,
+            "pipeline lookup": 10.1,
+            "configure": 18.5,
+            "sync descriptors": 1.6,
+            "read handles": 24.1,
+            "fill image views": 21.0,
+            "update buffers": 38.3,
+            "descriptor acquire": 1.5,
+            "bind stage buffers": 149.1,
+            "push descriptors": 10.4,
+            "render targets": 7.1,
+            "configure draw": 4.6,
+            "dynamic state": 14.6,
+            "draw record": 1.7,
+            "texture upload": 52.2,
+            "fence": 20.5,
+            "fence skipped": 6.1,
+            "method": 185.1,
+            "split wait": 187.8
+          }
+        },
+        {
+          "start": 144.318378,
+          "end": 154.319271,
+          "zones_ms_per_second": {
+            "other": 155.0,
+            "draw": 29.0,
+            "clear": 9.7,
+            "compute": 31.8,
+            "flush work": 23.0,
+            "pipeline lookup": 10.9,
+            "configure": 18.1,
+            "sync descriptors": 1.5,
+            "read handles": 21.9,
+            "fill image views": 19.8,
+            "update buffers": 39.5,
+            "descriptor acquire": 1.4,
+            "bind stage buffers": 160.0,
+            "push descriptors": 9.9,
+            "render targets": 6.9,
+            "configure draw": 4.6,
+            "dynamic state": 15.0,
+            "draw record": 1.6,
+            "texture upload": 48.5,
+            "fence": 22.9,
+            "fence skipped": 8.8,
+            "method": 194.8,
+            "split wait": 165.2
+          }
+        },
+        {
+          "start": 154.319271,
+          "end": 164.319196,
+          "zones_ms_per_second": {
+            "other": 160.9,
+            "draw": 29.7,
+            "clear": 8.3,
+            "compute": 36.1,
+            "flush work": 25.2,
+            "pipeline lookup": 11.9,
+            "configure": 18.8,
+            "sync descriptors": 1.5,
+            "read handles": 22.5,
+            "fill image views": 18.0,
+            "update buffers": 42.3,
+            "descriptor acquire": 1.4,
+            "bind stage buffers": 173.7,
+            "push descriptors": 10.3,
+            "render targets": 7.3,
+            "configure draw": 4.7,
+            "dynamic state": 16.0,
+            "draw record": 1.7,
+            "texture upload": 16.0,
+            "fence": 28.0,
+            "fence skipped": 9.7,
+            "method": 210.7,
+            "split wait": 145.3
+          }
+        },
+        {
+          "start": 164.319196,
+          "end": 174.339312,
+          "zones_ms_per_second": {
+            "other": 167.5,
+            "draw": 29.2,
+            "clear": 8.2,
+            "compute": 35.8,
+            "flush work": 25.1,
+            "pipeline lookup": 11.9,
+            "configure": 18.5,
+            "sync descriptors": 1.5,
+            "read handles": 22.0,
+            "fill image views": 16.6,
+            "update buffers": 41.8,
+            "descriptor acquire": 1.4,
+            "bind stage buffers": 173.4,
+            "push descriptors": 10.1,
+            "render targets": 7.2,
+            "configure draw": 4.7,
+            "dynamic state": 16.1,
+            "draw record": 1.6,
+            "texture upload": 16.4,
+            "fence": 27.7,
+            "fence skipped": 9.5,
+            "method": 211.0,
+            "split wait": 143.0
+          }
+        },
+        {
+          "start": 174.339312,
+          "end": 184.339677,
+          "zones_ms_per_second": {
+            "other": 159.9,
+            "draw": 29.3,
+            "clear": 9.6,
+            "compute": 36.2,
+            "flush work": 25.0,
+            "pipeline lookup": 11.8,
+            "configure": 18.5,
+            "sync descriptors": 1.5,
+            "read handles": 22.3,
+            "fill image views": 16.9,
+            "update buffers": 41.7,
+            "descriptor acquire": 1.4,
+            "bind stage buffers": 175.4,
+            "push descriptors": 10.1,
+            "render targets": 7.2,
+            "configure draw": 4.7,
+            "dynamic state": 16.0,
+            "draw record": 1.6,
+            "texture upload": 31.3,
+            "fence": 27.8,
+            "fence skipped": 10.0,
+            "method": 211.9,
+            "split wait": 129.8
+          }
+        },
+        {
+          "start": 184.339677,
+          "end": 194.339609,
+          "zones_ms_per_second": {
+            "other": 165.0,
+            "draw": 29.9,
+            "clear": 8.7,
+            "compute": 37.9,
+            "flush work": 25.8,
+            "pipeline lookup": 12.2,
+            "configure": 18.9,
+            "sync descriptors": 1.5,
+            "read handles": 22.9,
+            "fill image views": 15.6,
+            "update buffers": 43.0,
+            "descriptor acquire": 1.4,
+            "bind stage buffers": 182.7,
+            "push descriptors": 10.5,
+            "render targets": 7.3,
+            "configure draw": 4.7,
+            "dynamic state": 16.5,
+            "draw record": 1.6,
+            "texture upload": 0.0,
+            "fence": 28.3,
+            "fence skipped": 11.2,
+            "method": 219.7,
+            "split wait": 134.5
+          }
+        },
+        {
+          "start": 194.339609,
+          "end": 204.340162,
+          "zones_ms_per_second": {
+            "other": 163.0,
+            "draw": 29.9,
+            "clear": 8.7,
+            "compute": 38.6,
+            "flush work": 25.7,
+            "pipeline lookup": 12.3,
+            "configure": 19.0,
+            "sync descriptors": 1.5,
+            "read handles": 23.0,
+            "fill image views": 15.6,
+            "update buffers": 43.0,
+            "descriptor acquire": 1.4,
+            "bind stage buffers": 182.2,
+            "push descriptors": 10.5,
+            "render targets": 7.4,
+            "configure draw": 4.6,
+            "dynamic state": 16.4,
+            "draw record": 1.6,
+            "fence": 29.0,
+            "fence skipped": 11.1,
+            "method": 219.0,
+            "split wait": 136.3
+          }
+        },
+        {
+          "start": 204.340162,
+          "end": 214.340064,
+          "zones_ms_per_second": {
+            "other": 163.1,
+            "draw": 30.2,
+            "clear": 8.9,
+            "compute": 38.6,
+            "flush work": 26.0,
+            "pipeline lookup": 12.5,
+            "configure": 19.1,
+            "sync descriptors": 1.5,
+            "read handles": 23.0,
+            "fill image views": 15.7,
+            "update buffers": 43.7,
+            "descriptor acquire": 1.4,
+            "bind stage buffers": 183.0,
+            "push descriptors": 10.6,
+            "render targets": 7.5,
+            "configure draw": 4.9,
+            "dynamic state": 16.7,
+            "draw record": 1.7,
+            "fence": 28.4,
+            "fence skipped": 11.3,
+            "method": 220.7,
+            "split wait": 131.6
+          }
+        }
+      ],
+      "zones_ms_per_second": {
+        "other": 160.951524025178,
+        "draw": 29.712367928689876,
+        "clear": 9.112290865171333,
+        "compute": 35.32504049371238,
+        "flush work": 24.900021155352945,
+        "pipeline lookup": 11.700032082307056,
+        "configure": 18.674948868003042,
+        "sync descriptors": 1.5124972838821178,
+        "read handles": 22.71232226391893,
+        "fill image views": 17.399841630395525,
+        "update buffers": 41.662489817213455,
+        "descriptor acquire": 1.4124972838821177,
+        "bind stage buffers": 172.43748223057824,
+        "push descriptors": 10.299945960063631,
+        "render targets": 7.237486270702042,
+        "configure draw": 4.687500664189857,
+        "dynamic state": 15.912529102512673,
+        "draw record": 1.6374901008843785,
+        "texture upload": 20.549465439008863,
+        "fence": 26.575212488268892,
+        "fence skipped": 9.712416383932979,
+        "method": 209.11268688353124,
+        "split wait": 146.68697639782908
+      },
+      "threads": [
+        {
+          "tid": 2132838,
+          "name": "GPU",
+          "mean_cpu_percent_one_logical_cpu": 92.91111111111111,
+          "samples": 90
+        },
+        {
+          "tid": 2133020,
+          "name": "GPUBack",
+          "mean_cpu_percent_one_logical_cpu": 90.96666666666667,
+          "samples": 90
+        },
+        {
+          "tid": 2132833,
+          "name": "CPUCore_1",
+          "mean_cpu_percent_one_logical_cpu": 41.666666666666664,
+          "samples": 90
+        },
+        {
+          "tid": 2132832,
+          "name": "CPUCore_0",
+          "mean_cpu_percent_one_logical_cpu": 40.833333333333336,
+          "samples": 90
+        },
+        {
+          "tid": 2132835,
+          "name": "CPUCore_3",
+          "mean_cpu_percent_one_logical_cpu": 39.37777777777778,
+          "samples": 90
+        },
+        {
+          "tid": 2132834,
+          "name": "CPUCore_2",
+          "mean_cpu_percent_one_logical_cpu": 38.31111111111111,
+          "samples": 90
+        },
+        {
+          "tid": 2132836,
+          "name": "CPUCore_4",
+          "mean_cpu_percent_one_logical_cpu": 37.266666666666666,
+          "samples": 90
+        },
+        {
+          "tid": 2132837,
+          "name": "CPUCore_5",
+          "mean_cpu_percent_one_logical_cpu": 36.86666666666667,
+          "samples": 90
+        },
+        {
+          "tid": 2132800,
+          "name": "VulkanWorker",
+          "mean_cpu_percent_one_logical_cpu": 18.866666666666667,
+          "samples": 90
+        },
+        {
+          "tid": 2132788,
+          "name": "HostTiming",
+          "mean_cpu_percent_one_logical_cpu": 4.666666666666667,
+          "samples": 90
+        },
+        {
+          "tid": 2132815,
+          "name": "GPUFencingThrea",
+          "mean_cpu_percent_one_logical_cpu": 4.2555555555555555,
+          "samples": 90
+        },
+        {
+          "tid": 2133302,
+          "name": "DSP_AudioRender",
+          "mean_cpu_percent_one_logical_cpu": 3.8555555555555556,
+          "samples": 90
+        },
+        {
+          "tid": 2132656,
+          "name": "eden-cli",
+          "mean_cpu_percent_one_logical_cpu": 1.2555555555555555,
+          "samples": 90
+        },
+        {
+          "tid": 2132823,
+          "name": "audio",
+          "mean_cpu_percent_one_logical_cpu": 1.0555555555555556,
+          "samples": 90
+        },
+        {
+          "tid": 2133303,
+          "name": "AudioRenderSyst",
+          "mean_cpu_percent_one_logical_cpu": 0.9888888888888889,
+          "samples": 90
+        },
+        {
+          "tid": 2132818,
+          "name": "PulseMainloop",
+          "mean_cpu_percent_one_logical_cpu": 0.6555555555555556,
+          "samples": 90
+        },
+        {
+          "tid": 2133301,
+          "name": "SDLAudioP15",
+          "mean_cpu_percent_one_logical_cpu": 0.6111111111111112,
+          "samples": 90
+        },
+        {
+          "tid": 2132801,
+          "name": "VulkanPresent",
+          "mean_cpu_percent_one_logical_cpu": 0.37777777777777777,
+          "samples": 90
+        },
+        {
+          "tid": 2132819,
+          "name": "PulseHotplug",
+          "mean_cpu_percent_one_logical_cpu": 0.37777777777777777,
+          "samples": 90
+        },
+        {
+          "tid": 2132697,
+          "name": "wl_cursor_surfa",
+          "mean_cpu_percent_one_logical_cpu": 0.07777777777777778,
+          "samples": 90
+        },
+        {
+          "tid": 2132998,
+          "name": "VSyncThread",
+          "mean_cpu_percent_one_logical_cpu": 0.06666666666666667,
+          "samples": 90
+        },
+        {
+          "tid": 2132698,
+          "name": "SDLTimer",
+          "mean_cpu_percent_one_logical_cpu": 0.022222222222222223,
+          "samples": 90
+        },
+        {
+          "tid": 2132824,
+          "name": "FS",
+          "mean_cpu_percent_one_logical_cpu": 0.022222222222222223,
+          "samples": 90
+        },
+        {
+          "tid": 2132696,
+          "name": "JoyconScanThrea",
+          "mean_cpu_percent_one_logical_cpu": 0.011111111111111112,
+          "samples": 90
+        },
+        {
+          "tid": 2133019,
+          "name": "nx2:ColdHint",
+          "mean_cpu_percent_one_logical_cpu": 0.011111111111111112,
+          "samples": 90
+        },
+        {
+          "tid": 2133631,
+          "name": "DeviceMemory:Co",
+          "mean_cpu_percent_one_logical_cpu": 0.011111111111111112,
+          "samples": 90
+        },
+        {
+          "tid": 2132658,
+          "name": "KWorkerTaskMana",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132665,
+          "name": "libusb_event",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132667,
+          "name": "ScanGCAdapter",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132668,
+          "name": "cemuhookWorker",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132674,
+          "name": "libusb",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132795,
+          "name": "eden-cl:disk$0",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132796,
+          "name": "eden-cl:disk$0",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132797,
+          "name": "eden-cl:disk$1",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132798,
+          "name": "eden-cl:disk$2",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132799,
+          "name": "eden-cl:disk$3",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132802,
+          "name": "TextureDecoder",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132803,
+          "name": "VkPipelineBuild",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132804,
+          "name": "VkPipelineBuild",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132805,
+          "name": "VkPipelineBuild",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132806,
+          "name": "VkPipelineBuild",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132807,
+          "name": "VkPipelineBuild",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132808,
+          "name": "VkPipelineBuild",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132809,
+          "name": "VkPipelineBuild",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132810,
+          "name": "VkPipelineBuild",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132811,
+          "name": "VkPipelineBuild",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132812,
+          "name": "VkPipelineBuild",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132813,
+          "name": "VkPipelineBuild",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132814,
+          "name": "VkPipelineSeria",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132816,
+          "name": "AudioManager",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132822,
+          "name": "DSP_OpusDecoder",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132825,
+          "name": "ldn",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132826,
+          "name": "nvservices",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132827,
+          "name": "bsdsocket",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132828,
+          "name": "vi",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132829,
+          "name": "bsdsocket:selec",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132830,
+          "name": "bsdsocket:1",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132831,
+          "name": "bsdsocket:2",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132839,
+          "name": "TimeWorker",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        },
+        {
+          "tid": 2132999,
+          "name": "am:EventObserve",
+          "mean_cpu_percent_one_logical_cpu": 0.0,
+          "samples": 90
+        }
+      ],
+      "cpu_sampling_window_unix": [
+        1794144726.5177543,
+        1794144817.1527863
+      ],
+      "all_ci_worker_samples_empty": true,
+      "host_load_1_minute_range": [
+        4.798828125,
+        6.19287109375
+      ],
+      "cpu_tctl_celsius_range": [
+        95.875,
+        96.0
+      ]
+    },
+    "shutdown": {
+      "exit_code": 0,
+      "stop_requested": true,
+      "window_closed": true,
+      "forced": false,
+      "stop_seconds": 3.504297182895243
+    },
+    "source_observation": {
+      "function": "VideoCommon::GpuSplit::Drain",
+      "source_url": "https://github.com/Djihads80/Eglantine/blob/216d3e294367abd4742d7ebd736ef25a8db6f365/src/video_core/gpu_split.cpp",
+      "behavior": "Repeated atomic checks; Pause for the first 16384 iterations, then std::this_thread::yield. Does not use a blocking wait in this path.",
+      "interpretation": "The front spends about56% of elapsed time in drain while consuming about93% of a logical CPU. Active waiting is a concrete target for reducing CPU coordination cost, but a correct notification protocol and actual alternating FPS validation are still required."
+    }
+  },
+  "cleanup": {
+    "checked_at": 1794145017.1853838,
+    "last_profile_shutdown": {
+      "exit_code": 0,
+      "stop_requested": true,
+      "window_closed": true,
+      "forced": false,
+      "stop_seconds": 3.504297182895243
+    },
+    "lab_containers_remaining": [],
+    "lab_devices_remaining": [],
+    "production_config_unchanged": true,
+    "production_progress_hashes_unchanged": true,
+    "progress_file_count": 4,
+    "services": {
+      "nel3ab-boite-noire.service": "active",
+      "nel3ab-control.service": "active"
+    },
+    "kernel_gpu_or_oom_matches": false
+  },
+  "decision": {
+    "installed_split_mode": 0,
+    "experimental_override_installed": false,
+    "emulator_source_modified": false,
+    "next_candidate": "Investigate blocking progress notification in GpuSplit::Drain and finer stage-buffer/method profiling. Preserve ordered writes, deferred idle-hook completion and shutdown wakeups. No FPS improvement from such a change demonstrated yet."
+  },
+  "final_verification": {
+    "checked_at": 1794145272.9023247,
+    "gates": {
+      "just": {
+        "completed_at": 1794141914.4818532,
+        "exit_code": 0
+      },
+      "audit": {
+        "completed_at": 1794141966.7752862,
+        "exit_code": 0
+      },
+      "docs": {
+        "completed_at": 1794145211.1514306,
+        "exit_code": 0
+      }
+    },
+    "production_config_unchanged": true,
+    "production_progress_hashes_unchanged": true,
+    "progress_file_count": 4,
+    "services": {
+      "nel3ab-control.service": "active",
+      "nel3ab-boite-noire.service": "active"
+    },
+    "lab_containers_remaining": [],
+    "served_study": {
+      "url": "https://nel3ab.app/docs/etude-switch2-2026-11-07/",
+      "status": 200,
+      "completed_split_trial_present": true
+    },
+    "source_matches_pinned_git_blob": true,
+    "commit_created": false,
+    "remote_ci_run_created": false
+  },
+  "source_verification": {
+    "url": "https://api.github.com/repos/Djihads80/Eglantine/contents/src/video_core/gpu_split.cpp?ref=216d3e294367abd4742d7ebd736ef25a8db6f365",
+    "expected_git_blob_sha1": "c462278407de0e631e267c03769c95d6acfb7620",
+    "local_git_blob_sha1": "c462278407de0e631e267c03769c95d6acfb7620",
+    "matches": true
+  }
+}

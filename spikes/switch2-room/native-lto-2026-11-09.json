@@ -1,0 +1,93 @@
+{
+  "date": "2026-11-09",
+  "revision": "78743f30c251f66bd77e6eea6c28d8632d642d6f",
+  "profile_sha256": "2d769a1adadc4d911295e540229d1b01e7cb01f379fabcc3e7051e1ed8647144",
+  "cli_sha256": "fb25654b137eb46bd126963cba799c835b5c9f574c2832fd10ac0ef8b9dce3d8",
+  "compiler": "Clang23 with officialPGOprofile, -march=znver2 -mtune=znver2 -g1 -O3, ThinLTO",
+  "source_changes": "Only commonSDLdownload metadata adaptation; no copybatchpatch or othercodeoptimization",
+  "translation_units_proven_rebuilt": [
+    {
+      "source": "renderer_vulkan/vk_scheduler.cpp",
+      "mtime": 1794207162.05704,
+      "object": "build-clang-native-lto/src/video_core/CMakeFiles/video_core.dir/renderer_vulkan/vk_scheduler.cpp.o"
+    },
+    {
+      "source": "renderer_vulkan/vk_rasterizer.cpp",
+      "mtime": 1794207168.009051,
+      "object": "build-clang-native-lto/src/video_core/CMakeFiles/video_core.dir/renderer_vulkan/vk_rasterizer.cpp.o"
+    },
+    {
+      "source": "renderer_vulkan/vk_buffer_cache.cpp",
+      "mtime": 1794207141.4220018,
+      "object": "build-clang-native-lto/src/video_core/CMakeFiles/video_core.dir/renderer_vulkan/vk_buffer_cache.cpp.o"
+    }
+  ],
+  "tests": {
+    "exit": 0,
+    "started": 1794207652.5186708,
+    "finished": 1794207662.2446787,
+    "cli_sha256": "fb25654b137eb46bd126963cba799c835b5c9f574c2832fd10ac0ef8b9dce3d8"
+  },
+  "test_cases": {
+    "passed": 239,
+    "network_skipped": 4
+  },
+  "runtime": {
+    "exe_sha256": "fb25654b137eb46bd126963cba799c835b5c9f574c2832fd10ac0ef8b9dce3d8",
+    "mapped_radv_path": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+    "mapped_radv_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+    "packages": "libdrm-amdgpu1:amd64\t2.4.125-1ubuntu0.1~24.04.2\nlibdrm2:amd64\t2.4.125-1ubuntu0.1~24.04.2\nmesa-vulkan-drivers:amd64\t25.2.8-0ubuntu0.24.04.4\n",
+    "actual_log_filter_verified": true
+  },
+  "measurement": {
+    "requested_seconds": [
+      118.5320569038391,
+      208.708029
+    ],
+    "covered_seconds": 78.03,
+    "game_presentations": 1800,
+    "game_fps": 23.06805074971165,
+    "window_fps_median": 24.413466468103806,
+    "maximum_frame_ms": 111.691,
+    "frames_over_100_ms": 13,
+    "windows": [
+      {
+        "start": 124.375226,
+        "end": 153.264626,
+        "mean_us": 48149,
+        "maximum_us": 111691,
+        "freezes": 13
+      },
+      {
+        "start": 153.224345,
+        "end": 177.788345,
+        "mean_us": 40940,
+        "maximum_us": 72924,
+        "freezes": 0
+      },
+      {
+        "start": 177.78628099999997,
+        "end": 202.362881,
+        "mean_us": 40961,
+        "maximum_us": 72046,
+        "freezes": 0
+      }
+    ]
+  },
+  "shutdown": {
+    "exit_code": 0,
+    "stop_requested": true,
+    "window_closed": true,
+    "forced": false,
+    "stop_seconds": 2.8041474670171738
+  },
+  "visual_review": {
+    "world_and_avatar_visible": true,
+    "scene": "Actualreadyimage reviewed, Link and Kokiri Forestworld visible withthepristinenativeClangPGOThinLTO Zen2build",
+    "after_phase_world_and_avatar_visible": true,
+    "actual_ladder_descent_and_ground_walk_reviewed": true,
+    "zone_change_proven": false
+  },
+  "limits": "Singlecompilerbuildscreen, no alternatingcomparisonorgainclaim. Overall23.068FPSincludesinitialwindowwith13>100mshitches; laterwindows24.41FPS notachieved30. Actualcamera+groundwalkreviewed, normalstop. Nozone/save/audioqualification. No installation.",
+  "next": "Controlled CPU captures completed without mapping timeouts. Hot vector copies remain partly unattributed despite deeper stacks; no speculative source patch. Four alternating GPU auto/high phases next."
+}

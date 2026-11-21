@@ -1,0 +1,382 @@
+{
+  "date": "2026-11-09",
+  "prototype": "Independent host Upload ring plus busywrapretrycursorfix;hostpathdisableddefault",
+  "build": {
+    "cli_sha256": "796c8d43ddce9a89a60bea74da42330ecbcfca0500438ed4938ab0084a6ac1f6",
+    "objects": [
+      {
+        "translation_unit": "renderer_vulkan/vk_staging_buffer_pool.cpp",
+        "source_mtime": 1794212374.0095422,
+        "object_mtime": 1794212560.519114
+      },
+      {
+        "translation_unit": "renderer_vulkan/vk_buffer_cache.cpp",
+        "source_mtime": 1794211837.7827759,
+        "object_mtime": 1794212548.1490989
+      },
+      {
+        "translation_unit": "vulkan_common/vulkan_memory_allocator.cpp",
+        "source_mtime": 1794211163.3934112,
+        "object_mtime": 1794211188.6870315
+      }
+    ],
+    "cursor_header_sha256": "6c284755d723baf0934c7c58e7d65561444ee6d5da00e62994ce55f71a36190d",
+    "source_patch_sha256": "4b89b26dbf8315f493b779e3a407a3f5891cdd98ac092f20b4f47c38869f4785",
+    "tests": [
+      {
+        "flag": "0",
+        "exit": 0
+      },
+      {
+        "flag": "1",
+        "exit": 0
+      }
+    ],
+    "production_helper_mutation": {
+      "fixed_exit": 0,
+      "actual_production_helper_mutant_exit": 3,
+      "mutant_stderr": "retry reused busy memory\n"
+    }
+  },
+  "tests": {
+    "passed_each_flag": 242,
+    "network_skipped": 4,
+    "flags": [
+      "0",
+      "1"
+    ],
+    "original_bug_red": {
+      "exit": 3,
+      "stderr": "retry reused busy memory\n",
+      "scope": "ExactupstreamcursoralgorithmextractedwithoutGPU;retryafterbusywrapoverwritesregionstillpending."
+    },
+    "actual_helper_mutation": {
+      "fixed_exit": 0,
+      "actual_production_helper_mutant_exit": 3,
+      "mutant_stderr": "retry reused busy memory\n"
+    }
+  },
+  "runtime": {
+    "exe_sha256": "796c8d43ddce9a89a60bea74da42330ecbcfca0500438ed4938ab0084a6ac1f6",
+    "mapped_radv_path": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+    "mapped_radv_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+    "packages": "libdrm-amdgpu1:amd64\t2.4.125-1ubuntu0.1~24.04.2\nlibdrm2:amd64\t2.4.125-1ubuntu0.1~24.04.2\nmesa-vulkan-drivers:amd64\t25.2.8-0ubuntu0.24.04.4\n",
+    "actual_log_filter_verified": true
+  },
+  "memory_proof": {
+    "original_ring_memory_type": 3,
+    "original_ring_property_flags": "0x7",
+    "host_upload_ring_memory_type": 2,
+    "host_upload_ring_property_flags": "0x6",
+    "both_ring_bytes": 134217728,
+    "actual_reuse_after_completion_marker": true,
+    "marker_before_gameplay": true,
+    "captured_at": 1794212801.0477061
+  },
+  "measurement": {
+    "requested_seconds": [
+      115.82550344467163,
+      204.919539
+    ],
+    "covered_seconds": 53.5416,
+    "game_presentations": 1200,
+    "game_fps": 22.412479268456675,
+    "window_fps_median": 22.464690153530597,
+    "maximum_frame_ms": 137.727,
+    "frames_over_100_ms": 1,
+    "windows": [
+      {
+        "start": 128.52551,
+        "end": 156.58691,
+        "mean_us": 46769,
+        "maximum_us": 137727,
+        "freezes": 1
+      },
+      {
+        "start": 156.59023200000001,
+        "end": 182.070432,
+        "mean_us": 42467,
+        "maximum_us": 71812,
+        "freezes": 0
+      }
+    ]
+  },
+  "shutdown": {
+    "exit_code": 0,
+    "stop_requested": true,
+    "window_closed": true,
+    "forced": false,
+    "stop_seconds": 3.404587043914944
+  },
+  "visual_review": {
+    "world_and_avatar_visible": true,
+    "reviewed_at": 1794212801.0144837,
+    "observation": "Link visible on Kokiri balcony; forestworldrendered.",
+    "after_phase_world_and_avatar_visible": true,
+    "actual_ladder_descent_and_ground_walk_reviewed": true,
+    "zone_change_proven": false
+  },
+  "limits": [
+    "Fouralternatingrunswithsamebinary,driver,NUP/update/checkpoint/config;sharedprivatecacheevolves,initialslowwindowsretained.",
+    "Allready/before/after/ladder/groundimagesreviewed;allfouractualstopsnormal.Nozone/save/audioqualification.",
+    "Cursorfixpresentinbothvariants,notindependentlymeasured. Actualhostringreusemarkerfirstappearsduringboot,notperframecoverage.",
+    "No30FPS,noinstallation."
+  ],
+  "alternating_comparison": {
+    "phases": [
+      {
+        "label": "host-ring-pilot",
+        "flag": 1,
+        "measurement": {
+          "requested_seconds": [
+            115.82550344467163,
+            204.919539
+          ],
+          "covered_seconds": 53.5416,
+          "game_presentations": 1200,
+          "game_fps": 22.412479268456675,
+          "window_fps_median": 22.464690153530597,
+          "maximum_frame_ms": 137.727,
+          "frames_over_100_ms": 1,
+          "windows": [
+            {
+              "start": 128.52551,
+              "end": 156.58691,
+              "mean_us": 46769,
+              "maximum_us": 137727,
+              "freezes": 1
+            },
+            {
+              "start": 156.59023200000001,
+              "end": 182.070432,
+              "mean_us": 42467,
+              "maximum_us": 71812,
+              "freezes": 0
+            }
+          ]
+        },
+        "shutdown": {
+          "exit_code": 0,
+          "stop_requested": true,
+          "window_closed": true,
+          "forced": false,
+          "stop_seconds": 3.404587043914944
+        },
+        "runtime": {
+          "exe_sha256": "796c8d43ddce9a89a60bea74da42330ecbcfca0500438ed4938ab0084a6ac1f6",
+          "mapped_radv_path": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+          "mapped_radv_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+          "packages": "libdrm-amdgpu1:amd64\t2.4.125-1ubuntu0.1~24.04.2\nlibdrm2:amd64\t2.4.125-1ubuntu0.1~24.04.2\nmesa-vulkan-drivers:amd64\t25.2.8-0ubuntu0.24.04.4\n",
+          "actual_log_filter_verified": true
+        },
+        "visual_review": {
+          "world_and_avatar_visible": true,
+          "reviewed_at": 1794212801.0144837,
+          "observation": "Link visible on Kokiri balcony; forestworldrendered.",
+          "after_phase_world_and_avatar_visible": true,
+          "actual_ladder_descent_and_ground_walk_reviewed": true,
+          "zone_change_proven": false,
+          "before_after_phase_images_reviewed": true
+        }
+      },
+      {
+        "label": "host-ring-control1",
+        "flag": 0,
+        "measurement": {
+          "requested_seconds": [
+            108.57690105438232,
+            198.587375
+          ],
+          "covered_seconds": 50.007,
+          "game_presentations": 1200,
+          "game_fps": 23.996640470334153,
+          "window_fps_median": 24.00399635708128,
+          "maximum_frame_ms": 79.912,
+          "frames_over_100_ms": 0,
+          "windows": [
+            {
+              "start": 128.19277,
+              "end": 153.63397,
+              "mean_us": 42402,
+              "maximum_us": 79912,
+              "freezes": 0
+            },
+            {
+              "start": 153.593673,
+              "end": 178.159473,
+              "mean_us": 40943,
+              "maximum_us": 66604,
+              "freezes": 0
+            }
+          ]
+        },
+        "shutdown": {
+          "exit_code": 0,
+          "stop_requested": true,
+          "window_closed": true,
+          "forced": false,
+          "stop_seconds": 2.904625277966261
+        },
+        "runtime": {
+          "exe_sha256": "796c8d43ddce9a89a60bea74da42330ecbcfca0500438ed4938ab0084a6ac1f6",
+          "mapped_radv_path": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+          "mapped_radv_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+          "packages": "libdrm-amdgpu1:amd64\t2.4.125-1ubuntu0.1~24.04.2\nlibdrm2:amd64\t2.4.125-1ubuntu0.1~24.04.2\nmesa-vulkan-drivers:amd64\t25.2.8-0ubuntu0.24.04.4\n",
+          "actual_log_filter_verified": true
+        },
+        "visual_review": {
+          "world_and_avatar_visible": true,
+          "reviewed_at": 1794213052.6642256,
+          "observation": "LinkvisibleonKokiribalcony,worldrendered.",
+          "before_after_phase_images_reviewed": true,
+          "after_phase_world_and_avatar_visible": true,
+          "actual_ladder_descent_and_ground_walk_reviewed": true,
+          "zone_change_proven": false
+        }
+      },
+      {
+        "label": "host-ring-on2",
+        "flag": 1,
+        "measurement": {
+          "requested_seconds": [
+            123.53196177482604,
+            209.687504
+          ],
+          "covered_seconds": 81.9564,
+          "game_presentations": 1800,
+          "game_fps": 21.962897345417808,
+          "window_fps_median": 23.451057642699684,
+          "maximum_frame_ms": 132.136,
+          "frames_over_100_ms": 25,
+          "windows": [
+            {
+              "start": 127.81914299999998,
+              "end": 158.621943,
+              "mean_us": 51338,
+              "maximum_us": 132136,
+              "freezes": 25
+            },
+            {
+              "start": 158.538562,
+              "end": 184.106962,
+              "mean_us": 42614,
+              "maximum_us": 69234,
+              "freezes": 0
+            },
+            {
+              "start": 184.06514199999998,
+              "end": 209.650342,
+              "mean_us": 42642,
+              "maximum_us": 69536,
+              "freezes": 0
+            }
+          ]
+        },
+        "shutdown": {
+          "exit_code": 0,
+          "stop_requested": true,
+          "window_closed": true,
+          "forced": false,
+          "stop_seconds": 2.704450360033661
+        },
+        "runtime": {
+          "exe_sha256": "796c8d43ddce9a89a60bea74da42330ecbcfca0500438ed4938ab0084a6ac1f6",
+          "mapped_radv_path": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+          "mapped_radv_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+          "packages": "libdrm-amdgpu1:amd64\t2.4.125-1ubuntu0.1~24.04.2\nlibdrm2:amd64\t2.4.125-1ubuntu0.1~24.04.2\nmesa-vulkan-drivers:amd64\t25.2.8-0ubuntu0.24.04.4\n",
+          "actual_log_filter_verified": true
+        },
+        "visual_review": {
+          "world_and_avatar_visible": true,
+          "reviewed_at": 1794213305.0752544,
+          "observation": "Link visible at Kokiri balcony, world rendered.",
+          "before_after_phase_images_reviewed": true,
+          "after_phase_world_and_avatar_visible": true,
+          "actual_ladder_descent_and_ground_walk_reviewed": true,
+          "zone_change_proven": false
+        }
+      },
+      {
+        "label": "host-ring-control2",
+        "flag": 0,
+        "measurement": {
+          "requested_seconds": [
+            119.75640497207641,
+            206.750015
+          ],
+          "covered_seconds": 78.8274,
+          "game_presentations": 1800,
+          "game_fps": 22.834699609526638,
+          "window_fps_median": 24.041351123933165,
+          "maximum_frame_ms": 111.38,
+          "frames_over_100_ms": 3,
+          "windows": [
+            {
+              "start": 126.705578,
+              "end": 155.640578,
+              "mean_us": 48225,
+              "maximum_us": 111380,
+              "freezes": 3
+            },
+            {
+              "start": 155.63823200000002,
+              "end": 180.573632,
+              "mean_us": 41559,
+              "maximum_us": 74028,
+              "freezes": 0
+            },
+            {
+              "start": 180.494329,
+              "end": 205.451329,
+              "mean_us": 41595,
+              "maximum_us": 66445,
+              "freezes": 0
+            }
+          ]
+        },
+        "shutdown": {
+          "exit_code": 0,
+          "stop_requested": true,
+          "window_closed": true,
+          "forced": false,
+          "stop_seconds": 2.706665661651641
+        },
+        "runtime": {
+          "exe_sha256": "796c8d43ddce9a89a60bea74da42330ecbcfca0500438ed4938ab0084a6ac1f6",
+          "mapped_radv_path": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+          "mapped_radv_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+          "packages": "libdrm-amdgpu1:amd64\t2.4.125-1ubuntu0.1~24.04.2\nlibdrm2:amd64\t2.4.125-1ubuntu0.1~24.04.2\nmesa-vulkan-drivers:amd64\t25.2.8-0ubuntu0.24.04.4\n",
+          "actual_log_filter_verified": true
+        },
+        "visual_review": {
+          "world_and_avatar_visible": true,
+          "reviewed_at": 1794213596.5070632,
+          "observation": "LinkvisibleatKokiribalcony,worldrendered.",
+          "before_after_phase_images_reviewed": true,
+          "after_phase_world_and_avatar_visible": true,
+          "actual_ladder_descent_and_ground_walk_reviewed": true,
+          "zone_change_proven": false
+        }
+      }
+    ],
+    "pooled": {
+      "1": {
+        "presents": 3000,
+        "seconds": 135.498,
+        "over100ms": 26,
+        "fps": 22.140548199973434
+      },
+      "0": {
+        "presents": 3000,
+        "seconds": 128.8344,
+        "over100ms": 3,
+        "fps": 23.285706302043558
+      }
+    },
+    "change_percent": -4.917858566178102,
+    "scope": "FouralternatingON/OFF/ON/OFFrunswithsameactualCLI/driver/NUP/update/checkpoint/config. Cacheevolvesinsharedprivateclone;initialslowwindowsretained. Cursorfixpresentinbothvariants,notpartofmeasuredtoggle.",
+    "decision": "Rejecthostmemoryuploadringforperformance;no30FPS.No causal gain attributed to cursor fix.",
+    "next": "DiagnosticofrepeatedbufferuploadpayloadsoutsideFPS,withoutskippinganycopy."
+  },
+  "decision": "Rejecthostuploadringperformancevariant;keepcursorcorrectnessfixasseparatefinding,nocausalcadenceclaim."
+}

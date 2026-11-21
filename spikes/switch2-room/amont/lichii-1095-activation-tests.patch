@@ -1,0 +1,140 @@
+--- a/src/video_core/engines/maxwell_3d.cpp
++++ b/src/video_core/engines/maxwell_3d.cpp
+@@ -510,6 +510,14 @@
+     }
+ }
+ 
++namespace {
++// Diagnostic only, fixed at process startup; no per-method clocks or logging when disabled.
++const bool trace_state_register_branch = [] {
++    const char* value = std::getenv("EDEN_NX2_STATE_WRITE_TRACE");
++    return value && value[0] == '1' && value[1] == '\0';
++}();
++} // namespace
++
+ void Maxwell3D::CallMethod(Core::System& system, u32 method, u32 method_argument, bool is_last_call) {
+     if (front_macros && !VideoCommon::GpuSplit::OnBackThread()) {
+         ReleaseFront();
+@@ -521,6 +529,13 @@
+     // leave fast_maxwell3d off.
+     if (fast_maxwell3d && executing_macro == 0 && method < MacroRegistersStart &&
+         !execution_mask[method] && !perf_verify) {
++        if (trace_state_register_branch) {
++            static const bool announced = [] {
++                LOG_INFO(HW_GPU, "Inline state register branch active (PR1095)");
++                return true;
++            }();
++            (void)announced;
++        }
+         return WriteStateRegister(method, method_argument);
+     }
+     if (!fast_maxwell3d || executing_macro != 0 || method >= MacroRegistersStart ||
+--- a/src/tests/video_core/maxwell_fast_method.cpp
++++ b/src/tests/video_core/maxwell_fast_method.cpp
+@@ -162,9 +162,9 @@
+     Maxwell3D fast{memory};
+     std::vector<u32> state_methods;
+ 
+-    Fixture() {
++    explicit Fixture(bool enable_fast = true) {
+         slow.fast_maxwell3d = false;
+-        fast.fast_maxwell3d = true;
++        fast.fast_maxwell3d = enable_fast;
+         for (auto* engine : {&slow, &fast}) {
+             engine->BindRasterizer(&rasterizer);
+             VideoCommon::Dirty::SetupDirtyFlags(engine->dirty.tables);
+@@ -1781,3 +1781,94 @@
+     split.Drain();
+     REQUIRE(engine.regs.reg_array[copy] == shadow_value);
+ }
++
++TEST_CASE("Inline state writes preserve shadow and both dirty tables", "[video_core][state_write]") {
++    Fixture f;
++    using Control = Maxwell3D::Regs::ShadowRamControl;
++    constexpr u32 method = 0x200;
++    REQUIRE_FALSE(f.fast.execution_mask[method]);
++    REQUIRE(f.fast.fast_maxwell3d);
++    f.fast.dirty.tables[0][method] = f.slow.dirty.tables[0][method] = 10;
++    f.fast.dirty.tables[1][method] = f.slow.dirty.tables[1][method] = 11;
++    for (auto control : {Control::Track, Control::TrackWithFilter, Control::Passthrough,
++                         Control::Replay}) {
++        CAPTURE(static_cast<u32>(control));
++        f.Call(ShadowControl, static_cast<u32>(control), true);
++        for (auto* engine : {&f.fast, &f.slow}) {
++            engine->regs.reg_array[method] = 3;
++            engine->shadow_state.reg_array[method] = 7;
++            engine->dirty.flags.reset();
++        }
++        f.Call(method, 5, true);
++        f.Compare();
++        REQUIRE(f.fast.regs.reg_array[method] == (control == Control::Replay ? 7 : 5));
++        REQUIRE(f.fast.shadow_state.reg_array[method] ==
++                (control == Control::Track || control == Control::TrackWithFilter ? 5 : 7));
++        REQUIRE(f.fast.dirty.flags[10]);
++        REQUIRE(f.fast.dirty.flags[11]);
++        f.fast.dirty.flags.reset();
++        f.slow.dirty.flags.reset();
++        f.Call(method, 5, true);
++        f.Compare();
++        const char* skip = std::getenv("EDEN_NX2_SKIP_SAME");
++        const bool skipped = skip == nullptr || skip[0] != '0';
++        REQUIRE(f.fast.dirty.flags[10] == !skipped);
++        REQUIRE(f.fast.dirty.flags[11] == !skipped);
++    }
++}
++
++TEST_CASE("Inline state write releases front ownership before replay", "[video_core][state_write]") {
++    Fixture f;
++    using Control = Maxwell3D::Regs::ShadowRamControl;
++    VideoCommon::GpuSplit split;
++    VideoCommon::GpuSplitTestAccess::Initialize(split, f.system);
++    auto& engine = f.fast;
++    constexpr u32 method = 0x200;
++    REQUIRE_FALSE(engine.execution_mask[method]);
++    engine.FrontCallMethod(f.system, split, ShadowControl, static_cast<u32>(Control::Track), true);
++    engine.FrontCallMethod(f.system, split, method, 0x1234, true);
++    REQUIRE(engine.shadow_state.reg_array[method] != 0x1234);
++    engine.FrontCallMethod(f.system, split, ShadowControl, static_cast<u32>(Control::Replay), true);
++    // This ordinary state write, not an executable method, must first hand ownership back.
++    engine.CallMethod(f.system, method, 0x5678, true);
++    REQUIRE(engine.regs.reg_array[method] == 0x1234);
++    REQUIRE(engine.shadow_state.reg_array[method] == 0x1234);
++    REQUIRE(engine.shadow_state.shadow_ram_control == Control::Replay);
++}
++
++TEST_CASE("Inline state branch emits its activation only when actually selected",
++          "[.][state_write_activation]") {
++    Common::Log::Initialize();
++    Common::Log::SetColorConsoleBackendEnabled(false);
++    Common::Log::Filter filter{Common::Log::Level::Critical};
++    filter.SetClassLevel(Common::Log::Class::HW_GPU, Common::Log::Level::Info);
++    Common::Log::SetGlobalFilter(filter);
++    Common::Log::SetRingCapacity(4096);
++    SCOPE_EXIT {
++        Common::Log::SetRingCapacity(0);
++        Common::Log::Filter previous;
++        previous.ParseFilterString(Settings::values.log_filter.GetValue());
++        Common::Log::SetGlobalFilter(previous);
++        Common::Log::Stop();
++    };
++    const auto exact_one = [](const char* name) {
++        const char* value = std::getenv(name);
++        return value && value[0] == '1' && value[1] == '\0';
++    };
++    const bool force_slow = exact_one("NX2_STATE_TEST_SLOW");
++    Fixture f{!force_slow};
++    REQUIRE(f.fast.fast_maxwell3d == !force_slow);
++    REQUIRE_FALSE(f.fast.execution_mask[0x200]);
++    f.Call(0x200, 0x12345678, true);
++    f.Call(0x200, 0x12345679, true);
++    f.Compare();
++    REQUIRE(f.fast.regs.reg_array[0x200] == 0x12345679);
++    unsigned markers = 0;
++    for (const auto& line : Common::Log::ReadRing(0)) {
++        markers += line.text.find("Inline state register branch active (PR1095)") != std::string::npos;
++        REQUIRE(line.text.find("Nx2Perf method:") == std::string::npos);
++    }
++    const char* verify = std::getenv("EDEN_NX2_PERF_VERIFY");
++    const bool verifying = verify && verify[0] == '1';
++    REQUIRE(markers == (exact_one("EDEN_NX2_STATE_WRITE_TRACE") && !force_slow && !verifying ? 1 : 0));
++}

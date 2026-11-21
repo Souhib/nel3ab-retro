@@ -1,0 +1,738 @@
+{
+  "date_utc": "2026-11-09",
+  "recorded_unix": 1794234087.509171,
+  "primary_source": "https://github.com/zortos293/Lichii/commit/0b83798bf6e7e2440568b7cf69646ae45d681b11",
+  "base": "0b83798bf6e7e2440568b7cf69646ae45d681b11",
+  "control_base": "986a2b684d752cd5227d0d8cdd63d52111d9c298 + same UBO/cursor corrections + exactPR874",
+  "candidate": "0b + UBO/cursor corrections + PR874 composed report_noted guard + optional trace disabled forFPS",
+  "compiler_runtime": "MatchedClang23, same officialPGO profile,ThinLTO,znver2, sameinternalpaths/options; unchangedMesa25.2.8RADV/runtime image",
+  "runtime_settings": {
+    "split": 1,
+    "gpu_accuracy": "Low",
+    "fences": "Default",
+    "speed_limit_percent": 100,
+    "NO_MESH": 1
+  },
+  "source_regression": {
+    "real_owners": [
+      "QueryCacheBase",
+      "GuestStreamer",
+      "FenceManager",
+      "BufferCache",
+      "mapped guest memory"
+    ],
+    "red": "Naive PR874 on0b: final memory73 instead of5",
+    "green_cases": 68,
+    "green_assertions": 1043498,
+    "compiled_mutants_rejected": 4,
+    "limits": "Synthetic CPU buffers/ticks/counter, deterministic backend, no physicalVulkan or reclamationthread race proof"
+  },
+  "full_suite": {
+    "passed": 1140,
+    "network_skipped": 4,
+    "assertions": 71906299,
+    "cli_sha256": "5ac642897062c2772d8e9f9fe81ec205ecdd8ddeb2e9100659f152a8e6291429",
+    "changed_objects_verified": [
+      "renderer_vulkan/vk_query_cache.cpp.o",
+      "renderer_vulkan/vk_buffer_cache_base.cpp.o",
+      "renderer_vulkan/vk_staging_buffer_pool.cpp.o"
+    ]
+  },
+  "diagnostic": {
+    "diagnostic_only": true,
+    "no_FPS_claim": true,
+    "wall_start": 1794232154.7094154,
+    "wall_end": 1794232246.5818596,
+    "seconds": 91.87244318192825,
+    "native_epoch_bounds": [
+      1794232061.8642154,
+      1794232062.117491
+    ],
+    "features": {
+      "uniforms": {
+        "all_reports": 8,
+        "complete_windows": [
+          {
+            "native": 131.515779,
+            "counts": [
+              341266,
+              5761339,
+              0,
+              0
+            ],
+            "interval_start": 101.785072
+          },
+          {
+            "native": 161.3738,
+            "counts": [
+              336251,
+              5721705,
+              0,
+              0
+            ],
+            "interval_start": 131.515779
+          }
+        ],
+        "kept_or_replayed": 677517,
+        "verified": 0,
+        "mismatches_in_all_reports": 0
+      },
+      "descriptors": {
+        "all_reports": 14,
+        "complete_windows": [
+          {
+            "native": 111.272074,
+            "counts": [
+              0,
+              25600,
+              25600,
+              0
+            ],
+            "interval_start": 101.108554
+          },
+          {
+            "native": 121.286035,
+            "counts": [
+              0,
+              25600,
+              25600,
+              0
+            ],
+            "interval_start": 111.272074
+          },
+          {
+            "native": 131.559894,
+            "counts": [
+              0,
+              26624,
+              26624,
+              0
+            ],
+            "interval_start": 121.286035
+          },
+          {
+            "native": 141.786531,
+            "counts": [
+              0,
+              25600,
+              25600,
+              0
+            ],
+            "interval_start": 131.559894
+          },
+          {
+            "native": 151.842417,
+            "counts": [
+              0,
+              25600,
+              25600,
+              0
+            ],
+            "interval_start": 141.786531
+          },
+          {
+            "native": 162.027059,
+            "counts": [
+              0,
+              25600,
+              25600,
+              0
+            ],
+            "interval_start": 151.842417
+          },
+          {
+            "native": 172.214213,
+            "counts": [
+              0,
+              25600,
+              25600,
+              0
+            ],
+            "interval_start": 162.027059
+          },
+          {
+            "native": 182.384157,
+            "counts": [
+              0,
+              24576,
+              24576,
+              0
+            ],
+            "interval_start": 172.214213
+          }
+        ],
+        "kept_or_replayed": 0,
+        "verified": 204800,
+        "mismatches_in_all_reports": 0
+      }
+    },
+    "shutdown": {
+      "exit_code": 0,
+      "stop_requested": true,
+      "window_closed": true,
+      "forced": false,
+      "stop_seconds": 3.5048333830200136
+    },
+    "split": "EDEN_NX2_SPLIT=1",
+    "cpu_zone_profile": true,
+    "checked_source": true,
+    "read_check": {
+      "all_reports": 14,
+      "complete_intervals": [
+        {
+          "start": 100.186732,
+          "end": 110.190129,
+          "delta": [
+            12343,
+            44881,
+            0,
+            0,
+            0,
+            0,
+            0,
+            3738
+          ]
+        },
+        {
+          "start": 110.190129,
+          "end": 120.179225,
+          "delta": [
+            12664,
+            45951,
+            0,
+            0,
+            0,
+            0,
+            0,
+            3450
+          ]
+        },
+        {
+          "start": 120.179225,
+          "end": 130.182007,
+          "delta": [
+            12897,
+            45727,
+            0,
+            0,
+            0,
+            0,
+            0,
+            5076
+          ]
+        },
+        {
+          "start": 130.182007,
+          "end": 140.192206,
+          "delta": [
+            12887,
+            45208,
+            0,
+            0,
+            0,
+            0,
+            0,
+            3269
+          ]
+        },
+        {
+          "start": 140.192206,
+          "end": 150.182625,
+          "delta": [
+            13010,
+            46089,
+            0,
+            0,
+            0,
+            0,
+            0,
+            3957
+          ]
+        },
+        {
+          "start": 150.182625,
+          "end": 160.19311,
+          "delta": [
+            12909,
+            45465,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1675
+          ]
+        },
+        {
+          "start": 160.19311,
+          "end": 170.178451,
+          "delta": [
+            13072,
+            46950,
+            0,
+            0,
+            0,
+            0,
+            0,
+            703
+          ]
+        },
+        {
+          "start": 170.178451,
+          "end": 180.178565,
+          "delta": [
+            12531,
+            44410,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1118
+          ]
+        }
+      ],
+      "deltas": {
+        "downloads": 102313,
+        "compared_KiB": 364681,
+        "mismatched": 0,
+        "mismatched_reader": 0,
+        "mismatched_gpu_writer": 0,
+        "mismatched_completed": 0,
+        "uncovered": 0,
+        "rewritten_not_compared": 22986
+      },
+      "all_report_mismatches": 0,
+      "all_report_uncovered": 0,
+      "scope": "Counter differences over complete diagnostic intervals, never sum cumulative snapshots. ComparedKiB rounded down per endpoint; rewritten bytes excluded by upstream oracle."
+    },
+    "scope": "Only whole reset-counter intervals inside actual observed camera phase; previous report bounds each interval. Split0/1 do not enable front-macro accelerated acquires.",
+    "uniform_check_scope": "Corrected helper execution proven by kept>0 plus rebuilt code and separate red/green/mutant fixture; no independent runtime byte oracle.",
+    "validation_status": "Accepted diagnostic coverage for named counters; noFPS claim or universal fidelity qualification"
+  },
+  "diagnostic_first_attempt": {
+    "label": "lichii-readback-diagnostic",
+    "status": "Complete feature qualification refused",
+    "reason": "Render.Vulkan:Warning hid required descriptorInfo logs; no descriptor execution conclusion",
+    "readback_downloads": 93643,
+    "readback_mismatches": 0,
+    "uncovered": 0,
+    "rewritten_bytes_excluded": 11300,
+    "corrected_uniform_keeps": 669301,
+    "normal_stop": true
+  },
+  "unprofiled_screening": {
+    "label": "lichii-readback-fps1",
+    "measurement": {
+      "requested_seconds": [
+        117.27711853981017,
+        204.781722
+      ],
+      "covered_seconds": 71.8278,
+      "game_presentations": 1800,
+      "game_fps": 25.059935011235204,
+      "window_fps_median": 25.241689173839514,
+      "maximum_frame_ms": 78.316,
+      "frames_over_100_ms": 0,
+      "windows": [
+        {
+          "start": 117.38185800000001,
+          "end": 141.968058,
+          "mean_us": 40977,
+          "maximum_us": 78316,
+          "freezes": 0
+        },
+        {
+          "start": 141.92912600000002,
+          "end": 165.699326,
+          "mean_us": 39617,
+          "maximum_us": 64474,
+          "freezes": 0
+        },
+        {
+          "start": 165.660558,
+          "end": 189.131958,
+          "mean_us": 39119,
+          "maximum_us": 64283,
+          "freezes": 0
+        }
+      ]
+    },
+    "normal_stop": true,
+    "world_and_movement_reviewed": true,
+    "comparison_claim": false
+  },
+  "alternating_phases": [
+    {
+      "label": "lichii-readback-on1",
+      "new_readback": true,
+      "measurement": {
+        "requested_seconds": [
+          161.15542612075805,
+          251.435761
+        ],
+        "covered_seconds": 72.4356,
+        "game_presentations": 1800,
+        "game_fps": 24.849659559664033,
+        "window_fps_median": 24.860161591050343,
+        "maximum_frame_ms": 66.373,
+        "frames_over_100_ms": 0,
+        "windows": [
+          {
+            "start": 168.18705200000002,
+            "end": 192.322052,
+            "mean_us": 40225,
+            "maximum_us": 62334,
+            "freezes": 0
+          },
+          {
+            "start": 192.28290299999998,
+            "end": 216.221703,
+            "mean_us": 39898,
+            "maximum_us": 59259,
+            "freezes": 0
+          },
+          {
+            "start": 216.181903,
+            "end": 240.543703,
+            "mean_us": 40603,
+            "maximum_us": 66373,
+            "freezes": 0
+          }
+        ]
+      },
+      "phase_wall_seconds": 91.41797957709059,
+      "whole_windows": 3,
+      "interference_free_samples": 15,
+      "actual_cli_sha256": "5ac642897062c2772d8e9f9fe81ec205ecdd8ddeb2e9100659f152a8e6291429",
+      "actual_radv_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+      "all_diagnostic_env_absent": [
+        "GPU_PROFILE",
+        "UBO_KEEP_VERIFY",
+        "DELTA_DESCRIPTORS_VERIFY",
+        "PAYLOAD_SYNC_TRACE",
+        "ACQUIRE_VERIFY",
+        "STUTTER_TRACE",
+        "LIVE_READ_CHECK",
+        "READ_CHECK",
+        "DMA_READ_VERIFY"
+      ],
+      "world_and_movement_images_reviewed": true,
+      "cap_observation": "Link cap appears elongated upward in walk-side image; provenance or new regression not established; full fidelity not qualified",
+      "lifecycle": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.3066010931506753
+      },
+      "sampled_metrics": {
+        "temp3_input": {
+          "min": 93000,
+          "max": 97000
+        },
+        "temp1_input": {
+          "min": 95875,
+          "max": 96000
+        },
+        "gpu_freq1_input": {
+          "min": 845000000,
+          "max": 1447000000
+        },
+        "gpu_power1_cap": {
+          "min": 150000000,
+          "max": 150000000
+        }
+      },
+      "cpu_frequency_sample_median_mhz": 3543.6565,
+      "metric_limits": "Instantaneous sysfs samples across12logicalCPUs, not busy-core effective clocks or proof of thermal throttling"
+    },
+    {
+      "label": "lichii-readback-off1",
+      "new_readback": false,
+      "measurement": {
+        "requested_seconds": [
+          171.58725008964538,
+          256.034998
+        ],
+        "covered_seconds": 30.8328,
+        "game_presentations": 600,
+        "game_fps": 19.45979606133728,
+        "window_fps_median": 19.459796061337276,
+        "maximum_frame_ms": 71.001,
+        "frames_over_100_ms": 0,
+        "windows": [
+          {
+            "start": 198.94486700000002,
+            "end": 229.777667,
+            "mean_us": 51388,
+            "maximum_us": 71001,
+            "freezes": 0
+          }
+        ]
+      },
+      "phase_wall_seconds": 91.41564386384562,
+      "whole_windows": 1,
+      "interference_free_samples": 15,
+      "actual_cli_sha256": "be340855afa1f183b9105c1921e40592489a177c9067e2a20cc297ccd83f5ab1",
+      "actual_radv_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+      "all_diagnostic_env_absent": [
+        "GPU_PROFILE",
+        "UBO_KEEP_VERIFY",
+        "DELTA_DESCRIPTORS_VERIFY",
+        "PAYLOAD_SYNC_TRACE",
+        "ACQUIRE_VERIFY",
+        "STUTTER_TRACE",
+        "LIVE_READ_CHECK",
+        "READ_CHECK",
+        "DMA_READ_VERIFY"
+      ],
+      "world_and_movement_images_reviewed": true,
+      "cap_observation": "Rounded cap with backward tail in walk-side, no upright spike in this capture",
+      "lifecycle": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.204827243927866
+      },
+      "sampled_metrics": {
+        "temp3_input": {
+          "min": 92750,
+          "max": 97000
+        },
+        "temp1_input": {
+          "min": 95875,
+          "max": 96000
+        },
+        "gpu_freq1_input": {
+          "min": 808000000,
+          "max": 1192000000
+        },
+        "gpu_power1_cap": {
+          "min": 150000000,
+          "max": 150000000
+        }
+      },
+      "cpu_frequency_sample_median_mhz": 3518.4305000000004,
+      "metric_limits": "Instantaneous sysfs samples across12logicalCPUs, not busy-core effective clocks or proof of thermal throttling"
+    },
+    {
+      "label": "lichii-readback-on2",
+      "new_readback": true,
+      "measurement": {
+        "requested_seconds": [
+          128.82547721862792,
+          212.38403
+        ],
+        "covered_seconds": 51.6744,
+        "game_presentations": 1200,
+        "game_fps": 23.222330593098324,
+        "window_fps_median": 23.223778372252525,
+        "maximum_frame_ms": 75.53,
+        "frames_over_100_ms": 0,
+        "windows": [
+          {
+            "start": 151.714003,
+            "end": 177.755203,
+            "mean_us": 43402,
+            "maximum_us": 75530,
+            "freezes": 0
+          },
+          {
+            "start": 177.713341,
+            "end": 203.346541,
+            "mean_us": 42722,
+            "maximum_us": 62129,
+            "freezes": 0
+          }
+        ]
+      },
+      "phase_wall_seconds": 91.53686982905492,
+      "whole_windows": 2,
+      "interference_free_samples": 15,
+      "actual_cli_sha256": "5ac642897062c2772d8e9f9fe81ec205ecdd8ddeb2e9100659f152a8e6291429",
+      "actual_radv_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+      "all_diagnostic_env_absent": [
+        "GPU_PROFILE",
+        "UBO_KEEP_VERIFY",
+        "DELTA_DESCRIPTORS_VERIFY",
+        "PAYLOAD_SYNC_TRACE",
+        "ACQUIRE_VERIFY",
+        "STUTTER_TRACE",
+        "LIVE_READ_CHECK",
+        "READ_CHECK",
+        "DMA_READ_VERIFY"
+      ],
+      "world_and_movement_images_reviewed": true,
+      "cap_observation": "Rounded cap and backward tail in walk-side; no upright spike in this capture",
+      "lifecycle": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 2.9047703612595797
+      },
+      "sampled_metrics": {
+        "temp3_input": {
+          "min": 93750,
+          "max": 97000
+        },
+        "temp1_input": {
+          "min": 95625,
+          "max": 95875
+        },
+        "gpu_freq1_input": {
+          "min": 776000000,
+          "max": 1524000000
+        },
+        "gpu_power1_cap": {
+          "min": 150000000,
+          "max": 150000000
+        }
+      },
+      "cpu_frequency_sample_median_mhz": 3468.7525,
+      "metric_limits": "Instantaneous sysfs samples across12logicalCPUs, not busy-core effective clocks or proof of thermal throttling"
+    },
+    {
+      "label": "lichii-readback-off2",
+      "new_readback": false,
+      "measurement": {
+        "requested_seconds": [
+          114.90982685089111,
+          195.484245
+        ],
+        "covered_seconds": 60.567,
+        "game_presentations": 1200,
+        "game_fps": 19.812769329833078,
+        "window_fps_median": 19.819549065792437,
+        "maximum_frame_ms": 86.88,
+        "frames_over_100_ms": 0,
+        "windows": [
+          {
+            "start": 132.695056,
+            "end": 162.418456,
+            "mean_us": 49539,
+            "maximum_us": 86880,
+            "freezes": 0
+          },
+          {
+            "start": 162.368002,
+            "end": 193.211602,
+            "mean_us": 51406,
+            "maximum_us": 70122,
+            "freezes": 0
+          }
+        ]
+      },
+      "phase_wall_seconds": 91.46771159907803,
+      "whole_windows": 2,
+      "interference_free_samples": 15,
+      "actual_cli_sha256": "be340855afa1f183b9105c1921e40592489a177c9067e2a20cc297ccd83f5ab1",
+      "actual_radv_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+      "all_diagnostic_env_absent": [
+        "GPU_PROFILE",
+        "UBO_KEEP_VERIFY",
+        "DELTA_DESCRIPTORS_VERIFY",
+        "PAYLOAD_SYNC_TRACE",
+        "ACQUIRE_VERIFY",
+        "STUTTER_TRACE",
+        "LIVE_READ_CHECK",
+        "READ_CHECK",
+        "DMA_READ_VERIFY"
+      ],
+      "world_and_movement_images_reviewed": true,
+      "cap_observation": "Backward curling tail, no upright vertical spike in this capture",
+      "lifecycle": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.7050041160546243
+      },
+      "sampled_metrics": {
+        "temp3_input": {
+          "min": 92750,
+          "max": 96500
+        },
+        "temp1_input": {
+          "min": 95875,
+          "max": 96250
+        },
+        "gpu_freq1_input": {
+          "min": 792000000,
+          "max": 1256000000
+        },
+        "gpu_power1_cap": {
+          "min": 150000000,
+          "max": 150000000
+        }
+      },
+      "cpu_frequency_sample_median_mhz": 3568.2574999999997,
+      "metric_limits": "Instantaneous sysfs samples across12logicalCPUs, not busy-core effective clocks or proof of thermal throttling"
+    }
+  ],
+  "pooled": {
+    "new_readback": {
+      "presentations": 3000,
+      "covered_seconds": 124.10999999999999,
+      "fps": 24.172105390379507,
+      "frames_over_100_ms": 0,
+      "maximum_frame_ms": 75.53
+    },
+    "before_readback": {
+      "presentations": 1800,
+      "covered_seconds": 91.3998,
+      "fps": 19.693697360388096,
+      "frames_over_100_ms": 0,
+      "maximum_frame_ms": 86.88
+    },
+    "observed_gain_percent": 22.74031101442271
+  },
+  "cache_seed": {
+    "files": 3511,
+    "bytes": 82010658,
+    "byte_identical_restore_before_each_phase": true,
+    "same_checkpoint": "privateKokiri",
+    "host_cache_and_world_determinism_claim": false
+  },
+  "visual_limits": [
+    "NO_MESH1 retained in both conditions; full-world fidelity unqualified",
+    "One new-readback walk-side capture has an upright elongated cap; other new-readback and control captures differ in pose and silhouette",
+    "An older checked-fps1 cap was already long backward, but no identical upright shape in the six reviewed older/pilot examples; no regression or cause established"
+  ],
+  "qualification_limits": [
+    "Four alternating phases on one livehost with unequal completewindow coverage; not a universalgain orconfidenceinterval",
+    "Native presentations during camera, functional groundwalk afterward; no zone/save/audio/longplay qualification in this series",
+    "GPUprofile/readcheck/descriptorverify modifywork; noFPS claim from diagnostic",
+    "Rewrittenbytes are excluded from referencecheck and reportedseparately",
+    "No30FPS or60FPS demonstrated; no installed engine/configuration/progression modified"
+  ],
+  "public_patch_reconstruction": {
+    "at": 1794231604.7120755,
+    "base": "0b83798bf6e7e2440568b7cf69646ae45d681b11",
+    "exact_reconstruction": true,
+    "cpp_test_files": 11,
+    "source_sha256": {
+      "src/tests/CMakeLists.txt": "8a09172b1051c6a21e9d5dc151dd5a2db2247c9e946210bd262b608b82186762",
+      "src/tests/video_core/buffer_cache_ports.cpp": "cb52c45c08113cef9ae3d9c436fd5e84e9b3f1e6bec6e8f124b209bec7cc9344",
+      "src/video_core/buffer_cache/buffer_cache.h": "1f1f575ff1ad91a81f5f54f947b800705ef2714cf3d4c0978859c8383e1d236f",
+      "src/video_core/buffer_cache/buffer_cache_base.h": "b9042e89fffc08ac3ca07123db92ab850e1e77702d547286d653c3bafa34392a",
+      "src/video_core/buffer_cache/uniform_stream_reuse.h": "c59722589217a753ed7dc2f386c1ce6ac07db8d00021477e699cee7366910180",
+      "src/video_core/query_cache/query_cache.h": "792c224e56c351f581ad439f0160227cfbfe5ab154bde2750674cfb6f799c872",
+      "src/video_core/renderer_vulkan/vk_staging_buffer_pool.cpp": "15fcda26b12b4865c2ab5c31904152deecede7ec00e11a8eec889f66511c6409",
+      "src/video_core/renderer_vulkan/vk_staging_buffer_pool.h": "0428df44134fa0107e620911dba7711b036ac184dce282014b09b5a74e9ee700",
+      "src/tests/video_core/query_payload_release.cpp": "fda101276f4be307e61f3a36a5422cdf19623e1e9b148ab898c93586b04fb5b3",
+      "src/tests/video_core/stream_ring_cursor.cpp": "b534d0e51e61c6c3e90cdf5c63782f99680bc27ebfb0a00dd0b06e1fdf62ef93",
+      "src/video_core/renderer_vulkan/stream_ring_cursor.h": "6c284755d723baf0934c7c58e7d65561444ee6d5da00e62994ce55f71a36190d"
+    },
+    "patch_sha256": {
+      "lichii-0b83798-readback-composed.patch": "19884d5df0550560ffbc16b6708908d7123c33f4bff964050ede6b83e47d1f58",
+      "lichii-0b83798-readback-activation.patch": "b65b38bd76a1454652e58a9c0a8950bc12e91b99c903dfbf0593b795043f06e9"
+    },
+    "private_sdl_download_pin_excluded": true,
+    "first_check_failure": "UnfilteredprivatepatchincludedSDLpinalreadyappliedinbaseline; excluded dependency-download-only block before public reconstruction"
+  },
+  "installed": false,
+  "next": "Profile the new uninstrumented candidate separately to identify remaining CPU cost; no hardware ceiling inferred"
+}

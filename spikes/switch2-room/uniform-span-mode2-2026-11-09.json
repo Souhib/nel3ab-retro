@@ -1,0 +1,500 @@
+{
+  "updated_at": 1794254490.2978725,
+  "status": "Fouralternations completed; smallrepeatedgainretained experimentally; averageover30notconstant",
+  "base_cli_sha256": "64c061065565ab515f03b9793f737c04bf92db3a1d83b6a76f0365219cc27150",
+  "candidate_cli_sha256": "ef54ebab1ea091bbf3ad28417531285cde8a5b8df67f4b7ef7d6e93968217e56",
+  "exact3filesaspriorqualifiedSpan": {
+    "src/video_core/buffer_cache/uniform_stream_reuse.h": "777bb107846452640d267148832369966f2791a779027046838b65a0baa7b766",
+    "src/video_core/video_core.cpp": "aa92618a39d99a1e5636aa678076bdd14b910053d2d5659eb959b3da85da8d38",
+    "src/tests/video_core/uniform_stream_reuse.cpp": "2c52c6dd26b08de65407cf8a88aa2738d0a073f926d14d8f26c340b7ccdea8ce"
+  },
+  "patches": {
+    "lichii-1059-on-macro-0b.patch": "77ec6250716245105fe52cfcda2a09cc8683bf4176db800105506bf36ea075d2",
+    "lichii-1059-activation.patch": "d4d030eb50525fbabf14c8dc9e70efee6a3affa56870812aabc0d68fa84a47af"
+  },
+  "actual_built_target_tests": {
+    "full_passed": 1152,
+    "network_skips": 4,
+    "full_assertions": 71905196,
+    "reference_cases": 87,
+    "reference_assertions": 31839,
+    "hidden_actual_log_assertions": 17
+  },
+  "runtime": {
+    "seconds": 91.55744030699134,
+    "reads": {
+      "downloads": 111689,
+      "compared_KiB": 403363,
+      "mismatched": 0,
+      "mismatched_reader": 0,
+      "mismatched_gpu_writer": 0,
+      "mismatched_completed": 0,
+      "uncovered": 0,
+      "rewritten_not_compared": 27308
+    },
+    "descriptor_verified": 247808,
+    "descriptor_mismatches": 0,
+    "uniform_keeps_not_independent_oracle": 1024268,
+    "front_complete_checks": 17984,
+    "front_total_reports": 380,
+    "all3totalszero": true,
+    "front_warnings": [],
+    "acquire_drains_complete": 7722216,
+    "span_activation": {
+      "marker_counts": {
+        "Uniform span direct path active (PR1059)": 1,
+        "Uniform span gathered fallback active (PR1059)": 1
+      },
+      "scope": "One-time activation provesexecution, notfrequency in camera phase; actualbytesguard proof sourceidenticalto priorSpanunit/mutants"
+    },
+    "shutdown": {
+      "exit_code": 0,
+      "stop_requested": true,
+      "window_closed": true,
+      "forced": false,
+      "stop_seconds": 3.0045382380485535
+    },
+    "all3_images_read": true
+  },
+  "FPS": {
+    "created_unix": 1794254201.9527032,
+    "order": [
+      "lichii-shadow-span-on1",
+      "lichii-shadow-span-off1",
+      "lichii-shadow-span-on2-final",
+      "lichii-shadow-span-off2"
+    ],
+    "phases": [
+      {
+        "label": "lichii-shadow-span-on1",
+        "span": true,
+        "cli_sha256": "ef54ebab1ea091bbf3ad28417531285cde8a5b8df67f4b7ef7d6e93968217e56",
+        "radv_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+        "measurement": {
+          "requested_seconds": [
+            95.11339602470397,
+            182.017976
+          ],
+          "covered_seconds": 58.7658,
+          "game_presentations": 1800,
+          "game_fps": 30.630060341218872,
+          "window_fps_median": 30.43121024923161,
+          "maximum_frame_ms": 53.081,
+          "frames_over_100_ms": 0,
+          "windows": [
+            {
+              "start": 107.160619,
+              "end": 126.914419,
+              "mean_us": 32923,
+              "maximum_us": 53081,
+              "freezes": 0
+            },
+            {
+              "start": 126.882664,
+              "end": 146.178064,
+              "mean_us": 32159,
+              "maximum_us": 49656,
+              "freezes": 0
+            },
+            {
+              "start": 146.145572,
+              "end": 165.862172,
+              "mean_us": 32861,
+              "maximum_us": 52541,
+              "freezes": 0
+            }
+          ]
+        },
+        "phase_start_after_container_seconds": 95.01339602470398,
+        "phase_wall_seconds": 91.3821815061383,
+        "shutdown": {
+          "exit_code": 0,
+          "stop_requested": true,
+          "window_closed": true,
+          "forced": false,
+          "stop_seconds": 3.20398076903075
+        },
+        "interference_samples": 15,
+        "all_interference_samples_clear": true,
+        "images_read": 6,
+        "reviewer": "parent",
+        "seed_restore": {
+          "at": 1794252361.942958,
+          "version": "lichii-0b-1056-reference-shadow-span",
+          "identical_seed_files": 3511,
+          "identical_seed_bytes": 82010658
+        },
+        "runtime_mode": 2,
+        "reference_acquire": 1,
+        "idle_spin_us": 0,
+        "no_mesh": 1,
+        "diagnostics_absent": [
+          "GPU_PROFILE",
+          "UBO_KEEP_VERIFY",
+          "DELTA_DESCRIPTORS_VERIFY",
+          "PAYLOAD_SYNC_TRACE",
+          "ACQUIRE_VERIFY",
+          "STUTTER_TRACE",
+          "LIVE_READ_CHECK",
+          "READ_CHECK",
+          "DMA_READ_VERIFY",
+          "SYNCED_WRITERS_TRACE",
+          "UNIFORM_SPAN_TRACE",
+          "REFERENCE_ACQUIRE_TRACE",
+          "SPLIT_VERIFY"
+        ],
+        "input_sha256": {
+          "measurement.json": "be7c6602da1f90c4c912babe35476df62989bc5b4d5ddfe320d30bfefdf34505",
+          "phase.json": "8aa05b682c99238b0b320516a48529f2c35c4cd65d52c6295d25887e377e23d3",
+          "lifecycle.json": "f05d262926b468141e6c76f60eefb370a8513d089d355c3265ef76ac316c26ff",
+          "all-image-review.json": "1bcd9bf8574a9f466f291b2f6a64650349004637d50bec801ab9b7768f5afcec",
+          "runtime-activation.json": "9c31fd57902d51cc264cf5fed3ad902b9d971ac2fd887fe31072fd2a98c5e944",
+          "build-activation.json": "72395108f31b582e44a11a4a9fac2a0ba43a5b8ad98b4adb4bd31bc28c7ca8dd"
+        }
+      },
+      {
+        "label": "lichii-shadow-span-off1",
+        "span": false,
+        "cli_sha256": "64c061065565ab515f03b9793f737c04bf92db3a1d83b6a76f0365219cc27150",
+        "radv_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+        "measurement": {
+          "requested_seconds": [
+            104.91733751296997,
+            194.403999
+          ],
+          "covered_seconds": 80.7876,
+          "game_presentations": 2400,
+          "game_fps": 29.70752937331967,
+          "window_fps_median": 29.727079147543208,
+          "maximum_frame_ms": 58.488,
+          "frames_over_100_ms": 0,
+          "windows": [
+            {
+              "start": 107.69123,
+              "end": 128.44343,
+              "mean_us": 34587,
+              "maximum_us": 58488,
+              "freezes": 0
+            },
+            {
+              "start": 128.411088,
+              "end": 148.055688,
+              "mean_us": 32741,
+              "maximum_us": 50991,
+              "freezes": 0
+            },
+            {
+              "start": 148.021626,
+              "end": 168.704826,
+              "mean_us": 34472,
+              "maximum_us": 53742,
+              "freezes": 0
+            },
+            {
+              "start": 168.67289499999998,
+              "end": 188.380495,
+              "mean_us": 32846,
+              "maximum_us": 54477,
+              "freezes": 0
+            }
+          ]
+        },
+        "phase_start_after_container_seconds": 104.81733751296997,
+        "phase_wall_seconds": 91.3821538570337,
+        "shutdown": {
+          "exit_code": 0,
+          "stop_requested": true,
+          "window_closed": true,
+          "forced": false,
+          "stop_seconds": 3.605843522120267
+        },
+        "interference_samples": 15,
+        "all_interference_samples_clear": true,
+        "images_read": 6,
+        "reviewer": "parent",
+        "seed_restore": {
+          "at": 1794252642.0610096,
+          "version": "lichii-0b-1056-reference-shadow",
+          "identical_seed_files": 3511,
+          "identical_seed_bytes": 82010658
+        },
+        "runtime_mode": 2,
+        "reference_acquire": 1,
+        "idle_spin_us": 0,
+        "no_mesh": 1,
+        "diagnostics_absent": [
+          "GPU_PROFILE",
+          "UBO_KEEP_VERIFY",
+          "DELTA_DESCRIPTORS_VERIFY",
+          "PAYLOAD_SYNC_TRACE",
+          "ACQUIRE_VERIFY",
+          "STUTTER_TRACE",
+          "LIVE_READ_CHECK",
+          "READ_CHECK",
+          "DMA_READ_VERIFY",
+          "SYNCED_WRITERS_TRACE",
+          "UNIFORM_SPAN_TRACE",
+          "REFERENCE_ACQUIRE_TRACE",
+          "SPLIT_VERIFY"
+        ],
+        "input_sha256": {
+          "measurement.json": "3c687814300bada8d903d8675a46b1aee87db0d2278ee1eb9f6c3a4ce73896b6",
+          "phase.json": "0ef64cdae6ad9213b6b4c96167bf04c23b07d3523d9de88204a670887c284e43",
+          "lifecycle.json": "dbfc4ddedd22e9abbff1a120d0acb8ffc198ff1c77fc726e44beca81430c1b48",
+          "all-image-review.json": "06c5250238067d1e80b44bb85834c65b951b6317b53f5c1b3f329ffb1df5af0e",
+          "runtime-activation.json": "b60bc096c70c35ec16d69a8e62c68d1197c24f3805245f9fa4528dd20088b4f9",
+          "build-activation.json": "356562b810fbc21f1b7129a2832213ebb7f0cd51f022b25d3531edf91eac8fef"
+        }
+      },
+      {
+        "label": "lichii-shadow-span-on2-final",
+        "span": true,
+        "cli_sha256": "ef54ebab1ea091bbf3ad28417531285cde8a5b8df67f4b7ef7d6e93968217e56",
+        "radv_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+        "measurement": {
+          "requested_seconds": [
+            80.67761287689208,
+            168.651473
+          ],
+          "covered_seconds": 58.7352,
+          "game_presentations": 1800,
+          "game_fps": 30.646018060719978,
+          "window_fps_median": 30.772071268117056,
+          "maximum_frame_ms": 55.38,
+          "frames_over_100_ms": 0,
+          "windows": [
+            {
+              "start": 89.79442,
+              "end": 109.17442,
+              "mean_us": 32300,
+              "maximum_us": 49811,
+              "freezes": 0
+            },
+            {
+              "start": 109.14220499999999,
+              "end": 128.999205,
+              "mean_us": 33095,
+              "maximum_us": 55380,
+              "freezes": 0
+            },
+            {
+              "start": 128.967319,
+              "end": 148.465519,
+              "mean_us": 32497,
+              "maximum_us": 50755,
+              "freezes": 0
+            }
+          ]
+        },
+        "phase_start_after_container_seconds": 80.57761287689209,
+        "phase_wall_seconds": 91.38932153070346,
+        "shutdown": {
+          "exit_code": 0,
+          "stop_requested": true,
+          "window_closed": true,
+          "forced": false,
+          "stop_seconds": 2.9046187410131097
+        },
+        "interference_samples": 15,
+        "all_interference_samples_clear": true,
+        "images_read": 6,
+        "reviewer": "Zelda agent",
+        "seed_restore": {
+          "at": 1794253719.5219297,
+          "version": "lichii-0b-1056-reference-shadow-span",
+          "identical_seed_files": 3511,
+          "identical_seed_bytes": 82010658
+        },
+        "runtime_mode": 2,
+        "reference_acquire": 1,
+        "idle_spin_us": 0,
+        "no_mesh": 1,
+        "diagnostics_absent": [
+          "GPU_PROFILE",
+          "UBO_KEEP_VERIFY",
+          "DELTA_DESCRIPTORS_VERIFY",
+          "PAYLOAD_SYNC_TRACE",
+          "ACQUIRE_VERIFY",
+          "STUTTER_TRACE",
+          "LIVE_READ_CHECK",
+          "READ_CHECK",
+          "DMA_READ_VERIFY",
+          "SYNCED_WRITERS_TRACE",
+          "UNIFORM_SPAN_TRACE",
+          "REFERENCE_ACQUIRE_TRACE",
+          "SPLIT_VERIFY"
+        ],
+        "input_sha256": {
+          "measurement.json": "48077b03fd44ba3e49fbccd532041e721f3caa581325fbd597573acd034b26b1",
+          "phase.json": "c1485177161be4b0b1692a9c3b43550680fa096f899e27b3e5f4cae1a57304f6",
+          "lifecycle.json": "30ba0a041d6ee6ecea3cf132def51de0d09c523ce0049d56604089ec1060a878",
+          "all-image-review.json": "8fee8cdde5794ed556081e0469da26763f9a9d1a94175db339c4bf5304240541",
+          "runtime-activation.json": "9c31fd57902d51cc264cf5fed3ad902b9d971ac2fd887fe31072fd2a98c5e944",
+          "build-activation.json": "72395108f31b582e44a11a4a9fac2a0ba43a5b8ad98b4adb4bd31bc28c7ca8dd"
+        }
+      },
+      {
+        "label": "lichii-shadow-span-off2",
+        "span": false,
+        "cli_sha256": "64c061065565ab515f03b9793f737c04bf92db3a1d83b6a76f0365219cc27150",
+        "radv_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+        "measurement": {
+          "requested_seconds": [
+            82.13195190429687,
+            167.832903
+          ],
+          "covered_seconds": 79.0008,
+          "game_presentations": 2400,
+          "game_fps": 30.37943919555245,
+          "window_fps_median": 30.297738502428416,
+          "maximum_frame_ms": 58.001,
+          "frames_over_100_ms": 0,
+          "windows": [
+            {
+              "start": 88.92918900000001,
+              "end": 108.612189,
+              "mean_us": 32805,
+              "maximum_us": 54756,
+              "freezes": 0
+            },
+            {
+              "start": 108.578993,
+              "end": 128.724593,
+              "mean_us": 33576,
+              "maximum_us": 58001,
+              "freezes": 0
+            },
+            {
+              "start": 128.693041,
+              "end": 147.939841,
+              "mean_us": 32078,
+              "maximum_us": 54054,
+              "freezes": 0
+            },
+            {
+              "start": 147.907503,
+              "end": 167.832903,
+              "mean_us": 33209,
+              "maximum_us": 54793,
+              "freezes": 0
+            }
+          ]
+        },
+        "phase_start_after_container_seconds": 82.03195190429688,
+        "phase_wall_seconds": 91.38952034758404,
+        "shutdown": {
+          "exit_code": 0,
+          "stop_requested": true,
+          "window_closed": true,
+          "forced": false,
+          "stop_seconds": 3.4054586100392044
+        },
+        "interference_samples": 15,
+        "all_interference_samples_clear": true,
+        "images_read": 6,
+        "reviewer": "Zelda agent",
+        "seed_restore": {
+          "at": 1794253934.7333715,
+          "version": "lichii-0b-1056-reference-shadow",
+          "identical_seed_files": 3511,
+          "identical_seed_bytes": 82010658
+        },
+        "runtime_mode": 2,
+        "reference_acquire": 1,
+        "idle_spin_us": 0,
+        "no_mesh": 1,
+        "diagnostics_absent": [
+          "GPU_PROFILE",
+          "UBO_KEEP_VERIFY",
+          "DELTA_DESCRIPTORS_VERIFY",
+          "PAYLOAD_SYNC_TRACE",
+          "ACQUIRE_VERIFY",
+          "STUTTER_TRACE",
+          "LIVE_READ_CHECK",
+          "READ_CHECK",
+          "DMA_READ_VERIFY",
+          "SYNCED_WRITERS_TRACE",
+          "UNIFORM_SPAN_TRACE",
+          "REFERENCE_ACQUIRE_TRACE",
+          "SPLIT_VERIFY"
+        ],
+        "input_sha256": {
+          "measurement.json": "26b68d6414b0cb89639a3873c76ffd9715b6562d5c48a981ebaa7991f7321809",
+          "phase.json": "86d9b06159212a3e61b6c6e4235ab089bdf3711af3f08edadd6e5e1f55dfe959",
+          "lifecycle.json": "b9582ff8ac32ebd6f559435475cac20086a8d049a10582eb88df62859980e2b8",
+          "all-image-review.json": "cb66c8c46595ed69c11cc333a7f56d3708b0fb81168d2eff08d5829ca377304b",
+          "runtime-activation.json": "b60bc096c70c35ec16d69a8e62c68d1197c24f3805245f9fa4528dd20088b4f9",
+          "build-activation.json": "356562b810fbc21f1b7129a2832213ebb7f0cd51f022b25d3531edf91eac8fef"
+        }
+      }
+    ],
+    "pooled": {
+      "span_on": {
+        "game_presentations": 3600,
+        "covered_seconds": 117.501,
+        "game_fps": 30.638037123088314,
+        "maximum_frame_ms": 55.38,
+        "frames_over_100_ms": 0
+      },
+      "span_off": {
+        "game_presentations": 4800,
+        "covered_seconds": 159.7884,
+        "game_fps": 30.039727539671215,
+        "maximum_frame_ms": 58.488,
+        "frames_over_100_ms": 0
+      }
+    },
+    "observed_percent_difference": 1.9917277299767555,
+    "pair_percent_differences": [
+      3.1053776175939074,
+      0.8774976504719589
+    ],
+    "aggregation": "Sum native game presentations / sum covered seconds; not arithmetic mean of FPS. Existing complete-window measurement outputs retained.",
+    "all_24_images_actually_read": true,
+    "all_four_normal_stops": true,
+    "all_60_interference_samples_clear": true,
+    "excluded_before_measurement": [
+      "lichii-shadow-span-on2",
+      "lichii-shadow-span-on2-rerun",
+      "lichii-shadow-span-on2-rerun2"
+    ],
+    "cleanup": {
+      "at": 1794254147.1845207,
+      "own_game_absent": true,
+      "own_helper_removed": true,
+      "old_devices_absent": [
+        "/dev/input/event8",
+        "/dev/input/event9",
+        "/dev/input/event10",
+        "/dev/input/event11"
+      ],
+      "matching_names_remaining": [],
+      "observer": "active",
+      "production_config_unchanged": true,
+      "eight_progressions_unchanged": true,
+      "gpu_policies": {
+        "/sys/class/drm/card0/device/power_dpm_force_performance_level": "auto"
+      },
+      "gpu_power_caps_micro_watts": [
+        150000000
+      ]
+    },
+    "limits": [
+      "Four alternating runs only; no confidence interval or exact causal percentage established.",
+      "Preparation varied: starts approximately95/105/81/82seconds; three unmeasured ON2 preparations were excluded. The private preparation guard was raised from100 to120seconds before accepted final pair.",
+      "Covered durations unequal: ON3600 presentations versus OFF4800; complete windows only.",
+      "Native game presentations; average above30 does not establish constant30FPS. Maximum frames exceed33.333ms.",
+      "NO_MESH=1 inherited caveat; limited Kokiri camera and short walk. No fullgame/audio/save/zone qualification claim.",
+      "No production installation or default change."
+    ]
+  },
+  "scope": "Sameport as prior-mode1nonwin, retestmode2oncorrectedRef/shadow. Activationnotfrequency. BindStageBufferscostnotassignedtoSpan, keeps/nativebanks/root/SSBOoutsideoptimization. NoAtomicSnapshot/remappingguarantee, inheritedNoMesh1fidelity. No source install/commit/push.",
+  "decision": "Preferredprivatebaseef54Span, notinstalled; measurepacingdistribution/game-speed andfunctionalzones/audio/save next. No30constantclaim.",
+  "production": "Finalcleanup verifiedconfig8progressunchanged, game/helper/devicesgoneobserveractiveGPUauto150W; noinstall/commit/push",
+  "historical_counter_caveat": {
+    "observed_at": 1794255060.8942864,
+    "source": "PresentClientBuffer/core/hle/service/nx2_gsv.h",
+    "defect": "firstgroup599intervals then600 butmeanalwaysdividedby599; historicalFPSapproximately0.167percentlow, sharedbyarms; preserveoriginaldata.",
+    "scope": "Gamepresentationrequests, no allframesvisuallyunique proof. InheritedMaxResolution/FPSUnlockapplied; framegenfalse. No logic-speedproof fromCorePerfStats in multicore."
+  }
+}

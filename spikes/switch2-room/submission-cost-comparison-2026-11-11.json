@@ -1,0 +1,595 @@
+{
+  "date_utc": "2026-11-11",
+  "status": "all4_completed_actual_capture_validation_passed",
+  "ELF_both_arms": "13158042b7dae7041bc4ae255381dbbed90b1d7eb9f3ba04ea1b5be02d36f6a1",
+  "order": [
+    "A1",
+    "B1",
+    "A2",
+    "B2"
+  ],
+  "results": {
+    "A1": {
+      "phase_seconds": 90.001828372,
+      "bounds_ns": [
+        2411453041549930,
+        2411543043378302
+      ],
+      "wsi": {
+        "complete_windows": 4,
+        "intervals": 2400,
+        "covered_seconds": 78.531674993,
+        "rate_per_second": 30.560916983038073,
+        "p99_each_ms": [
+          41.884224,
+          45.3117,
+          41.932564,
+          41.455208
+        ],
+        "max_ms": 51.525298,
+        "over_100_ms": 0,
+        "over_33_333333_ms": 723,
+        "uncovered_seconds": 11.470153379,
+        "windows": [
+          {
+            "intervals": 600,
+            "sum_ns": 19582268088,
+            "begin_ns": 2411461004275881,
+            "end_ns": 2411480586543969,
+            "p50_ns": 31238292,
+            "p95_ns": 39289210,
+            "p99_ns": 41884224,
+            "max_ns": 44280433,
+            "over30": 182,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 4801,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 19891656102,
+            "begin_ns": 2411480586543969,
+            "end_ns": 2411500478200071,
+            "p50_ns": 31520101,
+            "p95_ns": 40528227,
+            "p99_ns": 45311700,
+            "max_ns": 51525298,
+            "over30": 201,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 5401,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": true
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 19624005799,
+            "begin_ns": 2411500478200071,
+            "end_ns": 2411520102205870,
+            "p50_ns": 31504191,
+            "p95_ns": 39026637,
+            "p99_ns": 41932564,
+            "max_ns": 46500403,
+            "over30": 180,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 6001,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 19433745004,
+            "begin_ns": 2411520102205870,
+            "end_ns": 2411539535950874,
+            "p50_ns": 31072390,
+            "p95_ns": 39011138,
+            "p99_ns": 41455208,
+            "max_ns": 44131493,
+            "over30": 160,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 6601,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          }
+        ]
+      },
+      "vi2_rate_per_second": 30.561424388763324,
+      "probe_active": false,
+      "complete_captures": 0,
+      "excluded_captures_retained": 0,
+      "strict_global_guard_passed": true,
+      "scene_actually_reviewed": true
+    },
+    "B1": {
+      "phase_seconds": 90.002025124,
+      "bounds_ns": [
+        2411730216352526,
+        2411820218377650
+      ],
+      "wsi": {
+        "complete_windows": 3,
+        "intervals": 1800,
+        "covered_seconds": 58.150979796,
+        "rate_per_second": 30.953906646364292,
+        "p99_each_ms": [
+          41.120704,
+          44.033827,
+          44.402806
+        ],
+        "max_ms": 48.85791,
+        "over_100_ms": 0,
+        "over_33_333333_ms": 509,
+        "uncovered_seconds": 31.851045328,
+        "windows": [
+          {
+            "intervals": 600,
+            "sum_ns": 19245852841,
+            "begin_ns": 2411742989743486,
+            "end_ns": 2411762235596327,
+            "p50_ns": 30749379,
+            "p95_ns": 38471543,
+            "p99_ns": 41120704,
+            "max_ns": 44451985,
+            "over30": 173,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 5401,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 19476868405,
+            "begin_ns": 2411762235596327,
+            "end_ns": 2411781712464732,
+            "p50_ns": 31008294,
+            "p95_ns": 39199872,
+            "p99_ns": 44033827,
+            "max_ns": 46378204,
+            "over30": 170,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 6001,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": true
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 19428258550,
+            "begin_ns": 2411781712464732,
+            "end_ns": 2411801140723282,
+            "p50_ns": 30824355,
+            "p95_ns": 40048503,
+            "p99_ns": 44402806,
+            "max_ns": 48857910,
+            "over30": 166,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 6601,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          }
+        ]
+      },
+      "vi2_rate_per_second": 30.956587582751364,
+      "probe_active": true,
+      "complete_captures": 47,
+      "excluded_captures_retained": 1,
+      "strict_global_guard_passed": true,
+      "scene_actually_reviewed": true
+    },
+    "A2": {
+      "phase_seconds": 90.002365314,
+      "bounds_ns": [
+        2412012596771187,
+        2412102599136501
+      ],
+      "wsi": {
+        "complete_windows": 4,
+        "intervals": 2400,
+        "covered_seconds": 79.305076674,
+        "rate_per_second": 30.262879763242633,
+        "p99_each_ms": [
+          49.316073,
+          48.022181,
+          42.324073,
+          42.214986
+        ],
+        "max_ms": 58.615165,
+        "over_100_ms": 0,
+        "over_33_333333_ms": 767,
+        "uncovered_seconds": 10.69728864,
+        "windows": [
+          {
+            "intervals": 600,
+            "sum_ns": 19471996803,
+            "begin_ns": 2412020987973303,
+            "end_ns": 2412040459970106,
+            "p50_ns": 30603082,
+            "p95_ns": 40242565,
+            "p99_ns": 49316073,
+            "max_ns": 58615165,
+            "over30": 173,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 4801,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20271166271,
+            "begin_ns": 2412040459970106,
+            "end_ns": 2412060731136377,
+            "p50_ns": 32350825,
+            "p95_ns": 42310419,
+            "p99_ns": 48022181,
+            "max_ns": 56654290,
+            "over30": 234,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 5401,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": true
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 19748432205,
+            "begin_ns": 2412060731136377,
+            "end_ns": 2412080479568582,
+            "p50_ns": 31437778,
+            "p95_ns": 39589795,
+            "p99_ns": 42324073,
+            "max_ns": 48688981,
+            "over30": 179,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 6001,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 19813481395,
+            "begin_ns": 2412080479568582,
+            "end_ns": 2412100293049977,
+            "p50_ns": 31447866,
+            "p95_ns": 40135690,
+            "p99_ns": 42214986,
+            "max_ns": 44519175,
+            "over30": 181,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 6601,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          }
+        ]
+      },
+      "vi2_rate_per_second": 30.26339361727205,
+      "probe_active": false,
+      "complete_captures": 0,
+      "excluded_captures_retained": 0,
+      "strict_global_guard_passed": true,
+      "scene_actually_reviewed": true
+    },
+    "B2": {
+      "phase_seconds": 90.004701585,
+      "bounds_ns": [
+        2412293210067520,
+        2412383214769105
+      ],
+      "wsi": {
+        "complete_windows": 3,
+        "intervals": 1800,
+        "covered_seconds": 59.279063718,
+        "rate_per_second": 30.364852059116323,
+        "p99_each_ms": [
+          42.712167,
+          42.313337,
+          43.412761
+        ],
+        "max_ms": 60.891586,
+        "over_100_ms": 0,
+        "over_33_333333_ms": 555,
+        "uncovered_seconds": 30.725637867,
+        "windows": [
+          {
+            "intervals": 600,
+            "sum_ns": 19666097229,
+            "begin_ns": 2412307486718479,
+            "end_ns": 2412327152815708,
+            "p50_ns": 31323383,
+            "p95_ns": 39409583,
+            "p99_ns": 42712167,
+            "max_ns": 47560405,
+            "over30": 193,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 5401,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 19578970084,
+            "begin_ns": 2412327152815708,
+            "end_ns": 2412346731785792,
+            "p50_ns": 31153623,
+            "p95_ns": 39236306,
+            "p99_ns": 42313337,
+            "max_ns": 60891586,
+            "over30": 171,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 6001,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": true
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20033996405,
+            "begin_ns": 2412346731785792,
+            "end_ns": 2412366765782197,
+            "p50_ns": 31944628,
+            "p95_ns": 40382989,
+            "p99_ns": 43412761,
+            "max_ns": 47730131,
+            "over30": 191,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 6601,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          }
+        ]
+      },
+      "vi2_rate_per_second": 30.365146960164513,
+      "probe_active": true,
+      "complete_captures": 46,
+      "excluded_captures_retained": 1,
+      "strict_global_guard_passed": true,
+      "scene_actually_reviewed": true
+    }
+  },
+  "pairs": [
+    {
+      "pair": 1,
+      "rate_delta_percent": 1.2859223548309595,
+      "A_max_ms": 51.525298,
+      "B_max_ms": 48.85791,
+      "A_p99_each_ms": [
+        41.884224,
+        45.3117,
+        41.932564,
+        41.455208
+      ],
+      "B_p99_each_ms": [
+        41.120704,
+        44.033827,
+        44.402806
+      ]
+    },
+    {
+      "pair": 2,
+      "rate_delta_percent": 0.3369550309536118,
+      "A_max_ms": 58.615165,
+      "B_max_ms": 60.891586,
+      "A_p99_each_ms": [
+        49.316073,
+        48.022181,
+        42.324073,
+        42.214986
+      ],
+      "B_p99_each_ms": [
+        42.712167,
+        42.313337,
+        43.412761
+      ]
+    }
+  ],
+  "complete_captures": 93,
+  "excluded_captures_retained": 2,
+  "GPU_timing_each_phase": {
+    "B1": {
+      "complete_captures": 47,
+      "excluded_retained": 1,
+      "submissions_min_max": [
+        51,
+        80
+      ],
+      "host_envelope_ms_min_max": [
+        59.227225,
+        84.077006
+      ],
+      "timing_ms": {
+        "GPU_span_ms": {
+          "min": 28.48765,
+          "p50_nearest_rank": 35.90142,
+          "p90_nearest_rank": 39.55835,
+          "max": 47.71046
+        },
+        "GPU_interval_union_ms": {
+          "min": 24.67732,
+          "p50_nearest_rank": 25.24892,
+          "p90_nearest_rank": 26.7776,
+          "max": 29.34992
+        },
+        "execution_interval_sum_ms": {
+          "min": 21.88956,
+          "p50_nearest_rank": 22.90048,
+          "p90_nearest_rank": 24.27252,
+          "max": 26.36036
+        },
+        "upload_interval_sum_ms": {
+          "min": 1.90604,
+          "p50_nearest_rank": 2.93036,
+          "p90_nearest_rank": 3.01768,
+          "max": 3.03512
+        }
+      }
+    },
+    "B2": {
+      "complete_captures": 46,
+      "excluded_retained": 1,
+      "submissions_min_max": [
+        50,
+        57
+      ],
+      "host_envelope_ms_min_max": [
+        58.739686,
+        73.205256
+      ],
+      "timing_ms": {
+        "GPU_span_ms": {
+          "min": 28.6847,
+          "p50_nearest_rank": 30.78522,
+          "p90_nearest_rank": 32.96522,
+          "max": 36.73377
+        },
+        "GPU_interval_union_ms": {
+          "min": 24.54504,
+          "p50_nearest_rank": 25.30804,
+          "p90_nearest_rank": 26.1826,
+          "max": 26.71684
+        },
+        "execution_interval_sum_ms": {
+          "min": 22.23596,
+          "p50_nearest_rank": 23.45572,
+          "p90_nearest_rank": 23.89092,
+          "max": 24.80708
+        },
+        "upload_interval_sum_ms": {
+          "min": 1.731,
+          "p50_nearest_rank": 1.94844,
+          "p90_nearest_rank": 2.30908,
+          "max": 2.9276
+        }
+      }
+    }
+  },
+  "GPU_interval_medians_interpretation": "Measured unions around25.3ms are near25ms needed for40FPS, but timestamp intervals include waits and are not exclusiveGPUoccupancy or normal all-frame timing. This does not establish a physicalceiling or a solelyCPU limit.",
+  "complete_WSI_windows": 14,
+  "WSI_covered_seconds": 275.266795181,
+  "commanded_seconds": 360.010920395,
+  "gaps_between_phases": [
+    {
+      "from": "A1",
+      "to": "B1",
+      "seconds": 187.172974224
+    },
+    {
+      "from": "B1",
+      "to": "A2",
+      "seconds": 192.378393537
+    },
+    {
+      "from": "A2",
+      "to": "B2",
+      "seconds": 190.610931019
+    }
+  ],
+  "effective_fields_and_environment_equal_across_all4": true,
+  "frozen_files_and_modes_verified": 243,
+  "raw_cohort_proofs_verified": 436,
+  "protected_files": 8652,
+  "production_cache_preserved": {
+    "files": 5121,
+    "bytes": 147376438,
+    "all_hashes_and_mtimes_match": true
+  },
+  "learned_seed_preserved": {
+    "files": 4867,
+    "bytes": 134125560,
+    "all_hashes_and_mtimes_match": true
+  },
+  "installed_engine_changed": false,
+  "goal40_achieved": false,
+  "transparency_proven": false,
+  "physical_ceiling_proven": false,
+  "decision": "Use sparse captures only as instrumented diagnosis with these bounds. No mean activation slowdown observed; no isolated query cost or universaltransparency claim. Next qualify1095direct-state-write port on1315.",
+  "limits": [
+    "Four alternating90s phases, same1315 binary and settings. Activation overhead only, no engine change or exclusive GPU occupancy claim.",
+    "Normal1315 functional evidence inherited; no F1 game in this bank. Five launch prefixes still receive current CPU validation.",
+    "Periodic armed capture persists after its request; complete retained captures must include query results_ready entirely inside phase.",
+    "Polling process/GPU guards cannot exclude work entirely between scans.",
+    "Raw two-role video and audio preserved; decoding occurs outside phases.",
+    "Arming removes dormant per-frame filesystem.exists polling and adds periodic query/reset/refresh/readback/file work: net activation effect, not isolated query cost or universal transparency.",
+    "Only full600-return windows inside explicit phase bounds; partial coverage. Quantiles remain per window.",
+    "Camera/position drift limits attribution even with all four alternating phases; repeated-sign changes alone do not prove causality.",
+    "Native WSI accepted returns are not unique guest frames or physical scanout. Nonzero PCM/scheduled playback is not physical AV sync.",
+    "Target lock on Saria changes camera and its depth-of-field appearance; camera/position drift remains a comparison limit.",
+    "B may retain a silent running AudioContext; zero app game PCM played is the qualified condition.",
+    "Mean differences are +1.2859% and +.3370% with partialwindows; maxgap and p99 are not uniform. No engine performance improvement measured.",
+    "93periodiccaptures do not cover allframes, programs or movement.",
+    "Arming removes dormant filesystem polling and adds timestamp/reset/query/refresh/resultfile work, so the measured difference is net activation."
+  ],
+  "proof_sha256": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-submission-cost-ab-20261111/plan.json": "ec218cc9678ab716a613a5d436317d19da3942b690ce41da15a45e5b707aa971",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-submission-cost-ab-20261111/report.json": "c50d6d90108d27a34cacf2758f2a5cec4fb1674019f4f3cbdd30820e1aba91e2",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-submission-cost-ab-20261111/root-timing-summary.json": "56d99de9a5adcb1df9b1de0abd9be8052e6a1c509cc49fc16e630e06f92e0e47",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-submission-cost-ab-20261111/submission_contract.py": "846ade32b58a3f0e1120c15d4246dd5b9e83d7f79ed3544ffe2c91bd5b20c5c2",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-submission-cost-ab-20261111/submission-source-review.json": "d47bb27b9b09fe5e8c9ab667c9ad54f2a686db7e334eecf9265e65af61dfdf3f",
+    "/home/souhib/.local/state/nel3ab/test-switch2-kr8ANl/native-runtime-before-proof.json": "919b16df39ceb312d8385091dcd92c3926325daae937abd55929869e9f62941d",
+    "/home/souhib/.local/state/nel3ab/test-switch2-kr8ANl/native-runtime-proof.json": "1d7b1311498a293c0e5886c409df3ca799b0679c9d78004a2d6dcb640f31caf6",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-submission-cost-ab-20261111/A1/prephase-review.json": "e8017248511c73230d5c479881ecfc62dba6a8992bd132afd1f64d4433c2703c",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-submission-cost-ab-20261111/A1/postphase-review.json": "eb9b30a80614f7bd77a8f95d2151e640708ef4410ff7ad7d7b0da30acb13ad18",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-submission-cost-ab-20261111/A1/cleanup.json": "46c6a8bb6a49f063a7244eed2683dd0b51d9cda33da4281af24cd0a9d47e14de",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-submission-cost-ab-20261111/A1/probe-activation-review.json": "a69cff7991e5a6958d6b037f6f3c80e33f5b4b3542fd3c332c31367cb8014d1b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-submission-cost-ab-20261111/A1/package-manifest.json": "177ec3eada30cf0462d312a9714f34665eed573f6d237429de470a920a2a0e26",
+    "/home/souhib/.local/state/nel3ab/test-switch2-ZklDzt/native-runtime-before-proof.json": "008efd0dcad9e0adf283f702cc04a312a13d140901073ba09a145e322fedf135",
+    "/home/souhib/.local/state/nel3ab/test-switch2-ZklDzt/native-runtime-proof.json": "bc40e9f3a9815a001269b0c5935295f36f4e4b869313ed11cf2d4cb90208c3b6",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-submission-cost-ab-20261111/B1/prephase-review.json": "c11e52efdb492926d1b5139c8d57a339f35dc3c4837cbefb780aed6b673ad4c0",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-submission-cost-ab-20261111/B1/postphase-review.json": "5ae598a35ec3ef55ce936942d170157aebf8a32bcdacdc94f694b93bd8af50a4",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-submission-cost-ab-20261111/B1/cleanup.json": "a4a676d11fb85cea795874b2c3bcaa2476e000903b15e745681c3bb9ef710411",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-submission-cost-ab-20261111/B1/probe-activation-review.json": "8e806b7d501bb8a744ed38aeb13096051a84f5ce63443e286b34db6cb0e79b80",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-submission-cost-ab-20261111/B1/package-manifest.json": "ec4a667ede44ef555ec31a46d595196e7414e5a816d60a7ac6ff96e4a9620473",
+    "/home/souhib/.local/state/nel3ab/test-switch2-s7VWLj/native-runtime-before-proof.json": "41d24bafab4fd4e39967d63cb720b22e14d88a8a78039511107d9e87e136e62a",
+    "/home/souhib/.local/state/nel3ab/test-switch2-s7VWLj/native-runtime-proof.json": "d3cd3d688f9dfe417521e97d100961edafffb6c20f53b51934e28cd90a43c6da",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-submission-cost-ab-20261111/A2/prephase-review.json": "a4dfff89cb851efc34b125e2be1ce7feef41e3a0d8e7b1be9cf5b150033768e6",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-submission-cost-ab-20261111/A2/postphase-review.json": "c0597df85e21852bfb284f8442b5dc22f01e11a29281b264d87428943e515943",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-submission-cost-ab-20261111/A2/cleanup.json": "5039ed0b1108b5f3d2463716d1532dd921793e4cd22e0b5a5a5048859328efc4",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-submission-cost-ab-20261111/A2/probe-activation-review.json": "a69cff7991e5a6958d6b037f6f3c80e33f5b4b3542fd3c332c31367cb8014d1b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-submission-cost-ab-20261111/A2/package-manifest.json": "47fae9cb4256d6c4fd69b080250955f789b7c7c812d860dc86551f0963a82a09",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S6ZS0i/native-runtime-before-proof.json": "38ad242353fe62e3b7f94276d659e916f40e8984124e3b295635afaf639369b4",
+    "/home/souhib/.local/state/nel3ab/test-switch2-S6ZS0i/native-runtime-proof.json": "ede1c9d3a90917ffc4577c149cb00bd29c80771af687dd0c58d307f2b6ff5a03",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-submission-cost-ab-20261111/B2/prephase-review.json": "8f163718332488b6c351f4bfbd76d262a1ba7a47ba2bb5396e3816b888b818e4",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-submission-cost-ab-20261111/B2/postphase-review.json": "e358fa5d532af0da271682a4aa2a13cf9f7325359ba57e42eeb4817e61fde031",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-submission-cost-ab-20261111/B2/cleanup.json": "adcda75a0bb6787fa6cba2f6cbd4d5c0b0fcf0de5ce5de287e2435f5507567fd",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-submission-cost-ab-20261111/B2/probe-activation-review.json": "105775b09098977c08ea26ad0b10680940ba37ff32b2d8c88860828081653ea8",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-submission-cost-ab-20261111/B2/package-manifest.json": "c6eda5856fb86f10b9cbf49751b49a2d86a98f5dc827ba4323fdbfa1706789ec",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-submission-cost-ab-20261111/root-runtime-review.json": "415e840d853adbec8d7a1613053421925c6370ff262ee520e4531ed841e0d7b6"
+  }
+}

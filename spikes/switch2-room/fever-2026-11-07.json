@@ -1,0 +1,161 @@
+{
+  "date": "2026-11-07",
+  "game": {
+    "game": "Mario Tennis Fever",
+    "size": 16048109438,
+    "toc_sha256": "185f8c09bc5cd1e49ab121c9cbb378fc166288f7e8644f845013c78f1dccb896",
+    "packages": [
+      {
+        "title": "0400d4201c6ea000",
+        "version": 0,
+        "kind": 0,
+        "metadata": {
+          "8": "MarioTennisFever_v1.1.1"
+        }
+      },
+      {
+        "title": "0400d4201c6ea000",
+        "version": 327680,
+        "kind": 1,
+        "metadata": {
+          "8": "MarioTennisFever_v1.1.1"
+        }
+      }
+    ],
+    "native_title_screen_version": "5.0.0 (synthetic NUP fallback)",
+    "directory_name_warning": "Supplied folder says v1.1.1 and update number is 327680. The NUP has no display-version metadata; AppLoader_NUP::DecodeVersion formats 327680 as 5.0.0. That is not independent proof of a semantic game version.",
+    "version_fallback_source": "https://github.com/Djihads80/Eglantine/blob/216d3e294367abd4742d7ebd736ef25a8db6f365/src/core/loader/nup.cpp"
+  },
+  "engine": "eglantine-216d3e2943",
+  "method": "Actual isolated worker/control/proxy/browser room, one player and two spectators; fresh title-specific NAND, same private adapter. Free Play singles, grass court. Native game counters only, no frame generation. Match excerpt includes point transitions and result animations, not only rallies. A laboratory pad helper was started near the end; this is an observation, not a controlled configuration performance comparison.",
+  "first_match": {
+    "opponent": "Boo",
+    "controls": [
+      "Move Mario",
+      "Serve with A",
+      "Topspin with A"
+    ],
+    "completed_to_result": true,
+    "observed_seconds": 108.01,
+    "measurement": {
+      "requested_seconds": [
+        328.87999999988824,
+        426.88999999989755
+      ],
+      "covered_seconds": 81.027,
+      "game_presentations": 3600,
+      "game_fps": 44.42963456625569,
+      "window_fps_median": 44.02571835358489,
+      "maximum_frame_ms": 104.779,
+      "frames_over_100_ms": 1,
+      "windows": [
+        {
+          "start": 335.136957,
+          "end": 349.265157,
+          "mean_us": 23547,
+          "maximum_us": 104779,
+          "freezes": 1
+        },
+        {
+          "start": 349.237466,
+          "end": 362.775866,
+          "mean_us": 22564,
+          "maximum_us": 69537,
+          "freezes": 0
+        },
+        {
+          "start": 362.73326199999997,
+          "end": 376.764262,
+          "mean_us": 23385,
+          "maximum_us": 58284,
+          "freezes": 0
+        },
+        {
+          "start": 376.75903500000004,
+          "end": 390.136635,
+          "mean_us": 22296,
+          "maximum_us": 64919,
+          "freezes": 0
+        },
+        {
+          "start": 390.114226,
+          "end": 403.833826,
+          "mean_us": 22866,
+          "maximum_us": 54529,
+          "freezes": 0
+        },
+        {
+          "start": 403.80345800000003,
+          "end": 416.035658,
+          "mean_us": 20387,
+          "maximum_us": 88652,
+          "freezes": 0
+        }
+      ]
+    },
+    "visual_fault": "Mario or racket absent in some inspected frames, including the match introduction.",
+    "crash": {
+      "Status": "exited",
+      "Running": false,
+      "Paused": false,
+      "Restarting": false,
+      "OOMKilled": false,
+      "Dead": false,
+      "Pid": 0,
+      "ExitCode": 139,
+      "Error": "",
+      "StartedAt": "2026-11-07T17:35:46.422244974Z",
+      "FinishedAt": "2026-11-07T17:43:08.68865905Z"
+    },
+    "crash_log": "Unhandled SIGSEGV in the emulator GPU thread after the match result, at 17:43:08 UTC. No kernel GPU reset reported."
+  },
+  "mesh_trial": {
+    "method": "Same Eglantine executable bytes, private launcher unsets EDEN_NX2_NO_MESH for the child only. Zelda installation remains unchanged.",
+    "opponent": "Donkey Kong",
+    "visual_fault": "Mario absent in mesh-next-sample-30 while the ball, net and opponent remain visible. Re-enabling mesh does not establish a visual fix.",
+    "comparison_limits": "Different opponent and caches warmed further. No comparative FPS or causal attribution to mesh is claimed.",
+    "exit": {
+      "Status": "exited",
+      "Running": false,
+      "Paused": false,
+      "Restarting": false,
+      "OOMKilled": false,
+      "Dead": false,
+      "Pid": 0,
+      "ExitCode": 139,
+      "Error": "",
+      "StartedAt": "2026-11-07T17:44:32.603002094Z",
+      "FinishedAt": "2026-11-07T17:50:00.296035244Z"
+    },
+    "measurement": {
+      "requested_seconds": [
+        165.97999999998137,
+        204.13999999989755
+      ],
+      "covered_seconds": 28.4832,
+      "game_presentations": 1200,
+      "game_fps": 42.13009774182676,
+      "window_fps_median": 42.130366946550325,
+      "maximum_frame_ms": 80.164,
+      "frames_over_100_ms": 0,
+      "windows": [
+        {
+          "start": 174.561074,
+          "end": 188.838674,
+          "mean_us": 23796,
+          "maximum_us": 80164,
+          "freezes": 0
+        },
+        {
+          "start": 188.816293,
+          "end": 203.021893,
+          "mean_us": 23676,
+          "maximum_us": 55379,
+          "freezes": 0
+        }
+      ]
+    },
+    "crash_log": "Unhandled SIGSEGV after subsequent points, at 17:50:00 UTC. Re-enabling mesh did not prevent exit 139."
+  },
+  "catalogue_registered": false
+}

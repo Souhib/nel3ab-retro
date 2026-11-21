@@ -1,0 +1,316 @@
+{
+  "date": "2026-11-08",
+  "engine": "eglantine-exp-pgo",
+  "source_commit": "eab2c2246df988c0086c3f53297804f1d8590d5d",
+  "scope": "Five observed exits, not a proof that the earlier rare crash is fixed. Save confirmed on screen and position restored in Kokiri; no zone transition claimed. One 100-second intro recording; rejected picture matches and end of movie remain outside the conclusion.",
+  "audio": {
+    "uncertainty_seconds": 0.5,
+    "accepted_count": 10,
+    "rejected_count": 9,
+    "offset_range_seconds": [
+      -0.025249999999999773,
+      0.27712499999999807
+    ],
+    "points": [
+      {
+        "picture": "01.png",
+        "capture_seconds": 5.041950949467719,
+        "screenshot_seconds": 0.0674852067604661,
+        "audio": {
+          "seconds": 18.18125,
+          "correlation": 0.9871869703800918,
+          "channel": 6
+        },
+        "rejected": "picture has too little contrast"
+      },
+      {
+        "picture": "02.png",
+        "capture_seconds": 10.108100737445056,
+        "screenshot_seconds": 0.19979047309607267,
+        "rejected": "audio match rejected: {'seconds': 21.247375, 'correlation': 0.3967095461248936, 'channel': 6}"
+      },
+      {
+        "picture": "03.png",
+        "capture_seconds": 15.106398230884224,
+        "screenshot_seconds": 0.1963888918980956,
+        "audio": {
+          "seconds": 28.24575,
+          "correlation": 0.9095464760473578,
+          "channel": 6
+        },
+        "video": {
+          "seconds": 28.25,
+          "correlation": 0.9972790689290402
+        },
+        "audio_ahead_seconds": -0.004249999999998977
+      },
+      {
+        "picture": "04.png",
+        "capture_seconds": 20.103017918299884,
+        "screenshot_seconds": 0.18963052378967404,
+        "audio": {
+          "seconds": 33.242374999999996,
+          "correlation": 0.7858333967235188,
+          "channel": 6
+        },
+        "video": {
+          "seconds": 33.25,
+          "correlation": 0.9972527245413451
+        },
+        "audio_ahead_seconds": -0.007625000000004434
+      },
+      {
+        "picture": "05.png",
+        "capture_seconds": 25.112854125443846,
+        "screenshot_seconds": 0.20930548291653395,
+        "rejected": "audio match rejected: {'seconds': 36.252125, 'correlation': 0.40000787594191045, 'channel': 6}"
+      },
+      {
+        "picture": "06.png",
+        "capture_seconds": 30.137775047216564,
+        "screenshot_seconds": 0.25914693297818303,
+        "audio": {
+          "seconds": 43.277125,
+          "correlation": 0.8892906586693402,
+          "channel": 6
+        },
+        "video": {
+          "seconds": 43.0,
+          "correlation": 0.9981428952113038
+        },
+        "audio_ahead_seconds": 0.27712499999999807
+      },
+      {
+        "picture": "07.png",
+        "capture_seconds": 35.03076971042901,
+        "screenshot_seconds": 0.04512661509215832,
+        "rejected": "audio match rejected: {'seconds': 46.170125, 'correlation': 0.10874371314953978, 'channel': 6}"
+      },
+      {
+        "picture": "08.png",
+        "capture_seconds": 40.100101597141474,
+        "screenshot_seconds": 0.18380549689754844,
+        "audio": {
+          "seconds": 53.239375,
+          "correlation": 0.5002505071818656,
+          "channel": 6
+        },
+        "video": {
+          "seconds": 53.25,
+          "correlation": 0.9978027076753546
+        },
+        "audio_ahead_seconds": -0.010624999999997442
+      },
+      {
+        "picture": "09.png",
+        "capture_seconds": 45.11655238876119,
+        "screenshot_seconds": 0.21669907355681062,
+        "audio": {
+          "seconds": 58.255875,
+          "correlation": 0.9913756969207063,
+          "channel": 6
+        },
+        "video": {
+          "seconds": 58.25,
+          "correlation": 0.9965457158901285
+        },
+        "audio_ahead_seconds": 0.005875000000003183
+      },
+      {
+        "picture": "10.png",
+        "capture_seconds": 50.16365360002965,
+        "screenshot_seconds": 0.3108979659155011,
+        "rejected": "audio match rejected: {'seconds': 61.303, 'correlation': 0.4788449101340703, 'channel': 6}"
+      },
+      {
+        "picture": "11.png",
+        "capture_seconds": 55.18985434481874,
+        "screenshot_seconds": 0.3632930261082947,
+        "rejected": "audio match rejected: {'seconds': 66.329125, 'correlation': 0.2376322736018326, 'channel': 6}"
+      },
+      {
+        "picture": "12.png",
+        "capture_seconds": 60.15244346857071,
+        "screenshot_seconds": 0.28847126476466656,
+        "audio": {
+          "seconds": 73.29175,
+          "correlation": 0.9418020843475422,
+          "channel": 6
+        },
+        "video": {
+          "seconds": 73.25,
+          "correlation": 0.9966376304822583
+        },
+        "audio_ahead_seconds": 0.04174999999999329
+      },
+      {
+        "picture": "13.png",
+        "capture_seconds": 65.1501938039437,
+        "screenshot_seconds": 0.28398718405514956,
+        "audio": {
+          "seconds": 78.2895,
+          "correlation": 0.8671095825551819,
+          "channel": 6
+        },
+        "video": {
+          "seconds": 78.25,
+          "correlation": 0.9967565802138574
+        },
+        "audio_ahead_seconds": 0.039500000000003865
+      },
+      {
+        "picture": "14.png",
+        "capture_seconds": 70.16240766318515,
+        "screenshot_seconds": 0.3084008018486202,
+        "audio": {
+          "seconds": 83.30175,
+          "correlation": 0.9980762308397145,
+          "channel": 6
+        },
+        "video": {
+          "seconds": 83.25,
+          "correlation": 0.9990408894687787
+        },
+        "audio_ahead_seconds": 0.05174999999999841
+      },
+      {
+        "picture": "15.png",
+        "capture_seconds": 75.08537584217265,
+        "screenshot_seconds": 0.15433765901252627,
+        "audio": {
+          "seconds": 88.22475,
+          "correlation": 0.9929638168870278,
+          "channel": 6
+        },
+        "video": {
+          "seconds": 88.25,
+          "correlation": 0.9935169735669438
+        },
+        "audio_ahead_seconds": -0.025249999999999773
+      },
+      {
+        "picture": "16.png",
+        "capture_seconds": 80.13598385406658,
+        "screenshot_seconds": 0.25555775221437216,
+        "audio": {
+          "seconds": 93.27525,
+          "correlation": 0.9938279832609929,
+          "channel": 6
+        },
+        "video": {
+          "seconds": 93.25,
+          "correlation": 0.9929054243960838
+        },
+        "audio_ahead_seconds": 0.025249999999999773
+      },
+      {
+        "picture": "17.png",
+        "capture_seconds": 85.13764888141304,
+        "screenshot_seconds": 0.257382957264781,
+        "audio": {
+          "seconds": 98.277,
+          "correlation": 0.9953564956965484,
+          "channel": 6
+        },
+        "video": {
+          "seconds": 98.25,
+          "correlation": 0.5850275575306071
+        },
+        "rejected": "picture match rejected: {'seconds': 98.25, 'correlation': 0.5850275575306071}"
+      },
+      {
+        "picture": "18.png",
+        "capture_seconds": 90.12890501366928,
+        "screenshot_seconds": 0.24137882376089692,
+        "audio": {
+          "seconds": 103.26825,
+          "correlation": 0.9935921196628402,
+          "channel": 6
+        },
+        "video": {
+          "seconds": 103.25,
+          "correlation": 0.8821646654525941
+        },
+        "rejected": "picture match rejected: {'seconds': 103.25, 'correlation': 0.8821646654525941}"
+      },
+      {
+        "picture": "19.png",
+        "capture_seconds": 95.08676252700388,
+        "screenshot_seconds": 0.15700657572597265,
+        "audio": {
+          "seconds": 108.226125,
+          "correlation": 0.9733030155694955,
+          "channel": 6
+        },
+        "video": {
+          "seconds": 108.25,
+          "correlation": 0.9385220124843894
+        },
+        "rejected": "picture match rejected: {'seconds': 108.25, 'correlation': 0.9385220124843894}"
+      }
+    ]
+  },
+  "save_roundtrip": {
+    "version": "eglantine-exp-pgo",
+    "before_sha256": "cbad5b78cd563c5b5969c4a10284e185735afa1d54f6f2080f573a2bbe5743d2",
+    "saved_sha256": "7f62a5570de4e2588bbe6ab277eddebfb5fb29f4d0d02a9655a49f2ef0a26179",
+    "resumed_sha256": "7f62a5570de4e2588bbe6ab277eddebfb5fb29f4d0d02a9655a49f2ef0a26179",
+    "write_shutdown": {
+      "exit_code": 0,
+      "stop_requested": true,
+      "window_closed": true,
+      "forced": false,
+      "stop_seconds": 3.3044305751100183
+    },
+    "resume_shutdown": {
+      "exit_code": 0,
+      "stop_requested": true,
+      "window_closed": true,
+      "forced": false,
+      "stop_seconds": 3.00551753398031
+    },
+    "requires_visual_review": true
+  },
+  "shutdowns": [
+    {
+      "label": "compare-1-eglantine-exp-pgo",
+      "exit_code": 0,
+      "stop_requested": true,
+      "window_closed": true,
+      "forced": false,
+      "stop_seconds": 3.904853507876396
+    },
+    {
+      "label": "compare-2-eglantine-exp-pgo",
+      "exit_code": 0,
+      "stop_requested": true,
+      "window_closed": true,
+      "forced": false,
+      "stop_seconds": 3.104227051138878
+    },
+    {
+      "label": "roundtrip-write-eglantine-exp-pgo",
+      "exit_code": 0,
+      "stop_requested": true,
+      "window_closed": true,
+      "forced": false,
+      "stop_seconds": 3.3044305751100183
+    },
+    {
+      "label": "roundtrip-resume-eglantine-exp-pgo",
+      "exit_code": 0,
+      "stop_requested": true,
+      "window_closed": true,
+      "forced": false,
+      "stop_seconds": 3.00551753398031
+    },
+    {
+      "label": "intro-eglantine-exp-pgo",
+      "exit_code": 0,
+      "stop_requested": true,
+      "window_closed": true,
+      "forced": false,
+      "stop_seconds": 2.8072931049391627
+    }
+  ]
+}

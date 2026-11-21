@@ -1,0 +1,407 @@
+{
+  "date_utc": "2026-11-09",
+  "recorded_at": 1794237487.1777034,
+  "source_revision": "0b83798bf6e7e2440568b7cf69646ae45d681b11 + previouslytestedcomposed corrections",
+  "same_binary_sha256": "5ac642897062c2772d8e9f9fe81ec205ecdd8ddeb2e9100659f152a8e6291429",
+  "setting": "EDEN_NX2_IDLE_SPIN_US",
+  "code_change": false,
+  "order_us": [
+    0,
+    100,
+    0,
+    100
+  ],
+  "constant_conditions": {
+    "split": 1,
+    "fences": "Default",
+    "gpu_accuracy": "Low",
+    "NO_MESH": 1,
+    "speed_limit_percent": 100,
+    "runtime": "sameMesa25.2.8RADV",
+    "private_start_files": 3511,
+    "private_start_bytes": 82010658,
+    "same_kokiri_checkpoint": true,
+    "restore_before_each_phase": true,
+    "new_process_each_phase": true,
+    "no_GPU_probes_or_perf_during_measurement": true
+  },
+  "phases": [
+    {
+      "label": "lichii-idle-zero1",
+      "idle_spin_us": 0,
+      "measurement": {
+        "requested_seconds": [
+          180.06477222442626,
+          264.182421
+        ],
+        "covered_seconds": 69.7062,
+        "game_presentations": 1800,
+        "game_fps": 25.82266713721305,
+        "window_fps_median": 25.67460011810316,
+        "maximum_frame_ms": 68.627,
+        "frames_over_100_ms": 0,
+        "windows": [
+          {
+            "start": 183.37433099999998,
+            "end": 206.952531,
+            "mean_us": 39297,
+            "maximum_us": 63150,
+            "freezes": 0
+          },
+          {
+            "start": 206.913906,
+            "end": 230.283306,
+            "mean_us": 38949,
+            "maximum_us": 68627,
+            "freezes": 0
+          },
+          {
+            "start": 230.246146,
+            "end": 253.004746,
+            "mean_us": 37931,
+            "maximum_us": 56463,
+            "freezes": 0
+          }
+        ]
+      },
+      "runtime_setting_proof": {
+        "at": 1794236078.8505795,
+        "cli_sha256": "5ac642897062c2772d8e9f9fe81ec205ecdd8ddeb2e9100659f152a8e6291429",
+        "expected_us": 0,
+        "actual_static_setting_us": 0,
+        "initialization_guard_byte": 1,
+        "all_observed_threads_detached": 62,
+        "debugger_before_measurement": true,
+        "attach_read_detach_seconds": 0.39221668243408203,
+        "scope": "Reads processwide cached scalar and initialized guard in unchanged binary before camera phase; no memory write or breakpoint"
+      },
+      "world_and_movement_reviewed": true,
+      "cap_observation": "Upward elongated cap tail in walk-side; similar kind of outlier already noted on same0b at default idle, no cause attributed",
+      "lifecycle": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.504721083212644
+      },
+      "observed_cpu": {
+        "guest_cores": {
+          "cpu_percent_one_core_100": 242.00514867218124,
+          "seconds_observed": 85.22132736910135,
+          "threads": 6
+        },
+        "gpu_back": {
+          "cpu_percent_one_core_100": 83.8639835899961,
+          "seconds_observed": 85.22132736910135,
+          "threads": 1
+        },
+        "gpu_front": {
+          "cpu_percent_one_core_100": 38.042120441971086,
+          "seconds_observed": 85.22132736910135,
+          "threads": 1
+        },
+        "vulkan_worker": {
+          "cpu_percent_one_core_100": 21.68471270103719,
+          "seconds_observed": 85.22132736910135,
+          "threads": 1
+        }
+      },
+      "known_interference_samples_clear": 15,
+      "cpu_frequency_median_sample_mhz": 3815.7045,
+      "cpu_temp_Tctl_range_millidegrees": [
+        88750,
+        92625
+      ]
+    },
+    {
+      "label": "lichii-idle-hundred1",
+      "idle_spin_us": 100,
+      "measurement": {
+        "requested_seconds": [
+          184.90047869682311,
+          274.886416
+        ],
+        "covered_seconds": 71.9436,
+        "game_presentations": 1800,
+        "game_fps": 25.01959868563708,
+        "window_fps_median": 25.181305398871878,
+        "maximum_frame_ms": 67.053,
+        "frames_over_100_ms": 0,
+        "windows": [
+          {
+            "start": 186.58872699999998,
+            "end": 210.888727,
+            "mean_us": 40500,
+            "maximum_us": 67053,
+            "freezes": 0
+          },
+          {
+            "start": 210.84970099999998,
+            "end": 234.666101,
+            "mean_us": 39694,
+            "maximum_us": 59957,
+            "freezes": 0
+          },
+          {
+            "start": 234.62703799999997,
+            "end": 258.454238,
+            "mean_us": 39712,
+            "maximum_us": 61667,
+            "freezes": 0
+          }
+        ]
+      },
+      "runtime_setting_proof": {
+        "at": 1794236428.1395512,
+        "cli_sha256": "5ac642897062c2772d8e9f9fe81ec205ecdd8ddeb2e9100659f152a8e6291429",
+        "expected_us": 100,
+        "actual_static_setting_us": 100,
+        "initialization_guard_byte": 1,
+        "all_observed_threads_detached": 62,
+        "debugger_before_measurement": true,
+        "attach_read_detach_seconds": 0.42502427101135254,
+        "scope": "Reads processwide cached scalar and initialized guard in unchanged binary before camera phase; no memory write or breakpoint"
+      },
+      "world_and_movement_reviewed": true,
+      "cap_observation": "Upright elongated tail at wall also visible at100, same general outlier aszero/default; no cause or regression attributed",
+      "lifecycle": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.504925694782287
+      },
+      "observed_cpu": {
+        "guest_cores": {
+          "cpu_percent_one_core_100": 309.0212865933854,
+          "seconds_observed": 85.30156705575064,
+          "threads": 6
+        },
+        "gpu_back": {
+          "cpu_percent_one_core_100": 83.9609428900541,
+          "seconds_observed": 85.30156705575064,
+          "threads": 1
+        },
+        "gpu_front": {
+          "cpu_percent_one_core_100": 38.80350753505712,
+          "seconds_observed": 85.30156705575064,
+          "threads": 1
+        },
+        "vulkan_worker": {
+          "cpu_percent_one_core_100": 21.92222329019843,
+          "seconds_observed": 85.30156705575064,
+          "threads": 1
+        }
+      },
+      "known_interference_samples_clear": 15,
+      "cpu_frequency_median_sample_mhz": 3618.5605,
+      "cpu_temp_Tctl_range_millidegrees": [
+        95875,
+        96125
+      ]
+    },
+    {
+      "label": "lichii-idle-zero2",
+      "idle_spin_us": 0,
+      "measurement": {
+        "requested_seconds": [
+          131.71105585098266,
+          217.354489
+        ],
+        "covered_seconds": 70.1622,
+        "game_presentations": 1800,
+        "game_fps": 25.65483978552554,
+        "window_fps_median": 25.58526288857618,
+        "maximum_frame_ms": 61.329,
+        "frames_over_100_ms": 0,
+        "windows": [
+          {
+            "start": 141.355456,
+            "end": 164.806456,
+            "mean_us": 39085,
+            "maximum_us": 58240,
+            "freezes": 0
+          },
+          {
+            "start": 164.768321,
+            "end": 187.901921,
+            "mean_us": 38556,
+            "maximum_us": 57770,
+            "freezes": 0
+          },
+          {
+            "start": 187.86300300000002,
+            "end": 211.440603,
+            "mean_us": 39296,
+            "maximum_us": 61329,
+            "freezes": 0
+          }
+        ]
+      },
+      "runtime_setting_proof": {
+        "at": 1794236844.634161,
+        "cli_sha256": "5ac642897062c2772d8e9f9fe81ec205ecdd8ddeb2e9100659f152a8e6291429",
+        "expected_us": 0,
+        "actual_static_setting_us": 0,
+        "initialization_guard_byte": 1,
+        "all_observed_threads_detached": 62,
+        "debugger_before_measurement": true,
+        "attach_read_detach_seconds": 0.41767048835754395,
+        "scope": "Reads processwide cached scalar and initialized guard in unchanged binary before camera phase; no memory write or breakpoint"
+      },
+      "world_and_movement_reviewed": true,
+      "cap_observation": "Strong upward elongated cap at wall again; rendered-fidelity issue remains and is seen at both0and100",
+      "lifecycle": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 2.904508941806853
+      },
+      "observed_cpu": {
+        "guest_cores": {
+          "cpu_percent_one_core_100": 247.67079857974798,
+          "seconds_observed": 85.24622248997912,
+          "threads": 6
+        },
+        "gpu_back": {
+          "cpu_percent_one_core_100": 84.88352666712719,
+          "seconds_observed": 85.24622248997912,
+          "threads": 1
+        },
+        "gpu_front": {
+          "cpu_percent_one_core_100": 39.121968136383245,
+          "seconds_observed": 85.24622248997912,
+          "threads": 1
+        },
+        "vulkan_worker": {
+          "cpu_percent_one_core_100": 22.24145474860049,
+          "seconds_observed": 85.24622248997912,
+          "threads": 1
+        }
+      },
+      "known_interference_samples_clear": 15,
+      "cpu_frequency_median_sample_mhz": 3604.9285,
+      "cpu_temp_Tctl_range_millidegrees": [
+        95875,
+        96125
+      ]
+    },
+    {
+      "label": "lichii-idle-hundred2",
+      "idle_spin_us": 100,
+      "measurement": {
+        "requested_seconds": [
+          165.95230231285095,
+          250.809496
+        ],
+        "covered_seconds": 73.248,
+        "game_presentations": 1800,
+        "game_fps": 24.5740498034076,
+        "window_fps_median": 24.693796918214144,
+        "maximum_frame_ms": 62.12,
+        "frames_over_100_ms": 0,
+        "windows": [
+          {
+            "start": 166.930746,
+            "end": 191.743146,
+            "mean_us": 41354,
+            "maximum_us": 59302,
+            "freezes": 0
+          },
+          {
+            "start": 191.703698,
+            "end": 215.841698,
+            "mean_us": 40230,
+            "maximum_us": 62120,
+            "freezes": 0
+          },
+          {
+            "start": 215.80203400000002,
+            "end": 240.099634,
+            "mean_us": 40496,
+            "maximum_us": 60479,
+            "freezes": 0
+          }
+        ]
+      },
+      "runtime_setting_proof": {
+        "at": 1794237223.400693,
+        "cli_sha256": "5ac642897062c2772d8e9f9fe81ec205ecdd8ddeb2e9100659f152a8e6291429",
+        "expected_us": 100,
+        "actual_static_setting_us": 100,
+        "initialization_guard_byte": 1,
+        "all_observed_threads_detached": 62,
+        "debugger_before_measurement": true,
+        "attach_read_detach_seconds": 0.4500563144683838,
+        "scope": "Reads processwide cached scalar and initialized guard in unchanged binary before camera phase; no memory write or breakpoint"
+      },
+      "world_and_movement_reviewed": true,
+      "cap_observation": "Rounded cap with backward tail in this lastside capture; previous0and100 both showed uprightelongation",
+      "lifecycle": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.605435601901263
+      },
+      "observed_cpu": {
+        "guest_cores": {
+          "cpu_percent_one_core_100": 307.49793300644984,
+          "seconds_observed": 85.26561379991472,
+          "threads": 6
+        },
+        "gpu_back": {
+          "cpu_percent_one_core_100": 84.62966110738556,
+          "seconds_observed": 85.26561379991472,
+          "threads": 1
+        },
+        "gpu_front": {
+          "cpu_percent_one_core_100": 38.90196589429017,
+          "seconds_observed": 85.26561379991472,
+          "threads": 1
+        },
+        "vulkan_worker": {
+          "cpu_percent_one_core_100": 22.02529151325805,
+          "seconds_observed": 85.26561379991472,
+          "threads": 1
+        }
+      },
+      "known_interference_samples_clear": 15,
+      "cpu_frequency_median_sample_mhz": 3568.032,
+      "cpu_temp_Tctl_range_millidegrees": [
+        95875,
+        96250
+      ]
+    }
+  ],
+  "pooled": {
+    "0": {
+      "presentations": 3600,
+      "covered_seconds": 139.8684,
+      "fps": 25.738479885377966,
+      "frames_over_100_ms": 0,
+      "maximum_frame_ms": 68.627
+    },
+    "100": {
+      "presentations": 3600,
+      "covered_seconds": 145.1916,
+      "fps": 24.7948228409908,
+      "frames_over_100_ms": 0,
+      "maximum_frame_ms": 67.053
+    },
+    "observed_gain_percent_zero_vs_hundred": 3.805863225717876
+  },
+  "interpretation": "Small observedgain for0onthishost, retained onlyforfutureisolatedtests; no30FPSdemonstrated",
+  "limits": [
+    "Fouralternatingphases ononehost; onlyshortKokiri camera andfunctionalwalk",
+    "GDBscalarreadbeforeeachphase pausesbriefly, thenallobservedthreadsdetached andcamerapreparationbeforewindow",
+    "CPUgroups usefirst/lastsamplesticks over~84s, notsameboundariesascompletepresentationwindows; noframecriticalpathinference",
+    "Noaudio/zone/save/longplayqualification; NO_MESH1andcapelongationseeninbothconditions remainfidelitylimits",
+    "No installedsetting/engine/progression changed"
+  ],
+  "cleanup": {
+    "own_game_helper_devices_removed": true,
+    "observer_active": true
+  }
+}

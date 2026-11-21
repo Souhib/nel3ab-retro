@@ -1,0 +1,219 @@
+{
+  "date": "2026-11-09",
+  "upstream_revision": "78743f30c251f66bd77e6eea6c28d8632d642d6f",
+  "phases": [
+    {
+      "label": "local-original-1",
+      "version": "local-original",
+      "measurement": {
+        "requested_seconds": [
+          107.61923584938049,
+          195.86822
+        ],
+        "covered_seconds": 58.5546,
+        "game_presentations": 1200,
+        "game_fps": 20.49369306595895,
+        "window_fps_median": 20.633563675798257,
+        "maximum_frame_ms": 168.994,
+        "frames_over_100_ms": 20,
+        "windows": [
+          {
+            "start": 111.83065,
+            "end": 143.51845,
+            "mean_us": 52813,
+            "maximum_us": 168994,
+            "freezes": 20
+          },
+          {
+            "start": 143.474539,
+            "end": 170.341339,
+            "mean_us": 44778,
+            "maximum_us": 96643,
+            "freezes": 0
+          }
+        ]
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.303864687681198
+      }
+    },
+    {
+      "label": "local-copy-batch-1",
+      "version": "local-copy-batch",
+      "measurement": {
+        "requested_seconds": [
+          124.47338185310363,
+          213.057878
+        ],
+        "covered_seconds": 54.269999999999996,
+        "game_presentations": 1200,
+        "game_fps": 22.11166390270868,
+        "window_fps_median": 22.131035115108624,
+        "maximum_frame_ms": 88.986,
+        "frames_over_100_ms": 0,
+        "windows": [
+          {
+            "start": 142.49342099999998,
+            "end": 170.431221,
+            "mean_us": 46563,
+            "maximum_us": 88986,
+            "freezes": 0
+          },
+          {
+            "start": 170.433925,
+            "end": 196.766125,
+            "mean_us": 43887,
+            "maximum_us": 82413,
+            "freezes": 0
+          }
+        ]
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.904320303350687
+      }
+    },
+    {
+      "label": "local-original-2",
+      "version": "local-original",
+      "measurement": {
+        "requested_seconds": [
+          94.42952213287353,
+          181.554792
+        ],
+        "covered_seconds": 54.9906,
+        "game_presentations": 1200,
+        "game_fps": 21.82191138121788,
+        "window_fps_median": 21.849640511703626,
+        "maximum_frame_ms": 95.499,
+        "frames_over_100_ms": 0,
+        "windows": [
+          {
+            "start": 108.24432699999998,
+            "end": 136.719127,
+            "mean_us": 47458,
+            "maximum_us": 95499,
+            "freezes": 0
+          },
+          {
+            "start": 136.67573,
+            "end": 163.19153,
+            "mean_us": 44193,
+            "maximum_us": 77365,
+            "freezes": 0
+          }
+        ]
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.0046643558889627
+      }
+    },
+    {
+      "label": "local-copy-batch-2",
+      "version": "local-copy-batch",
+      "measurement": {
+        "requested_seconds": [
+          86.32694492340087,
+          173.172354
+        ],
+        "covered_seconds": 54.5604,
+        "game_presentations": 1200,
+        "game_fps": 21.993973651219566,
+        "window_fps_median": 21.993992418876353,
+        "maximum_frame_ms": 188.263,
+        "frames_over_100_ms": 1,
+        "windows": [
+          {
+            "start": 108.977824,
+            "end": 136.283224,
+            "mean_us": 45509,
+            "maximum_us": 84423,
+            "freezes": 0
+          },
+          {
+            "start": 136.284307,
+            "end": 163.539307,
+            "mean_us": 45425,
+            "maximum_us": 188263,
+            "freezes": 1
+          }
+        ]
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 2.6034676828421652
+      }
+    }
+  ],
+  "pooled": {
+    "local-original": {
+      "seconds": 113.5452,
+      "presents": 2400,
+      "over100ms": 20,
+      "fps": 21.136956912313334
+    },
+    "local-copy-batch": {
+      "seconds": 108.8304,
+      "presents": 2400,
+      "over100ms": 1,
+      "fps": 22.052661756273984
+    }
+  },
+  "change_percent": 4.332245402020041,
+  "build": "Matched local GCC13.3 -O3, g1, frame pointers, LTOoff, same SDL3 cachedartifact; only experimentalcopy-batchpatch differs. ActualchangedTUs rebuilt; runtimewindow8000 and list-return markers seen. Mode0, NO_MESH1, native scale, same initial private cache seed and checkpoint. Actuallogfilter was default*:Info because the harness put intendedfilter inDebugging instead ofMiscellaneous; same in all four phases. No modified timer/speed/interpolation.",
+  "tests": {
+    "passed_per_configuration": 242,
+    "network_skipped": 4,
+    "configurations": [
+      {
+        "EDEN_NX2_SPLIT": "0",
+        "EDEN_NX2_SINGLE_LIST_US": "0"
+      },
+      {
+        "EDEN_NX2_SPLIT": "0",
+        "EDEN_NX2_SINGLE_LIST_US": "8000"
+      }
+    ],
+    "mutations_rejected": [
+      "non_owner_defer",
+      "split_defer",
+      "deadline_defer",
+      "read_before_submit",
+      "non_owner_return"
+    ]
+  },
+  "functional": "Link and world visible in every phase; candidate2 actual ladder descent and ground walk reviewed, normalstop in all4. No zone/save/audio validation for this candidate.",
+  "limits": "No30fps achieved. First baseline phase includes20 nativeframes>100ms, partly coldcache; observedpooledgain not proof of a repeatable warm steady-state speedup. A1.25sec cachecopy for subsequentdrivertrial occurred in candidate2 wholephase, but entirely before all retained completepresentationwindows, even with2sec padding. Rawdata retained. Not compared against officialPGO as a patch effect. No installation.",
+  "filesystem_preparation": {
+    "start_unix": 1794202728.8792605,
+    "end_unix": 1794202734.123813,
+    "metadata_start_unix": 1794202730.8792605,
+    "metadata_end_unix": 1794202732.123813,
+    "reason": "Two private cache states copied for subsequent driver comparison during this phase. Exclude all presentation windows crossing this preparation, with2sec padding. No transparency claim for filesystem I/O.",
+    "action": "Retain raw measurement; produce clean selection only if complete windows remain, otherwise repeat phase.",
+    "relative_seconds_with_padding": [
+      102.20468759536743,
+      107.44923996925354
+    ],
+    "retained_windows_overlap": false,
+    "all_retained_windows_follow_preparation": true
+  },
+  "cli_sha256": {
+    "local-original": "b7f9cad0bed1ca15e724149cfbbf1fb9cf34945ea5a389524dfd414055e4abf3",
+    "local-copy-batch": "dc6d509a91b9f4b54ca75090855658551b6793b16309edc498ae7c4ae80f202d"
+  }
+}

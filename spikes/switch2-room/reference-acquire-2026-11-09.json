@@ -1,0 +1,153 @@
+{
+  "updated_at": 1794248160.2187283,
+  "status": "mode2 diagnostic refused: front shadow register warnings despite ordinaryregistersummaryzero; noFPScomparison",
+  "base": "corrected0b83798 plus selective1a5e995 PR1056; noCacheV2/noSpan1059",
+  "policy": "EDEN_NX2_REFERENCE_ACQUIRE exact1 onceatprocessstartup; always drain actual split and use existing ReadSemaphoreWord shadow path on initial and resume; absent0/10 preserveFast. Never hot-switched.",
+  "binary_sha256": "43fea79a7a986446d208e1e8dc5081874203bbaa4404f176a9ebf7f276bb560a",
+  "source_sha256": {
+    "src/video_core/engines/puller.cpp": "8080eb9ebc3d287a2a8d235d45ccb752587264cd6e0549f85b6ee257862b377f",
+    "src/tests/video_core/maxwell_fast_method.cpp": "fcca55af231f925025a75e18e3f729db37d82d5958aff7d9edf21c02f6385d84",
+    "src/tests/video_core/buffer_cache_ports.cpp": "66fe9d79def403275c6c76ea24146504bd7cb4ecef319b7abdc9e1c00a742b68"
+  },
+  "source_bundle_sha256": "4b8152a985d007d6b32c270f70408b027f06a2d31b504ac115f56f846adba094",
+  "proofs": {
+    "old_puller": {
+      "compile_link_exit": 0,
+      "test_exit": 42,
+      "assertion_log": "red-test.log",
+      "log_sha256": "d3ccb8ac17295e61d5a051f6afeecc3dc1f3f9101fce5a21830ec47b7d7b9711"
+    },
+    "new_puller": {
+      "compile_link_exit": 0,
+      "test_exit": 0,
+      "assertion_log": "green-test.log",
+      "log_sha256": "1c850b7a4ec3eda9edbc0270beca352f9f1fb62fbe115e009b08433445ca96d9"
+    },
+    "mutants": {
+      "mutant-fast": {
+        "compile_link_exit": 0,
+        "test_exit": 42,
+        "assertion_log": "mutant-fast-test.log",
+        "log_sha256": "2007171139a024d5e6d66c2f1a8b34c8c05b9d11f9630022f593aa218c6dccb8"
+      },
+      "mutant-shadow": {
+        "compile_link_exit": 0,
+        "test_exit": 42,
+        "assertion_log": "mutant-shadow-test.log",
+        "log_sha256": "3e6b954625d9fcd67ca849a59bfb51ee3c1e8d88d1b9c9c5438ec10b4540e5e9"
+      },
+      "mutant-finish": {
+        "compile_link_exit": 0,
+        "test_exit": 42,
+        "assertion_log": "mutant-finish-test.log",
+        "log_sha256": "f25821d14c2619c096f69ff5b7c2fe31b4d610461afec15d16443f41d1d1237c"
+      },
+      "mutant-early": {
+        "compile_link_exit": 0,
+        "test_exit": 42,
+        "assertion_log": "mutant-early-test.log",
+        "log_sha256": "05935fc3d023db182a49ce697fa9cc7899f7191d80dfdd89c49f4b2d4620c79d"
+      }
+    },
+    "built_target_full": {
+      "pass": 1148,
+      "network_skips": 4,
+      "assertions": 71871478
+    },
+    "built_target_reference": {
+      "cases": 86,
+      "assertions": 31854,
+      "exit": 0
+    },
+    "source_only_reference": {
+      "cases": 86,
+      "assertions": 33067,
+      "exit": 0
+    }
+  },
+  "build_seconds": 46.033331632614136,
+  "limits": [
+    "No GPU, emulator launch, title observation, timing measurement, or FPS claim.",
+    "Actual production Puller/DmaPusher, singleton GpuSplit::BackLoop, QueryCacheBase, GuestStreamer, FenceManager and BufferCache share the same mapped guest/device words. Rasterizer::Query routes to actual Queries::CounterReport; ReleaseFences routes to actual FenceManager. MustFlushRegion/FlushRegion route to actual BufferCache. No callback is manufactured by RasterizerNull.",
+    "Host Buffer/Runtime, counter value 73, and host ticks are test doubles. FenceTraits::HAS_ASYNC_CHECK=false; Vulkan uses true. This proves callback ordering and pending-report integration under controlled completion, not Vulkan fencing-thread/driver execution or general concurrent mode2 ownership.",
+    "The counter request uses real CounterReport on the actual back via Run; it is not emitted by a Maxwell draw. Puller emits the payload releases and performs initial/resume acquisition of the same word.",
+    "Existing R1/R2 rewritten, FinishReads, invalidation, timestamps, and retirement cases run under Reference, but the two new scenarios do not themselves generate a draw or early read download.",
+    "Full fresh emulator build, full built-target suite, and parent runtime activation/ownership/readback/descriptor controls remain required before a gameplay qualification. Fast mode2 remains known unsafe. Reference preserves drains and makes no speed promise."
+  ],
+  "runtime": {
+    "diagnostic_seconds": 91.58591668726876,
+    "read_check": {
+      "downloads": 111405,
+      "compared_KiB": 395309,
+      "mismatched": 0,
+      "mismatched_reader": 0,
+      "mismatched_gpu_writer": 0,
+      "mismatched_completed": 0,
+      "uncovered": 0,
+      "rewritten_not_compared": 32337
+    },
+    "descriptor_verified": 230400,
+    "descriptor_mismatches": 0,
+    "uniform_keeps_not_independent_oracle": 662269,
+    "complete_front_checks": 16832,
+    "ordinary_register_summary_reports": 323,
+    "ordinary_register_differences": 0,
+    "shadow_warning_count": 16,
+    "warning_cap": 16,
+    "warning_scope": "Recorded during loading native13.58..23.99s; cap hideslaterpotentialdifferences. No zero later shadow mismatch claim.",
+    "shadow_registers": [
+      "0x200",
+      "0x201",
+      "0x204",
+      "0x646",
+      "0x4c7",
+      "0x4c8",
+      "0x4c9",
+      "0x782",
+      "0x783"
+    ],
+    "back_memory_macro": "0x142",
+    "acquire_drains_complete_windows": 5995791,
+    "all_fast_accepts": 0,
+    "shutdown": {
+      "exit_code": 0,
+      "stop_requested": true,
+      "window_closed": true,
+      "forced": false,
+      "stop_seconds": 2.80404533399269
+    },
+    "images_read": [
+      "ready.png",
+      "verification-before.png",
+      "verification-after.png"
+    ],
+    "decision": "NOmode2FPS accepted;newisolatedshadow-lab diagnosis, originalsourcesfrozen"
+  },
+  "FPS": "not measured",
+  "production": "unchanged; no new engine installed",
+  "patches": {
+    "lichii-reference-acquire-activation.patch": "30797fe128df0247e729ba49ae15384fdca122a8962a63909c25285685ff7a6e",
+    "lichii-reference-acquire-on-macro-0b.patch": "4c86f525eaf4206ba1b966bc68a904d0542a8b39a370f39ba6be2b41a25c50f1"
+  },
+  "cleanup": {
+    "at": 1794248055.19532,
+    "own_game_absent": true,
+    "own_helper_removed": true,
+    "old_devices_absent": [
+      "/dev/input/event8",
+      "/dev/input/event9",
+      "/dev/input/event10",
+      "/dev/input/event11"
+    ],
+    "matching_names_remaining": [],
+    "observer": "active",
+    "production_config_unchanged": true,
+    "eight_progressions_unchanged": true,
+    "gpu_policies": {
+      "/sys/class/drm/card0/device/power_dpm_force_performance_level": "auto"
+    },
+    "gpu_power_caps_micro_watts": [
+      150000000
+    ]
+  }
+}

@@ -1,0 +1,20 @@
+diff --git a/src/video_core/renderer_vulkan/vk_scheduler.cpp b/src/video_core/renderer_vulkan/vk_scheduler.cpp
+--- a/src/video_core/renderer_vulkan/vk_scheduler.cpp
++++ b/src/video_core/renderer_vulkan/vk_scheduler.cpp
+@@ -84,6 +84,16 @@
+         return false;
+     }
+     flush_pending = true;
++    static const bool trace_window = [] {
++        const char* value = std::getenv("EDEN_NX2_FENCE_WINDOW_TRACE");
++        return value != nullptr && value[0] == '1' && value[1] == '\0';
++    }();
++    // Only the split back reaches this point. Log an actual deferral once,
++    // rather than treating a requested environment setting as activation.
++    static bool reported_window{};
++    if (trace_window && !std::exchange(reported_window, true)) {
++        LOG_INFO(HW_GPU, "Existing split fence window active: interval_us={}", interval_us);
++    }
+     return true;
+ }
+ 

@@ -1,0 +1,169 @@
+{
+  "date": "2026-11-10",
+  "status": "built_CPU_tested_runtime_blocked_before_game_launch",
+  "objective_constant_30_achieved": false,
+  "scope": "Submission-only GPU diagnostic based on exact65def source; not a performance optimization or production installation.",
+  "base": {
+    "revision": "0b83798bf6e7e2440568b7cf69646ae45d681b11",
+    "installed_ELF_sha256": "65defb74a8cc81ae85d42c5c0e9bb9bc8a796d976f12278cb0a4fcf940834d08",
+    "source_files_copied_identically_before_port": 5213,
+    "existing_local_changes_preserved": true
+  },
+  "candidate": {
+    "ELF_sha256": "be3c43fba1f0bd8dee83abca75af6e23209b16a164af030a3620edc5466f3969",
+    "changed_inputs": 10,
+    "changed_units_rebuilt": true,
+    "same_compiler_flags": "Clang23 native znver2 PGO/ThinLTO, same stable container paths as65def base",
+    "runtime_activation_marker_required": "Submission GPU timing ready: version=2",
+    "marker_observed": false,
+    "native_CPU_tests": {
+      "cases": 1255,
+      "skipped": [
+        "LDN host validates join packets and does not allocate duplicate stations",
+        "LDN reports a missing connection reply and ignores late replies",
+        "LDN creates fresh identities for recreated networks and separate hosts",
+        "LDN waits for the selected host's connection reply"
+      ],
+      "new_tests_executed": [
+        "Submission GPU budget rejects incomplete and exhausted captures",
+        "Submission timestamps require available results and valid counter parameters"
+      ],
+      "returncode": 0
+    },
+    "source_fixture": {
+      "actual_probe_cpp_compiled": true,
+      "fake_driver_scope": "CPU ordering and filesystem results only; not real Vulkan semantics or probe overhead.",
+      "green_exit": 0,
+      "green": "PASS actual-source worker/GPU ordering, availability, bounds, manual mode and unsupported-device twins",
+      "mutations": {
+        "worker_gate": {
+          "exit": 1,
+          "reason": "Access before worker close marker"
+        },
+        "GPU_gate": {
+          "exit": 1,
+          "reason": "Query results read before GPU completion"
+        },
+        "status": {
+          "exit": 1,
+          "reason": "Unavailable result accepted"
+        },
+        "availability": {
+          "exit": 1,
+          "reason": "Unavailable result accepted"
+        }
+      },
+      "elapsed_seconds": 19.161276817321777
+    },
+    "reader_tests": {
+      "red_returncode": 1,
+      "green_returncode": 0,
+      "tests": 5,
+      "availability_nonzero_supported": true,
+      "conservative_host_containment": true,
+      "interval_union_not_exclusive_occupancy": true,
+      "scope": "Synthetic counter files; no real GPU result yet"
+    }
+  },
+  "design": {
+    "default": "off",
+    "measurement": "Only existing upload/execution command buffer intervals; no per-draw or guest-program timers/ranking.",
+    "queries": "At most2048 for1024 intervals, maximum128 sampled captures; manual arm file avoids menus.",
+    "frame_path": "No extra submission, queue idle or explicit GPU wait. Timestamp dependencies still perturb execution and need overhead calibration.",
+    "read_reuse": "Worker close marker and submitted GPU tick must both complete before read/reset. Every result availability bit and counter parameter is checked.",
+    "lifetime": "Worker joins and last submitted tick completes before pool destruction. Shutdown-only wait.",
+    "bounds": "Monotonic begin, recording-close and GPU-results-ready bounds; accepted only entirely inside observed phase.",
+    "interpretation": "Interval sums can overlap; union/span are diagnostic, never exclusive GPU occupancy or a hardware ceiling."
+  },
+  "runtime": {
+    "game_started": false,
+    "real_GPU_results": false,
+    "off_on_cost_qualified": false,
+    "functional_scene_checked": false,
+    "admission_rejected": true,
+    "foreign_GPU_process": [
+      {
+        "owners": [
+          {
+            "pid": 2481578,
+            "start_ticks": 234356127,
+            "name": "ffmpeg"
+          }
+        ],
+        "handles": 7
+      }
+    ],
+    "protected_production_files_unchanged": 757,
+    "production_profile_changed": false
+  },
+  "patch": {
+    "path": "spikes/switch2-room/amont/submission-gpu-65def-2026-11-10.patch",
+    "sha256": "27e452e09cd28a0ae73d195cf6592618db842afd88b0ca78618bb2840aac09a8",
+    "applies_to_exact_base": true
+  },
+  "primary_references": [
+    "https://docs.vulkan.org/refpages/latest/refpages/source/vkCmdWriteTimestamp.html",
+    "https://docs.vulkan.org/samples/latest/samples/api/timestamp_queries/README.html"
+  ],
+  "next_required": [
+    "Wait for unrelated GPU use to finish; recheck actual machine/CI and live rooms.",
+    "Create a fresh reviewed functional attempt using corrected package metadata, same saved ground scene and raw media receipts.",
+    "Require actual ELF/env/141settings/probe activation, complete available captures and normal native shutdown.",
+    "Alternate same-binary off/on before using timings to guide a performance change; do not infer normal budget from uncalibrated samples."
+  ],
+  "immutable_proof_index": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/index.json",
+  "proof_files_sha256": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/0-base-source-manifest.json": "7ca9127b759ea7c7645bd9e8a136b23c1d8b2b01453c72bc87d4a291b09632d5",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/1-base-build-manifest.json": "e234b07977846f80eefad058c7458e549a97c5d43816cd5c904fa0d3f0aef9f4",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/2-port-manifest-final.json": "5405227a7b18e588cdb4926ca5c08623266d7223e8254937ddcf97a6167989b1",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/3-build-command.json": "a5a33c2769edd24fa5ab3b1b6648b2aaaa012d9f6a1b28808462e7d54e0a8a98",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/4-build-final.log": "33e2bf33a2080dc6d6026be12bff3333bd9eab1c91dcbc6b6cc649b0bb062b32",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/5-build-final-result.json": "2a786424f8b9e7f719bfd899b04805268b6770b28bd3ef886c48e8ecf0e81b4c",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/6-native-tests-command.json": "793068815cbb87671f110cc672d989d4e317837a87857e778dc308df34a7eb4d",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/7-native-tests.xml": "919671c27eb56df5badfadec3ca9d88d5fa683ae90a3c82b3f3775e160397687",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/8-native-tests-result.json": "b8530b521e07f53c68129c9befab335928ae13d136e495ea043e7272addb3a14",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/9-fixture-results.json": "30f0d7d846175210c209fcd99d933e51541286f18d70e5e60f63ee1cde6d8e26",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/10-reader-tests-result.json": "9a49438f9f7748b2c01cce310ab5d01f7e56d006bedaa163c6e1c14d42487800",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/11-reader-red.log": "13e83b40ffeb29bc259faf3e3363e87d20c9a13a4e067c2d67c0830e2cbc3197",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/12-reader-green.log": "2d014bb427120fb1a5014d7499096989061fd0fdf40acb471c2e2667de60e71e",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/13-read-submissions.py": "f326eb8c496980a4cab1711e3f6c41a23c09b2a6bead8e5626d6f3da6c3bbb3a",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/14-test-submissions-reader.py": "e2c2c407cb5a7bc03c19c474e742ad694e2fc87622b6d6d0ce481f7f4d43a633",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/15-packages.json": "7fa39d7d32c115a0c04241adbb20acd3194f9124b271298d249d99f29fbeb9ff",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/16-package-off-manifest.json": "6f5a6ca46b9be078ad369139f50a8089fc4b5de84cd687e28c323d3c1ee63629",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/17-package-on-manifest.json": "8da9a13cd4c7e3e8f33172b87473352460e37c584bda57fcbc0e72b4bf020f98",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/18-patch-check.json": "cd27ce42f03d96d789a1dddc9f80c45177c1c677f770e31dc592773344c7797f",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/19-common_types.h": "0fc248a9f837e188428d1f3d4c73eb92b86e59f47610fc76eeaf4ce3cd5bc872",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/20-logging.h": "600582c0bf1aa17e5eb44ec1d7a627c0af95b3c2925ae8f3caa0e38218d4c80c",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/21-vk_master_semaphore.h": "744b93f5fd54cff8569de074ba0fbb98d54521af5f55a653fd50b1656d1e5cd5",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/22-vk_scheduler.h": "dd2d284feeacd68340ed47b6bf9b4d655927d134a326c01b7b0f6a8252185a38",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/23-vulkan_device.h": "a5ec31d2172bbd13bebcba40d63b9d72212a93eaee3d49c9028a79aa7cb18fe2",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/24-vulkan_wrapper.h": "dae92540b36569d185c31f598b0d7d66e7e3f683adf97dc3d62612791d272a59",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/25-mutant-worker_gate.cpp": "ec0ba4563e9ef9e5c1402793031191929985ae140f744723e0b08bc3215861ee",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/26-mutant-availability.cpp": "9ef494042b6e46dc3402baeb66351210abfe60815528f1b043b5a1605c9c33d1",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/27-mutant-GPU_gate.cpp": "9d0052a37812de025713245e14a60e96245f9e1b30f6e5641e50d0d4b9bf0822",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/28-mutant-status.cpp": "2bc99abdc3edf4be283e9c8ce758bcf8573d6275be8c228ee622e98dfcef67a7",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/29-driver.cpp": "a7df3cf250090afe3695fff2bb88d1e5e696f61a6f0470f6cd8e0ba23898c226",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/30-red-availability.log": "e142e9cf664361345664f34f00dc4a31095d953078eca4e8ee3a8cbad44875a9",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/31-red-status.log": "e142e9cf664361345664f34f00dc4a31095d953078eca4e8ee3a8cbad44875a9",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/32-red-GPU_gate.log": "a246b7caaf648b79d50229bc11a5339a8ba6d6fc97232d435f057652ed740ae6",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/33-green.log": "4c883fe448b32fbe6c0fdb39c80e5d20d6e52bc81adeb8339ddc36bf8a620f92",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/34-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/35-red-worker_gate.log": "c2098f81b8f42ab3ad3bad0962f7f49109fb953dee64bf2367f933d66efa4d78",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/36-submission_gpu_budget.h": "15ff779fb8fc29ef86b693a4f953fab1edd6e3947ab3992e817f0bcd1ac8ba7c",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/37-CMakeLists.txt": "bcf22df20b5c8b84431c2c7c7735debeebc87c5ea94f9814b31d2915e63188a3",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/38-gpu_timestamp_sample.h": "181952024923d5cf5e36c093e3f9df3ece00b49ee50f2ab5cf388e6c47107c4c",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/39-CMakeLists.txt": "a32926459c051c53b4a844eda2fddeca325ee2aa68b87f1557bb1e50fab3879d",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/40-vk_rasterizer.cpp": "33737ec7f82aaae9fbefacad60712b48ecd05bf970b78a4fa5991308f7ed180b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/41-vk_submission_gpu.cpp": "f2259926799d6a0859f43c48a4f47706d1a4631f615e3a2e2593894f8fd7918f",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/42-vk_submission_gpu.h": "1e816f5f7534d6b5ae8b3b83bd79c1762e051da5b34ff484977ae8c1e2c8ef55",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/43-vk_scheduler.h": "05303a7f012a46d5393339b0a4081263d5d23f581f1cb7711e84ccddcaeaec51",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/44-vk_scheduler.cpp": "0b74feeef7301da898bc511cfeecf0288196cf35f4f38a1154e066e68bd3494a",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/45-submission_gpu.cpp": "e2aaa49d528eb49bddbf73a8342ba3a9afbaa78f7bb1607873e416c30b7208b2",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/46-gpu-admission-2344107291615319.json": "34607a0b9a2346def7ad118bb1f53a4cde5be584cee8b23580e634c8e1ba1c9e",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/47-eden-cli": "be3c43fba1f0bd8dee83abca75af6e23209b16a164af030a3620edc5466f3969",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/48-eden-cli": "398cc5c6f83f71885973803af2d78eb9497776d59db025784cd004cd38f7f61c",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/49-qualified-policy.json": "1213c64e55eb87f49732484dfa3c59f399f5f74dfcec74cb7f72e8afcc4f76af",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/50-plan.json": "cee619d3f8a5b1e5c3bfa0d5e8b6df64abcc5f385b9d346079e4a5817f6e3f9b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/coarse65-preparation-20261110/evidence-snapshot/index.json": "5ac93f96604bc9f32345fa6d8383a723dc4c821eaf7a8b5e20729a562ef0f178"
+  }
+}

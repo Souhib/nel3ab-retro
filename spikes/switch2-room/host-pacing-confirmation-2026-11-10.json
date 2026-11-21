@@ -1,0 +1,776 @@
+{
+  "date_utc": "2026-11-10",
+  "scope": "Four fresh alternating camera phases, FramePacing1/Auto0/FramePacing1/Auto0. Preliminary diagnostics excluded. No walking, zone, audio, physical scanout or constant-30 gameplay qualification.",
+  "protocol_sha256": "2f558396a1433a1d687923437755ab90128f73bd225790530873fe59f25541e2",
+  "source_manifest_sha256": "46294df7fcaf10d80d81cf0c34ad2d6a749e8da8796856ee765bf074c4d3e23c",
+  "only_effective_change": "frame_pacing_mode; native default metadata normalizes with its value",
+  "common": {
+    "fps_limit": 30,
+    "nx2_frame_rate_limit": 60,
+    "speed_limit_percent": 100,
+    "frame_generation": false,
+    "max_resolution": true,
+    "oot_anti_aliasing": "NoSharpening",
+    "mode": 2,
+    "reference_acquire": 1,
+    "idle_spin_us": 0,
+    "force_mesh_fallback": 1,
+    "no_mesh_present": false,
+    "diagnostics": [
+      "PRESENT_STATS1",
+      "VI2_SERVICE_TRACE1",
+      "WSI_PRESENT_STATS1"
+    ],
+    "diagnostic_cost_not_measured": true
+  },
+  "phases": [
+    {
+      "run": "lichii-hostpacing-confirm-on1",
+      "frame_pacing_mode": 1,
+      "measurement": {
+        "camera_seconds": 91.34613185515627,
+        "bounds_ns": [
+          2290662377783620,
+          2290753723915475
+        ],
+        "samples": 15,
+        "interferences": 0,
+        "vi2": {
+          "windows": 3,
+          "n": 1800,
+          "sum_ns": 60000092571,
+          "rate": 29.99995371457141,
+          "p95_ms": [
+            39.189706,
+            42.394495,
+            37.58674
+          ],
+          "p99_ms": [
+            44.82347,
+            45.455034,
+            44.794616
+          ],
+          "max_ms": 52.036515,
+          "over30": 792,
+          "over100": 0,
+          "rows": [
+            {
+              "intervals": 600,
+              "sum_ns": 19999876565,
+              "p50_ns": 33278772,
+              "p95_ns": 39189706,
+              "p99_ns": 44823470,
+              "max_ns": 49669406,
+              "over30": 272,
+              "over100": 0,
+              "begin_ns": 2290675664069015,
+              "end_ns": 2290695663945580
+            },
+            {
+              "intervals": 600,
+              "sum_ns": 20000181198,
+              "p50_ns": 33215944,
+              "p95_ns": 42394495,
+              "p99_ns": 45455034,
+              "max_ns": 52036515,
+              "over30": 264,
+              "over100": 0,
+              "begin_ns": 2290695663945580,
+              "end_ns": 2290715664126778
+            },
+            {
+              "intervals": 600,
+              "sum_ns": 20000034808,
+              "p50_ns": 33268663,
+              "p95_ns": 37586740,
+              "p99_ns": 44794616,
+              "max_ns": 47498146,
+              "over30": 256,
+              "over100": 0,
+              "begin_ns": 2290715664126778,
+              "end_ns": 2290735664161586
+            }
+          ]
+        },
+        "wsi": {
+          "windows": 3,
+          "n": 1800,
+          "sum_ns": 60016166054,
+          "rate": 29.991919150257555,
+          "p95_ms": [
+            33.446666,
+            33.498453,
+            33.490249
+          ],
+          "p99_ms": [
+            33.912069,
+            35.01621,
+            33.900648
+          ],
+          "max_ms": 43.522169,
+          "over30": 896,
+          "over100": 0,
+          "rows": [
+            {
+              "intervals": 600,
+              "sum_ns": 20000118400,
+              "begin_ns": 2290675769084190,
+              "end_ns": 2290695769202590,
+              "p50_ns": 33333144,
+              "p95_ns": 33446666,
+              "p99_ns": 33912069,
+              "max_ns": 35022682,
+              "over30": 299,
+              "over100": 0,
+              "generation": 1,
+              "segment": 1,
+              "success": 3001,
+              "suboptimal": 0,
+              "rejected": 0
+            },
+            {
+              "intervals": 600,
+              "sum_ns": 20016224984,
+              "begin_ns": 2290695769202590,
+              "end_ns": 2290715785427574,
+              "p50_ns": 33334808,
+              "p95_ns": 33498453,
+              "p99_ns": 35016210,
+              "max_ns": 43522169,
+              "over30": 307,
+              "over100": 0,
+              "generation": 1,
+              "segment": 1,
+              "success": 3601,
+              "suboptimal": 0,
+              "rejected": 0
+            },
+            {
+              "intervals": 600,
+              "sum_ns": 19999822670,
+              "begin_ns": 2290715785427574,
+              "end_ns": 2290735785250244,
+              "p50_ns": 33331000,
+              "p95_ns": 33490249,
+              "p99_ns": 33900648,
+              "max_ns": 35402114,
+              "over30": 290,
+              "over100": 0,
+              "generation": 1,
+              "segment": 1,
+              "success": 4201,
+              "suboptimal": 0,
+              "rejected": 0
+            }
+          ]
+        }
+      },
+      "runtime": {
+        "exe_sha256": "d4480279bb044d1b6c14b3be013a6c2a91af724e81e3e529ad7f89b75e854fe4",
+        "mapped_radv_path": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+        "mapped_radv_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+        "packages": "libdrm-amdgpu1:amd64\t2.4.125-1ubuntu0.1~24.04.2\nlibdrm2:amd64\t2.4.125-1ubuntu0.1~24.04.2\nmesa-vulkan-drivers:amd64\t25.2.8-0ubuntu0.24.04.4\n",
+        "diagnostic_vulkan_info": true,
+        "actual_log_filter_verified": true
+      },
+      "seed_restore": {
+        "arm": "on",
+        "frame_pacing_mode": "1",
+        "files": 3979,
+        "bytes": 130143478,
+        "seed_manifest_sha256": "ce0b361b58a5b6b213ee7aae3c64eae59140b508d47f18f927c296f1d5001739",
+        "checkpoint_original": true
+      },
+      "lifecycle": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.604226924944669
+      },
+      "evidence_sha256": {
+        "console.log": "c5ce32e2e23fc2be24b28028da61155921983c9737cfae5593cd345d066ca4e2",
+        "phase.json": "f2bce74513c5cb3bc049c6e415027c2f86c347a4735e6fad027a373117b02932",
+        "runtime-policy.json": "c2773dba437aaad01b707b666da2adcd6443fb837b0a07d26530a710a7df2c23",
+        "runtime-activation.json": "b87ad8a60ab97d58e47b370f93bd8a8aef1d2c6cd4d7b69235b5c2a16a625706",
+        "seed-restore.json": "333dca880b93d4b1a9ec6ec2c9992cedcfe5abd09a5945fbe007f09e2696fbc5",
+        "lifecycle.json": "d752b53dd8c1f3b089a57c48d2c01e92d6c336a9d0a022ecfb79ad0e4872e9da",
+        "clock-domain-proof.json": "fb81b4d243deb411f803abdb6332ed845d980513ebaf7371d9b3540696275d6f"
+      }
+    },
+    {
+      "run": "lichii-hostpacing-confirm-off1",
+      "frame_pacing_mode": 0,
+      "measurement": {
+        "camera_seconds": 91.35423718905076,
+        "bounds_ns": [
+          2290880228829513,
+          2290971583066702
+        ],
+        "samples": 15,
+        "interferences": 0,
+        "vi2": {
+          "windows": 3,
+          "n": 1800,
+          "sum_ns": 60058163912,
+          "rate": 29.97094620870267,
+          "p95_ms": [
+            41.203017,
+            41.749093,
+            43.351497
+          ],
+          "p99_ms": [
+            45.441037,
+            46.387401,
+            47.178888
+          ],
+          "max_ms": 57.597032,
+          "over30": 757,
+          "over100": 0,
+          "rows": [
+            {
+              "intervals": 600,
+              "sum_ns": 20006214680,
+              "p50_ns": 33251664,
+              "p95_ns": 41203017,
+              "p99_ns": 45441037,
+              "max_ns": 50870366,
+              "over30": 264,
+              "over100": 0,
+              "begin_ns": 2290895949548337,
+              "end_ns": 2290915955763017
+            },
+            {
+              "intervals": 600,
+              "sum_ns": 19993979567,
+              "p50_ns": 33206111,
+              "p95_ns": 41749093,
+              "p99_ns": 46387401,
+              "max_ns": 52751314,
+              "over30": 242,
+              "over100": 0,
+              "begin_ns": 2290915955763017,
+              "end_ns": 2290935949742584
+            },
+            {
+              "intervals": 600,
+              "sum_ns": 20057969665,
+              "p50_ns": 33215723,
+              "p95_ns": 43351497,
+              "p99_ns": 47178888,
+              "max_ns": 57597032,
+              "over30": 251,
+              "over100": 0,
+              "begin_ns": 2290935949742584,
+              "end_ns": 2290956007712249
+            }
+          ]
+        },
+        "wsi": {
+          "windows": 3,
+          "n": 1800,
+          "sum_ns": 60056386646,
+          "rate": 29.97183314757228,
+          "p95_ms": [
+            41.835663,
+            42.101252,
+            42.892216
+          ],
+          "p99_ms": [
+            46.627871,
+            47.027722,
+            48.003291
+          ],
+          "max_ms": 61.329844,
+          "over30": 806,
+          "over100": 0,
+          "rows": [
+            {
+              "intervals": 600,
+              "sum_ns": 20001933866,
+              "begin_ns": 2290896011207769,
+              "end_ns": 2290916013141635,
+              "p50_ns": 33062098,
+              "p95_ns": 41835663,
+              "p99_ns": 46627871,
+              "max_ns": 51777605,
+              "over30": 278,
+              "over100": 0,
+              "generation": 1,
+              "segment": 1,
+              "success": 3001,
+              "suboptimal": 0,
+              "rejected": 0
+            },
+            {
+              "intervals": 600,
+              "sum_ns": 20008782130,
+              "begin_ns": 2290916013141635,
+              "end_ns": 2290936021923765,
+              "p50_ns": 32864922,
+              "p95_ns": 42101252,
+              "p99_ns": 47027722,
+              "max_ns": 61329844,
+              "over30": 266,
+              "over100": 0,
+              "generation": 1,
+              "segment": 1,
+              "success": 3601,
+              "suboptimal": 0,
+              "rejected": 0
+            },
+            {
+              "intervals": 600,
+              "sum_ns": 20045670650,
+              "begin_ns": 2290936021923765,
+              "end_ns": 2290956067594415,
+              "p50_ns": 32876647,
+              "p95_ns": 42892216,
+              "p99_ns": 48003291,
+              "max_ns": 50276038,
+              "over30": 262,
+              "over100": 0,
+              "generation": 1,
+              "segment": 1,
+              "success": 4201,
+              "suboptimal": 0,
+              "rejected": 0
+            }
+          ]
+        }
+      },
+      "runtime": {
+        "exe_sha256": "d4480279bb044d1b6c14b3be013a6c2a91af724e81e3e529ad7f89b75e854fe4",
+        "mapped_radv_path": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+        "mapped_radv_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+        "packages": "libdrm-amdgpu1:amd64\t2.4.125-1ubuntu0.1~24.04.2\nlibdrm2:amd64\t2.4.125-1ubuntu0.1~24.04.2\nmesa-vulkan-drivers:amd64\t25.2.8-0ubuntu0.24.04.4\n",
+        "diagnostic_vulkan_info": true,
+        "actual_log_filter_verified": true
+      },
+      "seed_restore": {
+        "arm": "on",
+        "frame_pacing_mode": "0",
+        "files": 3979,
+        "bytes": 130143478,
+        "seed_manifest_sha256": "ce0b361b58a5b6b213ee7aae3c64eae59140b508d47f18f927c296f1d5001739",
+        "checkpoint_original": true
+      },
+      "lifecycle": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.0045268391259015
+      },
+      "evidence_sha256": {
+        "console.log": "1b4b288bc9b1c7f28a8c74a8c2accba2ca2c3ca127557ee2cfc8dca7d66f4f52",
+        "phase.json": "41c0de56b6d0ac2508b8fb7bdfe8474e743ade7b21a5a0e5ba276d97bff0629a",
+        "runtime-policy.json": "f38d8fd7c6a4798b1d9e3ba8b32858aa692f4cb80e3fd90e5341462748feb0a8",
+        "runtime-activation.json": "b87ad8a60ab97d58e47b370f93bd8a8aef1d2c6cd4d7b69235b5c2a16a625706",
+        "seed-restore.json": "be2e073717647c1b8efc87f0f57b2aecda1cee775775f00e19bbea2c74bda792",
+        "lifecycle.json": "69af82c761bc09212ee25c1bfd5811e7d79a0d2a1d9981a030c68c191e74682b",
+        "clock-domain-proof.json": "4672214f21a51513287b13b10653c6af4e407f074fc1020a89db4af266544d1c"
+      }
+    },
+    {
+      "run": "lichii-hostpacing-confirm-on2",
+      "frame_pacing_mode": 1,
+      "measurement": {
+        "camera_seconds": 91.37703240988776,
+        "bounds_ns": [
+          2291093299011909,
+          2291184676044319
+        ],
+        "samples": 15,
+        "interferences": 0,
+        "vi2": {
+          "windows": 3,
+          "n": 1800,
+          "sum_ns": 60063347222,
+          "rate": 29.96835979431889,
+          "p95_ms": [
+            37.164009,
+            42.76787,
+            38.184864
+          ],
+          "p99_ms": [
+            44.264693,
+            45.834507,
+            44.874751
+          ],
+          "max_ms": 52.171773,
+          "over30": 825,
+          "over100": 0,
+          "rows": [
+            {
+              "intervals": 600,
+              "sum_ns": 20000137980,
+              "p50_ns": 33313814,
+              "p95_ns": 37164009,
+              "p99_ns": 44264693,
+              "max_ns": 49442746,
+              "over30": 284,
+              "over100": 0,
+              "begin_ns": 2291110160225236,
+              "end_ns": 2291130160363216
+            },
+            {
+              "intervals": 600,
+              "sum_ns": 20034563058,
+              "p50_ns": 33238805,
+              "p95_ns": 42767870,
+              "p99_ns": 45834507,
+              "max_ns": 52171773,
+              "over30": 260,
+              "over100": 0,
+              "begin_ns": 2291130160363216,
+              "end_ns": 2291150194926274
+            },
+            {
+              "intervals": 600,
+              "sum_ns": 20028646184,
+              "p50_ns": 33308506,
+              "p95_ns": 38184864,
+              "p99_ns": 44874751,
+              "max_ns": 48831136,
+              "over30": 281,
+              "over100": 0,
+              "begin_ns": 2291150194926274,
+              "end_ns": 2291170223572458
+            }
+          ]
+        },
+        "wsi": {
+          "windows": 3,
+          "n": 1800,
+          "sum_ns": 60031542678,
+          "rate": 29.984236947814658,
+          "p95_ms": [
+            33.441473,
+            33.454188,
+            33.442268
+          ],
+          "p99_ms": [
+            33.591664,
+            36.295612,
+            33.57726
+          ],
+          "max_ms": 43.166036,
+          "over30": 929,
+          "over100": 0,
+          "rows": [
+            {
+              "intervals": 600,
+              "sum_ns": 19999919555,
+              "begin_ns": 2291110261513007,
+              "end_ns": 2291130261432562,
+              "p50_ns": 33335145,
+              "p95_ns": 33441473,
+              "p99_ns": 33591664,
+              "max_ns": 35302691,
+              "over30": 312,
+              "over100": 0,
+              "generation": 1,
+              "segment": 1,
+              "success": 3001,
+              "suboptimal": 0,
+              "rejected": 0
+            },
+            {
+              "intervals": 600,
+              "sum_ns": 20031604410,
+              "begin_ns": 2291130261432562,
+              "end_ns": 2291150293036972,
+              "p50_ns": 33335416,
+              "p95_ns": 33454188,
+              "p99_ns": 36295612,
+              "max_ns": 43166036,
+              "over30": 310,
+              "over100": 0,
+              "generation": 1,
+              "segment": 1,
+              "success": 3601,
+              "suboptimal": 0,
+              "rejected": 0
+            },
+            {
+              "intervals": 600,
+              "sum_ns": 20000018713,
+              "begin_ns": 2291150293036972,
+              "end_ns": 2291170293055685,
+              "p50_ns": 33334455,
+              "p95_ns": 33442268,
+              "p99_ns": 33577260,
+              "max_ns": 36249168,
+              "over30": 307,
+              "over100": 0,
+              "generation": 1,
+              "segment": 1,
+              "success": 4201,
+              "suboptimal": 0,
+              "rejected": 0
+            }
+          ]
+        }
+      },
+      "runtime": {
+        "exe_sha256": "d4480279bb044d1b6c14b3be013a6c2a91af724e81e3e529ad7f89b75e854fe4",
+        "mapped_radv_path": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+        "mapped_radv_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+        "packages": "libdrm-amdgpu1:amd64\t2.4.125-1ubuntu0.1~24.04.2\nlibdrm2:amd64\t2.4.125-1ubuntu0.1~24.04.2\nmesa-vulkan-drivers:amd64\t25.2.8-0ubuntu0.24.04.4\n",
+        "diagnostic_vulkan_info": true,
+        "actual_log_filter_verified": true
+      },
+      "seed_restore": {
+        "arm": "on",
+        "frame_pacing_mode": "1",
+        "files": 3979,
+        "bytes": 130143478,
+        "seed_manifest_sha256": "ce0b361b58a5b6b213ee7aae3c64eae59140b508d47f18f927c296f1d5001739",
+        "checkpoint_original": true
+      },
+      "lifecycle": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.605707694776356
+      },
+      "evidence_sha256": {
+        "console.log": "754e9f61de9dfbf5da1cd17d8adbb3b1dd346bf8a2f78285d01f7cdf5973b4b6",
+        "phase.json": "c7e01b25bcdf07eac0503a71fef38eee0d1e41e33332312efda0391d3cbb5c7e",
+        "runtime-policy.json": "b607e64a0f14fe793dbd8089c27b4bb8e6375f4db0a6666f88644f8d9196ef99",
+        "runtime-activation.json": "b87ad8a60ab97d58e47b370f93bd8a8aef1d2c6cd4d7b69235b5c2a16a625706",
+        "seed-restore.json": "333dca880b93d4b1a9ec6ec2c9992cedcfe5abd09a5945fbe007f09e2696fbc5",
+        "lifecycle.json": "9e136460adf2093b812b10c55dda964d0d78fee80990f432af74a00f7219b4f3",
+        "clock-domain-proof.json": "0352a12ff49bf5b489b0c1d6db1172f04c1c5ce5072c03a99d803c33eb7cdaaf"
+      }
+    },
+    {
+      "run": "lichii-hostpacing-confirm-off2",
+      "frame_pacing_mode": 0,
+      "measurement": {
+        "camera_seconds": 91.38199268933386,
+        "bounds_ns": [
+          2291304969510555,
+          2291396351503244
+        ],
+        "samples": 15,
+        "interferences": 0,
+        "vi2": {
+          "windows": 4,
+          "n": 2400,
+          "sum_ns": 80005221023,
+          "rate": 29.998042244143605,
+          "p95_ms": [
+            38.62418,
+            41.40803,
+            39.29492,
+            41.073946
+          ],
+          "p99_ms": [
+            46.615969,
+            45.334289,
+            44.632375,
+            44.704563
+          ],
+          "max_ms": 52.679037,
+          "over30": 1087,
+          "over100": 0,
+          "rows": [
+            {
+              "intervals": 600,
+              "sum_ns": 20000918905,
+              "p50_ns": 33296877,
+              "p95_ns": 38624180,
+              "p99_ns": 46615969,
+              "max_ns": 49767186,
+              "over30": 280,
+              "over100": 0,
+              "begin_ns": 2291316331709526,
+              "end_ns": 2291336332628431
+            },
+            {
+              "intervals": 600,
+              "sum_ns": 20002525325,
+              "p50_ns": 33259388,
+              "p95_ns": 41408030,
+              "p99_ns": 45334289,
+              "max_ns": 46651879,
+              "over30": 270,
+              "over100": 0,
+              "begin_ns": 2291336332628431,
+              "end_ns": 2291356335153756
+            },
+            {
+              "intervals": 600,
+              "sum_ns": 20047263270,
+              "p50_ns": 33287462,
+              "p95_ns": 39294920,
+              "p99_ns": 44632375,
+              "max_ns": 52679037,
+              "over30": 273,
+              "over100": 0,
+              "begin_ns": 2291356335153756,
+              "end_ns": 2291376382417026
+            },
+            {
+              "intervals": 600,
+              "sum_ns": 19954513523,
+              "p50_ns": 33282553,
+              "p95_ns": 41073946,
+              "p99_ns": 44704563,
+              "max_ns": 48275075,
+              "over30": 264,
+              "over100": 0,
+              "begin_ns": 2291376382417026,
+              "end_ns": 2291396336930549
+            }
+          ]
+        },
+        "wsi": {
+          "windows": 3,
+          "n": 1800,
+          "sum_ns": 60049704005,
+          "rate": 29.975168567860454,
+          "p95_ms": [
+            39.671704,
+            42.261038,
+            40.666301
+          ],
+          "p99_ms": [
+            46.369748,
+            46.632994,
+            46.063476
+          ],
+          "max_ms": 50.158283,
+          "over30": 850,
+          "over100": 0,
+          "rows": [
+            {
+              "intervals": 600,
+              "sum_ns": 20000407930,
+              "begin_ns": 2291316389727505,
+              "end_ns": 2291336390135435,
+              "p50_ns": 33096993,
+              "p95_ns": 39671704,
+              "p99_ns": 46369748,
+              "max_ns": 49833320,
+              "over30": 279,
+              "over100": 0,
+              "generation": 1,
+              "segment": 1,
+              "success": 3001,
+              "suboptimal": 0,
+              "rejected": 0
+            },
+            {
+              "intervals": 600,
+              "sum_ns": 20002370907,
+              "begin_ns": 2291336390135435,
+              "end_ns": 2291356392506342,
+              "p50_ns": 33022152,
+              "p95_ns": 42261038,
+              "p99_ns": 46632994,
+              "max_ns": 47777027,
+              "over30": 277,
+              "over100": 0,
+              "generation": 1,
+              "segment": 1,
+              "success": 3601,
+              "suboptimal": 0,
+              "rejected": 0
+            },
+            {
+              "intervals": 600,
+              "sum_ns": 20046925168,
+              "begin_ns": 2291356392506342,
+              "end_ns": 2291376439431510,
+              "p50_ns": 33239141,
+              "p95_ns": 40666301,
+              "p99_ns": 46063476,
+              "max_ns": 50158283,
+              "over30": 294,
+              "over100": 0,
+              "generation": 1,
+              "segment": 1,
+              "success": 4201,
+              "suboptimal": 0,
+              "rejected": 0
+            }
+          ]
+        }
+      },
+      "runtime": {
+        "exe_sha256": "d4480279bb044d1b6c14b3be013a6c2a91af724e81e3e529ad7f89b75e854fe4",
+        "mapped_radv_path": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+        "mapped_radv_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+        "packages": "libdrm-amdgpu1:amd64\t2.4.125-1ubuntu0.1~24.04.2\nlibdrm2:amd64\t2.4.125-1ubuntu0.1~24.04.2\nmesa-vulkan-drivers:amd64\t25.2.8-0ubuntu0.24.04.4\n",
+        "diagnostic_vulkan_info": true,
+        "actual_log_filter_verified": true
+      },
+      "seed_restore": {
+        "arm": "on",
+        "frame_pacing_mode": "0",
+        "files": 3979,
+        "bytes": 130143478,
+        "seed_manifest_sha256": "ce0b361b58a5b6b213ee7aae3c64eae59140b508d47f18f927c296f1d5001739",
+        "checkpoint_original": true
+      },
+      "lifecycle": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 2.904662808869034
+      },
+      "evidence_sha256": {
+        "console.log": "ed28ed7493cb50029cf04f0a741b5dfd6601abd60bc233700eb8132a32fc5cca",
+        "phase.json": "4d1c23206e17b6dbb51bba3e82f1bd3e3937dcccdbcb884f269a7cd161d55664",
+        "runtime-policy.json": "dbefe81c6fd666e84a314c2b67296b76478e566b99c95d7d3d91a6745ada881e",
+        "runtime-activation.json": "b87ad8a60ab97d58e47b370f93bd8a8aef1d2c6cd4d7b69235b5c2a16a625706",
+        "seed-restore.json": "be2e073717647c1b8efc87f0f57b2aecda1cee775775f00e19bbea2c74bda792",
+        "lifecycle.json": "33ec32ff7c9f61546989aff8f08a36f2db7bc75752deebac20389895d8c31deb",
+        "clock-domain-proof.json": "c3afa1ac4cbe6afdf93cd4da978189a6c207d1ac84b18d16f397cc473d42e405"
+      }
+    }
+  ],
+  "interpretation": [
+    "Both pairs show narrower accepted Vulkan-return intervals with Target30. WSI per-window p99 is 33.577260–36.295612 ms enabled versus 46.063476–48.003291 ms Auto; these are ranges of window quantiles, not pooled percentiles.",
+    "All arms average approximately 30 accepted returns/s. This setting regularizes output; it does not establish a computation-rate gain or distinct image contents.",
+    "VI2 request intervals remain irregular: per-window p99 44.264693–45.834507 ms enabled. WSI and VI2 windows have different anchors and are not matched frame by frame.",
+    "Strict >33,333,333 ns counts are retained without relaxing the threshold. Their percentage alone is misleading when the limiter targets the same budget.",
+    "Worst complete-window WSI interval remains 43.522169 ms enabled. Zero intervals exceed 100 ms within the retained windows of this camera test.",
+    "Thread affinity was read before phase one. GPU permits logical CPUs 1,7, GPUBack 2,8; HostTiming and VulkanPresent allow 0–11. All sampled policies SCHED_OTHER/nice0. Masks establish neither actual residence nor exclusive CPU use.",
+    "OFF1 shows a vertically extended hat in an unmatched idle pose. These captures do not establish cause or certify character rendering/temporal quality."
+  ],
+  "root_arithmetic_audit_sha256": "f4326b224bcd1c313651ed959721b2b90144aad3245b9f33ed58f28def2957f3",
+  "cleanup": {
+    "at": 1794273434.3357882,
+    "own_game_absent": true,
+    "own_helper_removed": true,
+    "old_devices_absent": [
+      "/dev/input/event8",
+      "/dev/input/event9",
+      "/dev/input/event10",
+      "/dev/input/event11"
+    ],
+    "matching_names_remaining": [],
+    "observer": "active",
+    "production_config_unchanged": true,
+    "eight_progressions_unchanged": true,
+    "gpu_policies": {
+      "/sys/class/drm/card0/device/power_dpm_force_performance_level": "auto"
+    },
+    "gpu_power_caps_micro_watts": [
+      150000000
+    ]
+  },
+  "next": "Qualify actual ground movement, zone changes, wall-time/game speed, stereo audio, private save/resume and a longer session before any production adoption. Review upstream #1143 separately to preserve pointer classifications across pipeline eviction; no FPS gain attributed to it.",
+  "private_final_report_sha256": "1d1cf157ca5132b21735924aea8159b52034e6b9614563b9b11958ee6ad240b1",
+  "independent_review": {
+    "raw_counts_sums_p95_p99_max_budget_counts_match_private_report": true,
+    "complete_env_maps_equal_no_duplicate_keys": true,
+    "native_config_only_pacing_value_and_default_metadata_differ": true
+  }
+}

@@ -1,0 +1,915 @@
+{
+  "checked_at": "2026-11-09T11:06:30.277127+00:00",
+  "repos": {
+    "Djihads80/Eglantine": {
+      "releases": [
+        {
+          "tag": "v0.1.0-rc3",
+          "published_at": "2026-11-08T16:21:38Z",
+          "target": "78743f30c251f66bd77e6eea6c28d8632d642d6f",
+          "url": "https://github.com/Eglantine-Community/Eglantine/releases/tag/v0.1.0-rc3"
+        },
+        {
+          "tag": "daily-20261109",
+          "published_at": "2026-11-09T11:04:48Z",
+          "target": "78743f30c251f66bd77e6eea6c28d8632d642d6f",
+          "url": "https://github.com/Eglantine-Community/Eglantine/releases/tag/daily-20261109"
+        },
+        {
+          "tag": "branch-nx2-experimental-efb9fb18",
+          "published_at": "2026-11-08T14:02:14Z",
+          "target": "df2989c794cdb6b979e478c5b02ed7f565ebb443",
+          "url": "https://github.com/Eglantine-Community/Eglantine/releases/tag/branch-nx2-experimental-efb9fb18"
+        }
+      ],
+      "commits": [
+        {
+          "sha": "78743f30c251f66bd77e6eea6c28d8632d642d6f",
+          "date": "2026-11-08T14:57:58Z",
+          "subject": "bump to 0.1.0-rc3",
+          "url": "https://github.com/Eglantine-Community/Eglantine/commit/78743f30c251f66bd77e6eea6c28d8632d642d6f"
+        },
+        {
+          "sha": "ea8d7d25a5bd9565cde35b3ce8e3cc1141c4c660",
+          "date": "2026-11-08T14:55:12Z",
+          "subject": "Merge branch 'nx2' into nx2-experimental",
+          "url": "https://github.com/Eglantine-Community/Eglantine/commit/ea8d7d25a5bd9565cde35b3ce8e3cc1141c4c660"
+        },
+        {
+          "sha": "293b5598fb79e809eef76f36b75a160488fcb6da",
+          "date": "2026-11-08T14:53:37Z",
+          "subject": "downgraded ubuntu for older gzip",
+          "url": "https://github.com/Eglantine-Community/Eglantine/commit/293b5598fb79e809eef76f36b75a160488fcb6da"
+        },
+        {
+          "sha": "66bfbc53210543e3a5995ca2c3fc3229c399169b",
+          "date": "2026-11-08T14:23:31Z",
+          "subject": "chore: bumped to 0.1.0-rc2",
+          "url": "https://github.com/Eglantine-Community/Eglantine/commit/66bfbc53210543e3a5995ca2c3fc3229c399169b"
+        },
+        {
+          "sha": "fbcfe365d7eabb4c8dc5f84247aa7d88190f3ec3",
+          "date": "2026-11-08T14:22:53Z",
+          "subject": "fix: fixed change log",
+          "url": "https://github.com/Eglantine-Community/Eglantine/commit/fbcfe365d7eabb4c8dc5f84247aa7d88190f3ec3"
+        },
+        {
+          "sha": "df2989c794cdb6b979e478c5b02ed7f565ebb443",
+          "date": "2026-11-08T13:19:28Z",
+          "subject": "Merge branch 'nx2-experimental' of https://github.com/Djihads80/Eglantine into nx2-experimental",
+          "url": "https://github.com/Eglantine-Community/Eglantine/commit/df2989c794cdb6b979e478c5b02ed7f565ebb443"
+        },
+        {
+          "sha": "eff9f843af544ab7c8973aa5b58b5a0b5dea768b",
+          "date": "2026-11-08T13:19:19Z",
+          "subject": "fixed stupid ci",
+          "url": "https://github.com/Eglantine-Community/Eglantine/commit/eff9f843af544ab7c8973aa5b58b5a0b5dea768b"
+        },
+        {
+          "sha": "dc7fd243c4e89ca1abc8918b3d95d4ea010c1ddf",
+          "date": "2026-11-08T13:08:59Z",
+          "subject": "Merge pull request #774 from rdenno/fix/bra-u-hsetp2-cbuf",
+          "url": "https://github.com/Eglantine-Community/Eglantine/commit/dc7fd243c4e89ca1abc8918b3d95d4ea010c1ddf"
+        },
+        {
+          "sha": "1e2c2dd4dbd11211bc9480a010cfe4908df0c161",
+          "date": "2026-11-08T13:02:44Z",
+          "subject": "shader: lower BRA.U and HSETP2 with a constant buffer",
+          "url": "https://github.com/Eglantine-Community/Eglantine/commit/1e2c2dd4dbd11211bc9480a010cfe4908df0c161"
+        },
+        {
+          "sha": "373a7f5ac16a95dc8438651c23332ce2046a760a",
+          "date": "2026-11-08T11:17:28Z",
+          "subject": "ci: added discord RPC to builds",
+          "url": "https://github.com/Eglantine-Community/Eglantine/commit/373a7f5ac16a95dc8438651c23332ce2046a760a"
+        },
+        {
+          "sha": "8b9b5a195fed018716befe4d6f4b3a88dcc7b37f",
+          "date": "2026-11-08T11:16:49Z",
+          "subject": "Merge branch 'mushymeow/nx2' into nx2-experimental",
+          "url": "https://github.com/Eglantine-Community/Eglantine/commit/8b9b5a195fed018716befe4d6f4b3a88dcc7b37f"
+        },
+        {
+          "sha": "0fa5991d0e890acb8a108ffb6df2974f7370cb03",
+          "date": "2026-11-08T11:12:50Z",
+          "subject": "fix: add translations to build (fixes #767)",
+          "url": "https://github.com/Eglantine-Community/Eglantine/commit/0fa5991d0e890acb8a108ffb6df2974f7370cb03"
+        }
+      ]
+    },
+    "zortos293/Lichii": {
+      "releases": [
+        {
+          "tag": "build-125",
+          "published_at": "2026-11-09T00:09:27Z",
+          "target": "nx2",
+          "url": "https://github.com/zortos293/Lichii/releases/tag/build-125"
+        },
+        {
+          "tag": "build-117",
+          "published_at": "2026-11-07T22:39:01Z",
+          "target": "nx2",
+          "url": "https://github.com/zortos293/Lichii/releases/tag/build-117"
+        },
+        {
+          "tag": "build-116",
+          "published_at": "2026-11-07T22:12:30Z",
+          "target": "nx2",
+          "url": "https://github.com/zortos293/Lichii/releases/tag/build-116"
+        }
+      ],
+      "commits": [
+        {
+          "sha": "986a2b684d752cd5227d0d8cdd63d52111d9c298",
+          "date": "2026-11-09T10:54:22Z",
+          "subject": "nx2_profile: GPU waits by zone, present and submit zones, lock contention; opt-in live-read check (#965)",
+          "url": "https://github.com/zortos293/Lichii/commit/986a2b684d752cd5227d0d8cdd63d52111d9c298"
+        },
+        {
+          "sha": "a551b80888dacfc71bbdc2b2d0b81702d656c04e",
+          "date": "2026-11-09T09:17:16Z",
+          "subject": "video_core: keep every semaphore region, not just the first 32 (#1014)",
+          "url": "https://github.com/zortos293/Lichii/commit/a551b80888dacfc71bbdc2b2d0b81702d656c04e"
+        },
+        {
+          "sha": "b9bb5a09929b2656a0857e0d3ae743f1661b0f14",
+          "date": "2026-11-09T08:47:48Z",
+          "subject": "core_timing: sleep the HostTiming thread in the OS between events (#1016)",
+          "url": "https://github.com/zortos293/Lichii/commit/b9bb5a09929b2656a0857e0d3ae743f1661b0f14"
+        },
+        {
+          "sha": "0888d49a213cb6cf9bdf52975db8d3c578a9a793",
+          "date": "2026-11-09T08:42:58Z",
+          "subject": "Add support for the NX archive format (#866 with review fixes) (#923)",
+          "url": "https://github.com/zortos293/Lichii/commit/0888d49a213cb6cf9bdf52975db8d3c578a9a793"
+        },
+        {
+          "sha": "2b30c2cb1ceb8f9a6e385b7cea45705dca07b722",
+          "date": "2026-11-09T07:43:19Z",
+          "subject": "common: trim all-zero guest pages unconditionally (builds on #431) (#961)",
+          "url": "https://github.com/zortos293/Lichii/commit/2b30c2cb1ceb8f9a6e385b7cea45705dca07b722"
+        },
+        {
+          "sha": "a4f62873277556960b5edc4c000f8ad482e5fac6",
+          "date": "2026-11-09T07:42:19Z",
+          "subject": "video_core: drain-free semaphore acquires, uniform keeps and descriptor replay on delta draws (#949)",
+          "url": "https://github.com/zortos293/Lichii/commit/a4f62873277556960b5edc4c000f8ad482e5fac6"
+        },
+        {
+          "sha": "5837d06467fd50c0314185650f4ca3748d5df7ad",
+          "date": "2026-11-09T07:42:10Z",
+          "subject": "video_core: restore the Switch 2 semaphore mirror, shadowing words with direct releases (#979)",
+          "url": "https://github.com/zortos293/Lichii/commit/5837d06467fd50c0314185650f4ca3748d5df7ad"
+        },
+        {
+          "sha": "9d8fa87d14d170466f1db47c5e009885bc188862",
+          "date": "2026-11-09T07:42:01Z",
+          "subject": "video_core: EDEN_NX2_STUTTER_TRACE and the shader cache bench harness (#975)",
+          "url": "https://github.com/zortos293/Lichii/commit/9d8fa87d14d170466f1db47c5e009885bc188862"
+        },
+        {
+          "sha": "59e3d227a10385ba02246aa74100096efd12bfa1",
+          "date": "2026-11-09T07:41:52Z",
+          "subject": "file_sys: harden PFS0, RomFS, NCA and XCI parsers against malformed files (#947)",
+          "url": "https://github.com/zortos293/Lichii/commit/59e3d227a10385ba02246aa74100096efd12bfa1"
+        },
+        {
+          "sha": "0fff860be6bb5b0cd1cc7fd168d75ce4cea310a6",
+          "date": "2026-11-09T07:41:42Z",
+          "subject": "core: give each DeviceMemoryManager its own translation generations (#984)",
+          "url": "https://github.com/zortos293/Lichii/commit/0fff860be6bb5b0cd1cc7fd168d75ce4cea310a6"
+        },
+        {
+          "sha": "b29ef4b583761bdf0ca8a041bdf0ab033a87d281",
+          "date": "2026-11-09T07:41:34Z",
+          "subject": "video_core: EDEN_NX2_MEM_TRACE memory trace; log texture cache thresholds only when they change (#951)",
+          "url": "https://github.com/zortos293/Lichii/commit/b29ef4b583761bdf0ca8a041bdf0ab033a87d281"
+        },
+        {
+          "sha": "cee0c2dbc0a8e7c568712b170b4bdb63b7efb23b",
+          "date": "2026-11-09T07:41:24Z",
+          "subject": "common: reserve the last page table level from the range's last byte (#957)",
+          "url": "https://github.com/zortos293/Lichii/commit/cee0c2dbc0a8e7c568712b170b4bdb63b7efb23b"
+        }
+      ]
+    },
+    "callme-sy/Lichii-Superbuild": {
+      "releases": [
+        {
+          "tag": "v31",
+          "published_at": "2026-11-09T00:54:51Z",
+          "target": "superbuild",
+          "url": "https://github.com/callme-sy/Lichii-Superbuild/releases/tag/v31"
+        },
+        {
+          "tag": "v30",
+          "published_at": "2026-11-08T22:27:39Z",
+          "target": "superbuild",
+          "url": "https://github.com/callme-sy/Lichii-Superbuild/releases/tag/v30"
+        },
+        {
+          "tag": "v29",
+          "published_at": "2026-11-08T22:08:55Z",
+          "target": "superbuild",
+          "url": "https://github.com/callme-sy/Lichii-Superbuild/releases/tag/v29"
+        }
+      ],
+      "commits": [
+        {
+          "sha": "4260403c11a43a76d20e0b265a686ee843fc16c6",
+          "date": "2026-11-09T00:55:19Z",
+          "subject": "docs: fix v31 platform note",
+          "url": "https://github.com/callme-sy/Lichii-Superbuild/commit/4260403c11a43a76d20e0b265a686ee843fc16c6"
+        },
+        {
+          "sha": "e8d0ac3d0c8b6c984d4f3ef232e56485f09a1274",
+          "date": "2026-11-09T00:54:30Z",
+          "subject": "docs: v31 base cbb512ee with 932 and 918",
+          "url": "https://github.com/callme-sy/Lichii-Superbuild/commit/e8d0ac3d0c8b6c984d4f3ef232e56485f09a1274"
+        },
+        {
+          "sha": "19c14dfff88352a680026140097c288e2c2c1ec3",
+          "date": "2026-11-09T00:23:25Z",
+          "subject": "docs: limit macOS note to v30",
+          "url": "https://github.com/callme-sy/Lichii-Superbuild/commit/19c14dfff88352a680026140097c288e2c2c1ec3"
+        },
+        {
+          "sha": "320d118bf910fc5a33bcba94d8c7d7064861cdf9",
+          "date": "2026-11-09T00:23:24Z",
+          "subject": "docs: note macOS v30 assets",
+          "url": "https://github.com/callme-sy/Lichii-Superbuild/commit/320d118bf910fc5a33bcba94d8c7d7064861cdf9"
+        },
+        {
+          "sha": "9b2d376ba6f0870bbeae3e7a59aca28b1b3f7ba4",
+          "date": "2026-11-09T00:23:24Z",
+          "subject": "ci: fix macOS package switches path",
+          "url": "https://github.com/callme-sy/Lichii-Superbuild/commit/9b2d376ba6f0870bbeae3e7a59aca28b1b3f7ba4"
+        },
+        {
+          "sha": "4a5e7a78ac61dfe92eabf7b3af2d3040fa349519",
+          "date": "2026-11-09T00:23:24Z",
+          "subject": "docs: v30 base 1c25fbdf with 874 and 921",
+          "url": "https://github.com/callme-sy/Lichii-Superbuild/commit/4a5e7a78ac61dfe92eabf7b3af2d3040fa349519"
+        },
+        {
+          "sha": "9c066684682d46e176051b23ce240eb2f263fa36",
+          "date": "2026-11-09T00:23:24Z",
+          "subject": "docs: recommend v29 and remove Zen3 mentions",
+          "url": "https://github.com/callme-sy/Lichii-Superbuild/commit/9c066684682d46e176051b23ce240eb2f263fa36"
+        },
+        {
+          "sha": "de5e00faffe39d2ab314c63f3229b77279c72a5b",
+          "date": "2026-11-09T00:23:24Z",
+          "subject": "docs: v29 with 874 fix and macOS build support",
+          "url": "https://github.com/callme-sy/Lichii-Superbuild/commit/de5e00faffe39d2ab314c63f3229b77279c72a5b"
+        },
+        {
+          "sha": "c724b70fc7c24ad511a5a1493c0f64da2d31e537",
+          "date": "2026-11-09T00:23:09Z",
+          "subject": "query_cache: keep fence-flagged payload releases synchronized at low accuracy",
+          "url": "https://github.com/callme-sy/Lichii-Superbuild/commit/c724b70fc7c24ad511a5a1493c0f64da2d31e537"
+        },
+        {
+          "sha": "fcedfa5016e90a2b54c24f8c66026faf83274cd0",
+          "date": "2026-11-09T00:23:08Z",
+          "subject": "ci: add macOS arm64 build workflow",
+          "url": "https://github.com/callme-sy/Lichii-Superbuild/commit/fcedfa5016e90a2b54c24f8c66026faf83274cd0"
+        },
+        {
+          "sha": "347eba1d77fd917b906f2c9caa8ef7b0db3099cf",
+          "date": "2026-11-09T00:23:08Z",
+          "subject": "docs: v28 base c2e293ec and #910 crash fix",
+          "url": "https://github.com/callme-sy/Lichii-Superbuild/commit/347eba1d77fd917b906f2c9caa8ef7b0db3099cf"
+        },
+        {
+          "sha": "77c48213fb0c6b9b8840643a91ef4ba46af4de74",
+          "date": "2026-11-09T00:23:08Z",
+          "subject": "docs: v26 base 3153d96 and latest nx2 notes",
+          "url": "https://github.com/callme-sy/Lichii-Superbuild/commit/77c48213fb0c6b9b8840643a91ef4ba46af4de74"
+        }
+      ]
+    },
+    "MythosOfs/Orchid": {
+      "releases": [
+        {
+          "tag": "v0.9.2",
+          "published_at": "2026-11-09T07:25:08Z",
+          "target": "5d00ad961b37ac635a6c502bf60fbd8972a3466b",
+          "url": "https://github.com/MythosOfs/Orchid/releases/tag/v0.9.2"
+        },
+        {
+          "tag": "v0.9.1",
+          "published_at": "2026-11-08T16:35:24Z",
+          "target": "52546e9b1695492918146442fff9ba70fa4b39a7",
+          "url": "https://github.com/MythosOfs/Orchid/releases/tag/v0.9.1"
+        },
+        {
+          "tag": "v0.9.0",
+          "published_at": "2026-11-06T22:50:42Z",
+          "target": "e420cf2bea784f7247246973c104cd67392aa2b9",
+          "url": "https://github.com/MythosOfs/Orchid/releases/tag/v0.9.0"
+        }
+      ],
+      "commits": [
+        {
+          "sha": "ac8cf692ced24e5119fef99c74fd8e571b5bff52",
+          "date": "2026-11-09T07:10:57Z",
+          "subject": "Drop the validation section from the 0.9.2 notes",
+          "url": "https://github.com/MythosOfs/Orchid/commit/ac8cf692ced24e5119fef99c74fd8e571b5bff52"
+        },
+        {
+          "sha": "195b92a57c12cc2b02f93529e711e88a608660ba",
+          "date": "2026-11-09T07:10:19Z",
+          "subject": "Prepare 0.9.2 release notes",
+          "url": "https://github.com/MythosOfs/Orchid/commit/195b92a57c12cc2b02f93529e711e88a608660ba"
+        },
+        {
+          "sha": "5d00ad961b37ac635a6c502bf60fbd8972a3466b",
+          "date": "2026-11-09T06:38:28Z",
+          "subject": "loader: rename the boot content bindings that shadowed romfs",
+          "url": "https://github.com/MythosOfs/Orchid/commit/5d00ad961b37ac635a6c502bf60fbd8972a3466b"
+        },
+        {
+          "sha": "d248241dee691b69151f95e33041f5f709a25f3a",
+          "date": "2026-11-09T00:59:45Z",
+          "subject": "video_core: honor the compact upscale regions in any tensor-pass stand-in",
+          "url": "https://github.com/MythosOfs/Orchid/commit/d248241dee691b69151f95e33041f5f709a25f3a"
+        },
+        {
+          "sha": "c4a3bcc67ecad43c66de9bd5867ed51c62584e55",
+          "date": "2026-11-08T23:41:51Z",
+          "subject": "game_settings: preemptive CPU reads for Xenoblade DE Switch 2 Edition",
+          "url": "https://github.com/MythosOfs/Orchid/commit/c4a3bcc67ecad43c66de9bd5867ed51c62584e55"
+        },
+        {
+          "sha": "aba51af52e52b0c1880520b6dfb0a6287fadb35c",
+          "date": "2026-11-08T23:39:23Z",
+          "subject": "nup: extract archives and edit their metadata in place",
+          "url": "https://github.com/MythosOfs/Orchid/commit/aba51af52e52b0c1880520b6dfb0a6287fadb35c"
+        },
+        {
+          "sha": "e7e4dc0b18c33081bf887e4bc855dcadcb4706fb",
+          "date": "2026-11-08T23:19:16Z",
+          "subject": "video_core: GPU time reports show when the work was submitted",
+          "url": "https://github.com/MythosOfs/Orchid/commit/e7e4dc0b18c33081bf887e4bc855dcadcb4706fb"
+        },
+        {
+          "sha": "15cbd07a54cbe10e83a244cac3adc682eea7bce7",
+          "date": "2026-11-08T20:58:57Z",
+          "subject": "loader: one boot content set for every Switch 2 Edition layout",
+          "url": "https://github.com/MythosOfs/Orchid/commit/15cbd07a54cbe10e83a244cac3adc682eea7bce7"
+        },
+        {
+          "sha": "e073ac5fa6400c4b6be717e768b5c84c41c9c42f",
+          "date": "2026-11-08T20:38:53Z",
+          "subject": "frontend: treat Xenoblade 1, 2, X, 3 and Orbitals as supported games",
+          "url": "https://github.com/MythosOfs/Orchid/commit/e073ac5fa6400c4b6be717e768b5c84c41c9c42f"
+        },
+        {
+          "sha": "b714ceeee63569be702102419087e3fc98c3092e",
+          "date": "2026-11-08T17:08:39Z",
+          "subject": "kernel: give Switch 2 processes a 128 GiB alias region",
+          "url": "https://github.com/MythosOfs/Orchid/commit/b714ceeee63569be702102419087e3fc98c3092e"
+        },
+        {
+          "sha": "40475fe054ca03f7eaeec2962aad0f30953034ac",
+          "date": "2026-11-08T17:08:39Z",
+          "subject": "loader: serve sibling program RomFS of loose multi-program dumps",
+          "url": "https://github.com/MythosOfs/Orchid/commit/40475fe054ca03f7eaeec2962aad0f30953034ac"
+        },
+        {
+          "sha": "52546e9b1695492918146442fff9ba70fa4b39a7",
+          "date": "2026-11-08T16:21:09Z",
+          "subject": "Prepare 0.9.1 release notes",
+          "url": "https://github.com/MythosOfs/Orchid/commit/52546e9b1695492918146442fff9ba70fa4b39a7"
+        }
+      ]
+    }
+  },
+  "local_Lichii_build": {
+    "revision": "986a2b684d752cd5227d0d8cdd63d52111d9c298",
+    "cli_sha256": "8ac35c2736b4367c8e32990cc9eb8b03ccec8795dec149f05b4cdf2a79b9c7b5",
+    "changed_source_mtime": 1794222567.1019886,
+    "rebuilt_object_mtime": 1794223473.1025279,
+    "source_status": [
+      " M cpmfile.json"
+    ],
+    "local_Cpp_prototypes": false,
+    "tests_exit": 0
+  },
+  "passed_tests": 1086,
+  "network_skipped": 4,
+  "feature_diagnostics": {
+    "mode0": {
+      "result": {
+        "diagnostic_only": true,
+        "no_FPS_claim": true,
+        "wall_start": 1794224535.9002297,
+        "wall_end": 1794224597.3415587,
+        "seconds": 61.44132779398933,
+        "native_epoch_bounds": [
+          1794224367.8242035,
+          1794224368.073167
+        ],
+        "features": {
+          "uniforms": {
+            "all_reports": 9,
+            "complete_windows": [
+              {
+                "native": 208.151536,
+                "counts": [
+                  0,
+                  6067795,
+                  0,
+                  0
+                ],
+                "interval_start": 178.524476
+              }
+            ],
+            "verified": 0,
+            "mismatches_in_all_reports": 0
+          },
+          "descriptors": {
+            "all_reports": 0,
+            "complete_windows": [],
+            "verified": 0,
+            "mismatches_in_all_reports": 0
+          }
+        },
+        "shutdown": {
+          "exit_code": 0,
+          "stop_requested": true,
+          "window_closed": true,
+          "forced": false,
+          "stop_seconds": 3.304818583186716
+        },
+        "scope": "Only whole reset-counter intervals inside actual observed camera phase; previous report bounds each interval. Synthetic semaphore bug not exercised in mode0.",
+        "validation_status": "Not exercised: split0 never reaches NoteResolvedDraw GPUBack requirement; no feature validation accepted."
+      },
+      "visual_review": {
+        "world_and_avatar_visible": true,
+        "scene": "Kokiri Forest, title readable; Link on balcony and world rendered.",
+        "reviewed_at": 1794224535.2580109,
+        "split_mode": 0,
+        "baseline_mesh_skip": true,
+        "after_camera_world_and_avatar_visible": true,
+        "reviewed_after_at": 1794224781.116379
+      },
+      "runtime": {
+        "exe_sha256": "8ac35c2736b4367c8e32990cc9eb8b03ccec8795dec149f05b4cdf2a79b9c7b5",
+        "mapped_radv_path": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+        "mapped_radv_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+        "packages": "libdrm-amdgpu1:amd64\t2.4.125-1ubuntu0.1~24.04.2\nlibdrm2:amd64\t2.4.125-1ubuntu0.1~24.04.2\nmesa-vulkan-drivers:amd64\t25.2.8-0ubuntu0.24.04.4\n",
+        "diagnostic_vulkan_info": true,
+        "actual_log_filter_verified": true
+      }
+    },
+    "mode1": {
+      "result": {
+        "diagnostic_only": true,
+        "no_FPS_claim": true,
+        "wall_start": 1794224909.212477,
+        "wall_end": 1794224970.5398753,
+        "seconds": 61.32739730691537,
+        "native_epoch_bounds": [
+          1794224781.4942155,
+          1794224781.7612708
+        ],
+        "features": {
+          "uniforms": {
+            "all_reports": 8,
+            "complete_windows": [
+              {
+                "native": 165.507827,
+                "counts": [
+                  0,
+                  5944754,
+                  334475,
+                  592
+                ],
+                "interval_start": 134.302425
+              }
+            ],
+            "verified": 334475,
+            "mismatches_in_all_reports": 1219
+          },
+          "descriptors": {
+            "all_reports": 14,
+            "complete_windows": [
+              {
+                "native": 141.283355,
+                "counts": [
+                  0,
+                  23552,
+                  23552,
+                  0
+                ],
+                "interval_start": 131.005494
+              },
+              {
+                "native": 151.49562,
+                "counts": [
+                  0,
+                  24576,
+                  24576,
+                  0
+                ],
+                "interval_start": 141.283355
+              },
+              {
+                "native": 161.801246,
+                "counts": [
+                  0,
+                  24576,
+                  24576,
+                  0
+                ],
+                "interval_start": 151.49562
+              },
+              {
+                "native": 171.821577,
+                "counts": [
+                  0,
+                  23552,
+                  23552,
+                  0
+                ],
+                "interval_start": 161.801246
+              },
+              {
+                "native": 181.943919,
+                "counts": [
+                  0,
+                  24576,
+                  24576,
+                  0
+                ],
+                "interval_start": 171.821577
+              }
+            ],
+            "verified": 120832,
+            "mismatches_in_all_reports": 0
+          }
+        },
+        "shutdown": {
+          "exit_code": 0,
+          "stop_requested": true,
+          "window_closed": true,
+          "forced": false,
+          "stop_seconds": 3.004033870063722
+        },
+        "split": "EDEN_NX2_SPLIT=1",
+        "cpu_zone_profile": true,
+        "scope": "Only whole reset-counter intervals inside actual observed camera phase; previous report bounds each interval. Split0/1 do not enable front-macro accelerated acquires.",
+        "validation_status": "Uniform data changed while blind keep would have reused allocation; not accepted. Descriptor checks exercised with no mismatches in this scene."
+      },
+      "visual_review": {
+        "world_and_avatar_visible": true,
+        "scene": "Kokiri Forest title readable; Link on balcony and world rendered.",
+        "reviewed_at": 1794224908.5317833,
+        "split_mode": 1,
+        "baseline_mesh_skip": true,
+        "fast_acquire_disabled_by_mode": true,
+        "after_camera_world_and_avatar_visible": true,
+        "reviewed_after_at": 1794225112.084955
+      },
+      "runtime": {
+        "exe_sha256": "8ac35c2736b4367c8e32990cc9eb8b03ccec8795dec149f05b4cdf2a79b9c7b5",
+        "mapped_radv_path": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+        "mapped_radv_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+        "packages": "libdrm-amdgpu1:amd64\t2.4.125-1ubuntu0.1~24.04.2\nlibdrm2:amd64\t2.4.125-1ubuntu0.1~24.04.2\nmesa-vulkan-drivers:amd64\t25.2.8-0ubuntu0.24.04.4\n",
+        "diagnostic_vulkan_info": true,
+        "actual_log_filter_verified": true
+      }
+    }
+  },
+  "synthetic_semaphore_probe": {
+    "result": "Divergence reproduced with real headers and extracted functions. No complete concurrency/alias-safe correction asserted; mode1 retains reference acquires.",
+    "not_a_game_occurrence": true
+  },
+  "cursor_port": {
+    "result": "Actual Lichii function red3, corrected0, reintroducedbug3; three Catch tests1027820assertionspass andmutant2fail.",
+    "full_candidate_build_and_game_pending": true
+  },
+  "other_emulator_sources": [
+    {
+      "name": "dolphin-ring",
+      "url": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Source/Core/VideoBackends/Vulkan/VKStreamBuffer.cpp",
+      "bytes": 9921,
+      "sha256": "ce63a01a4cd89bef842dc917d9fd58936b15e3b8fe6517207b32a95a329da110"
+    },
+    {
+      "name": "dolphin-submit",
+      "url": "https://raw.githubusercontent.com/dolphin-emu/dolphin/master/Source/Core/VideoBackends/Vulkan/CommandBufferManager.cpp",
+      "bytes": 20141,
+      "sha256": "c45af02bfcde5deda8f19b2642a3a10a9683bbf3a3f1b152ac7611a719dabc9c"
+    },
+    {
+      "name": "pcsx2-submit",
+      "url": "https://raw.githubusercontent.com/PCSX2/pcsx2/master/pcsx2/GS/Renderers/Vulkan/GSDeviceVK.cpp",
+      "bytes": 246406,
+      "sha256": "0f38f59c814ced8807dfa127c9c2df7a3e4e9f87a40fd087ed19fe57af0cb0af"
+    },
+    {
+      "name": "ryubing-buffer",
+      "url": "https://git.ryujinx.app/projects/Ryubing/raw/branch/master/src/Ryujinx.Graphics.Gpu/Memory/Buffer.cs",
+      "bytes": 40305,
+      "sha256": "89879e2b093075a84f659ca35d666c06ab43417ae36cdce9d916b8fba33c3508"
+    },
+    {
+      "name": "ryubing-ranges",
+      "url": "https://git.ryujinx.app/projects/Ryubing/raw/branch/master/src/Ryujinx.Graphics.Gpu/Memory/BufferModifiedRangeList.cs",
+      "bytes": 24540,
+      "sha256": "606809c5963a3ce1302a0f22615841476bc2c495a18176f59e40f71e265f178e"
+    }
+  ],
+  "other_emulator_revisions": {
+    "checked_at": "2026-11-09T11:20:45.550373+00:00",
+    "repos": {
+      "dolphin": {
+        "url": "https://api.github.com/repos/dolphin-emu/dolphin/git/ref/heads/master",
+        "sha": "41799046d68b2e5ea7cfde91f122320a472b7a61"
+      },
+      "pcsx2": {
+        "url": "https://api.github.com/repos/PCSX2/pcsx2/git/ref/heads/master",
+        "sha": "8253ca6ca3508347b09bae31112be734214127b6"
+      },
+      "ryubing": {
+        "url": "https://git.ryujinx.app/api/v1/repos/projects/Ryubing/branches/master",
+        "sha": "a61a42681119bf15fe8f3297677ae48bda83e70f"
+      }
+    }
+  },
+  "installed": false,
+  "corrected_build": {
+    "revision": "986a2b684d752cd5227d0d8cdd63d52111d9c298",
+    "cli_sha256": "41d8fbfcc24db6da89f2fd018b8d03faaf5a75cf456a03eedf246aeff7b88f3a",
+    "changed_inputs": {
+      "cpmfile.json": "e0977a561ec38d8da6dc61b61b90c3abe5d9185bd8c88a5877bf121bb1ccdf8f",
+      "src/tests/CMakeLists.txt": "a18f551b9cc770af71a510f7f9aecc80a6acc46d7c075e26f06b0dab95f015e1",
+      "src/tests/video_core/buffer_cache_ports.cpp": "cf627a90965e993a471b3ff1211ebf131e12a4f7fad2d9a0e3f59d74459a1e32",
+      "src/video_core/buffer_cache/buffer_cache.h": "4273d2554d66f68c6578bac0d6da7e5343a2d1b7838f33d707067f6a198ddc06",
+      "src/video_core/buffer_cache/buffer_cache_base.h": "28f02043b865bf9c1cc0699fa86413405c52b05258206f51a75b2b1e48bc8bcd",
+      "src/video_core/buffer_cache/uniform_stream_reuse.h": "c59722589217a753ed7dc2f386c1ce6ac07db8d00021477e699cee7366910180",
+      "src/video_core/renderer_vulkan/vk_staging_buffer_pool.cpp": "15fcda26b12b4865c2ab5c31904152deecede7ec00e11a8eec889f66511c6409",
+      "src/video_core/renderer_vulkan/vk_staging_buffer_pool.h": "0428df44134fa0107e620911dba7711b036ac184dce282014b09b5a74e9ee700",
+      "src/tests/video_core/stream_ring_cursor.cpp": "b534d0e51e61c6c3e90cdf5c63782f99680bc27ebfb0a00dd0b06e1fdf62ef93",
+      "src/video_core/renderer_vulkan/stream_ring_cursor.h": "6c284755d723baf0934c7c58e7d65561444ee6d5da00e62994ce55f71a36190d"
+    },
+    "objects": {
+      "renderer_vulkan/vk_buffer_cache_base.cpp.o": {
+        "mtime": 1794225731.7355053,
+        "input": "src/video_core/buffer_cache/uniform_stream_reuse.h",
+        "input_mtime": 1794225697.2434082
+      },
+      "renderer_vulkan/vk_staging_buffer_pool.cpp.o": {
+        "mtime": 1794225743.8375394,
+        "input": "src/video_core/renderer_vulkan/vk_staging_buffer_pool.cpp",
+        "input_mtime": 1794225697.2434082
+      }
+    },
+    "tests_exit": 0
+  },
+  "corrected_tests": {
+    "passed": 1091,
+    "network_skipped": 4
+  },
+  "corrected_diagnostic": {
+    "result": {
+      "diagnostic_only": true,
+      "no_FPS_claim": true,
+      "wall_start": 1794226161.9496157,
+      "wall_end": 1794226223.1882899,
+      "seconds": 61.23867426998913,
+      "native_epoch_bounds": [
+        1794226053.1942148,
+        1794226053.440153
+      ],
+      "features": {
+        "uniforms": {
+          "all_reports": 8,
+          "complete_windows": [
+            {
+              "native": 167.738512,
+              "counts": [
+                338432,
+                5619818,
+                0,
+                0
+              ],
+              "interval_start": 135.602024
+            }
+          ],
+          "kept_or_replayed": 338432,
+          "verified": 0,
+          "mismatches_in_all_reports": 0
+        },
+        "descriptors": {
+          "all_reports": 12,
+          "complete_windows": [
+            {
+              "native": 121.966902,
+              "counts": [
+                0,
+                23552,
+                23552,
+                0
+              ],
+              "interval_start": 111.614466
+            },
+            {
+              "native": 132.244382,
+              "counts": [
+                0,
+                24576,
+                24576,
+                0
+              ],
+              "interval_start": 121.966902
+            },
+            {
+              "native": 142.348554,
+              "counts": [
+                0,
+                23552,
+                23552,
+                0
+              ],
+              "interval_start": 132.244382
+            },
+            {
+              "native": 152.396479,
+              "counts": [
+                0,
+                23552,
+                23552,
+                0
+              ],
+              "interval_start": 142.348554
+            },
+            {
+              "native": 162.431909,
+              "counts": [
+                0,
+                23552,
+                23552,
+                0
+              ],
+              "interval_start": 152.396479
+            }
+          ],
+          "kept_or_replayed": 0,
+          "verified": 118784,
+          "mismatches_in_all_reports": 0
+        }
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.204574996139854
+      },
+      "split": "EDEN_NX2_SPLIT=1",
+      "cpu_zone_profile": true,
+      "checked_source": true,
+      "scope": "Only whole reset-counter intervals inside actual observed camera phase; previous report bounds each interval. Split0/1 do not enable front-macro accelerated acquires.",
+      "uniform_check_scope": "Corrected helper execution proven by kept>0 plus rebuilt code and separate red/green/mutant fixture; no independent runtime byte oracle."
+    },
+    "visual_review": {
+      "world_and_avatar_visible": true,
+      "scene": "Kokiri Forest title readable; Link on balcony and world rendered.",
+      "reviewed_at": 1794226161.3106103,
+      "split_mode": 1,
+      "baseline_mesh_skip": true,
+      "fast_acquire_disabled_by_mode": true,
+      "corrected_package": true,
+      "after_camera_world_and_avatar_visible": true,
+      "reviewed_after_at": 1794226289.2344658
+    }
+  },
+  "corrected_FPS_screening": [
+    {
+      "label": "lichii-checked-fps1",
+      "measurement": {
+        "requested_seconds": [
+          143.69644198417663,
+          233.538636
+        ],
+        "covered_seconds": 58.7748,
+        "game_presentations": 1200,
+        "game_fps": 20.416913371036568,
+        "window_fps_median": 20.416930605416088,
+        "maximum_frame_ms": 83.155,
+        "frames_over_100_ms": 0,
+        "windows": [
+          {
+            "start": 161.359478,
+            "end": 190.773878,
+            "mean_us": 49024,
+            "maximum_us": 73404,
+            "freezes": 0
+          },
+          {
+            "start": 190.725414,
+            "end": 220.085814,
+            "mean_us": 48934,
+            "maximum_us": 83155,
+            "freezes": 0
+          }
+        ]
+      },
+      "runtime": {
+        "exe_sha256": "41d8fbfcc24db6da89f2fd018b8d03faaf5a75cf456a03eedf246aeff7b88f3a",
+        "mapped_radv_path": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+        "mapped_radv_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+        "packages": "libdrm-amdgpu1:amd64\t2.4.125-1ubuntu0.1~24.04.2\nlibdrm2:amd64\t2.4.125-1ubuntu0.1~24.04.2\nmesa-vulkan-drivers:amd64\t25.2.8-0ubuntu0.24.04.4\n",
+        "diagnostic_vulkan_info": false,
+        "actual_log_filter_verified": true
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.7050358029082417
+      },
+      "visual_review": {
+        "world_and_avatar_visible": true,
+        "reviewed_at": 1794226418.3926709,
+        "scene": "Kokiri Forest title readable; Link and world visible from balcony.",
+        "split_mode": 1,
+        "all_diagnostic_flags_absent": true,
+        "checked_candidate": true,
+        "phase_before_and_after_world_visible": true,
+        "ladder_visible": true,
+        "ground_walk_visible": true,
+        "movement_images_reviewed_at": 1794226665.3306587
+      }
+    },
+    {
+      "label": "lichii-checked-fps0",
+      "measurement": {
+        "requested_seconds": [
+          194.90266427993774,
+          282.906892
+        ],
+        "covered_seconds": 30.1062,
+        "game_presentations": 600,
+        "game_fps": 19.92944974789246,
+        "window_fps_median": 19.92944974789246,
+        "maximum_frame_ms": 75.83,
+        "frames_over_100_ms": 0,
+        "windows": [
+          {
+            "start": 224.890394,
+            "end": 254.996594,
+            "mean_us": 50177,
+            "maximum_us": 75830,
+            "freezes": 0
+          }
+        ]
+      },
+      "runtime": {
+        "exe_sha256": "41d8fbfcc24db6da89f2fd018b8d03faaf5a75cf456a03eedf246aeff7b88f3a",
+        "mapped_radv_path": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+        "mapped_radv_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+        "packages": "libdrm-amdgpu1:amd64\t2.4.125-1ubuntu0.1~24.04.2\nlibdrm2:amd64\t2.4.125-1ubuntu0.1~24.04.2\nmesa-vulkan-drivers:amd64\t25.2.8-0ubuntu0.24.04.4\n",
+        "diagnostic_vulkan_info": false,
+        "actual_log_filter_verified": true
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.503994950093329
+      },
+      "visual_review": {
+        "world_and_avatar_visible": true,
+        "reviewed_at": 1794226845.7088826,
+        "scene": "Kokiri Forest title readable; Link and world visible from balcony.",
+        "split_mode": 0,
+        "all_diagnostic_flags_absent": true,
+        "checked_candidate": true,
+        "phase_before_and_after_world_visible": true,
+        "ladder_visible": true,
+        "ground_walk_visible": true,
+        "movement_images_reviewed_at": 1794227271.4002986
+      }
+    }
+  ],
+  "screening_scope": "Two successive screening runs, not an alternating comparison. No30FPS, no deployment. Fix effects not isolated from whole current Lichii+compiler/config/mode; known NO_MESH omissions remain.",
+  "UBO_regression_proof": {
+    "upstream_exit": 42,
+    "corrected_targeted_cases": 18,
+    "corrected_assertions": 80303,
+    "mutation_exit": 42,
+    "fixture": "Actual BufferCache fixture; CPU-dirty page changed from byte1 to9 without second notification; bound bytes compared. Separate source and mutation logs retained privately."
+  },
+  "Takoroka_source": {
+    "release_url": "https://git.eden-emu.dev/Takoroka/eden-nx2/releases",
+    "release": "nx2-2026-10-29",
+    "scope": "Official publication inspected: Windows build, source branch eden-nx2 and missing shader/mesh limitations. No Linux FPS claim."
+  }
+}

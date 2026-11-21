@@ -1,0 +1,126 @@
+{
+  "date": "2026-11-11",
+  "status": "restored_menu_fix_locally_validated_installed_and_idle_checked",
+  "production_restore": {
+    "user_authorized": true,
+    "normal_stop_verified": true,
+    "files_restored_and_hashed": 14,
+    "progress_files_present": 3,
+    "profile_restored": true,
+    "pre_user_test_frozen_inventory_matches_archive": true,
+    "new_trial_save_removed_from_active_slot": true,
+    "other_accounts_unchanged": true,
+    "retained_selection": "resume",
+    "service_left_closed": true,
+    "native_game_save_menu_relaunch_not_exercised": true
+  },
+  "menu": {
+    "reproduced_missing_identity_kept_after_menu_reopening": true,
+    "original_user_session_cause_not_proven": true,
+    "actual_page_hash_before_incident": "af34adbf98633e5de2b581a16f5547be3b6ff139554d0268220541928130ec31",
+    "fix": "Refresh a missing account at save-menu entry; block save selection until it settles; never derive identity from a nickname. No periodic polling.",
+    "unit_cases_passed": 11,
+    "real_browser_first_red": true,
+    "real_browser_first_green": true,
+    "real_browser_reintroduced_red": true,
+    "real_browser_final_green": true,
+    "console_payload_conditions_checked": 8,
+    "unknown_identity_negative_twin": true,
+    "pending_identity_blocks_launch": true,
+    "no_game_booted_in_browser_fixture": true,
+    "first_reintroduction_build_failure_excluded": true
+  },
+  "full_gate": {
+    "passed": true,
+    "state": "passed",
+    "started_unix": 1794409306.4308405,
+    "command": "just",
+    "returncode": 0,
+    "seconds": 52.68664004886523,
+    "ended_unix": 1794409359.117482
+  },
+  "installation": {
+    "passed": true,
+    "started_unix": 1794409634.8522072,
+    "no_game_started": true,
+    "active_worker": {
+      "pid": 289700,
+      "start_ticks": "242760557"
+    },
+    "actual_process_executable_sha256": "14752026fda636bb1714dc5944eb7e1ed0bb08b3adfa368b31ffc48375a1b34e",
+    "served_HTML_sha256": "ac45f6bcf5dbbbaedb7fd1e66721c48d36ff0cd0f3568b8a42ed6ead9aeb1cb0",
+    "page_matches_artifact": true,
+    "library_games": 20,
+    "zelda_index": 19,
+    "zelda_unlocked_not_advertised": true,
+    "current_identity_maps_to_restored_account": true,
+    "stop_returncode": 0,
+    "service_left_closed": true,
+    "restored_files_unchanged": 14,
+    "ended_unix": 1794409635.3753927
+  },
+  "performance": {
+    "user_observation": "Sometimes very fluid, sometimes freezes",
+    "controlled_performance_result": false,
+    "goal40_achieved": false
+  },
+  "proof_sha256": {
+    "/home/souhib/.local/state/nel3ab/save-recovery/20261111T142544Z/prepared-plan.json": "067d1fc94337fafcd30160c617e08015146b935f43692addf91ff8d382809ed1",
+    "/home/souhib/.local/state/nel3ab/save-recovery/20261111T142544Z/diagnosis.json": "a5f9589f1527d5408c5a0b408c483d996b9f226fc206da5132eb9106c85af4f1",
+    "/home/souhib/.local/state/nel3ab/save-recovery/20261111T142544Z/shutdown.json": "2d8389b91a03804cfeb523930995c626f0437ce9fa3e2816a98c61f7a65e002d",
+    "/home/souhib/.local/state/nel3ab/save-recovery/20261111T142544Z/restore-result.json": "db0a69d18e9144cc6f7d0cd00697971ce4bdf82bc5cc0d06c9378ab02099f2f2",
+    "/home/souhib/.local/state/nel3ab/save-recovery/20261111T142544Z/menu-red-first.json": "6b80c63184553350179ca243858b35559c83058118e0a1ded6b0f445780b4f22",
+    "/home/souhib/.local/state/nel3ab/save-recovery/20261111T142544Z/menu-red-first.log": "e82ac3f3a06eea66894f01c109be479061e1947cd75d1a31e8b113289604bf5f",
+    "/home/souhib/.local/state/nel3ab/save-recovery/20261111T142544Z/menu-green-first.json": "81f808098519725cc30f637514788fb4d16cd2bf1660828d041dba59325aa34e",
+    "/home/souhib/.local/state/nel3ab/save-recovery/20261111T142544Z/menu-reintroduction.json": "431f2faec83372f60dfb861cbb72ffa79fc3131acf05fca9c4d1e9ca5a77d593",
+    "/home/souhib/.local/state/nel3ab/save-recovery/20261111T142544Z/menu-reintroduction-red.log": "758a15727a07c71f89cfc80bee8c6af302bb4fe29a1ffff3447eae3335a0ef57",
+    "/home/souhib/.local/state/nel3ab/save-recovery/20261111T142544Z/menu-final-green.log": "bbee59645832718b5a0e06803fae76452f15cf09d7d479a9bc9921d6c53dba08",
+    "/home/souhib/.local/state/nel3ab/save-recovery/20261111T142544Z/browser-first-green.json": "092e7a98121f8270ea5ee86d40466b036ccf1fb88345d9aacbbf1424b623e1bb",
+    "/home/souhib/.local/state/nel3ab/save-recovery/20261111T142544Z/browser-final-green.json": "092e7a98121f8270ea5ee86d40466b036ccf1fb88345d9aacbbf1424b623e1bb",
+    "/home/souhib/.local/state/nel3ab/save-recovery/20261111T142544Z/local-gate-result.json": "265ae5affd42c6153bcbe280c17ac1d3eef3452858a67438732bc175c997c691",
+    "/home/souhib/.local/state/nel3ab/save-recovery/20261111T142544Z/local-gate.log": "195d2d2add25dfd81c8b27882a074bb98c72f7cd8a817d87a61eb668aad582cd",
+    "/home/souhib/.local/state/nel3ab/save-recovery/20261111T142544Z/supplemental-validation.json": "da52b7f387af7add23dff2ac186668fc1f7800d64554c106a526dd74fea48eb7",
+    "/home/souhib/.local/state/nel3ab/save-recovery/20261111T142544Z/release-build.json": "9e7459c483e0916270df3794e4710818842361460b0a7c91e84064651cca99ad",
+    "/home/souhib/.local/state/nel3ab/save-recovery/20261111T142544Z/release-build.log": "66af61864cb1cc1626c3c7527cd3a9871d6fa1d0cec5d4713495af659cdef3b2",
+    "/home/souhib/.local/state/nel3ab/save-recovery/20261111T142544Z/installed-validation.json": "a1e7bf4aef8580d5eda1f05253ff8e31434eb72cd60e5ed2f374b05bc23d6ff9",
+    "/home/souhib/.local/state/nel3ab/save-recovery/20261111T142544Z/menu-reintroduction-attempt01-pre-browser/classification.json": "d652c310790caac288f4c6b562f5b3733933b518eca4b10c67a546ff3d493599",
+    "/home/souhib/.local/state/nel3ab/save-recovery/20261111T142544Z/final-review.json": "2d18a72516b29f9977a79832679c49ebb3ce7e71c55303d7d467381efad4b1d3"
+  },
+  "supplemental_front": {
+    "passed": true,
+    "test_files": 64,
+    "tests": 628,
+    "reason": "Unit test sequential steps expressed without new lint warnings; runtime sources and built page unchanged."
+  },
+  "audit": {
+    "passed": true,
+    "command": "just audit",
+    "remote_CI_claimed": false
+  },
+  "release_build": {
+    "passed": true,
+    "started_unix": 1794409457.4019446,
+    "previous_executable_sha256": "9b42660844100e2f7b00754389d55d1d60a0e9a863c911a2a38503ba7abb39d3",
+    "inputs_sha256": {
+      "front/src/App.tsx": "0dcc7b11a6376448fbfdb8adc57d8d34b6078cdf88f70cb67096a0873aa99786",
+      "front/src/lib/me.ts": "1484011aeb4231a2ac5f2c58245fb18abc853d2d7663bc3f5aedbc066ee91ce6",
+      "core/crates/worker/src/page/index.html": "ac45f6bcf5dbbbaedb7fd1e66721c48d36ff0cd0f3568b8a42ed6ead9aeb1cb0",
+      "core/crates/worker/src/page/SOURCES": "05a56ad1c7ddf42c118205f4495797e1a5c47234cf3ac7aff8859b380d5bf0d4"
+    },
+    "returncode": 0,
+    "seconds": 2.372014327906072,
+    "ended_unix": 1794409459.7739592,
+    "executable_sha256": "14752026fda636bb1714dc5944eb7e1ed0bb08b3adfa368b31ffc48375a1b34e",
+    "executable_mode": "0o775"
+  },
+  "updated_unix": 1794409683.5103369,
+  "remote_CI": {
+    "new_run_triggered": false,
+    "result_not_inferred_from_local_checks": true
+  },
+  "documentation": {
+    "strict_build_passed": true,
+    "seconds": 4.59,
+    "diff_check_passed": true
+  }
+}

@@ -1,0 +1,225 @@
+{
+  "checked_at": "2026-11-09T20:21:07.529669+00:00",
+  "repos": {
+    "lichii": {
+      "url": "https://api.github.com/repos/zortos293/Lichii/commits?sha=nx2&per_page=8",
+      "sha256": "0d576495b0b8fb88b9b87caab4496ac80d331a655f954bc57480833e92a15bcc",
+      "commits": [
+        {
+          "sha": "cb5c5c7c6761498efe74056f9a42ba8c80069abd",
+          "date": "2026-11-09T19:59:09Z",
+          "message": "updater: retry a download up to three times on a server error or a dropped connection (#1101)"
+        },
+        {
+          "sha": "ffcd28cf25dcb3c33f4aff4cb2ce00f2fc2dcad2",
+          "date": "2026-11-09T19:59:04Z",
+          "message": "tests: cover Nx2MarkGpuWritten word batching with boundary, wraparound and concurrent cases (#1100)"
+        },
+        {
+          "sha": "e7801ece743e2777810666e627421f97115ddd00",
+          "date": "2026-11-09T19:58:58Z",
+          "message": "vulkan: accept DLSS presets E and F in EDEN_NX2_DLSS_PRESET and log DLSS memory (#1098)"
+        },
+        {
+          "sha": "1c83548ebfb70405a36d500b52acd39c9e79796d",
+          "date": "2026-11-09T19:58:44Z",
+          "message": "nx2_stutter_trace: don't shadow ticks in OnPresent (#1045)"
+        },
+        {
+          "sha": "7afad5494e650edfc169624be54e606f54b079ec",
+          "date": "2026-11-09T18:22:27Z",
+          "message": "Ocarina: AMD FSR 4 through AMD's official FidelityFX runtime, downloaded on request (rework of #915) (#1062)"
+        },
+        {
+          "sha": "6bb6eb4bd8d32b3e995f62b0b4bab41891b82276",
+          "date": "2026-11-09T18:04:15Z",
+          "message": "texture_cache: skip a join's upload when layer copies overwrite it whole (#1079)"
+        },
+        {
+          "sha": "6cec8cb9aca372c686e0295cd6afd426a589ca40",
+          "date": "2026-11-09T17:59:48Z",
+          "message": "Ocarina FSR: camera jitter and texture LOD bias without experiment switches (port of #914) (#1061)"
+        },
+        {
+          "sha": "c215653cc542ae4c680dff3f75ff3e8000c77716",
+          "date": "2026-11-09T17:38:00Z",
+          "message": "Ocarina of Time: AMD FSR 3.1 in place of the game's anti-aliasing network (port of #695) (#1060)"
+        }
+      ]
+    },
+    "eglantine": {
+      "url": "https://api.github.com/repos/Eglantine-Community/Eglantine/commits?sha=nx2&per_page=3",
+      "sha256": "02662d97dcc10ac6f4a752f4e6db4014a4343fe0ad79ac445bf89df63a57a7cc",
+      "commits": [
+        {
+          "sha": "78743f30c251f66bd77e6eea6c28d8632d642d6f",
+          "date": "2026-11-08T14:57:58Z",
+          "message": "bump to 0.1.0-rc3"
+        },
+        {
+          "sha": "ea8d7d25a5bd9565cde35b3ce8e3cc1141c4c660",
+          "date": "2026-11-08T14:55:12Z",
+          "message": "Merge branch 'nx2' into nx2-experimental"
+        },
+        {
+          "sha": "293b5598fb79e809eef76f36b75a160488fcb6da",
+          "date": "2026-11-08T14:53:37Z",
+          "message": "downgraded ubuntu for older gzip"
+        }
+      ]
+    },
+    "fritchii": {
+      "url": "https://api.github.com/repos/Frizti/Fritchii/commits?sha=nx2&per_page=12",
+      "sha256": "3074d08cf24f771e709f67bc6f87737bc6a91b4c0be308001fe2d2c25293e7d5",
+      "commits": [
+        {
+          "sha": "f66ea633db6058efe31a9611718019e5bd1667eb",
+          "date": "2026-11-06T08:36:35Z",
+          "message": "Add personal message from author to README"
+        },
+        {
+          "sha": "724aede4ea51fae8224cdd02549cdbdf7ceecd25",
+          "date": "2026-11-05T03:09:15Z",
+          "message": "vulkan: fix invalid depth-stencil buffer copies in ReinterpretImage (#89)"
+        },
+        {
+          "sha": "c9ebb5c3af672a0472ca0811392f04fab10203ab",
+          "date": "2026-11-05T01:59:58Z",
+          "message": "kernel, shader: boot and render the green-hat kid adventure (#87)"
+        },
+        {
+          "sha": "7daab0992e1217cadc8280587e13ebed11fec898",
+          "date": "2026-11-04T19:31:27Z",
+          "message": "Fix Lichii release update checks and platform downloads (#82)"
+        },
+        {
+          "sha": "2940d9fab0d8e7010d9538682d32cc1a5c31ea67",
+          "date": "2026-11-04T19:28:44Z",
+          "message": "video_core: use native nanosecond timestamps for Ampere (#84)"
+        },
+        {
+          "sha": "286117c7e0d89ab0384e896489128fdd88a424f8",
+          "date": "2026-11-04T13:53:39Z",
+          "message": "core: guard the window trace session with a mutex instead of atomic<shared_ptr> (#77)"
+        },
+        {
+          "sha": "edf916344f08d92517c2ccf03b206b055685645f",
+          "date": "2026-11-04T13:38:45Z",
+          "message": "Fix MSVC /we warnings in Star Fox colour match and native shader lowering (#76)"
+        },
+        {
+          "sha": "4f9b9624b9dcd12d160e87c6a2aeb4f62a106d74",
+          "date": "2026-11-04T13:31:26Z",
+          "message": "audio: accept and play S16 system mixer output streams (#75)"
+        },
+        {
+          "sha": "1ca9f7d5c4b8d92a1189fae3912de017e25fca32",
+          "date": "2026-11-04T13:04:41Z",
+          "message": "shader: compare relocation targets as signed in the geometry EXIT check (#74)"
+        },
+        {
+          "sha": "a3e94bf4e9fd56e7be7a8c2e9a06c6e185607dc7",
+          "date": "2026-11-04T12:30:28Z",
+          "message": "Revert \"video_core: release fences that carry downloads after the downloads land (#72)\" (#73)"
+        },
+        {
+          "sha": "d7fd2f283d436923a6af60096853c3860eb860b5",
+          "date": "2026-11-04T12:06:15Z",
+          "message": "video_core: release fences that carry downloads after the downloads land (#72)"
+        },
+        {
+          "sha": "f8f29b57694c6c5d3d73a16733665604476aa356",
+          "date": "2026-11-04T12:05:57Z",
+          "message": "Kirby Air Riders: faster shader translation, build waited-on pipelines inline, race diagnostics (#71)"
+        }
+      ]
+    },
+    "orchid": {
+      "url": "https://api.github.com/repos/MythosOfs/Orchid/releases/latest",
+      "sha256": "0de28819af7cb2452ad33f8566fe3200c33900c788e61f5312db5197e5b0cee8",
+      "tag": "v0.9.2",
+      "published": "2026-11-09T07:25:08Z",
+      "url_page": "https://github.com/MythosOfs/Orchid/releases/tag/v0.9.2",
+      "target": "5d00ad961b37ac635a6c502bf60fbd8972a3466b"
+    },
+    "superbuild": {
+      "url": "https://api.github.com/repos/callme-sy/Lichii-Superbuild/releases/latest",
+      "sha256": "f10dd490440a3e519427936efe367f0463d0eff5965a15f50bcc160db93207a8",
+      "tag": "v37",
+      "published": "2026-11-09T19:55:34Z",
+      "url_page": "https://github.com/callme-sy/Lichii-Superbuild/releases/tag/v37",
+      "target": "superbuild"
+    }
+  },
+  "scope": "Read primary commit diffs and release API. Select private ports; no production installation, no full rebase yet.",
+  "cross_console_patterns": [
+    {
+      "emulator": "Dolphin",
+      "revision": "41799046d68b2e5ea7cfde91f122320a472b7a61",
+      "source": "https://github.com/dolphin-emu/dolphin/blob/41799046d68b2e5ea7cfde91f122320a472b7a61/Source/Core/VideoBackends/Vulkan/VKStreamBuffer.cpp",
+      "pattern": "Reuse staging memory only after its fence has completed; wait on the relevant allocation. Host-visible allocation is a hypothesis, not a transferable gain. Our previous host-memory ring was slower and rejected."
+    },
+    {
+      "emulator": "PCSX2",
+      "revision": "8253ca6ca3508347b09bae31112be734214127b6",
+      "source": "https://github.com/PCSX2/pcsx2/blob/8253ca6ca3508347b09bae31112be734214127b6/pcsx2/GS/Renderers/Vulkan/GSDeviceVK.cpp",
+      "pattern": "Separate command submission from waiting for completion; resource/fence lifetime limits which waits may be removed."
+    },
+    {
+      "emulator": "Ryubing",
+      "revision": "a61a42681119bf15fe8f3297677ae48bda83e70f",
+      "source": "https://git.ryujinx.app/projects/Ryubing/src/commit/a61a42681119bf15fe8f3297677ae48bda83e70f/src/Ryujinx.Graphics.Gpu/Memory/BufferModifiedRangeList.cs",
+      "pattern": "Track modified ranges with their sync generation; a narrower invalidation needs every relevant writer recorded. Previously downloaded primary source; web replay unavailable this refresh."
+    }
+  ],
+  "candidate_ports": [
+    {
+      "pr": 1095,
+      "url": "https://github.com/zortos293/Lichii/pull/1095",
+      "head": "52d46375f5097dfb6700b94022eec82e54ce25e7",
+      "state": "open",
+      "merged": false,
+      "patch_sha256": "a7f18ae8e4ea05b17e16bb844dab1a52568033248f10d029f6c336a1c8ab988f",
+      "files": [
+        "src/video_core/engines/maxwell_3d.cpp",
+        "src/video_core/engines/maxwell_3d.h",
+        "src/video_core/nx2_perf.h",
+        "src/video_core/video_core.cpp"
+      ]
+    },
+    {
+      "pr": 1094,
+      "url": "https://github.com/zortos293/Lichii/pull/1094",
+      "head": "3d03c95986f462a0ac1a8e6af8ed6745972bef71",
+      "state": "open",
+      "merged": false,
+      "patch_sha256": "5fda4dd8b0778a3afd5a63c77f429663a8f1601e2f87a2827b67f2b8f5ff8cb4",
+      "files": [
+        "src/tests/video_core/buffer_cache_ports.cpp",
+        "src/video_core/buffer_cache/buffer_cache.h",
+        "src/video_core/buffer_cache/buffer_cache_base.h",
+        "src/video_core/dma_pusher.cpp",
+        "src/video_core/gpu_split.cpp",
+        "src/video_core/gpu_split.h",
+        "src/video_core/renderer_vulkan/vk_buffer_cache.cpp"
+      ]
+    }
+  ],
+  "decisions": {
+    "1095": "Private four-file port prepared on exact pacing/ef54 base. Three files apply cleanly, CreateGPU ReadSwitch context adapted while retaining Span switch. No fullbuild or gameplay test yet. Clang23 ThinLTO differs from upstream MSVC; no local gain prediction. Existing shadow/reference fixes retained.",
+    "1094": "Not ported. Word-level copy tracking and DMAClear byte-count fix merit separate audit. Second commit skips a writer wait based on the observed shape of command entries; upstream explicitly notes a first compute-written command header would be read without that write, and DRAIN_CHECK is not included. Need a proof or guard before adopting that relaxation.",
+    "whole_rebase": "Latest branch also forces shader cache v2; previous fully warmed private v2 migration stalled black. Keep qualified base and review ports independently until migration is qualified. No installed source/config changed.",
+    "FSR4": "Official Lichii7afad54 removes Linux library path and uses Windows AMD signed runtime. Superbuildv37 release body describes an earlier generic library design. Do not claim Linux/RADV support from that text; RX6000 hardware support on Windows is a separate fact.",
+    "Orchid092": "Xenoblade preemptive reads and Wonder submitted-time reports are game-specific changes; no local Zelda gain demonstrated.",
+    "Superbuildv37": "Release published19:55; branch head67416d45213aa57055ee85e2c3bdffd896a9375d already describes futurev38. Tag release and moving branch are distinct; v38 availability not proven.",
+    "Fritchii": "Nov4 shader translation/inline waited pipeline changes target Kirby; compare actual code before re-porting. No measured Zelda pipeline queue bottleneck yet."
+  },
+  "additional_primary_sources": [
+    "https://github.com/zortos293/Lichii/commit/7afad5494e650edfc169624be54e606f54b079ec",
+    "https://github.com/MythosOfs/Orchid/commit/c4a3bcc",
+    "https://github.com/MythosOfs/Orchid/commit/e7e4dc0",
+    "https://github.com/Frizti/Fritchii/commit/f8f29b57694c6c5d3d73a16733665604476aa356",
+    "https://github.com/callme-sy/Lichii-Superbuild/releases/tag/v37"
+  ],
+  "later_first_commit_caveat": "Read-only follow-up: first1094 commit01ce603 is not word-tracking-only. It also changes GPU-written-list wait from WaitForWriters to WaitForSyncedWriters and publishes queued entries before waiting. A port preserving all waits must select BufferCache/DMAClear hunks and exclude scheduler changes explicitly; no such selective port or tests yet."
+}

@@ -1,0 +1,1575 @@
+diff --git a/src/tests/CMakeLists.txt b/src/tests/CMakeLists.txt
+--- a/src/tests/CMakeLists.txt
++++ b/src/tests/CMakeLists.txt
+@@ -184,6 +184,7 @@
+     video_core/ampere_uniform_immediate_shift.cpp
+     video_core/ampere_bindless_surfaces.cpp
+     video_core/native_macro_fifo.cpp
++    video_core/turing_macro_effects.cpp
+     video_core/turing_macro_ram.cpp
+     video_core/uniform_stream_reuse.cpp
+     video_core/stream_ring_cursor.cpp
+diff --git a/src/tests/video_core/maxwell_fast_method.cpp b/src/tests/video_core/maxwell_fast_method.cpp
+--- a/src/tests/video_core/maxwell_fast_method.cpp
++++ b/src/tests/video_core/maxwell_fast_method.cpp
+@@ -75,15 +75,16 @@
+         return GpuSplit::RingWords - 1;
+     }
+ 
++    /// The front waits for the back to reach a position (WaitFor).
++    static bool FrontWaits(const GpuSplit& split) {
++        return split.wait_target.load() != ~u64{0};
++    }
++
+     static u64 Execute(GpuSplit& split, u64 position, u64 available) {
+         const size_t index = position & GpuSplit::RingMask;
+         const size_t size = split.Execute(
+             &split.ring[index], std::min<u64>(available - position, GpuSplit::RingWords - index));
+         return position + (size != 0 ? size : GpuSplit::RingWords - index);
+-    }
+-
+-    static bool FrontWaits(const GpuSplit& split) {
+-        return split.wait_target.load() != ~u64{0};
+     }
+ 
+     /// The position a read waits for the back to reach (WaitForWrites).
+@@ -244,25 +245,38 @@
+     bool previous;
+ };
+ 
++/// A Turing MME instruction from its fields (TuringMacroInterpreter::Decode); a lane left alone
++/// adds the zero register to itself.
++struct Mme {
++    bool end{};
++    std::array<u32, 2> op{}, dst{24, 24}, src_a{24, 24}, src_b{24, 24}, imm{};
++    std::array<u32, 2> out_method{}, out_emit{};
++};
++
++std::array<u32, 3> Encode(const Mme& fields) {
++    std::array<u32, 3> bits{};
++    const auto field = [&bits](u32 offset, u32 count, u32 value) {
++        for (u32 bit = 0; bit < count; ++bit) {
++            bits[(offset + bit) / 32] |= ((value >> bit) & 1) << ((offset + bit) % 32);
++        }
++    };
++    field(0, 1, fields.end ? 1 : 0);
++    for (u32 lane = 0; lane < 2; ++lane) {
++        field(10 + lane * 36, 5, fields.op[lane]);
++        field(15 + lane * 36, 5, fields.dst[lane]);
++        field(20 + lane * 36, 5, fields.src_a[lane]);
++        field(25 + lane * 36, 5, fields.src_b[lane]);
++        field(30 + lane * 36, 16, fields.imm[lane]);
++        field(82 + lane * 7, 3, fields.out_method[lane]);
++        field(85 + lane * 7, 4, fields.out_emit[lane]);
++    }
++    return {bits[2], bits[1], bits[0]};
++}
++
+ /// A Turing MME instruction that sends the next macro parameter to `method` (as in
+ /// native_macro_fifo.cpp); `end` makes the instruction after it the macro's last.
+ std::array<u32, 3> FifoInstruction(u32 method, bool end) {
+-    std::array<u32, 3> bits{};
+-    const auto field = [&](u32 offset, u32 count, u32 value) {
+-        for (u32 bit = 0; bit < count; ++bit) {
+-            bits[(offset + bit) / 32] |= ((value >> bit) & 1) << ((offset + bit) % 32);
+-        }
+-    };
+-    field(0, 1, end);
+-    for (u32 lane = 0; lane < 2; ++lane) {
+-        field(15 + lane * 36, 5, 24);
+-        field(20 + lane * 36, 5, 24);
+-        field(25 + lane * 36, 5, 24);
+-    }
+-    field(30, 16, method);
+-    field(82, 3, 5);
+-    field(85, 4, 3);
+-    return {bits[2], bits[1], bits[0]};
++    return Encode(Mme{.end = end, .imm = {method, 0}, .out_method = {5, 0}, .out_emit = {3, 0}});
+ }
+ 
+ } // Anonymous namespace
+@@ -954,6 +968,125 @@
+     }
+ }
+ 
++TEST_CASE("Split command list fetches wait only for the writers before the last host sync",
++          "[video_core][gpu_split_dependencies]") {
++    using Access = VideoCommon::GpuSplitTestAccess;
++    Fixture f;
++    f.system.Initialize();
++    VideoCommon::GpuSplit split;
++    std::array<std::atomic<bool>, 3> release{};
++    std::atomic<bool> done{};
++    bool waited{};
++    std::thread waiter;
++    Access::Start(split, f.system);
++    SCOPE_EXIT {
++        split.Stop();
++    };
++    // Runs before Stop: a failed check must not leave the back in an entry or the waiter waiting.
++    SCOPE_EXIT {
++        for (auto& flag : release) {
++            flag = true;
++        }
++        if (waiter.joinable()) {
++            waiter.join();
++        }
++    };
++    // An entry the back stays in until its flag is set.
++    const auto blocking = [&split](std::atomic<bool>& flag) {
++        split.Defer([&flag] {
++            while (!flag.load()) {
++                std::this_thread::yield();
++            }
++        });
++    };
++    const auto finishes = [&done] {
++        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds{5};
++        while (!done.load() && std::chrono::steady_clock::now() < deadline) {
++            std::this_thread::sleep_for(std::chrono::milliseconds{1});
++        }
++        return done.load();
++    };
++
++    // A writer sent after the last host-level wait: the fetch does not wait for it.
++    split.NoteSync();
++    blocking(release[0]);
++    split.NoteWriter();
++    split.Publish();
++    REQUIRE_FALSE(split.WaitForSyncedWriters());
++
++    // A wait after it orders that writer before the fetch, but not the writer sent after the wait.
++    split.NoteSync();
++    blocking(release[1]);
++    split.NoteWriter();
++    split.Publish();
++    waiter = std::thread([&] {
++        waited = split.WaitForSyncedWriters();
++        done = true;
++    });
++    // The back reports its position at the target only if the front waits before it passes it.
++    const auto wait_deadline = std::chrono::steady_clock::now() + std::chrono::seconds{5};
++    while (!Access::FrontWaits(split) && !done.load() &&
++           std::chrono::steady_clock::now() < wait_deadline) {
++        std::this_thread::yield();
++    }
++    std::this_thread::sleep_for(std::chrono::milliseconds{20});
++    REQUIRE_FALSE(done.load());
++    release[0] = true;
++    REQUIRE(finishes());
++    waiter.join();
++    REQUIRE(waited);
++    release[1] = true;
++    split.Drain(VideoCommon::DrainSite::Other);
++
++    // Other work before the wait is not a writer: the fetch does not wait for it either.
++    split.Defer([] {});
++    split.NoteWriter();
++    split.Drain(VideoCommon::DrainSite::Other);
++    blocking(release[2]);
++    split.NoteSync();
++    split.Publish();
++    REQUIRE_FALSE(split.WaitForSyncedWriters());
++    release[2] = true;
++    split.Drain(VideoCommon::DrainSite::Other);
++
++    // Nor for other work between the last writer before the wait and the wait, when another
++    // writer follows the wait.
++    std::atomic<bool> other{};
++    std::atomic<bool> later{};
++    std::atomic<bool> other_done{};
++    bool other_waited{true};
++    std::thread other_waiter;
++    SCOPE_EXIT {
++        other = true;
++        later = true;
++        if (other_waiter.joinable()) {
++            other_waiter.join();
++        }
++    };
++    split.Defer([] {});
++    split.NoteWriter();
++    split.Drain(VideoCommon::DrainSite::Other);
++    blocking(other);
++    split.NoteSync();
++    blocking(later);
++    split.NoteWriter();
++    split.Publish();
++    other_waiter = std::thread([&] {
++        other_waited = split.WaitForSyncedWriters();
++        other_done = true;
++    });
++    const auto other_deadline = std::chrono::steady_clock::now() + std::chrono::seconds{5};
++    while (!other_done.load() && std::chrono::steady_clock::now() < other_deadline) {
++        std::this_thread::sleep_for(std::chrono::milliseconds{1});
++    }
++    REQUIRE(other_done.load());
++    other_waiter.join();
++    REQUIRE_FALSE(other_waited);
++    other = true;
++    later = true;
++    split.Drain(VideoCommon::DrainSite::Other);
++}
++
+ TEST_CASE("Split restart resets writer positions without replaying old releases",
+           "[video_core][gpu_split_dependencies]") {
+     using Access = VideoCommon::GpuSplitTestAccess;
+@@ -1043,7 +1176,8 @@
+     CHECK(std::equal(code.begin(), code.end(), macros.native_code.begin() + pointer * 3));
+ }
+ 
+-TEST_CASE("Split macro DMA reads wait only for the queued work that can write the words",
++TEST_CASE("Split macro DMA reads wait only for the queued work that can write the words, or run "
++          "on the back",
+           "[video_core][gpu_split_dependencies]") {
+     using Access = VideoCommon::GpuSplitTestAccess;
+     using Writes = VideoCommon::GpuSplit::Writes;
+@@ -1107,16 +1241,19 @@
+ 
+     // The 3D engine's front, against a running back: macro 0 reads one word with
+     // MME_DMA_READ_FIFOED at the address in its first two parameters and sends it to a scratch
+-    // register (the load after the read takes the word).
++    // register (the load after the read takes the word). It also clears a data RAM word, which
++    // keeps it on the front. Macro 1 is the same without that and runs on the back; macro 2 (on
++    // the front) copies the scratch register to the next one.
+     auto& engine = f.fast;
+     engine.SetNativeTuringMacroMode(true);
+     constexpr u32 state = MAXWELL3D_REG_INDEX(shadow_scratch) + 1;
++    constexpr u32 copy = state + 1;
+     VideoCommon::GpuSplit split;
+     Access::Start(split, f.system);
+     SCOPE_EXIT {
+         split.Stop();
+     };
+-    std::array<std::atomic<bool>, 4> release{};
++    std::array<std::atomic<bool>, 6> release{};
+     std::atomic<bool> done{};
+     std::thread reader;
+     SCOPE_EXIT {
+@@ -1131,8 +1268,20 @@
+         engine.FrontCallMethod(f.system, split, method, argument, true);
+     };
+     std::vector<u32> code;
+-    for (const auto instruction : {FifoInstruction(0x154, false), FifoInstruction(0x155, false),
+-                                   FifoInstruction(0x158, true), FifoInstruction(state, false)}) {
++    const Mme clear_data_ram{
++        .op = {0, 31}, .imm = {state, 0}, .out_method = {5, 0}, .out_emit = {3, 0}};
++    // Macro 2: the value of `state` (MME register read) sent to `copy`, then a no-op.
++    const Mme read_state{.end = true,
++                         .op = {22, 0},
++                         .src_a = {25, 24},
++                         .imm = {state, copy},
++                         .out_method = {6, 0},
++                         .out_emit = {1, 0}};
++    for (const auto instruction :
++         {FifoInstruction(0x154, false), FifoInstruction(0x155, false),
++          FifoInstruction(0x158, true), Encode(clear_data_ram), FifoInstruction(0x154, false),
++          FifoInstruction(0x155, false), FifoInstruction(0x158, true),
++          FifoInstruction(state, false), Encode(read_state), Encode(Mme{})}) {
+         code.insert(code.end(), instruction.begin(), instruction.end());
+     }
+     front(MAXWELL3D_REG_INDEX(load_mme.instruction_ptr), 0);
+@@ -1140,16 +1289,25 @@
+                                 code.data(), static_cast<u32>(code.size()),
+                                 static_cast<u32>(code.size()));
+     front(MAXWELL3D_REG_INDEX(load_mme.start_address_ptr), 0);
+-    front(MAXWELL3D_REG_INDEX(load_mme.start_address), 0);
+-    const auto dma_read = [&](GPUVAddr address) {
+-        engine.FrontCallMethod(f.system, split, 0xe00, static_cast<u32>(address >> 32), false);
+-        engine.FrontCallMethod(f.system, split, 0xe01, static_cast<u32>(address), false);
+-        engine.FrontCallMethod(f.system, split, 0xe01, 1, true);
+-    };
+-    const auto read_on_reader = [&](GPUVAddr address) {
++    for (const u32 start : {0U, 4U, 8U}) {
++        front(MAXWELL3D_REG_INDEX(load_mme.start_address), start);
++    }
++    const auto dma_read = [&](GPUVAddr address, u32 macro = 0xe00) {
++        engine.FrontCallMethod(f.system, split, macro, static_cast<u32>(address >> 32), false);
++        engine.FrontCallMethod(f.system, split, macro + 1, static_cast<u32>(address), false);
++        engine.FrontCallMethod(f.system, split, macro + 1, 1, true);
++    };
++    const auto read_on_reader = [&](GPUVAddr address, u32 macro = 0xe00) {
+         done = false;
+-        reader = std::thread([&, address] {
+-            dma_read(address);
++        reader = std::thread([&, address, macro] {
++            dma_read(address, macro);
++            done = true;
++        });
++    };
++    const auto copy_on_reader = [&] {
++        done = false;
++        reader = std::thread([&] {
++            front(0xe04, 0);
+             done = true;
+         });
+     };
+@@ -1250,4 +1408,48 @@
+         split.Drain(VideoCommon::DrainSite::Other);
+         CHECK(engine.regs.reg_array[state] == 0x33333333);
+     }
+-}
++
++    // Macro 1 runs on the back: the front goes on past that work, and the back reads the word
++    // after the upload queued behind it.
++    front(state, 0x77777777);
++    blocking(release[4], Writes::Anywhere);
++    upload(word, 0x55555555);
++    read_on_reader(word, 0xe02);
++    REQUIRE(finishes());
++    reader.join();
++    release[4] = true;
++    split.Drain(VideoCommon::DrainSite::Other);
++    CHECK(engine.regs.reg_array[state] == 0x55555555);
++
++    // The front's copy of the register is stale: a write of the value it holds is still sent
++    // (the back sinks it until the next macro).
++    front(state, 0x77777777);
++    front(0xe04, 0);
++    split.Drain(VideoCommon::DrainSite::Other);
++    CHECK(engine.regs.reg_array[state] == 0x77777777);
++
++    // A front macro that reads the register waits for the back's macro and gets its value.
++    blocking(release[5], Writes::Noted);
++    upload(word, 0x66666666);
++    dma_read(word, 0xe02);
++    copy_on_reader();
++    REQUIRE(waits());
++    release[5] = true;
++    REQUIRE(finishes());
++    reader.join();
++    split.Drain(VideoCommon::DrainSite::Other);
++    CHECK(engine.regs.reg_array[copy] == 0x66666666);
++
++    // A replay takes the shadow RAM entry the back's macro tracked from the back.
++    using Control = Maxwell3D::Regs::ShadowRamControl;
++    front(state, 0x99999999);
++    upload(word, 0x88888888);
++    dma_read(word, 0xe02);
++    front(ShadowControl, static_cast<u32>(Control::Replay));
++    front(state, 0);
++    front(ShadowControl, static_cast<u32>(Control::Track));
++    front(0xe04, 0);
++    split.Drain(VideoCommon::DrainSite::Other);
++    CHECK(engine.regs.reg_array[state] == 0x88888888);
++    CHECK(engine.regs.reg_array[copy] == 0x88888888);
++}
+diff --git a/src/tests/video_core/turing_macro_effects.cpp b/src/tests/video_core/turing_macro_effects.cpp
+new file mode 100644
+--- /dev/null
++++ b/src/tests/video_core/turing_macro_effects.cpp
+@@ -0,0 +1,188 @@
++// SPDX-FileCopyrightText: Copyright 2026 Eden Emulator Project
++// SPDX-License-Identifier: GPL-3.0-or-later
++
++#include <algorithm>
++#include <array>
++#include <initializer_list>
++#include <random>
++#include <span>
++#include <vector>
++#include <catch2/catch_test_macros.hpp>
++
++#include "common/common_types.h"
++#include "video_core/macro_turing.h"
++
++namespace {
++
++using Effects = Tegra::TuringMacroInterpreter::Effects;
++
++/// A Turing MME instruction from its fields (TuringMacroInterpreter::Decode); a lane left alone
++/// adds the zero register to itself.
++struct Mme {
++    bool end{};
++    u32 pred_mode{};
++    u32 pred_reg{};
++    std::array<u32, 2> op{}, dst{24, 24}, src_a{24, 24}, src_b{24, 24}, imm{};
++    std::array<u32, 2> out_method{}, out_emit{};
++};
++
++std::vector<u32> Code(std::span<const Mme> instructions) {
++    std::vector<u32> code;
++    for (const Mme& f : instructions) {
++        std::array<u32, 3> bits{};
++        const auto field = [&bits](u32 offset, u32 count, u32 value) {
++            for (u32 bit = 0; bit < count; ++bit) {
++                bits[(offset + bit) / 32] |= ((value >> bit) & 1) << ((offset + bit) % 32);
++            }
++        };
++        field(0, 1, f.end ? 1 : 0);
++        field(1, 4, f.pred_mode);
++        field(5, 5, f.pred_reg);
++        for (u32 lane = 0; lane < 2; ++lane) {
++            field(10 + lane * 36, 5, f.op[lane]);
++            field(15 + lane * 36, 5, f.dst[lane]);
++            field(20 + lane * 36, 5, f.src_a[lane]);
++            field(25 + lane * 36, 5, f.src_b[lane]);
++            field(30 + lane * 36, 16, f.imm[lane]);
++            field(82 + lane * 7, 3, f.out_method[lane]);
++            field(85 + lane * 7, 4, f.out_emit[lane]);
++        }
++        code.insert(code.end(), {bits[2], bits[1], bits[0]});
++    }
++    return code;
++}
++
++/// Sends the next parameter to `method` (an immediate with its increment in bits 12-15).
++Mme Fifo(u32 method, bool end = false) {
++    return Mme{.end = end, .imm = {method, 0}, .out_method = {5, 0}, .out_emit = {3, 0}};
++}
++
++Effects Analyze(std::initializer_list<Mme> instructions, u32 start = 0) {
++    return Tegra::TuringMacroInterpreter::AnalyzeEffects(
++        Code(std::span<const Mme>{instructions.begin(), instructions.size()}), start);
++}
++
++} // Anonymous namespace
++
++TEST_CASE("Turing macro effects: a FIFO read writes its registers, up to the one after END",
++          "[video_core][macro]") {
++    // Ocarina of Time's render enable macro reads six words at the address in its parameters.
++    const auto effects = Analyze({Fifo(0x154), Fifo(0x155), Fifo(0x158, true), Fifo(0x556),
++                                  Fifo(0x557)});
++    CHECK(effects.methods_known);
++    CHECK_FALSE(effects.data_ram);
++    CHECK(effects.methods == std::vector<u32>{0x154, 0x155, 0x158, 0x556});
++    // The same code entered past its END: the call runs to the end of the code.
++    CHECK(Analyze({Fifo(0x154), Fifo(0x155), Fifo(0x158, true), Fifo(0x556), Fifo(0x557)}, 3)
++              .methods == std::vector<u32>{0x556, 0x557});
++}
++
++TEST_CASE("Turing macro effects: increments, branches and predicates", "[video_core][macro]") {
++    // One method with an increment of 1, written twice: both registers.
++    const Mme twice{.end = true,
++                    .imm = {0x1100, 0},
++                    .out_method = {5, 0},
++                    .out_emit = {3, 3}};
++    CHECK(Analyze({twice, Fifo(0x200)}).methods == std::vector<u32>{0x100, 0x101, 0x200});
++    // r0 = parameter; a branch on r0 == 0 skips the write of 0x300: both ways count.
++    const Mme load{.dst = {0, 24}, .src_a = {28, 24}};
++    const Mme skip{.op = {29, 0}, .src_a = {0, 24}, .imm = {0x8000 | 2, 0}};
++    const auto branched = Analyze({load, skip, Fifo(0x300), Fifo(0x301, true), Fifo(0x302)});
++    CHECK(branched.methods == std::vector<u32>{0x300, 0x301, 0x302});
++    // A predicate on the zero register: FFFF runs nothing of the instruction (its END stays).
++    Mme predicated = Fifo(0x400, true);
++    predicated.pred_mode = 2;
++    predicated.pred_reg = 24;
++    CHECK(Analyze({predicated, Fifo(0x401), Fifo(0x402)}).methods == std::vector<u32>{0x401});
++}
++
++TEST_CASE("Turing macro effects: what keeps a macro's writes unknown", "[video_core][macro]") {
++    // A method taken from a parameter.
++    const Mme from_fifo{.end = true, .out_method = {3, 0}, .out_emit = {4, 0}};
++    CHECK_FALSE(Analyze({from_fifo, Fifo(0x100)}).methods_known);
++    // A loop over the parameters writing consecutive registers (increment 1).
++    const Mme count{.dst = {0, 24}, .src_a = {28, 24}};
++    const Mme method{.imm = {0x1100, 0}, .out_method = {5, 0}};
++    const Mme loop{.op = {23, 0}, .src_a = {0, 24}, .imm = {2, 0}};
++    const Mme body{.out_emit = {3, 0}};
++    CHECK_FALSE(Analyze({count, method, loop, body, Fifo(0x200, true), Fifo(0x201)}).methods_known);
++    // The same loop without the increment writes one register.
++    const Mme same{.imm = {0x100, 0}, .out_method = {5, 0}};
++    const auto looped = Analyze({count, same, loop, body, Fifo(0x200, true), Fifo(0x201)});
++    CHECK(looped.methods_known);
++    CHECK(looped.methods == std::vector<u32>{0x100, 0x200, 0x201});
++    // A data RAM write (DWRITE) in the delay slot after END.
++    const Mme dwrite{.op = {31, 0}};
++    CHECK(Analyze({Fifo(0x158, true), dwrite}).data_ram);
++    CHECK_FALSE(Analyze({Fifo(0x158, true), Fifo(0x100), dwrite}).data_ram);
++}
++
++TEST_CASE("Turing macro effects cover every write Execute makes on random code",
++          "[video_core][macro]") {
++    std::mt19937 rng{7};
++    const auto pick = [&rng](u32 count) { return static_cast<u32>(rng() % count); };
++    for (u32 program = 0; program < 300; ++program) {
++        // Registers 0-3 set first, then ALU, register read, flow and data RAM instructions with
++        // methods from immediates mostly.
++        std::vector<Mme> instructions(2);
++        for (u32 i = 0; i < 4; ++i) {
++            instructions[i / 2].dst[i % 2] = i;
++            instructions[i / 2].src_a[i % 2] = pick(2) != 0 ? 25 : 28 + i % 2;
++            instructions[i / 2].imm[i % 2] = pick(4);
++        }
++        const u32 length = 2 + pick(20);
++        for (u32 pc = 0; pc < length; ++pc) {
++            Mme f{.end = pick(10) == 0};
++            if (pick(6) == 0) {
++                f.pred_mode = pick(16);
++                f.pred_reg = pick(5) == 0 ? 24 : pick(4);
++            }
++            for (u32 lane = 0; lane < 2; ++lane) {
++                constexpr std::array<u32, 12> ops{0, 2, 9, 12, 14, 16, 17, 22, 23, 24, 25, 31};
++                f.op[lane] = ops[pick(static_cast<u32>(ops.size()))];
++                f.dst[lane] = pick(3) == 0 ? 24 : pick(4);
++                f.src_a[lane] = pick(2) != 0 ? pick(4) : 24 + pick(6);
++                f.src_b[lane] = pick(2) != 0 ? pick(4) : 24 + pick(6);
++                if (f.op[lane] == 23) {
++                    f.imm[lane] = 2 + pick(4);
++                } else if (f.op[lane] == 24 || f.op[lane] == 25) {
++                    // Short jumps and branches either way, some stopping the call.
++                    const int offset = pick(8) == 0 ? -4096 : static_cast<int>(pick(9)) - 4;
++                    f.imm[lane] = (static_cast<u32>(offset) & 0x1fff) | (pick(2) << 15) |
++                                  (pick(2) << 14);
++                } else {
++                    f.imm[lane] = pick(3) == 0 ? 0x100 + pick(8) + (pick(3) << 12) : pick(0x10000);
++                }
++                f.out_method[lane] = pick(3) == 0 ? 0 : (pick(4) == 0 ? 1 + pick(4) : 5 + lane);
++                f.out_emit[lane] = pick(3) == 0 ? 0 : (pick(3) == 0 ? 1 + pick(2) : 3 + lane);
++            }
++            instructions.push_back(f);
++        }
++        const auto code = Code(instructions);
++        const u32 start = pick(4) == 0 ? pick(length + 2) : 0;
++        const auto effects = Tegra::TuringMacroInterpreter::AnalyzeEffects(code, start);
++        for (u32 run = 0; run < 4; ++run) {
++            Tegra::TuringMacroInterpreter interpreter;
++            std::vector<u32> fifo(4 + pick(28));
++            std::ranges::generate(fifo, [&] { return pick(16) == 0 ? rng() : pick(8); });
++            std::vector<u32> written;
++            interpreter.Execute(
++                code, start, fifo, [&](u32) { return pick(8); },
++                [&](u32 method, u32) {
++                    written.push_back(method);
++                    return written.size() < 512;
++                });
++            CAPTURE(program, run);
++            if (effects.methods_known) {
++                for (const u32 method : written) {
++                    CAPTURE(method);
++                    CHECK(std::ranges::binary_search(effects.methods, method));
++                }
++            }
++            if (!effects.data_ram) {
++                CHECK(interpreter.data_ram_reads.empty());
++                CHECK(interpreter.data_ram_writes.empty());
++            }
++        }
++    }
++}
+diff --git a/src/video_core/dma_pusher.cpp b/src/video_core/dma_pusher.cpp
+--- a/src/video_core/dma_pusher.cpp
++++ b/src/video_core/dma_pusher.cpp
+@@ -272,8 +272,12 @@
+         // (the split only starts with unsafe reads; the settings can change mid-game).
+         const bool use_safe = !VideoCommon::GpuSplit::Get().Active() &&
+                               (Settings::IsDMALevelDefault() ? Settings::IsGPULevelHigh() : Settings::IsDMALevelSafe());
+-        if (!gpu_written && VideoCommon::GpuSplit::Get().Active() &&
+-            VideoCommon::GpuSplit::Get().WaitForWriters()) {
++        // Pages no GPU work has written yet may still get the list from compute or copy work
++        // queued before it. The GPU fetches the list after that work only past a host-level wait
++        // (NoteSync): later work is not ordered before the fetch, and the list does not wait for
++        // it (nor for draws, which write memory too; draw-written lists wait for the last sync).
++        if (!gpu_written && VideoCommon::GpuSplit::Get().Active()) {
++            VideoCommon::GpuSplit::Get().WaitForSyncedWriters();
+             gpu_written =
+                 IsGpuWrittenCommands(dma_state.dma_get, size_t{header.size} * sizeof(u32));
+         }
+diff --git a/src/video_core/engines/maxwell_3d.cpp b/src/video_core/engines/maxwell_3d.cpp
+--- a/src/video_core/engines/maxwell_3d.cpp
++++ b/src/video_core/engines/maxwell_3d.cpp
+@@ -1141,7 +1141,9 @@
+ // what macros read: the registers as the back thread will hold them when it reaches the same
+ // point of the method stream. That is every write the front sends, with the shadow RAM applied,
+ // plus the few changes the back makes on its own (constant buffer offset, shadow_scratch[0] on
+-// falcon[4], the macro bind pointer); the front loads and binds the macro code itself.
++// falcon[4], the macro bind pointer); the front loads and binds the macro code itself. Macros
++// that read memory run on the back instead (FrontRunOnBack), and the registers they can write
++// are the back's until the front writes them or reads them back (FrontRegister).
+ struct Maxwell3D::FrontState {
+     std::array<ControlWrite, 16> control_writes{};
+     u32 control_count{};
+@@ -1161,6 +1163,29 @@
+     bool skip_same{}; ///< SkipSameValueWrites() && FrontSkipSame(), read once
+     /// The back's draw manager is in an instance loop (DrawMode::Instance): draw.end does nothing.
+     bool instance_loop{};
++
++    /// Registers a macro the back ran may have written (FrontRunOnBack), and their shadow RAM
++    /// entries: the ring position after the last such macro, 0 once the front knows the value.
++    std::array<u64, Regs::NUM_REGS> back_regs{};
++    std::array<u64, Regs::NUM_REGS> back_shadow{};
++    std::bitset<Regs::NUM_REGS> back_owned; ///< back_regs or back_shadow set
++    struct BackMacro {
++        u32 start{};
++        bool back{};                           ///< Runs on the back (else on the front)
++        std::vector<u32> writes;               ///< The registers its code can write
++        std::bitset<Regs::NUM_REGS> write_set; ///< The same, for the back's check
++        std::atomic<bool> escaped{};           ///< The back saw it write another register
++    };
++    /// By start in the macro code of back_generation, once called.
++    std::vector<std::unique_ptr<BackMacro>> back_macros;
++    u64 back_generation{~u64{0}};
++    std::vector<u32> back_demoted; ///< Starts of macros that wrote outside their write set
++    /// The back's macro engine, its code a copy of the front's (when back_code_copied).
++    std::unique_ptr<MacroEngine> back_engine;
++    bool back_code_copied{};
++    u64 back_last{};                 ///< The position after the last macro sent to the back
++    std::atomic<u32> back_escapes{}; ///< Back macros that wrote outside their write set
++    u32 back_escapes_seen{};
+ };
+ 
+ namespace {
+@@ -1263,6 +1288,58 @@
+     return skip;
+ }
+ 
++// Whether a macro the split's back runs may write `method` (FrontRunOnBack): the front then only
++// loses track of the register's value. Not the methods with effects the front tracks (macro code
++// and bindings, the shadow RAM mode, draws, constant buffer data, reports, uploads, syncpoints),
++// nor the registers it reads to note their memory writes, nor registers the back changes itself,
++// nor MME_DMA_READ, whose words land in the front's data RAM.
++bool BackWritable(const Maxwell3D& maxwell3d, u32 method) {
++    constexpr u32 const_buffer = MAXWELL3D_REG_INDEX(const_buffer);
++    constexpr u32 report = MAXWELL3D_REG_INDEX(report_semaphore);
++    constexpr u32 upload = MAXWELL3D_REG_INDEX(upload);
++    constexpr u32 upload_end = MAXWELL3D_REG_INDEX(launch_dma);
++    if (method - const_buffer < 4 || method - report < 4 || method - upload < upload_end - upload) {
++        return false;
++    }
++    switch (method) {
++    case MAXWELL3D_REG_INDEX(load_mme.start_address_ptr): // Advanced by load_mme.start_address
++    case MAXWELL3D_REG_INDEX(shadow_scratch):             // Set by falcon[4]
++    case MAXWELL3D_REG_INDEX(logic_op.enable):            // Cleared by draws on AMD
++    case 0x157:
++        return false;
++    case Maxwell3D::RootTables::SelectMethod:
++    case Maxwell3D::RootTables::LoadMethod:
++    case MAXWELL3D_REG_INDEX(wait_for_idle):
++    case MAXWELL3D_REG_INDEX(bind_groups[0].raw_config):
++    case MAXWELL3D_REG_INDEX(bind_groups[1].raw_config):
++    case MAXWELL3D_REG_INDEX(bind_groups[2].raw_config):
++    case MAXWELL3D_REG_INDEX(bind_groups[3].raw_config):
++    case MAXWELL3D_REG_INDEX(bind_groups[4].raw_config):
++    case MAXWELL3D_REG_INDEX(render_enable.mode):
++    case MAXWELL3D_REG_INDEX(clear_report_value):
++    case MAXWELL3D_REG_INDEX(fragment_barrier):
++    case MAXWELL3D_REG_INDEX(invalidate_texture_data_cache):
++    case MAXWELL3D_REG_INDEX(tiled_cache_barrier):
++        return true; // Executable, with effects on the back only
++    default:
++        return method < MacroRegistersStart && !maxwell3d.execution_mask[method];
++    }
++}
++
++// split.WaitUntil for a macro the back runs in the front's place (FrontRunOnBack), counted for the
++// async read-back line (EDEN_NX2_GPU_PROFILE).
++bool WaitForBackMacros(VideoCommon::GpuSplit& split, u64 position, VideoCommon::DrainSite site) {
++    if (!VideoCommon::Nx2Profile::Enabled()) {
++        return split.WaitUntil(position, site);
++    }
++    const u64 start = VideoCore::AsyncReadback::Now();
++    const bool waited = split.WaitUntil(position, site);
++    if (waited) {
++        VideoCore::AsyncReadback::CountBackWait(VideoCore::AsyncReadback::Now() - start);
++    }
++    return waited;
++}
++
+ } // Anonymous namespace
+ 
+ Maxwell3D::FrontState& Maxwell3D::Front(Core::System& system, VideoCommon::GpuSplit& split) {
+@@ -1298,7 +1375,12 @@
+ void Maxwell3D::ReleaseFront() {
+     executing_macro = front->executing_macro;
+     macro_params = std::move(front->parameters);
+-    std::memcpy(shadow_state.reg_array.data(), front->shadow.data(), sizeof(front->shadow));
++    // Entries macros the back ran may have written are the engine's already.
++    for (u32 i = 0; i < Regs::NUM_REGS; ++i) {
++        if (front->back_shadow[i] == 0) {
++            shadow_state.reg_array[i] = front->shadow[i];
++        }
++    }
+     shadow_state.shadow_ram_control = front->control;
+     front.reset();
+     front_macros = false;
+@@ -1308,12 +1390,13 @@
+ void Maxwell3D::FrontWrite(VideoCommon::GpuSplit& split, FrontState& fs, u32 method,
+                            u32 argument, bool is_last_call, bool from_macro) {
+     namespace Profile = VideoCommon::Nx2Profile;
+-    // As ProcessShadowRam does on the back.
++    // As ProcessShadowRam does on the back. A register a macro the back ran may have written is
++    // the front's again, and its write is sent even if the front's copies hold the value.
+     u32 value = argument;
+-    bool shadow_kept = true;
++    bool shadow_kept = !(fs.back_owned[method] && FrontTakeOver(split, fs, method));
+     if (fs.control == Regs::ShadowRamControl::Track ||
+         fs.control == Regs::ShadowRamControl::TrackWithFilter) {
+-        shadow_kept = fs.shadow[method] == argument;
++        shadow_kept = shadow_kept && fs.shadow[method] == argument;
+         fs.shadow[method] = argument;
+     } else if (fs.control == Regs::ShadowRamControl::Replay) {
+         value = fs.shadow[method];
+@@ -1448,7 +1531,11 @@
+         }
+         return;
+     }
+-    // What CallMultiMethod does to the registers on the back, then one entry for all the words.
++    // What CallMultiMethod does to the registers on the back, then one entry for all the words
++    // (sent whatever the front's copies hold).
++    if (fs.back_owned[method]) {
++        FrontTakeOver(split, fs, method);
++    }
+     constexpr u32 cb_data = MAXWELL3D_REG_INDEX(const_buffer.buffer);
+     const auto tracked = [&fs] {
+         return fs.control == Regs::ShadowRamControl::Track ||
+@@ -1539,12 +1626,15 @@
+     const auto positions = GetNativeMacroPositions();
+     const u32 start = positions[((method - MacroRegistersStart) >> 1) % positions.size()];
+     VideoCommon::Nx2Profile::CountMethod(method, false);
+-    {
++    if (!FrontRunOnBack(system, split, fs, engine, start)) {
+         VideoCommon::Nx2Profile::Scope profile_scope{VideoCommon::Nx2Profile::Zone::Macro};
+         engine.native_interpreter.active_dram = &native_data_ram;
+         const auto parameter_count = fs.parameters.size();
+-        const auto read = [&fs](u32 address) {
+-            return address < Regs::NUM_REGS ? fs.regs[address] : 0U;
++        const auto read = [&](u32 address) {
++            if (address >= Regs::NUM_REGS) {
++                return 0U;
++            }
++            return fs.back_owned[address] ? FrontRegister(split, fs, address) : fs.regs[address];
+         };
+         const auto emit = [&](u32 address, u32 value) {
+             if (address >= MacroRegistersStart) {
+@@ -1583,6 +1673,172 @@
+     if (FrontVerifyEnabled() && (++fs.calls & 4095) == 0) [[unlikely]] {
+         FrontVerify(split, fs);
+     }
++}
++
++// A macro whose code reads memory into its FIFO (MME_DMA_READ_FIFOED) and writes only registers
++// BackWritable allows runs on the back, at its point of the method stream: it reads the words as
++// a drained front would, and the front goes on without waiting for the work queued before it.
++// The registers it can write (and, in a tracked shadow RAM mode, their entries) are the back's
++// until the front writes them (FrontTakeOver) or needs them (FrontRegister). Returns whether the
++// call went to the back.
++bool Maxwell3D::FrontRunOnBack(Core::System& system, VideoCommon::GpuSplit& split, FrontState& fs,
++                               const MacroEngine& engine, u32 start) {
++    using DrainSite = VideoCommon::DrainSite;
++    using BackMacro = FrontState::BackMacro;
++    if (fs.parameters.size() > 0x1000) {
++        return false;
++    }
++    // A macro the back ran wrote another register: the front's copies may be stale anywhere. It
++    // runs on the front from now on, and the front takes the back's registers (FrontVerify).
++    const auto take_escapes = [&] {
++        fs.back_escapes_seen = fs.back_escapes.load(std::memory_order_acquire);
++        for (const auto& macro : fs.back_macros) {
++            if (macro && macro->back && macro->escaped.load(std::memory_order_relaxed)) {
++                macro->back = false;
++                fs.back_demoted.push_back(macro->start);
++                LOG_ERROR(HW_GPU,
++                          "Split back macro at {:#x} wrote outside the registers its code "
++                          "can write; it runs on the front from now on",
++                          macro->start);
++            }
++        }
++        FrontVerify(split, fs);
++    };
++    if (fs.back_generation != engine.native_code_generation) {
++        // The macros sent before run the code they were sent with, and check their records.
++        WaitForBackMacros(split, fs.back_last, DrainSite::BackCode);
++        if (fs.back_escapes.load(std::memory_order_relaxed) != fs.back_escapes_seen) {
++            take_escapes();
++        }
++        fs.back_macros.clear();
++        fs.back_macros.resize(engine.native_code.size() / 3);
++        fs.back_generation = engine.native_code_generation;
++        fs.back_code_copied = false;
++    } else if (fs.back_escapes.load(std::memory_order_relaxed) != fs.back_escapes_seen) {
++        take_escapes();
++    }
++    if (start >= fs.back_macros.size()) {
++        return false;
++    }
++    auto& known = fs.back_macros[start];
++    if (!known) {
++        known = std::make_unique<BackMacro>();
++        known->start = start;
++        const auto effects = TuringMacroInterpreter::AnalyzeEffects(engine.native_code, start);
++        const auto& methods = effects.methods;
++        const bool fifo_read = std::ranges::binary_search(methods, 0x158U);
++        if (fifo_read || std::ranges::binary_search(methods, 0x157U)) {
++            std::string reason;
++            if (std::ranges::find(fs.back_demoted, start) != fs.back_demoted.end()) {
++                reason = "it wrote another register on the back before";
++            } else if (!effects.methods_known) {
++                reason = "it computes the method of a write";
++            } else if (effects.data_ram) {
++                reason = "it uses the data RAM";
++            } else if (const auto it = std::ranges::find_if(
++                           methods, [this](u32 m) { return !BackWritable(*this, m); });
++                       it != methods.end()) {
++                reason = fmt::format("it writes {:#x}", *it);
++            }
++            known->back = reason.empty() && fifo_read;
++            if (known->back) {
++                known->writes = methods;
++                for (const u32 written : methods) {
++                    known->write_set.set(written);
++                }
++            }
++            static u32 logged{};
++            if (logged < 32) {
++                ++logged;
++                LOG_INFO(HW_GPU, "Split macro at {:#x} reads memory and runs on the {}: {}", start,
++                         known->back ? "back" : "front",
++                         known->back ? fmt::format("writes {:#x}", fmt::join(methods, ","))
++                                     : reason);
++            }
++        }
++    }
++    if (!known->back) {
++        return false;
++    }
++    if (!fs.back_engine) {
++        fs.back_engine = std::make_unique<MacroEngine>(true);
++        fs.back_engine->native_turing = true;
++    }
++    MacroEngine& back = *fs.back_engine;
++    if (!fs.back_code_copied) {
++        // Nothing sent with the old code is left to run (waited for above).
++        back.native_code = engine.native_code;
++        back.native_code_generation = engine.native_code_generation;
++        fs.back_code_copied = true;
++    }
++    split.DeferWords(
++        [this, system_ptr = &system, engine_ptr = &back, macro = known.get(),
++         escapes = &fs.back_escapes](std::span<const u32> parameters) {
++            // As ProcessMacro calls a macro, with the back's engine.
++            namespace AsyncReadback = VideoCore::AsyncReadback;
++            const bool profiled = VideoCommon::Nx2Profile::Enabled();
++            const u64 start = profiled ? AsyncReadback::Now() : 0;
++            ConsumeSink(*system_ptr);
++            engine_ptr->split_writes = &macro->write_set;
++            const u64 unexpected = engine_ptr->split_unexpected_writes;
++            engine_ptr->Execute(*system_ptr, *this, macro->start, parameters);
++            if (engine_ptr->split_unexpected_writes != unexpected) {
++                macro->escaped.store(true, std::memory_order_relaxed);
++                escapes->fetch_add(1, std::memory_order_release);
++            }
++            if (profiled) {
++                AsyncReadback::CountBackMacro(AsyncReadback::Now() - start);
++                AsyncReadback::MaybeReport();
++            }
++        },
++        fs.parameters);
++    const u64 position = split.Position();
++    fs.back_last = position;
++    const bool tracked = fs.control == Regs::ShadowRamControl::Track ||
++                         fs.control == Regs::ShadowRamControl::TrackWithFilter;
++    for (const u32 written : known->writes) {
++        fs.back_regs[written] = position;
++        if (tracked) {
++            fs.back_shadow[written] = position;
++        }
++        fs.back_owned[written] = true;
++    }
++    return true;
++}
++
++// A register as the back holds it once it ran what the front sent: the front's copy, or the
++// back's once it ran the last macro there that can write it. No entry sent after that macro
++// writes the register (a front write takes it over first, a later macro there would be the one
++// waited for), so the back's value stays until the front writes the register again.
++u32 Maxwell3D::FrontRegister(VideoCommon::GpuSplit& split, FrontState& fs, u32 method) {
++    if (fs.back_regs[method] != 0) {
++        WaitForBackMacros(split, fs.back_regs[method], VideoCommon::DrainSite::BackRegister);
++        fs.regs[method] = regs.reg_array[method];
++        fs.back_regs[method] = 0;
++        fs.back_owned[method] = fs.back_shadow[method] != 0;
++    }
++    return fs.regs[method];
++}
++
++// Before the front writes `method`: the register, and its shadow RAM entry unless the mode
++// leaves that alone, are the front's again; a replay takes the entry from the back first (as
++// FrontRegister). Returns whether the back may hold another value or entry than the front's
++// copies, so that the write must be sent even if it seems to change nothing.
++bool Maxwell3D::FrontTakeOver(VideoCommon::GpuSplit& split, FrontState& fs, u32 method) {
++    using Control = Regs::ShadowRamControl;
++    const bool tracked = fs.control == Control::Track || fs.control == Control::TrackWithFilter;
++    if (fs.back_shadow[method] != 0 && fs.control == Control::Replay) {
++        WaitForBackMacros(split, fs.back_shadow[method], VideoCommon::DrainSite::BackRegister);
++        fs.shadow[method] = shadow_state.reg_array[method];
++        fs.back_shadow[method] = 0;
++    }
++    const bool differs = fs.back_regs[method] != 0 || (tracked && fs.back_shadow[method] != 0);
++    fs.back_regs[method] = 0;
++    if (tracked) {
++        fs.back_shadow[method] = 0;
++    }
++    fs.back_owned[method] = fs.back_shadow[method] != 0;
++    return differs;
+ }
+ 
+ void Maxwell3D::FrontTrackInstanceLoop(FrontState& fs, u32 method, u32 value) {
+@@ -1673,12 +1929,14 @@
+         break;
+     }
+     case MAXWELL3D_REG_INDEX(render_enable.mode): {
+-        // A condition read from memory (ProcessQueryCondition) flushes every cache over it.
++        // A condition read from memory (ProcessQueryCondition) flushes every cache over it (also
++        // under an override a macro the back ran may have set).
++        constexpr u32 override_method = MAXWELL3D_REG_INDEX(render_enable_override);
+         const auto mode =
+             static_cast<Regs::RenderEnable::Mode>(fs.regs[MAXWELL3D_REG_INDEX(render_enable.mode)]);
+-        if (static_cast<Regs::RenderEnable::Override>(
+-                fs.regs[MAXWELL3D_REG_INDEX(render_enable_override)]) ==
+-                Regs::RenderEnable::Override::UseRenderEnable &&
++        if ((fs.back_regs[override_method] != 0 ||
++             static_cast<Regs::RenderEnable::Override>(fs.regs[override_method]) ==
++                 Regs::RenderEnable::Override::UseRenderEnable) &&
+             (mode == Regs::RenderEnable::Mode::Conditional ||
+              mode == Regs::RenderEnable::Mode::IfEqual ||
+              mode == Regs::RenderEnable::Mode::IfNotEqual)) {
+@@ -1697,8 +1955,9 @@
+ 
+ void Maxwell3D::FrontDmaRead(VideoCommon::GpuSplit& split, FrontState& fs, u32 macro,
+                              u32 method, u32 count) {
+-    const GPUVAddr source = (GPUVAddr{fs.regs[0x154] & 0x1ffffff} << 32) | fs.regs[0x155];
+-    const u32 ram = fs.regs[0x156];
++    const GPUVAddr source = (GPUVAddr{FrontRegister(split, fs, 0x154) & 0x1ffffff} << 32) |
++                            FrontRegister(split, fs, 0x155);
++    const u32 ram = FrontRegister(split, fs, 0x156);
+     const u32 words = std::min<u32>(count, 0x1000);
+     const size_t read_bytes = size_t{words} * sizeof(u32);
+     std::vector<u32> diag_before;
+@@ -1812,6 +2071,18 @@
+                                ? shadow_state.reg_array[method]
+                                : value;
+     }
++    // What macros the back ran may have written, the front takes over (FrontRunOnBack).
++    for (u32 i = 0; i < Regs::NUM_REGS; ++i) {
++        if (fs.back_regs[i] != 0) {
++            fs.regs[i] = expected[i];
++        }
++        if (fs.back_shadow[i] != 0) {
++            fs.shadow[i] = shadow_state.reg_array[i];
++        }
++    }
++    fs.back_regs.fill(0);
++    fs.back_shadow.fill(0);
++    fs.back_owned.reset();
+     static u64 control_differences{};
+     if ((fs.control != shadow_state.shadow_ram_control ||
+          fs.shadow[MAXWELL3D_REG_INDEX(shadow_ram_control)] != shadow_state.reg_array[MAXWELL3D_REG_INDEX(shadow_ram_control)] ||
+diff --git a/src/video_core/engines/maxwell_3d.h b/src/video_core/engines/maxwell_3d.h
+--- a/src/video_core/engines/maxwell_3d.h
++++ b/src/video_core/engines/maxwell_3d.h
+@@ -3424,6 +3424,10 @@
+     void FrontWrite(VideoCommon::GpuSplit& split, FrontState& state, u32 method, u32 argument,
+                     bool is_last_call, bool from_macro);
+     void FrontRunMacro(Core::System& system, VideoCommon::GpuSplit& split, FrontState& state);
++    bool FrontRunOnBack(Core::System& system, VideoCommon::GpuSplit& split, FrontState& state,
++                        const MacroEngine& engine, u32 start);
++    u32 FrontRegister(VideoCommon::GpuSplit& split, FrontState& state, u32 method);
++    bool FrontTakeOver(VideoCommon::GpuSplit& split, FrontState& state, u32 method);
+     void FrontTrackInstanceLoop(FrontState& state, u32 method, u32 value);
+     bool FrontSkipsLoopWrite(FrontState& state, u32 method, u32 value, bool shadow_kept);
+     void FrontNoteWrites(VideoCommon::GpuSplit& split, const FrontState& state, u32 method,
+diff --git a/src/video_core/gpu_split.cpp b/src/video_core/gpu_split.cpp
+--- a/src/video_core/gpu_split.cpp
++++ b/src/video_core/gpu_split.cpp
+@@ -147,6 +147,7 @@
+     write_position = 0;
+     last_writer_position = 0;
+     last_sync_position = 0;
++    synced_writer_position = 0;
+     semaphore_writes.clear();
+     semaphore_writes_limit = 1024;
+     last_any_write = 0;
+@@ -338,6 +339,10 @@
+ bool GpuSplit::WaitForWrites(const Tegra::MemoryManager& memory, GPUVAddr address, u64 size) {
+     return WaitFor(std::min(WritesTarget(memory, address, size), write_position),
+                    DrainSite::MacroDmaWrites);
++}
++
++bool GpuSplit::WaitForSyncedWriters() {
++    return WaitFor(std::min(synced_writer_position, write_position), DrainSite::ListWriters);
+ }
+ 
+ bool GpuSplit::WaitFor(u64 target, DrainSite site) {
+diff --git a/src/video_core/gpu_split.h b/src/video_core/gpu_split.h
+--- a/src/video_core/gpu_split.h
++++ b/src/video_core/gpu_split.h
+@@ -3,12 +3,14 @@
+ 
+ #pragma once
+ 
++#include <algorithm>
+ #include <array>
+ #include <atomic>
+ #include <cstring>
+ #include <functional>
+ #include <memory>
+ #include <optional>
++#include <span>
+ #include <thread>
+ #include <type_traits>
+ #include <unordered_map>
+@@ -47,6 +49,8 @@
+     FrontStart,     ///< The front takes an engine's macros over
+     FrontVerify,    ///< EDEN_NX2_FRONT_VERIFY
+     RingFull,       ///< The ring is full: the front waits for the back to make room
++    BackRegister,   ///< A register a macro the back ran may have written (Maxwell3D)
++    BackCode,       ///< The macro code changes under the macros the back has yet to run
+     Count,
+ };
+ 
+@@ -91,7 +95,7 @@
+     "other",           "fetch drain",   "acquire",    "semaphore flush", "fence release",
+     "list writers",    "list sync",     "list flush", "macro dma read",  "macro dma writes",
+     "macro dma flush", "gp sync fence", "map",        "front start",     "front verify",
+-    "ring full",
++    "ring full",       "back register", "back code",
+ };
+ 
+ // Splits the GPU thread in two (NX2_GPU_THREAD_SPLIT.md). The GPU thread (the front) takes the
+@@ -215,6 +219,27 @@
+             NoteAnyWrite();
+         }
+     }
++    /// Defer, calling `func` with a copy of `words` (a std::span<const u32>).
++    template <typename Func>
++    void DeferWords(const Func& func, std::span<const u32> words,
++                    Writes writes = Writes::Anywhere) {
++        static_assert(std::is_trivially_copyable_v<Func> && alignof(Func) <= alignof(u64));
++        constexpr size_t function_words = (sizeof(Func) + sizeof(u64) - 1) / sizeof(u64);
++        const size_t payload = function_words + 1 + (words.size() + 1) / 2;
++        u64* const entry = Reserve(2 + payload);
++        entry[0] = static_cast<u64>(Kind::Call) | (u64{payload} << 8);
++        entry[1] = reinterpret_cast<u64>(&CallWordsThunk<Func>);
++        std::memcpy(entry + 2, &func, sizeof(Func));
++        entry[2 + function_words] = words.size();
++        if (!words.empty()) {
++            entry[1 + payload] = 0; // Padding after an odd count
++            std::memcpy(entry + 3 + function_words, words.data(), words.size_bytes());
++        }
++        Commit(2 + payload);
++        if (writes == Writes::Anywhere) {
++            NoteAnyWrite();
++        }
++    }
+     void DeferFunction(std::function<void()>&& func);
+     /// Runs `func` on the back and waits for it: for work on back-owned state, such as a buffer
+     /// cache download that records into the Vulkan scheduler. A drained back still submits from
+@@ -251,6 +276,15 @@
+     void ReportAcquire();
+     /// Waits until the back executed everything sent so far.
+     void Drain(DrainSite site = DrainSite::Other);
++    /// The ring position after the entries sent so far, for WaitUntil.
++    [[nodiscard]] u64 Position() const {
++        return write_position;
++    }
++    /// Waits until the back executed the entries sent before `position`. Returns whether any of
++    /// them was still queued.
++    bool WaitUntil(u64 position, DrainSite site) {
++        return WaitFor((std::min)(position, write_position), site);
++    }
+ 
+     /// Compute or copy work was just sent: what can write GPU-written command lists.
+     void NoteWriter() {
+@@ -264,6 +298,7 @@
+     /// guest's GPU work before it is complete before the commands after it are fetched.
+     void NoteSync() {
+         last_sync_position = write_position;
++        synced_writer_position = last_writer_position;
+     }
+     /// Waits until the back executed the work sent before the last NoteSync. Returns whether any
+     /// of it was still queued.
+@@ -279,6 +314,10 @@
+     /// it yet.
+     [[nodiscard]] std::optional<QueuedSemaphoreWrite> QueuedSemaphoreWriteAt(
+         u64 device_address) const;
++    /// Waits until the back executed the compute and copy work sent before the last NoteSync:
++    /// the writers a command list fetched now is ordered after. Returns whether any of it was
++    /// still queued.
++    bool WaitForSyncedWriters();
+ 
+     /// The entry just sent (Writes::Noted) writes [address, address + size) of `memory`.
+     void NoteWrite(const Tegra::MemoryManager& memory, GPUVAddr address, u64 size);
+@@ -333,6 +372,13 @@
+     static void CallThunk(const u64* payload) {
+         (*reinterpret_cast<const Func*>(payload))();
+     }
++    template <typename Func>
++    static void CallWordsThunk(const u64* payload) {
++        constexpr size_t function_words = (sizeof(Func) + sizeof(u64) - 1) / sizeof(u64);
++        (*reinterpret_cast<const Func*>(payload))(
++            std::span<const u32>{reinterpret_cast<const u32*>(payload + function_words + 1),
++                                 static_cast<size_t>(payload[function_words])});
++    }
+ 
+     /// Room for an entry of `words` at the write position (never across the ring's end).
+     u64* Reserve(size_t words) {
+@@ -392,6 +438,7 @@
+     u64 write_position{};
+     u64 last_writer_position{};
+     u64 last_sync_position{};
++    u64 synced_writer_position{};
+     struct SemaphoreWrite {
+         u64 position; ///< write_position once it was sent
+         u32 payload;
+diff --git a/src/video_core/macro.cpp b/src/video_core/macro.cpp
+--- a/src/video_core/macro.cpp
++++ b/src/video_core/macro.cpp
+@@ -39,6 +39,7 @@
+ #include "common/bit_field.h"
+ #include "common/logging.h"
+ #include "video_core/engines/maxwell_3d.h"
++#include "video_core/nx2_async_readback.h"
+ #include "video_core/nx2_fast_draw.h"
+ #include "video_core/nx2_profile.h"
+ 
+@@ -1367,7 +1368,9 @@
+         // Reused between calls (a macro never calls another: methods >= 0xe00 are refused below);
+         // filled only for calls that are interpreted.
+         auto& fifo = native_fifo;
+-        native_interpreter.active_dram = &maxwell3d.GetNativeDataRam();
++        // The channel's data RAM is the split's front's while it runs macros (split_writes).
++        native_interpreter.active_dram =
++            split_writes != nullptr ? &native_interpreter.dram : &maxwell3d.GetNativeDataRam();
+         // EDEN_NX2_MME_RECORD=<file>: write the first 200000 calls (u32 start, u32 count, the
+         // parameters) and then the macro code to <file>.code, to check interpreter changes
+         // offline against the previous interpreter. EDEN_NX2_MME_RECORD_SKIP=<n>: skip the first
+@@ -1398,6 +1401,9 @@
+         bool read_memory = false;
+         const auto emit = [&](u32 address, u32 value) {
+                 if (address >= 0xe00) return false;
++                if (split_writes != nullptr && !(*split_writes)[address]) {
++                    ++split_unexpected_writes;
++                }
+                 if (address == 0x556) {
+                     // SET_RENDER_ENABLE_OVERRIDE: 0 use the render-enable condition, 1 always,
+                     // 2 never. Log a histogram every 20000 macro writes (pop-in diagnostics).
+@@ -1446,16 +1452,27 @@
+                         VideoCommon::QueryDma::Trace(memory, maxwell3d.Rasterizer(), method, address,
+                                                      source, read_bytes);
+                     }
++                    // A call the split's back runs in its front's place (Maxwell3D::FrontRunOnBack)
++                    // counts its write-out for the async read-back line.
++                    const bool back_call =
++                        split_writes != nullptr && VideoCommon::Nx2Profile::Enabled();
++                    const u64 write_out_start = back_call ? VideoCore::AsyncReadback::Now() : 0;
+                     if (owns_caches) {
+                         VideoCommon::QueryDma::FlushPending(memory, maxwell3d.Rasterizer(), source,
+                                                             read_bytes);
+                     }
+-                    if (memory.IsMemoryDirty(source, read_bytes, VideoCommon::CacheType::BufferCache)) {
++                    const bool dirty =
++                        memory.IsMemoryDirty(source, read_bytes, VideoCommon::CacheType::BufferCache);
++                    if (dirty) {
+                         memory.FlushRegion(source, read_bytes, VideoCommon::CacheType::BufferCache);
+                         static u64 flushes{};
+                         if (++flushes % 2000 == 1) {
+                             LOG_INFO(HW_GPU, "Native MME DMA read flushed GPU-written memory ({} times)", flushes);
+                         }
++                    }
++                    if (back_call) {
++                        VideoCore::AsyncReadback::CountBackDmaRead(
++                            dirty, VideoCore::AsyncReadback::Now() - write_out_start);
+                     }
+                     static u32 dma_logs{};
+                     if (dma_logs < 400) {
+diff --git a/src/video_core/macro.h b/src/video_core/macro.h
+--- a/src/video_core/macro.h
++++ b/src/video_core/macro.h
+@@ -6,6 +6,7 @@
+ 
+ #pragma once
+ 
++#include <bitset>
+ #include <memory>
+ #include "video_core/macro_memo.h"
+ #include "video_core/macro_turing.h"
+@@ -265,7 +266,11 @@
+     std::shared_ptr<TuringMacroJit> native_jit;
+     MacroMemoPairs native_writes;
+     u64 native_calls{};
+-
++    /// Set while the split GPU thread's back runs a call in its front's place (Maxwell3D::
++    /// FrontRunOnBack): the 3D registers the call can write. Such a call uses no data RAM; its
++    /// writes to other registers are counted in split_unexpected_writes.
++    const std::bitset<0xe00>* split_writes{};
++    u64 split_unexpected_writes{};
+ };
+ 
+ struct NativeMacroContext {
+diff --git a/src/video_core/macro_turing.h b/src/video_core/macro_turing.h
+--- a/src/video_core/macro_turing.h
++++ b/src/video_core/macro_turing.h
+@@ -10,6 +10,7 @@
+ #include <cstdint>
+ #include <span>
+ #include <string_view>
++#include <unordered_map>
+ #include <vector>
+ 
+ namespace Tegra {
+@@ -253,6 +254,271 @@
+         return {false, pc, consumed, error};
+     }
+ 
++    /// What a call from `start` can do on any path through the code (each branch either way,
++    /// each loop any number of times), as Execute runs it: the methods it can write, each a
++    /// constant of the code unless `methods_known` is false, and whether it uses the data RAM.
++    struct Effects {
++        std::vector<Word> methods; ///< Ascending, each once
++        bool methods_known{true};
++        bool data_ram{};
++    };
++
++    static Effects AnalyzeEffects(std::span<const Word> code, Word start) {
++        // The values the code fixes, before an instruction runs: registers, carry, the method
++        // and its increment. Unknown values are always {false, 0}.
++        struct Value {
++            bool known;
++            Word value;
++            bool operator==(const Value&) const = default;
++        };
++        struct State {
++            std::array<Value, 24> regs;
++            Value carry, method, increment;
++            bool operator==(const State&) const = default;
++        };
++        // Where an instruction may continue: unchanged, at `pc` (a taken branch also sets
++        // whether it cancels an END), or nowhere (a branch that stops the call).
++        struct Flow {
++            enum Kind { Next, Jump, Branch, Stop } kind;
++            Word pc;
++            bool cancel_end;
++        };
++        constexpr Value unknown{false, 0};
++        const auto known = [](Word value) { return Value{true, value}; };
++        const Word count = static_cast<Word>(code.size() / 3);
++        Effects effects;
++        // By instruction, and whether an END before it makes it the call's last (pc * 2 + 1).
++        std::unordered_map<Word, State> states;
++        // By a loop's last instruction: where its loops start over.
++        std::unordered_map<Word, std::vector<Word>> loop_starts;
++        std::vector<Word> work;
++        const auto reach = [&](Word pc, bool last, const State& state) {
++            if (pc >= count) {
++                return; // The call fails there
++            }
++            const Word index = pc * 2 + (last ? 1U : 0U);
++            const auto [it, inserted] = states.try_emplace(index, state);
++            if (!inserted) {
++                State joined = it->second;
++                const auto join = [](Value& to, const Value& from) {
++                    if (to != from) to = Value{false, 0};
++                };
++                for (std::size_t i = 0; i < joined.regs.size(); ++i) {
++                    join(joined.regs[i], state.regs[i]);
++                }
++                join(joined.carry, state.carry);
++                join(joined.method, state.method);
++                join(joined.increment, state.increment);
++                if (joined == it->second) return;
++                it->second = joined;
++            }
++            work.push_back(index);
++        };
++        State entry;
++        entry.regs.fill(unknown); // Reading one before writing it fails the call
++        entry.carry = entry.method = entry.increment = known(0);
++        reach(start, false, entry);
++        while (!work.empty()) {
++            const Word index = work.back();
++            work.pop_back();
++            const Word pc = index / 2;
++            const bool last = (index & 1) != 0;
++            const State before = states.at(index);
++            const Decoded d = Decode({code[pc * 3 + 2], code[pc * 3 + 1], code[pc * 3]});
++            const auto get = [&d](const State& state, Word reg, Word lane) -> Value {
++                if (reg < 24) return state.regs[reg];
++                switch (reg) {
++                case 24: return Value{true, 0};
++                case 25: return Value{true, Word(std::int32_t(std::int16_t(d.imm[lane])))};
++                case 26: return Value{true, Word(std::int32_t(std::int16_t(d.imm[1 - lane])))};
++                case 27: return Value{true, (d.imm[0] << 16) | d.imm[1]};
++                default: return Value{false, 0}; // FIFO loads
++                }
++            };
++            // The lanes and outputs the predicate enables, both sets if its register is unknown.
++            std::array<Word, 2> masks{15, 15};
++            std::size_t mask_count = 1;
++            if (d.pred_mode) {
++                const Value predicate = get(before, d.pred_reg, 0);
++                masks = {d.mask_true, d.mask_false};
++                if (predicate.known) masks[0] = predicate.value ? d.mask_true : d.mask_false;
++                else mask_count = 2;
++            }
++            for (std::size_t m = 0; m < mask_count; ++m) {
++                const Word mask = masks[m];
++                State state = before;
++                std::array<Value, 2> xs{unknown, unknown}, ys{unknown, unknown};
++                for (Word lane = 0; lane < 2; ++lane) {
++                    if (mask & (1U << lane)) {
++                        xs[lane] = get(before, d.src_a[lane], lane);
++                        ys[lane] = get(before, d.src_b[lane], lane);
++                    }
++                }
++                std::array<Value, 2> alu{known(0), known(0)};
++                std::array<std::array<Flow, 2>, 2> flows{};
++                std::array<std::size_t, 2> flow_counts{1, 1}; // Flow::Next by default
++                for (Word lane = 0; lane < 2; ++lane) {
++                    if (!(mask & (1U << lane))) continue;
++                    const Value x = xs[lane], y = ys[lane];
++                    const bool both = x.known && y.known;
++                    const Word a = x.value, b = y.value, imm = d.imm[lane];
++                    auto& flow = flows[lane];
++                    auto& flow_count = flow_counts[lane];
++                    const auto taken = [&](Word op) {
++                        switch (op) {
++                        case 17: case 25: return std::int32_t(a) < std::int32_t(b);
++                        case 18: case 26: return a < b;
++                        case 19: case 27: return std::int32_t(a) <= std::int32_t(b);
++                        case 20: case 28: return a <= b;
++                        default: return a == b;
++                        }
++                    };
++                    Value value = known(0);
++                    switch (d.op[lane]) {
++                    case 0: case 2: {
++                        const Word result = d.op[lane] == 0 ? a + b : a - b;
++                        value = both ? known(result) : unknown;
++                        const bool carry = d.op[lane] == 0 ? result < a : result > a;
++                        state.carry = both ? known(carry) : unknown;
++                        break;
++                    }
++                    case 1: case 3:
++                        value = both && state.carry.known
++                                    ? known(d.op[lane] == 1 ? a + b + state.carry.value
++                                                            : a - b - state.carry.value)
++                                    : unknown;
++                        break;
++                    case 4: case 6: {
++                        const std::uint64_t product =
++                            d.op[lane] == 4 ? std::uint64_t(std::int64_t(std::int32_t(a))) *
++                                                  std::uint64_t(std::int64_t(std::int32_t(b)))
++                                            : std::uint64_t{a} * b;
++                        value = both ? known(Word(product)) : unknown;
++                        state.carry = both ? known(Word(product >> 32)) : unknown;
++                        break;
++                    }
++                    case 5: value = state.carry; break;
++                    case 8: value = x.known ? known(Word(std::countl_zero(a))) : unknown; break;
++                    case 9: value = both ? known(a << (b & 31)) : unknown; break;
++                    case 10: value = both ? known(a >> (b & 31)) : unknown; break;
++                    case 11:
++                        value = both ? known(Word(std::int32_t(a) >> (b & 31))) : unknown;
++                        break;
++                    case 12: value = both ? known(a & b) : unknown; break;
++                    case 13: value = both ? known(~(a & b)) : unknown; break;
++                    case 14: value = both ? known(a | b) : unknown; break;
++                    case 15: value = both ? known(a ^ b) : unknown; break;
++                    case 16: {
++                        const Word dest = (imm >> 10) & 63, bits = (imm >> 5) & 31;
++                        const Word bits_mask = (1U << bits) - 1;
++                        value = both && dest < 32
++                                    ? known((a & ~(bits_mask << dest)) |
++                                            (((b >> (imm & 31)) & bits_mask) << dest))
++                                    : unknown;
++                        break;
++                    }
++                    case 17: case 18: case 19: case 20: case 21:
++                        value = both ? known(taken(d.op[lane]) ? ~0U : 0) : unknown;
++                        break;
++                    case 22: value = unknown; break; // A register
++                    case 23:
++                        if (imm < 2) break;
++                        // Entered, or skipped with a count of 0. Its last instruction may start
++                        // it over: reached already, that instruction now continues here too.
++                        if (const Word end = pc + imm - 1; end < count) {
++                            auto& starts = loop_starts[end];
++                            if (std::ranges::find(starts, pc + 1) == starts.end()) {
++                                starts.push_back(pc + 1);
++                                for (const Word end_index : {end * 2, end * 2 + 1}) {
++                                    if (states.contains(end_index)) work.push_back(end_index);
++                                }
++                            }
++                        }
++                        flow_count = 0;
++                        if (!x.known || a != 0) flow[flow_count++] = {Flow::Next, 0, false};
++                        if (!x.known || a == 0) flow[flow_count++] = {Flow::Jump, pc + imm, false};
++                        break;
++                    case 24: flow[0] = {Flow::Jump, pc + (imm & 0x7fff), false}; break;
++                    case 25: case 26: case 27: case 28: case 29: {
++                        const auto offset = std::int32_t(imm << 19) >> 19;
++                        const Word target = Word(std::int32_t(pc) + offset);
++                        const bool jumps = taken(d.op[lane]) == bool(imm & 0x8000);
++                        flow_count = 0;
++                        if (!both || jumps) {
++                            const bool cancel_end = (imm & 0x4000) != 0;
++                            flow[flow_count++] = offset == -4096
++                                                     ? Flow{Flow::Stop, 0, false}
++                                                     : Flow{Flow::Branch, target, cancel_end};
++                        }
++                        if (!both || !jumps) flow[flow_count++] = {Flow::Next, 0, false};
++                        break;
++                    }
++                    case 30: effects.data_ram = true; value = unknown; break;
++                    case 31: effects.data_ram = true; break;
++                    default: break; // 7: the load barrier
++                    }
++                    alu[lane] = value;
++                    if (d.dst[lane] < 24) state.regs[d.dst[lane]] = value;
++                }
++                const auto output = [&](Word selector) -> Value {
++                    switch (selector) {
++                    case 1: return alu[0];
++                    case 2: return alu[1];
++                    case 5: return known(d.imm[0]);
++                    case 6: return known(d.imm[1]);
++                    case 8: return known(d.imm[0] >> 12);
++                    case 9: return known(d.imm[1] >> 12);
++                    case 10: return known((d.imm[0] << 16) | d.imm[1]);
++                    default: return unknown; // FIFO loads (the rest fail the call)
++                    }
++                };
++                for (Word lane = 0; lane < 2; ++lane) {
++                    if (!(mask & (4U << lane))) continue;
++                    if (d.out_method[lane]) {
++                        const Value address = output(d.out_method[lane]);
++                        state.method = address.known ? known(address.value & 0xfff) : unknown;
++                        state.increment =
++                            address.known ? known((address.value >> 12) & 15) : unknown;
++                    }
++                    if (d.out_emit[lane]) {
++                        if (state.method.known) effects.methods.push_back(state.method.value);
++                        else effects.methods_known = false;
++                        state.method = state.method.known && state.increment.known
++                                           ? known(state.method.value + state.increment.value)
++                                           : unknown;
++                    }
++                }
++                if (last) continue; // An END before this instruction ends the call after it
++                // Lane 1's control flow overrides lane 0's; a loop's last instruction may also
++                // start it over.
++                const auto loop = loop_starts.find(pc);
++                const std::vector<Word> repeats =
++                    loop != loop_starts.end() ? loop->second : std::vector<Word>{};
++                for (std::size_t i = 0; i < flow_counts[0]; ++i) {
++                    for (std::size_t j = 0; j < flow_counts[1]; ++j) {
++                        Word next = pc + 1;
++                        bool cancel_end = false, stopped = false;
++                        for (const Flow& flow : {flows[0][i], flows[1][j]}) {
++                            if (flow.kind == Flow::Jump || flow.kind == Flow::Branch) {
++                                next = flow.pc;
++                            }
++                            if (flow.kind == Flow::Branch) cancel_end = flow.cancel_end;
++                            stopped |= flow.kind == Flow::Stop;
++                        }
++                        if (stopped) continue;
++                        const bool end_next = d.end && !cancel_end;
++                        reach(next, end_next, state);
++                        for (const Word repeat : repeats) reach(repeat, end_next, state);
++                    }
++                }
++            }
++        }
++        std::ranges::sort(effects.methods);
++        effects.methods.erase(std::unique(effects.methods.begin(), effects.methods.end()),
++                              effects.methods.end());
++        return effects;
++    }
++
+     using DataRam = std::array<Word, 0xc00>;
+     DataRam dram{};
+     // The data RAM DREAD/DWRITE use: a channel's own copy when the caller sets one. Macro code is
+diff --git a/src/video_core/nx2_async_readback.h b/src/video_core/nx2_async_readback.h
+--- a/src/video_core/nx2_async_readback.h
++++ b/src/video_core/nx2_async_readback.h
+@@ -17,7 +17,8 @@
+ // the bytes to guest memory (BufferCache::FinishReadDownloads). Pages the guest reads after each
+ // GPU write get their download right behind the write. A macro DMA read on the split's front
+ // waits only for the queued work that can write its words (Maxwell3D::FrontDmaRead,
+-// GpuSplit::WaitForWrites).
++// GpuSplit::WaitForWrites); macros whose code reads memory into their FIFO run on the back
++// instead (Maxwell3D::FrontRunOnBack).
+ //
+ // Diagnostics, off unless set:
+ // - EDEN_NX2_READ_CHECK=n: 1 in n read downloads (1 checks them all) is compared with a
+@@ -108,6 +109,19 @@
+     std::atomic<u64> clear_landings{};
+     std::atomic<u64> clear_waits{};
+     std::atomic<u64> clear_wait_ns{};
++    /// Macros that read memory, run on the split's back in its front's place
++    /// (Maxwell3D::FrontRunOnBack): the calls and the back's time in them, their DMA reads, those
++    /// that found GPU-modified words to flush and the time the reads spent writing the caches out
++    /// (part of the calls' time)
++    std::atomic<u64> back_macros{};
++    std::atomic<u64> back_macro_ns{};
++    std::atomic<u64> back_dma_reads{};
++    std::atomic<u64> back_dma_flushes{};
++    std::atomic<u64> back_dma_flush_ns{};
++    /// The front's waits for such macros to run: for registers they wrote, for shadow RAM entries
++    /// they set, and for those sent before the macro code changes
++    std::atomic<u64> back_waits{};
++    std::atomic<u64> back_wait_ns{};
+     std::atomic<u64> window_start{};
+ };
+ 
+@@ -150,6 +164,25 @@
+     Add(g_counters.clear_landings, 1);
+     Add(g_counters.clear_waits, ns != 0 ? 1 : 0);
+     Add(g_counters.clear_wait_ns, ns);
++}
++
++/// The split's back ran a macro in its front's place for ns.
++inline void CountBackMacro(u64 ns) {
++    Add(g_counters.back_macros, 1);
++    Add(g_counters.back_macro_ns, ns);
++}
++
++/// A DMA read of such a macro spent ns writing the caches out, flushing GPU-modified words.
++inline void CountBackDmaRead(bool flushed, u64 ns) {
++    Add(g_counters.back_dma_reads, 1);
++    Add(g_counters.back_dma_flushes, flushed ? 1 : 0);
++    Add(g_counters.back_dma_flush_ns, ns);
++}
++
++/// The front waited ns for such a macro to run.
++inline void CountBackWait(u64 ns) {
++    Add(g_counters.back_waits, 1);
++    Add(g_counters.back_wait_ns, ns);
+ }
+ 
+ /// Logs the totals every 10 s and resets them, on whichever thread counting comes first.
+@@ -192,6 +225,13 @@
+     const u64 clear_landings = take(c.clear_landings);
+     const u64 clear_waits = take(c.clear_waits);
+     const u64 clear_wait_ns = take(c.clear_wait_ns);
++    const u64 back_macros = take(c.back_macros);
++    const u64 back_macro_ns = take(c.back_macro_ns);
++    const u64 back_dma_reads = take(c.back_dma_reads);
++    const u64 back_dma_flushes = take(c.back_dma_flushes);
++    const u64 back_dma_flush_ns = take(c.back_dma_flush_ns);
++    const u64 back_waits = take(c.back_waits);
++    const u64 back_wait_ns = take(c.back_wait_ns);
+     constexpr auto async = static_cast<size_t>(Read::Async);
+     constexpr auto in_flight = static_cast<size_t>(Read::InFlight);
+     LOG_INFO(HW_GPU,
+@@ -202,14 +242,18 @@
+              "GPU wait {:.0f} times, {:.1f} ms | macro DMA reads {:.0f}, {:.0f} waited for the "
+              "split's back ({:.1f} ms), {:.0f} drained it | GPU thread landed read downloads before "
+              "writes guest memory doesn't hold {:.0f} times, {:.0f} waited for the host GPU "
+-             "({:.1f} ms)",
++             "({:.1f} ms) | split's back ran {:.0f} macros that read memory ({:.1f} ms), their DMA "
++             "reads {:.0f}, {:.0f} flushed GPU-modified words ({:.1f} ms writing caches out) | "
++             "front waited for them {:.0f} times ({:.1f} ms)",
+              per_second(reads[async]), ms_per_second(read_ns[async]),
+              per_second(reads[in_flight]), ms_per_second(read_ns[in_flight]),
+              ms_per_second(flush_ns), per_second(reader_waits), ms_per_second(reader_wait_ns),
+              static_cast<double>(reader_max_wait_ns) / 1e6, per_second(gpu_side_waits),
+              ms_per_second(gpu_side_wait_ns), per_second(dma_reads), per_second(dma_waited),
+              ms_per_second(dma_wait_ns), per_second(dma_drained), per_second(clear_landings),
+-             per_second(clear_waits), ms_per_second(clear_wait_ns));
++             per_second(clear_waits), ms_per_second(clear_wait_ns), per_second(back_macros),
++             ms_per_second(back_macro_ns), per_second(back_dma_reads), per_second(back_dma_flushes),
++             ms_per_second(back_dma_flush_ns), per_second(back_waits), ms_per_second(back_wait_ns));
+ }
+ 
+ } // namespace VideoCore::AsyncReadback

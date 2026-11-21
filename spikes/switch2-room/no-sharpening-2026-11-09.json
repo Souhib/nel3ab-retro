@@ -1,0 +1,982 @@
+{
+  "run": "lichii-nosharpening-diagnostic",
+  "scope": "Single instrumented NoSharpening1 +MaxResolutionON diagnostic, not a causal FPS comparison",
+  "activation": {
+    "successful_copy_marker_count": 1,
+    "output_dimensions": [
+      2560,
+      1440
+    ],
+    "source_equals_output_dimensions": "Source KeplerCompute::BypassOotNetwork rejects mismatch before successful copy marker; marker prints output dimensions, not two independent measurements.",
+    "source_anchors": "kepler_compute.cpp1091-1104 and1142-1147",
+    "native_mode": 1,
+    "max_resolution": "ON",
+    "heavy_dispatch_source_unchanged": true
+  },
+  "clock": {
+    "host_time_namespace": "time:[4026531834]",
+    "emulator_time_namespace": "time:[4026531834]",
+    "timens_offsets": "monotonic           0         0\nboottime            0         0\n",
+    "libstdcpp_path": "/usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33",
+    "libstdcpp_sha256": "1fd75fe70354a416d75aef22bcae68c47bd25d20e2d0568c30b1a9838cf62f11",
+    "host_before_ns": 2282014714860845,
+    "container_monotonic_ns": 2282014793126372,
+    "host_after_ns": 2282014800435530,
+    "mapping": "Exact mapped libstdc++ disassembly in pacing-steady-clock-proof.json uses CLOCK_MONOTONIC; no libc++ substitution."
+  },
+  "marker_count": 1,
+  "copy_failed_count": 0,
+  "unexpected_images_count": 0,
+  "camera_seconds": 60.943870388,
+  "preparation_seconds": 88.56815671920776,
+  "complete_windows": [
+    {
+      "intervals": 600,
+      "sum_ns": 18863422105,
+      "p50_ns": 30050562,
+      "p95_ns": 40283579,
+      "p99_ns": 45171944,
+      "max_ns": 52718267,
+      "over30": 142,
+      "over100": 0,
+      "begin_ns": 2282048402868014,
+      "end_ns": 2282067266290119,
+      "legacy_same_window": {
+        "mean_frame_us": 31438,
+        "max_frame_us": 52718,
+        "over100": 0,
+        "mean_fence_us": 0,
+        "max_fence_us": 6,
+        "mean_composite_us": 22,
+        "mean_pacing_us": 0,
+        "ran_ahead": 600
+      }
+    },
+    {
+      "intervals": 600,
+      "sum_ns": 18448615780,
+      "p50_ns": 29569209,
+      "p95_ns": 37241078,
+      "p99_ns": 43720289,
+      "max_ns": 47589391,
+      "over30": 119,
+      "over100": 0,
+      "begin_ns": 2282067266290119,
+      "end_ns": 2282085714905899,
+      "legacy_same_window": {
+        "mean_frame_us": 30747,
+        "max_frame_us": 47589,
+        "over100": 0,
+        "mean_fence_us": 0,
+        "max_fence_us": 14,
+        "mean_composite_us": 22,
+        "mean_pacing_us": 0,
+        "ran_ahead": 600
+      }
+    }
+  ],
+  "intervals": 1200,
+  "sum_ns": 37312037885,
+  "covered_seconds": 37.312037885,
+  "interval_rate_per_second": 32.161202336322084,
+  "over30": 261,
+  "over30_percent": 21.75,
+  "over100": 0,
+  "max_ms": 52.718267,
+  "p95_window_ms": [
+    40.283579,
+    37.241078
+  ],
+  "p99_window_ms": [
+    45.171944,
+    43.720289
+  ],
+  "legacy_means_us": {
+    "mean_fence_us": 0.0,
+    "mean_composite_us": 22.0,
+    "mean_pacing_us": 0.0
+  },
+  "samples_clear": 10,
+  "visual_review": {
+    "images": [
+      "ready.png",
+      "phase-before.png",
+      "phase-after.png"
+    ],
+    "all_individually_read": true,
+    "scene": "Kokiri Forest original platform; Link, foliage, terrain, houses and HUD visible before and after camera. No black frame or gross missing geometry seen.",
+    "limits": "Three static1280x720 composite screenshots do not qualify temporal anti-aliasing, visual equivalence or full game quality; no walking."
+  },
+  "mesh_log_count": 212,
+  "lifecycle": {
+    "exit_code": 0,
+    "stop_requested": true,
+    "window_closed": true,
+    "forced": false,
+    "stop_seconds": 3.2062033638358116
+  },
+  "cleanup": {
+    "at": 1794264144.1242886,
+    "own_game_absent": true,
+    "own_helper_removed": true,
+    "old_devices_absent": [
+      "/dev/input/event8",
+      "/dev/input/event9",
+      "/dev/input/event10",
+      "/dev/input/event11"
+    ],
+    "matching_names_remaining": [],
+    "observer": "active",
+    "production_config_unchanged": true,
+    "eight_progressions_unchanged": true,
+    "gpu_policies": {
+      "/sys/class/drm/card0/device/power_dpm_force_performance_level": "auto"
+    },
+    "gpu_power_caps_micro_watts": [
+      150000000
+    ]
+  },
+  "kernel_matches": [],
+  "limits": [
+    "Single diagnostic, different Info filter from earlier comparison; no causal gain claim.",
+    "Successful copy marker is once-only: proves actual path reached, not per-frame completeness. Source/output equality guarded by exact source before marker; dimensions printed for output only.",
+    "No raw shader edits or dispatch removals, frozen1e26 source/executable unchanged.",
+    "No averaged/global quantiles; per600-interval nearest-rank windows only.",
+    "Not constant30 or full-world, free ground route, audio, save/resume, zone-transition qualification."
+  ],
+  "policy": {
+    "arm": "on",
+    "maxres_applied": true,
+    "maxres_skipped": false,
+    "fps_unlock_applied": true,
+    "stats_marker_once": true,
+    "settings": {
+      "fps_limit": "0",
+      "nx2_frame_rate_limit": "60",
+      "speed_limit": "100",
+      "frame_gen": "false",
+      "oot_anti_aliasing": "1"
+    },
+    "only_present_stats": true
+  },
+  "date": "2026-11-09",
+  "source": "https://github.com/zortos293/Lichii/pull/616",
+  "private_report_sha256": "bf6c8c14dba5dd1b493e55075c6257c0275528355f6f8604a4d9b20f237b6302",
+  "decision": "Retain NoSharpening at MaxResolutionON as a private performance candidate: +7.8248% observed overall, positive in both pairs, with anti-aliasing quality tradeoff. 23.2083% of intervals still exceed30FPS budget and1 exceeds100ms. Not constant30, not installed, no full movement/audio/save/zone qualification.",
+  "performance_comparison": {
+    "schema": 1,
+    "comparison": "NoSharpening1/Game0/NoSharpening1/Game0, MaxResolutionON throughout, equally instrumented PRESENT_STATS=1 and identical Info logger; quality tradeoff, not free optimization",
+    "arms": {
+      "1": {
+        "intervals": 4800,
+        "sum_ns": 149736024644,
+        "covered_seconds": 149.736024644,
+        "interval_rate_per_second": 32.056414022023645,
+        "over30": 1114,
+        "over30_percent": 23.208333333333332,
+        "over100": 1,
+        "over100_percent": 0.020833333333333332,
+        "max_ms": 144.741893,
+        "p95_window_range_ms": [
+          35.594305,
+          42.959783
+        ],
+        "p99_window_range_ms": [
+          42.615524,
+          47.402032
+        ]
+      },
+      "0": {
+        "intervals": 4800,
+        "sum_ns": 161452610233,
+        "covered_seconds": 161.452610233,
+        "interval_rate_per_second": 29.730086079580193,
+        "over30": 1554,
+        "over30_percent": 32.375,
+        "over100": 1,
+        "over100_percent": 0.020833333333333332,
+        "max_ms": 142.382554,
+        "p95_window_range_ms": [
+          39.896708,
+          46.665106
+        ],
+        "p99_window_range_ms": [
+          47.133169,
+          51.117302
+        ]
+      }
+    },
+    "aa1_vs_game0_observed_percent": 7.824827470113749,
+    "paired_aa1_vs_game0_percent": [
+      4.435398229109944,
+      11.337772019844628
+    ],
+    "between_camera_gaps_seconds": [
+      136.589973652,
+      131.903280626,
+      133.715460618
+    ],
+    "ini_diff": {
+      "Renderer::oot_anti_aliasing\\default": {
+        "NoSharpening1": "false",
+        "Game0": "true"
+      },
+      "Renderer::oot_anti_aliasing": {
+        "NoSharpening1": "1",
+        "Game0": "0"
+      }
+    },
+    "ini_default_normalization": {
+      "source": "frontend_common/config.cpp960-975 WriteSettingGeneric writes default=(value==DefaultToString); common/settings.h431 Game default; settings_enums.h154 Game0/NoSharpening1",
+      "meaning": "One effective setting differs; its saved default metadata is derived. Both input configs explicitly wrote default=false, shown by actual config AST test. Raw two-key difference preserved."
+    },
+    "same_seed_files": 3979,
+    "seed_manifest_sha256": "ce0b361b58a5b6b213ee7aae3c64eae59140b508d47f18f927c296f1d5001739",
+    "seed_provenance_limit": "Seed inherits originalON warmth plusOFF additions, then NoSharpening diagnostic output. It is not exhaustive shader/program warmth; runtime compilation remains possible.",
+    "same_exe": "1e26f546986f247a72b8b9177a30f5a17701bea247b7401ac65b423ec1a23d98",
+    "same_radv": "25.2.8 db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+    "cleanup": {
+      "at": 1794265222.9855478,
+      "own_game_absent": true,
+      "own_helper_removed": true,
+      "old_devices_absent": [
+        "/dev/input/event8",
+        "/dev/input/event9",
+        "/dev/input/event10",
+        "/dev/input/event11"
+      ],
+      "matching_names_remaining": [],
+      "observer": "active",
+      "production_config_unchanged": true,
+      "eight_progressions_unchanged": true,
+      "gpu_policies": {
+        "/sys/class/drm/card0/device/power_dpm_force_performance_level": "auto"
+      },
+      "gpu_power_caps_micro_watts": [
+        150000000
+      ]
+    },
+    "kernel_matches": [],
+    "quantiles": "Nearest-rank per individual600-interval window; range is range of those window quantiles, no pooled quantile or average quantile.",
+    "budget": "over30 counts integer nanosecond intervals >33333333, equivalent to > mathematical1e9/30 for integer samples; over100 counts >100000000.",
+    "limits": [
+      "Instrumented camera only, not a normal uninstrumented FPS measurement, route or game-clock qualification.",
+      "TIPC229 game presentation requests, not physical scanout or guaranteed distinct image content.",
+      "MaxResolutionON throughout. Actual copy marker1 forNoSharpening and0 forGame; copy dimensions2560x1440. Equality of source/output guarded before marker; no independent trace during measurement. NoSharpening changes game anti-aliasing/sharpening behavior, visual equivalence not proven.",
+      "Both arms use corrected599first/600later intervals; historical uncorrected/noMesh comparisons are not interchangeable.",
+      "Warm seed inherited originalON thenOFF additions thenNoSharpening diagnostic, not exhaustive shader/program warmth; cache metadata cannot prove no compilation.",
+      "No constant30 claim, no validated free ground route, zone change, audio or save/resume qualification."
+    ],
+    "runs": [
+      {
+        "label": "lichii-aa-pacing-on1",
+        "arm": "1",
+        "preparation_seconds": 85.57673072814941,
+        "camera_seconds": 91.46029878,
+        "wall_start_unix": 1794264417.5714767,
+        "phase_monotonic_ns": [
+          2282388277247534,
+          2282479737546314
+        ],
+        "complete_windows": [
+          {
+            "intervals": 600,
+            "sum_ns": 19240562916,
+            "p50_ns": 29833326,
+            "p95_ns": 42864384,
+            "p99_ns": 47402032,
+            "max_ns": 144741893,
+            "over30": 171,
+            "over100": 1,
+            "begin_ns": 2282390761924945,
+            "end_ns": 2282410002487861,
+            "legacy_same_window": {
+              "mean_frame_us": 32067,
+              "max_frame_us": 144741,
+              "over100": 1,
+              "mean_fence_us": 0,
+              "max_fence_us": 2,
+              "mean_composite_us": 22,
+              "mean_pacing_us": 0,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 18868497989,
+            "p50_ns": 29476727,
+            "p95_ns": 42288995,
+            "p99_ns": 45208083,
+            "max_ns": 48559565,
+            "over30": 154,
+            "over100": 0,
+            "begin_ns": 2282410002487861,
+            "end_ns": 2282428870985850,
+            "legacy_same_window": {
+              "mean_frame_us": 31446,
+              "max_frame_us": 48559,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 9,
+              "mean_composite_us": 22,
+              "mean_pacing_us": 0,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 19297908865,
+            "p50_ns": 30510016,
+            "p95_ns": 42959783,
+            "p99_ns": 46945765,
+            "max_ns": 53527769,
+            "over30": 178,
+            "over100": 0,
+            "begin_ns": 2282428870985850,
+            "end_ns": 2282448168894715,
+            "legacy_same_window": {
+              "mean_frame_us": 32162,
+              "max_frame_us": 53527,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 12,
+              "mean_composite_us": 22,
+              "mean_pacing_us": 0,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 18800776669,
+            "p50_ns": 29444636,
+            "p95_ns": 42628733,
+            "p99_ns": 46937700,
+            "max_ns": 52103566,
+            "over30": 138,
+            "over100": 0,
+            "begin_ns": 2282448168894715,
+            "end_ns": 2282466969671384,
+            "legacy_same_window": {
+              "mean_frame_us": 31334,
+              "max_frame_us": 52103,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 2,
+              "mean_composite_us": 22,
+              "mean_pacing_us": 0,
+              "ran_ahead": 600
+            }
+          }
+        ],
+        "intervals": 2400,
+        "sum_ns": 76207746439,
+        "covered_seconds": 76.207746439,
+        "coverage_percent": 83.3233079877765,
+        "interval_rate_per_second": 31.49286144973549,
+        "over30": 641,
+        "over30_percent": 26.708333333333332,
+        "over100": 1,
+        "over100_percent": 0.041666666666666664,
+        "max_ms": 144.741893,
+        "p95_window_ms": [
+          42.864384,
+          42.288995,
+          42.959783,
+          42.628733
+        ],
+        "p99_window_ms": [
+          47.402032,
+          45.208083,
+          46.945765,
+          46.9377
+        ],
+        "legacy_means_us": {
+          "mean_fence_us": 0.0,
+          "mean_composite_us": 22.0,
+          "mean_pacing_us": 0.0
+        },
+        "normal_stop": {
+          "exit_code": 0,
+          "stop_requested": true,
+          "window_closed": true,
+          "forced": false,
+          "stop_seconds": 3.7051878590136766
+        },
+        "samples_clear": 15,
+        "images_read": 3,
+        "cache_added_files": 0,
+        "cache_changed_files": 6,
+        "cache_removed_files": 0,
+        "clock_proof": "clock-domain-proof.json",
+        "policy": "runtime-policy.json",
+        "seed_restore": "seed-restore.json",
+        "aa_activation": {
+          "mode": "1",
+          "copy_marker_count": 1,
+          "output_dimensions": [
+            [
+              2560,
+              1440
+            ]
+          ],
+          "source_equals_output": "Actual C++ rejects mismatched dimensions before successful copy marker, which prints output dimensions only."
+        }
+      },
+      {
+        "label": "lichii-aa-pacing-off1",
+        "arm": "0",
+        "preparation_seconds": 88.88924264907837,
+        "camera_seconds": 91.448443234,
+        "wall_start_unix": 1794264645.6217515,
+        "phase_monotonic_ns": [
+          2282616327519966,
+          2282707775963200
+        ],
+        "complete_windows": [
+          {
+            "intervals": 600,
+            "sum_ns": 20592607074,
+            "p50_ns": 31846305,
+            "p95_ns": 45858966,
+            "p99_ns": 50524914,
+            "max_ns": 58434390,
+            "over30": 254,
+            "over100": 0,
+            "begin_ns": 2282616762479953,
+            "end_ns": 2282637355087027,
+            "legacy_same_window": {
+              "mean_frame_us": 34320,
+              "max_frame_us": 58434,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 2,
+              "mean_composite_us": 23,
+              "mean_pacing_us": 0,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 19564233261,
+            "p50_ns": 31163503,
+            "p95_ns": 41523749,
+            "p99_ns": 47361826,
+            "max_ns": 52649993,
+            "over30": 154,
+            "over100": 0,
+            "begin_ns": 2282637355087027,
+            "end_ns": 2282656919320288,
+            "legacy_same_window": {
+              "mean_frame_us": 32606,
+              "max_frame_us": 52649,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 10,
+              "mean_composite_us": 22,
+              "mean_pacing_us": 0,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 19550211484,
+            "p50_ns": 30959725,
+            "p95_ns": 39896708,
+            "p99_ns": 47133169,
+            "max_ns": 142382554,
+            "over30": 139,
+            "over100": 1,
+            "begin_ns": 2282656919320288,
+            "end_ns": 2282676469531772,
+            "legacy_same_window": {
+              "mean_frame_us": 32583,
+              "max_frame_us": 142382,
+              "over100": 1,
+              "mean_fence_us": 0,
+              "max_fence_us": 4,
+              "mean_composite_us": 22,
+              "mean_pacing_us": 0,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 19880811656,
+            "p50_ns": 31455897,
+            "p95_ns": 41765025,
+            "p99_ns": 48930272,
+            "max_ns": 52902648,
+            "over30": 203,
+            "over100": 0,
+            "begin_ns": 2282676469531772,
+            "end_ns": 2282696350343428,
+            "legacy_same_window": {
+              "mean_frame_us": 33134,
+              "max_frame_us": 52902,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 10,
+              "mean_composite_us": 23,
+              "mean_pacing_us": 0,
+              "ran_ahead": 600
+            }
+          }
+        ],
+        "intervals": 2400,
+        "sum_ns": 79587863475,
+        "covered_seconds": 79.587863475,
+        "coverage_percent": 87.03030982315256,
+        "interval_rate_per_second": 30.155351522332094,
+        "over30": 750,
+        "over30_percent": 31.25,
+        "over100": 1,
+        "over100_percent": 0.041666666666666664,
+        "max_ms": 142.382554,
+        "p95_window_ms": [
+          45.858966,
+          41.523749,
+          39.896708,
+          41.765025
+        ],
+        "p99_window_ms": [
+          50.524914,
+          47.361826,
+          47.133169,
+          48.930272
+        ],
+        "legacy_means_us": {
+          "mean_fence_us": 0.0,
+          "mean_composite_us": 22.5,
+          "mean_pacing_us": 0.0
+        },
+        "normal_stop": {
+          "exit_code": 0,
+          "stop_requested": true,
+          "window_closed": true,
+          "forced": false,
+          "stop_seconds": 3.504817385226488
+        },
+        "samples_clear": 15,
+        "images_read": 3,
+        "cache_added_files": 0,
+        "cache_changed_files": 5,
+        "cache_removed_files": 0,
+        "clock_proof": "clock-domain-proof.json",
+        "policy": "runtime-policy.json",
+        "seed_restore": "seed-restore.json",
+        "aa_activation": {
+          "mode": "0",
+          "copy_marker_count": 0,
+          "output_dimensions": [],
+          "source_equals_output": "Actual C++ rejects mismatched dimensions before successful copy marker, which prints output dimensions only."
+        }
+      },
+      {
+        "label": "lichii-aa-pacing-on2",
+        "arm": "1",
+        "preparation_seconds": 85.40517902374268,
+        "camera_seconds": 91.464673518,
+        "wall_start_unix": 1794264868.9734716,
+        "phase_monotonic_ns": [
+          2282839679243826,
+          2282931143917344
+        ],
+        "complete_windows": [
+          {
+            "intervals": 600,
+            "sum_ns": 18947900171,
+            "p50_ns": 29777969,
+            "p95_ns": 42371284,
+            "p99_ns": 46058876,
+            "max_ns": 57011763,
+            "over30": 155,
+            "over100": 0,
+            "begin_ns": 2282842616334139,
+            "end_ns": 2282861564234310,
+            "legacy_same_window": {
+              "mean_frame_us": 31579,
+              "max_frame_us": 57011,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 4,
+              "mean_composite_us": 22,
+              "mean_pacing_us": 0,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 18195735576,
+            "p50_ns": 29039583,
+            "p95_ns": 36984054,
+            "p99_ns": 43398463,
+            "max_ns": 45573765,
+            "over30": 113,
+            "over100": 0,
+            "begin_ns": 2282861564234310,
+            "end_ns": 2282879759969886,
+            "legacy_same_window": {
+              "mean_frame_us": 30325,
+              "max_frame_us": 45573,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 3,
+              "mean_composite_us": 21,
+              "mean_pacing_us": 0,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 18089346203,
+            "p50_ns": 29065352,
+            "p95_ns": 35594305,
+            "p99_ns": 42615524,
+            "max_ns": 45843021,
+            "over30": 96,
+            "over100": 0,
+            "begin_ns": 2282879759969886,
+            "end_ns": 2282897849316089,
+            "legacy_same_window": {
+              "mean_frame_us": 30148,
+              "max_frame_us": 45843,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 8,
+              "mean_composite_us": 21,
+              "mean_pacing_us": 0,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 18295296255,
+            "p50_ns": 29072325,
+            "p95_ns": 40236519,
+            "p99_ns": 44479512,
+            "max_ns": 52646411,
+            "over30": 109,
+            "over100": 0,
+            "begin_ns": 2282897849316089,
+            "end_ns": 2282916144612344,
+            "legacy_same_window": {
+              "mean_frame_us": 30491,
+              "max_frame_us": 52646,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 2,
+              "mean_composite_us": 21,
+              "mean_pacing_us": 0,
+              "ran_ahead": 600
+            }
+          }
+        ],
+        "intervals": 2400,
+        "sum_ns": 73528278205,
+        "covered_seconds": 73.528278205,
+        "coverage_percent": 80.38981103510946,
+        "interval_rate_per_second": 32.64050319944521,
+        "over30": 473,
+        "over30_percent": 19.708333333333332,
+        "over100": 0,
+        "over100_percent": 0.0,
+        "max_ms": 57.011763,
+        "p95_window_ms": [
+          42.371284,
+          36.984054,
+          35.594305,
+          40.236519
+        ],
+        "p99_window_ms": [
+          46.058876,
+          43.398463,
+          42.615524,
+          44.479512
+        ],
+        "legacy_means_us": {
+          "mean_fence_us": 0.0,
+          "mean_composite_us": 21.25,
+          "mean_pacing_us": 0.0
+        },
+        "normal_stop": {
+          "exit_code": 0,
+          "stop_requested": true,
+          "window_closed": true,
+          "forced": false,
+          "stop_seconds": 2.9046527822501957
+        },
+        "samples_clear": 15,
+        "images_read": 3,
+        "cache_added_files": 0,
+        "cache_changed_files": 5,
+        "cache_removed_files": 0,
+        "clock_proof": "clock-domain-proof.json",
+        "policy": "runtime-policy.json",
+        "seed_restore": "seed-restore.json",
+        "aa_activation": {
+          "mode": "1",
+          "copy_marker_count": 1,
+          "output_dimensions": [
+            [
+              2560,
+              1440
+            ]
+          ],
+          "source_equals_output": "Actual C++ rejects mismatched dimensions before successful copy marker, which prints output dimensions only."
+        }
+      },
+      {
+        "label": "lichii-aa-pacing-off2",
+        "arm": "0",
+        "preparation_seconds": 86.18919157981873,
+        "camera_seconds": 91.370566662,
+        "wall_start_unix": 1794265094.15361,
+        "phase_monotonic_ns": [
+          2283064859377962,
+          2283156229944624
+        ],
+        "complete_windows": [
+          {
+            "intervals": 600,
+            "sum_ns": 20517594082,
+            "p50_ns": 32071826,
+            "p95_ns": 46025395,
+            "p99_ns": 51117302,
+            "max_ns": 63609388,
+            "over30": 207,
+            "over100": 0,
+            "begin_ns": 2283069007197228,
+            "end_ns": 2283089524791310,
+            "legacy_same_window": {
+              "mean_frame_us": 34195,
+              "max_frame_us": 63609,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 6,
+              "mean_composite_us": 22,
+              "mean_pacing_us": 0,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20457521294,
+            "p50_ns": 32232787,
+            "p95_ns": 45216888,
+            "p99_ns": 49770014,
+            "max_ns": 58311705,
+            "over30": 205,
+            "over100": 0,
+            "begin_ns": 2283089524791310,
+            "end_ns": 2283109982312604,
+            "legacy_same_window": {
+              "mean_frame_us": 34095,
+              "max_frame_us": 58311,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 11,
+              "mean_composite_us": 22,
+              "mean_pacing_us": 0,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20148586403,
+            "p50_ns": 32007435,
+            "p95_ns": 44665954,
+            "p99_ns": 50358107,
+            "max_ns": 54170012,
+            "over30": 172,
+            "over100": 0,
+            "begin_ns": 2283109982312604,
+            "end_ns": 2283130130899007,
+            "legacy_same_window": {
+              "mean_frame_us": 33580,
+              "max_frame_us": 54170,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 5,
+              "mean_composite_us": 22,
+              "mean_pacing_us": 0,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20741044979,
+            "p50_ns": 32265880,
+            "p95_ns": 46665106,
+            "p99_ns": 50506927,
+            "max_ns": 54480766,
+            "over30": 220,
+            "over100": 0,
+            "begin_ns": 2283130130899007,
+            "end_ns": 2283150871943986,
+            "legacy_same_window": {
+              "mean_frame_us": 34567,
+              "max_frame_us": 54480,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 2,
+              "mean_composite_us": 22,
+              "mean_pacing_us": 0,
+              "ran_ahead": 600
+            }
+          }
+        ],
+        "intervals": 2400,
+        "sum_ns": 81864746758,
+        "covered_seconds": 81.864746758,
+        "coverage_percent": 89.59640915967596,
+        "interval_rate_per_second": 29.316648435921127,
+        "over30": 804,
+        "over30_percent": 33.5,
+        "over100": 0,
+        "over100_percent": 0.0,
+        "max_ms": 63.609388,
+        "p95_window_ms": [
+          46.025395,
+          45.216888,
+          44.665954,
+          46.665106
+        ],
+        "p99_window_ms": [
+          51.117302,
+          49.770014,
+          50.358107,
+          50.506927
+        ],
+        "legacy_means_us": {
+          "mean_fence_us": 0.0,
+          "mean_composite_us": 22.0,
+          "mean_pacing_us": 0.0
+        },
+        "normal_stop": {
+          "exit_code": 0,
+          "stop_requested": true,
+          "window_closed": true,
+          "forced": false,
+          "stop_seconds": 3.2049287599511445
+        },
+        "samples_clear": 15,
+        "images_read": 3,
+        "cache_added_files": 0,
+        "cache_changed_files": 5,
+        "cache_removed_files": 0,
+        "clock_proof": "clock-domain-proof.json",
+        "policy": "runtime-policy.json",
+        "seed_restore": "seed-restore.json",
+        "aa_activation": {
+          "mode": "0",
+          "copy_marker_count": 0,
+          "output_dimensions": [],
+          "source_equals_output": "Actual C++ rejects mismatched dimensions before successful copy marker, which prints output dimensions only."
+        }
+      }
+    ],
+    "private_report_sha256": "aee5717f7b0fee111e270329f3e33cf882c2d9416962dfa17ed25ab3163834cb",
+    "root_audit": "Independent raw-log reparse agrees with all counts, exact sums, rates, over-budget counts and maxima in four phases."
+  },
+  "next": "Controlled trial of existing Renderer fps_limit30 while leaving nx2_frame_rate_limit60, speed_limit100, native swap interval and game clocks unchanged. This tests pacing and is not a compute performance gain.",
+  "resources": {
+    "scope": "Low-rate existing kernel counters sampled during already-completed instrumented runs; no additional live profiling. Not proof of a thermal or hardware ceiling.",
+    "runs": [
+      {
+        "run": "lichii-aa-pacing-on1",
+        "samples": 15,
+        "gpu_back_percent_one_core": {
+          "min": 87.08257962109549,
+          "median": 89.26291479043202,
+          "max": 90.31001194097
+        },
+        "gpu_busy_percent": {
+          "min": 55,
+          "median": 67,
+          "max": 74
+        },
+        "cpu_temp_c": {
+          "min": 76.875,
+          "median": 78.625,
+          "max": 81.625
+        }
+      },
+      {
+        "run": "lichii-aa-pacing-off1",
+        "samples": 15,
+        "gpu_back_percent_one_core": {
+          "min": 81.34605511162677,
+          "median": 83.35686556792791,
+          "max": 84.33519751126721
+        },
+        "gpu_busy_percent": {
+          "min": 53,
+          "median": 73,
+          "max": 80
+        },
+        "cpu_temp_c": {
+          "min": 80.25,
+          "median": 81.75,
+          "max": 83.0
+        }
+      },
+      {
+        "run": "lichii-aa-pacing-on2",
+        "samples": 15,
+        "gpu_back_percent_one_core": {
+          "min": 88.55320590137124,
+          "median": 90.19919695121621,
+          "max": 90.63163909357543
+        },
+        "gpu_busy_percent": {
+          "min": 56,
+          "median": 70,
+          "max": 79
+        },
+        "cpu_temp_c": {
+          "min": 83.25,
+          "median": 84.5,
+          "max": 85.625
+        }
+      },
+      {
+        "run": "lichii-aa-pacing-off2",
+        "samples": 15,
+        "gpu_back_percent_one_core": {
+          "min": 80.50157452612606,
+          "median": 81.82849191056167,
+          "max": 82.82940621005494
+        },
+        "gpu_busy_percent": {
+          "min": 44,
+          "median": 68,
+          "max": 86
+        },
+        "cpu_temp_c": {
+          "min": 84.0,
+          "median": 85.0,
+          "max": 86.25
+        }
+      },
+      {
+        "run": "lichii-present30-diagnostic",
+        "samples": 15,
+        "gpu_back_percent_one_core": {
+          "min": 82.27775911540402,
+          "median": 82.68152725392304,
+          "max": 85.78652055107113
+        },
+        "gpu_busy_percent": {
+          "min": 58,
+          "median": 75,
+          "max": 81
+        },
+        "cpu_temp_c": {
+          "min": 76.875,
+          "median": 78.5,
+          "max": 79.375
+        }
+      }
+    ]
+  }
+}

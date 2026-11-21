@@ -1,0 +1,116 @@
+{
+  "date_utc": "2026-11-11",
+  "observed_unix": 1794358588.4585147,
+  "status": "New Fritchii prereleases and source-only candidates pinned; none compiled/installed or measured",
+  "lichii_head": "17baed716da04fd743fbd8f9604bec96eab0a123",
+  "superbuild_head": "2c500cb74de21bde9a2a784d13f70c3e105dfd32",
+  "superbuild_release": "v52",
+  "fritchii_default_head": "f66ea633db6058efe31a9611718019e5bd1667eb",
+  "fritchii_active_branch": "oot-gather-fix",
+  "fritchii_releases": [
+    {
+      "tag_name": "fritchii-v5.8.3",
+      "published_at": "2026-11-11T00:38:22Z",
+      "prerelease": true,
+      "target_commitish": "e2dad308a66e9453130bdb187712f14878e7eed2",
+      "html_url": "https://github.com/Frizti/Fritchii/releases/tag/fritchii-v5.8.3"
+    },
+    {
+      "tag_name": "fritchii-v5.8.2",
+      "published_at": "2026-11-11T00:27:32Z",
+      "prerelease": true,
+      "target_commitish": "6649abc4f13bfeb1fd8cff79050ccdeb313a913e",
+      "html_url": "https://github.com/Frizti/Fritchii/releases/tag/fritchii-v5.8.2"
+    },
+    {
+      "tag_name": "fritchii-v5.8.1",
+      "published_at": "2026-11-11T00:16:10Z",
+      "prerelease": true,
+      "target_commitish": "d042bdd731629dffd56d87c3d488c6d0655af9f4",
+      "html_url": "https://github.com/Frizti/Fritchii/releases/tag/fritchii-v5.8.1"
+    },
+    {
+      "tag_name": "fritchii-v5.8",
+      "published_at": "2026-11-10T23:52:47Z",
+      "prerelease": true,
+      "target_commitish": "6e11fee517d7e27a0326b19539148aa11752bb30",
+      "html_url": "https://github.com/Frizti/Fritchii/releases/tag/fritchii-v5.8"
+    },
+    {
+      "tag_name": "fritchii-v5.7",
+      "published_at": "2026-11-10T19:21:36Z",
+      "prerelease": true,
+      "target_commitish": "52317bf0e52a1ece5beb6474689d78c6f2f4894f",
+      "html_url": "https://github.com/Frizti/Fritchii/releases/tag/fritchii-v5.7"
+    }
+  ],
+  "compare": {
+    "base": "52317bf0e52a1ece5beb6474689d78c6f2f4894f",
+    "head": "e2dad308a66e9453130bdb187712f14878e7eed2",
+    "commits": 19,
+    "files": 73,
+    "file_list_below_API_300_limit": true
+  },
+  "candidates": [
+    {
+      "change": "16-byte texture swizzle/unswizzle #784",
+      "state": "Source candidate absent from current private base, differential correctness/activation/cost still needed"
+    },
+    {
+      "change": "Dynarmic DisableVerification",
+      "state": "Direct flag addition excluded for current profile: actual current-base A64 config already enables DisableVerification through0xFFFF safe mask; Auto does not clear it. Source/header audit, no runtime gain claimed."
+    },
+    {
+      "change": "EXP48 hot pages",
+      "state": "Direct port parked: source explicitly allows CPU rewrite after upload to appear on GPU next frame. No coherent equivalent behavior established."
+    },
+    {
+      "change": "EXP53 conditional render on back",
+      "state": "Direct port excluded pending stronger proof: observed macro already runs on back in this base; eight vectors do not prove semantics and classification cache omits binding identity. Source review, no game occurrence or local gain claimed."
+    },
+    {
+      "change": "EXP63 page translation cache",
+      "state": "Map owner/generation/remap/unmap and concurrent invalidation proof required; no local gain. Effective experiment presets not yet audited."
+    },
+    {
+      "change": "Lichii #1216 fast-draw neutral methods",
+      "state": "Next source candidate after current readtick comparison. Base still breaks reusable draws on vertex_id_base and report/render methods. Preserve all effects and qualify queued writes, reports, shadow and bindings. Historical instrumented costs do not establish current available budget or FPS gain."
+    }
+  ],
+  "current_candidate_unchanged": "1058+1244 c686c1ff; finish qualification/comparison before another compiled port",
+  "review_scope": "Default branch and releases/latest alone missed prereleases; queried release list, tags, branches and pinned compare. Source review only, no new game/build/GPU activity or production change.",
+  "constant40_achieved": false,
+  "production_change": false,
+  "proof_files_sha256": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-upstream-20261111/extra-fetch-summary.json": "d504e25d9520262cd96d714731c46b825183b10b375156a944fc260b3178044a",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-upstream-20261111/fritchii.json": "00f91370e880e9c33982e39cdf41fcd1fb4f41a6c23bccd93afdcf902597f2f3",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-upstream-20261111/source-review.txt": "862df18d0f7db03bb5847decf3b975f06848ae3a50ac4f2f70f1b69f09f09a06",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-upstream-20261111/superbuild.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-upstream-20261111/superbuild.json": "45bd75bbc21a4c809ec01cb8262dcc68b9565a772cfa1c2eeb81feab5812ab15",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-upstream-20261111/lichii.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-upstream-20261111/fritchii.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-upstream-20261111/superbuild-release.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-upstream-20261111/src_video_core_buffer_cache_word_manager.h.patch": "3c0acc82f1b9db83875c63598e77dbcf384903e78193a8aa311df5ed259ccb51",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-upstream-20261111/src_video_core_memory_manager.cpp.patch": "e5c19e87cb4a500d4d2ff421c17c82da84be07a5619d51b5ae87f7c06b088938",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-upstream-20261111/src_video_core_textures_decoders.cpp.patch": "0183a31138964aea0b41d56a12beb741e1728da4e08773b7160308f66aa7f389",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-upstream-20261111/fritchii-tags.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-upstream-20261111/fritchii-active-head.json": "b208ec6c5fc034c898554e722d147a9e2d4773f3574593df0744cdf0e821007f",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-upstream-20261111/fritchii-releases.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-upstream-20261111/src_video_core_engines_maxwell_3d.cpp.patch": "da250d71c3dea47e914cb569b8570a71a804ba3995cbc3fcd2e730f3aaba7cdd",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-upstream-20261111/fritchii-branches.json": "d267bb7c277b5869df60783560f81c55b3ab5034a866e63aa3eeb6092abe87a2",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-upstream-20261111/lichii-pr1244.json": "b321264bd7afe2a04ad6d6b1b88602cfd40fb47d7712b87ed044e5f6f6746946",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-upstream-20261111/fetch-summary.json": "77d13ae331102318547ec56484678c32df9096709424868a888ac50c11d2f96e",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-upstream-20261111/fritchii-releases.json": "18ef58cecadeabe5022e0bf84aa8639e976dacf984e864471089ff9d72b8d9e1",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-upstream-20261111/src_core_arm_dynarmic_arm_dynarmic_64.cpp.patch": "0e9d302d90e1e31d4e2494fcb08786f2723bd9e5533f7eef44dbf455ccf6bac5",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-upstream-20261111/superbuild-release.json": "2b95393c7a9dac69076a0a36a1e3ffb5089efe33d44f9cdfaed0db69f5ba9cf4",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-upstream-20261111/fritchii-57-583.json": "dbffea25a9aa393bec25d51894e2a6332399a4992fd8eac8255a54f6e1bee8b0",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-upstream-20261111/fritchii-tags.json": "fabda8672c8c8826b9187dcee914b3eecf6cd44302bf1a7b27112b805db77cc9",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-upstream-20261111/fritchii-branches.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-upstream-20261111/lichii-pr1244.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-upstream-20261111/lichii.json": "bc38d3372106ae02709412c72cb9eefc6c7669138f9006eb792acd57959dd48d",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-upstream-20261111/jit-fast-compile-current-base-noop.json": "8831594f1b6531436ab1356d5e72791a91d236c94fdb8a576fe3c44ea176268a",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-upstream-20261111/predicate-fastdraw-review/review.txt": "5367118567a30a4e892ca5b3b3208b465f1e2533a1adb997f57d205c47401df0",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-upstream-20261111/predicate-fastdraw-review/provenance.json": "91d33c736a36c372e0dbcd8453646b8b93ef3e38dced8f021430e271d439e532"
+  },
+  "last_updated_unix": 1794364096.5456724
+}

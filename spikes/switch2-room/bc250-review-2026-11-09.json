@@ -1,0 +1,23 @@
+{
+  "date": "2026-11-09",
+  "repo": "https://github.com/lethevimlet/oot-bc250",
+  "head": "68495dc4100a16420dba79fa5b253bb9c58398d8",
+  "readme_sha256": "1029a2149f52f9901e54864be26a59ebf91e27fd4ff0b3958540ef1b960dfa30",
+  "candidates": [
+    {
+      "commit": "1abd85305f049d782216d022c390371349e324e1",
+      "change": "Narrow compute mesh pre-dispatch barrier to compute, fragment and transfer; shader/transfer write access masks.",
+      "patch_sha256": "8f527a0194acef69c94e79d05731ba978f249be1eb24fac386c787b8cc55cfbf",
+      "decision": "Do not port as-is. Source explicitly dismisses vertex/geometry producers as exotic; this is not a dependency proof. Does not cover general attachment writes feeding sampled images either. Need resource producer and hazard tracking or conservative fallback before a general change. No local performance measurement."
+    },
+    {
+      "commit": "0d3d4c3b9dd9dae0956908c6b8fbfbc39127342a",
+      "change": "Return early for zero-group emulated mesh draws before staging and render-pass break.",
+      "patch_sha256": "c9fa68f4f06838d25b5cf3fc9a973cfdc6afd1902c07e6298ae29436a648502a",
+      "decision": "Potentially useful elsewhere, no gain expected from currently observed group counts: private NoSharpening diagnostic logged174000 mesh draws and0empty across whole run. No port or performance claim; that observation does not prove all game scenes nonempty."
+    }
+  ],
+  "other_deltas": "Do not import wholesale: RADV gates include satisfied-acquire drain shortcuts, async discard and UMA-specific policies; earlier acquire correctness work and no-missing-geometry constraint still apply.",
+  "source_consistency": "Web raw main responses did not expose the new barrier despite README claim. Authoritative same-head files and two exact commit patches fetched via GitHub API/raw at immutable SHA before reviewing.",
+  "status": "Read-only source review. Frozen current emulator unchanged, no build, no native mesh trial, no production change."
+}

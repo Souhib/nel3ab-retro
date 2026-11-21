@@ -1,0 +1,1821 @@
+{
+  "at": 1794251409.0625846,
+  "cli_sha256": "64c061065565ab515f03b9793f737c04bf92db3a1d83b6a76f0365219cc27150",
+  "envelope": {
+    "diagnostic_only": true,
+    "no_FPS_claim": true,
+    "phase_wall_start": 1794251049.166412,
+    "phase_wall_end": 1794251140.5623288,
+    "epoch_lower": 1794250948.5542142,
+    "seconds": 91.39591678092256,
+    "shutdown": {
+      "exit_code": 0,
+      "stop_requested": true,
+      "window_closed": true,
+      "forced": false,
+      "stop_seconds": 3.604870931711048
+    },
+    "scope": "Existing GPU_PROFILE only, no FrontVerify/read/descriptorprobes or perf. Wallzones remaininstrumented andnotunprofiledFPSbudget. Retainonlycompleteper-thread10sintervalsinsideactualwallphase."
+  },
+  "native_epoch_bounds": [
+    1794250948.5542142,
+    1794250948.8022277
+  ],
+  "threads": {
+    "GPU back thread": {
+      "complete_windows": 8,
+      "covered_seconds": 80.00854,
+      "cpu_busy_ms_per_s": 841.2734553351931,
+      "zones": {
+        "present wait": {
+          "ms_per_s": 0.3,
+          "count_per_s": 28.875017841845384
+        },
+        "bind stage buffers": {
+          "ms_per_s": 183.7750874419156,
+          "count_per_s": 111708.94258831619
+        },
+        "fill image views": {
+          "ms_per_s": 26.287503720227868,
+          "count_per_s": 25534.765968845328
+        },
+        "fence skipped": {
+          "ms_per_s": 4.337502226637307,
+          "count_per_s": 5744.002043419365
+        },
+        "shader capture": {
+          "ms_per_s": 0.0,
+          "count_per_s": 0.0
+        },
+        "macro": {
+          "ms_per_s": 11.075005095706034,
+          "count_per_s": 20495.638633738352
+        },
+        "draw": {
+          "ms_per_s": 55.800011774993024,
+          "count_per_s": 57409.53475613979
+        },
+        "descriptor acquire": {
+          "ms_per_s": 0.9249999287576053,
+          "count_per_s": 55854.40876918889
+        },
+        "configure": {
+          "ms_per_s": 21.42500803289249,
+          "count_per_s": 55854.40876918889
+        },
+        "other": {
+          "ms_per_s": 82.90006581797394,
+          "count_per_s": 0.0
+        },
+        "draw record": {
+          "ms_per_s": 1.8750012123705795,
+          "count_per_s": 55854.40876918889
+        },
+        "method": {
+          "ms_per_s": 208.32505137451577,
+          "count_per_s": 3382143.3376849648
+        },
+        "sync descriptors": {
+          "ms_per_s": 0.6,
+          "count_per_s": 52268.157242026915
+        },
+        "present": {
+          "ms_per_s": 0.0,
+          "count_per_s": 57.37504105186771
+        },
+        "flush work": {
+          "ms_per_s": 30.52500703299923,
+          "count_per_s": 57209.15963552141
+        },
+        "clear": {
+          "ms_per_s": 7.287505825003183,
+          "count_per_s": 1793.1261224739258
+        },
+        "update buffers": {
+          "ms_per_s": 38.500011473775174,
+          "count_per_s": 55854.40876918889
+        },
+        "render targets": {
+          "ms_per_s": 7.562503281524697,
+          "count_per_s": 55854.40876918889
+        },
+        "dynamic state": {
+          "ms_per_s": 12.20000839410393,
+          "count_per_s": 55854.40876918889
+        },
+        "split wait": {
+          "ms_per_s": 121.84979101605904,
+          "count_per_s": 12292.372880619994
+        },
+        "pipeline lookup": {
+          "ms_per_s": 16.124992024601376,
+          "count_per_s": 53620.40815682926
+        },
+        "GPU wait": {
+          "ms_per_s": 45.47492582291841,
+          "count_per_s": 90.12504992592041
+        },
+        "texture upload": {
+          "ms_per_s": 4.3999682908849485,
+          "count_per_s": 172.87511626883833
+        },
+        "push descriptors": {
+          "ms_per_s": 11.825003437133086,
+          "count_per_s": 111708.94258831619
+        },
+        "read handles": {
+          "ms_per_s": 25.025011245049594,
+          "count_per_s": 55854.40876918889
+        },
+        "configure draw": {
+          "ms_per_s": 4.6875023016293005,
+          "count_per_s": 55854.40876918889
+        },
+        "compute": {
+          "ms_per_s": 44.57500044245277,
+          "count_per_s": 4273.876224850497
+        },
+        "texture cache": {
+          "ms_per_s": 7.625001688569745,
+          "count_per_s": 573.2503151038626
+        },
+        "fence": {
+          "ms_per_s": 24.6750268721314,
+          "count_per_s": 7430.627975613603
+        }
+      },
+      "waits_for_back_by_site": {},
+      "exclusive_zone_sum_ms_per_s": 999.962495774826
+    },
+    "GPU thread": {
+      "complete_windows": 8,
+      "covered_seconds": 80.099501,
+      "cpu_busy_ms_per_s": 517.5132827421734,
+      "zones": {
+        "other": {
+          "ms_per_s": 1.387497940842353,
+          "count_per_s": 0.0
+        },
+        "resume pending": {
+          "ms_per_s": 199.19956131187382,
+          "count_per_s": 15125.343009964567
+        },
+        "pending sleep": {
+          "ms_per_s": 47.06189959410609,
+          "count_per_s": 14552.091875004313
+        },
+        "macro": {
+          "ms_per_s": 126.1498258771924,
+          "count_per_s": 960148.890064209
+        },
+        "writer wait": {
+          "ms_per_s": 15.900065781932897,
+          "count_per_s": 432.6260483195769
+        },
+        "idle": {
+          "ms_per_s": 0.21261943317224907,
+          "count_per_s": 0.37497875298873584
+        },
+        "push": {
+          "ms_per_s": 4.275028775772273,
+          "count_per_s": 495.7505261861743
+        },
+        "split drain": {
+          "ms_per_s": 605.8635007613842,
+          "count_per_s": 5075.00113933294
+        }
+      },
+      "waits_for_back_by_site": {
+        "list writers": {
+          "ms_per_s": 15.837574482517688,
+          "count_per_s": 432.6260483195769
+        },
+        "fence release": {
+          "ms_per_s": 2.8500039669410673,
+          "count_per_s": 234.0002998645397
+        },
+        "acquire": {
+          "ms_per_s": 602.9134967944432,
+          "count_per_s": 4841.000841316102
+        }
+      },
+      "exclusive_zone_sum_ms_per_s": 1000.0499994762763
+    },
+    "Vulkan worker": {
+      "complete_windows": 8,
+      "covered_seconds": 80.011444,
+      "cpu_busy_ms_per_s": 243.91525638114967,
+      "zones": {
+        "worker idle": {
+          "ms_per_s": 779.6879446745143,
+          "count_per_s": 4900.49292387474
+        },
+        "other": {
+          "ms_per_s": 154.42470073655963,
+          "count_per_s": 0.0
+        },
+        "queue submit": {
+          "ms_per_s": 65.88735458892606,
+          "count_per_s": 1598.6230899794784
+        }
+      },
+      "waits_for_back_by_site": {},
+      "exclusive_zone_sum_ms_per_s": 1000.0
+    }
+  },
+  "complete_records": [
+    {
+      "thread": "GPU thread",
+      "native": 112.786481,
+      "window_s": 10.014087,
+      "cpu_busy_ms_per_s": 487.926,
+      "zones": {
+        "other": {
+          "ms_per_s": 1.3,
+          "count_per_s": 0
+        },
+        "pending sleep": {
+          "ms_per_s": 48.7,
+          "count_per_s": 13046
+        },
+        "resume pending": {
+          "ms_per_s": 189.5,
+          "count_per_s": 13571
+        },
+        "push": {
+          "ms_per_s": 4.6,
+          "count_per_s": 450
+        },
+        "macro": {
+          "ms_per_s": 120.3,
+          "count_per_s": 907605
+        },
+        "split drain": {
+          "ms_per_s": 624.8,
+          "count_per_s": 4655
+        },
+        "writer wait": {
+          "ms_per_s": 10.9,
+          "count_per_s": 389
+        }
+      },
+      "drains": {
+        "acquire": {
+          "ms_per_s": 622.0,
+          "count_per_s": 4443
+        },
+        "fence release": {
+          "ms_per_s": 2.7,
+          "count_per_s": 212
+        },
+        "list writers": {
+          "ms_per_s": 10.8,
+          "count_per_s": 389
+        }
+      }
+    },
+    {
+      "thread": "Vulkan worker",
+      "native": 113.536545,
+      "window_s": 10.000078,
+      "cpu_busy_ms_per_s": 231.388,
+      "zones": {
+        "other": {
+          "ms_per_s": 146.3,
+          "count_per_s": 0
+        },
+        "worker idle": {
+          "ms_per_s": 791.0,
+          "count_per_s": 4598
+        },
+        "queue submit": {
+          "ms_per_s": 62.7,
+          "count_per_s": 1489
+        }
+      },
+      "drains": {}
+    },
+    {
+      "thread": "GPU back thread",
+      "native": 114.682597,
+      "window_s": 10.001109,
+      "cpu_busy_ms_per_s": 821.404,
+      "zones": {
+        "other": {
+          "ms_per_s": 92.8,
+          "count_per_s": 0
+        },
+        "macro": {
+          "ms_per_s": 10.9,
+          "count_per_s": 20133
+        },
+        "draw": {
+          "ms_per_s": 53.9,
+          "count_per_s": 55601
+        },
+        "clear": {
+          "ms_per_s": 7.2,
+          "count_per_s": 1676
+        },
+        "compute": {
+          "ms_per_s": 42.8,
+          "count_per_s": 4039
+        },
+        "flush work": {
+          "ms_per_s": 28.9,
+          "count_per_s": 55417
+        },
+        "pipeline lookup": {
+          "ms_per_s": 15.4,
+          "count_per_s": 52060
+        },
+        "configure": {
+          "ms_per_s": 20.8,
+          "count_per_s": 54150
+        },
+        "sync descriptors": {
+          "ms_per_s": 0.6,
+          "count_per_s": 50795
+        },
+        "read handles": {
+          "ms_per_s": 24.4,
+          "count_per_s": 54150
+        },
+        "fill image views": {
+          "ms_per_s": 25.6,
+          "count_per_s": 24704
+        },
+        "update buffers": {
+          "ms_per_s": 37.4,
+          "count_per_s": 54150
+        },
+        "descriptor acquire": {
+          "ms_per_s": 0.9,
+          "count_per_s": 54150
+        },
+        "bind stage buffers": {
+          "ms_per_s": 174.5,
+          "count_per_s": 108300
+        },
+        "push descriptors": {
+          "ms_per_s": 11.6,
+          "count_per_s": 108300
+        },
+        "render targets": {
+          "ms_per_s": 7.3,
+          "count_per_s": 54150
+        },
+        "configure draw": {
+          "ms_per_s": 4.6,
+          "count_per_s": 54150
+        },
+        "dynamic state": {
+          "ms_per_s": 11.7,
+          "count_per_s": 54150
+        },
+        "draw record": {
+          "ms_per_s": 1.8,
+          "count_per_s": 54150
+        },
+        "texture upload": {
+          "ms_per_s": 1.8,
+          "count_per_s": 167
+        },
+        "fence": {
+          "ms_per_s": 23.3,
+          "count_per_s": 6985
+        },
+        "fence skipped": {
+          "ms_per_s": 4.8,
+          "count_per_s": 5410
+        },
+        "method": {
+          "ms_per_s": 201.2,
+          "count_per_s": 3238159
+        },
+        "split wait": {
+          "ms_per_s": 120.7,
+          "count_per_s": 11569
+        },
+        "texture cache": {
+          "ms_per_s": 8.0,
+          "count_per_s": 562
+        },
+        "GPU wait": {
+          "ms_per_s": 66.9,
+          "count_per_s": 89
+        },
+        "present": {
+          "ms_per_s": 0.0,
+          "count_per_s": 54
+        },
+        "present wait": {
+          "ms_per_s": 0.3,
+          "count_per_s": 27
+        }
+      },
+      "drains": {}
+    },
+    {
+      "thread": "GPU thread",
+      "native": 122.792754,
+      "window_s": 10.006117,
+      "cpu_busy_ms_per_s": 510.176,
+      "zones": {
+        "other": {
+          "ms_per_s": 1.4,
+          "count_per_s": 0
+        },
+        "pending sleep": {
+          "ms_per_s": 51.9,
+          "count_per_s": 14399
+        },
+        "resume pending": {
+          "ms_per_s": 196.6,
+          "count_per_s": 14957
+        },
+        "push": {
+          "ms_per_s": 4.4,
+          "count_per_s": 484
+        },
+        "macro": {
+          "ms_per_s": 124.0,
+          "count_per_s": 934581
+        },
+        "split drain": {
+          "ms_per_s": 606.0,
+          "count_per_s": 5001
+        },
+        "writer wait": {
+          "ms_per_s": 15.8,
+          "count_per_s": 419
+        }
+      },
+      "drains": {
+        "acquire": {
+          "ms_per_s": 603.1,
+          "count_per_s": 4773
+        },
+        "fence release": {
+          "ms_per_s": 2.8,
+          "count_per_s": 228
+        },
+        "list writers": {
+          "ms_per_s": 15.7,
+          "count_per_s": 419
+        }
+      }
+    },
+    {
+      "thread": "Vulkan worker",
+      "native": 123.540925,
+      "window_s": 10.004221,
+      "cpu_busy_ms_per_s": 236.298,
+      "zones": {
+        "other": {
+          "ms_per_s": 149.5,
+          "count_per_s": 0
+        },
+        "worker idle": {
+          "ms_per_s": 786.2,
+          "count_per_s": 4774
+        },
+        "queue submit": {
+          "ms_per_s": 64.3,
+          "count_per_s": 1558
+        }
+      },
+      "drains": {}
+    },
+    {
+      "thread": "GPU back thread",
+      "native": 124.682819,
+      "window_s": 10.000056,
+      "cpu_busy_ms_per_s": 827.292,
+      "zones": {
+        "other": {
+          "ms_per_s": 83.0,
+          "count_per_s": 0
+        },
+        "macro": {
+          "ms_per_s": 10.8,
+          "count_per_s": 19596
+        },
+        "draw": {
+          "ms_per_s": 54.0,
+          "count_per_s": 55064
+        },
+        "clear": {
+          "ms_per_s": 7.2,
+          "count_per_s": 1726
+        },
+        "compute": {
+          "ms_per_s": 44.5,
+          "count_per_s": 4146
+        },
+        "flush work": {
+          "ms_per_s": 29.8,
+          "count_per_s": 54870
+        },
+        "pipeline lookup": {
+          "ms_per_s": 16.7,
+          "count_per_s": 51429
+        },
+        "configure": {
+          "ms_per_s": 20.8,
+          "count_per_s": 53566
+        },
+        "sync descriptors": {
+          "ms_per_s": 0.6,
+          "count_per_s": 50129
+        },
+        "read handles": {
+          "ms_per_s": 24.3,
+          "count_per_s": 53566
+        },
+        "fill image views": {
+          "ms_per_s": 25.9,
+          "count_per_s": 24625
+        },
+        "update buffers": {
+          "ms_per_s": 37.6,
+          "count_per_s": 53566
+        },
+        "descriptor acquire": {
+          "ms_per_s": 0.9,
+          "count_per_s": 53566
+        },
+        "bind stage buffers": {
+          "ms_per_s": 178.1,
+          "count_per_s": 107132
+        },
+        "push descriptors": {
+          "ms_per_s": 11.5,
+          "count_per_s": 107132
+        },
+        "render targets": {
+          "ms_per_s": 7.3,
+          "count_per_s": 53566
+        },
+        "configure draw": {
+          "ms_per_s": 4.5,
+          "count_per_s": 53566
+        },
+        "dynamic state": {
+          "ms_per_s": 11.9,
+          "count_per_s": 53566
+        },
+        "draw record": {
+          "ms_per_s": 1.8,
+          "count_per_s": 53566
+        },
+        "texture upload": {
+          "ms_per_s": 10.8,
+          "count_per_s": 172
+        },
+        "fence": {
+          "ms_per_s": 23.2,
+          "count_per_s": 7190
+        },
+        "fence skipped": {
+          "ms_per_s": 4.6,
+          "count_per_s": 5563
+        },
+        "method": {
+          "ms_per_s": 203.8,
+          "count_per_s": 3251062
+        },
+        "split wait": {
+          "ms_per_s": 127.5,
+          "count_per_s": 12047
+        },
+        "shader capture": {
+          "ms_per_s": 0.0,
+          "count_per_s": 0
+        },
+        "texture cache": {
+          "ms_per_s": 7.8,
+          "count_per_s": 565
+        },
+        "GPU wait": {
+          "ms_per_s": 51.0,
+          "count_per_s": 86
+        },
+        "present": {
+          "ms_per_s": 0.0,
+          "count_per_s": 55
+        },
+        "present wait": {
+          "ms_per_s": 0.3,
+          "count_per_s": 28
+        }
+      },
+      "drains": {}
+    },
+    {
+      "thread": "GPU thread",
+      "native": 132.80398,
+      "window_s": 10.011061999999999,
+      "cpu_busy_ms_per_s": 514.532,
+      "zones": {
+        "other": {
+          "ms_per_s": 1.4,
+          "count_per_s": 0
+        },
+        "idle": {
+          "ms_per_s": 0.0,
+          "count_per_s": 1
+        },
+        "pending sleep": {
+          "ms_per_s": 45.1,
+          "count_per_s": 14887
+        },
+        "resume pending": {
+          "ms_per_s": 197.9,
+          "count_per_s": 15462
+        },
+        "push": {
+          "ms_per_s": 4.1,
+          "count_per_s": 496
+        },
+        "macro": {
+          "ms_per_s": 124.9,
+          "count_per_s": 954967
+        },
+        "split drain": {
+          "ms_per_s": 610.1,
+          "count_per_s": 5065
+        },
+        "writer wait": {
+          "ms_per_s": 16.6,
+          "count_per_s": 435
+        }
+      },
+      "drains": {
+        "acquire": {
+          "ms_per_s": 607.2,
+          "count_per_s": 4831
+        },
+        "fence release": {
+          "ms_per_s": 2.8,
+          "count_per_s": 234
+        },
+        "list writers": {
+          "ms_per_s": 16.5,
+          "count_per_s": 435
+        }
+      }
+    },
+    {
+      "thread": "Vulkan worker",
+      "native": 133.541131,
+      "window_s": 10.000041999999999,
+      "cpu_busy_ms_per_s": 244.571,
+      "zones": {
+        "other": {
+          "ms_per_s": 154.5,
+          "count_per_s": 0
+        },
+        "worker idle": {
+          "ms_per_s": 779.2,
+          "count_per_s": 4889
+        },
+        "queue submit": {
+          "ms_per_s": 66.3,
+          "count_per_s": 1598
+        }
+      },
+      "drains": {}
+    },
+    {
+      "thread": "GPU back thread",
+      "native": 134.686335,
+      "window_s": 10.00336,
+      "cpu_busy_ms_per_s": 847.359,
+      "zones": {
+        "other": {
+          "ms_per_s": 84.2,
+          "count_per_s": 0
+        },
+        "macro": {
+          "ms_per_s": 11.1,
+          "count_per_s": 20557
+        },
+        "draw": {
+          "ms_per_s": 56.0,
+          "count_per_s": 57606
+        },
+        "clear": {
+          "ms_per_s": 7.3,
+          "count_per_s": 1810
+        },
+        "compute": {
+          "ms_per_s": 44.8,
+          "count_per_s": 4291
+        },
+        "flush work": {
+          "ms_per_s": 30.9,
+          "count_per_s": 57403
+        },
+        "pipeline lookup": {
+          "ms_per_s": 16.1,
+          "count_per_s": 53803
+        },
+        "configure": {
+          "ms_per_s": 21.5,
+          "count_per_s": 56035
+        },
+        "sync descriptors": {
+          "ms_per_s": 0.6,
+          "count_per_s": 52436
+        },
+        "read handles": {
+          "ms_per_s": 25.1,
+          "count_per_s": 56035
+        },
+        "fill image views": {
+          "ms_per_s": 26.3,
+          "count_per_s": 25652
+        },
+        "update buffers": {
+          "ms_per_s": 38.6,
+          "count_per_s": 56035
+        },
+        "descriptor acquire": {
+          "ms_per_s": 0.9,
+          "count_per_s": 56035
+        },
+        "bind stage buffers": {
+          "ms_per_s": 184.9,
+          "count_per_s": 112071
+        },
+        "push descriptors": {
+          "ms_per_s": 11.8,
+          "count_per_s": 112071
+        },
+        "render targets": {
+          "ms_per_s": 7.6,
+          "count_per_s": 56035
+        },
+        "configure draw": {
+          "ms_per_s": 4.7,
+          "count_per_s": 56035
+        },
+        "dynamic state": {
+          "ms_per_s": 12.4,
+          "count_per_s": 56035
+        },
+        "draw record": {
+          "ms_per_s": 1.9,
+          "count_per_s": 56035
+        },
+        "texture upload": {
+          "ms_per_s": 5.6,
+          "count_per_s": 176
+        },
+        "fence": {
+          "ms_per_s": 25.2,
+          "count_per_s": 7473
+        },
+        "fence skipped": {
+          "ms_per_s": 4.4,
+          "count_per_s": 5773
+        },
+        "method": {
+          "ms_per_s": 208.4,
+          "count_per_s": 3399371
+        },
+        "split wait": {
+          "ms_per_s": 118.9,
+          "count_per_s": 12353
+        },
+        "texture cache": {
+          "ms_per_s": 7.6,
+          "count_per_s": 577
+        },
+        "GPU wait": {
+          "ms_per_s": 42.8,
+          "count_per_s": 90
+        },
+        "present": {
+          "ms_per_s": 0.0,
+          "count_per_s": 58
+        },
+        "present wait": {
+          "ms_per_s": 0.3,
+          "count_per_s": 29
+        }
+      },
+      "drains": {}
+    },
+    {
+      "thread": "GPU thread",
+      "native": 142.810624,
+      "window_s": 10.006484,
+      "cpu_busy_ms_per_s": 530.32,
+      "zones": {
+        "other": {
+          "ms_per_s": 1.4,
+          "count_per_s": 0
+        },
+        "idle": {
+          "ms_per_s": 0.0,
+          "count_per_s": 1
+        },
+        "pending sleep": {
+          "ms_per_s": 45.2,
+          "count_per_s": 14982
+        },
+        "resume pending": {
+          "ms_per_s": 203.8,
+          "count_per_s": 15572
+        },
+        "push": {
+          "ms_per_s": 4.1,
+          "count_per_s": 513
+        },
+        "macro": {
+          "ms_per_s": 129.4,
+          "count_per_s": 985389
+        },
+        "split drain": {
+          "ms_per_s": 599.0,
+          "count_per_s": 5189
+        },
+        "writer wait": {
+          "ms_per_s": 17.1,
+          "count_per_s": 449
+        }
+      },
+      "drains": {
+        "acquire": {
+          "ms_per_s": 595.9,
+          "count_per_s": 4947
+        },
+        "fence release": {
+          "ms_per_s": 3.0,
+          "count_per_s": 242
+        },
+        "list writers": {
+          "ms_per_s": 17.1,
+          "count_per_s": 449
+        }
+      }
+    },
+    {
+      "thread": "Vulkan worker",
+      "native": 143.54169,
+      "window_s": 10.000393,
+      "cpu_busy_ms_per_s": 250.843,
+      "zones": {
+        "other": {
+          "ms_per_s": 158.9,
+          "count_per_s": 0
+        },
+        "worker idle": {
+          "ms_per_s": 773.6,
+          "count_per_s": 5041
+        },
+        "queue submit": {
+          "ms_per_s": 67.5,
+          "count_per_s": 1646
+        }
+      },
+      "drains": {}
+    },
+    {
+      "thread": "GPU back thread",
+      "native": 144.68821,
+      "window_s": 10.001710999999998,
+      "cpu_busy_ms_per_s": 852.74,
+      "zones": {
+        "other": {
+          "ms_per_s": 79.1,
+          "count_per_s": 0
+        },
+        "macro": {
+          "ms_per_s": 11.4,
+          "count_per_s": 21037
+        },
+        "draw": {
+          "ms_per_s": 56.8,
+          "count_per_s": 58946
+        },
+        "clear": {
+          "ms_per_s": 7.6,
+          "count_per_s": 1853
+        },
+        "compute": {
+          "ms_per_s": 45.1,
+          "count_per_s": 4378
+        },
+        "flush work": {
+          "ms_per_s": 31.3,
+          "count_per_s": 58739
+        },
+        "pipeline lookup": {
+          "ms_per_s": 16.3,
+          "count_per_s": 55039
+        },
+        "configure": {
+          "ms_per_s": 21.9,
+          "count_per_s": 57340
+        },
+        "sync descriptors": {
+          "ms_per_s": 0.6,
+          "count_per_s": 53643
+        },
+        "read handles": {
+          "ms_per_s": 25.6,
+          "count_per_s": 57340
+        },
+        "fill image views": {
+          "ms_per_s": 26.8,
+          "count_per_s": 26189
+        },
+        "update buffers": {
+          "ms_per_s": 39.4,
+          "count_per_s": 57340
+        },
+        "descriptor acquire": {
+          "ms_per_s": 1.0,
+          "count_per_s": 57340
+        },
+        "bind stage buffers": {
+          "ms_per_s": 189.2,
+          "count_per_s": 114681
+        },
+        "push descriptors": {
+          "ms_per_s": 12.1,
+          "count_per_s": 114681
+        },
+        "render targets": {
+          "ms_per_s": 7.7,
+          "count_per_s": 57340
+        },
+        "configure draw": {
+          "ms_per_s": 4.8,
+          "count_per_s": 57340
+        },
+        "dynamic state": {
+          "ms_per_s": 12.5,
+          "count_per_s": 57340
+        },
+        "draw record": {
+          "ms_per_s": 1.9,
+          "count_per_s": 57340
+        },
+        "texture upload": {
+          "ms_per_s": 2.3,
+          "count_per_s": 172
+        },
+        "fence": {
+          "ms_per_s": 25.5,
+          "count_per_s": 7639
+        },
+        "fence skipped": {
+          "ms_per_s": 4.1,
+          "count_per_s": 5897
+        },
+        "method": {
+          "ms_per_s": 212.7,
+          "count_per_s": 3478664
+        },
+        "split wait": {
+          "ms_per_s": 121.3,
+          "count_per_s": 12400
+        },
+        "texture cache": {
+          "ms_per_s": 7.3,
+          "count_per_s": 572
+        },
+        "GPU wait": {
+          "ms_per_s": 35.2,
+          "count_per_s": 90
+        },
+        "present": {
+          "ms_per_s": 0.0,
+          "count_per_s": 59
+        },
+        "present wait": {
+          "ms_per_s": 0.3,
+          "count_per_s": 30
+        }
+      },
+      "drains": {}
+    },
+    {
+      "thread": "GPU thread",
+      "native": 152.829,
+      "window_s": 10.018213,
+      "cpu_busy_ms_per_s": 525.804,
+      "zones": {
+        "other": {
+          "ms_per_s": 1.4,
+          "count_per_s": 0
+        },
+        "pending sleep": {
+          "ms_per_s": 47.8,
+          "count_per_s": 14888
+        },
+        "resume pending": {
+          "ms_per_s": 202.1,
+          "count_per_s": 15474
+        },
+        "push": {
+          "ms_per_s": 4.1,
+          "count_per_s": 506
+        },
+        "macro": {
+          "ms_per_s": 127.6,
+          "count_per_s": 977745
+        },
+        "split drain": {
+          "ms_per_s": 600.1,
+          "count_per_s": 5195
+        },
+        "writer wait": {
+          "ms_per_s": 16.9,
+          "count_per_s": 445
+        }
+      },
+      "drains": {
+        "acquire": {
+          "ms_per_s": 597.3,
+          "count_per_s": 4957
+        },
+        "fence release": {
+          "ms_per_s": 2.7,
+          "count_per_s": 239
+        },
+        "list writers": {
+          "ms_per_s": 16.8,
+          "count_per_s": 445
+        }
+      }
+    },
+    {
+      "thread": "Vulkan worker",
+      "native": 153.54196,
+      "window_s": 10.000114,
+      "cpu_busy_ms_per_s": 248.365,
+      "zones": {
+        "other": {
+          "ms_per_s": 157.5,
+          "count_per_s": 0
+        },
+        "worker idle": {
+          "ms_per_s": 775.4,
+          "count_per_s": 4985
+        },
+        "queue submit": {
+          "ms_per_s": 67.1,
+          "count_per_s": 1625
+        }
+      },
+      "drains": {}
+    },
+    {
+      "thread": "GPU back thread",
+      "native": 154.688739,
+      "window_s": 10.000367,
+      "cpu_busy_ms_per_s": 845.31,
+      "zones": {
+        "other": {
+          "ms_per_s": 79.5,
+          "count_per_s": 0
+        },
+        "macro": {
+          "ms_per_s": 11.2,
+          "count_per_s": 20660
+        },
+        "draw": {
+          "ms_per_s": 57.0,
+          "count_per_s": 57974
+        },
+        "clear": {
+          "ms_per_s": 7.2,
+          "count_per_s": 1819
+        },
+        "compute": {
+          "ms_per_s": 44.8,
+          "count_per_s": 4342
+        },
+        "flush work": {
+          "ms_per_s": 30.8,
+          "count_per_s": 57770
+        },
+        "pipeline lookup": {
+          "ms_per_s": 16.1,
+          "count_per_s": 54133
+        },
+        "configure": {
+          "ms_per_s": 21.7,
+          "count_per_s": 56395
+        },
+        "sync descriptors": {
+          "ms_per_s": 0.6,
+          "count_per_s": 52760
+        },
+        "read handles": {
+          "ms_per_s": 25.3,
+          "count_per_s": 56395
+        },
+        "fill image views": {
+          "ms_per_s": 26.5,
+          "count_per_s": 25804
+        },
+        "update buffers": {
+          "ms_per_s": 39.0,
+          "count_per_s": 56395
+        },
+        "descriptor acquire": {
+          "ms_per_s": 1.0,
+          "count_per_s": 56395
+        },
+        "bind stage buffers": {
+          "ms_per_s": 186.2,
+          "count_per_s": 112790
+        },
+        "push descriptors": {
+          "ms_per_s": 11.9,
+          "count_per_s": 112790
+        },
+        "render targets": {
+          "ms_per_s": 7.7,
+          "count_per_s": 56395
+        },
+        "configure draw": {
+          "ms_per_s": 4.8,
+          "count_per_s": 56395
+        },
+        "dynamic state": {
+          "ms_per_s": 12.4,
+          "count_per_s": 56395
+        },
+        "draw record": {
+          "ms_per_s": 1.9,
+          "count_per_s": 56395
+        },
+        "texture upload": {
+          "ms_per_s": 2.7,
+          "count_per_s": 172
+        },
+        "fence": {
+          "ms_per_s": 24.6,
+          "count_per_s": 7546
+        },
+        "fence skipped": {
+          "ms_per_s": 4.1,
+          "count_per_s": 5835
+        },
+        "method": {
+          "ms_per_s": 211.2,
+          "count_per_s": 3420598
+        },
+        "split wait": {
+          "ms_per_s": 124.8,
+          "count_per_s": 12455
+        },
+        "texture cache": {
+          "ms_per_s": 7.3,
+          "count_per_s": 567
+        },
+        "GPU wait": {
+          "ms_per_s": 39.4,
+          "count_per_s": 91
+        },
+        "present": {
+          "ms_per_s": 0.0,
+          "count_per_s": 58
+        },
+        "present wait": {
+          "ms_per_s": 0.3,
+          "count_per_s": 29
+        }
+      },
+      "drains": {}
+    },
+    {
+      "thread": "GPU thread",
+      "native": 162.847224,
+      "window_s": 10.018065,
+      "cpu_busy_ms_per_s": 513.568,
+      "zones": {
+        "other": {
+          "ms_per_s": 1.4,
+          "count_per_s": 0
+        },
+        "idle": {
+          "ms_per_s": 1.7,
+          "count_per_s": 1
+        },
+        "pending sleep": {
+          "ms_per_s": 49.0,
+          "count_per_s": 14648
+        },
+        "resume pending": {
+          "ms_per_s": 196.6,
+          "count_per_s": 15219
+        },
+        "push": {
+          "ms_per_s": 4.7,
+          "count_per_s": 496
+        },
+        "macro": {
+          "ms_per_s": 124.8,
+          "count_per_s": 956121
+        },
+        "split drain": {
+          "ms_per_s": 605.5,
+          "count_per_s": 5110
+        },
+        "writer wait": {
+          "ms_per_s": 16.4,
+          "count_per_s": 434
+        }
+      },
+      "drains": {
+        "acquire": {
+          "ms_per_s": 602.2,
+          "count_per_s": 4876
+        },
+        "fence release": {
+          "ms_per_s": 3.2,
+          "count_per_s": 233
+        },
+        "list writers": {
+          "ms_per_s": 16.4,
+          "count_per_s": 434
+        }
+      }
+    },
+    {
+      "thread": "Vulkan worker",
+      "native": 163.548298,
+      "window_s": 10.006171,
+      "cpu_busy_ms_per_s": 241.931,
+      "zones": {
+        "other": {
+          "ms_per_s": 153.4,
+          "count_per_s": 0
+        },
+        "worker idle": {
+          "ms_per_s": 781.7,
+          "count_per_s": 4878
+        },
+        "queue submit": {
+          "ms_per_s": 64.9,
+          "count_per_s": 1596
+        }
+      },
+      "drains": {}
+    },
+    {
+      "thread": "GPU back thread",
+      "native": 164.689901,
+      "window_s": 10.001006,
+      "cpu_busy_ms_per_s": 836.022,
+      "zones": {
+        "other": {
+          "ms_per_s": 83.8,
+          "count_per_s": 0
+        },
+        "macro": {
+          "ms_per_s": 10.8,
+          "count_per_s": 20264
+        },
+        "draw": {
+          "ms_per_s": 55.2,
+          "count_per_s": 57037
+        },
+        "clear": {
+          "ms_per_s": 7.3,
+          "count_per_s": 1787
+        },
+        "compute": {
+          "ms_per_s": 43.9,
+          "count_per_s": 4284
+        },
+        "flush work": {
+          "ms_per_s": 29.8,
+          "count_per_s": 56837
+        },
+        "pipeline lookup": {
+          "ms_per_s": 15.8,
+          "count_per_s": 53257
+        },
+        "configure": {
+          "ms_per_s": 21.1,
+          "count_per_s": 55486
+        },
+        "sync descriptors": {
+          "ms_per_s": 0.6,
+          "count_per_s": 51909
+        },
+        "read handles": {
+          "ms_per_s": 24.7,
+          "count_per_s": 55486
+        },
+        "fill image views": {
+          "ms_per_s": 25.9,
+          "count_per_s": 25428
+        },
+        "update buffers": {
+          "ms_per_s": 37.8,
+          "count_per_s": 55486
+        },
+        "descriptor acquire": {
+          "ms_per_s": 0.9,
+          "count_per_s": 55486
+        },
+        "bind stage buffers": {
+          "ms_per_s": 182.5,
+          "count_per_s": 110972
+        },
+        "push descriptors": {
+          "ms_per_s": 11.7,
+          "count_per_s": 110972
+        },
+        "render targets": {
+          "ms_per_s": 7.5,
+          "count_per_s": 55486
+        },
+        "configure draw": {
+          "ms_per_s": 4.6,
+          "count_per_s": 55486
+        },
+        "dynamic state": {
+          "ms_per_s": 12.0,
+          "count_per_s": 55486
+        },
+        "draw record": {
+          "ms_per_s": 1.9,
+          "count_per_s": 55486
+        },
+        "texture upload": {
+          "ms_per_s": 6.6,
+          "count_per_s": 179
+        },
+        "fence": {
+          "ms_per_s": 24.7,
+          "count_per_s": 7430
+        },
+        "fence skipped": {
+          "ms_per_s": 4.4,
+          "count_per_s": 5748
+        },
+        "method": {
+          "ms_per_s": 205.1,
+          "count_per_s": 3365184
+        },
+        "split wait": {
+          "ms_per_s": 119.5,
+          "count_per_s": 12287
+        },
+        "texture cache": {
+          "ms_per_s": 8.3,
+          "count_per_s": 596
+        },
+        "GPU wait": {
+          "ms_per_s": 53.2,
+          "count_per_s": 96
+        },
+        "present": {
+          "ms_per_s": 0.0,
+          "count_per_s": 57
+        },
+        "present wait": {
+          "ms_per_s": 0.3,
+          "count_per_s": 29
+        }
+      },
+      "drains": {}
+    },
+    {
+      "thread": "GPU thread",
+      "native": 172.867118,
+      "window_s": 10.019733,
+      "cpu_busy_ms_per_s": 528.51,
+      "zones": {
+        "other": {
+          "ms_per_s": 1.4,
+          "count_per_s": 0
+        },
+        "idle": {
+          "ms_per_s": 0.0,
+          "count_per_s": 0
+        },
+        "pending sleep": {
+          "ms_per_s": 41.0,
+          "count_per_s": 14731
+        },
+        "resume pending": {
+          "ms_per_s": 202.5,
+          "count_per_s": 15329
+        },
+        "push": {
+          "ms_per_s": 4.1,
+          "count_per_s": 516
+        },
+        "macro": {
+          "ms_per_s": 128.9,
+          "count_per_s": 995775
+        },
+        "split drain": {
+          "ms_per_s": 604.5,
+          "count_per_s": 5194
+        },
+        "writer wait": {
+          "ms_per_s": 17.6,
+          "count_per_s": 451
+        }
+      },
+      "drains": {
+        "acquire": {
+          "ms_per_s": 601.6,
+          "count_per_s": 4949
+        },
+        "fence release": {
+          "ms_per_s": 2.8,
+          "count_per_s": 245
+        },
+        "list writers": {
+          "ms_per_s": 17.6,
+          "count_per_s": 451
+        }
+      }
+    },
+    {
+      "thread": "Vulkan worker",
+      "native": 173.548785,
+      "window_s": 10.000331000000001,
+      "cpu_busy_ms_per_s": 250.996,
+      "zones": {
+        "other": {
+          "ms_per_s": 159.0,
+          "count_per_s": 0
+        },
+        "worker idle": {
+          "ms_per_s": 773.5,
+          "count_per_s": 5084
+        },
+        "queue submit": {
+          "ms_per_s": 67.5,
+          "count_per_s": 1659
+        }
+      },
+      "drains": {}
+    },
+    {
+      "thread": "GPU back thread",
+      "native": 174.690992,
+      "window_s": 10.000923,
+      "cpu_busy_ms_per_s": 855.306,
+      "zones": {
+        "other": {
+          "ms_per_s": 79.4,
+          "count_per_s": 0
+        },
+        "macro": {
+          "ms_per_s": 11.3,
+          "count_per_s": 21127
+        },
+        "draw": {
+          "ms_per_s": 56.8,
+          "count_per_s": 59353
+        },
+        "clear": {
+          "ms_per_s": 7.3,
+          "count_per_s": 1859
+        },
+        "compute": {
+          "ms_per_s": 45.6,
+          "count_per_s": 4376
+        },
+        "flush work": {
+          "ms_per_s": 31.0,
+          "count_per_s": 59145
+        },
+        "pipeline lookup": {
+          "ms_per_s": 16.4,
+          "count_per_s": 55398
+        },
+        "configure": {
+          "ms_per_s": 22.0,
+          "count_per_s": 57741
+        },
+        "sync descriptors": {
+          "ms_per_s": 0.6,
+          "count_per_s": 53997
+        },
+        "read handles": {
+          "ms_per_s": 25.7,
+          "count_per_s": 57741
+        },
+        "fill image views": {
+          "ms_per_s": 26.8,
+          "count_per_s": 26342
+        },
+        "update buffers": {
+          "ms_per_s": 39.4,
+          "count_per_s": 57741
+        },
+        "descriptor acquire": {
+          "ms_per_s": 0.9,
+          "count_per_s": 57741
+        },
+        "bind stage buffers": {
+          "ms_per_s": 189.1,
+          "count_per_s": 115482
+        },
+        "push descriptors": {
+          "ms_per_s": 12.1,
+          "count_per_s": 115482
+        },
+        "render targets": {
+          "ms_per_s": 7.8,
+          "count_per_s": 57741
+        },
+        "configure draw": {
+          "ms_per_s": 4.8,
+          "count_per_s": 57741
+        },
+        "dynamic state": {
+          "ms_per_s": 12.4,
+          "count_per_s": 57741
+        },
+        "draw record": {
+          "ms_per_s": 1.9,
+          "count_per_s": 57741
+        },
+        "texture upload": {
+          "ms_per_s": 2.2,
+          "count_per_s": 174
+        },
+        "fence": {
+          "ms_per_s": 25.3,
+          "count_per_s": 7652
+        },
+        "fence skipped": {
+          "ms_per_s": 4.2,
+          "count_per_s": 5903
+        },
+        "method": {
+          "ms_per_s": 215.6,
+          "count_per_s": 3494528
+        },
+        "split wait": {
+          "ms_per_s": 117.9,
+          "count_per_s": 12510
+        },
+        "texture cache": {
+          "ms_per_s": 7.4,
+          "count_per_s": 581
+        },
+        "GPU wait": {
+          "ms_per_s": 35.8,
+          "count_per_s": 90
+        },
+        "present": {
+          "ms_per_s": 0.0,
+          "count_per_s": 60
+        },
+        "present wait": {
+          "ms_per_s": 0.3,
+          "count_per_s": 30
+        }
+      },
+      "drains": {}
+    },
+    {
+      "thread": "GPU thread",
+      "native": 182.87302,
+      "window_s": 10.00574,
+      "cpu_busy_ms_per_s": 529.275,
+      "zones": {
+        "other": {
+          "ms_per_s": 1.4,
+          "count_per_s": 0
+        },
+        "pending sleep": {
+          "ms_per_s": 47.8,
+          "count_per_s": 14836
+        },
+        "resume pending": {
+          "ms_per_s": 204.6,
+          "count_per_s": 15419
+        },
+        "push": {
+          "ms_per_s": 4.1,
+          "count_per_s": 505
+        },
+        "macro": {
+          "ms_per_s": 129.3,
+          "count_per_s": 968987
+        },
+        "split drain": {
+          "ms_per_s": 596.9,
+          "count_per_s": 5191
+        },
+        "writer wait": {
+          "ms_per_s": 15.9,
+          "count_per_s": 439
+        }
+      },
+      "drains": {
+        "acquire": {
+          "ms_per_s": 594.0,
+          "count_per_s": 4952
+        },
+        "fence release": {
+          "ms_per_s": 2.8,
+          "count_per_s": 239
+        },
+        "list writers": {
+          "ms_per_s": 15.8,
+          "count_per_s": 439
+        }
+      }
+    },
+    {
+      "thread": "Vulkan worker",
+      "native": 183.54904,
+      "window_s": 10.000093999999999,
+      "cpu_busy_ms_per_s": 246.934,
+      "zones": {
+        "other": {
+          "ms_per_s": 156.3,
+          "count_per_s": 0
+        },
+        "worker idle": {
+          "ms_per_s": 776.9,
+          "count_per_s": 4955
+        },
+        "queue submit": {
+          "ms_per_s": 66.8,
+          "count_per_s": 1618
+        }
+      },
+      "drains": {}
+    },
+    {
+      "thread": "GPU back thread",
+      "native": 184.691162,
+      "window_s": 10.000008,
+      "cpu_busy_ms_per_s": 844.752,
+      "zones": {
+        "other": {
+          "ms_per_s": 81.4,
+          "count_per_s": 0
+        },
+        "macro": {
+          "ms_per_s": 11.1,
+          "count_per_s": 20591
+        },
+        "draw": {
+          "ms_per_s": 56.7,
+          "count_per_s": 57695
+        },
+        "clear": {
+          "ms_per_s": 7.2,
+          "count_per_s": 1815
+        },
+        "compute": {
+          "ms_per_s": 45.1,
+          "count_per_s": 4335
+        },
+        "flush work": {
+          "ms_per_s": 31.7,
+          "count_per_s": 57492
+        },
+        "pipeline lookup": {
+          "ms_per_s": 16.2,
+          "count_per_s": 53844
+        },
+        "configure": {
+          "ms_per_s": 21.6,
+          "count_per_s": 56122
+        },
+        "sync descriptors": {
+          "ms_per_s": 0.6,
+          "count_per_s": 52476
+        },
+        "read handles": {
+          "ms_per_s": 25.1,
+          "count_per_s": 56122
+        },
+        "fill image views": {
+          "ms_per_s": 26.5,
+          "count_per_s": 25534
+        },
+        "update buffers": {
+          "ms_per_s": 38.8,
+          "count_per_s": 56122
+        },
+        "descriptor acquire": {
+          "ms_per_s": 0.9,
+          "count_per_s": 56122
+        },
+        "bind stage buffers": {
+          "ms_per_s": 185.7,
+          "count_per_s": 112243
+        },
+        "push descriptors": {
+          "ms_per_s": 11.9,
+          "count_per_s": 112243
+        },
+        "render targets": {
+          "ms_per_s": 7.6,
+          "count_per_s": 56122
+        },
+        "configure draw": {
+          "ms_per_s": 4.7,
+          "count_per_s": 56122
+        },
+        "dynamic state": {
+          "ms_per_s": 12.3,
+          "count_per_s": 56122
+        },
+        "draw record": {
+          "ms_per_s": 1.9,
+          "count_per_s": 56122
+        },
+        "texture upload": {
+          "ms_per_s": 3.2,
+          "count_per_s": 171
+        },
+        "fence": {
+          "ms_per_s": 25.6,
+          "count_per_s": 7530
+        },
+        "fence skipped": {
+          "ms_per_s": 4.1,
+          "count_per_s": 5823
+        },
+        "method": {
+          "ms_per_s": 208.6,
+          "count_per_s": 3409565
+        },
+        "split wait": {
+          "ms_per_s": 124.2,
+          "count_per_s": 12718
+        },
+        "texture cache": {
+          "ms_per_s": 7.3,
+          "count_per_s": 566
+        },
+        "GPU wait": {
+          "ms_per_s": 39.5,
+          "count_per_s": 89
+        },
+        "present": {
+          "ms_per_s": 0.0,
+          "count_per_s": 58
+        },
+        "present wait": {
+          "ms_per_s": 0.3,
+          "count_per_s": 29
+        }
+      },
+      "drains": {}
+    }
+  ],
+  "total_reports": 53,
+  "non_timing_report_classes": {
+    "GPU thread methods": 18,
+    "GPU back thread methods": 18
+  },
+  "no_actual_front_verify_reports": true,
+  "scope": "RDTSC wallzones exclusive WITHINthread, concurrentthreads overlap; weighted byreportedactualwindow. CPUbusy uses perthreadCPUclock atwindowboundaries. Instrumentsmayperturbwork; no unprofiledFPSbudget or causalceiling. ZonecountforBindStageBuffersisstagesnotUBOcopes. Metadata/subtotalsareexcludedbyactualsourcezone_names. Oldmisclassificationretainedprivately asnegativeexample.",
+  "cleanup": {
+    "at": 1794251176.7029746,
+    "own_game_absent": true,
+    "own_helper_removed": true,
+    "old_devices_absent": [
+      "/dev/input/event8",
+      "/dev/input/event9",
+      "/dev/input/event10",
+      "/dev/input/event11"
+    ],
+    "matching_names_remaining": [],
+    "observer": "active",
+    "production_config_unchanged": true,
+    "eight_progressions_unchanged": true,
+    "gpu_policies": {
+      "/sys/class/drm/card0/device/power_dpm_force_performance_level": "auto"
+    },
+    "gpu_power_caps_micro_watts": [
+      150000000
+    ]
+  },
+  "audit_wait_valve": {
+    "decision": "NoGo naiveimplementation; no prototype/test orperformanceclaim",
+    "reasons": [
+      "Scheduler and Step both callCanResumeAcquire; rearmingdelayonsuccess canmake secondcallfalse and preventprogress.",
+      "CPUtemporaryvalue20then5 has no genericlatch notifier; delayingfalse canmissit."
+    ],
+    "next": "Reevaluateunchanged1059Span3fileport oncorrectedmode2base; BindStageBufferszonecoversmorethanthatpath, nocostfractionassigned."
+  },
+  "later_source_caveat_2053": "The Maxwell3D constructor sets fast_maxwell3d=false when Nx2Profile is enabled. This profile uses the slow method dispatch, whereas the unprofiled game may use the fast path. The208ms/s zone is not the cost or available saving of unprofiled PR1095 state writes. Keep raw measurements, do not transfer profiler mix to performance claims."
+}

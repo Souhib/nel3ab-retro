@@ -1,0 +1,156 @@
+{
+  "date_utc": "2026-11-09",
+  "base": "0b83798bf6e7e2440568b7cf69646ae45d681b11 + same UBO/cursor/PR874 composition corrections",
+  "selective_upstream": "1a5e995a38679e0f4f7e320f9ec6a5a2f4e4ef1e",
+  "primary_source": "https://github.com/zortos293/Lichii/commit/1a5e995a38679e0f4f7e320f9ec6a5a2f4e4ef1e",
+  "cache_v2_included": false,
+  "cli_sha256": "4cc8216a6385e0d2bf9aadcef5126c5e9d338d3951762d3cd5f59aae179af527",
+  "control_cli_sha256": "5ac642897062c2772d8e9f9fe81ec205ecdd8ddeb2e9100659f152a8e6291429",
+  "build_seconds": 317.7018,
+  "tests": {
+    "passed": 1145,
+    "network_skipped": 4,
+    "assertions": 71899449
+  },
+  "policy_probe": {
+    "real_header_and_NoteWriter_NoteSync": true,
+    "WaitFor_replaced_by_target_recorder": true,
+    "red_old_helper": 42,
+    "green": {
+      "exit": 0,
+      "checks": 8
+    },
+    "zero_target_mutant": 42,
+    "last_sync_target_mutant": 42,
+    "all_compiles_and_links_exit": 0,
+    "not_async_wakeup_proof": true
+  },
+  "patches": {
+    "file": "lichii-1056-on-corrected-0b.patch",
+    "sha256": "4fb4296a46422797bc6613c44722e9220db8ce2f8d09b82b3649f4379a2f41b6"
+  },
+  "optional_trace": {
+    "file": "lichii-1056-activation.patch",
+    "sha256": "696cd0b1b08917f7955eefd4d9ee5feea58a8c957beab693f73eb05ebf484995"
+  },
+  "exact_twelve_file_reconstruction": true,
+  "runtime_diagnostic": {
+    "seconds": 91.92535415105522,
+    "actual_new_helper_marker_once": true,
+    "actual_payload_callback_marker_once": true,
+    "actual_sha_and_mapped_radv_verified": true,
+    "read_check": {
+      "downloads": 101614,
+      "compared_KiB": 349384,
+      "mismatched": 0,
+      "mismatched_reader": 0,
+      "mismatched_gpu_writer": 0,
+      "mismatched_completed": 0,
+      "uncovered": 0,
+      "rewritten_not_compared": 32259
+    },
+    "descriptor_verified": 208896,
+    "descriptor_mismatches": 0,
+    "corrected_uniform_keeps": 680781,
+    "uniform_keep_not_independent_byte_oracle": true,
+    "all_three_actual_images_reviewed": true,
+    "normal_stop": {
+      "exit_code": 0,
+      "stop_requested": true,
+      "window_closed": true,
+      "forced": false,
+      "stop_seconds": 3.504530936013907
+    }
+  },
+  "comparison": {
+    "status": "Fouralternatingphasescomplete",
+    "order": "ON/OFF/ON/OFF",
+    "mode": 1,
+    "idle_spin_us": 0,
+    "same_initial_files": 3511,
+    "same_initial_bytes": 82010658,
+    "all_diagnostics_and_markers_absent": true,
+    "rows": [
+      {
+        "label": "lichii-macro-on1",
+        "candidate": true,
+        "presentations": 1800,
+        "covered_seconds": 66.8184,
+        "fps": 26.938687547142706,
+        "maximum_frame_ms": 65.514,
+        "over100ms": 0,
+        "normal_stop_seconds": 3.6040983060374856,
+        "all_six_images_read": true,
+        "no_observed_CI_compiler_profiler": true
+      },
+      {
+        "label": "lichii-macro-off1",
+        "candidate": false,
+        "presentations": 1800,
+        "covered_seconds": 68.5536,
+        "fps": 26.25682677496149,
+        "maximum_frame_ms": 65.249,
+        "over100ms": 0,
+        "normal_stop_seconds": 3.7052826955914497,
+        "all_six_images_read": true,
+        "no_observed_CI_compiler_profiler": true
+      },
+      {
+        "label": "lichii-macro-on2",
+        "candidate": true,
+        "presentations": 1800,
+        "covered_seconds": 66.73740000000001,
+        "fps": 26.971383362252645,
+        "maximum_frame_ms": 67.876,
+        "over100ms": 0,
+        "normal_stop_seconds": 3.205103919375688,
+        "all_six_images_read": true,
+        "no_observed_CI_compiler_profiler": true
+      },
+      {
+        "label": "lichii-macro-off2",
+        "candidate": false,
+        "presentations": 1800,
+        "covered_seconds": 68.91,
+        "fps": 26.1210274270788,
+        "maximum_frame_ms": 64.421,
+        "over100ms": 0,
+        "normal_stop_seconds": 3.4049985953606665,
+        "all_six_images_read": true,
+        "no_observed_CI_compiler_profiler": true
+      }
+    ],
+    "pooled": {
+      "candidate": {
+        "presentations": 3600,
+        "covered_seconds": 133.5558,
+        "fps": 26.955025539886698
+      },
+      "control": {
+        "presentations": 3600,
+        "covered_seconds": 137.46359999999999,
+        "fps": 26.188751058462024
+      },
+      "relative_percent_observed": 2.925968022354697
+    },
+    "limits": [
+      "Smallfourphaseobservedgain notuniversalcausalgain",
+      "No30FPSconstant",
+      "SceneKokiricamera/groundwalkonly, notaudio/zones/savequalification",
+      "Preparationwaitdurationsnotidentical; actualcameraepochs/windowboundsrecorded",
+      "Capfidelitylimit remains"
+    ]
+  },
+  "limits": [
+    "Mode2 acquire unqualified andexcluded",
+    "NO_MESH1 baselinefidelitylimit retained",
+    "No30FPS/completegame/audio/zone/saveclaim",
+    "No production installation/commit/push"
+  ],
+  "cleanup": {
+    "game_helper_devices_removed": true,
+    "observer_active": true,
+    "gpu_auto_150W": true,
+    "installed_config_and_eight_progressions_unchanged": true
+  }
+}

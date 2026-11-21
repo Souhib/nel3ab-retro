@@ -1,0 +1,227 @@
+{
+  "date_utc": "2026-11-11",
+  "status": "four_timing_windows_analyzed_A2_global_guard_failure_explicitly_retained",
+  "goal40_achieved": false,
+  "production_changed": false,
+  "baseline_ELF_sha256": "c686c1ff5811dd4aeba3f92d8da7717724dab9f1f3978e7c73897899769852d4",
+  "candidate_ELF_sha256": "13158042b7dae7041bc4ae255381dbbed90b1d7eb9f3ba04ea1b5be02d36f6a1",
+  "order": [
+    "A1",
+    "B1",
+    "A2",
+    "B2"
+  ],
+  "rows": [
+    {
+      "label": "A1",
+      "ELF": "c686c1ff",
+      "presentation_returns_per_second": 29.01053739509082,
+      "complete_windows": 4,
+      "covered_seconds": 82.728560568,
+      "phase_seconds": 90.00161492,
+      "p99_each_ms": [
+        45.207961,
+        44.920291,
+        43.222586,
+        45.241304
+      ],
+      "max_ms_in_retained_windows": 62.599879,
+      "raw_global_guard_passed": true
+    },
+    {
+      "label": "B1",
+      "ELF": "13158042",
+      "presentation_returns_per_second": 30.653979722584612,
+      "complete_windows": 3,
+      "covered_seconds": 58.719944891,
+      "phase_seconds": 90.004020087,
+      "p99_each_ms": [
+        41.931708,
+        41.463334,
+        42.714832
+      ],
+      "max_ms_in_retained_windows": 53.577049,
+      "raw_global_guard_passed": true
+    },
+    {
+      "label": "A2",
+      "ELF": "c686c1ff",
+      "presentation_returns_per_second": 29.313545290681475,
+      "complete_windows": 3,
+      "covered_seconds": 61.405059748,
+      "phase_seconds": 90.000782404,
+      "p99_each_ms": [
+        44.013587,
+        42.300444,
+        45.001506
+      ],
+      "max_ms_in_retained_windows": 52.311545,
+      "raw_global_guard_passed": false
+    },
+    {
+      "label": "B2",
+      "ELF": "13158042",
+      "presentation_returns_per_second": 30.474201863282907,
+      "complete_windows": 3,
+      "covered_seconds": 59.06635416,
+      "phase_seconds": 90.004160587,
+      "p99_each_ms": [
+        42.222443,
+        43.550335,
+        42.331117
+      ],
+      "max_ms_in_retained_windows": 48.543845,
+      "raw_global_guard_passed": true
+    }
+  ],
+  "pairs": [
+    {
+      "pair": 1,
+      "rate_delta_percent": 5.664984088753533,
+      "A_max_ms": 62.599879,
+      "B_max_ms": 53.577049,
+      "A_p99_each_ms": [
+        45.207961,
+        44.920291,
+        43.222586,
+        45.241304
+      ],
+      "B_p99_each_ms": [
+        41.931708,
+        41.463334,
+        42.714832
+      ]
+    },
+    {
+      "pair": 2,
+      "rate_delta_percent": 3.9594547881944386,
+      "A_max_ms": 52.311545,
+      "B_max_ms": 48.543845,
+      "A_p99_each_ms": [
+        44.013587,
+        42.300444,
+        45.001506
+      ],
+      "B_p99_each_ms": [
+        42.222443,
+        43.550335,
+        42.331117
+      ]
+    }
+  ],
+  "phase_total_seconds": 360.01057799800003,
+  "complete_window_total_seconds": 261.919919367,
+  "complete_windows": 13,
+  "gap_A2_end_to_B2_begin_seconds": 1270.349869676,
+  "normal_candidate_activation": {
+    "A1": {
+      "selected_ELF": "c686c1ff5811dd4aeba3f92d8da7717724dab9f1f3978e7c73897899769852d4",
+      "normal_allocation_markers": [],
+      "detail_trace_absent": true,
+      "GPU_PROFILE_and_READ_CHECK_absent": true
+    },
+    "B1": {
+      "selected_ELF": "13158042b7dae7041bc4ae255381dbbed90b1d7eb9f3ba04ea1b5be02d36f6a1",
+      "normal_allocation_markers": [
+        [
+          "Stream",
+          "cached-coherent"
+        ],
+        [
+          "Upload",
+          "cached-coherent"
+        ]
+      ],
+      "detail_trace_absent": true,
+      "GPU_PROFILE_and_READ_CHECK_absent": true
+    },
+    "A2": {
+      "selected_ELF": "c686c1ff5811dd4aeba3f92d8da7717724dab9f1f3978e7c73897899769852d4",
+      "normal_allocation_markers": [],
+      "detail_trace_absent": true,
+      "GPU_PROFILE_and_READ_CHECK_absent": true
+    },
+    "B2": {
+      "selected_ELF": "13158042b7dae7041bc4ae255381dbbed90b1d7eb9f3ba04ea1b5be02d36f6a1",
+      "normal_allocation_markers": [
+        [
+          "Stream",
+          "cached-coherent"
+        ],
+        [
+          "Upload",
+          "cached-coherent"
+        ]
+      ],
+      "detail_trace_absent": true,
+      "GPU_PROFILE_and_READ_CHECK_absent": true
+    }
+  },
+  "global_guard_fully_passed": false,
+  "A2_timing_adjudication": {
+    "temporal_exception_qualified": true,
+    "trial": "A2",
+    "root": "/home/souhib/.local/state/nel3ab/test-switch2-1AvIis",
+    "raw_phase_completed": false,
+    "watchdog_fully_clean": false,
+    "all_observed_timed_scans_clean": true,
+    "timed_scan_count": 14,
+    "excluded_postphase_sample_indexes": [
+      30
+    ],
+    "fault_observer_identity": [
+      3793038,
+      "240183513"
+    ],
+    "fault_observer_bounds_ns": [
+      2401835174413594,
+      2401835461665792
+    ],
+    "phase_bounds_ns": [
+      2401743767153933,
+      2401833767936337
+    ],
+    "browser_identity": [
+      3781455,
+      "240164145"
+    ],
+    "scope": "Only the observed post-phase owned-browser ENOENT is excluded from timing admissibility. Raw global guard failed and remains false; polling gaps and complete forgery by the same UID are not excluded."
+  },
+  "protected_files_unchanged": 8652,
+  "installed_cache": {
+    "files": 5121,
+    "bytes": 147376438,
+    "all_hashes_and_mtimes_match": true
+  },
+  "immutable_learned_seed": {
+    "files": 4867,
+    "bytes": 134125560,
+    "all_hashes_and_mtimes_match": true
+  },
+  "limits": [
+    "Observed repeated-sign trend, not isolated causal FPS gain; shared background CPU is not excluded.",
+    "Long pause for A2 teardown adjudication before B2; thermal/cache/scene drift limits attribution.",
+    "Only complete600-return windows within recorded90s phases retained; quantiles remain per window.",
+    "WSI accepted returns are not unique guest frames, physical scanout or full browser gameplay FPS.",
+    "Static Saria checkpoint,1x/caps60/speed100,2rawvideo+2audio subscriptions, no local decode, no profiler/readcheck.",
+    "A2 raw cleanup.phase_completed=false remains; its sole owned-browser ENOENT observer invocation is wholly after timing bounds, qualified by19CPU controls and14consumer controls.",
+    "Periodic metadata guards cannot exclude activity wholly between scans; GPU driver statistics were not read."
+  ],
+  "next_action": "Profile current candidate leaf costs before selecting next optimization; retain production unchanged; fix ordered browser signal handling in independent next driver with real CPU-browser controls.",
+  "proof_sha256": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/uploadhost-preparation-20261111/teardown-audit/analysis/report.json": "330e2c49ad76b319651dffdc455c1596f41e2499f9d7251f868302c6969512ca",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/uploadhost-preparation-20261111/teardown-audit/audit.py": "e42323f0b2ba976a70ae6298e988cbac3e6e613dfe0bf4cd2d8dd85cce26cc39",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/uploadhost-preparation-20261111/teardown-audit/inputs.json": "9c9d934329a7f5d1e4bb5d0b218293c08fb8199c7c7556b342364b4dd33ec1bd",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/uploadhost-preparation-20261111/teardown-audit/results-v2/report.json": "ed21a353a1d7264ed17e51bb198c853e4e56226807f1f129b6ccbf63712c7c55",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/uploadhost-preparation-20261111/teardown-audit/adjudication.json": "75a8a194cf6ba0c518c18dc8f068d664bb89b72218df260a1ba9938d677946d9",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/uploadhost-preparation-20261111/teardown-audit/derived_common.py": "50c44588826bd2d8d837992e17447213a4f11eb181d0ab460626ad730c699d4c",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/uploadhost-preparation-20261111/teardown-audit/wrapper-tests/report.json": "e3dac6163f12f98e47440235405a5cf073f92ea476a71824b1bcdeaad6f72a8e",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/uploadhost-preparation-20261111/teardown-audit/wrapper-tests/session.diff": "b7432c85c42624943de59d7deeeb08ecea82739a51ef28e7470ac80e5546f19f",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/uploadhost-preparation-20261111/teardown-audit/wrapper-tests/manage.diff": "fddcd083ef75aac689a626e822cc2ae4df791a2f033d3d6f3b358a0e119d7da9",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/uploadhost-preparation-20261111/teardown-audit/wrapper-tests/analysis.diff": "fe937027aeaa6c73d9032911969c1a53630e3274c9b943c0182b37ee4c3d78e6",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/uploadhost-preparation-20261111/teardown-audit/analyze-wrapper.py": "74f12bba55f3916ee121d8b39c4e1194f3ebe30c237d70d60b9685701cc1c433",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/uploadhost-preparation-20261111/teardown-audit/manage-wrapper.py": "c94b2be9f2ad8576b5100d86cb310db114f31f3b60e95776a7580db29e7995b8",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/uploadhost-preparation-20261111/teardown-audit/session-wrapper.py": "5ed24afe8eecf68689bd82b8ba220c3295b47dfa10348ae16430ddfe923cd452",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/uploadhost-preparation-20261111/teardown-audit/normal-activation-root-review.json": "09ba3272a882b6b0b78bf7173e9692ee2d1ad274c700ecbe4984c73f3e59bfae"
+  }
+}

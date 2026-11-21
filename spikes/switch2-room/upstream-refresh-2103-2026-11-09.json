@@ -1,0 +1,18 @@
+{
+  "checked_at": "2026-11-09T21:03:06.102198+00:00",
+  "lichii_head": "cb5c5c7c6761498efe74056f9a42ba8c80069abd",
+  "pr1095_head": "52d46375f5097dfb6700b94022eec82e54ce25e7",
+  "pr1095_state": "open",
+  "pr1095_merged": false,
+  "superbuild_release": {
+    "tag": "v38",
+    "published": "2026-11-09T21:00:48Z",
+    "head": null,
+    "state": null,
+    "merged": null
+  },
+  "primary_url": "https://github.com/callme-sy/Lichii-Superbuild/releases/tag/v38",
+  "decision": "v38 now published21:00:48, unlike20:21 snapshot. It combines open1094/1095; private1095 already qualified separately, frozen reference/comparison packages retained. No wholesale install/rebase or local gain inferred. Prior word-wait relaxation concern still applies.",
+  "comparison_status": "Runner.Worker detected before helper/game. Wait natural CI end per user preference; no FPS phase ran or was contaminated.",
+  "additional_review": "The first1094 commit also changes list-copy WaitForWriters to WaitForSyncedWriters and publication order. A word-tracking-only port would need selected BufferCache/DMAClear hunks and real-writer/Pending-resume fixtures. No such port/build/game test exists; current1095 benchmark remains unchanged."
+}

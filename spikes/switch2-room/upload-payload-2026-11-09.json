@@ -1,0 +1,154 @@
+{
+  "date": "2026-11-09",
+  "build": {
+    "cli_sha256": "26278a6cdcd1a4125a641de94939126cc4a8141467cf1da131811f71cf903fba",
+    "actual_template_instantiation": "renderer_vulkan/vk_buffer_cache_base.cpp",
+    "object_mtime": 1794214183.7871652,
+    "changed_header_mtime": 1794214170.110532,
+    "build_started_unix": 1794214170.1109197,
+    "test_cases_passed": 244,
+    "network_skipped": 4,
+    "tests_flags": [
+      "0",
+      "1"
+    ],
+    "mutation_results": {
+      "original": 0,
+      "prefix_only": 2,
+      "wrong_address": 3,
+      "unbounded": 4
+    },
+    "diagnostic_only": true,
+    "never_skip_any_copy": true
+  },
+  "runtime": {
+    "exe_sha256": "26278a6cdcd1a4125a641de94939126cc4a8141467cf1da131811f71cf903fba",
+    "mapped_radv_path": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+    "mapped_radv_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+    "packages": "libdrm-amdgpu1:amd64\t2.4.125-1ubuntu0.1~24.04.2\nlibdrm2:amd64\t2.4.125-1ubuntu0.1~24.04.2\nmesa-vulkan-drivers:amd64\t25.2.8-0ubuntu0.24.04.4\n",
+    "actual_log_filter_verified": true
+  },
+  "result": {
+    "diagnostic_only": true,
+    "not_a_cadence_comparison": true,
+    "wall_start": 1794214555.9620023,
+    "wall_end": 1794214586.612742,
+    "wall_seconds": 30.650737994350493,
+    "process_epoch": 1794214365.6242154,
+    "process_clock_ticks_hz": 100,
+    "native_epoch_bounds": [
+      1794214365.5242155,
+      1794214365.774915
+    ],
+    "bounded_snapshots": 34,
+    "first": {
+      "native": 191.246165,
+      "docker_logged_at": 1794214559.651518,
+      "counts": {
+        "uploads": 851968,
+        "bytes": 25191272448,
+        "eligible": 284614,
+        "eligible_bytes": 19757031424,
+        "observed": 283975,
+        "observed_bytes": 19706298368,
+        "compared": 283643,
+        "compared_bytes": 19679166464,
+        "identical": 283631,
+        "identical_bytes": 19678330880,
+        "resets": 0
+      }
+    },
+    "last": {
+      "native": 217.792644,
+      "docker_logged_at": 1794214584.22797,
+      "counts": {
+        "uploads": 987136,
+        "bytes": 29181489152,
+        "eligible": 331024,
+        "eligible_bytes": 22978666496,
+        "observed": 330385,
+        "observed_bytes": 22927933440,
+        "compared": 330053,
+        "compared_bytes": 22900801536,
+        "identical": 330041,
+        "identical_bytes": 22899965952,
+        "resets": 0
+      }
+    },
+    "delta": {
+      "uploads": 135168,
+      "bytes": 3990216704,
+      "eligible": 46410,
+      "eligible_bytes": 3221635072,
+      "observed": 46410,
+      "observed_bytes": 3221635072,
+      "compared": 46410,
+      "compared_bytes": 3221635072,
+      "identical": 46410,
+      "identical_bytes": 3221635072,
+      "resets": 0
+    },
+    "identical_fraction_of_compared_bytes": 1.0,
+    "observed_fraction_of_eligible_bytes": 1.0,
+    "eligible_fraction_of_all_bytes": 0.8073834859070351,
+    "shutdown": {
+      "exit_code": 0,
+      "stop_requested": true,
+      "window_closed": true,
+      "forced": false,
+      "stop_seconds": 3.2047774270176888
+    },
+    "scope": "Onlyaggregatecounterintervalsprovenfullyinsideobservedworld/camera wallphase.Nosourceaddressesorgamebyteslogged.Sourcebytesbeforecopy,noproofdestinationGPUcontentunchanged.Allcopiespreserved."
+  },
+  "visual_review": {
+    "world_and_avatar_visible": true,
+    "reviewed_at": 1794214555.0109222,
+    "scene": "Link on balcony in Kokiri Forest, worldrendered.",
+    "after_camera_world_and_avatar_visible": true
+  },
+  "negative_control": {
+    "proof": {
+      "actual_world_and_avatar_visible": true,
+      "actual_same_cli_sha256": "26278a6cdcd1a4125a641de94939126cc4a8141467cf1da131811f71cf903fba",
+      "diagnostic_marker_absent": true,
+      "reviewed_at": 1794215099.9017313
+    },
+    "shutdown": {
+      "exit_code": 0,
+      "stop_requested": true,
+      "window_closed": true,
+      "forced": false,
+      "stop_seconds": 2.8042595139704645
+    }
+  },
+  "excluded_negative_boot": {
+    "state": {
+      "Status": "exited",
+      "Running": false,
+      "Paused": false,
+      "Restarting": false,
+      "OOMKilled": false,
+      "Dead": false,
+      "Pid": 0,
+      "ExitCode": 134,
+      "Error": "",
+      "StartedAt": "2026-11-09T08:58:01.016124364Z",
+      "FinishedAt": "2026-11-09T08:58:59.985204037Z"
+    },
+    "failure_lines": [
+      "terminate called after throwing an instance of 'Vulkan::vk::Exception'",
+      "  what():  VK_ERROR_OUT_OF_DEVICE_MEMORY"
+    ],
+    "diagnostic_marker_present": false,
+    "world_readiness_accepted": false,
+    "no_cadence_measurement": true,
+    "at": 1794214868.107658
+  },
+  "limits": [
+    "Sourcebytecomparisonsbeforeuploadonly,notdestinationGPUvalidityorproofacopycanbeskipped.",
+    "Only64..128KiBcontiguousuploads;512snapshotsretainatmost64MiB.NoFPSclaimfrominstrumentedrun.",
+    "Counterintervalsfullyboundedbyrecordedwallphaseandprocess/nativeclockbounds;34snapshots,actualcamera/worldverified.",
+    "Allcopiespreserved;noaddressesorpayloadbyteslogged.Noinstallation."
+  ],
+  "source_finding": "DefaultEDEN_NX2_BANK_REUPLOAD1forcesnative64KiBuniformbankCPUdirtyonceperframe. Nextprototypecomparesentirecoveredpagesbeforeonlythatartificialinvalidation;existingdirtytrackingandsyncleftintact."
+}

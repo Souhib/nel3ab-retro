@@ -1,0 +1,686 @@
+{
+  "date_utc": "2026-11-10",
+  "status": "Exact installed-engine CPU diagnostic completed and audited. No speed patch or performance deployment. Constant30fps not achieved.",
+  "scope": "CPU sampling only during a private observed ground-motion session. No FPS comparison, no physical GPU execution timing and no hardware ceiling claim.",
+  "evidence_root": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/hot-cpu-diagnostic-20261110",
+  "room_evidence_root": "/home/souhib/.local/state/nel3ab/test-switch2-SBpxze",
+  "profile": {
+    "ELF_sha256": "65defb74a8cc81ae85d42c5c0e9bb9bc8a796d976f12278cb0a4fcf940834d08",
+    "effective_fields_checked_before_and_after": 141,
+    "cpu": "AMD Ryzen 5 3600, six physical cores and twelve logical CPUs",
+    "kernel": "7.0.0-38-generic",
+    "perf": "7.0.14",
+    "RADV_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+    "RADV_build_id": "b9b8a62af688c09b054fc2a3411bcf690cf98df3",
+    "scene": "Same current-cache A seed, private manual01:51 Kokiri checkpoint, actual player and spectator browsers; reviewed original game crops before motion and after it."
+  },
+  "recording": {
+    "event": "cpu/cycles/",
+    "frequency_hz": 49,
+    "precise_ip": 0,
+    "stack": "DWARF,65528 bytes; actual ELF inspected without reliable frame pointers",
+    "sample_seconds": 24.121663749,
+    "endpoint_seconds": 24.108880692,
+    "phase_seconds": 90.000954819,
+    "all_samples": 6430,
+    "selected_samples": 6009,
+    "excluded_outside_ACK_bounds": 421,
+    "lost_samples": 0,
+    "raw_sample_prefixes_match_perf_leaf_output": true,
+    "record_bytes": 460170092,
+    "clock": "CLOCK_MONOTONIC,actual enable ACK through disable request",
+    "analysis_after_game_closed": true
+  },
+  "cpu_accounting": {
+    "basis": "Percent of one logical CPU over endpoint wall time; this is not physical GPU occupancy or exclusive frame time.",
+    "threads": [
+      {
+        "name": "GPUBack",
+        "cpu_seconds": 18.07,
+        "cpu_percent_one_logical_cpu": 74.95163392631551,
+        "sampled_cycle_percent_all_native": 17.798085545192894,
+        "observed_schedstat_delta": [
+          18066618956,
+          641057815,
+          33575
+        ]
+      },
+      {
+        "name": "CPUCore_1",
+        "cpu_seconds": 12.49,
+        "cpu_percent_one_logical_cpu": 51.80663573545549,
+        "sampled_cycle_percent_all_native": 11.895876552341822,
+        "observed_schedstat_delta": [
+          12493390612,
+          1484488056,
+          101835
+        ]
+      },
+      {
+        "name": "CPUCore_0",
+        "cpu_seconds": 12.02,
+        "cpu_percent_one_logical_cpu": 49.857146640526416,
+        "sampled_cycle_percent_all_native": 11.452312748873936,
+        "observed_schedstat_delta": [
+          12020305073,
+          1379076750,
+          114239
+        ]
+      },
+      {
+        "name": "GPU",
+        "cpu_seconds": 11.5,
+        "cpu_percent_one_logical_cpu": 47.70026508869,
+        "sampled_cycle_percent_all_native": 11.309714217225931,
+        "observed_schedstat_delta": [
+          11498081598,
+          742039462,
+          28584
+        ]
+      },
+      {
+        "name": "CPUCore_2",
+        "cpu_seconds": 11.02,
+        "cpu_percent_one_logical_cpu": 45.70929750237946,
+        "sampled_cycle_percent_all_native": 10.46298243378375,
+        "observed_schedstat_delta": [
+          11004405754,
+          1624444585,
+          98459
+        ]
+      },
+      {
+        "name": "CPUCore_3",
+        "cpu_seconds": 10.75,
+        "cpu_percent_one_logical_cpu": 44.589378235079785,
+        "sampled_cycle_percent_all_native": 10.12974508320221,
+        "observed_schedstat_delta": [
+          10749837593,
+          1818077101,
+          103144
+        ]
+      },
+      {
+        "name": "CPUCore_4",
+        "cpu_seconds": 10.08,
+        "cpu_percent_one_logical_cpu": 41.81031931252132,
+        "sampled_cycle_percent_all_native": 9.502988621344523,
+        "observed_schedstat_delta": [
+          10068597252,
+          1984819456,
+          94482
+        ]
+      },
+      {
+        "name": "CPUCore_5",
+        "cpu_seconds": 9.57,
+        "cpu_percent_one_logical_cpu": 39.69491625206638,
+        "sampled_cycle_percent_all_native": 8.987476523564347,
+        "observed_schedstat_delta": [
+          9571655858,
+          2351583733,
+          92460
+        ]
+      },
+      {
+        "name": "VulkanWorker",
+        "cpu_seconds": 6.2,
+        "cpu_percent_one_logical_cpu": 25.716664656511128,
+        "sampled_cycle_percent_all_native": 5.809295739342417,
+        "observed_schedstat_delta": [
+          6195111605,
+          1123526906,
+          56880
+        ]
+      },
+      {
+        "name": "HostTiming",
+        "cpu_seconds": 1.67,
+        "cpu_percent_one_logical_cpu": 6.926908060705417,
+        "sampled_cycle_percent_all_native": 0.8519888260788606,
+        "observed_schedstat_delta": [
+          1677992197,
+          1660384313,
+          94599
+        ]
+      },
+      {
+        "name": "DSP_AudioRender",
+        "cpu_seconds": 1.49,
+        "cpu_percent_one_logical_cpu": 6.180295215838965,
+        "sampled_cycle_percent_all_native": 1.0098853368084444,
+        "observed_schedstat_delta": [
+          1491582371,
+          289249359,
+          11571
+        ]
+      },
+      {
+        "name": "GPUFencingThrea",
+        "cpu_seconds": 0.9,
+        "cpu_percent_one_logical_cpu": 3.733064224332261,
+        "sampled_cycle_percent_all_native": 0.33183267142829526,
+        "observed_schedstat_delta": [
+          910617331,
+          925702468,
+          26736
+        ]
+      },
+      {
+        "name": "eden-cli",
+        "cpu_seconds": 0.83,
+        "cpu_percent_one_logical_cpu": 3.4427147846619737,
+        "sampled_cycle_percent_all_native": 0.18168238750776083,
+        "observed_schedstat_delta": [
+          822691070,
+          733866618,
+          23091
+        ]
+      },
+      {
+        "name": "AudioRenderSyst",
+        "cpu_seconds": 0.41,
+        "cpu_percent_one_logical_cpu": 1.700618146640252,
+        "sampled_cycle_percent_all_native": 0.06700330672082372,
+        "observed_schedstat_delta": [
+          411639412,
+          156052341,
+          6293
+        ]
+      }
+    ]
+  },
+  "sampled_cpu_functions": {
+    "GPU": [
+      {
+        "dso": "/emulator/usr/libexec/eden-cli",
+        "symbol": "VideoCommon::GpuSplit::Drain(VideoCommon::DrainSite)",
+        "period": 16912355009,
+        "percent_thread": 38.78465368792138,
+        "percent_all": 4.386433492244685
+      },
+      {
+        "dso": "/emulator/usr/libexec/eden-cli",
+        "symbol": "Tegra::TuringMacroJit::Thunks<Tegra::Engines::Maxwell3D::FrontRunMacro(Core::System&, VideoCommon::GpuSplit&, Tegra::Engines::Maxwell3D::FrontState&)::$_0, Tegra::Engines::Maxwell3D::FrontRunMacro(Core::System&, VideoCommon::GpuSplit&, Tegra::Engines::Maxwell3D::FrontState&)::$_1>::CallEmit(Tegra::TuringMacroJit::State*, unsigned int, unsigned int)",
+        "period": 4035689267,
+        "percent_thread": 9.25493880239398,
+        "percent_all": 1.046707129529911
+      },
+      {
+        "dso": "/emulator/usr/libexec/eden-cli",
+        "symbol": "Tegra::Engines::Maxwell3D::FrontCallMethod(Core::System&, VideoCommon::GpuSplit&, unsigned int, unsigned int, bool)",
+        "period": 2543892699,
+        "percent_thread": 5.833841431157402,
+        "percent_all": 0.6597907937500254
+      },
+      {
+        "dso": "/emulator/usr/libexec/eden-cli",
+        "symbol": "Tegra::DmaPusher::ProcessCommands(std::span<Tegra::CommandHeader const, 18446744073709551615ul>, unsigned long)",
+        "period": 2378414538,
+        "percent_thread": 5.454354768070935,
+        "percent_all": 0.616871936662459
+      },
+      {
+        "dso": "/emulator/usr/libexec/eden-cli",
+        "symbol": "Tegra::DmaPusher::CallMethod(unsigned int)",
+        "period": 2035911972,
+        "percent_thread": 4.668902747789587,
+        "percent_all": 0.5280395578552111
+      },
+      {
+        "dso": "/tmp/perf-1896988.map",
+        "symbol": "[unknown]",
+        "period": 1910042757,
+        "percent_thread": 4.380250226532337,
+        "percent_all": 0.49539378262019884
+      },
+      {
+        "dso": "/usr/lib/x86_64-linux-gnu/libc.so.6",
+        "symbol": "[unknown]",
+        "period": 1820631605,
+        "percent_thread": 4.175206010968467,
+        "percent_all": 0.4722038678209724
+      }
+    ],
+    "GPUBack": [
+      {
+        "dso": "/usr/lib/x86_64-linux-gnu/libc.so.6",
+        "symbol": "[unknown]",
+        "period": 10423645429,
+        "percent_thread": 15.18986110301518,
+        "percent_all": 2.703504473310623
+      },
+      {
+        "dso": "/emulator/usr/libexec/eden-cli",
+        "symbol": "VideoCommon::GpuSplit::BackLoop(std::stop_token)",
+        "period": 6042692109,
+        "percent_thread": 8.80571527966887,
+        "percent_all": 1.5672487383415872
+      },
+      {
+        "dso": "/emulator/usr/libexec/eden-cli",
+        "symbol": "Common::SpinRecursiveMutex::lock()",
+        "period": 3482326378,
+        "percent_thread": 5.07462138437882,
+        "percent_all": 0.9031854550863944
+      },
+      {
+        "dso": "/usr/lib/x86_64-linux-gnu/libc.so.6",
+        "symbol": "pthread_mutex_lock",
+        "period": 1628459243,
+        "percent_thread": 2.373072825776684,
+        "percent_all": 0.42236153158146056
+      },
+      {
+        "dso": "[kernel.kallsyms]",
+        "symbol": "smp_call_function_many_cond",
+        "period": 1626677366,
+        "percent_thread": 2.3704761848685663,
+        "percent_all": 0.42189937921133225
+      },
+      {
+        "dso": "/emulator/usr/libexec/eden-cli",
+        "symbol": "VideoCommon::BufferCache<Vulkan::BufferCacheParams>::UpdateVertexBuffer(unsigned int)",
+        "period": 1338050500,
+        "percent_thread": 1.9498745791250394,
+        "percent_all": 0.3470403456166444
+      },
+      {
+        "dso": "/emulator/usr/libexec/eden-cli",
+        "symbol": "VideoCommon::BufferCache<Vulkan::BufferCacheParams>::BindHostGraphicsUniformBuffer(unsigned long, unsigned int, unsigned int, bool)",
+        "period": 1316610808,
+        "percent_thread": 1.918631580138775,
+        "percent_all": 0.34147968993018535
+      }
+    ],
+    "VulkanWorker": [
+      {
+        "dso": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+        "symbol": "radv_CmdBindPipeline",
+        "period": 1309527358,
+        "percent_thread": 5.846534979272366,
+        "percent_all": 0.3396425074500336
+      },
+      {
+        "dso": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+        "symbol": "radv_cmd_update_descriptor_set_with_template",
+        "period": 929505958,
+        "percent_thread": 4.149885883399063,
+        "percent_all": 0.24107914381187417
+      },
+      {
+        "dso": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+        "symbol": "radv_CmdBindIndexBuffer2",
+        "period": 779407251,
+        "percent_thread": 3.4797530026631307,
+        "percent_all": 0.2021491429233491
+      },
+      {
+        "dso": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+        "symbol": "set_search_or_add",
+        "period": 573392724,
+        "percent_thread": 2.5599775348307503,
+        "percent_all": 0.14871666585904583
+      },
+      {
+        "dso": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+        "symbol": "ac_build_raw_buffer_descriptor",
+        "period": 558544894,
+        "percent_thread": 2.4936876960343546,
+        "percent_all": 0.14486569307822986
+      },
+      {
+        "dso": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+        "symbol": "radv_CmdBeginRendering",
+        "period": 542794157,
+        "percent_thread": 2.4233667254511504,
+        "percent_all": 0.14078053993027553
+      },
+      {
+        "dso": "[kernel.kallsyms]",
+        "symbol": "update_cfs_rq_load_avg",
+        "period": 534296572,
+        "percent_thread": 2.385428283280903,
+        "percent_all": 0.13857658362570643
+      }
+    ]
+  },
+  "quality": {
+    "raw_record_audit": {
+      "attributes": [
+        {
+          "type": 0,
+          "size": 144,
+          "config": 0,
+          "sample_type": 78119,
+          "clockid": 1,
+          "precise_ip": 0,
+          "ids": 768
+        },
+        {
+          "type": 1,
+          "size": 144,
+          "config": 9,
+          "sample_type": 65799,
+          "clockid": 1,
+          "precise_ip": 0,
+          "ids": 768
+        }
+      ],
+      "data_begin": 12712,
+      "data_bytes": 460084624,
+      "record_counts": {
+        "69": 2,
+        "10": 304651,
+        "78": 2,
+        "73": 1,
+        "74": 1,
+        "17": 79,
+        "18": 79,
+        "3": 64,
+        "16": 64,
+        "82": 1,
+        "9": 6430,
+        "68": 100
+      },
+      "sample_count": 6430,
+      "leaf_samples": 6430,
+      "lost_samples": 0,
+      "sample_record_min_bytes": 88,
+      "sample_record_max_bytes": 65528,
+      "raw_and_leaf_prefix_multisets_identical": true,
+      "unparsed_leaf_lines": [],
+      "scope": "Raw extent/CPU-event identity/time/period/IP audit; does not validate all DWARF unwinding or the malformed optional event-description feature."
+    },
+    "callchain_cycle_weighted_percent": {
+      "GPU": {
+        "empty": 88.79416102263403,
+        "multiple_ips": 10.059773736768342,
+        "one_ip": 1.1460652405976322
+      },
+      "GPUBack": {
+        "empty": 84.06663396431595,
+        "multiple_ips": 15.588044086441442,
+        "one_ip": 0.345321949242597
+      },
+      "VulkanWorker": {
+        "multiple_ips": 33.31946046610898,
+        "empty": 66.27569111577137,
+        "one_ip": 0.40484841811965133
+      }
+    },
+    "header_warning": "Invalid HEADER_EVENT_DESC: nre=2 sz=144 (min64). Optional event metadata unavailable, header duration0 ignored; raw data section and exact sample tuples independently audited.",
+    "symbol_qualification": [
+      {
+        "dso": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+        "build_id": "b9b8a62af688c09b054fc2a3411bcf690cf98df3",
+        "exact_debug_file": "/home/souhib/.local/state/nel3ab/test-switch2-SBpxze/symbols/usr/lib/debug/.build-id/b9/b8a62af688c09b054fc2a3411bcf690cf98df3.debug",
+        "unique_sampled_ips": 144,
+        "resolved_ips": 144
+      },
+      {
+        "dso": "/usr/lib/x86_64-linux-gnu/libc.so.6",
+        "build_id": "328820b908de8ea1ef79afa8995e302e819163d7",
+        "exact_debug_file": null,
+        "unique_sampled_ips": 90,
+        "resolved_ips": null,
+        "qualification": "Original direct perf labels retained. No exact libc debug file; nearest addr2line label is NOT accepted as function identity."
+      }
+    ],
+    "withdrawn_label": "Stripped-libc addr2line returned nearest exported __nss_database_lookup for internal instructions. These labels were rejected and archived UNQUALIFIED. They do not establish DNS/NSS activity.",
+    "guest_JIT": "Runtime perf map was not retained before container cleanup. Guest-code leaves remain mostly unknown; do not rank guest functions from these addresses.",
+    "sampling_limit": "Non-precise cycle samples and incomplete unwinding identify broad leaf activity only, not a complete critical path or additive FPS savings.",
+    "schedstat": "Endpoint task counters do increase. Capture the kernel switch with future endpoints; later switch state is not evidence for the recorded interval. No per-frame scheduler attribution here."
+  },
+  "interpretation": [
+    "GpuSplit::Drain occupies38.78% of sampled front-thread CPU cycles,4.39% of all native cycles. It waits for back-thread progress; deleting synchronization does not remove the underlying work.",
+    "Back-thread and driver CPU work is distributed across dispatch,binding,buffer work and locks. Libc15.19% of back-thread cycles remains unidentified.",
+    "Two local decoding clients consumed about1.6 logical CPUs in the preceding unprofiled comparison. Their server-side load is a possible test confound; normal users decode on their own computers. Its causal FPS effect is unmeasured.",
+    "Physical GPU execution time under this exact renderer remains unmeasured. EDEN_NX2_GPU_PROFILE names CPU zones and is not a device timestamp probe."
+  ],
+  "upstream_review": {
+    "heads": {
+      "at_unix": 1794304913.9739878,
+      "repos": {
+        "lichii": {
+          "sha": "467e772417169cae261ac0ebf167bb81aeaa29a3",
+          "date": "2026-11-10T09:53:38Z",
+          "subject": "qt: offer the developer's recommended settings once, with a way back (#1200)",
+          "url": "https://github.com/zortos293/Lichii/commit/467e772417169cae261ac0ebf167bb81aeaa29a3"
+        },
+        "eglantine": {
+          "sha": "78743f30c251f66bd77e6eea6c28d8632d642d6f",
+          "date": "2026-11-08T14:57:58Z",
+          "subject": "bump to 0.1.0-rc3",
+          "url": "https://github.com/Eglantine-Community/Eglantine/commit/78743f30c251f66bd77e6eea6c28d8632d642d6f"
+        },
+        "fritchii": {
+          "sha": "f66ea633db6058efe31a9611718019e5bd1667eb",
+          "date": "2026-11-06T08:36:35Z",
+          "subject": "Add personal message from author to README",
+          "url": "https://github.com/Frizti/Fritchii/commit/f66ea633db6058efe31a9611718019e5bd1667eb"
+        }
+      }
+    },
+    "Lichii_delta_from_d2eaae4": [
+      {
+        "commit": "314e1d94699dba67b69e5af93ec618b87c1163eb",
+        "change": "ADPCM nibble sign and reference decoder tests; intended for ocarina crackle, no speed claim",
+        "decision": "Candidate for a separate narrow correctness port; not installed."
+      },
+      {
+        "commit": "536853e71d6fb04f8c84194cd2f5f296406ff73b",
+        "change": "Unconditional replacement texture for selected damaged NUP members, limited to runtime RomFS view",
+        "decision": "Do not merge as a freeze fix without evidence of damaged local members; alters rendered data."
+      },
+      {
+        "commit": "467e772417169cae261ac0ebf167bb81aeaa29a3",
+        "change": "Qt recommended settings table and reversible dialog",
+        "decision": "CLI does not use the Qt prompt. Global recommendations do not qualify a different effective title profile."
+      }
+    ],
+    "eglantine_and_fritchii": "Actual default branches are nx2; no new head relative to their previously reviewed revisions. Initialmain queries failed and were retained separately rather than called current.",
+    "rebase_or_deploy": false
+  },
+  "next_experiments": [
+    "Qualify existing PRELOAD_ALL_PIPELINES in an isolated same-A-seed run: actual flag, greater retained-object count, skipped boot programs absent, normal rendering/stop and measured memory before considering alternating new/revisited-zone trials.",
+    "Measure the causal effect of local decoder load without changing server capture,encoding or browser input. Prove which sockets and decoders stop; alternate equivalent sessions before claiming a gain.",
+    "If hot cadence remains slow, port a sparse physical-GPU timestamp diagnostic into a new isolated build. Prove changed translation units/runtime activation, coverage and activation overhead."
+  ],
+  "preservation": {
+    "protected_files": 757,
+    "production_cache_files": 4865,
+    "production_cache_hashes_and_mtimes_unchanged": true,
+    "production_engine_and_settings_unchanged": true,
+    "normal_stop": true,
+    "owned_native_capture_audio_and_pads_removed": true,
+    "observer_restored": "active",
+    "GPU_policy": "auto,150W"
+  },
+  "proofs": [
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/hot-cpu-diagnostic-20261110/plan.json",
+      "sha256": "e7214e00295ab19587963f26a3a8b3a5b54bef808745089201031be2dcf45904"
+    },
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/hot-cpu-diagnostic-20261110/profile_cpu.py",
+      "sha256": "6fe6a8a64e60eb4a77c751b3f392b6ddc998ca9e6f60899dca5bb6e8bdb317ae"
+    },
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/hot-cpu-diagnostic-20261110/profile_policy.py",
+      "sha256": "80a1288526f86e1fe81efb5a73a0e9da44e587ac81e337edb4a2881c572914f9"
+    },
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/hot-cpu-diagnostic-20261110/test_profile_policy.py",
+      "sha256": "c687bc10e9b43d8196a3c650045746fcffd8e66351563430f09a78d5819f5e86"
+    },
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/hot-cpu-diagnostic-20261110/profile-policy-tests.json",
+      "sha256": "e2258523233303913afe1fedbecae2fca0933864e4ba18d6f531be6fe7965618"
+    },
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/hot-cpu-diagnostic-20261110/test-session-restore.py",
+      "sha256": "5d9704e9dbf111d1da35889bd27107f60f9713bff0152f62eeeec874376a0915"
+    },
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/hot-cpu-diagnostic-20261110/session-restore-tests.json",
+      "sha256": "f611bc25221957672a1fb36ded28d6f1caa2db0f1e927aabec677865ec65ca07"
+    },
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/hot-cpu-diagnostic-20261110/audit_perf_data.py",
+      "sha256": "853cf2d979a97388acf737bca76ff5466167365e81d564d33aa25ff9e12cd5f8"
+    },
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/hot-cpu-diagnostic-20261110/finalize_cpu_report.py",
+      "sha256": "df9e0d1fe44fcd1abe40aa6df2dd3d2a315f3417c7feb4f1972e8fc814c2bf1d"
+    },
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/hot-cpu-diagnostic-20261110/upstream-heads.json",
+      "sha256": "3bff40d5dc5957b775fe513fb6b359c9e329955fc3e796750d9c0f2d479122bc"
+    },
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/hot-cpu-diagnostic-20261110/upstream-heads-corrected.json",
+      "sha256": "7fdea8a625dccc57dd0dfa80d077c5ff4dabcc092f4cb949f6e52b7947e4a48a"
+    },
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/hot-cpu-diagnostic-20261110/upstream-314e1d9.json",
+      "sha256": "74f9cc5c6e07fc5038d28f09d963cf859689ffc339af450e5004c3238a6d9c3d"
+    },
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/hot-cpu-diagnostic-20261110/upstream-536853e.json",
+      "sha256": "227323756bc6c4bf8329868369ffdca946323bd1a944c8ba3a2e887b27aa80c1"
+    },
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/hot-cpu-diagnostic-20261110/upstream-467e772.json",
+      "sha256": "74881e02f6e107b0d8f19b589bdc53268b053b3b69896eb782169a1d89bff58c"
+    },
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/hot-cpu-diagnostic-20261110/A1/cleanup.json",
+      "sha256": "d4582b136fd67a4865c57e042a87274e36ee0a44bfc0221c41f259dd1929b1a8"
+    },
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/hot-cpu-diagnostic-20261110/A1/visual-review.json",
+      "sha256": "d60700c0f8cfe9037c97beb7a1ddabb7a8d9a915cacb498948eab4c8749bbbf8"
+    },
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/hot-cpu-diagnostic-20261110/A1/prephase-review.json",
+      "sha256": "6d1e84e4bd7d7d9baebe1ed140eaf1e6e07f5584c355744cd02c0d31e27f741b"
+    },
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/hot-cpu-diagnostic-20261110/A1/observer-lifecycle.json",
+      "sha256": "63d1cf61bb60efabdbe97379a9900f91928ddc7b540999ce562ab196ad88aed1"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-SBpxze/profile-result.json",
+      "sha256": "f0ce746342367b0e457d6933bacfd599d096c5c7837477b987302c86f92e9ace"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-SBpxze/profile-symbols.json",
+      "sha256": "e5fad29b68b862a4289ed7fe5328d2410c1c2bd4d421999e3bdc84b3a411d108"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-SBpxze/perf.data",
+      "sha256": "608353af9eab588d180fcd131c99534b67bdbc455bb967c195813be3235fa1c5"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-SBpxze/perf-header.txt",
+      "sha256": "e53b5b3aa2d10ed7b3422f3fe7413626f789fd89aec5d3d3192f9498b57b312c"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-SBpxze/perf-record.log",
+      "sha256": "30235f4c8025870de535adeb6cf1b5446aae0509b90aeccd02422b4226419a79"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-SBpxze/perf-event-attributes.txt",
+      "sha256": "53daa2c2faf001eb0d2580d0b00299cd0562602c57dbe3a5a25703a8faf9a639"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-SBpxze/perf-cycle-attributes.json",
+      "sha256": "39ec16155080a8954ed39504515b4be7d80078b4de3303bcf9e27a0edbd17298"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-SBpxze/perf-leafs.txt",
+      "sha256": "4b6eb00a9b7a93ef2261dc1a132af3a19e0128e5909e51e8ebd83e83a5c7ef87"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-SBpxze/perf-raw-audit.json",
+      "sha256": "2729b07c90b305df618e5d077725bc38969be41165bfbcabf681796ff9246a77"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-SBpxze/cpu-leafs-analysis.json",
+      "sha256": "77f2cc88b035f607b065e0521c37c7d308b91636f9a8c0a962f684142340199b"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-SBpxze/cpu-leafs-resolved-analysis.json",
+      "sha256": "4585a174acab1003fb1d81235c318d7adbbdaa73f87a7b2a9066a7aa505cff0a"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-SBpxze/cpu-endpoint-accounting.json",
+      "sha256": "899c77b096e29ced970783b11974904765c50adb96c0a30b3e538897198c59f9"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-SBpxze/callchain-quality.json",
+      "sha256": "41ca7f828feda6d0e519a7e6c01b4b234b14f4a858fab8c3df781297ba38eeb3"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-SBpxze/profile-maps-before.txt",
+      "sha256": "98de2a2c67bae7406d5d710d6b3ba17ca8b6822d091adc2c369b538d434b3ec1"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-SBpxze/profile-maps-after.txt",
+      "sha256": "1c60599c1989491fc8641608ccb3c682562b529b7e3edd82a1ba15a3798c850a"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-SBpxze/browser-phase-result.json",
+      "sha256": "2d46d47818821947c9a82d8a99f0e1478499a7e06412ffa939fff512e3176e49"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-SBpxze/browser-cpu-before.json",
+      "sha256": "e58f84a68cc2075df6179176ee358308daaa1a133c1f2a957b8b6b96aed0a568"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-SBpxze/browser-cpu-after.json",
+      "sha256": "cc327b21bec547657fe8dbf28e504ab93c86df61af83c1550c7d1cc76280cf8c"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-SBpxze/native-runtime-before-proof.json",
+      "sha256": "3795efd368469fd7c22705901e1d10ef58c0f36fe4ce4030854a167bc4df58ef"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-SBpxze/native-runtime-proof.json",
+      "sha256": "577f28a0e90cac9a1e2fbe5e916b927e472cd5b10c33d617b8e97e91418090b2"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-SBpxze/debug-symbol-downloads.json",
+      "sha256": "836025074e24af00de05406359af755f0230c5b2bf8f8b56d376f88f6013dd53"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-SBpxze/libc-debug-package-result.json",
+      "sha256": "cd1f42a8ad8739d44c50ab861989b99e7cd457c05e395b68e145a42d38f1e970"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-SBpxze/libc-debug-archive-result.json",
+      "sha256": "47787e7566f52d83d523fcde48e9be1f28d0d362de883c38e2b4484af08bcf01"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-SBpxze/symbols/usr/lib/debug/.build-id/b9/b8a62af688c09b054fc2a3411bcf690cf98df3.debug",
+      "sha256": "98f0b556e24ae62cc6a928973e3c72a63d1a188e4ba7afd95b13f7669f2fd9f1"
+    },
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/hot-cpu-diagnostic-20261110/audit_callchains.py",
+      "sha256": "969862dd99d8fb43542f1d2f4606a47f98d649842ee3c373f8f097f61c27579a"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-SBpxze/callchain-quality-audit.json",
+      "sha256": "7e88f2db77751e6530a163730e26e8215d8b71ff53177c741b3f4f313bb2f53c"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-SBpxze/perf-script-symbols.txt",
+      "sha256": "2ef3289f65a3aa92e11ba78a04edd6e988e70a23f3e1e84b01d1d596f7bab01d"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-SBpxze/libvulkan_radeon.so.addr2line.txt",
+      "sha256": "fc62219ef303628374b8ed00782dd4578a19dd6680750100a6c1b4dac52b7681"
+    }
+  ]
+}

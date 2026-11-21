@@ -1,0 +1,355 @@
+diff --git a/src/tests/CMakeLists.txt b/src/tests/CMakeLists.txt
+index dff876503..6db2349a1 100644
+--- a/src/tests/CMakeLists.txt
++++ b/src/tests/CMakeLists.txt
+@@ -29,6 +29,7 @@ add_executable(tests
+     core/priority_queue.cpp
+     core/internal_network/network.cpp
+     video_core/frame_dump_schedule.cpp
++    video_core/gpu_split_progress.cpp
+     video_core/memory_tracker.cpp
+     video_core/spirv_storage_alignment.cpp
+     video_core/pipeline_optimization.cpp
+diff --git a/src/video_core/CMakeLists.txt b/src/video_core/CMakeLists.txt
+index c0648802e..b7189b234 100644
+--- a/src/video_core/CMakeLists.txt
++++ b/src/video_core/CMakeLists.txt
+@@ -102,6 +102,7 @@ add_library(video_core STATIC
+     gpu.h
+     gpu_split.cpp
+     gpu_split.h
++    gpu_split_progress.h
+     gpu_thread.cpp
+     gpu_thread.h
+     guest_memory.h
+diff --git a/src/video_core/gpu_split.cpp b/src/video_core/gpu_split.cpp
+index c46227840..d02fafa7f 100644
+--- a/src/video_core/gpu_split.cpp
++++ b/src/video_core/gpu_split.cpp
+@@ -145,6 +145,7 @@ void GpuSplit::MaybeStart(Core::System& system_) {
+ #endif
+     LOG_INFO(HW_GPU, "GPU thread split: engine methods run on a second thread{}",
+              front_macros ? ", macros on the first" : "");
++    LOG_INFO(HW_GPU, "GPU split front waits: progress notifications");
+ }
+ 
+ void GpuSplit::Stop() {
+@@ -194,17 +195,10 @@ void GpuSplit::WaitForSpace(size_t words) {
+     }
+     Publish();
+     Nx2Profile::Scope scope{Nx2Profile::Zone::SplitDrain};
+-    for (u32 spins = 0;; ++spins) {
++    progress.WaitUntil([&] {
+         consumed_cache = consumed.load(std::memory_order_acquire);
+-        if (write_position + words - consumed_cache <= RingWords) {
+-            return;
+-        }
+-        if (spins < 4096) {
+-            Pause();
+-        } else {
+-            std::this_thread::yield();
+-        }
+-    }
++        return write_position + words - consumed_cache <= RingWords;
++    });
+ }
+ 
+ void GpuSplit::Publish() {
+@@ -230,24 +224,21 @@ void GpuSplit::Drain() {
+     // Everything consumed is not enough: the back submits deferred work (Scheduler::DeferFlush)
+     // from its idle hook afterwards, and the caller may use the scheduler once this returns.
+     bool hook_asked = false;
+-    for (u32 spins = 0;; ++spins) {
++    progress.WaitUntil([&] {
+         consumed_cache = consumed.load(std::memory_order_acquire);
+-        if (consumed_cache == write_position) {
+-            if (BackQuiet()) {
+-                publish_every = 8;
+-                return;
+-            }
+-            if (!hook_asked) {
+-                RequestIdleHook();
+-                hook_asked = true;
+-            }
++        if (consumed_cache != write_position) {
++            return false;
+         }
+-        if (spins < 16384) {
+-            Pause();
+-        } else {
+-            std::this_thread::yield();
++        if (BackQuiet()) {
++            return true;
+         }
+-    }
++        if (!hook_asked) {
++            RequestIdleHook();
++            hook_asked = true;
++        }
++        return false;
++    });
++    publish_every = 8;
+ }
+ 
+ bool GpuSplit::WaitForWriters() {
+@@ -258,18 +249,12 @@ bool GpuSplit::WaitForWriters() {
+     }
+     wait_target.store(target, std::memory_order_seq_cst);
+     Publish();
+-    for (u32 spins = 0;; ++spins) {
++    progress.WaitUntil([&] {
+         consumed_cache = consumed.load(std::memory_order_acquire);
+-        if (consumed_cache >= target) {
+-            wait_target.store(~u64{0}, std::memory_order_relaxed);
+-            return true;
+-        }
+-        if (spins < 16384) {
+-            Pause();
+-        } else {
+-            std::this_thread::yield();
+-        }
+-    }
++        return consumed_cache >= target;
++    });
++    wait_target.store(~u64{0}, std::memory_order_relaxed);
++    return true;
+ }
+ 
+ void GpuSplit::SwitchEngine(Tegra::Engines::EngineInterface* engine) {
+@@ -396,6 +381,7 @@ void GpuSplit::BackLoop(std::stop_token stop_token) {
+                         idle_hook(idle_argument);
+                     }
+                     back_quiet.store(true, std::memory_order_release);
++                    progress.Notify();
+                 }
+                 available = published.load(std::memory_order_acquire);
+             }
+@@ -433,13 +419,16 @@ void GpuSplit::BackLoop(std::stop_token stop_token) {
+                  read_position >= wait_target.load(std::memory_order_relaxed)) &&
+                 read_position != available) {
+                 consumed.store(read_position, std::memory_order_release);
++                progress.Notify();
+                 last_store = read_position;
+             }
+         }
+         g_back_busy.store(false, std::memory_order_release);
+         consumed.store(read_position, std::memory_order_release);
++        progress.Notify();
+     }
+     back_running.store(false, std::memory_order_release);
++    progress.Notify();
+ }
+ 
+ } // namespace VideoCommon
+diff --git a/src/video_core/gpu_split.h b/src/video_core/gpu_split.h
+index c0d4badcc..d57a70963 100644
+--- a/src/video_core/gpu_split.h
++++ b/src/video_core/gpu_split.h
+@@ -11,6 +11,7 @@
+ #include <type_traits>
+ 
+ #include "common/common_types.h"
++#include "video_core/gpu_split_progress.h"
+ 
+ namespace Core {
+ class System;
+@@ -240,6 +241,7 @@ private:
+     alignas(128) std::atomic<u64> wait_target{~u64{0}};
+     alignas(128) std::atomic<bool> back_waiting{};
+     std::atomic<u32> wake{};
++    alignas(128) GpuSplitProgress progress;
+     std::jthread back_thread;
+ };
+ 
+diff --git a/src/video_core/gpu_split_progress.h b/src/video_core/gpu_split_progress.h
+new file mode 100644
+index 000000000..8c916f773
+--- /dev/null
++++ b/src/video_core/gpu_split_progress.h
+@@ -0,0 +1,36 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++
++#pragma once
++
++#include <atomic>
++#include <cstdint>
++
++namespace VideoCommon {
++
++// Progress is published after consumed positions and deferred submissions. The owner must
++// finish front waits before stopping the back; a stop request alone does not finish GPU work.
++class GpuSplitProgress {
++public:
++    void Notify() {
++        generation.fetch_add(1, std::memory_order_release);
++        generation.notify_all();
++    }
++
++    template <typename Predicate>
++    void WaitUntil(Predicate ready) {
++        for (;;) {
++            // Sample before the predicate: progress between this load and sleeping changes
++            // the value and prevents a lost wakeup. Acquire also orders the state recheck.
++            const auto seen = generation.load(std::memory_order_acquire);
++            if (ready()) {
++                return;
++            }
++            generation.wait(seen, std::memory_order_acquire);
++        }
++    }
++
++private:
++    std::atomic<std::uint64_t> generation{};
++};
++
++} // namespace VideoCommon
+diff --git a/src/tests/video_core/gpu_split_progress.cpp b/src/tests/video_core/gpu_split_progress.cpp
+new file mode 100644
+index 000000000..5d2f40bd3
+--- /dev/null
++++ b/src/tests/video_core/gpu_split_progress.cpp
+@@ -0,0 +1,144 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++#include <atomic>
++#include <chrono>
++#include <cstdio>
++#include <future>
++#include <stdexcept>
++#include <thread>
++#ifdef __linux__
++#include <time.h>
++#endif
++#include "video_core/gpu_split_progress.h"
++#ifndef NX2_PROGRESS_STANDALONE
++#include <catch2/catch_test_macros.hpp>
++#endif
++using namespace std::chrono_literals;
++static void Check(bool ok, const char* message) {
++    if (!ok) {
++        throw std::runtime_error(message);
++    }
++}
++#ifdef __linux__
++static double CpuTime() {
++    timespec t{};
++    Check(clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t) == 0, "thread CPU clock unavailable");
++    return t.tv_sec + t.tv_nsec * 1e-9;
++}
++#endif
++static void RunProgressTests() {
++    VideoCommon::GpuSplitProgress progress;
++    progress.WaitUntil([] { return true; });
++    // A producer changes state inside the first predicate evaluation, after the waiter's
++    // generation snapshot. A waiter that snapshots after the predicate loses this notification.
++    int probes = 0;
++    progress.WaitUntil([&] {
++        if (++probes == 1) {
++            progress.Notify();
++            return false;
++        }
++        return true;
++    });
++    Check(probes == 2, "notification between snapshot and sleep was lost");
++    for (int session = 0; session < 100; ++session) {
++        std::atomic<int> consumed{};
++        std::atomic<bool> quiet{};
++        std::promise<void> entered;
++        std::promise<void> completed;
++        auto done = completed.get_future();
++        int payload = 0, observed = 0;
++        std::jthread front([&] {
++            entered.set_value();
++            progress.WaitUntil([&] { return consumed.load(std::memory_order_acquire) == 2 &&
++                                            quiet.load(std::memory_order_acquire); });
++            observed = payload;
++            completed.set_value();
++        });
++        entered.get_future().wait();
++        consumed.store(1, std::memory_order_release);
++        progress.Notify();
++        Check(done.wait_for(1ms) == std::future_status::timeout, "partial work returned early");
++        consumed.store(2, std::memory_order_release);
++        progress.Notify();
++        Check(done.wait_for(1ms) == std::future_status::timeout, "deferred submit still runs");
++        payload = session + 17;
++        quiet.store(true, std::memory_order_release);
++        progress.Notify();
++        Check(done.wait_for(1s) == std::future_status::ready, "completed idle hook failed to wake front");
++        front.join();
++        Check(observed == session + 17, "payload ordering lost across progress");
++    }
++    // Shutdown requests cannot release the front before already submitted work finishes.
++    // The owner joins the front before stopping the back, as ThreadManager::NotifyShutdown does.
++    {
++        std::atomic<bool> submitted{}, quiet{};
++        std::promise<void> entered, completed;
++        auto done = completed.get_future();
++        std::jthread front([&](std::stop_token) {
++            entered.set_value();
++            progress.WaitUntil([&] { return submitted.load() && quiet.load(); });
++            completed.set_value();
++        });
++        entered.get_future().wait();
++        front.request_stop();
++        progress.Notify();
++        Check(done.wait_for(5ms) == std::future_status::timeout, "shutdown abandoned pending work");
++        submitted = true;
++        progress.Notify();
++        Check(done.wait_for(5ms) == std::future_status::timeout, "shutdown abandoned deferred submit");
++        quiet = true;
++        progress.Notify();
++        Check(done.wait_for(1s) == std::future_status::ready, "shutdown failed after completion");
++        front.join();
++    }
++    // Writer and space waits use monotonic consumed positions without requiring idle state.
++    {
++        std::atomic<unsigned> consumed{};
++        std::promise<void> completed;
++        auto done = completed.get_future();
++        std::jthread front([&] {
++            progress.WaitUntil([&] { return consumed.load(std::memory_order_acquire) >= 100; });
++            completed.set_value();
++        });
++        consumed.store(99, std::memory_order_release);
++        progress.Notify();
++        Check(done.wait_for(5ms) == std::future_status::timeout, "writer returned before target");
++        consumed.store(101, std::memory_order_release);
++        progress.Notify();
++        Check(done.wait_for(1s) == std::future_status::ready, "writer missed progress past target");
++        front.join();
++    }
++
++#ifdef __linux__
++    // On 2026-11-08 the old yield loop consumed approximately its entire 250 ms wait.
++    // A 50 ms CPU ceiling allows scheduler noise while rejecting active polling; wall time
++    // is controlled by a separate producer and never used as proof of low CPU consumption.
++    std::atomic<bool> ready{};
++    std::promise<void> entered;
++    double cpu = 0;
++    std::jthread front([&] {
++        const auto start = CpuTime();
++        entered.set_value();
++        progress.WaitUntil([&] { return ready.load(std::memory_order_acquire); });
++        cpu = CpuTime() - start;
++    });
++    entered.get_future().wait();
++    std::this_thread::sleep_for(250ms);
++    ready.store(true, std::memory_order_release);
++    progress.Notify();
++    front.join();
++    std::printf("waiting_thread_cpu_ms=%.3f\n", cpu * 1000);
++    Check(cpu < .050, "front burned CPU while the producer was blocked");
++
++#endif
++    std::puts("progress tests passed");
++}
++
++#ifdef NX2_PROGRESS_STANDALONE
++int main() {
++    RunProgressTests();
++}
++#else
++TEST_CASE("GPU split progress preserves submission completion without active polling", "[video_core][gpu_split]") {
++    REQUIRE_NOTHROW(RunProgressTests());
++}
++#endif

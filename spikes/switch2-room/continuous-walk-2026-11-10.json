@@ -1,0 +1,469 @@
+{
+  "date_utc": "2026-11-10",
+  "scope": "One 90-second local repeated lateral walking trial, following visual preparation. No causal settings comparison, long route, zone transition, full-game guarantee, simulation-speed or browser/physical-display certification.",
+  "run": "lichii-eviction-continuous-walk1",
+  "cli_sha256": "65defb74a8cc81ae85d42c5c0e9bb9bc8a796d976f12278cb0a4fcf940834d08",
+  "private_report_sha256": "b22ea1fcb7f95982ead0224ad2d19b8bd433a20dbe287cf7c1a2997e4e57b701",
+  "root_arithmetic_audit_sha256": "c3244201ed68f933b58cee37182f3ab183d90e26f759bb7ed59d7d87ebadde38",
+  "phase_seconds": 90.002344329,
+  "input": {
+    "direction_events": 60,
+    "half_cycle_target_s": 1.5,
+    "stream_period_target_s": 0.025,
+    "errors": [],
+    "neutral_delivered": true,
+    "scope": "No neutral between legs; sender independent of screenshot. Per-packet timestamps were not recorded, so no measured maximum delivery gap claim."
+  },
+  "capture": {
+    "kind": "capture",
+    "begin_ns": 2295002802253717,
+    "end_ns": 2295003167191290,
+    "image": "walk-continuous-44-25.png",
+    "input_stream_continued": true,
+    "offset_seconds": 44.278880349,
+    "duration_seconds": 0.364937573,
+    "handling": "All complete windows retained, overlaps tagged; no causal attribution of any outlier to game or screenshot."
+  },
+  "vi2": {
+    "intervals": 2400,
+    "sum_ns": 80000672683,
+    "covered_seconds": 80.000672683,
+    "rate_per_second": 29.999747745996086,
+    "mean_ms": 33.33361361791667,
+    "over30": 1187,
+    "over30_percent": 49.458333333333336,
+    "over100": 0,
+    "max_ms": 48.897241,
+    "p50_each_ms": [
+      33.32456,
+      33.333247,
+      33.336343,
+      33.325352
+    ],
+    "p95_each_ms": [
+      34.243225,
+      33.960805,
+      34.070982,
+      34.1767
+    ],
+    "p99_each_ms": [
+      37.17123,
+      35.298937,
+      37.38876,
+      37.680898
+    ],
+    "start_gap_seconds": 9.924042765,
+    "end_gap_seconds": 0.077628881,
+    "uncovered_seconds": 10.001671646,
+    "capture_window_indices": [
+      1
+    ],
+    "windows": [
+      {
+        "intervals": 600,
+        "sum_ns": 19999992435,
+        "p50_ns": 33324560,
+        "p95_ns": 34243225,
+        "p99_ns": 37171230,
+        "max_ns": 45060088,
+        "over30": 291,
+        "over100": 0,
+        "begin_ns": 2294968447416133,
+        "end_ns": 2294988447408568,
+        "legacy_same_window": {
+          "mean_frame_us": 33332,
+          "max_frame_us": 45060,
+          "over100": 0,
+          "mean_fence_us": 0,
+          "max_fence_us": 48,
+          "mean_composite_us": 19,
+          "mean_pacing_us": 30624,
+          "ran_ahead": 10
+        },
+        "fully_inside_phase": true,
+        "overlaps_observer_capture": false
+      },
+      {
+        "intervals": 600,
+        "sum_ns": 19999819669,
+        "p50_ns": 33333247,
+        "p95_ns": 33960805,
+        "p99_ns": 35298937,
+        "max_ns": 43688554,
+        "over30": 300,
+        "over100": 0,
+        "begin_ns": 2294988447408568,
+        "end_ns": 2295008447228237,
+        "legacy_same_window": {
+          "mean_frame_us": 33332,
+          "max_frame_us": 43688,
+          "over100": 0,
+          "mean_fence_us": 0,
+          "max_fence_us": 2,
+          "mean_composite_us": 19,
+          "mean_pacing_us": 30866,
+          "ran_ahead": 2
+        },
+        "fully_inside_phase": true,
+        "overlaps_observer_capture": true
+      },
+      {
+        "intervals": 600,
+        "sum_ns": 20000099730,
+        "p50_ns": 33336343,
+        "p95_ns": 34070982,
+        "p99_ns": 37388760,
+        "max_ns": 48897241,
+        "over30": 303,
+        "over100": 0,
+        "begin_ns": 2295008447228237,
+        "end_ns": 2295028447327967,
+        "legacy_same_window": {
+          "mean_frame_us": 33333,
+          "max_frame_us": 48897,
+          "over100": 0,
+          "mean_fence_us": 0,
+          "max_fence_us": 2,
+          "mean_composite_us": 19,
+          "mean_pacing_us": 30633,
+          "ran_ahead": 8
+        },
+        "fully_inside_phase": true,
+        "overlaps_observer_capture": false
+      },
+      {
+        "intervals": 600,
+        "sum_ns": 20000760849,
+        "p50_ns": 33325352,
+        "p95_ns": 34176700,
+        "p99_ns": 37680898,
+        "max_ns": 46783554,
+        "over30": 293,
+        "over100": 0,
+        "begin_ns": 2295028447327967,
+        "end_ns": 2295048448088816,
+        "legacy_same_window": {
+          "mean_frame_us": 33334,
+          "max_frame_us": 46783,
+          "over100": 0,
+          "mean_fence_us": 0,
+          "max_fence_us": 7,
+          "mean_composite_us": 19,
+          "mean_pacing_us": 30651,
+          "ran_ahead": 13
+        },
+        "fully_inside_phase": true,
+        "overlaps_observer_capture": false
+      }
+    ]
+  },
+  "wsi": {
+    "intervals": 1800,
+    "sum_ns": 60000026601,
+    "covered_seconds": 60.000026601,
+    "rate_per_second": 29.999986699505897,
+    "mean_ms": 33.333348111666666,
+    "over30": 902,
+    "over30_percent": 50.111111111111114,
+    "over100": 0,
+    "max_ms": 34.575759,
+    "p50_each_ms": [
+      33.332185,
+      33.33498,
+      33.332225
+    ],
+    "p95_each_ms": [
+      33.440407,
+      33.424889,
+      33.444446
+    ],
+    "p99_each_ms": [
+      34.217607,
+      33.47863,
+      33.8833
+    ],
+    "start_gap_seconds": 10.022745821,
+    "end_gap_seconds": 19.979571907,
+    "uncovered_seconds": 30.002317728,
+    "capture_window_indices": [
+      1
+    ],
+    "windows": [
+      {
+        "intervals": 600,
+        "sum_ns": 20000044894,
+        "begin_ns": 2294968546119189,
+        "end_ns": 2294988546164083,
+        "p50_ns": 33332185,
+        "p95_ns": 33440407,
+        "p99_ns": 34217607,
+        "max_ns": 34513492,
+        "over30": 297,
+        "over100": 0,
+        "generation": 1,
+        "segment": 1,
+        "success": 7801,
+        "suboptimal": 0,
+        "rejected": 0,
+        "fully_inside_phase": true,
+        "overlaps_observer_capture": false
+      },
+      {
+        "intervals": 600,
+        "sum_ns": 19999926010,
+        "begin_ns": 2294988546164083,
+        "end_ns": 2295008546090093,
+        "p50_ns": 33334980,
+        "p95_ns": 33424889,
+        "p99_ns": 33478630,
+        "max_ns": 34575759,
+        "over30": 309,
+        "over100": 0,
+        "generation": 1,
+        "segment": 1,
+        "success": 8401,
+        "suboptimal": 0,
+        "rejected": 0,
+        "fully_inside_phase": true,
+        "overlaps_observer_capture": true
+      },
+      {
+        "intervals": 600,
+        "sum_ns": 20000055697,
+        "begin_ns": 2295008546090093,
+        "end_ns": 2295028546145790,
+        "p50_ns": 33332225,
+        "p95_ns": 33444446,
+        "p99_ns": 33883300,
+        "max_ns": 34465793,
+        "over30": 296,
+        "over100": 0,
+        "generation": 1,
+        "segment": 1,
+        "success": 9001,
+        "suboptimal": 0,
+        "rejected": 0,
+        "fully_inside_phase": true,
+        "overlaps_observer_capture": false
+      }
+    ]
+  },
+  "without_capture_overlap": {
+    "vi2": {
+      "n": 1800,
+      "sum_ns": 60000853014,
+      "covered_seconds": 60.000853014,
+      "rate": 29.999573499063523,
+      "p50_ms": [
+        33.32456,
+        33.336343,
+        33.325352
+      ],
+      "p95_ms": [
+        34.243225,
+        34.070982,
+        34.1767
+      ],
+      "p99_ms": [
+        37.17123,
+        37.38876,
+        37.680898
+      ],
+      "max_ms": 48.897241,
+      "over30": 887,
+      "over100": 0,
+      "rows": [
+        {
+          "intervals": 600,
+          "sum_ns": 19999992435,
+          "p50_ns": 33324560,
+          "p95_ns": 34243225,
+          "p99_ns": 37171230,
+          "max_ns": 45060088,
+          "over30": 291,
+          "over100": 0,
+          "begin_ns": 2294968447416133,
+          "end_ns": 2294988447408568,
+          "capture_overlap": false
+        },
+        {
+          "intervals": 600,
+          "sum_ns": 20000099730,
+          "p50_ns": 33336343,
+          "p95_ns": 34070982,
+          "p99_ns": 37388760,
+          "max_ns": 48897241,
+          "over30": 303,
+          "over100": 0,
+          "begin_ns": 2295008447228237,
+          "end_ns": 2295028447327967,
+          "capture_overlap": false
+        },
+        {
+          "intervals": 600,
+          "sum_ns": 20000760849,
+          "p50_ns": 33325352,
+          "p95_ns": 34176700,
+          "p99_ns": 37680898,
+          "max_ns": 46783554,
+          "over30": 293,
+          "over100": 0,
+          "begin_ns": 2295028447327967,
+          "end_ns": 2295048448088816,
+          "capture_overlap": false
+        }
+      ]
+    },
+    "wsi": {
+      "n": 1200,
+      "sum_ns": 40000100591,
+      "covered_seconds": 40.000100591,
+      "rate": 29.99992455693972,
+      "p50_ms": [
+        33.332185,
+        33.332225
+      ],
+      "p95_ms": [
+        33.440407,
+        33.444446
+      ],
+      "p99_ms": [
+        34.217607,
+        33.8833
+      ],
+      "max_ms": 34.513492,
+      "over30": 593,
+      "over100": 0,
+      "rows": [
+        {
+          "intervals": 600,
+          "sum_ns": 20000044894,
+          "begin_ns": 2294968546119189,
+          "end_ns": 2294988546164083,
+          "p50_ns": 33332185,
+          "p95_ns": 33440407,
+          "p99_ns": 34217607,
+          "max_ns": 34513492,
+          "over30": 297,
+          "over100": 0,
+          "generation": 1,
+          "segment": 1,
+          "success": 7801,
+          "suboptimal": 0,
+          "rejected": 0,
+          "capture_overlap": false
+        },
+        {
+          "intervals": 600,
+          "sum_ns": 20000055697,
+          "begin_ns": 2295008546090093,
+          "end_ns": 2295028546145790,
+          "p50_ns": 33332225,
+          "p95_ns": 33444446,
+          "p99_ns": 33883300,
+          "max_ns": 34465793,
+          "over30": 296,
+          "over100": 0,
+          "generation": 1,
+          "segment": 1,
+          "success": 9001,
+          "suboptimal": 0,
+          "rejected": 0,
+          "capture_overlap": false
+        }
+      ]
+    }
+  },
+  "visual_review": {
+    "all_listed_images_individually_read": true,
+    "images": {
+      "ready.png": "Kokiri Forest, ground facing Saria, 3 hearts",
+      "walk-manual-entry.png": "01:51 manual entry distinct from Autosave rows",
+      "walk-manual-confirm2.png": "Actual 01:51 Load/Cancel confirmation",
+      "walk-confirm-selected.png": "Load highlighted",
+      "walk-actually-resumed.png": "Kokiri/Saria ground position restored after actual Load",
+      "walk-clear-path.png": "Moved away from Saria toward foreground grass/path",
+      "zl-cycle-start.png": "ZL reorients camera; Link at ground level, ladder well left, clear lateral strip",
+      "zl-right-1.png": "Right traversal moves lamp/ladder left relative to Link and changes near path edge",
+      "zl-return-1.png": "Left traversal restores lamp toward centre-left, feet on grass, no interaction",
+      "zl-right-2.png": "Second right traversal repeats terrain-relative shift",
+      "zl-return-2.png": "Second left traversal repeats, no ladder/obstacle contact",
+      "walk-before.png": "At rest on grass/path, ladder and lamp left, no dialogue",
+      "walk-continuous-44-25.png": "Midpoint moving left, lamp aboutx255 vsx350 before and near ground features shifted; no visible obstruction/menu/ladder",
+      "walk-after.png": "After neutral: feet on ground, lamp aboutx385, same small strip, no dialogue/ladder/collision visible"
+    },
+    "qualification": "Local repeated lateral walking supported by four preparatory traversals and before/midpoint/after visual observations, plus uninterrupted commanded stream. Sparse stills do not observe every intermediate frame or prove game-clock speed; no new zone claim."
+  },
+  "initial_state": "Private home inherited from functional routes, explicit manual save01:51 after Saria reloaded. This is not the restored3979-file seed or original porch checkpoint from the alternating camera series.",
+  "runtime": {
+    "exe_sha256": "65defb74a8cc81ae85d42c5c0e9bb9bc8a796d976f12278cb0a4fcf940834d08",
+    "mapped_radv_path": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+    "mapped_radv_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+    "packages": "libdrm-amdgpu1:amd64\t2.4.125-1ubuntu0.1~24.04.2\nlibdrm2:amd64\t2.4.125-1ubuntu0.1~24.04.2\nmesa-vulkan-drivers:amd64\t25.2.8-0ubuntu0.24.04.4\n",
+    "diagnostic_vulkan_info": true,
+    "actual_log_filter_verified": true
+  },
+  "effective_settings": {
+    "fps_limit": "30",
+    "nx2_frame_rate_limit": "60",
+    "speed_limit": "100",
+    "use_speed_limit": "true",
+    "async_presentation": "true",
+    "frame_pacing_mode": "1",
+    "frame_gen": "false",
+    "oot_anti_aliasing": "1"
+  },
+  "max_resolution_applied": true,
+  "fps_unlock_applied": true,
+  "probe_markers": {
+    "nx2:vi2 present stats active:": 1,
+    "nx2:vi2 service trace active:": 1,
+    "WSI present stats active:": 1
+  },
+  "clear_local_samples_all": 62,
+  "clear_local_samples_in_phase": 15,
+  "lifecycle": {
+    "exit_code": 0,
+    "stop_requested": true,
+    "window_closed": true,
+    "forced": false,
+    "stop_seconds": 3.7065018098801374
+  },
+  "kernel_matches": [],
+  "cleanup": {
+    "at": 1794277113.0356092,
+    "own_game_absent": true,
+    "own_helper_removed": true,
+    "old_devices_absent": [
+      "/dev/input/event8",
+      "/dev/input/event9",
+      "/dev/input/event10",
+      "/dev/input/event11"
+    ],
+    "matching_names_remaining": [],
+    "observer": "active",
+    "production_config_unchanged": true,
+    "eight_progressions_unchanged": true,
+    "gpu_policies": {
+      "/sys/class/drm/card0/device/power_dpm_force_performance_level": "auto"
+    },
+    "gpu_power_caps_micro_watts": [
+      150000000
+    ]
+  },
+  "limits": [
+    "Single instrumented local walking trial, no causal comparison or broad traversal/zone performance claim.",
+    "Before and after screenshots outside phase; one midpoint screenshot overlaps continuous movement and can perturb GPU readback. All overlapping windows remain reported and labelled.",
+    "Only fully enclosed 600-interval windows selected; p50/p95/p99 per window, no global quantile or average quantile.",
+    "TIPC229 request intervals and accepted WSI returns are different stages; neither proves physical scanout or distinct-content cadence.",
+    "No constant30, absolute world-clock speed, audio/cinema or browser path qualification.",
+    "Small oscillating terrain traversal with sparse visual checks, not proof of every frame or unrestricted long-distance path."
+  ],
+  "root_review": {
+    "all_evidence_hashes_checked": true,
+    "raw_counts_sums_quantiles_max_budget_counts_match_private_report": true,
+    "before_midpoint_after_images_individually_read": true,
+    "capture_overlap_preserved_and_separately_reported": true
+  },
+  "next": "Qualify cinema speed and audio/video alignment on this same configuration, then the isolated browser room and actual capture/encode path."
+}

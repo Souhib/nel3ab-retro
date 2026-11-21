@@ -1,0 +1,290 @@
+{
+  "frame_generation": false,
+  "scene": "Kokiri Forest, balcony outside Link house, 15 repeated camera sweeps",
+  "versions": "releases.json",
+  "phases": [
+    {
+      "phase": "compare-1-eglantine-20261107",
+      "measurement": {
+        "requested_seconds": [
+          73.92935399999999,
+          166.94151
+        ],
+        "covered_seconds": 54.543,
+        "game_presentations": 1200,
+        "game_fps": 22.000990044552005,
+        "window_fps_median": 22.001013071322575,
+        "maximum_frame_ms": 78.172,
+        "frames_over_100_ms": 0,
+        "windows": [
+          {
+            "start": 106.888561,
+            "end": 134.132161,
+            "mean_us": 45406,
+            "maximum_us": 78172,
+            "freezes": 0
+          },
+          {
+            "start": 134.0872,
+            "end": 161.3866,
+            "mean_us": 45499,
+            "maximum_us": 76760,
+            "freezes": 0
+          }
+        ]
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.105025882134214
+      }
+    },
+    {
+      "phase": "compare-1-lichii-93",
+      "measurement": {
+        "requested_seconds": [
+          97.034831,
+          187.016767
+        ],
+        "covered_seconds": 30.1074,
+        "game_presentations": 600,
+        "game_fps": 19.928655413619243,
+        "window_fps_median": 19.928655413619243,
+        "maximum_frame_ms": 59.771,
+        "frames_over_100_ms": 0,
+        "windows": [
+          {
+            "start": 131.83704,
+            "end": 161.94444,
+            "mean_us": 50179,
+            "maximum_us": 59771,
+            "freezes": 0
+          }
+        ]
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.0046402120497078
+      }
+    },
+    {
+      "phase": "compare-1-lichii-95",
+      "measurement": {
+        "requested_seconds": [
+          93.604361,
+          186.724363
+        ],
+        "covered_seconds": 44.232,
+        "game_presentations": 600,
+        "game_fps": 13.564839934888768,
+        "window_fps_median": 13.564839934888768,
+        "maximum_frame_ms": 113.748,
+        "frames_over_100_ms": 9,
+        "windows": [
+          {
+            "start": 138.46421,
+            "end": 182.69621,
+            "mean_us": 73720,
+            "maximum_us": 113748,
+            "freezes": 9
+          }
+        ]
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 4.211056781932712
+      }
+    },
+    {
+      "phase": "compare-1-superbuild-v11",
+      "measurement": {
+        "requested_seconds": [
+          71.02833299999999,
+          166.042178
+        ],
+        "covered_seconds": 33.54,
+        "game_presentations": 600,
+        "game_fps": 17.88908765652952,
+        "window_fps_median": 17.88908765652952,
+        "maximum_frame_ms": 73.782,
+        "frames_over_100_ms": 0,
+        "windows": [
+          {
+            "start": 102.260809,
+            "end": 135.800809,
+            "mean_us": 55900,
+            "maximum_us": 73782,
+            "freezes": 0
+          }
+        ]
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 2.803247998934239
+      }
+    },
+    {
+      "phase": "compare-2-eglantine-20261107",
+      "measurement": {
+        "requested_seconds": [
+          74.373527,
+          160.047297
+        ],
+        "covered_seconds": 54.348,
+        "game_presentations": 1200,
+        "game_fps": 22.079929344226098,
+        "window_fps_median": 22.08062384723445,
+        "maximum_frame_ms": 180.383,
+        "frames_over_100_ms": 1,
+        "windows": [
+          {
+            "start": 105.70531299999999,
+            "end": 133.031713,
+            "mean_us": 45544,
+            "maximum_us": 81891,
+            "freezes": 0
+          },
+          {
+            "start": 132.942643,
+            "end": 159.964243,
+            "mean_us": 45036,
+            "maximum_us": 180383,
+            "freezes": 1
+          }
+        ]
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.1048937919549644
+      }
+    },
+    {
+      "phase": "compare-2-lichii-93",
+      "measurement": {
+        "requested_seconds": [
+          76.070044,
+          167.716529
+        ],
+        "covered_seconds": 60.5958,
+        "game_presentations": 1200,
+        "game_fps": 19.8033527076134,
+        "window_fps_median": 19.803386027191856,
+        "maximum_frame_ms": 256.387,
+        "frames_over_100_ms": 2,
+        "windows": [
+          {
+            "start": 93.597215,
+            "end": 123.855815,
+            "mean_us": 50431,
+            "maximum_us": 256387,
+            "freezes": 2
+          },
+          {
+            "start": 123.80591000000001,
+            "end": 154.14311,
+            "mean_us": 50562,
+            "maximum_us": 71702,
+            "freezes": 0
+          }
+        ]
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.2053095591254532
+      }
+    },
+    {
+      "phase": "compare-2-lichii-95",
+      "measurement": {
+        "requested_seconds": [
+          74.95790099999999,
+          166.277193
+        ],
+        "covered_seconds": 61.3416,
+        "game_presentations": 1200,
+        "game_fps": 19.56258069564537,
+        "window_fps_median": 19.562627418961522,
+        "maximum_frame_ms": 253.259,
+        "frames_over_100_ms": 2,
+        "windows": [
+          {
+            "start": 94.184715,
+            "end": 124.902915,
+            "mean_us": 51197,
+            "maximum_us": 253259,
+            "freezes": 2
+          },
+          {
+            "start": 124.85254599999999,
+            "end": 155.475946,
+            "mean_us": 51039,
+            "maximum_us": 71947,
+            "freezes": 0
+          }
+        ]
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 2.704245703993365
+      }
+    },
+    {
+      "phase": "compare-2-superbuild-v11",
+      "measurement": {
+        "requested_seconds": [
+          76.928311,
+          166.41996
+        ],
+        "covered_seconds": 66.20580000000001,
+        "game_presentations": 1200,
+        "game_fps": 18.125300200284563,
+        "window_fps_median": 18.126546629689358,
+        "maximum_frame_ms": 73.007,
+        "frames_over_100_ms": 0,
+        "windows": [
+          {
+            "start": 100.21739,
+            "end": 133.59479,
+            "mean_us": 55629,
+            "maximum_us": 73007,
+            "freezes": 0
+          },
+          {
+            "start": 133.540709,
+            "end": 166.369109,
+            "mean_us": 54714,
+            "maximum_us": 71471,
+            "freezes": 0
+          }
+        ]
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 2.6037984201684594
+      }
+    }
+  ]
+}

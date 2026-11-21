@@ -1,0 +1,291 @@
+{
+  "date": "2026-11-08",
+  "purpose": "Test actual Ocarina of Time gameplay on Orchid, bypassing the introduction with a copied Kokiri save. No valid playable cadence accepted for missing 3D rendering.",
+  "private_lab": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-08-orchid-oot",
+  "release": {
+    "name": "orchid-standard",
+    "repository": "MythosOfs/Orchid",
+    "tag": "v0.9.0",
+    "source_commit": "e420cf2bea784f7247246973c104cd67392aa2b9",
+    "published": "2026-11-06T22:50:42Z",
+    "asset": "orchid-v0.9.0-linux-x86_64.AppImage",
+    "url": "https://github.com/MythosOfs/Orchid/releases/download/v0.9.0/orchid-v0.9.0-linux-x86_64.AppImage",
+    "size": 109713912,
+    "digest": "sha256:40414fb06092ce91e7106e5d863d7d556735a97417b46a752caf3455d1bfbc11"
+  },
+  "latest_release_checked_at": "2026-11-08T11:32:09Z",
+  "game": {
+    "title": "0400486024DEC000",
+    "base_version": 65536,
+    "update_title": "0400486024DEC800",
+    "update_version": 131072,
+    "same_nup_as_previous_zelda_trials": true,
+    "checkpoint": "Kokiri balcony, private copy restored before each launch"
+  },
+  "profile": {
+    "backend": "Vulkan",
+    "scale": "1x",
+    "accuracy": "Low",
+    "frame_generation": false,
+    "reactive_flushing": false,
+    "async_presentation": true,
+    "async_shaders": true,
+    "official_zelda_preset_claimed": false,
+    "driver_cache_reset": "Private .cache moved before launches 2 and 3"
+  },
+  "runs": [
+    {
+      "label": "discovery-orchid-zelda",
+      "started_at": "2026-11-08T11:22:53.231487418Z",
+      "finished_at": "2026-11-08T11:28:25.344868614Z",
+      "container_seconds": 332.113381,
+      "eden_environment": [
+        "EDEN_NX2_NO_MESH=1"
+      ],
+      "hud_detection": {
+        "observed_at": 1794137108.1747046,
+        "waiting_seconds": 58.09125019190833,
+        "heart_pixels": 55,
+        "map_pixels": 435,
+        "requires_visual_review": true
+      },
+      "visual_review": {
+        "world": "black or blurred, avatar not correctly rendered",
+        "accepted_playable_fps": null,
+        "movement_requested": true,
+        "pictures": [
+          "after-preparation.png",
+          "boot.png",
+          "current-title.png",
+          "ready.png",
+          "walk-first.png"
+        ]
+      },
+      "shader_rejection_log_messages": 86,
+      "shader_rejection_reasons": {
+        "native stage buffer read outside geometry stage": 9,
+        "native texture gather mode": 1,
+        "native extended integer comparison": 47,
+        "native uniform bindless texture handle provenance": 29
+      },
+      "shutdown": {
+        "exit_code": 137,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": true,
+        "stop_seconds": 32.85580309294164
+      },
+      "oom_killed": false
+    },
+    {
+      "label": "compatibility-orchid-zelda",
+      "started_at": "2026-11-08T11:28:26.179812818Z",
+      "finished_at": "2026-11-08T11:32:35.026678834Z",
+      "container_seconds": 248.846866,
+      "eden_environment": [
+        "EDEN_NX2_SPLIT=0",
+        "EDEN_NX2_FENCE_BATCH=1",
+        "EDEN_NX2_FRAMES_AHEAD=1",
+        "EDEN_NX2_NO_MESH=1",
+        "EDEN_NX2_UPSCALER_STANDIN=0"
+      ],
+      "hud_detection": {
+        "observed_at": 1794137437.2371614,
+        "waiting_seconds": 130.8177482667379,
+        "heart_pixels": 50,
+        "map_pixels": 126,
+        "requires_visual_review": true
+      },
+      "visual_review": {
+        "world": "black or blurred, avatar not correctly rendered",
+        "accepted_playable_fps": null,
+        "movement_requested": true,
+        "pictures": [
+          "ready.png",
+          "walk-confirmation.png"
+        ]
+      },
+      "shader_rejection_log_messages": 89,
+      "shader_rejection_reasons": {
+        "native stage buffer read outside geometry stage": 9,
+        "native texture gather mode": 1,
+        "native extended integer comparison": 49,
+        "native uniform bindless texture handle provenance": 30
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.6046559689566493
+      },
+      "oom_killed": false
+    },
+    {
+      "label": "full-render-orchid-zelda",
+      "started_at": "2026-11-08T11:32:35.880649754Z",
+      "finished_at": "2026-11-08T11:36:12.985878238Z",
+      "container_seconds": 217.105229,
+      "eden_environment": [],
+      "hud_detection": {
+        "observed_at": 1794137638.507995,
+        "waiting_seconds": 82.48351298831403,
+        "heart_pixels": 56,
+        "map_pixels": 137,
+        "requires_visual_review": true
+      },
+      "visual_review": {
+        "world": "black or blurred, avatar not correctly rendered",
+        "accepted_playable_fps": null,
+        "movement_requested": true,
+        "pictures": [
+          "after-camera.png",
+          "after-forward.png",
+          "after-right.png",
+          "full-render-in-progress.png",
+          "ready.png",
+          "review-full-render.png",
+          "two-minutes-after-hud.png"
+        ]
+      },
+      "shader_rejection_log_messages": 96,
+      "shader_rejection_reasons": {
+        "native stage buffer read outside geometry stage": 15,
+        "native texture gather mode": 1,
+        "native extended integer comparison": 50,
+        "native uniform bindless texture handle provenance": 30
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 4.210049021989107
+      },
+      "oom_killed": false
+    }
+  ],
+  "last_orchid_observation": {
+    "observed_at": 1794137758.6932647,
+    "seconds_after_hud": 120.18527054786682
+  },
+  "interpretation": "Graphics translator rejects native shader operations even without NO_MESH. Does not establish playable FPS or a hardware performance ranking.",
+  "production_engine_changed": false,
+  "positive_control": {
+    "engine": "Eglantine standard 2026-11-07",
+    "source_commit": "216d3e294367abd4742d7ebd736ef25a8db6f365",
+    "same_rom_and_checkpoint": true,
+    "profile": "Installed Eglantine launch variables, reactive flushing true, Low/1x/Vulkan, frame generation off",
+    "hud_detection": {
+      "observed_at": 1794137858.8869934,
+      "waiting_seconds": 84.98353894101456,
+      "heart_pixels": 57,
+      "map_pixels": 151,
+      "requires_visual_review": true
+    },
+    "visual_review": {
+      "world_visible": true,
+      "avatar_visible": true,
+      "avatar_movement_observed": "From balcony onto the ladder, with changed position and camera orientation",
+      "scope": "Functional input/rendering control only. No new cross-engine FPS comparison or zone transition claimed.",
+      "pictures": [
+        "control-review.png",
+        "after-forward.png",
+        "after-right.png",
+        "after-camera.png",
+        "ground-walk.png"
+      ],
+      "filename_caveat": "ground-walk.png actually shows Link on the ladder, not a verified walk across the ground."
+    },
+    "input": {
+      "start_unix": 1794137877.8250644,
+      "end_unix": 1794137908.0104425,
+      "input": [
+        {
+          "axes": {
+            "ly": -24000
+          },
+          "seconds": 3
+        },
+        {
+          "axes": {
+            "lx": 24000
+          },
+          "seconds": 3
+        },
+        {
+          "axes": {
+            "rx": 24000
+          },
+          "seconds": 3
+        }
+      ],
+      "scope": "Functional movement control, not a cross-engine cadence comparison",
+      "additional_input": [
+        {
+          "buttons": [
+            "b"
+          ],
+          "seconds": 0.18
+        },
+        {
+          "axes": {
+            "ly": -24000
+          },
+          "seconds": 4
+        }
+      ]
+    },
+    "shutdown": {
+      "exit_code": 0,
+      "stop_requested": true,
+      "window_closed": true,
+      "forced": false,
+      "stop_seconds": 4.109439529944211
+    }
+  },
+  "cleanup": {
+    "checked_at": 1794137938.7045772,
+    "lab_containers_remaining": [],
+    "lab_devices_remaining": [],
+    "production_config_unchanged": true,
+    "production_progress_hashes_unchanged": true,
+    "production_progress_file_count": 4,
+    "services": {
+      "nel3ab-boite-noire.service": "active",
+      "nel3ab-control.service": "active"
+    },
+    "kernel_gpu_or_oom_matches": false
+  },
+  "final_verification": {
+    "checked_at": 1794138128.6860332,
+    "gates": {
+      "just": {
+        "completed_at": 1794138050.413054,
+        "exit_code": 0
+      },
+      "audit": {
+        "completed_at": 1794138074.2235477,
+        "exit_code": 0
+      },
+      "docs": {
+        "completed_at": 1794138107.112434,
+        "exit_code": 0
+      }
+    },
+    "production_config_unchanged": true,
+    "production_progress_hashes_unchanged": true,
+    "lab_containers_remaining": [],
+    "services": {
+      "nel3ab-boite-noire.service": "active",
+      "nel3ab-control.service": "active"
+    },
+    "served_study": {
+      "url": "https://nel3ab.app/docs/etude-switch2-2026-11-07/",
+      "status": 200,
+      "new_zelda_trial_present": true
+    },
+    "commit_created": false,
+    "remote_ci_run_created": false
+  }
+}

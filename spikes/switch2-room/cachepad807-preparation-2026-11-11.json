@@ -1,0 +1,76 @@
+{
+  "date_utc": "2026-11-11",
+  "status": "native_tests_functional_and_ABAB_completed_no_repeatable_gain",
+  "base_ELF_sha256": "13158042b7dae7041bc4ae255381dbbed90b1d7eb9f3ba04ea1b5be02d36f6a1",
+  "upstream_commit": "175ff00ffc0a83ae79651ccfd4c54713283ca8c2",
+  "source_change": "Two exact upstream alignas128 declarations plus one normal startup activation marker; no queue/order/lock/flag behavior change.",
+  "host_cache_line_bytes": 64,
+  "alignment_proposed_bytes": 128,
+  "baseline": {
+    "offsets": {
+      "ring": 24,
+      "write_position": 32,
+      "front_engine": 8360,
+      "back_engine": 8368
+    },
+    "sizeof": 9344,
+    "alignof": 128
+  },
+  "candidate": {
+    "offsets": {
+      "ring": 24,
+      "write_position": 128,
+      "front_engine": 8456,
+      "back_engine": 8576
+    },
+    "sizeof": 9472,
+    "alignof": 128
+  },
+  "size_cost_bytes_per_GpuSplit": 128,
+  "layout_cases": 6,
+  "scope": "Actual full header AST layout in pinned native Clang23 image. Baseline and individually removed alignments compile and fail only intended separation predicates. No mirrored class, GPU execution or performance proof.",
+  "local_performance_gain_proven": false,
+  "installed_engine_changed": false,
+  "proof_sha256": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cachepad807-preparation-20261111/prepared.json": "c9b6f82e7c0d80ba25fd9f36d50c62a2fef71ebfe9e8cb852f27860f460db54d",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cachepad807-preparation-20261111/candidate.patch": "1f3aa6a00d274336217e0c77782443c0ca414b8fb700ee0e7fd533e88fea5128",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cachepad807-preparation-20261111/upstream-commit.json": "a847ab5e2173918cfaa10fab25dd491d99aa3992a26e335e3b642050940dd31b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cachepad807-preparation-20261111/host-cache-lines.json": "b5940567c9a83004877bc8a2fa84c74ac47d5ea7744afdabf5c70c4552149808",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cachepad807-preparation-20261111/fixtures/results/report.json": "c873375712a7bdf418f0d9249b88ecd7c7e1b93c1ca7750bce22207da78aadab",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cachepad807-preparation-20261111/root-cpu-01/result.json": "8f3208af410435e451b7c1efc40a35e1b9053d1c85631dd6542d847c8ca38b08",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cachepad807-preparation-20261111/root-build-01/result.json": "647c3f5020ad29daf56a5fd7630848d51f68ab701e112870c114566269c0ca38",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cachepad807-preparation-20261111/root-build-01/run.log": "8e80ecbf04da7e9bd8378d6e701fed9493db825a3843cc67e5db41e8bb37b339",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cachepad807-preparation-20261111/native-tests-result.json": "13b03fb4d271c5106aa8e78d350f2b966db00cba91bbb7808d0353ff42a65b5e",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cachepad807-preparation-20261111/native-targeted.xml": "270a7074abfa98ea67cb9f750c344a39b75ed77a31d3aef28315d57dacf50c06",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cachepad807-preparation-20261111/native-full.xml": "b658774eb0cf3249f227edb606d9eff6d6ac088f93c917c3535745705893ed71",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cachepad807-preparation-20261111/normal-cohort-proof.json": "d8f9e573ab0e1cfbd8368415bab9cf416ca3be0ee2a07e47dfcb92aa5ea4783f",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-cachepad807-ab-20261111/report.json": "f463d03537331dd35e1443a5ff09aa1c83baaf5d5d3516ea1df5693db0d05b23",
+    "spikes/switch2-room/cachepad807-functional-2026-11-11.json": "eed2d6417334c4ddcf0ad2711b2629644887b5e52b4ca5bcf13e7f24e3722182",
+    "spikes/switch2-room/cachepad807-comparison-2026-11-11.json": "c7b965b3d108de9990b4552fb1ec570596388c8560270d4616c83c5bd5c0bd8f"
+  },
+  "native_build": {
+    "started_unix": 1794388904.9362633,
+    "ended_unix": 1794389250.514832,
+    "seconds": 345.57856917381287,
+    "returncode": 0,
+    "error": null,
+    "interference": [],
+    "container_absent": true,
+    "passed": true,
+    "ELF_sha256": "cfec5c81d488a858470dd5c56219eb5b5d571ba919e7628f36354011ba2079a5",
+    "tests_sha256": "8ff7d254654cd14e866b47bc3c5f8b3b267c6f25bec7935fb890fa4740859c6d",
+    "activation_marker_present": true,
+    "gpu_split_translation_unit_rebuilt": true
+  },
+  "native_tests": {
+    "targeted": 16,
+    "full_cases": 1258,
+    "network_skips": 4,
+    "failures": 0,
+    "full_seconds": 39.09690046310425
+  },
+  "functional_report": "spikes/switch2-room/cachepad807-functional-2026-11-11.json",
+  "comparison_report": "spikes/switch2-room/cachepad807-comparison-2026-11-11.json",
+  "runtime_activation_verified": true,
+  "decision": "Archive807 trial without carrying it into next base; retain1315 for further diagnosis."
+}

@@ -1,0 +1,43 @@
+{
+  "date_utc": "2026-11-11",
+  "status": "8_real_Chrome_CPU_cases_passed",
+  "browser_version": "Chrome/151.0.7922.77",
+  "Node_version_used": "24.14.0",
+  "negative_and_reintroduced_automatic_close_cases": 4,
+  "correct_ordered_close_cases": 4,
+  "signals": [
+    "SIGTERM",
+    "SIGINT"
+  ],
+  "actual_changed_driver_behavior": "Disable Puppeteer automatic TERM/INT handlers; retain owned handlers; phase stop/neutral then join watchdog then browser.close.",
+  "isolation": "Fixture UID0, bwrap PID/IPC/UTS/mount isolation with masked device nodes, root filesystem readonly and fixture directory writable. No observed GPU descriptor. Loopback CDP network shared.",
+  "scope": "Real Chrome launch, connected version, signal delivery, browser.close/disconnect and owned descendant disappearance. Phase-neutral and watchdog join acknowledgements are explicit doubles. Does not establish production UID permissions or game-input correctness.",
+  "rejected_admissions": "Unprivileged UID map denied; root user namespace path access denied; V3 async executablePath bug. All failed before Chrome and excluded as lifecycle negative controls. Their logs remain preserved.",
+  "actual_game_followup": "Normal1315 private leaf capture stopped normally; observer report precedes explicit browser close by11.625936ms, guard reasonNone; installed state preserved.",
+  "proof_sha256": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uploadhost-leaf-profile-20261111/chrome-lifecycle/results-root-v4/report.json": "d6a3aae96cf6b63e2ef315c32a8f6833980f853fb05d0cd9dcfbb07f4a7e65e4",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uploadhost-leaf-profile-20261111/chrome-lifecycle/run-root-v4.py": "a4d06319731f7bf1fcdba8c525b01bcdf13c322f3073abd29723bff4e39be8de",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uploadhost-leaf-profile-20261111/chrome-lifecycle/driver-root-v4.mjs": "68c4b8580df40fe1dac604deea4a1a3b53e59eb64d1b9166ad5701f0e090318f",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uploadhost-leaf-profile-20261111/chrome-lifecycle/chrome-no-gpu-root-v3.sh": "ce46eeb71bd4d723b156dbcc0fd9f65c29b143e363145491536cdefdaec13dab",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uploadhost-leaf-profile-20261111/F1/room-private.mjs": "6fa0dd03dbcc160a29a7d38dd2a83a482de465f5a230e137493c89cddd45731b",
+    "/home/souhib/.local/state/nel3ab/test-switch2-hGVlV7/qualification-watchdog.json": "2ec5255d7abc74d68131cf295bef7c20ac85a173cf58dbbe46bd70d7e2e0b354",
+    "/home/souhib/.local/state/nel3ab/test-switch2-hGVlV7/browser-close-begin.json": "144d8b8e3a02817c8dc1b67ce017eef8ba491fb050e918fc1ce858a1b4c4f76b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uploadhost-leaf-profile-20261111/F1/cleanup.json": "8bf6187d8fe60d3049f6ad87a72fb925bd71472e0ab4b3bf57990511279378e6",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uploadhost-leaf-profile-20261111/chrome-lifecycle/results-root-v4/SIGTERM-0-automatic-signals/cleanup.json": "82a7be71a966866ef5daea11419772af1e7bab9134e1ba9fa0db6a4f27d1aa98",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uploadhost-leaf-profile-20261111/chrome-lifecycle/results-root-v4/SIGTERM-0-automatic-signals/events.jsonl": "37a7079754027e4574e217eaa853d0b8ae2f2d9afd7ec1abccfa5217dcef5900",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uploadhost-leaf-profile-20261111/chrome-lifecycle/results-root-v4/SIGTERM-1-correct/cleanup.json": "afe0e4f2dd941df55536e86944e49256c5da312dafc179a0eeb747476be8ab64",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uploadhost-leaf-profile-20261111/chrome-lifecycle/results-root-v4/SIGTERM-1-correct/events.jsonl": "97a27a227d2f66385a50afab304a0db6df189a04f08efbd697aa0ab6d0fb7228",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uploadhost-leaf-profile-20261111/chrome-lifecycle/results-root-v4/SIGTERM-2-automatic-signals/cleanup.json": "415a8c50cfe36885f9f1977d597cd8ad8faf6a78992e62003b704687c6d1fded",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uploadhost-leaf-profile-20261111/chrome-lifecycle/results-root-v4/SIGTERM-2-automatic-signals/events.jsonl": "ca5d00a4682983b3d49ffb420429469e76d432a0a6d799038ad2796312fa165a",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uploadhost-leaf-profile-20261111/chrome-lifecycle/results-root-v4/SIGTERM-3-correct/cleanup.json": "9acadedc447c7354ac1ad49cde1d81a5d4edc4779a41ecc4c018adea515f3710",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uploadhost-leaf-profile-20261111/chrome-lifecycle/results-root-v4/SIGTERM-3-correct/events.jsonl": "55e9f4cc835dec7d1db4ce19d70392f729957f14e8d7506955e3761820a11f68",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uploadhost-leaf-profile-20261111/chrome-lifecycle/results-root-v4/SIGINT-0-automatic-signals/cleanup.json": "c56cc3b35877c894927bd0a072a266cb960f49da8d087427779f369b4b557c8a",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uploadhost-leaf-profile-20261111/chrome-lifecycle/results-root-v4/SIGINT-0-automatic-signals/events.jsonl": "6944836d5ada723187c9963bb6951bb0359d7e55912f7079291062f7af3f1ca0",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uploadhost-leaf-profile-20261111/chrome-lifecycle/results-root-v4/SIGINT-1-correct/cleanup.json": "b6ab1126b6c42c843444faac236d4716c87a17d6634aa33d528623da1c4afb8a",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uploadhost-leaf-profile-20261111/chrome-lifecycle/results-root-v4/SIGINT-1-correct/events.jsonl": "c9125ee04aaa69fcc4b86ee8feb415a2169658e58ffa084e959387d246a51479",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uploadhost-leaf-profile-20261111/chrome-lifecycle/results-root-v4/SIGINT-2-automatic-signals/cleanup.json": "bb12827c388ca69dda3ebe34c2a204709bd16bfab1f0b63bdec4d9d347c24594",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uploadhost-leaf-profile-20261111/chrome-lifecycle/results-root-v4/SIGINT-2-automatic-signals/events.jsonl": "45ee941b2fad7e0684880d8e8be332c01fe050c64d8b8e2023edaf86ed9c0658",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uploadhost-leaf-profile-20261111/chrome-lifecycle/results-root-v4/SIGINT-3-correct/cleanup.json": "92f135afa34a9ba647bc8cb164bb4470aa8c8c52b713da24981237af49d074d4",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uploadhost-leaf-profile-20261111/chrome-lifecycle/results-root-v4/SIGINT-3-correct/events.jsonl": "bb993586fbf69b776c9e1d01ea12146f667cb828ebd5ccdd0bcb688f8209f344"
+  }
+}

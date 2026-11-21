@@ -1,0 +1,146 @@
+{
+  "date_utc": "2026-11-09",
+  "revision": "0ab7736df9dba2b396d2c7a26bd26fbb9b7b0dc0",
+  "primary_source": "https://github.com/zortos293/Lichii/commit/0ab7736df9dba2b396d2c7a26bd26fbb9b7b0dc0",
+  "cli_sha256": "3123a567a0eb05fef4684fc0ec94db67583ac84133bfcef7ad71e1c91c7c515d",
+  "scope": "Isolatedcandidate only; no installation or completegame qualification",
+  "same_local_corrections": "UBO currentbyte validation, stream cursor, PR874 with pendingreport compositionguard; identical regressionfixtures",
+  "build_seconds": 381.6869,
+  "tests": {
+    "general_passed": 1160,
+    "network_skipped": 4,
+    "general_assertions": 72218871,
+    "shader_jobs_passed": 18,
+    "shader_jobs_assertions": 9192,
+    "shader_translation_passed": 4,
+    "shader_translation_assertions": 298
+  },
+  "migration_diagnostic": {
+    "same_seed_files": 3511,
+    "same_seed_bytes": 82010658,
+    "observed_ready_seconds": 67.67459180997685,
+    "single_run_not_loading_comparison": true,
+    "migration_version": 54,
+    "graphics_migrated": 874,
+    "compute_migrated": 106,
+    "records_collapsed": 773,
+    "used_list_entries": 1647,
+    "damaged_records_reported": 0,
+    "programs_from_records": 0,
+    "programs_lowered": 823,
+    "radv_pipeline_binary_actual_active": true,
+    "driver_blobs_written": 980,
+    "driver_bytes_written": 16074728,
+    "seconds": 91.96963421301916,
+    "read_check": {
+      "downloads": 92193,
+      "compared_KiB": 299955,
+      "mismatched": 0,
+      "mismatched_reader": 0,
+      "mismatched_gpu_writer": 0,
+      "mismatched_completed": 0,
+      "uncovered": 0,
+      "rewritten_not_compared": 16850
+    },
+    "descriptor_checks": 194560,
+    "descriptor_mismatches": 0,
+    "corrected_uniform_keeps": 683075,
+    "uniform_keeps_not_independent_byte_oracle": true,
+    "all_three_actual_images_reviewed": true,
+    "normal_stop": {
+      "exit_code": 0,
+      "stop_requested": true,
+      "window_closed": true,
+      "forced": false,
+      "stop_seconds": 3.1047424762509763
+    },
+    "legacy_shader_and_used_files_unchanged": true,
+    "legacy_driver_and_static_cache_updated_normally": true
+  },
+  "warm_trial": {
+    "common_seed_files": 3513,
+    "common_seed_bytes": 151012506,
+    "original_seed_files_byte_identical": true,
+    "only_two_new_v2_files_added": true,
+    "ready": false,
+    "manual_image": "Entirely black, noHUD or gameplay",
+    "observed_seconds_before_stop": 125.46654486656189,
+    "last_native_log_seconds": 16.362396,
+    "native_threads": "Graphics, shaderworkers andsixguestcoresobservedwaiting; no rootcause established",
+    "fps_accepted": false,
+    "four_phase_comparison": "Not completed after failed readiness; no performance result",
+    "normal_stop": {
+      "exit_code": 0,
+      "stop_requested": true,
+      "window_closed": true,
+      "forced": false,
+      "stop_seconds": 1.7030660258606076
+    },
+    "cause": "Unknown, one trial insufficient to blamecache or driver; next diagnostic pending"
+  },
+  "cleanup": {
+    "own_game_helper_and_devices_removed": true,
+    "observer_active": true,
+    "gpu_auto_150W": true,
+    "installed_config_and_eight_progressions_unchanged": true
+  },
+  "remaining": [
+    "Explain/reproduce warm black launch before FPS comparisons",
+    "Separate firstmigration, populatedwarmrestart and realzone loading",
+    "Native30FPS andfullfidelity unproved; NO_MESH1 baseline remains"
+  ],
+  "single_factor_without_driver_blob": {
+    "change": "Same3513-filewarmseedverified, deleteonlylichii-cache.v2.driver.bin beforelaunch; programcacheunchanged",
+    "ready": true,
+    "observed_ready_seconds": 67.98171017505229,
+    "same_cli_and_options": true,
+    "all_gpu_diagnostics_absent": true,
+    "all_six_actual_images_reviewed": true,
+    "program_record_hits": 823,
+    "new_programs_lowered": 153,
+    "stale_programs": 0,
+    "measurement": {
+      "requested_seconds": [
+        96.40347180366516,
+        185.870985
+      ],
+      "covered_seconds": 69.255,
+      "game_presentations": 1800,
+      "game_fps": 25.990903183885642,
+      "window_fps_median": 26.241897814049914,
+      "maximum_frame_ms": 98.237,
+      "frames_over_100_ms": 0,
+      "windows": [
+        {
+          "start": 106.615592,
+          "end": 129.479792,
+          "mean_us": 38107,
+          "maximum_us": 73907,
+          "freezes": 0
+        },
+        {
+          "start": 129.44126400000002,
+          "end": 153.014664,
+          "mean_us": 39289,
+          "maximum_us": 98237,
+          "freezes": 0
+        },
+        {
+          "start": 152.977506,
+          "end": 175.794906,
+          "mean_us": 38029,
+          "maximum_us": 58369,
+          "freezes": 0
+        }
+      ]
+    },
+    "normal_stop": {
+      "exit_code": 0,
+      "stop_requested": true,
+      "window_closed": true,
+      "forced": false,
+      "stop_seconds": 3.604816510807723
+    },
+    "interpretation": "One successfultrialonly; points todriverbinaryreuseortimingeffect, notprovenbinarycorruption orcausalFPSgain. Driverfilecreationremainsactive. No30FPS/newzone/audio/savequalification."
+  }
+}

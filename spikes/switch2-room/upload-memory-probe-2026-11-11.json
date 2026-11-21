@@ -1,0 +1,137 @@
+{
+  "date_utc": "2026-11-11",
+  "scope": "Tendance instrumentée de copies64KiB dans un outil Vulkan séparé. Aucun FPS, déploiement ou type effectivement choisi par le moteur n’est déduit. Charge CPU des28conteneurs de fond non exclue; propriétés GPU/identités/CI vérifiées, pas de client GPU étranger observé.",
+  "upstream_base_ELF": "c686c1ff5811dd4aeba3f92d8da7717724dab9f1f3978e7c73897899769852d4",
+  "probe_binary_sha256": "04a8e39afd0a90a9772c91cccceb90710a3d906a197de95d90010b65f0f17c47",
+  "runtime_driver_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+  "policy_A": "Current AMD Stream request: AUTO_PREFER_DEVICE, sequential mapped writes, HOST_COHERENT preferred, required0.",
+  "policy_B": "AUTO_PREFER_HOST, same flags, HOST_CACHED|HOST_COHERENT required. Unsupported type refuses.",
+  "rows": [
+    {
+      "label": "A1",
+      "memory_type": 3,
+      "properties": 7,
+      "coherent": true,
+      "cached": false,
+      "device_local": true,
+      "copies_reported": 65536,
+      "bytes_reported": 4294967296,
+      "copy_sfence_seconds": 2.232029113,
+      "flush_seconds": 8.02e-07,
+      "GiB_per_second_with_flush": 1.7920906763474092,
+      "GPU_validations": [
+        "before",
+        "after"
+      ],
+      "mapping_gates": 2,
+      "owned_cleanup": true
+    },
+    {
+      "label": "B1",
+      "memory_type": 5,
+      "properties": 14,
+      "coherent": true,
+      "cached": true,
+      "device_local": false,
+      "copies_reported": 65536,
+      "bytes_reported": 4294967296,
+      "copy_sfence_seconds": 0.609544158,
+      "flush_seconds": 1.563e-06,
+      "GiB_per_second_with_flush": 6.562264096346597,
+      "GPU_validations": [
+        "before",
+        "after"
+      ],
+      "mapping_gates": 2,
+      "owned_cleanup": true
+    },
+    {
+      "label": "A2",
+      "memory_type": 3,
+      "properties": 7,
+      "coherent": true,
+      "cached": false,
+      "device_local": true,
+      "copies_reported": 65536,
+      "bytes_reported": 4294967296,
+      "copy_sfence_seconds": 2.229679619,
+      "flush_seconds": 1.432e-06,
+      "GiB_per_second_with_flush": 1.7939785594921844,
+      "GPU_validations": [
+        "before",
+        "after"
+      ],
+      "mapping_gates": 2,
+      "owned_cleanup": true
+    },
+    {
+      "label": "B2",
+      "memory_type": 5,
+      "properties": 14,
+      "coherent": true,
+      "cached": true,
+      "device_local": false,
+      "copies_reported": 65536,
+      "bytes_reported": 4294967296,
+      "copy_sfence_seconds": 0.62046544,
+      "flush_seconds": 1.363e-06,
+      "GiB_per_second_with_flush": 6.446759086319724,
+      "GPU_validations": [
+        "before",
+        "after"
+      ],
+      "mapping_gates": 2,
+      "owned_cleanup": true
+    }
+  ],
+  "paired_B_over_A": [
+    3.661792443294012,
+    3.5935541437822907
+  ],
+  "validation_limit": "Four changed source blocks are read back through the GPU before/after; this does not verify every counted copy. Source ring128MiB is ordinary RAM, not fragmented guest memory. Native initial allocator state not reproduced.",
+  "old_test_defect": {
+    "real_GPU_false_green": true,
+    "mutation": "Remove ONLY timed memcpy while retaining warm-up/count/timer/readback.",
+    "old_mutant_counter_data_invalid": true,
+    "fix": "Change4validated source blocks after prevalidation before timer, require one full ring; postreadback must see changed bytes.",
+    "corrected_real_copy_A_B_pass": true,
+    "corrected_no_copy_A_B_reject_after_copy_complete": "COPY_VALIDATION_MISMATCH"
+  },
+  "API_difference": {
+    "physical": "1.4.318",
+    "instance": "1.3",
+    "allocator": "1.3",
+    "native_allocator_would_use": "1.4.318",
+    "headers": "1.4.345",
+    "assertions_enabled": true,
+    "complete_native_config_parity": false
+  },
+  "observer_final": "active",
+  "GPU_cleanup_normal": true,
+  "source_memory_type_in_game_proven": false,
+  "next_action": "Prepare one private RADV cached/coherent CPU-upload policy candidate, compile full native code/tests and compare actual game in alternating phases;40constant remains unachieved.",
+  "proof_sha256": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upload-memory-preparation-20261111/timed-copy-review/red-original-A-01/result.json": "d2435c5f1db1a797fe79d4d214b347ec715021db93ce10589ab2a056d63c865b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upload-memory-preparation-20261111/timed-copy-review/green-A-01/result.json": "22273292e9722ae84217057bb457a336f442b2e76153d4325fd5ea6fa1b8706a",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upload-memory-preparation-20261111/timed-copy-review/rejected-no-copy-A-01/result.json": "f24b86b601ea07bedddab605f949ab90ee9cd0b7376013cb24e85966f4d399ed",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upload-memory-preparation-20261111/timed-copy-review/green-B-01/result.json": "ed3e44f906d699d58dccbe2958d92be78102bddf8d42981ad487600ccae70d67",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upload-memory-preparation-20261111/timed-copy-review/rejected-no-copy-B-01/result.json": "90c32ebb66403c7eccd0435d3d56f7fb9cb18221a71567859b29ce677f6109af",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upload-memory-preparation-20261111/safe-control/functional-A-01/result.json": "0d1442ff4f08913242dac01d5da24873d3cad991ee292136547c245485eb4da3",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upload-memory-preparation-20261111/safe-control/functional-B-01/result.json": "1c871c903bad0606941291d51a435c32ce01def0fd6f35c7e92ba8a2db1441dc",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upload-memory-preparation-20261111/safe-control/negative-A-01/result.json": "6349939a2d3fb3b067134f0e94354ac026f630a5c7743f611f5864842dc296a2",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upload-memory-preparation-20261111/safe-control/negative-B-01/result.json": "fdcf536b72c2511e49f5051c2553766a177b8a04734093c80d64a6aa42f80f62",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upload-memory-preparation-20261111/safe-control/abab-corrected-01/result.json": "830f6b5de50d1147863c1ad8799068712aec4dac51521283400e0d3972593ae7",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upload-memory-preparation-20261111/describe-safe-01/result.json": "87a4cf29548283ee148e427451cf1fb54df322d8c6d5c0643505c95a2e2a01a6",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upload-memory-preparation-20261111/safe-build-result.json": "c526e85722afe73f33253df79e73c1fe71f0717ee10c97ecd50c8cd56f440982",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upload-memory-preparation-20261111/runtime-manifest.json": "6790be6ce74e1aef29a35f2a69430611c0648c527b49cdf07ae8845515ca7056",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upload-memory-preparation-20261111/timed-copy-review/build-result.json": "9d8f496b8268c59c21d6e67bc7f7afe2ae0c4b4cb713364acf2737679b88bb64",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upload-memory-preparation-20261111/timed-copy-review/qualified-build-result.json": "a8e9a1aed42d7cf3ccd050209eea593c5be024b05bba9ea8cf83dea90491e1fd",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upload-memory-preparation-20261111/timed-copy-review/structural-proof.json": "e39e53baa869ee546315ab524a47e34a2959e8983566c3bb3b8e1a24ff020810",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upload-memory-preparation-20261111/timed-copy-review/describe-corrected-01/result.json": "a57d5d1caebab1939dc17a251ef906c1768b6c8c56b0a965a61ba4a62a1b2d85",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upload-memory-preparation-20261111/safe-control/prepared.json": "8c41f7031c3ce83a73789a83f3d10b082f1d701fcfb4b5a1f7dbfccf3a60bf47",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upload-memory-preparation-20261111/safe-control/gates-result.json": "168819dd6b576b6a42d542bb6826c99e5e54ec9daa4a4e3c4b06108e882ed709",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upload-memory-preparation-20261111/safe-control/lifecycle-result.json": "d6f91c38c7867832eaa41d9c0fbffa9abf2b3a8d1fa9d092f6f683a4cf824065",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upload-memory-preparation-20261111/safe-control/admission-corrected.json": "5c2e3f583d90381841aed0cbd95a5b0fcdd2161804f2351e8634328548c1dd2c",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upload-memory-preparation-20261111/safe-control/abab-corrected-01-observer.json": "4fe2933a5b66bffb56ebf14b46d2f98ed9825ebcc1c1fc5b6d407f77b9e7ba3c"
+  }
+}

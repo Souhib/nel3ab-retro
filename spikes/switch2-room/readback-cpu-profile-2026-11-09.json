@@ -1,0 +1,269 @@
+{
+  "date_utc": "2026-11-09",
+  "cli_sha256": "5ac642897062c2772d8e9f9fe81ec205ecdd8ddeb2e9100659f152a8e6291429",
+  "base": "0b83798bf6e7e2440568b7cf69646ae45d681b11+composed corrections",
+  "scene": "Private Kokiri camera, actual before/after images reviewed",
+  "diagnostic_only": true,
+  "cadence_comparison": false,
+  "all_emulator_threads_sampled": true,
+  "recording_seconds": 24.45612382888794,
+  "hz": 99,
+  "call_graph": "DWARF8192",
+  "actual_enable_ack": true,
+  "samples": 12419,
+  "lost_samples": 0,
+  "mapping_timeout": false,
+  "normal_stop": true,
+  "cycle_distribution": [
+    {
+      "thread_name": "GPUBack",
+      "sampled_cycles_percent_rounded": 18.39
+    },
+    {
+      "thread_name": "CPUCore_1",
+      "sampled_cycles_percent_rounded": 11.94
+    },
+    {
+      "thread_name": "CPUCore_0",
+      "sampled_cycles_percent_rounded": 11.41
+    },
+    {
+      "thread_name": "CPUCore_3",
+      "sampled_cycles_percent_rounded": 11.31
+    },
+    {
+      "thread_name": "CPUCore_2",
+      "sampled_cycles_percent_rounded": 10.87
+    },
+    {
+      "thread_name": "CPUCore_5",
+      "sampled_cycles_percent_rounded": 10.49
+    },
+    {
+      "thread_name": "CPUCore_4",
+      "sampled_cycles_percent_rounded": 10.49
+    },
+    {
+      "thread_name": "GPU",
+      "sampled_cycles_percent_rounded": 8.55
+    },
+    {
+      "thread_name": "VulkanWorker",
+      "sampled_cycles_percent_rounded": 4.63
+    },
+    {
+      "thread_name": "HostTiming",
+      "sampled_cycles_percent_rounded": 0.63
+    },
+    {
+      "thread_name": "DSP_AudioRender",
+      "sampled_cycles_percent_rounded": 0.53
+    },
+    {
+      "thread_name": "GPUFencingThrea",
+      "sampled_cycles_percent_rounded": 0.39
+    },
+    {
+      "thread_name": "eden-cli",
+      "sampled_cycles_percent_rounded": 0.2
+    },
+    {
+      "thread_name": "am:1",
+      "sampled_cycles_percent_rounded": 0.03
+    },
+    {
+      "thread_name": "AudioRenderSyst",
+      "sampled_cycles_percent_rounded": 0.03
+    },
+    {
+      "thread_name": "audio",
+      "sampled_cycles_percent_rounded": 0.02
+    },
+    {
+      "thread_name": "PulseMainloop",
+      "sampled_cycles_percent_rounded": 0.01
+    },
+    {
+      "thread_name": "VulkanPresent",
+      "sampled_cycles_percent_rounded": 0.01
+    },
+    {
+      "thread_name": "SDLAudioP15",
+      "sampled_cycles_percent_rounded": 0.01
+    },
+    {
+      "thread_name": "wl_cursor_surfa",
+      "sampled_cycles_percent_rounded": 0.01
+    },
+    {
+      "thread_name": "PulseHotplug",
+      "sampled_cycles_percent_rounded": 0.01
+    },
+    {
+      "thread_name": "am:2",
+      "sampled_cycles_percent_rounded": 0.01
+    },
+    {
+      "thread_name": "VSyncThread",
+      "sampled_cycles_percent_rounded": 0.01
+    },
+    {
+      "thread_name": "JoyconScanThrea",
+      "sampled_cycles_percent_rounded": 0.0
+    },
+    {
+      "thread_name": "FS",
+      "sampled_cycles_percent_rounded": 0.0
+    },
+    {
+      "thread_name": "DeviceMemory:Co",
+      "sampled_cycles_percent_rounded": 0.0
+    },
+    {
+      "thread_name": "SDLTimer",
+      "sampled_cycles_percent_rounded": 0.0
+    },
+    {
+      "thread_name": "bsdsocket:1",
+      "sampled_cycles_percent_rounded": 0.0
+    },
+    {
+      "thread_name": "AudioManager",
+      "sampled_cycles_percent_rounded": 0.0
+    },
+    {
+      "thread_name": "cemuhookWorker",
+      "sampled_cycles_percent_rounded": 0.0
+    },
+    {
+      "thread_name": "ScanGCAdapter",
+      "sampled_cycles_percent_rounded": 0.0
+    },
+    {
+      "thread_name": "bsdsocket",
+      "sampled_cycles_percent_rounded": 0.0
+    },
+    {
+      "thread_name": "nx2:ColdHint",
+      "sampled_cycles_percent_rounded": 0.0
+    },
+    {
+      "thread_name": "bsdsocket:2",
+      "sampled_cycles_percent_rounded": 0.0
+    }
+  ],
+  "guest_cores_sum_percent_rounded": 66.51,
+  "scope_limits": [
+    "On-CPU cycles, not wall waits or physicalGPUtime",
+    "GuestJIT IPs dispersed; no conclusion from maximum flat-symbol percentage alone",
+    "Stack-depth and symbolcoverage under analysis; no criticalpath or hardwareceiling inferred",
+    "Profiler alters execution; no FPS claim from this run"
+  ],
+  "cleanup": {
+    "game_helper_devices_removed": true,
+    "observer_active": true,
+    "gpu_auto_150W": true,
+    "installed_config_and_eight_progressions_unchanged": true
+  },
+  "review": {
+    "source": "Exactperiod offline review, standard extraction; symfs trial not merged into counts",
+    "guest_cores_sampled_cycles_percent": 66.52,
+    "guest_jit_percent_total": 39.96,
+    "guest_kernel_percent_total": 18.97,
+    "guest_cli_percent_total": 5.72,
+    "guest_libc_percent_total": 1.33,
+    "cycles_without_usable_dwarf_chain_percent": 75.26,
+    "gpu_back_cycles_without_usable_chain_percent": 89.83,
+    "cli_leaf_symbols_resolved_percent": 100,
+    "anonymous_jit_percent_total": 40.83,
+    "confirmed_idle_samples": 177,
+    "confirmed_idle_cycles_percent_total": 1.36944,
+    "idle_samples_explicit_sched_yield": 156,
+    "idle_sched_yield_cycles_percent_total": 1.30853,
+    "all_sched_yield_chain_cycles_percent_total": 12.57,
+    "all_yield_caller_attributed_to_idle": false,
+    "unresolved_libc_or_radv_internal_symbols": "ELFs present but internalnames incomplete; must not label all asmemcpy or shadercompilation",
+    "next": "ExistingIdle0vs100 scalar test completed; deeperstacks and exactdebugsymbols needed before a furthercodepatch"
+  },
+  "deeper_stack_capture": {
+    "recording_seconds": 24.445842266082764,
+    "scope": [
+      "GPU",
+      "GPUBack",
+      "VulkanWorker"
+    ],
+    "same_cli_sha256": "5ac642897062c2772d8e9f9fe81ec205ecdd8ddeb2e9100659f152a8e6291429",
+    "explicit_idle_us": 100,
+    "hz": 99,
+    "call_graph": "DWARF65528",
+    "actual_enable_ack": true,
+    "samples_retained": 3577,
+    "lost_chunks_reported": 1,
+    "unqualified_as_complete_distribution": true,
+    "normal_stop": true,
+    "stop_seconds": 3.5061424230225384,
+    "actual_images_reviewed": [
+      "ready",
+      "profile-before",
+      "profile-after"
+    ],
+    "review": "Pending exact offline report; deeper stacks do not by themselves repair GPUBack/GPU caller coverage",
+    "cadence_comparison": false
+  },
+  "nonprecise_capture": {
+    "recording_seconds": 24.450886726379395,
+    "scope": [
+      "GPU",
+      "GPUBack",
+      "VulkanWorker"
+    ],
+    "same_cli_sha256": "5ac642897062c2772d8e9f9fe81ec205ecdd8ddeb2e9100659f152a8e6291429",
+    "explicit_idle_us": 100,
+    "event": "cpu/cycles/",
+    "recorded_precise_ip": 0,
+    "precise_ip_read_from_actual_file_attribute": true,
+    "hz": 49,
+    "call_graph": "DWARF65528",
+    "buffer_MiB": 16,
+    "actual_enable_ack": true,
+    "samples_retained": 1801,
+    "loss_reported_in_record_log": false,
+    "actual_loss_record_check": {
+      "PERF_RECORD_LOST": 0,
+      "PERF_RECORD_LOST_SAMPLES": 0
+    },
+    "normal_stop": true,
+    "stop_seconds": 2.8046356909908354,
+    "all_three_actual_images_reviewed": true,
+    "cadence_comparison": false,
+    "hypothesis_primary_source": "https://lkml.rescloud.iu.edu/hypermail/linux/kernel/2611.0/18079.html",
+    "review": {
+      "full_callchains_repaired": false,
+      "empty_chain_period_percent_by_thread": {
+        "GPU": 54.676,
+        "GPUBack": 89.7941,
+        "VulkanWorker": 58.7744
+      },
+      "cli_leaf_symbols_resolved": true,
+      "manual_first_return_recovery": {
+        "method": "ExactELF CFI row atsamplePC, onlypredictedreturnword, thenexecutable-range+addr2line; noarbitrarystackscan",
+        "targets": {
+          "Drain": 134,
+          "WaitFor": 115,
+          "SpinRecursiveMutex": 34
+        },
+        "valid_returns": 283,
+        "offset_by_8_negative_valid": 0,
+        "full_callchains_reconstructed": false
+      },
+      "actionable_target": {
+        "caller": "DmaPusher::Step -> WaitForWriters",
+        "samples": 115,
+        "period_percent_of_GPU_thread": 24.3071,
+        "source_change": "https://github.com/zortos293/Lichii/commit/1a5e995a38679e0f4f7e320f9ec6a5a2f4e4ef1e",
+        "recommendation": "SelectivePR1056 on0b corrected, no cacheV2, mode1; ordertests andalternatingFPS required",
+        "limits": "ProfileIdle100 notcausalFPSbudget orbestIdle0measurement; no gainpredicted"
+      }
+    }
+  }
+}

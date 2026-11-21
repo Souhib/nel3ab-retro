@@ -1,0 +1,207 @@
+{
+  "date": "2026-11-09",
+  "phases": [
+    {
+      "label": "mesa-old-1",
+      "measurement": {
+        "requested_seconds": [
+          104.50157604217529,
+          194.236303
+        ],
+        "covered_seconds": 50.013000000000005,
+        "game_presentations": 1200,
+        "game_fps": 23.993761621978283,
+        "window_fps_median": 23.99623931041164,
+        "maximum_frame_ms": 77.011,
+        "frames_over_100_ms": 0,
+        "windows": [
+          {
+            "start": 133.139118,
+            "end": 158.399718,
+            "mean_us": 42101,
+            "maximum_us": 77011,
+            "freezes": 0
+          },
+          {
+            "start": 158.31572300000002,
+            "end": 183.068123,
+            "mean_us": 41254,
+            "maximum_us": 67819,
+            "freezes": 0
+          }
+        ]
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.005966058000922
+      },
+      "runtime": {
+        "exe_sha256": "e140f33fc92b589067424556b92df37c72ddada2de71423856f49159630b1be1",
+        "mapped_radv_path": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+        "mapped_radv_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+        "packages": "libdrm-amdgpu1:amd64\t2.4.125-1ubuntu0.1~24.04.2\nlibdrm2:amd64\t2.4.125-1ubuntu0.1~24.04.2\nmesa-vulkan-drivers:amd64\t25.2.8-0ubuntu0.24.04.4\n",
+        "actual_log_filter_verified": true
+      }
+    },
+    {
+      "label": "mesa-new-1",
+      "measurement": {
+        "requested_seconds": [
+          130.51777181625366,
+          214.661582
+        ],
+        "covered_seconds": 51.444,
+        "game_presentations": 1200,
+        "game_fps": 23.32633543270352,
+        "window_fps_median": 23.338308374375334,
+        "maximum_frame_ms": 198.626,
+        "frames_over_100_ms": 1,
+        "windows": [
+          {
+            "start": 148.35531500000002,
+            "end": 174.659915,
+            "mean_us": 43841,
+            "maximum_us": 84941,
+            "freezes": 0
+          },
+          {
+            "start": 174.61688800000002,
+            "end": 199.756288,
+            "mean_us": 41899,
+            "maximum_us": 198626,
+            "freezes": 1
+          }
+        ]
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.7051702179014683
+      },
+      "runtime": {
+        "exe_sha256": "e140f33fc92b589067424556b92df37c72ddada2de71423856f49159630b1be1",
+        "mapped_radv_path": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+        "mapped_radv_sha256": "09f5f9f604e4468517e6ac99a753a9a12aaa3893cf81bdaba0709ee2b8c09ba3",
+        "packages": "libdrm-amdgpu1:amd64\t2.4.134-3~kisak~n\nlibdrm2:amd64\t2.4.134-3~kisak~n\nmesa-vulkan-drivers:amd64\t26.2.6~kisak1~n\n",
+        "actual_log_filter_verified": true
+      }
+    },
+    {
+      "label": "mesa-old-2",
+      "measurement": {
+        "requested_seconds": [
+          106.73539814949035,
+          192.108159
+        ],
+        "covered_seconds": 50.5596,
+        "game_presentations": 1200,
+        "game_fps": 23.73436498706477,
+        "window_fps_median": 23.737096855025655,
+        "maximum_frame_ms": 162.656,
+        "frames_over_100_ms": 1,
+        "windows": [
+          {
+            "start": 132.8417,
+            "end": 158.3927,
+            "mean_us": 42585,
+            "maximum_us": 76900,
+            "freezes": 0
+          },
+          {
+            "start": 158.351778,
+            "end": 183.360378,
+            "mean_us": 41681,
+            "maximum_us": 162656,
+            "freezes": 1
+          }
+        ]
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 2.803648268803954
+      },
+      "runtime": {
+        "exe_sha256": "e140f33fc92b589067424556b92df37c72ddada2de71423856f49159630b1be1",
+        "mapped_radv_path": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+        "mapped_radv_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+        "packages": "libdrm-amdgpu1:amd64\t2.4.125-1ubuntu0.1~24.04.2\nlibdrm2:amd64\t2.4.125-1ubuntu0.1~24.04.2\nmesa-vulkan-drivers:amd64\t25.2.8-0ubuntu0.24.04.4\n",
+        "actual_log_filter_verified": true
+      }
+    },
+    {
+      "label": "mesa-new-2",
+      "measurement": {
+        "requested_seconds": [
+          110.90009937286376,
+          201.074395
+        ],
+        "covered_seconds": 50.665800000000004,
+        "game_presentations": 1200,
+        "game_fps": 23.68461565789941,
+        "window_fps_median": 23.694641537194016,
+        "maximum_frame_ms": 189.621,
+        "frames_over_100_ms": 1,
+        "windows": [
+          {
+            "start": 130.49428,
+            "end": 156.34828,
+            "mean_us": 43090,
+            "maximum_us": 189621,
+            "freezes": 1
+          },
+          {
+            "start": 156.307671,
+            "end": 181.119471,
+            "mean_us": 41353,
+            "maximum_us": 69615,
+            "freezes": 0
+          }
+        ]
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.206114864908159
+      },
+      "runtime": {
+        "exe_sha256": "e140f33fc92b589067424556b92df37c72ddada2de71423856f49159630b1be1",
+        "mapped_radv_path": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+        "mapped_radv_sha256": "09f5f9f604e4468517e6ac99a753a9a12aaa3893cf81bdaba0709ee2b8c09ba3",
+        "packages": "libdrm-amdgpu1:amd64\t2.4.134-3~kisak~n\nlibdrm2:amd64\t2.4.134-3~kisak~n\nmesa-vulkan-drivers:amd64\t26.2.6~kisak1~n\n",
+        "actual_log_filter_verified": true
+      }
+    }
+  ],
+  "pooled": {
+    "old": {
+      "presents": 2400,
+      "seconds": 100.57260000000001,
+      "over100ms": 1,
+      "fps": 23.863358409745793
+    },
+    "new": {
+      "presents": 2400,
+      "seconds": 102.1098,
+      "over100ms": 2,
+      "fps": 23.50411028128544
+    }
+  },
+  "change_percent": -1.5054382635163233,
+  "method": "Same actual running officialrc3PGO CLI hash in everyphase. Alternatingold/new/old/new private runtimeimages. Actualmappedradvfileinode/hash andpackageversions verified beforephases. Same initialprivatewarmcachestate,NUP,update,Kokiri checkpoint,camera sweeps,mode0,NO_MESH1,native scale. No compiler,profiler,CIworker orfilesystempreparation duringFPSwindows. Allworld/Link imagesreviewed.",
+  "images": {
+    "old": "nel3ab/eglantine-drain-build:2026-11-08",
+    "new": "nel3ab/nx2-mesa2626-lab:2026-11-09"
+  },
+  "limits": "Observed1.5%scale difference is small and not evidence of causalregression. Newdriverchangesalso libdrm/LLVMdependencies, not a singlepatch comparison. Nativeframeaveragesdo notproveconstantcadence. No30fps achieved. No full-mesh/audio/zone/save validation for this runtime. No hostMesa/package or productionconfiguration change. All4stopsnormal.",
+  "decision": "No FPSgain justifying installation from thiscomparison. Keep runtimeprivate; proceed withnewupstreamenginepackages."
+}

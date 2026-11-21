@@ -1,0 +1,142 @@
+{
+  "date": "2026-11-08",
+  "scope": "Zelda on the existing container, Mesa RADV 25.2.8, RX 6650 XT. All runs keep NO_MESH=1; this does not prove behavior without that GPU workaround or on other hardware. No game FPS accepted. One ignored disable request is explicitly invalidated.",
+  "runs": [
+    {
+      "label": "compare-1-lichii-117-pgo",
+      "version": "lichii-117-pgo",
+      "gameplay_observed": false,
+      "shutdown": {
+        "exit_code": 137,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": true,
+        "stop_seconds": 31.292206178884953
+      },
+      "oom_killed": false,
+      "exit_code": 137,
+      "aborted": {
+        "at": 1794097579.1692162,
+        "reason": "No picture or presents after several minutes; retry without copied shader cache. Cause unproven."
+      }
+    },
+    {
+      "label": "lichii-fresh-cache",
+      "version": "lichii-117-pgo",
+      "gameplay_observed": false,
+      "shutdown": {
+        "exit_code": 137,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": true,
+        "stop_seconds": 31.26957002375275
+      },
+      "oom_killed": false,
+      "exit_code": 137
+    },
+    {
+      "label": "lichii-defaults-safe",
+      "version": "lichii-117-pgo",
+      "gameplay_observed": false,
+      "shutdown": {
+        "exit_code": 137,
+        "stop_requested": true,
+        "window_closed": false,
+        "forced": true,
+        "stop_seconds": 30.316505040042102
+      },
+      "oom_killed": false,
+      "exit_code": 137
+    },
+    {
+      "label": "lichii-no-builtins",
+      "version": "lichii-117-pgo",
+      "gameplay_observed": false,
+      "shutdown": {
+        "exit_code": 137,
+        "stop_requested": true,
+        "window_closed": false,
+        "forced": true,
+        "stop_seconds": 30.23993236385286
+      },
+      "oom_killed": false,
+      "exit_code": 137,
+      "aborted": {
+        "reason": "Disable request was ignored: loader still applies both patches; not a valid disabled-patch trial. Missing default=false for title_id and disabled strings.",
+        "at": 1794098415.3440619
+      }
+    },
+    {
+      "label": "lichii-no-builtins-verified",
+      "version": "lichii-117-pgo",
+      "gameplay_observed": false,
+      "shutdown": {
+        "exit_code": 137,
+        "stop_requested": true,
+        "window_closed": false,
+        "forced": true,
+        "stop_seconds": 30.31021150527522
+      },
+      "oom_killed": false,
+      "exit_code": 137,
+      "patches_disabled_proof": {
+        "at": 1794098535.608375,
+        "loader": [
+          "[   1.112546] Loader <Info> core/file_sys/patch_manager.cpp:496:PatchNSO: Patching NSO for name=main, build_id=E0F3CCFAF50065AE4EA01EB5AEB13B1A45DA3348",
+          "[   1.156485] Loader <Info> core/file_sys/patch_manager.cpp:533:PatchNSO:     - Skipping \"Max Resolution (built-in)\": disabled in Add-Ons",
+          "[   1.156494] Loader <Info> core/file_sys/patch_manager.cpp:533:PatchNSO:     - Skipping \"Dynamic FPS by Dark (built-in)\": disabled in Add-Ons"
+        ],
+        "disabled": true
+      }
+    },
+    {
+      "label": "lichii-standard-defaults",
+      "version": "lichii-117-standard",
+      "gameplay_observed": false,
+      "shutdown": {
+        "exit_code": 137,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": true,
+        "stop_seconds": 30.996530091855675
+      },
+      "oom_killed": false,
+      "exit_code": 137
+    }
+  ],
+  "releases": [
+    {
+      "name": "eglantine-pgo",
+      "repository": "Djihads80/Eglantine",
+      "tag": "daily-20261107",
+      "source_commit": "216d3e294367abd4742d7ebd736ef25a8db6f365",
+      "published": "2026-11-07T10:43:58Z",
+      "asset": "eglantine-linux-x86_64-pgo.AppImage",
+      "url": "https://github.com/Djihads80/Eglantine/releases/download/daily-20261107/eglantine-linux-x86_64-pgo.AppImage",
+      "size": 139115000,
+      "digest": "sha256:8618540a929a8cad211e89ff024b0e2323bde3c769e250f4fa26ad275f2386c7"
+    },
+    {
+      "name": "lichii-117-pgo",
+      "repository": "zortos293/Lichii",
+      "tag": "build-117",
+      "source_commit": "89440b29a90708c0fefc126b2bd8c7a64a996bdd",
+      "published": "2026-11-07T22:39:01Z",
+      "asset": "lichii-linux-x86_64-pgo.AppImage",
+      "url": "https://github.com/zortos293/Lichii/releases/download/build-117/lichii-linux-x86_64-pgo.AppImage",
+      "size": 140442104,
+      "digest": "sha256:a2eda749105395ac6910c905f0f3c564528b7bfd132ebaf7616963fe28c6dd98"
+    },
+    {
+      "name": "lichii-117-standard",
+      "repository": "zortos293/Lichii",
+      "tag": "build-117",
+      "source_commit": "89440b29a90708c0fefc126b2bd8c7a64a996bdd",
+      "published": "2026-11-07T22:39:01Z",
+      "asset": "lichii-linux-x86_64.AppImage",
+      "url": "https://github.com/zortos293/Lichii/releases/download/build-117/lichii-linux-x86_64.AppImage",
+      "size": 111479288,
+      "digest": "sha256:f0441333e371efae484c97b317e75eda40cc212e4a208da6bb9df25e16daa1a1"
+    }
+  ]
+}

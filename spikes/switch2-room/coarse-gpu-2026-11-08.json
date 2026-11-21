@@ -1,0 +1,6040 @@
+{
+  "started_date_utc": "2026-11-08",
+  "updated_utc": "2026-11-09T00:10:01.440069+00:00",
+  "scope": "Lighter GPU diagnostic, not an emulator speed optimization. Isolated pristine pinned upstream plus this probe only; no production installation, commit, push or upstream submission.",
+  "upstream": {
+    "repository": "https://github.com/Djihads80/Eglantine",
+    "revision": "216d3e294367abd4742d7ebd736ef25a8db6f365"
+  },
+  "build": {
+    "manifest": {
+      "bin/eden-cli": "4256d55d11351842d1e78b4b4826d1ca0df1e6c177152299b9efa4108668f4ed"
+    },
+    "initial_build_operations": 82,
+    "final_build_operations": 9,
+    "rebuilt_final": [
+      "vk_coarse_gpu.cpp.o",
+      "vk_scheduler.cpp.o",
+      "vk_rasterizer.cpp.o",
+      "eden-cli",
+      "tests"
+    ],
+    "patch": {
+      "applies_to_pristine": true,
+      "reverse_check": true,
+      "sha256": "805427dd7e34132705c8c54e9259d0215f6d845e9cd35bfd10ebb3716a1c7977",
+      "bytes": 25172
+    }
+  },
+  "conditions": {
+    "split": 0,
+    "NO_MESH": 1,
+    "frame_generation": false,
+    "refresh_hz": 120,
+    "resolution": "1x",
+    "reactive_flushing": true,
+    "game_base": "0400486024DEC000",
+    "update": 131072,
+    "initial_homes": {
+      "identical": true,
+      "files": 3641,
+      "cache_files": 3613
+    },
+    "tools": "GCC13.3, CMake3.31.10, Ninja, RelWithDebInfo -O3 -g1 -DNDEBUG -fno-omit-frame-pointer, no LTO/PGO",
+    "runtime": "Same image and executable off/on, Mesa25.2.8ubuntu24.04.4; this is not an installed-vs-local comparison",
+    "probe_period_frames": 60,
+    "measured_scope": "Four alternating91.5s mobile-camera phases on same Kokiri balcony checkpoint; actual world/avatar reviewed before/after. Complete600-present native windows inside observed wall bounds only. No compiler, profiler, tests or CI during phases.",
+    "disabled_control_limit": "Same binary off retains compiled branches and native-key lookup. Activation cost, not total compiled-patch overhead versus pristine upstream."
+  },
+  "activation_comparison": {
+    "phases": [
+      {
+        "label": "coarse-off-1",
+        "version": "off",
+        "phase_seconds": 91.54271315317601,
+        "measurement": {
+          "requested_seconds": [
+            92.107732629776,
+            181.223529
+          ],
+          "covered_seconds": 54.4074,
+          "game_presentations": 1200,
+          "game_fps": 22.05582328874381,
+          "window_fps_median": 22.0766475728145,
+          "maximum_frame_ms": 94.752,
+          "frames_over_100_ms": 0,
+          "windows": [
+            {
+              "start": 109.462884,
+              "end": 137.502084,
+              "mean_us": 46732,
+              "maximum_us": 94752,
+              "freezes": 0
+            },
+            {
+              "start": 137.458699,
+              "end": 163.826899,
+              "mean_us": 43947,
+              "maximum_us": 77770,
+              "freezes": 0
+            }
+          ]
+        },
+        "thread_cpu_percent": {
+          "eden-cli": 1.147658271826474,
+          "KWorkerTaskMana": 0.0,
+          "libusb_event": 0.0,
+          "ScanGCAdapter": 0.0,
+          "cemuhookWorker": 0.0,
+          "libusb": 0.0,
+          "JoyconScanThrea": 0.011710798692106877,
+          "wl_cursor_surfa": 0.07026479215264125,
+          "SDLTimer": 0.011710798692106877,
+          "HostTiming": 4.309573918695331,
+          "eden-cl:disk$0": 0.0,
+          "eden-cl:disk$1": 0.0,
+          "eden-cl:disk$2": 0.0,
+          "eden-cl:disk$3": 0.0,
+          "VulkanWorker": 26.372718654624684,
+          "VulkanPresent": 0.4450103503000613,
+          "TextureDecoder": 0.0,
+          "VkPipelineBuild": 0.0,
+          "VkPipelineSeria": 0.0,
+          "GPUFencingThrea": 5.586050976134979,
+          "AudioManager": 0.0,
+          "PulseMainloop": 0.6558047267579852,
+          "PulseHotplug": 0.37474555814742005,
+          "DSP_OpusDecoder": 0.0,
+          "audio": 1.0891042783659395,
+          "FS": 0.023421597384213753,
+          "ldn": 0.0,
+          "nvservices": 0.0,
+          "bsdsocket": 0.0,
+          "vi": 0.0,
+          "bsdsocket:selec": 0.0,
+          "bsdsocket:1": 0.0,
+          "bsdsocket:2": 0.0,
+          "CPUCore_0": 44.85235899076933,
+          "CPUCore_1": 45.156839756764114,
+          "CPUCore_2": 42.29940487589003,
+          "CPUCore_3": 43.177714777798045,
+          "CPUCore_4": 41.47964896744256,
+          "CPUCore_5": 40.929241428913535,
+          "GPU": 84.1303778040958,
+          "TimeWorker": 0.0,
+          "VSyncThread": 0.05855399346053438,
+          "am:EventObserve": 0.0,
+          "nx2:ColdHint": 0.0,
+          "SDLAudioP15": 0.5972507332974507,
+          "DSP_AudioRender": 3.595215198476811,
+          "AudioRenderSyst": 0.9251530966764432,
+          "DeviceMemory:Co": 0.0
+        },
+        "cpu_temp_min_C": 81.5,
+        "cpu_temp_max_C": 88.75,
+        "gpu_busy_mean_percent": 59,
+        "shutdown": {
+          "exit_code": 0,
+          "stop_requested": true,
+          "window_closed": true,
+          "forced": false,
+          "stop_seconds": 3.304290834348649
+        },
+        "build": {
+          "version": "off",
+          "sha256": "4256d55d11351842d1e78b4b4826d1ca0df1e6c177152299b9efa4108668f4ed",
+          "coarse_probe_enabled": false,
+          "period_frames": 60,
+          "ready_markers": []
+        }
+      },
+      {
+        "label": "coarse-on-1",
+        "version": "on",
+        "phase_seconds": 91.59399481676519,
+        "measurement": {
+          "requested_seconds": [
+            87.11355123519897,
+            172.491077
+          ],
+          "covered_seconds": 53.4972,
+          "game_presentations": 1200,
+          "game_fps": 22.431080505147932,
+          "window_fps_median": 22.43384626536488,
+          "maximum_frame_ms": 84.881,
+          "frames_over_100_ms": 0,
+          "windows": [
+            {
+              "start": 109.657118,
+              "end": 136.702718,
+              "mean_us": 45076,
+              "maximum_us": 84881,
+              "freezes": 0
+            },
+            {
+              "start": 136.70577200000002,
+              "end": 163.157372,
+              "mean_us": 44086,
+              "maximum_us": 83096,
+              "freezes": 0
+            }
+          ]
+        },
+        "thread_cpu_percent": {
+          "eden-cli": 1.2523396794664183,
+          "KWorkerTaskMana": 0.0,
+          "libusb_event": 0.0,
+          "ScanGCAdapter": 0.0,
+          "cemuhookWorker": 0.0,
+          "libusb": 0.0,
+          "JoyconScanThrea": 0.01170410915389176,
+          "wl_cursor_surfa": 0.08192876407724232,
+          "SDLTimer": 0.01170410915389176,
+          "HostTiming": 4.447561478478868,
+          "eden-cl:disk$0": 0.0,
+          "eden-cl:disk$1": 0.0,
+          "eden-cl:disk$2": 0.0,
+          "eden-cl:disk$3": 0.0,
+          "VulkanWorker": 26.54491956102651,
+          "VulkanPresent": 0.44475614784788686,
+          "TextureDecoder": 0.0,
+          "VkPipelineBuild": 0.0,
+          "VkPipelineSeria": 0.0,
+          "GPUFencingThrea": 5.758421703714745,
+          "AudioManager": 0.0,
+          "PulseMainloop": 0.6554301126179386,
+          "PulseHotplug": 0.3979397112323198,
+          "DSP_OpusDecoder": 0.0,
+          "audio": 1.1235944787736092,
+          "FS": 0.02340821830778352,
+          "ldn": 0.0,
+          "nvservices": 0.0,
+          "bsdsocket": 0.0,
+          "vi": 0.0,
+          "bsdsocket:selec": 0.0,
+          "bsdsocket:1": 0.0,
+          "bsdsocket:2": 0.0,
+          "CPUCore_0": 45.01400380586771,
+          "CPUCore_1": 45.47046406286949,
+          "CPUCore_2": 42.380579246242064,
+          "CPUCore_3": 43.38713263347675,
+          "CPUCore_4": 41.59640393293132,
+          "CPUCore_5": 40.97608614777505,
+          "GPU": 85.35806805933261,
+          "TimeWorker": 0.0,
+          "VSyncThread": 0.058520545769458795,
+          "am:EventObserve": 0.0,
+          "nx2:ColdHint": 0.03511232746167528,
+          "SDLAudioP15": 0.6203177851562632,
+          "DSP_AudioRender": 3.604865619398662,
+          "AudioRenderSyst": 0.9480328414652325,
+          "DeviceMemory:Co": 0.0
+        },
+        "cpu_temp_min_C": 85.5,
+        "cpu_temp_max_C": 93.5,
+        "gpu_busy_mean_percent": 59.13333333333333,
+        "shutdown": {
+          "exit_code": 0,
+          "stop_requested": true,
+          "window_closed": true,
+          "forced": false,
+          "stop_seconds": 3.20490030804649
+        },
+        "build": {
+          "version": "on",
+          "sha256": "4256d55d11351842d1e78b4b4826d1ca0df1e6c177152299b9efa4108668f4ed",
+          "coarse_probe_enabled": true,
+          "period_frames": 60,
+          "ready_markers": [
+            "\u0000\u001b[0;37m[   1.543733] HW.GPU <Info> video_core/renderer_vulkan/vk_coarse_gpu.cpp:49:CoarseGpuTrace: Coarse GPU timing ready: period_ns=10 valid_bits=64 interval=60 max_intervals=1024\u001b[0m"
+          ]
+        }
+      },
+      {
+        "label": "coarse-off-2",
+        "version": "off",
+        "phase_seconds": 91.5880798776634,
+        "measurement": {
+          "requested_seconds": [
+            81.16010055541992,
+            170.047612
+          ],
+          "covered_seconds": 52.9314,
+          "game_presentations": 1200,
+          "game_fps": 22.670853217560843,
+          "window_fps_median": 22.670898733604147,
+          "maximum_frame_ms": 80.427,
+          "frames_over_100_ms": 0,
+          "windows": [
+            {
+              "start": 107.575602,
+              "end": 134.078802,
+              "mean_us": 44172,
+              "maximum_us": 80427,
+              "freezes": 0
+            },
+            {
+              "start": 134.035536,
+              "end": 160.463736,
+              "mean_us": 44047,
+              "maximum_us": 76575,
+              "freezes": 0
+            }
+          ]
+        },
+        "thread_cpu_percent": {
+          "eden-cli": 1.1822184533264621,
+          "KWorkerTaskMana": 0.0,
+          "libusb_event": 0.0,
+          "ScanGCAdapter": 0.0,
+          "cemuhookWorker": 0.0,
+          "libusb": 0.0,
+          "JoyconScanThrea": 0.0117051332012521,
+          "wl_cursor_surfa": 0.0702307992075126,
+          "SDLTimer": 0.0234102664025042,
+          "HostTiming": 4.4128352168720415,
+          "eden-cl:disk$0": 0.0,
+          "eden-cl:disk$1": 0.0,
+          "eden-cl:disk$2": 0.0,
+          "eden-cl:disk$3": 0.0,
+          "VulkanWorker": 26.87498583007482,
+          "VulkanPresent": 0.44479506164757976,
+          "TextureDecoder": 0.0,
+          "VkPipelineBuild": 0.0,
+          "VkPipelineSeria": 0.0,
+          "GPUFencingThrea": 5.723810135412276,
+          "AudioManager": 0.0,
+          "PulseMainloop": 0.6554874592701176,
+          "PulseHotplug": 0.3862693956413193,
+          "DSP_OpusDecoder": 0.0,
+          "audio": 1.1471030537227058,
+          "FS": 0.0234102664025042,
+          "ldn": 0.0,
+          "nvservices": 0.0,
+          "bsdsocket": 0.0,
+          "vi": 0.0,
+          "bsdsocket:selec": 0.0,
+          "bsdsocket:1": 0.0,
+          "bsdsocket:2": 0.0,
+          "CPUCore_0": 44.84236529399679,
+          "CPUCore_1": 45.3808014212544,
+          "CPUCore_2": 42.3491719221301,
+          "CPUCore_3": 43.227056912224,
+          "CPUCore_4": 41.40105613282867,
+          "CPUCore_5": 40.78068407316232,
+          "GPU": 85.15484403910902,
+          "TimeWorker": 0.0,
+          "VSyncThread": 0.0702307992075126,
+          "am:EventObserve": 0.0,
+          "nx2:ColdHint": 0.0351153996037563,
+          "SDLAudioP15": 0.6086669264651092,
+          "DSP_AudioRender": 3.640296425589403,
+          "AudioRenderSyst": 0.9715260557039243,
+          "DeviceMemory:Co": 0.0
+        },
+        "cpu_temp_min_C": 87.25,
+        "cpu_temp_max_C": 94.0,
+        "gpu_busy_mean_percent": 68.26666666666667,
+        "shutdown": {
+          "exit_code": 0,
+          "stop_requested": true,
+          "window_closed": true,
+          "forced": false,
+          "stop_seconds": 3.2037046449258924
+        },
+        "build": {
+          "version": "off",
+          "sha256": "4256d55d11351842d1e78b4b4826d1ca0df1e6c177152299b9efa4108668f4ed",
+          "coarse_probe_enabled": false,
+          "period_frames": 60,
+          "ready_markers": []
+        }
+      },
+      {
+        "label": "coarse-on-2",
+        "version": "on",
+        "phase_seconds": 91.50589555408806,
+        "measurement": {
+          "requested_seconds": [
+            98.95713958740234,
+            187.222367
+          ],
+          "covered_seconds": 56.8608,
+          "game_presentations": 1200,
+          "game_fps": 21.104170184028366,
+          "window_fps_median": 21.17674881291282,
+          "maximum_frame_ms": 187.236,
+          "frames_over_100_ms": 7,
+          "windows": [
+            {
+              "start": 108.19083600000002,
+              "end": 138.285636,
+              "mean_us": 50158,
+              "maximum_us": 187236,
+              "freezes": 7
+            },
+            {
+              "start": 138.2416,
+              "end": 165.0076,
+              "mean_us": 44610,
+              "maximum_us": 78055,
+              "freezes": 0
+            }
+          ]
+        },
+        "thread_cpu_percent": {
+          "eden-cli": 1.1362615258491717,
+          "KWorkerTaskMana": 0.0,
+          "libusb_event": 0.0,
+          "ScanGCAdapter": 0.0,
+          "cemuhookWorker": 0.0,
+          "libusb": 0.0,
+          "JoyconScanThrea": 0.011714036348960533,
+          "wl_cursor_surfa": 0.07028421809376319,
+          "SDLTimer": 0.011714036348960533,
+          "HostTiming": 4.381049594511239,
+          "eden-cl:disk$0": 0.0,
+          "eden-cl:disk$1": 0.0,
+          "eden-cl:disk$2": 0.0,
+          "eden-cl:disk$3": 0.0,
+          "VulkanWorker": 26.43858003960392,
+          "VulkanPresent": 0.4451333812605002,
+          "TextureDecoder": 0.0,
+          "VkPipelineBuild": 0.0,
+          "VkPipelineSeria": 0.0,
+          "GPUFencingThrea": 5.6344514838500155,
+          "AudioManager": 0.0,
+          "PulseMainloop": 0.6442719991928294,
+          "PulseHotplug": 0.3631351268177765,
+          "DSP_OpusDecoder": 0.0,
+          "audio": 1.10111941680229,
+          "FS": 0.023428072697921066,
+          "ldn": 0.0,
+          "nvservices": 0.0,
+          "bsdsocket": 0.0,
+          "vi": 0.0,
+          "bsdsocket:selec": 0.0,
+          "bsdsocket:1": 0.0,
+          "bsdsocket:2": 0.0,
+          "CPUCore_0": 44.4899100533521,
+          "CPUCore_1": 44.94675747096156,
+          "CPUCore_2": 41.91282205658079,
+          "CPUCore_3": 42.7679467100549,
+          "CPUCore_4": 40.94055703961707,
+          "CPUCore_5": 40.26114293137734,
+          "GPU": 85.19618636598994,
+          "TimeWorker": 0.0,
+          "VSyncThread": 0.05857018174480266,
+          "am:EventObserve": 0.0,
+          "nx2:ColdHint": 0.011714036348960533,
+          "SDLAudioP15": 0.5974158537969871,
+          "DSP_AudioRender": 3.584495122781923,
+          "AudioRenderSyst": 0.9371229079168426,
+          "DeviceMemory:Co": 0.011714036348960533
+        },
+        "cpu_temp_min_C": 84.0,
+        "cpu_temp_max_C": 93.25,
+        "gpu_busy_mean_percent": 71.06666666666666,
+        "shutdown": {
+          "exit_code": 0,
+          "stop_requested": true,
+          "window_closed": true,
+          "forced": false,
+          "stop_seconds": 3.504887199960649
+        },
+        "build": {
+          "version": "on",
+          "sha256": "4256d55d11351842d1e78b4b4826d1ca0df1e6c177152299b9efa4108668f4ed",
+          "coarse_probe_enabled": true,
+          "period_frames": 60,
+          "ready_markers": [
+            "\u0000\u001b[0;37m[   1.546668] HW.GPU <Info> video_core/renderer_vulkan/vk_coarse_gpu.cpp:49:CoarseGpuTrace: Coarse GPU timing ready: period_ns=10 valid_bits=64 interval=60 max_intervals=1024\u001b[0m"
+          ]
+        }
+      }
+    ],
+    "pooled": {
+      "off": {
+        "game_presentations": 2400,
+        "covered_seconds": 107.33879999999999,
+        "fps": 22.35910966025333,
+        "frames_over_100_ms": 0,
+        "maximum_frame_ms": 94.752
+      },
+      "on": {
+        "game_presentations": 2400,
+        "covered_seconds": 110.358,
+        "fps": 21.747403903659,
+        "frames_over_100_ms": 7,
+        "maximum_frame_ms": 187.236
+      }
+    },
+    "change_percent": -2.735823411080318
+  },
+  "cost_interpretation": "Observed pooled FPS difference -2.7358%, sign differs between repetitions; seven>100ms frames in last enabled pass. Diagnostic not certified transparent. Timings are instrumented approximate intervals, not unperturbed exclusive GPU cost.",
+  "sparse_gpu": {
+    "scope": "Sparse one-in60 captures, existing upload/execution command buffers and one rotating guest compute program. TOP/BOTTOM approximate overlapping queue intervals; unions not exclusive hardware busy. Submit envelope can span CPU gaps and frames in flight. Selected shader intervals are included in execution, never additive.",
+    "captures": [
+      {
+        "label": "coarse-on-1",
+        "file": "capture-54.csv",
+        "frame": 3300,
+        "cpu_tick_interval_ms": 60.43672561645508,
+        "events": 317,
+        "queries": 634,
+        "envelope_ms": 41.35433,
+        "submission_interval_union_ms": 29.41824000000001,
+        "gap_outside_intervals_ms": 11.936089999999986,
+        "categories": {
+          "execution": {
+            "count": 158,
+            "sum_ms": 28.197879999999994,
+            "union_ms": 28.197879999999998,
+            "max_ms": 3.442999999999998
+          },
+          "upload": {
+            "count": 158,
+            "sum_ms": 1.2203600000000139,
+            "union_ms": 1.2203600000000139,
+            "max_ms": 0.20216
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.0009999999999976694,
+            "union_ms": 0.0009999999999976694,
+            "max_ms": 0.0009999999999976694
+          }
+        },
+        "selected": {
+          "hash": "d6be3367d9cfc4ab",
+          "native": "e1d1cd3cc602bacc"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-on-1",
+        "file": "capture-67.csv",
+        "frame": 4080,
+        "cpu_tick_interval_ms": 60.83178520202637,
+        "events": 311,
+        "queries": 622,
+        "envelope_ms": 43.26808,
+        "submission_interval_union_ms": 30.399880000000017,
+        "gap_outside_intervals_ms": 12.86819999999998,
+        "categories": {
+          "execution": {
+            "count": 155,
+            "sum_ms": 29.239880000000014,
+            "union_ms": 29.239880000000014,
+            "max_ms": 3.06588
+          },
+          "upload": {
+            "count": 155,
+            "sum_ms": 1.1600000000000048,
+            "union_ms": 1.1600000000000046,
+            "max_ms": 0.19124
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.09136000000000166,
+            "union_ms": 0.09136000000000166,
+            "max_ms": 0.09136000000000166
+          }
+        },
+        "selected": {
+          "hash": "412d90c7f1f54102",
+          "native": "70cc863d5e1a6627"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-on-1",
+        "file": "capture-65.csv",
+        "frame": 3960,
+        "cpu_tick_interval_ms": 32.2268009185791,
+        "events": 311,
+        "queries": 622,
+        "envelope_ms": 51.06352,
+        "submission_interval_union_ms": 23.08984,
+        "gap_outside_intervals_ms": 27.973679999999998,
+        "categories": {
+          "execution": {
+            "count": 155,
+            "sum_ms": 22.32424,
+            "union_ms": 22.32424,
+            "max_ms": 3.028320000000001
+          },
+          "upload": {
+            "count": 155,
+            "sum_ms": 0.765599999999999,
+            "union_ms": 0.765599999999999,
+            "max_ms": 0.018679999999999808
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.005160000000000053,
+            "union_ms": 0.005160000000000053,
+            "max_ms": 0.005160000000000053
+          }
+        },
+        "selected": {
+          "hash": "c83e1f355361945f",
+          "native": "7360d66a4dc685a8"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-on-1",
+        "file": "capture-56.csv",
+        "frame": 3420,
+        "cpu_tick_interval_ms": 61.04469299316406,
+        "events": 315,
+        "queries": 630,
+        "envelope_ms": 48.23811,
+        "submission_interval_union_ms": 30.951520000000023,
+        "gap_outside_intervals_ms": 17.286589999999975,
+        "categories": {
+          "execution": {
+            "count": 157,
+            "sum_ms": 29.69172000000001,
+            "union_ms": 29.69172000000001,
+            "max_ms": 3.8973200000000006
+          },
+          "upload": {
+            "count": 157,
+            "sum_ms": 1.2598000000000105,
+            "union_ms": 1.2598000000000105,
+            "max_ms": 0.2
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.029519999999997992,
+            "union_ms": 0.029519999999997992,
+            "max_ms": 0.029519999999997992
+          }
+        },
+        "selected": {
+          "hash": "9d23f31deebf8293",
+          "native": "55f66ad6dab4ffa7"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-on-1",
+        "file": "capture-46.csv",
+        "frame": 2820,
+        "cpu_tick_interval_ms": 50.78315734863281,
+        "events": 323,
+        "queries": 646,
+        "envelope_ms": 50.77459,
+        "submission_interval_union_ms": 33.16128000000004,
+        "gap_outside_intervals_ms": 17.613309999999963,
+        "categories": {
+          "execution": {
+            "count": 161,
+            "sum_ms": 32.312920000000034,
+            "union_ms": 32.312920000000034,
+            "max_ms": 3.8048399999999987
+          },
+          "upload": {
+            "count": 161,
+            "sum_ms": 0.8483600000000059,
+            "union_ms": 0.8483600000000059,
+            "max_ms": 0.01756000000000313
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.0017999999999993577,
+            "union_ms": 0.0017999999999993577,
+            "max_ms": 0.0017999999999993577
+          }
+        },
+        "selected": {
+          "hash": "04d9ac5155ae848e",
+          "native": "b0559767da4670f0"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 153
+      },
+      {
+        "label": "coarse-on-1",
+        "file": "capture-61.csv",
+        "frame": 3720,
+        "cpu_tick_interval_ms": 37.21332550048828,
+        "events": 311,
+        "queries": 622,
+        "envelope_ms": 37.26204,
+        "submission_interval_union_ms": 25.578400000000002,
+        "gap_outside_intervals_ms": 11.683639999999997,
+        "categories": {
+          "execution": {
+            "count": 155,
+            "sum_ms": 24.797999999999995,
+            "union_ms": 24.797999999999995,
+            "max_ms": 3.0297599999999996
+          },
+          "upload": {
+            "count": 155,
+            "sum_ms": 0.780400000000007,
+            "union_ms": 0.780400000000007,
+            "max_ms": 0.015119999999999578
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.21164000000000094,
+            "union_ms": 0.21164000000000094,
+            "max_ms": 0.21164000000000094
+          }
+        },
+        "selected": {
+          "hash": "75d4369f3b1f5868",
+          "native": "d9b1657f3a0b4bc2"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-on-1",
+        "file": "capture-71.csv",
+        "frame": 4320,
+        "cpu_tick_interval_ms": 38.54036331176758,
+        "events": 311,
+        "queries": 622,
+        "envelope_ms": 38.55733,
+        "submission_interval_union_ms": 24.790560000000028,
+        "gap_outside_intervals_ms": 13.766769999999973,
+        "categories": {
+          "execution": {
+            "count": 155,
+            "sum_ms": 23.998440000000013,
+            "union_ms": 23.998440000000013,
+            "max_ms": 3.053280000000001
+          },
+          "upload": {
+            "count": 155,
+            "sum_ms": 0.7921200000000121,
+            "union_ms": 0.7921200000000121,
+            "max_ms": 0.01899999999999835
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.08724000000000132,
+            "union_ms": 0.08724000000000132,
+            "max_ms": 0.08724000000000132
+          }
+        },
+        "selected": {
+          "hash": "a107e12b6771be48",
+          "native": "8475d671e6967428"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-on-1",
+        "file": "capture-50.csv",
+        "frame": 3060,
+        "cpu_tick_interval_ms": 43.381452560424805,
+        "events": 317,
+        "queries": 634,
+        "envelope_ms": 43.34124,
+        "submission_interval_union_ms": 27.159000000000006,
+        "gap_outside_intervals_ms": 16.182239999999993,
+        "categories": {
+          "execution": {
+            "count": 158,
+            "sum_ms": 26.32456000000002,
+            "union_ms": 26.32456000000002,
+            "max_ms": 3.3969200000000015
+          },
+          "upload": {
+            "count": 158,
+            "sum_ms": 0.8344399999999879,
+            "union_ms": 0.8344399999999879,
+            "max_ms": 0.0176400000000001
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.004000000000001336,
+            "union_ms": 0.004000000000001336,
+            "max_ms": 0.004000000000001336
+          }
+        },
+        "selected": {
+          "hash": "947451f26ff15139",
+          "native": "55e3ec15418ec8ec"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 147
+      },
+      {
+        "label": "coarse-on-1",
+        "file": "capture-73.csv",
+        "frame": 4440,
+        "cpu_tick_interval_ms": 38.802146911621094,
+        "events": 309,
+        "queries": 618,
+        "envelope_ms": 38.83584,
+        "submission_interval_union_ms": 25.704200000000014,
+        "gap_outside_intervals_ms": 13.131639999999983,
+        "categories": {
+          "execution": {
+            "count": 154,
+            "sum_ms": 24.92228000000002,
+            "union_ms": 24.92228000000002,
+            "max_ms": 3.033520000000003
+          },
+          "upload": {
+            "count": 154,
+            "sum_ms": 0.781919999999997,
+            "union_ms": 0.7819199999999968,
+            "max_ms": 0.017880000000001672
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.04111999999999938,
+            "union_ms": 0.04111999999999938,
+            "max_ms": 0.04111999999999938
+          }
+        },
+        "selected": {
+          "hash": "a2fcaa95c5a162f3",
+          "native": "42593194bb0b2b32"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-on-1",
+        "file": "capture-64.csv",
+        "frame": 3900,
+        "cpu_tick_interval_ms": 41.68248176574707,
+        "events": 313,
+        "queries": 626,
+        "envelope_ms": 41.70091,
+        "submission_interval_union_ms": 25.678119999999996,
+        "gap_outside_intervals_ms": 16.022790000000004,
+        "categories": {
+          "execution": {
+            "count": 156,
+            "sum_ms": 24.86043999999999,
+            "union_ms": 24.86043999999999,
+            "max_ms": 3.3221999999999987
+          },
+          "upload": {
+            "count": 156,
+            "sum_ms": 0.8176800000000068,
+            "union_ms": 0.8176800000000068,
+            "max_ms": 0.018000000000000682
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.050080000000001235,
+            "union_ms": 0.050080000000001235,
+            "max_ms": 0.050080000000001235
+          }
+        },
+        "selected": {
+          "hash": "780c0536b89fc89e",
+          "native": "ec68e40eb783ff32"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-on-1",
+        "file": "capture-70.csv",
+        "frame": 4260,
+        "cpu_tick_interval_ms": 39.68548774719238,
+        "events": 313,
+        "queries": 626,
+        "envelope_ms": 39.71826,
+        "submission_interval_union_ms": 25.503640000000008,
+        "gap_outside_intervals_ms": 14.214619999999993,
+        "categories": {
+          "execution": {
+            "count": 156,
+            "sum_ms": 24.707960000000003,
+            "union_ms": 24.707960000000003,
+            "max_ms": 3.5185999999999993
+          },
+          "upload": {
+            "count": 156,
+            "sum_ms": 0.7956800000000022,
+            "union_ms": 0.7956800000000022,
+            "max_ms": 0.01588000000000278
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.003439999999997667,
+            "union_ms": 0.003439999999997667,
+            "max_ms": 0.003439999999997667
+          }
+        },
+        "selected": {
+          "hash": "e65e65f8de8799cb",
+          "native": "f35c365194ac4f75"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-on-1",
+        "file": "capture-66.csv",
+        "frame": 4020,
+        "cpu_tick_interval_ms": 33.452749252319336,
+        "events": 313,
+        "queries": 626,
+        "envelope_ms": 52.4135,
+        "submission_interval_union_ms": 22.34716,
+        "gap_outside_intervals_ms": 30.06634,
+        "categories": {
+          "execution": {
+            "count": 156,
+            "sum_ms": 21.56532,
+            "union_ms": 21.56532,
+            "max_ms": 3.4147999999999996
+          },
+          "upload": {
+            "count": 156,
+            "sum_ms": 0.7818399999999974,
+            "union_ms": 0.7818399999999974,
+            "max_ms": 0.018159999999999954
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.15279999999999916,
+            "union_ms": 0.15279999999999916,
+            "max_ms": 0.15279999999999916
+          }
+        },
+        "selected": {
+          "hash": "45384f519a8eacd3",
+          "native": "9694a462ae7e186c"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-on-1",
+        "file": "capture-74.csv",
+        "frame": 4500,
+        "cpu_tick_interval_ms": 42.635202407836914,
+        "events": 315,
+        "queries": 630,
+        "envelope_ms": 42.7366,
+        "submission_interval_union_ms": 25.956399999999995,
+        "gap_outside_intervals_ms": 16.780200000000008,
+        "categories": {
+          "execution": {
+            "count": 157,
+            "sum_ms": 25.125599999999974,
+            "union_ms": 25.125599999999974,
+            "max_ms": 3.488879999999998
+          },
+          "upload": {
+            "count": 157,
+            "sum_ms": 0.8308000000000196,
+            "union_ms": 0.8308000000000196,
+            "max_ms": 0.02103999999999928
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 1.9965600000000023,
+            "union_ms": 1.9965600000000023,
+            "max_ms": 1.9965600000000023
+          }
+        },
+        "selected": {
+          "hash": "04ece671c38fa5e3",
+          "native": "6f9367bd41dc0b58"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-on-1",
+        "file": "capture-68.csv",
+        "frame": 4140,
+        "cpu_tick_interval_ms": 43.3197021484375,
+        "events": 315,
+        "queries": 630,
+        "envelope_ms": 43.21101,
+        "submission_interval_union_ms": 26.814520000000055,
+        "gap_outside_intervals_ms": 16.396489999999947,
+        "categories": {
+          "execution": {
+            "count": 156,
+            "sum_ms": 25.980120000000024,
+            "union_ms": 25.980120000000024,
+            "max_ms": 3.641960000000001
+          },
+          "upload": {
+            "count": 156,
+            "sum_ms": 0.8344000000000316,
+            "union_ms": 0.8344000000000316,
+            "max_ms": 0.01688000000000045
+          },
+          "guest_compute": {
+            "count": 3,
+            "sum_ms": 0.03919999999999746,
+            "union_ms": 0.03919999999999746,
+            "max_ms": 0.013519999999999754
+          }
+        },
+        "selected": {
+          "hash": "ff3dc66618a17eb7",
+          "native": "9d1a4a01ebbc1c95"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-on-1",
+        "file": "capture-45.csv",
+        "frame": 2760,
+        "cpu_tick_interval_ms": 60.04762649536133,
+        "events": 308,
+        "queries": 616,
+        "envelope_ms": 79.64053,
+        "submission_interval_union_ms": 38.02140000000001,
+        "gap_outside_intervals_ms": 41.61912999999999,
+        "categories": {
+          "execution": {
+            "count": 153,
+            "sum_ms": 37.228000000000016,
+            "union_ms": 37.228000000000016,
+            "max_ms": 3.918599999999998
+          },
+          "upload": {
+            "count": 153,
+            "sum_ms": 0.7933999999999924,
+            "union_ms": 0.7933999999999926,
+            "max_ms": 0.014679999999998472
+          },
+          "guest_compute": {
+            "count": 2,
+            "sum_ms": 0.005399999999999849,
+            "union_ms": 0.005399999999999849,
+            "max_ms": 0.0036000000000004917
+          }
+        },
+        "selected": {
+          "hash": "12a677f6995b32ed",
+          "native": "fb907e3c1ca207ff"
+        },
+        "observed_programs": 75,
+        "guest_dispatches": 147
+      },
+      {
+        "label": "coarse-on-1",
+        "file": "capture-62.csv",
+        "frame": 3780,
+        "cpu_tick_interval_ms": 33.391475677490234,
+        "events": 315,
+        "queries": 630,
+        "envelope_ms": 52.16693,
+        "submission_interval_union_ms": 22.56703999999999,
+        "gap_outside_intervals_ms": 29.59989000000001,
+        "categories": {
+          "execution": {
+            "count": 157,
+            "sum_ms": 21.78748,
+            "union_ms": 21.78748,
+            "max_ms": 3.196760000000001
+          },
+          "upload": {
+            "count": 157,
+            "sum_ms": 0.7795599999999927,
+            "union_ms": 0.7795599999999927,
+            "max_ms": 0.01828000000000074
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.007160000000000721,
+            "union_ms": 0.007160000000000721,
+            "max_ms": 0.007160000000000721
+          }
+        },
+        "selected": {
+          "hash": "32c1819485153ec3",
+          "native": "0c546119f1c74fbd"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-on-1",
+        "file": "capture-72.csv",
+        "frame": 4380,
+        "cpu_tick_interval_ms": 41.38922691345215,
+        "events": 315,
+        "queries": 630,
+        "envelope_ms": 41.31786,
+        "submission_interval_union_ms": 25.205120000000008,
+        "gap_outside_intervals_ms": 16.112739999999995,
+        "categories": {
+          "execution": {
+            "count": 157,
+            "sum_ms": 24.385280000000012,
+            "union_ms": 24.385280000000012,
+            "max_ms": 3.274239999999999
+          },
+          "upload": {
+            "count": 157,
+            "sum_ms": 0.8198399999999936,
+            "union_ms": 0.8198399999999936,
+            "max_ms": 0.01832000000000278
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.03608000000000544,
+            "union_ms": 0.03608000000000544,
+            "max_ms": 0.03608000000000544
+          }
+        },
+        "selected": {
+          "hash": "60b2970a3d10bbbe",
+          "native": "9387db798781f081"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-on-1",
+        "file": "capture-51.csv",
+        "frame": 3120,
+        "cpu_tick_interval_ms": 39.02292251586914,
+        "events": 314,
+        "queries": 628,
+        "envelope_ms": 38.83976,
+        "submission_interval_union_ms": 25.70508,
+        "gap_outside_intervals_ms": 13.13468,
+        "categories": {
+          "execution": {
+            "count": 156,
+            "sum_ms": 24.905839999999994,
+            "union_ms": 24.905839999999998,
+            "max_ms": 3.238759999999999
+          },
+          "upload": {
+            "count": 156,
+            "sum_ms": 0.7992400000000014,
+            "union_ms": 0.7992400000000013,
+            "max_ms": 0.0191599999999994
+          },
+          "guest_compute": {
+            "count": 2,
+            "sum_ms": 0.012559999999998794,
+            "union_ms": 0.012559999999998794,
+            "max_ms": 0.006559999999998567
+          }
+        },
+        "selected": {
+          "hash": "6baae2e366d8dca9",
+          "native": "00832f30e61fca4c"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-on-1",
+        "file": "capture-43.csv",
+        "frame": 2640,
+        "cpu_tick_interval_ms": 52.98328399658203,
+        "events": 315,
+        "queries": 630,
+        "envelope_ms": 73.08132,
+        "submission_interval_union_ms": 37.947679999999984,
+        "gap_outside_intervals_ms": 35.13364000000002,
+        "categories": {
+          "execution": {
+            "count": 156,
+            "sum_ms": 37.15355999999997,
+            "union_ms": 37.15355999999997,
+            "max_ms": 3.5600000000000023
+          },
+          "upload": {
+            "count": 156,
+            "sum_ms": 0.794120000000014,
+            "union_ms": 0.7941200000000139,
+            "max_ms": 0.012920000000001153
+          },
+          "guest_compute": {
+            "count": 3,
+            "sum_ms": 0.008800000000000807,
+            "union_ms": 0.008800000000000807,
+            "max_ms": 0.0035199999999999676
+          }
+        },
+        "selected": {
+          "hash": "12a677f6995b32ed",
+          "native": "fb907e3c1ca207ff"
+        },
+        "observed_programs": 75,
+        "guest_dispatches": 148
+      },
+      {
+        "label": "coarse-on-1",
+        "file": "capture-59.csv",
+        "frame": 3600,
+        "cpu_tick_interval_ms": 39.350271224975586,
+        "events": 312,
+        "queries": 624,
+        "envelope_ms": 39.38888,
+        "submission_interval_union_ms": 25.599400000000017,
+        "gap_outside_intervals_ms": 13.789479999999983,
+        "categories": {
+          "execution": {
+            "count": 155,
+            "sum_ms": 24.811600000000002,
+            "union_ms": 24.811600000000002,
+            "max_ms": 3.0396399999999986
+          },
+          "upload": {
+            "count": 155,
+            "sum_ms": 0.7878000000000159,
+            "union_ms": 0.7878000000000159,
+            "max_ms": 0.018879999999999342
+          },
+          "guest_compute": {
+            "count": 2,
+            "sum_ms": 0.019960000000001088,
+            "union_ms": 0.019960000000001088,
+            "max_ms": 0.010480000000001155
+          }
+        },
+        "selected": {
+          "hash": "18a03bee42bb6d7c",
+          "native": "aa8209e18fe548eb"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-on-1",
+        "file": "capture-52.csv",
+        "frame": 3180,
+        "cpu_tick_interval_ms": 43.32304000854492,
+        "events": 317,
+        "queries": 634,
+        "envelope_ms": 43.11029,
+        "submission_interval_union_ms": 26.696239999999985,
+        "gap_outside_intervals_ms": 16.414050000000014,
+        "categories": {
+          "execution": {
+            "count": 158,
+            "sum_ms": 25.85859999999999,
+            "union_ms": 25.85859999999999,
+            "max_ms": 3.53932
+          },
+          "upload": {
+            "count": 158,
+            "sum_ms": 0.8376399999999965,
+            "union_ms": 0.8376399999999965,
+            "max_ms": 0.01631999999999678
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.006159999999999499,
+            "union_ms": 0.006159999999999499,
+            "max_ms": 0.006159999999999499
+          }
+        },
+        "selected": {
+          "hash": "d9af70cd6d720cfb",
+          "native": "611d42c808a5c1c7"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-on-1",
+        "file": "capture-63.csv",
+        "frame": 3840,
+        "cpu_tick_interval_ms": 39.4892692565918,
+        "events": 309,
+        "queries": 618,
+        "envelope_ms": 39.51637,
+        "submission_interval_union_ms": 26.028800000000015,
+        "gap_outside_intervals_ms": 13.487569999999987,
+        "categories": {
+          "execution": {
+            "count": 154,
+            "sum_ms": 25.248520000000013,
+            "union_ms": 25.248520000000013,
+            "max_ms": 2.995160000000002
+          },
+          "upload": {
+            "count": 154,
+            "sum_ms": 0.7802800000000005,
+            "union_ms": 0.7802800000000005,
+            "max_ms": 0.01868000000000336
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.15612000000000137,
+            "union_ms": 0.15612000000000137,
+            "max_ms": 0.15612000000000137
+          }
+        },
+        "selected": {
+          "hash": "6a6f4e8d501a39c7",
+          "native": "e883414e8c9be33b"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-on-1",
+        "file": "capture-69.csv",
+        "frame": 4200,
+        "cpu_tick_interval_ms": 62.35194206237793,
+        "events": 309,
+        "queries": 618,
+        "envelope_ms": 41.98682,
+        "submission_interval_union_ms": 29.445599999999985,
+        "gap_outside_intervals_ms": 12.541220000000017,
+        "categories": {
+          "execution": {
+            "count": 154,
+            "sum_ms": 28.335440000000002,
+            "union_ms": 28.335440000000002,
+            "max_ms": 3.03388
+          },
+          "upload": {
+            "count": 154,
+            "sum_ms": 1.1101599999999836,
+            "union_ms": 1.1101599999999836,
+            "max_ms": 0.18824
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.006879999999998887,
+            "union_ms": 0.006879999999998887,
+            "max_ms": 0.006879999999998887
+          }
+        },
+        "selected": {
+          "hash": "3456eac1b79ed5b8",
+          "native": "e2d9edfe87bd5a80"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-on-1",
+        "file": "capture-49.csv",
+        "frame": 3000,
+        "cpu_tick_interval_ms": 35.439491271972656,
+        "events": 317,
+        "queries": 634,
+        "envelope_ms": 54.59402,
+        "submission_interval_union_ms": 24.68452000000002,
+        "gap_outside_intervals_ms": 29.90949999999998,
+        "categories": {
+          "execution": {
+            "count": 158,
+            "sum_ms": 23.89864000000001,
+            "union_ms": 23.89864000000001,
+            "max_ms": 3.276760000000003
+          },
+          "upload": {
+            "count": 158,
+            "sum_ms": 0.7858800000000097,
+            "union_ms": 0.7858800000000097,
+            "max_ms": 0.018640000000001322
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.003919999999999035,
+            "union_ms": 0.003919999999999035,
+            "max_ms": 0.003919999999999035
+          }
+        },
+        "selected": {
+          "hash": "432b4965bae72f1c",
+          "native": "5f2a88b8328dbaee"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 149
+      },
+      {
+        "label": "coarse-on-1",
+        "file": "capture-53.csv",
+        "frame": 3240,
+        "cpu_tick_interval_ms": 43.08795928955078,
+        "events": 315,
+        "queries": 630,
+        "envelope_ms": 62.89232,
+        "submission_interval_union_ms": 28.70184,
+        "gap_outside_intervals_ms": 34.190479999999994,
+        "categories": {
+          "execution": {
+            "count": 157,
+            "sum_ms": 27.922040000000003,
+            "union_ms": 27.922040000000003,
+            "max_ms": 5.45532
+          },
+          "upload": {
+            "count": 157,
+            "sum_ms": 0.7797999999999966,
+            "union_ms": 0.7797999999999966,
+            "max_ms": 0.01623999999999981
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.0036800000000001276,
+            "union_ms": 0.0036800000000001276,
+            "max_ms": 0.0036800000000001276
+          }
+        },
+        "selected": {
+          "hash": "ebfb718c12b02f92",
+          "native": "08504aa8cef29660"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-on-1",
+        "file": "capture-44.csv",
+        "frame": 2700,
+        "cpu_tick_interval_ms": 70.1456069946289,
+        "events": 310,
+        "queries": 620,
+        "envelope_ms": 70.07706,
+        "submission_interval_union_ms": 44.81412000000002,
+        "gap_outside_intervals_ms": 25.262939999999986,
+        "categories": {
+          "execution": {
+            "count": 154,
+            "sum_ms": 43.91780000000002,
+            "union_ms": 43.91780000000002,
+            "max_ms": 4.110599999999998
+          },
+          "upload": {
+            "count": 154,
+            "sum_ms": 0.8963199999999987,
+            "union_ms": 0.8963199999999987,
+            "max_ms": 0.017400000000000304
+          },
+          "guest_compute": {
+            "count": 2,
+            "sum_ms": 0.004240000000002908,
+            "union_ms": 0.004240000000002908,
+            "max_ms": 0.002240000000000464
+          }
+        },
+        "selected": {
+          "hash": "67f65e642ea4e144",
+          "native": "f146f681e42a2acd"
+        },
+        "observed_programs": 75,
+        "guest_dispatches": 146
+      },
+      {
+        "label": "coarse-on-1",
+        "file": "capture-58.csv",
+        "frame": 3540,
+        "cpu_tick_interval_ms": 40.5888557434082,
+        "events": 315,
+        "queries": 630,
+        "envelope_ms": 40.56827,
+        "submission_interval_union_ms": 25.454880000000006,
+        "gap_outside_intervals_ms": 15.113389999999992,
+        "categories": {
+          "execution": {
+            "count": 157,
+            "sum_ms": 24.649000000000004,
+            "union_ms": 24.649000000000004,
+            "max_ms": 3.2880399999999987
+          },
+          "upload": {
+            "count": 157,
+            "sum_ms": 0.8058800000000033,
+            "union_ms": 0.8058800000000033,
+            "max_ms": 0.018720000000001846
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.09135999999999811,
+            "union_ms": 0.09135999999999811,
+            "max_ms": 0.09135999999999811
+          }
+        },
+        "selected": {
+          "hash": "0bd1878b04431d32",
+          "native": "e85be478766cd183"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-on-1",
+        "file": "capture-55.csv",
+        "frame": 3360,
+        "cpu_tick_interval_ms": 39.84642028808594,
+        "events": 311,
+        "queries": 622,
+        "envelope_ms": 39.73674,
+        "submission_interval_union_ms": 26.40219999999998,
+        "gap_outside_intervals_ms": 13.334540000000018,
+        "categories": {
+          "execution": {
+            "count": 155,
+            "sum_ms": 25.611239999999984,
+            "union_ms": 25.611239999999984,
+            "max_ms": 3.139240000000001
+          },
+          "upload": {
+            "count": 155,
+            "sum_ms": 0.790959999999993,
+            "union_ms": 0.790959999999993,
+            "max_ms": 0.01768000000000214
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.005399999999999849,
+            "union_ms": 0.005399999999999849,
+            "max_ms": 0.005399999999999849
+          }
+        },
+        "selected": {
+          "hash": "9840bd9171a25403",
+          "native": "59a9eb5272203462"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-on-1",
+        "file": "capture-57.csv",
+        "frame": 3480,
+        "cpu_tick_interval_ms": 40.54760932922363,
+        "events": 311,
+        "queries": 622,
+        "envelope_ms": 40.46617,
+        "submission_interval_union_ms": 25.651439999999983,
+        "gap_outside_intervals_ms": 14.814730000000015,
+        "categories": {
+          "execution": {
+            "count": 155,
+            "sum_ms": 24.86331999999998,
+            "union_ms": 24.86331999999998,
+            "max_ms": 3.0275999999999996
+          },
+          "upload": {
+            "count": 155,
+            "sum_ms": 0.7881200000000036,
+            "union_ms": 0.7881200000000036,
+            "max_ms": 0.018599999999999284
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.002560000000000784,
+            "union_ms": 0.002560000000000784,
+            "max_ms": 0.002560000000000784
+          }
+        },
+        "selected": {
+          "hash": "59b8addcebe48535",
+          "native": "da6a070b92354d0c"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-on-1",
+        "file": "capture-47.csv",
+        "frame": 2880,
+        "cpu_tick_interval_ms": 49.60155487060547,
+        "events": 319,
+        "queries": 638,
+        "envelope_ms": 69.16214,
+        "submission_interval_union_ms": 32.951319999999996,
+        "gap_outside_intervals_ms": 36.21082,
+        "categories": {
+          "execution": {
+            "count": 159,
+            "sum_ms": 32.132159999999985,
+            "union_ms": 32.132159999999985,
+            "max_ms": 3.470239999999997
+          },
+          "upload": {
+            "count": 159,
+            "sum_ms": 0.8191600000000113,
+            "union_ms": 0.8191600000000113,
+            "max_ms": 0.013239999999999696
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.001800000000001134,
+            "union_ms": 0.001800000000001134,
+            "max_ms": 0.001800000000001134
+          }
+        },
+        "selected": {
+          "hash": "04d9ac5155ae848e",
+          "native": "b0559767da4670f0"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 153
+      },
+      {
+        "label": "coarse-on-1",
+        "file": "capture-60.csv",
+        "frame": 3660,
+        "cpu_tick_interval_ms": 42.45305061340332,
+        "events": 316,
+        "queries": 632,
+        "envelope_ms": 42.51741,
+        "submission_interval_union_ms": 26.084999999999994,
+        "gap_outside_intervals_ms": 16.432410000000004,
+        "categories": {
+          "execution": {
+            "count": 157,
+            "sum_ms": 25.27528,
+            "union_ms": 25.27528,
+            "max_ms": 3.4435199999999995
+          },
+          "upload": {
+            "count": 157,
+            "sum_ms": 0.8097199999999928,
+            "union_ms": 0.8097199999999928,
+            "max_ms": 0.019160000000002952
+          },
+          "guest_compute": {
+            "count": 2,
+            "sum_ms": 0.02011999999999503,
+            "union_ms": 0.02011999999999503,
+            "max_ms": 0.01075999999999766
+          }
+        },
+        "selected": {
+          "hash": "6bff2c241b36f869",
+          "native": "cede4e016c4ec56f"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-on-1",
+        "file": "capture-48.csv",
+        "frame": 2940,
+        "cpu_tick_interval_ms": 68.10975074768066,
+        "events": 319,
+        "queries": 638,
+        "envelope_ms": 49.88945,
+        "submission_interval_union_ms": 32.92755999999995,
+        "gap_outside_intervals_ms": 16.961890000000047,
+        "categories": {
+          "execution": {
+            "count": 159,
+            "sum_ms": 31.738079999999986,
+            "union_ms": 31.738079999999982,
+            "max_ms": 3.361399999999996
+          },
+          "upload": {
+            "count": 159,
+            "sum_ms": 1.1894799999999661,
+            "union_ms": 1.1894799999999661,
+            "max_ms": 0.19912
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.0026399999999995316,
+            "union_ms": 0.0026399999999995316,
+            "max_ms": 0.0026399999999995316
+          }
+        },
+        "selected": {
+          "hash": "2c77821ed5739bf7",
+          "native": "b2f3669454474675"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 151
+      },
+      {
+        "label": "coarse-on-2",
+        "file": "capture-54.csv",
+        "frame": 3300,
+        "cpu_tick_interval_ms": 37.8265380859375,
+        "events": 311,
+        "queries": 622,
+        "envelope_ms": 37.83398,
+        "submission_interval_union_ms": 25.323159999999966,
+        "gap_outside_intervals_ms": 12.510820000000031,
+        "categories": {
+          "execution": {
+            "count": 155,
+            "sum_ms": 24.544599999999985,
+            "union_ms": 24.544599999999985,
+            "max_ms": 3.155239999999999
+          },
+          "upload": {
+            "count": 155,
+            "sum_ms": 0.7785599999999822,
+            "union_ms": 0.7785599999999822,
+            "max_ms": 0.018679999999999808
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.0007999999999999119,
+            "union_ms": 0.0007999999999999119,
+            "max_ms": 0.0007999999999999119
+          }
+        },
+        "selected": {
+          "hash": "d6be3367d9cfc4ab",
+          "native": "e1d1cd3cc602bacc"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 147
+      },
+      {
+        "label": "coarse-on-2",
+        "file": "capture-67.csv",
+        "frame": 4080,
+        "cpu_tick_interval_ms": 32.63664245605469,
+        "events": 309,
+        "queries": 618,
+        "envelope_ms": 54.6894,
+        "submission_interval_union_ms": 24.728600000000004,
+        "gap_outside_intervals_ms": 29.960799999999995,
+        "categories": {
+          "execution": {
+            "count": 154,
+            "sum_ms": 23.96544,
+            "union_ms": 23.96544,
+            "max_ms": 3.433960000000001
+          },
+          "upload": {
+            "count": 154,
+            "sum_ms": 0.7631600000000021,
+            "union_ms": 0.7631600000000021,
+            "max_ms": 0.01559999999999917
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.06952000000000069,
+            "union_ms": 0.06952000000000069,
+            "max_ms": 0.06952000000000069
+          }
+        },
+        "selected": {
+          "hash": "412d90c7f1f54102",
+          "native": "70cc863d5e1a6627"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-on-2",
+        "file": "capture-65.csv",
+        "frame": 3960,
+        "cpu_tick_interval_ms": 40.950775146484375,
+        "events": 309,
+        "queries": 618,
+        "envelope_ms": 41.0539,
+        "submission_interval_union_ms": 25.564080000000015,
+        "gap_outside_intervals_ms": 15.489819999999984,
+        "categories": {
+          "execution": {
+            "count": 154,
+            "sum_ms": 24.769360000000002,
+            "union_ms": 24.76936,
+            "max_ms": 3.3669200000000004
+          },
+          "upload": {
+            "count": 154,
+            "sum_ms": 0.7947200000000139,
+            "union_ms": 0.7947200000000139,
+            "max_ms": 0.018559999999997245
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.005680000000001684,
+            "union_ms": 0.005680000000001684,
+            "max_ms": 0.005680000000001684
+          }
+        },
+        "selected": {
+          "hash": "c83e1f355361945f",
+          "native": "7360d66a4dc685a8"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-on-2",
+        "file": "capture-56.csv",
+        "frame": 3420,
+        "cpu_tick_interval_ms": 37.25028038024902,
+        "events": 309,
+        "queries": 618,
+        "envelope_ms": 37.29787,
+        "submission_interval_union_ms": 24.352240000000005,
+        "gap_outside_intervals_ms": 12.945629999999998,
+        "categories": {
+          "execution": {
+            "count": 154,
+            "sum_ms": 23.578600000000012,
+            "union_ms": 23.57860000000001,
+            "max_ms": 3.341000000000001
+          },
+          "upload": {
+            "count": 154,
+            "sum_ms": 0.7736399999999949,
+            "union_ms": 0.7736399999999948,
+            "max_ms": 0.01892000000000138
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.019120000000000914,
+            "union_ms": 0.019120000000000914,
+            "max_ms": 0.019120000000000914
+          }
+        },
+        "selected": {
+          "hash": "9d23f31deebf8293",
+          "native": "55f66ad6dab4ffa7"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-on-2",
+        "file": "capture-61.csv",
+        "frame": 3720,
+        "cpu_tick_interval_ms": 40.34733772277832,
+        "events": 309,
+        "queries": 618,
+        "envelope_ms": 40.28818,
+        "submission_interval_union_ms": 24.76003999999997,
+        "gap_outside_intervals_ms": 15.528140000000025,
+        "categories": {
+          "execution": {
+            "count": 154,
+            "sum_ms": 23.968079999999997,
+            "union_ms": 23.968079999999997,
+            "max_ms": 3.2016399999999976
+          },
+          "upload": {
+            "count": 154,
+            "sum_ms": 0.7919599999999754,
+            "union_ms": 0.7919599999999754,
+            "max_ms": 0.018200000000000216
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.24843999999999866,
+            "union_ms": 0.24843999999999866,
+            "max_ms": 0.24843999999999866
+          }
+        },
+        "selected": {
+          "hash": "75d4369f3b1f5868",
+          "native": "d9b1657f3a0b4bc2"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-on-2",
+        "file": "capture-71.csv",
+        "frame": 4320,
+        "cpu_tick_interval_ms": 38.995981216430664,
+        "events": 309,
+        "queries": 618,
+        "envelope_ms": 38.96563,
+        "submission_interval_union_ms": 24.514720000000022,
+        "gap_outside_intervals_ms": 14.450909999999975,
+        "categories": {
+          "execution": {
+            "count": 154,
+            "sum_ms": 23.726600000000026,
+            "union_ms": 23.726600000000026,
+            "max_ms": 3.194080000000003
+          },
+          "upload": {
+            "count": 154,
+            "sum_ms": 0.7881199999999945,
+            "union_ms": 0.7881199999999945,
+            "max_ms": 0.018520000000002312
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.004559999999997899,
+            "union_ms": 0.004559999999997899,
+            "max_ms": 0.004559999999997899
+          }
+        },
+        "selected": {
+          "hash": "e65e65f8de8799cb",
+          "native": "f35c365194ac4f75"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-on-2",
+        "file": "capture-50.csv",
+        "frame": 3060,
+        "cpu_tick_interval_ms": 51.16891860961914,
+        "events": 317,
+        "queries": 634,
+        "envelope_ms": 69.00566,
+        "submission_interval_union_ms": 34.54904,
+        "gap_outside_intervals_ms": 34.45662000000001,
+        "categories": {
+          "execution": {
+            "count": 158,
+            "sum_ms": 33.7468,
+            "union_ms": 33.7468,
+            "max_ms": 4.1813600000000015
+          },
+          "upload": {
+            "count": 158,
+            "sum_ms": 0.8022399999999954,
+            "union_ms": 0.8022399999999954,
+            "max_ms": 0.013600000000000279
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.0032800000000001717,
+            "union_ms": 0.0032800000000001717,
+            "max_ms": 0.0032800000000001717
+          }
+        },
+        "selected": {
+          "hash": "432b4965bae72f1c",
+          "native": "5f2a88b8328dbaee"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 153
+      },
+      {
+        "label": "coarse-on-2",
+        "file": "capture-76.csv",
+        "frame": 4620,
+        "cpu_tick_interval_ms": 40.2224063873291,
+        "events": 305,
+        "queries": 610,
+        "envelope_ms": 40.16465,
+        "submission_interval_union_ms": 25.13952000000001,
+        "gap_outside_intervals_ms": 15.02512999999999,
+        "categories": {
+          "execution": {
+            "count": 152,
+            "sum_ms": 24.36404000000001,
+            "union_ms": 24.36404000000001,
+            "max_ms": 3.029600000000002
+          },
+          "upload": {
+            "count": 152,
+            "sum_ms": 0.7754800000000008,
+            "union_ms": 0.7754800000000008,
+            "max_ms": 0.015799999999998704
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.009560000000000457,
+            "union_ms": 0.009560000000000457,
+            "max_ms": 0.009560000000000457
+          }
+        },
+        "selected": {
+          "hash": "da1246f26b1e83e7",
+          "native": "111f378bdcc6206e"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-on-2",
+        "file": "capture-73.csv",
+        "frame": 4440,
+        "cpu_tick_interval_ms": 40.96388816833496,
+        "events": 311,
+        "queries": 622,
+        "envelope_ms": 40.97009,
+        "submission_interval_union_ms": 24.346680000000006,
+        "gap_outside_intervals_ms": 16.623409999999993,
+        "categories": {
+          "execution": {
+            "count": 155,
+            "sum_ms": 23.544240000000002,
+            "union_ms": 23.544240000000002,
+            "max_ms": 3.3599200000000025
+          },
+          "upload": {
+            "count": 155,
+            "sum_ms": 0.8024400000000051,
+            "union_ms": 0.8024400000000051,
+            "max_ms": 0.019880000000000564
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.040320000000001244,
+            "union_ms": 0.040320000000001244,
+            "max_ms": 0.040320000000001244
+          }
+        },
+        "selected": {
+          "hash": "a2fcaa95c5a162f3",
+          "native": "42593194bb0b2b32"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-on-2",
+        "file": "capture-64.csv",
+        "frame": 3900,
+        "cpu_tick_interval_ms": 37.74070739746094,
+        "events": 307,
+        "queries": 614,
+        "envelope_ms": 37.91049,
+        "submission_interval_union_ms": 24.618799999999993,
+        "gap_outside_intervals_ms": 13.29169000000001,
+        "categories": {
+          "execution": {
+            "count": 153,
+            "sum_ms": 23.838880000000007,
+            "union_ms": 23.838880000000007,
+            "max_ms": 3.0645200000000017
+          },
+          "upload": {
+            "count": 153,
+            "sum_ms": 0.7799199999999893,
+            "union_ms": 0.7799199999999893,
+            "max_ms": 0.018200000000000216
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.0519999999999996,
+            "union_ms": 0.0519999999999996,
+            "max_ms": 0.0519999999999996
+          }
+        },
+        "selected": {
+          "hash": "780c0536b89fc89e",
+          "native": "ec68e40eb783ff32"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-on-2",
+        "file": "capture-70.csv",
+        "frame": 4260,
+        "cpu_tick_interval_ms": 39.14928436279297,
+        "events": 305,
+        "queries": 610,
+        "envelope_ms": 39.16148,
+        "submission_interval_union_ms": 24.97004000000002,
+        "gap_outside_intervals_ms": 14.191439999999979,
+        "categories": {
+          "execution": {
+            "count": 152,
+            "sum_ms": 24.190960000000015,
+            "union_ms": 24.190960000000015,
+            "max_ms": 3.084720000000001
+          },
+          "upload": {
+            "count": 152,
+            "sum_ms": 0.7790800000000019,
+            "union_ms": 0.779080000000002,
+            "max_ms": 0.020080000000000098
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.0045999999999999375,
+            "union_ms": 0.0045999999999999375,
+            "max_ms": 0.0045999999999999375
+          }
+        },
+        "selected": {
+          "hash": "3456eac1b79ed5b8",
+          "native": "e2d9edfe87bd5a80"
+        },
+        "observed_programs": 78,
+        "guest_dispatches": 145
+      },
+      {
+        "label": "coarse-on-2",
+        "file": "capture-66.csv",
+        "frame": 4020,
+        "cpu_tick_interval_ms": 39.704322814941406,
+        "events": 305,
+        "queries": 610,
+        "envelope_ms": 39.83431,
+        "submission_interval_union_ms": 24.25288000000002,
+        "gap_outside_intervals_ms": 15.581429999999983,
+        "categories": {
+          "execution": {
+            "count": 152,
+            "sum_ms": 23.478160000000006,
+            "union_ms": 23.478160000000006,
+            "max_ms": 2.990639999999999
+          },
+          "upload": {
+            "count": 152,
+            "sum_ms": 0.7747200000000118,
+            "union_ms": 0.7747200000000118,
+            "max_ms": 0.017480000000002605
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.18359999999999843,
+            "union_ms": 0.18359999999999843,
+            "max_ms": 0.18359999999999843
+          }
+        },
+        "selected": {
+          "hash": "45384f519a8eacd3",
+          "native": "9694a462ae7e186c"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-on-2",
+        "file": "capture-74.csv",
+        "frame": 4500,
+        "cpu_tick_interval_ms": 41.201114654541016,
+        "events": 309,
+        "queries": 618,
+        "envelope_ms": 40.96354,
+        "submission_interval_union_ms": 25.35820000000001,
+        "gap_outside_intervals_ms": 15.605339999999991,
+        "categories": {
+          "execution": {
+            "count": 154,
+            "sum_ms": 24.546560000000017,
+            "union_ms": 24.54656000000002,
+            "max_ms": 3.124279999999999
+          },
+          "upload": {
+            "count": 154,
+            "sum_ms": 0.811639999999994,
+            "union_ms": 0.811639999999994,
+            "max_ms": 0.018159999999998178
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 1.943480000000001,
+            "union_ms": 1.943480000000001,
+            "max_ms": 1.943480000000001
+          }
+        },
+        "selected": {
+          "hash": "04ece671c38fa5e3",
+          "native": "6f9367bd41dc0b58"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-on-2",
+        "file": "capture-68.csv",
+        "frame": 4140,
+        "cpu_tick_interval_ms": 41.94068908691406,
+        "events": 307,
+        "queries": 614,
+        "envelope_ms": 41.83911,
+        "submission_interval_union_ms": 24.730200000000004,
+        "gap_outside_intervals_ms": 17.108909999999995,
+        "categories": {
+          "execution": {
+            "count": 152,
+            "sum_ms": 23.93616000000002,
+            "union_ms": 23.936160000000015,
+            "max_ms": 3.1545200000000015
+          },
+          "upload": {
+            "count": 152,
+            "sum_ms": 0.7940399999999848,
+            "union_ms": 0.7940399999999848,
+            "max_ms": 0.020239999999997593
+          },
+          "guest_compute": {
+            "count": 3,
+            "sum_ms": 0.03884000000000043,
+            "union_ms": 0.03884000000000043,
+            "max_ms": 0.013040000000000163
+          }
+        },
+        "selected": {
+          "hash": "ff3dc66618a17eb7",
+          "native": "9d1a4a01ebbc1c95"
+        },
+        "observed_programs": 78,
+        "guest_dispatches": 145
+      },
+      {
+        "label": "coarse-on-2",
+        "file": "capture-62.csv",
+        "frame": 3780,
+        "cpu_tick_interval_ms": 61.058998107910156,
+        "events": 307,
+        "queries": 614,
+        "envelope_ms": 43.10308,
+        "submission_interval_union_ms": 28.80123999999998,
+        "gap_outside_intervals_ms": 14.30184000000002,
+        "categories": {
+          "execution": {
+            "count": 153,
+            "sum_ms": 27.682360000000003,
+            "union_ms": 27.682360000000003,
+            "max_ms": 3.2162000000000006
+          },
+          "upload": {
+            "count": 153,
+            "sum_ms": 1.1188799999999763,
+            "union_ms": 1.1188799999999763,
+            "max_ms": 0.09948
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.008560000000002788,
+            "union_ms": 0.008560000000002788,
+            "max_ms": 0.008560000000002788
+          }
+        },
+        "selected": {
+          "hash": "32c1819485153ec3",
+          "native": "0c546119f1c74fbd"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-on-2",
+        "file": "capture-72.csv",
+        "frame": 4380,
+        "cpu_tick_interval_ms": 40.26198387145996,
+        "events": 311,
+        "queries": 622,
+        "envelope_ms": 40.23131,
+        "submission_interval_union_ms": 24.87239999999995,
+        "gap_outside_intervals_ms": 15.358910000000051,
+        "categories": {
+          "execution": {
+            "count": 155,
+            "sum_ms": 24.079399999999985,
+            "union_ms": 24.079399999999985,
+            "max_ms": 3.097999999999999
+          },
+          "upload": {
+            "count": 155,
+            "sum_ms": 0.7929999999999638,
+            "union_ms": 0.7929999999999638,
+            "max_ms": 0.0170400000000015
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.03616000000000241,
+            "union_ms": 0.03616000000000241,
+            "max_ms": 0.03616000000000241
+          }
+        },
+        "selected": {
+          "hash": "60b2970a3d10bbbe",
+          "native": "9387db798781f081"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-on-2",
+        "file": "capture-51.csv",
+        "frame": 3120,
+        "cpu_tick_interval_ms": 52.839040756225586,
+        "events": 319,
+        "queries": 638,
+        "envelope_ms": 52.93093,
+        "submission_interval_union_ms": 31.87928,
+        "gap_outside_intervals_ms": 21.051649999999995,
+        "categories": {
+          "execution": {
+            "count": 159,
+            "sum_ms": 31.037599999999994,
+            "union_ms": 31.037599999999994,
+            "max_ms": 3.7404000000000046
+          },
+          "upload": {
+            "count": 159,
+            "sum_ms": 0.8416800000000076,
+            "union_ms": 0.8416800000000076,
+            "max_ms": 0.016079999999998762
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.0026399999999995316,
+            "union_ms": 0.0026399999999995316,
+            "max_ms": 0.0026399999999995316
+          }
+        },
+        "selected": {
+          "hash": "ebfb718c12b02f92",
+          "native": "08504aa8cef29660"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 153
+      },
+      {
+        "label": "coarse-on-2",
+        "file": "capture-78.csv",
+        "frame": 4740,
+        "cpu_tick_interval_ms": 42.19698905944824,
+        "events": 309,
+        "queries": 618,
+        "envelope_ms": 42.21281,
+        "submission_interval_union_ms": 26.85019999999997,
+        "gap_outside_intervals_ms": 15.362610000000029,
+        "categories": {
+          "execution": {
+            "count": 154,
+            "sum_ms": 26.03432,
+            "union_ms": 26.03432,
+            "max_ms": 3.4192
+          },
+          "upload": {
+            "count": 154,
+            "sum_ms": 0.8158799999999709,
+            "union_ms": 0.8158799999999709,
+            "max_ms": 0.017399999999998528
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.016639999999999988,
+            "union_ms": 0.016639999999999988,
+            "max_ms": 0.016639999999999988
+          }
+        },
+        "selected": {
+          "hash": "b76d7b3e9e93093d",
+          "native": "799e4ced3a1e4961"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-on-2",
+        "file": "capture-59.csv",
+        "frame": 3600,
+        "cpu_tick_interval_ms": 41.4581298828125,
+        "events": 308,
+        "queries": 616,
+        "envelope_ms": 41.3554,
+        "submission_interval_union_ms": 25.02572000000001,
+        "gap_outside_intervals_ms": 16.329679999999993,
+        "categories": {
+          "execution": {
+            "count": 153,
+            "sum_ms": 24.22720000000001,
+            "union_ms": 24.22720000000001,
+            "max_ms": 3.230240000000002
+          },
+          "upload": {
+            "count": 153,
+            "sum_ms": 0.7985199999999989,
+            "union_ms": 0.798519999999999,
+            "max_ms": 0.01816000000000173
+          },
+          "guest_compute": {
+            "count": 2,
+            "sum_ms": 0.021560000000000912,
+            "union_ms": 0.021560000000000912,
+            "max_ms": 0.011440000000000339
+          }
+        },
+        "selected": {
+          "hash": "18a03bee42bb6d7c",
+          "native": "aa8209e18fe548eb"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-on-2",
+        "file": "capture-52.csv",
+        "frame": 3180,
+        "cpu_tick_interval_ms": 53.69734764099121,
+        "events": 319,
+        "queries": 638,
+        "envelope_ms": 53.64709,
+        "submission_interval_union_ms": 32.113080000000004,
+        "gap_outside_intervals_ms": 21.534009999999995,
+        "categories": {
+          "execution": {
+            "count": 159,
+            "sum_ms": 31.265480000000007,
+            "union_ms": 31.265480000000007,
+            "max_ms": 3.652799999999999
+          },
+          "upload": {
+            "count": 159,
+            "sum_ms": 0.8475999999999938,
+            "union_ms": 0.8475999999999938,
+            "max_ms": 0.016559999999998354
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.002600000000001046,
+            "union_ms": 0.002600000000001046,
+            "max_ms": 0.002600000000001046
+          }
+        },
+        "selected": {
+          "hash": "d5c385de00462126",
+          "native": "4d73385d00f9abcf"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 151
+      },
+      {
+        "label": "coarse-on-2",
+        "file": "capture-63.csv",
+        "frame": 3840,
+        "cpu_tick_interval_ms": 37.59598731994629,
+        "events": 307,
+        "queries": 614,
+        "envelope_ms": 37.64343,
+        "submission_interval_union_ms": 23.895599999999995,
+        "gap_outside_intervals_ms": 13.747830000000008,
+        "categories": {
+          "execution": {
+            "count": 153,
+            "sum_ms": 23.10804000000001,
+            "union_ms": 23.10804000000001,
+            "max_ms": 3.2325599999999994
+          },
+          "upload": {
+            "count": 153,
+            "sum_ms": 0.7875599999999866,
+            "union_ms": 0.7875599999999866,
+            "max_ms": 0.023039999999998173
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.16347999999999985,
+            "union_ms": 0.16347999999999985,
+            "max_ms": 0.16347999999999985
+          }
+        },
+        "selected": {
+          "hash": "6a6f4e8d501a39c7",
+          "native": "e883414e8c9be33b"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-on-2",
+        "file": "capture-69.csv",
+        "frame": 4200,
+        "cpu_tick_interval_ms": 32.11712837219238,
+        "events": 311,
+        "queries": 622,
+        "envelope_ms": 53.90079,
+        "submission_interval_union_ms": 24.669719999999984,
+        "gap_outside_intervals_ms": 29.231070000000017,
+        "categories": {
+          "execution": {
+            "count": 154,
+            "sum_ms": 23.903519999999993,
+            "union_ms": 23.90351999999999,
+            "max_ms": 3.277199999999999
+          },
+          "upload": {
+            "count": 154,
+            "sum_ms": 0.7661999999999936,
+            "union_ms": 0.7661999999999936,
+            "max_ms": 0.01608000000000054
+          },
+          "guest_compute": {
+            "count": 3,
+            "sum_ms": 0.03368000000000215,
+            "union_ms": 0.03368000000000215,
+            "max_ms": 0.011400000000000077
+          }
+        },
+        "selected": {
+          "hash": "ff3dc66618a17eb7",
+          "native": "9d1a4a01ebbc1c95"
+        },
+        "observed_programs": 78,
+        "guest_dispatches": 146
+      },
+      {
+        "label": "coarse-on-2",
+        "file": "capture-49.csv",
+        "frame": 3000,
+        "cpu_tick_interval_ms": 51.130056381225586,
+        "events": 307,
+        "queries": 614,
+        "envelope_ms": 70.32926,
+        "submission_interval_union_ms": 34.93035999999998,
+        "gap_outside_intervals_ms": 35.398900000000026,
+        "categories": {
+          "execution": {
+            "count": 152,
+            "sum_ms": 34.123719999999985,
+            "union_ms": 34.123719999999985,
+            "max_ms": 3.9709199999999996
+          },
+          "upload": {
+            "count": 152,
+            "sum_ms": 0.8066399999999988,
+            "union_ms": 0.8066399999999987,
+            "max_ms": 0.01507999999999754
+          },
+          "guest_compute": {
+            "count": 3,
+            "sum_ms": 0.008040000000001157,
+            "union_ms": 0.008040000000001157,
+            "max_ms": 0.003920000000000812
+          }
+        },
+        "selected": {
+          "hash": "5148581fef61affb",
+          "native": "6bec780ba74c89f3"
+        },
+        "observed_programs": 75,
+        "guest_dispatches": 147
+      },
+      {
+        "label": "coarse-on-2",
+        "file": "capture-53.csv",
+        "frame": 3240,
+        "cpu_tick_interval_ms": 46.43845558166504,
+        "events": 315,
+        "queries": 630,
+        "envelope_ms": 65.61629,
+        "submission_interval_union_ms": 27.324039999999982,
+        "gap_outside_intervals_ms": 38.292250000000024,
+        "categories": {
+          "execution": {
+            "count": 157,
+            "sum_ms": 26.510559999999987,
+            "union_ms": 26.510559999999987,
+            "max_ms": 3.9303199999999983
+          },
+          "upload": {
+            "count": 157,
+            "sum_ms": 0.8134799999999958,
+            "union_ms": 0.8134799999999958,
+            "max_ms": 0.016519999999999868
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.001760000000000872,
+            "union_ms": 0.001760000000000872,
+            "max_ms": 0.001760000000000872
+          }
+        },
+        "selected": {
+          "hash": "04d9ac5155ae848e",
+          "native": "b0559767da4670f0"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 149
+      },
+      {
+        "label": "coarse-on-2",
+        "file": "capture-58.csv",
+        "frame": 3540,
+        "cpu_tick_interval_ms": 38.43069076538086,
+        "events": 309,
+        "queries": 618,
+        "envelope_ms": 38.3304,
+        "submission_interval_union_ms": 23.969120000000014,
+        "gap_outside_intervals_ms": 14.361279999999983,
+        "categories": {
+          "execution": {
+            "count": 154,
+            "sum_ms": 23.183320000000002,
+            "union_ms": 23.183320000000002,
+            "max_ms": 3.1048399999999994
+          },
+          "upload": {
+            "count": 154,
+            "sum_ms": 0.785800000000012,
+            "union_ms": 0.785800000000012,
+            "max_ms": 0.018240000000002254
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.10008000000000017,
+            "union_ms": 0.10008000000000017,
+            "max_ms": 0.10008000000000017
+          }
+        },
+        "selected": {
+          "hash": "0bd1878b04431d32",
+          "native": "e85be478766cd183"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-on-2",
+        "file": "capture-77.csv",
+        "frame": 4680,
+        "cpu_tick_interval_ms": 41.673898696899414,
+        "events": 311,
+        "queries": 622,
+        "envelope_ms": 41.59339,
+        "submission_interval_union_ms": 25.259760000000025,
+        "gap_outside_intervals_ms": 16.333629999999975,
+        "categories": {
+          "execution": {
+            "count": 155,
+            "sum_ms": 24.451120000000017,
+            "union_ms": 24.451120000000017,
+            "max_ms": 3.2502400000000016
+          },
+          "upload": {
+            "count": 155,
+            "sum_ms": 0.8086400000000079,
+            "union_ms": 0.8086400000000079,
+            "max_ms": 0.01787999999999812
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.0012800000000000034,
+            "union_ms": 0.0012800000000000034,
+            "max_ms": 0.0012800000000000034
+          }
+        },
+        "selected": {
+          "hash": "795ef816a5a958f1",
+          "native": "ae0ec8a35583e4bb"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-on-2",
+        "file": "capture-55.csv",
+        "frame": 3360,
+        "cpu_tick_interval_ms": 72.1280574798584,
+        "events": 311,
+        "queries": 622,
+        "envelope_ms": 53.44653,
+        "submission_interval_union_ms": 33.218519999999984,
+        "gap_outside_intervals_ms": 20.22801000000002,
+        "categories": {
+          "execution": {
+            "count": 155,
+            "sum_ms": 32.12016,
+            "union_ms": 32.12016,
+            "max_ms": 4.921160000000004
+          },
+          "upload": {
+            "count": 155,
+            "sum_ms": 1.098359999999993,
+            "union_ms": 1.098359999999993,
+            "max_ms": 0.0984
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.005559999999999121,
+            "union_ms": 0.005559999999999121,
+            "max_ms": 0.005559999999999121
+          }
+        },
+        "selected": {
+          "hash": "9840bd9171a25403",
+          "native": "59a9eb5272203462"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-on-2",
+        "file": "capture-57.csv",
+        "frame": 3480,
+        "cpu_tick_interval_ms": 61.97643280029297,
+        "events": 311,
+        "queries": 622,
+        "envelope_ms": 43.64125,
+        "submission_interval_union_ms": 28.802320000000023,
+        "gap_outside_intervals_ms": 14.838929999999976,
+        "categories": {
+          "execution": {
+            "count": 155,
+            "sum_ms": 27.704400000000003,
+            "union_ms": 27.704400000000007,
+            "max_ms": 3.4920399999999994
+          },
+          "upload": {
+            "count": 155,
+            "sum_ms": 1.0979200000000182,
+            "union_ms": 1.0979200000000182,
+            "max_ms": 0.09816
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.0031199999999991235,
+            "union_ms": 0.0031199999999991235,
+            "max_ms": 0.0031199999999991235
+          }
+        },
+        "selected": {
+          "hash": "59b8addcebe48535",
+          "native": "da6a070b92354d0c"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-on-2",
+        "file": "capture-47.csv",
+        "frame": 2880,
+        "cpu_tick_interval_ms": 47.13606834411621,
+        "events": 316,
+        "queries": 632,
+        "envelope_ms": 66.03353,
+        "submission_interval_union_ms": 34.71331999999999,
+        "gap_outside_intervals_ms": 31.32021000000001,
+        "categories": {
+          "execution": {
+            "count": 157,
+            "sum_ms": 33.900839999999995,
+            "union_ms": 33.900839999999995,
+            "max_ms": 3.9190399999999954
+          },
+          "upload": {
+            "count": 157,
+            "sum_ms": 0.8124799999999884,
+            "union_ms": 0.8124799999999884,
+            "max_ms": 0.01332000000000022
+          },
+          "guest_compute": {
+            "count": 2,
+            "sum_ms": 0.0129999999999999,
+            "union_ms": 0.0129999999999999,
+            "max_ms": 0.006520000000000081
+          }
+        },
+        "selected": {
+          "hash": "6baae2e366d8dca9",
+          "native": "00832f30e61fca4c"
+        },
+        "observed_programs": 75,
+        "guest_dispatches": 148
+      },
+      {
+        "label": "coarse-on-2",
+        "file": "capture-75.csv",
+        "frame": 4560,
+        "cpu_tick_interval_ms": 31.671762466430664,
+        "events": 311,
+        "queries": 622,
+        "envelope_ms": 51.37145,
+        "submission_interval_union_ms": 22.741359999999997,
+        "gap_outside_intervals_ms": 28.630090000000006,
+        "categories": {
+          "execution": {
+            "count": 155,
+            "sum_ms": 21.96896,
+            "union_ms": 21.96896,
+            "max_ms": 3.0525200000000012
+          },
+          "upload": {
+            "count": 155,
+            "sum_ms": 0.7723999999999968,
+            "union_ms": 0.7723999999999968,
+            "max_ms": 0.01828000000000074
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.02044000000000068,
+            "union_ms": 0.02044000000000068,
+            "max_ms": 0.02044000000000068
+          }
+        },
+        "selected": {
+          "hash": "fc10c1232f7ac3f3",
+          "native": "d897749a07b5f1c3"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-on-2",
+        "file": "capture-60.csv",
+        "frame": 3660,
+        "cpu_tick_interval_ms": 43.116092681884766,
+        "events": 310,
+        "queries": 620,
+        "envelope_ms": 43.23972,
+        "submission_interval_union_ms": 25.681079999999977,
+        "gap_outside_intervals_ms": 17.558640000000022,
+        "categories": {
+          "execution": {
+            "count": 154,
+            "sum_ms": 24.88615999999997,
+            "union_ms": 24.88615999999997,
+            "max_ms": 3.158439999999999
+          },
+          "upload": {
+            "count": 154,
+            "sum_ms": 0.7949200000000055,
+            "union_ms": 0.7949200000000055,
+            "max_ms": 0.01844000000000179
+          },
+          "guest_compute": {
+            "count": 2,
+            "sum_ms": 0.02476000000000056,
+            "union_ms": 0.02476000000000056,
+            "max_ms": 0.012959999999999638
+          }
+        },
+        "selected": {
+          "hash": "6bff2c241b36f869",
+          "native": "cede4e016c4ec56f"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-on-2",
+        "file": "capture-48.csv",
+        "frame": 2940,
+        "cpu_tick_interval_ms": 59.539079666137695,
+        "events": 307,
+        "queries": 614,
+        "envelope_ms": 78.62164,
+        "submission_interval_union_ms": 39.407120000000006,
+        "gap_outside_intervals_ms": 39.21451999999999,
+        "categories": {
+          "execution": {
+            "count": 153,
+            "sum_ms": 38.58356000000001,
+            "union_ms": 38.58356000000001,
+            "max_ms": 3.9836799999999997
+          },
+          "upload": {
+            "count": 153,
+            "sum_ms": 0.8235599999999909,
+            "union_ms": 0.8235599999999909,
+            "max_ms": 0.013519999999999754
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.0018800000000016581,
+            "union_ms": 0.0018800000000016581,
+            "max_ms": 0.0018800000000016581
+          }
+        },
+        "selected": {
+          "hash": "04d9ac5155ae848e",
+          "native": "b0559767da4670f0"
+        },
+        "observed_programs": 75,
+        "guest_dispatches": 146
+      }
+    ],
+    "summary": {
+      "queries": {
+        "min": 610,
+        "median": 622.0,
+        "max": 646
+      },
+      "cpu_tick_interval_ms": {
+        "min": 31.671762466430664,
+        "median": 41.423678398132324,
+        "max": 72.1280574798584
+      },
+      "envelope_ms": {
+        "min": 37.26204,
+        "median": 42.36511,
+        "max": 79.64053
+      },
+      "submission_interval_union_ms": {
+        "min": 22.34716,
+        "median": 25.679599999999986,
+        "max": 44.81412000000002
+      },
+      "gap_outside_intervals_ms": {
+        "min": 11.683639999999997,
+        "median": 16.255959999999995,
+        "max": 41.61912999999999
+      },
+      "guest_dispatches": {
+        "min": 144,
+        "median": 144.0,
+        "max": 153
+      },
+      "execution_union_ms": {
+        "min": 21.56532,
+        "median": 24.874739999999974,
+        "max": 43.91780000000002
+      },
+      "upload_union_ms": {
+        "min": 0.7631600000000021,
+        "median": 0.7971000000000006,
+        "max": 1.2598000000000105
+      }
+    },
+    "programs": [
+      {
+        "hash": "04ece671c38fa5e3",
+        "native": "6f9367bd41dc0b58",
+        "sampled_frames": 2,
+        "median_union_ms": 1.9700200000000017,
+        "max_dispatch_ms": 1.9965600000000023,
+        "samples": [
+          {
+            "label": "coarse-on-1",
+            "frame": 4500,
+            "count": 1,
+            "sum_ms": 1.9965600000000023,
+            "union_ms": 1.9965600000000023,
+            "max_ms": 1.9965600000000023
+          },
+          {
+            "label": "coarse-on-2",
+            "frame": 4500,
+            "count": 1,
+            "sum_ms": 1.943480000000001,
+            "union_ms": 1.943480000000001,
+            "max_ms": 1.943480000000001
+          }
+        ]
+      },
+      {
+        "hash": "75d4369f3b1f5868",
+        "native": "d9b1657f3a0b4bc2",
+        "sampled_frames": 2,
+        "median_union_ms": 0.2300399999999998,
+        "max_dispatch_ms": 0.24843999999999866,
+        "samples": [
+          {
+            "label": "coarse-on-1",
+            "frame": 3720,
+            "count": 1,
+            "sum_ms": 0.21164000000000094,
+            "union_ms": 0.21164000000000094,
+            "max_ms": 0.21164000000000094
+          },
+          {
+            "label": "coarse-on-2",
+            "frame": 3720,
+            "count": 1,
+            "sum_ms": 0.24843999999999866,
+            "union_ms": 0.24843999999999866,
+            "max_ms": 0.24843999999999866
+          }
+        ]
+      },
+      {
+        "hash": "45384f519a8eacd3",
+        "native": "9694a462ae7e186c",
+        "sampled_frames": 2,
+        "median_union_ms": 0.1681999999999988,
+        "max_dispatch_ms": 0.18359999999999843,
+        "samples": [
+          {
+            "label": "coarse-on-1",
+            "frame": 4020,
+            "count": 1,
+            "sum_ms": 0.15279999999999916,
+            "union_ms": 0.15279999999999916,
+            "max_ms": 0.15279999999999916
+          },
+          {
+            "label": "coarse-on-2",
+            "frame": 4020,
+            "count": 1,
+            "sum_ms": 0.18359999999999843,
+            "union_ms": 0.18359999999999843,
+            "max_ms": 0.18359999999999843
+          }
+        ]
+      },
+      {
+        "hash": "6a6f4e8d501a39c7",
+        "native": "e883414e8c9be33b",
+        "sampled_frames": 2,
+        "median_union_ms": 0.1598000000000006,
+        "max_dispatch_ms": 0.16347999999999985,
+        "samples": [
+          {
+            "label": "coarse-on-1",
+            "frame": 3840,
+            "count": 1,
+            "sum_ms": 0.15612000000000137,
+            "union_ms": 0.15612000000000137,
+            "max_ms": 0.15612000000000137
+          },
+          {
+            "label": "coarse-on-2",
+            "frame": 3840,
+            "count": 1,
+            "sum_ms": 0.16347999999999985,
+            "union_ms": 0.16347999999999985,
+            "max_ms": 0.16347999999999985
+          }
+        ]
+      },
+      {
+        "hash": "0bd1878b04431d32",
+        "native": "e85be478766cd183",
+        "sampled_frames": 2,
+        "median_union_ms": 0.09571999999999914,
+        "max_dispatch_ms": 0.10008000000000017,
+        "samples": [
+          {
+            "label": "coarse-on-1",
+            "frame": 3540,
+            "count": 1,
+            "sum_ms": 0.09135999999999811,
+            "union_ms": 0.09135999999999811,
+            "max_ms": 0.09135999999999811
+          },
+          {
+            "label": "coarse-on-2",
+            "frame": 3540,
+            "count": 1,
+            "sum_ms": 0.10008000000000017,
+            "union_ms": 0.10008000000000017,
+            "max_ms": 0.10008000000000017
+          }
+        ]
+      },
+      {
+        "hash": "a107e12b6771be48",
+        "native": "8475d671e6967428",
+        "sampled_frames": 1,
+        "median_union_ms": 0.08724000000000132,
+        "max_dispatch_ms": 0.08724000000000132,
+        "samples": [
+          {
+            "label": "coarse-on-1",
+            "frame": 4320,
+            "count": 1,
+            "sum_ms": 0.08724000000000132,
+            "union_ms": 0.08724000000000132,
+            "max_ms": 0.08724000000000132
+          }
+        ]
+      },
+      {
+        "hash": "412d90c7f1f54102",
+        "native": "70cc863d5e1a6627",
+        "sampled_frames": 2,
+        "median_union_ms": 0.08044000000000118,
+        "max_dispatch_ms": 0.09136000000000166,
+        "samples": [
+          {
+            "label": "coarse-on-1",
+            "frame": 4080,
+            "count": 1,
+            "sum_ms": 0.09136000000000166,
+            "union_ms": 0.09136000000000166,
+            "max_ms": 0.09136000000000166
+          },
+          {
+            "label": "coarse-on-2",
+            "frame": 4080,
+            "count": 1,
+            "sum_ms": 0.06952000000000069,
+            "union_ms": 0.06952000000000069,
+            "max_ms": 0.06952000000000069
+          }
+        ]
+      },
+      {
+        "hash": "780c0536b89fc89e",
+        "native": "ec68e40eb783ff32",
+        "sampled_frames": 2,
+        "median_union_ms": 0.05104000000000042,
+        "max_dispatch_ms": 0.0519999999999996,
+        "samples": [
+          {
+            "label": "coarse-on-1",
+            "frame": 3900,
+            "count": 1,
+            "sum_ms": 0.050080000000001235,
+            "union_ms": 0.050080000000001235,
+            "max_ms": 0.050080000000001235
+          },
+          {
+            "label": "coarse-on-2",
+            "frame": 3900,
+            "count": 1,
+            "sum_ms": 0.0519999999999996,
+            "union_ms": 0.0519999999999996,
+            "max_ms": 0.0519999999999996
+          }
+        ]
+      },
+      {
+        "hash": "a2fcaa95c5a162f3",
+        "native": "42593194bb0b2b32",
+        "sampled_frames": 2,
+        "median_union_ms": 0.04072000000000031,
+        "max_dispatch_ms": 0.04111999999999938,
+        "samples": [
+          {
+            "label": "coarse-on-1",
+            "frame": 4440,
+            "count": 1,
+            "sum_ms": 0.04111999999999938,
+            "union_ms": 0.04111999999999938,
+            "max_ms": 0.04111999999999938
+          },
+          {
+            "label": "coarse-on-2",
+            "frame": 4440,
+            "count": 1,
+            "sum_ms": 0.040320000000001244,
+            "union_ms": 0.040320000000001244,
+            "max_ms": 0.040320000000001244
+          }
+        ]
+      },
+      {
+        "hash": "ff3dc66618a17eb7",
+        "native": "9d1a4a01ebbc1c95",
+        "sampled_frames": 3,
+        "median_union_ms": 0.03884000000000043,
+        "max_dispatch_ms": 0.013519999999999754,
+        "samples": [
+          {
+            "label": "coarse-on-1",
+            "frame": 4140,
+            "count": 3,
+            "sum_ms": 0.03919999999999746,
+            "union_ms": 0.03919999999999746,
+            "max_ms": 0.013519999999999754
+          },
+          {
+            "label": "coarse-on-2",
+            "frame": 4140,
+            "count": 3,
+            "sum_ms": 0.03884000000000043,
+            "union_ms": 0.03884000000000043,
+            "max_ms": 0.013040000000000163
+          },
+          {
+            "label": "coarse-on-2",
+            "frame": 4200,
+            "count": 3,
+            "sum_ms": 0.03368000000000215,
+            "union_ms": 0.03368000000000215,
+            "max_ms": 0.011400000000000077
+          }
+        ]
+      },
+      {
+        "hash": "60b2970a3d10bbbe",
+        "native": "9387db798781f081",
+        "sampled_frames": 2,
+        "median_union_ms": 0.03612000000000393,
+        "max_dispatch_ms": 0.03616000000000241,
+        "samples": [
+          {
+            "label": "coarse-on-1",
+            "frame": 4380,
+            "count": 1,
+            "sum_ms": 0.03608000000000544,
+            "union_ms": 0.03608000000000544,
+            "max_ms": 0.03608000000000544
+          },
+          {
+            "label": "coarse-on-2",
+            "frame": 4380,
+            "count": 1,
+            "sum_ms": 0.03616000000000241,
+            "union_ms": 0.03616000000000241,
+            "max_ms": 0.03616000000000241
+          }
+        ]
+      },
+      {
+        "hash": "9d23f31deebf8293",
+        "native": "55f66ad6dab4ffa7",
+        "sampled_frames": 2,
+        "median_union_ms": 0.024319999999999453,
+        "max_dispatch_ms": 0.029519999999997992,
+        "samples": [
+          {
+            "label": "coarse-on-1",
+            "frame": 3420,
+            "count": 1,
+            "sum_ms": 0.029519999999997992,
+            "union_ms": 0.029519999999997992,
+            "max_ms": 0.029519999999997992
+          },
+          {
+            "label": "coarse-on-2",
+            "frame": 3420,
+            "count": 1,
+            "sum_ms": 0.019120000000000914,
+            "union_ms": 0.019120000000000914,
+            "max_ms": 0.019120000000000914
+          }
+        ]
+      },
+      {
+        "hash": "6bff2c241b36f869",
+        "native": "cede4e016c4ec56f",
+        "sampled_frames": 2,
+        "median_union_ms": 0.022439999999997795,
+        "max_dispatch_ms": 0.012959999999999638,
+        "samples": [
+          {
+            "label": "coarse-on-1",
+            "frame": 3660,
+            "count": 2,
+            "sum_ms": 0.02011999999999503,
+            "union_ms": 0.02011999999999503,
+            "max_ms": 0.01075999999999766
+          },
+          {
+            "label": "coarse-on-2",
+            "frame": 3660,
+            "count": 2,
+            "sum_ms": 0.02476000000000056,
+            "union_ms": 0.02476000000000056,
+            "max_ms": 0.012959999999999638
+          }
+        ]
+      },
+      {
+        "hash": "18a03bee42bb6d7c",
+        "native": "aa8209e18fe548eb",
+        "sampled_frames": 2,
+        "median_union_ms": 0.020760000000001,
+        "max_dispatch_ms": 0.011440000000000339,
+        "samples": [
+          {
+            "label": "coarse-on-1",
+            "frame": 3600,
+            "count": 2,
+            "sum_ms": 0.019960000000001088,
+            "union_ms": 0.019960000000001088,
+            "max_ms": 0.010480000000001155
+          },
+          {
+            "label": "coarse-on-2",
+            "frame": 3600,
+            "count": 2,
+            "sum_ms": 0.021560000000000912,
+            "union_ms": 0.021560000000000912,
+            "max_ms": 0.011440000000000339
+          }
+        ]
+      },
+      {
+        "hash": "fc10c1232f7ac3f3",
+        "native": "d897749a07b5f1c3",
+        "sampled_frames": 1,
+        "median_union_ms": 0.02044000000000068,
+        "max_dispatch_ms": 0.02044000000000068,
+        "samples": [
+          {
+            "label": "coarse-on-2",
+            "frame": 4560,
+            "count": 1,
+            "sum_ms": 0.02044000000000068,
+            "union_ms": 0.02044000000000068,
+            "max_ms": 0.02044000000000068
+          }
+        ]
+      },
+      {
+        "hash": "b76d7b3e9e93093d",
+        "native": "799e4ced3a1e4961",
+        "sampled_frames": 1,
+        "median_union_ms": 0.016639999999999988,
+        "max_dispatch_ms": 0.016639999999999988,
+        "samples": [
+          {
+            "label": "coarse-on-2",
+            "frame": 4740,
+            "count": 1,
+            "sum_ms": 0.016639999999999988,
+            "union_ms": 0.016639999999999988,
+            "max_ms": 0.016639999999999988
+          }
+        ]
+      },
+      {
+        "hash": "6baae2e366d8dca9",
+        "native": "00832f30e61fca4c",
+        "sampled_frames": 2,
+        "median_union_ms": 0.012779999999999347,
+        "max_dispatch_ms": 0.006559999999998567,
+        "samples": [
+          {
+            "label": "coarse-on-1",
+            "frame": 3120,
+            "count": 2,
+            "sum_ms": 0.012559999999998794,
+            "union_ms": 0.012559999999998794,
+            "max_ms": 0.006559999999998567
+          },
+          {
+            "label": "coarse-on-2",
+            "frame": 2880,
+            "count": 2,
+            "sum_ms": 0.0129999999999999,
+            "union_ms": 0.0129999999999999,
+            "max_ms": 0.006520000000000081
+          }
+        ]
+      },
+      {
+        "hash": "da1246f26b1e83e7",
+        "native": "111f378bdcc6206e",
+        "sampled_frames": 1,
+        "median_union_ms": 0.009560000000000457,
+        "max_dispatch_ms": 0.009560000000000457,
+        "samples": [
+          {
+            "label": "coarse-on-2",
+            "frame": 4620,
+            "count": 1,
+            "sum_ms": 0.009560000000000457,
+            "union_ms": 0.009560000000000457,
+            "max_ms": 0.009560000000000457
+          }
+        ]
+      },
+      {
+        "hash": "5148581fef61affb",
+        "native": "6bec780ba74c89f3",
+        "sampled_frames": 1,
+        "median_union_ms": 0.008040000000001157,
+        "max_dispatch_ms": 0.003920000000000812,
+        "samples": [
+          {
+            "label": "coarse-on-2",
+            "frame": 3000,
+            "count": 3,
+            "sum_ms": 0.008040000000001157,
+            "union_ms": 0.008040000000001157,
+            "max_ms": 0.003920000000000812
+          }
+        ]
+      },
+      {
+        "hash": "32c1819485153ec3",
+        "native": "0c546119f1c74fbd",
+        "sampled_frames": 2,
+        "median_union_ms": 0.007860000000001754,
+        "max_dispatch_ms": 0.008560000000002788,
+        "samples": [
+          {
+            "label": "coarse-on-1",
+            "frame": 3780,
+            "count": 1,
+            "sum_ms": 0.007160000000000721,
+            "union_ms": 0.007160000000000721,
+            "max_ms": 0.007160000000000721
+          },
+          {
+            "label": "coarse-on-2",
+            "frame": 3780,
+            "count": 1,
+            "sum_ms": 0.008560000000002788,
+            "union_ms": 0.008560000000002788,
+            "max_ms": 0.008560000000002788
+          }
+        ]
+      },
+      {
+        "hash": "12a677f6995b32ed",
+        "native": "fb907e3c1ca207ff",
+        "sampled_frames": 2,
+        "median_union_ms": 0.007100000000000328,
+        "max_dispatch_ms": 0.0036000000000004917,
+        "samples": [
+          {
+            "label": "coarse-on-1",
+            "frame": 2760,
+            "count": 2,
+            "sum_ms": 0.005399999999999849,
+            "union_ms": 0.005399999999999849,
+            "max_ms": 0.0036000000000004917
+          },
+          {
+            "label": "coarse-on-1",
+            "frame": 2640,
+            "count": 3,
+            "sum_ms": 0.008800000000000807,
+            "union_ms": 0.008800000000000807,
+            "max_ms": 0.0035199999999999676
+          }
+        ]
+      },
+      {
+        "hash": "d9af70cd6d720cfb",
+        "native": "611d42c808a5c1c7",
+        "sampled_frames": 1,
+        "median_union_ms": 0.006159999999999499,
+        "max_dispatch_ms": 0.006159999999999499,
+        "samples": [
+          {
+            "label": "coarse-on-1",
+            "frame": 3180,
+            "count": 1,
+            "sum_ms": 0.006159999999999499,
+            "union_ms": 0.006159999999999499,
+            "max_ms": 0.006159999999999499
+          }
+        ]
+      },
+      {
+        "hash": "3456eac1b79ed5b8",
+        "native": "e2d9edfe87bd5a80",
+        "sampled_frames": 2,
+        "median_union_ms": 0.005739999999999412,
+        "max_dispatch_ms": 0.006879999999998887,
+        "samples": [
+          {
+            "label": "coarse-on-1",
+            "frame": 4200,
+            "count": 1,
+            "sum_ms": 0.006879999999998887,
+            "union_ms": 0.006879999999998887,
+            "max_ms": 0.006879999999998887
+          },
+          {
+            "label": "coarse-on-2",
+            "frame": 4260,
+            "count": 1,
+            "sum_ms": 0.0045999999999999375,
+            "union_ms": 0.0045999999999999375,
+            "max_ms": 0.0045999999999999375
+          }
+        ]
+      },
+      {
+        "hash": "9840bd9171a25403",
+        "native": "59a9eb5272203462",
+        "sampled_frames": 2,
+        "median_union_ms": 0.005479999999999485,
+        "max_dispatch_ms": 0.005559999999999121,
+        "samples": [
+          {
+            "label": "coarse-on-1",
+            "frame": 3360,
+            "count": 1,
+            "sum_ms": 0.005399999999999849,
+            "union_ms": 0.005399999999999849,
+            "max_ms": 0.005399999999999849
+          },
+          {
+            "label": "coarse-on-2",
+            "frame": 3360,
+            "count": 1,
+            "sum_ms": 0.005559999999999121,
+            "union_ms": 0.005559999999999121,
+            "max_ms": 0.005559999999999121
+          }
+        ]
+      },
+      {
+        "hash": "c83e1f355361945f",
+        "native": "7360d66a4dc685a8",
+        "sampled_frames": 2,
+        "median_union_ms": 0.005420000000000869,
+        "max_dispatch_ms": 0.005680000000001684,
+        "samples": [
+          {
+            "label": "coarse-on-1",
+            "frame": 3960,
+            "count": 1,
+            "sum_ms": 0.005160000000000053,
+            "union_ms": 0.005160000000000053,
+            "max_ms": 0.005160000000000053
+          },
+          {
+            "label": "coarse-on-2",
+            "frame": 3960,
+            "count": 1,
+            "sum_ms": 0.005680000000001684,
+            "union_ms": 0.005680000000001684,
+            "max_ms": 0.005680000000001684
+          }
+        ]
+      },
+      {
+        "hash": "67f65e642ea4e144",
+        "native": "f146f681e42a2acd",
+        "sampled_frames": 1,
+        "median_union_ms": 0.004240000000002908,
+        "max_dispatch_ms": 0.002240000000000464,
+        "samples": [
+          {
+            "label": "coarse-on-1",
+            "frame": 2700,
+            "count": 2,
+            "sum_ms": 0.004240000000002908,
+            "union_ms": 0.004240000000002908,
+            "max_ms": 0.002240000000000464
+          }
+        ]
+      },
+      {
+        "hash": "947451f26ff15139",
+        "native": "55e3ec15418ec8ec",
+        "sampled_frames": 1,
+        "median_union_ms": 0.004000000000001336,
+        "max_dispatch_ms": 0.004000000000001336,
+        "samples": [
+          {
+            "label": "coarse-on-1",
+            "frame": 3060,
+            "count": 1,
+            "sum_ms": 0.004000000000001336,
+            "union_ms": 0.004000000000001336,
+            "max_ms": 0.004000000000001336
+          }
+        ]
+      },
+      {
+        "hash": "e65e65f8de8799cb",
+        "native": "f35c365194ac4f75",
+        "sampled_frames": 2,
+        "median_union_ms": 0.003999999999997783,
+        "max_dispatch_ms": 0.004559999999997899,
+        "samples": [
+          {
+            "label": "coarse-on-1",
+            "frame": 4260,
+            "count": 1,
+            "sum_ms": 0.003439999999997667,
+            "union_ms": 0.003439999999997667,
+            "max_ms": 0.003439999999997667
+          },
+          {
+            "label": "coarse-on-2",
+            "frame": 4320,
+            "count": 1,
+            "sum_ms": 0.004559999999997899,
+            "union_ms": 0.004559999999997899,
+            "max_ms": 0.004559999999997899
+          }
+        ]
+      },
+      {
+        "hash": "432b4965bae72f1c",
+        "native": "5f2a88b8328dbaee",
+        "sampled_frames": 2,
+        "median_union_ms": 0.0035999999999996035,
+        "max_dispatch_ms": 0.003919999999999035,
+        "samples": [
+          {
+            "label": "coarse-on-1",
+            "frame": 3000,
+            "count": 1,
+            "sum_ms": 0.003919999999999035,
+            "union_ms": 0.003919999999999035,
+            "max_ms": 0.003919999999999035
+          },
+          {
+            "label": "coarse-on-2",
+            "frame": 3060,
+            "count": 1,
+            "sum_ms": 0.0032800000000001717,
+            "union_ms": 0.0032800000000001717,
+            "max_ms": 0.0032800000000001717
+          }
+        ]
+      },
+      {
+        "hash": "ebfb718c12b02f92",
+        "native": "08504aa8cef29660",
+        "sampled_frames": 2,
+        "median_union_ms": 0.0031599999999998296,
+        "max_dispatch_ms": 0.0036800000000001276,
+        "samples": [
+          {
+            "label": "coarse-on-1",
+            "frame": 3240,
+            "count": 1,
+            "sum_ms": 0.0036800000000001276,
+            "union_ms": 0.0036800000000001276,
+            "max_ms": 0.0036800000000001276
+          },
+          {
+            "label": "coarse-on-2",
+            "frame": 3120,
+            "count": 1,
+            "sum_ms": 0.0026399999999995316,
+            "union_ms": 0.0026399999999995316,
+            "max_ms": 0.0026399999999995316
+          }
+        ]
+      },
+      {
+        "hash": "59b8addcebe48535",
+        "native": "da6a070b92354d0c",
+        "sampled_frames": 2,
+        "median_union_ms": 0.0028399999999999537,
+        "max_dispatch_ms": 0.0031199999999991235,
+        "samples": [
+          {
+            "label": "coarse-on-1",
+            "frame": 3480,
+            "count": 1,
+            "sum_ms": 0.002560000000000784,
+            "union_ms": 0.002560000000000784,
+            "max_ms": 0.002560000000000784
+          },
+          {
+            "label": "coarse-on-2",
+            "frame": 3480,
+            "count": 1,
+            "sum_ms": 0.0031199999999991235,
+            "union_ms": 0.0031199999999991235,
+            "max_ms": 0.0031199999999991235
+          }
+        ]
+      },
+      {
+        "hash": "2c77821ed5739bf7",
+        "native": "b2f3669454474675",
+        "sampled_frames": 1,
+        "median_union_ms": 0.0026399999999995316,
+        "max_dispatch_ms": 0.0026399999999995316,
+        "samples": [
+          {
+            "label": "coarse-on-1",
+            "frame": 2940,
+            "count": 1,
+            "sum_ms": 0.0026399999999995316,
+            "union_ms": 0.0026399999999995316,
+            "max_ms": 0.0026399999999995316
+          }
+        ]
+      },
+      {
+        "hash": "d5c385de00462126",
+        "native": "4d73385d00f9abcf",
+        "sampled_frames": 1,
+        "median_union_ms": 0.002600000000001046,
+        "max_dispatch_ms": 0.002600000000001046,
+        "samples": [
+          {
+            "label": "coarse-on-2",
+            "frame": 3180,
+            "count": 1,
+            "sum_ms": 0.002600000000001046,
+            "union_ms": 0.002600000000001046,
+            "max_ms": 0.002600000000001046
+          }
+        ]
+      },
+      {
+        "hash": "04d9ac5155ae848e",
+        "native": "b0559767da4670f0",
+        "sampled_frames": 4,
+        "median_union_ms": 0.0018000000000002458,
+        "max_dispatch_ms": 0.0018800000000016581,
+        "samples": [
+          {
+            "label": "coarse-on-1",
+            "frame": 2820,
+            "count": 1,
+            "sum_ms": 0.0017999999999993577,
+            "union_ms": 0.0017999999999993577,
+            "max_ms": 0.0017999999999993577
+          },
+          {
+            "label": "coarse-on-1",
+            "frame": 2880,
+            "count": 1,
+            "sum_ms": 0.001800000000001134,
+            "union_ms": 0.001800000000001134,
+            "max_ms": 0.001800000000001134
+          },
+          {
+            "label": "coarse-on-2",
+            "frame": 3240,
+            "count": 1,
+            "sum_ms": 0.001760000000000872,
+            "union_ms": 0.001760000000000872,
+            "max_ms": 0.001760000000000872
+          },
+          {
+            "label": "coarse-on-2",
+            "frame": 2940,
+            "count": 1,
+            "sum_ms": 0.0018800000000016581,
+            "union_ms": 0.0018800000000016581,
+            "max_ms": 0.0018800000000016581
+          }
+        ]
+      },
+      {
+        "hash": "795ef816a5a958f1",
+        "native": "ae0ec8a35583e4bb",
+        "sampled_frames": 1,
+        "median_union_ms": 0.0012800000000000034,
+        "max_dispatch_ms": 0.0012800000000000034,
+        "samples": [
+          {
+            "label": "coarse-on-2",
+            "frame": 4680,
+            "count": 1,
+            "sum_ms": 0.0012800000000000034,
+            "union_ms": 0.0012800000000000034,
+            "max_ms": 0.0012800000000000034
+          }
+        ]
+      },
+      {
+        "hash": "d6be3367d9cfc4ab",
+        "native": "e1d1cd3cc602bacc",
+        "sampled_frames": 2,
+        "median_union_ms": 0.0008999999999987907,
+        "max_dispatch_ms": 0.0009999999999976694,
+        "samples": [
+          {
+            "label": "coarse-on-1",
+            "frame": 3300,
+            "count": 1,
+            "sum_ms": 0.0009999999999976694,
+            "union_ms": 0.0009999999999976694,
+            "max_ms": 0.0009999999999976694
+          },
+          {
+            "label": "coarse-on-2",
+            "frame": 3300,
+            "count": 1,
+            "sum_ms": 0.0007999999999999119,
+            "union_ms": 0.0007999999999999119,
+            "max_ms": 0.0007999999999999119
+          }
+        ]
+      }
+    ]
+  },
+  "survey": {
+    "scope": "Separate fixed-camera period6 manually armed after gameplay, stronger probe frequency not overhead calibrated",
+    "coverage": {
+      "captures": 128,
+      "observed_unique_programs": 77,
+      "timed_unique_programs": 73,
+      "all_observed_programs_timed": false,
+      "missing": [
+        {
+          "hash": "432b4965bae72f1c",
+          "native": "5f2a88b8328dbaee"
+        },
+        {
+          "hash": "7f0d176391897d0e",
+          "native": "4d9a7a9cfd503656"
+        },
+        {
+          "hash": "d9af70cd6d720cfb",
+          "native": "611d42c808a5c1c7"
+        },
+        {
+          "hash": "ebfb718c12b02f92",
+          "native": "08504aa8cef29660"
+        }
+      ],
+      "seconds": 40.461819887161255
+    },
+    "summary": {
+      "queries": {
+        "min": 606,
+        "median": 634.0,
+        "max": 722
+      },
+      "cpu_tick_interval_ms": {
+        "min": 30.921459197998047,
+        "median": 49.15034770965576,
+        "max": 93.53947639465332
+      },
+      "envelope_ms": {
+        "min": 39.56235,
+        "median": 51.383325,
+        "max": 85.4698
+      },
+      "submission_interval_union_ms": {
+        "min": 22.716040000000003,
+        "median": 29.936600000000002,
+        "max": 46.12432000000007
+      },
+      "gap_outside_intervals_ms": {
+        "min": 10.643700000000031,
+        "median": 18.383654999999994,
+        "max": 43.23552000000001
+      },
+      "guest_dispatches": {
+        "min": 144,
+        "median": 147.0,
+        "max": 153
+      },
+      "execution_union_ms": {
+        "min": 21.93016,
+        "median": 28.822060000000015,
+        "max": 44.91804000000003
+      },
+      "upload_union_ms": {
+        "min": 0.7680000000000093,
+        "median": 0.8463400000000043,
+        "max": 1.2660799999999806
+      }
+    },
+    "programs": [
+      {
+        "hash": "04ece671c38fa5e3",
+        "native": "6f9367bd41dc0b58",
+        "sampled_frames": 1,
+        "median_union_ms": 1.9885599999999997,
+        "max_dispatch_ms": 1.9885599999999997,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 444,
+            "count": 1,
+            "sum_ms": 1.9885599999999997,
+            "union_ms": 1.9885599999999997,
+            "max_ms": 1.9885599999999997
+          }
+        ]
+      },
+      {
+        "hash": "e78efceda31f97a8",
+        "native": "8dc54d1adc12150f",
+        "sampled_frames": 1,
+        "median_union_ms": 0.32711999999999986,
+        "max_dispatch_ms": 0.06664000000000048,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 108,
+            "count": 6,
+            "sum_ms": 0.32711999999999986,
+            "union_ms": 0.32711999999999986,
+            "max_ms": 0.06664000000000048
+          }
+        ]
+      },
+      {
+        "hash": "75d4369f3b1f5868",
+        "native": "d9b1657f3a0b4bc2",
+        "sampled_frames": 1,
+        "median_union_ms": 0.24508000000000152,
+        "max_dispatch_ms": 0.24508000000000152,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 366,
+            "count": 1,
+            "sum_ms": 0.24508000000000152,
+            "union_ms": 0.24508000000000152,
+            "max_ms": 0.24508000000000152
+          }
+        ]
+      },
+      {
+        "hash": "45384f519a8eacd3",
+        "native": "9694a462ae7e186c",
+        "sampled_frames": 1,
+        "median_union_ms": 0.15871999999999886,
+        "max_dispatch_ms": 0.15871999999999886,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 396,
+            "count": 1,
+            "sum_ms": 0.15871999999999886,
+            "union_ms": 0.15871999999999886,
+            "max_ms": 0.15871999999999886
+          }
+        ]
+      },
+      {
+        "hash": "6a6f4e8d501a39c7",
+        "native": "e883414e8c9be33b",
+        "sampled_frames": 1,
+        "median_union_ms": 0.15768000000000093,
+        "max_dispatch_ms": 0.15768000000000093,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 378,
+            "count": 1,
+            "sum_ms": 0.15768000000000093,
+            "union_ms": 0.15768000000000093,
+            "max_ms": 0.15768000000000093
+          }
+        ]
+      },
+      {
+        "hash": "3575d99dce213867",
+        "native": "f75e541e5c40deab",
+        "sampled_frames": 2,
+        "median_union_ms": 0.14800000000000013,
+        "max_dispatch_ms": 0.1627200000000002,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 618,
+            "count": 1,
+            "sum_ms": 0.1627200000000002,
+            "union_ms": 0.1627200000000002,
+            "max_ms": 0.1627200000000002
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 156,
+            "count": 1,
+            "sum_ms": 0.13328000000000007,
+            "union_ms": 0.13328000000000007,
+            "max_ms": 0.13328000000000007
+          }
+        ]
+      },
+      {
+        "hash": "412d90c7f1f54102",
+        "native": "70cc863d5e1a6627",
+        "sampled_frames": 1,
+        "median_union_ms": 0.12415999999999627,
+        "max_dispatch_ms": 0.12415999999999627,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 402,
+            "count": 1,
+            "sum_ms": 0.12415999999999627,
+            "union_ms": 0.12415999999999627,
+            "max_ms": 0.12415999999999627
+          }
+        ]
+      },
+      {
+        "hash": "f8371c42621b1e57",
+        "native": "25c40a73544f243a",
+        "sampled_frames": 2,
+        "median_union_ms": 0.11006000000000071,
+        "max_dispatch_ms": 0.004120000000000346,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 678,
+            "count": 31,
+            "sum_ms": 0.09984000000000037,
+            "union_ms": 0.09984000000000037,
+            "max_ms": 0.0038400000000002876
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 210,
+            "count": 37,
+            "sum_ms": 0.12028000000000105,
+            "union_ms": 0.12028000000000105,
+            "max_ms": 0.004120000000000346
+          }
+        ]
+      },
+      {
+        "hash": "0bd1878b04431d32",
+        "native": "e85be478766cd183",
+        "sampled_frames": 1,
+        "median_union_ms": 0.09675999999999974,
+        "max_dispatch_ms": 0.09675999999999974,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 348,
+            "count": 1,
+            "sum_ms": 0.09675999999999974,
+            "union_ms": 0.09675999999999974,
+            "max_ms": 0.09675999999999974
+          }
+        ]
+      },
+      {
+        "hash": "a107e12b6771be48",
+        "native": "8475d671e6967428",
+        "sampled_frames": 1,
+        "median_union_ms": 0.0881999999999934,
+        "max_dispatch_ms": 0.0881999999999934,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 426,
+            "count": 1,
+            "sum_ms": 0.0881999999999934,
+            "union_ms": 0.0881999999999934,
+            "max_ms": 0.0881999999999934
+          }
+        ]
+      },
+      {
+        "hash": "d6cfaabdf9cf31e9",
+        "native": "d6dcff9e09b573e4",
+        "sampled_frames": 2,
+        "median_union_ms": 0.0816599999999994,
+        "max_dispatch_ms": 0.09419999999999895,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 486,
+            "count": 1,
+            "sum_ms": 0.06911999999999985,
+            "union_ms": 0.06911999999999985,
+            "max_ms": 0.06911999999999985
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 24,
+            "count": 1,
+            "sum_ms": 0.09419999999999895,
+            "union_ms": 0.09419999999999895,
+            "max_ms": 0.09419999999999895
+          }
+        ]
+      },
+      {
+        "hash": "7e4edd38aa70c3db",
+        "native": "9a24d120a5fa2a93",
+        "sampled_frames": 2,
+        "median_union_ms": 0.06999999999999984,
+        "max_dispatch_ms": 0.09328000000000003,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 528,
+            "count": 1,
+            "sum_ms": 0.04671999999999965,
+            "union_ms": 0.04671999999999965,
+            "max_ms": 0.04671999999999965
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 66,
+            "count": 1,
+            "sum_ms": 0.09328000000000003,
+            "union_ms": 0.09328000000000003,
+            "max_ms": 0.09328000000000003
+          }
+        ]
+      },
+      {
+        "hash": "4b87009a7e08f26e",
+        "native": "4518d60f8fa83d97",
+        "sampled_frames": 2,
+        "median_union_ms": 0.05815999999999999,
+        "max_dispatch_ms": 0.06747999999999976,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 102,
+            "count": 1,
+            "sum_ms": 0.06747999999999976,
+            "union_ms": 0.06747999999999976,
+            "max_ms": 0.06747999999999976
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 564,
+            "count": 1,
+            "sum_ms": 0.04884000000000022,
+            "union_ms": 0.04884000000000022,
+            "max_ms": 0.04884000000000022
+          }
+        ]
+      },
+      {
+        "hash": "780c0536b89fc89e",
+        "native": "ec68e40eb783ff32",
+        "sampled_frames": 1,
+        "median_union_ms": 0.05671999999999855,
+        "max_dispatch_ms": 0.05671999999999855,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 384,
+            "count": 1,
+            "sum_ms": 0.05671999999999855,
+            "union_ms": 0.05671999999999855,
+            "max_ms": 0.05671999999999855
+          }
+        ]
+      },
+      {
+        "hash": "f98012dc9a4465ff",
+        "native": "f35f519f99b98203",
+        "sampled_frames": 4,
+        "median_union_ms": 0.05633999999999961,
+        "max_dispatch_ms": 0.08704,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 594,
+            "count": 1,
+            "sum_ms": 0.04655999999999949,
+            "union_ms": 0.04655999999999949,
+            "max_ms": 0.04655999999999949
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 570,
+            "count": 1,
+            "sum_ms": 0.08704,
+            "union_ms": 0.08704,
+            "max_ms": 0.08704
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 582,
+            "count": 1,
+            "sum_ms": 0.049599999999999866,
+            "union_ms": 0.049599999999999866,
+            "max_ms": 0.049599999999999866
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 126,
+            "count": 1,
+            "sum_ms": 0.06307999999999936,
+            "union_ms": 0.06307999999999936,
+            "max_ms": 0.06307999999999936
+          }
+        ]
+      },
+      {
+        "hash": "8e29676dfa6ac1a1",
+        "native": "8dfce7f9132caa46",
+        "sampled_frames": 2,
+        "median_union_ms": 0.051000000000000156,
+        "max_dispatch_ms": 0.0800800000000006,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 30,
+            "count": 1,
+            "sum_ms": 0.0800800000000006,
+            "union_ms": 0.0800800000000006,
+            "max_ms": 0.0800800000000006
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 492,
+            "count": 1,
+            "sum_ms": 0.021919999999999717,
+            "union_ms": 0.021919999999999717,
+            "max_ms": 0.021919999999999717
+          }
+        ]
+      },
+      {
+        "hash": "c73574a9766531cb",
+        "native": "203053e20b8c989a",
+        "sampled_frames": 2,
+        "median_union_ms": 0.04901999999999962,
+        "max_dispatch_ms": 0.053239999999998844,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 162,
+            "count": 1,
+            "sum_ms": 0.053239999999998844,
+            "union_ms": 0.053239999999998844,
+            "max_ms": 0.053239999999998844
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 624,
+            "count": 1,
+            "sum_ms": 0.044800000000000395,
+            "union_ms": 0.044800000000000395,
+            "max_ms": 0.044800000000000395
+          }
+        ]
+      },
+      {
+        "hash": "4fd2f170f97fa441",
+        "native": "7ca59d64e659a9e1",
+        "sampled_frames": 2,
+        "median_union_ms": 0.04838000000000031,
+        "max_dispatch_ms": 0.05288000000000004,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 72,
+            "count": 1,
+            "sum_ms": 0.05288000000000004,
+            "union_ms": 0.05288000000000004,
+            "max_ms": 0.05288000000000004
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 534,
+            "count": 1,
+            "sum_ms": 0.043880000000000585,
+            "union_ms": 0.043880000000000585,
+            "max_ms": 0.043880000000000585
+          }
+        ]
+      },
+      {
+        "hash": "95a2366b7a9653ec",
+        "native": "3f53f8b2865963e9",
+        "sampled_frames": 2,
+        "median_union_ms": 0.047699999999999854,
+        "max_dispatch_ms": 0.0497999999999994,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 666,
+            "count": 1,
+            "sum_ms": 0.0497999999999994,
+            "union_ms": 0.0497999999999994,
+            "max_ms": 0.0497999999999994
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 204,
+            "count": 1,
+            "sum_ms": 0.04560000000000031,
+            "union_ms": 0.04560000000000031,
+            "max_ms": 0.04560000000000031
+          }
+        ]
+      },
+      {
+        "hash": "79f4fb8717e869ea",
+        "native": "f996a40f5d0e4f97",
+        "sampled_frames": 1,
+        "median_union_ms": 0.043519999999999115,
+        "max_dispatch_ms": 0.043519999999999115,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 120,
+            "count": 1,
+            "sum_ms": 0.043519999999999115,
+            "union_ms": 0.043519999999999115,
+            "max_ms": 0.043519999999999115
+          }
+        ]
+      },
+      {
+        "hash": "e2ce39e630ce65f3",
+        "native": "e990938634c0f0b5",
+        "sampled_frames": 2,
+        "median_union_ms": 0.04315999999999853,
+        "max_dispatch_ms": 0.010399999999998855,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 606,
+            "count": 5,
+            "sum_ms": 0.039759999999997575,
+            "union_ms": 0.039759999999997575,
+            "max_ms": 0.009399999999999409
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 144,
+            "count": 5,
+            "sum_ms": 0.04655999999999949,
+            "union_ms": 0.04655999999999949,
+            "max_ms": 0.010399999999998855
+          }
+        ]
+      },
+      {
+        "hash": "a2fcaa95c5a162f3",
+        "native": "42593194bb0b2b32",
+        "sampled_frames": 1,
+        "median_union_ms": 0.04040000000000532,
+        "max_dispatch_ms": 0.04040000000000532,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 438,
+            "count": 1,
+            "sum_ms": 0.04040000000000532,
+            "union_ms": 0.04040000000000532,
+            "max_ms": 0.04040000000000532
+          }
+        ]
+      },
+      {
+        "hash": "60b2970a3d10bbbe",
+        "native": "9387db798781f081",
+        "sampled_frames": 1,
+        "median_union_ms": 0.03988000000000369,
+        "max_dispatch_ms": 0.03988000000000369,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 432,
+            "count": 1,
+            "sum_ms": 0.03988000000000369,
+            "union_ms": 0.03988000000000369,
+            "max_ms": 0.03988000000000369
+          }
+        ]
+      },
+      {
+        "hash": "b76d7b3e9e93093d",
+        "native": "799e4ced3a1e4961",
+        "sampled_frames": 2,
+        "median_union_ms": 0.03901999999999997,
+        "max_dispatch_ms": 0.06167999999999996,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 468,
+            "count": 1,
+            "sum_ms": 0.06167999999999996,
+            "union_ms": 0.06167999999999996,
+            "max_ms": 0.06167999999999996
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 6,
+            "count": 1,
+            "sum_ms": 0.016359999999999986,
+            "union_ms": 0.016359999999999986,
+            "max_ms": 0.016359999999999986
+          }
+        ]
+      },
+      {
+        "hash": "ff3dc66618a17eb7",
+        "native": "9d1a4a01ebbc1c95",
+        "sampled_frames": 1,
+        "median_union_ms": 0.03719999999999857,
+        "max_dispatch_ms": 0.012599999999999056,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 408,
+            "count": 3,
+            "sum_ms": 0.03719999999999857,
+            "union_ms": 0.03719999999999857,
+            "max_ms": 0.012599999999999056
+          }
+        ]
+      },
+      {
+        "hash": "6df404b19ff16755",
+        "native": "7e8b6f6b41c841ab",
+        "sampled_frames": 3,
+        "median_union_ms": 0.035639999999999894,
+        "max_dispatch_ms": 0.07112000000000052,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 114,
+            "count": 1,
+            "sum_ms": 0.07112000000000052,
+            "union_ms": 0.07112000000000052,
+            "max_ms": 0.07112000000000052
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 576,
+            "count": 1,
+            "sum_ms": 0.03339999999999943,
+            "union_ms": 0.03339999999999943,
+            "max_ms": 0.03339999999999943
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 588,
+            "count": 1,
+            "sum_ms": 0.035639999999999894,
+            "union_ms": 0.035639999999999894,
+            "max_ms": 0.035639999999999894
+          }
+        ]
+      },
+      {
+        "hash": "787a912ed7ebf2a3",
+        "native": "1373e02b30f4cbab",
+        "sampled_frames": 1,
+        "median_union_ms": 0.03523999999999816,
+        "max_dispatch_ms": 0.004159999999998831,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 240,
+            "count": 11,
+            "sum_ms": 0.03523999999999816,
+            "union_ms": 0.03523999999999816,
+            "max_ms": 0.004159999999998831
+          }
+        ]
+      },
+      {
+        "hash": "b1f99121e9a5619b",
+        "native": "ac8dd7306e6a5fcf",
+        "sampled_frames": 2,
+        "median_union_ms": 0.03479999999999972,
+        "max_dispatch_ms": 0.03567999999999927,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 510,
+            "count": 1,
+            "sum_ms": 0.03567999999999927,
+            "union_ms": 0.03567999999999927,
+            "max_ms": 0.03567999999999927
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 48,
+            "count": 1,
+            "sum_ms": 0.03392000000000017,
+            "union_ms": 0.03392000000000017,
+            "max_ms": 0.03392000000000017
+          }
+        ]
+      },
+      {
+        "hash": "516a852404d7c70d",
+        "native": "44383bdc3ad99782",
+        "sampled_frames": 2,
+        "median_union_ms": 0.031140000000000168,
+        "max_dispatch_ms": 0.03483999999999998,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 84,
+            "count": 1,
+            "sum_ms": 0.03483999999999998,
+            "union_ms": 0.03483999999999998,
+            "max_ms": 0.03483999999999998
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 546,
+            "count": 1,
+            "sum_ms": 0.027440000000000353,
+            "union_ms": 0.027440000000000353,
+            "max_ms": 0.027440000000000353
+          }
+        ]
+      },
+      {
+        "hash": "97ccaeb8a3b9e423",
+        "native": "7feb54b5e846d91a",
+        "sampled_frames": 2,
+        "median_union_ms": 0.030079999999999885,
+        "max_dispatch_ms": 0.034440000000000026,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 168,
+            "count": 1,
+            "sum_ms": 0.034440000000000026,
+            "union_ms": 0.034440000000000026,
+            "max_ms": 0.034440000000000026
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 630,
+            "count": 1,
+            "sum_ms": 0.025719999999999743,
+            "union_ms": 0.025719999999999743,
+            "max_ms": 0.025719999999999743
+          }
+        ]
+      },
+      {
+        "hash": "f01712b5485e9b29",
+        "native": "06b5ba5f3e8be9fb",
+        "sampled_frames": 2,
+        "median_union_ms": 0.029920000000000613,
+        "max_dispatch_ms": 0.03380000000000116,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 654,
+            "count": 1,
+            "sum_ms": 0.026040000000000063,
+            "union_ms": 0.026040000000000063,
+            "max_ms": 0.026040000000000063
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 192,
+            "count": 1,
+            "sum_ms": 0.03380000000000116,
+            "union_ms": 0.03380000000000116,
+            "max_ms": 0.03380000000000116
+          }
+        ]
+      },
+      {
+        "hash": "3a366a793334a719",
+        "native": "394cb954427f6336",
+        "sampled_frames": 2,
+        "median_union_ms": 0.027980000000000338,
+        "max_dispatch_ms": 0.02972000000000108,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 540,
+            "count": 1,
+            "sum_ms": 0.026239999999999597,
+            "union_ms": 0.026239999999999597,
+            "max_ms": 0.026239999999999597
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 78,
+            "count": 1,
+            "sum_ms": 0.02972000000000108,
+            "union_ms": 0.02972000000000108,
+            "max_ms": 0.02972000000000108
+          }
+        ]
+      },
+      {
+        "hash": "8ddefccfd8c0eebf",
+        "native": "5b848b2eefcea1ac",
+        "sampled_frames": 2,
+        "median_union_ms": 0.024099999999999788,
+        "max_dispatch_ms": 0.029479999999999507,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 552,
+            "count": 1,
+            "sum_ms": 0.01872000000000007,
+            "union_ms": 0.01872000000000007,
+            "max_ms": 0.01872000000000007
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 90,
+            "count": 1,
+            "sum_ms": 0.029479999999999507,
+            "union_ms": 0.029479999999999507,
+            "max_ms": 0.029479999999999507
+          }
+        ]
+      },
+      {
+        "hash": "6bff2c241b36f869",
+        "native": "cede4e016c4ec56f",
+        "sampled_frames": 1,
+        "median_union_ms": 0.022520000000000095,
+        "max_dispatch_ms": 0.012119999999999465,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 360,
+            "count": 2,
+            "sum_ms": 0.022520000000000095,
+            "union_ms": 0.022520000000000095,
+            "max_ms": 0.012119999999999465
+          }
+        ]
+      },
+      {
+        "hash": "de34044daaa2a820",
+        "native": "e311d97dbe057ad3",
+        "sampled_frames": 2,
+        "median_union_ms": 0.02236000000000038,
+        "max_dispatch_ms": 0.025600000000000733,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 54,
+            "count": 1,
+            "sum_ms": 0.025600000000000733,
+            "union_ms": 0.025600000000000733,
+            "max_ms": 0.025600000000000733
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 516,
+            "count": 1,
+            "sum_ms": 0.019120000000000026,
+            "union_ms": 0.019120000000000026,
+            "max_ms": 0.019120000000000026
+          }
+        ]
+      },
+      {
+        "hash": "fc10c1232f7ac3f3",
+        "native": "d897749a07b5f1c3",
+        "sampled_frames": 1,
+        "median_union_ms": 0.02051999999999765,
+        "max_dispatch_ms": 0.02051999999999765,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 450,
+            "count": 1,
+            "sum_ms": 0.02051999999999765,
+            "union_ms": 0.02051999999999765,
+            "max_ms": 0.02051999999999765
+          }
+        ]
+      },
+      {
+        "hash": "d66d7788f74f710f",
+        "native": "3855f6b659b38067",
+        "sampled_frames": 4,
+        "median_union_ms": 0.02041999999999966,
+        "max_dispatch_ms": 0.005000000000000782,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 246,
+            "count": 8,
+            "sum_ms": 0.02416000000000018,
+            "union_ms": 0.02416000000000018,
+            "max_ms": 0.005000000000000782
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 306,
+            "count": 8,
+            "sum_ms": 0.018560000000000798,
+            "union_ms": 0.018560000000000798,
+            "max_ms": 0.003920000000000812
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 702,
+            "count": 8,
+            "sum_ms": 0.01968000000000103,
+            "union_ms": 0.01968000000000103,
+            "max_ms": 0.0036400000000007537
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 690,
+            "count": 8,
+            "sum_ms": 0.02115999999999829,
+            "union_ms": 0.02115999999999829,
+            "max_ms": 0.004959999999998743
+          }
+        ]
+      },
+      {
+        "hash": "18a03bee42bb6d7c",
+        "native": "aa8209e18fe548eb",
+        "sampled_frames": 1,
+        "median_union_ms": 0.019600000000000506,
+        "max_dispatch_ms": 0.010400000000000631,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 354,
+            "count": 2,
+            "sum_ms": 0.019600000000000506,
+            "union_ms": 0.019600000000000506,
+            "max_ms": 0.010400000000000631
+          }
+        ]
+      },
+      {
+        "hash": "6baae2e366d8dca9",
+        "native": "00832f30e61fca4c",
+        "sampled_frames": 1,
+        "median_union_ms": 0.019479999999997943,
+        "max_dispatch_ms": 0.010880000000000223,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 750,
+            "count": 2,
+            "sum_ms": 0.019479999999997943,
+            "union_ms": 0.019479999999997943,
+            "max_ms": 0.010880000000000223
+          }
+        ]
+      },
+      {
+        "hash": "9d23f31deebf8293",
+        "native": "55f66ad6dab4ffa7",
+        "sampled_frames": 1,
+        "median_union_ms": 0.019079999999998876,
+        "max_dispatch_ms": 0.019079999999998876,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 336,
+            "count": 1,
+            "sum_ms": 0.019079999999998876,
+            "union_ms": 0.019079999999998876,
+            "max_ms": 0.019079999999998876
+          }
+        ]
+      },
+      {
+        "hash": "24d8d667f1ffd686",
+        "native": "8b76a3eaa6d31567",
+        "sampled_frames": 2,
+        "median_union_ms": 0.017919999999999714,
+        "max_dispatch_ms": 0.01823999999999959,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 36,
+            "count": 1,
+            "sum_ms": 0.01823999999999959,
+            "union_ms": 0.01823999999999959,
+            "max_ms": 0.01823999999999959
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 498,
+            "count": 1,
+            "sum_ms": 0.017599999999999838,
+            "union_ms": 0.017599999999999838,
+            "max_ms": 0.017599999999999838
+          }
+        ]
+      },
+      {
+        "hash": "c86ffc2c1701ace6",
+        "native": "30c3800efde48860",
+        "sampled_frames": 2,
+        "median_union_ms": 0.017679999999999474,
+        "max_dispatch_ms": 0.020400000000000418,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 42,
+            "count": 1,
+            "sum_ms": 0.01495999999999853,
+            "union_ms": 0.01495999999999853,
+            "max_ms": 0.01495999999999853
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 504,
+            "count": 1,
+            "sum_ms": 0.020400000000000418,
+            "union_ms": 0.020400000000000418,
+            "max_ms": 0.020400000000000418
+          }
+        ]
+      },
+      {
+        "hash": "fb4203a7d928ed42",
+        "native": "e4e1d99809964f70",
+        "sampled_frames": 3,
+        "median_union_ms": 0.016719999999999402,
+        "max_dispatch_ms": 0.038800000000001944,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 138,
+            "count": 1,
+            "sum_ms": 0.038800000000001944,
+            "union_ms": 0.038800000000001944,
+            "max_ms": 0.038800000000001944
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 132,
+            "count": 1,
+            "sum_ms": 0.011799999999999145,
+            "union_ms": 0.011799999999999145,
+            "max_ms": 0.011799999999999145
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 600,
+            "count": 1,
+            "sum_ms": 0.016719999999999402,
+            "union_ms": 0.016719999999999402,
+            "max_ms": 0.016719999999999402
+          }
+        ]
+      },
+      {
+        "hash": "6a6b5dcfbc5c2f74",
+        "native": "a25b464c9941ee88",
+        "sampled_frames": 2,
+        "median_union_ms": 0.012979999999999325,
+        "max_dispatch_ms": 0.013399999999998968,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 660,
+            "count": 1,
+            "sum_ms": 0.012559999999999683,
+            "union_ms": 0.012559999999999683,
+            "max_ms": 0.012559999999999683
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 198,
+            "count": 1,
+            "sum_ms": 0.013399999999998968,
+            "union_ms": 0.013399999999998968,
+            "max_ms": 0.013399999999998968
+          }
+        ]
+      },
+      {
+        "hash": "1175a9a6d57da734",
+        "native": "44e0627a763a71f5",
+        "sampled_frames": 2,
+        "median_union_ms": 0.01089999999999991,
+        "max_dispatch_ms": 0.011359999999999815,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 522,
+            "count": 1,
+            "sum_ms": 0.011359999999999815,
+            "union_ms": 0.011359999999999815,
+            "max_ms": 0.011359999999999815
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 60,
+            "count": 1,
+            "sum_ms": 0.010440000000000005,
+            "union_ms": 0.010440000000000005,
+            "max_ms": 0.010440000000000005
+          }
+        ]
+      },
+      {
+        "hash": "4766f1d5cf8a5396",
+        "native": "87937778a373d146",
+        "sampled_frames": 2,
+        "median_union_ms": 0.010639999999999539,
+        "max_dispatch_ms": 0.010999999999999233,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 174,
+            "count": 1,
+            "sum_ms": 0.010999999999999233,
+            "union_ms": 0.010999999999999233,
+            "max_ms": 0.010999999999999233
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 636,
+            "count": 1,
+            "sum_ms": 0.010279999999999845,
+            "union_ms": 0.010279999999999845,
+            "max_ms": 0.010279999999999845
+          }
+        ]
+      },
+      {
+        "hash": "3d6aaf05ca7c40b0",
+        "native": "9669e5484a2973c9",
+        "sampled_frames": 2,
+        "median_union_ms": 0.009660000000000224,
+        "max_dispatch_ms": 0.009719999999999729,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 648,
+            "count": 1,
+            "sum_ms": 0.009719999999999729,
+            "union_ms": 0.009719999999999729,
+            "max_ms": 0.009719999999999729
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 186,
+            "count": 1,
+            "sum_ms": 0.009600000000000719,
+            "union_ms": 0.009600000000000719,
+            "max_ms": 0.009600000000000719
+          }
+        ]
+      },
+      {
+        "hash": "12a677f6995b32ed",
+        "native": "fb907e3c1ca207ff",
+        "sampled_frames": 2,
+        "median_union_ms": 0.009660000000000224,
+        "max_dispatch_ms": 0.004839999999999733,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 252,
+            "count": 3,
+            "sum_ms": 0.007200000000000983,
+            "union_ms": 0.007200000000000983,
+            "max_ms": 0.0035199999999999676
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 732,
+            "count": 3,
+            "sum_ms": 0.012119999999999465,
+            "union_ms": 0.012119999999999465,
+            "max_ms": 0.004839999999999733
+          }
+        ]
+      },
+      {
+        "hash": "e7008f9008100505",
+        "native": "5b2bb8aa42b52d65",
+        "sampled_frames": 2,
+        "median_union_ms": 0.009459999999999802,
+        "max_dispatch_ms": 0.01051999999999964,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 180,
+            "count": 1,
+            "sum_ms": 0.01051999999999964,
+            "union_ms": 0.01051999999999964,
+            "max_ms": 0.01051999999999964
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 642,
+            "count": 1,
+            "sum_ms": 0.008399999999999963,
+            "union_ms": 0.008399999999999963,
+            "max_ms": 0.008399999999999963
+          }
+        ]
+      },
+      {
+        "hash": "da1246f26b1e83e7",
+        "native": "111f378bdcc6206e",
+        "sampled_frames": 1,
+        "median_union_ms": 0.009360000000000923,
+        "max_dispatch_ms": 0.009360000000000923,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 456,
+            "count": 1,
+            "sum_ms": 0.009360000000000923,
+            "union_ms": 0.009360000000000923,
+            "max_ms": 0.009360000000000923
+          }
+        ]
+      },
+      {
+        "hash": "32c1819485153ec3",
+        "native": "0c546119f1c74fbd",
+        "sampled_frames": 1,
+        "median_union_ms": 0.008359999999999701,
+        "max_dispatch_ms": 0.008359999999999701,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 372,
+            "count": 1,
+            "sum_ms": 0.008359999999999701,
+            "union_ms": 0.008359999999999701,
+            "max_ms": 0.008359999999999701
+          }
+        ]
+      },
+      {
+        "hash": "f6c25196201429a7",
+        "native": "7108cc9a1825143b",
+        "sampled_frames": 3,
+        "median_union_ms": 0.008239999999999803,
+        "max_dispatch_ms": 0.003959999999999297,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 216,
+            "count": 4,
+            "sum_ms": 0.008040000000001157,
+            "union_ms": 0.008040000000001157,
+            "max_ms": 0.0027200000000000557
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 696,
+            "count": 4,
+            "sum_ms": 0.010799999999999699,
+            "union_ms": 0.010799999999999699,
+            "max_ms": 0.003959999999999297
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 720,
+            "count": 4,
+            "sum_ms": 0.008239999999999803,
+            "union_ms": 0.008239999999999803,
+            "max_ms": 0.0031599999999993855
+          }
+        ]
+      },
+      {
+        "hash": "5148581fef61affb",
+        "native": "6bec780ba74c89f3",
+        "sampled_frames": 6,
+        "median_union_ms": 0.007959999999998857,
+        "max_dispatch_ms": 0.004239999999999355,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 684,
+            "count": 3,
+            "sum_ms": 0.0075600000000015655,
+            "union_ms": 0.0075600000000015655,
+            "max_ms": 0.0035600000000002296
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 276,
+            "count": 3,
+            "sum_ms": 0.007160000000000721,
+            "union_ms": 0.007160000000000721,
+            "max_ms": 0.0035199999999999676
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 228,
+            "count": 3,
+            "sum_ms": 0.007199999999999207,
+            "union_ms": 0.007199999999999207,
+            "max_ms": 0.0039999999999995595
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 672,
+            "count": 3,
+            "sum_ms": 0.008599999999999497,
+            "union_ms": 0.008599999999999497,
+            "max_ms": 0.0039999999999995595
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 270,
+            "count": 3,
+            "sum_ms": 0.008359999999996148,
+            "union_ms": 0.008359999999996148,
+            "max_ms": 0.003839999999996735
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 264,
+            "count": 3,
+            "sum_ms": 0.009520000000000195,
+            "union_ms": 0.009520000000000195,
+            "max_ms": 0.004239999999999355
+          }
+        ]
+      },
+      {
+        "hash": "c83e1f355361945f",
+        "native": "7360d66a4dc685a8",
+        "sampled_frames": 1,
+        "median_union_ms": 0.0060800000000007515,
+        "max_dispatch_ms": 0.0060800000000007515,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 390,
+            "count": 1,
+            "sum_ms": 0.0060800000000007515,
+            "union_ms": 0.0060800000000007515,
+            "max_ms": 0.0060800000000007515
+          }
+        ]
+      },
+      {
+        "hash": "1de5846fd38b727b",
+        "native": "3782b94699f4d9e3",
+        "sampled_frames": 1,
+        "median_union_ms": 0.006039999999996937,
+        "max_dispatch_ms": 0.004199999999999093,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 234,
+            "count": 2,
+            "sum_ms": 0.006039999999996937,
+            "union_ms": 0.006039999999996937,
+            "max_ms": 0.004199999999999093
+          }
+        ]
+      },
+      {
+        "hash": "1fc7a0423116281f",
+        "native": "20ab4117f4db5bdb",
+        "sampled_frames": 2,
+        "median_union_ms": 0.005800000000000249,
+        "max_dispatch_ms": 0.005840000000000067,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 18,
+            "count": 1,
+            "sum_ms": 0.0057600000000004314,
+            "union_ms": 0.0057600000000004314,
+            "max_ms": 0.0057600000000004314
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 480,
+            "count": 1,
+            "sum_ms": 0.005840000000000067,
+            "union_ms": 0.005840000000000067,
+            "max_ms": 0.005840000000000067
+          }
+        ]
+      },
+      {
+        "hash": "78457e78ccc146b8",
+        "native": "2c6a6bfa668a083a",
+        "sampled_frames": 3,
+        "median_union_ms": 0.005799999999997141,
+        "max_dispatch_ms": 0.006559999999998567,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 312,
+            "count": 1,
+            "sum_ms": 0.005799999999997141,
+            "union_ms": 0.005799999999997141,
+            "max_ms": 0.005799999999997141
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 714,
+            "count": 1,
+            "sum_ms": 0.0046400000000001995,
+            "union_ms": 0.0046400000000001995,
+            "max_ms": 0.0046400000000001995
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 288,
+            "count": 1,
+            "sum_ms": 0.006559999999998567,
+            "union_ms": 0.006559999999998567,
+            "max_ms": 0.006559999999998567
+          }
+        ]
+      },
+      {
+        "hash": "67f65e642ea4e144",
+        "native": "f146f681e42a2acd",
+        "sampled_frames": 2,
+        "median_union_ms": 0.0051800000000001845,
+        "max_dispatch_ms": 0.0036400000000007537,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 726,
+            "count": 2,
+            "sum_ms": 0.005079999999999529,
+            "union_ms": 0.005079999999999529,
+            "max_ms": 0.0034799999999997056
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 762,
+            "count": 2,
+            "sum_ms": 0.00528000000000084,
+            "union_ms": 0.00528000000000084,
+            "max_ms": 0.0036400000000007537
+          }
+        ]
+      },
+      {
+        "hash": "9840bd9171a25403",
+        "native": "59a9eb5272203462",
+        "sampled_frames": 1,
+        "median_union_ms": 0.005039999999999267,
+        "max_dispatch_ms": 0.005039999999999267,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 330,
+            "count": 1,
+            "sum_ms": 0.005039999999999267,
+            "union_ms": 0.005039999999999267,
+            "max_ms": 0.005039999999999267
+          }
+        ]
+      },
+      {
+        "hash": "d5c385de00462126",
+        "native": "4d73385d00f9abcf",
+        "sampled_frames": 1,
+        "median_union_ms": 0.0048799999999999955,
+        "max_dispatch_ms": 0.0048799999999999955,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 294,
+            "count": 1,
+            "sum_ms": 0.0048799999999999955,
+            "union_ms": 0.0048799999999999955,
+            "max_ms": 0.0048799999999999955
+          }
+        ]
+      },
+      {
+        "hash": "3456eac1b79ed5b8",
+        "native": "e2d9edfe87bd5a80",
+        "sampled_frames": 1,
+        "median_union_ms": 0.00420000000000087,
+        "max_dispatch_ms": 0.00420000000000087,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 414,
+            "count": 1,
+            "sum_ms": 0.00420000000000087,
+            "union_ms": 0.00420000000000087,
+            "max_ms": 0.00420000000000087
+          }
+        ]
+      },
+      {
+        "hash": "6a7f45ab293a93b1",
+        "native": "232173d74c02a209",
+        "sampled_frames": 2,
+        "median_union_ms": 0.004080000000000972,
+        "max_dispatch_ms": 0.004560000000001452,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 150,
+            "count": 1,
+            "sum_ms": 0.004560000000001452,
+            "union_ms": 0.004560000000001452,
+            "max_ms": 0.004560000000001452
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 612,
+            "count": 1,
+            "sum_ms": 0.0036000000000004917,
+            "union_ms": 0.0036000000000004917,
+            "max_ms": 0.0036000000000004917
+          }
+        ]
+      },
+      {
+        "hash": "947451f26ff15139",
+        "native": "55e3ec15418ec8ec",
+        "sampled_frames": 1,
+        "median_union_ms": 0.0039999999999995595,
+        "max_dispatch_ms": 0.0039999999999995595,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 744,
+            "count": 1,
+            "sum_ms": 0.0039999999999995595,
+            "union_ms": 0.0039999999999995595,
+            "max_ms": 0.0039999999999995595
+          }
+        ]
+      },
+      {
+        "hash": "deb9e7d64fdb483f",
+        "native": "c6282c4c9614b296",
+        "sampled_frames": 2,
+        "median_union_ms": 0.0037199999999995015,
+        "max_dispatch_ms": 0.004400000000000404,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 756,
+            "count": 1,
+            "sum_ms": 0.0030399999999985994,
+            "union_ms": 0.0030399999999985994,
+            "max_ms": 0.0030399999999985994
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 222,
+            "count": 1,
+            "sum_ms": 0.004400000000000404,
+            "union_ms": 0.004400000000000404,
+            "max_ms": 0.004400000000000404
+          }
+        ]
+      },
+      {
+        "hash": "e5dd63d35b4bf8e7",
+        "native": "7b703e33f5d87587",
+        "sampled_frames": 1,
+        "median_union_ms": 0.0035600000000002296,
+        "max_dispatch_ms": 0.0035600000000002296,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 258,
+            "count": 1,
+            "sum_ms": 0.0035600000000002296,
+            "union_ms": 0.0035600000000002296,
+            "max_ms": 0.0035600000000002296
+          }
+        ]
+      },
+      {
+        "hash": "e65e65f8de8799cb",
+        "native": "f35c365194ac4f75",
+        "sampled_frames": 1,
+        "median_union_ms": 0.003439999999997667,
+        "max_dispatch_ms": 0.003439999999997667,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 420,
+            "count": 1,
+            "sum_ms": 0.003439999999997667,
+            "union_ms": 0.003439999999997667,
+            "max_ms": 0.003439999999997667
+          }
+        ]
+      },
+      {
+        "hash": "59b8addcebe48535",
+        "native": "da6a070b92354d0c",
+        "sampled_frames": 1,
+        "median_union_ms": 0.0029599999999980753,
+        "max_dispatch_ms": 0.0029599999999980753,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 342,
+            "count": 1,
+            "sum_ms": 0.0029599999999980753,
+            "union_ms": 0.0029599999999980753,
+            "max_ms": 0.0029599999999980753
+          }
+        ]
+      },
+      {
+        "hash": "e9f7ffb3c4c4e01e",
+        "native": "c1d394dc24239c40",
+        "sampled_frames": 2,
+        "median_union_ms": 0.0028000000000000247,
+        "max_dispatch_ms": 0.0028799999999999937,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 474,
+            "count": 1,
+            "sum_ms": 0.0027200000000000557,
+            "union_ms": 0.0027200000000000557,
+            "max_ms": 0.0027200000000000557
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 12,
+            "count": 1,
+            "sum_ms": 0.0028799999999999937,
+            "union_ms": 0.0028799999999999937,
+            "max_ms": 0.0028799999999999937
+          }
+        ]
+      },
+      {
+        "hash": "2c77821ed5739bf7",
+        "native": "b2f3669454474675",
+        "sampled_frames": 3,
+        "median_union_ms": 0.002200000000000202,
+        "max_dispatch_ms": 0.0024800000000002598,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 300,
+            "count": 1,
+            "sum_ms": 0.002200000000000202,
+            "union_ms": 0.002200000000000202,
+            "max_ms": 0.002200000000000202
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 738,
+            "count": 1,
+            "sum_ms": 0.0024800000000002598,
+            "union_ms": 0.0024800000000002598,
+            "max_ms": 0.0024800000000002598
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 708,
+            "count": 1,
+            "sum_ms": 0.0021599999999999397,
+            "union_ms": 0.0021599999999999397,
+            "max_ms": 0.0021599999999999397
+          }
+        ]
+      },
+      {
+        "hash": "04d9ac5155ae848e",
+        "native": "b0559767da4670f0",
+        "sampled_frames": 2,
+        "median_union_ms": 0.002080000000000304,
+        "max_dispatch_ms": 0.002320000000000988,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 318,
+            "count": 1,
+            "sum_ms": 0.002320000000000988,
+            "union_ms": 0.002320000000000988,
+            "max_ms": 0.002320000000000988
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 282,
+            "count": 1,
+            "sum_ms": 0.0018399999999996197,
+            "union_ms": 0.0018399999999996197,
+            "max_ms": 0.0018399999999996197
+          }
+        ]
+      },
+      {
+        "hash": "795ef816a5a958f1",
+        "native": "ae0ec8a35583e4bb",
+        "sampled_frames": 1,
+        "median_union_ms": 0.0011599999999999944,
+        "max_dispatch_ms": 0.0011599999999999944,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 462,
+            "count": 1,
+            "sum_ms": 0.0011599999999999944,
+            "union_ms": 0.0011599999999999944,
+            "max_ms": 0.0011599999999999944
+          }
+        ]
+      },
+      {
+        "hash": "96f8e9c0f5717496",
+        "native": "078a48b6b200bdac",
+        "sampled_frames": 2,
+        "median_union_ms": 0.001040000000000152,
+        "max_dispatch_ms": 0.001120000000000232,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 96,
+            "count": 1,
+            "sum_ms": 0.001120000000000232,
+            "union_ms": 0.001120000000000232,
+            "max_ms": 0.001120000000000232
+          },
+          {
+            "label": "coarse-survey",
+            "frame": 558,
+            "count": 1,
+            "sum_ms": 0.0009600000000000719,
+            "union_ms": 0.0009600000000000719,
+            "max_ms": 0.0009600000000000719
+          }
+        ]
+      },
+      {
+        "hash": "d6be3367d9cfc4ab",
+        "native": "e1d1cd3cc602bacc",
+        "sampled_frames": 1,
+        "median_union_ms": 0.0010000000000012221,
+        "max_dispatch_ms": 0.0010000000000012221,
+        "samples": [
+          {
+            "label": "coarse-survey",
+            "frame": 324,
+            "count": 1,
+            "sum_ms": 0.0010000000000012221,
+            "union_ms": 0.0010000000000012221,
+            "max_ms": 0.0010000000000012221
+          }
+        ]
+      }
+    ]
+  },
+  "combined_original_scene_coverage_before_target": {
+    "observed_unique": 78,
+    "timed_unique": 76,
+    "missing": [
+      {
+        "hash": "7f0d176391897d0e",
+        "native": "4d9a7a9cfd503656",
+        "observed_capture_count": 164
+      },
+      {
+        "hash": "b0df987f0bc3ddf7",
+        "native": "7dac7489218d3b6e",
+        "observed_capture_count": 3
+      }
+    ],
+    "remaining_original_missing_after_target": [
+      {
+        "hash": "b0df987f0bc3ddf7",
+        "native": "7dac7489218d3b6e",
+        "observed_capture_count": 3
+      }
+    ],
+    "timed_original_after_target": 77
+  },
+  "tests": {
+    "full0": {
+      "exit": 0,
+      "flag": "0",
+      "started": 1794181142.6860201,
+      "finished": 1794181152.337072,
+      "passed": 241,
+      "skipped": 4
+    },
+    "full1": {
+      "exit": 0,
+      "flag": "1",
+      "started": 1794181152.3373582,
+      "finished": 1794181162.0803916,
+      "passed": 241,
+      "skipped": 4
+    },
+    "skip_reason": "LDN tests need IPv4, Docker network none; skipped is not passed",
+    "mutations": {
+      "unfinished_accepted": {
+        "exit": 42,
+        "detected": true
+      },
+      "overflow_accepted": {
+        "exit": 42,
+        "detected": true
+      },
+      "selection_stuck": {
+        "exit": 42,
+        "detected": true
+      },
+      "unavailable_accepted": {
+        "exit": 42,
+        "detected": true
+      }
+    },
+    "root_just": {
+      "exit": 0,
+      "started": 1794180703.1621704,
+      "finished": 1794180748.5746763
+    },
+    "root_audit": {
+      "exit": 0,
+      "started": 1794180748.5748682,
+      "finished": 1794180749.3168955
+    },
+    "new_remote_ci": false
+  },
+  "functional": {
+    "build": "4256d55d11351842d1e78b4b4826d1ca0df1e6c177152299b9efa4108668f4ed",
+    "ground_walk": true,
+    "manual_slot_changed": true,
+    "resume_same_ground_position": true,
+    "manual_hash_unchanged_after_resume_and_stop": true,
+    "audio": {
+      "channels": 2,
+      "rate": 48000,
+      "frames": 383998,
+      "seconds": 7.999958333333334,
+      "rms": [
+        0.015337249239037908,
+        0.014423879174073563
+      ],
+      "peak": [
+        0.079925537109375,
+        0.09716796875
+      ]
+    },
+    "audio_scope": "Signal present in both channels, no precision AV sync test",
+    "shutdowns": [
+      {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.0035466076806188
+      },
+      {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 2.705456549767405
+      }
+    ],
+    "zone_transition": false
+  },
+  "excluded_runs": {
+    "coarse-target": "Stopped own unarmed run to retarget missing frequent program; not a failure or performance sample",
+    "coarse-target-missing": "Saved ground view did not contain requested program. Target assertion failed; data not treated as zero cost. Save/resume validation remains valid."
+  },
+  "limits": [
+    "Two FPS phases per condition, shared drifting machine; cannot isolate seven long frames to probe alone",
+    "TOP/BOTTOM intervals include pipeline effects and can overlap; category sums and medians not additive",
+    "Execution includes graphics, guest/internal compute, barriers and copies; no exclusive draw-only duration",
+    "Program-specific intervals include dependencies and cannot alone establish exclusive shader execution cost",
+    "Known NO_MESH omissions remain; not full-world60fps certification",
+    "No zone transition or precise AV sync validated",
+    "Native and lowered hashes identify programs; largest measured program is not necessarily largest unmeasured one"
+  ],
+  "targeted_missing_program": {
+    "scope": "Sparse one-in60 captures, existing upload/execution command buffers and one rotating guest compute program. TOP/BOTTOM approximate overlapping queue intervals; unions not exclusive hardware busy. Submit envelope can span CPU gaps and frames in flight. Selected shader intervals are included in execution, never additive.",
+    "captures": [
+      {
+        "label": "coarse-target-balcony",
+        "file": "capture-7.csv",
+        "frame": 420,
+        "cpu_tick_interval_ms": 50.3385066986084,
+        "events": 315,
+        "queries": 630,
+        "envelope_ms": 49.58404,
+        "submission_interval_union_ms": 26.73164000000005,
+        "gap_outside_intervals_ms": 22.852399999999953,
+        "categories": {
+          "execution": {
+            "count": 157,
+            "sum_ms": 25.90004000000002,
+            "union_ms": 25.90004000000002,
+            "max_ms": 3.547319999999999
+          },
+          "upload": {
+            "count": 157,
+            "sum_ms": 0.8316000000000285,
+            "union_ms": 0.8316000000000285,
+            "max_ms": 0.018599999999999284
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.041400000000001214,
+            "union_ms": 0.041400000000001214,
+            "max_ms": 0.041400000000001214
+          }
+        },
+        "selected": {
+          "hash": "7f0d176391897d0e",
+          "native": "4d9a7a9cfd503656"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-target-balcony",
+        "file": "capture-5.csv",
+        "frame": 300,
+        "cpu_tick_interval_ms": 39.87526893615723,
+        "events": 315,
+        "queries": 630,
+        "envelope_ms": 39.9086,
+        "submission_interval_union_ms": 24.771479999999997,
+        "gap_outside_intervals_ms": 15.137120000000003,
+        "categories": {
+          "execution": {
+            "count": 157,
+            "sum_ms": 23.96411999999998,
+            "union_ms": 23.96411999999998,
+            "max_ms": 3.173759999999998
+          },
+          "upload": {
+            "count": 157,
+            "sum_ms": 0.8073600000000172,
+            "union_ms": 0.8073600000000172,
+            "max_ms": 0.018959999999999866
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.03883999999999954,
+            "union_ms": 0.03883999999999954,
+            "max_ms": 0.03883999999999954
+          }
+        },
+        "selected": {
+          "hash": "7f0d176391897d0e",
+          "native": "4d9a7a9cfd503656"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-target-balcony",
+        "file": "capture-3.csv",
+        "frame": 180,
+        "cpu_tick_interval_ms": 33.57648849487305,
+        "events": 315,
+        "queries": 630,
+        "envelope_ms": 52.5548,
+        "submission_interval_union_ms": 22.663400000000003,
+        "gap_outside_intervals_ms": 29.891399999999997,
+        "categories": {
+          "execution": {
+            "count": 157,
+            "sum_ms": 21.870560000000005,
+            "union_ms": 21.870560000000005,
+            "max_ms": 3.0256000000000007
+          },
+          "upload": {
+            "count": 157,
+            "sum_ms": 0.7928400000000003,
+            "union_ms": 0.7928400000000003,
+            "max_ms": 0.018240000000000478
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.037359999999999616,
+            "union_ms": 0.037359999999999616,
+            "max_ms": 0.037359999999999616
+          }
+        },
+        "selected": {
+          "hash": "7f0d176391897d0e",
+          "native": "4d9a7a9cfd503656"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-target-balcony",
+        "file": "capture-6.csv",
+        "frame": 360,
+        "cpu_tick_interval_ms": 32.46426582336426,
+        "events": 311,
+        "queries": 622,
+        "envelope_ms": 37.17987,
+        "submission_interval_union_ms": 23.04700000000003,
+        "gap_outside_intervals_ms": 14.132869999999972,
+        "categories": {
+          "execution": {
+            "count": 155,
+            "sum_ms": 22.27824000000001,
+            "union_ms": 22.27824000000001,
+            "max_ms": 3.1247200000000035
+          },
+          "upload": {
+            "count": 155,
+            "sum_ms": 0.7687600000000152,
+            "union_ms": 0.7687600000000152,
+            "max_ms": 0.019439999999999458
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.031159999999999854,
+            "union_ms": 0.031159999999999854,
+            "max_ms": 0.031159999999999854
+          }
+        },
+        "selected": {
+          "hash": "7f0d176391897d0e",
+          "native": "4d9a7a9cfd503656"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-target-balcony",
+        "file": "capture-4.csv",
+        "frame": 240,
+        "cpu_tick_interval_ms": 37.935495376586914,
+        "events": 311,
+        "queries": 622,
+        "envelope_ms": 38.07956,
+        "submission_interval_union_ms": 25.617960000000004,
+        "gap_outside_intervals_ms": 12.461599999999997,
+        "categories": {
+          "execution": {
+            "count": 155,
+            "sum_ms": 24.832120000000007,
+            "union_ms": 24.832120000000007,
+            "max_ms": 3.465040000000002
+          },
+          "upload": {
+            "count": 155,
+            "sum_ms": 0.7858399999999996,
+            "union_ms": 0.7858399999999996,
+            "max_ms": 0.0191599999999994
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.032880000000000464,
+            "union_ms": 0.032880000000000464,
+            "max_ms": 0.032880000000000464
+          }
+        },
+        "selected": {
+          "hash": "7f0d176391897d0e",
+          "native": "4d9a7a9cfd503656"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-target-balcony",
+        "file": "capture-0.csv",
+        "frame": 0,
+        "cpu_tick_interval_ms": 33.8749885559082,
+        "events": 310,
+        "queries": 620,
+        "envelope_ms": 54.96578,
+        "submission_interval_union_ms": 22.81532000000001,
+        "gap_outside_intervals_ms": 32.150459999999995,
+        "categories": {
+          "execution": {
+            "count": 155,
+            "sum_ms": 22.048640000000013,
+            "union_ms": 22.048640000000013,
+            "max_ms": 3.1630000000000003
+          },
+          "upload": {
+            "count": 155,
+            "sum_ms": 0.7666799999999979,
+            "union_ms": 0.7666799999999979,
+            "max_ms": 0.018919999999999604
+          }
+        },
+        "selected": {
+          "hash": "0000000000000000",
+          "native": "0000000000000000"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-target-balcony",
+        "file": "capture-2.csv",
+        "frame": 120,
+        "cpu_tick_interval_ms": 59.95345115661621,
+        "events": 311,
+        "queries": 622,
+        "envelope_ms": 41.40712,
+        "submission_interval_union_ms": 29.50763999999999,
+        "gap_outside_intervals_ms": 11.899480000000008,
+        "categories": {
+          "execution": {
+            "count": 155,
+            "sum_ms": 28.436439999999997,
+            "union_ms": 28.436439999999997,
+            "max_ms": 3.173319999999997
+          },
+          "upload": {
+            "count": 155,
+            "sum_ms": 1.0711999999999948,
+            "union_ms": 1.0711999999999948,
+            "max_ms": 0.10076
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.06264000000000003,
+            "union_ms": 0.06264000000000003,
+            "max_ms": 0.06264000000000003
+          }
+        },
+        "selected": {
+          "hash": "7f0d176391897d0e",
+          "native": "4d9a7a9cfd503656"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      },
+      {
+        "label": "coarse-target-balcony",
+        "file": "capture-1.csv",
+        "frame": 60,
+        "cpu_tick_interval_ms": 62.317848205566406,
+        "events": 315,
+        "queries": 630,
+        "envelope_ms": 44.01841,
+        "submission_interval_union_ms": 28.597159999999977,
+        "gap_outside_intervals_ms": 15.421250000000025,
+        "categories": {
+          "execution": {
+            "count": 157,
+            "sum_ms": 27.46627999999999,
+            "union_ms": 27.46627999999999,
+            "max_ms": 3.1246399999999994
+          },
+          "upload": {
+            "count": 157,
+            "sum_ms": 1.1308799999999855,
+            "union_ms": 1.1308799999999855,
+            "max_ms": 0.0988
+          },
+          "guest_compute": {
+            "count": 1,
+            "sum_ms": 0.06436000000000064,
+            "union_ms": 0.06436000000000064,
+            "max_ms": 0.06436000000000064
+          }
+        },
+        "selected": {
+          "hash": "7f0d176391897d0e",
+          "native": "4d9a7a9cfd503656"
+        },
+        "observed_programs": 77,
+        "guest_dispatches": 144
+      }
+    ],
+    "summary": {
+      "queries": {
+        "min": 620,
+        "median": 626.0,
+        "max": 630
+      },
+      "cpu_tick_interval_ms": {
+        "min": 32.46426582336426,
+        "median": 38.90538215637207,
+        "max": 62.317848205566406
+      },
+      "envelope_ms": {
+        "min": 37.17987,
+        "median": 42.712765000000005,
+        "max": 54.96578
+      },
+      "submission_interval_union_ms": {
+        "min": 22.663400000000003,
+        "median": 25.19472,
+        "max": 29.50763999999999
+      },
+      "gap_outside_intervals_ms": {
+        "min": 11.899480000000008,
+        "median": 15.279185000000014,
+        "max": 32.150459999999995
+      },
+      "guest_dispatches": {
+        "min": 144,
+        "median": 144.0,
+        "max": 144
+      },
+      "execution_union_ms": {
+        "min": 21.870560000000005,
+        "median": 24.39811999999999,
+        "max": 28.436439999999997
+      },
+      "upload_union_ms": {
+        "min": 0.7666799999999979,
+        "median": 0.8001000000000087,
+        "max": 1.1308799999999855
+      }
+    },
+    "programs": [
+      {
+        "hash": "7f0d176391897d0e",
+        "native": "4d9a7a9cfd503656",
+        "sampled_frames": 7,
+        "median_union_ms": 0.03883999999999954,
+        "max_dispatch_ms": 0.06436000000000064,
+        "samples": [
+          {
+            "label": "coarse-target-balcony",
+            "frame": 420,
+            "count": 1,
+            "sum_ms": 0.041400000000001214,
+            "union_ms": 0.041400000000001214,
+            "max_ms": 0.041400000000001214
+          },
+          {
+            "label": "coarse-target-balcony",
+            "frame": 300,
+            "count": 1,
+            "sum_ms": 0.03883999999999954,
+            "union_ms": 0.03883999999999954,
+            "max_ms": 0.03883999999999954
+          },
+          {
+            "label": "coarse-target-balcony",
+            "frame": 180,
+            "count": 1,
+            "sum_ms": 0.037359999999999616,
+            "union_ms": 0.037359999999999616,
+            "max_ms": 0.037359999999999616
+          },
+          {
+            "label": "coarse-target-balcony",
+            "frame": 360,
+            "count": 1,
+            "sum_ms": 0.031159999999999854,
+            "union_ms": 0.031159999999999854,
+            "max_ms": 0.031159999999999854
+          },
+          {
+            "label": "coarse-target-balcony",
+            "frame": 240,
+            "count": 1,
+            "sum_ms": 0.032880000000000464,
+            "union_ms": 0.032880000000000464,
+            "max_ms": 0.032880000000000464
+          },
+          {
+            "label": "coarse-target-balcony",
+            "frame": 120,
+            "count": 1,
+            "sum_ms": 0.06264000000000003,
+            "union_ms": 0.06264000000000003,
+            "max_ms": 0.06264000000000003
+          },
+          {
+            "label": "coarse-target-balcony",
+            "frame": 60,
+            "count": 1,
+            "sum_ms": 0.06436000000000064,
+            "union_ms": 0.06436000000000064,
+            "max_ms": 0.06436000000000064
+          }
+        ]
+      }
+    ]
+  },
+  "production_verification": {
+    "at": 1794182676.9090521,
+    "installed_config_unchanged": true,
+    "progress_files": 8,
+    "all_progress_unchanged": true,
+    "own_containers_absent": true,
+    "own_virtual_devices_absent": true,
+    "observer": "active",
+    "no_install_commit_push": true
+  },
+  "docs": {
+    "at": "2026-11-09T00:10:01.414757+00:00",
+    "strict_build_exit": 0,
+    "served": [
+      {
+        "url": "https://nel3ab.app/docs/plan-60fps-switch2-2026-11-08/",
+        "status": 200,
+        "fresh_marker": true
+      },
+      {
+        "url": "https://nel3ab.app/docs/etude-switch2-2026-11-07/",
+        "status": 200,
+        "fresh_marker": true
+      },
+      {
+        "url": "https://nel3ab.app/docs/etat-du-projet/",
+        "status": 200,
+        "fresh_marker": true
+      }
+    ],
+    "main_room": {
+      "state": "closed_normally_by_inactivity",
+      "worker_exit_status": 42,
+      "exit_at_utc": "2026-11-08 23:45:05",
+      "lobby_http": 200,
+      "closed_room_redirect_verified": true
+    }
+  },
+  "next_source_target": "Investigate existing many small submissions and global compute-read dependencies without removing required GPU writes, CPU readback waits, presentation or shutdown flushes. Keep CPU binding cost and GPU work both in acceptance; this diagnostic does not promise60fps."
+}

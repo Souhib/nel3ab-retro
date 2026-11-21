@@ -1,0 +1,405 @@
+diff --git a/src/tests/CMakeLists.txt b/src/tests/CMakeLists.txt
+index 3deadcddc..62a921e92 100644
+--- a/src/tests/CMakeLists.txt
++++ b/src/tests/CMakeLists.txt
+@@ -185,6 +185,7 @@ add_executable(tests
+     video_core/native_macro_fifo.cpp
+     video_core/turing_macro_ram.cpp
+     video_core/uniform_stream_reuse.cpp
++    video_core/stream_ring_cursor.cpp
+     video_core/usage_tracker.cpp
+     video_core/shader_invalidation.cpp
+     video_core/descriptor_table.cpp
+diff --git a/src/tests/video_core/buffer_cache_ports.cpp b/src/tests/video_core/buffer_cache_ports.cpp
+index 92cc3ac06..20e00e4e4 100644
+--- a/src/tests/video_core/buffer_cache_ports.cpp
++++ b/src/tests/video_core/buffer_cache_ports.cpp
+@@ -291,6 +291,12 @@ struct BufferCacheTestAccess {
+         const auto& keep = cache.uniform_keep;
+         return {keep.kept, keep.streamed_binds, keep.verified, keep.mismatches};
+     }
++    static void CpuDirty(KeepCache& cache, DAddr address, u64 size) {
++        cache.memory_tracker.MarkRegionAsCpuModified(address, size);
++    }
++    static bool IsCpuDirty(KeepCache& cache, DAddr address, u64 size) {
++        return cache.memory_tracker.IsRegionCpuModified(address, size);
++    }
+     static void GpuWrite(KeepCache& cache, BufferId id, DAddr address, u32 size) {
+         cache.MarkWrittenBuffer(id, address, size);
+     }
+@@ -763,7 +769,7 @@ TEST_CASE("Downloads keep CPU writes collected and not yet applied", "[buffer_po
+     REQUIRE(f.bytes[0x21008] == 0x34);
+ }
+ 
+-TEST_CASE("Uniform keep binds unwritten uniform buffers of delta draws without reading them",
++TEST_CASE("Uniform keep reuses unchanged uniform buffers of delta draws",
+           "[buffer_ports]") {
+     KeepFixture f{nullptr};
+     using Delta = VideoCommon::Nx2FastDraw::Delta;
+@@ -846,3 +852,45 @@ TEST_CASE("Uniform keep verify counts guest writes the delta did not report",
+     REQUIRE(f.Counts().mismatches == 1);
+     REQUIRE(f.Counts().kept == 0);
+ }
++
++TEST_CASE("Uniform keep validates guest writes on an already CPU-dirty page",
++          "[buffer_ports][uniform_keep_unreported]") {
++    KeepFixture f{nullptr};
++    const VideoCommon::Nx2FastDraw::Delta unchanged{};
++    Access::CpuDirty(*f.cache, KeepFixture::Ubo, KeepFixture::UboSize);
++    REQUIRE(Access::IsCpuDirty(*f.cache, KeepFixture::Ubo, KeepFixture::UboSize));
++    std::memset(f.UboBytes(), 1, KeepFixture::UboSize);
++    f.Draw(nullptr);
++    f.Draw(&unchanged);
++    REQUIRE(f.Counts().kept == 1);
++    REQUIRE(f.runtime.allocations.size() == 1);
++    REQUIRE(Access::IsCpuDirty(*f.cache, KeepFixture::Ubo, KeepFixture::UboSize));
++
++    // This page is already CPU-dirty: the guest write sends no new cache notification.
++    f.UboBytes()[3] = 9;
++    f.Draw(&unchanged);
++    REQUIRE(f.Counts().kept == 1);
++    REQUIRE(f.runtime.allocations.size() == 2);
++    REQUIRE(f.Counts().verified == 0);
++    REQUIRE(Access::IsCpuDirty(*f.cache, KeepFixture::Ubo, KeepFixture::UboSize));
++    f.Draw(&unchanged);
++    REQUIRE(f.Counts().kept == 2);
++    REQUIRE(f.runtime.allocations.size() == 2);
++}
++
++TEST_CASE("Uniform keep discards the previous session stream references",
++          "[buffer_ports][uniform_keep_unreported]") {
++    KeepFixture f{nullptr};
++    const VideoCommon::Nx2FastDraw::Delta unchanged{};
++    f.Draw(nullptr);
++    f.Draw(&unchanged);
++    REQUIRE(f.Counts().kept == 1);
++    REQUIRE(f.runtime.allocations.size() == 1);
++    f.cache = std::make_unique<KeepCache>(f.device, f.runtime);
++    f.id = Access::Add(*f.cache, 0x10000, 0x10000);
++    f.Draw(nullptr);
++    REQUIRE(f.runtime.allocations.size() == 2);
++    REQUIRE(f.Counts().kept == 0);
++    f.Draw(&unchanged);
++    REQUIRE(f.Counts().kept == 1);
++}
+diff --git a/src/video_core/buffer_cache/buffer_cache.h b/src/video_core/buffer_cache/buffer_cache.h
+index 590f3fb24..10e1517b6 100644
+--- a/src/video_core/buffer_cache/buffer_cache.h
++++ b/src/video_core/buffer_cache/buffer_cache.h
+@@ -1546,7 +1546,8 @@ void BufferCache<P>::BindHostGraphicsUniformBuffer(size_t stage, u32 index, u32
+                                   stage, index, device_addr, size);
+                     }
+                 }
+-            } else if (VideoCommon::RebindKeptUniform(runtime, stage, index, device_addr, size)) {
++            } else if (VideoCommon::RebindKeptUniform(runtime, device_memory, stage, index,
++                                                       device_addr, size)) {
+                 channel_state->fast_bound_uniform_buffers[stage] |= 1u << binding_index;
+                 channel_state->uniform_buffer_binding_sizes[stage][binding_index] = size;
+                 uniform_keep.streamed[stage] |= 1u << index;
+diff --git a/src/video_core/buffer_cache/buffer_cache_base.h b/src/video_core/buffer_cache/buffer_cache_base.h
+index 05c067485..617107bea 100644
+--- a/src/video_core/buffer_cache/buffer_cache_base.h
++++ b/src/video_core/buffer_cache/buffer_cache_base.h
+@@ -700,11 +700,10 @@ private:
+         u64 verify_mismatches{};
+     } geometry_stats;
+ 
+-    /// Uniform keeps: a delta draw binds a small uniform buffer from the stream
+-    /// allocation the previous draw made for it, without reading guest memory, when nothing ordered
+-    /// between the two draws wrote its range: no inline constant data, no rebind, no CPU write the
+-    /// caches were told about, no GPU write and no buffer deletion. Anything else in between ends
+-    /// the delta chain.
++    /// Uniform keep candidates: a delta draw can reuse the previous stream allocation when
++    /// no ordered write, rebind or buffer deletion invalidated it. RebindKeptUniform also checks
++    /// its bytes: a guest write on an already CPU-dirty page need not notify the caches again.
++    /// Anything else in between ends the delta chain.
+     [[nodiscard]] bool UniformRangeKept(size_t stage, u32 index, DAddr device_addr,
+                                         u32 size) const noexcept;
+     void NoteUniformWrite(DAddr device_addr, u64 size) {
+diff --git a/src/video_core/buffer_cache/uniform_stream_reuse.h b/src/video_core/buffer_cache/uniform_stream_reuse.h
+index 7bd76b979..8b2e4cd2c 100644
+--- a/src/video_core/buffer_cache/uniform_stream_reuse.h
++++ b/src/video_core/buffer_cache/uniform_stream_reuse.h
+@@ -120,24 +120,28 @@ template <class Runtime, class DeviceMemory>
+     return true;
+ }
+ 
+-/// Uniform keeps: binds the slot's last allocation again without reading guest memory,
+-/// when that bind read the same range in this command buffer. The caller guarantees that nothing
+-/// ordered before this draw wrote the range since that bind (the previous draw's). Returns false
+-/// (nothing bound) otherwise.
+-template <class Runtime>
+-[[nodiscard]] bool RebindKeptUniform(Runtime& runtime, size_t stage, u32 index, u64 device_addr,
+-                                     u32 size) {
++/// Uniform keeps: binds the slot's last allocation again when the same range in this command
++/// buffer still contains its uploaded bytes. Already CPU-dirty pages can change without another
++/// cache notification, so the delta's write history alone cannot establish this. Returns false
++/// (nothing bound) otherwise, leaving the normal stream path to read and upload the current bytes.
++template <class Runtime, class DeviceMemory>
++[[nodiscard]] bool RebindKeptUniform(Runtime& runtime, DeviceMemory& device_memory, size_t stage,
++                                     u32 index, u64 device_addr, u32 size) {
+     using Reuse = UniformStreamReuse<typename Runtime::StreamUniformRef>;
+     if (size == 0 || size > Reuse::MaxBytes || stage >= Reuse::NumStages ||
+         index >= Reuse::NumSlots) {
+         return false;
+     }
+-    const typename Reuse::Slot& slot =
+-        UniformStreamReuseState<typename Runtime::StreamUniformRef>().slots[stage][index];
++    Reuse& reuse = UniformStreamReuseState<typename Runtime::StreamUniformRef>();
++    const typename Reuse::Slot& slot = reuse.slots[stage][index];
+     if (slot.size != size || slot.device_addr != device_addr ||
+         slot.tick != runtime.CurrentTick()) {
+         return false;
+     }
++    device_memory.ReadBlockUnsafe(device_addr, reuse.scratch.data(), size);
++    if (std::memcmp(slot.bytes.data(), reuse.scratch.data(), size) != 0) {
++        return false;
++    }
+     runtime.RebindStreamUniform(slot.ref, size);
+     return true;
+ }
+diff --git a/src/video_core/renderer_vulkan/vk_staging_buffer_pool.cpp b/src/video_core/renderer_vulkan/vk_staging_buffer_pool.cpp
+index ffcf9e441..fb9453e89 100644
+--- a/src/video_core/renderer_vulkan/vk_staging_buffer_pool.cpp
++++ b/src/video_core/renderer_vulkan/vk_staging_buffer_pool.cpp
+@@ -89,7 +89,8 @@ StagingBufferPool::StagingBufferPool(const Device& device_, MemoryAllocator& mem
+                                      Scheduler& scheduler_)
+     : device{device_}, memory_allocator{memory_allocator_}, scheduler{scheduler_},
+       stream_buffer_size{GetStreamBufferSize(device)}, region_size{stream_buffer_size /
+-                                                                   StagingBufferPool::NUM_SYNCS} {
++                                                                   StagingBufferPool::NUM_SYNCS},
++      stream_cursor{stream_buffer_size} {
+     VkBufferCreateInfo stream_ci = {
+         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+         .pNext = nullptr,
+@@ -148,48 +149,23 @@ void StagingBufferPool::TickFrame() {
+ }
+ 
+ StagingBufferRef StagingBufferPool::GetStreamBuffer(size_t size) {
+-    if (AreRegionsActive(Region(free_iterator) + 1,
+-                         (std::min)(Region(iterator + size) + 1, NUM_SYNCS))) {
+-        // Avoid waiting for the previous usages to be free
++    const auto offset = stream_cursor.Reserve(size, MAX_ALIGNMENT, scheduler.CurrentTick(),
++                                             scheduler.GetMasterSemaphore().KnownGpuTick());
++    if (!offset) {
++        // A busy wrap keeps its cursor until the GPU finishes the previous allocation.
+         return GetStagingBuffer(size, MemoryUsage::Upload);
+     }
+-    const u64 current_tick = scheduler.CurrentTick();
+-    std::fill(sync_ticks.begin() + Region(used_iterator), sync_ticks.begin() + Region(iterator),
+-              current_tick);
+-    used_iterator = iterator;
+-    free_iterator = (std::max)(free_iterator, iterator + size);
+-
+-    if (iterator + size >= stream_buffer_size) {
+-        std::fill(sync_ticks.begin() + Region(used_iterator), sync_ticks.begin() + NUM_SYNCS,
+-                  current_tick);
+-        used_iterator = 0;
+-        iterator = 0;
+-        free_iterator = size;
+-
+-        if (AreRegionsActive(0, Region(size) + 1)) {
+-            // Avoid waiting for the previous usages to be free
+-            return GetStagingBuffer(size, MemoryUsage::Upload);
+-        }
+-    }
+-    const size_t offset = iterator;
+-    iterator = Common::AlignUp(iterator + size, MAX_ALIGNMENT);
+     return StagingBufferRef{
+         .buffer = *stream_buffer,
+         .device_address = stream_buffer_address,
+-        .offset = static_cast<VkDeviceSize>(offset),
+-        .mapped_span = stream_pointer.subspan(offset, size),
++        .offset = static_cast<VkDeviceSize>(*offset),
++        .mapped_span = stream_pointer.subspan(*offset, size),
+         .usage{},
+         .log2_level{},
+         .index{},
+     };
+ }
+ 
+-bool StagingBufferPool::AreRegionsActive(size_t region_begin, size_t region_end) const {
+-    const u64 gpu_tick = scheduler.GetMasterSemaphore().KnownGpuTick();
+-    return std::any_of(sync_ticks.begin() + region_begin, sync_ticks.begin() + region_end,
+-                       [gpu_tick](u64 sync_tick) { return gpu_tick < sync_tick; });
+-};
+-
+ StagingBufferRef StagingBufferPool::GetStagingBuffer(size_t size, MemoryUsage usage,
+                                                      bool deferred) {
+     if (const std::optional<StagingBufferRef> ref = TryGetReservedBuffer(size, usage, deferred)) {
+diff --git a/src/video_core/renderer_vulkan/vk_staging_buffer_pool.h b/src/video_core/renderer_vulkan/vk_staging_buffer_pool.h
+index e675da5d8..41c62b689 100644
+--- a/src/video_core/renderer_vulkan/vk_staging_buffer_pool.h
++++ b/src/video_core/renderer_vulkan/vk_staging_buffer_pool.h
+@@ -11,6 +11,7 @@
+ 
+ #include "common/common_types.h"
+ 
++#include "video_core/renderer_vulkan/stream_ring_cursor.h"
+ #include "video_core/vulkan_common/vulkan_memory_allocator.h"
+ #include "video_core/vulkan_common/vulkan_wrapper.h"
+ 
+@@ -89,8 +90,6 @@ private:
+ 
+     StagingBufferRef GetStreamBuffer(size_t size);
+ 
+-    bool AreRegionsActive(size_t region_begin, size_t region_end) const;
+-
+     StagingBufferRef GetStagingBuffer(size_t size, MemoryUsage usage, bool deferred = false);
+ 
+     std::optional<StagingBufferRef> TryGetReservedBuffer(size_t size, MemoryUsage usage,
+@@ -103,9 +102,6 @@ private:
+     void ReleaseCache(MemoryUsage usage);
+ 
+     void ReleaseLevel(StagingBuffersCache& cache, size_t log2);
+-    size_t Region(size_t iter) const noexcept {
+-        return iter / region_size;
+-    }
+ 
+     const Device& device;
+     MemoryAllocator& memory_allocator;
+@@ -117,10 +113,7 @@ private:
+     VkDeviceSize stream_buffer_size;
+     VkDeviceSize region_size;
+ 
+-    size_t iterator = 0;
+-    size_t used_iterator = 0;
+-    size_t free_iterator = 0;
+-    std::array<u64, NUM_SYNCS> sync_ticks{};
++    StreamRingCursor<NUM_SYNCS> stream_cursor;
+ 
+     StagingBuffersCache device_local_cache;
+     StagingBuffersCache upload_cache;
+diff --git a/src/tests/video_core/stream_ring_cursor.cpp b/src/tests/video_core/stream_ring_cursor.cpp
+new file mode 100644
+index 000000000..776575414
+--- /dev/null
++++ b/src/tests/video_core/stream_ring_cursor.cpp
+@@ -0,0 +1,59 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++#include <algorithm>
++#include <array>
++#include <random>
++#include <catch2/catch_test_macros.hpp>
++#include "video_core/renderer_vulkan/stream_ring_cursor.h"
++
++TEST_CASE("Stream ring rejects repeated busy wraps until the GPU completes", "[stream_ring]") {
++    Vulkan::StreamRingCursor<4> ring{4096};
++    for (std::size_t i=0; i<7; ++i) {
++        const auto offset=ring.Reserve(512,256,1,0);
++        REQUIRE(offset.has_value());
++        REQUIRE(*offset==i*512);
++    }
++    REQUIRE_FALSE(ring.Reserve(512,256,2,0).has_value());
++    REQUIRE_FALSE(ring.Reserve(512,256,2,0).has_value());
++    REQUIRE(ring.Wraps()==0);
++    const auto resumed=ring.Reserve(512,256,2,1);
++    REQUIRE(resumed.has_value());
++    REQUIRE(*resumed==0);
++    REQUIRE(ring.Wraps()==1);
++}
++
++TEST_CASE("Independent stream rings never overlap GPU work still in flight", "[stream_ring]") {
++    std::array<Vulkan::StreamRingCursor<4>,2> rings{
++        Vulkan::StreamRingCursor<4>{4096}, Vulkan::StreamRingCursor<4>{4096}};
++    std::array<std::array<std::uint64_t,4096>,2> writers{};
++    std::minstd_rand random{20261109};
++    unsigned accepted=0,rejected=0;
++    for (std::uint64_t tick=1; tick<=5000; ++tick) {
++        const std::size_t index=random()%2;
++        const std::size_t size=1+random()%1024;
++        const std::uint64_t completed=tick>20 ? tick-20 : 0;
++        const auto offset=rings[index].Reserve(size,256,tick,completed);
++        if (!offset) { ++rejected; continue; }
++        ++accepted;
++        REQUIRE(*offset%256==0);
++        REQUIRE(*offset+size<=writers[index].size());
++        for (std::size_t byte=*offset; byte<*offset+size; ++byte) {
++            REQUIRE(writers[index][byte]<=completed);
++            writers[index][byte]=tick;
++        }
++    }
++    REQUIRE(accepted>0);
++    REQUIRE(rejected>0);
++    REQUIRE(rings[0].Wraps()>0);
++    REQUIRE(rings[1].Wraps()>0);
++}
++
++TEST_CASE("Stream ring refuses invalid geometry before reserving memory", "[stream_ring]") {
++    REQUIRE_THROWS_AS((Vulkan::StreamRingCursor<4>{0}), std::invalid_argument);
++    REQUIRE_THROWS_AS((Vulkan::StreamRingCursor<4>{4097}), std::invalid_argument);
++    Vulkan::StreamRingCursor<4> ring{4096};
++    REQUIRE_FALSE(ring.Reserve(1025,256,1,0).has_value());
++    REQUIRE_FALSE(ring.Reserve(512,0,1,0).has_value());
++    const auto valid=ring.Reserve(512,256,1,0);
++    REQUIRE(valid.has_value());
++    REQUIRE(*valid==0);
++}
+diff --git a/src/video_core/renderer_vulkan/stream_ring_cursor.h b/src/video_core/renderer_vulkan/stream_ring_cursor.h
+new file mode 100644
+index 000000000..1e7b88416
+--- /dev/null
++++ b/src/video_core/renderer_vulkan/stream_ring_cursor.h
+@@ -0,0 +1,62 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++
++#pragma once
++#include <algorithm>
++#include <array>
++#include <cstddef>
++#include <cstdint>
++#include <optional>
++#include <stdexcept>
++
++namespace Vulkan {
++// Allocation bookkeeping only. The caller owns the buffer and supplies completed GPU ticks.
++template <std::size_t Regions>
++class StreamRingCursor {
++public:
++    static_assert(Regions > 1, "A stream ring needs a current and a following region");
++    explicit StreamRingCursor(std::size_t capacity_) : capacity{capacity_}, region_size{capacity / Regions} {
++        if (capacity == 0 || capacity % Regions != 0) {
++            throw std::invalid_argument("Stream ring capacity must contain complete regions");
++        }
++    }
++
++    std::optional<std::size_t> Reserve(std::size_t size, std::size_t alignment,
++                                       std::uint64_t tick, std::uint64_t completed) {
++        if (alignment == 0 || alignment > region_size || size > region_size) {
++            return std::nullopt;
++        }
++        const auto region = [this](std::size_t offset) { return offset / region_size; };
++        const auto active = [&](std::size_t begin, std::size_t end) {
++            return std::any_of(ticks.begin() + begin, ticks.begin() + end,
++                               [completed](std::uint64_t used_tick) { return completed < used_tick; });
++        };
++        if (active(region(free_position) + 1, std::min(region(position + size) + 1, Regions))) {
++            return std::nullopt;
++        }
++        // Check before changing any cursor: a rejected wrap must remain rejected on retry.
++        if (position + size >= capacity && active(0, region(size) + 1)) {
++            return std::nullopt;
++        }
++        std::fill(ticks.begin() + region(used_position), ticks.begin() + region(position), tick);
++        used_position = position;
++        free_position = std::max(free_position, position + size);
++        if (position + size >= capacity) {
++            std::fill(ticks.begin() + region(used_position), ticks.end(), tick);
++            used_position = 0;
++            position = 0;
++            free_position = size;
++            ++wraps;
++        }
++        const std::size_t offset = position;
++        position = ((position + size + alignment - 1) / alignment) * alignment;
++        return offset;
++    }
++    unsigned Wraps() const { return wraps; }
++private:
++    std::size_t capacity;
++    std::size_t region_size;
++    std::size_t position{}, used_position{}, free_position{};
++    std::array<std::uint64_t, Regions> ticks{};
++    unsigned wraps{};
++};
++}

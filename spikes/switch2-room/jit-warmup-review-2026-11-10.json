@@ -1,0 +1,99 @@
+{
+  "date_utc": "2026-11-10",
+  "created_unix": 1794344433.5261967,
+  "candidate": "Lichii PR1225 JIT warm-up",
+  "upstream_url": "https://github.com/zortos293/Lichii/pull/1225",
+  "base": "093e264c8a7959dbeffe60248750aeec30c92235",
+  "head": "8b799a6978c3f4b1502d4e799de260c07acb6325",
+  "status": "Private source prepared; not qualified for game launch. No full build or game trial.",
+  "source_copy": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/source-lichii-jit1225-lab",
+  "build_copy": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/build-lichii-jit1225",
+  "preparation": {
+    "copied_source": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/source-lichii-jit1225-lab",
+    "copied_build": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/build-lichii-jit1225",
+    "files": 5219,
+    "copy_seconds": 2.266098737716675,
+    "dry_run_returncode": 0,
+    "source_base_identical": true,
+    "base_source_unchanged": true
+  },
+  "source_inputs_changed": 18,
+  "actual_candidate_ELF_qualified": false,
+  "full_build_started": false,
+  "game_started": false,
+  "findings": [
+    {
+      "name": "Instruction page invalidation can be lost during page fill",
+      "proof": "Exact MemoryReadCode and InvalidateCacheRange bodies with controlled interleaving after page snapshot; old0xd2800020 returned instead of new0xd2800040 even after queued JIT invalidation consumed by named double.",
+      "origin": "Pre-existing callback in coarse65, exposed to additional speculative readers by warm-up. Not introduced by PR1225.",
+      "callers": "Page-table changes broadcast directly to all ArmInterfaces; inspected readers do not acquire the page-table mutation lock. No common exclusion found in inspected call paths.",
+      "controls": [
+        "Unreadable mapping does not fetch",
+        "Unchanged page reuses cache",
+        "Completed non-overlapping invalidation refetches",
+        "Illustrative atomic generation twin refetches after interleaving",
+        "Original reintroduced fails again"
+      ],
+      "not_proven": [
+        "Occurrence in Zelda",
+        "OS-level threaded reproduction",
+        "Guest executing wrong code",
+        "Complete production correction or coverage of every mapping/backing/IC/ISB/lifetime case"
+      ],
+      "decision": "Do not run speculative candidate in game until corrected and qualified or scenario rigorously excluded."
+    },
+    {
+      "name": "Avoidable deadline overshoot within group of64 blocks",
+      "proof": "Exact JitWarmup::Run with synthetic clock advancing1ms per fake Precompile runs64blocks/64ms for2ms slice; inter-block deadline twin runs2blocks/2ms; reintroduced original fails again.",
+      "controls": [
+        "Stopped before work gives0calls",
+        "Interruption after first block gives1call"
+      ],
+      "limits": "Synthetic execution of loop logic, not measured host latency. Even inter-block check cannot bound duration of one compile. Default zero pause chains slices.",
+      "decision": "Locally correctable; alone does not justify abandoning precompile."
+    }
+  ],
+  "fixture_compilations": 4,
+  "fixture_case_runs": 16,
+  "fixture_expected_negative_runs": 4,
+  "fixture_all_expected_outcomes_observed": true,
+  "qualification_remaining": [
+    "Coherent page-cache invalidations for range/full/IC/ISB and mapping lifetime; actual concurrent tests",
+    "Real Dynarmic precompile and execution tests preserving guest context, invalidations and unreadable/non-executable mappings",
+    "Full platform build and CPU suite, bounded cache/file/thread shutdown cases",
+    "Isolated runtime activation and alternating observed-route trials, with FAST_COMPILE fixed identically; no inference from upstream promises"
+  ],
+  "performance_gain_claimed": false,
+  "constant30_achieved": false,
+  "production_change": false,
+  "proof_files_sha256": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/jit1225-review-20261110/extracted-invalidate.cpp.txt": "7764da6a4236f0d3d7ad61698cb71a8c25a5e626c4ae53c8528d64c0d4a4c715",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/jit1225-review-20261110/callback-original.cpp": "7c6aab2334252fc7e11407bc37d368e1114e1d1cc5bc0761ef0f5242c82ff5ef",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/jit1225-review-20261110/slice-deadline-twin.cpp": "63e5417729426fc777dc792deecaef6869561069783b8b2bf8679c11c5c389fd",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/jit1225-review-20261110/extracted-run.cpp.txt": "9416e2bbff352ba4ddd4db009534b713eeb90d0f4d0003a0d58eec2cc0e19278",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/jit1225-review-20261110/callback-generation-twin.cpp": "1dfd351b7c589204db2729141b15f98f60edf6acd6da90d78e6fba4138ad177d",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/jit1225-review-20261110/run.py": "5a48cf0cd90db25fb2a167ac95e081ab2c4c485b5510fb3d245288084fff3ab4",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/jit1225-review-20261110/review.txt": "df8e0a1a622f601c013eccba6a0d5c010af4ebdf4a74a0fad509d41527183f58",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/jit1225-review-20261110/slice-original.cpp": "2eadaae64a6be06d0e3f218c8ba36b145988cf52f48e58d74368cb12fdcc89be",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/jit1225-review-20261110/extracted-read.cpp.txt": "29165d9b89279209944a77ff744b3c5ab2e7d806328233c47170cd9f2f27d84f",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/jit1225-review-20261110/results/report.json": "afbafc1d7fbe55247081dbcdf48226966be9dc77cce175a9f3f828579558a443",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/jit1225-preparation-20261110/preparation.json": "59b0383fee9cdfc65b0c63c3d416b8a295765a9db42f3e6acce1477523d4e91a",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/jit1225-preparation-20261110/base-source.json": "2189cfc39fde59e20c0fa420a59107a02204784a35df918387d18b52a6e70da1",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/jit1225-preparation-20261110/port-manifest-initial.json": "3fecf7fc335ebb0e0cb3cefe9458042934c7be0ea05468e1a3f3bf75bf383b6d",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/jit1225-preparation-20261110/dry-run.log": "c8b9687c1ad5d304bccd521844e9ff9622919b62f33c88f39d9379b974246155",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/jit1225-preparation-20261110/apply.log": "58317388938a9c49964a21e2d6c0cecb4904dab172f28927d0f247de86e25d97",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-evening-20261110/jit1225-pinned.diff": "f5fc955050f951be75f8d7c97d3f375f74c02f5c9ca43acc15829d6e0853557c",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/resume-final-checks-20261110/final-integrity.json": "0a8ab64001602d488af404eede3c76eb7b1759311e7786737da901724de39200"
+  },
+  "preservation_audit": {
+    "time_unix": 1794344496.1236813,
+    "protected_files_identical": 757,
+    "base_source_files_identical": 5219,
+    "private_JIT_inputs_unchanged": 18,
+    "proof_hashes_checked": 814,
+    "proof_failures": [],
+    "observer": "active",
+    "private_containers": [],
+    "no_commit_or_push_performed": true
+  }
+}

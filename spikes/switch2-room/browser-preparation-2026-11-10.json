@@ -1,0 +1,135 @@
+{
+  "date_utc": "2026-11-10",
+  "status": "Preparation record for attempt 1, superseded by failed pre-emulator launch; see browser-attempt-01-2026-11-10.json",
+  "plan_sha256": "e884a109ed288236272c5f2c0a0aefad0bfd195d4134fbe826ea38fa6eda15a3",
+  "replaces_plan_sha256": "612bee0ed011500c94c0aaf9991c00ea8ae3b2cbb3a9ce26c18a33ff7084cc85",
+  "candidate_sha256": "65defb74a8cc81ae85d42c5c0e9bb9bc8a796d976f12278cb0a4fcf940834d08",
+  "wrapper_sha256": "06b72bd05fe863767e76bade2f143f4054747ed57f041c79782d7bcc0abd235b",
+  "policy_sha256": "6569f38607e2c33e5288d9d10c0de6934d4c6069227fae60bbd781809d36a6b6",
+  "image": "sha256:3f9b68831edfd252029d7773289b8a70d05f69f144f3ae8b6dc32b9843188793",
+  "worker_build": {
+    "started": 1794278563.991284,
+    "ended": 1794278565.8615246,
+    "exit_code": 0,
+    "command": [
+      "/home/souhib/.cargo/bin/cargo",
+      "build",
+      "--manifest-path",
+      "core/Cargo.toml",
+      "-p",
+      "nel3ab-worker"
+    ],
+    "first_attempt": "Unqualified shell PATH lacked cargo; failed127 before any build. Retried explicit existing cargo path.",
+    "worker_sha256": "ad9241a13fe890e6679bad89a42b5ce49252c3020d3f520ab4dd2f818b86b31c",
+    "worker_mtime": 1794278565.805169,
+    "served_html_sha256": "e335ab830f7991ca33f99865c3153d3789ec72d0cb478d1d8dd6ccfc059c9b06"
+  },
+  "wrapper_tests": {
+    "at": 1794279333.388987,
+    "cases": [
+      {
+        "name": "positive_no_mesh1",
+        "passed": true,
+        "exec_calls": 1,
+        "rejection": null
+      },
+      {
+        "name": "positive_no_mesh0",
+        "passed": true,
+        "exec_calls": 1,
+        "rejection": null
+      },
+      {
+        "name": "bad_hash",
+        "passed": true,
+        "exec_calls": 0,
+        "rejection": "Actual ELF SHA mismatch"
+      },
+      {
+        "name": "bad_config_path",
+        "passed": true,
+        "exec_calls": 0,
+        "rejection": "Unexpected private adapter arguments"
+      },
+      {
+        "name": "extra_args",
+        "passed": true,
+        "exec_calls": 0,
+        "rejection": "Unexpected private adapter arguments"
+      },
+      {
+        "name": "missing_config",
+        "passed": true,
+        "exec_calls": 0,
+        "rejection": "Config must be the actual private run-data file"
+      },
+      {
+        "name": "symlink_config",
+        "passed": true,
+        "exec_calls": 0,
+        "rejection": "Config must be the actual private run-data file"
+      },
+      {
+        "name": "missing_controls",
+        "passed": true,
+        "exec_calls": 0,
+        "rejection": "Adapter bindings/storage missing"
+      },
+      {
+        "name": "missing_storage",
+        "passed": true,
+        "exec_calls": 0,
+        "rejection": "Adapter bindings/storage missing"
+      },
+      {
+        "name": "changed_policy",
+        "passed": true,
+        "exec_calls": 0,
+        "rejection": "Policy differs from frozen qualified settings"
+      },
+      {
+        "name": "bad_basename",
+        "passed": true,
+        "exec_calls": 0,
+        "rejection": "Native process basename must stay eden-cli"
+      }
+    ],
+    "actual_adapter_configuration_used": true,
+    "actual_candidate_ELF_hashed": true,
+    "exec_stub_only_no_game": true,
+    "wrapper_sha256": "06b72bd05fe863767e76bade2f143f4054747ed57f041c79782d7bcc0abd235b",
+    "policy_sha256": "6569f38607e2c33e5288d9d10c0de6934d4c6069227fae60bbd781809d36a6b6"
+  },
+  "runtime_requirements": [
+    "Wrapper startup marker once, actual /proc/PID/exe65def + commeden-cli, actual process environ not Docker initialenvironment (adapterstillshowsSPLIT0/NO_MESH1 beforeexec override!)",
+    "Actual mapped RADV SHA and imageID, realCLI configuration afterload compared across141expected fields; Controls/Storage before-after identity, FullCore normalclock/speed100",
+    "MaxResolution andFPSUnlock applied, NoSharpeningcopypositive in3Dgameplay, meshfallbackextensiondisabled and actual emulationdraws/groupspositive",
+    "Only PRESENT_STATS/VI2_SERVICE_TRACE/WSI_PRESENT_STATS, noNO_MESH even0 orGPUprofilers/otherverifiers",
+    "Real Kokiri manualcheckpoint afterloading, images actuallyread; painted>10 alone never proves readiness",
+    "Catalogue Switch2onegame, actual lobby game/player namedseat1 andspectatornull, secondplayer refused withrealclose, servedHTMLhash equals builtartefact",
+    "Read browsercounters video and audio afterusergesture: painted/shownprogress, dimensions, decodererrors/restarts, soundPlayedpositive/audioctxrunning, gaps; this is playbackpipeline evidence not physicalsound/AVsync",
+    "Brief browser-origin input via existing keyboard/gamepad path with actual avatar/terrain movement before-after and neutralfinally; no directhelper bypass advertisedasbrowserinput",
+    "Actualcapture process oneproducer perstream; collectedencoded dimensions/packetclock, distinguishcapture nominal60/compositor120 from nativePresent30 and physicalscanout",
+    "Finish file within bounded session, normal actualownedengine/capture/parec/helperstop; childprocess exit/dockernolabelcontainers andpad disappearance; restoreobserver/config8/privatecheckpoint/GPUauto150W"
+  ],
+  "watchdog": "Samples every6s, deadline504..510s including driver preparation. CI/compiler/perf/unrelatedEMU or monitorerror signals only PID/starttick-verified private driver. Driver owns normal teardown; after65s incomplete cleanup is explicit failure/manual-owned-cleanup requirement, never success/relaunch.",
+  "browser_observer": {
+    "during_initial_contract": "Player, spectator, refusedpage all decoded locally on this server",
+    "after_refusal_proof": "Refusedpage closed; player andspectator remain, localdecodingload unlike remoteclients",
+    "cpu_snapshots": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-qualification/cpu-snapshot.py",
+    "signal_observation": "Player sound socket only, counts PCM16le after8-byte timestamp; samples/nonzero/peak/squares separately from WebAudio soundPlayed. Silence/malformed/keepalive negatives tested. Not hardware playback or AVsync."
+  },
+  "root_review": {
+    "wrapper_policy_tests_runtime_watchdog_observer_and_driver_code_read": true,
+    "all_plan_artifact_hashes_verified": true,
+    "actual_packaged_and_original_ELF_rehashed": true,
+    "expected_effective_setting_count": 141,
+    "no_project_adapter_source_modified": true
+  },
+  "remaining": [
+    "Root review of this final frozen preparation",
+    "Fresh fleetAPI/localpreflight; no games/compilers/profilers",
+    "During actual private room, read real Kokiri images and qualify browser-origin movement; CPU tests are not GPU/browser proof"
+  ],
+  "subsequent_attempt": "browser-attempt-01-2026-11-10.json"
+}

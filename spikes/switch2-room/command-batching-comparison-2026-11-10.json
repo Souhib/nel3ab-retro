@@ -1,0 +1,2257 @@
+{
+  "created_unix": 1794343422.8515112,
+  "experiment": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/commands1245-ab-20261110",
+  "order": [
+    "A1",
+    "B1",
+    "A2",
+    "B2"
+  ],
+  "planned_order": [
+    "A1",
+    "B1",
+    "A2",
+    "B2"
+  ],
+  "comparative_claim_allowed": true,
+  "status": "Four normal unarmed static phases completed; no repeatable gain",
+  "factor": "Same d7df6092 ELF and141effective settings, literal COMMAND_BATCH0/1. Both corrected post-copy TRANSFER barriers unconditional; disabled control is not pristine upstream. Unarmed submission probe in both, no timestamp captures.",
+  "results": {
+    "A1": {
+      "command_batch_active": false,
+      "probe": {
+        "active": false,
+        "captures": [],
+        "outside_phase": [],
+        "capture_files": 0,
+        "scope": "Same compiled manual-enabled probe in both conditions; capture activation overhead only. Intervals overlap and are not exclusive occupancy."
+      },
+      "label": "A1",
+      "room": "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg",
+      "phase_seconds": 90.003030949,
+      "bounds_ns": [
+        2360520590991103,
+        2360610594022052
+      ],
+      "direction_transitions": 0,
+      "midpoint_capture_seconds": 0.00214494,
+      "wsi": {
+        "complete_windows": 3,
+        "intervals": 1800,
+        "covered_seconds": 63.504713873,
+        "rate_per_second": 28.344352571995408,
+        "p99_each_ms": [
+          46.058653,
+          42.82231,
+          43.792661
+        ],
+        "max_ms": 50.350858,
+        "over_100_ms": 0,
+        "over_33_333333_ms": 1354,
+        "uncovered_seconds": 26.498317076,
+        "windows": [
+          {
+            "intervals": 600,
+            "sum_ns": 21393513153,
+            "begin_ns": 2360531949715100,
+            "end_ns": 2360553343228253,
+            "p50_ns": 34090886,
+            "p95_ns": 42558437,
+            "p99_ns": 46058653,
+            "max_ns": 50350858,
+            "over30": 460,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 3601,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20969352907,
+            "begin_ns": 2360553343228253,
+            "end_ns": 2360574312581160,
+            "p50_ns": 33608598,
+            "p95_ns": 40777647,
+            "p99_ns": 42822310,
+            "max_ns": 46756413,
+            "over30": 436,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 4201,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": true
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 21141847813,
+            "begin_ns": 2360574312581160,
+            "end_ns": 2360595454428973,
+            "p50_ns": 33806308,
+            "p95_ns": 41259991,
+            "p99_ns": 43792661,
+            "max_ns": 45323326,
+            "over30": 458,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 4801,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          }
+        ]
+      },
+      "vi2": {
+        "complete_windows": 3,
+        "intervals": 1800,
+        "covered_seconds": 63.505818583,
+        "rate_per_second": 28.343859510250383,
+        "p99_each_ms": [
+          45.621973,
+          44.416615,
+          44.471958
+        ],
+        "max_ms": 49.267613,
+        "over_100_ms": 0,
+        "over_33_333333_ms": 1188,
+        "uncovered_seconds": 26.497212366,
+        "windows": [
+          {
+            "intervals": 600,
+            "sum_ns": 21392989294,
+            "p50_ns": 34279782,
+            "p95_ns": 42619163,
+            "p99_ns": 45621973,
+            "max_ns": 49267613,
+            "over30": 416,
+            "over100": 0,
+            "begin_ns": 2360531884741943,
+            "end_ns": 2360553277731237,
+            "legacy_same_window": {
+              "mean_frame_us": 35654,
+              "max_frame_us": 49267,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 10,
+              "mean_composite_us": 25,
+              "mean_pacing_us": 74,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20971610173,
+            "p50_ns": 33933880,
+            "p95_ns": 40922600,
+            "p99_ns": 44416615,
+            "max_ns": 47772793,
+            "over30": 380,
+            "over100": 0,
+            "begin_ns": 2360553277731237,
+            "end_ns": 2360574249341410,
+            "legacy_same_window": {
+              "mean_frame_us": 34952,
+              "max_frame_us": 47772,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 3,
+              "mean_composite_us": 25,
+              "mean_pacing_us": 163,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 21141219116,
+            "p50_ns": 33996475,
+            "p95_ns": 41820125,
+            "p99_ns": 44471958,
+            "max_ns": 47356254,
+            "over30": 392,
+            "over100": 0,
+            "begin_ns": 2360574249341410,
+            "end_ns": 2360595390560526,
+            "legacy_same_window": {
+              "mean_frame_us": 35234,
+              "max_frame_us": 47356,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 8,
+              "mean_composite_us": 26,
+              "mean_pacing_us": 70,
+              "ran_ahead": 600
+            }
+          }
+        ]
+      },
+      "media_mode": "B",
+      "browser_deltas": {
+        "player": {
+          "painted": 0,
+          "shown": 0,
+          "stalls": 0,
+          "restarts": 0,
+          "undecoded": 0,
+          "soundPlayed": 0,
+          "soundGaps": 0,
+          "attempts": 23962,
+          "received_pictures": 2589,
+          "decoder_calls": 0,
+          "decoder_output": 0
+        },
+        "spectator": {
+          "painted": 0,
+          "shown": 0,
+          "stalls": 0,
+          "restarts": 0,
+          "undecoded": 0,
+          "soundPlayed": 0,
+          "soundGaps": 0,
+          "attempts": 0,
+          "received_pictures": 2589,
+          "decoder_calls": 0,
+          "decoder_output": 0
+        }
+      },
+      "signal_deltas": {
+        "player": {
+          "packets": 9018,
+          "samples": 8657280,
+          "nonzero": 8640672,
+          "invalid": 0
+        },
+        "spectator": {
+          "packets": 9017,
+          "samples": 8656320,
+          "nonzero": 8639712,
+          "invalid": 0
+        }
+      },
+      "local_browser_CPU": {
+        "percent_one_logical_CPU": 51.12037204865134,
+        "entered_pid_start": [],
+        "exited_pid_start": [],
+        "endpoint_seconds": 90.081504016
+      },
+      "affinity_before": {
+        "2831536": {
+          "name": "CPUCore_0",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2831537": {
+          "name": "CPUCore_1",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2831538": {
+          "name": "CPUCore_2",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2831539": {
+          "name": "CPUCore_3",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2831540": {
+          "name": "CPUCore_4",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2831541": {
+          "name": "CPUCore_5",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2831542": {
+          "name": "GPU",
+          "cpus": [
+            1,
+            7
+          ]
+        },
+        "2831806": {
+          "name": "GPUBack",
+          "cpus": [
+            2,
+            8
+          ]
+        }
+      },
+      "affinity_after": {
+        "2831536": {
+          "name": "CPUCore_0",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2831537": {
+          "name": "CPUCore_1",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2831538": {
+          "name": "CPUCore_2",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2831539": {
+          "name": "CPUCore_3",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2831540": {
+          "name": "CPUCore_4",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2831541": {
+          "name": "CPUCore_5",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2831542": {
+          "name": "GPU",
+          "cpus": [
+            1,
+            7
+          ]
+        },
+        "2831806": {
+          "name": "GPUBack",
+          "cpus": [
+            2,
+            8
+          ]
+        }
+      },
+      "gpu_observations": {
+        "phase_observations": 14,
+        "all_room_observations": 32,
+        "foreign_clients_observed": false,
+        "driver_stats_read": false,
+        "first_phase_observation_offset_s": 2.852515319,
+        "last_phase_observation_to_end_s": 2.64241222,
+        "maximum_observed_gap_s": 6.528261605,
+        "scan_CPU_each_ms": [
+          179.543447,
+          172.415943,
+          171.842638,
+          173.233066,
+          170.264627,
+          185.864862,
+          168.439526,
+          172.476858,
+          186.890105,
+          176.75295,
+          174.082218,
+          177.437552,
+          176.049198,
+          174.049539
+        ],
+        "scope": "Periodic presence observations; work entirely between scans remains unobserved. CPU time excludes Python/sudo startup and ownership analysis; not in-game overhead qualification."
+      },
+      "memory_endpoints": {
+        "before": {
+          "VmHWM": "11723120 kB",
+          "VmRSS": "11723120 kB",
+          "RssAnon": "3087672 kB",
+          "RssFile": "115700 kB",
+          "RssShmem": "8519748 kB"
+        },
+        "after": {
+          "VmHWM": "12052704 kB",
+          "VmRSS": "12052704 kB",
+          "RssAnon": "3133012 kB",
+          "RssFile": "115700 kB",
+          "RssShmem": "8803992 kB"
+        }
+      },
+      "visual_review": {
+        "root": "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg",
+        "scene_valid": true,
+        "all_images_actually_read": true,
+        "images": [
+          "encoded/player-before.png",
+          "encoded/player-middle.png",
+          "encoded/player-after.png"
+        ],
+        "spectator_same_encoded_bytes_verified": true,
+        "observation": "Same fixed Kokiri camera and ground position near Saria at all three observed instants. Hearts and map visible; ambient particles/idle animations vary. No blocking menu, dialogue, loading or different scene observed. Sparse snapshots do not prove every intermediate picture.",
+        "at": 1794342672.9134362
+      },
+      "native_normal_cleanup": true
+    },
+    "B1": {
+      "command_batch_active": true,
+      "probe": {
+        "active": false,
+        "captures": [],
+        "outside_phase": [],
+        "capture_files": 0,
+        "scope": "Same compiled manual-enabled probe in both conditions; capture activation overhead only. Intervals overlap and are not exclusive occupancy."
+      },
+      "label": "B1",
+      "room": "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV",
+      "phase_seconds": 90.002491189,
+      "bounds_ns": [
+        2360756741694793,
+        2360846744185982
+      ],
+      "direction_transitions": 0,
+      "midpoint_capture_seconds": 0.001830087,
+      "wsi": {
+        "complete_windows": 4,
+        "intervals": 2400,
+        "covered_seconds": 82.662813012,
+        "rate_per_second": 29.033611518296585,
+        "p99_each_ms": [
+          42.173176,
+          42.976394,
+          43.15176,
+          43.542423
+        ],
+        "max_ms": 53.340721,
+        "over_100_ms": 0,
+        "over_33_333333_ms": 1533,
+        "uncovered_seconds": 7.339678177,
+        "windows": [
+          {
+            "intervals": 600,
+            "sum_ns": 20445644920,
+            "begin_ns": 2360756793063654,
+            "end_ns": 2360777238708574,
+            "p50_ns": 33363719,
+            "p95_ns": 38623709,
+            "p99_ns": 42173176,
+            "max_ns": 44851406,
+            "over30": 363,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 3001,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20774176810,
+            "begin_ns": 2360777238708574,
+            "end_ns": 2360798012885384,
+            "p50_ns": 33409283,
+            "p95_ns": 40297542,
+            "p99_ns": 42976394,
+            "max_ns": 53340721,
+            "over30": 396,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 3601,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20730026541,
+            "begin_ns": 2360798012885384,
+            "end_ns": 2360818742911925,
+            "p50_ns": 33393692,
+            "p95_ns": 39915783,
+            "p99_ns": 43151760,
+            "max_ns": 47324698,
+            "over30": 391,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 4201,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": true
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20712964741,
+            "begin_ns": 2360818742911925,
+            "end_ns": 2360839455876666,
+            "p50_ns": 33386607,
+            "p95_ns": 40164949,
+            "p99_ns": 43542423,
+            "max_ns": 46350819,
+            "over30": 383,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 4801,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          }
+        ]
+      },
+      "vi2": {
+        "complete_windows": 3,
+        "intervals": 1800,
+        "covered_seconds": 62.217863507,
+        "rate_per_second": 28.930598039540296,
+        "p99_each_ms": [
+          44.929242,
+          45.263146,
+          45.469954
+        ],
+        "max_ms": 49.599761,
+        "over_100_ms": 0,
+        "over_33_333333_ms": 946,
+        "uncovered_seconds": 27.784627682,
+        "windows": [
+          {
+            "intervals": 600,
+            "sum_ns": 20772612305,
+            "p50_ns": 33511355,
+            "p95_ns": 41707590,
+            "p99_ns": 44929242,
+            "max_ns": 48399160,
+            "over30": 319,
+            "over100": 0,
+            "begin_ns": 2360777172707421,
+            "end_ns": 2360797945319726,
+            "legacy_same_window": {
+              "mean_frame_us": 34620,
+              "max_frame_us": 48399,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 18,
+              "mean_composite_us": 25,
+              "mean_pacing_us": 174,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20727831080,
+            "p50_ns": 33482290,
+            "p95_ns": 40803058,
+            "p99_ns": 45263146,
+            "max_ns": 47146934,
+            "over30": 317,
+            "over100": 0,
+            "begin_ns": 2360797945319726,
+            "end_ns": 2360818673150806,
+            "legacy_same_window": {
+              "mean_frame_us": 34545,
+              "max_frame_us": 47146,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 58,
+              "mean_composite_us": 26,
+              "mean_pacing_us": 261,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20717420122,
+            "p50_ns": 33410653,
+            "p95_ns": 40853854,
+            "p99_ns": 45469954,
+            "max_ns": 49599761,
+            "over30": 310,
+            "over100": 0,
+            "begin_ns": 2360818673150806,
+            "end_ns": 2360839390570928,
+            "legacy_same_window": {
+              "mean_frame_us": 34528,
+              "max_frame_us": 49599,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 13,
+              "mean_composite_us": 25,
+              "mean_pacing_us": 339,
+              "ran_ahead": 600
+            }
+          }
+        ]
+      },
+      "media_mode": "B",
+      "browser_deltas": {
+        "player": {
+          "painted": 0,
+          "shown": 0,
+          "stalls": 0,
+          "restarts": 0,
+          "undecoded": 0,
+          "soundPlayed": 0,
+          "soundGaps": 0,
+          "attempts": 23961,
+          "received_pictures": 2625,
+          "decoder_calls": 0,
+          "decoder_output": 0
+        },
+        "spectator": {
+          "painted": 0,
+          "shown": 0,
+          "stalls": 0,
+          "restarts": 0,
+          "undecoded": 0,
+          "soundPlayed": 0,
+          "soundGaps": 0,
+          "attempts": 0,
+          "received_pictures": 2624,
+          "decoder_calls": 0,
+          "decoder_output": 0
+        }
+      },
+      "signal_deltas": {
+        "player": {
+          "packets": 9017,
+          "samples": 8656320,
+          "nonzero": 8639854,
+          "invalid": 0
+        },
+        "spectator": {
+          "packets": 9017,
+          "samples": 8656320,
+          "nonzero": 8639854,
+          "invalid": 0
+        }
+      },
+      "local_browser_CPU": {
+        "percent_one_logical_CPU": 52.176716404522935,
+        "entered_pid_start": [],
+        "exited_pid_start": [],
+        "endpoint_seconds": 90.078493318
+      },
+      "affinity_before": {
+        "2845069": {
+          "name": "CPUCore_0",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2845070": {
+          "name": "CPUCore_1",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2845071": {
+          "name": "CPUCore_2",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2845072": {
+          "name": "CPUCore_3",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2845073": {
+          "name": "CPUCore_4",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2845074": {
+          "name": "CPUCore_5",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2845075": {
+          "name": "GPU",
+          "cpus": [
+            1,
+            7
+          ]
+        },
+        "2845262": {
+          "name": "GPUBack",
+          "cpus": [
+            2,
+            8
+          ]
+        }
+      },
+      "affinity_after": {
+        "2845069": {
+          "name": "CPUCore_0",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2845070": {
+          "name": "CPUCore_1",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2845071": {
+          "name": "CPUCore_2",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2845072": {
+          "name": "CPUCore_3",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2845073": {
+          "name": "CPUCore_4",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2845074": {
+          "name": "CPUCore_5",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2845075": {
+          "name": "GPU",
+          "cpus": [
+            1,
+            7
+          ]
+        },
+        "2845262": {
+          "name": "GPUBack",
+          "cpus": [
+            2,
+            8
+          ]
+        }
+      },
+      "gpu_observations": {
+        "phase_observations": 14,
+        "all_room_observations": 31,
+        "foreign_clients_observed": false,
+        "driver_stats_read": false,
+        "first_phase_observation_offset_s": 5.170140615,
+        "last_phase_observation_to_end_s": 0.241799068,
+        "maximum_observed_gap_s": 6.522940692,
+        "scan_CPU_each_ms": [
+          190.207626,
+          175.310582,
+          185.609363,
+          171.998441,
+          192.47945,
+          182.476306,
+          170.835148,
+          171.227534,
+          182.982875,
+          192.519626,
+          172.204667,
+          173.324729,
+          184.53687,
+          174.516344
+        ],
+        "scope": "Periodic presence observations; work entirely between scans remains unobserved. CPU time excludes Python/sudo startup and ownership analysis; not in-game overhead qualification."
+      },
+      "memory_endpoints": {
+        "before": {
+          "VmHWM": "11596728 kB",
+          "VmRSS": "11596728 kB",
+          "RssAnon": "3075592 kB",
+          "RssFile": "116324 kB",
+          "RssShmem": "8404812 kB"
+        },
+        "after": {
+          "VmHWM": "12087840 kB",
+          "VmRSS": "12087840 kB",
+          "RssAnon": "3123000 kB",
+          "RssFile": "116324 kB",
+          "RssShmem": "8848516 kB"
+        }
+      },
+      "visual_review": {
+        "root": "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV",
+        "scene_valid": true,
+        "all_images_actually_read": true,
+        "images": [
+          "encoded/player-before.png",
+          "encoded/player-middle.png",
+          "encoded/player-after.png"
+        ],
+        "spectator_same_encoded_bytes_verified": true,
+        "observation": "Same fixed Kokiri camera and ground position near Saria at all three observed instants. Hearts and map visible; ambient particles/idle animations vary. No blocking menu, dialogue, loading or different scene observed. Sparse snapshots do not prove every intermediate picture.",
+        "at": 1794342920.9267535
+      },
+      "native_normal_cleanup": true
+    },
+    "A2": {
+      "command_batch_active": false,
+      "probe": {
+        "active": false,
+        "captures": [],
+        "outside_phase": [],
+        "capture_files": 0,
+        "scope": "Same compiled manual-enabled probe in both conditions; capture activation overhead only. Intervals overlap and are not exclusive occupancy."
+      },
+      "label": "A2",
+      "room": "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV",
+      "phase_seconds": 90.000579507,
+      "bounds_ns": [
+        2361004403102218,
+        2361094403681725
+      ],
+      "direction_transitions": 0,
+      "midpoint_capture_seconds": 0.003462472,
+      "wsi": {
+        "complete_windows": 3,
+        "intervals": 1800,
+        "covered_seconds": 62.32526477,
+        "rate_per_second": 28.880743734383977,
+        "p99_each_ms": [
+          46.532955,
+          43.337623,
+          42.094838
+        ],
+        "max_ms": 55.300729,
+        "over_100_ms": 0,
+        "over_33_333333_ms": 1146,
+        "uncovered_seconds": 27.675314737,
+        "windows": [
+          {
+            "intervals": 600,
+            "sum_ns": 21035050982,
+            "begin_ns": 2361024731453161,
+            "end_ns": 2361045766504143,
+            "p50_ns": 33403148,
+            "p95_ns": 42395564,
+            "p99_ns": 46532955,
+            "max_ns": 55300729,
+            "over30": 390,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 3601,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20592841249,
+            "begin_ns": 2361045766504143,
+            "end_ns": 2361066359345392,
+            "p50_ns": 33367269,
+            "p95_ns": 39542937,
+            "p99_ns": 43337623,
+            "max_ns": 51974482,
+            "over30": 369,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 4201,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": true
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20697372539,
+            "begin_ns": 2361066359345392,
+            "end_ns": 2361087056717931,
+            "p50_ns": 33387807,
+            "p95_ns": 39715239,
+            "p99_ns": 42094838,
+            "max_ns": 46584689,
+            "over30": 387,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 4801,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          }
+        ]
+      },
+      "vi2": {
+        "complete_windows": 3,
+        "intervals": 1800,
+        "covered_seconds": 62.323159241,
+        "rate_per_second": 28.881719443000403,
+        "p99_each_ms": [
+          46.46697,
+          45.845793,
+          43.451385
+        ],
+        "max_ms": 55.971619,
+        "over_100_ms": 0,
+        "over_33_333333_ms": 915,
+        "uncovered_seconds": 27.677420266,
+        "windows": [
+          {
+            "intervals": 600,
+            "sum_ns": 21034818117,
+            "p50_ns": 33772371,
+            "p95_ns": 42725565,
+            "p99_ns": 46466970,
+            "max_ns": 55971619,
+            "over30": 335,
+            "over100": 0,
+            "begin_ns": 2361024665685966,
+            "end_ns": 2361045700504083,
+            "legacy_same_window": {
+              "mean_frame_us": 35057,
+              "max_frame_us": 55971,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 5,
+              "mean_composite_us": 26,
+              "mean_pacing_us": 426,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20592226465,
+            "p50_ns": 33152747,
+            "p95_ns": 40629257,
+            "p99_ns": 45845793,
+            "max_ns": 52337373,
+            "over30": 277,
+            "over100": 0,
+            "begin_ns": 2361045700504083,
+            "end_ns": 2361066292730548,
+            "legacy_same_window": {
+              "mean_frame_us": 34319,
+              "max_frame_us": 52337,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 2,
+              "mean_composite_us": 26,
+              "mean_pacing_us": 256,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20696114659,
+            "p50_ns": 33349344,
+            "p95_ns": 40672636,
+            "p99_ns": 43451385,
+            "max_ns": 46166323,
+            "over30": 303,
+            "over100": 0,
+            "begin_ns": 2361066292730548,
+            "end_ns": 2361086988845207,
+            "legacy_same_window": {
+              "mean_frame_us": 34493,
+              "max_frame_us": 46166,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 23,
+              "mean_composite_us": 26,
+              "mean_pacing_us": 452,
+              "ran_ahead": 600
+            }
+          }
+        ]
+      },
+      "media_mode": "B",
+      "browser_deltas": {
+        "player": {
+          "painted": 0,
+          "shown": 0,
+          "stalls": 0,
+          "restarts": 0,
+          "undecoded": 0,
+          "soundPlayed": 0,
+          "soundGaps": 0,
+          "attempts": 23962,
+          "received_pictures": 2621,
+          "decoder_calls": 0,
+          "decoder_output": 0
+        },
+        "spectator": {
+          "painted": 0,
+          "shown": 0,
+          "stalls": 0,
+          "restarts": 0,
+          "undecoded": 0,
+          "soundPlayed": 0,
+          "soundGaps": 0,
+          "attempts": 0,
+          "received_pictures": 2621,
+          "decoder_calls": 0,
+          "decoder_output": 0
+        }
+      },
+      "signal_deltas": {
+        "player": {
+          "packets": 9017,
+          "samples": 8656320,
+          "nonzero": 8639798,
+          "invalid": 0
+        },
+        "spectator": {
+          "packets": 9018,
+          "samples": 8657280,
+          "nonzero": 8640758,
+          "invalid": 0
+        }
+      },
+      "local_browser_CPU": {
+        "percent_one_logical_CPU": 52.266168870980074,
+        "entered_pid_start": [],
+        "exited_pid_start": [],
+        "endpoint_seconds": 90.077388523
+      },
+      "affinity_before": {
+        "2858331": {
+          "name": "CPUCore_0",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2858332": {
+          "name": "CPUCore_1",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2858333": {
+          "name": "CPUCore_2",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2858334": {
+          "name": "CPUCore_3",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2858335": {
+          "name": "CPUCore_4",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2858336": {
+          "name": "CPUCore_5",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2858337": {
+          "name": "GPU",
+          "cpus": [
+            1,
+            7
+          ]
+        },
+        "2858541": {
+          "name": "GPUBack",
+          "cpus": [
+            2,
+            8
+          ]
+        }
+      },
+      "affinity_after": {
+        "2858331": {
+          "name": "CPUCore_0",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2858332": {
+          "name": "CPUCore_1",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2858333": {
+          "name": "CPUCore_2",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2858334": {
+          "name": "CPUCore_3",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2858335": {
+          "name": "CPUCore_4",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2858336": {
+          "name": "CPUCore_5",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2858337": {
+          "name": "GPU",
+          "cpus": [
+            1,
+            7
+          ]
+        },
+        "2858541": {
+          "name": "GPUBack",
+          "cpus": [
+            2,
+            8
+          ]
+        }
+      },
+      "gpu_observations": {
+        "phase_observations": 13,
+        "all_room_observations": 31,
+        "foreign_clients_observed": false,
+        "driver_stats_read": false,
+        "first_phase_observation_offset_s": 5.443436909,
+        "last_phase_observation_to_end_s": 6.337392118,
+        "maximum_observed_gap_s": 6.548794048,
+        "scan_CPU_each_ms": [
+          175.63371,
+          179.876779,
+          173.988653,
+          214.69333,
+          177.482391,
+          189.181623,
+          175.938432,
+          187.579107,
+          174.980744,
+          184.435149,
+          207.895696,
+          180.630202,
+          181.758368
+        ],
+        "scope": "Periodic presence observations; work entirely between scans remains unobserved. CPU time excludes Python/sudo startup and ownership analysis; not in-game overhead qualification."
+      },
+      "memory_endpoints": {
+        "before": {
+          "VmHWM": "11461344 kB",
+          "VmRSS": "11461344 kB",
+          "RssAnon": "3062996 kB",
+          "RssFile": "116084 kB",
+          "RssShmem": "8282264 kB"
+        },
+        "after": {
+          "VmHWM": "11850228 kB",
+          "VmRSS": "11850228 kB",
+          "RssAnon": "3086760 kB",
+          "RssFile": "116084 kB",
+          "RssShmem": "8647384 kB"
+        }
+      },
+      "visual_review": {
+        "root": "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV",
+        "scene_valid": true,
+        "all_images_actually_read": true,
+        "images": [
+          "encoded/player-before.png",
+          "encoded/player-middle.png",
+          "encoded/player-after.png"
+        ],
+        "spectator_same_encoded_bytes_verified": true,
+        "observation": "Same fixed Kokiri camera and ground position near Saria at all three observed instants. Hearts and map visible; ambient particles/idle animations vary. No blocking menu, dialogue, loading or different scene observed. Sparse snapshots do not prove every intermediate picture.",
+        "at": 1794343164.6475742
+      },
+      "native_normal_cleanup": true
+    },
+    "B2": {
+      "command_batch_active": true,
+      "probe": {
+        "active": false,
+        "captures": [],
+        "outside_phase": [],
+        "capture_files": 0,
+        "scope": "Same compiled manual-enabled probe in both conditions; capture activation overhead only. Intervals overlap and are not exclusive occupancy."
+      },
+      "label": "B2",
+      "room": "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc",
+      "phase_seconds": 90.002733682,
+      "bounds_ns": [
+        2361244803605706,
+        2361334806339388
+      ],
+      "direction_transitions": 0,
+      "midpoint_capture_seconds": 0.00275837,
+      "wsi": {
+        "complete_windows": 4,
+        "intervals": 2400,
+        "covered_seconds": 85.79548352,
+        "rate_per_second": 27.973500486660583,
+        "p99_each_ms": [
+          46.045438,
+          43.976462,
+          44.644476,
+          44.856984
+        ],
+        "max_ms": 51.685775,
+        "over_100_ms": 0,
+        "over_33_333333_ms": 1929,
+        "uncovered_seconds": 4.207250162,
+        "windows": [
+          {
+            "intervals": 600,
+            "sum_ns": 21645537548,
+            "begin_ns": 2361248817761796,
+            "end_ns": 2361270463299344,
+            "p50_ns": 34824860,
+            "p95_ns": 42685149,
+            "p99_ns": 46045438,
+            "max_ns": 48159035,
+            "over30": 478,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 3001,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 21291433528,
+            "begin_ns": 2361270463299344,
+            "end_ns": 2361291754732872,
+            "p50_ns": 34145704,
+            "p95_ns": 41291331,
+            "p99_ns": 43976462,
+            "max_ns": 48487642,
+            "over30": 465,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 3601,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": true
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 21457768745,
+            "begin_ns": 2361291754732872,
+            "end_ns": 2361313212501617,
+            "p50_ns": 34447630,
+            "p95_ns": 42029115,
+            "p99_ns": 44644476,
+            "max_ns": 50090781,
+            "over30": 493,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 4201,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 21400743699,
+            "begin_ns": 2361313212501617,
+            "end_ns": 2361334613245316,
+            "p50_ns": 34322794,
+            "p95_ns": 41828258,
+            "p99_ns": 44856984,
+            "max_ns": 51685775,
+            "over30": 493,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 4801,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          }
+        ]
+      },
+      "vi2": {
+        "complete_windows": 4,
+        "intervals": 2400,
+        "covered_seconds": 85.793373733,
+        "rate_per_second": 27.974188396753206,
+        "p99_each_ms": [
+          47.365206,
+          45.378985,
+          46.081354,
+          45.368654
+        ],
+        "max_ms": 51.657795,
+        "over_100_ms": 0,
+        "over_33_333333_ms": 1771,
+        "uncovered_seconds": 4.209359949,
+        "windows": [
+          {
+            "intervals": 600,
+            "sum_ns": 21641764224,
+            "p50_ns": 34779343,
+            "p95_ns": 42849167,
+            "p99_ns": 47365206,
+            "max_ns": 51657795,
+            "over30": 455,
+            "over100": 0,
+            "begin_ns": 2361248753040621,
+            "end_ns": 2361270394804845,
+            "legacy_same_window": {
+              "mean_frame_us": 36069,
+              "max_frame_us": 51657,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 7,
+              "mean_composite_us": 26,
+              "mean_pacing_us": 37,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 21294779372,
+            "p50_ns": 34323737,
+            "p95_ns": 42476486,
+            "p99_ns": 45378985,
+            "max_ns": 48161760,
+            "over30": 431,
+            "over100": 0,
+            "begin_ns": 2361270394804845,
+            "end_ns": 2361291689584217,
+            "legacy_same_window": {
+              "mean_frame_us": 35490,
+              "max_frame_us": 48161,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 6,
+              "mean_composite_us": 26,
+              "mean_pacing_us": 69,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 21457549845,
+            "p50_ns": 34425508,
+            "p95_ns": 42577134,
+            "p99_ns": 46081354,
+            "max_ns": 49593307,
+            "over30": 446,
+            "over100": 0,
+            "begin_ns": 2361291689584217,
+            "end_ns": 2361313147134062,
+            "legacy_same_window": {
+              "mean_frame_us": 35762,
+              "max_frame_us": 49593,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 6,
+              "mean_composite_us": 26,
+              "mean_pacing_us": 75,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 21399280292,
+            "p50_ns": 34367739,
+            "p95_ns": 43019684,
+            "p99_ns": 45368654,
+            "max_ns": 49468812,
+            "over30": 439,
+            "over100": 0,
+            "begin_ns": 2361313147134062,
+            "end_ns": 2361334546414354,
+            "legacy_same_window": {
+              "mean_frame_us": 35664,
+              "max_frame_us": 49468,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 9,
+              "mean_composite_us": 27,
+              "mean_pacing_us": 53,
+              "ran_ahead": 600
+            }
+          }
+        ]
+      },
+      "media_mode": "B",
+      "browser_deltas": {
+        "player": {
+          "painted": 0,
+          "shown": 0,
+          "stalls": 0,
+          "restarts": 0,
+          "undecoded": 0,
+          "soundPlayed": 0,
+          "soundGaps": 0,
+          "attempts": 23960,
+          "received_pictures": 2532,
+          "decoder_calls": 0,
+          "decoder_output": 0
+        },
+        "spectator": {
+          "painted": 0,
+          "shown": 0,
+          "stalls": 0,
+          "restarts": 0,
+          "undecoded": 0,
+          "soundPlayed": 0,
+          "soundGaps": 0,
+          "attempts": 0,
+          "received_pictures": 2532,
+          "decoder_calls": 0,
+          "decoder_output": 0
+        }
+      },
+      "signal_deltas": {
+        "player": {
+          "packets": 9018,
+          "samples": 8657280,
+          "nonzero": 8641362,
+          "invalid": 0
+        },
+        "spectator": {
+          "packets": 9018,
+          "samples": 8657280,
+          "nonzero": 8641362,
+          "invalid": 0
+        }
+      },
+      "local_browser_CPU": {
+        "percent_one_logical_CPU": 51.332626206632135,
+        "entered_pid_start": [],
+        "exited_pid_start": [],
+        "endpoint_seconds": 90.079162936
+      },
+      "affinity_before": {
+        "2871521": {
+          "name": "CPUCore_0",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2871522": {
+          "name": "CPUCore_1",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2871523": {
+          "name": "CPUCore_2",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2871524": {
+          "name": "CPUCore_3",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2871525": {
+          "name": "CPUCore_4",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2871526": {
+          "name": "CPUCore_5",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2871527": {
+          "name": "GPU",
+          "cpus": [
+            1,
+            7
+          ]
+        },
+        "2871780": {
+          "name": "GPUBack",
+          "cpus": [
+            2,
+            8
+          ]
+        }
+      },
+      "affinity_after": {
+        "2871521": {
+          "name": "CPUCore_0",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2871522": {
+          "name": "CPUCore_1",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2871523": {
+          "name": "CPUCore_2",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2871524": {
+          "name": "CPUCore_3",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2871525": {
+          "name": "CPUCore_4",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2871526": {
+          "name": "CPUCore_5",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2871527": {
+          "name": "GPU",
+          "cpus": [
+            1,
+            7
+          ]
+        },
+        "2871780": {
+          "name": "GPUBack",
+          "cpus": [
+            2,
+            8
+          ]
+        }
+      },
+      "gpu_observations": {
+        "phase_observations": 14,
+        "all_room_observations": 30,
+        "foreign_clients_observed": false,
+        "driver_stats_read": false,
+        "first_phase_observation_offset_s": 2.202806349,
+        "last_phase_observation_to_end_s": 3.226347712,
+        "maximum_observed_gap_s": 6.523776063,
+        "scan_CPU_each_ms": [
+          183.48789,
+          171.879967,
+          175.417604,
+          190.133136,
+          176.419472,
+          172.22738,
+          185.08538,
+          172.007785,
+          181.11399,
+          175.457771,
+          177.655402,
+          185.249456,
+          168.466905,
+          171.631461
+        ],
+        "scope": "Periodic presence observations; work entirely between scans remains unobserved. CPU time excludes Python/sudo startup and ownership analysis; not in-game overhead qualification."
+      },
+      "memory_endpoints": {
+        "before": {
+          "VmHWM": "11648548 kB",
+          "VmRSS": "11648548 kB",
+          "RssAnon": "3063164 kB",
+          "RssFile": "115748 kB",
+          "RssShmem": "8469636 kB"
+        },
+        "after": {
+          "VmHWM": "12049984 kB",
+          "VmRSS": "12049984 kB",
+          "RssAnon": "3134660 kB",
+          "RssFile": "115748 kB",
+          "RssShmem": "8799576 kB"
+        }
+      },
+      "visual_review": {
+        "root": "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc",
+        "scene_valid": true,
+        "all_images_actually_read": true,
+        "images": [
+          "encoded/player-before.png",
+          "encoded/player-middle.png",
+          "encoded/player-after.png"
+        ],
+        "spectator_same_encoded_bytes_verified": true,
+        "observation": "Same fixed Kokiri camera and ground position near Saria at all three observed instants. Hearts and map visible; ambient particles/idle animations vary. No blocking menu, dialogue, loading or different scene observed. Sparse snapshots do not prove every intermediate picture.",
+        "at": 1794343420.218622
+      },
+      "native_normal_cleanup": true
+    }
+  },
+  "pairs": [
+    {
+      "pair": 1,
+      "rate_delta_percent": 2.431732898292327,
+      "A_max_ms": 50.350858,
+      "B_max_ms": 53.340721,
+      "A_p99_each_ms": [
+        46.058653,
+        42.82231,
+        43.792661
+      ],
+      "B_p99_each_ms": [
+        42.173176,
+        42.976394,
+        43.15176,
+        43.542423
+      ]
+    },
+    {
+      "pair": 2,
+      "rate_delta_percent": -3.141343090286397,
+      "A_max_ms": 55.300729,
+      "B_max_ms": 51.685775,
+      "A_p99_each_ms": [
+        46.532955,
+        43.337623,
+        42.094838
+      ],
+      "B_p99_each_ms": [
+        46.045438,
+        43.976462,
+        44.644476,
+        44.856984
+      ]
+    }
+  ],
+  "protected_files": 757,
+  "production_cache_preserved": {
+    "files": 4865,
+    "bytes": 133711023,
+    "all_hashes_and_mtimes_match": true
+  },
+  "learned_seed_preserved": {
+    "files": 4867,
+    "bytes": 134125560,
+    "all_hashes_and_mtimes_match": true
+  },
+  "production_change": false,
+  "proof_files_sha256": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/commands1245-ab-20261110/plan.json": "9e0130c29e48f431db15bf394b2122c0e8fa00ee01cb114e43c1d2d76968bbe6",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/commands1245-ab-20261110/analyze-cohort.py": "0bc0e1e4226039de9eddb3e826bd7dd0d003cc3c5b1505311c0261c44c2544b2",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/commands1245-ab-20261110/arm.json": "d4d92fa60b97788a507a92c1f772656bc267fc6cd3b158901d0c530ece5a9437",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/commands1245-ab-20261110/decode-captures.py": "c91a90d8b0f1f76bba7d59a4f1442b68e86d56260b41c0a177c77afbb38337be",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/service-wsi-windows.py": "c04e337513851cf72422d7c930fed50f616bfb0b8acd8d8a70c9da3173cc5620",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/pacing-analyze.py": "0463818f15088a63dfc86046cc6f01a0e77917efc126003168e210a62017abbb",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/commands1245-ab-20261110/A1/cleanup.json": "fd5e884d4d16d52af6f4935a5747702e5e3786f90ee425a696f1422deb14fbec",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/commands1245-ab-20261110/A1/postphase-review.json": "4844858031a900aaa0bb4548b02dc9f64c74dbcb0baee8ca5c57ac547cd38730",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/commands1245-ab-20261110/A1/prephase-review.json": "7033ffd0cb51028e0a80963f37bd8b4dd5f88db7c451fbe2b849dc743c5ca513",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/commands1245-ab-20261110/A1/active-room.json": "673b81dffdfadde027acc280084d1bb8d825192101cb0fda02e736c3ec06ecbe",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/state/0400486024dec000/neuve/emulator.log": "18651249d952e142a84079eef0b023d3ffacdcfd53717a64adaba1833db249c3",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/affinity-apply.json": "b317827427874d4bd910b8d567d16c45aaca3d64c397744ea7ee896571301a9a",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/affinity-verify.json": "e91b0be9c68d1a76ad8cb61222c2bfc23bb1b7f23cbb6fc1ded5d56ecc7cb8bd",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/native-runtime-before-proof.json": "c22727e5e506157eafb0f06daef2dc70c5f6bbb696c82dd45e65ec9717f3d331",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/native-runtime-proof.json": "1c050615972745de37eedbba5f86c2af44f9a4be7c351ef7a3303c0cdb3f7304",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/native-boot-before.json": "10e8ed2b4c384f9e80191047c253ae0d3f3e8f680128cf59aafe1d7b66fe27dc",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/native-boot-after.json": "10e8ed2b4c384f9e80191047c253ae0d3f3e8f680128cf59aafe1d7b66fe27dc",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/native-memory-affinity-before.json": "7588553aad46f1e23df5977bc902f796b275c7e323ea07f1a70d01a5a46a42dc",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/native-memory-affinity-after.json": "9ee4135ed3472352faa2e8c3b07fee030b849eed706e4c2c689e3c51d55d791c",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/browser-phase-result.json": "56836d8d514ea6a3fcd2d9aedf613fb1a401369b54984c60770ee4538f127edb",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/phase-clock.json": "895aee367e8140d69cd673da683badcf480b0b35d111655d9b943f834312354b",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/phase-events.jsonl": "6eed6361fc71730e1e2a4eb7e3e303bd8258a586d7804cd4231e02eee46c4bcb",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/phase-exit.json": "d8fa2c56ea6b40e86fe32960ff43a7dfdb57cec251769f97f89f57a90b8f2860",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/browser-before.json": "4223b636cfdd0abdb7300a06d264fcd68709ffefaf257f69972a1b4a78ea4f48",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/browser-after.json": "e4ada6cba09fa3d0b811b4364ccf902111bbf69a30d8a972677d9b358b272bcf",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/browser-cpu-before.json": "6b9d40245764664f602686af63008a32324271d5b1a2e6c49520c881afc1dbc3",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/browser-cpu-after.json": "e0b31a35dd594ace6df06abb699e69ce527ae8c438ea480893b2c8d169b66feb",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/qualification-watchdog.json": "346367772a8abcb917bac8fbf16e79acf3dd7eb079c25186e524b8d41d13bce6",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/seed-copy-proof.json": "bdc9c5045c98caba91b0c6ff88210aee50896f0630d9bf8a3b2e11ae98f26c22",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/loaded-check.png": "d694ffaadd754bb8d135b67435aeec78a4c1926d21ac1c9e4dc72878373bd70e",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/media-preparation.json": "6cfd4c6cfcf78df194c6a91d38705c128188da221931732d2468613988bf8a50",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/gpu-observation-commands.jsonl": "b079e2565582edc121c5447f49e7d47b1c7272cd9c525ade75ce7db28cecb0f4",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/encoded/after-decoded.json": "569d643e90f5c71ebd77b4175f8270db4959a5beaceaf041cd31298bfb85c358",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/encoded/player-after.h264.json": "1ebe3f4d063bec85a76a834ccb093ac3c68256a4ce06f788acda78aba4c4f95e",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/encoded/spectator-after.h264.json": "e524d3d4e048cb4a4be7a1ab3684a140c9e0a197c274b2c447dd8296e4c51752",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/encoded/player-middle.h264": "544fe999bee2abec72b0256f6fc708d9545fa69abc604974bb1e615038681343",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/encoded/player-after.png": "b9f6e5f425db2dfa80bee094b318f1eae16832c8573af07994e309321a5c8759",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/encoded/player-middle.h264.json": "011909a7d0aa5935566b39d9b082af00a9ea3a19e58b60fb6bec30d07b64c1c8",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/encoded/spectator-prepared.h264.json": "2485522d72afa3d322c9f1da33e392c43c92b268ae32f39c13156c6704884b1e",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/encoded/player-before.h264.json": "27be63a68744071cae49128b78b079e7a3fdcee7b56a608b3e10472cf9b99857",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/encoded/spectator-prepared.png": "f89ed4faa7d941802f784f09f654b07187e38bc735b97d1a6ee3c5e2ce84df77",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/encoded/player-after.h264": "8ca730184dc58f8aaacad408c5eec1ecb255d12ec2376996f8153b8320422cb5",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/encoded/spectator-before.h264.json": "e0bac69fc8f8ae9411d2a1c5181c036c9bf01c4a256d42ee7ffa96c87b1a299c",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/encoded/spectator-middle.png": "39564cc08162e6709baad7825f201bd341d395339b084f708255f8b7d5deed7f",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/encoded/spectator-prepared.h264": "4d4d1fb6c011dd69355a20a761c23aaa9cb9c23fab6279cbbbd3d7cfa4be6188",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/encoded/player-prepared.h264.json": "ff98cae5ea7383d1b267c0abc8a7563b0161665b72ddad0bf936888c95c3e1a7",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/encoded/spectator-before.h264": "2753bd54c89785130ecac944fcffcbe00390cbb11b5a799e69a2d395ad1a2f9c",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/encoded/spectator-before.png": "813bd5d542d913b9599270e55fb679058a1c71fbd057fb073d15cc8956eda0c9",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/encoded/player-prepared.h264": "43ee82858e18004a7b0a495272d9bcd06111066ba5c4babb8526011e1ee05325",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/encoded/spectator-middle.h264.json": "55f4bd3deec8a6f3d2870ecb5934436fe33a56cb0bcb49c32307917dbe7a4151",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/encoded/player-before.png": "813bd5d542d913b9599270e55fb679058a1c71fbd057fb073d15cc8956eda0c9",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/encoded/player-prepared.png": "d3465e7a68aafe1f552af1266a4eb5d9300d491cb946795afd3de3db787bf7b1",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/encoded/spectator-after.h264": "8ca730184dc58f8aaacad408c5eec1ecb255d12ec2376996f8153b8320422cb5",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/encoded/spectator-middle.h264": "544fe999bee2abec72b0256f6fc708d9545fa69abc604974bb1e615038681343",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/encoded/prepared-decoded.json": "e7a025d80ca049da7124029bdf0484446113981896f88a7a0ac97edeca91e575",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/encoded/player-middle.png": "39564cc08162e6709baad7825f201bd341d395339b084f708255f8b7d5deed7f",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/encoded/spectator-after.png": "b9f6e5f425db2dfa80bee094b318f1eae16832c8573af07994e309321a5c8759",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/encoded/before-decoded.json": "af4808f04d15506df774fb2150d1855e72d77f0c999527207e830c599d3e2df5",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/encoded/middle-decoded.json": "3333055700c8022af84ac3bc9128b814951762d42315445bba522f8e3dcac4b5",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/encoded/player-before.h264": "2753bd54c89785130ecac944fcffcbe00390cbb11b5a799e69a2d395ad1a2f9c",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/submission-probe-arm.json": "4a1e4bf6f7cf247760f8864f1f0e5e4b375ef155376205d0f9ccce0904b47e9b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/commands1245-ab-20261110/B1/cleanup.json": "5c82b6394f7746640eab5d37236034ce2d78479eaa504a28213ca52192bcd933",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/commands1245-ab-20261110/B1/postphase-review.json": "46cba622b734f26b24557420cf5b4dc47d4f9d349c89704891676f463066f9b4",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/commands1245-ab-20261110/B1/prephase-review.json": "91fd92c3ca9ade21ecaea3fb29563b5a161166f51b09f9393416cd93ff3abf84",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/commands1245-ab-20261110/B1/active-room.json": "1242a4f9b59096ddd60217d37753d6f98bab226ef7e9b544480a894f9f3d6d21",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/state/0400486024dec000/neuve/emulator.log": "5ffd2344da9c59db2a832e24e60821e2ee77ba0684a1336dc64b942029ac456f",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/affinity-apply.json": "892f4992c3e025b20f604f3a77564bf4798dd700b693ce41dbca41d70535f47d",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/affinity-verify.json": "7525da77674d03c62b946956fb8a95ed63def80b41efa142fe36f7354152832e",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/native-runtime-before-proof.json": "a4c29f918090a2d981a0e69a4eb134f38dbbbe2823d947ad9fedffcd8b6fd600",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/native-runtime-proof.json": "59fc9176391e57fc7eed4ebcc1083219934a650ffefdd2b5e3aff6f627f98f15",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/native-boot-before.json": "a5bf7ec328b73694bdf6abbd843eb7d3552b12fd51ba60ceaf2c8e8919321c10",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/native-boot-after.json": "a5bf7ec328b73694bdf6abbd843eb7d3552b12fd51ba60ceaf2c8e8919321c10",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/native-memory-affinity-before.json": "729664a65ca5c0fc981f18cdcfe6afdd9899f99c060953c4769fce26fa39710f",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/native-memory-affinity-after.json": "a88ef557b52f25332993a26c4f2565da96a05b4bfa38d549713e36cc5c4c481c",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/browser-phase-result.json": "35e71012280be03149de81d0e3c94a458fb139d01e243530c74885a56fd02115",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/phase-clock.json": "cd5756d21810150f3be6ec1a7406eb80af34acce333e967f535ab49f30f280e6",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/phase-events.jsonl": "c8dba1b0d83676d407157d86e064341d60e46371dd08b1cdeb34cf48405d38cb",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/phase-exit.json": "944a11986563e3f0e2f15375d5948f6364a20f64f2bf0e0f10bf101f5808cd6d",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/browser-before.json": "84594bdd78495bc46d4f045ab979442b63d0c144370f08405390f2916791fc00",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/browser-after.json": "c2d64ed3440d84420a327fea5ed099dc33a33d0a4834aa930de068477c295424",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/browser-cpu-before.json": "555684d064056d67a329543ffcbc6cac1545bb26b26865487e1489514b2d422e",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/browser-cpu-after.json": "764e8eda6a00359c828d2bfcffb55d64a118dfe3f83444ef124c6fb3d79728e7",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/qualification-watchdog.json": "1e78e3c7de24c0ef22e4727d096e9e3c47c8b6d50f7419c8c160cbc6812c8ce9",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/seed-copy-proof.json": "8d1c70f8f4953a7cc47ed4b80b7ee7f626bcf0f98c0c4aab2cb19713948a57c3",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/loaded-check.png": "d696d1ed1ba7e917936997040eb58d7489aaad198eb88270d20c25811bf46fbd",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/media-preparation.json": "7f0813d461259d5dbd257c3701e68dad679e5148ca5c40f5dcad5a2b6246adea",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/gpu-observation-commands.jsonl": "4fce305fe5cde04f8557f5e04052b751defe395e12394e94ddee8e5892de6fe6",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/encoded/after-decoded.json": "1444caa9aaedbc80960c42bc8c41dcc8514171e679aa9e74d99f320e8def5e6c",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/encoded/player-after.h264.json": "f0f8b872e9dc63a74794fbc902271fb402541f9d30b4457348550236455c87e5",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/encoded/spectator-after.h264.json": "623d28a56c4fedb110a6e264707d7ddcee96acb99500b1f8dcdc40433ea5b901",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/encoded/player-middle.h264": "108fd7fb0cc769ecdbb38c27b1f6a4fa90040b37e666507da857f4812f84701b",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/encoded/player-after.png": "06a271e40f314a41297929fcdec19b989277ef1f1138626f806dec60e4e0ef1c",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/encoded/player-middle.h264.json": "f5b4b376a8822ab2bee10a53bee9356db6b1b19471082c9b522c46b7396a0470",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/encoded/spectator-prepared.h264.json": "8ae71be7ae6ba03c70aff54042fb570352433ca2051e1e09b899329659dbfb44",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/encoded/player-before.h264.json": "c2cb6c2d2c48a9ebd55fe743cc690b6df830e7afdbd4853c1d3a6fe62deee12f",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/encoded/spectator-prepared.png": "9c022d96c63df8e7d1181f9a73afae28107afe14af7fafebc4fc49f08335db04",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/encoded/player-after.h264": "b4e1c89e57520647a5e5f26cf89b66ac52ec561f539196275ed78d699bea43f2",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/encoded/spectator-before.h264.json": "4c3e675cf048dd2abb627db081352818cefcc8a8c33f37687954bec226f7eb6f",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/encoded/spectator-middle.png": "d5c441928477619b0a1426fa96c4947ffb85c5f40f494bfda0a8d59840d491da",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/encoded/spectator-prepared.h264": "8695c3acb60f32c17573adbacc88e61f06607d294c2eb2a2a771481089590fe0",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/encoded/player-prepared.h264.json": "989f4c11fe9a61f7902a79de555141bafd23519cffbb4e8bd1a274252ecbebce",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/encoded/spectator-before.h264": "11c5891488b55afd6943a70f61c8f9a6e2fddd6dcef5e89912bc24a9cced3109",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/encoded/spectator-before.png": "f452077e7502bf20b31b246e3f2eee61a0fb3d13e5880007a4db057368dc5fc8",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/encoded/player-prepared.h264": "3f14f136a56fcde29e057d6ac9017b082d7fd0436257c63d341a069ca4125760",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/encoded/spectator-middle.h264.json": "07ddc3168281c218ca803d401048b5029343bc9f462730c2b48e7d969891a4dc",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/encoded/player-before.png": "f452077e7502bf20b31b246e3f2eee61a0fb3d13e5880007a4db057368dc5fc8",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/encoded/player-prepared.png": "391bc1f3e7a66e3daf97f30ebee7eb9ae2697ae856008e60a3d49840c72ae543",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/encoded/spectator-after.h264": "b4e1c89e57520647a5e5f26cf89b66ac52ec561f539196275ed78d699bea43f2",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/encoded/spectator-middle.h264": "108fd7fb0cc769ecdbb38c27b1f6a4fa90040b37e666507da857f4812f84701b",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/encoded/prepared-decoded.json": "cfe9f8a3e674e9ef80f2a63b5aa6f1f268756e89fe4d369691e160ee757cdd47",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/encoded/player-middle.png": "d5c441928477619b0a1426fa96c4947ffb85c5f40f494bfda0a8d59840d491da",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/encoded/spectator-after.png": "06a271e40f314a41297929fcdec19b989277ef1f1138626f806dec60e4e0ef1c",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/encoded/before-decoded.json": "a5f4690016cf8c5b924f664a9e5b516d8918479d42f72924a13dae8726e8ed9c",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/encoded/middle-decoded.json": "7c621970ae4c818dfa04db274ac53618a9587a8dd8173223bbd947e2f763215f",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/encoded/player-before.h264": "11c5891488b55afd6943a70f61c8f9a6e2fddd6dcef5e89912bc24a9cced3109",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/submission-probe-arm.json": "affa8370f2c4416db93e3cfb05ae5d71231d7f88ced3ce10cd636ee1720a7c9f",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/commands1245-ab-20261110/A2/cleanup.json": "87b8062e62d94a0c61ba3c9f4590ea4a70684fffe6d9dba2648ce6df6ef52991",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/commands1245-ab-20261110/A2/postphase-review.json": "f801ecd9d6b81ab5a020a69d5e176f999f07de14e52c4ff112b6392e873b3211",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/commands1245-ab-20261110/A2/prephase-review.json": "9511befcd225eb954c64c9760b14f1e58b9894c018b828e450aedbe42fdd98fa",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/commands1245-ab-20261110/A2/active-room.json": "fd94449529637663a02d65a8b9a38e3d5718619150b9b19d13213db6cb9483d0",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/state/0400486024dec000/neuve/emulator.log": "3091e5f9896871764bfde15328adc88233df1720ffc5dd0aaed1bd842dc04c79",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/affinity-apply.json": "87fb56a38028afadaa06a13b41d669db5950d1cd962af455805161dcca8396d2",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/affinity-verify.json": "4b85b72ff420b2da777de670a973d15e7058c25427db455911ab6129f68300df",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/native-runtime-before-proof.json": "0a713b39f8dd1542d39a2d21ac7f97c23e43a8236933490a067074882eaaa6e5",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/native-runtime-proof.json": "5485dcbab0894d764e01e5366df2c61631c7f468b6bde3fc82d8a03eac53209e",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/native-boot-before.json": "d02eba0e9ee3d85337b368c0c79ab68456ae5242ddbe15b5aae39e7b241043d7",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/native-boot-after.json": "d02eba0e9ee3d85337b368c0c79ab68456ae5242ddbe15b5aae39e7b241043d7",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/native-memory-affinity-before.json": "15bbfd54f8d7dd1ab945dc46b8c33384a6f0312c5533035a0b15e921e4024abb",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/native-memory-affinity-after.json": "1b20b467c48a74c781952b77b4508b7e8f22c9b332b93b6f05521a9a6daee096",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/browser-phase-result.json": "288f40f4492c08c20572889e84680b42b4f5769e9cc8115c58f4674cda289482",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/phase-clock.json": "e75372cbdc483b0744570c0af3a572328de4a04ce3c0c4e4ffe6b20f9712a22f",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/phase-events.jsonl": "fb1e0856f1fc4a91b99a2bb7407b67fb4736e90c18cad3712ecc612b402428dc",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/phase-exit.json": "76684a2a9d5b95022b98f519e8f08d22ba11a6eaeba451ab7b781d49b42e13be",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/browser-before.json": "dd15cebb420f56593d8d966e4a20ae6f02601b416bbe25b029d59f7b9363a17b",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/browser-after.json": "dcee2831c4cc78db51068c3438bd55c2acf005963bebb0074fda0995b411feae",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/browser-cpu-before.json": "addca2658bf817675d2b883b96a19c67f39422bd0e16f4037734eef46b479bd6",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/browser-cpu-after.json": "34245cd051ef458ca1d5aa109227d34836cbc4851134643d5f3fa3225564f2bc",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/qualification-watchdog.json": "9c5cf08459c30d8d2860aaace74e4e9a2491986095ef9848ac0f26299ecea7fc",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/seed-copy-proof.json": "cf132e0b69a35bfc1184a49434c4a5b417e550b516d3e2c9dc42c408f9074004",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/loaded-check.png": "80da50316d28b2a19e53aa3849daa30b302067d07873624b653d49a5bf2f9fa7",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/media-preparation.json": "ac1e87cfe349c98c7407715096240fb77511e4c485fadf22132271fc6a68e694",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/gpu-observation-commands.jsonl": "223516206832f10ba810e61aac8873ca5bccce333a4c8778c0e82220c5c4be28",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/encoded/after-decoded.json": "e7b127190a77cb1902c6364cdd8c6e6755f0e2cf4860d98b8117e02d79d102ce",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/encoded/player-after.h264.json": "99e2e55d841f289652e8f5e453d88f7e67216dd0ecf6b953e5b3e27933335af6",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/encoded/spectator-after.h264.json": "50a57490622ca459bafab1a3fae3f82c9c60fff6d0391bee6e98045a8865125c",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/encoded/player-middle.h264": "1ffe572da892eb1d479a3f14722f26365ce06b196c8643ffcd8e72ea22bf1d16",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/encoded/player-after.png": "412217bdc9c8a1687d4010e45b17f8911db9e1c3f19a1a6560505c34e9585d40",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/encoded/player-middle.h264.json": "28ecd3f158718548cd114cb78a4c54a15f11a1470ac5e60df389e5669ab87a29",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/encoded/spectator-prepared.h264.json": "2131f6ccb91fe8c00f5bfd913a8ed3ac6097d63e4fda0231fa3706e5828c2846",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/encoded/player-before.h264.json": "5597c6080b13db70262fb81f2a23345ac373acc44a4bb48dbc200b2edb3a582d",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/encoded/spectator-prepared.png": "c41ea570c0c898fe6a3692b2e1d2334581ae3974348f035a8613ec9165552fce",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/encoded/player-after.h264": "99701f20a85227fe09f204f1e7dc18d7a6cfdba561d36aaf3f5a04e9617b558f",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/encoded/spectator-before.h264.json": "609825ef16a2be496a6da30e0abff92df5d142277fe8d3a6439d45834878dae8",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/encoded/spectator-middle.png": "762e82ccc651811b9a4f74430e6b31fdb2e6fbc0747d15ab293e8c0aa0ba36e7",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/encoded/spectator-prepared.h264": "05f18a9f9f20e2fe9f3bcd1b55ae29c70458c24583323126a193e5a8fec91c76",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/encoded/player-prepared.h264.json": "5264f998d4f39435c3b88200a00ffe90e92dd9388792571e300c68e26730654c",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/encoded/spectator-before.h264": "3bc4863634f17119c288175fc5430efe58fce6ec4d94fdb8cc7f86d4b50bef71",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/encoded/spectator-before.png": "f6b5b9d4cf5fe6ac6c5e826954212be2e60d2c2781dd3f0ee53239f176c024ea",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/encoded/player-prepared.h264": "c7ad9a7c2711ff4e5a229a28f2e00734b57bf14127df8fe4a77c494e9b6201b2",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/encoded/spectator-middle.h264.json": "383e445fc7699a067872609f18b10bf8d53a941ad40ad40e43a34a000287806a",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/encoded/player-before.png": "f6b5b9d4cf5fe6ac6c5e826954212be2e60d2c2781dd3f0ee53239f176c024ea",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/encoded/player-prepared.png": "c05aaf7ffa5ac151f22e51c3cfcf84f554e50105bcd921bd24348c81dbf21f3c",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/encoded/spectator-after.h264": "99701f20a85227fe09f204f1e7dc18d7a6cfdba561d36aaf3f5a04e9617b558f",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/encoded/spectator-middle.h264": "1ffe572da892eb1d479a3f14722f26365ce06b196c8643ffcd8e72ea22bf1d16",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/encoded/prepared-decoded.json": "4df3a6ac8e92273630af9744deb0a15ad3e503254dab7e68da03a3245f85a64f",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/encoded/player-middle.png": "762e82ccc651811b9a4f74430e6b31fdb2e6fbc0747d15ab293e8c0aa0ba36e7",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/encoded/spectator-after.png": "412217bdc9c8a1687d4010e45b17f8911db9e1c3f19a1a6560505c34e9585d40",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/encoded/before-decoded.json": "3f1497b4c385f07e041e99c885a162e245ddd4ea6091cb27d6d01985b6eaa00e",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/encoded/middle-decoded.json": "d6322ce7c18aab5b4c9098543d0fb359b2a11e14dc18b02ae5de28d27a18fa55",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/encoded/player-before.h264": "3bc4863634f17119c288175fc5430efe58fce6ec4d94fdb8cc7f86d4b50bef71",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/submission-probe-arm.json": "250868fe7f77a96474d3c889109332fbf90f458d47b658f8f78a8da49fe51dc8",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/commands1245-ab-20261110/B2/cleanup.json": "a4fa989e4ef4f7c0120d9207e7c1da5481f03fb20e7409bb0f8401f3acdbeecd",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/commands1245-ab-20261110/B2/postphase-review.json": "2731d8a55ad4949aa172434a4aab144d8405e350498195bcea2c026093c3abd3",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/commands1245-ab-20261110/B2/prephase-review.json": "76042bf75cf80ee6a8dfbfa4bf7a958a90d3b39aaa5bf13f5de972db4868aafe",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/commands1245-ab-20261110/B2/active-room.json": "788727be0a1d7be2aca21dfea186d8dc23fc285b129805ea39e6ce719313e9a1",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/state/0400486024dec000/neuve/emulator.log": "66a972d6d529a9b5aa5e53d473ac53ffb4e51592f67765130e832710fadf0c37",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/affinity-apply.json": "88f45210a76d6d1bc1a7b54d58b13e715a3a7cfa2daf6e660e90d55a6e466ad2",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/affinity-verify.json": "2e20f726228f139750a800994722263fc6c4f2dde58682c31eac0e1f22b140ec",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/native-runtime-before-proof.json": "02a82ff51e4bd665f0730d43945f06d3a21ae4e3d618581a2389207569486720",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/native-runtime-proof.json": "56115c1624483d647e6105c41af652bdaeec5e93210b64091b93528a19f3076e",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/native-boot-before.json": "a04bb0593e59633b58edf463353e178531305b12c66b18e08515ae31f71b2873",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/native-boot-after.json": "a04bb0593e59633b58edf463353e178531305b12c66b18e08515ae31f71b2873",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/native-memory-affinity-before.json": "cbb60ac6a9486d5f41baab4a8ecb10110e7ea338c8232c129956872f6cba9648",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/native-memory-affinity-after.json": "a42d45a465bffc176dc4e3537e7fed2a84a530904068eebb50a425995897bdc8",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/browser-phase-result.json": "e4566ef2a96bed26f142795ab0b3aae74bc878e508c381d1be95e80f57e6f189",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/phase-clock.json": "5a0e2a15064ee583be5014bb63c6cbb03d95a9155c458e4c337ac3171d964db6",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/phase-events.jsonl": "d7fb2e90708fb7ddd487454f8ba5f0e9384269346da67a5c0623ba4a0416463f",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/phase-exit.json": "de0f98aec8a4fd83b1843808e93e45086631acf8e8072f459f95a7bb22a389a8",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/browser-before.json": "b6d64eb269c45f9ce46ea7947c5fbc5a0ca114fe3ba3baa43c1b0f7b380a56a3",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/browser-after.json": "4fa2e144582b9a735cfb51971742feb32602d05ba7503dfd006e9d7829b7e95a",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/browser-cpu-before.json": "050c15126a1e5b8e9996747f9bb2f97f7182f06bdf01c76688e5ba45ccc10964",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/browser-cpu-after.json": "9e5180c512c96cb4dce646b5bdf1e6f87dc707da34ab854cc1e3461d78be45bc",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/qualification-watchdog.json": "c18c2a33220f74a2506a92744f1ec638b7cf5bdae5a95e7f55921521e5bb0592",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/seed-copy-proof.json": "2c53c6aa4194175bced2c03280755dff3f6333fbe3597a68faaba4d5311f3d0a",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/loaded-check.png": "d263dd4c9151fd40243fae3bdc4f94d431f5aa69d6c68a7f7a1c9112baebd514",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/media-preparation.json": "47776065127ed3ad1302441614d7c6b425a1522cbb6a7d71e3ea523b42b6c331",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/gpu-observation-commands.jsonl": "9223b9254b4e134814ddc02ad15b5e0fd241214f9dd1875994997e695b356b19",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/encoded/after-decoded.json": "16adc89f69e15a272637f004346e79822a8bff4bd0e2521d21772526c2527446",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/encoded/player-after.h264.json": "089649e76861d582a6f027ec6be2a1d2c5224922d423607655c756895275921f",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/encoded/spectator-after.h264.json": "a0e60e3cb45dc6f8b92ae1415c16f89f6057991edc2eb4892064a3863cb621ea",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/encoded/player-middle.h264": "38f5ba6d37cae2ffdbc46eb9410504b7029f08a34ba767040398b94664d3edda",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/encoded/player-after.png": "daffb013f7acc7e85ef3b048d33e8676544bd4220c9571c52c4795fa084b1b81",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/encoded/player-middle.h264.json": "edc46b251bc5bb7080ef568d98163841c6c8b66abeaf70cacb44611a2c636152",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/encoded/spectator-prepared.h264.json": "e9d36990d206a3420aa623b3c78e5a1fe7880d43f06aaf59d8fb8f251d6e2b2a",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/encoded/player-before.h264.json": "ff45212ed99aaea65129e693c6058bc32825d0cc78d8a28f0bbbfb1b92f466ec",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/encoded/spectator-prepared.png": "cea838d92b143e5ba388d831c296d7ba8d2e156c9d174cfc7bd4d4faad8164eb",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/encoded/player-after.h264": "70d70d615a5b5933f73ab3c36de19b6169590f039336931071707e92fed2d439",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/encoded/spectator-before.h264.json": "cd8bdfe9b1f87901cd394ddb42efee19228f8edd5caf26a889d89b2bd9bbd41f",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/encoded/spectator-middle.png": "a4911343a685f6ad70dec054eb2a50751c42a0fe8d33925332e81c21a5a43c78",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/encoded/spectator-prepared.h264": "07b996688d5a71006fbd2e6d940731d516ad2c7b4eb62a6e9e0061a6d2b20eca",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/encoded/player-prepared.h264.json": "3fa8fb748a352341b05f12be723cbd852142f56ade2f47080d3f8b88589df371",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/encoded/spectator-before.h264": "563fad40952ffd42d454ebdf373c740dab278a2c8df048d66c6fcec96979c4d5",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/encoded/spectator-before.png": "c6792e4d375c3774bf441d661fa9dfbab680575b433b7dc46c557b3f61786fe6",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/encoded/player-prepared.h264": "49dfbfc3a7156d2c74445fc7b007744192b09e8054e68c4ac54e423f1e3436a6",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/encoded/spectator-middle.h264.json": "c17e28b0b8f4c35636214d2d9022e8634c6986412241c90f7bf5881298563e59",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/encoded/player-before.png": "c6792e4d375c3774bf441d661fa9dfbab680575b433b7dc46c557b3f61786fe6",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/encoded/player-prepared.png": "b3bda4f423e220bf5ac55f6745bffea28ae119aaf54a0b265b8bdab93b00ef52",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/encoded/spectator-after.h264": "70d70d615a5b5933f73ab3c36de19b6169590f039336931071707e92fed2d439",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/encoded/spectator-middle.h264": "38f5ba6d37cae2ffdbc46eb9410504b7029f08a34ba767040398b94664d3edda",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/encoded/prepared-decoded.json": "9e1e3a331bf29a3bfe9592b779b55251b6fdb5f8b7ec8779f2bbec6d77784065",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/encoded/player-middle.png": "a4911343a685f6ad70dec054eb2a50751c42a0fe8d33925332e81c21a5a43c78",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/encoded/spectator-after.png": "daffb013f7acc7e85ef3b048d33e8676544bd4220c9571c52c4795fa084b1b81",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/encoded/before-decoded.json": "0b3642c3c87dd60a3e1444812d945628fe69453cd833670adf6559b22139030a",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/encoded/middle-decoded.json": "3dfb4e415523196e04e307c18a238e8be1af5360ef63084c8345ad5bba039b5c",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/encoded/player-before.h264": "563fad40952ffd42d454ebdf373c740dab278a2c8df048d66c6fcec96979c4d5",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/submission-probe-arm.json": "ffad91d55642396250a6c0cb02b0c3323a0da201961646ae412232216264e7c3",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vLyDNg/affinity-old-hash-negative.json": "3e8e245f4d9c5c2722f762488f1c89049ebf17405d1784174e32f59adbb32273",
+    "/home/souhib/.local/state/nel3ab/test-switch2-MMoXYV/affinity-old-hash-negative.json": "3e8e245f4d9c5c2722f762488f1c89049ebf17405d1784174e32f59adbb32273",
+    "/home/souhib/.local/state/nel3ab/test-switch2-NGkhiV/affinity-old-hash-negative.json": "3e8e245f4d9c5c2722f762488f1c89049ebf17405d1784174e32f59adbb32273",
+    "/home/souhib/.local/state/nel3ab/test-switch2-JKOQSc/affinity-old-hash-negative.json": "3e8e245f4d9c5c2722f762488f1c89049ebf17405d1784174e32f59adbb32273"
+  },
+  "limits": [
+    "Activation comparison of combined uploads+dispatch optimizations, not isolated effect of either, not a full-candidate vs installed comparison.",
+    "Same-binary disabled control retains dormant branches and additional allocation; stage corrections common.",
+    "Static scene cannot prove movement/new-zone loading, browser playback or unique physical frames.",
+    "Only complete600return windows wholly inside phase retained; gaps and per-window quantiles kept.",
+    "Synchronization fixture has a missing-transfer negative that produces no expected hazard with the pinned layer; no complete driver/scheduler-lifetime qualification claimed.",
+    "Only full600-return windows inside explicit phase bounds; partial coverage. Quantiles remain per window.",
+    "Native WSI accepted returns are not unique guest frames or physical scanout. Nonzero PCM/scheduled playback is not physical AV sync.",
+    "B may retain a silent running AudioContext; zero app game PCM played is the qualified condition.",
+    "Static reviewed camera/position matched; ambient animation/start phase and machine drift remain. No movement/new-zone qualification.",
+    "Markers show branch selection/recording before phase; no per-operation GPU execution census or individual attribution between the two optimizations."
+  ],
+  "date_utc": "2026-11-10",
+  "constant30_achieved": false,
+  "conclusion": "Combined1245/1246 activation changes sign: +2.43% then-3.14%; p99 stays42-47ms, maxima50-56ms. No repeatable improvement or constant30. Retain privately, no production replacement.",
+  "coverage": {
+    "phase_seconds": 360.008835327,
+    "WSI_complete_seconds": 294.288275175,
+    "WSI_windows": 14
+  },
+  "next_candidates": [
+    {
+      "change": "CPU JIT warm-up1225",
+      "status": "Reviewed upstream only, not ported or tested here",
+      "reason": "Could address first-use code-compilation bursts; not evidence it fixes the measured steady-state deficit."
+    },
+    {
+      "change": "GPU backing lifetime1236",
+      "status": "Upstream source reviewed only",
+      "reason": "Stability at memory reuse/zone transitions; no demonstrated throughput gain."
+    }
+  ]
+}

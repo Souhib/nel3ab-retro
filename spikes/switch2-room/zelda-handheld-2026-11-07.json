@@ -1,0 +1,43 @@
+{
+  "date": "2026-11-07",
+  "engine": "eglantine-216d3e2943",
+  "protocol": "One portable-mode exploratory run after the alternating reactive-flushing experiment. Same quiescent Kokiri save, cache, 90-second camera sweeps, Vulkan Low 1x, frame generation off, NO_MESH, reactive flushing still enabled.",
+  "measurement": {
+    "requested_seconds": [
+      74.26657999999999,
+      165.405327
+    ],
+    "covered_seconds": 52.7772,
+    "game_presentations": 1200,
+    "game_fps": 22.737091016575338,
+    "window_fps_median": 22.737092192026864,
+    "maximum_frame_ms": 77.257,
+    "frames_over_100_ms": 0,
+    "windows": [
+      {
+        "start": 103.35180700000001,
+        "end": 129.734407,
+        "mean_us": 43971,
+        "maximum_us": 77257,
+        "freezes": 0
+      },
+      {
+        "start": 129.69125,
+        "end": 156.08585,
+        "mean_us": 43991,
+        "maximum_us": 76945,
+        "freezes": 0
+      }
+    ]
+  },
+  "shutdown": {
+    "exit_code": 0,
+    "stop_requested": true,
+    "window_closed": true,
+    "forced": false,
+    "stop_seconds": 3.204304788960144
+  },
+  "visual_review": "Same balcony position and scenery inspected in phase-after.png.",
+  "limits": "One later passage and potentially different shader-cache preparation. This does not rank console modes or prove a reduction in cold map-loading stalls.",
+  "decision": "No material immediate cadence gain established; retain installed docked mode."
+}

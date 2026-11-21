@@ -1,0 +1,31 @@
+{
+  "checked_at": 1794248002.844109,
+  "lichii_head": "6bb6eb4bd8d32b3e995f62b0b4bab41891b82276",
+  "previous_checked_head": "3dae119aeac255a9334386cdf10ca707ef96867d",
+  "eglantine_nx2": "78743f30c251f66bd77e6eea6c28d8632d642d6f",
+  "new_commits": [
+    {
+      "sha": "c215653cc542ae4c680dff3f75ff3e8000c77716",
+      "date": "2026-11-09T17:38:00Z",
+      "title": "Ocarina of Time: AMD FSR 3.1 in place of the game's anti-aliasing network (port of #695) (#1060)",
+      "url": "https://github.com/zortos293/Lichii/commit/c215653cc542ae4c680dff3f75ff3e8000c77716"
+    },
+    {
+      "sha": "6cec8cb9aca372c686e0295cd6afd426a589ca40",
+      "date": "2026-11-09T17:59:48Z",
+      "title": "Ocarina FSR: camera jitter and texture LOD bias without experiment switches (port of #914) (#1061)",
+      "url": "https://github.com/zortos293/Lichii/commit/6cec8cb9aca372c686e0295cd6afd426a589ca40"
+    },
+    {
+      "sha": "6bb6eb4bd8d32b3e995f62b0b4bab41891b82276",
+      "date": "2026-11-09T18:04:15Z",
+      "title": "texture_cache: skip a join's upload when layer copies overwrite it whole (#1079)",
+      "url": "https://github.com/zortos293/Lichii/commit/6bb6eb4bd8d32b3e995f62b0b4bab41891b82276"
+    }
+  ],
+  "audit": {
+    "1060_1061": "23 distinctfiles, all patchcontexts available on corrected0b+1056 withoutCacheV2; explicitFSRrenderchange, noframegen, fallbackjitterLODtransitions lack actualrasterizerfixture. No visualdefect reproduced, no localFPS measured.",
+    "1079": "4files independent ofCacheV2/FSR. Existing wholealias skip alreadypresent inbase; newmulti-overlap layeredunion notprovenactive inOOT. Upstream exampleMKWorld notserverZeldaFPS."
+  },
+  "decision": "No wholesale rebase/install. Finish isolatedReference-mode2 correctness/performance gate. NewFSR must be qualified as visualvariant, newjoin requireactualactivation andJoinImagesproof beforeFPSclaim."
+}

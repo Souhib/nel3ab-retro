@@ -1,0 +1,80 @@
+{
+  "checked_unix": 1794266334.1928103,
+  "commits": {
+    "zortos293/Lichii": [
+      {
+        "sha": "d2eaae4f3abca636b030b726f107bace06f61079",
+        "date": "2026-11-09T22:52:45Z",
+        "subject": "vulkan: keep an evicted graphics pipeline's storage buffer pointers when it is translated again (#1143)"
+      },
+      {
+        "sha": "f1932bc9a9731a12ab2f3b29ee240b4d8e742cc6",
+        "date": "2026-11-09T21:36:53Z",
+        "subject": "docs: point the CPMUtil patches link at its Patches section (#795)"
+      },
+      {
+        "sha": "6a889be79f8cd30d13b351b09c2f04a6b8317e2d",
+        "date": "2026-11-09T21:36:48Z",
+        "subject": "docs: explain the bundled Qt link failure with Visual Studio 2022 (#835)"
+      },
+      {
+        "sha": "a0c3dd9db83b0cc549bf15ede6cc9de90c22db87",
+        "date": "2026-11-09T21:36:43Z",
+        "subject": "docs: note Bluetooth HFP input can silence output on Linux (#946)"
+      },
+      {
+        "sha": "286c0104304f363ccedacdfc23864f05a7698646",
+        "date": "2026-11-09T21:36:38Z",
+        "subject": "dist: add the missing nx2 translation contexts to zh_CN.ts (#827)"
+      },
+      {
+        "sha": "aa4ba3a7cce41ee9a42c9f2c928d24dda5705a9e",
+        "date": "2026-11-09T21:36:32Z",
+        "subject": "dist: add the missing nx2 translation contexts to es.ts (#893)"
+      }
+    ],
+    "Djihads80/Eglantine": [
+      {
+        "sha": "78743f30c251f66bd77e6eea6c28d8632d642d6f",
+        "date": "2026-11-08T14:57:58Z",
+        "subject": "bump to 0.1.0-rc3"
+      },
+      {
+        "sha": "ea8d7d25a5bd9565cde35b3ce8e3cc1141c4c660",
+        "date": "2026-11-08T14:55:12Z",
+        "subject": "Merge branch 'nx2' into nx2-experimental"
+      },
+      {
+        "sha": "293b5598fb79e809eef76f36b75a160488fcb6da",
+        "date": "2026-11-08T14:53:37Z",
+        "subject": "downgraded ubuntu for older gzip"
+      },
+      {
+        "sha": "66bfbc53210543e3a5995ca2c3fc3229c399169b",
+        "date": "2026-11-08T14:23:31Z",
+        "subject": "chore: bumped to 0.1.0-rc2"
+      },
+      {
+        "sha": "fbcfe365d7eabb4c8dc5f84247aa7d88190f3ec3",
+        "date": "2026-11-08T14:22:53Z",
+        "subject": "fix: fixed change log"
+      },
+      {
+        "sha": "df2989c794cdb6b979e478c5b02ed7f565ebb443",
+        "date": "2026-11-08T13:19:28Z",
+        "subject": "Merge branch 'nx2-experimental' of https://github.com/Djihads80/Eglantine into nx2-experimental"
+      }
+    ]
+  },
+  "review_1143": {
+    "pr": "https://github.com/zortos293/Lichii/pull/1143",
+    "merge": "d2eaae4f3abca636b030b726f107bace06f61079",
+    "merged_at": "2026-11-09T22:52:46Z",
+    "patch_sha256": "c1bc33f013c4ddf360a9aa29b92d4e46c1b1c04e24739d2ecc49ed6980c8355f",
+    "purpose": "Preserve previously classified storage-buffer pointer slots across graphics-pipeline eviction/retranslation. Correctness change, no measured FPS gain.",
+    "base_relevance": "Frozen0b-derived base has EvictUnusedPipelines and KeepStoragePointers but no evicted-pointer slot retention. Potentially relevant to long sessions/zone loads, no local failure occurrence proved.",
+    "apply_check_exit_code": 1,
+    "apply_check_scope": "No files mutated; four context failures include cache-v2-era sections. Requires targeted adaptation, not whole-branch import.",
+    "limits": "Bounded8192entry map can discard older entries; fresh disk records captured with null slots remain outside fix. No source patch/build/runtime change performed."
+  }
+}

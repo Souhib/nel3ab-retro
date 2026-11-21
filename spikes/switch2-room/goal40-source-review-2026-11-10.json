@@ -1,0 +1,41 @@
+{
+  "date_utc": "2026-11-10",
+  "status": "Source review, not runtime qualification or performance gain",
+  "scope": "Lichii/Fritchii/Superbuild follow-up and existing Zelda evidence. Current release metadata and pinned source statements kept separate from local measurements.",
+  "new_observed_release": "Superbuildv52 published2026-11-10T21:30:46Z, no local performance trial",
+  "release_url": "https://github.com/callme-sy/Lichii-Superbuild/releases/tag/v52",
+  "distinct_next_source_candidate": [
+    "Lichii1244",
+    "required shutdown1058"
+  ],
+  "rejected_as_already_present_or_measured": [
+    "FritchiiEXP49 partial1028 already present",
+    "FritchiiEXP62 equals1245 previously no repeatable gain"
+  ],
+  "idle_spin_existing_trial_scope": "Zelda0/100 alternating on older split1/NO_MESH1; not directly current profile. No50us trial found.",
+  "production_change": false,
+  "proof_files_sha256": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-review-20261110/native-resolution-proof.txt": "bb984529f5f0153052791625e8d11c079adb8975a238e79b86adab8b81af957a",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-review-20261110/lichii-readflush1244.json": "32b8f6eae2b1fb5a61982636824c9dbf87cf50b25f3473407667a2adefc2daf2",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-review-20261110/superbuild-v50-v52.json": "654ee1db2ca6291fb9b9549190566b557792491168663e6266d182a89da6a0e7",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-review-20261110/fritchii-exp49.json": "90918b5086dd44920dd6595ee965d9803c874d8aff6f2e32f71917fb2088517f",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-review-20261110/shutdown1058-files.json": "c32961b3c9ab394f03d07b93c64aea45a5311904f928a6c80c9fed3fbbc71b87",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-review-20261110/fritchii-head.json": "38e9f113b3afd2a3e924127cdfb057643fe76bb65e787bf19c2656b148eecb98",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-review-20261110/fritchii-exp62.json": "4138f118140d96d29d100560a3de3c482f193ba8f407b645b996594ec79cba2d",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-review-20261110/lichii-readflush1244-files.json": "bce6c7cc316c194e59042de17e8e5ff4a5c295b49ae2129f05d5f096d42c4bfc",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-review-20261110/superbuild-current.json": "90c8cd2e7a9a5a6bb1da3e52bdfe59557ec6977f4ece2faee86096e1742c77db",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-review-20261110/superbuild-head.json": "138adc394348b9eebdf3b82fd176c15e43ae18c97c7514db82ce975ebcbdc3af",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-review-20261110/lichii-head.json": "71fe77fa4a982b83852db5b8cf1459148a49ac7ab4d652075106ee97d38a5bbc",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-review-20261110/review-source-sha256.json": "385110c76679d1a0d8f5d7fee356595a3851c4967a165d7fe8759f5b62f45fe3",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-review-20261110/conclusion.txt": "058d350103ef866796f7ec8ca24ce29fb987dee5907b9b88225c401478dafc14",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-review-20261110/fritchii-since1959.json": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-review-20261110/readtick-cpu-qualification-design.txt": "0c3aef234b7f5ad941bf8f57e35831972803b43d58bf7f59a56d7d7a2fb8559d",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-review-20261110/shutdown1058.json": "3656f4974203f14011c71070d783c3fbed8f480e0cf5d1dd094cb5e294880f3e",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-review-20261110/fastdraw1216-files.json": "5b54976ef34f49d5e81bc78c5405bb5c48e5b75ecc95137848c8993bc5f86646",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-review-20261110/superbuild-release.json": "d392c7bad86a78787037c71391c0cc38c89292e043bd8030a61c2f32174ec689",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-review-20261110/idle-spin-existing-evidence.txt": "942210509bb1c6f49b445f908debfcbe45a8b3ef76f49653ce0c7b6c30696dde",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-review-20261110/fastdraw1216.json": "5a5a9ce53d47d0291823555d4e69586c3c4545663646d88ec739b058c0abb914",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-review-20261110/fetched-at.txt": "aaf094c182989cc98e79a8baf9a2706f05a2817bc1a63008e730c5eeb569a0af",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-review-20261110/lichii-since1959.json": "033ec12d2ec53ae0f4b9644a7800a2405a613aa49c6783ccb3413ce696daf4fb"
+  }
+}

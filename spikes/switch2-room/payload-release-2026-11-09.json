@@ -1,0 +1,320 @@
+{
+  "date_utc": "2026-11-09",
+  "recorded_unix": 1794230124.8246224,
+  "primary_source": "https://github.com/zortos293/Lichii/pull/874",
+  "primary_head": "6a5434e7a98fbb8a04aff96b401a710e7da47a2c",
+  "base": "986a2b684d752cd5227d0d8cdd63d52111d9c298",
+  "common_corrections": "Byte-validated uniform keeps and single-ring reservation cursor; no host-memory ring or sourcebank experiment",
+  "scope": "Private isolated Zelda Kokiri camera movement, followed by functional ground walk; same checkpoint and starting persistent cache bytes restored before each phase",
+  "conditions": {
+    "split": 1,
+    "gpu_accuracy": "Low",
+    "fences": "Default",
+    "speed_limit_percent": 100,
+    "NO_MESH": 1,
+    "runtime": "Mesa25.2.8 RADV, unchanged image",
+    "compiler": "Clang23 official identical PGO profile, ThinLTO, Ryzen znver2; same internal build paths/options",
+    "no_mesh_limit": "Retained preexisting shader omission in both conditions; no full-world fidelity or extra omission qualification"
+  },
+  "regression": {
+    "actual_query_cache_fence_manager": true,
+    "red_exit": 42,
+    "red_assertions_before_failure": 5,
+    "green_cases": 9,
+    "green_assertions": 571,
+    "mutants_compiled_and_failed": 5,
+    "limits": "Deterministic synthetic producer/backend, no physical GPU or all concurrent interleavings; no recycled-ID coverage"
+  },
+  "build": {
+    "cli_sha256": "be340855afa1f183b9105c1921e40592489a177c9067e2a20cc297ccd83f5ab1",
+    "changed_translation_units_verified": [
+      "renderer_vulkan/vk_query_cache.cpp.o",
+      "renderer_vulkan/vk_buffer_cache_base.cpp.o",
+      "renderer_vulkan/vk_staging_buffer_pool.cpp.o"
+    ],
+    "full_tests_passed": 1100,
+    "network_tests_skipped": 4,
+    "full_assertions": 71893627
+  },
+  "activation_diagnostic": {
+    "actual_callback_seen_once": true,
+    "private_kokiri_motion_reviewed": true,
+    "normal_stop": true,
+    "trace_absent_for_fps": true,
+    "scope": "One activation proves execution of eligible publication; no cadence claim from diagnostic run"
+  },
+  "phases": [
+    {
+      "label": "lichii-payload-on1",
+      "payload_release_fix": true,
+      "measurement": {
+        "requested_seconds": [
+          106.81100711822509,
+          192.43681
+        ],
+        "covered_seconds": 56.279399999999995,
+        "game_presentations": 1200,
+        "game_fps": 21.322188935916163,
+        "window_fps_median": 21.32218981078428,
+        "maximum_frame_ms": 64.44,
+        "frames_over_100_ms": 0,
+        "windows": [
+          {
+            "start": 130.15062,
+            "end": 158.29602,
+            "mean_us": 46909,
+            "maximum_us": 63101,
+            "freezes": 0
+          },
+          {
+            "start": 158.249731,
+            "end": 186.383731,
+            "mean_us": 46890,
+            "maximum_us": 64440,
+            "freezes": 0
+          }
+        ]
+      },
+      "phase_wall_seconds": 91.30241830879822,
+      "whole_windows": 2,
+      "samples_without_known_interference": 15,
+      "all_diagnostic_env_absent": [
+        "GPU_PROFILE",
+        "UBO_KEEP_VERIFY",
+        "DELTA_DESCRIPTORS_VERIFY",
+        "PAYLOAD_SYNC_TRACE",
+        "ACQUIRE_VERIFY",
+        "STUTTER_TRACE",
+        "LIVE_READ_CHECK"
+      ],
+      "actual_executable_sha256": "be340855afa1f183b9105c1921e40592489a177c9067e2a20cc297ccd83f5ab1",
+      "actual_radv_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+      "world_and_movement_reviewed": true,
+      "zone_change_claim": false,
+      "lifecycle": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.1048794998787344
+      }
+    },
+    {
+      "label": "lichii-payload-off1",
+      "payload_release_fix": false,
+      "measurement": {
+        "requested_seconds": [
+          89.41404781341552,
+          178.124435
+        ],
+        "covered_seconds": 59.3628,
+        "game_presentations": 1200,
+        "game_fps": 20.214679900543775,
+        "window_fps_median": 20.214932878184694,
+        "maximum_frame_ms": 78.442,
+        "frames_over_100_ms": 0,
+        "windows": [
+          {
+            "start": 105.754283,
+            "end": 135.540683,
+            "mean_us": 49644,
+            "maximum_us": 78442,
+            "freezes": 0
+          },
+          {
+            "start": 135.491729,
+            "end": 165.068129,
+            "mean_us": 49294,
+            "maximum_us": 72623,
+            "freezes": 0
+          }
+        ]
+      },
+      "phase_wall_seconds": 91.40676518483087,
+      "whole_windows": 2,
+      "samples_without_known_interference": 15,
+      "all_diagnostic_env_absent": [
+        "GPU_PROFILE",
+        "UBO_KEEP_VERIFY",
+        "DELTA_DESCRIPTORS_VERIFY",
+        "PAYLOAD_SYNC_TRACE",
+        "ACQUIRE_VERIFY",
+        "STUTTER_TRACE",
+        "LIVE_READ_CHECK"
+      ],
+      "actual_executable_sha256": "41d8fbfcc24db6da89f2fd018b8d03faaf5a75cf456a03eedf246aeff7b88f3a",
+      "actual_radv_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+      "world_and_movement_reviewed": true,
+      "zone_change_claim": false,
+      "lifecycle": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.4043466788716614
+      }
+    },
+    {
+      "label": "lichii-payload-on2",
+      "payload_release_fix": true,
+      "measurement": {
+        "requested_seconds": [
+          102.23959550857543,
+          189.734263
+        ],
+        "covered_seconds": 29.1006,
+        "game_presentations": 600,
+        "game_fps": 20.618131584915776,
+        "window_fps_median": 20.618131584915776,
+        "maximum_frame_ms": 77.285,
+        "frames_over_100_ms": 0,
+        "windows": [
+          {
+            "start": 132.29605299999997,
+            "end": 161.396653,
+            "mean_us": 48501,
+            "maximum_us": 77285,
+            "freezes": 0
+          }
+        ]
+      },
+      "phase_wall_seconds": 91.34992315527052,
+      "whole_windows": 1,
+      "samples_without_known_interference": 15,
+      "all_diagnostic_env_absent": [
+        "GPU_PROFILE",
+        "UBO_KEEP_VERIFY",
+        "DELTA_DESCRIPTORS_VERIFY",
+        "PAYLOAD_SYNC_TRACE",
+        "ACQUIRE_VERIFY",
+        "STUTTER_TRACE",
+        "LIVE_READ_CHECK"
+      ],
+      "actual_executable_sha256": "be340855afa1f183b9105c1921e40592489a177c9067e2a20cc297ccd83f5ab1",
+      "actual_radv_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+      "world_and_movement_reviewed": true,
+      "zone_change_claim": false,
+      "lifecycle": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.905890124849975
+      }
+    },
+    {
+      "label": "lichii-payload-off2",
+      "payload_release_fix": false,
+      "measurement": {
+        "requested_seconds": [
+          112.96912608146667,
+          199.552598
+        ],
+        "covered_seconds": 60.2232,
+        "game_presentations": 1200,
+        "game_fps": 19.925875742238873,
+        "window_fps_median": 19.925885995392818,
+        "maximum_frame_ms": 76.158,
+        "frames_over_100_ms": 0,
+        "windows": [
+          {
+            "start": 134.444328,
+            "end": 164.577528,
+            "mean_us": 50222,
+            "maximum_us": 69435,
+            "freezes": 0
+          },
+          {
+            "start": 164.527775,
+            "end": 194.617775,
+            "mean_us": 50150,
+            "maximum_us": 76158,
+            "freezes": 0
+          }
+        ]
+      },
+      "phase_wall_seconds": 91.39833758305758,
+      "whole_windows": 2,
+      "samples_without_known_interference": 15,
+      "all_diagnostic_env_absent": [
+        "GPU_PROFILE",
+        "UBO_KEEP_VERIFY",
+        "DELTA_DESCRIPTORS_VERIFY",
+        "PAYLOAD_SYNC_TRACE",
+        "ACQUIRE_VERIFY",
+        "STUTTER_TRACE",
+        "LIVE_READ_CHECK"
+      ],
+      "actual_executable_sha256": "41d8fbfcc24db6da89f2fd018b8d03faaf5a75cf456a03eedf246aeff7b88f3a",
+      "actual_radv_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+      "world_and_movement_reviewed": true,
+      "zone_change_claim": false,
+      "lifecycle": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.7045388468541205
+      }
+    }
+  ],
+  "pooled": {
+    "with_fix": {
+      "frames": 1800,
+      "covered_seconds": 85.38,
+      "fps": 21.082220660576247,
+      "frames_over_100_ms": 0,
+      "max_frame_ms": 77.285
+    },
+    "without_fix": {
+      "frames": 2400,
+      "covered_seconds": 119.586,
+      "fps": 20.0692388741157,
+      "frames_over_100_ms": 0,
+      "max_frame_ms": 78.442
+    },
+    "observed_percent_difference": 5.0474349964862775
+  },
+  "limits": [
+    "Four alternating phases on one live host; unequal complete-window coverage, not a universal gain or confidence interval",
+    "Identical persistent cache bytes do not imply identical filesystem cache, host scheduling or deterministic world/NPC state",
+    "No zone-transition, long-play, save roundtrip or audio latency qualification in this series",
+    "No30FPS or60FPS demonstrated; no installed engine/configuration/progress modified",
+    "The new readback commit0b83798 was discovered during the work and is deliberately excluded from both conditions"
+  ],
+  "next": {
+    "revision": "0b83798bf6e7e2440568b7cf69646ae45d681b11",
+    "source": "https://github.com/zortos293/Lichii/commit/0b83798bf6e7e2440568b7cf69646ae45d681b11",
+    "status": "Pristine source compiled and full1123tests passed with4networkskips; composed corrections/PR874 fixture under preparation; noFPS measured on0b"
+  },
+  "installed": false,
+  "local_gates": {
+    "just": {
+      "returncode": 0,
+      "end_unix": 1794230595.2081857
+    },
+    "docs": {
+      "returncode": 0,
+      "end_unix": 1794230317.6303775
+    },
+    "audit": {
+      "returncode": 0,
+      "end_unix": 1794230313.0413666
+    }
+  },
+  "remote_ci": "No new remoteCI claim",
+  "public_patch_exact_reconstruction": {
+    "at": 1794230522.6873238,
+    "exact_reconstruction": true,
+    "base": "986a2b+correctness",
+    "files": {
+      "src/tests/CMakeLists.txt": "8a09172b1051c6a21e9d5dc151dd5a2db2247c9e946210bd262b608b82186762",
+      "src/video_core/query_cache/query_cache.h": "1575b6d7ae61959890ea0bc434c9857a88133673798210493fff6aade36a5d89",
+      "src/tests/video_core/query_payload_release.cpp": "fda101276f4be307e61f3a36a5422cdf19623e1e9b148ab898c93586b04fb5b3"
+    },
+    "public_patch_sha256": {
+      "lichii-payload-release-874.patch": "49281c9f474e8c655377f0826f788c9ea97a83aeec07db03d66dc8211b88f799",
+      "lichii-payload-release-activation.patch": "032980cb213ba357b9feb47de8f8d0bb580bcc34fbb433cd1f38bb9ae74f1b8a"
+    }
+  }
+}

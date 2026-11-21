@@ -1,0 +1,1368 @@
+diff --git a/src/tests/CMakeLists.txt b/src/tests/CMakeLists.txt
+index 3deadcddc..ec0775167 100644
+--- a/src/tests/CMakeLists.txt
++++ b/src/tests/CMakeLists.txt
+@@ -90,6 +90,7 @@ add_executable(tests
+     video_core/gpu_written_pages.cpp
+     video_core/nx2_semaphore_mirror.cpp
+     video_core/command_writer.cpp
++    video_core/query_payload_release.cpp
+     video_core/split_fence_wait.cpp
+     video_core/command_snapshot_suspensions.cpp
+     video_core/pending_maps.cpp
+@@ -185,6 +186,7 @@ add_executable(tests
+     video_core/native_macro_fifo.cpp
+     video_core/turing_macro_ram.cpp
+     video_core/uniform_stream_reuse.cpp
++    video_core/stream_ring_cursor.cpp
+     video_core/usage_tracker.cpp
+     video_core/shader_invalidation.cpp
+     video_core/descriptor_table.cpp
+diff --git a/src/tests/video_core/buffer_cache_ports.cpp b/src/tests/video_core/buffer_cache_ports.cpp
+index 4971aff31..2f0b3c29b 100644
+--- a/src/tests/video_core/buffer_cache_ports.cpp
++++ b/src/tests/video_core/buffer_cache_ports.cpp
+@@ -28,6 +28,8 @@
+ #include "video_core/buffer_cache/memory_tracker_base.h"
+ #include "video_core/control/channel_state.h"
+ #include "video_core/gpu.h"
++#include "video_core/fence_manager.h"
++#include "video_core/query_cache/query_cache.h"
+ #include "video_core/renderer_null/null_rasterizer.h"
+ 
+ namespace {
+@@ -349,9 +351,29 @@ struct BufferCacheTestAccess {
+         const auto& keep = cache.uniform_keep;
+         return {keep.kept, keep.streamed_binds, keep.verified, keep.mismatches};
+     }
++    static void CpuDirty(KeepCache& cache, DAddr address, u64 size) {
++        cache.memory_tracker.MarkRegionAsCpuModified(address, size);
++    }
++    static bool IsCpuDirty(KeepCache& cache, DAddr address, u64 size) {
++        return cache.memory_tracker.IsRegionCpuModified(address, size);
++    }
+     static void GpuWrite(KeepCache& cache, BufferId id, DAddr address, u32 size) {
+         cache.MarkWrittenBuffer(id, address, size);
+     }
++    static void SetNativeMemory(Cache& cache, Tegra::MemoryManager& memory) {
++        cache.gpu_memory = &memory;
++    }
++    static std::vector<bool> PendingReportStates(const Cache& cache) {
++        std::vector<bool> states;
++        for (const auto& report : cache.pending_reports) states.push_back(report.rewritten);
++        return states;
++    }
++    static u16 ReadBackReads(const Cache& cache, DAddr page) {
++        const auto it = std::ranges::find(cache.read_back_pages, page, &Cache::ReadBackPage::page);
++        REQUIRE(it != cache.read_back_pages.end());
++        return it->reads;
++    }
++    static size_t EarlyPages(const Cache& cache) { return cache.early_pages.size(); }
+     static void MarkWritten(Cache& cache, BufferId id, DAddr address, u32 size) {
+         cache.MarkWrittenBuffer(id, address, size);
+     }
+@@ -515,7 +537,7 @@ VideoCommon::Nx2FastDraw::Delta Written(DAddr begin, DAddr end) {
+ }
+ 
+ /// Hands FinishRead to a buffer cache, as RasterizerVulkan does.
+-class ReadRasterizer final : public VideoCore::RasterizerInterface {
++class ReadRasterizer : public VideoCore::RasterizerInterface {
+ public:
+     explicit ReadRasterizer(Cache& cache_) : cache{cache_} {}
+ 
+@@ -897,7 +919,7 @@ TEST_CASE("Downloads keep CPU writes collected and not yet applied", "[buffer_po
+     REQUIRE(f.bytes[0x21008] == 0x34);
+ }
+ 
+-TEST_CASE("Uniform keep binds unwritten uniform buffers of delta draws without reading them",
++TEST_CASE("Uniform keep reuses unchanged uniform buffers of delta draws",
+           "[buffer_ports]") {
+     KeepFixture f{nullptr};
+     using Delta = VideoCommon::Nx2FastDraw::Delta;
+@@ -2238,3 +2260,407 @@ TEST_CASE("Async read-back counts the reading thread's and the GPU side's waits
+     REQUIRE(counters.gpu_side_waits.load() - gpu_side_waits == 1);
+     REQUIRE(f.runtime.host_read_waits == 2);
+ }
++
++TEST_CASE("Uniform keep validates guest writes on an already CPU-dirty page",
++          "[buffer_ports][uniform_keep_unreported]") {
++    KeepFixture f{nullptr};
++    const VideoCommon::Nx2FastDraw::Delta unchanged{};
++    Access::CpuDirty(*f.cache, KeepFixture::Ubo, KeepFixture::UboSize);
++    REQUIRE(Access::IsCpuDirty(*f.cache, KeepFixture::Ubo, KeepFixture::UboSize));
++    std::memset(f.UboBytes(), 1, KeepFixture::UboSize);
++    f.Draw(nullptr);
++    f.Draw(&unchanged);
++    REQUIRE(f.Counts().kept == 1);
++    REQUIRE(f.runtime.allocations.size() == 1);
++    REQUIRE(Access::IsCpuDirty(*f.cache, KeepFixture::Ubo, KeepFixture::UboSize));
++
++    // This page is already CPU-dirty: the guest write sends no new cache notification.
++    f.UboBytes()[3] = 9;
++    f.Draw(&unchanged);
++    REQUIRE(f.Counts().kept == 1);
++    REQUIRE(f.runtime.allocations.size() == 2);
++    REQUIRE(f.Counts().verified == 0);
++    REQUIRE(Access::IsCpuDirty(*f.cache, KeepFixture::Ubo, KeepFixture::UboSize));
++    f.Draw(&unchanged);
++    REQUIRE(f.Counts().kept == 2);
++    REQUIRE(f.runtime.allocations.size() == 2);
++}
++
++TEST_CASE("Uniform keep discards the previous session stream references",
++          "[buffer_ports][uniform_keep_unreported]") {
++    KeepFixture f{nullptr};
++    const VideoCommon::Nx2FastDraw::Delta unchanged{};
++    f.Draw(nullptr);
++    f.Draw(&unchanged);
++    REQUIRE(f.Counts().kept == 1);
++    REQUIRE(f.runtime.allocations.size() == 1);
++    f.cache = std::make_unique<KeepCache>(f.device, f.runtime);
++    f.id = Access::Add(*f.cache, 0x10000, 0x10000);
++    f.Draw(nullptr);
++    REQUIRE(f.runtime.allocations.size() == 2);
++    REQUIRE(f.Counts().kept == 0);
++    f.Draw(&unchanged);
++    REQUIRE(f.Counts().kept == 1);
++}
++
++namespace PayloadReadback {
++using VideoCommon::QueryType;
++using VideoCommon::QueryPropertiesFlags;
++
++struct QueryRuntime;
++struct QueryTraits { using RuntimeType = QueryRuntime; };
++class PayloadStreamer;
++
++// A final counter result whose fence has not run. Payload uses the production GuestStreamer.
++class CounterStreamer final : public VideoCommon::StreamerInterface {
++public:
++    CounterStreamer() : StreamerInterface{static_cast<size_t>(QueryType::ZPassPixelCount64)} {}
++    VideoCommon::QueryBase* GetQuery(size_t id) override { return &queries.at(id); }
++    size_t WriteCounter(VAddr address, bool timestamp, u32,
++                        std::optional<u32> = std::nullopt) override {
++        const size_t id = queries.size();
++        queries.emplace_back(timestamp, address, 73);
++        freed.push_back(false);
++        pending = true;
++        return id;
++    }
++    bool HasUnsyncedQueries() const override { return pending; }
++    void PushUnsyncedQueries() override { pending = false; }
++    void Free(size_t id) override {
++        REQUIRE_FALSE(freed.at(id));
++        freed[id] = true;
++        ++frees;
++    }
++    std::deque<VideoCommon::GuestQuery> queries;
++    std::vector<bool> freed;
++    bool pending{};
++    u32 frees{};
++};
++
++struct QueryRuntime {
++    QueryRuntime(Cache& cache_, Runtime& runtime_, VideoCommon::BufferId id_);
++    ~QueryRuntime();
++    VideoCommon::StreamerInterface* GetStreamerInterface(QueryType type);
++    void Bind3DEngine(Tegra::Engines::Maxwell3D*) {}
++    void Barriers(bool) {}
++    template <class T> void SyncValues(std::span<T> values) {
++        // As Vulkan::QueryCacheRuntime::SyncValues: invalidate the earlier read copies, then
++        // record the host-buffer writes. The fixture runtime executes them at their GPU tick.
++        for (const auto& value : values) {
++            cache.OutdateReadDownloads(value.address, value.size);
++            REQUIRE(value.address >= 0x20000);
++            REQUIRE(value.address + value.size <= 0x30000);
++            auto* buffer = &Access::Get(cache, id);
++            runtime.pending.push_back([buffer, value] {
++                std::memcpy(buffer->bytes.data() + value.address - 0x20000,
++                            &value.value, value.size);
++            });
++            ++copies;
++        }
++    }
++    Cache& cache;
++    Runtime& runtime;
++    VideoCommon::BufferId id;
++    std::unique_ptr<PayloadStreamer> payload;
++    CounterStreamer counter;
++    u32 copies{};
++};
++class PayloadStreamer final : public VideoCommon::GuestStreamer<QueryTraits> {
++public:
++    explicit PayloadStreamer(QueryRuntime& runtime)
++        : GuestStreamer{static_cast<size_t>(QueryType::Payload), runtime} {}
++    void Free(size_t id) override {
++        ++frees;
++        GuestStreamer::Free(id);
++    }
++    u32 frees{};
++};
++QueryRuntime::QueryRuntime(Cache& cache_, Runtime& runtime_, VideoCommon::BufferId id_)
++    : cache{cache_}, runtime{runtime_}, id{id_}, payload{std::make_unique<PayloadStreamer>(*this)} {}
++QueryRuntime::~QueryRuntime() = default;
++VideoCommon::StreamerInterface* QueryRuntime::GetStreamerInterface(QueryType type) {
++    if (type == QueryType::Payload) return payload.get();
++    if (type == QueryType::ZPassPixelCount64) return &counter;
++    return nullptr;
++}
++class Queries final : public VideoCommon::QueryCacheBase<QueryTraits> {
++public:
++    using QueryCacheBase::QueryCacheBase;
++    void SetMemory(Tegra::MemoryManager& memory) { gpu_memory = &memory; }
++};
++
++class Rasterizer final : public ReadRasterizer {
++public:
++    Rasterizer(Cache& buffers_, Runtime& runtime_) : ReadRasterizer{buffers_}, buffers{buffers_},
++                                                    runtime{runtime_} {}
++    void SignalFence(std::function<void()>&& operation) override { signal(std::move(operation)); }
++    void SyncOperation(std::function<void()>&& operation) override { sync(std::move(operation)); }
++    void FlushCommands() override { runtime.SubmitForHostRead(); }
++    bool NoteReportPending(DAddr address, u64 size) override {
++        std::scoped_lock lock{buffers.mutex};
++        const bool kept = buffers.NoteReportPending(address, size);
++        notes.push_back(kept);
++        return kept;
++    }
++    void FinishReport(DAddr address, u64 size) override {
++        std::scoped_lock lock{buffers.mutex};
++        buffers.FinishReport(address, size);
++        ++finishes;
++    }
++    void FinishRead(DAddr address, u64 size) override {
++        ++read_finishes;
++        ReadRasterizer::FinishRead(address, size);
++    }
++    Cache& buffers;
++    Runtime& runtime;
++    std::function<void(std::function<void()>&&)> signal, sync;
++    std::vector<bool> notes;
++    u32 finishes{}, read_finishes{};
++};
++struct TextureCache {
++    std::mutex mutex;
++    bool flush{};
++    bool HasUncommittedFlushes() const { return flush; }
++    bool HasAsyncFlushWork() const { return flush; }
++    bool ShouldWaitAsyncFlushes() const { return false; }
++    void CommitAsyncFlushes() {}
++    void PopAsyncFlushes() {}
++};
++struct Fence : VideoCommon::FenceBase {
++    Fence(bool stubbed, u64 tick_) : FenceBase{stubbed}, tick{tick_} {}
++    u64 tick;
++};
++struct FenceTraits {
++    using FenceType = std::shared_ptr<Fence>;
++    using TextureCacheType = TextureCache;
++    using BufferCacheType = Cache;
++    using QueryCacheType = Queries;
++    static constexpr bool HAS_ASYNC_CHECK = false;
++};
++class Fences final : public VideoCommon::FenceManager<FenceTraits> {
++public:
++    Fences(Rasterizer& rasterizer, Tegra::GPU& gpu, TextureCache& texture,
++           Cache& buffers, Queries& queries, Runtime& runtime_)
++        : VideoCommon::FenceManager<FenceTraits>{rasterizer, gpu, texture, buffers, queries},
++          runtime{runtime_} {}
++    ~Fences() override = default;
++    Runtime& runtime;
++    u64 last_tick{};
++    void Complete() {
++        runtime.Finish();
++        WaitPendingFences(false);
++    }
++protected:
++    std::shared_ptr<Fence> CreateFence(bool stubbed) override {
++        return std::make_shared<Fence>(stubbed, runtime.CurrentTick());
++    }
++    void QueueFence(std::shared_ptr<Fence>& fence) override { last_tick = fence->tick; }
++    bool IsFenceSignaled(std::shared_ptr<Fence>& fence) const override {
++        return runtime.IsFree(fence->tick);
++    }
++    void WaitFence(std::shared_ptr<Fence>& fence) override {
++        REQUIRE(runtime.IsFree(fence->tick));
++    }
++    void SubmitDeferredWork() override { runtime.SubmitForHostRead(); }
++};
++struct SettingsScope {
++    SettingsScope() {
++        Settings::values.current_gpu_accuracy = Settings::GpuAccuracy::Low;
++        Settings::values.gpu_fence_behavior.SetValue(Settings::GpuFenceBehavior::Default);
++        VideoCore::g_signaling_query_report_fence = false;
++    }
++    ~SettingsScope() {
++        Settings::values.current_gpu_accuracy = accuracy;
++        Settings::values.gpu_fence_behavior.SetValue(behavior);
++        VideoCore::g_signaling_query_report_fence = report;
++    }
++    Settings::GpuAccuracy accuracy = Settings::values.current_gpu_accuracy;
++    Settings::GpuFenceBehavior behavior = Settings::values.gpu_fence_behavior.GetValue();
++    bool report = VideoCore::g_signaling_query_report_fence;
++};
++struct Fixture {
++    SettingsScope settings;
++    Nx2TitleScope title;
++    ::Fixture buffers;
++    const VideoCommon::BufferId id = Access::Add(*buffers.cache, 0x20000, 0x10000);
++    Rasterizer rasterizer{*buffers.cache, buffers.runtime};
++    QueryRuntime runtime{*buffers.cache, buffers.runtime, id};
++    Queries queries{buffers.gpu, rasterizer, buffers.device, runtime};
++    TextureCache texture;
++    Fences fences{rasterizer, buffers.gpu, texture, *buffers.cache, queries, buffers.runtime};
++    static constexpr GPUVAddr Address = 0x200040;
++    static constexpr DAddr Device = 0x20040;
++    Fixture() {
++        buffers.memory->EnableNativeTiling();
++        buffers.memory->Map(0x200000, 0x20000, 0x10000, Tegra::PTEKind::PITCH, true);
++        Access::SetNativeMemory(*buffers.cache, *buffers.memory);
++        REQUIRE(buffers.cache->FlushesOnCpuRead());
++        queries.SetMemory(*buffers.memory);
++        rasterizer.signal = [this](std::function<void()>&& operation) {
++            fences.SignalFence(std::move(operation));
++        };
++        rasterizer.sync = [this](std::function<void()>&& operation) {
++            fences.SyncOperation(std::move(operation));
++        };
++        REQUIRE(buffers.memory->GpuToCpuAddress(Address) == Device);
++        REQUIRE(VideoCore::g_read_downloads == 0);
++        for (u8 frame = 1; frame <= 2; ++frame) {
++            WriteByDispatch(buffers, id, 0x20000, 0x100, frame);
++            REQUIRE_FALSE(ReadWord(buffers, 0x20010).preemtive);
++        }
++        REQUIRE(Access::ReadBackReads(*buffers.cache, 0x20000) == 2);
++        REQUIRE_FALSE(buffers.cache->HasUncommittedFlushes());
++        REQUIRE(Access::ReadDownloads(*buffers.cache) == 0);
++    }
++    void Counter() {
++        REQUIRE(runtime.GetStreamerInterface(QueryType::ZPassPixelCount64) == &runtime.counter);
++        queries.CounterReport(Address, QueryType::ZPassPixelCount64,
++                              QueryPropertiesFlags::IsAFence, 0, 0);
++        REQUIRE(rasterizer.notes.back());
++        REQUIRE(runtime.counter.frees == 0);
++        REQUIRE_FALSE(buffers.runtime.IsFree(fences.last_tick));
++    }
++    void Draw() {
++        auto* buffer = &Access::Get(*buffers.cache, id);
++        buffers.runtime.pending.push_back([buffer] {
++            std::fill_n(buffer->bytes.begin(), 0x100, u8{3});
++        });
++        Access::MarkWritten(*buffers.cache, id, 0x20000, 0x100);
++        buffers.cache->NoteWorkRecorded(false);
++        REQUIRE(Access::ReadDownloads(*buffers.cache) == 0);
++        REQUIRE(Access::EarlyPages(*buffers.cache) == 1);
++        REQUIRE(Tegra::Nx2MayBeGpuWritten(Device, 4));
++        REQUIRE_FALSE(buffers.cache->HasUncommittedFlushes());
++    }
++    void Payload() {
++        queries.CounterReport(Address, QueryType::Payload, QueryPropertiesFlags::IsAFence, 5, 0);
++        REQUIRE(runtime.payload->frees == 1);
++        REQUIRE(runtime.counter.frees == 0);
++        REQUIRE(runtime.copies == 1); // Production GuestStreamer reached SyncValues.
++        REQUIRE(Word() == 5);
++    }
++    u32 Word() const {
++        u32 word;
++        std::memcpy(&word, buffers.bytes + 0x10040, sizeof(word));
++        return word;
++    }
++    void Retire(u32 expected_counter = 1, u32 expected_payload = 1) {
++        fences.Complete();
++        texture.flush = true;
++        for (int i = 0; i < 2; ++i) {
++            fences.SignalFence([] {});
++            fences.Complete();
++        }
++        texture.flush = false;
++        REQUIRE(runtime.counter.frees == expected_counter);
++        REQUIRE(runtime.payload->frees == expected_payload);
++        REQUIRE_FALSE(queries.HoldsQueries(Device, 4));
++    }
++};
++} // namespace PayloadReadback
++
++TEST_CASE("Immediate payload does not retire an older rewritten readback report",
++          "[buffer_ports][query_readback][query_readback_red]") {
++    PayloadReadback::Fixture f;
++    const bool rewritten = GENERATE(true, false);
++    // The negative twin moves the same GPU write before R1: both reports then have the same
++    // rewritten state, so a count-only check could not distinguish their identities.
++    if (!rewritten) f.Draw();
++    f.Counter();
++    if (rewritten) f.Draw();
++    REQUIRE(Access::PendingReportStates(*f.buffers.cache) == std::vector<bool>{rewritten});
++    f.Payload();
++    const auto remaining = Access::PendingReportStates(*f.buffers.cache);
++    REQUIRE(remaining.size() == 1);
++    REQUIRE(Access::ReadDownloads(*f.buffers.cache) == 0);
++    // A later dispatch ends the render pass without writing these words. It records the
++    // pending draw's early copy. No guest read or later write repairs the report's state.
++    f.buffers.cache->NoteWorkRecorded(true);
++    REQUIRE(Access::ReadDownloads(*f.buffers.cache) == 1);
++    f.buffers.runtime.Complete(f.buffers.runtime.submitted_tick);
++    f.buffers.cache->NoteWorkRecorded(true);
++    REQUIRE(Access::ReadDownloads(*f.buffers.cache) == 0);
++    REQUIRE(f.Word() == 5); // The GPU also received the real Payload stream's copy.
++    REQUIRE(f.runtime.counter.frees == 0);
++    f.Retire();
++    REQUIRE(f.Word() == 73); // The older R1 callback really wrote after the early download.
++    const auto area = ReadWord(f.buffers, PayloadReadback::Fixture::Device);
++    REQUIRE(f.Word() == (rewritten ? 5 : 73));
++    REQUIRE(area.preemtive == !rewritten);
++    REQUIRE(remaining == std::vector<bool>{rewritten});
++    REQUIRE(f.rasterizer.notes.size() == 1);
++    REQUIRE(f.rasterizer.finishes == 1);
++    REQUIRE(VideoCore::g_read_downloads == 0);
++}
++
++TEST_CASE("Readback tracking ends when a delayed query is invalidated or unsynchronized",
++          "[buffer_ports][query_readback][query_readback_scope]") {
++    const auto invalidated = GENERATE(false, true);
++    PayloadReadback::Fixture f;
++    const u32 before = f.Word();
++    f.Counter();
++    REQUIRE(Access::PendingReportStates(*f.buffers.cache) == std::vector<bool>{false});
++    if (invalidated) {
++        f.queries.InvalidateRegion(PayloadReadback::Fixture::Device, 4);
++        REQUIRE(True(f.runtime.counter.queries.front().flags &
++                     VideoCommon::QueryFlagBits::IsInvalidated));
++    } else {
++        f.runtime.counter.queries.front().flags &= ~VideoCommon::QueryFlagBits::IsFinalValueSynced;
++        REQUIRE_FALSE(True(f.runtime.counter.queries.front().flags &
++                           VideoCommon::QueryFlagBits::IsFinalValueSynced));
++    }
++    f.fences.Complete();
++    REQUIRE(f.Word() == before);
++    REQUIRE(Access::PendingReportStates(*f.buffers.cache).empty());
++    REQUIRE(f.rasterizer.finishes == 1);
++    f.Retire(1, 0);
++}
++
++TEST_CASE("Immediate query finishes a pending early copy before reading a mirror's guest word",
++          "[buffer_ports][query_readback][query_readback_finish]") {
++    const auto mirror = GENERATE(false, true);
++    const auto wide = GENERATE(false, true);
++    PayloadReadback::Fixture f;
++    Tegra::Nx2ClearSemaphoreRegions();
++    SCOPE_EXIT { Tegra::Nx2ClearSemaphoreRegions(); };
++    Tegra::Nx2AddSemaphoreRegion(0x200000);
++    using PayloadReadback::QueryPropertiesFlags;
++    using PayloadReadback::QueryType;
++    f.queries.CounterReport(PayloadReadback::Fixture::Address, QueryType::Payload,
++                            QueryPropertiesFlags::IsAFence, 100, 0);
++    REQUIRE(f.Word() == 100);
++    auto& shadow = Tegra::Nx2MirrorShadow::Get();
++    REQUIRE(shadow.Diverts(PayloadReadback::Fixture::Device));
++    f.Draw();
++    f.buffers.cache->NoteWorkRecorded(true);
++    REQUIRE(Access::ReadDownloads(*f.buffers.cache) == 1);
++    REQUIRE(VideoCore::ReadDownloadsMayCover(PayloadReadback::Fixture::Device, wide ? 16 : 4));
++    REQUIRE_FALSE(f.buffers.runtime.IsFree(f.buffers.runtime.submitted_tick));
++    const u32 waits = f.buffers.runtime.host_read_waits;
++    QueryPropertiesFlags flags = QueryPropertiesFlags::IsAFence;
++    if (mirror) flags |= QueryPropertiesFlags::Nx2Mirror;
++    if (wide) flags |= QueryPropertiesFlags::HasTimeout;
++    f.queries.CounterReport(PayloadReadback::Fixture::Address, QueryType::Payload, flags, 5, 0);
++    REQUIRE(f.rasterizer.read_finishes == 1);
++    REQUIRE(f.buffers.runtime.host_read_waits == waits + 1);
++    REQUIRE(Access::ReadDownloads(*f.buffers.cache) == 0);
++    REQUIRE(f.runtime.payload->frees == 2);
++    REQUIRE(f.rasterizer.notes.empty());
++    REQUIRE(f.rasterizer.finishes == 0);
++    if (mirror) {
++        REQUIRE(f.Word() == 0x03030303);
++        REQUIRE(shadow.Read(PayloadReadback::Fixture::Device, f.Word()) == 5);
++    } else {
++        REQUIRE(f.Word() == 5);
++        REQUIRE_FALSE(shadow.Read(PayloadReadback::Fixture::Device, f.Word()).has_value());
++    }
++    u64 timestamp;
++    std::memcpy(&timestamp, f.buffers.bytes + 0x10048, sizeof(timestamp));
++    if (!mirror && wide) {
++        REQUIRE(timestamp != 0x0303030303030303ULL);
++    } else {
++        REQUIRE(timestamp == 0x0303030303030303ULL);
++    }
++    f.Retire(0, 2);
++    REQUIRE(VideoCore::g_read_downloads == 0);
++}
+diff --git a/src/video_core/buffer_cache/buffer_cache.h b/src/video_core/buffer_cache/buffer_cache.h
+index d550a0f41..f2037119a 100644
+--- a/src/video_core/buffer_cache/buffer_cache.h
++++ b/src/video_core/buffer_cache/buffer_cache.h
+@@ -2496,7 +2496,8 @@ void BufferCache<P>::BindHostGraphicsUniformBuffer(size_t stage, u32 index, u32
+                                   stage, index, device_addr, size);
+                     }
+                 }
+-            } else if (VideoCommon::RebindKeptUniform(runtime, stage, index, device_addr, size)) {
++            } else if (VideoCommon::RebindKeptUniform(runtime, device_memory, stage, index,
++                                                       device_addr, size)) {
+                 channel_state->fast_bound_uniform_buffers[stage] |= 1u << binding_index;
+                 channel_state->uniform_buffer_binding_sizes[stage][binding_index] = size;
+                 uniform_keep.streamed[stage] |= 1u << index;
+diff --git a/src/video_core/buffer_cache/buffer_cache_base.h b/src/video_core/buffer_cache/buffer_cache_base.h
+index d5444a963..993dbbd98 100644
+--- a/src/video_core/buffer_cache/buffer_cache_base.h
++++ b/src/video_core/buffer_cache/buffer_cache_base.h
+@@ -784,11 +784,10 @@ private:
+         u64 verify_mismatches{};
+     } geometry_stats;
+ 
+-    /// Uniform keeps: a delta draw binds a small uniform buffer from the stream
+-    /// allocation the previous draw made for it, without reading guest memory, when nothing ordered
+-    /// between the two draws wrote its range: no inline constant data, no rebind, no CPU write the
+-    /// caches were told about, no GPU write and no buffer deletion. Anything else in between ends
+-    /// the delta chain.
++    /// Uniform keep candidates: a delta draw can reuse the previous stream allocation when
++    /// no ordered write, rebind or buffer deletion invalidated it. RebindKeptUniform also checks
++    /// its bytes: a guest write on an already CPU-dirty page need not notify the caches again.
++    /// Anything else in between ends the delta chain.
+     [[nodiscard]] bool UniformRangeKept(size_t stage, u32 index, DAddr device_addr,
+                                         u32 size) const noexcept;
+     void NoteUniformWrite(DAddr device_addr, u64 size) {
+diff --git a/src/video_core/buffer_cache/uniform_stream_reuse.h b/src/video_core/buffer_cache/uniform_stream_reuse.h
+index 7bd76b979..8b2e4cd2c 100644
+--- a/src/video_core/buffer_cache/uniform_stream_reuse.h
++++ b/src/video_core/buffer_cache/uniform_stream_reuse.h
+@@ -120,24 +120,28 @@ template <class Runtime, class DeviceMemory>
+     return true;
+ }
+ 
+-/// Uniform keeps: binds the slot's last allocation again without reading guest memory,
+-/// when that bind read the same range in this command buffer. The caller guarantees that nothing
+-/// ordered before this draw wrote the range since that bind (the previous draw's). Returns false
+-/// (nothing bound) otherwise.
+-template <class Runtime>
+-[[nodiscard]] bool RebindKeptUniform(Runtime& runtime, size_t stage, u32 index, u64 device_addr,
+-                                     u32 size) {
++/// Uniform keeps: binds the slot's last allocation again when the same range in this command
++/// buffer still contains its uploaded bytes. Already CPU-dirty pages can change without another
++/// cache notification, so the delta's write history alone cannot establish this. Returns false
++/// (nothing bound) otherwise, leaving the normal stream path to read and upload the current bytes.
++template <class Runtime, class DeviceMemory>
++[[nodiscard]] bool RebindKeptUniform(Runtime& runtime, DeviceMemory& device_memory, size_t stage,
++                                     u32 index, u64 device_addr, u32 size) {
+     using Reuse = UniformStreamReuse<typename Runtime::StreamUniformRef>;
+     if (size == 0 || size > Reuse::MaxBytes || stage >= Reuse::NumStages ||
+         index >= Reuse::NumSlots) {
+         return false;
+     }
+-    const typename Reuse::Slot& slot =
+-        UniformStreamReuseState<typename Runtime::StreamUniformRef>().slots[stage][index];
++    Reuse& reuse = UniformStreamReuseState<typename Runtime::StreamUniformRef>();
++    const typename Reuse::Slot& slot = reuse.slots[stage][index];
+     if (slot.size != size || slot.device_addr != device_addr ||
+         slot.tick != runtime.CurrentTick()) {
+         return false;
+     }
++    device_memory.ReadBlockUnsafe(device_addr, reuse.scratch.data(), size);
++    if (std::memcmp(slot.bytes.data(), reuse.scratch.data(), size) != 0) {
++        return false;
++    }
+     runtime.RebindStreamUniform(slot.ref, size);
+     return true;
+ }
+diff --git a/src/video_core/query_cache/query_cache.h b/src/video_core/query_cache/query_cache.h
+index 7a971b366..53e57973d 100644
+--- a/src/video_core/query_cache/query_cache.h
++++ b/src/video_core/query_cache/query_cache.h
+@@ -283,13 +283,21 @@ void QueryCacheBase<Traits>::CounterReport(GPUVAddr addr, QueryType counter_type
+     };
+     u8* pointer = impl->device_memory.template GetPointer<u8>(cpu_addr);
+     u8* pointer_timestamp = impl->device_memory.template GetPointer<u8>(cpu_addr + 8);
++    // A fence-flagged payload release writes a constant, so at low accuracy with Default fences
++    // it stays synchronized as before #337: its fence may be skipped and the query freed at once.
++    // Only reports of GPU counters wait for their fence to run.
++    const bool is_synced = is_fence && counter_type == QueryType::Payload &&
++                           (Settings::IsGPUFenceBehaviorDefault()
++                                ? !Settings::IsGPULevelHigh()
++                                : !Settings::IsGPUFenceBehaviorBalanced() &&
++                                      !Settings::IsGPUFenceBehaviorAccurate());
+     const u64 report_size = has_timestamp ? 16 : 4;
+     const bool immediate =
+         !is_fence && !Settings::IsGPULevelHigh() && counter_type == QueryType::Payload;
+     // Written later: the buffer cache keeps GPU writes over it until then (NoteReportPending).
+     const bool report_noted =
+-        !immediate && impl->rasterizer.NoteReportPending(cpu_addr, report_size);
+-    std::function<void()> operation([this, streamer, query_base = query, query_location,
++        !immediate && !is_synced && impl->rasterizer.NoteReportPending(cpu_addr, report_size);
++    std::function<void()> operation([this, is_synced, streamer, query_base = query, query_location,
+                                      pointer, pointer_timestamp, cpu_addr, addr,
+                                      asid = gpu_memory->GetID(), counter_type, mirrored,
+                                      report_size, report_noted] {
+@@ -306,7 +314,9 @@ void QueryCacheBase<Traits>::CounterReport(GPUVAddr addr, QueryType counter_type
+                          trace, asid, addr, cpu_addr, static_cast<u32>(counter_type),
+                          static_cast<u32>(query_base->flags));
+             }
+-            impl->pending_unregister.push_back(query_location);
++            if (!is_synced) {
++                impl->pending_unregister.push_back(query_location);
++            }
+             return;
+         }
+         if (False(query_base->flags & QueryFlagBits::IsFinalValueSynced)) [[unlikely]] {
+@@ -319,7 +329,9 @@ void QueryCacheBase<Traits>::CounterReport(GPUVAddr addr, QueryType counter_type
+             }
+             LOG_ERROR(HW_GPU,
+                       "Query report value not synchronized. Consider increasing GPU accuracy.");
+-            impl->pending_unregister.push_back(query_location);
++            if (!is_synced) {
++                impl->pending_unregister.push_back(query_location);
++            }
+             return;
+         }
+         query_base->value += streamer->GetAmendValue();
+@@ -351,12 +363,18 @@ void QueryCacheBase<Traits>::CounterReport(GPUVAddr addr, QueryType counter_type
+                      wide ? query_base->value : static_cast<u32>(query_base->value),
+                      static_cast<u32>(query_base->flags));
+         }
+-        impl->pending_unregister.push_back(query_location);
++        if (!is_synced) {
++            impl->pending_unregister.push_back(query_location);
++        }
+     });
+     if (is_fence) {
+-        VideoCore::g_signaling_query_report_fence = true;
++        VideoCore::g_signaling_query_report_fence = !is_synced;
+         impl->rasterizer.SignalFence(std::move(operation));
+         VideoCore::g_signaling_query_report_fence = false;
++        if (is_synced) {
++            streamer->Free(new_query_id);
++            return;
++        }
+     } else {
+         if (immediate) {
+             FinishReads(cpu_addr, has_timestamp ? 16 : 4);
+diff --git a/src/video_core/renderer_vulkan/vk_staging_buffer_pool.cpp b/src/video_core/renderer_vulkan/vk_staging_buffer_pool.cpp
+index ffcf9e441..fb9453e89 100644
+--- a/src/video_core/renderer_vulkan/vk_staging_buffer_pool.cpp
++++ b/src/video_core/renderer_vulkan/vk_staging_buffer_pool.cpp
+@@ -89,7 +89,8 @@ StagingBufferPool::StagingBufferPool(const Device& device_, MemoryAllocator& mem
+                                      Scheduler& scheduler_)
+     : device{device_}, memory_allocator{memory_allocator_}, scheduler{scheduler_},
+       stream_buffer_size{GetStreamBufferSize(device)}, region_size{stream_buffer_size /
+-                                                                   StagingBufferPool::NUM_SYNCS} {
++                                                                   StagingBufferPool::NUM_SYNCS},
++      stream_cursor{stream_buffer_size} {
+     VkBufferCreateInfo stream_ci = {
+         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+         .pNext = nullptr,
+@@ -148,48 +149,23 @@ void StagingBufferPool::TickFrame() {
+ }
+ 
+ StagingBufferRef StagingBufferPool::GetStreamBuffer(size_t size) {
+-    if (AreRegionsActive(Region(free_iterator) + 1,
+-                         (std::min)(Region(iterator + size) + 1, NUM_SYNCS))) {
+-        // Avoid waiting for the previous usages to be free
++    const auto offset = stream_cursor.Reserve(size, MAX_ALIGNMENT, scheduler.CurrentTick(),
++                                             scheduler.GetMasterSemaphore().KnownGpuTick());
++    if (!offset) {
++        // A busy wrap keeps its cursor until the GPU finishes the previous allocation.
+         return GetStagingBuffer(size, MemoryUsage::Upload);
+     }
+-    const u64 current_tick = scheduler.CurrentTick();
+-    std::fill(sync_ticks.begin() + Region(used_iterator), sync_ticks.begin() + Region(iterator),
+-              current_tick);
+-    used_iterator = iterator;
+-    free_iterator = (std::max)(free_iterator, iterator + size);
+-
+-    if (iterator + size >= stream_buffer_size) {
+-        std::fill(sync_ticks.begin() + Region(used_iterator), sync_ticks.begin() + NUM_SYNCS,
+-                  current_tick);
+-        used_iterator = 0;
+-        iterator = 0;
+-        free_iterator = size;
+-
+-        if (AreRegionsActive(0, Region(size) + 1)) {
+-            // Avoid waiting for the previous usages to be free
+-            return GetStagingBuffer(size, MemoryUsage::Upload);
+-        }
+-    }
+-    const size_t offset = iterator;
+-    iterator = Common::AlignUp(iterator + size, MAX_ALIGNMENT);
+     return StagingBufferRef{
+         .buffer = *stream_buffer,
+         .device_address = stream_buffer_address,
+-        .offset = static_cast<VkDeviceSize>(offset),
+-        .mapped_span = stream_pointer.subspan(offset, size),
++        .offset = static_cast<VkDeviceSize>(*offset),
++        .mapped_span = stream_pointer.subspan(*offset, size),
+         .usage{},
+         .log2_level{},
+         .index{},
+     };
+ }
+ 
+-bool StagingBufferPool::AreRegionsActive(size_t region_begin, size_t region_end) const {
+-    const u64 gpu_tick = scheduler.GetMasterSemaphore().KnownGpuTick();
+-    return std::any_of(sync_ticks.begin() + region_begin, sync_ticks.begin() + region_end,
+-                       [gpu_tick](u64 sync_tick) { return gpu_tick < sync_tick; });
+-};
+-
+ StagingBufferRef StagingBufferPool::GetStagingBuffer(size_t size, MemoryUsage usage,
+                                                      bool deferred) {
+     if (const std::optional<StagingBufferRef> ref = TryGetReservedBuffer(size, usage, deferred)) {
+diff --git a/src/video_core/renderer_vulkan/vk_staging_buffer_pool.h b/src/video_core/renderer_vulkan/vk_staging_buffer_pool.h
+index e675da5d8..41c62b689 100644
+--- a/src/video_core/renderer_vulkan/vk_staging_buffer_pool.h
++++ b/src/video_core/renderer_vulkan/vk_staging_buffer_pool.h
+@@ -11,6 +11,7 @@
+ 
+ #include "common/common_types.h"
+ 
++#include "video_core/renderer_vulkan/stream_ring_cursor.h"
+ #include "video_core/vulkan_common/vulkan_memory_allocator.h"
+ #include "video_core/vulkan_common/vulkan_wrapper.h"
+ 
+@@ -89,8 +90,6 @@ private:
+ 
+     StagingBufferRef GetStreamBuffer(size_t size);
+ 
+-    bool AreRegionsActive(size_t region_begin, size_t region_end) const;
+-
+     StagingBufferRef GetStagingBuffer(size_t size, MemoryUsage usage, bool deferred = false);
+ 
+     std::optional<StagingBufferRef> TryGetReservedBuffer(size_t size, MemoryUsage usage,
+@@ -103,9 +102,6 @@ private:
+     void ReleaseCache(MemoryUsage usage);
+ 
+     void ReleaseLevel(StagingBuffersCache& cache, size_t log2);
+-    size_t Region(size_t iter) const noexcept {
+-        return iter / region_size;
+-    }
+ 
+     const Device& device;
+     MemoryAllocator& memory_allocator;
+@@ -117,10 +113,7 @@ private:
+     VkDeviceSize stream_buffer_size;
+     VkDeviceSize region_size;
+ 
+-    size_t iterator = 0;
+-    size_t used_iterator = 0;
+-    size_t free_iterator = 0;
+-    std::array<u64, NUM_SYNCS> sync_ticks{};
++    StreamRingCursor<NUM_SYNCS> stream_cursor;
+ 
+     StagingBuffersCache device_local_cache;
+     StagingBuffersCache upload_cache;
+diff --git a/src/tests/video_core/query_payload_release.cpp b/src/tests/video_core/query_payload_release.cpp
+new file mode 100644
+index 000000000..34baebf9e
+--- /dev/null
++++ b/src/tests/video_core/query_payload_release.cpp
+@@ -0,0 +1,481 @@
++// SPDX-FileCopyrightText: Copyright 2026 Eden Emulator Project
++// SPDX-License-Identifier: GPL-3.0-or-later
++
++#include <array>
++#include <cstring>
++#include <deque>
++#include <functional>
++#include <memory>
++#include <mutex>
++#include <optional>
++#include <vector>
++
++#include <catch2/catch_test_macros.hpp>
++#include <catch2/generators/catch_generators.hpp>
++
++#include "common/page_table.h"
++#include "common/settings.h"
++#include "core/core.h"
++#include "core/device_memory.h"
++#include "core/hle/kernel/k_process.h"
++#include "core/hle/kernel/kernel.h"
++#include "core/memory.h"
++#include "tests/core/system_test_context.h"
++#include "video_core/fence_manager.h"
++#include "video_core/gpu.h"
++#include "video_core/nx2.h"
++#include "video_core/query_cache/query_cache.h"
++#include "video_core/renderer_null/null_rasterizer.h"
++
++namespace {
++
++using VideoCommon::QueryFlagBits;
++using VideoCommon::QueryPropertiesFlags;
++using VideoCommon::QueryType;
++using Settings::GpuAccuracy;
++using Settings::GpuFenceBehavior;
++
++// The unrelated rasterizer operations delegate to Null. Fence callbacks delegate to the real
++// FenceManager below; Null::SignalFence would execute them all immediately and hide the bug.
++class QueryRasterizer final : public VideoCore::RasterizerInterface {
++public:
++    explicit QueryRasterizer(Tegra::GPU& gpu) : base{gpu} {}
++    std::function<void(std::function<void()>&&)> signal;
++    std::function<void(std::function<void()>&&)> sync;
++    void Draw(bool is_indexed, u32 instance_count) override { return base.Draw(is_indexed, instance_count); }
++    void DrawTexture() override { return base.DrawTexture(); }
++    void Clear(u32 layer_count) override { return base.Clear(layer_count); }
++    void DispatchCompute() override { return base.DispatchCompute(); }
++    void ResetCounter(VideoCommon::QueryType type) override { return base.ResetCounter(type); }
++    void Query(GPUVAddr gpu_addr, VideoCommon::QueryType type,
++               VideoCommon::QueryPropertiesFlags flags, u32 payload, u32 subreport) override { return base.Query(gpu_addr, type, flags, payload, subreport); }
++    void BindGraphicsUniformBuffer(size_t stage, u32 index, GPUVAddr gpu_addr, u32 size) override { return base.BindGraphicsUniformBuffer(stage, index, gpu_addr, size); }
++    void DisableGraphicsUniformBuffer(size_t stage, u32 index) override { return base.DisableGraphicsUniformBuffer(stage, index); }
++    void FlushAll() override { return base.FlushAll(); }
++    void FlushRegion(DAddr addr, u64 size,
++                     VideoCommon::CacheType which) override { return base.FlushRegion(addr, size, which); }
++    bool MustFlushRegion(DAddr addr, u64 size,
++                         VideoCommon::CacheType which) override { return base.MustFlushRegion(addr, size, which); }
++    void InvalidateRegion(DAddr addr, u64 size,
++                          VideoCommon::CacheType which) override { return base.InvalidateRegion(addr, size, which); }
++    void OnCacheInvalidation(DAddr addr, u64 size) override { return base.OnCacheInvalidation(addr, size); }
++    bool OnCPUWrite(DAddr addr, u64 size) override { return base.OnCPUWrite(addr, size); }
++    VideoCore::RasterizerDownloadArea GetFlushArea(DAddr addr, u64 size) override { return base.GetFlushArea(addr, size); }
++    void InvalidateGPUCache() override { return base.InvalidateGPUCache(); }
++    void UnmapMemory(DAddr addr, u64 size) override { return base.UnmapMemory(addr, size); }
++    void ModifyGPUMemory(size_t as_id, GPUVAddr addr, u64 size) override { return base.ModifyGPUMemory(as_id, addr, size); }
++    void SignalFence(std::function<void()>&& func) override { signal(std::move(func)); }
++    void SyncOperation(std::function<void()>&& func) override { sync(std::move(func)); }
++    void SignalSyncPoint(u32 value) override { return base.SignalSyncPoint(value); }
++    void SignalReference() override { return base.SignalReference(); }
++    void ReleaseFences(bool force) override { return base.ReleaseFences(force); }
++    void FlushAndInvalidateRegion(
++        DAddr addr, u64 size, VideoCommon::CacheType which) override { return base.FlushAndInvalidateRegion(addr, size, which); }
++    void WaitForIdle() override { return base.WaitForIdle(); }
++    void FragmentBarrier() override { return base.FragmentBarrier(); }
++    void TiledCacheBarrier() override { return base.TiledCacheBarrier(); }
++    void FlushCommands() override { return base.FlushCommands(); }
++    void TickFrame() override { return base.TickFrame(); }
++    bool AccelerateSurfaceCopy(const Tegra::Engines::Fermi2D::Surface& src,
++                               const Tegra::Engines::Fermi2D::Surface& dst,
++                               const Tegra::Engines::Fermi2D::Config& copy_config) override { return base.AccelerateSurfaceCopy(src, dst, copy_config); }
++    Tegra::Engines::AccelerateDMAInterface& AccessAccelerateDMA() override { return base.AccessAccelerateDMA(); }
++    void AccelerateInlineToMemory(GPUVAddr address, size_t copy_size,
++                                  std::span<const u8> memory) override { return base.AccelerateInlineToMemory(address, copy_size, memory); }
++    void LoadDiskResources(u64 title_id, std::stop_token stop_loading,
++                           const VideoCore::DiskResourceLoadCallback& callback) override { return base.LoadDiskResources(title_id, stop_loading, callback); }
++    void InitializeChannel(Tegra::Control::ChannelState& channel) override { return base.InitializeChannel(channel); }
++    void BindChannel(Tegra::Control::ChannelState& channel) override { return base.BindChannel(channel); }
++    void ReleaseChannel(s32 channel_id) override { return base.ReleaseChannel(channel_id); }
++private:
++    Null::RasterizerNull base;
++};
++// Only the host query producer is doubled. QueryCache owns the real report operation and
++// lifetime decisions; the fixture observes mapped memory and rejects every duplicate Free.
++class Streamer final : public VideoCommon::StreamerInterface {
++public:
++    explicit Streamer(QueryType type) : StreamerInterface{static_cast<size_t>(type)} {}
++    VideoCommon::QueryBase* GetQuery(size_t index) override { return &queries.at(index); }
++    size_t WriteCounter(VAddr address, bool timestamp, u32 value,
++                        std::optional<u32> = std::nullopt) override {
++        const size_t index = queries.size();
++        queries.emplace_back(timestamp, address,
++                             GetId() == static_cast<size_t>(QueryType::Payload) ? value : 73);
++        queries.back().flags |= initial_flags;
++        if (!final_value) {
++            queries.back().flags &= ~QueryFlagBits::IsFinalValueSynced;
++        }
++        frees.push_back(0);
++        return index;
++    }
++    void Free(size_t index) override {
++        REQUIRE(index < frees.size());
++        REQUIRE(frees[index] == 0);
++        ++frees[index];
++    }
++    u32 FreeCount() const {
++        u32 sum{};
++        for (auto count : frees) sum += count;
++        return sum;
++    }
++    std::deque<VideoCommon::GuestQuery> queries;
++    std::vector<u32> frees;
++    QueryFlagBits initial_flags{};
++    bool final_value{true};
++};
++
++struct QueryRuntime {
++    Streamer payload{QueryType::Payload};
++    Streamer counter{QueryType::ZPassPixelCount64};
++    VideoCommon::StreamerInterface* GetStreamerInterface(QueryType type) {
++        switch (type) {
++        case QueryType::Payload: return &payload;
++        case QueryType::ZPassPixelCount64: return &counter;
++        default: return nullptr;
++        }
++    }
++    void Bind3DEngine(Tegra::Engines::Maxwell3D*) {}
++    void Barriers(bool) {}
++};
++struct QueryTraits { using RuntimeType = QueryRuntime; };
++class QueryCache final : public VideoCommon::QueryCacheBase<QueryTraits> {
++public:
++    using QueryCacheBase::QueryCacheBase;
++    void SetMemory(Tegra::MemoryManager& memory) { gpu_memory = &memory; }
++};
++
++// A pending backend operation is not completed by SubmitDeferredWork. This keeps delayed
++// reports pending deterministically, without a GPU or a background thread.
++struct FlushCache {
++    std::mutex mutex;
++    bool flush{};
++    bool HasUncommittedFlushes() const { return flush; }
++    bool HasAsyncFlushWork() const { return flush; }
++    bool ShouldWaitAsyncFlushes() const { return true; }
++    void AccumulateFlushes() {}
++    void CommitAsyncFlushes() {}
++    void PopAsyncFlushes() {}
++};
++struct Fence : VideoCommon::FenceBase {
++    Fence(bool stubbed, u64 tick_) : FenceBase{stubbed}, tick{tick_} {}
++    u64 tick;
++};
++struct FenceTraits {
++    using FenceType = std::shared_ptr<Fence>;
++    using TextureCacheType = FlushCache;
++    using BufferCacheType = FlushCache;
++    using QueryCacheType = QueryCache;
++    static constexpr bool HAS_ASYNC_CHECK = false;
++};
++class FenceManager final : public VideoCommon::FenceManager<FenceTraits> {
++public:
++    FenceManager(QueryRasterizer& rasterizer, Tegra::GPU& gpu, FlushCache& texture,
++                 FlushCache& buffer, QueryCache& query)
++        : VideoCommon::FenceManager<FenceTraits>{rasterizer, gpu, texture, buffer, query} {}
++    ~FenceManager() override = default;
++    u64 queued{}, completed{};
++    u32 submissions{};
++    void Complete() {
++        completed = queued;
++        WaitPendingFences(false);
++    }
++protected:
++    std::shared_ptr<Fence> CreateFence(bool stubbed) override {
++        return std::make_shared<Fence>(stubbed, queued + 1);
++    }
++    void QueueFence(std::shared_ptr<Fence>& fence) override { queued = fence->tick; }
++    bool IsFenceSignaled(std::shared_ptr<Fence>& fence) const override {
++        return completed >= fence->tick;
++    }
++    void WaitFence(std::shared_ptr<Fence>& fence) override { REQUIRE(completed >= fence->tick); }
++    void SubmitDeferredWork() override { ++submissions; }
++};
++
++struct Fixture {
++    static constexpr GPUVAddr Guest = 0x100000;
++    static constexpr DAddr Device = 0x10000;
++    ScopedSystemTestContext context;
++    Core::System system;
++    Core::DeviceMemory physical;
++    Tegra::MaxwellDeviceMemoryManager device{physical};
++    Tegra::GPU gpu{system, false, false};
++    QueryRasterizer rasterizer{gpu};
++    std::unique_ptr<Kernel::KProcess> process;
++    std::optional<Tegra::MemoryManager> memory;
++    QueryRuntime runtime;
++    std::unique_ptr<QueryCache> query;
++    FlushCache texture, buffer;
++    std::unique_ptr<FenceManager> fences;
++    Core::Asid asid{};
++    u8* bytes{};
++    const GpuFenceBehavior old_behavior = Settings::values.gpu_fence_behavior.GetValue();
++    const GpuAccuracy old_accuracy = Settings::values.current_gpu_accuracy;
++    const bool old_report_flag = VideoCore::g_signaling_query_report_fence;
++    std::vector<bool> report_flags;
++
++    Fixture() {
++        Settings::values.gpu_fence_behavior.SetValue(GpuFenceBehavior::Default);
++        Settings::values.current_gpu_accuracy = GpuAccuracy::Low;
++        VideoCore::g_signaling_query_report_fence = false;
++        Tegra::Nx2ClearSemaphoreRegions();
++        system.Initialize();
++        process = std::make_unique<Kernel::KProcess>(system.Kernel());
++        auto& table = process->GetPageTable().GetImpl();
++        table.Resize(24, 12);
++        bytes = physical.GetPointerFromRaw<u8>(Device);
++        std::memset(bytes, 0, 0x10000);
++        for (u64 page = 0; page < 16; ++page) {
++            table.entries.GetAndFault(0x10 + page)
++                .Store(false, Common::PageType::Memory, 1,
++                       reinterpret_cast<uintptr_t>(bytes) - Device);
++        }
++        process->GetMemory().SetCurrentPageTable(*process);
++        asid = device.RegisterProcess(&process->GetMemory());
++        device.BindInterface(&rasterizer);
++        device.Map(Device, Device, 0x10000, asid);
++        memory.emplace(system, device, 32, 1ULL << 31, 16);
++        memory->BindRasterizer(&rasterizer);
++        memory->Map(Guest, Device, 0x10000, Tegra::PTEKind::PITCH, true);
++        query = std::make_unique<QueryCache>(gpu, rasterizer, device, runtime);
++        query->SetMemory(*memory);
++        fences = std::make_unique<FenceManager>(rasterizer, gpu, texture, buffer, *query);
++        rasterizer.signal = [this](std::function<void()>&& callback) {
++            report_flags.push_back(VideoCore::g_signaling_query_report_fence);
++            fences->SignalFence(std::move(callback));
++        };
++        rasterizer.sync = [this](std::function<void()>&& callback) {
++            fences->SyncOperation(std::move(callback));
++        };
++        REQUIRE(memory->GpuToCpuAddress(Guest) == Device);
++        REQUIRE(texture.ShouldWaitAsyncFlushes());
++        Write<u32>(100);
++    }
++    ~Fixture() {
++        // Tests drain explicitly before reaching here. On assertion failure, discard callbacks
++        // before destroying their QueryCache owner rather than executing them in a destructor.
++        fences.reset();
++        query.reset();
++        memory.reset();
++        device.Unmap(Device, 0x10000);
++        device.UnregisterProcess(asid);
++        system.Kernel().UnregisterKernelObject(process.get());
++        Tegra::Nx2ClearSemaphoreRegions();
++        Settings::values.gpu_fence_behavior.SetValue(old_behavior);
++        Settings::values.current_gpu_accuracy = old_accuracy;
++        VideoCore::g_signaling_query_report_fence = old_report_flag;
++    }
++    template <class T> T Read(size_t offset = 0) const {
++        T value;
++        std::memcpy(&value, bytes + offset, sizeof(value));
++        return value;
++    }
++    template <class T> void Write(T value, size_t offset = 0) {
++        std::memcpy(bytes + offset, &value, sizeof(value));
++    }
++    void Report(QueryType type = QueryType::Payload,
++                QueryPropertiesFlags flags = QueryPropertiesFlags::IsAFence, u32 value = 5) {
++        query->CounterReport(Guest, type, flags, value, 0);
++        REQUIRE_FALSE(VideoCore::g_signaling_query_report_fence);
++    }
++    void Drain() {
++        fences->Complete();
++        // UnregisterPending is queued before the report callback on its fence. A following
++        // fence retires the completed query, then one more proves no duplicate retirement.
++        const bool was_flushing = buffer.flush;
++        buffer.flush = true; // Make a cleanup fence instead of relying on the 64-skip cap.
++        for (int i = 0; i < 2; ++i) {
++            fences->SignalFence([] {});
++            fences->Complete();
++        }
++        buffer.flush = was_flushing;
++    }
++};
++
++TEST_CASE("Payload query release at Low Default does not wait for a host fence",
++          "[query_payload][query_payload_red]") {
++    Fixture f;
++    REQUIRE(f.runtime.GetStreamerInterface(QueryType::Payload) == &f.runtime.payload);
++    REQUIRE(f.fences->completed == 0);
++    f.Report();
++    REQUIRE(f.Read<u32>() == 5);
++    REQUIRE(f.runtime.payload.FreeCount() == 1);
++    REQUIRE(f.report_flags == std::vector<bool>{false});
++    f.Drain();
++    REQUIRE(f.runtime.payload.FreeCount() == 1);
++}
++
++struct ModeCase {
++    GpuFenceBehavior behavior;
++    GpuAccuracy accuracy;
++    bool immediate;
++};
++TEST_CASE("Payload query release obeys fence and accuracy guards", "[query_payload]") {
++    const auto mode = GENERATE(
++        ModeCase{GpuFenceBehavior::Default, GpuAccuracy::Low, true},
++        ModeCase{GpuFenceBehavior::Default, GpuAccuracy::High, false},
++        ModeCase{GpuFenceBehavior::Immediate, GpuAccuracy::Low, true},
++        ModeCase{GpuFenceBehavior::Immediate, GpuAccuracy::High, true},
++        ModeCase{GpuFenceBehavior::Balanced, GpuAccuracy::Low, false},
++        ModeCase{GpuFenceBehavior::Balanced, GpuAccuracy::High, false},
++        ModeCase{GpuFenceBehavior::Accurate, GpuAccuracy::Low, false},
++        ModeCase{GpuFenceBehavior::Accurate, GpuAccuracy::High, false});
++    CAPTURE(mode.behavior, mode.accuracy);
++    Fixture f;
++    Settings::values.gpu_fence_behavior.SetValue(mode.behavior);
++    Settings::values.current_gpu_accuracy = mode.accuracy;
++    f.Report();
++    REQUIRE(f.Read<u32>() == (mode.immediate ? 5 : 100));
++    REQUIRE(f.runtime.payload.FreeCount() == (mode.immediate ? 1 : 0));
++    REQUIRE(f.report_flags == std::vector<bool>{!mode.immediate});
++    f.Drain();
++    REQUIRE(f.Read<u32>() == 5);
++    REQUIRE(f.runtime.payload.FreeCount() == 1);
++}
++
++TEST_CASE("Actual counter queries keep their host fence even at Immediate accuracy",
++          "[query_payload][query_counter_guard]") {
++    const auto behavior = GENERATE(GpuFenceBehavior::Default, GpuFenceBehavior::Immediate,
++                                  GpuFenceBehavior::Balanced, GpuFenceBehavior::Accurate);
++    const auto accuracy = GENERATE(GpuAccuracy::Low, GpuAccuracy::High);
++    Fixture f;
++    Settings::values.gpu_fence_behavior.SetValue(behavior);
++    Settings::values.current_gpu_accuracy = accuracy;
++    REQUIRE(f.runtime.GetStreamerInterface(QueryType::ZPassPixelCount64) == &f.runtime.counter);
++    f.Report(QueryType::ZPassPixelCount64);
++    REQUIRE(f.Read<u32>() == 100);
++    REQUIRE(f.runtime.counter.FreeCount() == 0);
++    REQUIRE(f.report_flags == std::vector<bool>{true});
++    f.Drain();
++    REQUIRE(f.Read<u32>() == 73);
++    REQUIRE(f.runtime.counter.FreeCount() == 1);
++}
++
++TEST_CASE("Missing counter streamers retain the effective Payload fallback", "[query_payload]") {
++    Fixture f;
++    REQUIRE(f.runtime.GetStreamerInterface(QueryType::ZPassPixelCount) == nullptr);
++    f.Report(QueryType::ZPassPixelCount);
++    REQUIRE(f.Read<u32>() == 1);
++    REQUIRE(f.runtime.payload.FreeCount() == 1);
++    REQUIRE(f.runtime.counter.FreeCount() == 0);
++    f.Drain();
++    REQUIRE(f.runtime.payload.FreeCount() == 1);
++}
++
++TEST_CASE("Payload releases without IsAFence keep their previous path", "[query_payload]") {
++    const auto high = GENERATE(false, true);
++    Fixture f;
++    Settings::values.current_gpu_accuracy = high ? GpuAccuracy::High : GpuAccuracy::Low;
++    f.Report(QueryType::Payload, QueryPropertiesFlags{});
++    REQUIRE(f.report_flags.empty());
++    REQUIRE(f.Read<u32>() == (high ? 100 : 5));
++    REQUIRE(f.runtime.payload.FreeCount() == (high ? 0 : 1));
++    f.fences->SignalFence([] {});
++    f.Drain();
++    REQUIRE(f.Read<u32>() == 5);
++    REQUIRE(f.runtime.payload.FreeCount() == 1);
++}
++
++TEST_CASE("Payload retirement covers successful invalidated and unsynchronized reports",
++          "[query_payload][query_retirement]") {
++    const int exit = GENERATE(0, 1, 2);
++    const auto high = GENERATE(false, true);
++    Fixture f;
++    Settings::values.current_gpu_accuracy = high ? GpuAccuracy::High : GpuAccuracy::Low;
++    if (exit == 1) f.runtime.payload.initial_flags = QueryFlagBits::IsInvalidated;
++    if (exit == 2) f.runtime.payload.final_value = false;
++    f.Report();
++    REQUIRE(f.Read<u32>() == (!high && exit == 0 ? 5 : 100));
++    REQUIRE(f.runtime.payload.FreeCount() == (high ? 0 : 1));
++    f.Drain();
++    REQUIRE(f.Read<u32>() == (exit == 0 ? 5 : 100));
++    REQUIRE(f.runtime.payload.FreeCount() == 1);
++    // The next report and cleanup must not accidentally retire the previous immediate query.
++    f.runtime.payload.initial_flags = {};
++    f.runtime.payload.final_value = true;
++    f.Report(QueryType::Payload, QueryPropertiesFlags::IsAFence, 9);
++    f.Drain();
++    REQUIRE(f.Read<u32>() == 9);
++    REQUIRE(f.runtime.payload.FreeCount() == 2);
++}
++
++TEST_CASE("Invalidating a registered delayed payload suppresses its write", "[query_payload]") {
++    Fixture f;
++    Settings::values.current_gpu_accuracy = GpuAccuracy::High;
++    f.Report();
++    REQUIRE(f.runtime.payload.FreeCount() == 0);
++    REQUIRE_FALSE(True(f.runtime.payload.queries.front().flags & QueryFlagBits::IsInvalidated));
++    f.query->InvalidateRegion(Fixture::Device, sizeof(u32));
++    REQUIRE(True(f.runtime.payload.queries.front().flags & QueryFlagBits::IsInvalidated));
++    f.Drain();
++    REQUIRE(f.Read<u32>() == 100);
++    REQUIRE(f.runtime.payload.FreeCount() == 1);
++}
++
++TEST_CASE("A nonempty flush does not delay an eligible payload callback", "[query_payload]") {
++    Fixture f;
++    f.buffer.flush = true;
++    f.Report();
++    REQUIRE(f.fences->queued > 0);
++    REQUIRE(f.fences->completed == 0);
++    REQUIRE(f.Read<u32>() == 5);
++    REQUIRE(f.runtime.payload.FreeCount() == 1);
++    f.buffer.flush = false;
++    f.Drain();
++    REQUIRE(f.runtime.payload.FreeCount() == 1);
++}
++
++TEST_CASE("Payload release preserves mirror shadows and timestamp flags",
++          "[query_payload][query_mirror]") {
++    const auto high = GENERATE(false, true);
++    const auto mirrored = GENERATE(false, true);
++    const auto divert = GENERATE(false, true);
++    const auto wide = GENERATE(false, true);
++    Fixture f;
++    Settings::values.current_gpu_accuracy = high ? GpuAccuracy::High : GpuAccuracy::Low;
++    auto& shadow = Tegra::Nx2MirrorShadow::Get();
++    Tegra::Nx2AddSemaphoreRegion(Fixture::Guest);
++    REQUIRE(Tegra::Nx2InSemaphoreFirstPage(Fixture::Guest));
++    if (divert) {
++        // A real direct release registers this word; no artificial shadow eligibility.
++        f.Report(QueryType::Payload, QueryPropertiesFlags::IsAFence, 100);
++        f.Drain();
++        REQUIRE(shadow.Diverts(Fixture::Device));
++    } else {
++        REQUIRE_FALSE(shadow.Diverts(Fixture::Device));
++    }
++    constexpr u64 Sentinel = 0x1234567812345678;
++    f.Write<u64>(Sentinel, 8);
++    QueryPropertiesFlags flags = QueryPropertiesFlags::IsAFence;
++    if (mirrored) flags |= QueryPropertiesFlags::Nx2Mirror;
++    if (wide) flags |= QueryPropertiesFlags::HasTimeout;
++    const u32 before_frees = f.runtime.payload.FreeCount();
++    f.Report(QueryType::Payload, flags);
++    REQUIRE(f.runtime.payload.FreeCount() == before_frees + (high ? 0 : 1));
++    if (high) {
++        REQUIRE(f.Read<u32>() == 100);
++        REQUIRE_FALSE(shadow.Read(Fixture::Device, 100).has_value());
++    }
++    f.Drain();
++    REQUIRE(f.runtime.payload.FreeCount() == before_frees + 1);
++    if (mirrored && divert) {
++        REQUIRE(f.Read<u32>() == 100);
++        REQUIRE(shadow.Read(Fixture::Device, 100) == 5);
++        REQUIRE(f.Read<u64>(8) == Sentinel);
++        // A subsequent real direct release must clear the shadow again.
++        f.Report(QueryType::Payload, QueryPropertiesFlags::IsAFence, 9);
++        f.Drain();
++        REQUIRE(f.Read<u32>() == 9);
++        REQUIRE_FALSE(shadow.Read(Fixture::Device, 9).has_value());
++    } else {
++        REQUIRE(f.Read<u32>() == 5);
++        REQUIRE_FALSE(shadow.Read(Fixture::Device, 5).has_value());
++        if (wide) {
++            REQUIRE(f.Read<u64>() == 5);
++            REQUIRE(f.Read<u64>(8) != Sentinel);
++        } else {
++            REQUIRE(f.Read<u64>(8) == Sentinel);
++        }
++    }
++}
++
++} // namespace
+diff --git a/src/tests/video_core/stream_ring_cursor.cpp b/src/tests/video_core/stream_ring_cursor.cpp
+new file mode 100644
+index 000000000..776575414
+--- /dev/null
++++ b/src/tests/video_core/stream_ring_cursor.cpp
+@@ -0,0 +1,59 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++#include <algorithm>
++#include <array>
++#include <random>
++#include <catch2/catch_test_macros.hpp>
++#include "video_core/renderer_vulkan/stream_ring_cursor.h"
++
++TEST_CASE("Stream ring rejects repeated busy wraps until the GPU completes", "[stream_ring]") {
++    Vulkan::StreamRingCursor<4> ring{4096};
++    for (std::size_t i=0; i<7; ++i) {
++        const auto offset=ring.Reserve(512,256,1,0);
++        REQUIRE(offset.has_value());
++        REQUIRE(*offset==i*512);
++    }
++    REQUIRE_FALSE(ring.Reserve(512,256,2,0).has_value());
++    REQUIRE_FALSE(ring.Reserve(512,256,2,0).has_value());
++    REQUIRE(ring.Wraps()==0);
++    const auto resumed=ring.Reserve(512,256,2,1);
++    REQUIRE(resumed.has_value());
++    REQUIRE(*resumed==0);
++    REQUIRE(ring.Wraps()==1);
++}
++
++TEST_CASE("Independent stream rings never overlap GPU work still in flight", "[stream_ring]") {
++    std::array<Vulkan::StreamRingCursor<4>,2> rings{
++        Vulkan::StreamRingCursor<4>{4096}, Vulkan::StreamRingCursor<4>{4096}};
++    std::array<std::array<std::uint64_t,4096>,2> writers{};
++    std::minstd_rand random{20261109};
++    unsigned accepted=0,rejected=0;
++    for (std::uint64_t tick=1; tick<=5000; ++tick) {
++        const std::size_t index=random()%2;
++        const std::size_t size=1+random()%1024;
++        const std::uint64_t completed=tick>20 ? tick-20 : 0;
++        const auto offset=rings[index].Reserve(size,256,tick,completed);
++        if (!offset) { ++rejected; continue; }
++        ++accepted;
++        REQUIRE(*offset%256==0);
++        REQUIRE(*offset+size<=writers[index].size());
++        for (std::size_t byte=*offset; byte<*offset+size; ++byte) {
++            REQUIRE(writers[index][byte]<=completed);
++            writers[index][byte]=tick;
++        }
++    }
++    REQUIRE(accepted>0);
++    REQUIRE(rejected>0);
++    REQUIRE(rings[0].Wraps()>0);
++    REQUIRE(rings[1].Wraps()>0);
++}
++
++TEST_CASE("Stream ring refuses invalid geometry before reserving memory", "[stream_ring]") {
++    REQUIRE_THROWS_AS((Vulkan::StreamRingCursor<4>{0}), std::invalid_argument);
++    REQUIRE_THROWS_AS((Vulkan::StreamRingCursor<4>{4097}), std::invalid_argument);
++    Vulkan::StreamRingCursor<4> ring{4096};
++    REQUIRE_FALSE(ring.Reserve(1025,256,1,0).has_value());
++    REQUIRE_FALSE(ring.Reserve(512,0,1,0).has_value());
++    const auto valid=ring.Reserve(512,256,1,0);
++    REQUIRE(valid.has_value());
++    REQUIRE(*valid==0);
++}
+diff --git a/src/video_core/renderer_vulkan/stream_ring_cursor.h b/src/video_core/renderer_vulkan/stream_ring_cursor.h
+new file mode 100644
+index 000000000..1e7b88416
+--- /dev/null
++++ b/src/video_core/renderer_vulkan/stream_ring_cursor.h
+@@ -0,0 +1,62 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++
++#pragma once
++#include <algorithm>
++#include <array>
++#include <cstddef>
++#include <cstdint>
++#include <optional>
++#include <stdexcept>
++
++namespace Vulkan {
++// Allocation bookkeeping only. The caller owns the buffer and supplies completed GPU ticks.
++template <std::size_t Regions>
++class StreamRingCursor {
++public:
++    static_assert(Regions > 1, "A stream ring needs a current and a following region");
++    explicit StreamRingCursor(std::size_t capacity_) : capacity{capacity_}, region_size{capacity / Regions} {
++        if (capacity == 0 || capacity % Regions != 0) {
++            throw std::invalid_argument("Stream ring capacity must contain complete regions");
++        }
++    }
++
++    std::optional<std::size_t> Reserve(std::size_t size, std::size_t alignment,
++                                       std::uint64_t tick, std::uint64_t completed) {
++        if (alignment == 0 || alignment > region_size || size > region_size) {
++            return std::nullopt;
++        }
++        const auto region = [this](std::size_t offset) { return offset / region_size; };
++        const auto active = [&](std::size_t begin, std::size_t end) {
++            return std::any_of(ticks.begin() + begin, ticks.begin() + end,
++                               [completed](std::uint64_t used_tick) { return completed < used_tick; });
++        };
++        if (active(region(free_position) + 1, std::min(region(position + size) + 1, Regions))) {
++            return std::nullopt;
++        }
++        // Check before changing any cursor: a rejected wrap must remain rejected on retry.
++        if (position + size >= capacity && active(0, region(size) + 1)) {
++            return std::nullopt;
++        }
++        std::fill(ticks.begin() + region(used_position), ticks.begin() + region(position), tick);
++        used_position = position;
++        free_position = std::max(free_position, position + size);
++        if (position + size >= capacity) {
++            std::fill(ticks.begin() + region(used_position), ticks.end(), tick);
++            used_position = 0;
++            position = 0;
++            free_position = size;
++            ++wraps;
++        }
++        const std::size_t offset = position;
++        position = ((position + size + alignment - 1) / alignment) * alignment;
++        return offset;
++    }
++    unsigned Wraps() const { return wraps; }
++private:
++    std::size_t capacity;
++    std::size_t region_size;
++    std::size_t position{}, used_position{}, free_position{};
++    std::array<std::uint64_t, Regions> ticks{};
++    unsigned wraps{};
++};
++}

@@ -1,0 +1,142 @@
+{
+  "date_utc": "2026-11-10",
+  "created_unix": 1794352603.5331442,
+  "objective": "At least40FPS constant",
+  "status": "A1 half-resolution90s complete, normal cleanup. B1 loading; no comparative conclusion.",
+  "experiment": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110",
+  "order": [
+    "A1",
+    "B1",
+    "A2",
+    "B2"
+  ],
+  "factor": "Only effective resolution_setup1(0.5x)/3(1x), same be3 binary, FPS60/framepacing2/native clock60/speed100, MaxResolution/NoSharpening unchanged; same localhost debug server in both, one frame dump only AFTER phase and final runtime snapshot",
+  "limits": [
+    "Resolution half explicitly reduces image quality; not an invisible performance fix.",
+    "Some native images/compute passes may remain full size; do not infer physical dimensions from guest NoSharpening log.",
+    "Alternation and image checks required for comparison; fixed scene is not movement/new-zone gameplay.",
+    "Only complete native windows inside phase; native WSI is not unique guest frames or physical scanout.",
+    "Local playback disabled lower-load condition, not final browser-play qualification.",
+    "Debug server common to both; its idle overhead not separately calibrated. Frame capture occurs only after timed phase and is checked against phase end."
+  ],
+  "tests": {
+    "four_real_bootstrap_seed_copies": true,
+    "wrong_label_mutant_rejected": true,
+    "four_actual_runtime_resolution_validator_positive_and_opposite_negative": true,
+    "debug_client_fixture": {
+      "cases": [
+        {
+          "case": "fragmented_response",
+          "passed": true,
+          "reads": 3,
+          "error": null
+        },
+        {
+          "case": "closed_without_terminator",
+          "passed": true,
+          "reads": 2,
+          "error": "RuntimeError"
+        },
+        {
+          "case": "server_error",
+          "passed": true,
+          "reads": 1,
+          "error": "AssertionError"
+        },
+        {
+          "case": "wrong_request_id",
+          "passed": true,
+          "reads": 1,
+          "error": "AssertionError"
+        },
+        {
+          "case": "oversized_unterminated",
+          "passed": true,
+          "reads": 1,
+          "error": "RuntimeError"
+        },
+        {
+          "case": "reintroduced_original_escaping",
+          "passed": true,
+          "error": "SyntaxError"
+        }
+      ],
+      "scope": "Actual client code with deterministic socket double, not real TCP"
+    }
+  },
+  "production_change": false,
+  "constant40_achieved": false,
+  "proof_files_sha256": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110/plan.json": "3daf84ebafea9b181411b8b72b20e63db6fc80b4ae84761024f28019540c71d7",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110/debug-client.py": "1b9e26e4a8cd54677a5b8618108cdb46e32b63aa840437daef36e287173581e9",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110/debug-client-tests.json": "8cc8a41d164f0527f7a38177b72317b0f04bf01846847aee97964a1d9c0f8d70",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110/debug-client-initial-red.json": "1c2623a13a95bcc51d830124dc70bbb8f1d4e298e9e5d0f2ee65070446b3ef77",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110/resolution-runtime-tests.json": "05721c40d96e379b384add3ce5ae7138563198c6eb800b7a52ce4d5363756fa3",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110/test-bootstrap-media.py": "78f0ccad11da81832c63b034ebaf28e1a931db23fa18d97fa39c945bee22505e",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110/A1/preliminary-timing.json": "fce0966895cd972772588e248ca2ff6510c717f8bf461e89e5d0f0f5039bfdef",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110/A1/resolution-proof.json": "4139bea67094c92bae94e1802f1bc36be288d27cd75c92fa4a161a9cb43fa44c",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110/A1/postphase-review.json": "5a02e1a53784c1d8af2e9a7c7d6c950d11b3e92952153c95a6c915182dd40ac2",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110/A1/cleanup.json": "7ad8953dd29295e7ff40dae68cbaddb520fb8b0eb3611851ab93931ea3d83aeb"
+  },
+  "first_phase": {
+    "label": "A1",
+    "timing": {
+      "windows": 3,
+      "covered_seconds": 62.99175632,
+      "rate": 28.575167691085582,
+      "p99_ms": [
+        46.348199,
+        44.261053,
+        45.644819
+      ],
+      "max_ms": 68.098438,
+      "phase_seconds": 90.003826851
+    },
+    "actual_host_image": {
+      "at_unix": 1794352882.4469929,
+      "shader": "bded5ce917183214",
+      "kind": "pass",
+      "slot": 0,
+      "host_dimensions": [
+        1280,
+        720
+      ],
+      "rescaled": true,
+      "raw_bytes_decoded": 3686400,
+      "format": "B10G11R11_FLOAT",
+      "png": "/home/souhib/.local/state/nel3ab/test-switch2-KmRxUe/state/0400486024dec000/neuve/home/resolution-proof/capture-1794352584-001/0226_pass126_d2053-2054_rt0_B10G11R11_FLOAT_1280x720_81151ee000.png",
+      "raw": "/home/souhib/.local/state/nel3ab/test-switch2-KmRxUe/state/0400486024dec000/neuve/home/resolution-proof/capture-1794352584-001/0226_pass126_d2053-2054_rt0_B10G11R11_FLOAT_1280x720_81151ee000.raw.zst",
+      "manifest": "/home/souhib/.local/state/nel3ab/test-switch2-KmRxUe/state/0400486024dec000/neuve/home/resolution-proof/capture-1794352584-001/manifest.jsonl",
+      "capture_begin_after_phase_seconds": 2.473217778,
+      "summary": {
+        "bytes": 104437376,
+        "dispatches": 133,
+        "draws": 2099,
+        "images": 236,
+        "kind": "summary",
+        "passes": 134,
+        "truncated": false
+      },
+      "scope": "Actual copied VkImage subresource extent and decoded contents, not RenderArea or every image/compute pass",
+      "hashes": {
+        "/home/souhib/.local/state/nel3ab/test-switch2-KmRxUe/state/0400486024dec000/neuve/home/resolution-proof/capture-1794352584-001/0226_pass126_d2053-2054_rt0_B10G11R11_FLOAT_1280x720_81151ee000.raw.zst": "04c7789f82726504fdd73734fa8bbb2a6f1d9ac81e9cedd179726b66b567eccb",
+        "/home/souhib/.local/state/nel3ab/test-switch2-KmRxUe/state/0400486024dec000/neuve/home/resolution-proof/capture-1794352584-001/0226_pass126_d2053-2054_rt0_B10G11R11_FLOAT_1280x720_81151ee000.png": "d98f8608eadcdc7d5f55f93f9fcdd4e5b6f6d74abf11863f87a7a85cf0c07848",
+        "/home/souhib/.local/state/nel3ab/test-switch2-KmRxUe/state/0400486024dec000/neuve/home/resolution-proof/capture-1794352584-001/manifest.jsonl": "49e4cf8bda39bd33d9319a10a7b9bbac703dc6f226c79df9d2ceb506385dcb07"
+      }
+    },
+    "scene_review": {
+      "root": "/home/souhib/.local/state/nel3ab/test-switch2-KmRxUe",
+      "scene_valid": true,
+      "all_images_actually_read": true,
+      "at_unix": 1794352905.0688071,
+      "images": [
+        "encoded/player-before.png",
+        "encoded/player-middle.png",
+        "encoded/player-after.png",
+        "/home/souhib/.local/state/nel3ab/test-switch2-KmRxUe/state/0400486024dec000/neuve/home/resolution-proof/capture-1794352584-001/0226_pass126_d2053-2054_rt0_B10G11R11_FLOAT_1280x720_81151ee000.png"
+      ],
+      "spectator_same_encoded_bytes_verified": true,
+      "observation": "Same Kokiri/Saria ground position and camera in all3 retained video pictures; actual tonemap render target also read. Coarse half-resolution edges visible, no blocking menu/loading/gross missing scene in snapshots. Sparse samples do not prove every intermediate image or visual equivalence."
+    }
+  }
+}

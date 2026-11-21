@@ -1,0 +1,95 @@
+{
+  "date_utc": "2026-11-10",
+  "attempt": 1,
+  "status": "FAILED before emulator launch; no browser gameplay measurement",
+  "candidate_sha256": "65defb74a8cc81ae85d42c5c0e9bb9bc8a796d976f12278cb0a4fcf940834d08",
+  "image": "sha256:3f9b68831edfd252029d7773289b8a70d05f69f144f3ae8b6dc32b9843188793",
+  "failure": {
+    "primary": "Virtual controller helper /probe/pads.py line17 fails importing evdev: ModuleNotFoundError",
+    "adapter": "docker/switch-room.py serve uses config image for pad_command, waits 10 seconds for devices.json, raises Virtual controllers did not start at line324",
+    "browser": "Player painted>10 condition times out at120000ms, room-private.mjs185; downstream symptom, not shader/game readiness failure",
+    "exit_code": 1
+  },
+  "actual_evidence": {
+    "worker_private_catalogue_one_switch2_game": true,
+    "lobby_api_responded": true,
+    "player_input_socket_connected_seat1_worker_log": true,
+    "worker_restarted_idle_after_adapter_failure": true,
+    "no_emulator_log_or_wrapper_report": true,
+    "spectator_and_refusal_contract_not_reached": true,
+    "no_screenshot_or_Kokiri_readiness": true,
+    "no_audio_signal_or_presentation_rate_qualified": true
+  },
+  "lifecycle": {
+    "launch": {
+      "started_unix": 1794279960.5648227,
+      "started_monotonic_ns": 2297931270606922,
+      "command": [
+        "node",
+        "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-qualification/room-private.mjs",
+        "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-qualification/registered-game/zelda-qualified.nup"
+      ]
+    },
+    "exit": {
+      "exit_code": 1,
+      "ended_unix": 1794280091.0806553,
+      "ended_monotonic_ns": 2298061786439149
+    },
+    "cleanup": {
+      "at": 1794280198.3488796,
+      "room": "/home/souhib/.local/state/nel3ab/test-switch2-vJUh9j",
+      "driver_exit": {
+        "exit_code": 1,
+        "ended_unix": 1794280091.0806553,
+        "ended_monotonic_ns": 2298061786439149
+      },
+      "owned_containers_absent": true,
+      "native_capture_audio_processes_absent": true,
+      "virtual_pad_names": [],
+      "observer": "active",
+      "production_config_unchanged": true,
+      "eight_progressions_unchanged": true,
+      "home_0151_and_private_checkpoint_unchanged": {
+        "source": true,
+        "copy": true
+      },
+      "gpu_policies": {
+        "/sys/class/drm/card0/device/power_dpm_force_performance_level": "auto"
+      },
+      "gpu_power_caps_micro_watts": [
+        150000000
+      ],
+      "kernel_gpu_error_lines": [],
+      "no_game_measurement": true
+    },
+    "no_retry": true,
+    "watchdog_final_report_missing": true,
+    "watchdog_limit": "Driver exception teardown terminated its child watchdog; absence of final watchdog report is not claimed as a passed polling proof."
+  },
+  "interpretation": "Image qualified for native emulator runtime was not qualified for this adapter helper command. CPU wrapper/runtime synthetic tests did not exercise python3 /probe/pads.py in that image. This failure does not establish a defect in65def or browser decode. Exact reason evdev unavailable to this python interpreter still needs isolated inspection.",
+  "private_result_sha256": "e6899faba678d582a20fe1e6e79a5593a39bf5d84743de622c49b3a1def8bc1c",
+  "cleanup_sha256": "3523cf9b35ec003302cde53867aa1d26433faf3693b33afee6c79312cfa9bf60",
+  "proof_sha256": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-qualification/plan.json": "e884a109ed288236272c5f2c0a0aefad0bfd195d4134fbe826ea38fa6eda15a3",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-qualification/driver-launch.json": "fec824f9acfd70487fe893a0d2ab7ab4f34cbec1ffe866d7335ba0c69566d13b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-qualification/driver-exit.json": "ef6124e0d5f4770d7098a14b5332c1942fddcbaf2436d5794357e9c23573cf79",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-qualification/driver-console.log": "21b4f44dd9841589487afe12cf974887a3f9c7b2bb8966bae4bb674d5722be23",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-qualification/cleanup.json": "3523cf9b35ec003302cde53867aa1d26433faf3693b33afee6c79312cfa9bf60",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-qualification/fleet-before-launch-final.json": "5f966ff467bac2710f8e65cdc0d634330570b79f73233c93162c050824d0df45",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vJUh9j/worker.log": "8b62d51fa8f63f2f876340ff6ca9928d1a236a440c814c83edcc4e9377ff586a",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vJUh9j/lobby.log": "279c275fb4a3573a14b632765ac7af8d89b4541d8b75e279fe3a2c1af2a01874",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vJUh9j/proxy.log": "45284cf03700cfc1b26eafeb691076cf4bee9c08e5fe34c62fac31bd2067a83e",
+    "/home/souhib/.local/state/nel3ab/test-switch2-vJUh9j/state/0400486024dec000/neuve/pads.log": "29955fed36a5a0b8fb38f2446211ebb83e410271f314f77f16b78a672b9b489a"
+  },
+  "root_review": {
+    "all_result_evidence_hashes_verified": true,
+    "no_emulator_or_browser_performance_accepted": true
+  },
+  "next": "Qualify the exact adapter helper in a minimal derived private image with four disposable controllers and production permissions before another game. Preserve the first attempt and report the missing watchdog final record explicitly.",
+  "first_attempt_archive": {
+    "manifest": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-qualification/attempt-01/manifest.json",
+    "sha256": "649c32a7fd8c505b24e959a8bdb511ad5195257acae04f2a39138da512d163e4",
+    "archived_files_verified": 34,
+    "original_plan_and_result_preserved": true
+  }
+}

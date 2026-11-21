@@ -1,0 +1,2012 @@
+{
+  "date": "2026-11-10",
+  "status": "Four fresh alternating CPU-affinity phases completed normally with periodic GPU ownership checks. Prior sharedGPU cohort excluded.",
+  "factor": "A retains eight native GPU/guest thread CPU masks; B releases those same eight to all12 logical CPUs after initialization. Actual host kernel masks checked before/after. No global CPU exclusivity or claim that every effect of pin_gpu_threads=false is exercised.",
+  "same_inputs": "Same installed65def ELF and image,141 settings, learned4867file cache, nativequeue1748, PRELOAD_ALL absent, precache0, manual01:51 checkpoint and two local decoding clients.",
+  "order": [
+    "A1",
+    "B1",
+    "A2",
+    "B2"
+  ],
+  "rows": {
+    "A1": {
+      "label": "A1",
+      "room": "/home/souhib/.local/state/nel3ab/test-switch2-C4Qzsv",
+      "phase_seconds": 90.004094427,
+      "bounds_ns": [
+        2335129572239659,
+        2335219576334086
+      ],
+      "direction_transitions": 257,
+      "midpoint_capture_seconds": 0.099179205,
+      "wsi": {
+        "complete_windows": 3,
+        "intervals": 1800,
+        "covered_seconds": 65.771175567,
+        "rate_per_second": 27.367611791678712,
+        "p99_each_ms": [
+          55.333436,
+          49.256111,
+          46.330256
+        ],
+        "max_ms": 80.840533,
+        "over_100_ms": 0,
+        "over_33_333333_ms": 1388,
+        "uncovered_seconds": 24.23291886,
+        "windows": [
+          {
+            "intervals": 600,
+            "sum_ns": 23003215225,
+            "begin_ns": 2335148530521661,
+            "end_ns": 2335171533736886,
+            "p50_ns": 37156616,
+            "p95_ns": 46505195,
+            "p99_ns": 55333436,
+            "max_ns": 80840533,
+            "over30": 551,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 3601,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 21791903124,
+            "begin_ns": 2335171533736886,
+            "end_ns": 2335193325640010,
+            "p50_ns": 35212786,
+            "p95_ns": 44216286,
+            "p99_ns": 49256111,
+            "max_ns": 54092615,
+            "over30": 446,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 4201,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": true
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20976057218,
+            "begin_ns": 2335193325640010,
+            "end_ns": 2335214301697228,
+            "p50_ns": 33438153,
+            "p95_ns": 41824523,
+            "p99_ns": 46330256,
+            "max_ns": 54404330,
+            "over30": 391,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 4801,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          }
+        ]
+      },
+      "vi2": {
+        "complete_windows": 3,
+        "intervals": 1800,
+        "covered_seconds": 65.777244877,
+        "rate_per_second": 27.365086563991934,
+        "p99_each_ms": [
+          53.438367,
+          48.113295,
+          45.289
+        ],
+        "max_ms": 82.425449,
+        "over_100_ms": 0,
+        "over_33_333333_ms": 1367,
+        "uncovered_seconds": 24.22684955,
+        "windows": [
+          {
+            "intervals": 600,
+            "sum_ns": 23000727784,
+            "p50_ns": 37435921,
+            "p95_ns": 46761446,
+            "p99_ns": 53438367,
+            "max_ns": 82425449,
+            "over30": 530,
+            "over100": 0,
+            "begin_ns": 2335148463810165,
+            "end_ns": 2335171464537949,
+            "legacy_same_window": {
+              "mean_frame_us": 38334,
+              "max_frame_us": 82425,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 3,
+              "mean_composite_us": 30,
+              "mean_pacing_us": 13,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 21803055700,
+            "p50_ns": 35312443,
+            "p95_ns": 43707971,
+            "p99_ns": 48113295,
+            "max_ns": 55134662,
+            "over30": 468,
+            "over100": 0,
+            "begin_ns": 2335171464537949,
+            "end_ns": 2335193267593649,
+            "legacy_same_window": {
+              "mean_frame_us": 36337,
+              "max_frame_us": 55134,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 8,
+              "mean_composite_us": 29,
+              "mean_pacing_us": 74,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20973461393,
+            "p50_ns": 34208730,
+            "p95_ns": 42106564,
+            "p99_ns": 45289000,
+            "max_ns": 49575321,
+            "over30": 369,
+            "over100": 0,
+            "begin_ns": 2335193267593649,
+            "end_ns": 2335214241055042,
+            "legacy_same_window": {
+              "mean_frame_us": 34955,
+              "max_frame_us": 49575,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 5,
+              "mean_composite_us": 25,
+              "mean_pacing_us": 553,
+              "ran_ahead": 600
+            }
+          }
+        ]
+      },
+      "browser_deltas": {
+        "painted": 2432,
+        "shown": 2432,
+        "stalls": 0,
+        "restarts": 0,
+        "undecoded": 0,
+        "soundPlayed": 90.01000000000298,
+        "soundGaps": 0
+      },
+      "signal_deltas": {
+        "packets": 9002,
+        "samples": 8641920,
+        "nonzero": 8631182,
+        "squares": 6547622026818,
+        "invalid": 0,
+        "rms_int16": 870.4356696351548
+      },
+      "local_browser_CPU": {
+        "percent_one_logical_CPU": 135.76671225424528,
+        "entered_pid_start": [],
+        "exited_pid_start": [],
+        "endpoint_seconds": 90.265130506
+      },
+      "affinity_before": {
+        "2249165": {
+          "name": "CPUCore_0",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2249166": {
+          "name": "CPUCore_1",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2249167": {
+          "name": "CPUCore_2",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2249168": {
+          "name": "CPUCore_3",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2249169": {
+          "name": "CPUCore_4",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2249170": {
+          "name": "CPUCore_5",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2249171": {
+          "name": "GPU",
+          "cpus": [
+            1,
+            7
+          ]
+        },
+        "2249358": {
+          "name": "GPUBack",
+          "cpus": [
+            2,
+            8
+          ]
+        }
+      },
+      "affinity_after": {
+        "2249165": {
+          "name": "CPUCore_0",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2249166": {
+          "name": "CPUCore_1",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2249167": {
+          "name": "CPUCore_2",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2249168": {
+          "name": "CPUCore_3",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2249169": {
+          "name": "CPUCore_4",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2249170": {
+          "name": "CPUCore_5",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2249171": {
+          "name": "GPU",
+          "cpus": [
+            1,
+            7
+          ]
+        },
+        "2249358": {
+          "name": "GPUBack",
+          "cpus": [
+            2,
+            8
+          ]
+        }
+      },
+      "gpu_observations": {
+        "phase_observations": 14,
+        "all_room_observations": 32,
+        "foreign_clients_observed": false,
+        "driver_stats_read": false,
+        "first_phase_observation_offset_s": 4.371784643,
+        "last_phase_observation_to_end_s": 1.023909032,
+        "maximum_observed_gap_s": 6.531313897,
+        "scan_CPU_each_ms": [
+          188.501888,
+          174.127556,
+          164.702433,
+          173.831941,
+          178.517078,
+          171.663421,
+          174.463303,
+          178.33691,
+          176.544138,
+          178.724456,
+          181.854888,
+          182.780767,
+          174.7754,
+          183.533957
+        ],
+        "scope": "Periodic presence observations; work entirely between scans remains unobserved. CPU time excludes Python/sudo startup and ownership analysis; not in-game overhead qualification."
+      },
+      "memory_endpoints": {
+        "before": {
+          "VmHWM": "11279060 kB",
+          "VmRSS": "11279060 kB",
+          "RssAnon": "3066492 kB",
+          "RssFile": "113024 kB",
+          "RssShmem": "8099544 kB"
+        },
+        "after": {
+          "VmHWM": "12224336 kB",
+          "VmRSS": "12224336 kB",
+          "RssAnon": "3183536 kB",
+          "RssFile": "113024 kB",
+          "RssShmem": "8927776 kB"
+        }
+      },
+      "visual_review": {
+        "all_three_phase_crops_actually_read": true,
+        "ground_scene_valid": true,
+        "description": "Before: Link and Saria on familiar Kokiri outdoor path. Middle/after: lateral movement poses around Saria under target lock, railing and trees behind; camera rotates, no dialogue/menu/loading. Small local motion only, no full90s unobstructed route claim.",
+        "at": 1794317292.5360477
+      },
+      "native_normal_cleanup": true
+    },
+    "B1": {
+      "label": "B1",
+      "room": "/home/souhib/.local/state/nel3ab/test-switch2-bji6dT",
+      "phase_seconds": 90.001525699,
+      "bounds_ns": [
+        2335380296490367,
+        2335470298016066
+      ],
+      "direction_transitions": 257,
+      "midpoint_capture_seconds": 0.089961541,
+      "wsi": {
+        "complete_windows": 2,
+        "intervals": 1200,
+        "covered_seconds": 52.867919931,
+        "rate_per_second": 22.698074778923914,
+        "p99_each_ms": [
+          62.041925,
+          54.753215
+        ],
+        "max_ms": 87.544863,
+        "over_100_ms": 0,
+        "over_33_333333_ms": 1199,
+        "uncovered_seconds": 37.133605768,
+        "windows": [
+          {
+            "intervals": 600,
+            "sum_ns": 26654891907,
+            "begin_ns": 2335406747986844,
+            "end_ns": 2335433402878751,
+            "p50_ns": 43492976,
+            "p95_ns": 52953846,
+            "p99_ns": 62041925,
+            "max_ns": 87544863,
+            "over30": 600,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 3601,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": true
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 26213028024,
+            "begin_ns": 2335433402878751,
+            "end_ns": 2335459615906775,
+            "p50_ns": 42916383,
+            "p95_ns": 51420635,
+            "p99_ns": 54753215,
+            "max_ns": 66734928,
+            "over30": 599,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 4201,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          }
+        ]
+      },
+      "vi2": {
+        "complete_windows": 2,
+        "intervals": 1200,
+        "covered_seconds": 52.880881085,
+        "rate_per_second": 22.692511459314314,
+        "p99_each_ms": [
+          61.44853,
+          55.902063
+        ],
+        "max_ms": 86.262605,
+        "over_100_ms": 0,
+        "over_33_333333_ms": 1200,
+        "uncovered_seconds": 37.120644614,
+        "windows": [
+          {
+            "intervals": 600,
+            "sum_ns": 26662830077,
+            "p50_ns": 43512994,
+            "p95_ns": 53326666,
+            "p99_ns": 61448530,
+            "max_ns": 86262605,
+            "over30": 600,
+            "over100": 0,
+            "begin_ns": 2335406655809891,
+            "end_ns": 2335433318639968,
+            "legacy_same_window": {
+              "mean_frame_us": 44437,
+              "max_frame_us": 86262,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 205,
+              "mean_composite_us": 29,
+              "mean_pacing_us": 0,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 26218051008,
+            "p50_ns": 43099908,
+            "p95_ns": 51299618,
+            "p99_ns": 55902063,
+            "max_ns": 59667234,
+            "over30": 600,
+            "over100": 0,
+            "begin_ns": 2335433318639968,
+            "end_ns": 2335459536690976,
+            "legacy_same_window": {
+              "mean_frame_us": 43696,
+              "max_frame_us": 59667,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 6,
+              "mean_composite_us": 29,
+              "mean_pacing_us": 0,
+              "ran_ahead": 600
+            }
+          }
+        ]
+      },
+      "browser_deltas": {
+        "painted": 2081,
+        "shown": 2086,
+        "stalls": 0,
+        "restarts": 0,
+        "undecoded": 0,
+        "soundPlayed": 90.02000000000575,
+        "soundGaps": 0
+      },
+      "signal_deltas": {
+        "packets": 9003,
+        "samples": 8642880,
+        "nonzero": 8632062,
+        "squares": 6499662540393,
+        "invalid": 0,
+        "rms_int16": 867.1937972348567
+      },
+      "local_browser_CPU": {
+        "percent_one_logical_CPU": 121.21828005813128,
+        "entered_pid_start": [],
+        "exited_pid_start": [],
+        "endpoint_seconds": 90.258663914
+      },
+      "affinity_before": {
+        "2262639": {
+          "name": "CPUCore_0",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2262640": {
+          "name": "CPUCore_1",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2262641": {
+          "name": "CPUCore_2",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2262642": {
+          "name": "CPUCore_3",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2262643": {
+          "name": "CPUCore_4",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2262644": {
+          "name": "CPUCore_5",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2262645": {
+          "name": "GPU",
+          "cpus": [
+            1,
+            7
+          ]
+        },
+        "2262893": {
+          "name": "GPUBack",
+          "cpus": [
+            2,
+            8
+          ]
+        }
+      },
+      "affinity_after": {
+        "2262639": {
+          "name": "CPUCore_0",
+          "cpus": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11
+          ]
+        },
+        "2262640": {
+          "name": "CPUCore_1",
+          "cpus": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11
+          ]
+        },
+        "2262641": {
+          "name": "CPUCore_2",
+          "cpus": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11
+          ]
+        },
+        "2262642": {
+          "name": "CPUCore_3",
+          "cpus": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11
+          ]
+        },
+        "2262643": {
+          "name": "CPUCore_4",
+          "cpus": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11
+          ]
+        },
+        "2262644": {
+          "name": "CPUCore_5",
+          "cpus": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11
+          ]
+        },
+        "2262645": {
+          "name": "GPU",
+          "cpus": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11
+          ]
+        },
+        "2262893": {
+          "name": "GPUBack",
+          "cpus": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11
+          ]
+        }
+      },
+      "gpu_observations": {
+        "phase_observations": 14,
+        "all_room_observations": 32,
+        "foreign_clients_observed": false,
+        "driver_stats_read": false,
+        "first_phase_observation_offset_s": 0.475460178,
+        "last_phase_observation_to_end_s": 5.049191447,
+        "maximum_observed_gap_s": 6.534707837,
+        "scan_CPU_each_ms": [
+          172.520711,
+          176.828412,
+          175.312337,
+          175.469843,
+          169.95609,
+          173.059201,
+          175.194965,
+          173.586621,
+          179.382911,
+          176.4986,
+          171.304991,
+          173.995947,
+          174.446302,
+          178.855351
+        ],
+        "scope": "Periodic presence observations; work entirely between scans remains unobserved. CPU time excludes Python/sudo startup and ownership analysis; not in-game overhead qualification."
+      },
+      "memory_endpoints": {
+        "before": {
+          "VmHWM": "11343728 kB",
+          "VmRSS": "11343728 kB",
+          "RssAnon": "3069640 kB",
+          "RssFile": "116288 kB",
+          "RssShmem": "8157800 kB"
+        },
+        "after": {
+          "VmHWM": "12230584 kB",
+          "VmRSS": "12230584 kB",
+          "RssAnon": "3174344 kB",
+          "RssFile": "116288 kB",
+          "RssShmem": "8939952 kB"
+        }
+      },
+      "visual_review": {
+        "all_three_phase_crops_actually_read": true,
+        "ground_scene_valid": true,
+        "description": "Before: Link near Saria on same Kokiri path. Middle/after: lateral movement nearby under target lock, trees and railing visible, camera rotates; no dialogue/loading/menu. Sparse observations only.",
+        "at": 1794317566.8406634
+      },
+      "native_normal_cleanup": true
+    },
+    "A2": {
+      "label": "A2",
+      "room": "/home/souhib/.local/state/nel3ab/test-switch2-iCpfl0",
+      "phase_seconds": 90.005671732,
+      "bounds_ns": [
+        2335663127219909,
+        2335753132891641
+      ],
+      "direction_transitions": 257,
+      "midpoint_capture_seconds": 0.082680035,
+      "wsi": {
+        "complete_windows": 3,
+        "intervals": 1800,
+        "covered_seconds": 72.383655899,
+        "rate_per_second": 24.86749222105632,
+        "p99_each_ms": [
+          52.148102,
+          52.425722,
+          55.32582
+        ],
+        "max_ms": 64.166644,
+        "over_100_ms": 0,
+        "over_33_333333_ms": 1752,
+        "uncovered_seconds": 17.622015833,
+        "windows": [
+          {
+            "intervals": 600,
+            "sum_ns": 24338774477,
+            "begin_ns": 2335675457809376,
+            "end_ns": 2335699796583853,
+            "p50_ns": 39992402,
+            "p95_ns": 46630018,
+            "p99_ns": 52148102,
+            "max_ns": 59706608,
+            "over30": 600,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 3601,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 23242975593,
+            "begin_ns": 2335699796583853,
+            "end_ns": 2335723039559446,
+            "p50_ns": 38035977,
+            "p95_ns": 47328921,
+            "p99_ns": 52425722,
+            "max_ns": 59097102,
+            "over30": 553,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 4201,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": true
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 24801905829,
+            "begin_ns": 2335723039559446,
+            "end_ns": 2335747841465275,
+            "p50_ns": 40113178,
+            "p95_ns": 49230031,
+            "p99_ns": 55325820,
+            "max_ns": 64166644,
+            "over30": 599,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 4801,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          }
+        ]
+      },
+      "vi2": {
+        "complete_windows": 3,
+        "intervals": 1800,
+        "covered_seconds": 72.387472889,
+        "rate_per_second": 24.86618095868806,
+        "p99_each_ms": [
+          51.573262,
+          53.330252,
+          54.277341
+        ],
+        "max_ms": 65.999356,
+        "over_100_ms": 0,
+        "over_33_333333_ms": 1750,
+        "uncovered_seconds": 17.618198843,
+        "windows": [
+          {
+            "intervals": 600,
+            "sum_ns": 24337534959,
+            "p50_ns": 39811532,
+            "p95_ns": 47039927,
+            "p99_ns": 51573262,
+            "max_ns": 63250945,
+            "over30": 599,
+            "over100": 0,
+            "begin_ns": 2335675376976450,
+            "end_ns": 2335699714511409,
+            "legacy_same_window": {
+              "mean_frame_us": 40562,
+              "max_frame_us": 63250,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 7,
+              "mean_composite_us": 29,
+              "mean_pacing_us": 0,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 23248627809,
+            "p50_ns": 37995321,
+            "p95_ns": 47560345,
+            "p99_ns": 53330252,
+            "max_ns": 56618498,
+            "over30": 551,
+            "over100": 0,
+            "begin_ns": 2335699714511409,
+            "end_ns": 2335722963139218,
+            "legacy_same_window": {
+              "mean_frame_us": 38747,
+              "max_frame_us": 56618,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 2,
+              "mean_composite_us": 29,
+              "mean_pacing_us": 40,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 24801310121,
+            "p50_ns": 40171929,
+            "p95_ns": 49748265,
+            "p99_ns": 54277341,
+            "max_ns": 65999356,
+            "over30": 600,
+            "over100": 0,
+            "begin_ns": 2335722963139218,
+            "end_ns": 2335747764449339,
+            "legacy_same_window": {
+              "mean_frame_us": 41335,
+              "max_frame_us": 65999,
+              "over100": 0,
+              "mean_fence_us": 64,
+              "max_fence_us": 38336,
+              "mean_composite_us": 28,
+              "mean_pacing_us": 93,
+              "ran_ahead": 599
+            }
+          }
+        ]
+      },
+      "browser_deltas": {
+        "painted": 2248,
+        "shown": 2252,
+        "stalls": 0,
+        "restarts": 0,
+        "undecoded": 0,
+        "soundPlayed": 90.0299999999943,
+        "soundGaps": 0
+      },
+      "signal_deltas": {
+        "packets": 9003,
+        "samples": 8642880,
+        "nonzero": 8631871,
+        "squares": 6278963645996,
+        "invalid": 0,
+        "rms_int16": 852.343674948678
+      },
+      "local_browser_CPU": {
+        "percent_one_logical_CPU": 130.42653237797492,
+        "entered_pid_start": [],
+        "exited_pid_start": [],
+        "endpoint_seconds": 90.273043263
+      },
+      "affinity_before": {
+        "2276308": {
+          "name": "CPUCore_0",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2276309": {
+          "name": "CPUCore_1",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2276310": {
+          "name": "CPUCore_2",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2276311": {
+          "name": "CPUCore_3",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2276312": {
+          "name": "CPUCore_4",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2276313": {
+          "name": "CPUCore_5",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2276314": {
+          "name": "GPU",
+          "cpus": [
+            1,
+            7
+          ]
+        },
+        "2276557": {
+          "name": "GPUBack",
+          "cpus": [
+            2,
+            8
+          ]
+        }
+      },
+      "affinity_after": {
+        "2276308": {
+          "name": "CPUCore_0",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2276309": {
+          "name": "CPUCore_1",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2276310": {
+          "name": "CPUCore_2",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2276311": {
+          "name": "CPUCore_3",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2276312": {
+          "name": "CPUCore_4",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2276313": {
+          "name": "CPUCore_5",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2276314": {
+          "name": "GPU",
+          "cpus": [
+            1,
+            7
+          ]
+        },
+        "2276557": {
+          "name": "GPUBack",
+          "cpus": [
+            2,
+            8
+          ]
+        }
+      },
+      "gpu_observations": {
+        "phase_observations": 13,
+        "all_room_observations": 33,
+        "foreign_clients_observed": false,
+        "driver_stats_read": false,
+        "first_phase_observation_offset_s": 5.213858155,
+        "last_phase_observation_to_end_s": 6.485297474,
+        "maximum_observed_gap_s": 6.549757851,
+        "scan_CPU_each_ms": [
+          185.150224,
+          193.221454,
+          191.011605,
+          183.33735,
+          180.667882,
+          187.492126,
+          186.558892,
+          185.460401,
+          179.576084,
+          179.762536,
+          178.811328,
+          189.290976,
+          197.375242
+        ],
+        "scope": "Periodic presence observations; work entirely between scans remains unobserved. CPU time excludes Python/sudo startup and ownership analysis; not in-game overhead qualification."
+      },
+      "memory_endpoints": {
+        "before": {
+          "VmHWM": "11160352 kB",
+          "VmRSS": "11160352 kB",
+          "RssAnon": "3060316 kB",
+          "RssFile": "116188 kB",
+          "RssShmem": "7983848 kB"
+        },
+        "after": {
+          "VmHWM": "12078172 kB",
+          "VmRSS": "12078172 kB",
+          "RssAnon": "3168428 kB",
+          "RssFile": "116188 kB",
+          "RssShmem": "8793556 kB"
+        }
+      },
+      "visual_review": {
+        "all_three_phase_crops_actually_read": true,
+        "ground_scene_valid": true,
+        "description": "Before: same Kokiri path beside Saria. Middle/after: Link moving locally around Saria under target lock, forest background, camera rotates; no menu/loading/dialogue. Sparse local scene only.",
+        "at": 1794317815.0047655
+      },
+      "native_normal_cleanup": true
+    },
+    "B2": {
+      "label": "B2",
+      "room": "/home/souhib/.local/state/nel3ab/test-switch2-qGLzII",
+      "phase_seconds": 90.001884568,
+      "bounds_ns": [
+        2335926949622453,
+        2336016951507021
+      ],
+      "direction_transitions": 257,
+      "midpoint_capture_seconds": 0.091636406,
+      "wsi": {
+        "complete_windows": 2,
+        "intervals": 1200,
+        "covered_seconds": 52.56659677,
+        "rate_per_second": 22.828185078263342,
+        "p99_each_ms": [
+          57.20147,
+          55.745712
+        ],
+        "max_ms": 93.666064,
+        "over_100_ms": 0,
+        "over_33_333333_ms": 1200,
+        "uncovered_seconds": 37.435287798,
+        "windows": [
+          {
+            "intervals": 600,
+            "sum_ns": 26279438475,
+            "begin_ns": 2335952870584665,
+            "end_ns": 2335979150023140,
+            "p50_ns": 42990877,
+            "p95_ns": 51792010,
+            "p99_ns": 57201470,
+            "max_ns": 69540226,
+            "over30": 600,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 4201,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": true
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 26287158295,
+            "begin_ns": 2335979150023140,
+            "end_ns": 2336005437181435,
+            "p50_ns": 42831902,
+            "p95_ns": 51401960,
+            "p99_ns": 55745712,
+            "max_ns": 93666064,
+            "over30": 600,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 4801,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          }
+        ]
+      },
+      "vi2": {
+        "complete_windows": 2,
+        "intervals": 1200,
+        "covered_seconds": 52.548336465,
+        "rate_per_second": 22.836117767481834,
+        "p99_each_ms": [
+          56.494461,
+          58.163871
+        ],
+        "max_ms": 89.121487,
+        "over_100_ms": 0,
+        "over_33_333333_ms": 1200,
+        "uncovered_seconds": 37.453548103,
+        "windows": [
+          {
+            "intervals": 600,
+            "sum_ns": 26270368040,
+            "p50_ns": 42911947,
+            "p95_ns": 51369475,
+            "p99_ns": 56494461,
+            "max_ns": 63289559,
+            "over30": 600,
+            "over100": 0,
+            "begin_ns": 2335952795099517,
+            "end_ns": 2335979065467557,
+            "legacy_same_window": {
+              "mean_frame_us": 43783,
+              "max_frame_us": 63289,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 2,
+              "mean_composite_us": 31,
+              "mean_pacing_us": 0,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 26277968425,
+            "p50_ns": 42692621,
+            "p95_ns": 51044250,
+            "p99_ns": 58163871,
+            "max_ns": 89121487,
+            "over30": 600,
+            "over100": 0,
+            "begin_ns": 2335979065467557,
+            "end_ns": 2336005343435982,
+            "legacy_same_window": {
+              "mean_frame_us": 43796,
+              "max_frame_us": 89121,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 24,
+              "mean_composite_us": 29,
+              "mean_pacing_us": 0,
+              "ran_ahead": 600
+            }
+          }
+        ]
+      },
+      "browser_deltas": {
+        "painted": 2059,
+        "shown": 2061,
+        "stalls": 0,
+        "restarts": 0,
+        "undecoded": 0,
+        "soundPlayed": 90.01999999997246,
+        "soundGaps": 0
+      },
+      "signal_deltas": {
+        "packets": 9003,
+        "samples": 8642880,
+        "nonzero": 8631745,
+        "squares": 6206142601380,
+        "invalid": 0,
+        "rms_int16": 847.3866809770828
+      },
+      "local_browser_CPU": {
+        "percent_one_logical_CPU": 125.0317744919448,
+        "entered_pid_start": [],
+        "exited_pid_start": [],
+        "endpoint_seconds": 90.249059056
+      },
+      "affinity_before": {
+        "2288874": {
+          "name": "CPUCore_0",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2288875": {
+          "name": "CPUCore_1",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2288876": {
+          "name": "CPUCore_2",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2288877": {
+          "name": "CPUCore_3",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2288878": {
+          "name": "CPUCore_4",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2288879": {
+          "name": "CPUCore_5",
+          "cpus": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            9,
+            10,
+            11
+          ]
+        },
+        "2288880": {
+          "name": "GPU",
+          "cpus": [
+            1,
+            7
+          ]
+        },
+        "2289102": {
+          "name": "GPUBack",
+          "cpus": [
+            2,
+            8
+          ]
+        }
+      },
+      "affinity_after": {
+        "2288874": {
+          "name": "CPUCore_0",
+          "cpus": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11
+          ]
+        },
+        "2288875": {
+          "name": "CPUCore_1",
+          "cpus": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11
+          ]
+        },
+        "2288876": {
+          "name": "CPUCore_2",
+          "cpus": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11
+          ]
+        },
+        "2288877": {
+          "name": "CPUCore_3",
+          "cpus": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11
+          ]
+        },
+        "2288878": {
+          "name": "CPUCore_4",
+          "cpus": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11
+          ]
+        },
+        "2288879": {
+          "name": "CPUCore_5",
+          "cpus": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11
+          ]
+        },
+        "2288880": {
+          "name": "GPU",
+          "cpus": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11
+          ]
+        },
+        "2289102": {
+          "name": "GPUBack",
+          "cpus": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11
+          ]
+        }
+      },
+      "gpu_observations": {
+        "phase_observations": 14,
+        "all_room_observations": 35,
+        "foreign_clients_observed": false,
+        "driver_stats_read": false,
+        "first_phase_observation_offset_s": 2.567866095,
+        "last_phase_observation_to_end_s": 2.783820294,
+        "maximum_observed_gap_s": 6.529456764,
+        "scan_CPU_each_ms": [
+          170.0898,
+          181.500896,
+          178.932547,
+          184.859305,
+          173.917279,
+          182.102034,
+          179.507346,
+          175.390684,
+          180.115975,
+          184.189378,
+          182.230644,
+          182.012323,
+          180.39424,
+          182.862776
+        ],
+        "scope": "Periodic presence observations; work entirely between scans remains unobserved. CPU time excludes Python/sudo startup and ownership analysis; not in-game overhead qualification."
+      },
+      "memory_endpoints": {
+        "before": {
+          "VmHWM": "11029648 kB",
+          "VmRSS": "11029648 kB",
+          "RssAnon": "3040396 kB",
+          "RssFile": "115940 kB",
+          "RssShmem": "7873312 kB"
+        },
+        "after": {
+          "VmHWM": "12157464 kB",
+          "VmRSS": "12157464 kB",
+          "RssAnon": "3173844 kB",
+          "RssFile": "115940 kB",
+          "RssShmem": "8867680 kB"
+        }
+      },
+      "visual_review": {
+        "all_three_phase_crops_actually_read": true,
+        "ground_scene_valid": true,
+        "description": "Before: same outdoor Kokiri path beside Saria. Middle/after: Link in lateral movement poses near Saria under target lock, forest and railing, changing camera direction; no dialogue/loading/menu. Sparse local observations only.",
+        "at": 1794318105.0738492
+      },
+      "native_normal_cleanup": true
+    }
+  },
+  "pairs": [
+    {
+      "pair": 1,
+      "rate_delta_percent": -17.06227437125003,
+      "A_max_ms": 80.840533,
+      "B_max_ms": 87.544863,
+      "A_p99_each_ms": [
+        55.333436,
+        49.256111,
+        46.330256
+      ],
+      "B_p99_each_ms": [
+        62.041925,
+        54.753215
+      ]
+    },
+    {
+      "pair": 2,
+      "rate_delta_percent": -8.200694805349984,
+      "A_max_ms": 64.166644,
+      "B_max_ms": 93.666064,
+      "A_p99_each_ms": [
+        52.148102,
+        52.425722,
+        55.32582
+      ],
+      "B_p99_each_ms": [
+        57.20147,
+        55.745712
+      ]
+    }
+  ],
+  "decision": "Retain installed pinning. Releasing8 masks after initialization lowers WSI rate by17.06% and8.20% in the two pairs and worsens maxima in both. Scene/camera drift limits precision and generalization; no hardware ceiling or global penalty claimed.",
+  "coverage": {
+    "measured_seconds": 360.013176426,
+    "full_window_intervals": 6000,
+    "full_windows": 10,
+    "covered_seconds": 243.589348167,
+    "over100ms_in_retained_windows": 0,
+    "scope": "All complete600-return windows inside explicit phase bounds, with midpoint capture overlaps retained. Partial coverage; no all360seconds freeze claim."
+  },
+  "gpu_qualification": "No foreign client observed in preflight or periodic samples. Actual nativePID occurs in every retained in-phase GPU observation. Presence-only checks use descriptor metadata/sysfs, not fdinfo counters. Short-lived activity between scans remains possible; guard workload is recorded, not independently qualified for FPS overhead.",
+  "local_browser_CPU_percent_one_logical_processor": [
+    135.76671225424528,
+    121.21828005813128,
+    130.42653237797492,
+    125.0317744919448
+  ],
+  "goal": "30 regular rendered images/s remains unmet. Accepted Vulkan returns do not establish distinct guest frames/physical scanout.",
+  "next_steps": [
+    "Separate local browser decoding from native emulation while preserving server capture/encoding/input and receive checks.",
+    "Obtain physicalGPU costs on exact installed engine, with observed/timed program coverage and probe overhead qualified.",
+    "Treat upstream GPU alias-unmap correction as correctness candidate, not a measured FPS gain; qualify independently if ported."
+  ],
+  "preservation": {
+    "protected_files": 757,
+    "production_cache": {
+      "files": 4865,
+      "bytes": 133711023,
+      "all_hashes_and_mtimes_match": true
+    },
+    "learned_seed": {
+      "files": 4867,
+      "bytes": 134125560,
+      "all_hashes_and_mtimes_match": true
+    },
+    "all4_native_stops_normal": true,
+    "own_containers_capture_audio_pads_removed": true,
+    "observer": "active",
+    "production_performance_change": false
+  },
+  "local_validation": {
+    "just_exit": 0,
+    "remote_CI": "No new commit/push/run claimed."
+  },
+  "frozen_input_archive_index": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/index.json",
+  "proof_files_sha256": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/plan.json": "c5a51f9de5c6afb4f10beb005808e627cc51c2e4855b361009fcffdb4880729a",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/analyze-cohort.py": "0b006ecbff92baed4914135ed72e99730e6435fe3ee0fc3c5d509a67121ce16a",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/091-service-wsi-windows.py": "c04e337513851cf72422d7c930fed50f616bfb0b8acd8d8a70c9da3173cc5620",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/092-pacing-analyze.py": "0463818f15088a63dfc86046cc6f01a0e77917efc126003168e210a62017abbb",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/A1/cleanup.json": "f53230cec5bcc779c9911d7e1e4be04efb8118a9e0f78180d6f703d73505e63d",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/A1/visual-review.json": "1685ab2d48190573aef9a84904856770e63fad607198481ca45bd578a316ef74",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/A1/prephase-review.json": "fbd25854428221e2086465575dcf0c5f0711eb11b633e5585db091337565c32c",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/A1/active-room.json": "ff9605caf9e7136819e552875a9ea4d8257d218f56f77a5022300b25b424dda2",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/093-emulator.log": "c7b2e11fa0edcbd3da1327ef26dd1e0868492c88b9535301603b64869678074c",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/094-affinity-apply.json": "884b27da1e84f31b0134ad6e0fa164567291fea1f2fcb467e17559269657a4c9",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/095-affinity-verify.json": "54d02dbf20d410ef3cb4db7c7c6f4ffb0fb06a7b4de77e84ca7cb965d5409c88",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/096-native-runtime-before-proof.json": "d05116b75cd0fe75269dea8f593fbd15367ef6aa5dc0e557ae73bf37d5f9fb8a",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/097-native-runtime-proof.json": "13618251ee0bf0ebce0ba393e2d57e6fd5f3329a0103d89500a2da3bd649658f",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/098-native-boot-before.json": "10e8ed2b4c384f9e80191047c253ae0d3f3e8f680128cf59aafe1d7b66fe27dc",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/099-native-boot-after.json": "10e8ed2b4c384f9e80191047c253ae0d3f3e8f680128cf59aafe1d7b66fe27dc",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/100-native-memory-affinity-before.json": "36980dfc41f2e14bd959b0ebace980a4e0b5e9551a03661867db65a8358d30fe",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/101-native-memory-affinity-after.json": "dac523087665954c5fe4559ee717373577d6bf88f891562d3f1a8cd80fa7ef0b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/102-browser-phase-result.json": "446d4a0a4fbd780a9556f7699d17d386f924fea48a16d1cdfda40e33aeb32518",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/103-phase-clock.json": "a06e626c1b3fad7207d421bf396488cbc1a71b009ae4ff121b276be57fcdd416",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/104-phase-events.jsonl": "4d416353337d6c6590b0030ee1c537380c3af644f16e1d3f421b7037facf0336",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/105-phase-exit.json": "2baa3451a1899782b2adec39478d62f0f6be688892641d13c400324543d5e993",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/106-browser-before.json": "f88a67fb7f65aeeefb87845ad28afd80130ef61480063d7926fa286932df9e59",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/107-browser-after.json": "b909f6d3945fe908c8cb0f865f972b9aca0f96f4e98c5d0be259d6e8b1ec5bfa",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/108-browser-cpu-before.json": "85b7be2b7fa866477c86e31ba7882c782cb2ede4bcc12978587629ec980bee3a",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/109-browser-cpu-after.json": "25a4afbb7d15ca6e86b093b1f0e9bc3d3695c47da65eefa63fc7e8b2ed8b5e08",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/110-qualification-watchdog.json": "fc9978da12e1dedf4f2fe9018bdb86c4e976ab9a737ecbdc122d768a1c086f74",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/111-seed-copy-proof.json": "ed612fa169820935697c7031bf1f4ee5eeb95525641e8678db6a68bc0645812e",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/112-loaded-check.png": "3c4c5836a7d5f667af9340f1a5170d089f5ec9f01beb1f4157a896c23cc8b0fc",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/113-phase-before.png": "c389c2cdc41cf27e55d7668bcae7f2bdf068e0534e4c9d34c4cd722558f8f500",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/114-phase-middle.png": "83f6ebc77921d793d6cb01c2b1efe6d88ecac8598c4e35924a3098f9160507a8",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/115-phase-after.png": "f9d618a1a528834564cb3a27d5167b3e6eab22bdacf2baac260270f56a2d1da0",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/B1/cleanup.json": "ac6755d8f714ff143f8c3181903c58172ddc8e5c11cf700ffc5b8386a80312bb",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/B1/visual-review.json": "b2253adaa50bf1e396433f6aaeaae6ff4869dc1cdd514c0aec5792aa8a1dbd88",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/B1/prephase-review.json": "761ca981307d66c706524bfa6db7466b1306ecafb159fa0d643dea5b5e1f4057",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/B1/active-room.json": "6c6398e347960b0185f1337a6b6f2112720808be0de80463b25bf76870916e1b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/116-emulator.log": "6a972697cb3493d751cf1e5822f45a553096c030e6a1a1aff13ac07b1cb1fdce",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/117-affinity-apply.json": "82c644b603a5204c5588540019c5cdc2d26f3ba09c05aae3489a7670c5ebd8d7",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/118-affinity-verify.json": "06a3a4fedc096e7f64182acc092e2812171f5b5b0ee0212b88ed956adc1e4415",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/119-native-runtime-before-proof.json": "96abfbc2916d128f3b67895da7e492d2fbe132e94df98934414c77e596c3f634",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/120-native-runtime-proof.json": "c6b58a7c03bf8790a88c66334d65ab6fcafdfcd6a95749eff3da6e66e485947a",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/121-native-boot-before.json": "a5bf7ec328b73694bdf6abbd843eb7d3552b12fd51ba60ceaf2c8e8919321c10",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/122-native-boot-after.json": "a5bf7ec328b73694bdf6abbd843eb7d3552b12fd51ba60ceaf2c8e8919321c10",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/123-native-memory-affinity-before.json": "41177b2afdeed3c013be7cfe6e283fbbc91c359bc8a1ebeb3a287a8b7c3a8916",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/124-native-memory-affinity-after.json": "ac38e0c4ed61d9616df9b2552a19f69dbf121b2acb233fcccebc0c1abf5cc9a5",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/125-browser-phase-result.json": "d7ffb7c3989b0309b77a09fa96a55473ef96a4a5befd08228e0b6d6bca1d9984",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/126-phase-clock.json": "7dcaffede8d4c6486549a4b5ca5030cb4256276ef10ea2cad3ac19fdb46d6689",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/127-phase-events.jsonl": "d3949c18900c743e8f791991e97ab03f079c862748491b082b6275face9e3cb1",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/128-phase-exit.json": "044afd2563c330a8e35beee3b096304c96c76c3321f1af5cc619913d10c9b979",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/129-browser-before.json": "ce39ff2fd778ddf281a2b6a874e157a68c6b5ba3b1610667e09378840e011c17",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/130-browser-after.json": "d495dcb70afc86d6ed4d7897b1aaccad82768c5780244ca83ceb4c3a9ba688ee",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/131-browser-cpu-before.json": "2665ca835a04a432f491a3fb4f41d933c7de9ccbedaacc197e43607ef4b5c24b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/132-browser-cpu-after.json": "75e3abd0e927b1a643924ab6dd5d27f51071bf29af711690c523917adb8516ec",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/133-qualification-watchdog.json": "50d284996d3c8f6e721d329723905a6665cf2b1421280c523dec74279d4e3feb",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/134-seed-copy-proof.json": "c3a66444699cd5b6be39b3a668c91e75c3eecb2b8e84219e35f0ae6a4e331b02",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/135-loaded-check.png": "d40ee7052484df08f0bfb5d670a9bab7a27e54904aa28ca9899855e84d460a95",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/136-phase-before.png": "593e6af01aba232bafda40996227da96b101649cb72d17f93a0535f9da8d7729",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/137-phase-middle.png": "dea3a5e12c621c3bfa85b6c23b7836e5103fc4e162c1fbd3a58057b657b48a9f",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/138-phase-after.png": "620cd292bcc4aee21afafe2083e95894888a5c4ae9eb0fe3d2b14b5952030397",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/A2/cleanup.json": "33f735be808496656007758224ca144611fcefc5fbe97f8c9c884781cfaf2a1b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/A2/visual-review.json": "374c0550f96113cc0f9dd52b0316cc0a2c4fdbc4fa449d1b0a8f36fa9b901ee7",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/A2/prephase-review.json": "d20a7214dd14f845f85c3ee7269789b8ed27a4628d89223b1f403e18624bff98",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/A2/active-room.json": "4bce5c1e05ffe1c370007116dbd5e769537628b7f9640b70f7235dcacf69a428",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/139-emulator.log": "21a07cfb23235199424b8fc467950ee4964b526bcea98f7f8d0a1d2c6d1d2086",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/140-affinity-apply.json": "f2114f553f04c74f5c2ad073578b1d7b8124ec9fec887169cc482b3f3db7365e",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/141-affinity-verify.json": "4c9e8dddebf384da6dc83adc1dea2e4a004b3b2528609f10ae09685a56e10da8",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/142-native-runtime-before-proof.json": "30200e21b0b36d0b49d356b7ecf860739a013d38499dd76c8c1a4ead5599e8b4",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/143-native-runtime-proof.json": "f4e3ba229dc00d4914027eee2c40c1455ac8aea60026ea13d65725b18810603d",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/144-native-boot-before.json": "d02eba0e9ee3d85337b368c0c79ab68456ae5242ddbe15b5aae39e7b241043d7",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/145-native-boot-after.json": "d02eba0e9ee3d85337b368c0c79ab68456ae5242ddbe15b5aae39e7b241043d7",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/146-native-memory-affinity-before.json": "d7b55c146cfa3c6602dc78918d94eb31bb294747e539153767ef35174a0b1ff4",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/147-native-memory-affinity-after.json": "20da2a1e626b7e9cddec808b601c89df0ca80d36aaba3e286b763816fd5e5bf5",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/148-browser-phase-result.json": "ad35533be8243e395e1d6f8d56d83ff5bca44aeed8bb9acfdf6892da595756f6",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/149-phase-clock.json": "0963261f1a446b54998e96e821badb72663e9697d38ef5b755b2f13d21a373f6",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/150-phase-events.jsonl": "b9ba2d4eee4ebbe0325ea04a98f7deaf8dd7a969d854a3628a332fb7f2ec83c8",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/151-phase-exit.json": "eb1d6edf3d18b9cdaea061bccdcdc0960d8ecd5b1dc8214abc5848de95a5bcaf",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/152-browser-before.json": "f94120542ff3d35449af4b27273a441115c0a490feb47aa9ed564e3763530ac3",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/153-browser-after.json": "9bfa433431b5943543b0bfffc66a5d52c7de75117e6849926ea80931f0168c87",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/154-browser-cpu-before.json": "e9a677b5c41ca42cd771d323b22bdf39f46bdd597c8189fa84d8bb14babb4cdb",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/155-browser-cpu-after.json": "ed2cf62e679835b67588c78a5b32017d0c74be0b44e2b5b0119e6dd3dac87495",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/156-qualification-watchdog.json": "e7d8a37e720097e6826ba6d362a8a4fe2d1b8a451a1d92a92f136aaf2879977a",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/157-seed-copy-proof.json": "aa3eddcafd99a2bde30892ad1886fc966f357f394cc6bbe831fbde91b372cfce",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/158-loaded-check.png": "93a0c104a6202d2e016580c4727b222b773fd64adb55b820d9236db0bfd9e8f1",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/159-phase-before.png": "29ad1faf608919c5a89f42107cf07397ef3541706034456a695a21fd0a56e131",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/160-phase-middle.png": "deb14f5ac4202160f083e2aeb03c61edfe4c5cb0f69ed946121159282636ec70",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/161-phase-after.png": "d36a835147aca9016f1494c3b0839b55df9baf60a476b6f3ace6ace018fbed03",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/B2/cleanup.json": "3698e632578299b4a1710d0f91ff973efce766a0058f457a758cf25ff708d968",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/B2/visual-review.json": "0a6fc02819aa08128337fa43e9d6cd8028756625dfb24ed788aab1bf8ea37c05",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/B2/prephase-review.json": "a4b0a93ad272538bb560d7818e53a9b2564ca272ec24a677f2d856c859898051",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/B2/active-room.json": "544d4a5de1786d83855c43475df139dc86825c1626137d87e90b374a6c2e2a35",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/162-emulator.log": "6dfc7c27e8e65585b75d0f90d2e037f55c9b12c9f28100f4ea9a3640c5071a5f",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/163-affinity-apply.json": "28627df9e642f5fda4c6854fb7fdd8d13bfced269f69686bd92adab36c053c9b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/164-affinity-verify.json": "e8b384fc982a3a14646fefdc1bfaefa901b1f1c0d1987c4c1f35f8078bb74ae8",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/165-native-runtime-before-proof.json": "b15d6bc3582d4776bb28825d58f4d2e92c89917b13b6b22991c3d891337568e3",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/166-native-runtime-proof.json": "350e2ee9925104d3162e7f47024e14c359024f02b622261ea2ccb7f218126e27",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/167-native-boot-before.json": "a04bb0593e59633b58edf463353e178531305b12c66b18e08515ae31f71b2873",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/168-native-boot-after.json": "a04bb0593e59633b58edf463353e178531305b12c66b18e08515ae31f71b2873",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/169-native-memory-affinity-before.json": "4540b5e1648fdbbca32b0b9a029bec1f403efb0b1157d5fa1623934f90a03cb1",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/170-native-memory-affinity-after.json": "e4e4398e4bc75cb4532f7b99a6e8a17b4bea6eb1f850e7de0d3668f2adb2b682",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/171-browser-phase-result.json": "75a83f611a94a282f3730c1ce4d55e40cfda12defb462679a1f41b7ed7d57314",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/172-phase-clock.json": "603385c19b8b4dbca580c6846e7946b4957d059197c9f7eb7d2bb5526702eb19",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/173-phase-events.jsonl": "ae705399a86c9f205f2f5186434f9d35d7e28159de656f69415e1e8afcf65783",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/174-phase-exit.json": "6ac5e8214990dc0a5d74832adaee257b9fecc02667a4e0d608c7af7ec5916993",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/175-browser-before.json": "3a0c350c3fe9858e68191bc8ba7fb51742a5b64d7b18ee4aab2b75d2a20324f1",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/176-browser-after.json": "b1fd836790d09b03060dd2a73e9d7fec9b60de8a73bef7330df631133a5a216d",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/177-browser-cpu-before.json": "cce13912164bcb9f334a4bde6290f44b1d365525946354e4319fe5be06ae55bb",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/178-browser-cpu-after.json": "d67394c11beff5f12f4c4e5cd84acc6ec1d0146ef3170673f70177809f663694",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/179-qualification-watchdog.json": "386f55930aaff109d8a7cd990a41ea560a42f364cd0e211af557cea48b7934b5",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/180-seed-copy-proof.json": "39204c104b3eefe23b5641302211daa893ff814838c0722723a77a34af56358c",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/181-loaded-check.png": "18c553b5bf364659181f496bef9fe31c662330341b29faa3adc2732ff69ba2df",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/182-phase-before.png": "c095856a755c6fcfad24fcce60527c1d02b4402c47c1f0cb5830f479adb8510e",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/183-phase-middle.png": "ebb3b8697294cecd1437cd5ebc65d1a81d922df1f7e4ec8ca5f8eb13c96fab5b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/184-phase-after.png": "c50497ff6379be6b88e66bb8c581b7f946b522697654bcba77eb981fcb63c8e2",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/000-cache-load.py": "b2f4d08198082a583e2129e2deacbedb63c4a245975973f757e9061d0af9a394",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/001-seeds.json": "7fafcda2073b4264e05ee03e5fa9f9435ad20f98d2c076c8176dce8e432bd6d2",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/002-route-control.mjs": "6793d9939f9ec6835d11c96bc5c98312dd6f3c8d6116da6759a17d04e42ab8cb",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/003-record-runtime.py": "c49bedceb1d04a4eda9e9be1663a8cd5ab21326cf4eb26d426c24da81bf99674",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/004-finish-room.py": "2b9e94c4070882b98d4ca28f671215775ca222ae9ac8b4979bca7f7144954153",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/005-test-route-control.mjs": "468760a6a67a45f1c4bc8d887d083371d9af9ab2de5883fdbd9c0930e400e364",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/006-tests.json": "eff1ea859ca237c9e5d7214433694513614fa4e86152e115146491b3c883a0d6",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/007-verify-seed-copy.py": "9ca3d9bed6a98dd683f20499e13f8ab913c46667d4ebeb9e21210fc9435a9081",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/008-session.py": "81ac8e355736d66735ecba7383e9f7a5169551fbeb339e77afa163e65b445472",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/009-browser-route.mjs": "174a49f9fca8a455b1ce45c2d956a33a4e3e2e0b85949977818020d626205c43",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/010-scene.py": "4c7b73822fc9d322cb0d643bb8e5acd98701adfb507909ee2cf6b58904e64987",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/011-policy.json": "0f0b80883f4c71d63ec6224e1d838c75077ecd2642e7000dd85bd7d23cbb0843",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/012-auto.mjs": "3bb2226829b808826c596d202ae362f56cd8450b03b413403d39bdd825e224fd",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/013-contact-sheet.py": "068e096aeb78137228bd1cc4a7bd182ca85b413abf41e0ce9c64dde784f1408b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/014-tests.json": "422dd1159e239ea69ecdb8a331c5d44fab7c828805b7a2e2dc87808af2da31d0",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/015-runtime.py": "4d366001a73905631e4d9573cfc9b43cba4dd8ec08a73d3a28164d0c35907479",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/016-room-private.mjs": "230ef356cd20f5b1bfa834cf796489a055c6794779dccad99d9dfb7c861dd0ee",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/017-cpu-snapshot.py": "c4af93244fcff197258e32a75a17dc7e8f096a5dec7cef677dde2db40c7f2caf",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/018-browser-preview.mjs": "4d596531896bdb559277f62e192ae457a4ebb52a253a6a81b23db799918bed33",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/019-package-manifest.json": "6fb7e65ade6b8630264c17e1d8d1f9f4c9ef9ab6622e36f596a3c19c5f5b87b3",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/020-browser-action.mjs": "002f14b20a3dfe343997162d95e8538c02a5d5ec4c303c2f046e33b61d82b9e8",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/021-browser-observation.mjs": "86b22d03cfc6ee5ab39c0cd3294420d0e0829f2c00a93e5d564c1d4f8d9a08f1",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/022-browser-neutral.mjs": "2c01daa26fb798b5bb169642de9477314168f3036cdc1256f02c2d45296e6ff8",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/023-watchdog-stop.mjs": "ad97b259f340edd39804accafc9700b0e68c141b258b4d67e7ab0db916a9b4a0",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/024-phase-control.mjs": "beed6d24d12522c7c4a6e629135d1e7ced0bdac020ee179f327aa3a15123f319",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/025-browser-phase.mjs": "a6516a00483218ddd1e2c754e25c89cacab4f9df5485a0c87771e065a050f3d9",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/026-watchdog.py": "c2436da2cefa131569d4477a578f28ab45180e32418fe3a520667fa60ee1f771",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/027-analyze.py": "abbe98989fe0a4f56a8f016eafe737f14595d7b6204a0cc0dacb77dbd806016a",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/028-controls_equivalence.py": "35ddf5692641edd8c8a69d2aa59f3ca5318cea366c9ccb6c3775b34bcbad32d4",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/029-launch-phase.py": "574f11668961591e023c6a11d7e423664016822964ddcc35e178c58ce4e35c27",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/030-plan.json": "ccae5dac9df633371c5c245dccff76fde13e0ad6caa4469d96f18c4cb022707e",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/031-runtime.py": "4d366001a73905631e4d9573cfc9b43cba4dd8ec08a73d3a28164d0c35907479",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/032-room-private.mjs": "0c1795722bece2603b9d35a248ef6c46a5af5e67e1e5fb0ba91e0e60f4c71171",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/033-cpu-snapshot.py": "c4af93244fcff197258e32a75a17dc7e8f096a5dec7cef677dde2db40c7f2caf",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/034-browser-preview.mjs": "75c8feea58a4ba1c413c7614822e7d07a20e0aa45c9f8e8535b0e757aefb342e",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/035-package-manifest.json": "6fb7e65ade6b8630264c17e1d8d1f9f4c9ef9ab6622e36f596a3c19c5f5b87b3",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/036-browser-action.mjs": "002f14b20a3dfe343997162d95e8538c02a5d5ec4c303c2f046e33b61d82b9e8",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/037-browser-observation.mjs": "86b22d03cfc6ee5ab39c0cd3294420d0e0829f2c00a93e5d564c1d4f8d9a08f1",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/038-browser-neutral.mjs": "2c01daa26fb798b5bb169642de9477314168f3036cdc1256f02c2d45296e6ff8",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/039-watchdog-stop.mjs": "ad97b259f340edd39804accafc9700b0e68c141b258b4d67e7ab0db916a9b4a0",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/040-phase-control.mjs": "beed6d24d12522c7c4a6e629135d1e7ced0bdac020ee179f327aa3a15123f319",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/041-browser-phase.mjs": "a6516a00483218ddd1e2c754e25c89cacab4f9df5485a0c87771e065a050f3d9",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/042-watchdog.py": "c2436da2cefa131569d4477a578f28ab45180e32418fe3a520667fa60ee1f771",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/043-analyze.py": "abbe98989fe0a4f56a8f016eafe737f14595d7b6204a0cc0dacb77dbd806016a",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/044-controls_equivalence.py": "35ddf5692641edd8c8a69d2aa59f3ca5318cea366c9ccb6c3775b34bcbad32d4",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/045-launch-phase.py": "574f11668961591e023c6a11d7e423664016822964ddcc35e178c58ce4e35c27",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/046-plan.json": "68edfe97c215d7e5723e67853275ff1ec9a142f45e0dd3d67db9c1f92cbdc19c",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/047-runtime.py": "4d366001a73905631e4d9573cfc9b43cba4dd8ec08a73d3a28164d0c35907479",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/048-room-private.mjs": "e4e9bab8dfad25cd4412d2489a44803890f95ef887eca53f0864cca82602f153",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/049-cpu-snapshot.py": "c4af93244fcff197258e32a75a17dc7e8f096a5dec7cef677dde2db40c7f2caf",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/050-browser-preview.mjs": "250cc51b34c01c9b2a87ea2306c606b366feabd1048b12234a3bda0d3ceb7c54",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/051-package-manifest.json": "6fb7e65ade6b8630264c17e1d8d1f9f4c9ef9ab6622e36f596a3c19c5f5b87b3",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/052-browser-action.mjs": "002f14b20a3dfe343997162d95e8538c02a5d5ec4c303c2f046e33b61d82b9e8",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/053-browser-observation.mjs": "86b22d03cfc6ee5ab39c0cd3294420d0e0829f2c00a93e5d564c1d4f8d9a08f1",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/054-browser-neutral.mjs": "2c01daa26fb798b5bb169642de9477314168f3036cdc1256f02c2d45296e6ff8",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/055-watchdog-stop.mjs": "ad97b259f340edd39804accafc9700b0e68c141b258b4d67e7ab0db916a9b4a0",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/056-phase-control.mjs": "beed6d24d12522c7c4a6e629135d1e7ced0bdac020ee179f327aa3a15123f319",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/057-browser-phase.mjs": "a6516a00483218ddd1e2c754e25c89cacab4f9df5485a0c87771e065a050f3d9",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/058-watchdog.py": "c2436da2cefa131569d4477a578f28ab45180e32418fe3a520667fa60ee1f771",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/059-analyze.py": "abbe98989fe0a4f56a8f016eafe737f14595d7b6204a0cc0dacb77dbd806016a",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/060-controls_equivalence.py": "35ddf5692641edd8c8a69d2aa59f3ca5318cea366c9ccb6c3775b34bcbad32d4",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/061-launch-phase.py": "574f11668961591e023c6a11d7e423664016822964ddcc35e178c58ce4e35c27",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/062-plan.json": "9474ed88079d72947ff32e185b89b060bbb3c0241e3b3cedf2f27ccc40952906",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/063-runtime.py": "4d366001a73905631e4d9573cfc9b43cba4dd8ec08a73d3a28164d0c35907479",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/064-room-private.mjs": "9b8b98ccd173075ade74854888e53c80053c884f91fc2110dbaa0aae9ab9c21e",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/065-cpu-snapshot.py": "c4af93244fcff197258e32a75a17dc7e8f096a5dec7cef677dde2db40c7f2caf",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/066-browser-preview.mjs": "4ca4c83ef06a80b753e7f182d943e83f723f20da2cf4b7ecb4033a5918cbe87e",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/067-package-manifest.json": "6fb7e65ade6b8630264c17e1d8d1f9f4c9ef9ab6622e36f596a3c19c5f5b87b3",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/068-browser-action.mjs": "002f14b20a3dfe343997162d95e8538c02a5d5ec4c303c2f046e33b61d82b9e8",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/069-browser-observation.mjs": "86b22d03cfc6ee5ab39c0cd3294420d0e0829f2c00a93e5d564c1d4f8d9a08f1",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/070-browser-neutral.mjs": "2c01daa26fb798b5bb169642de9477314168f3036cdc1256f02c2d45296e6ff8",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/071-watchdog-stop.mjs": "ad97b259f340edd39804accafc9700b0e68c141b258b4d67e7ab0db916a9b4a0",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/072-phase-control.mjs": "beed6d24d12522c7c4a6e629135d1e7ced0bdac020ee179f327aa3a15123f319",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/073-browser-phase.mjs": "a6516a00483218ddd1e2c754e25c89cacab4f9df5485a0c87771e065a050f3d9",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/074-watchdog.py": "c2436da2cefa131569d4477a578f28ab45180e32418fe3a520667fa60ee1f771",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/075-analyze.py": "abbe98989fe0a4f56a8f016eafe737f14595d7b6204a0cc0dacb77dbd806016a",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/076-controls_equivalence.py": "35ddf5692641edd8c8a69d2aa59f3ca5318cea366c9ccb6c3775b34bcbad32d4",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/077-launch-phase.py": "574f11668961591e023c6a11d7e423664016822964ddcc35e178c58ce4e35c27",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/078-plan.json": "9302d8ae7156b06d326584ae0be9128e21bcd173d9a9cefc1bc4d7593188978a",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/079-contact.py": "26d80b31c6e5ed888bf79ab02e7665d7931905dab17d6724ca33c2e2d9bfad87",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/080-affinity.py": "85e6662ee9a6d216e1ced0bb2b51861267ff14a6b018ece8e4b3d24afb7f54ea",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/081-test-affinity.py": "fc80e52b79a1bf5a1f0709bbb187de3a02a6e4da1ac26956f1d122da5377962d",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/082-affinity-tests.json": "1f24dcbcfe13d2c3e378ff185110e7f06748f33a520bcd13cfe0787d54175969",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/083-test-gpu-watchdog.py": "97197492eacc015b1ec9c798d0e21e265235d369d7c9572208cda7157d03ed27",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/084-watchdog-gpu-tests.json": "d33271f584cbe432db99953fb2e31e038ebb3bf56d18c224acc23301cf1e99eb",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/085-gpu_clients.py": "e0cd242c536c3511308536c1fb9523628d0ece90df6e5d50591c47f99f622f77",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/086-test_gpu_clients.py": "7e3f9b834af269d75f1774bec0161fa0ff6d89179748a09533b3f13077629c5d",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/087-mesh-readiness-20261110.py": "511369c75dd6c88108f54fb87dfb1ed45f0c353543a1f179f6aff43bcf9e0e39",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/088-mesh-readiness-tests-20261110.json": "8abe2fba11f9f56b735cd1f6316c8633550038cc27e4c46aa7d829f3d410a77a",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/089-cache_current_preservation.py": "55192282bca77ac5734d3c8c661ab91a4d813711241e50688991a31c6eac2e9a",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/090-report.json": "ff18fe8a2583d6c1bc06c122584b1ed82e4e1fd1c2a1e472aa90b3e39ee5811c",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/report.json": "9b336b1c4fdf987ba3ddc22d48b7fc8ea9accf9cc20bc5e7f6856b1d366a3f92",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/frozen-inputs/index.json": "294c7e64abfe339350eceb2ad86e0b1ec99574765bc1e02a408ad3e98867f0e2",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/gpu-ownership-validation-20261110/just-result.json": "f813bbff6aa97b632d7a2ea82b2e650e4138fedbacfd5b616c9eff436aa38762",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/gpu-ownership-validation-20261110/just.log": "503b5e6f26f26b64a0d6bd5be43a31f33caf33b15e494f4c62a914307880532f"
+  },
+  "limits": [
+    "Small local terrain, sparse images do not prove unobstructed full90s walking.",
+    "Local decoders remain a shared load, no hardware ceiling inference.",
+    "No unique guest frame, physical scanout, precise AV, larger map or all-freeze qualification.",
+    "Previous route cache series excluded due actual scene mismatch; no pooled result.",
+    "Only full600-return windows inside explicit phase bounds; partial coverage. Quantiles remain per window.",
+    "Native WSI accepted returns are not unique guest frames or physical scanout. Nonzero PCM/scheduled playback is not physical AV sync.",
+    "Target lock on Saria changes camera and its depth-of-field appearance; camera/position drift remains a comparison limit.",
+    "Releasing masks after startup is not proof of every initialization effect of disabling pin_gpu_threads."
+  ]
+}

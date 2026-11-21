@@ -1,0 +1,1979 @@
+{
+  "date": "2026-11-09",
+  "scope": "Single HostTiming diagnostic with Present30, NoSharpening and full compute mesh fallback; no performance comparison.",
+  "host_timing": {
+    "run": "lichii-hosttiming-present30-diagnostic",
+    "host_log_count": 178,
+    "accepted_complete_envelopes": 88,
+    "logger_origin_monotonic_bounds_ns": [
+      2284057740384872,
+      2284058381046328
+    ],
+    "logger_origin_bound_width_ms": 640.661456,
+    "clock_mapping_observed_drift_ns": 1833,
+    "wall_mapping_outward_allowance_ns": 10000000,
+    "phase_monotonic_ns": [
+      2284150552095718,
+      2284241909705285
+    ],
+    "selected_windows": [
+      {
+        "native_log_ns": 94844866000,
+        "waits": 5062,
+        "woken_by_new_events": 2018,
+        "os_sleep_ms_per_second": 979.6,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 102,
+        "wake_max_us": 679,
+        "events": 5581,
+        "event_p50_us": 56,
+        "event_p99_us": 105,
+        "event_max_us": 679,
+        "thread_cpu_percent": 4.5,
+        "conservative_enclosure_monotonic_ns": [
+          2284150584742872,
+          2284153225912328
+        ]
+      },
+      {
+        "native_log_ns": 95845338000,
+        "waits": 4870,
+        "woken_by_new_events": 1870,
+        "os_sleep_ms_per_second": 980.0,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 96,
+        "wake_max_us": 1000,
+        "events": 5538,
+        "event_p50_us": 56,
+        "event_p99_us": 122,
+        "event_max_us": 1001,
+        "thread_cpu_percent": 4.4,
+        "conservative_enclosure_monotonic_ns": [
+          2284151584993872,
+          2284154226384328
+        ]
+      },
+      {
+        "native_log_ns": 96845847000,
+        "waits": 4944,
+        "woken_by_new_events": 1942,
+        "os_sleep_ms_per_second": 981.5,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 94,
+        "wake_max_us": 1671,
+        "events": 5535,
+        "event_p50_us": 56,
+        "event_p99_us": 214,
+        "event_max_us": 1672,
+        "thread_cpu_percent": 4.3,
+        "conservative_enclosure_monotonic_ns": [
+          2284152585250872,
+          2284155226893328
+        ]
+      },
+      {
+        "native_log_ns": 97846335000,
+        "waits": 4954,
+        "woken_by_new_events": 1955,
+        "os_sleep_ms_per_second": 980.3,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 139,
+        "wake_max_us": 1647,
+        "events": 5531,
+        "event_p50_us": 56,
+        "event_p99_us": 173,
+        "event_max_us": 1647,
+        "thread_cpu_percent": 4.1,
+        "conservative_enclosure_monotonic_ns": [
+          2284153585722872,
+          2284156227381328
+        ]
+      },
+      {
+        "native_log_ns": 98846782000,
+        "waits": 4828,
+        "woken_by_new_events": 1843,
+        "os_sleep_ms_per_second": 980.1,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 123,
+        "wake_max_us": 2598,
+        "events": 5562,
+        "event_p50_us": 57,
+        "event_p99_us": 238,
+        "event_max_us": 2599,
+        "thread_cpu_percent": 4.4,
+        "conservative_enclosure_monotonic_ns": [
+          2284154586231872,
+          2284157227828328
+        ]
+      },
+      {
+        "native_log_ns": 99846829000,
+        "waits": 5019,
+        "woken_by_new_events": 2003,
+        "os_sleep_ms_per_second": 979.5,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 114,
+        "wake_max_us": 1207,
+        "events": 5614,
+        "event_p50_us": 56,
+        "event_p99_us": 235,
+        "event_max_us": 1207,
+        "thread_cpu_percent": 4.4,
+        "conservative_enclosure_monotonic_ns": [
+          2284155586719872,
+          2284158227875328
+        ]
+      },
+      {
+        "native_log_ns": 100847325000,
+        "waits": 4577,
+        "woken_by_new_events": 1694,
+        "os_sleep_ms_per_second": 978.9,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 96,
+        "wake_max_us": 953,
+        "events": 5473,
+        "event_p50_us": 57,
+        "event_p99_us": 135,
+        "event_max_us": 1239,
+        "thread_cpu_percent": 4.4,
+        "conservative_enclosure_monotonic_ns": [
+          2284156587166872,
+          2284159228371328
+        ]
+      },
+      {
+        "native_log_ns": 101847739000,
+        "waits": 4554,
+        "woken_by_new_events": 1653,
+        "os_sleep_ms_per_second": 979.5,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 115,
+        "wake_max_us": 1293,
+        "events": 5474,
+        "event_p50_us": 56,
+        "event_p99_us": 194,
+        "event_max_us": 1296,
+        "thread_cpu_percent": 4.2,
+        "conservative_enclosure_monotonic_ns": [
+          2284157587213872,
+          2284160228785328
+        ]
+      },
+      {
+        "native_log_ns": 102847772000,
+        "waits": 4874,
+        "woken_by_new_events": 1901,
+        "os_sleep_ms_per_second": 981.1,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 90,
+        "wake_max_us": 1390,
+        "events": 5513,
+        "event_p50_us": 56,
+        "event_p99_us": 150,
+        "event_max_us": 1391,
+        "thread_cpu_percent": 4.2,
+        "conservative_enclosure_monotonic_ns": [
+          2284158587709872,
+          2284161228818328
+        ]
+      },
+      {
+        "native_log_ns": 103848281000,
+        "waits": 4563,
+        "woken_by_new_events": 1656,
+        "os_sleep_ms_per_second": 978.0,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 88,
+        "wake_max_us": 2174,
+        "events": 5515,
+        "event_p50_us": 57,
+        "event_p99_us": 151,
+        "event_max_us": 2175,
+        "thread_cpu_percent": 4.5,
+        "conservative_enclosure_monotonic_ns": [
+          2284159588123872,
+          2284162229327328
+        ]
+      },
+      {
+        "native_log_ns": 104848257000,
+        "waits": 4612,
+        "woken_by_new_events": 1708,
+        "os_sleep_ms_per_second": 981.2,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 133,
+        "wake_max_us": 1177,
+        "events": 5428,
+        "event_p50_us": 56,
+        "event_p99_us": 180,
+        "event_max_us": 1179,
+        "thread_cpu_percent": 4.1,
+        "conservative_enclosure_monotonic_ns": [
+          2284160588156872,
+          2284163229303328
+        ]
+      },
+      {
+        "native_log_ns": 105848251000,
+        "waits": 4633,
+        "woken_by_new_events": 1729,
+        "os_sleep_ms_per_second": 980.4,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 90,
+        "wake_max_us": 1319,
+        "events": 5457,
+        "event_p50_us": 56,
+        "event_p99_us": 106,
+        "event_max_us": 1319,
+        "thread_cpu_percent": 4.3,
+        "conservative_enclosure_monotonic_ns": [
+          2284161588665872,
+          2284164229297328
+        ]
+      },
+      {
+        "native_log_ns": 106848725000,
+        "waits": 4677,
+        "woken_by_new_events": 1783,
+        "os_sleep_ms_per_second": 979.4,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 95,
+        "wake_max_us": 1663,
+        "events": 5461,
+        "event_p50_us": 57,
+        "event_p99_us": 227,
+        "event_max_us": 1664,
+        "thread_cpu_percent": 4.3,
+        "conservative_enclosure_monotonic_ns": [
+          2284162588641872,
+          2284165229771328
+        ]
+      },
+      {
+        "native_log_ns": 107848682000,
+        "waits": 4653,
+        "woken_by_new_events": 1727,
+        "os_sleep_ms_per_second": 981.9,
+        "wait_for_ms_per_second": 0.2,
+        "wake_p50_us": 56,
+        "wake_p99_us": 87,
+        "wake_max_us": 1387,
+        "events": 5438,
+        "event_p50_us": 56,
+        "event_p99_us": 126,
+        "event_max_us": 1388,
+        "thread_cpu_percent": 4.0,
+        "conservative_enclosure_monotonic_ns": [
+          2284163588635872,
+          2284166229728328
+        ]
+      },
+      {
+        "native_log_ns": 108848659000,
+        "waits": 4696,
+        "woken_by_new_events": 1755,
+        "os_sleep_ms_per_second": 978.5,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 90,
+        "wake_max_us": 1343,
+        "events": 5500,
+        "event_p50_us": 56,
+        "event_p99_us": 120,
+        "event_max_us": 1694,
+        "thread_cpu_percent": 4.4,
+        "conservative_enclosure_monotonic_ns": [
+          2284164589109872,
+          2284167229705328
+        ]
+      },
+      {
+        "native_log_ns": 109848705000,
+        "waits": 4604,
+        "woken_by_new_events": 1684,
+        "os_sleep_ms_per_second": 979.8,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 107,
+        "wake_max_us": 869,
+        "events": 5449,
+        "event_p50_us": 57,
+        "event_p99_us": 223,
+        "event_max_us": 1217,
+        "thread_cpu_percent": 4.3,
+        "conservative_enclosure_monotonic_ns": [
+          2284165589066872,
+          2284168229751328
+        ]
+      },
+      {
+        "native_log_ns": 110849191000,
+        "waits": 4461,
+        "woken_by_new_events": 1600,
+        "os_sleep_ms_per_second": 979.2,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 113,
+        "wake_max_us": 1557,
+        "events": 5444,
+        "event_p50_us": 57,
+        "event_p99_us": 199,
+        "event_max_us": 1560,
+        "thread_cpu_percent": 4.4,
+        "conservative_enclosure_monotonic_ns": [
+          2284166589043872,
+          2284169230237328
+        ]
+      },
+      {
+        "native_log_ns": 111849642000,
+        "waits": 4558,
+        "woken_by_new_events": 1670,
+        "os_sleep_ms_per_second": 980.0,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 112,
+        "wake_max_us": 1779,
+        "events": 5434,
+        "event_p50_us": 57,
+        "event_p99_us": 188,
+        "event_max_us": 1781,
+        "thread_cpu_percent": 4.2,
+        "conservative_enclosure_monotonic_ns": [
+          2284167589089872,
+          2284170230688328
+        ]
+      },
+      {
+        "native_log_ns": 112849691000,
+        "waits": 4372,
+        "woken_by_new_events": 1524,
+        "os_sleep_ms_per_second": 977.6,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 57,
+        "wake_p99_us": 93,
+        "wake_max_us": 1467,
+        "events": 5412,
+        "event_p50_us": 57,
+        "event_p99_us": 116,
+        "event_max_us": 1475,
+        "thread_cpu_percent": 4.6,
+        "conservative_enclosure_monotonic_ns": [
+          2284168589575872,
+          2284171230737328
+        ]
+      },
+      {
+        "native_log_ns": 113850123000,
+        "waits": 4613,
+        "woken_by_new_events": 1705,
+        "os_sleep_ms_per_second": 979.1,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 88,
+        "wake_max_us": 756,
+        "events": 5462,
+        "event_p50_us": 56,
+        "event_p99_us": 139,
+        "event_max_us": 1526,
+        "thread_cpu_percent": 4.4,
+        "conservative_enclosure_monotonic_ns": [
+          2284169590026872,
+          2284172231169328
+        ]
+      },
+      {
+        "native_log_ns": 114850507000,
+        "waits": 4512,
+        "woken_by_new_events": 1612,
+        "os_sleep_ms_per_second": 979.9,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 197,
+        "wake_max_us": 2724,
+        "events": 5453,
+        "event_p50_us": 56,
+        "event_p99_us": 347,
+        "event_max_us": 2725,
+        "thread_cpu_percent": 4.3,
+        "conservative_enclosure_monotonic_ns": [
+          2284170590075872,
+          2284173231553328
+        ]
+      },
+      {
+        "native_log_ns": 115850429000,
+        "waits": 4667,
+        "woken_by_new_events": 1725,
+        "os_sleep_ms_per_second": 978.8,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 88,
+        "wake_max_us": 585,
+        "events": 5482,
+        "event_p50_us": 56,
+        "event_p99_us": 94,
+        "event_max_us": 893,
+        "thread_cpu_percent": 4.5,
+        "conservative_enclosure_monotonic_ns": [
+          2284171590507872,
+          2284174231475328
+        ]
+      },
+      {
+        "native_log_ns": 116850464000,
+        "waits": 4738,
+        "woken_by_new_events": 1798,
+        "os_sleep_ms_per_second": 977.3,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 115,
+        "wake_max_us": 1984,
+        "events": 5520,
+        "event_p50_us": 57,
+        "event_p99_us": 464,
+        "event_max_us": 1985,
+        "thread_cpu_percent": 4.6,
+        "conservative_enclosure_monotonic_ns": [
+          2284172590891872,
+          2284175231510328
+        ]
+      },
+      {
+        "native_log_ns": 117850525000,
+        "waits": 4533,
+        "woken_by_new_events": 1637,
+        "os_sleep_ms_per_second": 979.9,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 97,
+        "wake_max_us": 818,
+        "events": 5433,
+        "event_p50_us": 56,
+        "event_p99_us": 128,
+        "event_max_us": 819,
+        "thread_cpu_percent": 4.3,
+        "conservative_enclosure_monotonic_ns": [
+          2284173590813872,
+          2284176231571328
+        ]
+      },
+      {
+        "native_log_ns": 118850506000,
+        "waits": 4623,
+        "woken_by_new_events": 1713,
+        "os_sleep_ms_per_second": 982.6,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 143,
+        "wake_max_us": 1457,
+        "events": 5414,
+        "event_p50_us": 56,
+        "event_p99_us": 231,
+        "event_max_us": 1468,
+        "thread_cpu_percent": 3.9,
+        "conservative_enclosure_monotonic_ns": [
+          2284174590848872,
+          2284177231552328
+        ]
+      },
+      {
+        "native_log_ns": 119850524000,
+        "waits": 4557,
+        "woken_by_new_events": 1679,
+        "os_sleep_ms_per_second": 979.8,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 131,
+        "wake_max_us": 2304,
+        "events": 5456,
+        "event_p50_us": 57,
+        "event_p99_us": 194,
+        "event_max_us": 2307,
+        "thread_cpu_percent": 4.3,
+        "conservative_enclosure_monotonic_ns": [
+          2284175590909872,
+          2284178231570328
+        ]
+      },
+      {
+        "native_log_ns": 120851041000,
+        "waits": 4683,
+        "woken_by_new_events": 1683,
+        "os_sleep_ms_per_second": 981.3,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 123,
+        "wake_max_us": 1611,
+        "events": 5435,
+        "event_p50_us": 56,
+        "event_p99_us": 167,
+        "event_max_us": 1613,
+        "thread_cpu_percent": 4.2,
+        "conservative_enclosure_monotonic_ns": [
+          2284176590890872,
+          2284179232087328
+        ]
+      },
+      {
+        "native_log_ns": 121851028000,
+        "waits": 4925,
+        "woken_by_new_events": 1772,
+        "os_sleep_ms_per_second": 979.8,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 91,
+        "wake_max_us": 1138,
+        "events": 5488,
+        "event_p50_us": 56,
+        "event_p99_us": 119,
+        "event_max_us": 1142,
+        "thread_cpu_percent": 4.5,
+        "conservative_enclosure_monotonic_ns": [
+          2284177590908872,
+          2284180232074328
+        ]
+      },
+      {
+        "native_log_ns": 122851503000,
+        "waits": 4978,
+        "woken_by_new_events": 1840,
+        "os_sleep_ms_per_second": 978.8,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 92,
+        "wake_max_us": 2002,
+        "events": 5546,
+        "event_p50_us": 56,
+        "event_p99_us": 211,
+        "event_max_us": 2004,
+        "thread_cpu_percent": 4.5,
+        "conservative_enclosure_monotonic_ns": [
+          2284178591425872,
+          2284181232549328
+        ]
+      },
+      {
+        "native_log_ns": 123851507000,
+        "waits": 4838,
+        "woken_by_new_events": 1858,
+        "os_sleep_ms_per_second": 979.4,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 105,
+        "wake_max_us": 2279,
+        "events": 5521,
+        "event_p50_us": 56,
+        "event_p99_us": 240,
+        "event_max_us": 2282,
+        "thread_cpu_percent": 4.4,
+        "conservative_enclosure_monotonic_ns": [
+          2284179591412872,
+          2284182232553328
+        ]
+      },
+      {
+        "native_log_ns": 124851494000,
+        "waits": 4516,
+        "woken_by_new_events": 1617,
+        "os_sleep_ms_per_second": 976.8,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 55,
+        "wake_p99_us": 86,
+        "wake_max_us": 718,
+        "events": 5483,
+        "event_p50_us": 56,
+        "event_p99_us": 91,
+        "event_max_us": 2103,
+        "thread_cpu_percent": 4.7,
+        "conservative_enclosure_monotonic_ns": [
+          2284180591887872,
+          2284183232540328
+        ]
+      },
+      {
+        "native_log_ns": 125852000000,
+        "waits": 4583,
+        "woken_by_new_events": 1662,
+        "os_sleep_ms_per_second": 979.4,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 55,
+        "wake_p99_us": 88,
+        "wake_max_us": 1629,
+        "events": 5440,
+        "event_p50_us": 56,
+        "event_p99_us": 110,
+        "event_max_us": 1631,
+        "thread_cpu_percent": 4.5,
+        "conservative_enclosure_monotonic_ns": [
+          2284181591891872,
+          2284184233046328
+        ]
+      },
+      {
+        "native_log_ns": 126851982000,
+        "waits": 4632,
+        "woken_by_new_events": 1709,
+        "os_sleep_ms_per_second": 979.9,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 55,
+        "wake_p99_us": 102,
+        "wake_max_us": 1347,
+        "events": 5445,
+        "event_p50_us": 56,
+        "event_p99_us": 156,
+        "event_max_us": 1349,
+        "thread_cpu_percent": 4.4,
+        "conservative_enclosure_monotonic_ns": [
+          2284182591878872,
+          2284185233028328
+        ]
+      },
+      {
+        "native_log_ns": 127852434000,
+        "waits": 4733,
+        "woken_by_new_events": 1780,
+        "os_sleep_ms_per_second": 980.1,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 55,
+        "wake_p99_us": 85,
+        "wake_max_us": 1848,
+        "events": 5499,
+        "event_p50_us": 56,
+        "event_p99_us": 94,
+        "event_max_us": 1850,
+        "thread_cpu_percent": 4.4,
+        "conservative_enclosure_monotonic_ns": [
+          2284183592384872,
+          2284186233480328
+        ]
+      },
+      {
+        "native_log_ns": 128852447000,
+        "waits": 4537,
+        "woken_by_new_events": 1624,
+        "os_sleep_ms_per_second": 979.7,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 107,
+        "wake_max_us": 2070,
+        "events": 5427,
+        "event_p50_us": 57,
+        "event_p99_us": 159,
+        "event_max_us": 2071,
+        "thread_cpu_percent": 4.4,
+        "conservative_enclosure_monotonic_ns": [
+          2284184592366872,
+          2284187233493328
+        ]
+      },
+      {
+        "native_log_ns": 129852949000,
+        "waits": 4701,
+        "woken_by_new_events": 1737,
+        "os_sleep_ms_per_second": 979.4,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 136,
+        "wake_max_us": 1082,
+        "events": 5491,
+        "event_p50_us": 57,
+        "event_p99_us": 230,
+        "event_max_us": 1082,
+        "thread_cpu_percent": 4.5,
+        "conservative_enclosure_monotonic_ns": [
+          2284185592818872,
+          2284188233995328
+        ]
+      },
+      {
+        "native_log_ns": 130853687000,
+        "waits": 4569,
+        "woken_by_new_events": 1665,
+        "os_sleep_ms_per_second": 979.7,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 115,
+        "wake_max_us": 2004,
+        "events": 5486,
+        "event_p50_us": 56,
+        "event_p99_us": 183,
+        "event_max_us": 2007,
+        "thread_cpu_percent": 4.2,
+        "conservative_enclosure_monotonic_ns": [
+          2284186592831872,
+          2284189234733328
+        ]
+      },
+      {
+        "native_log_ns": 131853913000,
+        "waits": 4855,
+        "woken_by_new_events": 1862,
+        "os_sleep_ms_per_second": 981.7,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 101,
+        "wake_max_us": 1629,
+        "events": 5482,
+        "event_p50_us": 56,
+        "event_p99_us": 187,
+        "event_max_us": 1636,
+        "thread_cpu_percent": 4.0,
+        "conservative_enclosure_monotonic_ns": [
+          2284187593333872,
+          2284190234959328
+        ]
+      },
+      {
+        "native_log_ns": 132854373000,
+        "waits": 4691,
+        "woken_by_new_events": 1758,
+        "os_sleep_ms_per_second": 978.0,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 98,
+        "wake_max_us": 1282,
+        "events": 5495,
+        "event_p50_us": 57,
+        "event_p99_us": 121,
+        "event_max_us": 1283,
+        "thread_cpu_percent": 4.6,
+        "conservative_enclosure_monotonic_ns": [
+          2284188594071872,
+          2284191235419328
+        ]
+      },
+      {
+        "native_log_ns": 133854440000,
+        "waits": 4538,
+        "woken_by_new_events": 1644,
+        "os_sleep_ms_per_second": 981.4,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 95,
+        "wake_max_us": 1856,
+        "events": 5378,
+        "event_p50_us": 56,
+        "event_p99_us": 183,
+        "event_max_us": 1859,
+        "thread_cpu_percent": 4.1,
+        "conservative_enclosure_monotonic_ns": [
+          2284189594297872,
+          2284192235486328
+        ]
+      },
+      {
+        "native_log_ns": 134854834000,
+        "waits": 4520,
+        "woken_by_new_events": 1635,
+        "os_sleep_ms_per_second": 980.6,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 98,
+        "wake_max_us": 2055,
+        "events": 5418,
+        "event_p50_us": 57,
+        "event_p99_us": 202,
+        "event_max_us": 2056,
+        "thread_cpu_percent": 4.1,
+        "conservative_enclosure_monotonic_ns": [
+          2284190594757872,
+          2284193235880328
+        ]
+      },
+      {
+        "native_log_ns": 135855619000,
+        "waits": 4486,
+        "woken_by_new_events": 1603,
+        "os_sleep_ms_per_second": 978.7,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 57,
+        "wake_p99_us": 95,
+        "wake_max_us": 2076,
+        "events": 5453,
+        "event_p50_us": 57,
+        "event_p99_us": 147,
+        "event_max_us": 2077,
+        "thread_cpu_percent": 4.5,
+        "conservative_enclosure_monotonic_ns": [
+          2284191594824872,
+          2284194236665328
+        ]
+      },
+      {
+        "native_log_ns": 136855867000,
+        "waits": 4583,
+        "woken_by_new_events": 1664,
+        "os_sleep_ms_per_second": 980.5,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 134,
+        "wake_max_us": 1683,
+        "events": 5447,
+        "event_p50_us": 57,
+        "event_p99_us": 233,
+        "event_max_us": 1684,
+        "thread_cpu_percent": 4.3,
+        "conservative_enclosure_monotonic_ns": [
+          2284192595218872,
+          2284195236913328
+        ]
+      },
+      {
+        "native_log_ns": 137855842000,
+        "waits": 4490,
+        "woken_by_new_events": 1615,
+        "os_sleep_ms_per_second": 980.5,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 113,
+        "wake_max_us": 1948,
+        "events": 5419,
+        "event_p50_us": 57,
+        "event_p99_us": 202,
+        "event_max_us": 1949,
+        "thread_cpu_percent": 4.2,
+        "conservative_enclosure_monotonic_ns": [
+          2284193596003872,
+          2284196236888328
+        ]
+      },
+      {
+        "native_log_ns": 138856317000,
+        "waits": 4420,
+        "woken_by_new_events": 1569,
+        "os_sleep_ms_per_second": 979.7,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 119,
+        "wake_max_us": 1432,
+        "events": 5406,
+        "event_p50_us": 57,
+        "event_p99_us": 187,
+        "event_max_us": 1434,
+        "thread_cpu_percent": 4.3,
+        "conservative_enclosure_monotonic_ns": [
+          2284194596251872,
+          2284197237363328
+        ]
+      },
+      {
+        "native_log_ns": 139856831000,
+        "waits": 4537,
+        "woken_by_new_events": 1656,
+        "os_sleep_ms_per_second": 980.8,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 127,
+        "wake_max_us": 1374,
+        "events": 5422,
+        "event_p50_us": 57,
+        "event_p99_us": 219,
+        "event_max_us": 1393,
+        "thread_cpu_percent": 4.2,
+        "conservative_enclosure_monotonic_ns": [
+          2284195596226872,
+          2284198237877328
+        ]
+      },
+      {
+        "native_log_ns": 140857238000,
+        "waits": 4563,
+        "woken_by_new_events": 1649,
+        "os_sleep_ms_per_second": 978.1,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 89,
+        "wake_max_us": 1028,
+        "events": 5514,
+        "event_p50_us": 57,
+        "event_p99_us": 113,
+        "event_max_us": 1030,
+        "thread_cpu_percent": 4.5,
+        "conservative_enclosure_monotonic_ns": [
+          2284196596701872,
+          2284199238284328
+        ]
+      },
+      {
+        "native_log_ns": 141857337000,
+        "waits": 4576,
+        "woken_by_new_events": 1675,
+        "os_sleep_ms_per_second": 979.7,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 131,
+        "wake_max_us": 1168,
+        "events": 5454,
+        "event_p50_us": 57,
+        "event_p99_us": 239,
+        "event_max_us": 1181,
+        "thread_cpu_percent": 4.3,
+        "conservative_enclosure_monotonic_ns": [
+          2284197597215872,
+          2284200238383328
+        ]
+      },
+      {
+        "native_log_ns": 142857308000,
+        "waits": 4737,
+        "woken_by_new_events": 1798,
+        "os_sleep_ms_per_second": 979.7,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 130,
+        "wake_max_us": 682,
+        "events": 5489,
+        "event_p50_us": 57,
+        "event_p99_us": 133,
+        "event_max_us": 682,
+        "thread_cpu_percent": 4.4,
+        "conservative_enclosure_monotonic_ns": [
+          2284198597622872,
+          2284201238354328
+        ]
+      },
+      {
+        "native_log_ns": 143857378000,
+        "waits": 4535,
+        "woken_by_new_events": 1620,
+        "os_sleep_ms_per_second": 979.8,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 98,
+        "wake_max_us": 1760,
+        "events": 5448,
+        "event_p50_us": 57,
+        "event_p99_us": 148,
+        "event_max_us": 1771,
+        "thread_cpu_percent": 4.2,
+        "conservative_enclosure_monotonic_ns": [
+          2284199597721872,
+          2284202238424328
+        ]
+      },
+      {
+        "native_log_ns": 144857327000,
+        "waits": 4823,
+        "woken_by_new_events": 1837,
+        "os_sleep_ms_per_second": 978.6,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 146,
+        "wake_max_us": 1511,
+        "events": 5569,
+        "event_p50_us": 56,
+        "event_p99_us": 284,
+        "event_max_us": 1519,
+        "thread_cpu_percent": 4.5,
+        "conservative_enclosure_monotonic_ns": [
+          2284200597692872,
+          2284203238373328
+        ]
+      },
+      {
+        "native_log_ns": 145857549000,
+        "waits": 4593,
+        "woken_by_new_events": 1703,
+        "os_sleep_ms_per_second": 976.1,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 57,
+        "wake_p99_us": 99,
+        "wake_max_us": 624,
+        "events": 5531,
+        "event_p50_us": 57,
+        "event_p99_us": 137,
+        "event_max_us": 624,
+        "thread_cpu_percent": 4.7,
+        "conservative_enclosure_monotonic_ns": [
+          2284201597762872,
+          2284204238595328
+        ]
+      },
+      {
+        "native_log_ns": 146857728000,
+        "waits": 4643,
+        "woken_by_new_events": 1723,
+        "os_sleep_ms_per_second": 977.7,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 132,
+        "wake_max_us": 1801,
+        "events": 5541,
+        "event_p50_us": 57,
+        "event_p99_us": 307,
+        "event_max_us": 1829,
+        "thread_cpu_percent": 4.5,
+        "conservative_enclosure_monotonic_ns": [
+          2284202597711872,
+          2284205238774328
+        ]
+      },
+      {
+        "native_log_ns": 147857756000,
+        "waits": 4609,
+        "woken_by_new_events": 1701,
+        "os_sleep_ms_per_second": 978.9,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 139,
+        "wake_max_us": 1365,
+        "events": 5493,
+        "event_p50_us": 57,
+        "event_p99_us": 272,
+        "event_max_us": 1366,
+        "thread_cpu_percent": 4.4,
+        "conservative_enclosure_monotonic_ns": [
+          2284203597933872,
+          2284206238802328
+        ]
+      },
+      {
+        "native_log_ns": 148857845000,
+        "waits": 4630,
+        "woken_by_new_events": 1714,
+        "os_sleep_ms_per_second": 982.0,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 79,
+        "wake_max_us": 1340,
+        "events": 5434,
+        "event_p50_us": 56,
+        "event_p99_us": 167,
+        "event_max_us": 1342,
+        "thread_cpu_percent": 3.9,
+        "conservative_enclosure_monotonic_ns": [
+          2284204598112872,
+          2284207238891328
+        ]
+      },
+      {
+        "native_log_ns": 149858166000,
+        "waits": 4601,
+        "woken_by_new_events": 1703,
+        "os_sleep_ms_per_second": 980.9,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 193,
+        "wake_max_us": 2924,
+        "events": 5464,
+        "event_p50_us": 57,
+        "event_p99_us": 538,
+        "event_max_us": 2926,
+        "thread_cpu_percent": 4.1,
+        "conservative_enclosure_monotonic_ns": [
+          2284205598140872,
+          2284208239212328
+        ]
+      },
+      {
+        "native_log_ns": 150858735000,
+        "waits": 4436,
+        "woken_by_new_events": 1597,
+        "os_sleep_ms_per_second": 976.2,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 57,
+        "wake_p99_us": 277,
+        "wake_max_us": 1968,
+        "events": 5489,
+        "event_p50_us": 57,
+        "event_p99_us": 527,
+        "event_max_us": 1969,
+        "thread_cpu_percent": 4.5,
+        "conservative_enclosure_monotonic_ns": [
+          2284206598229872,
+          2284209239781328
+        ]
+      },
+      {
+        "native_log_ns": 151858794000,
+        "waits": 4517,
+        "woken_by_new_events": 1665,
+        "os_sleep_ms_per_second": 977.1,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 57,
+        "wake_p99_us": 340,
+        "wake_max_us": 2115,
+        "events": 5468,
+        "event_p50_us": 57,
+        "event_p99_us": 577,
+        "event_max_us": 2123,
+        "thread_cpu_percent": 4.4,
+        "conservative_enclosure_monotonic_ns": [
+          2284207598550872,
+          2284210239840328
+        ]
+      },
+      {
+        "native_log_ns": 152858797000,
+        "waits": 4601,
+        "woken_by_new_events": 1721,
+        "os_sleep_ms_per_second": 976.1,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 57,
+        "wake_p99_us": 191,
+        "wake_max_us": 2549,
+        "events": 5539,
+        "event_p50_us": 57,
+        "event_p99_us": 309,
+        "event_max_us": 2552,
+        "thread_cpu_percent": 4.7,
+        "conservative_enclosure_monotonic_ns": [
+          2284208599119872,
+          2284211239843328
+        ]
+      },
+      {
+        "native_log_ns": 153859052000,
+        "waits": 4883,
+        "woken_by_new_events": 1914,
+        "os_sleep_ms_per_second": 981.2,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 108,
+        "wake_max_us": 1588,
+        "events": 5547,
+        "event_p50_us": 56,
+        "event_p99_us": 146,
+        "event_max_us": 1589,
+        "thread_cpu_percent": 4.2,
+        "conservative_enclosure_monotonic_ns": [
+          2284209599178872,
+          2284212240098328
+        ]
+      },
+      {
+        "native_log_ns": 154859067000,
+        "waits": 4882,
+        "woken_by_new_events": 1907,
+        "os_sleep_ms_per_second": 980.6,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 89,
+        "wake_max_us": 722,
+        "events": 5498,
+        "event_p50_us": 56,
+        "event_p99_us": 174,
+        "event_max_us": 925,
+        "thread_cpu_percent": 4.0,
+        "conservative_enclosure_monotonic_ns": [
+          2284210599181872,
+          2284213240113328
+        ]
+      },
+      {
+        "native_log_ns": 155859086000,
+        "waits": 4781,
+        "woken_by_new_events": 1825,
+        "os_sleep_ms_per_second": 978.0,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 100,
+        "wake_max_us": 2390,
+        "events": 5561,
+        "event_p50_us": 57,
+        "event_p99_us": 166,
+        "event_max_us": 2391,
+        "thread_cpu_percent": 4.5,
+        "conservative_enclosure_monotonic_ns": [
+          2284211599436872,
+          2284214240132328
+        ]
+      },
+      {
+        "native_log_ns": 156859086000,
+        "waits": 4837,
+        "woken_by_new_events": 1853,
+        "os_sleep_ms_per_second": 979.1,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 112,
+        "wake_max_us": 1899,
+        "events": 5540,
+        "event_p50_us": 57,
+        "event_p99_us": 157,
+        "event_max_us": 1901,
+        "thread_cpu_percent": 4.5,
+        "conservative_enclosure_monotonic_ns": [
+          2284212599451872,
+          2284215240132328
+        ]
+      },
+      {
+        "native_log_ns": 157859583000,
+        "waits": 5274,
+        "woken_by_new_events": 2170,
+        "os_sleep_ms_per_second": 978.0,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 89,
+        "wake_max_us": 792,
+        "events": 5696,
+        "event_p50_us": 57,
+        "event_p99_us": 116,
+        "event_max_us": 793,
+        "thread_cpu_percent": 4.8,
+        "conservative_enclosure_monotonic_ns": [
+          2284213599470872,
+          2284216240629328
+        ]
+      },
+      {
+        "native_log_ns": 158859958000,
+        "waits": 4695,
+        "woken_by_new_events": 1743,
+        "os_sleep_ms_per_second": 981.9,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 109,
+        "wake_max_us": 1203,
+        "events": 5455,
+        "event_p50_us": 56,
+        "event_p99_us": 243,
+        "event_max_us": 1464,
+        "thread_cpu_percent": 4.0,
+        "conservative_enclosure_monotonic_ns": [
+          2284214599470872,
+          2284217241004328
+        ]
+      },
+      {
+        "native_log_ns": 159859936000,
+        "waits": 4447,
+        "woken_by_new_events": 1561,
+        "os_sleep_ms_per_second": 977.4,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 57,
+        "wake_p99_us": 126,
+        "wake_max_us": 1718,
+        "events": 5507,
+        "event_p50_us": 57,
+        "event_p99_us": 194,
+        "event_max_us": 1721,
+        "thread_cpu_percent": 4.5,
+        "conservative_enclosure_monotonic_ns": [
+          2284215599967872,
+          2284218240982328
+        ]
+      },
+      {
+        "native_log_ns": 160860077000,
+        "waits": 4672,
+        "woken_by_new_events": 1734,
+        "os_sleep_ms_per_second": 977.7,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 115,
+        "wake_max_us": 1460,
+        "events": 5499,
+        "event_p50_us": 57,
+        "event_p99_us": 166,
+        "event_max_us": 1461,
+        "thread_cpu_percent": 4.7,
+        "conservative_enclosure_monotonic_ns": [
+          2284216600342872,
+          2284219241123328
+        ]
+      },
+      {
+        "native_log_ns": 161860064000,
+        "waits": 4646,
+        "woken_by_new_events": 1730,
+        "os_sleep_ms_per_second": 977.9,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 124,
+        "wake_max_us": 2694,
+        "events": 5462,
+        "event_p50_us": 57,
+        "event_p99_us": 305,
+        "event_max_us": 2723,
+        "thread_cpu_percent": 4.5,
+        "conservative_enclosure_monotonic_ns": [
+          2284217600320872,
+          2284220241110328
+        ]
+      },
+      {
+        "native_log_ns": 162860575000,
+        "waits": 4744,
+        "woken_by_new_events": 1785,
+        "os_sleep_ms_per_second": 980.1,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 102,
+        "wake_max_us": 1001,
+        "events": 5496,
+        "event_p50_us": 57,
+        "event_p99_us": 155,
+        "event_max_us": 1003,
+        "thread_cpu_percent": 4.4,
+        "conservative_enclosure_monotonic_ns": [
+          2284218600461872,
+          2284221241621328
+        ]
+      },
+      {
+        "native_log_ns": 163861009000,
+        "waits": 4744,
+        "woken_by_new_events": 1770,
+        "os_sleep_ms_per_second": 980.9,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 127,
+        "wake_max_us": 2100,
+        "events": 5479,
+        "event_p50_us": 56,
+        "event_p99_us": 250,
+        "event_max_us": 2109,
+        "thread_cpu_percent": 4.2,
+        "conservative_enclosure_monotonic_ns": [
+          2284219600448872,
+          2284222242055328
+        ]
+      },
+      {
+        "native_log_ns": 164861021000,
+        "waits": 4694,
+        "woken_by_new_events": 1737,
+        "os_sleep_ms_per_second": 979.9,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 118,
+        "wake_max_us": 2024,
+        "events": 5441,
+        "event_p50_us": 56,
+        "event_p99_us": 189,
+        "event_max_us": 2027,
+        "thread_cpu_percent": 4.3,
+        "conservative_enclosure_monotonic_ns": [
+          2284220600959872,
+          2284223242067328
+        ]
+      },
+      {
+        "native_log_ns": 165861420000,
+        "waits": 4550,
+        "woken_by_new_events": 1647,
+        "os_sleep_ms_per_second": 981.0,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 197,
+        "wake_max_us": 2015,
+        "events": 5438,
+        "event_p50_us": 55,
+        "event_p99_us": 310,
+        "event_max_us": 2016,
+        "thread_cpu_percent": 4.1,
+        "conservative_enclosure_monotonic_ns": [
+          2284221601393872,
+          2284224242466328
+        ]
+      },
+      {
+        "native_log_ns": 166861437000,
+        "waits": 4720,
+        "woken_by_new_events": 1766,
+        "os_sleep_ms_per_second": 977.8,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 55,
+        "wake_p99_us": 87,
+        "wake_max_us": 1458,
+        "events": 5495,
+        "event_p50_us": 29,
+        "event_p99_us": 118,
+        "event_max_us": 1463,
+        "thread_cpu_percent": 4.7,
+        "conservative_enclosure_monotonic_ns": [
+          2284222601405872,
+          2284225242483328
+        ]
+      },
+      {
+        "native_log_ns": 167861444000,
+        "waits": 4680,
+        "woken_by_new_events": 1730,
+        "os_sleep_ms_per_second": 979.4,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 55,
+        "wake_p99_us": 83,
+        "wake_max_us": 261,
+        "events": 5460,
+        "event_p50_us": 40,
+        "event_p99_us": 88,
+        "event_max_us": 363,
+        "thread_cpu_percent": 4.6,
+        "conservative_enclosure_monotonic_ns": [
+          2284223601804872,
+          2284226242490328
+        ]
+      },
+      {
+        "native_log_ns": 168861453000,
+        "waits": 4705,
+        "woken_by_new_events": 1753,
+        "os_sleep_ms_per_second": 979.2,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 55,
+        "wake_p99_us": 93,
+        "wake_max_us": 899,
+        "events": 5466,
+        "event_p50_us": 53,
+        "event_p99_us": 98,
+        "event_max_us": 900,
+        "thread_cpu_percent": 4.7,
+        "conservative_enclosure_monotonic_ns": [
+          2284224601821872,
+          2284227242499328
+        ]
+      },
+      {
+        "native_log_ns": 169861446000,
+        "waits": 4592,
+        "woken_by_new_events": 1683,
+        "os_sleep_ms_per_second": 979.4,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 95,
+        "wake_max_us": 390,
+        "events": 5448,
+        "event_p50_us": 56,
+        "event_p99_us": 110,
+        "event_max_us": 571,
+        "thread_cpu_percent": 4.5,
+        "conservative_enclosure_monotonic_ns": [
+          2284225601828872,
+          2284228242492328
+        ]
+      },
+      {
+        "native_log_ns": 170861906000,
+        "waits": 4577,
+        "woken_by_new_events": 1690,
+        "os_sleep_ms_per_second": 977.3,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 57,
+        "wake_p99_us": 180,
+        "wake_max_us": 907,
+        "events": 5440,
+        "event_p50_us": 58,
+        "event_p99_us": 213,
+        "event_max_us": 908,
+        "thread_cpu_percent": 4.8,
+        "conservative_enclosure_monotonic_ns": [
+          2284226601837872,
+          2284229242952328
+        ]
+      },
+      {
+        "native_log_ns": 171862501000,
+        "waits": 4365,
+        "woken_by_new_events": 1531,
+        "os_sleep_ms_per_second": 978.0,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 182,
+        "wake_max_us": 2144,
+        "events": 5402,
+        "event_p50_us": 57,
+        "event_p99_us": 381,
+        "event_max_us": 2145,
+        "thread_cpu_percent": 4.4,
+        "conservative_enclosure_monotonic_ns": [
+          2284227601830872,
+          2284230243547328
+        ]
+      },
+      {
+        "native_log_ns": 172862919000,
+        "waits": 4542,
+        "woken_by_new_events": 1639,
+        "os_sleep_ms_per_second": 979.5,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 105,
+        "wake_max_us": 486,
+        "events": 5426,
+        "event_p50_us": 57,
+        "event_p99_us": 132,
+        "event_max_us": 540,
+        "thread_cpu_percent": 4.5,
+        "conservative_enclosure_monotonic_ns": [
+          2284228602290872,
+          2284231243965328
+        ]
+      },
+      {
+        "native_log_ns": 173863126000,
+        "waits": 4614,
+        "woken_by_new_events": 1678,
+        "os_sleep_ms_per_second": 981.1,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 99,
+        "wake_max_us": 516,
+        "events": 5416,
+        "event_p50_us": 57,
+        "event_p99_us": 109,
+        "event_max_us": 990,
+        "thread_cpu_percent": 4.2,
+        "conservative_enclosure_monotonic_ns": [
+          2284229602885872,
+          2284232244172328
+        ]
+      },
+      {
+        "native_log_ns": 174863379000,
+        "waits": 4534,
+        "woken_by_new_events": 1633,
+        "os_sleep_ms_per_second": 977.5,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 204,
+        "wake_max_us": 2104,
+        "events": 5447,
+        "event_p50_us": 57,
+        "event_p99_us": 355,
+        "event_max_us": 2106,
+        "thread_cpu_percent": 4.3,
+        "conservative_enclosure_monotonic_ns": [
+          2284230603303872,
+          2284233244425328
+        ]
+      },
+      {
+        "native_log_ns": 175863373000,
+        "waits": 4556,
+        "woken_by_new_events": 1643,
+        "os_sleep_ms_per_second": 979.7,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 160,
+        "wake_max_us": 1111,
+        "events": 5439,
+        "event_p50_us": 57,
+        "event_p99_us": 215,
+        "event_max_us": 1112,
+        "thread_cpu_percent": 4.3,
+        "conservative_enclosure_monotonic_ns": [
+          2284231603510872,
+          2284234244419328
+        ]
+      },
+      {
+        "native_log_ns": 176863389000,
+        "waits": 4624,
+        "woken_by_new_events": 1675,
+        "os_sleep_ms_per_second": 979.1,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 157,
+        "wake_max_us": 1058,
+        "events": 5445,
+        "event_p50_us": 57,
+        "event_p99_us": 180,
+        "event_max_us": 1059,
+        "thread_cpu_percent": 4.4,
+        "conservative_enclosure_monotonic_ns": [
+          2284232603763872,
+          2284235244435328
+        ]
+      },
+      {
+        "native_log_ns": 177863468000,
+        "waits": 4673,
+        "woken_by_new_events": 1780,
+        "os_sleep_ms_per_second": 980.8,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 133,
+        "wake_max_us": 2826,
+        "events": 5448,
+        "event_p50_us": 56,
+        "event_p99_us": 194,
+        "event_max_us": 2828,
+        "thread_cpu_percent": 4.2,
+        "conservative_enclosure_monotonic_ns": [
+          2284233603757872,
+          2284236244514328
+        ]
+      },
+      {
+        "native_log_ns": 178863823000,
+        "waits": 4709,
+        "woken_by_new_events": 1760,
+        "os_sleep_ms_per_second": 980.0,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 87,
+        "wake_max_us": 1775,
+        "events": 5473,
+        "event_p50_us": 57,
+        "event_p99_us": 140,
+        "event_max_us": 1776,
+        "thread_cpu_percent": 4.3,
+        "conservative_enclosure_monotonic_ns": [
+          2284234603773872,
+          2284237244869328
+        ]
+      },
+      {
+        "native_log_ns": 179863818000,
+        "waits": 4533,
+        "woken_by_new_events": 1620,
+        "os_sleep_ms_per_second": 978.2,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 114,
+        "wake_max_us": 1853,
+        "events": 5438,
+        "event_p50_us": 57,
+        "event_p99_us": 197,
+        "event_max_us": 1854,
+        "thread_cpu_percent": 4.5,
+        "conservative_enclosure_monotonic_ns": [
+          2284235603852872,
+          2284238244864328
+        ]
+      },
+      {
+        "native_log_ns": 180863901000,
+        "waits": 4766,
+        "woken_by_new_events": 1801,
+        "os_sleep_ms_per_second": 978.3,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 149,
+        "wake_max_us": 656,
+        "events": 5517,
+        "event_p50_us": 57,
+        "event_p99_us": 159,
+        "event_max_us": 656,
+        "thread_cpu_percent": 4.5,
+        "conservative_enclosure_monotonic_ns": [
+          2284236604207872,
+          2284239244947328
+        ]
+      },
+      {
+        "native_log_ns": 181863892000,
+        "waits": 4487,
+        "woken_by_new_events": 1588,
+        "os_sleep_ms_per_second": 979.6,
+        "wait_for_ms_per_second": 0.1,
+        "wake_p50_us": 56,
+        "wake_p99_us": 87,
+        "wake_max_us": 2103,
+        "events": 5431,
+        "event_p50_us": 57,
+        "event_p99_us": 128,
+        "event_max_us": 2104,
+        "thread_cpu_percent": 4.3,
+        "conservative_enclosure_monotonic_ns": [
+          2284237604202872,
+          2284240244938328
+        ]
+      }
+    ],
+    "ranges_of_individual_window_statistics": {
+      "wake_p50_us": [
+        55,
+        57
+      ],
+      "wake_p99_us": [
+        79,
+        340
+      ],
+      "wake_max_us": [
+        261,
+        2924
+      ],
+      "event_p50_us": [
+        29,
+        58
+      ],
+      "event_p99_us": [
+        88,
+        577
+      ],
+      "event_max_us": [
+        363,
+        2926
+      ],
+      "thread_cpu_percent": [
+        3.9,
+        4.8
+      ],
+      "os_sleep_ms_per_second": [
+        976.1,
+        982.6
+      ],
+      "wait_for_ms_per_second": [
+        0.1,
+        0.2
+      ]
+    },
+    "waits_in_selected_windows": 409959,
+    "events_in_selected_windows": 482003,
+    "rejected_negative_tests": [
+      "nonmonotonic",
+      "missing_predecessors",
+      "outside_phase"
+    ],
+    "method": "Logging.cpp405/499: timestamp=steady-now minus loggerorigin. Origin is after launch monotonic and no later than earliest Docker receive minusnativeprefix, after conservative wall mapping. For windowi, start sample precedes logi-1; logi-2 is earlier than that sample, so use logi-2 as lower enclosure and logi as upper. Entire enclosure must fit camera bounds. First2records excluded.",
+    "limits": [
+      "HostTiming global timerthread/allcallbacks, not VI2specific; no causal attribution of presented-frame tails.",
+      "Native windows have no exact printed start/end/duration. Enclosures are conservative bounds, not measured duration; no exact pooledCPU or quantile reconstructed.",
+      "Host stats p50 uses indexn/2,p99 indexn*99/100; differs from PresentStats nearest-rank.",
+      "Vectorpush/allocation, sorts and logging add unmeasured overhead. DKB/GPU_PROFILE absent.",
+      "10ms outward wallmapping margin is much larger than observed calibration drift; cannot mathematically exclude an unobserved transient wallclock jump between endpoints. HostmonotonicPRESENT_STATS windows do not use this mapping."
+    ]
+  },
+  "pacing": {
+    "run": "lichii-hosttiming-present30-diagnostic",
+    "present_limit_activation": {
+      "entries": [
+        [
+          "1",
+          "60",
+          "30",
+          "0x1003c"
+        ]
+      ],
+      "expected_word_from_uncapped_reference": "0x1003c",
+      "reference_run": "lichii-aa-pacing-on1",
+      "config_present_limit": 30,
+      "timer_vsync_hz": 60,
+      "speed_percent": 100,
+      "scope": "Existing present pacing sleeps guest service thread; no game-clock or swap-word override."
+    },
+    "strict_threshold_interpretation": "Integer intervals >33333333ns retained unchanged. A cap around33.333ms can increase this fraction through tiny scheduling jitter; inspect quantile amplitudes, not only strict fraction.",
+    "scope": "Single Present30 +HostTiming diagnostic with NoSharpening1 +MaxResolutionON, not a causal FPS comparison",
+    "activation": {
+      "successful_copy_marker_count": 1,
+      "output_dimensions": [
+        2560,
+        1440
+      ],
+      "source_equals_output_dimensions": "Source KeplerCompute::BypassOotNetwork rejects mismatch before successful copy marker; marker prints output dimensions, not two independent measurements.",
+      "source_anchors": "kepler_compute.cpp1091-1104 and1142-1147",
+      "native_mode": 1,
+      "max_resolution": "ON",
+      "heavy_dispatch_source_unchanged": true
+    },
+    "clock": {
+      "host_time_namespace": "time:[4026531834]",
+      "emulator_time_namespace": "time:[4026531834]",
+      "timens_offsets": "monotonic           0         0\nboottime            0         0\n",
+      "libstdcpp_path": "/usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33",
+      "libstdcpp_sha256": "1fd75fe70354a416d75aef22bcae68c47bd25d20e2d0568c30b1a9838cf62f11",
+      "host_before_ns": 2284135722355136,
+      "container_monotonic_ns": 2284135790756172,
+      "host_after_ns": 2284135797472037,
+      "mapping": "Exact mapped libstdc++ disassembly in pacing-steady-clock-proof.json uses CLOCK_MONOTONIC; no libc++ substitution."
+    },
+    "marker_count": 1,
+    "copy_failed_count": 0,
+    "unexpected_images_count": 0,
+    "camera_seconds": 91.357609567,
+    "preparation_seconds": 92.76790285110474,
+    "complete_windows": [
+      {
+        "intervals": 600,
+        "sum_ns": 20000025253,
+        "p50_ns": 33295515,
+        "p95_ns": 37309588,
+        "p99_ns": 44528819,
+        "max_ns": 51895516,
+        "over30": 281,
+        "over100": 0,
+        "begin_ns": 2284160385342292,
+        "end_ns": 2284180385367545,
+        "legacy_same_window": {
+          "mean_frame_us": 33332,
+          "max_frame_us": 51895,
+          "over100": 0,
+          "mean_fence_us": 0,
+          "max_fence_us": 2,
+          "mean_composite_us": 21,
+          "mean_pacing_us": 28177,
+          "ran_ahead": 135
+        }
+      },
+      {
+        "intervals": 600,
+        "sum_ns": 20004908085,
+        "p50_ns": 33289573,
+        "p95_ns": 41069957,
+        "p99_ns": 45322259,
+        "max_ns": 46501522,
+        "over30": 280,
+        "over100": 0,
+        "begin_ns": 2284180385367545,
+        "end_ns": 2284200390275630,
+        "legacy_same_window": {
+          "mean_frame_us": 33341,
+          "max_frame_us": 46501,
+          "over100": 0,
+          "mean_fence_us": 0,
+          "max_fence_us": 11,
+          "mean_composite_us": 21,
+          "mean_pacing_us": 28415,
+          "ran_ahead": 154
+        }
+      },
+      {
+        "intervals": 600,
+        "sum_ns": 20037238895,
+        "p50_ns": 33226866,
+        "p95_ns": 42646295,
+        "p99_ns": 45128425,
+        "max_ns": 49638630,
+        "over30": 265,
+        "over100": 0,
+        "begin_ns": 2284200390275630,
+        "end_ns": 2284220427514525,
+        "legacy_same_window": {
+          "mean_frame_us": 33394,
+          "max_frame_us": 49638,
+          "over100": 0,
+          "mean_fence_us": 0,
+          "max_fence_us": 10,
+          "mean_composite_us": 22,
+          "mean_pacing_us": 24049,
+          "ran_ahead": 296
+        }
+      },
+      {
+        "intervals": 600,
+        "sum_ns": 19997310577,
+        "p50_ns": 33289774,
+        "p95_ns": 40568867,
+        "p99_ns": 46136657,
+        "max_ns": 49363163,
+        "over30": 275,
+        "over100": 0,
+        "begin_ns": 2284220427514525,
+        "end_ns": 2284240424825102,
+        "legacy_same_window": {
+          "mean_frame_us": 33328,
+          "max_frame_us": 49363,
+          "over100": 0,
+          "mean_fence_us": 0,
+          "max_fence_us": 2,
+          "mean_composite_us": 21,
+          "mean_pacing_us": 28604,
+          "ran_ahead": 135
+        }
+      }
+    ],
+    "intervals": 2400,
+    "sum_ns": 80039482810,
+    "covered_seconds": 80.03948281,
+    "interval_rate_per_second": 29.985201249952954,
+    "over30": 1101,
+    "over30_percent": 45.875,
+    "over100": 0,
+    "max_ms": 51.895516,
+    "p50_window_ms": [
+      33.295515,
+      33.289573,
+      33.226866,
+      33.289774
+    ],
+    "mean_interval_ms_exact": 33.349784504166664,
+    "window_mean_interval_ms": [
+      33.333375421666666,
+      33.341513475,
+      33.395398158333336,
+      33.32885096166667
+    ],
+    "p95_window_ms": [
+      37.309588,
+      41.069957,
+      42.646295,
+      40.568867
+    ],
+    "p99_window_ms": [
+      44.528819,
+      45.322259,
+      45.128425,
+      46.136657
+    ],
+    "legacy_means_us": {
+      "mean_fence_us": 0.0,
+      "mean_composite_us": 21.25,
+      "mean_pacing_us": 27311.25
+    },
+    "samples_clear": 15,
+    "visual_review": {
+      "images": [
+        "ready.png",
+        "phase-before.png",
+        "phase-after.png"
+      ],
+      "all_individually_read": true,
+      "scene": "Kokiri Forest original platform; Link, foliage, terrain, houses and HUD visible before and after camera. No black frame or gross missing geometry seen.",
+      "limits": "Three static1280x720 composite screenshots do not qualify temporal anti-aliasing, visual equivalence or full game quality; no walking."
+    },
+    "mesh_log_count": 239,
+    "lifecycle": {
+      "exit_code": 0,
+      "stop_requested": true,
+      "window_closed": true,
+      "forced": false,
+      "stop_seconds": 3.5053222491405904
+    },
+    "cleanup": {
+      "at": 1794266309.2671468,
+      "own_game_absent": true,
+      "own_helper_removed": true,
+      "old_devices_absent": [
+        "/dev/input/event8",
+        "/dev/input/event9",
+        "/dev/input/event10",
+        "/dev/input/event11"
+      ],
+      "matching_names_remaining": [],
+      "observer": "active",
+      "production_config_unchanged": true,
+      "eight_progressions_unchanged": true,
+      "gpu_policies": {
+        "/sys/class/drm/card0/device/power_dpm_force_performance_level": "auto"
+      },
+      "gpu_power_caps_micro_watts": [
+        150000000
+      ]
+    },
+    "kernel_matches": [],
+    "limits": [
+      "Same Info logger as earlier AA andPresent30 runs; HostTiming probe added, instrumentation cost unmeasured. No causal gain claim.",
+      "Successful copy marker is once-only: proves actual path reached, not per-frame completeness. Source/output equality guarded by exact source before marker; dimensions printed for output only.",
+      "No raw shader edits or dispatch removals, frozen1e26 source/executable unchanged.",
+      "No averaged/global quantiles; per600-interval nearest-rank windows only.",
+      "Not constant30 or full-world, free ground route, audio, save/resume, zone-transition qualification."
+    ]
+  },
+  "source_proof": "Native HostTiming collects global wake/event delays; independent from GPU_PROFILE. DKB trace rejected because it also adds GPU timestamp queries/renderer clocks/indirect readbacks.",
+  "private_report_sha256": {
+    "hosttiming-window-result.json": "f22fc4ef21fde6894a74240f222db51050200f154fd14abaafdd1c97a6579fe9",
+    "hosttiming-present30-pacing-result.json": "104745664622235d052eca0b80e3afc0d30658662a868bc0b4031da02b56ad5f"
+  },
+  "root_audit": "All88enclosures inside monotonicphase; counts/sums and every per-window-statistic range independently checked.",
+  "decision": "No large HostTiming wake delays shown in selectedwindows. Guest-thread rescheduling after timer callback and host Vulkan presentation remain unmeasured; no clock/sleep tweak justified by these data alone. Need targeted service timing and host output intervals without global DKB effects."
+}

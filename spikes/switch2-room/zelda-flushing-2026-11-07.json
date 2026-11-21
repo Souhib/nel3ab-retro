@@ -1,0 +1,175 @@
+{
+  "date": "2026-11-07",
+  "engine": "eglantine-216d3e2943",
+  "protocol": "Four alternating phases enabled/disabled/enabled/disabled. Same quiescent Kokiri save copied before each run; same warmed cache, Vulkan Low 1x docked, NO_MESH, generation off, camera-only sweeps, 90 seconds. No builds, profiling or other games during the phases.",
+  "limits": "Complete 600-presentation windows only; one static area. Does not reproduce all new-zone streaming.",
+  "results": [
+    {
+      "phase": 1,
+      "use_reactive_flushing": true,
+      "measurement": {
+        "requested_seconds": [
+          72.731144,
+          165.122299
+        ],
+        "covered_seconds": 53.2314,
+        "game_presentations": 1200,
+        "game_fps": 22.54308547210857,
+        "window_fps_median": 22.54308650602944,
+        "maximum_frame_ms": 169.0,
+        "frames_over_100_ms": 1,
+        "windows": [
+          {
+            "start": 105.52726500000001,
+            "end": 132.137265,
+            "mean_us": 44350,
+            "maximum_us": 77894,
+            "freezes": 0
+          },
+          {
+            "start": 132.093632,
+            "end": 158.715032,
+            "mean_us": 44369,
+            "maximum_us": 169000,
+            "freezes": 1
+          }
+        ]
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.7049375779461116
+      },
+      "requires_visual_review": false
+    },
+    {
+      "phase": 2,
+      "use_reactive_flushing": false,
+      "measurement": {
+        "requested_seconds": [
+          76.29193099999999,
+          161.470683
+        ],
+        "covered_seconds": 53.3946,
+        "game_presentations": 1200,
+        "game_fps": 22.474182782528572,
+        "window_fps_median": 22.474342183699367,
+        "maximum_frame_ms": 79.665,
+        "frames_over_100_ms": 0,
+        "windows": [
+          {
+            "start": 106.77886600000001,
+            "end": 133.547266,
+            "mean_us": 44614,
+            "maximum_us": 79645,
+            "freezes": 0
+          },
+          {
+            "start": 133.552385,
+            "end": 160.178585,
+            "mean_us": 44377,
+            "maximum_us": 79665,
+            "freezes": 0
+          }
+        ]
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.405569016933441
+      },
+      "requires_visual_review": false
+    },
+    {
+      "phase": 3,
+      "use_reactive_flushing": true,
+      "measurement": {
+        "requested_seconds": [
+          73.02267499999999,
+          165.363348
+        ],
+        "covered_seconds": 52.953,
+        "game_presentations": 1200,
+        "game_fps": 22.66160557475497,
+        "window_fps_median": 22.66170301000065,
+        "maximum_frame_ms": 81.794,
+        "frames_over_100_ms": 0,
+        "windows": [
+          {
+            "start": 103.53639,
+            "end": 129.95799,
+            "mean_us": 44036,
+            "maximum_us": 81794,
+            "freezes": 0
+          },
+          {
+            "start": 129.914275,
+            "end": 156.445675,
+            "mean_us": 44219,
+            "maximum_us": 80916,
+            "freezes": 0
+          }
+        ]
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.2070518261753023
+      },
+      "requires_visual_review": false
+    },
+    {
+      "phase": 4,
+      "use_reactive_flushing": false,
+      "measurement": {
+        "requested_seconds": [
+          74.162551,
+          166.203757
+        ],
+        "covered_seconds": 53.1606,
+        "game_presentations": 1200,
+        "game_fps": 22.573108655658512,
+        "window_fps_median": 22.573836207748222,
+        "maximum_frame_ms": 82.149,
+        "frames_over_100_ms": 0,
+        "windows": [
+          {
+            "start": 104.204985,
+            "end": 130.936185,
+            "mean_us": 44552,
+            "maximum_us": 82149,
+            "freezes": 0
+          },
+          {
+            "start": 130.84436699999998,
+            "end": 157.273767,
+            "mean_us": 44049,
+            "maximum_us": 77107,
+            "freezes": 0
+          }
+        ]
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.3057327170390636
+      },
+      "requires_visual_review": false
+    }
+  ],
+  "decision": {
+    "keep_installed_setting": true,
+    "enabled_pooled_fps": 22.60219015222575,
+    "disabled_pooled_fps": 22.5235370962656,
+    "disabled_change_percent": -0.34798864813728736,
+    "reason": "No observed cadence gain from disabling reactive flushing; keep the existing setting. Four phase-after images show the same position. A single 169 ms interval in the first enabled phase does not establish a stall-frequency improvement."
+  }
+}

@@ -1,0 +1,549 @@
+--- a/A1/launch-phase.py
++++ b/A1/launch-phase.py
+@@ -1,48 +1,107 @@
+-"""Identified detached phase supervisor; only a reviewed private room is accepted."""
++"""Detached phase supervisor. Reap the controller before permitting driver teardown."""
+ from pathlib import Path
+-import os,sys,json,time,signal,subprocess
++import os, sys, json, time, signal, subprocess
+ import watchdog
+-Q=Path(__file__).parent
++import phase_stop
++Q = Path(__file__).parent
++save = phase_stop.save
+ 
+-def save(path,data):
+- temp=path.with_suffix('.tmp');temp.write_text(json.dumps(data,indent=2));temp.replace(path)
+-def supervise(meta,command=None,timeout=115,emergency=None):
+- root=watchdog.valid_meta(meta);actual=watchdog.identity(meta['driver_pid']);assert actual and actual['start_ticks']==meta['driver_start_ticks']
+- command=command or ['node',str(Q/'browser-phase.mjs')];child=None;signals=[];timed_out=False
+- def forwarded(sig,_):
+-  signals.append({'signal':sig,'monotonic_ns':time.monotonic_ns()});save(root/'phase-supervisor-signals.json',signals)
+-  if child and child.poll()is None:child.send_signal(sig)
+- old={s:signal.signal(s,forwarded)for s in (signal.SIGTERM,signal.SIGINT)}
+- try:
+-  with (root/'phase-console.log').open('w')as log:
+-   child=subprocess.Popen(command,stdout=log,stderr=subprocess.STDOUT)
+-   save(root/'phase-process.json',{'pid':child.pid,'identity':watchdog.identity(child.pid),'supervisor_pid':os.getpid(),'supervisor_identity':watchdog.identity(os.getpid()),'started_monotonic_ns':time.monotonic_ns(),'command':command,'timeout_seconds':timeout})
+-   try:code=child.wait(timeout=timeout)
+-   except subprocess.TimeoutExpired:
+-    timed_out=True;child.send_signal(signal.SIGTERM)
+-    try:code=child.wait(timeout=6)
+-    except subprocess.TimeoutExpired:child.kill();code=child.wait(timeout=3)
+-  save(root/'phase-exit.json',{'code':code,'timed_out':timed_out,'signals':signals,'ended_monotonic_ns':time.monotonic_ns()})
+-  result_path=root/'browser-phase-result.json';result=json.loads(result_path.read_text())if result_path.exists()else None
+-  if code!=0 or timed_out or not result or not result.get('complete'):
+-   if emergency:emergency(meta)
+-   else:
++
++def supervise(meta, command=None, timeout=115, emergency=None):
++    root = watchdog.valid_meta(meta)
++    actual = watchdog.identity(meta['driver_pid'])
++    assert actual and actual['start_ticks'] == meta['driver_start_ticks']
++    command = command or ['node', str(Q / 'browser-phase.mjs')]
++    child = None
++    child_handle = None
++    signals = []
++    timed_out = False
++
++    def forwarded(number, _):
++        signals.append({'signal': number, 'monotonic_ns': time.monotonic_ns()})
++        if child_handle:
++            child_handle.send(number)
++
++    old = {s: signal.signal(s, forwarded) for s in (signal.SIGTERM, signal.SIGINT)}
+     try:
+-     neutral=subprocess.run(['node',str(Q/'browser-neutral.mjs'),'emergency-neutral'],timeout=6,capture_output=True,text=True)
+-     save(root/'phase-emergency-neutral.json',{'exit':neutral.returncode,'stdout':neutral.stdout,'stderr':neutral.stderr})
+-    except Exception as exc:save(root/'phase-emergency-neutral.json',{'error':repr(exc),'delivered':False})
+-    finally:watchdog.request_stop(meta)
+-  return code
+- finally:
+-  if child and child.poll()is None:child.kill();child.wait(timeout=3)
+-  for s,handler in old.items():signal.signal(s,handler)
++        with (root / 'phase-console.log').open('w') as log:
++            child = subprocess.Popen(command, stdout=log, stderr=subprocess.STDOUT)
++            child_identity = phase_stop.identity(child.pid)
++            supervisor_identity = phase_stop.identity(os.getpid())
++            child_handle = phase_stop.Process(child_identity)
++            save(root / 'phase-process.json', {
++                'pid': child.pid, 'identity': child_identity, 'supervisor_pid': os.getpid(),
++                'supervisor_identity': supervisor_identity, 'started_monotonic_ns': time.monotonic_ns(),
++                'command': command, 'timeout_seconds': timeout, 'owner_root': str(root),
++                'supervisor_script': str(Path(sys.argv[0]).resolve()),
++                'owner_driver_identity': {'pid': meta['driver_pid'], 'start_ticks': meta['driver_start_ticks']}})
++            # A signal received between installing handlers and Popen must not be lost.
++            for received in signals:
++                child_handle.send(received['signal'])
++            try:
++                code = child.wait(timeout=timeout)
++            except subprocess.TimeoutExpired:
++                timed_out = True
++                child_handle.send(signal.SIGTERM)
++                try:
++                    code = child.wait(timeout=6)
++                except subprocess.TimeoutExpired:
++                    child_handle.send(signal.SIGKILL)
++                    code = child.wait(timeout=3)
++        save(root / 'phase-supervisor-signals.json', signals)
++        save(root / 'phase-exit.json', {'code': code, 'timed_out': timed_out, 'signals': signals,
++             'ended_monotonic_ns': time.monotonic_ns(), 'child_identity': child_identity,
++             'supervisor_identity': supervisor_identity})
++        result_path = root / 'browser-phase-result.json'
++        result = json.loads(result_path.read_text()) if result_path.exists() else None
++        if code != 0 or timed_out or not result or not result.get('complete'):
++            # The outer coordinator waits for this process. Never recursively wait on it.
++            if not (root / 'phase-stop-intent.json').exists():
++                if emergency:
++                    emergency(meta)
++                else:
++                    try:
++                        neutral = subprocess.run(['node', str(Q / 'browser-neutral.mjs'), 'emergency-neutral'],
++                                                 timeout=6, capture_output=True, text=True)
++                        save(root / 'phase-emergency-neutral.json', {'exit': neutral.returncode,
++                             'stdout': neutral.stdout, 'stderr': neutral.stderr})
++                    except Exception as exc:
++                        save(root / 'phase-emergency-neutral.json', {'error': repr(exc), 'delivered': False})
++            # Both the room watchdog and session owner observe this. They own driver closure.
++            save(root / 'phase-stop-needed.json', {'at_ns': time.monotonic_ns(), 'code': code})
++        return code
++    finally:
++        if child and child.poll() is None:
++            child_handle.send(signal.SIGKILL) if child_handle else child.kill()
++            child.wait(timeout=3)
++        if child_handle:
++            child_handle.close()
++        for number, handler in old.items():
++            signal.signal(number, handler)
++
+ 
+ def main():
+- assert len(sys.argv)==2 and sys.argv[1]in ('--launch','--supervise')
+- meta=json.loads((Q/'active-room.json').read_text());root=watchdog.valid_meta(meta)
+- if sys.argv[1]=='--supervise':return supervise(meta)
+- actual=watchdog.identity(meta['driver_pid']);assert actual and actual['start_ticks']==meta['driver_start_ticks'];assert time.monotonic_ns()-meta['started_monotonic_ns']<240_000_000_000
+- with (root/'phase-launch-once').open('x')as f:f.write('single authorized phase\n')
+- with (root/'phase-supervisor.log').open('w')as log:p=subprocess.Popen([sys.executable,str(Path(__file__)), '--supervise'],start_new_session=True,stdin=subprocess.DEVNULL,stdout=log,stderr=subprocess.STDOUT)
+- save(root/'phase-supervisor.json',{'pid':p.pid,'identity':watchdog.identity(p.pid),'launched_monotonic_ns':time.monotonic_ns(),'detached_from_tool_session':True});print(p.pid);return 0
+-if __name__=='__main__':sys.exit(main())
++    assert len(sys.argv) == 2 and sys.argv[1] in ('--launch', '--supervise')
++    meta = json.loads((Q / 'active-room.json').read_text())
++    root = watchdog.valid_meta(meta)
++    if sys.argv[1] == '--supervise':
++        return supervise(meta)
++    actual = watchdog.identity(meta['driver_pid'])
++    assert actual and actual['start_ticks'] == meta['driver_start_ticks']
++    assert time.monotonic_ns() - meta['started_monotonic_ns'] < 240_000_000_000
++    with phase_stop.phase_lock(root):
++        assert not (root / 'phase-stop-intent.json').exists(), 'Room teardown already requested'
++        with (root / 'phase-launch-once').open('x') as handle:
++            handle.write('single authorized phase\n')
++        with (root / 'phase-supervisor.log').open('w') as log:
++            child = subprocess.Popen([sys.executable, str(Path(__file__)), '--supervise'],
++                                     start_new_session=True, stdin=subprocess.DEVNULL,
++                                     stdout=log, stderr=subprocess.STDOUT)
++        save(root / 'phase-supervisor.json', {'pid': child.pid, 'identity': watchdog.identity(child.pid),
++             'launched_monotonic_ns': time.monotonic_ns(), 'detached_from_tool_session': True})
++    print(child.pid)
++    return 0
++
++
++if __name__ == '__main__':
++    sys.exit(main())
+--- /dev/null
++++ b/A1/phase_stop.py
+@@ -0,0 +1,239 @@
++"""Private phase teardown. Linux pidfds are required; never fall back to kill(pid)."""
++from contextlib import ExitStack, contextmanager
++from pathlib import Path
++import fcntl
++import json
++import os
++import select
++import signal
++import sys
++import time
++
++
++def stamp():
++    return time.monotonic_ns()
++
++
++def save(path, data):
++    temporary = path.with_name(path.name + f'.{os.getpid()}.tmp')
++    temporary.write_text(json.dumps(data, indent=2) + '\n')
++    temporary.replace(path)
++
++
++def identity(pid):
++    try:
++        raw = Path(f'/proc/{int(pid)}/stat').read_text()
++    except FileNotFoundError:
++        return None
++    fields = raw[raw.rfind(')') + 2:].split()
++    return {'pid': int(pid), 'start_ticks': fields[19], 'state': fields[0],
++            'ppid': int(fields[1])}
++
++
++def key(value):
++    return (int(value['pid']), str(value['start_ticks']))
++
++
++def valid_meta(meta):
++    root = Path(meta['root'])
++    if (root.parent != Path.home() / '.local/state/nel3ab'
++            or not root.name.startswith('test-switch2-') or root.is_symlink()
++            or root.resolve() != root):
++        raise ValueError('Not an owned disposable root')
++    if meta['session'] != str(root / 'session') or meta['state'] != str(root / 'state'):
++        raise ValueError('Room paths do not match root')
++    if int(meta['driver_pid']) <= 1 or not str(meta['driver_start_ticks']).isdigit():
++        raise ValueError('Invalid driver identity')
++    return root
++
++
++@contextmanager
++def phase_lock(root):
++    with (root / 'phase-stop.lock').open('a') as handle:
++        fcntl.flock(handle, fcntl.LOCK_EX)
++        yield
++
++
++class Process:
++    """Bind a verified start time to one kernel process before any signal."""
++    def __init__(self, expected):
++        if not hasattr(os, 'pidfd_open') or not hasattr(signal, 'pidfd_send_signal'):
++            raise RuntimeError('pidfds unavailable; refuse PID-based signals')
++        self.expected = expected
++        self.fd = None
++        before = identity(expected['pid'])
++        if before is None:
++            return
++        if key(before) != key(expected):
++            raise ValueError('PID identity changed; no signal sent')
++        try:
++            self.fd = os.pidfd_open(expected['pid'])
++            after = identity(expected['pid'])
++            if after is not None and key(after) != key(expected):
++                raise ValueError('PID reused while opening pidfd; no signal sent')
++        except ProcessLookupError:
++            self.close()
++        except BaseException:
++            self.close()
++            raise
++
++    def close(self):
++        if self.fd is not None:
++            os.close(self.fd)
++            self.fd = None
++
++    def exited(self):
++        if self.fd is None:
++            return True
++        poll = select.poll()
++        poll.register(self.fd, select.POLLIN)
++        return bool(poll.poll(0))
++
++    def send(self, number):
++        if not self.exited():
++            try:
++                signal.pidfd_send_signal(self.fd, number)
++            except ProcessLookupError:
++                pass  # This pinned process exited between poll and send; its PID is never used.
++
++    def wait(self, seconds):
++        if self.fd is None:
++            return True
++        poll = select.poll()
++        poll.register(self.fd, select.POLLIN)
++        return bool(poll.poll(max(0, int(seconds * 1000))))
++
++
++def _read(path):
++    return json.loads(path.read_text())
++
++
++def owned_pad_inventory(meta, names=None):
++    """Remember adapter tokens under this session before its tempdirs disappear."""
++    root = valid_meta(meta)
++    target = root / 'owned-pad-inventory.json'
++    previous = _read(target) if target.exists() else {'tokens': [], 'names_seen': []}
++    tokens = set(previous['tokens'])
++    for directory in Path(meta['session']).glob('room-switch-*'):
++        if directory.is_dir() and not directory.is_symlink():
++            tokens.add(directory.name)
++    if names is None:
++        names = [p.read_text().strip() for p in Path('/sys/class/input').glob('event*/device/name')]
++    expected = {f'nel3ab {token} P{slot}' for token in tokens for slot in range(1, 5)}
++    result = {'tokens': sorted(tokens), 'names_seen': sorted(set(previous['names_seen']) | (set(names) & expected)),
++              'expected_names': sorted(expected), 'current_owned': sorted(set(names) & expected),
++              'observed_monotonic_ns': stamp()}
++    save(target, result)
++    return result
++
++
++def _stop_phase(meta, root, supervisor_script, grace):
++    """Called with the lifecycle lock held. Validate the whole pair before signaling."""
++    sup_path, child_path = root / 'phase-supervisor.json', root / 'phase-process.json'
++    if (root / 'phase-launch-once').exists():
++        deadline = time.monotonic() + grace
++        while not (sup_path.exists() and child_path.exists()):
++            if time.monotonic() >= deadline:
++                raise RuntimeError('Phase launch incomplete; no driver-close permission')
++            time.sleep(0.01)
++    if not sup_path.exists() and not child_path.exists():
++        save(root / 'phase-stop-intent.json', {'at_ns': stamp(), 'phase': 'not_launched'})
++        result = {'phase': 'not_launched', 'ordered': True, 'forced': False, 'at_ns': stamp()}
++        save(root / 'phase-stop-complete.json', result)
++        return result
++    sup, child = _read(sup_path), _read(child_path)
++    driver_key = (int(meta['driver_pid']), str(meta['driver_start_ticks']))
++    if (key(sup['identity']) != key(child['supervisor_identity'])
++            or sup['pid'] != sup['identity']['pid']
++            or child['supervisor_pid'] != sup['pid'] or child['pid'] != child['identity']['pid']
++            or child.get('supervisor_script') != str(supervisor_script)
++            or child.get('owner_root') != str(root)
++            or key(child['owner_driver_identity']) != driver_key):
++        raise ValueError('Foreign or inconsistent phase ownership; no signal sent')
++    with ExitStack() as stack:
++        supervisor, controller = Process(sup['identity']), None
++        stack.callback(supervisor.close)
++        controller = Process(child['identity'])
++        stack.callback(controller.close)
++        if not controller.exited():
++            current = identity(child['pid'])
++            if current is None or current['ppid'] != sup['pid'] or supervisor.exited():
++                raise ValueError('Controller is not the actual supervisor child; no signal sent')
++        # No finish marker or signal precedes validation of both pinned processes.
++        owned_pad_inventory(meta)
++        save(root / 'phase-stop-intent.json', {'at_ns': stamp(), 'supervisor': sup['identity'], 'controller': child['identity']})
++        supervisor.send(signal.SIGTERM)
++        forced = False
++        if not controller.wait(grace):
++            forced = True
++            controller.send(signal.SIGKILL)
++            if not controller.wait(3):
++                raise RuntimeError('Controller survived forced stop; driver remains open')
++        child_exit_observed = stamp()
++        if not supervisor.wait(grace):
++            forced = True
++            supervisor.send(signal.SIGKILL)
++            if not supervisor.wait(3):
++                raise RuntimeError('Supervisor survived forced stop; driver remains open')
++        receipt_path = root / 'phase-exit.json'
++        receipt = _read(receipt_path) if receipt_path.exists() else None
++        reaped = bool(receipt and key(receipt['child_identity']) == key(child['identity'])
++                      and key(receipt['supervisor_identity']) == key(sup['identity']))
++        result_path = root / 'browser-phase-result.json'
++        phase_result = _read(result_path) if result_path.exists() else None
++        neutral = bool(phase_result and (int(phase_result['pid']), str(phase_result['start_ticks'])) == key(child['identity'])
++                       and phase_result.get('neutral_delivered'))
++        result = {'phase': 'exited', 'ordered': reaped and not forced, 'forced': forced,
++                  'child_exit_observed_ns': child_exit_observed, 'supervisor_exit_observed_ns': stamp(),
++                  'child_reaped_receipt': reaped, 'neutral_reported': neutral,
++                  'controller': child['identity'], 'supervisor': sup['identity']}
++        save(root / 'phase-stop-complete.json', result)
++        return result
++
++
++def stop(meta, *, supervisor_script=None, close_driver=True, grace=6):
++    root = valid_meta(meta)
++    supervisor_script = Path(supervisor_script or Path(__file__).with_name('launch-phase.py')).resolve()
++    driver = Process({'pid': int(meta['driver_pid']), 'start_ticks': str(meta['driver_start_ticks'])})
++    try:
++        with phase_lock(root):
++            prior = root / 'driver-close-request.json'
++            if close_driver and prior.exists():
++                recorded = _read(prior)
++                if key(recorded['driver']) != key(driver.expected):
++                    raise ValueError('Existing close receipt belongs to a different driver')
++                return recorded['phase_stop']
++            result = _stop_phase(meta, root, supervisor_script, grace)
++            if close_driver:
++                save(root / 'driver-close-request.json', {'at_ns': stamp(), 'driver': driver.expected,
++                                                          'phase_stop': result})
++                (root / 'finish').write_text('Owned phase is stopped; close private driver\n')
++                driver.send(signal.SIGTERM)
++            return result
++    finally:
++        driver.close()
++
++
++def audit(meta, identities, names=None):
++    """Observe only recorded identities; an exited zombie is not a running process."""
++    survivors = []
++    for expected in identities:
++        with ExitStack() as stack:
++            # Reused numeric PIDs are foreign and must never be signaled or called owned.
++            actual = identity(expected['pid'])
++            if actual is None or key(actual) != key(expected):
++                continue
++            process = Process(expected)
++            stack.callback(process.close)
++            if not process.exited():
++                survivors.append(actual)
++    pads = owned_pad_inventory(meta, names)
++    return {'surviving_owned_processes': survivors, 'surviving_owned_pads': pads['current_owned'],
++            'pad_tokens': pads['tokens'], 'unrelated_processes_and_pads_not_required_absent': True}
++
++
++if __name__ == '__main__':
++    if len(sys.argv) != 3 or sys.argv[1] != '--phase-only':
++        raise SystemExit('usage: phase_stop.py --phase-only active-room.json')
++    print(json.dumps(stop(_read(Path(sys.argv[2])), close_driver=False,
++                          supervisor_script=Path(sys.argv[2]).resolve().parent / 'launch-phase.py')))
+--- a/A1/room-private.mjs
++++ b/A1/room-private.mjs
+@@ -95,7 +95,7 @@
+ let browser, worker, watchdog;
+ let stopping = false, restarting = false, generation = 0;
+ let interrupted = false;
+-const interrupt = () => { interrupted = true; void browser?.close(); };
++const interrupt = () => { interrupted = true; };
+ process.once("SIGINT", interrupt);
+ process.once("SIGTERM", interrupt);
+ const delay = ms => new Promise(done => setTimeout(done, ms));
+@@ -177,6 +177,8 @@
+   browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox",
+     "--disable-background-timer-throttling", "--disable-renderer-backgrounding"] });
+   qualificationMeta.browser_pid = browser.process().pid;
++  const browserStat = await readFile(`/proc/${qualificationMeta.browser_pid}/stat`, 'utf8');
++  qualificationMeta.browser_start_ticks = browserStat.slice(browserStat.lastIndexOf(')') + 2).trim().split(/\s+/)[19];
+   await writeFile(join(trialDirectory,"active-room.tmp"), JSON.stringify(qualificationMeta));
+ await rename(join(trialDirectory,"active-room.tmp"),join(trialDirectory,"active-room.json"));
+   const open = async (name, play) => {
+@@ -240,6 +242,8 @@
+     }
+   }
+ } finally {
++  // The controller must finish its key-up attempts and exit while CDP is still available.
++  await execute('python3', [join(trialDirectory, 'phase_stop.py'), '--phase-only', join(trialDirectory, 'active-room.json')]);
+   await writeFile(join(root,'qualification-watchdog-stop'),'normal driver teardown');
+   stopping = true;
+   await browser?.close();
+--- a/A1/watchdog.py
++++ b/A1/watchdog.py
+@@ -1,6 +1,7 @@
+ """Private room watcher. Only an identity-checked private driver receives stop signals."""
+ from pathlib import Path
+ import json,os,signal,subprocess,time,sys,threading
++import phase_stop
+ Q=Path(__file__).parent
+ BAD={'Runner.Worker','cc1','cc1plus','clang','clang++','clang-23','clang++-23','ld.lld','lld','rustc','cargo','perf','ninja','cmake','just'}
+ ENGINES={'eden-cli','Ryujinx','ryujinx','dolphin-emu'}
+@@ -20,13 +21,8 @@
+   if comm in ENGINES and pid not in owned_pids:return 'Unrelated emulator appeared'
+  if not gpu.get('isolated')or gpu.get('foreign_clients')!=[] or gpu.get('driver_stats_read')is not False:return 'Unrelated GPU client or unreadable inventory'
+  return None
+-def request_stop(meta,lookup=identity,kill=os.kill):
+- root=valid_meta(meta);actual=lookup(meta['driver_pid'])
+- if actual is None:return False
+- if actual['start_ticks']!=str(meta['driver_start_ticks']):raise ValueError('Driver PID identity changed; no signal sent')
+- (root/'finish').write_text('Private qualification stop requested\n')
+- kill(meta['driver_pid'],signal.SIGTERM)
+- return True
++def request_stop(meta):
++ return phase_stop.stop(meta,supervisor_script=Q/'launch-phase.py')
+ def process_snapshot():
+  out=[]
+  for p in Path('/proc').iterdir():
+@@ -63,7 +59,10 @@
+     for cid in ids:
+      lines=subprocess.check_output(['docker','top',cid,'-eo','pid'],text=True,timeout=5).splitlines()[1:];owned.update(int(x.strip())for x in lines)
+     gpu=gpu_observation(Q/'active-room.json')
+-    now=time.monotonic_ns();why=reason_for(now,meta,process_snapshot(),owned,gpu);samples.append({'monotonic_ns':now,'owned_pids':sorted(owned),'reason':why,'gpu':gpu})
++    now=time.monotonic_ns();why=reason_for(now,meta,process_snapshot(),owned,gpu)
++    if(root/'phase-stop-needed.json').exists():why=why or 'Phase controller failed or stopped'
++    phase_stop.owned_pad_inventory(meta)
++    samples.append({'monotonic_ns':now,'owned_pids':sorted(owned),'owned_identities':[value for pid in sorted(owned)if(value:=identity(pid))is not None],'reason':why,'gpu':gpu})
+    except Exception as exc:
+     why='Monitor failed closed: '+repr(exc);samples.append({'monotonic_ns':time.monotonic_ns(),'reason':why})
+    persist()
+--- a/session.py
++++ b/session.py
+@@ -27,11 +27,14 @@
+ sys.path.insert(0,str(R))
+ from cache_current_preservation import baseline
+ 
++def phase_helper():
++ spec=importlib.util.spec_from_file_location('owned_phase_stop',Q/'phase_stop.py')
++ helper=importlib.util.module_from_spec(spec);spec.loader.exec_module(helper);return helper
++
+ def stop_room(meta,child):
+  root=Path(meta['root']);save(root/'normal-stop-request.json',{'monotonic_ns':time.monotonic_ns(),'reason':'reviewed session stop/deadline'})
+- (root/'finish').write_text('Stop own comparison room\n')
+- actual=identity(child.pid)
+- if actual and actual['start_ticks']==meta['driver_start_ticks']:child.send_signal(signal.SIGTERM)
++ assert child.pid==meta['driver_pid'],'Driver object does not belong to this room'
++ return phase_helper().stop(meta,supervisor_script=Q/'launch-phase.py')
+ 
+ GPU_TOOL=Path('/home/souhib/nel3ab-retro/spikes/switch2-room/gpu_clients.py')
+ def gpu_admission(q):
+@@ -71,11 +74,14 @@
+    while child.poll()is None:
+     if(Q/'active-room.json').exists():meta=json.loads((Q/'active-room.json').read_text())
+     age=(time.monotonic_ns()-start)/1e9
+-    if (age>=450 or interrupt)and not requested:
++    phase_failed=meta and(Path(meta['root'])/'phase-stop-needed.json').exists()
++    if (age>=450 or interrupt or phase_failed)and not requested:
+      requested=True
+      if meta:stop_room(meta,child)
+      else:child.terminate()
+-    if age>=510:forced=True;child.kill();break
++    if age>=510:
++     if meta:stop_room(meta,child)
++     forced=True;child.kill();break
+     time.sleep(1)
+    code=child.wait(timeout=5)
+   save(Q/'driver-exit.json',{'exit_code':code,'ended_unix':time.time(),'ended_monotonic_ns':time.monotonic_ns(),'forced_by_supervisor':forced})
+@@ -101,23 +107,30 @@
+     subprocess.run(['sudo','-n','systemctl','start','nel3ab-boite-noire.service'],check=True,timeout=15);assert out(['systemctl','is-active','nel3ab-boite-noire.service'])=='active';save(Q/'observer-lifecycle.json',{'pause_requested_ns':pause_ns,'restored':True,'restore_ns':time.monotonic_ns(),'pause_seconds':(time.monotonic_ns()-pause_ns)/1e9})
+  if not meta:raise RuntimeError(failure or 'No room metadata')
+  root=Path(meta['root']);assert not out(['docker','ps','-aq','--filter','label=nel3ab.room-root='+meta['session']])
+- watch=json.loads((root/'qualification-watchdog.json').read_text());seen={pid for s in watch['samples']for pid in s.get('owned_pids',[])};assert all(identity(pid)is None for pid in seen),'Owned container process survives'
+- identities={meta['driver_pid']:meta['driver_start_ticks']}
+- if 'browser_pid'in meta:identities[meta['browser_pid']]=None
++ watch=json.loads((root/'qualification-watchdog.json').read_text())
++ identities=[{'pid':meta['driver_pid'],'start_ticks':meta['driver_start_ticks']}]
++ for sample in watch['samples']:
++  assert 'owned_identities'in sample or not sample.get('owned_pids'), 'Missing process identity evidence'
++  identities.extend(sample.get('owned_identities',[]))
++ if 'browser_pid'in meta:
++  assert 'browser_start_ticks'in meta,'Missing browser identity evidence'
++  identities.append({'pid':meta['browser_pid'],'start_ticks':meta['browser_start_ticks']})
+  for name in ['phase-process.json','phase-supervisor.json']:
+   p=root/name
+   if p.exists():
+    d=json.loads(p.read_text())
+-   for field in ['identity','supervisor_identity']:
+-    if d.get(field):identities[d[field]['pid']]=d[field]['start_ticks']
+- for pid,ticks in identities.items():
+-  actual=identity(int(pid));assert actual is None or(ticks is not None and actual['start_ticks']!=ticks),(pid,actual)
+- # The adapter names pads from its per-session token; no new private node may remain.
+- pads=[p.read_text().strip()for p in Path('/sys/class/input').glob('event*/device/name')if p.read_text().strip().startswith('nel3ab ')];assert not pads,pads
+- assert baseline()==before
++   identities.extend(d[field]for field in ['identity','supervisor_identity']if d.get(field))
++ owned_audit=phase_helper().audit(meta,identities)
++ save(Q/'owned-cleanup-audit.json',owned_audit)
++ assert not owned_audit['surviving_owned_processes'],owned_audit
++ assert owned_audit['pad_tokens'],'Own adapter token was never recorded; no pad absence proof'
++ assert not owned_audit['surviving_owned_pads'],owned_audit
++ # A concurrently opened user room may legitimately update its own persistent files.
++ # Retain both inventories; do not present a changed production snapshot as unchanged.
++ after=baseline();save(Q/'production-after.json',after);production_unchanged=after==before
+  policies={str(p):p.read_text().strip()for p in Path('/sys/class/drm').glob('card*/device/power_dpm_force_performance_level')};caps=[int(p.read_text())for p in Path('/sys/class/drm').glob('card*/device/hwmon/hwmon*/power1_cap')];assert set(policies.values())=={'auto'}and caps==[150000000]
+  kernel=subprocess.run(['journalctl','-k','--since','@'+str(int(json.loads((Q/'driver-launch.json').read_text())['started_unix'])),'--no-pager'],capture_output=True,text=True,timeout=15);(Q/'kernel-after.log').write_text(kernel.stdout+kernel.stderr)
+- assert not any(identity(pid) for pid in seen),'Owned processes still alive'
++ assert not phase_helper().audit(meta,identities)['surviving_owned_processes'],'Owned processes still alive'
+  phase=json.loads((root/'browser-phase-result.json').read_text())if(root/'browser-phase-result.json').exists()else{};phase_exit=json.loads((root/'phase-exit.json').read_text())if(root/'phase-exit.json').exists()else{}
+  slot=Path(meta['state'])/'0400486024dec000/neuve'
+  native_exit=json.loads((slot/'exit.json').read_text())if(slot/'exit.json').exists()else None
+@@ -125,7 +138,7 @@
+  driver_exit=json.loads((Q/'driver-exit.json').read_text())if(Q/'driver-exit.json').exists()else None
+  native_normal=bool(native_exit and native_exit['ExitCode']==0 and not native_exit['Running']and not native_exit['OOMKilled']and native_lifecycle and native_lifecycle['exit_code']==0 and not native_lifecycle['forced']and native_lifecycle['window_closed']and driver_exit and driver_exit['exit_code']==0)
+  gpu_errors=[line for line in kernel.stdout.splitlines()if re.search(r'GPU reset|ring.*timeout|amdgpu.*(?:fault|ERROR)',line,re.I)]
+- cleanup={'at':time.time(),'room':str(root),'driver_exit':json.loads((Q/'driver-exit.json').read_text())if(Q/'driver-exit.json').exists()else None,'owned_containers_absent':True,'native_capture_audio_processes_absent':True,'virtual_pads_absent':True,'observer':'active','production_config_unchanged':True,'eight_progressions_unchanged':True,'checkpoint_unchanged':True,'gpu_policies':policies,'gpu_power_caps_micro_watts':caps,'watchdog_completed':watch['completed'],'watchdog_reason':watch['reason'],'forced_cleanup':forced,'failure':failure,'supervisor_signals':interrupt,'native_exit':native_exit,'native_lifecycle':native_lifecycle,'native_normal_stop':native_normal,'kernel_gpu_error_lines':gpu_errors,'phase_completed':bool(phase.get('complete')and phase.get('neutral_delivered')and phase_exit.get('code')==0 and not forced and not interrupt and native_normal and not gpu_errors and failure is None and watch['reason']is None),'identities_gone':identities}
++ cleanup={'at':time.time(),'room':str(root),'driver_exit':json.loads((Q/'driver-exit.json').read_text())if(Q/'driver-exit.json').exists()else None,'owned_containers_absent':True,'native_capture_audio_processes_absent':True,'virtual_pads_absent':True,'observer':'active','production_snapshot_unchanged':production_unchanged,'production_snapshot_scope':'Inventory comparison only; external user room may write legitimately','gpu_policies':policies,'gpu_power_caps_micro_watts':caps,'watchdog_completed':watch['completed'],'watchdog_reason':watch['reason'],'forced_cleanup':forced,'failure':failure,'supervisor_signals':interrupt,'native_exit':native_exit,'native_lifecycle':native_lifecycle,'native_normal_stop':native_normal,'kernel_gpu_error_lines':gpu_errors,'phase_completed':bool(production_unchanged and phase.get('complete')and phase.get('neutral_delivered')and phase_exit.get('code')==0 and not forced and not interrupt and native_normal and not gpu_errors and failure is None and watch['reason']is None),'identities_gone':identities}
+  save(Q/'cleanup.json',cleanup);print(json.dumps(cleanup));return 0 if cleanup['phase_completed']else 1
+ 
+ def main():

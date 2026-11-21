@@ -1,0 +1,450 @@
+{
+  "updated_at": 1794250455.549247,
+  "status": "Four alternatingFPSphases complete, observedgain retained experimentally; 30constantunmet",
+  "base": "corrected0b83798+PR1056+immutableReferenceAcquire, withoutSpan1059/cacheV2/FSR",
+  "defect": "FrontVerify projected pending method_sink for normalregs butnotshadow, thenresynced legitimatelyupdatedfrontshadowtostalevalue; actualBackLoop+4096macro+Replayproduced0insteadof1234. Doesnotprove all16runtimewarningscausedbythis.",
+  "change": "Projectexpectedshadow Track/TrackWithFilter, preserveReplay/Passthrough andexistingownership, compare/resyncagainstprojection. Adduncappedcumulativeshadow/controltotals besidesordinaryregistersummary. Onlymaxwell_3d.cpp andtestTU, noABIheaderchange.",
+  "source_sha256": {
+    "src/tests/video_core/maxwell_fast_method.cpp": "29431d6ba1981d78bdb6442bef3c188cdadd5ab40a512555a6b0b6e0861624e2",
+    "src/video_core/engines/maxwell_3d.cpp": "d5c40ca1d68f81871369dbcec4db39c2692cdcaca59d3d02cca859c2401dd3e2"
+  },
+  "source_bundle_sha256": "174dc6c170cadf6b7b1160b82fbdbb6a975e9c6f3236a5db86ea1a6d20e65ee8",
+  "patch": "amont/lichii-front-shadow-verify-on-reference-0b.patch",
+  "patch_sha256": "fbcd4286062bd464f32cb559b257af90d56c0f77e4cb17f1bc737f6731b969b2",
+  "source_proofs": {
+    "functional": {
+      "assertions": 30,
+      "real_backloop": true
+    },
+    "actual_log_ring": {
+      "hidden_explicit_case": true,
+      "assertions": 17,
+      "positive_checks": true,
+      "normal_errors_delta": 1,
+      "shadow_errors_delta": 21,
+      "control_errors_delta": 1,
+      "warnings": 16
+    },
+    "mutants": [
+      [
+        "mutant-projection",
+        42
+      ],
+      [
+        "mutant-untracked",
+        42
+      ],
+      [
+        "mutant-disabled",
+        42
+      ],
+      [
+        "mutant-capped",
+        42
+      ],
+      [
+        "mutant-ignore-shadow",
+        42
+      ]
+    ],
+    "full_default": {
+      "passed": 1149,
+      "network_skipped": 4,
+      "assertions": 71916312
+    },
+    "reference_verify": {
+      "cases": 87,
+      "assertions": 31857
+    }
+  },
+  "full_build": {
+    "start": 1794248998.175842,
+    "end": 1794249035.859262,
+    "returncode": 0
+  },
+  "limits": [
+    "No GPU orgameplay proof from CPUfixtures.",
+    "Full source/runtime provenance remainsrequired; parentfreshsuite running.",
+    "Also usedfor back-macro write-set escape recovery evenwithoutdiagnosticflag; not universallyinertwithdiagnosticsoff. No newendtoendescapeinjection, existingownershipnegativefixturesretainpass.",
+    "Reference callback fixturehostticks/counter aretestdoubles andHAS_ASYNC_CHECKfalse; actualVulkantrue requiresruntimequalification.",
+    "InheritedNO_MESH1visualfidelitycaveat remains; noFullgame/audio/zone/saveclaim."
+  ],
+  "runtime": {
+    "seconds": 91.60554938297719,
+    "reads": {
+      "downloads": 117940,
+      "compared_KiB": 427875,
+      "mismatched": 0,
+      "mismatched_reader": 0,
+      "mismatched_gpu_writer": 0,
+      "mismatched_completed": 0,
+      "uncovered": 0,
+      "rewritten_not_compared": 37618
+    },
+    "descriptor_verified": 239616,
+    "descriptor_mismatches": 0,
+    "uniform_keeps_not_independent_oracle": 651646,
+    "front_complete_checks": 17472,
+    "total_front_reports": 346,
+    "first_front_report": {
+      "native": 13.529094,
+      "checks": 1,
+      "differences": 0,
+      "shadow_differences": 0,
+      "control_differences": 0
+    },
+    "last_front_report": {
+      "native": 167.042863,
+      "checks": 22081,
+      "differences": 0,
+      "shadow_differences": 0,
+      "control_differences": 0
+    },
+    "all_three_totals_zero_in_all_reports": true,
+    "front_warnings": 0,
+    "acquire_drains_complete_windows": 6013785,
+    "fast_acquire_decisions": 0,
+    "back_memory_macro_definitions": [
+      "2026-11-09T18:32:36.994923550Z [  25.388537] HW.GPU <Info> video_core/engines/maxwell_3d.cpp:1756:FrontRunOnBack: Split macro at 0x142 reads memory and runs on the back: writes 0x154,0x155,0x158,0x556"
+    ],
+    "shutdown": {
+      "exit_code": 0,
+      "stop_requested": true,
+      "window_closed": true,
+      "forced": false,
+      "stop_seconds": 3.1044610519893467
+    },
+    "images_read": [
+      "ready.png",
+      "verification-before.png",
+      "verification-after.png"
+    ],
+    "scope": "Diagnostic changes timing throughdrains andresync; acceptedonlyforfutureboundedunprofiledFPScomparison. No generalmode2/fullgame/audio/zones/savesclaim."
+  },
+  "FPS": {
+    "at": 1794250455.548792,
+    "phases": [
+      {
+        "label": "lichii-shadow-on1",
+        "mode": 2,
+        "measurement": {
+          "requested_seconds": [
+            105.65570483207702,
+            191.785027
+          ],
+          "covered_seconds": 80.4402,
+          "game_presentations": 2400,
+          "game_fps": 29.835828354479474,
+          "window_fps_median": 29.916970239279383,
+          "maximum_frame_ms": 66.344,
+          "frames_over_100_ms": 0,
+          "windows": [
+            {
+              "start": 109.068209,
+              "end": 129.707009,
+              "mean_us": 34398,
+              "maximum_us": 66344,
+              "freezes": 0
+            },
+            {
+              "start": 129.67442400000002,
+              "end": 149.496024,
+              "mean_us": 33036,
+              "maximum_us": 49846,
+              "freezes": 0
+            },
+            {
+              "start": 149.46293500000002,
+              "end": 169.757935,
+              "mean_us": 33825,
+              "maximum_us": 54729,
+              "freezes": 0
+            },
+            {
+              "start": 169.725778,
+              "end": 189.410578,
+              "mean_us": 32808,
+              "maximum_us": 50877,
+              "freezes": 0
+            }
+          ]
+        },
+        "shutdown": {
+          "exit_code": 0,
+          "stop_requested": true,
+          "window_closed": true,
+          "forced": false,
+          "stop_seconds": 2.803695554379374
+        },
+        "images_read": [
+          "ready.png",
+          "phase-before.png",
+          "phase-after.png",
+          "walk-ladder.png",
+          "walk-away.png",
+          "walk-side.png"
+        ],
+        "samples": 15,
+        "all_samples_clear": true,
+        "same_seed_files": 3511,
+        "same_seed_bytes": 82010658,
+        "cli_sha256": "64c061065565ab515f03b9793f737c04bf92db3a1d83b6a76f0365219cc27150"
+      },
+      {
+        "label": "lichii-shadow-off1",
+        "mode": 1,
+        "measurement": {
+          "requested_seconds": [
+            99.06446132659912,
+            186.149857
+          ],
+          "covered_seconds": 68.7612,
+          "game_presentations": 1800,
+          "game_fps": 26.177553620355663,
+          "window_fps_median": 26.076299251610212,
+          "maximum_frame_ms": 70.219,
+          "frames_over_100_ms": 0,
+          "windows": [
+            {
+              "start": 115.63793799999999,
+              "end": 138.647338,
+              "mean_us": 38349,
+              "maximum_us": 57622,
+              "freezes": 0
+            },
+            {
+              "start": 138.609452,
+              "end": 161.633252,
+              "mean_us": 38373,
+              "maximum_us": 70219,
+              "freezes": 0
+            },
+            {
+              "start": 161.59579499999998,
+              "end": 184.323795,
+              "mean_us": 37880,
+              "maximum_us": 68918,
+              "freezes": 0
+            }
+          ]
+        },
+        "shutdown": {
+          "exit_code": 0,
+          "stop_requested": true,
+          "window_closed": true,
+          "forced": false,
+          "stop_seconds": 3.5048696068115532
+        },
+        "images_read": [
+          "ready.png",
+          "phase-before.png",
+          "phase-after.png",
+          "walk-ladder.png",
+          "walk-away.png",
+          "walk-side.png"
+        ],
+        "samples": 15,
+        "all_samples_clear": true,
+        "same_seed_files": 3511,
+        "same_seed_bytes": 82010658,
+        "cli_sha256": "64c061065565ab515f03b9793f737c04bf92db3a1d83b6a76f0365219cc27150"
+      },
+      {
+        "label": "lichii-shadow-on2",
+        "mode": 2,
+        "measurement": {
+          "requested_seconds": [
+            122.84235796928405,
+            212.211474
+          ],
+          "covered_seconds": 80.6478,
+          "game_presentations": 2400,
+          "game_fps": 29.759026284659964,
+          "window_fps_median": 29.78071749706471,
+          "maximum_frame_ms": 61.206,
+          "frames_over_100_ms": 0,
+          "windows": [
+            {
+              "start": 129.873238,
+              "end": 149.583238,
+              "mean_us": 32850,
+              "maximum_us": 61206,
+              "freezes": 0
+            },
+            {
+              "start": 149.550252,
+              "end": 169.645452,
+              "mean_us": 33492,
+              "maximum_us": 53923,
+              "freezes": 0
+            },
+            {
+              "start": 169.611795,
+              "end": 190.254795,
+              "mean_us": 34405,
+              "maximum_us": 61085,
+              "freezes": 0
+            },
+            {
+              "start": 190.221951,
+              "end": 210.421551,
+              "mean_us": 33666,
+              "maximum_us": 53249,
+              "freezes": 0
+            }
+          ]
+        },
+        "shutdown": {
+          "exit_code": 0,
+          "stop_requested": true,
+          "window_closed": true,
+          "forced": false,
+          "stop_seconds": 3.705460596829653
+        },
+        "images_read": [
+          "ready.png",
+          "phase-before.png",
+          "phase-after.png",
+          "walk-ladder.png",
+          "walk-away.png",
+          "walk-side.png"
+        ],
+        "samples": 15,
+        "all_samples_clear": true,
+        "same_seed_files": 3511,
+        "same_seed_bytes": 82010658,
+        "cli_sha256": "64c061065565ab515f03b9793f737c04bf92db3a1d83b6a76f0365219cc27150"
+      },
+      {
+        "label": "lichii-shadow-off2",
+        "mode": 1,
+        "measurement": {
+          "requested_seconds": [
+            92.80947837829589,
+            178.225124
+          ],
+          "covered_seconds": 45.5844,
+          "game_presentations": 1200,
+          "game_fps": 26.324795324716348,
+          "window_fps_median": 26.325412972440148,
+          "maximum_frame_ms": 62.293,
+          "frames_over_100_ms": 0,
+          "windows": [
+            {
+              "start": 116.063584,
+              "end": 138.745384,
+              "mean_us": 37803,
+              "maximum_us": 62293,
+              "freezes": 0
+            },
+            {
+              "start": 138.70791,
+              "end": 161.61051,
+              "mean_us": 38171,
+              "maximum_us": 58158,
+              "freezes": 0
+            }
+          ]
+        },
+        "shutdown": {
+          "exit_code": 0,
+          "stop_requested": true,
+          "window_closed": true,
+          "forced": false,
+          "stop_seconds": 2.8032462862320244
+        },
+        "images_read": [
+          "ready.png",
+          "phase-before.png",
+          "phase-after.png",
+          "walk-ladder.png",
+          "walk-away.png",
+          "walk-side.png"
+        ],
+        "samples": 15,
+        "all_samples_clear": true,
+        "same_seed_files": 3511,
+        "same_seed_bytes": 82010658,
+        "cli_sha256": "64c061065565ab515f03b9793f737c04bf92db3a1d83b6a76f0365219cc27150"
+      }
+    ],
+    "pooled": {
+      "2": {
+        "presents": 4800,
+        "seconds": 161.08800000000002,
+        "fps": 29.79737783075089,
+        "max_frame_ms": 66.344,
+        "frames_over_100_ms": 0
+      },
+      "1": {
+        "presents": 3000,
+        "seconds": 114.3456,
+        "fps": 26.236252203845183,
+        "max_frame_ms": 70.219,
+        "frames_over_100_ms": 0
+      }
+    },
+    "change_percent": 13.573301549463634,
+    "pair_change_percent": [
+      13.97485336933524,
+      13.045613147537804
+    ],
+    "scope": "4alternations2/1/2/1 samebinary/sameRef1/Idle0/seed; normalstopsall24imagesread15samplesperphaseclear. Gamepresents only, framegenfalse.",
+    "limits": [
+      "Complete600presentwindows coverage unequal4800vs3000; preparation durations differ; observedrepeatabletrend not universalcausalpercentage.",
+      "Mode2avgunder30 andmax66.344ms; not30constant.",
+      "InheritedNO_MESH1fidelityandcapoutlierbothmodes; no newomissions introducedor fullgame/audio/zones/savesqualified."
+    ],
+    "cleanup": {
+      "at": 1794250404.9569063,
+      "own_game_absent": true,
+      "own_helper_removed": true,
+      "old_devices_absent": [
+        "/dev/input/event8",
+        "/dev/input/event9",
+        "/dev/input/event10",
+        "/dev/input/event11"
+      ],
+      "matching_names_remaining": [],
+      "observer": "active",
+      "production_config_unchanged": true,
+      "eight_progressions_unchanged": true,
+      "gpu_policies": {
+        "/sys/class/drm/card0/device/power_dpm_force_performance_level": "auto"
+      },
+      "gpu_power_caps_micro_watts": [
+        150000000
+      ]
+    }
+  },
+  "production": "Config+8progress unchanged; ownruntime/helperremoved, observeractive,GPUauto150W; noinstall/commit/push",
+  "cli_sha256": "64c061065565ab515f03b9793f737c04bf92db3a1d83b6a76f0365219cc27150",
+  "actual_built_target_tests": {
+    "default": {
+      "passed": 1149,
+      "network_skips": 4,
+      "assertions": 71854396
+    },
+    "reference_verify": {
+      "cases": 87,
+      "assertions": 31851
+    },
+    "actual_log_ring": {
+      "cases": 1,
+      "assertions": 17
+    },
+    "all_exit_zero": true,
+    "fresh_maxwell_translation_unit": {
+      "mtime": 1794249016.9084904,
+      "input": "src/video_core/engines/maxwell_3d.cpp",
+      "input_mtime": 1794248984.9634674
+    },
+    "new_format_literal_present": true
+  },
+  "historical_counter_caveat": {
+    "observed_at": 1794255060.895059,
+    "source": "PresentClientBuffer/core/hle/service/nx2_gsv.h",
+    "defect": "firstgroup599intervals then600 butmeanalwaysdividedby599; historicalFPSapproximately0.167percentlow, sharedbyarms; preserveoriginaldata.",
+    "scope": "Gamepresentationrequests, no allframesvisuallyunique proof. InheritedMaxResolution/FPSUnlockapplied; framegenfalse. No logic-speedproof fromCorePerfStats in multicore."
+  }
+}

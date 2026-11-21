@@ -1,0 +1,75 @@
+{
+  "date_utc": "2026-11-11",
+  "status": "native_build_CPU_and_functional_passed_four_timing_windows_analyzed",
+  "source_base_ELF": "c686c1ff5811dd4aeba3f92d8da7717724dab9f1f3978e7c73897899769852d4",
+  "policy": "RADV Stream and Upload only; real resource-compatible VMA type query; cached+coherent required, prefer host; explicit legacy fallback only for FEATURE_NOT_PRESENT; other errors checked before allocation",
+  "source_changes": "4 files changed,3 added; independent copy of5218 input entries; original contents/modes/symlinks preserved",
+  "CPU_scope": "Actual helper/native320-case test and extracted actual adapter; Vulkan queries and Device/Check explicitly doubled.18 actual executions in exactClang23 build image.14 expected negative runs and4 positive runs; no GPU allocation/lifetime/gameplay proof.",
+  "host_compile_attempt": "Failed missing X11/Xlib.h, retained and never accepted as a negative control. The complete platform headers exist in the compiler image.",
+  "native_build": {
+    "started_unix": 1794381802.9508715,
+    "ended_unix": 1794381982.0001047,
+    "seconds": 179.04923343658447,
+    "returncode": 0,
+    "error": null,
+    "interference": [],
+    "container_absent": true,
+    "passed": true,
+    "ELF_sha256": "13158042b7dae7041bc4ae255381dbbed90b1d7eb9f3ba04ea1b5be02d36f6a1",
+    "tests_sha256": "f2b0606991dc6d83d4f3f38f65498587068aab9290ca8d9303617c709f68576c",
+    "activation_marker_present": true,
+    "allocator_translation_unit_rebuilt": true
+  },
+  "gameplay": "not yet started for this candidate",
+  "installed_engine_changed": false,
+  "FPS_gain_proven": false,
+  "goal40_achieved": false,
+  "proof_sha256": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/uploadhost-preparation-20261111/prepared.json": "42598076ac81321c075fb72b7465e613b16a55661f259d86fb0b7978bd75ae8b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/uploadhost-preparation-20261111/candidate.patch": "6cdcbd48d65263386d51d39efe9e91c9ba227f96f8aea16f6174b9ae16bd0d4c",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/uploadhost-preparation-20261111/structural-proof.json": "207ea387e58786cbef1bc8e60c6c1237556aadfb88724f9586324950d0659e5b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/uploadhost-preparation-20261111/upstream-review.txt": "eea169104e5ce8eabcccd1f84e941055c18ffc9415afc99895325eea3d2a313c",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/uploadhost-preparation-20261111/root-cpu-01/result.json": "0831ef62246517f630df2a9c49386623c963b132b4b5e389a904b404e12f1260",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/uploadhost-preparation-20261111/root-cpu-01/results/report.json": "226e4a87f46ffaaee1a92accbed6f3b147bb60c9edd14e9417789772c59d0b9f",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/uploadhost-preparation-20261111/fixtures/results/legacy-red.build.log": "ee5a5c69d250d8e5838434490c9bba7fafbb79b2e4bbeb4d72fa2a994f4a0e3e",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/uploadhost-preparation-20261111/root-build.py": "96a2bdb1895911896b544d3831f373931b989b6da00b89a7c4638d8edb0590c6",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/uploadhost-preparation-20261111/root-build-01/result.json": "aa1e31932a0ab810298e143d5bbf0c5782c0e436f47990ca81ebf37104551e1b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/uploadhost-preparation-20261111/root-build-01/inputs.json": "5fe11f6f36bdfa4231c47171377dbd351e67d5bf1996b9c01a5d12d11fa7f25b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/uploadhost-preparation-20261111/root-build-01/copy.json": "a7db672b72f7dc6cc807aa45b6e91e316e9dd6dbc158b1bdd4959b435d541835",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/uploadhost-preparation-20261111/root-build-01/run.log": "fc166c6aba6f2e55c15f18e10ba9c3a5b2c5aacc26ba513582f98a93d1bfe869",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/uploadhost-preparation-20261111/native-tests-result.json": "724dc120153df355c2ec0e80f670281fcde0724c5b91f3e2186c5de806785cfa",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/uploadhost-preparation-20261111/native-targeted.xml": "406a06cefe6e0a5d2a3fe5078b9afa6163d651c83182ef05ebec9c13fdf9436d",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/uploadhost-preparation-20261111/native-full.xml": "49a45415d31769918e38695dd3f0928a687a3daa5c3eb4dd1b2b76f328d83941",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/uploadhost-preparation-20261111/root-native-tests.py": "d55bf642dd77cdc9d6edc28a79a5fdf3e2f77f803b82150b216ddb919b765e5b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/uploadhost-preparation-20261111/quality-local-full-result.json": "78f1f90a47f30dd18d7c8115eea72b817ae75587089097d2f8c699828cd151ed",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/uploadhost-preparation-20261111/quality-docs-result.json": "9b0972e00c557ea4fe51417cd302b61e3d2b8cfbd6fefddbb27390bb73ce8b92",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/uploadhost-preparation-20261111/quality-audit-result.json": "5075d62305561648da83d6aca2a65af4d23093bc5ae1af914421005ec7ed3613"
+  },
+  "CPU_positive_executions": 4,
+  "CPU_expected_rejections": 14,
+  "native_CPU_tests": {
+    "targeted_cases": 1,
+    "full_cases": 1258,
+    "skipped_network_cases": 4,
+    "failures": 0,
+    "seconds": 39.06585741043091
+  },
+  "base_source_root_verified_unchanged": true,
+  "local_project_gates": {
+    "just": {
+      "passed": true,
+      "seconds": 48.37351965904236
+    },
+    "just docs": {
+      "passed": true,
+      "seconds": 4.722211599349976
+    },
+    "just audit": {
+      "passed": true,
+      "seconds": 0.7923972606658936
+    }
+  },
+  "remote_CI_result_claimed": false,
+  "functional_report": "spikes/switch2-room/uploadhost-functional-2026-11-11.json",
+  "comparison_report": "spikes/switch2-room/uploadhost-comparison-2026-11-11.json"
+}

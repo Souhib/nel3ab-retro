@@ -1,0 +1,51 @@
+{
+  "date": "2026-11-08",
+  "outcome": "Keep the installed standard Eglantine package. PGO is faster in the measured scene, but one shutdown crash occurred during save-resume validation; its cause is unproven and the two subsequent closure controls did not reproduce it.",
+  "manual_save": {
+    "before_sha256": "cbad5b78cd563c5b5969c4a10284e185735afa1d54f6f2080f573a2bbe5743d2",
+    "saved_sha256": "f71508872bcdb3c3ec2db85679d1470b75b5afe2c170aa50057c98e93a58049a",
+    "confirmed_on_screen": true,
+    "position_restored_on_screen": true,
+    "zone_transition_proven": false,
+    "write_shutdown": {
+      "exit_code": 0,
+      "stop_requested": true,
+      "window_closed": true,
+      "forced": false,
+      "stop_seconds": 2.6043938249349594
+    },
+    "resume_shutdown": {
+      "exit_code": 139,
+      "stop_requested": true,
+      "window_closed": true,
+      "forced": false,
+      "stop_seconds": 2.6053151367232203
+    },
+    "whole_roundtrip_passed": false
+  },
+  "closure_controls": [
+    {
+      "label": "closure-eglantine-standard",
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.004941345192492
+      }
+    },
+    {
+      "label": "closure-eglantine-pgo",
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.3040002090856433
+      }
+    }
+  ],
+  "production_progress_unchanged": true,
+  "production_engine_configuration_changed": false,
+  "lab_containers_removed": true
+}

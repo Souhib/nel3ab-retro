@@ -1,0 +1,112 @@
+{
+  "date_utc": "2026-11-11",
+  "observed_utc": "2026-11-11T10:21:35Z",
+  "status": "new_upstream_work_reviewed_no_engine_change",
+  "lichii_previous_commit": "17baed716da04fd743fbd8f9604bec96eab0a123",
+  "lichii_nx2_commit": "babdb6bb752af8a35e94b305613d6be7ba7e6217",
+  "lichii_new_commits": 7,
+  "fritchii_latest_release": {
+    "version": "5.8.4",
+    "published_utc": "2026-11-11T02:20:30Z",
+    "target_commit": "4f5c53149b7e17d1c24445f68d79a83a3b2a17f9",
+    "changed_since_previous_review": false
+  },
+  "candidates": [
+    {
+      "pull": 1095,
+      "url": "https://github.com/zortos293/Lichii/pull/1095",
+      "state": "merged",
+      "merge_commit": "73a1b58e7d7a3b02f116c897a2c8487923256b1a",
+      "head_commit": "52d46375f5097dfb6700b94022eec82e54ce25e7",
+      "review": "Full four-file diff read. Direct state writes plus inline shadow/dirty helpers and verification flag loading. Absent from1315source and matches observed back-loop CallMethodFast instruction; no local performance evidence yet.",
+      "decision": "Candidate after current1315 submission-probe overhead qualification; preserve local verifier corrections and qualify actual new path.",
+      "history_correction": "Same52d46375head was tested9Nov withoutrepeatablegain. Merge11Novisnewintegrationonly. Anyretrialmustnamechanged1315baseanddiagnosticcodegenerationquestion; no priorresultwithdrawal."
+    },
+    {
+      "pull": 1336,
+      "url": "https://github.com/zortos293/Lichii/pull/1336",
+      "state": "open",
+      "head_commit": "bba25a9e8854c2c1baf91e9b8ed6c06f336ef5c8",
+      "review": "Body and selected routing/guard/indirect-path diffs reviewed; full28file correctness review not complete. Draw half requires mesh support disabled in current RADV setup; remaining compute and folding paths have no local evidence. Author does not qualify Linux.",
+      "decision": "Retain for later review, no port now. Guard and pending writes need independent adversarial fixtures."
+    },
+    {
+      "pull": 1333,
+      "url": "https://github.com/zortos293/Lichii/pull/1333",
+      "state": "open",
+      "head_commit": "c06d9f3e72e5102a98d22f9469b5e8bbccc7207c",
+      "review": "Full two-file diff read. Repairs1231native-compute expansion. Current1315StorageBufferBinding already caps bare native pointers8MiB and does not contain native_compute whole-mapping expansion.",
+      "decision": "Do not port regression fix as current optimization."
+    },
+    {
+      "pull": 1332,
+      "url": "https://github.com/zortos293/Lichii/pull/1332",
+      "state": "open",
+      "head_commit": "00db02789625730e3558a893518b247a1539a7fe",
+      "review": "Body reviewed; combines MKW-only wait patch and the same128-byte field alignment tested locally as807.",
+      "decision": "MKW fix does not target Zelda;807hasno repeatable localgain."
+    },
+    {
+      "pull": 1331,
+      "url": "https://github.com/zortos293/Lichii/pull/1331",
+      "state": "open",
+      "head_commit": "91739cdc725e300f1b122304fc80e3a01ee35260",
+      "review": "Body reviewed only. Guest exclusive-monitor reservation cache separation; upstream CPU microbenchmark has no game measurement. Depends1327.",
+      "decision": "Deferred; no claimed localgain."
+    },
+    {
+      "pull": 1216,
+      "url": "https://github.com/zortos293/Lichii/pull/1216",
+      "state": "open",
+      "head_commit": "9ad7c7cee21d9dbe8fafa251479cbfc263270c9b",
+      "head_changed_since_previous_review": false,
+      "decision": "Existing prepared source retained; nativebuild pending, noFPSclaim."
+    }
+  ],
+  "scope": "Direct authenticated GitHub API metadata, selected full/partial diffs and actual1315source comparison. Search engine results were stale for Fritchii and are not used as latest evidence. Latest20updated PRs per repo is bounded, not an exhaustive branch survey. No source merge, download of an emulator package, build or install done by this refresh.",
+  "installed_engine_changed": false,
+  "goal40_achieved": false,
+  "proof_sha256": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-refresh-20261111-102135/aubepine-repository.json": "1e44c1f18c03e2677b10fb268d64d36d20b4df00f0572ae00ca13d020024cf13",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-refresh-20261111-102135/eglantine-head.json": "8d520725ca2ed9a01eaac77bee07a3581e61ff3573ace893d1a226eb14d62aca",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-refresh-20261111-102135/eglantine-pulls.json": "e8df232335688c7275bb3cbc1c66dec5e01e9a289b4001d8c7a1d35b4da9d797",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-refresh-20261111-102135/fritchii-releases.json": "1e26038cb511e651a5ca84e64ff50aecf165fa2955e300724345327c2df37b2e",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-refresh-20261111-102135/fritchii-repository.json": "7feb98ba24281431231ea43451b5bfa19228e0ccdb92630ce13523542d2156b6",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-refresh-20261111-102135/lichii-compare.json": "6e72a0141ad8c668d2413fca69a053eb3b00d204baa436d32f111038736765e0",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-refresh-20261111-102135/lichii-head.json": "56044a32ea2aa07c0fbb6bb2e3cc7b2ecbb89609ce77a9d34efda06e8e01d7e4",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-refresh-20261111-102135/lichii-pr-1095-files.json": "0e1a7fa8388a4a1449554cc7214336e44379c60716820e09ff2825c53758b2c4",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-refresh-20261111-102135/lichii-pr-1095.json": "94858885037f69a8c445d41339beb9069e90bb4eb297e12781684605e276820d",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-refresh-20261111-102135/lichii-pr-1216.json": "3b23f7d62804f19e9d509025c796e05cb7e25197052924118b20f8c892dbaf30",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-refresh-20261111-102135/lichii-pr-1331.json": "e5918e2661cc9c8bf5786c6db4ca7155b6b433f03d9e75628659be2e04a9514e",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-refresh-20261111-102135/lichii-pr-1332.json": "76917fd8b0155b4a32db869d2b0aa7c064ff4d09f905b9f4905869cfda72f8a5",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-refresh-20261111-102135/lichii-pr-1333-files.json": "22b33647a2c15074d27c7203f04860d6b39056c84ff9d020f802e0b34f1028e7",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-refresh-20261111-102135/lichii-pr-1333.json": "4607f013f1cbb74d2299ce7c5fce63fb7d4a93f2939dbddf45f5365ce37b4cce",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-refresh-20261111-102135/lichii-pr-1336-files.json": "acdd7d231e48acd584aa9ee3a933654efdbbd8ab79025177ba304c2aa2079495",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-refresh-20261111-102135/lichii-pr-1336.json": "c66574db9e8fca3e5d184027abb7ee7fc2085ae43e5c28646ed4d1841c3f8b66",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-refresh-20261111-102135/lichii-pulls.json": "cb023e4f34cb9d4f08dd045c39bdafbb7f9ea22ced6ef0f005deae7267a318ba",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-refresh-20261111-102135/manifest.json": "3abaf6c1ced98794c32cd8e6d661687e9a7d1f87d464b036f0fa7aabc1067822",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-refresh-20261111-102135/reviewed-inputs.json": "305b3ea9fe48667450cb7091fe099aead23794314a604b1cecbdd29478625a8e",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-refresh-20261111-102135/_ZN5Tegra7Engines9Maxwell3D21ProcessDirtyRegistersEjj.disassembly.txt": "ac3b7cc629c3241962ab05878c7bee7a28280baf729b52a548269cebf17c93cc",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-refresh-20261111-102135/_ZN5Tegra7Engines9Maxwell3D14CallMethodFastEjjb.disassembly.txt": "c19898658780a5244be740a97ff6d66618ed35e20406b9b46a8a825df77d3548",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-refresh-20261111-102135/native1315-state-write-functions.json": "46ba6167ba48721eb4a303098ce2b99e8801c8721d3ddd54693e1ff4777c311e",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-refresh-20261111-102135/1095-merged.patch": "290b53714409965131b7fb328d23eab500b832ae6b32ed617ca8b83aa7055ea0",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-refresh-20261111-102135/1095-dry-run.log": "7b7d88955af582ca579d39bc664c5225676f516bfcb9037f576ebacc7bf54310",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-refresh-20261111-102135/1095-dry-run.json": "c91be9d228933078b76fdc77d85a03dd5a83c3fea03bf07a217fad396c0a8829",
+    "/home/souhib/nel3ab-retro/spikes/switch2-room/state-write-2026-11-09.json": "dcb655ed7033ea4a8f1115bf3d082842526e14493e8ccfc4200a0ff5ea77fdc6",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-preparation-20261111/prior1095-audit/report.json": "31ed193972e483b94e83b70e7e882a688dbaa8929d27063cda0a18a5616066d9"
+  },
+  "eglantine_nx2_commit": "78743f30c251f66bd77e6eea6c28d8632d642d6f",
+  "native1315_code_review": {
+    "ELF_sha256": "13158042b7dae7041bc4ae255381dbbed90b1d7eb9f3ba04ea1b5be02d36f6a1",
+    "CallMethodFast_address": "0x14a83e0",
+    "CallMethodFast_size_bytes": 590,
+    "ordinary_state_tail_jump": "0x14a848c jumps to ProcessDirtyRegisters at0x14a6c20",
+    "scope": "Actual symbol/disassembly inspection. Shadow logic is already present in CallMethodFast; do not transplant upstream MSVC three-call cost as localClang cost. Previous sampled CALL instruction is known, but its method argument is not classified by leaf samples. No gained time inferred."
+  },
+  "port1095_textual_precheck": {
+    "patch": "Upstream merged73a1b58 exactpatch",
+    "dry_run_passed": false,
+    "reason": "video_core.cpp CreateGPU initialization context differs;3otherfiles and includehunkapply withoutfuzz. Root preservedall4filebytes/modes/mtimes. Manual contextual adaptation required before semantic tests.",
+    "files_changed": false
+  }
+}

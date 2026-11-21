@@ -1,0 +1,547 @@
+{
+  "date": "2026-11-09",
+  "scope": "Default-off native guest presentation interval meter; denominator correction is not a performance gain. Camera phase, followed by short functional walk; ground-walk distribution/zone transitions not qualified.",
+  "base_cli_sha256": "ef54ebab1ea091bbf3ad28417531285cde8a5b8df67f4b7ef7d6e93968217e56",
+  "cli_sha256": "1e26f546986f247a72b8b9177a30f5a17701bea247b7401ac65b423ec1a23d98",
+  "patch": "amont/lichii-present-stats-on-shadow-span.patch",
+  "patch_sha256": "ef38130501a6c05203482ccfbea813e4ae959df7db7d3bc39a25735e5bda30f2",
+  "source_inputs": {
+    "src/core/CMakeLists.txt": "8cf0d2220c1216857306f0d6fa4d0dcc7814e49cd92cda899719e11066f0ca03",
+    "src/tests/CMakeLists.txt": "743b952f923b268fa0f9d63f8eaa1e0a930b8448850e2b491812b0959df76c67",
+    "src/core/hle/service/nx2_gsv.h": "ef5b36654332015caa7bfb857d32a3a3ee71a1c9c74a9bc1daf62d162de64d81",
+    "src/core/hle/service/nx2_present_stats.h": "96b681971d8ee508c0e9de1bb55bc6b5fc007f9d8edb2727a06ec450613710d8",
+    "src/tests/core/nx2_present_stats.cpp": "6f04bc09dfd2dc14264464a8caccfb280caf8f1864f19b5dbe790eb83b659cea"
+  },
+  "proof": {
+    "old_denominator_red": "Actual extracted production block compiled successfully; second33000us interval window printed33055us, expected assertionexit42.",
+    "cpu_tests": "5cases2453assertions, five compiled mutants rejected; extracted producer flag absent/0/1/10 and actual forwarding AST tested.",
+    "full_build": "Fresh self_controller.cpp producer and sampler/test inputs; full1157pass4networkskip; Reference87pass; hidden verifier17assertions; newpacing5cases2453assertions.",
+    "same_window_denominator": "First599, subsequent600 actual intervals; positive exact sums and contiguous steady-clock boundaries verified in real runtime.",
+    "parser_negative_tests": [
+      {
+        "mutant": "old_denominator",
+        "rejected": true
+      },
+      {
+        "mutant": "bad_sum",
+        "rejected": true
+      },
+      {
+        "mutant": "bad_count",
+        "rejected": true
+      },
+      {
+        "mutant": "bad_quantile",
+        "rejected": true
+      }
+    ]
+  },
+  "runtime": {
+    "run": "lichii-present-pacing-diagnostic",
+    "marker_count": 1,
+    "all_windows": [
+      {
+        "intervals": 599,
+        "sum_ns": 10799578047,
+        "p50_ns": 16654730,
+        "p95_ns": 20057449,
+        "p99_ns": 70771276,
+        "max_ns": 167863793,
+        "over30": 17,
+        "over100": 2,
+        "begin_ns": 2273788123711879,
+        "end_ns": 2273798923289926,
+        "legacy_same_window": {
+          "mean_frame_us": 18028,
+          "max_frame_us": 167863,
+          "over100": 2,
+          "mean_fence_us": 0,
+          "max_fence_us": 6,
+          "mean_composite_us": 14,
+          "mean_pacing_us": 14194,
+          "ran_ahead": 24
+        },
+        "inside_camera": false
+      },
+      {
+        "intervals": 600,
+        "sum_ns": 10128170541,
+        "p50_ns": 16665310,
+        "p95_ns": 18066772,
+        "p99_ns": 26641110,
+        "max_ns": 98824778,
+        "over30": 3,
+        "over100": 0,
+        "begin_ns": 2273798923289926,
+        "end_ns": 2273809051460467,
+        "legacy_same_window": {
+          "mean_frame_us": 16879,
+          "max_frame_us": 98824,
+          "over100": 0,
+          "mean_fence_us": 0,
+          "max_fence_us": 7,
+          "mean_composite_us": 18,
+          "mean_pacing_us": 14954,
+          "ran_ahead": 16
+        },
+        "inside_camera": false
+      },
+      {
+        "intervals": 600,
+        "sum_ns": 10216203034,
+        "p50_ns": 16664929,
+        "p95_ns": 18445422,
+        "p99_ns": 40858093,
+        "max_ns": 126069872,
+        "over30": 8,
+        "over100": 1,
+        "begin_ns": 2273809051460467,
+        "end_ns": 2273819267663501,
+        "legacy_same_window": {
+          "mean_frame_us": 17026,
+          "max_frame_us": 126069,
+          "over100": 1,
+          "mean_fence_us": 0,
+          "max_fence_us": 8,
+          "mean_composite_us": 16,
+          "mean_pacing_us": 14734,
+          "ran_ahead": 15
+        },
+        "inside_camera": false
+      },
+      {
+        "intervals": 600,
+        "sum_ns": 21509867649,
+        "p50_ns": 16897195,
+        "p95_ns": 63954548,
+        "p99_ns": 266334615,
+        "max_ns": 1276929248,
+        "over30": 200,
+        "over100": 23,
+        "begin_ns": 2273819267663501,
+        "end_ns": 2273840777531150,
+        "legacy_same_window": {
+          "mean_frame_us": 35849,
+          "max_frame_us": 1276929,
+          "over100": 23,
+          "mean_fence_us": 0,
+          "max_fence_us": 3,
+          "mean_composite_us": 18,
+          "mean_pacing_us": 9039,
+          "ran_ahead": 253
+        },
+        "inside_camera": false
+      },
+      {
+        "intervals": 600,
+        "sum_ns": 21559256153,
+        "p50_ns": 33642495,
+        "p95_ns": 47012176,
+        "p99_ns": 54171058,
+        "max_ns": 154583006,
+        "over30": 309,
+        "over100": 2,
+        "begin_ns": 2273840777531150,
+        "end_ns": 2273862336787303,
+        "legacy_same_window": {
+          "mean_frame_us": 35931,
+          "max_frame_us": 154583,
+          "over100": 2,
+          "mean_fence_us": 0,
+          "max_fence_us": 3,
+          "mean_composite_us": 24,
+          "mean_pacing_us": 0,
+          "ran_ahead": 600
+        },
+        "inside_camera": false
+      },
+      {
+        "intervals": 600,
+        "sum_ns": 20781582171,
+        "p50_ns": 31478231,
+        "p95_ns": 48709434,
+        "p99_ns": 54446154,
+        "max_ns": 58097600,
+        "over30": 244,
+        "over100": 0,
+        "begin_ns": 2273862336787303,
+        "end_ns": 2273883118369474,
+        "legacy_same_window": {
+          "mean_frame_us": 34635,
+          "max_frame_us": 58097,
+          "over100": 0,
+          "mean_fence_us": 0,
+          "max_fence_us": 4,
+          "mean_composite_us": 23,
+          "mean_pacing_us": 0,
+          "ran_ahead": 600
+        },
+        "inside_camera": true
+      },
+      {
+        "intervals": 600,
+        "sum_ns": 19831564757,
+        "p50_ns": 30950510,
+        "p95_ns": 44629513,
+        "p99_ns": 50218236,
+        "max_ns": 52328418,
+        "over30": 191,
+        "over100": 0,
+        "begin_ns": 2273883118369474,
+        "end_ns": 2273902949934231,
+        "legacy_same_window": {
+          "mean_frame_us": 33052,
+          "max_frame_us": 52328,
+          "over100": 0,
+          "mean_fence_us": 0,
+          "max_fence_us": 23,
+          "mean_composite_us": 23,
+          "mean_pacing_us": 0,
+          "ran_ahead": 600
+        },
+        "inside_camera": true
+      },
+      {
+        "intervals": 600,
+        "sum_ns": 19107853128,
+        "p50_ns": 30304998,
+        "p95_ns": 39206381,
+        "p99_ns": 47259781,
+        "max_ns": 49377037,
+        "over30": 135,
+        "over100": 0,
+        "begin_ns": 2273902949934231,
+        "end_ns": 2273922057787359,
+        "legacy_same_window": {
+          "mean_frame_us": 31845,
+          "max_frame_us": 49377,
+          "over100": 0,
+          "mean_fence_us": 0,
+          "max_fence_us": 2,
+          "mean_composite_us": 22,
+          "mean_pacing_us": 0,
+          "ran_ahead": 600
+        },
+        "inside_camera": true
+      },
+      {
+        "intervals": 600,
+        "sum_ns": 19415826099,
+        "p50_ns": 30661357,
+        "p95_ns": 40913736,
+        "p99_ns": 47132082,
+        "max_ns": 51371450,
+        "over30": 158,
+        "over100": 0,
+        "begin_ns": 2273922057787359,
+        "end_ns": 2273941473613458,
+        "legacy_same_window": {
+          "mean_frame_us": 32359,
+          "max_frame_us": 51371,
+          "over100": 0,
+          "mean_fence_us": 0,
+          "max_fence_us": 3,
+          "mean_composite_us": 23,
+          "mean_pacing_us": 0,
+          "ran_ahead": 600
+        },
+        "inside_camera": true
+      },
+      {
+        "intervals": 600,
+        "sum_ns": 18379946248,
+        "p50_ns": 30126793,
+        "p95_ns": 41320960,
+        "p99_ns": 58748049,
+        "max_ns": 85936547,
+        "over30": 138,
+        "over100": 0,
+        "begin_ns": 2273941473613458,
+        "end_ns": 2273959853559706,
+        "legacy_same_window": {
+          "mean_frame_us": 30632,
+          "max_frame_us": 85936,
+          "over100": 0,
+          "mean_fence_us": 0,
+          "max_fence_us": 6,
+          "mean_composite_us": 21,
+          "mean_pacing_us": 0,
+          "ran_ahead": 600
+        },
+        "inside_camera": false
+      }
+    ],
+    "complete_camera_windows": [
+      {
+        "intervals": 600,
+        "sum_ns": 20781582171,
+        "p50_ns": 31478231,
+        "p95_ns": 48709434,
+        "p99_ns": 54446154,
+        "max_ns": 58097600,
+        "over30": 244,
+        "over100": 0,
+        "begin_ns": 2273862336787303,
+        "end_ns": 2273883118369474,
+        "legacy_same_window": {
+          "mean_frame_us": 34635,
+          "max_frame_us": 58097,
+          "over100": 0,
+          "mean_fence_us": 0,
+          "max_fence_us": 4,
+          "mean_composite_us": 23,
+          "mean_pacing_us": 0,
+          "ran_ahead": 600
+        },
+        "inside_camera": true
+      },
+      {
+        "intervals": 600,
+        "sum_ns": 19831564757,
+        "p50_ns": 30950510,
+        "p95_ns": 44629513,
+        "p99_ns": 50218236,
+        "max_ns": 52328418,
+        "over30": 191,
+        "over100": 0,
+        "begin_ns": 2273883118369474,
+        "end_ns": 2273902949934231,
+        "legacy_same_window": {
+          "mean_frame_us": 33052,
+          "max_frame_us": 52328,
+          "over100": 0,
+          "mean_fence_us": 0,
+          "max_fence_us": 23,
+          "mean_composite_us": 23,
+          "mean_pacing_us": 0,
+          "ran_ahead": 600
+        },
+        "inside_camera": true
+      },
+      {
+        "intervals": 600,
+        "sum_ns": 19107853128,
+        "p50_ns": 30304998,
+        "p95_ns": 39206381,
+        "p99_ns": 47259781,
+        "max_ns": 49377037,
+        "over30": 135,
+        "over100": 0,
+        "begin_ns": 2273902949934231,
+        "end_ns": 2273922057787359,
+        "legacy_same_window": {
+          "mean_frame_us": 31845,
+          "max_frame_us": 49377,
+          "over100": 0,
+          "mean_fence_us": 0,
+          "max_fence_us": 2,
+          "mean_composite_us": 22,
+          "mean_pacing_us": 0,
+          "ran_ahead": 600
+        },
+        "inside_camera": true
+      },
+      {
+        "intervals": 600,
+        "sum_ns": 19415826099,
+        "p50_ns": 30661357,
+        "p95_ns": 40913736,
+        "p99_ns": 47132082,
+        "max_ns": 51371450,
+        "over30": 158,
+        "over100": 0,
+        "begin_ns": 2273922057787359,
+        "end_ns": 2273941473613458,
+        "legacy_same_window": {
+          "mean_frame_us": 32359,
+          "max_frame_us": 51371,
+          "over100": 0,
+          "mean_fence_us": 0,
+          "max_fence_us": 3,
+          "mean_composite_us": 23,
+          "mean_pacing_us": 0,
+          "ran_ahead": 600
+        },
+        "inside_camera": true
+      }
+    ],
+    "phase_monotonic_ns": [
+      2273861794196943,
+      2273953179319882
+    ],
+    "camera_wall_seconds": 91.385122939,
+    "selected_intervals": 2400,
+    "selected_duration_seconds": 79.136826155,
+    "selected_over30": 728,
+    "selected_over30_percent": 30.333333333333332,
+    "selected_over100": 0,
+    "selected_maximum_ms": 58.0976,
+    "interval_rate_per_second": 30.327220797297088,
+    "quantile_aggregation": "None: individual window p50/p95/p99 only; pooled quantiles cannot be recovered from these summaries.",
+    "legacy_paired_means_us": {
+      "mean_fence_us": 0.0,
+      "mean_composite_us": 22.75,
+      "mean_pacing_us": 0.0
+    },
+    "clock_domain": {
+      "pid": "721128",
+      "host_time_namespace": "time:[4026531834]",
+      "emulator_time_namespace": "time:[4026531834]",
+      "timens_offsets": "monotonic           0         0\nboottime            0         0\n",
+      "libstdcpp_path": "/usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33",
+      "libstdcpp_sha256": "1fd75fe70354a416d75aef22bcae68c47bd25d20e2d0568c30b1a9838cf62f11",
+      "host_before_ns": 2273846932073849,
+      "container_monotonic_ns": 2273847009522451,
+      "host_after_ns": 2273847016688426,
+      "mapping": "Actual mapped libstdc++ steady_clock symbol calls CLOCK_MONOTONIC; identical time namespace and zero offsets. Phase uses host CLOCK_MONOTONIC_NS."
+    },
+    "actual_runtime": {
+      "exe_sha256": "1e26f546986f247a72b8b9177a30f5a17701bea247b7401ac65b423ec1a23d98",
+      "mapped_radv_path": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+      "mapped_radv_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+      "packages": "libdrm-amdgpu1:amd64\t2.4.125-1ubuntu0.1~24.04.2\nlibdrm2:amd64\t2.4.125-1ubuntu0.1~24.04.2\nmesa-vulkan-drivers:amd64\t25.2.8-0ubuntu0.24.04.4\n",
+      "diagnostic_vulkan_info": false,
+      "actual_log_filter_verified": true
+    },
+    "shutdown": {
+      "exit_code": 0,
+      "stop_requested": true,
+      "window_closed": true,
+      "forced": false,
+      "stop_seconds": 3.604539214633405
+    },
+    "images": {
+      "reviewed_unix": 1794256024.039878,
+      "all6_read": true,
+      "images": {
+        "ready.png": "Kokiri Forest text, Link on elevated platform",
+        "phase-before.png": "Same platform and downward camera over village",
+        "phase-after.png": "Same platform/camera, avatar and world visible",
+        "walk-ladder.png": "Link descending lower wooden ladder",
+        "walk-away.png": "Link on ground facing NPC, Talk prompt",
+        "walk-side.png": "Link running on lateral ground path beside slope"
+      },
+      "method": "Each individual PNG read through view_image, no filename inference",
+      "limits": "Static limited scenes; no fullgame/audio/saves/zone transition qualification"
+    },
+    "cleanup": "after-present-pacing-diagnostic-cleanup.json",
+    "limits": [
+      "Single instrumented diagnostic, not a performance comparison or a claim that instrumentation is free.",
+      "TIPC229 guest presentation-request intervals, not physical scanout or guaranteed distinct content.",
+      "Same-window fence/composite/pacing are mean host service durations truncated in microseconds; zero does not imply no cost.",
+      "600/599 legacy metric corrected here; historical comparisons remain under their original convention.",
+      "FPS Unlock/Max Resolution and NO_MESH1 remain active. No constant30, audio, save/resume, zone transitions or game-clock speed qualification."
+    ]
+  },
+  "cleanup": {
+    "at": 1794256024.418412,
+    "own_game_absent": true,
+    "own_helper_removed": true,
+    "old_devices_absent": [
+      "/dev/input/event8",
+      "/dev/input/event9",
+      "/dev/input/event10",
+      "/dev/input/event11"
+    ],
+    "matching_names_remaining": [],
+    "observer": "active",
+    "production_config_unchanged": true,
+    "eight_progressions_unchanged": true,
+    "gpu_policies": {
+      "/sys/class/drm/card0/device/power_dpm_force_performance_level": "auto"
+    },
+    "gpu_power_caps_micro_watts": [
+      150000000
+    ]
+  },
+  "decision": "Thirty constant not reached. Low service fence/composite/pacing durations in selected windows direct further audit upstream of this service; not a proof of absent physical GPU waits. Next candidate1095 private preparation only; retain no gain claim.",
+  "low_rate_resources": {
+    "gpu_busy_percent": {
+      "min": 54,
+      "median": 70,
+      "max": 84
+    },
+    "temp1_input": {
+      "min": 71875,
+      "median": 73750,
+      "max": 75500
+    },
+    "gpu_temp1_input": {
+      "min": 41000,
+      "median": 45000,
+      "max": 49000
+    },
+    "gpu_temp2_input": {
+      "min": 42000,
+      "median": 46000,
+      "max": 51000
+    },
+    "gpu_power1_average": {
+      "min": 37000000,
+      "median": 41000000,
+      "max": 47000000
+    },
+    "gpu_freq1_input": {
+      "min": 1175000000,
+      "median": 1480000000,
+      "max": 1819000000
+    },
+    "gpu_freq2_input": {
+      "min": 1094000000,
+      "median": 1094000000,
+      "max": 1094000000
+    },
+    "threads_top": [
+      {
+        "name": "GPUBack",
+        "cpu_percent_one_core": 81.2999020619456
+      },
+      {
+        "name": "CPUCore_1",
+        "cpu_percent_one_core": 54.33281600159445
+      },
+      {
+        "name": "GPU",
+        "cpu_percent_one_core": 52.972736878550656
+      },
+      {
+        "name": "CPUCore_0",
+        "cpu_percent_one_core": 51.9526775362678
+      },
+      {
+        "name": "CPUCore_2",
+        "cpu_percent_one_core": 48.38833224829096
+      },
+      {
+        "name": "CPUCore_3",
+        "cpu_percent_one_core": 47.03997794527339
+      },
+      {
+        "name": "CPUCore_4",
+        "cpu_percent_one_core": 44.85916142039282
+      },
+      {
+        "name": "CPUCore_5",
+        "cpu_percent_one_core": 43.86255171816245
+      },
+      {
+        "name": "VulkanWorker",
+        "cpu_percent_one_core": 26.017375638225744
+      },
+      {
+        "name": "HostTiming",
+        "cpu_percent_one_core": 5.065122251335521
+      },
+      {
+        "name": "DSP_AudioRender",
+        "cpu_percent_one_core": 3.8574657886328385
+      },
+      {
+        "name": "GPUFencingThrea",
+        "cpu_percent_one_core": 3.6933183082654835
+      }
+    ],
+    "thread_clock_window_seconds": 85.2891556341201,
+    "limits": "Low rate samples and thread accounting over camera phase, not physical GPU counter attribution, not a hardware ceiling."
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "activated_unix": 1794284484.565051,
+  "status": "Zelda title-specific experimental target30 profile active for future launches; no room restarted",
+  "config": "/home/souhib/.config/nel3ab/switch2.json",
+  "previous_config_backup": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/title-profile-installation/switch2-before.json",
+  "previous_config_sha256": "979be97352a2d1fe4f80f44d6ea04ae621a2f67e42ef41a32d8711f06aa614f0",
+  "activated_config_sha256": "5cba48d8467429af0e25ba5cd7137488d5ce1ba9c85f51e3dc8933a46efadb4d",
+  "profile": {
+    "image": "sha256:df06b8ce129f41f2ee1484a465c190da2a1777c9bb2d6b2f6f0deef4263e0cd7",
+    "engine": "/home/souhib/.local/share/nel3ab/switch2/engines/lichii-65def-30-target-20261110",
+    "revision": "lichii-65def-30-target-20261110"
+  },
+  "global_engine_image_revision_unchanged": true,
+  "state_and_refresh_unchanged": true,
+  "cache": "/home/souhib/.local/state/nel3ab/switch2/0400486024dec000/cache/lichii-65def-30-target-20261110",
+  "seed_cache_file_count": 4284,
+  "seed_cache_bytes": 110947958,
+  "cache_exhaustiveness_proven": false,
+  "nand_pre_activation_backup": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/title-profile-installation/nand-before-activation",
+  "local_gate_exit": 0,
+  "audit_exit": 0,
+  "docs_exit": 0,
+  "remote_ci_for_uncommitted_changes": null,
+  "no_commit_or_push": true,
+  "constant30_proven": false,
+  "rollback": {
+    "configuration": "Restore exact previous config bytes atomically only while no game is starting; remove title override to retain legacy globals.",
+    "state": "An old executable is not proof of save-format compatibility. Pre-activation NAND backup is retained separately; restoring it would discard later progression, so preserve candidate writes first."
+  },
+  "date_utc": "2026-11-10",
+  "nand_files_backed_up": 22,
+  "save_slots_backed_up": 2,
+  "eight_progressions_unchanged": true,
+  "game_catalogue_byte_identical_to_lab": true,
+  "private_activation_sha256": "5a5d63ca0de293b2af2130c6573e8071a281085469fc0a92b17572b10d36060a",
+  "actual_title_route_proof": "browser-attempt-05-2026-11-10.json",
+  "adapter_sha256": "bcb17ebd22c9ce639505b86ec409a3b67ef7687105eef4b539232a19c590bb7a",
+  "adapter_tests_sha256": "936d3e66599f8db7a13f5bf034e5ec0e733e231c80969f41671d2907a2133cf5",
+  "gate_log_sha256": "70c218e215ad5ee828d03bef2f8d0afd46b402cfccb3009cfd9da1724ee38c73",
+  "audit_log_sha256": "1790a80f36ae61efa0685ce1e20b485e166b381c4b6ce031763280d0fe9aa77b",
+  "tests": {
+    "new_main_exact_title_and_unconfigured_fallback": true,
+    "state_override_and_invalid_profile_rejected": true,
+    "red_before_change": "Main chose default-image for Zelda; missing selector function also failed. Recorded in tool transcript.",
+    "disabled_selection_mutant": "Actual main test failed again at default-image vs qualified-zelda-image.",
+    "adapter_save_tests": 26,
+    "switch2_measurement_tests": 6,
+    "capture_tests": 29
+  },
+  "scope": "Zelda-only target30 experimental. Full local gate and isolated real-room selection passed; constant30, new-map loading, browser physical AV sync and cross-engine save compatibility remain unproved."
+}

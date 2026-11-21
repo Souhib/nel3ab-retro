@@ -1,0 +1,245 @@
+{
+  "date": "2026-11-08",
+  "scope": "Two alternating Kokiri balcony camera-sweep phases per version, 90 seconds each; complete native 600-present windows only. Two unmeasured blocked Lichii launches between rounds. Cache copied once from same standard revision then kept separate. No other test, profiler or compiler ran during measurements.",
+  "frame_generation": false,
+  "split": 0,
+  "no_mesh": true,
+  "frames_ahead": 1,
+  "reactive_flushing": true,
+  "pooled_game_fps": {
+    "eglantine-standard": 22.67509424336045,
+    "eglantine-pgo": 23.95754722631497
+  },
+  "pgo_improvement_percent": 5.655777961452291,
+  "phases": [
+    {
+      "version": "eglantine-standard",
+      "round": 1,
+      "measurement": {
+        "requested_seconds": [
+          70.678311,
+          161.65424
+        ],
+        "covered_seconds": 52.529399999999995,
+        "game_presentations": 1200,
+        "game_fps": 22.844350021131024,
+        "window_fps_median": 22.8443571771045,
+        "maximum_frame_ms": 185.806,
+        "frames_over_100_ms": 1,
+        "windows": [
+          {
+            "start": 105.21173700000001,
+            "end": 131.491137,
+            "mean_us": 43799,
+            "maximum_us": 185806,
+            "freezes": 1
+          },
+          {
+            "start": 131.495269,
+            "end": 157.745269,
+            "mean_us": 43750,
+            "maximum_us": 83199,
+            "freezes": 0
+          }
+        ]
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 2.603495185263455
+      },
+      "waiting_seconds": 62.77551587484777,
+      "gpu_busy_percent_range": [
+        23,
+        88
+      ],
+      "cpu_temperature_c_range": [
+        65.375,
+        70.875
+      ]
+    },
+    {
+      "version": "eglantine-pgo",
+      "round": 1,
+      "measurement": {
+        "requested_seconds": [
+          80.604484,
+          173.880202
+        ],
+        "covered_seconds": 50.120999999999995,
+        "game_presentations": 1200,
+        "game_fps": 23.94206021428144,
+        "window_fps_median": 23.94325866799448,
+        "maximum_frame_ms": 152.608,
+        "frames_over_100_ms": 1,
+        "windows": [
+          {
+            "start": 111.593395,
+            "end": 136.476595,
+            "mean_us": 41472,
+            "maximum_us": 71852,
+            "freezes": 0
+          },
+          {
+            "start": 136.435413,
+            "end": 161.673213,
+            "mean_us": 42063,
+            "maximum_us": 152608,
+            "freezes": 1
+          }
+        ]
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.805139491800219
+      },
+      "waiting_seconds": 70.65682923095301,
+      "gpu_busy_percent_range": [
+        26,
+        90
+      ],
+      "cpu_temperature_c_range": [
+        74.0,
+        78.0
+      ]
+    },
+    {
+      "version": "eglantine-standard",
+      "round": 2,
+      "measurement": {
+        "requested_seconds": [
+          73.61930299999999,
+          165.222739
+        ],
+        "covered_seconds": 53.3136,
+        "game_presentations": 1200,
+        "game_fps": 22.508328081390115,
+        "window_fps_median": 22.508442114747396,
+        "maximum_frame_ms": 169.884,
+        "frames_over_100_ms": 1,
+        "windows": [
+          {
+            "start": 102.823027,
+            "end": 129.539827,
+            "mean_us": 44528,
+            "maximum_us": 169884,
+            "freezes": 1
+          },
+          {
+            "start": 129.496005,
+            "end": 156.092805,
+            "mean_us": 44328,
+            "maximum_us": 87574,
+            "freezes": 0
+          }
+        ]
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 2.60536218713969
+      },
+      "waiting_seconds": 62.657354447990656,
+      "gpu_busy_percent_range": [
+        10,
+        82
+      ],
+      "cpu_temperature_c_range": [
+        82.75,
+        84.875
+      ]
+    },
+    {
+      "version": "eglantine-pgo",
+      "round": 2,
+      "measurement": {
+        "requested_seconds": [
+          71.31639899999999,
+          166.801832
+        ],
+        "covered_seconds": 50.0562,
+        "game_presentations": 1200,
+        "game_fps": 23.973054286981434,
+        "window_fps_median": 23.97309372166724,
+        "maximum_frame_ms": 81.522,
+        "frames_over_100_ms": 0,
+        "windows": [
+          {
+            "start": 101.146907,
+            "end": 126.207107,
+            "mean_us": 41767,
+            "maximum_us": 74011,
+            "freezes": 0
+          },
+          {
+            "start": 126.12128600000001,
+            "end": 151.117286,
+            "mean_us": 41660,
+            "maximum_us": 81522,
+            "freezes": 0
+          }
+        ]
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.3045430472120643
+      },
+      "waiting_seconds": 63.11625228822231,
+      "gpu_busy_percent_range": [
+        18,
+        94
+      ],
+      "cpu_temperature_c_range": [
+        84.25,
+        86.75
+      ]
+    }
+  ],
+  "releases": [
+    {
+      "name": "eglantine-pgo",
+      "repository": "Djihads80/Eglantine",
+      "tag": "daily-20261107",
+      "source_commit": "216d3e294367abd4742d7ebd736ef25a8db6f365",
+      "published": "2026-11-07T10:43:58Z",
+      "asset": "eglantine-linux-x86_64-pgo.AppImage",
+      "url": "https://github.com/Djihads80/Eglantine/releases/download/daily-20261107/eglantine-linux-x86_64-pgo.AppImage",
+      "size": 139115000,
+      "digest": "sha256:8618540a929a8cad211e89ff024b0e2323bde3c769e250f4fa26ad275f2386c7"
+    },
+    {
+      "name": "lichii-117-pgo",
+      "repository": "zortos293/Lichii",
+      "tag": "build-117",
+      "source_commit": "89440b29a90708c0fefc126b2bd8c7a64a996bdd",
+      "published": "2026-11-07T22:39:01Z",
+      "asset": "lichii-linux-x86_64-pgo.AppImage",
+      "url": "https://github.com/zortos293/Lichii/releases/download/build-117/lichii-linux-x86_64-pgo.AppImage",
+      "size": 140442104,
+      "digest": "sha256:a2eda749105395ac6910c905f0f3c564528b7bfd132ebaf7616963fe28c6dd98"
+    }
+  ],
+  "baseline_release": {
+    "name": "eglantine-20261107",
+    "repository": "Djihads80/Eglantine",
+    "tag": "daily-20261107",
+    "release": "https://github.com/Djihads80/Eglantine/releases/tag/daily-20261107",
+    "published": "2026-11-07T10:43:58Z",
+    "asset": "eglantine-linux-x86_64.AppImage",
+    "url": "https://github.com/Djihads80/Eglantine/releases/download/daily-20261107/eglantine-linux-x86_64.AppImage",
+    "size": 109668856,
+    "digest": "sha256:293f1f69b6d6e0c3df68e3f0e0e244510487f4e96340e23d75e197a4f0d7176b",
+    "target_commitish": "216d3e294367abd4742d7ebd736ef25a8db6f365",
+    "source_commit": "216d3e294367abd4742d7ebd736ef25a8db6f365"
+  }
+}

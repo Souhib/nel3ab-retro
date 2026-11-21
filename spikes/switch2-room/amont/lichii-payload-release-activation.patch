@@ -1,0 +1,23 @@
+diff --git a/src/video_core/query_cache/query_cache.h b/src/video_core/query_cache/query_cache.h
+--- a/src/video_core/query_cache/query_cache.h
++++ b/src/video_core/query_cache/query_cache.h
+@@ -341,6 +341,19 @@
+             shadow.NoteDirectRelease(cpu_addr, addr);
+         }
+         Tegra::Nx2SemaphoreWaiters::Get().OnWrite(cpu_addr, static_cast<u32>(query_base->value));
++        if (is_synced) {
++            static const bool trace = [] {
++                const char* value = std::getenv("EDEN_NX2_PAYLOAD_SYNC_TRACE");
++                return value && value[0] == '1' && value[1] == '\0';
++            }();
++            if (trace) {
++                static const bool logged = [] {
++                    LOG_INFO(HW_GPU, "Payload release synchronized callback active (PR874)");
++                    return true;
++                }();
++                (void)logged;
++            }
++        }
+         if (const u64 trace = QueryTrace::Sample(QueryTrace::Event::Write)) {
+             const bool wide = True(query_base->flags & QueryFlagBits::HasTimestamp);
+             LOG_INFO(HW_GPU,

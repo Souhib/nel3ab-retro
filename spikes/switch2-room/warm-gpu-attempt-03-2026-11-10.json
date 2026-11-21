@@ -1,0 +1,232 @@
+{
+  "at": 1794286959.3122985,
+  "status": "Real RADV warm consumer activation and normal completion qualified; reuse/benefit not tested.",
+  "plan_sha256": "54c17cc5a0358dbcd8795ce764995150e342f2d39030243eac7681f262cb476f",
+  "counts": {
+    "G_cached_graphics_jobs": 783,
+    "C_queued_compute_jobs": 4679,
+    "E_file_entries": 4794,
+    "compute_existing_key_exclusions": 115,
+    "threads": 12,
+    "T_built": 5461,
+    "F_failed": 1,
+    "R_not_reached": 0,
+    "total_jobs": 5462,
+    "conservation": "5461+1+0=783+4679",
+    "compute_success_lower_bound": 4678,
+    "compute_success_upper_bound": 4679,
+    "reported_precache_seconds": 144.7
+  },
+  "failure_scope": "One build failed; Info summary does not identify whether graphics or compute. No full-success claim.",
+  "native_evidence_lines": [
+    "[   3.547684] Render.Vulkan <Info> video_core/renderer_vulkan/vk_pipeline_cache.cpp:1433:PrecacheShaders: Shader precache: 783 cached graphics pipelines and 4679 of 4794 compute programs to build on 12 threads",
+    "[ 148.199448] Render.Vulkan <Info> video_core/renderer_vulkan/vk_pipeline_cache.cpp:1496:PrecacheShaders: Shader precache: finished, 5461 built, 1 failed, 0 not reached, 144.7 s",
+    "[ 148.369239] Render.Vulkan <Info> video_core/renderer_vulkan/vk_pipeline_cache.cpp:1543:operator(): Driver pipeline cache saved after the shader precache, 128277624 bytes"
+  ],
+  "runtime": {
+    "elf_sha256": "65defb74a8cc81ae85d42c5c0e9bb9bc8a796d976f12278cb0a4fcf940834d08",
+    "radv_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+    "image": "sha256:df06b8ce129f41f2ee1484a465c190da2a1777c9bb2d6b2f6f0deef4263e0cd7",
+    "effective_fields": 142,
+    "original_fields_unchanged": 140,
+    "one_changed_original_field": "Renderer/precache_shaders=2",
+    "added_expected_metadata": "Renderer/precache_shaders\\default=false",
+    "controls_storage_preserved": true,
+    "shader_dir": "/run-data/home/.cache/eden/shader/0400486024dec000",
+    "time_namespace_same": true,
+    "no_capture_helper": true,
+    "native_environment": {
+      "EDEN_NX2_VI2_SERVICE_TRACE": "1",
+      "EDEN_NX2_WSI_PRESENT_STATS": "1",
+      "EDEN_NX2_COARSE_GPU": "0",
+      "EDEN_NX2_COARSE_MANUAL": "0",
+      "EDEN_NX2_GPU_TIMINGS": "0",
+      "EDEN_NX2_BANK_COMPARE": "0",
+      "EDEN_NX2_BANK_COMPARE_STATS": "0",
+      "EDEN_NX2_FENCE_WINDOW_TRACE": "0",
+      "EDEN_NX2_REFERENCE_ACQUIRE": "1",
+      "EDEN_NX2_SPLIT": "2",
+      "EDEN_NX2_BUFFER_FAST_CLEAN": "0",
+      "EDEN_NX2_SINGLE_LIST_US": "0",
+      "EDEN_NX2_FENCE_FLUSH_US": "500",
+      "EDEN_NX2_FENCE_BATCH": "1",
+      "EDEN_NX2_FRAMES_AHEAD": "1",
+      "EDEN_NX2_IDLE_SPIN_US": "0",
+      "EDEN_NX2_COARSE_PERIOD": "60",
+      "EDEN_NX2_UPLOAD_PAYLOAD_DIAGNOSTIC": "0",
+      "EDEN_NX2_UPSCALER_STANDIN": "0",
+      "EDEN_NX2_BUFFER_STATS": "0",
+      "EDEN_NX2_HOST_BUFFER_UPLOAD": "0",
+      "EDEN_NX2_PRESENT_STATS": "1",
+      "EDEN_NX2_FORCE_MESH_FALLBACK": "1"
+    }
+  },
+  "observer": {
+    "events": [
+      {
+        "event": "pause_requested",
+        "monotonic_ns": 2304697697303560
+      },
+      {
+        "event": "inactive_confirmed",
+        "monotonic_ns": 2304697864929168
+      },
+      {
+        "event": "active_restored",
+        "monotonic_ns": 2304857919737625
+      }
+    ],
+    "restored": true,
+    "pause_seconds": 160.222434065
+  },
+  "watchdog": {
+    "samples": 48,
+    "all_without_interference": true,
+    "complete": true
+  },
+  "exit": {
+    "reason": "precache completed",
+    "driver_failure": null,
+    "state": {
+      "Status": "exited",
+      "Running": false,
+      "Paused": false,
+      "Restarting": false,
+      "OOMKilled": false,
+      "Dead": false,
+      "Pid": 0,
+      "ExitCode": 0,
+      "Error": "",
+      "StartedAt": "2026-11-10T04:58:47.265801018Z",
+      "FinishedAt": "2026-11-10T05:01:26.935742003Z"
+    },
+    "elapsed_seconds": 159.876409644261,
+    "runtime_observed": true,
+    "counters": {
+      "start": [
+        [
+          "783",
+          "4679",
+          "4794",
+          "12"
+        ]
+      ],
+      "end": [
+        [
+          "finished",
+          "5461",
+          "1",
+          "0",
+          "144.7"
+        ]
+      ],
+      "shim_markers": 1,
+      "wrapper_markers": 1,
+      "already_done": false,
+      "parse_failure": false,
+      "wrong_version": false
+    }
+  },
+  "lifecycle": {
+    "exit_code": 0,
+    "stop_requested": true,
+    "window_closed": true,
+    "forced": false,
+    "stop_seconds": 9.900255762971938
+  },
+  "cleanup": {
+    "at": 1794286887.3686194,
+    "container_absent": true,
+    "own_pids_absent": true,
+    "observer": "active",
+    "production_unchanged": true,
+    "no_helper_capture_browser_created": true,
+    "gpu": {
+      "power_dpm_force_performance_level": "auto",
+      "power1_cap": "150000000"
+    },
+    "elapsed_seconds": 160.1954619991593,
+    "within_510_seconds": true,
+    "kernel_query_exit": 0,
+    "kernel_requires_review": true
+  },
+  "GPU_kernel_error_records": [],
+  "cache_after_normal_exit": {
+    "before_files": 4286,
+    "after_files": 13641,
+    "changed_files": [
+      "eden/launched.json",
+      "eden/shader/0400486024dec000/vulkan_pipelines.fork-v54.bin",
+      "eden/shader/vulkan_static_pipelines.bin",
+      "mesa_shader_cache/index",
+      "radv_builtin_shaders/part0/mesa_cache.idx"
+    ],
+    "added_count": 9355,
+    "removed_files": [],
+    "driver_pipeline_cache": {
+      "path": "eden/shader/0400486024dec000/vulkan_pipelines.fork-v54.bin",
+      "before": {
+        "bytes": 17041996,
+        "sha256": "2e11388ca7c914ac53b48bc305a448c6c85c73e96c9111e61d82d0b31ebcd4ee"
+      },
+      "after": {
+        "bytes": 128277636,
+        "sha256": "cbc7ce414bd7433a48ba6ec544e8ad51e6566db5965852bc95d700ef43143d54"
+      },
+      "save_log_bytes": 128277624,
+      "file_header_bytes": 12,
+      "size_explanation": "Save log reports Vulkan payload128277624; disk file128277636 adds8-byte magic+4-byte cache version. Actual SerializeVulkanPipelineCache writes that header at vk_pipeline_cache.cpp:2564-2565."
+    },
+    "warm_file_unchanged": true,
+    "done_marker": {
+      "path": "eden/shader/0400486024dec000/warm-compute.done",
+      "metadata": {
+        "bytes": 54,
+        "sha256": "51df38faaeafebc844172f270f162e7db79a114f1681ad598575b16a725049ec"
+      },
+      "limitation": "Marker was written despite the one failed build, as source predicts; it is not used as sole success evidence."
+    },
+    "full_manifest": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-gpu-consumer-03/cache-after.json",
+    "scope": "Actual save log and post-normal-close file change prove cache artifact persistence only, not next-boot use or reduced stalls."
+  },
+  "limits": [
+    "Input extraction had17456membererrors and18skipped conversions;4794records are not full game coverage.",
+    "Warm environments use GuessMissing defaults, not recorded runtime answers.",
+    "Only existing observed graphics keys were compiled; unseen map graphics coverage unproved.",
+    "No second boot, reused-cache validation, gameplay phase, FPS comparison or performance improvement was measured.",
+    "Installed profile/cache/config and eight progressions unchanged. This result is private and does not install precache_shaders2."
+  ],
+  "proof_files": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-gpu-consumer-03/plan.json": "54c17cc5a0358dbcd8795ce764995150e342f2d39030243eac7681f262cb476f",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-gpu-consumer-03/launch.py": "d03e50dbc431926a563f6a61d8881f4d70e6d43a1012ce549bcbf59e950043ca",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-gpu-consumer-03/runtime.py": "08469f89b2441f96478f9795bef8503eb30e9ec53b03f025296338410eb8e1b6",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-gpu-consumer-03/fleet.log": "fcfc8e3e938f4706547fbd22764f73274c753ed6b4dcc58b3c917f30947a67fa",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-gpu-consumer-03/mode-access-proof.json": "322ed0e8adba2e6cb3e068a4a14304a444306b1f0c0b5648b65dcd6a2bcee9ac",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-gpu-consumer-03/launch.json": "c9037d42d08490a5f631974d082107b74ebc71a3dae60894bb85a67dd21c80db",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-gpu-consumer-03/watchdog.json": "15ad9d2faf3b4813b4120e925519e9f419c24081c881cdcd85064d9e4442b34d",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-gpu-consumer-03/runtime-proof.json": "686e57b58f4a440f0e30ad1e224c9768ef5866ec7e12ed60633129ccf5dbde04",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-gpu-consumer-03/observer-lifecycle.json": "65c968d24ea7143bb1287eb5554f69675eff1338aa2435a4c816e63be61b47ba",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-gpu-consumer-03/exit.json": "22cefa0fd74d3e38299712574392966d5739c7c1e19ac34f190c266605130752",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-gpu-consumer-03/stdout.log": "6beec94c555a806920aa65e752ab0b2fbf438bf82dfd8d6cd34037dc7e74c798",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-gpu-consumer-03/stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-gpu-consumer-03/container.json": "87fa0064c72779b89af783c0d05d603f105a2c546d582195b36890f168a3759b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-gpu-consumer-03/cleanup.json": "ea54f940b9dde92f651589b12e419f556de266b44e6180e4cc7f579f102590a3",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-gpu-consumer-03/kernel-after.log": "e3c259e9d5e21759b5b2dd4f1a309df5cab0cab4b11408b138a6a23d044debcc",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-gpu-consumer-03/acceptance.json": "9ec86ae01e8c2f57f928c34b4bd3d7f7813eb34c3a058f3dc639fe4fb475bdff",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-gpu-consumer-03/cache-after.json": "87d2fa5f48d04635a59b19c7907a05d686563442e7e5fa32169b046972dc734e",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-gpu-consumer-03/seed-manifest.json": "874c9b6727606c9f80b6d40a54920cef5bce95d09328eb62f80d21123c54cf8b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-gpu-consumer-03/clean-seed-proof.json": "ceccc49a3af365f856c36e3ffa65dc3a29ca4c2753d88767b1e55e7cf35ac229",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-gpu-consumer-03/production-before-launch.json": "ca518d9a567d3c4088d049ac1c46c6717d52821d3b6c56440d40a50a65c66ff3",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-gpu-consumer-03/run/lifecycle.json": "0180ea8ef67f17a4990935e5cb5d6a7dc5039646cbe321c3f29c0d32f50dcec9",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-gpu-consumer-03/run/warm-shim.json": "0326ce1e4571924b8168e118a92d1d0fd38fafb9bf77a5563d009417e6bbeb73",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-gpu-consumer-03/run/qualification-wrapper.json": "fc721ea2271db437c95f088e67029cf1c9fed75279ae9e05f635ef841e25aa95",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-gpu-consumer-03/attempt02-perf-provenance/manifest.json": "076b49452f04246545ad57dfee113d45d1b58f0e8788497f17b600b468d81223",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-gpu-consumer-03/observer-finally-tests.json": "9d09bf4505ea1f0baf4a0aecf3c83e594defed7d5119742aabc343b1a8652874"
+  },
+  "date_utc": "2026-11-10",
+  "private_result_sha256": "e3cf9b8a21e695cf4b85f0918d795f4af70c964e86783dcb7d7d5958707aafa2",
+  "root_evidence_hashes_verified": 25,
+  "root_raw_summary_and_lifecycle_and_observer_restore_read": true,
+  "root_compute_lower_bound": 4678,
+  "no_FPS_or_reuse_gain_proved": true
+}

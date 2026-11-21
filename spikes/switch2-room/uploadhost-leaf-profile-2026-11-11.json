@@ -1,0 +1,179 @@
+{
+  "date_utc": "2026-11-11",
+  "status": "normal1315_leaf_profile_complete",
+  "native_ELF_sha256": "13158042b7dae7041bc4ae255381dbbed90b1d7eb9f3ba04ea1b5be02d36f6a1",
+  "recording_seconds": 25.018833002,
+  "perf_data_sha256": "21a88b2271bb5d4b2372296d7ed73fe3d4b7b4fdac6fdf37c158d8a11c3d41d8",
+  "raw_samples": 12874,
+  "retained_samples": 11956,
+  "resolved_samples": 5745,
+  "lost": 0,
+  "same_sample_selection_with_debug": true,
+  "independent_raw_perf_decoder_agrees": true,
+  "threads": [
+    {
+      "name": "GPUBack",
+      "samples": 1995,
+      "resolved_sampled_cycles_percent": 99.51235780638282,
+      "top_leaves": [
+        {
+          "symbol_or_unknown": "_ZN11VideoCommon8GpuSplit8BackLoopESt10stop_token",
+          "sampled_cycles_percent_of_this_thread": 11.36627601841271
+        },
+        {
+          "symbol_or_unknown": "__memcpy_avx_unaligned_erms|__memmove_avx_unaligned_erms",
+          "sampled_cycles_percent_of_this_thread": 7.802153413201081
+        },
+        {
+          "symbol_or_unknown": "_ZN6Common18SpinRecursiveMutex4lockEv",
+          "sampled_cycles_percent_of_this_thread": 5.414591157528213
+        },
+        {
+          "symbol_or_unknown": "_ZZN6Vulkan16GraphicsPipeline21MakeConfigureSpecFuncINS_12_GLOBAL__N_117SimpleStorageSpecEEEDavENUlPS0_bE_8__invokeES4_b",
+          "sampled_cycles_percent_of_this_thread": 3.8115493990637788
+        },
+        {
+          "symbol_or_unknown": "_ZN11VideoCommon11BufferCacheIN6Vulkan17BufferCacheParamsEE29BindHostGraphicsUniformBufferEmjjb",
+          "sampled_cycles_percent_of_this_thread": 2.92002246649651
+        },
+        {
+          "symbol_or_unknown": "_ZN6Vulkan16RasterizerVulkan4DrawEbj",
+          "sampled_cycles_percent_of_this_thread": 2.7212616770446054
+        },
+        {
+          "symbol_or_unknown": "_ZN11VideoCommon11BufferCacheIN6Vulkan17BufferCacheParamsEE23BindHostGeometryBuffersEb",
+          "sampled_cycles_percent_of_this_thread": 2.1251128139895177
+        },
+        {
+          "symbol_or_unknown": "_ZN6Vulkan20PushImageDescriptorsERN11VideoCommon12TextureCacheINS_18TextureCacheParamsEEERNS_21UpdateDescriptorQueueERKN6Shader4InfoERNS_21RescalingPushConstantERPKN6Common6SlotIdERPKNS0_14ImageViewInOutE",
+          "sampled_cycles_percent_of_this_thread": 1.9532544173516027
+        }
+      ]
+    },
+    {
+      "name": "GPU",
+      "samples": 1291,
+      "resolved_sampled_cycles_percent": 93.65491926663161,
+      "top_leaves": [
+        {
+          "symbol_or_unknown": "_ZN11VideoCommon8GpuSplit5DrainENS_9DrainSiteE",
+          "sampled_cycles_percent_of_this_thread": 35.86570695124881
+        },
+        {
+          "symbol_or_unknown": "_ZN5Tegra14TuringMacroJit6ThunksIZNS_7Engines9Maxwell3D13FrontRunMacroERN4Core6SystemERN11VideoCommon8GpuSplitERNS3_10FrontStateEE3$_0ZNS3_13FrontRunMacroES6_S9_SB_E3$_1E8CallEmitEPNS0_5StateEjj",
+          "sampled_cycles_percent_of_this_thread": 12.029235781819203
+        },
+        {
+          "symbol_or_unknown": "_ZN5Tegra9DmaPusher15ProcessCommandsESt4spanIKNS_13CommandHeaderELm18446744073709551615EEm",
+          "sampled_cycles_percent_of_this_thread": 9.185369540095571
+        },
+        {
+          "symbol_or_unknown": "_ZN5Tegra7Engines9Maxwell3D15FrontCallMethodERN4Core6SystemERN11VideoCommon8GpuSplitEjjb",
+          "sampled_cycles_percent_of_this_thread": 7.483426038640506
+        },
+        {
+          "symbol_or_unknown": "UNKNOWN:copy_missing_or_identity_changed",
+          "sampled_cycles_percent_of_this_thread": 6.345080733368391
+        },
+        {
+          "symbol_or_unknown": "_ZN5Tegra9DmaPusher10CallMethodEj",
+          "sampled_cycles_percent_of_this_thread": 5.773818596679646
+        },
+        {
+          "symbol_or_unknown": "__memcpy_avx_unaligned|__memmove_avx_unaligned",
+          "sampled_cycles_percent_of_this_thread": 3.7666762979651898
+        },
+        {
+          "symbol_or_unknown": "_ZN5Tegra7Engines9Maxwell3D14FrontRunOnBackERN4Core6SystemERN11VideoCommon8GpuSplitERNS1_10FrontStateERKNS_11MacroEngineEj",
+          "sampled_cycles_percent_of_this_thread": 3.188361531167735
+        }
+      ]
+    },
+    {
+      "name": "VulkanWorker",
+      "samples": 693,
+      "resolved_sampled_cycles_percent": 99.63583622602988,
+      "top_leaves": [
+        {
+          "symbol_or_unknown": "radv_CmdBindPipeline",
+          "sampled_cycles_percent_of_this_thread": 8.193663558844547
+        },
+        {
+          "symbol_or_unknown": "radv_cmd_update_descriptor_set_with_template",
+          "sampled_cycles_percent_of_this_thread": 7.218360465437746
+        },
+        {
+          "symbol_or_unknown": "radv_bind_shader",
+          "sampled_cycles_percent_of_this_thread": 3.349821369704001
+        },
+        {
+          "symbol_or_unknown": "_ZNK6Vulkan9Scheduler12TypedCommandIZNS0_6RecordIZNS_16GraphicsPipeline13ConfigureDrawERKNS_21RescalingPushConstantERKNS_22RenderAreaPushConstantEE3$_3Qsr3stdE14is_invocable_vIT_NS_2vk13CommandBufferEEEEvOSB_EUlSD_SD_E_E7ExecuteESD_SD_",
+          "sampled_cycles_percent_of_this_thread": 3.2513308336649582
+        },
+        {
+          "symbol_or_unknown": "radv_emit_graphics_shaders",
+          "sampled_cycles_percent_of_this_thread": 3.2344689544645133
+        },
+        {
+          "symbol_or_unknown": "radv_upload_graphics_shader_descriptors",
+          "sampled_cycles_percent_of_this_thread": 3.178243705851939
+        },
+        {
+          "symbol_or_unknown": "radv_emit_all_graphics_states",
+          "sampled_cycles_percent_of_this_thread": 3.164056070409427
+        },
+        {
+          "symbol_or_unknown": "radv_UpdateDescriptorSetWithTemplate",
+          "sampled_cycles_percent_of_this_thread": 2.7875978572023885
+        }
+      ]
+    }
+  ],
+  "library_binding": [
+    {
+      "module": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+      "actual_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+      "build_id": "b9b8a62af688c09b054fc2a3411bcf690cf98df3",
+      "debug_sha256": "98f0b556e24ae62cc6a928973e3c72a63d1a188e4ba7afd95b13f7669f2fd9f1",
+      "shared_function_bounds_verified": 4
+    },
+    {
+      "module": "/usr/lib/x86_64-linux-gnu/libc.so.6",
+      "actual_sha256": "8db37cf3f2169f59a0f07ef1fea308c35656668c64c8ff294e1860f4121eb161",
+      "build_id": "328820b908de8ea1ef79afa8995e302e819163d7",
+      "debug_sha256": "d97a03cdc9bf03db34c5abf6a5291070a235affaaa12f7b090e5d93efb808dbd",
+      "shared_function_bounds_verified": 2734
+    }
+  ],
+  "actual_observer_receipt_before_browser_close_ms": 11.625936,
+  "frozen_inputs_preserved": 203,
+  "unique_decoded_images_viewed": 4,
+  "normal_native_cleanup": true,
+  "observer_restored_active": true,
+  "installed_state_unchanged": true,
+  "goal40_achieved": false,
+  "limits": [
+    "Leaf sampled user-cycle weights within each thread, no call-chain/caller/lock-owner attribution or wall-time saved.",
+    "Exact matched libc/RADV debug functions, unknown addresses remain unknown; global guest/JIT coverage is incomplete.",
+    "Separate instrumented diagnosis, not an FPS comparison with previous profiles.",
+    "Same stationary checkpoint, all4distinct decoded captures read only after collection; intentionally interrupted35s phase after25s capture."
+  ],
+  "next": "Investigate hot instructions and upstream807 cache-line separation in an independent private candidate; no author performance percentage transferred to Zelda.",
+  "proof_sha256": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uploadhost-leaf-profile-20261111/plan.json": "000dc708944264ba70750b6b96a204827c233f28795a70ce6955a249e061fe0c",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uploadhost-leaf-profile-20261111/profile-preparation.json": "39c15b9f36ee6371273968f7eaded8fcafb1c6c046b3329edc23dfb97c55862c",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uploadhost-leaf-profile-20261111/collector-contract.json": "223adb4f2f467ac717e7c655aa9f6ef863ef0b72d7e5723a3a53e0c34df937da",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uploadhost-leaf-profile-20261111/profile-audit/current-gates/result.json": "f406c94ef4b87ebc84b55b38043e1fd2eaaf2ce046caa2256505bbe725c5b995",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uploadhost-leaf-profile-20261111/chrome-lifecycle/results-root-v4/report.json": "d6a3aae96cf6b63e2ef315c32a8f6833980f853fb05d0cd9dcfbb07f4a7e65e4",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uploadhost-leaf-profile-20261111/F1/room-private.mjs": "6fa0dd03dbcc160a29a7d38dd2a83a482de465f5a230e137493c89cddd45731b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uploadhost-leaf-profile-20261111/F1/prephase-review.json": "3e30c0a075ebdc9b5c03278516a559a65ec915b8eca3a8adc05a1d660fbcc0a4",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uploadhost-leaf-profile-20261111/F1/postphase-review.json": "52724c39887f8e82c2cb32539e00c66faedcfe5618b24c42505872e7f21bfc34",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uploadhost-leaf-profile-20261111/F1/cleanup.json": "8bf6187d8fe60d3049f6ad87a72fb925bd71472e0ab4b3bf57990511279378e6",
+    "/home/souhib/.local/state/nel3ab/test-switch2-hGVlV7/profile/result.json": "476434bb0c4a641da58f4db7f5141c6e41f6569e3ab2160cd094764dc087debe",
+    "/home/souhib/.local/state/nel3ab/test-switch2-hGVlV7/profile/leaf-analysis.json": "4fe2e3e151249a1b5ad95e891d42d4f6718cdf17c966cde71c9ca5db926e6077",
+    "/home/souhib/.local/state/nel3ab/test-switch2-hGVlV7/profile/leaf-analysis-with-all-debug.json": "1c7371c80f5b7ff26b1ab06a3a1c7a8d3b11c28d1da604817ee0b1a58fed3cfb",
+    "/home/souhib/.local/state/nel3ab/test-switch2-hGVlV7/qualification-watchdog.json": "2ec5255d7abc74d68131cf295bef7c20ac85a173cf58dbbe46bd70d7e2e0b354",
+    "/home/souhib/.local/state/nel3ab/test-switch2-hGVlV7/browser-close-begin.json": "144d8b8e3a02817c8dc1b67ce017eef8ba491fb050e918fc1ce858a1b4c4f76b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/leaf-profile-preparation-20261111/debug-resolve-uploadhost.py": "88a1edb3ebc076065a792975d7a780a677786931518401543df13e8fe81e8bd0"
+  }
+}

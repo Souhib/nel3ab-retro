@@ -1,0 +1,531 @@
+--- a/src/video_core/gpu.cpp
++++ b/src/video_core/gpu.cpp
+@@ -34,6 +34,7 @@
+ #include "video_core/nx2_fast_draw.h"
+ #include "video_core/engines/maxwell_dma.h"
+ #include "video_core/gpu.h"
++#include "video_core/gpu_split.h"
+ #include "video_core/pending_maps.h"
+ #include "video_core/gpu_thread.h"
+ #include "video_core/gpu_timestamp.h"
+@@ -158,8 +159,9 @@
+     template <typename Func>
+     [[nodiscard]] u64 RequestSyncOperation(Func&& action) {
+         std::unique_lock lck{sync_request_mutex};
+-        const u64 fence = ++last_sync_fence;
++        const u64 fence = last_sync_fence.load(std::memory_order_relaxed) + 1;
+         sync_requests.emplace_back(std::forward<Func>(action));
++        last_sync_fence.store(fence, std::memory_order_release);
+         return fence;
+     }
+ 
+@@ -168,9 +170,13 @@
+         return current_sync_fence.load(std::memory_order_relaxed);
+     }
+ 
++    /// Returns once the request of `fence` ran, or once the GPU threads stopped for good
++    /// (NotifyShutdown): then it never runs.
+     void WaitForSyncOperation(const u64 fence) {
+         std::unique_lock lck{sync_request_mutex};
+-        sync_request_cv.wait(lck, [this, fence] { return CurrentSyncRequestFence() >= fence; });
++        sync_request_cv.wait(lck, [this, fence] {
++            return CurrentSyncRequestFence() >= fence || sync_requests_dropped;
++        });
+     }
+ 
+     void WaitForIdle() {
+@@ -181,6 +187,12 @@
+ 
+     /// Tick pending requests within the GPU.
+     void TickWork() {
++        // Most ticks follow a draw with no requests pending. A request queued meanwhile is
++        // served by a later draw or by the tick its caller queues after publishing the fence.
++        if (current_sync_fence.load(std::memory_order_acquire) ==
++            last_sync_fence.load(std::memory_order_acquire)) {
++            return;
++        }
+         std::unique_lock lck{sync_request_mutex};
+         while (!sync_requests.empty()) {
+             auto request = std::move(sync_requests.front());
+@@ -213,11 +225,59 @@
+     /// core timing events.
+     void Start() {
+         Settings::UpdateGPUAccuracy();
++        LOG_INFO(HW_GPU,
++                 "NX2_PRIVATE_READTICK1244 selected=1 composed=1058+1244 mode=unconditional version=1");
++        VideoCommon::GpuSplit::Get().SetTickHook(
++            [](void* argument) { static_cast<Impl*>(argument)->ReadTickWork(); }, this);
+         gpu_thread.StartThread(*renderer, renderer->Context(), scheduler);
++    }
++
++    void ReadTickWork() {
++        const u64 before = current_sync_fence.load(std::memory_order_relaxed);
++        const u64 reads_before = readtick_reads_completed.load(std::memory_order_relaxed);
++        TickWork();
++        const u64 completed = current_sync_fence.load(std::memory_order_relaxed) - before;
++        const u64 reads = readtick_reads_completed.load(std::memory_order_relaxed) - reads_before;
++        readtick_hook_calls.fetch_add(1, std::memory_order_relaxed);
++        readtick_hook_reads.fetch_add(reads, std::memory_order_relaxed);
++        if (completed != 0 &&
++            readtick_hook_completed.fetch_add(completed, std::memory_order_relaxed) == 0) {
++            LOG_INFO(HW_GPU,
++                     "NX2_PRIVATE_READTICK1244 first_work: callbacks={} read_flush_callbacks={} "
++                     "scope=host_callbacks_not_gpu_completion",
++                     completed, reads);
++        }
+     }
+ 
+     void NotifyShutdown() {
+         gpu_thread.NotifyShutdown();
++        VideoCommon::GpuSplit::Get().SetTickHook(nullptr, nullptr);
++        bool first_shutdown{};
++        size_t dropped{};
++        {
++            // The GPU threads stopped: no sync operation runs anymore. Guest threads still run
++            // until the kernel suspends them, and one waiting for a read's flush (OnCPURead)
++            // would wait forever, in host code where the kernel cannot suspend it
++            // (KernelCore::SuspendEmulation then waits for it forever). Drop the requests, which
++            // may refer to their waiters' frames, and release the waiters.
++            std::scoped_lock requests_lock{sync_request_mutex};
++            first_shutdown = !sync_requests_dropped;
++            dropped = sync_requests.size();
++            sync_requests.clear();
++            sync_requests_dropped = true;
++        }
++        sync_request_cv.notify_all();
++        if (first_shutdown) {
++            LOG_INFO(HW_GPU,
++                     "NX2_PRIVATE_READTICK1244 final: hook_calls={} hook_callbacks={} "
++                     "hook_read_flush_callbacks={} read_requests={} read_flush_callbacks={} "
++                     "dropped={} scope=host_callbacks_not_gpu_completion",
++                     readtick_hook_calls.load(std::memory_order_relaxed),
++                     readtick_hook_completed.load(std::memory_order_relaxed),
++                     readtick_hook_reads.load(std::memory_order_relaxed),
++                     readtick_reads_requested.load(std::memory_order_relaxed),
++                     readtick_reads_completed.load(std::memory_order_relaxed), dropped);
++        }
+         std::unique_lock lk{sync_mutex};
+         shutting_down.store(true, std::memory_order::relaxed);
+         sync_cv.notify_all();
+@@ -282,15 +342,21 @@
+         const u64 area_size = raster_area.end_address - raster_area.start_address;
+         // In flight: an earlier read's downloads cover the area, only FinishRead is left.
+         if (!raster_area.in_flight) {
++            readtick_reads_requested.fetch_add(1, std::memory_order_relaxed);
+             const u64 fence = RequestSyncOperation([this, raster_area, area_size]() {
+                 const u64 start = AsyncReadback::Now();
+                 // Apply collected guest writes before downloading GPU data over guest memory.
+                 InvalidateGPUCache();
+                 renderer->ReadRasterizer()->FlushRegionForRead(raster_area.start_address,
+                                                                area_size);
++                readtick_reads_completed.fetch_add(1, std::memory_order_relaxed);
+                 AsyncReadback::Add(AsyncReadback::g_counters.flush_ns,
+                                    AsyncReadback::Now() - start);
+             });
++            // The guest synchronized with the GPU work it reads before reading it. Ask the
++            // back to submit the downloads at its next entry boundary, even if the front is busy.
++            // Keep the queued tick for a disabled, stopped or restarting split.
++            VideoCommon::GpuSplit::Get().RequestTick();
+             gpu_thread.TickGPU(is_async);
+             WaitForSyncOperation(fence);
+         }
+@@ -424,11 +490,20 @@
+     std::list<std::function<void()>> sync_requests;
+     std::atomic<u64> current_sync_fence{};
+     std::atomic<AmpereAnchor> ampere_anchor{};
+-    u64 last_sync_fence{};
++    std::atomic<u64> last_sync_fence{}; ///< Last request published, written under the mutex
+ 
+     VideoCommon::PendingMaps pending_maps;
+     std::mutex sync_request_mutex;
+     std::condition_variable sync_request_cv;
++    /// The GPU threads stopped and the requests were dropped (NotifyShutdown, under the mutex).
++    bool sync_requests_dropped{};
++    // Private qualification counters: one update per read/hook, no per-command logging.
++    // A completed callback submitted its host work; it does not prove GPU completion.
++    std::atomic<u64> readtick_reads_requested{};
++    std::atomic<u64> readtick_reads_completed{};
++    std::atomic<u64> readtick_hook_calls{};
++    std::atomic<u64> readtick_hook_completed{};
++    std::atomic<u64> readtick_hook_reads{};
+ 
+     /// InvalidateGPUCache: the writes it gathered and is applying, on each thread doing so.
+     std::vector<const std::vector<std::pair<DAddr, u64>>*> applying_writes;
+@@ -526,6 +601,23 @@
+     impl->TickWork();
+ }
+ 
++GPU::ReadTickStats GPU::GetReadTickStats() const {
++    const auto now = [] {
++        return static_cast<u64>(std::chrono::duration_cast<std::chrono::nanoseconds>(
++                                    std::chrono::steady_clock::now().time_since_epoch())
++                                    .count());
++    };
++    ReadTickStats result{};
++    result.begin_monotonic_ns = now();
++    result.hook_calls = impl->readtick_hook_calls.load(std::memory_order_relaxed);
++    result.hook_callbacks = impl->readtick_hook_completed.load(std::memory_order_relaxed);
++    result.hook_read_flush_callbacks = impl->readtick_hook_reads.load(std::memory_order_relaxed);
++    result.read_requests = impl->readtick_reads_requested.load(std::memory_order_relaxed);
++    result.read_flush_callbacks = impl->readtick_reads_completed.load(std::memory_order_relaxed);
++    result.end_monotonic_ns = now();
++    return result;
++}
++
+ /// Gets a mutable reference to the Host1x interface
+ Host1x::Host1x& GPU::Host1x() {
+     return impl->system.Host1x();
+--- a/src/video_core/gpu.h
++++ b/src/video_core/gpu.h
+@@ -182,6 +182,19 @@
+     /// Tick pending requests within the GPU.
+     void TickWork();
+ 
++    struct ReadTickStats {
++        u64 begin_monotonic_ns;
++        u64 end_monotonic_ns;
++        u64 hook_calls;
++        u64 hook_callbacks;
++        u64 hook_read_flush_callbacks;
++        u64 read_requests;
++        u64 read_flush_callbacks;
++    };
++    /// Independent cumulative atomic loads bracketed by the host monotonic clock.
++    /// No GPU operation or queue drain; counters do not mean GPU completion.
++    [[nodiscard]] ReadTickStats GetReadTickStats() const;
++
+     /// Gets a mutable reference to the Host1x interface
+     [[nodiscard]] Host1x::Host1x& Host1x();
+ 
+--- a/src/video_core/gpu_split.cpp
++++ b/src/video_core/gpu_split.cpp
+@@ -89,6 +89,23 @@
+ }
+ 
+ GpuSplit GpuSplit::instance;
++
++void GpuSplit::RequestTick() {
++    u64 state = tick_state.load(std::memory_order_relaxed);
++    const u64 generation = state & ~(TickAccepting | TickRequested);
++    do {
++        if ((state & TickAccepting) == 0 ||
++            (state & ~(TickAccepting | TickRequested)) != generation) {
++            return;
++        }
++    } while (!tick_state.compare_exchange_weak(
++        state, state | TickRequested, std::memory_order_seq_cst, std::memory_order_relaxed));
++    // Paired with the back's check after setting back_waiting: one side sees the other.
++    if (back_waiting.load(std::memory_order_seq_cst)) {
++        wake.fetch_add(1, std::memory_order_seq_cst);
++        wake.notify_one();
++    }
++}
+ 
+ void GpuSplit::MaybeStart(Core::System& system_) {
+     static const char mode = [] {
+@@ -553,6 +570,8 @@
+     const StutterTrace::ThreadScope stutter_thread{StutterTrace::Thread::Back};
+     Common::SetCurrentThreadName("GPUBack");
+     on_back_thread = true;
++    tick_state.store(tick_state.load(std::memory_order_relaxed) + TickGeneration + TickAccepting,
++                     std::memory_order_release);
+     back_running.store(true, std::memory_order_release);
+     Common::SetCurrentThreadPriority(Common::ThreadPriority::Critical);
+     Common::SetCurrentThreadToPerformanceCores();
+@@ -566,6 +585,7 @@
+     u64 read_position = 0;
+     while (!stop_token.stop_requested()) {
+         Nx2Profile::Report("GPU back thread", true);
++        MaybeTick();
+         u64 available = published.load(std::memory_order_acquire);
+         if (available == read_position) {
+             Nx2Profile::Scope scope{Nx2Profile::Zone::SplitWait};
+@@ -575,7 +595,8 @@
+                                                        : std::chrono::steady_clock::time_point{};
+             // The front usually sends more within microseconds: spin briefly before sleeping.
+             for (u32 spins = 0; spins < 8192 && available == read_position &&
+-                                !hook_requested.load(std::memory_order_relaxed);
++                                !hook_requested.load(std::memory_order_relaxed) &&
++                                (tick_state.load(std::memory_order_relaxed) & TickRequested) == 0;
+                  ++spins) {
+                 Pause();
+                 available = published.load(std::memory_order_acquire);
+@@ -605,9 +626,10 @@
+                 back_waiting.store(true, std::memory_order_seq_cst);
+                 const u32 seen = wake.load(std::memory_order_seq_cst);
+                 available = published.load(std::memory_order_seq_cst);
+-                // A request made after the hook ran (RequestIdleHook) runs it before sleeping.
++                // Idle-hook and tick requests made since the hooks ran must prevent sleeping.
+                 if (available == read_position && !stop_token.stop_requested() &&
+-                    !hook_requested.load(std::memory_order_seq_cst)) {
++                    !hook_requested.load(std::memory_order_seq_cst) &&
++                    (tick_state.load(std::memory_order_seq_cst) & TickRequested) == 0) {
+                     Count(g_acquire_stats.back_sleeps);
+                     wake.wait(seen, std::memory_order_seq_cst);
+                 }
+@@ -628,6 +650,8 @@
+                 hook_requested.store(false, std::memory_order_seq_cst);
+                 idle_hook(idle_argument);
+             }
++            // Serve a guest read before the next entry, even with more work queued on the front.
++            MaybeTick();
+             // Hand ring space back now and then while working through a long batch, and at once
+             // when the front waits for this position (WaitForWriters).
+             if ((read_position - last_store >= 4096 ||
+@@ -641,6 +665,9 @@
+         consumed.store(read_position, std::memory_order_seq_cst);
+         NotifyFront();
+     }
++    // Stop accepting ticks before leaving. A reader still has its normal queued GPU tick:
++    // it runs on the front after a settings stop, or #1058 releases it at final shutdown.
++    tick_state.fetch_and(~(TickAccepting | TickRequested), std::memory_order_seq_cst);
+     back_running.store(false, std::memory_order_seq_cst);
+     front_wake.fetch_add(1, std::memory_order_seq_cst);
+     front_wake.notify_all();
+--- a/src/video_core/gpu_split.h
++++ b/src/video_core/gpu_split.h
+@@ -155,6 +155,15 @@
+         wake.notify_one();
+     }
+ 
++    /// Set before the GPU threads start, cleared after they have joined.
++    void SetTickHook(void (*hook)(void*), void* argument) {
++        tick_hook = hook;
++        tick_argument = argument;
++    }
++    /// Any thread: ask the back to tick after its current entry, or wake it if idle. Callers
++    /// also queue a normal GPU tick, which serves requests when the split stops or is disabled.
++    void RequestTick();
++
+     /// Starts the back thread once the split is wanted (EDEN_NX2_SPLIT=1, a Switch 2 title,
+     /// commands read without cache flushes). Called by the front between commands.
+     void MaybeStart(Core::System& system);
+@@ -425,7 +434,19 @@
+     }
+ 
+     void BackLoop(std::stop_token stop_token);
+-    /// Runs the entry at `entry` (of the `words` published before the ring's end), returns its size.
++    /// The back, between entries. Ticking may record deferred work even when the ring is empty.
++    void MaybeTick() {
++        if ((tick_state.load(std::memory_order_relaxed) & TickRequested) == 0) {
++            return;
++        }
++        const u64 state = tick_state.fetch_and(~TickRequested, std::memory_order_acquire);
++        if ((state & TickRequested) != 0 && tick_hook != nullptr) {
++            back_quiet.store(false, std::memory_order_seq_cst);
++            tick_hook(tick_argument);
++        }
++    }
++    /// Runs the entry at `entry` (of the `words` published before the ring's end), returns its
++    /// size.
+     size_t Execute(const u64* entry, size_t words);
+ 
+     Core::System* system{};
+@@ -473,6 +494,14 @@
+     static inline thread_local bool on_gpu_thread{};
+     void (*idle_hook)(void*){};
+     void* idle_argument{};
++    void (*tick_hook)(void*){};
++    void* tick_argument{};
++    // One state arbitrates requests with back exit. Each start advances the generation, so a
++    // caller delayed across Stop/Start cannot leave a request for the next back thread.
++    static constexpr u64 TickAccepting = 1;
++    static constexpr u64 TickRequested = 2;
++    static constexpr u64 TickGeneration = 4;
++    std::atomic<u64> tick_state{};
+     alignas(64) std::atomic<bool> hook_requested{};
+     std::atomic<bool> back_running{};
+     std::atomic<bool> back_quiet{true};
+--- a/src/video_core/renderer_vulkan/vk_rasterizer.cpp
++++ b/src/video_core/renderer_vulkan/vk_rasterizer.cpp
+@@ -2040,6 +2040,8 @@
+ }
+ 
+ void RasterizerVulkan::DispatchCompute() {
++    // As after a draw, serve sync requests once dispatch resources and cache locks are released.
++    SCOPE_EXIT { gpu.TickWork(); };
+     VideoCommon::Nx2Profile::Scope profile_scope{VideoCommon::Nx2Profile::Zone::Compute};
+     FlushWork();
+     gpu_memory->FlushCaching();
+--- a/src/video_core/renderer_opengl/gl_rasterizer.cpp
++++ b/src/video_core/renderer_opengl/gl_rasterizer.cpp
+@@ -396,6 +396,8 @@
+ }
+ 
+ void RasterizerOpenGL::DispatchCompute() {
++    // As after a draw, serve sync requests once dispatch resources and cache locks are released.
++    SCOPE_EXIT { gpu.TickWork(); };
+     gpu_memory->FlushCaching();
+     ComputePipeline* const pipeline{shader_cache.CurrentComputePipeline()};
+     if (!pipeline) {
+--- a/src/tests/video_core/maxwell_fast_method.cpp
++++ b/src/tests/video_core/maxwell_fast_method.cpp
+@@ -3,6 +3,7 @@
+ 
+ #include <algorithm>
+ #include <array>
++#include <atomic>
+ #include <chrono>
+ #include <cstring>
+ #include <cstdlib>
+@@ -68,6 +69,14 @@
+ 
+     static u64 Published(const GpuSplit& split) {
+         return split.published.load(std::memory_order_acquire);
++    }
++
++    static bool BackWaiting(const GpuSplit& split) {
++        return split.back_waiting.load(std::memory_order_acquire);
++    }
++
++    static bool TickPending(const GpuSplit& split) {
++        return (split.tick_state.load(std::memory_order_acquire) & GpuSplit::TickRequested) != 0;
+     }
+ 
+     static u64 BackIdleAt(const GpuSplit& split) {
+@@ -845,6 +854,113 @@
+     REQUIRE(output == std::array<u32, 3>{1, 2, 3});
+ }
+ 
++TEST_CASE("Split back ticks while idle and between entries, and discards stopped requests",
++          "[video_core][gpu_split_dependencies]") {
++    using Access = VideoCommon::GpuSplitTestAccess;
++    Fixture f;
++    f.system.Initialize();
++    VideoCommon::GpuSplit split;
++    std::atomic<u32> ticks{};
++    std::atomic<u32> submitted{};
++    std::atomic<bool> entered{};
++    std::atomic<bool> release{};
++    u32 ticks_at_second{~0U};
++    split.SetTickHook([](void* counter) { static_cast<std::atomic<u32>*>(counter)->fetch_add(1); },
++                      &ticks);
++    struct Submission {
++        std::atomic<u32>& ticks;
++        std::atomic<u32>& submitted;
++    } submission{ticks, submitted};
++    split.SetIdleHook(
++        [](void* argument) {
++            auto& state = *static_cast<Submission*>(argument);
++            state.submitted.store(state.ticks.load());
++        },
++        &submission);
++    const auto wait_until = [](const auto& ready) {
++        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds{5};
++        while (!ready() && std::chrono::steady_clock::now() < deadline) {
++            std::this_thread::sleep_for(std::chrono::milliseconds{1});
++        }
++        return ready();
++    };
++    // A request before the back starts must neither run nor survive the start.
++    split.RequestTick();
++    REQUIRE_FALSE(Access::TickPending(split));
++    Access::Start(split, f.system);
++    SCOPE_EXIT {
++        split.Stop();
++    };
++    SCOPE_EXIT {
++        release = true;
++    };
++    REQUIRE(wait_until([&] { return split.BackRunning(); }));
++    REQUIRE(wait_until([&] { return Access::BackWaiting(split); }));
++    REQUIRE_FALSE(Access::TickPending(split));
++    REQUIRE(ticks.load() == 0);
++    split.RequestTick();
++    REQUIRE(wait_until([&] { return ticks.load() == 1; }));
++    // A tick on an empty ring must also reach the deferred-submit idle hook.
++    REQUIRE(wait_until([&] { return submitted.load() == 1; }));
++    split.Defer([&] {
++        entered = true;
++        while (!release.load()) {
++            std::this_thread::yield();
++        }
++    });
++    split.Defer([&] { ticks_at_second = ticks.load(); });
++    split.Publish();
++    REQUIRE(wait_until([&] { return entered.load(); }));
++    split.RequestTick();
++    split.RequestTick(); // Coalesced while the same entry holds the back.
++    REQUIRE(entered.load());
++    REQUIRE_FALSE(release.load());
++    REQUIRE(ticks.load() == 1);
++    release = true;
++    split.Drain(VideoCommon::DrainSite::Other);
++    REQUIRE(ticks_at_second == 2);
++    REQUIRE(ticks.load() == 2);
++    split.Stop();
++    split.RequestTick();
++    REQUIRE(ticks.load() == 2);
++    Access::Start(split, f.system);
++    REQUIRE(wait_until([&] { return split.BackRunning(); }));
++    REQUIRE(wait_until([&] { return Access::BackWaiting(split); }));
++    REQUIRE_FALSE(Access::TickPending(split));
++    REQUIRE(ticks.load() == 2);
++    split.RequestTick();
++    REQUIRE(wait_until([&] { return ticks.load() == 3; }));
++    REQUIRE(wait_until([&] { return submitted.load() == 3; }));
++}
++
++TEST_CASE("GPU sync shutdown drops real closures and releases later fences",
++          "[video_core][readtick_shutdown]") {
++    Fixture f;
++    std::vector<u32> order;
++    const auto first = f.gpu.RunOnGpuThread([&] { order.push_back(1); });
++    const auto second = f.gpu.RunOnGpuThread([&] { order.push_back(2); });
++    REQUIRE(second == first + 1);
++    REQUIRE(f.gpu.CurrentSyncRequestFence() < first);
++    f.gpu.TickWork();
++    f.gpu.WaitForSyncOperation(second);
++    REQUIRE(order == std::vector<u32>{1, 2});
++
++    auto captured = std::make_shared<u32>(3);
++    const std::weak_ptr<u32> lifetime = captured;
++    const auto pending = f.gpu.RunOnGpuThread([&, captured] { order.push_back(*captured); });
++    captured.reset();
++    REQUIRE_FALSE(lifetime.expired());
++    f.gpu.NotifyShutdown();
++    REQUIRE(lifetime.expired());
++    // The unmodified base blocks here: run this test with an external watchdog.
++    f.gpu.WaitForSyncOperation(pending);
++    REQUIRE(order == std::vector<u32>{1, 2});
++    const auto late = f.gpu.RunOnGpuThread([&] { order.push_back(4); });
++    f.gpu.WaitForSyncOperation(late);
++    REQUIRE(order == std::vector<u32>{1, 2});
++    f.gpu.NotifyShutdown();
++}
++
+ TEST_CASE("Split remembers the semaphore writes its back has not run yet",
+           "[video_core][gpu_split_dependencies]") {
+     using Access = VideoCommon::GpuSplitTestAccess;
+--- a/src/core/debugger/nx2_debug_tools.cpp
++++ b/src/core/debugger/nx2_debug_tools.cpp
+@@ -209,6 +209,21 @@
+     };
+ }
+ 
++json ReadTickStats(ToolState& state, const json&) {
++    const auto stats = state.system.GPU().GetReadTickStats();
++    return {{"version", 1},
++            {"selected", true},
++            {"composed", "1058+1244"},
++            {"begin_monotonic_ns", stats.begin_monotonic_ns},
++            {"end_monotonic_ns", stats.end_monotonic_ns},
++            {"hook_calls", stats.hook_calls},
++            {"hook_callbacks", stats.hook_callbacks},
++            {"hook_read_flush_callbacks", stats.hook_read_flush_callbacks},
++            {"read_requests", stats.read_requests},
++            {"read_flush_callbacks", stats.read_flush_callbacks},
++            {"scope", "independent_cumulative_host_counters_not_gpu_completion"}};
++}
++
+ json FrameTimes(ToolState& state, const json& params) {
+     const double seconds = params.value("seconds", 5.0);
+     const double refresh_hz = params.value("refresh_hz", 60.0);
+@@ -693,6 +708,7 @@
+     };
+     return {
+         {"status", handler(Status)},
++        {"readtick_stats", handler(ReadTickStats)},
+         {"frame_times", handler(FrameTimes)},
+         {"screenshot", handler(Screenshot)},
+         {"log_tail", handler(LogTail)},

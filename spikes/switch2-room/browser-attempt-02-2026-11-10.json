@@ -1,0 +1,233 @@
+{
+  "date_utc": "2026-11-10",
+  "attempt": 2,
+  "status": "Room functionality observed; 90-second browser walking phase NOT qualified",
+  "candidate_sha256": "65defb74a8cc81ae85d42c5c0e9bb9bc8a796d976f12278cb0a4fcf940834d08",
+  "image": "sha256:df06b8ce129f41f2ee1484a465c190da2a1777c9bb2d6b2f6f0deef4263e0cd7",
+  "actual_contract": {
+    "catalogue": {
+      "players": 1,
+      "current": 0,
+      "roms": [
+        {
+          "name": "The Legend of Zelda: Ocarina of Time",
+          "maker": null,
+          "about": null,
+          "art": false,
+          "console": "switch2"
+        }
+      ]
+    },
+    "lobby": {
+      "preparation": null,
+      "name": "Essai Switch 2 isolé",
+      "game": {
+        "guide": {
+          "players": 1,
+          "multiplayer": "Un joueur. Les autres personnes peuvent regarder la partie.",
+          "devices": [
+            "Manette Pro"
+          ],
+          "checked": "2026-11-07",
+          "allowed": [
+            4
+          ],
+          "source": "https://www.nintendo.com/en-ca/store/products/the-legend-of-zelda-ocarina-of-time-switch-2/",
+          "note": "Version expérimentale : ralentissements et objets manquants possibles. Pour sauvegarder, ouvrir + puis l'onglet Système avec R.",
+          "actions": {
+            "4": {
+              "A": "Confirmer / ouvrir une porte",
+              "B": "Retour dans les menus",
+              "X": "Sauter",
+              "PLUS": "Menu / sauvegarde",
+              "R": "Onglet suivant dans le menu",
+              "lx+": "Déplacer Link à droite",
+              "lx-": "Déplacer Link à gauche",
+              "ly+": "Déplacer Link vers l'avant",
+              "ly-": "Déplacer Link vers l'arrière",
+              "rx+": "Tourner la caméra à droite",
+              "rx-": "Tourner la caméra à gauche"
+            }
+          }
+        },
+        "index": 0,
+        "name": "The Legend of Zelda: Ocarina of Time",
+        "maker": null,
+        "about": null,
+        "console": "switch2",
+        "art": false
+      },
+      "library": [
+        {
+          "guide": {
+            "players": 1,
+            "multiplayer": "Un joueur. Les autres personnes peuvent regarder la partie.",
+            "devices": [
+              "Manette Pro"
+            ],
+            "checked": "2026-11-07",
+            "allowed": [
+              4
+            ],
+            "source": "https://www.nintendo.com/en-ca/store/products/the-legend-of-zelda-ocarina-of-time-switch-2/",
+            "note": "Version expérimentale : ralentissements et objets manquants possibles. Pour sauvegarder, ouvrir + puis l'onglet Système avec R.",
+            "actions": {
+              "4": {
+                "A": "Confirmer / ouvrir une porte",
+                "B": "Retour dans les menus",
+                "X": "Sauter",
+                "PLUS": "Menu / sauvegarde",
+                "R": "Onglet suivant dans le menu",
+                "lx+": "Déplacer Link à droite",
+                "lx-": "Déplacer Link à gauche",
+                "ly+": "Déplacer Link vers l'avant",
+                "ly-": "Déplacer Link vers l'arrière",
+                "rx+": "Tourner la caméra à droite",
+                "rx-": "Tourner la caméra à gauche"
+              }
+            }
+          },
+          "index": 0,
+          "name": "The Legend of Zelda: Ocarina of Time",
+          "maker": null,
+          "about": null,
+          "console": "switch2",
+          "art": false
+        }
+      ],
+      "seats": [
+        {
+          "port": 1,
+          "player": "joueur",
+          "held": true,
+          "claim": "000000000000000018e691164c891533-1"
+        }
+      ],
+      "owner": {
+        "name": "joueur",
+        "login": "joueur@example.test",
+        "seat": 1,
+        "seat_pending": false
+      },
+      "people": [
+        {
+          "name": "joueur",
+          "login": "joueur@example.test",
+          "seat": 1,
+          "seat_pending": false
+        },
+        {
+          "name": "spectateur",
+          "login": "spectateur@example.test",
+          "seat": null,
+          "seat_pending": false
+        },
+        {
+          "name": "deuxieme",
+          "login": "deuxieme@example.test",
+          "seat": null,
+          "seat_pending": false
+        }
+      ],
+      "ask_lasts": 10,
+      "media_url": ""
+    },
+    "playerSeat": 1,
+    "spectatorSeat": null,
+    "refusedSocket": {
+      "reply": [
+        1,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0
+      ],
+      "closed": true
+    },
+    "servedHtmlSha256": "e335ab830f7991ca33f99865c3153d3789ec72d0cb478d1d8dd6ccfc059c9b06",
+    "artifactSha256": "e335ab830f7991ca33f99865c3153d3789ec72d0cb478d1d8dd6ccfc059c9b06",
+    "refusedPageClosedAfterProof": true,
+    "browserPid": 1355483
+  },
+  "cleanup": {
+    "at": 1794281508.950873,
+    "room": "/home/souhib/.local/state/nel3ab/test-switch2-Qw07Mv",
+    "driver_exit": {
+      "exit_code": 0,
+      "ended_unix": 1794281476.879075,
+      "ended_monotonic_ns": 2299447584859144
+    },
+    "owned_containers_absent": true,
+    "native_capture_audio_processes_absent": true,
+    "virtual_pads_absent": true,
+    "observer": "active",
+    "production_config_unchanged": true,
+    "eight_progressions_unchanged": true,
+    "home_0151_and_private_checkpoint_unchanged": {
+      "source": true,
+      "copy": true
+    },
+    "gpu_policies": {
+      "/sys/class/drm/card0/device/power_dpm_force_performance_level": "auto"
+    },
+    "gpu_power_caps_micro_watts": [
+      150000000
+    ],
+    "kernel_gpu_error_lines": [],
+    "watchdog_completed": true,
+    "watchdog_samples": 75,
+    "watchdog_reason": null,
+    "phase90_not_qualified": true
+  },
+  "measured_phase_accepted": false,
+  "phase_abort": {
+    "at_monotonic_ns": 2299442822416705,
+    "reason": "Browser phase orchestration process returned143 before final report; midpoint exists, after/finally missing; neutral sent separately; not a complete90s phase",
+    "accepted_90s": false
+  },
+  "evidence_limits": [
+    "External movement-controller process exited143 before durable final report; signal sender and exact final direction times not established. Native game and room continued; watchdog recorded no stop request.",
+    "141 expected settings and other runtime validations pass; the raw equality refusal of exactly8 connected/default metadata flags is retained. Postcleanup C++/SimpleIni proof establishes effective equality and rejects binding/connected/storage/default changes. Full90s still not established.",
+    "Actual browser-origin menu/load inputs, four brief ground movements and one midpoint ground scene observed. Complete90s not established; no FPS claim.",
+    "Browser PCM nonzero received and WebAudio scheduled positive; this is not physical playback or AV synchronization.",
+    "Two Chromium clients decode locally on server; observer load differs from remote users."
+  ],
+  "root_review": {
+    "room_contract_and_cleanup_read": true,
+    "before_midpoint_after_abort_images_read": true,
+    "real_Config_read_and_write_connected_defaults_read": true
+  },
+  "proof_sha256": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-qualification-attempt-02/plan.json": "9c63bf4e5b8dee5ad393eaa5c66bdcd48c0adaa3592ea27d0096b535902c2305",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-qualification-attempt-02/cleanup.json": "76dcf86c86a372c232c353370f8d8804b1874c69ac1c4d83d9a5599dff8c74b0",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-qualification-attempt-02/driver-launch.json": "8510d833bb0d538e1ea6a9003f3e780ae1596fd2723bd5a524f47af41e663bc8",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-qualification-attempt-02/driver-exit.json": "dd18ca7c8d81bd39ce57cb944607fd2d1fccb3adb6577589141e2b736f8ec804",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Qw07Mv/browser-contract.json": "cc7213d1afd5785ba12d79059331737ecbfd86c79492a201638c9491cd31940f",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Qw07Mv/control-preservation-failure.json": "6b54437f6789c37846a3f2d9e1063f8bbf42eaf6b7f378ff0d46b8e6c0700b94",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Qw07Mv/native-runtime-conditional-proof.json": "a2ccd013e7ef1d03ac650fa335e9dd06fa042274e056eebd341b5d1ba10ca641",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Qw07Mv/phase-start.json": "341d5ff5261fb5594e591c6e3bbdbf96943d2f321410f09ffd17eed915988c55",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Qw07Mv/phase-abort.json": "5f9b402af440ec413e80872ccca0e1ebdedcca9d50e46002fc18bcdb05449ab4",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Qw07Mv/qualification-watchdog.json": "d1ff75fe114796a6ea97a5d83e7510fc7d010e14528636b658c7ded14d8c30c6",
+    "/home/souhib/.local/state/nel3ab/test-switch2-Qw07Mv/browser-actions.jsonl": "27ab7929d7108acdc204091d36951b0065acf3b1768f334779d85c8558579cf9"
+  },
+  "next": "Fix and verify only private movement controller journaling and signal neutralization, prove metadata normalization and real-value negative twins, then freeze a bounded new attempt before launch.",
+  "effective_controls_postcleanup": {
+    "cpu_proof": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-phase-proof/connected-normalization-proof.json",
+    "sha256": "aa67055c177d57dfba38e91cfde850f2c47986edb615ac228bf5430b71812b95",
+    "actual_controls_storage_equivalent": true,
+    "real_cpp_bodies_and_parser": true,
+    "eight_before_after_reads_and_eight_writer_normalizations": true,
+    "negative_actual_alterations_rejected": [
+      "binding",
+      "connected",
+      "storage",
+      "default_wrong_direction"
+    ],
+    "original_validator_unchanged_and_refusal_retained": true,
+    "root_read_actual_read_write_calls_and_functions": true
+  }
+}

@@ -1,0 +1,94 @@
+diff --git a/src/video_core/renderer_vulkan/vk_buffer_cache.cpp b/src/video_core/renderer_vulkan/vk_buffer_cache.cpp
+index 70c68343c..b1c10beb5 100644
+--- a/src/video_core/renderer_vulkan/vk_buffer_cache.cpp
++++ b/src/video_core/renderer_vulkan/vk_buffer_cache.cpp
+@@ -5,6 +5,8 @@
+ // SPDX-License-Identifier: GPL-2.0-or-later
+ 
+ #include <algorithm>
++#include <string_view>
++#include <utility>
+ #include <array>
+ #include <cstring>
+ #include <cstdlib>
+@@ -401,6 +403,20 @@ u32 BufferCacheRuntime::SetVertexRepackLayout(const Tegra::Engines::Maxwell3D::R
+ }
+ 
+ StagingBufferRef BufferCacheRuntime::UploadStagingBuffer(size_t size) {
++    static const bool host_upload = [] {
++        const char* value = std::getenv("EDEN_NX2_HOST_BUFFER_UPLOAD");
++        return value != nullptr && std::string_view{value} == "1";
++    }();
++    if (host_upload) {
++        // 2026-11-09: mapped buffer uploads account for at least 7.35% of the two
++        // sampled GPU-side CPU threads in Kokiri. Reuse the existing host pool:
++        // its tick retirement is unchanged; the direct uniform ring stays local.
++        static bool reported{};
++        if (!std::exchange(reported, true)) {
++            LOG_INFO(HW_GPU, "Host buffer upload path active: existing pool, size={}", size);
++        }
++        return staging_pool.RequestHostUpload(size);
++    }
+     return staging_pool.Request(size, MemoryUsage::Upload);
+ }
+ 
+diff --git a/src/video_core/renderer_vulkan/vk_staging_buffer_pool.cpp b/src/video_core/renderer_vulkan/vk_staging_buffer_pool.cpp
+index 98787b9ad..01c4fa271 100644
+--- a/src/video_core/renderer_vulkan/vk_staging_buffer_pool.cpp
++++ b/src/video_core/renderer_vulkan/vk_staging_buffer_pool.cpp
+@@ -121,6 +121,10 @@ StagingBufferRef StagingBufferPool::Request(size_t size, MemoryUsage usage, bool
+     return GetStagingBuffer(size, usage, deferred);
+ }
+ 
++StagingBufferRef StagingBufferPool::RequestHostUpload(size_t size) {
++    return GetStagingBuffer(size, MemoryUsage::Upload, false);
++}
++
+ void StagingBufferPool::FreeDeferred(StagingBufferRef& ref) {
+     auto& entries = GetCache(ref.usage)[ref.log2_level].entries;
+     const auto is_this_one = [&ref](const StagingBuffer& entry) {
+diff --git a/src/video_core/renderer_vulkan/vk_staging_buffer_pool.h b/src/video_core/renderer_vulkan/vk_staging_buffer_pool.h
+index 6d967abb4..5f218adf3 100644
+--- a/src/video_core/renderer_vulkan/vk_staging_buffer_pool.h
++++ b/src/video_core/renderer_vulkan/vk_staging_buffer_pool.h
+@@ -38,6 +38,7 @@ public:
+     ~StagingBufferPool();
+ 
+     StagingBufferRef Request(size_t size, MemoryUsage usage, bool deferred = false);
++    StagingBufferRef RequestHostUpload(size_t size);
+     void FreeDeferred(StagingBufferRef& ref);
+ 
+     [[nodiscard]] VkBuffer StreamBuf() const noexcept {
+diff --git a/src/video_core/vulkan_common/vulkan_memory_allocator.cpp b/src/video_core/vulkan_common/vulkan_memory_allocator.cpp
+index a0a39abe3..d5d0bac2d 100644
+--- a/src/video_core/vulkan_common/vulkan_memory_allocator.cpp
++++ b/src/video_core/vulkan_common/vulkan_memory_allocator.cpp
+@@ -5,6 +5,9 @@
+ // SPDX-License-Identifier: GPL-2.0-or-later
+ 
+ #include <algorithm>
++#include <atomic>
++#include <cstdlib>
++#include <string_view>
+ #include <array>
+ #include <bit>
+ #include <limits>
+@@ -427,6 +430,18 @@ vk::Buffer MemoryAllocator::CreateBuffer(const VkBufferCreateInfo &ci, MemoryUsa
+         vk::Check(vmaCreateBuffer(allocator, &ci, &alloc_ci, &handle, &allocation, &alloc_info));
+     }
+     vmaGetAllocationMemoryProperties(allocator, allocation, &property_flags);
++    static const bool host_upload_probe = [] {
++        const char* value = std::getenv("EDEN_NX2_HOST_BUFFER_UPLOAD");
++        return value != nullptr && std::string_view{value} == "1";
++    }();
++    if (host_upload_probe && (usage == MemoryUsage::Upload || usage == MemoryUsage::Stream)) {
++        static std::atomic<unsigned> reports{};
++        if (reports.fetch_add(1, std::memory_order_relaxed) < 8) {
++            LOG_INFO(HW_GPU, "Upload allocation probe: stream={} type={} flags={:#x} bytes={}",
++                     usage == MemoryUsage::Stream, alloc_info.memoryType, property_flags, ci.size);
++        }
++    }
++
+ 
+     // Log GPU memory allocation for buffers
+     if (GPU::Logging::IsActive() &&

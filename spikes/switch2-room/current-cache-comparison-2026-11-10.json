@@ -1,0 +1,635 @@
+{
+  "date_utc": "2026-11-10",
+  "status": "Four alternating browser ground-motion phases completed and audited; no reproducible warmed-cache gain, no cache installed. Constant30fps not achieved.",
+  "evidence_root": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cache-current-auto-ab-v3",
+  "profile": {
+    "ELF_sha256": "65defb74a8cc81ae85d42c5c0e9bb9bc8a796d976f12278cb0a4fcf940834d08",
+    "image": "sha256:df06b8ce129f41f2ee1484a465c190da2a1777c9bb2d6b2f6f0deef4263e0cd7",
+    "effective_fields_checked_before_and_after": 141,
+    "precache_shaders": "0 in both measured arms",
+    "same_installed_per_title_routing": true
+  },
+  "factor": {
+    "A": "Current user-session production cache snapshot,4865files/133711023bytes",
+    "B": "Exact A clone after nativeprecompile,14118files/357326374bytes; same translator and driver. Entirecache factor, not oneblob.",
+    "private_checkpoint": "Same manual01:51 Kokiri Forest NAND clone restored before each room. Three180msconfirm presses,800msDown,150msQ,4previews, original90s directional module.",
+    "order": [
+      "A1",
+      "B1",
+      "A2",
+      "B2"
+    ],
+    "all_old_partial_or_failed_series_excluded": true
+  },
+  "sessions": {
+    "A1": {
+      "phase_seconds": 90.002272205,
+      "preparation_seconds": 105.126164282,
+      "direction_transitions": 257,
+      "wsi": {
+        "covered_seconds": 84.17604353,
+        "rate_per_second": 28.51167504855048,
+        "max_ms": 56.682846,
+        "over100": 0,
+        "p99_each_ms": [
+          50.499695,
+          48.228497,
+          48.690371,
+          47.294391
+        ],
+        "start_gap_seconds": 1.284465443,
+        "end_gap_seconds": 4.541763232,
+        "uncovered_seconds": 5.826228675,
+        "capture_window_indices": [
+          2
+        ]
+      },
+      "vi2": {
+        "covered_seconds": 84.176193783,
+        "rate_per_second": 28.51162415572059,
+        "max_ms": 57.984918,
+        "over100": 0,
+        "p99_each_ms": [
+          50.085798,
+          48.582752,
+          49.168997,
+          47.911804
+        ]
+      },
+      "browser_counter_deltas": {
+        "painted": 2580,
+        "shown": 2584,
+        "stalls": 0,
+        "restarts": 0,
+        "undecoded": 0,
+        "attempts": 25985,
+        "soundPlayed": 90.03000000001181,
+        "soundGaps": 0
+      },
+      "local_browser_cpu_percent_one_core": 162.159750352422,
+      "native_normal_stop": true,
+      "forced_cleanup": false,
+      "observer_restored": "active",
+      "logged_runtime_builds": [
+        {
+          "elapsed_ns": 65596134000,
+          "line": "\u0000[  65.596134] Render.Vulkan <Info> video_core/renderer_vulkan/vk_pipeline_cache.cpp:2296:ReportRuntimePipeline: Graphics pipeline built on the GPU thread in 19.5 ms: pipeline=9ed68462deeb4a5e s1:46cc6aaba42f700f s3:5344b360619d2b1e s5:a8f0c6550198b21b",
+          "estimated_monotonic_ns": 2317655916804011,
+          "estimated_seconds_before_phase": 36.157505118,
+          "estimated_inside_phase": false
+        }
+      ]
+    },
+    "B1": {
+      "phase_seconds": 90.000790883,
+      "preparation_seconds": 108.016169246,
+      "direction_transitions": 257,
+      "wsi": {
+        "covered_seconds": 82.265081548,
+        "rate_per_second": 29.173981898986497,
+        "max_ms": 69.266011,
+        "over100": 0,
+        "p99_each_ms": [
+          44.887018,
+          44.892947,
+          42.677914,
+          46.758223
+        ],
+        "start_gap_seconds": 2.313968715,
+        "end_gap_seconds": 5.42174062,
+        "uncovered_seconds": 7.735709335,
+        "capture_window_indices": [
+          2
+        ]
+      },
+      "vi2": {
+        "covered_seconds": 82.26463589,
+        "rate_per_second": 29.174139945251266,
+        "max_ms": 70.549085,
+        "over100": 0,
+        "p99_each_ms": [
+          45.255437,
+          44.74098,
+          44.786381,
+          46.527229
+        ]
+      },
+      "browser_counter_deltas": {
+        "painted": 2633,
+        "shown": 2633,
+        "stalls": 0,
+        "restarts": 0,
+        "undecoded": 0,
+        "attempts": 25992,
+        "soundPlayed": 90.01000000001235,
+        "soundGaps": 0
+      },
+      "local_browser_cpu_percent_one_core": 166.6259518850757,
+      "native_normal_stop": true,
+      "forced_cleanup": false,
+      "observer_restored": "active",
+      "logged_runtime_builds": [
+        {
+          "elapsed_ns": 66535750000,
+          "line": "\u0000[  66.535750] Render.Vulkan <Info> video_core/renderer_vulkan/vk_pipeline_cache.cpp:2296:ReportRuntimePipeline: Graphics pipeline built on the GPU thread in 20.4 ms: pipeline=f5d7bc4e3d174b46 s1:46cc6aaba42f700f s3:5344b360619d2b1e s5:a8f0c6550198b21b",
+          "estimated_monotonic_ns": 2317930161226941,
+          "estimated_seconds_before_phase": 34.953041854,
+          "estimated_inside_phase": false
+        }
+      ]
+    },
+    "A2": {
+      "phase_seconds": 90.002641343,
+      "preparation_seconds": 118.390044385,
+      "direction_transitions": 257,
+      "wsi": {
+        "covered_seconds": 61.062907172,
+        "rate_per_second": 29.477797297298977,
+        "max_ms": 51.770607,
+        "over100": 0,
+        "p99_each_ms": [
+          46.371113,
+          42.635748,
+          40.018145
+        ],
+        "start_gap_seconds": 9.013725204,
+        "end_gap_seconds": 19.926008967,
+        "uncovered_seconds": 28.939734171,
+        "capture_window_indices": [
+          1
+        ]
+      },
+      "vi2": {
+        "covered_seconds": 61.015030227,
+        "rate_per_second": 29.500927776373942,
+        "max_ms": 53.608054,
+        "over100": 0,
+        "p99_each_ms": [
+          44.981783,
+          43.871282,
+          42.78188
+        ]
+      },
+      "browser_counter_deltas": {
+        "painted": 2659,
+        "shown": 2663,
+        "stalls": 0,
+        "restarts": 0,
+        "undecoded": 0,
+        "attempts": 25800,
+        "soundPlayed": 90.00999999999674,
+        "soundGaps": 0
+      },
+      "local_browser_cpu_percent_one_core": 156.65773909008425,
+      "native_normal_stop": true,
+      "forced_cleanup": false,
+      "observer_restored": "active",
+      "logged_runtime_builds": [
+        {
+          "elapsed_ns": 67254091000,
+          "line": "\u0000[  67.254091] Render.Vulkan <Info> video_core/renderer_vulkan/vk_pipeline_cache.cpp:2296:ReportRuntimePipeline: Graphics pipeline built on the GPU thread in 21.2 ms: pipeline=f5d7bc4e3d174b46 s1:46cc6aaba42f700f s3:5344b360619d2b1e s5:a8f0c6550198b21b",
+          "estimated_monotonic_ns": 2318183757819483,
+          "estimated_seconds_before_phase": 47.606357715,
+          "estimated_inside_phase": false
+        }
+      ]
+    },
+    "B2": {
+      "phase_seconds": 90.001862536,
+      "preparation_seconds": 138.827028601,
+      "direction_transitions": 257,
+      "wsi": {
+        "covered_seconds": 63.664461552,
+        "rate_per_second": 28.273230560974618,
+        "max_ms": 60.506331,
+        "over100": 0,
+        "p99_each_ms": [
+          49.332935,
+          49.859504,
+          48.398697
+        ],
+        "start_gap_seconds": 13.810049864,
+        "end_gap_seconds": 12.52735112,
+        "uncovered_seconds": 26.337400984,
+        "capture_window_indices": [
+          1
+        ]
+      },
+      "vi2": {
+        "covered_seconds": 63.665844559,
+        "rate_per_second": 28.272616384314443,
+        "max_ms": 55.218827,
+        "over100": 0,
+        "p99_each_ms": [
+          47.362693,
+          50.215944,
+          48.238665
+        ]
+      },
+      "browser_counter_deltas": {
+        "painted": 2540,
+        "shown": 2542,
+        "stalls": 0,
+        "restarts": 0,
+        "undecoded": 0,
+        "attempts": 25952,
+        "soundPlayed": 90.00999999997276,
+        "soundGaps": 0
+      },
+      "local_browser_cpu_percent_one_core": 165.17866092759692,
+      "native_normal_stop": true,
+      "forced_cleanup": false,
+      "observer_restored": "active",
+      "logged_runtime_builds": []
+    }
+  },
+  "pooled": {
+    "vi2": {
+      "A": {
+        "intervals": 4200,
+        "sum_ns": 145191224010,
+        "covered_seconds": 145.19122401,
+        "rate_per_second": 28.92736822516715,
+        "mean_ms": 34.569339049999996,
+        "over30": 2315,
+        "over30_percent": 55.11904761904762,
+        "over100": 0,
+        "max_ms": 57.984918,
+        "per_window_p95_ms": [
+          42.308118,
+          42.911224,
+          43.878332,
+          42.876848,
+          40.919295,
+          39.384514,
+          38.65891
+        ],
+        "per_window_p99_ms": [
+          50.085798,
+          48.582752,
+          49.168997,
+          47.911804,
+          44.981783,
+          43.871282,
+          42.78188
+        ],
+        "global_quantiles_not_reconstructed": true,
+        "all_capture_overlapping_and_slow_first_windows_retained": true
+      },
+      "B": {
+        "intervals": 4200,
+        "sum_ns": 145930480449,
+        "covered_seconds": 145.930480449,
+        "rate_per_second": 28.780827604194876,
+        "mean_ms": 34.74535248785714,
+        "over30": 2396,
+        "over30_percent": 57.04761904761905,
+        "over100": 0,
+        "max_ms": 70.549085,
+        "per_window_p95_ms": [
+          41.293267,
+          40.911707,
+          41.028414,
+          42.348829,
+          43.93461,
+          43.743811,
+          43.091052
+        ],
+        "per_window_p99_ms": [
+          45.255437,
+          44.74098,
+          44.786381,
+          46.527229,
+          47.362693,
+          50.215944,
+          48.238665
+        ],
+        "global_quantiles_not_reconstructed": true,
+        "all_capture_overlapping_and_slow_first_windows_retained": true
+      },
+      "observed_rate_delta_percent": -0.5065812410988135,
+      "pairs_percent": [
+        2.3236690618263056,
+        -4.1636364841488245
+      ]
+    },
+    "wsi": {
+      "A": {
+        "intervals": 4200,
+        "sum_ns": 145238950702,
+        "covered_seconds": 145.238950702,
+        "rate_per_second": 28.9178624583809,
+        "mean_ms": 34.58070254809524,
+        "over30": 2623,
+        "over30_percent": 62.45238095238095,
+        "over100": 0,
+        "max_ms": 56.682846,
+        "per_window_p95_ms": [
+          43.393566,
+          43.060919,
+          43.915072,
+          42.3547,
+          39.814547,
+          37.666224,
+          35.198374
+        ],
+        "per_window_p99_ms": [
+          50.499695,
+          48.228497,
+          48.690371,
+          47.294391,
+          46.371113,
+          42.635748,
+          40.018145
+        ],
+        "global_quantiles_not_reconstructed": true,
+        "all_capture_overlapping_and_slow_first_windows_retained": true
+      },
+      "B": {
+        "intervals": 4200,
+        "sum_ns": 145929543100,
+        "covered_seconds": 145.9295431,
+        "rate_per_second": 28.78101247203864,
+        "mean_ms": 34.745129309523804,
+        "over30": 2654,
+        "over30_percent": 63.19047619047619,
+        "over100": 0,
+        "max_ms": 69.266011,
+        "per_window_p95_ms": [
+          40.608542,
+          40.141278,
+          39.041432,
+          40.88163,
+          43.404965,
+          44.253528,
+          42.848105
+        ],
+        "per_window_p99_ms": [
+          44.887018,
+          44.892947,
+          42.677914,
+          46.758223,
+          49.332935,
+          49.859504,
+          48.398697
+        ],
+        "global_quantiles_not_reconstructed": true,
+        "all_capture_overlapping_and_slow_first_windows_retained": true
+      },
+      "observed_rate_delta_percent": -0.4732368671412579,
+      "pairs_percent": [
+        2.3229320946883014,
+        -4.086352600147414
+      ]
+    }
+  },
+  "interpretation": {
+    "reproducible_warmed_cache_gain": false,
+    "wsi_pairs_percent": [
+      2.3229320946883014,
+      -4.086352600147414
+    ],
+    "warm_cache_installed": false,
+    "constant30fps_proven": false,
+    "observed_hot_ground_irregularity_not_explained_by_detected_slow_runtime_builds": "The3logged slow GPU-thread builds are estimated35\u201348s before measured phases; no logged slow build during them. This is not proof of zero fast/invisible compilation.",
+    "new_map_freezes_fixed": false
+  },
+  "limits": [
+    "Only previously visited small Kokiri terrain. No unseen-map/new-region loading performance qualification.",
+    "Small camera/start-position drift visible and retained; do not attribute small pooled rate differences solely to the cache. No adaptive path or cache inheritance used.",
+    "No thermal/frequency sampler added; temperature/cross-session drift remains unknown.",
+    "Two local decoding clients consume roughly1.6logicalCPUs. This does not prove CPU or GPU hardware limit.",
+    "WSIreturns are acceptedVulkan presentations, not proof of distinct game-rendered content or physicalscanout.",
+    "All complete600interval windows wholly inside actual90s bounds retained, including midpoint screenshot overlap. Boundary windows are unqualified and uncovered seconds are reported.",
+    "Per-windowp99 listed, never pooled or averaged into a globalpercentile.",
+    "No>100ms event in retained complete windows is not a no-freeze claim for full90s, wholegame or initial loading.",
+    "No gameclock/worldspeed or physicalAVsync qualification in this change.",
+    "One warm compile failure,18 extraction skips and17456 member errors remain.",
+    "Native runtime-log time alignment is empirical and approximate, not a new perframe trace."
+  ],
+  "next_candidates": {
+    "steady_state": "Profile exact65def CPU/GPU critical work in a separate diagnostic run; do not measure comparisonFPS with profiler active.",
+    "recorded_pipeline_retention": {
+      "option": "EDEN_NX2_PRELOAD_ALL_PIPELINES=1",
+      "present_in_actual_ELF": true,
+      "source_effect": "Bypass used-list graphics skip at load and disable9000-frame idle eviction. Unlike temporary precache jobs, normal loaded graphics pipeline objects remain in graphics_cache.",
+      "observed_baseline": "1742 total pipeline jobs;783graphics skipped,64admittedbackground in all4native logs.",
+      "future_activation_proof": "Same cacheA and original141fields; private one-env-only policy. Actual native environment plus predicted total count increase and absence of skipped-graphics line required, not executablehash alone.",
+      "risk": "Additional driver memory and longer boot; assess on a controlled route including later revisits. No runtime benefit proved yet.",
+      "source_anchors": [
+        "vk_pipeline_cache.cpp:1036 precache selection",
+        "vk_pipeline_cache.cpp:1177 skip/background policy",
+        "vk_pipeline_cache.cpp:1450 temporary precache jobs destroyed",
+        "vk_pipeline_cache.cpp:1733 preload-all bypasses eviction",
+        "vk_pipeline_cache.h:200 temporary build contract"
+      ]
+    }
+  },
+  "cleanup": {
+    "checked_unix": 1794300970.979863,
+    "protected_files": 757,
+    "production_cache_files": 4865,
+    "all_hashes_mtimes_unchanged": true,
+    "frozen_driver_files_unchanged": 77
+  },
+  "validation": {
+    "prior_local_gate": "just passed with save installation in preceding change; no Rust/frontend/runtime production source change in this comparison.",
+    "readiness": "Observed fade is a red/green fixture;13positive/negative cases; actual sequential menu transition gates then parent read all8prephase images and3timed images per session.",
+    "docs": "just docs strict build passed and served site refreshed",
+    "remote_ci": "No new commit/push, no new remoteCI claimed."
+  },
+  "proofs": [
+    {
+      "path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cache-current-auto-ab-v3/plan.json",
+      "sha256": "feaaee65a3d1bdf0f4112009c644f4dec387e42b198dd656f895cd57ae01eb52"
+    },
+    {
+      "path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cache-current-auto-ab-v3/result.json",
+      "sha256": "36f4f4f10b8c3a97ed3037150a0c2464f1e411351a60e0c1d62306e7180a0d8e"
+    },
+    {
+      "path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cache-current-auto-ab-v3/runtime-event-bounds.json",
+      "sha256": "5d08d219ccf1b29fdfe3a4cbb8b5c1bb018c4d2ab07afff5aea17aa76d4931a7"
+    },
+    {
+      "path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cache-current-auto-ab-v3/final-preservation.json",
+      "sha256": "11d5c5024e61ada352844efc5f528aac4bf22ac74d51639f598c6ff7c596e37c"
+    },
+    {
+      "path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/scene-loader-20261110-v3/scene.py",
+      "sha256": "4c7b73822fc9d322cb0d643bb8e5acd98701adfb507909ee2cf6b58904e64987"
+    },
+    {
+      "path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/scene-loader-20261110-v3/auto.mjs",
+      "sha256": "f08fb460aadf38f31076766450d0dd75efe426383e4166ba488945692c1ab415"
+    },
+    {
+      "path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/scene-loader-20261110-v3/policy.json",
+      "sha256": "0f0b80883f4c71d63ec6224e1d838c75077ecd2642e7000dd85bd7d23cbb0843"
+    },
+    {
+      "path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/scene-loader-20261110-v3/tests.json",
+      "sha256": "422dd1159e239ea69ecdb8a331c5d44fab7c828805b7a2e2dc87808af2da31d0"
+    },
+    {
+      "path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/scene-loader-20261110-v3/contact-sheet.py",
+      "sha256": "69d8e3bb9c0984ad12f6cc2bad4f8bfc6128007ffc3ae620aa5d61b342e139df"
+    },
+    {
+      "path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cache-current-auto-ab-v3/A1/cleanup.json",
+      "sha256": "a57cc4bb0f4f18857929f5244bf553fd27567bbd342d776ac25716b3f7f5bc7f"
+    },
+    {
+      "path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cache-current-auto-ab-v3/A1/auto-result.json",
+      "sha256": "5628c6ad3345d8be32ba76ce2971c0989d9a694d1f8a129f3a95a1b8143d2c51"
+    },
+    {
+      "path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cache-current-auto-ab-v3/A1/prephase-review.json",
+      "sha256": "45dd4f64ab0819c17b1ffb952462a3ead7c0cba1a490fb25147d7a0de152feca"
+    },
+    {
+      "path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cache-current-auto-ab-v3/A1/visual-review.json",
+      "sha256": "2f98fadb7e63c95e6cea01f6a2cfb3e0188333da566e6aa8fbbec2e4bd23f36d"
+    },
+    {
+      "path": "/home/souhib/.local/state/nel3ab/test-switch2-55i2Uo/pre-contact-sheet.png",
+      "sha256": "3da78bceaeb2dace454d3a8d49a7f12de052075e27ecde84edc81dc798732f02"
+    },
+    {
+      "path": "/home/souhib/.local/state/nel3ab/test-switch2-55i2Uo/post-contact-sheet.png",
+      "sha256": "16b356c6932335fcac5661a67d4cb1f1e7427d8313affbdb39623c23547b5251"
+    },
+    {
+      "path": "/home/souhib/.local/state/nel3ab/test-switch2-55i2Uo/native-runtime-before-proof.json",
+      "sha256": "98dc9cdae20bc086a71ea20033e196e6ec85d8f0c18a9657e8c263b79180ed1c"
+    },
+    {
+      "path": "/home/souhib/.local/state/nel3ab/test-switch2-55i2Uo/native-runtime-proof.json",
+      "sha256": "ee7036c81c2f19ef558facd90d945697bb87c36bfa00fdaaf7b633b61c97390c"
+    },
+    {
+      "path": "/home/souhib/.local/state/nel3ab/test-switch2-55i2Uo/seed-copy-proof.json",
+      "sha256": "06b927a9b445120f9a2d55d5338ed3f0e7839dca288ba4a267fb2a442c5ed6ea"
+    },
+    {
+      "path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cache-current-auto-ab-v3/B1/cleanup.json",
+      "sha256": "aea347cee9ac349fa0e0d3651c688f65b54a6557334b1d56703a0f1bafeba812"
+    },
+    {
+      "path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cache-current-auto-ab-v3/B1/auto-result.json",
+      "sha256": "d77ad6326955289b411fe339c224a008b98d395522452cf14325db6d1abfccb7"
+    },
+    {
+      "path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cache-current-auto-ab-v3/B1/prephase-review.json",
+      "sha256": "f128a2501e996c837c7a31352cf94246a09d42b824ed5223c602cc1c0795a68b"
+    },
+    {
+      "path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cache-current-auto-ab-v3/B1/visual-review.json",
+      "sha256": "874f1b4269b57fbd560aeae51f0d48efbcc08d7b65e7ce1d0835759704e9c3d0"
+    },
+    {
+      "path": "/home/souhib/.local/state/nel3ab/test-switch2-VoKO8P/pre-contact-sheet.png",
+      "sha256": "61e0864f16bbdb14d9bb0c8e11cc53448c0b65e67e7d650454457d69c0d12863"
+    },
+    {
+      "path": "/home/souhib/.local/state/nel3ab/test-switch2-VoKO8P/post-contact-sheet.png",
+      "sha256": "874f4b74e8f0f38ba1a0d02ff808bac9603afc983b11fe0512b81a60873b489d"
+    },
+    {
+      "path": "/home/souhib/.local/state/nel3ab/test-switch2-VoKO8P/native-runtime-before-proof.json",
+      "sha256": "cf905f4b804f5129d35ddb9a0783ad389f5da0c398cf269498d0f7bf7aef75cd"
+    },
+    {
+      "path": "/home/souhib/.local/state/nel3ab/test-switch2-VoKO8P/native-runtime-proof.json",
+      "sha256": "9ae6aa2480958131c7d292bac6d5c8c73284c61560ba012a78e6067cf8ff1d90"
+    },
+    {
+      "path": "/home/souhib/.local/state/nel3ab/test-switch2-VoKO8P/seed-copy-proof.json",
+      "sha256": "4e234b70ef7135401f9c59b7ab5b9cd66814fd4467407bb060c050b6ff9dfca8"
+    },
+    {
+      "path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cache-current-auto-ab-v3/A2/cleanup.json",
+      "sha256": "849e621a1f702740b9b2b4576c3fa0f09597c86007b9fad600ed4765b08d1e33"
+    },
+    {
+      "path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cache-current-auto-ab-v3/A2/auto-result.json",
+      "sha256": "453d67995aa3c82c896b0a971ac67a5786a54c9d70c31324e10a1e9f9385ee45"
+    },
+    {
+      "path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cache-current-auto-ab-v3/A2/prephase-review.json",
+      "sha256": "33c78123abb9d10304d57a2e4fcdcc71722230948c099eaa58fd975612cd51d8"
+    },
+    {
+      "path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cache-current-auto-ab-v3/A2/visual-review.json",
+      "sha256": "708c903e77fdeaca32d80130f1d7d46eef65081d790bb1150926e9df4cec5c7c"
+    },
+    {
+      "path": "/home/souhib/.local/state/nel3ab/test-switch2-iRmlBD/pre-contact-sheet.png",
+      "sha256": "d79dc5fcf65755e4cfd349d555011cd5afb1cc3fa0d7314744d412fdf98c9977"
+    },
+    {
+      "path": "/home/souhib/.local/state/nel3ab/test-switch2-iRmlBD/post-contact-sheet.png",
+      "sha256": "c17b20ab780be0394c400542fb5d418567cea45eb48905daef069abf871afa7a"
+    },
+    {
+      "path": "/home/souhib/.local/state/nel3ab/test-switch2-iRmlBD/native-runtime-before-proof.json",
+      "sha256": "c0b7405adee9dd35d38595913312baf61f04a46e73d4c92e5944b32b415a0300"
+    },
+    {
+      "path": "/home/souhib/.local/state/nel3ab/test-switch2-iRmlBD/native-runtime-proof.json",
+      "sha256": "f1652e02f3df6b8fdba7e6b1e3491e66e2864bed251d097fe8a3d9d3b99976b0"
+    },
+    {
+      "path": "/home/souhib/.local/state/nel3ab/test-switch2-iRmlBD/seed-copy-proof.json",
+      "sha256": "5ea46edc109c43de98609b0ca637610c193e1cbc468bded5ec70ee68f5301da1"
+    },
+    {
+      "path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cache-current-auto-ab-v3/B2/cleanup.json",
+      "sha256": "54cbc82d8ee355da863a3a1f2511573fc8441be4db497ace4385bb7929e897de"
+    },
+    {
+      "path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cache-current-auto-ab-v3/B2/auto-result.json",
+      "sha256": "ee9dd84f7bd65cf1058133e5de7797dab67145f3c962f1dcd8ba6276368cf614"
+    },
+    {
+      "path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cache-current-auto-ab-v3/B2/prephase-review.json",
+      "sha256": "f86a78e8927b87ade305432cd45dff4c9bacfff26f3e37e48ad58386f79e4cac"
+    },
+    {
+      "path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cache-current-auto-ab-v3/B2/visual-review.json",
+      "sha256": "b838713a29bd06274f05d4fdcaca8b4ce5a3a322e02dc245c858feed7ad92b98"
+    },
+    {
+      "path": "/home/souhib/.local/state/nel3ab/test-switch2-ccE7uZ/pre-contact-sheet.png",
+      "sha256": "b92ab5c9be888d50bec3ef3dab838430aa39f8afc892abaa0e91b96fa25edc52"
+    },
+    {
+      "path": "/home/souhib/.local/state/nel3ab/test-switch2-ccE7uZ/post-contact-sheet.png",
+      "sha256": "57b28a9348b63d7e9fa5e6940724ae07294658f95173814b2f3d7bbe1143347c"
+    },
+    {
+      "path": "/home/souhib/.local/state/nel3ab/test-switch2-ccE7uZ/native-runtime-before-proof.json",
+      "sha256": "ef56fb6a5ac6aa58eb40bd2c43f5938f2a9a65f30ce42aa837dfeb092b8834e2"
+    },
+    {
+      "path": "/home/souhib/.local/state/nel3ab/test-switch2-ccE7uZ/native-runtime-proof.json",
+      "sha256": "cde04c31b4e3ed09f3e8451c191f31c0210844f377fd864f49a4f208d5a679e1"
+    },
+    {
+      "path": "/home/souhib/.local/state/nel3ab/test-switch2-ccE7uZ/seed-copy-proof.json",
+      "sha256": "a6f266103a164a4e1ee60d84605c999dfc2eed171db5675465fa835231f4aad3"
+    },
+    {
+      "path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/source-lichii-eviction-lab/src/video_core/renderer_vulkan/vk_pipeline_cache.cpp",
+      "sha256": "a6f69e380ba8e285680b85966f54dacace38d4c2bc44578383cee5c02f5ab75a"
+    },
+    {
+      "path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/source-lichii-eviction-lab/src/video_core/renderer_vulkan/vk_pipeline_cache.h",
+      "sha256": "426db0b1676647417ac1ec6c8488c55a5d0d3f77955bae0fd4e0c4dae68a152f"
+    },
+    {
+      "path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cache-current-auto-ab-v3/docs-final.log",
+      "sha256": "46f6ef2217cf8e4d59bc7ff6ae85df5664850822bf1b6c713f3fead74add893e"
+    }
+  ]
+}

@@ -1,0 +1,210 @@
+{
+  "date": "2026-11-10",
+  "scope": "Primary-source review and CPU-only cache identities. No new emulator build, GPU capability proof, performance result or installation.",
+  "lichii": {
+    "head": "093e264c8a7959dbeffe60248750aeec30c92235",
+    "previously_reviewed": "467e772417169cae261ac0ebf167bb81aeaa29a3",
+    "new_commits": [
+      {
+        "sha": "610bd087311108162e3a742314a1fde0ee8ea233",
+        "title": "vulkan: build CreateGraphicsPipeline with MSVC after #1143 (#1154)",
+        "url": "https://github.com/zortos293/Lichii/commit/610bd087311108162e3a742314a1fde0ee8ea233"
+      },
+      {
+        "sha": "bcb37c49f75b2c27993f0007f0f2b2a623869327",
+        "title": "nx2: unmap every GPU range into memory that sub 102 destroys (#1199)",
+        "url": "https://github.com/zortos293/Lichii/commit/bcb37c49f75b2c27993f0007f0f2b2a623869327"
+      },
+      {
+        "sha": "ddd19a170b457cb6d1b6bffdd3d556afe924ea6b",
+        "title": "texture_cache: keep the collector's thresholds within the host's commit (OoT out-of-memory crash) (#1210)",
+        "url": "https://github.com/zortos293/Lichii/commit/ddd19a170b457cb6d1b6bffdd3d556afe924ea6b"
+      },
+      {
+        "sha": "093e264c8a7959dbeffe60248750aeec30c92235",
+        "title": "common: rename the recommended-settings Values parameter that shadows Settings::values (macOS -Werror=shadow) (#1212)",
+        "url": "https://github.com/zortos293/Lichii/commit/093e264c8a7959dbeffe60248750aeec30c92235"
+      }
+    ],
+    "decisions": {
+      "610bd087": "MSVC build correction; no Linux runtime performance change inferred.",
+      "bcb37c49": "GPU memory destroy unmaps aliases too; useful correctness candidate for transitions, not a measured FPS gain. Private installed source lacks it.",
+      "ddd19a17": "Host commit limit protection for Windows. GetSystemCommitRoom returns no value on Linux, so no Linux freeze solution claimed.",
+      "093e264c": "Recommended-settings parameter rename for macOS build warnings; no runtime gain claimed."
+    },
+    "rebase_or_install": false
+  },
+  "pipeline_libraries": {
+    "approach": "Reuse separately compiled graphics components, link a usable pipeline, then optimize in background. Host execution/memory costs and safe retirement need qualification.",
+    "installed_path": "Inspected CreateGraphicsPipeline path is monolithic; no graphics_pipeline_library or shader_object path found in video_core. This is source inspection, not a runtime extension capability check.",
+    "primary_sources": [
+      {
+        "url": "https://docs.vulkan.org/features/latest/features/proposals/VK_EXT_graphics_pipeline_library.html",
+        "role": "Specification proposal: optional support, fast linking property and possible device-runtime cost without optimization."
+      },
+      {
+        "url": "https://chromium.googlesource.com/angle/angle/+/refs/heads/main/src/libANGLE/renderer/vulkan/doc/PipelineCreation.md",
+        "role": "ANGLE design: shader subsets, limited background optimization and replacement."
+      },
+      {
+        "url": "https://github.com/doitsujin/dxvk/blob/2231570b2fffff759239f7c2f2ca41a2232db99e/src/dxvk/dxvk_graphics.cpp",
+        "role": "Pinned DXVK code: library path and optimized pipeline workers."
+      },
+      {
+        "url": "https://github.com/scarletnx/ScarletNX/issues/1382",
+        "role": "Separate emulator proposal, still open at audit: no implementation merged or PR yet. Not a ready Lichii patch."
+      }
+    ],
+    "cache_evidence": [
+      {
+        "pipeline": "9ed68462deeb4a5e",
+        "observed_GPU_thread_build_ms": 19.5,
+        "shader_hashes": [
+          "0000000000000000",
+          "46cc6aaba42f700f",
+          "0000000000000000",
+          "5344b360619d2b1e",
+          "0000000000000000",
+          "a8f0c6550198b21b"
+        ],
+        "prior_same_guest_shader_tuple": 3,
+        "prior_identical_serialized_environment": 0,
+        "examples_same_environment": [],
+        "prior_use_per_stage": {
+          "1": 200,
+          "3": 16,
+          "5": 5
+        }
+      },
+      {
+        "pipeline": "756151af57320205",
+        "observed_GPU_thread_build_ms": 6.0,
+        "shader_hashes": [
+          "0000000000000000",
+          "65ec5494ec2adca0",
+          "0000000000000000",
+          "0000000000000000",
+          "0000000000000000",
+          "b3248ca4b2e6322d"
+        ],
+        "prior_same_guest_shader_tuple": 1,
+        "prior_identical_serialized_environment": 0,
+        "examples_same_environment": [],
+        "prior_use_per_stage": {
+          "1": 2,
+          "5": 2
+        }
+      },
+      {
+        "pipeline": "9b63570028b38e8d",
+        "observed_GPU_thread_build_ms": null,
+        "shader_hashes": [
+          "0000000000000000",
+          "79006d622e64614b",
+          "0000000000000000",
+          "0000000000000000",
+          "0000000000000000",
+          "b3248ca4b2e6322d"
+        ],
+        "prior_same_guest_shader_tuple": 1,
+        "prior_identical_serialized_environment": 0,
+        "examples_same_environment": [],
+        "prior_use_per_stage": {
+          "1": 2,
+          "5": 2
+        }
+      },
+      {
+        "pipeline": "d5539b7c2a7eb5f4",
+        "observed_GPU_thread_build_ms": 4.5,
+        "shader_hashes": [
+          "0000000000000000",
+          "86b4cc4e83dc5a25",
+          "0000000000000000",
+          "0000000000000000",
+          "0000000000000000",
+          "2c109eae6a33d5f1"
+        ],
+        "prior_same_guest_shader_tuple": 1,
+        "prior_identical_serialized_environment": 0,
+        "examples_same_environment": [],
+        "prior_use_per_stage": {
+          "1": 2,
+          "5": 1
+        }
+      },
+      {
+        "pipeline": "4fa74d7d2eb5df96",
+        "observed_GPU_thread_build_ms": 16.3,
+        "shader_hashes": [
+          "0000000000000000",
+          "5d1692307aa07c2e",
+          "0000000000000000",
+          "0000000000000000",
+          "0000000000000000",
+          "e64b6b6cb8121d7e"
+        ],
+        "prior_same_guest_shader_tuple": 0,
+        "prior_identical_serialized_environment": 0,
+        "examples_same_environment": [],
+        "prior_use_per_stage": {
+          "1": 6,
+          "5": 0
+        }
+      },
+      {
+        "pipeline": "3a4e83d6b6c09eff",
+        "observed_GPU_thread_build_ms": 25.7,
+        "shader_hashes": [
+          "0000000000000000",
+          "46cc6aaba42f700f",
+          "0000000000000000",
+          "5344b360619d2b1e",
+          "0000000000000000",
+          "961446c4cca2f8fa"
+        ],
+        "prior_same_guest_shader_tuple": 4,
+        "prior_identical_serialized_environment": 0,
+        "examples_same_environment": [],
+        "prior_use_per_stage": {
+          "1": 200,
+          "3": 16,
+          "5": 6
+        }
+      }
+    ],
+    "interpretation": "Five of six new graphics keys share a prior guest shader tuple, but no full serialized environment matches. Guest hashes alone cannot form a safe host-library cache key. The slow4fa fragment hash is absent initially, so existing fragment libraries cannot directly prepare that shader. No numeric improvement promised.",
+    "next_concrete_checks": [
+      "Query graphicsPipelineLibrary/fastLinking using the actual pinned RADV inside the qualified image; host RADV is a different hash.",
+      "Inspect state and translation RuntimeInfo before defining component keys; retain monolithic fallback and full rendering.",
+      "Measure cold entry and optimized steady-state cost only without external GPU users; qualify old/new handle lifetimes before swapping."
+    ]
+  },
+  "proof_files_sha256": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/pipeline-library-review-20261110/lichii-repo.json": "d7fe68f25cda02314e479ffc2a91c9f38d88e41d1c77d5e36d0f9603d7770125",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/pipeline-library-review-20261110/lichii-nx2-head.json": "55626329580b1d063f62bbaccb1a9e06d117bf0c907fcfbad5f27df4c4a3ff96",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/pipeline-library-review-20261110/dxvk_graphics.cpp": "55a726674b597043987aa7a88df5e8a2bf6040b382b9e1109d08b47d61973ecf",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/pipeline-library-review-20261110/lichii-since-467e772.json": "ea755ef7a659e00b9cf43c7468dfb6acaba313751788a41dbaa2510c3ab99e1d",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/pipeline-library-review-20261110/dxvk_graphics.h": "463aa4abc247e0a47cce4373cdfe371fcc928dc0c3704425fff8d187bafa7573",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/pipeline-library-review-20261110/shader-reuse.json": "066e033b67064960c3ab46ef766175a43fee2302a76614d4c6e97b43b09747dc",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/pipeline-library-review-20261110/scarlet-repo.json": "69cc2d271d6ece4f24d8d4841f8c8a9f5f445997d73ff999d3f75a1a7f0c0a91",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/pipeline-library-review-20261110/dxvk-repo.json": "a7d59e86a2d98d30d1a36b7c8f40a925bf3aae48e7c314b463c5df4f380662d8",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/pipeline-library-review-20261110/dxvk-head.json": "e43837dd17ed43bb404d2ec227c9ee97df8209db156b9d6c8f9f369188e69c7c",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/pipeline-library-review-20261110/scarlet-head.json": "d1a342ea5040c130c921f8709b971dbaedebf071167b54cbbaae2a3553a35614",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/pipeline-library-review-20261110/scarlet-issue-1382.json": "f28e752e2c47b6bc50d0e53fbfee1d85f58e35e5929c3b95e3697183dc487b61",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/source-lichii-service-wsi-lab/src/video_core/renderer_vulkan/vk_graphics_pipeline.cpp": "d6ca96b518f1b60fbce4e8001689f0b191723c76b4ff632816d7cdcb58112955",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/pipeline-library-review-20261110/driver-hashes.json": "9b91fd1e6bf051852b78c56e9670cf9f4a07244c7933a2d45163ca0f09df12f4"
+  },
+  "actual_driver_comparison": {
+    "measured_unix": 1794319060.5612917,
+    "host": {
+      "path": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+      "sha256": "f12922c854f6e014c635a81f67d7b448ff300fbd5b647c0734ecb3e0d6cd0001"
+    },
+    "native_qualified_image": {
+      "sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+      "source_proof": "/home/souhib/.local/state/nel3ab/test-switch2-C4Qzsv/native-runtime-before-proof.json",
+      "source_sha256": "d05116b75cd0fe75269dea8f593fbd15367ef6aa5dc0e557ae73bf37d5f9fb8a"
+    }
+  }
+}

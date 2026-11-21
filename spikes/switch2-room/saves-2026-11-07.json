@@ -1,0 +1,95 @@
+{
+  "date": "2026-11-07",
+  "protocol": "Same quiescent manual save near Link house copied before each write phase; identical kernel inputs; new manual slot hash required; full emulator shutdown; restart without resetting NAND; native screenshots inspected. CPU quality checks and file staging overlap some functional phases, so timings are not a performance comparison.",
+  "limits": "One route and one manual save per build. No full playthrough or distant zone transition. Raw screenshots and logs remain in the private nx2-lab directory.",
+  "results": [
+    {
+      "version": "lichii-95",
+      "before_sha256": "cbad5b78cd563c5b5969c4a10284e185735afa1d54f6f2080f573a2bbe5743d2",
+      "saved_sha256": "64d9890246f0f56c47ef956e06eace746c347f3bc3d20f71f24072c31fcec2c1",
+      "resumed_sha256": "64d9890246f0f56c47ef956e06eace746c347f3bc3d20f71f24072c31fcec2c1",
+      "write_shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 2.7035143689718097
+      },
+      "resume_shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.004796141991392
+      },
+      "requires_visual_review": false,
+      "visual_review": "Native Saved confirmation and resumed location inspected; Eglantine stops near the house threshold, the other builds farther inside. The route is functional evidence, not a zone-loading or cadence measurement."
+    },
+    {
+      "version": "lichii-93",
+      "before_sha256": "cbad5b78cd563c5b5969c4a10284e185735afa1d54f6f2080f573a2bbe5743d2",
+      "saved_sha256": "1b7426928766c06e63eccd34fa912eb04df1c6a10b1d78c138b96d25fa9d63d6",
+      "resumed_sha256": "1b7426928766c06e63eccd34fa912eb04df1c6a10b1d78c138b96d25fa9d63d6",
+      "write_shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 2.8036728559527546
+      },
+      "resume_shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 2.906593366060406
+      },
+      "requires_visual_review": false,
+      "visual_review": "Native Saved confirmation and resumed location inspected; Eglantine stops near the house threshold, the other builds farther inside. The route is functional evidence, not a zone-loading or cadence measurement."
+    },
+    {
+      "version": "eglantine-20261107",
+      "before_sha256": "cbad5b78cd563c5b5969c4a10284e185735afa1d54f6f2080f573a2bbe5743d2",
+      "saved_sha256": "fd64d6c224fd5c597db3778fc7d033be633c8c9ce9642aef17e3a35ffc7ddd5d",
+      "resumed_sha256": "fd64d6c224fd5c597db3778fc7d033be633c8c9ce9642aef17e3a35ffc7ddd5d",
+      "write_shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.503916679881513
+      },
+      "resume_shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.7073580080177635
+      },
+      "requires_visual_review": false,
+      "visual_review": "Native Saved confirmation and resumed location inspected; Eglantine stops near the house threshold, the other builds farther inside. The route is functional evidence, not a zone-loading or cadence measurement."
+    },
+    {
+      "version": "superbuild-v11",
+      "before_sha256": "cbad5b78cd563c5b5969c4a10284e185735afa1d54f6f2080f573a2bbe5743d2",
+      "saved_sha256": "f4f542afc1830d7bea1469b2c26fc42b8840017fe84c0682f3b78a24f014e788",
+      "resumed_sha256": "f4f542afc1830d7bea1469b2c26fc42b8840017fe84c0682f3b78a24f014e788",
+      "write_shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.2046924121677876
+      },
+      "resume_shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.6052186340093613
+      },
+      "requires_visual_review": false,
+      "visual_review": "Native Saved confirmation and resumed location inspected; Eglantine stops near the house threshold, the other builds farther inside. The route is functional evidence, not a zone-loading or cadence measurement."
+    }
+  ]
+}

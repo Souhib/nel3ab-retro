@@ -1,0 +1,286 @@
+{
+  "date": "2026-11-09",
+  "status": "Full qualified build and actual in-game activation proved. Means~30/s at VI2 and WSI but tails~46ms; no constant30 or speed-gain claim, no production install.",
+  "base": "1e26f546986f247a72b8b9177a30f5a17701bea247b7401ac65b423ec1a23d98",
+  "proposal_sha256": "2193b40d44de227b59bc8f004d8c3f12b017cc940a0929334c9c2edef63a6880",
+  "service": {
+    "flag": "EDEN_NX2_VI2_SERVICE_TRACE exact1 immutable process-start; absent/0/10 OFF",
+    "minimal_production_change": "Small service-owned switch helper; replace exactly4 GSV decisions at1802,1870,2000,2558 with helper returning newFlag OR existing Common::DkbFrameTrace::Enabled(). Legacy DKB behavior preserved; new flag never sets global DKB or GPU_PROFILE. No renderer/scheduler/timer implementation changes.",
+    "actual_sites": [
+      "1802 stores present sequence for existingVsync trace",
+      "1870 emits existing1Hz sampled service-frame record and updates last_present",
+      "2000 enables target/sleep requested/actual bookkeeping in PaceToVblank",
+      "2558 enables existing1Hz VI2Vsync callback counters under existing mutex"
+    ],
+    "activation": "Once per VI2 service session in actual PresentClientBuffer branch, clearly named CPU-service-only; retain existing DKB frame/vsync formats or append source=vi2_service without enabling DKB outside GSV.",
+    "scope": "Reuses fields interval/refresh/target/sleep_requested/sleep_actual/pace/fence/composite, and Vsync callbacklate.1Hz records sample one presentation, not quantiles over everyframe. SleepActual includes guest scheduling delay until service thread resumes.",
+    "cost": "Extra service clocks and atomicstore eachpresent, timer callback bookkeeping under existing mutex, two1Hzlogs. No GPUqueries/readbacks/drains. Cannot call costfree.",
+    "bounds": "Append explicit steady_monotonic_ns to sampled service trace (at existing paced point) and service entry timestamp; Vsync may add explicit steady time on emittedrecord only. Allows directphasefilter; frame duration interval must start/end withinphase, not loggerprefix.",
+    "tests": "Exactflag absent/0/1/10 subprocess tests. Real-source guard/extraction test must cover all4sites and flagenabled/DKBabsent. ActualPaceToVblank body can be tested with explicit kernelSleeper/clock doubles to pin requested/actual fields, but does not establish realguest scheduling. No claim helperunit alone proves producer; fresh self_controller TU and positiveactualservice/session+frame+vsync records with globalDKB absent are mandatory runtimegates. Mutant ignoringnewflag must fail produceractivation gate."
+  },
+  "wsi": {
+    "flag": "EDEN_NX2_WSI_PRESENT_STATS exact1 immutable process-start; absent/0/10 OFF",
+    "producer": "vk_swapchain.cpp233-270 Swapchain::Present, vk::Queue::Present wrapperh885 directly calls vkQueuePresentKHR. Timestamp immediately AFTERreturn, not beforequeuecall.",
+    "successful_results": "Count VK_SUCCESS and VK_SUBOPTIMAL_KHR as accepted presentationreturns; record separate suboptimalcount. OUT_OF_DATE/surface-lost/otherfailure must not count success and must break/reset pendingintervalwindow so errors are not silently bridged. Explicit recreate/session resets, generation logged.",
+    "ownership": "Current async=true: PresentManager::PresentThread335-359 holds swapchain_mutex around CopyToSwapchain; CopyToSwapchain596 invokesSwapchain::Present. Nonasync path serialized byexistingmanager. PerSwapchain state, not staticthreadlocal so recreation/instance switch cannotmixstreams.",
+    "statistics": "600 actualreturnintervals/window; firstsuccess only establishes anchor, firstwindow needs601successes; subsequentwindows600. Preserve lastreturn atwindowreset for contiguoussum=end-begin. Preallocated600u64=4800B; count,sum_ns,begin/endSTEADY_MONOTONIC_NS,p50/p95/p99 nearest-rank,max,strict>33333333 and>100000000. No globalquantile reconstructed.",
+    "dependency": "Dedicatedsmall video_core/presentation_return_stats.h or equivalent localhelper; no include from core/service and no relocation of existing Service::Nx2PresentIntervals. Similar bounded quantilealgorithm duplicated deliberately to avoid circularCore/video_coredependency or broadrefactor.",
+    "allocation": "State allocated once inSwapchainconstructor onlywhenflagON (unique_ptr forwarddeclaredstate is possible); no allocationperpresent. AddsSwapchainlayout field, requires rebuilding all users/fullbuild, never linknewSwapchainagainstoldlayoutarchives.",
+    "lock_scope": "Do not sort/log while holding scheduler.submit_mutex. Capture timestamp immediately afterreturn; preserveexistinglock/error/frame_indexscope; emit completedwindow only after existing lock destruction via smallouter scope or destructionorder-safe scopeexit establishedbeforelock. Manager swapchain_mutex remains held, boundeddiagnosticoverhead explicit.",
+    "cost": "One extra steadyclock peracceptedreturn whenenabled, arraywrite and bounded sortcopy/log every600intervals; OFF no clock/log/query/wait. No GPUwait, flush or queue mutation introduced.",
+    "meaning": "WSIreturn cadence only. Return may precede scanout/compositor presentation and framegenoff does not prove everyreturn has distinctcontent. Cannot labelphysicalFPS or nativegamepresentationrate.",
+    "native_to_wsi_callgraph": {
+      "service": "nx2_gsv.h2153 Composite validates image/memory;2271 RequestComposite with one native_tiling layer and optionalfence",
+      "gpu": "gpu.cpp337-373 RequestSyncOperation directlyrendererComposite ifnofence, otherwise counterdecrements and exactlyonecallbackatremaining0. No periodicre-presentloop here.",
+      "renderer": "renderer_vulkan.cpp219-282: hiddenwindow returnswithoutWSI; DrawToFrame blitslayers; generatedframesloop264 onlywhenHAS_LSFG+GeneratedFrameCount>0; ordinaryframe presented once277",
+      "present_manager": "Present191 async queuesoneframe in schedulerRecord; PresentThread335 consumesonefront andCopyToSwapchain; CopyToSwapchain596 callsSwapchainPresentonce. No compositorrefresh callback counted.",
+      "framegen": "present/frame_gen.cpp197 sets generated=false;205 returns whenframe_genfalse; GeneratedFrameCount283 returns0 then. Runtimeframe_genfalse remains mandatory. Existingchain teardown couldFinish whenchangingliveflag, but ourfixedstartupfalse avoidsliveflagchanges.",
+      "limit": "WSI counts actual applicationqueuePresentreturns, not desktopcompositor120Hz refreshes. Sameguestimage may still be resubmitted; contentuniqueness not proved. Postprocessingpasses themselves do not callWSI. Hiddenwindow/invalidimage/errors can makeVI2andWSIcounts differ."
+    }
+  },
+  "proof_plan": {
+    "helper": "600/firstanchor/secondwindow/recreate/failure/suboptimal/budgetedges/knownquantiles/outlier/reset; strictflag matrix.",
+    "actual_producer": "Compile exacttext-extracted Swapchain::Present body with source/extractionhashes plus actualnewhelper and explicit recordingqueue/device/scheduler doubles; sequence VK_SUCCESS/SUBOPTIMAL/OUT_OF_DATE/error provesactualswitch/counting/timestampafterreturn/frameindex behavior, not actualGPU. Recorder sequence detects pre-return timestamp mutation; missingproducerrecord/errorcounted/599/resetlost/outlierignored mutants compile0 then assertionfail.",
+    "integration": "Fullfreshvk_swapchain.cpp plus all affectedSwapchainusers; freshself_controller.cpp forGSV. Realnative activationmarkers/counts, envDKB/GPU_PROFILE absent, framegenfalse, >600returns with plausiblebounds mandatory before any experiment. ExistingReference/ownership/pacing/fulltests remain required.",
+    "gap": "No existing realVulkanSwapchain+device test fixture identified. Exactbodydouble tests are policy/orderproof only; realWSI/runtime still required and not yet authorized."
+  },
+  "scope_files": [
+    "core/hle/service/nx2_gsv.h",
+    "small service switchheader if needed",
+    "video_core/renderer_vulkan/vk_swapchain.cpp",
+    "video_core/renderer_vulkan/vk_swapchain.h",
+    "small video_core presentationreturnstatsheader",
+    "targeted CPUtests and CMake registrations"
+  ],
+  "explicit_next_runtime_gate": "Existing frame_pacing_mode1 isolated control, with same clocks, seed, quality and three probes; actual effect still unmeasured.",
+  "official_result_semantics": "https://docs.vulkan.org/refpages/latest/refpages/source/vkQueuePresentKHR.html",
+  "limits": "Instrumentation adds cost. WSI accepted returns are not physical scanout or distinct game contents. Vulkan errors may enqueue synchronization even when presentation is rejected. Existing functional/error/wait paths must be retained.",
+  "implementation": {
+    "base_cli_sha256": "1e26f546986f247a72b8b9177a30f5a17701bea247b7401ac65b423ec1a23d98",
+    "frozen_epoch": 1794267841.0921578,
+    "new_scope_files": {
+      "src/core/hle/service/nx2_gsv.h": {
+        "old_sha256": "ef5b36654332015caa7bfb857d32a3a3ee71a1c9c74a9bc1daf62d162de64d81",
+        "new_sha256": "a7349104bac2484f1704b82525b073eb35bbe47522ed711cafaaab9d751dd4a6"
+      },
+      "src/core/hle/service/nx2_vi2_trace.h": {
+        "old_sha256": null,
+        "new_sha256": "72d38cc2941c45aa82c4bcfe0fb476afa2ca42039e87b0cc08506000a87188e6"
+      },
+      "src/video_core/wsi_present_stats.h": {
+        "old_sha256": null,
+        "new_sha256": "8b07c0f5da402f0b46922f9f8addde17760055e80dd62b8f5580df5f209f7ca0"
+      },
+      "src/video_core/renderer_vulkan/vk_swapchain.h": {
+        "old_sha256": "07c9640d44efda46b30d458373e7aed9dfa4614f682f314013bc30a3141d7b29",
+        "new_sha256": "cf8ffc692590e3c0a79413d63f6de5f83de49a16c45612c9f592e531569ba298"
+      },
+      "src/video_core/renderer_vulkan/vk_swapchain.cpp": {
+        "old_sha256": "fdbcfbffcfd9d91ffeb18140426dbc38dbd71e642ecf59d87f32a5feb188ed21",
+        "new_sha256": "a517c60cfe44008713115e43ec9dab57ca69b1941340a0cd9a0433b36155673a"
+      },
+      "src/tests/video_core/wsi_present_stats.cpp": {
+        "old_sha256": null,
+        "new_sha256": "9e7957db4926e3ad78c2201a30fe8fcf9a28fb22e62b457b228bd84ec223c451"
+      },
+      "src/tests/CMakeLists.txt": {
+        "old_sha256": "743b952f923b268fa0f9d63f8eaa1e0a930b8448850e2b491812b0959df76c67",
+        "new_sha256": "f3eea38e9ca494505c9737ca16e004fb2ae3715e15ff97397ba3c0320af18bc0"
+      }
+    },
+    "inherited_inputs": 30,
+    "patch_sha256": "18d563d0d37a969e9141f12860153308749231baeb99c54f73cda50356d79bd6",
+    "proofs_sha256": {
+      "baseline.json": "4758052f2d42be7a1930f8d435d1dc5b77b4db5cff5a467d751e1c1f584410f1",
+      "wsi-producer-results.json": "a68a574622539f58bd23b4d2639b40c54b9b25d12753fe7a4afa68e56dde608b",
+      "wsi-mutant-results.json": "6cd2d3c46b05e4f8c58fa56c13cff320b8033df99fb9f799e6669cbe4d0d4d28",
+      "service-producer-results.json": "670c0ab06171d6689f18e015649dda7e9560dd45cb4a661a95a1e46d6812a173",
+      "final-mutant-results.json": "1e656c3b72c99c9ad0ded30657669ece8dd9019a767d43e3c301a66a93abca43",
+      "catch-results.json": "9a869d363364a57e910b68b9fa58e291f3f1283e28f9977eee1543dcfae7610a"
+    },
+    "flags": {
+      "EDEN_NX2_VI2_SERVICE_TRACE": "startup exact1; OR legacy DKB in exactly four service guards",
+      "EDEN_NX2_WSI_PRESENT_STATS": "startup exact1; one state allocation only when enabled"
+    },
+    "counts": "WSI accepted SUCCESS and SUBOPTIMAL separately; rejected cumulative; failure breaks segment; successful recreate advances generation and breaks segment; first601 returns establish600 intervals, then600",
+    "memory": "Sample array4800 bytes; total state larger; sort copies array on stack once/window after submit_mutex",
+    "cost": "When WSI enabled one steadyclock read per returned queue call including rejected; sort/log once600 intervals; no added GPU wait. Service retains existing service trace clock reads/rate limiter; instrumentation not cost-free. OFF no new stats logs/clocks; native error logs unchanged.",
+    "proof_scope": "4 Catch cases646assertions; actual textual Present body and actual service trace/PaceToVblank/Vsync fragments compiled with explicit queue/clock/KernelSleep/logger doubles; six WSI producer mutants, three service mutants and four helper mutants compile0 thenassert42. Old producer reds prove absent new diagnostic feature, not an old cadence bug. No real Vulkan/GSV runtime activation yet.",
+    "phase_rules": "WSI keep entire begin/end interval windows inside phase; reject segments spanning failure/recreation. VI2 previous_entered=0 is absent and excluded, never usable phase start. Retain frame interval only previous_entered..paced fullyinside phase. Vsync observations have end only; bound conservatively with two prior emitted observations, never treat aggregate as exactly phase-covered from end alone.",
+    "build_revision_note": "Supersedes manifest.before-x11-name-fix. First full build caught X11 Success macro collision; enum now AcceptedSuccess. Test defines Success=0 before include, asserts macro remains unchanged, then exercises actual enum. Original failed full-build logs preserved.",
+    "remaining": [
+      "Full rebuild ALL Swapchain users due layout change; no linkage against stale emulator archives",
+      "Fullsuite Reference87 hiddenShadow17 pacing5 andnewtests",
+      "Runtime marker/flags and same CLOCK_MONOTONIC namespace proof before game timing",
+      "WSI accepted return cadence is not scanout or distinct content; framegen must be off",
+      "Game launch requires parent signal after qualification"
+    ],
+    "manifest_sha256": "46294df7fcaf10d80d81cf0c34ad2d6a749e8da8796856ee765bf074c4d3e23c",
+    "root_review": "Root read actual producer and helper; seven changed-file hashes, inherited base hashes and six proof-file hashes agree. Patch git apply --check0 against frozen1e26 source; no mutation to baseline.",
+    "published_patch": "amont/lichii-service-wsi-on-pacing.patch"
+  },
+  "build": {
+    "cli_sha256": "d4480279bb044d1b6c14b3be013a6c2a91af724e81e3e529ad7f89b75e854fe4",
+    "build_result": {
+      "start": 1794267861.7101665,
+      "end": 1794267928.699054,
+      "returncode": 0,
+      "previous_failure": "lichii-service-wsi-build-before-x11-fix.json",
+      "log": "lichii-service-wsi-build-resume.log"
+    },
+    "cpu_tests": {
+      "passed": 1161,
+      "network_skips": 4,
+      "reference_cases": 87,
+      "hidden_shadow_cases": 1,
+      "hidden_shadow_assertions": 17,
+      "pacing_cases": 5,
+      "wsi_cases": 4,
+      "wsi_assertions": 646
+    },
+    "qualification": {
+      "revision": "0b83798bf6e7e2440568b7cf69646ae45d681b11",
+      "cli_sha256": "d4480279bb044d1b6c14b3be013a6c2a91af724e81e3e529ad7f89b75e854fe4",
+      "changed_inputs": {
+        "cpmfile.json": "e0977a561ec38d8da6dc61b61b90c3abe5d9185bd8c88a5877bf121bb1ccdf8f",
+        "src/core/CMakeLists.txt": "8cf0d2220c1216857306f0d6fa4d0dcc7814e49cd92cda899719e11066f0ca03",
+        "src/core/hle/service/nx2_gsv.h": "a7349104bac2484f1704b82525b073eb35bbe47522ed711cafaaab9d751dd4a6",
+        "src/core/hle/service/nx2_present_stats.h": "96b681971d8ee508c0e9de1bb55bc6b5fc007f9d8edb2727a06ec450613710d8",
+        "src/core/hle/service/nx2_vi2_trace.h": "72d38cc2941c45aa82c4bcfe0fb476afa2ca42039e87b0cc08506000a87188e6",
+        "src/tests/CMakeLists.txt": "f3eea38e9ca494505c9737ca16e004fb2ae3715e15ff97397ba3c0320af18bc0",
+        "src/tests/core/nx2_present_stats.cpp": "6f04bc09dfd2dc14264464a8caccfb280caf8f1864f19b5dbe790eb83b659cea",
+        "src/tests/video_core/buffer_cache_ports.cpp": "66fe9d79def403275c6c76ea24146504bd7cb4ecef319b7abdc9e1c00a742b68",
+        "src/tests/video_core/maxwell_fast_method.cpp": "29431d6ba1981d78bdb6442bef3c188cdadd5ab40a512555a6b0b6e0861624e2",
+        "src/tests/video_core/query_payload_release.cpp": "fda101276f4be307e61f3a36a5422cdf19623e1e9b148ab898c93586b04fb5b3",
+        "src/tests/video_core/stream_ring_cursor.cpp": "b534d0e51e61c6c3e90cdf5c63782f99680bc27ebfb0a00dd0b06e1fdf62ef93",
+        "src/tests/video_core/turing_macro_effects.cpp": "50a1e6a743eb04dc0f2e6fd50ba200b7c0f6584d6a7977cbc560e7277652d97e",
+        "src/tests/video_core/uniform_stream_reuse.cpp": "2c52c6dd26b08de65407cf8a88aa2738d0a073f926d14d8f26c340b7ccdea8ce",
+        "src/tests/video_core/wsi_present_stats.cpp": "9e7957db4926e3ad78c2201a30fe8fcf9a28fb22e62b457b228bd84ec223c451",
+        "src/video_core/buffer_cache/buffer_cache.h": "1f1f575ff1ad91a81f5f54f947b800705ef2714cf3d4c0978859c8383e1d236f",
+        "src/video_core/buffer_cache/buffer_cache_base.h": "b9042e89fffc08ac3ca07123db92ab850e1e77702d547286d653c3bafa34392a",
+        "src/video_core/buffer_cache/uniform_stream_reuse.h": "777bb107846452640d267148832369966f2791a779027046838b65a0baa7b766",
+        "src/video_core/dma_pusher.cpp": "c1bf1be6d5a2105c146271003e71db3ff1ab53211427edf2e9b1739b10b419d6",
+        "src/video_core/engines/maxwell_3d.cpp": "d5c40ca1d68f81871369dbcec4db39c2692cdcaca59d3d02cca859c2401dd3e2",
+        "src/video_core/engines/maxwell_3d.h": "c7cf895286fa100852fb9dcbbf6b1bad94aac828efa8f0795f7e9e562999adf2",
+        "src/video_core/engines/puller.cpp": "8080eb9ebc3d287a2a8d235d45ccb752587264cd6e0549f85b6ee257862b377f",
+        "src/video_core/gpu_split.cpp": "ac855cde82d6497a517e0c5cd7c5acfd84dd5d0555508d9fdb55df71a4ea10d6",
+        "src/video_core/gpu_split.h": "9ab4574009dce83a0a8ac56d7cd14c604d20c3b75c0b8d81177eb9b9a619aa59",
+        "src/video_core/macro.cpp": "ece1b69bdf4768c10ed92aa8b20102fc35a54e019ce3ffa78fbb8b361928597e",
+        "src/video_core/macro.h": "79d4baf9e411543d033848ffff07ce4f836c6aa9d7a0e2a37ef2f26b37e5a324",
+        "src/video_core/macro_turing.h": "7dffde5142f70160de00608ad6998850364f355b5ac1b213cccc4dad918b4766",
+        "src/video_core/nx2_async_readback.h": "694b45f19dfe21c5fb906ab2d7936e7e0d6c83f0a6488327e5650a656d64015c",
+        "src/video_core/query_cache/query_cache.h": "792c224e56c351f581ad439f0160227cfbfe5ab154bde2750674cfb6f799c872",
+        "src/video_core/renderer_vulkan/stream_ring_cursor.h": "6c284755d723baf0934c7c58e7d65561444ee6d5da00e62994ce55f71a36190d",
+        "src/video_core/renderer_vulkan/vk_staging_buffer_pool.cpp": "15fcda26b12b4865c2ab5c31904152deecede7ec00e11a8eec889f66511c6409",
+        "src/video_core/renderer_vulkan/vk_staging_buffer_pool.h": "0428df44134fa0107e620911dba7711b036ac184dce282014b09b5a74e9ee700",
+        "src/video_core/renderer_vulkan/vk_swapchain.cpp": "a517c60cfe44008713115e43ec9dab57ca69b1941340a0cd9a0433b36155673a",
+        "src/video_core/renderer_vulkan/vk_swapchain.h": "cf8ffc692590e3c0a79413d63f6de5f83de49a16c45612c9f592e531569ba298",
+        "src/video_core/video_core.cpp": "aa92618a39d99a1e5636aa678076bdd14b910053d2d5659eb959b3da85da8d38",
+        "src/video_core/wsi_present_stats.h": "8b07c0f5da402f0b46922f9f8addde17760055e80dd62b8f5580df5f209f7ca0"
+      },
+      "objects": {
+        "renderer_vulkan/vk_swapchain.cpp.o": {
+          "mtime": 1794267868.4395976,
+          "input": "src/video_core/renderer_vulkan/vk_swapchain.h",
+          "input_mtime": 1794267841.0660126
+        },
+        "renderer_vulkan/vk_present_manager.cpp.o": {
+          "mtime": 1794267864.5585907,
+          "input": "src/video_core/renderer_vulkan/vk_swapchain.h",
+          "input_mtime": 1794267841.0660126
+        },
+        "renderer_vulkan/renderer_vulkan.cpp.o": {
+          "mtime": 1794267864.577623,
+          "input": "src/video_core/renderer_vulkan/vk_swapchain.h",
+          "input_mtime": 1794267841.0660126
+        },
+        "tests.dir/video_core/wsi_present_stats.cpp.o": {
+          "mtime": 1794267867.6995964,
+          "input": "src/tests/video_core/wsi_present_stats.cpp",
+          "input_mtime": 1794267841.067001
+        },
+        "core.dir/hle/service/am/service/self_controller.cpp.o": {
+          "mtime": 1794267864.577623,
+          "input": "src/core/hle/service/nx2_gsv.h",
+          "input_mtime": 1794267841.0645711
+        },
+        "tests.dir/core/nx2_present_stats.cpp.o": {
+          "mtime": 1794267865.3586166,
+          "input": "src/tests/core/nx2_present_stats.cpp",
+          "input_mtime": 1794267666.6762133
+        },
+        "video_core.dir/video_core.cpp.o": {
+          "mtime": 1794267875.4916108,
+          "input": "src/video_core/video_core.cpp",
+          "input_mtime": 1794267666.6762133
+        },
+        "tests.dir/video_core/uniform_stream_reuse.cpp.o": {
+          "mtime": 1794267865.9995933,
+          "input": "src/tests/video_core/uniform_stream_reuse.cpp",
+          "input_mtime": 1794267666.6762133
+        },
+        "video_core.dir/engines/maxwell_3d.cpp.o": {
+          "mtime": 1794267687.6402543,
+          "input": "src/video_core/engines/maxwell_3d.cpp",
+          "input_mtime": 1794267666.6762133
+        },
+        "video_core.dir/engines/puller.cpp.o": {
+          "mtime": 1794267687.6262543,
+          "input": "src/video_core/engines/puller.cpp",
+          "input_mtime": 1794267666.6762133
+        },
+        "tests.dir/video_core/maxwell_fast_method.cpp.o": {
+          "mtime": 1794267865.6845927,
+          "input": "src/tests/video_core/maxwell_fast_method.cpp",
+          "input_mtime": 1794267666.6762133
+        },
+        "tests.dir/video_core/buffer_cache_ports.cpp.o": {
+          "mtime": 1794267865.332592,
+          "input": "src/tests/video_core/buffer_cache_ports.cpp",
+          "input_mtime": 1794267666.6762133
+        },
+        "video_core.dir/dma_pusher.cpp.o": {
+          "mtime": 1794267687.6022544,
+          "input": "src/video_core/dma_pusher.cpp",
+          "input_mtime": 1794267666.6762133
+        },
+        "video_core.dir/gpu_split.cpp.o": {
+          "mtime": 1794267687.6812544,
+          "input": "src/video_core/gpu_split.cpp",
+          "input_mtime": 1794267666.6762133
+        },
+        "renderer_vulkan/vk_query_cache.cpp.o": {
+          "mtime": 1794267687.8802547,
+          "input": "src/video_core/query_cache/query_cache.h",
+          "input_mtime": 1794267666.6762133
+        },
+        "renderer_vulkan/vk_buffer_cache_base.cpp.o": {
+          "mtime": 1794267687.778825,
+          "input": "src/video_core/buffer_cache/uniform_stream_reuse.h",
+          "input_mtime": 1794267666.6762133
+        },
+        "renderer_vulkan/vk_staging_buffer_pool.cpp.o": {
+          "mtime": 1794267687.930255,
+          "input": "src/video_core/renderer_vulkan/vk_staging_buffer_pool.cpp",
+          "input_mtime": 1794267666.6762133
+        }
+      },
+      "tests_exit": 0,
+      "reference_composition_exit": 0,
+      "shadow_diagnostics_exit": 0,
+      "reference_scope": "real Puller/DmaPusher/GpuSplit BackLoop+QueryCache/GuestStreamer/FenceManager/BufferCache; source-only proofs/mutants separately required",
+      "runtime_marker_literal_present": true,
+      "ported_upstream": "1a5e995a38679e0f4f7e320f9ec6a5a2f4e4ef1e",
+      "activation_in_game": "not yet measured",
+      "shadow_scope": "FrontVerify expectedshadowprojection/uncappedclasscounters; literalpresent; actualruntimefullformatstillrequired",
+      "pacing_source_manifest_sha256": "2d83c4cabd5a7b6f636e60b5e5653e92f7a44b1fa6352ea5eb8510e519e262e3",
+      "pacing_helper_sha256": "96b681971d8ee508c0e9de1bb55bc6b5fc007f9d8edb2727a06ec450613710d8",
+      "pacing_tests_exit": 0,
+      "service_wsi_cpu_manifest_sha256": "46294df7fcaf10d80d81cf0c34ad2d6a749e8da8796856ee765bf074c4d3e23c",
+      "service_wsi_tests_exit": 0
+    },
+    "private_proof_sha256": "91b6efddf69c341462c1fc8b670ef388242ea2b9140c7bc190284013f4a8f402",
+    "root_audit": "Packaged CLI hash matches; all5gates return0, current build starts after finalsourcefreeze and completes before actualtestsstart; changed-input object timestamps newer than inputs. No suites rerun for metadata guard."
+  },
+  "runtime_report": "service-wsi-runtime-2026-11-09.json"
+}

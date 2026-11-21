@@ -1,0 +1,147 @@
+{
+  "date_utc": "2026-11-11",
+  "scope": "Diagnostic du candidat normal c686, même checkpoint sans déplacement. Retour ancestral, R15 et emplacement source uniquement aux deux cadres natifs prouvés. Pas de déroulement générique, comparaison FPS, nombre total de copies ou volume total copié.",
+  "cohort": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-ancestor-profile-20261111",
+  "profile_root": "/home/souhib/.local/state/nel3ab/test-switch2-UJPT7T/profile",
+  "candidate_elf_sha256": "c686c1ff5811dd4aeba3f92d8da7717724dab9f1f3978e7c73897899769852d4",
+  "recording_seconds": 25.018743922,
+  "perf_data_sha256": "e85fe49affb1de4fd443ce250aa96821ee01e2f37e50a4bdebe74b252ee141ae",
+  "raw_samples": 12740,
+  "retained_samples": 11860,
+  "excluded_samples": {
+    "outside_ACK": 264,
+    "not_USER": 616
+  },
+  "lost": 0,
+  "decoder_agrees": true,
+  "qualified_copy_samples": 444,
+  "qualified_readblock_samples": 320,
+  "source_sites": [
+    {
+      "tid": 3575631,
+      "function": "void VideoCommon::BufferCache<Vulkan::BufferCacheParams>::MappedUploadMemory(Buffer &, u64, std::span<BufferCopy>) [P = Vulkan::BufferCacheParams]",
+      "line": 3823,
+      "column": 27,
+      "source_sha256": "1f1f575ff1ad91a81f5f54f947b800705ef2714cf3d4c0978859c8383e1d236f",
+      "samples": 319,
+      "period": 10779384118,
+      "chunk_sizes": {
+        "65536": 295,
+        "59648": 4,
+        "4096": 9,
+        "49408": 4,
+        "32768": 2,
+        "1280": 1,
+        "8192": 1,
+        "26368": 1,
+        "15872": 1,
+        "45056": 1
+      },
+      "relative_source": "src/video_core/buffer_cache/buffer_cache.h",
+      "percent_GPUBack_sampled_cycles": 14.58340433721139
+    },
+    {
+      "tid": 3575631,
+      "function": "bool VideoCommon::BindSmallUniformReusing(Runtime &, DeviceMemory &, size_t, u32, u32, u64, u32) [Runtime = Vulkan::BufferCacheRuntime, DeviceMemory = Core::DeviceMemoryManager<Tegra::MaxwellDeviceTraits>]",
+      "line": 145,
+      "column": 23,
+      "source_sha256": "777bb107846452640d267148832369966f2791a779027046838b65a0baa7b766",
+      "samples": 1,
+      "period": 39855132,
+      "chunk_sizes": {
+        "256": 1
+      },
+      "relative_source": "src/video_core/buffer_cache/uniform_stream_reuse.h",
+      "percent_GPUBack_sampled_cycles": 0.053919917734295594
+    }
+  ],
+  "source_excluded": {},
+  "GPUBack_sampled_cycle_weight": 73915416927,
+  "attributed_ancestor_calls_checked_in_actual_ELF": true,
+  "raw_MMAP2_records": 308372,
+  "exact_remap_union_ranges": 42,
+  "source_location_layout": {
+    "exact_toolchain_header_sha256": "08d652559fd96e298181608812354c27bbbc6761b9718d7d4c97380ca091d367",
+    "CPU_fixture_getters_match_all_four_fields": true,
+    "object_size_bytes": 24,
+    "read_only_native_mapping_required": true,
+    "relative_pointer_relocations_decoded": true
+  },
+  "qualification": {
+    "CPU_perf_contexts_matched": 164,
+    "test_methods": 30,
+    "native_frame_cases": 13,
+    "derived_map_join_semantic_methods": 9,
+    "actual_maps_before": 26596,
+    "actual_maps_after": 26492,
+    "one_identity_evaluation_per_actual_map": 53088,
+    "stable_join_maps": 26297,
+    "frozen_input_bytes_modes_unchanged": 249
+  },
+  "cleanup": {
+    "native_normal_stop": true,
+    "forced_cleanup": false,
+    "production_snapshot_unchanged": true,
+    "observer": "active",
+    "watchdog_reason": null,
+    "kernel_gpu_error_lines": [],
+    "owned_containers_absent": true,
+    "virtual_pads_absent": true
+  },
+  "profiler_original_identity_gone": true,
+  "scene_review": {
+    "all_distinct_images_read": true,
+    "same_checkpoint": true,
+    "no_commanded_movement": true,
+    "intentional_stop_before_full_35s_browser_phase": true
+  },
+  "offline_correction": {
+    "first_analyzer_exit": 143,
+    "checked_pidfd_stop": true,
+    "cause": "Rebuilt after-map identity set for each before-map;26k maps per endpoint.",
+    "red_small_fixture": "30identity evaluations for10input maps.",
+    "derived_constructor": "53088evaluations for53088real input maps; independent sorted intersection gives identical26297stable maps.",
+    "raw_and_frozen_inputs_unchanged": true
+  },
+  "memory_policy_hypothesis": {
+    "source_trace_only": true,
+    "MappedUploadMemory": "Upload request may use Stream ring.",
+    "current_stream": "AUTO_PREFER_DEVICE, mapped sequential writes, HOST_COHERENT preferred; HOST_CACHED preference only for Intel ANV.",
+    "actual_RX6650XT_memory_type_proven": false,
+    "candidate_probe_only": "Compare exact current Stream with AUTO_PREFER_HOST requiring HOST_CACHED|HOST_COHERENT. Fail explicitly if unsupported; no engine change yet."
+  },
+  "next_step": "Qualify chosen memory properties and64KiB-copy cost in a bounded isolated GPU probe before selecting one candidate engine policy; then build/test and alternate real game phases.40constant not achieved, no hardware ceiling proven.",
+  "proof_sha256": {
+    "/home/souhib/.local/state/nel3ab/test-switch2-UJPT7T/profile/result.json": "e8235b03e0bebbb582fe2b5591f63d6be23230826bbd0c21a2440be32ef393f9",
+    "/home/souhib/.local/state/nel3ab/test-switch2-UJPT7T/profile/ancestor-analysis.json": "8740c2f2768f742094729f5aaf21d0d6b17c0806a41bd817b6884b2350b23b1b",
+    "/home/souhib/.local/state/nel3ab/test-switch2-UJPT7T/profile/prepared.json": "f8f16f41e5fec7667b89e3b8aba872b1e1c68966dbc4be5585f7e5719df87626",
+    "/home/souhib/.local/state/nel3ab/test-switch2-UJPT7T/profile/after.json": "500df7b84f161e25a18af34fcb72d82bc17f98322bfa682e1185c5d8f0d897ff",
+    "/home/souhib/.local/state/nel3ab/test-switch2-UJPT7T/profile/ancestor-call-proof.json": "e91ab49ca679e51315a5077da52f1097cd899535573833080c324e06e9e0a5ea",
+    "/home/souhib/.local/state/nel3ab/test-switch2-UJPT7T/profile/ancestor-call-15ee4ba.asm": "c18222727cb28924655c941ee39715b1df0020dabe85ce7dd56df9bc7b005c69",
+    "/home/souhib/.local/state/nel3ab/test-switch2-UJPT7T/profile/ancestor-call-15e14e9.asm": "d8092a821f9db9d3c692c9aef729b62e24089c8c834592b2f5e0ad12685dc9f3",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-ancestor-profile-20261111/F1/postphase-review.json": "f37837882dabcef6acb1f5bd6cd626db90bc5b6dfaf01644cde6cd0e64de4066",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-ancestor-profile-20261111/collector-contract.json": "7342cced83b27c5ead1b4265b51dba1342d67c7799021fe0d82a14a7987e4591",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-ancestor-profile-20261111/profile-preparation.json": "cb928ec57a1f2e2a9fe1d11f4f67fe94365d58335c7de6c54ab9a996bd4feab9",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-ancestor-profile-20261111/plan.json": "7fcd47231b81db9b416df7d0017607e5f7ebec9f1b8de4edcdb62e4e6713dccd",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/ancestor-profile-preparation-20261111/qualification.json": "24f5401669796ecde5310980a0928e615fc54e9d78eecaa8d38d5d91b2b8afc7",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/ancestor-profile-preparation-20261111/map-join-qualification.json": "6b8ed31d55a793e21a14d7d3d000c964efdd56d1aa759efca9c6623b4aa744df",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/return-profile-preparation-20261111/ancestor-proof.json": "c16d62e29b6cb3dbf7ee9a6ee05c49de9d8a6d6d9d5c9e8ddb1ded03bf8ca5bd",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/return-profile-preparation-20261111/ancestor-tests.json": "1b5a80ef04366ab2c0e7ae667add9ae3d2509f0d5921da307ef65b7b10bcbf29",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upload-memory-preparation-20261111/preparation.json": "ede72f5814df68220360d6415b11047fef76322051549d3ee87eb17802dd06b8",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upload-memory-preparation-20261111/build-result.json": "ce4a2547d28db8aa2f5d3033a6346304cb6f62ded37c5f85d8021df46b42c648",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upload-memory-preparation-20261111/runtime-EOF-smoke.json": "e126f980181cb4320b4c847b8e9b910b44c8c81dda582c39ed26635420ca9067",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upload-memory-preparation-20261111/api-review/audit.json": "cb7e7ecedbcef959c5cf66b543dbbb9bbb3de3d7030078bd862d65d9f5eaac8f",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upload-memory-preparation-20261111/api-review/headers.json": "e4dae201f6688d678880824b7a6715389e8529ec98f3701494a823d5275c25f3"
+  },
+  "probe_preparation": {
+    "original_compiled_CPU_tests_passed": true,
+    "original_compile_and_CPU_seconds": 7.003769766073674,
+    "exact_df06_loader_libc_libvulkan_CPU_EOF_smoke": true,
+    "Vulkan_instance_or_device_executed": false,
+    "GPU_benchmark_executed": false,
+    "safe_header_API_variant_compiled": false,
+    "native_headers": "Vulkan1.4.345 bundled",
+    "selected_safe_plan": "Instance1.3; identity-check physical API, VMA minimum of both, assertions retained. Deliberate difference from native instance1.3/allocator1.4; isolated memory policy only.",
+    "next_required": "Compile exact-header safe variant and12CPU API cases, qualify runtime/controller, then actual description/negativeGPU copies/ABAB."
+  }
+}

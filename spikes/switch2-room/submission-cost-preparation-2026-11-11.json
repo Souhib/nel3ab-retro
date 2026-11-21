@@ -1,0 +1,63 @@
+{
+  "date_utc": "2026-11-11",
+  "status": "gates_and_all4_native_phases_completed",
+  "ELF_both_arms": "13158042b7dae7041bc4ae255381dbbed90b1d7eb9f3ba04ea1b5be02d36f6a1",
+  "order": [
+    "A1",
+    "B1",
+    "A2",
+    "B2"
+  ],
+  "probe_active": {
+    "A1": false,
+    "B1": true,
+    "A2": false,
+    "B2": true
+  },
+  "phase_seconds": 90,
+  "frozen_files_and_modes_verified": 243,
+  "current_CPU_commands_passed": 17,
+  "image_UID1000_invalid_argv_cases": 3,
+  "reader_contract_cases": 30,
+  "callback_cases": 13,
+  "first_attempt": "First16commands passed;17thfixture failed missingassert beforeactivationchecks. Image/collect/freeze/native skipped then. Failedlogs+originalsource archived; corrected full17commands nowpass.",
+  "fixture_repair": "Missingdependency reproduced and corrected in real module files; initialNode--eval runner hid missingassert and was rejected, not counted asred. Actualalways/never activation mutants fail ERR_ASSERTION arm-file-selection. Productioncallback unchanged.",
+  "native_functional_evidence": "Normal1315 and exactChrome lifecycle inherited explicitly; new armedVulkanexecution unqualified. NoF1game.",
+  "installed_engine_changed": false,
+  "performance_proven": false,
+  "goal40_achieved": false,
+  "limits": [
+    "Four alternating90s phases, same1315 binary and settings. Activation overhead only, no engine change or exclusive GPU occupancy claim.",
+    "Normal1315 functional evidence inherited; no F1 game in this bank. Five launch prefixes still receive current CPU validation.",
+    "Periodic armed capture persists after its request; complete retained captures must include query results_ready entirely inside phase.",
+    "Polling process/GPU guards cannot exclude work entirely between scans.",
+    "Raw two-role video and audio preserved; decoding occurs outside phases.",
+    "Arming removes dormant per-frame filesystem.exists polling and adds periodic query/reset/refresh/readback/file work: net activation effect, not isolated query cost or universal transparency.",
+    "CPU contracts and invalid-argvimage execution do not prove native timestamps or activation overhead."
+  ],
+  "proof_sha256": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-submission-cost-ab-20261111/plan.json": "ec218cc9678ab716a613a5d436317d19da3942b690ce41da15a45e5b707aa971",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-submission-cost-ab-20261111/handoff.json": "25f898e3932b5b30af750baada998e52f65b1c2b9fdeabb3eec4dde2e34f25ce",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-submission-cost-ab-20261111/prepared-manifest.json": "5e73215293294ab5897e12f560b650a305b7fc39b8becbb7578c425e46cd821d",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-submission-cost-ab-20261111/submission-preparation-report.json": "4765a372a3b11766c728f5d1ce91f344f9e1a8add0c951767bdc058a7609138a",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-submission-cost-ab-20261111/gate-results/result.json": "aa4eaac41ed8210e5657530b2228f64f807b15d9c269366f82b686b88e2b193d",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-submission-cost-ab-20261111/container-launch-gate.json": "2758bea2935cdbc63d8d14c63843a23f302c56238fc3520db1d588e9f1b23177",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-submission-cost-ab-20261111/submission-contract-report.json": "c0322895da3b59302000b5e47720c916186e1ca019ca93b5f61b2712ab01e6fd",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-submission-cost-ab-20261111/probe-callback-report.json": "943d319f17c932670924a3b575f01e7e05538e9b75cf456d380124c0f5bbe308",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-submission-cost-ab-20261111/functional-baseline.json": "c388a34af5e08dd2d89881ff6e85efeb25c6771193ad0312dfc668919e2f4038",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-submission-cost-ab-20261111/inherited-safety.json": "fa9005b47430b3bd7d38cfa33247957004c77c9e2a9d395a53760d3e9e9b9200",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-submission-cost-ab-20261111/submission-source-review.json": "d47bb27b9b09fe5e8c9ab667c9ad54f2a686db7e334eecf9265e65af61dfdf3f",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-submission-cost-ab-20261111/baseline-review.json": "495bdd6eb4b8cab56a79eb4e9b4f982f0ba91b3a556ae2a5b54af163ad43cd2f",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-submission-cost-ab-20261111/preparation-seed-preservation.json": "978b8f32c0fddcfc8dd1e7153fa854948eb9a8b6c9d255b07e1db18ea4ba20a4",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-submission-cost-ab-20261111/archive/gate-attempt01/gate-results/result.json": "dbe4404c67e716e10ef5267ad06388f8f1f60549fc4023e9cc0ddedbbced7609",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-submission-cost-ab-20261111/archive/gate-attempt01/gate-results/16.log": "16cbb28cbc27c8311001494e9d65d8049d449fbd477ee26c36680e17ed8cc061",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-submission-cost-ab-20261111/archive/callback-dependency-repair/original.mjs": "2fea1533d4db4723ba19ea6a63832de958d15c2371be38c8572fe139bd943654",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-submission-cost-ab-20261111/archive/callback-dependency-repair/results-v2/report.json": "87ab1dff41cce6ae4384ace286e9d9fa0f60773adf28868299b2bce5f4efde06",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-submission-cost-ab-20261111/test-callback-dependency.py": "2a623c1cd8c06d66114758d2c8d35ff787abbdba8ea972114c56641255b88a5d",
+    "spikes/switch2-room/submission-cost-comparison-2026-11-11.json": "bbb10ffd5e55bffab2cccd9d0f7e69f1f0f71a805bd0aebd4266c8c6db119392",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-submission-cost-ab-20261111/root-runtime-review.json": "415e840d853adbec8d7a1613053421925c6370ff262ee520e4531ed841e0d7b6"
+  },
+  "comparison_report": "spikes/switch2-room/submission-cost-comparison-2026-11-11.json",
+  "native_armed_capture_validation_passed": true,
+  "transparency_proven": false
+}

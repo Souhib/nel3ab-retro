@@ -1,0 +1,69 @@
+{
+  "date_utc": "2026-11-11",
+  "at_unix": 1794358268.31266,
+  "status": "Native candidate loads observed checkpoint and exits0; bootstrap rejected before controlled phase, not functionally qualified",
+  "private_cohort": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111",
+  "room": "/home/souhib/.local/state/nel3ab/test-switch2-WzDq13",
+  "frozen_plan_sha256": "41673089037c2838fc82cee2d49561433164ca5983589398958c3aac98230ece",
+  "candidate_ELF_sha256": "c686c1ff5811dd4aeba3f92d8da7717724dab9f1f3978e7c73897899769852d4",
+  "actual_native_effective_fields_compared": 141,
+  "selected_marker_count": 1,
+  "first_work_marker_observed": true,
+  "native_final_cumulative_host_callback_counters": {
+    "hook_calls": 1891,
+    "hook_callbacks": 1786,
+    "hook_read_flush_callbacks": 1785,
+    "read_requests": 2139,
+    "read_flush_callbacks": 2139,
+    "dropped": 0
+  },
+  "counter_scope": "Whole native process including loading; no controlled phase or GPU completion/timing claim. No two within-phase snapshots.",
+  "read_check_scope": "One emitted summary observed with1download/4KiB and zero logged mismatches; not final total or complete correctness qualification.",
+  "controlled_phase_started": false,
+  "held_input_exercised": false,
+  "constant40_achieved": false,
+  "production_change": false,
+  "ordinary_cleanup_report_missing": true,
+  "failures": [
+    {
+      "helper": "affinity-negative.py",
+      "cause": "Referenced affinity-old-hash-mutant.py is absent. Its expected-assertion check correctly refuses the wrong failure reason."
+    },
+    {
+      "helper": "F1/room-private.mjs",
+      "cause": "Starts B1 watchdog path; it reads missing B1 metadata and exits. Ordinary watchdog report missing, so session cleanup writer also fails."
+    }
+  ],
+  "preparation_test_gap": "Five seed-copy bootstraps and complete gather with doubles passed, but later spawned-helper dependencies and watchdog startup were not exercised by these fixtures.",
+  "manual_cleanup": {
+    "observed_PIDs_absent": 11,
+    "no_live_Chrome_or_emulator_processes": true,
+    "owned_containers_absent": true,
+    "nel3ab_pads_absent": true,
+    "observer": "active",
+    "native_exit0_window_closed_no_forced": true,
+    "installed_paths_and_contents_unchanged": 8652,
+    "private_seed_files_unchanged": 4882,
+    "GPU_inventory_isolated_after_stop": true,
+    "phase_success": false
+  },
+  "next_step": "New v2 cohort, original preserved. Correct true helper argv/dependencies, require watchdog readiness before worker, reproduce original failures then actual positive paths before another private functional launch.",
+  "proof_files_sha256": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111/plan.json": "41673089037c2838fc82cee2d49561433164ca5983589398958c3aac98230ece",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111/prepared-manifest.json": "2d318f5a072f77b568d9126c530d5ef3c638c80f504cc1db9cccd8097e65d082",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111/preparation-tests.json": "3c1dd907ebefb06dbe147e1e6dd43bde48fdb85e6d7ddd673468ba891161a693",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111/container-launch-gate.json": "f74e3c0ef2abe35cea65aced5e1ac89c2271afd4ef55bf6bf2903dfc9747d01e",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111/root-functional-review.json": "c0d540d8a62839877f25650910d405cd81f6bc9c49b7cebb08ffe7fe41ef7178",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111/baseline-review.json": "7b4f411379946280930d038ed0f438d8d1e5f6be9b0e317efa38c745a287d68b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111/F1/auto-events.jsonl": "3106e231c4d5bb961fee66e6806bc120d255c4df6290d507fda7e90b67d6b44e",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111/F1/session-supervisor.log": "ae24194e77dc3cc656455ff12c14ba9b2bd29b3b5da7b39c2de05ca19705ac25",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111/F1/driver-console.log": "103b3fd70e5be086d7d970c550ae0fd8a8408b720c61417b73cf11f79d10d4bd",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111/F1/manual-cleanup-audit.json": "3369445ad852d9927b36756b59a35225d3d9ff5cab725999732da57fa39b9eb3",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111/F1/gpu-after-manual.json": "4eab78b0413a168a07e361045483dda282cca33aa57415636cf0e28be1bda8c5",
+    "/home/souhib/.local/state/nel3ab/test-switch2-WzDq13/qualification-watchdog.log": "ec6e173a36e5ffa8acb9ca37a33d57ef4c25b3bc3d03be879819751b3d906276",
+    "/home/souhib/.local/state/nel3ab/test-switch2-WzDq13/loaded-check.png": "18438af4834afe80d2ed2797ccf399c47b59d7c5a44f88a6ea322d0c518ad03e",
+    "/home/souhib/.local/state/nel3ab/test-switch2-WzDq13/native-runtime-proof.json": "ec12240eea091384a3fa81fc0eef90402c1e30e8d70392560a5baeb6ec9bf38c",
+    "/home/souhib/.local/state/nel3ab/test-switch2-WzDq13/state/0400486024dec000/neuve/exit.json": "e7dc797f139750eb93bf073d1dbc72e8c4e4adc4b5b610255377d539c9ebfe32",
+    "/home/souhib/.local/state/nel3ab/test-switch2-WzDq13/state/0400486024dec000/neuve/lifecycle.json": "da3e97ab32a0b56955ed7a00bff73069eb8eb90e8e0ebc392a95d9ded763bb39"
+  }
+}

@@ -1,0 +1,114 @@
+{
+  "date_utc": "2026-11-11",
+  "status": "CPU lifecycle correction passed expected outcomes; not deployed or tested in real room",
+  "source_failure": "v3 B1 interference closed browser before detached input controller; later manual cleanup does not qualify phase",
+  "private_evidence_root": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-phase-stop-20261111",
+  "CPU_cases": 16,
+  "accepted_cases": 13,
+  "intentional_red_cases": 3,
+  "named_cases": [
+    {
+      "case": "01-original-red",
+      "pass": null,
+      "expected_red": true
+    },
+    {
+      "case": "02-fixed-green",
+      "pass": true,
+      "expected_red": false
+    },
+    {
+      "case": "03-original-reintroduced-red",
+      "pass": null,
+      "expected_red": true
+    },
+    {
+      "case": "04-renamed-controller-green",
+      "pass": true,
+      "expected_red": false
+    },
+    {
+      "case": "05-start-ticks-rejected",
+      "pass": true,
+      "expected_red": false
+    },
+    {
+      "case": "06-foreign-child-rejected",
+      "pass": true,
+      "expected_red": false
+    },
+    {
+      "case": "07-foreign-root-rejected",
+      "pass": true,
+      "expected_red": false
+    },
+    {
+      "case": "08-hanging-capture-fails-qualification",
+      "pass": true,
+      "expected_red": false
+    },
+    {
+      "case": "09-owned-pad-filter",
+      "pass": true,
+      "expected_red": false
+    },
+    {
+      "case": "10-pidfd-acquisition-window",
+      "pass": true,
+      "expected_red": false
+    },
+    {
+      "case": "11-driver-own-signal-path",
+      "pass": true,
+      "expected_red": false
+    },
+    {
+      "case": "12-concurrent-stop-requests",
+      "pass": true,
+      "expected_red": false
+    },
+    {
+      "case": "13-actual-watchdog-wrapper",
+      "pass": true,
+      "expected_red": false
+    },
+    {
+      "case": "14-actual-session-stop-functions",
+      "pass": true,
+      "expected_red": false
+    },
+    {
+      "case": "15-duplicate-stop-regression-mutant",
+      "pass": null,
+      "expected_red": true
+    },
+    {
+      "case": "16-duplicate-stop-fixed-again",
+      "pass": true,
+      "expected_red": false
+    }
+  ],
+  "post_pidfd_identity_mutant": "additional expected red nested in case10; actual pidfd, simulated second identity read, no Linux PID reuse claim",
+  "syntax_checks": 8,
+  "frozen_v3_unchanged": true,
+  "properties": [
+    "Pin signals to pidfd after identity recheck; never fallback to kill(pid)",
+    "Stop actual controller and wait/reap before browser closure; immutable first stop receipt",
+    "Forced own-controller stop permits teardown but never phase qualification",
+    "Audit recorded own processes and pad token while preserving unrelated user room"
+  ],
+  "limitations": [
+    "Real runPhase and supervisor executed with declared browser, keyboard and capture doubles",
+    "No real CDP, key-up delivery, kernel pads, Docker shutdown, GPU or emulator qualified",
+    "All four future trial scripts and actual preflight/bootstraps must be exercised before a fresh freeze"
+  ],
+  "production_change": false,
+  "constant40_achieved": false,
+  "proof_files_sha256": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-phase-stop-20261111/phase-stop.patch": "57377168512bd33b8125ae8750acc4fd9e3d755663ad8412b76e6206b23b4770",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-phase-stop-20261111/results.json": "adaf83e0ff284289e4a83158653152cf0c082c7680dbfa4e65c54fbc71feb68c",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-phase-stop-20261111/syntax-and-provenance.json": "334843407bfb233a9936a8f5643b80a3b7b04932bae8d7fd6097257bc5667556",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-phase-stop-20261111/README.txt": "5ebdb9af9baabb2879e16a9613476bd9d428bdf90674d45a94fd887d7c8cd1b4",
+    "spikes/switch2-room/amont/phase-stop-2026-11-11.patch": "57377168512bd33b8125ae8750acc4fd9e3d755663ad8412b76e6206b23b4770"
+  }
+}

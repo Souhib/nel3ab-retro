@@ -1,0 +1,483 @@
+{
+  "date_utc": "2026-11-11",
+  "status": "coldlog_comparison_completed_no_repeatable_gain",
+  "base_native_ELF_sha256": "13158042b7dae7041bc4ae255381dbbed90b1d7eb9f3ba04ea1b5be02d36f6a1",
+  "upstream_merge": "73a1b58e7d7a3b02f116c897a2c8487923256b1a",
+  "source_files_preserved": 5221,
+  "changed_files": [
+    {
+      "path": "src/video_core/video_core.cpp",
+      "base_sha256": "aa92618a39d99a1e5636aa678076bdd14b910053d2d5659eb959b3da85da8d38",
+      "sha256": "6690490d1f2365674879a4f7a00a44588f7596f107f614c31cd5d3079d428516",
+      "mode": "0o664",
+      "mtime_ns": 1794394608215250372
+    },
+    {
+      "path": "src/video_core/nx2_perf.h",
+      "base_sha256": "6043296f579e0dfbbf1216fc60c8418ad925f4b17bd69348ce45528c8e1fbf41",
+      "sha256": "47831f84ea41bee6b5670d599a0a2a37c9a6d4d03c08735b2fecc93692857704",
+      "mode": "0o664",
+      "mtime_ns": 1794394608215250372
+    },
+    {
+      "path": "src/video_core/engines/maxwell_3d.h",
+      "base_sha256": "c7cf895286fa100852fb9dcbbf6b1bad94aac828efa8f0795f7e9e562999adf2",
+      "sha256": "a171fff40df841f4dbb1ee489a6f96d63ac19f81d21581799490cdf3ba2b337b",
+      "mode": "0o664",
+      "mtime_ns": 1794394608215250372
+    },
+    {
+      "path": "src/video_core/engines/maxwell_3d.cpp",
+      "base_sha256": "d5c40ca1d68f81871369dbcec4db39c2692cdcaca59d3d02cca859c2401dd3e2",
+      "sha256": "7cdc74d4c18b5ca31ad05b0801cab359d8cfa3b810eada84de8431fefa0a6f91",
+      "mode": "0o664",
+      "mtime_ns": 1794394989964189391
+    }
+  ],
+  "unchanged_functions_sha256": {
+    "void Maxwell3D::VerifyCallMethod(": "7787831537a72fb070cccddb0e1552a7c65bf59d380515d038cc2c912770214d",
+    "void Maxwell3D::FrontVerify(": "8b8dbfe8c4c57d1a37e4b6e3d570dc6aefc36d90393138bd4726dad360a260f2",
+    "void Maxwell3D::CallMethodSlow(": "bab3f90168d32dd5b7d5e71f1eeaf4e5df040d42b8d4ec1accdca8dcb5c2b379",
+    "void Maxwell3D::CallConstBufferWords(": "3f7f4ce3f73cf521421835f7c7b5c8797660f273c197fc60e84e0c9fac24ebd0"
+  },
+  "native_regression_file_preserved": "src/tests/video_core/maxwell_fast_method.cpp",
+  "normal_marker": "Nx2StateWrite1095 exercised: version=1 method=...",
+  "marker_scope": "One per Maxwell engine at first actual direct-branch entry, even same-value skip possible. Not a count of stores, frequency or in-phase branch entries. Diagnostic bool/check/log cost belongs to candidate; no selection toggle.",
+  "CPU_gate": {
+    "passed": true,
+    "seconds": 20.382298946380615,
+    "body_executions": 46,
+    "body_compilations": 23,
+    "intentional_mutant_reds": 22,
+    "actual_perf_switch_header_passed": true,
+    "image": "sha256:5dedb5fa05f46b32641b921f1e34d88b76c25ed8c2c3210ceb71624d15d1dfa2",
+    "scope": "Exact dispatch/shadow/dirty/write/state-fast bodies with explicit dependency doubles; not the real Maxwell3D object layout, real executable/macro/VerifyCallMethod semantics, driver or game. Six routes are observed at dependency calls. The native existing tests cover real engines/queues. Runtime first-hit marker and compiled-code review remain required. No performance inference."
+  },
+  "ordinary_baseline_semantics": "Reference is correct. Expectedred cases deliberatelydamage candidate guards, shadow, deferreddraw, dirtyflags, order or samevalue policy; no invented baseline defect.",
+  "installed_engine_changed": false,
+  "goal40_achieved": false,
+  "performance_gain_proven": false,
+  "remaining": [
+    "Do not retain1095coldlog for nextprivatebase",
+    "Next isolated1329 preparation on1315; constant40notachieved"
+  ],
+  "proof_sha256": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-preparation-20261111/prepared.json": "32597723144c0ff01910abdd96c10993f83e0dc446203916f48ac12ddca23c57",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-preparation-20261111/candidate.patch": "6ba4a008ae3b85a37a13cf3b0547b6561bf56f72f286cd29c37e1574790eb268",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-preparation-20261111/base-source.json": "2a942f6446f86bbb7484f2fa30a03397d80505701e464186040f85424bd499e7",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-preparation-20261111/README.txt": "fe7b84222de3f611a454b9dc20032f86f9459a4e6e79c38034233443f7565371",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-preparation-20261111/root-cpu-01/command.json": "b355ca6a1bac4acc51f3315dfb4ac9af8e4bf4b317835f309060cd64ddc7bbad",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-preparation-20261111/root-cpu-01/result.json": "5e1cbbf777a32c54d06bcd3a18d42927c1e2b6c39709af9510e7215165f962e1",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-preparation-20261111/root-cpu-01/run.log": "a2c814a3eba1a0b5475793eecdd2b80ba567dab3486280fb725ebc3532dead3e",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-preparation-20261111/fixtures/run.py": "4527962691683a8624846e294ed172a7a6f98ad3f7854ddff4e0dfdcc61dddef",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-preparation-20261111/fixtures/body-fixture.cpp.in": "a38e2e01ba8585707e3c683a7db460a6a26d25d1b48969905c06a1bf186021ea",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-preparation-20261111/fixtures/extraction.json": "b02063e4346c7b2a12793c14155ffd6ec9fb5c1f33abaea5f112787c431366b0",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-preparation-20261111/fixtures/results-root01/report.json": "deed721c3844ba445c60a5aa5645bbea99e17f02c4f609def3ebc0a7bafd5759",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/source-lichii-statewrite1095-lab/src/video_core/video_core.cpp": "6690490d1f2365674879a4f7a00a44588f7596f107f614c31cd5d3079d428516",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/source-lichii-statewrite1095-lab/src/video_core/nx2_perf.h": "47831f84ea41bee6b5670d599a0a2a37c9a6d4d03c08735b2fecc93692857704",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/source-lichii-statewrite1095-lab/src/video_core/engines/maxwell_3d.h": "a171fff40df841f4dbb1ee489a6f96d63ac19f81d21581799490cdf3ba2b337b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/source-lichii-statewrite1095-lab/src/video_core/engines/maxwell_3d.cpp": "7cdc74d4c18b5ca31ad05b0801cab359d8cfa3b810eada84de8431fefa0a6f91",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-preparation-20261111/root-build-01/root-failure-audit.json": "63a7797f5ec9ed6268e9acfa62e56ce5a9be4905a7bd309c22098afbc779fd0b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-preparation-20261111/root-build-01/compile/result.json": "f5f1466c644755d4b1476bf8c40800e7a6782d8b507f2d9d887de45b848559ca",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-preparation-20261111/archive/failed-build01/archive.json": "2cfc15843bccc16378cd765a0bbca5c223a01d3771a2cd30de3d2198d3554af2",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-preparation-20261111/thinlto-mount-review/results-root01/report.json": "b8fca4294caaaf3a77245613d8f5385729619f52e53e8611dd2f545aac3aec03",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-preparation-20261111/root-build-02/result.json": "9904e33ee6d648e93a90306f936a6e9c473d6963945d3bbd0470593d8ecbbc46",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-preparation-20261111/root-build-02/configuration-proof.json": "a2f9575a53c80a2a17226dd9be75d2602258c6e18a2fd1b3be3bdc371300791d",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-preparation-20261111/root-build-02/root-acceptance.json": "3de1b3a00c3a20af57522ebbd204819a9b6d7be1fc5ac5bb9f8baa078303fa6b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-preparation-20261111/native-tests-result.json": "1d1c3119b0d73038d2c967af018b65d1e5c9985177685c51fd7a85fc0e0ac81d",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-preparation-20261111/root-native-tests-01/root-acceptance.json": "4c090f41146eede9ce479d1f44d6d37209b2e2c103bd4ab3016c556f30bb86d1",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-preparation-20261111/selection-audit/report.json": "0748af998dbeae64eda638b78ab9c161126a72781233ff6ff1ccef9dd7a1149d",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-preparation-20261111/native-stage-v3-selection-equivalence.json": "4615df19b9d087170c92b2af912c8420ecbabc205720777bd8c6ecebfb09759a",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-preparation-20261111/native-code-review/code-shape-review.json": "026f333ab11c6675bece9b41236948c19171c7f5af6f2198c538f6595a70e287",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-preparation-20261111/prior1095-audit/report.json": "31ed193972e483b94e83b70e7e882a688dbaa8929d27063cda0a18a5616066d9",
+    "/home/souhib/nel3ab-retro/spikes/switch2-room/state-write-2026-11-09.json": "dcb655ed7033ea4a8f1115bf3d082842526e14493e8ccfc4200a0ff5ea77fdc6",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-coldlog-preparation-20261111/handoff.json": "7e992d5e6eb7d32ffba95dc27ea41915b87480c8f627ed4a34040a527d06057e",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-coldlog-preparation-20261111/prepared.json": "52b9b106268e739774d44db16c1b46e58a9363f447ecb1e26c1c147c04b0abdb",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-coldlog-preparation-20261111/candidate.patch": "c46daf39b8622ceda456bf3d4dc5e2f489291ea44b8bf8f0115ed331dda48cc4",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-coldlog-preparation-20261111/native-stage-inputs.json": "720c0fb48b1a1a5ff625501d7a64a06bc54a877413095796c4789749de15b8e9",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-coldlog-preparation-20261111/code-control-01/result.json": "ed85683b4f63bf79c9626f2ba00369ea2718bd0ef552895f5d82962e4f1fb0fc",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-coldlog-preparation-20261111/code-control-01/configuration-proof.json": "91c6fbde6f34ef9d95bde450ef08208b20c7d6a0f321d957bd5ba9ed7ad16c85",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-coldlog-preparation-20261111/code-control-01/root-cleanup-audit.json": "382baa07d81b7368781118af61365c2f3b6cce4d64cad481dd6c9c73dc48a6db",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-coldlog-preparation-20261111/code-control-review.json": "4a467eaae22d0818b19007f5f8897b852614246e18e05692b49670252a6359f2",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-coldlog-preparation-20261111/native-code-review/review.json": "bde76c51e1c92dd6c27d5ff868551d1fe2c4bf2e13532a1dd80965899131ae1f",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-coldlog-preparation-20261111/native-code-review/functions.json": "4b92849859abdcf9c8c4243e2248df11e36b498249f2be26edba73b9a4809431",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-coldlog-preparation-20261111/root-cpu-01/result.json": "de853dcfbd22014a170ea80217c2ad6cdc74f7bc727b01cf9c7859622d486e99",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-coldlog-preparation-20261111/fixtures/results-root01/report.json": "381587197bf5ec88a4140c7becfe062b9249a8ecbeae1bb4549692222962669c",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-coldlog-preparation-20261111/root-build-01/result.json": "f15e5f627724c758f6a0f177c87da85944faf90e4b8795fc95f0e4571ff32509",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-coldlog-preparation-20261111/root-build-01/root-acceptance.json": "31c6bdbffd5d059371649ec1180fb14dbf710e1a44a89e020c893d3c8c25e9a0",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-coldlog-preparation-20261111/native-tests-result.json": "981b8af2b4dd98ed01d1672b535d5afcc5a50649b9efd02045ddf8498d3268be",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-coldlog-preparation-20261111/root-native-tests-01/root-acceptance.json": "bf9e2223e2fa17070178cd5c50798559d738cb5af243a2ebe1b7e4c1dd23c1ec",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-statewrite1095-coldlog-ab-20261111/statewrite-preparation-report.json": "11a43e02178227483dfb3dab84e2e13285b876cc31c5d10aa550bb44cedb75c9",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-statewrite1095-coldlog-ab-20261111/prepared-manifest.json": "ae53c2fb8ee8a674587c6eaf7ad4488215038ad153795c2da208f733915088ea",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-statewrite1095-coldlog-ab-20261111/container-launch-gate.json": "bf87a87bff7b038241fd52ac203885ff793a1cf11c9ba984b6689c3c8cb18689",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-statewrite1095-coldlog-ab-20261111/gate-results/result.json": "37802d805de23560411c05ede83c5d716ea0d8cfd24cc0a7e7694f00d7ffb26c",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-statewrite1095-coldlog-ab-20261111/baseline-review.json": "689e52736d0c5230c09bd04a1337fa54249291851f26900633b0bd8264793350",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-statewrite1095-coldlog-ab-20261111/root-gate-amendment.json": "06eb7866030c1de1ab3626ec2b4ddbb50fe94d8ed1b72be80a48fcfecf4b9231",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-statewrite1095-coldlog-ab-20261111/root-failed-functional-review.json": "6bc5381883183c43814e4e4ae0d2907dd38ae1e6aeafe6ca88bf98e03ebd15a1",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-statewrite1095-coldlog-ab-20261111-v2/handoff.json": "1904cb16dd00e0546df3748d91c52da42aa7caedef4b06122a42fe9f5d439814",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-statewrite1095-coldlog-ab-20261111-v2/statewrite-contract-report.json": "f35863936eedec2e9cba67c8c594e8221617098c5974a756753ab0173ebe1d0e",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-statewrite1095-coldlog-ab-20261111-v2/statewrite-preparation-report.json": "eab95b90a30bd78bf39544b3bdcaac512a2074aa5bf18aec3bcc9af59adbd812",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-statewrite1095-coldlog-ab-20261111-v2/prepared-manifest.json": "598492e1b3179496030044321dd070b275a1ca1ff5c4e59d0413e4960126abdb",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-statewrite1095-coldlog-ab-20261111-v2/gate-results/result.json": "98793503c228d3a0c592bc8c7d41e72ffd79eb94b394ffdd7ff735631fecab0f",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-statewrite1095-coldlog-ab-20261111-v2/container-launch-gate.json": "a2222f44dc06936bfc914d6c701a948364bc57a331825a26ca8b40b181dfc6a9",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-statewrite1095-coldlog-ab-20261111-v2/fixtures/statewrite-sgr/provenance.json": "04cf4fb69e21f3543deac7637cb11f8c7dbdbc153f83895bc8b76b776b33489f",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-statewrite1095-coldlog-ab-20261111-v2/functional-accepted.json": "528dbf8903becc370d30b747ad7935f33a66a5b888df524568d3550e9bafcf75",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-statewrite1095-coldlog-ab-20261111-v2/F1/postphase-review.json": "ffab4803663b50329d1d7213cd6a6be31a3d1e7ed062e50ba0f438fb1dd6a6f9",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-statewrite1095-coldlog-ab-20261111-v2/F1/cleanup.json": "684ba4d85c24abb72d9ba39c8c31e9af4acceaf0f76276027352d4ba029e8b8c",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-statewrite1095-coldlog-ab-20261111-v2/F1/auto-result.json": "7c3aa30c073c2c6f5fa109f9ee47ca72916714d5110019f821cf6505ea082032",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-statewrite1095-coldlog-ab-20261111-v2/archive/external-reference-repair/report.json": "35ca66dc5d78a5e87538f0cbd51d5691f87a62a401f7af58c3fd76467680d823",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-statewrite1095-coldlog-ab-20261111-v2/A1/postphase-review.json": "735495e9692e66c3d98ffbfe8065d09511131525f1020e654e07ec14b077dc6a",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-statewrite1095-coldlog-ab-20261111-v2/A1/cleanup.json": "68cce752d18e751379e0a79cfa34880a66bf1781870ae6089e6d7c7ca6ad786b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-statewrite1095-coldlog-ab-20261111-v2/A1/auto-result.json": "8e545debc82d8d914ab0475b0e1a5eb702c3fe02570e3e5f7ab09ebf9dff75e5",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-statewrite1095-coldlog-ab-20261111-v2/report.json": "a31ea5e2c5cde905870b2ac4faae56b923daefa33281933f17b016d7d4a6209e",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-statewrite1095-coldlog-ab-20261111-v2/root-cohort-review.json": "33f791f739b26a942000e05cdac8e01b0d1ec8d6240799c5d79a607904738c84"
+  },
+  "native_build": {
+    "passed": true,
+    "returncode": 0,
+    "error": null,
+    "interference": [],
+    "seconds": 172.26380648231134,
+    "started_unix": 1794397017.162392,
+    "ended_unix": 1794397189.4261985,
+    "container_absent": true,
+    "token": "d3666434b5694ec8abca0cf6b0676f69",
+    "ELF_path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/build-lichii-statewrite1095/bin/eden-cli",
+    "ELF_sha256": "37a7fbc0a7598697f163d7b2529a6ed9ae3a5043007814d58f7e6a3d5e5096dc",
+    "tests_path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/build-lichii-statewrite1095/bin/tests",
+    "tests_sha256": "251b075d3ce02d5a40176d556a9cd00917506032291b3445f54725aa6a5f800f",
+    "rebuilt_translation_units": {
+      "src/video_core/CMakeFiles/video_core.dir/engines/maxwell_3d.cpp.o": {
+        "previous": {
+          "mtime_ns": 1794356103404026051,
+          "sha256": "688fb3bb2f1cd2fa7cac84a928b88840e39bb2907e8029e10fa6fa15c4844bd4"
+        },
+        "mtime_ns": 1794397017767332484,
+        "sha256": "8aab79875be1cf2bfc45a9f79d05d80d6d6867963ec4c16128b6ab1c9eeacc48"
+      },
+      "src/video_core/CMakeFiles/video_core.dir/video_core.cpp.o": {
+        "previous": {
+          "mtime_ns": 1794381898487113135,
+          "sha256": "9f2f3bfbab7a0b61065a383045f1ee6f088cc1515b7b3653d24def93f29c9e92"
+        },
+        "mtime_ns": 1794397018077046671,
+        "sha256": "ca2e3f11a78f68e5c67370c8d1908b76850cf48d1965605c90c250fd69b6f918"
+      }
+    },
+    "binary_marker_present": true,
+    "actual_branch_execution_proven": false,
+    "no807_marker": true,
+    "configuration_proof": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-preparation-20261111/root-build-02/configuration-proof.json",
+    "thinlto_mount_proof_sha256": "b8fca4294caaaf3a77245613d8f5385729619f52e53e8611dd2f545aac3aec03",
+    "scope": "Native platform build only; no native tests/game/GPU. Future package binding must use this result ELF, not any old literal."
+  },
+  "native_tests": {
+    "targeted_case_executions": 40,
+    "full_cases": 1258,
+    "full_executed": 1254,
+    "network_skips": 4,
+    "failures": 0,
+    "full_seconds": 38.813727690372616
+  },
+  "native_build01_failure": {
+    "seconds": 229.82293226290494,
+    "reason": "Read-only ThinLTO cache omitted from explicit writable mounts; actual tests link aborted. Native tests skipped then. Originaltree retained; corrected mount proved with4 unique real Clang links and freshbuild02."
+  },
+  "selection_guard_repair": {
+    "actual_methods_cases": 6,
+    "original_expected": 3,
+    "CPU_cases": 14,
+    "scope": "Synthetic XML and actual source selectors; no engine bug. Corrected guard requires real selected identities."
+  },
+  "code_shape_control": {
+    "created_unix": 1794398306.2086241,
+    "ELF_sha256": {
+      "baseline1315": "13158042b7dae7041bc4ae255381dbbed90b1d7eb9f3ba04ea1b5be02d36f6a1",
+      "qualified_with_observer37a": "37a7fbc0a7598697f163d7b2529a6ed9ae3a5043007814d58f7e6a3d5e5096dc",
+      "code_control_without_observer75c": "75c16ae23f4a895bba513d94f0f51e0c503370b1f62bfafc020ab1eb22b146e6"
+    },
+    "functions": {
+      "baseline": {
+        "BackLoop": {
+          "bytes": 7371,
+          "address": "0x14cb7f0",
+          "cross_function_calls_or_tailjumps": [
+            "14cc2fd:\te8 de c0 fd ff       \tcall   14a83e0 <_ZN5Tegra7Engines9Maxwell3D14CallMethodFastEjjb>",
+            "14cce13:\te8 c8 b5 fd ff       \tcall   14a83e0 <_ZN5Tegra7Engines9Maxwell3D14CallMethodFastEjjb>"
+          ]
+        },
+        "CallMethod": {
+          "bytes": 151,
+          "address": "0x14a7a80",
+          "cross_function_calls_or_tailjumps": [
+            "14a7acf:\te9 0c 09 00 00       \tjmp    14a83e0 <_ZN5Tegra7Engines9Maxwell3D14CallMethodFastEjjb>"
+          ]
+        },
+        "CallMethodFast": {
+          "bytes": 590,
+          "address": "0x14a83e0",
+          "cross_function_calls_or_tailjumps": [
+            "14a8435:\te8 e6 e7 ff ff       \tcall   14a6c20 <_ZN5Tegra7Engines9Maxwell3D21ProcessDirtyRegistersEjj>",
+            "14a848c:\te9 8f e7 ff ff       \tjmp    14a6c20 <_ZN5Tegra7Engines9Maxwell3D21ProcessDirtyRegistersEjj>"
+          ]
+        },
+        "Dirty": {
+          "bytes": 577,
+          "address": "0x14a6c20",
+          "cross_function_calls_or_tailjumps": []
+        }
+      },
+      "candidate": {
+        "BackLoop": {
+          "bytes": 6888,
+          "address": "0x14cba90",
+          "cross_function_calls_or_tailjumps": [
+            "14cc620:\te8 0b b8 fd ff       \tcall   14a7e30 <_ZN5Tegra7Engines9Maxwell3D10CallMethodERN4Core6SystemEjjb>",
+            "14cc92b:\te8 00 b5 fd ff       \tcall   14a7e30 <_ZN5Tegra7Engines9Maxwell3D10CallMethodERN4Core6SystemEjjb>"
+          ]
+        },
+        "CallMethod": {
+          "bytes": 1551,
+          "address": "0x14a7e30",
+          "cross_function_calls_or_tailjumps": [
+            "14a7f79:\te8 12 09 00 00       \tcall   14a8890 <_ZN5Tegra7Engines9Maxwell3D14CallMethodFastEjjb>",
+            "14a81db:\te9 b0 06 00 00       \tjmp    14a8890 <_ZN5Tegra7Engines9Maxwell3D14CallMethodFastEjjb>",
+            "14a83b9:\te8 42 07 00 00       \tcall   14a8b00 <_ZN5Tegra7Engines9Maxwell3D21ProcessDirtyRegistersEjj>"
+          ]
+        },
+        "CallMethodFast": {
+          "bytes": 621,
+          "address": "0x14a8890",
+          "cross_function_calls_or_tailjumps": [
+            "14a88fb:\te8 00 02 00 00       \tcall   14a8b00 <_ZN5Tegra7Engines9Maxwell3D21ProcessDirtyRegistersEjj>",
+            "14a8a07:\te9 f4 00 00 00       \tjmp    14a8b00 <_ZN5Tegra7Engines9Maxwell3D21ProcessDirtyRegistersEjj>"
+          ]
+        },
+        "Dirty": {
+          "bytes": 553,
+          "address": "0x14a8b00",
+          "cross_function_calls_or_tailjumps": []
+        }
+      },
+      "without_first_hit_block": {
+        "BackLoop": {
+          "bytes": 6888,
+          "address": "0x14cbc00",
+          "cross_function_calls_or_tailjumps": [
+            "14cc790:\te8 db b6 fd ff       \tcall   14a7e70 <_ZN5Tegra7Engines9Maxwell3D10CallMethodERN4Core6SystemEjjb>",
+            "14cca9b:\te8 d0 b3 fd ff       \tcall   14a7e70 <_ZN5Tegra7Engines9Maxwell3D10CallMethodERN4Core6SystemEjjb>"
+          ]
+        },
+        "CallMethod": {
+          "bytes": 270,
+          "address": "0x14a7e70",
+          "cross_function_calls_or_tailjumps": [
+            "14a7ef4:\te9 47 09 00 00       \tjmp    14a8840 <_ZN5Tegra7Engines9Maxwell3D14CallMethodFastEjjb>",
+            "14a7f79:\te9 32 0b 00 00       \tjmp    14a8ab0 <_ZN5Tegra7Engines9Maxwell3D21ProcessDirtyRegistersEjj>"
+          ]
+        },
+        "Fast": {
+          "bytes": 621,
+          "address": "0x14a8840",
+          "cross_function_calls_or_tailjumps": [
+            "14a88ab:\te8 00 02 00 00       \tcall   14a8ab0 <_ZN5Tegra7Engines9Maxwell3D21ProcessDirtyRegistersEjj>",
+            "14a89b7:\te9 f4 00 00 00       \tjmp    14a8ab0 <_ZN5Tegra7Engines9Maxwell3D21ProcessDirtyRegistersEjj>"
+          ]
+        },
+        "Dirty": {
+          "bytes": 553,
+          "address": "0x14a8ab0",
+          "cross_function_calls_or_tailjumps": []
+        }
+      }
+    },
+    "observation": "Removing only first-hit observer block with same header/layout/profile/commands/scm changes CallMethod1551->270bytes and restores ordinary tailjump to ProcessDirtyRegisters. BackLoop still calls CallMethod in both ported variants. The diagnostic changes generated code, not only runtime log cost.",
+    "decision": "Prepare separate candidate isolating first-hit logging out of hot function, retaining the per-engine actual-entry marker.37a source and codecontrol remain archived/unchanged.",
+    "limits": [
+      "No FPS or runtime speed gain inferred from code size or call structure.",
+      "75c is compiled-code control, not a gameplay-qualified package.",
+      "Original1315 CallMethod was151bytes/inlined at observed BackLoop call; pure1095 still not inlined here.",
+      "Native tests logging absent cannot prove branch absence; real game marker remains required."
+    ],
+    "proof_sha256": {
+      "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-preparation-20261111/native-code-review/functions.json": "8bfd44637f660ade14270c3897438e4b9bc8f39fcf861b87ddd5a29464cdf25b",
+      "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-preparation-20261111/native-code-control-nolog/result.json": "ef673232d2b10b6de7d6a2f40b070852d248545bd4628884660055a1d469b427",
+      "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-preparation-20261111/native-code-control-nolog/inputs.json": "7bebb9d31911f1a0f406356e01bc985bb9bcba48cf05a43d52a4d789ccd38adb",
+      "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-preparation-20261111/native-code-control-nolog/functions.json": "0e1a1b8c9824bbc83dda7e47e7a8701d5dccfc3386c84bec8171042adb18a54c",
+      "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-preparation-20261111/root-code-control-nolog.py": "282e54e29e2c646b67f65193ef102d20ddf17413324feb9f5ef5797297b8d927"
+    }
+  },
+  "historical_same_head_trial": {
+    "created_unix": 1794398951.730656,
+    "same_upstream_head_already_tested": "52d46375f5097dfb6700b94022eec82e54ce25e7",
+    "previous_trial_date": "2026-11-09",
+    "previous_baseline": "1e26f546986f247a72b8b9177a30f5a17701bea247b7401ac65b423ec1a23d98",
+    "previous_candidate": "a6fcebf5fec6117b4c5d6cba8c5b3fb929786dbd87a76fc7d4ab7141bf1488c6",
+    "previous_decision": "Do not retain1095 as a proven speed improvement: pooled+0.97366%observed, pairdirections oppose (+1.96820%/-0.05669%). Retain qualified pacing baseline1e26 with compute mesh fallback as private reference, not an installed30FPS solution. No constant30; no long free walk/audio/save-resume/zone or logical clock qualification.",
+    "old_CallMethod_bytes": {
+      "baseline": 151,
+      "candidate": 1599
+    },
+    "old_code_shape": "Old candidate BackLoop calls CallMethod; ordinary path calls Dirty. It includes optional startup-selected inline logging even when no logs are emitted.",
+    "review_correction": "11Nov merge is new repository integration, not a new1095algorithm. Initial resumption missed this dated negative experiment.",
+    "new_bounded_question": "Current1315memorybase and isolated-out-of-line diagnostic variant have not been compared. Local matched codecontrol establishes observer code-shape effect, not an oldFPS-cause or futuregain.",
+    "old_negative_conclusion_retained": true,
+    "FPS_cause_proven": false,
+    "proof_sha256": {
+      "/home/souhib/nel3ab-retro/spikes/switch2-room/state-write-2026-11-09.json": "dcb655ed7033ea4a8f1115bf3d082842526e14493e8ccfc4200a0ff5ea77fdc6",
+      "/home/souhib/nel3ab-retro/spikes/switch2-room/amont/lichii-1095-activation-tests.patch": "885d30e29ac3fd51c761acd8df520e6824af91dc709ecd73687d166aa42926a0",
+      "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-preparation-20261111/prior1095-audit/functions.json": "02e7da4f122b743d45a73902791792ccfeb300715e6f409c11e52297d6154a58",
+      "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-preparation-20261111/native-code-review/code-shape-review.json": "026f333ab11c6675bece9b41236948c19171c7f5af6f2198c538f6595a70e287"
+    }
+  },
+  "coldlog_variant": {
+    "ELF_sha256": "32d0a6fdf4e72a2e567ce6ce9de61cf130d63dade552ba0eb722acb002876e01",
+    "source_files": 5221,
+    "additional_changed_files": [
+      "src/video_core/engines/maxwell_3d.cpp"
+    ],
+    "header_and_layout_preserved": true,
+    "CallMethod_bytes": 349,
+    "logger_bytes": 115,
+    "first_hit_bool_retained": true,
+    "ordinary_tailjump_restored": true,
+    "BackLoop_still_calls_CallMethod": true,
+    "CPU_gate": {
+      "passed": true,
+      "returncode": 0,
+      "error": null,
+      "interference": [],
+      "seconds": 20.26969728199765,
+      "started_unix": 1794399445.0178251,
+      "ended_unix": 1794399465.287523,
+      "container_absent": true,
+      "token": "74cd30b53bdc4c4e94978f8a9017b1d8",
+      "report_path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-coldlog-preparation-20261111/fixtures/results-root01/report.json",
+      "report_sha256": "381587197bf5ec88a4140c7becfe062b9249a8ecbeae1bb4549692222962669c",
+      "body_executions": 46,
+      "scope": "Actual extracted bodies and actual portable logger declaration with explicit logging/dependency doubles; no full engine, native code shape, GPU or gameplay qualification."
+    },
+    "native_tests_passed": true,
+    "runtime_activation_proven": false,
+    "FPS_gain_proven": false,
+    "native_build": {
+      "passed": true,
+      "returncode": 0,
+      "error": null,
+      "interference": [],
+      "seconds": 6.2274704980663955,
+      "started_unix": 1794399474.4823,
+      "ended_unix": 1794399480.7097712,
+      "container_absent": true,
+      "token": "2d8f78038e614715b350b3f10edec581",
+      "ELF_path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/build-lichii-statewrite1095-coldlog/bin/eden-cli",
+      "ELF_sha256": "32d0a6fdf4e72a2e567ce6ce9de61cf130d63dade552ba0eb722acb002876e01",
+      "tests_path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/build-lichii-statewrite1095-coldlog/bin/tests",
+      "tests_sha256": "3309794c20a7430188a59555d8fcce9bd1ac40dd1bb4d48a2be5b3b1e9d2b944",
+      "previous_tests": {
+        "sha256": "251b075d3ce02d5a40176d556a9cd00917506032291b3445f54725aa6a5f800f",
+        "mtime_ns": 1794397188836738596
+      },
+      "code_control_result_path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-coldlog-preparation-20261111/code-control-01/result.json",
+      "code_control_result_sha256": "ed85683b4f63bf79c9626f2ba00369ea2718bd0ef552895f5d82962e4f1fb0fc",
+      "code_control_review_sha256": "4a467eaae22d0818b19007f5f8897b852614246e18e05692b49670252a6359f2",
+      "rebuilt_translation_units": {
+        "src/video_core/CMakeFiles/video_core.dir/engines/maxwell_3d.cpp.o": {
+          "previous": {
+            "mtime_ns": 1794397017767332484,
+            "sha256": "8aab79875be1cf2bfc45a9f79d05d80d6d6867963ec4c16128b6ab1c9eeacc48"
+          },
+          "mtime_ns": 1794399339305238020,
+          "sha256": "b61acd22c43e6f4029aa80f43d250eab8cb4d0b96cdecd7e1c068cfa2550548c"
+        }
+      },
+      "actual_tests_relinked": true,
+      "scope": "Reviewed native code and full targets linked; native suite, runtime and FPS qualification still pending. Elapsed build duration is not a benchmark."
+    },
+    "native_tests": {
+      "passed": true,
+      "at_unix": 1794399637.1223304,
+      "ELF_sha256": "32d0a6fdf4e72a2e567ce6ce9de61cf130d63dade552ba0eb722acb002876e01",
+      "tests_sha256": "3309794c20a7430188a59555d8fcce9bd1ac40dd1bb4d48a2be5b3b1e9d2b944",
+      "native_result_sha256": "981b8af2b4dd98ed01d1672b535d5afcc5a50649b9efd02045ddf8498d3268be",
+      "targeted_case_executions": 40,
+      "full_executed": 1254,
+      "network_skips": 4,
+      "full_seconds": 38.82864793902263,
+      "owned_containers_absent": [
+        "nel3ab-statewrite1095-c14ed791729b",
+        "nel3ab-statewrite1095-de3501e4db8a",
+        "nel3ab-statewrite1095-9c848ea9c590",
+        "nel3ab-statewrite1095-f2f595b6a02e",
+        "nel3ab-statewrite1095-0192e0913267",
+        "nel3ab-statewrite1095-8df6d7e9910c",
+        "nel3ab-statewrite1095-3f0d01a2c746",
+        "nel3ab-statewrite1095-55ee25c40641"
+      ],
+      "healthy_docker_inventory_count": 57,
+      "protected_files_unchanged": 8652,
+      "runtime_activation_proven": false,
+      "scope": "Native coldlog qualification only. Runtime marker, graphics and ABAB not executed."
+    }
+  },
+  "coldlog_bank": {
+    "path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-statewrite1095-coldlog-ab-20261111",
+    "CPU_commands_completed": 20,
+    "final_dependency_and_seed_checks_passed": true,
+    "actual_wrapper_UID_gates_passed": 3,
+    "protected_files": 8652,
+    "installed_changes": 0,
+    "two_failed_pre_game_attempts_preserved": true,
+    "runtime_not_yet_qualified": true
+  },
+  "first_coldlog_F1": {
+    "room": "test-switch2-Vo5NNN",
+    "passed": false,
+    "timed_phase_started": false,
+    "actual_marker_present": true,
+    "actual_checkpoint_image_read": true,
+    "native_normal_stop": true,
+    "own_process_identities_gone": 10,
+    "observer_restored": true,
+    "protected_files_unchanged": 8652,
+    "frozen_inputs_modes_unchanged": 276,
+    "reason": "Marker parser expects whitespace/end after hex method; actual SGR reset follows immediately. Source/native artifacts unchanged. New independent bank required for reader correction."
+  },
+  "v2_bank": {
+    "path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-statewrite1095-coldlog-ab-20261111-v2",
+    "SGR_cases_passed": 31,
+    "actual_failed_line_SHA_verified": true,
+    "old_red_corrected_green_reintroduced_red_final_green": true,
+    "all20commands_and_final_checks_passed": true,
+    "wrapper_UID_gates_passed": 3,
+    "protected_files": 8652,
+    "new_runtime_qualification_pending": true
+  },
+  "v2_functional": {
+    "passed": true,
+    "room": "test-switch2-sASWaT",
+    "duration_requested_seconds": 90,
+    "actual_marker_version": 1,
+    "actual_marker_method": "0xd01",
+    "distinct_post_images_read": 4,
+    "byte_identical_role_pairs": [
+      "before",
+      "middle"
+    ],
+    "native_normal_stop": true,
+    "own_process_identities_gone": 12,
+    "protected_files_unchanged": 8652,
+    "frozen_inputs_modes_unchanged": 279,
+    "comparison_or40FPS_proven": false
+  },
+  "comparison_progress": {
+    "frozen_inputs": 280,
+    "A1": "accepted",
+    "B1": "accepted",
+    "A2": "accepted",
+    "B2": "accepted",
+    "gain_proven": false,
+    "constant40_proven": false
+  },
+  "comparison_report": "spikes/switch2-room/statewrite1095-coldlog-comparison-2026-11-11.json"
+}

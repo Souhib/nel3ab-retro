@@ -1,0 +1,86 @@
+{
+  "date_utc": "2026-11-10",
+  "status": "Pinned source audit; existing native warm-compute path selected for isolated preparation, no Fritchii/cacheV2 port",
+  "primary_sources": {
+    "fritchii55": "https://github.com/Frizti/Fritchii/tree/4012e5271e278b21cf8f56b97481dac2b777cd0d",
+    "logicop_fix": "https://github.com/Frizti/Fritchii/commit/9ea66c827301593de48df50de242ca1b76a9b246",
+    "pr895": "https://github.com/zortos293/Lichii/pull/895",
+    "pr896": "https://github.com/zortos293/Lichii/pull/896"
+  },
+  "pr_pins": {
+    "895": {
+      "state": "open",
+      "merged": false,
+      "changed_files": 36,
+      "updated_at": "2026-11-09T23:37:51Z",
+      "head": "dc9ccd8ed4dbf0837d1e76dc883ac19b350cdabb"
+    },
+    "896": {
+      "state": "open",
+      "merged": false,
+      "changed_files": 51,
+      "updated_at": "2026-11-09T23:08:59Z",
+      "head": "ed15e311dc98661f8145c7e50d3b4bd3ead22eac"
+    }
+  },
+  "installed_setting": "Actual qualified141field policy has Renderer/precache_shaders=0; settings_enums.h:146 Off/Ask/Always. This optional precache is OFF in installed profile.",
+  "existing_compute_preparation": "shader_warm/shader_warm_builder.cpp:446 BuildWarmFiles /:453 BuildWarmFilesWith extract game archives. :584 explicitly keeps Compute stage only, writes warm-compute.bin in yuzucach/v54 format. Can include previously unseen compute programs, not just recorded draws.",
+  "actual_cli": "Actual usr/libexec/eden-cli --build-warm /game/input.nup 0400486024dec000 /private-output-dir. The installed usr/bin wrapper deliberately rejects these arguments, so call the pinned actual ELF only for this offline tool. No -c: hook runs before argument parsing.",
+  "radv_gate": {
+    "hard_gate": "Fritchii vk_pipeline_cache.cpp:583 DriverCachesPipelines returns true only NVIDIA_PROPRIETARY/AMD_PROPRIETARY. RADV is not in that list. StartPrecompiled:3567 skips mode<2; Nx2Precompile::Mode:99 defaults1. Thus Fritchii default complete preparation is skipped on RADV regardless of recipe availability.",
+    "escape": "Fritchii EDEN_NX2_PRECOMPILE=2 forces preparation. This is NOT a proven RADV cache-persistence guarantee. Emulator Vulkan pipeline cache remains enabled for this driver if setting permits, so full prepared workload can increase cache/RAM/IO.",
+    "current_upstream895": "Pinned dc9ccd8 source includes vk_shader_cache_v2/shader_jobs, PreparePrecompiled:1887 and jobs:2112ff. Its distinct switch EDEN_NX2_PRECOMPILED=1 bypasses same proprietary-only local allowlist. Do not confuse it with Fritchii PRECOMPILE=2.",
+    "logicop": "9ea66 addresses AMD WINDOWS dynamic-logic-op absence, not AMD vendor universally. Actual65def policy already dyna_state2 and dynamic_vertex_input=true, but no runtime per-feature bit proof was collected here; do not infer RADV missing this feature from Windows report.",
+    "test_switch": "9ea66 NO_DYNAMIC_LOGIC_OP uses getenv presence, so even value0 disables feature. Do not forward as a normal runtime optimization."
+  },
+  "formats": {
+    "recipe": "NX2RCP01, zstd body format1; title ID, game version, cache version, program fingerprints+stages, serialized environment facts without code/header, render states, record mappings. nx2_recipe.h:4-29.",
+    "assembled": "NX2PREP1, cache version/env count/record count, indexed GenericEnvironment blobs and graphics/compute keys; contains locally reconstructed game programs. Incompatible magic with current normal/warm yuzucach loader.",
+    "hardcoded_layout": "nx2_recipe.cpp:35-43 expects environment header76, graphics key1056, six hashes48, state1008 and compute key24. Check against actual65def serializer and compiled sizeof/offsets before claiming compatibility; same v54 is insufficient.",
+    "version_check": "FindRecipe:174 checks title/cache version, but game_version is logged at248, not independently enforced against running title. Assemble:650 discards header title/game/cache fields and relies on caller + fingerprint matches; missing programs are reported/dropped. Require exact version metadata and counts, not silently treat partial assembly as complete.",
+    "needed": [
+      "Pinned recipe with exact title/version/cache metadata and hash; public recipe alone is not a driver binary.",
+      "Private matching game RomFS including update overlays, extracted locally; do not copy NVIDIA driver blobs or other users game-code caches.",
+      "Exact native lowering/translator/read-properties compatible with65def, render-state priors and storage-pointer variants.",
+      "ActualRADV feature mask, shader settings, compute-mesh fallback mode and persistent cache namespace.",
+      "Coverage manifest: predicted records, missing/failed/lowered programs, skipped-other-device, compiled and exercised identifiers; count alone does not prove whole game."
+    ]
+  },
+  "kept_spirv_limit": "Fritchii kept cache NX2KEPT4 validates64graphics+up to16compute sample translations at4399, not every shader. KeptStamp:4197 no exact ELF/translator identity, relies on sample/version/settings; unprobed translator change can escape. Our modified environment/pointer-retention1143 and mesh fallback need explicit composition tests. First prototype should compile-and-drop only, live draws still translate normally.",
+  "consumer_success": "Require positive Shader precache: cached graphics/compute jobs, finished built>0, retain failed/not-reached counts, verify actual device/RADV identity. Existing code at1487 QueueVulkanPipelineCacheSave when built>0; normalstop beforeinspect. Actual .done alone is insufficient: marker is written when compute_pending&&!skipped even if some/all builds failed. A clean second private boot matching file/driver/device/version should report alreadydone; persistence/reuse and later unseen-scene stalls still require separate measurement.",
+  "coverage_limit": "GuessMissing defaults feed missing environment reads in discarded compute preparation; those pipelines are not placed into compute_cache as actual live-game replacements. Therefore guessed variant can be irrelevant; cost or false sense of coverage, not proof every future live variant compiled. Graphics preparation only previously recorded valid states; full-game unseen graphics predictions remain absent.",
+  "claims_limits": [
+    "Release claim116373/120461 skipped and15min preparation refers to reported AMDWindows scenario, not measurements on Ryzen3600/RADV.",
+    "No gain/FPS prediction. No evidence yet our browser05 irregularity is caused by compilation.",
+    "A prewarmed driver cache does not by itself remove live shader translation;896 changes that and carries greater correctness scope.",
+    "No Windows pacer work, no installed cache migration or setting change."
+  ],
+  "private_report_sha256": "b4e9da17ac5fa532cdf9209895f492205c9a70fcc49b65113ba3579512ab6498",
+  "proof_files_sha256": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/review-fritchii-precompile/source-fetch.json": "c377c5e63be8f53c58b71ac45ca967d9ab2b57f3cbe1d98a2abfb603ad76ca6a",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/review-fritchii-precompile/pr896.json": "4c51ae14e1c52a385d2c0cf64f014aacf97d4a096d3b76a9617e39c4685dfca5",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/review-fritchii-precompile/upstream895-vk_pipeline_cache.cpp": "530f67ca200dad51961f4629d1c803dbbd5a102b35d924f4bd43735cab2779c0",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/review-fritchii-precompile/pr895.json": "98849a01fbacbf829eaba65c0c6479b921ce553c6515b866033a78536dd36ecf",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/review-fritchii-precompile/upstream895-source.json": "d8695bb5c7ac129c3073c86b383eaedc2cdb6d2abf95bd60aff5dd117a3a8a07",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/review-fritchii-precompile/source-fetch-extra.json": "9d4e95fc812e5e85b49f91b316c99252a919c6015d45cd04b34d02465f7b23ee",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/review-fritchii-precompile/src/video_core/nx2_recipe.h": "bb0175960cfa91554e86f3d9c864e9134f7c677dea7ab58c0a0717c27df45483",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/review-fritchii-precompile/src/video_core/nx2_recipe.cpp": "31120a4301dbe7f411793726d3e7f4f921197e733789144ac47e182706bd4890",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/review-fritchii-precompile/src/video_core/nx2_precompile.cpp": "1b8731ecb11c288dce2746ef5c378058af26d3222655d940d54fa947191fa760",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/review-fritchii-precompile/src/video_core/nx2_precompile.h": "8902af9aae0a0c434eb5738c70090541b148e9fec04bcf73452ecb76a8f2e9fa",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/review-fritchii-precompile/src/video_core/renderer_vulkan/vk_pipeline_cache.cpp": "6143dbf6b0ddf291cdbb4f5c7cf1e7bd89a783a4d399a37d12596f4835c622f0",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/fritchii-review/9ea66c827301593de48df50de242ca1b76a9b246.json": "272462eccc6734f9f197443c989acfc02d62a2e291c47897418b3801452cdb91",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/source-lichii-eviction-lab/src/video_core/renderer_vulkan/vk_pipeline_cache.cpp": "a6f69e380ba8e285680b85966f54dacace38d4c2bc44578383cee5c02f5ab75a",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/source-lichii-eviction-lab/src/video_core/shader_warm/shader_warm_builder.cpp": "9b7a4ae7436f9eb8353b68400d25d439a0aa22798c1e9274afcfb0b7b4db4042",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/source-lichii-eviction-lab/src/video_core/shader_warm/shader_warm_builder.h": "a18b753b659725af7f1bbe3fe8f0a51846c04b4ef010a47bfd5de48c6362caf7",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/source-lichii-eviction-lab/src/video_core/shader_environment.cpp": "2bb9d96a29cecf7791a9252e72502a33da2fec4f2e364ed9eacc5e5dd763f19f",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/source-lichii-eviction-lab/src/video_core/pipeline_cache_files.h": "91b21334b14559d7cbc68d76fde3b573b046fdf907a3328cec8b9d1c213bcc4b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-qualified-policy.json": "6569f38607e2c33e5288d9d10c0de6934d4c6069227fae60bbd781809d36a6b6",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/source-lichii-eviction-lab/src/yuzu_cmd/yuzu.cpp": "53fabc1714aec77d14de885a0f151249624861919cc333a31ee33d3a44a2f023",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/source-lichii-eviction-lab/src/video_core/shader_environment.h": "7a0f2456c60c4f47ab757635964866dde6f02cc5ace6023dd5948dd04f90682d",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/source-lichii-eviction-lab/src/tests/video_core/shader_precache.cpp": "5531f8476ce6b65729db3e1fd66702c7dc88163ef1b826c767556185502d2d8a",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/source-lichii-eviction-lab/src/common/settings_enums.h": "1ad334fa249e7867a878197ebbc4520fc1a6c6a22494c95d981e711ea239f670"
+  },
+  "root_evidence_hashes_checked": 22,
+  "no_fps_gain_claim": true,
+  "installed_profile_unchanged": true
+}

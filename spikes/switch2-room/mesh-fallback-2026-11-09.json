@@ -1,0 +1,562 @@
+{
+  "date": "2026-11-09",
+  "purpose": "Test geometry-restoring compute fallback on qualified baseline1e26 with native NO_MESH absent, not a performance comparison.",
+  "upstream_sources": [
+    "https://github.com/zortos293/Lichii/pull/569",
+    "https://github.com/zortos293/Lichii/pull/841",
+    "https://github.com/zortos293/Lichii/issues/871"
+  ],
+  "source_status": "Existing path in qualified private base; no new emulator code for this trial. Private launcher forwards exact1, actual native presence flags inspected.",
+  "runtime": {
+    "run": "lichii-mesh-fallback-ground-diagnostic2",
+    "verdict": "Fallback activation and visible foliage proved; prolonged free-ground traversal NOT qualified. No constant30 or comparison claim.",
+    "marker_count": 1,
+    "all_windows": [
+      {
+        "intervals": 599,
+        "sum_ns": 10946990667,
+        "p50_ns": 16668094,
+        "p95_ns": 23792365,
+        "p99_ns": 80203361,
+        "max_ns": 175834285,
+        "over30": 20,
+        "over100": 3,
+        "begin_ns": 2274822790291547,
+        "end_ns": 2274833737282214,
+        "legacy_same_window": {
+          "mean_frame_us": 18274,
+          "max_frame_us": 175834,
+          "over100": 3,
+          "mean_fence_us": 0,
+          "max_fence_us": 8,
+          "mean_composite_us": 14,
+          "mean_pacing_us": 13978,
+          "ran_ahead": 35
+        }
+      },
+      {
+        "intervals": 600,
+        "sum_ns": 10057822205,
+        "p50_ns": 16664356,
+        "p95_ns": 17644725,
+        "p99_ns": 19484336,
+        "max_ns": 89225925,
+        "over30": 1,
+        "over100": 0,
+        "begin_ns": 2274833737282214,
+        "end_ns": 2274843795104419,
+        "legacy_same_window": {
+          "mean_frame_us": 16762,
+          "max_frame_us": 89225,
+          "over100": 0,
+          "mean_fence_us": 0,
+          "max_fence_us": 4,
+          "mean_composite_us": 18,
+          "mean_pacing_us": 15405,
+          "ran_ahead": 2
+        }
+      },
+      {
+        "intervals": 600,
+        "sum_ns": 10245705255,
+        "p50_ns": 16653516,
+        "p95_ns": 18731654,
+        "p99_ns": 42197628,
+        "max_ns": 132048850,
+        "over30": 10,
+        "over100": 1,
+        "begin_ns": 2274843795104419,
+        "end_ns": 2274854040809674,
+        "legacy_same_window": {
+          "mean_frame_us": 17075,
+          "max_frame_us": 132048,
+          "over100": 1,
+          "mean_fence_us": 0,
+          "max_fence_us": 28,
+          "mean_composite_us": 16,
+          "mean_pacing_us": 14775,
+          "ran_ahead": 18
+        }
+      },
+      {
+        "intervals": 600,
+        "sum_ns": 29175610833,
+        "p50_ns": 32320565,
+        "p95_ns": 68032740,
+        "p99_ns": 268000222,
+        "max_ns": 4277439598,
+        "over30": 267,
+        "over100": 22,
+        "begin_ns": 2274854040809674,
+        "end_ns": 2274883216420507,
+        "legacy_same_window": {
+          "mean_frame_us": 48625,
+          "max_frame_us": 4277439,
+          "over100": 22,
+          "mean_fence_us": 0,
+          "max_fence_us": 16,
+          "mean_composite_us": 22,
+          "mean_pacing_us": 4256,
+          "ran_ahead": 436
+        }
+      },
+      {
+        "intervals": 600,
+        "sum_ns": 18439302497,
+        "p50_ns": 28579800,
+        "p95_ns": 43391993,
+        "p99_ns": 75711057,
+        "max_ns": 210956958,
+        "over30": 125,
+        "over100": 4,
+        "begin_ns": 2274883216420507,
+        "end_ns": 2274901655723004,
+        "legacy_same_window": {
+          "mean_frame_us": 30731,
+          "max_frame_us": 210956,
+          "over100": 4,
+          "mean_fence_us": 0,
+          "max_fence_us": 8,
+          "mean_composite_us": 21,
+          "mean_pacing_us": 0,
+          "ran_ahead": 600
+        }
+      },
+      {
+        "intervals": 600,
+        "sum_ns": 19527901906,
+        "p50_ns": 30190902,
+        "p95_ns": 41100869,
+        "p99_ns": 46102080,
+        "max_ns": 431033142,
+        "over30": 214,
+        "over100": 2,
+        "begin_ns": 2274901655723004,
+        "end_ns": 2274921183624910,
+        "legacy_same_window": {
+          "mean_frame_us": 32545,
+          "max_frame_us": 431033,
+          "over100": 2,
+          "mean_fence_us": 0,
+          "max_fence_us": 2,
+          "mean_composite_us": 23,
+          "mean_pacing_us": 0,
+          "ran_ahead": 600
+        }
+      },
+      {
+        "intervals": 600,
+        "sum_ns": 17797987261,
+        "p50_ns": 27793337,
+        "p95_ns": 37675244,
+        "p99_ns": 48308850,
+        "max_ns": 343547784,
+        "over30": 97,
+        "over100": 1,
+        "begin_ns": 2274921183624910,
+        "end_ns": 2274938981612171,
+        "legacy_same_window": {
+          "mean_frame_us": 29662,
+          "max_frame_us": 343547,
+          "over100": 1,
+          "mean_fence_us": 0,
+          "max_fence_us": 13,
+          "mean_composite_us": 21,
+          "mean_pacing_us": 0,
+          "ran_ahead": 600
+        }
+      },
+      {
+        "intervals": 600,
+        "sum_ns": 20600688689,
+        "p50_ns": 27376606,
+        "p95_ns": 43889183,
+        "p99_ns": 80626548,
+        "max_ns": 1677164655,
+        "over30": 141,
+        "over100": 4,
+        "begin_ns": 2274938981612171,
+        "end_ns": 2274959582300860,
+        "legacy_same_window": {
+          "mean_frame_us": 34333,
+          "max_frame_us": 1677164,
+          "over100": 4,
+          "mean_fence_us": 0,
+          "max_fence_us": 17,
+          "mean_composite_us": 21,
+          "mean_pacing_us": 0,
+          "ran_ahead": 600
+        }
+      },
+      {
+        "intervals": 600,
+        "sum_ns": 18240342764,
+        "p50_ns": 26091666,
+        "p95_ns": 43342458,
+        "p99_ns": 54738286,
+        "max_ns": 414547850,
+        "over30": 125,
+        "over100": 3,
+        "begin_ns": 2274959582300860,
+        "end_ns": 2274977822643624,
+        "legacy_same_window": {
+          "mean_frame_us": 30400,
+          "max_frame_us": 414547,
+          "over100": 3,
+          "mean_fence_us": 0,
+          "max_fence_us": 4,
+          "mean_composite_us": 21,
+          "mean_pacing_us": 0,
+          "ran_ahead": 600
+        }
+      },
+      {
+        "intervals": 600,
+        "sum_ns": 15287399060,
+        "p50_ns": 24139616,
+        "p95_ns": 31979483,
+        "p99_ns": 37790574,
+        "max_ns": 48857787,
+        "over30": 14,
+        "over100": 0,
+        "begin_ns": 2274977822643624,
+        "end_ns": 2274993110042684,
+        "legacy_same_window": {
+          "mean_frame_us": 25478,
+          "max_frame_us": 48857,
+          "over100": 0,
+          "mean_fence_us": 0,
+          "max_fence_us": 3,
+          "mean_composite_us": 20,
+          "mean_pacing_us": 0,
+          "ran_ahead": 600
+        }
+      },
+      {
+        "intervals": 600,
+        "sum_ns": 15327479139,
+        "p50_ns": 23959027,
+        "p95_ns": 32911062,
+        "p99_ns": 34947082,
+        "max_ns": 51435904,
+        "over30": 25,
+        "over100": 0,
+        "begin_ns": 2274993110042684,
+        "end_ns": 2275008437521823,
+        "legacy_same_window": {
+          "mean_frame_us": 25545,
+          "max_frame_us": 51435,
+          "over100": 0,
+          "mean_fence_us": 0,
+          "max_fence_us": 2,
+          "mean_composite_us": 20,
+          "mean_pacing_us": 0,
+          "ran_ahead": 600
+        }
+      },
+      {
+        "intervals": 600,
+        "sum_ns": 15236247307,
+        "p50_ns": 24118628,
+        "p95_ns": 31753121,
+        "p99_ns": 35207280,
+        "max_ns": 47545768,
+        "over30": 13,
+        "over100": 0,
+        "begin_ns": 2275008437521823,
+        "end_ns": 2275023673769130,
+        "legacy_same_window": {
+          "mean_frame_us": 25393,
+          "max_frame_us": 47545,
+          "over100": 0,
+          "mean_fence_us": 0,
+          "max_fence_us": 4,
+          "mean_composite_us": 20,
+          "mean_pacing_us": 0,
+          "ran_ahead": 600
+        }
+      }
+    ],
+    "complete_mixed_phase_windows": [
+      {
+        "intervals": 600,
+        "sum_ns": 17797987261,
+        "p50_ns": 27793337,
+        "p95_ns": 37675244,
+        "p99_ns": 48308850,
+        "max_ns": 343547784,
+        "over30": 97,
+        "over100": 1,
+        "begin_ns": 2274921183624910,
+        "end_ns": 2274938981612171,
+        "legacy_same_window": {
+          "mean_frame_us": 29662,
+          "max_frame_us": 343547,
+          "over100": 1,
+          "mean_fence_us": 0,
+          "max_fence_us": 13,
+          "mean_composite_us": 21,
+          "mean_pacing_us": 0,
+          "ran_ahead": 600
+        }
+      },
+      {
+        "intervals": 600,
+        "sum_ns": 20600688689,
+        "p50_ns": 27376606,
+        "p95_ns": 43889183,
+        "p99_ns": 80626548,
+        "max_ns": 1677164655,
+        "over30": 141,
+        "over100": 4,
+        "begin_ns": 2274938981612171,
+        "end_ns": 2274959582300860,
+        "legacy_same_window": {
+          "mean_frame_us": 34333,
+          "max_frame_us": 1677164,
+          "over100": 4,
+          "mean_fence_us": 0,
+          "max_fence_us": 17,
+          "mean_composite_us": 21,
+          "mean_pacing_us": 0,
+          "ran_ahead": 600
+        }
+      },
+      {
+        "intervals": 600,
+        "sum_ns": 18240342764,
+        "p50_ns": 26091666,
+        "p95_ns": 43342458,
+        "p99_ns": 54738286,
+        "max_ns": 414547850,
+        "over30": 125,
+        "over100": 3,
+        "begin_ns": 2274959582300860,
+        "end_ns": 2274977822643624,
+        "legacy_same_window": {
+          "mean_frame_us": 30400,
+          "max_frame_us": 414547,
+          "over100": 3,
+          "mean_fence_us": 0,
+          "max_fence_us": 4,
+          "mean_composite_us": 21,
+          "mean_pacing_us": 0,
+          "ran_ahead": 600
+        }
+      },
+      {
+        "intervals": 600,
+        "sum_ns": 15287399060,
+        "p50_ns": 24139616,
+        "p95_ns": 31979483,
+        "p99_ns": 37790574,
+        "max_ns": 48857787,
+        "over30": 14,
+        "over100": 0,
+        "begin_ns": 2274977822643624,
+        "end_ns": 2274993110042684,
+        "legacy_same_window": {
+          "mean_frame_us": 25478,
+          "max_frame_us": 48857,
+          "over100": 0,
+          "mean_fence_us": 0,
+          "max_fence_us": 3,
+          "mean_composite_us": 20,
+          "mean_pacing_us": 0,
+          "ran_ahead": 600
+        }
+      },
+      {
+        "intervals": 600,
+        "sum_ns": 15327479139,
+        "p50_ns": 23959027,
+        "p95_ns": 32911062,
+        "p99_ns": 34947082,
+        "max_ns": 51435904,
+        "over30": 25,
+        "over100": 0,
+        "begin_ns": 2274993110042684,
+        "end_ns": 2275008437521823,
+        "legacy_same_window": {
+          "mean_frame_us": 25545,
+          "max_frame_us": 51435,
+          "over100": 0,
+          "mean_fence_us": 0,
+          "max_fence_us": 2,
+          "mean_composite_us": 20,
+          "mean_pacing_us": 0,
+          "ran_ahead": 600
+        }
+      },
+      {
+        "intervals": 600,
+        "sum_ns": 15236247307,
+        "p50_ns": 24118628,
+        "p95_ns": 31753121,
+        "p99_ns": 35207280,
+        "max_ns": 47545768,
+        "over30": 13,
+        "over100": 0,
+        "begin_ns": 2275008437521823,
+        "end_ns": 2275023673769130,
+        "legacy_same_window": {
+          "mean_frame_us": 25393,
+          "max_frame_us": 47545,
+          "over100": 0,
+          "mean_fence_us": 0,
+          "max_fence_us": 4,
+          "mean_composite_us": 20,
+          "mean_pacing_us": 0,
+          "ran_ahead": 600
+        }
+      }
+    ],
+    "phase_monotonic_ns": [
+      2274915548753691,
+      2275024304053303
+    ],
+    "mixed_phase_seconds": 108.755299612,
+    "selected_intervals": 3600,
+    "selected_duration_seconds": 102.49014422,
+    "selected_over30": 415,
+    "selected_over30_percent": 11.527777777777779,
+    "selected_over100": 8,
+    "selected_maximum_ms": 1677.164655,
+    "interval_rate_per_second": 35.12532865865061,
+    "quantile_aggregation": "None. Individual nearest-rank window quantiles only; no averaging of quantiles.",
+    "legacy_paired_means_us": {
+      "mean_fence_us": 0.0,
+      "mean_composite_us": 20.5,
+      "mean_pacing_us": 0.0
+    },
+    "mesh_before_ground": {
+      "last_draws": [
+        "26000",
+        "0",
+        "2009419"
+      ],
+      "extension_disabled": true,
+      "no_mesh_absent": true
+    },
+    "mesh_final_logged": {
+      "draws": 272000,
+      "empty_draws": 0,
+      "groups": 17714341,
+      "frames_with_emulation": 5269,
+      "total_frames": 5269
+    },
+    "mesh_counter_scope": "Cumulative whole-run counters; before-ground vs final includes preparation and stop, not exact phase-exclusive attribution.",
+    "kernel_journal": {
+      "cursor_file": "mesh-fallback-kernel-before-first.txt",
+      "read_exit_code": 0,
+      "line_count": 47,
+      "gpu_drm_reset_timeout_matches": [],
+      "scope": "From before first launch through offline read after both normal stops; no matching kernel messages."
+    },
+    "clock_domain": {
+      "pid": "751316",
+      "host_time_namespace": "time:[4026531834]",
+      "emulator_time_namespace": "time:[4026531834]",
+      "timens_offsets": "monotonic           0         0\nboottime            0         0\n",
+      "libstdcpp_path": "/usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33",
+      "libstdcpp_sha256": "1fd75fe70354a416d75aef22bcae68c47bd25d20e2d0568c30b1a9838cf62f11",
+      "host_before_ns": 2274887892274275,
+      "container_monotonic_ns": 2274887971036905,
+      "host_after_ns": 2274887977681820,
+      "mapping": "Actual mapped libstdc++ steady_clock symbol calls CLOCK_MONOTONIC; identical time namespace and zero offsets. Phase uses host CLOCK_MONOTONIC_NS."
+    },
+    "actual_runtime": {
+      "exe_sha256": "1e26f546986f247a72b8b9177a30f5a17701bea247b7401ac65b423ec1a23d98",
+      "mapped_radv_path": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+      "mapped_radv_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+      "packages": "libdrm-amdgpu1:amd64\t2.4.125-1ubuntu0.1~24.04.2\nlibdrm2:amd64\t2.4.125-1ubuntu0.1~24.04.2\nmesa-vulkan-drivers:amd64\t25.2.8-0ubuntu0.24.04.4\n",
+      "diagnostic_vulkan_info": true,
+      "actual_log_filter_verified": true
+    },
+    "shutdown": {
+      "exit_code": 0,
+      "stop_requested": true,
+      "window_closed": true,
+      "forced": false,
+      "stop_seconds": 3.6050650058314204
+    },
+    "images": {
+      "method": "Images individually opened with view_image; earlier reads retained in session history.",
+      "reviewed": {
+        "ready.png": "Platform in known Kokiri scene; location text partly faded, not fully legible. Foliage visible.",
+        "walk-ladder.png": "Descent visible, plants/ferns/flowers visible.",
+        "ground-ready.png": "Standing on ground by NPC, Talk prompt.",
+        "phase-before.png": "Standing on ground by NPC and ladder.",
+        "ground-right-00.png": "Link visible at changed position on ground/path; static endpoint alone does not prove entire interval free of collision.",
+        "ground-right-02.png": "Link close to rock/trunk, possible collision/butée; not free path proof.",
+        "ground-right-05.png": "Link close to rock/trunk, possible collision/butée; not free path proof.",
+        "ground-right-06.png": "Camera occluded by foliage/trunk; Link not visible.",
+        "ground-right-10.png": "Link attached to ladder, Let Go B / Jump X prompts; NOT ground walking.",
+        "ground-right-15.png": "Link attached to ladder, Let Go B / Jump X prompts; NOT ground walking.",
+        "ground-left-00.png": "Link visible at changed position on ground/path; static endpoint alone does not prove entire interval free of collision.",
+        "ground-left-02.png": "Link visible at changed position on ground/path; static endpoint alone does not prove entire interval free of collision.",
+        "ground-left-05.png": "Link visible at changed position on ground/path; static endpoint alone does not prove entire interval free of collision.",
+        "ground-left-06.png": "Link visible at changed position on ground/path; static endpoint alone does not prove entire interval free of collision.",
+        "ground-left-10.png": "Link attached to ladder, Let Go B / Jump X prompts; NOT ground walking.",
+        "ground-left-15.png": "Link attached to ladder, Let Go B / Jump X prompts; NOT ground walking.",
+        "phase-after.png": "Still attached to ladder, Let Go B / Jump X prompts."
+      },
+      "unreviewed": [
+        "ground-right-12.png",
+        "ground-left-03.png",
+        "ground-left-09.png",
+        "ground-left-04.png",
+        "ground-right-13.png",
+        "ground-left-11.png",
+        "ground-left-08.png",
+        "ground-right-03.png",
+        "ground-right-14.png",
+        "ground-left-14.png",
+        "ground-left-13.png",
+        "ground-right-09.png",
+        "ground-right-07.png",
+        "ground-right-11.png",
+        "ground-right-08.png",
+        "ground-left-07.png",
+        "ground-right-01.png",
+        "ground-right-04.png",
+        "ground-left-12.png",
+        "ground-left-01.png"
+      ],
+      "free_ground_90_seconds_qualified": false,
+      "reason": "Initial movement and ground position proved, later obstacles/occlusion and ladder attachment; 108.755 s phase is mixed, not 90 s free ground traversal."
+    },
+    "cleanup": "after-mesh-fallback-ground-cleanup.json",
+    "preserved_home": "Private state remains on this server; original NAND checkpoint will be restored before future trials.",
+    "limits": [
+      "Single instrumented mixed-pose diagnostic with screenshots, not a performance comparison.",
+      "Later phase is on ladder; NOT a 90–120 s free-ground qualification.",
+      "TIPC229 guest presentation intervals, not physical scanout or guaranteed distinct content.",
+      "Same-window fence/composite/pacing are truncated mean service durations; zero does not establish zero cost.",
+      "FPSUnlock and MaxResolution unchanged. No native mesh, no audio/save-resume/zone-transition or logical clock speed qualification.",
+      "Earlier run excluded before phase due to verifier rejecting intentional Vulkan Info logging, not a GPU failure."
+    ]
+  },
+  "cleanup": {
+    "at": 1794257069.975563,
+    "own_game_absent": true,
+    "own_helper_removed": true,
+    "old_devices_absent": [
+      "/dev/input/event8",
+      "/dev/input/event9",
+      "/dev/input/event10",
+      "/dev/input/event11"
+    ],
+    "matching_names_remaining": [],
+    "observer": "active",
+    "production_config_unchanged": true,
+    "eight_progressions_unchanged": true,
+    "gpu_policies": {
+      "/sys/class/drm/card0/device/power_dpm_force_performance_level": "auto"
+    },
+    "gpu_power_caps_micro_watts": [
+      150000000
+    ]
+  },
+  "decision": "Retain fallback as a geometry-restoring candidate for combined correctness test, not a full-fidelity or long-ground-play qualification. Route must be validated as reversible before any new long traversal. No constant30 claim; no production change."
+}

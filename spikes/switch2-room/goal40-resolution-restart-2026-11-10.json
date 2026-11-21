@@ -1,0 +1,259 @@
+{
+  "date_utc": "2026-11-10",
+  "at_unix": 1794353209.7801456,
+  "status": "Fresh v2 A1 room launched after reader correction; no comparison result yet",
+  "previous": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110",
+  "exclusion": "B1 helper read common candidateA instead of per-trial B; frozen identity check stopped it before phase. A1 retained only as functional/host-dimensions observation. No causal gain retained.",
+  "previous_B1_cleanup": {
+    "at": 1794352992.368317,
+    "room": "/home/souhib/.local/state/nel3ab/test-switch2-LGTy6S",
+    "driver_exit": {
+      "exit_code": 0,
+      "ended_unix": 1794352991.3349798,
+      "ended_monotonic_ns": 2370962040763178,
+      "forced_by_supervisor": false
+    },
+    "owned_containers_absent": true,
+    "native_capture_audio_processes_absent": true,
+    "virtual_pads_absent": true,
+    "observer": "active",
+    "production_config_unchanged": true,
+    "eight_progressions_unchanged": true,
+    "checkpoint_unchanged": true,
+    "gpu_policies": {
+      "/sys/class/drm/card0/device/power_dpm_force_performance_level": "auto"
+    },
+    "gpu_power_caps_micro_watts": [
+      150000000
+    ],
+    "watchdog_completed": true,
+    "watchdog_reason": null,
+    "forced_cleanup": false,
+    "failure": null,
+    "supervisor_signals": [],
+    "native_exit": {
+      "Status": "exited",
+      "Running": false,
+      "Paused": false,
+      "Restarting": false,
+      "OOMKilled": false,
+      "Dead": false,
+      "Pid": 0,
+      "ExitCode": 0,
+      "Error": "",
+      "StartedAt": "2026-11-10T23:21:54.309597525Z",
+      "FinishedAt": "2026-11-10T23:23:10.043393407Z"
+    },
+    "native_lifecycle": {
+      "exit_code": 0,
+      "stop_requested": true,
+      "window_closed": true,
+      "forced": false,
+      "stop_seconds": 3.2054809322580695
+    },
+    "native_normal_stop": true,
+    "kernel_gpu_error_lines": [],
+    "phase_completed": false,
+    "identities_gone": {
+      "3054762": "237088201",
+      "3054917": null
+    }
+  },
+  "new_experiment": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110-v2",
+  "tests": {
+    "runtime-reader--expect-original.json": {
+      "mode": "--expect-original",
+      "results": {
+        "A1": {
+          "expected_failure": false,
+          "traceback": null,
+          "bootstrap_root": "/home/souhib/.local/state/nel3ab/test-switch2-wNqxLt",
+          "runtime_sha256": "8f6edac57fb56195af1725c1b927970254cab7e732bd1b6d528e2ed64507451f"
+        },
+        "B1": {
+          "expected_failure": true,
+          "traceback": "Traceback (most recent call last):\n  File \"/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110-v2/test-runtime-reader.py\", line 55, in <module>\n    exec(code, environment)\n  File \"/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110-v2/B1/runtime.py\", line 45, in <module>\n    candidate_path=Q.parent/'candidate.json';assert digest(candidate_path)=='e3b4c08de0df3fbacf312cfeddda7aa1b5f9047f23d4400d54dd88227b505e9a'\n                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+          "bootstrap_root": "/home/souhib/.local/state/nel3ab/test-switch2-3rIOxe",
+          "runtime_sha256": "f03634e1a14897bd77b266fab5277426c4201718e052b0039b01d9f37358b047"
+        },
+        "A2": {
+          "expected_failure": false,
+          "traceback": null,
+          "bootstrap_root": "/home/souhib/.local/state/nel3ab/test-switch2-YpoyjR",
+          "runtime_sha256": "8f6edac57fb56195af1725c1b927970254cab7e732bd1b6d528e2ed64507451f"
+        },
+        "B2": {
+          "expected_failure": true,
+          "traceback": "Traceback (most recent call last):\n  File \"/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110-v2/test-runtime-reader.py\", line 55, in <module>\n    exec(code, environment)\n  File \"/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110-v2/B2/runtime.py\", line 45, in <module>\n    candidate_path=Q.parent/'candidate.json';assert digest(candidate_path)=='e3b4c08de0df3fbacf312cfeddda7aa1b5f9047f23d4400d54dd88227b505e9a'\n                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+          "bootstrap_root": "/home/souhib/.local/state/nel3ab/test-switch2-2YaYVM",
+          "runtime_sha256": "f03634e1a14897bd77b266fab5277426c4201718e052b0039b01d9f37358b047"
+        }
+      },
+      "scope": "Actual gather reader AST and routing validator, real bootstrap files; Docker mount records are explicit doubles, no process/GPU qualification."
+    },
+    "runtime-reader--expect-correct.json": {
+      "mode": "--expect-correct",
+      "results": {
+        "A1": {
+          "expected_failure": false,
+          "traceback": null,
+          "bootstrap_root": "/home/souhib/.local/state/nel3ab/test-switch2-wNqxLt",
+          "runtime_sha256": "cc491d50940feac3897e72ac2c37b8bdfd9b69641c5bb6ba38ed45391c9ed77a"
+        },
+        "B1": {
+          "expected_failure": false,
+          "traceback": null,
+          "bootstrap_root": "/home/souhib/.local/state/nel3ab/test-switch2-3rIOxe",
+          "runtime_sha256": "0ce47b520359b001e892d2912f98d964d9fa089b341e6e02fe51705e89caa1a7"
+        },
+        "A2": {
+          "expected_failure": false,
+          "traceback": null,
+          "bootstrap_root": "/home/souhib/.local/state/nel3ab/test-switch2-YpoyjR",
+          "runtime_sha256": "cc491d50940feac3897e72ac2c37b8bdfd9b69641c5bb6ba38ed45391c9ed77a"
+        },
+        "B2": {
+          "expected_failure": false,
+          "traceback": null,
+          "bootstrap_root": "/home/souhib/.local/state/nel3ab/test-switch2-2YaYVM",
+          "runtime_sha256": "0ce47b520359b001e892d2912f98d964d9fa089b341e6e02fe51705e89caa1a7"
+        }
+      },
+      "scope": "Actual gather reader AST and routing validator, real bootstrap files; Docker mount records are explicit doubles, no process/GPU qualification."
+    },
+    "runtime-reader--mutate-global.json": {
+      "mode": "--mutate-global",
+      "results": {
+        "A1": {
+          "expected_failure": false,
+          "traceback": null,
+          "bootstrap_root": "/home/souhib/.local/state/nel3ab/test-switch2-wNqxLt",
+          "runtime_sha256": "cc491d50940feac3897e72ac2c37b8bdfd9b69641c5bb6ba38ed45391c9ed77a"
+        },
+        "B1": {
+          "expected_failure": true,
+          "traceback": "Traceback (most recent call last):\n  File \"/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110-v2/test-runtime-reader.py\", line 55, in <module>\n    exec(code, environment)\n  File \"/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110-v2/B1/runtime.py\", line 45, in <module>\n    candidate_path=Q/'candidate.json';assert digest(candidate_path)=='e3b4c08de0df3fbacf312cfeddda7aa1b5f9047f23d4400d54dd88227b505e9a'\n                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+          "bootstrap_root": "/home/souhib/.local/state/nel3ab/test-switch2-3rIOxe",
+          "runtime_sha256": "0ce47b520359b001e892d2912f98d964d9fa089b341e6e02fe51705e89caa1a7"
+        },
+        "A2": {
+          "expected_failure": false,
+          "traceback": null,
+          "bootstrap_root": "/home/souhib/.local/state/nel3ab/test-switch2-YpoyjR",
+          "runtime_sha256": "cc491d50940feac3897e72ac2c37b8bdfd9b69641c5bb6ba38ed45391c9ed77a"
+        },
+        "B2": {
+          "expected_failure": true,
+          "traceback": "Traceback (most recent call last):\n  File \"/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110-v2/test-runtime-reader.py\", line 55, in <module>\n    exec(code, environment)\n  File \"/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110-v2/B2/runtime.py\", line 45, in <module>\n    candidate_path=Q/'candidate.json';assert digest(candidate_path)=='e3b4c08de0df3fbacf312cfeddda7aa1b5f9047f23d4400d54dd88227b505e9a'\n                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+          "bootstrap_root": "/home/souhib/.local/state/nel3ab/test-switch2-2YaYVM",
+          "runtime_sha256": "0ce47b520359b001e892d2912f98d964d9fa089b341e6e02fe51705e89caa1a7"
+        }
+      },
+      "scope": "Actual gather reader AST and routing validator, real bootstrap files; Docker mount records are explicit doubles, no process/GPU qualification."
+    }
+  },
+  "production_change": false,
+  "constant40_achieved": false,
+  "proof_files_sha256": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110-v2/plan.json": "5e8865f68a4ba872a76699f9aa85ebbe961624d3291eb564d1bf4d212bba9a79",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110-v2/test-runtime-reader.py": "286003420006a5eae16cc5bf9bf5a2b803d155bd0441e987fb00dd316ce692c7",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110-v2/runtime-reader--mutate-global.json": "a76f4c5b5093c07402875ba5cc6d211320e047b91b7ee5e0b7aa0ee5bde18178",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110-v2/runtime-reader--expect-correct.json": "d4a33b58049ea4f3ab6a46a3009122af4791f7693ef43dee910d70b9e31e9998",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110-v2/runtime-reader--expect-original.json": "a599095ebfcccf0d4fd4c9deaf56feb678195fda6573f1ad314b50278490dd27",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110/B1/auto-events.jsonl": "4c74b60160b412d5b1f972f59468691c718d3db6082ded447143f0253f19aabf",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110/B1/cleanup.json": "b4c4af243fcab03ccdea951b2fa8d8671060d6f73361538c391d413f744af7d9",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110-v3/reader-audit/README.txt": "841366ddc5dcfa25946185d19029f38e8ade06527323c0a9b856772cc90a2916",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110-v3/reader-audit/final-freeze.json": "e6cf2d629297ac852f585cbe584bd83ce283825018a704e01d3b996225873ea8",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110-v3/A1/cleanup.json": "92ee95d95efa7248604438ead6f8eb092967fe23221a6c6a17a207225b465131",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110-v3/A1/resolution-proof.json": "654f90e75bd32ded4c023a582bd16ee2d762892c8f56277e120dd586b6c0b64b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110-v3/A1/preliminary-timing.json": "d4330f5fdac4339411bcc62c0f4ae9c55a414c475b9b068ee093659c70a5d5e3"
+  },
+  "v2_followup": {
+    "status": "B1 stopped before phase by second shared reader: actual resolution3, expected1 from common policy. Native shutdown normal.",
+    "cleanup": {
+      "at": 1794353552.209753,
+      "room": "/home/souhib/.local/state/nel3ab/test-switch2-vfkoCa",
+      "driver_exit": {
+        "exit_code": 0,
+        "ended_unix": 1794353551.177549,
+        "ended_monotonic_ns": 2371521883332715,
+        "forced_by_supervisor": false
+      },
+      "owned_containers_absent": true,
+      "native_capture_audio_processes_absent": true,
+      "virtual_pads_absent": true,
+      "observer": "active",
+      "production_config_unchanged": true,
+      "eight_progressions_unchanged": true,
+      "checkpoint_unchanged": true,
+      "gpu_policies": {
+        "/sys/class/drm/card0/device/power_dpm_force_performance_level": "auto"
+      },
+      "gpu_power_caps_micro_watts": [
+        150000000
+      ],
+      "watchdog_completed": true,
+      "watchdog_reason": null,
+      "forced_cleanup": false,
+      "failure": null,
+      "supervisor_signals": [],
+      "native_exit": {
+        "Status": "exited",
+        "Running": false,
+        "Paused": false,
+        "Restarting": false,
+        "OOMKilled": false,
+        "Dead": false,
+        "Pid": 0,
+        "ExitCode": 0,
+        "Error": "",
+        "StartedAt": "2026-11-10T23:31:16.180743264Z",
+        "FinishedAt": "2026-11-10T23:32:29.887919007Z"
+      },
+      "native_lifecycle": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.4048879076726735
+      },
+      "native_normal_stop": true,
+      "kernel_gpu_error_lines": [],
+      "phase_completed": false,
+      "identities_gone": {
+        "3077214": "237144385",
+        "3077405": null
+      }
+    },
+    "error": [
+      {
+        "monotonic_ns": "2371515853747967",
+        "event": "failed",
+        "error": "Error: Command failed: python3 /home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110-v2/B1/runtime.py\nTraceback (most recent call last):\n  File \"/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110-v2/B1/runtime.py\", line 67, in <module>\n    if __name__=='__main__':gather(json.loads((Q/'active-room.json').read_text()))\n                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110-v2/B1/runtime.py\", line 66, in gather\n    result=validate(snapshot,policy,package);(Path(meta['root'])/'native-runtime-proof.json').write_text(json.dumps({'validation':result,'snapshot':snapshot},indent=2)+'\\n');print(json.dumps(result));return snapshot\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110-v2/B1/runtime.py\", line 17, in validate\n    for key,value in values.items():assert s['effective'].get(section,{}).get(key)==value,(section,key,s['effective'].get(section,{}).get(key),value);checked+=1\n                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: ('Renderer', 'resolution_setup', '3', '1')\n"
+      }
+    ],
+    "test_limit": "Earlier AST fixture covered candidate only, not initial policy/package readers.",
+    "v3_preparing": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110-v3",
+    "comparative_claim": false
+  },
+  "v3_reader_audit": {
+    "status": "Tested and frozen; real A1 native trial passed141settings and completed normally. B1 loading.",
+    "root": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110-v3",
+    "plan_sha256": "418d0573a5511a4cb37f9df71629ae313c95e62fd2f19984e6e371850123f9b2",
+    "common_files_absent": true,
+    "frozen_inputs": 201,
+    "README": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110-v3/reader-audit/README.txt",
+    "first_phase": {
+      "windows": 3,
+      "covered_seconds": 64.501230182,
+      "rate": 27.90644449603561,
+      "p99_ms": [
+        45.848205,
+        45.3975,
+        46.922571
+      ],
+      "max_ms": 68.10671,
+      "phase_seconds": 90.0027625
+    }
+  }
+}

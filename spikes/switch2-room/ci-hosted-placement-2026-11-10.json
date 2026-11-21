@@ -1,0 +1,23 @@
+{
+  "checked_unix": 1794271586.4503436,
+  "repo": "Souhib/souverain",
+  "head_sha": "03d57b59fa596e9041fcf5dc30253de326f02974",
+  "runs": [
+    42730250676,
+    42730250708
+  ],
+  "attempt": 1,
+  "source_files": {
+    "ci.yml": "c2ab1b5214c93f9d18336b8a85a16c2ce1cf2f5764366fc56236bec1a6050e1e",
+    "native-artifact.yml": "1f8400d7e00b2b31110ee0597d2c91a36dc6390c0ff15a240f55b5c2bd13d9dc",
+    "secret-scan.yml": "5b513cdf2b5b6c7678157d8771407bebf888423825ea2fd2c0e399d2ec1703b2"
+  },
+  "same_workflows_as_prior_audit": true,
+  "routing": "All resolved jobs actual GitHub Actions ubuntu24.04; only future ci job native-installation literalubuntu24.04. Secret history has one literalubuntu24.04 job. No workflow_run follower or remote deployment in the three inspected workflows.",
+  "guard_scope": "Exact two runs/head/attempt/path only, fresh job API each launch; unknown/local/ambiguous cases block. Local process scan still mandatory.",
+  "guard_sha256": "e25195e25c4a820d843b7f743822a36e0daff28f11589dc7b63d4e4b6f68de40",
+  "additional_negatives": "Duplicate job and incomplete list rejected for both runs; previous guard suite including real removed-check mutant passes.",
+  "ci_changes": "None; read-only API only, no job canceled/restarted or settings modified.",
+  "negative_cases_count": 18,
+  "qualification_sha256": "5e5c83b7df16b0b1eb575c3bdf9edee3d63deb777537fd2f09bae7a69eba9968"
+}

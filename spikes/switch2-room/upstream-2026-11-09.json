@@ -1,0 +1,275 @@
+{
+  "at": "2026-11-09",
+  "verified_packages": [
+    {
+      "version": "orchid091-pgo",
+      "asset_sha256": "3ef06389df658c60e4f82df38c5cc3b7192dbb5bb7c107599ce78adf89e906a9",
+      "release_url": "https://github.com/MythosOfs/Orchid/releases/tag/v0.9.1",
+      "size": 138803704,
+      "asset_url": "https://github.com/MythosOfs/Orchid/releases/download/v0.9.1/orchid-v0.9.1-linux-x86_64-pgo.AppImage",
+      "cli_sha256": "f2552e1d1bdef642f4ded16bf82f1492c240733c0f3f84b04a13b73c53967b18"
+    },
+    {
+      "version": "lichii125-pgo",
+      "asset_sha256": "df1543328c448b07cc9871e70cee4491f5174b44c983a3e32d6223640e3f973c",
+      "release_url": "https://github.com/zortos293/Lichii/releases/tag/build-125",
+      "size": 140794360,
+      "asset_url": "https://github.com/zortos293/Lichii/releases/download/build-125/lichii-linux-x86_64-pgo.AppImage",
+      "cli_sha256": "429e0620a31b6988efc4936ccf5740646c26cf78846f3cc0379c1f448d8abe6d"
+    },
+    {
+      "version": "super31-pgo",
+      "asset_sha256": "a7418c4d39f107070c8a5cb8a1c2fb2e3d8d1bb691dd851ca8d20e91ad299060",
+      "release_url": "https://github.com/callme-sy/Lichii-Superbuild/releases/tag/v31",
+      "size": 140876280,
+      "asset_url": "https://github.com/callme-sy/Lichii-Superbuild/releases/download/v31/Lichii-v31-linux-x64-pgo.AppImage",
+      "cli_sha256": "943f238ae8e3f921e9a5cac046e389f379d42e734cc06900e1653d9992ab12cc"
+    }
+  ],
+  "source_findings": [
+    {
+      "url": "https://github.com/zortos293/Lichii/pull/874",
+      "state": "open",
+      "claim": "Regression concerns extra host-GPU waits for constant payload releases at Low accuracy with Default fences; its published benchmark is Windows on another CPU/GPU, not this server.",
+      "verification": "Superbuildv31 source query_cache/query_cache.h includes payload_release condition despite a contradictory known-issues paragraph in its release notes. Current Eglantine rc3 already uses an earlier low-accuracy synchronization path without the Lichii query-report override. Do not assume the same regression or blindly port this change."
+    }
+  ],
+  "status": "Downloaded and SHA256 verified against official release API digests; extracted in network-isolated, unprivileged containers before Mesa-new-2 FPS phase. No game run yet for these versions. New source texture-cache fast paths may be worth testing before broad local rewrites.",
+  "screening": [
+    {
+      "label": "super31-first",
+      "build": {
+        "version": "super31-pgo",
+        "runtime_image": "nel3ab/nx2-mesa2626-lab:2026-11-09",
+        "sha256": "943f238ae8e3f921e9a5cac046e389f379d42e734cc06900e1653d9992ab12cc",
+        "mode": 0,
+        "docked": "1",
+        "NO_MESH": "1",
+        "list_return_marker_seen_at_ready": false,
+        "single_list_us": "0",
+        "scope": "Whole official package comparison for official engines; paired GCC builds for the local copy-batch prototype"
+      },
+      "runtime": {
+        "exe_sha256": "943f238ae8e3f921e9a5cac046e389f379d42e734cc06900e1653d9992ab12cc",
+        "mapped_radv_path": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+        "mapped_radv_sha256": "09f5f9f604e4468517e6ac99a753a9a12aaa3893cf81bdaba0709ee2b8c09ba3",
+        "packages": "libdrm-amdgpu1:amd64\t2.4.134-3~kisak~n\nlibdrm2:amd64\t2.4.134-3~kisak~n\nmesa-vulkan-drivers:amd64\t26.2.6~kisak1~n\n",
+        "actual_log_filter_verified": true
+      },
+      "measurement": {
+        "requested_seconds": [
+          141.29048857688903,
+          230.783287
+        ],
+        "covered_seconds": 56.7006,
+        "game_presentations": 1200,
+        "game_fps": 21.163797208495147,
+        "window_fps_median": 21.164435572805086,
+        "maximum_frame_ms": 90.379,
+        "frames_over_100_ms": 0,
+        "windows": [
+          {
+            "start": 146.048889,
+            "end": 174.243489,
+            "mean_us": 46991,
+            "maximum_us": 75179,
+            "freezes": 0
+          },
+          {
+            "start": 174.196666,
+            "end": 202.702666,
+            "mean_us": 47510,
+            "maximum_us": 90379,
+            "freezes": 0
+          }
+        ]
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 4.005267499014735
+      },
+      "visual_review": {
+        "world_and_avatar_visible": true,
+        "scene": "Actual ready.png reviewed, Link and Kokiri Forest visible, first cold-cache compatibility screening, no comparison claimed",
+        "after_phase_world_and_avatar_visible": true,
+        "actual_ladder_descent_and_ground_walk_reviewed": true,
+        "zone_change_proven": false
+      }
+    },
+    {
+      "label": "super31-split2-first",
+      "build": {
+        "version": "super31-pgo",
+        "runtime_image": "nel3ab/nx2-mesa2626-lab:2026-11-09",
+        "sha256": "943f238ae8e3f921e9a5cac046e389f379d42e734cc06900e1653d9992ab12cc",
+        "mode": 2,
+        "docked": "1",
+        "NO_MESH": "1",
+        "list_return_marker_seen_at_ready": false,
+        "single_list_us": "0",
+        "scope": "Whole official package comparison for official engines; paired GCC builds for the local copy-batch prototype"
+      },
+      "runtime": {
+        "exe_sha256": "943f238ae8e3f921e9a5cac046e389f379d42e734cc06900e1653d9992ab12cc",
+        "mapped_radv_path": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+        "mapped_radv_sha256": "09f5f9f604e4468517e6ac99a753a9a12aaa3893cf81bdaba0709ee2b8c09ba3",
+        "packages": "libdrm-amdgpu1:amd64\t2.4.134-3~kisak~n\nlibdrm2:amd64\t2.4.134-3~kisak~n\nmesa-vulkan-drivers:amd64\t26.2.6~kisak1~n\n",
+        "actual_log_filter_verified": true
+      },
+      "measurement": {
+        "requested_seconds": [
+          88.27086911201476,
+          172.655238
+        ],
+        "covered_seconds": 51.441,
+        "game_presentations": 1200,
+        "game_fps": 23.327695806846677,
+        "window_fps_median": 23.327748619251416,
+        "maximum_frame_ms": 62.221,
+        "frames_over_100_ms": 0,
+        "windows": [
+          {
+            "start": 97.737592,
+            "end": 123.419392,
+            "mean_us": 42803,
+            "maximum_us": 60013,
+            "freezes": 0
+          },
+          {
+            "start": 123.37711300000001,
+            "end": 149.136313,
+            "mean_us": 42932,
+            "maximum_us": 62221,
+            "freezes": 0
+          }
+        ]
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 2.903764306101948
+      },
+      "visual_review": {
+        "world_and_avatar_visible": true,
+        "scene": "Actualreadyimage reviewed: Link and Kokiri balconyforestworld, nativeGPU-split mode2 markerverified bylaunchhelper",
+        "after_phase_world_and_avatar_visible": true,
+        "actual_ladder_descent_and_ground_walk_reviewed": true,
+        "zone_change_proven": false
+      }
+    },
+    {
+      "label": "lichii125-first",
+      "build": {
+        "version": "lichii125-pgo",
+        "runtime_image": "nel3ab/nx2-mesa2626-lab:2026-11-09",
+        "sha256": "429e0620a31b6988efc4936ccf5740646c26cf78846f3cc0379c1f448d8abe6d",
+        "mode": 2,
+        "docked": "1",
+        "NO_MESH": "1",
+        "list_return_marker_seen_at_ready": false,
+        "single_list_us": "0",
+        "scope": "Whole official package comparison for official engines; paired GCC builds for the local copy-batch prototype"
+      },
+      "runtime": {
+        "exe_sha256": "429e0620a31b6988efc4936ccf5740646c26cf78846f3cc0379c1f448d8abe6d",
+        "mapped_radv_path": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+        "mapped_radv_sha256": "09f5f9f604e4468517e6ac99a753a9a12aaa3893cf81bdaba0709ee2b8c09ba3",
+        "packages": "libdrm-amdgpu1:amd64\t2.4.134-3~kisak~n\nlibdrm2:amd64\t2.4.134-3~kisak~n\nmesa-vulkan-drivers:amd64\t26.2.6~kisak1~n\n",
+        "actual_log_filter_verified": true
+      },
+      "measurement": {
+        "requested_seconds": [
+          127.34696111679077,
+          213.54821
+        ],
+        "covered_seconds": 52.596000000000004,
+        "game_presentations": 1200,
+        "game_fps": 22.815423226100844,
+        "window_fps_median": 22.815572204899958,
+        "maximum_frame_ms": 65.436,
+        "frames_over_100_ms": 0,
+        "windows": [
+          {
+            "start": 141.128419,
+            "end": 167.493619,
+            "mean_us": 43942,
+            "maximum_us": 64621,
+            "freezes": 0
+          },
+          {
+            "start": 167.450311,
+            "end": 193.681111,
+            "mean_us": 43718,
+            "maximum_us": 65436,
+            "freezes": 0
+          }
+        ]
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.604289858136326
+      },
+      "visual_review": {
+        "world_and_avatar_visible": true,
+        "scene": "Actualreadyimage reviewed: Link and Kokiri Forest visible, not cinematic, mode2markerverified",
+        "after_phase_world_and_avatar_visible": true,
+        "actual_ladder_descent_and_ground_walk_reviewed": true,
+        "zone_change_proven": false
+      }
+    }
+  ],
+  "screening_limit": "Successiveengine/modecompatibilityscreenswithfreshthenwarmingindependentcaches, not causalcomparisons. Super31mode0/2 andLichii125mode2reachactualworld/Linkandwalking, normalstops; none30FPS. Orchid091worldrenderingrejectedandFPSnotaccepted. No newzone/save/audioqualification fornewengines.",
+  "orchid091_result": {
+    "label": "orchid091-first",
+    "runtime": {
+      "exe_sha256": "f2552e1d1bdef642f4ded16bf82f1492c240733c0f3f84b04a13b73c53967b18",
+      "mapped_radv_path": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+      "mapped_radv_sha256": "09f5f9f604e4468517e6ac99a753a9a12aaa3893cf81bdaba0709ee2b8c09ba3",
+      "packages": "libdrm-amdgpu1:amd64\t2.4.134-3~kisak~n\nlibdrm2:amd64\t2.4.134-3~kisak~n\nmesa-vulkan-drivers:amd64\t26.2.6~kisak1~n\n",
+      "actual_log_filter_verified": true
+    },
+    "visual_review": {
+      "world_and_avatar_visible": false,
+      "after_movement_world_and_avatar_visible": false,
+      "accepted_playable_fps": null,
+      "scene": "Actual ready.png and world-after-movement.png reviewed: HUD/map visible but world dark/blurred and Link absent, even after input. No gameplay FPS accepted.",
+      "shader_rejections": {
+        "unsupported native opcode": 9,
+        "native matrix multiply cooperative path unavailable": 4,
+        "native global reduction mode": 6,
+        "native stage buffer read outside geometry stage": 9,
+        "native texture gather mode": 1,
+        "native texel fetch mode or descriptor binding": 2,
+        "native per-tap gather control-flow proof": 1,
+        "native extended integer comparison": 48,
+        "native uniform comparison mode": 2,
+        "native uniform bindless texture handle provenance": 29
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.203881485853344
+      },
+      "container_exit_code": 0,
+      "oom_killed": false
+    },
+    "hud_ready_detection": {
+      "observed_at": 1794204783.796021,
+      "waiting_seconds": 80.42010715883225,
+      "heart_pixels": 56,
+      "map_pixels": 137,
+      "requires_visual_review": true
+    },
+    "scope": "Configurationmode0,NO_MESH1,newMesa26.2.6. Graphicsrejectionpersists; noacceptedplayableFPS, not atimeoutorcinematicassessment."
+  }
+}

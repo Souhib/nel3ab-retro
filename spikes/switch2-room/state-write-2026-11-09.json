@@ -1,0 +1,6947 @@
+{
+  "date": "2026-11-09",
+  "upstream": "https://github.com/zortos293/Lichii/pull/1095",
+  "upstream_head": "52d46375f5097dfb6700b94022eec82e54ce25e7",
+  "base_cli_sha256": "1e26f546986f247a72b8b9177a30f5a17701bea247b7401ac65b423ec1a23d98",
+  "patches": [
+    {
+      "path": "amont/lichii-1095-on-pacing.patch",
+      "sha256": "d91a72b172d0bf3a8d4f99bbc2c694e400ce7d7c516d8e7ca6af58b2f4b43da0"
+    },
+    {
+      "path": "amont/lichii-1095-activation-tests.patch",
+      "sha256": "885d30e29ac3fd51c761acd8df520e6824af91dc709ecd73687d166aa42926a0"
+    }
+  ],
+  "source_proof": {
+    "created_unix": 1794256588.7862659,
+    "upstream_pr": 1095,
+    "upstream_head": "52d46375f5097dfb6700b94022eec82e54ce25e7",
+    "source_inputs_sha256": {
+      "src/video_core/engines/maxwell_3d.cpp": "dd3e7891641c021573ba5142c2aa14fcb65bc6ba45399542f11deb299a46b372",
+      "src/video_core/engines/maxwell_3d.h": "61cef44edf04161720c1ece6a3f91aa23a1ed732532eb9f9b7db4985df78ba50",
+      "src/video_core/nx2_perf.h": "47831f84ea41bee6b5670d599a0a2a37c9a6d4d03c08735b2fecc93692857704",
+      "src/video_core/video_core.cpp": "6690490d1f2365674879a4f7a00a44588f7596f107f614c31cd5d3079d428516",
+      "src/tests/video_core/maxwell_fast_method.cpp": "cc13a17d38a0372c68af4727781efa1d79fe598d26b97cf7cd256fc5186733b6"
+    },
+    "unchanged_base_inputs": {
+      "cpmfile.json": "e0977a561ec38d8da6dc61b61b90c3abe5d9185bd8c88a5877bf121bb1ccdf8f",
+      "src/core/CMakeLists.txt": "8cf0d2220c1216857306f0d6fa4d0dcc7814e49cd92cda899719e11066f0ca03",
+      "src/core/hle/service/nx2_gsv.h": "ef5b36654332015caa7bfb857d32a3a3ee71a1c9c74a9bc1daf62d162de64d81",
+      "src/core/hle/service/nx2_present_stats.h": "96b681971d8ee508c0e9de1bb55bc6b5fc007f9d8edb2727a06ec450613710d8",
+      "src/tests/CMakeLists.txt": "743b952f923b268fa0f9d63f8eaa1e0a930b8448850e2b491812b0959df76c67",
+      "src/tests/core/nx2_present_stats.cpp": "6f04bc09dfd2dc14264464a8caccfb280caf8f1864f19b5dbe790eb83b659cea",
+      "src/tests/video_core/buffer_cache_ports.cpp": "66fe9d79def403275c6c76ea24146504bd7cb4ecef319b7abdc9e1c00a742b68",
+      "src/tests/video_core/query_payload_release.cpp": "fda101276f4be307e61f3a36a5422cdf19623e1e9b148ab898c93586b04fb5b3",
+      "src/tests/video_core/stream_ring_cursor.cpp": "b534d0e51e61c6c3e90cdf5c63782f99680bc27ebfb0a00dd0b06e1fdf62ef93",
+      "src/tests/video_core/turing_macro_effects.cpp": "50a1e6a743eb04dc0f2e6fd50ba200b7c0f6584d6a7977cbc560e7277652d97e",
+      "src/tests/video_core/uniform_stream_reuse.cpp": "2c52c6dd26b08de65407cf8a88aa2738d0a073f926d14d8f26c340b7ccdea8ce",
+      "src/video_core/buffer_cache/buffer_cache.h": "1f1f575ff1ad91a81f5f54f947b800705ef2714cf3d4c0978859c8383e1d236f",
+      "src/video_core/buffer_cache/buffer_cache_base.h": "b9042e89fffc08ac3ca07123db92ab850e1e77702d547286d653c3bafa34392a",
+      "src/video_core/buffer_cache/uniform_stream_reuse.h": "777bb107846452640d267148832369966f2791a779027046838b65a0baa7b766",
+      "src/video_core/dma_pusher.cpp": "c1bf1be6d5a2105c146271003e71db3ff1ab53211427edf2e9b1739b10b419d6",
+      "src/video_core/engines/puller.cpp": "8080eb9ebc3d287a2a8d235d45ccb752587264cd6e0549f85b6ee257862b377f",
+      "src/video_core/gpu_split.cpp": "ac855cde82d6497a517e0c5cd7c5acfd84dd5d0555508d9fdb55df71a4ea10d6",
+      "src/video_core/gpu_split.h": "9ab4574009dce83a0a8ac56d7cd14c604d20c3b75c0b8d81177eb9b9a619aa59",
+      "src/video_core/macro.cpp": "ece1b69bdf4768c10ed92aa8b20102fc35a54e019ce3ffa78fbb8b361928597e",
+      "src/video_core/macro.h": "79d4baf9e411543d033848ffff07ce4f836c6aa9d7a0e2a37ef2f26b37e5a324",
+      "src/video_core/macro_turing.h": "7dffde5142f70160de00608ad6998850364f355b5ac1b213cccc4dad918b4766",
+      "src/video_core/nx2_async_readback.h": "694b45f19dfe21c5fb906ab2d7936e7e0d6c83f0a6488327e5650a656d64015c",
+      "src/video_core/query_cache/query_cache.h": "792c224e56c351f581ad439f0160227cfbfe5ab154bde2750674cfb6f799c872",
+      "src/video_core/renderer_vulkan/stream_ring_cursor.h": "6c284755d723baf0934c7c58e7d65561444ee6d5da00e62994ce55f71a36190d",
+      "src/video_core/renderer_vulkan/vk_staging_buffer_pool.cpp": "15fcda26b12b4865c2ab5c31904152deecede7ec00e11a8eec889f66511c6409",
+      "src/video_core/renderer_vulkan/vk_staging_buffer_pool.h": "0428df44134fa0107e620911dba7711b036ac184dce282014b09b5a74e9ee700"
+    },
+    "optional_trace": "EDEN_NX2_STATE_WRITE_TRACE exact1, process startup, marker once in actual early CallMethod state branch",
+    "red": "Old production archive compiled/linked0, activation test failed42 because marker absent; not a claimed rendering defect",
+    "green": "21cases51667251assertions; actual new maxwell TU and existing real Fixture",
+    "matrix": "absent/0/10OFF,1ON; PERF_VERIFY1 and forcedslow negative0; skip0 and PERF_VERIFY1 semantic checks; Reference/ownership89cases34189assertions; hidden17assertions",
+    "mutants": "Six compile/link0 then assertion42: shadow Replay, dirty tables, deferred draw, ReleaseFront, PERF_VERIFY bypass, wholebranchdisabled",
+    "compile_infrastructure_issue": "Initial mutant duplicate-header compilation rejected, retained in rejected-infrastructure-duplicate-header.log; not counted as red evidence. Fixed private include precedence, all six compiled afterward.",
+    "abi": "No class layout/constructor signature change. Only body placement/helper methods and diagnostics; rebuilt maxwell_3d.cpp/test TU; other archives pacing frozen. Parent full fresh header consumers/CreateGPU compilation still required.",
+    "limits": [
+      "RasterizerNull terminal, not GPU rendering/fence proof",
+      "Full tests/runtime on final parent build pending",
+      "Marker proves one actual branch entry, not frequency or gain",
+      "Clang23 O3 ThinLTO may already inline baseline; no timing benefit inferred from upstream MSVC concerns",
+      "Nx2Perf startup refresh preserved in CreateGPU alongside Span ReadSwitch; no live reload intended"
+    ],
+    "source_frozen": true,
+    "no_compiler_running": true,
+    "no_game_started": true
+  },
+  "full_build_qualified": true,
+  "runtime_qualified": true,
+  "FPS_gain_claimed": false,
+  "scope": "Prepared targeted port of state register writes. Preserve Reference acquisition, corrected FrontVerify and Span. No cachev2/FSR/reduced clock/new skipped draws; no production installation.",
+  "full_build": {
+    "cli_sha256": "a6fcebf5fec6117b4c5d6cba8c5b3fb929786dbd87a76fc7d4ab7141bf1488c6",
+    "changed_inputs": {
+      "cpmfile.json": "e0977a561ec38d8da6dc61b61b90c3abe5d9185bd8c88a5877bf121bb1ccdf8f",
+      "src/core/CMakeLists.txt": "8cf0d2220c1216857306f0d6fa4d0dcc7814e49cd92cda899719e11066f0ca03",
+      "src/core/hle/service/nx2_gsv.h": "ef5b36654332015caa7bfb857d32a3a3ee71a1c9c74a9bc1daf62d162de64d81",
+      "src/core/hle/service/nx2_present_stats.h": "96b681971d8ee508c0e9de1bb55bc6b5fc007f9d8edb2727a06ec450613710d8",
+      "src/tests/CMakeLists.txt": "743b952f923b268fa0f9d63f8eaa1e0a930b8448850e2b491812b0959df76c67",
+      "src/tests/core/nx2_present_stats.cpp": "6f04bc09dfd2dc14264464a8caccfb280caf8f1864f19b5dbe790eb83b659cea",
+      "src/tests/video_core/buffer_cache_ports.cpp": "66fe9d79def403275c6c76ea24146504bd7cb4ecef319b7abdc9e1c00a742b68",
+      "src/tests/video_core/maxwell_fast_method.cpp": "cc13a17d38a0372c68af4727781efa1d79fe598d26b97cf7cd256fc5186733b6",
+      "src/tests/video_core/query_payload_release.cpp": "fda101276f4be307e61f3a36a5422cdf19623e1e9b148ab898c93586b04fb5b3",
+      "src/tests/video_core/stream_ring_cursor.cpp": "b534d0e51e61c6c3e90cdf5c63782f99680bc27ebfb0a00dd0b06e1fdf62ef93",
+      "src/tests/video_core/turing_macro_effects.cpp": "50a1e6a743eb04dc0f2e6fd50ba200b7c0f6584d6a7977cbc560e7277652d97e",
+      "src/tests/video_core/uniform_stream_reuse.cpp": "2c52c6dd26b08de65407cf8a88aa2738d0a073f926d14d8f26c340b7ccdea8ce",
+      "src/video_core/buffer_cache/buffer_cache.h": "1f1f575ff1ad91a81f5f54f947b800705ef2714cf3d4c0978859c8383e1d236f",
+      "src/video_core/buffer_cache/buffer_cache_base.h": "b9042e89fffc08ac3ca07123db92ab850e1e77702d547286d653c3bafa34392a",
+      "src/video_core/buffer_cache/uniform_stream_reuse.h": "777bb107846452640d267148832369966f2791a779027046838b65a0baa7b766",
+      "src/video_core/dma_pusher.cpp": "c1bf1be6d5a2105c146271003e71db3ff1ab53211427edf2e9b1739b10b419d6",
+      "src/video_core/engines/maxwell_3d.cpp": "dd3e7891641c021573ba5142c2aa14fcb65bc6ba45399542f11deb299a46b372",
+      "src/video_core/engines/maxwell_3d.h": "61cef44edf04161720c1ece6a3f91aa23a1ed732532eb9f9b7db4985df78ba50",
+      "src/video_core/engines/puller.cpp": "8080eb9ebc3d287a2a8d235d45ccb752587264cd6e0549f85b6ee257862b377f",
+      "src/video_core/gpu_split.cpp": "ac855cde82d6497a517e0c5cd7c5acfd84dd5d0555508d9fdb55df71a4ea10d6",
+      "src/video_core/gpu_split.h": "9ab4574009dce83a0a8ac56d7cd14c604d20c3b75c0b8d81177eb9b9a619aa59",
+      "src/video_core/macro.cpp": "ece1b69bdf4768c10ed92aa8b20102fc35a54e019ce3ffa78fbb8b361928597e",
+      "src/video_core/macro.h": "79d4baf9e411543d033848ffff07ce4f836c6aa9d7a0e2a37ef2f26b37e5a324",
+      "src/video_core/macro_turing.h": "7dffde5142f70160de00608ad6998850364f355b5ac1b213cccc4dad918b4766",
+      "src/video_core/nx2_async_readback.h": "694b45f19dfe21c5fb906ab2d7936e7e0d6c83f0a6488327e5650a656d64015c",
+      "src/video_core/nx2_perf.h": "47831f84ea41bee6b5670d599a0a2a37c9a6d4d03c08735b2fecc93692857704",
+      "src/video_core/query_cache/query_cache.h": "792c224e56c351f581ad439f0160227cfbfe5ab154bde2750674cfb6f799c872",
+      "src/video_core/renderer_vulkan/stream_ring_cursor.h": "6c284755d723baf0934c7c58e7d65561444ee6d5da00e62994ce55f71a36190d",
+      "src/video_core/renderer_vulkan/vk_staging_buffer_pool.cpp": "15fcda26b12b4865c2ab5c31904152deecede7ec00e11a8eec889f66511c6409",
+      "src/video_core/renderer_vulkan/vk_staging_buffer_pool.h": "0428df44134fa0107e620911dba7711b036ac184dce282014b09b5a74e9ee700",
+      "src/video_core/video_core.cpp": "6690490d1f2365674879a4f7a00a44588f7596f107f614c31cd5d3079d428516"
+    },
+    "fresh_objects": {
+      "core.dir/hle/service/am/service/self_controller.cpp.o": {
+        "mtime": 1794257104.2643409,
+        "input": "src/core/hle/service/nx2_gsv.h",
+        "input_mtime": 1794257084.930335
+      },
+      "tests.dir/core/nx2_present_stats.cpp.o": {
+        "mtime": 1794257198.3863783,
+        "input": "src/tests/core/nx2_present_stats.cpp",
+        "input_mtime": 1794257084.930335
+      },
+      "video_core.dir/video_core.cpp.o": {
+        "mtime": 1794257183.9313715,
+        "input": "src/video_core/video_core.cpp",
+        "input_mtime": 1794257084.931335
+      },
+      "tests.dir/video_core/uniform_stream_reuse.cpp.o": {
+        "mtime": 1794257218.3603878,
+        "input": "src/tests/video_core/uniform_stream_reuse.cpp",
+        "input_mtime": 1794257084.931335
+      },
+      "video_core.dir/engines/maxwell_3d.cpp.o": {
+        "mtime": 1794257123.2803473,
+        "input": "src/video_core/engines/maxwell_3d.cpp",
+        "input_mtime": 1794257084.931335
+      },
+      "video_core.dir/engines/puller.cpp.o": {
+        "mtime": 1794257122.3233469,
+        "input": "src/video_core/engines/puller.cpp",
+        "input_mtime": 1794257084.931335
+      },
+      "tests.dir/video_core/maxwell_fast_method.cpp.o": {
+        "mtime": 1794257215.0953863,
+        "input": "src/tests/video_core/maxwell_fast_method.cpp",
+        "input_mtime": 1794257084.930335
+      },
+      "tests.dir/video_core/buffer_cache_ports.cpp.o": {
+        "mtime": 1794257215.4023864,
+        "input": "src/tests/video_core/buffer_cache_ports.cpp",
+        "input_mtime": 1794257084.930335
+      },
+      "video_core.dir/dma_pusher.cpp.o": {
+        "mtime": 1794257118.6883457,
+        "input": "src/video_core/dma_pusher.cpp",
+        "input_mtime": 1794257084.931335
+      },
+      "video_core.dir/gpu_split.cpp.o": {
+        "mtime": 1794257128.9333494,
+        "input": "src/video_core/gpu_split.cpp",
+        "input_mtime": 1794257084.931335
+      },
+      "renderer_vulkan/vk_query_cache.cpp.o": {
+        "mtime": 1794257158.1393604,
+        "input": "src/video_core/query_cache/query_cache.h",
+        "input_mtime": 1794257084.931335
+      },
+      "renderer_vulkan/vk_buffer_cache_base.cpp.o": {
+        "mtime": 1794257144.8133552,
+        "input": "src/video_core/buffer_cache/uniform_stream_reuse.h",
+        "input_mtime": 1794257084.931335
+      },
+      "renderer_vulkan/vk_staging_buffer_pool.cpp.o": {
+        "mtime": 1794257153.5833588,
+        "input": "src/video_core/renderer_vulkan/vk_staging_buffer_pool.cpp",
+        "input_mtime": 1794257084.931335
+      }
+    },
+    "tests": "1159passed4networkskipped; 71878903assertions",
+    "reference_regressions": "87cases31856assertions",
+    "hidden_front_shadow": "1case17assertions",
+    "pacing": "5cases2453assertions",
+    "activation_matrix": [
+      {
+        "case": "absent",
+        "env": {},
+        "returncode": 0
+      },
+      {
+        "case": "zero",
+        "env": {
+          "EDEN_NX2_STATE_WRITE_TRACE": "0"
+        },
+        "returncode": 0
+      },
+      {
+        "case": "one",
+        "env": {
+          "EDEN_NX2_STATE_WRITE_TRACE": "1"
+        },
+        "returncode": 0
+      },
+      {
+        "case": "ten",
+        "env": {
+          "EDEN_NX2_STATE_WRITE_TRACE": "10"
+        },
+        "returncode": 0
+      },
+      {
+        "case": "verify",
+        "env": {
+          "EDEN_NX2_STATE_WRITE_TRACE": "1",
+          "EDEN_NX2_PERF_VERIFY": "1"
+        },
+        "returncode": 0
+      },
+      {
+        "case": "slow",
+        "env": {
+          "EDEN_NX2_STATE_WRITE_TRACE": "1",
+          "NX2_STATE_TEST_SLOW": "1"
+        },
+        "returncode": 0
+      }
+    ],
+    "scope": "Actual full fresh parent build; runtime marker/real GPU correctness still pending."
+  },
+  "excluded_preparation": {
+    "at": 1794257226.5603228,
+    "early_test_returncode": 127,
+    "qualification_returncode": 1,
+    "meaning": "Parent started suite before full link finished; executable missing, no emulator test ran. Excluded; no later gate was accepted. Full suite rerun only after build completion JSON0.",
+    "guard_added": "Require current configure/build JSON returncode0 and start>=manifest start before first test invocation."
+  },
+  "diagnostic_preflight_correction": "Prepared inherited diagnostic required GPU_PROFILE1, which disables fast_maxwell3d and would bypass the new branch. Caught in source review before launch; require GPU_PROFILE and PERF_VERIFY absent, plus positive actual state marker. Drop only profile-gated UBO keep counts; preserve independent Read/DESC/FrontShadow positive/zero oracles. No GPU run accepted in the incompatible configuration.",
+  "runtime_qualification_scope": "Bounded camera diagnostic only with actual code activation and independent read/descriptor/front checks; no performance comparison, free-ground route, audio/save/resume/zone or full-game qualification.",
+  "runtime_diagnostic": {
+    "diagnostic_only": true,
+    "no_FPS_claim": true,
+    "wall_start": 1794257812.9148989,
+    "wall_end": 1794257904.7653613,
+    "seconds": 91.85046124178916,
+    "native_epoch_bounds": [
+      1794257736.6442137,
+      1794257736.8892999
+    ],
+    "features": {
+      "uniforms": {
+        "all_reports": 0,
+        "complete_windows": [],
+        "kept_or_replayed": 0,
+        "verified": 0,
+        "mismatches_in_all_reports": 0
+      },
+      "descriptors": {
+        "all_reports": 12,
+        "complete_windows": [
+          {
+            "native": 90.832771,
+            "counts": [
+              0,
+              27648,
+              27648,
+              0
+            ],
+            "interval_start": 80.53305
+          },
+          {
+            "native": 101.164682,
+            "counts": [
+              0,
+              28672,
+              28672,
+              0
+            ],
+            "interval_start": 90.832771
+          },
+          {
+            "native": 111.555711,
+            "counts": [
+              0,
+              28672,
+              28672,
+              0
+            ],
+            "interval_start": 101.164682
+          },
+          {
+            "native": 121.616244,
+            "counts": [
+              0,
+              29696,
+              29696,
+              0
+            ],
+            "interval_start": 111.555711
+          },
+          {
+            "native": 131.956254,
+            "counts": [
+              0,
+              22528,
+              22528,
+              0
+            ],
+            "interval_start": 121.616244
+          },
+          {
+            "native": 142.192383,
+            "counts": [
+              0,
+              26624,
+              26624,
+              0
+            ],
+            "interval_start": 131.956254
+          },
+          {
+            "native": 152.357158,
+            "counts": [
+              0,
+              17408,
+              17408,
+              0
+            ],
+            "interval_start": 142.192383
+          },
+          {
+            "native": 162.525366,
+            "counts": [
+              0,
+              24576,
+              24576,
+              0
+            ],
+            "interval_start": 152.357158
+          }
+        ],
+        "kept_or_replayed": 0,
+        "verified": 205824,
+        "mismatches_in_all_reports": 0
+      }
+    },
+    "shutdown": {
+      "exit_code": 0,
+      "stop_requested": true,
+      "window_closed": true,
+      "forced": false,
+      "stop_seconds": 3.5047136591747403
+    },
+    "split": "EDEN_NX2_SPLIT=2",
+    "cpu_zone_profile": false,
+    "checked_source": true,
+    "read_check": {
+      "all_reports": 12,
+      "complete_intervals": [
+        {
+          "start": 80.414451,
+          "end": 90.412656,
+          "delta": [
+            13391,
+            45422,
+            0,
+            0,
+            0,
+            0,
+            0,
+            8193
+          ]
+        },
+        {
+          "start": 90.412656,
+          "end": 100.407239,
+          "delta": [
+            14024,
+            48556,
+            0,
+            0,
+            0,
+            0,
+            0,
+            5459
+          ]
+        },
+        {
+          "start": 100.407239,
+          "end": 110.407146,
+          "delta": [
+            14184,
+            49451,
+            0,
+            0,
+            0,
+            0,
+            0,
+            3320
+          ]
+        },
+        {
+          "start": 110.407146,
+          "end": 120.407577,
+          "delta": [
+            14819,
+            52515,
+            0,
+            0,
+            0,
+            0,
+            0,
+            4790
+          ]
+        },
+        {
+          "start": 120.407577,
+          "end": 130.407138,
+          "delta": [
+            11504,
+            39888,
+            0,
+            0,
+            0,
+            0,
+            0,
+            4211
+          ]
+        },
+        {
+          "start": 130.407138,
+          "end": 140.413003,
+          "delta": [
+            13125,
+            45587,
+            0,
+            0,
+            0,
+            0,
+            0,
+            4344
+          ]
+        },
+        {
+          "start": 140.413003,
+          "end": 150.407621,
+          "delta": [
+            10063,
+            34754,
+            0,
+            0,
+            0,
+            0,
+            0,
+            3582
+          ]
+        },
+        {
+          "start": 150.407621,
+          "end": 160.407647,
+          "delta": [
+            11893,
+            40348,
+            0,
+            0,
+            0,
+            0,
+            0,
+            4600
+          ]
+        }
+      ],
+      "deltas": {
+        "downloads": 103003,
+        "compared_KiB": 356521,
+        "mismatched": 0,
+        "mismatched_reader": 0,
+        "mismatched_gpu_writer": 0,
+        "mismatched_completed": 0,
+        "uncovered": 0,
+        "rewritten_not_compared": 38499
+      },
+      "all_report_mismatches": 0,
+      "all_report_uncovered": 0,
+      "scope": "Counter differences over complete diagnostic intervals, never sum cumulative snapshots. ComparedKiB rounded down per endpoint; rewritten bytes excluded by upstream oracle."
+    },
+    "scope": "Only whole reset-counter intervals inside actual observed camera phase; previous report bounds each interval. Mode2 front macros with immutable Reference acquire policy; no fast acquire decisions accepted.",
+    "uniform_check_scope": "Uniform keep counts unavailable with GPU_PROFILE/UBO_KEEP_VERIFY absent. Byte-validating helper source and actual BufferCache red/green/mutants preserved; Span markers prove direct/fallback path activation. READ_CHECK checks downloads, not an independent uniform-keep oracle.",
+    "reference_mode2": {
+      "front_reports": [
+        {
+          "native": 13.624832,
+          "checks": 1,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 22.955526,
+          "checks": 65,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 26.623773,
+          "checks": 129,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 28.856164,
+          "checks": 193,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 31.302938,
+          "checks": 257,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 34.347762,
+          "checks": 321,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 37.347668,
+          "checks": 385,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 47.483083,
+          "checks": 449,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 53.827672,
+          "checks": 513,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 54.880312,
+          "checks": 577,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 55.589401,
+          "checks": 641,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 56.195053,
+          "checks": 705,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 56.639547,
+          "checks": 769,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 56.966556,
+          "checks": 833,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 57.304361,
+          "checks": 897,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 57.69154,
+          "checks": 961,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 58.050307,
+          "checks": 1025,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 58.407974,
+          "checks": 1089,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 58.727813,
+          "checks": 1153,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 59.068641,
+          "checks": 1217,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 59.404624,
+          "checks": 1281,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 59.754858,
+          "checks": 1345,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 60.093005,
+          "checks": 1409,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 60.460074,
+          "checks": 1473,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 60.791562,
+          "checks": 1537,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 61.146639,
+          "checks": 1601,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 61.477153,
+          "checks": 1665,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 61.860493,
+          "checks": 1729,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 62.233261,
+          "checks": 1793,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 62.641144,
+          "checks": 1857,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 62.998954,
+          "checks": 1921,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 63.340154,
+          "checks": 1985,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 63.734591,
+          "checks": 2049,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 64.102037,
+          "checks": 2113,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 64.43908,
+          "checks": 2177,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 64.777266,
+          "checks": 2241,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 65.106529,
+          "checks": 2305,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 65.440888,
+          "checks": 2369,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 65.789614,
+          "checks": 2433,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 66.096476,
+          "checks": 2497,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 66.414788,
+          "checks": 2561,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 66.759142,
+          "checks": 2625,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 67.104726,
+          "checks": 2689,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 67.43446,
+          "checks": 2753,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 67.743095,
+          "checks": 2817,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 68.060907,
+          "checks": 2881,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 68.534794,
+          "checks": 2945,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 68.865022,
+          "checks": 3009,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 69.181501,
+          "checks": 3073,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 69.500136,
+          "checks": 3137,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 69.827879,
+          "checks": 3201,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 70.183539,
+          "checks": 3265,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 70.517559,
+          "checks": 3329,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 70.831597,
+          "checks": 3393,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 71.176551,
+          "checks": 3457,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 71.528168,
+          "checks": 3521,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 71.875921,
+          "checks": 3585,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 72.215609,
+          "checks": 3649,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 72.546184,
+          "checks": 3713,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 72.866907,
+          "checks": 3777,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 73.206436,
+          "checks": 3841,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 73.537552,
+          "checks": 3905,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 73.866026,
+          "checks": 3969,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 74.177696,
+          "checks": 4033,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 74.606374,
+          "checks": 4097,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 74.920251,
+          "checks": 4161,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 75.222238,
+          "checks": 4225,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 75.589919,
+          "checks": 4289,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 75.952112,
+          "checks": 4353,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 76.346558,
+          "checks": 4417,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 76.63923,
+          "checks": 4481,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 76.940958,
+          "checks": 4545,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 77.26903,
+          "checks": 4609,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 77.56891,
+          "checks": 4673,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 77.857745,
+          "checks": 4737,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 78.164926,
+          "checks": 4801,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 78.478474,
+          "checks": 4865,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 78.771287,
+          "checks": 4929,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 79.079255,
+          "checks": 4993,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 79.472402,
+          "checks": 5057,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 79.785436,
+          "checks": 5121,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 80.119586,
+          "checks": 5185,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 80.496926,
+          "checks": 5249,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 80.834291,
+          "checks": 5313,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 81.138095,
+          "checks": 5377,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 81.504355,
+          "checks": 5441,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 81.830934,
+          "checks": 5505,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 82.219889,
+          "checks": 5569,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 82.561814,
+          "checks": 5633,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 82.922177,
+          "checks": 5697,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 83.2841,
+          "checks": 5761,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 83.635208,
+          "checks": 5825,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 84.026093,
+          "checks": 5889,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 84.435677,
+          "checks": 5953,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 84.774989,
+          "checks": 6017,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 85.105387,
+          "checks": 6081,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 85.469662,
+          "checks": 6145,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 85.820066,
+          "checks": 6209,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 86.195816,
+          "checks": 6273,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 86.523164,
+          "checks": 6337,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 86.893536,
+          "checks": 6401,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 87.277275,
+          "checks": 6465,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 87.613233,
+          "checks": 6529,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 87.950699,
+          "checks": 6593,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 88.326163,
+          "checks": 6657,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 88.717008,
+          "checks": 6721,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 89.073304,
+          "checks": 6785,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 89.430054,
+          "checks": 6849,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 89.762553,
+          "checks": 6913,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 90.120394,
+          "checks": 6977,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 90.459549,
+          "checks": 7041,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 90.832339,
+          "checks": 7105,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 91.171236,
+          "checks": 7169,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 91.521316,
+          "checks": 7233,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 91.900993,
+          "checks": 7297,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 92.246502,
+          "checks": 7361,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 92.605882,
+          "checks": 7425,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 92.966391,
+          "checks": 7489,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 93.333348,
+          "checks": 7553,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 93.672408,
+          "checks": 7617,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 94.049923,
+          "checks": 7681,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 94.426895,
+          "checks": 7745,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 94.817829,
+          "checks": 7809,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 95.183151,
+          "checks": 7873,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 95.543167,
+          "checks": 7937,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 95.943735,
+          "checks": 8001,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 96.355416,
+          "checks": 8065,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 96.753946,
+          "checks": 8129,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 97.168483,
+          "checks": 8193,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 97.537945,
+          "checks": 8257,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 97.885377,
+          "checks": 8321,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 98.21322,
+          "checks": 8385,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 98.566021,
+          "checks": 8449,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 98.89564,
+          "checks": 8513,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 99.232089,
+          "checks": 8577,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 99.554369,
+          "checks": 8641,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 99.885129,
+          "checks": 8705,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 100.207214,
+          "checks": 8769,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 100.540183,
+          "checks": 8833,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 100.884658,
+          "checks": 8897,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 101.204892,
+          "checks": 8961,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 101.521272,
+          "checks": 9025,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 101.862033,
+          "checks": 9089,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 102.184591,
+          "checks": 9153,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 102.527499,
+          "checks": 9217,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 102.873505,
+          "checks": 9281,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 103.212749,
+          "checks": 9345,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 103.559055,
+          "checks": 9409,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 103.887874,
+          "checks": 9473,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 104.249134,
+          "checks": 9537,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 104.615686,
+          "checks": 9601,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 104.954262,
+          "checks": 9665,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 105.284163,
+          "checks": 9729,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 105.627057,
+          "checks": 9793,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 105.961488,
+          "checks": 9857,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 106.301888,
+          "checks": 9921,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 106.657524,
+          "checks": 9985,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 107.007273,
+          "checks": 10049,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 107.380018,
+          "checks": 10113,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 107.898133,
+          "checks": 10177,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 108.249961,
+          "checks": 10241,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 108.760987,
+          "checks": 10305,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 109.197045,
+          "checks": 10369,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 109.543537,
+          "checks": 10433,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 109.871378,
+          "checks": 10497,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 110.194396,
+          "checks": 10561,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 110.532764,
+          "checks": 10625,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 110.856,
+          "checks": 10689,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 111.235196,
+          "checks": 10753,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 111.70975,
+          "checks": 10817,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 112.089843,
+          "checks": 10881,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 112.447397,
+          "checks": 10945,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 112.809625,
+          "checks": 11009,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 113.134862,
+          "checks": 11073,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 113.48117,
+          "checks": 11137,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 113.819779,
+          "checks": 11201,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 114.158084,
+          "checks": 11265,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 114.512953,
+          "checks": 11329,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 114.848687,
+          "checks": 11393,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 115.164351,
+          "checks": 11457,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 115.494766,
+          "checks": 11521,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 115.819929,
+          "checks": 11585,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 116.139701,
+          "checks": 11649,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 116.475061,
+          "checks": 11713,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 116.769102,
+          "checks": 11777,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 117.084293,
+          "checks": 11841,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 117.413735,
+          "checks": 11905,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 117.725124,
+          "checks": 11969,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 118.026256,
+          "checks": 12033,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 118.348423,
+          "checks": 12097,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 118.677604,
+          "checks": 12161,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 119.011794,
+          "checks": 12225,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 119.387423,
+          "checks": 12289,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 119.762767,
+          "checks": 12353,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 120.111274,
+          "checks": 12417,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 120.468765,
+          "checks": 12481,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 120.85879,
+          "checks": 12545,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 121.241716,
+          "checks": 12609,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 121.626915,
+          "checks": 12673,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 121.973644,
+          "checks": 12737,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 122.305664,
+          "checks": 12801,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 122.626463,
+          "checks": 12865,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 122.958781,
+          "checks": 12929,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 123.28839,
+          "checks": 12993,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 123.58915,
+          "checks": 13057,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 123.91296,
+          "checks": 13121,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 124.237315,
+          "checks": 13185,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 124.565786,
+          "checks": 13249,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 124.992532,
+          "checks": 13313,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 125.469818,
+          "checks": 13377,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 125.976901,
+          "checks": 13441,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 126.385147,
+          "checks": 13505,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 126.780071,
+          "checks": 13569,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 127.331243,
+          "checks": 13633,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 128.040731,
+          "checks": 13697,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 128.670016,
+          "checks": 13761,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 129.438956,
+          "checks": 13825,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 130.324137,
+          "checks": 13889,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 131.030124,
+          "checks": 13953,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 131.485044,
+          "checks": 14017,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 131.85799,
+          "checks": 14081,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 132.274162,
+          "checks": 14145,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 132.694026,
+          "checks": 14209,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 133.074545,
+          "checks": 14273,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 133.474208,
+          "checks": 14337,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 133.826469,
+          "checks": 14401,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 134.218275,
+          "checks": 14465,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 134.591003,
+          "checks": 14529,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 134.920996,
+          "checks": 14593,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 135.258921,
+          "checks": 14657,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 135.612633,
+          "checks": 14721,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 136.011452,
+          "checks": 14785,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 136.44321,
+          "checks": 14849,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 136.780071,
+          "checks": 14913,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 137.127571,
+          "checks": 14977,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 137.485799,
+          "checks": 15041,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 137.854346,
+          "checks": 15105,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 138.247917,
+          "checks": 15169,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 138.651994,
+          "checks": 15233,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 139.084754,
+          "checks": 15297,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 139.524599,
+          "checks": 15361,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 139.939828,
+          "checks": 15425,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 140.34235,
+          "checks": 15489,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 140.740994,
+          "checks": 15553,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 141.149326,
+          "checks": 15617,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 141.513926,
+          "checks": 15681,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 141.912834,
+          "checks": 15745,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 142.334596,
+          "checks": 15809,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 142.726376,
+          "checks": 15873,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 143.097422,
+          "checks": 15937,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 143.450938,
+          "checks": 16001,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 143.783362,
+          "checks": 16065,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 144.110535,
+          "checks": 16129,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 144.449266,
+          "checks": 16193,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 144.804827,
+          "checks": 16257,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 145.493847,
+          "checks": 16321,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 146.112195,
+          "checks": 16385,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 146.931531,
+          "checks": 16449,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 147.678121,
+          "checks": 16513,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 148.488147,
+          "checks": 16577,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 149.315592,
+          "checks": 16641,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 150.144784,
+          "checks": 16705,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 150.911635,
+          "checks": 16769,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 151.644971,
+          "checks": 16833,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 152.430256,
+          "checks": 16897,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 152.820262,
+          "checks": 16961,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 153.206674,
+          "checks": 17025,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 153.642045,
+          "checks": 17089,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 154.055466,
+          "checks": 17153,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 154.464128,
+          "checks": 17217,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 154.874636,
+          "checks": 17281,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 155.323031,
+          "checks": 17345,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 155.742499,
+          "checks": 17409,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 156.135782,
+          "checks": 17473,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 156.545055,
+          "checks": 17537,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 156.927762,
+          "checks": 17601,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 157.313593,
+          "checks": 17665,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 157.698564,
+          "checks": 17729,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 158.04369,
+          "checks": 17793,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 158.403902,
+          "checks": 17857,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 158.858346,
+          "checks": 17921,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 159.231204,
+          "checks": 17985,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 159.658991,
+          "checks": 18049,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 160.03444,
+          "checks": 18113,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 160.49481,
+          "checks": 18177,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 160.851502,
+          "checks": 18241,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 161.200275,
+          "checks": 18305,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 161.548402,
+          "checks": 18369,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 162.288226,
+          "checks": 18433,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 162.825141,
+          "checks": 18497,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 163.341293,
+          "checks": 18561,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 163.747928,
+          "checks": 18625,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 164.097719,
+          "checks": 18689,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 164.464023,
+          "checks": 18753,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 164.85749,
+          "checks": 18817,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 165.232836,
+          "checks": 18881,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 165.60072,
+          "checks": 18945,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 165.972298,
+          "checks": 19009,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 166.323334,
+          "checks": 19073,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 166.66264,
+          "checks": 19137,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        },
+        {
+          "native": 167.006123,
+          "checks": 19201,
+          "differences": 0,
+          "shadow_differences": 0,
+          "control_differences": 0
+        }
+      ],
+      "complete_front_intervals": [
+        [
+          {
+            "native": 76.346558,
+            "checks": 4417,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 76.63923,
+            "checks": 4481,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 76.63923,
+            "checks": 4481,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 76.940958,
+            "checks": 4545,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 76.940958,
+            "checks": 4545,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 77.26903,
+            "checks": 4609,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 77.26903,
+            "checks": 4609,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 77.56891,
+            "checks": 4673,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 77.56891,
+            "checks": 4673,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 77.857745,
+            "checks": 4737,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 77.857745,
+            "checks": 4737,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 78.164926,
+            "checks": 4801,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 78.164926,
+            "checks": 4801,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 78.478474,
+            "checks": 4865,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 78.478474,
+            "checks": 4865,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 78.771287,
+            "checks": 4929,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 78.771287,
+            "checks": 4929,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 79.079255,
+            "checks": 4993,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 79.079255,
+            "checks": 4993,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 79.472402,
+            "checks": 5057,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 79.472402,
+            "checks": 5057,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 79.785436,
+            "checks": 5121,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 79.785436,
+            "checks": 5121,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 80.119586,
+            "checks": 5185,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 80.119586,
+            "checks": 5185,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 80.496926,
+            "checks": 5249,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 80.496926,
+            "checks": 5249,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 80.834291,
+            "checks": 5313,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 80.834291,
+            "checks": 5313,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 81.138095,
+            "checks": 5377,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 81.138095,
+            "checks": 5377,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 81.504355,
+            "checks": 5441,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 81.504355,
+            "checks": 5441,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 81.830934,
+            "checks": 5505,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 81.830934,
+            "checks": 5505,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 82.219889,
+            "checks": 5569,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 82.219889,
+            "checks": 5569,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 82.561814,
+            "checks": 5633,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 82.561814,
+            "checks": 5633,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 82.922177,
+            "checks": 5697,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 82.922177,
+            "checks": 5697,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 83.2841,
+            "checks": 5761,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 83.2841,
+            "checks": 5761,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 83.635208,
+            "checks": 5825,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 83.635208,
+            "checks": 5825,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 84.026093,
+            "checks": 5889,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 84.026093,
+            "checks": 5889,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 84.435677,
+            "checks": 5953,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 84.435677,
+            "checks": 5953,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 84.774989,
+            "checks": 6017,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 84.774989,
+            "checks": 6017,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 85.105387,
+            "checks": 6081,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 85.105387,
+            "checks": 6081,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 85.469662,
+            "checks": 6145,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 85.469662,
+            "checks": 6145,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 85.820066,
+            "checks": 6209,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 85.820066,
+            "checks": 6209,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 86.195816,
+            "checks": 6273,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 86.195816,
+            "checks": 6273,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 86.523164,
+            "checks": 6337,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 86.523164,
+            "checks": 6337,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 86.893536,
+            "checks": 6401,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 86.893536,
+            "checks": 6401,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 87.277275,
+            "checks": 6465,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 87.277275,
+            "checks": 6465,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 87.613233,
+            "checks": 6529,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 87.613233,
+            "checks": 6529,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 87.950699,
+            "checks": 6593,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 87.950699,
+            "checks": 6593,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 88.326163,
+            "checks": 6657,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 88.326163,
+            "checks": 6657,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 88.717008,
+            "checks": 6721,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 88.717008,
+            "checks": 6721,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 89.073304,
+            "checks": 6785,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 89.073304,
+            "checks": 6785,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 89.430054,
+            "checks": 6849,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 89.430054,
+            "checks": 6849,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 89.762553,
+            "checks": 6913,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 89.762553,
+            "checks": 6913,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 90.120394,
+            "checks": 6977,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 90.120394,
+            "checks": 6977,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 90.459549,
+            "checks": 7041,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 90.459549,
+            "checks": 7041,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 90.832339,
+            "checks": 7105,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 90.832339,
+            "checks": 7105,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 91.171236,
+            "checks": 7169,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 91.171236,
+            "checks": 7169,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 91.521316,
+            "checks": 7233,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 91.521316,
+            "checks": 7233,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 91.900993,
+            "checks": 7297,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 91.900993,
+            "checks": 7297,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 92.246502,
+            "checks": 7361,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 92.246502,
+            "checks": 7361,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 92.605882,
+            "checks": 7425,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 92.605882,
+            "checks": 7425,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 92.966391,
+            "checks": 7489,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 92.966391,
+            "checks": 7489,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 93.333348,
+            "checks": 7553,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 93.333348,
+            "checks": 7553,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 93.672408,
+            "checks": 7617,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 93.672408,
+            "checks": 7617,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 94.049923,
+            "checks": 7681,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 94.049923,
+            "checks": 7681,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 94.426895,
+            "checks": 7745,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 94.426895,
+            "checks": 7745,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 94.817829,
+            "checks": 7809,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 94.817829,
+            "checks": 7809,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 95.183151,
+            "checks": 7873,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 95.183151,
+            "checks": 7873,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 95.543167,
+            "checks": 7937,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 95.543167,
+            "checks": 7937,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 95.943735,
+            "checks": 8001,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 95.943735,
+            "checks": 8001,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 96.355416,
+            "checks": 8065,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 96.355416,
+            "checks": 8065,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 96.753946,
+            "checks": 8129,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 96.753946,
+            "checks": 8129,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 97.168483,
+            "checks": 8193,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 97.168483,
+            "checks": 8193,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 97.537945,
+            "checks": 8257,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 97.537945,
+            "checks": 8257,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 97.885377,
+            "checks": 8321,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 97.885377,
+            "checks": 8321,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 98.21322,
+            "checks": 8385,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 98.21322,
+            "checks": 8385,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 98.566021,
+            "checks": 8449,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 98.566021,
+            "checks": 8449,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 98.89564,
+            "checks": 8513,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 98.89564,
+            "checks": 8513,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 99.232089,
+            "checks": 8577,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 99.232089,
+            "checks": 8577,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 99.554369,
+            "checks": 8641,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 99.554369,
+            "checks": 8641,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 99.885129,
+            "checks": 8705,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 99.885129,
+            "checks": 8705,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 100.207214,
+            "checks": 8769,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 100.207214,
+            "checks": 8769,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 100.540183,
+            "checks": 8833,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 100.540183,
+            "checks": 8833,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 100.884658,
+            "checks": 8897,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 100.884658,
+            "checks": 8897,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 101.204892,
+            "checks": 8961,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 101.204892,
+            "checks": 8961,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 101.521272,
+            "checks": 9025,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 101.521272,
+            "checks": 9025,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 101.862033,
+            "checks": 9089,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 101.862033,
+            "checks": 9089,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 102.184591,
+            "checks": 9153,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 102.184591,
+            "checks": 9153,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 102.527499,
+            "checks": 9217,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 102.527499,
+            "checks": 9217,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 102.873505,
+            "checks": 9281,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 102.873505,
+            "checks": 9281,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 103.212749,
+            "checks": 9345,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 103.212749,
+            "checks": 9345,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 103.559055,
+            "checks": 9409,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 103.559055,
+            "checks": 9409,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 103.887874,
+            "checks": 9473,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 103.887874,
+            "checks": 9473,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 104.249134,
+            "checks": 9537,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 104.249134,
+            "checks": 9537,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 104.615686,
+            "checks": 9601,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 104.615686,
+            "checks": 9601,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 104.954262,
+            "checks": 9665,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 104.954262,
+            "checks": 9665,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 105.284163,
+            "checks": 9729,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 105.284163,
+            "checks": 9729,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 105.627057,
+            "checks": 9793,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 105.627057,
+            "checks": 9793,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 105.961488,
+            "checks": 9857,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 105.961488,
+            "checks": 9857,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 106.301888,
+            "checks": 9921,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 106.301888,
+            "checks": 9921,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 106.657524,
+            "checks": 9985,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 106.657524,
+            "checks": 9985,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 107.007273,
+            "checks": 10049,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 107.007273,
+            "checks": 10049,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 107.380018,
+            "checks": 10113,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 107.380018,
+            "checks": 10113,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 107.898133,
+            "checks": 10177,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 107.898133,
+            "checks": 10177,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 108.249961,
+            "checks": 10241,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 108.249961,
+            "checks": 10241,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 108.760987,
+            "checks": 10305,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 108.760987,
+            "checks": 10305,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 109.197045,
+            "checks": 10369,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 109.197045,
+            "checks": 10369,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 109.543537,
+            "checks": 10433,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 109.543537,
+            "checks": 10433,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 109.871378,
+            "checks": 10497,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 109.871378,
+            "checks": 10497,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 110.194396,
+            "checks": 10561,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 110.194396,
+            "checks": 10561,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 110.532764,
+            "checks": 10625,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 110.532764,
+            "checks": 10625,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 110.856,
+            "checks": 10689,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 110.856,
+            "checks": 10689,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 111.235196,
+            "checks": 10753,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 111.235196,
+            "checks": 10753,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 111.70975,
+            "checks": 10817,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 111.70975,
+            "checks": 10817,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 112.089843,
+            "checks": 10881,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 112.089843,
+            "checks": 10881,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 112.447397,
+            "checks": 10945,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 112.447397,
+            "checks": 10945,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 112.809625,
+            "checks": 11009,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 112.809625,
+            "checks": 11009,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 113.134862,
+            "checks": 11073,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 113.134862,
+            "checks": 11073,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 113.48117,
+            "checks": 11137,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 113.48117,
+            "checks": 11137,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 113.819779,
+            "checks": 11201,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 113.819779,
+            "checks": 11201,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 114.158084,
+            "checks": 11265,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 114.158084,
+            "checks": 11265,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 114.512953,
+            "checks": 11329,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 114.512953,
+            "checks": 11329,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 114.848687,
+            "checks": 11393,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 114.848687,
+            "checks": 11393,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 115.164351,
+            "checks": 11457,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 115.164351,
+            "checks": 11457,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 115.494766,
+            "checks": 11521,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 115.494766,
+            "checks": 11521,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 115.819929,
+            "checks": 11585,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 115.819929,
+            "checks": 11585,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 116.139701,
+            "checks": 11649,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 116.139701,
+            "checks": 11649,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 116.475061,
+            "checks": 11713,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 116.475061,
+            "checks": 11713,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 116.769102,
+            "checks": 11777,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 116.769102,
+            "checks": 11777,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 117.084293,
+            "checks": 11841,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 117.084293,
+            "checks": 11841,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 117.413735,
+            "checks": 11905,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 117.413735,
+            "checks": 11905,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 117.725124,
+            "checks": 11969,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 117.725124,
+            "checks": 11969,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 118.026256,
+            "checks": 12033,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 118.026256,
+            "checks": 12033,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 118.348423,
+            "checks": 12097,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 118.348423,
+            "checks": 12097,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 118.677604,
+            "checks": 12161,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 118.677604,
+            "checks": 12161,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 119.011794,
+            "checks": 12225,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 119.011794,
+            "checks": 12225,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 119.387423,
+            "checks": 12289,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 119.387423,
+            "checks": 12289,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 119.762767,
+            "checks": 12353,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 119.762767,
+            "checks": 12353,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 120.111274,
+            "checks": 12417,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 120.111274,
+            "checks": 12417,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 120.468765,
+            "checks": 12481,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 120.468765,
+            "checks": 12481,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 120.85879,
+            "checks": 12545,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 120.85879,
+            "checks": 12545,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 121.241716,
+            "checks": 12609,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 121.241716,
+            "checks": 12609,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 121.626915,
+            "checks": 12673,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 121.626915,
+            "checks": 12673,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 121.973644,
+            "checks": 12737,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 121.973644,
+            "checks": 12737,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 122.305664,
+            "checks": 12801,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 122.305664,
+            "checks": 12801,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 122.626463,
+            "checks": 12865,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 122.626463,
+            "checks": 12865,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 122.958781,
+            "checks": 12929,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 122.958781,
+            "checks": 12929,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 123.28839,
+            "checks": 12993,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 123.28839,
+            "checks": 12993,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 123.58915,
+            "checks": 13057,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 123.58915,
+            "checks": 13057,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 123.91296,
+            "checks": 13121,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 123.91296,
+            "checks": 13121,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 124.237315,
+            "checks": 13185,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 124.237315,
+            "checks": 13185,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 124.565786,
+            "checks": 13249,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 124.565786,
+            "checks": 13249,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 124.992532,
+            "checks": 13313,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 124.992532,
+            "checks": 13313,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 125.469818,
+            "checks": 13377,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 125.469818,
+            "checks": 13377,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 125.976901,
+            "checks": 13441,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 125.976901,
+            "checks": 13441,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 126.385147,
+            "checks": 13505,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 126.385147,
+            "checks": 13505,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 126.780071,
+            "checks": 13569,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 126.780071,
+            "checks": 13569,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 127.331243,
+            "checks": 13633,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 127.331243,
+            "checks": 13633,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 128.040731,
+            "checks": 13697,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 128.040731,
+            "checks": 13697,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 128.670016,
+            "checks": 13761,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 128.670016,
+            "checks": 13761,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 129.438956,
+            "checks": 13825,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 129.438956,
+            "checks": 13825,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 130.324137,
+            "checks": 13889,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 130.324137,
+            "checks": 13889,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 131.030124,
+            "checks": 13953,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 131.030124,
+            "checks": 13953,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 131.485044,
+            "checks": 14017,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 131.485044,
+            "checks": 14017,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 131.85799,
+            "checks": 14081,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 131.85799,
+            "checks": 14081,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 132.274162,
+            "checks": 14145,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 132.274162,
+            "checks": 14145,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 132.694026,
+            "checks": 14209,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 132.694026,
+            "checks": 14209,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 133.074545,
+            "checks": 14273,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 133.074545,
+            "checks": 14273,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 133.474208,
+            "checks": 14337,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 133.474208,
+            "checks": 14337,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 133.826469,
+            "checks": 14401,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 133.826469,
+            "checks": 14401,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 134.218275,
+            "checks": 14465,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 134.218275,
+            "checks": 14465,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 134.591003,
+            "checks": 14529,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 134.591003,
+            "checks": 14529,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 134.920996,
+            "checks": 14593,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 134.920996,
+            "checks": 14593,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 135.258921,
+            "checks": 14657,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 135.258921,
+            "checks": 14657,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 135.612633,
+            "checks": 14721,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 135.612633,
+            "checks": 14721,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 136.011452,
+            "checks": 14785,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 136.011452,
+            "checks": 14785,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 136.44321,
+            "checks": 14849,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 136.44321,
+            "checks": 14849,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 136.780071,
+            "checks": 14913,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 136.780071,
+            "checks": 14913,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 137.127571,
+            "checks": 14977,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 137.127571,
+            "checks": 14977,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 137.485799,
+            "checks": 15041,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 137.485799,
+            "checks": 15041,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 137.854346,
+            "checks": 15105,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 137.854346,
+            "checks": 15105,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 138.247917,
+            "checks": 15169,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 138.247917,
+            "checks": 15169,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 138.651994,
+            "checks": 15233,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 138.651994,
+            "checks": 15233,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 139.084754,
+            "checks": 15297,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 139.084754,
+            "checks": 15297,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 139.524599,
+            "checks": 15361,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 139.524599,
+            "checks": 15361,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 139.939828,
+            "checks": 15425,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 139.939828,
+            "checks": 15425,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 140.34235,
+            "checks": 15489,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 140.34235,
+            "checks": 15489,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 140.740994,
+            "checks": 15553,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 140.740994,
+            "checks": 15553,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 141.149326,
+            "checks": 15617,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 141.149326,
+            "checks": 15617,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 141.513926,
+            "checks": 15681,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 141.513926,
+            "checks": 15681,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 141.912834,
+            "checks": 15745,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 141.912834,
+            "checks": 15745,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 142.334596,
+            "checks": 15809,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 142.334596,
+            "checks": 15809,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 142.726376,
+            "checks": 15873,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 142.726376,
+            "checks": 15873,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 143.097422,
+            "checks": 15937,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 143.097422,
+            "checks": 15937,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 143.450938,
+            "checks": 16001,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 143.450938,
+            "checks": 16001,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 143.783362,
+            "checks": 16065,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 143.783362,
+            "checks": 16065,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 144.110535,
+            "checks": 16129,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 144.110535,
+            "checks": 16129,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 144.449266,
+            "checks": 16193,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 144.449266,
+            "checks": 16193,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 144.804827,
+            "checks": 16257,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 144.804827,
+            "checks": 16257,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 145.493847,
+            "checks": 16321,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 145.493847,
+            "checks": 16321,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 146.112195,
+            "checks": 16385,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 146.112195,
+            "checks": 16385,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 146.931531,
+            "checks": 16449,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 146.931531,
+            "checks": 16449,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 147.678121,
+            "checks": 16513,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 147.678121,
+            "checks": 16513,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 148.488147,
+            "checks": 16577,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 148.488147,
+            "checks": 16577,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 149.315592,
+            "checks": 16641,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 149.315592,
+            "checks": 16641,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 150.144784,
+            "checks": 16705,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 150.144784,
+            "checks": 16705,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 150.911635,
+            "checks": 16769,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 150.911635,
+            "checks": 16769,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 151.644971,
+            "checks": 16833,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 151.644971,
+            "checks": 16833,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 152.430256,
+            "checks": 16897,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 152.430256,
+            "checks": 16897,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 152.820262,
+            "checks": 16961,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 152.820262,
+            "checks": 16961,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 153.206674,
+            "checks": 17025,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 153.206674,
+            "checks": 17025,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 153.642045,
+            "checks": 17089,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 153.642045,
+            "checks": 17089,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 154.055466,
+            "checks": 17153,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 154.055466,
+            "checks": 17153,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 154.464128,
+            "checks": 17217,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 154.464128,
+            "checks": 17217,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 154.874636,
+            "checks": 17281,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 154.874636,
+            "checks": 17281,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 155.323031,
+            "checks": 17345,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 155.323031,
+            "checks": 17345,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 155.742499,
+            "checks": 17409,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 155.742499,
+            "checks": 17409,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 156.135782,
+            "checks": 17473,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 156.135782,
+            "checks": 17473,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 156.545055,
+            "checks": 17537,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 156.545055,
+            "checks": 17537,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 156.927762,
+            "checks": 17601,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 156.927762,
+            "checks": 17601,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 157.313593,
+            "checks": 17665,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 157.313593,
+            "checks": 17665,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 157.698564,
+            "checks": 17729,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 157.698564,
+            "checks": 17729,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 158.04369,
+            "checks": 17793,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 158.04369,
+            "checks": 17793,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 158.403902,
+            "checks": 17857,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 158.403902,
+            "checks": 17857,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 158.858346,
+            "checks": 17921,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 158.858346,
+            "checks": 17921,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 159.231204,
+            "checks": 17985,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 159.231204,
+            "checks": 17985,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 159.658991,
+            "checks": 18049,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 159.658991,
+            "checks": 18049,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 160.03444,
+            "checks": 18113,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 160.03444,
+            "checks": 18113,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 160.49481,
+            "checks": 18177,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 160.49481,
+            "checks": 18177,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 160.851502,
+            "checks": 18241,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 160.851502,
+            "checks": 18241,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 161.200275,
+            "checks": 18305,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 161.200275,
+            "checks": 18305,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 161.548402,
+            "checks": 18369,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 161.548402,
+            "checks": 18369,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 162.288226,
+            "checks": 18433,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 162.288226,
+            "checks": 18433,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 162.825141,
+            "checks": 18497,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 162.825141,
+            "checks": 18497,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 163.341293,
+            "checks": 18561,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 163.341293,
+            "checks": 18561,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 163.747928,
+            "checks": 18625,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 163.747928,
+            "checks": 18625,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 164.097719,
+            "checks": 18689,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 164.097719,
+            "checks": 18689,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 164.464023,
+            "checks": 18753,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 164.464023,
+            "checks": 18753,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 164.85749,
+            "checks": 18817,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 164.85749,
+            "checks": 18817,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 165.232836,
+            "checks": 18881,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 165.232836,
+            "checks": 18881,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 165.60072,
+            "checks": 18945,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 165.60072,
+            "checks": 18945,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 165.972298,
+            "checks": 19009,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 165.972298,
+            "checks": 19009,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 166.323334,
+            "checks": 19073,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 166.323334,
+            "checks": 19073,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 166.66264,
+            "checks": 19137,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ],
+        [
+          {
+            "native": 166.66264,
+            "checks": 19137,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          },
+          {
+            "native": 167.006123,
+            "checks": 19201,
+            "differences": 0,
+            "shadow_differences": 0,
+            "control_differences": 0
+          }
+        ]
+      ],
+      "complete_front_checks": 14784,
+      "front_warnings": [],
+      "back_macro_reports": [
+        "2026-11-09T20:56:02.188720725Z [  25.287154] HW.GPU <Info> video_core/engines/maxwell_3d.cpp:1751:FrontRunOnBack: Split macro at 0x142 reads memory and runs on the back: writes 0x154,0x155,0x158,0x556"
+      ],
+      "acquires": [],
+      "complete_acquire_reports": [],
+      "scope": "FrontVerify drains and resynchronizes, diagnostics change timing; zero differences do not replace ownership/composition tests. Acquire counts disabled without GPU_PROFILE/ACQUIRE_VERIFY; immutable Reference source proof plus actual activation marker remain. No FPS claim."
+    },
+    "reference_mode2_qualified": true,
+    "span_activation": {
+      "marker_counts": {
+        "Uniform span direct path active (PR1059)": 1,
+        "Uniform span gathered fallback active (PR1059)": 1
+      },
+      "scope": "One-time activation provesexecution, notfrequency in camera phase; actualbytesguard proof sourceidenticalto priorSpanunit/mutants"
+    },
+    "awaiting_manual_images": false,
+    "state_write_activation": {
+      "marker_count": 1,
+      "perf_verify_absent": true,
+      "scope": "Actual branch executed once or more, not execution frequency or a speed claim."
+    },
+    "mesh_activation": {
+      "last_draw_counters": [
+        136000,
+        0,
+        10914469,
+        2265,
+        2265
+      ],
+      "no_mesh_absent": true,
+      "force_mesh_fallback": true,
+      "scope": "Cumulative entire diagnostic, not phase-exclusive counter delta."
+    },
+    "trajectory_qualified": false,
+    "profiling_limit": "Previous 208 ms/s method profile used GPU_PROFILE1, disabling fast_maxwell3d and selecting CallMethodSlow. It is not the unprofiled cost mix, available speedup, or new-branch call frequency.",
+    "diagnostic_counter_and_visual_gates_passed": true,
+    "qualification_scope": "This bounded camera diagnostic only, with separate CPU ownership/composition gates. No free ground traversal, performance comparison, constant30, audio/save-resume/zone transition or full-game qualification.",
+    "uniform_count_status": "Unavailable, not zero actual keeps: counts/logs disabled without profiler/UBO_VERIFY. Zero arrays do not establish independent correctness.",
+    "actual_env": {
+      "EDEN_NX2_BUFFER_FAST_CLEAN": "0",
+      "EDEN_NX2_GPU_TIMINGS": "0",
+      "EDEN_NX2_UPLOAD_PAYLOAD_DIAGNOSTIC": "0",
+      "EDEN_NX2_UPSCALER_STANDIN": "0",
+      "EDEN_NX2_READ_CHECK": "1",
+      "EDEN_NX2_REFERENCE_ACQUIRE": "1",
+      "EDEN_NX2_IDLE_SPIN_US": "0",
+      "EDEN_NX2_BUFFER_STATS": "0",
+      "EDEN_NX2_BANK_COMPARE": "0",
+      "EDEN_NX2_FENCE_FLUSH_US": "500",
+      "EDEN_NX2_UNIFORM_SPAN_TRACE": "1",
+      "EDEN_NX2_SPLIT": "2",
+      "EDEN_NX2_SINGLE_LIST_US": "0",
+      "EDEN_NX2_FRAMES_AHEAD": "1",
+      "EDEN_NX2_HOST_BUFFER_UPLOAD": "0",
+      "EDEN_NX2_BANK_COMPARE_STATS": "0",
+      "EDEN_NX2_FENCE_WINDOW_TRACE": "0",
+      "EDEN_NX2_REFERENCE_ACQUIRE_TRACE": "1",
+      "EDEN_NX2_SPLIT_VERIFY": "1",
+      "EDEN_NX2_COARSE_GPU": "0",
+      "EDEN_NX2_DELTA_DESCRIPTORS_VERIFY": "1",
+      "EDEN_NX2_STATE_WRITE_TRACE": "1",
+      "EDEN_NX2_COARSE_PERIOD": "60",
+      "EDEN_NX2_COARSE_MANUAL": "0",
+      "EDEN_NX2_FENCE_BATCH": "1",
+      "EDEN_NX2_FORCE_MESH_FALLBACK": "1"
+    },
+    "images": "all-image-review.json",
+    "cleanup": "after-state-write-mesh-diagnostic-cleanup.json",
+    "kernel_gpu_reset_messages": [],
+    "kernel_scope": "journalctl -k after saved prelaunch cursor, exit0; no amdgpu/drm/gpu/reset/ring-timeout match."
+  },
+  "runtime_cleanup": {
+    "at": 1794257927.908128,
+    "own_game_absent": true,
+    "own_helper_removed": true,
+    "old_devices_absent": [
+      "/dev/input/event8",
+      "/dev/input/event9",
+      "/dev/input/event10",
+      "/dev/input/event11"
+    ],
+    "matching_names_remaining": [],
+    "observer": "active",
+    "production_config_unchanged": true,
+    "eight_progressions_unchanged": true,
+    "gpu_policies": {
+      "/sys/class/drm/card0/device/power_dpm_force_performance_level": "auto"
+    },
+    "gpu_power_caps_micro_watts": [
+      150000000
+    ]
+  },
+  "performance_comparison": {
+    "comparison": "PR1095 vs pacing baseline, both with FORCE_MESH_FALLBACK and corrected presentation metric",
+    "ordered_runs": [
+      {
+        "label": "lichii-state-mesh-on1-rerun",
+        "arm": "on",
+        "version": "lichii-0b-1056-reference-shadow-span-state-write",
+        "cli_sha256": "a6fcebf5fec6117b4c5d6cba8c5b3fb929786dbd87a76fc7d4ab7141bf1488c6",
+        "launch_unix": 1794259428.1563084,
+        "phase_start_unix": 1794259528.9087343,
+        "phase_end_unix_approx": 1794259620.3302724,
+        "preparation_seconds": 100.75242590904236,
+        "ready_wait_seconds": 57.69600958377123,
+        "camera_wall_seconds": 91.42153804004192,
+        "measurement": {
+          "requested_seconds": [
+            100.68974742889404,
+            188.947644
+          ],
+          "covered_seconds": 59.6586,
+          "game_presentations": 1800,
+          "game_fps": 30.171676841226578,
+          "window_fps_median": 30.10597302504817,
+          "maximum_frame_ms": 54.594,
+          "frames_over_100_ms": 0,
+          "windows": [
+            {
+              "start": 109.56379900000002,
+              "end": 129.493399,
+              "mean_us": 33216,
+              "maximum_us": 50669,
+              "freezes": 0
+            },
+            {
+              "start": 129.49425100000002,
+              "end": 149.207251,
+              "mean_us": 32855,
+              "maximum_us": 53464,
+              "freezes": 0
+            },
+            {
+              "start": 149.20805900000002,
+              "end": 169.224059,
+              "mean_us": 33360,
+              "maximum_us": 54594,
+              "freezes": 0
+            }
+          ],
+          "metric_convention": "Both binaries use corrected actual interval denominator: first window599 (excluded), every selected subsequentwindow600; mean microseconds are truncated, duration reconstructed from600*mean_us."
+        },
+        "normal_stop_seconds": 3.5053268508054316,
+        "samples_clear": 15,
+        "images_read": 3,
+        "ini_sha256": "cebf23b907f7493c5247c3e760138fe8204d7ba8bafcb7d3f11ba081c8ff8d8f",
+        "seed": {
+          "seed_manifest_sha256": "d134180573cc16b7989a3fcdc35573bfe21564641d4bc91db1b4bacd1ae68582",
+          "identical_files": 3977,
+          "bytes": 96844393,
+          "verified_before_launch_unix": 1794259425.7395184,
+          "original_checkpoint_nand": true
+        },
+        "ci_fleet_proof": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/ci-fleet-preflight-1794259427945942254.json"
+      },
+      {
+        "label": "lichii-state-mesh-off1",
+        "arm": "off",
+        "version": "lichii-0b-1056-reference-shadow-span-pacing",
+        "cli_sha256": "1e26f546986f247a72b8b9177a30f5a17701bea247b7401ac65b423ec1a23d98",
+        "launch_unix": 1794259766.8167772,
+        "phase_start_unix": 1794259870.568608,
+        "phase_end_unix_approx": 1794259961.9826756,
+        "preparation_seconds": 103.75183081626892,
+        "ready_wait_seconds": 58.080544386059046,
+        "camera_wall_seconds": 91.41406750073656,
+        "measurement": {
+          "requested_seconds": [
+            103.6440239906311,
+            186.303924
+          ],
+          "covered_seconds": 60.8328,
+          "game_presentations": 1800,
+          "game_fps": 29.58930050893597,
+          "window_fps_median": 29.630507570594684,
+          "maximum_frame_ms": 55.154,
+          "frames_over_100_ms": 0,
+          "windows": [
+            {
+              "start": 113.815764,
+              "end": 134.065164,
+              "mean_us": 33749,
+              "maximum_us": 51963,
+              "freezes": 0
+            },
+            {
+              "start": 134.06592799999999,
+              "end": 154.243328,
+              "mean_us": 33629,
+              "maximum_us": 54349,
+              "freezes": 0
+            },
+            {
+              "start": 154.24371399999998,
+              "end": 174.649714,
+              "mean_us": 34010,
+              "maximum_us": 55154,
+              "freezes": 0
+            }
+          ],
+          "metric_convention": "Both binaries use corrected actual interval denominator: first window599 (excluded), every selected subsequentwindow600; mean microseconds are truncated, duration reconstructed from600*mean_us."
+        },
+        "normal_stop_seconds": 2.9042916940525174,
+        "samples_clear": 15,
+        "images_read": 3,
+        "ini_sha256": "cebf23b907f7493c5247c3e760138fe8204d7ba8bafcb7d3f11ba081c8ff8d8f",
+        "seed": {
+          "seed_manifest_sha256": "d134180573cc16b7989a3fcdc35573bfe21564641d4bc91db1b4bacd1ae68582",
+          "identical_files": 3977,
+          "bytes": 96844393,
+          "verified_before_launch_unix": 1794259764.0607378,
+          "original_checkpoint_nand": true
+        },
+        "ci_fleet_proof": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/ci-fleet-preflight-1794259766595955623.json"
+      },
+      {
+        "label": "lichii-state-mesh-on2",
+        "arm": "on",
+        "version": "lichii-0b-1056-reference-shadow-span-state-write",
+        "cli_sha256": "a6fcebf5fec6117b4c5d6cba8c5b3fb929786dbd87a76fc7d4ab7141bf1488c6",
+        "launch_unix": 1794259996.6405387,
+        "phase_start_unix": 1794260083.0632043,
+        "phase_end_unix_approx": 1794260174.4875176,
+        "preparation_seconds": 86.4226655960083,
+        "ready_wait_seconds": 57.87149807764217,
+        "camera_wall_seconds": 91.42431320575997,
+        "measurement": {
+          "requested_seconds": [
+            86.36366519927978,
+            169.787055
+          ],
+          "covered_seconds": 61.1226,
+          "game_presentations": 1800,
+          "game_fps": 29.449009040845777,
+          "window_fps_median": 29.326373207425437,
+          "maximum_frame_ms": 55.534,
+          "frames_over_100_ms": 0,
+          "windows": [
+            {
+              "start": 90.07542099999999,
+              "end": 110.534821,
+              "mean_us": 34099,
+              "maximum_us": 55534,
+              "freezes": 0
+            },
+            {
+              "start": 110.53553400000001,
+              "end": 131.164734,
+              "mean_us": 34382,
+              "maximum_us": 51587,
+              "freezes": 0
+            },
+            {
+              "start": 131.165038,
+              "end": 151.199038,
+              "mean_us": 33390,
+              "maximum_us": 52927,
+              "freezes": 0
+            }
+          ],
+          "metric_convention": "Both binaries use corrected actual interval denominator: first window599 (excluded), every selected subsequentwindow600; mean microseconds are truncated, duration reconstructed from600*mean_us."
+        },
+        "normal_stop_seconds": 3.104437198024243,
+        "samples_clear": 15,
+        "images_read": 3,
+        "ini_sha256": "cebf23b907f7493c5247c3e760138fe8204d7ba8bafcb7d3f11ba081c8ff8d8f",
+        "seed": {
+          "seed_manifest_sha256": "d134180573cc16b7989a3fcdc35573bfe21564641d4bc91db1b4bacd1ae68582",
+          "identical_files": 3977,
+          "bytes": 96844393,
+          "verified_before_launch_unix": 1794259993.9638636,
+          "original_checkpoint_nand": true
+        },
+        "ci_fleet_proof": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/ci-fleet-preflight-1794259996422216867.json"
+      },
+      {
+        "label": "lichii-state-mesh-off2",
+        "arm": "off",
+        "version": "lichii-0b-1056-reference-shadow-span-pacing",
+        "cli_sha256": "1e26f546986f247a72b8b9177a30f5a17701bea247b7401ac65b423ec1a23d98",
+        "launch_unix": 1794260204.5546153,
+        "phase_start_unix": 1794260292.0430486,
+        "phase_end_unix_approx": 1794260383.455547,
+        "preparation_seconds": 87.48843336105347,
+        "ready_wait_seconds": 57.84995170496404,
+        "camera_wall_seconds": 91.41249844292179,
+        "measurement": {
+          "requested_seconds": [
+            87.39484558105468,
+            175.468255
+          ],
+          "covered_seconds": 81.4506,
+          "game_presentations": 2400,
+          "game_fps": 29.465712959757205,
+          "window_fps_median": 29.463141316024824,
+          "maximum_frame_ms": 66.633,
+          "frames_over_100_ms": 0,
+          "windows": [
+            {
+              "start": 91.397822,
+              "end": 112.175222,
+              "mean_us": 34629,
+              "maximum_us": 66633,
+              "freezes": 0
+            },
+            {
+              "start": 112.17557400000001,
+              "end": 132.900774,
+              "mean_us": 34542,
+              "maximum_us": 59271,
+              "freezes": 0
+            },
+            {
+              "start": 132.901151,
+              "end": 152.833151,
+              "mean_us": 33220,
+              "maximum_us": 50879,
+              "freezes": 0
+            },
+            {
+              "start": 152.83393600000002,
+              "end": 172.849936,
+              "mean_us": 33360,
+              "maximum_us": 47712,
+              "freezes": 0
+            }
+          ],
+          "metric_convention": "Both binaries use corrected actual interval denominator: first window599 (excluded), every selected subsequentwindow600; mean microseconds are truncated, duration reconstructed from600*mean_us."
+        },
+        "normal_stop_seconds": 3.5041983779519796,
+        "samples_clear": 15,
+        "images_read": 3,
+        "ini_sha256": "cebf23b907f7493c5247c3e760138fe8204d7ba8bafcb7d3f11ba081c8ff8d8f",
+        "seed": {
+          "seed_manifest_sha256": "d134180573cc16b7989a3fcdc35573bfe21564641d4bc91db1b4bacd1ae68582",
+          "identical_files": 3977,
+          "bytes": 96844393,
+          "verified_before_launch_unix": 1794260201.7402952,
+          "original_checkpoint_nand": true
+        },
+        "ci_fleet_proof": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/ci-fleet-preflight-1794260204327784860.json"
+      }
+    ],
+    "pooled": {
+      "on": {
+        "intervals": 3600,
+        "covered_seconds": 120.7812,
+        "game_fps": 29.805963179700154,
+        "max_frame_ms": 55.534,
+        "over100": 0
+      },
+      "off": {
+        "intervals": 4200,
+        "covered_seconds": 142.2834,
+        "game_fps": 29.518552410189805,
+        "max_frame_ms": 66.633,
+        "over100": 0
+      }
+    },
+    "observed_pooled_percent": 0.9736614638702124,
+    "observed_pair_percent": [
+      1.968199052609343,
+      -0.05668934240363743
+    ],
+    "interphase_gap_seconds": [
+      250.23833560943604,
+      121.0805287361145,
+      117.55553102493286
+    ],
+    "actual_flags": {
+      "split": 2,
+      "reference_acquire": 1,
+      "idle_spin_us": 0,
+      "force_mesh_fallback": 1,
+      "no_mesh": "absent",
+      "all_named_probes_profiler_mangohud": "absent"
+    },
+    "same_entire_ini_sha256": "cebf23b907f7493c5247c3e760138fe8204d7ba8bafcb7d3f11ba081c8ff8d8f",
+    "effective_settings": {
+      "fps_limit": "0",
+      "nx2_frame_rate_limit": "60",
+      "use_speed_limit": "true",
+      "speed_limit": "100",
+      "frame_gen": "false",
+      "resolution_setup": "3"
+    },
+    "seed_manifest_sha256": "d134180573cc16b7989a3fcdc35573bfe21564641d4bc91db1b4bacd1ae68582",
+    "seed_files": 3977,
+    "images_actually_read": 12,
+    "clear_measurement_samples": 60,
+    "kernel_gpu_messages": [],
+    "cleanup": {
+      "at": 1794260412.3279705,
+      "own_game_absent": true,
+      "own_helper_removed": true,
+      "old_devices_absent": [
+        "/dev/input/event8",
+        "/dev/input/event9",
+        "/dev/input/event10",
+        "/dev/input/event11"
+      ],
+      "matching_names_remaining": [],
+      "observer": "active",
+      "production_config_unchanged": true,
+      "eight_progressions_unchanged": true,
+      "gpu_policies": {
+        "/sys/class/drm/card0/device/power_dpm_force_performance_level": "auto"
+      },
+      "gpu_power_caps_micro_watts": [
+        150000000
+      ]
+    },
+    "excluded_run": "lichii-state-mesh-on1: new CI detected during phase; stopped normally and no result retained",
+    "ci_pause": "New LaTabdhir workflows created21:27:17 after acceptedON1 ended~21:27:00; OFF1 delayed until fleet+processscan clear. No CIinterruption.",
+    "limits": [
+      "Observed alternating trend only; CI pause and different preparation durations can affect machine/cache thermal state. Not a causal effect estimate.",
+      "Exactly15same camera sweeps per phase, platform scene only, no additional functional walking/audio/save-resume/zone qualification.",
+      "Pool intervals and covered seconds, never arithmetic mean of phaseFPS.",
+      "No p95/p99 or over33.333ms inferred: optional presentation probe disabled. Max and over100 are actual legacy window statistics.",
+      "Corrected599/600 metric in BOTH arms. Do not equate with historical biased599means or NO_MESH1 runs.",
+      "fps_limit0 (Present uncapped), nx2_frame_rate_limit60 (VSync timer), speed100, FPSUnlock/MaxResolution code/config unchanged. Do not claim a Present cap30 or logicalgameclock proof.",
+      "Positive fallback draw/group execution independently established in prior diagnostic; FPS runs intentionally suppress VulkanInfo and traces.",
+      "Frame intervals reconstructed from rounded microsecond means: <0.6ms truncation per600interval window.",
+      "No constant30 or global goal completion claim."
+    ]
+  },
+  "diagnostic_counter_limits": "Uniform reuse and acquire counters are unavailable without their profiler/VERIFY flags, not validation at zero. Reference activation plus CPU composition proof retained. No whole-profile208ms budget transferred.",
+  "excluded_performance_phases": [
+    {
+      "excluded": true,
+      "reason": "New Runner.Worker PID836306 detected during first measured phase; driver assertion stopped actual game in finally. No measurement accepted.",
+      "worker_pid": 836306,
+      "phase_had_started": true,
+      "observed_unix": 1794259030.4270635,
+      "lifecycle": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.7041172133758664
+      },
+      "cleanup": "after-state-mesh-interference-cleanup.json"
+    }
+  ],
+  "ci_guard_correction": {
+    "finding": "A worker gap was followed by a new CI task during the first phase. A missing process alone does not prove the pipeline queue empty.",
+    "scope": "Five local listeners registered across four repositories, read-only selected registration metadata. Before every new launch, all20 active/wait status queries must be present/successful/empty, then local preflight. Local phase watcher still stops and excludes any new worker. No CI interruption.",
+    "guard_tests": {
+      "source_sha256": "a9feb200771077ad18208f886f09b2e935f47f0276c38e242c785f00d5ca01c1",
+      "cases": [
+        {
+          "case": "all20queries_empty",
+          "accepted": true
+        },
+        {
+          "case": "in_progress",
+          "rejected": true
+        },
+        {
+          "case": "queued",
+          "rejected": true
+        },
+        {
+          "case": "waiting",
+          "rejected": true
+        },
+        {
+          "case": "pending",
+          "rejected": true
+        },
+        {
+          "case": "requested",
+          "rejected": true
+        },
+        {
+          "case": "missing",
+          "rejected": true
+        },
+        {
+          "case": "duplicate",
+          "rejected": true
+        },
+        {
+          "case": "error",
+          "rejected": true
+        },
+        {
+          "case": "inconsistent",
+          "rejected": true
+        },
+        {
+          "case": "removed_active_check_mutant",
+          "actual_test_assertion_failure": true
+        }
+      ],
+      "scope": "Actual guard and actual shared rejection expectation. Positive all20; negative everyactive status/missing/duplicate/error/inconsistent list. One compiled AST mutation removes active check and causes rejection expectation to fail. Earlier always-raised pseudo-mutant excluded."
+    },
+    "remote_observation": "At2026-11-09T21:21:02Z all20queries empty; fresh check required per launch. No future reservation guaranteed."
+  },
+  "performance_comparison_source_sha256": "f3f71d43b5e591dd358c7f2ad5a957133eedd5b84cdf80599f3e2ba81c0858e4",
+  "low_rate_resources": {
+    "phases": {
+      "lichii-state-mesh-on1-rerun": {
+        "gpu_busy_percent": [
+          54,
+          67,
+          83
+        ],
+        "temp1_input": [
+          75000,
+          78125,
+          79375
+        ],
+        "gpu_freq1_input": [
+          1292000000,
+          1829000000,
+          2410000000
+        ],
+        "gpu_power1_average": [
+          40000000,
+          51000000,
+          61000000
+        ],
+        "top_threads": [
+          {
+            "name": "GPUBack",
+            "cpu_one_core_percent": 82.85062498964145
+          },
+          {
+            "name": "CPUCore_1",
+            "cpu_one_core_percent": 53.611986426720016
+          },
+          {
+            "name": "GPU",
+            "cpu_one_core_percent": 52.287220525513064
+          }
+        ]
+      },
+      "lichii-state-mesh-off1": {
+        "gpu_busy_percent": [
+          54,
+          69,
+          83
+        ],
+        "temp1_input": [
+          82250,
+          83625,
+          86250
+        ],
+        "gpu_freq1_input": [
+          1240000000,
+          1740000000,
+          2109000000
+        ],
+        "gpu_power1_average": [
+          41000000,
+          50000000,
+          57000000
+        ],
+        "top_threads": [
+          {
+            "name": "GPUBack",
+            "cpu_one_core_percent": 82.27078821808077
+          },
+          {
+            "name": "CPUCore_1",
+            "cpu_one_core_percent": 52.36159899985018
+          },
+          {
+            "name": "GPU",
+            "cpu_one_core_percent": 51.69330272958787
+          }
+        ]
+      },
+      "lichii-state-mesh-on2": {
+        "gpu_busy_percent": [
+          56,
+          74,
+          81
+        ],
+        "temp1_input": [
+          84500,
+          85750,
+          87750
+        ],
+        "gpu_freq1_input": [
+          1071000000,
+          1898000000,
+          2401000000
+        ],
+        "gpu_power1_average": [
+          38000000,
+          50000000,
+          61000000
+        ],
+        "top_threads": [
+          {
+            "name": "GPUBack",
+            "cpu_one_core_percent": 82.90644965457889
+          },
+          {
+            "name": "CPUCore_1",
+            "cpu_one_core_percent": 52.66060122290277
+          },
+          {
+            "name": "GPU",
+            "cpu_one_core_percent": 51.76963824584564
+          }
+        ]
+      },
+      "lichii-state-mesh-off2": {
+        "gpu_busy_percent": [
+          47,
+          72,
+          85
+        ],
+        "temp1_input": [
+          86875,
+          87750,
+          88125
+        ],
+        "gpu_freq1_input": [
+          1014000000,
+          1885000000,
+          2219000000
+        ],
+        "gpu_power1_average": [
+          37000000,
+          53000000,
+          58000000
+        ],
+        "top_threads": [
+          {
+            "name": "GPUBack",
+            "cpu_one_core_percent": 82.38012247201021
+          },
+          {
+            "name": "CPUCore_1",
+            "cpu_one_core_percent": 52.907569761801916
+          },
+          {
+            "name": "GPU",
+            "cpu_one_core_percent": 51.91108329387522
+          }
+        ]
+      }
+    },
+    "scope": "Low-rate samples and CPU accounting, no exclusive hardware limit or causal attribution."
+  },
+  "decision": "Do not retain1095 as a proven speed improvement: pooled+0.97366%observed, pairdirections oppose (+1.96820%/-0.05669%). Retain qualified pacing baseline1e26 with compute mesh fallback as private reference, not an installed30FPS solution. No constant30; no long free walk/audio/save-resume/zone or logical clock qualification."
+}

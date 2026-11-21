@@ -1,0 +1,467 @@
+{
+  "run": "lichii-eviction-cinema1",
+  "scope": "Single private native opening-cinema AV qualification under Present30/framepacing1, not a FPS benchmark or 3D world-clock proof",
+  "candidate": {
+    "exe_sha256": "65defb74a8cc81ae85d42c5c0e9bb9bc8a796d976f12278cb0a4fcf940834d08",
+    "mapped_radv_path": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+    "mapped_radv_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+    "packages": "libdrm-amdgpu1:amd64\t2.4.125-1ubuntu0.1~24.04.2\nlibdrm2:amd64\t2.4.125-1ubuntu0.1~24.04.2\nmesa-vulkan-drivers:amd64\t25.2.8-0ubuntu0.24.04.4\n",
+    "diagnostic_vulkan_info": true,
+    "actual_log_filter_verified": true
+  },
+  "capture": {
+    "started_ns": 2295813621154394,
+    "ended_ns": 2295913600023635,
+    "actual_acquisition_wall_seconds": 99.978869241,
+    "audio_sample_duration_seconds": 100.0,
+    "stereo_s16le_rate": 48000,
+    "bytes": 19200000,
+    "chunks": 18762,
+    "pictures": 20,
+    "picture_duration_range_seconds": [
+      0.03678371896967292,
+      0.34015076933428645
+    ]
+  },
+  "readiness": {
+    "title_image": "cinema-title-probe.png",
+    "movie_image": "cinema-after-new-game.png",
+    "manual_title": "Ocarina of Time logo and New Game highlighted",
+    "manual_movie": "Full-screen animated embroidered tree/tapestry shot, no title/buttons/gameplayHUD; actual opening cinema after New Game",
+    "method": "Actual individual images manually read before capture; not merely non-title classifier",
+    "initial_verify_adjustment": "Originalgameplayverifier wronglyrequired3DNoSharpeningcopymarker in title/cinema; CLI/RADV/clock/envpassed. Cinema-specific verifier retains config/probe/error gates and records unexercised3Dcopymarker."
+  },
+  "accepted_pairs": 12,
+  "rejected_pairs": 7,
+  "candidate_pairs": 19,
+  "not_attempted_pictures": [
+    {
+      "picture": "00.png",
+      "reason": "Insufficient centered4-second audio window at acquisition boundary"
+    }
+  ],
+  "results_all": [
+    {
+      "picture": "01.png",
+      "capture_seconds": 5.095328650902957,
+      "screenshot_seconds": 0.17081083031371236,
+      "audio": {
+        "seconds": 53.071375,
+        "correlation": 0.9918299245606659,
+        "channel": 6
+      },
+      "video": {
+        "seconds": 53.0,
+        "correlation": 0.9977021994363537
+      },
+      "audio_ahead_seconds": 0.0713750000000033
+    },
+    {
+      "picture": "02.png",
+      "capture_seconds": 10.090570153202862,
+      "screenshot_seconds": 0.1613116692751646,
+      "audio": {
+        "seconds": 58.066625,
+        "correlation": 0.9917563981976352,
+        "channel": 6
+      },
+      "video": {
+        "seconds": 58.0,
+        "correlation": 0.9962310448996899
+      },
+      "audio_ahead_seconds": 0.06662500000000193
+    },
+    {
+      "picture": "03.png",
+      "capture_seconds": 15.147082041483372,
+      "screenshot_seconds": 0.27433223696425557,
+      "rejected": "audio match rejected: {'seconds': 61.123125, 'correlation': 0.13489580827851416, 'channel': 6}"
+    },
+    {
+      "picture": "04.png",
+      "capture_seconds": 20.179992029909045,
+      "screenshot_seconds": 0.34015076933428645,
+      "rejected": "audio match rejected: {'seconds': 66.156, 'correlation': 0.1549791776539308, 'channel': 6}"
+    },
+    {
+      "picture": "05.png",
+      "capture_seconds": 25.145231942646205,
+      "screenshot_seconds": 0.2706110719591379,
+      "rejected": "audio match rejected: {'seconds': 71.12125, 'correlation': 0.36373617969995903, 'channel': 6}"
+    },
+    {
+      "picture": "06.png",
+      "capture_seconds": 30.134881995618343,
+      "screenshot_seconds": 0.24993550963699818,
+      "audio": {
+        "seconds": 78.111,
+        "correlation": 0.7637806557741044,
+        "channel": 6
+      },
+      "video": {
+        "seconds": 78.0,
+        "correlation": 0.9929816967768003
+      },
+      "audio_ahead_seconds": 0.1110000000000042
+    },
+    {
+      "picture": "07.png",
+      "capture_seconds": 35.1577115887776,
+      "screenshot_seconds": 0.2955494960770011,
+      "audio": {
+        "seconds": 83.13375,
+        "correlation": 0.9982996756000568,
+        "channel": 6
+      },
+      "video": {
+        "seconds": 83.0,
+        "correlation": 0.999029036689009
+      },
+      "audio_ahead_seconds": 0.13375000000000625
+    },
+    {
+      "picture": "08.png",
+      "capture_seconds": 40.10393660934642,
+      "screenshot_seconds": 0.18802570505067706,
+      "audio": {
+        "seconds": 88.08,
+        "correlation": 0.9862632276455653,
+        "channel": 6
+      },
+      "video": {
+        "seconds": 88.0,
+        "correlation": 0.9669289116780142
+      },
+      "audio_ahead_seconds": 0.0799999999999983
+    },
+    {
+      "picture": "09.png",
+      "capture_seconds": 45.13220822671428,
+      "screenshot_seconds": 0.2445749482139945,
+      "audio": {
+        "seconds": 93.10825,
+        "correlation": 0.9708443033967012,
+        "channel": 6
+      },
+      "video": {
+        "seconds": 93.0,
+        "correlation": 0.9844217087767875
+      },
+      "audio_ahead_seconds": 0.10824999999999818
+    },
+    {
+      "picture": "10.png",
+      "capture_seconds": 50.123059265781194,
+      "screenshot_seconds": 0.22623630287125707,
+      "audio": {
+        "seconds": 98.099125,
+        "correlation": 0.995436110543815,
+        "channel": 6
+      },
+      "video": {
+        "seconds": 97.25,
+        "correlation": 0.5221408329773555
+      },
+      "rejected": "picture match rejected: {'seconds': 97.25, 'correlation': 0.5221408329773555}"
+    },
+    {
+      "picture": "11.png",
+      "capture_seconds": 55.16026135580614,
+      "screenshot_seconds": 0.3006826718337834,
+      "audio": {
+        "seconds": 103.136375,
+        "correlation": 0.9344872732544133,
+        "channel": 6
+      },
+      "video": {
+        "seconds": 103.0,
+        "correlation": 0.7143213822439183
+      },
+      "rejected": "picture match rejected: {'seconds': 103.0, 'correlation': 0.7143213822439183}"
+    },
+    {
+      "picture": "12.png",
+      "capture_seconds": 60.096335508394986,
+      "screenshot_seconds": 0.1727957366965711,
+      "audio": {
+        "seconds": 108.072375,
+        "correlation": 0.9882321689879319,
+        "channel": 6
+      },
+      "video": {
+        "seconds": 107.75,
+        "correlation": 0.7784105057515074
+      },
+      "rejected": "picture match rejected: {'seconds': 107.75, 'correlation': 0.7784105057515074}"
+    },
+    {
+      "picture": "13.png",
+      "capture_seconds": 65.10947801778093,
+      "screenshot_seconds": 0.19911919021978974,
+      "audio": {
+        "seconds": 113.0855,
+        "correlation": 0.9939064069105009,
+        "channel": 6
+      },
+      "video": {
+        "seconds": 113.0,
+        "correlation": 0.9927678160660118
+      },
+      "audio_ahead_seconds": 0.08549999999999613
+    },
+    {
+      "picture": "14.png",
+      "capture_seconds": 70.03133946890011,
+      "screenshot_seconds": 0.04280265839770436,
+      "audio": {
+        "seconds": 118.007375,
+        "correlation": 0.9926620470750569,
+        "channel": 6
+      },
+      "rejected": "picture has too little contrast"
+    },
+    {
+      "picture": "15.png",
+      "capture_seconds": 75.1413745698519,
+      "screenshot_seconds": 0.26288329577073455,
+      "audio": {
+        "seconds": 123.117375,
+        "correlation": 0.9888507585056775,
+        "channel": 6
+      },
+      "video": {
+        "seconds": 123.0,
+        "correlation": 0.9945098953343576
+      },
+      "audio_ahead_seconds": 0.11737499999999557
+    },
+    {
+      "picture": "16.png",
+      "capture_seconds": 80.17503448808566,
+      "screenshot_seconds": 0.3302316810004413,
+      "audio": {
+        "seconds": 128.15112499999998,
+        "correlation": 0.98767367299055,
+        "channel": 6
+      },
+      "video": {
+        "seconds": 128.0,
+        "correlation": 0.9927186591576384
+      },
+      "audio_ahead_seconds": 0.15112499999997908
+    },
+    {
+      "picture": "17.png",
+      "capture_seconds": 85.15510084945709,
+      "screenshot_seconds": 0.29033305402845144,
+      "audio": {
+        "seconds": 133.131125,
+        "correlation": 0.9906273878784088,
+        "channel": 6
+      },
+      "video": {
+        "seconds": 133.0,
+        "correlation": 0.9922589093048092
+      },
+      "audio_ahead_seconds": 0.13112499999999727
+    },
+    {
+      "picture": "18.png",
+      "capture_seconds": 90.16511764982715,
+      "screenshot_seconds": 0.3103963960893452,
+      "audio": {
+        "seconds": 138.141125,
+        "correlation": 0.9906912391044006,
+        "channel": 6
+      },
+      "video": {
+        "seconds": 138.0,
+        "correlation": 0.9951796783691527
+      },
+      "audio_ahead_seconds": 0.14112499999998818
+    },
+    {
+      "picture": "19.png",
+      "capture_seconds": 95.14844632754102,
+      "screenshot_seconds": 0.2770591680891812,
+      "audio": {
+        "seconds": 143.1245,
+        "correlation": 0.990431274920849,
+        "channel": 6
+      },
+      "video": {
+        "seconds": 143.0,
+        "correlation": 0.997204877954629
+      },
+      "audio_ahead_seconds": 0.12450000000001182
+    }
+  ],
+  "audio_ahead_range_seconds": [
+    0.06662500000000193,
+    0.15112499999997908
+  ],
+  "uncertainty_seconds": 0.5,
+  "pcm_origin": {
+    "median_monotonic_seconds": 2295813.6113225264,
+    "residual_min_seconds": -0.012596893589943647,
+    "residual_max_seconds": 0.017726792488247156,
+    "range_seconds": 0.030323686078190804,
+    "first5chunks_excluded": true,
+    "timing_unambiguous_within_declared_half_second": true,
+    "limit": "Receipt-derived origin, not hardware audio playback timestamp. Stable buffering cannot establish fine absolute latency."
+  },
+  "source_progression": {
+    "qualified": true,
+    "wall_span_seconds": 90.05311767663807,
+    "wall_endpoint_bounds_seconds": [
+      89.82918267790228,
+      90.27705267630517
+    ],
+    "first": "01.png",
+    "last": "19.png",
+    "audio": {
+      "source_start_seconds": 53.071375,
+      "source_end_seconds": 143.1245,
+      "source_advance_seconds": 90.05312500000001,
+      "source_seconds_per_wall_second": 1.000000081322692,
+      "conservative_ratio_interval": [
+        0.9864425383857662,
+        1.0136252193954205
+      ],
+      "includes_realtime1": true,
+      "includes_half_speed0_5": false
+    },
+    "video": {
+      "source_start_seconds": 53.0,
+      "source_end_seconds": 143.0,
+      "source_advance_seconds": 90.0,
+      "source_seconds_per_wall_second": 0.9994101517192464,
+      "conservative_ratio_interval": [
+        0.9858540721208064,
+        1.013033819157588
+      ],
+      "includes_realtime1": true,
+      "includes_half_speed0_5": false
+    },
+    "uncertainty": "0.5s per matched source endpoint, summed to±1s in delta, plus actual screenshot before/after wall brackets. Conservative bounds, not a statistical confidence interval."
+  },
+  "analysis_negative_controls": {
+    "fewer_than3_rejected": true,
+    "less_than60s_rejected": true,
+    "origin_span_above_halfsecond_rejected": true,
+    "synthetic_half_speed_identified": {
+      "qualified": true,
+      "wall_span_seconds": 90.05311767663807,
+      "wall_endpoint_bounds_seconds": [
+        89.82918267790228,
+        90.27705267630517
+      ],
+      "first": "01.png",
+      "last": "19.png",
+      "audio": {
+        "source_start_seconds": 53.071375,
+        "source_end_seconds": 98.09793383831904,
+        "source_advance_seconds": 45.02655883831903,
+        "source_seconds_per_wall_second": 0.5,
+        "conservative_ratio_interval": [
+          0.4876827226092483,
+          0.512378688820481
+        ],
+        "includes_realtime1": false,
+        "includes_half_speed0_5": true
+      },
+      "video": {
+        "source_start_seconds": 53.0,
+        "source_end_seconds": 98.02655883831903,
+        "source_advance_seconds": 45.02655883831903,
+        "source_seconds_per_wall_second": 0.5,
+        "conservative_ratio_interval": [
+          0.4876827226092483,
+          0.512378688820481
+        ],
+        "includes_realtime1": false,
+        "includes_half_speed0_5": true
+      },
+      "uncertainty": "0.5s per matched source endpoint, summed to±1s in delta, plus actual screenshot before/after wall brackets. Conservative bounds, not a statistical confidence interval."
+    }
+  },
+  "verifier_exception": {
+    "source": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/functional-eviction-control.py",
+    "source_sha256": "d76e1f732d73b39c3dea85582fac7a3a2ce48cca0b3c0c82b4e8bd583989073c",
+    "actual_guard_source": "assert 'anti-aliasing network bypassed (copy of the tonemapped image)' in log",
+    "positive_real_gameplay_log_accepted": true,
+    "same_log_marker_removed_rejected": true,
+    "marker_count_at_cinema_verification": 0,
+    "marker_count_in_final_log": 1,
+    "cinema_exception_code": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cinema-verify-function.py",
+    "cinema_exception_sha256": "957cf97e6dc84bbc742956f99e970c88c035876725b81f8753b453c740686fdf",
+    "scope": "Actual original gameplayverifier AST assertion extracted and exercised on real gameplaylog plusremoved-marker negative. Original verifier fileunchanged; liveCLI notrerun. Cinema-only dynamicallyloadedfunction used with separatecinemapackage and manuallyreadmovie, recordsno3Dcopyactivation ratherthan claimingit."
+  },
+  "later_copy_note": "Zero at title/cinema verification, one later in final log; absence was not used as copy activation. Original gameplay3D marker guard remains and negativecontrol rejects missingmarker.",
+  "actual_native_present_controls": [
+    [
+      "1",
+      "60",
+      "30",
+      "0x1003c"
+    ]
+  ],
+  "watcher_samples": 38,
+  "interference": false,
+  "lifecycle": {
+    "exit_code": 0,
+    "stop_requested": true,
+    "window_closed": true,
+    "forced": false,
+    "stop_seconds": 2.603665677830577
+  },
+  "capture_producers_actually_gone": {
+    "at_ns": 2295931300929215,
+    "matching_producers": [],
+    "docker_top": "PID                 COMMAND             COMMAND\n1295443             timeout             timeout --foreground --preserve-status --signal=TERM --kill-after=40s 600s bash /probe/runtime.sh /lab/run-cli.sh -c /run-data/emulator.ini -f -g /game/game.nup\n1295456             python3             python3 /probe/supervise.py /lab/run-cli.sh -c /run-data/emulator.ini -f -g /game/game.nup\n1295462             pulseaudio          pulseaudio --daemonize=yes --exit-idle-time=-1 --log-target=file:/run-data/pulse.log --load=module-null-sink sink_name=nel3ab format=s16le rate=48000 channels=2\n1295481             sway                /usr/bin/sway --config /tmp/nel3ab-runtime/sway.conf\n1295511             eden-cli            /emulator/usr/bin/eden-cli -c /run-data/emulator.ini -f -g /game/game.nup\n"
+  },
+  "kernel_matches": [],
+  "cleanup": {
+    "at": 1794277972.0325642,
+    "own_game_absent": true,
+    "own_helper_removed": true,
+    "old_devices_absent": [
+      "/dev/input/event8",
+      "/dev/input/event9",
+      "/dev/input/event10",
+      "/dev/input/event11"
+    ],
+    "matching_names_remaining": [],
+    "observer": "active",
+    "production_config_unchanged": true,
+    "eight_progressions_unchanged": true,
+    "gpu_policies": {
+      "/sys/class/drm/card0/device/power_dpm_force_performance_level": "auto"
+    },
+    "gpu_power_caps_micro_watts": [
+      150000000
+    ]
+  },
+  "limits": [
+    "Only observed source53..143s portion; no movie end, every movie, or full-game AV conclusion.",
+    "Seven rejected pairs and one unmatched initial picture remain explicit. No fill-in for low-correlation intervals.",
+    "Half-speed movie progression is inconsistent with the bounded matched endpoints here; this does not establish 3D gameplay timestep or absolute world-clock speed.",
+    "0.5s AV uncertainty retained; no40ms precision or physical speaker latency claim.",
+    "4Hz reference and5s screenshots do not count60 distinct generated frames, physical scanout or browser cadence.",
+    "Repeated screenshot readbacks and three probes add load; do not use this as a performance comparison.",
+    "Browser capture/transport/player audio path remains unqualified on this candidate."
+  ],
+  "date_utc": "2026-11-10",
+  "private_report_sha256": "8bc5ade0e0856ad25dd8a109e4aff04faa71e3cfbb1b4e141e74aa03d51af5f1",
+  "root_review": {
+    "all_evidence_hashes_checked": true,
+    "accepted_rejected_counts_offset_range_and_endpoint_ratios_recomputed": true,
+    "conservative_bounds_formula_checked": true,
+    "actual_movie_before_capture_and_final_movie_image_read": true
+  },
+  "functional_home_preserved": {
+    "nand_unchanged": true,
+    "files": 15
+  },
+  "next": "Private browser room with exact qualified profile; legacy adapter defaults differ and must be reconciled and verified before gameplay."
+}

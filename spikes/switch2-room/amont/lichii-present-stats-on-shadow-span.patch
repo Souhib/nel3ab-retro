@@ -1,0 +1,284 @@
+--- a/src/core/CMakeLists.txt
++++ b/src/core/CMakeLists.txt
+@@ -1064,6 +1064,7 @@
+     hle/service/nx2_video_input_queue.h
+     hle/service/nx2_image_layout.h
+     hle/service/nx2_present_pacer.h
++    hle/service/nx2_present_stats.h
+     hle/service/nx2_video_ready.h
+     hle/service/services.cpp
+     hle/service/services.h
+--- a/src/tests/CMakeLists.txt
++++ b/src/tests/CMakeLists.txt
+@@ -19,6 +19,7 @@
+     core/nx2_video_ready.cpp
+     core/nx2_debug_server.cpp
+     core/nx2_present_pacer.cpp
++    core/nx2_present_stats.cpp
+     common/dkb_cpu_trace.cpp
+     common/dkb_frame_trace.cpp
+     audio_core/nx2_sysmix.cpp
+--- a/src/core/hle/service/nx2_gsv.h
++++ b/src/core/hle/service/nx2_gsv.h
+@@ -74,6 +74,7 @@
+ #include "core/hle/service/nx2_movie_clock.h"
+ #include "core/hle/service/nx2_video_input_queue.h"
+ #include "core/hle/service/nx2_present_pacer.h"
++#include "core/hle/service/nx2_present_stats.h"
+ #include "core/hle/service/nx2_video_ready.h"
+ #include "core/hle/service/sm/sm.h"
+ #include "core/hle/service/server_manager.h"
+@@ -1911,10 +1912,13 @@
+                 ++m_stats.ran_ahead;
+             }
+             if (m_stats.last_present != std::chrono::steady_clock::time_point{}) {
+-                const long long frame = to_us(entered - m_stats.last_present);
+-                m_stats.frame_us += frame;
+-                m_stats.max_frame_us = (std::max)(m_stats.max_frame_us, frame);
+-                m_stats.hitches += frame > 100'000 ? 1 : 0;
++                const auto interval = std::chrono::duration_cast<std::chrono::nanoseconds>(
++                    entered - m_stats.last_present);
++                m_present_intervals.Add(interval, g_nx2_present_stats);
++                if (g_nx2_present_stats && !m_present_stats_announced) {
++                    LOG_INFO(Service, "nx2:vi2 present stats active: TIPC229 intervals, nearest-rank quantiles");
++                    m_present_stats_announced = true;
++                }
+             }
+             m_stats.last_present = entered;
+             if (++m_stats.presents == 600) {
+@@ -1922,9 +1926,25 @@
+                          "nx2:vi2 last 600 presents: frame {} us (max {}, {} over 100 ms), "
+                          "blocked on the GPU fence {} us (max {}), composite {} us, vblank "
+                          "pacing {} us, {} ran a frame ahead",
+-                         m_stats.frame_us / 599, m_stats.max_frame_us, m_stats.hitches,
++                         m_present_intervals.MeanUs().value_or(0), m_present_intervals.max_ns / 1000,
++                         m_present_intervals.over100,
+                          m_stats.fence_us / 600, m_stats.max_fence_us, m_stats.composite_us / 600,
+                          m_stats.pace_us / 600, m_stats.ran_ahead);
++                if (g_nx2_present_stats) {
++                    if (const auto quantiles = m_present_intervals.Quantiles()) {
++                        const auto end_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
++                            entered.time_since_epoch()).count();
++                        LOG_INFO(Service,
++                                 "nx2:vi2 pacing intervals={} sum_ns={} p50_ns={} p95_ns={} p99_ns={} "
++                                 "max_ns={} over30={} over100={} begin_ns={} end_ns={}",
++                                 m_present_intervals.count, m_present_intervals.sum_ns,
++                                 quantiles->p50_ns, quantiles->p95_ns, quantiles->p99_ns,
++                                 m_present_intervals.max_ns, m_present_intervals.over30,
++                                 m_present_intervals.over100,
++                                 end_ns - m_present_intervals.sum_ns, end_ns);
++                    }
++                }
++                m_present_intervals.Reset();
+                 m_stats = {.last_present = entered};
+             }
+         }
+@@ -1940,11 +1960,12 @@
+     // rewrites command memory it hasn't read yet.
+     u32 m_wait_timeouts{};
+     struct PresentStats {
+-        long long frame_us{}, fence_us{}, composite_us{}, pace_us{}, max_fence_us{};
+-        long long max_frame_us{}, hitches{};
++        long long fence_us{}, composite_us{}, pace_us{}, max_fence_us{};
+         u32 presents{}, ran_ahead{};
+         std::chrono::steady_clock::time_point last_present{};
+     } m_stats{};
++    Nx2PresentIntervals m_present_intervals;
++    bool m_present_stats_announced{};
+     u32 m_previous_fence_id{~0U}; // none yet (WaitForFrame ignores ids >= 192)
+     u32 m_previous_fence_value{};
+ 
+--- /dev/null
++++ b/src/core/hle/service/nx2_present_stats.h
+@@ -0,0 +1,86 @@
++// SPDX-FileCopyrightText: Copyright 2026 Eden Emulator Project
++// SPDX-License-Identifier: GPL-3.0-or-later
++
++#pragma once
++
++#include <algorithm>
++#include <array>
++#include <chrono>
++#include <cstddef>
++#include <cstdint>
++#include <cstdlib>
++#include <limits>
++#include <optional>
++
++namespace Service {
++
++[[nodiscard]] constexpr bool Nx2PresentStatsSwitch(const char* value) {
++    return value != nullptr && value[0] == '1' && value[1] == '\0';
++}
++
++// Startup-only: never refresh this flag while a presentation session is running.
++inline const bool g_nx2_present_stats = Nx2PresentStatsSwitch(std::getenv("EDEN_NX2_PRESENT_STATS"));
++
++class Nx2PresentIntervals {
++public:
++    static constexpr std::size_t Capacity = 600;
++    struct Distribution {
++        std::uint64_t p50_ns{}, p95_ns{}, p99_ns{};
++    };
++
++    // No clocks or guest operations here. A window contains at most 600 intervals.
++    bool Add(std::chrono::nanoseconds interval, bool capture) {
++        if (interval.count() < 0 || count == Capacity) {
++            return false;
++        }
++        const auto ns = static_cast<std::uint64_t>(interval.count());
++        if (ns > std::numeric_limits<std::uint64_t>::max() - sum_ns) {
++            return false;
++        }
++        ++count;
++        sum_ns += ns;
++        sum_us += ns / 1000;
++        max_ns = std::max(max_ns, ns);
++        // An integer ns duration exceeds exactly 1/30 s iff it exceeds floor(1e9/30).
++        over30 += ns > 33'333'333;
++        over100 += ns > 100'000'000;
++        if (capture) {
++            samples[sample_count++] = ns;
++        }
++        return true;
++    }
++
++    [[nodiscard]] std::optional<std::uint64_t> MeanUs() const {
++        if (count == 0) {
++            return std::nullopt;
++        }
++        return sum_us / count;
++    }
++
++    [[nodiscard]] std::optional<Distribution> Quantiles() const {
++        if (count == 0 || sample_count != count) {
++            return std::nullopt;
++        }
++        auto sorted = samples;
++        std::sort(sorted.begin(), sorted.begin() + sample_count);
++        // Nearest rank: ceil(percent * n / 100), using one-based ranks.
++        const auto at = [&](std::size_t percent) { return sorted[(percent * count + 99) / 100 - 1]; };
++        return Distribution{at(50), at(95), at(99)};
++    }
++
++    void Reset() {
++        count = sample_count = 0;
++        sum_ns = sum_us = max_ns = over30 = over100 = 0;
++    }
++
++    std::size_t count{};
++    std::uint64_t sum_ns{}, sum_us{}, max_ns{}, over30{}, over100{};
++
++private:
++    // 4800 bytes per session, allocated once; Reset does not clear or allocate this storage.
++    // Quantiles copies 4800 bytes on the stack only when the optional window log is emitted.
++    std::array<std::uint64_t, Capacity> samples{};
++    std::size_t sample_count{};
++};
++
++} // namespace Service
+--- /dev/null
++++ b/src/tests/core/nx2_present_stats.cpp
+@@ -0,0 +1,102 @@
++// SPDX-FileCopyrightText: Copyright 2026 Eden Emulator Project
++// SPDX-License-Identifier: GPL-3.0-or-later
++
++#include <catch2/catch_test_macros.hpp>
++#include "core/hle/service/nx2_present_stats.h"
++
++namespace {
++using Service::Nx2PresentIntervals;
++using namespace std::chrono_literals;
++}
++
++TEST_CASE("NX2 present diagnostics accept only exact startup one", "[core][nx2_present_stats]") {
++    REQUIRE(Service::Nx2PresentStatsSwitch("1"));
++    REQUIRE_FALSE(Service::Nx2PresentStatsSwitch(nullptr));
++    REQUIRE_FALSE(Service::Nx2PresentStatsSwitch(""));
++    REQUIRE_FALSE(Service::Nx2PresentStatsSwitch("0"));
++    REQUIRE_FALSE(Service::Nx2PresentStatsSwitch("10"));
++    REQUIRE_FALSE(Service::Nx2PresentStatsSwitch("1x"));
++}
++
++TEST_CASE("NX2 present interval windows count actual samples", "[core][nx2_present_stats]") {
++    Nx2PresentIntervals stats;
++    REQUIRE_FALSE(stats.MeanUs());
++    REQUIRE_FALSE(stats.Quantiles());
++    REQUIRE_FALSE(stats.Add(-1ns, true));
++    REQUIRE(stats.count == 0);
++    REQUIRE(stats.Add(33ms, true));
++    REQUIRE(stats.count == 1);
++    REQUIRE(stats.MeanUs() == 33000);
++    REQUIRE(stats.Quantiles()->p99_ns == 33'000'000);
++    for (int i = 1; i < 599; ++i) {
++        REQUIRE(stats.Add(33ms, true));
++    }
++    REQUIRE(stats.count == 599);
++    REQUIRE(stats.MeanUs() == 33000);
++    REQUIRE(stats.sum_ns == 599ULL * 33'000'000);
++    stats.Reset();
++    REQUIRE_FALSE(stats.MeanUs());
++    REQUIRE_FALSE(stats.Quantiles());
++    for (int i = 0; i < 600; ++i) {
++        REQUIRE(stats.Add(33ms, true));
++    }
++    REQUIRE(stats.count == 600);
++    REQUIRE(stats.MeanUs() == 33000);
++    REQUIRE(stats.sum_ns == 600ULL * 33'000'000);
++    REQUIRE_FALSE(stats.Add(999ms, true));
++    REQUIRE(stats.count == 600);
++    REQUIRE(stats.max_ns == 33'000'000);
++}
++
++TEST_CASE("NX2 present quantiles use nearest rank and retain outliers", "[core][nx2_present_stats]") {
++    Nx2PresentIntervals stats;
++    for (int i = 600; i >= 1; --i) {
++        REQUIRE(stats.Add(std::chrono::nanoseconds{i * 1000}, true));
++    }
++    const auto q = stats.Quantiles();
++    REQUIRE(q.has_value());
++    REQUIRE(q->p50_ns == 300'000);
++    REQUIRE(q->p95_ns == 570'000);
++    REQUIRE(q->p99_ns == 594'000);
++    REQUIRE(stats.max_ns == 600'000);
++    stats.Reset();
++    for (int i = 0; i < 599; ++i) {
++        REQUIRE(stats.Add(30ms, true));
++    }
++    REQUIRE(stats.Add(101ms, true));
++    REQUIRE(stats.max_ns == 101'000'000);
++    REQUIRE(stats.over30 == 1);
++    REQUIRE(stats.over100 == 1);
++    REQUIRE(stats.Quantiles()->p99_ns == 30'000'000);
++}
++
++TEST_CASE("NX2 present budget edges and disabled capture are explicit", "[core][nx2_present_stats]") {
++    Nx2PresentIntervals stats;
++    REQUIRE(stats.Add(33'333'333ns, true));
++    REQUIRE(stats.over30 == 0);
++    REQUIRE(stats.Add(33'333'334ns, true));
++    REQUIRE(stats.over30 == 1);
++    REQUIRE(stats.Add(100ms, true));
++    REQUIRE(stats.over100 == 0);
++    REQUIRE(stats.Add(100'000'001ns, true));
++    REQUIRE(stats.over100 == 1);
++    stats.Reset();
++    REQUIRE(stats.over30 == 0);
++    REQUIRE(stats.over100 == 0);
++    REQUIRE(stats.Add(0ns, false));
++    REQUIRE(stats.MeanUs() == 0);
++    REQUIRE_FALSE(stats.Quantiles());
++    REQUIRE(stats.Add(10ms, false));
++    REQUIRE(stats.MeanUs() == 5000);
++    REQUIRE_FALSE(stats.Quantiles());
++}
++
++TEST_CASE("NX2 present sum overflow is rejected without partial mutation", "[core][nx2_present_stats]") {
++    Nx2PresentIntervals stats;
++    const auto longest = std::chrono::nanoseconds::max();
++    REQUIRE(stats.Add(longest, true));
++    REQUIRE(stats.Add(longest, true));
++    REQUIRE_FALSE(stats.Add(longest, true));
++    REQUIRE(stats.count == 2);
++    REQUIRE(stats.sum_ns == 2ULL * static_cast<std::uint64_t>(longest.count()));
++}

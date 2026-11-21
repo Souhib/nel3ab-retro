@@ -1,0 +1,25 @@
+{
+  "verified_utc": "2026-11-07T16:35:47Z",
+  "revision": "eglantine-216d3e2943",
+  "catalogue_console": "switch2",
+  "registered_games": [
+    "The Legend of Zelda: Ocarina of Time"
+  ],
+  "installed_html_sha256": "e335ab830f7991ca33f99865c3153d3789ec72d0cb478d1d8dd6ccfc059c9b06",
+  "cookie_bytes": 16000,
+  "study_http_status": 200,
+  "local_gates": [
+    "just",
+    "just switch-controls-test",
+    "just audit",
+    "just docs"
+  ],
+  "remote_ci_run": false,
+  "commit_created": false,
+  "limitations": [
+    "About 22 actual game frames per second in the observed Kokiri excerpt.",
+    "NO_MESH omits objects; no complete playthrough validated.",
+    "One player and spectators.",
+    "Mario Tennis Fever extracted but not validated or registered."
+  ]
+}

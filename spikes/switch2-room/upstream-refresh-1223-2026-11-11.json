@@ -1,0 +1,65 @@
+{
+  "observed_utc": "2026-11-11T12:23:27Z",
+  "scope": "Direct GitHub API metadata and bounded static diff review; no port or package installation.1161 incomplete in saved API response.",
+  "lichii_head": "be24147966d78ab680bd873242289e3c70570e3e",
+  "eglantine_head": "6be10b5c126a0faf88ffba00ff9ffeb9cd3f8c8e",
+  "eglantine_net_diff_empty": true,
+  "fritchii_latest": "5.8.4",
+  "fritchii_changed": false,
+  "next_after_1095": {
+    "pull": 1329,
+    "url": "https://github.com/zortos293/Lichii/pull/1329",
+    "head": "d92ecf4f1d43b26cd80db0d5f60a7f68a0a70f15",
+    "merge": "8e5259aa7b93dc4ea89f7976ebe27efadb441e47",
+    "reason": "Redundant FlushCommands after fence submission has actual source path in1315/coldlog; small mesh-independent change. Do not import1245 absent from current scheduler.",
+    "gain_proven": false
+  },
+  "other_candidates": {
+    "1331": {
+      "history": "La revue10:21avait seulement le corps dePR au head91739cdc725e300f1b122304fc80e3a01ee35260. Le headfd9066fea75fe706a222dfccd4ec93f056415432et la fusionfd9c0133sont maintenant \u00e9pingl\u00e9s; ce n\u2019est pas une premi\u00e8re d\u00e9couverte du concept, et aucun essai jeu local correspondant n\u2019est trouv\u00e9 dans cette revue born\u00e9e.",
+      "review": "Les7patches complets sont lus: deux tableaux d\u2019adresses/valeurs deviennent un tableau de Reservation alignas64, adapt\u00e9 dans les4backends et les getters x64. L\u2019ordre du verrou et l\u2019invalidation des r\u00e9servations restent dans les fonctions; le layout change.",
+      "current_refs": [
+        "dynarmic/interface/exclusive_monitor.h:95-96 garde les deux static_vector compact\u00e9s.",
+        "backend/x64/exclusive_monitor_friend.h:20-25 expose leurs adresses; emit_x64_memory.h:407-425 encode les pointeurs des r\u00e9servations des autres processeurs.",
+        "core/arm/dynarmic/arm_dynarmic_64.cpp:326,338-339 active fastmem exclusives si fastmem existe et donne processor_id/global_monitor; des r\u00e9glages peuvent ensuite le d\u00e9sactiver."
+      ],
+      "limits": "Aucun volume local d\u2019atomiques invit\u00e9s simultan\u00e9s \u00e9tabli; le JIT invit\u00e9 non r\u00e9solu du profil ne permet pas de lui attribuer un budget. Le lock feuille GPUBack est Common::SpinRecursiveMutex, pas le SpinLock Dynarmic. Le commentaire de microbenchmark amont ne vaut pas une mesure Zelda/Ryzen.",
+      "qualification_needed": "Vrai layout du header/ABI et pointeurs encod\u00e9s du JIT sur les6coeurs, dernier index, Clear/ClearProcessor, r\u00e9servations m\u00eame adresse et adresses distinctes, invalidation d\u2019un autrecoeur et m\u00e9moire128bits. Le test amont \u00e9tend un fichier introduit par1327: cela ne force pas \u00e0 importer ses changements de m\u00e9moire ordonn\u00e9e. S\u00e9parer ce port de1327et de ses hypoth\u00e8ses de barri\u00e8res x86."
+    },
+    "1336": {
+      "history": "Head pr\u00e9c\u00e9dent bba25a9e8854c2c1baf91e9b8ed6c06f336ef5c8, seulement revue partielle et aucun port. Le nouveau24bd2237ad3959c4ad781fccee2e1a90fe1d0994est r\u00e9ellement diff\u00e9rent:18patches diff\u00e8rent m\u00eame apr\u00e8s suppression des coordonn\u00e9es de hunks.28fichiers pr\u00e9sents; revue ici cibl\u00e9e, non compl\u00e8te.",
+      "new_evidence": [
+        "Le compute StoreGridCells(nx2_list_dispatch.h:176+) fait une propagation de constantes/param\u00e8tres et refuse branches/pr\u00e9dicats/lectures externes; il ne repose plus sur des seuls vecteurs d\u2019essai. Il faut comparer son interpr\u00e9tation des lanes/carry \u00e0 la vraie MME avant de d\u00e9clarer \u00e9quivalence.",
+        "Nouvelle copie keep_id au point du flux: DmaPusher::ReadListWords pr\u00e9f\u00e8re Nx2ReadKeptListWords; vk_buffer_cache.cpp KeepListWords/ReadKeptListWords stockent jusqu\u2019\u00e03mots et attendent le tick. Cela traite une partie du risque de relecture apr\u00e8s \u00e9criture tardive, absent de la pr\u00e9c\u00e9dente approche.",
+        "Nx2ListDrawSupported retourne toujours Mode()!=0 && IsExtMeshShaderSupported: notre configuration impose le fallback mesh, donc la moiti\u00e9 dessin reste inaccessible. Nx2ListDispatchSupported ne d\u00e9pend pas du mesh; prise r\u00e9elle des macros3mots non observ\u00e9e localement.",
+        "Le pliage des instances est s\u00e9par\u00e9 et accessible \u00e0 FrontWrite(draw.begin) sous instance_loop, m\u00eame valeur, shadow_kept et aucun sinkpending. Il vise potentiellement le trafic BackLoop, mais les feuilles ne classent pas les m\u00e9thodes."
+      ],
+      "remaining_concrete_risks": [
+        "Le recognizeur dessin IsArrayDrawMacro permet des ALU puis teste seulement3paires de param\u00e8tres(nx2_list_draw.h:82+): absence de branches ne prouve pas une identit\u00e9 arithm\u00e9tique sur32bits. Non applicable au dessin actuel sansmesh, mais pas une qualification g\u00e9n\u00e9rale.",
+        "ResolveGrid renvoiefalse sur \u00e9chec de ListReader; des appels dans KeplerCompute::FrontRunMacro et Maxwell3D::FrontRunMacro ignorent ce retour et continuent. Le chemin de r\u00e9paration des registres incr\u00e9mente failed si Find/Read \u00e9choue puis laisse poursuivre le macro. Un garde qui \u00e9choue doit conserver une ex\u00e9cution de r\u00e9f\u00e9rence ou arr\u00eater proprement, pas laisser utiliser un marqueur synth\u00e9tique. Chemins \u00e9tablis par lecture; aucune occurrence Zelda prouv\u00e9e.",
+        "GridMarker.recent n\u2019a que64entr\u00e9es; list_dispatches et list_keep ont1024slots; le marqueur ne garde que16bits du keep_id. ReadKeptListWords refuse un slot remplac\u00e9 et DmaPusher retombe sur les mots actuels. Il faut borner la dur\u00e9e de vie des vieux marqueurs ou r\u00e9soudre avant \u00e9viction; tester64/1024/65536, ancien QMD apr\u00e8s \u00e9criture/unmap, plusieurs canaux et lecture de registre tardive.",
+        "Instance folding: ordre avant Reserve/Publish/Drain/changement de contexte, arr\u00eat, overflow du compteur et commandes qui lisent les registres doivent avoir de vraies contre-\u00e9preuves de queue."
+      ],
+      "decision": "Ne pas porter le paquet28fichiers maintenant. Garder le progr\u00e8s compute/keep_id identifi\u00e9 \u00e0 ce head; r\u00e9soudre d\u2019abord les chemins d\u2019\u00e9chec et de lifetime. Les anciennes limites du corps dePR ne remplacent pas le diff, et ses mesuresWindows ne qualifient pas notre Linux."
+    },
+    "1161": {
+      "head": "4b2088a74cca8b4318db5ee8169b67cb335e04ea",
+      "scope_limit": "M\u00e9tadonn\u00e9es annoncent110fichiers; API sauvegard\u00e9e seulement page1/per_page100.14de ces100entr\u00e9es n\u2019ont aucun patch, notamment vk_scheduler, vk_rasterizer et vk_query_cache. Revue int\u00e9grale impossible sans les entr\u00e9es/patches manquants; aucune requ\u00eate r\u00e9seau faite ici.",
+      "findings": [
+        "Branche d\u2019int\u00e9gration805/573/874/836 plus caches/FSR et variantes des changements d\u00e9j\u00e0 int\u00e9gr\u00e9s; pas un correctif isol\u00e9 de notrebase. La r\u00e9vision4b2088merge1329 dans un scheduler diff\u00e9rent(RecordAs, reordered uploads); ne pas confondre ses garde-fous avec ceux du scheduler1315.",
+        "Le gain annonc\u00e9 de rapports qui \u00e9vitent le buffer-cache lock est d\u00e9j\u00e0 pr\u00e9sent dans1315/coldlog: query_cache.h:715-724 appelle FinishRead seulement si ReadDownloadsMayCover. Le patch disponible ne fait ici qu\u2019ajouter[[unlikely]]. Ce n\u2019est pas une nouvelle suppression de lock locale.",
+        "La petite fermeture ReportOp et le recyclage des OperationList visent les allocations; static_assert(sizeof(operation_body)<=48) ne prouve pas que std::function est sans allocation sur notre biblioth\u00e8que Linux. Mesurer le vrai layout/capacit\u00e9 interne si cette sous-piste est s\u00e9lectionn\u00e9e, sans importer les changements de synchronisation payload avec.",
+        "MasterSemaphore s\u00e9pare gpu_tick/current_tick/wait_mutex et \u00e9vite CAS quand le compteur est inchang\u00e9. C\u2019est un alignement diff\u00e9rent de807, mais aucun caller de notre lock feuille ne le d\u00e9signe. Ne pas en d\u00e9duire un gain.",
+        "ComputedHandlesChanged et les masques de mots de texture peuvent \u00e9viter des r\u00e9solutions/bindings, mais demandent revue des \u00e9crituresCPU/GPU, alias, compteurs de g\u00e9n\u00e9ration et invalidations.1216pr\u00e9par\u00e9 couvre d\u00e9j\u00e0 une partie des strides/param\u00e8tres; ne pas tester deux fois la m\u00eame sous-partie sous un autre nom."
+      ],
+      "history": "Les notes born\u00e9es consult\u00e9es ne d\u00e9montrent aucun essai du head1161actuel. Cela ne rend pas ses composants neufs:874head6a5434e7a98fbb8a04aff96b401a710e7da47a2c a son rapport9Nov,1245/1246 leur comparaison10Nov,1095head52d46375 son r\u00e9sultat9Nov. Conserver ces r\u00e9sultats et refaire une matrice par commit avant toute int\u00e9gration."
+    }
+  },
+  "installed_engine_changed": false,
+  "goal40_achieved": false,
+  "proof_sha256": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-refresh-20261111-122327/bounded-code-review.json": "87b39c4a49dfcfb479d24f524534ed01a95c8c96d58d16df36ff7fd61105f8f2",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-refresh-20261111-122327/report.json": "0421ca7cd7390b626dc51673d11507fb1411a1288a73372d34b0a91911935061",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-refresh-20261111-122327/additional-inputs.json": "2cd4c60582904a38ed99c6c73858e97c440506a9035f4f3be77b7427c963197a"
+  }
+}

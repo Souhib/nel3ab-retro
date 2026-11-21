@@ -1,0 +1,584 @@
+{
+  "date_utc": "2026-11-11",
+  "status": "Four alternating phases complete. Small same-sign difference in both pairs; constant40 not reached. No hardware ceiling established.",
+  "cohort": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v6",
+  "factor": "Composed1058+1244+its counters vs be3; unchanged1x/caps60/speed100/mesh/pinning; candidate snapshots cost included",
+  "order": [
+    "A1",
+    "B1",
+    "A2",
+    "B2"
+  ],
+  "results": {
+    "A1": {
+      "phase_seconds": 90.001825513,
+      "wsi": {
+        "complete_windows": 4,
+        "intervals": 2400,
+        "covered_seconds": 84.37777351,
+        "rate_per_second": 28.443509471313142,
+        "p99_each_ms": [
+          43.456456,
+          43.873559,
+          42.795739,
+          45.685269
+        ],
+        "max_ms": 52.920883,
+        "over_100_ms": 0,
+        "over_33_333333_ms": 1591,
+        "uncovered_seconds": 5.624052003,
+        "windows": [
+          {
+            "intervals": 600,
+            "sum_ns": 20972286998,
+            "begin_ns": 2383495981466800,
+            "end_ns": 2383516953753798,
+            "p50_ns": 33840558,
+            "p95_ns": 40951887,
+            "p99_ns": 43456456,
+            "max_ns": 47275348,
+            "over30": 364,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 4201,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 21069911768,
+            "begin_ns": 2383516953753798,
+            "end_ns": 2383538023665566,
+            "p50_ns": 34135542,
+            "p95_ns": 41284413,
+            "p99_ns": 43873559,
+            "max_ns": 49135879,
+            "over30": 401,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 4801,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20990273302,
+            "begin_ns": 2383538023665566,
+            "end_ns": 2383559013938868,
+            "p50_ns": 34080509,
+            "p95_ns": 40495222,
+            "p99_ns": 42795739,
+            "max_ns": 50592113,
+            "over30": 391,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 5401,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": true
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 21345301442,
+            "begin_ns": 2383559013938868,
+            "end_ns": 2383580359240310,
+            "p50_ns": 34517260,
+            "p95_ns": 42028781,
+            "p99_ns": 45685269,
+            "max_ns": 52920883,
+            "over30": 435,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 6001,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          }
+        ]
+      },
+      "readtick": null,
+      "gpu_observations": {
+        "phase_observations": 13,
+        "all_room_observations": 30,
+        "foreign_clients_observed": false,
+        "driver_stats_read": false,
+        "first_phase_observation_offset_s": 6.286719112,
+        "last_phase_observation_to_end_s": 5.560788865,
+        "maximum_observed_gap_s": 6.566785611,
+        "scan_CPU_each_ms": [
+          174.953874,
+          177.535759,
+          183.475571,
+          181.575686,
+          183.704911,
+          186.988308,
+          176.868539,
+          194.167565,
+          172.4943,
+          183.560649,
+          183.684833,
+          179.103017,
+          172.065296
+        ],
+        "scope": "Periodic presence observations; work entirely between scans remains unobserved. CPU time excludes Python/sudo startup and ownership analysis; not in-game overhead qualification."
+      },
+      "native_normal_cleanup": true
+    },
+    "B1": {
+      "phase_seconds": 90.002597332,
+      "wsi": {
+        "complete_windows": 4,
+        "intervals": 2400,
+        "covered_seconds": 82.727026756,
+        "rate_per_second": 29.011075269013382,
+        "p99_each_ms": [
+          44.4605,
+          44.772547,
+          43.101582,
+          45.227783
+        ],
+        "max_ms": 51.9271,
+        "over_100_ms": 0,
+        "over_33_333333_ms": 1174,
+        "uncovered_seconds": 7.275570576,
+        "windows": [
+          {
+            "intervals": 600,
+            "sum_ns": 20564790168,
+            "begin_ns": 2383753458421021,
+            "end_ns": 2383774023211189,
+            "p50_ns": 33166883,
+            "p95_ns": 40990040,
+            "p99_ns": 44460500,
+            "max_ns": 50760880,
+            "over30": 279,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 4201,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20742097501,
+            "begin_ns": 2383774023211189,
+            "end_ns": 2383794765308690,
+            "p50_ns": 33290736,
+            "p95_ns": 40996413,
+            "p99_ns": 44772547,
+            "max_ns": 46864262,
+            "over30": 296,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 4801,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": true
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20465086561,
+            "begin_ns": 2383794765308690,
+            "end_ns": 2383815230395251,
+            "p50_ns": 32970596,
+            "p95_ns": 40177768,
+            "p99_ns": 43101582,
+            "max_ns": 51927100,
+            "over30": 265,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 5401,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20955052526,
+            "begin_ns": 2383815230395251,
+            "end_ns": 2383836185447777,
+            "p50_ns": 33775957,
+            "p95_ns": 41195137,
+            "p99_ns": 45227783,
+            "max_ns": 51227379,
+            "over30": 334,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 6001,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          }
+        ]
+      },
+      "readtick": {
+        "delta": {
+          "hook_calls": 1537,
+          "hook_callbacks": 855,
+          "hook_read_flush_callbacks": 855,
+          "read_requests": 1759,
+          "read_flush_callbacks": 1759
+        },
+        "outer_interval_ns": [
+          2383749778807456,
+          2383794037809879
+        ],
+        "inner_interval_ns": [
+          2383749778807836,
+          2383794037809669
+        ],
+        "scope": "Each independent counter delta was sampled within the phase; not a coherent tuple, GPU completion, performance gain or proof of the entire phase."
+      },
+      "gpu_observations": {
+        "phase_observations": 14,
+        "all_room_observations": 30,
+        "foreign_clients_observed": false,
+        "driver_stats_read": false,
+        "first_phase_observation_offset_s": 0.763144688,
+        "last_phase_observation_to_end_s": 4.475969116,
+        "maximum_observed_gap_s": 6.555103126,
+        "scan_CPU_each_ms": [
+          173.979889,
+          203.576647,
+          176.353709,
+          174.032185,
+          188.99836,
+          183.80076,
+          185.241673,
+          188.917027,
+          184.908866,
+          191.288527,
+          190.788317,
+          181.037585,
+          185.758733,
+          186.479454
+        ],
+        "scope": "Periodic presence observations; work entirely between scans remains unobserved. CPU time excludes Python/sudo startup and ownership analysis; not in-game overhead qualification."
+      },
+      "native_normal_cleanup": true
+    },
+    "A2": {
+      "phase_seconds": 90.004683497,
+      "wsi": {
+        "complete_windows": 3,
+        "intervals": 1800,
+        "covered_seconds": 65.114578185,
+        "rate_per_second": 27.64357921333588,
+        "p99_each_ms": [
+          46.12989,
+          51.282969,
+          46.875239
+        ],
+        "max_ms": 63.770588,
+        "over_100_ms": 0,
+        "over_33_333333_ms": 1377,
+        "uncovered_seconds": 24.890105312,
+        "windows": [
+          {
+            "intervals": 600,
+            "sum_ns": 21593862224,
+            "begin_ns": 2383985492263669,
+            "end_ns": 2384007086125893,
+            "p50_ns": 34837292,
+            "p95_ns": 42969149,
+            "p99_ns": 46129890,
+            "max_ns": 49786670,
+            "over30": 457,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 4201,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 22086113127,
+            "begin_ns": 2384007086125893,
+            "end_ns": 2384029172239020,
+            "p50_ns": 35440224,
+            "p95_ns": 44497697,
+            "p99_ns": 51282969,
+            "max_ns": 63770588,
+            "over30": 485,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 4801,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": true
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 21434602834,
+            "begin_ns": 2384029172239020,
+            "end_ns": 2384050606841854,
+            "p50_ns": 34449505,
+            "p95_ns": 42863292,
+            "p99_ns": 46875239,
+            "max_ns": 57159284,
+            "over30": 435,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 5401,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          }
+        ]
+      },
+      "readtick": null,
+      "gpu_observations": {
+        "phase_observations": 14,
+        "all_room_observations": 29,
+        "foreign_clients_observed": false,
+        "driver_stats_read": false,
+        "first_phase_observation_offset_s": 3.92683863,
+        "last_phase_observation_to_end_s": 1.198690212,
+        "maximum_observed_gap_s": 6.550162727,
+        "scan_CPU_each_ms": [
+          184.148091,
+          192.526698,
+          186.267255,
+          188.161861,
+          191.05084,
+          181.117467,
+          189.53193,
+          202.921267,
+          192.178715,
+          170.773492,
+          187.848032,
+          187.369845,
+          173.759653,
+          181.527722
+        ],
+        "scope": "Periodic presence observations; work entirely between scans remains unobserved. CPU time excludes Python/sudo startup and ownership analysis; not in-game overhead qualification."
+      },
+      "native_normal_cleanup": true
+    },
+    "B2": {
+      "phase_seconds": 90.003920772,
+      "wsi": {
+        "complete_windows": 3,
+        "intervals": 1800,
+        "covered_seconds": 63.130184202,
+        "rate_per_second": 28.51250986755358,
+        "p99_each_ms": [
+          45.052283,
+          45.023308,
+          45.037805
+        ],
+        "max_ms": 52.599944,
+        "over_100_ms": 0,
+        "over_33_333333_ms": 1070,
+        "uncovered_seconds": 26.87373657,
+        "windows": [
+          {
+            "intervals": 600,
+            "sum_ns": 21399250456,
+            "begin_ns": 2384232297534494,
+            "end_ns": 2384253696784950,
+            "p50_ns": 34703815,
+            "p95_ns": 42516014,
+            "p99_ns": 45052283,
+            "max_ns": 48508447,
+            "over30": 414,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 4801,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20833746450,
+            "begin_ns": 2384253696784950,
+            "end_ns": 2384274530531400,
+            "p50_ns": 33537457,
+            "p95_ns": 41196468,
+            "p99_ns": 45023308,
+            "max_ns": 52599944,
+            "over30": 323,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 5401,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": true
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20897187296,
+            "begin_ns": 2384274530531400,
+            "end_ns": 2384295427718696,
+            "p50_ns": 33624150,
+            "p95_ns": 41791114,
+            "p99_ns": 45037805,
+            "max_ns": 51737637,
+            "over30": 333,
+            "over100": 0,
+            "generation": 1,
+            "segment": 1,
+            "success": 6001,
+            "suboptimal": 0,
+            "rejected": 0,
+            "overlaps_midpoint_capture": false
+          }
+        ]
+      },
+      "readtick": {
+        "delta": {
+          "hook_calls": 1484,
+          "hook_callbacks": 867,
+          "hook_read_flush_callbacks": 867,
+          "read_requests": 1689,
+          "read_flush_callbacks": 1689
+        },
+        "outer_interval_ns": [
+          2384221195501916,
+          2384265453252355
+        ],
+        "inner_interval_ns": [
+          2384221195502136,
+          2384265453252144
+        ],
+        "scope": "Each independent counter delta was sampled within the phase; not a coherent tuple, GPU completion, performance gain or proof of the entire phase."
+      },
+      "gpu_observations": {
+        "phase_observations": 13,
+        "all_room_observations": 32,
+        "foreign_clients_observed": false,
+        "driver_stats_read": false,
+        "first_phase_observation_offset_s": 5.374477797,
+        "last_phase_observation_to_end_s": 6.445559645,
+        "maximum_observed_gap_s": 6.589083628,
+        "scan_CPU_each_ms": [
+          180.806904,
+          177.982456,
+          176.833229,
+          176.342527,
+          206.8684,
+          176.538265,
+          179.655857,
+          186.260283,
+          184.03025,
+          182.323473,
+          182.722546,
+          175.103144,
+          182.67646
+        ],
+        "scope": "Periodic presence observations; work entirely between scans remains unobserved. CPU time excludes Python/sudo startup and ownership analysis; not in-game overhead qualification."
+      },
+      "native_normal_cleanup": true
+    }
+  },
+  "pairs": [
+    {
+      "pair": 1,
+      "rate_delta_percent": 1.995414097098891,
+      "A_max_ms": 52.920883,
+      "B_max_ms": 51.9271,
+      "A_p99_each_ms": [
+        43.456456,
+        43.873559,
+        42.795739,
+        45.685269
+      ],
+      "B_p99_each_ms": [
+        44.4605,
+        44.772547,
+        43.101582,
+        45.227783
+      ]
+    },
+    {
+      "pair": 2,
+      "rate_delta_percent": 3.1433362789667463,
+      "A_max_ms": 63.770588,
+      "B_max_ms": 52.599944,
+      "A_p99_each_ms": [
+        46.12989,
+        51.282969,
+        46.875239
+      ],
+      "B_p99_each_ms": [
+        45.052283,
+        45.023308,
+        45.037805
+      ]
+    }
+  ],
+  "qualified_policy_difference": "Only elf_sha256; native environment and expected141 effective fields identical. Per-trial package paths/revisions identify selected ELF. Candidate-only2RPC/counter cost included.",
+  "total_wsi_complete_window_seconds": 295.349562653,
+  "total_commanded_phase_seconds": 360.013027114,
+  "protected_files_each_phase": 8652,
+  "production_cache": {
+    "files": 5121,
+    "bytes": 147376438,
+    "all_hashes_and_mtimes_match": true
+  },
+  "learned_seed": {
+    "files": 4867,
+    "bytes": 134125560,
+    "all_hashes_and_mtimes_match": true
+  },
+  "frozen_inputs_and_modes_after_all_phases_verified": 170,
+  "constant40_achieved": false,
+  "hardware_impossibility_established": false,
+  "production_change": false,
+  "interpretation": "B/A rates differ by+1.9954% and+3.1433% in these pairs. Repeated sign alone does not establish isolated causal effect, and p99 does not improve uniformly in pair1. Candidate remains private.",
+  "limits": [
+    "Only complete600-return windows inside actual phase wall bounds; coverage is partial and quantiles remain per window.",
+    "WSI accepted returns are not unique guest frames or physical scanout. This static decoder-free diagnostic does not qualify full browser gameplay.",
+    "No direction transitions; captures show same viewpoint, with ordinary animated foliage/NPC variations.",
+    "Periodic GPU ownership scan has gaps around6.6s and consumes CPU; no guarantee against work created and closed between scans and no independent in-game observer overhead qualification.",
+    "Composed1058+1244 plus permanent counters tested as one candidate; effects of individual changes not isolated.",
+    "No new installation, commit, push or remote CI result."
+  ],
+  "next_source_candidate": "Lichii#1216 neutral fast-draw methods, starting with vertex_id_base; correctness/activation and current cost qualification required before any gain claim.",
+  "proof_files_sha256": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v6/report.json": "dba4616b3a9229a59f7c12aa620ed976572a7fb1794427ba6fcb6479fb786618",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v6/plan.json": "85a8fdd8259b6fd2464011dae8adb477b0432bb1d82935b91fbfe192abb162b4",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v6/functional-accepted.json": "4afef7b975d46d0731774cba2f5a7702c6a78a96e01cecc7aadceb4861b83daa",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v6/A1/cleanup.json": "d5c7a52548f6fc4276b1faa08849395fc14217544aa1d66e177cf915d3cb2000",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v6/A1/prephase-review.json": "dcde37c3719c382b66d29b1f591ebd114b9b56154fff0ebee916bced436dcb4d",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v6/A1/postphase-review.json": "fe58b93daf8a4f66551b25b3e7922bcb198c8401b381672dd8c71dc54501ccc5",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v6/A1/package-manifest.json": "b078f7c8c8bae5b6acd84e3e7c3b9c31aaf0c618f675e1bdb2c84451bb99f79c",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v6/A1/policy.json": "a7512388e2649b44b6f355cc4fe378efa2892715b960d9f242e6e78ceac7aa6d",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v6/B1/cleanup.json": "b4162fe9d09a2d319ccac440245d4e8723e17bdc42b58564fd135eefde8abcf6",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v6/B1/prephase-review.json": "4ed5136b7ab4c9968fa4c086310c76d826923b568f09b6e9ec0f1a1fb4c87ee2",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v6/B1/postphase-review.json": "dcc0f34883504963ce8cae935c5ece67b71c40ff02ec297bcb39da6f4947618b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v6/B1/package-manifest.json": "ceff8d19cf18d771732885994deef9b8e3845bbc109fead02db5135a2f6b8a6d",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v6/B1/policy.json": "1033b466e3ac529dff1d0a010769fb2354e5b5cbcfe606015ee0ae3036560add",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v6/A2/cleanup.json": "66b4c97740aada87aad93920b648d0be93df1ec1368e518e1184e22472ef4174",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v6/A2/prephase-review.json": "91f908f897716ab1de24f35ddc234c1d9d2794f3e8d4fb1ac71546f824562714",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v6/A2/postphase-review.json": "cddea81461ed49bdea0907e1d49a08e7315f01bd641d45276c6c1fb1ebd4b41a",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v6/A2/package-manifest.json": "bf4c2827f5e5ed8188f9825d2c70b9f2916395b112f38b6c9726e45e783f5398",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v6/A2/policy.json": "a7512388e2649b44b6f355cc4fe378efa2892715b960d9f242e6e78ceac7aa6d",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v6/B2/cleanup.json": "04586d0008496d253ebeca71a8beac352a146e8c9b988d6f87290606cb624322",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v6/B2/prephase-review.json": "03c589c6774b28247b11760654bae22e32126f22fb80e82ef520790a3f0f38f1",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v6/B2/postphase-review.json": "cd8f594dea014f5fe5d853ba248915e71b1c3e000cab5b68cfe2218f750ff3e7",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v6/B2/package-manifest.json": "6faa4249756011372606085e390025d17e37ff2f13de39744b415919da410b8e",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v6/B2/policy.json": "1033b466e3ac529dff1d0a010769fb2354e5b5cbcfe606015ee0ae3036560add",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/root-prephase-review.py": "18a95ed2c7c61254c4211559adaef2135155393f1db60cecc330b72968120935",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/root-offline-phase.py": "4c17b2e58f0ecef8461796fde4b9a2222c6fb5005ac35162091a4e9b86640840",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-root-functional-stop-watch.py": "736390359d4cf822657858555441c21f6d4ed6f56b5ccf5f14acfd190619288b"
+  }
+}

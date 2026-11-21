@@ -1,0 +1,93 @@
+{
+  "date_utc": "2026-11-11",
+  "status": "Full1216 source port and14 CPU fixtures passed; normal c686 leaf profile now complete. Native1216 build deferred pending origins of observed memory-copy work.",
+  "source": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/source-lichii-fastdraw1216-lab",
+  "base_ELF_sha256": "c686c1ff5811dd4aeba3f92d8da7717724dab9f1f3978e7c73897899769852d4",
+  "base_files_verified": 5218,
+  "pr1216_head": "9ad7c7cee21d9dbe8fafa251479cbfc263270c9b",
+  "upstream_urls": [
+    "https://github.com/zortos293/Lichii/pull/1216",
+    "https://github.com/zortos293/Lichii/pull/974"
+  ],
+  "changed_files": {
+    "src/video_core/gpu_split.h": {
+      "base_sha256": "b1a11b0b9a91a08d55ed5242c351abba1b6166976a7bf5d0647a9094425d153f",
+      "candidate_sha256": "7a741dc489d9244bf6551233d0a577b35913c410f82f415a5040e2e36c0bd6d4"
+    },
+    "src/video_core/nx2_fast_draw.h": {
+      "base_sha256": "200e2decc6d8824d05b842d5b87124262f2c66c81bddf012ddeadb60050e359b",
+      "candidate_sha256": "9df05a9d750ab10ee608c69db99c0d8d2f60da970a31ef4a3c30326fc14e5fe5"
+    },
+    "src/video_core/engines/maxwell_3d.h": {
+      "base_sha256": "c7cf895286fa100852fb9dcbbf6b1bad94aac828efa8f0795f7e9e562999adf2",
+      "candidate_sha256": "20e0bb0bcb3060291cf4ce5fa769da570674c9aa1dbb3906498e623762c57859"
+    },
+    "src/video_core/engines/maxwell_3d.cpp": {
+      "base_sha256": "d5c40ca1d68f81871369dbcec4db39c2692cdcaca59d3d02cca859c2401dd3e2",
+      "candidate_sha256": "cb88b5855eede0de35b23eae20c176722dd456e146934e39d11ba15c72517d1b"
+    },
+    "src/video_core/renderer_vulkan/vk_rasterizer.cpp": {
+      "base_sha256": "5ca8a51e49e6fa5eda57346dc22da578dd1f85e94977a4f4babb1c709c663750",
+      "candidate_sha256": "0b0cb9c9269db0b62766b6c46fb6b5effb3c0f1e1f4f191b592edfa0d49b88cf"
+    },
+    "src/tests/video_core/fast_draw.cpp": {
+      "base_sha256": "8690544ece737359b5cc84a5d89c9011a6542e21b5674c5125eaec7b271899ff",
+      "candidate_sha256": "b28d3f1744193e6b5ae8ee76bd13e956896e278268027c060b6ab9b3409bf632"
+    },
+    "src/tests/video_core/maxwell_fast_method.cpp": {
+      "base_sha256": "65b09160b84d564f8fa5157c66419633ef8e0eabdcb6ae9a44322ec67168702c",
+      "candidate_sha256": "af6b49b61b8de5a2f4414edb56526ff621646ab6ed694ae22945297ccc0d228b"
+    }
+  },
+  "CPU_fixture_runs": 14,
+  "CPU_fixture_seconds": 5.223001480102539,
+  "native_tests_added_not_executed": true,
+  "native_mutant_recipes_missing": true,
+  "native_build_started": false,
+  "new_candidate_game_started": false,
+  "constant40_achieved": false,
+  "production_change": false,
+  "decision": "Upstream#974 reports more deltas but no measurable OoT FPS gain on its three views; prior instrumented local profile bypassed fastdispatch. Need current normal-path leaf cost before ranking benefit.",
+  "memory_cache670": "Direct64-to4096 entry patch not applicable: current MaxContinuousRange uses CurrentSnapshot().runs and binary search, not that prior page walk. No speed claim.",
+  "perf_tool_probe": {
+    "samples": 159,
+    "duration_seconds": 1.510202032,
+    "real_FIFO_ACKs": true,
+    "raw_records_and_decoder_agree": true,
+    "callchains_absent": true,
+    "mmap_synthesis_absent": true,
+    "scope": "CPU dummy only, not game or a measured native cost.",
+    "samples_inside_ACKs": 154,
+    "samples_before_ACK_excluded": 5,
+    "explicit_clockid": 1
+  },
+  "limits": [
+    "CPU fixtures execute actual renderer bodies with explicit Vulkan doubles; no device result or native header compatibility proved.",
+    "Native report/condition/stride/queue tests added but not compiled/executed; their mutants still needed.",
+    "FAST_DRAW_VERIFY forces full reference setup and cannot establish the ordinary candidate cost.",
+    "No current candidate speed gain inferred from old GPU_PROFILE or upstream delta counts."
+  ],
+  "proof_files_sha256": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/fastdraw1216-preparation-20261111/base-source.json": "a70de62367b8b4c0d1415d90017f6dbbd7719c3384be5dc7d131cb5b78ab8eea",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/fastdraw1216-preparation-20261111/pr1216-files.json": "fd49f45ff92dc2edeb4d4659642bccc8e59a26d80a5773a7aa4b727ae811773b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/fastdraw1216-preparation-20261111/pr974.json": "d70d0a7859091d6d033c117f4e92e47673c209d07839d7866a631df9ddc952bf",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/fastdraw1216-preparation-20261111/cpu-execution.json": "d4c2d024944e2015733463392092ff0db3af05e3125182679ae35f4cb8e112c5",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/fastdraw1216-preparation-20261111/fixtures/results/report.json": "c3ce55187a2c7d6e080337103e72eb61ecc2defd28d05830f2fd176579a150ad",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/fastdraw1216-preparation-20261111/fixtures/generated-manifest.json": "f0da406798f8b60fb0241702870aea01aaf2effed7456ce791398f7362f60257",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/leaf-profile-preparation-20261111/attempt3/probe-result.json": "41a356969268c2f0ce704cfc033482dca547aa7522627eb05c4970fa20b17c24",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/leaf-profile-preparation-20261111/attempt2/result-audit.json": "cee98cf00cfd6505cd0028e0e211b4b7fabdcc258510314c1239edfb2443ee3c",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/source-lichii-fastdraw1216-lab/src/video_core/gpu_split.h": "7a741dc489d9244bf6551233d0a577b35913c410f82f415a5040e2e36c0bd6d4",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/source-lichii-fastdraw1216-lab/src/video_core/nx2_fast_draw.h": "9df05a9d750ab10ee608c69db99c0d8d2f60da970a31ef4a3c30326fc14e5fe5",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/source-lichii-fastdraw1216-lab/src/video_core/engines/maxwell_3d.h": "20e0bb0bcb3060291cf4ce5fa769da570674c9aa1dbb3906498e623762c57859",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/source-lichii-fastdraw1216-lab/src/video_core/engines/maxwell_3d.cpp": "cb88b5855eede0de35b23eae20c176722dd456e146934e39d11ba15c72517d1b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/source-lichii-fastdraw1216-lab/src/video_core/renderer_vulkan/vk_rasterizer.cpp": "0b0cb9c9269db0b62766b6c46fb6b5effb3c0f1e1f4f191b592edfa0d49b88cf",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/source-lichii-fastdraw1216-lab/src/tests/video_core/fast_draw.cpp": "b28d3f1744193e6b5ae8ee76bd13e956896e278268027c060b6ab9b3409bf632",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/source-lichii-fastdraw1216-lab/src/tests/video_core/maxwell_fast_method.cpp": "af6b49b61b8de5a2f4414edb56526ff621646ab6ed694ae22945297ccc0d228b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/leaf-profile-preparation-20261111/attempt4/probe-result.json": "561d58303aafaa65cb9cf2f461a2865810523a454e0703579bf103c26087b5e3",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/leaf-profile-preparation-20261111/attempt3/clock-domain-audit.json": "1036e5cf074736e794d192c562f579d356d09a802b267d09349afd083de778f8"
+  },
+  "at_unix": 1794368000.9607875,
+  "current_profile_report": "spikes/switch2-room/goal40-current-profile-2026-11-11.json",
+  "prepared_patch": "spikes/switch2-room/amont/fastdraw974-1216-2026-11-11.patch",
+  "prepared_patch_sha256": "1c187b45d21567d625b5b0712234779cb9ccb16039401cb4694cbcf7ed36b4fc"
+}

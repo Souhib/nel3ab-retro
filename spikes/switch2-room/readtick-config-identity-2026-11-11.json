@@ -1,0 +1,63 @@
+{
+  "date_utc": "2026-11-11",
+  "status": "V6 revision2 functional qualification passed on third live attempt; first two preserved, no performance result",
+  "failed_cohort": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v4",
+  "failure": "Rebased candidate JSON changed its digest while Node constructor retained the previous embedded digest. Earlier unchanged-after-rebase proof did not cover these coupled values.",
+  "no_worker_or_emulator_started_v4": true,
+  "observer_restored_after_v4": true,
+  "installed_snapshot_unchanged_at_next_admission": 8652,
+  "current_cohort": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v6",
+  "configuration_contract": [
+    "Package records actual trial label, candidate path and SHA, revision, engine path",
+    "Node checks registration and selected package before first private directory creation",
+    "Mandatory dependency contract invokes actual driver and loader validation before admission",
+    "Actual ordinary driver prefix with unchanged real candidate/package runs through real seed copy for all5labels"
+  ],
+  "current_driver_cases": 17,
+  "ordinary_driver_seed_bootstraps": 5,
+  "loader_entry_checks": 10,
+  "kernel_component_code_unchanged_from_real_v3_tests": true,
+  "constant40_achieved": false,
+  "production_change": false,
+  "proof_files_sha256": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v4/F1/driver-console.log": "ec2eb317c267c6b1aa5ddcc1d92b8d4c20e18d82c26220ff013a09629df97818",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v4/F1/driver-exit.json": "31762181e982e76d66c5e7ecf09ad058c5b2a468f392b95cf8272dd0a3ea63c0",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v4/F1/observer-lifecycle.json": "e6a83c5daad2aed90710a2e31ec040e8a5a8cfcdbfc3f4e40803e9ba5db0dabe",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v5/driver-entry-report.json": "840d588c1beb5018488d1f00bc285d53f90768d1d7622e69fa0d7eef0b41921c",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v5/loader-entry-report.json": "29000f27ea4bd67336d60cbbaf468ae748379da58c8fdd219ef84a7e8c3eb394",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v5/preparation-tests.json": "25ecfe36573649d3967419a173f63413943b369a8f747cbff044c6d58c88e23f",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v5/prepared-manifest.json": "36c49e39e28f5d690bfa9d7a57f38b189fee517f3247bd57f3b6921dd8efba5e",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v5/root-functional-review.json": "e828e64d1e5379e21b0e96b95012f6fb301178c49c06d49afadc2619539133c9",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v5/F1/cleanup.json": "8d16e802579d28ae249492754cd34c26198a96f9aa4ea8684c49f128711c5724",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v5/F1/auto-result.json": "f6966c4bd5f7c9c0ed5eb46ca3146bf17facfe3e01a7d4273c29b8e9746284b6",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v5/F1/auto-events.jsonl": "6d4b9a4866ee2ac48c4080125e6457ad96bc8aa2b5d13b5ac2d6caae35b06cf6",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v6/archive/F1-attempt1-20261111/root-reviewed-repeat.json": "f2ca9397530d917857b8db68a6b96c147036bf06690e61088521a934ebc3b526",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v6/archive/F1-attempt1-20261111/cleanup.json": "098b1f067fd2e596dced71ab3f9dadcb1b85109c8097179ca31ed40a1e69b53f",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v6/archive/F1-attempt2-20261111/root-attempt-record.json": "3369dff5cea8a0eb94d66f15fe4f34efecd13240690a29f411d25442cc4762c5",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v6/archive/F1-attempt2-20261111/cleanup.json": "1ee18f784772909acb8a50a6b02e7e12b44e499c23502263558e55966692c8ca"
+  },
+  "v5_runtime_failure": "All five later runtime readers retained old literal candidate digests; constructor and loader checks had passed. No measurement phase started.",
+  "v5_cleanup": {
+    "native_normal_stop": true,
+    "forced_cleanup": false,
+    "owned_containers_absent": true,
+    "virtual_pads_absent": true,
+    "production_snapshot_unchanged": true,
+    "watchdog_reason": null
+  },
+  "required_current_reader_proof": "Full gather on current actual per-trial candidate, policy and package; stale digest red/fixed green/reintroduced red/final green before new admission",
+  "last_updated_unix": 1794365357.0401914,
+  "v6_checks": {
+    "complete_reader_cases": 50,
+    "driver_entry_cases": 20,
+    "loader_entry_cases": 12,
+    "real_seed_bootstraps": 5,
+    "images_read_first_attempt": 2,
+    "actual_native_fields_compared_first_attempt": 141
+  },
+  "v6_attempts_archived": [
+    "archive/F1-attempt1-20261111",
+    "archive/F1-attempt2-20261111"
+  ],
+  "functional_report": "spikes/switch2-room/readtick-functional-2026-11-11.json"
+}

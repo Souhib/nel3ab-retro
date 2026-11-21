@@ -1,0 +1,389 @@
+--- a/src/tests/CMakeLists.txt
++++ b/src/tests/CMakeLists.txt
+@@ -192,6 +192,7 @@
+     video_core/evicted_pointer_slots.cpp
+     video_core/wsi_present_stats.cpp
+     video_core/stream_ring_cursor.cpp
++    video_core/upload_memory_policy.cpp
+     video_core/usage_tracker.cpp
+     video_core/shader_invalidation.cpp
+     video_core/descriptor_table.cpp
+--- /dev/null
++++ b/src/tests/video_core/upload_memory_policy.cpp
+@@ -0,0 +1,122 @@
++// SPDX-FileCopyrightText: Copyright 2026 Eden Emulator Project
++// SPDX-License-Identifier: GPL-3.0-or-later
++#include <array>
++#include <stdexcept>
++#include <string>
++#include "video_core/vulkan_common/upload_memory_policy.h"
++
++#ifdef UPLOAD_MEMORY_POLICY_STANDALONE
++#include <iostream>
++#else
++#include <catch2/catch_test_macros.hpp>
++#endif
++
++namespace {
++using namespace Vulkan;
++
++void Check(bool value, const char* reason) {
++    if (!value) {
++        throw std::runtime_error(reason);
++    }
++}
++
++bool SameAllocation(const VmaAllocationCreateInfo& a, const VmaAllocationCreateInfo& b) {
++    return a.flags == b.flags && a.usage == b.usage && a.requiredFlags == b.requiredFlags &&
++           a.preferredFlags == b.preferredFlags && a.memoryTypeBits == b.memoryTypeBits &&
++           a.pool == b.pool && a.pUserData == b.pUserData && a.priority == b.priority;
++}
++
++void RunUploadMemoryPolicyChecks() {
++    int user_data{};
++    const std::array usages{MemoryUsage::Stream, MemoryUsage::Upload,
++                            MemoryUsage::Download, MemoryUsage::DeviceLocal};
++    const std::array drivers{VK_DRIVER_ID_MESA_RADV, VK_DRIVER_ID_AMD_PROPRIETARY,
++                            VK_DRIVER_ID_INTEL_OPEN_SOURCE_MESA, VK_DRIVER_ID_NVIDIA_PROPRIETARY};
++    for (const auto usage : usages) {
++        for (const auto driver : drivers) {
++            const bool applies = driver == VK_DRIVER_ID_MESA_RADV &&
++                                 (usage == MemoryUsage::Stream || usage == MemoryUsage::Upload);
++            for (const auto prior_required : {0u, static_cast<unsigned>(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)}) {
++            for (const auto bits : {0u, 0x24u}) {
++                VmaAllocationCreateInfo legacy{};
++                legacy.flags = VMA_ALLOCATION_CREATE_WITHIN_BUDGET_BIT |
++                               VMA_ALLOCATION_CREATE_MAPPED_BIT |
++                               VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
++                legacy.usage = usage == MemoryUsage::Stream ? VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE :
++                                                             VMA_MEMORY_USAGE_AUTO_PREFER_HOST;
++                // Nonzero sentinel fields prove preservation, including additional requirements.
++                legacy.requiredFlags = prior_required;
++                legacy.preferredFlags = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
++                legacy.memoryTypeBits = bits;
++                legacy.pUserData = &user_data;
++                legacy.priority = 0.25f;
++                for (const VkResult query_result : {VK_SUCCESS, VK_ERROR_FEATURE_NOT_PRESENT,
++                                                    VK_ERROR_OUT_OF_HOST_MEMORY,
++                                                    VK_ERROR_OUT_OF_DEVICE_MEMORY,
++                                                    VK_ERROR_DEVICE_LOST}) {
++                    int queries{};
++                    auto query = [&](const VmaAllocationCreateInfo& proposed) {
++                        ++queries;
++                        Check(applies, "foreign-driver-or-usage-query");
++                        Check(proposed.usage == VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
++                              "host-preference-required");
++                        Check((proposed.requiredFlags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT) != 0,
++                              "cached-required");
++                        Check((proposed.requiredFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) != 0,
++                              "coherent-required");
++                        auto expected = legacy;
++                        expected.usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST;
++                        expected.requiredFlags |= VK_MEMORY_PROPERTY_HOST_CACHED_BIT |
++                                                  VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
++                        Check(SameAllocation(proposed, expected), "legacy-fields-preserved-in-query");
++                        // Explicit double of VMA's type lookup, not a Vulkan compatibility proof.
++                        return query_result;
++                    };
++                    const auto selected = SelectUploadMemory(driver, usage, legacy, query);
++                    Check(queries == (applies ? 1 : 0), "eligible-query-count");
++                    if (!applies) {
++                        Check(SameAllocation(selected.allocation, legacy), "other-path-unchanged");
++                        Check(selected.outcome == UploadMemoryOutcome::Unchanged &&
++                              selected.result == VK_SUCCESS, "other-path-status");
++                    } else if (query_result == VK_SUCCESS) {
++                        auto expected = legacy;
++                        expected.usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST;
++                        expected.requiredFlags |= VK_MEMORY_PROPERTY_HOST_CACHED_BIT |
++                                                  VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
++                        Check(SameAllocation(selected.allocation, expected), "selected-policy");
++                        Check(selected.outcome == UploadMemoryOutcome::CachedCoherent &&
++                              selected.result == VK_SUCCESS, "selected-status");
++                    } else if (query_result == VK_ERROR_FEATURE_NOT_PRESENT) {
++                        Check(SameAllocation(selected.allocation, legacy), "incompatible-legacy-exact");
++                        Check(selected.outcome == UploadMemoryOutcome::Incompatible &&
++                              selected.result == VK_SUCCESS, "incompatible-explicit-fallback");
++                    } else {
++                        Check(SameAllocation(selected.allocation, legacy), "error-legacy-exact");
++                        Check(selected.result == query_result, "query-error-not-hidden");
++                        Check(selected.outcome == UploadMemoryOutcome::Unchanged, "error-not-applied");
++                    }
++                }
++            }
++            }
++        }
++    }
++}
++} // namespace
++
++#ifdef UPLOAD_MEMORY_POLICY_STANDALONE
++int main() {
++    try {
++        RunUploadMemoryPolicyChecks();
++        std::cout << "PASS actual SelectUploadMemory: 320 selection cases\n";
++        return 0;
++    } catch (const std::exception& error) {
++        std::cerr << error.what() << '\n';
++        return 1;
++    }
++}
++#else
++TEST_CASE("RADV upload memory requires cache and coherence only when compatible",
++          "[upload_memory_policy]") {
++    REQUIRE_NOTHROW(RunUploadMemoryPolicyChecks());
++}
++#endif
+--- a/src/video_core/CMakeLists.txt
++++ b/src/video_core/CMakeLists.txt
+@@ -267,6 +267,8 @@
+     vulkan_common/unbacked_fallback.h
+     vulkan_common/vulkan_memory_allocator.cpp
+     vulkan_common/vulkan_memory_allocator.h
++    vulkan_common/memory_usage.h
++    vulkan_common/upload_memory_policy.h
+     vulkan_common/vulkan_surface.cpp
+     vulkan_common/vulkan_surface.h
+     vulkan_common/vulkan_wrapper.cpp
+--- /dev/null
++++ b/src/video_core/vulkan_common/memory_usage.h
+@@ -0,0 +1,14 @@
++// SPDX-FileCopyrightText: Copyright 2026 Eden Emulator Project
++// SPDX-License-Identifier: GPL-3.0-or-later
++#pragma once
++
++namespace Vulkan {
++/// Hints and requirements for the backing memory type of a commit
++    enum class MemoryUsage {
++        DeviceLocal, ///< Requests device local host visible buffer, falling back to device local memory.
++        Upload,      ///< Requires a host visible memory type optimized for CPU to GPU uploads
++        Download,    ///< Requires a host visible memory type optimized for GPU to CPU readbacks
++        Stream,      ///< Requests device local host visible buffer, falling back host memory.
++    };
++
++} // namespace Vulkan
+--- /dev/null
++++ b/src/video_core/vulkan_common/upload_memory_policy.h
+@@ -0,0 +1,47 @@
++// SPDX-FileCopyrightText: Copyright 2026 Eden Emulator Project
++// SPDX-License-Identifier: GPL-3.0-or-later
++#pragma once
++
++#include "video_core/vulkan_common/memory_usage.h"
++#include "video_core/vulkan_common/vma.h"
++
++namespace Vulkan {
++
++enum class UploadMemoryOutcome { Unchanged, CachedCoherent, Incompatible };
++
++struct UploadMemorySelection {
++    VmaAllocationCreateInfo allocation;
++    UploadMemoryOutcome outcome{UploadMemoryOutcome::Unchanged};
++    VkResult result{VK_SUCCESS};
++};
++
++// The query must use the actual buffer create info and these allocation restrictions.
++// VMA's sequential-write preference penalizes HOST_CACHED even with AUTO_PREFER_HOST;
++// requiring both flags prevents preference scoring from choosing uncached memory.
++// Only absence of a compatible type permits fallback. Other query errors remain errors.
++template <typename FindMemoryType>
++UploadMemorySelection SelectUploadMemory(VkDriverId driver, MemoryUsage usage,
++                                        const VmaAllocationCreateInfo& legacy,
++                                        FindMemoryType&& find_memory_type) {
++    UploadMemorySelection selection{legacy};
++    if (driver != VK_DRIVER_ID_MESA_RADV ||
++        (usage != MemoryUsage::Stream && usage != MemoryUsage::Upload)) {
++        return selection;
++    }
++    auto proposed = legacy;
++    proposed.usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST;
++    proposed.requiredFlags |= VK_MEMORY_PROPERTY_HOST_CACHED_BIT |
++                              VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
++    const VkResult result = find_memory_type(proposed);
++    if (result == VK_SUCCESS) {
++        selection.allocation = proposed;
++        selection.outcome = UploadMemoryOutcome::CachedCoherent;
++    } else if (result == VK_ERROR_FEATURE_NOT_PRESENT) {
++        selection.outcome = UploadMemoryOutcome::Incompatible;
++    } else {
++        selection.result = result;
++    }
++    return selection;
++}
++
++} // namespace Vulkan
+--- a/src/video_core/vulkan_common/vulkan_memory_allocator.cpp
++++ b/src/video_core/vulkan_common/vulkan_memory_allocator.cpp
+@@ -19,6 +19,7 @@
+ #endif
+ 
+ #include <cstring>
++#include <cstdlib>
+ #include <iterator>
+ #include <string>
+ 
+@@ -200,6 +201,9 @@
+             properties{device_.GetPhysical().GetMemoryProperties().memoryProperties},
+             buffer_image_granularity{
+                     device_.GetPhysical().GetProperties().limits.bufferImageGranularity} {
++
++    const char* trace = std::getenv("EDEN_NX2_UPLOAD_HOST_TRACE");
++    upload_memory_trace = trace != nullptr && std::strcmp(trace, "1") == 0;
+ 
+     // Preserve the previous "RenderDoc small heap" trimming behavior that we had in original vma minus the heap bug
+     if (device.HasDebuggingToolAttached())
+@@ -436,12 +440,53 @@
+            VK_SUCCESS;
+ }
+ 
++UploadMemorySelection MemoryAllocator::SelectBufferMemory(
++    const VkBufferCreateInfo& ci, MemoryUsage usage,
++    const VmaAllocationCreateInfo& legacy) const {
++    auto selection = SelectUploadMemory(device.GetDriverID(), usage, legacy,
++                                        [&](const VmaAllocationCreateInfo& proposed) {
++        u32 memory_type{};
++        return vmaFindMemoryTypeIndexForBufferInfo(allocator, &ci, &proposed, &memory_type);
++    });
++    vk::Check(selection.result);
++    return selection;
++}
++
++void MemoryAllocator::NoteUploadMemory(MemoryUsage usage,
++                                       const UploadMemorySelection& selection,
++                                       const VmaAllocationInfo& info,
++                                       VkMemoryPropertyFlags flags) const {
++    if (selection.outcome == UploadMemoryOutcome::Unchanged) {
++        return;
++    }
++    const bool applied = selection.outcome == UploadMemoryOutcome::CachedCoherent;
++    const size_t index = usage == MemoryUsage::Stream ? 0 : 1;
++    const u64 bit = u64{1} << (info.memoryType + (applied ? 0 : 32));
++    if ((upload_memory_observed[index].fetch_or(bit, std::memory_order_relaxed) & bit) != 0) {
++        return;
++    }
++    // A successful allocation, not an environment flag, proves normal activation.
++    // At most one line per usage/type/outcome per allocator, never per copy or frame.
++    LOG_INFO(Render_Vulkan, "Nx2UploadHost usage={} policy={}",
++             usage == MemoryUsage::Stream ? "Stream" : "Upload",
++             applied ? "cached-coherent" : "legacy-no-compatible-type");
++    if (upload_memory_trace) {
++        LOG_INFO(Render_Vulkan,
++                 "Nx2UploadHostMemory usage={} policy={} type={} flags={:#x} "
++                 "memory={:#x} offset={} allocation_bytes={} mapped={}",
++                 usage == MemoryUsage::Stream ? "Stream" : "Upload",
++                 applied ? "cached-coherent" : "legacy-no-compatible-type",
++                 info.memoryType, flags, reinterpret_cast<uintptr_t>(info.deviceMemory),
++                 info.offset, info.size, info.pMappedData != nullptr);
++    }
++}
++
+ vk::Buffer MemoryAllocator::CreateBuffer(const VkBufferCreateInfo &ci, MemoryUsage usage) const {
+     // MESA will do memcpy() if not marked as host cached, so just force mark it for most buffers
+     auto const anv_flags = (usage == MemoryUsage::Stream
+         && device.GetDriverID() == VK_DRIVER_ID_INTEL_OPEN_SOURCE_MESA)
+         ? VK_MEMORY_PROPERTY_HOST_CACHED_BIT : 0;
+-    const VmaAllocationCreateInfo alloc_ci = {
++    const VmaAllocationCreateInfo legacy_ci = {
+         .flags = VMA_ALLOCATION_CREATE_WITHIN_BUDGET_BIT | MemoryUsageVmaFlags(usage),
+         .usage = MemoryUsageVma(usage),
+         .requiredFlags = 0,
+@@ -452,6 +497,9 @@
+         .priority = 0.f,
+     };
+ 
++    const auto selection = SelectBufferMemory(ci, usage, legacy_ci);
++    const auto& alloc_ci = selection.allocation;
++
+     VkBuffer handle{};
+     VmaAllocationInfo alloc_info{};
+     VmaAllocation allocation{};
+@@ -461,6 +509,7 @@
+         vk::Check(vmaCreateBuffer(allocator, &ci, &alloc_ci, &handle, &allocation, &alloc_info));
+     }
+     vmaGetAllocationMemoryProperties(allocator, allocation, &property_flags);
++    NoteUploadMemory(usage, selection, alloc_info, property_flags);
+ 
+     // Log GPU memory allocation for buffers
+     if (GPU::Logging::IsActive() &&
+@@ -499,7 +548,7 @@
+     if (usage == MemoryUsage::Stream) {
+         memory_type_bits = 0u;
+     }
+-    const VmaAllocationCreateInfo alloc_ci = {
++    const VmaAllocationCreateInfo legacy_ci = {
+         .flags = VMA_ALLOCATION_CREATE_WITHIN_BUDGET_BIT | MemoryUsageVmaFlags(usage),
+         .usage = MemoryUsageVma(usage),
+         .requiredFlags = 0,
+@@ -510,6 +559,9 @@
+         .priority = 0.f,
+     };
+ 
++    const auto selection = SelectBufferMemory(ci, usage, legacy_ci);
++    const auto& alloc_ci = selection.allocation;
++
+     VkBuffer handle{};
+     VmaAllocationInfo alloc_info{};
+     VmaAllocation allocation{};
+@@ -518,6 +570,7 @@
+     vk::Check(vmaCreateBufferWithAlignment(allocator, &ci, &alloc_ci, min_alignment, &handle,
+                                            &allocation, &alloc_info));
+     vmaGetAllocationMemoryProperties(allocator, allocation, &property_flags);
++    NoteUploadMemory(usage, selection, alloc_info, property_flags);
+ 
+     u8 *data = reinterpret_cast<u8 *>(alloc_info.pMappedData);
+     std::span<u8> mapped_data{};
+--- a/src/video_core/vulkan_common/vulkan_memory_allocator.h
++++ b/src/video_core/vulkan_common/vulkan_memory_allocator.h
+@@ -6,6 +6,7 @@
+ 
+ #pragma once
+ 
++#include <array>
+ #include <atomic>
+ #include <memory>
+ #include <mutex>
+@@ -14,6 +15,8 @@
+ #include <vector>
+ 
+ #include "common/common_types.h"
++#include "video_core/vulkan_common/memory_usage.h"
++#include "video_core/vulkan_common/upload_memory_policy.h"
+ #include "video_core/vulkan_common/vulkan_device.h"
+ #include "video_core/vulkan_common/vulkan_wrapper.h"
+ #include "video_core/vulkan_common/vma.h"
+@@ -21,14 +24,6 @@
+ namespace Vulkan {
+ 
+     class Device;
+-
+-/// Hints and requirements for the backing memory type of a commit
+-    enum class MemoryUsage {
+-        DeviceLocal, ///< Requests device local host visible buffer, falling back to device local memory.
+-        Upload,      ///< Requires a host visible memory type optimized for CPU to GPU uploads
+-        Download,    ///< Requires a host visible memory type optimized for GPU to CPU readbacks
+-        Stream,      ///< Requests device local host visible buffer, falling back host memory.
+-    };
+ 
+     template<typename F>
+     void ForEachDeviceLocalHostVisibleHeap(const Device &device, F &&f) {
+@@ -161,6 +156,11 @@
+         MemoryCommit Commit(const vk::Buffer &buffer, MemoryUsage usage);
+ 
+     private:
++        UploadMemorySelection SelectBufferMemory(const VkBufferCreateInfo& ci, MemoryUsage usage,
++                                                 const VmaAllocationCreateInfo& legacy) const;
++        void NoteUploadMemory(MemoryUsage usage, const UploadMemorySelection& selection,
++                              const VmaAllocationInfo& info, VkMemoryPropertyFlags flags) const;
++
+         static bool IsAutoUsage(VmaMemoryUsage u) noexcept {
+             switch (u) {
+                 case VMA_MEMORY_USAGE_AUTO:
+@@ -184,6 +184,9 @@
+         u32 valid_memory_types{~0u};
+         mutable std::atomic<u32> pressure_events{0};
+         mutable std::atomic<u32> failed_images{0};
++        // One bit per memory type and outcome, independently for Stream and Upload.
++        mutable std::array<std::atomic<u64>, 2> upload_memory_observed{};
++        bool upload_memory_trace{};
+         mutable std::mutex buffer_type_mutex;
+         /// Memory type of device-local buffers by usage and flags (CreateBufferInSeparatePool).
+         mutable std::unordered_map<u64, u32> buffer_memory_types;

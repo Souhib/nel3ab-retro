@@ -1,0 +1,387 @@
+--- a/src/tests/CMakeLists.txt
++++ b/src/tests/CMakeLists.txt
+@@ -188,6 +188,7 @@
+     video_core/turing_macro_effects.cpp
+     video_core/turing_macro_ram.cpp
+     video_core/uniform_stream_reuse.cpp
++    video_core/evicted_pointer_slots.cpp
+     video_core/wsi_present_stats.cpp
+     video_core/stream_ring_cursor.cpp
+     video_core/usage_tracker.cpp
+--- /dev/null
++++ b/src/tests/video_core/evicted_pointer_slots.cpp
+@@ -0,0 +1,134 @@
++// SPDX-FileCopyrightText: Copyright 2026 Eden Emulator Project
++// SPDX-License-Identifier: GPL-3.0-or-later
++
++#include <array>
++#include <catch2/catch_test_macros.hpp>
++
++#include "video_core/evicted_pointer_slots.h"
++#include "video_core/shader_environment.h"
++
++namespace {
++
++using VideoCommon::EvictedPointerSlots;
++
++constexpr u64 SlotKey(u32 index, u32 offset) {
++    return (u64{index} << 32) | offset;
++}
++
++/// A vertex program whose constant buffer slots all hold `value`. It has no GPU memory, so a
++/// classification that reads a non-null slot's target would crash.
++class SlotEnvironment final : public VideoCommon::GenericEnvironment {
++public:
++    explicit SlotEnvironment(u32 value_) : value{value_} {
++        stage = Shader::Stage::VertexB;
++        code = {0x123456789abcdef0, 0xfedcba9876543210};
++        cached_lowest = 0;
++        cached_highest = sizeof(u64);
++    }
++
++    u32 ReadCbufValue(u32, u32) override {
++        return value;
++    }
++    Shader::TextureType ReadTextureType(u32) override {
++        return Shader::TextureType::Color2D;
++    }
++    Shader::TexturePixelFormat ReadTexturePixelFormat(u32) override {
++        return {};
++    }
++    bool IsTexturePixelFormatInteger(u32) override {
++        return false;
++    }
++    u32 ReadViewportTransformState() override {
++        return 1;
++    }
++    std::optional<Shader::ReplaceConstant> GetReplaceConstBuffer(u32, u32) override {
++        return std::nullopt;
++    }
++
++private:
++    u32 value;
++};
++
++} // Anonymous namespace
++
++TEST_CASE("A re-translation keeps the pointer slots of the pipeline it replaces",
++          "[video_core][evicted_pointer_slots]") {
++    constexpr u64 Slot = SlotKey(0, 0x690);
++
++    SlotEnvironment fresh{0};
++    REQUIRE_FALSE(fresh.IsCbufStorageBufferPointer(0, 0x690));
++    REQUIRE(fresh.MappedStoragePointerKeys().empty());
++
++    EvictedPointerSlots evicted;
++    EvictedPointerSlots::Slots slots;
++    slots[1] = {Slot};
++    evicted.Remember(0xabc, slots);
++    const auto kept = evicted.Take(0xabc);
++    REQUIRE(kept.has_value());
++
++    SlotEnvironment null_slot{0};
++    null_slot.KeepStoragePointers((*kept)[1]);
++    REQUIRE(null_slot.IsCbufStorageBufferPointer(0, 0x690));
++    REQUIRE(null_slot.MappedStoragePointerKeys() == std::vector<u64>{Slot});
++
++    SlotEnvironment unmapped_slot{0xdead0000};
++    unmapped_slot.KeepStoragePointers((*kept)[1]);
++    REQUIRE(unmapped_slot.IsCbufStorageBufferPointer(0, 0x690));
++    REQUIRE(unmapped_slot.MappedStoragePointerKeys() == std::vector<u64>{Slot});
++}
++
++TEST_CASE("Evicted pointer slots are taken once and bounded",
++          "[video_core][evicted_pointer_slots]") {
++    EvictedPointerSlots evicted;
++    evicted.Remember(1, {});
++    REQUIRE(evicted.Size() == 0);
++    REQUIRE_FALSE(evicted.Take(1).has_value());
++
++    EvictedPointerSlots::Slots slots;
++    slots[5] = {SlotKey(3, 0x10), SlotKey(4, 0x20)};
++    evicted.Remember(2, slots);
++    REQUIRE(evicted.Size() == 1);
++    const auto taken = evicted.Take(2);
++    REQUIRE(taken.has_value());
++    REQUIRE((*taken)[5] == slots[5]);
++    REQUIRE_FALSE(evicted.Take(2).has_value());
++    REQUIRE(evicted.Size() == 0);
++
++    for (u64 hash = 0; hash < EvictedPointerSlots::MaxEntries + 100; ++hash) {
++        evicted.Remember(hash, slots);
++    }
++    REQUIRE(evicted.Size() == EvictedPointerSlots::MaxEntries);
++    evicted.Remember(EvictedPointerSlots::MaxEntries + 50, slots);
++    REQUIRE(evicted.Size() == EvictedPointerSlots::MaxEntries);
++}
++
++TEST_CASE("Retained slots replace a cached null classification without crossing pipeline keys",
++          "[video_core][evicted_pointer_slots]") {
++    EvictedPointerSlots evicted;
++    EvictedPointerSlots::Slots slots;
++    for (size_t program = 0; program < EvictedPointerSlots::NumPrograms; ++program) {
++        const u32 index = static_cast<u32>(program);
++        const u32 offset = 0x100 + index * sizeof(u64);
++        slots[program] = {SlotKey(index, offset)};
++    }
++    evicted.Remember(0xabc, slots);
++    REQUIRE_FALSE(evicted.Take(0xdef).has_value());
++    REQUIRE(evicted.Size() == 1);
++    const auto kept = evicted.Take(0xabc);
++    REQUIRE(kept.has_value());
++    EvictedPointerSlots::Slots translated;
++    for (size_t program = 0; program < EvictedPointerSlots::NumPrograms; ++program) {
++        const u32 index = static_cast<u32>(program);
++        const u32 offset = 0x100 + index * sizeof(u64);
++        SlotEnvironment env{0};
++        REQUIRE_FALSE(env.IsCbufStorageBufferPointer(index, offset));
++        env.KeepStoragePointers((*kept)[program]);
++        REQUIRE(env.IsCbufStorageBufferPointer(index, offset));
++        REQUIRE_FALSE(env.IsCbufStorageBufferPointer(index, offset + sizeof(u64)));
++        translated[program] = env.MappedStoragePointerKeys();
++    }
++    REQUIRE(translated == slots);
++    evicted.Remember(0xabc, translated);
++    REQUIRE(evicted.Take(0xabc) == kept);
++    REQUIRE_FALSE(evicted.Take(0xabc).has_value());
++}
+--- a/src/video_core/CMakeLists.txt
++++ b/src/video_core/CMakeLists.txt
+@@ -277,6 +277,7 @@
+     shader_cache.h
+     shader_environment.cpp
+     shader_environment.h
++    evicted_pointer_slots.h
+     shader_handle_program.h
+     shader_notify.cpp
+     shader_notify.h
+--- /dev/null
++++ b/src/video_core/evicted_pointer_slots.h
+@@ -0,0 +1,60 @@
++// SPDX-FileCopyrightText: Copyright 2026 Eden Emulator Project
++// SPDX-License-Identifier: GPL-3.0-or-later
++
++#pragma once
++
++#include <array>
++#include <cstddef>
++#include <optional>
++#include <unordered_map>
++#include <vector>
++
++#include "common/common_types.h"
++
++namespace VideoCommon {
++
++/// The constant buffer slots each program of an evicted graphics pipeline bound as storage buffer
++/// pointers, by pipeline key hash. Translating the pipeline again classifies a slot by what it
++/// holds at that moment, and a slot that is null or unmapped then (around an area load) loses its
++/// buffer: the new translation reads zeros through it for the rest of the session. Kept for the
++/// next translation, the pipeline can't bind fewer pointers than the one it replaces.
++class EvictedPointerSlots {
++public:
++    static constexpr size_t NumPrograms = 6;
++    using Slots = std::array<std::vector<u64>, NumPrograms>;
++
++    /// Keeps the slots of a pipeline that bound any. When full, an arbitrary older entry goes.
++    void Remember(u64 key_hash, const Slots& slots) {
++        bool any = false;
++        for (const auto& keys : slots) {
++            any |= !keys.empty();
++        }
++        if (!any) {
++            return;
++        }
++        if (!entries.contains(key_hash) && entries.size() >= MaxEntries) {
++            entries.erase(entries.begin());
++        }
++        entries.insert_or_assign(key_hash, slots);
++    }
++
++    /// The slots kept for this pipeline, forgotten once taken
++    [[nodiscard]] std::optional<Slots> Take(u64 key_hash) {
++        auto node = entries.extract(key_hash);
++        if (node.empty()) {
++            return std::nullopt;
++        }
++        return std::move(node.mapped());
++    }
++
++    [[nodiscard]] size_t Size() const noexcept {
++        return entries.size();
++    }
++
++    static constexpr size_t MaxEntries = 8192;
++
++private:
++    std::unordered_map<u64, Slots> entries;
++};
++
++} // namespace VideoCommon
+--- a/src/video_core/renderer_vulkan/vk_graphics_pipeline.h
++++ b/src/video_core/renderer_vulkan/vk_graphics_pipeline.h
+@@ -18,6 +18,7 @@
+ 
+ #include "common/thread_worker.h"
+ #include "shader_recompiler/shader_info.h"
++#include "video_core/evicted_pointer_slots.h"
+ #include "video_core/engines/maxwell_3d.h"
+ #include "video_core/renderer_vulkan/fixed_pipeline_state.h"
+ #include "video_core/renderer_vulkan/pipeline_build.h"
+@@ -249,6 +250,15 @@
+         return used;
+     }
+ 
++    /// The constant buffer slots each program binds as storage buffer pointers
++    [[nodiscard]] const VideoCommon::EvictedPointerSlots::Slots& MappedPointers() const noexcept {
++        return mapped_pointers;
++    }
++
++    void SetMappedPointers(VideoCommon::EvictedPointerSlots::Slots slots) noexcept {
++        mapped_pointers = std::move(slots);
++    }
++
+     /// Forgets the transitions, which may point to pipelines the cache evicted.
+     void ClearTransitions() noexcept {
+         transition_keys.clear();
+@@ -361,6 +371,7 @@
+ 
+     std::vector<GraphicsPipelineCacheKey> transition_keys;
+     std::vector<GraphicsPipeline*> transitions;
++    VideoCommon::EvictedPointerSlots::Slots mapped_pointers;
+     u64 last_use_frame{};
+     bool used{};
+ 
+--- a/src/video_core/renderer_vulkan/vk_pipeline_cache.cpp
++++ b/src/video_core/renderer_vulkan/vk_pipeline_cache.cpp
+@@ -1681,7 +1681,8 @@
+                                           : StutterTrace::Lookup::GraphicsNew);
+         }
+         if (!pipeline) {
+-            pipeline = CreateGraphicsPipeline();
++            const auto keep = evicted_pointer_slots.Take(graphics_key.Hash());
++            pipeline = CreateGraphicsPipeline(keep ? &*keep : nullptr);
+         }
+     } else if (StutterTrace::Enabled() && pipeline && !pipeline->WasUsed()) {
+         StutterTrace::CountLookup(StutterTrace::Lookup::GraphicsPrebuilt);
+@@ -1766,6 +1767,7 @@
+         if (used_this_session.erase(pipeline) != 0) {
+             used_and_evicted.insert(it->first.Hash());
+         }
++        evicted_pointer_slots.Remember(it->first.Hash(), pipeline->MappedPointers());
+         evicted_pipelines.emplace_back(tick, std::move(it->second));
+         it = graphics_cache.erase(it);
+         ++evicted;
+@@ -2232,11 +2234,20 @@
+         };
+     }
+     Common::ThreadWorker* const thread_worker{build_in_parallel ? &workers : nullptr};
+-    return std::make_unique<GraphicsPipeline>(
++    static_assert(VideoCommon::EvictedPointerSlots::NumPrograms == Maxwell::MaxShaderProgram);
++    VideoCommon::EvictedPointerSlots::Slots mapped_pointers;
++    for (size_t index = 0, env_index = 0; index < Maxwell::MaxShaderProgram; ++index) {
++        if (key.unique_hashes[index] != 0) {
++            mapped_pointers[index] = envs[env_index++]->MappedStoragePointerKeys();
++        }
++    }
++    auto pipeline = std::make_unique<GraphicsPipeline>(
+         scheduler, buffer_cache, texture_cache, vulkan_pipeline_cache, &shader_notify, device,
+         descriptor_pool, guest_descriptor_queue, descriptor_buffer_ring, thread_worker, statistics,
+         render_pass_cache, key, std::move(modules), infos, std::move(emit_stages),
+         std::move(mesh_emulation));
++    pipeline->SetMappedPointers(std::move(mapped_pointers));
++    return pipeline;
+ 
+ } catch (const Shader::Exception& exception) {
+     auto hash = key.Hash();
+@@ -2301,7 +2312,45 @@
+ }
+ } // Anonymous namespace
+ 
+-std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline() {
++void PipelineCache::WarnKeptPointer(size_t program, u64 slot) const {
++    if ((slot >> 63) != 0) {
++        return;
++    }
++    const u32 index = static_cast<u32>(slot >> 32);
++    const u32 offset = static_cast<u32>(slot);
++    const size_t stage = program == 0 ? 0 : program - 1;
++    const auto& cbufs = maxwell3d->state.shader_stages[stage].const_buffers;
++    GPUVAddr value = 0;
++    const char* reason = nullptr;
++    if (index >= cbufs.size() || !cbufs[index].enabled ||
++        offset + sizeof(u64) > cbufs[index].size ||
++        !gpu_memory->IsFullyMappedRange(cbufs[index].address + offset, sizeof(u64))) {
++        reason = "constant buffer not bound";
++    } else {
++        value = gpu_memory->Read<u64>(cbufs[index].address + offset);
++        if (value == 0) {
++            reason = "null";
++        } else if (!gpu_memory->IsWithinGPUAddressRange(value)) {
++            reason = "outside the GPU address range";
++        } else if (!gpu_memory->IsFullyMappedRange(value, 1)) {
++            reason = "unmapped";
++        }
++    }
++    if (!reason) {
++        return;
++    }
++    static std::atomic<u64> kept{};
++    const u64 count = kept.fetch_add(1, std::memory_order_relaxed) + 1;
++    if (count <= 32 || count % 1000 == 0) {
++        LOG_WARNING(Render_Vulkan,
++                    "Graphics pipeline {:016x} translated again after eviction: s{}:c{}[{:#x}] "
++                    "holds {:#x} ({}), kept as the storage buffer pointer it was ({} so far)",
++                    graphics_key.Hash(), program, index, offset, value, reason, count);
++    }
++}
++
++std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
++    const VideoCommon::EvictedPointerSlots::Slots* keep_pointers) {
+     const VideoCommon::Nx2Profile::Scope profile_scope{
+         VideoCommon::Nx2Profile::Zone::GraphicsPipelineMiss};
+     const auto begin = std::chrono::steady_clock::now();
+@@ -2316,6 +2365,17 @@
+     };
+     GraphicsEnvironments environments;
+     GetGraphicsEnvironments(environments, graphics_key.unique_hashes);
++    if (keep_pointers) {
++        for (size_t index = 0; index < Maxwell::MaxShaderProgram; ++index) {
++            if (graphics_key.unique_hashes[index] == 0) {
++                continue;
++            }
++            environments.envs[index].KeepStoragePointers((*keep_pointers)[index]);
++            for (const u64 slot : (*keep_pointers)[index]) {
++                WarnKeptPointer(index, slot);
++            }
++        }
++    }
+ 
+     std::shared_ptr<ShaderPools> emit_pools;
+     auto reservation = emission_budget.TryAcquire(maxwell3d->GetNativeMacroEngine().native_turing);
+--- a/src/video_core/renderer_vulkan/vk_pipeline_cache.h
++++ b/src/video_core/renderer_vulkan/vk_pipeline_cache.h
+@@ -149,7 +149,14 @@
+     /// may be skipped while it builds (asynchronous shaders, CanDiscardPendingDraw).
+     [[nodiscard]] GraphicsPipeline* BuiltPipeline(GraphicsPipeline* pipeline) noexcept;
+ 
+-    std::unique_ptr<GraphicsPipeline> CreateGraphicsPipeline();
++    /// With `keep_pointers`, the slots an evicted pipeline of this key bound stay storage buffer
++    /// pointers whatever they hold now.
++    std::unique_ptr<GraphicsPipeline> CreateGraphicsPipeline(
++        const VideoCommon::EvictedPointerSlots::Slots* keep_pointers = nullptr);
++
++    /// Logs a kept pointer slot (an index of keep_pointers) that this translation would otherwise
++    /// have classified as no pointer: null, unmapped, or out of range right now.
++    void WarnKeptPointer(size_t program, u64 slot) const;
+ 
+     std::unique_ptr<GraphicsPipeline> CreateGraphicsPipeline(
+         ShaderPools& pools, const GraphicsPipelineCacheKey& key,
+@@ -227,6 +234,7 @@
+     s64 native_wait_used_us{}; ///< Budget spent since the last 10 s log line.
+     std::deque<std::pair<u64, std::unique_ptr<GraphicsPipeline>>> evicted_pipelines; ///< (tick, pipeline)
+     std::unordered_set<u64> used_and_evicted; ///< Key hashes of pipelines used this session, evicted since
++    VideoCommon::EvictedPointerSlots evicted_pointer_slots;
+ 
+     ::Common::unordered_map<ComputePipelineCacheKey, ComputePipelineCacheEntry> compute_cache;
+     /// Replaced compute pipelines, destroyed once the GPU and their queued build are done with

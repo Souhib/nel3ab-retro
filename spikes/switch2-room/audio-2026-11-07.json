@@ -1,0 +1,995 @@
+{
+  "method": "Original six-channel BWAV correlated against four-second Pulse monitor windows; original movie sampled at 4 Hz and matched against compositor screenshots",
+  "uncertainty_seconds": 0.5,
+  "minimum_waveform_correlation": 0.5,
+  "minimum_picture_similarity": 0.95,
+  "scope": "One 100-second intro recording per engine in alternating order; no conclusion for rejected points or the unobserved end of the movie",
+  "versions": [
+    {
+      "version": "lichii-95",
+      "accepted": [
+        {
+          "picture": "01.png",
+          "capture_seconds": 5.171511169057339,
+          "screenshot_seconds": 0.3288570500444621,
+          "audio": {
+            "seconds": 17.815875,
+            "correlation": 0.7882186100220269,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 11.0,
+            "correlation": 0.9983424936986302
+          },
+          "audio_ahead_seconds": 6.815874999999998
+        },
+        {
+          "picture": "02.png",
+          "capture_seconds": 10.16050217486918,
+          "screenshot_seconds": 0.30683859600685537,
+          "audio": {
+            "seconds": 22.804875,
+            "correlation": 0.9872840843017808,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 14.5,
+            "correlation": 0.99737694356903
+          },
+          "audio_ahead_seconds": 8.304875
+        },
+        {
+          "picture": "03.png",
+          "capture_seconds": 15.247259351424873,
+          "screenshot_seconds": 0.4803765290416777,
+          "audio": {
+            "seconds": 27.891625,
+            "correlation": 0.9514551172064553,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 17.5,
+            "correlation": 0.9946920911980944
+          },
+          "audio_ahead_seconds": 10.391625000000001
+        },
+        {
+          "picture": "04.png",
+          "capture_seconds": 20.138807052280754,
+          "screenshot_seconds": 0.2634566791821271,
+          "audio": {
+            "seconds": 32.783125,
+            "correlation": 0.666436471241625,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 21.0,
+            "correlation": 0.9973753344155512
+          },
+          "audio_ahead_seconds": 11.783124999999998
+        },
+        {
+          "picture": "05.png",
+          "capture_seconds": 25.130394506268203,
+          "screenshot_seconds": 0.2466395788360387,
+          "audio": {
+            "seconds": 37.77475,
+            "correlation": 0.9375795920408235,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 24.5,
+            "correlation": 0.9970850996404742
+          },
+          "audio_ahead_seconds": 13.274749999999997
+        },
+        {
+          "picture": "06.png",
+          "capture_seconds": 30.130750321317464,
+          "screenshot_seconds": 0.24738216283731163,
+          "audio": {
+            "seconds": 42.775125,
+            "correlation": 0.9980957846257505,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 27.75,
+            "correlation": 0.9974336180004051
+          },
+          "audio_ahead_seconds": 15.025125000000003
+        },
+        {
+          "picture": "10.png",
+          "capture_seconds": 50.164127646479756,
+          "screenshot_seconds": 0.31409507105126977,
+          "audio": {
+            "seconds": 62.8085,
+            "correlation": 0.996062961942426,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 41.25,
+            "correlation": 0.9984462361558455
+          },
+          "audio_ahead_seconds": 21.558500000000002
+        },
+        {
+          "picture": "13.png",
+          "capture_seconds": 65.12885580630973,
+          "screenshot_seconds": 0.24355629901401699,
+          "audio": {
+            "seconds": 77.773125,
+            "correlation": 0.8010219295787703,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 51.25,
+            "correlation": 0.9976510495663665
+          },
+          "audio_ahead_seconds": 26.523124999999993
+        },
+        {
+          "picture": "14.png",
+          "capture_seconds": 70.11927914945409,
+          "screenshot_seconds": 0.22438435489311814,
+          "audio": {
+            "seconds": 82.763625,
+            "correlation": 0.9988033536088916,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 54.75,
+            "correlation": 0.9976637745015621
+          },
+          "audio_ahead_seconds": 28.013625000000005
+        },
+        {
+          "picture": "15.png",
+          "capture_seconds": 75.11413487931713,
+          "screenshot_seconds": 0.21415069489739835,
+          "audio": {
+            "seconds": 87.7585,
+            "correlation": 0.9969508520195788,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 58.0,
+            "correlation": 0.997665944648642
+          },
+          "audio_ahead_seconds": 29.758499999999998
+        },
+        {
+          "picture": "16.png",
+          "capture_seconds": 80.21706496179104,
+          "screenshot_seconds": 0.4199840419460088,
+          "audio": {
+            "seconds": 92.861375,
+            "correlation": 0.9971179694711244,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 61.25,
+            "correlation": 0.9933027251273682
+          },
+          "audio_ahead_seconds": 31.611374999999995
+        },
+        {
+          "picture": "17.png",
+          "capture_seconds": 85.21291743894108,
+          "screenshot_seconds": 0.4116811901330948,
+          "audio": {
+            "seconds": 97.85725,
+            "correlation": 0.9977394373938017,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 64.75,
+            "correlation": 0.9967445883516697
+          },
+          "audio_ahead_seconds": 33.10724999999999
+        },
+        {
+          "picture": "18.png",
+          "capture_seconds": 90.22872433625162,
+          "screenshot_seconds": 0.44330252311192453,
+          "audio": {
+            "seconds": 102.873,
+            "correlation": 0.9985697523054898,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 68.25,
+            "correlation": 0.9992221114889388
+          },
+          "audio_ahead_seconds": 34.623000000000005
+        },
+        {
+          "picture": "19.png",
+          "capture_seconds": 95.23029439151287,
+          "screenshot_seconds": 0.4464354368392378,
+          "audio": {
+            "seconds": 107.874625,
+            "correlation": 0.9970770095058783,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 71.5,
+            "correlation": 0.9991848825146094
+          },
+          "audio_ahead_seconds": 36.374624999999995
+        }
+      ],
+      "rejected": [
+        {
+          "picture": "07.png",
+          "reason": "audio match rejected: {'seconds': 45.780125, 'correlation': 0.17103292903961323, 'channel': 6}"
+        },
+        {
+          "picture": "08.png",
+          "reason": "audio match rejected: {'seconds': 50.790125, 'correlation': 0.4910019728002343, 'channel': 6}"
+        },
+        {
+          "picture": "09.png",
+          "reason": "audio match rejected: {'seconds': 55.802, 'correlation': 0.29111735929475807, 'channel': 6}"
+        },
+        {
+          "picture": "11.png",
+          "reason": "audio match rejected: {'seconds': 84.730375, 'correlation': -0.0853324092651978, 'channel': 1}"
+        },
+        {
+          "picture": "12.png",
+          "reason": "picture has too little contrast"
+        }
+      ],
+      "last_accepted": {
+        "picture": "19.png",
+        "capture_seconds": 95.23029439151287,
+        "screenshot_seconds": 0.4464354368392378,
+        "audio": {
+          "seconds": 107.874625,
+          "correlation": 0.9970770095058783,
+          "channel": 6
+        },
+        "video": {
+          "seconds": 71.5,
+          "correlation": 0.9991848825146094
+        },
+        "audio_ahead_seconds": 36.374624999999995
+      }
+    },
+    {
+      "version": "lichii-93",
+      "accepted": [
+        {
+          "picture": "01.png",
+          "capture_seconds": 5.177532662404701,
+          "screenshot_seconds": 0.33343382901512086,
+          "audio": {
+            "seconds": 17.732374999999998,
+            "correlation": 0.7551616375582827,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 11.0,
+            "correlation": 0.9982505910137905
+          },
+          "audio_ahead_seconds": 6.7323749999999976
+        },
+        {
+          "picture": "02.png",
+          "capture_seconds": 10.167526836739853,
+          "screenshot_seconds": 0.3134360339026898,
+          "audio": {
+            "seconds": 22.722375,
+            "correlation": 0.9720450618899295,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 14.5,
+            "correlation": 0.9974947828660661
+          },
+          "audio_ahead_seconds": 8.222375
+        },
+        {
+          "picture": "03.png",
+          "capture_seconds": 15.254281382309273,
+          "screenshot_seconds": 0.4869622748810798,
+          "audio": {
+            "seconds": 27.809125,
+            "correlation": 0.9682596628755421,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 17.5,
+            "correlation": 0.994190619015052
+          },
+          "audio_ahead_seconds": 10.309125000000002
+        },
+        {
+          "picture": "04.png",
+          "capture_seconds": 20.139300158945844,
+          "screenshot_seconds": 0.25698985788039863,
+          "audio": {
+            "seconds": 32.694125,
+            "correlation": 0.6467569381619395,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 21.0,
+            "correlation": 0.9974591902277103
+          },
+          "audio_ahead_seconds": 11.694125
+        },
+        {
+          "picture": "05.png",
+          "capture_seconds": 25.14442299050279,
+          "screenshot_seconds": 0.26713907695375383,
+          "audio": {
+            "seconds": 37.69925,
+            "correlation": 0.8795464520365512,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 24.5,
+            "correlation": 0.9971511998963413
+          },
+          "audio_ahead_seconds": 13.19925
+        },
+        {
+          "picture": "06.png",
+          "capture_seconds": 30.138743356335908,
+          "screenshot_seconds": 0.25588587298989296,
+          "audio": {
+            "seconds": 42.6935,
+            "correlation": 0.9550279572852645,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 27.75,
+            "correlation": 0.9974336180004051
+          },
+          "audio_ahead_seconds": 14.9435
+        },
+        {
+          "picture": "08.png",
+          "capture_seconds": 40.15273241791874,
+          "screenshot_seconds": 0.28386867605149746,
+          "audio": {
+            "seconds": 52.7075,
+            "correlation": 0.541653583687468,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 34.5,
+            "correlation": 0.9982309862356296
+          },
+          "audio_ahead_seconds": 18.207500000000003
+        },
+        {
+          "picture": "10.png",
+          "capture_seconds": 50.162008569343016,
+          "screenshot_seconds": 0.3024130070116371,
+          "audio": {
+            "seconds": 62.716875,
+            "correlation": 0.9856122550522431,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 41.25,
+            "correlation": 0.9984971802527549
+          },
+          "audio_ahead_seconds": 21.466875
+        },
+        {
+          "picture": "13.png",
+          "capture_seconds": 65.13659334997647,
+          "screenshot_seconds": 0.25158449611626565,
+          "audio": {
+            "seconds": 77.691375,
+            "correlation": 0.798758600636362,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 51.5,
+            "correlation": 0.9976636978037571
+          },
+          "audio_ahead_seconds": 26.191374999999994
+        },
+        {
+          "picture": "14.png",
+          "capture_seconds": 70.12904349947348,
+          "screenshot_seconds": 0.23648174898698926,
+          "audio": {
+            "seconds": 82.683875,
+            "correlation": 0.9976748815937732,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 54.75,
+            "correlation": 0.9976637745015621
+          },
+          "audio_ahead_seconds": 27.933875
+        },
+        {
+          "picture": "15.png",
+          "capture_seconds": 75.12525363522582,
+          "screenshot_seconds": 0.2289046731311828,
+          "audio": {
+            "seconds": 87.680125,
+            "correlation": 0.9864551116909037,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 58.0,
+            "correlation": 0.9976962970904042
+          },
+          "audio_ahead_seconds": 29.680125000000004
+        },
+        {
+          "picture": "16.png",
+          "capture_seconds": 80.22064790339209,
+          "screenshot_seconds": 0.4196930010803044,
+          "audio": {
+            "seconds": 92.7755,
+            "correlation": 0.9829956386636738,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 61.25,
+            "correlation": 0.9938587087522959
+          },
+          "audio_ahead_seconds": 31.525499999999994
+        },
+        {
+          "picture": "17.png",
+          "capture_seconds": 85.2190354198683,
+          "screenshot_seconds": 0.4164689118042588,
+          "audio": {
+            "seconds": 97.773875,
+            "correlation": 0.9889486032038393,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 64.75,
+            "correlation": 0.9969155875059339
+          },
+          "audio_ahead_seconds": 33.023875000000004
+        },
+        {
+          "picture": "18.png",
+          "capture_seconds": 90.23877947847359,
+          "screenshot_seconds": 0.45595556893385947,
+          "audio": {
+            "seconds": 102.793625,
+            "correlation": 0.9791661942068657,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 68.25,
+            "correlation": 0.9990462430027096
+          },
+          "audio_ahead_seconds": 34.543625000000006
+        },
+        {
+          "picture": "19.png",
+          "capture_seconds": 95.22653577593155,
+          "screenshot_seconds": 0.4315379620529711,
+          "audio": {
+            "seconds": 107.781375,
+            "correlation": 0.9687454802935239,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 71.5,
+            "correlation": 0.9992566878817759
+          },
+          "audio_ahead_seconds": 36.281375
+        }
+      ],
+      "rejected": [
+        {
+          "picture": "07.png",
+          "reason": "audio match rejected: {'seconds': 45.6965, 'correlation': 0.18175952805799425, 'channel': 6}"
+        },
+        {
+          "picture": "09.png",
+          "reason": "audio match rejected: {'seconds': 55.719875, 'correlation': 0.3065401325730495, 'channel': 6}"
+        },
+        {
+          "picture": "11.png",
+          "reason": "audio match rejected: {'seconds': 84.5925, 'correlation': -0.08604721558038304, 'channel': 1}"
+        },
+        {
+          "picture": "12.png",
+          "reason": "picture has too little contrast"
+        }
+      ],
+      "last_accepted": {
+        "picture": "19.png",
+        "capture_seconds": 95.22653577593155,
+        "screenshot_seconds": 0.4315379620529711,
+        "audio": {
+          "seconds": 107.781375,
+          "correlation": 0.9687454802935239,
+          "channel": 6
+        },
+        "video": {
+          "seconds": 71.5,
+          "correlation": 0.9992566878817759
+        },
+        "audio_ahead_seconds": 36.281375
+      }
+    },
+    {
+      "version": "eglantine-20261107",
+      "accepted": [
+        {
+          "picture": "03.png",
+          "capture_seconds": 15.120807426515967,
+          "screenshot_seconds": 0.22852849517948925,
+          "audio": {
+            "seconds": 28.264625,
+            "correlation": 0.9122982730676183,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 28.25,
+            "correlation": 0.9963757728000185
+          },
+          "audio_ahead_seconds": 0.014624999999998778
+        },
+        {
+          "picture": "04.png",
+          "capture_seconds": 20.10079795564525,
+          "screenshot_seconds": 0.18856056313961744,
+          "audio": {
+            "seconds": 33.244625,
+            "correlation": 0.7996895399810477,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 33.25,
+            "correlation": 0.977200074594731
+          },
+          "audio_ahead_seconds": -0.005375000000000796
+        },
+        {
+          "picture": "06.png",
+          "capture_seconds": 30.13427629810758,
+          "screenshot_seconds": 0.2555531859397888,
+          "audio": {
+            "seconds": 43.278125,
+            "correlation": 0.8688317979154911,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 43.0,
+            "correlation": 0.9983995521548051
+          },
+          "audio_ahead_seconds": 0.27812500000000284
+        },
+        {
+          "picture": "08.png",
+          "capture_seconds": 40.10842593526468,
+          "screenshot_seconds": 0.20386130805127323,
+          "audio": {
+            "seconds": 53.25225,
+            "correlation": 0.5048521560497086,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 53.25,
+            "correlation": 0.9976859653958225
+          },
+          "audio_ahead_seconds": 0.0022499999999965326
+        },
+        {
+          "picture": "09.png",
+          "capture_seconds": 45.124183968640864,
+          "screenshot_seconds": 0.23535859305411577,
+          "audio": {
+            "seconds": 58.268,
+            "correlation": 0.9941180356937802,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 58.0,
+            "correlation": 0.9941967001164083
+          },
+          "audio_ahead_seconds": 0.2680000000000007
+        },
+        {
+          "picture": "12.png",
+          "capture_seconds": 60.15821593720466,
+          "screenshot_seconds": 0.30325312982313335,
+          "audio": {
+            "seconds": 73.302,
+            "correlation": 0.945984520920546,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 73.25,
+            "correlation": 0.9931753296453892
+          },
+          "audio_ahead_seconds": 0.05200000000000671
+        },
+        {
+          "picture": "13.png",
+          "capture_seconds": 65.15556635893881,
+          "screenshot_seconds": 0.29812364210374653,
+          "audio": {
+            "seconds": 78.299375,
+            "correlation": 0.8686900653390452,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 78.25,
+            "correlation": 0.9852491395856802
+          },
+          "audio_ahead_seconds": 0.049374999999997726
+        },
+        {
+          "picture": "14.png",
+          "capture_seconds": 70.1729174577631,
+          "screenshot_seconds": 0.33283129916526377,
+          "audio": {
+            "seconds": 83.31675,
+            "correlation": 0.9984272151853294,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 83.25,
+            "correlation": 0.998654760030174
+          },
+          "audio_ahead_seconds": 0.06674999999999898
+        },
+        {
+          "picture": "15.png",
+          "capture_seconds": 75.08300574170426,
+          "screenshot_seconds": 0.15300915692932904,
+          "audio": {
+            "seconds": 88.226875,
+            "correlation": 0.9964218740555653,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 88.25,
+            "correlation": 0.9669584247710585
+          },
+          "audio_ahead_seconds": -0.02312499999999318
+        },
+        {
+          "picture": "16.png",
+          "capture_seconds": 80.14448237791657,
+          "screenshot_seconds": 0.2759588479530066,
+          "audio": {
+            "seconds": 93.28825,
+            "correlation": 0.9969924365030332,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 93.25,
+            "correlation": 0.9830596916718565
+          },
+          "audio_ahead_seconds": 0.038250000000005
+        }
+      ],
+      "rejected": [
+        {
+          "picture": "01.png",
+          "reason": "picture has too little contrast"
+        },
+        {
+          "picture": "02.png",
+          "reason": "audio match rejected: {'seconds': 21.26275, 'correlation': 0.40908662335750884, 'channel': 6}"
+        },
+        {
+          "picture": "05.png",
+          "reason": "audio match rejected: {'seconds': 36.262625, 'correlation': 0.4144320523585771, 'channel': 6}"
+        },
+        {
+          "picture": "07.png",
+          "reason": "audio match rejected: {'seconds': 46.17275, 'correlation': 0.09728313908065511, 'channel': 6}"
+        },
+        {
+          "picture": "10.png",
+          "reason": "audio match rejected: {'seconds': 61.311, 'correlation': 0.4553333325365681, 'channel': 6}"
+        },
+        {
+          "picture": "11.png",
+          "reason": "audio match rejected: {'seconds': 66.341375, 'correlation': 0.20957202245909265, 'channel': 6}"
+        },
+        {
+          "picture": "17.png",
+          "reason": "picture match rejected: {'seconds': 90.75, 'correlation': 0.45922629902986545}"
+        },
+        {
+          "picture": "18.png",
+          "reason": "picture match rejected: {'seconds': 81.25, 'correlation': 0.5002911335082185}"
+        },
+        {
+          "picture": "19.png",
+          "reason": "picture match rejected: {'seconds': 112.25, 'correlation': 0.5484320367294627}"
+        }
+      ],
+      "last_accepted": {
+        "picture": "16.png",
+        "capture_seconds": 80.14448237791657,
+        "screenshot_seconds": 0.2759588479530066,
+        "audio": {
+          "seconds": 93.28825,
+          "correlation": 0.9969924365030332,
+          "channel": 6
+        },
+        "video": {
+          "seconds": 93.25,
+          "correlation": 0.9830596916718565
+        },
+        "audio_ahead_seconds": 0.038250000000005
+      }
+    },
+    {
+      "version": "superbuild-v11",
+      "accepted": [
+        {
+          "picture": "01.png",
+          "capture_seconds": 5.155246570939198,
+          "screenshot_seconds": 0.2884609878528863,
+          "audio": {
+            "seconds": 17.852375000000002,
+            "correlation": 0.7931293570935674,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 10.5,
+            "correlation": 0.998081982389985
+          },
+          "audio_ahead_seconds": 7.352375000000002
+        },
+        {
+          "picture": "02.png",
+          "capture_seconds": 10.162452499615029,
+          "screenshot_seconds": 0.3028866390231997,
+          "audio": {
+            "seconds": 22.859625,
+            "correlation": 0.9860762202807278,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 14.0,
+            "correlation": 0.9983006833899596
+          },
+          "audio_ahead_seconds": 8.859625000000001
+        },
+        {
+          "picture": "03.png",
+          "capture_seconds": 15.229337600525469,
+          "screenshot_seconds": 0.4366515949368477,
+          "audio": {
+            "seconds": 27.9265,
+            "correlation": 0.9992201126172916,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 17.25,
+            "correlation": 0.9965002082062173
+          },
+          "audio_ahead_seconds": 10.6765
+        },
+        {
+          "picture": "04.png",
+          "capture_seconds": 20.12612889218144,
+          "screenshot_seconds": 0.2302388239186257,
+          "audio": {
+            "seconds": 32.823375,
+            "correlation": 0.6779953535649027,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 20.75,
+            "correlation": 0.9972971378548845
+          },
+          "audio_ahead_seconds": 12.073374999999999
+        },
+        {
+          "picture": "05.png",
+          "capture_seconds": 25.1336616280023,
+          "screenshot_seconds": 0.2453050878830254,
+          "audio": {
+            "seconds": 37.830875,
+            "correlation": 0.9094434194719551,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 24.0,
+            "correlation": 0.9974885580063615
+          },
+          "audio_ahead_seconds": 13.830874999999999
+        },
+        {
+          "picture": "06.png",
+          "capture_seconds": 30.1206100594718,
+          "screenshot_seconds": 0.21920239902101457,
+          "audio": {
+            "seconds": 42.81775,
+            "correlation": 0.9980971068820578,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 27.5,
+            "correlation": 0.9968101237917697
+          },
+          "audio_ahead_seconds": 15.317749999999997
+        },
+        {
+          "picture": "08.png",
+          "capture_seconds": 40.13711277558468,
+          "screenshot_seconds": 0.2522025350481272,
+          "audio": {
+            "seconds": 52.83425,
+            "correlation": 0.5073870489537868,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 34.25,
+            "correlation": 0.998376587336057
+          },
+          "audio_ahead_seconds": 18.584249999999997
+        },
+        {
+          "picture": "10.png",
+          "capture_seconds": 50.14642728934996,
+          "screenshot_seconds": 0.2708258230704814,
+          "audio": {
+            "seconds": 62.843625,
+            "correlation": 0.9960896168982781,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 41.0,
+            "correlation": 0.9984982539632284
+          },
+          "audio_ahead_seconds": 21.843625000000003
+        },
+        {
+          "picture": "13.png",
+          "capture_seconds": 65.11600357899442,
+          "screenshot_seconds": 0.20999243389815092,
+          "audio": {
+            "seconds": 77.81325,
+            "correlation": 0.8560058223765393,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 51.25,
+            "correlation": 0.9977693891029079
+          },
+          "audio_ahead_seconds": 26.563249999999996
+        },
+        {
+          "picture": "14.png",
+          "capture_seconds": 70.11911279312335,
+          "screenshot_seconds": 0.2161621239501983,
+          "audio": {
+            "seconds": 82.81625,
+            "correlation": 0.9987880830446894,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 54.75,
+            "correlation": 0.9979497543395787
+          },
+          "audio_ahead_seconds": 28.066249999999997
+        },
+        {
+          "picture": "15.png",
+          "capture_seconds": 75.1194677350577,
+          "screenshot_seconds": 0.2169192060828209,
+          "audio": {
+            "seconds": 87.816625,
+            "correlation": 0.9969727854447922,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 58.25,
+            "correlation": 0.9971728040712645
+          },
+          "audio_ahead_seconds": 29.566625000000002
+        },
+        {
+          "picture": "16.png",
+          "capture_seconds": 80.21473874500953,
+          "screenshot_seconds": 0.40746172796934843,
+          "audio": {
+            "seconds": 92.911875,
+            "correlation": 0.9971190249313463,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 61.75,
+            "correlation": 0.9959544030230923
+          },
+          "audio_ahead_seconds": 31.161874999999995
+        },
+        {
+          "picture": "17.png",
+          "capture_seconds": 85.20447898306884,
+          "screenshot_seconds": 0.38690300402231514,
+          "audio": {
+            "seconds": 97.901625,
+            "correlation": 0.9977498456889797,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 65.0,
+            "correlation": 0.9940627064774332
+          },
+          "audio_ahead_seconds": 32.901624999999996
+        },
+        {
+          "picture": "18.png",
+          "capture_seconds": 90.23412222065963,
+          "screenshot_seconds": 0.4462299409788102,
+          "audio": {
+            "seconds": 102.93125,
+            "correlation": 0.9985620060088835,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 68.5,
+            "correlation": 0.9990345653647024
+          },
+          "audio_ahead_seconds": 34.431250000000006
+        },
+        {
+          "picture": "19.png",
+          "capture_seconds": 95.22651919652708,
+          "screenshot_seconds": 0.43101914320141077,
+          "audio": {
+            "seconds": 107.92375,
+            "correlation": 0.9970634606854305,
+            "channel": 6
+          },
+          "video": {
+            "seconds": 72.0,
+            "correlation": 0.9992860317874613
+          },
+          "audio_ahead_seconds": 35.92375
+        }
+      ],
+      "rejected": [
+        {
+          "picture": "07.png",
+          "reason": "audio match rejected: {'seconds': 45.8185, 'correlation': 0.16140291313188584, 'channel': 6}"
+        },
+        {
+          "picture": "09.png",
+          "reason": "audio match rejected: {'seconds': 55.849875, 'correlation': 0.29607898269393834, 'channel': 6}"
+        },
+        {
+          "picture": "11.png",
+          "reason": "audio match rejected: {'seconds': 65.875125, 'correlation': 0.09551404042056039, 'channel': 6}"
+        },
+        {
+          "picture": "12.png",
+          "reason": "picture has too little contrast"
+        }
+      ],
+      "last_accepted": {
+        "picture": "19.png",
+        "capture_seconds": 95.22651919652708,
+        "screenshot_seconds": 0.43101914320141077,
+        "audio": {
+          "seconds": 107.92375,
+          "correlation": 0.9970634606854305,
+          "channel": 6
+        },
+        "video": {
+          "seconds": 72.0,
+          "correlation": 0.9992860317874613
+        },
+        "audio_ahead_seconds": 35.92375
+      }
+    }
+  ]
+}

@@ -1,0 +1,1654 @@
+{
+  "date": "2026-11-08",
+  "scope": "Local source-level Eglantine progress-wait experiment, native Vulkan Kokiri camera benchmarks, thermal inspection and functional validation. Not a production replacement or a full playthrough.",
+  "revision": "216d3e294367abd4742d7ebd736ef25a8db6f365",
+  "game": {
+    "base": "0400486024DEC000",
+    "update": "131072"
+  },
+  "hardware": {
+    "cpu": "AMD Ryzen 5 3600",
+    "gpu": "AMD Radeon RX 6650 XT 8 GiB",
+    "ram_gib": 64
+  },
+  "build": {
+    "compiler": "GCC 13.3",
+    "cmake": "3.31.10",
+    "flags": "-O3 -g1 -DNDEBUG -fno-omit-frame-pointer",
+    "lto": false,
+    "pgo": false,
+    "qt": false,
+    "reshade": false,
+    "runtime_image": "nel3ab/eglantine-drain-build:2026-11-08",
+    "mesa_package": "25.2.8-0ubuntu0.24.04.4",
+    "installed_runtime_mesa_package": "25.2.8-0ubuntu0.24.04.2",
+    "limit": "Compare the two local builds, not the local build against the official package as a patch-only effect.",
+    "code_proof": {
+      "actual_patched_sha256": "ef1a7e5ed7365aab7ada5c3fda1ce251e40408259172d8b359e2c241901b117b",
+      "original_sha256": "94635722d696abda72c10d21f29ab6a46a084c74b58cb7ce21dbc06f2377a042",
+      "stale_candidate_sha256": "1281e1bfc9900f5b6ec4e6b5a77ecfb5815e9099a6f710b2f6f5627cf9882810",
+      "old_spin_threshold_in_original": true,
+      "old_spin_threshold_in_stale_candidate": true,
+      "old_spin_threshold_in_actual_patch": false,
+      "activation_marker_required": "GPU split front waits: progress notifications",
+      "gpu_split_cpp_rebuilt": true,
+      "excluded_stale_run": "patched-1-mode2",
+      "actual_runtime_marker": {
+        "marker_required": true,
+        "marker_lines": [
+          "\u0000\u001b[0;37m[   3.749867] HW.GPU <Info> video_core/gpu_split.cpp:148:MaybeStart: GPU split front waits: progress notifications\u001b[0m"
+        ]
+      }
+    }
+  },
+  "protocol": {
+    "resolution_order": [
+      "1x",
+      "0.5x",
+      "1x",
+      "0.5x"
+    ],
+    "code_order": [
+      "original",
+      "patched",
+      "original",
+      "patched"
+    ],
+    "phase_seconds": 90,
+    "warmup": "Two identical camera sweeps and same camera reset",
+    "cache_copies_identical": true,
+    "resolution_initial_cache_files": 1862,
+    "code_initial_cache_files": 3613,
+    "same_checkpoint": "Kokiri balcony copied before each launch",
+    "frame_generation": false,
+    "no_mesh_guard": true,
+    "reactive_flushing": true,
+    "frames_ahead": 1,
+    "compositor_refresh_hz": 120,
+    "metrics": "Only complete 600-present windows inside recorded phase bounds; per-thread kernel counters sampled identically without a profiler in FPS phases.",
+    "profile_separate": true,
+    "ci": "No Runner.Worker observed in samples; no compiler/profiler during measured FPS phases."
+  },
+  "comparisons": {
+    "runs": [
+      {
+        "label": "anchor-1b-mode0",
+        "activation": {
+          "version": "reference-mode0",
+          "mode": 0,
+          "resolution": 3,
+          "profiler_absent": true,
+          "activation_lines": []
+        },
+        "measurement": {
+          "requested_seconds": [
+            138.37343893051147,
+            227.108194
+          ],
+          "covered_seconds": 56.0766,
+          "game_presentations": 1200,
+          "game_fps": 21.39930024288206,
+          "window_fps_median": 21.45511645146503,
+          "maximum_frame_ms": 104.777,
+          "frames_over_100_ms": 3,
+          "windows": [
+            {
+              "start": 149.678098,
+              "end": 179.146498,
+              "mean_us": 49114,
+              "maximum_us": 104777,
+              "freezes": 3
+            },
+            {
+              "start": 179.10276299999998,
+              "end": 205.710963,
+              "mean_us": 44347,
+              "maximum_us": 83752,
+              "freezes": 0
+            }
+          ]
+        },
+        "shutdown": {
+          "exit_code": 0,
+          "stop_requested": true,
+          "window_closed": true,
+          "forced": false,
+          "stop_seconds": 3.704671830870211
+        },
+        "thread_cpu_percent": {
+          "GPU": 85.74354006918176,
+          "CPUCore_1": 45.36527216005954,
+          "CPUCore_0": 45.2123687278374,
+          "CPUCore_3": 43.57747818330842,
+          "CPUCore_2": 42.53067776271073,
+          "CPUCore_4": 41.56620995946342,
+          "CPUCore_5": 41.29568850245503,
+          "VulkanWorker": 27.063907503317864,
+          "GPUFencingThrea": 5.798568621962497,
+          "HostTiming": 4.634150176578547,
+          "DSP_AudioRender": 3.716729583245739,
+          "eden-cli": 1.2820364701702074,
+          "audio": 1.1173712354694467,
+          "AudioRenderSyst": 0.9997532106831892,
+          "PulseMainloop": 0.6939463462389195,
+          "SDLAudioP15": 0.6468991363244166,
+          "VulkanPresent": 0.4469484941877787,
+          "PulseHotplug": 0.39990128427327576,
+          "wl_cursor_surfa": 0.0823326173503803,
+          "VSyncThread": 0.05880901239312879,
+          "FS": 0.03528540743587726,
+          "SDLTimer": 0.02352360495725151,
+          "JoyconScanThrea": 0.011761802478625755,
+          "KWorkerTaskMana": 0.0,
+          "libusb_event": 0.0,
+          "ScanGCAdapter": 0.0,
+          "cemuhookWorker": 0.0,
+          "libusb": 0.0,
+          "eden-cl:disk$0": 0.0,
+          "TextureDecoder": 0.0,
+          "eden-cl:disk$1": 0.0,
+          "eden-cl:disk$2": 0.0,
+          "eden-cl:disk$3": 0.0,
+          "VkPipelineBuild": 0.0,
+          "VkPipelineSeria": 0.0,
+          "AudioManager": 0.0,
+          "DSP_OpusDecoder": 0.0,
+          "ldn": 0.0,
+          "nvservices": 0.0,
+          "bsdsocket": 0.0,
+          "vi": 0.0,
+          "bsdsocket:selec": 0.0,
+          "bsdsocket:1": 0.0,
+          "bsdsocket:2": 0.0,
+          "TimeWorker": 0.0,
+          "am:EventObserve": 0.0,
+          "nx2:ColdHint": 0.0,
+          "DeviceMemory:Co": 0.0
+        },
+        "cpu_counter_seconds": 85.02098227012902,
+        "tctl_celsius_range": [
+          94.875,
+          96.125
+        ],
+        "cpu_snapshot_mhz_mean": 3662.4936166666666,
+        "load1_range": [
+          3.61669921875,
+          4.8671875
+        ],
+        "gpu_busy_percent_mean": 68.26666666666667,
+        "observed_wall_seconds": 91.17120269825682,
+        "phase_start_unix": 1794148868.2337039,
+        "container_started_at": "2026-11-08T14:38:49.960265918Z"
+      },
+      {
+        "label": "half-1-mode0",
+        "activation": {
+          "version": "half-resolution",
+          "mode": 0,
+          "resolution": 1,
+          "profiler_absent": true,
+          "activation_lines": []
+        },
+        "measurement": {
+          "requested_seconds": [
+            126.3244050502777,
+            216.397647
+          ],
+          "covered_seconds": 55.8942,
+          "game_presentations": 1200,
+          "game_fps": 21.469132754382386,
+          "window_fps_median": 21.472737469651435,
+          "maximum_frame_ms": 187.628,
+          "frames_over_100_ms": 1,
+          "windows": [
+            {
+              "start": 145.729722,
+              "end": 174.038922,
+              "mean_us": 47182,
+              "maximum_us": 187628,
+              "freezes": 1
+            },
+            {
+              "start": 173.993439,
+              "end": 201.578439,
+              "mean_us": 45975,
+              "maximum_us": 80194,
+              "freezes": 0
+            }
+          ]
+        },
+        "shutdown": {
+          "exit_code": 0,
+          "stop_requested": true,
+          "window_closed": true,
+          "forced": false,
+          "stop_seconds": 3.304953472688794
+        },
+        "thread_cpu_percent": {
+          "GPU": 87.56404333810084,
+          "CPUCore_1": 45.32049936182017,
+          "CPUCore_0": 44.82724697177186,
+          "CPUCore_3": 43.17132823375251,
+          "CPUCore_2": 42.255288080805634,
+          "CPUCore_4": 41.16308635998437,
+          "CPUCore_5": 40.176581579887745,
+          "VulkanWorker": 26.952719884782923,
+          "GPUFencingThrea": 5.77809942628026,
+          "HostTiming": 4.169157106360757,
+          "DSP_AudioRender": 3.746369343462201,
+          "eden-cli": 1.244875079645747,
+          "audio": 1.1156899298711882,
+          "AudioRenderSyst": 0.96301657104671,
+          "PulseMainloop": 0.6576698533977532,
+          "SDLAudioP15": 0.6224375398228735,
+          "VulkanPresent": 0.43453186742351546,
+          "PulseHotplug": 0.38755544932367597,
+          "wl_cursor_surfa": 0.09395283619967904,
+          "VSyncThread": 0.05872052262479939,
+          "SDLTimer": 0.02348820904991976,
+          "FS": 0.02348820904991976,
+          "JoyconScanThrea": 0.01174410452495988,
+          "nx2:ColdHint": 0.01174410452495988,
+          "DeviceMemory:Co": 0.01174410452495988,
+          "KWorkerTaskMana": 0.0,
+          "libusb_event": 0.0,
+          "ScanGCAdapter": 0.0,
+          "cemuhookWorker": 0.0,
+          "libusb": 0.0,
+          "eden-cl:disk$0": 0.0,
+          "eden-cl:disk$1": 0.0,
+          "TextureDecoder": 0.0,
+          "eden-cl:disk$2": 0.0,
+          "eden-cl:disk$3": 0.0,
+          "VkPipelineBuild": 0.0,
+          "VkPipelineSeria": 0.0,
+          "AudioManager": 0.0,
+          "DSP_OpusDecoder": 0.0,
+          "ldn": 0.0,
+          "nvservices": 0.0,
+          "bsdsocket": 0.0,
+          "vi": 0.0,
+          "bsdsocket:selec": 0.0,
+          "bsdsocket:1": 0.0,
+          "bsdsocket:2": 0.0,
+          "TimeWorker": 0.0,
+          "am:EventObserve": 0.0
+        },
+        "cpu_counter_seconds": 85.14910590881482,
+        "tctl_celsius_range": [
+          96.125,
+          96.5
+        ],
+        "cpu_snapshot_mhz_mean": 3621.773,
+        "load1_range": [
+          4.27880859375,
+          5.10400390625
+        ],
+        "gpu_busy_percent_mean": 64.46666666666667,
+        "observed_wall_seconds": 91.2921329359524,
+        "phase_start_unix": 1794149101.296178,
+        "container_started_at": "2026-11-08T14:42:55.071773252Z"
+      },
+      {
+        "label": "anchor-2-mode0",
+        "activation": {
+          "version": "reference-mode0",
+          "mode": 0,
+          "resolution": 3,
+          "profiler_absent": true,
+          "activation_lines": []
+        },
+        "measurement": {
+          "requested_seconds": [
+            109.94218621253967,
+            197.086128
+          ],
+          "covered_seconds": 54.6342,
+          "game_presentations": 1200,
+          "game_fps": 21.964264142240573,
+          "window_fps_median": 21.96593853503271,
+          "maximum_frame_ms": 79.948,
+          "frames_over_100_ms": 0,
+          "windows": [
+            {
+              "start": 142.40913,
+              "end": 169.96473,
+              "mean_us": 45926,
+              "maximum_us": 79948,
+              "freezes": 0
+            },
+            {
+              "start": 169.920245,
+              "end": 196.998845,
+              "mean_us": 45131,
+              "maximum_us": 75526,
+              "freezes": 0
+            }
+          ]
+        },
+        "shutdown": {
+          "exit_code": 0,
+          "stop_requested": true,
+          "window_closed": true,
+          "forced": false,
+          "stop_seconds": 2.8033636435866356
+        },
+        "thread_cpu_percent": {
+          "GPU": 86.30241261526456,
+          "CPUCore_1": 45.22561401927522,
+          "CPUCore_0": 44.76724630962041,
+          "CPUCore_3": 43.16883583492669,
+          "CPUCore_2": 42.2285943792245,
+          "CPUCore_4": 41.17082274155954,
+          "CPUCore_5": 40.536159758960565,
+          "VulkanWorker": 26.890905633082568,
+          "GPUFencingThrea": 5.6884608069982345,
+          "HostTiming": 4.101803350500794,
+          "DSP_AudioRender": 3.7609658228087506,
+          "eden-cli": 1.1753018196277345,
+          "audio": 1.1282897468426252,
+          "AudioRenderSyst": 0.9872535284872971,
+          "PulseMainloop": 0.6699220371878086,
+          "SDLAudioP15": 0.6346629825989767,
+          "VulkanPresent": 0.44661469145853916,
+          "PulseHotplug": 0.38784960047715245,
+          "wl_cursor_surfa": 0.09402414557021876,
+          "VSyncThread": 0.07051810917766407,
+          "JoyconScanThrea": 0.02350603639255469,
+          "SDLTimer": 0.02350603639255469,
+          "FS": 0.02350603639255469,
+          "nx2:ColdHint": 0.011753018196277346,
+          "KWorkerTaskMana": 0.0,
+          "libusb_event": 0.0,
+          "ScanGCAdapter": 0.0,
+          "cemuhookWorker": 0.0,
+          "libusb": 0.0,
+          "eden-cl:disk$0": 0.0,
+          "eden-cl:disk$1": 0.0,
+          "eden-cl:disk$2": 0.0,
+          "eden-cl:disk$3": 0.0,
+          "TextureDecoder": 0.0,
+          "VkPipelineBuild": 0.0,
+          "VkPipelineSeria": 0.0,
+          "AudioManager": 0.0,
+          "DSP_OpusDecoder": 0.0,
+          "ldn": 0.0,
+          "nvservices": 0.0,
+          "bsdsocket": 0.0,
+          "vi": 0.0,
+          "bsdsocket:selec": 0.0,
+          "bsdsocket:1": 0.0,
+          "bsdsocket:2": 0.0,
+          "TimeWorker": 0.0,
+          "am:EventObserve": 0.0,
+          "DeviceMemory:Co": 0.0
+        },
+        "cpu_counter_seconds": 85.08452750602737,
+        "tctl_celsius_range": [
+          96.125,
+          96.625
+        ],
+        "cpu_snapshot_mhz_mean": 3575.8546611111115,
+        "load1_range": [
+          3.78955078125,
+          4.517578125
+        ],
+        "gpu_busy_percent_mean": 66.73333333333333,
+        "observed_wall_seconds": 91.22428312106058,
+        "phase_start_unix": 1794149319.0198283,
+        "container_started_at": "2026-11-08T14:46:49.17764283Z"
+      },
+      {
+        "label": "half-2-mode0",
+        "activation": {
+          "version": "half-resolution",
+          "mode": 0,
+          "resolution": 1,
+          "profiler_absent": true,
+          "activation_lines": []
+        },
+        "measurement": {
+          "requested_seconds": [
+            111.14699110984802,
+            195.6278
+          ],
+          "covered_seconds": 55.0764,
+          "game_presentations": 1200,
+          "game_fps": 21.787916421552605,
+          "window_fps_median": 21.788988879376618,
+          "maximum_frame_ms": 79.229,
+          "frames_over_100_ms": 0,
+          "windows": [
+            {
+              "start": 140.55095699999998,
+              "end": 168.282357,
+              "mean_us": 46219,
+              "maximum_us": 79229,
+              "freezes": 0
+            },
+            {
+              "start": 168.237652,
+              "end": 195.582652,
+              "mean_us": 45575,
+              "maximum_us": 77613,
+              "freezes": 0
+            }
+          ]
+        },
+        "shutdown": {
+          "exit_code": 0,
+          "stop_requested": true,
+          "window_closed": true,
+          "forced": false,
+          "stop_seconds": 3.503975505940616
+        },
+        "thread_cpu_percent": {
+          "GPU": 87.76539638361247,
+          "CPUCore_1": 45.25091292199369,
+          "CPUCore_0": 44.78113962407525,
+          "CPUCore_3": 43.230887740944404,
+          "CPUCore_2": 42.06819882859626,
+          "CPUCore_4": 41.23435122479103,
+          "CPUCore_5": 40.64713460239298,
+          "VulkanWorker": 27.047197627654157,
+          "GPUFencingThrea": 5.8956548888764155,
+          "HostTiming": 4.803431971216044,
+          "DSP_AudioRender": 3.8051637131393603,
+          "eden-cli": 1.2683879043797868,
+          "audio": 1.1039672501083329,
+          "AudioRenderSyst": 0.9982682580766841,
+          "PulseMainloop": 0.6811712819817373,
+          "SDLAudioP15": 0.6341939521898934,
+          "VulkanPresent": 0.4227959681265956,
+          "PulseHotplug": 0.3993073032306736,
+          "wl_cursor_surfa": 0.08221032713572693,
+          "VSyncThread": 0.07046599468776592,
+          "FS": 0.03523299734388296,
+          "JoyconScanThrea": 0.023488664895921975,
+          "SDLTimer": 0.023488664895921975,
+          "nx2:ColdHint": 0.011744332447960987,
+          "DeviceMemory:Co": 0.011744332447960987,
+          "KWorkerTaskMana": 0.0,
+          "libusb_event": 0.0,
+          "ScanGCAdapter": 0.0,
+          "cemuhookWorker": 0.0,
+          "libusb": 0.0,
+          "eden-cl:disk$0": 0.0,
+          "eden-cl:disk$1": 0.0,
+          "eden-cl:disk$2": 0.0,
+          "eden-cl:disk$3": 0.0,
+          "TextureDecoder": 0.0,
+          "VkPipelineBuild": 0.0,
+          "VkPipelineSeria": 0.0,
+          "AudioManager": 0.0,
+          "DSP_OpusDecoder": 0.0,
+          "ldn": 0.0,
+          "nvservices": 0.0,
+          "bsdsocket": 0.0,
+          "vi": 0.0,
+          "bsdsocket:selec": 0.0,
+          "bsdsocket:1": 0.0,
+          "bsdsocket:2": 0.0,
+          "TimeWorker": 0.0,
+          "am:EventObserve": 0.0
+        },
+        "cpu_counter_seconds": 85.1474534147419,
+        "tctl_celsius_range": [
+          96.0,
+          96.5
+        ],
+        "cpu_snapshot_mhz_mean": 3547.7295555555556,
+        "load1_range": [
+          3.53564453125,
+          4.89794921875
+        ],
+        "gpu_busy_percent_mean": 67,
+        "observed_wall_seconds": 91.28753524785861,
+        "phase_start_unix": 1794149537.02147,
+        "container_started_at": "2026-11-08T14:50:25.974479331Z"
+      },
+      {
+        "label": "real-original-1",
+        "activation": {
+          "version": "original-real",
+          "mode": 2,
+          "resolution": 3,
+          "profiler_absent": true,
+          "activation_lines": [
+            "\u0000\u001b[0;37m[   3.716616] HW.GPU <Info> video_core/gpu_split.cpp:146:MaybeStart: GPU thread split: engine methods run on a second thread, macros on the first\u001b[0m"
+          ]
+        },
+        "measurement": {
+          "requested_seconds": [
+            121.12448487281799,
+            197.759877
+          ],
+          "covered_seconds": 56.8026,
+          "game_presentations": 1200,
+          "game_fps": 21.125793537619757,
+          "window_fps_median": 21.179628855907577,
+          "maximum_frame_ms": 174.073,
+          "frames_over_100_ms": 1,
+          "windows": [
+            {
+              "start": 132.848835,
+              "end": 162.682035,
+              "mean_us": 49722,
+              "maximum_us": 174073,
+              "freezes": 1
+            },
+            {
+              "start": 162.63770399999999,
+              "end": 189.607104,
+              "mean_us": 44949,
+              "maximum_us": 81653,
+              "freezes": 0
+            }
+          ]
+        },
+        "shutdown": {
+          "exit_code": 0,
+          "stop_requested": true,
+          "window_closed": true,
+          "forced": false,
+          "stop_seconds": 3.6082456158474088
+        },
+        "thread_cpu_percent": {
+          "GPU": 80.45960104911586,
+          "GPUBack": 78.33234604036771,
+          "CPUCore_1": 44.07296288842893,
+          "CPUCore_0": 44.06121009832536,
+          "CPUCore_3": 42.31004437289178,
+          "CPUCore_2": 41.734157657816304,
+          "CPUCore_4": 40.54712585735462,
+          "CPUCore_5": 39.9359807719684,
+          "VulkanWorker": 19.81520411463765,
+          "HostTiming": 4.313273968014245,
+          "GPUFencingThrea": 4.25451001749634,
+          "DSP_AudioRender": 3.69037609252445,
+          "eden-cli": 1.2810541212903344,
+          "audio": 1.0812566895294566,
+          "AudioRenderSyst": 0.987234368700808,
+          "PulseMainloop": 0.6699090359041198,
+          "SDLAudioP15": 0.6228978754897956,
+          "VulkanPresent": 0.43485323383249885,
+          "PulseHotplug": 0.37608928331459357,
+          "wl_cursor_surfa": 0.0705167406214863,
+          "VSyncThread": 0.0705167406214863,
+          "JoyconScanThrea": 0.023505580207162098,
+          "FS": 0.023505580207162098,
+          "SDLTimer": 0.011752790103581049,
+          "nx2:ColdHint": 0.011752790103581049,
+          "DeviceMemory:Co": 0.011752790103581049,
+          "KWorkerTaskMana": 0.0,
+          "libusb_event": 0.0,
+          "ScanGCAdapter": 0.0,
+          "cemuhookWorker": 0.0,
+          "libusb": 0.0,
+          "eden-cl:disk$0": 0.0,
+          "eden-cl:disk$1": 0.0,
+          "eden-cl:disk$2": 0.0,
+          "eden-cl:disk$3": 0.0,
+          "TextureDecoder": 0.0,
+          "VkPipelineBuild": 0.0,
+          "VkPipelineSeria": 0.0,
+          "AudioManager": 0.0,
+          "DSP_OpusDecoder": 0.0,
+          "ldn": 0.0,
+          "nvservices": 0.0,
+          "bsdsocket": 0.0,
+          "vi": 0.0,
+          "bsdsocket:selec": 0.0,
+          "bsdsocket:1": 0.0,
+          "bsdsocket:2": 0.0,
+          "TimeWorker": 0.0,
+          "am:EventObserve": 0.0
+        },
+        "cpu_counter_seconds": 85.08617878705263,
+        "tctl_celsius_range": [
+          92.75,
+          96.125
+        ],
+        "cpu_snapshot_mhz_mean": 3740.421183333333,
+        "load1_range": [
+          3.41455078125,
+          4.8271484375
+        ],
+        "gpu_busy_percent_mean": 58,
+        "observed_wall_seconds": 91.20825897390023,
+        "phase_start_unix": 1794150952.1614149,
+        "container_started_at": "2026-11-08T15:13:51.136930476Z"
+      },
+      {
+        "label": "real-patched-1",
+        "activation": {
+          "version": "patched-real",
+          "mode": 2,
+          "resolution": 3,
+          "profiler_absent": true,
+          "activation_lines": [
+            "\u0000\u001b[0;37m[   3.749862] HW.GPU <Info> video_core/gpu_split.cpp:146:MaybeStart: GPU thread split: engine methods run on a second thread, macros on the first\u001b[0m"
+          ]
+        },
+        "measurement": {
+          "requested_seconds": [
+            125.19599351882934,
+            208.38614
+          ],
+          "covered_seconds": 58.212,
+          "game_presentations": 1200,
+          "game_fps": 20.614306328592043,
+          "window_fps_median": 20.6544644101755,
+          "maximum_frame_ms": 107.193,
+          "frames_over_100_ms": 2,
+          "windows": [
+            {
+              "start": 137.600268,
+              "end": 167.989668,
+              "mean_us": 50649,
+              "maximum_us": 107193,
+              "freezes": 2
+            },
+            {
+              "start": 167.94321100000002,
+              "end": 195.765811,
+              "mean_us": 46371,
+              "maximum_us": 78779,
+              "freezes": 0
+            }
+          ]
+        },
+        "shutdown": {
+          "exit_code": 0,
+          "stop_requested": true,
+          "window_closed": true,
+          "forced": false,
+          "stop_seconds": 3.5047855842858553
+        },
+        "thread_cpu_percent": {
+          "GPUBack": 83.00317494605895,
+          "CPUCore_1": 43.42697936711061,
+          "CPUCore_0": 43.3800185892062,
+          "CPUCore_3": 41.47810708407726,
+          "CPUCore_2": 40.5271513315128,
+          "CPUCore_4": 39.81099946847041,
+          "CPUCore_5": 39.165288772284676,
+          "GPU": 37.192936100299114,
+          "VulkanWorker": 19.70004633090338,
+          "GPUFencingThrea": 4.191249427969312,
+          "HostTiming": 4.13254845558879,
+          "DSP_AudioRender": 3.674680871020714,
+          "eden-cli": 1.2092400310387654,
+          "audio": 1.0683576973255111,
+          "AudioRenderSyst": 0.9626959470405705,
+          "PulseMainloop": 0.6457106961857486,
+          "SDLAudioP15": 0.5987499182813305,
+          "VulkanPresent": 0.4226470011397626,
+          "PulseHotplug": 0.36394602875924004,
+          "wl_cursor_surfa": 0.08218136133273164,
+          "VSyncThread": 0.0704411668566271,
+          "SDLTimer": 0.023480388952209035,
+          "FS": 0.023480388952209035,
+          "JoyconScanThrea": 0.011740194476104518,
+          "nx2:ColdHint": 0.011740194476104518,
+          "KWorkerTaskMana": 0.0,
+          "libusb_event": 0.0,
+          "ScanGCAdapter": 0.0,
+          "cemuhookWorker": 0.0,
+          "libusb": 0.0,
+          "eden-cl:disk$0": 0.0,
+          "eden-cl:disk$1": 0.0,
+          "eden-cl:disk$2": 0.0,
+          "eden-cl:disk$3": 0.0,
+          "TextureDecoder": 0.0,
+          "VkPipelineBuild": 0.0,
+          "VkPipelineSeria": 0.0,
+          "AudioManager": 0.0,
+          "DSP_OpusDecoder": 0.0,
+          "ldn": 0.0,
+          "nvservices": 0.0,
+          "bsdsocket": 0.0,
+          "vi": 0.0,
+          "bsdsocket:selec": 0.0,
+          "bsdsocket:1": 0.0,
+          "bsdsocket:2": 0.0,
+          "TimeWorker": 0.0,
+          "am:EventObserve": 0.0,
+          "DeviceMemory:Co": 0.0
+        },
+        "cpu_counter_seconds": 85.17746465234086,
+        "tctl_celsius_range": [
+          96.125,
+          96.25
+        ],
+        "cpu_snapshot_mhz_mean": 3652.869533333333,
+        "load1_range": [
+          4.1708984375,
+          5.24462890625
+        ],
+        "gpu_busy_percent_mean": 62,
+        "observed_wall_seconds": 91.2750735427253,
+        "phase_start_unix": 1794151208.3350575,
+        "container_started_at": "2026-11-08T15:18:03.239064822Z"
+      },
+      {
+        "label": "real-original-2",
+        "activation": {
+          "version": "original-real",
+          "mode": 2,
+          "resolution": 3,
+          "profiler_absent": true,
+          "activation_lines": [
+            "\u0000\u001b[0;37m[   3.776434] HW.GPU <Info> video_core/gpu_split.cpp:146:MaybeStart: GPU thread split: engine methods run on a second thread, macros on the first\u001b[0m"
+          ]
+        },
+        "measurement": {
+          "requested_seconds": [
+            117.57074580192565,
+            200.850594
+          ],
+          "covered_seconds": 55.992000000000004,
+          "game_presentations": 1200,
+          "game_fps": 21.43163309044149,
+          "window_fps_median": 21.436624542679525,
+          "maximum_frame_ms": 92.153,
+          "frames_over_100_ms": 0,
+          "windows": [
+            {
+              "start": 137.960536,
+              "end": 166.383736,
+              "mean_us": 47372,
+              "maximum_us": 92153,
+              "freezes": 0
+            },
+            {
+              "start": 166.297316,
+              "end": 193.866116,
+              "mean_us": 45948,
+              "maximum_us": 81558,
+              "freezes": 0
+            }
+          ]
+        },
+        "shutdown": {
+          "exit_code": 0,
+          "stop_requested": true,
+          "window_closed": true,
+          "forced": false,
+          "stop_seconds": 3.304604315198958
+        },
+        "thread_cpu_percent": {
+          "GPU": 80.46013473172557,
+          "GPUBack": 78.5085885064967,
+          "CPUCore_1": 43.95681527789625,
+          "CPUCore_0": 43.80398334459519,
+          "CPUCore_3": 41.934731237297655,
+          "CPUCore_2": 41.182327873353984,
+          "CPUCore_4": 40.382899299163846,
+          "CPUCore_5": 39.66576484290504,
+          "VulkanWorker": 19.879907631698998,
+          "HostTiming": 4.549689091346844,
+          "GPUFencingThrea": 4.149974804251771,
+          "DSP_AudioRender": 3.7149916094718414,
+          "eden-cli": 1.2579243740933135,
+          "audio": 1.0698235331073973,
+          "AudioRenderSyst": 0.9757731126144392,
+          "PulseMainloop": 0.6818655485739454,
+          "SDLAudioP15": 0.6113277332042271,
+          "VulkanPresent": 0.423226892218311,
+          "PulseHotplug": 0.376201681971832,
+          "wl_cursor_surfa": 0.0705378153697185,
+          "VSyncThread": 0.0705378153697185,
+          "FS": 0.03526890768485925,
+          "JoyconScanThrea": 0.0235126051232395,
+          "SDLTimer": 0.01175630256161975,
+          "nx2:ColdHint": 0.01175630256161975,
+          "KWorkerTaskMana": 0.0,
+          "libusb_event": 0.0,
+          "ScanGCAdapter": 0.0,
+          "cemuhookWorker": 0.0,
+          "libusb": 0.0,
+          "eden-cl:disk$0": 0.0,
+          "eden-cl:disk$1": 0.0,
+          "eden-cl:disk$2": 0.0,
+          "eden-cl:disk$3": 0.0,
+          "TextureDecoder": 0.0,
+          "VkPipelineBuild": 0.0,
+          "VkPipelineSeria": 0.0,
+          "AudioManager": 0.0,
+          "DSP_OpusDecoder": 0.0,
+          "ldn": 0.0,
+          "nvservices": 0.0,
+          "bsdsocket": 0.0,
+          "vi": 0.0,
+          "bsdsocket:selec": 0.0,
+          "bsdsocket:1": 0.0,
+          "bsdsocket:2": 0.0,
+          "TimeWorker": 0.0,
+          "am:EventObserve": 0.0,
+          "DeviceMemory:Co": 0.0
+        },
+        "cpu_counter_seconds": 85.06075739022344,
+        "tctl_celsius_range": [
+          96.125,
+          96.25
+        ],
+        "cpu_snapshot_mhz_mean": 3635.5045777777777,
+        "load1_range": [
+          4.01220703125,
+          5.29931640625
+        ],
+        "gpu_busy_percent_mean": 53.2,
+        "observed_wall_seconds": 91.17629095399752,
+        "phase_start_unix": 1794151522.8059857,
+        "container_started_at": "2026-11-08T15:23:25.335240878Z"
+      },
+      {
+        "label": "real-patched-2",
+        "activation": {
+          "version": "patched-real",
+          "mode": 2,
+          "resolution": 3,
+          "profiler_absent": true,
+          "activation_lines": [
+            "\u0000\u001b[0;37m[   3.687689] HW.GPU <Info> video_core/gpu_split.cpp:146:MaybeStart: GPU thread split: engine methods run on a second thread, macros on the first\u001b[0m"
+          ]
+        },
+        "measurement": {
+          "requested_seconds": [
+            149.90790734291076,
+            229.071331
+          ],
+          "covered_seconds": 57.6498,
+          "game_presentations": 1200,
+          "game_fps": 20.815336740110112,
+          "window_fps_median": 20.838407222959816,
+          "maximum_frame_ms": 102.445,
+          "frames_over_100_ms": 1,
+          "windows": [
+            {
+              "start": 165.904334,
+              "end": 195.688334,
+              "mean_us": 49640,
+              "maximum_us": 102445,
+              "freezes": 1
+            },
+            {
+              "start": 195.64228,
+              "end": 223.50808,
+              "mean_us": 46443,
+              "maximum_us": 81984,
+              "freezes": 0
+            }
+          ]
+        },
+        "shutdown": {
+          "exit_code": 0,
+          "stop_requested": true,
+          "window_closed": true,
+          "forced": false,
+          "stop_seconds": 3.1037434893660247
+        },
+        "thread_cpu_percent": {
+          "GPUBack": 81.18718757062229,
+          "CPUCore_0": 42.78021656088829,
+          "CPUCore_1": 42.709680342321285,
+          "CPUCore_3": 40.81695847743999,
+          "CPUCore_2": 40.252668728903956,
+          "CPUCore_4": 39.45325825181124,
+          "CPUCore_5": 38.888968503275194,
+          "GPU": 36.526005181280546,
+          "VulkanWorker": 18.86843846667373,
+          "GPUFencingThrea": 4.1146127497419345,
+          "HostTiming": 3.820711839046082,
+          "DSP_AudioRender": 3.5620790376337315,
+          "eden-cli": 1.187359679211244,
+          "audio": 1.058043278505069,
+          "AudioRenderSyst": 0.963994987082396,
+          "PulseMainloop": 0.6348259671030414,
+          "SDLAudioP15": 0.5995578578195391,
+          "VulkanPresent": 0.42321731140202756,
+          "PulseHotplug": 0.37619316569069117,
+          "wl_cursor_surfa": 0.08229225499483869,
+          "VSyncThread": 0.058780182139170495,
+          "JoyconScanThrea": 0.0352681092835023,
+          "SDLTimer": 0.023512072855668198,
+          "FS": 0.023512072855668198,
+          "nx2:ColdHint": 0.011756036427834099,
+          "KWorkerTaskMana": 0.0,
+          "libusb_event": 0.0,
+          "ScanGCAdapter": 0.0,
+          "cemuhookWorker": 0.0,
+          "libusb": 0.0,
+          "eden-cl:disk$0": 0.0,
+          "eden-cl:disk$1": 0.0,
+          "eden-cl:disk$2": 0.0,
+          "eden-cl:disk$3": 0.0,
+          "TextureDecoder": 0.0,
+          "VkPipelineBuild": 0.0,
+          "VkPipelineSeria": 0.0,
+          "AudioManager": 0.0,
+          "DSP_OpusDecoder": 0.0,
+          "ldn": 0.0,
+          "nvservices": 0.0,
+          "bsdsocket": 0.0,
+          "vi": 0.0,
+          "bsdsocket:selec": 0.0,
+          "bsdsocket:1": 0.0,
+          "bsdsocket:2": 0.0,
+          "TimeWorker": 0.0,
+          "am:EventObserve": 0.0,
+          "DeviceMemory:Co": 0.0
+        },
+        "cpu_counter_seconds": 85.0626830002293,
+        "tctl_celsius_range": [
+          91.625,
+          95.25
+        ],
+        "cpu_snapshot_mhz_mean": 3771.5654,
+        "load1_range": [
+          3.3603515625,
+          4.32421875
+        ],
+        "gpu_busy_percent_mean": 65.6,
+        "observed_wall_seconds": 91.19522491889074,
+        "phase_start_unix": 1794152116.6018384,
+        "container_started_at": "2026-11-08T15:32:46.793931921Z"
+      }
+    ],
+    "pooled": {
+      "('half-resolution', 0, 1)": {
+        "fps": 21.62734994674265,
+        "frames": 2400,
+        "seconds": 110.97059999999999,
+        "runs": [
+          "half-1-mode0",
+          "half-2-mode0"
+        ],
+        "frames_over_100_ms": 1,
+        "maximum_frame_ms": 187.628
+      },
+      "('original-real', 2, 3)": {
+        "fps": 21.277614353878644,
+        "frames": 2400,
+        "seconds": 112.7946,
+        "runs": [
+          "real-original-1",
+          "real-original-2"
+        ],
+        "frames_over_100_ms": 1,
+        "maximum_frame_ms": 174.073
+      },
+      "('patched-real', 2, 3)": {
+        "fps": 20.71433380113204,
+        "frames": 2400,
+        "seconds": 115.8618,
+        "runs": [
+          "real-patched-1",
+          "real-patched-2"
+        ],
+        "frames_over_100_ms": 3,
+        "maximum_frame_ms": 107.193
+      },
+      "('reference-mode0', 0, 3)": {
+        "fps": 21.678101865400663,
+        "frames": 2400,
+        "seconds": 110.7108,
+        "runs": [
+          "anchor-1b-mode0",
+          "anchor-2-mode0"
+        ],
+        "frames_over_100_ms": 3,
+        "maximum_frame_ms": 104.777
+      }
+    }
+  },
+  "thread_cpu_aggregate": {
+    "original-real": {
+      "GPU": 80.45986785055236,
+      "GPUBack": 78.42045410737181,
+      "stable_threads_total_cpu_percent": 448.50645985473716
+    },
+    "patched-real": {
+      "GPU": 36.85969547445505,
+      "GPUBack": 82.09579345832411,
+      "stable_threads_total_cpu_percent": 401.8206101395334
+    }
+  },
+  "diagnosis": {
+    "scope": "15-second functional 3D sample outside FPS phases. Cycles divided by scheduled task-clock; does not establish thermal causality or recoverable FPS.",
+    "seconds": 15.014973049,
+    "front": {
+      "cpu_time_ms": 5835.79,
+      "cycles": 20335654939,
+      "effective_ghz": 3.484644742014363
+    },
+    "back": {
+      "cpu_time_ms": 12527.6,
+      "cycles": 46836146835,
+      "effective_ghz": 3.7386368366646443
+    },
+    "boost_enabled": true,
+    "governor": "performance",
+    "epp": "performance",
+    "cooler_model": "unknown",
+    "fans": {
+      "driver": "nct6775",
+      "detected_chip": "nct6798",
+      "fan2_rpm": 1129,
+      "fan3_rpm": 1259,
+      "pwm2_reading": 255,
+      "pwm3_reading": 247,
+      "header_identity": "CPU header not identified",
+      "cooler_model": "unknown, user cannot identify it",
+      "control_writes": false,
+      "temporary_module_removed": true
+    }
+  },
+  "prior_drain_frequency": {
+    "scope": "Same eight complete quiet-host native profile windows already retained; split drain zone includes Drain/WaitForSpace, elapsed includes waits",
+    "seconds": 80.15256099999999,
+    "calls_per_second": 17364.910083559276,
+    "elapsed_ms_per_second": 561.5463556916167,
+    "mean_scope_us": 32.337993861729046,
+    "records": [
+      {
+        "start": 132.405542,
+        "end": 142.429758,
+        "ms_per_second": 561.1,
+        "calls_per_second": 19239.0
+      },
+      {
+        "start": 142.429758,
+        "end": 152.455549,
+        "ms_per_second": 553.4,
+        "calls_per_second": 17524.0
+      },
+      {
+        "start": 152.455549,
+        "end": 162.470885,
+        "ms_per_second": 559.4,
+        "calls_per_second": 17266.0
+      },
+      {
+        "start": 162.470885,
+        "end": 172.490048,
+        "ms_per_second": 555.8,
+        "calls_per_second": 17015.0
+      },
+      {
+        "start": 172.490048,
+        "end": 182.492571,
+        "ms_per_second": 575.5,
+        "calls_per_second": 16474.0
+      },
+      {
+        "start": 182.492571,
+        "end": 192.520909,
+        "ms_per_second": 561.2,
+        "calls_per_second": 17018.0
+      },
+      {
+        "start": 192.520909,
+        "end": 202.542026,
+        "ms_per_second": 561.6,
+        "calls_per_second": 17212.0
+      },
+      {
+        "start": 202.542026,
+        "end": 212.558103,
+        "ms_per_second": 564.4,
+        "calls_per_second": 17169.0
+      }
+    ]
+  },
+  "native_profile": {
+    "scope": "15-second cycles:u sample outside FPS phase at fixed camera end view; fractions weighted by recorded sample period, not raw sample counts. Shared library symbols partly unresolved.",
+    "total_sampled_cycle_weights": {
+      "GPU": 33624765608,
+      "GPUBack": 36861537633
+    },
+    "front_drain_weight": 16656029446,
+    "front_drain_percent_sampled_cycles": 49.53500535937476,
+    "drain_callers_percent_within_drain": [
+      [
+        "Tegra::Engines::Maxwell3D::FrontDmaRead(VideoCommon::GpuSplit&, Tegra::Engines::Maxwell3D::FrontState&, unsigned int, unsigned int)",
+        78.55200230293829
+      ],
+      [
+        "Tegra::Engines::Puller::ProcessSemaphoreTriggerMethod(Tegra::DmaPusher&)",
+        19.049344246698446
+      ],
+      [
+        "Tegra::Engines::Puller::CanResumeAcquire(Tegra::DmaPusher&)",
+        1.635992346696047
+      ],
+      [
+        "Run<Tegra::Engines::(anonymous namespace)::ReleaseFences(Tegra::DmaPusher&)::<lambda()> >",
+        0.7626611036672155
+      ]
+    ],
+    "self_symbols_percent_per_thread": {
+      "GPU": [
+        [
+          "VideoCommon::GpuSplit::Drain()",
+          48.763650614411745
+        ],
+        [
+          "VideoCommon::GpuSplit::WaitForWriters()",
+          13.074777907013923
+        ],
+        [
+          "[unknown]",
+          11.008788950841927
+        ],
+        [
+          "Tegra::DmaPusher::CallMethod(unsigned int)",
+          3.565546335629344
+        ],
+        [
+          "Tegra::Engines::Maxwell3D::FrontWrite(VideoCommon::GpuSplit&, Tegra::Engines::Maxwell3D::FrontState&, unsigned int, unsigned int, bool, bool)",
+          3.0011336547723304
+        ],
+        [
+          "Tegra::DmaPusher::ProcessCommands(std::span<Tegra::CommandHeader const, 18446744073709551615ul>, unsigned long)",
+          2.5084313622674754
+        ],
+        [
+          "operator()",
+          1.5979989013578733
+        ],
+        [
+          "VideoCommon::GpuSplit::Reserve(unsigned long)",
+          1.5460436395616584
+        ],
+        [
+          "Tegra::Engines::Maxwell3D::FrontCallMethod(Core::System&, VideoCommon::GpuSplit&, unsigned int, unsigned int, bool)",
+          1.3685201210458948
+        ],
+        [
+          "__gnu_cxx::__enable_if<std::__is_scalar<unsigned int>::__value, void>::__type std::__fill_a1<unsigned int*, unsigned int>(unsigned int*, unsigned int*, unsigned int const&)",
+          1.2936074144603447
+        ],
+        [
+          "Tegra::TuringMacroJit::Thunks<Tegra::Engines::Maxwell3D::FrontRunMacro(Core::System&, VideoCommon::GpuSplit&, Tegra::Engines::Maxwell3D::FrontState&)::{lambda(unsigned int)#1}, Tegra::Engines::Maxwell3D::FrontRunMacro(Core::System&, VideoCommon::GpuSplit&, Tegra::Engines::Maxwell3D::FrontState&)::{lambda(unsigned int, unsigned int)#1}>::CallEmit(Tegra::TuringMacroJit::State*, unsigned int, unsigned int)",
+          1.157103976681496
+        ],
+        [
+          "VideoCommon::GpuSplit::Commit(unsigned long)",
+          1.066986209458189
+        ]
+      ],
+      "GPUBack": [
+        [
+          "[unknown]",
+          24.585196415916425
+        ],
+        [
+          "VideoCommon::GpuSplit::BackLoop(std::stop_token)",
+          13.046907689750089
+        ],
+        [
+          "VideoCommon::GpuSplit::Execute(unsigned long const*)",
+          3.46607211484362
+        ],
+        [
+          "Tegra::Engines::Maxwell3D::CallMethod(Core::System&, unsigned int, unsigned int, bool)",
+          2.929092735495112
+        ],
+        [
+          "std::__atomic_base<unsigned int>::load(std::memory_order) const",
+          2.525384587230629
+        ],
+        [
+          "Tegra::MemoryManager::GetEntry(unsigned long, bool) const",
+          1.768047639490069
+        ],
+        [
+          "Tegra::MemoryManager::GpuToCpuAddress(unsigned long) const",
+          1.6301678404810889
+        ],
+        [
+          "VideoCommon::WordManager<Core::DeviceMemoryManager<Tegra::MaxwellDeviceTraits>, 16ul, 4194304ul>::ForEachModifiedRange<VideoCommon::BufferCache<Vulkan::BufferCacheParams>::SynchronizeBuffer(Vulkan::Buffer&, unsigned long, unsigned int)::{lambda(unsigned long, unsigned long)#2}&>(VideoCommon::Type, bool, unsigned long, long, VideoCommon::BufferCache<Vulkan::BufferCacheParams>::SynchronizeBuffer(Vulkan::Buffer&, unsigned long, unsigned int)::{lambda(unsigned long, unsigned long)#2}&)::{lambda(unsigned long, unsigned long)#1}::operator()(unsigned long, unsigned long) const",
+          1.1753685435306649
+        ],
+        [
+          "__gnu_cxx::__normal_iterator<std::pair<unsigned int, unsigned int> const*, std::vector<std::pair<unsigned int, unsigned int>, std::allocator<std::pair<unsigned int, unsigned int> > > >::__normal_iterator(std::pair<unsigned int, unsigned int> const* const&)",
+          0.9542938862243311
+        ],
+        [
+          "operator()",
+          0.9414711167374487
+        ],
+        [
+          "VideoCommon::BufferCache<Vulkan::BufferCacheParams>::BindHostGraphicsUniformBuffer(unsigned long, unsigned int, unsigned int, bool)",
+          0.8005990741303268
+        ],
+        [
+          "unsigned char* Core::DeviceMemoryManager<Tegra::MaxwellDeviceTraits>::GetPointer<unsigned char>(unsigned long)",
+          0.7657866495164608
+        ]
+      ]
+    },
+    "back_bind_stage_in_stack_percent": 21.484063241871546
+  },
+  "tests": {
+    "application_gate": {
+      "exit": 0,
+      "started": 1794154513.2707474,
+      "finished": 1794154558.6385672
+    },
+    "audit": {
+      "exit": 0,
+      "started": 1794154674.8726885,
+      "finished": 1794154675.6064994
+    },
+    "upstream_original": {
+      "passed": 238,
+      "skipped": 4
+    },
+    "upstream_actual_patch": {
+      "passed": 239,
+      "skipped": 4
+    },
+    "skipped_reason": "LDN tests require host IPv4 interface, absent in the deliberately isolated test container.",
+    "mutations": {
+      "fixed": {
+        "exit": 0,
+        "stdout": "waiting_thread_cpu_ms=0.031\nprogress tests passed\n",
+        "stderr": ""
+      },
+      "polling": {
+        "exit": -6,
+        "stdout": "",
+        "stderr": "terminate called after throwing an instance of 'std::runtime_error'\n  what():  front burned CPU while the producer was blocked\n"
+      },
+      "late_snapshot": {
+        "timeout_seconds": 3
+      }
+    },
+    "asan_ubsan": "Standalone progress helper passed; emulator was not built with sanitizers.",
+    "tsan": {
+      "exit": 66,
+      "reason": "FATAL unexpected memory mapping before test execution; no race validation claimed"
+    },
+    "initial_application_gate": {
+      "exit": 0,
+      "started": 1794147470.9720855,
+      "finished": 1794147519.4627845
+    },
+    "initial_audit": {
+      "exit": 0,
+      "started": 1794147472.1111119,
+      "finished": 1794147472.8455844
+    },
+    "documentation": {
+      "exit": 0,
+      "started": 1794154767.834848,
+      "finished": 1794154769.506508
+    },
+    "served_documentation": [
+      {
+        "url": "https://nel3ab.app/docs/plan-60fps-switch2-2026-11-08/",
+        "status": 200,
+        "current_profile": true,
+        "final_audio_limits": true,
+        "at": 1794154795.5156014
+      },
+      {
+        "url": "https://nel3ab.app/docs/etude-switch2-2026-11-07/",
+        "status": 200,
+        "current_profile": true,
+        "final_audio_limits": true,
+        "at": 1794154795.5159981
+      }
+    ]
+  },
+  "functional": {
+    "version": "patched-functional",
+    "start_unix": 1794152586.434697,
+    "end_unix": 1794152641.0729785,
+    "before_sha256": "8e2f6a893456ac176f7b030dc8d9d15d0f3aac52570930c2aeb33a5f6a201c7d",
+    "saved_sha256": "bdadb5a33a3a0ccc1eb5bac849636cd52ace468f798789a3de709be846cb3ce2",
+    "manual_slot_changed": true,
+    "shutdown": {
+      "exit_code": 0,
+      "stop_requested": true,
+      "window_closed": true,
+      "forced": false,
+      "stop_seconds": 2.803478031884879
+    },
+    "scope": "Functional movement, frequency and stereo diagnostics, save write; not an FPS comparison",
+    "requires_visual_review": false,
+    "resumed_sha256": "bdadb5a33a3a0ccc1eb5bac849636cd52ace468f798789a3de709be846cb3ce2",
+    "resume_shutdown": {
+      "exit_code": 0,
+      "stop_requested": true,
+      "window_closed": true,
+      "forced": false,
+      "stop_seconds": 2.9034766419790685
+    },
+    "visual_review": "Walk-position shows feet on Kokiri ground below ladder; Saved confirmation visible; resume restores same ground position, camera behind actor. No new zone transition claimed.",
+    "stereo_signal": {
+      "rms_s16le": [
+        766.2859758786088,
+        669.3681248223485
+      ],
+      "seconds": 8.001583333333333,
+      "scope": "non-silent stereo signal; not a fine synchronization measurement"
+    }
+  },
+  "excluded_or_separate_runs": [
+    {
+      "label": "anchor-1-mode0",
+      "why": "Own timeout wrapper forwarded stop to compositor as well as supervisor, forced exit137; corrected and restarted from seed; not part of retained comparison."
+    },
+    {
+      "label": "original-1-mode2",
+      "why": "Unmodified build aborted134 during initial 3D load with VK_ERROR_OUT_OF_DEVICE_MEMORY and preceding unmapped device reads; no gameplay FPS. Retry loaded normally; failure cause unproven."
+    },
+    {
+      "label": "original-1b-mode2",
+      "why": "Valid early warm control21.3249FPS with normal exit, kept separately from restarted matched-cache code comparison."
+    },
+    {
+      "label": "patched-1-mode2",
+      "why": "Stale GPU object retained old Drain due preserved source timestamps; excluded, despite changed executable hash and passing new helper test."
+    },
+    {
+      "label": "original-2-mode2",
+      "why": "Stopped normally before measured phase to rebuild and restart code comparison."
+    }
+  ],
+  "retained_run_stop_note": "real-patched-2 closed normally when lab duration bound expired after its completed FPS phase and additional unmeasured walking. Functional save checks used a fresh separate launch.",
+  "decision": "Keep installed standard Eglantine and SPLIT=0. Prototype cuts front thread CPU from80.46% to36.86% of one logical CPU, but pooled native presentations decline21.2776->20.7143 (-2.65%). Resolution reduction gives no gain21.6781->21.6273.",
+  "limits": [
+    "Kokiri camera path and short ground movement only; no new zone loading validated.",
+    "NO_MESH omits known geometry; no complete-world rendering claim.",
+    "Two phases per condition; window means are not per-frame percentiles.",
+    "Frame presentations do not prove all pixels change; frame generation disabled.",
+    "Thermal correlation is not proof of throttling or a measured cooling gain.",
+    "One early unmodified Vulkan allocation failure remains unexplained."
+  ],
+  "production_changed": false,
+  "new_remote_ci_claimed": false,
+  "audio_video_validation": {
+    "scope": "Local native cutscene audio/video, reference asset matching after correct New Game screen detection. Not browser transport or a full playthrough.",
+    "accepted_points": 12,
+    "candidate_points": 19,
+    "observed_span_seconds": 84.9861014354974,
+    "audio_ahead_seconds_range": [
+      -0.09737499999999955,
+      0.011250000000003979
+    ],
+    "audio_ahead_seconds_median": -0.04625000000000057,
+    "uncertainty_seconds": 0.5,
+    "results": [
+      {
+        "picture": "01.png",
+        "capture_seconds": 5.141740405000746,
+        "screenshot_seconds": 0.2751923408359289,
+        "rejected": "audio match rejected: {'seconds': 4.471875, 'correlation': 0.329934107451404, 'channel': 6}"
+      },
+      {
+        "picture": "02.png",
+        "capture_seconds": 10.140390490647405,
+        "screenshot_seconds": 0.2722664438188076,
+        "audio": {
+          "seconds": 11.470625,
+          "correlation": 0.581280061914564,
+          "channel": 6
+        },
+        "video": {
+          "seconds": 11.5,
+          "correlation": 0.9984066904856614
+        },
+        "audio_ahead_seconds": -0.02937499999999993
+      },
+      {
+        "picture": "03.png",
+        "capture_seconds": 15.144333343487233,
+        "screenshot_seconds": 0.28041021386161447,
+        "audio": {
+          "seconds": 16.4745,
+          "correlation": 0.8298022294334543,
+          "channel": 6
+        },
+        "video": {
+          "seconds": 16.5,
+          "correlation": 0.9980638054544628
+        },
+        "audio_ahead_seconds": -0.025500000000000966
+      },
+      {
+        "picture": "04.png",
+        "capture_seconds": 20.111511561088264,
+        "screenshot_seconds": 0.2147571947425604,
+        "audio": {
+          "seconds": 21.44175,
+          "correlation": 0.5590268613438043,
+          "channel": 6
+        },
+        "video": {
+          "seconds": 21.5,
+          "correlation": 0.996984193868747
+        },
+        "audio_ahead_seconds": -0.05825000000000102
+      },
+      {
+        "picture": "05.png",
+        "capture_seconds": 25.11002929182723,
+        "screenshot_seconds": 0.21177643490955234,
+        "audio": {
+          "seconds": 26.44025,
+          "correlation": 0.5621756850770767,
+          "channel": 6
+        },
+        "video": {
+          "seconds": 26.5,
+          "correlation": 0.9973830089489318
+        },
+        "audio_ahead_seconds": -0.05975000000000108
+      },
+      {
+        "picture": "06.png",
+        "capture_seconds": 30.10534424846992,
+        "screenshot_seconds": 0.2024304261431098,
+        "audio": {
+          "seconds": 31.4355,
+          "correlation": 0.8968777801682473,
+          "channel": 6
+        },
+        "video": {
+          "seconds": 31.5,
+          "correlation": 0.9761010156639861
+        },
+        "audio_ahead_seconds": -0.06449999999999889
+      },
+      {
+        "picture": "07.png",
+        "capture_seconds": 35.10254126926884,
+        "screenshot_seconds": 0.19681835221126676,
+        "rejected": "audio match rejected: {'seconds': 34.43275, 'correlation': 0.3625839666438461, 'channel': 6}"
+      },
+      {
+        "picture": "08.png",
+        "capture_seconds": 40.10415399959311,
+        "screenshot_seconds": 0.20003766007721424,
+        "rejected": "audio match rejected: {'seconds': 39.434375, 'correlation': 0.397174189559562, 'channel': 6}"
+      },
+      {
+        "picture": "09.png",
+        "capture_seconds": 45.0246710292995,
+        "screenshot_seconds": 0.0410908330231905,
+        "audio": {
+          "seconds": 46.354875,
+          "correlation": 0.6371284139525043,
+          "channel": 6
+        },
+        "rejected": "picture has too little contrast"
+      },
+      {
+        "picture": "10.png",
+        "capture_seconds": 50.09551037149504,
+        "screenshot_seconds": 0.1827677981927991,
+        "rejected": "audio match rejected: {'seconds': 49.42575, 'correlation': 0.21531839150660698, 'channel': 6}"
+      },
+      {
+        "picture": "11.png",
+        "capture_seconds": 55.09298448590562,
+        "screenshot_seconds": 0.1777024627663195,
+        "audio": {
+          "seconds": 56.423125,
+          "correlation": 0.992366296455185,
+          "channel": 6
+        },
+        "video": {
+          "seconds": 56.5,
+          "correlation": 0.9975205333682098
+        },
+        "audio_ahead_seconds": -0.07687500000000114
+      },
+      {
+        "picture": "12.png",
+        "capture_seconds": 60.15174524160102,
+        "screenshot_seconds": 0.29522617999464273,
+        "audio": {
+          "seconds": 61.481875,
+          "correlation": 0.9920987975735337,
+          "channel": 6
+        },
+        "video": {
+          "seconds": 61.5,
+          "correlation": 0.994968123391268
+        },
+        "audio_ahead_seconds": -0.018124999999997726
+      },
+      {
+        "picture": "13.png",
+        "capture_seconds": 65.148952644784,
+        "screenshot_seconds": 0.289639909286052,
+        "rejected": "audio match rejected: {'seconds': 64.479125, 'correlation': 0.19265207256840008, 'channel': 6}"
+      },
+      {
+        "picture": "14.png",
+        "capture_seconds": 70.18104512477294,
+        "screenshot_seconds": 0.35382032906636596,
+        "audio": {
+          "seconds": 71.51125,
+          "correlation": 0.9852932927728877,
+          "channel": 6
+        },
+        "video": {
+          "seconds": 71.5,
+          "correlation": 0.9991268500165972
+        },
+        "audio_ahead_seconds": 0.011250000000003979
+      },
+      {
+        "picture": "15.png",
+        "capture_seconds": 75.12780396873131,
+        "screenshot_seconds": 0.2473491900600493,
+        "audio": {
+          "seconds": 76.458,
+          "correlation": 0.953959808507207,
+          "channel": 6
+        },
+        "video": {
+          "seconds": 76.5,
+          "correlation": 0.9879628061778605
+        },
+        "audio_ahead_seconds": -0.04200000000000159
+      },
+      {
+        "picture": "16.png",
+        "capture_seconds": 80.166179606691,
+        "screenshot_seconds": 0.3241008259356022,
+        "audio": {
+          "seconds": 81.496375,
+          "correlation": 0.9345533127423309,
+          "channel": 6
+        },
+        "video": {
+          "seconds": 81.5,
+          "correlation": 0.8965360628400052
+        },
+        "rejected": "picture match rejected: {'seconds': 81.5, 'correlation': 0.8965360628400052}"
+      },
+      {
+        "picture": "17.png",
+        "capture_seconds": 85.07247010571882,
+        "screenshot_seconds": 0.13667780486866832,
+        "audio": {
+          "seconds": 86.402625,
+          "correlation": 0.9926400630794886,
+          "channel": 6
+        },
+        "video": {
+          "seconds": 86.5,
+          "correlation": 0.9780075574782402
+        },
+        "audio_ahead_seconds": -0.09737499999999955
+      },
+      {
+        "picture": "18.png",
+        "capture_seconds": 90.12074845796451,
+        "screenshot_seconds": 0.23324274318292737,
+        "audio": {
+          "seconds": 91.450875,
+          "correlation": 0.9920146032034066,
+          "channel": 6
+        },
+        "video": {
+          "seconds": 91.5,
+          "correlation": 0.9857882427590803
+        },
+        "audio_ahead_seconds": -0.04912500000000364
+      },
+      {
+        "picture": "19.png",
+        "capture_seconds": 95.12649192614481,
+        "screenshot_seconds": 0.24472401710227132,
+        "audio": {
+          "seconds": 96.456625,
+          "correlation": 0.9954292627012854,
+          "channel": 6
+        },
+        "video": {
+          "seconds": 96.5,
+          "correlation": 0.9633109106320683
+        },
+        "audio_ahead_seconds": -0.0433749999999975
+      }
+    ],
+    "shutdown": {
+      "exit_code": 0,
+      "stop_requested": true,
+      "window_closed": true,
+      "forced": false,
+      "stop_seconds": 2.3035642663016915
+    },
+    "title_detection": {
+      "seconds": 40.32981926482171,
+      "scores": [
+        0.9426388594824388,
+        0.9943488433102434
+      ]
+    },
+    "negative_menu_capture_rejected": true,
+    "limits": "No fine40ms synchronization claim. First late capture retained only3points/10sec; fixed20sec startup retry capturedmenu and was rejected."
+  },
+  "cleanup": {
+    "at": 1794154744.8335202,
+    "config_exactly_unchanged": true,
+    "production_progress_files_unchanged": 4,
+    "lab_devices_removed": true,
+    "lab_containers_removed": true,
+    "observer": "active",
+    "control": "active",
+    "nct_module_loaded": false
+  },
+  "observed_camera_seconds_total": 729.8300023926422,
+  "selected_window_seconds_total": 450.3378,
+  "selected_presentations_total": 9600
+}

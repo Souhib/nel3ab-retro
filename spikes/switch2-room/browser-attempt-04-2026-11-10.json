@@ -1,0 +1,1514 @@
+{
+  "created_after_cleanup_epoch": 1794283532.41953,
+  "status": "Bounded functional browser route reaches a distinct interior; no named new zone, map-load benchmark or 90s stable phase qualified",
+  "room": "/home/souhib/.local/state/nel3ab/test-switch2-0YPUMg",
+  "plan_sha256": "f73f9207056aca58a3e738ecd41842e0eb2078fe4acc04256f3bffaf0442dde8",
+  "same_profile_as_attempt03": true,
+  "actual_pid": 1411452,
+  "runtime_before_and_after_passed_141_fields": true,
+  "clock_namespace_same_offsets_zero": true,
+  "duration": {
+    "room_start_monotonic_ns": 2300940542699109,
+    "stop_request_monotonic_ns": 2301373905346301,
+    "normal_exit_monotonic_ns": 2301378498215526,
+    "stop_request_age_seconds": 433.362647192,
+    "exit_age_seconds": 437.955516417,
+    "route_begin_monotonic_ns": 2301219691148104,
+    "route_end_observation_monotonic_ns": 2301373854943562,
+    "mixed_route_elapsed_seconds": 154.163795458,
+    "requested_arrow_hold_seconds": 13.55,
+    "requested_Q_seconds": 0.15,
+    "continuous_90s_phase_started": false,
+    "preparation_gap_note": "After loaded-check, context compaction/resumption consumed wall time; this gap is retained as idle/observation, not gameplay. No counter reset or restart."
+  },
+  "functional_findings": {
+    "outdoor_progression_observed": true,
+    "distinct_interior_observed": true,
+    "interior_identity": "Unnamed tree building with potteries, lanterns, shelves, hearts and rear bed-like niche. Not the original raised Link house scene. No named location UI was observed.",
+    "entry": "Visually continuous doorway crossing. No black/loading screen sampled; this does not prove no asynchronous resource load.",
+    "entry_observation_bracket": {
+      "begin_ns": 2301294256506608,
+      "end_ns": 2301306675093133,
+      "scope": "Command through first unequivocal interior image, not loading duration."
+    },
+    "exterior_return_proved": false,
+    "map_loading_symptom_closed": false,
+    "reason_no_90s": "Remaining budget and unqualified exit/terrain; preserve bounded functional evidence instead of treating stationary/occluded periods as gameplay."
+  },
+  "browser_origin": "Actual seat1 page keyboard/input socket; no direct pad injection. Short actions release key in finally and counters show pressed[] at every route snapshot. No J/L used.",
+  "visual_review": {
+    "loaded-check": "Kokiri exterior, Link facing Saria, path and treehouse visible; valid world, no menu.",
+    "route-left": "Link moves left relative to Saria and plants.",
+    "route-forward": "Link on path, Saria no longer in foreground; sustained travel not established by this one short hold.",
+    "route-forward2": "Farther along path toward lit building/opening, treehouse steps right.",
+    "route-forward3": "At next steps near another child and sign; distinct position relative to original checkpoint.",
+    "route-door-right": "Climbing steps toward lit porch.",
+    "route-door-porch": "At porch and sign, open doorway visible; sign not read, no location name established.",
+    "door-approach": "Near right side of doorway.",
+    "door-cross": "Still near doorway edge; this input did not prove crossing.",
+    "door-center": "Moved left to align with dark doorway.",
+    "door-enter": "Inside arch at threshold; outside still visible on left, hearts and interior visible ahead.",
+    "interior-check": "Threshold scene remains visible, no menu or loading screen.",
+    "interior-deeper": "Actual interior: pots/table, lanterns, shelf, hearts and rear niche, Link fully inside.",
+    "interior-room": "Farther toward rear niche with mat/bedding and table. No name displayed.",
+    "interior-return": "Link moves toward camera inside, hearts behind.",
+    "exit-approach": "Camera still inside and Link out of view; exterior return not proved.",
+    "exterior-return": "Interior remains on screen, Link occluded; filename does not establish exterior.",
+    "return-camera": "Camera turns toward side of doorway, daylight visible left but Link occluded; no qualified return."
+  },
+  "actions": [
+    {
+      "label": "observed-01",
+      "key": null,
+      "duration_ms": 0,
+      "start_monotonic_ns": "2300971481796885",
+      "screenshot_begin_monotonic_ns": "2300971681269290",
+      "screenshot_end_monotonic_ns": "2300971749500633",
+      "counters": {
+        "counters": {
+          "painted": 462,
+          "shown": 462,
+          "stalls": 0,
+          "restarts": 0,
+          "undecoded": 0,
+          "attempts": 6201,
+          "pressed": [],
+          "shakes": 0,
+          "soundPlayed": 0,
+          "soundGaps": 0,
+          "roundTripMs": 2,
+          "padOnly": false,
+          "port": 1
+        },
+        "audio": {
+          "soundLead": 0.01,
+          "outputLatency": 0,
+          "baseLatency": 0,
+          "sampleRate": 0,
+          "chunkMs": null,
+          "gaps": 0,
+          "state": "coupé"
+        },
+        "seat": 1,
+        "reading": null,
+        "signal": {
+          "packets": 0,
+          "samples": 0,
+          "nonzero": 0,
+          "peak": 0,
+          "squares": 0,
+          "invalid": 0,
+          "firstSourceUs": null,
+          "lastSourceUs": null
+        },
+        "socket": {
+          "inputOpened": 1,
+          "inputClosed": 0,
+          "soundOpened": 0,
+          "soundClosed": 0
+        }
+      }
+    },
+    {
+      "label": "title-confirm",
+      "key": "KeyX",
+      "duration_ms": 180,
+      "start_monotonic_ns": "2300977042363575",
+      "screenshot_begin_monotonic_ns": "2300977432805373",
+      "screenshot_end_monotonic_ns": "2300977529552553",
+      "counters": {
+        "counters": {
+          "painted": 626,
+          "shown": 626,
+          "stalls": 0,
+          "restarts": 0,
+          "undecoded": 0,
+          "attempts": 7820,
+          "pressed": [],
+          "shakes": 0,
+          "soundPlayed": 0,
+          "soundGaps": 0,
+          "roundTripMs": 2,
+          "padOnly": false,
+          "port": 1
+        },
+        "audio": {
+          "soundLead": 0.01,
+          "outputLatency": 0.032,
+          "baseLatency": 0.010020833333333333,
+          "sampleRate": 48000,
+          "chunkMs": null,
+          "gaps": 0,
+          "state": "running"
+        },
+        "seat": 1,
+        "reading": null,
+        "signal": {
+          "packets": 48,
+          "samples": 46080,
+          "nonzero": 46015,
+          "peak": 8975,
+          "squares": 114309236953,
+          "invalid": 0,
+          "firstSourceUs": 2300977051751,
+          "lastSourceUs": 2300977525452
+        },
+        "socket": {
+          "inputOpened": 1,
+          "inputClosed": 0,
+          "soundOpened": 1,
+          "soundClosed": 0
+        }
+      }
+    },
+    {
+      "label": "continue",
+      "key": "KeyX",
+      "duration_ms": 180,
+      "start_monotonic_ns": "2300985812768031",
+      "screenshot_begin_monotonic_ns": "2300986198442797",
+      "screenshot_end_monotonic_ns": "2300986291315338",
+      "counters": {
+        "counters": {
+          "painted": 896,
+          "shown": 896,
+          "stalls": 0,
+          "restarts": 0,
+          "undecoded": 0,
+          "attempts": 10418,
+          "pressed": [],
+          "shakes": 0,
+          "soundPlayed": 9.019999999999852,
+          "soundGaps": 0,
+          "roundTripMs": 2,
+          "padOnly": false,
+          "port": 1
+        },
+        "audio": {
+          "soundLead": 0.01,
+          "outputLatency": 0.032,
+          "baseLatency": 0.010020833333333333,
+          "sampleRate": 48000,
+          "chunkMs": 9.999999999999837,
+          "gaps": 0,
+          "state": "running"
+        },
+        "seat": 1,
+        "reading": null,
+        "signal": {
+          "packets": 924,
+          "samples": 887040,
+          "nonzero": 886179,
+          "peak": 10095,
+          "squares": 1280883277815,
+          "invalid": 0,
+          "firstSourceUs": 2300977051751,
+          "lastSourceUs": 2300986281535
+        },
+        "socket": {
+          "inputOpened": 1,
+          "inputClosed": 0,
+          "soundOpened": 1,
+          "soundClosed": 0
+        }
+      }
+    },
+    {
+      "label": "load-list",
+      "key": null,
+      "duration_ms": 0,
+      "start_monotonic_ns": "2300991014703120",
+      "screenshot_begin_monotonic_ns": "2300991214513220",
+      "screenshot_end_monotonic_ns": "2300991310108529",
+      "counters": {
+        "counters": {
+          "painted": 1044,
+          "shown": 1046,
+          "stalls": 0,
+          "restarts": 0,
+          "undecoded": 0,
+          "attempts": 11925,
+          "pressed": [],
+          "shakes": 0,
+          "soundPlayed": 14.009999999999746,
+          "soundGaps": 0,
+          "roundTripMs": 2,
+          "padOnly": false,
+          "port": 1
+        },
+        "audio": {
+          "soundLead": 0.01,
+          "outputLatency": 0.032,
+          "baseLatency": 0.010020833333333333,
+          "sampleRate": 48000,
+          "chunkMs": 9.999999999999819,
+          "gaps": 0,
+          "state": "running"
+        },
+        "seat": 1,
+        "reading": null,
+        "signal": {
+          "packets": 1426,
+          "samples": 1368960,
+          "nonzero": 1367874,
+          "peak": 10095,
+          "squares": 2236717572858,
+          "invalid": 0,
+          "firstSourceUs": 2300977051751,
+          "lastSourceUs": 2300991299185
+        },
+        "socket": {
+          "inputOpened": 1,
+          "inputClosed": 0,
+          "soundOpened": 1,
+          "soundClosed": 0
+        }
+      }
+    },
+    {
+      "label": "select-manual",
+      "key": "KeyX",
+      "duration_ms": 180,
+      "start_monotonic_ns": "2300997617070158",
+      "screenshot_begin_monotonic_ns": "2300997998603095",
+      "screenshot_end_monotonic_ns": "2300998082329939",
+      "counters": {
+        "counters": {
+          "painted": 1253,
+          "shown": 1255,
+          "stalls": 0,
+          "restarts": 0,
+          "undecoded": 0,
+          "attempts": 14054,
+          "pressed": [],
+          "shakes": 0,
+          "soundPlayed": 21.020000000000486,
+          "soundGaps": 0,
+          "roundTripMs": 2,
+          "padOnly": false,
+          "port": 1
+        },
+        "audio": {
+          "soundLead": 0.01,
+          "outputLatency": 0.032,
+          "baseLatency": 0.010020833333333333,
+          "sampleRate": 48000,
+          "chunkMs": 10.000000000000233,
+          "gaps": 0,
+          "state": "running"
+        },
+        "seat": 1,
+        "reading": null,
+        "signal": {
+          "packets": 2104,
+          "samples": 2019840,
+          "nonzero": 2018382,
+          "peak": 10095,
+          "squares": 3553344796722,
+          "invalid": 0,
+          "firstSourceUs": 2300977051751,
+          "lastSourceUs": 2300998075330
+        },
+        "socket": {
+          "inputOpened": 1,
+          "inputClosed": 0,
+          "soundOpened": 1,
+          "soundClosed": 0
+        }
+      }
+    },
+    {
+      "label": "confirm-visible",
+      "key": null,
+      "duration_ms": 0,
+      "start_monotonic_ns": "2301003650756115",
+      "screenshot_begin_monotonic_ns": "2301003850318630",
+      "screenshot_end_monotonic_ns": "2301003934872867",
+      "counters": {
+        "counters": {
+          "painted": 1418,
+          "shown": 1420,
+          "stalls": 0,
+          "restarts": 0,
+          "undecoded": 0,
+          "attempts": 15685,
+          "pressed": [],
+          "shakes": 0,
+          "soundPlayed": 26.520000000001346,
+          "soundGaps": 0,
+          "roundTripMs": 2,
+          "padOnly": false,
+          "port": 1
+        },
+        "audio": {
+          "soundLead": 0.01,
+          "outputLatency": 0.032,
+          "baseLatency": 0.010020833333333333,
+          "sampleRate": 48000,
+          "chunkMs": 10.000000000000508,
+          "gaps": 0,
+          "state": "running"
+        },
+        "seat": 1,
+        "reading": null,
+        "signal": {
+          "packets": 2690,
+          "samples": 2582400,
+          "nonzero": 2580569,
+          "peak": 10095,
+          "squares": 4423412235075,
+          "invalid": 0,
+          "firstSourceUs": 2300977051751,
+          "lastSourceUs": 2301003934528
+        },
+        "socket": {
+          "inputOpened": 1,
+          "inputClosed": 0,
+          "soundOpened": 1,
+          "soundClosed": 0
+        }
+      }
+    },
+    {
+      "label": "load-manual",
+      "key": "KeyX",
+      "duration_ms": 180,
+      "start_monotonic_ns": "2301008782055054",
+      "screenshot_begin_monotonic_ns": "2301009163818725",
+      "screenshot_end_monotonic_ns": "2301009248191591",
+      "counters": {
+        "counters": {
+          "painted": 1583,
+          "shown": 1585,
+          "stalls": 0,
+          "restarts": 0,
+          "undecoded": 0,
+          "attempts": 17369,
+          "pressed": [],
+          "shakes": 0,
+          "soundPlayed": 32.0200000000022,
+          "soundGaps": 0,
+          "roundTripMs": 2,
+          "padOnly": false,
+          "port": 1
+        },
+        "audio": {
+          "soundLead": 0.01,
+          "outputLatency": 0.032,
+          "baseLatency": 0.010020833333333333,
+          "sampleRate": 48000,
+          "chunkMs": 10.000000000000686,
+          "gaps": 0,
+          "state": "running"
+        },
+        "seat": 1,
+        "reading": null,
+        "signal": {
+          "packets": 3220,
+          "samples": 3091200,
+          "nonzero": 3089087,
+          "peak": 12260,
+          "squares": 5548407873030,
+          "invalid": 0,
+          "firstSourceUs": 2300977051751,
+          "lastSourceUs": 2301009233556
+        },
+        "socket": {
+          "inputOpened": 1,
+          "inputClosed": 0,
+          "soundOpened": 1,
+          "soundClosed": 0
+        }
+      }
+    },
+    {
+      "label": "loaded-check",
+      "key": null,
+      "duration_ms": 0,
+      "start_monotonic_ns": "2301047024062177",
+      "screenshot_begin_monotonic_ns": "2301047224638466",
+      "screenshot_end_monotonic_ns": "2301047322816983",
+      "counters": {
+        "counters": {
+          "painted": 2483,
+          "shown": 2488,
+          "stalls": 0,
+          "restarts": 0,
+          "undecoded": 0,
+          "attempts": 28815,
+          "pressed": [],
+          "shakes": 0,
+          "soundPlayed": 70.02999999999892,
+          "soundGaps": 0,
+          "roundTripMs": 2,
+          "padOnly": false,
+          "port": 1
+        },
+        "audio": {
+          "soundLead": 0.01,
+          "outputLatency": 0.032,
+          "baseLatency": 0.010020833333333333,
+          "sampleRate": 48000,
+          "chunkMs": 9.999999999999845,
+          "gaps": 0,
+          "state": "running"
+        },
+        "seat": 1,
+        "reading": null,
+        "signal": {
+          "packets": 7029,
+          "samples": 6747840,
+          "nonzero": 5246616,
+          "peak": 12260,
+          "squares": 7032756278793,
+          "invalid": 0,
+          "firstSourceUs": 2300977051751,
+          "lastSourceUs": 2301047316026
+        },
+        "socket": {
+          "inputOpened": 1,
+          "inputClosed": 0,
+          "soundOpened": 1,
+          "soundClosed": 0
+        }
+      }
+    },
+    {
+      "label": "route-left",
+      "key": "ArrowLeft",
+      "duration_ms": 600,
+      "start_monotonic_ns": "2301219691148104",
+      "screenshot_begin_monotonic_ns": "2301220493643854",
+      "screenshot_end_monotonic_ns": "2301220576285016",
+      "counters": {
+        "counters": {
+          "painted": 7309,
+          "shown": 7323,
+          "stalls": 0,
+          "restarts": 0,
+          "undecoded": 0,
+          "attempts": 80165,
+          "pressed": [],
+          "shakes": 0,
+          "soundPlayed": 243.56999999992345,
+          "soundGaps": 0,
+          "roundTripMs": 2,
+          "padOnly": false,
+          "port": 1
+        },
+        "audio": {
+          "soundLead": 0.01,
+          "outputLatency": 0.032,
+          "baseLatency": 0.010020833333333333,
+          "sampleRate": 48000,
+          "chunkMs": 9.999999999996858,
+          "gaps": 0,
+          "state": "running"
+        },
+        "seat": 1,
+        "reading": null,
+        "signal": {
+          "packets": 24358,
+          "samples": 23383680,
+          "nonzero": 21851592,
+          "peak": 12260,
+          "squares": 12334819376161,
+          "invalid": 0,
+          "firstSourceUs": 2300977051751,
+          "lastSourceUs": 2301220566382
+        },
+        "socket": {
+          "inputOpened": 1,
+          "inputClosed": 0,
+          "soundOpened": 1,
+          "soundClosed": 0
+        }
+      }
+    },
+    {
+      "label": "route-forward",
+      "key": "ArrowUp",
+      "duration_ms": 900,
+      "start_monotonic_ns": "2301224527946890",
+      "screenshot_begin_monotonic_ns": "2301225631063938",
+      "screenshot_end_monotonic_ns": "2301225730610169",
+      "counters": {
+        "counters": {
+          "painted": 7432,
+          "shown": 7448,
+          "stalls": 0,
+          "restarts": 0,
+          "undecoded": 0,
+          "attempts": 81651,
+          "pressed": [],
+          "shakes": 0,
+          "soundPlayed": 248.5699999999189,
+          "soundGaps": 0,
+          "roundTripMs": 2,
+          "padOnly": false,
+          "port": 1
+        },
+        "audio": {
+          "soundLead": 0.01,
+          "outputLatency": 0.032,
+          "baseLatency": 0.010020833333333333,
+          "sampleRate": 48000,
+          "chunkMs": 9.999999999996739,
+          "gaps": 0,
+          "state": "running"
+        },
+        "seat": 1,
+        "reading": null,
+        "signal": {
+          "packets": 24874,
+          "samples": 23879040,
+          "nonzero": 22346195,
+          "peak": 12260,
+          "squares": 12589440895497,
+          "invalid": 0,
+          "firstSourceUs": 2300977051751,
+          "lastSourceUs": 2301225727917
+        },
+        "socket": {
+          "inputOpened": 1,
+          "inputClosed": 0,
+          "soundOpened": 1,
+          "soundClosed": 0
+        }
+      }
+    },
+    {
+      "label": "route-forward2",
+      "key": "ArrowUp",
+      "duration_ms": 1200,
+      "start_monotonic_ns": "2301232577417771",
+      "screenshot_begin_monotonic_ns": "2301233980710944",
+      "screenshot_end_monotonic_ns": "2301234082340234",
+      "counters": {
+        "counters": {
+          "painted": 7662,
+          "shown": 7679,
+          "stalls": 0,
+          "restarts": 0,
+          "undecoded": 0,
+          "attempts": 84176,
+          "pressed": [],
+          "shakes": 0,
+          "soundPlayed": 257.0699999999112,
+          "soundGaps": 0,
+          "roundTripMs": 2,
+          "padOnly": false,
+          "port": 1
+        },
+        "audio": {
+          "soundLead": 0.01,
+          "outputLatency": 0.032,
+          "baseLatency": 0.010020833333333333,
+          "sampleRate": 48000,
+          "chunkMs": 9.999999999996545,
+          "gaps": 0,
+          "state": "running"
+        },
+        "seat": 1,
+        "reading": null,
+        "signal": {
+          "packets": 25709,
+          "samples": 24680640,
+          "nonzero": 23146772,
+          "peak": 12260,
+          "squares": 13288008132266,
+          "invalid": 0,
+          "firstSourceUs": 2300977051751,
+          "lastSourceUs": 2301234070564
+        },
+        "socket": {
+          "inputOpened": 1,
+          "inputClosed": 0,
+          "soundOpened": 1,
+          "soundClosed": 0
+        }
+      }
+    },
+    {
+      "label": "route-forward3",
+      "key": "ArrowUp",
+      "duration_ms": 1500,
+      "start_monotonic_ns": "2301240482212405",
+      "screenshot_begin_monotonic_ns": "2301242186564242",
+      "screenshot_end_monotonic_ns": "2301242272465982",
+      "counters": {
+        "counters": {
+          "painted": 7889,
+          "shown": 7906,
+          "stalls": 0,
+          "restarts": 0,
+          "undecoded": 0,
+          "attempts": 86543,
+          "pressed": [],
+          "shakes": 0,
+          "soundPlayed": 265.0699999999039,
+          "soundGaps": 0,
+          "roundTripMs": 2,
+          "padOnly": false,
+          "port": 1
+        },
+        "audio": {
+          "soundLead": 0.01,
+          "outputLatency": 0.032,
+          "baseLatency": 0.010020833333333333,
+          "sampleRate": 48000,
+          "chunkMs": 9.999999999996374,
+          "gaps": 0,
+          "state": "running"
+        },
+        "seat": 1,
+        "reading": null,
+        "signal": {
+          "packets": 26529,
+          "samples": 25467840,
+          "nonzero": 23932877,
+          "peak": 12260,
+          "squares": 13831816134388,
+          "invalid": 0,
+          "firstSourceUs": 2300977051751,
+          "lastSourceUs": 2301242268875
+        },
+        "socket": {
+          "inputOpened": 1,
+          "inputClosed": 0,
+          "soundOpened": 1,
+          "soundClosed": 0
+        }
+      }
+    },
+    {
+      "label": "route-door-right",
+      "key": "ArrowRight",
+      "duration_ms": 900,
+      "start_monotonic_ns": "2301249069878008",
+      "screenshot_begin_monotonic_ns": "2301250172974631",
+      "screenshot_end_monotonic_ns": "2301250261877745",
+      "counters": {
+        "counters": {
+          "painted": 8126,
+          "shown": 8143,
+          "stalls": 0,
+          "restarts": 0,
+          "undecoded": 0,
+          "attempts": 88883,
+          "pressed": [],
+          "shakes": 0,
+          "soundPlayed": 273.06999999989665,
+          "soundGaps": 0,
+          "roundTripMs": 2,
+          "padOnly": false,
+          "port": 1
+        },
+        "audio": {
+          "soundLead": 0.01,
+          "outputLatency": 0.032,
+          "baseLatency": 0.010020833333333333,
+          "sampleRate": 48000,
+          "chunkMs": 9.999999999996215,
+          "gaps": 0,
+          "state": "running"
+        },
+        "seat": 1,
+        "reading": null,
+        "signal": {
+          "packets": 27328,
+          "samples": 26234880,
+          "nonzero": 24698889,
+          "peak": 12260,
+          "squares": 14369401143645,
+          "invalid": 0,
+          "firstSourceUs": 2300977051751,
+          "lastSourceUs": 2301250258657
+        },
+        "socket": {
+          "inputOpened": 1,
+          "inputClosed": 0,
+          "soundOpened": 1,
+          "soundClosed": 0
+        }
+      }
+    },
+    {
+      "label": "route-door-porch",
+      "key": "ArrowRight",
+      "duration_ms": 800,
+      "start_monotonic_ns": "2301256771970608",
+      "screenshot_begin_monotonic_ns": "2301257774938125",
+      "screenshot_end_monotonic_ns": "2301257859058889",
+      "counters": {
+        "counters": {
+          "painted": 8347,
+          "shown": 8365,
+          "stalls": 0,
+          "restarts": 0,
+          "undecoded": 0,
+          "attempts": 91093,
+          "pressed": [],
+          "shakes": 0,
+          "soundPlayed": 280.5799999998898,
+          "soundGaps": 0,
+          "roundTripMs": 2,
+          "padOnly": false,
+          "port": 1
+        },
+        "audio": {
+          "soundLead": 0.01,
+          "outputLatency": 0.032,
+          "baseLatency": 0.010020833333333333,
+          "sampleRate": 48000,
+          "chunkMs": 9.999999999996072,
+          "gaps": 0,
+          "state": "running"
+        },
+        "seat": 1,
+        "reading": null,
+        "signal": {
+          "packets": 28088,
+          "samples": 26964480,
+          "nonzero": 25427495,
+          "peak": 12260,
+          "squares": 14767287246864,
+          "invalid": 0,
+          "firstSourceUs": 2300977051751,
+          "lastSourceUs": 2301257856537
+        },
+        "socket": {
+          "inputOpened": 1,
+          "inputClosed": 0,
+          "soundOpened": 1,
+          "soundClosed": 0
+        }
+      }
+    },
+    {
+      "label": "door-approach",
+      "key": "ArrowUp",
+      "duration_ms": 600,
+      "start_monotonic_ns": "2301273503702415",
+      "screenshot_begin_monotonic_ns": "2301274307406635",
+      "screenshot_end_monotonic_ns": "2301274397083307",
+      "counters": {
+        "counters": {
+          "painted": 8841,
+          "shown": 8859,
+          "stalls": 0,
+          "restarts": 0,
+          "undecoded": 0,
+          "attempts": 95954,
+          "pressed": [],
+          "shakes": 0,
+          "soundPlayed": 297.0799999998748,
+          "soundGaps": 0,
+          "roundTripMs": 2,
+          "padOnly": false,
+          "port": 1
+        },
+        "audio": {
+          "soundLead": 0.01,
+          "outputLatency": 0.032,
+          "baseLatency": 0.010020833333333333,
+          "sampleRate": 48000,
+          "chunkMs": 9.999999999995785,
+          "gaps": 0,
+          "state": "running"
+        },
+        "seat": 1,
+        "reading": null,
+        "signal": {
+          "packets": 29742,
+          "samples": 28552320,
+          "nonzero": 27013187,
+          "peak": 12260,
+          "squares": 15661130666764,
+          "invalid": 0,
+          "firstSourceUs": 2300977051751,
+          "lastSourceUs": 2301274391462
+        },
+        "socket": {
+          "inputOpened": 1,
+          "inputClosed": 0,
+          "soundOpened": 1,
+          "soundClosed": 0
+        }
+      }
+    },
+    {
+      "label": "door-cross",
+      "key": "ArrowUp",
+      "duration_ms": 650,
+      "start_monotonic_ns": "2301280965922852",
+      "screenshot_begin_monotonic_ns": "2301281817713760",
+      "screenshot_end_monotonic_ns": "2301281909539956",
+      "counters": {
+        "counters": {
+          "painted": 9066,
+          "shown": 9084,
+          "stalls": 0,
+          "restarts": 0,
+          "undecoded": 0,
+          "attempts": 98173,
+          "pressed": [],
+          "shakes": 0,
+          "soundPlayed": 304.579999999868,
+          "soundGaps": 0,
+          "roundTripMs": 2,
+          "padOnly": false,
+          "port": 1
+        },
+        "audio": {
+          "soundLead": 0.01,
+          "outputLatency": 0.032,
+          "baseLatency": 0.010020833333333333,
+          "sampleRate": 48000,
+          "chunkMs": 9.999999999995666,
+          "gaps": 0,
+          "state": "running"
+        },
+        "seat": 1,
+        "reading": null,
+        "signal": {
+          "packets": 30493,
+          "samples": 29273280,
+          "nonzero": 27733156,
+          "peak": 12260,
+          "squares": 16188006464312,
+          "invalid": 0,
+          "firstSourceUs": 2300977051751,
+          "lastSourceUs": 2301281896679
+        },
+        "socket": {
+          "inputOpened": 1,
+          "inputClosed": 0,
+          "soundOpened": 1,
+          "soundClosed": 0
+        }
+      }
+    },
+    {
+      "label": "door-center",
+      "key": "ArrowLeft",
+      "duration_ms": 300,
+      "start_monotonic_ns": "2301289632423504",
+      "screenshot_begin_monotonic_ns": "2301290135601040",
+      "screenshot_end_monotonic_ns": "2301290236981321",
+      "counters": {
+        "counters": {
+          "painted": 9321,
+          "shown": 9339,
+          "stalls": 0,
+          "restarts": 0,
+          "undecoded": 0,
+          "attempts": 100687,
+          "pressed": [],
+          "shakes": 0,
+          "soundPlayed": 313.08999999986025,
+          "soundGaps": 0,
+          "roundTripMs": 1,
+          "padOnly": false,
+          "port": 1
+        },
+        "audio": {
+          "soundLead": 0.01,
+          "outputLatency": 0.032,
+          "baseLatency": 0.010020833333333333,
+          "sampleRate": 48000,
+          "chunkMs": 9.999999999995536,
+          "gaps": 0,
+          "state": "running"
+        },
+        "seat": 1,
+        "reading": null,
+        "signal": {
+          "packets": 31327,
+          "samples": 30073920,
+          "nonzero": 28532913,
+          "peak": 12260,
+          "squares": 16833795156835,
+          "invalid": 0,
+          "firstSourceUs": 2300977051751,
+          "lastSourceUs": 2301290236981
+        },
+        "socket": {
+          "inputOpened": 1,
+          "inputClosed": 0,
+          "soundOpened": 1,
+          "soundClosed": 0
+        }
+      }
+    },
+    {
+      "label": "door-enter",
+      "key": "ArrowUp",
+      "duration_ms": 900,
+      "start_monotonic_ns": "2301294256506608",
+      "screenshot_begin_monotonic_ns": "2301295359763806",
+      "screenshot_end_monotonic_ns": "2301295461181096",
+      "counters": {
+        "counters": {
+          "painted": 9471,
+          "shown": 9488,
+          "stalls": 0,
+          "restarts": 0,
+          "undecoded": 0,
+          "attempts": 102172,
+          "pressed": [],
+          "shakes": 0,
+          "soundPlayed": 318.0799999998557,
+          "soundGaps": 0,
+          "roundTripMs": 2,
+          "padOnly": false,
+          "port": 1
+        },
+        "audio": {
+          "soundLead": 0.01,
+          "outputLatency": 0.032,
+          "baseLatency": 0.010020833333333333,
+          "sampleRate": 48000,
+          "chunkMs": 9.999999999995463,
+          "gaps": 0,
+          "state": "running"
+        },
+        "seat": 1,
+        "reading": null,
+        "signal": {
+          "packets": 31849,
+          "samples": 30575040,
+          "nonzero": 29033212,
+          "peak": 12260,
+          "squares": 17015200304106,
+          "invalid": 0,
+          "firstSourceUs": 2300977051751,
+          "lastSourceUs": 2301295458954
+        },
+        "socket": {
+          "inputOpened": 1,
+          "inputClosed": 0,
+          "soundOpened": 1,
+          "soundClosed": 0
+        }
+      }
+    },
+    {
+      "label": "interior-check",
+      "key": null,
+      "duration_ms": 0,
+      "start_monotonic_ns": "2301300293326803",
+      "screenshot_begin_monotonic_ns": "2301300494025141",
+      "screenshot_end_monotonic_ns": "2301300592109413",
+      "counters": {
+        "counters": {
+          "painted": 9635,
+          "shown": 9652,
+          "stalls": 0,
+          "restarts": 0,
+          "undecoded": 0,
+          "attempts": 103781,
+          "pressed": [],
+          "shakes": 0,
+          "soundPlayed": 323.5899999998507,
+          "soundGaps": 0,
+          "roundTripMs": 2,
+          "padOnly": false,
+          "port": 1
+        },
+        "audio": {
+          "soundLead": 0.01,
+          "outputLatency": 0.032,
+          "baseLatency": 0.010020833333333333,
+          "sampleRate": 48000,
+          "chunkMs": 9.999999999995387,
+          "gaps": 0,
+          "state": "running"
+        },
+        "seat": 1,
+        "reading": null,
+        "signal": {
+          "packets": 32362,
+          "samples": 31067520,
+          "nonzero": 29524625,
+          "peak": 12260,
+          "squares": 17112287723572,
+          "invalid": 0,
+          "firstSourceUs": 2300977051751,
+          "lastSourceUs": 2301300589000
+        },
+        "socket": {
+          "inputOpened": 1,
+          "inputClosed": 0,
+          "soundOpened": 1,
+          "soundClosed": 0
+        }
+      }
+    },
+    {
+      "label": "interior-deeper",
+      "key": "ArrowUp",
+      "duration_ms": 900,
+      "start_monotonic_ns": "2301305485399065",
+      "screenshot_begin_monotonic_ns": "2301306588215742",
+      "screenshot_end_monotonic_ns": "2301306675093133",
+      "counters": {
+        "counters": {
+          "painted": 9814,
+          "shown": 9832,
+          "stalls": 0,
+          "restarts": 0,
+          "undecoded": 0,
+          "attempts": 105545,
+          "pressed": [],
+          "shakes": 0,
+          "soundPlayed": 329.58999999984525,
+          "soundGaps": 0,
+          "roundTripMs": 2,
+          "padOnly": false,
+          "port": 1
+        },
+        "audio": {
+          "soundLead": 0.01,
+          "outputLatency": 0.032,
+          "baseLatency": 0.010020833333333333,
+          "sampleRate": 48000,
+          "chunkMs": 9.999999999995303,
+          "gaps": 0,
+          "state": "running"
+        },
+        "seat": 1,
+        "reading": null,
+        "signal": {
+          "packets": 32970,
+          "samples": 31651200,
+          "nonzero": 30106990,
+          "peak": 12260,
+          "squares": 17207188240425,
+          "invalid": 0,
+          "firstSourceUs": 2300977051751,
+          "lastSourceUs": 2301306665875
+        },
+        "socket": {
+          "inputOpened": 1,
+          "inputClosed": 0,
+          "soundOpened": 1,
+          "soundClosed": 0
+        }
+      }
+    },
+    {
+      "label": "interior-room",
+      "key": "ArrowUp",
+      "duration_ms": 1000,
+      "start_monotonic_ns": "2301321934854545",
+      "screenshot_begin_monotonic_ns": "2301323136463286",
+      "screenshot_end_monotonic_ns": "2301323220941070",
+      "counters": {
+        "counters": {
+          "painted": 10311,
+          "shown": 10328,
+          "stalls": 0,
+          "restarts": 0,
+          "undecoded": 0,
+          "attempts": 110455,
+          "pressed": [],
+          "shakes": 0,
+          "soundPlayed": 346.08999999983024,
+          "soundGaps": 0,
+          "roundTripMs": 2,
+          "padOnly": false,
+          "port": 1
+        },
+        "audio": {
+          "soundLead": 0.01,
+          "outputLatency": 0.032,
+          "baseLatency": 0.010020833333333333,
+          "sampleRate": 48000,
+          "chunkMs": 9.999999999995095,
+          "gaps": 0,
+          "state": "running"
+        },
+        "seat": 1,
+        "reading": null,
+        "signal": {
+          "packets": 34626,
+          "samples": 33240960,
+          "nonzero": 31692936,
+          "peak": 12260,
+          "squares": 17537586263660,
+          "invalid": 0,
+          "firstSourceUs": 2300977051751,
+          "lastSourceUs": 2301323219681
+        },
+        "socket": {
+          "inputOpened": 1,
+          "inputClosed": 0,
+          "soundOpened": 1,
+          "soundClosed": 0
+        }
+      }
+    },
+    {
+      "label": "interior-return",
+      "key": "ArrowDown",
+      "duration_ms": 1200,
+      "start_monotonic_ns": "2301332516349117",
+      "screenshot_begin_monotonic_ns": "2301333918828826",
+      "screenshot_end_monotonic_ns": "2301334009940401",
+      "counters": {
+        "counters": {
+          "painted": 10625,
+          "shown": 10644,
+          "stalls": 0,
+          "restarts": 0,
+          "undecoded": 0,
+          "attempts": 113598,
+          "pressed": [],
+          "shakes": 0,
+          "soundPlayed": 356.5999999998207,
+          "soundGaps": 0,
+          "roundTripMs": 2,
+          "padOnly": false,
+          "port": 1
+        },
+        "audio": {
+          "soundLead": 0.01,
+          "outputLatency": 0.032,
+          "baseLatency": 0.010020833333333333,
+          "sampleRate": 48000,
+          "chunkMs": 9.999999999994971,
+          "gaps": 0,
+          "state": "running"
+        },
+        "seat": 1,
+        "reading": null,
+        "signal": {
+          "packets": 35705,
+          "samples": 34276800,
+          "nonzero": 32726167,
+          "peak": 12260,
+          "squares": 17722883152228,
+          "invalid": 0,
+          "firstSourceUs": 2300977051751,
+          "lastSourceUs": 2301334007326
+        },
+        "socket": {
+          "inputOpened": 1,
+          "inputClosed": 0,
+          "soundOpened": 1,
+          "soundClosed": 0
+        }
+      }
+    },
+    {
+      "label": "exit-approach",
+      "key": "ArrowDown",
+      "duration_ms": 1200,
+      "start_monotonic_ns": "2301338478863584",
+      "screenshot_begin_monotonic_ns": "2301339881828960",
+      "screenshot_end_monotonic_ns": "2301339984871983",
+      "counters": {
+        "counters": {
+          "painted": 10795,
+          "shown": 10813,
+          "stalls": 0,
+          "restarts": 0,
+          "undecoded": 0,
+          "attempts": 115414,
+          "pressed": [],
+          "shakes": 0,
+          "soundPlayed": 362.5999999998152,
+          "soundGaps": 0,
+          "roundTripMs": 2,
+          "padOnly": false,
+          "port": 1
+        },
+        "audio": {
+          "soundLead": 0.01,
+          "outputLatency": 0.032,
+          "baseLatency": 0.010020833333333333,
+          "sampleRate": 48000,
+          "chunkMs": 9.999999999994905,
+          "gaps": 0,
+          "state": "running"
+        },
+        "seat": 1,
+        "reading": null,
+        "signal": {
+          "packets": 36303,
+          "samples": 34850880,
+          "nonzero": 33298573,
+          "peak": 12260,
+          "squares": 17804873571649,
+          "invalid": 0,
+          "firstSourceUs": 2300977051751,
+          "lastSourceUs": 2301339984812
+        },
+        "socket": {
+          "inputOpened": 1,
+          "inputClosed": 0,
+          "soundOpened": 1,
+          "soundClosed": 0
+        }
+      }
+    },
+    {
+      "label": "exterior-return",
+      "key": "ArrowDown",
+      "duration_ms": 900,
+      "start_monotonic_ns": "2301345935678394",
+      "screenshot_begin_monotonic_ns": "2301347037574034",
+      "screenshot_end_monotonic_ns": "2301347118319197",
+      "counters": {
+        "counters": {
+          "painted": 11023,
+          "shown": 11041,
+          "stalls": 0,
+          "restarts": 0,
+          "undecoded": 0,
+          "attempts": 117624,
+          "pressed": [],
+          "shakes": 0,
+          "soundPlayed": 370.0899999998084,
+          "soundGaps": 0,
+          "roundTripMs": 1,
+          "padOnly": false,
+          "port": 1
+        },
+        "audio": {
+          "soundLead": 0.01,
+          "outputLatency": 0.032,
+          "baseLatency": 0.010020833333333333,
+          "sampleRate": 48000,
+          "chunkMs": 9.999999999994824,
+          "gaps": 0,
+          "state": "running"
+        },
+        "seat": 1,
+        "reading": null,
+        "signal": {
+          "packets": 37016,
+          "samples": 35535360,
+          "nonzero": 33982198,
+          "peak": 12260,
+          "squares": 18216569299705,
+          "invalid": 0,
+          "firstSourceUs": 2300977051751,
+          "lastSourceUs": 2301347116886
+        },
+        "socket": {
+          "inputOpened": 1,
+          "inputClosed": 0,
+          "soundOpened": 1,
+          "soundClosed": 0
+        }
+      }
+    },
+    {
+      "label": "return-camera",
+      "key": "KeyQ",
+      "duration_ms": 150,
+      "start_monotonic_ns": "2301358400394381",
+      "screenshot_begin_monotonic_ns": "2301358752567088",
+      "screenshot_end_monotonic_ns": "2301358837234412",
+      "counters": {
+        "counters": {
+          "painted": 11368,
+          "shown": 11386,
+          "stalls": 0,
+          "restarts": 0,
+          "undecoded": 0,
+          "attempts": 121053,
+          "pressed": [],
+          "shakes": 0,
+          "soundPlayed": 381.59999999979794,
+          "soundGaps": 0,
+          "roundTripMs": 2,
+          "padOnly": false,
+          "port": 1
+        },
+        "audio": {
+          "soundLead": 0.01,
+          "outputLatency": 0.032,
+          "baseLatency": 0.010020833333333333,
+          "sampleRate": 48000,
+          "chunkMs": 9.999999999994705,
+          "gaps": 0,
+          "state": "running"
+        },
+        "seat": 1,
+        "reading": null,
+        "signal": {
+          "packets": 38188,
+          "samples": 36660480,
+          "nonzero": 35105726,
+          "peak": 12260,
+          "squares": 18798259423126,
+          "invalid": 0,
+          "firstSourceUs": 2300977051751,
+          "lastSourceUs": 2301358834210
+        },
+        "socket": {
+          "inputOpened": 1,
+          "inputClosed": 0,
+          "soundOpened": 1,
+          "soundClosed": 0
+        }
+      }
+    },
+    {
+      "label": "route-final-neutral",
+      "key": null,
+      "duration_ms": 0,
+      "start_monotonic_ns": "2301373570480892",
+      "screenshot_begin_monotonic_ns": "2301373770423386",
+      "screenshot_end_monotonic_ns": "2301373854943562",
+      "counters": {
+        "counters": {
+          "painted": 11737,
+          "shown": 11757,
+          "stalls": 0,
+          "restarts": 0,
+          "undecoded": 0,
+          "attempts": 125514,
+          "pressed": [],
+          "shakes": 0,
+          "soundPlayed": 396.6099999997843,
+          "soundGaps": 0,
+          "roundTripMs": 2,
+          "padOnly": false,
+          "port": 1
+        },
+        "audio": {
+          "soundLead": 0.01,
+          "outputLatency": 0.032,
+          "baseLatency": 0.010020833333333333,
+          "sampleRate": 48000,
+          "chunkMs": 9.99999999999456,
+          "gaps": 0,
+          "state": "running"
+        },
+        "seat": 1,
+        "reading": null,
+        "signal": {
+          "packets": 39690,
+          "samples": 38102400,
+          "nonzero": 36545555,
+          "peak": 12260,
+          "squares": 19612383896761,
+          "invalid": 0,
+          "firstSourceUs": 2300977051751,
+          "lastSourceUs": 2301373849454
+        },
+        "socket": {
+          "inputOpened": 1,
+          "inputClosed": 0,
+          "soundOpened": 1,
+          "soundClosed": 0
+        }
+      }
+    }
+  ],
+  "probe_markers": {
+    "nx2:vi2 present stats active:": 1,
+    "nx2:vi2 service trace active:": 1,
+    "WSI present stats active:": 1
+  },
+  "browser_mixed_route_counter_deltas_after_first_snapshot": {
+    "painted": 4428,
+    "shown": 4434,
+    "stalls": 0,
+    "restarts": 0,
+    "undecoded": 0,
+    "soundPlayed": 153.03999999986084,
+    "soundGaps": 0
+  },
+  "audio_scope": "Positive received PCM and running WebAudio in snapshots; no new browser AV synchrony correlation or 3D clock proof.",
+  "window_tags_file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-qualification-attempt-04/window-tags.json",
+  "accepted_stable_windows": 0,
+  "watchdog_samples": 71,
+  "cleanup": {
+    "at": 1794283447.1825607,
+    "room": "/home/souhib/.local/state/nel3ab/test-switch2-0YPUMg",
+    "driver_exit": {
+      "exit_code": 0,
+      "ended_unix": 1794283407.7924316,
+      "ended_monotonic_ns": 2301378498215526
+    },
+    "owned_containers_absent": true,
+    "native_capture_audio_processes_absent": true,
+    "controller_supervisor_driver_browser_identities_now": {
+      "1411023": null,
+      "1411181": null,
+      "1411452": null
+    },
+    "phase_controller_and_supervisor": "not launched",
+    "virtual_pads_absent": true,
+    "observer": "active",
+    "production_config_unchanged": true,
+    "eight_progressions_unchanged": true,
+    "home_0151_and_private_checkpoint_unchanged": {
+      "source": true,
+      "copy": true
+    },
+    "gpu_policies": {
+      "/sys/class/drm/card0/device/power_dpm_force_performance_level": "auto"
+    },
+    "gpu_power_caps_micro_watts": [
+      150000000
+    ],
+    "kernel_gpu_error_lines": [],
+    "watchdog_completed": true,
+    "watchdog_samples": 71,
+    "watchdog_reason": null
+  },
+  "limits": [
+    "Single adaptive functional trial, no causal comparison.",
+    "Short movement holds separated by screenshot/observation pauses, not continuous traversal.",
+    "Sparse images do not measure transition duration or rule out an unsampled brief hitch.",
+    "No newly named zone or cold-cache loading qualification.",
+    "Local player and spectator Chrome decoding load present; no CPU percentage measured for this route.",
+    "Native VI2 and WSI return windows are distinct timing stages, not scanout/content uniqueness.",
+    "All windows retained with region/capture tags; none accepted as a stable90s phase.",
+    "No additional game authorized or launched after cleanup."
+  ],
+  "proof_files_sha256": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-qualification-attempt-04/plan.json": "f73f9207056aca58a3e738ecd41842e0eb2078fe4acc04256f3bffaf0442dde8",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-qualification-attempt-04/fleet-before-launch.json": "2d6a5b4659cb4f925f85b1d371b5cd1b965464380dcd80cff927707db8fcbb7a",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-qualification-attempt-04/driver-launch.json": "5744f17045b402b18a214fb09f45f662cabd9066e30ac3e972e1da86c6019327",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-qualification-attempt-04/driver-exit.json": "517be3fba214a384fc9b849b0db4279af3737befabb615a5bd266deb6e1cc4e2",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-qualification-attempt-04/cleanup.json": "8fcb3f026ebe1ca476898f539e35c737b07818afc093eb0bdeaa0a2f32d7d8b7",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-qualification-attempt-04/kernel-after.log": "f63a2f19460e0d02f291942d5b24c82c98fc4cda6dd7b7d20a2e9eef0a3aa135",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-qualification-attempt-04/window-tags.json": "3f522c3b8748ffb32802e2a1d1ca9ee29a6d439aba7ded0b8a1714fa987a22b1",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-qualification-attempt-04/analyze.py": "64048a7a24043b6f5c91dc9132a170fee3e472dd58191a7058aab28c2cdefdb8",
+    "/home/souhib/.local/state/nel3ab/test-switch2-0YPUMg/browser-contract.json": "e1c34ff0abfd2a1c7621cdc3fd14a66b8c616c6eb885060e3a076be955c6b260",
+    "/home/souhib/.local/state/nel3ab/test-switch2-0YPUMg/qualification-watchdog.json": "f03c9eecd329fc3bc7904ce79322fef33e3b7bc830540e35accbd9eda90bd7a7",
+    "/home/souhib/.local/state/nel3ab/test-switch2-0YPUMg/browser-actions.jsonl": "7e79d20cc11225106f57735ef44849a5bb360563b34d813de38a29dcce64e954",
+    "/home/souhib/.local/state/nel3ab/test-switch2-0YPUMg/native-runtime-before-proof.json": "100442bc0d0831fbf2dc3c4fde08172d6222561bd47564d8600e9cde7988e7ec",
+    "/home/souhib/.local/state/nel3ab/test-switch2-0YPUMg/native-runtime-proof.json": "d32e5a5bb69a4ceb9d9645e11baff89ef74800fbb04414bd68fdb5c4efb2f8b8",
+    "/home/souhib/.local/state/nel3ab/test-switch2-0YPUMg/normal-stop-request.json": "7828c6a2ab2ae940adf027d371d95b168d55fd6fd9b456121ed8dcc1776d6a94",
+    "/home/souhib/.local/state/nel3ab/test-switch2-0YPUMg/state/0400486024dec000/neuve/emulator.log": "2270596253052e5fd85c9d275b4dec40245b46476354eb188511cc2199aeb2a1",
+    "/home/souhib/.local/state/nel3ab/test-switch2-0YPUMg/loaded-check.png": "a129009795f618b47c78d2e86c6d2524661932599fbd816def60237509f1d53e",
+    "/home/souhib/.local/state/nel3ab/test-switch2-0YPUMg/route-left.png": "7f0641f8cac2fabf97af8d9d6c10a478e77c7cb54460c35b467fb6ec2be81894",
+    "/home/souhib/.local/state/nel3ab/test-switch2-0YPUMg/route-forward.png": "ce8cda3cc2852e4970a7c0a331b486ce6d5d9fbc4c73a0cbb673d328b66150b8",
+    "/home/souhib/.local/state/nel3ab/test-switch2-0YPUMg/route-forward2.png": "d128bd9cc2375a4bcc502d8909f65599d44e2e565c924e8032ff6ba0e01484d6",
+    "/home/souhib/.local/state/nel3ab/test-switch2-0YPUMg/route-forward3.png": "af7e082397407df68c1c2ac1a31ee8fce0ba0aa0f1a3352a9fdf8fb0354b3598",
+    "/home/souhib/.local/state/nel3ab/test-switch2-0YPUMg/route-door-right.png": "0b503b5e22398579dcc5a75c3b6dd6cee946d983cc41c6ca4e3717ff8a08599b",
+    "/home/souhib/.local/state/nel3ab/test-switch2-0YPUMg/route-door-porch.png": "51d2721ee03fc6702d00981f162beff646db98846e59c30250a6122c401bd078",
+    "/home/souhib/.local/state/nel3ab/test-switch2-0YPUMg/door-approach.png": "64a74532e97c47fbec161bfd40354809c793bf0cb56a7622bf48a759275920a0",
+    "/home/souhib/.local/state/nel3ab/test-switch2-0YPUMg/door-cross.png": "bcb3dc1414026bfc0240e1e26441302c71ba7dae937a1b9f7b0917e53de2fd86",
+    "/home/souhib/.local/state/nel3ab/test-switch2-0YPUMg/door-center.png": "2d946751330203c84eb8511ce2755dbbe3866db4025d663a4104082ff8bd8c59",
+    "/home/souhib/.local/state/nel3ab/test-switch2-0YPUMg/door-enter.png": "a4fb5db0e7e908e43dc45e2e4ba66ff7190a0d2af49140358cea46321bf1851f",
+    "/home/souhib/.local/state/nel3ab/test-switch2-0YPUMg/interior-check.png": "1f86f470684e57b294c9b5f02d61a40e6024e1bdab686baba94f9cfaa33b63b5",
+    "/home/souhib/.local/state/nel3ab/test-switch2-0YPUMg/interior-deeper.png": "70cef16f4d8dc41ae2c70c908f1359a906f7c558bb153029c23df51e8fba2d8c",
+    "/home/souhib/.local/state/nel3ab/test-switch2-0YPUMg/interior-room.png": "82dbbc179961c8930ea1ca4cda40040d66b57384ce077dd0580c0fe0f0900380",
+    "/home/souhib/.local/state/nel3ab/test-switch2-0YPUMg/interior-return.png": "e0e676aeaa17e859c8283f5e364c7a069e5a756ffc24d11cdb912dbb56992b99",
+    "/home/souhib/.local/state/nel3ab/test-switch2-0YPUMg/exit-approach.png": "febb6f2e6c6bf36e1f7d25c5a89b51f78a1d3441cde569abf58ca420321aa635",
+    "/home/souhib/.local/state/nel3ab/test-switch2-0YPUMg/exterior-return.png": "c216c49fc3ce548809142a48dcd78ecb6e8414f677f219a0a3da2faac9a2a58f",
+    "/home/souhib/.local/state/nel3ab/test-switch2-0YPUMg/return-camera.png": "5aac273918b9efcb1319c002e66b8149a60d9c50940c2712883b511c6b6fce99"
+  },
+  "date_utc": "2026-11-10",
+  "private_result_sha256": "ce34928533d9e1e129105816f761db37fa87268c34da2ec1cae6ee93072ef23c",
+  "root_evidence_rehashed": 33
+}

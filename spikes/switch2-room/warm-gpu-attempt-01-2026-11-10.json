@@ -1,0 +1,69 @@
+{
+  "at": 1794286080.276979,
+  "status": "FAILED before emulator launch; no GPU warm-consumer result",
+  "cause": "PermissionError errno13 from actual supervise.py subprocess.Popen for /probe/run-cli.sh. Private copied script mode0664 lacks executable bit.",
+  "launch_script_mode": "0o664",
+  "responsibility": "Preparation omission; frozen content hashes did not validate executable mode.",
+  "container_exit": 1,
+  "host_driver_exit": 0,
+  "host_exit_limit": "Host driver completed cleanup; its zero exit is not successful native execution. acceptance.json is false.",
+  "native_ELF_started": false,
+  "precache_activated": false,
+  "counters": {
+    "G": null,
+    "C": null,
+    "E": null,
+    "T": null,
+    "F": null,
+    "R": null,
+    "compute_success_lower_bound": null
+  },
+  "cleanup": {
+    "at": 1794286043.997134,
+    "container_absent": true,
+    "own_pids_absent": true,
+    "observer": "active",
+    "production_unchanged": true,
+    "no_helper_capture_browser_created": true,
+    "gpu": {
+      "power_dpm_force_performance_level": "auto",
+      "power1_cap": "150000000"
+    },
+    "elapsed_seconds": 6.7293183780275285,
+    "within_510_seconds": true,
+    "kernel_query_exit": 0,
+    "kernel_requires_review": true
+  },
+  "kernel_records": "No entries in bounded journal query",
+  "cache_unchanged": true,
+  "no_retry": true,
+  "next_minimal_proposal": "Preserve this attempt. In a new directory, fix executable mode only, pin modes in manifest/preflight and test actual subprocess execution of the private run-cli.sh against a harmless stub before seeking authorization for one retry. No emulator or source changes needed.",
+  "proof_files": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-gpu-consumer/plan.json": "14508545ed00a1f0de084c08248b1027a6cb74dc159551173b95e74739fc2c4f",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-gpu-consumer/launch.py": "491a1314ed7f2dc9e0aeddaec511b7c3f44c0b89f47dfe9abb08d3dbc329b147",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-gpu-consumer/runtime.py": "08469f89b2441f96478f9795bef8503eb30e9ec53b03f025296338410eb8e1b6",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-gpu-consumer/runtime.sh": "c6d22e25e0a6bdc12b524ef37b08f1f7d2f9fcc4c81dfcb620211e678700f1b0",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-gpu-consumer/supervise.py": "d5f08c7127790ac4914b2aaada3a62ab0d3673ba946d680374b79590be48a291",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-gpu-consumer/run-cli.sh": "c39fd2fde7cc135a3576b0d0d532ec54f32892f867d11cb41c0219c46d407899",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-gpu-consumer/fleet.log": "ead56f08a33ef268f9432cd67a0bce9dce8c14eda096dd3c648f57a6b5f3676b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-gpu-consumer/launch.json": "89e49cb33182cc5d67f87c22ef25d1b2cb567d048296c14c1818af2cb846a6ba",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-gpu-consumer/watchdog.json": "11ef337e27de4b3f1815506c69ccc369cc9b50db4838e0c20f3bc3977dcb5d00",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-gpu-consumer/exit.json": "4ba2f56d9ec6519ed1d32e61ebdf61a13eba280edcf6f17a6fdd2d15b4d4a58d",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-gpu-consumer/stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-gpu-consumer/stderr.log": "10ebfb922aa5aaacd9c507c5effb879c0a5e0e5efe49bff6283b021cc86c583d",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-gpu-consumer/container.json": "80e855d7ac367a730f3ecb42b117dfc159a15492ab66fd737531b11d0d4b9fb6",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-gpu-consumer/cleanup.json": "ebbcc411b5d4da382c900fd3485c9c9ffa8ae5ba2d75795c65cf55f89a6a6e3c",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-gpu-consumer/kernel-after.log": "19c4e28b2f54ea8f217db4e622b0a5c758efa7b77ce2dc0394b6d159568c0b2e",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-gpu-consumer/acceptance.json": "239c28cbd7a5947c7ca39c2e074c856cea8a813c15e454c451eba6e6e816e1f2",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-gpu-consumer/cache-after.json": "922b815954bb81e188c1f1c9fee5a07e401fc9cb1386b8c5d92a34f42b72d621",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-gpu-consumer/production-before-launch.json": "ca518d9a567d3c4088d049ac1c46c6717d52821d3b6c56440d40a50a65c66ff3"
+  },
+  "date_utc": "2026-11-10",
+  "private_result_sha256": "3c8bab4355ca8f9c52a55a4873832f98b5a9db84b8c84cca565317a54a7c9227",
+  "root_modes_checked": {
+    "run-cli.sh": "0664",
+    "shim": "0775",
+    "native_elf": "0755"
+  },
+  "no_precache_result": true
+}

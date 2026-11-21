@@ -1,0 +1,17 @@
+{
+  "verified_utc": "2026-11-07T18:10:27Z",
+  "normal_room": "idle catalogue; Zelda retained; Tennis Fever not registered",
+  "user_progression": "Both progress.sav hashes unchanged after isolated tests",
+  "observer_fix": "eden-cli detected as switch2; no GPU allocator read during play; freeze screenshots include switch2",
+  "rendering_change": false,
+  "local_checks": [
+    "just",
+    "just audit",
+    "just docs",
+    "node --check spikes/switch2-room/room.mjs"
+  ],
+  "rust_rebuild_required": false,
+  "frontend_changed": false,
+  "remote_ci_run": false,
+  "commit_created": false
+}

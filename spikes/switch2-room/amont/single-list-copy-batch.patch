@@ -1,0 +1,251 @@
+diff --git a/src/tests/CMakeLists.txt b/src/tests/CMakeLists.txt
+index d38658d6a..e30803027 100644
+--- a/src/tests/CMakeLists.txt
++++ b/src/tests/CMakeLists.txt
+@@ -58,6 +58,7 @@ add_executable(tests
+     video_core/ampere_vote.cpp
+     video_core/shader_attributes.cpp
+     video_core/indirect_reset.cpp
++    video_core/single_list_batch.cpp
+     input_common/calibration_configuration_job.cpp
+ )
+ 
+diff --git a/src/video_core/renderer_vulkan/vk_buffer_cache.cpp b/src/video_core/renderer_vulkan/vk_buffer_cache.cpp
+index 70c68343c..e17505df7 100644
+--- a/src/video_core/renderer_vulkan/vk_buffer_cache.cpp
++++ b/src/video_core/renderer_vulkan/vk_buffer_cache.cpp
+@@ -17,6 +17,7 @@
+ 
+ #include "video_core/renderer_vulkan/maxwell_to_vk.h"
+ #include "video_core/renderer_vulkan/vk_scheduler.h"
++#include "video_core/single_list_batch.h"
+ #include "video_core/renderer_vulkan/vk_staging_buffer_pool.h"
+ #include "video_core/renderer_vulkan/vk_update_descriptor.h"
+ #include "video_core/vulkan_common/vulkan_device.h"
+@@ -461,6 +462,11 @@ void BufferCacheRuntime::WaitSubmittedTick(u64 tick) {
+     if (master.IsFree(tick)) {
+         return;
+     }
++    if (scheduler.SingleListBatchEnabled()) {
++        VideoCommon::WaitForSingleListCopy(VideoCommon::GpuSplit::OwnsScheduler(),
++            scheduler.IsSubmitted(tick), [&] { scheduler.Flush(); }, [&] { master.Wait(tick); });
++        return;
++    }
+     // The copy's submission may be deferred (Scheduler::DeferFlush): the split's front asks the
+     // back for it rather than waiting for the back's next submission. If the back has stopped,
+     // nothing else uses the scheduler and Wait submits it.
+diff --git a/src/video_core/renderer_vulkan/vk_rasterizer.cpp b/src/video_core/renderer_vulkan/vk_rasterizer.cpp
+index 6247538d3..ebdcee2ec 100644
+--- a/src/video_core/renderer_vulkan/vk_rasterizer.cpp
++++ b/src/video_core/renderer_vulkan/vk_rasterizer.cpp
+@@ -51,6 +51,7 @@
+ #include "video_core/renderer_vulkan/vk_query_cache.h"
+ #include "video_core/renderer_vulkan/vk_rasterizer.h"
+ #include "video_core/renderer_vulkan/vk_scheduler.h"
++#include "video_core/single_list_batch.h"
+ #include "video_core/renderer_vulkan/vk_staging_buffer_pool.h"
+ #include "video_core/renderer_vulkan/vk_state_tracker.h"
+ #include "video_core/renderer_vulkan/vk_texture_cache.h"
+@@ -1426,7 +1427,7 @@ void Vulkan::RasterizerVulkan::DisableGraphicsUniformBuffer(size_t stage, u32 in
+ void RasterizerVulkan::FlushAll() {}
+ 
+ void RasterizerVulkan::SubmitNx2ListCopies() {
+-    if (buffer_cache.Nx2CopyListPages(scheduler.CurrentTick()) && !scheduler.DeferFlush()) {
++    if (buffer_cache.Nx2CopyListPages(scheduler.CurrentTick()) && !scheduler.DeferListFlush()) {
+         scheduler.Flush();
+     }
+ }
+@@ -1703,6 +1704,18 @@ void RasterizerVulkan::TiledCacheBarrier() {
+ }
+ 
+ void RasterizerVulkan::FlushCommands() {
++    // DmaPusher calls this before returning a list, including a list without draws.
++    // Fences keep their immediate mode-0 path, so their waiter never submits owner work.
++    if (VideoCommon::SubmitListCopiesAtReturn(scheduler.SingleListBatchEnabled(),
++            VideoCommon::GpuSplit::OwnsScheduler(), [&] { return scheduler.FlushDeferred(); })) {
++        draw_counter = 0;
++        static thread_local bool announced{};
++        if (!announced) {
++            announced = true;
++            LOG_INFO(HW_GPU, "Single GPU list-copy batch: pending copies submitted at list return");
++        }
++        return;
++    }
+     if (draw_counter == 0) {
+         return;
+     }
+@@ -2036,7 +2049,7 @@ bool AccelerateDMA::BufferCopy(GPUVAddr src_address, GPUVAddr dest_address, u64
+     std::scoped_lock lock{buffer_cache.mutex};
+     buffer_cache.Nx2CollectListCopies(true);
+     const bool copied = buffer_cache.DMACopy(src_address, dest_address, amount);
+-    if (buffer_cache.Nx2CopyListPages(scheduler.CurrentTick())) {
++    if (buffer_cache.Nx2CopyListPages(scheduler.CurrentTick()) && !scheduler.DeferListFlush()) {
+         scheduler.Flush();
+     }
+     buffer_cache.Nx2CollectListCopies(false);
+diff --git a/src/video_core/renderer_vulkan/vk_scheduler.cpp b/src/video_core/renderer_vulkan/vk_scheduler.cpp
+index d78bf0a5f..f3529d47e 100644
+--- a/src/video_core/renderer_vulkan/vk_scheduler.cpp
++++ b/src/video_core/renderer_vulkan/vk_scheduler.cpp
+@@ -19,6 +19,8 @@
+ #include "common/settings.h"
+ #include "common/thread.h"
+ #include "video_core/gpu_logging/gpu_logging.h"
++#include "video_core/single_list_batch.h"
++#include "video_core/nx2.h"
+ #include "video_core/renderer_vulkan/vk_command_pool.h"
+ #include "video_core/renderer_vulkan/vk_graphics_pipeline.h"
+ #include "video_core/renderer_vulkan/vk_master_semaphore.h"
+@@ -87,10 +89,52 @@ bool Scheduler::DeferFlush() {
+     return true;
+ }
+ 
+-void Scheduler::FlushDeferred() {
++namespace {
++s64 SingleListWindowUs() {
++    static const s64 window = [] {
++        const char* split = std::getenv("EDEN_NX2_SPLIT");
++        if (!split || split[0] != '0') return s64{0};
++        const char* value = std::getenv("EDEN_NX2_SINGLE_LIST_US");
++        if (!value || value[0] < '0' || value[0] > '9') return s64{0};
++        char* end{};
++        const unsigned long parsed = std::strtoul(value, &end, 10);
++        // 2026-11-09: at most 8 ms, below one quarter of the 33.33 ms target budget.
++        // Reads and list returns force submission sooner; invalid values disable the experiment.
++        return *end == '\0' && parsed <= 8000 ? static_cast<s64>(parsed) : s64{0};
++    }();
++    return window;
++}
++}
++
++bool Scheduler::SingleListBatchEnabled() const {
++    return SingleListWindowUs() > 0 && !VideoCommon::GpuSplit::Get().Active() &&
++           Tegra::g_nx2_ampere.load(std::memory_order_relaxed);
++}
++
++bool Scheduler::DeferListFlush() {
++    const s64 window = SingleListWindowUs();
++    if (window > 0 && VideoCommon::DeferSingleListCopy({
++            Tegra::g_nx2_ampere.load(std::memory_order_relaxed),
++            VideoCommon::GpuSplit::OwnsScheduler(), VideoCommon::GpuSplit::Get().Active(),
++            window, std::chrono::duration_cast<std::chrono::microseconds>(
++                std::chrono::steady_clock::now() - last_flush).count()})) {
++        flush_pending = true;
++        static thread_local bool announced{};
++        if (!announced) {
++            announced = true;
++            LOG_INFO(HW_GPU, "Single GPU list-copy batch active: window_us={} fences immediate", window);
++        }
++        return true;
++    }
++    return DeferFlush();
++}
++
++bool Scheduler::FlushDeferred() {
+     if (flush_pending) {
+         Flush();
++        return true;
+     }
++    return false;
+ }
+ 
+ bool Scheduler::WaitSubmitted(u64 tick) {
+diff --git a/src/video_core/renderer_vulkan/vk_scheduler.h b/src/video_core/renderer_vulkan/vk_scheduler.h
+index dbf37ac59..103d6c4a7 100644
+--- a/src/video_core/renderer_vulkan/vk_scheduler.h
++++ b/src/video_core/renderer_vulkan/vk_scheduler.h
+@@ -56,8 +56,10 @@ public:
+     /// once); otherwise it goes with the next one. The back submits deferred work before it
+     /// sleeps and when another thread asks (WaitSubmitted). True when the flush was deferred.
+     bool DeferFlush();
++    bool DeferListFlush();
++    bool SingleListBatchEnabled() const;
+     /// Submits deferred work (the split's back, from its idle hook).
+-    void FlushDeferred();
++    bool FlushDeferred();
+     /// Threads other than the split's back: waits until tick is submitted, asking the back to
+     /// submit deferred work (logged every 2 s while it waits). False only when the back thread
+     /// is not running, so nothing will submit it: the caller then submits it itself.
+diff --git a/src/tests/video_core/single_list_batch.cpp b/src/tests/video_core/single_list_batch.cpp
+new file mode 100644
+index 000000000..fa47b0ebf
+--- /dev/null
++++ b/src/tests/video_core/single_list_batch.cpp
+@@ -0,0 +1,43 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++#include <catch2/catch_test_macros.hpp>
++#include <array>
++#include "video_core/single_list_batch.h"
++TEST_CASE("Single list copies defer only on their unsplit native owner inside the window", "[single_list]") {
++    using C = VideoCommon::ListCopyBatchConditions;
++    constexpr C good{true,true,false,2000,1999};
++    REQUIRE(VideoCommon::DeferSingleListCopy(good));
++    REQUIRE(VideoCommon::DeferSingleListCopy({true,true,false,2000,0}));
++    REQUIRE_FALSE(VideoCommon::DeferSingleListCopy({false,true,false,2000,1}));
++    REQUIRE_FALSE(VideoCommon::DeferSingleListCopy({true,false,false,2000,1}));
++    REQUIRE_FALSE(VideoCommon::DeferSingleListCopy({true,true,true,2000,1}));
++    REQUIRE_FALSE(VideoCommon::DeferSingleListCopy({true,true,false,0,0}));
++    REQUIRE_FALSE(VideoCommon::DeferSingleListCopy({true,true,false,2000,2000}));
++    REQUIRE_FALSE(VideoCommon::DeferSingleListCopy({true,true,false,2000,-1}));
++}
++TEST_CASE("A list-copy read submits queued writes before waiting on the owner", "[single_list]") {
++    int source=31, device=0, host=0, submits=0, waits=0;
++    auto submit=[&] { device=source;host=device;++submits; };
++    auto wait=[&] { ++waits; REQUIRE(host==source); };
++    VideoCommon::WaitForSingleListCopy(true,false,submit,wait);
++    REQUIRE(submits==1); REQUIRE(waits==1); REQUIRE(host==31);
++    source=47;device=47;host=47;
++    VideoCommon::WaitForSingleListCopy(true,true,submit,wait);
++    REQUIRE(submits==1); REQUIRE(waits==2); REQUIRE(host==47);
++    VideoCommon::WaitForSingleListCopy(false,true,submit,wait);
++    REQUIRE(submits==1); REQUIRE(waits==3);
++    bool external_waited=false;
++    VideoCommon::WaitForSingleListCopy(false,false,[&] { FAIL("non-owner must not submit"); },[&] { external_waited=true; });
++    REQUIRE(external_waited); REQUIRE(submits==1);
++}
++
++TEST_CASE("A list return submits pending copies once only on the enabled owner", "[single_list]") {
++    int calls=0;
++    auto pending=[&] { ++calls; return true; };
++    REQUIRE(VideoCommon::SubmitListCopiesAtReturn(true,true,pending));
++    REQUIRE(calls==1);
++    REQUIRE_FALSE(VideoCommon::SubmitListCopiesAtReturn(false,true,pending));
++    REQUIRE_FALSE(VideoCommon::SubmitListCopiesAtReturn(true,false,pending));
++    REQUIRE(calls==1);
++    REQUIRE_FALSE(VideoCommon::SubmitListCopiesAtReturn(true,true,[&] { ++calls; return false; }));
++    REQUIRE(calls==2);
++}
+diff --git a/src/video_core/single_list_batch.h b/src/video_core/single_list_batch.h
+new file mode 100644
+index 000000000..d50ee49fc
+--- /dev/null
++++ b/src/video_core/single_list_batch.h
+@@ -0,0 +1,28 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++#pragma once
++#include <utility>
++#include "common/common_types.h"
++namespace VideoCommon {
++struct ListCopyBatchConditions {
++    bool native_title;
++    bool scheduler_owner;
++    bool split_active;
++    s64 window_us;
++    s64 elapsed_us;
++};
++constexpr bool DeferSingleListCopy(ListCopyBatchConditions c) {
++    return c.native_title && c.scheduler_owner && !c.split_active && c.window_us > 0 &&
++           c.elapsed_us >= 0 && c.elapsed_us < c.window_us;
++}
++template <typename Flush>
++bool SubmitListCopiesAtReturn(bool enabled, bool owner, Flush&& flush) {
++    return enabled && owner && std::forward<Flush>(flush)();
++}
++
++// Only the scheduler owner may submit. Other threads keep the existing wait path.
++template <typename Submit, typename Wait>
++void WaitForSingleListCopy(bool owner, bool submitted, Submit&& submit, Wait&& wait) {
++    if (owner && !submitted) std::forward<Submit>(submit)();
++    std::forward<Wait>(wait)();
++}
++} // namespace VideoCommon

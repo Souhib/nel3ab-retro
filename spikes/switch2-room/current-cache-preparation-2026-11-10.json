@@ -1,0 +1,120 @@
+{
+  "date_utc": "2026-11-10",
+  "status": "Preparation and fresh4phase comparison completed. No reproducible gain, no installation. See current-cache-comparison-2026-11-10.json.",
+  "cache_A": {
+    "files": 4865,
+    "bytes": 133711023,
+    "origin": "Production cache after ended Souhib session, no native game running during snapshot."
+  },
+  "cache_B": {
+    "files": 14118,
+    "bytes": 357326374,
+    "origin": "Exact copy of A plus same4794-record warm input, native65def with precache2 only during isolated preparation; normal stop."
+  },
+  "precompile": {
+    "seconds_in_native_log": 144.3,
+    "graphics_jobs": 783,
+    "compute_jobs": 4627,
+    "input_compute_records": 4794,
+    "built": 5409,
+    "failed": 1,
+    "not_reached": 0,
+    "successful_compute_lower_bound": 4626,
+    "scope": "Build class split not logged; lower bound excludes graphics count. Not a gameplay speed measurement."
+  },
+  "runtime": {
+    "effective_fields_checked": 142,
+    "unchanged_original_fields": 140,
+    "changed_original_field": "Renderer/precache_shaders",
+    "additional_metadata": "precache_shaders default=false",
+    "no_helper_capture_browser": true,
+    "ELF_sha256": "65defb74a8cc81ae85d42c5c0e9bb9bc8a796d976f12278cb0a4fcf940834d08"
+  },
+  "comparison": {
+    "root": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cache-current-auto-ab-v3",
+    "order": [
+      "A1",
+      "B1",
+      "A2",
+      "B2"
+    ],
+    "timed_phase_seconds": 90,
+    "cache_reset_each_phase": true,
+    "precache_option_in_gameplay": "0 in both arms",
+    "old_half_series_excluded": true,
+    "protected_inputs": 757,
+    "no_new_map_conclusion": true,
+    "result_report": "current-cache-comparison-2026-11-10.json"
+  },
+  "production_cache_modified": false,
+  "limits": [
+    "18 input conversions skipped and17456 member errors retained.",
+    "One compile failure remains. Marker alone is not accepted.",
+    "Ground motion on the already observed small Kokiri terrain only; user-reported freezes elsewhere remain unproven."
+  ],
+  "proofs": [
+    {
+      "path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-current-gpu-01/plan.json",
+      "sha256": "7d0875efd58694125e015be676244a225ec9399129cc412e60f01947d2ea78aa"
+    },
+    {
+      "path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-current-gpu-01/seed-manifest.json",
+      "sha256": "2e1bbb2b34b95ea4b1e1fc063bfe7e94f27170e755b7c7f7e7b75c8a007bf072"
+    },
+    {
+      "path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-current-gpu-01/runtime-proof.json",
+      "sha256": "3578eccba3ff1ab5052acbc844bdb138e1185b6480273f7c2adcafb9b50eb381"
+    },
+    {
+      "path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-current-gpu-01/exit.json",
+      "sha256": "632b017a5c2ffe8e3733b44b748f33b99a13ccdef64ba4700962bf92d261333a"
+    },
+    {
+      "path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-current-gpu-01/acceptance.json",
+      "sha256": "f3042bf474bb29266fe7a1110717b0a088ac20a7eb7b9fa77fe2a4b7a60ca85e"
+    },
+    {
+      "path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-current-gpu-01/cleanup.json",
+      "sha256": "1facd92eb078552e700e558f007a580ece853d9274471a606282dedec8130840"
+    },
+    {
+      "path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-current-gpu-01/observer-lifecycle.json",
+      "sha256": "301133e6d1e1c37c21e1fb165194aa799bb53d0896f27fec3dc1a5cdb8dd9dbf"
+    },
+    {
+      "path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-current-gpu-01/wrapper-chain-proof.json",
+      "sha256": "2512138fe1e1e3605a1e205fc6ae5f1840cc34d12d41c9fa75684c1e9134a58b"
+    },
+    {
+      "path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-current-gpu-01/observer-finally-tests.json",
+      "sha256": "9d09bf4505ea1f0baf4a0aecf3c83e594defed7d5119742aabc343b1a8652874"
+    },
+    {
+      "path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-current-gpu-01/kernel-after.log",
+      "sha256": "125e06b34a63250041404777890a3d411cf501b405306b95b713f6429319f36b"
+    }
+  ],
+  "excluded_attempts": [
+    {
+      "path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cache-current-browser-ab",
+      "reason": "B1 reached450s normal deadline before measured phase, A1 not pooled."
+    },
+    {
+      "path": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cache-current-auto-ab",
+      "reason": "First autoA1 accepted visible Continue fade; requested key ignored, next-scene gate stopped before measurement. Preserved fade is new regression fixture."
+    }
+  ],
+  "readiness_v2": {
+    "directory": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/scene-loader-20261110-v2",
+    "checks": 13,
+    "old_classifier_accepts_observed_fade": true,
+    "new_fade_contrast_and_consecutive_checks": true,
+    "actual_runtime_qualification": "Menus/load passed; ready-view camera template rejected a valid shifted view. Finalv3 uses actual parent review before phase.",
+    "tests_sha256": "422dd1159e239ea69ecdb8a331c5d44fab7c828805b7a2e2dc87808af2da31d0"
+  },
+  "readiness_v3": {
+    "directory": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/scene-loader-20261110-v3",
+    "actual4phase_qualification": true,
+    "manual_prephase_and_postphase_images_read": true
+  }
+}

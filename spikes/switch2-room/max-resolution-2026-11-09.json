@@ -1,0 +1,898 @@
+{
+  "date": "2026-11-09",
+  "purpose": "Prove actual rendered-resolution change before a performance comparison; no traced FPS claim.",
+  "control": {
+    "conclusion": "MaxResolutionOFF truly lowered sampled main3D dimensions2560x1440->1920x1080, while some output passes remain2560x1440. Quality/resolution tradeoff, not an emulator optimization or FPSresult.",
+    "binary": "1e26f546986f247a72b8b9177a30f5a17701bea247b7401ac65b423ec1a23d98",
+    "matched_main_group": {
+      "hashes": "0000000000000000,79d3cc5c0254b1bd,0000000000000000,0000000000000000,0000000000000000,292b3848bd8c1dbf",
+      "on_draws": 1439,
+      "off_draws": 1437,
+      "on_shapes": [
+        {
+          "framebuffer": [
+            2560,
+            1440
+          ],
+          "depth": [
+            2560,
+            1440
+          ],
+          "viewport_extent": [
+            2560.0,
+            1440.0
+          ],
+          "clip": [
+            2560,
+            1440
+          ],
+          "scissor": [
+            0,
+            2560,
+            0,
+            1440
+          ],
+          "draws": 1307
+        },
+        {
+          "framebuffer": [
+            1600,
+            1600
+          ],
+          "depth": [
+            1600,
+            1600
+          ],
+          "viewport_extent": [
+            1600.0,
+            1600.0
+          ],
+          "clip": [
+            1600,
+            1600
+          ],
+          "scissor": [
+            0,
+            1600,
+            0,
+            1600
+          ],
+          "draws": 84
+        },
+        {
+          "framebuffer": [
+            640,
+            360
+          ],
+          "depth": [
+            640,
+            360
+          ],
+          "viewport_extent": [
+            640.0,
+            360.0
+          ],
+          "clip": [
+            640,
+            360
+          ],
+          "scissor": [
+            0,
+            640,
+            0,
+            360
+          ],
+          "draws": 48
+        }
+      ],
+      "off_shapes": [
+        {
+          "framebuffer": [
+            1920,
+            1080
+          ],
+          "depth": [
+            1920,
+            1080
+          ],
+          "viewport_extent": [
+            1920.0,
+            1080.0
+          ],
+          "clip": [
+            1920,
+            1080
+          ],
+          "scissor": [
+            0,
+            1920,
+            0,
+            1080
+          ],
+          "draws": 1305
+        },
+        {
+          "framebuffer": [
+            1600,
+            1600
+          ],
+          "depth": [
+            1600,
+            1600
+          ],
+          "viewport_extent": [
+            1600.0,
+            1600.0
+          ],
+          "clip": [
+            1600,
+            1600
+          ],
+          "scissor": [
+            0,
+            1600,
+            0,
+            1600
+          ],
+          "draws": 84
+        },
+        {
+          "framebuffer": [
+            480,
+            270
+          ],
+          "depth": [
+            480,
+            270
+          ],
+          "viewport_extent": [
+            480.0,
+            270.0
+          ],
+          "clip": [
+            480,
+            270
+          ],
+          "scissor": [
+            0,
+            480,
+            0,
+            270
+          ],
+          "draws": 48
+        }
+      ]
+    },
+    "common_depth_groups": 232,
+    "sampled_trace_frames": {
+      "on": [
+        3600,
+        4200,
+        4800
+      ],
+      "off": [
+        3000,
+        3600,
+        4200
+      ]
+    },
+    "camera_seconds": {
+      "on": 61.33483857894316,
+      "off": 61.34472581325099
+    },
+    "native_patch_proof": {
+      "on": {
+        "maxres_applied": true,
+        "maxres_skipped": false,
+        "fps_unlock_applied": true
+      },
+      "off": {
+        "maxres_applied": false,
+        "maxres_skipped": true,
+        "fps_unlock_applied": true
+      }
+    },
+    "upscaler_inside_camera": {
+      "on": 0,
+      "off": 0
+    },
+    "effective_ini_only_differences": [
+      [
+        "DisabledAddOns",
+        "1\\disabled\\1\\d",
+        null,
+        "Max Resolution (built-in)"
+      ],
+      [
+        "DisabledAddOns",
+        "1\\disabled\\1\\d\\default",
+        null,
+        "false"
+      ],
+      [
+        "DisabledAddOns",
+        "1\\disabled\\size",
+        "0",
+        "1"
+      ]
+    ],
+    "anti_aliasing": {
+      "oot_anti_aliasing": 0,
+      "meaning": "Game",
+      "NoSharpening_active": false,
+      "source": "src/common/settings_enums.h:154; settings.h:431 default Game",
+      "ocarina_fsr": "absent in effective INI",
+      "amd_fsr4": "absent in effective INI"
+    },
+    "route": "ZL0/255/0 kernelproven; NPCtarget framing. Firsttinycycle didnotproveposition/camerareturn, secondcancelled, no longroute.",
+    "source_and_driver_unchanged": true,
+    "kernel_gpu_messages": [],
+    "cleanup": {
+      "at": 1794262150.774534,
+      "own_game_absent": true,
+      "own_helper_removed": true,
+      "old_devices_absent": [
+        "/dev/input/event8",
+        "/dev/input/event9",
+        "/dev/input/event10",
+        "/dev/input/event11"
+      ],
+      "matching_names_remaining": [],
+      "observer": "active",
+      "production_config_unchanged": true,
+      "eight_progressions_unchanged": true,
+      "gpu_policies": {
+        "/sys/class/drm/card0/device/power_dpm_force_performance_level": "auto"
+      },
+      "gpu_power_caps_micro_watts": [
+        150000000
+      ]
+    },
+    "report_sha256": "ee49f3062886fa911f344a7cd4dc3afe19003a2b141535c39f0b3e6cae4ed97b",
+    "limits": [
+      "Diagnostics with Render.VulkanDebug and traces, not FPS comparison or claim of zero instrumentation cost.",
+      "Only sampled frames at multiples600, not everyframe/resolution distribution. Depth-tested draws include auxiliary passes; report common shader groups and main target families separately.",
+      "Viewport/scissor/clip are active draw state; framebuffer/texture dimensions alone could be allocation only.",
+      "Upscaler one-frame trace fired before observed gameplay, excluded from played-phase dimension conclusions.",
+      "Camera poses/scene are similar, not exactly matched frames. Same binary, driver, seed, clock settings and addons except MaxResolution.",
+      "No free-ground loop qualification: first short ZL cycle did not prove return; second cancelled and inputs neutralized.",
+      "No audio/save-resume/zone/global30FPS qualification."
+    ]
+  },
+  "private_report_sha256": "0c23cd6e7a0f64d7fea8d3f9f6fcd653801ad8d2cb5aca3b37c13db296e4082a",
+  "next": "Separate activation and quality control of existing NoSharpening at MaxResolutionON, retaining original heavy dispatch, original clock and full compute mesh fallback.",
+  "performance_comparison": {
+    "schema": 1,
+    "comparison": "Max Resolution OFF/ON/OFF/ON, equally instrumented PRESENT_STATS=1; quality tradeoff, not free optimization",
+    "arms": {
+      "off": {
+        "intervals": 4200,
+        "sum_ns": 139583504542,
+        "covered_seconds": 139.583504542,
+        "interval_rate_per_second": 30.089515331922623,
+        "over30": 1354,
+        "over30_percent": 32.23809523809524,
+        "over100": 0,
+        "over100_percent": 0.0,
+        "max_ms": 76.319217,
+        "p95_window_range_ms": [
+          39.6406,
+          45.961597
+        ],
+        "p99_window_range_ms": [
+          45.435523,
+          50.760953
+        ]
+      },
+      "on": {
+        "intervals": 4200,
+        "sum_ns": 142341245640,
+        "covered_seconds": 142.34124564,
+        "interval_rate_per_second": 29.5065564525293,
+        "over30": 1407,
+        "over30_percent": 33.5,
+        "over100": 0,
+        "over100_percent": 0.0,
+        "max_ms": 61.358942,
+        "p95_window_range_ms": [
+          42.954767,
+          46.394614
+        ],
+        "p99_window_range_ms": [
+          47.338635,
+          52.519376
+        ]
+      }
+    },
+    "off_vs_on_observed_percent": 1.97569269166058,
+    "paired_off_vs_on_percent": [
+      3.7911070962373117,
+      -0.3308067836572115
+    ],
+    "between_camera_gaps_seconds": [
+      115.303441134,
+      124.984257553,
+      126.796881103
+    ],
+    "ini_diff": {
+      "DisabledAddOns::1\\disabled\\1\\d": {
+        "off": "Max Resolution (built-in)",
+        "on": null
+      },
+      "DisabledAddOns::1\\disabled\\1\\d\\default": {
+        "off": "false",
+        "on": null
+      },
+      "DisabledAddOns::1\\disabled\\size": {
+        "off": "1",
+        "on": "0"
+      }
+    },
+    "same_seed_files": 3979,
+    "seed_manifest_sha256": "ce7c6b6efa332f624b958c0e28bbdb6f4801cb46ac62f4ccb7456c991e2a1ae3",
+    "seed_provenance_limit": "OFF diagnostic restored the same3977 seed as ON; it did not copy the immediately precedingON diagnostic output home. This frozen seed contains originalON warmth plusOFF additions, not a proven union of every program from both latestdiagnostics.",
+    "same_exe": "1e26f546986f247a72b8b9177a30f5a17701bea247b7401ac65b423ec1a23d98",
+    "same_radv": "25.2.8 db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+    "cleanup": {
+      "at": 1794263788.3032658,
+      "own_game_absent": true,
+      "own_helper_removed": true,
+      "old_devices_absent": [
+        "/dev/input/event8",
+        "/dev/input/event9",
+        "/dev/input/event10",
+        "/dev/input/event11"
+      ],
+      "matching_names_remaining": [],
+      "observer": "active",
+      "production_config_unchanged": true,
+      "eight_progressions_unchanged": true,
+      "gpu_policies": {
+        "/sys/class/drm/card0/device/power_dpm_force_performance_level": "auto"
+      },
+      "gpu_power_caps_micro_watts": [
+        150000000
+      ]
+    },
+    "kernel_matches": [],
+    "quantiles": "Nearest-rank per individual600-interval window; range is range of those window quantiles, no pooled quantile or average quantile.",
+    "budget": "over30 counts integer nanosecond intervals >33333333, equivalent to > mathematical1e9/30 for integer samples; over100 counts >100000000.",
+    "limits": [
+      "Instrumented camera only, not a normal uninstrumented FPS measurement, route or game-clock qualification.",
+      "TIPC229 game presentation requests, not physical scanout or guaranteed distinct image content.",
+      "MaxResolutionOFF previously measured main3D1920x1080 vsON2560x1440 in separate diagnostic; these traces omitted here. Quality changes, dimensions not reprobed during measurement.",
+      "Both arms use corrected599first/600later intervals; historical uncorrected/noMesh comparisons are not interchangeable.",
+      "Warm seed inherited originalON thenOFF additions, not exhaustive shader/program warmth; cache metadata cannot prove no compilation.",
+      "No constant30 claim, no validated free ground route, zone change, audio or save/resume qualification."
+    ],
+    "runs": [
+      {
+        "label": "lichii-maxres-pacing-off1",
+        "arm": "off",
+        "preparation_seconds": 84.7989616394043,
+        "camera_seconds": 91.404079947,
+        "wall_start_unix": 1794263019.9747512,
+        "phase_monotonic_ns": [
+          2280990680520883,
+          2281082084600830
+        ],
+        "complete_windows": [
+          {
+            "intervals": 600,
+            "sum_ns": 19703510695,
+            "p50_ns": 31006127,
+            "p95_ns": 43980370,
+            "p99_ns": 49062456,
+            "max_ns": 76319217,
+            "over30": 176,
+            "over100": 0,
+            "begin_ns": 2280994862869855,
+            "end_ns": 2281014566380550,
+            "legacy_same_window": {
+              "mean_frame_us": 32838,
+              "max_frame_us": 76319,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 3,
+              "mean_composite_us": 22,
+              "mean_pacing_us": 0,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 19590870130,
+            "p50_ns": 30841218,
+            "p95_ns": 43104248,
+            "p99_ns": 48678257,
+            "max_ns": 53353559,
+            "over30": 179,
+            "over100": 0,
+            "begin_ns": 2281014566380550,
+            "end_ns": 2281034157250680,
+            "legacy_same_window": {
+              "mean_frame_us": 32650,
+              "max_frame_us": 53353,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 3,
+              "mean_composite_us": 22,
+              "mean_pacing_us": 0,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 19144609402,
+            "p50_ns": 30739368,
+            "p95_ns": 39640600,
+            "p99_ns": 45435523,
+            "max_ns": 52159859,
+            "over30": 139,
+            "over100": 0,
+            "begin_ns": 2281034157250680,
+            "end_ns": 2281053301860082,
+            "legacy_same_window": {
+              "mean_frame_us": 31907,
+              "max_frame_us": 52159,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 4,
+              "mean_composite_us": 22,
+              "mean_pacing_us": 0,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 19667755661,
+            "p50_ns": 31191537,
+            "p95_ns": 43668279,
+            "p99_ns": 47856598,
+            "max_ns": 54693195,
+            "over30": 172,
+            "over100": 0,
+            "begin_ns": 2281053301860082,
+            "end_ns": 2281072969615743,
+            "legacy_same_window": {
+              "mean_frame_us": 32779,
+              "max_frame_us": 54693,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 2,
+              "mean_composite_us": 23,
+              "mean_pacing_us": 0,
+              "ran_ahead": 600
+            }
+          }
+        ],
+        "intervals": 2400,
+        "sum_ns": 78106745888,
+        "covered_seconds": 78.106745888,
+        "coverage_percent": 85.45214385757139,
+        "interval_rate_per_second": 30.7271794864101,
+        "over30": 666,
+        "over30_percent": 27.75,
+        "over100": 0,
+        "over100_percent": 0.0,
+        "max_ms": 76.319217,
+        "p95_window_ms": [
+          43.98037,
+          43.104248,
+          39.6406,
+          43.668279
+        ],
+        "p99_window_ms": [
+          49.062456,
+          48.678257,
+          45.435523,
+          47.856598
+        ],
+        "legacy_means_us": {
+          "mean_fence_us": 0.0,
+          "mean_composite_us": 22.25,
+          "mean_pacing_us": 0.0
+        },
+        "normal_stop": {
+          "exit_code": 0,
+          "stop_requested": true,
+          "window_closed": true,
+          "forced": false,
+          "stop_seconds": 2.604867573827505
+        },
+        "samples_clear": 15,
+        "images_read": 3,
+        "cache_added_files": 0,
+        "cache_changed_files": 5,
+        "cache_removed_files": 0,
+        "clock_proof": "clock-domain-proof.json",
+        "policy": "runtime-policy.json",
+        "seed_restore": "seed-restore.json"
+      },
+      {
+        "label": "lichii-maxres-pacing-on1",
+        "arm": "on",
+        "preparation_seconds": 85.59220695495605,
+        "camera_seconds": 91.358378743,
+        "wall_start_unix": 1794263226.682268,
+        "phase_monotonic_ns": [
+          2281197388041964,
+          2281288746420707
+        ],
+        "complete_windows": [
+          {
+            "intervals": 600,
+            "sum_ns": 20289674710,
+            "p50_ns": 31963330,
+            "p95_ns": 45626389,
+            "p99_ns": 50230549,
+            "max_ns": 61358942,
+            "over30": 199,
+            "over100": 0,
+            "begin_ns": 2281201365114317,
+            "end_ns": 2281221654789027,
+            "legacy_same_window": {
+              "mean_frame_us": 33815,
+              "max_frame_us": 61358,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 3,
+              "mean_composite_us": 23,
+              "mean_pacing_us": 0,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20433711180,
+            "p50_ns": 32335569,
+            "p95_ns": 43524025,
+            "p99_ns": 52519376,
+            "max_ns": 54024420,
+            "over30": 217,
+            "over100": 0,
+            "begin_ns": 2281221654789027,
+            "end_ns": 2281242088500207,
+            "legacy_same_window": {
+              "mean_frame_us": 34055,
+              "max_frame_us": 54024,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 18,
+              "mean_composite_us": 23,
+              "mean_pacing_us": 0,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 19976664641,
+            "p50_ns": 31937263,
+            "p95_ns": 42954767,
+            "p99_ns": 47338635,
+            "max_ns": 50620814,
+            "over30": 158,
+            "over100": 0,
+            "begin_ns": 2281242088500207,
+            "end_ns": 2281262065164848,
+            "legacy_same_window": {
+              "mean_frame_us": 33293,
+              "max_frame_us": 50620,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 3,
+              "mean_composite_us": 22,
+              "mean_pacing_us": 0,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20367805743,
+            "p50_ns": 32209043,
+            "p95_ns": 44592552,
+            "p99_ns": 49441892,
+            "max_ns": 51437817,
+            "over30": 208,
+            "over100": 0,
+            "begin_ns": 2281262065164848,
+            "end_ns": 2281282432970591,
+            "legacy_same_window": {
+              "mean_frame_us": 33945,
+              "max_frame_us": 51437,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 63,
+              "mean_composite_us": 23,
+              "mean_pacing_us": 0,
+              "ran_ahead": 600
+            }
+          }
+        ],
+        "intervals": 2400,
+        "sum_ns": 81067856274,
+        "covered_seconds": 81.067856274,
+        "coverage_percent": 88.73609338236152,
+        "interval_rate_per_second": 29.604828723832007,
+        "over30": 782,
+        "over30_percent": 32.583333333333336,
+        "over100": 0,
+        "over100_percent": 0.0,
+        "max_ms": 61.358942,
+        "p95_window_ms": [
+          45.626389,
+          43.524025,
+          42.954767,
+          44.592552
+        ],
+        "p99_window_ms": [
+          50.230549,
+          52.519376,
+          47.338635,
+          49.441892
+        ],
+        "legacy_means_us": {
+          "mean_fence_us": 0.0,
+          "mean_composite_us": 22.75,
+          "mean_pacing_us": 0.0
+        },
+        "normal_stop": {
+          "exit_code": 0,
+          "stop_requested": true,
+          "window_closed": true,
+          "forced": false,
+          "stop_seconds": 2.9068510020151734
+        },
+        "samples_clear": 15,
+        "images_read": 3,
+        "cache_added_files": 0,
+        "cache_changed_files": 5,
+        "cache_removed_files": 0,
+        "clock_proof": "clock-domain-proof.json",
+        "policy": "runtime-policy.json",
+        "seed_restore": "seed-restore.json"
+      },
+      {
+        "label": "lichii-maxres-pacing-off2",
+        "arm": "off",
+        "preparation_seconds": 92.53204250335693,
+        "camera_seconds": 91.367723713,
+        "wall_start_unix": 1794263443.02491,
+        "phase_monotonic_ns": [
+          2281413730678260,
+          2281505098401973
+        ],
+        "complete_windows": [
+          {
+            "intervals": 600,
+            "sum_ns": 20444771575,
+            "p50_ns": 32116182,
+            "p95_ns": 45637038,
+            "p99_ns": 50760953,
+            "max_ns": 58676799,
+            "over30": 236,
+            "over100": 0,
+            "begin_ns": 2281432149468559,
+            "end_ns": 2281452594240134,
+            "legacy_same_window": {
+              "mean_frame_us": 34074,
+              "max_frame_us": 58676,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 11,
+              "mean_composite_us": 24,
+              "mean_pacing_us": 0,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20324403755,
+            "p50_ns": 32101766,
+            "p95_ns": 45313039,
+            "p99_ns": 49449262,
+            "max_ns": 57240123,
+            "over30": 206,
+            "over100": 0,
+            "begin_ns": 2281452594240134,
+            "end_ns": 2281472918643889,
+            "legacy_same_window": {
+              "mean_frame_us": 33873,
+              "max_frame_us": 57240,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 3,
+              "mean_composite_us": 23,
+              "mean_pacing_us": 0,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20707583324,
+            "p50_ns": 32209539,
+            "p95_ns": 45961597,
+            "p99_ns": 49504566,
+            "max_ns": 54974272,
+            "over30": 246,
+            "over100": 0,
+            "begin_ns": 2281472918643889,
+            "end_ns": 2281493626227213,
+            "legacy_same_window": {
+              "mean_frame_us": 34512,
+              "max_frame_us": 54974,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 5,
+              "mean_composite_us": 23,
+              "mean_pacing_us": 0,
+              "ran_ahead": 600
+            }
+          }
+        ],
+        "intervals": 1800,
+        "sum_ns": 61476758654,
+        "covered_seconds": 61.476758654,
+        "coverage_percent": 67.28498440774108,
+        "interval_rate_per_second": 29.279357588298655,
+        "over30": 688,
+        "over30_percent": 38.22222222222222,
+        "over100": 0,
+        "over100_percent": 0.0,
+        "max_ms": 58.676799,
+        "p95_window_ms": [
+          45.637038,
+          45.313039,
+          45.961597
+        ],
+        "p99_window_ms": [
+          50.760953,
+          49.449262,
+          49.504566
+        ],
+        "legacy_means_us": {
+          "mean_fence_us": 0.0,
+          "mean_composite_us": 23.333333333333332,
+          "mean_pacing_us": 0.0
+        },
+        "normal_stop": {
+          "exit_code": 0,
+          "stop_requested": true,
+          "window_closed": true,
+          "forced": false,
+          "stop_seconds": 2.9056203197687864
+        },
+        "samples_clear": 15,
+        "images_read": 3,
+        "cache_added_files": 0,
+        "cache_changed_files": 5,
+        "cache_removed_files": 0,
+        "clock_proof": "clock-domain-proof.json",
+        "policy": "runtime-policy.json",
+        "seed_restore": "seed-restore.json"
+      },
+      {
+        "label": "lichii-maxres-pacing-on2",
+        "arm": "on",
+        "preparation_seconds": 93.86453485488892,
+        "camera_seconds": 91.355441764,
+        "wall_start_unix": 1794263661.1895156,
+        "phase_monotonic_ns": [
+          2281631895283076,
+          2281723250724840
+        ],
+        "complete_windows": [
+          {
+            "intervals": 600,
+            "sum_ns": 20643257415,
+            "p50_ns": 32219850,
+            "p95_ns": 46394614,
+            "p99_ns": 49297231,
+            "max_ns": 54879228,
+            "over30": 217,
+            "over100": 0,
+            "begin_ns": 2281649720257910,
+            "end_ns": 2281670363515325,
+            "legacy_same_window": {
+              "mean_frame_us": 34404,
+              "max_frame_us": 54879,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 8,
+              "mean_composite_us": 23,
+              "mean_pacing_us": 0,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20281346713,
+            "p50_ns": 32230851,
+            "p95_ns": 44130875,
+            "p99_ns": 49822878,
+            "max_ns": 53589397,
+            "over30": 202,
+            "over100": 0,
+            "begin_ns": 2281670363515325,
+            "end_ns": 2281690644862038,
+            "legacy_same_window": {
+              "mean_frame_us": 33801,
+              "max_frame_us": 53589,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 5,
+              "mean_composite_us": 24,
+              "mean_pacing_us": 0,
+              "ran_ahead": 600
+            }
+          },
+          {
+            "intervals": 600,
+            "sum_ns": 20348785238,
+            "p50_ns": 32238656,
+            "p95_ns": 44505810,
+            "p99_ns": 47795604,
+            "max_ns": 52034500,
+            "over30": 206,
+            "over100": 0,
+            "begin_ns": 2281690644862038,
+            "end_ns": 2281710993647276,
+            "legacy_same_window": {
+              "mean_frame_us": 33914,
+              "max_frame_us": 52034,
+              "over100": 0,
+              "mean_fence_us": 0,
+              "max_fence_us": 2,
+              "mean_composite_us": 23,
+              "mean_pacing_us": 0,
+              "ran_ahead": 600
+            }
+          }
+        ],
+        "intervals": 1800,
+        "sum_ns": 61273389366,
+        "covered_seconds": 61.273389366,
+        "coverage_percent": 67.071417074736,
+        "interval_rate_per_second": 29.376537166047523,
+        "over30": 625,
+        "over30_percent": 34.72222222222222,
+        "over100": 0,
+        "over100_percent": 0.0,
+        "max_ms": 54.879228,
+        "p95_window_ms": [
+          46.394614,
+          44.130875,
+          44.50581
+        ],
+        "p99_window_ms": [
+          49.297231,
+          49.822878,
+          47.795604
+        ],
+        "legacy_means_us": {
+          "mean_fence_us": 0.0,
+          "mean_composite_us": 23.333333333333332,
+          "mean_pacing_us": 0.0
+        },
+        "normal_stop": {
+          "exit_code": 0,
+          "stop_requested": true,
+          "window_closed": true,
+          "forced": false,
+          "stop_seconds": 3.605267010163516
+        },
+        "samples_clear": 15,
+        "images_read": 3,
+        "cache_added_files": 0,
+        "cache_changed_files": 5,
+        "cache_removed_files": 0,
+        "clock_proof": "clock-domain-proof.json",
+        "policy": "runtime-policy.json",
+        "seed_restore": "seed-restore.json"
+      }
+    ],
+    "private_report_sha256": "50505e04c193641467f49ab30702c1d1b70e3a53619551f0edf9a5ada8466aa5",
+    "root_arithmetic_audit": "Independent raw-log reparse agrees on all four interval counts, durations, rates, over-budget counts and maxima."
+  },
+  "decision": "No repeatable resolution performance gain retained: pairs +3.7911% then -0.3308%; pooled +1.9757% observed, about one third of intervals exceed30FPS budget. Baseline MaxResolutionON remains private reference, production unchanged."
+}

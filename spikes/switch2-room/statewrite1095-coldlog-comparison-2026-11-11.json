@@ -1,0 +1,153 @@
+{
+  "date_utc": "2026-11-11",
+  "status": "completed_no_repeatable_gain_do_not_retain_1095coldlog",
+  "upstream_head": "52d46375f5097dfb6700b94022eec82e54ce25e7",
+  "upstream_merge": "73a1b58e7d7a3b02f116c897a2c8487923256b1a",
+  "baseline_ELF": "13158042b7dae7041bc4ae255381dbbed90b1d7eb9f3ba04ea1b5be02d36f6a1",
+  "candidate_ELF": "32d0a6fdf4e72a2e567ce6ce9de61cf130d63dade552ba0eb722acb002876e01",
+  "order": [
+    "A1",
+    "B1",
+    "A2",
+    "B2"
+  ],
+  "rows": {
+    "A1": {
+      "ELF": "13158042b7dae7041bc4ae255381dbbed90b1d7eb9f3ba04ea1b5be02d36f6a1",
+      "normal_markers": 0,
+      "phase_seconds": 90.000506886,
+      "wsi_rate": 30.938272734095467,
+      "windows": 4,
+      "covered_seconds": 77.573819994,
+      "max_ms": 54.253533,
+      "over100": 0,
+      "p99_each_ms": [
+        41.846726,
+        41.35896,
+        41.618217,
+        45.223176
+      ],
+      "over_33_333333_ms": 714
+    },
+    "B1": {
+      "ELF": "32d0a6fdf4e72a2e567ce6ce9de61cf130d63dade552ba0eb722acb002876e01",
+      "normal_markers": 1,
+      "phase_seconds": 90.001083823,
+      "wsi_rate": 30.471822817684718,
+      "windows": 4,
+      "covered_seconds": 78.761287579,
+      "max_ms": 46.902397,
+      "over100": 0,
+      "p99_each_ms": [
+        42.257576,
+        43.627518,
+        40.740366,
+        41.767325
+      ],
+      "over_33_333333_ms": 744
+    },
+    "A2": {
+      "ELF": "13158042b7dae7041bc4ae255381dbbed90b1d7eb9f3ba04ea1b5be02d36f6a1",
+      "normal_markers": 0,
+      "phase_seconds": 90.000449689,
+      "wsi_rate": 30.51241593588849,
+      "windows": 3,
+      "covered_seconds": 58.992378833,
+      "max_ms": 50.550395,
+      "over100": 0,
+      "p99_each_ms": [
+        42.370126,
+        41.665071,
+        43.777839
+      ],
+      "over_33_333333_ms": 546
+    },
+    "B2": {
+      "ELF": "32d0a6fdf4e72a2e567ce6ce9de61cf130d63dade552ba0eb722acb002876e01",
+      "normal_markers": 1,
+      "phase_seconds": 90.00329009,
+      "wsi_rate": 30.874328072486612,
+      "windows": 4,
+      "covered_seconds": 77.734485245,
+      "max_ms": 50.048974,
+      "over100": 0,
+      "p99_each_ms": [
+        43.745518,
+        41.550095,
+        42.826953,
+        42.388149
+      ],
+      "over_33_333333_ms": 693
+    }
+  },
+  "pair_deltas_percent": [
+    -1.5076792438276532,
+    1.186114325914267
+  ],
+  "pooled_rates": {
+    "A": 30.75431575364045,
+    "B": 30.671754983428396
+  },
+  "pooled_delta_percent": -0.26845263238308714,
+  "complete_windows": 15,
+  "covered_seconds": 293.061971651,
+  "commanded_seconds": 360.005330488,
+  "gaps": [
+    {
+      "between": "A1->B1",
+      "seconds": 315.13214678
+    },
+    {
+      "between": "B1->A2",
+      "seconds": 192.163446499
+    },
+    {
+      "between": "A2->B2",
+      "seconds": 225.136734091
+    }
+  ],
+  "raw_proofs_verified": 246,
+  "frozen_inputs_modes_preserved": 280,
+  "protected_files_preserved": 8652,
+  "installed_cache_preserved": {
+    "files": 5121,
+    "bytes": 147376438,
+    "all_hashes_and_mtimes_match": true
+  },
+  "learned_seed_preserved": {
+    "files": 4867,
+    "bytes": 134125560,
+    "all_hashes_and_mtimes_match": true
+  },
+  "all4effective141fields_and_native_environment_equal": true,
+  "all5normal_cleanups_F1_and4phases": true,
+  "all_normal_candidate_first_hits_present_reference_absent": true,
+  "probe_dormant_all_phases": true,
+  "local_video_decode_during_phase": false,
+  "actual_scene": "Stationary Link facing Saria at the same checkpoint; pre/post actual images read. No route or zone transition.",
+  "decision": "Do not retain1095coldlog on current1315base: pair changes oppose, no repeated gain. Earlier9November negative retained. Next isolated1329 stays on1315, no1095or807.",
+  "historical_negative_retained": "spikes/switch2-room/state-write-2026-11-09.json",
+  "no_comparison_of_inline_vs_cold_logger_FPS": true,
+  "next_isolated_port": 1329,
+  "next_base": "1315 without1095 or807",
+  "installed_engine_changed": false,
+  "goal40_achieved": false,
+  "limits": [
+    "Complete600-return windows only; unequal partial coverage.",
+    "Native WSI returns are not unique guest images/browser FPS.",
+    "Static Saria scene, natural idle/particles. No movement or target-lock request occurred in phase-events; inherited analyzer target-lock text is historical context, not evidence of a new target-lock action.",
+    "Permanent services remain running; polling guard cannot exclude work wholly between observations.",
+    "No performance explanation inferred from smaller native dispatch function."
+  ],
+  "proof_sha256": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-statewrite1095-coldlog-ab-20261111-v2/report.json": "a31ea5e2c5cde905870b2ac4faae56b923daefa33281933f17b016d7d4a6209e",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-statewrite1095-coldlog-ab-20261111-v2/root-cohort-review.json": "33f791f739b26a942000e05cdac8e01b0d1ec8d6240799c5d79a607904738c84",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-statewrite1095-coldlog-ab-20261111-v2/functional-accepted.json": "528dbf8903becc370d30b747ad7935f33a66a5b888df524568d3550e9bafcf75",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-statewrite1095-coldlog-ab-20261111-v2/plan.json": "3860068a98f6636a40f58102444ed0759b92ff7ed1250f31add3349d876a9dbb",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-coldlog-preparation-20261111/prepared.json": "52b9b106268e739774d44db16c1b46e58a9363f447ecb1e26c1c147c04b0abdb",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-coldlog-preparation-20261111/candidate.patch": "c46daf39b8622ceda456bf3d4dc5e2f489291ea44b8bf8f0115ed331dda48cc4",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-coldlog-preparation-20261111/root-build-01/result.json": "f15e5f627724c758f6a0f177c87da85944faf90e4b8795fc95f0e4571ff32509",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/statewrite1095-coldlog-preparation-20261111/native-tests-result.json": "981b8af2b4dd98ed01d1672b535d5afcc5a50649b9efd02045ddf8498d3268be",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-statewrite1095-coldlog-ab-20261111-v2/root-normal-cohort-proof.json": "accf414e40d0a0c1ed81d38d6e2dbff971eb160fb5684d2eb71d01a5e7682fb4"
+  }
+}

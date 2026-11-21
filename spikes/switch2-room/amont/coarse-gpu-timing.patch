@@ -1,0 +1,529 @@
+diff --git a/src/tests/CMakeLists.txt b/src/tests/CMakeLists.txt
+index dff876503..ff0eee7cf 100644
+--- a/src/tests/CMakeLists.txt
++++ b/src/tests/CMakeLists.txt
+@@ -57,6 +57,7 @@ add_executable(tests
+     video_core/ampere_vote.cpp
+     video_core/shader_attributes.cpp
+     video_core/indirect_reset.cpp
++    video_core/coarse_gpu.cpp
+     input_common/calibration_configuration_job.cpp
+ )
+ 
+diff --git a/src/video_core/CMakeLists.txt b/src/video_core/CMakeLists.txt
+index c0648802e..85e540ba4 100644
+--- a/src/video_core/CMakeLists.txt
++++ b/src/video_core/CMakeLists.txt
+@@ -172,6 +172,10 @@ add_library(video_core STATIC
+     renderer_vulkan/vk_buffer_cache_base.cpp
+     renderer_vulkan/vk_buffer_cache.cpp
+     renderer_vulkan/vk_buffer_cache.h
++    renderer_vulkan/vk_coarse_gpu.cpp
++    renderer_vulkan/vk_coarse_gpu.h
++    coarse_gpu_budget.h
++    gpu_timestamp_sample.h
+     renderer_vulkan/vk_command_pool.cpp
+     renderer_vulkan/vk_command_pool.h
+     renderer_vulkan/vk_compute_pass.cpp
+diff --git a/src/video_core/renderer_vulkan/vk_rasterizer.cpp b/src/video_core/renderer_vulkan/vk_rasterizer.cpp
+index f9697a8e9..23e6a0d71 100644
+--- a/src/video_core/renderer_vulkan/vk_rasterizer.cpp
++++ b/src/video_core/renderer_vulkan/vk_rasterizer.cpp
+@@ -46,6 +46,7 @@
+ #include "video_core/renderer_vulkan/maxwell_to_vk.h"
+ #include "video_core/renderer_vulkan/vk_buffer_cache.h"
+ #include "video_core/renderer_vulkan/vk_compute_pipeline.h"
++#include "video_core/renderer_vulkan/vk_coarse_gpu.h"
+ #include "video_core/renderer_vulkan/vk_descriptor_pool.h"
+ #include "video_core/renderer_vulkan/vk_pipeline_cache.h"
+ #include "video_core/renderer_vulkan/vk_query_cache.h"
+@@ -1340,12 +1341,16 @@ void RasterizerVulkan::DispatchCompute() {
+         if (SyncFixEnabled()) {
+             record_read_barrier();
+         }
+-        scheduler.Record([pipeline, indirect_buffer = buffer->Handle(),
++        scheduler.Record([pipeline, trace=scheduler.CoarseTrace(),
++                          program=VideoCommon::CoarseProgram{pipeline->ShaderHash(),pipeline_cache.ComputeNativeKey()},
++                          indirect_buffer = buffer->Handle(),
+                           indirect_offset = offset](vk::CommandBuffer cmdbuf) {
+             if (!pipeline->IsBound()) {
+                 return;
+             }
++            const u32 id=trace?trace->BeginCompute(cmdbuf,program):CoarseGpuTrace::InvalidId;
+             cmdbuf.DispatchIndirect(indirect_buffer, indirect_offset);
++            if (trace) trace->EndCompute(cmdbuf,id);
+         });
+         SubmitNx2ListCopies();
+         return;
+@@ -1357,11 +1362,14 @@ void RasterizerVulkan::DispatchCompute() {
+     }
+     scheduler.RequestOutsideRenderPassOperationContext();
+     record_read_barrier();
+-    scheduler.Record([pipeline, dim](vk::CommandBuffer cmdbuf) {
++    scheduler.Record([pipeline, dim, trace=scheduler.CoarseTrace(),
++                      program=VideoCommon::CoarseProgram{pipeline->ShaderHash(),pipeline_cache.ComputeNativeKey()}](vk::CommandBuffer cmdbuf) {
+         if (!pipeline->IsBound()) {
+             return;
+         }
++        const u32 id=trace?trace->BeginCompute(cmdbuf,program):CoarseGpuTrace::InvalidId;
+         cmdbuf.Dispatch(dim[0], dim[1], dim[2]);
++        if (trace) trace->EndCompute(cmdbuf,id);
+     });
+     SubmitNx2ListCopies();
+ 
+@@ -1695,6 +1703,7 @@ void RasterizerVulkan::FlushCommands() {
+ }
+ 
+ void RasterizerVulkan::TickFrame() {
++    scheduler.TickCoarseGpu();
+     draw_counter = 0;
+     // Debug server requests (docs/nx2/debug-mcp.md), taken between frames on the owning thread.
+     if (VideoCore::Nx2Debug::HasRequests()) {
+diff --git a/src/video_core/renderer_vulkan/vk_scheduler.cpp b/src/video_core/renderer_vulkan/vk_scheduler.cpp
+index d78bf0a5f..f4870ea6c 100644
+--- a/src/video_core/renderer_vulkan/vk_scheduler.cpp
++++ b/src/video_core/renderer_vulkan/vk_scheduler.cpp
+@@ -20,6 +20,7 @@
+ #include "common/thread.h"
+ #include "video_core/gpu_logging/gpu_logging.h"
+ #include "video_core/renderer_vulkan/vk_command_pool.h"
++#include "video_core/renderer_vulkan/vk_coarse_gpu.h"
+ #include "video_core/renderer_vulkan/vk_graphics_pipeline.h"
+ #include "video_core/renderer_vulkan/vk_master_semaphore.h"
+ #include "video_core/renderer_vulkan/vk_scheduler.h"
+@@ -50,6 +51,9 @@ Scheduler::Scheduler(const Device& device_, StateTracker& state_tracker_)
+       master_semaphore{std::make_unique<MasterSemaphore>(device)},
+       command_pool{std::make_unique<CommandPool>(*master_semaphore, device)} {
+ 
++    if (const char* flag=std::getenv("EDEN_NX2_COARSE_GPU"); flag && flag[0]=='1') {
++        coarse_gpu=std::make_unique<CoarseGpuTrace>(device,*this);
++    }
+     AcquireNewChunk();
+     AllocateWorkerCommandBuffer();
+     worker_thread = std::jthread([this](std::stop_token token) { WorkerThread(token); });
+@@ -57,6 +61,8 @@ Scheduler::Scheduler(const Device& device_, StateTracker& state_tracker_)
+ 
+ Scheduler::~Scheduler() = default;
+ 
++void Scheduler::TickCoarseGpu() { if (coarse_gpu) coarse_gpu->Tick(); }
++
+ u64 Scheduler::Flush(VkSemaphore signal_semaphore, VkSemaphore wait_semaphore) {
+     if (VideoCommon::GpuSplit::check_owner) [[unlikely]] {
+         VideoCommon::GpuSplit::CheckOwner("Scheduler::Flush");
+@@ -428,6 +434,7 @@ void Scheduler::AllocateWorkerCommandBuffer() {
+         .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+         .pInheritanceInfo = nullptr,
+     });
++    if (coarse_gpu) coarse_gpu->BeginSubmit(current_cmdbuf, current_upload_cmdbuf);
+ }
+ 
+ u64 Scheduler::SubmitExecution(VkSemaphore signal_semaphore, VkSemaphore wait_semaphore) {
+@@ -444,6 +451,7 @@ u64 Scheduler::SubmitExecution(VkSemaphore signal_semaphore, VkSemaphore wait_se
+             .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+         };
+         upload_cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, WRITE_BARRIER);
++        if (coarse_gpu) coarse_gpu->EndSubmit(cmdbuf, upload_cmdbuf);
+         upload_cmdbuf.End();
+         cmdbuf.End();
+ 
+diff --git a/src/video_core/renderer_vulkan/vk_scheduler.h b/src/video_core/renderer_vulkan/vk_scheduler.h
+index dbf37ac59..4c0cacb09 100644
+--- a/src/video_core/renderer_vulkan/vk_scheduler.h
++++ b/src/video_core/renderer_vulkan/vk_scheduler.h
+@@ -35,6 +35,7 @@ class Device;
+ class Framebuffer;
+ class GraphicsPipeline;
+ class StateTracker;
++class CoarseGpuTrace;
+ 
+ struct QueryCacheParams;
+ 
+@@ -44,6 +45,8 @@ class Scheduler {
+ public:
+     explicit Scheduler(const Device& device, StateTracker& state_tracker);
+     ~Scheduler();
++    void TickCoarseGpu();
++    CoarseGpuTrace* CoarseTrace() const { return coarse_gpu.get(); }
+ 
+     /// Sends the current execution context to the GPU.
+     u64 Flush(VkSemaphore signal_semaphore = {}, VkSemaphore wait_semaphore = {});
+@@ -380,6 +383,7 @@ private:
+     std::mutex queue_mutex;
+     std::condition_variable_any event_cv;
+     bool worker_waiting{}; ///< The worker is waiting for work (guarded by queue_mutex)
++    std::unique_ptr<CoarseGpuTrace> coarse_gpu;
+     std::jthread worker_thread;
+ 
+     std::chrono::steady_clock::duration frame_interval{};
+diff --git a/src/video_core/vulkan_common/vulkan_wrapper.cpp b/src/video_core/vulkan_common/vulkan_wrapper.cpp
+index d0bca8812..49aa08ac6 100644
+--- a/src/video_core/vulkan_common/vulkan_wrapper.cpp
++++ b/src/video_core/vulkan_common/vulkan_wrapper.cpp
+@@ -167,6 +167,7 @@ void Load(VkDevice device, DeviceDispatch& dld) noexcept {
+     X(vkCmdSetColorBlendEnableEXT);
+     X(vkCmdSetColorBlendEquationEXT);
+     X(vkCmdResetQueryPool);
++    X(vkCmdWriteTimestamp);
+     X(vkCmdResolveImage);
+     X(vkCreateBuffer);
+     X(vkCreateBufferView);
+diff --git a/src/video_core/vulkan_common/vulkan_wrapper.h b/src/video_core/vulkan_common/vulkan_wrapper.h
+index f49e9518b..11084e3f3 100644
+--- a/src/video_core/vulkan_common/vulkan_wrapper.h
++++ b/src/video_core/vulkan_common/vulkan_wrapper.h
+@@ -244,6 +244,7 @@ struct DeviceDispatch : InstanceDispatch {
+     PFN_vkCmdPushConstants vkCmdPushConstants{};
+     PFN_vkCmdPushDescriptorSetWithTemplateKHR vkCmdPushDescriptorSetWithTemplateKHR{};
+     PFN_vkCmdResetQueryPool vkCmdResetQueryPool{};
++    PFN_vkCmdWriteTimestamp vkCmdWriteTimestamp{};
+     PFN_vkCmdResolveImage vkCmdResolveImage{};
+     PFN_vkCmdSetBlendConstants vkCmdSetBlendConstants{};
+     PFN_vkCmdSetCullModeEXT vkCmdSetCullModeEXT{};
+@@ -1377,6 +1378,10 @@ public:
+                                regions.data());
+     }
+ 
++    void WriteTimestamp(VkPipelineStageFlagBits stage, VkQueryPool pool, u32 index) const noexcept {
++        dld->vkCmdWriteTimestamp(handle, stage, pool, index);
++    }
++
+     void Dispatch(u32 x, u32 y, u32 z) const noexcept {
+         dld->vkCmdDispatch(handle, x, y, z);
+     }
+diff --git a/src/tests/video_core/coarse_gpu.cpp b/src/tests/video_core/coarse_gpu.cpp
+new file mode 100644
+index 000000000..e89818e09
+--- /dev/null
++++ b/src/tests/video_core/coarse_gpu.cpp
+@@ -0,0 +1,42 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++#include <catch2/catch_test_macros.hpp>
++#include <array>
++#include <limits>
++#include "video_core/coarse_gpu_budget.h"
++#include "video_core/gpu_timestamp_sample.h"
++TEST_CASE("Coarse GPU budget rejects incomplete and exhausted captures", "[coarse_gpu]") {
++    VideoCommon::CoarseGpuBudget<2> budget;
++    REQUIRE_FALSE(budget.Complete());
++    const auto first=budget.Begin(); REQUIRE(first); REQUIRE(*first==0);
++    REQUIRE_FALSE(budget.Complete()); REQUIRE(budget.End(*first)); REQUIRE(budget.Complete());
++    const auto second=budget.Begin(); REQUIRE(second); REQUIRE(*second==1);
++    REQUIRE_FALSE(budget.Complete()); REQUIRE(budget.End(*second)); REQUIRE(budget.Complete());
++    REQUIRE_FALSE(budget.Begin()); REQUIRE(budget.Overflow()); REQUIRE(budget.Count()==2);
++    REQUIRE_FALSE(budget.Complete());
++    budget={}; REQUIRE_FALSE(budget.Overflow()); REQUIRE(budget.Count()==0);
++    const auto again=budget.Begin(); REQUIRE(again); REQUIRE(budget.End(*again));
++    REQUIRE_FALSE(budget.End(*again)); REQUIRE_FALSE(budget.Complete());
++    budget={}; REQUIRE_FALSE(budget.End(0)); REQUIRE_FALSE(budget.Complete());
++}
++TEST_CASE("Coarse GPU selection rotates without inventing an empty target", "[coarse_gpu]") {
++    const std::array<VideoCommon::CoarseProgram,2> keys{{{0,3},{5,7}}};
++    REQUIRE_FALSE(VideoCommon::SelectCoarseProgram({},0));
++    REQUIRE(VideoCommon::SelectCoarseProgram(keys,0)==keys[0]);
++    REQUIRE(VideoCommon::SelectCoarseProgram(keys,1)==keys[1]);
++    REQUIRE(VideoCommon::SelectCoarseProgram(keys,2)==keys[0]);
++    REQUIRE(VideoCommon::SelectCoarseProgram(keys,std::numeric_limits<u64>::max())==keys[1]);
++}
++TEST_CASE("Coarse timestamps require available results and valid counter parameters", "[coarse_gpu]") {
++    using VideoCommon::GpuTimestampNanoseconds;
++    REQUIRE(GpuTimestampNanoseconds(10,30,true,true,64,10)==200.0);
++    REQUIRE(GpuTimestampNanoseconds(0xfffffffe,1,true,true,32,1)==3.0);
++    REQUIRE(GpuTimestampNanoseconds(~u64{0}-1,1,true,true,64,1)==3.0);
++    REQUIRE_FALSE(GpuTimestampNanoseconds(10,30,false,true,64,1));
++    REQUIRE_FALSE(GpuTimestampNanoseconds(10,30,true,false,64,1));
++    REQUIRE_FALSE(GpuTimestampNanoseconds(10,30,true,true,0,1));
++    REQUIRE_FALSE(GpuTimestampNanoseconds(10,30,true,true,65,1));
++    REQUIRE_FALSE(GpuTimestampNanoseconds(10,30,true,true,64,0));
++    REQUIRE_FALSE(GpuTimestampNanoseconds(10,30,true,true,64,-1));
++    REQUIRE_FALSE(GpuTimestampNanoseconds(10,30,true,true,64,std::numeric_limits<double>::infinity()));
++    REQUIRE_FALSE(GpuTimestampNanoseconds(10,30,true,true,64,std::numeric_limits<double>::quiet_NaN()));
++}
+diff --git a/src/video_core/coarse_gpu_budget.h b/src/video_core/coarse_gpu_budget.h
+new file mode 100644
+index 000000000..153109f8f
+--- /dev/null
++++ b/src/video_core/coarse_gpu_budget.h
+@@ -0,0 +1,42 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++#pragma once
++#include <algorithm>
++#include <array>
++#include <optional>
++#include <span>
++#include "common/common_types.h"
++namespace VideoCommon {
++struct CoarseProgram {
++    u64 hash{}, native{};
++    bool operator==(const CoarseProgram&) const = default;
++};
++inline std::optional<CoarseProgram> SelectCoarseProgram(std::span<const CoarseProgram> keys,
++                                                       u64 sequence) {
++    if (keys.empty()) return std::nullopt;
++    return keys[sequence % keys.size()];
++}
++template <size_t Capacity>
++class CoarseGpuBudget {
++public:
++    std::optional<u32> Begin() {
++        if (count == Capacity) { overflow = true; return std::nullopt; }
++        ended[count] = false;
++        return static_cast<u32>(count++);
++    }
++    bool End(u32 id) {
++        if (id >= count || ended[id]) { invalid_end = true; return false; }
++        ended[id] = true;
++        return true;
++    }
++    bool Complete() const {
++        return count != 0 && !overflow && !invalid_end &&
++               std::all_of(ended.begin(), ended.begin() + count, [](bool v) { return v; });
++    }
++    size_t Count() const { return count; }
++    bool Overflow() const { return overflow; }
++private:
++    std::array<bool, Capacity> ended{};
++    size_t count{};
++    bool overflow{}, invalid_end{};
++};
++} // namespace VideoCommon
+diff --git a/src/video_core/gpu_timestamp_sample.h b/src/video_core/gpu_timestamp_sample.h
+new file mode 100644
+index 000000000..d4d0b0fa1
+--- /dev/null
++++ b/src/video_core/gpu_timestamp_sample.h
+@@ -0,0 +1,17 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++#pragma once
++
++#include <cmath>
++#include <optional>
++#include "common/common_types.h"
++
++namespace VideoCommon {
++inline std::optional<double> GpuTimestampNanoseconds(u64 begin, u64 end, bool begin_available,
++                                                    bool end_available, u32 valid_bits,
++                                                    double period_ns) {
++    if (!begin_available || !end_available || valid_bits == 0 || valid_bits > 64 ||
++        !std::isfinite(period_ns) || period_ns <= 0) return std::nullopt;
++    const u64 mask = valid_bits == 64 ? ~u64{0} : (u64{1} << valid_bits) - 1;
++    return static_cast<double>((end - begin) & mask) * period_ns;
++}
++} // namespace VideoCommon
+diff --git a/src/video_core/renderer_vulkan/vk_coarse_gpu.cpp b/src/video_core/renderer_vulkan/vk_coarse_gpu.cpp
+new file mode 100644
+index 000000000..640c40498
+--- /dev/null
++++ b/src/video_core/renderer_vulkan/vk_coarse_gpu.cpp
+@@ -0,0 +1,157 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++#include "video_core/renderer_vulkan/vk_coarse_gpu.h"
++#include <algorithm>
++#include <array>
++#include <chrono>
++#include <cmath>
++#include <charconv>
++#include <cstring>
++#include <cstdlib>
++#include <fstream>
++#include <iomanip>
++#include "common/logging.h"
++#include "video_core/gpu_timestamp_sample.h"
++#include "video_core/renderer_vulkan/vk_scheduler.h"
++#include "video_core/vulkan_common/vulkan_device.h"
++namespace Vulkan {
++namespace {
++double WallTime() {
++    return std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count();
++}
++}
++CoarseGpuTrace::CoarseGpuTrace(const Device& device_, Scheduler& scheduler_)
++    : device{device_}, scheduler{scheduler_}, directory{"/tmp/nel3ab-coarse-gpu"} {
++    if (const char* home = std::getenv("HOME")) directory = std::filesystem::path{home}/"coarse-gpu";
++    if (const char* value = std::getenv("EDEN_NX2_COARSE_PERIOD")) {
++        const int parsed = std::atoi(value);
++        if (parsed > 0 && parsed <= 6000) period_frames = static_cast<u32>(parsed);
++    }
++    if (const char* value = std::getenv("EDEN_NX2_COARSE_MANUAL")) armed = value[0] != '1';
++    if (const char* value = std::getenv("EDEN_NX2_COARSE_NATIVE")) {
++        u64 native{};
++        const auto [end, error] = std::from_chars(value, value+std::strlen(value), native, 16);
++        if (error == std::errc{} && end == value+std::strlen(value)) forced_native = native;
++    }
++    period_ns = device.GetPhysical().GetProperties().limits.timestampPeriod;
++    valid_bits = device.GetPhysical().GetQueueFamilyProperties().at(device.GetGraphicsFamily()).timestampValidBits;
++    if (!std::isfinite(period_ns) || period_ns <= 0 || valid_bits == 0 || valid_bits > 64 ||
++        !device.IsHostQueryResetSupported()) {
++        LOG_ERROR(HW_GPU, "Coarse GPU timing unavailable: period={} bits={} reset={}", period_ns,
++                  valid_bits, device.IsHostQueryResetSupported());
++        return;
++    }
++    pool = device.GetLogical().CreateQueryPool({.sType=VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
++        .pNext=nullptr, .flags=0, .queryType=VK_QUERY_TYPE_TIMESTAMP,
++        .queryCount=MaxIntervals*2, .pipelineStatistics=0});
++    events.reserve(MaxIntervals); programs.reserve(MaxPrograms); previous_programs.reserve(MaxPrograms);
++    std::filesystem::create_directories(directory);
++    supported = true;
++    LOG_INFO(HW_GPU, "Coarse GPU timing ready: period_ns={} valid_bits={} interval={} max_intervals={}",
++             period_ns, valid_bits, period_frames, MaxIntervals);
++}
++u32 CoarseGpuTrace::Begin(vk::CommandBuffer command, const char* category,
++                          VideoCommon::CoarseProgram program) {
++    const auto id = budget.Begin();
++    if (!id) return InvalidId;
++    events.push_back({category, program});
++    command.WriteTimestamp(VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, *pool, *id*2);
++    return *id;
++}
++void CoarseGpuTrace::End(vk::CommandBuffer command, u32 id) {
++    if (id == InvalidId) return;
++    if (budget.End(id)) command.WriteTimestamp(VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, *pool, id*2+1);
++}
++void CoarseGpuTrace::BeginSubmit(vk::CommandBuffer execution, vk::CommandBuffer upload) {
++    if (!worker_active) return;
++    execution_id = Begin(execution, "execution");
++    upload_id = Begin(upload, "upload");
++}
++void CoarseGpuTrace::EndSubmit(vk::CommandBuffer execution, vk::CommandBuffer upload) {
++    if (!worker_active) return;
++    End(execution, execution_id); End(upload, upload_id);
++    execution_id = upload_id = InvalidId;
++}
++u32 CoarseGpuTrace::BeginCompute(vk::CommandBuffer command, VideoCommon::CoarseProgram program) {
++    if (!worker_active) return InvalidId;
++    auto found = std::find_if(programs.begin(), programs.end(), [&](const auto& p) { return p.program == program; });
++    if (found != programs.end()) ++found->count;
++    else if (programs.size() < MaxPrograms) programs.push_back({program, 1});
++    else program_overflow = true;
++    if (!target || program != *target) return InvalidId;
++    return Begin(command, "guest_compute", program);
++}
++void CoarseGpuTrace::EndCompute(vk::CommandBuffer command, u32 id) { End(command, id); }
++void CoarseGpuTrace::WriteResults() {
++    using Sample = std::array<u64,2>;
++    static_assert(sizeof(Sample)==2*sizeof(u64));
++    const u32 count = static_cast<u32>(events.size())*2;
++    std::vector<Sample> samples(count);
++    VkResult result = VK_SUCCESS;
++    if (count) result = device.GetLogical().GetQueryResults(*pool,0,count,samples.size()*sizeof(Sample),
++        samples.data(),sizeof(Sample),VK_QUERY_RESULT_64_BIT|VK_QUERY_RESULT_WITH_AVAILABILITY_BIT);
++    bool complete = budget.Complete() && !program_overflow && result==VK_SUCCESS;
++    const auto file=directory/("capture-"+std::to_string(sequence++)+".csv");
++    std::ofstream out(file); out<<std::setprecision(17);
++    out<<"category,begin,end,begin_available,end_available,period_ns,valid_bits,hash,native\n";
++    for (u32 i=0;i<events.size();++i) {
++        const auto& a=samples[i*2]; const auto& b=samples[i*2+1]; const auto& e=events[i];
++        complete &= VideoCommon::GpuTimestampNanoseconds(a[0],b[0],a[1]!=0,b[1]!=0,valid_bits,period_ns).has_value();
++        out<<e.category<<','<<a[0]<<','<<b[0]<<','<<a[1]<<','<<b[1]<<','<<period_ns<<','<<valid_bits<<','
++           <<e.program.hash<<','<<e.program.native<<'\n';
++    }
++    out.close(); complete &= out.good();
++    std::ofstream keys(file.string()+".programs");
++    keys<<"hash,native,count\n"; previous_programs.clear();
++    for (const auto& p:programs) {
++        keys<<p.program.hash<<','<<p.program.native<<','<<p.count<<'\n';
++        previous_programs.push_back(p.program);
++    }
++    keys.close(); complete &= keys.good();
++    std::ofstream meta(file.string()+".meta"); meta<<std::setprecision(17);
++    meta<<"complete="<<complete<<"\noverflow="<<(budget.Overflow()||program_overflow)<<"\nevents="<<events.size()
++        <<"\nframe="<<capture_frame<<"\nend_tick="<<end_tick<<"\nstart_unix="<<capture_start_unix
++        <<"\nend_unix="<<capture_end_unix<<"\ntarget_hash="<<(target?target->hash:0)
++        <<"\ntarget_native="<<(target?target->native:0)<<"\n";
++    LOG_INFO(HW_GPU,"Coarse GPU capture: frame={} events={} queries={} complete={}",
++             capture_frame,events.size(),count,complete);
++}
++void CoarseGpuTrace::Tick() {
++    if (!supported) return;
++    ++frame;
++    if (recording) {
++        capture_end_unix=WallTime();
++        scheduler.RecordWithUploadBuffer([this](vk::CommandBuffer cmd,vk::CommandBuffer upload) {
++            EndSubmit(cmd,upload); worker_active=false;
++            recording_done.store(true,std::memory_order_release);
++        });
++        end_tick=scheduler.CurrentTick(); recording=false; pending=true;
++    }
++    if (pending) {
++        if (!recording_done.load(std::memory_order_acquire) || !scheduler.IsFree(end_tick)) return;
++        WriteResults(); pending=false;
++    }
++    // 2026-11-08: sparse one-in60 frame sampling, at most128 captures per bounded run.
++    // A busy previous capture is skipped; no wait or extra submission enters the frame path.
++    if (!armed) {
++        const auto request = directory/"arm";
++        if (!std::filesystem::exists(request)) return;
++        std::filesystem::remove(request); armed=true; frame=0;
++    }
++    if (frame%period_frames!=0 || sequence>=128) return;
++    budget={}; events.clear(); programs.clear(); program_overflow=false;
++    target=VideoCommon::SelectCoarseProgram(previous_programs,sequence);
++    if (forced_native) {
++        target.reset();
++        for (const auto& program:previous_programs) {
++            if (program.native == *forced_native) { target=program; break; }
++        }
++    }
++    capture_frame=frame; capture_start_unix=WallTime();
++    device.GetLogical().ResetQueryPool(*pool,0,MaxIntervals*2);
++    recording_done.store(false,std::memory_order_relaxed);
++    scheduler.RecordWithUploadBuffer([this](vk::CommandBuffer cmd,vk::CommandBuffer upload) {
++        worker_active=true; BeginSubmit(cmd,upload);
++    });
++    recording=true;
++}
++} // namespace Vulkan
+diff --git a/src/video_core/renderer_vulkan/vk_coarse_gpu.h b/src/video_core/renderer_vulkan/vk_coarse_gpu.h
+new file mode 100644
+index 000000000..86bb44164
+--- /dev/null
++++ b/src/video_core/renderer_vulkan/vk_coarse_gpu.h
+@@ -0,0 +1,49 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++#pragma once
++#include <atomic>
++#include <filesystem>
++#include <optional>
++#include <vector>
++#include "video_core/coarse_gpu_budget.h"
++#include "video_core/vulkan_common/vulkan_wrapper.h"
++namespace Vulkan {
++class Device;
++class Scheduler;
++class CoarseGpuTrace {
++public:
++    static constexpr u32 InvalidId = ~u32{0};
++    CoarseGpuTrace(const Device& device, Scheduler& scheduler);
++    void Tick();
++    // The following methods run only on the scheduler worker.
++    void BeginSubmit(vk::CommandBuffer execution, vk::CommandBuffer upload);
++    void EndSubmit(vk::CommandBuffer execution, vk::CommandBuffer upload);
++    u32 BeginCompute(vk::CommandBuffer command, VideoCommon::CoarseProgram program);
++    void EndCompute(vk::CommandBuffer command, u32 id);
++private:
++    // 2026-11-08: the old probe measured about3100 intervals/frame. This bounds
++    // the new probe to2048 queries; exhaustion invalidates data, never game commands.
++    static constexpr u32 MaxIntervals = 1024;
++    static constexpr u32 MaxPrograms = 256;
++    struct Event { const char* category; VideoCommon::CoarseProgram program; };
++    struct ProgramCount { VideoCommon::CoarseProgram program; u64 count{}; };
++    u32 Begin(vk::CommandBuffer command, const char* category,
++              VideoCommon::CoarseProgram program = {});
++    void End(vk::CommandBuffer command, u32 id);
++    void WriteResults();
++    const Device& device;
++    Scheduler& scheduler;
++    vk::QueryPool pool;
++    std::filesystem::path directory;
++    VideoCommon::CoarseGpuBudget<MaxIntervals> budget;
++    std::vector<Event> events;
++    std::vector<ProgramCount> programs;
++    std::vector<VideoCommon::CoarseProgram> previous_programs;
++    std::optional<VideoCommon::CoarseProgram> target;
++    std::optional<u64> forced_native;
++    std::atomic<bool> recording_done{true};
++    double period_ns{}, capture_start_unix{}, capture_end_unix{};
++    u32 valid_bits{}, period_frames{60}, sequence{}, execution_id{InvalidId}, upload_id{InvalidId};
++    u64 frame{}, capture_frame{}, end_tick{};
++    bool supported{}, recording{}, pending{}, worker_active{}, program_overflow{}, armed{true};
++};
++} // namespace Vulkan

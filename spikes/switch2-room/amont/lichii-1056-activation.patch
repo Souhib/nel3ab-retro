@@ -1,0 +1,21 @@
+diff --git a/src/video_core/gpu_split.cpp b/src/video_core/gpu_split.cpp
+--- a/src/video_core/gpu_split.cpp
++++ b/src/video_core/gpu_split.cpp
+@@ -342,6 +342,17 @@
+ }
+ 
+ bool GpuSplit::WaitForSyncedWriters() {
++    static const bool trace = [] {
++        const char* value = std::getenv("EDEN_NX2_SYNCED_WRITERS_TRACE");
++        return value && value[0] == '1' && value[1] == '\0';
++    }();
++    if (trace) {
++        static const bool logged = [] {
++            LOG_INFO(HW_GPU, "Synced-writer list fetch active (PR1056)");
++            return true;
++        }();
++        (void)logged;
++    }
+     return WaitFor(std::min(synced_writer_position, write_position), DrainSite::ListWriters);
+ }
+ 

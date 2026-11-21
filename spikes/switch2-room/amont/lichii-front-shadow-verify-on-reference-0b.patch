@@ -1,0 +1,272 @@
+--- a/src/tests/video_core/maxwell_fast_method.cpp
++++ b/src/tests/video_core/maxwell_fast_method.cpp
+@@ -6,6 +6,7 @@
+ #include <chrono>
+ #include <cstring>
+ #include <cstdlib>
++#include <cstdio>
+ #include <functional>
+ #include <memory>
+ #include <random>
+@@ -15,6 +16,7 @@
+ #include <catch2/catch_test_macros.hpp>
+ 
+ #include "common/page_table.h"
++#include "common/logging.h"
+ #include "common/settings.h"
+ #include "video_core/control/channel_state.h"
+ #include "video_core/dma_pusher.h"
+@@ -1616,3 +1618,166 @@
+     return GpuSplitTestAccess::Consumed(GpuSplit::Get());
+ }
+ } // namespace VideoCommon::ReferenceAcquireTest
++
++TEST_CASE("Split verification projects tracked writes still in the actual back sink",
++          "[video_core][gpu_split_dependencies][front_shadow_verify]") {
++    using Control = Maxwell3D::Regs::ShadowRamControl;
++    for (const auto control : {Control::Track, Control::TrackWithFilter, Control::Passthrough}) {
++        Fixture f;
++        auto& engine = f.fast;
++        engine.SetNativeTuringMacroMode(true);
++        constexpr u32 state = 0x200;
++        constexpr u32 copy = MAXWELL3D_REG_INDEX(shadow_scratch) + 1;
++        REQUIRE_FALSE(engine.execution_mask[state]);
++        REQUIRE_FALSE(engine.execution_mask[copy]);
++        const u32 original_shadow = engine.shadow_state.reg_array[state];
++        const u32 wanted = original_shadow ^ 0x1234;
++        VideoCommon::GpuSplit split;
++        VideoCommon::GpuSplitTestAccess::Start(split, f.system);
++        SCOPE_EXIT { split.Stop(); };
++        const auto front = [&](u32 method, u32 value) {
++            engine.FrontCallMethod(f.system, split, method, value, true);
++        };
++        std::vector<u32> code;
++        const Mme read_state{.end = true, .op = {22, 0}, .src_a = {25, 24},
++                             .imm = {state, copy}, .out_method = {6, 0}, .out_emit = {1, 0}};
++        for (const auto instruction : {Encode(Mme{.end = true}), Encode(Mme{}),
++                                       Encode(read_state), Encode(Mme{})}) {
++            code.insert(code.end(), instruction.begin(), instruction.end());
++        }
++        front(MAXWELL3D_REG_INDEX(load_mme.instruction_ptr), 0);
++        engine.FrontCallMultiMethod(f.system, split, MAXWELL3D_REG_INDEX(load_mme.instruction),
++                                    code.data(), code.size(), code.size());
++        front(MAXWELL3D_REG_INDEX(load_mme.start_address_ptr), 0);
++        front(MAXWELL3D_REG_INDEX(load_mme.start_address), 0);
++        front(MAXWELL3D_REG_INDEX(load_mme.start_address), 2);
++        front(ShadowControl, static_cast<u32>(control));
++        front(0xe00, 0); // Finish setup effects before leaving a later state write pending.
++        split.Drain();
++        front(state, wanted);
++        front(state, wanted); // Repeated-value skip must not change the projected shadow.
++        split.Drain();
++        REQUIRE_FALSE(engine.method_sink.empty());
++        REQUIRE(engine.method_sink.back() == std::pair{state, wanted});
++        REQUIRE(engine.shadow_state.reg_array[state] == original_shadow);
++        // A neutral macro leaves the sink pending; the real optional check runs at call4096.
++        for (u32 i = 0; i < 4095; ++i) front(0xe00, 0);
++        REQUIRE_FALSE(engine.GetNativeMacroEngine().native_execution_failed);
++        REQUIRE_FALSE(engine.method_sink.empty());
++        REQUIRE(engine.shadow_state.reg_array[state] == original_shadow);
++        front(ShadowControl, static_cast<u32>(Control::Replay));
++        front(state, 0xfeed);
++        front(ShadowControl, static_cast<u32>(Control::Passthrough));
++        front(0xe02, 0); // Read the front's replayed register and emit it on the actual back.
++        split.Drain();
++        const u32 expected = control == Control::Passthrough ? original_shadow : wanted;
++        REQUIRE(engine.regs.reg_array[state] == expected);
++        REQUIRE(engine.regs.reg_array[copy] == expected);
++    }
++}
++
++TEST_CASE("Split verification counts genuine shadow and control faults after warning suppression",
++          "[.][front_shadow_diagnostics]") {
++    REQUIRE(std::getenv("EDEN_NX2_SPLIT_VERIFY") != nullptr);
++    Common::Log::Initialize();
++    Common::Log::SetColorConsoleBackendEnabled(false);
++    Common::Log::Filter filter{Common::Log::Level::Critical};
++    filter.SetClassLevel(Common::Log::Class::HW_GPU, Common::Log::Level::Info);
++    Common::Log::SetGlobalFilter(filter);
++    Common::Log::SetRingCapacity(4096);
++    SCOPE_EXIT {
++        Common::Log::SetRingCapacity(0);
++        Common::Log::Filter previous;
++        previous.ParseFilterString(Settings::values.log_filter.GetValue());
++        Common::Log::SetGlobalFilter(previous);
++        Common::Log::Stop();
++    };
++    using Control = Maxwell3D::Regs::ShadowRamControl;
++    Fixture f;
++    auto& engine = f.fast;
++    engine.SetNativeTuringMacroMode(true);
++    constexpr u32 state = 0x200;
++    constexpr u32 copy = MAXWELL3D_REG_INDEX(shadow_scratch) + 1;
++    REQUIRE_FALSE(engine.execution_mask[state]);
++    REQUIRE_FALSE(engine.execution_mask[copy]);
++    const u32 original_shadow = engine.shadow_state.reg_array[state];
++    const u32 wanted = original_shadow ^ 0x1234;
++    VideoCommon::GpuSplit split;
++    VideoCommon::GpuSplitTestAccess::Start(split, f.system);
++    SCOPE_EXIT { split.Stop(); };
++    const auto front = [&](u32 method, u32 value) {
++        engine.FrontCallMethod(f.system, split, method, value, true);
++    };
++    std::vector<u32> code;
++    const Mme read_state{.end = true, .op = {22, 0}, .src_a = {25, 24},
++                         .imm = {state, copy}, .out_method = {6, 0}, .out_emit = {1, 0}};
++    for (const auto instruction : {Encode(Mme{.end = true}), Encode(Mme{}),
++                                   Encode(read_state), Encode(Mme{})}) {
++        code.insert(code.end(), instruction.begin(), instruction.end());
++    }
++    front(MAXWELL3D_REG_INDEX(load_mme.instruction_ptr), 0);
++    engine.FrontCallMultiMethod(f.system, split, MAXWELL3D_REG_INDEX(load_mme.instruction),
++                                code.data(), code.size(), code.size());
++    front(MAXWELL3D_REG_INDEX(load_mme.start_address_ptr), 0);
++    front(MAXWELL3D_REG_INDEX(load_mme.start_address), 0);
++    front(MAXWELL3D_REG_INDEX(load_mme.start_address), 2);
++    front(ShadowControl, static_cast<u32>(Control::Track));
++    front(0xe00, 0); // Finish setup effects before leaving a later state write pending.
++    split.Drain();
++
++    u64 calls = 1;
++    const auto check = [&] {
++        const u64 next = (calls / 4096 + 1) * 4096;
++        while (calls < next) {
++            front(0xe00, 0);
++            ++calls;
++        }
++    };
++    struct Counts { unsigned long long checks{}, regular{}, shadow{}, control{}; };
++    const auto summary = [&] {
++        for (u32 i = 0; i < 64; ++i) check();
++        std::vector<std::string> summaries;
++        for (const auto& line : Common::Log::ReadRing(0)) {
++            const auto at = line.text.find("Split front register checks:");
++            if (at != std::string::npos) summaries.push_back(line.text.substr(at));
++        }
++        REQUIRE_FALSE(summaries.empty()); // Real FrontVerify ran, not just an inherited env flag.
++        Counts result;
++        REQUIRE(std::sscanf(summaries.back().c_str(),
++                            "Split front register checks: %llu done, %llu differences; "
++                            "%llu shadow differences, %llu control differences",
++                            &result.checks, &result.regular, &result.shadow, &result.control) == 4);
++        REQUIRE(result.checks > 0);
++        return result;
++    };
++    const auto before = summary();
++    bool owned = false;
++    const u32 shadow_value = wanted;
++    split.Run([&] {
++        owned = VideoCommon::GpuSplit::OnBackThread();
++        // Deliberately inconsistent back state, not entries owned by a legitimate back macro.
++        engine.regs.reg_array[0x300] ^= 1;
++        for (u32 i = 0; i < 20; ++i) engine.shadow_state.reg_array[state + i] ^= 0x1234;
++        engine.shadow_state.shadow_ram_control = Control::Passthrough;
++    });
++    REQUIRE(owned);
++    REQUIRE(engine.method_sink.empty());
++    check();
++    const auto after = summary();
++    REQUIRE(after.checks > before.checks);
++    REQUIRE(after.regular == before.regular + 1);
++    REQUIRE(after.shadow == before.shadow + 21); //20 words and the shadow-control register itself.
++    REQUIRE(after.control == before.control + 1);
++    u32 warnings = 0;
++    for (const auto& line : Common::Log::ReadRing(0)) {
++        warnings += line.text.find("Split front shadow register") != std::string::npos ||
++                    line.text.find("Split front shadow RAM control") != std::string::npos;
++    }
++    REQUIRE(warnings == 16); // Suppressed warnings must still contribute to the totals above.
++    front(ShadowControl, static_cast<u32>(Control::Replay));
++    front(state, 0xfeed);
++    front(ShadowControl, static_cast<u32>(Control::Passthrough));
++    front(0xe02, 0);
++    split.Drain();
++    REQUIRE(engine.regs.reg_array[copy] == shadow_value);
++}
+--- a/src/video_core/engines/maxwell_3d.cpp
++++ b/src/video_core/engines/maxwell_3d.cpp
+@@ -2063,13 +2063,22 @@
+     static u64 checks{};
+     static u64 differences{};
+     ++checks;
+-    // State writes the back still holds in its method sink count as done.
++    // Project both copies as ConsumeSinkImpl would: a tracked state write can still be pending
++    // on the back. Comparing its raw shadow would overwrite the front with an older value.
+     std::array<u32, Regs::NUM_REGS> expected;
+     std::memcpy(expected.data(), regs.reg_array.data(), sizeof(expected));
++    std::array<u32, Regs::NUM_REGS> expected_shadow;
++    std::memcpy(expected_shadow.data(), shadow_state.reg_array.data(), sizeof(expected_shadow));
++    const auto control = shadow_state.shadow_ram_control;
++    const bool tracked = control == Regs::ShadowRamControl::Track ||
++                         control == Regs::ShadowRamControl::TrackWithFilter;
+     for (const auto& [method, value] : method_sink) {
+-        expected[method] = shadow_state.shadow_ram_control == Regs::ShadowRamControl::Replay
+-                               ? shadow_state.reg_array[method]
++        expected[method] = control == Regs::ShadowRamControl::Replay
++                               ? expected_shadow[method]
+                                : value;
++        if (tracked) {
++            expected_shadow[method] = value;
++        }
+     }
+     // What macros the back ran may have written, the front takes over (FrontRunOnBack).
+     for (u32 i = 0; i < Regs::NUM_REGS; ++i) {
+@@ -2077,17 +2086,18 @@
+             fs.regs[i] = expected[i];
+         }
+         if (fs.back_shadow[i] != 0) {
+-            fs.shadow[i] = shadow_state.reg_array[i];
++            fs.shadow[i] = expected_shadow[i];
+         }
+     }
+     fs.back_regs.fill(0);
+     fs.back_shadow.fill(0);
+     fs.back_owned.reset();
+     static u64 control_differences{};
++    static u64 shadow_differences{};
+     if ((fs.control != shadow_state.shadow_ram_control ||
+-         fs.shadow[MAXWELL3D_REG_INDEX(shadow_ram_control)] != shadow_state.reg_array[MAXWELL3D_REG_INDEX(shadow_ram_control)] ||
++         fs.shadow[MAXWELL3D_REG_INDEX(shadow_ram_control)] != expected_shadow[MAXWELL3D_REG_INDEX(shadow_ram_control)] ||
+          fs.regs[MAXWELL3D_REG_INDEX(shadow_ram_control)] != expected[MAXWELL3D_REG_INDEX(shadow_ram_control)]) &&
+-        control_differences < 4) {
++        control_differences + shadow_differences < 4) {
+         LOG_WARNING(HW_GPU, "Split shadow RAM control writes, front ({} total) / back ({} total):",
+                     fs.control_count, back_control_count);
+         for (u32 i = 0; i < 16; ++i) {
+@@ -2107,24 +2117,29 @@
+         }
+     }
+     if (fs.control != shadow_state.shadow_ram_control) {
+-        if (control_differences++ < 16) {
++        if (control_differences + shadow_differences < 16) {
+             LOG_WARNING(HW_GPU, "Split front shadow RAM control {} vs back {}",
+                         static_cast<u32>(fs.control),
+                         static_cast<u32>(shadow_state.shadow_ram_control));
+         }
++        ++control_differences;
+         fs.control = shadow_state.shadow_ram_control;
+     }
+     for (u32 i = 0; i < Regs::NUM_REGS; ++i) {
+-        if (fs.shadow[i] != shadow_state.reg_array[i]) {
+-            if (control_differences++ < 16) {
++        if (fs.shadow[i] != expected_shadow[i]) {
++            if (control_differences + shadow_differences < 16) {
+                 LOG_WARNING(HW_GPU, "Split front shadow register {:#x}: front {:#x}, back {:#x}", i,
+-                            fs.shadow[i], shadow_state.reg_array[i]);
+-            }
+-            fs.shadow[i] = shadow_state.reg_array[i];
++                            fs.shadow[i], expected_shadow[i]);
++            }
++            ++shadow_differences;
++            fs.shadow[i] = expected_shadow[i];
+         }
+     }
+     if ((checks & 63) == 1) {
+-        LOG_INFO(HW_GPU, "Split front register checks: {} done, {} differences", checks, differences);
++        LOG_INFO(HW_GPU,
++                 "Split front register checks: {} done, {} differences; {} shadow differences, "
++                 "{} control differences",
++                 checks, differences, shadow_differences, control_differences);
+     }
+ }
+ 

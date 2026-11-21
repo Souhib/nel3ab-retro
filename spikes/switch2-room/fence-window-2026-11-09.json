@@ -1,0 +1,179 @@
+{
+  "date": "2026-11-09",
+  "source_revision": "78743f30c251f66bd77e6eea6c28d8632d642d6f",
+  "build": {
+    "cli_sha256": "1e2697d9706938081eccf92eadee10206e0a987d7f0eccccf30d2c9e8648c403",
+    "source_sha256": "57789be38576fbae142f56365ca97539c567f974276c906cf45746fc012ddb03",
+    "source_mtime": 1794221264.1454115,
+    "object_mtime": 1794221271.1296847,
+    "tests": [
+      {
+        "window_us": "500",
+        "exit": 0,
+        "started": 1794221336.6138446,
+        "finished": 1794221346.444029
+      },
+      {
+        "window_us": "8000",
+        "exit": 0,
+        "started": 1794221346.44407,
+        "finished": 1794221356.183959
+      }
+    ],
+    "only_new_source_change": "Default-off one-time runtime marker after actual existing DeferFlush succeeds; no interval/guard/flush/wait changes."
+  },
+  "scope": "Existing DeferFlush threshold only; no synchronization behavior added. Split2 with nativebankcompare1, host0 payload0 stats0, NO_MESH1. One actual-deferral marker enabled identically.",
+  "runs": [
+    {
+      "label": "bank-fence-8000-pilot",
+      "measurement": {
+        "requested_seconds": [
+          117.89525232315063,
+          202.178838
+        ],
+        "covered_seconds": 76.5744,
+        "game_presentations": 1800,
+        "game_fps": 23.506550492070456,
+        "window_fps_median": 24.889862359061155,
+        "maximum_frame_ms": 133.92,
+        "frames_over_100_ms": 4,
+        "windows": [
+          {
+            "start": 120.79305,
+            "end": 149.43285,
+            "mean_us": 47733,
+            "maximum_us": 108681,
+            "freezes": 3
+          },
+          {
+            "start": 149.393125,
+            "end": 173.499325,
+            "mean_us": 40177,
+            "maximum_us": 133920,
+            "freezes": 1
+          },
+          {
+            "start": 173.46016500000002,
+            "end": 197.288565,
+            "mean_us": 39714,
+            "maximum_us": 64792,
+            "freezes": 0
+          }
+        ]
+      },
+      "runtime": {
+        "exe_sha256": "1e2697d9706938081eccf92eadee10206e0a987d7f0eccccf30d2c9e8648c403",
+        "mapped_radv_path": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+        "mapped_radv_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+        "packages": "libdrm-amdgpu1:amd64\t2.4.125-1ubuntu0.1~24.04.2\nlibdrm2:amd64\t2.4.125-1ubuntu0.1~24.04.2\nmesa-vulkan-drivers:amd64\t25.2.8-0ubuntu0.24.04.4\n",
+        "actual_log_filter_verified": true
+      },
+      "visual_review": {
+        "world_and_avatar_visible": true,
+        "reviewed_at": 1794221515.7535934,
+        "scene": "Link and Kokiri world visible from balcony.",
+        "range_invalidation_active": true,
+        "statistics_absent": true,
+        "split2_active": true,
+        "existing_fence_window_active_us": 8000,
+        "phase_before_and_after_world_visible": true,
+        "ladder_visible": true,
+        "ground_walk_visible": true,
+        "movement_images_reviewed_at": 1794221744.063029
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.504671369213611
+      }
+    },
+    {
+      "label": "bank-fence-500-control-retry",
+      "measurement": {
+        "requested_seconds": [
+          120.61399326324462,
+          200.264222
+        ],
+        "covered_seconds": 54.519000000000005,
+        "game_presentations": 1200,
+        "game_fps": 22.010675177461067,
+        "window_fps_median": 22.278513807285037,
+        "maximum_frame_ms": 110.4,
+        "frames_over_100_ms": 7,
+        "windows": [
+          {
+            "start": 121.44095999999999,
+            "end": 151.68936,
+            "mean_us": 50414,
+            "maximum_us": 110400,
+            "freezes": 7
+          },
+          {
+            "start": 151.649657,
+            "end": 175.920257,
+            "mean_us": 40451,
+            "maximum_us": 73635,
+            "freezes": 0
+          }
+        ]
+      },
+      "runtime": {
+        "exe_sha256": "1e2697d9706938081eccf92eadee10206e0a987d7f0eccccf30d2c9e8648c403",
+        "mapped_radv_path": "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so",
+        "mapped_radv_sha256": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+        "packages": "libdrm-amdgpu1:amd64\t2.4.125-1ubuntu0.1~24.04.2\nlibdrm2:amd64\t2.4.125-1ubuntu0.1~24.04.2\nmesa-vulkan-drivers:amd64\t25.2.8-0ubuntu0.24.04.4\n",
+        "actual_log_filter_verified": true
+      },
+      "visual_review": {
+        "world_and_avatar_visible": true,
+        "reviewed_at": 1794222107.073403,
+        "scene": "Link and Kokiri world visible from balcony.",
+        "range_invalidation_active": true,
+        "statistics_absent": true,
+        "split2_active": true,
+        "existing_fence_window_active_us": 500,
+        "phase_before_and_after_world_visible": true,
+        "ladder_visible": true,
+        "ground_walk_visible": true,
+        "movement_images_reviewed_at": 1794222348.3668
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 2.9037868101149797
+      }
+    }
+  ],
+  "excluded_control_boot": {
+    "reason": "Black loading screen persisted, latest log native time ~17s; no accepted gameplay. Observed graphics/fencing threads waiting. Diagnostic GDB attachment performed outside any FPS phase.",
+    "existing_fence_activation_marker_present": false,
+    "world_readiness_accepted": false,
+    "no_cadence_measurement": true,
+    "shutdown": {
+      "exit_code": 0,
+      "stop_requested": true,
+      "window_closed": true,
+      "forced": false,
+      "stop_seconds": 1.6028257170692086
+    },
+    "state": {
+      "Status": "exited",
+      "Running": false,
+      "Paused": false,
+      "Restarting": false,
+      "OOMKilled": false,
+      "Dead": false,
+      "Pid": 0,
+      "ExitCode": 0,
+      "Error": "",
+      "StartedAt": "2026-11-09T10:55:44.400814987Z",
+      "FinishedAt": "2026-11-09T10:59:21.269762954Z"
+    },
+    "at": 1794222001.0551875
+  },
+  "conclusion": "Two successive screening runs, not an alternating comparison. Both below30. Initial long frames and unequal retained window coverage; no causal interval speedup established. Keep installed configuration unchanged."
+}

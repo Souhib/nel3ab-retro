@@ -1,0 +1,183 @@
+{
+  "date_utc": "2026-11-10",
+  "status": "Private preload option activation and90s ground-motion trial completed normally. No FPS comparison or production deployment.",
+  "evidence_root": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/preload-all-activation-20261110",
+  "room_evidence_root": "/home/souhib/.local/state/nel3ab/test-switch2-08c0SW",
+  "profile": {
+    "ELF_sha256": "65defb74a8cc81ae85d42c5c0e9bb9bc8a796d976f12278cb0a4fcf940834d08",
+    "effective_fields": 141,
+    "precache_shaders": "0",
+    "A_seed": "Current user-session clone,4865files/133711023bytes",
+    "checkpoint": "Same private manual01:51 Kokiri NAND",
+    "image": "sha256:df06b8ce129f41f2ee1484a465c190da2a1777c9bb2d6b2f6f0deef4263e0cd7"
+  },
+  "factor": {
+    "added_native_environment": {
+      "EDEN_NX2_PRELOAD_ALL_PIPELINES": "1"
+    },
+    "same_ELF_and_effective_INI": true,
+    "wrapper_change": "Only frozen policy digest; the private policy adds this one flag.",
+    "production_config_unchanged": true
+  },
+  "activation": {
+    "actual_flag": "1",
+    "queued_pipeline_count": 2525,
+    "reference_queued": 1742,
+    "additional_queued": 783,
+    "boot_skip_summary_absent": true,
+    "scope": "Queued count and exercised branch; does not prove all2525 objects built successfully or were used by the game."
+  },
+  "memory": {
+    "native_proc_status": {
+      "before": {
+        "VmPeak": "565634940 kB",
+        "VmSize": "565185468 kB",
+        "VmHWM": "12152904 kB",
+        "VmRSS": "12152904 kB",
+        "RssAnon": "3173248 kB",
+        "RssFile": "118720 kB",
+        "RssShmem": "8860936 kB"
+      },
+      "after": {
+        "VmPeak": "565634940 kB",
+        "VmSize": "565169084 kB",
+        "VmHWM": "12196572 kB",
+        "VmRSS": "12196572 kB",
+        "RssAnon": "3203348 kB",
+        "RssFile": "118720 kB",
+        "RssShmem": "8874504 kB"
+      }
+    },
+    "resident_peak_GiB_at_after": 11.63155746459961,
+    "qualification": "Absolute process footprint, including shared mappings. No matched control; this is not the incremental cost of783queued programs. Virtual VmPeak is not physical memory usage."
+  },
+  "functional": {
+    "phase_seconds": 90.001303557,
+    "scene": "Observed original game crops show Kokiri Forest ground near Saria,ladder and slope; lateral poses and ordinary terrain. Sparse views only.",
+    "browser_input_socket_connected_at_both_endpoints": true,
+    "PCM_signal_delta": {
+      "packets": 9004,
+      "samples": 8643840,
+      "nonzero": 8633113,
+      "squares": 5974031790810,
+      "invalid": 0
+    },
+    "browser_counter_delta": {
+      "stalls": 0,
+      "restarts": 0,
+      "undecoded": 0,
+      "soundPlayed": 90.01999999991813,
+      "soundGaps": 0
+    },
+    "normal_native_stop": true,
+    "GPU_reset_or_timeout_lines": 0
+  },
+  "limitations": [
+    "One unpaired activation run; no FPS benefit inferred.",
+    "The queue count proves the preload branch ran, not successful construction or game use of every2525object.",
+    "No new named zone,combat,save/resume,long inactive-eviction interval or precise AV timing qualified here.",
+    "Final native log retains25Error/Critical lines including SDL-device/service/unmapped-read/play-time patterns also observed in the preceding diagnostic; no clean-log or all-game correctness claim.",
+    "The display-only contact helper retained the preceding series path assertion; its in-memory adaptation changed only that assertion, not frozen runtime or readiness logic.",
+    "The activation reader used an explicitly recorded prephase Docker-log snapshot because the adapter writes its final emulator.log on stop. The final owned log independently confirms2525and no boot-skip summary."
+  ],
+  "next": "Compare actual transient stalls and absolute memory against a same-seed control on repeated new/revisited routes, with four alternating phases. Separately isolate local decoder load and measure physicalGPU work for hot cadence.",
+  "preservation": {
+    "protected_files": 757,
+    "production_cache_files": 4865,
+    "cache_hashes_and_mtimes_unchanged": true,
+    "native_capture_audio_and_pads_removed": true,
+    "observer_restored": "active",
+    "GPU_policy": "auto,150W",
+    "installed_engine_and_personal_saves_unchanged": true
+  },
+  "proofs": [
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/preload-all-activation-20261110/plan.json",
+      "sha256": "f0b4f9fbac8ebffa0333bb93b332e036176254be0cc70bd1ec8290322a90de49"
+    },
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/preload-all-activation-20261110/factor.json",
+      "sha256": "50ce8d434137c90af744f52ea3c19677a1bce59eb3092ed116c33b5690b711ea"
+    },
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/preload-all-activation-20261110/tests.json",
+      "sha256": "7e3c573a972c3b6fdd7a6c31a4641f8a3831bfbe7a576b90ed4359e4c9b09cee"
+    },
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/preload-all-activation-20261110/activation.py",
+      "sha256": "9d03c3bbafe24c5be185b40183e8b9105e02f11462a36a8ad1dc2e848ab0269e"
+    },
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/preload-all-activation-20261110/record-runtime.py",
+      "sha256": "30131309a75c260c8b8cc24641211afcdf0bd777f87ff364ad59fb09f284652e"
+    },
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/preload-all-activation-20261110/finalize.py",
+      "sha256": "f0eb835552e776b62640cfacc85ecb3bae74cfe72310cfc7e74de20e00f6615d"
+    },
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/preload-all-activation-20261110/A1/cleanup.json",
+      "sha256": "b2bca933f57fb2c08b6a39e824ec44d263e6c89855031f70b4ddbbdc22c19a82"
+    },
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/preload-all-activation-20261110/A1/prephase-review.json",
+      "sha256": "60894b9288739a5a56bb87405905791529264aac0bee7a9a1fcd1c6d561f6fa3"
+    },
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/preload-all-activation-20261110/A1/visual-review.json",
+      "sha256": "b612136895681a7af524e69294acf8fab39c1a12abbb504f42faace861edeb06"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-08c0SW/preload-activation-before.json",
+      "sha256": "90714618acd5360df785d739516da8f54d25d80926e7c548d040f49ec927b720"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-08c0SW/preload-activation-after.json",
+      "sha256": "79ce4a8ee3cc08610c65adff21e5479901c66d63c962b43783e1fe6e441d101c"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-08c0SW/preload-live-log-snapshot.json",
+      "sha256": "279b809ea3135374b5f6f21f5118fb549d8a8490b869b0483f11c785f4766ef1"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-08c0SW/seed-copy-proof.json",
+      "sha256": "478336a5d2db81594f37628b9f2f065ab7afd850787842a733ebf1e210e32096"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-08c0SW/native-runtime-before-proof.json",
+      "sha256": "486f414b18d2588115966faa73088cafb4a0db56ff91a0b29d2c05568e16aaef"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-08c0SW/native-runtime-proof.json",
+      "sha256": "ab160d56c5f7dd861e72bcd40045bf1fbf93a3b0b512bb0435f4b5f41b809e49"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-08c0SW/title-routing-proof.json",
+      "sha256": "cdb25a7cbfb12cca370156d6838c1ba7f1b09e147b519e734a9bcb37ed3d512c"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-08c0SW/browser-phase-result.json",
+      "sha256": "e1a4dd39da2aebc21e1ffa83c385ac7b51b563c61319f4fe175255a11d55a673"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-08c0SW/browser-before.json",
+      "sha256": "5134434b8b1439c32b591b58216bcd6ce049d162efaadb84b12e41762c910b33"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-08c0SW/browser-after.json",
+      "sha256": "49ccb65d406709d945f30d731d44c37504c13b15ff7f029ac68f8f9f6e6fa369"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-08c0SW/state/0400486024dec000/neuve/emulator.log",
+      "sha256": "4aa0a9d9259def0921060149b377e54239ae8e4c86c59f84b88424626a96c0c9"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-08c0SW/pre-contact-sheet.png",
+      "sha256": "d6adf993c3726024000eb40926564808f8fd143e92b34d7d19345b11e63dc312"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-08c0SW/post-contact-sheet.png",
+      "sha256": "8c5e4ce4624ea8f75324230b0908bd5a521bd6648cc27cd6b112eb51975acfc6"
+    }
+  ]
+}

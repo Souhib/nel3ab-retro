@@ -1,0 +1,454 @@
+--- a/src/video_core/engines/puller.cpp
++++ b/src/video_core/engines/puller.cpp
+@@ -103,6 +103,19 @@
+     return !delay_fence && !Settings::IsGPULevelHigh();
+ }
+ 
++enum class AcquirePolicy {
++    Fast,
++    Reference,
++};
++
++// Private experiment: inherited environment is read at process startup, before channels exist.
++// The policy is immutable; nx2_switches.txt and changes during a session do not reload it.
++const AcquirePolicy acquire_policy = [] {
++    const char* value = std::getenv("EDEN_NX2_REFERENCE_ACQUIRE");
++    return value && value[0] == '1' && value[1] == '\0' ? AcquirePolicy::Reference
++                                                        : AcquirePolicy::Fast;
++}();
++
+ enum class AcquireCheck {
+     Met,         ///< By the word in memory
+     MetByQueued, ///< By a release sent to the word that the back has not run yet
+@@ -115,6 +128,10 @@
+ // a value that meets one now still does once the back ran the queued work. Only the last release
+ // the front sent to the word decides instead, when the back may not have run it yet.
+ AcquireCheck CheckWithoutDrain(DmaPusher& dma_pusher, const Puller::PendingAcquire& acquire) {
++    if (acquire_policy == AcquirePolicy::Reference) {
++        return AcquireCheck::Drain;
++    }
++
+     auto& split = VideoCommon::GpuSplit::Get();
+     auto& stats = VideoCommon::g_acquire_stats;
+     if (!acquire.WaitsToReach()) {
+--- a/src/tests/video_core/maxwell_fast_method.cpp
++++ b/src/tests/video_core/maxwell_fast_method.cpp
+@@ -5,6 +5,7 @@
+ #include <array>
+ #include <chrono>
+ #include <cstring>
++#include <cstdlib>
+ #include <functional>
+ #include <memory>
+ #include <random>
+@@ -14,6 +15,10 @@
+ #include <catch2/catch_test_macros.hpp>
+ 
+ #include "common/page_table.h"
++#include "common/settings.h"
++#include "video_core/control/channel_state.h"
++#include "video_core/dma_pusher.h"
++#include "video_core/nx2.h"
+ #include "common/scope_exit.h"
+ #include "core/core.h"
+ #include "core/device_memory.h"
+@@ -49,6 +54,14 @@
+         Initialize(split, system);
+         split.active = true;
+         split.back_thread = std::jthread([&split](std::stop_token stop) { split.BackLoop(stop); });
++    }
++
++    static void FrontMacros(GpuSplit& split, bool enabled) {
++        split.front_macros = enabled;
++    }
++
++    static u64 Consumed(const GpuSplit& split) {
++        return split.consumed.load(std::memory_order_acquire);
+     }
+ 
+     static u64 Published(const GpuSplit& split) {
+@@ -1453,3 +1466,153 @@
+     CHECK(engine.regs.reg_array[state] == 0x88888888);
+     CHECK(engine.regs.reg_array[copy] == 0x88888888);
+ }
++
++TEST_CASE("Puller reference acquires read the shadow after the actual split drains",
++          "[video_core][reference_acquire]") {
++    using Access = VideoCommon::GpuSplitTestAccess;
++    using Tegra::Engines::Puller;
++    const char* policy = std::getenv("EDEN_NX2_REFERENCE_ACQUIRE");
++    const bool reference = policy && policy[0] == '1' && policy[1] == '\0';
++    INFO("Process policy: " << (reference ? "Reference" : "legacy Fast"));
++    Fixture f;
++    f.system.Initialize();
++    Kernel::KProcess process{f.system.Kernel()};
++    SCOPE_EXIT { f.system.Kernel().UnregisterKernelObject(&process); };
++    auto& table = process.GetPageTable().GetImpl();
++    table.Resize(20, 12);
++    constexpr VAddr cpu_address = 0x4000;
++    constexpr DAddr device_address = 0x10000;
++    constexpr GPUVAddr address = 0x100000;
++    constexpr GPUVAddr alias = 0x200000;
++    auto* backing = f.physical.GetPointerFromRaw<u8>(0x10000);
++    table.entries.GetAndFault(cpu_address >> 12)
++        .Store(false, Common::PageType::Memory, 1,
++               reinterpret_cast<uintptr_t>(backing) - cpu_address);
++    process.GetMemory().SetCurrentPageTable(process);
++    const auto asid = f.device_memory.RegisterProcess(&process.GetMemory());
++    f.device_memory.BindInterface(&f.rasterizer);
++    f.device_memory.Map(device_address, cpu_address, 0x1000, asid);
++    SCOPE_EXIT {
++        f.device_memory.Unmap(device_address, 0x1000);
++        f.device_memory.UnregisterProcess(asid);
++    };
++    f.memory.BindRasterizer(&f.rasterizer);
++    f.memory.Map(address, device_address, 0x1000, Tegra::PTEKind::PITCH, false);
++    f.memory.Map(alias, device_address, 0x1000, Tegra::PTEKind::PITCH, false);
++    std::memset(backing, 0, 0x1000);
++    const bool old_nx2 = Tegra::g_nx2_ampere.exchange(true);
++    const auto old_accuracy = Settings::values.current_gpu_accuracy;
++    const auto old_fences = Settings::values.gpu_fence_behavior.GetValue();
++    Settings::values.current_gpu_accuracy = Settings::GpuAccuracy::Low;
++    Settings::values.gpu_fence_behavior.SetValue(Settings::GpuFenceBehavior::Default);
++    SCOPE_EXIT {
++        Tegra::g_nx2_ampere = old_nx2;
++        Settings::values.current_gpu_accuracy = old_accuracy;
++        Settings::values.gpu_fence_behavior.SetValue(old_fences);
++    };
++    Tegra::Control::ChannelState channel{0};
++    Tegra::DmaPusher pusher{f.system, f.memory, channel};
++    pusher.BindRasterizer(&f.rasterizer);
++    Puller puller;
++    auto& shadow = Tegra::Nx2MirrorShadow::Get();
++    REQUIRE_FALSE(shadow.Read(device_address, 0).has_value());
++    SCOPE_EXIT {
++        Tegra::Nx2SemaphoreWaiters::Get().Remove(&puller);
++        // Remove only this fixture's shadow; no unrelated global state is cleared.
++        shadow.Set(device_address, 0, 0);
++        (void)shadow.Read(device_address, 1);
++    };
++    auto& split = VideoCommon::GpuSplit::Get();
++    REQUIRE_FALSE(split.Active());
++    Access::Start(split, f.system);
++    Access::FrontMacros(split, true);
++    SCOPE_EXIT { split.Stop(); };
++    REQUIRE(split.Active());
++    REQUIRE(split.FrontMacros());
++    REQUIRE(Tegra::g_nx2_ampere.load());
++    REQUIRE_FALSE(Settings::IsGPULevelHigh());
++    REQUIRE(Settings::IsGPUFenceBehaviorDefault());
++    REQUIRE_FALSE(Tegra::Nx2MayBeGpuWritten(device_address, sizeof(u32)));
++    REQUIRE(f.memory.GpuToCpuAddress(address) == device_address);
++    REQUIRE(f.memory.GpuToCpuAddress(alias) == device_address);
++    const auto word = [&](u32 value) { std::memcpy(backing, &value, sizeof(value)); };
++    const auto acquire = [&](GPUVAddr where, u32 target, u32 operation = 4) {
++        puller.CallPullerMethod(pusher, Puller::MethodCall{4, static_cast<u32>(where >> 32)});
++        puller.CallPullerMethod(pusher, Puller::MethodCall{5, static_cast<u32>(where)});
++        puller.CallPullerMethod(pusher, Puller::MethodCall{6, target});
++        puller.CallPullerMethod(pusher, Puller::MethodCall{7, operation});
++    };
++    SECTION("initial acquire cannot pass raw100 over shadow5") {
++        word(100);
++        shadow.Set(device_address, 5, 100);
++        REQUIRE(shadow.Read(device_address, 100) == 5);
++        acquire(address, 10);
++        REQUIRE(puller.HasPendingAcquire() == reference);
++    }
++    SECTION("resume cannot pass raw100 until the shadow reaches20") {
++        word(0);
++        acquire(address, 10);
++        REQUIRE(puller.HasPendingAcquire());
++        word(100);
++        shadow.Set(device_address, 5, 100);
++        REQUIRE(puller.CanResumeAcquire(pusher) == !reference);
++        shadow.Set(device_address, 20, 100);
++        REQUIRE(puller.ResumeAcquire(pusher));
++        REQUIRE_FALSE(puller.HasPendingAcquire());
++    }
++    SECTION("a GPU virtual alias sees the same shadow") {
++        word(100);
++        shadow.Set(device_address, 5, 100);
++        acquire(alias, 10);
++        REQUIRE(puller.HasPendingAcquire() == reference);
++    }
++    SECTION("an unmirrored satisfied word passes") {
++        word(20);
++        acquire(address, 10);
++        REQUIRE_FALSE(puller.HasPendingAcquire());
++    }
++    SECTION("equality and mask keep their reference semantics") {
++        word(100);
++        shadow.Set(device_address, 5, 100);
++        acquire(address, 10, 1);
++        REQUIRE(puller.HasPendingAcquire());
++        shadow.Set(device_address, 10, 100);
++        REQUIRE(puller.ResumeAcquire(pusher));
++        shadow.Set(device_address, 0, 100);
++        acquire(alias, 4, 8);
++        REQUIRE(puller.HasPendingAcquire());
++        shadow.Set(device_address, 4, 100);
++        REQUIRE(puller.ResumeAcquire(pusher));
++    }
++    SECTION("unknown queued release executes on BackLoop before reference read") {
++        word(0);
++        std::atomic<bool> executed{}, on_back{};
++        split.Defer([&] {
++            on_back.store(VideoCommon::GpuSplit::OwnsScheduler());
++            shadow.Set(device_address, 20, 0);
++            executed.store(true, std::memory_order_release);
++        });
++        split.NoteSemaphoreWrite(device_address, 0, false);
++        REQUIRE(split.QueuedSemaphoreWriteAt(device_address).has_value());
++        acquire(alias, 10);
++        REQUIRE(executed.load(std::memory_order_acquire));
++        REQUIRE(on_back.load());
++        REQUIRE_FALSE(puller.HasPendingAcquire());
++    }
++    split.Drain();
++    split.Stop();
++    REQUIRE_FALSE(split.Active());
++}
++
++// The integrated BufferCache fixture uses this same friend definition, not a second one.
++namespace VideoCommon::ReferenceAcquireTest {
++void Start(Core::System& system) {
++    auto& split = GpuSplit::Get();
++    REQUIRE_FALSE(split.Active());
++    GpuSplitTestAccess::Start(split, system);
++    GpuSplitTestAccess::FrontMacros(split, true);
++}
++u64 Consumed() {
++    return GpuSplitTestAccess::Consumed(GpuSplit::Get());
++}
++} // namespace VideoCommon::ReferenceAcquireTest
+--- a/src/tests/video_core/buffer_cache_ports.cpp
++++ b/src/tests/video_core/buffer_cache_ports.cpp
+@@ -6,6 +6,7 @@
+ #include <barrier>
+ #include <chrono>
+ #include <cstring>
++#include <cstdlib>
+ #include <deque>
+ #include <exception>
+ #include <functional>
+@@ -28,6 +29,8 @@
+ #include "video_core/buffer_cache/memory_tracker_base.h"
+ #include "video_core/control/channel_state.h"
+ #include "video_core/gpu.h"
++#include "video_core/dma_pusher.h"
++#include "video_core/gpu_split.h"
+ #include "video_core/fence_manager.h"
+ #include "video_core/query_cache/query_cache.h"
+ #include "video_core/renderer_null/null_rasterizer.h"
+@@ -368,6 +371,7 @@
+         for (const auto& report : cache.pending_reports) states.push_back(report.rewritten);
+         return states;
+     }
++    static size_t ReadBackPages(const Cache& cache) { return cache.read_back_pages.size(); }
+     static u16 ReadBackReads(const Cache& cache, DAddr page) {
+         const auto it = std::ranges::find(cache.read_back_pages, page, &Cache::ReadBackPage::page);
+         REQUIRE(it != cache.read_back_pages.end());
+@@ -2396,6 +2400,25 @@
+     void SignalFence(std::function<void()>&& operation) override { signal(std::move(operation)); }
+     void SyncOperation(std::function<void()>&& operation) override { sync(std::move(operation)); }
+     void FlushCommands() override { runtime.SubmitForHostRead(); }
++    void Query(GPUVAddr address, QueryType type, QueryPropertiesFlags flags,
++               u32 payload, u32 subreport) override {
++        ++query_calls;
++        query(address, type, flags, payload, subreport);
++    }
++    void ReleaseFences(bool force) override {
++        ++release_calls;
++        release(force);
++    }
++    bool MustFlushRegion(DAddr address, u64 size, VideoCommon::CacheType which) override {
++        if (False(which & VideoCommon::CacheType::BufferCache)) return false;
++        std::scoped_lock lock{buffers.mutex};
++        return buffers.IsRegionGpuModified(address, size);
++    }
++    void FlushRegion(DAddr address, u64 size, VideoCommon::CacheType which) override {
++        if (False(which & VideoCommon::CacheType::BufferCache)) return;
++        std::scoped_lock lock{buffers.mutex};
++        buffers.DownloadMemory(address, size);
++    }
+     bool NoteReportPending(DAddr address, u64 size) override {
+         std::scoped_lock lock{buffers.mutex};
+         const bool kept = buffers.NoteReportPending(address, size);
+@@ -2415,7 +2438,9 @@
+     Runtime& runtime;
+     std::function<void(std::function<void()>&&)> signal, sync;
+     std::vector<bool> notes;
+-    u32 finishes{}, read_finishes{};
++    std::function<void(GPUVAddr, QueryType, QueryPropertiesFlags, u32, u32)> query;
++    std::function<void(bool)> release;
++    u32 finishes{}, read_finishes{}, query_calls{}, release_calls{};
+ };
+ struct TextureCache {
+     std::mutex mutex;
+@@ -2490,7 +2515,7 @@
+     Fences fences{rasterizer, buffers.gpu, texture, *buffers.cache, queries, buffers.runtime};
+     static constexpr GPUVAddr Address = 0x200040;
+     static constexpr DAddr Device = 0x20040;
+-    Fixture() {
++    explicit Fixture(bool train_readback = true) {
+         buffers.memory->EnableNativeTiling();
+         buffers.memory->Map(0x200000, 0x20000, 0x10000, Tegra::PTEKind::PITCH, true);
+         Access::SetNativeMemory(*buffers.cache, *buffers.memory);
+@@ -2502,8 +2527,14 @@
+         rasterizer.sync = [this](std::function<void()>&& operation) {
+             fences.SyncOperation(std::move(operation));
+         };
++        rasterizer.query = [this](GPUVAddr address, QueryType type, QueryPropertiesFlags flags,
++                                  u32 payload, u32 subreport) {
++            queries.CounterReport(address, type, flags, payload, subreport);
++        };
++        rasterizer.release = [this](bool force) { fences.WaitPendingFences(force); };
+         REQUIRE(buffers.memory->GpuToCpuAddress(Address) == Device);
+         REQUIRE(VideoCore::g_read_downloads == 0);
++        if (!train_readback) return;
+         for (u8 frame = 1; frame <= 2; ++frame) {
+             WriteByDispatch(buffers, id, 0x20000, 0x100, frame);
+             REQUIRE_FALSE(ReadWord(buffers, 0x20010).preemtive);
+@@ -2664,3 +2695,142 @@
+     f.Retire(0, 2);
+     REQUIRE(VideoCore::g_read_downloads == 0);
+ }
++
++namespace VideoCommon::ReferenceAcquireTest {
++void Start(Core::System& system);
++u64 Consumed();
++} // namespace VideoCommon::ReferenceAcquireTest
++
++namespace PayloadReadback {
++struct AcquireSession {
++    explicit AcquireSession(bool trained) : f{trained}, channel{0},
++        pusher{f.buffers.system, *f.buffers.memory, channel} {
++        const char* value = std::getenv("EDEN_NX2_REFERENCE_ACQUIRE");
++        reference = value && value[0] == '1' && value[1] == '\0';
++        Tegra::Nx2ClearSemaphoreRegions();
++        Tegra::Nx2AddSemaphoreRegion(0x200000);
++        f.buffers.memory->BindRasterizer(&f.rasterizer);
++        f.buffers.device.BindInterface(&f.rasterizer);
++        f.buffers.memory->Map(Alias, Fixture::Device & ~u64{0xfff}, 0x1000,
++                              Tegra::PTEKind::PITCH, false);
++        pusher.BindRasterizer(&f.rasterizer);
++        REQUIRE(f.buffers.memory->GpuToCpuAddress(Fixture::Address) == Fixture::Device);
++        REQUIRE(f.buffers.memory->GpuToCpuAddress(Alias + 0x40) == Fixture::Device);
++        REQUIRE(Tegra::Nx2SemaphoreMirror(Fixture::Address + 0x1000) == Fixture::Address);
++        VideoCommon::ReferenceAcquireTest::Start(f.buffers.system);
++        REQUIRE(split.Active());
++        REQUIRE(split.FrontMacros());
++        REQUIRE(Tegra::g_nx2_ampere.load());
++        REQUIRE_FALSE(Settings::IsGPULevelHigh());
++        REQUIRE(Settings::IsGPUFenceBehaviorDefault());
++        Run([] {}); // Actual back execution, before the test queues any reports.
++    }
++    ~AcquireSession() {
++        // Complete the synthetic host ticks before waiting for or destroying the real back.
++        // This also runs after a failed assertion, while queries and caches are still alive.
++        Run([&] { f.fences.Complete(); });
++        split.Stop();
++        Tegra::Nx2SemaphoreWaiters::Get().Remove(&puller);
++        Tegra::Nx2ClearSemaphoreRegions();
++        f.buffers.memory->BindRasterizer(&f.buffers.rasterizer);
++        f.buffers.device.BindInterface(&f.buffers.rasterizer);
++    }
++    void Run(const std::function<void()>& function) {
++        std::exception_ptr failure;
++        bool owned = false;
++        split.Run([&] {
++            owned = VideoCommon::GpuSplit::OwnsScheduler();
++            try { function(); } catch (...) { failure = std::current_exception(); }
++        });
++        if (failure) std::rethrow_exception(failure);
++        REQUIRE(owned);
++    }
++    void Semaphore(GPUVAddr address, u32 value, u32 operation) {
++        using Call = Tegra::Engines::Puller::MethodCall;
++        puller.CallPullerMethod(pusher, Call{4, static_cast<u32>(address >> 32)});
++        puller.CallPullerMethod(pusher, Call{5, static_cast<u32>(address)});
++        puller.CallPullerMethod(pusher, Call{6, value});
++        puller.CallPullerMethod(pusher, Call{7, operation});
++    }
++    void Release(GPUVAddr address, u32 value) { Semaphore(address, value, 2 | (1U << 24)); }
++    void Acquire(GPUVAddr address, u32 value) { Semaphore(address, value, 4); }
++    static constexpr GPUVAddr Alias = 0x300000;
++    Fixture f;
++    Tegra::Control::ChannelState channel;
++    Tegra::DmaPusher pusher;
++    Tegra::Engines::Puller puller;
++    VideoCommon::GpuSplit& split = VideoCommon::GpuSplit::Get();
++    bool reference{};
++};
++} // namespace PayloadReadback
++
++TEST_CASE("Reference acquire composes real immediate queries and semaphore mirrors",
++          "[buffer_ports][reference_composition][reference_mirror]") {
++    PayloadReadback::AcquireSession session{false};
++    auto& f = session.f;
++    REQUIRE(Access::ReadBackPages(*f.buffers.cache) == 0);
++    REQUIRE_FALSE(Tegra::Nx2MayBeGpuWritten(PayloadReadback::Fixture::Device, 4));
++    session.Release(PayloadReadback::Fixture::Address, 100);
++    const u64 direct_position = session.split.Position();
++    session.split.Drain();
++    REQUIRE(VideoCommon::ReferenceAcquireTest::Consumed() >= direct_position);
++    REQUIRE(f.Word() == 100);
++    REQUIRE(f.rasterizer.query_calls == 1);
++    REQUIRE(f.runtime.payload->frees == 1);
++    auto& shadow = Tegra::Nx2MirrorShadow::Get();
++    REQUIRE(shadow.Diverts(PayloadReadback::Fixture::Device));
++    session.Release(PayloadReadback::Fixture::Address + 0x1000, 5);
++    session.split.Drain();
++    REQUIRE(f.rasterizer.query_calls == 3); // Original second-page release plus its real mirror.
++    REQUIRE(f.runtime.payload->frees == 3);
++    REQUIRE(f.Word() == 100);
++    REQUIRE(shadow.Read(PayloadReadback::Fixture::Device, f.Word()) == 5);
++    REQUIRE(f.rasterizer.notes.empty());
++    REQUIRE(f.rasterizer.finishes == 0);
++    session.Run([&] { f.fences.Complete(); });
++    REQUIRE_FALSE(Tegra::Nx2MayBeGpuWritten(PayloadReadback::Fixture::Device, 4));
++    session.Acquire(PayloadReadback::AcquireSession::Alias + 0x40, 10);
++    REQUIRE(session.puller.HasPendingAcquire() == session.reference);
++    session.Release(PayloadReadback::Fixture::Address + 0x1000, 20);
++    session.split.Drain();
++    REQUIRE(shadow.Read(PayloadReadback::Fixture::Device, f.Word()) == 20);
++    REQUIRE(session.puller.ResumeAcquire(session.pusher));
++    REQUIRE_FALSE(session.puller.HasPendingAcquire());
++    REQUIRE(f.runtime.payload->frees == 5);
++}
++
++TEST_CASE("Reference acquire waits for a real counter callback beyond split consumption",
++          "[buffer_ports][reference_composition][reference_counter]") {
++    PayloadReadback::AcquireSession session{true};
++    auto& f = session.f;
++    REQUIRE(Access::ReadBackReads(*f.buffers.cache, 0x20000) == 2);
++    session.Release(PayloadReadback::Fixture::Address, 0);
++    session.split.Drain();
++    session.Run([&] { f.fences.Complete(); });
++    const u32 before = f.Word();
++    REQUIRE(before == 0);
++    const u32 target = 70;
++    session.Acquire(PayloadReadback::Fixture::Address, target);
++    REQUIRE(session.puller.HasPendingAcquire());
++    REQUIRE(f.rasterizer.release_calls == 1);
++    session.Run([&] { f.Counter(); });
++    const u64 counter_position = session.split.Position();
++    REQUIRE(VideoCommon::ReferenceAcquireTest::Consumed() >= counter_position);
++    session.Run([&] { f.fences.SignalOrdering(); });
++    REQUIRE(f.Word() == before);
++    REQUIRE(f.runtime.counter.frees == 0);
++    REQUIRE(Access::PendingReportStates(*f.buffers.cache) == std::vector<bool>{false});
++    REQUIRE_FALSE(f.buffers.runtime.IsFree(f.fences.last_tick));
++    REQUIRE_FALSE(session.puller.CanResumeAcquire(session.pusher));
++    REQUIRE(f.Word() == before);
++    REQUIRE(f.rasterizer.finishes == 0);
++    session.Run([&] { f.fences.Complete(); });
++    REQUIRE(f.Word() == 73);
++    REQUIRE(Access::PendingReportStates(*f.buffers.cache).empty());
++    REQUIRE(f.rasterizer.finishes == 1);
++    REQUIRE(session.puller.CanResumeAcquire(session.pusher));
++    REQUIRE(session.puller.ResumeAcquire(session.pusher));
++    REQUIRE_FALSE(session.puller.HasPendingAcquire());
++    session.Run([&] { f.Retire(1, 1); });
++    REQUIRE(VideoCore::g_read_downloads == 0);
++}

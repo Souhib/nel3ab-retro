@@ -1,0 +1,702 @@
+diff --git a/src/tests/CMakeLists.txt b/src/tests/CMakeLists.txt
+index dff876503..aa6d82d71 100644
+--- a/src/tests/CMakeLists.txt
++++ b/src/tests/CMakeLists.txt
+@@ -30,6 +30,7 @@ add_executable(tests
+     core/internal_network/network.cpp
+     video_core/frame_dump_schedule.cpp
+     video_core/memory_tracker.cpp
++    video_core/nx2_mme_snapshot.cpp
+     video_core/spirv_storage_alignment.cpp
+     video_core/pipeline_optimization.cpp
+     video_core/spirv_atomic_retry.cpp
+diff --git a/src/video_core/CMakeLists.txt b/src/video_core/CMakeLists.txt
+index c0648802e..40a58e35c 100644
+--- a/src/video_core/CMakeLists.txt
++++ b/src/video_core/CMakeLists.txt
+@@ -14,6 +14,9 @@ if(LIBVA_FOUND)
+ endif()
+ 
+ add_library(video_core STATIC
++    buffer_cache/nx2_list_snapshot.h
++    nx2_mme_snapshot.h
++    nx2_mme_read_stats.h
+     buffer_cache/buffer_base.h
+     buffer_cache/buffer_cache_base.h
+     buffer_cache/buffer_cache.cpp
+diff --git a/src/video_core/buffer_cache/buffer_cache.h b/src/video_core/buffer_cache/buffer_cache.h
+index 3c5248e21..d1a03b220 100644
+--- a/src/video_core/buffer_cache/buffer_cache.h
++++ b/src/video_core/buffer_cache/buffer_cache.h
+@@ -1917,9 +1917,9 @@ void BufferCache<P>::Nx2NoteListWrite(BufferId buffer_id, DAddr device_addr, u64
+                 {
+                     std::scoped_lock lock{nx2_list_mutex};
+                     Nx2ListPage& entry = nx2_list_pages[page_addr];
+-                    ++entry.writes;
+-                    if (!nx2_collect_list_copies && !entry.draw_written) {
+-                        entry.draw_written = true;
++                    const bool first_draw = !nx2_collect_list_copies && !entry.draw_written;
++                    entry.NoteGpuWrite(nx2_collect_list_copies);
++                    if (first_draw) {
+                         LOG_INFO(HW_GPU, "Command list page {:#x} is written by draws too: its "
+                                          "lists drain the split",
+                                  page_addr);
+@@ -2002,8 +2002,7 @@ auto BufferCache<P>::Nx2ReadListCopy(DAddr device_addr, std::span<u8> out) -> Nx
+             return Nx2ListRead::Unknown;
+         }
+         const auto current = [&](const Nx2ListPage& entry) {
+-            return entry.copy && !entry.draw_written && entry.copy_writes == entry.writes &&
+-                   offset >= entry.copy_begin && offset + out.size() <= entry.copy_end;
++            return entry.CopyCurrent(entry.copy.has_value(), offset, out.size());
+         };
+         u64 tick{};
+         u64 writes{};
+@@ -2015,7 +2014,7 @@ auto BufferCache<P>::Nx2ReadListCopy(DAddr device_addr, std::span<u8> out) -> Nx
+             }
+             const Nx2ListPage& entry = it->second;
+             // Pages the CPU writes the lists of (GPU-written once, long before) stay synced.
+-            if (!entry.draw_written && entry.synced_writes == entry.writes) {
++            if (entry.Synced()) {
+                 return Nx2ListRead::Synced;
+             }
+             if (!current(entry)) {
+@@ -2072,11 +2071,7 @@ void BufferCache<P>::Nx2NoteListHostWrite(DAddr device_addr, u64 size) {
+                 continue;
+             }
+             Nx2ListPage& entry = it->second;
+-            const bool synced = entry.synced_writes == entry.writes;
+-            ++entry.writes;
+-            if (synced) {
+-                entry.synced_writes = entry.writes;
+-            }
++            entry.NoteHostWrite();
+         }
+     }
+ }
+diff --git a/src/video_core/buffer_cache/buffer_cache_base.h b/src/video_core/buffer_cache/buffer_cache_base.h
+index e0d2d323f..1d600a5a7 100644
+--- a/src/video_core/buffer_cache/buffer_cache_base.h
++++ b/src/video_core/buffer_cache/buffer_cache_base.h
+@@ -6,6 +6,8 @@
+ 
+ #pragma once
+ 
++#include "video_core/buffer_cache/nx2_list_snapshot.h"
++
+ #include <algorithm>
+ #include <cstdlib>
+ #include <array>
+@@ -774,18 +776,7 @@ private:
+ 
+     /// A command list page (Nx2CopyListPages): the GPU writes noted to it and the last copy.
+     using Nx2Staging = decltype(std::declval<Runtime&>().DownloadStagingBuffer(size_t{}, true));
+-    struct Nx2ListPage {
+-        u64 writes{};      ///< GPU writes noted to the page
+-        u64 copy_writes{}; ///< `writes` when the copy was made: the copy is current while equal
+-        u64 copy_tick{};   ///< GPU tick that completes the copy
+-        /// `writes` when the front last flushed the page: guest memory holds it while equal
+-        u64 synced_writes{~u64{0}};
+-        u32 copy_begin{};  ///< Bytes of the page the copy holds (a buffer can end inside it)
+-        u32 copy_end{};
+-        /// Written outside a compute dispatch or a DMA copy (a draw's storage writes) at least
+-        /// once: the front can't tell from what it sent whether such a write is still queued, so
+-        /// the page's lists always drain the split instead of reading a copy.
+-        bool draw_written{};
++    struct Nx2ListPage : Nx2ListSnapshotState {
+         std::optional<Nx2Staging> copy;
+     };
+     std::mutex nx2_list_mutex; ///< nx2_list_pages: the split's front reads the copies
+diff --git a/src/video_core/engines/maxwell_3d.cpp b/src/video_core/engines/maxwell_3d.cpp
+index 133987d21..244502ce8 100644
+--- a/src/video_core/engines/maxwell_3d.cpp
++++ b/src/video_core/engines/maxwell_3d.cpp
+@@ -23,6 +23,9 @@
+ #include "video_core/gpu_split.h"
+ #include "video_core/memory_manager.h"
+ #include "video_core/nx2_profile.h"
++#include "video_core/nx2.h"
++#include "video_core/nx2_mme_read_stats.h"
++#include "video_core/nx2_mme_snapshot.h"
+ #include "video_core/rasterizer_interface.h"
+ #include "video_core/textures/texture.h"
+ #ifdef ARCHITECTURE_x86_64
+@@ -846,11 +849,13 @@ struct Maxwell3D::FrontState {
+     Regs::ShadowRamControl control{};
+     u32 executing_macro{};
+     std::vector<u32> parameters;
++    std::array<u32, 0x1000> dma_words;
+     u64 calls{};
+     /// A method the draw manager handles was sent since the back last ran DrawDeferred: only
+     /// then can it have a deferred instanced draw to issue at the end of a macro.
+     bool draw_pending{true};
+     bool skip_same{}; ///< SkipSameValueWrites() && FrontSkipSame(), read once
++    bool snapshot_reported{};
+ };
+ 
+ namespace {
+@@ -908,6 +913,16 @@ bool FrontSkipSame() {
+ 
+ } // Anonymous namespace
+ 
++namespace {
++bool MmeSnapshotEnabled() {
++    static const bool enabled = [] {
++        const char* value = std::getenv("EDEN_NX2_MME_SNAPSHOT");
++        return value != nullptr && value[0] == '1';
++    }();
++    return enabled;
++}
++} // namespace
++
+ Maxwell3D::FrontState& Maxwell3D::Front(Core::System& system, VideoCommon::GpuSplit& split) {
+     if (!front) [[unlikely]] {
+         // Copy the back's state and take the macros over while it is idle (state writes it
+@@ -924,6 +939,8 @@ Maxwell3D::FrontState& Maxwell3D::Front(Core::System& system, VideoCommon::GpuSp
+         macro_params.clear();
+         executing_macro = 0;
+         front_macros = true;
++        LOG_INFO(HW_GPU, "MME argument snapshot lab: enabled={} stats={}",
++                 MmeSnapshotEnabled(), VideoCommon::Nx2MmeReadStats::Enabled());
+     }
+     return *front;
+ }
+@@ -1172,9 +1189,9 @@ void Maxwell3D::FrontRunMacro(Core::System& system, VideoCommon::GpuSplit& split
+ 
+ void Maxwell3D::FrontDmaRead(VideoCommon::GpuSplit& split, FrontState& fs, u32 method,
+                              u32 count) {
+-    // The words may be written by methods still queued for the back (indirect draw arguments
+-    // from a culling dispatch), and the caches that may hold newer ones belong to it.
+-    split.Drain();
++    using Stats = VideoCommon::Nx2MmeReadStats;
++    Stats* const stats = Stats::Enabled() ? &Stats::Get() : nullptr;
++    const u64 begin = stats ? Stats::Now() : 0;
+     const GPUVAddr source = (GPUVAddr{fs.regs[0x154] & 0x1ffffff} << 32) | fs.regs[0x155];
+     const u32 ram = fs.regs[0x156];
+     const u32 words = std::min<u32>(count, 0x1000);
+@@ -1182,19 +1199,79 @@ void Maxwell3D::FrontDmaRead(VideoCommon::GpuSplit& split, FrontState& fs, u32 m
+     if (VideoCommon::Nx2Profile::Enabled()) {
+         VideoCommon::Nx2Profile::Add(VideoCommon::Nx2Profile::Counter::DmaReadBytes, read_bytes);
+     }
+-    if (memory_manager.IsMemoryDirty(source, read_bytes, VideoCommon::CacheType::BufferCache)) {
++    VideoCommon::Nx2MmeSnapshotResult snapshot;
++    if (MmeSnapshotEnabled() && rasterizer != nullptr) {
++        snapshot = VideoCommon::Nx2ReadMmeSnapshot(
++            source, std::span{reinterpret_cast<u8*>(fs.dma_words.data()), read_bytes},
++            [&](u64 address) { return memory_manager.GpuToCpuAddress(address); },
++            [](u64 device) { Tegra::Nx2MarkCommandListPage(device); },
++            [&] { split.WaitForEntries(); },
++            [](u64 device) { return Tegra::Nx2IsGpuWritten(device); },
++            [&](u64 device, std::span<u8> out) {
++                using Result = VideoCommon::Nx2MmeSource;
++                switch (rasterizer->ReadGpuWrittenCommandList(device, out)) {
++                case VideoCore::RasterizerInterface::GpuWrittenList::Copied:
++                    return Result::Copied;
++                case VideoCore::RasterizerInterface::GpuWrittenList::Synced:
++                    return Result::Synced;
++                default:
++                    return Result::Unknown;
++                }
++            },
++            [&](u64 address, std::span<u8> out) {
++                // Read<u32> also handles virtual syncpoint registers; a byte copy does not.
++                for (size_t offset = 0; offset < out.size(); offset += sizeof(u32)) {
++                    const u32 word = memory_manager.Read<u32>(address + offset);
++                    std::memcpy(out.data() + offset, &word, sizeof(word));
++                }
++            });
++        if (stats) {
++            ++stats->snapshot_tries;
++            stats->snapshot_hits += snapshot.complete;
++            stats->snapshot_copied += snapshot.copied;
++            stats->snapshot_synced += snapshot.synced;
++            stats->snapshot_host += snapshot.host_only;
++        }
++        if (snapshot.complete && !fs.snapshot_reported) {
++            fs.snapshot_reported = true;
++            LOG_INFO(HW_GPU, "MME snapshot first successful read: copied={} synced={} host={}",
++                     snapshot.copied, snapshot.synced, snapshot.host_only);
++        }
++    }
++    // The fallback retains the original drain, buffer-cache flush and per-word read.
++    if (!snapshot.complete) split.Drain();
++    const u64 drained = stats ? Stats::Now() : 0;
++    const bool dirty = !snapshot.complete && memory_manager.IsMemoryDirty(
++        source, read_bytes, VideoCommon::CacheType::BufferCache);
++    if (dirty) {
+         split.Run([memory = &memory_manager, source, read_bytes] {
+             memory->FlushRegion(source, read_bytes, VideoCommon::CacheType::BufferCache);
+         });
+     }
++    const u64 flushed = stats ? Stats::Now() : 0;
++    u64 hash = 14695981039346656037ULL;
+     for (u32 i = 0; i < words; ++i) {
+-        const u32 word = memory_manager.Read<u32>(source + u64{i} * sizeof(u32));
++        const u32 word = snapshot.complete ? fs.dma_words[i]
++            : memory_manager.Read<u32>(source + u64{i} * sizeof(u32));
++        if (stats) hash = (hash ^ word) * 1099511628211ULL;
+         if (method == 0x158) {
+             fs.parameters.push_back(word);
+         } else if (ram + i < native_data_ram.size()) {
+             native_data_ram[ram + i] = word;
+         }
+     }
++    if (stats) {
++        const u64 read = Stats::Now();
++        u64 written_pages{}, tracked_pages{};
++        for (GPUVAddr p = source & ~GPUVAddr{0xfff}; p < source + read_bytes; p += 0x1000) {
++            if (const auto device = memory_manager.GpuToCpuAddress(p)) {
++                written_pages += Tegra::Nx2IsGpuWritten(*device);
++                tracked_pages += Tegra::Nx2IsCommandListPage(*device);
++            }
++        }
++        stats->Add(source, words, hash, dirty, written_pages, tracked_pages,
++                   drained-begin, flushed-drained, read-flushed);
++    }
+ }
+ 
+ void Maxwell3D::FrontVerify(VideoCommon::GpuSplit& split, FrontState& fs) {
+diff --git a/src/video_core/gpu_split.cpp b/src/video_core/gpu_split.cpp
+index c46227840..d375658cc 100644
+--- a/src/video_core/gpu_split.cpp
++++ b/src/video_core/gpu_split.cpp
+@@ -251,7 +251,15 @@ void GpuSplit::Drain() {
+ }
+ 
+ bool GpuSplit::WaitForWriters() {
+-    const u64 target = std::min(last_writer_position, write_position);
++    return WaitForPosition(std::min(last_writer_position, write_position));
++}
++
++void GpuSplit::WaitForEntries() {
++    WaitForPosition(write_position);
++    publish_every = 8;
++}
++
++bool GpuSplit::WaitForPosition(u64 target) {
+     consumed_cache = consumed.load(std::memory_order_acquire);
+     if (consumed_cache >= target) {
+         return false;
+diff --git a/src/video_core/gpu_split.h b/src/video_core/gpu_split.h
+index c0d4badcc..95f1c3c71 100644
+--- a/src/video_core/gpu_split.h
++++ b/src/video_core/gpu_split.h
+@@ -149,6 +149,9 @@ public:
+     /// Waits until the back executed the compute and copy work sent so far (not what came after).
+     /// Returns whether any of it was still queued.
+     bool WaitForWriters();
++    /// Waits for all queued entries, including draw writes, without taking scheduler ownership.
++    /// A copy read may then wait for its submitted tick; unknown data must still drain/flush.
++    void WaitForEntries();
+ 
+ private:
+     enum class Kind : u64 {
+@@ -189,6 +192,7 @@ private:
+         }
+     }
+     void WaitForSpace(size_t words);
++    bool WaitForPosition(u64 target);
+     void SelectEngine(Tegra::Engines::EngineInterface* engine) {
+         if (engine != front_engine) [[unlikely]] {
+             SwitchEngine(engine);
+diff --git a/src/tests/video_core/nx2_mme_snapshot.cpp b/src/tests/video_core/nx2_mme_snapshot.cpp
+new file mode 100644
+index 000000000..8d5a4c387
+--- /dev/null
++++ b/src/tests/video_core/nx2_mme_snapshot.cpp
+@@ -0,0 +1,187 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++
++#include <array>
++#include <cstring>
++#include <functional>
++#include <iostream>
++#include <limits>
++#include <optional>
++#include <stdexcept>
++#ifndef NX2_MME_STANDALONE
++#include <catch2/catch_test_macros.hpp>
++#endif
++#include "video_core/buffer_cache/nx2_list_snapshot.h"
++#include "video_core/nx2_mme_snapshot.h"
++
++namespace {
++using VideoCommon::Nx2ListSnapshotState;
++using VideoCommon::Nx2MmeSource;
++
++void Check(bool condition, const char* message) {
++    if (!condition) throw std::runtime_error(message);
++}
++
++void Metadata() {
++    Nx2ListSnapshotState state;
++    Check(!state.Synced(), "a new page is unknown");
++    Check(!state.CopyCurrent(false, 0, 4), "an absent copy is unknown");
++    state.NoteGpuWrite(true);
++    state.copy_writes = state.writes;
++    state.copy_begin = 16;
++    state.copy_end = 32;
++    Check(state.CopyCurrent(true, 16, 16), "a current covered copy is usable");
++    Check(!state.CopyCurrent(true, 15, 1), "uncovered beginning rejected");
++    Check(!state.CopyCurrent(true, 31, 2), "uncovered end rejected");
++    Check(!state.CopyCurrent(true, 33, 0), "offset beyond copy rejected");
++    Check(!state.CopyCurrent(true, 16, std::numeric_limits<size_t>::max()),
++          "overflowing range rejected");
++    state.NoteGpuWrite(true);
++    Check(!state.CopyCurrent(true, 16, 4), "a new GPU write invalidates the copy");
++    state.copy_writes = state.writes;
++    state.NoteHostWrite();
++    Check(!state.CopyCurrent(true, 16, 4), "a CPU write invalidates the copy");
++    Check(!state.Synced(), "a CPU write cannot sync other pending GPU bytes");
++    state.synced_writes = state.writes;
++    Check(state.Synced(), "whole-page download establishes guest memory");
++    state.NoteHostWrite();
++    Check(state.Synced(), "CPU-only writes keep a downloaded page synced");
++    state.NoteGpuWrite(false);
++    Check(!state.Synced(), "draw storage write invalidates guest memory");
++    state.NoteGpuWrite(true);
++    state.copy_writes = state.writes;
++    state.synced_writes = state.writes;
++    Check(!state.CopyCurrent(true, 16, 4), "draw-written pages remain conservative");
++    Check(!state.Synced(), "draw-written pages cannot bypass the fallback");
++    state = {};
++    Check(!state.Synced() && !state.CopyCurrent(false, 0, 4), "session reset forgets validity");
++}
++
++struct Memory {
++    std::array<u8, 8192> host{}, gpu{}, copies{};
++    std::array<Nx2ListSnapshotState, 2> state{};
++    std::array<bool, 2> written{}, marked{}, has_copy{};
++    std::function<void()> pending;
++    bool waited{};
++    int guest_reads{}, copy_reads{};
++    bool mapped{true};
++
++    void GpuWrite(size_t address, u8 value, bool collecting = true) {
++        const size_t page = address / 4096;
++        gpu.at(address) = value;
++        written.at(page) = true;
++        state.at(page).NoteGpuWrite(collecting);
++        if (collecting && marked.at(page)) {
++            copies = gpu;
++            has_copy[page] = true;
++            state[page].copy_writes = state[page].writes;
++            state[page].copy_begin = 0;
++            state[page].copy_end = 4096;
++        }
++    }
++    auto Read(u64 address, std::span<u8> out) {
++        waited = false;
++        return VideoCommon::Nx2ReadMmeSnapshot(address, out,
++            [&](u64 value) -> std::optional<u64> {
++                if (!mapped || value >= host.size()) return std::nullopt;
++                return value;
++            },
++            [&](u64 value) { marked.at(value / 4096) = true; },
++            [&] {
++                waited = true;
++                if (pending) { auto work = std::move(pending); pending = {}; work(); }
++            },
++            [&](u64 value) { return written.at(value / 4096); },
++            [&](u64 value, std::span<u8> part) {
++                ++copy_reads;
++                const size_t page = value / 4096;
++                if (state[page].Synced()) return Nx2MmeSource::Synced;
++                if (!state[page].CopyCurrent(has_copy[page], value % 4096, part.size()))
++                    return Nx2MmeSource::Unknown;
++                std::memcpy(part.data(), copies.data() + value, part.size());
++                return Nx2MmeSource::Copied;
++            },
++            [&](u64 value, std::span<u8> part) {
++                ++guest_reads;
++                std::memcpy(part.data(), host.data() + value, part.size());
++            });
++    }
++};
++
++void Reader() {
++    Memory memory;
++    std::array<u8, 4> out{};
++    memory.host[32] = 3;
++    auto result = memory.Read(32, out);
++    Check(result.complete && result.host_only == 1 && memory.waited && out[0] == 3,
++          "CPU-owned arguments read after queued entries");
++    memory.host[32] = 7;
++    result = memory.Read(32, out);
++    Check(result.complete && out[0] == 7 && memory.copy_reads == 0,
++          "same address must see changed CPU arguments");
++
++    memory.pending = [&] {
++        Check(memory.marked[0], "page must be marked before its queued first GPU write");
++        memory.GpuWrite(32, 19);
++    };
++    result = memory.Read(32, out);
++    Check(result.complete && result.copied == 1 && out[0] == 19,
++          "first queued GPU write must not read stale guest bytes");
++    for (u8 value = 20; value < 120; ++value) {
++        memory.pending = [&, value] { memory.GpuWrite(32, value); };
++        result = memory.Read(32, out);
++        Check(result.complete && out[0] == value, "every immediate GPU rewrite is visible");
++    }
++    memory.state[0].NoteHostWrite();
++    memory.host[33] = 99;
++    result = memory.Read(32, out);
++    Check(!result.complete, "partial CPU write invalidates old copy; fallback required");
++    memory.host = memory.gpu;
++    memory.state[0].synced_writes = memory.state[0].writes;
++    result = memory.Read(32, out);
++    Check(result.complete && result.synced == 1 && out[0] == 119,
++          "fully downloaded page can read guest memory");
++    memory.host[33] = 41;
++    memory.state[0].NoteHostWrite();
++    result = memory.Read(32, out);
++    Check(result.complete && out[1] == 41, "CPU rewrite of synced page is visible");
++
++    memory.pending = [&] { memory.GpuWrite(32, 121, false); };
++    result = memory.Read(32, out);
++    Check(!result.complete, "queued draw storage write requires conservative fallback");
++
++    Memory crossing;
++    std::array<u8, 8> cross_out{};
++    crossing.host[4092] = 8;
++    crossing.pending = [&] { crossing.GpuWrite(4096, 9); };
++    result = crossing.Read(4092, cross_out);
++    Check(result.complete && result.host_only == 1 && result.copied == 1 &&
++          cross_out[0] == 8 && cross_out[4] == 9, "cross-page read respects each page's source");
++    crossing.state[1].copy_begin = 2;
++    result = crossing.Read(4092, cross_out);
++    Check(!result.complete, "partial second-page copy rejects whole fast path");
++
++    result = crossing.Read(1, out);
++    Check(!result.complete && !crossing.waited, "unaligned input preserves per-word fallback");
++    result = crossing.Read(0, std::span{out}.first(3));
++    Check(!result.complete && !crossing.waited, "partial word preserves per-word fallback");
++
++    crossing.mapped = false;
++    result = crossing.Read(0, out);
++    Check(!result.complete && !crossing.waited, "unmapped input preserves fallback");
++    result = crossing.Read(std::numeric_limits<u64>::max() - 1, out);
++    Check(!result.complete && !crossing.waited, "overflow rejected before translation");
++    result = crossing.Read(0, std::span<u8>{});
++    Check(result.complete && !crossing.waited, "zero-size read touches no memory");
++}
++} // namespace
++
++#ifdef NX2_MME_STANDALONE
++int main() {
++    Metadata();
++    Reader();
++    std::cout << "MME snapshot tests passed\n";
++}
++#else
++TEST_CASE("NX2 list snapshots preserve invalidation", "[nx2_mme]") { Metadata(); }
++TEST_CASE("NX2 MME snapshots wait before choosing current data", "[nx2_mme]") { Reader(); }
++#endif
+diff --git a/src/video_core/buffer_cache/nx2_list_snapshot.h b/src/video_core/buffer_cache/nx2_list_snapshot.h
+new file mode 100644
+index 000000000..464b79d4d
+--- /dev/null
++++ b/src/video_core/buffer_cache/nx2_list_snapshot.h
+@@ -0,0 +1,38 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++
++#pragma once
++
++#include <cstddef>
++#include "common/common_types.h"
++
++namespace VideoCommon {
++
++// Metadata shared by the real buffer-cache copy and its invalidation tests.
++struct Nx2ListSnapshotState {
++    u64 writes{};
++    u64 copy_writes{};
++    u64 copy_tick{};
++    u64 synced_writes{~u64{0}};
++    u32 copy_begin{};
++    u32 copy_end{};
++    bool draw_written{};
++
++    void NoteGpuWrite(bool collecting) {
++        ++writes;
++        if (!collecting) draw_written = true;
++    }
++    void NoteHostWrite() {
++        const bool was_synced = synced_writes == writes;
++        ++writes;
++        if (was_synced) synced_writes = writes;
++    }
++    bool Synced() const {
++        return !draw_written && synced_writes == writes;
++    }
++    bool CopyCurrent(bool has_copy, u64 offset, size_t size) const {
++        return has_copy && !draw_written && copy_writes == writes &&
++               offset >= copy_begin && offset <= copy_end && size <= copy_end - offset;
++    }
++};
++
++} // namespace VideoCommon
+diff --git a/src/video_core/nx2_mme_read_stats.h b/src/video_core/nx2_mme_read_stats.h
+new file mode 100644
+index 000000000..c4af1cc9a
+--- /dev/null
++++ b/src/video_core/nx2_mme_read_stats.h
+@@ -0,0 +1,76 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++#pragma once
++
++#include <chrono>
++#include <cstdlib>
++#include <unordered_map>
++#include "common/common_types.h"
++#include "common/logging.h"
++
++namespace VideoCommon {
++// Opt-in diagnostics only. No guest bytes or addresses are logged.
++struct Nx2MmeReadStats {
++    static bool Enabled() {
++        static const bool enabled = [] {
++            const char* value = std::getenv("EDEN_NX2_MME_READ_STATS");
++            return value != nullptr && value[0] == '1';
++        }();
++        return enabled;
++    }
++    static Nx2MmeReadStats& Get() {
++        static thread_local Nx2MmeReadStats stats;
++        return stats;
++    }
++    static u64 Now() {
++        return std::chrono::duration_cast<std::chrono::nanoseconds>(
++                   std::chrono::steady_clock::now().time_since_epoch()).count();
++    }
++    void Add(u64 source, u32 words, u64 hash, bool dirty, u64 gpu_pages,
++             u64 list_pages, u64 drain_ns, u64 flush_ns, u64 read_ns) {
++        const u64 now = Now();
++        if (start == 0) start = now;
++        ++calls;
++        bytes += u64{words} * 4;
++        dirty_calls += dirty;
++        written_pages += gpu_pages;
++        tracked_pages += list_pages;
++        drain_time += drain_ns;
++        flush_time += flush_ns;
++        read_time += read_ns;
++        const auto key = std::pair{source, words};
++        auto it = previous.find(key);
++        if (it != previous.end()) {
++            ++repeated;
++            if (it->second == hash) ++unchanged;
++            it->second = hash;
++        } else if (previous.size() < 4096) {
++            // Bounded diagnostic history, chosen 2026-11-08; overflow is counted, not reused.
++            previous.emplace(key, hash);
++        } else {
++            ++untracked;
++        }
++        if (now - start < 10'000'000'000ULL) return;
++        LOG_INFO(HW_GPU, "MME read stats: seconds={} calls={} bytes={} dirty={} repeated={} "
++                        "unchanged={} untracked={} gpu_pages={} list_pages={} drain_ms={} "
++                        "flush_ms={} read_ms={} snapshot_tries={} snapshot_hits={} "
++                        "snapshot_copied={} snapshot_synced={} snapshot_host={}",
++                 double(now-start)/1e9, calls, bytes, dirty_calls, repeated, unchanged, untracked,
++                 written_pages, tracked_pages, double(drain_time)/1e6,
++                 double(flush_time)/1e6, double(read_time)/1e6, snapshot_tries, snapshot_hits,
++                 snapshot_copied, snapshot_synced, snapshot_host);
++        start = now;
++        snapshot_tries = snapshot_hits = snapshot_copied = snapshot_synced = snapshot_host = 0;
++        calls = bytes = dirty_calls = repeated = unchanged = untracked = 0;
++        written_pages = tracked_pages = drain_time = flush_time = read_time = 0;
++    }
++    struct Hash {
++        size_t operator()(const std::pair<u64,u32>& key) const {
++            return std::hash<u64>{}(key.first) ^ (std::hash<u32>{}(key.second) << 1);
++        }
++    };
++    std::unordered_map<std::pair<u64,u32>,u64,Hash> previous;
++    u64 snapshot_tries{}, snapshot_hits{}, snapshot_copied{}, snapshot_synced{}, snapshot_host{};
++    u64 start{}, calls{}, bytes{}, dirty_calls{}, repeated{}, unchanged{}, untracked{};
++    u64 written_pages{}, tracked_pages{}, drain_time{}, flush_time{}, read_time{};
++};
++} // namespace VideoCommon
+diff --git a/src/video_core/nx2_mme_snapshot.h b/src/video_core/nx2_mme_snapshot.h
+new file mode 100644
+index 000000000..0ddca0657
+--- /dev/null
++++ b/src/video_core/nx2_mme_snapshot.h
+@@ -0,0 +1,77 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++
++#pragma once
++
++#include <algorithm>
++#include <limits>
++#include <span>
++#include "common/common_types.h"
++
++namespace VideoCommon {
++
++enum class Nx2MmeSource { Unknown, Copied, Synced };
++
++struct Nx2MmeSnapshotResult {
++    bool complete{};
++    u32 copied{};
++    u32 synced{};
++    u32 host_only{};
++};
++
++// Only reads copies after all preceding entries, including draws, have executed. This does
++// not grant scheduler ownership. Unknown/partial copies require the caller's original fallback.
++template <typename Translate, typename Mark, typename Wait, typename Written, typename Copy,
++          typename Guest>
++Nx2MmeSnapshotResult Nx2ReadMmeSnapshot(u64 address, std::span<u8> out,
++                                       Translate&& translate, Mark&& mark, Wait&& wait,
++                                       Written&& written, Copy&& copy, Guest&& guest) {
++    Nx2MmeSnapshotResult result;
++    if (out.empty()) {
++        result.complete = true;
++        return result;
++    }
++    if (address > std::numeric_limits<u64>::max() - out.size()) {
++        return result;
++    }
++    if ((address & 3) != 0 || (out.size() & 3) != 0) {
++        return result;
++    }
++    const u64 end = address + out.size();
++    const auto next = [end](u64 chunk) {
++        return chunk + std::min<u64>(0x1000 - (chunk & 0xfff), end - chunk);
++    };
++    // Mark before waiting: even a first GPU writer still in the queue must be tracked.
++    for (u64 chunk = address; chunk < end; chunk = next(chunk)) {
++        const auto device = translate(chunk);
++        if (!device) return result;
++        mark(*device);
++    }
++    wait();
++    for (u64 chunk = address; chunk < end; chunk = next(chunk)) {
++        const auto device = translate(chunk);
++        if (!device) return result;
++        auto part = out.subspan(static_cast<size_t>(chunk - address),
++                               static_cast<size_t>(next(chunk) - chunk));
++        // This test follows the barrier. A queued first write may have set the bit.
++        if (!written(*device)) {
++            guest(chunk, part);
++            ++result.host_only;
++            continue;
++        }
++        switch (copy(*device, part)) {
++        case Nx2MmeSource::Copied:
++            ++result.copied;
++            break;
++        case Nx2MmeSource::Synced:
++            guest(chunk, part);
++            ++result.synced;
++            break;
++        default:
++            return result;
++        }
++    }
++    result.complete = true;
++    return result;
++}
++
++} // namespace VideoCommon

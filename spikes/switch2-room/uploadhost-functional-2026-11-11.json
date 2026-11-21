@@ -1,0 +1,46 @@
+{
+  "date_utc": "2026-11-11",
+  "status": "functional_passed_subsequent_comparison_completed",
+  "ELF_sha256": "13158042b7dae7041bc4ae255381dbbed90b1d7eb9f3ba04ea1b5be02d36f6a1",
+  "actual_allocations": [
+    {
+      "usage": "Stream",
+      "policy": "cached-coherent",
+      "type": 5,
+      "flags": 14,
+      "offset": 0,
+      "allocation_bytes": 134283264,
+      "mapped": true
+    },
+    {
+      "usage": "Upload",
+      "policy": "cached-coherent",
+      "type": 5,
+      "flags": 14,
+      "offset": 0,
+      "allocation_bytes": 16777216,
+      "mapped": true
+    }
+  ],
+  "visual": "Both roles, before/middle/after, same stationary Saria checkpoint; no obvious rendered defect; paired role PNG files byte-identical at each capture,3 distinct images actually viewed.",
+  "normal_shutdown": true,
+  "installed_state_unchanged": true,
+  "observer_restored_active": true,
+  "frozen_inputs_verified_unchanged": 183,
+  "scope": "Normal90s functional phase with first-allocation diagnostics. Not a reference image comparison, all byte/lifetime-path proof, performance comparison or40FPS result.",
+  "next": "Subsequent four-window comparison in uploadhost-comparison-2026-11-11.json; normal leaf cost profile being prepared.",
+  "proof_sha256": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uploadhost-ab-20261111/functional-accepted.json": "9de61846ce2acb56343d763d4537f3d764be858e7c1ebd2be837399660387f48",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uploadhost-ab-20261111/F1/prephase-review.json": "c2bd2293694d87411a51f9f1f9e01ccc077f014ffddb885eefd936607a861285",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uploadhost-ab-20261111/F1/postphase-review.json": "46ba5b1fac94bf8441a968e91a19c13770a6248130b9dd23569435941b503c75",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uploadhost-ab-20261111/F1/cleanup.json": "e71fbba2ddc36772a25e869b012124d6baa4550046464e61bf84fdb93e6ba29f",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uploadhost-ab-20261111/F1/auto-result.json": "c7a492de3c5704e364ca59649aa2c953308206c0176d2067aa5cc672380b4106",
+    "/home/souhib/.local/state/nel3ab/test-switch2-blzcyu/browser-phase-result.json": "516572694125a9c6023b0f69cbf906c3a846258543c1f02fed8984051ebf35cd",
+    "/home/souhib/.local/state/nel3ab/test-switch2-blzcyu/phase-exit.json": "078e7f9ed07806f53df2abeb26d1b454c8daf7761510589e1e54bcdff251f6a4",
+    "/home/souhib/.local/state/nel3ab/test-switch2-blzcyu/native-runtime-before-proof.json": "1a168f9a8b1f5aee9b0cd38db79255e14ddb4251594c7a89bbf082cee2ea34c6",
+    "/home/souhib/.local/state/nel3ab/test-switch2-blzcyu/native-runtime-proof.json": "c1b9fd0bdc345395fb60fe20049380b673edd5d1572cd22c388668a1c53cec65",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uploadhost-ab-20261111/uploadhost-preparation-report.json": "8a5e3c42676d53e35c330168fe22eed46803ebc5c906029e0b08f946c311704b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uploadhost-ab-20261111/prepared-manifest.json": "6bdfb884a1df58f1e236980a364a17026532991e1875585b2f91756563e17d45",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-uploadhost-ab-20261111/archive/functional-plan.json": "ee730711b9c22e8801323e477f2d442383646c924e3e6d0f96dc998afcd2cb97"
+  }
+}

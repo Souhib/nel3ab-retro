@@ -1,0 +1,86 @@
+{
+  "created": 1794280916.7819164,
+  "images": {
+    "base": "sha256:3f9b68831edfd252029d7773289b8a70d05f69f144f3ae8b6dc32b9843188793",
+    "donor": "sha256:75e09b6caa55eee211e04e89436ccab9d5b29050d6bf8cb7e22eee5db8286b1e",
+    "rejected_wrong_dist_packages_destination": "sha256:8a08e64aad87ab402a2d4e23ee79b6caf38a2fc8e23a986cfaf6e137e4ad7a00",
+    "derived": "sha256:df06b8ce129f41f2ee1484a465c190da2a1777c9bb2d6b2f6f0deef4263e0cd7"
+  },
+  "added": "Only16 evdev files157627 bytes copied from pinned donor into actual /opt/buildtools Python3.12 site-packages. One added layer43369 compressed bytes; parent directory entries root:root0755, identical inherited base image config/layers. No other binary/library/env/package change.",
+  "python_compatibility": {
+    "soabi": "cpython-312-x86_64-linux-gnu",
+    "actual_executable": "/opt/buildtools/bin/python3",
+    "native_so_ldd": {
+      "/opt/buildtools/lib/python3.12/site-packages/evdev/_input.cpython-312-x86_64-linux-gnu.so": "\tlinux-vdso.so.1 (0x00007068157f2000)\n\tlibc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007068155c9000)\n\t/lib64/ld-linux-x86-64.so.2 (0x00007068157f4000)\n",
+      "/opt/buildtools/lib/python3.12/site-packages/evdev/_uinput.cpython-312-x86_64-linux-gnu.so": "\tlinux-vdso.so.1 (0x00007e5470d23000)\n\tlibc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007e5470afb000)\n\t/lib64/ld-linux-x86-64.so.2 (0x00007e5470d25000)\n",
+      "/opt/buildtools/lib/python3.12/site-packages/evdev/_ecodes.cpython-312-x86_64-linux-gnu.so": "\tstatically linked\n"
+    }
+  },
+  "unchanged_libraries": {
+    "/usr/lib/x86_64-linux-gnu/libvulkan_radeon.so": "db177dceb616b9aa2572a75f834a15b9ceb3adcd57a1f2b90f0bddf1663c9f0b",
+    "/usr/lib/x86_64-linux-gnu/libstdc++.so.6": "1fd75fe70354a416d75aef22bcae68c47bd25d20e2d0568c30b1a9838cf62f11"
+  },
+  "red_first": "First browser failure retained e689 and repeated base pads import fails evdev; exact derived pads import succeeds. No pads.py --help exists: it unconditionally starts main, so non-main runpy import uses real /probe path instead. Real helper separately exercised.",
+  "real_helper": "Actual project pad_command imported unchanged; CAP_CHOWN/CAP_FOWNER only. Four devices; socket from user1000 consumer with explicit4 event-device grants; kernel state positive distinct axes/button/trigger, invalid player negative, explicit neutral, timeout neutral, exit0/socket/devices absent. Helper itself never granted extra event cgroup access.",
+  "capture_prerequisites": "Actual capture.py import without main using synthetic display.json; actual executable literals recorder --help and parec --version plus ldd pass in no-device/no-network container. No actual recording proven.",
+  "cleanup": {
+    "no_own_helper_container": true,
+    "no_own_kernel_pads": true,
+    "observer_active": true,
+    "production_config_and_eight_saves_unchanged": true,
+    "no_game_launched": true
+  },
+  "proof_files": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-image-fix/pads.log": "be7f1488218b9a473d1221a7c4ab338a55c8e33a8460c108beddc07004fbc73b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-image-fix/real-helper-reader-rejected.json": "fb2ac62565c70ac781f23981341106e4a567179e70a865d40711aaea3d7be82c",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-image-fix/prove-layer.py": "8a35ad0301a333781fd8fbc2b6659a17ffa9d57ed9853dfc5c8b7b1389d54f4e",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-image-fix/actual-pad-command.json": "30b30cbd33a081a0b82ebfef28e6c2f08eef5ef3c0398f4b4e893fe5990669ec",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-image-fix/test-real-helper.py": "ad020499407abe829110a515042e01f518cd29e409cb54f92aeab3c28c99f330",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-image-fix/donor.json": "759fac9f77b30b40fddcc25c8ee4ca50b508b66fc5a9e41134bcaf524a8255aa",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-image-fix/derived-wrong-path.json": "7a686e4fbbaa0aaf0a073d1262cd222b84e3d4668cd396576cb9fa0c9f737210",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-image-fix/derived.json": "0c92ebfdee674ac0458db0697f10ff4c3fb4ea1dee443b9ca1bc3ba20d098e7e",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-image-fix/build-first-failed.log": "caa46ad9d60b1c9127b1c9e317a775655d5f53b194babd016a81e9bd737e9c36",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-image-fix/check-capture.py": "eec00604b2b2910b24e7b789153d0bcefb75d1e6e1bcc8688470de8a8b3c6bc2",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-image-fix/archive-attempt.py": "d2bfd07b26bc10ddfaaee3c64db766995ccc244768a8cb578af4ae585e667794",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-image-fix/derived-image-inspect.json": "f402a7a7c76f193c0639f4a1110243675c6bec98494058606e00deba595dfc98",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-image-fix/images.json": "23ef17d493476d785d30754dd8deb50271a9d6c70d2397fe887a0890defd0569",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-image-fix/capture-dependencies.json": "246d88469f155bf9b94631c2b6db19c6249739f941e644e520d4caaa01b22ad6",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-image-fix/only-added-layer.tar.gz": "a54f4b4b10df4c4e63959fb3143e339e742294da8cc496e26a6fc532ea4e0088",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-image-fix/build.json": "3b014b179758b635a9f9b5d0b47ec0bdb069106afb3cad4bff5e1b9ff4e9408b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-image-fix/base-pads-import.json": "d2c55c9d5c70375ba3e40ffe78ea2f894eb2793b00eb4f78a0a11e7416409b00",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-image-fix/derived-pads-import-without-script-path.json": "fd29885b3b715efcd26f3eda719942aabdbed632edf1f681afce81be48785d31",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-image-fix/layer-proof.json": "c7af6efefc915f25af68378912a16704a3cf58aec6ed449d23c728ebb8555eac",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-image-fix/derived-pads-import.json": "4d01f430a4cf4129726a26cc00978abe042aa552a9c281ef1bf6a64736bcee2c",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-image-fix/inspect_image.py": "0c07cfce7e71ac1a0ca2f01c0c9fb42ed6f8dbb928abfb8dcb22119029df75f7",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-image-fix/real-helper-first-result.json": "30c15cddb1a3831d3444a4cbea01abfdc5a8ce0aa4c8adb764cf75140befe504",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-image-fix/kernel-read.py": "9f0c760270828dafe56f092f8fd92b9e0872e538b95ea71ff626d9e471f775c7",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-image-fix/build.log": "e298a447c1610f09f61c1d7032ab0fc587b0ab0c5b52c438d1ff510248ade33c",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-image-fix/donor-inspection-shadowed.json.txt": "ead16c7e0fdf3a953be14070bdbe19f6940fd3222450feae27dc650014e869fe",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-image-fix/base.json": "7a686e4fbbaa0aaf0a073d1262cd222b84e3d4668cd396576cb9fa0c9f737210",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-image-fix/real-helper-result.json": "58a7192b2a333be67bc0bccdf233294dc476ebaafa4cd5bb6c16d4c37656baad",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-image-fix/derived-oci-manifest.json": "6de998ecc03a1ae6cde47d817ffcbfb4bff974dfe70505b3f5b49f87a2d1db59",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-image-fix/update-watchdog.py": "77f4f8acdc4d2e34ee554148f4cc16dacd4b42e5e0f90f6eecdc5159ca357db8",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-image-fix/base-image-inspect.json": "69c0bb67679aa0c56c224e6373fa6c50abfe3ccfbc7d5f8811b35ae9789fa5b0",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/browser-image-fix/context/Dockerfile": "7ae510dc2131c0b57a264626f7c487fe8a708ef21342358c66ec6c163b803b40"
+  },
+  "date_utc": "2026-11-10",
+  "status": "No-game image and real controller-helper qualification; browser retry remains pending",
+  "private_manifest_sha256": "bf35ef191d62761335b82b2ca283901c9d2e31297d25db86ce7a39a546295770",
+  "capture_commands": {
+    "/usr/local/bin/nel3ab-wf-recorder": {
+      "sha256": "f958eb7fe8c853b22a152ea59bef73740a5716f0b976820510208bd1a2909514",
+      "exit": 0
+    },
+    "/usr/bin/parec": {
+      "sha256": "925943b3e978dfbda45d1d716aae7dc9491dcbcce290a69ddda9c163f3ca860b",
+      "exit": 0
+    }
+  },
+  "root_review": {
+    "proof_files_rehashed": 31,
+    "four_real_controller_states_and_lifecycle_read": true,
+    "one_added_evdev_layer_and_unchanged_Radv_libstdcpp_checked": true,
+    "watchdog_driver_delta_read": true,
+    "first_attempt_archive_34_files_rehashed": true
+  }
+}

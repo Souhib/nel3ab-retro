@@ -1,0 +1,185 @@
+{
+  "phases": [
+    {
+      "label": "installed-1",
+      "version": "installed",
+      "measurement": {
+        "requested_seconds": [
+          94.14510617256164,
+          184.335581
+        ],
+        "covered_seconds": 54.8358,
+        "game_presentations": 1200,
+        "game_fps": 21.883514054686902,
+        "window_fps_median": 21.91945935707819,
+        "maximum_frame_ms": 97.91,
+        "frames_over_100_ms": 0,
+        "windows": [
+          {
+            "start": 106.24802400000002,
+            "end": 134.776224,
+            "mean_us": 47547,
+            "maximum_us": 97910,
+            "freezes": 0
+          },
+          {
+            "start": 134.689243,
+            "end": 160.996843,
+            "mean_us": 43846,
+            "maximum_us": 81174,
+            "freezes": 0
+          }
+        ]
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.004893052857369
+      }
+    },
+    {
+      "label": "rc3-pgo-1",
+      "version": "rc3-pgo",
+      "measurement": {
+        "requested_seconds": [
+          139.32303533554077,
+          223.517514
+        ],
+        "covered_seconds": 49.5084,
+        "game_presentations": 1200,
+        "game_fps": 24.23831107448433,
+        "window_fps_median": 24.23831177223965,
+        "maximum_frame_ms": 71.537,
+        "frames_over_100_ms": 0,
+        "windows": [
+          {
+            "start": 169.118852,
+            "end": 193.868852,
+            "mean_us": 41250,
+            "maximum_us": 66601,
+            "freezes": 0
+          },
+          {
+            "start": 193.786666,
+            "end": 218.545066,
+            "mean_us": 41264,
+            "maximum_us": 71537,
+            "freezes": 0
+          }
+        ]
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.1050551598891616
+      }
+    },
+    {
+      "label": "installed-2-retry",
+      "version": "installed",
+      "measurement": {
+        "requested_seconds": [
+          129.0847548007965,
+          214.058728
+        ],
+        "covered_seconds": 51.8316,
+        "game_presentations": 1200,
+        "game_fps": 23.151899613363277,
+        "window_fps_median": 23.15191481520708,
+        "maximum_frame_ms": 76.655,
+        "frames_over_100_ms": 0,
+        "windows": [
+          {
+            "start": 160.93456,
+            "end": 186.87136,
+            "mean_us": 43228,
+            "maximum_us": 76655,
+            "freezes": 0
+          },
+          {
+            "start": 186.780802,
+            "end": 212.675602,
+            "mean_us": 43158,
+            "maximum_us": 70020,
+            "freezes": 0
+          }
+        ]
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.1043475070036948
+      }
+    },
+    {
+      "label": "rc3-pgo-2",
+      "version": "rc3-pgo",
+      "measurement": {
+        "requested_seconds": [
+          109.07118020057678,
+          198.368188
+        ],
+        "covered_seconds": 51.8268,
+        "game_presentations": 1200,
+        "game_fps": 23.15404385375906,
+        "window_fps_median": 23.160110500148132,
+        "maximum_frame_ms": 166.285,
+        "frames_over_100_ms": 1,
+        "windows": [
+          {
+            "start": 132.209452,
+            "end": 158.542252,
+            "mean_us": 43888,
+            "maximum_us": 88280,
+            "freezes": 0
+          },
+          {
+            "start": 158.46222,
+            "end": 183.95622,
+            "mean_us": 42490,
+            "maximum_us": 166285,
+            "freezes": 1
+          }
+        ]
+      },
+      "shutdown": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.2035548631101847
+      }
+    }
+  ],
+  "pooled": {
+    "installed": {
+      "fps": 22.49984531356347,
+      "seconds": 106.6674,
+      "presentations": 2400,
+      "over100ms": 0
+    },
+    "rc3-pgo": {
+      "fps": 23.683774246263884,
+      "seconds": 101.3352,
+      "presentations": 2400,
+      "over100ms": 1
+    }
+  },
+  "change_percent": 5.261942543163678,
+  "limits": "Whole official package comparison; one failed installed startup excluded and retained. No30fps achieved. Initial cache copies same, then independent.",
+  "failed_run": "installed-2",
+  "date": "2026-11-09",
+  "game": "Zelda, Kokiri balcony, alternating camera sweeps",
+  "upstream_revision": "78743f30c251f66bd77e6eea6c28d8632d642d6f",
+  "release": "v0.1.0-rc3, 2026-11-08T16:21:38Z",
+  "release_url": "https://github.com/Eglantine-Community/Eglantine/releases/tag/v0.1.0-rc3",
+  "installed_cli_sha256": "4b699e8f17caffebebdee60f5fa3a721f9a7b2714fb7df4216044ace8624bae8",
+  "rc3_pgo_cli_sha256": "e140f33fc92b589067424556b92df37c72ddada2de71423856f49159630b1be1",
+  "method": "A/B/A/B, same initial private state, checkpoint and update, camera input, native presentation windows entirely inside recorded wall-time phases, compositor 120Hz, native scale, split0, NO_MESH=1, no compiler/profiler/CI worker during phases. All four actual gameplay images reviewed. No claim of 30fps, complete world or audio/zone/save validation for rc3."
+}

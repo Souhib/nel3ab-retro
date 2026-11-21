@@ -1,0 +1,35 @@
+{
+  "image": "sha256:df06b8ce129f41f2ee1484a465c190da2a1777c9bb2d6b2f6f0deef4263e0cd7",
+  "imageId": "sha256:df06b8ce129f41f2ee1484a465c190da2a1777c9bb2d6b2f6f0deef4263e0cd7",
+  "helperImage": "sha256:df06b8ce129f41f2ee1484a465c190da2a1777c9bb2d6b2f6f0deef4263e0cd7",
+  "observerImage": "sha256:df06b8ce129f41f2ee1484a465c190da2a1777c9bb2d6b2f6f0deef4263e0cd7",
+  "fourPlayers": true,
+  "rumbleAllPlayers": true,
+  "rumbleFailureKeepsInput": true,
+  "rumbleRecovery": true,
+  "buttons": 16,
+  "fractionalAxes": true,
+  "configurationNeutral": true,
+  "namedProfiles": true,
+  "reload": true,
+  "spectatorRelease": true,
+  "disconnectRelease": true,
+  "mobileOverflow": false,
+  "pageErrors": [],
+  "html": "b9b4b3882a8c4ce392100ceba037f5fdc3a6538dc05c0053c819c61dc89c40fc",
+  "root": "/tmp/nel3ab-switch-controls-eGUsFg",
+  "date_utc": "2026-11-10",
+  "scope": "Four disposable kernel controllers through browser bridge on the actual selected helper image; does not claim four-player Zelda support",
+  "cleanup": {
+    "test_containers_absent": true,
+    "test_kernel_pads_absent": true,
+    "own_bridge_pids_absent": true
+  },
+  "gate_exit": 0,
+  "post_image_assertions_driver_exit": 0,
+  "logs_sha256": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/title-profile-controls-gate.log": "2b4163e10658e5580a921997f765a436e285da8145f7b9653a889887cd7b1f4a",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/title-profile-controls-image-proof.log": "b5ff2a1c8a570522bcda50d70ceac33de42a4a516a9cc4b92d04857fab97e46a"
+  },
+  "driver_sha256": "4aabb5eb8b19387cb9de03e21720d9bd5d34dbcbd9d6e9c3ecceedd50f687724"
+}

@@ -1,0 +1,252 @@
+{
+  "date_utc": "2026-11-10",
+  "at_unix": 1794358449.4944885,
+  "status": "Native build/CPU, real private functional gate and four uncapped alternating phases complete; constant40 not achieved, candidate remains private",
+  "initial_preparation": {
+    "at_unix": 1794353788.1221864,
+    "source": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/source-lichii-readtick1244-lab",
+    "build": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/build-lichii-readtick1244",
+    "copied_files": 5219,
+    "copy_seconds": 2.6596839427948,
+    "copy_byte_mode_mtime_identical": true,
+    "base_unchanged": true,
+    "download": [
+      {
+        "number": 1058,
+        "url": "https://github.com/jpkto/Lichii/compare/0ab7736df9dba2b396d2c7a26bd26fbb9b7b0dc0...4f97ba018447a7d2e9bfded55ba8df03edb4d79e.diff",
+        "head": "4f97ba018447a7d2e9bfded55ba8df03edb4d79e",
+        "base": "0ab7736df9dba2b396d2c7a26bd26fbb9b7b0dc0",
+        "bytes": 2163,
+        "sha256": "15213dcdb642bc2c16bbcefaa483aaae182c2a37fae488e7e51353a1ca6cd392"
+      },
+      {
+        "number": 1244,
+        "url": "https://github.com/jpkto/Lichii/compare/093e264c8a7959dbeffe60248750aeec30c92235...2e520a2f524322010bb322965a2d46b7bc07b1c4.diff",
+        "head": "2e520a2f524322010bb322965a2d46b7bc07b1c4",
+        "base": "093e264c8a7959dbeffe60248750aeec30c92235",
+        "bytes": 17844,
+        "sha256": "dc6c6a6ea6b55ea358fb95d50e9bb022c7b23cb6ef7ad775001240f4ed174dae"
+      }
+    ],
+    "1058_dry_run_exit": 0,
+    "no_patch_applied": true,
+    "no_build_started": true,
+    "no_game_started": true,
+    "date_utc": "2026-11-10",
+    "objective": "At least40FPS constant",
+    "status": "Independent source/build copies and pinned upstream diffs prepared; no applied patch, build, runtime or gain yet",
+    "scope": "Candidate1244 services guest read flushes on split back safe points;1058 shutdown waiter release is a prerequisite. JIT warm-up remains separately unqualified.",
+    "production_change": false,
+    "constant40_achieved": false,
+    "review": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-review-20261110/conclusion.txt",
+    "qualification_design": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-review-20261110/readtick-cpu-qualification-design.txt"
+  },
+  "source": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/source-lichii-readtick1244-lab",
+  "build": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/build-lichii-readtick1244",
+  "source_port_applied": true,
+  "source_changed": {
+    "at_unix": 1794354863.634979,
+    "source": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/source-lichii-readtick1244-lab",
+    "base": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/source-lichii-coarse65-lab",
+    "changed": {
+      "src/video_core/gpu.cpp": {
+        "base_sha256": "20a851fcb9858600455d331263d959892b33d3bc4539890ccea9c866113efd1d",
+        "candidate_sha256": "c82a7c02e8b46ad6fbbc832232e75d73a049e8173c90976e52ba687f357931a2",
+        "candidate_mtime_ns": 1794354323865037862
+      },
+      "src/video_core/gpu.h": {
+        "base_sha256": "83885af1768e43fb12f85c86391dfaee87a5e311da803168cf23963a961d1679",
+        "candidate_sha256": "135eba6dd53b2d8872feafab03b7df2dd0940ef22fc6cda0df9f282cb90d697c",
+        "candidate_mtime_ns": 1794354323864037861
+      },
+      "src/video_core/gpu_split.cpp": {
+        "base_sha256": "ac855cde82d6497a517e0c5cd7c5acfd84dd5d0555508d9fdb55df71a4ea10d6",
+        "candidate_sha256": "f4ed7fe387ff82525aa86975f51ddb6459722b68e3f5e624a07413c0a660d50f",
+        "candidate_mtime_ns": 1794354276645316460
+      },
+      "src/video_core/gpu_split.h": {
+        "base_sha256": "9ab4574009dce83a0a8ac56d7cd14c604d20c3b75c0b8d81177eb9b9a619aa59",
+        "candidate_sha256": "b1a11b0b9a91a08d55ed5242c351abba1b6166976a7bf5d0647a9094425d153f",
+        "candidate_mtime_ns": 1794354276645531032
+      },
+      "src/video_core/renderer_vulkan/vk_rasterizer.cpp": {
+        "base_sha256": "33737ec7f82aaae9fbefacad60712b48ecd05bf970b78a4fa5991308f7ed180b",
+        "candidate_sha256": "5ca8a51e49e6fa5eda57346dc22da578dd1f85e94977a4f4babb1c709c663750",
+        "candidate_mtime_ns": 1794354276646015221
+      },
+      "src/video_core/renderer_opengl/gl_rasterizer.cpp": {
+        "base_sha256": "7a0c9408f98a94f8fb2d61880253ae50920c7c0f0980c6377ef9d946d411cbde",
+        "candidate_sha256": "caec5f99447dbbba227673856fda2aa564abb1a103e2b618119140498a8876d9",
+        "candidate_mtime_ns": 1794354276646573157
+      },
+      "src/tests/video_core/maxwell_fast_method.cpp": {
+        "base_sha256": "29431d6ba1981d78bdb6442bef3c188cdadd5ab40a512555a6b0b6e0861624e2",
+        "candidate_sha256": "65b09160b84d564f8fa5157c66419633ef8e0eabdcb6ae9a44322ec67168702c",
+        "candidate_mtime_ns": 1794354555180147848
+      },
+      "src/core/debugger/nx2_debug_tools.cpp": {
+        "base_sha256": "8f2daab344673ec96c81d3a9ed787f7328a89cc3208b6af3ce86a124a944eeeb",
+        "candidate_sha256": "6fc8d689d0f1e4184c965360932ee47e54d5392248b902581c3af4f6aaf6336a",
+        "candidate_mtime_ns": 1794354323865037862
+      }
+    },
+    "only_changed_files_hashed": true,
+    "video_core_cpp_identical_to_base": true,
+    "compiled": false,
+    "tests_executed": false
+  },
+  "fixtures_generated_units": 20,
+  "fixtures_executed": true,
+  "full_build_started": true,
+  "candidate_ELF_qualified": false,
+  "constant40_achieved": false,
+  "production_change": false,
+  "current_constraint": "No external blocker or hardware ceiling proved; next source candidate#1216 needs qualification",
+  "proof_files_sha256": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/readtick1244-preparation-20261110/base-source.json": "2189cfc39fde59e20c0fa420a59107a02204784a35df918387d18b52a6e70da1",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/readtick1244-preparation-20261110/preparation.json": "f3257fcbfba770985786ae3bf4b0ab005a9b03747be5d405a910433f392aff43",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/readtick1244-preparation-20261110/1058-dry-run.log": "10c46c022524b576dfa00e5824bf7e7eaeca1a00a0ba78a95463638d2b747ec6",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/readtick1244-preparation-20261110/upstream1058-pinned.diff": "15213dcdb642bc2c16bbcefaa483aaae182c2a37fae488e7e51353a1ca6cd392",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/readtick1244-preparation-20261110/upstream1244-pinned.diff": "dc6c6a6ea6b55ea358fb95d50e9bb022c7b23cb6ef7ad775001240f4ed174dae",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-review-20261110/conclusion.txt": "058d350103ef866796f7ec8ca24ce29fb987dee5907b9b88225c401478dafc14",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-review-20261110/readtick-cpu-qualification-design.txt": "0c3aef234b7f5ad941bf8f57e35831972803b43d58bf7f59a56d7d7a2fb8559d",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/readtick1244-preparation-20261110/README.txt": "869b1605f2fa25c10f77be7a0febae11e6bb1ea3def844d260e63a6f5e7d8b57",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/readtick1244-preparation-20261110/changed-inputs.json": "fff7584ec1f883148ddf980a5a8277ac7b584d3a69a82573c55437b60595b7bb",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/readtick1244-preparation-20261110/composed-private.diff": "9ebe13fa00940d6deca086c633b1dfab5c52dcf468ff2dbbacf0f4868320abd3",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/readtick1244-preparation-20261110/fixtures/generated/manifest.json": "a27d447fa195f92e0f139efa459e73e438e2b41f18401b8b71a0ca47d9108c4b",
+    "spikes/switch2-room/amont/readtick1058-1244-2026-11-10.patch": "9ebe13fa00940d6deca086c633b1dfab5c52dcf468ff2dbbacf0f4868320abd3",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/readtick1244-preparation-20261110/root-review.txt": "f1de44dd01bfcdc07816db3c1aaba3d1d4dd9c40c917b5c265309bda50bd62b6",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/readtick1244-preparation-20261110/prepared-before-run-manifest.json": "a27d447fa195f92e0f139efa459e73e438e2b41f18401b8b71a0ca47d9108c4b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/readtick1244-preparation-20261110/fixtures/results/report.json": "2ed8161dd68f0de963b13e96e72e68d0ab054e898679293a9d90ea437696d0c7",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/readtick1244-preparation-20261110/cpu-qualification-result.json": "4ddbf4173ff92ac5cd57d8396aeca1a78316ed6a1af69fde6881b6abf17a0ac8",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/readtick1244-preparation-20261110/cpu-qualification.log": "69fed9332dbc6da95622251d2ced5e5323d8ca762e0ec0c00ef28cb7c2bb3626",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/readtick1244-preparation-20261110/counter-contract.log": "7c66d53446f40a3c47d29ef9ef891f2ee6a8bf29b63f68663ece454ee25a967a",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/readtick1244-preparation-20261110/build-command.json": "4f474a2f7498e2697174fc05ed9ab75af2be5db942d5ed562f8bf28690d09016",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/readtick1244-preparation-20261110/build-inputs.json": "745f18bee219626bfdf70909c9c91c5668161b4f54664a5c8ccdec793bd8379f",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/readtick1244-preparation-20261110/build-result.json": "e54e128424fb68949db605facd0cdb7a08161ac5e23dc53253574d093a466140",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/readtick1244-preparation-20261110/native-build-evidence.json": "c31dbb0ea503b56575862e141ebc5a989e4820620bba75c64acf6b48903dae7e",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/readtick1244-preparation-20261110/native-targeted-command.json": "4caba2bc105d6de9eba8b35b1030689712d4c38c20b4f2ed7c76b7b482c909dc",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/readtick1244-preparation-20261110/native-targeted-result.json": "edf50e39967cc0f261f2e9fad1fa7f7b00983b3a86eff661ddff457f12b2b115",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/readtick1244-preparation-20261110/native-full-command.json": "a719ec5076c65324299460e29b06249b928a2e8f31bf4750103347ea70da0c85",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/readtick1244-preparation-20261110/native-full-result.json": "fd09bc21a42dae142cb70a69df9c9b9c9a136f6077cddbdc5e86e4ba89d831dc",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/readtick1244-preparation-20261110/native-tests-result.json": "01ca27534c83442e0556679b601ecc3cbee3a8c245bc1051b0030db69bb40f9c",
+    "spikes/switch2-room/readtick-runtime-bootstrap-2026-11-11.json": "874c28df546397c5889895b8a50e62b1025056b0a80a70d5880cb586800a756d"
+  },
+  "root_source_review": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/readtick1244-preparation-20261110/root-review.txt",
+  "last_updated_utc": "2026-11-11",
+  "full_build_passed": true,
+  "CPU_fixture_results": {
+    "cases": 20,
+    "positives": 2,
+    "expected_negatives": 18,
+    "positives_after_mutants_passed": true,
+    "scope": [
+      "Generation fixture runs exact RequestTick/MaybeTick and exact BackLoop state transitions with a scheduling atomic adapter; it does not run BackLoop itself.",
+      "Queue fixture runs exact queue/shutdown/counter bodies with real mutex/CV and declared thread manager/rasterizer doubles.",
+      "Native tests cover real BackLoop and public GPU queue separately. Vulkan dispatch locks and actual downloads remain outside CPU-double qualification."
+    ],
+    "GPU_or_game_executed": false
+  },
+  "native_build": {
+    "build": {
+      "started_unix": 1794356040.2280037,
+      "ended_unix": 1794356565.3460612,
+      "seconds": 525.1180577278137,
+      "returncode": 0,
+      "interference": [],
+      "error": null,
+      "container_name": "nel3ab-readtick1244-build-92ef5e6c06",
+      "qualified_build": true
+    },
+    "rebuilt_changed_translation_units": [
+      {
+        "source": "src/video_core/gpu.cpp",
+        "object": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/build-lichii-readtick1244/src/video_core/CMakeFiles/video_core.dir/gpu.cpp.o",
+        "object_mtime_ns": 1794356115411043724,
+        "object_sha256": "dceda8bf4316fbf7555aaf31bdcd905be8cd3f764d34c1606cb19e58c1ff6828"
+      },
+      {
+        "source": "src/video_core/gpu_split.cpp",
+        "object": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/build-lichii-readtick1244/src/video_core/CMakeFiles/video_core.dir/gpu_split.cpp.o",
+        "object_mtime_ns": 1794356115508043866,
+        "object_sha256": "5256b34b4896bf1c52375148ab3e3fe6f3e398f23151dddd7e74d4eda3045614"
+      },
+      {
+        "source": "src/video_core/renderer_vulkan/vk_rasterizer.cpp",
+        "object": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/build-lichii-readtick1244/src/video_core/CMakeFiles/video_core.dir/renderer_vulkan/vk_rasterizer.cpp.o",
+        "object_mtime_ns": 1794356208542177328,
+        "object_sha256": "d2a3cecdc34620150c30d4becbaf7c182eb283a41d797475a1415ac738114e44"
+      },
+      {
+        "source": "src/video_core/renderer_opengl/gl_rasterizer.cpp",
+        "object": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/build-lichii-readtick1244/src/video_core/CMakeFiles/video_core.dir/renderer_opengl/gl_rasterizer.cpp.o",
+        "object_mtime_ns": 1794356282123279004,
+        "object_sha256": "c77adc66346418864d2d9c07247361618aef7698fba22d06299d3311de7453ac"
+      },
+      {
+        "source": "src/tests/video_core/maxwell_fast_method.cpp",
+        "object": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/build-lichii-readtick1244/src/tests/CMakeFiles/tests.dir/video_core/maxwell_fast_method.cpp.o",
+        "object_mtime_ns": 1794356332501346907,
+        "object_sha256": "25484f1fe2acc1f1df824d410db6b89a3ec130b38d3feaf11cb7f7999ce6033a"
+      },
+      {
+        "source": "src/core/debugger/nx2_debug_tools.cpp",
+        "object": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/build-lichii-readtick1244/src/core/CMakeFiles/core.dir/debugger/nx2_debug_tools.cpp.o",
+        "object_mtime_ns": 1794356053982952117,
+        "object_sha256": "1eba3b9264178468368de1b94169fa34ac6a81b9ff1320110ce06a41a5dcedc6"
+      }
+    ],
+    "ELF": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/build-lichii-readtick1244/bin/eden-cli",
+    "ELF_sha256": "c686c1ff5811dd4aeba3f92d8da7717724dab9f1f3978e7c73897899769852d4",
+    "tests_sha256": "e38c2673a2c984914444425c7e80c77c1e44cf5176983d2dad55af63413b682e",
+    "marker_present_in_ELF": true,
+    "runtime_activation_not_yet_proven": true
+  },
+  "native_tests": {
+    "passed": true,
+    "runs": [
+      {
+        "kind": "targeted",
+        "start_unix": 1794356672.967873,
+        "end_unix": 1794356679.0638626,
+        "seconds": 6.095990180969238,
+        "returncode": 0,
+        "interference": [],
+        "error": null,
+        "container_absent": true,
+        "passed": true,
+        "cases": 15,
+        "skipped": [],
+        "failures": []
+      },
+      {
+        "kind": "full",
+        "start_unix": 1794356679.1159432,
+        "end_unix": 1794356718.261021,
+        "seconds": 39.14507842063904,
+        "returncode": 0,
+        "interference": [],
+        "error": null,
+        "container_absent": true,
+        "passed": true,
+        "cases": 1257,
+        "skipped": [
+          "LDN host validates join packets and does not allocate duplicate stations",
+          "LDN creates fresh identities for recreated networks and separate hosts",
+          "LDN reports a missing connection reply and ignores late replies",
+          "LDN waits for the selected host's connection reply"
+        ],
+        "failures": []
+      }
+    ],
+    "ELF_sha256": "c686c1ff5811dd4aeba3f92d8da7717724dab9f1f3978e7c73897899769852d4",
+    "scope": "real native tests, no network or GPU; no gameplay or Vulkan freshness qualification"
+  },
+  "actual_native_launch_observed": true,
+  "actual_native_shutdown_observed": true,
+  "actual_native_readtick_work_observed": true,
+  "controlled_runtime_phase_completed": true,
+  "runtime_bootstrap_report": "spikes/switch2-room/readtick-runtime-bootstrap-2026-11-11.json",
+  "functional_qualification_report": "spikes/switch2-room/readtick-functional-2026-11-11.json",
+  "comparison_report": "spikes/switch2-room/goal40-readtick-comparison-2026-11-11.json"
+}

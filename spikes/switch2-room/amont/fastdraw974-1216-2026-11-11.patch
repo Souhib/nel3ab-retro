@@ -1,0 +1,631 @@
+--- a/src/video_core/gpu_split.h
++++ b/src/video_core/gpu_split.h
+@@ -228,15 +228,15 @@
+             NoteAnyWrite();
+         }
+     }
+-    /// Defer, calling `func` with a copy of `words` (a std::span<const u32>).
++    /// Defer, calling `func` with a copy of `words` (a std::span<const u32>). `flags` as Defer's.
+     template <typename Func>
+     void DeferWords(const Func& func, std::span<const u32> words,
+-                    Writes writes = Writes::Anywhere) {
++                    Writes writes = Writes::Anywhere, u64 flags = 0) {
+         static_assert(std::is_trivially_copyable_v<Func> && alignof(Func) <= alignof(u64));
+         constexpr size_t function_words = (sizeof(Func) + sizeof(u64) - 1) / sizeof(u64);
+         const size_t payload = function_words + 1 + (words.size() + 1) / 2;
+         u64* const entry = Reserve(2 + payload);
+-        entry[0] = static_cast<u64>(Kind::Call) | (u64{payload} << 8);
++        entry[0] = static_cast<u64>(Kind::Call) | flags | (u64{payload} << 8);
+         entry[1] = reinterpret_cast<u64>(&CallWordsThunk<Func>);
+         std::memcpy(entry + 2, &func, sizeof(Func));
+         entry[2 + function_words] = words.size();
+--- a/src/video_core/nx2_fast_draw.h
++++ b/src/video_core/nx2_fast_draw.h
+@@ -68,6 +68,10 @@
+     return g_enabled.load(std::memory_order_relaxed);
+ }
+ 
++/// Whether the host binds vertex stream strides as dynamic state (set by the renderer): a
++/// stride change then leaves the pipeline as it is.
++inline std::atomic<bool> g_dynamic_strides{false};
++
+ /// Tests only.
+ inline void SetEnabledForTest(bool on) {
+     g_enabled.store(on, std::memory_order_relaxed);
+@@ -82,6 +86,15 @@
+     return verify;
+ }
+ 
++/// Diagnostic only: report normal delta execution without GPU_PROFILE or forced verification.
++[[nodiscard]] inline bool QualificationEnabled() {
++    static const bool enabled = [] {
++        const char* const value = std::getenv("EDEN_NX2_FAST_DRAW_QUALIFY");
++        return value != nullptr && value[0] == '1' && value[1] == '\0';
++    }();
++    return enabled;
++}
++
+ inline std::atomic<u64> g_serial{1};
+ /// The last break's reason and, for Register and Method, its 3D method (diagnostics).
+ inline std::atomic<u32> g_last_break{};
+--- a/src/video_core/engines/maxwell_3d.h
++++ b/src/video_core/engines/maxwell_3d.h
+@@ -3278,8 +3278,15 @@
+     static bool IsFastDrawParameter(u32 method);
+     /// Methods fast draw records as light changes (constant buffer data and binds).
+     static bool IsFastDrawDeltaMethod(u32 method);
+-    /// A vertex stream's address, size or limit (not its stride or enable).
++    /// A vertex stream's address, size or limit, and its stride and enable word where the host
++    /// binds strides as dynamic state (Nx2FastDraw::g_dynamic_strides).
+     static bool IsFastDrawVertexBuffer(u32 method);
++    /// Executable methods whose work leaves what a draw resolves to alone (counter resets, the
++    /// render enable condition): fast draw records nothing for them.
++    static bool IsFastDrawNeutralMethod(u32 method);
++    /// Registers only a report, the render enable condition or a macro memory read takes as
++    /// operands.
++    static bool IsFastDrawReportOperand(u32 method);
+     void NoteFastDrawConstantData(GPUVAddr begin, GPUVAddr end);
+ 
+     /// Handles a write to the CB_DATA[i] register.
+--- a/src/video_core/engines/maxwell_3d.cpp
++++ b/src/video_core/engines/maxwell_3d.cpp
+@@ -380,6 +380,8 @@
+     case MAXWELL3D_REG_INDEX(const_buffer.offset):
+     case MAXWELL3D_REG_INDEX(global_base_vertex_index):
+     case MAXWELL3D_REG_INDEX(global_base_instance_index):
++    // Written with the first vertex before each draw; nothing a draw resolves reads it.
++    case MAXWELL3D_REG_INDEX(vertex_id_base):
+     case MAXWELL3D_REG_INDEX(index_buffer.start_addr_high):
+     case MAXWELL3D_REG_INDEX(index_buffer.start_addr_low):
+     case MAXWELL3D_REG_INDEX(index_buffer.limit_addr_high):
+@@ -388,7 +390,46 @@
+         return true;
+     default:
+         return DrawManager::IsInstanceLoopMethod(method) || IsFastDrawDeltaMethod(method) ||
+-               IsFastDrawVertexBuffer(method);
++               IsFastDrawVertexBuffer(method) || IsFastDrawNeutralMethod(method) ||
++               IsFastDrawReportOperand(method);
++    }
++}
++
++bool Maxwell3D::IsFastDrawNeutralMethod(u32 method) {
++    switch (method) {
++    // A counter reset only touches the query cache. The render enable condition decides whether
++    // the next draws run (ShouldExecute, or host conditional rendering), not what they bind; a
++    // render pass either one ends is caught by the reusable draw's render pass check.
++    case MAXWELL3D_REG_INDEX(clear_report_value):
++    case MAXWELL3D_REG_INDEX(render_enable.mode):
++    // A report or semaphore release writes guest memory, which ProcessQueryGet notes as constant
++    // data: a delta draw that reads texture handles there takes the full path.
++    case MAXWELL3D_REG_INDEX(report_semaphore.query):
++        return true;
++    default:
++        return false;
++    }
++}
++
++bool Maxwell3D::IsFastDrawReportOperand(u32 method) {
++    // SET_MME_MEM_ADDRESS_A/B and the data RAM address: only the macro engine's memory reads use
++    // them, and what a macro does with the words reaches the engine as writes of its own.
++    constexpr u32 MmeMemAddressA = 0x154;
++    constexpr u32 MmeDataRamAddress = 0x156;
++    if (method >= MmeMemAddressA && method <= MmeDataRamAddress) {
++        return true;
++    }
++    switch (method) {
++    // Only the report_semaphore.query method reads them.
++    case MAXWELL3D_REG_INDEX(report_semaphore.address_high):
++    case MAXWELL3D_REG_INDEX(report_semaphore.address_low):
++    case MAXWELL3D_REG_INDEX(report_semaphore.payload):
++    // Only the render_enable.mode method reads them.
++    case MAXWELL3D_REG_INDEX(render_enable.address_high):
++    case MAXWELL3D_REG_INDEX(render_enable.address_low):
++        return true;
++    default:
++        return false;
+     }
+ }
+ 
+@@ -397,6 +438,12 @@
+     constexpr u32 stream_words = sizeof(Regs::VertexStream) / sizeof(u32);
+     if (method >= streams && method < streams + Regs::NumVertexArrays * stream_words) {
+         const u32 word = (method - streams) % stream_words;
++        // Word 0, the stride and the enable bit, where the host binds strides dynamically: the
++        // buffers are bound again with their strides on both paths (UpdateGraphicsBuffers), and
++        // the pipeline key holds strides only without extended dynamic state.
++        if (word == 0) {
++            return VideoCommon::Nx2FastDraw::g_dynamic_strides.load(std::memory_order_relaxed);
++        }
+         return word == 1 || word == 2; // address_high, address_low
+     }
+     constexpr u32 sizes = 0x600 / sizeof(u32); // SET_VERTEX_STREAM_SIZE_A/B (NativeVertexStreamSize)
+@@ -425,7 +472,15 @@
+ 
+ void Maxwell3D::ProcessMethodCall(u32 method, u32 argument, u32 nonshadow_argument, bool is_last_call) {
+     if (!DrawManager::IsInstanceLoopMethod(method) && !IsFastDrawDeltaMethod(method)) {
+-        VideoCommon::Nx2FastDraw::Break(VideoCommon::Nx2FastDraw::Reason::Method, method);
++        // A fence-flagged release signals a fence: never neutral for the fast draw path.
++        const bool neutral =
++            IsFastDrawNeutralMethod(method) &&
++            !(method == MAXWELL3D_REG_INDEX(report_semaphore.query) &&
++              regs.report_semaphore.query.operation == Regs::ReportSemaphore::Operation::Release &&
++              regs.report_semaphore.query.short_query != 0);
++        if (!neutral) {
++            VideoCommon::Nx2FastDraw::Break(VideoCommon::Nx2FastDraw::Reason::Method, method);
++        }
+     }
+     if (GetNativeMacroEngine().native_turing && method == MAXWELL3D_REG_INDEX(clear_surface)) {
+         LOG_DEBUG(HW_GPU, "Native GPU surface clear: value={:#x}", argument);
+@@ -877,6 +932,12 @@
+         static_cast<VideoCommon::QueryType>(regs.report_semaphore.query.report.Value());
+     const u32 payload = regs.report_semaphore.payload;
+     const u32 subreport = regs.report_semaphore.query.sub_report;
++    if (VideoCommon::Nx2FastDraw::Enabled()) {
++        // The release lands in guest memory: a short one writes the payload, a long one the
++        // 16-byte report.
++        const u64 bytes = regs.report_semaphore.query.short_query != 0 ? 4 : 16;
++        NoteFastDrawConstantData(sequence_address, sequence_address + bytes);
++    }
+     switch (regs.report_semaphore.query.operation) {
+     case Regs::ReportSemaphore::Operation::Release:
+         if (regs.report_semaphore.query.short_query != 0) {
+@@ -1791,7 +1852,10 @@
+                 AsyncReadback::MaybeReport();
+             }
+         },
+-        fs.parameters);
++        // The call itself does not end the fast draw path: the methods the macro calls end it
++        // or not, as any method does.
++        fs.parameters, VideoCommon::GpuSplit::Writes::Anywhere,
++        VideoCommon::GpuSplit::FastDrawNeutral);
+     const u64 position = split.Position();
+     fs.back_last = position;
+     const bool tracked = fs.control == Regs::ShadowRamControl::Track ||
+--- a/src/video_core/renderer_vulkan/vk_rasterizer.cpp
++++ b/src/video_core/renderer_vulkan/vk_rasterizer.cpp
+@@ -420,6 +420,17 @@
+       fence_manager(*this, gpu, texture_cache, buffer_cache, query_cache, device, scheduler),
+       frame_dump(device, memory_allocator, scheduler) {
+     scheduler.SetQueryCache(query_cache);
++    VideoCommon::Nx2FastDraw::g_dynamic_strides.store(
++        device.IsExtExtendedDynamicStateSupported() &&
++            device.IsExtVertexInputDynamicStateSupported(),
++        std::memory_order_relaxed);
++    if (VideoCommon::Nx2FastDraw::QualificationEnabled()) {
++        LOG_INFO(Render_Vulkan,
++                 "NX2_PRIVATE_FASTDRAW1216 selected=1 composed=974+1216 version=1 verify={} "
++                 "dynamic_strides={}",
++                 VideoCommon::Nx2FastDraw::VerifyEnabled(),
++                 VideoCommon::Nx2FastDraw::g_dynamic_strides.load(std::memory_order_relaxed));
++    }
+     buffer_cache.SetPendingCpuWrites(
+         [this](const std::function<void(DAddr, size_t)>& callback) {
+             gpu.ForEachPendingCpuWrite(callback);
+@@ -570,11 +581,20 @@
+     if (now - stats.window_start < 10'000'000'000ULL) {
+         return;
+     }
+-    // Logged only with EDEN_NX2_GPU_PROFILE or EDEN_NX2_FAST_DRAW_VERIFY.
+-    if (!VideoCommon::Nx2Profile::Enabled() && !fast_draw_verify) {
++    // Qualification also observes the normal path without forcing a full resolve.
++    if (!VideoCommon::Nx2Profile::Enabled() && !fast_draw_verify &&
++        !VideoCommon::Nx2FastDraw::QualificationEnabled()) {
+         stats = FastDrawStats{.window_start = now};
+         return;
+     }
++    if (VideoCommon::Nx2FastDraw::QualificationEnabled()) {
++        LOG_INFO(Render_Vulkan,
++                 "NX2_PRIVATE_FASTDRAW1216 window begin_ns={} end_ns={} delta_configured={} "
++                 "verified={} pipeline_mismatches={} view_mismatches={} binding_mismatches={} "
++                 "verify={}",
++                 stats.window_start, now, stats.delta, stats.verified, stats.pipeline_mismatches,
++                 stats.view_mismatches, stats.binding_mismatches, fast_draw_verify);
++    }
+     const double seconds = static_cast<double>(now - stats.window_start) / 1e9;
+     const auto per_second = [&](FullDraw reason) {
+         return static_cast<double>(stats.full[static_cast<size_t>(reason)]) / seconds;
+--- a/src/tests/video_core/fast_draw.cpp
++++ b/src/tests/video_core/fast_draw.cpp
+@@ -33,14 +33,25 @@
+ class SerialRasterizer final : public VideoCore::RasterizerInterface {
+ public:
+     std::vector<u64> draws;
++    std::vector<VideoCommon::QueryType> resets;
++    struct QueryCall {
++        GPUVAddr address;
++        VideoCommon::QueryType type;
++        VideoCommon::QueryPropertiesFlags flags;
++        u32 payload;
++        u32 subreport;
++    };
++    std::vector<QueryCall> queries;
+ 
+     void Draw(bool, u32) override { draws.push_back(FastDraw::Serial()); }
+     void DrawTexture() override {}
+     void Clear(u32) override {}
+     void DispatchCompute() override {}
+-    void ResetCounter(VideoCommon::QueryType) override {}
+-    void Query(GPUVAddr, VideoCommon::QueryType, VideoCommon::QueryPropertiesFlags, u32,
+-               u32) override {}
++    void ResetCounter(VideoCommon::QueryType type) override { resets.push_back(type); }
++    void Query(GPUVAddr address, VideoCommon::QueryType type,
++               VideoCommon::QueryPropertiesFlags flags, u32 payload, u32 subreport) override {
++        queries.push_back({address, type, flags, payload, subreport});
++    }
+     void BindGraphicsUniformBuffer(size_t, u32, GPUVAddr, u32) override {}
+     void DisableGraphicsUniformBuffer(size_t, u32) override {}
+     void SignalFence(std::function<void()>&& func) override { func(); }
+@@ -345,6 +356,56 @@
+     CHECK(f.Reusable());
+ }
+ 
++TEST_CASE("Fast draw keeps counter resets and the render enable condition light", "[fast_draw]") {
++    FastDrawFixture f;
++    f.DrawArrays(0, 3);
++    constexpr u32 clear_report = MAXWELL3D_REG_INDEX(clear_report_value);
++    f.Write(clear_report, f.Reg(clear_report) ^ 1);
++    f.DrawArrays(3, 3);
++    CHECK(f.Reusable());
++    f.Write(MAXWELL3D_REG_INDEX(render_enable.mode), 1); // True: the next draws run
++    f.DrawArrays(6, 3);
++    CHECK(f.rasterizer.draws.size() == 3);
++    CHECK(f.Reusable());
++}
++
++TEST_CASE("Fast draw records a report's memory write instead of breaking on it", "[fast_draw]") {
++    DeltaFixture f;
++    f.Write(MAXWELL3D_REG_INDEX(tex_header.address_high), 0);
++    f.Write(MAXWELL3D_REG_INDEX(tex_header.address_low), 0x40000);
++    f.Write(MAXWELL3D_REG_INDEX(tex_header.limit), 7);
++    const auto report = [&](u32 address) {
++        f.Write(MAXWELL3D_REG_INDEX(report_semaphore.address_high), 0);
++        f.Write(MAXWELL3D_REG_INDEX(report_semaphore.address_low), address);
++        f.Write(MAXWELL3D_REG_INDEX(report_semaphore.payload),
++                f.Reg(MAXWELL3D_REG_INDEX(report_semaphore.payload)) + 1);
++        f.Write(MAXWELL3D_REG_INDEX(report_semaphore.query), 0); // long release
++    };
++    f.DrawArrays(0, 3);
++    const u64 serial = FastDraw::Serial();
++    FastDraw::g_delta = {};
++    f.Write(0x155, f.Reg(0x155) + 0x40); // SET_MME_MEM_ADDRESS_B
++    report(0x30000);
++    CHECK(FastDraw::Serial() == serial);
++    REQUIRE(FastDraw::g_delta.num_writes == 1);
++    CHECK(FastDraw::g_delta.write_begin[0] == 0x30000);
++    CHECK(FastDraw::g_delta.write_end[0] == 0x30010);
++    f.DrawArrays(3, 3);
++    CHECK(f.Reusable());
++
++    // Into the texture headers a delta draw keeps: a full resolve.
++    report(0x40020);
++    CHECK(FastDraw::Serial() != serial);
++}
++
++TEST_CASE("Fast draw keeps the vertex id base as a draw parameter", "[fast_draw]") {
++    FastDrawFixture f;
++    f.DrawArrays(0, 3);
++    f.Write(MAXWELL3D_REG_INDEX(vertex_id_base), f.Reg(MAXWELL3D_REG_INDEX(vertex_id_base)) + 3);
++    f.DrawArrays(3, 3);
++    CHECK(f.Reusable());
++}
++
+ TEST_CASE("Fast draw keeps vertex stream addresses and sizes light", "[fast_draw]") {
+     DeltaFixture f;
+     const auto stream = [](u32 index, u32 word) {
+@@ -365,3 +426,192 @@
+     CHECK_FALSE(light(stream(0, 3)));     // frequency
+     CHECK_FALSE(light(0x600 / 4 + 64));   // past the sizes
+ }
++
++TEST_CASE("Fast draw keeps a vertex stream's stride light only with dynamic strides",
++          "[fast_draw]") {
++    DeltaFixture f;
++    constexpr u32 stride = MAXWELL3D_REG_INDEX(vertex_streams); // stream 0: stride and enable
++    const auto light = [&] {
++        FastDraw::g_delta = {};
++        const u64 serial = FastDraw::Serial();
++        f.Write(stride, f.Reg(stride) + 4);
++        return FastDraw::Serial() == serial;
++    };
++    const bool previous = FastDraw::g_dynamic_strides.exchange(false);
++    CHECK_FALSE(light()); // the stride is in the pipeline key
++    FastDraw::g_dynamic_strides.store(true);
++    CHECK(light());
++    f.DrawArrays(0, 3);
++    f.Write(stride, f.Reg(stride) + 4);
++    f.DrawArrays(3, 3);
++    CHECK(f.Reusable());
++    FastDraw::g_dynamic_strides.store(previous);
++}
++
++TEST_CASE("Fast draw keeps the render enable address light", "[fast_draw]") {
++    FastDrawFixture f;
++    f.DrawArrays(0, 3);
++    constexpr u32 high = MAXWELL3D_REG_INDEX(render_enable.address_high);
++    constexpr u32 low = MAXWELL3D_REG_INDEX(render_enable.address_low);
++    f.Write(high, f.Reg(high) ^ 1);
++    f.Write(low, f.Reg(low) + 0x40);
++    f.Write(MAXWELL3D_REG_INDEX(render_enable.mode), 1); // True: the next draws run
++    f.DrawArrays(3, 3);
++    CHECK(f.Reusable());
++}
++
++TEST_CASE("Fast draw breaks on a release that signals a fence", "[fast_draw]") {
++    DeltaFixture f;
++    constexpr u32 query = MAXWELL3D_REG_INDEX(report_semaphore.query);
++    constexpr u32 short_query = 1U << 28;
++    constexpr u32 report_only = 2;
++    f.Write(MAXWELL3D_REG_INDEX(report_semaphore.address_high), 0);
++    f.Write(MAXWELL3D_REG_INDEX(report_semaphore.address_low), 0x30000);
++    f.DrawArrays(0, 3);
++    FastDraw::g_delta = {};
++    u64 serial = FastDraw::Serial();
++    f.Write(query, 0); // long release: recorded as a memory write
++    CHECK(FastDraw::Serial() == serial);
++    f.Write(query, short_query | report_only); // a short report signals nothing
++    CHECK(FastDraw::Serial() == serial);
++    REQUIRE(FastDraw::g_delta.num_writes == 2);
++    CHECK(FastDraw::g_delta.write_end[1] == 0x30004);
++    f.Write(query, short_query); // short release: a fence
++    CHECK(FastDraw::Serial() != serial);
++}
++
++TEST_CASE("PR1216 neutral methods preserve counter and render decisions", "[fast_draw][pr1216]") {
++    FastDrawFixture f;
++    constexpr u32 mode = MAXWELL3D_REG_INDEX(render_enable.mode);
++    constexpr u32 override_method = MAXWELL3D_REG_INDEX(render_enable_override);
++    f.Write(override_method, 0);
++    f.Write(mode, 1);
++    f.DrawArrays(0, 3);
++    REQUIRE(f.rasterizer.draws.size() == 1);
++    const u64 serial = FastDraw::Serial();
++    f.Write(MAXWELL3D_REG_INDEX(clear_report_value),
++            static_cast<u32>(Maxwell3D::Regs::ClearReport::ZPassPixelCount));
++    REQUIRE(f.rasterizer.resets.size() == 1);
++    CHECK(f.rasterizer.resets[0] == VideoCommon::QueryType::ZPassPixelCount64);
++    CHECK(FastDraw::Serial() == serial);
++    f.Write(mode, 0);
++    CHECK_FALSE(f.maxwell3d.ShouldExecute());
++    f.DrawArrays(3, 3);
++    CHECK(f.rasterizer.draws.size() == 1);
++    f.Write(mode, 1);
++    REQUIRE(f.maxwell3d.ShouldExecute());
++    f.DrawArrays(6, 3);
++    REQUIRE(f.rasterizer.draws.size() == 2);
++    CHECK(f.Reusable());
++    f.Write(override_method, 2); // NeverRender must still defeat True.
++    f.Write(mode, 1);
++    CHECK_FALSE(f.maxwell3d.ShouldExecute());
++    f.DrawArrays(9, 3);
++    CHECK(f.rasterizer.draws.size() == 2);
++    f.Write(override_method, 1); // AlwaysRender must still defeat False.
++    f.Write(mode, 0);
++    CHECK(f.maxwell3d.ShouldExecute());
++    f.DrawArrays(12, 3);
++    CHECK(f.rasterizer.draws.size() == 3);
++    // A later real state change must still end reuse after all neutral writes.
++    f.Write(ViewportScaleX, f.Reg(ViewportScaleX) + 1);
++    f.DrawArrays(15, 3);
++    CHECK_FALSE(f.Reusable());
++}
++
++TEST_CASE("PR1216 render conditions still obey tracked shadow replay", "[fast_draw][pr1216]") {
++    for (const u32 track : {0U, 1U}) {
++        FastDrawFixture f;
++        constexpr u32 shadow = MAXWELL3D_REG_INDEX(shadow_ram_control);
++        constexpr u32 mode = MAXWELL3D_REG_INDEX(render_enable.mode);
++        f.Write(MAXWELL3D_REG_INDEX(render_enable_override), 0);
++        f.Write(shadow, track);
++        f.Write(mode, 0);
++        REQUIRE_FALSE(f.maxwell3d.ShouldExecute());
++        f.Write(shadow, 2); // Passthrough does not replace tracked False.
++        f.Write(mode, 1);
++        REQUIRE(f.maxwell3d.ShouldExecute());
++        f.Write(shadow, 3);
++        f.Write(mode, 1); // Replay must use False, not this new argument.
++        CHECK_FALSE(f.maxwell3d.ShouldExecute());
++        CHECK(f.Reg(mode) == 0);
++    }
++}
++
++TEST_CASE("PR1216 reports preserve payload size and one-byte header boundaries", "[fast_draw][pr1216]") {
++    DeltaFixture f;
++    constexpr u32 query = MAXWELL3D_REG_INDEX(report_semaphore.query);
++    f.Write(MAXWELL3D_REG_INDEX(tex_header.address_low), 0x40000);
++    f.Write(MAXWELL3D_REG_INDEX(tex_header.limit), 3);
++    f.Write(MAXWELL3D_REG_INDEX(tex_sampler.address_low), 0x50000);
++    f.Write(MAXWELL3D_REG_INDEX(tex_sampler.limit), 0);
++    f.Write(MAXWELL3D_REG_INDEX(sampler_binding),
++            static_cast<u32>(Maxwell3D::Regs::SamplerBinding::ViaHeaderBinding));
++    const auto report = [&](GPUVAddr address, bool short_query, bool breaks) {
++        FastDraw::g_delta = {};
++        const u64 serial = FastDraw::Serial();
++        const size_t before = f.rasterizer.queries.size();
++        f.Write(MAXWELL3D_REG_INDEX(report_semaphore.address_high), static_cast<u32>(address >> 32));
++        f.Write(MAXWELL3D_REG_INDEX(report_semaphore.address_low), static_cast<u32>(address));
++        f.Write(MAXWELL3D_REG_INDEX(report_semaphore.payload), 0x76543210);
++        f.Write(query, 2U | (short_query ? 1U << 28 : 0U)); // ReportOnly
++        REQUIRE(f.rasterizer.queries.size() == before + 1);
++        const auto& call = f.rasterizer.queries.back();
++        CHECK(call.address == address);
++        CHECK(call.payload == 0x76543210);
++        CHECK((static_cast<u32>(call.flags) &
++               static_cast<u32>(VideoCommon::QueryPropertiesFlags::IsAFence)) == 0);
++        CHECK((FastDraw::Serial() != serial) == breaks);
++        if (!breaks) {
++            REQUIRE(FastDraw::g_delta.num_writes == 1);
++            CHECK(FastDraw::g_delta.write_begin[0] == address);
++            CHECK(FastDraw::g_delta.write_end[0] == address + (short_query ? 4 : 16));
++        }
++    };
++    report(0x3fffc, true, false); // Ends exactly at TIC start.
++    report(0x3fffd, true, true);  // Reaches exactly one TIC byte.
++    report(0x3fff0, false, false);
++    report(0x3fff1, false, true);
++    report(0x4007f, true, true);  // Last byte of the TIC range.
++    report(0x40080, true, false);
++    report(0x50020, true, true);  // ViaHeaderBinding uses the TIC limit for TSC.
++    report(0x50080, true, false);
++    const size_t before = f.rasterizer.queries.size();
++    const u64 before_fence = FastDraw::Serial();
++    f.Write(query, 1U << 28); // Short release signals a fence, unlike ReportOnly.
++    CHECK(FastDraw::Serial() != before_fence);
++    REQUIRE(f.rasterizer.queries.size() == before + 1);
++    CHECK((static_cast<u32>(f.rasterizer.queries.back().flags) &
++           static_cast<u32>(VideoCommon::QueryPropertiesFlags::IsAFence)) != 0);
++}
++
++TEST_CASE("PR1216 report aliases reach kept headers and constant-buffer handles", "[fast_draw][pr1216]") {
++    DeltaFixture f;
++    f.memory.BindRasterizer(&f.rasterizer);
++    constexpr GPUVAddr target = 0x100000, alias = 0x300000, other = 0x500000;
++    f.memory.Map(target, 0x200000, 0x1000, Tegra::PTEKind::PITCH, false);
++    f.memory.Map(alias, 0x200000, 0x1000, Tegra::PTEKind::PITCH, false);
++    f.memory.Map(other, 0x400000, 0x1000, Tegra::PTEKind::PITCH, false);
++    const auto report = [&](GPUVAddr address) {
++        FastDraw::g_delta = {};
++        f.Write(MAXWELL3D_REG_INDEX(report_semaphore.address_high), 0);
++        f.Write(MAXWELL3D_REG_INDEX(report_semaphore.address_low), static_cast<u32>(address));
++        f.Write(MAXWELL3D_REG_INDEX(report_semaphore.query), 2U | (1U << 28));
++    };
++    FastDraw::DeviceSpans spans;
++    spans.Update(f.memory, target, 0x100);
++    report(alias + 0xfc);
++    CHECK(FastDraw::g_delta.Reaches(target, 0x100, spans));
++    report(alias + 0x100);
++    CHECK_FALSE(FastDraw::g_delta.Reaches(target, 0x100, spans));
++    report(other + 0xfc);
++    CHECK_FALSE(FastDraw::g_delta.Reaches(target, 0x100, spans));
++    f.Write(MAXWELL3D_REG_INDEX(tex_header.address_low), static_cast<u32>(target));
++    f.Write(MAXWELL3D_REG_INDEX(tex_header.limit), 7);
++    u64 serial = FastDraw::Serial();
++    report(alias + 0xfc);
++    CHECK(FastDraw::Serial() != serial);
++    serial = FastDraw::Serial();
++    report(alias + 0x100);
++    CHECK(FastDraw::Serial() == serial);
++}
+--- a/src/tests/video_core/maxwell_fast_method.cpp
++++ b/src/tests/video_core/maxwell_fast_method.cpp
+@@ -35,6 +35,7 @@
+ #include "video_core/gpu_split.h"
+ #include "video_core/memory_manager.h"
+ #include "video_core/nx2_async_readback.h"
++#include "video_core/nx2_fast_draw.h"
+ #include "video_core/renderer_null/null_rasterizer.h"
+ 
+ namespace VideoCommon {
+@@ -1897,3 +1898,113 @@
+     split.Drain();
+     REQUIRE(engine.regs.reg_array[copy] == shadow_value);
+ }
++
++TEST_CASE("PR1216 neutral DeferWords copies payload but preserves emitted method invalidations",
++          "[video_core][gpu_split_dependencies][pr1216]") {
++    using Access = VideoCommon::GpuSplitTestAccess;
++    namespace FastDraw = VideoCommon::Nx2FastDraw;
++    Fixture f;
++    VideoCommon::GpuSplit split;
++    Access::Initialize(split, f.system);
++    const bool was_enabled = FastDraw::Enabled();
++    FastDraw::SetEnabledForTest(true);
++    SCOPE_EXIT { FastDraw::SetEnabledForTest(was_enabled); FastDraw::g_delta = {}; };
++    std::vector<u32> observed;
++    std::vector<u32> payload{0x1234, 0x5678};
++    split.DeferWords([&observed](std::span<const u32> words) {
++        observed.assign(words.begin(), words.end());
++    }, payload, VideoCommon::GpuSplit::Writes::Anywhere, VideoCommon::GpuSplit::FastDrawNeutral);
++    const u64 end = Access::End(split);
++    CHECK(Access::WritesTarget(split, f.memory, 0x8000, 4) == end);
++    payload.assign(2, 0xbad); // The real ring must contain a submit-time copy.
++    REQUIRE(observed.empty());
++    const u64 before = FastDraw::Serial();
++    u64 position = Access::Execute(split, 0, end);
++    REQUIRE(position == end);
++    CHECK((observed == std::vector<u32>{0x1234, 0x5678}));
++    CHECK(FastDraw::Serial() == before);
++    const std::array<u32, 1> change{f.fast.regs.reg_array[MAXWELL3D_REG_INDEX(viewport_transform)] + 1};
++    split.DeferWords([engine = &f.fast, system = &f.system](std::span<const u32> words) {
++        engine->CallMethod(*system, MAXWELL3D_REG_INDEX(viewport_transform), words[0], true);
++    }, change, VideoCommon::GpuSplit::Writes::Anywhere, VideoCommon::GpuSplit::FastDrawNeutral);
++    position = Access::Execute(split, position, Access::End(split));
++    REQUIRE(position == Access::End(split));
++    CHECK(FastDraw::Serial() != before); // Neutral call does not suppress its methods.
++    const u64 changed = FastDraw::Serial();
++    split.DeferWords([](std::span<const u32>) {}, change); // Unguarded calls still break.
++    position = Access::Execute(split, position, Access::End(split));
++    CHECK(position == Access::End(split));
++    CHECK(FastDraw::Serial() != changed);
++}
++
++TEST_CASE("PR1216 actual back macro sees queued words and front reads its owned condition",
++          "[video_core][gpu_split_dependencies][pr1216]") {
++    using Access = VideoCommon::GpuSplitTestAccess;
++    namespace FastDraw = VideoCommon::Nx2FastDraw;
++    Fixture f;
++    f.system.Initialize();
++    Kernel::KProcess process{f.system.Kernel()};
++    SCOPE_EXIT { f.system.Kernel().UnregisterKernelObject(&process); };
++    auto& table = process.GetPageTable().GetImpl();
++    table.Resize(20, 12);
++    constexpr VAddr cpu = 0x4000;
++    constexpr DAddr device = 0x10000;
++    constexpr GPUVAddr address = 0x100000;
++    auto* backing = f.physical.GetPointerFromRaw<u8>(0x10000);
++    table.entries.GetAndFault(cpu >> 12).Store(false, Common::PageType::Memory, 1,
++        reinterpret_cast<uintptr_t>(backing) - cpu);
++    process.GetMemory().SetCurrentPageTable(process);
++    const auto asid = f.device_memory.RegisterProcess(&process.GetMemory());
++    f.device_memory.BindInterface(&f.rasterizer);
++    f.device_memory.Map(device, cpu, 0x1000, asid);
++    SCOPE_EXIT { f.device_memory.Unmap(device, 0x1000); f.device_memory.UnregisterProcess(asid); };
++    f.memory.BindRasterizer(&f.rasterizer);
++    f.memory.Map(address, device, 0x1000, Tegra::PTEKind::PITCH, false);
++    std::memset(backing, 0, 0x1000);
++    auto& engine = f.fast;
++    engine.SetNativeTuringMacroMode(true);
++    VideoCommon::GpuSplit split;
++    Access::Start(split, f.system);
++    SCOPE_EXIT { split.Stop(); };
++    const bool previous = FastDraw::Enabled();
++    FastDraw::SetEnabledForTest(true);
++    SCOPE_EXIT { FastDraw::SetEnabledForTest(previous); FastDraw::g_delta = {}; };
++    const auto front = [&](u32 method, u32 value, bool last = true) {
++        engine.FrontCallMethod(f.system, split, method, value, last);
++    };
++    constexpr u32 condition = MAXWELL3D_REG_INDEX(render_enable.mode);
++    constexpr u32 copy = MAXWELL3D_REG_INDEX(vertex_id_base);
++    const Mme read_condition{.end = true, .op = {22, 0}, .src_a = {25, 24},
++                             .imm = {condition, copy}, .out_method = {6, 0},
++                             .out_emit = {1, 0}};
++    std::vector<u32> code;
++    for (const auto instruction : {FifoInstruction(0x154, false), FifoInstruction(0x155, false),
++          FifoInstruction(0x158, true), FifoInstruction(condition, false),
++          Encode(read_condition), Encode(Mme{})}) {
++        code.insert(code.end(), instruction.begin(), instruction.end());
++    }
++    front(MAXWELL3D_REG_INDEX(load_mme.instruction_ptr), 0);
++    engine.FrontCallMultiMethod(f.system, split, MAXWELL3D_REG_INDEX(load_mme.instruction),
++                               code.data(), static_cast<u32>(code.size()), static_cast<u32>(code.size()));
++    front(MAXWELL3D_REG_INDEX(load_mme.start_address_ptr), 0);
++    front(MAXWELL3D_REG_INDEX(load_mme.start_address), 0);
++    front(MAXWELL3D_REG_INDEX(load_mme.start_address), 4);
++    front(MAXWELL3D_REG_INDEX(render_enable_override), 0);
++    front(condition, 0);
++    split.Drain();
++    for (const u32 value : {1U, 0U}) {
++        const u64 serial = FastDraw::Serial();
++        split.Defer([memory = &f.memory, value] { memory->Write<u32>(address, value); },
++                    VideoCommon::GpuSplit::FastDrawNeutral);
++        front(0xe00, 0, false);
++        front(0xe01, static_cast<u32>(address), false);
++        front(0xe01, 1);
++        // This macro runs on the front. Its register read must take the condition
++        // from the back's queued macro, not the front's previous cached value.
++        front(0xe02, 0);
++        split.Drain();
++        CHECK(engine.ShouldExecute() == (value != 0));
++        CHECK(engine.regs.vertex_id_base == value);
++        CHECK(FastDraw::Serial() == serial);
++    }
++}

@@ -1,0 +1,1013 @@
+{
+  "date_utc": "2026-11-08",
+  "upstream": {
+    "repository": "https://github.com/Djihads80/Eglantine",
+    "revision": "216d3e294367abd4742d7ebd736ef25a8db6f365"
+  },
+  "decision": "Do not install: the complete candidate is slower in both alternating repetitions. Retain diagnostics and the conservative summary as isolated study artifacts.",
+  "conditions": {
+    "split": 0,
+    "NO_MESH": 1,
+    "frame_generation": false,
+    "reactive_flushing": true,
+    "resolution": "1x",
+    "refresh_hz": 120,
+    "game_base": "0400486024DEC000",
+    "update": 131072,
+    "scene": "Kokiri tree-house balcony, mobile camera; actual avatar and world reviewed before/after all four phases",
+    "initial_homes_identical": true,
+    "initial_home_files": 3641,
+    "initial_cache_files": 3613,
+    "tools": "GCC13.3, CMake3.31.10, Ninja, RelWithDebInfo -O3 -g1 -DNDEBUG -fno-omit-frame-pointer; no LTO or PGO",
+    "runtime": "Same local build/runtime image nel3ab/eglantine-drain-build:2026-11-08; Mesa25.2.8ubuntu24.04.4 differs from installed .2, so no installed-vs-local patch attribution",
+    "control": "Pristine pinned local original, not candidate with flag disabled. Counts cost of summary maintenance and dormant diagnostic branches. Previous two source prototypes absent.",
+    "perf_instrumentation": "BUFFER_STATS=0 GPU_TIMINGS=0; no requests, compiler, profiler, tests or CI in measured phases; observer stopped only during lab runs",
+    "window_selection": "Observed wall clock relative to actual container start; strict complete600-present native windows in camera phase, conservative buffered log end; no late-window recovery"
+  },
+  "build_evidence": {
+    "operations": 82,
+    "rebuilt_examples": [
+      "vk_gpu_timing.cpp.o",
+      "vulkan_wrapper.cpp.o",
+      "cpu_upload_summary.cpp.o",
+      "buffer_cache implementation translation units"
+    ],
+    "activation": "stats=false fast_clean=true plus first clean range skipped; verified in each candidate run",
+    "patch_sha256": "f925a7441762831efb02181d4ff4aa7d5348f15241b4c6ab42e5b84c1e948ec7",
+    "applies_to_pristine_and_reverse_check": true
+  },
+  "comparison": {
+    "phases": [
+      {
+        "label": "clean-original-1",
+        "version": "original",
+        "phase_seconds": 91.44192602392286,
+        "measurement": {
+          "requested_seconds": [
+            84.53688106536865,
+            174.129409
+          ],
+          "covered_seconds": 53.5164,
+          "game_presentations": 1200,
+          "game_fps": 22.42303293943539,
+          "window_fps_median": 22.430821118520555,
+          "maximum_frame_ms": 89.742,
+          "frames_over_100_ms": 0,
+          "windows": [
+            {
+              "start": 105.26909,
+              "end": 132.52589,
+              "mean_us": 45428,
+              "maximum_us": 89742,
+              "freezes": 0
+            },
+            {
+              "start": 132.482554,
+              "end": 158.742154,
+              "mean_us": 43766,
+              "maximum_us": 79048,
+              "freezes": 0
+            }
+          ]
+        },
+        "thread_cpu_percent": {
+          "eden-cli": 1.1725045269143926,
+          "KWorkerTaskMana": 0.0,
+          "libusb_event": 0.0,
+          "ScanGCAdapter": 0.0,
+          "cemuhookWorker": 0.0,
+          "libusb": 0.0,
+          "JoyconScanThrea": 0.011725045269143926,
+          "wl_cursor_surfa": 0.08207531688400749,
+          "SDLTimer": 0.02345009053828785,
+          "HostTiming": 4.467242247543836,
+          "eden-cl:disk$0": 0.0,
+          "eden-cl:disk$1": 0.0,
+          "eden-cl:disk$2": 0.0,
+          "eden-cl:disk$3": 0.0,
+          "VulkanWorker": 26.46342717245784,
+          "VulkanPresent": 0.4455517202274692,
+          "TextureDecoder": 0.0,
+          "VkPipelineBuild": 0.0,
+          "VkPipelineSeria": 0.0,
+          "GPUFencingThrea": 5.651471819727372,
+          "AudioManager": 0.0,
+          "PulseMainloop": 0.633152444533772,
+          "PulseHotplug": 0.3634764033434617,
+          "DSP_OpusDecoder": 0.0,
+          "audio": 1.0552540742229533,
+          "FS": 0.02345009053828785,
+          "ldn": 0.0,
+          "nvservices": 0.0,
+          "bsdsocket": 0.0,
+          "vi": 0.0,
+          "bsdsocket:selec": 0.0,
+          "bsdsocket:1": 0.0,
+          "bsdsocket:2": 0.0,
+          "CPUCore_0": 44.707597611245795,
+          "CPUCore_1": 45.15314933147326,
+          "CPUCore_2": 42.10463756149584,
+          "CPUCore_3": 43.32404226948681,
+          "CPUCore_4": 41.096283668349464,
+          "CPUCore_5": 40.74453231027514,
+          "GPU": 84.9362279296786,
+          "TimeWorker": 0.0,
+          "VSyncThread": 0.05862522634571963,
+          "am:EventObserve": 0.0,
+          "nx2:ColdHint": 0.03517513580743178,
+          "SDLAudioP15": 0.6097023539954841,
+          "DSP_AudioRender": 3.587863852358041,
+          "AudioRenderSyst": 0.949728666800658,
+          "DeviceMemory:Co": 0.0
+        },
+        "cpu_temp_min_C": 86.0,
+        "cpu_temp_max_C": 93.25,
+        "gpu_busy_mean_percent": 67.86666666666666,
+        "shutdown": {
+          "exit_code": 0,
+          "stop_requested": true,
+          "window_closed": true,
+          "forced": false,
+          "stop_seconds": 2.8043795628473163
+        },
+        "build": {
+          "version": "original",
+          "sha256": "94635722d696abda72c10d21f29ab6a46a084c74b58cb7ce21dbc06f2377a042",
+          "optimized": false,
+          "diagnostic_disabled": true,
+          "marker_lines": [],
+          "first_skip": []
+        }
+      },
+      {
+        "label": "clean-optimized-1",
+        "version": "optimized",
+        "phase_seconds": 91.6065678941086,
+        "measurement": {
+          "requested_seconds": [
+            98.65897545814514,
+            189.333827
+          ],
+          "covered_seconds": 55.9494,
+          "game_presentations": 1200,
+          "game_fps": 21.447951184463104,
+          "window_fps_median": 21.52723403454293,
+          "maximum_frame_ms": 107.006,
+          "frames_over_100_ms": 4,
+          "windows": [
+            {
+              "start": 106.97237500000001,
+              "end": 136.644775,
+              "mean_us": 49454,
+              "maximum_us": 107006,
+              "freezes": 4
+            },
+            {
+              "start": 136.60173400000002,
+              "end": 162.878734,
+              "mean_us": 43795,
+              "maximum_us": 81410,
+              "freezes": 0
+            }
+          ]
+        },
+        "thread_cpu_percent": {
+          "eden-cli": 1.2872955185216897,
+          "KWorkerTaskMana": 0.0,
+          "libusb_event": 0.0,
+          "ScanGCAdapter": 0.0,
+          "cemuhookWorker": 0.0,
+          "libusb": 0.0,
+          "JoyconScanThrea": 0.01170268653201536,
+          "wl_cursor_surfa": 0.08191880572410752,
+          "SDLTimer": 0.02340537306403072,
+          "HostTiming": 4.435318195633821,
+          "eden-cl:disk$0": 0.0,
+          "eden-cl:disk$1": 0.0,
+          "eden-cl:disk$2": 0.0,
+          "eden-cl:disk$3": 0.0,
+          "VulkanWorker": 26.810854844847185,
+          "VulkanPresent": 0.456404774748599,
+          "TextureDecoder": 0.0,
+          "VkPipelineBuild": 0.0,
+          "VkPipelineSeria": 0.0,
+          "GPUFencingThrea": 5.769424460283572,
+          "AudioManager": 0.0,
+          "PulseMainloop": 0.6670531323248755,
+          "PulseHotplug": 0.4212967151525529,
+          "DSP_OpusDecoder": 0.0,
+          "audio": 1.1234579070734745,
+          "FS": 0.01170268653201536,
+          "ldn": 0.0,
+          "nvservices": 0.0,
+          "bsdsocket": 0.0,
+          "vi": 0.0,
+          "bsdsocket:selec": 0.0,
+          "bsdsocket:1": 0.0,
+          "bsdsocket:2": 0.0,
+          "CPUCore_0": 44.90320822334292,
+          "CPUCore_1": 45.418126430751606,
+          "CPUCore_2": 42.234995694043434,
+          "CPUCore_3": 43.147805243540624,
+          "CPUCore_4": 41.19345659269407,
+          "CPUCore_5": 40.713646444881434,
+          "GPU": 86.07325944297295,
+          "TimeWorker": 0.0,
+          "VSyncThread": 0.05851343266007679,
+          "am:EventObserve": 0.0,
+          "nx2:ColdHint": 0.02340537306403072,
+          "SDLAudioP15": 0.6553504457928602,
+          "DSP_AudioRender": 3.6395355114567765,
+          "AudioRenderSyst": 0.9713229821572748,
+          "DeviceMemory:Co": 0.0
+        },
+        "cpu_temp_min_C": 83.25,
+        "cpu_temp_max_C": 94.5,
+        "gpu_busy_mean_percent": 72.06666666666666,
+        "shutdown": {
+          "exit_code": 0,
+          "stop_requested": true,
+          "window_closed": true,
+          "forced": false,
+          "stop_seconds": 2.6034272219985723
+        },
+        "build": {
+          "version": "optimized",
+          "sha256": "50b6bf12bbec45e6f1ac092d4ade6499e3f363257c63ae6052e93a10641ebb29",
+          "optimized": true,
+          "diagnostic_disabled": true,
+          "marker_lines": [
+            "\u0000\u001b[0;37m[   1.538687] HW.GPU <Info> ./video_core/buffer_cache/buffer_cache.h:40:BufferCache: Buffer lab diagnostic: stats=false fast_clean=true\u001b[0m"
+          ],
+          "first_skip": [
+            "\u0000\u001b[0;37m[  19.712508] HW.GPU <Info> ./video_core/buffer_cache/word_manager.h:171:ForEachModifiedRange: Buffer clean summary: first clean range skipped\u001b[0m"
+          ]
+        }
+      },
+      {
+        "label": "clean-original-2",
+        "version": "original",
+        "phase_seconds": 91.65297085186467,
+        "measurement": {
+          "requested_seconds": [
+            86.42579040527343,
+            176.973532
+          ],
+          "covered_seconds": 53.7744,
+          "game_presentations": 1200,
+          "game_fps": 22.315451218423636,
+          "window_fps_median": 22.31703075780321,
+          "maximum_frame_ms": 173.106,
+          "frames_over_100_ms": 1,
+          "windows": [
+            {
+              "start": 107.57623099999999,
+              "end": 134.689631,
+              "mean_us": 45189,
+              "maximum_us": 97695,
+              "freezes": 0
+            },
+            {
+              "start": 134.645838,
+              "end": 161.306838,
+              "mean_us": 44435,
+              "maximum_us": 173106,
+              "freezes": 1
+            }
+          ]
+        },
+        "thread_cpu_percent": {
+          "eden-cli": 1.216561575405754,
+          "KWorkerTaskMana": 0.0,
+          "libusb_event": 0.0,
+          "ScanGCAdapter": 0.0,
+          "cemuhookWorker": 0.0,
+          "libusb": 0.0,
+          "JoyconScanThrea": 0.011697707455824557,
+          "wl_cursor_surfa": 0.08188395219077191,
+          "SDLTimer": 0.011697707455824557,
+          "HostTiming": 4.410035710845858,
+          "eden-cl:disk$0": 0.0,
+          "eden-cl:disk$1": 0.0,
+          "eden-cl:disk$2": 0.0,
+          "eden-cl:disk$3": 0.0,
+          "VulkanWorker": 26.44851655761932,
+          "VulkanPresent": 0.4562105907771577,
+          "TextureDecoder": 0.0,
+          "VkPipelineBuild": 0.0,
+          "VkPipelineSeria": 0.0,
+          "GPUFencingThrea": 5.603201871339962,
+          "AudioManager": 0.0,
+          "PulseMainloop": 0.6433739100703507,
+          "PulseHotplug": 0.38602434604221036,
+          "DSP_OpusDecoder": 0.0,
+          "audio": 1.0878867933916838,
+          "FS": 0.03509312236747367,
+          "ldn": 0.0,
+          "nvservices": 0.0,
+          "bsdsocket": 0.0,
+          "vi": 0.0,
+          "bsdsocket:selec": 0.0,
+          "bsdsocket:1": 0.0,
+          "bsdsocket:2": 0.0,
+          "CPUCore_0": 44.79052184835223,
+          "CPUCore_1": 45.3988026360551,
+          "CPUCore_2": 42.26381703789413,
+          "CPUCore_3": 43.42189007602075,
+          "CPUCore_4": 41.164232537046615,
+          "CPUCore_5": 40.75481277609275,
+          "GPU": 85.8377773108406,
+          "TimeWorker": 0.0,
+          "VSyncThread": 0.08188395219077191,
+          "am:EventObserve": 0.0,
+          "nx2:ColdHint": 0.023395414911649114,
+          "SDLAudioP15": 0.6199784951587015,
+          "DSP_AudioRender": 3.5794984814823145,
+          "AudioRenderSyst": 0.947514303921789,
+          "DeviceMemory:Co": 0.0
+        },
+        "cpu_temp_min_C": 85.5,
+        "cpu_temp_max_C": 93.0,
+        "gpu_busy_mean_percent": 69.8,
+        "shutdown": {
+          "exit_code": 0,
+          "stop_requested": true,
+          "window_closed": true,
+          "forced": false,
+          "stop_seconds": 2.7034071148373187
+        },
+        "build": {
+          "version": "original",
+          "sha256": "94635722d696abda72c10d21f29ab6a46a084c74b58cb7ce21dbc06f2377a042",
+          "optimized": false,
+          "diagnostic_disabled": true,
+          "marker_lines": [],
+          "first_skip": []
+        }
+      },
+      {
+        "label": "clean-optimized-2",
+        "version": "optimized",
+        "phase_seconds": 91.57343017728999,
+        "measurement": {
+          "requested_seconds": [
+            99.56313118934631,
+            188.857547
+          ],
+          "covered_seconds": 56.528400000000005,
+          "game_presentations": 1200,
+          "game_fps": 21.228267561084337,
+          "window_fps_median": 21.289046308210835,
+          "maximum_frame_ms": 106.537,
+          "frames_over_100_ms": 2,
+          "windows": [
+            {
+              "start": 109.95790000000001,
+              "end": 139.7323,
+              "mean_us": 49624,
+              "maximum_us": 106537,
+              "freezes": 2
+            },
+            {
+              "start": 139.68835,
+              "end": 166.44235,
+              "mean_us": 44590,
+              "maximum_us": 84106,
+              "freezes": 0
+            }
+          ]
+        },
+        "thread_cpu_percent": {
+          "eden-cli": 1.2176641097652683,
+          "KWorkerTaskMana": 0.0,
+          "libusb_event": 0.0,
+          "ScanGCAdapter": 0.0,
+          "cemuhookWorker": 0.0,
+          "libusb": 0.0,
+          "JoyconScanThrea": 0.011708308747742964,
+          "wl_cursor_surfa": 0.08195816123420076,
+          "SDLTimer": 0.0,
+          "HostTiming": 4.460865632890069,
+          "eden-cl:disk$0": 0.0,
+          "eden-cl:disk$1": 0.0,
+          "eden-cl:disk$2": 0.0,
+          "eden-cl:disk$3": 0.0,
+          "VulkanWorker": 26.214903286196495,
+          "VulkanPresent": 0.4332074236664896,
+          "TextureDecoder": 0.0,
+          "VkPipelineBuild": 0.0,
+          "VkPipelineSeria": 0.0,
+          "GPUFencingThrea": 5.666821433907594,
+          "AudioManager": 0.0,
+          "PulseMainloop": 0.6439569811258631,
+          "PulseHotplug": 0.3863741886755178,
+          "DSP_OpusDecoder": 0.0,
+          "audio": 1.1122893310355815,
+          "FS": 0.023416617495485927,
+          "ldn": 0.0,
+          "nvservices": 0.0,
+          "bsdsocket": 0.0,
+          "vi": 0.0,
+          "bsdsocket:selec": 0.0,
+          "bsdsocket:1": 0.0,
+          "bsdsocket:2": 0.0,
+          "CPUCore_0": 44.88965573884653,
+          "CPUCore_1": 45.13553022254912,
+          "CPUCore_2": 42.11478656563144,
+          "CPUCore_3": 43.14511773543282,
+          "CPUCore_4": 41.27178833579394,
+          "CPUCore_5": 40.826872603379705,
+          "GPU": 85.33015415355072,
+          "TimeWorker": 0.0,
+          "VSyncThread": 0.05854154373871482,
+          "am:EventObserve": 0.0,
+          "nx2:ColdHint": 0.023416617495485927,
+          "SDLAudioP15": 0.63224867237812,
+          "DSP_AudioRender": 3.6295757118003187,
+          "AudioRenderSyst": 0.971789626062666,
+          "DeviceMemory:Co": 0.0
+        },
+        "cpu_temp_min_C": 86.25,
+        "cpu_temp_max_C": 93.25,
+        "gpu_busy_mean_percent": 66.66666666666667,
+        "shutdown": {
+          "exit_code": 0,
+          "stop_requested": true,
+          "window_closed": true,
+          "forced": false,
+          "stop_seconds": 2.7042880370281637
+        },
+        "build": {
+          "version": "optimized",
+          "sha256": "50b6bf12bbec45e6f1ac092d4ade6499e3f363257c63ae6052e93a10641ebb29",
+          "optimized": true,
+          "diagnostic_disabled": true,
+          "marker_lines": [
+            "\u0000\u001b[0;37m[   1.528781] HW.GPU <Info> ./video_core/buffer_cache/buffer_cache.h:40:BufferCache: Buffer lab diagnostic: stats=false fast_clean=true\u001b[0m"
+          ],
+          "first_skip": [
+            "\u0000\u001b[0;37m[  19.687664] HW.GPU <Info> ./video_core/buffer_cache/word_manager.h:171:ForEachModifiedRange: Buffer clean summary: first clean range skipped\u001b[0m"
+          ]
+        }
+      }
+    ],
+    "pooled": {
+      "original": {
+        "game_presentations": 2400,
+        "covered_seconds": 107.29079999999999,
+        "fps": 22.369112729143602,
+        "frames_over_100_ms": 1,
+        "maximum_frame_ms": 173.106
+      },
+      "optimized": {
+        "game_presentations": 2400,
+        "covered_seconds": 112.4778,
+        "fps": 21.337543942004555,
+        "frames_over_100_ms": 6,
+        "maximum_frame_ms": 107.006
+      }
+    },
+    "change_percent": -4.611576684465756
+  },
+  "buffer_diagnostics": {
+    "scope": "Separate instrumented runs, sequential rather than alternating; rates locate work but do not establish a comparative FPS gain. Entire multi-row windows required. Sampling cannot justify cache reuse.",
+    "baseline": {
+      "seconds": 40.106955823999996,
+      "rates": {
+        "compute_storage": {
+          "sync_per_second": 4138.583858829645,
+          "empty_percent": 83.86550672948322,
+          "uploaded_MiB_per_second": 3.021705431392504,
+          "forced_bank_MiB_per_second": 0.0,
+          "sample_changed_percent": 8.964808446016407,
+          "summary_checks": 0,
+          "summary_skips": 0,
+          "summary_skip_percent": null
+        },
+        "compute_uniform": {
+          "sync_per_second": 231.87997714937222,
+          "empty_percent": 88.58064516129032,
+          "uploaded_MiB_per_second": 0.3334833004701993,
+          "forced_bank_MiB_per_second": 0.0,
+          "sample_changed_percent": 8.56155174365942,
+          "summary_checks": 0,
+          "summary_skips": 0,
+          "summary_skip_percent": null
+        },
+        "index": {
+          "sync_per_second": 23083.42732524212,
+          "empty_percent": 100.0,
+          "uploaded_MiB_per_second": 0.0,
+          "forced_bank_MiB_per_second": 0.0,
+          "sample_changed_percent": null,
+          "summary_checks": 0,
+          "summary_skips": 0,
+          "summary_skip_percent": null
+        },
+        "other": {
+          "sync_per_second": 7173.793026391422,
+          "empty_percent": 97.47357664943921,
+          "uploaded_MiB_per_second": 0.7079702427330253,
+          "forced_bank_MiB_per_second": 0.0,
+          "sample_changed_percent": 0.7697514125279018,
+          "summary_checks": 0,
+          "summary_skips": 0,
+          "summary_skip_percent": null
+        },
+        "storage": {
+          "sync_per_second": 45147.1063509754,
+          "empty_percent": 99.75965268929974,
+          "uploaded_MiB_per_second": 3.4013543523133087,
+          "forced_bank_MiB_per_second": 0.0,
+          "sample_changed_percent": 1.7288388371749408,
+          "summary_checks": 0,
+          "summary_skips": 0,
+          "summary_skip_percent": null
+        },
+        "uniform": {
+          "sync_per_second": 22417.93179082342,
+          "empty_percent": 94.16426152383177,
+          "uploaded_MiB_per_second": 66.9648881926073,
+          "forced_bank_MiB_per_second": 62.841349894534574,
+          "sample_changed_percent": 6.250529940458246,
+          "summary_checks": 0,
+          "summary_skips": 0,
+          "summary_skip_percent": null
+        },
+        "vertex": {
+          "sync_per_second": 36807.53050613279,
+          "empty_percent": 100.0,
+          "uploaded_MiB_per_second": 0.0,
+          "forced_bank_MiB_per_second": 0.0,
+          "sample_changed_percent": null,
+          "summary_checks": 0,
+          "summary_skips": 0,
+          "summary_skip_percent": null
+        }
+      },
+      "total_uploaded_MiB_per_second": 74.42940151951633
+    },
+    "candidate": {
+      "seconds": 40.16097212,
+      "rates": {
+        "compute_storage": {
+          "sync_per_second": 4172.956757601514,
+          "empty_percent": 85.54388686675816,
+          "uploaded_MiB_per_second": 2.7300291604594755,
+          "forced_bank_MiB_per_second": 0.0,
+          "sample_changed_percent": 10.910919287580386,
+          "summary_checks": 565186.0,
+          "summary_skips": 405357.0,
+          "summary_skip_percent": 71.72099096580595
+        },
+        "compute_uniform": {
+          "sync_per_second": 234.05807936902102,
+          "empty_percent": 88.24468085106383,
+          "uploaded_MiB_per_second": 0.3339101506290929,
+          "forced_bank_MiB_per_second": 0.0,
+          "sample_changed_percent": 5.517171223958333,
+          "summary_checks": 9400.0,
+          "summary_skips": 0.0,
+          "summary_skip_percent": 0.0
+        },
+        "index": {
+          "sync_per_second": 23506.950906944334,
+          "empty_percent": 99.99830519605703,
+          "uploaded_MiB_per_second": 0.002042561364174469,
+          "forced_bank_MiB_per_second": 0.0,
+          "sample_changed_percent": null,
+          "summary_checks": 944789.0,
+          "summary_skips": 5384.0,
+          "summary_skip_percent": 0.5698626889178431
+        },
+        "other": {
+          "sync_per_second": 4433.408620388744,
+          "empty_percent": 96.48188711036225,
+          "uploaded_MiB_per_second": 0.6501181027686738,
+          "forced_bank_MiB_per_second": 0.0,
+          "sample_changed_percent": 0.8625919117647058,
+          "summary_checks": 178208.0,
+          "summary_skips": 34248.0,
+          "summary_skip_percent": 19.217992458251032
+        },
+        "storage": {
+          "sync_per_second": 46253.38735450909,
+          "empty_percent": 99.73766958210705,
+          "uploaded_MiB_per_second": 3.5812909251859018,
+          "forced_bank_MiB_per_second": 0.0,
+          "sample_changed_percent": 1.8485303807140325,
+          "summary_checks": 4896966.0,
+          "summary_skips": 3118370.0,
+          "summary_skip_percent": 63.67963347101042
+        },
+        "uniform": {
+          "sync_per_second": 22740.5102961935,
+          "empty_percent": 94.18481277941838,
+          "uploaded_MiB_per_second": 67.50120625566173,
+          "forced_bank_MiB_per_second": 63.28946903894069,
+          "sample_changed_percent": 6.353687698683015,
+          "summary_checks": 941139.0,
+          "summary_skips": 50970.0,
+          "summary_skip_percent": 5.41577811566623
+        },
+        "vertex": {
+          "sync_per_second": 37569.80771012273,
+          "empty_percent": 99.9989395827258,
+          "uploaded_MiB_per_second": 0.0015562372298472142,
+          "forced_bank_MiB_per_second": 0.0,
+          "sample_changed_percent": null,
+          "summary_checks": 1560223.0,
+          "summary_skips": 125254.0,
+          "summary_skip_percent": 8.027954978230676
+        }
+      },
+      "total_uploaded_MiB_per_second": 74.8001533932989
+    },
+    "sample": "Deterministic every16th upload, max4096bytes/sample,4096entries/16MiB byte payload history; no guest data emitted",
+    "baseline_incomplete_report_group_excluded": true
+  },
+  "gpu_timestamps": {
+    "scope": "Six requested instrumented camera frames, TOP/BOTTOM intervals approximate and overlap; category sums are not exclusive GPU durations, envelope includes gaps and can span submits. No FPS comparison or pure hardware busy claim.",
+    "captures": [
+      {
+        "file": "capture-0.csv",
+        "frame": 3057,
+        "events": 3136,
+        "envelope_ms": 101.33741998672485,
+        "interval_union_ms": 35.799123764038086,
+        "categories": {
+          "buffer_copy": {
+            "count": 794,
+            "sum_ms": 1.1862030029296875,
+            "union_ms": 0.7685236930847168,
+            "max_ms": 0.013519763946533203
+          },
+          "draw": {
+            "count": 1885,
+            "sum_ms": 37.80460166931152,
+            "union_ms": 20.651041507720947,
+            "max_ms": 0.6452398300170898
+          },
+          "fill": {
+            "count": 8,
+            "sum_ms": 0.010039806365966797,
+            "union_ms": 0.010039806365966797,
+            "max_ms": 0.0018401145935058594
+          },
+          "compute": {
+            "count": 148,
+            "sum_ms": 11.642761707305908,
+            "union_ms": 11.642761707305908,
+            "max_ms": 5.744440078735352
+          },
+          "image_operation": {
+            "count": 301,
+            "sum_ms": 2.726757049560547,
+            "union_ms": 2.726757049560547,
+            "max_ms": 0.4117598533630371
+          }
+        }
+      },
+      {
+        "file": "capture-1.csv",
+        "frame": 3073,
+        "events": 3110,
+        "envelope_ms": 94.68043994903564,
+        "interval_union_ms": 35.37243175506592,
+        "categories": {
+          "buffer_copy": {
+            "count": 795,
+            "sum_ms": 1.217402458190918,
+            "union_ms": 0.7269196510314941,
+            "max_ms": 0.018759727478027344
+          },
+          "draw": {
+            "count": 1890,
+            "sum_ms": 36.030829429626465,
+            "union_ms": 21.607396602630615,
+            "max_ms": 0.9062399864196777
+          },
+          "fill": {
+            "count": 9,
+            "sum_ms": 0.01024007797241211,
+            "union_ms": 0.01024007797241211,
+            "max_ms": 0.0016798973083496094
+          },
+          "compute": {
+            "count": 147,
+            "sum_ms": 10.969197273254395,
+            "union_ms": 10.969197273254395,
+            "max_ms": 5.204480171203613
+          },
+          "image_operation": {
+            "count": 269,
+            "sum_ms": 2.058678150177002,
+            "union_ms": 2.058678150177002,
+            "max_ms": 0.10160017013549805
+          }
+        }
+      },
+      {
+        "file": "capture-2.csv",
+        "frame": 3090,
+        "events": 3048,
+        "envelope_ms": 97.26245975494385,
+        "interval_union_ms": 34.14251756668091,
+        "categories": {
+          "buffer_copy": {
+            "count": 791,
+            "sum_ms": 1.3345990180969238,
+            "union_ms": 0.9450736045837402,
+            "max_ms": 0.03615999221801758
+          },
+          "draw": {
+            "count": 2053,
+            "sum_ms": 48.72669172286987,
+            "union_ms": 21.236165046691895,
+            "max_ms": 0.4873199462890625
+          },
+          "fill": {
+            "count": 8,
+            "sum_ms": 0.011479854583740234,
+            "union_ms": 0.011479854583740234,
+            "max_ms": 0.0018401145935058594
+          },
+          "compute": {
+            "count": 147,
+            "sum_ms": 11.4546799659729,
+            "union_ms": 11.4546799659729,
+            "max_ms": 4.79964017868042
+          },
+          "image_operation": {
+            "count": 49,
+            "sum_ms": 0.4951190948486328,
+            "union_ms": 0.4951190948486328,
+            "max_ms": 0.10220003128051758
+          }
+        }
+      },
+      {
+        "file": "capture-3.csv",
+        "frame": 3106,
+        "events": 3081,
+        "envelope_ms": 92.13467025756836,
+        "interval_union_ms": 34.43803787231445,
+        "categories": {
+          "buffer_copy": {
+            "count": 831,
+            "sum_ms": 1.2281198501586914,
+            "union_ms": 0.8654398918151855,
+            "max_ms": 0.014360427856445312
+          },
+          "draw": {
+            "count": 2064,
+            "sum_ms": 58.349085330963135,
+            "union_ms": 22.616000175476074,
+            "max_ms": 0.6456799507141113
+          },
+          "fill": {
+            "count": 8,
+            "sum_ms": 0.010120391845703125,
+            "union_ms": 0.010120391845703125,
+            "max_ms": 0.0018401145935058594
+          },
+          "compute": {
+            "count": 147,
+            "sum_ms": 10.615716457366943,
+            "union_ms": 10.615716457366943,
+            "max_ms": 4.328440189361572
+          },
+          "image_operation": {
+            "count": 31,
+            "sum_ms": 0.3307609558105469,
+            "union_ms": 0.3307609558105469,
+            "max_ms": 0.10160017013549805
+          }
+        }
+      },
+      {
+        "file": "capture-4.csv",
+        "frame": 3123,
+        "events": 3034,
+        "envelope_ms": 98.03522968292236,
+        "interval_union_ms": 34.685991287231445,
+        "categories": {
+          "buffer_copy": {
+            "count": 802,
+            "sum_ms": 1.9402012825012207,
+            "union_ms": 0.9491972923278809,
+            "max_ms": 0.04031991958618164
+          },
+          "draw": {
+            "count": 2042,
+            "sum_ms": 49.3596134185791,
+            "union_ms": 22.143917083740234,
+            "max_ms": 1.7797203063964844
+          },
+          "fill": {
+            "count": 9,
+            "sum_ms": 0.01148080825805664,
+            "union_ms": 0.01148080825805664,
+            "max_ms": 0.00164031982421875
+          },
+          "compute": {
+            "count": 147,
+            "sum_ms": 11.215598583221436,
+            "union_ms": 11.215598583221436,
+            "max_ms": 4.482840061187744
+          },
+          "image_operation": {
+            "count": 34,
+            "sum_ms": 0.3657975196838379,
+            "union_ms": 0.3657975196838379,
+            "max_ms": 0.10168027877807617
+          }
+        }
+      },
+      {
+        "file": "capture-5.csv",
+        "frame": 3140,
+        "events": 3008,
+        "envelope_ms": 90.21933031082153,
+        "interval_union_ms": 34.22837734222412,
+        "categories": {
+          "buffer_copy": {
+            "count": 780,
+            "sum_ms": 1.1290888786315918,
+            "union_ms": 0.7338528633117676,
+            "max_ms": 0.0126800537109375
+          },
+          "draw": {
+            "count": 1871,
+            "sum_ms": 37.51168441772461,
+            "union_ms": 22.79796266555786,
+            "max_ms": 0.6457595825195312
+          },
+          "fill": {
+            "count": 8,
+            "sum_ms": 0.008679866790771484,
+            "union_ms": 0.008679866790771484,
+            "max_ms": 0.0018401145935058594
+          },
+          "compute": {
+            "count": 148,
+            "sum_ms": 9.53828239440918,
+            "union_ms": 9.53828239440918,
+            "max_ms": 4.495599746704102
+          },
+          "image_operation": {
+            "count": 201,
+            "sum_ms": 1.149599552154541,
+            "union_ms": 1.149599552154541,
+            "max_ms": 0.08635997772216797
+          }
+        }
+      }
+    ],
+    "period_ns": 10.0,
+    "valid_bits": 64,
+    "diagnostic_shutdown": {
+      "exit_code": 0,
+      "stop_requested": true,
+      "window_closed": true,
+      "forced": false,
+      "stop_seconds": 3.504000661894679
+    },
+    "limits": "TOP/BOTTOM intervals overlap, contain pipeline effects, may span multiple submits; thousands of inserted timestamp commands can perturb execution. Not exclusive GPU busy or uninstrumented per-frame budget. Need coarse passes with program IDs and alternating overhead check."
+  },
+  "tests": {
+    "upstream_fast0": {
+      "exit": 0,
+      "started": 1794163376.9550078,
+      "finished": 1794163386.9595325,
+      "mode": "0",
+      "passed": 241,
+      "skipped": 4,
+      "skip_reason": "LDN requires IPv4, Docker network none"
+    },
+    "upstream_fast1": {
+      "exit": 0,
+      "started": 1794163386.9598346,
+      "finished": 1794163396.9975703,
+      "mode": "1",
+      "passed": 241,
+      "skipped": 4,
+      "skip_reason": "LDN requires IPv4, Docker network none"
+    },
+    "mutants": {
+      "ignore_untracked": {
+        "exit": 42,
+        "detected": true
+      },
+      "missing_cpu_refresh": {
+        "exit": 42,
+        "detected": true
+      },
+      "missing_cached_flush_refresh": {
+        "exit": 42,
+        "detected": true
+      },
+      "missing_clear_refresh": {
+        "exit": 42,
+        "detected": true
+      },
+      "ignore_gpu_availability": {
+        "exit": 42,
+        "detected": true
+      }
+    },
+    "timestamp_sanitizer": {
+      "exit": 0,
+      "stdout": "",
+      "stderr": "",
+      "scope": "Timestamp conversion helper only, not whole emulator or GPU driver."
+    },
+    "root_just": {
+      "exit": 0,
+      "started": 1794163293.1159337,
+      "finished": 1794163348.7854042
+    },
+    "root_audit": {
+      "exit": 0,
+      "started": 1794163348.7856886,
+      "finished": 1794163349.5710137
+    },
+    "new_remote_ci": false,
+    "docs": {
+      "at": 1794165204.7748587,
+      "strict_build_exit": 0,
+      "served": [
+        {
+          "url": "https://nel3ab.app/docs/plan-60fps-switch2-2026-11-08/",
+          "status": 200,
+          "current_marker_found": true
+        },
+        {
+          "url": "https://nel3ab.app/docs/etude-switch2-2026-11-07/",
+          "status": 200,
+          "current_marker_found": true
+        },
+        {
+          "url": "https://nel3ab.app/docs/etat-du-projet/",
+          "status": 200,
+          "current_marker_found": true
+        }
+      ]
+    }
+  },
+  "limits": [
+    "Only two measured phases per condition, not multi-scene certification",
+    "Known mesh omissions remain; GPU reset workaround not fixed",
+    "Six candidate vs one original frames over100ms on slightly different retained durations; original has larger single maximum",
+    "83.25..94.5C CPU sensor readings; no controlled cooling comparison or known cooler",
+    "Summary bookkeeping, coarse granularity and dormant diagnostic checks are possible costs; no causal decomposition of regression",
+    "No production installation, commit, push, upstream submission or promise of60fps"
+  ],
+  "functional": {
+    "movement_ground_verified": true,
+    "manual_write_changed_slot": true,
+    "resume_same_ground_location_verified": true,
+    "manual_slot_hash_unchanged_on_resume": true,
+    "audio": {
+      "channels": 2,
+      "rate": 48000,
+      "frames": 384065,
+      "seconds": 8.001354166666667,
+      "rms": [
+        0.014361947596477374,
+        0.013822182937171907
+      ],
+      "peak": [
+        0.078155517578125,
+        0.075408935546875
+      ]
+    },
+    "audio_scope": "Signal present in both channels, no precision AV sync test",
+    "functional_shutdown": {
+      "exit_code": 0,
+      "stop_requested": true,
+      "window_closed": true,
+      "forced": false,
+      "stop_seconds": 2.705363573972136
+    },
+    "resume_shutdown": {
+      "exit_code": 0,
+      "stop_requested": true,
+      "window_closed": true,
+      "forced": false,
+      "stop_seconds": 2.6038220562040806
+    },
+    "zone_transition_verified": false
+  },
+  "production_verification": {
+    "at": 1794165102.918806,
+    "installed_config_unchanged": true,
+    "progress_files_after_user_game": 8,
+    "all_progress_unchanged_since_authorized_user_game_close": true,
+    "four_original_baseline_files_retained": true,
+    "own_lab_containers_absent": true,
+    "own_virtual_devices_absent": true,
+    "observer": "active",
+    "note": "User game created/updated four additional progress files before laboratory resumed; private tests did not alter them."
+  }
+}

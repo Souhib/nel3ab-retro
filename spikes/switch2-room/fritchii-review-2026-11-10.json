@@ -1,0 +1,142 @@
+{
+  "date_utc": "2026-11-10",
+  "status": "Primary-source and four targeted commit reviews; API metadata and diffs fetched locally. No port, local build or runtime test of this fork.",
+  "reviewed_during_host_quiet": true,
+  "repo": "Frizti/Fritchii",
+  "release": "fritchii-v5.5",
+  "commit": "4012e5271e278b21cf8f56b97481dac2b777cd0d",
+  "release_url": "https://github.com/Frizti/Fritchii/releases/tag/fritchii-v5.5",
+  "release_claims_not_locally_validated": [
+    "Windows x64 release Nov9 13:20",
+    "v5.4 corrects AMD precompile key/dynamic logic op differences; EDS2 preset affects cache matching",
+    "v5.2 claimed NPOT texture decode block overflow fix from CheezerWheezer; need identify commit and see whether base already has it",
+    "v5 host pacing + render frame clock, image pooling/RT relocation, shader prep; gains from 7800X3D+4080 not local predictions"
+  ],
+  "source_findings": [
+    {
+      "path": "src/video_core/renderer_vulkan/vk_host_pacer.h",
+      "finding": "DisplayRefreshQuery comment says Windows only, nullopt elsewhere. HostPacer depends refresh-known and VK_KHR_present_wait; cannot directly assume Linux/Sway active."
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/vk_present_manager.cpp",
+      "finding": "PresentWait thread with 4ms waits and 500ms deadline, rendered-frame wait, learned display grid; <=30fps avoids long hold and feeds g_host_phase_ns back to service. Needs lifecycle/mutex/extension/Wayland review, no port yet."
+    },
+    {
+      "path": "src/core/hle/service/nx2_gsv.h",
+      "finding": "Own oot_30fps forces effective swap interval>=2; dynamic time-step assumption. Genlock adjusts service interval within1% display refresh; can change speed slightly, not accepted blindly. Has legacy600/599 pacing-stat bias still present."
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/vk_scheduler.h",
+      "finding": "Existing Scheduler Wait algorithm broadly same as our frozen base; new host pacing is elsewhere, not automatically a fix for our Wait."
+    },
+    {
+      "path": "src/video_core/renderer_vulkan/vk_host_pacer.cpp",
+      "finding": "Confirmed source lines105–168 DisplayRefreshQuery::Query returns nullopt outside _WIN32; Refresh179–202 requires refresh_known to enable pacing. Header comments confirmed in actual implementation. Direct import would leave this pacer off on Linux, even if VK_KHR_present_wait is supported."
+    },
+    {
+      "path": "src/core/hle/service/nx2_gsv.h:1888–1989",
+      "finding": "Genlock shifts pacing deadline and phase, with <=1% interval adjustment; aligns30fps to refresh via g_host_phase_ns; not a mere Scheduler Wait replacement. Would require explicit Linux presentation timing and speed/latency validation before any port."
+    }
+  ],
+  "next": "Prioritize ongoing continuous ground-motion and AV qualifications. If actual first-visit stalls remain, inspect compatible preparation/key normalization. Review ASTC bounds as a separate correctness candidate. No whole-fork rebase or Windows executable deployment.",
+  "external_risks": [
+    {
+      "url": "https://github.com/zortos293/Lichii/issues/730",
+      "scope": "Windows build117 report, Nov8; not a local occurrence and root cause explicitly unproven.",
+      "finding": "60fps VP9 transition movie reported ~0.42x with 30 presents/s, healthy48k audio sink. A dedicated movie/AV qualification is needed before shipping global30 caps; configuration100% alone insufficient."
+    }
+  ],
+  "fresh_head_metadata": {
+    "at": 1794276220.292701,
+    "results": {
+      "eglantine_head": {
+        "sha": "78743f30c251f66bd77e6eea6c28d8632d642d6f",
+        "date": "2026-11-08T14:57:58Z",
+        "message": "bump to 0.1.0-rc3",
+        "url": "https://github.com/Eglantine-Community/Eglantine/commit/78743f30c251f66bd77e6eea6c28d8632d642d6f"
+      },
+      "lichii_head": {
+        "sha": "d2eaae4f3abca636b030b726f107bace06f61079",
+        "date": "2026-11-09T22:52:45Z",
+        "message": "vulkan: keep an evicted graphics pipeline's storage buffer pointers when it is translated again (#1143)",
+        "url": "https://github.com/zortos293/Lichii/commit/d2eaae4f3abca636b030b726f107bace06f61079"
+      },
+      "frizti_head": {
+        "sha": "f66ea633db6058efe31a9611718019e5bd1667eb",
+        "date": "2026-11-06T08:36:35Z",
+        "message": "Add personal message from author to README",
+        "url": "https://github.com/Frizti/Fritchii/commit/f66ea633db6058efe31a9611718019e5bd1667eb"
+      },
+      "frizti_release": [
+        {
+          "tag": "fritchii-v5.5",
+          "published_at": "2026-11-09T13:20:33Z",
+          "prerelease": true,
+          "url": "https://github.com/Frizti/Fritchii/releases/tag/fritchii-v5.5"
+        },
+        {
+          "tag": "fritchii-v5.4",
+          "published_at": "2026-11-09T12:32:19Z",
+          "prerelease": true,
+          "url": "https://github.com/Frizti/Fritchii/releases/tag/fritchii-v5.4"
+        },
+        {
+          "tag": "fritchii-v5.3",
+          "published_at": "2026-11-09T06:03:22Z",
+          "prerelease": true,
+          "url": "https://github.com/Frizti/Fritchii/releases/tag/fritchii-v5.3"
+        }
+      ]
+    }
+  },
+  "release_branch_caveat": "The default nx2 head is f66ea633 from Nov6, while v5.5 release is4012e527 from Nov9. Review the immutable release commit, not the default branch.",
+  "targeted_commits": {
+    "f52631cf66b3a5014b94c58ebb4b2e2bb938f896": {
+      "url": "https://github.com/Frizti/Fritchii/commit/f52631cf66b3a5014b94c58ebb4b2e2bb938f896",
+      "subject": "host_shaders: bounds-check every ASTC decode and unswizzle image store (AMD corruption and device loss)",
+      "files": [
+        "src/video_core/host_shaders/astc_decoder.comp",
+        "src/video_core/host_shaders/block_linear_unswizzle_2d.comp",
+        "src/video_core/host_shaders/block_linear_unswizzle_3d.comp",
+        "src/video_core/host_shaders/pitch_unswizzle.comp"
+      ],
+      "api_evidence_sha256": "afd2ab23d2eb12a0fbc1612775b96cc6b7f79bd9ffd1a40b7b4b0a9ac8224c16"
+    },
+    "9ea66c827301593de48df50de242ca1b76a9b246": {
+      "url": "https://github.com/Frizti/Fritchii/commit/9ea66c827301593de48df50de242ca1b76a9b246",
+      "subject": "vulkan: precompiled pipelines recorded with a dynamic logic op build where it is static (AMD)",
+      "files": [
+        "src/video_core/renderer_vulkan/vk_pipeline_cache.cpp",
+        "src/video_core/vulkan_common/vulkan_device.cpp"
+      ],
+      "api_evidence_sha256": "272462eccc6734f9f197443c989acfc02d62a2e291c47897418b3801452cdb91"
+    },
+    "e722284eec2af41e765fa86003b460395b3fbdb7": {
+      "url": "https://github.com/Frizti/Fritchii/commit/e722284eec2af41e765fa86003b460395b3fbdb7",
+      "subject": "Render-frame clock behind EDEN_NX2_RENDER_CLOCK=1 (fable_answer_16 1b), off by default",
+      "files": [
+        "src/core/hle/kernel/svc/svc_nx2_oot_present.cpp",
+        "src/video_core/fence_manager.h",
+        "src/video_core/nx2.h",
+        "src/video_core/texture_cache/texture_cache.h",
+        "src/video_core/texture_cache/texture_cache_base.h"
+      ],
+      "api_evidence_sha256": "73637fa069d04cd5f363dc08bbe224940535e955cc39e135032d892531b24ec1"
+    },
+    "b3396c01f988da212d6a345fc2067d5227bfc187": {
+      "url": "https://github.com/Frizti/Fritchii/commit/b3396c01f988da212d6a345fc2067d5227bfc187",
+      "subject": "texture_cache: relocation guard by address too (garbled dialogue text)",
+      "files": [
+        "src/video_core/texture_cache/texture_cache.h",
+        "src/video_core/texture_cache/texture_cache_base.h"
+      ],
+      "api_evidence_sha256": "20cd6fc9c3fdb9d17a7daed578345cae528e82cf9ede37038081af2bec66bfe1"
+    }
+  },
+  "base_source_comparison": [
+    "ASTC decode guards only the block origin; direct image stores and unswizzle stores lack the per-store upper-bound checks in f52631cf. No local out-of-range write or associated corruption reproduced.",
+    "Our base lacks the relocation and render-frame-clock machinery. The render-frame counter in e722284e tracks resource-cache frame boundaries, not simulation time; its source is later changed in the release, so do not import this isolated predecessor as the finished design.",
+    "The AMD precompile-key conversion targets NVIDIA-recorded recipes and static logic-op state. No proof our RADV driver has that feature mismatch or that a prepared recipe matches our cache format.",
+    "The address relocation guard depends on the new relocation machinery; it is not a standalone speed patch for our base."
+  ]
+}

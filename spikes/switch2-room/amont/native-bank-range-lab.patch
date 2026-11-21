@@ -1,0 +1,961 @@
+diff --git a/src/tests/CMakeLists.txt b/src/tests/CMakeLists.txt
+index d38658d6a..18e0a917a 100644
+--- a/src/tests/CMakeLists.txt
++++ b/src/tests/CMakeLists.txt
+@@ -48,6 +48,9 @@ add_executable(tests
+     video_core/ampere_compute_lowering.cpp
+     video_core/native_macro_fifo.cpp
+     video_core/uniform_stream_reuse.cpp
++    video_core/stream_ring_cursor.cpp
++    video_core/upload_payload_diagnostic.cpp
++    video_core/native_bank_contents.cpp
+     video_core/shader_invalidation.cpp
+     video_core/descriptor_table.cpp
+     video_core/global_address_tracking.cpp
+diff --git a/src/video_core/buffer_cache/buffer_cache.h b/src/video_core/buffer_cache/buffer_cache.h
+index 0052437e1..15da18ae7 100644
+--- a/src/video_core/buffer_cache/buffer_cache.h
++++ b/src/video_core/buffer_cache/buffer_cache.h
+@@ -17,6 +17,9 @@
+ #include "common/range_sets.inc"
+ #include "video_core/buffer_cache/buffer_cache_base.h"
+ #include "video_core/buffer_cache/uniform_stream_reuse.h"
++#include "video_core/buffer_cache/upload_payload_diagnostic.h"
++#include <cstdlib>
++#include <string_view>
+ #include "video_core/gpu_split.h"
+ #include "video_core/guest_memory.h"
+ #include "video_core/host1x/gpu_device_memory_manager.h"
+@@ -399,6 +402,7 @@ bool BufferCache<P>::DMAClear(GPUVAddr dst_address, u64 amount, u32 value) {
+     const BufferId buffer = FindBuffer(*cpu_dst_address, static_cast<u32>(size), false);
+     Buffer& dest_buffer = slot_buffers[buffer];
+     const u32 offset = dest_buffer.Offset(*cpu_dst_address);
++    native_bank_contents.InvalidateRange(*cpu_dst_address, size, NativeBankContents::ResetReason::Clear);
+     runtime.ClearBuffer(dest_buffer, offset, size, value);
+     dest_buffer.MarkUsage(offset, size);
+     return true;
+@@ -435,6 +439,7 @@ std::pair<typename P::Buffer*, u32> BufferCache<P>::ObtainCPUBuffer(
+         MarkWrittenBuffer(buffer_id, device_addr, size);
+         break;
+     case ObtainBufferOperation::DiscardWrite: {
++        native_bank_contents.InvalidateRange(device_addr, size, NativeBankContents::ResetReason::Discard);
+         ClearDownload(device_addr, size);
+         gpu_modified_ranges.Subtract(device_addr, size);
+         break;
+@@ -987,6 +992,10 @@ void BufferCache<P>::BindHostIndexBuffer() {
+                 {BufferCopy{.src_offset = upload_staging.offset, .dst_offset = 0, .size = size}}};
+             std::memcpy(upload_staging.mapped_span.data(),
+                         draw_state.inline_index_draw_indexes.data(), size);
++            for (const auto& upload : copies) {
++                native_bank_contents.InvalidateRange(buffer.CpuAddr()+upload.dst_offset,
++                    upload.size, NativeBankContents::ResetReason::Repack);
++            }
+             runtime.CopyBuffer(buffer, upload_staging.buffer, copies, true);
+         } else {
+             buffer.ImmediateUpload(0, draw_state.inline_index_draw_indexes);
+@@ -1265,15 +1274,76 @@ void BufferCache<P>::BindHostGraphicsUniformBuffer(size_t stage, u32 index, u32
+         }
+         if (mapped_size != 0) {
+             const u64 marked = (std::min<u64>)(mapped_size, size);
+-            memory_tracker.MarkRegionAsCpuModified(device_addr, marked);
+-            // EDEN_NX2_BANK_STATS: how much this costs, per 100k re-uploads.
+-            static std::atomic<u64> uploads{0};
+-            static std::atomic<u64> marked_bytes{0};
+-            marked_bytes.fetch_add(marked, std::memory_order_relaxed);
+-            const u64 count = uploads.fetch_add(1, std::memory_order_relaxed) + 1;
+-            if (std::getenv("EDEN_NX2_BANK_STATS") != nullptr && (count % 100000) == 0) {
+-                LOG_INFO(HW_GPU, "nx2: bank re-uploads {} totalling {} MiB ({} KiB each)", count,
+-                         marked_bytes.load() >> 20, marked >> 10);
++            auto force_upload = [&] {
++                memory_tracker.MarkRegionAsCpuModified(device_addr, marked);
++                // EDEN_NX2_BANK_STATS: how much this costs, per 100k re-uploads.
++                static std::atomic<u64> uploads{0};
++                static std::atomic<u64> marked_bytes{0};
++                marked_bytes.fetch_add(marked, std::memory_order_relaxed);
++                const u64 count = uploads.fetch_add(1, std::memory_order_relaxed) + 1;
++                if (std::getenv("EDEN_NX2_BANK_STATS") != nullptr && (count % 100000) == 0) {
++                    LOG_INFO(HW_GPU, "nx2: bank re-uploads {} totalling {} MiB ({} KiB each)", count,
++                             marked_bytes.load() >> 20, marked >> 10);
++                }
++            };
++            static const bool compare_bank = [] {
++                const char* value = std::getenv("EDEN_NX2_BANK_COMPARE");
++                return value != nullptr && std::string_view{value} == "1";
++            }();
++            static_assert(DEVICE_PAGESIZE == NativeBankContents::PageSize);
++            static_assert(DEVICE_PAGESIZE == (u64{1} << Tegra::Nx2WrittenPageBits));
++            const DAddr first_page = Common::AlignDown(device_addr, DEVICE_PAGESIZE);
++            const DAddr last_page = Common::AlignUp(device_addr + marked, DEVICE_PAGESIZE);
++            const u64 covered_size = last_page - first_page;
++            const u8* pages = compare_bank && bank_mode == '1' &&
++                                      covered_size <= NativeBankContents::MaxBytes
++                                  ? device_memory.GetSpan(first_page, covered_size) : nullptr;
++            if (pages != nullptr) {
++                // Suppress only this artificial invalidation. Existing CPU dirty state
++                // and the normal SynchronizeBuffer path below are never cleared or skipped.
++                bool gpu_written = false;
++                for (DAddr page = first_page; page < last_page;
++                     page += u64{1} << Tegra::Nx2WrittenPageBits) {
++                    gpu_written |= Tegra::Nx2IsGpuWritten(page);
++                }
++                if (gpu_written) {
++                    static bool reported_gpu_guard{};
++                    if (!std::exchange(reported_gpu_guard, true)) {
++                        LOG_INFO(HW_GPU, "Native bank content comparison guarded: GPU-written pages keep forced refresh");
++                    }
++                }
++                const auto history = gpu_written ? NativeBankContents::GpuHistory::Written
++                                                 : NativeBankContents::GpuHistory::Unwritten;
++                const bool refreshed = native_bank_contents.RefreshIfChanged(
++                    device_addr, marked, std::span<const u8>{pages, covered_size}, history,
++                    force_upload);
++                static const bool bank_statistics = [] {
++                    const char* value = std::getenv("EDEN_NX2_BANK_COMPARE_STATS");
++                    return value != nullptr && std::string_view{value} == "1";
++                }();
++                const auto& stats = native_bank_contents.Stats();
++                if (bank_statistics && (stats.calls == 1 || stats.calls % 256 == 0)) {
++                    LOG_INFO(HW_GPU, "Native bank comparison statistics: calls={} unchanged={} gpu_written={} compared={} resets={} nonempty={} create={} remove={} clear={} discard={} repack={} range_calls={} range_removed={} range_preserved={} capacity={} keys={}",
++                             stats.calls, stats.unchanged, stats.gpu_written, stats.compared,
++                             stats.resets, stats.nonempty, stats.create, stats.remove,
++                             stats.clear, stats.discard, stats.repack,
++                             stats.range_calls, stats.range_removed, stats.range_preserved,
++                             stats.capacity, native_bank_contents.TrackedKeys());
++                }
++                if (!refreshed && stats.range_preserved != 0) {
++                    static bool reported_ranges{};
++                    if (!std::exchange(reported_ranges, true)) {
++                        LOG_INFO(HW_GPU, "Native bank range invalidation active: unrelated snapshots retained");
++                    }
++                }
++                if (!refreshed) {
++                    static bool reported{};
++                    if (!std::exchange(reported, true)) {
++                        LOG_INFO(HW_GPU, "Native bank content comparison active: identical covered pages kept, genuine dirty tracking unchanged");
++                    }
++                }
++            } else {
++                force_upload();
+             }
+         }
+     }
+@@ -2236,6 +2306,7 @@ void BufferCache<P>::JoinOverlap(BufferId new_buffer_id, BufferId overlap_id,
+ 
+ template <class P>
+ BufferId BufferCache<P>::CreateBuffer(DAddr device_addr, u32 wanted_size, bool sparse_compatible) {
++
+     DAddr device_addr_end = Common::AlignUp(device_addr + wanted_size, CACHING_PAGESIZE);
+     device_addr = Common::AlignDown(device_addr, CACHING_PAGESIZE);
+     wanted_size = static_cast<u32>(device_addr_end - device_addr);
+@@ -2245,6 +2316,8 @@ BufferId BufferCache<P>::CreateBuffer(DAddr device_addr, u32 wanted_size, bool s
+         slot_buffers.insert(runtime, overlap.begin, size, sparse_compatible);
+     auto& new_buffer = slot_buffers[new_buffer_id];
+     const size_t size_bytes = new_buffer.SizeBytes();
++    native_bank_contents.InvalidateRange(overlap.begin, size_bytes,
++                                        NativeBankContents::ResetReason::Create);
+     runtime.ClearBuffer(new_buffer, 0, size_bytes, 0);
+     new_buffer.MarkUsage(0, size_bytes);
+     for (const BufferId overlap_id : overlap.ids) {
+@@ -2417,6 +2490,27 @@ void BufferCache<P>::MappedUploadMemory([[maybe_unused]] Buffer& buffer,
+         for (BufferCopy& copy : copies) {
+             u8* const src_pointer = staging_pointer.data() + copy.src_offset;
+             const DAddr device_addr = buffer.CpuAddr() + copy.dst_offset;
++            static const bool payload_diagnostic = [] {
++                const char* flag = std::getenv("EDEN_NX2_UPLOAD_PAYLOAD_DIAGNOSTIC");
++                return flag != nullptr && std::string_view{flag} == "1";
++            }();
++            if (payload_diagnostic) {
++                static UploadPayloadDiagnostic diagnostic;
++                const u8* source = UploadPayloadDiagnostic::Eligible(copy.size)
++                                       ? device_memory.GetSpan(device_addr, copy.size) : nullptr;
++                diagnostic.Observe(device_addr, copy.size,
++                                   source ? std::span<const u8>{source, copy.size}
++                                          : std::span<const u8>{});
++                const auto& c = diagnostic.Counts();
++                // Aggregate only: no game bytes or addresses are logged. This diagnostic
++                // adds source reads and copies, and is excluded from cadence comparisons.
++                if (c.uploads == 1 || c.uploads % 4096 == 0) {
++                    LOG_INFO(HW_GPU, "Upload payload diagnostic: uploads={} bytes={} eligible={} eligible_bytes={} observed={} observed_bytes={} compared={} compared_bytes={} identical={} identical_bytes={} resets={}",
++                             c.uploads, c.bytes, c.eligible_uploads, c.eligible_bytes,
++                             c.observed_uploads, c.observed_bytes, c.compared_uploads,
++                             c.compared_bytes, c.identical_uploads, c.identical_bytes, c.resets);
++                }
++            }
+             device_memory.ReadBlockUnsafe(device_addr, src_pointer, copy.size);
+             // Large uploads are mostly geometry the host GPU now has its own copy of: TickFrame
+             // marks their guest memory cold (see TextureCache::RefreshContents).
+@@ -2602,6 +2696,8 @@ void BufferCache<P>::DownloadBufferMemory(Buffer& buffer, DAddr device_addr, u64
+ 
+ template <class P>
+ void BufferCache<P>::DeleteBuffer(BufferId buffer_id, bool do_not_mark) {
++    native_bank_contents.InvalidateRange(slot_buffers[buffer_id].CpuAddr(),
++        slot_buffers[buffer_id].SizeBytes(), NativeBankContents::ResetReason::Delete);
+     if constexpr (requires { runtime.OnBufferDeleted(slot_buffers[buffer_id]); }) {
+         runtime.OnBufferDeleted(slot_buffers[buffer_id]);
+     }
+diff --git a/src/video_core/buffer_cache/buffer_cache_base.h b/src/video_core/buffer_cache/buffer_cache_base.h
+index a62d4443a..55e13ce89 100644
+--- a/src/video_core/buffer_cache/buffer_cache_base.h
++++ b/src/video_core/buffer_cache/buffer_cache_base.h
+@@ -6,6 +6,8 @@
+ 
+ #pragma once
+ 
++#include "video_core/buffer_cache/native_bank_contents.h"
++
+ #include <algorithm>
+ #include <array>
+ #include <bit>
+@@ -446,6 +448,7 @@ public:
+     bool any_buffer_uploaded = false;
+     /// Indirectly read banks of native programs already uploaded this frame.
+     std::unordered_set<DAddr> native_indirect_uniforms_this_frame;
++    NativeBankContents native_bank_contents;
+ 
+ private:
+     template <typename Mask, typename Func>
+diff --git a/src/video_core/renderer_vulkan/vk_buffer_cache.cpp b/src/video_core/renderer_vulkan/vk_buffer_cache.cpp
+index 70c68343c..eda5917b3 100644
+--- a/src/video_core/renderer_vulkan/vk_buffer_cache.cpp
++++ b/src/video_core/renderer_vulkan/vk_buffer_cache.cpp
+@@ -5,6 +5,8 @@
+ // SPDX-License-Identifier: GPL-2.0-or-later
+ 
+ #include <algorithm>
++#include <string_view>
++#include <utility>
+ #include <array>
+ #include <cstring>
+ #include <cstdlib>
+@@ -401,6 +403,20 @@ u32 BufferCacheRuntime::SetVertexRepackLayout(const Tegra::Engines::Maxwell3D::R
+ }
+ 
+ StagingBufferRef BufferCacheRuntime::UploadStagingBuffer(size_t size) {
++    static const bool host_upload = [] {
++        const char* value = std::getenv("EDEN_NX2_HOST_BUFFER_UPLOAD");
++        return value != nullptr && std::string_view{value} == "1";
++    }();
++    if (host_upload) {
++        // 2026-11-09: mapped buffer uploads account for at least 7.35% of the two
++        // sampled GPU-side CPU threads in Kokiri. Reuse the stream retirement logic:
++        // the host ring has independent ticks; the direct uniform ring stays local.
++        static bool reported{};
++        if (!std::exchange(reported, true)) {
++            LOG_INFO(HW_GPU, "Host buffer upload path active: host ring, size={}", size);
++        }
++        return staging_pool.RequestHostUpload(size);
++    }
+     return staging_pool.Request(size, MemoryUsage::Upload);
+ }
+ 
+diff --git a/src/video_core/renderer_vulkan/vk_staging_buffer_pool.cpp b/src/video_core/renderer_vulkan/vk_staging_buffer_pool.cpp
+index 98787b9ad..66c4ca001 100644
+--- a/src/video_core/renderer_vulkan/vk_staging_buffer_pool.cpp
++++ b/src/video_core/renderer_vulkan/vk_staging_buffer_pool.cpp
+@@ -83,7 +83,14 @@ StagingBufferPool::StagingBufferPool(const Device& device_, MemoryAllocator& mem
+                                      Scheduler& scheduler_)
+     : device{device_}, memory_allocator{memory_allocator_}, scheduler{scheduler_},
+       stream_buffer_size{GetStreamBufferSize(device)}, region_size{stream_buffer_size /
+-                                                                   StagingBufferPool::NUM_SYNCS} {
++                                                                   StagingBufferPool::NUM_SYNCS},
++      stream_ring{stream_buffer_size} {
++    stream_ring = CreateStreamRing(MemoryUsage::Stream);
++}
++
++StagingBufferPool::StreamRing StagingBufferPool::CreateStreamRing(MemoryUsage usage) {
++    StreamRing ring{stream_buffer_size};
++    ring.host_upload = usage == MemoryUsage::Upload;
+     VkBufferCreateInfo stream_ci = {
+         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+         .pNext = nullptr,
+@@ -101,26 +108,44 @@ StagingBufferPool::StagingBufferPool(const Device& device_, MemoryAllocator& mem
+     if (device.IsBufferDeviceAddressSupported()) {
+         stream_ci.usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+     }
+-    stream_buffer = memory_allocator.CreateBuffer(stream_ci, MemoryUsage::Stream);
++    ring.buffer = memory_allocator.CreateBuffer(stream_ci, usage);
+     if (device.HasDebuggingToolAttached()) {
+-        stream_buffer.SetObjectNameEXT("Stream Buffer");
++        ring.buffer.SetObjectNameEXT(ring.host_upload ? "Host Upload Ring" : "Stream Buffer");
+     }
+     if (device.IsBufferDeviceAddressSupported()) {
+-        stream_buffer_address = device.GetLogical().GetBufferDeviceAddress(*stream_buffer);
++        ring.address = device.GetLogical().GetBufferDeviceAddress(*ring.buffer);
+     }
+-    stream_pointer = stream_buffer.Mapped();
+-    ASSERT_MSG(!stream_pointer.empty(), "Stream buffer must be host visible!");
++    ring.pointer = ring.buffer.Mapped();
++    ASSERT_MSG(!ring.pointer.empty(), "Stream buffer must be host visible!");
++    return ring;
+ }
+ 
+ StagingBufferPool::~StagingBufferPool() = default;
+ 
+ StagingBufferRef StagingBufferPool::Request(size_t size, MemoryUsage usage, bool deferred) {
+     if (!deferred && usage == MemoryUsage::Upload && size <= region_size) {
+-        return GetStreamBuffer(size);
++        return GetStreamBuffer(size, stream_ring);
+     }
+     return GetStagingBuffer(size, usage, deferred);
+ }
+ 
++StagingBufferRef StagingBufferPool::RequestHostUpload(size_t size) {
++    if (size > region_size) {
++        return GetStagingBuffer(size, MemoryUsage::Upload, false);
++    }
++    if (!host_upload_ring) {
++        host_upload_ring.emplace(CreateStreamRing(MemoryUsage::Upload));
++    }
++    const StagingBufferRef ref = GetStreamBuffer(size, *host_upload_ring);
++    if (host_upload_ring->cursor.Wraps() != 0 && ref.buffer == *host_upload_ring->buffer &&
++        ref.offset == 0 && !host_upload_ring->reuse_reported) {
++        host_upload_ring->reuse_reported = true;
++        LOG_INFO(HW_GPU, "Host upload ring reused after completion: wraps={}",
++                 host_upload_ring->cursor.Wraps());
++    }
++    return ref;
++}
++
+ void StagingBufferPool::FreeDeferred(StagingBufferRef& ref) {
+     auto& entries = GetCache(ref.usage)[ref.log2_level].entries;
+     const auto is_this_one = [&ref](const StagingBuffer& entry) {
+@@ -141,49 +166,23 @@ void StagingBufferPool::TickFrame() {
+     ReleaseCache(MemoryUsage::Download);
+ }
+ 
+-StagingBufferRef StagingBufferPool::GetStreamBuffer(size_t size) {
+-    if (AreRegionsActive(Region(free_iterator) + 1,
+-                         (std::min)(Region(iterator + size) + 1, NUM_SYNCS))) {
+-        // Avoid waiting for the previous usages to be free
++StagingBufferRef StagingBufferPool::GetStreamBuffer(size_t size, StreamRing& ring) {
++    const auto offset = ring.cursor.Reserve(size, MAX_ALIGNMENT, scheduler.CurrentTick(),
++                                          scheduler.GetMasterSemaphore().KnownGpuTick());
++    if (!offset) {
+         return GetStagingBuffer(size, MemoryUsage::Upload);
+     }
+-    const u64 current_tick = scheduler.CurrentTick();
+-    std::fill(sync_ticks.begin() + Region(used_iterator), sync_ticks.begin() + Region(iterator),
+-              current_tick);
+-    used_iterator = iterator;
+-    free_iterator = (std::max)(free_iterator, iterator + size);
+-
+-    if (iterator + size >= stream_buffer_size) {
+-        std::fill(sync_ticks.begin() + Region(used_iterator), sync_ticks.begin() + NUM_SYNCS,
+-                  current_tick);
+-        used_iterator = 0;
+-        iterator = 0;
+-        free_iterator = size;
+-
+-        if (AreRegionsActive(0, Region(size) + 1)) {
+-            // Avoid waiting for the previous usages to be free
+-            return GetStagingBuffer(size, MemoryUsage::Upload);
+-        }
+-    }
+-    const size_t offset = iterator;
+-    iterator = Common::AlignUp(iterator + size, MAX_ALIGNMENT);
+     return StagingBufferRef{
+-        .buffer = *stream_buffer,
+-        .device_address = stream_buffer_address,
+-        .offset = static_cast<VkDeviceSize>(offset),
+-        .mapped_span = stream_pointer.subspan(offset, size),
++        .buffer = *ring.buffer,
++        .device_address = ring.address,
++        .offset = static_cast<VkDeviceSize>(*offset),
++        .mapped_span = ring.pointer.subspan(*offset, size),
+         .usage{},
+         .log2_level{},
+         .index{},
+     };
+ }
+ 
+-bool StagingBufferPool::AreRegionsActive(size_t region_begin, size_t region_end) const {
+-    const u64 gpu_tick = scheduler.GetMasterSemaphore().KnownGpuTick();
+-    return std::any_of(sync_ticks.begin() + region_begin, sync_ticks.begin() + region_end,
+-                       [gpu_tick](u64 sync_tick) { return gpu_tick < sync_tick; });
+-};
+-
+ StagingBufferRef StagingBufferPool::GetStagingBuffer(size_t size, MemoryUsage usage,
+                                                      bool deferred) {
+     if (const std::optional<StagingBufferRef> ref = TryGetReservedBuffer(size, usage, deferred)) {
+diff --git a/src/video_core/renderer_vulkan/vk_staging_buffer_pool.h b/src/video_core/renderer_vulkan/vk_staging_buffer_pool.h
+index 6d967abb4..e30be9078 100644
+--- a/src/video_core/renderer_vulkan/vk_staging_buffer_pool.h
++++ b/src/video_core/renderer_vulkan/vk_staging_buffer_pool.h
+@@ -7,9 +7,11 @@
+ #pragma once
+ 
+ #include <climits>
++#include <optional>
+ #include <vector>
+ 
+ #include "common/common_types.h"
++#include "video_core/renderer_vulkan/stream_ring_cursor.h"
+ 
+ #include "video_core/vulkan_common/vulkan_memory_allocator.h"
+ #include "video_core/vulkan_common/vulkan_wrapper.h"
+@@ -38,10 +40,11 @@ public:
+     ~StagingBufferPool();
+ 
+     StagingBufferRef Request(size_t size, MemoryUsage usage, bool deferred = false);
++    StagingBufferRef RequestHostUpload(size_t size);
+     void FreeDeferred(StagingBufferRef& ref);
+ 
+     [[nodiscard]] VkBuffer StreamBuf() const noexcept {
+-        return *stream_buffer;
++        return *stream_ring.buffer;
+     }
+ 
+     void TickFrame();
+@@ -84,9 +87,19 @@ private:
+     static constexpr size_t NUM_LEVELS = sizeof(size_t) * CHAR_BIT;
+     using StagingBuffersCache = std::array<StagingBuffers, NUM_LEVELS>;
+ 
+-    StagingBufferRef GetStreamBuffer(size_t size);
++    struct StreamRing {
++        vk::Buffer buffer;
++        VkDeviceAddress address{};
++        std::span<u8> pointer;
++        explicit StreamRing(size_t capacity) : cursor{capacity} {}
++        StreamRingCursor<NUM_SYNCS> cursor;
++        bool host_upload{};
++        bool reuse_reported{};
++    };
++
++    StreamRing CreateStreamRing(MemoryUsage usage);
++    StagingBufferRef GetStreamBuffer(size_t size, StreamRing& ring);
+ 
+-    bool AreRegionsActive(size_t region_begin, size_t region_end) const;
+ 
+     StagingBufferRef GetStagingBuffer(size_t size, MemoryUsage usage, bool deferred = false);
+ 
+@@ -108,16 +121,10 @@ private:
+     MemoryAllocator& memory_allocator;
+     Scheduler& scheduler;
+ 
+-    vk::Buffer stream_buffer;
+-    VkDeviceAddress stream_buffer_address{};
+-    std::span<u8> stream_pointer;
+     VkDeviceSize stream_buffer_size;
+     VkDeviceSize region_size;
+-
+-    size_t iterator = 0;
+-    size_t used_iterator = 0;
+-    size_t free_iterator = 0;
+-    std::array<u64, NUM_SYNCS> sync_ticks{};
++    StreamRing stream_ring;
++    std::optional<StreamRing> host_upload_ring;
+ 
+     StagingBuffersCache device_local_cache;
+     StagingBuffersCache upload_cache;
+diff --git a/src/video_core/vulkan_common/vulkan_memory_allocator.cpp b/src/video_core/vulkan_common/vulkan_memory_allocator.cpp
+index a0a39abe3..d5d0bac2d 100644
+--- a/src/video_core/vulkan_common/vulkan_memory_allocator.cpp
++++ b/src/video_core/vulkan_common/vulkan_memory_allocator.cpp
+@@ -5,6 +5,9 @@
+ // SPDX-License-Identifier: GPL-2.0-or-later
+ 
+ #include <algorithm>
++#include <atomic>
++#include <cstdlib>
++#include <string_view>
+ #include <array>
+ #include <bit>
+ #include <limits>
+@@ -427,6 +430,18 @@ vk::Buffer MemoryAllocator::CreateBuffer(const VkBufferCreateInfo &ci, MemoryUsa
+         vk::Check(vmaCreateBuffer(allocator, &ci, &alloc_ci, &handle, &allocation, &alloc_info));
+     }
+     vmaGetAllocationMemoryProperties(allocator, allocation, &property_flags);
++    static const bool host_upload_probe = [] {
++        const char* value = std::getenv("EDEN_NX2_HOST_BUFFER_UPLOAD");
++        return value != nullptr && std::string_view{value} == "1";
++    }();
++    if (host_upload_probe && (usage == MemoryUsage::Upload || usage == MemoryUsage::Stream)) {
++        static std::atomic<unsigned> reports{};
++        if (reports.fetch_add(1, std::memory_order_relaxed) < 8) {
++            LOG_INFO(HW_GPU, "Upload allocation probe: stream={} type={} flags={:#x} bytes={}",
++                     usage == MemoryUsage::Stream, alloc_info.memoryType, property_flags, ci.size);
++        }
++    }
++
+ 
+     // Log GPU memory allocation for buffers
+     if (GPU::Logging::IsActive() &&
+diff --git a/src/tests/video_core/native_bank_contents.cpp b/src/tests/video_core/native_bank_contents.cpp
+new file mode 100644
+index 000000000..f34052a47
+--- /dev/null
++++ b/src/tests/video_core/native_bank_contents.cpp
+@@ -0,0 +1,105 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++#include <vector>
++#include <catch2/catch_test_macros.hpp>
++#include "video_core/buffer_cache/native_bank_contents.h"
++
++TEST_CASE("Native bank comparison refreshes changed page edges and distinct banks", "[native_bank_contents]") {
++    using C=VideoCommon::NativeBankContents;
++    C cache;
++    std::vector<std::uint8_t> pages(69632,0);
++    REQUIRE(cache.Check(4097,65536,pages)==C::Decision::Refresh);
++    REQUIRE(cache.Check(4097,65536,pages)==C::Decision::Unchanged);
++    // The covered first byte is before the bank: compare the whole pages, not only the bank.
++    pages.front()=1;
++    REQUIRE(cache.Check(4097,65536,pages)==C::Decision::Refresh);
++    REQUIRE(cache.Check(4097,65536,pages)==C::Decision::Unchanged);
++    pages.back()=1;
++    REQUIRE(cache.Check(4097,65536,pages)==C::Decision::Refresh);
++    REQUIRE(cache.Check(4098,65536,pages)==C::Decision::Refresh);
++    REQUIRE(cache.Check(4097,65535,pages)==C::Decision::Refresh);
++    REQUIRE(cache.Check(4097,65536,{})==C::Decision::Refresh);
++}
++
++TEST_CASE("Native bank comparison forgets bounded entries between evictions and sessions", "[native_bank_contents]") {
++    using C=VideoCommon::NativeBankContents;
++    C cache;
++    std::vector<std::uint8_t> pages(65536,0);
++    for(std::size_t address=0;address<C::MaxKeys;++address) {
++        REQUIRE(cache.Check(address*C::PageSize,65536,pages)==C::Decision::Refresh);
++    }
++    REQUIRE(cache.TrackedKeys()==C::MaxKeys);
++    REQUIRE(cache.Check(C::MaxKeys*C::PageSize,65536,pages)==C::Decision::Refresh);
++    REQUIRE(cache.TrackedKeys()==1);
++    REQUIRE(cache.Check(0,65536,pages)==C::Decision::Refresh);
++    REQUIRE(cache.Check(0,65536,pages)==C::Decision::Unchanged);
++    std::vector<std::uint8_t> too_large(C::MaxBytes+1,0);
++    REQUIRE(cache.Check(0,too_large.size(),too_large)==C::Decision::Refresh);
++    C new_session;
++    REQUIRE(new_session.Check(0,65536,pages)==C::Decision::Refresh);
++    unsigned invalidations=0;
++    auto invalidate=[&]{++invalidations;};
++    REQUIRE_FALSE(cache.RefreshIfChanged(0,65536,pages,C::GpuHistory::Unwritten,invalidate));
++    REQUIRE(invalidations==0);
++    pages.back()=1;
++    REQUIRE(cache.RefreshIfChanged(0,65536,pages,C::GpuHistory::Unwritten,invalidate));
++    REQUIRE(invalidations==1);
++    REQUIRE(cache.RefreshIfChanged(0,65536,{},C::GpuHistory::Unwritten,invalidate));
++    REQUIRE(invalidations==2);
++    REQUIRE(cache.RefreshIfChanged(0,65536,pages,C::GpuHistory::Written,invalidate));
++    REQUIRE(invalidations==3);
++    cache.Reset();
++    REQUIRE(cache.RefreshIfChanged(0,65536,pages,C::GpuHistory::Unwritten,invalidate));
++    REQUIRE(invalidations==4);
++}
++
++TEST_CASE("Native bank statistics separate retained writes and effective skips", "[native_bank_contents]") {
++    using C=VideoCommon::NativeBankContents;
++    C cache;
++    std::vector<std::uint8_t> pages(65536,0);
++    auto invalidate=[]{};
++    REQUIRE(cache.RefreshIfChanged(4096,65536,pages,C::GpuHistory::Unwritten,invalidate));
++    REQUIRE_FALSE(cache.RefreshIfChanged(4096,65536,pages,C::GpuHistory::Unwritten,invalidate));
++    REQUIRE(cache.RefreshIfChanged(4096,65536,pages,C::GpuHistory::Written,invalidate));
++    cache.Reset(C::ResetReason::Create);
++    const auto& s=cache.Stats();
++    REQUIRE(s.calls==3);
++    REQUIRE(s.unchanged==1);
++    REQUIRE(s.gpu_written==1);
++    REQUIRE(s.compared==2);
++    REQUIRE(s.resets==1);
++    REQUIRE(s.nonempty==1);
++    REQUIRE(s.create==1);
++    REQUIRE(s.remove==0);
++    REQUIRE(cache.TrackedKeys()==0);
++}
++
++TEST_CASE("Native bank invalidation only forgets intersecting complete pages", "[native_bank_contents]") {
++    using C=VideoCommon::NativeBankContents;
++    using D=C::Decision;
++    C cache;
++    std::vector<std::uint8_t> pages(69632,0);
++    auto first=[&]{return cache.Check(4097,65536,pages);};
++    auto second=[&]{return cache.Check(131073,65536,pages);};
++    REQUIRE(first()==D::Refresh);
++    REQUIRE(second()==D::Refresh);
++    cache.InvalidateRange(400000,4096);
++    REQUIRE(first()==D::Unchanged);
++    REQUIRE(second()==D::Unchanged);
++    cache.InvalidateRange(73728,1);
++    REQUIRE(first()==D::Unchanged);
++    cache.InvalidateRange(4095,1);
++    REQUIRE(first()==D::Unchanged);
++    cache.InvalidateRange(4096,1,C::ResetReason::Clear);
++    REQUIRE(first()==D::Refresh);
++    REQUIRE(second()==D::Unchanged);
++    cache.InvalidateRange(73727,1);
++    REQUIRE(first()==D::Refresh);
++    REQUIRE(second()==D::Unchanged);
++    cache.InvalidateRange(5000,0);
++    REQUIRE(first()==D::Unchanged);
++    REQUIRE(cache.Stats().range_removed==2);
++    REQUIRE(cache.Stats().range_preserved>0);
++    cache.InvalidateRange(std::numeric_limits<std::uint64_t>::max()-1,4);
++    REQUIRE(first()==D::Refresh);
++    REQUIRE(second()==D::Refresh);
++}
+diff --git a/src/tests/video_core/stream_ring_cursor.cpp b/src/tests/video_core/stream_ring_cursor.cpp
+new file mode 100644
+index 000000000..776575414
+--- /dev/null
++++ b/src/tests/video_core/stream_ring_cursor.cpp
+@@ -0,0 +1,59 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++#include <algorithm>
++#include <array>
++#include <random>
++#include <catch2/catch_test_macros.hpp>
++#include "video_core/renderer_vulkan/stream_ring_cursor.h"
++
++TEST_CASE("Stream ring rejects repeated busy wraps until the GPU completes", "[stream_ring]") {
++    Vulkan::StreamRingCursor<4> ring{4096};
++    for (std::size_t i=0; i<7; ++i) {
++        const auto offset=ring.Reserve(512,256,1,0);
++        REQUIRE(offset.has_value());
++        REQUIRE(*offset==i*512);
++    }
++    REQUIRE_FALSE(ring.Reserve(512,256,2,0).has_value());
++    REQUIRE_FALSE(ring.Reserve(512,256,2,0).has_value());
++    REQUIRE(ring.Wraps()==0);
++    const auto resumed=ring.Reserve(512,256,2,1);
++    REQUIRE(resumed.has_value());
++    REQUIRE(*resumed==0);
++    REQUIRE(ring.Wraps()==1);
++}
++
++TEST_CASE("Independent stream rings never overlap GPU work still in flight", "[stream_ring]") {
++    std::array<Vulkan::StreamRingCursor<4>,2> rings{
++        Vulkan::StreamRingCursor<4>{4096}, Vulkan::StreamRingCursor<4>{4096}};
++    std::array<std::array<std::uint64_t,4096>,2> writers{};
++    std::minstd_rand random{20261109};
++    unsigned accepted=0,rejected=0;
++    for (std::uint64_t tick=1; tick<=5000; ++tick) {
++        const std::size_t index=random()%2;
++        const std::size_t size=1+random()%1024;
++        const std::uint64_t completed=tick>20 ? tick-20 : 0;
++        const auto offset=rings[index].Reserve(size,256,tick,completed);
++        if (!offset) { ++rejected; continue; }
++        ++accepted;
++        REQUIRE(*offset%256==0);
++        REQUIRE(*offset+size<=writers[index].size());
++        for (std::size_t byte=*offset; byte<*offset+size; ++byte) {
++            REQUIRE(writers[index][byte]<=completed);
++            writers[index][byte]=tick;
++        }
++    }
++    REQUIRE(accepted>0);
++    REQUIRE(rejected>0);
++    REQUIRE(rings[0].Wraps()>0);
++    REQUIRE(rings[1].Wraps()>0);
++}
++
++TEST_CASE("Stream ring refuses invalid geometry before reserving memory", "[stream_ring]") {
++    REQUIRE_THROWS_AS((Vulkan::StreamRingCursor<4>{0}), std::invalid_argument);
++    REQUIRE_THROWS_AS((Vulkan::StreamRingCursor<4>{4097}), std::invalid_argument);
++    Vulkan::StreamRingCursor<4> ring{4096};
++    REQUIRE_FALSE(ring.Reserve(1025,256,1,0).has_value());
++    REQUIRE_FALSE(ring.Reserve(512,0,1,0).has_value());
++    const auto valid=ring.Reserve(512,256,1,0);
++    REQUIRE(valid.has_value());
++    REQUIRE(*valid==0);
++}
+diff --git a/src/tests/video_core/upload_payload_diagnostic.cpp b/src/tests/video_core/upload_payload_diagnostic.cpp
+new file mode 100644
+index 000000000..059cd4378
+--- /dev/null
++++ b/src/tests/video_core/upload_payload_diagnostic.cpp
+@@ -0,0 +1,46 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++#include <vector>
++#include <catch2/catch_test_macros.hpp>
++#include "video_core/buffer_cache/upload_payload_diagnostic.h"
++
++TEST_CASE("Upload payload diagnostic compares every byte and keeps address identities", "[upload_payload]") {
++    using D = VideoCommon::UploadPayloadDiagnostic;
++    D diagnostic;
++    std::vector<std::uint8_t> payload(D::MinBytes,0);
++    diagnostic.Observe(1,payload.size(),payload);
++    REQUIRE(diagnostic.Counts().compared_uploads==0);
++    diagnostic.Observe(1,payload.size(),payload);
++    REQUIRE(diagnostic.Counts().identical_uploads==1);
++    payload.back()=1;
++    diagnostic.Observe(1,payload.size(),payload);
++    REQUIRE(diagnostic.Counts().compared_uploads==2);
++    REQUIRE(diagnostic.Counts().identical_uploads==1);
++    diagnostic.Observe(2,payload.size(),payload);
++    REQUIRE(diagnostic.Counts().compared_uploads==2);
++    REQUIRE(diagnostic.TrackedKeys()==2);
++    diagnostic.Observe(1,payload.size());
++    REQUIRE(diagnostic.Counts().eligible_uploads==5);
++    REQUIRE(diagnostic.Counts().observed_uploads==4);
++    REQUIRE(diagnostic.Counts().identical_bytes==payload.size());
++    REQUIRE(D::Eligible(D::MinBytes));
++    REQUIRE(D::Eligible(D::MaxBytes));
++    REQUIRE_FALSE(D::Eligible(D::MinBytes-1));
++    REQUIRE_FALSE(D::Eligible(D::MaxBytes+1));
++}
++
++TEST_CASE("Upload payload diagnostic bounds memory and forgets evicted sources", "[upload_payload]") {
++    using D = VideoCommon::UploadPayloadDiagnostic;
++    D diagnostic;
++    std::vector<std::uint8_t> payload(D::MinBytes,0);
++    for (std::size_t address=1; address<=D::MaxKeys; ++address) {
++        diagnostic.Observe(address,payload.size(),payload);
++    }
++    REQUIRE(diagnostic.TrackedKeys()==D::MaxKeys);
++    diagnostic.Observe(D::MaxKeys+1,payload.size(),payload);
++    REQUIRE(diagnostic.TrackedKeys()==1);
++    REQUIRE(diagnostic.Counts().resets==1);
++    diagnostic.Observe(1,payload.size(),payload);
++    REQUIRE(diagnostic.Counts().compared_uploads==0);
++    diagnostic.Observe(1,payload.size(),payload);
++    REQUIRE(diagnostic.Counts().identical_uploads==1);
++}
+diff --git a/src/video_core/buffer_cache/native_bank_contents.h b/src/video_core/buffer_cache/native_bank_contents.h
+new file mode 100644
+index 000000000..c3c6eae40
+--- /dev/null
++++ b/src/video_core/buffer_cache/native_bank_contents.h
+@@ -0,0 +1,110 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++#pragma once
++#include <algorithm>
++#include <cstddef>
++#include <cstdint>
++#include <map>
++#include <span>
++#include <tuple>
++#include <limits>
++#include <utility>
++#include <vector>
++
++namespace VideoCommon {
++// 2026-11-09: 46,410 observed 64..128 KiB uploads repeated the same source bytes.
++// This only decides whether to force the once-per-frame bank refresh. Genuine dirty
++// tracking and synchronization still run. At most 512 snapshots retain 64 MiB.
++class NativeBankContents {
++public:
++    static constexpr std::uint64_t PageSize = 4096;
++    static constexpr std::size_t MaxBytes = 128 * 1024;
++    static constexpr std::size_t MaxKeys = 512;
++    enum class Decision { Refresh, Unchanged };
++    enum class GpuHistory { Unwritten, Written };
++    enum class ResetReason { Other, Create, Delete, Clear, Discard, Repack };
++    struct Statistics {
++        std::uint64_t calls{}, unchanged{}, gpu_written{}, compared{};
++        std::uint64_t resets{}, nonempty{}, create{}, remove{}, clear{}, discard{}, repack{};
++        std::uint64_t range_calls{}, range_removed{}, range_preserved{}, capacity{};
++    };
++    Decision Check(std::uint64_t bank_address, std::size_t marked_bytes,
++                   std::span<const std::uint8_t> covered_pages) {
++        if (covered_pages.empty() || covered_pages.size() > MaxBytes ||
++            marked_bytes > covered_pages.size() ||
++            bank_address % PageSize > covered_pages.size() - marked_bytes) {
++            return Decision::Refresh;
++        }
++        const auto key = std::tuple{bank_address, marked_bytes, covered_pages.size()};
++        auto found = previous.find(key);
++        if (found != previous.end()) {
++            if (std::equal(covered_pages.begin(), covered_pages.end(), found->second.begin())) {
++                return Decision::Unchanged;
++            }
++            found->second.assign(covered_pages.begin(), covered_pages.end());
++            return Decision::Refresh;
++        }
++        if (previous.size() == MaxKeys) { previous.clear(); ++statistics.capacity; }
++        previous.emplace(key,std::vector<std::uint8_t>{covered_pages.begin(),covered_pages.end()});
++        return Decision::Refresh;
++    }
++    template <typename Invalidate>
++    bool RefreshIfChanged(std::uint64_t address, std::size_t marked,
++                          std::span<const std::uint8_t> pages, GpuHistory history,
++                          Invalidate&& invalidate) {
++        ++statistics.calls;
++        if (history == GpuHistory::Written) { ++statistics.gpu_written; }
++        else { ++statistics.compared; }
++        if (history == GpuHistory::Unwritten &&
++            Check(address,marked,pages)==Decision::Unchanged) {
++            ++statistics.unchanged;
++            return false;
++        }
++        std::forward<Invalidate>(invalidate)();
++        return true;
++    }
++    void Reset(ResetReason reason=ResetReason::Other) {
++        ++statistics.resets;
++        statistics.nonempty += !previous.empty();
++        switch (reason) {
++        case ResetReason::Create: ++statistics.create; break;
++        case ResetReason::Delete: ++statistics.remove; break;
++        case ResetReason::Clear: ++statistics.clear; break;
++        case ResetReason::Discard: ++statistics.discard; break;
++        case ResetReason::Repack: ++statistics.repack; break;
++        case ResetReason::Other: break;
++        }
++        previous.clear();
++    }
++    const Statistics& Stats() const { return statistics; }
++    void InvalidateRange(std::uint64_t address, std::size_t size,
++                         ResetReason reason=ResetReason::Other) {
++        if (size > std::numeric_limits<std::uint64_t>::max() - address) {
++            Reset(reason);
++            return;
++        }
++        ++statistics.range_calls;
++        switch(reason) {
++        case ResetReason::Create: ++statistics.create; break;
++        case ResetReason::Delete: ++statistics.remove; break;
++        case ResetReason::Clear: ++statistics.clear; break;
++        case ResetReason::Discard: ++statistics.discard; break;
++        case ResetReason::Repack: ++statistics.repack; break;
++        case ResetReason::Other: break;
++        }
++        if (size==0) { return; }
++        const auto before=previous.size();
++        const auto end=address+size;
++        std::erase_if(previous,[&](const auto& entry) {
++            const auto start=std::get<0>(entry.first) & ~(PageSize-1);
++            if (entry.second.size()>std::numeric_limits<std::uint64_t>::max()-start) { return true; }
++            return start<end && address<start+entry.second.size();
++        });
++        statistics.range_removed += before-previous.size();
++        statistics.range_preserved += !previous.empty();
++    }
++    std::size_t TrackedKeys() const { return previous.size(); }
++private:
++    Statistics statistics;
++    std::map<std::tuple<std::uint64_t,std::size_t,std::size_t>,std::vector<std::uint8_t>> previous;
++};
++}
+diff --git a/src/video_core/buffer_cache/upload_payload_diagnostic.h b/src/video_core/buffer_cache/upload_payload_diagnostic.h
+new file mode 100644
+index 000000000..c6a47dc0b
+--- /dev/null
++++ b/src/video_core/buffer_cache/upload_payload_diagnostic.h
+@@ -0,0 +1,61 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++#pragma once
++#include <algorithm>
++#include <cstddef>
++#include <cstdint>
++#include <map>
++#include <span>
++#include <utility>
++#include <vector>
++
++namespace VideoCommon {
++struct UploadPayloadCounts {
++    std::uint64_t uploads{}, bytes{}, eligible_uploads{}, eligible_bytes{};
++    std::uint64_t observed_uploads{}, observed_bytes{}, compared_uploads{}, compared_bytes{};
++    std::uint64_t identical_uploads{}, identical_bytes{}, resets{};
++};
++
++// 2026-11-09: the timed copy loop mostly handles 68 KiB payloads. Sample 64..128 KiB
++// sources with at most 512 retained payloads (64 MiB); never change an upload decision.
++class UploadPayloadDiagnostic {
++public:
++    static constexpr std::size_t MinBytes = 64 * 1024;
++    static constexpr std::size_t MaxBytes = 128 * 1024;
++    static constexpr std::size_t MaxKeys = 512;
++    static bool Eligible(std::size_t size) { return size >= MinBytes && size <= MaxBytes; }
++
++    void Observe(std::uint64_t address, std::size_t requested_size,
++                 std::span<const std::uint8_t> source = {}) {
++        ++counts.uploads;
++        counts.bytes += requested_size;
++        if (!Eligible(requested_size)) { return; }
++        ++counts.eligible_uploads;
++        counts.eligible_bytes += requested_size;
++        if (source.size() != requested_size) { return; }
++        ++counts.observed_uploads;
++        counts.observed_bytes += requested_size;
++        const auto key = std::pair{address, requested_size};
++        auto found = previous.find(key);
++        if (found != previous.end()) {
++            ++counts.compared_uploads;
++            counts.compared_bytes += requested_size;
++            if (std::equal(source.begin(), source.end(), found->second.begin())) {
++                ++counts.identical_uploads;
++                counts.identical_bytes += requested_size;
++            }
++            found->second.assign(source.begin(), source.end());
++            return;
++        }
++        if (previous.size() == MaxKeys) {
++            previous.clear();
++            ++counts.resets;
++        }
++        previous.emplace(key, std::vector<std::uint8_t>{source.begin(), source.end()});
++    }
++    const UploadPayloadCounts& Counts() const { return counts; }
++    std::size_t TrackedKeys() const { return previous.size(); }
++private:
++    UploadPayloadCounts counts;
++    std::map<std::pair<std::uint64_t, std::size_t>, std::vector<std::uint8_t>> previous;
++};
++}
+diff --git a/src/video_core/renderer_vulkan/stream_ring_cursor.h b/src/video_core/renderer_vulkan/stream_ring_cursor.h
+new file mode 100644
+index 000000000..1e7b88416
+--- /dev/null
++++ b/src/video_core/renderer_vulkan/stream_ring_cursor.h
+@@ -0,0 +1,62 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++
++#pragma once
++#include <algorithm>
++#include <array>
++#include <cstddef>
++#include <cstdint>
++#include <optional>
++#include <stdexcept>
++
++namespace Vulkan {
++// Allocation bookkeeping only. The caller owns the buffer and supplies completed GPU ticks.
++template <std::size_t Regions>
++class StreamRingCursor {
++public:
++    static_assert(Regions > 1, "A stream ring needs a current and a following region");
++    explicit StreamRingCursor(std::size_t capacity_) : capacity{capacity_}, region_size{capacity / Regions} {
++        if (capacity == 0 || capacity % Regions != 0) {
++            throw std::invalid_argument("Stream ring capacity must contain complete regions");
++        }
++    }
++
++    std::optional<std::size_t> Reserve(std::size_t size, std::size_t alignment,
++                                       std::uint64_t tick, std::uint64_t completed) {
++        if (alignment == 0 || alignment > region_size || size > region_size) {
++            return std::nullopt;
++        }
++        const auto region = [this](std::size_t offset) { return offset / region_size; };
++        const auto active = [&](std::size_t begin, std::size_t end) {
++            return std::any_of(ticks.begin() + begin, ticks.begin() + end,
++                               [completed](std::uint64_t used_tick) { return completed < used_tick; });
++        };
++        if (active(region(free_position) + 1, std::min(region(position + size) + 1, Regions))) {
++            return std::nullopt;
++        }
++        // Check before changing any cursor: a rejected wrap must remain rejected on retry.
++        if (position + size >= capacity && active(0, region(size) + 1)) {
++            return std::nullopt;
++        }
++        std::fill(ticks.begin() + region(used_position), ticks.begin() + region(position), tick);
++        used_position = position;
++        free_position = std::max(free_position, position + size);
++        if (position + size >= capacity) {
++            std::fill(ticks.begin() + region(used_position), ticks.end(), tick);
++            used_position = 0;
++            position = 0;
++            free_position = size;
++            ++wraps;
++        }
++        const std::size_t offset = position;
++        position = ((position + size + alignment - 1) / alignment) * alignment;
++        return offset;
++    }
++    unsigned Wraps() const { return wraps; }
++private:
++    std::size_t capacity;
++    std::size_t region_size;
++    std::size_t position{}, used_position{}, free_position{};
++    std::array<std::uint64_t, Regions> ticks{};
++    unsigned wraps{};
++};
++}

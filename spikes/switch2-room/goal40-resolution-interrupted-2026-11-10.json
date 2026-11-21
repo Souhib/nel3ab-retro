@@ -1,0 +1,141 @@
+{
+  "date_utc": "2026-11-10",
+  "created_unix": 1794355084.323968,
+  "objective": "At least40FPS constant",
+  "status": "Resolution comparison interrupted by external installed room during B1. A2/B2 not launched. No causal performance conclusion.",
+  "experiment": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110-v3",
+  "planned_order": [
+    "A1",
+    "B1",
+    "A2",
+    "B2"
+  ],
+  "completed_qualified_phases": [
+    "A1"
+  ],
+  "A1": {
+    "timing": {
+      "windows": 3,
+      "covered_seconds": 64.501230182,
+      "rate": 27.90644449603561,
+      "p99_ms": [
+        45.848205,
+        45.3975,
+        46.922571
+      ],
+      "max_ms": 68.10671,
+      "phase_seconds": 90.0027625
+    },
+    "host_image": {
+      "at_unix": 1794354432.6078403,
+      "shader": [
+        "bded5ce917183214"
+      ],
+      "host_dimensions": [
+        1280,
+        720
+      ],
+      "rescaled": true,
+      "png": "/home/souhib/.local/state/nel3ab/test-switch2-ktycvr/state/0400486024dec000/neuve/home/resolution-proof/capture-1794354170-001/0142_pass112_d2247-2248_rt0_B10G11R11_FLOAT_1280x720_81151ee000.png",
+      "raw": "/home/souhib/.local/state/nel3ab/test-switch2-ktycvr/state/0400486024dec000/neuve/home/resolution-proof/capture-1794354170-001/0142_pass112_d2247-2248_rt0_B10G11R11_FLOAT_1280x720_81151ee000.raw.zst",
+      "raw_bytes_decoded": 3686400,
+      "manifest": "/home/souhib/.local/state/nel3ab/test-switch2-ktycvr/state/0400486024dec000/neuve/home/resolution-proof/capture-1794354170-001/manifest.jsonl",
+      "capture_begin_after_phase_seconds": 1.535449509,
+      "summary": {
+        "bytes": 98834921,
+        "dispatches": 133,
+        "draws": 2288,
+        "images": 148,
+        "kind": "summary",
+        "passes": 116,
+        "truncated": false
+      },
+      "scope": "Copied VkImage subresource and decoded contents, not RenderArea or every image/compute pass",
+      "hashes": {
+        "/home/souhib/.local/state/nel3ab/test-switch2-ktycvr/state/0400486024dec000/neuve/home/resolution-proof/capture-1794354170-001/0142_pass112_d2247-2248_rt0_B10G11R11_FLOAT_1280x720_81151ee000.raw.zst": "8784ed195c3cd4fcb14c061b684d4fb8d8a43973395e026ce9cb13254c279d18",
+        "/home/souhib/.local/state/nel3ab/test-switch2-ktycvr/state/0400486024dec000/neuve/home/resolution-proof/capture-1794354170-001/0142_pass112_d2247-2248_rt0_B10G11R11_FLOAT_1280x720_81151ee000.png": "e0690eb539a9bee7550a353247358347d1503b2c50a250a968144df2b193072f",
+        "/home/souhib/.local/state/nel3ab/test-switch2-ktycvr/state/0400486024dec000/neuve/home/resolution-proof/capture-1794354170-001/manifest.jsonl": "308fe036880b367021a00eb91e550502916131aa749719f6c4690cbe99eb43db"
+      }
+    }
+  },
+  "B1": {
+    "excluded": true,
+    "first_interference_offset_seconds": 69.157794327,
+    "neutral_delivery": false,
+    "native_normal_stop": true,
+    "manual_cleanup_audit": {
+      "at_unix": 1794354947.1816857,
+      "phase_qualified": false,
+      "reason": "Unrelated emulator appeared",
+      "first_interference_monotonic_ns": 2372621909786695,
+      "first_interference_offset_seconds": 69.157794327,
+      "all_observed_owned_container_PIDs_absent": [
+        3108723,
+        3108933,
+        3108951,
+        3108958,
+        3108997,
+        3109089,
+        3109102,
+        3109104
+      ],
+      "all_observed_driver_phase_identities_absent": {
+        "3108572": "237242457",
+        "3116426": "237255238",
+        "3116425": "237255234"
+      },
+      "owned_containers_absent": true,
+      "native_exit": {
+        "Status": "exited",
+        "Running": false,
+        "Paused": false,
+        "Restarting": false,
+        "OOMKilled": false,
+        "Dead": false,
+        "Pid": 0,
+        "ExitCode": 0,
+        "Error": "",
+        "StartedAt": "2026-11-10T23:47:36.916837917Z",
+        "FinishedAt": "2026-11-10T23:50:56.167488592Z"
+      },
+      "native_lifecycle": {
+        "exit_code": 0,
+        "stop_requested": true,
+        "window_closed": true,
+        "forced": false,
+        "stop_seconds": 3.6048272592015564
+      },
+      "observer_restored": "active",
+      "remaining_virtual_pads": [
+        "nel3ab room-switch-Z1uRbA P4",
+        "nel3ab room-switch-Z1uRbA P2",
+        "nel3ab room-switch-Z1uRbA P3",
+        "nel3ab room-switch-Z1uRbA P1"
+      ],
+      "remaining_pad_scope": "Only identified external room namespace, not removed or treated as owned survivors",
+      "supervisor_issue": "Cleanup assertion checked phase PID immediately after browser/game stop; phase controller had not yet handled target detach. It exited later with code1 and neutral delivery false. Full original cleanup JSON was not produced.",
+      "manual_audit_scope": "Actual process/container absence and normal native stop, not successful phase or original supervisor completion",
+      "production_progression_note": "External installed room is active; its legitimate cache/save writes are not compared against an old immutable production baseline."
+    }
+  },
+  "reader_audit": "Complete gather and4 real bootstrap files qualified before launch; native A1/B1 checks passed141fields. Reader failures no longer caused the interruption.",
+  "constant40_achieved": false,
+  "hardware_ceiling_proven": false,
+  "production_change": false,
+  "source_next": "Composed1058/1244 source and20CPU fixture units prepared, not built or executed; wait for actual installed game disappearance before heavy work.",
+  "proof_files_sha256": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110-v3/plan.json": "418d0573a5511a4cb37f9df71629ae313c95e62fd2f19984e6e371850123f9b2",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110-v3/reader-audit/final-freeze.json": "e6cf2d629297ac852f585cbe584bd83ce283825018a704e01d3b996225873ea8",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110-v3/reader-audit/README.txt": "841366ddc5dcfa25946185d19029f38e8ade06527323c0a9b856772cc90a2916",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110-v3/A1/preliminary-timing.json": "d4330f5fdac4339411bcc62c0f4ae9c55a414c475b9b068ee093659c70a5d5e3",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110-v3/A1/resolution-proof.json": "654f90e75bd32ded4c023a582bd16ee2d762892c8f56277e120dd586b6c0b64b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110-v3/B1/manual-cleanup-audit.json": "ade1186f99e352593af9e2586302b7794b91426b877cc8d6e2bf3456795e2a0a",
+    "/home/souhib/.local/state/nel3ab/test-switch2-ZtqSZv/qualification-watchdog.json": "840cb27dd78d5ff0709d61ca9e52b954c69d45397daa5acb1ebc2fc89dc6211e",
+    "/home/souhib/.local/state/nel3ab/test-switch2-ZtqSZv/browser-phase-result.json": "0eb6bcebe45d13d39a579121e34c6d57e277af44af0a87a9a3bdbc14f087426a",
+    "/home/souhib/.local/state/nel3ab/test-switch2-ZtqSZv/phase-exit.json": "55b3987867da00801bcaccca8f2e34483791ec21557ef9202be19f18dc22ffef",
+    "/home/souhib/.local/state/nel3ab/test-switch2-ZtqSZv/phase-console.log": "0d0f93cb0c5c770f68d5500c9432588680be7a0a60751bb3243cb78488449ea9",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110-v3/B1/session-supervisor.log": "ab2d60379b9b0b3af6140c26ed0939248f1421cf2f8978542f457a1d0e26d764",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110-v3/B1/prephase-review-as-accepted.json": "7dbf7d2f78ede25c06ed3a0314c4b531e72b495c293242624f20916ffe02909f",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-resolution-ab-20261110-v3/B1/prephase-review.json": "ce5bb3251422673f6f6914ad8f9c06ef71aa6eecd6852479c33a40eb4554da47"
+  }
+}

@@ -1,0 +1,244 @@
+{
+  "date": "2026-11-09",
+  "cli_sha256": "fb25654b137eb46bd126963cba799c835b5c9f574c2832fd10ac0ef8b9dce3d8",
+  "mesa": "25.2.8",
+  "scope": "Four alternating60s phases,oneprocess. Exit139duringrequestedshutdown,notnormalstop;causeunidentified. NoFPS30orinstallqualification.",
+  "phases": [
+    {
+      "level": "auto",
+      "measurement": {
+        "requested_seconds": [
+          131.95704970359802,
+          185.911205
+        ],
+        "covered_seconds": 25.1058,
+        "game_presentations": 600,
+        "game_fps": 23.898860024376837,
+        "window_fps_median": 23.898860024376837,
+        "maximum_frame_ms": 71.668,
+        "frames_over_100_ms": 0,
+        "windows": [
+          {
+            "start": 153.351337,
+            "end": 178.457137,
+            "mean_us": 41843,
+            "maximum_us": 71668,
+            "freezes": 0
+          }
+        ]
+      },
+      "telemetry": {
+        "gpu_freq1_input": {
+          "min": 377000000,
+          "median": 2103500000.0,
+          "max": 2300000000
+        },
+        "gpu_freq2_input": {
+          "min": 675000000,
+          "median": 1094000000.0,
+          "max": 1094000000
+        },
+        "gpu_temp2_input": {
+          "min": 53000,
+          "median": 54500.0,
+          "max": 59000
+        },
+        "gpu_power1_average": {
+          "min": 35000000,
+          "median": 44500000.0,
+          "max": 49000000
+        },
+        "temp1_input": {
+          "min": 76250,
+          "median": 78312.5,
+          "max": 79625
+        }
+      }
+    },
+    {
+      "level": "high",
+      "measurement": {
+        "requested_seconds": [
+          208.25176224708557,
+          263.695377
+        ],
+        "covered_seconds": 25.0482,
+        "game_presentations": 600,
+        "game_fps": 23.95381704074544,
+        "window_fps_median": 23.95381704074544,
+        "maximum_frame_ms": 75.684,
+        "frames_over_100_ms": 0,
+        "windows": [
+          {
+            "start": 237.32196999999996,
+            "end": 262.37017,
+            "mean_us": 41747,
+            "maximum_us": 75684,
+            "freezes": 0
+          }
+        ]
+      },
+      "telemetry": {
+        "gpu_freq1_input": {
+          "min": 1375000000,
+          "median": 2298500000.0,
+          "max": 2576000000
+        },
+        "gpu_freq2_input": {
+          "min": 1094000000,
+          "median": 1094000000.0,
+          "max": 1094000000
+        },
+        "gpu_temp2_input": {
+          "min": 54000,
+          "median": 56500.0,
+          "max": 63000
+        },
+        "gpu_power1_average": {
+          "min": 47000000,
+          "median": 53000000.0,
+          "max": 59000000
+        },
+        "temp1_input": {
+          "min": 79250,
+          "median": 80687.5,
+          "max": 81250
+        }
+      }
+    },
+    {
+      "level": "auto",
+      "measurement": {
+        "requested_seconds": [
+          284.4787024021149,
+          337.514486
+        ],
+        "covered_seconds": 27.4716,
+        "game_presentations": 600,
+        "game_fps": 21.840737343292712,
+        "window_fps_median": 21.84073734329271,
+        "maximum_frame_ms": 104.158,
+        "frames_over_100_ms": 1,
+        "windows": [
+          {
+            "start": 295.123389,
+            "end": 322.594989,
+            "mean_us": 45786,
+            "maximum_us": 104158,
+            "freezes": 1
+          }
+        ]
+      },
+      "telemetry": {
+        "gpu_freq1_input": {
+          "min": 349000000,
+          "median": 1722000000.0,
+          "max": 2419000000
+        },
+        "gpu_freq2_input": {
+          "min": 675000000,
+          "median": 1094000000.0,
+          "max": 1094000000
+        },
+        "gpu_temp2_input": {
+          "min": 52000,
+          "median": 53000.0,
+          "max": 59000
+        },
+        "gpu_power1_average": {
+          "min": 35000000,
+          "median": 44000000.0,
+          "max": 48000000
+        },
+        "temp1_input": {
+          "min": 80875,
+          "median": 82687.5,
+          "max": 83250
+        }
+      }
+    },
+    {
+      "level": "high",
+      "measurement": {
+        "requested_seconds": [
+          360.65953359603884,
+          414.834968
+        ],
+        "covered_seconds": 25.2282,
+        "game_presentations": 600,
+        "game_fps": 23.782909601160604,
+        "window_fps_median": 23.782909601160608,
+        "maximum_frame_ms": 78.644,
+        "frames_over_100_ms": 0,
+        "windows": [
+          {
+            "start": 381.473432,
+            "end": 406.701632,
+            "mean_us": 42047,
+            "maximum_us": 78644,
+            "freezes": 0
+          }
+        ]
+      },
+      "telemetry": {
+        "gpu_freq1_input": {
+          "min": 319000000,
+          "median": 2198000000.0,
+          "max": 2651000000
+        },
+        "gpu_freq2_input": {
+          "min": 1094000000,
+          "median": 1094000000.0,
+          "max": 1094000000
+        },
+        "gpu_temp2_input": {
+          "min": 54000,
+          "median": 57000.0,
+          "max": 59000
+        },
+        "gpu_power1_average": {
+          "min": 48000000,
+          "median": 54000000.0,
+          "max": 58000000
+        },
+        "temp1_input": {
+          "min": 83250,
+          "median": 84437.5,
+          "max": 85000
+        }
+      }
+    }
+  ],
+  "pooled": {
+    "auto": {
+      "presents": 1200,
+      "seconds": 52.5774,
+      "over100ms": 1,
+      "fps": 22.823494505243698
+    },
+    "high": {
+      "presents": 1200,
+      "seconds": 50.2764,
+      "over100ms": 0,
+      "fps": 23.868057378809937
+    }
+  },
+  "change_percent": 4.576700002386791,
+  "shutdown": {
+    "exit_code": 139,
+    "stop_requested": true,
+    "window_closed": true,
+    "forced": false,
+    "stop_seconds": 2.6041640075854957
+  },
+  "visual_review": {
+    "all_eight_before_after_images_reviewed": true,
+    "world_and_avatar_visible": true,
+    "position": "SameKokiribalcony throughout",
+    "reviewed_at": 1794211013.3528595
+  },
+  "restored_policy": "auto",
+  "power_cap_uw_unchanged": 150000000,
+  "qualifies_for_installation": false,
+  "limits": "Onlyonepresentationwindowretainedineachphase;auto1andhigh1almostequal. Secondautophasedips,smallobservedpooledgainisnotproofrepeatable. Requestedshutdownexit139,causenotattributedtoDPMnorcompiler. NoOOM. No30FPS,zone/save/audioqualification."
+}

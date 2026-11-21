@@ -1,0 +1,171 @@
+{
+  "status": "functional_passed_normal90s",
+  "candidate_ELF_sha256": "cfec5c81d488a858470dd5c56219eb5b5d571ba919e7628f36354011ba2079a5",
+  "functional": {
+    "passed": true,
+    "cachepad_layout_marker_verified": true,
+    "visual_reviewed": true,
+    "native_normal_shutdown": true,
+    "at_unix": 1794390443.7685301,
+    "root": "/home/souhib/.local/state/nel3ab/test-switch2-53QNkY",
+    "memory": {
+      "passed": true,
+      "cachepad_expected": true,
+      "cachepad": {
+        "count": 1,
+        "values": [
+          [
+            "1",
+            "128",
+            "9472",
+            "128"
+          ]
+        ],
+        "upload": [
+          [
+            "Stream",
+            "cached-coherent"
+          ],
+          [
+            "Upload",
+            "cached-coherent"
+          ]
+        ]
+      },
+      "scope": "Normal startup marker, not runtime cache/coherence performance"
+    },
+    "package_sha256": "501438ed4d5b0ba2fbb868ae6b3e5485848ba524ea8a1cb40629c7c3027e4062",
+    "scope": "F1 cachepad startup markers/normal shutdown/visual qualification only; no ABAB or40FPS claim"
+  },
+  "normal_runtime": {
+    "expected_candidate": true,
+    "normal_marker_validation": {
+      "passed": true,
+      "cachepad_expected": true,
+      "cachepad": {
+        "count": 1,
+        "values": [
+          [
+            "1",
+            "128",
+            "9472",
+            "128"
+          ]
+        ],
+        "upload": [
+          [
+            "Stream",
+            "cached-coherent"
+          ],
+          [
+            "Upload",
+            "cached-coherent"
+          ]
+        ]
+      },
+      "scope": "Normal startup marker, not runtime cache/coherence performance"
+    },
+    "runtime_before_after": [
+      {
+        "exe_sha256": "cfec5c81d488a858470dd5c56219eb5b5d571ba919e7628f36354011ba2079a5",
+        "cachepad": {
+          "count": 1,
+          "values": [
+            [
+              "1",
+              "128",
+              "9472",
+              "128"
+            ]
+          ],
+          "upload": [
+            [
+              "Stream",
+              "cached-coherent"
+            ],
+            [
+              "Upload",
+              "cached-coherent"
+            ]
+          ]
+        },
+        "upload_host_markers": [
+          "cached-coherent",
+          "cached-coherent"
+        ],
+        "legacy_dkb_active": false,
+        "forbidden_extra_environment": []
+      },
+      {
+        "exe_sha256": "cfec5c81d488a858470dd5c56219eb5b5d571ba919e7628f36354011ba2079a5",
+        "cachepad": {
+          "count": 1,
+          "values": [
+            [
+              "1",
+              "128",
+              "9472",
+              "128"
+            ]
+          ],
+          "upload": [
+            [
+              "Stream",
+              "cached-coherent"
+            ],
+            [
+              "Upload",
+              "cached-coherent"
+            ]
+          ]
+        },
+        "upload_host_markers": [
+          "cached-coherent",
+          "cached-coherent"
+        ],
+        "legacy_dkb_active": false,
+        "forbidden_extra_environment": []
+      }
+    ],
+    "strict_global_guard_passed": true,
+    "prior_exception_applied": false,
+    "scene_actually_reviewed": true
+  },
+  "prior_A2_exception_inherited": false,
+  "frozen_functional_inputs": 188,
+  "frozen_comparison_inputs": 189,
+  "scope": "Actual native startup/layout marker, both normal cached coherent upload markers, runtime identity and reviewed checkpoint images; no cache-contention performance proof.",
+  "date_utc": "2026-11-11",
+  "installed_engine_changed": false,
+  "goal40_achieved": false,
+  "proof_sha256": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-cachepad807-ab-20261111/plan.json": "f9be9518b02cfc0128279fb77fa679e1c5624914ab41e916f90f04d9ba326ef7",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-cachepad807-ab-20261111/report.json": "f463d03537331dd35e1443a5ff09aa1c83baaf5d5d3516ea1df5693db0d05b23",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cachepad807-preparation-20261111/normal-cohort-proof.json": "d8f9e573ab0e1cfbd8368415bab9cf416ca3be0ee2a07e47dfcb92aa5ea4783f",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-cachepad807-ab-20261111/cachepad-contract-report.json": "f44ced39c8dfbcfc04d14d191f8eab3e5f96091b23353e44ec66833f72e2620d",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-cachepad807-ab-20261111/preparation-tests.json": "ac43a406692f2ea6a88ebcc571c98990cab34a9762b474d56dc533d1b5993eef",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-cachepad807-ab-20261111/container-launch-gate.json": "a68062aa3760187d0fbf13a64f07b5d564ef23c475166e3436974da3580c5688",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-cachepad807-ab-20261111/package-binding.json": "c4c5073e7ccde6c20a12f8c4940ef1e233917da4ce6938f57f9a41b8d6feb50a",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-cachepad807-ab-20261111/functional-accepted.json": "115a62ab13fb845f87696239803bcc02f655ae5924cb7b8592cb650e0940026a",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-cachepad807-ab-20261111/F1/cleanup.json": "c756ca1aee2f2ebe675a50715f329646f0cdee6139705f9a1c019dd5e7fce2a8",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-cachepad807-ab-20261111/F1/prephase-review.json": "3589405aaaea89a6ea956ba83532e78b553ffcd3a3e84e496e3532a8bf2aed13",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-cachepad807-ab-20261111/F1/postphase-review.json": "fc8761d679e5ca266ad5cd710530ebbdd1f26946b8ec8392517b9c25db587de5",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-cachepad807-ab-20261111/F1/package-manifest.json": "501438ed4d5b0ba2fbb868ae6b3e5485848ba524ea8a1cb40629c7c3027e4062",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-cachepad807-ab-20261111/A1/cleanup.json": "63e1f80e42d937ceb54aab04a7b64ee6082f70c8e02f22b42b1ede12626f7c89",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-cachepad807-ab-20261111/A1/prephase-review.json": "2b33762e1c0613b1e40139e726a860b7c8eca1de1d4d09a4ad0bcc422a50b436",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-cachepad807-ab-20261111/A1/postphase-review.json": "782ca20bd3092698e19f69b05da8e3f56617a4199446d99e0b8c17d71ff61589",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-cachepad807-ab-20261111/A1/package-manifest.json": "1f347f03506b606e01eddd1e4adf2500d50fb677267ab832cf5be0665c1aa2df",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-cachepad807-ab-20261111/B1/cleanup.json": "7c5d290d84b9a18f3c1204b320157f2d1d4a8ae10666297ed6445517a92f0ca0",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-cachepad807-ab-20261111/B1/prephase-review.json": "4b209175391782abd291db40f0394dcc795b99f63f9a561c45aa7a4fec404e7a",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-cachepad807-ab-20261111/B1/postphase-review.json": "0099a0664eff2511ac1598f848d92f8eded1d85cf0196ed4961bbad0afa43c7e",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-cachepad807-ab-20261111/B1/package-manifest.json": "e95758dcb341fd5c3d6070e34e4864ca8f068b216023d1fe4fae6fe6066d2a9f",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-cachepad807-ab-20261111/A2/cleanup.json": "34a557cd95e5f1671b2a2ffb71ff86659124902db99e3165e28754de6542383c",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-cachepad807-ab-20261111/A2/prephase-review.json": "0311dce09c0dbf492b657eafc87ddb608d6c2e695d0f45c12de461073c6d9df0",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-cachepad807-ab-20261111/A2/postphase-review.json": "bc37de4ee3ea58e6c8288a584ba93adaef91a56de6dc954cc3a2929a17781ca0",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-cachepad807-ab-20261111/A2/package-manifest.json": "fd384b3fb9df2e7ffd3291630ba2a263322ab860e2a7de94b7c0c357c22c0f0f",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-cachepad807-ab-20261111/B2/cleanup.json": "26346bdf5f3ec1168ffa484faee3ee66a59f66d9359b4721769ed10f5bf456f9",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-cachepad807-ab-20261111/B2/prephase-review.json": "1041a21f92af7a1644a6ca44d6f8d4b6ab7d2a193758c381e4cf6093622f58ef",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-cachepad807-ab-20261111/B2/postphase-review.json": "7af1d1018a8f15c5f0340812f8d11f1e9b967e439a47a2d7db4ffcc7f5225a7f",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-cachepad807-ab-20261111/B2/package-manifest.json": "cc7bcec689e009d9e7a99eca416cb698afc0cf62efe5c9db9a71892d5ff4612c"
+  }
+}

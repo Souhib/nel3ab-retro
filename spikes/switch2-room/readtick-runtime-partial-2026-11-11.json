@@ -1,0 +1,190 @@
+{
+  "date_utc": "2026-11-11",
+  "status": "Native readtick activated and logged READ_CHECK comparisons pass; F1 rejected because kernel read in pad helper denied; no performance result",
+  "private_cohort": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v2",
+  "room": "/home/souhib/.local/state/nel3ab/test-switch2-zsXMI5",
+  "ELF_sha256": "c686c1ff5811dd4aeba3f92d8da7717724dab9f1f3978e7c73897899769852d4",
+  "preparation": {
+    "constructor_cases": 9,
+    "real_loader_helper_chains": 5,
+    "syntax_files": 115,
+    "frozen_inputs": 163
+  },
+  "readtick": {
+    "delta": {
+      "hook_calls": 21833,
+      "hook_callbacks": 17152,
+      "hook_read_flush_callbacks": 17152,
+      "read_requests": 26086,
+      "read_flush_callbacks": 26086
+    },
+    "outer_interval_ns": [
+      2377799682545466,
+      2377843940996492
+    ],
+    "inner_interval_ns": [
+      2377799682545667,
+      2377843940996362
+    ],
+    "scope": "Each independent counter delta was sampled within the phase; not a coherent tuple, GPU completion, performance gain or proof of the entire phase."
+  },
+  "readcheck": {
+    "emitted_summaries": 17,
+    "last_emitted_cumulative": {
+      "checked": 173756,
+      "compared_KiB": 580073,
+      "mismatched": 0,
+      "reading_thread": 0,
+      "gpu_side_write": 0,
+      "host_gpu": 0,
+      "uncovered": 0,
+      "rewritten_not_compared": 119547
+    },
+    "scope": "Functional cumulative logged checks only. Excludes modified/CPU-written/rewritten ranges; no exact phase count. Extra synchronous copies/waits alter scheduling; no performance qualification and no complete proof of the new hook or shutdown. Latest emission is not a final counter getter; do not infer post-emission totals from capped silence."
+  },
+  "phase": {
+    "requested_seconds": 90,
+    "complete": false,
+    "signal": null,
+    "neutral_delivery_reported": true,
+    "held_kernel_observed": false,
+    "intentional_stop_exercised": false,
+    "failure": "EPERM opening /dev/input/event8 in uinput-only helper; directory bind does not grant device access"
+  },
+  "cleanup": {
+    "owned_containers_absent": true,
+    "native_capture_audio_processes_absent": true,
+    "virtual_pads_absent": true,
+    "observer": "active",
+    "production_snapshot_unchanged": true,
+    "watchdog_reason": null,
+    "forced_cleanup": false,
+    "native_normal_stop": true,
+    "kernel_gpu_error_lines": []
+  },
+  "protected_installed_files_unchanged": 8652,
+  "decoded_and_reviewed": {
+    "root": "/home/souhib/.local/state/nel3ab/test-switch2-zsXMI5",
+    "scene_valid": true,
+    "all_images_actually_read": true,
+    "distinct_images_read": 3,
+    "spectator_images_byte_identical": true,
+    "observed": "Before/middle keep Link and Saria by the same house. After shows Link moved beside forest sign/ladder after ArrowRight. No readable post-move zone label, no zone-transition claim. This is not a fixed-scene comparison.",
+    "functional_accepted": false,
+    "performance_claim": false,
+    "images": {
+      "before": {
+        "player": {
+          "stream": {
+            "codec_name": "h264",
+            "width": 1280,
+            "height": 720,
+            "has_b_frames": 0,
+            "nb_read_frames": "28"
+          },
+          "source_last_us": 2377799517644,
+          "frame_index": 27,
+          "png": "/home/souhib/.local/state/nel3ab/test-switch2-zsXMI5/encoded/player-before.png",
+          "h264_sha256": "22dc08e1ff363e1855e78014f73c56d7b2b6251507500354ff8cdeff440cfbc2",
+          "png_sha256": "9a55ee11a9ea164a163c02cda9e5209b4a6bc44797b6ca9fa1cf3552ab813d1a"
+        },
+        "spectator": {
+          "stream": {
+            "codec_name": "h264",
+            "width": 1280,
+            "height": 720,
+            "has_b_frames": 0,
+            "nb_read_frames": "28"
+          },
+          "source_last_us": 2377799517644,
+          "frame_index": 27,
+          "png": "/home/souhib/.local/state/nel3ab/test-switch2-zsXMI5/encoded/spectator-before.png",
+          "h264_sha256": "22dc08e1ff363e1855e78014f73c56d7b2b6251507500354ff8cdeff440cfbc2",
+          "png_sha256": "9a55ee11a9ea164a163c02cda9e5209b4a6bc44797b6ca9fa1cf3552ab813d1a"
+        }
+      },
+      "middle": {
+        "player": {
+          "stream": {
+            "codec_name": "h264",
+            "width": 1280,
+            "height": 720,
+            "has_b_frames": 0,
+            "nb_read_frames": "42"
+          },
+          "source_last_us": 2377843795694,
+          "frame_index": 41,
+          "png": "/home/souhib/.local/state/nel3ab/test-switch2-zsXMI5/encoded/player-middle.png",
+          "h264_sha256": "10cad6041b5c2b8c7dcacac7adea11a38a644f051b1766f66abd48b9551b7709",
+          "png_sha256": "ed4352b746993a128bef9e965ca63846d38a7be20706aea8bb43591f8572d136"
+        },
+        "spectator": {
+          "stream": {
+            "codec_name": "h264",
+            "width": 1280,
+            "height": 720,
+            "has_b_frames": 0,
+            "nb_read_frames": "42"
+          },
+          "source_last_us": 2377843795694,
+          "frame_index": 41,
+          "png": "/home/souhib/.local/state/nel3ab/test-switch2-zsXMI5/encoded/spectator-middle.png",
+          "h264_sha256": "10cad6041b5c2b8c7dcacac7adea11a38a644f051b1766f66abd48b9551b7709",
+          "png_sha256": "ed4352b746993a128bef9e965ca63846d38a7be20706aea8bb43591f8572d136"
+        }
+      },
+      "after": {
+        "player": {
+          "stream": {
+            "codec_name": "h264",
+            "width": 1280,
+            "height": 720,
+            "has_b_frames": 0,
+            "nb_read_frames": "42"
+          },
+          "source_last_us": 2377889589864,
+          "frame_index": 41,
+          "png": "/home/souhib/.local/state/nel3ab/test-switch2-zsXMI5/encoded/player-after.png",
+          "h264_sha256": "cb7c5bc745b7dae16aa69bc7c0435bd9d58b8db93fe14ae7ec74f093d728c696",
+          "png_sha256": "2024341d0a9e420e73ad17bd2768ea6030c1cbf74fa0ba6f42dbb3f1f4f2a7a8"
+        },
+        "spectator": {
+          "stream": {
+            "codec_name": "h264",
+            "width": 1280,
+            "height": 720,
+            "has_b_frames": 0,
+            "nb_read_frames": "42"
+          },
+          "source_last_us": 2377889589864,
+          "frame_index": 41,
+          "png": "/home/souhib/.local/state/nel3ab/test-switch2-zsXMI5/encoded/spectator-after.png",
+          "h264_sha256": "cb7c5bc745b7dae16aa69bc7c0435bd9d58b8db93fe14ae7ec74f093d728c696",
+          "png_sha256": "2024341d0a9e420e73ad17bd2768ea6030c1cbf74fa0ba6f42dbb3f1f4f2a7a8"
+        }
+      }
+    },
+    "at_unix": 1794360882.0595841
+  },
+  "functional_accepted": false,
+  "constant40_achieved": false,
+  "performance_claim": false,
+  "production_change": false,
+  "next": "Independently qualified read-only observer exposes only the four owned input nodes; do not widen production helper permissions. New v3 F1 required.",
+  "proof_files_sha256": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v2/prepared-manifest.json": "36f2be5efc6001c2bd352c23ca581a3d5e4835f156f19e48eea561eda971190d",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v2/preparation-tests.json": "30da74101a6c35e16ddf46c38857dd5dd6dd0ce728cb46d430f622057fcc834c",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v2/plan.json": "7c550a2c7d581929f95604691b5e12eaf4a910c4295366db81ebbf8488f6aac4",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v2/root-functional-review.json": "2a755a0c7c2d37cbc02889bc6b23e4520a2f18c1f7b11d9389335a457ad475e3",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v2/F1/root-partial-functional-evidence.json": "521b34d1e2eb7688a1e7f9d979e264187964812d2a6c94c0b6b0f4bee839d501",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v2/F1/postphase-review.json": "a0d81056403a94144f3ae7b41eb5403939a39171ea283346690feff2e9b3df32",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v2/F1/cleanup.json": "6d94b8271138fe7cd5536143fdef663a56f690d0072f2907145278246855f9e9",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v2/F1/root-stop-watch-result.json": "345a1ede02cbd61c4572e0653399cbe328c424d0554bf36018353e7fb4c36569",
+    "/home/souhib/.local/state/nel3ab/test-switch2-zsXMI5/readtick-before.json": "f5f7555071af1e8bfb4a9fb1b941b54beda9ff4c420be89d28d31504e71becc5",
+    "/home/souhib/.local/state/nel3ab/test-switch2-zsXMI5/readtick-after.json": "88888dde57d6e2b8b7f0b5950461d319e87ae4ae63d883a55815f18d0109e9f3",
+    "/home/souhib/.local/state/nel3ab/test-switch2-zsXMI5/readtick-qualified.json": "ba715197afa36c003845a4cfe11dee687a6efedcbdcb12799209241332e57a78",
+    "/home/souhib/.local/state/nel3ab/test-switch2-zsXMI5/readcheck-partial-qualified.json": "6a03b6122725abb4927c95a80e50a7564385854aa1af231ad8c8498844d9d94e",
+    "/home/souhib/.local/state/nel3ab/test-switch2-zsXMI5/browser-phase-result.json": "c22d62873a374956f8b94563a9b3a92b9f455b6ca5a4132f8a81f74a825a846c",
+    "/home/souhib/.local/state/nel3ab/test-switch2-zsXMI5/phase-exit.json": "ddd6e38e5419aaf45855a932b0c7808c3d3b0fcb0dce791bdb36c16ac8cbb81a"
+  }
+}

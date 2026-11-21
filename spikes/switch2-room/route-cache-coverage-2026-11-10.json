@@ -1,0 +1,424 @@
+{
+  "date_utc": "2026-11-10",
+  "status": "Private route and cache-coverage diagnostic completed. No speed gain or constant30fps claim, no production change.",
+  "evidence_root": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/route-rehearsal-20261110",
+  "room_evidence_root": "/home/souhib/.local/state/nel3ab/test-switch2-ixo6g3",
+  "previous_goal_turn": "Progress: exact CPU diagnostic and PRELOAD option activation, not a verified30fps result.",
+  "profile": {
+    "ELF_sha256": "65defb74a8cc81ae85d42c5c0e9bb9bc8a796d976f12278cb0a4fcf940834d08",
+    "effective_fields": 141,
+    "seed": "Original current-session A clone,4865files/133711023bytes",
+    "checkpoint": "Private manual01:51 Kokiri checkpoint",
+    "preload_all": false,
+    "cpu_pinning_log": "Front and back on one physical core each,guest threads on remaining4cores/8logicalCPUs; six-coreRyzen3600."
+  },
+  "route": {
+    "observed": "Kokiri ground besideSaria,house threshold,furnished interior,recovery-heart text with two confirmations,interior camera and ground motion,exterior doorway return. No new namedzone.",
+    "elapsed_native_start_to_stop_seconds": 409.981598,
+    "continuous_motion_performance_phase": false,
+    "inherited_phase_completed_flag": false,
+    "functional_stop_completed": true,
+    "source_images": {
+      "all_selected_images_actually_read": true,
+      "images": {
+        "loaded-check.png": "Actually read: Kokiri Forest label and normal HUD,avatar besideSaria at manualcheckpoint.",
+        "forward-towards-houses.png": "Actually read: exterior doorway frame and sign after forwardinput;avatar near threshold,possible edge contact. Not continuouswalking proof.",
+        "towards-right-house.png": "Actually read: furnished interior and recovery-heart acquisition animation; movement blocked by item interaction.",
+        "return-to-door.png": "Actually read: first recovery-heart text page; heldUp cannot be counted as locomotion.",
+        "dismiss-recovery.png": "Actually read: next text page begins, item animation stillactive.",
+        "look-right.png": "Actually read: complete second recovery-heart text page; camera input during this page cannot be counted as camera motion.",
+        "dismiss-recovery-page2.png": "Actually read: normalHUDreturns while acquisition animation finishes.",
+        "return-aligned-opening.png": "Actually read: avatar deeperinside nearbed/table and wall; route label does not prove this is an exit.",
+        "cross-room-towards-door.png": "Actually read: avatar remains nearbed/table obstacle; this is not proof of further traversal.",
+        "back-to-center.png": "Actually read: avatar moves towardnearforeground beside a wooden counter, interior remains visible.",
+        "turn-room-camera.png": "Actually read: changed camera view shows roomwall/window,pottery andcounter.",
+        "face-room-exit.png": "Actually read: camera view returns towardbed with avatarhidden bynearocclusion; label does not prove exit alignment.",
+        "seek-left-exit.png": "Actually read: leftside ofroom and doorwayedge visible,stillinterior.",
+        "cross-left-doorway.png": "Actually read: exterior sunlight,vegetation and wooden doorposts. Outdoorreturn, no new namedzone."
+      },
+      "reviewed_unix": 1794308337.1471572,
+      "no_sustained_walking_FPS_claim": true,
+      "blocking_item_dialogue_and_obstacle_contacts_retained_as_negative_observations": true
+    }
+  },
+  "stall_observation": {
+    "window": {
+      "intervals": 600,
+      "sum_ns": 20831745381,
+      "begin_ns": 2324786871406729,
+      "end_ns": 2324807703152110,
+      "p50_ns": 33337806,
+      "p95_ns": 39066979,
+      "p99_ns": 53659270,
+      "max_ns": 470412736,
+      "over30": 310,
+      "over100": 1,
+      "generation": 1,
+      "segment": 1,
+      "success": 7801,
+      "suboptimal": 0,
+      "rejected": 0,
+      "prefix_seconds": 285.870545
+    },
+    "qualification": "One complete600intervalnative window during exploratory interior camera activity, including idle and screenshot periods. Not a sustained-walking FPS or a per-event stall timestamp.",
+    "pipeline_summaries": [
+      {
+        "prefix_seconds": 213.913319,
+        "built": 3,
+        "GPU_thread_build_ms": 25.8,
+        "GPU_thread_SPIRV_ms": 0.0,
+        "worker_SPIRV_ms": 4.6,
+        "draw_hold_sum_ms": 0.0
+      },
+      {
+        "prefix_seconds": 272.40955,
+        "built": 3,
+        "GPU_thread_build_ms": 22.5,
+        "GPU_thread_SPIRV_ms": 0.0,
+        "worker_SPIRV_ms": 2.5,
+        "draw_hold_sum_ms": 0.7
+      },
+      {
+        "prefix_seconds": 332.617499,
+        "built": 1,
+        "GPU_thread_build_ms": 25.7,
+        "GPU_thread_SPIRV_ms": 0.0,
+        "worker_SPIRV_ms": 8.0,
+        "draw_hold_sum_ms": 430.6,
+        "estimated_reset_span_seconds": 60.207948999999985
+      }
+    ],
+    "last_label_is_not_actual_duration": true,
+    "causal_limit": "430.6ms is an aggregate over about60.21seconds, overlapping the470.41mswindow. No proof that one pipeline or one wait caused that entire interval.",
+    "evictions": [
+      {
+        "prefix_seconds": 366.21287,
+        "count": 34,
+        "age_frames": 9000,
+        "remaining": 1541
+      },
+      {
+        "prefix_seconds": 386.616222,
+        "count": 131,
+        "age_frames": 9000,
+        "remaining": 1410
+      }
+    ],
+    "evictions_cannot_explain_the_earlier470ms_window": true
+  },
+  "cache_catalogue": {
+    "scope": "CPU-only exact-layout structural cache catalogue, no Vulkan compilation or live performance comparison.",
+    "layout": {
+      "graphics_key": 1056,
+      "state_offset": 48,
+      "compute_key": 24,
+      "texture_type": 4,
+      "texture_format": 4,
+      "replacement": 4,
+      "header": 80,
+      "geometry_mask": 32,
+      "mesh_registers": 12,
+      "mesh_header": 80,
+      "compute_stage": 5,
+      "geometry_stage": 3,
+      "task_stage": 7,
+      "mesh_stage": 8,
+      "state_attachments": 80,
+      "state_attributes": 112,
+      "state_vertex_strides": 368,
+      "state_xfb": 432,
+      "state_full": 1008
+    },
+    "layout_tests": {
+      "actual_CXX_layout_and_meaningful_key_branches": true,
+      "short_output_null_and_truncated_key_negatives": true,
+      "native_CityHash_empty_vector": true
+    },
+    "negative_rejections": {
+      "truncated": true,
+      "bad_version": true,
+      "zero_environments": true,
+      "bad_stage": true,
+      "bad_code_range": true
+    },
+    "digests": {
+      "before": {
+        "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cache-current-browser-ab/seeds/A/eden/shader/0400486024dec000/vulkan.fork-v54.bin",
+        "sha256": "9bf7cdade82c30e94d7e6a3cbe6fa64163d19d98c89ddc5e09d3aded0f3288cf"
+      },
+      "after": {
+        "file": "/home/souhib/.local/state/nel3ab/test-switch2-ixo6g3/state/0400486024dec000/cache/lichii-65def-30-target-20261110/eden/shader/0400486024dec000/vulkan.fork-v54.bin",
+        "sha256": "644dd9f6ffaf4f94c19aae65e1f9922b7cb6b9d6e5df018b9e9f6e8778696e41"
+      }
+    },
+    "catalogues": {
+      "before": {
+        "bytes": 92665493,
+        "records": 2525,
+        "kinds": {
+          "graphics": 2352,
+          "compute": 173
+        },
+        "stage_counts": {
+          "0": 2003,
+          "4": 2352,
+          "5": 173,
+          "7": 224,
+          "8": 349
+        },
+        "unique_graphics": 2352,
+        "full_EOF": true
+      },
+      "after": {
+        "bytes": 93058304,
+        "records": 2531,
+        "kinds": {
+          "graphics": 2358,
+          "compute": 173
+        },
+        "stage_counts": {
+          "0": 2007,
+          "4": 2358,
+          "5": 173,
+          "7": 226,
+          "8": 351
+        },
+        "unique_graphics": 2358,
+        "full_EOF": true
+      }
+    },
+    "actual_runtime_keys": [
+      {
+        "hash": "9ed68462deeb4a5e",
+        "GPU_thread_build_ms": 19.5,
+        "source_cache_records": 0,
+        "result_cache_records": 1,
+        "prior_used_age": null,
+        "source_record_offsets": []
+      },
+      {
+        "hash": "756151af57320205",
+        "GPU_thread_build_ms": 6.0,
+        "source_cache_records": 0,
+        "result_cache_records": 1,
+        "prior_used_age": null,
+        "source_record_offsets": []
+      },
+      {
+        "hash": "d5539b7c2a7eb5f4",
+        "GPU_thread_build_ms": 4.5,
+        "source_cache_records": 0,
+        "result_cache_records": 1,
+        "prior_used_age": null,
+        "source_record_offsets": []
+      },
+      {
+        "hash": "4fa74d7d2eb5df96",
+        "GPU_thread_build_ms": 16.3,
+        "source_cache_records": 0,
+        "result_cache_records": 1,
+        "prior_used_age": null,
+        "source_record_offsets": []
+      },
+      {
+        "hash": "3a4e83d6b6c09eff",
+        "GPU_thread_build_ms": 25.7,
+        "source_cache_records": 0,
+        "result_cache_records": 1,
+        "prior_used_age": null,
+        "source_record_offsets": []
+      }
+    ],
+    "qualification": "Presence in the file is separate from eligibility/current-driver build success. Absence of an exact key means preload of that source file cannot build that key."
+  },
+  "finding": "All five individually logged slow runtime graphics keys are absent from the source file and present in the resulting file. Preloading that source cannot directly prebuild these missing keys; indirect background-load effects and later retention remain separate questions.",
+  "learned_seed": {
+    "private_manifest": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/route-learned-cache-20261110/manifest.json",
+    "files": 4867,
+    "bytes": 134125560,
+    "source_and_copy_hashes_and_mtimes_match": true,
+    "graphics_records_before": 2352,
+    "graphics_records_after": 2358,
+    "new_graphics_records": 6,
+    "compute_records": 173,
+    "after_used_count": 1575,
+    "known_new_keys_used_age": 0,
+    "expected_normal_boot_queue_if_eligible": 1748,
+    "actual_new_seed_boot_not_yet_observed": true
+  },
+  "discarded_shortcut": {
+    "setting": "native_async_draws=Bounded",
+    "source_effect": "After its per-frame budget it may drop native draws whose pipeline is not ready, including draws that produce persistent resources.",
+    "decision": "No adoption as a complete-rendering30fpsfix; developer GUI recommendations do not prove unchanged rendering."
+  },
+  "next": "Qualify a repeatable route without uncontrolled pickup dialogue, then compare originalA against this learned seed in four alternating samebinary/samecheckpoint trials. Keep effective settings and preload flag unchanged; require actual1748startupqueue and known-key membership before comparing. Measure local decoder load and current physicalGPU timing separately for remaining hot-cadence deficits.",
+  "preservation": {
+    "protected_files": 757,
+    "production_cache_files": 4865,
+    "production_hashes_and_cache_mtimes_unchanged": true,
+    "normal_native_stop": true,
+    "owned_emulator_capture_audio_and_pads_absent": true,
+    "observer_restored": "active",
+    "GPU_policy": "auto,150W"
+  },
+  "proofs": [
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/route-rehearsal-20261110/plan.json",
+      "sha256": "793b65bc8fc788d7ff72918dbf15a73afaca3c42857e6a61fe40b532055aff04"
+    },
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/route-rehearsal-20261110/A1/cleanup.json",
+      "sha256": "ced65b9c32c0d2208fd176c447149b3b58baab3b039970ba8848590e069f1d49"
+    },
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/route-rehearsal-20261110/A1/route-ready.json",
+      "sha256": "4a8c1a249cecdc78ce22854e49b74a5b24400acce9958c1433ac2acbc5723365"
+    },
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/route-rehearsal-20261110/A1/route-complete.json",
+      "sha256": "bb9ba2f4602c51ebb12478659b480772be01eeef87004f4d969cb228c4cff6d5"
+    },
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/route-rehearsal-20261110/A1/visual-review.json",
+      "sha256": "610bc4650bf5a9aaa0aed4d5cabe25b3f5b6e5e27bedaa1e9daa6e794ce48009"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-ixo6g3/native-runtime-before-proof.json",
+      "sha256": "18ec4b4b58c8dfeb970155f83f7d52f15eefb63d7a46507c18e901adf6d8c65b"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-ixo6g3/native-runtime-proof.json",
+      "sha256": "8ab1f7c7d74112d45fd43756d3de5ab5c191620612d99c8c6e037f4c55e0091e"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-ixo6g3/browser-actions.jsonl",
+      "sha256": "0d1b5329efb7363a8869f0bca90b56ac3af209c100fc6b420ccfe81e54488400"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-ixo6g3/state/0400486024dec000/neuve/emulator.log",
+      "sha256": "254936cf78ab2288664930deb7ca544563e2b182f69aa1737870f73bc0a324f6"
+    },
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/route-rehearsal-20261110/cache-catalogue/report.json",
+      "sha256": "a504af379c7f857c9f415cca29b55a0afc54f998c4b8782a9be67c61c51b7cbb"
+    },
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/route-rehearsal-20261110/cache-catalogue/catalogue.py",
+      "sha256": "64c32e7904fdca32684cc4b3581f3e0d82034c24807ef4ad5db2623eb378b81b"
+    },
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/route-rehearsal-20261110/cache-catalogue/layout.cpp",
+      "sha256": "6ea6a62153f32a2ee28c8ec26aff7dad488b894cf5944d13cdb7a104f445ba3f"
+    },
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/route-rehearsal-20261110/cache-catalogue/libcachelayout.so",
+      "sha256": "6f2f51fb40480f7dc6b14bbe7aec55b84c046afc48ec0ad1fd5ff2f544fca4cf"
+    },
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/route-rehearsal-20261110/cache-catalogue/build-result.json",
+      "sha256": "198d4ae20a9597516cec225d670d905c4384af214509ab39587ae3c0c51b3939"
+    },
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/route-rehearsal-20261110/cache-catalogue/test_used.py",
+      "sha256": "7b329377ed1988571b56bfcdc66b226d8feb443129f1244460bbc83fcad3d33a"
+    },
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/route-rehearsal-20261110/cache-catalogue/test_reader_mutations.py",
+      "sha256": "e506ae93a3170c7106179b20c1faf4b3962fdacfd17c9aed74d0ddd993bb1967"
+    },
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/route-rehearsal-20261110/cache-catalogue/mutation-tests.json",
+      "sha256": "696a28e9226235bf3267f860d338957b08a4742705d1104f196eae409d3fd160"
+    },
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/route-rehearsal-20261110/cache-catalogue/before-records.json",
+      "sha256": "15451e6717cda2c84735d6fb849080c1931154449bf985cd72821271e972e8af"
+    },
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/route-rehearsal-20261110/cache-catalogue/after-records.json",
+      "sha256": "9eb291b86f2b430e3666adb6d483b55547ce98dee163994c17f28a329d9ece0a"
+    },
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/route-learned-cache-20261110/manifest.json",
+      "sha256": "53303449ba1ab774c48d108ff90cb72c254cb482c996a46a882ca32027bb68a9"
+    },
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/route-rehearsal-20261110/finalize.py",
+      "sha256": "1822c35c5d71d2f9f6f5082b9a87c4f428d1700297e6357c142f1fcba046d79d"
+    },
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/route-rehearsal-20261110/cache-catalogue/append-only-proof.json",
+      "sha256": "0919a6c947cc0d0bfdcb8cdf7e4be2cdabe5ae0493262daa92fae99f4594dd75"
+    },
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/route-rehearsal-20261110/cache-catalogue/new-keys-used.json",
+      "sha256": "bf8daaec9bbd1a7cded4766e828bd028722827102364cc52a54ab7e34bb1b319"
+    },
+    {
+      "file": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/route-learned-cache-20261110/delta.json",
+      "sha256": "f5869c5c444c33e68b4531a1b45bbdf3686be95a5b16fe6fa284fb37fec6f1f7"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-ixo6g3/loaded-check.png",
+      "sha256": "0d797c34d8ae7d1056e3055dded5b322914ca1f0192032a056a1b08f720d2224"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-ixo6g3/forward-towards-houses.png",
+      "sha256": "97828247ca746a4ea75db1f44ed1a98d28fae4219ef8521e943f1f1dcc491e32"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-ixo6g3/towards-right-house.png",
+      "sha256": "b8c6800ff790cbda952a8dce5aecbb75e06a5f1819a121ce9e556f04cdfa3a99"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-ixo6g3/return-to-door.png",
+      "sha256": "b160be0f06863000116f1cef23034ad0825758f316c2c686af76a361af7e7e55"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-ixo6g3/dismiss-recovery.png",
+      "sha256": "985ceae8dea7fb409c4f7d1cb830165c25255cfae21262fbae19e9849825961a"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-ixo6g3/look-right.png",
+      "sha256": "b34295b43c2411ee2f902c2dda4875a64bf08a9a1c1ea860636c54a9c0397539"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-ixo6g3/dismiss-recovery-page2.png",
+      "sha256": "bbd2bc5c6199228c5fc3afe79c21a4b2d9451d7a4e8e5b8ee323e4277ad2d755"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-ixo6g3/return-aligned-opening.png",
+      "sha256": "528b630e6df3619a11d70c4b5ac3374bbeab37919977f7267fcc317520ec58b7"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-ixo6g3/cross-room-towards-door.png",
+      "sha256": "314300b097cd7c0d109d12f0cc0db3f343212d9477a173663e54bfddf65478d4"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-ixo6g3/back-to-center.png",
+      "sha256": "5448836fb4d7af35ae0d13ceb450956e70e181eb602c8266894c24fe067431af"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-ixo6g3/turn-room-camera.png",
+      "sha256": "3a430e0c636398469c277c6545c47d9e5652eae4f20353c6d2ca386512e45118"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-ixo6g3/face-room-exit.png",
+      "sha256": "ee75a1370fc1a57788622231efb775c1a2a2ce4cc9a773f8d60212aaa25d6ad0"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-ixo6g3/seek-left-exit.png",
+      "sha256": "ef0315522305be98add925b44589b3ce58a7e10e7567872ee386d349d92ff6f0"
+    },
+    {
+      "file": "/home/souhib/.local/state/nel3ab/test-switch2-ixo6g3/cross-left-doorway.png",
+      "sha256": "c6bc176700e8644b6a25925321115d6848fed541fb6a8065eb9ae1e574025ffd"
+    }
+  ],
+  "follow_up_2026_11_10": {
+    "report": "spikes/switch2-room/cpu-affinity-comparison-2026-11-10.json",
+    "learned_cache_queue_actually_observed": 1748,
+    "paired_route_comparison": "Stopped after A1 furnished interior versus B1 outside threshold; no repeated matched route or cache performance result. Original account above retained as dated evidence.",
+    "production_change": false
+  }
+}

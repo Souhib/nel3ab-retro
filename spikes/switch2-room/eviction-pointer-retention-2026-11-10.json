@@ -1,0 +1,213 @@
+{
+  "date_utc": "2026-11-10",
+  "scope": "Narrow correctness port on the private d448 service/WSI reference, preserving existing pipeline eviction and cache format. No production installation or FPS claim.",
+  "upstream": {
+    "pr": "https://github.com/zortos293/Lichii/pull/1143",
+    "head": "d7c89a29df2655b23eb2f58d50d3580622682436",
+    "merge": "d2eaae4f3abca636b030b726f107bace06f61079"
+  },
+  "base_cli_sha256": "d4480279bb044d1b6c14b3be013a6c2a91af724e81e3e529ad7f89b75e854fe4",
+  "manifest_sha256": "76503984faf618c86bf8adf033e872615f3cdec766b66a18b5245f03702bcbab",
+  "patch_sha256": "704331b20019f0a58c085b9f9dd3fe33e1eb405d8e017ad00543f48c8b6a90b8",
+  "files": {
+    "src/tests/CMakeLists.txt": {
+      "old_sha256": "f3eea38e9ca494505c9737ca16e004fb2ae3715e15ff97397ba3c0320af18bc0",
+      "new_sha256": "176ce086ee2be32a09f55ca3f55f206720ecd00a9281bcc42e3d0a6d6351f1c3"
+    },
+    "src/tests/video_core/evicted_pointer_slots.cpp": {
+      "old_sha256": null,
+      "new_sha256": "88d043328b7622fb146e60e06c98b3e0061cb73cc1face7bdad156325a86d32b"
+    },
+    "src/video_core/CMakeLists.txt": {
+      "old_sha256": "4d8896cb8f0c4489e67879f140705db0c8417372e099a8da05a1e88e5c0b4c4e",
+      "new_sha256": "8e7d5cbd4f47ae96884ee00d0a93fab6f3397ae161fb4da4f69abc116acf9076"
+    },
+    "src/video_core/evicted_pointer_slots.h": {
+      "old_sha256": null,
+      "new_sha256": "bd3a3a0794f501a6b7f63c8c013b49dd39819c8a71cde93aa899115d6eaa8282"
+    },
+    "src/video_core/renderer_vulkan/vk_graphics_pipeline.h": {
+      "old_sha256": "747e3c4e060823e080fd70abe2f7af5504a7b1463d6b133dfbf0e065b52216a3",
+      "new_sha256": "9b50498f18b068ae9b9398274940becde8b2034ffe4fdb6a92098371effdf054"
+    },
+    "src/video_core/renderer_vulkan/vk_pipeline_cache.cpp": {
+      "old_sha256": "061131e1af090556a6e3d1f1acd86c589f70e74a42e49caa554cd66f112e729a",
+      "new_sha256": "a6f69e380ba8e285680b85966f54dacace38d4c2bc44578383cee5c02f5ab75a"
+    },
+    "src/video_core/renderer_vulkan/vk_pipeline_cache.h": {
+      "old_sha256": "c0e47a90a3f72e76ebf40f11a7a8542b8eba7d8ddff37655e5dab85c82dc60f8",
+      "new_sha256": "426db0b1676647417ac1ec6c8488c55a5d0d3f77955bae0fd4e0c4dae68a152f"
+    }
+  },
+  "cpu_proofs": {
+    "red": [
+      {
+        "stage": "compile",
+        "exit_code": 0,
+        "seconds": 4.320125102996826
+      },
+      {
+        "stage": "link",
+        "exit_code": 0,
+        "seconds": 7.5522027015686035
+      },
+      {
+        "stage": "test",
+        "exit_code": 42,
+        "seconds": 0.5400962829589844
+      }
+    ],
+    "green": [
+      {
+        "stage": "compile",
+        "exit_code": 0,
+        "seconds": 4.40559458732605
+      },
+      {
+        "stage": "link",
+        "exit_code": 0,
+        "seconds": 2.406446695327759
+      },
+      {
+        "stage": "test",
+        "exit_code": 0,
+        "seconds": 0.5441296100616455
+      }
+    ],
+    "mutant-remember": [
+      {
+        "stage": "compile",
+        "exit_code": 0,
+        "seconds": 4.420741081237793
+      },
+      {
+        "stage": "link",
+        "exit_code": 0,
+        "seconds": 2.352973699569702
+      },
+      {
+        "stage": "test",
+        "exit_code": 42,
+        "seconds": 0.4920308589935303
+      }
+    ],
+    "mutant-take": [
+      {
+        "stage": "compile",
+        "exit_code": 0,
+        "seconds": 4.414400577545166
+      },
+      {
+        "stage": "link",
+        "exit_code": 0,
+        "seconds": 2.355938196182251
+      },
+      {
+        "stage": "test",
+        "exit_code": 42,
+        "seconds": 0.4849569797515869
+      }
+    ],
+    "mutant-keep": [
+      {
+        "stage": "compile",
+        "exit_code": 0,
+        "seconds": 4.369239330291748
+      },
+      {
+        "stage": "link",
+        "exit_code": 0,
+        "seconds": 2.361704111099243
+      },
+      {
+        "stage": "test",
+        "exit_code": 42,
+        "seconds": 0.4782595634460449
+      }
+    ],
+    "mutant-stage5": [
+      {
+        "stage": "compile",
+        "exit_code": 0,
+        "seconds": 4.4033424854278564
+      },
+      {
+        "stage": "link",
+        "exit_code": 0,
+        "seconds": 2.3437323570251465
+      },
+      {
+        "stage": "test",
+        "exit_code": 42,
+        "seconds": 0.488053560256958
+      }
+    ],
+    "mutant-sparse": [
+      {
+        "stage": "compile",
+        "exit_code": 0,
+        "seconds": 4.49859356880188
+      },
+      {
+        "stage": "link",
+        "exit_code": 0,
+        "seconds": 2.3420753479003906
+      },
+      {
+        "stage": "test",
+        "exit_code": 42,
+        "seconds": 0.4893038272857666
+      }
+    ]
+  },
+  "green_cpu_cases": 5,
+  "green_cpu_assertions": 85,
+  "proof_kind": "Real GenericEnvironment functions from frozen ABI-identical archive + current exact textual eviction/slow lookup/slot collection/application production bodies. Vulkan device/pipeline construction/cache surroundings are explicit CPU doubles. No actual Vulkan translation or rendered corruption reproduced.",
+  "limits": [
+    "Retention maximum8192, arbitrary entry discarded at capacity, not unlimited retention.",
+    "An original disk/prebuilt translation with null pointers has no known true classification to preserve.",
+    "Take consumes history before translation; failed translation returns null and does not restore that history. Existing null cache behavior remains.",
+    "No GPU image corruption occurrence demonstrated locally; correctness port precedes >9000-age-frame session.",
+    "Original GraphicsPipeline and PipelineCache layouts change; all engine users require full rebuild before any game.",
+    "No timing/performance claim."
+  ],
+  "root_review": {
+    "source_and_all_proof_hashes_verified": true,
+    "patch_applies_to_frozen_base": true,
+    "constructor_and_emission_budget_preserved": true,
+    "no_eviction_policy_or_cache_v2_import": true,
+    "frozen_sources_and_packaged_cli_rehashed": true,
+    "full_build_and_test_chronology_checked": true
+  },
+  "full_build": {
+    "configure_exit_code": 0,
+    "build": {
+      "start": 1794274330.5767226,
+      "end": 1794274402.6687639,
+      "returncode": 0
+    },
+    "cli_sha256": "65defb74a8cc81ae85d42c5c0e9bb9bc8a796d976f12278cb0a4fcf940834d08",
+    "build_proof_sha256": "3e8284ccca4e2892be087004a4db131b3341fbc01b58d8168eb423ad23e4e818",
+    "all_1418_internal_objects_after_source_freeze": true,
+    "full_tests_passed": 1164,
+    "network_tests_skipped": 4,
+    "additional_suites": {
+      "reference_cases": 87,
+      "reference_assertions": 31864,
+      "hidden_shadow_assertions": 17,
+      "pacing_cases": 5,
+      "wsi_cases": 4,
+      "retention_cases": 3,
+      "retention_assertions": 40
+    },
+    "all_six_test_processes_exit_zero": true,
+    "build_completed_before_all_tests": true
+  },
+  "runtime": "Superseded by functional-qualification-2026-11-10.json and continuous-walk-2026-11-10.json: four real sessions with normal stops, genuine pipeline evictions observed, no invalid-pointer retention warning observed. Does not prove a locally avoided corruption or FPS gain from retention.",
+  "native_code_evidence": {
+    "sha256": "cfd9345d157a2661efe33b0852a6244c5a8f721f77ddc8b038eab182d321ba77",
+    "slow_path_warn_kept_pointer_calls": 6,
+    "tick_frame_contains_inlined_retention_map_operations": true,
+    "all_disassembly_hashes_checked": true
+  }
+}

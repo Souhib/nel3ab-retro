@@ -1,0 +1,121 @@
+{
+  "date": "2026-11-10",
+  "finding": "Every phase of the CPU-affinity cohort overlaps an unrelated Jellyfin Vulkan/VAAPI job using the same renderD128 device.",
+  "jobs": [
+    {
+      "start_unix": 1794312233.037,
+      "start_utc": "2026-11-10T12:03:53.037000+00:00",
+      "vulkan": true,
+      "same_render_node": true,
+      "end_unix": 1794312298.463
+    },
+    {
+      "start_unix": 1794312584.565,
+      "start_utc": "2026-11-10T12:09:44.565000+00:00",
+      "vulkan": true,
+      "same_render_node": true,
+      "end_unix": 1794313241.578
+    },
+    {
+      "start_unix": 1794313303.543,
+      "start_utc": "2026-11-10T12:21:43.543000+00:00",
+      "vulkan": true,
+      "same_render_node": true,
+      "end_unix": null
+    }
+  ],
+  "rows": {
+    "A1": {
+      "phase_begin_utc": "2026-11-10T12:10:55.145324+00:00",
+      "phase_end_utc": "2026-11-10T12:12:25.145540+00:00",
+      "gpu_job_overlaps": [
+        {
+          "job_start_utc": "2026-11-10T12:09:44.565000+00:00",
+          "overlap_seconds": 90.00021648406982,
+          "selected_wsi_windows_overlapping": 1
+        }
+      ],
+      "selected_wsi_windows": 1,
+      "controlled_comparison_qualified": false
+    },
+    "B1": {
+      "phase_begin_utc": "2026-11-10T12:15:25.512327+00:00",
+      "phase_end_utc": "2026-11-10T12:16:55.512533+00:00",
+      "gpu_job_overlaps": [
+        {
+          "job_start_utc": "2026-11-10T12:09:44.565000+00:00",
+          "overlap_seconds": 90.00020551681519,
+          "selected_wsi_windows_overlapping": 2
+        }
+      ],
+      "selected_wsi_windows": 2,
+      "controlled_comparison_qualified": false
+    },
+    "A2": {
+      "phase_begin_utc": "2026-11-10T12:19:26.547338+00:00",
+      "phase_end_utc": "2026-11-10T12:20:56.547439+00:00",
+      "gpu_job_overlaps": [
+        {
+          "job_start_utc": "2026-11-10T12:09:44.565000+00:00",
+          "overlap_seconds": 75.03066229820251,
+          "selected_wsi_windows_overlapping": 2
+        }
+      ],
+      "selected_wsi_windows": 2,
+      "controlled_comparison_qualified": false
+    },
+    "B2": {
+      "phase_begin_utc": "2026-11-10T12:24:35.378920+00:00",
+      "phase_end_utc": "2026-11-10T12:26:05.383736+00:00",
+      "gpu_job_overlaps": [
+        {
+          "job_start_utc": "2026-11-10T12:21:43.543000+00:00",
+          "overlap_seconds": 90.00481605529785,
+          "selected_wsi_windows_overlapping": 1
+        }
+      ],
+      "selected_wsi_windows": 1,
+      "controlled_comparison_qualified": false
+    }
+  },
+  "interpretation": "No isolated CPU-affinity or intrinsic targeted-scene cost conclusion from this cohort. Previous rates remain observations under sharedGPU load. ExternalGPU activity is a confound, not proof that it alone caused every pause.",
+  "old_guard": "Actual watcher checked CI/compiler/profiler/emulator names, but accepted ffmpeg and did not inspect GPU ownership. Red reproduction retained.",
+  "proof_files_sha256": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/external-gpu-audit-20261110/jellyfin-log-snapshot.log": "53e8f3cafe602f8efb90f683c345371e8451bb2683e55b0c3682436b2afde3c7",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/external-gpu-audit-20261110/jellyfin-events-sanitized.json": "effd11445241370f8891ab56d010d88e0c6c26efef26e561819a4148543c21b2",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/external-gpu-audit-20261110/red-before-gpu-guard.json": "a60897944aa6874885ba1d50f2b9f60969d4a8ea5549181cdb31fce987ab47b7",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/external-gpu-audit-20261110/snapshot-1794314156431917784.json": "5a1e40c1325b3e16243948d11e7c6a28c196a4e3f087009afc8d6d0384ba4519",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/external-gpu-audit-20261110/all-clients-1794314258229382726.json": "c9bba1e97de3652497239bd363e086c59f984165172b2a5e7a917cf0f5e3c2cd",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/external-gpu-audit-20261110/transcode-1.log": "5f3965c0bbf1a5d4a758f8b66d8a60c22395e765be4af3551ff516e62a5aff45",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/external-gpu-audit-20261110/transcode-2.log": "5dae37c1b4ba417a581a5dbc860f2555c9cf71a35fa6ca9a7c6cb2eeaaf443ac",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/external-gpu-audit-20261110/transcode-3.log": "ac80a8bd010cca8f44bac7960650ed2924c0190ad1d5acfc69c22ddb39f9f28c",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/external-gpu-audit-20261110/presence-scan-cost.json": "e62cf09764255197aa56c992ba03defa228f0985acad73aa55c1a69258aa6827",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/external-gpu-audit-20261110/gpu-clients-before-process-label-fix.py": "c1fcab9e920876218eb66941be579c4eaa76a17be970c45c703667217c3e5baf",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110/excluded-before-phase.json": "e65896a47a9439272f7ddf8cc78adb6a922e7b699f96b319238b905be818010d",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110/admission-tested.json": "b2b890aa4bdf951494c59faaa1cf5ecacec8df39964ee05f8a638545116c89cb",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/watchdog-gpu-tests.json": "d33271f584cbe432db99953fb2e31e038ebb3bf56d18c224acc23301cf1e99eb",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/cpu-affinity-guarded-20261110-v2/plan.json": "c5a51f9de5c6afb4f10beb005808e627cc51c2e4855b361009fcffdb4880729a",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/gpu-ownership-validation-20261110/just-result.json": "f813bbff6aa97b632d7a2ea82b2e650e4138fedbacfd5b616c9eff436aa38762"
+  },
+  "external_process_observed_at_initial_audit": {
+    "pid": 2171383,
+    "start_ticks": 233127425,
+    "device": "0000:06:00.0",
+    "drm_client_ids": [
+      8597,
+      8598
+    ],
+    "not_stopped_by_agent": true
+  },
+  "fresh_comparison": "spikes/switch2-room/cpu-affinity-guarded-2026-11-10.json",
+  "guard_validation": {
+    "source": "spikes/switch2-room/gpu_clients.py",
+    "unit_tests": "10 GPU ownership tests plus6 presentation tests in localgate",
+    "actual_launch_admission_rejected_foreign_GPU": true,
+    "all_four_watchers_exercised_with_real_scanner_on_simulated_files": true,
+    "mutable_process_name_fix": "A guarded attempt stopped before phase with generic identity-change error. Test reproduces this false positive from mutable comm; PID/start_ticks comparison now accepts rename and rejects true start change. Original error did not identify the process, so its precise event is not reconstructed.",
+    "subsequent_four_real_rooms": "Completed normally; ownGPU clients accepted and no foreignGPU observed.",
+    "periodic_scan_CPU_standalone_ms": "116–122; does not include interpreter/ownership overhead or establish FPS impact.",
+    "full_local_gate_exit": 0
+  }
+}

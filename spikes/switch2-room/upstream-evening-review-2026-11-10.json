@@ -1,0 +1,486 @@
+{
+  "date_utc": "2026-11-10",
+  "checked_epoch": 1794341424.9016457,
+  "status": "Review and targeted private functional plus four-phase comparison completed; no repeatable cadence gain",
+  "repositories": [
+    {
+      "repo": "zortos293/Lichii",
+      "default_branch": "nx2",
+      "latest_releases": [
+        {
+          "tag": "build-130",
+          "published_at": "2026-11-09T17:55:37Z",
+          "target": "nx2",
+          "url": "https://github.com/zortos293/Lichii/releases/tag/build-130",
+          "assets": [
+            "lichii-linux-aarch64-pgo.AppImage",
+            "lichii-linux-aarch64-pgo.tar.gz",
+            "lichii-linux-aarch64.AppImage",
+            "lichii-linux-aarch64.tar.gz",
+            "lichii-linux-x86_64-pgo.AppImage",
+            "lichii-linux-x86_64-pgo.tar.gz",
+            "lichii-linux-x86_64.AppImage",
+            "lichii-linux-x86_64.tar.gz",
+            "lichii-macos-arm64.dmg",
+            "lichii-macos-arm64.zip",
+            "lichii-windows-x86_64-pgo.zip",
+            "lichii-windows-x86_64.zip"
+          ]
+        },
+        {
+          "tag": "build-125",
+          "published_at": "2026-11-09T00:09:27Z",
+          "target": "nx2",
+          "url": "https://github.com/zortos293/Lichii/releases/tag/build-125",
+          "assets": [
+            "lichii-linux-aarch64-pgo.AppImage",
+            "lichii-linux-aarch64-pgo.tar.gz",
+            "lichii-linux-aarch64.AppImage",
+            "lichii-linux-aarch64.tar.gz",
+            "lichii-linux-x86_64-pgo.AppImage",
+            "lichii-linux-x86_64-pgo.tar.gz",
+            "lichii-linux-x86_64.AppImage",
+            "lichii-linux-x86_64.tar.gz",
+            "lichii-macos-arm64.dmg",
+            "lichii-macos-arm64.zip",
+            "lichii-windows-x86_64-pgo.zip",
+            "lichii-windows-x86_64.zip"
+          ]
+        },
+        {
+          "tag": "build-117",
+          "published_at": "2026-11-07T22:39:01Z",
+          "target": "nx2",
+          "url": "https://github.com/zortos293/Lichii/releases/tag/build-117",
+          "assets": [
+            "lichii-linux-aarch64-pgo.AppImage",
+            "lichii-linux-aarch64-pgo.tar.gz",
+            "lichii-linux-aarch64.AppImage",
+            "lichii-linux-aarch64.tar.gz",
+            "lichii-linux-x86_64-pgo.AppImage",
+            "lichii-linux-x86_64-pgo.tar.gz",
+            "lichii-linux-x86_64.AppImage",
+            "lichii-linux-x86_64.tar.gz",
+            "lichii-macos-arm64.dmg",
+            "lichii-macos-arm64.zip",
+            "lichii-windows-x86_64-pgo.zip",
+            "lichii-windows-x86_64.zip"
+          ]
+        }
+      ]
+    },
+    {
+      "repo": "Eglantine-Community/Eglantine",
+      "default_branch": "nx2",
+      "latest_releases": [
+        {
+          "tag": "v0.1.0-rc3",
+          "published_at": "2026-11-08T16:21:38Z",
+          "target": "78743f30c251f66bd77e6eea6c28d8632d642d6f",
+          "url": "https://github.com/Eglantine-Community/Eglantine/releases/tag/v0.1.0-rc3",
+          "assets": [
+            "eglantine-linux-aarch64-pgo.AppImage",
+            "eglantine-linux-aarch64-pgo.tar.gz",
+            "eglantine-linux-aarch64.AppImage",
+            "eglantine-linux-aarch64.tar.gz",
+            "eglantine-linux-x86_64-pgo.AppImage",
+            "eglantine-linux-x86_64-pgo.tar.gz",
+            "eglantine-linux-x86_64.AppImage",
+            "eglantine-linux-x86_64.tar.gz",
+            "eglantine-macos-arm64.dmg",
+            "eglantine-macos-arm64.zip",
+            "eglantine-windows-x86_64-pgo.zip",
+            "eglantine-windows-x86_64.zip"
+          ]
+        },
+        {
+          "tag": "daily-20261109",
+          "published_at": "2026-11-09T11:04:48Z",
+          "target": "78743f30c251f66bd77e6eea6c28d8632d642d6f",
+          "url": "https://github.com/Eglantine-Community/Eglantine/releases/tag/daily-20261109",
+          "assets": [
+            "eglantine-linux-aarch64-pgo.AppImage",
+            "eglantine-linux-aarch64-pgo.tar.gz",
+            "eglantine-linux-aarch64.AppImage",
+            "eglantine-linux-aarch64.tar.gz",
+            "eglantine-linux-x86_64-pgo.AppImage",
+            "eglantine-linux-x86_64-pgo.tar.gz",
+            "eglantine-linux-x86_64.AppImage",
+            "eglantine-linux-x86_64.tar.gz",
+            "eglantine-macos-arm64.dmg",
+            "eglantine-macos-arm64.zip",
+            "eglantine-windows-x86_64-pgo.zip",
+            "eglantine-windows-x86_64.zip"
+          ]
+        },
+        {
+          "tag": "branch-nx2-experimental-efb9fb18",
+          "published_at": "2026-11-08T14:02:14Z",
+          "target": "df2989c794cdb6b979e478c5b02ed7f565ebb443",
+          "url": "https://github.com/Eglantine-Community/Eglantine/releases/tag/branch-nx2-experimental-efb9fb18",
+          "assets": [
+            "eglantine-linux-aarch64-pgo.AppImage",
+            "eglantine-linux-aarch64-pgo.tar.gz",
+            "eglantine-linux-aarch64.AppImage",
+            "eglantine-linux-aarch64.tar.gz",
+            "eglantine-linux-x86_64-pgo.AppImage",
+            "eglantine-linux-x86_64-pgo.tar.gz",
+            "eglantine-linux-x86_64.AppImage",
+            "eglantine-linux-x86_64.tar.gz",
+            "eglantine-macos-arm64.dmg",
+            "eglantine-macos-arm64.zip",
+            "eglantine-windows-x86_64-pgo.zip",
+            "eglantine-windows-x86_64.zip"
+          ]
+        }
+      ]
+    },
+    {
+      "repo": "Frizti/Fritchii",
+      "default_branch": "nx2",
+      "latest_releases": [
+        {
+          "tag": "fritchii-v5.7",
+          "published_at": "2026-11-10T19:21:36Z",
+          "target": "52317bf0e52a1ece5beb6474689d78c6f2f4894f",
+          "url": "https://github.com/Frizti/Fritchii/releases/tag/fritchii-v5.7",
+          "assets": [
+            "Fritchii-v5.7-debug-symbols-not-needed-to-play.zip",
+            "Fritchii-v5.7-Windows-x64.zip"
+          ]
+        },
+        {
+          "tag": "fritchii-v5.6",
+          "published_at": "2026-11-10T05:10:34Z",
+          "target": "696a456641ae83c9f8b6564c57ac311c7ef56799",
+          "url": "https://github.com/Frizti/Fritchii/releases/tag/fritchii-v5.6",
+          "assets": [
+            "Fritchii-v5.6-debug-symbols-not-needed-to-play.zip",
+            "Fritchii-v5.6-Windows-x64.zip"
+          ]
+        },
+        {
+          "tag": "fritchii-v5.5",
+          "published_at": "2026-11-09T13:20:33Z",
+          "target": "4012e5271e278b21cf8f56b97481dac2b777cd0d",
+          "url": "https://github.com/Frizti/Fritchii/releases/tag/fritchii-v5.5",
+          "assets": [
+            "Fritchii-v5.5-debug-symbols-not-needed-to-play.zip",
+            "Fritchii-v5.5-Windows-x64.zip"
+          ]
+        }
+      ]
+    },
+    {
+      "repo": "callme-sy/Lichii-Superbuild",
+      "default_branch": "superbuild",
+      "latest_releases": [
+        {
+          "tag": "v50",
+          "published_at": "2026-11-10T16:12:22Z",
+          "target": "superbuild",
+          "url": "https://github.com/callme-sy/Lichii-Superbuild/releases/tag/v50",
+          "assets": [
+            "Lichii-v50-linux-x64-pgo.AppImage",
+            "Lichii-v50-linux-x64-pgo.tar.gz",
+            "Lichii-v50-linux-x64.AppImage",
+            "Lichii-v50-linux-x64.tar.gz",
+            "Lichii-v50-SHA256SUMS.txt",
+            "Lichii-v50-win64-pgo.zip",
+            "Lichii-v50-win64.zip"
+          ]
+        },
+        {
+          "tag": "v49",
+          "published_at": "2026-11-10T14:03:52Z",
+          "target": "superbuild",
+          "url": "https://github.com/callme-sy/Lichii-Superbuild/releases/tag/v49",
+          "assets": [
+            "Lichii-v49-linux-x64-pgo.AppImage",
+            "Lichii-v49-linux-x64-pgo.tar.gz",
+            "Lichii-v49-linux-x64.AppImage",
+            "Lichii-v49-linux-x64.tar.gz",
+            "Lichii-v49-SHA256SUMS.txt",
+            "Lichii-v49-win64-pgo.zip",
+            "Lichii-v49-win64.zip"
+          ]
+        },
+        {
+          "tag": "v48",
+          "published_at": "2026-11-10T13:32:38Z",
+          "target": "superbuild",
+          "url": "https://github.com/callme-sy/Lichii-Superbuild/releases/tag/v48",
+          "assets": [
+            "Lichii-v48-linux-x64-pgo.AppImage",
+            "Lichii-v48-linux-x64-pgo.tar.gz",
+            "Lichii-v48-linux-x64.AppImage",
+            "Lichii-v48-linux-x64.tar.gz",
+            "Lichii-v48-SHA256SUMS.txt",
+            "Lichii-v48-win64-pgo.zip",
+            "Lichii-v48-win64.zip"
+          ]
+        }
+      ]
+    },
+    {
+      "repo": "MythosOfs/Orchid",
+      "default_branch": "main",
+      "latest_releases": [
+        {
+          "tag": "v0.9.4",
+          "published_at": "2026-11-10T11:54:57Z",
+          "target": "d17a69dac6208105cb4277c0624fa472b6ce852a",
+          "url": "https://github.com/MythosOfs/Orchid/releases/tag/v0.9.4",
+          "assets": [
+            "orchid-v0.9.4-linux-aarch64-pgo.AppImage",
+            "orchid-v0.9.4-linux-aarch64-pgo.tar.gz",
+            "orchid-v0.9.4-linux-aarch64.AppImage",
+            "orchid-v0.9.4-linux-aarch64.tar.gz",
+            "orchid-v0.9.4-linux-x86_64-pgo.AppImage",
+            "orchid-v0.9.4-linux-x86_64-pgo.tar.gz",
+            "orchid-v0.9.4-linux-x86_64.AppImage",
+            "orchid-v0.9.4-linux-x86_64.tar.gz",
+            "orchid-v0.9.4-macos-arm64.zip",
+            "orchid-v0.9.4-windows-x86_64-pgo.zip",
+            "orchid-v0.9.4-windows-x86_64.zip"
+          ]
+        },
+        {
+          "tag": "v0.9.3",
+          "published_at": "2026-11-10T06:29:04Z",
+          "target": "f73f116e0b9ad76099cf33398f793ba774aca488",
+          "url": "https://github.com/MythosOfs/Orchid/releases/tag/v0.9.3",
+          "assets": [
+            "orchid-v0.9.3-linux-aarch64-pgo.AppImage",
+            "orchid-v0.9.3-linux-aarch64-pgo.tar.gz",
+            "orchid-v0.9.3-linux-aarch64.AppImage",
+            "orchid-v0.9.3-linux-aarch64.tar.gz",
+            "orchid-v0.9.3-linux-x86_64-pgo.AppImage",
+            "orchid-v0.9.3-linux-x86_64-pgo.tar.gz",
+            "orchid-v0.9.3-linux-x86_64.AppImage",
+            "orchid-v0.9.3-linux-x86_64.tar.gz",
+            "orchid-v0.9.3-macos-arm64.zip",
+            "orchid-v0.9.3-windows-x86_64-pgo.zip",
+            "orchid-v0.9.3-windows-x86_64.zip"
+          ]
+        },
+        {
+          "tag": "v0.9.2",
+          "published_at": "2026-11-09T07:25:08Z",
+          "target": "5d00ad961b37ac635a6c502bf60fbd8972a3466b",
+          "url": "https://github.com/MythosOfs/Orchid/releases/tag/v0.9.2",
+          "assets": [
+            "orchid-v0.9.2-linux-aarch64-pgo.AppImage",
+            "orchid-v0.9.2-linux-aarch64-pgo.tar.gz",
+            "orchid-v0.9.2-linux-aarch64.AppImage",
+            "orchid-v0.9.2-linux-aarch64.tar.gz",
+            "orchid-v0.9.2-linux-x86_64-pgo.AppImage",
+            "orchid-v0.9.2-linux-x86_64-pgo.tar.gz",
+            "orchid-v0.9.2-linux-x86_64.AppImage",
+            "orchid-v0.9.2-linux-x86_64.tar.gz",
+            "orchid-v0.9.2-macos-arm64.zip",
+            "orchid-v0.9.2-windows-x86_64-pgo.zip",
+            "orchid-v0.9.2-windows-x86_64.zip"
+          ]
+        }
+      ]
+    },
+    {
+      "repo": "scarletnx/ScarletNX",
+      "default_branch": "main",
+      "latest_releases": [
+        {
+          "tag": "nightly",
+          "published_at": "2026-10-16T23:16:20Z",
+          "target": "main",
+          "url": "https://github.com/scarletnx/ScarletNX/releases/tag/nightly",
+          "assets": []
+        }
+      ]
+    }
+  ],
+  "prior_reviewed_lichii_head": "093e264c8a7959dbeffe60248750aeec30c92235",
+  "observed_lichii_head": "879b616b1b377bfd085bf20f440b895cf4b83ab8",
+  "new_lichii_commits": 19,
+  "priorities": [
+    {
+      "rank": 1,
+      "change": "Lichii1245 in-order upload batching plus post-copy transfer ordering",
+      "sha": "4d7412ac7ea515c7d60f0e99583192533fae4a3b",
+      "url": "https://github.com/zortos293/Lichii/commit/4d7412ac7ea515c7d60f0e99583192533fae4a3b",
+      "decision": "Port into independent copy of exact existing sources, with bounded overlap/source-dependency checks and all scheduler drains. No measured gain from upstream cost counts."
+    },
+    {
+      "rank": 1,
+      "change": "Lichii1246 dispatch barrier recorded with dispatch command",
+      "sha": "7fcfb6412372823e9d4ba63fbb8c40a81ee1e15f",
+      "url": "https://github.com/zortos293/Lichii/commit/7fcfb6412372823e9d4ba63fbb8c40a81ee1e15f",
+      "decision": "Adapt for old base without MarkEffects and with conditional Streamline. Preserve barrier before binding, shadows, early returns and indirect work."
+    },
+    {
+      "rank": 2,
+      "change": "Lichii1236 destroyed/reused GPU backing",
+      "url": "https://github.com/zortos293/Lichii/pull/1236",
+      "decision": "Relevant stability candidate for zone transitions; separate lifetime change, not a measured cadence gain. Do not combine blindly with performance attribution."
+    },
+    {
+      "rank": 2,
+      "change": "Lichii1225 CPU JIT warm-up",
+      "url": "https://github.com/zortos293/Lichii/pull/1225",
+      "decision": "Open PR reports Linux OoT reduction of post-load compile bursts, different from GPU shader precache. Review invalidation, per-core budgets and code-cache lifetime before port."
+    },
+    {
+      "rank": 3,
+      "change": "Fritchii5.7 (released19:21UTC), including async read-back, JIT propagation, load-throttle and mapping fixes",
+      "url": "https://github.com/Frizti/Fritchii/releases/tag/fritchii-v5.7",
+      "decision": "Source candidates, Windows binaries only. Review actual release tag52317bf, not unchanged default nx2 headf66ea633. GPU read-back subset may overlap installed1028 work; no imported5FPS promise."
+    },
+    {
+      "rank": 3,
+      "change": "Superbuildv50 Linux packages",
+      "url": "https://github.com/callme-sy/Lichii-Superbuild/releases/tag/v50",
+      "decision": "New stack includes1236,1216,1219 and other ports; useful source control/fallback candidate, not clean attribution or justified global replacement. Cache versions differ and must remain private."
+    },
+    {
+      "rank": 4,
+      "change": "Orchid0.9.4",
+      "url": "https://github.com/MythosOfs/Orchid/releases/tag/v0.9.4",
+      "decision": "Published performance changes target Wonder/Orbitals, not a new Zelda qualification. Main also changes native capture termination after release; investigate only if relevant instruction failures recur."
+    },
+    {
+      "rank": 4,
+      "change": "Eglantine main/release still78743f30c2",
+      "url": "https://github.com/Eglantine-Community/Eglantine/releases/tag/v0.1.0-rc3",
+      "decision": "No newer nx2/release revision observed. Other branch pushes do not establish a newer qualified Zelda package."
+    },
+    {
+      "rank": 4,
+      "change": "Scarlet graphics pipeline library proposal1382",
+      "url": "https://github.com/scarletnx/ScarletNX/issues/1382",
+      "decision": "Still open issue, no attached ready PR. Recent audio/shader/runtime work is not a drop-in Lichii pipeline-library implementation."
+    }
+  ],
+  "private_port": {
+    "source": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/source-lichii-commands1245-lab",
+    "build": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/build-lichii-commands1245",
+    "flag": "EDEN_NX2_COMMAND_BATCH=1",
+    "control": "Same binary with batching disabled, both post-copy transfer fixes retained. Not pristine upstream.",
+    "evidence_root": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/commands1245-preparation-20261110",
+    "actual_GPU_execution_qualified": "Functional movement/available timestamp captures/normal stop only; not every synchronization property or sustained performance",
+    "production_installation": false,
+    "build_result": {
+      "returncode": 0,
+      "started_unix": 1794341160.301385,
+      "ended_unix": 1794341389.990765,
+      "seconds": 229.68938088417053
+    },
+    "native_CPU_tests": {
+      "cases": 1255,
+      "passed": 1251,
+      "skipped_network": 4,
+      "failures": 0
+    },
+    "actual_ELF_sha256": "d7df60921d94dfc74263d8f65737e2d7b94f0e19a4f0f01387feba32298fe127",
+    "source_inputs_changed": 7,
+    "CPU_fixture": {
+      "families": 6,
+      "compiled_mutants_rejected": 12,
+      "scope": "Actual helper header with CPU command recorder, not real scheduler/drivers"
+    },
+    "patch": "spikes/switch2-room/amont/command-batching-2026-11-10.patch",
+    "patch_sha256": "dd410eae384aace5e4c6b288cda3a96dd05f42fee091d52e2955b85cc647820c",
+    "software_Vulkan_validation": {
+      "layer": "1.3.275.0-1, private extraction only",
+      "equivalence": "600uploads individual and batched,16384bytes each, actual lavapipe CPU device",
+      "observed_negative": "Forced overlap produces SYNC-HAZARD-WRITE-AFTER-WRITE",
+      "unobserved_negative": "Missing TRANSFER final remains silent with FillBuffer and CopyBuffer, intra/inter-submit. Those tests fail; no full synchronization validation.",
+      "actual_scheduler_lifetime": "Not covered by helper fixture"
+    },
+    "actual_GPU_runtime_functional": "spikes/switch2-room/command-batching-functional-2026-11-10.json",
+    "comparison": "spikes/switch2-room/command-batching-comparison-2026-11-10.json",
+    "repeatable_gain": false
+  },
+  "local_project_gate": {
+    "command": "just",
+    "resolved_executable": "/home/souhib/.cargo/bin/just",
+    "exit_code": 0,
+    "quality_GPU_audio_saves_capture_deploy_checks_passed": true,
+    "docs_build_pending": false,
+    "remote_CI_result": null,
+    "docs_exit_code": 0,
+    "audit_exit_code": 0,
+    "docs_latest_result": {
+      "command": "just docs",
+      "start_unix": 1794344494.2674255,
+      "end_unix": 1794344498.8382154,
+      "exit_code": 0
+    },
+    "scope": "Main project gates passed locally; does not qualify the rejected synchronization fixture or the unbuilt JIT candidate. No current uncommitted source remote-CI result."
+  },
+  "proof_files_sha256": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-evening-20261110/eglantine-branches.json": "1b8355a304556a13207f17dd2fdc7d56d99a508260c0e97e305146fd0ba7d007",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-evening-20261110/lichii-releases.json": "e6317221fe55f90eaa8b370b4cf5f1085bcad5aa76d97571d6c011d0ef9ab44f",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-evening-20261110/lichii-branches.json": "c4d01a3aa0d921002d41ac985ceca8297fe0d4202a284e0d480947d48ca8f0b6",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-evening-20261110/fritchii-repo.json": "f0afa0cdac4e0336987fc5de3e6bbc14c6df0b90f69d896cbc187e136029c49b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-evening-20261110/eglantine-repo.json": "51d8efa5ddaca6cf9d2f77538149a16f5e2eb9f6faa3772d3cc32fb48f2787e9",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-evening-20261110/lichii-repo.json": "a3ffe3e962294d46f56b9e50b46bbf1bc5797fa3839b31e73ddbdc46a120acdd",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-evening-20261110/orchid-releases.json": "cd46bf7bcda0d1690393a9fcd3a5b67434737ce42f449946da77cf3cf721eab7",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-evening-20261110/commit1245.json": "a627289c510560f330af271bd4fba62cd26c00b322bd73c940422213407ed76a",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-evening-20261110/orchid-branches.json": "c3d6bfc37a16b56bc6df6d4a4d7c74b59969a3e6138ba5b3dc27a121124dec83",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-evening-20261110/memory1236.json": "9c47c89598661be29034f075bcf1d0cab5402cf791cad3a289d29947173cced7",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-evening-20261110/superbuild50-commits.json": "a85de6feb0359f9e459d1716642e68fe060e6eb140825fa696cbb15a140a1941",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-evening-20261110/eglantine-commits.json": "3947615758cc99c6f020158b0c5259b85ad24f55b22b9ddca45ab3a83d451014",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-evening-20261110/lichii-commits.json": "0dcc6f2f1134bc96fe827064edc0981e42df63beb54cd0bd2dfbd2e1c74fc171",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-evening-20261110/superbuild-repo.json": "2e8e322e8e4476f25b277f2495a03d394976ff386eadc61b105180d1f1cf72d0",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-evening-20261110/scarlet-repo.json": "2efde11a4188c7e37c3e3ac134a310b21871f59d2b897628e466d78d568f1f91",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-evening-20261110/fritchii57-commits.json": "b595939c62e3283d7c39171b15a707ea36abc1b21436b7f8f621da80bf2cba97",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-evening-20261110/fetched-at.json": "4f80c4cc71017d8c3d105597d26f4c65984cba8433399c7a0825565c40115570",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-evening-20261110/fritchii-branches.json": "ddf65849bdd780bb5e701c90ee42b547d26aa8b3206fcf55619e7a347cc8a112",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-evening-20261110/jit1225.json": "cb2d014a854d527d633fd1a75c0d74651ece40d13060ad0d7c1ff4978dff6d94",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-evening-20261110/fritchii-since55.json": "c241cae4a5b6dbd7e67f1ac8812b4112d584645b8ff31c9b60ed43da6c7bca16",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-evening-20261110/orchidmain-commits.json": "fe70c755221a993a226bca1f7e8334fd18fafd84a9f014de017f8a483994188a",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-evening-20261110/superbuild-branches.json": "71b14ed219dd674e99893e4ab197cf28b24732659fa92e32749cc03ab6f4f801",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-evening-20261110/superbuild-releases.json": "ad1428d35f132222a54950a3640ee9d2efd8415fe1d90cb7fff8ca10ad3a806b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-evening-20261110/barrier1246.json": "b259721dae6c6700c1adb35303dceeabf8aa45d1a4bc8f2c6d4aef01a93743e3",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-evening-20261110/scarlet-branches.json": "996f0414247e67d9bb45ba209b439e125de9a26aacb4a8bcd4af67d4c5e82358",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-evening-20261110/fritchii-releases.json": "3f2eed9b56b31fe4ba83e5712951d433a36751d3dd48209ec9564ca8086ef8fc",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-evening-20261110/uploads1245.json": "77bd6ae1a3602104ff0f964440e9cf961a4624a0e2d736573eaa0d3952b4f364",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-evening-20261110/scarlet-releases.json": "ef05b8300aaa3a67e0ab6505fe4520235f110cdb30e71e645fcac71a0a80d83b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-evening-20261110/registry1218.json": "17a76ab3d80149e098025640c8c06c7a0ed100b3d7a245d43298ef9d7252327c",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-evening-20261110/scarlet-commits.json": "01064405d2f209bcfe0f34bfbcee78891ec0d3ce7a62a04ca9c215ebdf999659",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-evening-20261110/lichii-since-last.json": "5a42b259a27e8f2f31a02a819203dc5fda09063ff2fa26fbe67c314a23f3ae61",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-evening-20261110/fastdraw1216.json": "41b69dbcd4f4446faefdd23a4bbd23ee2cf16a499caa6b30cface711a3a67d8f",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-evening-20261110/eglantine-releases.json": "078a526021818ca5eaa5888164666507e9c9ec03a28ba83b9643e7f96bf4c2a6",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-evening-20261110/commit1246.json": "f28d648785b31e38dba23718d250ec55fd94cbeceaa4beda752b359726bb9865",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-evening-20261110/orchid94-commits.json": "e1c4585f0292d3e6abbeb100648719a5618efe027279e86b4ae60c57116e6796",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-evening-20261110/scarlet-pipeline-library-1382.json": "f28e752e2c47b6bc50d0e53fbfee1d85f58e35e5929c3b95e3697183dc487b61",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/upstream-evening-20261110/orchid-repo.json": "86ab431b8c9f4af58db826b11bce64cc5eb4467c5b83b1a528f77f656e1d1536",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/commands1245-preparation-20261110/base-source.json": "9f86387d9ce9cb54cf7421392045bddb6004bbbd7831eb1cf16f1bfd9a8de7f2",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/commands1245-preparation-20261110/port-manifest.json": "4e60834318004675e66510717e6b6938d88e15893b8cc04c768714dbab618a02",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/commands1245-preparation-20261110/rebuild-proof.json": "64e695f4b02c4d94ca714a0d99d3919819d1e2d202ff3b8a2961fc3c18c54309",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/commands1245-preparation-20261110/build-command.json": "2b72168fd4137b8294d0ce0da67ea1313d42027c53ff01fb64189ccd12ba3c57",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/commands1245-preparation-20261110/build-result.json": "0c1c6c408b190321bb94894c47fce5cab76fdb363b042c1243f4e1450043b764",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/commands1245-preparation-20261110/native-tests-command.json": "f6e76bac7b22fdc9538cb815e6a9b5334aff0e1587af1847d44f9cde93f72cfb",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/commands1245-preparation-20261110/native-tests-result.json": "5734b1c3ac44b28f903d43e5204488c3c0ac735b95ef61aa3de898fc334badb2",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/commands1245-preparation-20261110/fixtures/upload-batch-cpu/results/report.json": "00b50344e9e8c9c376b76028a36eb028dfe26ed8fc9d85e99be1f9a25e9ae204",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/commands1245-preparation-20261110/fixtures/upload-batch-lavapipe/results/report.json": "d5c7b4aec58c22b0282d27e1a620479880cc0e84d20cd9f48875936d7e1b96db",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/commands1245-preparation-20261110/fixtures/upload-batch-lavapipe/results-copy/report.json": "1c88ebff05473dceeed4a76837d997839fa13da3a5ceb02d546009fa60909caf",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/commands1245-preparation-20261110/fixtures/upload-batch-lavapipe/README.txt": "4c375991bc6ae1657d0a685998b07839c4fe05b13752ac19142a6acff22f7d66",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/commands1245-preparation-20261110/validation-package/provenance.json": "a766b923252fe5bbde6341a53012954c910e794e29f938d4796b1c133ec6e0af",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/resume-final-checks-20261110/docs.log": "493daadb5897c5a727c5c51e304ab759d8dd6a6e6c5d93a09a33b4e2fc35f625",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/resume-final-checks-20261110/docs-result.json": "e7e5d0ee87bfdaae0aeb38acb1630f5aa153e12c7128d874d2ca6f1ffb1db945",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/resume-final-checks-20261110/audit-result.json": "27d569b6fda086c1b982f8cf79c3eca8c79bb9e95ec5700b05c595a0ed3d8744",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/resume-final-checks-20261110/audit.log": "def7c6de5ea3f0c9ffd6abd7c0aaaf677b208a784fbf6adcd879a31a39857db1",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/resume-final-checks-20261110/docs-jit-followup.log": "bd66e203ec5e05637634c5b46a5847d788f6c8a533d32c1ba32164bf2a25a553",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/resume-final-checks-20261110/docs-jit-followup-result.json": "34f9d8fcbd3f72862fbabb0d5b5957d8c547482e0e1bafac48902c5788521ea3",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/resume-final-checks-20261110/final-integrity.json": "0a8ab64001602d488af404eede3c76eb7b1759311e7786737da901724de39200"
+  },
+  "JIT1225_followup": {
+    "report": "spikes/switch2-room/jit-warmup-review-2026-11-10.json",
+    "private_source_ported": true,
+    "full_build_started": false,
+    "game_started": false,
+    "qualified": false,
+    "reason": "Instruction page invalidation interleaving reproduced in exact callback bodies with explicit CPU doubles; scenario not observed in Zelda. Budget overshoot also reproduced."
+  }
+}

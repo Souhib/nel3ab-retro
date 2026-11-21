@@ -1,0 +1,36 @@
+{
+  "date_utc": "2026-11-11",
+  "status": "v3 rejected before loader actions; ordinary cleanup normal. v4 actual loader-prefix correction tested, not launched",
+  "failed_cohort": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v3",
+  "room": "/home/souhib/.local/state/nel3ab/test-switch2-lf9dkA",
+  "native_room_seconds_until_driver_exit": 214.09100651741028,
+  "failure": "Actual loader normal entry required v2 basename while invoked under v3; block-call fixture omitted this early guard",
+  "no_game_input_from_loader": true,
+  "controlled_phase_started": false,
+  "cleanup": {
+    "native_normal_stop": true,
+    "owned_containers_absent": true,
+    "observer": "active",
+    "production_snapshot_unchanged": true,
+    "watchdog_reason": null,
+    "forced_cleanup": false
+  },
+  "current_preparation": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v4",
+  "entry_cases": 18,
+  "ordinary_prefixes": 5,
+  "validation_prefixes": 5,
+  "kernel_component_sources_unchanged": true,
+  "no_v4_runtime_qualification": true,
+  "constant40_achieved": false,
+  "production_change": false,
+  "proof_files_sha256": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v3/F1/auto-console.log": "ee430316360b09ccf6060fa04fda3d71bfa1f702061d9cae0580a722d095527c",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v3/F1/cleanup.json": "bf0a377c960640e17fa017e7aaf1385127121b912a399f163d548bb946b21b58",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v3/F1/root-stop-watch-result.json": "9d7642bb83bb8dea3b52bb24cfc628bf661824cd02f8a05a8af2835a3e5cb7f4",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v4/loader-entry-report.json": "2a648d2fd0b923be8a8e02be7d621b70d460c165c8e7624e9864b662072311e6",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v4/preparation-tests.json": "6e6944206c8eaf99b40441a3a7dc7b9ee474d10504457633e6b97d969edd08ad",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v4/prepared-manifest.json": "13ec01af9eb996073fd486c20226793069b794e36ef991d0aa8f375cab07e12a",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v4/loader/auto.mjs": "61ffef5293afc866ef34acd2846c0ed16b6b5398d748e96126b1a8d0b7ac502b",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/goal40-readtick-ab-20261111-v4/dependency_contract.py": "9240e49fbd59922a5a7497b905ce18b9522cb0f1d027c1e5b30757cf2749b1ba"
+  }
+}

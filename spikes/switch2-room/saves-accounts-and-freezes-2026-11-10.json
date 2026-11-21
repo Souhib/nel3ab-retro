@@ -1,0 +1,241 @@
+{
+  "date": "2026-11-10",
+  "status": "installed",
+  "scope": "Save ownership, complete-import detection and passive analysis of the ended Zelda session. No new FPS comparison.",
+  "semantics": {
+    "fresh": "Authenticated account gets an empty personal save; previous progress is archived.",
+    "resume": "Same authenticated account and game, independent of nickname and numbered room.",
+    "unlocked": "Shared imported slot, offered only when its receipt and all declared nonempty regular payloads exist. Game objectives are not decoded.",
+    "anonymous": "Existing shared fresh slot, no personal-resume promise."
+  },
+  "identity": {
+    "key": "readable prefix + full SHA-256 of trimmed authenticated login",
+    "nickname_used_for_storage": false,
+    "control_auth_tests": "Two logins that collide after cleaning and share one nickname; forged auth/body identities ignored for fresh and resume."
+  },
+  "migration": {
+    "accounts": 3,
+    "persistent_files": 370,
+    "sources_retained": true,
+    "source_and_target_digests_rechecked": true,
+    "runtime_fifos_and_logs_excluded": true,
+    "zelda_personal_recovered": true,
+    "shared_zelda_source_retained": true
+  },
+  "imports": {
+    "receipts": 9,
+    "physical_payload_paths": 40,
+    "consoles": {
+      "gc": 1,
+      "wii": 4,
+      "switch": 4,
+      "switch2": 0
+    },
+    "zelda_unlocked": false,
+    "partial_or_unqualified_imports_hidden": true,
+    "existing_payloads_modified": false,
+    "dolphin_shared_storage": "Existing import in selected room; personal data is common across rooms."
+  },
+  "validation": {
+    "local_gate": "just passed after installing unit and restarting changed Python services. Previous deploy-check mismatch retained in attempt 02.",
+    "browser": "Real isolated worker and receipt reader, four console menus, positive and missing-payload twins, refreshed menu waits, invalid persisted unlocked launch returns idle.",
+    "filesystem": "Production Docker launcher, real containers with probe entrypoint, account A across rooms 1 and 3 and B in room 2; no emulator ran in this proof.",
+    "game_save_roundtrip": "Not rerun in this change; filesystem hashes are not game progress validation.",
+    "docs": "just docs strict build passed; site refreshed",
+    "audit": "passed",
+    "remote_ci": "No new commit or push; no remote CI result claimed."
+  },
+  "installed": {
+    "utc": "2026-11-10T07:49:39.751556+00:00",
+    "current": null,
+    "games": 20,
+    "unlocked_count": 9,
+    "catalogue": [
+      {
+        "console": "wii",
+        "name": "Guitar Hero III - Legends of Rock",
+        "unlocked": true
+      },
+      {
+        "console": "switch",
+        "name": "Looney Tunes: Wacky World of Sports",
+        "unlocked": false
+      },
+      {
+        "console": "switch",
+        "name": "Mario Kart 8 Deluxe",
+        "unlocked": true
+      },
+      {
+        "console": "gc",
+        "name": "Mario Kart Double Dash (Retro Track Grand Prix)",
+        "unlocked": true
+      },
+      {
+        "console": "wii",
+        "name": "Mario Kart Wii",
+        "unlocked": true
+      },
+      {
+        "console": "gc",
+        "name": "Mario Party 4",
+        "unlocked": false
+      },
+      {
+        "console": "gc",
+        "name": "Mario Party 5",
+        "unlocked": false
+      },
+      {
+        "console": "gc",
+        "name": "Mario Party 6",
+        "unlocked": false
+      },
+      {
+        "console": "gc",
+        "name": "Mario Party 7",
+        "unlocked": false
+      },
+      {
+        "console": "wii",
+        "name": "Mario Party 8",
+        "unlocked": true
+      },
+      {
+        "console": "wii",
+        "name": "Mario Party 9",
+        "unlocked": false
+      },
+      {
+        "console": "switch",
+        "name": "Mario Party Superstars",
+        "unlocked": true
+      },
+      {
+        "console": "gc",
+        "name": "Mario Power Tennis",
+        "unlocked": false
+      },
+      {
+        "console": "wii",
+        "name": "Mario Strikers Charged",
+        "unlocked": true
+      },
+      {
+        "console": "switch",
+        "name": "Mario Tennis Aces",
+        "unlocked": true
+      },
+      {
+        "console": "switch",
+        "name": "Super Mario Party Jamboree",
+        "unlocked": false
+      },
+      {
+        "console": "gc",
+        "name": "Super Mario Strikers",
+        "unlocked": false
+      },
+      {
+        "console": "gc",
+        "name": "Super Smash Bros Melee",
+        "unlocked": false
+      },
+      {
+        "console": "switch",
+        "name": "Super Smash Bros. Ultimate",
+        "unlocked": true
+      },
+      {
+        "console": "switch2",
+        "name": "The Legend of Zelda: Ocarina of Time",
+        "unlocked": false
+      }
+    ],
+    "zelda_unlocked": false,
+    "html_sha256": "af34adbf98633e5de2b581a16f5547be3b6ff139554d0268220541928130ec31",
+    "worker_sha256": "9b42660844100e2f7b00754389d55d1d60a0e9a863c911a2a38503ba7abb39d3",
+    "running_executable_matches": true,
+    "personal_root_in_running_environment": true,
+    "no_emulator_container": true,
+    "probe_room_stopped": true
+  },
+  "freezes": {
+    "worst_logged_interval_ms": 1564.713264,
+    "complete_emitted_windows": 29,
+    "intervals_over_100ms": 61,
+    "scene_scope": "No scene capture, so these counts are not gameplay frequency or gameplay FPS.",
+    "draw_wait_sum_ms": 1346.6,
+    "summary_interval_seconds": 10.059738,
+    "one_freeze_interpretation": false,
+    "precaching_changed": false,
+    "cache_comparison": "A1/B1 only; no comparison accepted. Requalify new launcher and use a fresh complete alternating series based on current production cache."
+  },
+  "evidence_root": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/user-session-and-personal-recovery",
+  "proofs": [
+    {
+      "file": "full-session-analysis.json",
+      "sha256": "e30ff51459c58607d7c5406cd91b36e6c537c220478a63afee7e57cebf09662e"
+    },
+    {
+      "file": "personal-copy.json",
+      "sha256": "bb6594aff563dcde9c58d9870f64c0aa70ed4ef3fb9857862ff39d5da00191fe"
+    },
+    {
+      "file": "account-migration.json",
+      "sha256": "b874119b4a11a01459652af04833a862fbd3a44011b15e31503ae22c9de289a4"
+    },
+    {
+      "file": "unlocked-import-migration.json",
+      "sha256": "8453e22ea6443e753a595b2cda509590979b1ca8362e2d03ce002e3f0dbc57d0"
+    },
+    {
+      "file": "docker-mount-proof-02/report.json",
+      "sha256": "f25d6cc8109c87e00d3239121ab58e2ee8692f278870d98d724d95c5674bde49"
+    },
+    {
+      "file": "mutation-proofs.json",
+      "sha256": "fe68424494c471cdc16ceb77def7b2d5d4e4cb2466a0920012f606e7a9cf946c"
+    },
+    {
+      "file": "idle-red.log",
+      "sha256": "c16221556540e4425e89c863f1b4cbbd91c62213296576aa26edae08ce73b94f"
+    },
+    {
+      "file": "idle-green.log",
+      "sha256": "0f8b3824694a7172a3e40a31b69994134568a2cc16511942a58d30f2098006bb"
+    },
+    {
+      "file": "unlocked-start-red.log",
+      "sha256": "0ac212535a81021a55064eb427bc60f63aca5ab48ff81b8c27bfa2b11987f1a0"
+    },
+    {
+      "file": "browser-save-options-report.json",
+      "sha256": "2f9cccddb24feabbcf9f7cccc773bb0193edfdf8834e1015a6119dd201cbfcf3"
+    },
+    {
+      "file": "save-options-04.log",
+      "sha256": "46603b45fa5abadd205b6b2c1ee17b316de2cf20fc3dcafdac8fcbc8749defdd"
+    },
+    {
+      "file": "local-gate-final.log",
+      "sha256": "6c086ad70aaffb9637f312696a4556362e9f4314814d7928ed0eab44c53b4271"
+    },
+    {
+      "file": "audit.log",
+      "sha256": "def7c6de5ea3f0c9ffd6abd7c0aaaf677b208a784fbf6adcd879a31a39857db1"
+    },
+    {
+      "file": "deploy-check.log",
+      "sha256": "9207d332f13962ccabd1f7448689ec024b7a38f3a9c005eaefd297b7611ed01a"
+    },
+    {
+      "file": "installed-probe.json",
+      "sha256": "77a8819dbbf430e5097d81bc2d6aba6c6996381094d4b0c1b6c49eb3a73c1aae"
+    },
+    {
+      "file": "docs-final.log",
+      "sha256": "2b3834fd2f7e8e6258ce0999b92d85f052028039d541d93afc0192c7449d3ddb"
+    }
+  ]
+}

@@ -1,0 +1,512 @@
+--- a/src/core/hle/service/nx2_gsv.h
++++ b/src/core/hle/service/nx2_gsv.h
+@@ -28,6 +28,7 @@
+ #include "common/alignment.h"
+ #include "common/div_ceil.h"
+ #include "common/dkb_frame_trace.h"
++#include "core/hle/service/nx2_vi2_trace.h"
+ #include "common/game_presets.h"
+ #include "common/settings.h"
+ #include "common/thread.h"
+@@ -1799,7 +1800,11 @@
+     void PresentClientBuffer(HLERequestContext& ctx) {
+         const auto* w = ctx.CommandBuffer();
+         ++m_presents;
+-        if (Common::DkbFrameTrace::Enabled()) {
++        if (Nx2Vi2TraceEnabled()) {
++            if (g_nx2_vi2_service_trace && !m_service_trace_announced) {
++                m_service_trace_announced = true;
++                LOG_INFO(Service, "nx2:vi2 service trace active: CPU service only");
++            }
+             m_vsync->trace_present.store(m_presents, std::memory_order_relaxed);
+         }
+         const u64 present = Core::g_nx2_present_count.fetch_add(1, std::memory_order_relaxed) + 1;
+@@ -1867,7 +1872,7 @@
+         const auto composited = std::chrono::steady_clock::now();
+         PaceToVblank(w[12], ctx.GetThread().GetOwnerProcess());
+         const auto paced = std::chrono::steady_clock::now();
+-        if (Common::DkbFrameTrace::Enabled()) {
++        if (Nx2Vi2TraceEnabled()) {
+             const auto ms = [](auto duration) {
+                 return std::chrono::duration<double, std::milli>(duration).count();
+             };
+@@ -1878,7 +1883,8 @@
+                          "speed_limit={} speed_percent={} switches={} last_switch={:#x}->{:#x} "
+                          "cpu_frame_wall_ms={:.3f} cpu_present_wall_ms={:.3f} fence_wall_ms={:.3f} "
+                          "composite_wall_ms={:.3f} target_ms={:.3f} sleep_requested_ms={:.3f} "
+-                         "sleep_actual_wall_ms={:.3f} pace_wall_ms={:.3f} deadline_reset={}",
++                         "sleep_actual_wall_ms={:.3f} pace_wall_ms={:.3f} deadline_reset={} "
++                         "previous_entered_mono_ns={} entered_mono_ns={} paced_mono_ns={} source={}",
+                          m_presents, w[12], w[12] >> 16, w[12] & 0xffff,
+                          m_frame_trace.interval, m_frame_trace.refresh, m_frame_trace.forced,
+                          Settings::values.use_speed_limit.GetValue(), Settings::SpeedLimit(),
+@@ -1889,7 +1895,14 @@
+                          ms(paced - entered), ms(waited - entered), ms(composited - waited),
+                          m_frame_trace.target_ms, m_frame_trace.sleep_requested_ms,
+                          m_frame_trace.sleep_actual_ms, ms(paced - composited),
+-                         m_frame_trace.deadline_reset);
++                         m_frame_trace.deadline_reset,
++                         std::chrono::duration_cast<std::chrono::nanoseconds>(
++                             m_frame_trace.last_present.time_since_epoch()).count(),
++                         std::chrono::duration_cast<std::chrono::nanoseconds>(
++                             entered.time_since_epoch()).count(),
++                         std::chrono::duration_cast<std::chrono::nanoseconds>(
++                             paced.time_since_epoch()).count(),
++                         g_nx2_vi2_service_trace ? "vi2_service" : "dkb");
+                 m_frame_trace.switches = 0;
+             }
+             m_frame_trace.last_present = entered;
+@@ -1984,6 +1997,7 @@
+         double target_ms{}, sleep_requested_ms{}, sleep_actual_ms{};
+         bool deadline_reset{};
+     } m_frame_trace;
++    bool m_service_trace_announced{};
+ 
+     /**
+      * Holds this present until the next vblank its word asks for, or for longer when an FPS limit
+@@ -1997,7 +2011,7 @@
+      * @param process Owning process, for the Mario Kart World dynamic FPS case; may be null.
+      */
+     void PaceToVblank(u32 timing, const Kernel::KProcess* process) {
+-        const bool trace = Common::DkbFrameTrace::Enabled();
++        const bool trace = Nx2Vi2TraceEnabled();
+         if (trace) {
+             if (m_frame_trace.previous_word && *m_frame_trace.previous_word != timing) {
+                 ++m_frame_trace.switches;
+@@ -2555,7 +2569,7 @@
+                     for (auto* vsync : vsync_state->events) {
+                         vsync->Signal(kernel);
+                     }
+-                    if (Common::DkbFrameTrace::Enabled()) {
++                    if (Nx2Vi2TraceEnabled()) {
+                         const s64 observed = scheduled + late.count();
+                         ++vsync_state->trace_callbacks;
+                         vsync_state->trace_late_callbacks +=
+@@ -2572,13 +2586,16 @@
+                             LOG_INFO(Service,
+                                      "DKB vsync present={} callbacks={} bound_events={} interval_ns={} "
+                                      "late_callbacks={} max_late_ns={} min_gap_ns={} "
+-                                     "observed_global_ns={} guest_ticks={}",
++                                     "observed_global_ns={} guest_ticks={} observed_mono_ns={} source={}",
+                                      vsync_state->trace_present.load(std::memory_order_relaxed),
+                                      vsync_state->trace_callbacks, vsync_state->events.size(),
+                                      VblankInterval.count(), vsync_state->trace_late_callbacks,
+                                      vsync_state->trace_max_late,
+                                      vsync_state->trace_min_gap.value_or(-1), observed,
+-                                     kernel.System().CoreTiming().GetClockTicks());
++                                     kernel.System().CoreTiming().GetClockTicks(),
++                                     std::chrono::duration_cast<std::chrono::nanoseconds>(
++                                         std::chrono::steady_clock::now().time_since_epoch()).count(),
++                                     g_nx2_vi2_service_trace ? "vi2_service" : "dkb");
+                             vsync_state->trace_callbacks = 0;
+                             vsync_state->trace_late_callbacks = 0;
+                             vsync_state->trace_max_late = 0;
+--- /dev/null
++++ b/src/core/hle/service/nx2_vi2_trace.h
+@@ -0,0 +1,16 @@
++// SPDX-FileCopyrightText: Copyright 2026 Eden Emulator Project
++// SPDX-License-Identifier: GPL-3.0-or-later
++#pragma once
++#include <cstdlib>
++#include "common/dkb_frame_trace.h"
++
++namespace Service {
++constexpr bool Nx2Vi2TraceSwitch(const char* value) {
++    return value && value[0] == '1' && value[1] == '\0';
++}
++inline const bool g_nx2_vi2_service_trace =
++    Nx2Vi2TraceSwitch(std::getenv("EDEN_NX2_VI2_SERVICE_TRACE"));
++inline bool Nx2Vi2TraceEnabled() {
++    return g_nx2_vi2_service_trace || Common::DkbFrameTrace::Enabled();
++}
++} // namespace Service
+--- /dev/null
++++ b/src/video_core/wsi_present_stats.h
+@@ -0,0 +1,106 @@
++// SPDX-FileCopyrightText: Copyright 2026 Eden Emulator Project
++// SPDX-License-Identifier: GPL-3.0-or-later
++#pragma once
++#include <algorithm>
++#include <array>
++#include <chrono>
++#include <cstdint>
++#include <cstdlib>
++#include <optional>
++
++namespace VideoCommon {
++constexpr bool WsiPresentStatsSwitch(const char* value) {
++    return value && value[0] == '1' && value[1] == '\0';
++}
++inline const bool g_wsi_present_stats =
++    WsiPresentStatsSwitch(std::getenv("EDEN_NX2_WSI_PRESENT_STATS"));
++
++class WsiPresentStats {
++public:
++    enum class Result { AcceptedSuccess, Suboptimal, Rejected };
++    using Clock = std::chrono::steady_clock;
++    // Match the VI2 interval window. The sample array alone occupies 4800 bytes.
++    static constexpr std::size_t Capacity = 600;
++    struct Window {
++        std::uint64_t count{}, sum_ns{}, begin_ns{}, end_ns{};
++        std::uint64_t p50_ns{}, p95_ns{}, p99_ns{}, max_ns{}, over30{}, over100{};
++        std::uint64_t generation{}, segment{}, success{}, suboptimal{}, rejected{};
++    };
++    void Recreated() {
++        ++generation;
++        BreakSegment();
++    }
++    void AbandonWindow() {
++        BreakSegment();
++    }
++    bool Record(Result result, Clock::time_point returned) {
++        if (result == Result::Rejected) {
++            ++rejected;
++            BreakSegment();
++            return false;
++        }
++        if (result == Result::AcceptedSuccess) {
++            ++success;
++        } else {
++            ++suboptimal;
++        }
++        const auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
++                            returned.time_since_epoch()).count();
++        if (last && ns < *last) {
++            BreakSegment();
++        }
++        if (!last) {
++            last = ns;
++            begin = ns;
++            return false;
++        }
++        if (count == Capacity) {
++            return true;
++        }
++        const auto interval = static_cast<std::uint64_t>(ns - *last);
++        last = ns;
++        samples[count++] = interval;
++        sum += interval;
++        maximum = std::max(maximum, interval);
++        // For integer nanoseconds, > floor(1e9/30) exactly means > 1 second / 30.
++        over30 += interval > 33'333'333;
++        over100 += interval > 100'000'000;
++        return count == Capacity;
++    }
++    std::optional<Window> TakeWindow() {
++        if (count != Capacity || !last) {
++            return std::nullopt;
++        }
++        auto sorted = samples;
++        std::sort(sorted.begin(), sorted.end());
++        const auto rank = [&](std::size_t percent) {
++            return sorted[(percent * count + 99) / 100 - 1];
++        };
++        Window w{count, sum, static_cast<std::uint64_t>(begin),
++                 static_cast<std::uint64_t>(*last), rank(50), rank(95), rank(99),
++                 maximum, over30, over100, generation, segment, success, suboptimal, rejected};
++        ClearWindow();
++        begin = *last;
++        return w;
++    }
++    std::uint64_t generation{}, segment{}, success{}, suboptimal{}, rejected{};
++    bool announced{};
++private:
++    void ClearWindow() {
++        count = 0;
++        sum = maximum = over30 = over100 = 0;
++    }
++    void BreakSegment() {
++        ++segment;
++        ClearWindow();
++        last.reset();
++    }
++    // 4800 bytes allocated once per traced swapchain, never per return. Sorting copies
++    // the array only once per 600 intervals, outside the queue submission mutex.
++    std::array<std::uint64_t, Capacity> samples{};
++    std::optional<std::int64_t> last;
++    std::int64_t begin{};
++    std::size_t count{};
++    std::uint64_t sum{}, maximum{}, over30{}, over100{};
++};
++} // namespace VideoCommon
+--- a/src/video_core/renderer_vulkan/vk_swapchain.h
++++ b/src/video_core/renderer_vulkan/vk_swapchain.h
+@@ -7,12 +7,17 @@
+ #pragma once
+ 
+ #include <vector>
++#include <memory>
+ 
+ #include "common/common_types.h"
+ #include "video_core/vulkan_common/vulkan_wrapper.h"
+ 
+ namespace Layout {
+ struct FramebufferLayout;
++}
++
++namespace VideoCommon {
++class WsiPresentStats;
+ }
+ 
+ namespace Vulkan {
+@@ -151,6 +156,8 @@
+     bool has_mailbox{false};
+     bool has_fifo_relaxed{false};
+ 
++    // Keep the4800-byte diagnostic array out of untraced swapchains.
++    std::unique_ptr<VideoCommon::WsiPresentStats> present_stats;
+     bool is_outdated{};
+     bool is_suboptimal{};
+ };
+--- a/src/video_core/renderer_vulkan/vk_swapchain.cpp
++++ b/src/video_core/renderer_vulkan/vk_swapchain.cpp
+@@ -7,6 +7,7 @@
+ #include <algorithm>
+ #include <array>
+ #include <limits>
++#include <exception>
+ #include <vector>
+ 
+ #ifdef __ANDROID__
+@@ -15,6 +16,9 @@
+ 
+ #include "common/logging.h"
+ #include "common/settings.h"
++#include "common/scope_exit.h"
++#include "video_core/wsi_present_stats.h"
++
+ #include "common/settings_enums.h"
+ #include "video_core/renderer_vulkan/vk_scheduler.h"
+ #include "video_core/renderer_vulkan/vk_swapchain.h"
+@@ -127,6 +131,9 @@
+     , device{device_}
+     , scheduler{scheduler_}
+ {
++    if (VideoCommon::g_wsi_present_stats) {
++        present_stats = std::make_unique<VideoCommon::WsiPresentStats>();
++    }
+     Create(surface, width_, height_);
+ }
+ 
+@@ -163,6 +170,13 @@
+ 
+     CreateSwapchain(capabilities);
+     CreateSemaphores();
++    if (present_stats) {
++        present_stats->Recreated();
++        LOG_INFO(Render_Vulkan,
++                 "WSI present stats generation={} segment={} success={} suboptimal={} rejected={}",
++                 present_stats->generation, present_stats->segment, present_stats->success,
++                 present_stats->suboptimal, present_stats->rejected);
++    }
+ 
+     resource_ticks.clear();
+     resource_ticks.resize(image_count);
+@@ -242,27 +256,70 @@
+         .pImageIndices = &image_index,
+         .pResults = nullptr,
+     };
+-    std::scoped_lock lock{scheduler.submit_mutex};
+-    switch (const VkResult result = present_queue.Present(present_info)) {
+-    case VK_SUCCESS:
+-        break;
+-    case VK_SUBOPTIMAL_KHR:
+-        LOG_DEBUG(Render_Vulkan, "Suboptimal swapchain");
+-        break;
+-    case VK_ERROR_OUT_OF_DATE_KHR:
+-        is_outdated = true;
+-        break;
+-    case VK_ERROR_SURFACE_LOST_KHR:
+-        vk::Check(result);
+-        break;
+-    default:
+-        LOG_CRITICAL(Render_Vulkan, "Failed to present with error {}", string_VkResult(result));
+-        break;
+-    }
+-    ++frame_index;
+-    if (frame_index >= image_count) {
+-        frame_index = 0;
+-    }
++    VkResult result{};
++    std::chrono::steady_clock::time_point returned{};
++    bool has_return = false;
++    const int uncaught_on_entry = present_stats ? std::uncaught_exceptions() : 0;
++    SCOPE_EXIT {
++        // The timestamp is at the queue return; sorting/logging must not hold submit_mutex.
++        if (present_stats && has_return) {
++            using Stats = VideoCommon::WsiPresentStats;
++            const auto kind = result == VK_SUCCESS ? Stats::Result::AcceptedSuccess
++                            : result == VK_SUBOPTIMAL_KHR ? Stats::Result::Suboptimal
++                                                         : Stats::Result::Rejected;
++            present_stats->Record(kind, returned);
++            if (std::uncaught_exceptions() > uncaught_on_entry) {
++                // Count the returned status without sorting or logging during unwinding.
++                if (kind != Stats::Result::Rejected) {
++                    present_stats->AbandonWindow();
++                }
++                return;
++            }
++            if (kind != Stats::Result::Rejected && !present_stats->announced) {
++                present_stats->announced = true;
++                LOG_INFO(Render_Vulkan,
++                         "WSI present stats active: accepted SUCCESS/SUBOPTIMAL returns, not scanout");
++            }
++            if (const auto w = present_stats->TakeWindow()) {
++                LOG_INFO(Render_Vulkan,
++                         "WSI present intervals={} sum_ns={} begin_ns={} end_ns={} "
++                         "p50_ns={} p95_ns={} p99_ns={} max_ns={} over30={} over100={} "
++                         "generation={} segment={} success={} suboptimal={} rejected={}",
++                         w->count, w->sum_ns, w->begin_ns, w->end_ns, w->p50_ns, w->p95_ns,
++                         w->p99_ns, w->max_ns, w->over30, w->over100, w->generation, w->segment,
++                         w->success, w->suboptimal, w->rejected);
++            }
++        }
++    };
++    {
++        std::scoped_lock lock{scheduler.submit_mutex};
++        result = present_queue.Present(present_info);
++        has_return = true;
++        if (present_stats) {
++            returned = std::chrono::steady_clock::now();
++        }
++        switch (result) {
++        case VK_SUCCESS:
++            break;
++        case VK_SUBOPTIMAL_KHR:
++            LOG_DEBUG(Render_Vulkan, "Suboptimal swapchain");
++            break;
++        case VK_ERROR_OUT_OF_DATE_KHR:
++            is_outdated = true;
++            break;
++        case VK_ERROR_SURFACE_LOST_KHR:
++            vk::Check(result);
++            break;
++        default:
++            LOG_CRITICAL(Render_Vulkan, "Failed to present with error {}", string_VkResult(result));
++            break;
++        }
++        ++frame_index;
++        if (frame_index >= image_count) {
++            frame_index = 0;
++        }
++    }
++
+ }
+ 
+ void Swapchain::CreateSwapchain(const VkSurfaceCapabilitiesKHR& capabilities) {
+--- /dev/null
++++ b/src/tests/video_core/wsi_present_stats.cpp
+@@ -0,0 +1,103 @@
++// SPDX-FileCopyrightText: Copyright 2026 Eden Emulator Project
++// SPDX-License-Identifier: GPL-3.0-or-later
++#include <catch2/catch_test_macros.hpp>
++// X11 headers used by the real Vulkan translation unit define this macro.
++#define Success 0
++#include "video_core/wsi_present_stats.h"
++static_assert(Success == 0, "The diagnostic helper must preserve the X11 macro");
++#include "core/hle/service/nx2_vi2_trace.h"
++
++namespace {
++using Stats = VideoCommon::WsiPresentStats;
++auto At(std::int64_t ns) {
++    return Stats::Clock::time_point{std::chrono::nanoseconds{ns}};
++}
++}
++TEST_CASE("Presentation diagnostic startup flags require exact one", "[wsi_present_stats][vi2_service_trace]") {
++    REQUIRE(VideoCommon::WsiPresentStatsSwitch("1"));
++    REQUIRE(Service::Nx2Vi2TraceSwitch("1"));
++    const char* rejected[] = {nullptr, "", "0", "10", "true"};
++    for (const char* value : rejected) {
++        REQUIRE_FALSE(VideoCommon::WsiPresentStatsSwitch(value));
++        REQUIRE_FALSE(Service::Nx2Vi2TraceSwitch(value));
++    }
++}
++TEST_CASE("WSI returns anchor first interval and preserve contiguous windows", "[wsi_present_stats]") {
++    Stats s;
++    s.Recreated();
++    REQUIRE_FALSE(s.TakeWindow());
++    for (int n = 0; n < 600; ++n) {
++        REQUIRE_FALSE(s.Record(Stats::Result::AcceptedSuccess, At(n * 1000)));
++    }
++    REQUIRE_FALSE(s.TakeWindow());
++    REQUIRE(s.Record(Stats::Result::Suboptimal, At(600000)));
++    const auto first = s.TakeWindow();
++    REQUIRE(first.has_value());
++    REQUIRE(first->count == 600);
++    REQUIRE(first->sum_ns == 600000);
++    REQUIRE(first->end_ns - first->begin_ns == first->sum_ns);
++    REQUIRE(first->success == 600);
++    REQUIRE(first->suboptimal == 1);
++    for (int n = 601; n <= 1200; ++n) {
++        s.Record(Stats::Result::AcceptedSuccess, At(n * 1000));
++    }
++    const auto second = s.TakeWindow();
++    REQUIRE(second.has_value());
++    REQUIRE(second->begin_ns == first->end_ns);
++    REQUIRE(second->sum_ns == 600000);
++}
++TEST_CASE("WSI failure and recreation break different segments", "[wsi_present_stats]") {
++    Stats s;
++    s.Recreated();
++    s.Record(Stats::Result::AcceptedSuccess, At(0));
++    s.Record(Stats::Result::AcceptedSuccess, At(1000));
++    s.Record(Stats::Result::Rejected, At(2000));
++    REQUIRE(s.rejected == 1);
++    REQUIRE(s.generation == 1);
++    REQUIRE(s.segment == 2);
++    REQUIRE_FALSE(s.TakeWindow());
++    s.Recreated();
++    REQUIRE(s.generation == 2);
++    REQUIRE(s.segment == 3);
++    for (int n = 0; n < 601; ++n) {
++        s.Record(Stats::Result::AcceptedSuccess, At(1000000 + n * 1000));
++    }
++    const auto w = s.TakeWindow();
++    REQUIRE(w.has_value());
++    REQUIRE(w->begin_ns == 1000000);
++    REQUIRE(w->sum_ns == 600000);
++    REQUIRE(w->rejected == 1);
++    s.Record(Stats::Result::AcceptedSuccess, At(1));
++    REQUIRE(s.segment == 4);
++    REQUIRE_FALSE(s.TakeWindow());
++}
++TEST_CASE("WSI nearest rank quantiles include tails and exact budget edges", "[wsi_present_stats]") {
++    Stats s;
++    std::int64_t t = 0;
++    s.Record(Stats::Result::AcceptedSuccess, At(t));
++    for (int n = 600; n > 0; --n) {
++        t += n * 1000;
++        s.Record(Stats::Result::AcceptedSuccess, At(t));
++    }
++    auto w = s.TakeWindow();
++    REQUIRE(w.has_value());
++    REQUIRE(w->p50_ns == 300000);
++    REQUIRE(w->p95_ns == 570000);
++    REQUIRE(w->p99_ns == 594000);
++    REQUIRE(w->max_ns == 600000);
++    s.Recreated();
++    t = 0;
++    s.Record(Stats::Result::AcceptedSuccess, At(t));
++    for (int n = 0; n < 600; ++n) {
++        const std::int64_t interval = n == 0 ? 33333333 : n == 1 ? 33333334 :
++                                      n == 2 ? 100000000 : n == 3 ? 100000001 : 30000000;
++        t += interval;
++        s.Record(Stats::Result::AcceptedSuccess, At(t));
++    }
++    w = s.TakeWindow();
++    REQUIRE(w.has_value());
++    REQUIRE(w->over30 == 3);
++    REQUIRE(w->over100 == 1);
++    REQUIRE(w->max_ns == 100000001);
++    REQUIRE(w->p99_ns == 30000000);
++}
+--- a/src/tests/CMakeLists.txt
++++ b/src/tests/CMakeLists.txt
+@@ -188,6 +188,7 @@
+     video_core/turing_macro_effects.cpp
+     video_core/turing_macro_ram.cpp
+     video_core/uniform_stream_reuse.cpp
++    video_core/wsi_present_stats.cpp
+     video_core/stream_ring_cursor.cpp
+     video_core/usage_tracker.cpp
+     video_core/shader_invalidation.cpp

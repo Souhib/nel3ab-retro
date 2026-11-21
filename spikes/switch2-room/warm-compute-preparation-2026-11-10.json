@@ -1,0 +1,129 @@
+{
+  "created_unix": 1794285492.422213,
+  "scope": "One CPU-only --build-warm extraction. No game boot, Vulkan device, GPU compilation or performance measurement.",
+  "status": "CPU extraction and structural validation passed; completeness unproven because 17456 member errors and 18 skipped conversions.",
+  "elf_sha256": "65defb74a8cc81ae85d42c5c0e9bb9bc8a796d976f12278cb0a4fcf940834d08",
+  "image": "sha256:df06b8ce129f41f2ee1484a465c190da2a1777c9bb2d6b2f6f0deef4263e0cd7",
+  "dispatch": "src/yuzu_cmd/yuzu.cpp:578 handles --build-warm before ParseLaunchParams/SdlConfig/game boot; actual libexec ELF bypasses the private gameplay wrapper.",
+  "exit": {
+    "unix": 1794285173.1616564,
+    "elapsed_seconds": 6.506321982014924,
+    "reason": null,
+    "state": {
+      "Status": "exited",
+      "Running": false,
+      "Paused": false,
+      "Restarting": false,
+      "OOMKilled": false,
+      "Dead": false,
+      "Pid": 0,
+      "ExitCode": 0,
+      "Error": "",
+      "StartedAt": "2026-11-10T04:32:46.771975644Z",
+      "FinishedAt": "2026-11-10T04:32:51.36965382Z"
+    },
+    "runtime_observed": true
+  },
+  "counts": {
+    "archives": 2916,
+    "zstd_dictionaries": 4,
+    "compute_records": 4794,
+    "skipped_conversions": 18,
+    "archive_errors": 0,
+    "member_errors": 17456,
+    "reported_seconds": 4.3
+  },
+  "error_origin": {
+    "member": "shader_archives.cpp:767-777 catches ArchiveError per member and continues. Known non-shader files are skipped; other unknown data throws. This count is neither a proved corrupt-ROM count nor a proved missing-shader count. Exact member causes are unknown because detail is LOG_DEBUG, absent from this Info run.",
+    "collector": "shader_warm_builder.cpp:602-607 increments member_errors; :645 sets ok=true despite these errors; :646-650 logs them. The final JSON summary omits them, so stdout must remain part of the evidence.",
+    "skipped": "shader_warm_builder.cpp:549-552 increments skipped when a conversion JobResult is not ok. This is distinct from member parse errors and record deduplication."
+  },
+  "format": {
+    "scope": "Independent CPU structural reader only, actual producer is exact65def CLI; existing C++ FileEnvironment roundtrip tests are source-referenced, not rerun here",
+    "source_anchors": [
+      "warm_records.cpp:37 PutEnvHeader",
+      "warm_records.cpp:139 ComputeEntry",
+      "shader_environment.cpp:1151 Deserialize",
+      "tests/video_core/shader_precache.cpp:132 roundtrip"
+    ],
+    "positive": {
+      "records": 4794,
+      "unique_compute_keys": 4794,
+      "bytes": 69478628,
+      "full_eof": true,
+      "all_compute": true,
+      "zero_recorded_reads": true,
+      "key_dimensions_match_environment": true
+    },
+    "negative_rejections": {
+      "truncated": true,
+      "wrong_version": true,
+      "wrong_stage": true
+    },
+    "output_sha256": "5ee4484cd85415ff2a4269b5b94753152d0c453577f527d7ae7e85e072588315",
+    "sidecar_sha256": "c4d0f7353010146485ebe0441cbcfca7b0ef9d33be7e28e4e019d754f1e6466f"
+  },
+  "limits": [
+    "Python structural validator is not a rerun of the C++ FileEnvironment reader or shader translator.",
+    "No CityHash recomputation or equality to actual runtime shader variants proved.",
+    "4794 records are not 4794 successful Vulkan pipelines.",
+    "No full-game/new-map coverage, RADV persistence, stutter reduction or FPS benefit proved."
+  ],
+  "isolation": {
+    "cpus": 2,
+    "nice": 15,
+    "memory_bytes": 4294967296,
+    "timeout_seconds": 300,
+    "network": "none",
+    "caps": "ALL dropped",
+    "engine_game": "read-only",
+    "home_output": "disposable private directories",
+    "devices": [],
+    "keys_mounted": false
+  },
+  "cleanup": {
+    "at": 1794285252.4724526,
+    "activated_config_matches_candidate": true,
+    "production_config_sha256": "5cba48d8467429af0e25ba5cd7137488d5ce1ba9c85f51e3dc8933a46efadb4d",
+    "eight_progressions_unchanged": true,
+    "observer": "active",
+    "no_game_launched": true,
+    "no_GPU_or_input_device_mounted": true,
+    "no_keys_mounted": true,
+    "own_container_and_pids_absent": {
+      "at": 1794285173.26017,
+      "container_absent": true,
+      "own_pids_absent": true
+    },
+    "installed_ELF_unchanged": true
+  },
+  "proof_files": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-compute-preparation/run.py": "f85112d2231fef8f63b1f1db2e58ab1e81b32dcfc2726554af66a9fd990cee84",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-compute-preparation/validate-format.py": "769b4b8a2bc8bd3cbe10e66d4a9483ef639982154e929c4a2b42c73c3aefb0a1",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-compute-preparation/launch.json": "9480ace5259c48fe51d2a0d0ad0b14a13189d01cb8fa68345cd99212a16e6e4d",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-compute-preparation/preflight.json": "b686d890e09cd8f76876d42f077a33c355c438bb4ad3d9743bb8f78ee3b85427",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-compute-preparation/runtime.json": "4a468ac9fab2987d9f59abafad0f764fa183a4c365642fa341034512a93000f6",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-compute-preparation/exit.json": "e49eb33ad4c84a109bfd7148d8c732d2081d35300985bfbd2a71c1cd3bf3b9c4",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-compute-preparation/stdout.log": "9523abcf719dc4d92d08ee8fbcefad2b420ef5a4615641f919cd761422186ac1",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-compute-preparation/stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-compute-preparation/watchdog.json": "9e07e0969943786048d27a95c410dd754a637455ef7660531171c666ec6a338f",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-compute-preparation/format-proof.json": "ed27816e3bd1de314f89d0c09d1bab8ebd5855dd606927e4a5c6d9f5d253800a",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-compute-preparation/container-cleanup.json": "2f340460d8101df0f5fbcee8c57cb30e993209b6bc5a711690082bd59a71b7c2",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/warm-compute-preparation/post-cleanup.json": "48305abf822d0e896955023ce2e071ae5966632a44b8d9f4e793c4f237cbe52c"
+  },
+  "source_files": {
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/source-lichii-eviction-lab/src/yuzu_cmd/yuzu.cpp": "53fabc1714aec77d14de885a0f151249624861919cc333a31ee33d3a44a2f023",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/source-lichii-eviction-lab/src/video_core/shader_warm/shader_warm_builder.cpp": "9b7a4ae7436f9eb8353b68400d25d439a0aa22798c1e9274afcfb0b7b4db4042",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/source-lichii-eviction-lab/src/video_core/shader_warm/shader_archives.cpp": "af948e4e9e8ee639779f4c389d209ca712f54a645ced011c4c30a6873b6120f0",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/source-lichii-eviction-lab/src/video_core/shader_warm/warm_records.cpp": "bdef581bfdd41c9e0ab843833fcbb4f86965b8295d380c571beab3e8dbfbd2ae",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/source-lichii-eviction-lab/src/video_core/shader_environment.cpp": "2bb9d96a29cecf7791a9252e72502a33da2fec4f2e364ed9eacc5e5dd763f19f",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/source-lichii-eviction-lab/src/video_core/renderer_vulkan/vk_pipeline_cache.cpp": "a6f69e380ba8e285680b85966f54dacace38d4c2bc44578383cee5c02f5ab75a",
+    "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/source-lichii-eviction-lab/src/tests/video_core/shader_precache.cpp": "5531f8476ce6b65729db3e1fd66702c7dc88163ef1b826c767556185502d2d8a"
+  },
+  "prior_feasibility_report": "/home/souhib/.local/share/nel3ab/nx2-lab/2026-11-09-30fps/review-fritchii-precompile/report.json",
+  "date_utc": "2026-11-10",
+  "private_result_sha256": "70bd9e2f3b9791249214888cad876a14dab30627997b9c0f9e3742ba8a68f54e",
+  "root_evidence_hashes_verified": 19,
+  "GPU_consumer_status": "Not launched; private feasibility preparation only",
+  "no_performance_gain_proven": true
+}

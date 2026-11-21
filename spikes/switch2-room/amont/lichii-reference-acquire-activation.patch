@@ -1,0 +1,27 @@
+--- a/src/video_core/engines/puller.cpp
++++ b/src/video_core/engines/puller.cpp
+@@ -115,6 +115,10 @@
+     return value && value[0] == '1' && value[1] == '\0' ? AcquirePolicy::Reference
+                                                         : AcquirePolicy::Fast;
+ }();
++const bool reference_acquire_trace = [] {
++    const char* value = std::getenv("EDEN_NX2_REFERENCE_ACQUIRE_TRACE");
++    return value && value[0] == '1' && value[1] == '\0';
++}();
+ 
+ enum class AcquireCheck {
+     Met,         ///< By the word in memory
+@@ -129,6 +133,13 @@
+ // the front sent to the word decides instead, when the back may not have run it yet.
+ AcquireCheck CheckWithoutDrain(DmaPusher& dma_pusher, const Puller::PendingAcquire& acquire) {
+     if (acquire_policy == AcquirePolicy::Reference) {
++        if (reference_acquire_trace) {
++            static const bool logged = [] {
++                LOG_INFO(HW_GPU, "Reference acquire policy active: drain and shadow read");
++                return true;
++            }();
++            (void)logged;
++        }
+         return AcquireCheck::Drain;
+     }
+ 

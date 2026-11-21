@@ -1,0 +1,445 @@
+--- a/src/video_core/CMakeLists.txt
++++ b/src/video_core/CMakeLists.txt
+@@ -232,6 +232,7 @@
+     renderer_vulkan/vk_rasterizer.cpp
+     renderer_vulkan/vk_rasterizer.h
+     renderer_vulkan/submission_policy.h
++    renderer_vulkan/upload_batch.h
+     renderer_vulkan/vk_render_pass_cache.cpp
+     renderer_vulkan/vk_render_pass_cache.h
+     renderer_vulkan/vk_resource_pool.cpp
+--- a/src/video_core/renderer_vulkan/vk_rasterizer.cpp
++++ b/src/video_core/renderer_vulkan/vk_rasterizer.cpp
+@@ -25,6 +25,7 @@
+ 
+ #include <fmt/format.h>
+ 
++#include "video_core/renderer_vulkan/command_batch_mode.h"
+ #include "video_core/renderer_vulkan/renderer_vulkan.h"
+ 
+ #include "common/assert.h"
+@@ -261,6 +262,25 @@
+             (topology == VK_PRIMITIVE_TOPOLOGY_PATCH_LIST &&
+              device.IsPatchListPrimitiveRestartSupported()));
+ }
++/// Preserve visibility of earlier writes, including indirect dispatch arguments.
++void RecordDispatchBarrier(vk::CommandBuffer cmdbuf) {
++    static constexpr VkMemoryBarrier read_barrier{
++        .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
++        .pNext = nullptr,
++        .srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT,
++        .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT,
++    };
++    cmdbuf.PipelineBarrier(vk::PIPELINE_STAGE_GRAPHICS_COMPUTE_TRANSFER,
++                           VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
++                           0, read_barrier);
++}
++void AnnounceCombinedDispatch() {
++    static const bool announced = [] {
++        LOG_INFO(Render_Vulkan, "NX2 private command batching used: dispatch barrier joined");
++        return true;
++    }();
++    (void)announced;
++}
+ } // Anonymous namespace
+ 
+ void RasterizerVulkan::ReadMeshEmulationProbe() {
+@@ -2115,23 +2135,6 @@
+         const u32 index = Tegra::Texture::TexturePair(handle, qmd.linked_tsc != 0).first;
+         texture_cache.PublishComputeCollisionImage(index);
+     };
+-    // Earlier writes must be visible to the dispatch, its indirect arguments included, and what it
+-    // writes to the next render pass.
+-    const auto record_read_barrier = [this] {
+-        static constexpr VkMemoryBarrier READ_BARRIER{
+-            .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+-            .pNext = nullptr,
+-            .srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT,
+-            .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT,
+-        };
+-        scheduler.Record([](vk::CommandBuffer cmdbuf) {
+-            cmdbuf.PipelineBarrier(vk::PIPELINE_STAGE_GRAPHICS_COMPUTE_TRANSFER,
+-                                   VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT |
+-                                       VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+-                                   0, READ_BARRIER);
+-        });
+-        scheduler.NoteComputeWrites();
+-    };
+     if (frame_dump.CapturingBuffers()) {
+         std::optional<std::array<u32, 3>> indirect_grid;
+         if (indirect_address) {
+@@ -2151,10 +2154,19 @@
+         const auto [buffer, offset] =
+             buffer_cache.ObtainBuffer(*indirect_address, 12, sync_info, post_op);
+         scheduler.RequestOutsideRenderPassOperationContext();
+-        record_read_barrier();
++        scheduler.NoteComputeWrites();
++        const bool barrier_recorded = !CommandBatchEnabled();
++        if (barrier_recorded) {
++            scheduler.Record([](vk::CommandBuffer cmdbuf) { RecordDispatchBarrier(cmdbuf); });
++        } else {
++            AnnounceCombinedDispatch();
++        }
+         scheduler.TraceComputePipeline(pipeline->ShaderHash());
+         scheduler.Record([this, pipeline, indirect_buffer = buffer->Handle(),
+-                          indirect_offset = offset](vk::CommandBuffer cmdbuf) {
++                          indirect_offset = offset, barrier_recorded](vk::CommandBuffer cmdbuf) {
++            if (!barrier_recorded) {
++                RecordDispatchBarrier(cmdbuf);
++            }
+             if (!pipeline->IsBound()) {
+                 return;
+             }
+@@ -2173,7 +2185,14 @@
+         return;
+     }
+     scheduler.RequestOutsideRenderPassOperationContext();
+-    record_read_barrier();
++    scheduler.NoteComputeWrites();
++    const bool barrier_recorded = !CommandBatchEnabled() || can_replace;
++    if (barrier_recorded) {
++        // Temporal upscaling can record work before the native dispatch.
++        scheduler.Record([](vk::CommandBuffer cmdbuf) { RecordDispatchBarrier(cmdbuf); });
++    } else {
++        AnnounceCombinedDispatch();
++    }
+ #ifdef EGLANTINE_STREAMLINE
+     const auto* const replacement =
+         can_replace && !byte_addressed_shadow && TryOcarinaDlss(*pipeline, true)
+@@ -2185,11 +2204,15 @@
+ #else
+     scheduler.TraceComputePipeline(pipeline->ShaderHash());
+ #endif
+-    scheduler.Record([this, pipeline, dim, byte_addressed_shadow, bind = std::move(deferred_bind)
++    scheduler.Record([this, pipeline, dim, byte_addressed_shadow, bind = std::move(deferred_bind),
++                      barrier_recorded
+ #ifdef EGLANTINE_STREAMLINE
+                       , replacement
+ #endif
+                      ](vk::CommandBuffer cmdbuf) {
++        if (!barrier_recorded) {
++            RecordDispatchBarrier(cmdbuf);
++        }
+ #ifdef EGLANTINE_STREAMLINE
+         if (replacement && !replacement->EvaluationFailed()) {
+             return;
+--- a/src/video_core/renderer_vulkan/vk_buffer_cache.cpp
++++ b/src/video_core/renderer_vulkan/vk_buffer_cache.cpp
+@@ -14,6 +14,7 @@
+ #include "video_core/buffer_cache/buffer_cache_base.h"
+ #include "video_core/nx2_perf.h"
+ #include "video_core/nx2_profile.h"
++#include "video_core/renderer_vulkan/command_batch_mode.h"
+ #include "video_core/renderer_vulkan/vk_buffer_cache.h"
+ #include "video_core/renderer_vulkan/vertex_repack.h"
+ 
+@@ -598,6 +599,14 @@
+     }
+ 
+     scheduler.RequestOutsideRenderPassOperationContext();
++    if (CommandBatchEnabled() && barrier && src_buffer == staging_pool.StreamBuf() &&
++        !vk_copies.empty()) {
++        // Only in-order stream uploads share barriers. Dedicated staging buffers retain their
++        // normal recording path and tick-based reuse.
++        scheduler.RecordUpload(src_buffer, dst_buffer,
++                               std::span<const VkBufferCopy>{vk_copies.data(), vk_copies.size()});
++        return;
++    }
+     scheduler.Record([src_buffer, dst_buffer, vk_copies, barrier](vk::CommandBuffer cmdbuf) {
+         if (barrier) {
+             cmdbuf.PipelineBarrier(vk::PIPELINE_STAGE_GRAPHICS_COMPUTE_TRANSFER,
+@@ -605,8 +614,10 @@
+         }
+         cmdbuf.CopyBuffer(src_buffer, dst_buffer, vk_copies);
+         if (barrier) {
++            // Later transfers too: a reordered upload of the same bytes in a later submission
++            // has no barrier of its own before it.
+             cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_TRANSFER_BIT,
+-                                   vk::PIPELINE_STAGE_GRAPHICS_COMPUTE, 0, WRITE_BARRIER);
++                                   vk::PIPELINE_STAGE_GRAPHICS_COMPUTE_TRANSFER, 0, WRITE_BARRIER);
+         }
+     });
+ }
+@@ -634,8 +645,9 @@
+     };
+     scheduler.RequestOutsideRenderPassOperationContext();
+     scheduler.Record([](vk::CommandBuffer cmdbuf) {
+-        cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_TRANSFER_BIT, vk::PIPELINE_STAGE_GRAPHICS_COMPUTE,
+-                               0, WRITE_BARRIER);
++        // Copies bracketed explicitly need the same ordering as CopyBuffer(barrier = true).
++        cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_TRANSFER_BIT,
++                               vk::PIPELINE_STAGE_GRAPHICS_COMPUTE_TRANSFER, 0, WRITE_BARRIER);
+     });
+ }
+ 
+--- /dev/null
++++ b/src/video_core/renderer_vulkan/command_batch_mode.h
+@@ -0,0 +1,13 @@
++// Private experiment around upstream #1245/#1246. Off unless explicitly selected.
++#pragma once
++#include <cstdlib>
++#include <string_view>
++namespace Vulkan {
++inline bool CommandBatchEnabled() {
++    static const bool enabled = [] {
++        const char* value = std::getenv("EDEN_NX2_COMMAND_BATCH");
++        return value != nullptr && std::string_view{value} == "1";
++    }();
++    return enabled;
++}
++} // namespace Vulkan
+--- a/src/video_core/renderer_vulkan/vk_scheduler.h
++++ b/src/video_core/renderer_vulkan/vk_scheduler.h
+@@ -16,6 +16,7 @@
+ #include <utility>
+ #include <queue>
+ #include <source_location>
++#include <span>
+ #include <vector>
+ 
+ #include "common/alignment.h"
+@@ -42,6 +43,7 @@
+ class Framebuffer;
+ class GraphicsPipeline;
+ class StateTracker;
++class UploadBatch;
+ 
+ struct QueryCacheParams;
+ 
+@@ -188,12 +190,20 @@
+         on_submit = std::move(func);
+     }
+ 
++    /// Consecutive in-order staging uploads share barriers until their destinations overlap,
++    /// a source depends on a pending copy, or the batch is full. Call outside a render pass.
++    void RecordUpload(VkBuffer src, VkBuffer dst, std::span<const VkBufferCopy> copies);
++
+     /// Send work to a separate thread.
+     template <typename T>
+         requires std::is_invocable_v<T, vk::CommandBuffer, vk::CommandBuffer>
+     void RecordWithUploadBuffer(T&& command) {
+         if (VideoCommon::GpuSplit::check_owner) [[unlikely]] {
+             VideoCommon::GpuSplit::CheckOwner("Scheduler::Record");
++        }
++        if (uploads_pending) {
++            // Pending uploads precede every other recorded command, including upload-buffer work.
++            FlushUploads();
+         }
+         if (chunk->Record(command)) {
+             return;
+@@ -465,6 +475,12 @@
+     u64 render_pass_serial{};
+     std::unique_ptr<CommandPool> command_pool;
+ 
++    std::unique_ptr<UploadBatch> upload_batch;
++    bool uploads_pending{};
++    bool upload_batch_announced{};
++    /// Records pending uploads before another command, worker handoff, or submission tick.
++    void FlushUploads();
++
+     vk::QueryPool trace_query_pool;
+     static constexpr u32 TraceMaxSubmissions = 512;
+     struct SubmissionTrace {
+--- a/src/video_core/renderer_vulkan/vk_scheduler.cpp
++++ b/src/video_core/renderer_vulkan/vk_scheduler.cpp
+@@ -18,6 +18,7 @@
+ 
+ #include <fmt/format.h>
+ 
++#include "video_core/renderer_vulkan/command_batch_mode.h"
+ #include "video_core/renderer_vulkan/vk_query_cache.h"
+ 
+ #include "common/logging.h"
+@@ -26,6 +27,7 @@
+ #include "common/thread.h"
+ #include "video_core/gpu_logging/gpu_logging.h"
+ #include "video_core/nx2_profile.h"
++#include "video_core/renderer_vulkan/upload_batch.h"
+ #include "video_core/renderer_vulkan/vk_command_pool.h"
+ #include "video_core/renderer_vulkan/vk_graphics_pipeline.h"
+ #include "video_core/renderer_vulkan/vk_master_semaphore.h"
+@@ -112,7 +114,10 @@
+ Scheduler::Scheduler(const Device& device_, StateTracker& state_tracker_)
+     : device{device_}, state_tracker{state_tracker_},
+       master_semaphore{std::make_unique<MasterSemaphore>(device)},
+-      command_pool{std::make_unique<CommandPool>(*master_semaphore, device)} {
++      command_pool{std::make_unique<CommandPool>(*master_semaphore, device)},
++      upload_batch{std::make_unique<UploadBatch>()} {
++    LOG_INFO(Render_Vulkan, "NX2 private command batching mode: {} version=1",
++             CommandBatchEnabled() ? "active" : "inactive");
+ 
+     if (Common::DkbFrameTrace::Enabled()) {
+         const auto physical = device.GetPhysical();
+@@ -302,6 +307,10 @@
+     if (VideoCommon::GpuSplit::check_owner) [[unlikely]] {
+         VideoCommon::GpuSplit::CheckOwner("Scheduler::DispatchWork");
+     }
++    if (uploads_pending) {
++        // The worker must receive everything recorded so far.
++        FlushUploads();
++    }
+     if (chunk && !chunk->Empty()) {
+         // Waking the worker is a system call (~2% of the GPU thread at one dispatch per 8
+         // draws): skip it while the worker is still busy, it pops the queue before waiting.
+@@ -316,6 +325,37 @@
+         }
+         AcquireNewChunk();
+     }
++}
++
++void Scheduler::RecordUpload(VkBuffer src, VkBuffer dst, std::span<const VkBufferCopy> copies) {
++    if (VideoCommon::GpuSplit::check_owner) {
++        VideoCommon::GpuSplit::CheckOwner("Scheduler::RecordUpload");
++    }
++    // Check each region so even a single upload larger than the capacity stays bounded, and
++    // overlapping regions within that upload cannot enter the same batch.
++    for (const VkBufferCopy& copy : copies) {
++        const std::span<const VkBufferCopy> region{&copy, 1};
++        if (uploads_pending && !upload_batch->CanAdd(src, dst, region)) {
++            FlushUploads();
++        }
++        upload_batch->Add(src, dst, region);
++        uploads_pending = true;
++    }
++}
++
++void Scheduler::FlushUploads() {
++    // Copy the vectors so the recording thread retains their capacity while the worker uses them.
++    auto command = [copies = upload_batch->copies, groups = upload_batch->groups](
++                       vk::CommandBuffer cmdbuf) { UploadBatch::Record(cmdbuf, copies, groups); };
++    if (!upload_batch_announced && upload_batch->copies.size() > 1) {
++        LOG_INFO(Render_Vulkan, "NX2 private command batching used: uploads={} groups={}",
++                 upload_batch->copies.size(), upload_batch->groups.size());
++        upload_batch_announced = true;
++    }
++    upload_batch->copies.clear();
++    upload_batch->groups.clear();
++    uploads_pending = false;
++    Record(std::move(command));
+ }
+ 
+ void Scheduler::BeginRenderPassImpl(const Framebuffer* framebuffer, VkRenderPass renderpass,
+@@ -809,6 +849,10 @@
+ }
+ 
+ u64 Scheduler::SubmitExecution(VkSemaphore signal_semaphore, VkSemaphore wait_semaphore) {
++    if (uploads_pending) {
++        // Keep the copies in the tick that protects their staging regions and buffer lifetimes.
++        FlushUploads();
++    }
+     if (VideoCommon::Nx2Profile::Enabled()) {
+         g_profile_submits.fetch_add(1, std::memory_order_relaxed);
+         ReportSubmitCounts();
+--- /dev/null
++++ b/src/video_core/renderer_vulkan/upload_batch.h
+@@ -0,0 +1,110 @@
++// SPDX-FileCopyrightText: Copyright 2026 Eden Emulator Project
++// SPDX-License-Identifier: GPL-3.0-or-later
++
++#pragma once
++
++#include <span>
++#include <vector>
++
++#include "common/common_types.h"
++#include "video_core/vulkan_common/vulkan_wrapper.h"
++
++namespace Vulkan {
++
++/// Uploads in order (Scheduler::RecordUpload) waiting to be recorded as one command: their
++/// copies run between one barrier before and one after. Copies of one batch may run in any
++/// order and at once, so a batch never holds two copies that write the same bytes, or one that
++/// writes a buffer another reads.
++class UploadBatch {
++public:
++    /// Copies with the same source and destination, consecutive in `copies`.
++    struct Group {
++        VkBuffer src;
++        VkBuffer dst;
++        u32 first;
++        u32 count;
++    };
++
++    /// More copies than this go in a later batch. It bounds CanAdd's checks on the recording
++    /// thread, at the cost of two barriers per this many uploads.
++    static constexpr size_t MaxCopies = 64;
++
++    [[nodiscard]] bool Empty() const noexcept {
++        return copies.empty();
++    }
++
++    /// Whether these copies can join the batch: it has room, they read no buffer a copy in it
++    /// writes and write none it reads, and they write no byte of dst that a copy in it writes.
++    /// Otherwise the batch is recorded first.
++    [[nodiscard]] bool CanAdd(VkBuffer src, VkBuffer dst,
++                              std::span<const VkBufferCopy> new_copies) const {
++        if (copies.size() + new_copies.size() > MaxCopies) {
++            return false;
++        }
++        for (const Group& group : groups) {
++            if (src == group.dst || dst == group.src) {
++                return false;
++            }
++            if (group.dst != dst) {
++                continue;
++            }
++            for (u32 index = group.first; index < group.first + group.count; ++index) {
++                const VkBufferCopy& pending = copies[index];
++                for (const VkBufferCopy& copy : new_copies) {
++                    if (copy.dstOffset < pending.dstOffset + pending.size &&
++                        pending.dstOffset < copy.dstOffset + copy.size) {
++                        return false;
++                    }
++                }
++            }
++        }
++        return true;
++    }
++
++    /// Records a batch: the barrier before an in-order buffer copy (BufferCacheRuntime::
++    /// CopyBuffer's), the copies, and the barrier after one, made to reach transfers as well.
++    /// Recorded one by one, the barriers between two uploads ordered the copies before them
++    /// ahead of the copies after them, which CanAdd makes needless, and ahead of all later work:
++    /// graphics and compute through the barrier after a copy, transfers (in later submissions
++    /// too) through the barrier before the next one. The barrier after the batch does both.
++    static void Record(vk::CommandBuffer cmdbuf, std::span<const VkBufferCopy> batch_copies,
++                       std::span<const Group> batch_groups) {
++        static constexpr VkMemoryBarrier READ_BARRIER{
++            .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
++            .pNext = nullptr,
++            .srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT,
++            .dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT,
++        };
++        static constexpr VkMemoryBarrier WRITE_BARRIER{
++            .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
++            .pNext = nullptr,
++            .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
++            .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
++        };
++        cmdbuf.PipelineBarrier(vk::PIPELINE_STAGE_GRAPHICS_COMPUTE_TRANSFER,
++                               VK_PIPELINE_STAGE_TRANSFER_BIT, 0, READ_BARRIER);
++        for (const Group& group : batch_groups) {
++            cmdbuf.CopyBuffer(
++                group.src, group.dst,
++                vk::Span<VkBufferCopy>(batch_copies.data() + group.first, group.count));
++        }
++        cmdbuf.PipelineBarrier(VK_PIPELINE_STAGE_TRANSFER_BIT,
++                               vk::PIPELINE_STAGE_GRAPHICS_COMPUTE_TRANSFER, 0, WRITE_BARRIER);
++    }
++
++    void Add(VkBuffer src, VkBuffer dst, std::span<const VkBufferCopy> new_copies) {
++        const u32 first = static_cast<u32>(copies.size());
++        const u32 count = static_cast<u32>(new_copies.size());
++        copies.insert(copies.end(), new_copies.begin(), new_copies.end());
++        if (!groups.empty() && groups.back().src == src && groups.back().dst == dst) {
++            groups.back().count += count;
++        } else {
++            groups.push_back({src, dst, first, count});
++        }
++    }
++
++    std::vector<VkBufferCopy> copies;
++    std::vector<Group> groups;
++};
++
++} // namespace Vulkan

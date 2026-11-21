@@ -1,0 +1,278 @@
+{
+  "date": "2026-11-07",
+  "session": "Zelda user session, 17:13:41 to stop request at 17:26:23 UTC",
+  "limits": "Unscripted scenes; no configuration comparison. Logging can buffer stdout for many seconds. A stall in game presentations does not alone identify shader compilation.",
+  "frames": {
+    "limits": "Unscripted user session includes title, movie and different gameplay scenes. These windows describe stalls but do not rank configurations. Docker stdout timestamps are buffered and do not locate each event in wall-clock time.",
+    "windows": [
+      {
+        "game_seconds": 23.049312,
+        "fps": 54.06574394463668,
+        "max_ms": 233.17,
+        "frames_over_100ms": 4
+      },
+      {
+        "game_seconds": 33.139344,
+        "fps": 59.357749154152074,
+        "max_ms": 98.575,
+        "frames_over_100ms": 0
+      },
+      {
+        "game_seconds": 43.391762,
+        "fps": 58.441937934661915,
+        "max_ms": 144.62,
+        "frames_over_100ms": 1
+      },
+      {
+        "game_seconds": 53.554911,
+        "fps": 58.95878780732268,
+        "max_ms": 75.36,
+        "frames_over_100ms": 0
+      },
+      {
+        "game_seconds": 63.554908,
+        "fps": 59.905349547714614,
+        "max_ms": 46.463,
+        "frames_over_100ms": 0
+      },
+      {
+        "game_seconds": 73.554906,
+        "fps": 59.890998382943046,
+        "max_ms": 41.184,
+        "frames_over_100ms": 0
+      },
+      {
+        "game_seconds": 83.554909,
+        "fps": 59.905349547714614,
+        "max_ms": 24.371,
+        "frames_over_100ms": 0
+      },
+      {
+        "game_seconds": 93.5549,
+        "fps": 59.916117435590174,
+        "max_ms": 29.649,
+        "frames_over_100ms": 0
+      },
+      {
+        "game_seconds": 103.554904,
+        "fps": 59.890998382943046,
+        "max_ms": 19.995,
+        "frames_over_100ms": 0
+      },
+      {
+        "game_seconds": 113.554888,
+        "fps": 59.916117435590174,
+        "max_ms": 23.415,
+        "frames_over_100ms": 0
+      },
+      {
+        "game_seconds": 123.554904,
+        "fps": 59.901761111776686,
+        "max_ms": 21.225,
+        "frames_over_100ms": 0
+      },
+      {
+        "game_seconds": 133.554902,
+        "fps": 59.905349547714614,
+        "max_ms": 21.411,
+        "frames_over_100ms": 0
+      },
+      {
+        "game_seconds": 143.554901,
+        "fps": 59.901761111776686,
+        "max_ms": 23.494,
+        "frames_over_100ms": 0
+      },
+      {
+        "game_seconds": 153.554898,
+        "fps": 59.905349547714614,
+        "max_ms": 37.935,
+        "frames_over_100ms": 0
+      },
+      {
+        "game_seconds": 163.554903,
+        "fps": 59.901761111776686,
+        "max_ms": 21.524,
+        "frames_over_100ms": 0
+      },
+      {
+        "game_seconds": 173.5549,
+        "fps": 59.905349547714614,
+        "max_ms": 20.499,
+        "frames_over_100ms": 0
+      },
+      {
+        "game_seconds": 183.554905,
+        "fps": 59.890998382943046,
+        "max_ms": 24.111,
+        "frames_over_100ms": 0
+      },
+      {
+        "game_seconds": 199.606558,
+        "fps": 37.2869980237891,
+        "max_ms": 1061.998,
+        "frames_over_100ms": 16
+      },
+      {
+        "game_seconds": 216.378132,
+        "fps": 35.71683691692264,
+        "max_ms": 307.259,
+        "frames_over_100ms": 5
+      },
+      {
+        "game_seconds": 232.30726,
+        "fps": 37.60529482551143,
+        "max_ms": 175.217,
+        "frames_over_100ms": 1
+      },
+      {
+        "game_seconds": 247.496498,
+        "fps": 39.43684189770083,
+        "max_ms": 84.498,
+        "frames_over_100ms": 0
+      },
+      {
+        "game_seconds": 262.815967,
+        "fps": 39.10221318526629,
+        "max_ms": 49.454,
+        "frames_over_100ms": 0
+      },
+      {
+        "game_seconds": 278.685709,
+        "fps": 37.74581965047371,
+        "max_ms": 52.006,
+        "frames_over_100ms": 0
+      },
+      {
+        "game_seconds": 295.372115,
+        "fps": 35.89890867317634,
+        "max_ms": 146.387,
+        "frames_over_100ms": 3
+      },
+      {
+        "game_seconds": 323.865181,
+        "fps": 21.02297811507978,
+        "max_ms": 3619.117,
+        "frames_over_100ms": 10
+      },
+      {
+        "game_seconds": 343.32508,
+        "fps": 30.78249091916518,
+        "max_ms": 178.679,
+        "frames_over_100ms": 3
+      },
+      {
+        "game_seconds": 365.191944,
+        "fps": 27.393507738665935,
+        "max_ms": 456.936,
+        "frames_over_100ms": 6
+      },
+      {
+        "game_seconds": 382.962061,
+        "fps": 33.70975897522333,
+        "max_ms": 180.381,
+        "frames_over_100ms": 8
+      },
+      {
+        "game_seconds": 400.002516,
+        "fps": 35.153091714416284,
+        "max_ms": 102.081,
+        "frames_over_100ms": 1
+      },
+      {
+        "game_seconds": 418.882139,
+        "fps": 31.727901516593693,
+        "max_ms": 81.02,
+        "frames_over_100ms": 0
+      },
+      {
+        "game_seconds": 440.084496,
+        "fps": 28.25257804774686,
+        "max_ms": 233.647,
+        "frames_over_100ms": 6
+      },
+      {
+        "game_seconds": 473.845502,
+        "fps": 17.742765387413282,
+        "max_ms": 193.758,
+        "frames_over_100ms": 20
+      },
+      {
+        "game_seconds": 504.452842,
+        "fps": 19.571003601064664,
+        "max_ms": 134.355,
+        "frames_over_100ms": 34
+      },
+      {
+        "game_seconds": 524.486286,
+        "fps": 29.900729577801698,
+        "max_ms": 133.043,
+        "frames_over_100ms": 2
+      },
+      {
+        "game_seconds": 545.266478,
+        "fps": 28.9804671651307,
+        "max_ms": 149.074,
+        "frames_over_100ms": 8
+      }
+    ]
+  },
+  "machine": {
+    "bounds_utc": [
+      "2026-11-07T17:13:41Z",
+      "2026-11-07T17:26:23Z"
+    ],
+    "samples": 12,
+    "gpu_busy_percent": [
+      16,
+      10,
+      10,
+      76,
+      77,
+      80,
+      72,
+      95,
+      56,
+      14,
+      91,
+      88
+    ],
+    "vram_mib": [
+      608,
+      628,
+      628,
+      2943,
+      3541,
+      4562,
+      4627,
+      5471,
+      5648,
+      5874,
+      5749,
+      5401
+    ],
+    "cpu_temp_c": [
+      68.2,
+      68.1,
+      72.2,
+      78.6,
+      82.2,
+      84.5,
+      87.2,
+      86.4,
+      88.0,
+      89.0,
+      88.8,
+      89.8
+    ],
+    "unrecognised_engine_samples": 12,
+    "allocator_read_samples": 12
+  },
+  "observer_bug": "eden-cli was missing from MOTEURS, so all 12 real game samples were labelled idle and read the GPU allocator. Fixed and red-first tested with the actual scanner and service on fake system files.",
+  "shutdown": {
+    "exit_code": 0,
+    "forced": false,
+    "window_closed": true,
+    "seconds": 3.805287181865424
+  }
+}

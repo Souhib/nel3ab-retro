@@ -13,8 +13,10 @@ from nel3ab_control.api.controllers.imports import ImportsController
 from nel3ab_control.api.controllers.people import PeopleController
 from nel3ab_control.api.controllers.rooms import RoomController
 from nel3ab_control.api.controllers.salles import SalleInconnue, SallesController
+from nel3ab_control.api.controllers.salons import Salons
 from nel3ab_control.identity import caller_of
 from nel3ab_control.imports.droits import peut_importer
+from nel3ab_control.parties import Parties
 from nel3ab_control.settings import Settings
 
 
@@ -124,6 +126,16 @@ def get_salles(request: Request) -> SallesController:
     return request.app.state.salles
 
 
+def get_salons(request: Request) -> Salons:
+    """Les contrôleurs de chaque salle, tels que les pages les voient."""
+    return request.app.state.salons
+
+
+def get_parties(request: Request) -> Parties:
+    """Le journal des parties, un fichier par personne."""
+    return request.app.state.parties
+
+
 def get_people(request: Request) -> PeopleController:
     """Les pseudos et les présents."""
     return request.app.state.people
@@ -166,6 +178,8 @@ CallerDep = Annotated[tuple[str, str] | None, Depends(get_caller)]
 ClientDep = Annotated[httpx.AsyncClient, Depends(get_client)]
 RoomsDep = Annotated[RoomController, Depends(get_rooms)]
 SallesDep = Annotated[SallesController, Depends(get_salles)]
+SalonsDep = Annotated[Salons, Depends(get_salons)]
+PartiesDep = Annotated[Parties, Depends(get_parties)]
 ImportsDep = Annotated[ImportsController, Depends(get_imports)]
 
 

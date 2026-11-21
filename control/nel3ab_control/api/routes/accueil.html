@@ -72,6 +72,13 @@
   #horloge { font-family: var(--machine); font-variant-numeric: tabular-nums;
              margin-left: auto; font-size: clamp(15px, 1.6vw, 21px); letter-spacing: .08em; }
   #horloge[data-perdue="oui"] { color: var(--legende); }
+  /* Le carnet de jeu, pour qui le salon reconnaît. Caché sans identité: un
+     carnet anonyme serait vide, et un lien vers une page vide se lit comme
+     une panne. En capitales: la police machine n'a pas de minuscules. */
+  #carnet { font-family: var(--machine); font-size: clamp(13px, 1.2vw, 16px); letter-spacing: .12em;
+            color: var(--craie); text-decoration: none; border-bottom: 2px solid var(--canal-2); }
+  #carnet:hover, #carnet:focus-visible { color: var(--canal-2); }
+  #carnet[hidden] { display: none; }
 
   /* ── Les canaux ─────────────────────────────────────────────────── */
   .salles { display: flex; flex-direction: column; gap: .6rem; flex: 1; }
@@ -264,6 +271,7 @@
     <div class="rail">
       <span class="marque">nel3ab</span>
       <span class="rail-fait" id="antenne"></span>
+      <a id="carnet" href="/profil" hidden>CARNET DE JEU</a>
       <span class="rail-fait" id="horloge">--:--:--</span>
     </div>
 
@@ -576,6 +584,13 @@
     bouton.disabled = false;
     relire();
   });
+
+  // Le lien vers le carnet n'apparaît que pour une personne identifiée. Un
+  // échec ne montre rien: c'est un raccourci, pas une information.
+  fetch("/api/me", { cache: "no-store" })
+    .then((reponse) => (reponse.ok ? reponse.json() : null))
+    .then((moi) => { if (moi && moi.login) document.getElementById("carnet").hidden = false; })
+    .catch(() => {});
 
   relire();
   setInterval(relire, 5000);

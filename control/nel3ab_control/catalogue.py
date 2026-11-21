@@ -17,6 +17,7 @@ afficher une bibliothèque à qui il manque des jeux sans le dire.
 
 import json
 import logging
+import re
 from pathlib import Path
 
 from pydantic import BaseModel, Field
@@ -36,6 +37,9 @@ VERSION = 1
 #: jeux, et bornent la mémoire si un fichier grossit par erreur.
 SIZE_MAX = 8 * 1024 * 1024
 
+#: Seize chiffres hexadécimaux en minuscules, comme les dossiers d'un emplacement.
+TITRE = re.compile(r"[0-9a-f]{16}")
+
 
 class CatalogueGame(BaseModel):
     """Un jeu de la bibliothèque, tel que le worker l'a décrit."""
@@ -46,6 +50,11 @@ class CatalogueGame(BaseModel):
     art: bool = Field(description="Vrai quand une salle peut servir son image.")
     maker: str | None = None
     about: str | None = None
+    title_id: str | None = Field(
+        default=None,
+        description="L'identifiant du titre d'un jeu inscrit (Switch), seize chiffres "
+        "hexadécimaux en minuscules: le nom de ses dossiers de sauvegarde.",
+    )
 
 
 class Catalogue(BaseModel):
@@ -63,6 +72,10 @@ def _entree(brute: object) -> CatalogueGame | None:
         return None
     key, name, console, art = (brute.get(f) for f in ("key", "name", "console", "art"))
     maker, about = brute.get("maker"), brute.get("about")
+    # Un identifiant mal formé ne fait pas écarter le jeu: il ne sert qu'à
+    # relier des sauvegardes, et un jeu sans lui reste un jeu.
+    titre = brute.get("title_id")
+    title_id = titre if isinstance(titre, str) and TITRE.fullmatch(titre) else None
     if (
         not isinstance(key, str)
         or not valid_key(key)
@@ -73,7 +86,9 @@ def _entree(brute: object) -> CatalogueGame | None:
         or not (about is None or isinstance(about, str))
     ):
         return None
-    return CatalogueGame(key=key, name=name, console=console, art=art, maker=maker, about=about)
+    return CatalogueGame(
+        key=key, name=name, console=console, art=art, maker=maker, about=about, title_id=title_id
+    )
 
 
 def read_one(path: Path, room: int) -> Catalogue | None:

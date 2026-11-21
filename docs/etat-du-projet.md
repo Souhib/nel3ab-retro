@@ -6,6 +6,20 @@ et leurs limites. Le [carnet](carnet-de-bord.md#11-septembre-ce-que-le-mois-a-ap
 conserve leur déroulement ; l'[ADR](adr/0001-architecture.md) conserve les règles
 qui en résultent. Les anciens plans M1 à M3 sont des archives de conception.
 
+**Au 21 novembre, sur une branche non installée : un carnet de jeu par personne.**
+Le salon tient un journal des parties : un fichier par personne, jamais
+balayé, qui note le début et la fin de chaque place tenue et chaque
+lancement, avec qui a lancé et dans quelle sauvegarde. La page `/profil`,
+servie par le salon et liée depuis l'accueil pour qui est identifié, montre
+les jeux joués en étagère, le temps total, les sauvegardes à soi en cartes
+mémoire, et les jeux joués chez quelqu'un d'autre sans sauvegarde à soi.
+Quatre lectures privées l'alimentent (`/api/me/…`), 401 sans identité. La
+scène de première arrivée de Bobine suit maintenant le journal, la même pour
+toutes les pages. Rien n'a tourné dans une vraie salle, et les sauvegardes
+Switch ne sont pas encore reliées à leur jeu. Récit : [carnet](carnet-de-bord.md),
+entrée « 21 novembre : un carnet de jeu par personne » ; décision :
+[ADR](adr/0001-architecture.md), D25.
+
 **Au 21 novembre, sur une branche non installée : déposer un jeu depuis une page.**
 La page `/importer` du salon reçoit des fichiers par morceaux reprenables,
 reconnaît la console dans leurs octets, sans Docker, et range GameCube et Wii

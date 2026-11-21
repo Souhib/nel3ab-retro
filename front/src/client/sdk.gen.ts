@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CloseSalleData, CloseSalleErrors, CloseSalleResponses, KeepBindingsData, KeepBindingsErrors, KeepBindingsResponses, OpenSalleData, OpenSalleResponses, PublishRoomBindingsData, PublishRoomBindingsErrors, PublishRoomBindingsResponses, ReadBindingsData, ReadBindingsResponses, ReadCatalogueData, ReadCatalogueErrors, ReadCatalogueResponses, ReadMeData, ReadMeResponses, ReadMyConnectionData, ReadMyConnectionResponses, ReadRoomBindingsData, ReadRoomBindingsResponses, ReadRoomData, ReadRoomResponses, ReadSallesData, ReadSallesResponses, RenameMeData, RenameMeErrors, RenameMeResponses } from './types.gen';
+import type { CloseSalleData, CloseSalleErrors, CloseSalleResponses, KeepBindingsData, KeepBindingsErrors, KeepBindingsResponses, OpenSalleData, OpenSalleResponses, PublishRoomBindingsData, PublishRoomBindingsErrors, PublishRoomBindingsResponses, ReadBindingsData, ReadBindingsResponses, ReadCatalogueData, ReadCatalogueErrors, ReadCatalogueResponses, ReadMeData, ReadMeResponses, ReadMyConnectionData, ReadMyConnectionResponses, ReadMyGamesData, ReadMyGamesResponses, ReadMyPlaysData, ReadMyPlaysErrors, ReadMyPlaysResponses, ReadMyProfileData, ReadMyProfileResponses, ReadMySavesData, ReadMySavesResponses, ReadRoomBindingsData, ReadRoomBindingsResponses, ReadRoomData, ReadRoomResponses, ReadSallesData, ReadSallesResponses, RenameMeData, RenameMeErrors, RenameMeResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -82,6 +82,38 @@ export const keepBindings = <ThrowOnError extends boolean = false>(options: Opti
         ...options.headers
     }
 });
+
+/**
+ * Read My Profile
+ *
+ * Mon pseudo, depuis quand le carnet me suit, mes jeux et mon temps de jeu.
+ */
+export const readMyProfile = <ThrowOnError extends boolean = false>(options?: Options<ReadMyProfileData, ThrowOnError>): RequestResult<ReadMyProfileResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ReadMyProfileResponses, unknown, ThrowOnError>({ url: '/api/me/profil', ...options });
+
+/**
+ * Read My Games
+ *
+ * Chaque jeu joué, avec chez qui, et ma sauvegarde quand elle existe.
+ */
+export const readMyGames = <ThrowOnError extends boolean = false>(options?: Options<ReadMyGamesData, ThrowOnError>): RequestResult<ReadMyGamesResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ReadMyGamesResponses, unknown, ThrowOnError>({ url: '/api/me/jeux', ...options });
+
+/**
+ * Read My Plays
+ *
+ * Mes parties, de la plus récente à la plus ancienne.
+ */
+export const readMyPlays = <ThrowOnError extends boolean = false>(options?: Options<ReadMyPlaysData, ThrowOnError>): RequestResult<ReadMyPlaysResponses, ReadMyPlaysErrors, ThrowOnError> => (options?.client ?? client).get<ReadMyPlaysResponses, ReadMyPlaysErrors, ThrowOnError>({ url: '/api/me/parties', ...options });
+
+/**
+ * Read My Saves
+ *
+ * Mes sauvegardes personnelles, par jeu et par console.
+ *
+ * Celles qui sont à moi parce que j'ai lancé le jeu. Une partie jouée chez
+ * quelqu'un d'autre s'écrit dans SA sauvegarde, et « tout débloqué » est
+ * commune: ni l'une ni l'autre n'apparaît ici.
+ */
+export const readMySaves = <ThrowOnError extends boolean = false>(options?: Options<ReadMySavesData, ThrowOnError>): RequestResult<ReadMySavesResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ReadMySavesResponses, unknown, ThrowOnError>({ url: '/api/me/sauvegardes', ...options });
 
 /**
  * Read Room

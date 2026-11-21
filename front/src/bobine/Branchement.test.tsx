@@ -103,3 +103,36 @@ it("sans mouvement permis, l'arrivée branche tout de suite et sans scène", () 
     window.matchMedia = avant;
   }
 });
+
+it("le salon annonce une première fois: la scène se joue même pour un nom déjà vu ici", () => {
+  window.localStorage.setItem("n3-bobine-vus:1", JSON.stringify(["Bo"]));
+  const { rerender } = render(
+    <Seats {...base} busy={[false, false, false, false]} names={new Map()} />,
+  );
+  rerender(
+    <Seats
+      {...base}
+      busy={[false, true, false, false]}
+      names={new Map([[2, "Bo"]])}
+      premieres={new Map([[2, true]])}
+    />,
+  );
+  expect(document.querySelector(".n3-scene")).not.toBeNull();
+  expect(branchee(2)).toBe(false);
+});
+
+it("le salon annonce un retour: la fiche claque, même dans un navigateur neuf", () => {
+  const { rerender } = render(
+    <Seats {...base} busy={[false, false, false, false]} names={new Map()} />,
+  );
+  rerender(
+    <Seats
+      {...base}
+      busy={[false, true, false, false]}
+      names={new Map([[2, "Bo"]])}
+      premieres={new Map([[2, false]])}
+    />,
+  );
+  expect(document.querySelector(".n3-scene")).toBeNull();
+  expect(document.querySelector("#port2 .n3-fiche-claque")).not.toBeNull();
+});

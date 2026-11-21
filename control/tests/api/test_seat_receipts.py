@@ -4,6 +4,7 @@ import pytest
 
 from nel3ab_control.api.controllers.rooms import RoomController
 from nel3ab_control.api.schemas.error import SeatTaken
+from nel3ab_control.parties import Fin
 
 OLD = "a" * 32 + "-1"
 NEW = "a" * 32 + "-2"
@@ -16,7 +17,7 @@ def test_a_reconnected_session_replaces_the_old_name(rooms: RoomController) -> N
     rooms.observe_seats([NEW, None, None, None])
     assert rooms.seats()[0].player is None
     rooms.claim(1, "new", "Yassine", NEW)
-    rooms.release("old")
+    rooms.release("old", Fin.DECONNECTEE)
     assert rooms.seats()[0].player == "Yassine"
     assert rooms.seats()[0].claim == NEW
 
@@ -110,7 +111,7 @@ async def test_a_person_without_a_confirmed_seat_is_not_a_spectator(rooms, setti
     with pytest.raises(SeatTaken):
         rooms.claim(1, "one", "Alice", OLD)
     assert (await rooms.describe(people)).people[0].model_dump().get("seat_pending") is True
-    rooms.release("one")
+    rooms.release("one", Fin.DECONNECTEE)
     assert not rooms.announced("one", None, None)
 
 

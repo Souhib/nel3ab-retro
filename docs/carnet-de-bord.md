@@ -25244,7 +25244,9 @@ la fiche se branche directement, sans personnage en mouvement.
 **Ce qui n'est pas parfait.** Savoir si quelqu'un vient pour la « première
 fois » repose pour l'instant sur la mémoire du navigateur. Un autre appareil,
 ou une fenêtre privée, rejoue donc la scène une fois de plus. Le journal des
-parties tenu par le salon donnera une réponse commune à tous.
+parties tenu par le salon donnera une réponse commune à tous. (Fait le même
+jour : voir « 21 novembre : un carnet de jeu par personne ». La mémoire du
+navigateur ne décide plus que quand le salon ne sait pas.)
 
 **Le geste suit le manifeste.** Le support d'une console (disque, cartouche
 ou carte) est lu dans le champ `media` de `consoles/consoles.json`, comme le
@@ -25413,6 +25415,176 @@ recettes qui demandent la machine (`just gpu-test`, les salles Switch) n'ont
 pas été lancées, parce que ce travail ne touche ni l'encodage ni les
 adaptateurs.
 
+### 21 novembre : un carnet de jeu par personne
+
+**La demande.** Souhib veut une page où chacun voit les jeux auxquels il a
+joué et les sauvegardes qu'il a. Sa décision du même jour fixe ce que
+« ses sauvegardes » veut dire : quand plusieurs personnes jouent, la
+sauvegarde appartient à celle qui a lancé le jeu, sauf « tout débloqué »,
+commune à tout le monde. Un jeu joué chez quelqu'un d'autre apparaît donc
+dans le carnet, mais sans sauvegarde à soi : la partie s'est écrite dans
+celle du lanceur. Ce travail a été fait sur une branche, dans un dossier de
+travail séparé. Rien n'est installé.
+
+**Ce qui manquait.** Le journal des séances (`journal.py`) s'efface après
+sept jours. Il nomme le jeu par son titre affiché et n'écrit pas quand une
+place se termine. Il répond à « que s'est-il passé hier soir », pas à
+« qu'ai-je joué cette année ». Il fallait un deuxième journal.
+
+**Le journal des parties.** Un fichier par personne, dans
+`~/.local/state/nel3ab/parties/` (réglage `NEL3AB_PARTIES_DIR`). Chaque
+ligne est un objet JSON, et le fichier n'est jamais réécrit ni balayé. Trois
+sortes de lignes : le début d'une place tenue, sa fin avec sa raison, et un
+lancement. Une ligne de début ressemble à ceci :
+
+```json
+{"v": 1, "quand": "2026-11-21T21:04:05.123+01:00", "quoi": "place_debut", "id": "9f2c41d07ab35e18", "salle": 2, "place": 1, "jeu": {"cle": "Mario Kart Double Dash.rvz", "console": "gc", "titre": "Mario Kart: Double Dash!!"}, "lance": {"empreinte": "<SHA-256 de l'adresse du lanceur>", "pseudo": "Souhib"}, "sauvegarde": "lanceur"}
+```
+
+Les raisons de fin sont cinq : la personne a rendu sa manette, le jeu a
+changé, la salle a été fermée, quelqu'un d'autre a eu la prise, la page est
+partie. La sauvegarde est celle du lanceur (« partie neuve » et « reprendre »
+d'un compte identifié), la commune (« tout débloqué »), la partie neuve
+partagée (un lancement sans identité) ou inconnue (le jeu tournait avant que
+le salon le sache). Le salon n'invente rien : un début dont la fin n'a pas
+été vue, parce que le salon a redémarré, reste « durée inconnue ».
+
+Le fichier porte le nom de l'empreinte SHA-256 de l'adresse, celle qui
+termine déjà le nom des dossiers de sauvegarde. C'est une pseudonymisation,
+pas un secret : qui connaît l'adresse recalcule le nom. Le repère HMAC des
+pages aurait été plus discret, mais son secret peut être remplacé, et le
+journal de chacun serait alors perdu. Les fichiers naissent lisibles par
+leur seul propriétaire.
+
+**Où le journal s'écrit.** Une place commence ou finit à beaucoup d'endroits
+du salon : une page qui part, une page qui rend sa manette, une demande
+acceptée, le worker qui redonne les prises après un lancement, une salle
+fermée. Écrire la fin dans chacun de ces gestionnaires aurait laissé le
+prochain chemin l'oublier. Le contrôleur de salle est le seul à changer les
+places : c'est donc lui qui écrit, et la raison de `release()` est devenue
+obligatoire. Le vérificateur de types a ensuite nommé chaque appel sans
+raison. Les pages de banc (mes pilotes d'essai) et les pages sans identité
+n'écrivent rien.
+
+Mesuré le 21 novembre sur lgf, sur le disque du dossier personnel : 38 à
+40 µs par ligne, 360 octets par ligne. Un changement de jeu à quatre en
+écrit huit. La première place d'une personne après un redémarrage du salon
+relit son fichier, sur la boucle : 33 à 36 ms pour 5 000 lignes, soit des
+centaines de soirées. Aujourd'hui, chaque fichier tient en quelques lignes.
+
+**La première fois, la même pour toutes les pages.** Bobine ne vient
+brancher la manette que lors d'une première arrivée dans une salle. Jusqu'ici,
+chaque navigateur en jugeait par sa propre mémoire, et un autre appareil
+rejouait la scène. Le salon marque maintenant la prise `premiere` dans l'état
+de la salle, d'après le journal : vrai si la personne n'avait jamais tenu de
+place dans cette salle. Le même état part à toutes les pages, donc toutes
+jouent la même scène. Le drapeau ne porte pas d'adresse. Sans réponse du
+salon (personne sans identité, salon plus ancien que la page), la mémoire du
+navigateur décide comme avant.
+
+**Le carnet.** Quatre lectures : `/api/me/profil`, `/api/me/jeux`,
+`/api/me/parties` et `/api/me/sauvegardes`. Toutes partent de l'identité que
+le proxy garantit et d'elle seule : sans elle, 401, et aucune ne prend
+d'adresse en paramètre. Personne ne peut donc demander le carnet d'un autre.
+
+Une soirée sur une liaison qui décroche écrit des dizaines de places. Le
+carnet regroupe en une partie les places de suite au même jeu, dans la même
+salle, lancé par la même personne dans la même sauvegarde, séparées de moins
+de deux minutes. Le temps d'une partie est la réunion de ses places : deux
+onglets ouverts en même temps ne comptent pas double. Le temps de jeu ne
+compte que les manettes tenues pendant qu'un jeu tourne, pas le temps passé
+à regarder.
+
+Les sauvegardes sont cherchées sous trois racines seulement : celle de
+Dolphin et les deux dossiers d'état des adaptateurs Switch, lus comme le
+worker les lit. Le dossier d'état entier contient des centaines de dossiers
+d'essai, et d'anciens emplacements migrés qui ne sont plus à personne. Le
+nom `joueur-…` est recalculé en Python, et les deux calculs, Rust et Python,
+relisent le même fichier de vecteurs (`person-key-vectors.json`) : un
+calcul qui diverge fait échouer un essai de chaque côté. Tout est lu par
+`lstat`, sans ouvrir un fichier et sans suivre un lien : des tubes nommés
+vivent dans les emplacements Switch, et les ouvrir bloquerait la page. Pour
+la Switch, on mesure le sous-arbre que l'adaptateur sauvegarde lui-même
+(`data/bis/user`, la NAND pour la Switch 2), pas les 450 Mo du système
+émulé qui l'entourent.
+
+**La page.** Le carnet est une étagère. Chaque jeu est une tranche de
+boîtier, de cartouche ou de carte, posée sur une planche, avec la bande de
+couleur de sa console. Elle s'épaissit avec le temps de jeu. Une petite
+carte mémoire appuyée contre la tranche marque une sauvegarde à soi. Une
+tranche hachurée est un jeu joué chez quelqu'un, sans carte. Le temps total
+roule une fois sur un compteur mécanique, comme celui d'un magnétoscope.
+Bobine accueille la personne par son pseudo. Plus bas, les cartes mémoire
+disent la date de leur dernière écriture et le nombre de versions gardées,
+puis les dernières parties disent où elles se sont écrites. Seuls
+`transform` et `opacity` bougent, et la réduction des animations les
+arrête. Regardée dans un salon jetable aux données inventées : aucun
+défilement horizontal à 390 px de large, aucune requête vers une autre
+machine que le salon.
+
+**Les essais, rouges d'abord.** Chaque défaut a été réintroduit derrière
+l'interface finale, et chacun fait échouer l'essai qui le vise :
+
+- le nom du dossier personnel : un `str.strip` de Python, un nettoyage qui
+  garde les lettres accentuées, un préfixe de 23 caractères en Rust ;
+- le journal : une demande acceptée sans fin écrite, une prise perdue après
+  un lancement comptée « remplacée », une première fois tirée de n'importe
+  quelle salle, une page de banc écrite au nom de son pilote, une ligne
+  coupée par un arrêt qui emporte la suivante, une salle fermée dont les
+  places restent ouvertes ;
+- le carnet : une lecture sans garde d'identité, une durée qui additionne
+  les onglets, un jeu joué chez un autre compté comme sa propre sauvegarde,
+  un lien suivi pendant la mesure, les versions d'un autre comptées comme
+  les siennes ;
+- la page de la salle : ignorer la réponse du salon fait échouer cinq
+  essais, dont ceux qui vérifient que la mémoire décide encore sans elle.
+
+**Piège, le plus sérieux.** Le premier passage de la suite d'essais avec le
+journal a écrit cinq fichiers dans le VRAI dossier
+`~/.local/state/nel3ab/parties`. Un essai de socket construisait ses propres
+réglages sans nommer le nouveau dossier, qui valait donc sa valeur par
+défaut. Les fichiers ne portaient que des identités d'essai, et le dossier
+était né pendant ce passage, à la seconde près. Ils ont été retirés. Un garde
+commun pose maintenant les nouveaux dossiers dans un dossier jetable par
+l'environnement, pour chaque essai, et un essai vérifie que les réglages par
+défaut ne visent plus le vrai dossier. Leçon : un réglage nouveau dont la
+valeur par défaut est sous le vrai dossier d'état s'isole AVANT le premier
+passage des essais, pas après.
+
+**Piège, plus petit.** Dans Chrome sous Linux, les sous-ensembles Anybody
+dessinaient « é » sans son accent sous une vingtaine de pixels : la capture
+disait « epaisse » et « Benoit ». L'accent grave restait. Les polices
+contiennent bien le glyphe ; c'est le calage des contours sur la grille de
+pixels qui le perd. `text-rendering: geometricPrecision` le rend à 17 px,
+pas tout à fait à 14 px. L'accueil utilise les mêmes polices : il n'a pas
+été regardé sous cet angle, et aucun vrai téléphone non plus.
+
+**Ce qui n'est pas prouvé.** Rien n'a tourné dans une vraie salle. Les
+sauvegardes Switch ne sont pas reliées à leur jeu : le catalogue ne publie
+pas encore l'identifiant du titre, la carte porte donc cet identifiant.
+Le journal commence au déploiement : aucune partie d'avant n'est
+reconstituée. Le carnet ne dit pas si une sauvegarde est en cours
+d'utilisation : tester son verrou pourrait faire refuser un lancement dans
+une autre salle, et la lecture sûre (`/proc/locks`) n'est pas écrite.
+
+**Propositions, hors de ce travail.**
+
+- Télécharger sa sauvegarde : une archive construite d'après une liste
+  blanche par moteur, qui refuse tout fichier non ordinaire, et répond
+  « occupé » quand un verrou est tenu.
+- Restaurer une version : d'abord rendre visible le refus silencieux d'une
+  salle qui ne peut pas prendre le verrou, ensuite seulement prendre les
+  deux verrous, ranger la partie actuelle dans l'historique, puis échanger.
+- Choisir son apparence (une couleur dans une palette, une icône dans un
+  jeu fourni), dans un fichier séparé des pseudos : un retour arrière ne
+  doit pas les effacer.
+- Montrer son carnet aux autres, par choix : une carte publique (pseudo,
+  couleur, jeux récents), jamais les sauvegardes.
+- Publier l'identifiant de titre Switch dans le catalogue, pour relier ces
+  cartes à leur jeu.
+- Un geste « oublier mon historique », puisque le journal ne s'efface plus
+  de lui-même.
+
 ### 21 novembre : déposer un jeu et le laisser se ranger
 
 **La demande.** Souhib veut lâcher des fichiers de jeu sur une page, voir la
@@ -25566,6 +25738,51 @@ même dossier » l'arrêterait : non vérifié sur la bibliothèque réelle. Une
 extraction d'archive tourne dans le salon, sans la priorité basse de `lsar` et
 `unar`. Enfin, rien n'efface un envoi abandonné : la quarantaine garde tout
 jusqu'à ce qu'on le retire depuis la page.
+
+### 21 novembre : les accents qui disparaissaient sous 17 pixels
+
+**Le symptôme.** Sur les captures des pages du salon (import, profil), on
+lisait « tout debloque », « precedente » ou « Ecrite » en petite taille, alors
+que « Première » s'affichait bien en grand.
+
+**Ce qui a été écarté.** Les accents sont bien dans nos sous-ensembles de la
+police Anybody : 201 caractères, dont « é », « è », « ê », « à ». Ils y sont
+sous forme de glyphes composés, la lettre plus un accent posé par-dessus.
+Remplacer ces glyphes composés par des dessins simples n'a rien changé à la
+capture : la composition n'était pas en cause.
+
+**La cause.** Le bas de l'accent aigu ne dépasse le haut du « e » que de
+30 unités sur 2000. La police ne contient pas de consignes de rendu. En
+dessous de 17 pixels, le lissage de Chrome sous Linux, à l'échelle 1, aligne
+cet accent sur la ligne du « e », où il se confond avec la lettre.
+
+**La correction.** `tools/polices-accents.py` remonte l'aigu, le grave et le
+circonflexe de 70 unités et les élargit de 24 unités de chaque côté, dans nos
+trois sous-ensembles. La capture de contrôle, de 12 à 16 pixels, montre
+maintenant tous les accents. La licence OFL d'Anybody permet de modifier la
+police et ne réserve pas son nom. Le script refuse un fichier déjà corrigé.
+
+**Ce qui n'est pas prouvé.** Le contrôle a été fait dans Chrome sous Linux.
+Un vrai téléphone (écran à l'échelle 2 ou 3) n'a pas été essayé, mais il
+dessine ces tailles avec deux à trois fois plus de pixels. Aucun essai
+automatique ne protège la correction : il faudrait la bibliothèque
+fontTools dans les dépendances du salon, pour un seul contrôle.
+
+**Leçon.** Une capture réduite peut aussi effacer un accent. Avant de
+chercher la cause dans la police, regarder la capture à sa taille réelle,
+puis comparer avec et sans la correction, sur la même page.
+
+### 21 novembre : une sauvegarde Switch porte le nom de son jeu
+
+Dans le premier état du carnet de jeu, une carte mémoire Switch affichait
+« 0100BDE00862A000 » au lieu de « Mario Tennis Aces ». Les emplacements
+Switch sont rangés sous l'identifiant du titre, et le catalogue publié par
+les salles ne le donnait pas. Chaque entrée du catalogue porte maintenant
+`title_id` : l'identifiant inscrit dans le fichier voisin du jeu, en
+minuscules comme les dossiers, ou rien pour un jeu GameCube ou Wii. Le
+profil relie la sauvegarde par lui. Un identifiant mal formé ne relie rien
+et ne fait pas sortir le jeu du catalogue. Un essai couvre le cas relié et
+trois jumeaux ; sans la recherche par identifiant, le cas relié échoue.
 
 ### 21 novembre : la Switch se range aussi
 
@@ -26804,6 +27021,32 @@ un lecteur voit l'ancien ou le nouveau, jamais un mélange.
 
 **GOD (Games on Demand)** : le format des jeux Xbox 360 téléchargés sur la
 console : un fichier d'en-tête sans extension et un dossier de données à côté.
+
+**Journal des parties** : le fichier de chaque personne où le salon écrit le
+début et la fin de chaque place tenue, et chaque lancement. Il n'est jamais
+balayé, au contraire du journal des séances.
+
+**Ajout seul** : un fichier où l'on n'écrit qu'à la fin, sans jamais réécrire
+ni effacer une ligne déjà écrite.
+
+**Pseudonymisation** : remplacer un nom par un code qui ne le montre pas,
+mais qu'on peut recalculer à partir du nom. Ce n'est pas un secret : qui
+connaît le nom retrouve le code.
+
+**lstat** : l'appel du système qui lit la taille, la date et la nature d'un
+fichier sans l'ouvrir et sans suivre un lien. Un tube nommé ne bloque pas un
+`lstat`, alors qu'il bloque une ouverture.
+
+**Curseur** : dans une liste lue par pages, le repère de la dernière ligne
+reçue, que la page suivante renvoie pour dire « la suite après celle-ci ».
+
+**Mutant** : une copie du code où l'on réintroduit exprès un défaut, pour
+vérifier qu'un essai échoue. Un essai qui passe aussi avec le mutant ne
+protège de rien.
+
+**Calage des contours** : l'ajustement des lettres sur la grille des pixels,
+qui les rend nettes en petit. Mal fait, il peut effacer un détail fin, comme
+un accent.
 
 **Empreinte rapide** : SHA-256 des 4 premiers Mio d'un fichier, de ses 4
 derniers et de sa taille. Elle sert à retrouver un envoi après un rechargement

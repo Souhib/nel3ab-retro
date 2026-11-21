@@ -152,6 +152,145 @@
         }
       }
     },
+    "/api/me/profil": {
+      "get": {
+        "tags": [
+          "profil"
+        ],
+        "summary": "Read My Profile",
+        "description": "Mon pseudo, depuis quand le carnet me suit, mes jeux et mon temps de jeu.",
+        "operationId": "read_my_profile",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Profil"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/jeux": {
+      "get": {
+        "tags": [
+          "profil"
+        ],
+        "summary": "Read My Games",
+        "description": "Chaque jeu joué, avec chez qui, et ma sauvegarde quand elle existe.",
+        "operationId": "read_my_games",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/JeuProfil"
+                  },
+                  "type": "array",
+                  "title": "Response Read My Games"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/parties": {
+      "get": {
+        "tags": [
+          "profil"
+        ],
+        "summary": "Read My Plays",
+        "description": "Mes parties, de la plus récente à la plus ancienne.",
+        "operationId": "read_my_plays",
+        "parameters": [
+          {
+            "name": "avant",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{16}$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "L'`id` de la dernière partie de la page précédente.",
+              "title": "Avant"
+            },
+            "description": "L'`id` de la dernière partie de la page précédente."
+          },
+          {
+            "name": "limite",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limite"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageParties"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/sauvegardes": {
+      "get": {
+        "tags": [
+          "profil"
+        ],
+        "summary": "Read My Saves",
+        "description": "Mes sauvegardes personnelles, par jeu et par console.\n\nCelles qui sont à moi parce que j'ai lancé le jeu. Une partie jouée chez\nquelqu'un d'autre s'écrit dans SA sauvegarde, et « tout débloqué » est\ncommune: ni l'une ni l'autre n'apparaît ici.",
+        "operationId": "read_my_saves",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Emplacement"
+                  },
+                  "type": "array",
+                  "title": "Response Read My Saves"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/room": {
       "get": {
         "tags": [
@@ -458,6 +597,18 @@
               }
             ],
             "title": "About"
+          },
+          "title_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title Id",
+            "description": "L'identifiant du titre d'un jeu inscrit (Switch), seize chiffres hexadécimaux en minuscules: le nom de ses dossiers de sauvegarde."
           }
         },
         "type": "object",
@@ -469,6 +620,32 @@
         ],
         "title": "CatalogueGame",
         "description": "Un jeu de la bibliothèque, tel que le worker l'a décrit."
+      },
+      "Chez": {
+        "properties": {
+          "pseudo": {
+            "type": "string",
+            "title": "Pseudo"
+          },
+          "parties": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Parties"
+          },
+          "secondes": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Secondes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "pseudo",
+          "parties",
+          "secondes"
+        ],
+        "title": "Chez",
+        "description": "Un lanceur chez qui la personne a joué, dans SA sauvegarde."
       },
       "Connection": {
         "properties": {
@@ -486,6 +663,113 @@
         "type": "object",
         "title": "Connection",
         "description": "Une observation de trajet, jamais une mesure de qualité."
+      },
+      "ConsoleVue": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code",
+            "description": "Son code, « gc », « switch »… ou « ? » si inconnue."
+          },
+          "label": {
+            "type": "string",
+            "title": "Label",
+            "description": "Son nom à l'écran."
+          },
+          "media": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "disc",
+                  "cartridge",
+                  "card"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Media",
+            "description": "Ce qu'on glisse dedans. Rien pour une console inconnue."
+          },
+          "experimental": {
+            "type": "boolean",
+            "title": "Experimental",
+            "default": false
+          },
+          "rang": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rang",
+            "description": "Sa place dans le manifeste. La page en tire la couleur de sa bande: une console ajoutée au manifeste a sa couleur sans toucher la page."
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "label"
+        ],
+        "title": "ConsoleVue",
+        "description": "Une console, telle que le manifeste la décrit (ADR D22)."
+      },
+      "Dernier": {
+        "properties": {
+          "titre": {
+            "type": "string",
+            "title": "Titre"
+          },
+          "console": {
+            "$ref": "#/components/schemas/ConsoleVue"
+          },
+          "quand": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Quand"
+          }
+        },
+        "type": "object",
+        "required": [
+          "titre",
+          "console",
+          "quand"
+        ],
+        "title": "Dernier"
+      },
+      "Emplacement": {
+        "properties": {
+          "titre": {
+            "type": "string",
+            "title": "Titre",
+            "description": "Le titre du jeu, ou ce que le disque en dit quand il n'est pas relié."
+          },
+          "console": {
+            "$ref": "#/components/schemas/ConsoleVue"
+          },
+          "relie": {
+            "type": "boolean",
+            "title": "Relie",
+            "description": "Vrai quand le salon a reconnu le jeu dans le catalogue."
+          },
+          "sauvegarde": {
+            "$ref": "#/components/schemas/ResumeSauvegarde"
+          }
+        },
+        "type": "object",
+        "required": [
+          "titre",
+          "console",
+          "relie",
+          "sauvegarde"
+        ],
+        "title": "Emplacement",
+        "description": "Une sauvegarde personnelle trouvée sur le disque: une carte mémoire."
       },
       "Game": {
         "properties": {
@@ -668,6 +952,86 @@
         "title": "Identity",
         "description": "A person, as this service knows them.\n\nThere is no account and no password: rooms are private and shared with people\nalready on the network. The name exists so a seat can say \"Souhib\" rather than\n\"player 2\" (ADR D12)."
       },
+      "JeuProfil": {
+        "properties": {
+          "titre": {
+            "type": "string",
+            "title": "Titre"
+          },
+          "console": {
+            "$ref": "#/components/schemas/ConsoleVue"
+          },
+          "premiere_fois": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Premiere Fois"
+          },
+          "derniere_fois": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Derniere Fois"
+          },
+          "secondes": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Secondes"
+          },
+          "parties": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Parties"
+          },
+          "lancements": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Lancements",
+            "description": "Combien de fois cette personne l'a lancé."
+          },
+          "en_cours": {
+            "type": "boolean",
+            "title": "En Cours",
+            "default": false
+          },
+          "chez": {
+            "items": {
+              "$ref": "#/components/schemas/Chez"
+            },
+            "type": "array",
+            "title": "Chez",
+            "description": "Les lanceurs chez qui elle a joué à ce jeu, dans leur sauvegarde."
+          },
+          "communes": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Communes",
+            "description": "Les parties jouées sur « tout débloqué »."
+          },
+          "sauvegarde": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResumeSauvegarde"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Sa sauvegarde personnelle de ce jeu. Rien quand elle n'existe pas, ou quand le salon ne sait pas la relier au jeu (Switch: le catalogue ne publie pas encore l'identifiant du titre)."
+          }
+        },
+        "type": "object",
+        "required": [
+          "titre",
+          "console",
+          "premiere_fois",
+          "derniere_fois",
+          "secondes",
+          "parties",
+          "lancements",
+          "communes"
+        ],
+        "title": "JeuProfil",
+        "description": "Un jeu joué: une tranche sur l'étagère."
+      },
       "Me": {
         "properties": {
           "login": {
@@ -706,6 +1070,35 @@
         ],
         "title": "Me",
         "description": "Qui le service croit avoir en face.\n\n`login` vient du proxy et n'est pas modifiable; `name` est choisi et l'est.\nUn `login` nul veut dire « aucun proxy devant », donc aucune identité: la\npage retombe alors sur un prénom gardé dans le navigateur."
+      },
+      "PageParties": {
+        "properties": {
+          "parties": {
+            "items": {
+              "$ref": "#/components/schemas/Partie"
+            },
+            "type": "array",
+            "title": "Parties"
+          },
+          "suivant": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suivant",
+            "description": "Le curseur de la page suivante, ou rien à la fin."
+          }
+        },
+        "type": "object",
+        "required": [
+          "parties",
+          "suivant"
+        ],
+        "title": "PageParties"
       },
       "Participant": {
         "properties": {
@@ -751,6 +1144,96 @@
           "claim"
         ],
         "title": "Participant"
+      },
+      "Partie": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Un jeton opaque, celui de la première place de la partie."
+          },
+          "salle": {
+            "type": "integer",
+            "title": "Salle"
+          },
+          "titre": {
+            "type": "string",
+            "title": "Titre"
+          },
+          "console": {
+            "$ref": "#/components/schemas/ConsoleVue"
+          },
+          "debut": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Debut"
+          },
+          "fin": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fin",
+            "description": "Rien tant qu'elle dure, ou si la fin n'a pas été vue."
+          },
+          "secondes": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Secondes"
+          },
+          "complete": {
+            "type": "boolean",
+            "title": "Complete",
+            "description": "Faux quand une de ses places n'a pas de fin connue."
+          },
+          "en_cours": {
+            "type": "boolean",
+            "title": "En Cours",
+            "default": false
+          },
+          "sauvegarde": {
+            "type": "string",
+            "enum": [
+              "mienne",
+              "du_lanceur",
+              "commune",
+              "neuve",
+              "inconnue"
+            ],
+            "title": "Sauvegarde"
+          },
+          "lance_par": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lance Par",
+            "description": "Le pseudo de qui a lancé, quand ce n'est pas la personne elle-même."
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "salle",
+          "titre",
+          "console",
+          "debut",
+          "fin",
+          "secondes",
+          "complete",
+          "sauvegarde"
+        ],
+        "title": "Partie",
+        "description": "Une partie: des places tenues de suite, au même jeu, dans la même salle.\n\nUne reconnexion de moins de deux minutes ne fait pas une nouvelle partie, et\ndeux onglets de la même personne ne comptent pas double."
       },
       "Person": {
         "properties": {
@@ -857,6 +1340,122 @@
           "players"
         ],
         "title": "Preparation"
+      },
+      "Profil": {
+        "properties": {
+          "pseudo": {
+            "type": "string",
+            "title": "Pseudo"
+          },
+          "depuis": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Depuis",
+            "description": "La première ligne du journal des parties de cette personne. Le journal commence le 21 novembre 2026: ce qui précède n'est pas noté."
+          },
+          "jeux": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Jeux",
+            "description": "Combien de jeux différents joués, menu exclu."
+          },
+          "parties": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Parties"
+          },
+          "secondes": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Secondes",
+            "description": "Le temps de jeu connu, parties en cours comprises."
+          },
+          "inconnues": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Inconnues",
+            "description": "Les parties dont la fin n'a pas été vue: leur durée n'est pas comptée."
+          },
+          "sauvegardes": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Sauvegardes",
+            "description": "Combien de sauvegardes personnelles existent."
+          },
+          "dernier": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Dernier"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "pseudo",
+          "depuis",
+          "jeux",
+          "parties",
+          "secondes",
+          "inconnues",
+          "sauvegardes"
+        ],
+        "title": "Profil",
+        "description": "La première page du carnet."
+      },
+      "ResumeSauvegarde": {
+        "properties": {
+          "derniere_ecriture": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Derniere Ecriture",
+            "description": "Le fichier le plus récemment écrit. Rien pour un dossier encore vide."
+          },
+          "octets": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Octets",
+            "description": "La taille des fichiers de la partie elle-même."
+          },
+          "versions": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Versions",
+            "description": "Les parties précédentes gardées à chaque « partie neuve »."
+          },
+          "copies": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Copies",
+            "description": "Les copies automatiques que l'adaptateur Switch fait à chaque partie."
+          }
+        },
+        "type": "object",
+        "required": [
+          "derniere_ecriture",
+          "octets",
+          "versions",
+          "copies"
+        ],
+        "title": "ResumeSauvegarde",
+        "description": "Une sauvegarde personnelle, d'après ses fichiers. Rien n'y est ouvert."
       },
       "Room": {
         "properties": {
@@ -1063,6 +1662,18 @@
             ],
             "title": "Claim",
             "description": "Repère de l'attribution actuelle. Ce n'est ni un nom ni un secret."
+          },
+          "premiere": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Premiere",
+            "description": "Vrai quand la personne qui tient cette prise n'avait jamais tenu de place dans cette salle, d'après le journal des parties. Gardé tant qu'elle tient la prise. Rien quand le salon ne sait pas: sans identité, page de banc ou journal illisible. La page retombe alors sur sa propre mémoire."
           }
         },
         "type": "object",

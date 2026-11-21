@@ -144,3 +144,27 @@ async def test_a_room_that_does_not_exist_is_still_unknown_to_the_admin(
 ) -> None:
     assert (await client.delete("/api/salles/9", headers=SOUHIB)).status_code == 404
     assert _ordres(systeme) == []
+
+
+@pytest.mark.usefixtures("salle_deux")
+async def test_closing_a_room_ends_its_seats_in_the_play_journal(
+    client: httpx.AsyncClient, app: FastAPI
+) -> None:
+    """Fermer la salle termine les places qu'elle tenait, avec leur raison.
+
+    Le jumeau d'abord: une fermeture refusée ne termine la partie de personne.
+    """
+    rooms = app.state.salons.pour(2)
+    rooms.claim(1, "sid-yassine", "Yassine", login="yassine@example.com")
+    refus = await client.delete("/api/salles/2", headers=VINCENT)
+    assert refus.status_code == 403
+    assert [ligne["quoi"] for ligne in app.state.parties.lire("yassine@example.com")] == [
+        "place_debut"
+    ]
+
+    assert (await client.delete("/api/salles/2", headers=YASSINE)).status_code == 200
+    lignes = app.state.parties.lire("yassine@example.com")
+    assert [(ligne["quoi"], ligne.get("raison")) for ligne in lignes] == [
+        ("place_debut", None),
+        ("place_fin", "salle_fermee"),
+    ]

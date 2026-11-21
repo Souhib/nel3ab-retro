@@ -21,12 +21,14 @@ from nel3ab_control.api.routes import catalogue as catalogue_routes
 from nel3ab_control.api.routes import importer as importer_routes
 from nel3ab_control.api.routes import imports as imports_routes
 from nel3ab_control.api.routes import me as me_routes
+from nel3ab_control.api.routes import profil as profil_routes
 from nel3ab_control.api.routes import rooms as rooms_routes
 from nel3ab_control.api.routes import salles as salles_routes
 from nel3ab_control.api.ws import socketio_app
 from nel3ab_control.api.ws.server import allow_origins, follow_seats
 from nel3ab_control.dependencies import same_origin
 from nel3ab_control.journal import Journal
+from nel3ab_control.parties import Parties
 from nel3ab_control.settings import Settings
 from nel3ab_control.worker import read_seats
 
@@ -41,7 +43,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         # celui de la salle 1 tant que tous les appelants ne disent pas la leur:
         # un défaut explicite vaut mieux qu'une adresse écrite à la main, qui est
         # exactement ce qui a fait rendre 503 à tout le salon après la bascule.
-        app.state.salons = Salons(settings, client)
+        # Le journal des parties, commun aux salles: une ligne par place et par
+        # lancement, un fichier par personne, jamais balayé.
+        app.state.parties = Parties(settings.parties_dir, settings.journal_zone)
+        app.state.salons = Salons(settings, client, app.state.parties)
         app.state.rooms = app.state.salons.pour(1)
         # Les salles de la machine. Elle interroge systemd pour savoir qui
         # tourne, et les workers pour le jeu et les places. Tout ce qu'elle tient
@@ -107,6 +112,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(importer_routes.router)
     app.include_router(imports_routes.router)
     app.include_router(me_routes.router)
+    app.include_router(profil_routes.router)
+    app.include_router(profil_routes.page)
     app.include_router(rooms_routes.router)
     app.include_router(salles_routes.router)
     app.include_router(catalogue_routes.router)

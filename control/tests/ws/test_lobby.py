@@ -90,7 +90,13 @@ async def test_a_page_that_takes_a_pad_is_broadcast_to_everybody(
 
     assert heard, "the watcher was told nothing at all"
     seats = heard[-1]["seats"]
-    assert seats[1] == {"port": 2, "player": "Souhib", "held": None, "claim": None}
+    assert seats[1] == {
+        "port": 2,
+        "player": "Souhib",
+        "held": None,
+        "claim": None,
+        "premiere": None,
+    }
     assert rooms.seats()[1].player == "Souhib"
 
     await player.disconnect()

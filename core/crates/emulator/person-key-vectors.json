@@ -1,0 +1,95 @@
+{
+  "note": "Lus par saves.rs (Rust) et par control/tests/test_personnes.py (Python). Un dossier nul veut dire: pas de dossier personnel, la partie neuve commune.",
+  "vecteurs": [
+    {
+      "login": "souhib@example.com",
+      "dossier": "joueur-souhib-example-com-b2bc049f29d07e45c04b3aa21b12a5614796b19f59b68528367019150f8f2e8c",
+      "empreinte": "b2bc049f29d07e45c04b3aa21b12a5614796b19f59b68528367019150f8f2e8c"
+    },
+    {
+      "login": "alex+test@example.com",
+      "dossier": "joueur-alex-test-example-com-849ccbeb419481c5b106eff33968f04db15c16e10965a6cf769506ab4d2aca35",
+      "empreinte": "849ccbeb419481c5b106eff33968f04db15c16e10965a6cf769506ab4d2aca35"
+    },
+    {
+      "login": "alex-test@example.com",
+      "dossier": "joueur-alex-test-example-com-01921a44b406007876d705635aa23da967ee9bad5780b2347ee7b2a7e8d869af",
+      "empreinte": "01921a44b406007876d705635aa23da967ee9bad5780b2347ee7b2a7e8d869af"
+    },
+    {
+      "login": "alex@example.com",
+      "dossier": "joueur-alex-example-com-6db61e6dcbcf2390e4a46af426f26a133a3bee45021422fc7ae86e9136f14110",
+      "empreinte": "6db61e6dcbcf2390e4a46af426f26a133a3bee45021422fc7ae86e9136f14110"
+    },
+    {
+      "login": "vincent@example.com",
+      "dossier": "joueur-vincent-example-com-c6d90894916d1f457d99118ae5e9c88641262d62a60f78872d3079d4455cbb0e",
+      "empreinte": "c6d90894916d1f457d99118ae5e9c88641262d62a60f78872d3079d4455cbb0e"
+    },
+    {
+      "login": "x",
+      "dossier": "joueur-x-2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881",
+      "empreinte": "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881"
+    },
+    {
+      "login": "../../etc/passwd",
+      "dossier": "joueur-etc-passwd-3754d6cb3a38e1185e5b382d5f3ef3f118af75bf4bf0254d1fdb8437f51423e0",
+      "empreinte": "3754d6cb3a38e1185e5b382d5f3ef3f118af75bf4bf0254d1fdb8437f51423e0"
+    },
+    {
+      "login": "élodie.dupont@exemple.fr",
+      "dossier": "joueur-lodie-dupont-exemple-fr-823b1f91f5fa51eb691fbcd637a11265da25983a54b6278cf08d6784dc98a83a",
+      "empreinte": "823b1f91f5fa51eb691fbcd637a11265da25983a54b6278cf08d6784dc98a83a"
+    },
+    {
+      "login": "prenom.nom.tres.long.adresse@exemple-tres-long.fr",
+      "dossier": "joueur-prenom-nom-tres-long-adr-46064205dd6a8cbe9b3ffc3f8e5d0f5f26db1ebe972faae5986cb7658c227415",
+      "empreinte": "46064205dd6a8cbe9b3ffc3f8e5d0f5f26db1ebe972faae5986cb7658c227415"
+    },
+    {
+      "login": "  padded@example.com  ",
+      "dossier": "joueur-padded-example-com-0acda5ffbcd75b55ff6f366a11312134a2d83b4562f097ad1106b6a9788128dd",
+      "empreinte": "0acda5ffbcd75b55ff6f366a11312134a2d83b4562f097ad1106b6a9788128dd"
+    },
+    {
+      "login": "padded@example.com",
+      "dossier": "joueur-padded-example-com-0acda5ffbcd75b55ff6f366a11312134a2d83b4562f097ad1106b6a9788128dd",
+      "empreinte": "0acda5ffbcd75b55ff6f366a11312134a2d83b4562f097ad1106b6a9788128dd"
+    },
+    {
+      "login": " nbsp@example.com　",
+      "dossier": "joueur-nbsp-example-com-54cdaa4308d90aeb7c8254e5aa855876cc93aa8558d4a4e5c6b9eed3f4e144d9",
+      "empreinte": "54cdaa4308d90aeb7c8254e5aa855876cc93aa8558d4a4e5c6b9eed3f4e144d9"
+    },
+    {
+      "login": "\u001funit@example.com",
+      "dossier": "joueur-unit-example-com-53f47b7261db35bee883a3780a8d86e15554e274f53e3c8e3f5aa5764b9d6509",
+      "empreinte": "53f47b7261db35bee883a3780a8d86e15554e274f53e3c8e3f5aa5764b9d6509"
+    },
+    {
+      "login": "Souhib@Example.com",
+      "dossier": "joueur-souhib-example-com-e25fb09c37e56320b47d579c681a26627a6e91d5e27418c3d9d9bae1bd1baed4",
+      "empreinte": "e25fb09c37e56320b47d579c681a26627a6e91d5e27418c3d9d9bae1bd1baed4"
+    },
+    {
+      "login": "日本@例え.jp",
+      "dossier": "joueur-jp-b189d2c4800923dc600e534a0b49c0f184b224d335d2b7c8ce5d56fbcb7cdfe8",
+      "empreinte": "b189d2c4800923dc600e534a0b49c0f184b224d335d2b7c8ce5d56fbcb7cdfe8"
+    },
+    {
+      "login": "...",
+      "dossier": null,
+      "empreinte": "ab5df625bc76dbd4e163bed2dd888df828f90159bb93556525c31821b6541d46"
+    },
+    {
+      "login": "",
+      "dossier": null,
+      "empreinte": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "login": "   ",
+      "dossier": null,
+      "empreinte": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ]
+}

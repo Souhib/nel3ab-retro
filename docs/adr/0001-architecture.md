@@ -821,6 +821,46 @@ Limits: the file is as fresh as the last room start. A file added to `~/roms`
 since then is not listed until a room starts again; the import will need a
 rescan at rest. Art itself is still served by a room.
 
+### D25: A durable play journal per person, and a private profile, 2026-11-21
+
+The session journal is erased after seven days, names games by their displayed
+title and does not record when a seat ends: it cannot say what someone played.
+The lobby now keeps a second journal, `NEL3AB_PARTIES_DIR/<sha256>.jsonl`, one
+append-only file per person, never swept, mode 0600. Lines are `place_debut`
+(room, port, game key, console, title, launcher and save kind), `place_fin`
+(same `id`, monotonic seconds, one of five reasons) and `lancement`. A seat whose
+end was not seen stays unknown; nothing is extrapolated. Pages flagged as bench
+drivers and pages without identity write nothing.
+
+The file name is the SHA-256 of the login, the digest that already ends the
+personal save folder names. This is pseudonymisation, not secrecy. Rejected: the
+HMAC mark of D14's public payloads, because replacing its secret would orphan
+every journal.
+
+Ownership follows the owner's rule of 2026-11-21: a game's save belongs to the
+person who launched it, except the shared « tout débloqué » import. Each seat
+start records the last launch of THAT game in that room; a game already running
+when the lobby started has no known launcher.
+
+Only `RoomController` changes seats, so it alone writes seat ends, and
+`release()` requires a reason. A seat lost to the worker after a launch or a
+close ends as « game changed », otherwise as « replaced ». `Seat.premiere` tells
+every page whether its holder had never held a seat in that room; the page keeps
+its browser memory as a fallback.
+
+`GET /api/me/{profil,jeux,parties,sauvegardes}` read only the caller's own data,
+answer 401 without identity, and take no login parameter. Consecutive seats on
+the same game, room, launcher and save within two minutes form one play; its
+time is the union of its seats. Personal saves are found under the worker's three
+roots only (`NEL3AB_PERSONAL_SAVE_ROOT`, and `state` of the two adapter
+configurations), by `lstat`, without following links or opening files: Switch
+slots contain named pipes. The folder name is recomputed in Python; Rust and
+Python test the same vector file, `core/crates/emulator/person-key-vectors.json`.
+
+Limits: Switch saves are not linked to their game until the catalogue publishes
+the title identifier. Whether a save is in use is not shown, because testing its
+lock could make another room's launch fail.
+
 
 ## Consequences
 

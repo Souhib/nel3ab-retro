@@ -39,7 +39,11 @@ POLICES = (
 
 
 def faces() -> str:
-    """Les règles `@font-face`, avec chaque fichier encodé dans la page."""
+    """Les règles `@font-face`, avec chaque fichier encodé dans la page.
+
+    Publique parce que les autres pages du salon (dépôt de jeux, carnet de jeu)
+    les embarquent aussi: une seule façon de servir leurs caractères.
+    """
     dossier = Path(__file__).parent / "polices"
     regles = []
     for nom, graisse, fichier in POLICES:

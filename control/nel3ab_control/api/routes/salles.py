@@ -3,7 +3,7 @@
 from fastapi import APIRouter, HTTPException, status
 
 from nel3ab_control.api.schemas.salle import Salle
-from nel3ab_control.dependencies import CallerDep, PeopleDep, SallesDep, SettingsDep
+from nel3ab_control.dependencies import CallerDep, PeopleDep, SallesDep, SalonsDep, SettingsDep
 
 router = APIRouter(prefix="/api", tags=["salles"])
 
@@ -53,6 +53,7 @@ async def close_salle(
     caller: CallerDep,
     people: PeopleDep,
     settings: SettingsDep,
+    salons: SalonsDep,
 ) -> Salle:
     """Ferme une salle, et le jeu qui tourne avec.
 
@@ -78,4 +79,8 @@ async def close_salle(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="seul le chef de cette salle, ou la personne qui tient la machine, la ferme",
         )
-    return await salles.fermer(numero)
+    fermee = await salles.fermer(numero)
+    # Les places de cette salle se terminent au journal des parties, une fois
+    # le worker vraiment arrêté: un arrêt refusé n'a fermé la partie de personne.
+    salons.fermee(numero)
+    return fermee

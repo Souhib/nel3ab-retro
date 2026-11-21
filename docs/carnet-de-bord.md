@@ -25941,6 +25941,24 @@ inscrit depuis le dernier démarrage d'une salle, dans un dossier que le salon
 ignore, lui échappe. Enfin, aucun contrôle automatique des avis de sécurité ne
 couvre les dépendances Python : CI n'audite que celles de Rust.
 
+### 21 novembre : un essai qui dépendait de l'espace libre du disque
+
+**Le symptôme.** Après la fusion du 21 novembre dans `main`, la CI a échoué
+sur douze essais du dépôt de jeux : le salon répondait « 507 » (espace
+insuffisant) là où lgf répondait « 201 ».
+
+**La cause.** Le dépôt refuse un envoi qui laisserait moins de 100 Gio libres
+sur le disque. Les réglages d'essai gardaient cette marge de production, et
+la comparaient à l'espace libre RÉEL de la machine qui lance l'essai : 980 Gio
+sur lgf, bien moins sur la machine de la CI. Fixer une marge plus grande que
+le disque de lgf reproduit la panne ici (46 échecs) ; les réglages d'essai
+mettent maintenant la marge à zéro, et les essais de la marge la fixent
+eux-mêmes avec un espace libre simulé.
+
+**Leçon.** Un seuil comparé à une mesure de la machine (disque, mémoire,
+processeur) fait dépendre l'essai de la machine. Le fixer dans les réglages
+d'essai, et simuler la mesure dans l'essai qui vise le seuil.
+
 ## 12. Glossaire complet
 
 **Faux partage** : échanges inutiles entre les caches de plusieurs cœurs lorsque

@@ -122,6 +122,12 @@ def settings(tmp_path: Path) -> Settings:
         # la vraie clé de la machine. Ceux qui en ont besoin en tirent une au
         # hasard, dans leur dossier jetable.
         switch_keys=None,
+        # Et aucune marge de disque: la marge de production (100 Gio) est
+        # comparée à l'espace libre RÉEL du disque où tourne l'essai. Le
+        # 21 novembre 2026, la CI, qui a moins de 100 Gio libres, a refusé douze
+        # envois en 507 que lgf, avec 980 Gio libres, acceptait. Les essais de
+        # la marge la fixent eux-mêmes, avec un espace libre simulé.
+        imports_marge=0,
     )
 
 

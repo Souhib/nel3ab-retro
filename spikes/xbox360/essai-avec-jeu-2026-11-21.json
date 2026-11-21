@@ -1,0 +1,34 @@
+{
+  "date": "2026-11-21",
+  "quoi": "Xenia Edge 01ca7a5 sur un disque Xbox 360 du propriétaire, 120 s sous Sway sans écran, dans nel3ab/switch-prototype:2026-09-08-recovery, sans réseau, sans droits, avec la seule carte graphique, le jeu monté en lecture seule",
+  "lance_par": "Souhib, avec spikes/xbox360/lancer-jeu.sh (le lancement d'un émulateur sur la carte graphique par l'assistant reste refusé par son contrôle automatique)",
+  "jeu": {
+    "nom": "Sonic the Hedgehog (USA, Europe) (En,Ja,Fr,De,Es,It).iso",
+    "taille": 7834892288,
+    "sha256": "de8f9c8ca724f8a5fbc1c590e621c06237faf49b41fab0631a35471a6393e073",
+    "format": "xiso, reconnu par la page de dépôt (« MICROSOFT*XBOX*MEDIA » au secteur 32 de la partition à 0xfd90000)",
+    "title_id": "534507D6",
+    "module": "default.xex, nom d'origine marathon.exe",
+    "provenance": "déposé par Souhib par /importer le 21 novembre 2026, resté en quarantaine « pas jouable »"
+  },
+  "resultats": {
+    "vivant_a": [30, 60, 90, 120],
+    "carte_graphique": "AMD Radeon RX 6650 XT (RADV NAVI23), API 1.4.318 (1.3 utilisée); llvmpipe listé et non choisi",
+    "memoire": "« Shared memory host import: failed to import 512 MB of guest RAM »: repli sur des copies intermédiaires, effet sur la vitesse non mesuré",
+    "captures": {
+      "30s": { "ecran": "écran titre du jeu, « PRESS START », décor et logo rendus", "sha256": "efc5e02b19f0eb349549f1e31872cebbc885c033c27f57f447e9227051f943f5" },
+      "60s": { "ecran": "séquence d'introduction du jeu (ville de nuit)", "sha256": "aa37b927373e5264c52ce692018679f099b9279d529cb1377af5435567cbc549" },
+      "90s": { "ecran": "séquence d'introduction", "sha256": "816d98ab787af0e894658329853012a540a13bfebca138a96c19ed563eade5d8" },
+      "120s": { "ecran": "séquence d'introduction (personnage en gros plan)", "sha256": "7c948763dd699351c628b8e2a4fda1e9f2ae97e8662c6ddf2845327245da48ad" }
+    },
+    "par_dessus_le_jeu": "la fenêtre « No Profiles Found » sur toutes les captures, et la barre de menus et d'outils de Xenia en haut de la fenêtre"
+  },
+  "captures_hors_depot": "les images du jeu ne sont pas publiées; leurs empreintes ci-dessus suffisent à les reconnaître",
+  "non_prouve": [
+    "la cadence d'images: aucune mesure faite, et la séquence d'introduction peut avoir sa propre cadence",
+    "une partie jouée: personne n'a appuyé sur START",
+    "le son: coupé pour l'essai (--apu=nop)",
+    "une manette lue: aucun périphérique d'entrée passé au conteneur",
+    "la tenue au-delà de deux minutes et l'arrêt propre du jeu"
+  ]
+}

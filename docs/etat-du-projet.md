@@ -45,13 +45,16 @@ services, règle les anciennes portes, essaie les pages, puis lance
 `just deploy-check`.
 Le worker de production, lui, est déjà reconstruit depuis la nuit.
 
-**Xbox 360 : l'émulateur est choisi et démarre ici, sans jeu.** Une recherche
-du 21 novembre retient Xenia Edge (Linux natif, Wayland, mode portable), avec
-Xenia Canary en secours. Les deux paquets, vérifiés contre l'empreinte
-publiée, démarrent sous le Sway sans écran de la salle : Edge en Wayland
-natif, Canary par Xwayland sur la Radeon. Tous deux affichent d'abord une
-fenêtre « aucun profil ». Aucun jeu, aucune manette et aucun son n'ont été
-essayés. Essai : `spikes/xbox360/`.
+**Xbox 360 : l'émulateur est choisi, et un premier jeu démarre ici.** Une
+recherche du 21 novembre retient Xenia Edge (Linux natif, Wayland, mode
+portable), avec Xenia Canary en secours. Les deux paquets, vérifiés contre
+l'empreinte publiée, démarrent sous le Sway sans écran de la salle. Avec le
+disque de Sonic the Hedgehog de Souhib, déposé par la page et resté en
+quarantaine, Edge choisit la Radeon, affiche l'écran titre à 30 secondes puis
+la séquence d'introduction. Une fenêtre « aucun profil » et la barre de menus
+de Xenia couvrent l'image : l'adaptateur devra les retirer. Aucune cadence,
+aucune partie, aucune manette et aucun son n'ont été essayés. Essais :
+`spikes/xbox360/`. Il n'y a pas encore d'adaptateur de salle.
 
 Les paragraphes ci-dessous disent « non installé » : ils datent d'avant la
 fusion de la nuit.

@@ -26181,6 +26181,27 @@ conteneur, et SDL n'y trouvait pas `/dev/input`), l'arrêt propre d'un titre.
 Aucun jeu Xbox 360 libre et vérifié n'existe pour aller plus loin : le premier
 vrai essai demandera une copie d'un jeu de Souhib.
 
+**Puis avec un jeu.** Le même après-midi, Souhib dépose son disque de Sonic the
+Hedgehog par la page de dépôt. Elle le reconnaît comme Xbox 360 et le garde en
+quarantaine, « pas encore jouable ». Il lance ensuite Xenia Edge dessus pendant
+deux minutes, dans les mêmes conditions, le disque monté en lecture seule
+(`spikes/xbox360/essai-avec-jeu-2026-11-21.json`) :
+
+- Edge choisit la Radeon par RADV, pas le rendu logiciel : le point laissé
+  ouvert par l'essai sans jeu est réglé ;
+- le jeu charge son programme, affiche son écran titre à 30 secondes, puis
+  joue sa séquence d'introduction ; le processus est vivant à chaque capture ;
+- la fenêtre « aucun profil » couvre le milieu de l'image, et la barre de menus
+  de Xenia occupe le haut : l'adaptateur devra créer les profils avant le
+  lancement et ouvrir la fenêtre en plein écran, sans menus ;
+- Xenia n'a pas pu partager directement les 512 Mo de mémoire du jeu avec la
+  carte, et passe par des copies intermédiaires. L'effet sur la vitesse n'est
+  pas mesuré.
+
+Toujours pas prouvé : la cadence d'images (rien n'a été mesuré), une partie
+jouée, le son, une manette lue, la tenue au-delà de deux minutes. Les images
+du jeu ne sont pas publiées ; leurs empreintes sont dans le relevé.
+
 ### 21 novembre : le salon tombé cinquante secondes, faute d'une dépendance
 
 **Le symptôme.** Souhib installe l'unité du salon et redémarre le salon et la

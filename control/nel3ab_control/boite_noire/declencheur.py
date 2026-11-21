@@ -13,6 +13,24 @@ Une mesure seule ne suffit pas: une page qui recharge ou un onglet mis en arriè
 plan en envoient une mauvaise. Après une chute, la même salle se tait cinq
 minutes, sinon une soirée lente remplirait le disque de profils identiques.
 
+# Le seuil suit le plafond du jeu
+
+Le seuil ordinaire, 50, vient des jeux à 60 images par seconde. Un jeu que sa
+politique de lancement plafonne plus bas vit toujours sous ce seuil. Le 11
+novembre 2026, Zelda sur Switch 2, plafonné à 30, « chutait » donc dès sa
+troisième mesure, se taisait cinq minutes, puis recommençait: six captures de
+cadence sur sept portaient une médiane de 30,0. La seule vraie chute du jour, 15
+à 17 images par seconde pendant un transcodage sur la même carte graphique, est
+tombée dans un de ces silences et n'a pas été saisie.
+
+Un jeu de la table `plafonds` chute donc sous une PART de son plafond, 0,9 par
+défaut, soit 27 pour un plafond de 30. La page arrondit sa cadence à l'entier et
+la comparaison est stricte: la salle chute à une médiane de 26,5 ou moins.
+
+La cadence se juge sur les mesures du jeu EN COURS. Quand une salle passe de
+Zelda à un jeu à 60, les 30 encore dans la fenêtre sont ceux de Zelda, et les
+compter ferait chuter le nouveau jeu avant sa première image lente.
+
 # La seconde règle: le GEL
 
 Le 16 septembre 2026, deux joueurs ont signalé des mini-freezes et la boîte noire
@@ -24,12 +42,29 @@ Une seule mesure suffit ici, parce qu'un trou d'une demi-seconde ne s'invente pa
 la page mesure l'écart entre deux images REÇUES, et une page en arrière-plan
 continue d'en recevoir. La pause de cinq minutes borne le reste.
 
+# La portée d'un gel: la salle, ou une page
+
+Le 22 septembre 2026 à 23:25, la boîte noire a pris une capture complète, profil
+de l'émulateur compris, pour un gel de 8,9 s qui ne touchait que la page de Hyde:
+les deux autres recevaient leurs images à 19 et 29 ms près au même instant. Le
+profil décrivait une salle qui allait bien. Un gel porte donc une PORTÉE:
+
+- « salle » quand deux pages au moins ont gelé dans la fenêtre, ou quand il n'y a
+  qu'une page, puisque rien ne permet alors de dire que la salle allait bien;
+- « page » quand une seule page a gelé pendant que les autres recevaient.
+
+Une chute de cadence est toujours de salle: la médiane réunit toutes les pages.
+Chaque portée a sa pause. Une page qui tousse ne fait pas taire la vraie chute de
+salle qui la suit; une chute de salle, qui couvre déjà les pages, fait taire les
+gels de page qui la suivent.
+
 Les pilotes d'essai (`banc`) et les pages sans jeu sont ignorés: le premier
 remplirait la boîte de ses propres essais, le second mesure un menu.
 """
 
 import json
 from collections import deque
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta, tzinfo
 from pathlib import Path
@@ -56,6 +91,10 @@ class Chute:
     #: Nul quand la cause est la cadence, ou quand aucune page ne le mesure (les
     #: lignes d'avant le 14 septembre 2026 ne portent pas ce champ).
     gel_ms: float | None = None
+    #: « salle » ou « page »: voir la portée d'un gel dans l'en-tête du module.
+    portee: str = "salle"
+    #: La visite qui a gelé seule, quand la portée est « page ».
+    page: str | None = None
 
 
 @dataclass(frozen=True)
@@ -78,14 +117,18 @@ class Declencheur:
         pause: timedelta = timedelta(minutes=5),
         minimum: int = 3,
         seuil_gel_ms: float = 500.0,
+        plafonds: Mapping[str, float] | None = None,
+        part_plafond: float = 0.9,
     ) -> None:
         self._seuil = seuil
         self._seuil_gel = seuil_gel_ms
+        self._plafonds = dict(plafonds or {})
+        self._part_plafond = part_plafond
         self._fenetre = fenetre
         self._pause = pause
         self._minimum = minimum
         self._mesures: dict[int | None, deque[_Mesure]] = {}
-        self._derniere: dict[int | None, datetime] = {}
+        self._derniere: dict[tuple[int | None, str], datetime] = {}
 
     def lire(self, ligne: dict[str, Any]) -> None:
         """Retient une ligne du journal du salon si c'est une mesure utile."""
@@ -122,32 +165,61 @@ class Declencheur:
                 mesures.popleft()
             if not mesures:
                 continue
-            valeur = median(mesure.cadence for mesure in mesures)
+            jeu = mesures[-1].jeu
+            du_jeu = [mesure for mesure in mesures if mesure.jeu == jeu]
+            cadence = median(mesure.cadence for mesure in du_jeu)
             pire = max(mesure.gel_ms for mesure in mesures)
             # La cadence d'abord: quand les deux règles parlent, « le jeu tourne
             # à 40 images par seconde » explique mieux qu'un trou isolé.
-            if len(mesures) >= self._minimum and valeur < self._seuil:
-                cause, gel = "cadence", None
+            page: str | None = None
+            jugees: list[_Mesure] = list(mesures)
+            if len(du_jeu) >= self._minimum and cadence < self._seuil_de(jeu):
+                cause, gel, portee = "cadence", None, "salle"
+                jugees = du_jeu
             elif pire >= self._seuil_gel:
                 cause, gel = "gel", pire
+                gelees = {m.visite for m in mesures if m.gel_ms >= self._seuil_gel}
+                if len(gelees) == 1 and len({m.visite for m in mesures}) > 1:
+                    portee, page = "page", next(iter(gelees))
+                else:
+                    portee = "salle"
             else:
                 continue
-            derniere = self._derniere.get(numero)
-            if derniere is not None and maintenant - derniere < self._pause:
+            if self._se_tait(numero, portee, maintenant):
                 continue
-            self._derniere[numero] = maintenant
+            self._derniere[(numero, portee)] = maintenant
             chutes.append(
                 Chute(
                     salle=numero,
-                    mediane=round(valeur, 1),
-                    mesures=len(mesures),
-                    pages=len({mesure.visite for mesure in mesures}),
-                    jeu=mesures[-1].jeu,
+                    mediane=round(median(mesure.cadence for mesure in jugees), 1),
+                    mesures=len(jugees),
+                    pages=len({mesure.visite for mesure in jugees}),
+                    jeu=jeu,
                     cause=cause,
                     gel_ms=gel,
+                    portee=portee,
+                    page=page,
                 )
             )
         return chutes
+
+    def _seuil_de(self, jeu: str) -> float:
+        """Sous quelle médiane ce jeu chute: une part de son plafond s'il en a un."""
+        plafond = self._plafonds.get(jeu)
+        if plafond is None:
+            return self._seuil
+        # Arrondi: 0,9 fois 30 doit valoir 27 et pas 27,000000000000004, sinon une
+        # médiane de 27 tout rond chuterait.
+        return round(plafond * self._part_plafond, 6)
+
+    def _se_tait(self, numero: int | None, portee: str, maintenant: datetime) -> bool:
+        """Vrai si une chute de cette portée, ou une de salle, a parlé il y a peu."""
+        portees = ("salle",) if portee == "salle" else ("salle", "page")
+        return any(
+            maintenant - quand < self._pause
+            for quand in (self._derniere.get((numero, p)) for p in portees)
+            if quand is not None
+        )
 
 
 class Suiveur:

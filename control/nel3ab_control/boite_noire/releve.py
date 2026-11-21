@@ -40,7 +40,10 @@ from nel3ab_control.boite_noire import lecture
 
 #: Les moteurs, par le nom court que le noyau donne à leur processus (quinze
 #: caractères au plus: `dolphin-emu-nogui` devient `dolphin-emu-nog`).
-MOTEURS = {"Ryujinx": "switch", "dolphin-emu-nog": "dolphin"}
+#: Eden is the Switch 2 adapter's process name. Missing it marked a real game
+#: idle and allowed debugfs reads during Zelda on 2026-11-07. Those reads can
+#: stall rendering; this list also governs their exclusion, not just metrics.
+MOTEURS = {"Ryujinx": "switch", "dolphin-emu-nog": "dolphin", "eden-cli": "switch2"}
 
 #: Ce qui entoure une partie et peut lui prendre du processeur ou de la mémoire
 #: vidéo: le worker, les deux enregistreurs de la capture Switch, le compositeur

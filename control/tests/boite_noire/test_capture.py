@@ -6,6 +6,8 @@ from collections.abc import Sequence
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import pytest
+
 from nel3ab_control.boite_noire.capture import Capteur, lignes_recentes
 from nel3ab_control.boite_noire.releve import Racines
 
@@ -77,6 +79,28 @@ def test_une_capture_profile_les_trois_fils_les_plus_occupes(tmp_path: Path) -> 
     assert compte[compte.index("-p") + 1] == "4242"
 
 
+def test_le_gel_d_une_seule_page_ne_profile_pas_l_emulateur(tmp_path: Path) -> None:
+    """Le reste de la capture, journaux et pages, dit ce qui est arrivé à la page;
+    le profil de l'émulateur décrirait une salle qui allait bien."""
+    lanceur = FauxLanceur()
+    details = {"cause": "gel", "portee": "page", "page": "42fec406"}
+    dossier = _capteur(tmp_path, lanceur).capturer("chute", RYUJINX, QUAND, details)
+
+    assert not any(argv[:2] == ["perf", "record"] for argv in lanceur.commandes)
+    assert any(argv[:2] == ["perf", "stat"] for argv in lanceur.commandes)
+    assert any(argv[0] == "journalctl" for argv in lanceur.commandes)
+    assert json.loads((dossier / "capture.json").read_text())["fils_profiles"] == []
+
+
+def test_un_gel_de_salle_profile_l_emulateur(tmp_path: Path) -> None:
+    """Le jumeau, avec les mêmes fils occupés."""
+    lanceur = FauxLanceur()
+    details = {"cause": "gel", "portee": "salle", "page": None}
+    _capteur(tmp_path, lanceur).capturer("chute", RYUJINX, QUAND, details)
+
+    assert any(argv[:2] == ["perf", "record"] for argv in lanceur.commandes)
+
+
 def test_le_profil_est_resume_en_texte_au_moment_de_la_capture(tmp_path: Path) -> None:
     """La leçon du noyau changé: un profil brut ne se relit plus après une mise à jour."""
     lanceur = FauxLanceur()
@@ -96,10 +120,13 @@ def test_un_profil_rate_n_est_pas_resume_et_la_capture_continue(tmp_path: Path) 
     assert (dossier / "worker.log").exists()
 
 
-def test_la_capture_garde_l_allocateur_le_worker_les_pages_et_l_ecran(tmp_path: Path) -> None:
+@pytest.mark.parametrize("engine", ["switch", "switch2"])
+def test_la_capture_garde_l_allocateur_le_worker_les_pages_et_l_ecran(
+    tmp_path: Path, engine: str
+) -> None:
     lanceur = FauxLanceur()
     capteur = _capteur(tmp_path, lanceur, debugfs=True)
-    dossier = capteur.capturer("chute", RYUJINX, QUAND, {"mediane": 40.0})
+    dossier = capteur.capturer("chute", {**RYUJINX, "moteur": engine}, QUAND, {"mediane": 40.0})
 
     assert (dossier / "amdgpu_vram_mm.txt").read_text().startswith("chunk_size")
     assert (dossier / "amdgpu_gem_info.txt").exists()
@@ -184,10 +211,13 @@ def test_par_defaut_la_capture_ne_touche_pas_au_debugfs(tmp_path: Path) -> None:
     assert "amdgpu_vram_mm" not in meta["codes"]
 
 
-def test_une_capture_periodique_ne_prend_pas_l_ecran(tmp_path: Path) -> None:
+@pytest.mark.parametrize("engine", ["switch", "switch2"])
+def test_une_capture_periodique_ne_prend_pas_l_ecran(tmp_path: Path, engine: str) -> None:
     """`grim` tourne dans le conteneur du jeu: seulement quand il y a une chute à montrer."""
     lanceur = FauxLanceur()
-    dossier = _capteur(tmp_path, lanceur).capturer("periodique", RYUJINX, QUAND, {})
+    dossier = _capteur(tmp_path, lanceur).capturer(
+        "periodique", {**RYUJINX, "moteur": engine}, QUAND, {}
+    )
 
     assert not any(argv[:2] == ["docker", "exec"] for argv in lanceur.commandes)
     assert not (dossier / "ecran.png").exists()

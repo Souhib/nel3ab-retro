@@ -216,7 +216,7 @@ class SallesController:
         if not isinstance(courant, int) or not 0 <= courant < len(jeux):
             return None, False
         joue = jeux[courant]
-        return joue.get("name"), joue.get("console") == "switch"
+        return joue.get("name"), joue.get("console") in ("switch", "switch2")
 
     async def _depuis(self, numero: int) -> int | None:
         """Depuis combien de secondes cette salle tourne, demandé à systemd.

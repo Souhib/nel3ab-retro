@@ -132,6 +132,29 @@ class Settings(BaseSettings):
             "déclenche une capture. Mario Tennis tombait à 40 le 13 septembre 2026."
         ),
     )
+    boite_noire_plafonds: dict[str, float] = Field(
+        default={"The Legend of Zelda: Ocarina of Time": 30.0},
+        description=(
+            "Les jeux plafonnés sous 60 images par seconde: leur titre, tel que le "
+            "salon l'écrit, et leur plafond. Un jeu de cette table chute sous "
+            "`boite_noire_part_plafond` de son plafond, et non sous "
+            "`boite_noire_seuil_images`. Zelda sur Switch 2 est plafonné à 30 par sa "
+            "politique de lancement. Le 11 novembre 2026, le seuil de 50 a donné six "
+            "captures de cadence sur sept avec une médiane de 30,0, une toutes les "
+            "cinq minutes, et la seule vraie chute du jour (15 à 17 images par seconde "
+            "de 15:32:33 à 15:36:53) est tombée dans un de ces silences."
+        ),
+    )
+    boite_noire_part_plafond: float = Field(
+        default=0.9,
+        description=(
+            "Sous quelle part de son plafond un jeu de `boite_noire_plafonds` chute. "
+            "0,9 d'un plafond de 30 donne 27. La page arrondit la cadence à l'entier "
+            "et la règle est stricte: la salle chute donc à une médiane de 26,5 ou "
+            "moins. Rejoué le 14 novembre 2026 sur les mesures réelles des 10 et 11: "
+            "plus aucune capture à médiane 30, et la chute du 11 est prise."
+        ),
+    )
     boite_noire_seuil_gel_ms: float = Field(
         default=500.0,
         description=(
@@ -161,6 +184,20 @@ class Settings(BaseSettings):
             "vide pour obtenir le profil des secondes qui la PRÉCÈDENT. Sans lui, une "
             "capture ne montre qu'une machine déjà repartie: c'est ce qu'ont donné les "
             "trois premières captures de gel, le 16 septembre 2026."
+        ),
+    )
+    boite_noire_roulant_sauf: tuple[str, ...] = Field(
+        default=("switch2",),
+        description=(
+            "Les moteurs que le `perf` roulant ne suit pas, par leur nom dans les "
+            "relevés. Mesuré les 12 et 14 novembre 2026 sur Zelda (Lichii 65defb74), "
+            "moteur seul: le perf roulant ajoute 2,5 à 3,0 % au coût du fil GPUBack, "
+            "qui borne la cadence, soit 0,74 à 0,85 ms par image; quand ce fil n'a "
+            "plus de marge, le jeu perd 1,0 à 1,3 image par seconde. Ce moteur change "
+            "les droits d'accès de ses pages 408 à 437 fois par image, et le noyau "
+            "prépare un événement pour `perf` à chacune. Ce qu'on perd: le profil des "
+            "secondes qui précèdent une chute, pour ce moteur seulement. La capture "
+            "garde son profil de dix secondes, l'image et les journaux."
         ),
     )
     boite_noire_debugfs_en_partie: bool = Field(

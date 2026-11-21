@@ -685,6 +685,52 @@ async def test_a_word_the_page_invented_is_not_written(
     assert [line for line in lines if line["quoi"] == "qualité"] == []
 
 
+async def test_the_page_says_when_its_sound_was_cut_and_when_it_came_back(
+    served: tuple[str, RoomController], tmp_path: Path
+) -> None:
+    """La sourdine ferme la socket du son depuis le 23 septembre 2026. Le relevé de
+    dix secondes le montre à dix secondes près et sans nom côté worker; cette
+    ligne dit QUI, et QUAND, à la seconde."""
+    url, _rooms = served
+
+    page = socketio.AsyncClient()
+    await page.connect(url, socketio_path="/socket.io", auth={"visite": "kkkk1111"})
+    await page.emit("son", {"quoi": "coupé"})
+    await asyncio.sleep(1.2)
+    await page.emit("son", {"quoi": "remis"})
+    await asyncio.sleep(0.3)
+    await page.disconnect()
+    await asyncio.sleep(0.2)
+
+    written = sorted((tmp_path / "sessions").glob("*.jsonl"))[0]
+    lines = [json.loads(line) for line in written.read_text(encoding="utf-8").splitlines()]
+    dites = [line for line in lines if line["quoi"] == "son"]
+
+    assert [line["etat"] for line in dites] == ["coupé", "remis"]
+    assert all(line["visite"] == "kkkk1111" for line in dites)
+    assert dites[0]["salle"]["jeu"] == "Super Smash Bros Melee"
+
+
+async def test_a_sound_word_the_page_invented_is_not_written(
+    served: tuple[str, RoomController], tmp_path: Path
+) -> None:
+    """Le jumeau: deux mots connus, rien d'autre."""
+    url, _rooms = served
+
+    page = socketio.AsyncClient()
+    await page.connect(url, socketio_path="/socket.io", auth={"visite": "llll2222"})
+    await page.emit("son", {"quoi": "plus fort"})
+    await page.emit("son", "coupé")
+    await asyncio.sleep(0.3)
+    await page.disconnect()
+    await asyncio.sleep(0.2)
+
+    written = sorted((tmp_path / "sessions").glob("*.jsonl"))[0]
+    lines = [json.loads(line) for line in written.read_text(encoding="utf-8").splitlines()]
+
+    assert [line for line in lines if line["quoi"] == "son"] == []
+
+
 async def test_an_arrival_says_which_device_the_page_runs_on(
     served: tuple[str, RoomController], tmp_path: Path
 ) -> None:
@@ -1017,7 +1063,7 @@ def test_the_save_names_say_the_same_thing_on_both_sides() -> None:
     # pas le sien.
     debut = source.index("export const SLOTS")
     bloc = source[debut : source.index("] as const;", debut)]
-    page = re.findall(r'\{ id: (\d+), label: "([^"]+)"', bloc)
+    page = re.findall(r'\{\s*id:\s*(\d+),\s*label:\s*"([^"]+)"', bloc)
     assert page, "la page ne déclare plus ses emplacements sous la forme attendue"
     assert [(str(code), label) for code, label in enumerate(SAVES)] == page, (
         f"salon {list(SAVES)} contre page {[label for _, label in page]}"
@@ -1155,7 +1201,11 @@ async def test_collective_preparation_reaches_everyone_and_keeps_each_choice(
             else:
                 await stream.send(b"ok\n")
 
+    imported = {"present": False}
+
     async def catalog(_request: httpx.Request) -> httpx.Response:
+        if _request.url.path == "/saves":
+            return httpx.Response(200, json=[imported["present"]])
         return httpx.Response(
             200,
             json={
@@ -1192,6 +1242,12 @@ async def test_collective_preparation_reaches_everyone_and_keeps_each_choice(
                     assert "error" in await players[1].call(
                         "preparation", {"action": "begin", "game": 0}
                     )
+                    refused = await players[0].call(
+                        "preparation", {"action": "begin", "game": 0, "save": 1}
+                    )
+                    assert "importée" in refused["error"]
+                    assert rooms.preparation is None
+                    imported["present"] = True
                     assert await players[0].call(
                         "preparation", {"action": "begin", "game": 0, "save": 1}
                     ) == {"ok": True}
@@ -1217,6 +1273,12 @@ async def test_collective_preparation_reaches_everyone_and_keeps_each_choice(
                     assert "error" in await act(0, action="launch")
                     assert launches == []
                     assert await act(1, action="choose", pad=1, ready=True) == {"ok": True}
+                    imported["present"] = False
+                    refused = await act(0, action="launch")
+                    assert "plus disponible" in refused["error"]
+                    assert launches == []
+                    assert rooms.preparation is not None
+                    imported["present"] = True
                     assert await act(0, action="launch") == {"ok": True}
                     # Le tiret final est l'identité de qui lance: vide ici, faute
                     # de proxy devant le salon, et le worker retombera donc sur
@@ -1297,9 +1359,14 @@ async def test_old_page_and_reconnection_do_not_become_false_spectators(served, 
             await page.disconnect()
 
 
+@pytest.mark.parametrize("login", ["first+player@example.com", "first-player@example.com"])
+@pytest.mark.parametrize("slot,label", [(0, "partie neuve"), (2, "reprendre")])
 async def test_lancer_sur_sa_propre_sauvegarde_annonce_le_bon_emplacement(
     served: tuple[str, RoomController],
     monkeypatch: pytest.MonkeyPatch,
+    login: str,
+    slot: int,
+    label: str,
 ) -> None:
     """Le troisième emplacement doit s'annoncer comme les deux autres.
 
@@ -1360,12 +1427,25 @@ async def test_lancer_sur_sa_propre_sauvegarde_annonce_le_bon_emplacement(
                 booting: asyncio.Queue[dict] = asyncio.Queue()
                 watcher.on("booting", booting.put_nowait)
                 try:
-                    await player.connect(url, auth={"name": "Souhib"})
+                    await player.connect(
+                        url,
+                        headers={
+                            "Tailscale-User-Login": login,
+                            "Tailscale-User-Name": "same nickname",
+                        },
+                        auth={"name": "same nickname", "login": "forged@example.com"},
+                    )
                     await watcher.connect(url, auth={"name": "Vincent"})
                     await player.call("seat", {"port": 1, "claim": claim})
 
                     assert await player.call(
-                        "preparation", {"action": "begin", "game": 0, "save": 2}
+                        "preparation",
+                        {
+                            "action": "begin",
+                            "game": 0,
+                            "save": slot,
+                            "person": "forged@example.com",
+                        },
                     ) == {"ok": True}
                     assert rooms.preparation is not None
                     identifiant = rooms.preparation.id
@@ -1378,7 +1458,9 @@ async def test_lancer_sur_sa_propre_sauvegarde_annonce_le_bon_emplacement(
                     ) == {"ok": True}
 
                     # Le worker a bien reçu l'emplacement 2.
-                    assert launches and launches[0].split()[4] == "2", launches
+                    assert len(launches) == 1, launches
+                    assert shlex.split(launches[0])[4] == str(slot), launches
+                    assert shlex.split(launches[0])[-1] == login, launches
 
                     # Et le JUMEAU, celui qui manquait: ceux qui regardent
                     # reçoivent l'annonce, avec le nom de l'emplacement. Sans
@@ -1386,17 +1468,29 @@ async def test_lancer_sur_sa_propre_sauvegarde_annonce_le_bon_emplacement(
                     # satisferait l'assertion du dessus.
                     async with asyncio.timeout(3):
                         annonce = await booting.get()
-                    assert annonce["saveSlot"] == 2
-                    assert annonce["save"] == "ta sauvegarde"
+                    assert annonce["saveSlot"] == slot
+                    assert annonce["save"] == label
                 finally:
                     await player.disconnect()
                     await watcher.disconnect()
                     group.cancel_scope.cancel()
 
 
-async def test_une_preparation_s_ouvre_aussi_pour_un_jeu_gamecube(
+@pytest.mark.parametrize(
+    ("name", "console", "allowed", "ports"),
+    [
+        ("Super Smash Bros Melee", "gc", [0], [1, 2]),
+        ("Mario Tennis Aces", "switch", [4], [1, 2]),
+        ("The Legend of Zelda: Ocarina of Time", "switch2", [4], [1]),
+    ],
+)
+async def test_une_preparation_s_ouvre_pour_les_consoles_connues(
     served: tuple[str, RoomController],
     monkeypatch: pytest.MonkeyPatch,
+    name: str,
+    console: str,
+    allowed: list[int],
+    ports: list[int],
 ) -> None:
     """La GameCube passe par la préparation depuis le 12 septembre 2026.
 
@@ -1411,6 +1505,7 @@ async def test_une_preparation_s_ouvre_aussi_pour_un_jeu_gamecube(
 
     url, rooms = served
     claim = "b" * 32 + "-1"
+    second_claim = "c" * 32 + "-2"
 
     async def worker(stream: SocketStream) -> None:
         async with stream:
@@ -1419,7 +1514,7 @@ async def test_une_preparation_s_ouvre_aussi_pour_un_jeu_gamecube(
                 line += await stream.receive(320)
             command = line.decode().strip()
             if command == "seats":
-                await stream.send((" ".join([claim, "-", "-", "-"]) + "\n").encode())
+                await stream.send((" ".join([claim, second_claim, "-", "-"]) + "\n").encode())
             elif command.startswith("decides"):
                 await stream.send(b"yes\n")
             else:
@@ -1431,7 +1526,7 @@ async def test_une_preparation_s_ouvre_aussi_pour_un_jeu_gamecube(
             json={
                 "current": None,
                 "roms": [
-                    {"name": "Super Smash Bros Melee", "console": "gc", "art": False},
+                    {"name": name, "console": console, "art": False},
                     {"name": "Un disque muet", "art": False},
                 ],
             },
@@ -1451,9 +1546,37 @@ async def test_une_preparation_s_ouvre_aussi_pour_un_jeu_gamecube(
                 await player.connect(url, auth={"name": "Souhib"}, socketio_path="/socket.io")
                 await player.call("seat", {"port": 1, "claim": claim})
 
+                watcher = socketio.AsyncClient()
+                await watcher.connect(url, auth={"name": "Yassine"}, socketio_path="/socket.io")
+                await watcher.call("seat", {"port": 2, "claim": second_claim})
+
                 ouvert = await player.call("preparation", {"action": "begin", "game": 0, "save": 2})
                 assert ouvert == {"ok": True}
                 assert rooms.preparation is not None
+
+                assert rooms.preparation.allowed == allowed
+                assert [person.port for person in rooms.preparation.players] == ports
+
+                announcement: asyncio.Queue[dict] = asyncio.Queue()
+                player.on("booting", announcement.put_nowait)
+                pending_id = rooms.preparation.id
+                second_choice = await watcher.call(
+                    "preparation",
+                    {"action": "choose", "id": pending_id, "pad": allowed[0], "ready": True},
+                )
+                assert ("error" in second_choice) == (console == "switch2")
+                assert await player.call(
+                    "preparation",
+                    {"action": "choose", "id": pending_id, "pad": allowed[0], "ready": True},
+                ) == {"ok": True}
+                assert await player.call("preparation", {"action": "launch", "id": pending_id}) == {
+                    "ok": True
+                }
+                async with asyncio.timeout(3):
+                    pushed = await announcement.get()
+                assert pushed.get("soloStarter") == (
+                    player.get_sid() if console == "switch2" else None
+                )
 
                 rooms.preparation = None
                 refuse = await player.call("preparation", {"action": "begin", "game": 1, "save": 0})
@@ -1461,6 +1584,7 @@ async def test_une_preparation_s_ouvre_aussi_pour_un_jeu_gamecube(
                 assert rooms.preparation is None
 
                 await player.disconnect()
+                await watcher.disconnect()
                 group.cancel_scope.cancel()
 
 

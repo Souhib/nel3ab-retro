@@ -6,9 +6,16 @@ successifs, avec des compteurs qui avancent d'une quantité connue, prouvent les
 écarts au dixième près.
 """
 
+import json
+from datetime import UTC
 from pathlib import Path
+from unittest.mock import Mock
 
+from nel3ab_control.boite_noire.declencheur import Declencheur, Suiveur
 from nel3ab_control.boite_noire.releve import Racines, Releveur
+from nel3ab_control.boite_noire.service import BoiteNoire
+from nel3ab_control.journal import Journal
+from nel3ab_control.settings import Settings
 
 ECHANTILLONS = Path(__file__).parent / "echantillons"
 DOCKER_ID = "c0" * 32
@@ -198,6 +205,44 @@ def test_un_processus_etranger_n_entre_pas_dans_le_releve(tmp_path: Path) -> Non
 
     assert [moteur["pid"] for moteur in second["moteurs"]] == [RYUJINX]
     assert set(second["entourage"]) == {"nel3ab-worker"}
+
+
+def test_eden_is_an_active_game_and_never_reads_the_gpu_allocator(tmp_path: Path) -> None:
+    """A real scanner must protect an Eden game, not only a mocked engine list."""
+    machine = Machine(tmp_path / "machine")
+    _ecrire(machine.r.proc / str(RYUJINX) / "comm", "eden-cli\n")
+    clock = Horloge()
+    reader = Releveur(machine.r, horloge=clock, soi=SOI, tics_par_seconde=100)
+    assert reader.moteur_en_cours()
+    settings = Settings(
+        worker_url="http://127.0.0.1:1",
+        worker_control="127.0.0.1:1",
+        journal_dir=tmp_path / "sessions",
+        boite_noire_dir=tmp_path / "blackbox",
+    )
+    journal = Journal(settings.boite_noire_dir / "releves", 7, "UTC")
+    blackbox = BoiteNoire(
+        settings,
+        reader,
+        Mock(),
+        journal,
+        Suiveur(settings.journal_dir, UTC),
+        Declencheur(),
+        Mock(),
+        horloge=clock,
+    )
+    assert blackbox.tour() == settings.boite_noire_pas_partie_s
+    log = next((settings.boite_noire_dir / "releves").glob("*.jsonl"))
+    line = json.loads(log.read_text().splitlines()[0])
+    assert "allocateur_vram" not in line
+    assert line["moteurs"][0]["moteur"] == "switch2"
+    assert line["moteurs"][0]["salle"] == 1
+    # The negative twin: a shell left in the same container is not a game.
+    _ecrire(machine.r.proc / str(RYUJINX) / "comm", "bash\n")
+    clock.t += 61
+    assert not reader.moteur_en_cours()
+    assert blackbox.tour() == settings.boite_noire_pas_repos_s
+    assert "allocateur_vram" in json.loads(log.read_text().splitlines()[-1])
 
 
 def test_le_gpu_et_les_capteurs_se_lisent(tmp_path: Path) -> None:

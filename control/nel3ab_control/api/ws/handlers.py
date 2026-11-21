@@ -214,6 +214,14 @@ COMPLAINT_EVERY = 20.0
 QUALITY_EVERY = 5.0
 QUALITY_WORDS = ("proposé", "accepté", "refusé")
 
+#: Ce qu'une page a le droit de dire de sa sourdine, et à quel rythme.
+#:
+#: Deux mots et une seconde. La page n'envoie un changement qu'après deux
+#: secondes de volume stable, donc une seconde ne perd jamais un vrai geste; le
+#: garde borne ce qu'une page modifiée pourrait écrire.
+SOUND_EVERY = 1.0
+SOUND_WORDS = ("coupé", "remis")
+
 #: Le temps minimum entre deux messages de salle d'une même page, en secondes.
 #:
 #: Prendre une manette, la demander, répondre, changer de pseudo: tous des gestes
@@ -635,6 +643,25 @@ async def qualite(sid: str, data: dict[str, Any]) -> None:
 
 
 @sio.event
+@not_too_often(SOUND_EVERY)
+async def son(sid: str, data: dict[str, Any]) -> None:
+    """« Le son de cette page vient d'être coupé », ou « remis ».
+
+    Depuis le 23 septembre 2026, la sourdine ferme la socket du son: une page à
+    volume nul ne reçoit plus 1,5 Mbit/s. Le relevé de dix secondes le montre à
+    dix secondes près, et le worker ne sait pas à qui appartient une socket.
+    Cette ligne dit qui et quand, pour comparer une même liaison avec et sans le
+    son (proposition d'amendement de D10, `just soiree`).
+    """
+    quoi = data.get("quoi") if isinstance(data, dict) else None
+    if quoi not in SOUND_WORDS:
+        return
+    session = await sio.get_session(sid)
+    rooms, people, journal, _salle = await _pour(sid)
+    journal.write("son", **_who(sid, session), etat=quoi, salle=_room_now(rooms, people))
+
+
+@sio.event
 async def disconnect(sid: str) -> None:
     """Une page part. SES manettes retournent à la salle, pas celles du même nom
     sur une autre machine."""
@@ -673,7 +700,7 @@ async def disconnect(sid: str) -> None:
 #: `front/src/lib/saves.ts` et compare, parce que deux libellés qui se
 #: contredisent donneraient à celui qui lance et à ceux qui regardent deux
 #: versions différentes du même écran.
-SAVES = ("partie neuve", "tout débloqué", "ta sauvegarde")
+SAVES = ("partie neuve", "tout débloqué", "reprendre")
 
 
 @sio.event
@@ -797,9 +824,13 @@ async def preparation(sid: str, data: object = None) -> dict[str, str | bool]:
                 # Un disque dont la console est INCONNUE reste dehors: on ne
                 # sait pas quel appareil lui présenter, et une préparation qui
                 # propose une manette au hasard déciderait à la place du joueur.
-                if game is None or game.console not in ("gc", "wii", "switch"):
+                if game is None or game.console not in ("gc", "wii", "switch", "switch2"):
                     raise ValueError(
                         "Cette préparation demande de savoir de quelle console est le disque."
+                    )
+                if save == 1 and not await rooms.unlocked_available(index):
+                    raise ValueError(
+                        "Aucune sauvegarde tout débloqué importée n'est disponible pour ce jeu."
                     )
                 if rooms.preparation is not None:
                     raise ValueError("Une préparation est déjà ouverte.")
@@ -811,7 +842,7 @@ async def preparation(sid: str, data: object = None) -> dict[str, str | bool]:
                     # n'en a qu'un: la préparation lui sert à choisir la
                     # sauvegarde et à confirmer, pas à choisir une manette.
                     allowed=[4]
-                    if game.console == "switch"
+                    if game.console in ("switch", "switch2")
                     else [0]
                     if game.console == "gc"
                     else game.guide.allowed
@@ -820,7 +851,7 @@ async def preparation(sid: str, data: object = None) -> dict[str, str | bool]:
                     players=[
                         Participant(port=s.port, name=s.player, claim=s.claim)
                         for s in room.seats
-                        if s.claim
+                        if s.claim and (game.console != "switch2" or s.claim == seat.claim)
                     ],
                 )
             else:
@@ -840,6 +871,11 @@ async def preparation(sid: str, data: object = None) -> dict[str, str | bool]:
                         raise ValueError("Seule la personne qui prépare peut annuler le lancement.")
                     rooms.preparation = None
                 elif action == "launch":
+                    if pending.save == 1 and not await rooms.unlocked_available(pending.game):
+                        raise ValueError(
+                            "La sauvegarde tout débloqué n'est plus disponible. "
+                            "Choisis un autre emplacement."
+                        )
                     pads = pending.launch(seat.claim)
                     # L'identité vient de la SESSION, que le proxy a établie, et
                     # pas de ce que la page raconte: c'est elle qui décide dans
@@ -873,6 +909,7 @@ async def preparation(sid: str, data: object = None) -> dict[str, str | bool]:
                             "save": SAVES[pending.save],
                             "saveSlot": pending.save,
                             "pads": {p.claim: p.pad for p in pending.players},
+                            **({"soloStarter": sid} if game.console == "switch2" else {}),
                         },
                         room=piece(salle),
                     )

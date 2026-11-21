@@ -85,6 +85,16 @@ class RoomController:
         # autre cible ne doit pas annuler la protection de la première.
         self.recovery_refused: dict[int, tuple[str, float]] = {}
 
+    async def unlocked_available(self, index: int) -> bool:
+        """The worker checks import receipts and real payloads, including after removal."""
+        try:
+            response = await self._client.get(f"{self._settings.worker_url}/saves", timeout=2.0)
+            response.raise_for_status()
+            saves = response.json()
+        except (httpx.HTTPError, ValueError):
+            return False
+        return isinstance(saves, list) and 0 <= index < len(saves) and saves[index] is True
+
     async def synchronise(self) -> bool:
         """Rattache les noms aux attributions actuelles, jamais au numéro seul.
 
@@ -365,7 +375,11 @@ class RoomController:
             for identity, sessions in (people.sessions(salle) if people else {}).items()
         }
         if self.preparation and not self.preparation.synchronise(
-            [(seat.port, seat.claim, seat.player) for seat in seats if seat.claim is not None]
+            [(seat.port, seat.claim, seat.player) for seat in seats if seat.claim is not None],
+            solo=any(
+                game.index == self.preparation.game and game.console == "switch2"
+                for game in library
+            ),
         ):
             self.preparation = None
         return Room(

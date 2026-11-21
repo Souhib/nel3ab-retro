@@ -134,6 +134,10 @@ class Capteur:
         # Les fils les plus occupés du dernier relevé, pas des noms écrits en dur:
         # Ryujinx et Dolphin n'appellent pas leur fil de rendu pareil.
         fils = [str(un["tid"]) for un in moteur.get("fils", [])[:3] if un.get("cpu_pct", 0) >= 5]
+        # Un gel d'une seule page est celui de sa liaison: le profil de l'émulateur
+        # décrirait une salle qui allait bien, et coûte à la partie en cours.
+        if details.get("portee") == "page":
+            fils = []
         pendant: dict[str, tuple[list[str], Path]] = {
             "allocations": (
                 [
@@ -208,7 +212,11 @@ class Capteur:
         # qu'on ne sache, et `grim` tourne dans le conteneur du jeu. En PNG et au plus
         # bas: le `grim` de l'image est compilé sans JPEG (« jpeg support disabled »,
         # premier banc du 14 septembre 2026).
-        if raison == "chute" and moteur.get("moteur") == "switch" and moteur.get("conteneur"):
+        if (
+            raison == "chute"
+            and moteur.get("moteur") in ("switch", "switch2")
+            and moteur.get("conteneur")
+        ):
             codes["ecran"] = self._lanceur(
                 [
                     *("docker", "exec", str(moteur["conteneur"]), "sh", "-c"),

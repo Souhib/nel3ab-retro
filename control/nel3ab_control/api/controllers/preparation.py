@@ -21,7 +21,7 @@ class Preparation(BaseModel):
     allowed: list[int]
     players: list[Participant]
 
-    def synchronise(self, seats: list[tuple[int, str, str | None]]) -> bool:
+    def synchronise(self, seats: list[tuple[int, str, str | None]], *, solo: bool = False) -> bool:
         """Une nouvelle attribution doit confirmer son propre choix."""
         previous = {player.claim: player for player in self.players}
         self.players = [
@@ -33,6 +33,7 @@ class Preparation(BaseModel):
                 ready=previous[claim].ready if claim in previous else False,
             )
             for port, claim, name in seats
+            if not solo or claim == self.starter
         ]
         return any(player.claim == self.starter for player in self.players)
 

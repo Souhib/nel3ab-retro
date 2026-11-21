@@ -7,8 +7,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-from nel3ab_control.boite_noire.declencheur import Declencheur, Suiveur
-from nel3ab_control.boite_noire.service import BoiteNoire
+from nel3ab_control.boite_noire.declencheur import Chute, Declencheur, Suiveur
+from nel3ab_control.boite_noire.service import BoiteNoire, declencheur_depuis
 from nel3ab_control.journal import Journal
 from nel3ab_control.settings import Settings
 
@@ -125,13 +125,13 @@ def _lignes(reglages: Settings) -> list[dict[str, Any]]:
     ]
 
 
-def _mesure(temps: Temps, cadence: float) -> str:
+def _mesure(temps: Temps, cadence: float, visite: str = "a", gel_ms: float | None = None) -> str:
     ligne = {
         "quand": temps.murale().isoformat(),
         "quoi": "mesures",
-        "visite": "a",
+        "visite": visite,
         "banc": False,
-        "vu": {"jeuHz": cadence},
+        "vu": {"jeuHz": cadence, **({"arrivées": [16, 20, gel_ms]} if gel_ms is not None else {})},
         "salle": {"jeu": "Mario Tennis Aces", "numéro": 1},
     }
     return json.dumps(ligne, ensure_ascii=False) + "\n"
@@ -194,6 +194,8 @@ def test_une_chute_des_pages_declenche_une_capture_de_sa_salle(tmp_path: Path) -
                 "jeu": "Mario Tennis Aces",
                 "cause": "cadence",
                 "gel_ms": None,
+                "portee": "salle",
+                "page": None,
             },
         )
     ]
@@ -408,3 +410,141 @@ def test_une_chute_emporte_le_tampon_et_pas_une_capture_periodique(tmp_path: Pat
     assert [capture[0] for capture in capteur.captures] == ["chute", "periodique"]
     assert capteur.avants[0] == roulant.vider
     assert capteur.avants[1] is None
+
+
+def test_le_gel_d_une_seule_page_part_sans_le_tampon_de_l_emulateur(tmp_path: Path) -> None:
+    """Le 22 septembre 2026 à 23:25, le profil de l'émulateur a été pris pour la
+    liaison de Hyde. Les secondes qui précèdent un gel de page décrivent une salle
+    qui allait bien."""
+    roulant = FauxRoulant()
+    capteur = FauxCapteur()
+    boite, temps, reglages = _boite(tmp_path, FauxReleveur([RYUJINX]), capteur, roulant=roulant)
+    boite.tour()
+    journal = reglages.journal_dir / "2026-09-14.jsonl"
+    temps.secondes = 10
+    with journal.open("a", encoding="utf-8") as ouvert:
+        ouvert.write(_mesure(temps, 60, visite="hyde", gel_ms=8954))
+        ouvert.write(_mesure(temps, 60, visite="tomy", gel_ms=29))
+    temps.secondes = 12
+    boite.tour()
+
+    ((raison, _, details),) = capteur.captures
+    assert (raison, details["portee"], details["page"]) == ("chute", "page", "hyde")
+    assert capteur.avants == [None]
+
+
+def test_le_gel_de_deux_pages_emporte_le_tampon(tmp_path: Path) -> None:
+    """Le jumeau: deux pages gelées ensemble, c'est la salle, et le tampon part."""
+    roulant = FauxRoulant()
+    capteur = FauxCapteur()
+    boite, temps, reglages = _boite(tmp_path, FauxReleveur([RYUJINX]), capteur, roulant=roulant)
+    boite.tour()
+    journal = reglages.journal_dir / "2026-09-14.jsonl"
+    temps.secondes = 10
+    with journal.open("a", encoding="utf-8") as ouvert:
+        ouvert.write(_mesure(temps, 60, visite="hyde", gel_ms=8954))
+        ouvert.write(_mesure(temps, 60, visite="tomy", gel_ms=1210))
+    temps.secondes = 12
+    boite.tour()
+
+    ((_, _, details),) = capteur.captures
+    assert details["portee"] == "salle"
+    assert capteur.avants == [roulant.vider]
+
+
+# --- Le perf roulant ne suit pas le moteur Switch 2 ---------------------------
+#
+# Mesuré les 12 et 14 novembre 2026 sur Zelda (Lichii 65defb74): le perf roulant
+# ajoute 2,5 à 3,0 % au coût du fil GPUBack, qui borne la cadence, et retire 1,0 à
+# 1,3 image par seconde quand ce fil n'a plus de marge. Ce moteur change les droits
+# d'accès de ses pages 408 à 437 fois par image, et le noyau prépare un événement
+# pour `perf` à chaque fois.
+
+LICHII = {
+    "pid": 5151,
+    "moteur": "switch2",
+    "salle": 1,
+    "fils": [{"nom": "GPUBack", "tid": 5160, "cpu_pct": 87.0}],
+}
+
+
+def test_le_roulant_ne_suit_pas_un_moteur_switch2(tmp_path: Path) -> None:
+    roulant = FauxRoulant()
+    boite, _, reglages = _boite(tmp_path, FauxReleveur([LICHII]), FauxCapteur(), roulant=roulant)
+    assert "switch2" in reglages.boite_noire_roulant_sauf
+
+    boite.tour()
+
+    assert roulant.suivis == []
+    # Arrêté, pas seulement ignoré: un perf lancé pour le jeu d'avant ne doit pas
+    # rester accroché à un processus qui n'existe plus.
+    assert roulant.arrets == 1
+
+
+def test_le_roulant_suit_toujours_les_autres_moteurs(tmp_path: Path) -> None:
+    """Le jumeau: l'exception porte sur un moteur, pas sur le perf roulant."""
+    roulant = FauxRoulant()
+    dolphin = {**LICHII, "pid": 6161, "moteur": "dolphin"}
+    boite, _, _ = _boite(tmp_path, FauxReleveur([dolphin]), FauxCapteur(), roulant=roulant)
+
+    boite.tour()
+
+    assert roulant.suivis == [6161]
+    assert roulant.arrets == 0
+
+
+def test_a_deux_salles_le_roulant_suit_le_moteur_qui_n_est_pas_exclu(tmp_path: Path) -> None:
+    """Zelda dans une salle ne doit pas priver de tampon le Dolphin de l'autre."""
+    roulant = FauxRoulant()
+    dolphin = {**LICHII, "pid": 6161, "moteur": "dolphin", "salle": 2}
+    boite, _, _ = _boite(tmp_path, FauxReleveur([LICHII, dolphin]), FauxCapteur(), roulant=roulant)
+
+    boite.tour()
+
+    assert roulant.suivis == [6161]
+
+
+def test_une_chute_sur_switch2_part_sans_tampon_d_avant(tmp_path: Path) -> None:
+    """Sans perf roulant il n'y a pas de tampon: la capture ne doit pas en demander
+    un, sinon elle attendrait deux secondes un vidage qui ne viendra pas."""
+    roulant = FauxRoulant()
+    capteur = FauxCapteur()
+    boite, temps, reglages = _boite(tmp_path, FauxReleveur([LICHII]), capteur, roulant=roulant)
+    boite.tour()
+    journal = reglages.journal_dir / "2026-09-14.jsonl"
+    for seconde in (10, 20, 30):
+        temps.secondes = seconde
+        with journal.open("a", encoding="utf-8") as ouvert:
+            ouvert.write(_mesure(temps, 40))
+    temps.secondes = 32
+    boite.tour()
+
+    assert [capture[0] for capture in capteur.captures] == ["chute"]
+    assert capteur.avants == [None]
+
+
+def test_le_declencheur_du_service_connait_le_plafond_de_zelda(tmp_path: Path) -> None:
+    """Le câblage, pas la règle: les réglages par défaut portent la table, et
+    c'est bien elle que le service donne au déclencheur."""
+    reglages = Settings(journal_dir=tmp_path / "sessions", boite_noire_dir=tmp_path / "bn")
+    zelda = "The Legend of Zelda: Ocarina of Time"
+    assert reglages.boite_noire_plafonds[zelda] == 30.0
+
+    def trois_mesures(jeu: str, cadence: float) -> list[Chute]:
+        declencheur = declencheur_depuis(reglages)
+        for seconde in (0, 10, 20):
+            declencheur.lire(
+                {
+                    "quand": (DEBUT + timedelta(seconds=seconde)).isoformat(),
+                    "quoi": "mesures",
+                    "visite": "a",
+                    "banc": False,
+                    "vu": {"jeuHz": cadence},
+                    "salle": {"jeu": jeu, "numéro": 1},
+                }
+            )
+        return declencheur.evaluer(DEBUT + timedelta(seconds=21))
+
+    assert trois_mesures(zelda, 30) == []
+    assert [chute.mediane for chute in trois_mesures(zelda, 16)] == [16.0]
+    assert [chute.mediane for chute in trois_mesures("Mario Tennis Aces", 30)] == [30.0]

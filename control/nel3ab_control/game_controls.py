@@ -220,7 +220,40 @@ SWITCH_GUIDES = {
 }
 
 
+SWITCH2_GUIDES = {
+    "the legend of zelda: ocarina of time": {
+        "players": 1,
+        "multiplayer": "Un joueur. Les autres personnes peuvent regarder la partie.",
+        "devices": ["Manette Pro"],
+        "allowed": [4],
+        "checked": "2026-11-07",
+        "source": "https://www.nintendo.com/en-ca/store/products/the-legend-of-zelda-ocarina-of-time-switch-2/",
+        "note": (
+            "Version expérimentale : ralentissements et objets manquants possibles. "
+            "Pour sauvegarder, ouvrir + puis l'onglet Système avec R."
+        ),
+        "actions": {
+            "4": {
+                "A": "Confirmer / ouvrir une porte",
+                "B": "Retour dans les menus",
+                "X": "Sauter",
+                "PLUS": "Menu / sauvegarde",
+                "R": "Onglet suivant dans le menu",
+                "lx+": "Déplacer Link à droite",
+                "lx-": "Déplacer Link à gauche",
+                "ly+": "Déplacer Link vers l'avant",
+                "ly-": "Déplacer Link vers l'arrière",
+                "rx+": "Tourner la caméra à droite",
+                "rx-": "Tourner la caméra à gauche",
+            }
+        },
+    }
+}
+
+
 def guide_for(name: str, console: str) -> dict | None:
+    if console == "switch2":
+        return SWITCH2_GUIDES.get(name.casefold())
     if console == "switch":
         return SWITCH_GUIDES.get(name.casefold())
     if console == "gc":

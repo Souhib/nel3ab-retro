@@ -40,3 +40,16 @@ def test_switch_card_never_applies_to_dolphin():
     assert guide_for("Mario Tennis Aces", "wii") is None
     assert guide_for("Mario Tennis Aces", "gc") is None
     assert guide_for("Mario Kart Wii", "switch") is None
+
+
+def test_switch2_guide_limits_the_prototype_without_claiming_other_console_support():
+    name = "The Legend of Zelda: Ocarina of Time"
+    card = guide_for(name, "switch2")
+    assert card is not None
+    parsed = GameGuide.model_validate(card)
+    assert parsed.players == 1
+    assert parsed.allowed == [4]
+    for console in ("switch", "gc", "wii", "?"):
+        assert guide_for(name, console) is None
+    assert guide_for(name + " MOD", "switch2") is None
+    assert guide_for("Mario Tennis Aces", "switch2") is None

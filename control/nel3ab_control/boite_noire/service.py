@@ -118,7 +118,14 @@ class BoiteNoire:
         # Le `perf` roulant suit la partie en cours et s'arrête avec elle: une
         # machine au repos n'a rien à profiler, et un `perf` oublié écrit un jour.
         if self._roulant is not None:
-            premier = self._moteur_de(None, moteurs)
+            premier = next(
+                (
+                    moteur
+                    for moteur in moteurs
+                    if moteur.get("fils") and self._roulant_permis(moteur)
+                ),
+                None,
+            )
             if premier is None:
                 self._roulant.arreter()
             else:
@@ -166,6 +173,14 @@ class BoiteNoire:
             return next((moteur for moteur in avec_fils if moteur.get("salle") == salle), None)
         return avec_fils[0] if avec_fils else None
 
+    def _roulant_permis(self, moteur: dict[str, Any]) -> bool:
+        """Faux pour un moteur de `boite_noire_roulant_sauf`.
+
+        Le moteur Switch 2 y est: le perf roulant lui coûte 2,5 à 3,0 % sur le fil
+        qui borne sa cadence (mesuré les 12 et 14 novembre 2026).
+        """
+        return moteur.get("moteur") not in self._reglages.boite_noire_roulant_sauf
+
     def _demander(
         self, raison: str, moteur: dict[str, Any] | None, quand: datetime, chute: Chute | None
     ) -> bool:
@@ -182,9 +197,11 @@ class BoiteNoire:
             else:
                 self._journal.write("capture sautée", when=quand, raison=raison, chute=details)
             return False
-        # Le tampon ne part QU'avec une chute: une capture périodique décrit une
-        # machine qui va bien, et les secondes qui la précèdent aussi.
-        avant = self._roulant.vider if (chute is not None and self._roulant is not None) else None
+        # Le tampon ne part QU'avec une chute de salle: une capture périodique décrit
+        # une machine qui va bien, et un gel de page aussi (voir `Chute.portee`).
+        de_salle = chute is not None and chute.portee == "salle"
+        avec_tampon = de_salle and self._roulant is not None and self._roulant_permis(moteur)
+        avant = self._roulant.vider if (avec_tampon and self._roulant is not None) else None
         self._en_cours = self._executeur.submit(
             self._capteur.capturer, raison, moteur, quand, details, avant
         )
@@ -211,6 +228,20 @@ def _lancer_roulant(argv: list[str]) -> "subprocess.Popen[bytes]":
     )
 
 
+def declencheur_depuis(reglages: Settings) -> Declencheur:
+    """Le déclencheur que le service utilise, avec les seuils des réglages.
+
+    Une fonction à part pour que le câblage ait son essai: la règle était juste
+    le 11 novembre 2026, et c'est le seuil qu'on lui donnait qui ne l'était pas.
+    """
+    return Declencheur(
+        seuil=reglages.boite_noire_seuil_images,
+        seuil_gel_ms=reglages.boite_noire_seuil_gel_ms,
+        plafonds=reglages.boite_noire_plafonds,
+        part_plafond=reglages.boite_noire_part_plafond,
+    )
+
+
 def main() -> None:  # pragma: no cover - la boucle réelle, prouvée par son unité en service
     """Le service: jusqu'à `SIGTERM`, sans jamais laisser une exception l'arrêter."""
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
@@ -230,10 +261,7 @@ def main() -> None:  # pragma: no cover - la boucle réelle, prouvée par son un
         ),
         Journal(releves, reglages.boite_noire_jours, reglages.journal_zone),
         Suiveur(reglages.journal_dir, zone),
-        Declencheur(
-            seuil=reglages.boite_noire_seuil_images,
-            seuil_gel_ms=reglages.boite_noire_seuil_gel_ms,
-        ),
+        declencheur_depuis(reglages),
         ThreadPoolExecutor(max_workers=1, thread_name_prefix="capture"),
         roulant=Roulant(reglages.boite_noire_dir / "roulant", lanceur=_lancer_roulant)
         if reglages.boite_noire_roulant

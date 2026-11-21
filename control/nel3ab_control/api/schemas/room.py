@@ -88,6 +88,16 @@ class Seat(BaseModel):
         default=None,
         description="Repère de l'attribution actuelle. Ce n'est ni un nom ni un secret.",
     )
+    premiere: bool | None = Field(
+        default=None,
+        description=(
+            "Vrai quand la personne qui tient cette prise n'avait jamais tenu de "
+            "place dans cette salle, d'après le journal des parties. Gardé tant "
+            "qu'elle tient la prise. Rien quand le salon ne sait pas: sans "
+            "identité, page de banc ou journal illisible. La page retombe alors "
+            "sur sa propre mémoire."
+        ),
+    )
 
 
 class Room(BaseModel):

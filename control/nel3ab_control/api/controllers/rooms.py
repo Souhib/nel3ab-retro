@@ -16,11 +16,13 @@ from anyio import Lock
 from nel3ab_control.api.controllers.people import PeopleController
 from nel3ab_control.api.controllers.preparation import Preparation
 from nel3ab_control.api.controllers.recovery import Recovery
+from nel3ab_control.api.controllers.tablee import Tablee
 from nel3ab_control.api.schemas.error import NoSuchSeat, SeatTaken, WorkerUnreachable
 from nel3ab_control.api.schemas.player import Person
 from nel3ab_control.api.schemas.room import Game, Room, Seat
 from nel3ab_control.consoles import CONSOLES
 from nel3ab_control.game_controls import guide_for
+from nel3ab_control.parties import Fin, JeuJoue, Parties
 from nel3ab_control.settings import Settings
 from nel3ab_control.worker import read_seats
 
@@ -43,7 +45,13 @@ class RoomController:
     anyway. When a second room appears, this is what changes.
     """
 
-    def __init__(self, settings: Settings, client: httpx.AsyncClient, numero: int = 1) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        client: httpx.AsyncClient,
+        numero: int = 1,
+        parties: Parties | None = None,
+    ) -> None:
         self._settings = settings
         self._client = client
         #: Le numéro de LA salle que ce contrôleur décrit, fixé à la naissance.
@@ -55,6 +63,14 @@ class RoomController:
         #: un appelant, et `Salons.poser` refuse un contrôleur posé ailleurs que
         #: dans sa salle.
         self.numero = numero
+        #: Depuis quand chaque place est tenue, et sa trace au journal des
+        #: parties. Appelée à CHAQUE changement des places ci-dessous: c'est ce
+        #: contrôleur qui les change, donc c'est ici qu'une fin de place ne
+        #: peut pas être oubliée par un chemin ajouté plus tard. Le salon passe
+        #: son journal commun; à défaut, celui des réglages.
+        self.tablee = Tablee(
+            numero, parties or Parties(settings.parties_dir, settings.journal_zone)
+        )
         #: Port -> la SESSION qui l'a annoncé, pas le nom de qui la tient.
         #:
         #: Par session, parce qu'un nom n'est pas unique: la même personne peut
@@ -127,7 +143,7 @@ class RoomController:
         for port, sid in list(self._claims.items()):
             receipt = self._receipts.get(sid)
             if receipt is None or receipt != observed[port - 1]:
-                self.release(sid)
+                self.release(sid, self.tablee.perdue(sid))
                 changed = True
         if changed:
             # Le compteur d'attribution contient une génération de processus.
@@ -183,6 +199,7 @@ class RoomController:
             players if isinstance(players, int) and 1 <= players <= PADS_MAX else PADS_MAX
         )
         self._known = (games, running)
+        self.tablee.jeu(jeu_joue(running) if running else None)
         return games, running
 
     def known_game(self) -> str | None:
@@ -213,6 +230,7 @@ class RoomController:
                 if self._worker_seats is not None
                 else None,
                 claim=self._worker_seats[port - 1] if self._worker_seats is not None else None,
+                premiere=self.tablee.premiere(self._claims.get(port)),
             )
             for port in range(1, self._players + 1)
         ]
@@ -228,8 +246,19 @@ class RoomController:
         """
         return 1 <= port <= self._players
 
-    def claim(self, port: int, session: str, name: str, receipt: str | None = None) -> None:
+    def claim(
+        self,
+        port: int,
+        session: str,
+        name: str,
+        receipt: str | None = None,
+        login: str | None = None,
+    ) -> None:
         """Records that a SESSION says it holds a pad.
+
+        `login` est l'identité de la session, pour le journal des parties. Rien
+        pour une page sans identité ou une page de banc: elle tient sa place,
+        mais aucune partie n'est écrite à son nom.
 
         Refuses a pad another session claims. Re-claiming one's own is not an
         error: a page that reconnects says the same thing again, and treating
@@ -262,14 +291,20 @@ class RoomController:
         self._named[session] = name
         if receipt is not None:
             self._receipts[session] = receipt
+        self.tablee.assis(session, login, port)
 
-    def release(self, session: str) -> None:
+    def release(self, session: str, raison: Fin) -> None:
         """Forgets every pad THIS session claimed.
 
         Cette session-là et pas toutes celles du même nom: fermer un onglet ne
         doit pas libérer la manette que la même personne tient sur son autre
         machine.
+
+        La raison est OBLIGATOIRE: c'est elle que le journal des parties écrit
+        à la fin de la place, et une valeur par défaut aurait fait dire
+        « déconnectée » à un changement de jeu sans que rien ne le montre.
         """
+        self.tablee.leve(session, raison)
         self._claims = {port: who for port, who in self._claims.items() if who != session}
         self._named.pop(session, None)
         self._receipts.pop(session, None)
@@ -278,7 +313,7 @@ class RoomController:
     def watch(self, session: str) -> bool:
         """Rend la place et confirme le mode spectateur, même à la première annonce."""
         changed = session not in self._watching or self.seat_of(session) is not None
-        self.release(session)
+        self.release(session, Fin.QUITTEE)
         self._watching.add(session)
         return changed
 
@@ -305,7 +340,7 @@ class RoomController:
         gone = [at for at, who in self._claims.items() if who not in live]
         self._watching = {sid for sid in self._watching if sid in live}
         for at in gone:
-            self.release(self._claims[at])
+            self.release(self._claims[at], Fin.DECONNECTEE)
         return gone
 
     def rename(self, session: str, now: str) -> None:
@@ -345,7 +380,9 @@ class RoomController:
 
     def free(self, port: int) -> None:
         """Libère une place, parce que celui qui la tenait la cède."""
-        self._claims.pop(port, None)
+        session = self._claims.pop(port, None)
+        if session is not None:
+            self.tablee.leve(session, Fin.REMPLACEE)
 
     def seat_of(self, session: str) -> int | None:
         """La place que cette session tient, s'il y en a une."""
@@ -422,6 +459,16 @@ class RoomController:
             ask_lasts=ASK_LASTS,
             media_url=self._settings.worker_public_url,
         )
+
+
+def jeu_joue(game: Game) -> JeuJoue:
+    """Le jeu tel que le journal des parties le nomme.
+
+    Le seul endroit qui traduit un jeu de la bibliothèque en jeu du journal. Sa
+    clé est son nom de fichier (ADR D23); un worker qui ne la publie pas laisse
+    le titre seul désigner le jeu (voir `JeuJoue.identite`).
+    """
+    return JeuJoue(cle=game.key, console=game.console, titre=game.name)
 
 
 def _game(index: int, entry: object) -> Game:

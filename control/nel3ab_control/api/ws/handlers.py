@@ -12,6 +12,7 @@ ressemble à cet instant. Un contrôleur ne connaît qu'un tiers de la ligne.
 import json
 import logging
 from collections.abc import Awaitable, Callable
+from contextlib import suppress
 from functools import wraps
 from time import monotonic
 from typing import Any, Protocol
@@ -19,9 +20,9 @@ from typing import Any, Protocol
 from socketio.exceptions import ConnectionRefusedError as Refused
 
 from nel3ab_control.api.controllers.people import PeopleController
-from nel3ab_control.api.controllers.rooms import RoomController
+from nel3ab_control.api.controllers.rooms import RoomController, jeu_joue
 from nel3ab_control.api.controllers.salles import SALLES
-from nel3ab_control.api.schemas.error import SeatTaken
+from nel3ab_control.api.schemas.error import SeatTaken, WorkerUnreachable
 from nel3ab_control.api.schemas.player import NAME_MAX
 from nel3ab_control.api.schemas.room import GameGuide
 from nel3ab_control.api.ws.server import broadcast, piece, sio
@@ -29,6 +30,7 @@ from nel3ab_control.connection import read_connection
 from nel3ab_control.consoles import CONSOLES
 from nel3ab_control.identity import caller_of
 from nel3ab_control.journal import Journal
+from nel3ab_control.parties import Fin
 from nel3ab_control.worker import may_decide
 
 logger = logging.getLogger(__name__)
@@ -140,6 +142,16 @@ def _who(sid: str, session: dict[str, Any]) -> dict[str, Any]:
         # pas.
         **({"manette": True} if session.get("manette") else {}),
     }
+
+
+def _joueur(session: dict[str, Any]) -> str | None:
+    """L'identité sous laquelle le journal des parties écrit, ou rien.
+
+    Rien pour une page de banc: mes pilotes d'essai prennent de vraies places
+    et lancent de vrais jeux, souvent sous ma propre identité. Écrits au journal
+    des parties, ils rempliraient mon profil de parties que personne n'a jouées.
+    """
+    return None if session.get("banc") else session.get("login")
 
 
 def _room_now(rooms: RoomController, people: PeopleController) -> dict[str, Any]:
@@ -360,7 +372,7 @@ async def connect(sid: str, environ: dict[str, Any], auth: object) -> None:
         # ajoutée avant CONNECT ne doit jamais survivre à son échec.
         if not admitted:
             people.left(sid)
-            rooms.release(sid)
+            rooms.release(sid, Fin.DECONNECTEE)
             await sio.leave_room(sid, piece(salle))
 
 
@@ -393,6 +405,13 @@ async def seat(sid: str, data: dict[str, Any]) -> None:
         if rooms.announced(sid, port, receipt):
             return
         await rooms.synchronise()
+        # Le jeu qui tourne MAINTENANT, avant que la place ne commence au
+        # journal des parties. Après un lancement, le worker redémarre et la
+        # page revient avec un nouveau reçu: sans cette lecture, sa place
+        # commençait sur le jeu d'avant, puis se coupait à la diffusion
+        # suivante, et le jeu d'avant gagnait une partie d'une seconde.
+        with suppress(WorkerUnreachable):
+            await rooms.library()
         # Rendre d'abord ce que des sockets mortes tiennent encore.
         #
         # Une page qui recharge ouvre sa nouvelle socket AVANT que l'ancienne
@@ -401,7 +420,7 @@ async def seat(sid: str, data: dict[str, Any]) -> None:
         # annonce tombait sur une place tenue par un fantôme.
         rooms.forget_absent(people.live())
         try:
-            rooms.claim(port, sid, session["name"], receipt)
+            rooms.claim(port, sid, session["name"], receipt, login=_joueur(session))
         except SeatTaken:
             # Refusée, mais la salle est prévenue QUAND MÊME.
             #
@@ -670,7 +689,7 @@ async def disconnect(sid: str) -> None:
     rooms, people, journal, _salle = await _pour(sid)
     session = await sio.get_session(sid)
     people.left(sid)
-    rooms.release(sid)
+    rooms.release(sid, Fin.DECONNECTEE)
     journal.write(
         "départ",
         **_who(sid, session),
@@ -756,6 +775,9 @@ async def booting(sid: str, data: dict[str, Any]) -> None:
     if not 0 <= index < len(library):
         return
     game = library[index].name
+    # Ce chemin ne passe pas par la préparation et ne nomme personne au
+    # worker: la sauvegarde que le jeu prendra n'est pas connue ici.
+    rooms.tablee.lance(_joueur(session), session["name"], jeu_joue(library[index]), None)
     journal.write(
         "changement",
         **_who(sid, session),
@@ -934,6 +956,11 @@ async def preparation(sid: str, data: object = None) -> dict[str, str | bool]:
                         raise ValueError(
                             "Le worker n'a pas accepté le lancement. La préparation reste ouverte."
                         )
+                    # Au journal des parties, APRÈS l'accord du worker: un
+                    # lancement refusé n'a choisi la sauvegarde de personne.
+                    rooms.tablee.lance(
+                        _joueur(session), session["name"], jeu_joue(game), pending.save
+                    )
                     journal.write(
                         "changement",
                         **_who(sid, session),
@@ -997,6 +1024,7 @@ async def close_game(sid: str, data: object = None) -> dict[str, str | bool]:
         if not await stop_game(rooms.settings.worker_control, [r or "-" for r in observed]):
             return {"error": "La fermeture n'a pas été acceptée. Réessaie."}
         rooms.preparation = None
+        rooms.tablee.arrete()
         journal.write("fermeture", **_who(sid, session), jeu=running.name)
         await broadcast(rooms, people, journal)
         return {"ok": True}

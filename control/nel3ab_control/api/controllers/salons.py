@@ -17,15 +17,21 @@ import httpx
 
 from nel3ab_control.api.controllers.rooms import RoomController
 from nel3ab_control.api.controllers.salles import SALLES, SalleInconnue, adresse, controle
+from nel3ab_control.parties import Parties
 from nel3ab_control.settings import Settings
 
 
 class Salons:
     """Les contrôleurs de salle, un par numéro, créés au premier besoin."""
 
-    def __init__(self, settings: Settings, client: httpx.AsyncClient) -> None:
+    def __init__(
+        self, settings: Settings, client: httpx.AsyncClient, parties: Parties | None = None
+    ) -> None:
         self._settings = settings
         self._client = client
+        #: Le journal des parties, UN pour toutes les salles: il retient en
+        #: mémoire où chacun s'est déjà assis.
+        self.parties = parties or Parties(settings.parties_dir, settings.journal_zone)
         self._par_numero: dict[int, RoomController] = {}
 
     def pour(self, numero: int) -> RoomController:
@@ -38,7 +44,9 @@ class Salons:
         if numero not in SALLES:
             raise SalleInconnue(numero)
         if numero not in self._par_numero:
-            self._par_numero[numero] = RoomController(self._reglages(numero), self._client, numero)
+            self._par_numero[numero] = RoomController(
+                self._reglages(numero), self._client, numero, self.parties
+            )
         return self._par_numero[numero]
 
     def poser(self, numero: int, controleur: RoomController) -> None:
@@ -67,6 +75,17 @@ class Salons:
         return self._settings.model_copy(
             update={"worker_url": adresse(numero), "worker_control": controle(numero)}
         )
+
+    def fermee(self, numero: int) -> None:
+        """Cette salle vient d'être fermée: ses places ouvertes se terminent.
+
+        Sans fabriquer de contrôleur pour une salle que personne n'a ouverte:
+        il n'y aurait aucune place à fermer, et le contrôleur ferait interroger
+        un worker éteint une fois par seconde.
+        """
+        controleur = self._par_numero.get(numero)
+        if controleur is not None:
+            controleur.tablee.fermee()
 
     def eveilles(self) -> list[tuple[int, RoomController]]:
         """Les salles dont quelqu'un s'est déjà occupé, par numéro croissant.

@@ -91,6 +91,35 @@ class Settings(BaseSettings):
             "de « 16 h 43 », et un journal qui répond 14:43 ne se relit pas."
         ),
     )
+    parties_dir: Path = Field(
+        default=Path.home() / ".local/state/nel3ab/parties",
+        description=(
+            "Où le journal des parties est écrit: un fichier JSONL par personne, "
+            "nommé par l'empreinte de son adresse, JAMAIS balayé. Séparé du "
+            "journal des séances, qui s'efface après sept jours: un profil qui "
+            "oublie les parties d'il y a huit jours ne dit pas « ce que j'ai joué »."
+        ),
+    )
+    personal_save_root: Path = Field(
+        default=Path.home() / ".local/state/nel3ab/personal-saves",
+        description=(
+            "Où le worker range les sauvegardes personnelles GameCube et Wii. La "
+            "même variable et la même valeur que dans l'unité du worker "
+            "(`deploy/nel3ab-worker@.service`): le salon ne fait qu'y lire des "
+            "dates et des tailles, pour montrer à chacun les siennes."
+        ),
+    )
+    switch_config: Path = Field(
+        default=Path.home() / ".config/nel3ab/switch.json",
+        description=(
+            "La configuration de l'adaptateur Switch, la même que lit le worker. "
+            "Le salon n'y prend que `state`, le dossier des emplacements."
+        ),
+    )
+    switch2_config: Path = Field(
+        default=Path.home() / ".config/nel3ab/switch2.json",
+        description="Pareil pour l'adaptateur Switch 2.",
+    )
     boite_noire_dir: Path = Field(
         default=Path.home() / ".local/state/nel3ab/boite-noire",
         description=(

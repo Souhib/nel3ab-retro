@@ -40,6 +40,27 @@ def isolate_worker_control(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
+def isolate_personal_state(
+    monkeypatch: pytest.MonkeyPatch, tmp_path_factory: pytest.TempPathFactory
+) -> None:
+    """Aucun essai n'écrit au vrai journal des parties ni ne lit les vraies sauvegardes.
+
+    Par l'environnement, et pas seulement par la fixture `settings`: plusieurs
+    essais construisent leurs propres réglages, `Settings(...)` ou `Settings()`,
+    sans nommer ces dossiers. Le 21 novembre 2026, le premier passage de la
+    suite avec le journal des parties a écrit cinq fichiers d'identités d'essai
+    dans `~/.local/state/nel3ab/parties`, par un essai de socket qui ne
+    l'isolait pas. Ils ont été retirés; ce garde existe pour que ça ne se
+    reproduise pas, et `test_personal_state_is_isolated` le vérifie.
+    """
+    racine = tmp_path_factory.mktemp("etat-personnel")
+    monkeypatch.setenv("NEL3AB_PARTIES_DIR", str(racine / "parties"))
+    monkeypatch.setenv("NEL3AB_PERSONAL_SAVE_ROOT", str(racine / "personal-saves"))
+    monkeypatch.setenv("NEL3AB_SWITCH_CONFIG", str(racine / "switch.json"))
+    monkeypatch.setenv("NEL3AB_SWITCH2_CONFIG", str(racine / "switch2.json"))
+
+
+@pytest.fixture(autouse=True)
 def isolate_tailscaled(monkeypatch: pytest.MonkeyPatch) -> None:
     """Un test ne demande jamais au VRAI tailscaled qui est derrière une adresse.
 
@@ -80,6 +101,12 @@ def settings(tmp_path: Path) -> Settings:
         # vrai dossier effacerait la soirée qu'on voulait relire, et le premier
         # jet de ce fichier l'a fait.
         journal_dir=tmp_path / "sessions",
+        # Le journal des parties et les sauvegardes, nommés ici aussi pour que
+        # l'essai les lise dans `settings` plutôt que dans l'environnement.
+        parties_dir=tmp_path / "parties",
+        personal_save_root=tmp_path / "personal-saves",
+        switch_config=tmp_path / "switch.json",
+        switch2_config=tmp_path / "switch2.json",
         # Et les dossiers des salles: ouvrir une salle y pose le marqueur « sans
         # jeu », et le salon y lit la bibliothèque que les workers écrivent
         # (ADR D24). Pointé sur le vrai dossier, un essai poserait le marqueur
@@ -143,14 +170,16 @@ async def app(
         # DANS le registre, et pas à côté: les gestionnaires demandent le
         # contrôleur de leur salle au registre, donc un contrôleur posé ailleurs
         # serait observé par l'essai pendant que le salon en utilise un autre.
-        built.state.rooms = RoomController(settings, built.state.client)
+        built.state.rooms = RoomController(settings, built.state.client, 1, built.state.parties)
         built.state.salons.poser(1, built.state.rooms)
         # Les deux autres salles aussi, sur le même faux worker. Sans ça, une
         # page qui annonce la salle 2 ferait fabriquer au registre un contrôleur
         # pointé sur les VRAIS ports de la salle 2 (8120 et 8121), puisque le
         # registre déduit l'adresse du numéro.
         for numero in (2, 3):
-            built.state.salons.poser(numero, RoomController(settings, built.state.client, numero))
+            built.state.salons.poser(
+                numero, RoomController(settings, built.state.client, numero, built.state.parties)
+            )
         yield built
 
 

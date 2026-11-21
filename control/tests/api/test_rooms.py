@@ -6,6 +6,7 @@ from fastapi import FastAPI
 
 from nel3ab_control.api.controllers.rooms import RoomController
 from nel3ab_control.api.schemas.error import NoSuchSeat, SeatTaken, WorkerUnreachable
+from nel3ab_control.parties import Fin
 from nel3ab_control.settings import Settings
 from tests.conftest import LIBRARY
 
@@ -48,7 +49,13 @@ async def test_a_claimed_pad_carries_the_name(
     rooms.claim(2, "sid-souhib", "Souhib")
 
     room = (await client.get("/api/room")).json()
-    assert room["seats"][1] == {"port": 2, "player": "Souhib", "held": None, "claim": None}
+    assert room["seats"][1] == {
+        "port": 2,
+        "player": "Souhib",
+        "held": None,
+        "claim": None,
+        "premiere": None,
+    }
 
 
 async def test_a_pad_another_session_claims_is_refused(
@@ -86,7 +93,7 @@ async def test_leaving_gives_back_only_that_session_s_pads() -> None:
     rooms.claim(2, "bureau", "Souhib")
     rooms.claim(3, "sid-yassine", "Yassine")
 
-    rooms.release("portable")
+    rooms.release("portable", Fin.DECONNECTEE)
 
     assert [seat.player for seat in rooms.seats()] == [None, "Souhib", "Yassine", None]
 

@@ -1063,6 +1063,18 @@
             ],
             "title": "Claim",
             "description": "Repère de l'attribution actuelle. Ce n'est ni un nom ni un secret."
+          },
+          "premiere": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Premiere",
+            "description": "Vrai quand la personne qui tient cette prise n'avait jamais tenu de place dans cette salle, d'après le journal des parties. Gardé tant qu'elle tient la prise. Rien quand le salon ne sait pas: sans identité, page de banc ou journal illisible. La page retombe alors sur sa propre mémoire."
           }
         },
         "type": "object",

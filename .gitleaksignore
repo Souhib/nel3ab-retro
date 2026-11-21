@@ -1,0 +1,23 @@
+# Faux positifs de gitleaks, relus un par un le 21 novembre 2026.
+#
+# La règle « generic-api-key » se déclenche sur une longue chaîne hexadécimale
+# placée après une clé qui ressemble à un nom de secret. Dans les mesures du
+# moteur Switch 2, ce sont:
+# - des empreintes SHA-256 de fichiers de preuve (`api_evidence_sha256`,
+#   `secret-scan.yml`, `mode-access-proof.json`): elles décrivent un contenu
+#   et n'ouvrent rien;
+# - deux `token` de `statewrite1095-preparation`: l'identifiant aléatoire
+#   (uuid4) d'un essai de compilation, qui nomme son dossier de résultats.
+#
+# Chaque ligne désigne UNE trouvaille par son empreinte (commit, fichier,
+# règle, ligne). Une vraie fuite ailleurs, ou à une autre ligne, reste rouge.
+5b385c7521fe7db7a4bbf4947d53365594e3e26a:spikes/switch2-room/ci-hosted-placement-2026-11-10.json:generic-api-key:13
+5b385c7521fe7db7a4bbf4947d53365594e3e26a:spikes/switch2-room/fritchii-review-2026-11-10.json:generic-api-key:103
+5b385c7521fe7db7a4bbf4947d53365594e3e26a:spikes/switch2-room/fritchii-review-2026-11-10.json:generic-api-key:112
+5b385c7521fe7db7a4bbf4947d53365594e3e26a:spikes/switch2-room/fritchii-review-2026-11-10.json:generic-api-key:124
+5b385c7521fe7db7a4bbf4947d53365594e3e26a:spikes/switch2-room/fritchii-review-2026-11-10.json:generic-api-key:133
+5b385c7521fe7db7a4bbf4947d53365594e3e26a:spikes/switch2-room/statewrite1095-preparation-2026-11-11.json:generic-api-key:354
+5b385c7521fe7db7a4bbf4947d53365594e3e26a:spikes/switch2-room/statewrite1095-preparation-2026-11-11.json:generic-api-key:372
+5b385c7521fe7db7a4bbf4947d53365594e3e26a:spikes/switch2-room/warm-gpu-attempt-02-2026-11-10.json:generic-api-key:6825
+5b385c7521fe7db7a4bbf4947d53365594e3e26a:spikes/switch2-room/warm-gpu-attempt-03-2026-11-10.json:generic-api-key:204
+5b385c7521fe7db7a4bbf4947d53365594e3e26a:spikes/switch2-room/warm-gpu-reuse-01-2026-11-10.json:generic-api-key:233

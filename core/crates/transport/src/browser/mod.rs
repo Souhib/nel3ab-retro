@@ -172,6 +172,34 @@ impl std::fmt::Debug for SaveCatalogueSource {
 type SaveCatalogue = Arc<Mutex<Option<SaveCatalogueSource>>>;
 type Catalogue = Arc<Mutex<Arc<str>>>;
 
+/// La clé de chaque jeu, dans l'ordre du catalogue que ce serveur sert.
+///
+/// Lue DANS ce catalogue plutôt que passée à côté, et c'est le point: les clés
+/// qu'une page voit sont exactement celles que ce serveur accepte, sans deuxième
+/// liste qui pourrait dire autre chose (ADR D23). Une entrée sans clé, d'un
+/// catalogue d'avant, garde sa place et ne répond à aucune.
+type Keys = Arc<[Option<String>]>;
+
+fn keys_of(catalogue: &str) -> Keys {
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(catalogue) else {
+        return Arc::from(Vec::new());
+    };
+    value["roms"].as_array().map_or_else(
+        || Arc::from(Vec::new()),
+        |roms| {
+            roms.iter()
+                .map(|rom| rom["key"].as_str().map(str::to_owned))
+                .collect()
+        },
+    )
+}
+
+/// Où une clé se trouve dans ce catalogue, par égalité exacte et rien d'autre.
+fn position_of(keys: &[Option<String>], key: &nel3ab_protocol::GameKey) -> Option<usize> {
+    keys.iter()
+        .position(|held| held.as_deref() == Some(key.as_str()))
+}
+
 fn read_save_catalogue(source: &SaveCatalogue) -> Vec<bool> {
     let reader = source.lock().ok().and_then(|held| held.clone());
     reader.map_or_else(Vec::new, |read| (read.0)())
@@ -296,6 +324,7 @@ const HALF_NO: u8 = 2;
 #[derive(Debug)]
 pub struct BrowserServer {
     catalogue: Catalogue,
+    keys: Keys,
     save_catalogue: SaveCatalogue,
     /// One queue per listener, the sound's answer to `viewers`. Separate lists
     /// because the two streams are independent: a page may watch without
@@ -398,12 +427,15 @@ pub struct BrowserServer {
     half_dropped: Arc<std::sync::atomic::AtomicU64>,
     joined: Arc<std::sync::atomic::AtomicBool>,
     wants_key: Arc<std::sync::atomic::AtomicBool>,
-    /// Which game a player asked for, if one did.
+    /// Which game a player asked for, if one did, as a position in this
+    /// process's library. A key is resolved to it on arrival (ADR D23).
     ///
     /// A slot rather than a queue, for the reason the pads are: only the newest
     /// wish can be acted on, and acting on it ends the session anyway.
-    wants_rom: Arc<Mutex<Option<u8>>>,
-    prepared: Mutex<Option<crate::control::PreparedLaunch>>,
+    wants_rom: Arc<Mutex<Option<usize>>>,
+    /// Le lancement accepté, avec la position que son jeu a dans CETTE
+    /// bibliothèque, résolue au moment de l'accepter.
+    prepared: Mutex<Option<(usize, crate::control::PreparedLaunch)>>,
     closing: std::sync::atomic::AtomicBool,
     /// Dans combien de minutes la salle ferme, ou zéro s'il n'y a rien à dire.
     ///
@@ -510,6 +542,7 @@ impl BrowserServer {
         let (listener, bound) = Self::bound_listener(address)?;
 
         let clips = Arc::new(Mutex::new(crate::clip::Clips::new()));
+        let keys = keys_of(&catalogue);
         let catalogue = Arc::new(Mutex::new(catalogue));
         let save_catalogue: SaveCatalogue = Arc::new(Mutex::new(None));
         let viewers: Viewers = Arc::new(Mutex::new(Vec::new()));
@@ -543,6 +576,7 @@ impl BrowserServer {
             .spawn({
                 let clips = Arc::clone(&clips);
                 let catalogue = Arc::clone(&catalogue);
+                let keys = Arc::clone(&keys);
                 let save_catalogue = Arc::clone(&save_catalogue);
                 let half_ready = Arc::clone(&half_ready);
                 let joined = Arc::clone(&joined);
@@ -597,6 +631,7 @@ impl BrowserServer {
                             wants_pad,
                             wants_extension,
                             catalogue,
+                            keys,
                             half_viewers,
                             half_joined,
                             half_wants_key,
@@ -613,6 +648,7 @@ impl BrowserServer {
         tracing::info!(%bound, "browser server listening");
         Ok(Self {
             catalogue,
+            keys,
             save_catalogue,
             owner: Arc::clone(owner),
             clips,
@@ -932,6 +968,14 @@ impl BrowserServer {
         claim: &str,
         choice: crate::control::PreparedLaunch,
     ) -> bool {
+        // La clé se résout ICI, contre le catalogue que ce processus sert: la
+        // position qui en sort désigne le jeu que la page a cliqué, même si la
+        // liste a changé depuis que le salon l'a lue. Une position, l'ancienne
+        // forme, passe telle quelle: c'est `remember_choice` qui la borne.
+        let game = match &choice.game {
+            crate::control::GameRef::Position(index) => Some(usize::from(*index)),
+            crate::control::GameRef::Key(key) => position_of(&self.keys, key),
+        };
         let Ok(seats) = self.seats.lock() else {
             return false;
         };
@@ -955,9 +999,12 @@ impl BrowserServer {
         // tout le reste du chemin acceptait le personnel: l'analyseur de la
         // ligne de contrôle, le plan de contrôle, `Slot::from_code` et
         // `folder_for`, qui compose `joueur-<clé>` depuis le 12 septembre 2026.
+        } else if game.is_none() {
+            Some("ce jeu n'est pas dans la bibliothèque de cette salle")
         } else if choice.save > 2 {
             Some("cet emplacement de sauvegarde n'existe pas")
-        } else if choice.save == 1 && !self.unlocked_save_available(usize::from(choice.game)) {
+        } else if choice.save == 1 && !game.is_some_and(|index| self.unlocked_save_available(index))
+        {
             Some("aucun import tout débloqué disponible pour ce jeu")
         } else if choice.pads.iter().any(|code| *code > 4) {
             Some("un appareil demandé n'existe pas")
@@ -983,7 +1030,10 @@ impl BrowserServer {
             );
             return false;
         }
-        *pending = Some(choice);
+        let Some(game) = game else {
+            return false;
+        };
+        *pending = Some((game, choice));
         true
     }
 
@@ -1079,7 +1129,10 @@ impl BrowserServer {
     }
 
     /// Consomme un lancement collectif sans relire des choix globaux mutables.
-    pub fn take_prepared_launch(&self) -> Option<crate::control::PreparedLaunch> {
+    ///
+    /// Rend aussi la position de son jeu dans la bibliothèque de ce processus,
+    /// résolue quand le lancement a été accepté.
+    pub fn take_prepared_launch(&self) -> Option<(usize, crate::control::PreparedLaunch)> {
         self.prepared.lock().ok()?.take()
     }
 
@@ -1155,7 +1208,7 @@ impl BrowserServer {
     /// Reading it clears it: the caller acts on a wish exactly once, and acting
     /// on it means ending this session.
     #[must_use]
-    pub fn take_rom_request(&self) -> Option<u8> {
+    pub fn take_rom_request(&self) -> Option<usize> {
         self.wants_rom.lock().ok()?.take()
     }
 
@@ -1296,7 +1349,7 @@ struct Shared {
     devices: Arc<Mutex<[u8; PORTS]>>,
     rumbles: Rumbles,
     players: PlayerSlot,
-    wants_rom: Arc<Mutex<Option<u8>>>,
+    wants_rom: Arc<Mutex<Option<usize>>>,
     /// Dans combien de minutes la salle ferme. Voir `BrowserServer::closing_in`.
     closing_in: Arc<std::sync::atomic::AtomicU8>,
     /// L'emplacement de sauvegarde voulu pour le prochain jeu.
@@ -1312,6 +1365,8 @@ struct Shared {
     /// it lives is the emulator's business, and the transport's job is to hand
     /// bytes to a browser without an opinion about them.
     catalogue: Catalogue,
+    /// Les clés de ce catalogue, pour résoudre `{"jeu":"<clé>"}`. Voir [`Keys`].
+    keys: Keys,
     /// Le second flux: ses spectateurs, et ce qu'ils demandent. Voir le champ
     /// du même nom sur [`BrowserServer`] pour pourquoi rien n'est partagé.
     half_viewers: Viewers,
@@ -1839,13 +1894,16 @@ mod tests {
     #[test]
     fn une_salle_qui_prepare_un_lancement_ne_ferme_pas_pour_inactivite() {
         let server = detached(vec![]);
-        *server.prepared.lock().unwrap() = Some(crate::control::PreparedLaunch {
-            game: 2,
-            save: 1,
-            pads: [0, 1, 3, 2],
-            expected: server.seat_receipts(),
-            person: String::new(),
-        });
+        *server.prepared.lock().unwrap() = Some((
+            2,
+            crate::control::PreparedLaunch {
+                game: crate::control::GameRef::Position(2),
+                save: 1,
+                pads: [0, 1, 3, 2],
+                expected: server.seat_receipts(),
+                person: String::new(),
+            },
+        ));
         assert!(!server.close_idle());
         assert!(!server.stop_requested());
     }
@@ -1867,7 +1925,7 @@ mod tests {
         *server.owner.lock().unwrap() = Some(one);
         server.acted.lock().unwrap()[0] = Some(Instant::now());
         let choice = crate::control::PreparedLaunch {
-            game: 2,
+            game: crate::control::GameRef::Position(2),
             save: 1,
             pads: [0, 1, 3, 2],
             expected: server.seat_receipts(),
@@ -1888,7 +1946,7 @@ mod tests {
         assert!(server.prepare_launch(one, &crate::control::receipt(11), choice.clone()));
         assert!(!server.prepare_launch(one, &crate::control::receipt(11), choice.clone()));
         assert!(server.rom_wanted());
-        assert_eq!(server.take_prepared_launch(), Some(choice));
+        assert_eq!(server.take_prepared_launch(), Some((2, choice)));
         assert!(!server.rom_wanted());
     }
 
@@ -1913,7 +1971,7 @@ mod tests {
         *server.owner.lock().unwrap() = Some(one);
         server.acted.lock().unwrap()[0] = Some(Instant::now());
         let personnelle = crate::control::PreparedLaunch {
-            game: 2,
+            game: crate::control::GameRef::Position(2),
             save: 2,
             pads: [0, 0, 0, 0],
             expected: server.seat_receipts(),
@@ -1923,12 +1981,12 @@ mod tests {
             server.prepare_launch(one, &crate::control::receipt(11), personnelle.clone()),
             "« ta sauvegarde » refusée, alors que toutes les autres gardes l'acceptent"
         );
-        assert_eq!(server.take_prepared_launch(), Some(personnelle));
+        assert_eq!(server.take_prepared_launch(), Some((2, personnelle)));
 
         // Le jumeau négatif, sans lequel un plafond levé trop haut passerait:
         // un quatrième emplacement n'existe pas.
         let inconnu = crate::control::PreparedLaunch {
-            game: 2,
+            game: crate::control::GameRef::Position(2),
             save: 3,
             pads: [0, 0, 0, 0],
             expected: server.seat_receipts(),
@@ -2835,6 +2893,191 @@ mod tests {
             .unwrap();
         std::thread::sleep(Duration::from_millis(200));
         assert_eq!(server.take_rom_request(), Some(3));
+    }
+
+    /// La bibliothèque APRÈS l'arrivée d'un fichier qui se range avant Zelda:
+    /// la page qui tenait Zelda à la position 0 la tient maintenant à la 1.
+    const AFTER_AN_IMPORT: &str = r#"{"players":4,"current":null,"roms":[{"name":"Animal","console":"gc","key":"Animal.rvz"},{"name":"Zelda","console":"gc","key":"Zelda.rvz"}]}"#;
+
+    /// Lit les messages jusqu'à un texte, en sautant ceux de la salle.
+    fn next_text(socket: &mut tungstenite::WebSocket<TcpStream>) -> String {
+        loop {
+            match socket.read().unwrap() {
+                tungstenite::Message::Text(text) => return text.as_str().to_owned(),
+                tungstenite::Message::Binary(_) | tungstenite::Message::Ping(_) => {}
+                other => panic!("attendu un texte, reçu {other:?}"),
+            }
+        }
+    }
+
+    /// Un jeu demandé par sa clé atterrit sur ce jeu, pas sur sa position
+    /// d'avant (ADR D23). C'est le défaut que la position avait: le même octet
+    /// `[1, 0]` lance maintenant le jeu qui a pris la place de Zelda.
+    #[test]
+    fn a_key_lands_on_its_game_where_the_old_position_lands_on_its_neighbour() {
+        let server = BrowserServer::start(
+            "127.0.0.1:0".parse().unwrap(),
+            "page",
+            AFTER_AN_IMPORT.into(),
+            no_art(),
+            four(),
+            &nobody(),
+        )
+        .unwrap();
+        let (mut page, _) = hold(server.address());
+
+        page.send(tungstenite::Message::binary(
+            Command::SwitchRom { index: 0 }.encode().to_vec(),
+        ))
+        .unwrap();
+        assert!(eventually(|| server.rom_wanted()));
+        assert_eq!(
+            server.take_rom_request(),
+            Some(0),
+            "la position désigne Animal"
+        );
+
+        page.send(tungstenite::Message::text(r#"{"jeu":"Zelda.rvz"}"#))
+            .unwrap();
+        assert!(eventually(|| server.rom_wanted()));
+        assert_eq!(
+            server.take_rom_request(),
+            Some(1),
+            "la clé désigne toujours Zelda"
+        );
+    }
+
+    /// Une clé inconnue, ou qui ressemble à un chemin, est refusée par son nom,
+    /// et la manette reste à qui la tient: refuser l'ordre n'est pas refuser le
+    /// joueur, comme pour une position refusée.
+    #[test]
+    fn an_unknown_or_path_like_key_is_refused_by_name_and_the_pad_stays() {
+        let server = BrowserServer::start(
+            "127.0.0.1:0".parse().unwrap(),
+            "page",
+            AFTER_AN_IMPORT.into(),
+            no_art(),
+            four(),
+            &nobody(),
+        )
+        .unwrap();
+        let (mut page, port) = hold(server.address());
+
+        for (asked, reason) in [
+            (r#"{"jeu":"Absent.rvz"}"#, "absent de cette bibliothèque"),
+            (r#"{"jeu":"../Zelda.rvz"}"#, "clé invalide"),
+            (r#"{"jeu":"/home/x/roms/gc/Zelda.rvz"}"#, "clé invalide"),
+            (r#"{"jeu":7}"#, "clé invalide"),
+        ] {
+            page.send(tungstenite::Message::text(asked)).unwrap();
+            assert_eq!(
+                next_text(&mut page),
+                format!("jeu refusé: {reason}"),
+                "{asked}"
+            );
+        }
+        assert_eq!(server.take_rom_request(), None);
+
+        // La socket tient toujours: un aller-retour revient, et la place aussi.
+        let echo = Echo([4, 2, 0, 0, 0, 0, 0, 1]);
+        page.send(tungstenite::Message::binary(echo.encode().to_vec()))
+            .unwrap();
+        let back = loop {
+            match page.read().unwrap() {
+                tungstenite::Message::Binary(bytes) if bytes.len() == Echo::LEN => {
+                    break bytes;
+                }
+                _ => {}
+            }
+        };
+        assert_eq!(back.as_ref(), echo.encode().as_slice());
+        assert!(server.occupied_seats()[usize::from(port - 1)]);
+
+        // Un texte qui n'est pas une demande de jeu reste ignoré, sans réponse
+        // et sans fermer: le jumeau prouve que la clé connue passe après lui.
+        page.send(tungstenite::Message::text("bonjour")).unwrap();
+        page.send(tungstenite::Message::text(r#"{"jeu":"Zelda.rvz"}"#))
+            .unwrap();
+        assert!(eventually(|| server.rom_wanted()));
+        assert_eq!(server.take_rom_request(), Some(1));
+    }
+
+    /// La clé passe par la même règle du propriétaire que la position.
+    #[test]
+    fn only_the_owner_may_change_the_game_by_key() {
+        let owner: crate::control::OwnerSeat = Arc::new(Mutex::new(None));
+        let server = BrowserServer::start(
+            "127.0.0.1:0".parse().unwrap(),
+            "page",
+            AFTER_AN_IMPORT.into(),
+            no_art(),
+            four(),
+            &owner,
+        )
+        .unwrap();
+        let (mut first, _) = hold(server.address());
+        let (mut second, _) = hold(server.address());
+        *owner.lock().unwrap() = Some(PlayerSlot::new(1).unwrap());
+        server.acted.lock().unwrap()[0] = Some(std::time::Instant::now());
+
+        second
+            .send(tungstenite::Message::text(r#"{"jeu":"Zelda.rvz"}"#))
+            .unwrap();
+        assert_eq!(
+            next_text(&mut second),
+            "jeu refusé: cette place ne décide pas du jeu"
+        );
+        assert_eq!(server.take_rom_request(), None);
+
+        first
+            .send(tungstenite::Message::text(r#"{"jeu":"Zelda.rvz"}"#))
+            .unwrap();
+        assert!(eventually(|| server.rom_wanted()));
+        assert_eq!(server.take_rom_request(), Some(1));
+    }
+
+    /// Le juge seul, sans socket: chaque forme a sa réponse.
+    #[test]
+    fn a_text_is_judged_by_its_shape_then_its_key_then_the_seat() {
+        let keys: Vec<Option<String>> = vec![Some("Zelda.rvz".into()), None];
+        for (text, decides, expected) in [
+            (r#"{"jeu":"Zelda.rvz"}"#, true, pad::KeyRequest::Granted(0)),
+            (
+                r#"{"jeu":"Zelda.rvz"}"#,
+                false,
+                pad::KeyRequest::Refused("cette place ne décide pas du jeu"),
+            ),
+            (
+                r#"{"jeu":"zelda.rvz"}"#,
+                true,
+                pad::KeyRequest::Refused("absent de cette bibliothèque"),
+            ),
+            (
+                r#"{"jeu":""}"#,
+                true,
+                pad::KeyRequest::Refused("clé invalide"),
+            ),
+            (
+                r#"{"jeu":".."}"#,
+                true,
+                pad::KeyRequest::Refused("clé invalide"),
+            ),
+            (
+                r#"{"jeu":null}"#,
+                true,
+                pad::KeyRequest::Refused("clé invalide"),
+            ),
+            (
+                r#"{"jeu":"Zelda.rvz","autre":1}"#,
+                true,
+                pad::KeyRequest::NotOurs,
+            ),
+            (r#"{"game":"Zelda.rvz"}"#, true, pad::KeyRequest::NotOurs),
+            (r#"["Zelda.rvz"]"#, true, pad::KeyRequest::NotOurs),
+            ("format switch", true, pad::KeyRequest::NotOurs),
+        ] {
+            assert_eq!(pad::judge(text, &keys, || decides), expected, "{text}");
+        }
     }
 
     /// Four browsers, four ports, in the order they arrived.

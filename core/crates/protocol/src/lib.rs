@@ -72,6 +72,73 @@ pub enum ProtocolError {
         /// The offending bits, with the known ones cleared.
         bits: u16,
     },
+
+    /// A game key that no file name in a library can be. See [`GameKey`].
+    #[error("invalid game key: {reason}")]
+    InvalidGameKey {
+        /// What made it impossible, in words a log reader can act on.
+        reason: &'static str,
+    },
+}
+
+/// A game, named by its file name in the room's library (ADR D23).
+///
+/// # Why a name and not a position
+///
+/// A position in a sorted list names a different game as soon as a file that
+/// sorts before it is added. The library is read once per worker today, but an
+/// import that adds files while rooms run would shift every position a page or
+/// the lobby is holding. The file name is already what a room REMEMBERS its
+/// choice by (`chosen-rom`) and what Dolphin saves are keyed on, and the scan
+/// keeps one game per file name.
+///
+/// # Why it still cannot name a path
+///
+/// The worker compares a key for EQUALITY with the names its own scan found and
+/// never joins it to a directory. This type also refuses everything a path
+/// needs: a separator, `.` and `..`, an empty name. So `../x` or `/etc/shadow`
+/// cannot even be held, and the equality would not match them anyway. Two
+/// locks for one door, because the first can be forgotten by a later caller.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct GameKey(String);
+
+impl GameKey {
+    /// The longest file name Linux accepts, in bytes (`NAME_MAX`).
+    pub const MAX_BYTES: usize = 255;
+
+    /// Accepts what a file name in a library can be, and nothing a path needs.
+    ///
+    /// Control characters are refused too. A real file could carry one, but a
+    /// key travels into logs and onto other people's screens, and no library
+    /// seen here has one.
+    ///
+    /// # Errors
+    /// [`ProtocolError::InvalidGameKey`], naming what was wrong.
+    pub fn new(raw: &str) -> Result<Self, ProtocolError> {
+        let refused = |reason| Err(ProtocolError::InvalidGameKey { reason });
+        if raw.is_empty() {
+            return refused("empty");
+        }
+        if raw.len() > Self::MAX_BYTES {
+            return refused("longer than a file name");
+        }
+        if raw == "." || raw == ".." {
+            return refused("a directory, not a file");
+        }
+        if raw.contains('/') {
+            return refused("a path separator");
+        }
+        if raw.chars().any(char::is_control) {
+            return refused("a control character");
+        }
+        Ok(Self(raw.to_owned()))
+    }
+
+    /// The file name it carries.
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
 }
 
 /// What a seated player can ask for besides moving their pad.
@@ -99,6 +166,10 @@ pub enum Command {
     /// worker itself found, so no client can ask for a file outside the library
     /// however it words the request. The check that would reject a bad path is a
     /// check that can be forgotten; a `u8` index cannot express one.
+    ///
+    /// Kept for a page opened before 2026-11-21. A current page names the game
+    /// by its [`GameKey`] in a text frame instead (ADR D23): a position names a
+    /// different game once a file that sorts before it is added.
     SwitchRom {
         /// Where in the room's library, counting from zero.
         index: u8,
@@ -511,6 +582,37 @@ mod tests {
     use super::*;
     use proptest::prelude::*;
     use rstest::rstest;
+
+    /// What real libraries hold: spaces, parentheses, accents, a capital
+    /// extension, and the longest name Linux accepts.
+    #[rstest]
+    #[case("Mario Party 4 (Europe) (En,Fr,De,Es,It) (Rev 2).rvz")]
+    #[case("Zelda \"Ocarina\".nup")]
+    #[case("Pokémon Colosseum.ISO")]
+    #[case("..hidden.iso")]
+    #[case(&"a".repeat(GameKey::MAX_BYTES))]
+    fn a_file_name_is_a_key(#[case] name: &str) {
+        assert_eq!(GameKey::new(name).unwrap().as_str(), name);
+    }
+
+    /// The negative twin: nothing a path needs, and nothing a file name in a
+    /// directory cannot be.
+    #[rstest]
+    #[case("", "empty")]
+    #[case(".", "a directory, not a file")]
+    #[case("..", "a directory, not a file")]
+    #[case("../x", "a path separator")]
+    #[case("/etc/shadow", "a path separator")]
+    #[case("gc/Melee.rvz", "a path separator")]
+    #[case("Melee\n.rvz", "a control character")]
+    #[case("Melee\0.rvz", "a control character")]
+    #[case(&"a".repeat(GameKey::MAX_BYTES + 1), "longer than a file name")]
+    fn a_path_is_not_a_key(#[case] raw: &str, #[case] reason: &'static str) {
+        assert_eq!(
+            GameKey::new(raw),
+            Err(ProtocolError::InvalidGameKey { reason })
+        );
+    }
 
     // ── PlayerSlot ────────────────────────────────────────────────────────
     #[rstest]

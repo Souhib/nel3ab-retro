@@ -81,8 +81,10 @@ def settings(tmp_path: Path) -> Settings:
         # jet de ce fichier l'a fait.
         journal_dir=tmp_path / "sessions",
         # Et les dossiers des salles: ouvrir une salle y pose le marqueur « sans
-        # jeu ». Pointé sur le vrai dossier, un essai le poserait chez la salle
-        # qui tourne pour de vrai.
+        # jeu », et le salon y lit la bibliothèque que les workers écrivent
+        # (ADR D24). Pointé sur le vrai dossier, un essai poserait le marqueur
+        # chez la salle qui tourne pour de vrai, et listerait les jeux de la
+        # machine.
         salles_dir=tmp_path / "salles",
     )
 

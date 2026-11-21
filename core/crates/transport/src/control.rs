@@ -32,7 +32,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::thread::JoinHandle;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use nel3ab_protocol::PlayerSlot;
+use nel3ab_protocol::{GameKey, PlayerSlot};
 
 use crate::browser::TransportError;
 
@@ -70,11 +70,71 @@ pub enum Order {
     },
 }
 
+/// Le jeu qu'un ordre de lancement désigne.
+///
+/// Deux formes, et la première n'existe que pour la transition: un salon qui
+/// tourne encore avec l'ancien code envoie une position, un salon à jour envoie
+/// la clé (ADR D23). Le worker et le salon redémarrent séparément, et une salle
+/// qui refuserait tout lancement pendant ce décalage serait une salle en panne.
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum GameRef {
+    /// Une position dans la bibliothèque, l'ancienne forme: `0` à `255`.
+    Position(u8),
+    /// Une clé, écrite `k` puis les octets UTF-8 du nom de fichier en
+    /// hexadécimal: un nom de jeu porte des espaces, et cette ligne se découpe
+    /// aux espaces.
+    Key(GameKey),
+}
+
+impl GameRef {
+    /// La forme écrite sur la ligne de lancement.
+    #[must_use]
+    pub fn encode(&self) -> String {
+        match self {
+            Self::Position(index) => index.to_string(),
+            Self::Key(key) => {
+                use std::fmt::Write as _;
+                let mut out = String::with_capacity(1 + 2 * key.as_str().len());
+                out.push('k');
+                for byte in key.as_str().bytes() {
+                    // Écrire dans une String ne peut pas échouer.
+                    let _ = write!(out, "{byte:02x}");
+                }
+                out
+            }
+        }
+    }
+
+    /// Lit l'une ou l'autre forme. `None` pour tout le reste, y compris une clé
+    /// qui ne serait pas un nom de fichier (voir [`GameKey::new`]).
+    #[must_use]
+    pub fn decode(field: &str) -> Option<Self> {
+        if let Some(hex) = field.strip_prefix('k') {
+            if hex.len() % 2 != 0 || hex.len() > 2 * GameKey::MAX_BYTES {
+                return None;
+            }
+            let bytes = (0..hex.len())
+                .step_by(2)
+                .map(|at| u8::from_str_radix(hex.get(at..at + 2)?, 16).ok())
+                .collect::<Option<Vec<u8>>>()?;
+            return GameKey::new(&String::from_utf8(bytes).ok()?)
+                .ok()
+                .map(Self::Key);
+        }
+        // Des chiffres seulement: `+3` ou ` 3` ne sont pas des positions, même
+        // si `parse` les accepterait.
+        if field.is_empty() || !field.bytes().all(|byte| byte.is_ascii_digit()) {
+            return None;
+        }
+        field.parse().ok().map(Self::Position)
+    }
+}
+
 /// Les paramètres validés d’un lancement collectif.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct PreparedLaunch {
-    /// Position du disque dans la bibliothèque.
-    pub game: u8,
+    /// Le jeu, par sa clé ou, pour un ancien salon, par sa position.
+    pub game: GameRef,
     /// Emplacement de sauvegarde.
     pub save: u8,
     /// Qui lance, pour l'emplacement personnel. Vide quand personne n'est nommé.
@@ -166,7 +226,7 @@ pub fn parse(line: &str) -> Option<Order> {
             seat,
             claim: (*claim).to_owned(),
             choice: PreparedLaunch {
-                game: game.parse().ok()?,
+                game: GameRef::decode(game)?,
                 save,
                 pads,
                 expected: [one, two, three, four].map(|value| (*value).to_owned()),
@@ -215,7 +275,24 @@ const SAY_WITHIN: Duration = Duration::from_secs(2);
 /// appareils et les numéros du jeu et de la sauvegarde. Au 6 septembre 2026,
 /// sa forme maximale occupe 293 octets avec le saut de ligne. La borne de 320
 /// couvre cette forme sans accepter une ligne qui grossit sans fin.
-const ORDER_MAX: u64 = 320;
+///
+/// **Ce calcul était faux depuis le 12 septembre 2026**, trouvé le 21 novembre
+/// en mesurant la ligne au lieu de la recompter. L'identité de qui lance s'est
+/// ajoutée à la fin, jusqu'à 64 octets: la forme maximale faisait donc 358
+/// octets. Une ligne plus longue que la borne était coupée, et la coupe tombait
+/// dans ce dernier champ. La ligne restait lisible, et le worker rangeait la
+/// partie sous une identité tronquée, sans un mot. Les attributions réelles
+/// sont plus courtes que leur maximum, ce qui l'a caché: aucune soirée ne l'a
+/// montré.
+///
+/// Le même jour, le jeu passe d'une position de trois chiffres au plus à une
+/// clé: `k` et 510 chiffres hexadécimaux pour un nom de 255 octets. La forme
+/// maximale fait alors 866 octets avec son saut de ligne, mesurée par
+/// `the_longest_launch_fits_and_one_byte_more_does_not`. La borne est EXACTEMENT
+/// celle-là, et une ligne qui l'atteint sans son saut de ligne est refusée (voir
+/// `serve`): c'est ce second refus qui empêche toute coupe de passer pour une
+/// ligne entière, quelle que soit la borne.
+const ORDER_MAX: u64 = 866;
 
 /// Répond à `decides <place>`.
 ///
@@ -268,52 +345,61 @@ pub fn serve(
                     .take(ORDER_MAX),
                 )
                 .read_line(&mut line);
-                let answer = read.ok().and_then(|_| parse(&line)).map_or_else(
-                    || {
-                        tracing::warn!(line = line.trim(), "an order we do not understand");
-                        "no\n".to_owned()
-                    },
-                    |order| match order {
-                        Order::Stop(expected) => {
-                            if stop(expected) { "ok\n" } else { "no\n" }.to_owned()
-                        }
-                        Order::Launch {
-                            seat,
-                            claim,
-                            choice,
-                        } => {
-                            if launch(seat, &claim, choice) {
-                                "ok\n".to_owned()
-                            } else {
-                                "no\n".to_owned()
+                // Une ligne sans son saut de ligne est une ligne coupée par la
+                // borne, ou abandonnée par un client parti. Ni l'une ni l'autre
+                // n'est un ordre: sa fin manque, et c'est la fin qui nomme la
+                // personne dont la partie sera écrite.
+                let whole = line.ends_with('\n');
+                let answer = read
+                    .ok()
+                    .filter(|_| whole)
+                    .and_then(|_| parse(&line))
+                    .map_or_else(
+                        || {
+                            tracing::warn!(line = line.trim(), "an order we do not understand");
+                            "no\n".to_owned()
+                        },
+                        |order| match order {
+                            Order::Stop(expected) => {
+                                if stop(expected) { "ok\n" } else { "no\n" }.to_owned()
                             }
-                        }
-                        Order::SetOwner(seat) => {
-                            if let Ok(mut held) = owner.lock() {
-                                if *held != seat {
-                                    tracing::info!(
-                                        seat = seat.map_or(0, PlayerSlot::get),
-                                        "the room's owner changed"
-                                    );
+                            Order::Launch {
+                                seat,
+                                claim,
+                                choice,
+                            } => {
+                                if launch(seat, &claim, choice) {
+                                    "ok\n".to_owned()
+                                } else {
+                                    "no\n".to_owned()
                                 }
-                                *held = seat;
                             }
-                            "ok\n".to_owned()
-                        }
-                        // `yes`/`no` et pas `ok`: une réponse à une question ne
-                        // doit pas ressembler à un accusé de réception, sinon un
-                        // client qui teste `== "ok"` lit « refusé » comme
-                        // « accepté ».
-                        Order::MayDecide(seat) => {
-                            if decides(seat) {
-                                "yes\n".to_owned()
-                            } else {
-                                "no\n".to_owned()
+                            Order::SetOwner(seat) => {
+                                if let Ok(mut held) = owner.lock() {
+                                    if *held != seat {
+                                        tracing::info!(
+                                            seat = seat.map_or(0, PlayerSlot::get),
+                                            "the room's owner changed"
+                                        );
+                                    }
+                                    *held = seat;
+                                }
+                                "ok\n".to_owned()
                             }
-                        }
-                        Order::Seats => format!("{}\n", seats().join(" ")),
-                    },
-                );
+                            // `yes`/`no` et pas `ok`: une réponse à une question ne
+                            // doit pas ressembler à un accusé de réception, sinon un
+                            // client qui teste `== "ok"` lit « refusé » comme
+                            // « accepté ».
+                            Order::MayDecide(seat) => {
+                                if decides(seat) {
+                                    "yes\n".to_owned()
+                                } else {
+                                    "no\n".to_owned()
+                                }
+                            }
+                            Order::Seats => format!("{}\n", seats().join(" ")),
+                        },
+                    );
                 let _ = stream.write_all(answer.as_bytes());
             }
         })
@@ -420,13 +506,16 @@ mod tests {
         );
         assert_eq!(
             server.take_prepared_launch(),
-            Some(PreparedLaunch {
-                game: 2,
-                save: 1,
-                pads: [0, 1, 2, 3],
-                expected: receipts.clone(),
-                person: String::new()
-            })
+            Some((
+                2,
+                PreparedLaunch {
+                    game: GameRef::Position(2),
+                    save: 1,
+                    pads: [0, 1, 2, 3],
+                    expected: receipts.clone(),
+                    person: String::new()
+                }
+            ))
         );
         assert_eq!(
             ask(address, &format!("stop {}\n", receipts.join(" "))),
@@ -447,7 +536,7 @@ mod tests {
                 seat: PlayerSlot::new(1).unwrap(),
                 claim: claim.clone(),
                 choice: PreparedLaunch {
-                    game: 255,
+                    game: GameRef::Position(255),
                     save: 1,
                     pads: [0, 1, 2, 3],
                     expected: [claim, "-".into(), "-".into(), "-".into()],
@@ -468,6 +557,211 @@ mod tests {
         ] {
             assert!(parse(&bad).is_none(), "accepted {bad}");
         }
+    }
+
+    /// La clé traverse la ligne en hexadécimal, espaces et accents compris, et
+    /// revient telle qu'elle est partie.
+    #[test]
+    fn a_launch_can_name_its_game_by_key() {
+        let claim = receipt(1);
+        let key = GameKey::new("Mario Party 4 (Europe) (Rev 2) é.rvz").unwrap();
+        let field = GameRef::Key(key.clone()).encode();
+        assert!(field.starts_with('k') && !field.contains(' '), "{field}");
+        let line = format!("launch 1 {claim} {field} 2 0 0 0 0 {claim} - - - kitaru\n");
+        let Some(Order::Launch { choice, .. }) = parse(&line) else {
+            panic!("la ligne avec une clé n'a pas été comprise: {line}");
+        };
+        assert_eq!(choice.game, GameRef::Key(key));
+        assert_eq!(choice.person, "kitaru");
+    }
+
+    /// Le jumeau: ce qui n'est pas un nom de fichier n'est pas une clé, même
+    /// bien encodé. `../x` et un chemin absolu ne passent pas la ligne.
+    #[test]
+    fn a_path_cannot_cross_the_launch_line() {
+        // Écrit à la main: `GameKey` refuserait justement ces noms-là.
+        let hex = |raw: &str| {
+            raw.bytes().fold(String::from("k"), |mut out, byte| {
+                use std::fmt::Write as _;
+                let _ = write!(out, "{byte:02x}");
+                out
+            })
+        };
+        for field in [
+            hex("../x"),
+            hex("/etc/shadow"),
+            hex(".."),
+            hex(""),
+            "k6".to_owned(),
+            "kzz".to_owned(),
+            // Des octets qui ne sont pas de l'UTF-8.
+            "kff".to_owned(),
+            "+3".to_owned(),
+            "-1".to_owned(),
+            "256".to_owned(),
+        ] {
+            assert_eq!(GameRef::decode(&field), None, "accepté: {field}");
+        }
+        assert_eq!(GameRef::decode("7"), Some(GameRef::Position(7)));
+    }
+
+    /// La borne de lecture couvre la plus longue ligne possible, et pas plus
+    /// d'une clé trop longue d'un octet.
+    #[test]
+    fn the_longest_launch_fits_and_one_byte_more_does_not() {
+        let claim = format!("{}-{}", "f".repeat(32), "9".repeat(20));
+        assert_eq!(claim.len(), 53);
+        let longest = GameKey::new(&"é".repeat(127)).unwrap();
+        assert_eq!(longest.as_str().len(), 254);
+        let longest = GameKey::new(&format!("{}a", longest.as_str())).unwrap();
+        let line = |field: &str| {
+            format!(
+                "launch 4 {claim} {field} 2 4 4 4 4 {claim} {claim} {claim} {claim} {}\n",
+                "p".repeat(64)
+            )
+        };
+        let widest = line(&GameRef::Key(longest).encode());
+        assert_eq!(widest.len(), 866);
+        assert_eq!(widest.len() as u64, ORDER_MAX);
+        assert!(parse(&widest).is_some());
+        // L'ancienne forme maximale, celle que la borne de 320 coupait.
+        assert_eq!(line("255").len(), 358);
+        let too_long = line(&format!("k{}", "61".repeat(GameKey::MAX_BYTES + 1)));
+        assert!(parse(&too_long).is_none());
+    }
+
+    /// Un port qui retient ce que le worker aurait reçu, pour juger la lecture
+    /// elle-même plutôt que le reste du lancement.
+    fn a_port_that_records_launches() -> (SocketAddr, Arc<Mutex<Vec<PreparedLaunch>>>) {
+        let received = Arc::new(Mutex::new(Vec::new()));
+        let kept = Arc::clone(&received);
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        drop(listener);
+        serve(
+            address,
+            Arc::new(Mutex::new(None)),
+            Box::new(|_| true),
+            Box::new(|| std::array::from_fn(|_| "-".to_owned())),
+            Box::new(move |_, _, choice| {
+                kept.lock().unwrap().push(choice);
+                true
+            }),
+            Box::new(|_| false),
+        )
+        .unwrap();
+        (address, received)
+    }
+
+    fn widest_launch(game: &str, person: &str) -> String {
+        let claim = format!("{}-{}", "f".repeat(32), "9".repeat(20));
+        format!("launch 4 {claim} {game} 2 4 4 4 4 {claim} {claim} {claim} {claim} {person}\n")
+    }
+
+    /// Rouge d'abord: avec la borne de 320 d'avant, la ligne de 358 octets
+    /// arrivait coupée, et le worker recevait une identité de 26 caractères au
+    /// lieu de 64. Elle passait pourtant l'analyse: le dernier champ était
+    /// simplement plus court.
+    #[test]
+    fn the_longest_legal_launch_reaches_the_worker_whole() {
+        let (address, received) = a_port_that_records_launches();
+        let person = "p".repeat(64);
+        let key = GameRef::Key(GameKey::new(&"é".repeat(127)).unwrap()).encode() + "61";
+
+        // Chaque forme jugée sur ce que le worker a REÇU, tout de suite après
+        // son envoi: une réponse « ok » ne prouve pas que la ligne est arrivée
+        // entière, c'était justement le défaut.
+        for game in ["255", key.as_str()] {
+            let answer = ask(address, &widest_launch(game, &person));
+            let arrived = received.lock().unwrap().pop();
+            assert_eq!(
+                arrived.as_ref().map(|launch| launch.person.len()),
+                Some(person.len()),
+                "une identité est arrivée tronquée, ou pas du tout, pour {} octets",
+                widest_launch(game, &person).len()
+            );
+            assert_eq!(answer.as_deref(), Some("ok"));
+        }
+    }
+
+    /// Le jumeau: une ligne trop longue est refusée, et pas raccourcie jusqu'à
+    /// redevenir lisible. Celle-ci porte un quinzième champ, donc n'est pas un
+    /// ordre. La borne tombe juste après l'identité: sans le refus d'une ligne
+    /// sans fin, le champ de trop disparaîtrait avec la coupe, et ce qui reste
+    /// serait un lancement valide que personne n'a écrit.
+    #[test]
+    fn a_line_cut_by_the_bound_is_not_an_order() {
+        let (address, received) = a_port_that_records_launches();
+        let key = GameRef::Key(GameKey::new(&"é".repeat(127)).unwrap()).encode() + "61";
+        let cut = widest_launch(&key, &format!("{} {}", "p".repeat(64), "x".repeat(40)));
+        assert!(cut.len() as u64 > ORDER_MAX);
+        // La condition qui rend le jumeau utile, vérifiée: la coupe laisse une
+        // ligne que l'analyse accepterait.
+        let kept = usize::try_from(ORDER_MAX).unwrap();
+        assert!(
+            parse(&cut[..kept]).is_some(),
+            "la coupe ne retombe pas sur un ordre"
+        );
+        assert!(parse(&cut).is_none());
+
+        assert_eq!(ask(address, &cut).as_deref(), Some("no"));
+        assert!(
+            received.lock().unwrap().is_empty(),
+            "une ligne coupée a été obéie"
+        );
+    }
+
+    /// Le défaut de la position, sur le vrai port: le salon tient la clé d'un
+    /// jeu, la bibliothèque a gagné un fichier qui se range avant lui, et la
+    /// clé désigne toujours ce jeu. Une clé inconnue est refusée.
+    #[test]
+    fn a_key_launch_lands_on_its_game_after_the_library_changed() {
+        let owner = Arc::new(Mutex::new(None));
+        // La bibliothèque APRÈS l'ajout: « Animal » s'est rangé devant « Zelda ».
+        let catalogue = r#"{"players":4,"current":null,"roms":[{"name":"Animal","console":"gc","key":"Animal.rvz"},{"name":"Zelda","console":"gc","key":"Zelda.rvz"}]}"#;
+        let server = Arc::new(
+            crate::browser::BrowserServer::start(
+                "127.0.0.1:0".parse().unwrap(),
+                "test",
+                catalogue.into(),
+                Arc::from(Vec::new()),
+                PlayerSlot::new(4).unwrap(),
+                &owner,
+            )
+            .unwrap(),
+        );
+        let stream = std::net::TcpStream::connect(server.address()).unwrap();
+        stream
+            .set_read_timeout(Some(Duration::from_secs(3)))
+            .unwrap();
+        let (mut input, _) = tungstenite::client(
+            format!("ws://{}/input?identity=1", server.address()),
+            stream,
+        )
+        .unwrap();
+        let _room = input.read().unwrap();
+        let receipt_message = input.read().unwrap().into_text().unwrap();
+        let claim = receipt_message.strip_prefix("seat ").unwrap().to_owned();
+        let _pad = input.read().unwrap();
+        let receipts = server.seat_receipts().join(" ");
+        let launch = |field: &str| format!("launch 1 {claim} {field} 0 0 0 0 0 {receipts} -\n");
+        let choice_for = |game: &GameRef| match parse(&launch(&game.encode())) {
+            Some(Order::Launch { choice, .. }) => choice,
+            other => panic!("la ligne n'a pas été comprise: {other:?}"),
+        };
+        let one = PlayerSlot::new(1).unwrap();
+        let absent = GameRef::Key(GameKey::new("Absent.rvz").unwrap());
+        assert!(!server.prepare_launch(one, &claim, choice_for(&absent)));
+        assert!(
+            server.take_prepared_launch().is_none(),
+            "une clé inconnue ne lance rien"
+        );
+        let held = GameRef::Key(GameKey::new("Zelda.rvz").unwrap());
+        assert!(server.prepare_launch(one, &claim, choice_for(&held)));
+        let (position, accepted) = server.take_prepared_launch().unwrap();
+        assert_eq!(position, 1, "Zelda, et pas le jeu qui a pris sa place");
+        assert_eq!(accepted.game, held);
+        input.close(None).unwrap();
     }
 
     #[test]

@@ -6,6 +6,18 @@ et leurs limites. Le [carnet](carnet-de-bord.md#11-septembre-ce-que-le-mois-a-ap
 conserve leur déroulement ; l'[ADR](adr/0001-architecture.md) conserve les règles
 qui en résultent. Les anciens plans M1 à M3 sont des archives de conception.
 
+**Au 21 novembre, sur une branche non installée : un manifeste des consoles et une clé par jeu.**
+`consoles/consoles.json` décrit chaque console et chaque moteur ; le salon,
+la boîte noire et la page le lisent, et un essai compare le worker au
+fichier (ADR D22). La Xbox 360 y est décrite, pas jouable. Chaque jeu du
+catalogue porte une clé, son nom de fichier, et la page lance par elle, par
+la préparation du salon comme par la socket de manette (D23). Le worker
+écrit `catalogue.json` dans son répertoire de session à chaque démarrage, et
+le salon le sert à `/api/catalogue` sans salle ouverte (D24). En mesurant la
+ligne de contrôle, une coupe silencieuse du nom de qui lance a été trouvée et
+corrigée. Rien n'a tourné dans une vraie salle. Récit : [carnet](carnet-de-bord.md),
+entrée « 21 novembre : un seul fichier pour décrire les consoles ».
+
 **Au 21 novembre : les sauvegardes ont une copie chiffrée hors de la machine.**
 Chaque heure, `nel3ab-abri.timer` copie les sauvegardes, les pseudos et la
 configuration vers le NAS avec restic. Une restauration réelle depuis le NAS

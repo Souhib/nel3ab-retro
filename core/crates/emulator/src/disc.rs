@@ -40,6 +40,13 @@ pub struct Disc {
 }
 
 /// Ce qu'un disque demande.
+///
+/// Chaque variante, sauf [`Console::Unknown`], a exactement une entrée dans
+/// `consoles/consoles.json` à la racine du dépôt (ADR D22), et chaque capacité
+/// ci-dessous y est écrite aussi. Le test `the_manifest_and_the_enum_agree` relit
+/// le fichier et refuse le moindre écart, dans les deux sens. Les capacités
+/// restent des `const fn` plutôt qu'une lecture du fichier au démarrage: un
+/// manifeste illisible ne peut alors pas arrêter une salle, il arrête la porte.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Console {
     /// Une carte mémoire, donc deux emplacements de sauvegarde possibles.
@@ -50,11 +57,141 @@ pub enum Console {
     Switch,
     /// Registered Switch 2 application, launched by its experimental adapter.
     Switch2,
+    /// Décrite et pas jouable: aucun adaptateur Xenia n'existe encore, et rien
+    /// n'inscrit un jeu sous cette console. Voir [`Console::playable`].
+    Xbox360,
     /// Le disque n'a pas répondu. Voir le module: ce n'est pas « GameCube ».
     Unknown,
 }
 
+/// Comment l'état d'une manette traverse le fil pour cette console.
+///
+/// C'était le premier des cinq sens de l'ancien `is_switch()`. Il décide du
+/// format que la socket de manette accepte, et de l'appareil annoncé à la page.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InputFrame {
+    /// La trame GameCube de treize octets, écrite dans les tubes de Dolphin.
+    Dolphin,
+    /// La trame de manette Pro, relayée aux manettes virtuelles d'un adaptateur.
+    Pro,
+}
+
+impl InputFrame {
+    /// Le nom écrit dans le manifeste.
+    #[must_use]
+    pub const fn code(self) -> &'static str {
+        match self {
+            Self::Dolphin => "dolphin",
+            Self::Pro => "pro",
+        }
+    }
+
+    /// L'appareil présenté à chaque place, quand ce format n'en connaît qu'un.
+    ///
+    /// Le code 4 est la manette Pro, pour les quatre places. Une console Dolphin
+    /// présente l'appareil choisi par la préparation, donc rien d'imposé ici.
+    #[must_use]
+    pub const fn device(self) -> Option<u8> {
+        match self {
+            Self::Dolphin => None,
+            Self::Pro => Some(4),
+        }
+    }
+}
+
+/// L'adaptateur externe qui fait tourner une console hors du worker.
+///
+/// Le deuxième sens de l'ancien `is_switch()`: le chemin `External` plutôt que
+/// Dolphin dans le processus.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Adapter {
+    /// Le script par défaut, relatif à la racine du dépôt.
+    pub script: &'static str,
+    /// La variable d'environnement qui remplace ce script.
+    pub script_env: &'static str,
+    /// La variable qui nomme la configuration privée de l'adaptateur, d'où
+    /// vient la racine de ses sauvegardes.
+    pub config_env: &'static str,
+}
+
+/// Le verrou de machine qu'une console partage avec d'autres.
+///
+/// Le troisième sens de l'ancien `is_switch()`. Séparé exprès: une console
+/// rétro servie par un adaptateur ne doit pas passer sous le verrou Switch
+/// parce qu'elle parle la même trame de manette.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LockGroup {
+    /// « Une seule Switch sur la machine », décidé le 12 septembre 2026.
+    Switch,
+}
+
+impl LockGroup {
+    /// Le nom écrit dans le manifeste.
+    #[must_use]
+    pub const fn code(self) -> &'static str {
+        match self {
+            Self::Switch => "switch",
+        }
+    }
+}
+
+/// Où se trouve l'image d'un jeu. Le quatrième sens de l'ancien `is_switch()`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ArtSource {
+    /// La bannière du disque, extraite par `dolphin-tool`.
+    Banner,
+    /// L'image posée à plat dans la sauvegarde d'un jeu Wii.
+    WiiSave,
+    /// Le PNG posé à côté du jeu, `<fichier>.nel3ab.png`.
+    Sidecar,
+}
+
+impl ArtSource {
+    /// Le nom écrit dans le manifeste.
+    #[must_use]
+    pub const fn code(self) -> &'static str {
+        match self {
+            Self::Banner => "banner",
+            Self::WiiSave => "wii-save",
+            Self::Sidecar => "sidecar",
+        }
+    }
+}
+
+/// Comment un fichier devient un jeu de cette console.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Registration {
+    /// Son extension Dolphin, puis `dolphin-tool header`. Voir le module.
+    DolphinHeader,
+    /// Une fiche `<fichier>.nel3ab.json` écrite à la main. Voir [`crate::switch`].
+    Sidecar,
+    /// Aucune: le balayage n'inscrit rien sous cette console.
+    None,
+}
+
+impl Registration {
+    /// Le nom écrit dans le manifeste.
+    #[must_use]
+    pub const fn code(self) -> &'static str {
+        match self {
+            Self::DolphinHeader => "dolphin-header",
+            Self::Sidecar => "sidecar",
+            Self::None => "none",
+        }
+    }
+}
+
 impl Console {
+    /// Les consoles du manifeste, dans son ordre. [`Console::Unknown`] n'y est
+    /// pas: c'est une réponse de l'outil, pas une console.
+    pub const KNOWN: [Self; 5] = [
+        Self::GameCube,
+        Self::Wii,
+        Self::Switch,
+        Self::Switch2,
+        Self::Xbox360,
+    ];
+
     /// Ce qu'on en écrit sur le fil et dans le cache.
     #[must_use]
     pub const fn code(self) -> &'static str {
@@ -63,14 +200,125 @@ impl Console {
             Self::Wii => "wii",
             Self::Switch => "switch",
             Self::Switch2 => "switch2",
+            Self::Xbox360 => "x360",
             Self::Unknown => "?",
         }
     }
 
-    /// Both external adapters consume the same Pro Controller input frames.
+    /// La console qu'un code du manifeste nomme. `?` n'en nomme aucune.
     #[must_use]
-    pub const fn is_switch(self) -> bool {
-        matches!(self, Self::Switch | Self::Switch2)
+    pub fn from_code(code: &str) -> Option<Self> {
+        Self::KNOWN
+            .into_iter()
+            .find(|console| console.code() == code)
+    }
+
+    /// Le format des trames de manette de cette console.
+    ///
+    /// Un disque inconnu garde la trame Dolphin, puisque c'est Dolphin qui le
+    /// lancera: c'était le comportement d'avant la séparation.
+    #[must_use]
+    pub const fn input_frame(self) -> InputFrame {
+        match self {
+            Self::Switch | Self::Switch2 | Self::Xbox360 => InputFrame::Pro,
+            Self::GameCube | Self::Wii | Self::Unknown => InputFrame::Dolphin,
+        }
+    }
+
+    /// L'adaptateur externe, ou rien quand Dolphin tourne dans le worker.
+    #[must_use]
+    pub const fn adapter(self) -> Option<Adapter> {
+        match self {
+            Self::Switch => Some(Adapter {
+                script: "docker/switch-room.py",
+                script_env: "NEL3AB_SWITCH_ADAPTER",
+                config_env: "NEL3AB_SWITCH_CONFIG",
+            }),
+            Self::Switch2 => Some(Adapter {
+                script: "docker/switch2-room.py",
+                script_env: "NEL3AB_SWITCH2_ADAPTER",
+                config_env: "NEL3AB_SWITCH2_CONFIG",
+            }),
+            // Réservé et lu par personne: `playable` arrête la salle avant.
+            Self::Xbox360 => Some(Adapter {
+                script: "docker/xbox360-room.py",
+                script_env: "NEL3AB_XBOX360_ADAPTER",
+                config_env: "NEL3AB_XBOX360_CONFIG",
+            }),
+            Self::GameCube | Self::Wii | Self::Unknown => None,
+        }
+    }
+
+    /// Le verrou de machine que cette console prend avant de démarrer.
+    #[must_use]
+    pub const fn lock_group(self) -> Option<LockGroup> {
+        match self {
+            Self::Switch | Self::Switch2 => Some(LockGroup::Switch),
+            Self::GameCube | Self::Wii | Self::Xbox360 | Self::Unknown => None,
+        }
+    }
+
+    /// Où trouver l'image d'un jeu de cette console.
+    #[must_use]
+    pub const fn art_source(self) -> ArtSource {
+        match self {
+            Self::Switch | Self::Switch2 | Self::Xbox360 => ArtSource::Sidecar,
+            Self::Wii => ArtSource::WiiSave,
+            Self::GameCube | Self::Unknown => ArtSource::Banner,
+        }
+    }
+
+    /// Comment un fichier devient un jeu de cette console.
+    #[must_use]
+    pub const fn registration(self) -> Registration {
+        match self {
+            Self::GameCube | Self::Wii => Registration::DolphinHeader,
+            Self::Switch | Self::Switch2 => Registration::Sidecar,
+            Self::Xbox360 | Self::Unknown => Registration::None,
+        }
+    }
+
+    /// Les extensions qu'un fichier de cette console peut porter.
+    #[must_use]
+    pub const fn extensions(self) -> &'static [&'static str] {
+        match self {
+            Self::GameCube | Self::Wii => &crate::library::PLAYABLE,
+            Self::Switch => &["xci", "nsp"],
+            Self::Switch2 => &["nup"],
+            Self::Xbox360 => &["iso", "xex"],
+            Self::Unknown => &[],
+        }
+    }
+
+    /// Le dossier de `~/roms` où cette console range ses jeux, par convention.
+    ///
+    /// Une convention et pas une preuve: le disque reste l'autorité (voir le
+    /// module). Il sert aux dossiers par défaut quand `NEL3AB_ROM_DIR` manque.
+    #[must_use]
+    pub const fn folder(self) -> Option<&'static str> {
+        match self {
+            Self::GameCube => Some("gc"),
+            Self::Wii => Some("wii"),
+            Self::Switch => Some("switch"),
+            Self::Switch2 => Some("switch2"),
+            Self::Xbox360 => Some("xbox360"),
+            Self::Unknown => None,
+        }
+    }
+
+    /// Faux quand la salle doit refuser de lancer un jeu de cette console.
+    ///
+    /// Un disque inconnu reste jouable: Dolphin le lance depuis toujours, par le
+    /// chemin en deux pressions de la page.
+    #[must_use]
+    pub const fn playable(self) -> bool {
+        !matches!(self, Self::Xbox360)
+    }
+
+    /// Vrai pour une console que la page doit dire expérimentale.
+    #[must_use]
+    pub const fn experimental(self) -> bool {
+        matches!(self, Self::Switch2 | Self::Xbox360)
     }
 
     /// The validated room limit, bounded again by the operator's configuration.
@@ -310,6 +558,191 @@ mod tests {
         // version de l'outil qui en ajoute ne doit pas changer le verdict.
         let richer = format!("{GAMECUBE}Disc Number: 0\nApploader Date: 2004/03/03\n");
         assert_eq!(Console::from_header(&richer), Console::GameCube);
+    }
+
+    /// Le manifeste que le dépôt porte, relu à chaque compilation des tests.
+    const MANIFEST: &str = include_str!("../../../../consoles/consoles.json");
+
+    /// Tout ce qui sépare le manifeste de ce que ce crate décide, nommé.
+    ///
+    /// Une liste plutôt qu'un `assert` par champ: le jumeau négatif ci-dessous
+    /// doit pouvoir exiger QUELLE divergence a été vue, et un test qui s'arrête
+    /// au premier écart ne dirait rien des suivants.
+    fn disagreements(manifest: &serde_json::Value) -> Vec<String> {
+        let mut found = Vec::new();
+        let Some(entries) = manifest["consoles"].as_array() else {
+            return vec!["le manifeste n'a pas de liste « consoles »".into()];
+        };
+        let codes: Vec<&str> = entries.iter().filter_map(|e| e["code"].as_str()).collect();
+        let known: Vec<&str> = Console::KNOWN.iter().map(|c| c.code()).collect();
+        if codes != known {
+            found.push(format!(
+                "consoles du manifeste {codes:?}, du crate {known:?}"
+            ));
+        }
+        for entry in entries {
+            let code = entry["code"].as_str().unwrap_or("");
+            let Some(console) = Console::from_code(code) else {
+                found.push(format!("{code}: aucune variante de Console"));
+                continue;
+            };
+            for (what, manifest, crate_says) in compared(console, entry) {
+                if manifest != crate_says {
+                    found.push(format!(
+                        "{code}.{what}: manifeste {manifest}, crate {crate_says}"
+                    ));
+                }
+            }
+        }
+        found
+    }
+
+    /// Chaque champ du manifeste, à côté de ce que le crate décide, écrits tous
+    /// deux en JSON pour que la comparaison ne dépende d'aucun format choisi ici.
+    fn compared(console: Console, entry: &serde_json::Value) -> Vec<(String, String, String)> {
+        let json = |value: serde_json::Value| value.to_string();
+        let adapter = console.adapter();
+        let form = &entry["form"];
+        let mut pairs = vec![
+            (
+                "players",
+                json(entry["players"].clone()),
+                json(console.player_limit().into()),
+            ),
+            (
+                "input",
+                json(entry["input"].clone()),
+                json(console.input_frame().code().into()),
+            ),
+            (
+                "form.kind",
+                json(form["kind"].clone()),
+                json(
+                    if adapter.is_some() {
+                        "external"
+                    } else {
+                        "internal"
+                    }
+                    .into(),
+                ),
+            ),
+            (
+                "form.script",
+                json(form["script"].clone()),
+                json(adapter.map(|a| a.script).into()),
+            ),
+            (
+                "form.script_env",
+                json(form["script_env"].clone()),
+                json(adapter.map(|a| a.script_env).into()),
+            ),
+            (
+                "form.config_env",
+                json(form["config_env"].clone()),
+                json(adapter.map(|a| a.config_env).into()),
+            ),
+            (
+                "lock",
+                json(entry["lock"].clone()),
+                json(console.lock_group().map(LockGroup::code).into()),
+            ),
+            (
+                "art",
+                json(entry["art"].clone()),
+                json(console.art_source().code().into()),
+            ),
+            (
+                "registration",
+                json(entry["registration"].clone()),
+                json(console.registration().code().into()),
+            ),
+            (
+                "extensions",
+                json(entry["extensions"].clone()),
+                json(console.extensions().into()),
+            ),
+            (
+                "folder",
+                json(entry["folder"].clone()),
+                json(console.folder().into()),
+            ),
+            (
+                "playable",
+                json(entry["playable"].clone()),
+                json(console.playable().into()),
+            ),
+            (
+                "experimental",
+                json(entry["experimental"].clone()),
+                json(console.experimental().into()),
+            ),
+        ];
+        // L'appareil imposé par la trame Pro est la liste entière du manifeste.
+        if let Some(device) = console.input_frame().device() {
+            pairs.push((
+                "devices",
+                json(entry["devices"].clone()),
+                json(vec![device].into()),
+            ));
+        }
+        pairs
+            .into_iter()
+            .map(|(what, manifest, crate_says)| (what.to_owned(), manifest, crate_says))
+            .collect()
+    }
+
+    #[test]
+    fn the_manifest_and_the_enum_agree() -> Result<(), Box<dyn std::error::Error>> {
+        let manifest: serde_json::Value = serde_json::from_str(MANIFEST)?;
+        assert_eq!(disagreements(&manifest), Vec::<String>::new());
+        Ok(())
+    }
+
+    /// Le jumeau: un contrôle qui ne verrait rien passerait aussi le test du
+    /// dessus. Une console ajoutée au seul manifeste, et un verrou changé au seul
+    /// manifeste, doivent chacun être nommés.
+    #[test]
+    fn a_console_or_a_capability_changed_on_one_side_is_named()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let mut extra: serde_json::Value = serde_json::from_str(MANIFEST)?;
+        if let Some(entries) = extra["consoles"].as_array_mut() {
+            entries.push(serde_json::json!({"code": "fake", "players": 4}));
+        }
+        let found = disagreements(&extra);
+        assert!(
+            found
+                .iter()
+                .any(|it| it == "fake: aucune variante de Console"),
+            "{found:?}"
+        );
+
+        let mut unlocked: serde_json::Value = serde_json::from_str(MANIFEST)?;
+        unlocked["consoles"][3]["lock"] = serde_json::Value::Null;
+        let found = disagreements(&unlocked);
+        assert_eq!(
+            found,
+            ["switch2.lock: manifeste null, crate \"switch\""],
+            "seul le verrou de la Switch 2 diffère"
+        );
+        Ok(())
+    }
+
+    /// Les cinq sens de l'ancien `is_switch()`, tenus séparément. Le cas qui a
+    /// motivé la séparation: une console qui parle la trame Pro ne prend pas
+    /// pour autant le verrou Switch.
+    #[test]
+    fn the_pro_frame_does_not_bring_the_switch_lock() {
+        assert_eq!(Console::Xbox360.input_frame(), InputFrame::Pro);
+        assert_eq!(Console::Xbox360.lock_group(), None);
+        // Le jumeau: les deux Switch le prennent toujours.
+        assert_eq!(Console::Switch.lock_group(), Some(LockGroup::Switch));
+        assert_eq!(Console::Switch2.lock_group(), Some(LockGroup::Switch));
+        // Un disque inconnu reste sur le chemin Dolphin, comme avant.
+        assert_eq!(Console::Unknown.input_frame(), InputFrame::Dolphin);
+        assert_eq!(Console::Unknown.adapter(), None);
+        assert!(Console::Unknown.playable());
+        assert!(!Console::Xbox360.playable());
+        assert_eq!(Console::from_code("?"), None);
     }
 
     #[test]

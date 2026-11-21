@@ -38,6 +38,7 @@ from pathlib import Path
 from typing import Any
 
 from nel3ab_control.boite_noire.releve import Racines
+from nel3ab_control.consoles import CONSOLES
 
 #: Ce qu'on compte pendant une capture, côté noyau.
 #:
@@ -212,9 +213,11 @@ class Capteur:
         # qu'on ne sache, et `grim` tourne dans le conteneur du jeu. En PNG et au plus
         # bas: le `grim` de l'image est compilé sans JPEG (« jpeg support disabled »,
         # premier banc du 14 septembre 2026).
+        # Les rôles des consoles servies par un adaptateur, lus dans le manifeste:
+        # leur jeu tourne dans un compositeur Sway, que `grim` sait lire.
         if (
             raison == "chute"
-            and moteur.get("moteur") in ("switch", "switch2")
+            and moteur.get("moteur") in CONSOLES.roles_with_a_screen()
             and moteur.get("conteneur")
         ):
             codes["ecran"] = self._lanceur(

@@ -25244,6 +25244,13 @@ fois » repose pour l'instant sur la mémoire du navigateur. Un autre appareil,
 ou une fenêtre privée, rejoue donc la scène une fois de plus. Le journal des
 parties tenu par le salon donnera une réponse commune à tous.
 
+**Le geste suit le manifeste.** Le support d'une console (disque, cartouche
+ou carte) est lu dans le champ `media` de `consoles/consoles.json`, comme le
+reste de sa description. À la fusion, la Switch et la Switch 2 y passent de
+« cartridge » à « card » : leurs jeux sont des cartes, et Bobine les tient
+comme telles. Une console absente du manifeste prend la cartouche, le support
+des consoles rétro.
+
 **Les tests.** Cinq essais pilotent la vraie rangée de prises avec une horloge
 simulée : la fiche reste cachée jusqu'au moment prévu, puis le nom apparaît ;
 un retour claque sans scène ; une salle pleine à l'ouverture ne joue rien ;
@@ -25251,6 +25258,156 @@ une prise libérée laisse sauter sa fiche ; sans mouvement permis, la prise se
 branche directement. Deux défauts réintroduits (une fiche jamais cachée, un
 premier état compté comme des arrivées) font chacun échouer l'essai qui les
 vise. `just planche` sert toutes les poses et les scènes, sans salle ni salon.
+
+### 21 novembre : un seul fichier pour décrire les consoles, et une clé pour chaque jeu
+
+**Le point de départ.** L'audit de la veille comptait 28 endroits dans
+15 fichiers à toucher pour ajouter une console. La liste des consoles était
+recopiée au moins sept fois : dans le worker en Rust, dans le salon et la
+boîte noire en Python, dans la page. Et une seule petite fonction du worker,
+`is_switch()`, répondait « oui » pour les deux Switch et décidait à elle seule
+de cinq choses : le format des trames de manette, l'appareil annoncé à la
+page, le passage par un adaptateur externe, le verrou « une seule Switch sur
+la machine » et l'endroit où chercher la jaquette. Une console rétro ajoutée
+en élargissant cette fonction aurait pris le verrou de la Switch sans que
+personne ne l'écrive. Ce travail a été fait sur une branche, dans un dossier
+de travail séparé : rien n'est installé, aucune salle n'a été relancée.
+
+**Le manifeste.** Un manifeste est un fichier qui décrit, une fois pour
+toutes, ce que plusieurs programmes doivent savoir. Celui-ci s'appelle
+`consoles/consoles.json`, à la racine du dépôt. Il est écrit en JSON, un
+format de texte que les trois langages du projet lisent sans rien installer.
+Pour chaque moteur, c'est-à-dire chaque émulateur : son nom, le nom que la
+boîte noire écrit dans ses relevés, et le nom que le noyau donne à son
+processus. Pour chaque console : son code (`gc`, `wii`, `switch`, `switch2`),
+son nom, une note, le nombre de joueurs, son moteur, sa forme (Dolphin dans le
+worker, ou un adaptateur externe avec son script et ses variables), le format
+de ses trames de manette, les appareils qu'une préparation propose, son groupe
+de verrou, la source de sa jaquette, son support (disque ou cartouche), son
+dossier, la façon dont un fichier devient un de ses jeux, ses extensions, et
+deux drapeaux : expérimentale, jouable. JSON n'accepte pas de commentaire,
+alors chaque valeur qui demande une raison la porte dans un champ `why`.
+
+**Qui le lit.** Le salon et la boîte noire le lisent par un petit module,
+`nel3ab_control/consoles.py`, qui le vérifie au démarrage. Ils en tirent les
+moteurs que la boîte noire reconnaît, les rôles dont elle capture l'écran,
+les consoles qu'une préparation accepte, les appareils proposés, la
+préparation à un seul joueur et la marque « Switch » de la liste des salles.
+La page l'importe directement, et le fichier entre dans son empreinte : le
+modifier sans reconstruire la page fait rougir la porte. Le worker garde sa
+liste de consoles en Rust, et chaque décision y devient une capacité nommée :
+le format de trame, l'adaptateur, le groupe de verrou, la source de jaquette,
+plus l'inscription, les extensions, le dossier et le drapeau « jouable ». Un
+essai relit le manifeste et nomme chaque écart, dans les deux sens.
+
+**Pourquoi le worker ne génère pas sa liste depuis le fichier.** C'était
+l'autre option : un script de compilation qui écrit le code Rust à partir du
+JSON. Elle a été écartée. Les noms des consoles servent dans quatre parties
+du worker, leur documentation aurait déménagé dans le JSON, et un code généré
+se relit mal. Surtout, des fonctions écrites en dur ne peuvent pas échouer
+pendant une partie : un manifeste faux arrête la porte de qualité, pas une
+salle. Le prix : une capacité que le worker utilise s'écrit à deux endroits,
+et l'essai dit lequel des deux a bougé.
+
+**La preuve que chaque garde peut échouer.** Une fausse console a été ajoutée
+au seul manifeste, puis chaque couche a été lancée. Le worker a nommé la
+console sans équivalent dans sa liste. La page a refusé une console sans
+icône. Le salon a vu que l'unité systemd des salles ne balaie pas son dossier
+et ne configure pas son adaptateur. Le manifeste a été remis à l'identique,
+vérifié octet par octet. Trois autres défauts ont été réintroduits un par un.
+La liste des moteurs de la boîte noire, réécrite à la main sans `eden-cli`,
+refait l'oubli du 7 novembre et fait échouer deux essais. L'ancien nom du plan
+du salon affiche « CONSOLE NON LUE » pour une Switch, et l'essai le refuse.
+Une empreinte de page qui ne compte pas le manifeste reste verte quand on le
+modifie ; avec lui, elle rougit.
+
+**La Xbox 360.** Souhib l'a demandée à l'étude. Elle est décrite dans le
+manifeste : moteur Xenia, adaptateur externe, trame de manette comme la
+Switch, quatre joueurs, disque, dossier `xbox360`, fichiers `.iso` et
+`.xex`. Elle n'est pas jouable. Aucun adaptateur n'existe : son script et ses
+variables sont réservés, et rien ne les lit. Le worker refuse de lancer une
+console non jouable et reste sur son menu, le salon ne la prépare pas, la
+page la grise. Aucun fichier n'entre au catalogue sous son nom : son `.iso`
+passerait sinon par la porte de Dolphin, qui partage l'extension. Les jeux
+GOD (Games on Demand, le format des jeux téléchargés sur la console) sont un
+fichier d'en-tête sans extension à côté d'un dossier `<même nom>.data` ; le
+balayage devra les reconnaître à ce dossier voisin, pas à une extension. Rien
+de cela n'est lu ni essayé. Le nom de processus de Xenia n'a jamais été
+relevé ici. Le manifeste refuse justement une console jouable dont le moteur
+n'a aucun processus connu, pour que l'oubli du 7 novembre ne revienne pas.
+
+**Une clé pour chaque jeu.** Un jeu était désigné sur le fil par sa position
+dans une liste triée par nom, sur un octet. Un fichier qui se range avant lui
+décale tous les suivants : une page qui tient l'ancienne liste lance alors le
+jeu voisin. Ce n'est pas arrivé, parce que le worker ne lit sa bibliothèque
+qu'une fois par démarrage, mais l'import en cours d'étude ajoutera des
+fichiers pendant que les salles tournent. Chaque jeu du catalogue porte
+maintenant une clé : son nom de fichier. C'est déjà ce que la salle retient
+de son dernier jeu, et ce qui range les sauvegardes GameCube et Wii. Le
+worker compare la clé aux noms que son propre balayage a trouvés, et ne s'en
+sert jamais comme d'un chemin : `../x` ou `/etc/shadow` ne désignent rien, et
+ne passent même pas la vérification d'entrée.
+
+**Par où passe la clé.** La page lance presque tous ses jeux par la
+préparation du salon : elle y envoie maintenant la clé, et le salon la
+retrouve dans la liste au début comme au lancement. Vers le worker, la clé
+voyage sur la ligne de contrôle privée, écrite en hexadécimal, c'est-à-dire
+octet par octet en chiffres de 0 à f : un nom de jeu contient des espaces, et
+cette ligne se découpe aux espaces. Pour un disque dont la console est
+inconnue, la page envoie la clé directement au worker, sur la socket de
+manette, dans un message texte `{"jeu":"<clé>"}`. Les messages binaires de
+cette socket se reconnaissent à leur longueur, et une clé n'en a pas de fixe ;
+les messages texte, eux, étaient ignorés, donc un ancien worker ignore
+celui-ci sans rien casser. Un refus revient en texte, avec sa raison, et la
+manette reste à qui la tient. Les anciennes formes restent comprises le temps
+que la page, le salon et le worker redémarrent tous : ils ne le font pas en
+même temps.
+
+**Un défaut trouvé en mesurant.** Pour savoir quelle place une clé de
+255 octets demande sur la ligne de contrôle, la ligne la plus longue possible
+a été construite et mesurée, au lieu d'être recomptée à la main. Elle faisait
+déjà 358 octets avant la clé, pour une borne de lecture de 320. Le compte
+écrit dans le code datait d'avant le 12 septembre, jour où le nom de qui lance
+a été ajouté en fin de ligne. Une ligne trop longue était coupée dans ce
+dernier champ, restait lisible, et le worker rangeait la partie sous un nom
+tronqué. Aucune soirée ne l'a montré, parce que les attributions réelles sont
+bien plus courtes que leur maximum. La borne vaut maintenant la longueur
+mesurée avec une clé, 866 octets, et une ligne qui l'atteint sans son retour
+à la ligne est refusée. Rétablir l'ancienne borne fait arriver au worker un
+nom de 27 caractères au lieu de 64, et l'essai le dit. Leçon : une borne se
+mesure sur la forme la plus longue, et se remesure chaque fois qu'un champ
+s'ajoute ; un commentaire qui donne un total ne se met pas à jour tout seul.
+
+**Le catalogue sans salle.** Les pages d'import et de profil devront lister
+les jeux même quand aucune salle ne tourne. Le salon ne doit ni refaire en
+Python le nettoyage des titres écrit en Rust, ni lancer le conteneur qui lit
+la console d'un disque. À chaque démarrage, le worker écrit donc
+`catalogue.json` dans son répertoire de session : la même liste que la page
+reçoit, avec l'heure du balayage. Il l'écrit d'abord sous un nom temporaire
+dans le même dossier, puis le renomme. Un renommage dans un même disque
+remplace le nom d'un coup, donc un lecteur voit l'ancien fichier ou le
+nouveau, jamais la moitié d'un. Le salon lit le fichier de chaque salle et
+garde le plus récent. Un fichier faux est écarté en entier, et le suivant
+prend sa place : une liste à moitié lue cacherait des jeux sans le dire. La
+route `/api/catalogue` le sert, et dit clairement quand aucune salle n'en a
+encore écrit. Limite : la liste a l'âge du dernier démarrage d'une salle. Un
+fichier ajouté depuis n'y est pas, et l'import devra demander une relecture.
+
+**Ce qui reste écrit à la main.** Le comportement propre à Dolphin pour la
+Wii (sa mémoire interne, ses Wiimote), les règles des identifiants de titre
+Switch, les dossiers de jeux par défaut quand la variable manque (les garder
+évite qu'un worker de développement prenne le vrai verrou Switch de la
+machine), les processus qui entourent une partie, les guides des jeux et les
+icônes. Les trois derniers sont comparés au manifeste par un essai. Le détail
+est dans l'ADR, décisions D22, D23 et D24.
+
+**Ce qui n'est pas prouvé.** Rien n'a tourné dans une vraie salle : ni une
+préparation lancée par sa clé, ni un `catalogue.json` écrit par un vrai
+worker. Les essais exercent le vrai port de contrôle, la vraie socket de
+manette et la vraie route du salon, avec des bibliothèques de test. Les
+recettes qui demandent la machine (`just gpu-test`, les salles Switch) n'ont
+pas été lancées, parce que ce travail ne touche ni l'encodage ni les
+adaptateurs.
 
 ## 12. Glossaire complet
 
@@ -26307,3 +26464,30 @@ de jeu, une fermeture.
 
 **Planche** : page de travail qui montre toutes les poses et toutes les
 scènes d'un personnage, pour les regarder et les comparer hors de la salle.
+
+**Manifeste des consoles** : le fichier `consoles/consoles.json`, qui décrit
+une fois chaque console et chaque moteur. Le salon, la boîte noire et la
+page le lisent ; le worker est vérifié contre lui par un essai.
+
+**Capacité d'une console** : une décision nommée que le worker prend pour une
+console, comme son format de trame ou son groupe de verrou. Elle remplace une
+question unique, « est-ce une Switch ? », qui en cachait cinq.
+
+**Groupe de verrou** : les consoles qui partagent une seule place sur la
+machine. Les deux Switch en forment un : une seule salle à la fois peut
+faire tourner l'une ou l'autre.
+
+**Clé d'un jeu** : son nom de fichier, qui le désigne sur le fil. Elle reste
+juste quand la liste change, au contraire d'une position dans la liste.
+
+**Hexadécimal** : l'écriture des nombres en base seize, avec les chiffres 0 à
+9 puis a à f. Un octet s'y écrit en deux caractères, sans espace.
+
+**Renommage atomique** : remplacer un fichier en donnant son nom à un autre
+fichier déjà écrit, sur le même disque. Le système fait l'échange d'un coup :
+un lecteur voit l'ancien ou le nouveau, jamais un mélange.
+
+**Xenia** : un émulateur de Xbox 360, à code ouvert. Il n'est pas installé ici.
+
+**GOD (Games on Demand)** : le format des jeux Xbox 360 téléchargés sur la
+console : un fichier d'en-tête sans extension et un dossier de données à côté.

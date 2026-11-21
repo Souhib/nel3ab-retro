@@ -11,6 +11,14 @@
 //! while the directory is. Dropping a new game in would otherwise silently
 //! change which one a restart resumes. Name to persist, index to transmit, and
 //! neither does the other's job.
+//!
+//! **Amended on 2026-11-21 (ADR D23): the name is now transmitted too.** Each
+//! catalogue entry carries a `key`, its file name, and a page or the lobby
+//! launches by it. The property above survives: a key is compared for equality
+//! with the names this scan found ([`position_of`]) and never joined to a path,
+//! so it still cannot name anything outside the library. What the position
+//! could not do is keep naming the same game once a file that sorts before it
+//! arrives. The position stays accepted for a page opened before the change.
 
 use std::path::{Path, PathBuf};
 
@@ -19,7 +27,7 @@ use std::path::{Path, PathBuf};
 /// Deliberately not "every file in the directory": a half-copied download or a
 /// stray text file would otherwise appear as a game and fail at boot, which is
 /// the kind of thing a person blames the room for.
-const PLAYABLE: [&str; 5] = ["rvz", "iso", "gcm", "ciso", "gcz"];
+pub(crate) const PLAYABLE: [&str; 5] = ["rvz", "iso", "gcm", "ciso", "gcz"];
 
 /// One game on this machine.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -215,7 +223,90 @@ pub fn catalogue_json(
         // a number it has to know the meaning of.
         None => out.push_str("null"),
     }
-    out.push_str(",\"roms\":[");
+    out.push_str(",\"roms\":");
+    push_entries(&mut out, roms, art, consoles);
+    out.push('}');
+    out
+}
+
+/// The version of [`library_file`], read by the lobby. Raised on any change a
+/// reader could misread; a reader refuses a version it does not know.
+pub const LIBRARY_FILE_VERSION: u32 = 1;
+
+/// The library as a file, for a reader that has no room to ask (ADR D24).
+///
+/// The same entries as [`catalogue_json`], written by the same function, so the
+/// lobby lists games with the titles this crate cleaned and the keys a page
+/// launches with. Nothing room-specific: no `current`, no `players`. `scanned_ms`
+/// is when the scan ran, in milliseconds since the Unix epoch; the lobby keeps
+/// the freshest of the rooms' files.
+#[must_use]
+pub fn library_file(
+    roms: &[Rom],
+    art: &[Option<crate::banner::Art>],
+    consoles: &[crate::disc::Console],
+    scanned_ms: u128,
+) -> String {
+    let mut out =
+        format!("{{\"version\":{LIBRARY_FILE_VERSION},\"scanned_ms\":{scanned_ms},\"roms\":");
+    push_entries(&mut out, roms, art, consoles);
+    out.push('}');
+    out
+}
+
+/// Writes [`library_file`] at `path` so a reader sees the old file or the new
+/// one, never half of either.
+///
+/// A temporary file in the SAME directory, flushed to disk, then renamed over
+/// the old one: a rename within one file system replaces the name atomically.
+/// Writing in place would let the lobby read a truncated document while a room
+/// restarts, and it reads exactly then, since a scan is a restart.
+///
+/// # Errors
+/// The file system's error. The temporary file is removed on failure, and the
+/// previous file, if any, is left as it was.
+pub fn write_library_file(path: &Path, contents: &str) -> std::io::Result<()> {
+    use std::io::Write as _;
+    let Some(dir) = path.parent().filter(|dir| !dir.as_os_str().is_empty()) else {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "the library file needs a directory",
+        ));
+    };
+    std::fs::create_dir_all(dir)?;
+    let mut temporary = tempfile_in(dir)?;
+    let written = temporary
+        .1
+        .write_all(contents.as_bytes())
+        .and_then(|()| temporary.1.sync_all())
+        .and_then(|()| std::fs::rename(&temporary.0, path));
+    if written.is_err() {
+        let _ = std::fs::remove_file(&temporary.0);
+    }
+    written
+}
+
+/// A new file beside the target, named after this process so two rooms writing
+/// their own files at once never share one. `create_new` refuses a name left
+/// behind by a previous run rather than writing through it.
+fn tempfile_in(dir: &Path) -> std::io::Result<(PathBuf, std::fs::File)> {
+    let path = dir.join(format!(".catalogue.json.{}.tmp", std::process::id()));
+    let _ = std::fs::remove_file(&path);
+    let file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&path)?;
+    Ok((path, file))
+}
+
+/// The list of games, as both the room and the file describe them.
+fn push_entries(
+    out: &mut String,
+    roms: &[Rom],
+    art: &[Option<crate::banner::Art>],
+    consoles: &[crate::disc::Console],
+) {
+    out.push('[');
     for (index, rom) in roms.iter().enumerate() {
         if index > 0 {
             out.push(',');
@@ -225,13 +316,13 @@ pub fn catalogue_json(
         // length, but the worker must not die if that ever stops being true.
         let found = art.get(index).and_then(Option::as_ref);
         out.push_str("{\"name\":");
-        quote(&mut out, &rom.name);
+        quote(out, &rom.name);
         out.push_str(",\"maker\":");
         match found
             .map(|art| art.maker.as_str())
             .filter(|it| !it.is_empty())
         {
-            Some(maker) => quote(&mut out, maker),
+            Some(maker) => quote(out, maker),
             None => out.push_str("null"),
         }
         out.push_str(",\"about\":");
@@ -239,7 +330,7 @@ pub fn catalogue_json(
             .map(|art| art.about.as_str())
             .filter(|it| !it.is_empty())
         {
-            Some(about) => quote(&mut out, about),
+            Some(about) => quote(out, about),
             None => out.push_str("null"),
         }
         out.push_str(",\"art\":");
@@ -251,17 +342,30 @@ pub fn catalogue_json(
         // que ne pas le proposer.
         out.push_str(",\"console\":");
         quote(
-            &mut out,
+            out,
             consoles
                 .get(index)
                 .copied()
                 .unwrap_or(crate::disc::Console::Unknown)
                 .code(),
         );
+        // La clé, le nom de fichier: ce qu'une page renvoie pour lancer ce
+        // jeu, et ce qui le désigne encore quand la liste a changé (ADR D23).
+        out.push_str(",\"key\":");
+        quote(out, &rom.file);
         out.push('}');
     }
-    out.push_str("]}");
-    out
+    out.push(']');
+}
+
+/// Where a key sits in this library, by exact equality with a file name.
+///
+/// Never a path: the key is compared, not joined to anything. A key the scan
+/// did not find is `None`, and so is anything shaped like a path, because no
+/// file name in a directory contains a separator.
+#[must_use]
+pub fn position_of(roms: &[Rom], key: &nel3ab_protocol::GameKey) -> Option<usize> {
+    roms.iter().position(|rom| rom.file == key.as_str())
 }
 
 /// One JSON string, escaped.
@@ -431,12 +535,12 @@ mod tests {
 
         assert_eq!(
             catalogue_json(&roms, &[], &[], Some(1), 4),
-            r#"{"players":4,"current":1,"roms":[{"name":"Melee","maker":null,"about":null,"art":false,"console":"?"},{"name":"Mario Kart","maker":null,"about":null,"art":false,"console":"?"}]}"#
+            r#"{"players":4,"current":1,"roms":[{"name":"Melee","maker":null,"about":null,"art":false,"console":"?","key":"Melee.rvz"},{"name":"Mario Kart","maker":null,"about":null,"art":false,"console":"?","key":"Mario Kart.rvz"}]}"#
         );
         // Nothing running is `null` rather than a number standing in for it.
         assert_eq!(
             catalogue_json(&roms, &[], &[], None, 4),
-            r#"{"players":4,"current":null,"roms":[{"name":"Melee","maker":null,"about":null,"art":false,"console":"?"},{"name":"Mario Kart","maker":null,"about":null,"art":false,"console":"?"}]}"#
+            r#"{"players":4,"current":null,"roms":[{"name":"Melee","maker":null,"about":null,"art":false,"console":"?","key":"Melee.rvz"},{"name":"Mario Kart","maker":null,"about":null,"art":false,"console":"?","key":"Mario Kart.rvz"}]}"#
         );
         assert_eq!(
             catalogue_json(&[], &[], &[], None, 1),
@@ -459,7 +563,7 @@ mod tests {
 
         assert_eq!(
             json,
-            r#"{"players":2,"current":0,"roms":[{"name":"Zelda \"Ocarina\" \\ tab\u0009here","maker":null,"about":null,"art":false,"console":"?"}]}"#
+            r#"{"players":2,"current":0,"roms":[{"name":"Zelda \"Ocarina\" \\ tab\u0009here","maker":null,"about":null,"art":false,"console":"?","key":"z.rvz"}]}"#
         );
     }
 
@@ -483,7 +587,7 @@ mod tests {
 
         assert_eq!(
             json,
-            r#"{"players":4,"current":null,"roms":[{"name":"Melee","maker":"Nintendo","about":"ready to do \u000abattle!","art":true,"console":"?"}]}"#
+            r#"{"players":4,"current":null,"roms":[{"name":"Melee","maker":"Nintendo","about":"ready to do \u000abattle!","art":true,"console":"?","key":"m.rvz"}]}"#
         );
     }
 
@@ -574,5 +678,138 @@ mod tests {
     #[test]
     fn a_directory_that_is_not_there_is_an_empty_library_not_a_failure() {
         assert!(scan(Path::new("/nowhere/at/all")).is_empty());
+    }
+
+    fn key(name: &str) -> nel3ab_protocol::GameKey {
+        nel3ab_protocol::GameKey::new(name).unwrap()
+    }
+
+    /// Le défaut que la position avait, et que la clé n'a pas (ADR D23).
+    ///
+    /// Une page tient « Zelda » à la position 0. Un fichier qui se range avant
+    /// lui arrive, la bibliothèque est relue: la position 0 désigne maintenant
+    /// l'autre jeu, la clé désigne toujours Zelda.
+    #[test]
+    fn a_key_names_the_same_game_after_a_file_sorts_before_it() {
+        let dir = tempfile::tempdir().unwrap();
+        touch(dir.path(), "Zelda.rvz");
+        let before = scan(dir.path());
+        let held_position = 0;
+        let held_key = key(&before[held_position].file);
+        assert_eq!(before[held_position].name, "Zelda");
+
+        touch(dir.path(), "Animal Crossing.rvz");
+        let after = scan(dir.path());
+
+        // Le jumeau qui montre le défaut: la même position, un autre jeu.
+        assert_eq!(after[held_position].name, "Animal Crossing");
+        let found = position_of(&after, &held_key).unwrap();
+        assert_eq!(after[found].name, "Zelda");
+        assert_eq!(found, 1);
+    }
+
+    /// Une clé que le balayage n'a pas trouvée ne désigne rien, et un fichier
+    /// réel hors de la bibliothèque non plus: la clé est comparée, jamais
+    /// jointe à un dossier.
+    #[test]
+    fn a_key_the_scan_did_not_find_names_nothing() {
+        let home = tempfile::tempdir().unwrap();
+        let games = home.path().join("gc");
+        std::fs::create_dir_all(&games).unwrap();
+        touch(&games, "Melee.rvz");
+        touch(home.path(), "Elsewhere.rvz");
+        let library = scan(&games);
+
+        assert_eq!(position_of(&library, &key("Melee.rvz")), Some(0));
+        assert_eq!(position_of(&library, &key("Elsewhere.rvz")), None);
+        assert_eq!(
+            position_of(&library, &key("melee.rvz")),
+            None,
+            "exact, casse comprise"
+        );
+        assert_eq!(
+            position_of(&library, &key("Melee")),
+            None,
+            "le titre n'est pas la clé"
+        );
+        // Un chemin ne peut même pas devenir une clé.
+        assert!(nel3ab_protocol::GameKey::new("../Elsewhere.rvz").is_err());
+        assert!(nel3ab_protocol::GameKey::new(&games.join("Melee.rvz").to_string_lossy()).is_err());
+    }
+
+    fn melee() -> Vec<Rom> {
+        vec![Rom {
+            path: "/roms/gc/Melee.rvz".into(),
+            name: "Melee".to_owned(),
+            file: "Melee.rvz".to_owned(),
+        }]
+    }
+
+    /// Le fichier de la bibliothèque porte les mêmes entrées que le catalogue
+    /// d'une salle, et rien de ce qui appartient à une salle.
+    #[test]
+    fn the_library_file_has_the_room_entries_and_no_room_state() {
+        let room = catalogue_json(&melee(), &[], &[crate::Console::GameCube], Some(0), 4);
+        let file = library_file(
+            &melee(),
+            &[],
+            &[crate::Console::GameCube],
+            1_763_700_000_123,
+        );
+
+        assert_eq!(
+            file,
+            r#"{"version":1,"scanned_ms":1763700000123,"roms":[{"name":"Melee","maker":null,"about":null,"art":false,"console":"gc","key":"Melee.rvz"}]}"#
+        );
+        let room: serde_json::Value = serde_json::from_str(&room).unwrap();
+        let file: serde_json::Value = serde_json::from_str(&file).unwrap();
+        assert_eq!(room["roms"], file["roms"]);
+        assert!(file.get("current").is_none() && file.get("players").is_none());
+        // Aucun chemin n'en sort: seul le nom du fichier voyage.
+        assert!(!file.to_string().contains("/roms/"));
+    }
+
+    /// L'écriture remplace l'ancien fichier en entier et ne laisse rien à côté.
+    #[test]
+    fn the_library_file_replaces_the_old_one_and_leaves_no_temporary() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("salle").join("catalogue.json");
+
+        write_library_file(&path, "{\"premier\":true}").unwrap();
+        write_library_file(&path, "{\"second\":true}").unwrap();
+
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "{\"second\":true}");
+        let left: Vec<_> = std::fs::read_dir(path.parent().unwrap())
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name())
+            .collect();
+        assert_eq!(left, ["catalogue.json"]);
+    }
+
+    /// Le jumeau: une écriture qui échoue laisse l'ancien fichier intact, au
+    /// même chemin. Le dossier refuse toute création, donc le fichier
+    /// temporaire ne peut pas naître.
+    #[test]
+    fn a_failed_write_keeps_the_previous_library_file() {
+        use std::os::unix::fs::PermissionsExt as _;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("catalogue.json");
+        write_library_file(&path, "{\"ancien\":true}").unwrap();
+        std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o500)).unwrap();
+        // La condition, vérifiée plutôt que supposée: sous root, ce dossier
+        // accepterait la création et l'essai ne prouverait rien.
+        let refused = std::fs::File::create(dir.path().join("sonde")).is_err();
+
+        let written = write_library_file(&path, "{\"nouveau\":true}");
+
+        std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
+        assert!(refused, "le dossier devait refuser les créations");
+        assert!(written.is_err());
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "{\"ancien\":true}");
+        let left: Vec<_> = std::fs::read_dir(dir.path())
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(left, ["catalogue.json"]);
     }
 }

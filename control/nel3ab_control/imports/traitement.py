@@ -79,7 +79,7 @@ class Regles:
     cle_switch: CleEntete | SansCle
     #: Les noms de jeux du catalogue des salles, refusés comme noms nouveaux.
     connus: frozenset[str] = frozenset()
-    #: Du même catalogue: titre Switch inscrit, en minuscules, et son fichier.
+    #: Du même catalogue: titre inscrit par fiche, en minuscules, et son fichier.
     titres_connus: Mapping[str, str] = field(default_factory=dict)
 
 

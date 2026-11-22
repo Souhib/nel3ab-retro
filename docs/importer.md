@@ -82,7 +82,9 @@ porte `.ts.net:8443` renvoie vers ce nom, chemin compris.
 | Switch illisible avec la clé | refusé : clé fausse, ou fichier abîmé |
 | Switch (NSZ, XCZ) | gardé de côté : format compressé, à décompresser |
 | Switch 2 (NUP) | à confirmer : inscription à la main |
-| Xbox 360 (XEX, STFS, XISO) | reconnu, pas encore jouable |
+| Xbox 360 (XISO) | rangé dans le dossier `xbox360` avec sa fiche `<fichier>.nel3ab.json`, quand le titre se lit dans le `default.xex` du disque (voir [La Xbox 360 dans la salle](xbox360.md)) |
+| Xbox 360, titre illisible | à confirmer : la fiche s'écrit à la main |
+| Xbox 360 (XEX seul, GOD, STFS) | reconnu, pas un disque entier : gardé de côté |
 | NES, N64, Game Boy, GBA, DS, Mega Drive, PlayStation | reconnu, pas encore jouable |
 | Archive zip | ouverte, chaque fichier suit la ligne de sa console |
 | Archive 7z ou rar | ouverte par `lsar` et `unar` s'ils sont installés, sinon gardée de côté |
@@ -94,8 +96,12 @@ changement de jeu : une salle lit sa bibliothèque à son démarrage.
 Le rangement refuse un nom déjà pris, un nom qui partagerait les sauvegardes
 d'un autre jeu (« Jeu.iso » et « jeu.iso »), le même fichier déjà rangé, le
 même jeu, même code et même disque, déjà dans le même dossier, et un jeu Switch
-dont l'identifiant de titre est déjà inscrit par la fiche d'un autre fichier ou
-au catalogue des salles. Il ne remplace jamais un fichier existant.
+ou Xbox 360 dont l'identifiant de titre est déjà inscrit par la fiche d'un
+autre fichier ou au catalogue des salles. Le titre doit avoir la forme de sa
+console : 16 chiffres hexadécimaux finissant par `000` pour la Switch, 8 pour
+la Xbox 360 (`nel3ab_control.consoles.FORMES_TITRE`, tenu aux mêmes exemples que
+le worker par `consoles/titres-vecteurs.json`). Il ne remplace jamais un
+fichier existant.
 
 ## La Switch
 

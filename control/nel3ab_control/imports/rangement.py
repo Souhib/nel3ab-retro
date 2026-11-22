@@ -18,10 +18,10 @@ doivent tomber sur le même nom, donc sur le refus d'un doublon.
 - le même fichier, octet pour octet, déjà rangé n'importe où;
 - le même jeu (code et numéro de disque) déjà dans le même dossier, sous un
   autre format ou une autre révision;
-- pour la Switch, le même identifiant de titre déjà inscrit par la fiche d'un
-  autre fichier, ou au catalogue des salles: la salle range ses sauvegardes
-  par ce titre, donc deux fichiers du même jeu partageraient la progression de
-  chacun.
+- pour un jeu inscrit par fiche (Switch, Xbox 360), le même identifiant de
+  titre déjà inscrit par la fiche d'un autre fichier, ou au catalogue des
+  salles: la salle range ses sauvegardes par ce titre, donc deux fichiers du
+  même jeu partageraient la progression de chacun.
 
 Ces contrôles se font sous un verrou, puis le fichier est LIÉ à sa place:
 `link` échoue si le nom existe, là où `rename` l'écraserait. Si un fichier
@@ -50,6 +50,7 @@ from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
+from nel3ab_control.consoles import titre_valide
 from nel3ab_control.imports.destinations import EXTENSIONS
 from nel3ab_control.imports.empreinte import empreinte_rapide, lecteur_fd
 from nel3ab_control.imports.identifier import identifier
@@ -74,8 +75,6 @@ FICHE_MAX = 4096
 #: Ce qu'une copie de jeu Switch ajoute à son nom: identifiant entre crochets,
 #: version, région, taille. Retiré du nom affiché.
 ETIQUETTES = re.compile(r"\[[^\]]*\]|\([^)]*\)")
-
-TITRE = re.compile(r"^[0-9a-fA-F]{16}$")
 
 
 class Refus(Exception):  # noqa: N818 - c'est un verdict, pas une panne
@@ -145,8 +144,12 @@ def fiche_switch(nom: str, titre: int) -> Fiche:
     Le champ `inscription` dit d'où elle vient: les fiches écrites à la main
     suivent un lancement d'essai, celle-ci la lecture de l'en-tête NCA. Le
     worker ne le lit pas. Le même texte est dans `consoles/fiche-switch.json`,
-    qu'un essai Rust passe au vrai `registered`.
+    qu'un essai Rust passe au vrai `registered`. Le titre a la forme de celui
+    d'un jeu (`consoles.FORMES_TITRE`): une fiche de mise à jour, que le worker
+    refuserait, n'est jamais écrite.
     """
+    if not titre_valide("switch", f"{titre:016X}"):
+        raise ValueError(f"le titre {titre:#x} n'est pas celui d'un jeu Switch")
     contenu = {
         "console": "switch",
         "name": nom,
@@ -177,7 +180,7 @@ def fiche_xbox360(nom: str, titre: str) -> Fiche:
     8 chiffres. Le même texte est dans `consoles/fiche-xbox360.json`, qu'un essai
     Rust passe au vrai `registered`.
     """
-    if not re.fullmatch(r"[0-9A-Fa-f]{8}", titre):
+    if not titre_valide("x360", titre):
         raise ValueError(f"un titre Xbox 360 a 8 chiffres hexadécimaux, pas {titre!r}")
     contenu = {
         "console": "x360",
@@ -248,8 +251,8 @@ class Bibliotheque:
         #: Les noms du catalogue que les salles écrivent (ADR D24). Ils couvrent
         #: aussi un dossier que le worker balaie et que le salon ne connaît pas.
         self.connus = connus
-        #: Du même catalogue: l'identifiant de titre de chaque jeu Switch inscrit,
-        #: en minuscules, et le nom du fichier qu'il désigne.
+        #: Du même catalogue: l'identifiant de titre de chaque jeu inscrit par
+        #: fiche, en minuscules, et le nom du fichier qu'il désigne.
         self.titres_connus = titres_connus or {}
 
     def existants(self) -> Iterator[Existant]:
@@ -273,6 +276,11 @@ class Bibliotheque:
         Seule compte une fiche posée à côté de son jeu: une fiche orpheline
         n'inscrit rien pour le worker, et ne doit pas bloquer un import. Une
         fiche illisible ou trop grosse est ignorée, comme le worker l'ignore.
+        Comme lui aussi, la fiche nomme sa console, et le titre a la forme de
+        CETTE console (`consoles.FORMES_TITRE`): jusqu'au 22 novembre 2026, seize
+        chiffres pour toutes, et un disque Xbox 360 n'était jamais vu inscrit.
+        Les deux formes n'ont pas la même longueur: un titre seul ne peut pas
+        désigner deux jeux de deux consoles.
         """
         tous = list(self.existants())
         presents = {(e.dossier, e.nom): e for e in tous}
@@ -291,8 +299,14 @@ class Bibliotheque:
                     os.close(fd)
             except (OSError, ValueError):
                 continue
-            titre = valeur.get("title") if isinstance(valeur, dict) else None
-            if not isinstance(titre, str) or not TITRE.match(titre):
+            if not isinstance(valeur, dict):
+                continue
+            titre, console = valeur.get("title"), valeur.get("console")
+            if (
+                not isinstance(titre, str)
+                or not isinstance(console, str)
+                or not titre_valide(console, titre)
+            ):
                 continue
             nom = valeur.get("name")
             trouves.setdefault(titre.lower(), Inscrit(jeu, nom if isinstance(nom, str) else ""))

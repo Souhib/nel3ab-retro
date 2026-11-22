@@ -20,17 +20,32 @@ comme le worker la lance (`ModuleNotFoundError`). `runpy.run_path` garde
 script. Ici, `sys.path[0]` est remplacé par ce que Python aurait mis pour un
 lancement direct, et `test_salles_dore.py` le compare à un vrai lancement.
 
+Une limite de cette façon de faire, et son garde: l'amorce charge `json`,
+`subprocess`, `pathlib`... AVANT de poser le dossier du script en tête du chemin.
+Un `docker/json.py` casserait la vraie salle, mais pas le script lancé ici, qui
+recevrait le `json` déjà chargé. L'amorce refuse donc de lancer un script dont
+le dossier masque l'un des modules qu'elle a chargés en plus d'un `python3` nu
+(`masquages`, `AmorceMasqueError`).
+
 Le journal est écrit à la sortie dans le fichier que nomme la consigne, hors de
 l'arbre que le banc relève.
 """
 
+# ruff: noqa: E402 -- les imports suivent le relevé des modules du démarrage, et
+# rien d'autre ne s'exécute entre eux: le coût est un ordre inhabituel, sans effet.
+import sys
+
+#: Les modules qu'un `python3 <script>` nu a déjà chargés à la première ligne de
+#: son script: l'interpréteur et `site`. L'amorce est elle-même lancée ainsi.
+AU_DEMARRAGE = frozenset(sys.modules)
+
 import calendar
+import importlib.machinery
 import json
 import os
 import runpy
 import selectors
 import subprocess
-import sys
 import time
 from pathlib import Path
 
@@ -153,6 +168,10 @@ class SalleSourdeError(BaseException):
     d'un script ne doit pouvoir l'avaler."""
 
 
+class AmorceMasqueError(RuntimeError):
+    """Le dossier du script masque un module que l'amorce a déjà chargé."""
+
+
 def descripteur(objet) -> int:
     return objet if isinstance(objet, int) else objet.fileno()
 
@@ -193,6 +212,23 @@ def selecteur(consigne: dict, horloge: Horloge):
     return Selecteur
 
 
+def masquages(dossier: Path) -> list[str]:
+    """Chaque fichier de `dossier` qui masquerait un module que l'amorce a chargé en
+    plus d'un `python3` nu. Un module de l'interpréteur ou figé ne se masque pas, ni
+    par un dossier sans `__init__.py` (le module ordinaire passe avant lui)."""
+    noms = {nom.partition(".")[0] for nom in set(sys.modules) - AU_DEMARRAGE}
+    trouves = []
+    for nom in sorted(noms):
+        if importlib.machinery.BuiltinImporter.find_spec(nom) is not None:
+            continue
+        if importlib.machinery.FrozenImporter.find_spec(nom) is not None:
+            continue
+        spec = importlib.machinery.PathFinder.find_spec(nom, [str(dossier)])
+        if spec is not None and spec.origin is not None:
+            trouves.append(f"{spec.origin} masquerait {nom}")
+    return trouves
+
+
 def principal() -> int:
     chemin_consigne, script, *arguments = sys.argv[1:]
     consigne = json.loads(Path(chemin_consigne).read_text())
@@ -229,7 +265,13 @@ def principal() -> int:
     erreur = None
     refusee = None
     code = 0
+    masques = masquages(Path(sys.path[0]))
     try:
+        if masques:
+            raise AmorceMasqueError(
+                f"{', '.join(masques)}, que l'amorce a déjà chargé: le banc ne verrait pas "
+                "ce que le worker verrait"
+            )
         runpy.run_path(script, run_name="__main__")
     except SystemExit as sortie:
         code = sortie.code if isinstance(sortie.code, int) else 1

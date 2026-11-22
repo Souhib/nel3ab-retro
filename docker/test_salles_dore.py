@@ -599,6 +599,41 @@ class LancementCommeLeWorker(unittest.TestCase):
         self.assertEqual(vus, attendu)
         self.assertEqual(sorted(attendu.values()), [False, False, True, True])
 
+    def test_un_module_du_dossier_du_script_masque_ce_que_l_amorce_n_a_pas_charge(self):
+        """Un `docker/<module>.py` casse la vraie salle. Pour un module que l'amorce n'a
+        pas chargé (`hashlib`), le banc le voit comme le worker. Pour un module qu'elle a
+        déjà chargé (`json`), il ne le verrait pas: l'amorce refuse alors en le nommant."""
+        vus = {}
+        with tempfile.TemporaryDirectory() as temporaire:
+            for module in ("json", "hashlib"):
+                racine = Path(temporaire) / module
+                (racine / "core/crates/worker").mkdir(parents=True)
+                (racine / "docker").mkdir()
+                (racine / f"docker/{module}.py").write_text(
+                    f"raise ImportError('{module} du dossier docker')\n"
+                )
+                (racine / "docker/salle.py").write_text(f"import {module}\n")
+                direct = subprocess.run(  # noqa: S603 -- l'interpréteur système, un faux dépôt
+                    [banc.PYTHON, str(racine / banc.DEPUIS_LE_WORKER / "docker/salle.py")],
+                    cwd=racine / "core",
+                    env={"PATH": "/usr/bin:/bin", "PYTHONDONTWRITEBYTECODE": "1"},
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                releve = banc.lancer(scenarios.TOUS["x360-captures"], "docker/salle.py", racine)
+                vus[module] = (direct.stderr.splitlines()[-1], releve["erreur"])
+        self.assertEqual(
+            vus["hashlib"],
+            ("ImportError: hashlib du dossier docker", "ImportError: hashlib du dossier docker"),
+        )
+        self.assertEqual(vus["json"][0], "ImportError: json du dossier docker")
+        self.assertEqual(
+            vus["json"][1],
+            "AmorceMasqueError: @DEPOT@/docker/json.py masquerait json, que l'amorce a déjà "
+            "chargé: le banc ne verrait pas ce que le worker verrait",
+        )
+
     def faux_depot(self, racine: Path, parents: int) -> Path:
         """Un dépôt jetable: une enveloppe et un faux socle qui dit qu'il a été atteint."""
         (racine / "core/crates/worker").mkdir(parents=True)

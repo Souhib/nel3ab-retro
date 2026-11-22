@@ -77,7 +77,9 @@ export function Screen({
   }, [at.prescale, onPrescale]);
 
   return (
-    <div ref={room} className="relative flex min-h-0 flex-1 items-center justify-center bg-black">
+    // `bg-ecran`: le jeton de la régie, noir dans les deux thèmes (essayé par
+    // `regie.test.ts` et `Screen.test.tsx`), plutôt qu'un noir écrit ici.
+    <div ref={room} className="relative flex min-h-0 flex-1 items-center justify-center bg-ecran">
       <canvas
         id="screen"
         ref={canvasRef}

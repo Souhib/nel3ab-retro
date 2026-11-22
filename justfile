@@ -377,6 +377,15 @@ padmap-visuel:
 banc-visuel:
     cd spikes/m3-browser-drive && node banc-visuel.mjs /tmp/banc-visuel.png
 
+# La mise en page que l'audit visuel du 22 novembre 2026 a corrigée: le
+# dialogue Switch centré, la légende de la jauge de l'accueil sur un téléphone,
+# les cases de la préparation sous leur titre, et l'image noire dans les deux
+# régies. Hors de `check` pour la même raison que le banc: jsdom ne pose rien.
+# Son propre Vite sans relais, l'accueil assemblé par les modules du salon:
+# aucune salle ni aucun salon n'est touché.
+regie-visuel:
+    cd spikes/m3-browser-drive && node regie-mise-en-page.mjs
+
 # Le même écran, mais contre la VRAIE salle et sa page déployée.
 #
 # Les deux ne regardent pas la même chose et c'est le point: `banc-visuel` voit

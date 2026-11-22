@@ -17,11 +17,11 @@ afficher une bibliothèque à qui il manque des jeux sans le dire.
 
 import json
 import logging
-import re
 from pathlib import Path
 
 from pydantic import BaseModel, Field
 
+from nel3ab_control.consoles import titre_valide
 from nel3ab_control.worker import valid_key
 
 LOG = logging.getLogger(__name__)
@@ -36,9 +36,6 @@ VERSION = 1
 #: titre, éditeur et phrase compris : huit Mio laissent la place à vingt mille
 #: jeux, et bornent la mémoire si un fichier grossit par erreur.
 SIZE_MAX = 8 * 1024 * 1024
-
-#: Seize chiffres hexadécimaux en minuscules, comme les dossiers d'un emplacement.
-TITRE = re.compile(r"[0-9a-f]{16}")
 
 
 class CatalogueGame(BaseModel):
@@ -73,9 +70,18 @@ def _entree(brute: object) -> CatalogueGame | None:
     key, name, console, art = (brute.get(f) for f in ("key", "name", "console", "art"))
     maker, about = brute.get("maker"), brute.get("about")
     # Un identifiant mal formé ne fait pas écarter le jeu: il ne sert qu'à
-    # relier des sauvegardes, et un jeu sans lui reste un jeu.
+    # relier des sauvegardes, et un jeu sans lui reste un jeu. Sa forme est celle
+    # de SA console (`consoles.FORMES_TITRE`), en minuscules comme les dossiers
+    # d'un emplacement: jusqu'au 22 novembre 2026, 16 chiffres pour toute console,
+    # et le titre d'un jeu Xbox 360 était jeté.
     titre = brute.get("title_id")
-    title_id = titre if isinstance(titre, str) and TITRE.fullmatch(titre) else None
+    title_id = (
+        titre
+        if isinstance(titre, str)
+        and isinstance(console, str)
+        and titre_valide(console, titre, minuscules=True)
+        else None
+    )
     if (
         not isinstance(key, str)
         or not valid_key(key)

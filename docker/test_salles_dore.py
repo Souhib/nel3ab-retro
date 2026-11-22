@@ -325,6 +325,33 @@ TROIS_PLACES = next(m for m in MUTANTS if m.nom == "switch: trois places au lieu
 
 # --- Les essais -----------------------------------------------------------------------
 
+#: Un scénario normal par console, par chacun de ses scripts, et la sonde.
+LANCES = [
+    (nom, script)
+    for nom in ("switch-neuve", "switch2-defaut", "x360-captures", "sonde")
+    for script in scenarios.SCRIPTS[nom]
+]
+
+
+def heures(depot: Path) -> dict[str, int]:
+    """L'heure de chaque fichier des dossiers d'où les salles chargent du code, hors
+    caches d'octets (`test_un_cache_d_octets_reecrit_n_est_pas_une_ecriture_du_banc`)."""
+    return {
+        str(chemin): chemin.stat().st_mtime_ns
+        for dossier in banc.LUS
+        for chemin in (depot / dossier).rglob("*")
+        if chemin.is_file() and "__pycache__" not in chemin.relative_to(depot).parts
+    }
+
+
+def caches(depot: Path) -> list[str]:
+    return sorted(
+        chemin.relative_to(depot).as_posix()
+        for dossier in banc.LUS
+        for chemin in (depot / dossier).rglob("__pycache__")
+    )
+
+
 RELEVES: dict[tuple[str, str], dict] = {}
 COPIE: dict[tuple[str, str], dict] = {}
 #: Chaque scénario relancé sous `AUTRE_COMPTE`.
@@ -478,28 +505,53 @@ class Dore(unittest.TestCase):
         self.assertEqual(releve, banc.lire_dore("switch-neuve"))
 
     def test_le_banc_n_ecrit_rien_dans_le_depot(self):
-        """Ni fichier suivi, ni cache d'octets ignoré par git, dans les dossiers lus."""
+        """Aucun fichier suivi ni lu par une salle ne change, dans les dossiers lus."""
 
         def etat() -> tuple[str, dict[str, int]]:
             porcelaine = subprocess.run(  # noqa: S603 -- git, arguments fixes
-                ["git", "-C", str(DEPOT), "status", "--porcelain"],  # noqa: S607
+                ["git", "-C", str(DEPOT), "status", "--porcelain"],  # noqa: S607 -- git trouvé par le PATH
                 capture_output=True,
                 text=True,
                 check=True,
             ).stdout
-            fichiers = {
-                str(chemin): chemin.stat().st_mtime_ns
-                for dossier in banc.LUS
-                for chemin in (DEPOT / dossier).rglob("*")
-                if chemin.is_file()
-            }
-            return porcelaine, fichiers
+            return porcelaine, heures(DEPOT)
 
         avant = etat()
         self.assertTrue(avant[1], "aucun fichier relevé: le contrôle ne regarderait rien")
-        for nom in ("switch-neuve", "switch2-defaut", "x360-captures", "sonde"):
-            banc.lancer(scenarios.TOUS[nom], scenarios.SCRIPTS[nom][0])
+        executer(LANCES)
         self.assertEqual(etat(), avant)
+
+    def test_un_cache_d_octets_reecrit_n_est_pas_une_ecriture_du_banc(self):
+        """Dans l'arbre principal, une salle qui démarre pendant check réécrit un .pyc
+        (le worker lance python3 sans -B, external.rs): ce n'est pas le banc. Le
+        jumeau: un fichier source réécrit, lui, est vu."""
+        with tempfile.TemporaryDirectory() as temporaire:
+            depot = Path(temporaire)
+            source = depot / "docker/salle.py"
+            cache = depot / "docker/__pycache__/salle.cpython-312.pyc"
+            cache.parent.mkdir(parents=True)
+            source.write_text("x = 1\n")
+            cache.write_bytes(b"ancien")
+            avant = heures(depot)
+            os.utime(cache, ns=(1, 1))
+            self.assertEqual(heures(depot), avant)
+            os.utime(source, ns=(1, 1))
+            self.assertNotEqual(heures(depot), avant)
+
+    def test_le_banc_n_ecrit_aucun_cache_d_octets(self):
+        """Ce que l'exclusion ci-dessus ne voit plus, vérifié sur une copie de la
+        fermeture, que rien d'autre ne lance: aucun __pycache__ n'y naît. Le jumeau:
+        sans PYTHONDONTWRITEBYTECODE, le même lancement en écrit."""
+        with tempfile.TemporaryDirectory(prefix="caches-") as temporaire:
+            copie = banc.copier_fermeture(Path(temporaire) / "depot")
+            self.assertEqual(caches(copie), [])
+            executer(LANCES, copie)
+            self.assertEqual(caches(copie), [])
+            sans = replace(
+                scenarios.TOUS["x360-captures"], environnement={"PYTHONDONTWRITEBYTECODE": ""}
+            )
+            banc.lancer(sans, "docker/xbox360-room-socle.py", copie)
+            self.assertIn("moteurs/socle/__pycache__", caches(copie))
 
 
 def consigne_neutre(dossier: Path) -> Path:

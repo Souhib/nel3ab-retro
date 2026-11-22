@@ -17,7 +17,7 @@ import { createServer } from "node:net";
 import { promisify } from "node:util";
 import puppeteer from "puppeteer";
 import { limitedLink } from "./limited-link.mjs";
-import { seedName, enterRoom, watchRoom } from "./open.mjs";
+import { seedName, enterRoom, watchRoom, lancementEnvoye, tramesDuSalon } from "./open.mjs";
 
 const execute = promisify(execFile);
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -128,6 +128,19 @@ const button = (page, text) => page.evaluate((label) => {
   if (!node || node.disabled) throw new Error(`Commande indisponible : ${label}`);
   node.click();
 }, text);
+/** Le chef lance en un geste depuis le 22 novembre 2026: il n'a plus « Je suis
+ * prêt », et son choix part AVEC « Lancer le jeu » (`launch` avec `pad`). */
+const sansPretPourLeChef = async (chef) => assert.equal(
+  await chef.evaluate(() => [...document.querySelectorAll("button")].some((b) => b.textContent.trim() === "Je suis prêt")),
+  false, "le chef a encore « Je suis prêt »");
+const lancerCommeChef = async (chef, pad) => {
+  await sansPretPourLeChef(chef);
+  const envoyees = await tramesDuSalon(chef);
+  await chef.waitForFunction(() => !document.querySelector("#launchPrepared").disabled);
+  await button(chef, "Lancer le jeu");
+  await until(() => lancementEnvoye(envoyees) !== null, "Le lancement n'est pas parti vers le salon");
+  assert.equal(lancementEnvoye(envoyees).pad, pad, "le lancement du chef ne porte pas son appareil");
+};
 const open = async (name, play, legacy = false, address = url, half = false) => {
   const context = await browser.createBrowserContext();
   const page = await context.newPage();
@@ -386,10 +399,9 @@ http://localhost:${door} {
       const columns = await page.$eval(".n3-mapping-list", e => getComputedStyle(e).gridTemplateColumns.split(" ").length);
       assert.equal(columns, 1);
       await page.select('[aria-label="Ma configuration pour ce jeu"]', String(index % 2));
-      await button(page, "Je suis prêt");
+      if (page !== alice) await button(page, "Je suis prêt");
     }
-    await alice.waitForFunction(() => !document.querySelector("#launchPrepared").disabled);
-    await button(alice, "Lancer le jeu");
+    await lancerCommeChef(alice, 0);
     await until(() => generation === 2, "Préparation à quatre non lancée");
     await verify(expected);
     for (const [index, page] of pages().entries()) {
@@ -579,10 +591,8 @@ http://localhost:${door} {
     for (const p of [alice, benoit]) await p.waitForSelector("#bindingsPanel[open]");
     await alice.select('[aria-label="Ma configuration pour ce jeu"]', "1");
     await benoit.select('[aria-label="Ma configuration pour ce jeu"]', "0");
-    await button(alice, "Je suis prêt");
     await button(benoit, "Je suis prêt");
-    await alice.waitForFunction(() => !document.querySelector("#launchPrepared").disabled);
-    await button(alice, "Lancer le jeu");
+    await lancerCommeChef(alice, 1);
     await until(() => generation === 4, "Le jeu ne démarre pas depuis le repos");
     for (const p of [alice, benoit, camille]) {
       const frames = await p.evaluate(() => nel3abTest.counters().painted);
@@ -651,13 +661,13 @@ http://localhost:${door} {
     await button(alice, "Charger");
     assert.equal(await alice.$eval(choice, (e) => e.value), "1");
     await benoit.select(choice, "0");
-    await button(alice, "Je suis prêt");
+    // Le chef attend Benoît: « Lancer le jeu » reste grisé, et rien ne part.
+    await sansPretPourLeChef(alice);
     assert.equal(await alice.$eval("#launchPrepared", (e) => e.disabled), true);
-    assert.equal(generation, 1, "Le premier prêt ne doit pas lancer le jeu");
+    assert.equal(generation, 1, "Le chef seul prêt ne doit pas lancer le jeu");
     await button(benoit, "Je suis prêt");
-    await alice.waitForFunction(() => !document.querySelector("#launchPrepared").disabled);
     const before = Date.now();
-    await button(alice, "Lancer le jeu");
+    await lancerCommeChef(alice, 1);
     await until(() => generation === 2, "Le lancement confirmé n'atteint pas le worker");
     await until(async () => JSON.stringify(await names()) === '["Alice","Benoit",null,null]', "Les noms changent de places au redémarrage");
     for (const [p, port, kind] of [[alice, 1, 1], [benoit, 2, 0]]) {

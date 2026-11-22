@@ -118,12 +118,26 @@ export async function enterRoom(page, timeout = 15000) {
  * `encore` sert aux jeux SANS sauvegarde, qui n'ouvrent pas de panneau et
  * partent sur une seconde pression. Cette branche n'a PAS été exercée: le seul
  * jeu essayé ce jour-là a des sauvegardes.
+ *
+ * # Depuis le 22 novembre 2026: un geste par personne
+ *
+ * Seul à jouer sur un jeu à un seul appareil (GameCube, Switch, Xbox 360),
+ * choisir la sauvegarde LANCE le jeu: la page envoie `begin` avec `direct`, et
+ * `#launchPrepared` n'apparaît jamais. L'aide rend alors la main dès que
+ * l'écran de chargement (`#booting`) est là. Et le chef n'a plus « Je suis
+ * prêt »: il lance avec son choix (`launch` avec `pad`). L'aide ne presse
+ * « Je suis prêt » que s'il existe, c'est-à-dire sur la page d'un autre joueur.
+ * Rend `"direct"` pour un lancement direct, sinon ce que rend la pression de
+ * « Lancer le jeu ».
  */
 export async function launchPrepared(page, encore = null, timeout = 20000) {
   const fin = Date.now() + timeout;
   let confirme = false;
   while (Date.now() < fin && !confirme) {
     confirme = await page.evaluate(() => {
+      // Lancé directement: le chargement est déjà là, sans panneau.
+      if (document.getElementById("booting") && !document.getElementById("launchPrepared"))
+        return true;
       // La préparation est peut-être DÉJÀ ouverte, et il n'y a alors plus rien
       // à confirmer. Selon le jeu, presser un emplacement l'ouvre directement:
       // mesuré le 13 septembre 2026 sur Mario Kart Double Dash, où `#pick-1`
@@ -152,7 +166,14 @@ export async function launchPrepared(page, encore = null, timeout = 20000) {
       node.click();
       return true;
     }, label);
-  await page.waitForFunction(() => document.getElementById("launchPrepared") !== null, { timeout });
+  await page.waitForFunction(
+    () => document.getElementById("launchPrepared") !== null || document.getElementById("booting") !== null,
+    { timeout },
+  );
+  const direct = await page.evaluate(
+    () => document.getElementById("launchPrepared") === null && document.getElementById("booting") !== null,
+  );
+  if (direct) return "direct";
   // « Je suis prêt » JUSQU'À ce qu'il parte, et non une fois en espérant.
   //
   // Ce bouton porte `disabled={working || occupied}` (`components/Preparation.tsx`),
@@ -168,7 +189,9 @@ export async function launchPrepared(page, encore = null, timeout = 20000) {
   // endroit, le même bouton part et le lancement s'active aussitôt.
   //
   // La boucle est sans danger une fois prête: le bouton devient « Modifier ma
-  // configuration » et la correspondance exacte ne le trouve plus.
+  // configuration » et la correspondance exacte ne le trouve plus. Le chef n'a
+  // pas ce bouton depuis le 22 novembre 2026: `presser` rend alors `false`, et
+  // c'est « Lancer le jeu » qui s'active quand les autres ont confirmé.
   const finPret = Date.now() + timeout;
   let arme = false;
   while (Date.now() < finPret && !arme) {
@@ -212,3 +235,33 @@ export const seatOf = (page) => page.evaluate(() => globalThis.nel3abTest.seat()
 /** Cette page a-t-elle été délogée par quelqu'un d'autre ? */
 export const displacedOn = (page) =>
   page.evaluate(() => document.getElementById("displaced") !== null);
+
+/** Les trames que la page envoie au salon, lues par le protocole de Chrome.
+ *
+ * Ajouté le 22 novembre 2026: le chef lance avec son choix (`launch` avec
+ * `pad`), et c'est ce que les pilotes de salle réelle doivent vérifier, pas
+ * seulement qu'un jeu démarre. Une trame qui démarre le jeu sans `pad` ferait
+ * démarrer le chef sur le premier appareil proposé, sans un mot. */
+export async function tramesDuSalon(page) {
+  const cdp = await page.createCDPSession();
+  await cdp.send("Network.enable");
+  const trames = [];
+  cdp.on("Network.webSocketFrameSent", (e) => trames.push(e.response.payloadData));
+  return trames;
+}
+
+/** Le dernier lancement de préparation envoyé, tel quel, ou `null`. */
+export function lancementEnvoye(trames) {
+  let dernier = null;
+  for (const trame of trames) {
+    const lu = /^42\d*(\[[\s\S]*\])$/.exec(trame);
+    if (!lu) continue;
+    try {
+      const [evenement, donnees] = JSON.parse(lu[1]);
+      if (evenement === "preparation" && donnees?.action === "launch") dernier = donnees;
+    } catch {
+      // Une trame qui n'est pas du JSON n'est pas un lancement.
+    }
+  }
+  return dernier;
+}

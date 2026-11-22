@@ -21,13 +21,13 @@ try {
   await nomme.setViewport({ width: 1280, height: 800, deviceScaleFactor: 2 });
   await seedName(nomme);
   await nomme.goto(url, { waitUntil: "domcontentloaded" });
-  await nomme.waitForFunction(() => document.body.innerText.includes("entrer et jouer"), { timeout: 20_000 });
+  await nomme.waitForFunction(() => document.querySelector("#enter")?.innerText.includes("Rejoindre"), { timeout: 20_000 });
   await nomme.screenshot({ path: join(dossier, "2-salon.png") });
 
   // 3. La salle, une fois entré: barre latérale et écran.
   const entre = await nomme.evaluateHandle(() =>
     [...document.querySelectorAll("button, a, [role=button]")]
-      .find(e => e.innerText.toLowerCase().includes("entrer et jouer")));
+      .find(e => e.id === "enter"));
   await entre.asElement().click();
   await new Promise(done => setTimeout(done, 2_500));
   await nomme.screenshot({ path: join(dossier, "3-dans-la-salle.png") });

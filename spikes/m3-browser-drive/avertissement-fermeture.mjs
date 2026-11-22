@@ -75,11 +75,11 @@ try {
   const page = await browser.newPage();
   await seedName(page);
   await page.goto(`http://127.0.0.1:${media}/`, { waitUntil: "domcontentloaded" });
-  await page.waitForFunction(() => document.body.innerText.includes("entrer et jouer"),
+  await page.waitForFunction(() => document.querySelector("#enter")?.innerText.includes("Rejoindre"),
     { timeout: 20_000 });
   const entre = await page.evaluateHandle(() =>
     [...document.querySelectorAll("button, a, [role=button]")]
-      .find(element => element.innerText.toLowerCase().includes("entrer et jouer")));
+      .find(element => element.id === "enter"));
   await entre.asElement().click();
 
   // Le bandeau doit arriver tout seul, sans qu'on touche à rien.

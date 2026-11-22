@@ -17,7 +17,7 @@ import { createServer } from "node:net";
 import { promisify } from "node:util";
 import puppeteer from "puppeteer";
 import { limitedLink } from "./limited-link.mjs";
-import { seedName, enterRoom, watchRoom } from "./open.mjs";
+import { seedName, enterRoom, watchRoom, lancementEnvoye, tramesDuSalon } from "./open.mjs";
 
 const execute = promisify(execFile);
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -296,10 +296,16 @@ http://localhost:${door} {
             console.log('PASS Wii controller remapping after Switch, through the configuration dialog');
           }
         }
-        await button(p,"Je suis prêt");
+        // Le chef lance avec son choix depuis le 22 novembre 2026: seuls les
+        // autres confirment.
+        if(p!==alice) await button(p,"Je suis prêt");
       }
+      assert.equal(await alice.evaluate(()=>[...document.querySelectorAll("button")].some(b=>b.textContent.trim()==="Je suis prêt")),false,"le chef a encore « Je suis prêt »");
+      const envoyees=await tramesDuSalon(alice);
       await alice.waitForFunction(()=>!document.querySelector("#launchPrepared").disabled);
       await button(alice,"Lancer le jeu");
+      await until(()=>lancementEnvoye(envoyees)!==null,"Launch frame not sent");
+      assert.equal(typeof lancementEnvoye(envoyees).pad,"number","le lancement du chef ne porte pas son appareil");
     }
     await until(async()=>(await room()).game?.index===game.index,"New game not active",90000);
     for(const p of players){

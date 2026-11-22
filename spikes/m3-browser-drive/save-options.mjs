@@ -156,7 +156,8 @@ try {
   }, {}, gc.index);
   await page.$eval(`#item-game${gc.index}`, node => node.click());
   await page.waitForSelector("#pick-2");
-  assert.match(await page.$eval("#pick-2", node => node.textContent), /reprendre/);
+  // « ma sauvegarde » depuis le 22 novembre 2026 (front/src/lib/mots.ts).
+  assert.match(await page.$eval("#pick-2", node => node.textContent), /ma sauvegarde/);
   await page.keyboard.press("Escape"); await page.keyboard.press("Escape");
   for (const present of [true, false]) {
     if (!present) {
@@ -188,7 +189,7 @@ try {
       await page.waitForSelector("#picker");
       assert.equal(await page.$("#pick-1") !== null, present, fixture.code);
       assert.ok(await page.$("#pick-0")); assert.ok(await page.$("#pick-2"));
-      assert.match(await page.$eval("#pick-2", node => node.textContent), /reprendre/);
+      assert.match(await page.$eval("#pick-2", node => node.textContent), /ma sauvegarde/);
       checks.push({ console: fixture.code, importedPayloadPresent: present, unlockedOffered: present });
       await page.keyboard.press("Escape");
       await page.keyboard.press("Escape");

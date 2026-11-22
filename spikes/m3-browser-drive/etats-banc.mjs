@@ -305,7 +305,7 @@ export async function demarrerBanc({ port, page, flux }) {
     /** Un démarrage annoncé par le salon, comme quand quelqu'un change de jeu. */
     annoncerDemarrage() {
       for (const ws of lobbies)
-        ws.send(`42["booting",${JSON.stringify({ game: "Autre jeu du banc", save: "partie neuve" })}]`);
+        ws.send(`42["booting",${JSON.stringify({ game: "Autre jeu du banc", save: "nouvelle partie" })}]`);
     },
     journal: (depuis = 0) => log.filter((ligne) => ligne.a >= depuis),
     /** Les boutons reçus depuis `depuis`, dans l'ordre d'arrivée. */

@@ -50,7 +50,14 @@ default: local
 # port de 5400 à 5499, sans rien de vivant. Leur prix, mesuré le jour même:
 # 1 min 25 s et 4 min 35 s, dont près de trois minutes pour les deux étapes de
 # `etats-navigateur` qui attendent une proposition de format réduit.
-local: check gpu-test clip-audio-test switch-saves-test switch-capture-test xbox360-test abri-test deploy-check focus-navigateur etats-navigateur
+#
+# `parcours-navigateur` y entre le même jour, après la relecture du chantier
+# « parcours et mots »: cinq mutants d'`App.tsx` (l'entrée lue dans l'adresse,
+# l'adresse réécrite, le lien d'invitation, la sortie, la fermeture de la
+# salle) laissaient tous les essais verts, et les parcours qui les auraient vus
+# vivaient hors du dépôt. Un banc du même genre (Chrome, ffmpeg, rien de
+# vivant), pour 24 s mesurées le 22 novembre.
+local: check gpu-test clip-audio-test switch-saves-test switch-capture-test xbox360-test abri-test deploy-check focus-navigateur etats-navigateur parcours-navigateur
 
 # La copie chiffrée des sauvegardes sur le NAS (docs/abri.md), éprouvée contre un
 # faux dossier personnel et un dépôt jetable: restauration à l'identique,
@@ -708,6 +715,58 @@ etats-navigateur-rouge:
     node etats.mjs --page "$dossier/refusee.html" --flux "$dossier/flux.h264" \
         --etapes reprise-45,socket-muette,relais-502,redemarrage,arrivee-refusee,lien-qui-cale \
         --rouge-attendu reprise-45,socket-muette,relais-502,redemarrage,arrivee-refusee,lien-qui-cale
+
+# Les parcours de la salle, dans un vrai navigateur.
+#
+# Écrite le 22 novembre 2026 après la relecture du chantier « parcours et
+# mots »: l'entrée dans l'adresse et l'adresse qui suit la place, le
+# rechargement, l'invitation, la sortie unique, la fermeture de la salle par le
+# chef, le verbe du chef et la reprise de son rôle, les noms de console d'une
+# préparation GameCube et Xbox 360, « ma sauvegarde » pour qui lance, les
+# cibles au doigt et les places de l'avant-salle. Chaque étape a son jumeau
+# (`parcours.mjs`).
+#
+# Le banc sert la page COMMITTÉE et vérifie l'empreinte de ce qu'il sert: un
+# salon et une salle simulés sur un port de 5400 à 5499 (`parcours-banc.mjs`),
+# aucune salle vivante, aucun émulateur. Hors de `check`: Chrome et ffmpeg.
+#
+#   just parcours-navigateur                          toutes les étapes
+#   just parcours-navigateur --etapes invitation      une seule
+#   just parcours-navigateur --captures /tmp/p        avec les captures
+parcours-navigateur *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dossier=$(mktemp -d)
+    trap 'rm -rf "$dossier"' EXIT
+    ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc2=size=640x480:rate=60 \
+        -frames:v 180 -c:v libx264 -profile:v baseline -preset ultrafast -tune zerolatency \
+        -g 60 -bf 0 -x264-params aud=1:repeat-headers=1 -f h264 "$dossier/flux.h264"
+    cd spikes/m3-browser-drive
+    node parcours.mjs --page ../../core/crates/worker/src/page/index.html --flux "$dossier/flux.h264" {{args}}
+
+# Le contrôle négatif du précédent: chaque étape doit échouer sur son DÉFAUT,
+# pas sur une précondition. 528e870 est la page d'avant le chantier: tout y
+# rougit sauf `place-suit-adresse`, qui suppose l'entrée dans l'adresse et y
+# tombe sur sa précondition. e851a64 est la page que la relecture a refusée:
+# seules y rougissent les quatre étapes de ses défauts, les autres y passent,
+# et c'est ce qu'elles doivent faire.
+parcours-navigateur-rouge:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dossier=$(mktemp -d)
+    trap 'rm -rf "$dossier"' EXIT
+    ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc2=size=640x480:rate=60 \
+        -frames:v 180 -c:v libx264 -profile:v baseline -preset ultrafast -tune zerolatency \
+        -g 60 -bf 0 -x264-params aud=1:repeat-headers=1 -f h264 "$dossier/flux.h264"
+    git show 528e870:core/crates/worker/src/page/index.html > "$dossier/avant.html"
+    git show e851a64:core/crates/worker/src/page/index.html > "$dossier/refusee.html"
+    cd spikes/m3-browser-drive
+    etapes=entree-adresse,rechargement,invitation,quitter,fermer-salle,menu-chef,preparation-gamecube,preparation-x360,lanceur-ma-sauvegarde,cibles-tactiles,avant-salle-places
+    node parcours.mjs --page "$dossier/avant.html" --flux "$dossier/flux.h264" \
+        --etapes "$etapes" --rouge-attendu "$etapes"
+    etapes=place-suit-adresse,menu-chef,cibles-tactiles,avant-salle-places
+    node parcours.mjs --page "$dossier/refusee.html" --flux "$dossier/flux.h264" \
+        --etapes "$etapes" --rouge-attendu "$etapes"
 
 # Le focus, le clavier et les menus de la salle, dans un vrai navigateur.
 #

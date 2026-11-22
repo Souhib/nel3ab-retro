@@ -241,7 +241,7 @@ say(
 // Le jumeau, et il n'est pas décoratif: les trois vérifications au-dessus
 // passeraient toutes si la page envoyait TOUJOURS « tout débloqué », ou si le
 // worker avait gardé la valeur d'un essai précédent. Relancer le premier jeu sur
-// « partie neuve » est la seule chose qui prouve que le choix voyage vraiment.
+// « nouvelle partie » est la seule chose qui prouve que le choix voyage vraiment.
 await press("#openMenu");
 await new Promise((r) => setTimeout(r, 1200));
 await press("#item-shelf-gc");
@@ -257,8 +257,9 @@ await press("#pick-0");
 await new Promise((r) => setTimeout(r, 2000));
 await launchPrepared(page);
 say(
-  await until(() => (document.getElementById("booting")?.textContent ?? "").includes("neuve")),
-  "l'écran de chargement annonce la partie neuve",
+  // « nouvelle partie » depuis le 22 novembre 2026 (front/src/lib/mots.ts).
+  await until(() => (document.getElementById("booting")?.textContent ?? "").includes("nouvelle partie")),
+  "l'écran de chargement annonce la nouvelle partie",
 );
 await new Promise((r) => setTimeout(r, 22000));
 say(kept("chosen-save") === "0", `puis l'emplacement retenu redevient neuf (${kept("chosen-save")})`);

@@ -143,7 +143,7 @@ try {
   // prouverait que du HTTP.
   try {
     await page.waitForFunction(
-      () => document.body.innerText.includes("entrer et jouer"),
+      () => document.querySelector("#enter")?.innerText.includes("Rejoindre"),
       { timeout: 20_000 },
     );
   } catch (echec) {
@@ -158,7 +158,7 @@ try {
   }
   const entre = await page.evaluateHandle(() =>
     [...document.querySelectorAll("button, a, [role=button]")]
-      .find(element => element.innerText.toLowerCase().includes("entrer et jouer")));
+      .find(element => element.id === "enter"));
   const bouton = entre.asElement();
   assert.ok(bouton, "Le bouton pour entrer n'est pas cliquable");
   await bouton.click();

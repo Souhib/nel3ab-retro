@@ -544,8 +544,10 @@ moteurs-test:
 # Chaque scénario lance le VRAI script de la salle dans un `/usr/bin/python3`
 # neuf, comme le worker, et compare ses commandes, son erreur et l'arbre de son
 # emplacement à `docker/dore/<scénario>.json`. Une migration d'adaptateur doit
-# les garder inchangés. Mesuré le 22 novembre 2026: 49 scénarios, deux passages
-# et cinq mutants en 2,8 s sur cette machine.
+# les garder inchangés. Mesuré le 22 novembre 2026 sur cette machine (12 fils):
+# 49 scénarios, dont les 18 de la Xbox 360 aussi par le canari, deux passages et
+# neuf mutants, en 3,9 s, trois fois de suite. La charge moyenne était encore
+# près de 10 à la sortie d'un `just check`: un plafond, pas une mesure au repos.
 salles-dore:
     python3 docker/test_salles_dore.py
     cd control && uv run ruff check --config pyproject.toml ../docker/test_salles_dore.py ../docker/dore

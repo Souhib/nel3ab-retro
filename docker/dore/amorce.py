@@ -141,20 +141,49 @@ class Capture:
         return 0
 
 
+#: Les passages tolérés après la fermeture de stdin. Une salle qui l'écoute
+#: revient au premier; la fausse horloge rend cette borne instantanée.
+APRES_LA_FERMETURE = 1000
+
+
+class SalleSourdeError(BaseException):
+    """La salle n'a pas lu la fermeture de stdin. Le worker l'arrête ainsi, puis
+    l'attend sans délai (external.rs): elle ne s'arrêterait jamais, et la copie
+    de fin de partie n'aurait pas lieu. `BaseException`: aucun `except Exception`
+    d'un script ne doit pouvoir l'avaler."""
+
+
+def descripteur(objet) -> int:
+    return objet if isinstance(objet, int) else objet.fileno()
+
+
 def selecteur(consigne: dict, horloge: Horloge):
-    """`selectors.DefaultSelector`: stdin reste muet `tours` fois, puis le worker le ferme."""
+    """`selectors.DefaultSelector`: stdin reste muet `tours` fois, puis le worker le ferme.
+
+    La fermeture ne se voit que si la salle a inscrit stdin en lecture, comme
+    avec un vrai sélecteur. Le 22 novembre 2026, un faux qui la rendait toujours
+    laissait passer une salle qui n'écoutait plus stdin.
+    """
 
     class Selecteur:
         def __init__(self) -> None:
             self.vus = 0
+            self.inscrits: list[tuple[int, int]] = []
 
-        def register(self, *_arguments) -> None:
-            return None
+        def register(self, fileobj, events, data=None) -> None:
+            self.inscrits.append((descripteur(fileobj), events))
 
         def select(self, timeout=None):
             self.vus += 1
             if self.vus > consigne["tours"]:
-                return [("stdin", selectors.EVENT_READ)]
+                ecoute = any(
+                    fd == sys.stdin.fileno() and events & selectors.EVENT_READ
+                    for fd, events in self.inscrits
+                )
+                if ecoute:
+                    return [("stdin", selectors.EVENT_READ)]
+                if self.vus > consigne["tours"] + APRES_LA_FERMETURE:
+                    raise SalleSourdeError("le worker a fermé stdin, la salle ne l'a pas lu")
             horloge.dormir(timeout or 0)
             return []
 

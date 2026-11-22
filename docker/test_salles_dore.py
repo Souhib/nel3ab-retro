@@ -18,7 +18,12 @@ Ce qui rend ce test capable d'échouer pour la bonne raison:
 - une enveloppe qui cherche le socle au mauvais endroit doit échouer ici comme
   sous le worker, alors que `runpy` lancé depuis la racine la laisse passer;
 - l'environnement du shell (variables `NEL3AB_*`, `PYTHONPATH`) n'arrive pas au
-  script, et un relevé qui nommerait encore un `/home/` est refusé.
+  script, et un relevé qui nommerait encore un `/home/` ou le compte de la
+  machine est refusé;
+- chaque scénario est relancé sous un autre compte (`AUTRE_COMPTE`) et doit
+  rendre le même doré: la CI ne tourne pas sous 1000:1000;
+- le faux sélecteur de l'amorce ne signale la fermeture de stdin qu'à une salle
+  qui l'a inscrit, comme un vrai, et une salle sourde est nommée.
 
     python3 docker/test_salles_dore.py            les essais
     python3 docker/test_salles_dore.py --ecrire   réécrit le doré (just salles-dore-ecrire)
@@ -155,6 +160,12 @@ def sway_avant_captures(releve: dict) -> bool:
     return argv.index("NEL3AB_SWAY_X11=1") < argv.index("NEL3AB_CAPTURES_S=30")
 
 
+#: Ce que l'amorce lève quand la salle ne lit pas la fermeture de stdin (amorce.py).
+SOURDE = "SalleSourdeError: le worker a fermé stdin, la salle ne l'a pas lu"
+#: La ligne qui fait entendre au cycle de la salle l'arrêt demandé par le worker.
+ECOUTE = "    selector.register(sys.stdin, selectors.EVENT_READ)\n"
+
+
 MUTANTS = (
     Mutant(
         "x360: deux variables du moteur dans l'autre ordre",
@@ -190,6 +201,18 @@ MUTANTS = (
         "switch-neuve",
         "docker/switch-room.py",
         lambda releve: "--input-id-4" not in docker_run(releve, assistant=False),
+    ),
+    Mutant(
+        # Le worker arrête une salle en fermant son stdin, puis attend sans délai
+        # (external.rs). Une salle qui ne l'écoute plus ne s'arrête jamais, et la
+        # copie de fin de partie n'a pas lieu.
+        "switch: la salle n'écoute plus stdin",
+        "docker/switch-room.py",
+        ECOUTE,
+        "",
+        "switch-neuve",
+        "docker/switch-room.py",
+        lambda releve: releve["erreur"] == SOURDE,
     ),
     Mutant(
         "x360: la disposition de la Switch",
@@ -250,6 +273,15 @@ MUTANTS = (
         lambda releve: arrets(releve)[0].endswith("-pads"),
     ),
     Mutant(
+        "canari x360: le socle n'écoute plus stdin",
+        "moteurs/socle/salle.py",
+        ECOUTE,
+        "",
+        "x360-captures",
+        "docker/xbox360-room-socle.py",
+        lambda releve: releve["erreur"] == SOURDE,
+    ),
+    Mutant(
         "canari x360: l'enveloppe cherche le socle au mauvais endroit",
         "docker/xbox360-room-socle.py",
         "DEPOT = Path(__file__).resolve().parents[1]\n",
@@ -263,6 +295,8 @@ MUTANTS = (
 )
 #: Les mutants dont la différence attendue est justement une erreur d'import.
 IMPORT_ATTENDU = {"canari x360: l'enveloppe cherche le socle au mauvais endroit"}
+#: Le modèle des jumeaux du mécanisme, cherché par son nom et non par sa place.
+TROIS_PLACES = next(m for m in MUTANTS if m.nom == "switch: trois places au lieu de quatre")
 
 
 # --- Les essais -----------------------------------------------------------------------
@@ -444,6 +478,25 @@ class Dore(unittest.TestCase):
         self.assertEqual(etat(), avant)
 
 
+def consigne_neutre(dossier: Path) -> Path:
+    """La consigne d'un scénario ordinaire, pour lancer par l'amorce un script d'essai."""
+    consigne = dossier / "consigne.json"
+    consigne.write_text(
+        json.dumps(
+            {
+                "journal": str(dossier / "journal.json"),
+                "manettes": 4,
+                "arret_apres": None,
+                "capture_meurt": False,
+                "tours": 3,
+                "echec_moteur": False,
+                "identite": None,
+            }
+        )
+    )
+    return consigne
+
+
 class LancementCommeLeWorker(unittest.TestCase):
     """L'amorce donne au script ce qu'un lancement direct lui donnerait."""
 
@@ -466,22 +519,9 @@ class LancementCommeLeWorker(unittest.TestCase):
             for amorce in (False, True):
                 marque = racine / ("amorce" if amorce else "direct") / "marque"
                 marque.parent.mkdir()
-                consigne = marque.with_name("consigne.json")
-                consigne.write_text(
-                    json.dumps(
-                        {
-                            "journal": str(marque.with_name("journal.json")),
-                            "manettes": 4,
-                            "arret_apres": None,
-                            "capture_meurt": False,
-                            "tours": 3,
-                            "echec_moteur": False,
-                            "identite": None,
-                        }
-                    )
-                )
+                consigne = consigne_neutre(marque.parent)
                 avant = [str(banc.AMORCE), str(consigne)] if amorce else []
-                subprocess.run(  # noqa: S603
+                subprocess.run(  # noqa: S603 -- l'interpréteur système, une sonde écrite ici
                     [banc.PYTHON, *avant, str(script), str(marque), "t", "neuve", "r"],
                     cwd=racine,
                     env=env,
@@ -491,6 +531,49 @@ class LancementCommeLeWorker(unittest.TestCase):
             self.assertEqual(vus[1], vus[0])
             self.assertEqual(vus[0]["path"][0], str((racine / "docker").resolve()))
             self.assertEqual(vus[0]["name"], "__main__")
+
+    @staticmethod
+    def ecoute(inscrit: bool) -> str:
+        """Une salle réduite à sa boucle: voit-elle la fermeture de stdin en vingt tours ?"""
+        inscription = "s.register(sys.stdin, selectors.EVENT_READ)\n" if inscrit else ""
+        return (
+            "import json, selectors, sys\n"
+            "from pathlib import Path\n"
+            "s = selectors.DefaultSelector()\n"
+            f"{inscription}"
+            "vu = any(s.select(0.01) for _ in range(20))\n"
+            "Path(sys.argv[1]).with_name('vu.json').write_text(json.dumps(vu))\n"
+        )
+
+    def test_le_faux_selecteur_voit_la_fermeture_de_stdin_comme_un_vrai(self):
+        """stdin est un tube que le worker ferme (external.rs), et un vrai sélecteur
+        ne signale sa fermeture qu'à qui l'a inscrit. Le faux de l'amorce doit dire
+        la même chose, sinon le doré ne verrait pas une salle sourde à l'arrêt."""
+        with tempfile.TemporaryDirectory() as temporaire:
+            racine = Path(temporaire)
+            vus = {}
+            for inscrit in (True, False):
+                for amorce in (False, True):
+                    dossier = racine / f"{inscrit}-{amorce}"
+                    dossier.mkdir()
+                    (dossier / "salle.py").write_text(self.ecoute(inscrit))
+                    avant = [str(banc.AMORCE), str(consigne_neutre(dossier))] if amorce else []
+                    subprocess.run(  # noqa: S603 -- l'interpréteur système, une boucle écrite ici
+                        [banc.PYTHON, *avant, str(dossier / "salle.py"), str(dossier / "m")],
+                        cwd=racine,
+                        env={"PATH": "/usr/bin:/bin", "PYTHONDONTWRITEBYTECODE": "1"},
+                        # Un tube fermé sans rien écrire, comme le worker. epoll refuse
+                        # /dev/null (EPERM): DEVNULL ne serait pas le cas réel.
+                        input=b"",
+                        check=True,
+                    )
+                    vus[inscrit, amorce] = json.loads((dossier / "vu.json").read_text())
+        # (inscrit, par l'amorce): seule l'inscription décide, pas le chemin de lancement.
+        attendu = {
+            (inscrit, amorce): inscrit for inscrit in (True, False) for amorce in (False, True)
+        }
+        self.assertEqual(vus, attendu)
+        self.assertEqual(sorted(attendu.values()), [False, False, True, True])
 
     def faux_depot(self, racine: Path, parents: int) -> Path:
         """Un dépôt jetable: une enveloppe et un faux socle qui dit qu'il a été atteint."""
@@ -549,19 +632,22 @@ class Mutants(unittest.TestCase):
                 verifier(mutant)
 
     def test_un_texte_introuvable_est_une_erreur(self):
-        absent = replace(MUTANTS[2], nom="absent", avant="    for seat in range(1, 6):\n")
+        absent = replace(TROIS_PLACES, nom="absent", avant="    for seat in range(1, 6):\n")
         with self.assertRaises(MutantIntrouvableError):
             muter(absent)
 
     def test_une_erreur_d_import_ne_compte_pas_comme_detection(self):
         casse = replace(
-            MUTANTS[2], nom="import cassé", avant="import selectors\n", apres="import selecteurs\n"
+            TROIS_PLACES,
+            nom="import cassé",
+            avant="import selectors\n",
+            apres="import selecteurs\n",
         )
         with self.assertRaisesRegex(MutantNonValableError, "erreur d'import"):
             verifier(casse)
 
     def test_un_mutant_sans_effet_n_est_pas_une_detection(self):
-        neutre = replace(MUTANTS[2], nom="neutre", apres="    for seat in range(1, 5):  # \n")
+        neutre = replace(TROIS_PLACES, nom="neutre", apres="    for seat in range(1, 5):  # \n")
         with self.assertRaisesRegex(MutantNonValableError, "rend encore son doré"):
             verifier(neutre)
 

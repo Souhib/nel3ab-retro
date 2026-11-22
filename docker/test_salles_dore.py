@@ -39,7 +39,7 @@ import sys
 import tempfile
 import unittest
 from collections.abc import Callable
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, replace
 from pathlib import Path
 from unittest.mock import patch
@@ -48,7 +48,7 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).with_name("dore")))
 
 import banc  # noqa: E402 -- dore/ n'est pas un paquet: son chemin vient d'être posé
-import scenarios  # noqa: E402
+import scenarios  # noqa: E402 -- même raison que banc, juste au-dessus
 
 DEPOT = banc.DEPOT
 ERREURS_D_IMPORT = ("ImportError", "ModuleNotFoundError", "SyntaxError")
@@ -60,19 +60,29 @@ ERREURS_D_IMPORT = ("ImportError", "ModuleNotFoundError", "SyntaxError")
 AUTRE_COMPTE = (1001, 118)
 
 
+FILS = min(16, os.cpu_count() or 2)
+
+
+def soumettre(
+    executeur: ThreadPoolExecutor,
+    paires: list[tuple[str, str]],
+    depot: Path = DEPOT,
+    identite: tuple[int, int] | None = None,
+) -> dict[tuple[str, str], Future]:
+    """Chaque (scénario, script) confié aux fils: un interpréteur neuf par lancement."""
+    return {
+        (nom, script): executeur.submit(banc.lancer, scenarios.TOUS[nom], script, depot, identite)
+        for nom, script in paires
+    }
+
+
 def executer(
     paires: list[tuple[str, str]],
     depot: Path = DEPOT,
     identite: tuple[int, int] | None = None,
 ) -> dict[tuple[str, str], dict]:
-    """Chaque (scénario, script), en parallèle: un interpréteur neuf par lancement."""
-    with ThreadPoolExecutor(max_workers=min(16, os.cpu_count() or 2)) as executeur:
-        futurs = {
-            (nom, script): executeur.submit(
-                banc.lancer, scenarios.TOUS[nom], script, depot, identite
-            )
-            for nom, script in paires
-        }
+    with ThreadPoolExecutor(max_workers=FILS) as executeur:
+        futurs = soumettre(executeur, paires, depot, identite)
         return {cle: futur.result() for cle, futur in futurs.items()}
 
 
@@ -365,11 +375,18 @@ def setUpModule() -> None:
     # Les fichiers des scénarios naissent avec le masque du worker sous systemd:
     # celui du shell (0002 ici) changerait les modes relevés d'une machine à l'autre.
     MASQUE.append(os.umask(0o022))
-    RELEVES.update(executer(toutes_les_paires()))
-    AUTRE.update(executer(toutes_les_paires(), identite=AUTRE_COMPTE))
+    paires = toutes_les_paires()
     with tempfile.TemporaryDirectory(prefix="fermeture-") as temporaire:
         copie = banc.copier_fermeture(Path(temporaire) / "depot")
-        COPIE.update(executer(toutes_les_paires(), copie))
+        # Les trois passages dans les mêmes fils: aucun n'attend la fin d'un autre.
+        with ThreadPoolExecutor(max_workers=FILS) as executeur:
+            passages = [
+                (RELEVES, soumettre(executeur, paires)),
+                (AUTRE, soumettre(executeur, paires, identite=AUTRE_COMPTE)),
+                (COPIE, soumettre(executeur, paires, copie)),
+            ]
+            for cible, futurs in passages:
+                cible.update({cle: futur.result() for cle, futur in futurs.items()})
 
 
 def tearDownModule() -> None:
@@ -721,7 +738,7 @@ class LancementCommeLeWorker(unittest.TestCase):
             )
             # Pourquoi l'amorce: `runpy` depuis la racine trouve `moteurs` par le
             # dossier courant et laisse passer l'enveloppe cassée.
-            runpy = subprocess.run(  # noqa: S603
+            runpy = subprocess.run(  # noqa: S603 -- l'interpréteur système, un faux dépôt
                 [
                     banc.PYTHON,
                     "-c",
@@ -738,9 +755,11 @@ class LancementCommeLeWorker(unittest.TestCase):
 
 class Mutants(unittest.TestCase):
     def test_chaque_mutant_est_vu_par_son_scenario(self):
-        for mutant in MUTANTS:
-            with self.subTest(mutant=mutant.nom):
-                verifier(mutant)
+        with ThreadPoolExecutor(max_workers=FILS) as executeur:
+            futurs = {mutant.nom: executeur.submit(verifier, mutant) for mutant in MUTANTS}
+        for nom, futur in futurs.items():
+            with self.subTest(mutant=nom):
+                futur.result()
 
     def test_un_texte_introuvable_est_une_erreur(self):
         absent = replace(TROIS_PLACES, nom="absent", avant="    for seat in range(1, 6):\n")

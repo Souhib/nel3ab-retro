@@ -30,7 +30,7 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, str(DEPOT / "docker/dore"))
 
 import banc  # noqa: E402 -- docker/dore n'est pas un paquet: son chemin vient d'être posé
-import scenarios  # noqa: E402
+import scenarios  # noqa: E402 -- même raison que banc, juste au-dessus
 
 ANCIEN = DEPOT / "docker/xbox360-room.py"
 CANARI = "docker/xbox360-room-socle.py"

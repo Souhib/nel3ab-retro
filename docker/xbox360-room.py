@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Expérimental: une salle Xbox 360, Xenia Edge sous le Sway de la salle Switch.
+"""Une salle Xbox 360: Xenia Edge sous le Sway de la salle Switch.
 
 Le cycle de vie est celui de `switch-room.py` (manettes virtuelles, conteneur,
 Sway, capture, arrêt). Ce module ne fournit que le plan de lancement de Xenia:

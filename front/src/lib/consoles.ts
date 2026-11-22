@@ -79,7 +79,8 @@ export function preparable(code: string | undefined): boolean {
   return described(code)?.playable === true;
 }
 
-/** Faux pour une console décrite mais pas encore jouable, comme la Xbox 360.
+/** Faux pour une console décrite mais pas encore jouable, comme la Xbox 360
+ * avant le 21 novembre 2026.
  *
  * Un code que le manifeste ne connaît pas, « ? » compris, reste lançable par le
  * chemin en deux pressions: c'est le worker qui décide, comme avant. */

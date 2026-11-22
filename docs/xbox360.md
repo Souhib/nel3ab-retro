@@ -1,9 +1,16 @@
 # La Xbox 360 dans la salle
 
-Expérimentale depuis le 21 novembre 2026. Une salle Xbox 360 lance **Xenia Edge**
-(`01ca7a5`) sous le même Sway que la salle Switch, avec ses quatre manettes
-virtuelles, sa capture et son son. Le récit et les raisons sont dans le carnet
-(entrée « 21 novembre : la Xbox 360 devient jouable »).
+Jouable depuis le 21 novembre 2026. Depuis le 22 novembre 2026, c'est une
+console ordinaire de la salle : son nom n'a plus de mention entre parenthèses,
+à la demande du propriétaire, après une partie de Sonic de douze minutes et
+demie sans gel sous X11. Seule la Switch 2 garde cette mention. Ce qui n'est
+pas encore prouvé est écrit plus bas, et la note de la console le dit au
+joueur dans le menu.
+
+Une salle Xbox 360 lance **Xenia Edge** (`01ca7a5`) sous le même Sway que la
+salle Switch, avec ses quatre manettes virtuelles, sa capture et son son. Le
+récit et les raisons sont dans le carnet (entrée « 21 novembre : la Xbox 360
+devient jouable »).
 
 ## Comment un jeu entre
 
@@ -99,9 +106,16 @@ entrée « 21 novembre au soir : l'image de Sonic se fige, le jeu continue ».
 
 ## Ce qui n'est pas prouvé
 
+La console est ordinaire depuis le 22 novembre 2026 sur une seule partie
+réussie. Ce que cette partie prouve, et ce qu'elle laisse ouvert, est écrit
+ici. La note du manifeste en reprend ce qui touche le joueur : « manettes
+Xbox 360, gâchettes tout ou rien ; sauvegarde des places 2 à 4 pas encore
+essayée ».
+
 Premier essai, 21 novembre 2026 : profil chargé sans fenêtre d'avertissement,
-manette et son entendus par Souhib, 59,5 images par seconde côté jeu ; image
-figée au bout de 40 secondes et barre de menus visible, sous Wayland.
+manette et son entendus par le propriétaire, 59,5 images par seconde côté
+jeu ; image figée au bout de 40 secondes et barre de menus visible, sous
+Wayland.
 
 Second essai, sous X11, le même soir (12 minutes 30 relues) : aucune ligne
 `capture_quiet`, 60 images par seconde reçues en médiane, plein écran sans
@@ -112,9 +126,13 @@ ralentissements du jeu lui-même, à des transitions ; leur cause n'est pas
 Reste à relire l'arrêt propre de la salle (`window_closed` dans
 `lifecycle.json`).
 
-Les sauvegardes d'un joueur 2 à 4 n'ont jamais été essayées. Les gâchettes
-arrivent tout ou rien, comme pour la Switch : un jeu de course qui dose
-l'accélérateur le sentira.
+Les sauvegardes d'un joueur 2 à 4 n'ont jamais été essayées : seule celle du
+profil Joueur 1 a été vue écrite. Les gâchettes arrivent tout ou rien, comme
+pour la Switch : un jeu de course qui dose l'accélérateur le sentira. Aucun
+verrou ne limite encore les salles Xbox 360 (`lock` vaut `null` dans le
+manifeste) : le coût de deux salles Xbox 360 ensemble, ou d'une à côté d'une
+salle Switch, n'a pas été mesuré. Le passage de la salle à `refresh_hz: 120`
+n'a pas encore été relu sur une partie.
 
 ## Le canari du socle, pas encore branché
 

@@ -58,7 +58,7 @@ pub enum Console {
     /// Registered Switch 2 application, launched by its experimental adapter.
     Switch2,
     /// Inscrite par fiche (titre de 8 chiffres hexadécimaux lu dans le
-    /// `default.xex` du disque), lancée par l'adaptateur Xenia Edge, expérimentale.
+    /// `default.xex` du disque), lancée par l'adaptateur Xenia Edge.
     Xbox360,
     /// Le disque n'a pas répondu. Voir le module: ce n'est pas « GameCube ».
     Unknown,
@@ -344,9 +344,14 @@ impl Console {
     }
 
     /// Vrai pour une console que la page doit dire expérimentale.
+    ///
+    /// La Switch 2 seule depuis le 22 novembre 2026. La Xbox 360 a perdu la
+    /// mention à la demande du propriétaire, après une partie de Sonic de douze
+    /// minutes et demie sans gel sous X11. Ce qui reste à prouver pour elle est
+    /// dans sa note du manifeste, pas ici.
     #[must_use]
     pub const fn experimental(self) -> bool {
-        matches!(self, Self::Switch2 | Self::Xbox360)
+        matches!(self, Self::Switch2)
     }
 
     /// The validated room limit, bounded again by the operator's configuration.
@@ -752,7 +757,37 @@ mod tests {
             ["switch2.lock: manifeste null, crate \"switch\""],
             "seul le verrou de la Switch 2 diffère"
         );
+
+        // La mention « expérimental » de la Xbox 360 remise au seul manifeste:
+        // le comparateur doit la nommer, sinon le test du dessus ne garde pas
+        // ce champ.
+        let marked: serde_json::Value = {
+            let mut it: serde_json::Value = serde_json::from_str(MANIFEST)?;
+            it["consoles"][4]["experimental"] = serde_json::Value::Bool(true);
+            it
+        };
+        assert_eq!(
+            disagreements(&marked),
+            ["x360.experimental: manifeste true, crate false"]
+        );
         Ok(())
+    }
+
+    /// La Xbox 360 perd la mention « expérimental » le 22 novembre 2026, à la
+    /// demande du propriétaire, après une partie de Sonic de douze minutes et
+    /// demie sans gel sous X11. La Switch 2 la garde: c'est le jumeau qui prouve
+    /// que la mention existe encore, et pas qu'elle est tombée pour tout le monde.
+    #[test]
+    fn only_the_switch_2_is_still_marked() {
+        let marked: Vec<Console> = Console::KNOWN
+            .into_iter()
+            .filter(|console| console.experimental())
+            .collect();
+        assert_eq!(marked, [Console::Switch2]);
+        assert!(!Console::Xbox360.experimental());
+        assert!(Console::Switch2.experimental());
+        // Un disque muet n'est pas une console: aucune mention.
+        assert!(!Console::Unknown.experimental());
     }
 
     /// Les cinq sens de l'ancien `is_switch()`, tenus séparément. Le cas qui a

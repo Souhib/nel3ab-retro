@@ -24,15 +24,34 @@ it("range les consoles du manifeste dans son ordre, puis le rayon « à classer 
   expect(CONSOLES.map((one) => one.code)).toEqual([...CONSOLE_CODES, "?"]);
 });
 
-it("garde les noms d'étagère d'avant pour les quatre consoles", () => {
-  expect(CONSOLES.slice(0, 4).map((one) => one.label)).toEqual([
+it("garde les noms d'étagère d'avant, et la Xbox 360 sans mention", () => {
+  // La Xbox 360 perd la mention « expérimental » le 22 novembre 2026, à la
+  // demande du propriétaire, après une partie de Sonic de douze minutes et demie
+  // sans gel sous X11. La Switch 2 la garde: le jumeau qui prouve que la page lit
+  // encore le drapeau.
+  expect(CONSOLES.map((one) => one.label)).toEqual([
     "GameCube",
     "Wii",
     "Switch",
     "Switch 2 (expérimental)",
+    "Xbox 360",
+    "à classer",
   ]);
+  expect(consoleLabel("x360")).toBe("Xbox 360");
   expect(consoleLabel("?")).toBe("à classer");
   expect(consoleLabel("nes")).toBe("nes");
+});
+
+it("ne dit la mention que par le drapeau, jamais dans un nom ou une note", () => {
+  // Un nom ou une note qui porte le statut ment le jour où le drapeau change:
+  // le 22 novembre 2026, la note de la Xbox 360 disait encore « expérimentale ».
+  expect(manifest.consoles.length).toBeGreaterThan(0);
+  for (const one of manifest.consoles) {
+    expect(`${one.label} · ${one.note}`, one.code).not.toMatch(/exp[ée]riment/i);
+  }
+  // Le jumeau: la mention de la Switch 2 vient bien du drapeau, ajoutée ici.
+  expect(manifest.consoles.find((one) => one.code === "switch2")?.experimental).toBe(true);
+  expect(consoleLabel("switch2")).toMatch(/expérimental/);
 });
 
 it("sépare les sens de l'ancien isSwitchConsole", () => {

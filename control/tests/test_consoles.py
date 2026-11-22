@@ -13,6 +13,7 @@ from pathlib import Path, PurePosixPath
 
 import pytest
 
+from nel3ab_control.api.controllers.profil import console_vue
 from nel3ab_control.api.schemas.room import GameGuide
 from nel3ab_control.api.ws.handlers import allowed_devices
 from nel3ab_control.boite_noire import capture, releve
@@ -46,8 +47,22 @@ def test_the_manifest_describes_the_four_consoles_and_the_xbox_360() -> None:
     assert x360 is not None
     assert (x360.engine, x360.form, x360.input, x360.players) == ("xenia", "external", "pro", 4)
     assert (x360.media, x360.folder, x360.extensions) == ("disc", "xbox360", ("iso",))
-    assert x360.experimental and x360.playable
+    assert x360.playable and not x360.experimental
     assert CONSOLES.console("?") is None, "« ? » est un disque muet, pas une console"
+
+
+def test_only_the_switch_2_is_still_marked() -> None:
+    """La Xbox 360 perd la mention « expérimental » le 22 novembre 2026, à la
+    demande du propriétaire, après une partie de Sonic de douze minutes et demie
+    sans gel sous X11. La Switch 2 la garde: le jumeau qui prouve que le salon lit
+    encore le drapeau, au lieu de le laisser à faux pour tout le monde."""
+    assert [one.code for one in CONSOLES.consoles if one.experimental] == ["switch2"]
+    # Le carnet de jeu la reçoit du salon, telle que le manifeste la dit.
+    assert (console_vue("x360").experimental, console_vue("switch2").experimental) == (
+        False,
+        True,
+    )
+    assert not console_vue("?").experimental
 
 
 def test_the_black_box_knows_the_same_processes_as_before() -> None:

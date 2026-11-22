@@ -560,6 +560,8 @@ async def test_une_sauvegarde_xbox_360_est_listee_et_porte_le_nom_de_son_jeu(
         "x360",
     )
     assert vue["console"]["label"] == "Xbox 360"
+    # Sans la mention « expérimental » depuis le 22 novembre 2026 (test_consoles.py).
+    assert vue["console"]["experimental"] is False
     assert vue["sauvegarde"]["octets"] == 700
     assert vue["sauvegarde"]["copies"] == 2
 

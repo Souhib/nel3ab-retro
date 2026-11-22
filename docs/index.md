@@ -1,7 +1,8 @@
 # Nel3ab Retro
 
 Des salles de jeu rétro auto-hébergées. Une personne ouvre un navigateur, rejoint
-une salle, et joue à un jeu GameCube, Wii ou Switch avec jusqu'à trois amis.
+une salle, et joue à un jeu GameCube, Wii, Switch ou Xbox 360 avec jusqu'à
+trois amis.
 Zelda Switch 2 est aussi proposé à titre expérimental, avec un joueur et des
 spectateurs. Tout tourne sur
 notre serveur : l'émulation, le rendu 3D, l'encodage vidéo. Le navigateur ne fait
@@ -48,6 +49,7 @@ Ce n'est plus le tableau de bord du déploiement actuel.
 | [Décisions (ADR)](adr/0001-architecture.md) | décisions et amendements, avec leurs raisons | anglais |
 | [Touches et manettes](ecran-manettes.md) | invariants du configurateur, clavier et profils | français |
 | [Switch dans la salle](switch-room.md) | jeux inscrits, sauvegardes, exploitation et limites | français |
+| [Xbox 360 dans la salle](xbox360.md) | comment un jeu entre, ce qui est installé, ce qui reste à prouver | français |
 | [Étude Switch](etude-switch-2026-09-07.md) | moteurs comparés, essais et mesures successives | français |
 | [Essais Switch 2](etude-switch2-2026-11-07.md) | versions Linux, préparation et observations du 7 novembre | français |
 | [Reprise Zelda vers 40 images/s](plan-60fps-switch2-2026-11-08.md) | prochaine expérience, hypothèses, résultats écartés et fichiers privés à conserver | français |

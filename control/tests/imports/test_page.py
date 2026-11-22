@@ -394,6 +394,59 @@ async def test_jouer_maintenant_rejoint_une_salle_ouverte_sinon_en_ouvre_une() -
     assert refuse["refus"] == "les deux emplacements sont pris"
 
 
+@AVEC_NODE
+async def test_jouer_maintenant_rejoint_une_salle_qui_redemarre() -> None:
+    """Une salle qui redémarre pour un changement de jeu vaut ouverte=false,
+    redemarre=true (`api/schemas/salle.py`). La première version en ouvrait une
+    seconde: un autre émulateur sur la carte graphique commune, et le groupe
+    séparé (relecture du 22 novembre 2026). Le jumeau: une salle fermée seule
+    s'ouvre toujours.
+    """
+    redemarre = {"numero": 1, "ouverte": False, "redemarre": True, "chemin": "/r/1/"}
+    fermee = {"numero": 2, "ouverte": False, "redemarre": False, "chemin": "/r/2/"}
+    cas = [
+        {"salles": {"status": 200, "corps": [redemarre, fermee]}, "ouvre": None},
+        {
+            "salles": {"status": 200, "corps": [fermee]},
+            "ouvre": {"status": 201, "corps": {"chemin": "/r/2/"}},
+        },
+    ]
+    assert NODE is not None
+    with anyio.fail_after(60):
+        sortie = await anyio.run_process([NODE, str(JOUER)], input=json.dumps(cas).encode())
+    rejoint, ouvre = json.loads(sortie.stdout)
+    assert rejoint["vers"] == "/r/1/?entrer=jouer"
+    assert rejoint["faites"] == ["GET /api/salles"]
+    assert ouvre["faites"] == ["GET /api/salles", "POST /api/salles"]
+
+
+@AVEC_NODE
+async def test_le_bouton_dit_ce_qu_il_fait() -> None:
+    """« Jouer maintenant » menait dans une salle déjà ouverte, dont le menu ne
+    montre pas encore le jeu déposé: le worker lit sa bibliothèque au démarrage
+    seulement. Avec une salle à rejoindre, le bouton la nomme et dit quand le
+    jeu apparaîtra; sans salle, il garde « Jouer maintenant », puisqu'une salle
+    qu'on ouvre lit le jeu au démarrage.
+    """
+    ouverte = {"numero": 1, "ouverte": True, "redemarre": False, "chemin": "/r/1/"}
+    redemarre = {"numero": 3, "ouverte": False, "redemarre": True, "chemin": "/r/3/"}
+    fermee = {"numero": 2, "ouverte": False, "redemarre": False, "chemin": "/r/2/"}
+    assert NODE is not None
+    cas = [[fermee, ouverte], [redemarre], [fermee], "pas une liste"]
+    with anyio.fail_after(60):
+        sortie = await anyio.run_process(
+            [NODE, str(JOUER), "--libelle"], input=json.dumps(cas).encode()
+        )
+    salle1, salle3, aucune, illisible = json.loads(sortie.stdout)
+    assert salle1 == {
+        "texte": "Aller dans la salle 1",
+        "note": "Le jeu apparaîtra au prochain changement de jeu.",
+    }
+    assert salle3["texte"] == "Aller dans la salle 3"
+    assert aucune == {"texte": "Jouer maintenant", "note": ""}
+    assert illisible == {"texte": "Jouer maintenant", "note": ""}
+
+
 async def test_un_jeu_range_propose_de_jouer(client: httpx.AsyncClient) -> None:
     """Le bouton existe dans le modèle de carte, caché tant que rien n'est rangé."""
     page = (await client.get("/importer")).text

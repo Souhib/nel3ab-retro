@@ -1125,6 +1125,27 @@ def test_the_save_names_say_the_same_thing_on_both_sides() -> None:
     )
 
 
+def test_l_elision_d_un_prenom_est_celle_de_la_page() -> None:
+    """« la sauvegarde de Bo » s'écrit pareil des deux côtés.
+
+    Le salon écrit l'annonce que les autres lisent, la page écrit « En attente
+    de Bo ». La première règle élidait devant tout « y » et tout « h »: « la
+    sauvegarde d'Yassine », « d'Hamza » (relecture du 22 novembre 2026). Les
+    deux côtés lisent la même table, `front/src/test/elisions.json`.
+    """
+    from nel3ab_control.api.ws.handlers import annonce_de, de
+
+    table = json.loads(
+        (Path(__file__).parents[3] / "front/src/test/elisions.json").read_text(encoding="utf-8")
+    )
+    exemples = table["exemples"]
+    assert len(exemples) > 5
+    for nom, attendu in exemples:
+        assert de(nom) == attendu, nom
+    assert annonce_de(2, "Yassine") == "la sauvegarde de Yassine"
+    assert annonce_de(2, "Ami") == "la sauvegarde d'Ami"
+
+
 async def test_only_the_holder_may_answer(served: tuple[str, RoomController]) -> None:
     """Celui qui demande ne peut pas répondre « oui » à sa propre demande.
 
@@ -1799,7 +1820,7 @@ async def test_seul_a_jouer_le_choix_de_sauvegarde_lance_le_jeu(
                 annonces: asyncio.Queue[dict] = asyncio.Queue()
                 other.on("booting", annonces.put_nowait)
                 try:
-                    await player.connect(url, auth={"name": "Souhib"})
+                    await player.connect(url, auth={"name": "Ami"})
                     await other.connect(url, auth={"name": "Yassine"})
                     await player.call("seat", {"port": 1, "claim": claims[0]})
                     if assis == 2:

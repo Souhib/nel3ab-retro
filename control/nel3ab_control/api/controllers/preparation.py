@@ -34,6 +34,11 @@ class Participant(BaseModel):
     name: str | None = None
     pad: int | None = None
     ready: bool = False
+    #: Quand cette attribution est arrivée dans la préparation, sur l'horloge
+    #: monotone du salon. Ni publiée ni décrite au contrat, comme `_ouverte`:
+    #: « Lancer sans attendre » compte depuis l'arrivée du dernier absent, et
+    #: la page compte depuis qu'ELLE l'a vu arriver, donc toujours plus tard.
+    _arrivee: float = PrivateAttr(default_factory=monotonic)
 
 
 class Preparation(BaseModel):
@@ -81,20 +86,35 @@ class Preparation(BaseModel):
             and self.players[0].claim == self.starter
         )
 
-    def synchronise(self, seats: list[tuple[int, str, str | None]], *, solo: bool = False) -> bool:
-        """Une nouvelle attribution doit confirmer son propre choix."""
+    def synchronise(
+        self,
+        seats: list[tuple[int, str, str | None]],
+        *,
+        solo: bool = False,
+        maintenant: float | None = None,
+    ) -> bool:
+        """Une nouvelle attribution doit confirmer son propre choix.
+
+        Une attribution déjà là garde son heure d'arrivée; une nouvelle prend
+        `maintenant`, l'horloge monotone du salon par défaut.
+        """
         previous = {player.claim: player for player in self.players}
-        self.players = [
-            Participant(
+        arrivee = monotonic() if maintenant is None else maintenant
+        players: list[Participant] = []
+        for port, claim, name in seats:
+            if solo and claim != self.starter:
+                continue
+            avant = previous.get(claim)
+            player = Participant(
                 port=port,
                 claim=claim,
                 name=name,
-                pad=previous[claim].pad if claim in previous else None,
-                ready=previous[claim].ready if claim in previous else False,
+                pad=avant.pad if avant is not None else None,
+                ready=avant.ready if avant is not None else False,
             )
-            for port, claim, name in seats
-            if not solo or claim == self.starter
-        ]
+            player._arrivee = avant._arrivee if avant is not None else arrivee
+            players.append(player)
+        self.players = players
         return any(player.claim == self.starter for player in self.players)
 
     def choose(self, claim: str, pad: int, ready: bool) -> None:
@@ -119,8 +139,9 @@ class Preparation(BaseModel):
         `pad` est le choix du chef, confirmé par le lancement lui-même: « Je
         suis prêt » puis « Lancer » disaient deux fois la même chose.
         `sans_attendre` lance sans les joueurs qui n'ont pas confirmé, une fois
-        `ATTENTE_SANS` écoulé. Ils gardent leur place, avec l'appareil qu'ils
-        avaient choisi ou, à défaut, le premier proposé.
+        `ATTENTE_SANS` écoulé depuis l'arrivée du dernier d'entre eux. Ils
+        gardent leur place, avec l'appareil qu'ils avaient choisi ou, à défaut,
+        le premier proposé.
         """
         if claim != self.starter:
             raise ValueError("La personne qui prépare le jeu confirme son lancement.")
@@ -134,7 +155,11 @@ class Preparation(BaseModel):
         if not self.players:
             raise ValueError("Chaque joueur doit confirmer sa configuration.")
         if absents:
-            ecoule = (monotonic() if maintenant is None else maintenant) - self._ouverte
+            # Depuis l'arrivée du DERNIER absent, et non depuis l'ouverture:
+            # quelqu'un qui s'assoit à 19 s se prépare peut-être encore à 20 s
+            # (relecture du 22 novembre 2026).
+            depuis = max(max(p._arrivee for p in absents), self._ouverte)
+            ecoule = (monotonic() if maintenant is None else maintenant) - depuis
             if ecoule < ATTENTE_SANS:
                 reste = ceil(ATTENTE_SANS - ecoule)
                 raise ValueError(f"Attends encore {reste} s : un joueur se prépare peut-être.")

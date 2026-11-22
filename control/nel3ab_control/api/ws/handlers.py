@@ -744,9 +744,24 @@ async def disconnect(sid: str) -> None:
 SAVES = ("nouvelle partie", "tout débloqué", "ma sauvegarde")
 
 
+#: Les voyelles qui font élider « de ».
+VOYELLES = "aeiouàâäéèêëîïôöùûüœæ"
+
+
 def de(nom: str) -> str:
-    """« de Bo », « d'Ami »: la même élision que `front/src/lib/mots.ts`."""
-    return f"d'{nom}" if nom[:1].lower() in "aeiouyhàâäéèêëîïôöùûü" and nom else f"de {nom}"
+    """« de Bo », « d'Ami »: la même élision que `front/src/lib/mots.ts`.
+
+    Devant une voyelle; devant un « y » seulement suivi d'une consonne
+    (« d'Yves », « de Yassine »); jamais devant un « h », dont le salon ne sait
+    pas s'il est muet. Les deux côtés lisent la même table d'exemples,
+    `front/src/test/elisions.json`.
+    """
+    premiere = nom[:1].lower()
+    seconde = nom[1:2].lower()
+    # `"" in "aeiou"` est vrai en Python: chaque lettre est testée non vide.
+    voyelle = premiere != "" and premiere in VOYELLES
+    y = premiere == "y" and seconde != "" and seconde not in VOYELLES + "y"
+    return f"d'{nom}" if voyelle or y else f"de {nom}"
 
 
 def annonce_de(slot: int, nom: str) -> str:

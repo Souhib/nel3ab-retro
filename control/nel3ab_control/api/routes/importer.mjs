@@ -244,14 +244,48 @@ function attendre(ms) {
 }
 
 /**
+ * La salle à rejoindre plutôt que d'en ouvrir une, ou `null`.
+ *
+ * Ouverte, ou en train de redémarrer pour un changement de jeu: une salle que
+ * systemd relance vaut `ouverte: false, redemarre: true`
+ * (`api/schemas/salle.py`). La première version n'acceptait que la première
+ * forme, et ouvrait une seconde salle pendant le redémarrage de la première:
+ * un autre émulateur sur la carte graphique commune, et le groupe séparé
+ * (relecture du 22 novembre 2026).
+ */
+export function aRejoindre(salles) {
+  if (!Array.isArray(salles)) return null;
+  return salles.find((salle) => salle && (salle.ouverte || salle.redemarre) && typeof salle.chemin === "string") ?? null;
+}
+
+/**
+ * Ce que dit le bouton qui suit un dépôt, d'après les salles.
+ *
+ * Le worker lit sa bibliothèque au démarrage seulement: une salle déjà ouverte
+ * ne montre le jeu déposé qu'à son prochain changement de jeu. Le bouton la
+ * nomme donc par ce qu'il fait, et dit quand le jeu apparaîtra. Sans salle à
+ * rejoindre, il en ouvre une, qui lit le jeu au démarrage: « Jouer
+ * maintenant » dit alors vrai.
+ */
+export function libelleJouer(salles) {
+  const salle = aRejoindre(salles);
+  if (!salle) return { texte: "Jouer maintenant", note: "" };
+  return {
+    texte: `Aller dans la salle ${salle.numero}`,
+    note: "Le jeu apparaîtra au prochain changement de jeu.",
+  };
+}
+
+/**
  * Où aller jouer après un dépôt (audit P14, 22 novembre 2026).
  *
  * Une salle ouverte ne relit pas sa bibliothèque avant son prochain changement
  * de jeu: elle ne montre donc pas tout de suite le jeu rangé. Une salle qu'on
- * OUVRE le lit au démarrage. Sans salle ouverte, on en ouvre une; avec une
- * salle ouverte, on la rejoint plutôt que d'en allumer une seconde sur la même
- * carte graphique, et la page le dit (`.pied`). Rend l'adresse où aller, avec
- * `?entrer=jouer`, et la raison d'un refus.
+ * OUVRE le lit au démarrage. Sans salle à rejoindre (`aRejoindre`), on en
+ * ouvre une; avec une salle ouverte ou qui redémarre, on la rejoint plutôt que
+ * d'en allumer une seconde sur la même carte graphique, et le bouton le dit
+ * (`libelleJouer`). Rend l'adresse où aller, avec `?entrer=jouer`, et la
+ * raison d'un refus.
  *
  * `demander` est `fetch`, remplacé dans l'essai.
  */
@@ -259,7 +293,7 @@ export async function ouJouer(demander = fetch) {
   try {
     const liste = await demander("/api/salles", { cache: "no-store" });
     const salles = liste.ok ? await lireJson(liste) : [];
-    const ouverte = Array.isArray(salles) ? salles.find((salle) => salle.ouverte && !salle.redemarre) : null;
+    const ouverte = aRejoindre(salles);
     if (ouverte) return { vers: `${ouverte.chemin}?entrer=jouer`, ouverte: true };
     const ouvre = await demander("/api/salles", { method: "POST" });
     const dit = await lireJson(ouvre);
@@ -528,7 +562,24 @@ class Carte {
     this.pose(range ? "range" : reconnu ? "reconnu" : "rate");
     // Un jeu rangé se joue: le dépôt finit sur l'action, pas sur une phrase.
     this.ici("jouer").hidden = !range;
+    if (range) void this.nommerJouer();
     this.dire(envoi.elements.length > 1 ? `${envoi.elements.length} fichiers dans l'archive` : "");
+  }
+
+  /** Le bouton dit ce qu'il fera: rejoindre une salle ouverte, ou en ouvrir
+   * une (`libelleJouer`). Sans réponse du salon, il garde son premier mot. */
+  async nommerJouer() {
+    try {
+      const reponse = await fetch("/api/salles", { cache: "no-store" });
+      if (!reponse.ok) return;
+      const dit = libelleJouer(await lireJson(reponse));
+      this.ici("jouer").textContent = dit.texte;
+      const note = this.ici("jouer-note");
+      note.textContent = dit.note;
+      note.hidden = dit.note === "";
+    } catch {
+      // Le bouton garde « Jouer maintenant », et `ouJouer` décide au clic.
+    }
   }
 
   basculer() {

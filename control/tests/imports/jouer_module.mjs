@@ -6,9 +6,17 @@
 // requêtes qu'il a faites.
 import { text } from "node:stream/consumers";
 
-import { ouJouer } from "../../nel3ab_control/api/routes/importer.mjs";
+import * as page from "../../nel3ab_control/api/routes/importer.mjs";
 
+const { ouJouer } = page;
 const cas = JSON.parse(await text(process.stdin));
+// `--libelle`: chaque cas est une liste de salles, et l'on rend le libellé du
+// bouton qu'elle donne. Une page d'avant n'a pas `libelleJouer`: le cas rend
+// alors `null`, et l'essai échoue sur son assertion, pas sur un import.
+if (process.argv.includes("--libelle")) {
+  process.stdout.write(JSON.stringify(cas.map((salles) => page.libelleJouer?.(salles) ?? null)));
+  process.exit(0);
+}
 const rendus = [];
 for (const { salles, ouvre } of cas) {
   const faites = [];

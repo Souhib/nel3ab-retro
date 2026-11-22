@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>nel3ab — déposer un jeu</title>
+<title>nel3ab · déposer un jeu</title>
 <style>
   /* ─────────────────────────────────────────────────────────────────────
      LE QUAI DE CHARGEMENT. Même régie que l'accueil: graphite de studio,
@@ -128,6 +128,8 @@
   .jouer:hover { background: var(--bouton-plein-survol); border-color: var(--bouton-plein-survol); }
   .jouer:focus-visible { outline: var(--focus-largeur) solid var(--focus); outline-offset: 2px; }
   .jouer[hidden] { display: none; }
+  .jouer-note { margin: .35rem 0 0; color: var(--legende); font-size: 16px; }
+  .jouer-note[hidden] { display: none; }
   .resultats { display: flex; flex-direction: column; gap: .6rem; }
   .resultats:empty { display: none; }
   .resultat { display: grid; grid-template-columns: auto 1fr; gap: 1rem; align-items: start;
@@ -305,9 +307,9 @@
 
     <p class="pied">
       Un envoi coupé reprend où il s'était arrêté: redépose le même fichier,
-      même après avoir fermé la page. « Jouer maintenant » ouvre une salle, où
-      le jeu rangé est déjà là; une salle déjà ouverte le montre à son prochain
-      changement de jeu.
+      même après avoir fermé la page. Après un dépôt, le bouton ouvre une salle,
+      où le jeu rangé est déjà là, ou rejoint celle qui est ouverte: elle le
+      montre à son prochain changement de jeu.
     </p>
   </main>
 
@@ -332,6 +334,7 @@
         <p class="etat" data-ici="etat" role="status"></p>
         <div class="resultats" data-ici="resultats"></div>
         <button type="button" class="jouer" data-ici="jouer" hidden>Jouer maintenant</button>
+        <p class="jouer-note" data-ici="jouer-note" hidden></p>
       </div>
     </article>
   </template>

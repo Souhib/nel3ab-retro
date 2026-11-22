@@ -60,7 +60,7 @@ def test_returning_to_the_same_port_requires_a_new_confirmation() -> None:
 def test_a_departed_player_no_longer_blocks_everybody() -> None:
     p = waiting()
     p.choose("one", 0, True)
-    assert p.synchronise([(1, "one", "Souhib")])
+    assert p.synchronise([(1, "one", "Ami")])
     assert p.launch("one") == [0, 1, 1, 1]
     p.choose("one", 1, False)
     with pytest.raises(ValueError, match="Chaque joueur"):
@@ -161,8 +161,38 @@ def test_un_joueur_seul_avec_un_seul_appareil_peut_partir_tout_de_suite() -> Non
     p = waiting()
     p.allowed = [0]
     assert not p.directe()
-    assert p.synchronise([(1, "one", "Souhib")])
+    assert p.synchronise([(1, "one", "Ami")])
     assert p.directe()
     # Le jumeau: deux appareils demandent un choix, même seul.
     p.allowed = [1, 0]
     assert not p.directe()
+
+
+def test_sans_attendre_compte_depuis_l_arrivee_du_dernier_absent() -> None:
+    """Le délai part de l'arrivée de l'absent, pas de l'ouverture.
+
+    Il partait de l'ouverture: quelqu'un qui s'assoit à 19 s pouvait être lancé
+    sans lui à 20 s, alors que la raison du délai est « un joueur se prépare
+    peut-être » (relecture du 22 novembre 2026).
+    """
+    p = waiting()
+    debut = p.ouverte_a
+    p.choose("one", 0, True)
+    p.choose("two", 1, True)
+    assert p.synchronise(
+        [(1, "one", "Ami"), (2, "two", "Bo"), (3, "three", "Cleo")], maintenant=debut + 19
+    )
+    with pytest.raises(ValueError, match="Attends encore 19 s"):
+        p.launch("one", sans_attendre=True, maintenant=debut + ATTENTE_SANS + 0.5)
+    # Le jumeau: vingt secondes après SON arrivée, le chef lance sans elle.
+    assert p.launch("one", sans_attendre=True, maintenant=debut + 19 + ATTENTE_SANS) == [0, 1, 1, 1]
+
+
+def test_une_place_deja_assise_garde_son_heure_d_arrivee() -> None:
+    """Une nouvelle synchronisation ne remet pas à zéro l'attente de quelqu'un
+    qui était déjà là: sinon chaque arrivée rallongerait l'attente des autres."""
+    p = waiting()
+    debut = p.ouverte_a
+    p.choose("one", 0, True)
+    p.synchronise([(1, "one", "Ami"), (2, "two", "Bo")], maintenant=debut + 15)
+    assert p.launch("one", sans_attendre=True, maintenant=debut + ATTENTE_SANS) == [0, 1, 1, 1]

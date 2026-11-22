@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>nel3ab — les salles</title>
+<title>nel3ab · les salles</title>
 <style>
   /* ─────────────────────────────────────────────────────────────────────
      RÉGIE. nel3ab n'est pas un site avec des cartes, c'est une chaîne
@@ -447,7 +447,9 @@
     }
 
     ecrire(document.getElementById("antenne"),
-      `${ouvertes.length} / ${salles.length} CANAUX EN ANTENNE`);
+      // « salles », le mot que le joueur lit partout; « canaux » était celui de
+      // la régie (relecture du 22 novembre 2026).
+      `${ouvertes.length} / ${salles.length} SALLES OUVERTES`);
 
     bouton.disabled = libres === 0;
     // « Rejoindre » d'abord: ouvrir une AUTRE salle passe au second plan dès
@@ -710,7 +712,8 @@
       mot.textContent = dit.detail ?? "la salle n'a pas voulu s'ouvrir";
     } catch {
       mot.dataset.refus = "oui";
-      mot.textContent = "le salon ne répond pas";
+      // L'effet, puis l'action, sans nommer un programme (`lib/mots.ts`).
+      mot.textContent = "pas de réponse, réessaie dans un instant";
     }
     bouton.disabled = false;
     relire();

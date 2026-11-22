@@ -9,7 +9,7 @@ voie dans la porte et non pendant une soirée.
 
 import json
 import re
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import pytest
 
@@ -153,6 +153,47 @@ def test_the_room_unit_configures_every_playable_adapter() -> None:
             assert console.config_env in environment, console.code
     # Rendue jouable le 21 novembre 2026: son adaptateur a sa configuration.
     assert "NEL3AB_XBOX360_CONFIG" in environment
+
+
+def processus_des_fiches(moteurs: Path) -> dict[str, str]:
+    """Le processus que chaque fiche moteur lance: le nom de son exécutable, quinze
+    caractères au plus, comme /proc/<pid>/comm (moteurs/socle/fiche.py)."""
+    return {
+        chemin.parent.name: PurePosixPath(
+            json.loads(chemin.read_text(encoding="utf-8"))["executable"]
+        ).name[:15]
+        for chemin in moteurs.glob("*/moteur.json")
+    }
+
+
+def ecarts_fiches(moteurs: Path) -> list[str]:
+    lances = processus_des_fiches(moteurs)
+    ecarts = []
+    for console in CONSOLES.consoles:
+        if console.form != "external" or not console.playable:
+            continue
+        connus = CONSOLES.engine(console.engine).processes
+        if lances.get(console.engine) not in connus:
+            ecarts.append(f"{console.engine}: lance {lances.get(console.engine)}, connus {connus}")
+    return ecarts
+
+
+def test_every_engine_card_launches_a_process_the_black_box_knows() -> None:
+    """La troisième copie du nom de l'exécutable, après le manifeste et le lanceur:
+    la fiche du moteur. Le garde du 7 novembre 2026 (eden-cli oublié) la couvre aussi."""
+    assert ecarts_fiches(DEPOT / "moteurs") == []
+    assert set(processus_des_fiches(DEPOT / "moteurs")) == {"ryubing", "eden", "xenia"}
+
+
+def test_a_card_whose_executable_was_renamed_is_named(tmp_path: Path) -> None:
+    for chemin in (DEPOT / "moteurs").glob("*/moteur.json"):
+        cible = tmp_path / chemin.parent.name / "moteur.json"
+        cible.parent.mkdir()
+        brut = json.loads(chemin.read_text(encoding="utf-8"))
+        if chemin.parent.name == "eden":
+            brut["executable"] = "usr/bin/eden"
+        cible.write_text(json.dumps(brut), encoding="utf-8")
+    assert ecarts_fiches(tmp_path) == ["eden: lance eden, connus ('eden-cli',)"]
 
 
 def test_a_console_added_to_the_manifest_reaches_every_derived_list(tmp_path: Path) -> None:

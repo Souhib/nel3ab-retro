@@ -1,0 +1,387 @@
+{
+ "commandes": [
+  {
+   "appel": "run",
+   "options": {
+    "check": "True",
+    "stdout": "DEVNULL"
+   },
+   "argv": [
+    "docker",
+    "run",
+    "-d",
+    "--name",
+    "nel3ab-switch-room-switch-k3y9q2xw-pads",
+    "--label",
+    "nel3ab.room-root=@TMP@/salles/1",
+    "--network",
+    "none",
+    "--cap-drop=ALL",
+    "--cap-add=CHOWN",
+    "--cap-add=FOWNER",
+    "--group-add",
+    "@GID@",
+    "--security-opt=no-new-privileges",
+    "--pids-limit=32",
+    "--device=/dev/uinput",
+    "-v",
+    "/dev/input:/dev/input",
+    "-v",
+    "@TMP@/salles/1/room-switch-k3y9q2xw:/run-data",
+    "-v",
+    "@DEPOT@/spikes/switch-room:/probe:ro",
+    "-e",
+    "HOST_UID=@UID@",
+    "-e",
+    "NEL3AB_PAD_LABEL=nel3ab room-switch-k3y9q2xw",
+    "-e",
+    "NEL3AB_PAD_LAYOUT=xbox",
+    "sha256:5a1e0000000000000000000000000000000000000000000000000000000000d0",
+    "python3",
+    "/probe/pads.py"
+   ]
+  },
+  {
+   "appel": "run",
+   "options": {
+    "check": "True",
+    "stdout": "DEVNULL"
+   },
+   "argv": [
+    "docker",
+    "run",
+    "-d",
+    "--name",
+    "nel3ab-switch-room-switch-k3y9q2xw",
+    "--label",
+    "nel3ab.room-root=@TMP@/salles/1",
+    "--network",
+    "none",
+    "--cap-drop=ALL",
+    "--security-opt=no-new-privileges",
+    "--pids-limit=512",
+    "--user",
+    "@UID@:@GID@",
+    "--group-add",
+    "44",
+    "--device=/dev/dri/renderD128",
+    "--shm-size=8g",
+    "-e",
+    "DISPLAY_BACKEND=wayland",
+    "-e",
+    "SWITCH_COMPOSITOR=sway",
+    "-e",
+    "SWITCH_REFRESH_HZ=120",
+    "-e",
+    "NEL3AB_SEATS_FILE=/pads/seats",
+    "-e",
+    "NEL3AB_CAPTURES_S=30",
+    "-e",
+    "NEL3AB_SWAY_X11=1",
+    "-v",
+    "@TMP@/moteurs/xenia:/emulator:ro",
+    "-v",
+    "@TMP@/state/534507d6/neuve:/run-data",
+    "-v",
+    "@DEPOT@/spikes/switch-room:/probe:ro",
+    "-v",
+    "@TMP@/salles/1/room-switch-k3y9q2xw:/pads",
+    "-v",
+    "@TMP@/roms/Sonic.iso:/game/input.iso:ro",
+    "-v",
+    "@DEPOT@/spikes/xbox360:/xbox360:ro",
+    "--device",
+    "/dev/input/event0",
+    "--device",
+    "/dev/input/event1",
+    "--device",
+    "/dev/input/event2",
+    "--device",
+    "/dev/input/event3",
+    "sha256:5a1e0000000000000000000000000000000000000000000000000000000000d0",
+    "bash",
+    "/probe/runtime.sh",
+    "bash",
+    "/xbox360/xenia.sh",
+    "/game/input.iso",
+    "--storage_root=/run-data/xenia",
+    "--log_file=/run-data/xenia/xenia.log",
+    "--gpu=vulkan",
+    "--apu=sdl",
+    "--hid=sdl",
+    "--discord=false",
+    "--fullscreen=true",
+    "--guide_button=false",
+    "--show_achievement_notification=false",
+    "--disable_game_window_mouse=true",
+    "--keyboard_passthrough=true",
+    "--mappings_file=/xbox360/manettes.txt",
+    "--guest_scheduler_stats=true",
+    "--logged_profile_slot_0_xuid=E030000000000001",
+    "--logged_profile_slot_1_xuid=E030000000000002",
+    "--logged_profile_slot_2_xuid=E030000000000003",
+    "--logged_profile_slot_3_xuid=E030000000000004"
+   ]
+  },
+  {
+   "appel": "run",
+   "options": {
+    "capture_output": "True",
+    "check": "True",
+    "text": "True"
+   },
+   "argv": [
+    "docker",
+    "inspect",
+    "-f",
+    "{{.State.Running}}",
+    "nel3ab-switch-room-switch-k3y9q2xw"
+   ]
+  },
+  {
+   "appel": "run",
+   "options": {
+    "check": "True"
+   },
+   "argv": [
+    "docker",
+    "exec",
+    "nel3ab-switch-room-switch-k3y9q2xw",
+    "python3",
+    "/probe/capture_control.py",
+    "stop"
+   ]
+  },
+  {
+   "appel": "Popen",
+   "options": {},
+   "argv": [
+    "/usr/bin/docker",
+    "exec",
+    "nel3ab-switch-room-switch-k3y9q2xw",
+    "python3",
+    "/probe/capture.py"
+   ]
+  },
+  {
+   "appel": "run",
+   "options": {
+    "capture_output": "True",
+    "check": "True",
+    "text": "True"
+   },
+   "argv": [
+    "docker",
+    "inspect",
+    "-f",
+    "{{.State.Running}}",
+    "nel3ab-switch-room-switch-k3y9q2xw"
+   ]
+  },
+  {
+   "appel": "run",
+   "options": {
+    "check": "False"
+   },
+   "argv": [
+    "/usr/bin/docker",
+    "exec",
+    "nel3ab-switch-room-switch-k3y9q2xw",
+    "python3",
+    "/probe/capture_control.py",
+    "stop"
+   ]
+  },
+  {
+   "appel": "run",
+   "options": {
+    "check": "True",
+    "stdout": "DEVNULL"
+   },
+   "argv": [
+    "docker",
+    "stop",
+    "--timeout",
+    "40",
+    "nel3ab-switch-room-switch-k3y9q2xw"
+   ]
+  },
+  {
+   "appel": "run",
+   "options": {
+    "capture_output": "True",
+    "check": "True",
+    "text": "True"
+   },
+   "argv": [
+    "docker",
+    "inspect",
+    "-f",
+    "{{json .State}}",
+    "nel3ab-switch-room-switch-k3y9q2xw"
+   ]
+  },
+  {
+   "appel": "run",
+   "options": {
+    "check": "True",
+    "stderr": "STDOUT",
+    "stdout": "fichier:@TMP@/state/534507d6/neuve/emulator.log"
+   },
+   "argv": [
+    "docker",
+    "logs",
+    "nel3ab-switch-room-switch-k3y9q2xw"
+   ]
+  },
+  {
+   "appel": "run",
+   "options": {
+    "check": "True",
+    "stdout": "DEVNULL"
+   },
+   "argv": [
+    "docker",
+    "rm",
+    "nel3ab-switch-room-switch-k3y9q2xw"
+   ]
+  },
+  {
+   "appel": "run",
+   "options": {
+    "check": "True",
+    "stdout": "DEVNULL"
+   },
+   "argv": [
+    "docker",
+    "stop",
+    "--timeout",
+    "5",
+    "nel3ab-switch-room-switch-k3y9q2xw-pads"
+   ]
+  },
+  {
+   "appel": "run",
+   "options": {
+    "check": "True",
+    "stderr": "STDOUT",
+    "stdout": "fichier:@TMP@/state/534507d6/neuve/pads.log"
+   },
+   "argv": [
+    "docker",
+    "logs",
+    "nel3ab-switch-room-switch-k3y9q2xw-pads"
+   ]
+  },
+  {
+   "appel": "run",
+   "options": {
+    "check": "True",
+    "stdout": "DEVNULL"
+   },
+   "argv": [
+    "docker",
+    "rm",
+    "nel3ab-switch-room-switch-k3y9q2xw-pads"
+   ]
+  }
+ ],
+ "erreur": "RuntimeError: Switch emulator exited; see lifecycle.json",
+ "sortie": 1,
+ "flux": {
+  "stdout": "",
+  "stderr": ""
+ },
+ "arbre": [
+  "f 600 d65df89f702eec58 cle-des-profils",
+  "f 644 bb1ba52ca14090ba config.json",
+  "d 755 cwd/",
+  "d 755 home/",
+  "d 755 moteurs/",
+  "d 755 moteurs/xenia/",
+  "d 755 moteurs/xenia/usr/",
+  "d 755 moteurs/xenia/usr/bin/",
+  "f 644 7a24204135f141ef moteurs/xenia/usr/bin/xenia_edge",
+  "d 755 roms/",
+  "f 644 cb051a31f5cfa907 roms/Sonic.iso",
+  "d 755 salles/",
+  "d 755 salles/1/",
+  "d 770 salles/1/room-switch-k3y9q2xw/",
+  "f 644 25e2eda0ec9763b5 salles/1/room-switch-k3y9q2xw/devices.json",
+  "d 755 state/",
+  "d 755 state/534507d6/",
+  "d 755 state/534507d6/neuve/",
+  "d 755 state/534507d6/neuve/backups/",
+  "d 755 state/534507d6/neuve/backups/20261122T000000-1795305600000000001/",
+  "d 755 state/534507d6/neuve/backups/20261122T000000-1795305600000000001/content/",
+  "d 755 state/534507d6/neuve/backups/20261122T000000-1795305600000000001/content/E030000000000001/",
+  "d 755 state/534507d6/neuve/backups/20261122T000000-1795305600000000001/content/E030000000000001/FFFE07D1/",
+  "d 755 state/534507d6/neuve/backups/20261122T000000-1795305600000000001/content/E030000000000001/FFFE07D1/00010000/",
+  "d 755 state/534507d6/neuve/backups/20261122T000000-1795305600000000001/content/E030000000000001/FFFE07D1/00010000/E030000000000001/",
+  "f 644 59f8cb867c676279 state/534507d6/neuve/backups/20261122T000000-1795305600000000001/content/E030000000000001/FFFE07D1/00010000/E030000000000001/Account",
+  "d 755 state/534507d6/neuve/backups/20261122T000000-1795305600000000001/content/E030000000000002/",
+  "d 755 state/534507d6/neuve/backups/20261122T000000-1795305600000000001/content/E030000000000002/FFFE07D1/",
+  "d 755 state/534507d6/neuve/backups/20261122T000000-1795305600000000001/content/E030000000000002/FFFE07D1/00010000/",
+  "d 755 state/534507d6/neuve/backups/20261122T000000-1795305600000000001/content/E030000000000002/FFFE07D1/00010000/E030000000000002/",
+  "f 644 d13c6fe9c6360774 state/534507d6/neuve/backups/20261122T000000-1795305600000000001/content/E030000000000002/FFFE07D1/00010000/E030000000000002/Account",
+  "d 755 state/534507d6/neuve/backups/20261122T000000-1795305600000000001/content/E030000000000003/",
+  "d 755 state/534507d6/neuve/backups/20261122T000000-1795305600000000001/content/E030000000000003/FFFE07D1/",
+  "d 755 state/534507d6/neuve/backups/20261122T000000-1795305600000000001/content/E030000000000003/FFFE07D1/00010000/",
+  "d 755 state/534507d6/neuve/backups/20261122T000000-1795305600000000001/content/E030000000000003/FFFE07D1/00010000/E030000000000003/",
+  "f 644 ebb11b4f29ec7a07 state/534507d6/neuve/backups/20261122T000000-1795305600000000001/content/E030000000000003/FFFE07D1/00010000/E030000000000003/Account",
+  "d 755 state/534507d6/neuve/backups/20261122T000000-1795305600000000001/content/E030000000000004/",
+  "d 755 state/534507d6/neuve/backups/20261122T000000-1795305600000000001/content/E030000000000004/FFFE07D1/",
+  "d 755 state/534507d6/neuve/backups/20261122T000000-1795305600000000001/content/E030000000000004/FFFE07D1/00010000/",
+  "d 755 state/534507d6/neuve/backups/20261122T000000-1795305600000000001/content/E030000000000004/FFFE07D1/00010000/E030000000000004/",
+  "f 644 9dc4222b3aba54f0 state/534507d6/neuve/backups/20261122T000000-1795305600000000001/content/E030000000000004/FFFE07D1/00010000/E030000000000004/Account",
+  "d 755 state/534507d6/neuve/backups/20261122T000000-1795305600000000002/",
+  "d 755 state/534507d6/neuve/backups/20261122T000000-1795305600000000002/content/",
+  "d 755 state/534507d6/neuve/backups/20261122T000000-1795305600000000002/content/E030000000000001/",
+  "d 755 state/534507d6/neuve/backups/20261122T000000-1795305600000000002/content/E030000000000001/FFFE07D1/",
+  "d 755 state/534507d6/neuve/backups/20261122T000000-1795305600000000002/content/E030000000000001/FFFE07D1/00010000/",
+  "d 755 state/534507d6/neuve/backups/20261122T000000-1795305600000000002/content/E030000000000001/FFFE07D1/00010000/E030000000000001/",
+  "f 644 59f8cb867c676279 state/534507d6/neuve/backups/20261122T000000-1795305600000000002/content/E030000000000001/FFFE07D1/00010000/E030000000000001/Account",
+  "d 755 state/534507d6/neuve/backups/20261122T000000-1795305600000000002/content/E030000000000002/",
+  "d 755 state/534507d6/neuve/backups/20261122T000000-1795305600000000002/content/E030000000000002/FFFE07D1/",
+  "d 755 state/534507d6/neuve/backups/20261122T000000-1795305600000000002/content/E030000000000002/FFFE07D1/00010000/",
+  "d 755 state/534507d6/neuve/backups/20261122T000000-1795305600000000002/content/E030000000000002/FFFE07D1/00010000/E030000000000002/",
+  "f 644 d13c6fe9c6360774 state/534507d6/neuve/backups/20261122T000000-1795305600000000002/content/E030000000000002/FFFE07D1/00010000/E030000000000002/Account",
+  "d 755 state/534507d6/neuve/backups/20261122T000000-1795305600000000002/content/E030000000000003/",
+  "d 755 state/534507d6/neuve/backups/20261122T000000-1795305600000000002/content/E030000000000003/FFFE07D1/",
+  "d 755 state/534507d6/neuve/backups/20261122T000000-1795305600000000002/content/E030000000000003/FFFE07D1/00010000/",
+  "d 755 state/534507d6/neuve/backups/20261122T000000-1795305600000000002/content/E030000000000003/FFFE07D1/00010000/E030000000000003/",
+  "f 644 ebb11b4f29ec7a07 state/534507d6/neuve/backups/20261122T000000-1795305600000000002/content/E030000000000003/FFFE07D1/00010000/E030000000000003/Account",
+  "d 755 state/534507d6/neuve/backups/20261122T000000-1795305600000000002/content/E030000000000004/",
+  "d 755 state/534507d6/neuve/backups/20261122T000000-1795305600000000002/content/E030000000000004/FFFE07D1/",
+  "d 755 state/534507d6/neuve/backups/20261122T000000-1795305600000000002/content/E030000000000004/FFFE07D1/00010000/",
+  "d 755 state/534507d6/neuve/backups/20261122T000000-1795305600000000002/content/E030000000000004/FFFE07D1/00010000/E030000000000004/",
+  "f 644 9dc4222b3aba54f0 state/534507d6/neuve/backups/20261122T000000-1795305600000000002/content/E030000000000004/FFFE07D1/00010000/E030000000000004/Account",
+  "f 644 9e0d33c0a8aff950 state/534507d6/neuve/display.json",
+  "f 644 8eb5c78a634595b0 state/534507d6/neuve/emulator.log",
+  "f 644 4bc69646f1644ff9 state/534507d6/neuve/exit.json",
+  "f 644 5f7cf50f9e572f30 state/534507d6/neuve/pads.log",
+  "f 644 e3b0c44298fc1c14 state/534507d6/neuve/running.lock",
+  "d 755 state/534507d6/neuve/xenia/",
+  "d 755 state/534507d6/neuve/xenia/content/",
+  "d 755 state/534507d6/neuve/xenia/content/E030000000000001/",
+  "d 755 state/534507d6/neuve/xenia/content/E030000000000001/FFFE07D1/",
+  "d 755 state/534507d6/neuve/xenia/content/E030000000000001/FFFE07D1/00010000/",
+  "d 755 state/534507d6/neuve/xenia/content/E030000000000001/FFFE07D1/00010000/E030000000000001/",
+  "f 644 59f8cb867c676279 state/534507d6/neuve/xenia/content/E030000000000001/FFFE07D1/00010000/E030000000000001/Account",
+  "d 755 state/534507d6/neuve/xenia/content/E030000000000002/",
+  "d 755 state/534507d6/neuve/xenia/content/E030000000000002/FFFE07D1/",
+  "d 755 state/534507d6/neuve/xenia/content/E030000000000002/FFFE07D1/00010000/",
+  "d 755 state/534507d6/neuve/xenia/content/E030000000000002/FFFE07D1/00010000/E030000000000002/",
+  "f 644 d13c6fe9c6360774 state/534507d6/neuve/xenia/content/E030000000000002/FFFE07D1/00010000/E030000000000002/Account",
+  "d 755 state/534507d6/neuve/xenia/content/E030000000000003/",
+  "d 755 state/534507d6/neuve/xenia/content/E030000000000003/FFFE07D1/",
+  "d 755 state/534507d6/neuve/xenia/content/E030000000000003/FFFE07D1/00010000/",
+  "d 755 state/534507d6/neuve/xenia/content/E030000000000003/FFFE07D1/00010000/E030000000000003/",
+  "f 644 ebb11b4f29ec7a07 state/534507d6/neuve/xenia/content/E030000000000003/FFFE07D1/00010000/E030000000000003/Account",
+  "d 755 state/534507d6/neuve/xenia/content/E030000000000004/",
+  "d 755 state/534507d6/neuve/xenia/content/E030000000000004/FFFE07D1/",
+  "d 755 state/534507d6/neuve/xenia/content/E030000000000004/FFFE07D1/00010000/",
+  "d 755 state/534507d6/neuve/xenia/content/E030000000000004/FFFE07D1/00010000/E030000000000004/",
+  "f 644 9dc4222b3aba54f0 state/534507d6/neuve/xenia/content/E030000000000004/FFFE07D1/00010000/E030000000000004/Account"
+ ]
+}

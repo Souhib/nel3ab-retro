@@ -1,0 +1,34 @@
+{
+ "commandes": [],
+ "erreur": "ValueError: Invalid Switch title or save slot",
+ "sortie": 1,
+ "flux": {
+  "stdout": "",
+  "stderr": ""
+ },
+ "arbre": [
+  "f 644 a19b5bc0e525dc38 config.json",
+  "d 755 cwd/",
+  "d 755 gabarit/",
+  "f 644 44136fa355b3678a gabarit/Config.json",
+  "d 755 gabarit/bis/",
+  "d 755 gabarit/bis/user/",
+  "d 755 gabarit/bis/user/save/",
+  "d 755 gabarit/bis/user/save/0000000000000001/",
+  "d 755 gabarit/bis/user/save/0000000000000001/0/",
+  "f 644 97c840f1bbbbbe44 gabarit/bis/user/save/0000000000000001/0/save7.dat",
+  "d 755 gabarit/bis/user/save/0000000000000001/1/",
+  "f 644 97c840f1bbbbbe44 gabarit/bis/user/save/0000000000000001/1/save7.dat",
+  "f 644 9499605f9e2fbb15 gabarit/bis/user/save/0000000000000001/ExtraData0",
+  "d 755 home/",
+  "d 755 moteurs/",
+  "d 755 moteurs/ryubing/",
+  "d 755 moteurs/ryubing/publish/",
+  "f 644 7a24204135f141ef moteurs/ryubing/publish/Ryujinx",
+  "d 755 roms/",
+  "f 644 cb051a31f5cfa907 roms/jeu.xci",
+  "d 755 salles/",
+  "d 755 salles/1/",
+  "d 755 salles/1/room-switch-k3y9q2xw/"
+ ]
+}

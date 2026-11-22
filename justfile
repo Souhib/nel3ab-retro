@@ -225,6 +225,11 @@ deploy-check:
     # dans son propre environnement Python, où manquait une dépendance du matin.
     # On importe donc le salon avec l'interpréteur que systemd lance vraiment.
     if ! bash deploy/salon-importable.sh; then faux=1; fi
+    # Les salles, de la même façon: un ajout d'unité peut remplacer l'adaptateur
+    # d'une console (le canari du socle, docs/xbox360.md). Il est nommé tant qu'il
+    # existe, et rouge si son fichier n'existe plus. Chaque adaptateur est importé
+    # avec le python3 que le PATH de l'unité donne au worker.
+    if ! bash deploy/salles-adaptateurs.sh; then faux=1; fi
     if [ "$faux" -eq 0 ]; then echo "les unités installées sont celles du dépôt, et tournent avec son code"; else exit 1; fi
 
 # Vérifie les pistes du MP4 et décode réellement son audio, sans Dolphin ni salle.
@@ -514,7 +519,63 @@ boite-noire *args:
 # partait avec une marque périmée.
 #
 # Vérifier en dernier veut dire vérifier ce qui sera commité.
-check: fmt-check lint test control front readouts-check contract-check front-check
+#
+# `salles-dore` et `moteurs-test` y entrent le 22 novembre 2026, sur décision du
+# propriétaire: les adaptateurs des salles externes n'étaient éprouvés par
+# aucune recette de `check`, donc par aucune CI. Ils demandent `/usr/bin/python3`,
+# ni Docker ni carte.
+check: fmt-check lint test control salles-dore moteurs-test front readouts-check contract-check front-check
+
+# Le socle des salles externes et ses modules de moteur (moteurs/README.md).
+#
+# Sous `/usr/bin/python3`, l'interpréteur que le worker lance, et pas sous le
+# venv du salon: une dépendance qui n'existe que là-bas passerait ici sinon.
+# `test_regles.py` importe en plus chaque module sous `-I -S`. PLC0415 refuse
+# un import dans le corps d'une fonction: une salle lit tout son code au
+# démarrage, et un import paresseux lirait au moment de l'arrêt une version
+# plus récente de l'arbre principal.
+moteurs-test:
+    /usr/bin/python3 -B -m unittest discover -s moteurs -t . -p 'test_*.py'
+    cd control && uv run ruff check --config pyproject.toml --extend-select PLC0415 ../moteurs
+    cd control && uv run ruff format --check --config pyproject.toml ../moteurs
+
+# Les commandes Docker de chaque salle externe, figées scénario par scénario.
+#
+# Chaque scénario lance le VRAI script de la salle dans un `/usr/bin/python3`
+# neuf, comme le worker, et compare ses commandes, son erreur et l'arbre de son
+# emplacement à `docker/dore/<scénario>.json`. Une migration d'adaptateur doit
+# les garder inchangés. Trois passages: sous le compte de la machine, sous un
+# autre compte (la CI ne tourne pas sous 1000:1000), et sur une copie de ce que
+# les scripts lisent. Mesuré le 22 novembre 2026 sur cette machine (12 fils):
+# 50 scénarios, dont les 18 de la Xbox 360 aussi par le canari, et treize
+# mutants, en 5,4 à 5,9 s sur quatre lancements alternés avec la version qui
+# lançait les passages et les mutants l'un après l'autre (6,1 à 6,3 s). Un autre
+# chantier pilotait un navigateur, charge moyenne 4 à 5,6: un plafond, pas une
+# mesure au repos. Avant la relecture, le banc (deux passages, neuf mutants)
+# prenait 3,8 s à une charge de 0,5.
+salles-dore:
+    python3 docker/test_salles_dore.py
+    cd control && uv run ruff check --config pyproject.toml ../docker/test_salles_dore.py ../docker/dore
+    cd control && uv run ruff format --check --config pyproject.toml ../docker/test_salles_dore.py ../docker/dore
+
+# Réécrit le doré et affiche chaque ligne qui change.
+#
+# Refuse tant qu'un autre fichier est modifié dans l'arbre: un commit qui change
+# le doré ne fait que ça, avec sa raison. Sans ce refus, une migration qui casse
+# une commande se « réparerait » en réécrivant le doré dans le même commit.
+salles-dore-ecrire:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    autres=$( {
+        git status --porcelain --untracked-files=no -- . ':(exclude)docker/dore'
+        git status --porcelain --untracked-files=all -- docker moteurs spikes/switch-room spikes/xbox360 ':(exclude)docker/dore'
+    } | sort -u)
+    if [ -n "$autres" ]; then
+        echo "refusé: d'autres fichiers que docker/dore/ sont modifiés. Les committer d'abord, ou les mettre de côté:"
+        printf '%s\n' "$autres" | sed 's/^/    /'
+        exit 1
+    fi
+    python3 docker/test_salles_dore.py --ecrire
 
 # Auto-fix pass for development. Mirrors `poe fix`.
 # Le formatage automatique, des DEUX côtés.
@@ -1252,11 +1313,15 @@ switch-capture-test:
 # plan de lancement, lanceur du conteneur avec un faux Xenia, lecteur de
 # cadence. Ce qui reste à prouver se voit au premier lancement réel (profil
 # chargé, plein écran, manettes, son) dans le journal de l'emplacement.
+# Le module moteurs/xenia et le canari docker/xbox360-room-socle.py, qu'aucune
+# salle ne lance tant que le propriétaire ne l'a pas branché (docs/xbox360.md).
 xbox360-test:
     python3 -m unittest discover -s docker -p 'test_xbox360_*.py'
     python3 -m unittest discover -s spikes/xbox360 -p 'test_*.py'
-    cd control && uv run ruff check --config pyproject.toml ../docker/xbox360-room.py ../docker/test_xbox360_room.py ../spikes/xbox360/horodate.py ../spikes/xbox360/releve.py ../spikes/xbox360/test_releve.py ../spikes/xbox360/test_xenia_sh.py
-    cd control && uv run ruff format --check --config pyproject.toml ../docker/xbox360-room.py ../docker/test_xbox360_room.py ../spikes/xbox360/horodate.py ../spikes/xbox360/releve.py ../spikes/xbox360/test_releve.py ../spikes/xbox360/test_xenia_sh.py
+    /usr/bin/python3 -B -m unittest moteurs.xenia.test_adaptateur
+    cd control && uv run ruff check --config pyproject.toml ../docker/xbox360-room.py ../docker/xbox360-room-socle.py ../docker/test_xbox360_room.py ../spikes/xbox360/horodate.py ../spikes/xbox360/releve.py ../spikes/xbox360/test_releve.py ../spikes/xbox360/test_xenia_sh.py
+    cd control && uv run ruff check --config pyproject.toml --extend-select PLC0415 ../moteurs/xenia
+    cd control && uv run ruff format --check --config pyproject.toml ../docker/xbox360-room.py ../docker/xbox360-room-socle.py ../docker/test_xbox360_room.py ../spikes/xbox360/horodate.py ../spikes/xbox360/releve.py ../spikes/xbox360/test_releve.py ../spikes/xbox360/test_xenia_sh.py ../moteurs/xenia
 
 # Relit une partie Xbox 360 jouée: images par seconde du jeu, par fenêtre de
 # 5 s, depuis le journal horodaté que xenia.sh écrit dans l'emplacement, puis

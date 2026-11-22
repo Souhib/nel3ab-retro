@@ -1,0 +1,10 @@
+{
+  "name": "xenia",
+  "executable": "usr/bin/xenia_edge",
+  "display": "x11",
+  "pad_layout": "xbox",
+  "why": {
+    "display": "Sous Wayland, l'image de Sonic s'est figée au bout de 40 s le 21 novembre 2026 pendant que le jeu tournait. Sous X11, par le Xwayland de Sway, douze minutes et demie sans gel le même soir : une partie, un joueur, donc une tendance.",
+    "pad_layout": "Xenia lit X à gauche et Y en haut (spikes/xbox360/manettes.txt). La disposition switch les échange pour le profil de Ryubing."
+  }
+}

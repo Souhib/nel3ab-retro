@@ -1,0 +1,202 @@
+"""Xenia Edge pour la salle Xbox 360: profils de joueur, ligne de commande, copie.
+
+Repris de `docker/xbox360-room.py`, qui reste le script que le worker lance tant
+que la console n'a pas basculé. Les fonctions de profil et la copie sont
+recopiées telles quelles (`test_adaptateur.py` compare leur arbre syntaxique).
+`launch` lit désormais sa fiche (`moteur.json`): l'exécutable, l'affichage x11
+et la disposition des manettes, et le nombre de joueurs vient de la table du
+socle. Le banc doré prouve que les commandes restent les mêmes.
+
+Pourquoi quatre profils écrits d'avance: sans profil connecté, Xenia ouvre une
+fenêtre « No Profiles Found » qui couvre l'image et retarde le plein écran
+(essai du 21 novembre 2026). Aucune option ne la supprime; un profil sur le
+disque, si. Le fichier `Account` d'un profil est chiffré par Xenia avec une clé
+de la console; elle reste hors du dépôt, dans un fichier local que la
+configuration nomme (`profile_key`), comme les clés de la Switch.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import hmac
+import re
+import shutil
+import time
+from pathlib import Path
+
+from moteurs.socle.fiche import Fiche
+from moteurs.socle.lancement import DEPOT, EngineLaunch, engine_environment
+from moteurs.socle.salle import Contexte
+
+#: Huit chiffres hexadécimaux. Le worker les envoie en minuscules (switch.rs);
+#: l'ancien script acceptait aussi les majuscules, et le doré le garde.
+TITRE = re.compile(r"[0-9A-Fa-f]{8}")
+#: Les outils qui tournent DANS le conteneur: lanceur, horodatage, manettes.
+TOOLS = DEPOT / "spikes" / "xbox360"
+#: Le dossier de Xenia dans l'emplacement de sauvegarde, vu du conteneur.
+STORAGE = "/run-data/xenia"
+#: Les quatre joueurs: un profil hors ligne par place, connecté au démarrage.
+#: Les identifiants suivent la forme que Xenia donne aux siens (0xE03 en tête).
+PLAYERS = tuple((0xE030000000000001 + seat, f"Joueur {seat + 1}") for seat in range(4))
+#: Tableau de bord et type « profil »: le chemin où Xenia cherche un profil.
+DASHBOARD = "FFFE07D1"
+PROFILE_TYPE = "00010000"
+ACCOUNT_SIZE = 0x17C
+
+
+def rc4(key: bytes, data: bytes) -> bytes:
+    """Le RC4 de `xenia/kernel/util/crypto_utils.cc`, clé de 16 octets."""
+    box = list(range(256))
+    j = 0
+    for i in range(256):
+        j = (j + box[i] + key[i % len(key)]) % 256
+        box[i], box[j] = box[j], box[i]
+    out = bytearray()
+    i = j = 0
+    for byte in data:
+        i = (i + 1) % 256
+        j = (j + box[i]) % 256
+        box[i], box[j] = box[j], box[i]
+        out.append(byte ^ box[(box[i] + box[j]) % 256])
+    return bytes(out)
+
+
+def account(gamertag: str, key: bytes) -> bytes:
+    """Un fichier `Account` hors ligne, chiffré comme `EncryptAccountFile`.
+
+    Le compte est la structure X_XAMACCOUNTINFO (0x17C octets, gros-boutiste):
+    deux mots de drapeaux à zéro, puis le nom en UTF-16, le reste à zéro. Le
+    fichier fait 0x194 octets: 16 octets d'empreinte HMAC-SHA1, puis le tout
+    chiffré en RC4 avec 8 octets de bourrage (0xFD, comme Xenia).
+    """
+    if not re.fullmatch(r"[A-Za-z][A-Za-z0-9]*( [A-Za-z0-9]+)*", gamertag) or len(gamertag) > 15:
+        raise ValueError(
+            f"un nom de profil Xbox 360 a 1 à 15 lettres ou chiffres, pas {gamertag!r}"
+        )
+    if len(key) != 16:
+        raise ValueError("la clé des profils fait 16 octets")
+    info = bytearray(ACCOUNT_SIZE)
+    nom = gamertag.encode("utf-16-be")
+    info[8 : 8 + len(nom)] = nom
+    clair = b"\xfd" * 8 + bytes(info)
+    empreinte = hmac.new(key, clair, hashlib.sha1).digest()[:16]
+    cle_rc4 = hmac.new(key, empreinte, hashlib.sha1).digest()[:16]
+    return empreinte + rc4(cle_rc4, clair)
+
+
+def read_account(data: bytes, key: bytes) -> str | None:
+    """Le nom d'un `Account` déchiffré et vérifié comme `DecryptAccountFile`, ou None."""
+    if len(data) != 0x18 + ACCOUNT_SIZE:
+        return None
+    cle_rc4 = hmac.new(key, data[:16], hashlib.sha1).digest()[:16]
+    clair = rc4(cle_rc4, data[16:])
+    if not hmac.compare_digest(hmac.new(key, clair, hashlib.sha1).digest()[:16], data[:16]):
+        return None
+    return clair[8 + 8 : 8 + 8 + 32].decode("utf-16-be").rstrip("\x00")
+
+
+def profile_key(config: dict) -> bytes:
+    """La clé des profils, lue dans son fichier local et jamais écrite ailleurs."""
+    chemin = Path(config["profile_key"])
+    if chemin.stat().st_mode & 0o077:
+        raise ValueError(f"{chemin} doit n'être lisible que par son propriétaire (0600)")
+    cle = bytes.fromhex(chemin.read_text().strip())
+    if len(cle) != 16:
+        raise ValueError(f"{chemin} doit contenir 16 octets en hexadécimal")
+    return cle
+
+
+def profiles(slot: Path, key: bytes) -> list[str]:
+    """Écrit les profils absents de cet emplacement, garde ceux qui existent.
+
+    Un profil existant porte déjà les sauvegardes de son joueur: le réécrire
+    ne changerait que son nom, mais le laisser évite toute surprise.
+    """
+    content = slot / "xenia" / "content"
+    xuids = []
+    for xuid, gamertag in PLAYERS:
+        identifiant = f"{xuid:016X}"
+        dossier = content / identifiant / DASHBOARD / PROFILE_TYPE / identifiant
+        fichier = dossier / "Account"
+        if not fichier.exists():
+            dossier.mkdir(parents=True, exist_ok=True)
+            fichier.write_bytes(account(gamertag, key))
+        xuids.append(identifiant)
+    return xuids
+
+
+def launch(config: dict, rom: Path, slot: Path, lue: Fiche, joueurs: int) -> EngineLaunch:
+    """Le plan de Xenia, avec l'exécutable, l'affichage et la disposition de sa fiche."""
+    if rom.suffix.lower() != ".iso" or not rom.is_file():
+        raise ValueError("Xbox 360 requires an existing registered ISO")
+    executable = Path(config["engine"]) / lue.executable
+    if not executable.is_file():
+        raise ValueError("Xbox 360 engine must be an extracted Xenia Edge AppImage")
+    captures = config.get("captures_s", 0)
+    if type(captures) is not int or not (captures == 0 or 10 <= captures <= 600):
+        raise ValueError(f"captures_s must be 0 or 10 to 600 seconds, not {captures!r}")
+    xuids = profiles(slot, profile_key(config))
+    environment = [
+        *engine_environment(config),
+        "-e",
+        f"NEL3AB_CAPTURES_S={captures}",
+        # Xwayland, et pas de plein écran imposé par Sway: voir supervise.py.
+        *(["-e", "NEL3AB_SWAY_X11=1"] if lue.display == "x11" else []),
+    ]
+    command = [
+        "bash",
+        "/xbox360/xenia.sh",
+        f"/game/input{rom.suffix.lower()}",
+        f"--storage_root={STORAGE}",
+        f"--log_file={STORAGE}/xenia.log",
+        "--gpu=vulkan",
+        "--apu=sdl",
+        "--hid=sdl",
+        "--discord=false",
+        # Sans menus ni barre d'outils, et sans le menu du bouton Guide par-dessus le jeu.
+        "--fullscreen=true",
+        "--guide_button=false",
+        # Une notification à l'écran repasse chaque image par le fil de
+        # l'interface, le chemin qui a figé l'image en Wayland le 21 novembre.
+        "--show_achievement_notification=false",
+        "--disable_game_window_mouse=true",
+        "--keyboard_passthrough=true",
+        "--mappings_file=/xbox360/manettes.txt",
+        # Une ligne par seconde qui porte le compteur d'images du jeu (f:...).
+        "--guest_scheduler_stats=true",
+        *(f"--logged_profile_slot_{seat}_xuid={xuid}" for seat, xuid in enumerate(xuids)),
+    ]
+    return EngineLaunch(
+        environment,
+        ["-v", f"{TOOLS}:/xbox360:ro"],
+        command,
+        joueurs,
+        lue.pad_layout,
+    )
+
+
+def backup(slot: Path) -> Path | None:
+    """Copie les sauvegardes des quatre profils avant et après la partie."""
+    source = slot / "xenia" / "content"
+    if not source.exists():
+        return None
+    target = slot / "backups" / f"{time.strftime('%Y%m%dT%H%M%S', time.gmtime())}-{time.time_ns()}"
+    target.mkdir(parents=True)
+    shutil.copytree(source, target / "content")
+    return target
+
+
+def choisir(config: dict, titre: str) -> dict:
+    """Un seul moteur pour tous les jeux Xbox 360."""
+    return config
+
+
+def preparer(contexte: Contexte) -> EngineLaunch:
+    """Tout avant la première copie, comme l'ancien `main`: contrôles, profils, plan."""
+    return launch(
+        contexte.config,
+        contexte.rom,
+        contexte.emplacement,
+        contexte.fiche,
+        contexte.console.players,
+    )

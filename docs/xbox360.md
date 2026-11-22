@@ -110,3 +110,80 @@ Reste à relire l'arrêt propre de la salle (`window_closed` dans
 Les sauvegardes d'un joueur 2 à 4 n'ont jamais été essayées. Les gâchettes
 arrivent tout ou rien, comme pour la Switch : un jeu de course qui dose
 l'accélérateur le sentira.
+
+## Le canari du socle, pas encore branché
+
+Depuis le 22 novembre 2026, le dépôt porte une seconde façon de lancer la salle
+Xbox 360 : `docker/xbox360-room-socle.py`, qui passe par le socle commun des
+salles externes et le module de Xenia (`moteurs/README.md`). **Aucune salle ne
+l'utilise** : le worker lance toujours `docker/xbox360-room.py`, le chemin
+écrit dans `consoles/consoles.json`.
+
+Ce qui est prouvé sans carte ni Docker : pour chacun des dix-huit scénarios
+Xbox 360 du banc doré, les deux scripts lancent les mêmes commandes Docker et
+laissent le même emplacement, au fichier près (`just salles-dore`), sous le
+compte de cette machine comme sous un autre. Les deux s'arrêtent quand le
+worker ferme leur entrée standard, et le banc nommerait une salle qui ne
+l'écoute plus. Ce qui ne l'est pas : qu'une vraie partie se passe bien par le
+canari. C'est l'essai qui suit, à faire par le propriétaire, sur une seule
+salle.
+
+### Brancher une salle choisie
+
+Choisir une salle `N` qui ne joue pas : `systemctl is-active nel3ab-worker@N`
+répond `inactive`, et `docker ps --filter label=nel3ab.room-root` ne montre
+aucun conteneur de cette salle. Puis :
+
+```
+sudo mkdir -p /etc/systemd/system/nel3ab-worker@N.service.d
+sudo tee /etc/systemd/system/nel3ab-worker@N.service.d/50-canari-xbox360.conf <<'FIN'
+[Service]
+Environment=NEL3AB_XBOX360_ADAPTER=<dépôt>/docker/xbox360-room-socle.py
+FIN
+sudo systemctl daemon-reload
+```
+
+`<dépôt>` est le dossier que nomme `WorkingDirectory` dans l'unité, sans son
+`core` final. Rien ne redémarre : l'ajout prend effet au prochain démarrage de
+la salle `N`, quand quelqu'un l'ouvre depuis le salon. Les autres salles
+gardent l'ancien script, parce que le worker lit cette variable dans son propre
+environnement (`script_env` du manifeste).
+
+Tant que l'ajout existe, `just deploy-check` le nomme
+(`nel3ab-worker@N: NEL3AB_XBOX360_ADAPTER remplace l'adaptateur`). Il passe au
+rouge si le fichier visé n'existe plus, ou si le canari, le module de Xenia ou
+sa fiche ne se chargent pas avec le `python3` de l'unité. Un chemin relatif se
+lit depuis le `WorkingDirectory` de l'unité, comme le worker le lit ; un chemin
+absolu évite toute ambiguïté.
+
+### L'essai, sur la salle N
+
+Pendant la partie, `pgrep -af xbox360-room-socle.py` montre le processus de
+l'adaptateur : c'est la preuve que la salle passe bien par le canari. Puis :
+
+1. le journal de Xenia (`xenia/xenia.log` de l'emplacement) dit
+   « Loaded Joueur 1 ... to slot 0 », sans fenêtre « No Profiles Found » ;
+2. `lifecycle.json` montre un arrêt propre (`window_closed`) ;
+3. un emplacement personnel, joué neuf puis repris, retrouve sa partie ;
+4. les quatre manettes répondent, chacune avec un bouton lu dans le jeu ;
+5. le son passe ;
+6. la cadence, relue par `just xbox360-releve <emplacement> N`, est notée comme
+   une tendance : une partie ne fait pas une comparaison.
+
+Si l'adaptateur échoue, sa trace est dans `journalctl -u nel3ab-worker@N`. Une
+trace qui passe par `moteurs/socle/salle.py` vient du canari.
+
+### Retirer le canari
+
+```
+sudo rm /etc/systemd/system/nel3ab-worker@N.service.d/50-canari-xbox360.conf
+sudo systemctl daemon-reload
+```
+
+Au prochain démarrage, la salle `N` reprend `docker/xbox360-room.py`. Les deux
+scripts rangent les parties aux mêmes chemins (le doré le prouve) : une partie
+jouée par le canari se reprend par l'ancien script.
+
+Le fichier `docker/xbox360-room-socle.py` ne quitte le dépôt qu'une fois que
+`just deploy-check` ne nomme plus aucune unité qui le vise : une salle dont
+l'ajout viserait un fichier absent ne lancerait plus aucun jeu Xbox 360.

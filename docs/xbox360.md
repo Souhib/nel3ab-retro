@@ -108,9 +108,11 @@ entrée « 21 novembre au soir : l'image de Sonic se fige, le jeu continue ».
 
 La console est ordinaire depuis le 22 novembre 2026 sur une seule partie
 réussie. Ce que cette partie prouve, et ce qu'elle laisse ouvert, est écrit
-ici. La note du manifeste en reprend ce qui touche le joueur : « manettes
-Xbox 360, gâchettes tout ou rien ; sauvegarde des places 2 à 4 pas encore
-essayée ».
+ici. La note du manifeste dit au joueur ce qu'il sent : « gâchettes tout ou
+rien, à-coups possibles ». Elle tient en 41 caractères : la première version,
+de 90 caractères, était coupée par le menu juste avant ce qui n'est pas
+prouvé. Les sauvegardes des places 2 à 4, jamais essayées, restent écrites
+ici et dans le manifeste, pas dans le menu.
 
 Premier essai, 21 novembre 2026 : profil chargé sans fenêtre d'avertissement,
 manette et son entendus par le propriétaire, 59,5 images par seconde côté

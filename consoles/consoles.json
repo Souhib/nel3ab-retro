@@ -130,7 +130,7 @@
     {
       "code": "x360",
       "label": "Xbox 360",
-      "note": "manettes Xbox 360, gâchettes tout ou rien ; sauvegarde des places 2 à 4 pas encore essayée",
+      "note": "gâchettes tout ou rien, à-coups possibles",
       "players": 4,
       "engine": "xenia",
       "form": {
@@ -152,7 +152,7 @@
       "playable": true,
       "why": {
         "playable": "Demandée le 21 novembre 2026 et jouable le même jour : l'adaptateur docker/xbox360-room.py lance Xenia Edge sous le Sway de la salle Switch, Xenia passant par X11 (Xwayland) depuis le soir même.",
-        "experimental": "Faux depuis le 22 novembre 2026, à la demande du propriétaire, après une partie de Sonic de douze minutes et demie sans gel sous X11 (docs/xbox360.md). Une partie, un joueur : les sauvegardes des places 2 à 4 n'ont jamais été essayées, et les gâchettes arrivent tout ou rien, comme pour la Switch. La note le dit au joueur.",
+        "experimental": "Faux depuis le 22 novembre 2026, à la demande du propriétaire, après une partie de Sonic de douze minutes et demie sans gel sous X11 (docs/xbox360.md). Une partie, un joueur : les sauvegardes des places 2 à 4 n'ont jamais été essayées, et les gâchettes arrivent tout ou rien, comme pour la Switch. La note dit au joueur ce qu'il sent : les gâchettes, et les à-coups mesurés le 21 novembre (des fenêtres à 45 images par seconde, et des arrêts d'une seconde aux transitions). Elle tient en 41 caractères, parce que le menu coupe une note plus longue que celle de la Switch (44) : la première version, de 90 caractères, y perdait justement ce qui n'est pas prouvé.",
         "registration": "Par fiche (<fichier>.nel3ab.json), écrite par l'import avec le titre lu dans le default.xex du disque. Un .iso sans fiche reste sur le chemin de Dolphin, qui partage l'extension. Un default.xex seul n'est pas inscrit : il n'a pas le reste de son jeu.",
         "containers": "GOD (Games on Demand) : un fichier d'en-tête sans extension, à côté d'un dossier <même nom>.data. Xenia ouvre le fichier d'en-tête (wiki Xenia, Quickstart). Le balayage devra le reconnaître à ce dossier voisin, pas à une extension. Rien de cela n'est lu ni vérifié ici.",
         "lock": "Aucun verrou décidé. La partie du 21 novembre 2026 sous X11 a relevé, pour une salle seule, 155 % de processeur pour Xenia et 19 % de la carte ; deux salles Xbox 360 ensemble, ou une à côté d'une salle Switch, n'ont pas été mesurées.",

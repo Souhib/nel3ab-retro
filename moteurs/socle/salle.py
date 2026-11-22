@@ -81,6 +81,19 @@ def verifier_origine(script: str) -> None:
         raise RuntimeError(f"le socle chargé vient de {DEPOT}, l'enveloppe de {depot}")
 
 
+def charger(code: str) -> tuple[consoles.Console, fiche.Fiche, ModuleType]:
+    """Tout ce que la salle de `code` lit avant sa partie: la console de la table, la
+    fiche de son moteur et le module du moteur, avec ce qu'il importe.
+
+    `principal` commence par là. `deploy/salles-adaptateurs.sh` l'appelle aussi,
+    avec le python3 de l'unité: importer l'enveloppe seule ne charge ni le module
+    ni la fiche, et un module qui ne s'importe pas passerait deploy-check.
+    """
+    console = consoles.externe(code)
+    lue = fiche.lire(DEPOT / "moteurs" / console.engine / "moteur.json")
+    return console, lue, charger_adaptateur(console.engine)
+
+
 def principal(
     code: str, argv: Sequence[str] | None = None, environ: Mapping[str, str] | None = None
 ) -> None:
@@ -89,9 +102,7 @@ def principal(
         verifier_origine(sys.argv[0])
         argv = sys.argv[1:]
     environ = os.environ if environ is None else environ
-    console = consoles.externe(code)
-    lue = fiche.lire(DEPOT / "moteurs" / console.engine / "moteur.json")
-    module = charger_adaptateur(console.engine)
+    console, lue, module = charger(code)
     rom, titre, choix, pads = argv
     if not module.TITRE.fullmatch(titre) or not emplacement.valide(choix):
         raise ValueError(f"Invalid {console.label} title or save slot")

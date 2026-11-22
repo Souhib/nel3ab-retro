@@ -17,7 +17,10 @@
 #    pas par celui de ce shell. On le cherche donc dans l'Environment de l'unité,
 #    sinon dans celui du gestionnaire (`systemctl show-environment`), et on
 #    importe avec lui chaque enveloppe, sans lancer de salle : son `principal`
-#    est derrière `if __name__ == "__main__"`.
+#    est derrière `if __name__ == "__main__"`. Pour une enveloppe du socle, on
+#    charge en plus le module de son moteur et sa fiche (`charger` dans
+#    moteurs/socle/salle.py), que seul `principal` chargerait : le 22 novembre
+#    2026, un module de moteur qui ne s'importait pas passait ce contrôle.
 #
 # Limite : une variable posée par `EnvironmentFile=` n'apparaît pas dans
 # `systemctl show -p Environment`, et n'est donc pas vue ici.
@@ -84,16 +87,23 @@ for salle in $salles; do
             script="$depot/$script"
         fi
         # L'environnement d'un service: rien du shell, sauf ce que l'unité pose.
+        # Une enveloppe du socle ne charge le module de son moteur et sa fiche
+        # que dans `principal`: on les charge donc aussi, par `charger`, sans
+        # lancer de partie, et on vérifie que le socle vient du même dépôt.
         if ! sortie=$(cd "$dossier" && env -i PATH="$chemin" HOME="$(valeur HOME "$environnement")" \
             timeout 60 "$python" -B -c '
 import importlib.util, os, sys
-chemin = sys.argv[1]
+chemin, code = sys.argv[1], sys.argv[2]
 # Ce que Python pose pour `python3 <script>`: le dossier réel du script.
 sys.path[0] = os.path.dirname(os.path.realpath(chemin))
 spec = importlib.util.spec_from_file_location("enveloppe", chemin)
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
-' "$script" 2>&1); then
+if getattr(getattr(module, "principal", None), "__module__", None) == "moteurs.socle.salle":
+    salle = sys.modules["moteurs.socle.salle"]
+    salle.verifier_origine(chemin)
+    salle.charger(code)
+' "$script" "$code" 2>&1); then
             echo "  $unite: $script ne s'importe pas avec $python:"
             printf '%s\n' "$sortie" | tail -3 | sed 's/^/      /'
             faux=1

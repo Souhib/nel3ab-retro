@@ -8,6 +8,7 @@ commande, et ne touchent à aucun service.
 """
 
 import os
+import shutil
 import subprocess
 import sys
 import venv
@@ -196,6 +197,47 @@ def test_l_import_ne_lance_aucune_salle(tmp_path: Path) -> None:
     assert fini.returncode == 0, fini.stdout + fini.stderr
     assert (tmp_path / "importe").exists()
     assert not (tmp_path / "lance").exists()
+
+
+def copie_du_canari(cible: Path) -> Path:
+    """Ce que le canari charge: le socle, les moteurs et son enveloppe, dans un faux dépôt."""
+    shutil.copytree(
+        DEPOT / "moteurs", cible / "moteurs", ignore=shutil.ignore_patterns("__pycache__")
+    )
+    (cible / "docker").mkdir()
+    shutil.copy2(DEPOT / "docker/xbox360-room-socle.py", cible / "docker")
+    return cible / "docker/xbox360-room-socle.py"
+
+
+def test_un_canari_dont_le_module_du_moteur_ne_s_importe_pas_est_rouge(tmp_path: Path) -> None:
+    """L'enveloppe s'importe seule: le module de Xenia et sa fiche ne sont chargés que
+    par `principal`. Le 22 novembre 2026, un `import` manquant en tête du module
+    passait deploy-check, alors que la salle branchée aurait échoué au démarrage."""
+    canari = copie_du_canari(tmp_path / "depot")
+    intact = salles(unite(tmp_path, f"NEL3AB_XBOX360_ADAPTER={canari}"), tmp_path)
+    module = canari.parents[1] / "moteurs/xenia/adaptateur.py"
+    texte = module.read_text(encoding="utf-8")
+    futur = "from __future__ import annotations\n"
+    assert texte.count(futur) == 1
+    module.write_text(texte.replace(futur, futur + "import module_absent_xyz\n"), encoding="utf-8")
+
+    fini = salles(unite(tmp_path, f"NEL3AB_XBOX360_ADAPTER={canari}"), tmp_path)
+
+    # Le jumeau: la même copie, intacte, passe et nomme le remplacement.
+    assert intact.returncode == 0, intact.stdout + intact.stderr
+    assert fini.returncode == 1, fini.stdout
+    assert f"{canari} ne s'importe pas" in fini.stdout
+    assert "No module named 'module_absent_xyz'" in fini.stdout
+
+
+def test_un_canari_dont_la_fiche_est_fausse_est_rouge(tmp_path: Path) -> None:
+    canari = copie_du_canari(tmp_path / "depot")
+    (canari.parents[1] / "moteurs/xenia/moteur.json").write_text("{}", encoding="utf-8")
+
+    fini = salles(unite(tmp_path, f"NEL3AB_XBOX360_ADAPTER={canari}"), tmp_path)
+
+    assert fini.returncode == 1, fini.stdout
+    assert "FicheInvalideError" in fini.stdout
 
 
 def test_deploy_check_appelle_le_controle_des_salles() -> None:
